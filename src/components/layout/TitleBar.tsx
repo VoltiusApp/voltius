@@ -263,7 +263,7 @@ export default function TitleBar() {
       )}
 
       {/* Update indicator */}
-      {(updaterState.status === "downloading" || updaterState.status === "ready") && (
+      {(updaterState.status === "checking" || updaterState.status === "downloading" || updaterState.status === "ready") && (
         <UpdateIndicator state={updaterState} />
       )}
 
@@ -434,6 +434,19 @@ function TitleBarBtn({ onClick, title, children }: {
 function UpdateIndicator({ state }: { state: UpdaterStatus }) {
   const { createRipple, rippleEls } = useRipple();
 
+  if (state.status === "checking") {
+    return (
+      <div className="flex items-center px-1 shrink-0">
+        <div
+          className="flex items-center justify-center w-8 h-8 rounded-xl text-[var(--t-text-dim)] cursor-default"
+          title="Checking for updates…"
+        >
+          <Icon icon="lucide:refresh-cw" width={15} className="animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
   if (state.status === "downloading") {
     const pct = state.progress;
     const label = pct > 0 ? `Downloading update v${state.version} — ${pct}%` : `Downloading update v${state.version}…`;
@@ -455,14 +468,14 @@ function UpdateIndicator({ state }: { state: UpdaterStatus }) {
         <button
           onClick={() => installUpdate().catch(() => {})}
           onMouseDown={createRipple}
-          title={`Update v${state.version} ready — click to restart`}
-          className="flex items-center gap-1.5 h-8 px-2.5 rounded-xl transition-colors bg-[var(--t-accent)] text-white text-[0.8rem] font-semibold relative overflow-hidden"
+          title={`v${state.version} downloaded — click to restart and update`}
+          className="flex items-center gap-1.5 h-8 px-2.5 rounded-xl transition-all bg-[var(--t-accent)] text-white text-[0.8rem] font-semibold relative overflow-hidden"
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.85"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
         >
           {rippleEls}
           <Icon icon="lucide:refresh-cw" width={14} />
-          <span>Restart to update</span>
+          <span>Update ready · Restart</span>
         </button>
       </div>
     );
