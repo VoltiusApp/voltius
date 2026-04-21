@@ -111,7 +111,7 @@ fn updater_restart(app: tauri::AppHandle) {
         let pending = app.state::<PendingUpdate>();
         if let Some((update, bytes)) = pending.0.lock().unwrap().take() {
             let _ = update.install(bytes);
-        }
+        };
     }
     app.restart();
 }
