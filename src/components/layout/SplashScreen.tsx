@@ -12,6 +12,7 @@ import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import AuthPage from "./AuthPage";
+import LogoBadge from "./LogoBadge";
 
 type Phase = "loading" | "auth-first-launch" | "auth-locked" | "finishing" | "done";
 type StepStatus = "pending" | "running" | "done" | "error";
@@ -127,13 +128,7 @@ export default function SplashScreen({ onReady }: Props) {
       className={`h-full w-full flex flex-col items-center justify-center transition-opacity duration-400 bg-[var(--t-bg-terminal)] ${exiting ? "opacity-0" : "opacity-100"}`}
     >
       <div className="mb-10 text-center">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4"
-          style={{
-            background: "color-mix(in srgb, var(--t-accent) 15%, transparent)",
-            border: "1px solid color-mix(in srgb, var(--t-accent) 30%, transparent)",
-          }}>
-          <span className="text-2xl font-bold text-[var(--t-accent)]">T</span>
-        </div>
+        <LogoBadge size={14} className="mb-4" />
         <h1 className="text-xl font-bold tracking-wide text-[var(--t-text-bright)]">Voltius</h1>
         <p className="text-xs mt-1 text-[var(--t-text-muted)]">SSH Client</p>
       </div>

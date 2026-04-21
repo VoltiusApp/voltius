@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import LogoBadge from "./LogoBadge";
 import {
   createLocalAccountNoPassword,
   createServerAccount,
@@ -213,13 +214,7 @@ function Layout({ children, onBack }: { children: React.ReactNode; onBack?: () =
       )}
 
       <div className="mb-8 text-center">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-3"
-          style={{
-            background: "color-mix(in srgb, var(--t-accent) 15%, transparent)",
-            border: "1px solid color-mix(in srgb, var(--t-accent) 30%, transparent)",
-          }}>
-          <span className="text-xl font-bold text-[var(--t-accent)]">T</span>
-        </div>
+        <LogoBadge size={12} className="mb-3" />
         <h1 className="text-lg font-bold text-[var(--t-text-bright)]">Voltius</h1>
       </div>
 

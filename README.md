@@ -207,26 +207,6 @@ pnpm tauri build
 
 Output installers are placed in `src-tauri/target/release/bundle/`.
 
-## Automatic Updates
-Voltius uses the [tauri-plugin-updater](https://github.com/tauri-apps/tauri-plugin-updater) for automatic updates. The plugin is configured to check for updates on app startup and can be triggered manually via the "Check for Updates" menu item.
-
-How it works:
-
-Voltius checks for updates by making a request to a Cloudflare Worker that serves the latest release information from GitHub. The worker returns the latest version and download URL, which the app uses to prompt the user to update if a newer version is available.
-
-How to deploy your own update server:
-1. Generate signing keys
-    ```bash
-    pnpm tauri signer generate
-    ```
-2. Add `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` to GitHub secrets in repo settings (Settings > Secrets and variables > Actions > New repository secret)
-3. set pubkey in `src-tauri/tauri.conf.json`
-4. Deploy Cloudflare Worker
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/mackenly/tauri-update-cloudflare)
-5. Update the endpoint URL in `src-tauri/tauri.conf.json` to point to your worker
-
-Et voilà! Your app will now check your worker for updates on startup.
-
 ## 🛠️ Tech Stack
 
 | Layer    | Tech                               |
