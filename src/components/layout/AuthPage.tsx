@@ -190,7 +190,15 @@ export default function AuthPage({ isLocked, onReady }: Props) {
 
         {isSignup && (
           <p className="mt-2 text-xs text-center text-[var(--t-text-dim)]">
-            Your data is E2E encrypted — the server cannot read it.
+            Your data is E2E encrypted — the server cannot read it.{" "}
+            <a
+              href="https://github.com/VoltiusApp/voltius"
+              target="_blank"
+              rel="noreferrer"
+              className="text-[var(--t-accent)] hover:underline"
+            >
+              Open source.
+            </a>
           </p>
         )}
       </Layout>
