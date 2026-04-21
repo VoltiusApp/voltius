@@ -97,6 +97,7 @@ async fn check_for_update(handle: tauri::AppHandle) {
     };
 
     // Store bytes for deferred install — user triggers restart explicitly
+    use tauri::Manager;
     let pending = handle.state::<PendingUpdate>();
     *pending.0.lock().unwrap() = Some((update, bytes));
     let _ = handle.emit("updater-status", UpdaterEvent::Ready { version });
@@ -106,6 +107,7 @@ async fn check_for_update(handle: tauri::AppHandle) {
 fn updater_restart(app: tauri::AppHandle) {
     #[cfg(desktop)]
     {
+        use tauri::Manager;
         let pending = app.state::<PendingUpdate>();
         if let Some((update, bytes)) = pending.0.lock().unwrap().take() {
             let _ = update.install(bytes);
