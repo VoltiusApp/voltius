@@ -37,8 +37,7 @@ async fn check_for_update(handle: tauri::AppHandle) {
 
     let _ = handle.emit("updater-status", UpdaterEvent::Checking);
 
-    let target = tauri_plugin_updater::target().unwrap_or_else(|| "windows-x86_64".to_string());
-    let updater = match handle.updater_builder().target(target).build() {
+    let updater = match handle.updater_builder().build() {
         Ok(u) => u,
         Err(e) => {
             let _ = handle.emit("updater-status", UpdaterEvent::Error { message: e.to_string() });
