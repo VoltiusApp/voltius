@@ -1,0 +1,45 @@
+import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
+
+export type UpdaterStatus =
+  | { status: "idle" }
+  | { status: "checking" }
+  | { status: "upToDate" }
+  | { status: "downloading"; version: string; progress: number }
+  | { status: "ready"; version: string }
+  | { status: "error"; message: string };
+
+let _state: UpdaterStatus = { status: "idle" };
+const _listeners = new Set<() => void>();
+
+export function getUpdaterState(): UpdaterStatus {
+  return _state;
+}
+
+export function onUpdaterStateChange(fn: () => void): () => void {
+  _listeners.add(fn);
+  return () => { _listeners.delete(fn); };
+}
+
+function setState(next: UpdaterStatus) {
+  _state = next;
+  if (next.status === "error") console.error("[updater]", next.message);
+  _listeners.forEach((fn) => fn());
+}
+
+/** Restart the app to apply the downloaded update. */
+export async function installUpdate() {
+  await invoke("updater_restart");
+}
+
+/** Manually trigger an update check. */
+export async function checkForUpdate() {
+  await invoke("updater_check");
+}
+
+/** Subscribe to backend updater events.  Call once at app startup. */
+export function initUpdaterListener() {
+  listen<UpdaterStatus>("updater-status", (event) => {
+    setState(event.payload);
+  }).catch(() => {});
+}

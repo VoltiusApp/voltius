@@ -1,0 +1,336 @@
+import { useLayoutEffect, useRef, useState } from "react";
+import { Icon } from "@iconify/react";
+import { useRipple } from "@/hooks/useRipple";
+import { generateSshKeypair } from "@/services/keys";
+import {
+  PanelShell, PanelHeader, FormSection,
+  formInputClass, formInputStyle, formLabelClass, formLabelStyle,
+} from "@/components/shared/Panel";
+import { InfoTooltip } from "@/components/shared/InfoTooltip";
+
+// ─────────────────────────────────────────────────────────────────
+// Pills component with sliding indicator
+// ─────────────────────────────────────────────────────────────────
+
+interface PillOption<T extends string> {
+  value: T;
+  label: string;
+  disabled?: boolean;
+}
+
+export function Pills<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: PillOption<T>[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({});
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const idx = options.findIndex((o) => o.value === value);
+    const buttons = container.querySelectorAll<HTMLElement>("button");
+    const btn = buttons[idx];
+    if (!btn) return;
+    setIndicatorStyle({
+      left: btn.offsetLeft,
+      width: btn.offsetWidth,
+      top: btn.offsetTop,
+      height: btn.offsetHeight,
+    });
+  }, [value, options]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative flex gap-0.5 p-0.5 rounded-lg bg-[var(--t-bg-base)] border border-[var(--t-border)]"
+    >
+      <div
+        className="absolute rounded-md pointer-events-none"
+        style={{
+          ...indicatorStyle,
+          background: "var(--t-accent)",
+          opacity: 0.15,
+          transition: "left 150ms ease, width 150ms ease",
+        }}
+
+      />
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          disabled={opt.disabled}
+          onClick={() => !opt.disabled && onChange(opt.value)}
+          className="relative z-10 flex-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors"
+          style={{
+            color: value === opt.value
+              ? "var(--t-accent)"
+              : opt.disabled
+                ? "var(--t-text-dim)"
+                : "var(--t-text-secondary)",
+            cursor: opt.disabled ? "not-allowed" : "pointer",
+            opacity: opt.disabled ? 0.4 : 1,
+          }}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// KeyGenForm (side panel)
+// ─────────────────────────────────────────────────────────────────
+
+type KeyType = "ed25519" | "ecdsa" | "rsa" | "dsa";
+type EcdsaCurve = "256" | "384" | "521";
+type RsaBits = "1024" | "2048" | "4096";
+type CipherOption = "aes256-ctr" | "aes256-gcm" | "aes128-ctr" | "3des-cbc";
+
+const CIPHER_OPTIONS: PillOption<CipherOption>[] = [
+  { value: "aes256-ctr", label: "AES-256" },
+  { value: "aes256-gcm", label: "AES-256-GCM" },
+  { value: "aes128-ctr", label: "AES-128" },
+  { value: "3des-cbc",   label: "3DES" },
+];
+
+const KEY_TYPE_OPTIONS: PillOption<KeyType>[] = [
+  { value: "ed25519", label: "ED25519" },
+  { value: "ecdsa", label: "ECDSA" },
+  { value: "rsa", label: "RSA" },
+  { value: "dsa", label: "DSA" },
+];
+
+const ECDSA_CURVES: PillOption<EcdsaCurve>[] = [
+  { value: "256", label: "P-256" },
+  { value: "384", label: "P-384" },
+  { value: "521", label: "P-521" },
+];
+
+const RSA_BITS: PillOption<RsaBits>[] = [
+  { value: "1024", label: "1024" },
+  { value: "2048", label: "2048" },
+  { value: "4096", label: "4096" },
+];
+
+export function KeyGenForm({
+  onGenerate,
+  onClose,
+}: {
+  onGenerate: (
+    privateKey: string,
+    publicKey: string,
+    keyTypeLabel: string,
+    passphrase: string,
+    savePassphrase: boolean,
+    label: string,
+  ) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [label, setLabel] = useState("");
+  const [keyType, setKeyType] = useState<KeyType>("ed25519");
+  const [curve, setCurve] = useState<EcdsaCurve>("256");
+  const [rsaBits, setRsaBits] = useState<RsaBits>("4096");
+  const [passphrase, setPassphrase] = useState("");
+  const { createRipple: rippleGenerate, rippleEls: ripplesGenerate } = useRipple();
+  const [showPassphrase, setShowPassphrase] = useState(false);
+  const [savePassphrase, setSavePassphrase] = useState(true);
+  const [cipher, setCipher] = useState<CipherOption>("aes256-ctr");
+  const [rounds, setRounds] = useState(100);
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const result = await generateSshKeypair({
+        keyType,
+        curve: keyType === "ecdsa" ? curve : undefined,
+        bits: keyType === "rsa" ? parseInt(rsaBits) : undefined,
+        passphrase: passphrase || undefined,
+        cipher: passphrase ? cipher : undefined,
+        rounds: passphrase ? rounds : undefined,
+      });
+      const autoLabel = label.trim() || `${result.key_type_label} · ${new Date().toLocaleDateString()}`;
+      await onGenerate(
+        result.private_key,
+        result.public_key,
+        result.key_type_label,
+        passphrase,
+        savePassphrase,
+        autoLabel,
+      );
+    } catch (err) {
+      setGenError(String(err));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  return (
+    <PanelShell>
+      <PanelHeader icon="lucide:key-round" title="Generate Key Pair" onClose={onClose} />
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+
+        <FormSection label="General">
+          <div>
+            <label className={formLabelClass} style={formLabelStyle}>Label</label>
+            <input
+              className={formInputClass}
+              style={formInputStyle}
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder={`Auto-generated on creation`}
+            />
+          </div>
+        </FormSection>
+
+        <FormSection label="Key Type">
+          <Pills<KeyType>
+            options={KEY_TYPE_OPTIONS}
+            value={keyType}
+            onChange={setKeyType}
+          />
+
+          {keyType === "ecdsa" && (
+            <div>
+              <label className={formLabelClass} style={formLabelStyle}>Elliptic curve</label>
+              <Pills<EcdsaCurve>
+                options={ECDSA_CURVES}
+                value={curve}
+                onChange={setCurve}
+              />
+            </div>
+          )}
+
+          {keyType === "rsa" && (
+            <div>
+              <label className={formLabelClass} style={formLabelStyle}>Key size (bits)</label>
+              <Pills<RsaBits>
+                options={RSA_BITS}
+                value={rsaBits}
+                onChange={setRsaBits}
+              />
+            </div>
+          )}
+        </FormSection>
+
+        <FormSection label="Passphrase">
+          <div>
+            <div className="relative">
+              <input
+                type={showPassphrase ? "text" : "password"}
+                className={`${formInputClass} pr-9`}
+                style={formInputStyle}
+                value={passphrase}
+                onChange={(e) => setPassphrase(e.target.value)}
+                placeholder="Optional passphrase"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassphrase((v) => !v)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-[var(--t-text-dim)]"
+                onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
+                tabIndex={-1}
+              >
+                <Icon icon={showPassphrase ? "lucide:eye-off" : "lucide:eye"} width={14} />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between py-1">
+            <span className="text-xs text-[var(--t-text-dim)]">Save passphrase</span>
+            <button
+              type="button"
+              onClick={() => setSavePassphrase((v) => !v)}
+              className="w-9 h-5 rounded-full transition-colors relative border border-[var(--t-border)]"
+              style={{
+                background: savePassphrase ? "var(--t-accent)" : "var(--t-bg-elevated)",
+              }}
+            >
+              <span
+                className="absolute top-0.5 w-3.5 h-3.5 rounded-full transition-all bg-white"
+                style={{
+                  left: savePassphrase ? "calc(100% - 18px)" : "2px",
+                }}
+              />
+            </button>
+          </div>
+
+          {passphrase && (
+            <>
+              <div>
+                <label className={formLabelClass} style={formLabelStyle}>Cipher</label>
+                <Pills<CipherOption>
+                  options={CIPHER_OPTIONS}
+                  value={cipher}
+                  onChange={setCipher}
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <label className={formLabelClass} style={{ ...formLabelStyle, marginBottom: 0 }}>Rounds</label>
+                  <InfoTooltip text="Number of bcrypt-pbkdf iterations used to derive the encryption key from your passphrase. Higher values slow down brute-force attacks at the cost of slightly slower key loading. OpenSSH default is 16; 100 is a good balance." width={18} />
+                </div>
+                <input
+                  type="number"
+                  min={1}
+                  max={10000}
+                  className={formInputClass}
+                  style={formInputStyle}
+                  value={rounds}
+                  onChange={(e) => setRounds(Math.max(1, parseInt(e.target.value) || 1))}
+                />
+              </div>
+            </>
+          )}
+        </FormSection>
+
+        {genError && (
+          <div
+            className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs bg-[#2D1515] border border-[#5C2020] text-[#F87171]"
+          >
+            <Icon icon="lucide:alert-circle" width={13} />
+            <span className="flex-1">{genError}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="px-4 py-3 shrink-0">
+        <button
+          onClick={handleGenerate}
+          onMouseDown={generating ? undefined : rippleGenerate}
+          disabled={generating}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors relative overflow-hidden"
+          style={{
+            background: generating ? "var(--t-bg-elevated)" : "var(--t-accent)",
+            color: generating ? "var(--t-text-dim)" : "var(--t-bg-base)",
+            cursor: generating ? "not-allowed" : "pointer",
+          }}
+        >
+          {ripplesGenerate}
+          {generating ? (
+            <>
+              <Icon icon="lucide:loader-2" width={15} className="animate-spin" />
+              Generating…
+            </>
+          ) : (
+            <>
+              <Icon icon="lucide:key-round" width={15} />
+              Generate
+            </>
+          )}
+        </button>
+      </div>
+    </PanelShell>
+  );
+}

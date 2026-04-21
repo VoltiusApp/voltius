@@ -1,0 +1,9 @@
+.vscode/
+.serena/
+
+node_modules/
+dist/
+
+# tauri rust
+src-tauri/target/
+src-tauri/gen/ 

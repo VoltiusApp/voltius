@@ -1,0 +1,74 @@
+import { getSecret, storeSecret } from "@/services/vault";
+import type { SshKey } from "@/types";
+import type { DataTypeHandler } from "../handler";
+import type { ExportBundle, KeyExport } from "../formats";
+import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "../context";
+
+export const keysHandler: DataTypeHandler = {
+  key: "keys",
+  label: "SSH Keys",
+  jsonOnly: true,
+
+  isActive(s: SelectionProps) {
+    return !s.singleConnectionId && !s.singleIdentityId && !s.connectionIds && !s.identityIds;
+  },
+
+  checkboxLabel(s: SelectionProps, count: number) {
+    if (s.singleKeyId) return "SSH Key (1)";
+    if (s.keyIds) return `SSH Keys (${s.keyIds.length})`;
+    return `SSH Keys (${count})`;
+  },
+
+  countAvailable(stores: StoreSlices, vaultIds: string[]) {
+    return stores.keys.filter(k => !k.deleted_at && vaultIds.includes(k.vault_id ?? "personal")).length;
+  },
+
+  selectItems(stores: StoreSlices, vaultIds: string[], s: SelectionProps) {
+    return (s.singleKeyId
+      ? stores.keys.filter(k => k.id === s.singleKeyId)
+      : s.keyIds
+      ? stores.keys.filter(k => s.keyIds!.includes(k.id))
+      : stores.keys
+    ).filter(k => vaultIds.includes(k.vault_id ?? "personal"));
+  },
+
+  accumulateFolderIds(items: unknown[], main: Set<string>) {
+    for (const k of items as SshKey[]) {
+      if (k.folder_id) main.add(k.folder_id);
+    }
+  },
+
+  async buildExports(items: unknown[], ctx: ExportCtx, bundle: ExportBundle) {
+    const keys = items as SshKey[];
+    ctx.keyEidMap.clear();
+    keys.forEach((k, i) => ctx.keyEidMap.set(k.id, `k${i}`));
+    bundle.keys = await Promise.all(keys.map(async (k): Promise<KeyExport> => ({
+      _eid: ctx.keyEidMap.get(k.id),
+      name: k.name,
+      key_type: k.key_type,
+      private_key: await getSecret(`key:${k.id}:private`).catch(() => null) ?? undefined,
+      public_key: await getSecret(`key:${k.id}:public`).catch(() => null) ?? undefined,
+      _folder_eid: k.folder_id ? ctx.folderEidMap.get(k.folder_id) : undefined,
+    })));
+  },
+
+  async importItems(bundle: ExportBundle, ctx: ImportCtx) {
+    let imported = 0; let errors = 0;
+    for (const key of bundle.keys) {
+      try {
+        const saved = await ctx.stores.saveKey({
+          name: key.name, key_type: key.key_type,
+          folder_id: key._folder_eid ? ctx.folderEidMap.get(key._folder_eid) : undefined,
+          vault_id: ctx.vault_id,
+        });
+        if (key.private_key) await storeSecret(`key:${saved.id}:private`, key.private_key);
+        if (key.public_key) await storeSecret(`key:${saved.id}:public`, key.public_key);
+        if (key._eid) ctx.keyEidMap.set(key._eid, saved.id);
+        imported++;
+      } catch { errors++; }
+    }
+    return { imported, errors };
+  },
+
+  async reload(r: ReloadFns) { await r.loadKeys(); },
+};

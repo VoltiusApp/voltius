@@ -1,0 +1,551 @@
+import { useCallback, useMemo } from "react";
+import { Icon } from "@iconify/react";
+import { BaseCard } from "@/components/shared/BaseCard";
+import { CardActionButton } from "@/components/shared/CardActionButton";
+import type { LayoutMode } from "@/components/shared/ToolbarViewControls";
+import type { SshKey, Identity, Connection, VaultOption } from "@/types";
+import { useUIContributions } from "@/hooks/useUIContributions";
+import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
+import type { ContextMenuItem } from "@/components/shared/ContextMenu";
+import { usePermissions } from "@/hooks/usePermission";
+import { vaultMenuItems } from "@/utils/vaultMenuItems";
+import { getShortcutHint } from "@/stores/shortcutStore";
+import { useKeyStore } from "@/stores/keyStore";
+import { useIdentityStore } from "@/stores/identityStore";
+
+// ─────────────────────────────────────────────────────────────────
+// Small shared display components
+// ─────────────────────────────────────────────────────────────────
+
+export function SectionHeader({ label, count }: { label: string; count: number }) {
+  return (
+    <div className="flex items-center gap-2">
+      <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">
+        {label}
+      </p>
+      {count > 0 && (
+        <span
+          className="text-xs px-1.5 py-0.5 rounded-md bg-[var(--t-bg-elevated)] text-[var(--t-text-dim)]"
+        >
+          {count}
+        </span>
+      )}
+    </div>
+  );
+}
+
+export function DraftCard({ icon, label }: { icon: string; label: string }) {
+  return (
+    <div
+      className="flex items-center gap-4 px-4 py-4 rounded-2xl border-2 border-dashed border-[var(--t-accent)] opacity-50"
+    >
+      <div
+        className="rounded-lg flex items-center justify-center shrink-0 w-[3.2rem] h-[3.2rem] bg-[var(--t-bg-card-avatar)]"
+      >
+        <Icon icon={icon} width={24} className="text-[var(--t-text-dim)]" />
+      </div>
+      <p className="text-sm font-medium text-[var(--t-text-dim)]">{label}</p>
+    </div>
+  );
+}
+
+export function EmptySection({
+  icon, title, description, buttonLabel, onAdd,
+}: {
+  icon: string;
+  title: string;
+  description: string;
+  buttonLabel: string;
+  onAdd?: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-8 gap-3">
+      <div
+        className="w-12 h-12 rounded-xl flex items-center justify-center bg-[var(--t-bg-sidebar)] border border-[var(--t-border)]"
+      >
+        <Icon icon={icon} width={20} className="text-[var(--t-border-hover)]" />
+      </div>
+      <div className="text-center">
+        <p className="text-sm font-medium mb-1 text-[var(--t-text-primary)]">{title}</p>
+        <p className="text-xs text-[var(--t-text-dim)]">{description}</p>
+      </div>
+      {onAdd && <button
+        onClick={onAdd}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-[var(--t-bg-elevated)] text-[var(--t-accent)] border border-[var(--t-border-hover)]"
+        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-border-hover)")}
+        onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
+      >
+        <Icon icon="lucide:plus" width={13} />
+        {buttonLabel}
+      </button>}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SSH Key cards
+// ─────────────────────────────────────────────────────────────────
+
+export function KeyCardContent({ sshKey, avatarSize, iconSize }: { sshKey: SshKey; avatarSize: number; iconSize: number }) {
+  const formattedDate = new Date(sshKey.created_at).toLocaleDateString(undefined, {
+    year: "numeric", month: "short", day: "numeric",
+  });
+  return (
+    <>
+      <div
+        className="rounded-lg flex items-center justify-center shrink-0 select-none bg-[var(--t-bg-card-avatar)]"
+        style={{ width: `${(avatarSize / 15).toFixed(3)}rem`, height: `${(avatarSize / 15).toFixed(3)}rem` }}
+      >
+        <Icon icon="lucide:key-round" width={iconSize} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate text-[var(--t-text-bright)]">
+          {sshKey.name}
+        </p>
+        <div className="flex items-center gap-2 mt-0.5">
+          {sshKey.key_type && (
+            <span
+              className="text-xs px-1.5 py-0.5 rounded font-mono bg-[var(--t-bg-elevated)] text-[var(--t-accent)]"
+            >
+              {sshKey.key_type}
+            </span>
+          )}
+          <span className="text-xs text-[var(--t-text-secondary)]">{formattedDate}</span>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function KeyCard({
+  sshKey, canEdit, vaults, isEditing, isSelected, isFocused, layoutMode,
+  onEdit, onDelete, onSelect, onExport, onMoveToVault, onCopyToVault,
+  bulkContextMenuItems, onSectionDragStart, onDragEnd,
+}: {
+  sshKey: SshKey;
+  canEdit: boolean;
+  vaults: VaultOption[];
+  isEditing: boolean;
+  isSelected: boolean;
+  isFocused?: boolean;
+  layoutMode: LayoutMode;
+  onEdit: (k: SshKey) => void;
+  onDelete: (id: string) => void;
+  onSelect: (id: string, e: React.MouseEvent<HTMLDivElement>) => void;
+  onExport: (k: SshKey) => void;
+  onMoveToVault?: (key: SshKey, vaultId: string) => void;
+  onCopyToVault?: (key: SshKey, vaultId: string) => void;
+  bulkContextMenuItems?: ContextMenuItem[];
+  onSectionDragStart?: (e: React.DragEvent<HTMLDivElement>, id: string) => void;
+  onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
+}) {
+  const isList = layoutMode === "list";
+  const avatarSize = isList ? 28 : 48;
+  const iconSize = isList ? 14 : 24;
+  const contributions = useUIContributions("key.contextMenu", sshKey);
+  const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(sshKey.id, "key"));
+  const pinKey = useKeyStore((s) => s.pinKey);
+
+  const contextMenuItems = useMemo<ContextMenuItem[]>(() => [
+    ...(canEdit ? [{ label: "Edit", icon: "lucide:pencil", onClick: () => onEdit(sshKey), shortcut: "E" }] : []),
+    { label: "Add to host", icon: "lucide:square-arrow-right", onClick: () => onExport(sshKey) },
+    {
+      label: sshKey.pinned ? "Unpin" : "Pin",
+      icon: sshKey.pinned ? "lucide:pin-off" : "lucide:pin",
+      onClick: () => pinKey(sshKey.id, !sshKey.pinned).catch(() => {}),
+      divider: true as const,
+    },
+    ...contributions.map((a, i) => ({ ...a, icon: a.icon ?? "lucide:chevron-right", divider: i === 0 })),
+    ...vaultMenuItems(vaults, canEdit,
+      (vId) => onMoveToVault?.(sshKey, vId),
+      (vId) => onCopyToVault?.(sshKey, vId),
+    ),
+    {
+      label: isSynced ? "Disable cloud sync" : "Enable cloud sync",
+      icon: isSynced ? "lucide:cloud-off" : "lucide:cloud",
+      onClick: () => useSyncPrefsStore.getState().toggleExcluded(sshKey.id),
+      divider: true,
+    },
+    ...(canEdit ? [{ label: "Delete", icon: "lucide:trash-2", onClick: () => onDelete(sshKey.id), danger: true, shortcut: getShortcutHint("delete") }] : []),
+  ], [canEdit, sshKey, contributions, vaults, isSynced, pinKey, onEdit, onDelete, onExport, onMoveToVault, onCopyToVault]);
+
+  const handleDragStart = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => onSectionDragStart?.(e, sshKey.id),
+    [onSectionDragStart, sshKey.id],
+  );
+
+  return (
+    <BaseCard
+      data-card
+      isList={isList}
+      isEditing={isEditing}
+      isSelected={isSelected}
+      isFocused={isFocused}
+      data-selectable-id={sshKey.id}
+      draggable={!!onSectionDragStart}
+      onDragStart={onSectionDragStart ? handleDragStart : undefined}
+      onDragEnd={onDragEnd}
+      onClick={(e) => onSelect(sshKey.id, e)}
+      onDoubleClick={() => onEdit(sshKey)}
+      bulkContextMenuItems={bulkContextMenuItems}
+      contextMenuItems={contextMenuItems}
+    >
+      <KeyCardContent sshKey={sshKey} avatarSize={avatarSize} iconSize={iconSize} />
+
+      <div className="flex items-center gap-1 shrink-0">
+        {!isSynced && (
+          <span title="Cloud sync disabled" className="text-[var(--t-text-dim)] flex items-center">
+            <Icon icon="lucide:cloud-off" width={18} />
+          </span>
+        )}
+        {canEdit && <CardActionButton icon="lucide:pencil" title="Edit" onClick={() => onEdit(sshKey)} />}
+        {canEdit && <CardActionButton icon="lucide:trash-2" title="Delete" onClick={() => onDelete(sshKey.id)} danger />}
+      </div>
+    </BaseCard>
+  );
+}
+
+export function KeySection({
+  keys, showDraft, editingId, selectedIdSet, focusedId, layoutMode,
+  vaultOptions, label,
+  onAdd, onEdit, onDelete, onSelect, onExport,
+  onMoveToVault, onCopyToVault,
+  bulkContextMenuItems, onDragStart, onDragEnd,
+}: {
+  keys: SshKey[];
+  showDraft: boolean;
+  editingId: string | null;
+  selectedIdSet: Set<string>;
+  focusedId?: string | null;
+  layoutMode: LayoutMode;
+  /** All available vault options (id = storedId / teamId or "personal") */
+  vaultOptions?: VaultOption[];
+  label?: string;
+  onAdd?: () => void;
+  onEdit: (k: SshKey) => void;
+  onDelete: (id: string) => void;
+  onSelect: (id: string, e: React.MouseEvent<HTMLDivElement>) => void;
+  onExport: (k: SshKey) => void;
+  onMoveToVault?: (key: SshKey, vaultId: string) => void;
+  onCopyToVault?: (key: SshKey, vaultId: string) => void;
+  bulkContextMenuItems?: ContextMenuItem[];
+  onDragStart?: (e: React.DragEvent<HTMLDivElement>, id: string) => void;
+  onDragEnd?: () => void;
+}) {
+  // usePermissions called ONCE at section level, not per card
+  const can = usePermissions();
+
+  const otherVaultsMap = useMemo(() => {
+    const map: Record<string, VaultOption[]> = {};
+    const opts = vaultOptions ?? [];
+    for (const k of keys) {
+      const vid = k.vault_id ?? "personal";
+      if (!map[vid]) map[vid] = opts.filter((v) => v.id !== vid);
+    }
+    return map;
+  }, [vaultOptions, keys]);
+
+  if (keys.length === 0 && !showDraft) {
+    return (
+      <EmptySection
+        icon="lucide:key-round"
+        title="No SSH keys yet"
+        description="Store reusable SSH key pairs"
+        buttonLabel="Add Key"
+        onAdd={onAdd}
+      />
+    );
+  }
+
+  const gridClass = layoutMode === "grid"
+    ? "grid gap-3 mt-3"
+    : "flex flex-col gap-1.5 mt-3";
+
+  return (
+    <div>
+      <SectionHeader label={label ?? "SSH Keys"} count={keys.length} />
+      <div className={gridClass} style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" } : undefined}>
+        {showDraft && <DraftCard icon="lucide:key-round" label="New Key" />}
+        {keys.map((k) => {
+          const vaultId = k.vault_id ?? "personal";
+          const canEdit = can("EDIT_KEYS", vaultId);
+          return (
+            <KeyCard
+              key={k.id}
+              sshKey={k}
+              canEdit={canEdit}
+              vaults={otherVaultsMap[vaultId] ?? []}
+              isEditing={editingId === k.id}
+              isSelected={selectedIdSet.has(k.id)}
+              isFocused={focusedId === k.id}
+              layoutMode={layoutMode}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onSelect={onSelect}
+              onExport={onExport}
+              onMoveToVault={onMoveToVault}
+              onCopyToVault={onCopyToVault}
+              bulkContextMenuItems={bulkContextMenuItems}
+              onSectionDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Identity cards
+// ─────────────────────────────────────────────────────────────────
+
+function IdentityCard({
+  identity, linkedKey, linkedTags, canEdit, vaults,
+  isEditing, isSelected, isFocused, layoutMode,
+  onEdit, onDelete, onSelect, onMoveToVault, onCopyToVault,
+  bulkContextMenuItems, onSectionDragStart, onDragEnd,
+}: {
+  identity: Identity;
+  linkedKey: SshKey | undefined;
+  linkedTags: string[];
+  canEdit: boolean;
+  vaults: VaultOption[];
+  isEditing: boolean;
+  isSelected: boolean;
+  isFocused?: boolean;
+  layoutMode: LayoutMode;
+  onEdit: (i: Identity) => void;
+  onDelete: (id: string) => void;
+  onSelect: (id: string, e: React.MouseEvent<HTMLDivElement>) => void;
+  onMoveToVault?: (identity: Identity, vaultId: string) => void;
+  onCopyToVault?: (identity: Identity, vaultId: string) => void;
+  bulkContextMenuItems?: ContextMenuItem[];
+  onSectionDragStart?: (e: React.DragEvent<HTMLDivElement>, id: string) => void;
+  onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
+}) {
+  const contributions = useUIContributions("identity.contextMenu", identity);
+  const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(identity.id, "identity"));
+  const pinIdentity = useIdentityStore((s) => s.pinIdentity);
+  const formattedDate = new Date(identity.created_at).toLocaleDateString(undefined, {
+    year: "numeric", month: "short", day: "numeric",
+  });
+
+  const isList = layoutMode === "list";
+  const avatarSize = isList ? 28 : 48;
+  const iconSize = isList ? 14 : 24;
+
+  const contextMenuItems = useMemo<ContextMenuItem[]>(() => [
+    ...(canEdit ? [{ label: "Edit", icon: "lucide:pencil", onClick: () => onEdit(identity), shortcut: "E" }] : []),
+    {
+      label: identity.pinned ? "Unpin" : "Pin",
+      icon: identity.pinned ? "lucide:pin-off" : "lucide:pin",
+      onClick: () => pinIdentity(identity.id, !identity.pinned).catch(() => {}),
+      divider: true as const,
+    },
+    ...contributions.map((a, i) => ({ ...a, icon: a.icon ?? "lucide:chevron-right", divider: i === 0 })),
+    ...vaultMenuItems(vaults, canEdit,
+      (vId) => onMoveToVault?.(identity, vId),
+      (vId) => onCopyToVault?.(identity, vId),
+    ),
+    {
+      label: isSynced ? "Disable cloud sync" : "Enable cloud sync",
+      icon: isSynced ? "lucide:cloud-off" : "lucide:cloud",
+      onClick: () => useSyncPrefsStore.getState().toggleExcluded(identity.id),
+      divider: true,
+    },
+    ...(canEdit ? [{ label: "Delete", icon: "lucide:trash-2", onClick: () => onDelete(identity.id), danger: true, shortcut: getShortcutHint("delete") }] : []),
+  ], [canEdit, identity, contributions, vaults, isSynced, pinIdentity, onEdit, onDelete, onMoveToVault, onCopyToVault]);
+
+  const handleDragStart = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => onSectionDragStart?.(e, identity.id),
+    [onSectionDragStart, identity.id],
+  );
+
+  return (
+    <BaseCard
+      data-card
+      data-selectable-id={identity.id}
+      isList={isList}
+      isEditing={isEditing}
+      isSelected={isSelected}
+      isFocused={isFocused}
+      draggable={!!onSectionDragStart}
+      onDragStart={onSectionDragStart ? handleDragStart : undefined}
+      onDragEnd={onDragEnd}
+      onClick={(e) => onSelect(identity.id, e)}
+      onDoubleClick={() => onEdit(identity)}
+      bulkContextMenuItems={bulkContextMenuItems}
+      contextMenuItems={contextMenuItems}
+    >
+      <div
+        className="rounded-lg flex items-center justify-center shrink-0 select-none bg-[var(--t-bg-card-avatar)]"
+        style={{ width: `${(avatarSize / 15).toFixed(3)}rem`, height: `${(avatarSize / 15).toFixed(3)}rem` }}
+      >
+        <Icon icon="lucide:id-card" width={iconSize} />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate text-[var(--t-text-bright)]">
+          {identity.name ?? identity.username}
+        </p>
+        <div className="flex items-center gap-2 mt-0.5">
+          {identity.name && (
+            <span className="text-xs truncate text-[var(--t-text-secondary)]">
+              {identity.username}
+            </span>
+          )}
+          {linkedKey && (
+            <span
+              className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-[var(--t-bg-elevated)] text-[var(--t-text-dim)]"
+            >
+              <Icon icon="lucide:key-round" width={10} />
+              {linkedKey.name ?? "Key"}
+            </span>
+          )}
+          {!linkedKey && (
+            <span
+              className="text-xs px-1.5 py-0.5 rounded bg-[var(--t-bg-elevated)] text-[var(--t-text-dim)]"
+            >
+              Password
+            </span>
+          )}
+          <span className="text-xs text-[var(--t-text-secondary)]">{formattedDate}</span>
+        </div>
+        {isList && linkedTags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {linkedTags.map((tag) => (
+              <span
+                key={tag}
+                className="px-1.5 py-0.5 rounded text-xs bg-[var(--t-bg-elevated)] text-[var(--t-text-muted)] border border-[var(--t-border)]"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-1 shrink-0">
+        {!isSynced && (
+          <span title="Cloud sync disabled" className="text-[var(--t-text-dim)] flex items-center">
+            <Icon icon="lucide:cloud-off" width={18} />
+          </span>
+        )}
+        {canEdit && <CardActionButton icon="lucide:pencil" title="Edit" onClick={() => onEdit(identity)} />}
+        {canEdit && <CardActionButton icon="lucide:trash-2" title="Delete" onClick={() => onDelete(identity.id)} danger />}
+      </div>
+    </BaseCard>
+  );
+}
+
+export function IdentitySection({
+  identities, keys, connections, showDraft, editingId, selectedIdSet, focusedId, layoutMode,
+  vaultOptions, label,
+  onAdd, onEdit, onDelete, onSelect,
+  onMoveToVault, onCopyToVault,
+  bulkContextMenuItems, onDragStart, onDragEnd,
+}: {
+  identities: Identity[];
+  keys: SshKey[];
+  connections: Connection[];
+  showDraft: boolean;
+  editingId: string | null;
+  selectedIdSet: Set<string>;
+  focusedId?: string | null;
+  layoutMode: LayoutMode;
+  vaultOptions?: VaultOption[];
+  label?: string;
+  onAdd?: () => void;
+  onEdit: (i: Identity) => void;
+  onDelete: (id: string) => void;
+  onSelect: (id: string, e: React.MouseEvent<HTMLDivElement>) => void;
+  onMoveToVault?: (identity: Identity, vaultId: string) => void;
+  onCopyToVault?: (identity: Identity, vaultId: string) => void;
+  bulkContextMenuItems?: ContextMenuItem[];
+  onDragStart?: (e: React.DragEvent<HTMLDivElement>, id: string) => void;
+  onDragEnd?: () => void;
+}) {
+  // usePermissions called ONCE at section level, not per card
+  const can = usePermissions();
+
+  const linkedKeyMap = useMemo(() => {
+    const map: Record<string, SshKey> = {};
+    for (const k of keys) map[k.id] = k;
+    return map;
+  }, [keys]);
+
+  const linkedTagsMap = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const c of connections) {
+      const iid = c.identity_id;
+      if (!iid) continue;
+      if (!map[iid]) map[iid] = [];
+      for (const t of c.tags) {
+        if (!map[iid].includes(t)) map[iid].push(t);
+      }
+    }
+    return map;
+  }, [connections]);
+
+  const otherVaultsMap = useMemo(() => {
+    const map: Record<string, VaultOption[]> = {};
+    const opts = vaultOptions ?? [];
+    for (const i of identities) {
+      const vid = i.vault_id ?? "personal";
+      if (!map[vid]) map[vid] = opts.filter((v) => v.id !== vid);
+    }
+    return map;
+  }, [vaultOptions, identities]);
+
+  if (identities.length === 0 && !showDraft) {
+    return (
+      <EmptySection
+        icon="lucide:users"
+        title="No identities yet"
+        description="Combine a username with credentials for reuse across hosts"
+        buttonLabel="Add Identity"
+        onAdd={onAdd}
+      />
+    );
+  }
+
+  const gridClass = layoutMode === "grid"
+    ? "grid gap-3 mt-3"
+    : "flex flex-col gap-1.5 mt-3";
+
+  return (
+    <div>
+      <SectionHeader label={label ?? "Identities"} count={identities.length} />
+      <div className={gridClass} style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" } : undefined}>
+        {showDraft && <DraftCard icon="lucide:id-card" label="New Identity" />}
+        {identities.map((i) => {
+          const vaultId = i.vault_id ?? "personal";
+          const canEdit = can("EDIT_IDENTITIES", vaultId);
+          return (
+            <IdentityCard
+              key={i.id}
+              identity={i}
+              linkedKey={linkedKeyMap[i.key_id ?? ""]}
+              linkedTags={linkedTagsMap[i.id] ?? []}
+              canEdit={canEdit}
+              vaults={otherVaultsMap[vaultId] ?? []}
+              isEditing={editingId === i.id}
+              isSelected={selectedIdSet.has(i.id)}
+              isFocused={focusedId === i.id}
+              layoutMode={layoutMode}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onSelect={onSelect}
+              onMoveToVault={onMoveToVault}
+              onCopyToVault={onCopyToVault}
+              bulkContextMenuItems={bulkContextMenuItems}
+              onSectionDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}

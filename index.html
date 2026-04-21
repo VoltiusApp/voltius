@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>voltius</title>
+    <script>
+      // uplot uses Intl.NumberFormat(navigator.language) at module load time.
+      // On Linux with LANG=C, navigator.language returns "C" which is invalid.
+      try { new Intl.NumberFormat(navigator.language); } catch (_) {
+        Object.defineProperty(navigator, "language", { value: "en-US", configurable: true });
+      }
+    </script>
+  </head>
+  <body class="bg-surface-0 text-text-primary overflow-hidden">
+    <div id="root"></div>
+    <script type="module" src="/src/app/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,781 @@
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { Icon } from "@iconify/react";
+import { useConnectionStore } from "@/stores/connectionStore";
+import { useSessionStore } from "@/stores/sessionStore";
+import { useUIStore } from "@/stores/uiStore";
+import type { SettingsSection } from "@/stores/uiStore";
+import { useIdentityStore } from "@/stores/identityStore";
+import { useKeyStore } from "@/stores/keyStore";
+import { usePluginStore } from "@/stores/pluginStore";
+import { useSnippetStore } from "@/stores/snippetStore";
+import {
+  parseVariables, needsUserInput, buildDynamicValues, buildDefaultValues,
+  resolveTemplate, type DynamicContext,
+} from "@/services/snippetParser";
+import { snippetInject } from "@/services/snippets";
+import type { Connection, TerminalSession, SshKey, Identity, Snippet } from "@/types";
+import { getDistroIcon, getDistroColor } from "@/utils/icons";
+import { SETTINGS_NAV } from "@/components/settings/settingsNav";
+import { useShortcutStore, formatShortcut } from "@/stores/shortcutStore";
+
+interface OmniSearchProps {
+  onClose: () => void;
+}
+
+type OmniItem =
+  | { kind: "host"; connection: Connection }
+  | { kind: "session"; session: TerminalSession; connection: Connection | undefined }
+  | { kind: "key"; key: SshKey }
+  | { kind: "identity"; identity: Identity }
+  | { kind: "action"; id: string; label: string; icon: string; description?: string; keybinding?: string }
+  | { kind: "snippet"; snippet: Snippet };
+
+type Category = "all" | "snippets" | "marketplace" | "settings" | "ssh";
+
+const CATEGORY_BADGES: { category: Category; prefix: string; label: string }[] = [
+  { category: "all",         prefix: "",    label: "All" },
+  { category: "snippets",    prefix: "> ",  label: "> Snippets" },
+  { category: "marketplace", prefix: "m> ", label: "m> Marketplace" },
+  { category: "settings",    prefix: "@ ",  label: "@ Settings" },
+];
+
+function detectCategory(raw: string): { category: Category; query: string } {
+  if (raw.startsWith("m> "))  return { category: "marketplace", query: raw.slice(3) };
+  if (raw.startsWith("> "))   return { category: "snippets",    query: raw.slice(2) };
+  if (raw.startsWith("@ "))   return { category: "settings",    query: raw.slice(2) };
+  if (raw.startsWith("ssh ")) return { category: "ssh",         query: raw.slice(4) };
+  return { category: "all", query: raw };
+}
+
+function parseSshTarget(raw: string): { user: string; host: string; port: number } | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const atIdx = trimmed.indexOf("@");
+  const user = atIdx >= 0 ? trimmed.slice(0, atIdx) : "";
+  const rest = atIdx >= 0 ? trimmed.slice(atIdx + 1) : trimmed;
+  const colonIdx = rest.indexOf(":");
+  const host = colonIdx >= 0 ? rest.slice(0, colonIdx) : rest;
+  const port = colonIdx >= 0 ? parseInt(rest.slice(colonIdx + 1), 10) || 22 : 22;
+  if (!host) return null;
+  return { user: user || "root", host, port };
+}
+
+
+function HostAvatar({ connection, size = 28 }: { connection: Connection; size?: number }) {
+  const distroIcon = connection.distro ? getDistroIcon(connection.distro) : null;
+  const distroBg = connection.distro ? getDistroColor(connection.distro) : null;
+  const iconSize = Math.round(size * 0.57);
+  if (distroIcon) {
+    return (
+      <div
+        className="rounded-lg flex items-center justify-center shrink-0"
+        style={{ background: distroBg ?? "var(--t-bg-terminal)", color: "#fff", width: size, height: size }}
+      >
+        <Icon icon={distroIcon} width={iconSize} />
+      </div>
+    );
+  }
+  return (
+    <div
+      className="rounded-lg flex items-center justify-center shrink-0"
+      style={{ background: "var(--t-bg-card-avatar)", color: "#fff", width: size, height: size }}
+    >
+      <Icon icon="lucide:server" width={iconSize} />
+    </div>
+  );
+}
+
+export default function OmniSearch({ onClose }: OmniSearchProps) {
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const connections = useConnectionStore((s) => s.connections);
+  const deleteConnection = useConnectionStore((s) => s.deleteConnection);
+  const { sessions, setActive, connect, connectDirect } = useSessionStore();
+  const snippets = useSnippetStore((s) => s.snippets);
+  const { trackUsed, setGlobalPendingInject } = useSnippetStore();
+  const identities = useIdentityStore((s) => s.identities);
+  const keys = useKeyStore((s) => s.keys);
+  const omniCommandsMap = usePluginStore((s) => s.omniCommands);
+  const pluginCommands = useMemo(() => [...omniCommandsMap.values()], [omniCommandsMap]);
+  const shortcuts = useShortcutStore((s) => s.shortcuts);
+  const settingsPagesMap = usePluginStore((s) => s.settingsPages);
+
+  const settingsItems = useMemo<OmniItem[]>(() => {
+    const base = SETTINGS_NAV.map((n): OmniItem => ({
+      kind: "action",
+      id: `open-settings:${n.id}`,
+      label: n.label,
+      icon: n.icon,
+      description: "Settings",
+    }));
+    const pluginPages = [...settingsPagesMap.values()].map((p): OmniItem => ({
+      kind: "action",
+      id: `open-settings:plugin:${p.id}`,
+      label: p.label,
+      icon: p.icon,
+      description: "Plugin Settings",
+    }));
+    return [...base, ...pluginPages];
+  }, [settingsPagesMap]);
+  const setActiveNav = useUIStore((s) => s.setActiveNav);
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
+  const openSettings = useUIStore((s) => s.openSettings);
+  const setHomePendingAction = useUIStore((s) => s.setHomePendingAction);
+  const setKeychainPendingAction = useUIStore((s) => s.setKeychainPendingAction);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const { category, query: q } = useMemo(() => {
+    const parsed = detectCategory(query);
+    return { category: parsed.category, query: parsed.query.toLowerCase().trim() };
+  }, [query]);
+
+  const activeSessions = useMemo(
+    () => sessions.filter((s) => s.status === "connected" || s.status === "connecting"),
+    [sessions],
+  );
+
+  const activeConnectionIds = useMemo(
+    () => new Set(activeSessions.map((s) => s.connectionId)),
+    [activeSessions],
+  );
+
+  const recentConnections = useMemo(
+    () => [...connections]
+      .filter((c) => c.last_used_at && !activeConnectionIds.has(c.id))
+      .sort((a, b) => (b.last_used_at ?? "").localeCompare(a.last_used_at ?? "")),
+    [activeConnectionIds, connections],
+  );
+
+  const connectionById = useMemo(
+    () => new Map(connections.map((c) => [c.id, c])),
+    [connections],
+  );
+
+  const items: OmniItem[] = useMemo(() => {
+    if (category === "settings") {
+      return settingsItems.filter((a) => {
+        if (!q) return true;
+        if (a.kind !== "action") return false;
+        if (a.label.toLowerCase().includes(q)) return true;
+        const navEntry = SETTINGS_NAV.find((n) => `open-settings:${n.id}` === a.id);
+        return navEntry?.keywords?.some((k) => k.toLowerCase().includes(q)) ?? false;
+      });
+    }
+    if (category === "snippets") {
+      return snippets
+        .filter((s) =>
+          !q ||
+          s.name.toLowerCase().includes(q) ||
+          s.content.toLowerCase().includes(q) ||
+          s.tags.some((t) => t.toLowerCase().includes(q)),
+        )
+        .map((s): OmniItem => ({ kind: "snippet", snippet: s }));
+    }
+    if (category === "marketplace") return [];
+    if (category === "ssh") {
+      const target = parseSshTarget(q);
+      return target ? [{ kind: "ssh-quick" as unknown as "action", id: "", label: "", icon: "", ...target }] : [];
+    }
+
+    const result: OmniItem[] = [];
+
+    // Active sessions
+    result.push(
+      ...activeSessions
+        .filter((s) => !q || s.connectionName.toLowerCase().includes(q))
+        .map((s): OmniItem => ({ kind: "session", session: s, connection: connectionById.get(s.connectionId) })),
+    );
+
+    // Recent (only when no query)
+    if (!q) {
+      result.push(...recentConnections.map((c): OmniItem => ({ kind: "host", connection: c })));
+    }
+
+    // Hosts
+    const filteredHosts = connections.filter((c) => {
+      if (q) {
+        return (c.name ?? "").toLowerCase().includes(q) ||
+          c.host.toLowerCase().includes(q) ||
+          c.username.toLowerCase().includes(q);
+      }
+      return !activeConnectionIds.has(c.id) && !c.last_used_at;
+    });
+    result.push(...filteredHosts.map((c): OmniItem => ({ kind: "host", connection: c })));
+
+    // SSH Keys
+    result.push(
+      ...keys
+        .filter((k) => !q || (k.name ?? "").toLowerCase().includes(q) || (k.key_type ?? "").toLowerCase().includes(q))
+        .map((k): OmniItem => ({ kind: "key", key: k })),
+    );
+
+    // Identities
+    result.push(
+      ...identities
+        .filter((i) => !q || (i.name ?? "").toLowerCase().includes(q) || i.username.toLowerCase().includes(q))
+        .map((i): OmniItem => ({ kind: "identity", identity: i })),
+    );
+
+    // Plugin + core commands
+    const filteredPluginCmds = pluginCommands.filter((cmd) => {
+      if (!q) return true;
+      return cmd.label.toLowerCase().includes(q) ||
+        cmd.keywords?.some((k) => k.toLowerCase().includes(q));
+    });
+    result.push(
+      ...filteredPluginCmds.map((cmd): OmniItem => {
+        let keybinding = cmd.keybinding;
+        if (!keybinding && cmd.shortcutId) {
+          const sc = shortcuts.find((s) => s.id === cmd.shortcutId);
+          if (sc) keybinding = formatShortcut(sc);
+        }
+        return {
+          kind: "action",
+          id: `plugin:${cmd.id}`,
+          label: cmd.label,
+          icon: cmd.icon,
+          description: cmd.section,
+          keybinding,
+        };
+      }),
+    );
+
+    // Settings pages (only when query matches — avoids flooding the empty state)
+    if (q) {
+      result.push(
+        ...settingsItems.filter((a) => {
+          if (a.kind !== "action") return false;
+          if (a.label.toLowerCase().includes(q)) return true;
+          const navEntry = SETTINGS_NAV.find((n) => `open-settings:${n.id}` === a.id);
+          return navEntry?.keywords?.some((k) => k.toLowerCase().includes(q)) ?? false;
+        }),
+      );
+    }
+
+    return result;
+  }, [category, q, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts]);
+
+  const clamp = useCallback(
+    (idx: number) => Math.max(0, Math.min(idx, items.length - 1)),
+    [items.length],
+  );
+
+  useEffect(() => { setSelected(0); }, [query]);
+
+  const selectItem = useCallback(
+    (item: OmniItem) => {
+      if (item.kind === "host") {
+        connect(item.connection.id).catch(() => {});
+        setSidebarOpen(false);
+        setActiveNav("terminal" as any);
+        onClose();
+      } else if (item.kind === "session") {
+        setActive(item.session.id);
+        setActiveNav("terminal" as any);
+        onClose();
+      } else if (item.kind === "key") {
+        setKeychainPendingAction({ action: "edit-key", id: item.key.id });
+        setActiveNav("keychain" as any);
+        onClose();
+      } else if (item.kind === "identity") {
+        setKeychainPendingAction({ action: "edit-identity", id: item.identity.id });
+        setActiveNav("keychain" as any);
+        onClose();
+      } else if (item.kind === "action") {
+        if (item.id.startsWith("plugin:")) {
+          const cmdId = item.id.slice("plugin:".length);
+          pluginCommands.find((c) => c.id === cmdId)?.execute();
+        } else if (item.id.startsWith("open-settings:")) {
+          const rest = item.id.slice("open-settings:".length);
+          if (rest.startsWith("plugin:")) {
+            openSettings("plugins", rest.slice("plugin:".length));
+          } else {
+            openSettings(rest as SettingsSection);
+          }
+        }
+        onClose();
+      } else if (item.kind === "snippet") {
+        const activeSession = sessions.find(
+          (s) => s.status === "connected" && s.type !== "multiplayer",
+        );
+        if (!activeSession) { onClose(); return; }
+
+        const conn = connections.find((c) => c.id === activeSession.connectionId);
+        const ctx: DynamicContext = activeSession.type === "local"
+          ? { connectionHost: "localhost", connectionUsername: "local", connectionName: "Local Shell" }
+          : { connectionHost: conn?.host ?? "", connectionUsername: conn?.username ?? "", connectionName: activeSession.connectionName };
+
+        const allVars = parseVariables(item.snippet.content);
+        const dynamicValues = buildDynamicValues(allVars, ctx);
+        const userVars = allVars.filter((v) => !v.dynamic);
+        const defaultValues = buildDefaultValues(userVars);
+        const partialTemplate = resolveTemplate(item.snippet.content, dynamicValues);
+
+        trackUsed(item.snippet.id);
+        onClose();
+
+        if (userVars.some(needsUserInput)) {
+          setGlobalPendingInject({
+            snippet: item.snippet,
+            userVars,
+            partialTemplate,
+            initialValues: defaultValues,
+          });
+        } else {
+          const resolved = resolveTemplate(partialTemplate, defaultValues);
+          snippetInject(activeSession.id, activeSession.type, resolved, true).catch(console.error);
+        }
+      } else if ((item as any).kind === "ssh-quick") {
+        const i = item as any;
+        connectDirect({
+          id: crypto.randomUUID(),
+          name: `${i.user}@${i.host}`,
+          host: i.host,
+          port: i.port,
+          username: i.user,
+          auth_type: "password",
+          tags: [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          last_used_at: null,
+          clocks: {},
+        }).catch(() => {});
+        setSidebarOpen(false);
+        setActiveNav("terminal" as any);
+        onClose();
+      }
+    },
+    [connect, connectDirect, setActive, setActiveNav, onClose, setSidebarOpen,
+     openSettings, setHomePendingAction, setKeychainPendingAction, pluginCommands,
+     sessions, connections, trackUsed, setGlobalPendingInject],
+  );
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { onClose(); return; }
+      if (e.key === "ArrowDown") { e.preventDefault(); setSelected((s) => clamp(s + 1)); }
+      if (e.key === "ArrowUp") { e.preventDefault(); setSelected((s) => clamp(s - 1)); }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const item = items[selected];
+        if (item) selectItem(item);
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [items, selected, clamp, selectItem, onClose]);
+
+  useEffect(() => {
+    const el = listRef.current?.querySelector(`[data-idx="${selected}"]`) as HTMLElement | null;
+    el?.scrollIntoView({ block: "nearest" });
+  }, [selected]);
+
+  const sectionBoundaries = useMemo(() => {
+    if (category !== "all") return null;
+    let idx = 0;
+    const activeCount = items.filter((i) => i.kind === "session").length;
+    const activeStart = idx; idx += activeCount;
+
+    const recentCount = !q ? recentConnections.length : 0;
+    const recentStart = idx; idx += recentCount;
+
+    const hostCount = items.filter((i) => i.kind === "host").length - recentCount;
+    const hostStart = idx; idx += hostCount;
+
+    const keyCount = items.filter((i) => i.kind === "key").length;
+    const keyStart = idx; idx += keyCount;
+
+    const identityCount = items.filter((i) => i.kind === "identity").length;
+    const identityStart = idx; idx += identityCount;
+
+    const settingsCount = items.filter((i) => i.kind === "action" && i.id.startsWith("open-settings:")).length;
+    const actionCount = items.filter((i) => i.kind === "action" && !i.id.startsWith("open-settings:")).length;
+    const actionStart = idx; idx += actionCount;
+    const settingsStart = idx;
+
+    return { activeStart, activeCount, recentStart, recentCount, hostStart, hostCount, keyStart, keyCount, identityStart, identityCount, actionStart, actionCount, settingsStart, settingsCount };
+  }, [category, items, q, recentConnections.length]);
+
+  const statusColor = (s: TerminalSession) =>
+    s.status === "connected"  ? "var(--t-status-connected)" :
+    s.status === "error"      ? "var(--t-status-error)" :
+    s.status === "connecting" ? "var(--t-status-connecting)" :
+                                "var(--t-text-muted)";
+
+  function renderItem(item: OmniItem, idx: number) {
+    const isSelected = selected === idx;
+    const baseBg = isSelected ? "var(--t-border-hover)" : "transparent";
+
+    if (item.kind === "session") {
+      const conn = item.connection;
+      return (
+        <button
+          key={`s-${item.session.id}`}
+          data-idx={idx}
+          onClick={() => selectItem(item)}
+          onMouseEnter={() => setSelected(idx)}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+          style={{ background: baseBg }}
+        >
+          {conn ? (
+            <div className="relative shrink-0">
+              <HostAvatar connection={conn} size={28} />
+              <span
+                className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[var(--t-bg-modal)]"
+                style={{ background: statusColor(item.session) }}
+              />
+            </div>
+          ) : (
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: statusColor(item.session) }} />
+          )}
+          <span className="flex-1 min-w-0 text-sm font-semibold truncate"
+            style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
+            {item.session.connectionName}
+          </span>
+          <span className="text-xs shrink-0 text-[var(--t-text-dim)]">
+            {item.session.status}
+          </span>
+        </button>
+      );
+    }
+
+    if (item.kind === "host") {
+      const conn = item.connection;
+      return (
+        <button
+          key={`h-${conn.id}`}
+          data-idx={idx}
+          onClick={() => selectItem(item)}
+          onMouseEnter={() => setSelected(idx)}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors group/row"
+          style={{ background: baseBg }}
+        >
+          <HostAvatar connection={conn} size={28} />
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium"
+              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
+              {conn.name || `${conn.username}@${conn.host}`}
+            </span>
+          </div>
+          <span className="text-xs shrink-0 group-hover/row:hidden text-[var(--t-text-muted)]">
+            ssh, {conn.username}
+          </span>
+          {/* Inline actions on hover */}
+          <div className="hidden group-hover/row:flex items-center gap-0.5 shrink-0">
+            <button
+              onClick={(e) => { e.stopPropagation(); setHomePendingAction({ action: "edit", id: conn.id }); setActiveNav("hosts" as any); onClose(); }}
+              className="p-1.5 rounded-md transition-colors text-[var(--t-text-dim)]"
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-bg-elevated)"; e.currentTarget.style.color = "var(--t-text-primary)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
+              title="Edit host"
+            >
+              <Icon icon="lucide:pencil" width={13} />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); deleteConnection(conn.id).catch(() => {}); }}
+              className="p-1.5 rounded-md transition-colors text-[var(--t-text-dim)]"
+              onMouseEnter={(e) => { e.currentTarget.style.background = "#3D1515"; e.currentTarget.style.color = "#F87171"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
+              title="Delete host"
+            >
+              <Icon icon="lucide:trash-2" width={13} />
+            </button>
+          </div>
+        </button>
+      );
+    }
+
+    if (item.kind === "key") {
+      return (
+        <button
+          key={`k-${item.key.id}`}
+          data-idx={idx}
+          onClick={() => selectItem(item)}
+          onMouseEnter={() => setSelected(idx)}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+          style={{ background: baseBg }}
+        >
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-card-avatar)]">
+            <Icon icon="lucide:key-round" width={13} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium"
+              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
+              {item.key.name}
+            </span>
+          </div>
+          {item.key.key_type && (
+            <span className="text-xs font-mono shrink-0 px-1.5 py-0.5 rounded bg-[var(--t-bg-elevated)] text-[var(--t-accent)]">
+              {item.key.key_type}
+            </span>
+          )}
+        </button>
+      );
+    }
+
+    if (item.kind === "identity") {
+      return (
+        <button
+          key={`i-${item.identity.id}`}
+          data-idx={idx}
+          onClick={() => selectItem(item)}
+          onMouseEnter={() => setSelected(idx)}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+          style={{ background: baseBg }}
+        >
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-card-avatar)]">
+            <Icon icon="lucide:id-card" width={13} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium"
+              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
+              {item.identity.name ?? item.identity.username}
+            </span>
+          </div>
+          <span className="text-xs shrink-0 text-[var(--t-text-muted)]">
+            {item.identity.username}
+          </span>
+        </button>
+      );
+    }
+
+    if (item.kind === "action") {
+      return (
+        <button
+          key={`a-${item.id}`}
+          data-idx={idx}
+          onClick={() => selectItem(item)}
+          onMouseEnter={() => setSelected(idx)}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+          style={{ background: baseBg }}
+        >
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-sidebar)]">
+            <Icon icon={item.icon} width={13} className="text-[var(--t-text-muted)]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium"
+              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
+              {item.label}
+            </span>
+            {item.description && (
+              <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
+                {item.description}
+              </p>
+            )}
+          </div>
+          {item.keybinding && (
+            <span className="text-xs px-1.5 py-0.5 rounded shrink-0 font-mono bg-[var(--t-bg-elevated)] text-[var(--t-text-dim)] border border-[var(--t-border)]">
+              {item.keybinding}
+            </span>
+          )}
+        </button>
+      );
+    }
+
+    if (item.kind === "snippet") {
+      return (
+        <button
+          key={`sn-${item.snippet.id}`}
+          data-idx={idx}
+          onClick={() => selectItem(item)}
+          onMouseEnter={() => setSelected(idx)}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+          style={{ background: baseBg }}
+        >
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-card-avatar)]">
+            <Icon icon="lucide:braces" width={13} className="text-[var(--t-accent)]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium"
+              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
+              {item.snippet.name}
+            </span>
+            <p className="text-xs mt-0.5 font-mono truncate text-[var(--t-text-dim)]">
+              {item.snippet.content}
+            </p>
+          </div>
+          {item.snippet.tags.length > 0 && (
+            <span className="text-[10px] shrink-0 text-[var(--t-text-muted)]">
+              {item.snippet.tags[0]}
+            </span>
+          )}
+        </button>
+      );
+    }
+
+    // ssh-quick (kept as untyped for backwards compat)
+    const sshItem = item as any;
+    if (sshItem.kind === "ssh-quick") {
+      return (
+        <button
+          key="ssh-quick"
+          data-idx={idx}
+          onClick={() => selectItem(item)}
+          onMouseEnter={() => setSelected(idx)}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+          style={{ background: baseBg }}
+        >
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-sidebar)]">
+            <Icon icon="lucide:arrow-right" width={13} className="text-[var(--t-accent)]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium"
+              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
+              Connect to {sshItem.user}@{sshItem.host}
+            </span>
+            <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
+              Port {sshItem.port} — quick SSH connection
+            </p>
+          </div>
+        </button>
+      );
+    }
+
+    return null;
+  }
+
+  function sectionHeader(label: string, showDivider: boolean) {
+    return (
+      <>
+        {showDivider && (
+          <div className="border-t border-t-[var(--t-border)] my-1" />
+        )}
+        <p className="px-4 pt-1 pb-1.5 text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">
+          {label}
+        </p>
+      </>
+    );
+  }
+
+  let runningIdx = 0;
+  const hasAbove = (...counts: number[]) => counts.some((c) => c > 0);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center pt-24"
+      style={{ background: "rgba(0,0,0,0.55)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-xl rounded-xl overflow-hidden shadow-2xl bg-[var(--t-bg-modal)] border border-[var(--t-border-hover)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Search input */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-b-[var(--t-border)]">
+          <Icon icon="lucide:search" width={16}
+            className="text-[var(--t-accent)] shrink-0" />
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search hosts, keys, identities & commands..."
+            className="flex-1 bg-transparent text-sm outline-none placeholder-opacity-40 text-[var(--t-text-primary)]"
+          />
+          <span className="text-xs px-1.5 py-0.5 rounded-lg font-mono bg-[var(--t-bg-base)] text-[var(--t-text-muted)] border border-[var(--t-border-hover)]">
+            Ctrl+K
+          </span>
+        </div>
+
+        {/* Category badges */}
+        <div className="flex items-center gap-1.5 px-4 py-2 border-b border-b-[var(--t-border)]">
+          {CATEGORY_BADGES.map((badge) => {
+            const isActive = category === badge.category;
+            return (
+              <button
+                key={badge.category}
+                onClick={() => {
+                  setQuery(badge.prefix);
+                  inputRef.current?.focus();
+                }}
+                className="px-2 py-0.5 rounded text-xs font-mono transition-colors"
+                style={{
+                  background: isActive ? "var(--t-accent)" : "var(--t-bg-base)",
+                  color: isActive ? "var(--t-bg-terminal)" : "var(--t-text-muted)",
+                  border: `1px solid ${isActive ? "var(--t-accent)" : "var(--t-border)"}`,
+                }}
+              >
+                {badge.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Results */}
+        <div ref={listRef} className="overflow-y-auto py-2" style={{ maxHeight: "420px" }}>
+          {category === "all" && sectionBoundaries ? (
+            <>
+              {sectionBoundaries.activeCount > 0 && (
+                <>
+                  {sectionHeader("Active connections", false)}
+                  {items.slice(sectionBoundaries.activeStart, sectionBoundaries.activeStart + sectionBoundaries.activeCount)
+                    .map((item) => renderItem(item, runningIdx++))}
+                </>
+              )}
+
+              {sectionBoundaries.recentCount > 0 && (
+                <>
+                  {sectionHeader("Recent", sectionBoundaries.activeCount > 0)}
+                  {items.slice(sectionBoundaries.recentStart, sectionBoundaries.recentStart + sectionBoundaries.recentCount)
+                    .map((item) => renderItem(item, runningIdx++))}
+                </>
+              )}
+
+              {sectionBoundaries.hostCount > 0 && (
+                <>
+                  {sectionHeader("Hosts", hasAbove(sectionBoundaries.activeCount, sectionBoundaries.recentCount))}
+                  {items.slice(sectionBoundaries.hostStart, sectionBoundaries.hostStart + sectionBoundaries.hostCount)
+                    .map((item) => renderItem(item, runningIdx++))}
+                </>
+              )}
+
+              {(sectionBoundaries.keyCount > 0 || sectionBoundaries.identityCount > 0) && (
+                <>
+                  {sectionHeader("Keychain", hasAbove(sectionBoundaries.activeCount, sectionBoundaries.recentCount, sectionBoundaries.hostCount))}
+                  {items.slice(sectionBoundaries.keyStart, sectionBoundaries.keyStart + sectionBoundaries.keyCount)
+                    .map((item) => renderItem(item, runningIdx++))}
+                  {items.slice(sectionBoundaries.identityStart, sectionBoundaries.identityStart + sectionBoundaries.identityCount)
+                    .map((item) => renderItem(item, runningIdx++))}
+                </>
+              )}
+
+              {sectionBoundaries.actionCount > 0 && (
+                <>
+                  {sectionHeader("Actions", runningIdx > 0)}
+                  {items.slice(sectionBoundaries.actionStart, sectionBoundaries.actionStart + sectionBoundaries.actionCount)
+                    .map((item) => renderItem(item, runningIdx++))}
+                </>
+              )}
+
+              {sectionBoundaries.settingsCount > 0 && (
+                <>
+                  {sectionHeader("Settings", runningIdx > 0)}
+                  {items.slice(sectionBoundaries.settingsStart, sectionBoundaries.settingsStart + sectionBoundaries.settingsCount)
+                    .map((item) => renderItem(item, runningIdx++))}
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              {category === "settings" && sectionHeader("Settings", false)}
+              {category === "ssh" && items.length > 0 && sectionHeader("Quick connect", false)}
+              {items.map((item) => renderItem(item, runningIdx++))}
+            </>
+          )}
+
+          {items.length === 0 && (
+            <p className="px-4 py-6 text-sm text-center text-[var(--t-text-dim)]">
+              {category === "snippets" ? "No snippets yet" :
+               category === "marketplace" ? "Marketplace coming soon" :
+               category === "ssh" ? "Type ssh user@host to quick connect" :
+               `No results for "${q || query}"`}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

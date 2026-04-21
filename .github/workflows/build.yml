@@ -1,0 +1,102 @@
+name: 'publish'
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish-tauri:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # --- LINUX x64 ---
+          # - platform: 'ubuntu-24.04'
+            # target: 'x86_64-unknown-linux-gnu'
+            # args: ''
+          
+          # --- WINDOWS x64 ---
+          - platform: 'windows-latest'
+            target: 'x86_64-pc-windows-msvc'
+            args: ''
+            
+          # --- WINDOWS ARM64 ---
+          # - platform: 'windows-latest'
+            # target: 'aarch64-pc-windows-msvc'
+            # args: '--target aarch64-pc-windows-msvc'
+
+          # # --- MACOS x64 ---
+          # - platform: 'macos-latest'
+          #   target: 'x86_64-apple-darwin'
+          #   args: ''
+
+          # # --- MACOS ARM64 ---
+          # - platform: 'macos-latest'
+          #   target: 'aarch64-apple-darwin'
+          #   args: '--target aarch64-apple-darwin' 
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: 10
+
+      - name: Setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: 'pnpm'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          # On ajoute la target dans la clé pour ne pas mélanger 
+          # le cache Windows x64 et Windows ARM64
+          key: ${{ matrix.target }}
+          workspaces: 'src-tauri -> target'
+
+      - name: Install dependencies (Ubuntu only)
+        if: matrix.platform == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Install sccache
+        uses: mozilla/sccache-action@v0.0.9
+
+      - name: Build and Release Tauri App
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
+        with:
+          tagName: v__VERSION__
+          releaseName: 'Voltius v__VERSION__'
+          releaseBody: 'See the assets to download this version.'
+          releaseDraft: false
+          prerelease: false
+          
+          # CORRECTION: Il fallait passer l'argument ici pour cibler l'ARM64 !
+          args: ${{ matrix.args }} 
+          
+          # Upload le binaire brut (.exe portable) en plus des installeurs
+          uploadPlainBinary: true
+          updaterJsonPreferNsis: true

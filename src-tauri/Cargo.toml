@@ -1,0 +1,51 @@
+[package]
+name = "voltius"
+version = "0.1.33"
+description = "A modern SSH client"
+authors = ["Voltius Contributors"]
+edition = "2021"
+
+[lib]
+name = "voltius_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[profile.release]
+codegen-units = 1
+lto = true
+strip = true
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "6"
+russh = "0.60"
+russh-sftp = "2.1"
+tokio-util = "0.7"
+tauri-plugin-dialog = "2"
+async-trait = "0.1"
+log = "0.4"
+aes-gcm = "0.10"
+argon2 = "0.5"
+hkdf = "0.12"
+sha2 = "0.10"
+rand = "0.8"
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+keyring = { version = "3", features = ["linux-native", "windows-native", "apple-native"] }
+base64 = "0.22"
+portable-pty = "0.8"
+ssh-key = { version = "0.6", features = ["dsa", "ed25519", "p256", "p384", "p521", "rsa", "encryption"] }
+rsa = { version = "0.9", features = ["getrandom"] }
+sysinfo = "0.33"
+bollard = "0.17"
+futures-util = "0.3"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-updater = "2"
