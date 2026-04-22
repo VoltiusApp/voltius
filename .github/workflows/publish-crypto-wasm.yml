@@ -1,0 +1,33 @@
+name: Publish @voltius/crypto-wasm
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "crates/voltius-crypto/**"
+      - "crates/voltius-crypto-wasm/**"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: jetli/wasm-pack-action@v0.4.0
+
+      - name: Build WASM package
+        run: wasm-pack build crates/voltius-crypto-wasm --target web --release
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - uses: pnpm/action-setup@v5
+        with:
+          version: latest
+
+      - name: Publish to npm
+        run: cd crates/voltius-crypto-wasm/pkg && pnpm publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

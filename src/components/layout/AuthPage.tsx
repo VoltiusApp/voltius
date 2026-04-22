@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import LogoBadge from "./LogoBadge";
 import {
   createLocalAccountNoPassword,
   createServerAccount,
@@ -189,7 +190,15 @@ export default function AuthPage({ isLocked, onReady }: Props) {
 
         {isSignup && (
           <p className="mt-2 text-xs text-center text-[var(--t-text-dim)]">
-            Your data is E2E encrypted — the server cannot read it.
+            Your data is E2E encrypted — the server cannot read it.{" "}
+            <a
+              href="https://github.com/VoltiusApp/voltius"
+              target="_blank"
+              rel="noreferrer"
+              className="text-[var(--t-accent)] hover:underline"
+            >
+              Open source.
+            </a>
           </p>
         )}
       </Layout>
@@ -213,13 +222,7 @@ function Layout({ children, onBack }: { children: React.ReactNode; onBack?: () =
       )}
 
       <div className="mb-8 text-center">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-3"
-          style={{
-            background: "color-mix(in srgb, var(--t-accent) 15%, transparent)",
-            border: "1px solid color-mix(in srgb, var(--t-accent) 30%, transparent)",
-          }}>
-          <span className="text-xl font-bold text-[var(--t-accent)]">T</span>
-        </div>
+        <LogoBadge size={12} className="mb-3" />
         <h1 className="text-lg font-bold text-[var(--t-text-bright)]">Voltius</h1>
       </div>
 

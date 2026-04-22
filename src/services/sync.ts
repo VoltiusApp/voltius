@@ -687,6 +687,8 @@ async function _sseConnect(signal: AbortSignal): Promise<void> {
               pushTeamBlob(teamId).catch(() => {});
             }
           }).catch(() => {});
+        } else if (eventData === "token_invalidated") {
+          tryRefreshJwt().catch(() => {});
         } else if (eventData !== myDeviceId) {
           syncNow().catch(() => {});
         }

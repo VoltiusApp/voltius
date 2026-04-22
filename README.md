@@ -55,18 +55,18 @@ No account required. Your data, your machine.
 - **Auto-Updates**
 - **Status Badges:** Shows hosts status by using ping polling
 
-### ⚡ Pro (€7/mo annual · €9/mo monthly — 14-day free trial, no card)
+### ⚡ Pro ($7/mo annual · $9/mo monthly — 14-day free trial, no card)
 - **Real-Time Cloud Sync:** High-performance real-time engine using CRDTs for instant, conflict-free merging and SSE for sub-second updates across all devices.
 - **Unlimited Private Vaults**
 - **Terminal Sharing:** Share a terminal session ad-hoc with 1 guest — great for pair debugging or quick help.
 
-### 👥 Teams (€15/user/mo annual · €18/user/mo monthly — 3-user minimum)
+### 👥 Teams ($15/user/mo annual · $18/user/mo monthly — 3-user minimum)
 - **Team Vaults:** Shared vaults with easy member invites
 - **Shared terminals (unlimited guests)**
 - **Granular permissions & Custom Roles**
 - **Audit Logging**
 
-### 🏢 Business (Custom pricing — contact us)
+### 🏢 Business ($30/user/mo — contact us)
 - **On-premise self-hosted backend**
 - **SLA & dedicated support**
 - **Custom contracts**
@@ -99,7 +99,7 @@ No account required. Your data, your machine.
 | **Local-first**                | ✅ 100% (No account needed)               | ❌ (Requires account)             | ✅                                              | ✅                                              | ✅                   | ✅        |
 | **Plugins**                    | ✅                                        | ❌                                | ❌                                              | ❌                                              | ✅                   | ❌        |
 | **Platoforms**                 |                                          |                                  |                                                |                                                |                     |          |
-| **Pricing**                    | Free / Pro €7 / Teams €15 / Business custom | Very limited free tier (no sync) | Free                                           | Free                                           | Free                | Free     |
+| **Pricing**                    | Free / Pro $7 / Teams $15 / Business $30 | Very limited free tier (no sync) | Free                                           | Free                                           | Free                | Free     |
 | **License**                    | **AGPLv3 (Core)**                        | Commercial / Paid                |                                                |                                                |                     |          |
 
 
@@ -206,26 +206,6 @@ pnpm tauri build
 ```
 
 Output installers are placed in `src-tauri/target/release/bundle/`.
-
-## Automatic Updates
-Voltius uses the [tauri-plugin-updater](https://github.com/tauri-apps/tauri-plugin-updater) for automatic updates. The plugin is configured to check for updates on app startup and can be triggered manually via the "Check for Updates" menu item.
-
-How it works:
-
-Voltius checks for updates by making a request to a Cloudflare Worker that serves the latest release information from GitHub. The worker returns the latest version and download URL, which the app uses to prompt the user to update if a newer version is available.
-
-How to deploy your own update server:
-1. Generate signing keys
-    ```bash
-    pnpm tauri signer generate
-    ```
-2. Add `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` to GitHub secrets in repo settings (Settings > Secrets and variables > Actions > New repository secret)
-3. set pubkey in `src-tauri/tauri.conf.json`
-4. Deploy Cloudflare Worker
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/mackenly/tauri-update-cloudflare)
-5. Update the endpoint URL in `src-tauri/tauri.conf.json` to point to your worker
-
-Et voilà! Your app will now check your worker for updates on startup.
 
 ## 🛠️ Tech Stack
 

@@ -1,7 +1,7 @@
 import { Icon } from "@iconify/react";
 import { useState } from "react";
-import logoUrl from "/logo.svg";
 import { useVaultStore } from "@/stores/vaultStore";
+import LogoBadge from "./LogoBadge";
 import { useUIStore } from "@/stores/uiStore";
 import { useRipple } from "@/hooks/useRipple";
 import { SidebarAccountButton } from "./SidebarAccountButton";
@@ -85,6 +85,7 @@ function ActivePip({ active }: { active: boolean }) {
 function AppIconButton({ isActive, onClick }: { isActive: boolean; onClick: () => void }) {
   const { createRipple, rippleEls } = useRipple();
   const [hovered, setHovered] = useState(false);
+  const borderRadius = isActive || hovered ? "0.75rem" : "1.375rem";
   return (
     <div
       className="relative flex items-center justify-center w-full"
@@ -96,38 +97,11 @@ function AppIconButton({ isActive, onClick }: { isActive: boolean; onClick: () =
         onClick={onClick}
         onMouseDown={createRipple}
         title="Home"
-        className="flex items-center justify-center rounded-2xl relative overflow-hidden transition-all"
-        style={{
-          width: 44,
-          height: 44,
-          borderRadius: isActive ? "0.75rem" : "1.375rem",
-          transition: "border-radius 200ms, background 200ms",
-          backgroundColor: "#010318",
-          border: "2px solid transparent",
-          backgroundImage: isActive 
-            ? "linear-gradient(#010318, #010318), linear-gradient(to right, #28A5F9, #E98757)" 
-            : "none",
-          backgroundOrigin: "border-box",
-          backgroundClip: "padding-box, border-box",
-          borderColor: "transparent"
-        }}
-        onMouseEnter={(e) => {
-          if (!isActive) {
-            (e.currentTarget as HTMLButtonElement).style.borderRadius = "0.75rem";
-            // (e.currentTarget as HTMLButtonElement).style.background = "var(--t-accent)";
-            // (e.currentTarget as HTMLButtonElement).style.color = "#fff";
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!isActive) {
-            (e.currentTarget as HTMLButtonElement).style.borderRadius = "1.375rem";
-            // (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)";
-            // (e.currentTarget as HTMLButtonElement).style.color = "var(--t-accent)";
-          }
-        }}
+        className="relative overflow-hidden"
+        style={{ background: "none", border: "none", padding: 0 }}
       >
         {rippleEls}
-        <img src={logoUrl} alt="Voltius" style={{ height: 32, width: "auto" }} />
+        <LogoBadge size={11} active={isActive} borderRadius={borderRadius} />
       </button>
     </div>
   );
