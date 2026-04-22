@@ -14,11 +14,14 @@ use docker::stream::DockerLogStreamManager;
 use known_hosts::{KnownHostsStore, PendingConflicts};
 use metrics::stream::MetricsStreamManager;
 use port_forward::PortForwardManager;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use local::session::LocalSessionManager;
 use sftp::SftpManager;
 use ssh::session::SessionManager;
 use storage::secrets::SecretsStore;
+
+#[cfg(desktop)]
+struct PendingUpdate(Mutex<Option<(tauri_plugin_updater::Update, Vec<u8>)>>);
 
 #[derive(Clone, serde::Serialize)]
 #[serde(tag = "status", rename_all = "camelCase")]
@@ -65,8 +68,8 @@ async fn check_for_update(handle: tauri::AppHandle) {
     let handle_clone = handle.clone();
     let version_clone = version.clone();
 
-    let result = update
-        .download_and_install(
+    let bytes = match update
+        .download(
             move |chunk_len, content_length| {
                 downloaded += chunk_len as u64;
                 if let Some(len) = content_length {
@@ -84,20 +87,32 @@ async fn check_for_update(handle: tauri::AppHandle) {
             },
             || {},
         )
-        .await;
-
-    match result {
-        Ok(_) => {
-            let _ = handle.emit("updater-status", UpdaterEvent::Ready { version });
-        }
+        .await
+    {
+        Ok(b) => b,
         Err(e) => {
             let _ = handle.emit("updater-status", UpdaterEvent::Error { message: e.to_string() });
+            return;
         }
-    }
+    };
+
+    // Store bytes for deferred install — user triggers restart explicitly
+    use tauri::Manager;
+    let pending = handle.state::<PendingUpdate>();
+    *pending.0.lock().unwrap() = Some((update, bytes));
+    let _ = handle.emit("updater-status", UpdaterEvent::Ready { version });
 }
 
 #[tauri::command]
 fn updater_restart(app: tauri::AppHandle) {
+    #[cfg(desktop)]
+    {
+        use tauri::Manager;
+        let pending = app.state::<PendingUpdate>();
+        if let Some((update, bytes)) = pending.0.lock().unwrap().take() {
+            let _ = update.install(bytes);
+        };
+    }
     app.restart();
 }
 
@@ -124,6 +139,8 @@ pub fn run() {
     builder
         .setup(|app| {
             use tauri::Manager;
+            #[cfg(desktop)]
+            app.manage(PendingUpdate(Mutex::new(None)));
             app.manage(KnownHostsStore::load());
             app.manage(Arc::new(PendingConflicts::new()));
             app.manage(PortForwardManager::new(app.handle().clone()));
