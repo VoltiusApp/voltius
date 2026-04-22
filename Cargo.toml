@@ -1,0 +1,7 @@
+[workspace]
+members = [
+  "src-tauri",
+  "crates/voltius-crypto",
+  "crates/voltius-crypto-wasm",
+]
+resolver = "2"
