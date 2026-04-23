@@ -6654,6 +6654,7 @@ name = "voltius-crypto-wasm"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "getrandom 0.2.17",
  "voltius-crypto",
  "wasm-bindgen",
 ]
