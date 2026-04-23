@@ -1,6 +1,5 @@
 {
   "name": "voltius",
-  "private": true,
   "version": "0.1.36",
   "type": "module",
   "scripts": {
