@@ -128,7 +128,7 @@ Chaque device maintient son propre blob. Le serveur ne merge jamais — la réso
 
 ## 4. API REST
 
-Base URL : `https://sync.voltius.app/v1` (ou URL self-hosted)
+Base URL : `https://api.voltius.app/v1` (ou URL self-hosted)
 
 ### Authentification
 
@@ -250,7 +250,7 @@ Le serveur stocke `Argon2id(auth_key)` — pas `auth_key` lui-même. Même si la
 ### Caddy (reverse proxy recommandé)
 
 ```text
-sync.voltius.app {
+api.voltius.app {
     reverse_proxy localhost:8080
 }
 ```
@@ -261,7 +261,7 @@ sync.voltius.app {
 
 Pour les power users ou entreprises qui ne veulent pas utiliser le serveur first-party.
 
-Le client expose un champ **"Custom server URL"** dans les settings du plugin-sync. L'URL remplace `https://sync.voltius.app/v1` pour toutes les requêtes.
+Le client expose un champ **"Custom server URL"** dans les settings du plugin-sync. L'URL remplace `https://api.voltius.app/v1` pour toutes les requêtes.
 
 Le serveur est distribué comme :
 

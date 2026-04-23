@@ -13,7 +13,7 @@ import { open } from "@tauri-apps/plugin-shell";
 type AccountStep = "idle" | "set-password" | "link-cloud" | "loading" | "confirm-wipe";
 type CloudAction = "register" | "signin";
 
-const DEFAULT_SERVER = "https://sync.voltius.app";
+const DEFAULT_SERVER = "https://api.voltius.app";
 
 const SESSION_TIMEOUT_OPTIONS: Array<{ label: string; value: string }> = [
   { label: "Never", value: "never" },
@@ -304,7 +304,7 @@ export default function AccountSection() {
             {showServerUrl && (
               <SettingsInput
                 type="url"
-                placeholder="https://sync.voltius.app"
+                placeholder="https://api.voltius.app"
                 value={serverUrl}
                 onChange={setServerUrl}
               />

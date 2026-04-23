@@ -15,7 +15,7 @@ interface Props {
   onReady: () => void;
 }
 
-const DEFAULT_SERVER = "https://sync.voltius.app";
+const DEFAULT_SERVER = "https://api.voltius.app";
 
 export default function AuthPage({ isLocked, onReady }: Props) {
   const [view, setView] = useState<View>("home");
@@ -155,7 +155,7 @@ export default function AuthPage({ isLocked, onReady }: Props) {
             {showServerUrl ? "▾" : "▸"} Custom server URL
           </button>
           {showServerUrl && (
-            <Input type="url" placeholder="https://sync.voltius.app"
+            <Input type="url" placeholder="https://api.voltius.app"
               value={serverUrl} onChange={setServerUrl} />
           )}
           <ErrorMsg msg={error} />
