@@ -899,6 +899,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "crypto-wasm"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "getrandom 0.2.17",
+ "voltius-crypto",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "cssparser"
 version = "0.29.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6647,16 +6657,6 @@ dependencies = [
  "rand 0.8.6",
  "sha2 0.10.9",
  "x25519-dalek",
-]
-
-[[package]]
-name = "voltius-crypto-wasm"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "getrandom 0.2.17",
- "voltius-crypto",
- "wasm-bindgen",
 ]
 
 [[package]]

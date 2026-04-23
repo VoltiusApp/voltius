@@ -31,4 +31,4 @@ jobs:
           version: latest
 
       - name: Publish to npm
-        run: cd crates/voltius-crypto-wasm/pkg && pnpm publish --access public --no-git-checks
+        run: cd crates/voltius-crypto-wasm/pkg && pnpm publish --access public --no-git-checks --scope voltius

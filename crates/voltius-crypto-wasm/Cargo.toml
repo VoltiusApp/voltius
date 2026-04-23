@@ -1,5 +1,5 @@
 [package]
-name = "voltius-crypto-wasm"
+name = "crypto-wasm"
 version = "0.1.0"
 edition = "2021"
 description = "WASM bindings for Voltius crypto (auth_key only)"
