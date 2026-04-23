@@ -24,6 +24,7 @@ import { snippetInject } from "@/services/snippets";
 import { initUpdaterListener } from "@/services/updater";
 import { NotificationToastContainer } from "@/components/notifications/NotificationToastContainer";
 import ThemeCreator from "@/components/theme-creator/ThemeCreator";
+import { TrialExpiredModal } from "@/components/shared/TrialExpiredModal";
 
 function App() {
   const [ready, setReady] = useState(false);
@@ -71,6 +72,7 @@ function App() {
 
       <NotificationToastContainer />
       <ThemeCreator />
+      <TrialExpiredModal />
 
       {/* Global snippet variable modal — triggered from OmniSearch */}
       {globalPendingInject && (
