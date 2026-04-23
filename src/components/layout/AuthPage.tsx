@@ -189,16 +189,24 @@ export default function AuthPage({ isLocked, onReady }: Props) {
         </div>
 
         {isSignup && (
-          <p className="mt-2 text-xs text-center text-[var(--t-text-dim)]">
+          <p className="mt-2 text-xs text-center text-[var(--t-text-dim)] leading-relaxed">
             Your data is E2E encrypted — the server cannot read it.{" "}
-            <a
-              href="https://github.com/VoltiusApp/voltius"
-              target="_blank"
-              rel="noreferrer"
-              className="text-[var(--t-accent)] hover:underline"
-            >
+            <a href="https://github.com/VoltiusApp/voltius" target="_blank" rel="noreferrer"
+              className="text-[var(--t-accent)] hover:underline">
               Open source.
             </a>
+            <br />
+            By creating an account you agree to our{" "}
+            <a href="https://voltius.app/terms" target="_blank" rel="noreferrer"
+              className="text-[var(--t-accent)] hover:underline">
+              Terms of Service
+            </a>{" "}
+            and{" "}
+            <a href="https://voltius.app/privacy" target="_blank" rel="noreferrer"
+              className="text-[var(--t-accent)] hover:underline">
+              Privacy Policy
+            </a>
+            .
           </p>
         )}
       </Layout>
