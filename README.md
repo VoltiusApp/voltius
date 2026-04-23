@@ -68,7 +68,7 @@ No account required. Your data, your machine.
 
 ### 🏢 Business ($30/user/mo — contact us)
 - **On-premise self-hosted backend**
-- **SLA & dedicated support**
+- **Priority SLA support**
 - **Custom contracts**
 
 ## ⚖️ Comparison
