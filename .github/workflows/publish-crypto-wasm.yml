@@ -19,7 +19,7 @@ jobs:
       - uses: jetli/wasm-pack-action@v0.4.0
 
       - name: Build WASM package
-        run: wasm-pack build crates/voltius-crypto-wasm --target web --release
+        run: wasm-pack build crates/voltius-crypto-wasm --target web --release --scope voltius
 
       - uses: actions/setup-node@v6
         with:
@@ -31,4 +31,4 @@ jobs:
           version: latest
 
       - name: Publish to npm
-        run: cd crates/voltius-crypto-wasm/pkg && pnpm publish --access public --no-git-checks --scope voltius
+        run: cd crates/voltius-crypto-wasm/pkg && pnpm publish --access public --no-git-checks
