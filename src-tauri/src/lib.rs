@@ -23,6 +23,35 @@ use storage::secrets::SecretsStore;
 #[cfg(desktop)]
 struct PendingUpdate(Mutex<Option<(tauri_plugin_updater::Update, Vec<u8>)>>);
 
+#[cfg(desktop)]
+fn update_cache_dir(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    use tauri::Manager;
+    app.path().app_data_dir().ok().map(|d| d.join("pending_update"))
+}
+
+#[cfg(desktop)]
+fn cached_update_version(app: &tauri::AppHandle) -> Option<String> {
+    std::fs::read_to_string(update_cache_dir(app)?.join("version"))
+        .ok()
+        .map(|s| s.trim().to_string())
+}
+
+#[cfg(desktop)]
+fn save_update_cache(app: &tauri::AppHandle, version: &str, bytes: &[u8]) {
+    if let Some(dir) = update_cache_dir(app) {
+        let _ = std::fs::create_dir_all(&dir);
+        let _ = std::fs::write(dir.join("update.bin"), bytes);
+        let _ = std::fs::write(dir.join("version"), version);
+    }
+}
+
+#[cfg(desktop)]
+fn clear_update_cache(app: &tauri::AppHandle) {
+    if let Some(dir) = update_cache_dir(app) {
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}
+
 #[derive(Clone, serde::Serialize)]
 #[serde(tag = "status", rename_all = "camelCase")]
 enum UpdaterEvent {
@@ -35,7 +64,7 @@ enum UpdaterEvent {
 
 #[cfg(desktop)]
 async fn check_for_update(handle: tauri::AppHandle) {
-    use tauri::Emitter;
+    use tauri::{Emitter, Manager};
     use tauri_plugin_updater::UpdaterExt;
 
     let _ = handle.emit("updater-status", UpdaterEvent::Checking);
@@ -61,6 +90,20 @@ async fn check_for_update(handle: tauri::AppHandle) {
     };
 
     let version = update.version.clone();
+    let pending = handle.state::<PendingUpdate>();
+
+    // Skip re-download if we already have this version cached on disk
+    if cached_update_version(&handle).as_deref() == Some(version.as_str()) {
+        if let Some(dir) = update_cache_dir(&handle) {
+            if let Ok(bytes) = std::fs::read(dir.join("update.bin")) {
+                *pending.0.lock().unwrap() = Some((update, bytes));
+                let _ = handle.emit("updater-status", UpdaterEvent::Ready { version });
+                return;
+            }
+        }
+    }
+    clear_update_cache(&handle);
+
     let _ = handle.emit("updater-status", UpdaterEvent::Downloading { version: version.clone(), progress: 0 });
 
     let mut downloaded: u64 = 0;
@@ -96,9 +139,7 @@ async fn check_for_update(handle: tauri::AppHandle) {
         }
     };
 
-    // Store bytes for deferred install — user triggers restart explicitly
-    use tauri::Manager;
-    let pending = handle.state::<PendingUpdate>();
+    save_update_cache(&handle, &version, &bytes);
     *pending.0.lock().unwrap() = Some((update, bytes));
     let _ = handle.emit("updater-status", UpdaterEvent::Ready { version });
 }
@@ -111,6 +152,7 @@ fn updater_restart(app: tauri::AppHandle) {
         let pending = app.state::<PendingUpdate>();
         if let Some((update, bytes)) = pending.0.lock().unwrap().take() {
             let _ = update.install(bytes);
+            clear_update_cache(&app);
         };
     }
     app.restart();
