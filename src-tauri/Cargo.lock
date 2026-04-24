@@ -4527,9 +4527,9 @@ dependencies = [
 
 [[package]]
 name = "russh"
-version = "0.60.0"
+version = "0.60.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b530252dc3ff163b73a7e48c97b925450d2ca53edcb466a46ad0a231e45f998"
+checksum = "d937f3f4a79bffd67fc12fd437785effdfc8b94edc89ab90392f9ac9e11cc9fc"
 dependencies = [
  "aes 0.8.4",
  "aws-lc-rs",
@@ -6607,7 +6607,6 @@ name = "voltius"
 version = "0.1.38"
 dependencies = [
  "aes-gcm 0.10.3",
- "argon2",
  "async-trait",
  "base64 0.22.1",
  "bollard",
@@ -6635,6 +6634,19 @@ dependencies = [
  "tokio",
  "tokio-util",
  "uuid",
+ "voltius-crypto",
+ "x25519-dalek",
+]
+
+[[package]]
+name = "voltius-crypto"
+version = "0.1.0"
+dependencies = [
+ "argon2",
+ "base64 0.22.1",
+ "hkdf 0.12.4",
+ "rand 0.8.5",
+ "sha2 0.10.9",
  "x25519-dalek",
 ]
 
