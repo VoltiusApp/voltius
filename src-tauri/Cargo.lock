@@ -4527,9 +4527,9 @@ dependencies = [
 
 [[package]]
 name = "russh"
-version = "0.60.0"
+version = "0.60.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b530252dc3ff163b73a7e48c97b925450d2ca53edcb466a46ad0a231e45f998"
+checksum = "d937f3f4a79bffd67fc12fd437785effdfc8b94edc89ab90392f9ac9e11cc9fc"
 dependencies = [
  "aes 0.8.4",
  "aws-lc-rs",
@@ -4745,9 +4745,9 @@ checksum = "f87165f0995f63a9fbeea62b64d10b4d9d8e78ec6d7d51fb2125fda7bb36788f"
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.13"
+version = "0.103.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61c429a8649f110dddef65e2a5ad240f747e85f7758a6bccc7e5777bd33f756e"
+checksum = "df33b2b81ac578cabaf06b89b0631153a3f416b0a886e8a7a1707fb51abbd1ef"
 dependencies = [
  "ring",
  "rustls-pki-types",
