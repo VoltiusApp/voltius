@@ -8,7 +8,7 @@ import { useSecurityStore } from "@/stores/securityStore";
 import { useSyncPrefsStore, SYNC_OBJECT_TYPES } from "@/stores/syncPrefsStore";
 import { ActionItem, FormButtons, SettingsInput } from "./shared";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
-import { open } from "@tauri-apps/plugin-shell";
+import { openPortal } from "@/utils/billing";
 
 type AccountStep = "idle" | "set-password" | "link-cloud" | "loading" | "confirm-wipe";
 type CloudAction = "register" | "signin";
@@ -25,12 +25,10 @@ const SESSION_TIMEOUT_OPTIONS: Array<{ label: string; value: string }> = [
 ];
 
 async function openCheckout(plan: "pro" | "teams") {
-  const serverUrl = await import("@tauri-apps/api/core").then(({ invoke }) =>
-    invoke<string | null>("keychain_get", { key: "server_url" })
-  );
-  const jwt = await import("@tauri-apps/api/core").then(({ invoke }) =>
-    invoke<string | null>("keychain_get", { key: "jwt" })
-  );
+  const { invoke } = await import("@tauri-apps/api/core");
+  const { open } = await import("@tauri-apps/plugin-shell");
+  const serverUrl = await invoke<string | null>("keychain_get", { key: "server_url" });
+  const jwt = await invoke<string | null>("keychain_get", { key: "jwt" });
   if (!serverUrl || !jwt) return;
   const res = await fetch(`${serverUrl}/v1/billing/checkout`, {
     method: "POST",
@@ -38,8 +36,8 @@ async function openCheckout(plan: "pro" | "teams") {
     body: JSON.stringify({ plan }),
   });
   if (!res.ok) return;
-  const { url } = await res.json();
-  await open(url);
+  const { checkout_url } = await res.json();
+  await open(checkout_url);
 }
 
 export default function AccountSection() {
@@ -542,7 +540,7 @@ function PlansSection() {
           </div>
           {isPaidPro && (
             <button
-              onClick={() => open("https://voltius.app/account").catch(() => {})}
+              onClick={() => openPortal()}
               className="text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors"
             >
               Manage billing →
@@ -594,7 +592,7 @@ function PlansSection() {
         </div>
 
         <button
-          onClick={() => open("https://voltius.app/account/plans").catch(() => {})}
+          onClick={() => openPortal()}
           className="text-xs w-full text-center text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors pt-1"
         >
           View all plans →

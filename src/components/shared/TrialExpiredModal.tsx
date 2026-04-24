@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { open } from "@tauri-apps/plugin-shell";
 import { Modal } from "@/components/shared/Modal";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { openPortal } from "@/utils/billing";
 
 const STORAGE_KEY = "voltius_trial_expired_shown";
 
@@ -22,7 +22,7 @@ export function TrialExpiredModal() {
   if (!visible) return null;
 
   function handleUpgrade() {
-    open("https://app.voltius.app/account").catch(console.error);
+    openPortal();
     setVisible(false);
   }
 
