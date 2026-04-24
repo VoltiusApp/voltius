@@ -4745,9 +4745,9 @@ checksum = "f87165f0995f63a9fbeea62b64d10b4d9d8e78ec6d7d51fb2125fda7bb36788f"
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.10"
+version = "0.103.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df33b2b81ac578cabaf06b89b0631153a3f416b0a886e8a7a1707fb51abbd1ef"
+checksum = "61c429a8649f110dddef65e2a5ad240f747e85f7758a6bccc7e5777bd33f756e"
 dependencies = [
  "ring",
  "rustls-pki-types",
@@ -6607,7 +6607,6 @@ name = "voltius"
 version = "0.1.38"
 dependencies = [
  "aes-gcm 0.10.3",
- "argon2",
  "async-trait",
  "base64 0.22.1",
  "bollard",
@@ -6635,6 +6634,19 @@ dependencies = [
  "tokio",
  "tokio-util",
  "uuid",
+ "voltius-crypto",
+ "x25519-dalek",
+]
+
+[[package]]
+name = "voltius-crypto"
+version = "0.1.0"
+dependencies = [
+ "argon2",
+ "base64 0.22.1",
+ "hkdf 0.12.4",
+ "rand 0.8.5",
+ "sha2 0.10.9",
  "x25519-dalek",
 ]
 
