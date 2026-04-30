@@ -125,13 +125,42 @@ Whether you use our professional Cloud Sync or our built-in Gist Plugin, we foll
 
 ```mermaid
 flowchart TD
-    %% Styling
     classDef cleartext fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#000;
     classDef secure fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#000;
     classDef local fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#000;
     classDef remote fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#000;
+    classDef wasm fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px,color:#000;
+    classDef note fill:#f9f9f9,stroke:#666,stroke-width:1px,stroke-dasharray: 5 5,color:#333;
 
-    subgraph AuthLayer ["1. Identity & Key Derivation (Tauri IPC → Rust)"]
+    subgraph RegLayer ["0. Account Creation (one-time)"]
+        direction LR
+
+        subgraph PortalReg ["Web Portal — app.voltius.app"]
+            PortalCreds["Email + Password"]:::cleartext
+            WasmKDF["voltius-crypto-wasm\n(Argon2id + HKDF-SHA256\nsame crate · WASM target)"]:::wasm
+            AuthKeyPortal(("auth_key")):::secure
+            PortalCreds -->|"password + generated account_id"| WasmKDF
+            WasmKDF -->|"enc_key discarded\n(no vault in portal)"| WasmKDF
+            WasmKDF --> AuthKeyPortal
+        end
+
+        subgraph DesktopReg ["Desktop Client (Tauri)"]
+            DesktopCreds["Email + Password"]:::cleartext
+            NativeKDF["voltius-crypto · native Rust\n(Argon2id + HKDF-SHA256)"]:::secure
+            AuthKeyDesktop(("auth_key")):::secure
+            DesktopCreds -->|"password + generated account_id"| NativeKDF
+            NativeKDF -->|"enc_key → vault unlock\n(proceeds to step 1)"| NativeKDF
+            NativeKDF --> AuthKeyDesktop
+        end
+
+        RegServer[("Auth Server")]:::remote
+        AuthKeyPortal -->|"email + auth_key + account_id"| RegServer
+        AuthKeyDesktop -->|"email + auth_key + account_id\n+ public_key + machine_fingerprint"| RegServer
+        RegServer -->|"JWT + account_id"| PortalCreds
+        RegServer -->|"JWT + account_id"| DesktopCreds
+    end
+
+    subgraph AuthLayer ["1. Vault Unlock (Tauri Desktop — voltius-crypto · native Rust)"]
         direction TB
         subgraph Methods ["Vault Unlock Methods"]
             direction LR
@@ -140,44 +169,52 @@ flowchart TD
             Cloud["Cloud Account\n(Email & Password)"]:::remote
         end
 
-        KDF["Argon2id + HKDF-SHA256\n(32MB mem, 2 iters)"]:::secure
-        MEK(("AES-GCM\n256-bit Key")):::secure
+        KDF["Argon2id + HKDF-SHA256\n(32 MB mem · 2 iters)"]:::secure
+        EncKey(("enc_key\n(AES-256-GCM key)")):::secure
+        AuthKey(("auth_key\n→ server login")):::secure
 
-        %% Using quotes around labels to prevent parse errors
-        Cloud -->|"Pass + Account ID (Salt)"| KDF
-        MP -->|"Pass + Account ID (Salt)"| KDF
-        OS -->|"Retrieves Key directly"| MEK
-        KDF -->|"Derives"| MEK
+        Cloud -->|"password + account_id"| KDF
+        MP -->|"password + account_id"| KDF
+        OS -->|"retrieves enc_key directly\n(stored after prior login)"| EncKey
+        KDF --> EncKey
+        KDF --> AuthKey
+        AuthKey -->|"POST /v1/auth/login"| AuthServer[("Auth Server")]:::remote
+        AuthServer -->|"JWT"| Cloud
     end
 
-    subgraph AppCore ["2. Local-First Data Engine (TypeScript)"]
-        direction TB
-        State["In-Memory App State\n(Per-Field LWW CRDT)"]:::cleartext
-        Crypto{"Web Crypto API\n(Encrypt / Decrypt)"}:::secure
-        
-        State <==>|"Serialize / Merge Entities"| Crypto
+    RegLayer -.->|"account created — use same\ncredentials in desktop Cloud Account"| Cloud
+
+    subgraph VaultLayer ["2. Local Vault (Rust · aes-gcm crate)"]
+        AesGcm{"AES-256-GCM\n(Rust, via Tauri IPC)"}:::secure
+        LocalStore[("secrets.enc\n(disk)")]:::local
+        AesGcm <==>|"encrypt / decrypt"| LocalStore
     end
 
-    MEK -->|"Passed to"| Crypto
+    EncKey -->|"enc_key passed over Tauri IPC"| AesGcm
 
-    subgraph RustLayer ["3. Rust / Tauri Backend"]
-        LocalStore[("Local Encrypted Vault\n(Disk)")]:::local
+    subgraph SyncLayer ["3. Zero-Knowledge Remote Sync"]
+        direction LR
+
+        subgraph GistSync ["Gist Sync (free · polling)"]
+            direction TB
+            GistKDF["derive_gist_key (Tauri cmd)\nArgon2id + HKDF-SHA256\npassphrase/PAT + manifest salt"]:::secure
+            GistAes{"AES-256-GCM\n(Rust)"}:::secure
+            Gist[("GitHub Gists\n(Bring-Your-Own)")]:::remote
+            GistKDF -->|"gist_enc_key"| GistAes
+            GistAes <==>|"Encrypted CRDT blobs"| Gist
+        end
+
+        subgraph CloudSync ["Cloud Sync (Pro/Teams · SSE)"]
+            direction TB
+            SseAes{"AES-256-GCM\n(Rust · encrypt_payload)"}:::secure
+            SSE[("Voltius SSE Server")]:::remote
+            SseAes <==>|"Encrypted CRDT payloads"| SSE
+        end
     end
 
-    subgraph SyncLayer ["4. Zero-Knowledge Remote Sync"]
-        direction TB
-        Gist["GitHub Gists\n(Bring-Your-Own)"]:::remote
-        SSE["Premium Cloud Sync\n(SSE Real-time CRDT)"]:::remote
-    end
+    EncKey -->|"enc_key"| SseAes
 
-    %% Data Flow (Ciphertext only)
-    Crypto <==>|"Encrypted Ciphertext via IPC"| LocalStore
-    Crypto <==>|"Encrypted JSON"| Gist
-    Crypto <==>|"Encrypted CRDT Payloads"| SSE
-
-    %% Notes
-    classDef note fill:#f9f9f9,stroke:#666,stroke-width:1px,stroke-dasharray: 5 5,color:#333;
-    Note1>All data leaves the frontend strictly encrypted.\nRust backend and Cloud Servers have zero knowledge of vault contents.]:::note
+    Note1>All data leaving the device is strictly ciphertext.\nAuth Server, SSE Server, and GitHub have zero knowledge of vault contents.]:::note
     SyncLayer --- Note1
 ```
 

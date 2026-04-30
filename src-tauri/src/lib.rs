@@ -249,6 +249,7 @@ pub fn run() {
             commands::vault::config_wipe,
             commands::vault::get_machine_fingerprint,
             commands::crypto::derive_keys,
+            commands::crypto::derive_gist_key,
             commands::crypto::generate_keypair,
             commands::team_crypto::derive_x25519_keypair,
             commands::team_crypto::generate_session_key,

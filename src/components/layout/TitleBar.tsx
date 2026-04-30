@@ -7,6 +7,7 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { getDistroIcon, getDistroColor } from "@/utils/icons";
 import { getSyncState, onSyncStateChange, type SyncStatus } from "@/services/sync";
+import { getGistSyncState, onGistSyncStateChange } from "@/plugins/gist-sync/sync-engine";
 import { getUpdaterState, onUpdaterStateChange, installUpdate, type UpdaterStatus } from "@/services/updater";
 import { useRipple } from "@/hooks/useRipple";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
@@ -37,7 +38,15 @@ export default function TitleBar() {
   const [syncState, setSyncState] = useState(getSyncState);
   useEffect(() => { return onSyncStateChange(() => setSyncState(getSyncState())); }, []);
 
+  const [gistSyncState, setGistSyncState] = useState(getGistSyncState);
+  useEffect(() => { return onGistSyncStateChange(() => setGistSyncState(getGistSyncState())); }, []);
+
   const gistPluginEnabled = usePluginRegistryStore((s) => s.isEnabled("plugin-gist-sync", false));
+
+  const effectiveConfigured = syncState.cloudActive || gistSyncState.configured;
+  const effectiveSyncStatus = syncState.cloudActive ? syncState.status : gistSyncState.configured ? gistSyncState.status : syncState.status;
+  const effectiveLastSync = syncState.cloudActive ? syncState.lastSync : gistSyncState.lastSync;
+  const effectiveError = syncState.cloudActive ? syncState.error : gistSyncState.error;
 
   const [syncDropdownOpen, setSyncDropdownOpen] = useState(false);
   const syncButtonRef = useRef<HTMLButtonElement>(null);
@@ -266,11 +275,11 @@ export default function TitleBar() {
       {/* Sync indicator */}
       <SyncIndicator
         anchorRef={syncButtonRef}
-        status={syncState.status}
-        lastSync={syncState.lastSync}
-        error={syncState.error}
+        status={effectiveSyncStatus}
+        lastSync={effectiveLastSync}
+        error={effectiveError}
         active={syncDropdownOpen}
-        configured={syncState.cloudActive || gistPluginEnabled}
+        configured={effectiveConfigured}
         onClick={() => setSyncDropdownOpen((o) => !o)}
       />
       <SyncDropdown

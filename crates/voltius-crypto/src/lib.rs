@@ -3,13 +3,24 @@ use hkdf::Hkdf;
 use sha2::Sha256;
 
 fn derive_master_key(password: &str, account_id: &str) -> Result<[u8; 32], String> {
+    derive_master_key_raw_salt(password, account_id.as_bytes())
+}
+
+fn derive_master_key_raw_salt(password: &str, salt: &[u8]) -> Result<[u8; 32], String> {
     let params = Params::new(32 * 1024, 2, 1, Some(32)).map_err(|e| e.to_string())?;
     let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
     let mut master_key = [0u8; 32];
     argon2
-        .hash_password_into(password.as_bytes(), account_id.as_bytes(), &mut master_key)
+        .hash_password_into(password.as_bytes(), salt, &mut master_key)
         .map_err(|e| format!("Argon2id failed: {e}"))?;
     Ok(master_key)
+}
+
+/// Derive only the encryption key using a raw (binary) salt.
+/// Used by the gist-sync plugin which stores a 16-byte random salt as hex.
+pub fn derive_enc_key_raw_salt(password: &str, salt: &[u8]) -> Result<[u8; 32], String> {
+    let master_key = derive_master_key_raw_salt(password, salt)?;
+    hkdf_expand(&master_key, b"enc")
 }
 
 fn hkdf_expand(master_key: &[u8; 32], info: &[u8]) -> Result<[u8; 32], String> {

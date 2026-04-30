@@ -10,7 +10,8 @@ import {
   type GistManifest,
   type GistDevice,
 } from "./gist-api";
-import { deriveKey, keyToHex, generateSaltHex } from "./crypto";
+import { generateSaltHex } from "./crypto";
+import { invoke } from "@tauri-apps/api/core";
 import type { SyncStatus } from "@/services/sync";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -152,8 +153,7 @@ export async function isConfigured(): Promise<boolean> {
 async function getEncKey(salt: string): Promise<string> {
   const [passphrase, pat] = await Promise.all([getPassphrase(), getPat()]);
   const secret = passphrase ?? pat!;
-  const key = await deriveKey(secret, salt);
-  return keyToHex(key);
+  return invoke<string>("derive_gist_key", { passphrase: secret, saltHex: salt });
 }
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
@@ -199,6 +199,11 @@ export async function linkExistingGist(pat: string, gistId: string): Promise<voi
   if (!(await getImportSourceId())) await setImportSource(gistId);
   const exportIds = await getExportDestinationIds();
   if (!exportIds.includes(gistId)) await setExportDestinations([...exportIds, gistId]);
+
+  if (!_gistConfigured) {
+    _gistConfigured = true;
+    _gistListeners.forEach((fn) => fn());
+  }
 }
 
 export async function unlinkGist(gistId: string): Promise<void> {

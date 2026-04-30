@@ -152,11 +152,12 @@ function RolePill({
       title={title}
       className={[
         "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border transition-colors",
-        disabled
+        active
+          ? "bg-[color-mix(in_srgb,var(--t-accent)_14%,transparent)] text-[var(--t-accent)] border-[var(--t-accent)]"
+          : disabled
           ? "opacity-40 cursor-not-allowed text-[var(--t-text-dim)] border-[var(--t-border)]"
-          : active
-          ? "cursor-pointer bg-[color-mix(in_srgb,var(--t-accent)_14%,transparent)] text-[var(--t-accent)] border-[var(--t-accent)]"
           : "cursor-pointer text-[var(--t-text-dim)] border-[var(--t-border)] hover:border-[var(--t-border-hover)] hover:text-[var(--t-text-muted)]",
+        disabled ? "cursor-not-allowed" : "cursor-pointer",
       ].join(" ")}
     >
       <Icon icon={icon} width={11} />
@@ -250,6 +251,7 @@ function GistRow({
           icon="lucide:arrow-down-to-line"
           label="Import"
           active={isImportSource}
+          disabled={isImportSource}
           title="Read from this gist (import source)"
           onClick={onSetImportSource}
         />
