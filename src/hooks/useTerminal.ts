@@ -91,6 +91,31 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           }
           return false;
         }
+        // Ctrl+Shift+V → paste from clipboard
+        if (e.ctrlKey && e.shiftKey && e.key === "V") {
+          e.preventDefault();
+          if (e.type === "keydown") {
+            navigator.clipboard.readText().then((text) => { if (text) term.paste(text); });
+          }
+          return false;
+        }
+        // Ctrl+C → copy selection if present, otherwise pass through as SIGINT
+        if (e.ctrlKey && !e.shiftKey && e.key === "c") {
+          const sel = term.getSelection();
+          if (sel) {
+            if (e.type === "keydown") navigator.clipboard.writeText(sel);
+            return false;
+          }
+          return true;
+        }
+        // Ctrl+V → paste from clipboard
+        if (e.ctrlKey && !e.shiftKey && e.key === "v") {
+          e.preventDefault();
+          if (e.type === "keydown") {
+            navigator.clipboard.readText().then((text) => { if (text) term.paste(text); });
+          }
+          return false;
+        }
         // Everything else (including Ctrl+K) passes to the terminal
         return true;
       });
@@ -168,11 +193,19 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       });
       resizeObserver.observe(container);
 
+      // Right-click → paste from clipboard
+      const handleContextMenu = (e: MouseEvent) => {
+        e.preventDefault();
+        navigator.clipboard.readText().then((text) => { if (text) term.paste(text); });
+      };
+      container.addEventListener("contextmenu", handleContextMenu);
+
       // Cleanup function
       cleanupRef.current = () => {
         onDataDispose.dispose();
         onResizeDispose.dispose();
         window.removeEventListener("resize", handleWindowResize);
+        container.removeEventListener("contextmenu", handleContextMenu);
         resizeObserver.disconnect();
         Promise.all(unlistenPromises).then((fns) => fns.forEach((fn) => fn()));
         term.dispose();
