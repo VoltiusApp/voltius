@@ -59,7 +59,15 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
   const [postCommand, setPostCommand] = useState(initial?.post_command ?? "");
   const [terminalEncoding, setTerminalEncoding] = useState(initial?.terminal_encoding ?? "");
   const [showAdvanced, setShowAdvanced] = useState(
-    !!(initial?.pre_command || initial?.post_command || initial?.terminal_encoding),
+    !!(
+      initial?.pre_command ||
+      initial?.post_command ||
+      initial?.terminal_encoding ||
+      (initial?.serial_data_bits !== undefined && initial.serial_data_bits !== 8) ||
+      (initial?.serial_parity !== undefined && initial.serial_parity !== "none") ||
+      (initial?.serial_stop_bits !== undefined && initial.serial_stop_bits !== 1) ||
+      (initial?.serial_flow_control !== undefined && initial.serial_flow_control !== "none")
+    ),
   );
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
   const [tagInput, setTagInput] = useState("");
@@ -322,65 +330,13 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
               )}
             </div>
 
-            <div>
-              <label className={formLabelClass} style={formLabelStyle}>Data Bits</label>
-              <Pills
-                options={[
-                  { value: "5", label: "5" },
-                  { value: "6", label: "6" },
-                  { value: "7", label: "7" },
-                  { value: "8", label: "8" },
-                ]}
-                value={String(dataBits)}
-                onChange={(v) => { markDirty(); setDataBits(Number(v)); }}
-              />
-            </div>
-
-            <div>
-              <label className={formLabelClass} style={formLabelStyle}>Stop Bits</label>
-              <Pills
-                options={[
-                  { value: "1", label: "1" },
-                  { value: "2", label: "2" },
-                ]}
-                value={String(stopBits)}
-                onChange={(v) => { markDirty(); setStopBits(Number(v)); }}
-              />
-            </div>
-
-            <div>
-              <label className={formLabelClass} style={formLabelStyle}>Parity</label>
-              <Pills
-                options={[
-                  { value: "none", label: "None" },
-                  { value: "even", label: "Even" },
-                  { value: "odd", label: "Odd" },
-                ]}
-                value={parity}
-                onChange={(v) => { markDirty(); setParity(v); }}
-              />
-            </div>
-
-            <div>
-              <label className={formLabelClass} style={formLabelStyle}>Flow Control</label>
-              <Pills
-                options={[
-                  { value: "none", label: "None" },
-                  { value: "xon-xoff", label: "XON/XOFF" },
-                  { value: "rts-cts", label: "RTS/CTS" },
-                ]}
-                value={flowControl}
-                onChange={(v) => { markDirty(); setFlowControl(v); }}
-              />
-            </div>
-
             <button
               type="button"
               onClick={() => setShowAdvanced((v) => !v)}
               className="flex items-center gap-1.5 text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors w-full pt-1"
             >
               <span>Advanced</span>
-              {!showAdvanced && (preCommand || postCommand || terminalEncoding) && (
+              {!showAdvanced && (preCommand || postCommand || terminalEncoding || dataBits !== 8 || parity !== "none" || stopBits !== 1 || flowControl !== "none") && (
                 <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-[var(--t-accent)]" />
               )}
               <Icon icon={showAdvanced ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} className="ml-auto" />
@@ -391,6 +347,58 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
             >
               <div className="overflow-hidden">
                 <div className="space-y-3 mt-3">
+                  <div>
+                    <label className={formLabelClass} style={formLabelStyle}>Data Bits</label>
+                    <Pills
+                      options={[
+                        { value: "5", label: "5" },
+                        { value: "6", label: "6" },
+                        { value: "7", label: "7" },
+                        { value: "8", label: "8" },
+                      ]}
+                      value={String(dataBits)}
+                      onChange={(v) => { markDirty(); setDataBits(Number(v)); }}
+                    />
+                  </div>
+
+                  <div>
+                    <label className={formLabelClass} style={formLabelStyle}>Stop Bits</label>
+                    <Pills
+                      options={[
+                        { value: "1", label: "1" },
+                        { value: "2", label: "2" },
+                      ]}
+                      value={String(stopBits)}
+                      onChange={(v) => { markDirty(); setStopBits(Number(v)); }}
+                    />
+                  </div>
+
+                  <div>
+                    <label className={formLabelClass} style={formLabelStyle}>Parity</label>
+                    <Pills
+                      options={[
+                        { value: "none", label: "None" },
+                        { value: "even", label: "Even" },
+                        { value: "odd", label: "Odd" },
+                      ]}
+                      value={parity}
+                      onChange={(v) => { markDirty(); setParity(v); }}
+                    />
+                  </div>
+
+                  <div>
+                    <label className={formLabelClass} style={formLabelStyle}>Flow Control</label>
+                    <Pills
+                      options={[
+                        { value: "none", label: "None" },
+                        { value: "xon-xoff", label: "XON/XOFF" },
+                        { value: "rts-cts", label: "RTS/CTS" },
+                      ]}
+                      value={flowControl}
+                      onChange={(v) => { markDirty(); setFlowControl(v); }}
+                    />
+                  </div>
+
                   <div className="relative">
                     <Icon icon="lucide:play" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--t-text-dim)] pointer-events-none" />
                     <input

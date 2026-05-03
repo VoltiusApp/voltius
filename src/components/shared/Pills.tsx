@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
 export interface PillOption<T extends string> {
   value: T;
@@ -18,7 +18,7 @@ export function Pills<T extends string>({
   const containerRef = useRef<HTMLDivElement>(null);
   const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({});
 
-  useLayoutEffect(() => {
+  const updateIndicator = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
     const idx = options.findIndex((o) => o.value === value);
@@ -30,6 +30,15 @@ export function Pills<T extends string>({
       width: btn.offsetWidth,
     });
   }, [value, options]);
+
+  useLayoutEffect(() => {
+    updateIndicator();
+    const container = containerRef.current;
+    if (!container) return;
+    const ro = new ResizeObserver(updateIndicator);
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [updateIndicator]);
 
   return (
     <div

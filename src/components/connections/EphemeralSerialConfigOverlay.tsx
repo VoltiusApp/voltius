@@ -22,6 +22,7 @@ export function EphemeralSerialConfigOverlay({
   const [stopBits, setStopBits] = useState(1);
   const [flowControl, setFlowControl] = useState("none");
   const [availablePorts, setAvailablePorts] = useState<{ name: string; path: string }[]>([]);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     serialListPorts().then(setAvailablePorts).catch(() => {});
@@ -67,38 +68,50 @@ export function EphemeralSerialConfigOverlay({
               ))}
             </select>
           </div>
-          <div>
-            <label className="text-xs text-[var(--t-text-dim)] mb-1 block">Data Bits</label>
-            <Pills
-              options={[{ value: "5", label: "5" }, { value: "6", label: "6" }, { value: "7", label: "7" }, { value: "8", label: "8" }]}
-              value={String(dataBits)}
-              onChange={(v) => setDataBits(Number(v))}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-[var(--t-text-dim)] mb-1 block">Stop Bits</label>
-            <Pills
-              options={[{ value: "1", label: "1" }, { value: "2", label: "2" }]}
-              value={String(stopBits)}
-              onChange={(v) => setStopBits(Number(v))}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-[var(--t-text-dim)] mb-1 block">Parity</label>
-            <Pills
-              options={[{ value: "none", label: "None" }, { value: "even", label: "Even" }, { value: "odd", label: "Odd" }]}
-              value={parity}
-              onChange={setParity}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-[var(--t-text-dim)] mb-1 block">Flow Control</label>
-            <Pills
-              options={[{ value: "none", label: "None" }, { value: "xon-xoff", label: "XON/XOFF" }, { value: "rts-cts", label: "RTS/CTS" }]}
-              value={flowControl}
-              onChange={setFlowControl}
-            />
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowAdvanced((v) => !v)}
+            className="flex items-center gap-1.5 text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors"
+          >
+            <Icon icon={showAdvanced ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} />
+            Advanced
+          </button>
+          {showAdvanced && (
+            <>
+              <div>
+                <label className="text-xs text-[var(--t-text-dim)] mb-1 block">Data Bits</label>
+                <Pills
+                  options={[{ value: "5", label: "5" }, { value: "6", label: "6" }, { value: "7", label: "7" }, { value: "8", label: "8" }]}
+                  value={String(dataBits)}
+                  onChange={(v) => setDataBits(Number(v))}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-[var(--t-text-dim)] mb-1 block">Stop Bits</label>
+                <Pills
+                  options={[{ value: "1", label: "1" }, { value: "2", label: "2" }]}
+                  value={String(stopBits)}
+                  onChange={(v) => setStopBits(Number(v))}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-[var(--t-text-dim)] mb-1 block">Parity</label>
+                <Pills
+                  options={[{ value: "none", label: "None" }, { value: "even", label: "Even" }, { value: "odd", label: "Odd" }]}
+                  value={parity}
+                  onChange={setParity}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-[var(--t-text-dim)] mb-1 block">Flow Control</label>
+                <Pills
+                  options={[{ value: "none", label: "None" }, { value: "xon-xoff", label: "XON/XOFF" }, { value: "rts-cts", label: "RTS/CTS" }]}
+                  value={flowControl}
+                  onChange={setFlowControl}
+                />
+              </div>
+            </>
+          )}
         </div>
         <div className="w-full flex flex-col gap-2">
           <button
