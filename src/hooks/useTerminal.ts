@@ -3,6 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
+import { open as openUrl } from "@tauri-apps/plugin-shell";
 import { sshSendInput, sshResize, onSshOutput, onSshClosed } from "@/services/ssh";
 import { localSendInput, localResize, onLocalOutput, onLocalClosed } from "@/services/local";
 import { serialWrite, onSerialOutput, onSerialClosed } from "@/services/serial";
@@ -30,6 +31,15 @@ function sendSessionInput(sessionId: string, sessionType: "ssh" | "local" | "ser
     serialWrite(sessionId, data).catch(() => {});
   } else {
     sshSendInput(sessionId, data);
+  }
+}
+
+function isHttpUrl(uri: string) {
+  try {
+    const url = new URL(uri);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
   }
 }
 
@@ -104,6 +114,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       const activeTheme = useThemeStore.getState().getActiveTheme();
       const term = new Terminal({
+        altClickMovesCursor: false,
         cursorBlink: true,
         cursorStyle: "bar",
         fontSize: activeTheme.terminalFontSize,
@@ -115,7 +126,55 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       const fitAddon = new FitAddon();
       term.loadAddon(fitAddon);
-      term.loadAddon(new WebLinksAddon());
+
+      let linkTooltip: HTMLDivElement | null = null;
+      const hideLinkTooltip = () => {
+        linkTooltip?.remove();
+        linkTooltip = null;
+      };
+      const showLinkTooltip = (event: MouseEvent, uri: string) => {
+        if (!isHttpUrl(uri)) return;
+        if (!linkTooltip) {
+          linkTooltip = document.createElement("div");
+          linkTooltip.className = "xterm-hover";
+          Object.assign(linkTooltip.style, {
+            position: "fixed",
+            zIndex: "10000",
+            pointerEvents: "none",
+            padding: "4px 8px",
+            borderRadius: "6px",
+            background: "var(--t-bg-card)",
+            border: "1px solid var(--t-border)",
+            color: "var(--t-text)",
+            fontFamily: activeTheme.terminalFontFamily,
+            fontSize: "12px",
+            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.28)",
+            opacity: "0",
+            transform: "translateY(4px)",
+            transition: "opacity 150ms ease-out, transform 150ms ease-out",
+            willChange: "opacity, transform",
+            whiteSpace: "nowrap",
+          });
+          document.body.appendChild(linkTooltip);
+          const tooltip = linkTooltip;
+          requestAnimationFrame(() => {
+            if (linkTooltip !== tooltip) return;
+            tooltip.style.opacity = "1";
+            tooltip.style.transform = "translateY(0)";
+          });
+        }
+        linkTooltip.textContent = "Alt+click to open";
+        linkTooltip.style.left = `${event.clientX + 12}px`;
+        linkTooltip.style.top = `${event.clientY + 12}px`;
+      };
+
+      term.loadAddon(new WebLinksAddon((event, uri) => {
+        if (!event.altKey || !isHttpUrl(uri)) return;
+        openUrl(uri).catch(() => {});
+      }, {
+        hover: showLinkTooltip,
+        leave: hideLinkTooltip,
+      }));
 
       const encoder = new TextEncoder();
       const decoder = encoding ? new TextDecoder(encoding) : null;
@@ -305,6 +364,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         onResizeDispose.dispose();
         window.removeEventListener("resize", handleWindowResize);
         container.removeEventListener("contextmenu", handleContextMenu);
+        hideLinkTooltip();
         resizeObserver.disconnect();
         if (fitTimer !== null) clearTimeout(fitTimer);
         Promise.all(unlistenPromises).then((fns) => fns.forEach((fn) => fn()));
