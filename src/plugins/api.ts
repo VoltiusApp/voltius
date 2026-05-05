@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+import type { SerialConnectParams } from "@/types";
 import type { AppTheme } from "@/themes/types";
 
 // ─── Types exposés aux plugins ─────────────────────────────────────────────
@@ -163,6 +165,20 @@ export type UISlot =
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type UIContributionFactory = (ctx: any) => ContributedAction[];
 
+export type UIStatusBarSlot = "terminal.statusBar.right";
+
+export interface TerminalStatusBarContributionContext {
+  sessionId: string;
+  sessionType: "ssh" | "serial";
+  connectionId: string;
+  sessionStatus: "connecting" | "connected" | "disconnected" | "error";
+  connection?: PluginConnection;
+  serialConfig?: SerialConnectParams;
+  dimensions?: { cols: number; rows: number };
+}
+
+export type UIStatusBarContributionFactory = (ctx: TerminalStatusBarContributionContext) => ReactNode;
+
 // ─── API principale ────────────────────────────────────────────────────────
 
 export interface PluginAPI {
@@ -223,6 +239,8 @@ export interface PluginAPI {
     registerContextMenuItem(item: ContextMenuItem): () => void;
     /** Inject action items into a named UI slot. Returns a cleanup function. */
     registerContribution<C = unknown>(slot: UISlot, fn: (ctx: C) => ContributedAction[]): () => void;
+    /** Render a React widget in the terminal status bar's right-side slot. Returns a cleanup function. */
+    registerStatusBarItem(slot: UIStatusBarSlot, fn: UIStatusBarContributionFactory): () => void;
     unregister(id: string): void;
   };
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
@@ -7,6 +7,7 @@ import { useHostPingStore } from "@/stores/hostPingStore";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
 import { getPfState } from "@/services/portForwardingTunnels";
 import { sshGetSystemInfo, type SystemInfo } from "@/services/ssh";
 import { metricsStart, metricsStop, onMetricsSnapshot } from "@/services/metrics";
@@ -14,6 +15,7 @@ import { getDistroIcon, getDistroColor } from "@/utils/icons";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import type { ActiveTunnel, SerialConnectParams } from "@/types";
 import type { MetricsSnapshot } from "@/plugins/monitoring/types";
+import type { TerminalStatusBarContributionContext } from "@/plugins/api";
 
 interface PfStatePayload {
   session_id: string;
@@ -23,7 +25,7 @@ interface PfStatePayload {
 
 interface Props {
   sessionId: string;
-  sessionType: "ssh" | "local" | "serial";
+  sessionType: "ssh" | "serial";
   connectionId: string;
   serialConfig?: SerialConnectParams;
   sessionStatus: "connecting" | "connected" | "disconnected" | "error";
@@ -344,7 +346,20 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, serial
     return [];
   }, [sessionType, connection, serialConfig, sessionId, toggleRightPanel, disconnect]);
 
-  if (sessionType === "local") return null;
+  const statusBarContributionContext = useMemo<TerminalStatusBarContributionContext>(() => ({
+    sessionId,
+    sessionType,
+    connectionId,
+    sessionStatus,
+    connection,
+    serialConfig,
+    dimensions,
+  }), [sessionId, sessionType, connectionId, sessionStatus, connection, serialConfig, dimensions]);
+
+  const statusBarContributions = useStatusBarContributions(
+    "terminal.statusBar.right",
+    statusBarContributionContext,
+  );
 
   const activeTunnelCount = tunnels.filter((t) => t.state === "active").length;
   const portsIsActive = rightPanelOpen && rightPanelSection === "ports";
@@ -617,11 +632,14 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, serial
           )}
         </div>
 
-        {/* Right: uptime + dimensions + metrics + ports chips */}
+        {/* Right: uptime + dimensions + plugin widgets + metrics + ports chips */}
         <div
           className="flex items-center h-full"
           style={!isConnected ? { opacity: 0.35, pointerEvents: "none" } : undefined}
         >
+          {statusBarContributions.map(({ key, node }) => (
+            <Fragment key={key}>{node}</Fragment>
+          ))}
           {uptime && (
             <span className="px-1.5 text-[var(--t-text-dim)]" style={{ fontVariantNumeric: "tabular-nums" }}>
               {uptime}

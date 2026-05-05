@@ -12,7 +12,12 @@ import { useFolderStore } from "@/stores/folderStore";
 import { getSyncState, onSyncStateChange, ENTITY_FILES, type BlobPayload } from "@/services/sync";
 import { useThemeStore } from "@/stores/themeStore";
 import { mergeEntities, mergeSecrets } from "@/services/crdt";
-import type { UISlot, ContributedAction } from "@/plugins/api";
+import type {
+  UISlot,
+  ContributedAction,
+  UIStatusBarContributionFactory,
+  UIStatusBarSlot,
+} from "@/plugins/api";
 import * as connectionService from "@/services/connections";
 import * as keyService from "@/services/keys";
 import * as identityService from "@/services/identities";
@@ -508,6 +513,10 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       registerContribution(slot: UISlot, fn: (ctx: any) => ContributedAction[]) {
         requirePerm(manifest, "ui-contributions");
         return useUIContributionStore.getState().registerContribution(id, slot, fn);
+      },
+      registerStatusBarItem(slot: UIStatusBarSlot, fn: UIStatusBarContributionFactory) {
+        requirePerm(manifest, "ui-contributions");
+        return useUIContributionStore.getState().registerStatusBarContribution(id, slot, fn);
       },
       unregister(itemId) {
         const s = store();
