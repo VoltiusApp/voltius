@@ -235,7 +235,7 @@ export default function HostCard({
               {/* Terminal connect button — bleeds into card's bottom-right corner */}
               <button
                 onClick={(e) => { e.stopPropagation(); onConnect(connection); }}
-                className="terminal-connect-btn -mr-4 -mb-4 pr-4 pb-2 pt-2 pl-3 rounded-tl-xl rounded-br-2xl bg-[var(--t-bg-terminal)] text-[var(--t-text-primary)] hover:text-[var(--t-terminal-foreground)] transition-colors text-xs flex items-center min-w-0 overflow-hidden max-w-[65%]"
+                className="terminal-connect-btn -mr-[14px] -mb-[14px] pr-[14px] pb-3.5 pt-2 pl-3 rounded-tl-xl rounded-br-2xl bg-[var(--t-bg-terminal)] text-[var(--t-text-primary)] hover:text-[var(--t-terminal-foreground)] transition-colors text-xs flex items-center min-w-0 overflow-hidden max-w-[65%]"
                 style={{ fontFamily: "var(--t-terminal-font-family)" }}
                 title="Connect (or double-click)"
               >
