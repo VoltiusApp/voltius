@@ -8,6 +8,37 @@ export interface ResolvedCredentials {
   privateKey?: string;
 }
 
+export interface ResolvedJumpHost {
+  host: string;
+  port: number;
+  username: string;
+  password?: string;
+  privateKey?: string;
+}
+
+export async function resolveJumpHosts(conn: Connection): Promise<ResolvedJumpHost[]> {
+  if (!conn.jump_hosts?.length) return [];
+  const { identities, teamIdentities } = useIdentityStore.getState();
+  const allIdentities = [...identities, ...Object.values(teamIdentities).flat()];
+  return Promise.all(
+    conn.jump_hosts.map(async (jh) => {
+      if (jh.identity_id) {
+        const identity = allIdentities.find((i) => i.id === jh.identity_id);
+        if (identity) {
+          const pwd = (await getSecret(`identity:${jh.identity_id}:password`).catch(() => null)) ?? undefined;
+          const pk = identity.key_id
+            ? (await getSecret(`key:${identity.key_id}:private`).catch(() => null)) ?? undefined
+            : undefined;
+          return { host: jh.host, port: jh.port, username: identity.username, password: pwd, privateKey: pk };
+        }
+      }
+      const pwd = (await getSecret(`password:${jh.connection_id}`).catch(() => null)) ?? undefined;
+      const pk = (await getSecret(`key:${jh.connection_id}`).catch(() => null)) ?? undefined;
+      return { host: jh.host, port: jh.port, username: jh.username, password: pwd, privateKey: pk };
+    })
+  );
+}
+
 export async function resolveConnectionCredentials(conn: Connection): Promise<ResolvedCredentials> {
   let identities = useIdentityStore.getState().identities;
 

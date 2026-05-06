@@ -11,7 +11,7 @@ import {
   sftpExists, fsExists, fsHomeDir,
 } from "@/services/sftp";
 import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
-import { resolveConnectionCredentials } from "@/services/credentials";
+import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
 import {
   type HostChoice, type SidePhase, type FileEntry, type Transfer, type PendingTransfer, type ConflictResolution,
   genId,
@@ -59,8 +59,11 @@ export default function SFTPPage() {
       if (host.kind === "local") {
         cwd = await fsHomeDir();
       } else {
-        const creds = await resolveConnectionCredentials(host.connection);
-        sftpId = await sftpConnect({ connectId, host: host.connection.host, port: host.connection.port, username: creds.username, password: creds.password, privateKey: creds.privateKey });
+        const [creds, jumpHosts] = await Promise.all([
+          resolveConnectionCredentials(host.connection),
+          resolveJumpHosts(host.connection),
+        ]);
+        sftpId = await sftpConnect({ connectId, host: host.connection.host, port: host.connection.port, username: creds.username, password: creds.password, privateKey: creds.privateKey, jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined });
         openSftpIds.current.add(sftpId);
         const { sftpCanonicalize } = await import("@/services/sftp");
         cwd = await sftpCanonicalize(sftpId, ".");

@@ -1,5 +1,6 @@
 use crate::known_hosts::KnownHostsStore;
 use crate::sftp::SftpManager;
+use crate::ssh::client::JumpHostConnect;
 use crate::ssh::session::SessionManager;
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::OpenFlags;
@@ -67,6 +68,7 @@ pub async fn sftp_connect(
     username: String,
     password: Option<String>,
     private_key: Option<String>,
+    jump_hosts: Option<Vec<JumpHostConnect>>,
 ) -> Result<String, String> {
     sftp_state
         .connect(
@@ -77,6 +79,7 @@ pub async fn sftp_connect(
             &username,
             password.as_deref(),
             private_key.as_deref(),
+            jump_hosts.unwrap_or_default(),
             Arc::clone(&*known_hosts),
         )
         .await

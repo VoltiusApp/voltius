@@ -1,7 +1,6 @@
 use crate::known_hosts::KnownHostsStore;
-use crate::ssh::client::SshClient;
+use crate::ssh::client::{authenticate_handle, JumpHostConnect, SshClient};
 use russh::client::Handle;
-use russh::keys::PrivateKeyWithHashAlg;
 use russh_sftp::client::SftpSession;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -42,6 +41,7 @@ struct SftpEntry {
     sftp: Arc<Mutex<SftpSession>>,
     handle: Arc<Handle<SshClient>>,
     cancel: CancellationToken,
+    _jump_handles: Vec<Arc<Handle<SshClient>>>,
 }
 
 pub struct SftpManager {
@@ -77,6 +77,7 @@ impl SftpManager {
                 sftp: Arc::new(Mutex::new(sftp)),
                 handle,
                 cancel: CancellationToken::new(),
+                _jump_handles: vec![],
             },
         );
         Ok(id)
@@ -91,59 +92,75 @@ impl SftpManager {
         username: &str,
         password: Option<&str>,
         private_key: Option<&str>,
+        jump_hosts: Vec<JumpHostConnect>,
         known_hosts: Arc<KnownHostsStore>,
     ) -> Result<String, String> {
-        let config = russh::client::Config {
+        let config = Arc::new(russh::client::Config {
             keepalive_interval: Some(std::time::Duration::from_secs(2)),
             keepalive_max: 2,
             ..Default::default()
-        };
-        let (ssh_client, rejection_reason) = SshClient::new(host.to_string(), port, known_hosts);
-        emit_step(
-            app,
-            connect_id,
-            SftpStep::TcpConnected,
-            format!("{}:{}", host, port),
-        );
-        let mut handle =
-            match russh::client::connect(Arc::new(config), (host, port), ssh_client).await {
+        });
+
+        let mut jump_handles: Vec<Arc<Handle<SshClient>>> = Vec::new();
+
+        let mut final_handle: Handle<SshClient> = if jump_hosts.is_empty() {
+            let (ssh_client, rejection_reason) = SshClient::new(host.to_string(), port, Arc::clone(&known_hosts));
+            emit_step(app, connect_id, SftpStep::TcpConnected, format!("{}:{}", host, port));
+            match russh::client::connect(Arc::clone(&config), (host, port), ssh_client).await {
                 Ok(h) => h,
                 Err(e) => {
                     let reason = rejection_reason.lock().await.take();
                     return Err(reason.unwrap_or_else(|| format!("SSH connection failed: {e}")));
                 }
-            };
-
-        emit_step(
-            app,
-            connect_id,
-            SftpStep::Handshake,
-            "Negotiating algorithms",
-        );
-        emit_step(
-            app,
-            connect_id,
-            SftpStep::Authenticating,
-            format!("{}@{}", username, host),
-        );
-        let auth = if let Some(key_str) = private_key {
-            let key = russh::keys::decode_secret_key(key_str, None)
-                .map_err(|e| format!("Invalid private key: {e}"))?;
-            let kwa = PrivateKeyWithHashAlg::new(
-                Arc::new(key),
-                Some(russh::keys::ssh_key::HashAlg::Sha256),
-            );
-            handle.authenticate_publickey(username, kwa).await
-        } else if let Some(pwd) = password {
-            handle.authenticate_password(username, pwd).await
+            }
         } else {
-            return Err("No authentication method provided".into());
-        }
-        .map_err(|e| format!("Auth failed: {e}"))?;
+            let first = &jump_hosts[0];
+            let (first_client, rejection_reason) = SshClient::new(first.host.clone(), first.port, Arc::clone(&known_hosts));
+            let mut current_handle = match russh::client::connect(Arc::clone(&config), (first.host.as_str(), first.port), first_client).await {
+                Ok(h) => h,
+                Err(e) => {
+                    let reason = rejection_reason.lock().await.take();
+                    return Err(reason.unwrap_or_else(|| format!("Jump host {} connection failed: {}", first.host, e)));
+                }
+            };
+            emit_step(app, connect_id, SftpStep::TcpConnected, format!("{}:{} (jump 1)", first.host, first.port));
+            authenticate_handle(&mut current_handle, &first.username, first.password.as_deref(), first.private_key.as_deref())
+                .await
+                .map_err(|e| format!("Jump host {} auth failed: {}", first.host, e))?;
 
-        if !auth.success() {
-            return Err("Authentication failed".into());
-        }
+            for (i, jump) in jump_hosts[1..].iter().enumerate() {
+                let channel = current_handle
+                    .channel_open_direct_tcpip(&jump.host, jump.port as u32, "127.0.0.1", 0)
+                    .await
+                    .map_err(|e| format!("Failed to open tunnel to {}: {}", jump.host, e))?;
+                let (next_client, _) = SshClient::new(jump.host.clone(), jump.port, Arc::clone(&known_hosts));
+                let mut next_handle = russh::client::connect_stream(Arc::clone(&config), channel.into_stream(), next_client)
+                    .await
+                    .map_err(|e| format!("Jump host {} SSH handshake failed: {}", jump.host, e))?;
+                authenticate_handle(&mut next_handle, &jump.username, jump.password.as_deref(), jump.private_key.as_deref())
+                    .await
+                    .map_err(|e| format!("Jump host {} auth failed: {}", jump.host, e))?;
+                let prev = std::mem::replace(&mut current_handle, next_handle);
+                jump_handles.push(Arc::new(prev));
+                emit_step(app, connect_id, SftpStep::TcpConnected, format!("{}:{} (jump {})", jump.host, jump.port, i + 2));
+            }
+
+            let channel = current_handle
+                .channel_open_direct_tcpip(host, port as u32, "127.0.0.1", 0)
+                .await
+                .map_err(|e| format!("Failed to open tunnel to final host {}: {}", host, e))?;
+            let (final_client, _) = SshClient::new(host.to_string(), port, Arc::clone(&known_hosts));
+            let h = russh::client::connect_stream(Arc::clone(&config), channel.into_stream(), final_client)
+                .await
+                .map_err(|e| format!("Final host {} SSH handshake failed: {}", host, e))?;
+            jump_handles.push(Arc::new(current_handle));
+            emit_step(app, connect_id, SftpStep::TcpConnected, format!("{}:{}", host, port));
+            h
+        };
+
+        emit_step(app, connect_id, SftpStep::Handshake, "Negotiating algorithms");
+        emit_step(app, connect_id, SftpStep::Authenticating, format!("{}@{}", username, host));
+        authenticate_handle(&mut final_handle, username, password, private_key).await?;
 
         emit_step(
             app,
@@ -151,7 +168,7 @@ impl SftpManager {
             SftpStep::SftpSubsystem,
             "Requesting SFTP subsystem",
         );
-        let channel = handle
+        let channel = final_handle
             .channel_open_session()
             .await
             .map_err(|e| format!("Channel error: {e}"))?;
@@ -163,7 +180,7 @@ impl SftpManager {
             .await
             .map_err(|e| format!("SFTP session error: {e}"))?;
 
-        let handle = Arc::new(handle);
+        let handle = Arc::new(final_handle);
         let sftp_arc = Arc::new(Mutex::new(sftp));
         let cancel = CancellationToken::new();
         let id = Uuid::new_v4().to_string();
@@ -173,6 +190,7 @@ impl SftpManager {
                 sftp: Arc::clone(&sftp_arc),
                 handle: Arc::clone(&handle),
                 cancel: cancel.clone(),
+                _jump_handles: jump_handles,
             },
         );
 
