@@ -175,6 +175,13 @@ export default function HostCard({
               <span className="shrink-0 px-1.5 py-0.5 rounded-md text-[11px] font-semibold bg-[var(--t-bg-input)] text-[var(--t-text-dim)] border border-[var(--t-border)]">
                 {isSerial ? "SERIAL" : "SSH"}
               </span>
+              <button
+                onClick={(e) => { e.stopPropagation(); pinConnection(connection.id, !connection.pinned).catch(() => {}); }}
+                className={`shrink-0 flex items-center transition-colors ${connection.pinned ? "text-[var(--t-accent)] opacity-100" : "text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] opacity-0 group-hover:opacity-100"}`}
+                title={connection.pinned ? "Unpin" : "Pin"}
+              >
+                <Icon icon="lucide:pin" width={14} />
+              </button>
               {(showPingDot || syncIcon) && (
                 <div className="flex items-center gap-1.5 ml-auto shrink-0">
                   {showPingDot && (
@@ -195,11 +202,11 @@ export default function HostCard({
             </div>
 
             <div className="flex items-end mt-2">
-              <div className="flex items-center gap-3 flex-1">
+              <div className="flex items-center gap-3 flex-1 pb-0">
                 {canEdit && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onDelete(connection.id); }}
-                    className="mb-2 text-[var(--t-text-dim)] hover:text-[var(--t-status-error)] transition-colors flex items-center"
+                    className="text-[var(--t-text-dim)] hover:text-[var(--t-status-error)] transition-colors flex items-center"
                     title="Delete"
                   >
                     <Icon icon="lucide:trash-2" width={18} />
@@ -208,7 +215,7 @@ export default function HostCard({
                 {canEdit && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onEdit(connection); }}
-                    className="mb-2 text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] transition-colors flex items-center"
+                    className="text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] transition-colors flex items-center"
                     title="Edit"
                   >
                     <Icon icon="lucide:square-pen" width={18} />
@@ -217,7 +224,7 @@ export default function HostCard({
                 {!isSerial && (
                   <button
                     onClick={(e) => { e.stopPropagation(); useUIStore.getState().openSftpWith(connection.id); }}
-                    className="mb-2 text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] transition-colors flex items-center"
+                    className="text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] transition-colors flex items-center"
                     title="Open in SFTP"
                   >
                     <Icon icon="lucide:folder-open" width={18} />
