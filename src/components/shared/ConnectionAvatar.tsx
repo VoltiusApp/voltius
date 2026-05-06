@@ -15,8 +15,8 @@ export function ConnectionAvatar({ connection, size }: Props) {
 
   return (
     <div
-      className="rounded-xl flex items-center justify-center shrink-0 select-none text-white"
-      style={{ width: `${size / 15}rem`, height: `${size / 15}rem`, background: isSerial ? "var(--t-accent-muted, var(--t-bg-card-avatar))" : (distroBg ?? "var(--t-bg-card-avatar)") }}
+      className="flex items-center justify-center shrink-0 select-none text-white"
+      style={{ width: `${size / 15}rem`, height: `${size / 15}rem`, borderRadius: `${Math.round(size * 0.2)}px`, background: isSerial ? "var(--t-accent-muted, var(--t-bg-card-avatar))" : (distroBg ?? "var(--t-bg-card-avatar)") }}
     >
       <Icon icon={isSerial ? "lucide:ethernet-port" : (distroIcon ?? "lucide:server")} width={iconSize} />
     </div>
