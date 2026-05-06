@@ -60,7 +60,7 @@ export default function HostCard({
   const showPingDot = !isSerial && pingEnabled && !connection.ping_disabled;
 
   const contextMenuItems: ContextMenuItem[] = [
-    ...(canEdit ? [{ label: "Edit", icon: "lucide:pencil", onClick: () => onEdit(connection), shortcut: "E" }] : []),
+    ...(canEdit ? [{ label: "Edit", icon: "lucide:square-pen", onClick: () => onEdit(connection), shortcut: "E" }] : []),
     ...(!isSerial ? [{ label: "Open in SFTP", icon: "lucide:folder-open", onClick: () => useUIStore.getState().openSftpWith(connection.id) }] : []),
     ...buildConnectionMenuItems({
       canEdit,
@@ -149,7 +149,7 @@ export default function HostCard({
           )}
           <div className="flex items-center gap-1 shrink-0">
             {syncIcon}
-            {canEdit && <CardActionButton icon="lucide:pencil" title="Edit" onClick={() => onEdit(connection)} />}
+            {canEdit && <CardActionButton icon="lucide:square-pen" title="Edit" onClick={() => onEdit(connection)} />}
             {canEdit && <CardActionButton icon="lucide:trash-2" title="Delete" onClick={() => onDelete(connection.id)} danger />}
             {!isSerial && <CardActionButton icon="lucide:folder-open" title="Open in SFTP" onClick={() => useUIStore.getState().openSftpWith(connection.id)} />}
             <button
@@ -195,11 +195,11 @@ export default function HostCard({
             </div>
 
             <div className="flex items-end mt-2">
-              <div className="flex items-center gap-3 flex-1 pb-1">
+              <div className="flex items-center gap-3 flex-1">
                 {canEdit && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onDelete(connection.id); }}
-                    className="text-[var(--t-text-dim)] hover:text-[var(--t-status-error)] transition-colors flex items-center"
+                    className="mb-2 text-[var(--t-text-dim)] hover:text-[var(--t-status-error)] transition-colors flex items-center"
                     title="Delete"
                   >
                     <Icon icon="lucide:trash-2" width={18} />
@@ -208,7 +208,7 @@ export default function HostCard({
                 {canEdit && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onEdit(connection); }}
-                    className="text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] transition-colors flex items-center"
+                    className="mb-2 text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] transition-colors flex items-center"
                     title="Edit"
                   >
                     <Icon icon="lucide:square-pen" width={18} />
@@ -217,7 +217,7 @@ export default function HostCard({
                 {!isSerial && (
                   <button
                     onClick={(e) => { e.stopPropagation(); useUIStore.getState().openSftpWith(connection.id); }}
-                    className="text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] transition-colors flex items-center"
+                    className="mb-2 text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] transition-colors flex items-center"
                     title="Open in SFTP"
                   >
                     <Icon icon="lucide:folder-open" width={18} />
@@ -228,14 +228,21 @@ export default function HostCard({
               {/* Terminal connect button — bleeds into card's bottom-right corner */}
               <button
                 onClick={(e) => { e.stopPropagation(); onConnect(connection); }}
-                className="terminal-connect-btn -mr-[18px] -mb-[18px] pr-[18px] pb-2 pt-2 pl-3 rounded-tl-xl rounded-br-2xl bg-[var(--t-bg-terminal)] text-[var(--t-text-primary)] hover:text-[var(--t-terminal-foreground)] transition-colors text-xs whitespace-nowrap"
+                className="terminal-connect-btn -mr-4 -mb-4 pr-4 pb-2 pt-2 pl-3 rounded-tl-xl rounded-br-2xl bg-[var(--t-bg-terminal)] text-[var(--t-text-primary)] hover:text-[var(--t-terminal-foreground)] transition-colors text-xs flex items-center min-w-0 overflow-hidden max-w-[65%]"
                 style={{ fontFamily: "var(--t-terminal-font-family)" }}
                 title="Connect (or double-click)"
               >
-                {isSerial
-                  ? <>{connection.serial_port ?? "serial"} &gt;<span className="cursor-blink-char">_</span></>
-                  : <>{connection.username}@{connection.host} &gt;<span className="cursor-blink-char">_</span></>
-                }
+                {isSerial ? (
+                  <>
+                    <span className="truncate">{connection.serial_port ?? "serial"}</span>
+                    <span className="shrink-0"> &gt;<span className="cursor-blink-char">_</span></span>
+                  </>
+                ) : (
+                  <>
+                    <span className="truncate">{connection.username}@{connection.host}</span>
+                    <span className="shrink-0"> &gt;<span className="cursor-blink-char">_</span></span>
+                  </>
+                )}
               </button>
             </div>
           </div>
