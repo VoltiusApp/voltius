@@ -163,12 +163,9 @@ export default function HostCard({
         </>
       ) : (
         <>
-          <div className="shrink-0">
-            <ConnectionAvatar connection={connection} size={45} />
-          </div>
-
-          <div className="flex-1 min-w-0 self-stretch flex flex-col justify-between">
-            <div className="flex items-center gap-2 min-w-0">
+          <div className="flex-1 min-w-0 self-start flex flex-col gap-2">
+            <div className="flex items-start gap-2 min-w-0">
+              <ConnectionAvatar connection={connection} size={30} />
               <p className="text-sm font-bold truncate text-[var(--t-text-bright)]">
                 {displayName(connection)}
               </p>
@@ -201,7 +198,7 @@ export default function HostCard({
               )}
             </div>
 
-            <div className="flex items-end mt-2">
+            <div className="flex items-end">
               <div className="flex items-center gap-3 flex-1 pb-0">
                 {canEdit && (
                   <button
