@@ -235,21 +235,28 @@ export default function HostCard({
               {/* Terminal connect button — bleeds into card's bottom-right corner */}
               <button
                 onClick={(e) => { e.stopPropagation(); onConnect(connection); }}
-                className="terminal-connect-btn border-l-2 border-t-2 border-[var(--t-bg-sidebar)] -mr-[calc(0.75rem+2px)] -mb-[calc(0.75rem+2px)] pr-[calc(0.75rem+2px)] pb-3.5 pt-2 pl-3 rounded-tl-xl rounded-br-2xl bg-[var(--t-bg-terminal)] text-[var(--t-text-primary)] hover:text-[var(--t-terminal-foreground)] transition-colors text-xs flex items-center min-w-0 overflow-hidden max-w-[65%]"
+                className="terminal-connect-btn -mr-[calc(0.75rem+2px)] -mb-[calc(0.75rem+2px)] pr-[calc(0.75rem+2px)] pb-3.5 pt-2.5 pl-3 rounded-tl-xl rounded-br-2xl bg-[var(--t-bg-terminal)] text-[var(--t-terminal-foreground)] hover:brightness-150 transition-all text-xs flex flex-col min-w-0 overflow-hidden max-w-[65%]"
                 style={{ fontFamily: "var(--t-terminal-font-family)" }}
                 title="Connect (or double-click)"
               >
-                {isSerial ? (
-                  <>
-                    <span className="truncate">{connection.serial_port ?? "serial"}</span>
-                    <span className="shrink-0"> &gt;<span className="cursor-blink-char">_</span></span>
-                  </>
-                ) : (
-                  <>
-                    <span className="truncate">{connection.username}@{connection.host}</span>
-                    <span className="shrink-0"> &gt;<span className="cursor-blink-char">_</span></span>
-                  </>
-                )}
+                <div className="flex gap-1 mb-1.5 shrink-0">
+                  <span className="w-2 h-2 rounded-full bg-[#ff5f56]" />
+                  <span className="w-2 h-2 rounded-full bg-[#ffbd2e]" />
+                  <span className="w-2 h-2 rounded-full bg-[#27c93f]" />
+                </div>
+                <div className="flex items-center min-w-0 w-full">
+                  {isSerial ? (
+                    <>
+                      <span className="truncate">{connection.serial_port ?? "serial"}</span>
+                      <span className="shrink-0"> &gt;<span className="cursor-blink-char">_</span></span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="truncate">{connection.username}@{connection.host}</span>
+                      <span className="shrink-0"> &gt;<span className="cursor-blink-char">_</span></span>
+                    </>
+                  )}
+                </div>
               </button>
             </div>
           </div>
