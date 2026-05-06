@@ -163,39 +163,55 @@ export default function HostCard({
         </>
       ) : (
         <>
-          <div className="flex-1 min-w-0 self-start flex flex-col gap-2">
+          <div className="flex-1 min-w-0 self-start flex flex-col gap-1">
             <div className="flex items-start gap-2 min-w-0">
               <ConnectionAvatar connection={connection} size={30} />
-              <p className="text-sm font-bold truncate text-[var(--t-text-bright)]">
-                {displayName(connection)}
-              </p>
-              <span className="shrink-0 px-1.5 py-0.5 rounded-md text-[11px] font-semibold bg-[var(--t-bg-input)] text-[var(--t-text-dim)] border border-[var(--t-border)]">
-                {isSerial ? "SERIAL" : "SSH"}
-              </span>
-              <button
-                onClick={(e) => { e.stopPropagation(); pinConnection(connection.id, !connection.pinned).catch(() => {}); }}
-                className={`shrink-0 flex items-center transition-colors ${connection.pinned ? "text-[var(--t-accent)] opacity-100" : "text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] opacity-0 group-hover:opacity-100"}`}
-                title={connection.pinned ? "Unpin" : "Pin"}
-              >
-                <Icon icon="lucide:pin" width={14} />
-              </button>
-              {(showPingDot || syncIcon) && (
-                <div className="flex items-center gap-1.5 ml-auto shrink-0">
-                  {showPingDot && (
-                    <>
-                      <span className="relative w-2.5 h-2.5 shrink-0">
-                        <StatusDot color={pingColor} animate={pingStatus === "up"} fast={isActive} size={12} />
-                      </span>
-                      {pingStatus === "up" && pingLatency !== undefined && (
-                        <span className="text-xs font-medium" style={{ color: pingColor }}>
-                          {pingLatency} ms
-                        </span>
+              <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <p className="text-sm font-bold truncate text-[var(--t-text-bright)]">
+                    {displayName(connection)}
+                  </p>
+                  <span className="shrink-0 px-1.5 py-0.5 rounded-md text-[11px] font-semibold bg-[var(--t-bg-input)] text-[var(--t-text-dim)] border border-[var(--t-border)]">
+                    {isSerial ? "SERIAL" : "SSH"}
+                  </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); pinConnection(connection.id, !connection.pinned).catch(() => {}); }}
+                    className={`shrink-0 flex items-center transition-colors ${connection.pinned ? "text-[var(--t-accent)] opacity-100" : "text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] opacity-0 group-hover:opacity-100"}`}
+                    title={connection.pinned ? "Unpin" : "Pin"}
+                  >
+                    <Icon icon="lucide:pin" width={14} />
+                  </button>
+                  {(showPingDot || syncIcon) && (
+                    <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                      {showPingDot && (
+                        <>
+                          <span className="relative w-2.5 h-2.5 shrink-0">
+                            <StatusDot color={pingColor} animate={pingStatus === "up"} fast={isActive} size={12} />
+                          </span>
+                          {pingStatus === "up" && pingLatency !== undefined && (
+                            <span className="text-xs font-medium" style={{ color: pingColor }}>
+                              {pingLatency} ms
+                            </span>
+                          )}
+                        </>
                       )}
-                    </>
+                      {syncIcon}
+                    </div>
                   )}
-                  {syncIcon}
                 </div>
-              )}
+                {connection.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 self-start max-w-[55%]">
+                    {connection.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="px-1.5 py-0 rounded text-[11px] bg-[var(--t-bg-elevated)] text-[var(--t-text-muted)] border border-[var(--t-border)]"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex items-end">
@@ -232,7 +248,7 @@ export default function HostCard({
               {/* Terminal connect button — bleeds into card's bottom-right corner */}
               <button
                 onClick={(e) => { e.stopPropagation(); onConnect(connection); }}
-                className="terminal-connect-btn -mr-[calc(0.75rem+2px)] -mb-[calc(0.75rem+2px)] pr-[calc(0.75rem+2px)] pb-3.5 pt-2.5 pl-3 rounded-tl-xl rounded-br-2xl bg-[var(--t-bg-terminal)] text-[var(--t-terminal-foreground)] hover:brightness-150 transition-all text-xs flex flex-col min-w-0 overflow-hidden max-w-[65%]"
+                className="terminal-connect-btn -mt-5 -mr-[calc(0.75rem+2px)] -mb-[calc(0.75rem+2px)] pr-[calc(0.75rem+2px)] pb-3.5 pt-2.5 pl-3 rounded-tl-xl rounded-br-2xl bg-[var(--t-bg-terminal)] text-[var(--t-terminal-foreground)] hover:brightness-150 transition-all text-xs flex flex-col min-w-0 overflow-hidden max-w-[75%]"
                 style={{ fontFamily: "var(--t-terminal-font-family)" }}
                 title="Connect (or double-click)"
               >
