@@ -3,6 +3,7 @@ import type { Connection, VaultOption } from "@/types";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { CardActionButton } from "@/components/shared/CardActionButton";
+import { TagBadge } from "@/components/shared/TagBadge";
 import { type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { useUIContributions } from "@/hooks/useUIContributions";
@@ -137,14 +138,7 @@ export default function HostCard({
           </p>
           {connection.tags.length > 0 && (
             <div className="flex items-center gap-1 shrink-0">
-              {connection.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="px-1.5 py-0.5 rounded text-xs bg-[var(--t-bg-elevated)] text-[var(--t-text-muted)] border border-[var(--t-border)]"
-                >
-                  {tag}
-                </span>
-              ))}
+              {connection.tags.map((tag) => <TagBadge key={tag} tag={tag} />)}
             </div>
           )}
           <div className="flex items-center gap-1 shrink-0">
@@ -201,14 +195,7 @@ export default function HostCard({
                 </div>
                 {connection.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1 self-start max-w-[55%]">
-                    {connection.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="px-1.5 py-0 rounded text-[11px] bg-[var(--t-bg-elevated)] text-[var(--t-text-muted)] border border-[var(--t-border)]"
-                      >
-                        {tag}
-                      </span>
-                    ))}
+                    {connection.tags.map((tag) => <TagBadge key={tag} tag={tag} className="py-0 text-[11px]" />)}
                   </div>
                 )}
               </div>

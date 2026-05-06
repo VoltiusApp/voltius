@@ -76,6 +76,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
         name: data.name,
         username: data.username,
         key_id: data.key_id,
+        tags: data.tags,
         folder_id: data.folder_id,
         vault_id: data.vault_id,
         pinned: data.pinned,
@@ -136,6 +137,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
         name: data.name,
         username: data.username,
         key_id: data.key_id,
+        tags: data.tags,
         folder_id: data.folder_id,
         vault_id: data.vault_id ?? prev.vault_id,
         pinned: data.pinned,
@@ -151,6 +153,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
       void triggerTeamSave(teamId);
       const prevData: IdentityFormData = {
         name: prev.name, username: prev.username, key_id: prev.key_id,
+        tags: prev.tags,
         folder_id: prev.folder_id, vault_id: prev.vault_id,
       };
       useHistoryStore.getState().push({
@@ -170,6 +173,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     if (prev) {
       const prevData: IdentityFormData = {
         name: prev.name, username: prev.username, key_id: prev.key_id,
+        tags: prev.tags,
         folder_id: prev.folder_id, vault_id: prev.vault_id,
       };
       useHistoryStore.getState().push({
@@ -200,6 +204,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     if (!identity) return;
     await api.updateIdentity(id, {
       name: identity.name, username: identity.username, key_id: identity.key_id,
+      tags: identity.tags,
       folder_id: identity.folder_id, vault_id: identity.vault_id, pinned,
     });
     const identities = await api.listIdentities();
@@ -221,6 +226,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
       void triggerTeamSave(teamId);
       const prevData: IdentityFormData = {
         name: prev.name, username: prev.username, key_id: prev.key_id,
+        tags: prev.tags,
         folder_id: prev.folder_id, vault_id: prev.vault_id,
       };
       let recreatedId: string | null = null;
@@ -247,6 +253,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     if (prev) {
       const prevData: IdentityFormData = {
         name: prev.name, username: prev.username, key_id: prev.key_id,
+        tags: prev.tags,
         folder_id: prev.folder_id, vault_id: prev.vault_id,
       };
       let recreatedId: string | null = null;

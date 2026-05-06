@@ -2,8 +2,9 @@ import { useCallback, useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { CardActionButton } from "@/components/shared/CardActionButton";
+import { TagBadge } from "@/components/shared/TagBadge";
 import type { LayoutMode } from "@/components/shared/ToolbarViewControls";
-import type { SshKey, Identity, Connection, VaultOption } from "@/types";
+import type { SshKey, Identity, VaultOption } from "@/types";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
@@ -112,6 +113,11 @@ export function KeyCardContent({ sshKey, avatarSize, iconSize }: { sshKey: SshKe
           )}
           <span className="text-xs text-[var(--t-text-secondary)]">{formattedDate}</span>
         </div>
+        {sshKey.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {sshKey.tags.map((tag) => <TagBadge key={tag} tag={tag} />)}
+          </div>
+        )}
       </div>
     </>
   );
@@ -301,14 +307,13 @@ export function KeySection({
 // ─────────────────────────────────────────────────────────────────
 
 function IdentityCard({
-  identity, linkedKey, linkedTags, canEdit, vaults,
+  identity, linkedKey, canEdit, vaults,
   isEditing, isSelected, isFocused, layoutMode,
   onEdit, onDelete, onSelect, onMoveToVault, onCopyToVault,
   bulkContextMenuItems, onSectionDragStart, onDragEnd,
 }: {
   identity: Identity;
   linkedKey: SshKey | undefined;
-  linkedTags: string[];
   canEdit: boolean;
   vaults: VaultOption[];
   isEditing: boolean;
@@ -412,16 +417,9 @@ function IdentityCard({
           )}
           <span className="text-xs text-[var(--t-text-secondary)]">{formattedDate}</span>
         </div>
-        {isList && linkedTags.length > 0 && (
+        {identity.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1">
-            {linkedTags.map((tag) => (
-              <span
-                key={tag}
-                className="px-1.5 py-0.5 rounded text-xs bg-[var(--t-bg-elevated)] text-[var(--t-text-muted)] border border-[var(--t-border)]"
-              >
-                {tag}
-              </span>
-            ))}
+            {identity.tags.map((tag) => <TagBadge key={tag} tag={tag} />)}
           </div>
         )}
       </div>
@@ -440,7 +438,7 @@ function IdentityCard({
 }
 
 export function IdentitySection({
-  identities, keys, connections, showDraft, editingId, selectedIdSet, focusedId, layoutMode,
+  identities, keys, showDraft, editingId, selectedIdSet, focusedId, layoutMode,
   vaultOptions, label,
   onAdd, onEdit, onDelete, onSelect,
   onMoveToVault, onCopyToVault,
@@ -448,7 +446,6 @@ export function IdentitySection({
 }: {
   identities: Identity[];
   keys: SshKey[];
-  connections: Connection[];
   showDraft: boolean;
   editingId: string | null;
   selectedIdSet: Set<string>;
@@ -474,19 +471,6 @@ export function IdentitySection({
     for (const k of keys) map[k.id] = k;
     return map;
   }, [keys]);
-
-  const linkedTagsMap = useMemo(() => {
-    const map: Record<string, string[]> = {};
-    for (const c of connections) {
-      const iid = c.identity_id;
-      if (!iid) continue;
-      if (!map[iid]) map[iid] = [];
-      for (const t of c.tags) {
-        if (!map[iid].includes(t)) map[iid].push(t);
-      }
-    }
-    return map;
-  }, [connections]);
 
   const otherVaultsMap = useMemo(() => {
     const map: Record<string, VaultOption[]> = {};
@@ -527,7 +511,6 @@ export function IdentitySection({
               key={i.id}
               identity={i}
               linkedKey={linkedKeyMap[i.key_id ?? ""]}
-              linkedTags={linkedTagsMap[i.id] ?? []}
               canEdit={canEdit}
               vaults={otherVaultsMap[vaultId] ?? []}
               isEditing={editingId === i.id}

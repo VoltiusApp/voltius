@@ -1,5 +1,6 @@
 import { Icon } from "@iconify/react";
 import { BaseCard } from "@/components/shared/BaseCard";
+import { TagBadge } from "@/components/shared/TagBadge";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
@@ -123,14 +124,7 @@ export function SnippetCard({
         </p>
         {snippet.tags.length > 0 && (
           <div className="flex items-center gap-1 mt-1 flex-wrap">
-            {snippet.tags.slice(0, 5).map((tag) => (
-              <span
-                key={tag}
-                className="px-1.5 py-0.5 text-xs rounded-md bg-[var(--t-bg-elevated)] text-[var(--t-text-dim)] border border-[var(--t-border)]"
-              >
-                {tag}
-              </span>
-            ))}
+            {snippet.tags.slice(0, 5).map((tag) => <TagBadge key={tag} tag={tag} className="rounded-md" />)}
             {snippet.tags.length > 5 && (
               <span className="text-xs text-[var(--t-text-dim)]">+{snippet.tags.length - 5}</span>
             )}

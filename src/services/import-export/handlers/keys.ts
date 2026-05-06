@@ -46,6 +46,7 @@ export const keysHandler: DataTypeHandler = {
       _eid: ctx.keyEidMap.get(k.id),
       name: k.name,
       key_type: k.key_type,
+      tags: k.tags,
       private_key: await getSecret(`key:${k.id}:private`).catch(() => null) ?? undefined,
       public_key: await getSecret(`key:${k.id}:public`).catch(() => null) ?? undefined,
       _folder_eid: k.folder_id ? ctx.folderEidMap.get(k.folder_id) : undefined,
@@ -58,6 +59,7 @@ export const keysHandler: DataTypeHandler = {
       try {
         const saved = await ctx.stores.saveKey({
           name: key.name, key_type: key.key_type,
+          tags: key.tags ?? [],
           folder_id: key._folder_eid ? ctx.folderEidMap.get(key._folder_eid) : undefined,
           vault_id: ctx.vault_id,
         });

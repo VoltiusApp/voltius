@@ -8,6 +8,7 @@ import {
 } from "@/components/shared/Panel";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
+import { TagBadge } from "@/components/shared/TagBadge";
 import { useKeyStore } from "@/stores/keyStore";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
@@ -244,6 +245,8 @@ export interface KeyFormProps {
 
 export function KeyForm({ initial, onSubmit, onClose, onExport, onDelete, flushRef, isDirtyRef, vaults, canEdit, onMoveToVault, onCopyToVault }: KeyFormProps) {
   const [name, setName] = useState(initial?.name ?? "");
+  const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
+  const [tagInput, setTagInput] = useState("");
   const [privateKey, setPrivateKey] = useState("");
   const [publicKey, setPublicKey] = useState("");
   const [folderId, setFolderId] = useState<string | null>(initial?.folder_id ?? null);
@@ -281,7 +284,7 @@ export function KeyForm({ initial, onSubmit, onClose, onExport, onDelete, flushR
 
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
     onSave: () => onSubmit(
-      { name: name.trim() || `${keyInfo.type ?? "SSH Key"} · ${new Date().toLocaleDateString()}`, key_type: keyInfo.type ?? undefined, folder_id: folderId ?? undefined, vault_id: resolveVaultIdForSave(vaultId) },
+      { name: name.trim() || `${keyInfo.type ?? "SSH Key"} · ${new Date().toLocaleDateString()}`, key_type: keyInfo.type ?? undefined, tags, folder_id: folderId ?? undefined, vault_id: resolveVaultIdForSave(vaultId) },
       privateKeyDirty.current ? privateKey : null,
       publicKeyDirty.current ? publicKey : null,
     ) ?? undefined,
@@ -295,7 +298,7 @@ export function KeyForm({ initial, onSubmit, onClose, onExport, onDelete, flushR
   if (flushRef) flushRef.current = flush;
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, privateKey, publicKey, folderId, vaultId]);
+  useEffect(() => schedule(), [name, tags, privateKey, publicKey, folderId, vaultId]);
 
   const handleClose = () => flushAndClose(onClose);
 
@@ -340,6 +343,45 @@ export function KeyForm({ initial, onSubmit, onClose, onExport, onDelete, flushR
               value={name}
               onChange={(e) => { markDirty(); setName(e.target.value); }}
               placeholder={`${keyInfo.type ?? "SSH Key"} · ${new Date().toLocaleDateString()}`}
+            />
+          </div>
+          <div>
+            <label className={formLabelClass} style={formLabelStyle}>Tags</label>
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {tags.map((tag) => (
+                  <TagBadge key={tag} tag={tag} className="flex items-center gap-1 px-2 rounded-md font-medium">
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => { markDirty(); setTags((t) => t.filter((x) => x !== tag)); }}
+                      className="transition-opacity opacity-60 hover:opacity-100"
+                      aria-label={`Remove tag ${tag}`}
+                    >
+                      <Icon icon="lucide:x" width={10} />
+                    </button>
+                  </TagBadge>
+                ))}
+              </div>
+            )}
+            <input
+              className={formInputClass}
+              style={formInputStyle}
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.key === "Enter" || e.key === ",") && tagInput.trim()) {
+                  e.preventDefault();
+                  const newTag = tagInput.trim().replace(/,$/, "");
+                  if (newTag && !tags.includes(newTag)) {
+                    markDirty(); setTags((t) => [...t, newTag]);
+                  }
+                  setTagInput("");
+                } else if (e.key === "Backspace" && !tagInput && tags.length > 0) {
+                  markDirty(); setTags((t) => t.slice(0, -1));
+                }
+              }}
+              placeholder="Add tag, press Enter"
             />
           </div>
           {folders.length > 0 && (

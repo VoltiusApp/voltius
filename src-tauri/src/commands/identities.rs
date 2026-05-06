@@ -36,6 +36,7 @@ pub fn identity_save(data: IdentityFormData) -> Result<Identity, String> {
     clocks.insert("name".to_string(), now.clone());
     clocks.insert("username".to_string(), now.clone());
     clocks.insert("key_id".to_string(), now.clone());
+    clocks.insert("tags".to_string(), now.clone());
     clocks.insert("folder_id".to_string(), now.clone());
     clocks.insert("vault_id".to_string(), now.clone());
     let vault_id = data.vault_id.unwrap_or_else(|| "personal".to_string());
@@ -45,6 +46,7 @@ pub fn identity_save(data: IdentityFormData) -> Result<Identity, String> {
         name: data.name,
         username: data.username,
         key_id: data.key_id,
+        tags: data.tags,
         created_at: now.clone(),
         folder_id: data.folder_id,
         vault_id,
@@ -75,6 +77,9 @@ pub fn identity_update(id: String, data: IdentityFormData) -> Result<Identity, S
     if identity.key_id != data.key_id {
         identity.clocks.insert("key_id".to_string(), now.clone());
     }
+    if identity.tags != data.tags {
+        identity.clocks.insert("tags".to_string(), now.clone());
+    }
     if identity.folder_id != data.folder_id {
         identity.clocks.insert("folder_id".to_string(), now.clone());
     }
@@ -94,6 +99,7 @@ pub fn identity_update(id: String, data: IdentityFormData) -> Result<Identity, S
     identity.name = data.name;
     identity.username = data.username;
     identity.key_id = data.key_id;
+    identity.tags = data.tags;
     identity.folder_id = data.folder_id;
     identity.pinned = data.pinned;
     if let Some(vid) = data.vault_id {

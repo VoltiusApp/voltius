@@ -340,7 +340,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       async create(data, privateKey, publicKey) {
         requirePerm(manifest, "keys:write");
-        const key = await keyService.saveKey({ name: data.name, key_type: data.key_type });
+        const key = await keyService.saveKey({ name: data.name, key_type: data.key_type, tags: [] });
         await storeSecret(`key:${key.id}:private`, privateKey);
         if (publicKey) await storeSecret(`key:${key.id}:public`, publicKey);
         return key as PluginKey;
@@ -360,7 +360,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       async create(data) {
         requirePerm(manifest, "identities:write");
-        return identityService.saveIdentity(data) as Promise<PluginIdentity>;
+        return identityService.saveIdentity({ ...data, tags: [] }) as Promise<PluginIdentity>;
       },
       async delete(identityId) {
         requirePerm(manifest, "identities:write");

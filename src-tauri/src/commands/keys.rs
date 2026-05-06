@@ -35,6 +35,7 @@ pub fn key_save(data: SshKeyFormData) -> Result<SshKey, String> {
     let mut clocks = HashMap::new();
     clocks.insert("name".to_string(), now.clone());
     clocks.insert("key_type".to_string(), now.clone());
+    clocks.insert("tags".to_string(), now.clone());
     clocks.insert("folder_id".to_string(), now.clone());
     clocks.insert("vault_id".to_string(), now.clone());
     let vault_id = data.vault_id.unwrap_or_else(|| "personal".to_string());
@@ -43,6 +44,7 @@ pub fn key_save(data: SshKeyFormData) -> Result<SshKey, String> {
         id: Uuid::new_v4().to_string(),
         name: data.name,
         key_type: data.key_type,
+        tags: data.tags,
         created_at: now.clone(),
         folder_id: data.folder_id,
         vault_id,
@@ -70,6 +72,9 @@ pub fn key_update(id: String, data: SshKeyFormData) -> Result<SshKey, String> {
     if key.key_type != data.key_type {
         key.clocks.insert("key_type".to_string(), now.clone());
     }
+    if key.tags != data.tags {
+        key.clocks.insert("tags".to_string(), now.clone());
+    }
     if key.folder_id != data.folder_id {
         key.clocks.insert("folder_id".to_string(), now.clone());
     }
@@ -88,6 +93,7 @@ pub fn key_update(id: String, data: SshKeyFormData) -> Result<SshKey, String> {
 
     key.name = data.name;
     key.key_type = data.key_type;
+    key.tags = data.tags;
     key.folder_id = data.folder_id;
     key.pinned = data.pinned;
     if let Some(vid) = data.vault_id {

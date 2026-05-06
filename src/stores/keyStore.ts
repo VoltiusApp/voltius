@@ -75,6 +75,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
         id: crypto.randomUUID(),
         name: data.name,
         key_type: data.key_type,
+        tags: data.tags,
         folder_id: data.folder_id,
         vault_id: data.vault_id,
         pinned: data.pinned,
@@ -134,6 +135,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
         ...prev,
         name: data.name,
         key_type: data.key_type,
+        tags: data.tags,
         folder_id: data.folder_id,
         vault_id: data.vault_id ?? prev.vault_id,
         pinned: data.pinned,
@@ -149,6 +151,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
       void triggerTeamSave(teamId);
       const prevData: SshKeyFormData = {
         name: prev.name, key_type: prev.key_type,
+        tags: prev.tags,
         folder_id: prev.folder_id, vault_id: prev.vault_id,
       };
       useHistoryStore.getState().push({
@@ -168,6 +171,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
     if (prev) {
       const prevData: SshKeyFormData = {
         name: prev.name, key_type: prev.key_type,
+        tags: prev.tags,
         folder_id: prev.folder_id, vault_id: prev.vault_id,
       };
       useHistoryStore.getState().push({
@@ -199,6 +203,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
     if (!key) return;
     await api.updateKey(id, {
       name: key.name, key_type: key.key_type,
+      tags: key.tags,
       folder_id: key.folder_id, vault_id: key.vault_id, pinned,
     });
     const keys = await api.listKeys();
@@ -220,6 +225,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
       void triggerTeamSave(teamId);
       const prevData: SshKeyFormData = {
         name: prev.name, key_type: prev.key_type,
+        tags: prev.tags,
         folder_id: prev.folder_id, vault_id: prev.vault_id,
       };
       let recreatedId: string | null = null;
@@ -246,6 +252,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
     if (prev) {
       const prevData: SshKeyFormData = {
         name: prev.name, key_type: prev.key_type,
+        tags: prev.tags,
         folder_id: prev.folder_id, vault_id: prev.vault_id,
       };
       let recreatedId: string | null = null;

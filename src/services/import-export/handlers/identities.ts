@@ -52,6 +52,7 @@ export const identitiesHandler: DataTypeHandler = {
       _eid: ctx.identityEidMap.get(i.id),
       name: i.name,
       username: i.username,
+      tags: i.tags,
       _key_eid: i.key_id ? ctx.keyEidMap.get(i.key_id) : undefined,
       _folder_eid: i.folder_id ? ctx.folderEidMap.get(i.folder_id) : undefined,
     }));
@@ -66,6 +67,7 @@ export const identitiesHandler: DataTypeHandler = {
           name: identity.name,
           username: identity.username,
           key_id: identity._key_eid ? ctx.keyEidMap.get(identity._key_eid) : undefined,
+          tags: identity.tags ?? [],
           folder_id: identity._folder_eid ? ctx.folderEidMap.get(identity._folder_eid) : undefined,
           vault_id: ctx.vault_id,
         });

@@ -180,6 +180,8 @@ pub struct Identity {
     pub username: String,
     #[serde(default)]
     pub key_id: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
     pub created_at: String,
     #[serde(default)]
     pub folder_id: Option<String>,
@@ -200,6 +202,8 @@ pub struct IdentityFormData {
     #[serde(default)]
     pub key_id: Option<String>,
     #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
     pub folder_id: Option<String>,
     #[serde(default)]
     pub vault_id: Option<String>,
@@ -214,6 +218,8 @@ pub struct SshKey {
     pub name: Option<String>,
     #[serde(default)]
     pub key_type: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
     pub created_at: String,
     #[serde(default)]
     pub folder_id: Option<String>,
@@ -232,6 +238,8 @@ pub struct SshKeyFormData {
     pub name: Option<String>,
     #[serde(default)]
     pub key_type: Option<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
     #[serde(default)]
     pub folder_id: Option<String>,
     #[serde(default)]

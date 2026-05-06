@@ -27,6 +27,7 @@ export interface SshKey {
   id: string;
   name?: string;
   key_type?: string;
+  tags: string[];
   created_at: string;
   folder_id?: string;
   vault_id?: string;
@@ -39,6 +40,7 @@ export interface SshKey {
 export interface SshKeyFormData {
   name?: string;
   key_type?: string;
+  tags: string[];
   folder_id?: string;
   vault_id?: string;
   pinned?: boolean;
@@ -49,6 +51,7 @@ export interface Identity {
   name?: string;
   username: string;
   key_id?: string;
+  tags: string[];
   created_at: string;
   folder_id?: string;
   vault_id?: string;
@@ -62,6 +65,7 @@ export interface IdentityFormData {
   name?: string;
   username: string;
   key_id?: string;
+  tags: string[];
   folder_id?: string;
   vault_id?: string;
   pinned?: boolean;
@@ -255,4 +259,3 @@ export interface ActiveTunnel {
   state: TunnelState;
   bytes_transferred: number;
 }
-

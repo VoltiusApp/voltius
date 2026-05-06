@@ -16,6 +16,7 @@ import {
 } from "@/components/shared/Panel";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
+import { TagBadge } from "@/components/shared/TagBadge";
 import { useIdentityStore } from "@/stores/identityStore";
 import { KeyFileDropZone } from "./KeyForm";
 import { getDistroIcon, getDistroColor } from "@/utils/icons";
@@ -181,6 +182,8 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
   const { toggleExcluded, isObjectSynced } = useSyncPrefsStore();
   const isSynced = initial ? isObjectSynced(initial.id, "identity") : true;
   const [name, setName] = useState(initial?.name ?? "");
+  const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
+  const [tagInput, setTagInput] = useState("");
   const [username, setUsername] = useState(initial?.username ?? "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -249,7 +252,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
         ? { label: inlineKeyLabel || undefined, privateKey: inlinePrivKey, publicKey: inlinePublicKey }
         : undefined;
       return onSubmit(
-        { name: name.trim() || undefined, username, key_id: isInline ? undefined : (keyId ?? undefined), folder_id: folderId ?? undefined, vault_id: resolveVaultIdForSave(vaultId) },
+        { name: name.trim() || undefined, username, key_id: isInline ? undefined : (keyId ?? undefined), tags, folder_id: folderId ?? undefined, vault_id: resolveVaultIdForSave(vaultId) },
         passwordDirty.current ? password : null,
         keyMaterial,
       ) ?? undefined;
@@ -264,7 +267,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
   if (flushRef) flushRef.current = flush;
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, username, password, keyId, folderId, vaultId, inlineKeyLabel, inlinePrivKey, inlinePublicKey]);
+  useEffect(() => schedule(), [name, tags, username, password, keyId, folderId, vaultId, inlineKeyLabel, inlinePrivKey, inlinePublicKey]);
 
   const handleClose = () => flushAndClose(onClose);
 
@@ -306,6 +309,45 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
               value={name}
               onChange={(e) => { markDirty(); setName(e.target.value); }}
               placeholder="My Identity (optional)"
+            />
+          </div>
+          <div>
+            <label className={formLabelClass} style={formLabelStyle}>Tags</label>
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {tags.map((tag) => (
+                  <TagBadge key={tag} tag={tag} className="flex items-center gap-1 px-2 rounded-md font-medium">
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => { markDirty(); setTags((t) => t.filter((x) => x !== tag)); }}
+                      className="transition-opacity opacity-60 hover:opacity-100"
+                      aria-label={`Remove tag ${tag}`}
+                    >
+                      <Icon icon="lucide:x" width={10} />
+                    </button>
+                  </TagBadge>
+                ))}
+              </div>
+            )}
+            <input
+              className={formInputClass}
+              style={formInputStyle}
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.key === "Enter" || e.key === ",") && tagInput.trim()) {
+                  e.preventDefault();
+                  const newTag = tagInput.trim().replace(/,$/, "");
+                  if (newTag && !tags.includes(newTag)) {
+                    markDirty(); setTags((t) => [...t, newTag]);
+                  }
+                  setTagInput("");
+                } else if (e.key === "Backspace" && !tagInput && tags.length > 0) {
+                  markDirty(); setTags((t) => t.slice(0, -1));
+                }
+              }}
+              placeholder="Add tag, press Enter"
             />
           </div>
           {folders.length > 0 && (

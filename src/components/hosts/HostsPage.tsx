@@ -415,8 +415,8 @@ export default function HostsPage() {
       ],
       execute: async () => {
         try {
-          if (keyNeedsMove) await updateKey(key.id, { name: key.name, key_type: key.key_type, folder_id: key.folder_id, vault_id: vaultId });
-          if (identityNeedsMove) await useIdentityStore.getState().updateIdentity(identity.id, { name: identity.name, username: identity.username, key_id: identity.key_id, folder_id: identity.folder_id, vault_id: vaultId });
+          if (keyNeedsMove) await updateKey(key.id, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId });
+          if (identityNeedsMove) await useIdentityStore.getState().updateIdentity(identity.id, { name: identity.name, username: identity.username, key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId });
           await updateConnection(conn.id, {
             name: conn.name, host: conn.host, port: conn.port,
             username: conn.username, auth_type: conn.auth_type, tags: conn.tags,
@@ -447,7 +447,7 @@ export default function HostsPage() {
           let newIdentityId = conn.identity_id;
 
           if (keyNeedsCopy) {
-            const newKey = await useKeyStore.getState().saveKey({ name: key.name, key_type: key.key_type, vault_id: vaultId });
+            const newKey = await useKeyStore.getState().saveKey({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId });
             const [priv, pub] = await Promise.all([
               getSecret(`key:${key.id}:private`).catch(() => null),
               getSecret(`key:${key.id}:public`).catch(() => null),
@@ -458,7 +458,7 @@ export default function HostsPage() {
           }
 
           if (identityNeedsCopy) {
-            const newIdentity = await useIdentityStore.getState().saveIdentity({ name: identity.name, username: identity.username, key_id: newKeyId, vault_id: vaultId });
+            const newIdentity = await useIdentityStore.getState().saveIdentity({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId });
             const pwd = await getSecret(`identity:${identity.id}:password`).catch(() => null);
             if (pwd) await storeSecret(`identity:${newIdentity.id}:password`, pwd);
             newIdentityId = newIdentity.id;
@@ -542,10 +542,10 @@ export default function HostsPage() {
             await updateFolder(sf.id, { name: sf.name, object_type: sf.object_type, parent_folder_id: sf.parent_folder_id, vault_id: vaultId });
           }
           for (const key of keyMap.values()) {
-            await updateKey(key.id, { name: key.name, key_type: key.key_type, folder_id: key.folder_id, vault_id: vaultId });
+            await updateKey(key.id, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId });
           }
           for (const identity of identityMap.values()) {
-            await useIdentityStore.getState().updateIdentity(identity.id, { name: identity.name, username: identity.username, key_id: identity.key_id, folder_id: identity.folder_id, vault_id: vaultId });
+            await useIdentityStore.getState().updateIdentity(identity.id, { name: identity.name, username: identity.username, key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId });
           }
           for (const conn of allConns) {
             await updateConnection(conn.id, { name: conn.name, host: conn.host, port: conn.port, username: conn.username, auth_type: conn.auth_type, tags: conn.tags, identity_id: conn.identity_id, folder_id: conn.folder_id, vault_id: vaultId });
@@ -597,7 +597,7 @@ export default function HostsPage() {
           // Copy keys
           const keyIdMap = new Map<string, string>();
           for (const key of keyMap.values()) {
-            const newKey = await useKeyStore.getState().saveKey({ name: key.name, key_type: key.key_type, vault_id: vaultId });
+            const newKey = await useKeyStore.getState().saveKey({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId });
             const [priv, pub] = await Promise.all([
               getSecret(`key:${key.id}:private`).catch(() => null),
               getSecret(`key:${key.id}:public`).catch(() => null),
@@ -611,7 +611,7 @@ export default function HostsPage() {
           const identityIdMap = new Map<string, string>();
           for (const identity of identityMap.values()) {
             const newKeyId = identity.key_id ? (keyIdMap.get(identity.key_id) ?? identity.key_id) : undefined;
-            const newIdentity = await useIdentityStore.getState().saveIdentity({ name: identity.name, username: identity.username, key_id: newKeyId, vault_id: vaultId });
+            const newIdentity = await useIdentityStore.getState().saveIdentity({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId });
             const pwd = await getSecret(`identity:${identity.id}:password`).catch(() => null);
             if (pwd) await storeSecret(`identity:${newIdentity.id}:password`, pwd);
             identityIdMap.set(identity.id, newIdentity.id);

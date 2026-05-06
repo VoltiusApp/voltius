@@ -15,6 +15,7 @@ import IdentitySelector from "./IdentitySelector";
 import EncodingSelector from "./EncodingSelector";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
+import { TagBadge } from "@/components/shared/TagBadge";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
 import { VaultPicker } from "@/components/shared/VaultPicker";
@@ -219,10 +220,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
               {tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-2">
                   {tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-[var(--t-bg-elevated)] text-[var(--t-accent)] border border-[var(--t-border-hover)]"
-                    >
+                    <TagBadge key={tag} tag={tag} className="flex items-center gap-1 px-2 rounded-md font-medium">
                       {tag}
                       <button
                         type="button"
@@ -232,7 +230,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                       >
                         <Icon icon="lucide:x" width={10} />
                       </button>
-                    </span>
+                    </TagBadge>
                   ))}
                 </div>
               )}

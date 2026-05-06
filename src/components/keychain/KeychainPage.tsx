@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ErrorBanner } from "@/components/shared/ErrorBanner";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
-import { useConnectionStore } from "@/stores/connectionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useUIContributions } from "@/hooks/useUIContributions";
 
@@ -24,7 +23,6 @@ import { useFolderNavigation } from "@/hooks/useFolderNavigation";
 import { useFolderStore } from "@/stores/folderStore";
 import { useAllIdentities } from "@/hooks/useAllIdentities";
 import { useAllKeys } from "@/hooks/useAllKeys";
-import { useAllConnections } from "@/hooks/useAllConnections";
 import { useAllFolders } from "@/hooks/useAllFolders";
 import { FolderCard } from "@/components/folders/FolderCard";
 import { FolderEditPanel } from "@/components/folders/FolderEditPanel";
@@ -46,8 +44,6 @@ export default function KeychainPage() {
   const identities = useAllIdentities();
   const { loadKeys, saveKey, updateKey, deleteKey } = useKeyStore();
   const keys = useAllKeys();
-  const { loadConnections } = useConnectionStore();
-  const connections = useAllConnections();
   const { pending: cascadePending, request: requestCascade, confirm: confirmCascade, cancel: cancelCascade } = useVaultCascade();
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
   const bgContributions = useUIContributions("keychain.bgContextMenu");
@@ -115,8 +111,8 @@ export default function KeychainPage() {
   } = useFolderNavigation(scopedFolders);
 
   const availableTags = useMemo(
-    () => [...new Set(connections.flatMap((c) => c.tags))].sort(),
-    [connections],
+    () => [...new Set([...keys.flatMap((k) => k.tags), ...identities.flatMap((i) => i.tags)])].sort(),
+    [keys, identities],
   );
 
   const filteredKeys = useMemo(() =>
@@ -124,10 +120,11 @@ export default function KeychainPage() {
       const kvid = k.vault_id ?? "personal";
       if (accessibleVaultIds.length > 0 && !accessibleVaultIds.includes(kvid)) return false;
       if (q && !(k.name ?? "").toLowerCase().includes(q) && !(k.key_type ?? "").toLowerCase().includes(q)) return false;
+      if (tagFilter.length > 0 && !tagFilter.some((t) => k.tags.includes(t))) return false;
       if (activeFolderId) return k.folder_id === activeFolderId;
       return scopedFolders.length === 0 || !k.folder_id || !scopedFolderIds.has(k.folder_id);
     }), sortMode),
-    [keys, q, sortMode, activeFolderId, scopedFolders, scopedFolderIds, accessibleVaultIds],
+    [keys, q, sortMode, tagFilter, activeFolderId, scopedFolders, scopedFolderIds, accessibleVaultIds],
   );
   const filteredIdentities = useMemo(() =>
     sortByMode(
@@ -135,16 +132,13 @@ export default function KeychainPage() {
         const ivid = i.vault_id ?? "personal";
         if (accessibleVaultIds.length > 0 && !accessibleVaultIds.includes(ivid)) return false;
         if (q && !(i.name ?? "").toLowerCase().includes(q) && !i.username.toLowerCase().includes(q)) return false;
-        if (tagFilter.length > 0) {
-          const identityTags = new Set(connections.filter((c) => c.identity_id === i.id).flatMap((c) => c.tags));
-          if (!tagFilter.some((t) => identityTags.has(t))) return false;
-        }
+        if (tagFilter.length > 0 && !tagFilter.some((t) => i.tags.includes(t))) return false;
         if (activeFolderId) return i.folder_id === activeFolderId;
         return scopedFolders.length === 0 || !i.folder_id || !scopedFolderIds.has(i.folder_id);
       }),
       sortMode,
     ),
-    [identities, connections, q, sortMode, tagFilter, activeFolderId, scopedFolders, scopedFolderIds, accessibleVaultIds],
+    [identities, q, sortMode, tagFilter, activeFolderId, scopedFolders, scopedFolderIds, accessibleVaultIds],
   );
 
   const showPanel = showKeyForm || showKeyGenForm || showIdentityForm || exportingKey !== null;
@@ -311,9 +305,8 @@ export default function KeychainPage() {
   useEffect(() => {
     void loadKeys();
     void loadIdentities();
-    void loadConnections();
     void loadFolders();
-  }, [loadKeys, loadIdentities, loadConnections, loadFolders]);
+  }, [loadKeys, loadIdentities, loadFolders]);
 
   useEffect(() => {
     const handler = () => {
@@ -376,7 +369,7 @@ export default function KeychainPage() {
 
       if (inlineKeyMaterial?.privateKey) {
         const { label, privateKey, publicKey } = inlineKeyMaterial;
-        const keyData = { name: label || undefined, key_type: undefined };
+        const keyData = { name: label || undefined, key_type: undefined, tags: [] };
         if (inlineKeyIdRef.current) {
           await updateKey(inlineKeyIdRef.current, keyData);
           await storeSecret(`key:${inlineKeyIdRef.current}:private`, privateKey);
@@ -485,7 +478,7 @@ export default function KeychainPage() {
     label: string,
   ) => {
     try {
-      const key = await saveKey({ name: label || undefined, key_type: keyTypeLabel });
+      const key = await saveKey({ name: label || undefined, key_type: keyTypeLabel, tags: [] });
       await storeSecret(`key:${key.id}:private`, privateKey);
       if (publicKey) await storeSecret(`key:${key.id}:public`, publicKey);
       if (passphrase && savePassphrase) await storeSecret(`key:${key.id}:passphrase`, passphrase);
@@ -498,13 +491,13 @@ export default function KeychainPage() {
   };
 
   const handleMoveKeyToVault = async (key: SshKey, vaultId: string) => {
-    try { await updateKey(key.id, { vault_id: vaultId }); }
+    try { await updateKey(key.id, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId }); }
     catch (err) { setError(String(err)); }
   };
 
   const handleCopyKeyToVault = async (key: SshKey, vaultId: string) => {
     try {
-      const newKey = await saveKey({ name: key.name, key_type: key.key_type, vault_id: vaultId });
+      const newKey = await saveKey({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId });
       const [priv, pub] = await Promise.all([
         getSecret(`key:${key.id}:private`).catch(() => null),
         getSecret(`key:${key.id}:public`).catch(() => null),
@@ -525,10 +518,10 @@ export default function KeychainPage() {
       items: keyNeedsMove ? [{ type: "key" as const, label: key.name ?? "Unnamed key" }] : [],
       execute: async () => {
         try {
-          if (keyNeedsMove) await updateKey(key.id, { name: key.name, key_type: key.key_type, folder_id: key.folder_id, vault_id: vaultId });
+          if (keyNeedsMove) await updateKey(key.id, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId });
           await updateIdentity(identity.id, {
             name: identity.name, username: identity.username,
-            key_id: identity.key_id, folder_id: identity.folder_id, vault_id: vaultId,
+            key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId,
           });
         } catch (err) { setError(String(err)); }
       },
@@ -549,7 +542,7 @@ export default function KeychainPage() {
           let newKeyId = identity.key_id;
 
           if (keyNeedsCopy) {
-            const newKey = await saveKey({ name: key.name, key_type: key.key_type, vault_id: vaultId });
+            const newKey = await saveKey({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId });
             const [priv, pub] = await Promise.all([
               getSecret(`key:${key.id}:private`).catch(() => null),
               getSecret(`key:${key.id}:public`).catch(() => null),
@@ -559,7 +552,7 @@ export default function KeychainPage() {
             newKeyId = newKey.id;
           }
 
-          const newIdentity = await saveIdentity({ name: identity.name, username: identity.username, key_id: newKeyId, vault_id: vaultId });
+          const newIdentity = await saveIdentity({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId });
           const pwd = await getSecret(`identity:${identity.id}:password`).catch(() => null);
           if (pwd) await storeSecret(`identity:${newIdentity.id}:password`, pwd);
         } catch (err) { setError(String(err)); }
@@ -603,10 +596,10 @@ export default function KeychainPage() {
             await updateFolder(sf.id, { name: sf.name, object_type: sf.object_type, parent_folder_id: sf.parent_folder_id, vault_id: vaultId });
           }
           for (const key of treeKeys) {
-            await updateKey(key.id, { name: key.name, key_type: key.key_type, folder_id: key.folder_id, vault_id: vaultId });
+            await updateKey(key.id, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId });
           }
           for (const identity of treeIdentities) {
-            await useIdentityStore.getState().updateIdentity(identity.id, { name: identity.name, username: identity.username, key_id: identity.key_id, folder_id: identity.folder_id, vault_id: vaultId });
+            await useIdentityStore.getState().updateIdentity(identity.id, { name: identity.name, username: identity.username, key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId });
           }
         } catch (err) { setError(String(err)); }
       },
@@ -641,7 +634,7 @@ export default function KeychainPage() {
           }
           const keyIdMap = new Map<string, string>();
           for (const key of treeKeys) {
-            const newKey = await useKeyStore.getState().saveKey({ name: key.name, key_type: key.key_type, vault_id: vaultId });
+            const newKey = await useKeyStore.getState().saveKey({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId });
             const [priv, pub] = await Promise.all([
               getSecret(`key:${key.id}:private`).catch(() => null),
               getSecret(`key:${key.id}:public`).catch(() => null),
@@ -652,7 +645,7 @@ export default function KeychainPage() {
           }
           for (const identity of treeIdentities) {
             const newKeyId = identity.key_id ? (keyIdMap.get(identity.key_id) ?? identity.key_id) : undefined;
-            const newIdentity = await useIdentityStore.getState().saveIdentity({ name: identity.name, username: identity.username, key_id: newKeyId, vault_id: vaultId });
+            const newIdentity = await useIdentityStore.getState().saveIdentity({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId });
             const pwd = await getSecret(`identity:${identity.id}:password`).catch(() => null);
             if (pwd) await storeSecret(`identity:${newIdentity.id}:password`, pwd);
           }
@@ -925,7 +918,6 @@ export default function KeychainPage() {
                   <IdentitySection
                     identities={pinnedIdentities}
                     keys={keys}
-                    connections={connections}
                     label="Identities"
                     layoutMode={layoutMode}
                     showDraft={false}
@@ -969,7 +961,6 @@ export default function KeychainPage() {
             <IdentitySection
               identities={filteredIdentities}
               keys={keys}
-              connections={connections}
               layoutMode={layoutMode}
               showDraft={showIdentityForm && !editingIdentity}
               editingId={editingIdentity?.id ?? null}

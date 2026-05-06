@@ -18,6 +18,7 @@ export interface KeyExport {
   _eid?: string;
   name?: string;
   key_type?: string;
+  tags?: string[];
   private_key?: string;
   public_key?: string;
   _folder_eid?: string;
@@ -27,6 +28,7 @@ export interface IdentityExport {
   _eid?: string;
   name?: string;
   username: string;
+  tags?: string[];
   _key_eid?: string;    // → KeyExport._eid in the same bundle
   _folder_eid?: string;
 }
@@ -200,4 +202,3 @@ export function detectFormat(text: string): "json" | "csv" | null {
   if (firstLine.includes("host") || firstLine.includes("username") || firstLine.includes("user")) return "csv";
   return null;
 }
-
