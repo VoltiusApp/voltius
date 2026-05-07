@@ -7,17 +7,19 @@ interface Props {
   borderRadius?: string;
 }
 
-export default function LogoBadge({ size = 12, className = "", active = true, borderRadius = "0.75rem" }: Props) {
+export default function LogoBadge({ size = 12, className = "", active = true, borderRadius }: Props) {
   const px = size * 4;
+  const radius = borderRadius ?? `${size}px`;
+  const borderWidth = Math.max(1, Math.round(size / 6));
   return (
     <div
       className={`inline-flex items-center justify-center ${className}`}
       style={{
         width: px,
         height: px,
-        borderRadius,
+        borderRadius: radius,
         backgroundColor: "#010318",
-        border: "2px solid transparent",
+        border: `${borderWidth}px solid transparent`,
         backgroundImage: active
           ? "linear-gradient(#010318, #010318), linear-gradient(to right, #28A5F9, #E98757)"
           : "none",
