@@ -19,6 +19,7 @@ import { SnippetVariableModal } from "@/components/terminal/SnippetVariableModal
 import { PanelShell, PanelHeader, PanelHeaderIconButton } from "@/components/shared/Panel";
 import { SnippetForm } from "@/components/snippets/SnippetForm";
 import type { Snippet, SnippetFormData } from "@/types";
+import { shouldOpenSnippetTargetsInSplitTab } from "./hostSelection";
 
 interface PendingInject {
   snippet: Snippet;
@@ -35,7 +36,7 @@ interface Props {
 export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
   const snippets = useAllSnippets();
   const { loadSnippets, recentSnippetIds, trackUsed, createSnippet, updateSnippet } = useSnippetStore();
-  const { sessions, connectMany } = useSessionStore();
+  const { sessions, connectMany, setActive } = useSessionStore();
   const openSessions = useLayoutStore((s) => s.openSessions);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
   const connections = useAllConnections();
@@ -121,14 +122,19 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
 
       const newSessionIds = toConnect.length > 0 ? await connectMany(toConnect) : [];
       const allSessionIds = [...toInject.map((x) => x.sessionId), ...newSessionIds];
-      if (allSessionIds.length > 0) openSessions(allSessionIds);
+      if (shouldOpenSnippetTargetsInSplitTab(allSessionIds.length)) {
+        openSessions(allSessionIds);
+      } else if (allSessionIds.length === 1) {
+        setActive(allSessionIds[0]);
+        useLayoutStore.getState().setSplitTabActive(false);
+      }
       setActiveNav("terminal" as any);
       trackUsed(snippet.id);
       onClose();
     } catch (err) {
       setError(String(err));
     }
-  }, [connectionIds, connections, sessions, connectMany, openSessions, setActiveNav, trackUsed, onClose]);
+  }, [connectionIds, connections, sessions, connectMany, openSessions, setActive, setActiveNav, trackUsed, onClose]);
 
   const handleTrigger = useCallback((snippet: Snippet, execute: boolean) => {
     const vars = parseVariables(snippet.content);

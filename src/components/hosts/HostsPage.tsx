@@ -41,6 +41,7 @@ import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useAllFolders } from "@/hooks/useAllFolders";
 import { SnippetPickerPanel } from "./SnippetPickerPanel";
+import { shouldUseBulkHostContextMenu } from "./hostSelection";
 
 
 export default function HostsPage() {
@@ -78,6 +79,7 @@ export default function HostsPage() {
   const [confirmDeleteFolderId, setConfirmDeleteFolderId] = useState<string | null>(null);
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [showSnippetPicker, setShowSnippetPicker] = useState(false);
+  const [snippetConnectionIds, setSnippetConnectionIds] = useState<string[]>([]);
 
 
   useEffect(() => {
@@ -229,7 +231,7 @@ export default function HostsPage() {
       if (conn) void handleDuplicate(conn);
     },
     onEscape: () => {
-      if (showForm || showSerialForm || editingFolderId || showSnippetPicker) { setShowForm(false); setShowSerialForm(false); setEditingId(null); setEditingFolderId(null); setShowSnippetPicker(false); }
+      if (showForm || showSerialForm || editingFolderId || showSnippetPicker) { setShowForm(false); setShowSerialForm(false); setEditingId(null); setEditingFolderId(null); setShowSnippetPicker(false); setSnippetConnectionIds([]); }
       else setSelection([]);
     },
     onSearch: () => setOmniOpen(true),
@@ -323,6 +325,14 @@ export default function HostsPage() {
     }
   };
 
+  const openSnippetPicker = useCallback((connectionIds: string[]) => {
+    setSnippetConnectionIds(connectionIds);
+    setShowSnippetPicker(true);
+    setShowForm(false);
+    setShowSerialForm(false);
+    setEditingFolderId(null);
+  }, []);
+
   const excludedIds = useSyncPrefsStore((s) => s.excludedIds);
   const syncTypes = useSyncPrefsStore((s) => s.syncTypes);
 
@@ -356,8 +366,9 @@ export default function HostsPage() {
 
   const bulkContextMenuItems = useMemo<ContextMenuItem[] | undefined>(() => {
     if (selectedIdSet.size === 0) return undefined;
-    const ids = [...selectedIdSet];
     const selectedConns = selectedConnections;
+    const ids = selectedConns.map((c) => c.id);
+    if (ids.length === 0) return undefined;
     const { isObjectSynced } = useSyncPrefsStore.getState();
     const allSynced = selectedConns.every((c) => isObjectSynced(c.id, "connection"));
     const allCanEdit = selectedConns.every((c) => can("EDIT_CONNECTIONS", c.vault_id ?? "personal"));
@@ -365,7 +376,7 @@ export default function HostsPage() {
       {
         label: `Execute Snippet on ${ids.length} host${ids.length === 1 ? "" : "s"}`,
         icon: "lucide:braces",
-        onClick: () => { setShowSnippetPicker(true); setShowForm(false); setShowSerialForm(false); setEditingFolderId(null); },
+        onClick: () => openSnippetPicker(ids),
         divider: true,
       },
       ...(selectedConns.length > 1 ? [{
@@ -413,7 +424,7 @@ export default function HostsPage() {
         divider: true,
       },
     ];
-  }, [selectedIdSet, selectedConnections, excludedIds, syncTypes, handleDuplicate, can, updateConnection, handleBulkConnect]);
+  }, [selectedIdSet, selectedConnections, excludedIds, syncTypes, handleDuplicate, can, updateConnection, handleBulkConnect, openSnippetPicker]);
 
   const handleSubmit = async (data: ConnectionFormData, password: string | null, privateKey: string | null) => {
     try {
@@ -700,8 +711,8 @@ export default function HostsPage() {
         <>
           {showSnippetPicker && (
             <SnippetPickerPanel
-              connectionIds={selectedConnections.map((c) => c.id)}
-              onClose={() => setShowSnippetPicker(false)}
+              connectionIds={snippetConnectionIds}
+              onClose={() => { setShowSnippetPicker(false); setSnippetConnectionIds([]); }}
             />
           )}
           {!showSnippetPicker && editingFolder && (
@@ -804,6 +815,7 @@ export default function HostsPage() {
             setEditingId(null);
             setEditingFolderId(null);
             setShowSnippetPicker(false);
+            setSnippetConnectionIds([]);
           }}
           onContextMenu={(e) => {
             if ((e.target as Element).closest("[data-host-card],[data-folder-card]")) return;
@@ -971,10 +983,11 @@ export default function HostsPage() {
                           onConnect={handleConnect}
                           onEdit={(c) => { selectSingle(c.id); openEdit(c); }}
                           onDuplicate={handleDuplicate}
+                          onExecuteSnippet={(c) => openSnippetPicker([c.id])}
                           onDelete={deleteConnection}
                           onMoveToVault={handleMoveConnectionToVault}
                           onCopyToVault={handleCopyConnectionToVault}
-                          bulkContextMenuItems={bulkContextMenuItems}
+                          bulkContextMenuItems={shouldUseBulkHostContextMenu(selectedConnections.length) ? bulkContextMenuItems : undefined}
                           onDragStart={(e) => handleDragStart(e, conn.id)}
                           onDragEnd={handleDragEnd}
                         />
@@ -1042,10 +1055,11 @@ export default function HostsPage() {
                           onConnect={handleConnect}
                           onEdit={(c) => { selectSingle(c.id); openEdit(c); }}
                           onDuplicate={handleDuplicate}
+                          onExecuteSnippet={(c) => openSnippetPicker([c.id])}
                           onDelete={deleteConnection}
                           onMoveToVault={handleMoveConnectionToVault}
                           onCopyToVault={handleCopyConnectionToVault}
-                          bulkContextMenuItems={bulkContextMenuItems}
+                          bulkContextMenuItems={shouldUseBulkHostContextMenu(selectedConnections.length) ? bulkContextMenuItems : undefined}
                           onDragStart={(e) => handleDragStart(e, conn.id)}
                           onDragEnd={handleDragEnd}
                         />

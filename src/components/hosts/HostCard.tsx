@@ -28,6 +28,7 @@ interface Props {
   onConnect: (conn: Connection) => void;
   onEdit: (conn: Connection) => void;
   onDuplicate: (conn: Connection) => void;
+  onExecuteSnippet?: (conn: Connection) => void;
   onDelete: (id: string) => void;
   onMoveToVault?: (conn: Connection, vaultId: string) => void;
   onCopyToVault?: (conn: Connection, vaultId: string) => void;
@@ -46,7 +47,7 @@ function displayName(c: { name?: string; username?: string; host?: string; port?
 export default function HostCard({
   connection, isActive, isSelected, isEditing, isFocused, canEdit = true,
   vaults = [], layout = "grid",
-  onSelect, onConnect, onEdit, onDuplicate, onDelete,
+  onSelect, onConnect, onEdit, onDuplicate, onExecuteSnippet, onDelete,
   onMoveToVault, onCopyToVault,
   bulkContextMenuItems, onDragStart, onDragEnd,
 }: Props) {
@@ -64,6 +65,7 @@ export default function HostCard({
   const contextMenuItems: ContextMenuItem[] = [
     ...(canEdit ? [{ label: "Edit", icon: "lucide:square-pen", onClick: () => onEdit(connection), shortcut: "E" }] : []),
     ...(!isSerial ? [{ label: "Open in SFTP", icon: "lucide:folder-open", onClick: () => useUIStore.getState().openSftpWith(connection.id) }] : []),
+    ...(!isSerial && onExecuteSnippet ? [{ label: "Execute Snippet", icon: "lucide:braces", onClick: () => onExecuteSnippet(connection), divider: true }] : []),
     ...buildConnectionMenuItems({
       canEdit,
       contributions,
