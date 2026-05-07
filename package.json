@@ -1,6 +1,6 @@
 {
   "name": "voltius",
-  "version": "0.1.43",
+  "version": "0.1.44",
   "type": "module",
   "scripts": {
     "dev": "vite",
