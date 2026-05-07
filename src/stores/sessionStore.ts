@@ -1,12 +1,11 @@
 import { create } from "zustand";
 import type { Connection, TerminalSession, SerialConnectParams } from "@/types";
-import { sshConnect, sshDisconnect, sshDetectDistro, sshSendInput, type JumpHostConnect } from "@/services/ssh";
+import { sshConnect, sshDisconnect, sshDetectDistro, sshSendInput } from "@/services/ssh";
 import { localConnect, localDisconnect } from "@/services/local";
 import { serialConnect, serialDisconnect } from "@/services/serial";
-import { getSecret } from "@/services/vault";
+import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
 import { useConnectionStore } from "./connectionStore";
 import { useUIStore } from "./uiStore";
-import { useIdentityStore } from "./identityStore";
 import { useTerminalSettingsStore } from "./terminalSettingsStore";
 import { useLayoutStore } from "./layoutStore";
 
@@ -37,30 +36,6 @@ function findConnection(connectionId: string): Connection | undefined {
   return (
     connections.find((c) => c.id === connectionId) ??
     Object.values(teamConnections).flat().find((c) => c.id === connectionId)
-  );
-}
-
-async function resolveJumpHosts(connection: Connection): Promise<JumpHostConnect[]> {
-  if (!connection.jump_hosts?.length) return [];
-  const { identities, teamIdentities } = useIdentityStore.getState();
-  const allIdentities = [...identities, ...Object.values(teamIdentities).flat()];
-  return Promise.all(
-    connection.jump_hosts.map(async (jh) => {
-      if (jh.identity_id) {
-        const identity = allIdentities.find((i) => i.id === jh.identity_id);
-        if (identity) {
-          const pwd = (await getSecret(`identity:${jh.identity_id}:password`).catch(() => null)) ?? undefined;
-          const pk = identity.key_id
-            ? (await getSecret(`key:${identity.key_id}:private`).catch(() => null)) ?? undefined
-            : undefined;
-          return { host: jh.host, port: jh.port, username: identity.username, password: pwd, privateKey: pk };
-        }
-      }
-      // Use the referenced connection's own stored credentials
-      const pwd = (await getSecret(`password:${jh.connection_id}`).catch(() => null)) ?? undefined;
-      const pk = (await getSecret(`key:${jh.connection_id}`).catch(() => null)) ?? undefined;
-      return { host: jh.host, port: jh.port, username: jh.username, password: pwd, privateKey: pk };
-    })
   );
 }
 
@@ -216,36 +191,6 @@ function markSessionError(set: SessionSetter, sessionId: string, err: unknown) {
   }));
 }
 
-async function resolveConnectionCredentials(connection: Connection): Promise<{
-  connection: Connection;
-  password?: string;
-  privateKey?: string;
-}> {
-  if (connection.identity_id) {
-    const { identities, teamIdentities } = useIdentityStore.getState();
-    const identity =
-      identities.find((i) => i.id === connection.identity_id) ??
-      Object.values(teamIdentities).flat().find((i) => i.id === connection.identity_id);
-    if (identity) {
-      const password = (await getSecret(`identity:${connection.identity_id}:password`)) ?? undefined;
-      const privateKey = identity.key_id
-        ? (await getSecret(`key:${identity.key_id}:private`)) ?? undefined
-        : undefined;
-      return {
-        connection: { ...connection, username: identity.username, auth_type: privateKey ? "key" : "password" },
-        password,
-        privateKey,
-      };
-    }
-  }
-
-  return {
-    connection,
-    password: (await getSecret(`password:${connection.id}`)) ?? undefined,
-    privateKey: (await getSecret(`key:${connection.id}`)) ?? undefined,
-  };
-}
-
 function beginConnection(set: SessionSetter, connectionId: string): string {
   const connection = findConnection(connectionId);
   if (!connection) throw new Error("Connection not found");
@@ -260,7 +205,10 @@ function beginConnection(set: SessionSetter, connectionId: string): string {
 
   createSshSession(set, connection, sessionId);
   void resolveConnectionCredentials(connection)
-    .then((resolved) => connectSshSession(set, resolved.connection, sessionId, resolved.password, resolved.privateKey))
+    .then((credentials) => {
+      const resolvedConnection = { ...connection, username: credentials.username };
+      return connectSshSession(set, resolvedConnection, sessionId, credentials.password, credentials.privateKey);
+    })
     .catch((err) => markSessionError(set, sessionId, err));
 
   return sessionId;
@@ -281,29 +229,11 @@ async function connectConnection(
     return sessionId;
   }
 
-  let password: string | undefined;
-  let privateKey: string | undefined;
-  let sessionConnection = connection;
-
-  if (connection.identity_id) {
-    const { identities, teamIdentities } = useIdentityStore.getState();
-    const identity =
-      identities.find((i) => i.id === connection.identity_id) ??
-      Object.values(teamIdentities).flat().find((i) => i.id === connection.identity_id);
-    if (identity) {
-      password = (await getSecret(`identity:${connection.identity_id}:password`)) ?? undefined;
-      if (identity.key_id) {
-        privateKey = (await getSecret(`key:${identity.key_id}:private`)) ?? undefined;
-      }
-      sessionConnection = { ...connection, username: identity.username, auth_type: privateKey ? "key" : "password" };
-    }
-  } else {
-    password = (await getSecret(`password:${connectionId}`)) ?? undefined;
-    privateKey = (await getSecret(`key:${connectionId}`)) ?? undefined;
-  }
+  const credentials = await resolveConnectionCredentials(connection);
+  const sessionConnection = { ...connection, username: credentials.username };
 
   try {
-    await startSession(set, sessionConnection, sessionId, password, privateKey);
+    await startSession(set, sessionConnection, sessionId, credentials.password, credentials.privateKey);
   } catch (err) {
     if (!options.keepFailedSession) throw err;
   }
@@ -544,25 +474,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }));
 
     try {
-      let password: string | undefined;
-      let privateKey: string | undefined;
-      let username = connection.username;
+      const credentials = await resolveConnectionCredentials(connection);
 
-      if (connection.identity_id) {
-        const identity = useIdentityStore.getState().identities.find((i) => i.id === connection.identity_id);
-        if (identity) {
-          username = identity.username;
-          password = (await getSecret(`identity:${connection.identity_id}:password`)) ?? undefined;
-          if (identity.key_id) {
-            privateKey = (await getSecret(`key:${identity.key_id}:private`)) ?? undefined;
-          }
-        }
-      } else {
-        password = (await getSecret(`password:${connection.id}`)) ?? undefined;
-        privateKey = (await getSecret(`key:${connection.id}`)) ?? undefined;
-      }
-
-      await sshConnect({ sessionId, host: connection.host, port: connection.port, username, password, privateKey, connectionId: connection.id });
+      await sshConnect({ sessionId, host: connection.host, port: connection.port, username: credentials.username, password: credentials.password, privateKey: credentials.privateKey, connectionId: connection.id });
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
