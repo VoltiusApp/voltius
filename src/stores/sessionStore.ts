@@ -14,6 +14,7 @@ interface SessionStore {
   sessions: TerminalSession[];
   activeSessionId: string | null;
   connect: (connectionId: string) => Promise<void>;
+  connectMany: (connectionIds: string[]) => Promise<string[]>;
   connectDirect: (connection: Connection) => Promise<void>;
   connectLocal: () => Promise<void>;
   connectLocalAt: (cwd: string) => Promise<void>;
@@ -27,6 +28,16 @@ interface SessionStore {
   markDisconnected: (sessionId: string) => void;
   removeSession: (sessionId: string) => void;
   reconnect: (sessionId: string) => Promise<void>;
+}
+
+type SessionSetter = (fn: (s: { sessions: TerminalSession[]; activeSessionId: string | null }) => Partial<SessionStore>) => void;
+
+function findConnection(connectionId: string): Connection | undefined {
+  const { connections, teamConnections } = useConnectionStore.getState();
+  return (
+    connections.find((c) => c.id === connectionId) ??
+    Object.values(teamConnections).flat().find((c) => c.id === connectionId)
+  );
 }
 
 async function resolveJumpHosts(connection: Connection): Promise<JumpHostConnect[]> {
@@ -54,11 +65,20 @@ async function resolveJumpHosts(connection: Connection): Promise<JumpHostConnect
 }
 
 async function startSession(
-  set: (fn: (s: { sessions: TerminalSession[]; activeSessionId: string | null }) => Partial<SessionStore>) => void,
+  set: SessionSetter,
   connection: Connection,
   sessionId: string,
   password?: string,
   privateKey?: string,
+) {
+  createSshSession(set, connection, sessionId);
+  await connectSshSession(set, connection, sessionId, password, privateKey);
+}
+
+function createSshSession(
+  set: SessionSetter,
+  connection: Connection,
+  sessionId: string,
 ) {
   const session: TerminalSession = {
     id: sessionId,
@@ -71,7 +91,15 @@ async function startSession(
 
   set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
   useLayoutStore.getState().setSplitTabActive(false);
+}
 
+async function connectSshSession(
+  set: SessionSetter,
+  connection: Connection,
+  sessionId: string,
+  password?: string,
+  privateKey?: string,
+) {
   const jumpHosts = await resolveJumpHosts(connection);
 
   const envVars = connection.env_vars?.map((e): [string, string] => [e.key, e.value]) ?? [];
@@ -116,47 +144,185 @@ async function startSession(
   }
 }
 
+async function startSerialSession(
+  set: SessionSetter,
+  connection: Connection,
+  sessionId: string,
+) {
+  const serialParams = createSerialSession(set, connection, sessionId);
+  await connectSerialSession(set, connection, sessionId, serialParams);
+}
+
+function createSerialSession(
+  set: SessionSetter,
+  connection: Connection,
+  sessionId: string,
+) {
+  const serialParams: SerialConnectParams = {
+    sessionId,
+    port: connection.serial_port ?? "",
+    baud: connection.serial_baud ?? 115200,
+    dataBits: connection.serial_data_bits,
+    parity: connection.serial_parity,
+    stopBits: connection.serial_stop_bits,
+    flowControl: connection.serial_flow_control,
+  };
+
+  const session: TerminalSession = {
+    id: sessionId,
+    connectionId: connection.id,
+    connectionName: connection.name?.trim() || connection.serial_port || "Serial",
+    status: "connecting",
+    type: "serial",
+    serialConfig: serialParams,
+  };
+
+  set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
+  useLayoutStore.getState().setSplitTabActive(false);
+
+  return serialParams;
+}
+
+async function connectSerialSession(
+  set: SessionSetter,
+  connection: Connection,
+  sessionId: string,
+  serialParams: SerialConnectParams,
+) {
+  try {
+    await serialConnect(serialParams);
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
+      ),
+    }));
+    useConnectionStore.getState().setLastUsed(connection.id).catch(() => {});
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
+      ),
+    }));
+  }
+}
+
+function markSessionError(set: SessionSetter, sessionId: string, err: unknown) {
+  const msg = err instanceof Error ? err.message : String(err);
+  set((s) => ({
+    sessions: s.sessions.map((sess) =>
+      sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
+    ),
+  }));
+}
+
+async function resolveConnectionCredentials(connection: Connection): Promise<{
+  connection: Connection;
+  password?: string;
+  privateKey?: string;
+}> {
+  if (connection.identity_id) {
+    const { identities, teamIdentities } = useIdentityStore.getState();
+    const identity =
+      identities.find((i) => i.id === connection.identity_id) ??
+      Object.values(teamIdentities).flat().find((i) => i.id === connection.identity_id);
+    if (identity) {
+      const password = (await getSecret(`identity:${connection.identity_id}:password`)) ?? undefined;
+      const privateKey = identity.key_id
+        ? (await getSecret(`key:${identity.key_id}:private`)) ?? undefined
+        : undefined;
+      return {
+        connection: { ...connection, username: identity.username, auth_type: privateKey ? "key" : "password" },
+        password,
+        privateKey,
+      };
+    }
+  }
+
+  return {
+    connection,
+    password: (await getSecret(`password:${connection.id}`)) ?? undefined,
+    privateKey: (await getSecret(`key:${connection.id}`)) ?? undefined,
+  };
+}
+
+function beginConnection(set: SessionSetter, connectionId: string): string {
+  const connection = findConnection(connectionId);
+  if (!connection) throw new Error("Connection not found");
+
+  const sessionId = crypto.randomUUID();
+
+  if (connection.connection_type === "serial") {
+    const serialParams = createSerialSession(set, connection, sessionId);
+    void connectSerialSession(set, connection, sessionId, serialParams);
+    return sessionId;
+  }
+
+  createSshSession(set, connection, sessionId);
+  void resolveConnectionCredentials(connection)
+    .then((resolved) => connectSshSession(set, resolved.connection, sessionId, resolved.password, resolved.privateKey))
+    .catch((err) => markSessionError(set, sessionId, err));
+
+  return sessionId;
+}
+
+async function connectConnection(
+  set: SessionSetter,
+  connectionId: string,
+  options: { keepFailedSession?: boolean } = {},
+): Promise<string> {
+  const connection = findConnection(connectionId);
+  if (!connection) throw new Error("Connection not found");
+
+  const sessionId = crypto.randomUUID();
+
+  if (connection.connection_type === "serial") {
+    await startSerialSession(set, connection, sessionId);
+    return sessionId;
+  }
+
+  let password: string | undefined;
+  let privateKey: string | undefined;
+  let sessionConnection = connection;
+
+  if (connection.identity_id) {
+    const { identities, teamIdentities } = useIdentityStore.getState();
+    const identity =
+      identities.find((i) => i.id === connection.identity_id) ??
+      Object.values(teamIdentities).flat().find((i) => i.id === connection.identity_id);
+    if (identity) {
+      password = (await getSecret(`identity:${connection.identity_id}:password`)) ?? undefined;
+      if (identity.key_id) {
+        privateKey = (await getSecret(`key:${identity.key_id}:private`)) ?? undefined;
+      }
+      sessionConnection = { ...connection, username: identity.username, auth_type: privateKey ? "key" : "password" };
+    }
+  } else {
+    password = (await getSecret(`password:${connectionId}`)) ?? undefined;
+    privateKey = (await getSecret(`key:${connectionId}`)) ?? undefined;
+  }
+
+  try {
+    await startSession(set, sessionConnection, sessionId, password, privateKey);
+  } catch (err) {
+    if (!options.keepFailedSession) throw err;
+  }
+  return sessionId;
+}
+
 export const useSessionStore = create<SessionStore>((set, get) => ({
   sessions: [],
   activeSessionId: null,
 
   connect: async (connectionId) => {
-    const { connections, teamConnections } = useConnectionStore.getState();
-    const connection =
-      connections.find((c) => c.id === connectionId) ??
-      Object.values(teamConnections).flat().find((c) => c.id === connectionId);
-    if (!connection) throw new Error("Connection not found");
+    await connectConnection(set as SessionSetter, connectionId);
+  },
 
-    // Dispatch to serial connect if this is a serial connection
-    if (connection.connection_type === "serial") {
-      await get().connectSerial(connectionId);
-      return;
-    }
-
-    const sessionId = crypto.randomUUID();
-    let password: string | undefined;
-    let privateKey: string | undefined;
-
-    if (connection.identity_id) {
-      const { identities, teamIdentities } = useIdentityStore.getState();
-      const identity =
-        identities.find((i) => i.id === connection.identity_id) ??
-        Object.values(teamIdentities).flat().find((i) => i.id === connection.identity_id);
-      if (identity) {
-        password = (await getSecret(`identity:${connection.identity_id}:password`)) ?? undefined;
-        if (identity.key_id) {
-          privateKey = (await getSecret(`key:${identity.key_id}:private`)) ?? undefined;
-        }
-        const authType = privateKey ? "key" : "password";
-        await startSession(set as any, { ...connection, username: identity.username, auth_type: authType }, sessionId, password, privateKey);
-        return;
-      }
-    }
-
-    password = (await getSecret(`password:${connectionId}`)) ?? undefined;
-    privateKey = (await getSecret(`key:${connectionId}`)) ?? undefined;
-
-    await startSession(set as any, connection, sessionId, password, privateKey);
+  connectMany: async (connectionIds) => {
+    const uniqueIds = [...new Set(connectionIds)];
+    const sessionIds = uniqueIds.map((id) => beginConnection(set as SessionSetter, id));
+    if (sessionIds.length === 0) throw new Error("No connections selected");
+    return sessionIds;
   },
 
   connectDirect: async (connection) => {
@@ -239,53 +405,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   connectSerial: async (connectionId) => {
-    const { connections, teamConnections } = useConnectionStore.getState();
-    const connection =
-      connections.find((c) => c.id === connectionId) ??
-      Object.values(teamConnections).flat().find((c) => c.id === connectionId);
+    const connection = findConnection(connectionId);
     if (!connection) throw new Error("Connection not found");
 
     const sessionId = crypto.randomUUID();
-    const serialParams: SerialConnectParams = {
-      sessionId,
-      port: connection.serial_port ?? "",
-      baud: connection.serial_baud ?? 115200,
-      dataBits: connection.serial_data_bits,
-      parity: connection.serial_parity,
-      stopBits: connection.serial_stop_bits,
-      flowControl: connection.serial_flow_control,
-    };
-
-    const session: TerminalSession = {
-      id: sessionId,
-      connectionId: connection.id,
-      connectionName: connection.name?.trim() || connection.serial_port || "Serial",
-      status: "connecting",
-      type: "serial",
-      serialConfig: serialParams,
-    };
-
-    set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
-    useLayoutStore.getState().setSplitTabActive(false);
+    await startSerialSession(set as SessionSetter, connection, sessionId);
     useUIStore.getState().setActiveNav("terminal" as any);
     useUIStore.getState().setSidebarOpen(false);
-
-    try {
-      await serialConnect(serialParams);
-      set((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
-        ),
-      }));
-      useConnectionStore.getState().setLastUsed(connection.id).catch(() => {});
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      set((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
-        ),
-      }));
-    }
   },
 
   connectSerialEphemeral: async () => {

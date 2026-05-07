@@ -38,6 +38,7 @@ interface LayoutStore {
   setActivePane(paneId: string): void;
   setMaximized(paneId: string | null): void;
   toggleBroadcast(): void;
+  openSessions(sessionIds: string[]): void;
 }
 
 const clampRatio = (ratio: number) => Math.max(0.1, Math.min(0.9, ratio));
@@ -93,6 +94,25 @@ function splitLeaf(target: LeafNode, leaf: LeafNode, position: SplitPosition): S
     ratio: 0.5,
     first: incomingFirst ? leaf : target,
     second: incomingFirst ? target : leaf,
+  };
+}
+
+function buildBalancedTree(leaves: LeafNode[]): PaneNode | null {
+  if (leaves.length === 0) return null;
+  if (leaves.length === 1) return leaves[0];
+
+  const mid = Math.ceil(leaves.length / 2);
+  const first = buildBalancedTree(leaves.slice(0, mid));
+  const second = buildBalancedTree(leaves.slice(mid));
+  if (!first || !second) return first ?? second;
+
+  return {
+    type: "split",
+    id: newSplitId(),
+    direction: leaves.length <= 2 ? "h" : "v",
+    ratio: 0.5,
+    first,
+    second,
   };
 }
 
@@ -274,4 +294,19 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
   setMaximized: (paneId) => set({ maximizedPaneId: paneId }),
 
   toggleBroadcast: () => set((state) => ({ broadcastActive: !state.broadcastActive })),
+
+  openSessions: (sessionIds) => {
+    const uniqueIds = [...new Set(sessionIds)].filter(Boolean);
+    set(() => {
+      const leaves = uniqueIds.map((sessionId): LeafNode => ({ type: "leaf", id: newPaneId(), sessionId }));
+      const root = buildBalancedTree(leaves);
+      const activeLeaf = leaves[leaves.length - 1] ?? null;
+      return {
+        root,
+        activePaneId: activeLeaf?.id ?? null,
+        maximizedPaneId: null,
+        splitTabActive: root !== null,
+      };
+    });
+  },
 }));

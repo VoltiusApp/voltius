@@ -4,7 +4,7 @@ import { Icon } from "@iconify/react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useLayoutStore, findLeafBySession } from "@/stores/layoutStore";
+import { useLayoutStore } from "@/stores/layoutStore";
 import { matchesSearch } from "@/utils/connectionFilter";
 import { ConnectionAvatar } from "./ConnectionAvatar";
 import { HostRow } from "./HostPickerPanel";
@@ -74,19 +74,9 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
     // Inject into already-connected sessions immediately
     onConfirm(sessionIds);
 
-    // Connect new connections sequentially and collect their session IDs.
-    // Pane setup runs AFTER all connects so that startSession's setSplitTabActive(false)
-    // has already fired before we call openSplitTab.
-    const newSessionIds: string[] = [];
-    for (const conn of pickedConnections) {
-      try {
-        await useSessionStore.getState().connect(conn.id);
-        const id = useSessionStore.getState().activeSessionId;
-        if (id) newSessionIds.push(id);
-      } catch {
-        // connection failed — skip
-      }
-    }
+    const newSessionIds = pickedConnections.length > 0
+      ? await useSessionStore.getState().connectMany(pickedConnections.map((conn) => conn.id)).catch(() => [])
+      : [];
 
     const allSessionIds = [...sessionIds, ...newSessionIds];
 
@@ -97,9 +87,7 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
         useSessionStore.getState().setActive(allSessionIds[0]);
       } else {
         const layout = useLayoutStore.getState();
-        allSessionIds.forEach((id) => layout.openSplitTab(id));
-        const firstPane = findLeafBySession(useLayoutStore.getState().root, allSessionIds[0]);
-        if (firstPane) layout.setActivePane(firstPane.id);
+        layout.openSessions(allSessionIds);
         useSessionStore.getState().setActive(allSessionIds[0]);
       }
     }

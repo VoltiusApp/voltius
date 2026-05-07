@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { matchesSearch, compareConnections } from "@/utils/connectionFilter";
 import { ErrorBanner } from "@/components/shared/ErrorBanner";
 import { Icon } from "@iconify/react";
@@ -6,6 +6,7 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useLayoutStore } from "@/stores/layoutStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { storeSecret, deleteSecret, getSecret } from "@/services/vault";
@@ -48,7 +49,7 @@ export default function HostsPage() {
   const { identities } = useIdentityStore();
   const { keys, updateKey } = useKeyStore();
   const { pending: cascadePending, request: requestCascade, confirm: confirmCascade, cancel: cancelCascade } = useVaultCascade();
-  const { connect, connectLocal, connectSerialEphemeral, sessions } = useSessionStore();
+  const { connect, connectMany, connectLocal, connectSerialEphemeral, sessions } = useSessionStore();
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
   const bgContributions = useUIContributions("home.bgContextMenu");
   const { pos: bgMenuPos, open: openBgMenu, close: closeBgMenu } = useContextMenu();
@@ -59,6 +60,7 @@ export default function HostsPage() {
   const setSortMode = useUIStore((s) => s.setHomeSortMode);
   const homePendingAction = useUIStore((s) => s.homePendingAction);
   const setHomePendingAction = useUIStore((s) => s.setHomePendingAction);
+  const openSessions = useLayoutStore((s) => s.openSessions);
   const { loadFolders, saveFolder, updateFolder, deleteFolder, moveObjectsToFolder, moveFolder } = useFolderStore();
   const folders = useAllFolders();
   const [search, setSearch] = useState("");
@@ -198,6 +200,11 @@ export default function HostsPage() {
     setSelection,
   } = useDragSelection(filteredIds);
 
+  const selectedConnections = useMemo(
+    () => filtered.filter((c) => selectedIdSet.has(c.id)),
+    [filtered, selectedIdSet],
+  );
+
   const { focusedId, setFocusedId } = useListKeyNav({
     orderedIds: filteredIds,
     selectedIdSet,
@@ -317,14 +324,48 @@ export default function HostsPage() {
   const excludedIds = useSyncPrefsStore((s) => s.excludedIds);
   const syncTypes = useSyncPrefsStore((s) => s.syncTypes);
 
+  const handleBulkConnect = useCallback(async (conns: Connection[]) => {
+    const connectionIds = conns.map((c) => c.id);
+    if (connectionIds.length === 0) return;
+    setError(null);
+    setActiveNav("terminal" as any);
+    try {
+      const sessionIds = await connectMany(connectionIds);
+      if (sessionIds.length > 0) openSessions(sessionIds);
+    } catch (err) {
+      setError(String(err));
+    }
+  }, [connectMany, openSessions, setActiveNav]);
+
+  const handleConnect = useCallback(async (conn: Connection) => {
+    if (selectedIdSet.size > 1 && selectedIdSet.has(conn.id) && selectedConnections.length > 1) {
+      await handleBulkConnect(selectedConnections);
+      return;
+    }
+
+    setError(null);
+    setActiveNav("terminal" as any);
+    try {
+      await connect(conn.id);
+    } catch {
+      // Error is shown in ConnectionOverlay
+    }
+  }, [connect, handleBulkConnect, selectedConnections, selectedIdSet, setActiveNav]);
+
   const bulkContextMenuItems = useMemo<ContextMenuItem[] | undefined>(() => {
     if (selectedIdSet.size <= 1) return undefined;
     const ids = [...selectedIdSet];
-    const selectedConns = filtered.filter((c) => selectedIdSet.has(c.id));
+    const selectedConns = selectedConnections;
     const { isObjectSynced } = useSyncPrefsStore.getState();
     const allSynced = selectedConns.every((c) => isObjectSynced(c.id, "connection"));
     const allCanEdit = selectedConns.every((c) => can("EDIT_CONNECTIONS", c.vault_id ?? "personal"));
     return [
+      ...(selectedConns.length > 1 ? [{
+        label: `Connect ${selectedConns.length} hosts`,
+        icon: "lucide:terminal",
+        onClick: () => { void handleBulkConnect(selectedConns); },
+        divider: true,
+      }] : []),
       ...(allCanEdit ? [{
         label: `Duplicate ${ids.length} hosts`,
         icon: "lucide:copy",
@@ -364,17 +405,7 @@ export default function HostsPage() {
         divider: true,
       },
     ];
-  }, [selectedIdSet, filtered, excludedIds, syncTypes, handleDuplicate, can, updateConnection]);
-
-  const handleConnect = async (conn: Connection) => {
-    setError(null);
-    setActiveNav("terminal" as any);
-    try {
-      await connect(conn.id);
-    } catch {
-      // Error is shown in ConnectionOverlay
-    }
-  };
+  }, [selectedIdSet, selectedConnections, excludedIds, syncTypes, handleDuplicate, can, updateConnection, handleBulkConnect]);
 
   const handleSubmit = async (data: ConnectionFormData, password: string | null, privateKey: string | null) => {
     try {
