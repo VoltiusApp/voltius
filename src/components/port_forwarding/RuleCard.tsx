@@ -77,8 +77,8 @@ export function RuleCard({
       bulkContextMenuItems={bulkContextMenuItems}
       contextMenuItems={contextMenuItems}
     >
-      <div className="flex items-center justify-center shrink-0 w-7 h-7 rounded-lg bg-[var(--t-bg-elevated)]">
-        <Icon icon="lucide:network" width={15} className="text-[var(--t-text-secondary)]" />
+      <div className="flex items-center justify-center shrink-0 w-7 h-7 rounded-lg bg-[var(--t-bg-card-avatar)]">
+        <Icon icon="lucide:network" width={15} />
       </div>
 
       {isList ? (

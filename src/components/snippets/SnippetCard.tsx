@@ -15,6 +15,7 @@ interface Props {
   isFocused?: boolean;
   canInject: boolean;
   dimmed?: boolean;
+  layout?: "grid" | "list";
   onEdit: () => void;
   onSelect?: (id: string, e: React.MouseEvent<HTMLDivElement>) => void;
   onInsert: () => void;
@@ -41,6 +42,7 @@ export function SnippetCard({
   isFocused,
   canInject,
   dimmed,
+  layout = "list",
   onEdit,
   onSelect,
   onInsert,
@@ -58,6 +60,7 @@ export function SnippetCard({
   onDragStart,
   onDragEnd,
 }: Props) {
+  const isList = layout === "list";
   const pinSnippet = useSnippetStore((s) => s.pinSnippet);
   const folder = folders.find((f) => f.id === snippet.folder_id);
 
@@ -79,6 +82,55 @@ export function SnippetCard({
     { label: "Delete",    icon: "lucide:trash-2", onClick: onDelete, danger: true as const, divider: true as const, shortcut: getShortcutHint("delete") },
   ];
 
+  if (!isList) {
+    return (
+      <BaseCard
+        isList={false}
+        isEditing={isEditing}
+        isSelected={isSelected}
+        isFocused={isFocused}
+        data-selectable-id={snippet.id}
+        data-card={snippet.id}
+        draggable={!!onDragStart}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        onClick={(e) => {
+          if (onSelect) onSelect(snippet.id, e);
+          else onEdit();
+        }}
+        contextMenuItems={contextMenuItems}
+        bulkContextMenuItems={bulkContextMenuItems}
+        style={{ opacity: dimmed ? 0.45 : 1 }}
+        className="flex-col gap-2"
+      >
+        <div className="flex items-center justify-between w-full">
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-card-avatar)]">
+            <Icon icon="lucide:braces" width={18} />
+          </div>
+          {snippet.favorite && (
+            <Icon icon="lucide:star" width={12} className="shrink-0 text-[var(--t-accent)]" />
+          )}
+        </div>
+        <div className="w-full min-w-0 flex flex-col gap-1">
+          <span className="text-sm font-semibold text-[var(--t-text-primary)] truncate">
+            {snippet.name}
+          </span>
+          <p className="text-xs font-mono text-[var(--t-text-muted)] truncate">
+            {snippet.content}
+          </p>
+          {snippet.tags.length > 0 && (
+            <div className="flex items-center gap-1 flex-wrap">
+              {snippet.tags.slice(0, 3).map((tag) => <TagBadge key={tag} tag={tag} className="rounded-md" />)}
+              {snippet.tags.length > 3 && (
+                <span className="text-xs text-[var(--t-text-dim)]">+{snippet.tags.length - 3}</span>
+              )}
+            </div>
+          )}
+        </div>
+      </BaseCard>
+    );
+  }
+
   return (
     <BaseCard
       isList
@@ -99,8 +151,8 @@ export function SnippetCard({
       style={{ opacity: dimmed ? 0.45 : 1 }}
     >
       {/* Icon */}
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-elevated)] border border-[var(--t-border)]">
-        <Icon icon="lucide:braces" width={14} className="text-[var(--t-accent)]" />
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-card-avatar)]">
+        <Icon icon="lucide:braces" width={14} />
       </div>
 
       {/* Body */}
@@ -142,7 +194,7 @@ export function SnippetCard({
           onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-accent)")}
           onMouseLeave={(e) => (e.currentTarget.style.color = snippet.favorite ? "var(--t-accent)" : "var(--t-text-secondary)")}
         >
-          <Icon icon={snippet.favorite ? "lucide:star" : "lucide:star"} width={16} />
+          <Icon icon="lucide:star" width={16} />
         </button>
 
         {canInject && (

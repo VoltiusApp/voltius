@@ -151,6 +151,8 @@ export function SnippetsPage() {
   const { sessions, activeSessionId } = useSessionStore();
   const connections = useAllConnections();
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
+  const layoutMode = useUIStore((s) => s.snippetsLayoutMode);
+  const setLayoutMode = useUIStore((s) => s.setSnippetsLayoutMode);
 
   // Vault & permissions
   const vaults = useVaultStore((s) => s.vaults);
@@ -568,6 +570,7 @@ export function SnippetsPage() {
         isFocused={focusedId === s.id}
         canInject={canInject}
         dimmed={!isContextuallyRelevant(s, activeConn)}
+        layout={layoutMode}
         onEdit={() => openSnippet(s)}
         onSelect={(id, e) => {
           handleItemSelect(id, e);
@@ -629,6 +632,8 @@ export function SnippetsPage() {
         onSearchChange={setSearch}
         sortMode={sortMode}
         onSortModeChange={setSortMode}
+        layoutMode={layoutMode}
+        onLayoutModeChange={setLayoutMode}
         onNewSnippet={() => openSnippet("new")}
         onNewFolder={() => void handleCreateFolder()}
       />
@@ -694,7 +699,7 @@ export function SnippetsPage() {
               {favorites.length > 0 && (
                 <div>
                   <SectionHeader label="Pinned" count={favorites.length} />
-                  <div className="flex flex-col gap-1.5">{favorites.map(renderCard)}</div>
+                  <div className={layoutMode === "grid" ? "grid gap-3" : "flex flex-col gap-1.5"} style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" } : undefined}>{favorites.map(renderCard)}</div>
                 </div>
               )}
 
@@ -765,7 +770,7 @@ export function SnippetsPage() {
                       count={viewSnippets.length}
                     />
                   )}
-                  <div className="flex flex-col gap-1.5">{viewSnippets.map(renderCard)}</div>
+                  <div className={layoutMode === "grid" ? "grid gap-3" : "flex flex-col gap-1.5"} style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" } : undefined}>{viewSnippets.map(renderCard)}</div>
                 </div>
               ) : !hasSearch && filtered.length > 0 && activeFolderId ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-3">

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useAutosave } from "@/hooks/useAutosave";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
@@ -6,7 +6,9 @@ import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVau
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
 import { useSnippetStore } from "@/stores/snippetStore";
+import { useConnectionStore } from "@/stores/connectionStore";
 import { VaultPicker } from "@/components/shared/VaultPicker";
+import { TagBadge } from "@/components/shared/TagBadge";
 import {
   PanelShell,
   PanelHeader,
@@ -34,6 +36,11 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
   const isPinned = useSnippetStore((s) => s.snippets.find((sn) => sn.id === initial?.id)?.favorite ?? false);
   const { folders } = useSnippetFolderStore();
   const defaultVaultId = useDefaultVaultId();
+  const connections = useConnectionStore((s) => s.connections);
+  const allConnectionTags = useMemo(
+    () => [...new Set(connections.flatMap((c) => c.tags))].sort(),
+    [connections],
+  );
 
   const [name, setName]         = useState(initial?.name ?? "");
   const [content, setContent]   = useState(initial?.content ?? "");
@@ -188,13 +195,38 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
 
           <div>
             <label className={formLabelClass} style={formLabelStyle}>Tags</label>
-            <TagInput
-              tags={tags}
-              input={tagInput}
-              placeholder="Add tag..."
-              onInputChange={setTagInput}
-              onAdd={(v) => commitTag(tags, v, setTags, setTagInput)}
-              onRemove={(v) => removeTag(tags, v, setTags)}
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {tags.map((tag) => (
+                  <TagBadge key={tag} tag={tag} className="flex items-center gap-1 px-2 rounded-md font-medium">
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => removeTag(tags, tag, setTags)}
+                      className="transition-opacity opacity-60 hover:opacity-100"
+                      aria-label={`Remove tag ${tag}`}
+                    >
+                      <Icon icon="lucide:x" width={10} />
+                    </button>
+                  </TagBadge>
+                ))}
+              </div>
+            )}
+            <input
+              className={formInputClass}
+              style={formInputStyle}
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.key === "Enter" || e.key === ",") && tagInput.trim()) {
+                  e.preventDefault();
+                  commitTag(tags, tagInput.trim().replace(/,$/, ""), setTags, setTagInput);
+                } else if (e.key === "Backspace" && !tagInput && tags.length > 0) {
+                  removeTag(tags, tags[tags.length - 1], setTags);
+                }
+              }}
+              onBlur={() => { if (tagInput.trim()) commitTag(tags, tagInput, setTags, setTagInput); }}
+              placeholder="Add tag, press Enter"
             />
           </div>
 
@@ -218,10 +250,11 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
           </p>
           <div>
             <label className={formLabelClass} style={formLabelStyle}>Only for connection tags</label>
-            <TagInput
+            <AutocompleteTagInput
               tags={connTags}
               input={connTagInput}
               placeholder="e.g. production"
+              suggestions={allConnectionTags}
               onInputChange={setConnTagInput}
               onAdd={(v) => commitTag(connTags, v, setConnTags, setConnTagInput)}
               onRemove={(v) => removeTag(connTags, v, setConnTags)}
@@ -229,10 +262,11 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
           </div>
           <div>
             <label className={formLabelClass} style={formLabelStyle}>Only for distros</label>
-            <TagInput
+            <AutocompleteTagInput
               tags={distros}
               input={distroInput}
               placeholder="e.g. ubuntu, debian"
+              suggestions={[]}
               onInputChange={setDistroInput}
               onAdd={(v) => commitTag(distros, v, setDistros, setDistroInput)}
               onRemove={(v) => removeTag(distros, v, setDistros)}
@@ -244,12 +278,13 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
   );
 }
 
-// ─── Tag input ────────────────────────────────────────────────────────────────
+// ─── Autocomplete tag input ───────────────────────────────────────────────────
 
-function TagInput({
+function AutocompleteTagInput({
   tags,
   input,
   placeholder,
+  suggestions,
   onInputChange,
   onAdd,
   onRemove,
@@ -257,43 +292,78 @@ function TagInput({
   tags: string[];
   input: string;
   placeholder: string;
+  suggestions: string[];
   onInputChange: (v: string) => void;
   onAdd: (v: string) => void;
   onRemove: (v: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = suggestions.filter(
+    (s) => !tags.includes(s) && s.toLowerCase().includes(input.toLowerCase()),
+  );
+  const showDropdown = open && filtered.length > 0;
+
   return (
-    <div
-      className="flex flex-wrap gap-1.5 p-2 rounded-lg min-h-[2.5rem] cursor-text"
-      style={{ background: "var(--t-bg-base)", border: "1px solid var(--t-border)" }}
-      onClick={(e) => (e.currentTarget.querySelector("input") as HTMLInputElement | null)?.focus()}
-    >
-      {tags.map((tag) => (
-        <span
-          key={tag}
-          className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-md bg-[var(--t-bg-elevated)] text-[var(--t-text-secondary)] border border-[var(--t-border-hover)]"
-        >
-          {tag}
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onRemove(tag); }}
-            className="text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors"
-          >
-            <Icon icon="lucide:x" width={10} />
-          </button>
-        </span>
-      ))}
+    <div ref={containerRef} className="relative">
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {tags.map((tag) => (
+            <TagBadge key={tag} tag={tag} className="flex items-center gap-1 px-2 rounded-md font-medium">
+              {tag}
+              <button
+                type="button"
+                onClick={() => onRemove(tag)}
+                className="transition-opacity opacity-60 hover:opacity-100"
+                aria-label={`Remove tag ${tag}`}
+              >
+                <Icon icon="lucide:x" width={10} />
+              </button>
+            </TagBadge>
+          ))}
+        </div>
+      )}
       <input
+        className={formInputClass}
+        style={formInputStyle}
         value={input}
-        onChange={(e) => onInputChange(e.target.value)}
-        placeholder={tags.length === 0 ? placeholder : ""}
-        className="flex-1 min-w-[80px] bg-transparent text-xs outline-none"
-        style={{ color: "var(--t-text-primary)" }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === ",") { e.preventDefault(); onAdd(input); }
-          if (e.key === "Backspace" && !input && tags.length > 0) onRemove(tags[tags.length - 1]);
+        onChange={(e) => { onInputChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => {
+          setTimeout(() => setOpen(false), 150);
+          if (input.trim()) onAdd(input);
         }}
-        onBlur={() => { if (input.trim()) onAdd(input); }}
+        placeholder={placeholder}
+        onKeyDown={(e) => {
+          if ((e.key === "Enter" || e.key === ",") && input.trim()) {
+            e.preventDefault();
+            onAdd(input.trim().replace(/,$/, ""));
+            setOpen(false);
+          } else if (e.key === "Backspace" && !input && tags.length > 0) {
+            onRemove(tags[tags.length - 1]);
+          } else if (e.key === "Escape") {
+            setOpen(false);
+          }
+        }}
       />
+      {showDropdown && (
+        <div
+          className="absolute z-50 w-full mt-1 rounded-lg shadow-lg overflow-hidden"
+          style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}
+        >
+          {filtered.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); onAdd(s); setOpen(false); }}
+              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left hover:bg-[var(--t-bg-elevated)] transition-colors"
+            >
+              <TagBadge tag={s} />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

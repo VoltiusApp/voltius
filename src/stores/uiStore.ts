@@ -78,6 +78,7 @@ interface UIStore {
   portForwardingSortMode: SortMode;
   membersLayoutMode: LayoutMode;
   membersSortMode: SortMode;
+  snippetsLayoutMode: LayoutMode;
   prefsUpdatedAt: string;
   portForwardingPendingAction: PortForwardingPendingAction;
   keychainPendingAction: KeychainPendingAction;
@@ -117,6 +118,7 @@ interface UIStore {
   setKeychainPendingAction: (action: KeychainPendingAction) => void;
   setMembersLayoutMode: (v: LayoutMode) => void;
   setMembersSortMode: (v: SortMode) => void;
+  setSnippetsLayoutMode: (v: LayoutMode) => void;
   membersInvitePending: boolean;
   openMembersInvite: () => void;
   clearMembersInvitePending: () => void;
@@ -148,6 +150,7 @@ export const useUIStore = create<UIStore>()(
       portForwardingPendingAction: null as PortForwardingPendingAction,
       membersLayoutMode: "list" as LayoutMode,
       membersSortMode: "role-asc" as SortMode,
+      snippetsLayoutMode: "list" as LayoutMode,
       membersInvitePending: false,
       prefsUpdatedAt: new Date(0).toISOString(),
       keychainPendingAction: null as KeychainPendingAction,
@@ -191,6 +194,7 @@ export const useUIStore = create<UIStore>()(
       setKeychainPendingAction: (action) => set({ keychainPendingAction: action }),
       setMembersLayoutMode: (v) => { set({ membersLayoutMode: v, prefsUpdatedAt: new Date().toISOString() }); import("@/services/sync").then((m) => m.scheduleSync()).catch(() => {}); },
       setMembersSortMode: (v) => { set({ membersSortMode: v, prefsUpdatedAt: new Date().toISOString() }); import("@/services/sync").then((m) => m.scheduleSync()).catch(() => {}); },
+      setSnippetsLayoutMode: (v) => { set({ snippetsLayoutMode: v, prefsUpdatedAt: new Date().toISOString() }); import("@/services/sync").then((m) => m.scheduleSync()).catch(() => {}); },
       openMembersInvite: () => set({ activeNav: "members", homeView: false, membersInvitePending: true }),
       clearMembersInvitePending: () => set({ membersInvitePending: false }),
     }),
@@ -206,6 +210,7 @@ export const useUIStore = create<UIStore>()(
         portForwardingSortMode: state.portForwardingSortMode,
         membersLayoutMode: state.membersLayoutMode,
         membersSortMode: state.membersSortMode,
+        snippetsLayoutMode: state.snippetsLayoutMode,
         prefsUpdatedAt: state.prefsUpdatedAt,
       }),
     },

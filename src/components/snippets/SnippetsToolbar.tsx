@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
-import { FilterInput, SORT_MODE_ICONS, type SortMode } from "@/components/shared/ToolbarViewControls";
+import { FilterInput, SORT_MODE_ICONS, LAYOUT_MODE_ICONS, type SortMode, type LayoutMode } from "@/components/shared/ToolbarViewControls";
 import { ToolbarDropdown } from "@/components/shared/ToolbarDropdown";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { useToolbarResize } from "@/hooks/useToolbarResize";
@@ -11,6 +11,8 @@ interface Props {
   onSearchChange: (v: string) => void;
   sortMode: SortMode;
   onSortModeChange: (v: SortMode) => void;
+  layoutMode: LayoutMode;
+  onLayoutModeChange: (v: LayoutMode) => void;
   onNewSnippet: () => void;
   onNewFolder: () => void;
 }
@@ -20,6 +22,8 @@ export function SnippetsToolbar({
   onSearchChange,
   sortMode,
   onSortModeChange,
+  layoutMode,
+  onLayoutModeChange,
   onNewSnippet,
   onNewFolder,
 }: Props) {
@@ -60,6 +64,15 @@ export function SnippetsToolbar({
             placeholder="Filter snippets..."
             width={176}
             shortcutId="filter"
+          />
+          <ToolbarDropdown
+            icon={LAYOUT_MODE_ICONS[layoutMode]}
+            value={layoutMode}
+            options={[
+              { value: "grid", label: "Grid", icon: "lucide:layout-grid" },
+              { value: "list", label: "List", icon: "lucide:layout-list" },
+            ]}
+            onChange={onLayoutModeChange}
           />
           <ToolbarDropdown
             icon={SORT_MODE_ICONS[sortMode]}

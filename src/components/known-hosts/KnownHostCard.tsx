@@ -64,7 +64,7 @@ export function KnownHostCard({
       data-selectable-id={host.id}
     >
       {/* Fingerprint icon */}
-      <div className="w-10 h-10 rounded-xl bg-[var(--t-bg-elevated)] border border-[var(--t-border)] flex items-center justify-center shrink-0 text-[var(--t-text-dim)]">
+      <div className="w-10 h-10 rounded-xl bg-[var(--t-bg-card-avatar)] flex items-center justify-center shrink-0">
         <Icon icon="lucide:fingerprint" width={18} />
       </div>
 
