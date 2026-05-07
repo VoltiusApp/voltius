@@ -102,7 +102,7 @@ export function SnippetsToolbar({
           >
             {rippleEls}
             <Icon icon="lucide:braces" width={18} />
-            {!compact && "NEW SNIPPET"}
+            {!compact && "New Snippet"}
           </button>
 
           <button

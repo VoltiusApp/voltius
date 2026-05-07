@@ -40,7 +40,7 @@ export function PortForwardingToolbar({
         <div ref={rightRef} className="ml-auto shrink-0">
           <ToolbarDropdown
             icon="lucide:plus"
-            label={compact ? undefined : "NEW RULE"}
+            label={compact ? undefined : "New Rule"}
             onAction={onNewRule ?? (() => {})}
             items={onNewFolder ? [{ label: "New Folder", icon: "lucide:folder-plus", onClick: onNewFolder }] : []}
             disabled={!onNewRule}
