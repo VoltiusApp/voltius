@@ -141,7 +141,7 @@ export default function AboutSection() {
           rel="noreferrer"
           className="rounded-lg px-4 py-3 flex items-center gap-3 bg-[var(--t-bg-elevated)] border border-[var(--t-border)] transition-colors hover:border-[var(--t-border-hover)]"
         >
-          <Icon icon="simple-icons:github" width={16} className="text-[var(--t-accent)] shrink-0" />
+          <Icon icon="simple-icons:github" width={16} className="text-[var(--t-text-primary)] shrink-0" />
           <div>
             <p className="text-sm font-medium text-[var(--t-text-primary)]">GitHub</p>
             <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">VoltiusApp/voltius</p>
