@@ -199,9 +199,14 @@ export default function HostCard({
                     <Icon icon="lucide:pin" width={14} />
                   </button>
                   {(showPingDot || syncIcon) && (
-                    <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                    <div className="flex items-center gap-1.5 ml-auto shrink-0 mr-1">
                       {showPingDot && (
                         <>
+                          {pingStatus === "up" && pingLatency !== undefined && (
+                            <span className="text-xs font-medium" style={{ color: pingColor }}>
+                              {pingLatency} ms
+                            </span>
+                          )}
                           <span className="relative w-6 h-6 -my-1.5 shrink-0">
                             <StatusDot
                               color={pingColor}
@@ -211,11 +216,6 @@ export default function HostCard({
                               className="bottom-auto right-auto top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
                             />
                           </span>
-                          {pingStatus === "up" && pingLatency !== undefined && (
-                            <span className="text-xs font-medium" style={{ color: pingColor }}>
-                              {pingLatency} ms
-                            </span>
-                          )}
                         </>
                       )}
                       {syncIcon}
