@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { TagBadge } from "@/components/shared/TagBadge";
+import { SessionPickerPanel } from "@/components/shared/SessionPickerPanel";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
@@ -13,13 +15,12 @@ interface Props {
   isEditing?: boolean;
   isSelected?: boolean;
   isFocused?: boolean;
-  canInject: boolean;
   dimmed?: boolean;
   layout?: "grid" | "list";
   onEdit: () => void;
   onSelect?: (id: string, e: React.MouseEvent<HTMLDivElement>) => void;
-  onInsert: () => void;
-  onExecute: () => void;
+  onInsert: (sessionId: string) => void;
+  onExecute: (sessionId: string) => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onToggleFavorite: () => void;
@@ -40,7 +41,6 @@ export function SnippetCard({
   isEditing,
   isSelected,
   isFocused,
-  canInject,
   dimmed,
   layout = "list",
   onEdit,
@@ -63,6 +63,7 @@ export function SnippetCard({
   const isList = layout === "list";
   const pinSnippet = useSnippetStore((s) => s.pinSnippet);
   const folder = folders.find((f) => f.id === snippet.folder_id);
+  const [panelMode, setPanelMode] = useState<"insert" | "execute" | null>(null);
 
   const contextMenuItems: ContextMenuItem[] = [
     { label: "Edit",      icon: "lucide:pencil",  onClick: onEdit, shortcut: "E" },
@@ -79,13 +80,143 @@ export function SnippetCard({
       onClick: onToggleSync,
     }] : []),
     ...vaultMenuItems(vaults, canEdit, onMoveToVault, onCopyToVault),
-    { label: "Delete",    icon: "lucide:trash-2", onClick: onDelete, danger: true as const, divider: true as const, shortcut: getShortcutHint("delete") },
+    { label: "Delete", icon: "lucide:trash-2", onClick: onDelete, danger: true as const, divider: true as const, shortcut: getShortcutHint("delete") },
   ];
 
   if (!isList) {
     return (
+      <>
+        <BaseCard
+          isList={false}
+          isEditing={isEditing}
+          isSelected={isSelected}
+          isFocused={isFocused}
+          data-selectable-id={snippet.id}
+          data-card={snippet.id}
+          draggable={!!onDragStart}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          onClick={(e) => {
+            if (onSelect) onSelect(snippet.id, e);
+            else onEdit();
+          }}
+          contextMenuItems={contextMenuItems}
+          bulkContextMenuItems={bulkContextMenuItems}
+          style={{ opacity: dimmed ? 0.45 : 1 }}
+        >
+          {/* self-start overrides BaseCard's items-center so content is top-left aligned */}
+          <div className="flex-1 min-w-0 self-start flex flex-col gap-2.5">
+            {/* Header: avatar + name/fav/tags + description */}
+            <div className="flex items-start gap-2 min-w-0">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-card-avatar)]">
+                <Icon icon="lucide:braces" width={14} />
+              </div>
+              <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                {/* Name + favorite (pin position) + tags */}
+                <div className="flex items-center gap-2 min-w-0">
+                  <p className="text-sm font-bold truncate text-[var(--t-text-bright)] flex-1 min-w-0">
+                    {snippet.name}
+                  </p>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+                    className={`shrink-0 flex items-center transition-colors ${snippet.favorite ? "text-[var(--t-accent)] opacity-100" : "text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] opacity-0 group-hover:opacity-100"}`}
+                    title={snippet.favorite ? "Unstar" : "Star"}
+                  >
+                    <Icon icon="lucide:star" width={14} />
+                  </button>
+                  {snippet.tags.slice(0, 2).map((tag) => (
+                    <TagBadge key={tag} tag={tag} className="rounded-md shrink-0 py-0 text-[10px]" />
+                  ))}
+                  {snippet.tags.length > 2 && (
+                    <span className="text-[10px] text-[var(--t-text-dim)] shrink-0">+{snippet.tags.length - 2}</span>
+                  )}
+                </div>
+                {/* Description */}
+                {snippet.description && (
+                  <p className="text-xs text-[var(--t-text-muted)] truncate leading-tight">
+                    {snippet.description}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Terminal content preview */}
+            <div
+              className="rounded-md overflow-hidden w-full"
+              style={{ background: "var(--t-bg-terminal)" }}
+            >
+              <div className="flex items-center gap-1 px-2.5 pt-2 pb-1">
+                <span className="w-2 h-2 rounded-full bg-[#ff5f56]" />
+                <span className="w-2 h-2 rounded-full bg-[#ffbd2e]" />
+                <span className="w-2 h-2 rounded-full bg-[#27c93f]" />
+              </div>
+              <p
+                className="px-2.5 pb-2.5 text-[11px] leading-relaxed break-all"
+                style={{
+                  fontFamily: "var(--t-terminal-font-family)",
+                  color: snippet.content ? "var(--t-terminal-foreground)" : "var(--t-text-dim)",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}
+              >
+                {`> ${snippet.content || "No content"}`}
+              </p>
+            </div>
+
+            {/* Actions row */}
+            <div className="flex items-center justify-between -mt-0.5">
+              <div className="flex items-center gap-1 text-xs text-[var(--t-text-dim)]">
+                {folder && (
+                  <>
+                    <Icon icon="lucide:folder" width={10} />
+                    <span className="truncate max-w-[80px]">{folder.name}</span>
+                  </>
+                )}
+              </div>
+              <div className="flex items-center gap-0.5">
+                <button
+                  title="Insert"
+                  onClick={(e) => { e.stopPropagation(); setPanelMode("insert"); }}
+                  className="p-1.5 rounded-lg transition-colors text-[var(--t-text-secondary)]"
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-bright)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-secondary)")}
+                >
+                  <Icon icon="lucide:skip-forward" width={15} />
+                </button>
+                <button
+                  title="Execute"
+                  onClick={(e) => { e.stopPropagation(); setPanelMode("execute"); }}
+                  className="p-1.5 rounded-lg transition-colors text-[var(--t-text-secondary)]"
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-bright)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-secondary)")}
+                >
+                  <Icon icon="lucide:play" width={15} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </BaseCard>
+
+        {panelMode && (
+          <SessionPickerPanel
+            mode={panelMode}
+            onConfirm={(sessionIds) => {
+              const action = panelMode === "insert" ? onInsert : onExecute;
+              sessionIds.forEach((id) => action(id));
+            }}
+            onClose={() => setPanelMode(null)}
+          />
+        )}
+      </>
+    );
+  }
+
+  return (
+    <>
       <BaseCard
-        isList={false}
+        isList
         isEditing={isEditing}
         isSelected={isSelected}
         isFocused={isFocused}
@@ -101,125 +232,87 @@ export function SnippetCard({
         contextMenuItems={contextMenuItems}
         bulkContextMenuItems={bulkContextMenuItems}
         style={{ opacity: dimmed ? 0.45 : 1 }}
-        className="flex-col gap-2"
       >
-        <div className="flex items-center justify-between w-full">
-          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-card-avatar)]">
-            <Icon icon="lucide:braces" width={18} />
-          </div>
-          {snippet.favorite && (
-            <Icon icon="lucide:star" width={12} className="shrink-0 text-[var(--t-accent)]" />
-          )}
+        {/* Icon */}
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-card-avatar)]">
+          <Icon icon="lucide:braces" width={14} />
         </div>
-        <div className="w-full min-w-0 flex flex-col gap-1">
-          <span className="text-sm font-semibold text-[var(--t-text-primary)] truncate">
-            {snippet.name}
-          </span>
-          <p className="text-xs font-mono text-[var(--t-text-muted)] truncate">
-            {snippet.content}
-          </p>
+
+        {/* Body */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-sm font-semibold text-[var(--t-text-bright)] truncate flex-1 min-w-0">
+              {snippet.name}
+            </span>
+            {snippet.favorite && (
+              <Icon icon="lucide:star" width={11} className="shrink-0 text-[var(--t-accent)]" />
+            )}
+            {folder && (
+              <span className="flex items-center gap-1 text-xs text-[var(--t-text-dim)] shrink-0">
+                <Icon icon="lucide:folder" width={10} />
+                {folder.name}
+              </span>
+            )}
+          </div>
+          {snippet.description ? (
+            <p className="mt-0.5 text-xs text-[var(--t-text-muted)] truncate">{snippet.description}</p>
+          ) : (
+            <p className="mt-0.5 text-xs font-mono text-[var(--t-text-muted)] truncate">{snippet.content}</p>
+          )}
           {snippet.tags.length > 0 && (
-            <div className="flex items-center gap-1 flex-wrap">
-              {snippet.tags.slice(0, 3).map((tag) => <TagBadge key={tag} tag={tag} className="rounded-md" />)}
-              {snippet.tags.length > 3 && (
-                <span className="text-xs text-[var(--t-text-dim)]">+{snippet.tags.length - 3}</span>
+            <div className="flex items-center gap-1 mt-1 flex-wrap">
+              {snippet.tags.slice(0, 5).map((tag) => <TagBadge key={tag} tag={tag} className="rounded-md" />)}
+              {snippet.tags.length > 5 && (
+                <span className="text-xs text-[var(--t-text-dim)]">+{snippet.tags.length - 5}</span>
               )}
             </div>
           )}
         </div>
-      </BaseCard>
-    );
-  }
 
-  return (
-    <BaseCard
-      isList
-      isEditing={isEditing}
-      isSelected={isSelected}
-      isFocused={isFocused}
-      data-selectable-id={snippet.id}
-      data-card={snippet.id}
-      draggable={!!onDragStart}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      onClick={(e) => {
-        if (onSelect) onSelect(snippet.id, e);
-        else onEdit();
-      }}
-      contextMenuItems={contextMenuItems}
-      bulkContextMenuItems={bulkContextMenuItems}
-      style={{ opacity: dimmed ? 0.45 : 1 }}
-    >
-      {/* Icon */}
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-card-avatar)]">
-        <Icon icon="lucide:braces" width={14} />
-      </div>
+        {/* Actions */}
+        <div className="flex items-center gap-0.5 shrink-0">
+          <button
+            title={snippet.favorite ? "Unstar" : "Star"}
+            onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+            className="p-1.5 hidden group-hover:flex rounded-lg transition-colors"
+            style={{ color: snippet.favorite ? "var(--t-accent)" : "var(--t-text-secondary)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-accent)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = snippet.favorite ? "var(--t-accent)" : "var(--t-text-secondary)")}
+          >
+            <Icon icon="lucide:star" width={16} />
+          </button>
 
-      {/* Body */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-[var(--t-text-primary)] truncate">
-            {snippet.name}
-          </span>
-          {snippet.favorite && (
-            <Icon icon="lucide:star" width={11} className="shrink-0 text-[var(--t-accent)]" />
-          )}
-          {folder && (
-            <span className="flex items-center gap-1 text-xs text-[var(--t-text-dim)] shrink-0">
-              <Icon icon="lucide:folder" width={10} />
-              {folder.name}
-            </span>
-          )}
+          <button
+            title="Insert"
+            onClick={(e) => { e.stopPropagation(); setPanelMode("insert"); }}
+            className="p-1.5 flex rounded-lg transition-colors text-[var(--t-text-secondary)]"
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-secondary)")}
+          >
+            <Icon icon="lucide:skip-forward" width={16} />
+          </button>
+          <button
+            title="Execute"
+            onClick={(e) => { e.stopPropagation(); setPanelMode("execute"); }}
+            className="p-1.5 flex rounded-lg transition-colors text-[var(--t-text-secondary)]"
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-secondary)")}
+          >
+            <Icon icon="lucide:play" width={16} />
+          </button>
         </div>
-        <p className="mt-0.5 text-xs font-mono text-[var(--t-text-muted)] truncate">
-          {snippet.content}
-        </p>
-        {snippet.tags.length > 0 && (
-          <div className="flex items-center gap-1 mt-1 flex-wrap">
-            {snippet.tags.slice(0, 5).map((tag) => <TagBadge key={tag} tag={tag} className="rounded-md" />)}
-            {snippet.tags.length > 5 && (
-              <span className="text-xs text-[var(--t-text-dim)]">+{snippet.tags.length - 5}</span>
-            )}
-          </div>
-        )}
-      </div>
+      </BaseCard>
 
-      {/* Actions — visible on hover via group class in BaseCard */}
-      <div className="flex items-center gap-0.5 shrink-0">
-        <button
-          title={snippet.favorite ? "Unstar" : "Star"}
-          onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
-          className="p-1.5 hidden group-hover:flex rounded-lg transition-colors"
-          style={{ color: snippet.favorite ? "var(--t-accent)" : "var(--t-text-secondary)" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-accent)")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = snippet.favorite ? "var(--t-accent)" : "var(--t-text-secondary)")}
-        >
-          <Icon icon="lucide:star" width={16} />
-        </button>
-
-        {canInject && (
-          <>
-            <button
-              title="Insert"
-              onClick={(e) => { e.stopPropagation(); onInsert(); }}
-              className="p-1.5 hidden group-hover:flex rounded-lg transition-colors text-[var(--t-text-secondary)]"
-              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-secondary)")}
-            >
-              <Icon icon="lucide:arrow-down-to-line" width={16} />
-            </button>
-            <button
-              title="Execute"
-              onClick={(e) => { e.stopPropagation(); onExecute(); }}
-              className="p-1.5 hidden group-hover:flex rounded-lg transition-colors text-[var(--t-text-secondary)]"
-              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-secondary)")}
-            >
-              <Icon icon="lucide:play" width={16} />
-            </button>
-          </>
-        )}
-      </div>
-    </BaseCard>
+      {panelMode && (
+        <SessionPickerPanel
+          mode={panelMode}
+          onConfirm={(sessionIds) => {
+            const action = panelMode === "insert" ? onInsert : onExecute;
+            sessionIds.forEach((id) => action(id));
+          }}
+          onClose={() => setPanelMode(null)}
+        />
+      )}
+    </>
   );
 }

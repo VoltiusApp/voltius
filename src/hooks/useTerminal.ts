@@ -75,43 +75,106 @@ function focusPaneInDirection(direction: "left" | "right" | "up" | "down") {
   useSessionStore.getState().setActive(leaf.sessionId);
 }
 
-export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encoding, onResize }: UseTerminalOptions) {
-  const termRef = useRef<Terminal | null>(null);
-  const fitRef = useRef<FitAddon | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const cleanupRef = useRef<(() => void) | null>(null);
-  const onResizeRef = useRef(onResize);
-  onResizeRef.current = onResize;
-  // Prevents resize/input calls from firing before the Tauri session exists.
-  const connectedRef = useRef(sessionType === "local" || sessionType === "serial");
+// ─── Module-level terminal cache ──────────────────────────────────────────────
+// Xterm instances are keyed by sessionId and survive component remounts.
+// This prevents the scrollback buffer from being wiped when pane layouts change.
 
+type CacheEntry = {
+  terminal: Terminal;
+  fitAddon: FitAddon;
+  sessionType: "ssh" | "local" | "serial";
+  connectedRef: { current: boolean };
+  onClosedRef: { current: (() => void) | undefined };
+  onResizeRef: { current: ((cols: number, rows: number) => void) | undefined };
+  dispose: () => void; // full teardown, called only when the session is deleted
+};
+
+const terminalCache = new Map<string, CacheEntry>();
+
+// Auto-cleanup when sessions are removed from the store
+useSessionStore.subscribe((state) => {
+  const currentIds = new Set(state.sessions.map((s) => s.id));
+  for (const [id, entry] of terminalCache) {
+    if (!currentIds.has(id)) {
+      entry.dispose();
+      terminalCache.delete(id);
+    }
+  }
+
+  // Update connectedRef and trigger PTY resize when SSH sessions connect
+  for (const [id, entry] of terminalCache) {
+    if (entry.sessionType !== "ssh") continue;
+    const session = state.sessions.find((s) => s.id === id);
+    const nowConnected = session?.status === "connected";
+    if (nowConnected && !entry.connectedRef.current) {
+      entry.connectedRef.current = true;
+      entry.fitAddon.fit();
+      sshResize(id, entry.terminal.cols, entry.terminal.rows).catch(() => {});
+    } else if (!nowConnected) {
+      entry.connectedRef.current = false;
+    }
+  }
+});
+
+// ─── Hook ────────────────────────────────────────────────────────────────────
+
+export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encoding, onResize }: UseTerminalOptions) {
+  const mountCleanupRef = useRef<(() => void) | null>(null);
+
+  // Keep the cached entry's callback refs current on every render
   useEffect(() => {
-    if (sessionType !== "ssh") return;
-    const onConnected = (state: ReturnType<typeof useSessionStore.getState>) => {
-      const s = state.sessions.find((x) => x.id === sessionId);
-      const nowConnected = s?.status === "connected";
-      if (nowConnected && !connectedRef.current) {
-        connectedRef.current = true;
-        // Send actual PTY dimensions now that the Tauri session exists.
-        const term = termRef.current;
-        const fit = fitRef.current;
-        if (fit && term) {
-          fit.fit();
-          sshResize(sessionId, term.cols, term.rows).catch(() => {});
-        }
-      } else if (!nowConnected) {
-        connectedRef.current = false;
-      }
-    };
-    onConnected(useSessionStore.getState());
-    return useSessionStore.subscribe(onConnected);
-  }, [sessionId, sessionType]);
+    const entry = terminalCache.get(sessionId);
+    if (entry) {
+      entry.onClosedRef.current = onClosed;
+      entry.onResizeRef.current = onResize;
+    }
+  });
 
   const attach = useCallback(
     (container: HTMLDivElement | null) => {
-      if (!container || cleanupRef.current) return;
-      containerRef.current = container;
+      if (!container || mountCleanupRef.current) return;
 
+      const existing = terminalCache.get(sessionId);
+
+      // ── Reuse existing terminal ───────────────────────────────────────────
+      if (existing) {
+        const { terminal, fitAddon } = existing;
+        existing.onClosedRef.current = onClosed;
+        existing.onResizeRef.current = onResize;
+
+        // Move the xterm element into the new container
+        if (terminal.element) container.appendChild(terminal.element);
+
+        fitAddon.fit();
+
+        // Container-specific listeners (re-registered on each mount)
+        const handleContextMenu = (e: MouseEvent) => {
+          e.preventDefault();
+          navigator.clipboard.readText().then((text) => { if (text) terminal.paste(text); });
+        };
+        container.addEventListener("contextmenu", handleContextMenu);
+
+        const handleWindowResize = () => fitAddon.fit();
+        window.addEventListener("resize", handleWindowResize);
+
+        let fitTimer: ReturnType<typeof setTimeout> | null = null;
+        const resizeObserver = new ResizeObserver(() => {
+          if (fitTimer !== null) clearTimeout(fitTimer);
+          fitTimer = setTimeout(() => { fitTimer = null; fitAddon.fit(); }, 50);
+        });
+        resizeObserver.observe(container);
+
+        mountCleanupRef.current = () => {
+          container.removeEventListener("contextmenu", handleContextMenu);
+          window.removeEventListener("resize", handleWindowResize);
+          resizeObserver.disconnect();
+          if (fitTimer !== null) clearTimeout(fitTimer);
+          mountCleanupRef.current = null;
+        };
+        return;
+      }
+
+      // ── Create new terminal ───────────────────────────────────────────────
       const activeTheme = useThemeStore.getState().getActiveTheme();
       const term = new Terminal({
         altClickMovesCursor: false,
@@ -179,6 +242,18 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       const encoder = new TextEncoder();
       const decoder = encoding ? new TextDecoder(encoding) : null;
 
+      // Build the cache entry first so closures below can reference it
+      const entry: CacheEntry = {
+        terminal: term,
+        fitAddon,
+        sessionType,
+        connectedRef: { current: sessionType === "local" || sessionType === "serial" },
+        onClosedRef: { current: onClosed },
+        onResizeRef: { current: onResize },
+        dispose: () => {}, // filled in below
+      };
+      terminalCache.set(sessionId, entry);
+
       // Intercept app shortcuts before xterm processes them
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
         const layout = useLayoutStore.getState();
@@ -201,17 +276,14 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           }
           return false;
         }
-        // Ctrl+Shift+P → always intercept (not used by shells)
         if (e.ctrlKey && e.shiftKey && e.key === "P") {
           if (e.type === "keydown") useUIStore.getState().setOmniOpen(true);
           return false;
         }
-        // F1 → always intercept
         if (e.key === "F1") {
           if (e.type === "keydown") useUIStore.getState().setOmniOpen(true);
           return false;
         }
-        // Ctrl+Shift+C → copy selection
         if (e.ctrlKey && e.shiftKey && e.key === "C") {
           if (e.type === "keydown") {
             const sel = term.getSelection();
@@ -219,7 +291,6 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           }
           return false;
         }
-        // Ctrl+Shift+V → paste from clipboard
         if (e.ctrlKey && e.shiftKey && e.key === "V") {
           e.preventDefault();
           if (e.type === "keydown") {
@@ -227,7 +298,6 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           }
           return false;
         }
-        // Ctrl+C → copy selection if present, otherwise pass through as SIGINT
         if (e.ctrlKey && !e.shiftKey && e.key === "c") {
           const sel = term.getSelection();
           if (sel) {
@@ -236,7 +306,6 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           }
           return true;
         }
-        // Ctrl+V → paste from clipboard
         if (e.ctrlKey && !e.shiftKey && e.key === "v") {
           e.preventDefault();
           if (e.type === "keydown") {
@@ -244,26 +313,21 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           }
           return false;
         }
-        // Everything else (including Ctrl+K) passes to the terminal
         return true;
       });
 
       term.open(container);
 
-      // Try WebGL renderer, fall back to canvas
       try {
         term.loadAddon(new WebglAddon());
       } catch {
         // WebGL not available, use default canvas renderer
       }
 
-      termRef.current = term;
-      fitRef.current = fitAddon;
-
       // Send user input
       const onDataDispose = term.onData((data) => {
         if (inputGate && !inputGate.current?.()) return;
-        if (!connectedRef.current) return;
+        if (!entry.connectedRef.current) return;
         const bytes = encoder.encode(data);
         const layout = useLayoutStore.getState();
         const paneSessionIds = getPaneSessionIds(layout.root);
@@ -282,7 +346,6 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         sendSessionInput(sessionId, sessionType, bytes);
       });
 
-      // Listen for output / closed events
       const unlistenPromises: Promise<UnlistenFn>[] = [];
 
       if (sessionType === "local") {
@@ -292,7 +355,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         unlistenPromises.push(
           onLocalClosed(sessionId, () => {
             term.write("\r\n\x1b[90m--- Session closed ---\x1b[0m\r\n");
-            onClosed?.();
+            entry.onClosedRef.current?.();
           }),
         );
       } else if (sessionType === "serial") {
@@ -302,7 +365,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         unlistenPromises.push(
           onSerialClosed(sessionId, () => {
             term.write("\r\n\x1b[90m--- Serial connection closed ---\x1b[0m\r\n");
-            onClosed?.();
+            entry.onClosedRef.current?.();
           }),
         );
       } else {
@@ -312,131 +375,120 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         unlistenPromises.push(
           onSshClosed(sessionId, () => {
             term.write("\r\n\x1b[90m--- Connection closed ---\x1b[0m\r\n");
-            onClosed?.();
+            entry.onClosedRef.current?.();
           }),
         );
       }
 
-      // Handle resize — registered before initial fit so the first fit immediately
-      // propagates correct dimensions to the backend PTY (fixes nano/vim size on SSH).
-      // Serial connections have no PTY so we skip resize.
       const onResizeDispose = term.onResize(({ cols, rows }) => {
-        onResizeRef.current?.(cols, rows);
-        if (!connectedRef.current) return;
+        entry.onResizeRef.current?.(cols, rows);
+        if (!entry.connectedRef.current) return;
         if (sessionType === "local") {
           localResize(sessionId, cols, rows);
         } else if (sessionType === "ssh") {
           sshResize(sessionId, cols, rows);
         }
-        // serial: no resize needed
       });
 
       fitAddon.fit();
 
-      // Window resize handler
-      const handleWindowResize = () => {
-        fitAddon.fit();
+      // Full teardown — only called when the session is deleted from the store
+      entry.dispose = () => {
+        onDataDispose.dispose();
+        onResizeDispose.dispose();
+        hideLinkTooltip();
+        Promise.all(unlistenPromises).then((fns) => fns.forEach((fn) => fn()));
+        term.dispose();
       };
-      window.addEventListener("resize", handleWindowResize);
 
-      // ResizeObserver for container size changes — debounced to avoid
-      // flickering when the user drags a split pane resize handle.
-      let fitTimer: ReturnType<typeof setTimeout> | null = null;
-      const resizeObserver = new ResizeObserver(() => {
-        if (fitTimer !== null) clearTimeout(fitTimer);
-        fitTimer = setTimeout(() => {
-          fitTimer = null;
-          fitAddon.fit();
-        }, 50);
-      });
-      resizeObserver.observe(container);
-
-      // Right-click → paste from clipboard
+      // Container-specific listeners (registered on each mount, torn down on unmount)
       const handleContextMenu = (e: MouseEvent) => {
         e.preventDefault();
         navigator.clipboard.readText().then((text) => { if (text) term.paste(text); });
       };
       container.addEventListener("contextmenu", handleContextMenu);
 
-      // Cleanup function
-      cleanupRef.current = () => {
-        onDataDispose.dispose();
-        onResizeDispose.dispose();
-        window.removeEventListener("resize", handleWindowResize);
+      const handleWindowResize = () => fitAddon.fit();
+      window.addEventListener("resize", handleWindowResize);
+
+      let fitTimer: ReturnType<typeof setTimeout> | null = null;
+      const resizeObserver = new ResizeObserver(() => {
+        if (fitTimer !== null) clearTimeout(fitTimer);
+        fitTimer = setTimeout(() => { fitTimer = null; fitAddon.fit(); }, 50);
+      });
+      resizeObserver.observe(container);
+
+      mountCleanupRef.current = () => {
         container.removeEventListener("contextmenu", handleContextMenu);
-        hideLinkTooltip();
+        window.removeEventListener("resize", handleWindowResize);
         resizeObserver.disconnect();
         if (fitTimer !== null) clearTimeout(fitTimer);
-        Promise.all(unlistenPromises).then((fns) => fns.forEach((fn) => fn()));
-        term.dispose();
-        termRef.current = null;
-        fitRef.current = null;
-        cleanupRef.current = null;
+        mountCleanupRef.current = null;
       };
     },
-    [sessionId, sessionType, onClosed, encoding],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sessionId, sessionType, encoding],
   );
 
-  // Live theme updates (store changes)
+  // Live theme updates
   useEffect(() => {
     return useThemeStore.subscribe((state) => {
-      const term = termRef.current;
-      const fit = fitRef.current;
-      if (!term) return;
+      const entry = terminalCache.get(sessionId);
+      if (!entry) return;
+      const { terminal: term, fitAddon } = entry;
       const theme = state.getActiveTheme();
       term.options.theme = theme.terminal;
       term.options.fontFamily = theme.terminalFontFamily;
       if (term.options.fontSize !== theme.terminalFontSize) {
         term.options.fontSize = theme.terminalFontSize;
-        fit?.fit();
+        fitAddon.fit();
       }
     });
-  }, []);
+  }, [sessionId]);
 
-  // Live theme preview (editor preview, before saving)
+  // Live theme preview
   useEffect(() => {
     const handler = (e: Event) => {
-      const term = termRef.current;
-      const fit = fitRef.current;
-      if (!term) return;
+      const entry = terminalCache.get(sessionId);
+      if (!entry) return;
+      const { terminal: term, fitAddon } = entry;
       const theme = (e as CustomEvent).detail;
       term.options.theme = theme.terminal;
       term.options.fontFamily = theme.terminalFontFamily;
       if (term.options.fontSize !== theme.terminalFontSize) {
         term.options.fontSize = theme.terminalFontSize;
-        fit?.fit();
+        fitAddon.fit();
       }
     };
     window.addEventListener("theme-preview", handler);
     return () => window.removeEventListener("theme-preview", handler);
-  }, []);
+  }, [sessionId]);
 
-  // Cleanup on unmount
+  // Mount-only cleanup — does NOT dispose the terminal (cache survives unmount)
   useEffect(() => {
     return () => {
-      cleanupRef.current?.();
+      mountCleanupRef.current?.();
     };
   }, []);
 
   const focus = useCallback(() => {
-    termRef.current?.focus();
-  }, []);
+    terminalCache.get(sessionId)?.terminal.focus();
+  }, [sessionId]);
 
   const fit = useCallback(() => {
-    const fitAddon = fitRef.current;
-    const term = termRef.current;
-    if (!fitAddon || !term) return;
+    const entry = terminalCache.get(sessionId);
+    if (!entry) return;
+    const { terminal: term, fitAddon } = entry;
     fitAddon.fit();
     // Force-send current dimensions — xterm suppresses onResize when cols/rows
     // haven't changed, which causes the PTY to stay at its initial 80x24 when
     // the session becomes active after connecting.
-    if (!connectedRef.current) return;
+    if (!entry.connectedRef.current) return;
     if (sessionType === "local") {
       localResize(sessionId, term.cols, term.rows);
     } else if (sessionType === "ssh") {
       sshResize(sessionId, term.cols, term.rows);
     }
-    // serial: no PTY resize
   }, [sessionId, sessionType]);
 
   return { attach, focus, fit };
