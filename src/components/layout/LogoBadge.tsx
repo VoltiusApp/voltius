@@ -1,4 +1,4 @@
-import logoUrl from "/logo.svg";
+import LogoSvg from "/logo.svg?react";
 
 interface Props {
   size?: number;
@@ -26,7 +26,7 @@ export default function LogoBadge({ size = 12, className = "", active = true, bo
         transition: "border-radius 200ms",
       }}
     >
-      <img src={logoUrl} alt="Voltius" style={{ height: px * 0.62, width: "auto" }} />
+      <LogoSvg style={{ height: px * 0.62, width: "auto" }} />
     </div>
   );
 }

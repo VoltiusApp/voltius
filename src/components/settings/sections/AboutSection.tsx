@@ -7,6 +7,7 @@ import {
   checkForUpdate,
   installUpdate,
 } from "@/services/updater";
+import LogoBadge from "@/components/layout/LogoBadge";
 
 export default function AboutSection() {
   const [appVersion, setAppVersion] = useState<string | null>(null);
@@ -29,7 +30,7 @@ export default function AboutSection() {
         <div
           className="rounded-lg px-4 py-3 flex items-center gap-3 bg-[var(--t-bg-elevated)] border border-[var(--t-border)]"
         >
-          <Icon icon="lucide:terminal-square" width={16} className="text-[var(--t-accent)] shrink-0" />
+          <LogoBadge size={8} borderRadius="0.5rem" />
           <div>
             <p className="text-sm font-medium text-[var(--t-text-primary)]">Voltius</p>
             <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
