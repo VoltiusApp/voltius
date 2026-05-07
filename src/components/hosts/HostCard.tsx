@@ -271,12 +271,16 @@ export default function HostCard({
                 <div className="flex items-center min-w-0 w-full">
                   {isSerial ? (
                     <>
-                      <span className="truncate">{connection.serial_port ?? "serial"}</span>
+                      <span className="truncate" style={{ color: "var(--t-terminal-yellow)" }}>{connection.serial_port ?? "serial"}</span>
                       <span className="shrink-0"> &gt;<span className="cursor-blink-char">_</span></span>
                     </>
                   ) : (
                     <>
-                      <span className="truncate">{connection.username}@{connection.host}</span>
+                      <span className="truncate">
+                        <span style={{ color: "var(--t-terminal-green)" }}>{connection.username}</span>
+                        <span>@</span>
+                        <span style={{ color: "var(--t-terminal-cyan)" }}>{connection.host}</span>
+                      </span>
                       <span className="shrink-0"> &gt;<span className="cursor-blink-char">_</span></span>
                     </>
                   )}

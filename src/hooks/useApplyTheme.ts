@@ -39,6 +39,9 @@ export function applyThemeToDom(theme: AppTheme) {
   root.style.setProperty("--t-font-family", theme.uiFontFamily);
   root.style.setProperty("--t-font-size", `${theme.uiFontSize}px`);
   root.style.setProperty("--t-terminal-foreground", theme.terminal.foreground);
+  root.style.setProperty("--t-terminal-green", theme.terminal.green);
+  root.style.setProperty("--t-terminal-cyan", theme.terminal.cyan);
+  root.style.setProperty("--t-terminal-yellow", theme.terminal.yellow);
   root.style.setProperty("--t-terminal-font-family", theme.terminalFontFamily);
   root.style.setProperty("--t-terminal-font-size", `${theme.terminalFontSize}px`);
   window.dispatchEvent(new CustomEvent("theme-preview", { detail: theme }));
