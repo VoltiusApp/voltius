@@ -47,6 +47,9 @@ export function usePaneDragController() {
               duration: 2500,
             });
           }
+        } else if (drag.dragType === "pane" && drag.sourcePaneId && drag.dropTarget.type === "titlebar") {
+          const detachedSessionId = layout.detachPane(drag.sourcePaneId);
+          if (detachedSessionId) useSessionStore.getState().setActive(detachedSessionId);
         } else if (drag.dragType === "pane" && drag.sourcePaneId && drag.dropTarget.type === "pane" && drag.dropTarget.paneId) {
           layout.movePane(drag.sourcePaneId, drag.dropTarget.paneId, drag.dropTarget.position);
           useSessionStore.getState().setActive(drag.sessionId);
