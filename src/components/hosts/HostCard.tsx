@@ -1,9 +1,10 @@
+import { useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import type { Connection, VaultOption } from "@/types";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { CardActionButton } from "@/components/shared/CardActionButton";
-import { TagBadge } from "@/components/shared/TagBadge";
+import { OverflowTagList } from "@/components/shared/OverflowTagList";
 import { type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { useUIContributions } from "@/hooks/useUIContributions";
@@ -87,6 +88,30 @@ export default function HostCard({
     }),
   ];
 
+  const contentColRef = useRef<HTMLDivElement>(null);
+  const terminalBtnRef = useRef<HTMLButtonElement>(null);
+  const [tagMaxWidth, setTagMaxWidth] = useState<number | undefined>(undefined);
+
+  useLayoutEffect(() => {
+    if (isList) return;
+    const btn = terminalBtnRef.current;
+    const col = contentColRef.current;
+    if (!btn || !col) return;
+
+    const measure = () => {
+      const colRect = col.getBoundingClientRect();
+      const btnRect = btn.getBoundingClientRect();
+      const width = btnRect.left - colRect.left;
+      if (width > 0) setTagMaxWidth(width);
+    };
+
+    measure();
+    const obs = new ResizeObserver(measure);
+    obs.observe(btn);
+    obs.observe(col);
+    return () => obs.disconnect();
+  }, [isList]);
+
   const pingColor = pingStatus === "up"
     ? "var(--t-status-connected)"
     : pingStatus === "down"
@@ -137,9 +162,7 @@ export default function HostCard({
             }
           </p>
           {connection.tags.length > 0 && (
-            <div className="flex items-center gap-1 shrink-0">
-              {connection.tags.map((tag) => <TagBadge key={tag} tag={tag} />)}
-            </div>
+            <OverflowTagList tags={connection.tags} className="max-w-32 flex-1" />
           )}
           <div className="flex items-center gap-1 shrink-0">
             {syncIcon}
@@ -160,7 +183,7 @@ export default function HostCard({
           <div className="flex-1 min-w-0 self-start flex flex-col gap-1">
             <div className="flex items-start gap-2 min-w-0">
               <ConnectionAvatar connection={connection} size={30} />
-              <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+              <div ref={contentColRef} className="flex flex-col gap-0.5 flex-1 min-w-0">
                 <div className="flex items-center gap-2 min-w-0">
                   <p className="text-sm font-bold truncate text-[var(--t-text-bright)]">
                     {displayName(connection)}
@@ -193,11 +216,11 @@ export default function HostCard({
                     </div>
                   )}
                 </div>
-                {connection.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 self-start max-w-[55%]">
-                    {connection.tags.map((tag) => <TagBadge key={tag} tag={tag} className="py-0 text-[11px]" />)}
-                  </div>
-                )}
+                <div className="self-start w-full min-h-[26px]" style={{ maxWidth: tagMaxWidth }}>
+                  {connection.tags.length > 0 && (
+                    <OverflowTagList tags={connection.tags} className="w-full" badgeClassName="py-0 text-[11px]" maxWidth={tagMaxWidth} />
+                  )}
+                </div>
               </div>
             </div>
 
@@ -234,6 +257,7 @@ export default function HostCard({
 
               {/* Terminal connect button — bleeds into card's bottom-right corner */}
               <button
+                ref={terminalBtnRef}
                 onClick={(e) => { e.stopPropagation(); onConnect(connection); }}
                 className="terminal-connect-btn -mt-5 -mr-[calc(0.75rem+2px)] -mb-[calc(0.75rem+2px)] pr-[calc(0.75rem+2px)] pb-3.5 pt-2.5 pl-3 rounded-tl-xl rounded-br-2xl bg-[var(--t-bg-terminal)] text-[var(--t-terminal-foreground)] hover:brightness-150 transition-all text-xs flex flex-col min-w-0 overflow-hidden max-w-[75%]"
                 style={{ fontFamily: "var(--t-terminal-font-family)" }}
