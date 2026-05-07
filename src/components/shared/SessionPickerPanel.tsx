@@ -8,6 +8,7 @@ import { useLayoutStore } from "@/stores/layoutStore";
 import { matchesSearch } from "@/utils/connectionFilter";
 import { ConnectionAvatar } from "./ConnectionAvatar";
 import { HostRow } from "./HostPickerPanel";
+import { getSnippetInjectionTargetIds, waitForConnectedSessionIds } from "./sessionPickerTargets";
 
 interface Props {
   mode: "insert" | "execute";
@@ -78,7 +79,7 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
       ? await useSessionStore.getState().connectMany(pickedConnections.map((conn) => conn.id)).catch(() => [])
       : [];
 
-    const allSessionIds = [...sessionIds, ...newSessionIds];
+    const allSessionIds = getSnippetInjectionTargetIds(sessionIds, newSessionIds);
 
     if (allSessionIds.length > 0) {
       useUIStore.getState().setActiveNav("terminal" as any);
@@ -90,6 +91,14 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
         layout.openSessions(allSessionIds);
         useSessionStore.getState().setActive(allSessionIds[0]);
       }
+    }
+
+    if (newSessionIds.length > 0) {
+      void waitForConnectedSessionIds(
+        newSessionIds,
+        () => useSessionStore.getState().sessions,
+        (listener) => useSessionStore.subscribe(listener),
+      ).then(onConfirm);
     }
 
     onClose();
