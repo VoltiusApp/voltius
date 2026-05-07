@@ -80,7 +80,7 @@ export function FilePane({
   const [error, setError] = useState<string | null>(null);
   const [sortCol, setSortCol] = useState<SortCol>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [colWidths, setColWidths] = useState<ColWidths>(DEFAULT_COL_WIDTHS);
+  const [colWidths, setColWidths] = useState<ColumnWidths>(DEFAULT_COLUMN_WIDTHS);
   const [visibleCols, setVisibleCols] = useState<VisibleCols>({ size: true, modified: true, permissions: true });
   const [showHidden, setShowHidden] = useState(false);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
@@ -632,78 +632,126 @@ function formatPermissions(mode: number): string {
 
 // ── ColumnHeaders ─────────────────────────────────────────────────────────────
 
-export type ColWidths = { size: number; modified: number; permissions: number };
-export const DEFAULT_COL_WIDTHS: ColWidths = { size: 56, modified: 112, permissions: 80 };
+export type ColumnWidths = { name: number; size: number; modified: number; permissions: number };
+export const DEFAULT_COLUMN_WIDTHS: ColumnWidths = { name: 260, size: 72, modified: 128, permissions: 88 };
 
-function ResizeHandle({ width, onWidth }: { width: number; onWidth: (w: number) => void }) {
-  const handleMouseDown = (e: React.MouseEvent) => {
+const COLUMN_MIN_WIDTHS: ColumnWidths = { name: 120, size: 56, modified: 96, permissions: 72 };
+type FileColumn = keyof ColumnWidths;
+
+function visibleDataColumns(isLocal: boolean, visibleCols: VisibleCols): FileColumn[] {
+  return (["size", "modified", ...(!isLocal ? ["permissions"] : [])] as FileColumn[]).filter((col) => visibleCols[col as keyof VisibleCols]);
+}
+
+function ResizeHandle({ column, width, onWidth }: { column: FileColumn; width: number; onWidth: (w: number) => void }) {
+  const startRef = useRef<{ x: number; width: number } | null>(null);
+  const [isActive, setIsActive] = useState(false);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    const startX = e.clientX;
-    const startW = width;
-    const onMove = (me: MouseEvent) => onWidth(Math.max(40, startW + (me.clientX - startX)));
-    const onUp = () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-    };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
+    startRef.current = { x: e.clientX, width };
+    setIsActive(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
   };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!startRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const nextWidth = startRef.current.width + (e.clientX - startRef.current.x);
+    onWidth(Math.max(COLUMN_MIN_WIDTHS[column], nextWidth));
+  };
+
+  const finishResize = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!startRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    startRef.current = null;
+    setIsActive(false);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+  };
+
   return (
     <div
-      onMouseDown={handleMouseDown}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={finishResize}
+      onPointerCancel={finishResize}
+      onPointerEnter={() => setIsActive(true)}
+      onPointerLeave={() => { if (!startRef.current) setIsActive(false); }}
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
       className="absolute inset-y-0 right-0 z-10 flex items-center justify-center"
-      style={{ width: 12, marginRight: -6, cursor: "col-resize" }}
+      style={{
+        width: 14,
+        marginRight: -7,
+        cursor: "col-resize",
+        background: "transparent",
+      }}
     >
-      <div className="w-px h-3/5" style={{ background: "var(--t-border)" }} />
+      <div
+        className="h-[72%] rounded-full transition-colors"
+        style={{
+          width: 2,
+          background: isActive ? "var(--t-accent)" : "var(--t-text-dim)",
+          opacity: isActive ? 1 : 0.9,
+          boxShadow: isActive
+            ? "0 0 0 1px color-mix(in srgb, var(--t-accent) 22%, transparent)"
+            : "0 0 0 1px color-mix(in srgb, var(--t-bg-card) 70%, transparent)",
+        }}
+      />
     </div>
   );
 }
 
 function ColumnHeaders({ sortCol, sortDir, isLocal, colWidths, visibleCols, onSort, onResize }: {
   sortCol: SortCol; sortDir: SortDir; isLocal: boolean;
-  colWidths: ColWidths; visibleCols: VisibleCols;
+  colWidths: ColumnWidths; visibleCols: VisibleCols;
   onSort: (col: SortCol) => void;
-  onResize: (col: keyof ColWidths, w: number) => void;
+  onResize: (col: FileColumn, w: number) => void;
 }) {
   const chevron = (col: SortCol) => sortCol === col
     ? <Icon icon={sortDir === "asc" ? "lucide:chevron-up" : "lucide:chevron-down"} width={10} className="shrink-0" />
     : null;
 
   const nameActive = sortCol === "name";
+  const dataColumns = visibleDataColumns(isLocal, visibleCols);
   return (
-    <div className="flex items-center gap-2 px-3 py-1 shrink-0 border-b border-b-[var(--t-border)]" style={{ background: "var(--t-bg-card)" }}>
+    <div className="flex items-center gap-2 px-3 py-1 shrink-0 overflow-hidden border-b border-b-[var(--t-border)]" style={{ background: "var(--t-bg-card)" }}>
       <div className="w-[13px] shrink-0" />
 
-      {/* Name — flex-1, left-aligned */}
+      {/* Name */}
       <button
         onClick={() => onSort("name")}
-        className="flex-1 min-w-0 relative flex items-center gap-0.5 text-xs font-medium transition-colors"
-        style={{ color: nameActive ? "var(--t-text-secondary)" : "var(--t-text-dim)" }}
+        className="relative shrink-0 min-w-0 flex items-center gap-0.5 text-xs font-medium transition-colors text-left"
+        style={{ width: colWidths.name, color: nameActive ? "var(--t-text-secondary)" : "var(--t-text-dim)" }}
         onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-secondary)"; }}
         onMouseLeave={(e) => { e.currentTarget.style.color = nameActive ? "var(--t-text-secondary)" : "var(--t-text-dim)"; }}
       >
-        Name {chevron("name")}
+        <span className="truncate">Name</span> {chevron("name")}
+        <ResizeHandle column="name" width={colWidths.name} onWidth={(w) => onResize("name", w)} />
       </button>
 
-      {/* Fixed columns — each carries a separator + resize handle on its right edge */}
-      {(["size", "modified", ...(!isLocal ? ["permissions"] : [])] as (keyof ColWidths)[]).filter((col) => visibleCols[col]).map((col) => {
+      {dataColumns.map((col) => {
         const label = col === "size" ? "Size" : col === "modified" ? "Modified" : "Perms";
         const active = sortCol === (col as SortCol);
         return (
           <button
             key={col}
             onClick={() => onSort(col as SortCol)}
-            className="relative flex items-center justify-end gap-0.5 text-xs font-medium transition-colors shrink-0"
+            className="relative flex items-center justify-start gap-0.5 pl-2 pr-2 text-xs font-medium transition-colors shrink-0 text-left"
             style={{ width: colWidths[col], color: active ? "var(--t-text-secondary)" : "var(--t-text-dim)" }}
             onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-secondary)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = active ? "var(--t-text-secondary)" : "var(--t-text-dim)"; }}
           >
             {/* left separator */}
-            <div className="absolute left-0 inset-y-[15%] w-px" style={{ background: "var(--t-border)" }} />
+            <div className="absolute left-0 inset-y-[12%] w-px" style={{ background: "var(--t-border-hover)", opacity: 0.75 }} />
             {chevron(col as SortCol)}
-            {label}
-            <ResizeHandle width={colWidths[col]} onWidth={(w) => onResize(col, w)} />
+            <span className="truncate">{label}</span>
+            <ResizeHandle column={col} width={colWidths[col]} onWidth={(w) => onResize(col, w)} />
           </button>
         );
       })}
@@ -732,7 +780,7 @@ function VirtualFileList({
   onCommitCreateFolder: () => void; onCommitCreateFile: () => void; onCancelCreate: () => void;
   selectedIdSet: Set<string>; dropFolderPath: string | null;
   focusIndex: React.MutableRefObject<number>; itemAreaRef: React.RefObject<HTMLDivElement | null>;
-  side: "left" | "right"; isLocal: boolean; selectedEntries: FileEntry[]; colWidths: ColWidths; visibleCols: VisibleCols;
+  side: "left" | "right"; isLocal: boolean; selectedEntries: FileEntry[]; colWidths: ColumnWidths; visibleCols: VisibleCols;
   onCommitRename: (f: FileEntry) => void; onCancelRename: () => void;
   onDropFolderPath: (path: string | null) => void;
   onItemSelect: (id: string, event: React.MouseEvent<HTMLDivElement>) => void;
@@ -891,7 +939,7 @@ function VirtualFileList({
 // ── FileRow ───────────────────────────────────────────────────────────────────
 
 function FileRow({ file, isSelected, isDragHover, isLocal, colWidths, visibleCols, selectableId, onClick, onDoubleClick, contextActions, onDragStart, onDragEnd }: {
-  file: FileEntry; isSelected: boolean; isDragHover?: boolean; isLocal: boolean; colWidths: ColWidths; visibleCols: VisibleCols; selectableId?: string;
+  file: FileEntry; isSelected: boolean; isDragHover?: boolean; isLocal: boolean; colWidths: ColumnWidths; visibleCols: VisibleCols; selectableId?: string;
   onClick: (e: React.MouseEvent) => void; onDoubleClick: () => void;
   contextActions?: ContextMenuItem[];
   onDragStart?: (e: React.DragEvent) => void;
@@ -899,6 +947,7 @@ function FileRow({ file, isSelected, isDragHover, isLocal, colWidths, visibleCol
 }) {
   const { pos, open, close } = useContextMenu();
   const dimColor = isSelected ? "var(--t-text-secondary)" : "var(--t-text-dim)";
+  const dataColumns = visibleDataColumns(isLocal, visibleCols);
 
   return (
     <div
@@ -920,22 +969,12 @@ function FileRow({ file, isSelected, isDragHover, isLocal, colWidths, visibleCol
         width={15} className="shrink-0"
         style={{ color: file.isDir ? "#f0c050" : file.isSymlink ? "var(--t-accent)" : "var(--t-text-dim)" }}
       />
-      <span className="flex-1 text-sm truncate text-[var(--t-text-primary)] min-w-0">{file.name}</span>
-      {visibleCols.size && (
-        <span className="text-xs text-right shrink-0 font-mono" style={{ width: colWidths.size, color: dimColor }}>
-          {!file.isDir ? formatSize(file.size) : ""}
+      <span className="text-sm truncate text-[var(--t-text-primary)] min-w-0 shrink-0" style={{ width: colWidths.name }}>{file.name}</span>
+      {dataColumns.map((col) => (
+        <span key={col} className="text-xs text-right shrink-0 truncate font-mono" style={{ width: colWidths[col], color: dimColor }}>
+          {col === "size" ? (!file.isDir ? formatSize(file.size) : "") : col === "modified" ? (file.modified != null ? formatDate(file.modified) : "") : (file.permissions != null ? formatPermissions(file.permissions) : "")}
         </span>
-      )}
-      {visibleCols.modified && (
-        <span className="text-xs text-right shrink-0 font-mono" style={{ width: colWidths.modified, color: dimColor }}>
-          {file.modified != null ? formatDate(file.modified) : ""}
-        </span>
-      )}
-      {!isLocal && visibleCols.permissions && (
-        <span className="text-xs text-right shrink-0 font-mono" style={{ width: colWidths.permissions, color: dimColor }}>
-          {file.permissions != null ? formatPermissions(file.permissions) : ""}
-        </span>
-      )}
+      ))}
       {pos && contextActions && <ContextMenu items={contextActions} pos={pos} onClose={close} />}
     </div>
   );
