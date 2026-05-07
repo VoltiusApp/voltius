@@ -202,8 +202,14 @@ export default function HostCard({
                     <div className="flex items-center gap-1.5 ml-auto shrink-0">
                       {showPingDot && (
                         <>
-                          <span className="relative w-2.5 h-2.5 shrink-0">
-                            <StatusDot color={pingColor} animate={pingStatus === "up"} fast={isActive} size={12} />
+                          <span className="relative w-6 h-6 -my-1.5 shrink-0">
+                            <StatusDot
+                              color={pingColor}
+                              animate={pingStatus === "up"}
+                              fast={isActive}
+                              size={12}
+                              className="bottom-auto right-auto top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+                            />
                           </span>
                           {pingStatus === "up" && pingLatency !== undefined && (
                             <span className="text-xs font-medium" style={{ color: pingColor }}>
