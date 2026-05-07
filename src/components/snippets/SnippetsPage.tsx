@@ -412,7 +412,7 @@ export function SnippetsPage() {
   // ── Injection ────────────────────────────────────────────────────────────
 
   async function handleTrigger(snippet: Snippet, execute: boolean, sessionId: string) {
-    const targetSession = sessions.find((s) => s.id === sessionId);
+    const targetSession = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
     if (!targetSession || targetSession.type === "multiplayer") return;
     trackUsed(snippet.id);
 
@@ -837,7 +837,7 @@ export function SnippetsPage() {
         userVars={pendingInject.userVars}
         initialValues={pendingInject.initialValues}
         onInject={async (resolvedText, execute) => {
-          const targetSession = sessions.find((s) => s.id === pendingInject.sessionId);
+          const targetSession = useSessionStore.getState().sessions.find((s) => s.id === pendingInject.sessionId);
           if (!targetSession) return;
           const payload = execute ? `${resolvedText}\n` : resolvedText;
           await broadcastSnippetInject(targetSession.id, targetSession.type, payload, execute).catch(console.error);
