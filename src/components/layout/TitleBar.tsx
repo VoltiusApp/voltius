@@ -34,10 +34,12 @@ export default function TitleBar() {
   const activeThemeName = useThemeStore((s) => s.getActiveTheme().name);
   const { sessions, activeSessionId, setActive, disconnect, removeSession } = useSessionStore();
   const connections = useConnectionStore((s) => s.connections);
-  const splitRoot = useLayoutStore((s) => s.root);
-  const activePaneId = useLayoutStore((s) => s.activePaneId);
+  const splitTabs = useLayoutStore((s) => s.splitTabs);
+  const activeSplitTabId = useLayoutStore((s) => s.activeSplitTabId);
   const splitTabActive = useLayoutStore((s) => s.splitTabActive);
   const setSplitTabActive = useLayoutStore((s) => s.setSplitTabActive);
+  const activateSplitTab = useLayoutStore((s) => s.activateSplitTab);
+  const closeSplitTab = useLayoutStore((s) => s.closeSplitTab);
 
   usePfToastBridge();
 
@@ -78,11 +80,9 @@ export default function TitleBar() {
   const isActiveSessionEnded = activeSessionId ? !!mpConnections[activeSessionId]?.ended : false;
 
   const isSftpCompact = !sftpPanelOpen && sessions.length > 0;
-  const splitSessionIds = splitRoot ? getPaneSessionIds(splitRoot) : [];
+  const splitSessionIds = splitTabs.flatMap((tab) => getPaneSessionIds(tab.root));
   const splitSessionIdSet = new Set(splitSessionIds);
   const visibleSessions = sessions.filter((session) => !splitSessionIdSet.has(session.id));
-  const activeSplitLeaf = findLeaf(splitRoot, activePaneId) ?? firstLeaf(splitRoot);
-  const activeSplitSession = activeSplitLeaf ? sessions.find((session) => session.id === activeSplitLeaf.sessionId) : null;
 
   const handleTabClick = (sessionId: string) => {
     if (shouldSuppressDragClick()) return;
@@ -118,19 +118,21 @@ export default function TitleBar() {
     if (sessions.length <= 1) setActiveNav("hosts");
   };
 
-  const handleUnifiedTabClick = () => {
+  const handleUnifiedTabClick = (tabId: string) => {
     setSftpPanelOpen(false);
-    setSplitTabActive(true);
-    const leaf = findLeaf(useLayoutStore.getState().root, useLayoutStore.getState().activePaneId) ?? firstLeaf(useLayoutStore.getState().root);
+    activateSplitTab(tabId);
+    const layout = useLayoutStore.getState();
+    const leaf = findLeaf(layout.root, layout.activePaneId) ?? firstLeaf(layout.root);
     if (leaf) setActive(leaf.sessionId);
     setActiveNav("terminal" as any);
   };
 
-  const handleUnifiedTabClose = (e: React.MouseEvent) => {
+  const handleUnifiedTabClose = (e: React.MouseEvent, tabId: string) => {
     e.stopPropagation();
-    const ids = getPaneSessionIds(useLayoutStore.getState().root);
+    const tab = useLayoutStore.getState().splitTabs.find((candidate) => candidate.id === tabId);
+    const ids = tab ? getPaneSessionIds(tab.root) : [];
     ids.forEach(closeSessionById);
-    useLayoutStore.setState({ root: null, activePaneId: null, maximizedPaneId: null, broadcastActive: false, splitTabActive: false });
+    closeSplitTab(tabId);
     if (sessions.length <= ids.length) setActiveNav("hosts");
   };
 
@@ -216,30 +218,38 @@ export default function TitleBar() {
 
         {/* Scrollable session tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto flex-1 h-full min-w-0">
-        {splitRoot && (
+        {splitTabs.map((tab) => {
+          const tabSessionIds = getPaneSessionIds(tab.root);
+          const tabActiveLeaf = findLeaf(tab.root, tab.activePaneId) ?? firstLeaf(tab.root);
+          const tabActiveSession = tabActiveLeaf ? sessions.find((session) => session.id === tabActiveLeaf.sessionId) : null;
+          const isActiveSplitTab = splitTabActive && activeSplitTabId === tab.id && activeNav === ("terminal" as any) && !sftpPanelOpen;
+
+          return (
           <button
-            onClick={handleUnifiedTabClick}
+            key={tab.id}
+            onClick={() => handleUnifiedTabClick(tab.id)}
             className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all"
             title="Unified split tab"
             style={{
-              background: splitTabActive && activeNav === ("terminal" as any) && !sftpPanelOpen ? "var(--t-tab-active-bg)" : "var(--t-tab-bg)",
-              color: splitTabActive && activeNav === ("terminal" as any) && !sftpPanelOpen ? "var(--t-tab-active-text)" : "var(--t-text-secondary)",
-              border: splitTabActive && activeNav === ("terminal" as any) && !sftpPanelOpen ? "1px solid var(--t-tab-active-border)" : "1px solid transparent",
+              background: isActiveSplitTab ? "var(--t-tab-active-bg)" : "var(--t-tab-bg)",
+              color: isActiveSplitTab ? "var(--t-tab-active-text)" : "var(--t-text-secondary)",
+              border: isActiveSplitTab ? "1px solid var(--t-tab-active-border)" : "1px solid transparent",
             }}
           >
             <Icon icon="lucide:panel-top-open" width={18} />
             <span className="max-w-[140px] truncate">
-              {activeSplitSession?.connectionName ?? "Split"}{splitSessionIds.length > 1 ? ` + ${splitSessionIds.length - 1}` : ""}
+              {tabActiveSession?.connectionName ?? "Split"}{tabSessionIds.length > 1 ? ` + ${tabSessionIds.length - 1}` : ""}
             </span>
             <span
-              onClick={handleUnifiedTabClose}
+              onClick={(e) => handleUnifiedTabClose(e, tab.id)}
               className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5"
-              style={{ color: splitTabActive ? "var(--t-tab-active-text)" : "var(--t-text-muted)" }}
+              style={{ color: isActiveSplitTab ? "var(--t-tab-active-text)" : "var(--t-text-muted)" }}
             >
               <span className="[&_path]:[stroke-width:2.1]"><Icon icon="lucide:x" width={20} /></span>
             </span>
           </button>
-        )}
+          );
+        })}
         {visibleSessions.map((session) => {
           const isActive = session.id === activeSessionId && activeNav === ("terminal" as any) && !sftpPanelOpen && !splitTabActive;
           const statusColor =
