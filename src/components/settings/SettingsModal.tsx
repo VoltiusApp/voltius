@@ -30,7 +30,7 @@ export default function SettingsModal() {
         }}
       >
         <nav
-          className="flex flex-col shrink-0 py-4 bg-[var(--t-bg-sidebar)] border-r border-r-[var(--t-border)]"
+          className="flex flex-col shrink-0 py-4 bg-[var(--t-bg-toolbar)] border-r border-r-[var(--t-border)]"
           style={{ width: "13.333rem" }}
         >
           <div className="px-5 mb-4">

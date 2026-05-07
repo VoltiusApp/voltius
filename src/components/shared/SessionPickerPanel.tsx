@@ -125,7 +125,7 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
           <h2 className="text-sm font-semibold flex-1 text-[var(--t-text-primary)]">{label}</h2>
         </div>
 
-        <div className="px-2 py-2 shrink-0 bg-[var(--t-bg-sidebar)] border-b border-[var(--t-bg-terminal)]">
+        <div className="px-2 py-2 shrink-0 bg-[var(--t-bg-toolbar)] border-b border-[var(--t-bg-terminal)]">
           <div className="relative">
             <Icon icon="lucide:search" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--t-text-dim)]" />
             <input

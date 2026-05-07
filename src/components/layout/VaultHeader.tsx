@@ -73,7 +73,7 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
                 border: m.is_online
                   ? "2px solid var(--t-status-connected)"
                   : "2px solid transparent",
-                boxShadow: "0 0 0 1.5px var(--t-bg-sidebar)",
+                boxShadow: "0 0 0 1.5px var(--t-bg-toolbar)",
                 opacity: m.is_online ? 1 : 0.45,
                 transition: "border-color 0.2s, opacity 0.2s",
               }}
@@ -90,7 +90,7 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
                 width: 26,
                 height: 26,
                 background: "var(--t-bg-elevated)",
-                border: "2px solid var(--t-bg-sidebar)",
+                border: "2px solid var(--t-bg-toolbar)",
                 color: "var(--t-text-dim)",
               }}
             >
@@ -236,7 +236,7 @@ export default function VaultHeader() {
       className="flex items-center shrink-0 px-4 gap-4 border-b rounded-tl-2xl"
       style={{
         height: "3.75rem",
-        background: "var(--t-bg-sidebar)",
+        background: "var(--t-bg-toolbar)",
         borderColor: "var(--t-border)",
       }}
     >

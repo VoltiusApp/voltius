@@ -33,7 +33,7 @@ export default function NavBar() {
       className="flex items-center shrink-0 px-2 border-b gap-0.5"
       style={{
         height: "2.75rem",
-        background: "var(--t-bg-sidebar)",
+        background: "var(--t-bg-toolbar)",
         borderColor: "var(--t-border)",
       }}
     >

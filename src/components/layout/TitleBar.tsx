@@ -352,7 +352,7 @@ export default function TitleBar() {
                 }}
                 onMouseEnter={(e) => {
                   if (!isActive) {
-                    (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-sidebar)";
+                    (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-toolbar)";
                     (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)";
                   }
                 }}
@@ -573,7 +573,7 @@ function NewTabButton({ onNavigate }: { onNavigate: () => void }) {
       className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 transition-colors text-[var(--t-text-dim)] relative overflow-hidden"
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLButtonElement).style.color = "var(--t-tab-active-text)";
-        (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-sidebar)";
+        (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-toolbar)";
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)";
@@ -814,7 +814,7 @@ function SyncIndicator({
         title={title}
         onMouseEnter={(e) => {
           if (!active) {
-            (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-sidebar)";
+            (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-toolbar)";
             (e.currentTarget as HTMLButtonElement).style.color = status === "error"
               ? "var(--t-status-error)" : "var(--t-tab-active-text)";
           }

@@ -62,7 +62,7 @@ export function EmptySection({
   return (
     <div className="flex flex-col items-center justify-center py-8 gap-3">
       <div
-        className="w-12 h-12 rounded-xl flex items-center justify-center bg-[var(--t-bg-sidebar)] border border-[var(--t-border)]"
+        className="w-12 h-12 rounded-xl flex items-center justify-center bg-[var(--t-bg-toolbar)] border border-[var(--t-border)]"
       >
         <Icon icon={icon} width={20} className="text-[var(--t-text-dim)]" />
       </div>

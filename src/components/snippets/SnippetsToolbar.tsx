@@ -55,7 +55,7 @@ export function SnippetsToolbar({
     <>
       <div
         ref={rowRef}
-        className="flex items-center gap-2 px-5 py-2.5 bg-[var(--t-bg-sidebar)] border-b border-b-[var(--t-bg-terminal)]"
+        className="flex items-center gap-2 px-5 py-2.5 bg-[var(--t-bg-toolbar)] border-b border-b-[var(--t-bg-terminal)]"
       >
         <div ref={leftRef} className="flex items-center gap-1.5">
           <FilterInput

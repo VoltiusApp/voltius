@@ -174,7 +174,7 @@ export default function ShortcutsPanel() {
                         ? "var(--t-bg-elevated)"
                         : isConflict
                           ? "#2D1515"
-                          : "var(--t-bg-sidebar)",
+                          : "var(--t-bg-toolbar)",
                       border: `1px solid ${
                         isRecording
                           ? "var(--t-accent)"

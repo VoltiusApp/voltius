@@ -60,7 +60,7 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly }: Pro
 
       {/* Toolbar */}
       <div
-        className="flex items-center gap-2 px-3 py-2 shrink-0 bg-[var(--t-bg-sidebar)] border-b border-b-[var(--t-bg-terminal)]"
+        className="flex items-center gap-2 px-3 py-2 shrink-0 bg-[var(--t-bg-toolbar)] border-b border-b-[var(--t-bg-terminal)]"
       >
         <button
           onClick={() => { setHomePendingAction({ action: "create" }); setActiveNav("hosts"); }}

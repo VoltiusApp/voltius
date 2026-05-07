@@ -8,7 +8,7 @@ export function applyThemeToDom(theme: AppTheme) {
   root.style.setProperty("--t-bg-terminal", ui.bgTerminal);
   root.style.setProperty("--t-bg-status-bar", ui.bgStatusBar);
   root.style.setProperty("--t-bg-base", ui.bgBase);
-  root.style.setProperty("--t-bg-sidebar", ui.bgSidebar);
+  root.style.setProperty("--t-bg-toolbar", ui.bgToolbar);
   root.style.setProperty("--t-bg-card", ui.bgCard);
   root.style.setProperty("--t-bg-card-hover", ui.bgCardHover);
   root.style.setProperty("--t-bg-card-avatar", ui.bgCardAvatar);

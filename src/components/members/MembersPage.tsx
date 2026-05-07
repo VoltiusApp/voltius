@@ -183,7 +183,7 @@ function MembersToolbar({
   return (
     <div
       className="flex items-center gap-2 px-4 py-2.5 shrink-0"
-      style={{ borderBottom: "1px solid var(--t-border)", background: "var(--t-bg-sidebar)" }}
+      style={{ borderBottom: "1px solid var(--t-border)", background: "var(--t-bg-toolbar)" }}
     >
       <div className="flex items-center gap-2 min-w-0">
         {vaultTabs && vaultTabs.length > 1 && (

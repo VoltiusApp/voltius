@@ -3,7 +3,7 @@ import type { UITheme, TerminalTheme } from "@/themes/types";
 export const UI_GROUPS: { label: string; fields: (keyof UITheme)[] }[] = [
   {
     label: "Backgrounds",
-    fields: ["bgTerminal", "bgStatusBar", "bgBase", "bgSidebar", "bgCard", "bgCardHover", "bgCardAvatar", "bgInput", "bgInputHover", "bgElevated", "bgModal"],
+    fields: ["bgTerminal", "bgStatusBar", "bgBase", "bgToolbar", "bgCard", "bgCardHover", "bgCardAvatar", "bgInput", "bgInputHover", "bgElevated", "bgModal"],
   },
   { label: "Borders", fields: ["border", "borderHover"] },
   {
@@ -44,7 +44,7 @@ export const TERMINAL_GROUPS: { label: string; fields: (keyof TerminalTheme)[] }
 ];
 
 export const FIELD_LABELS: Record<string, string> = {
-  bgTerminal: "Terminal / Titlebar", bgStatusBar: "Status Bar", bgBase: "Base Background", bgSidebar: "Sidebar",
+  bgTerminal: "Terminal / Titlebar", bgStatusBar: "Status Bar", bgBase: "Base Background", bgToolbar: "Toolbar",
   bgCard: "Cards", bgCardHover: "Cards Hover", bgCardAvatar: "Card Avatar",
   bgInput: "Inputs", bgInputHover: "Inputs Hover", bgElevated: "Elevated / Hover", bgModal: "Modal / Panel",
   border: "Border", borderHover: "Border Hover",

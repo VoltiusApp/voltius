@@ -1174,7 +1174,7 @@ function EmptyState({ onAdd }: { onAdd?: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[320px] gap-5">
       <div
-        className="w-16 h-16 rounded-2xl flex items-center justify-center bg-[var(--t-bg-sidebar)] border border-[var(--t-border)]"
+        className="w-16 h-16 rounded-2xl flex items-center justify-center bg-[var(--t-bg-toolbar)] border border-[var(--t-border)]"
       >
         <Icon icon="lucide:monitor" width={28} className="text-[var(--t-text-dim)]" />
       </div>

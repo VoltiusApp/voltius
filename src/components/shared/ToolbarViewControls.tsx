@@ -279,7 +279,7 @@ function TagFilterButton({
             >
               <div
                 className="flex items-center justify-center rounded-2xl w-[3.2rem] h-[3.2rem] text-[var(--t-text-dim)] border border-[var(--t-border)]"
-                style={{ background: "linear-gradient(135deg, var(--t-bg-card) 0%, var(--t-bg-sidebar) 100%)" }}
+                style={{ background: "linear-gradient(135deg, var(--t-bg-card) 0%, var(--t-bg-toolbar) 100%)" }}
               >
                 <Icon icon="lucide:tag" width={22} />
               </div>

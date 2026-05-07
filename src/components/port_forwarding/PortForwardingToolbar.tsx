@@ -23,7 +23,7 @@ export function PortForwardingToolbar({
 
   return (
     <>
-      <div ref={rowRef} className="flex items-center gap-2 px-5 py-2.5 shrink-0 bg-[var(--t-bg-sidebar)] border-b border-b-[var(--t-bg-terminal)]">
+      <div ref={rowRef} className="flex items-center gap-2 px-5 py-2.5 shrink-0 bg-[var(--t-bg-toolbar)] border-b border-b-[var(--t-bg-terminal)]">
         <div ref={leftRef} className="flex items-center">
           <ToolbarViewControls
             search={search}

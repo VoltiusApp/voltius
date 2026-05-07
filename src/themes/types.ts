@@ -14,7 +14,7 @@ export interface UITheme {
   bgTerminal: string;    // titlebar + terminal bg
   bgStatusBar: string;   // terminal status bar bg
   bgBase: string;        // homepage/main bg
-  bgSidebar: string;     // sidebar
+  bgToolbar: string;     // toolbar/sidebar surfaces
   bgCard: string;        // host cards
   bgCardHover: string;   // host cards hovered
   bgCardAvatar: string;  // host card default avatar bg
