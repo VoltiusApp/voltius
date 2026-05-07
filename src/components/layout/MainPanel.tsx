@@ -293,8 +293,9 @@ export default function MainPanel() {
   const sftpPanelOpen = useUIStore((s) => s.sftpPanelOpen);
   const accessibleVaultIds = useAccessibleVaultIds();
   const splitRoot = useLayoutStore((s) => s.root);
+  const splitTabs = useLayoutStore((s) => s.splitTabs);
   const splitTabActive = useLayoutStore((s) => s.splitTabActive);
-  const splitSessionIds = splitRoot ? getPaneSessionIds(splitRoot) : [];
+  const splitSessionIds = splitTabs.flatMap((tab) => getPaneSessionIds(tab.root));
 
   usePaneDragController();
 
