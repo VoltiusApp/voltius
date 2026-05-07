@@ -40,6 +40,7 @@ import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useAllFolders } from "@/hooks/useAllFolders";
+import { SnippetPickerPanel } from "./SnippetPickerPanel";
 
 
 export default function HostsPage() {
@@ -76,6 +77,7 @@ export default function HostsPage() {
   const formVersion = useSyncedFormKey(editing?.updated_at, showForm || showSerialForm, () => (formRef.current?.isDirty() ?? serialFormRef.current?.isDirty() ?? false));
   const [confirmDeleteFolderId, setConfirmDeleteFolderId] = useState<string | null>(null);
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [showSnippetPicker, setShowSnippetPicker] = useState(false);
 
 
   useEffect(() => {
@@ -227,7 +229,7 @@ export default function HostsPage() {
       if (conn) void handleDuplicate(conn);
     },
     onEscape: () => {
-      if (showForm || showSerialForm || editingFolderId) { setShowForm(false); setShowSerialForm(false); setEditingId(null); setEditingFolderId(null); }
+      if (showForm || showSerialForm || editingFolderId || showSnippetPicker) { setShowForm(false); setShowSerialForm(false); setEditingId(null); setEditingFolderId(null); setShowSnippetPicker(false); }
       else setSelection([]);
     },
     onSearch: () => setOmniOpen(true),
@@ -353,13 +355,19 @@ export default function HostsPage() {
   }, [connect, handleBulkConnect, selectedConnections, selectedIdSet, setActiveNav]);
 
   const bulkContextMenuItems = useMemo<ContextMenuItem[] | undefined>(() => {
-    if (selectedIdSet.size <= 1) return undefined;
+    if (selectedIdSet.size === 0) return undefined;
     const ids = [...selectedIdSet];
     const selectedConns = selectedConnections;
     const { isObjectSynced } = useSyncPrefsStore.getState();
     const allSynced = selectedConns.every((c) => isObjectSynced(c.id, "connection"));
     const allCanEdit = selectedConns.every((c) => can("EDIT_CONNECTIONS", c.vault_id ?? "personal"));
     return [
+      {
+        label: `Execute Snippet on ${ids.length} host${ids.length === 1 ? "" : "s"}`,
+        icon: "lucide:braces",
+        onClick: () => { setShowSnippetPicker(true); setShowForm(false); setShowSerialForm(false); setEditingFolderId(null); },
+        divider: true,
+      },
       ...(selectedConns.length > 1 ? [{
         label: `Connect ${selectedConns.length} hosts`,
         icon: "lucide:terminal",
@@ -685,12 +693,18 @@ export default function HostsPage() {
   return (
     <>
     <SidePanelLayout
-      panelOpen={showForm || showSerialForm || editingFolder !== null}
-      panelWidth={editingFolder !== null ? 280 : 320}
+      panelOpen={showForm || showSerialForm || editingFolder !== null || showSnippetPicker}
+      panelWidth={showSnippetPicker ? 300 : editingFolder !== null ? 280 : 320}
       className="bg-[--t-bg-base]"
       panel={
         <>
-          {editingFolder && (
+          {showSnippetPicker && (
+            <SnippetPickerPanel
+              connectionIds={selectedConnections.map((c) => c.id)}
+              onClose={() => setShowSnippetPicker(false)}
+            />
+          )}
+          {!showSnippetPicker && editingFolder && (
             <FolderEditPanel
               folder={editingFolder}
               onUpdate={(id, data) => void updateFolder(id, data)}
@@ -703,7 +717,7 @@ export default function HostsPage() {
               onCopyToVault={(vaultId) => handleCopyFolderToVault(editingFolder, vaultId)}
             />
           )}
-          {showSerialForm && (
+          {!showSnippetPicker && showSerialForm && (
             <SerialConnectionForm
               ref={serialFormRef}
               key={`serial-${editing?.id ?? "new"}-${formVersion}`}
@@ -719,7 +733,7 @@ export default function HostsPage() {
               onCopyToVault={editing ? (vaultId) => { void handleCopyConnectionToVault(editing, vaultId); } : undefined}
             />
           )}
-          {showForm && !isEditingSerial && (
+          {!showSnippetPicker && showForm && !isEditingSerial && (
             <ConnectionForm
               ref={formRef}
               key={`${editing?.id ?? "new"}-${formVersion}`}
@@ -782,13 +796,14 @@ export default function HostsPage() {
           dragBox={dragBox}
           className="flex-1 overflow-y-auto px-9 pt-5 pb-9"
           onClick={() => {
-            if (!showForm && !showSerialForm && !editingFolder) return;
+            if (!showForm && !showSerialForm && !editingFolder && !showSnippetPicker) return;
             formRef.current?.flush();
             serialFormRef.current?.flush();
             setShowForm(false);
             setShowSerialForm(false);
             setEditingId(null);
             setEditingFolderId(null);
+            setShowSnippetPicker(false);
           }}
           onContextMenu={(e) => {
             if ((e.target as Element).closest("[data-host-card],[data-folder-card]")) return;
