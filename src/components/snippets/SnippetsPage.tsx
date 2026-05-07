@@ -178,7 +178,6 @@ export function SnippetsPage() {
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);
   const activeConn = connections.find((c) => c.id === activeSession?.connectionId);
-  const canInject = !!activeSession && activeSession.type !== "multiplayer";
 
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("name-asc");
@@ -214,6 +213,7 @@ export function SnippetsPage() {
     userVars: ReturnType<typeof parseVariables>;
     initialValues: Record<string, string>;
     execute: boolean;
+    sessionId: string;
   } | null>(null);
 
 
@@ -411,17 +411,15 @@ export function SnippetsPage() {
 
   // ── Injection ────────────────────────────────────────────────────────────
 
-  async function buildCtx(): Promise<DynamicContext> {
-    let clipboard = "";
-    try { clipboard = await navigator.clipboard.readText(); } catch { /* permission denied */ }
-    return buildDynamicContext(activeSession, connections, clipboard);
-  }
-
-  async function handleTrigger(snippet: Snippet, execute: boolean) {
-    if (!activeSession || activeSession.type === "multiplayer") return;
+  async function handleTrigger(snippet: Snippet, execute: boolean, sessionId: string) {
+    const targetSession = sessions.find((s) => s.id === sessionId);
+    if (!targetSession || targetSession.type === "multiplayer") return;
     trackUsed(snippet.id);
 
-    const ctx = await buildCtx();
+    let clipboard = "";
+    try { clipboard = await navigator.clipboard.readText(); } catch { /* permission denied */ }
+    const ctx = buildDynamicContext(targetSession, connections, clipboard);
+
     const vars = parseVariables(snippet.content);
     const dynValues = buildDynamicValues(vars, ctx);
     const partialTemplate = resolveTemplate(snippet.content, dynValues);
@@ -433,9 +431,9 @@ export function SnippetsPage() {
     if (missing.length === 0) {
       const resolved = resolveTemplate(partialTemplate, initialValues);
       const payload = execute ? `${resolved}\n` : resolved;
-      await broadcastSnippetInject(activeSession.id, activeSession.type, payload, execute).catch(console.error);
+      await broadcastSnippetInject(targetSession.id, targetSession.type, payload, execute).catch(console.error);
     } else {
-      setPendingInject({ snippet, partialTemplate, userVars, initialValues, execute });
+      setPendingInject({ snippet, partialTemplate, userVars, initialValues, execute, sessionId });
     }
   }
 
@@ -568,7 +566,6 @@ export function SnippetsPage() {
         isEditing={ep.isEditing(s)}
         isSelected={selectedIdSet.has(s.id)}
         isFocused={focusedId === s.id}
-        canInject={canInject}
         dimmed={!isContextuallyRelevant(s, activeConn)}
         layout={layoutMode}
         onEdit={() => openSnippet(s)}
@@ -576,8 +573,8 @@ export function SnippetsPage() {
           handleItemSelect(id, e);
           if (!e.ctrlKey && !e.metaKey && !e.shiftKey) openSnippet(s);
         }}
-        onInsert={() => void handleTrigger(s, false)}
-        onExecute={() => void handleTrigger(s, true)}
+        onInsert={(sessionId) => void handleTrigger(s, false, sessionId)}
+        onExecute={(sessionId) => void handleTrigger(s, true, sessionId)}
         onDuplicate={() => void handleDuplicate(s)}
         onDelete={() => void deleteSnippet(s.id)}
         onToggleFavorite={() => void handleToggleFavorite(s)}
@@ -840,9 +837,10 @@ export function SnippetsPage() {
         userVars={pendingInject.userVars}
         initialValues={pendingInject.initialValues}
         onInject={async (resolvedText, execute) => {
-          if (!activeSession) return;
+          const targetSession = sessions.find((s) => s.id === pendingInject.sessionId);
+          if (!targetSession) return;
           const payload = execute ? `${resolvedText}\n` : resolvedText;
-          await broadcastSnippetInject(activeSession.id, activeSession.type, payload, execute).catch(console.error);
+          await broadcastSnippetInject(targetSession.id, targetSession.type, payload, execute).catch(console.error);
           setPendingInject(null);
         }}
         onClose={() => setPendingInject(null)}

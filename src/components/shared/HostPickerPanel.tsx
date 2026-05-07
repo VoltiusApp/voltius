@@ -137,7 +137,7 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly }: Pro
   );
 }
 
-function HostRow({ avatar, name, sub, isSelected, onClick }: {
+export function HostRow({ avatar, name, sub, isSelected, onClick }: {
   avatar: React.ReactNode;
   name: string;
   sub: string;

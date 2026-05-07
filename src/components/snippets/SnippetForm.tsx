@@ -20,6 +20,17 @@ import {
 } from "@/components/shared/Panel";
 import type { Snippet, SnippetFormData } from "@/types";
 import { getShortcutHint } from "@/stores/shortcutStore";
+import { parseVariables } from "@/services/snippetParser";
+
+const DYNAMIC_VAR_DEFS: { value: string; desc: string }[] = [
+  { value: "connection.host",     desc: "Active SSH hostname / IP" },
+  { value: "connection.username", desc: "Active SSH username" },
+  { value: "connection.name",     desc: "Active connection name" },
+  { value: "date",                desc: "Today — YYYY-MM-DD" },
+  { value: "datetime",            desc: "Date + time — YYYY-MM-DD HH:MM:SS" },
+  { value: "timestamp",           desc: "Unix timestamp" },
+  { value: "clipboard",           desc: "Current clipboard contents" },
+];
 
 interface Props {
   initial?: Snippet;
@@ -55,6 +66,46 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
   const [favorite, setFavorite] = useState(initial?.favorite ?? false);
   const [vaultId, setVaultId]   = useState(initial?.vault_id ?? defaultVaultId);
   const vaultTouched = useRef(false);
+
+  const contentRef = useRef<HTMLTextAreaElement>(null);
+  const [varQuery, setVarQuery] = useState<string | null>(null);
+  const [varSuggestIdx, setVarSuggestIdx] = useState(0);
+  const detectedVars = useMemo(() => parseVariables(content), [content]);
+
+  function syncVarQuery(el: HTMLTextAreaElement) {
+    const before = el.value.slice(0, el.selectionStart);
+    const match = before.match(/\{\{([^}]*)$/);
+    const q = match ? match[1] : null;
+    setVarQuery(q);
+    if (q !== null) setVarSuggestIdx(0);
+  }
+
+  function insertVar(varName: string) {
+    const el = contentRef.current;
+    if (!el) return;
+    const cursor = el.selectionStart;
+    const before = el.value.slice(0, cursor);
+    const after = el.value.slice(el.selectionEnd);
+    const match = before.match(/\{\{([^}]*)$/);
+    let newVal: string;
+    let newCursor: number;
+    if (match) {
+      const start = cursor - match[1].length;
+      newVal = before.slice(0, start) + varName + "}}" + after;
+      newCursor = start + varName.length + 2;
+    } else {
+      newVal = before + "{{" + varName + "}}" + after;
+      newCursor = cursor + varName.length + 4;
+    }
+    markDirty();
+    setContent(newVal);
+    setVarQuery(null);
+    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(newCursor, newCursor); });
+  }
+
+  const varSuggestions = varQuery !== null
+    ? DYNAMIC_VAR_DEFS.filter((s) => s.value.startsWith(varQuery.toLowerCase()))
+    : [];
 
   useEffect(() => {
     if (isNew && !vaultTouched.current) setVaultId(defaultVaultId);
@@ -143,22 +194,76 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
 
           <div>
             <label className={formLabelClass} style={formLabelStyle}>Content</label>
-            <textarea
-              value={content}
-              onChange={(e) => { markDirty(); setContent(e.target.value); }}
-              placeholder="echo Hello, {{name}}!"
-              rows={6}
-              className={`${formInputClass} font-mono resize-y`}
-              style={{ ...formInputStyle, minHeight: "7rem" }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
-            />
-            <p className="mt-1 text-xs text-[var(--t-text-dim)]">
-              Use{" "}
-              <code className="font-mono bg-[var(--t-bg-elevated)] px-1 rounded">
-                {"{{variable}}"}
-              </code>{" "}
-              for dynamic values.
+            <div className="relative">
+              <textarea
+                ref={contentRef}
+                value={content}
+                onChange={(e) => { markDirty(); setContent(e.target.value); syncVarQuery(e.target); }}
+                onSelect={(e) => syncVarQuery(e.currentTarget)}
+                onKeyDown={(e) => {
+                  if (varSuggestions.length === 0) return;
+                  if (e.key === "ArrowDown") { e.preventDefault(); setVarSuggestIdx((i) => Math.min(i + 1, varSuggestions.length - 1)); }
+                  else if (e.key === "ArrowUp") { e.preventDefault(); setVarSuggestIdx((i) => Math.max(i - 1, 0)); }
+                  else if ((e.key === "Enter" || e.key === "Tab") && varQuery !== null) { e.preventDefault(); insertVar(varSuggestions[varSuggestIdx]?.value ?? ""); }
+                  else if (e.key === "Escape") { setVarQuery(null); }
+                }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; setTimeout(() => setVarQuery(null), 100); }}
+                placeholder="echo Hello, {{name}}!"
+                rows={6}
+                className={`${formInputClass} font-mono resize-y`}
+                style={{ ...formInputStyle, minHeight: "7rem" }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
+              />
+
+              {/* Autocomplete dropdown */}
+              {varSuggestions.length > 0 && (
+                <div
+                  className="absolute top-full left-0 z-50 w-full mt-1 rounded-lg shadow-lg overflow-hidden"
+                  style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}
+                >
+                  {varSuggestions.map((s, i) => (
+                    <button
+                      key={s.value}
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); insertVar(s.value); }}
+                      className={`flex items-center justify-between w-full px-3 py-1.5 text-xs text-left transition-colors ${
+                        i === varSuggestIdx ? "bg-[var(--t-bg-elevated)]" : "hover:bg-[var(--t-bg-elevated)]"
+                      }`}
+                    >
+                      <code className="font-mono" style={{ color: "var(--t-accent)" }}>{`{{${s.value}}}`}</code>
+                      <span style={{ color: "var(--t-text-dim)" }}>{s.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Detected variables */}
+            {detectedVars.length > 0 && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>Variables:</span>
+                {detectedVars.map((v) => (
+                  <span
+                    key={v.name}
+                    className="inline-flex items-center gap-1 text-xs font-mono px-1.5 py-0.5 rounded"
+                    style={{
+                      background: v.dynamic ? "color-mix(in srgb, var(--t-accent) 15%, transparent)" : "var(--t-bg-elevated)",
+                      color: v.dynamic ? "var(--t-accent)" : "var(--t-text)",
+                      border: "1px solid var(--t-border)",
+                    }}
+                  >
+                    <span>{v.name}</span>
+                    <span className="font-sans" style={{ color: "var(--t-text-dim)" }}>{v.dynamic ? "auto" : v.type}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Syntax hint */}
+            <p className="mt-1.5 text-xs leading-relaxed" style={{ color: "var(--t-text-dim)" }}>
+              Type <code className="font-mono bg-[var(--t-bg-elevated)] px-1 rounded" style={{ color: "var(--t-text)" }}>{"{{"}</code> for autocomplete.
+              {" "}Custom prompts: <code className="font-mono bg-[var(--t-bg-elevated)] px-1 rounded" style={{ color: "var(--t-text)" }}>{"{{name:type}}"}</code>
+              {" "}— text · number · password · boolean · <code className="font-mono bg-[var(--t-bg-elevated)] px-1 rounded" style={{ color: "var(--t-text)" }}>choice:a,b</code>
             </p>
           </div>
 
