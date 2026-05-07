@@ -78,6 +78,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
   const setStatus = useHostPingStore((s) => s.setStatus);
   const closePane = useLayoutStore((s) => s.closePane);
   const splitPane = useLayoutStore((s) => s.splitPane);
+  const detachPane = useLayoutStore((s) => s.detachPane);
   const maximizedPaneId = useLayoutStore((s) => s.maximizedPaneId);
   const setMaximized = useLayoutStore((s) => s.setMaximized);
   const broadcastActive = useLayoutStore((s) => s.broadcastActive);
@@ -204,6 +205,11 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
     if (nextLeaf) useSessionStore.getState().setActive(nextLeaf.sessionId);
   };
 
+  const handleDetachPane = () => {
+    const detachedSessionId = detachPane(paneId);
+    if (detachedSessionId) useSessionStore.getState().setActive(detachedSessionId);
+  };
+
   const handleContextSplit = (position: SplitPosition) => {
     const visibleSessionIds = new Set(getPaneSessionIds(useLayoutStore.getState().root));
     const candidate = sessions.find((s) => !visibleSessionIds.has(s.id));
@@ -234,6 +240,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
         { label: "Split bottom", icon: "lucide:arrow-down-to-line", onClick: () => handleContextSplit("bottom") },
       ],
     },
+    { label: "Detach pane", icon: "lucide:square-arrow-out-up-right", onClick: handleDetachPane },
     { label: "Close pane", icon: "lucide:x", danger: true, onClick: handleClosePane },
   ];
 
@@ -321,6 +328,14 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
           style={{ color: broadcastActive ? "var(--t-accent)" : "var(--t-text-dim)" }}
         >
           <Icon icon="lucide:radio-tower" width={13} />
+        </button>
+        <button
+          className="h-full px-1.5 flex items-center justify-center hover:bg-[var(--t-bg-card-hover)] transition-colors text-[var(--t-text-dim)]"
+          title="Detach pane"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={handleDetachPane}
+        >
+          <Icon icon="lucide:square-arrow-out-up-right" width={13} />
         </button>
         <button
           className="h-full px-1.5 flex items-center justify-center hover:bg-[var(--t-bg-card-hover)] transition-colors text-[var(--t-text-dim)]"

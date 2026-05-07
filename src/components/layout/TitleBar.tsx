@@ -40,6 +40,9 @@ export default function TitleBar() {
   const setSplitTabActive = useLayoutStore((s) => s.setSplitTabActive);
   const activateSplitTab = useLayoutStore((s) => s.activateSplitTab);
   const closeSplitTab = useLayoutStore((s) => s.closeSplitTab);
+  const isDraggingPane = useDragStore((s) => s.isDragging && s.dragType === "pane");
+  const dropTarget = useDragStore((s) => s.dropTarget);
+  const titlebarDropActive = isDraggingPane && dropTarget?.type === "titlebar";
 
   usePfToastBridge();
 
@@ -217,7 +220,23 @@ export default function TitleBar() {
         )}
 
         {/* Scrollable session tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto flex-1 h-full min-w-0">
+        <div
+          className="flex items-center gap-1.5 overflow-x-auto flex-1 h-full min-w-0 rounded-xl transition-colors"
+          style={{
+            background: titlebarDropActive
+              ? "color-mix(in srgb, var(--t-accent) 10%, transparent)"
+              : undefined,
+          }}
+          onMouseEnter={() => {
+            if (useDragStore.getState().dragType === "pane") useDragStore.getState().setDropTarget({ type: "titlebar" });
+          }}
+          onMouseMove={() => {
+            if (useDragStore.getState().dragType === "pane") useDragStore.getState().setDropTarget({ type: "titlebar" });
+          }}
+          onMouseLeave={() => {
+            if (useDragStore.getState().dropTarget?.type === "titlebar") useDragStore.getState().setDropTarget(null);
+          }}
+        >
         {splitTabs.map((tab) => {
           const tabSessionIds = getPaneSessionIds(tab.root);
           const tabActiveLeaf = findLeaf(tab.root, tab.activePaneId) ?? firstLeaf(tab.root);

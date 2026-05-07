@@ -42,9 +42,10 @@ export function DropZones({ target }: { target: DropZoneTarget }) {
     >
       {zones.map((zone) => {
         const active = dropTarget?.type === target.type &&
-          dropTarget.paneId === (target.type === "pane" ? target.paneId : undefined) &&
-          dropTarget.sessionId === (target.type === "session" ? target.sessionId : undefined) &&
-          dropTarget.position === zone.position;
+          dropTarget.position === zone.position &&
+          (target.type === "pane"
+            ? dropTarget.type === "pane" && dropTarget.paneId === target.paneId
+            : dropTarget.type === "session" && dropTarget.sessionId === target.sessionId);
 
         return (
           <div

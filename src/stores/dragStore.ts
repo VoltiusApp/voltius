@@ -3,12 +3,10 @@ import type { SplitPosition } from "@/stores/layoutStore";
 
 export type DragType = "tab" | "pane";
 
-interface DropTarget {
-  type: "pane" | "session";
-  paneId?: string;
-  sessionId?: string;
-  position: SplitPosition;
-}
+type DropTarget =
+  | { type: "pane"; paneId: string; position: SplitPosition }
+  | { type: "session"; sessionId: string; position: SplitPosition }
+  | { type: "titlebar" };
 
 interface DragStore {
   isPointerDown: boolean;
