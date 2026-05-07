@@ -166,7 +166,7 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
           />
 
           {/* Toolbar: search + New Snippet */}
-          <div className="flex items-center gap-2 px-3 py-2 shrink-0 border-b border-b-[var(--t-bg-terminal)]">
+          <div className="flex items-center gap-2 px-3 py-2 shrink-0 bg-[var(--t-bg-toolbar)]">
             <div className="relative flex-1">
               <Icon
                 icon="lucide:search"
@@ -196,7 +196,7 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
           </div>
 
           {/* Snippet list */}
-          <div className="flex-1 overflow-y-auto py-1">
+          <div className="flex-1 overflow-y-auto py-1 bg-[var(--t-bg-terminal)]">
             {snippets.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3 px-4 text-center">
                 <Icon icon="lucide:braces" width={28} className="text-[var(--t-text-dim)]" />
@@ -237,7 +237,7 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
           </div>
 
           {/* Footer */}
-          <div className="shrink-0 border-t border-t-[var(--t-bg-terminal)]">
+          <div className="shrink-0 border-t border-t-[var(--t-bg-terminal)] bg-[var(--t-bg-status-bar)]">
             {error && (
               <div className="px-4 py-2 text-xs" style={{ color: "var(--t-error, #f87171)" }}>
                 {error}
