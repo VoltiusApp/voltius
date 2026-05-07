@@ -20,8 +20,13 @@ import { SyncDropdown } from "@/components/layout/SyncDropdown";
 import { useDragStore } from "@/stores/dragStore";
 import { findLeaf, firstLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 import { shouldSuppressDragClick } from "@/components/panes/usePaneDragController";
+import { mergeTitlebarItems } from "@/utils/titlebarOrder";
 
 const appWindow = getCurrentWindow();
+
+type TitlebarItem =
+  | { key: string; type: "split"; tab: ReturnType<typeof useLayoutStore.getState>["splitTabs"][number] }
+  | { key: string; type: "session"; session: ReturnType<typeof useSessionStore.getState>["sessions"][number] };
 
 export default function TitleBar() {
   const setActiveNav = useUIStore((s) => s.setActiveNav);
@@ -40,7 +45,11 @@ export default function TitleBar() {
   const setSplitTabActive = useLayoutStore((s) => s.setSplitTabActive);
   const activateSplitTab = useLayoutStore((s) => s.activateSplitTab);
   const closeSplitTab = useLayoutStore((s) => s.closeSplitTab);
+  const titlebarOrder = useLayoutStore((s) => s.titlebarOrder);
+  const syncTitlebarOrder = useLayoutStore((s) => s.syncTitlebarOrder);
+  const isDraggingTitlebarItem = useDragStore((s) => s.isDragging && s.dragType === "tab");
   const isDraggingPane = useDragStore((s) => s.isDragging && s.dragType === "pane");
+  const draggedSessionId = useDragStore((s) => s.sessionId);
   const dropTarget = useDragStore((s) => s.dropTarget);
   const titlebarDropActive = isDraggingPane && dropTarget?.type === "titlebar";
 
@@ -86,6 +95,20 @@ export default function TitleBar() {
   const splitSessionIds = splitTabs.flatMap((tab) => getPaneSessionIds(tab.root));
   const splitSessionIdSet = new Set(splitSessionIds);
   const visibleSessions = sessions.filter((session) => !splitSessionIdSet.has(session.id));
+  const draggedSession = titlebarDropActive ? sessions.find((session) => session.id === draggedSessionId) : null;
+  const splitItems: TitlebarItem[] = splitTabs.map((tab) => ({ key: `split:${tab.id}`, type: "split", tab }));
+  const sessionItems: TitlebarItem[] = visibleSessions.map((session) => ({ key: `session:${session.id}`, type: "session", session }));
+  const titlebarItemMap = new Map([...splitItems, ...sessionItems].map((item) => [item.key, item]));
+  const visibleItemKeys = [...splitItems, ...sessionItems].map((item) => item.key);
+  const orderedItemKeys = mergeTitlebarItems(titlebarOrder, visibleItemKeys);
+  const titlebarItems = orderedItemKeys.flatMap((key) => {
+    const item = titlebarItemMap.get(key);
+    return item ? [item] : [];
+  });
+
+  useEffect(() => {
+    syncTitlebarOrder(visibleItemKeys);
+  }, [syncTitlebarOrder, visibleItemKeys.join("|")]);
 
   const handleTabClick = (sessionId: string) => {
     if (shouldSuppressDragClick()) return;
@@ -122,6 +145,7 @@ export default function TitleBar() {
   };
 
   const handleUnifiedTabClick = (tabId: string) => {
+    if (shouldSuppressDragClick()) return;
     setSftpPanelOpen(false);
     activateSplitTab(tabId);
     const layout = useLayoutStore.getState();
@@ -144,6 +168,29 @@ export default function TitleBar() {
     if (!target.closest('button, a, input, [role="button"]')) {
       appWindow.startDragging();
     }
+  };
+
+  const updateTitlebarDropTarget = (e: React.MouseEvent<HTMLDivElement>) => {
+    const drag = useDragStore.getState();
+    if (drag.dragType !== "pane" && drag.dragType !== "tab") return;
+    const tab = (e.target as HTMLElement).closest<HTMLElement>("[data-titlebar-key]");
+    if (!tab || !e.currentTarget.contains(tab)) {
+      useDragStore.getState().setDropTarget({ type: "titlebar", targetKey: null, placement: "after" });
+      return;
+    }
+    const rect = tab.getBoundingClientRect();
+    useDragStore.getState().setDropTarget({
+      type: "titlebar",
+      targetKey: tab.dataset.titlebarKey ?? null,
+      placement: e.clientX < rect.left + rect.width / 2 ? "before" : "after",
+    });
+  };
+
+  const renderTitlebarDropCue = (itemKey: string | null, placement: "before" | "after") => {
+    if (dropTarget?.type !== "titlebar" || dropTarget.targetKey !== itemKey || (dropTarget.placement ?? "after") !== placement) return null;
+    if (titlebarDropActive && draggedSession) return <DetachedPanePreview key={`preview-${itemKey ?? "end"}-${placement}`} session={draggedSession} />;
+    if (!isDraggingTitlebarItem) return null;
+    return <div key={`marker-${itemKey ?? "end"}-${placement}`} className="h-7 w-0.5 rounded-full shrink-0 bg-[var(--t-accent)]" />;
   };
 
   return (
@@ -227,49 +274,55 @@ export default function TitleBar() {
               ? "color-mix(in srgb, var(--t-accent) 10%, transparent)"
               : undefined,
           }}
-          onMouseEnter={() => {
-            if (useDragStore.getState().dragType === "pane") useDragStore.getState().setDropTarget({ type: "titlebar" });
-          }}
-          onMouseMove={() => {
-            if (useDragStore.getState().dragType === "pane") useDragStore.getState().setDropTarget({ type: "titlebar" });
-          }}
+          onMouseEnter={updateTitlebarDropTarget}
+          onMouseMove={updateTitlebarDropTarget}
           onMouseLeave={() => {
             if (useDragStore.getState().dropTarget?.type === "titlebar") useDragStore.getState().setDropTarget(null);
           }}
         >
-        {splitTabs.map((tab) => {
-          const tabSessionIds = getPaneSessionIds(tab.root);
-          const tabActiveLeaf = findLeaf(tab.root, tab.activePaneId) ?? firstLeaf(tab.root);
-          const tabActiveSession = tabActiveLeaf ? sessions.find((session) => session.id === tabActiveLeaf.sessionId) : null;
-          const isActiveSplitTab = splitTabActive && activeSplitTabId === tab.id && activeNav === ("terminal" as any) && !sftpPanelOpen;
+        {titlebarItems.map((item) => {
+          if (item.type === "split") {
+            const tab = item.tab;
+            const tabSessionIds = getPaneSessionIds(tab.root);
+            const tabActiveLeaf = findLeaf(tab.root, tab.activePaneId) ?? firstLeaf(tab.root);
+            const tabActiveSession = tabActiveLeaf ? sessions.find((session) => session.id === tabActiveLeaf.sessionId) : null;
+            const isActiveSplitTab = splitTabActive && activeSplitTabId === tab.id && activeNav === ("terminal" as any) && !sftpPanelOpen;
 
-          return (
-          <button
-            key={tab.id}
-            onClick={() => handleUnifiedTabClick(tab.id)}
-            className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all"
-            title="Unified split tab"
-            style={{
-              background: isActiveSplitTab ? "var(--t-tab-active-bg)" : "var(--t-tab-bg)",
-              color: isActiveSplitTab ? "var(--t-tab-active-text)" : "var(--t-text-secondary)",
-              border: isActiveSplitTab ? "1px solid var(--t-tab-active-border)" : "1px solid transparent",
-            }}
-          >
-            <Icon icon="lucide:panel-top-open" width={18} />
-            <span className="max-w-[140px] truncate">
-              {tabActiveSession?.connectionName ?? "Split"}{tabSessionIds.length > 1 ? ` + ${tabSessionIds.length - 1}` : ""}
-            </span>
-            <span
-              onClick={(e) => handleUnifiedTabClose(e, tab.id)}
-              className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5"
-              style={{ color: isActiveSplitTab ? "var(--t-tab-active-text)" : "var(--t-text-muted)" }}
-            >
-              <span className="[&_path]:[stroke-width:2.1]"><Icon icon="lucide:x" width={20} /></span>
-            </span>
-          </button>
-          );
-        })}
-        {visibleSessions.map((session) => {
+            return (
+              <div key={item.key} className="contents">
+                {renderTitlebarDropCue(item.key, "before")}
+                <button
+                  data-titlebar-key={item.key}
+                  onClick={() => handleUnifiedTabClick(tab.id)}
+                  onMouseDown={(e) => {
+                    if (e.button === 0) useDragStore.getState().beginSplitTabDrag(tab.id, e.clientX, e.clientY);
+                  }}
+                  className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all"
+                  title="Unified split tab"
+                  style={{
+                    background: isActiveSplitTab ? "var(--t-tab-active-bg)" : "var(--t-tab-bg)",
+                    color: isActiveSplitTab ? "var(--t-tab-active-text)" : "var(--t-text-secondary)",
+                    border: isActiveSplitTab ? "1px solid var(--t-tab-active-border)" : "1px solid transparent",
+                  }}
+                >
+                  <Icon icon="lucide:panel-top-open" width={18} />
+                  <span className="max-w-[140px] truncate">
+                    {tabActiveSession?.connectionName ?? "Split"}{tabSessionIds.length > 1 ? ` + ${tabSessionIds.length - 1}` : ""}
+                  </span>
+                  <span
+                    onClick={(e) => handleUnifiedTabClose(e, tab.id)}
+                    className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5"
+                    style={{ color: isActiveSplitTab ? "var(--t-tab-active-text)" : "var(--t-text-muted)" }}
+                  >
+                    <span className="[&_path]:[stroke-width:2.1]"><Icon icon="lucide:x" width={20} /></span>
+                  </span>
+                </button>
+                {renderTitlebarDropCue(item.key, "after")}
+              </div>
+            );
+          }
+
+          const session = item.session;
           const isActive = session.id === activeSessionId && activeNav === ("terminal" as any) && !sftpPanelOpen && !splitTabActive;
           const statusColor =
             session.status === "connected"  ? "var(--t-status-connected)" :
@@ -282,69 +335,75 @@ export default function TitleBar() {
           const distroBg = distroIcon && connection?.distro ? getDistroColor(connection.distro) : null;
 
           return (
-            <button
-              key={session.id}
-              onClick={() => handleTabClick(session.id)}
-              onMouseDown={(e) => {
-                if (e.button === 0) useDragStore.getState().beginTabDrag(session.id, e.clientX, e.clientY);
-              }}
-              onAuxClick={(e) => { if (e.button === 1) handleTabClose(e, session.id); }}
-              className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all"
-              style={{
-                background: isActive ? "var(--t-tab-active-bg)" : "var(--t-tab-bg)",
-                color: isActive ? "var(--t-tab-active-text)" : "var(--t-text-secondary)",
-                border: isActive ? "1px solid var(--t-tab-active-border)" : "1px solid transparent",
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) {
-                  (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-sidebar)";
-                  (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  (e.currentTarget as HTMLButtonElement).style.background = "var(--t-tab-bg)";
-                  (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-secondary)";
-                }
-              }}
-            >
-              {distroIcon ? (
-                <span
-                  className="flex items-center justify-center size-6 rounded-md shrink-0"
-                  style={{ background: distroBg ?? "transparent", color: "#fff" }}
-                >
-                  <Icon icon={distroIcon} width={16} />
-                </span>
-              ) : isLocal ? (
-                <span
-                  className="flex items-center justify-center size-6 rounded-md shrink-0"
-                  style={{ color: isActive ? "var(--t-tab-active-text)" : statusColor }}
-                >
-                  <Icon icon="lucide:terminal" width={14} />
-                </span>
-              ) : (
-                <span
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{
-                    background: isActive ? "var(--t-tab-active-text)" : statusColor,
-                    opacity: isActive ? 0.8 : 1,
-                  }}
-                />
-              )}
-              <span className="max-w-[140px] truncate">{session.connectionName}</span>
-              <span
-                onClick={(e) => handleTabClose(e, session.id)}
-                className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5"
-                style={{ color: isActive ? "var(--t-tab-active-text)" : "var(--t-text-muted)" }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+            <div key={item.key} className="contents">
+              {renderTitlebarDropCue(item.key, "before")}
+              <button
+                data-titlebar-key={item.key}
+                onClick={() => handleTabClick(session.id)}
+                onMouseDown={(e) => {
+                  if (e.button === 0) useDragStore.getState().beginTabDrag(session.id, e.clientX, e.clientY, item.key);
+                }}
+                onAuxClick={(e) => { if (e.button === 1) handleTabClose(e, session.id); }}
+                className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all"
+                style={{
+                  background: isActive ? "var(--t-tab-active-bg)" : "var(--t-tab-bg)",
+                  color: isActive ? "var(--t-tab-active-text)" : "var(--t-text-secondary)",
+                  border: isActive ? "1px solid var(--t-tab-active-border)" : "1px solid transparent",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-sidebar)";
+                    (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    (e.currentTarget as HTMLButtonElement).style.background = "var(--t-tab-bg)";
+                    (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-secondary)";
+                  }
+                }}
               >
-                <span className="[&_path]:[stroke-width:2.1]">
-                <Icon icon="lucide:x" width={20} />
+                {distroIcon ? (
+                  <span
+                    className="flex items-center justify-center size-6 rounded-md shrink-0"
+                    style={{ background: distroBg ?? "transparent", color: "#fff" }}
+                  >
+                    <Icon icon={distroIcon} width={16} />
+                  </span>
+                ) : isLocal ? (
+                  <span
+                    className="flex items-center justify-center size-6 rounded-md shrink-0"
+                    style={{ color: isActive ? "var(--t-tab-active-text)" : statusColor }}
+                  >
+                    <Icon icon="lucide:terminal" width={14} />
+                  </span>
+                ) : (
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{
+                      background: isActive ? "var(--t-tab-active-text)" : statusColor,
+                      opacity: isActive ? 0.8 : 1,
+                    }}
+                  />
+                )}
+                <span className="max-w-[140px] truncate">{session.connectionName}</span>
+                <span
+                  onClick={(e) => handleTabClose(e, session.id)}
+                  className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5"
+                  style={{ color: isActive ? "var(--t-tab-active-text)" : "var(--t-text-muted)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                >
+                  <span className="[&_path]:[stroke-width:2.1]">
+                  <Icon icon="lucide:x" width={20} />
+                  </span>
                 </span>
-              </span>
-            </button>
+              </button>
+              {renderTitlebarDropCue(item.key, "after")}
+            </div>
           );
         })}
+
+        {renderTitlebarDropCue(null, "after")}
 
         {/* New tab button */}
         <NewTabButton
@@ -525,6 +584,50 @@ function NewTabButton({ onNavigate }: { onNavigate: () => void }) {
       {rippleEls}
       <Icon icon="lucide:plus" width={22} />
     </button>
+  );
+}
+
+function DetachedPanePreview({ session }: { session: ReturnType<typeof useSessionStore.getState>["sessions"][number] }) {
+  const connections = useConnectionStore((s) => s.connections);
+  const connection = connections.find((c) => c.id === session.connectionId);
+  const isLocal = session.type === "local";
+  const distroIcon = !isLocal && connection?.distro ? getDistroIcon(connection.distro) : null;
+  const distroBg = distroIcon && connection?.distro ? getDistroColor(connection.distro) : null;
+  const statusColor =
+    session.status === "connected"  ? "var(--t-status-connected)" :
+    session.status === "error"      ? "var(--t-status-error)" :
+    session.status === "connecting" ? "var(--t-status-connecting)" :
+                                      "var(--t-text-muted)";
+
+  return (
+    <div
+      className="pointer-events-none flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all"
+      style={{
+        background: "var(--t-tab-active-bg)",
+        color: "var(--t-tab-active-text)",
+        border: "1px solid var(--t-tab-active-border)",
+        boxShadow: "0 0 0 1px color-mix(in srgb, var(--t-accent) 35%, transparent)",
+      }}
+    >
+      {distroIcon ? (
+        <span
+          className="flex items-center justify-center size-6 rounded-md shrink-0"
+          style={{ background: distroBg ?? "transparent", color: "#fff" }}
+        >
+          <Icon icon={distroIcon} width={16} />
+        </span>
+      ) : isLocal ? (
+        <span
+          className="flex items-center justify-center size-6 rounded-md shrink-0"
+          style={{ color: "var(--t-tab-active-text)" }}
+        >
+          <Icon icon="lucide:terminal" width={14} />
+        </span>
+      ) : (
+        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: statusColor }} />
+      )}
+      <span className="max-w-[140px] truncate">{session.connectionName}</span>
+    </div>
   );
 }
 

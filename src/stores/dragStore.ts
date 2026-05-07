@@ -6,7 +6,7 @@ export type DragType = "tab" | "pane";
 type DropTarget =
   | { type: "pane"; paneId: string; position: SplitPosition }
   | { type: "session"; sessionId: string; position: SplitPosition }
-  | { type: "titlebar" };
+  | { type: "titlebar"; targetKey?: string | null; placement?: "before" | "after" };
 
 interface DragStore {
   isPointerDown: boolean;
@@ -14,6 +14,7 @@ interface DragStore {
   dragType: DragType | null;
   sessionId: string | null;
   sourcePaneId: string | null;
+  sourceTitlebarKey: string | null;
   startX: number;
   startY: number;
   currentX: number;
@@ -21,7 +22,8 @@ interface DragStore {
   dropTarget: DropTarget | null;
   lastDragEndedAt: number;
 
-  beginTabDrag(sessionId: string, x: number, y: number): void;
+  beginTabDrag(sessionId: string, x: number, y: number, titlebarKey?: string): void;
+  beginSplitTabDrag(tabId: string, x: number, y: number): void;
   beginPaneDrag(sourcePaneId: string, sessionId: string, x: number, y: number): void;
   updatePointer(x: number, y: number): void;
   setDropTarget(target: DropTarget | null): void;
@@ -37,6 +39,7 @@ const initial = {
   dragType: null,
   sessionId: null,
   sourcePaneId: null,
+  sourceTitlebarKey: null,
   startX: 0,
   startY: 0,
   currentX: 0,
@@ -48,7 +51,8 @@ export const useDragStore = create<DragStore>((set) => ({
   ...initial,
   lastDragEndedAt: 0,
 
-  beginTabDrag: (sessionId, x, y) => set({ ...initial, isPointerDown: true, dragType: "tab", sessionId, startX: x, startY: y, currentX: x, currentY: y }),
+  beginTabDrag: (sessionId, x, y, titlebarKey) => set({ ...initial, isPointerDown: true, dragType: "tab", sourceTitlebarKey: titlebarKey ?? `session:${sessionId}`, sessionId, startX: x, startY: y, currentX: x, currentY: y }),
+  beginSplitTabDrag: (tabId, x, y) => set({ ...initial, isPointerDown: true, dragType: "tab", sourceTitlebarKey: `split:${tabId}`, startX: x, startY: y, currentX: x, currentY: y }),
   beginPaneDrag: (sourcePaneId, sessionId, x, y) => set({ ...initial, isPointerDown: true, dragType: "pane", sourcePaneId, sessionId, startX: x, startY: y, currentX: x, currentY: y }),
   updatePointer: (x, y) => set((state) => {
     if (!state.isPointerDown) return {};

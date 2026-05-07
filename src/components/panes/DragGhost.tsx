@@ -17,10 +17,12 @@ export function DragGhost() {
   const currentX = useDragStore((s) => s.currentX);
   const currentY = useDragStore((s) => s.currentY);
   const sessionId = useDragStore((s) => s.sessionId);
+  const dropTarget = useDragStore((s) => s.dropTarget);
   const session = useSessionStore((s) => s.sessions.find((sess) => sess.id === sessionId));
   const connection = useConnectionStore((s) => s.connections.find((c) => c.id === session?.connectionId));
 
   if (!isDragging || !session) return null;
+  if (dropTarget?.type === "titlebar") return null;
 
   const distroIcon = session.type === "ssh" && connection?.distro ? getDistroIcon(connection.distro) : null;
   const icon = distroIcon ?? (session.type === "local" ? "lucide:terminal" : session.type === "serial" ? "lucide:ethernet-port" : "lucide:radio-tower");

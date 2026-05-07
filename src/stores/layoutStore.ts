@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { mergeTitlebarItems, placeTitlebarItem } from "@/utils/titlebarOrder";
 
 export type SplitDirection = "h" | "v";
 export type SplitPosition = "left" | "right" | "top" | "bottom";
@@ -36,11 +37,15 @@ interface LayoutStore {
   splitTabActive: boolean;
   splitTabs: SplitTab[];
   activeSplitTabId: string | null;
+  titlebarOrder: string[];
 
   openSplitTab(sessionId?: string): void;
   setSplitTabActive(active: boolean): void;
   activateSplitTab(tabId: string): void;
   closeSplitTab(tabId: string): void;
+  syncTitlebarOrder(visibleKeys: string[]): void;
+  placeTitlebarItem(itemKey: string, targetKey: string | null, placement: "before" | "after"): void;
+  reorderTitlebarItem(sourceKey: string, targetKey: string | null, placement: "before" | "after"): void;
   createSplitTab(targetSessionId: string, incomingSessionId: string, position: SplitPosition): void;
   splitPane(targetPaneId: string, sessionId: string, position: SplitPosition): void;
   movePane(sourcePaneId: string, targetPaneId: string, position: SplitPosition): void;
@@ -204,6 +209,7 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
   splitTabActive: false,
   splitTabs: [],
   activeSplitTabId: null,
+  titlebarOrder: [],
 
   openSplitTab: (sessionId) => {
     set((state) => {
@@ -246,9 +252,24 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
       const splitTabs = state.splitTabs.filter((tab) => tab.id !== tabId);
       if (state.activeSplitTabId !== tabId) return { splitTabs };
       const nextTab = splitTabs[splitTabs.length - 1] ?? null;
-      return { splitTabs, ...fieldsFromTab(nextTab) };
+      return { splitTabs, titlebarOrder: state.titlebarOrder.filter((key) => key !== `split:${tabId}`), ...fieldsFromTab(nextTab) };
     });
   },
+
+  placeTitlebarItem: (itemKey, targetKey, placement) => set((state) => ({
+    titlebarOrder: placeTitlebarItem(state.titlebarOrder, itemKey, targetKey, placement),
+  })),
+
+  syncTitlebarOrder: (visibleKeys) => set((state) => {
+    const titlebarOrder = mergeTitlebarItems(state.titlebarOrder, visibleKeys);
+    if (titlebarOrder.length === state.titlebarOrder.length && titlebarOrder.every((key, index) => key === state.titlebarOrder[index])) return {};
+    return { titlebarOrder };
+  }),
+
+  reorderTitlebarItem: (sourceKey, targetKey, placement) => set((state) => {
+    if (sourceKey === targetKey) return {};
+    return { titlebarOrder: placeTitlebarItem(state.titlebarOrder, sourceKey, targetKey, placement) };
+  }),
 
   createSplitTab: (targetSessionId, incomingSessionId, position) => {
     set((state) => {
@@ -318,6 +339,7 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
         const nextTab = splitTabs[splitTabs.length - 1] ?? null;
         return {
           splitTabs,
+          titlebarOrder: state.titlebarOrder.filter((key) => key !== `split:${state.activeSplitTabId}`),
           ...fieldsFromTab(nextTab),
         };
       }
@@ -350,6 +372,7 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
         const nextTab = splitTabs[splitTabs.length - 1] ?? null;
         return {
           splitTabs,
+          titlebarOrder: state.titlebarOrder.filter((key) => key !== `split:${state.activeSplitTabId}`),
           ...fieldsFromTab(nextTab),
         };
       }
@@ -385,7 +408,7 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
         }];
       });
       const activeTab = splitTabs.find((tab) => tab.id === state.activeSplitTabId) ?? splitTabs[splitTabs.length - 1] ?? null;
-      return { splitTabs, ...fieldsFromTab(activeTab) };
+      return { splitTabs, titlebarOrder: state.titlebarOrder.filter((key) => key !== `session:${sessionId}`), ...fieldsFromTab(activeTab) };
     });
   },
 

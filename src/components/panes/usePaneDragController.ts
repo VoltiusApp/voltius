@@ -17,8 +17,18 @@ export function usePaneDragController() {
     const onUp = () => {
       const drag = useDragStore.getState();
       const layout = useLayoutStore.getState();
-      if (drag.isDragging && drag.dropTarget && drag.sessionId) {
+      if (drag.isDragging && drag.dropTarget) {
         if (drag.dragType === "tab") {
+          if (drag.sourceTitlebarKey && drag.dropTarget.type === "titlebar") {
+            layout.reorderTitlebarItem(drag.sourceTitlebarKey, drag.dropTarget.targetKey ?? null, drag.dropTarget.placement ?? "after");
+            useDragStore.getState().endDrag();
+            return;
+          }
+          if (!drag.sessionId) {
+            useDragStore.getState().endDrag();
+            return;
+          }
+
           const existing = findLeafBySession(layout.root, drag.sessionId);
           if (existing) {
             layout.setActivePane(existing.id);
@@ -49,10 +59,13 @@ export function usePaneDragController() {
           }
         } else if (drag.dragType === "pane" && drag.sourcePaneId && drag.dropTarget.type === "titlebar") {
           const detachedSessionId = layout.detachPane(drag.sourcePaneId);
-          if (detachedSessionId) useSessionStore.getState().setActive(detachedSessionId);
+          if (detachedSessionId) {
+            layout.placeTitlebarItem(`session:${detachedSessionId}`, drag.dropTarget.targetKey ?? null, drag.dropTarget.placement ?? "after");
+            useSessionStore.getState().setActive(detachedSessionId);
+          }
         } else if (drag.dragType === "pane" && drag.sourcePaneId && drag.dropTarget.type === "pane" && drag.dropTarget.paneId) {
           layout.movePane(drag.sourcePaneId, drag.dropTarget.paneId, drag.dropTarget.position);
-          useSessionStore.getState().setActive(drag.sessionId);
+          if (drag.sessionId) useSessionStore.getState().setActive(drag.sessionId);
         }
       }
       useDragStore.getState().endDrag();
