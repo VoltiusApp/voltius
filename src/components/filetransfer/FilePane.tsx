@@ -354,11 +354,13 @@ export function FilePane({
       )}
 
       {/* Path bar */}
-      <div className="flex items-center gap-1.5 px-2 py-2 shrink-0 border-b border-b-[var(--t-border)]">
+      <div className="flex items-center gap-1.5 px-2 py-1.5 shrink-0 border-b border-b-[var(--t-border)]">
         <IconBtn icon="lucide:arrow-up" title="Parent directory" onClick={goUp} />
         <IconBtn icon="lucide:home" title="Home directory" onClick={handleGoHome} />
-        <PathBreadcrumb cwd={cwd} isLocal={isLocal} onNavigate={onNavigate} />
-        {isLocal && <IconBtn icon="lucide:folder-open" title="Browse…" onClick={handlePickLocal} />}
+        <div className="flex-1 flex items-center min-w-0 px-1.5 rounded-md" style={{ background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)" }}>
+          <PathBreadcrumb cwd={cwd} isLocal={isLocal} onNavigate={onNavigate} />
+          {isLocal && <IconBtn icon="lucide:folder-open" title="Browse…" onClick={handlePickLocal} />}
+        </div>
         <IconBtn icon="lucide:folder-plus" title="New folder" onClick={handleMkdir} />
         <IconBtn icon="lucide:file-plus" title="New file" onClick={handleNewFile} />
         <IconBtn icon="lucide:refresh-cw" title="Refresh" onClick={onRefresh} />
@@ -693,7 +695,7 @@ function ResizeHandle({ column, width, onWidth }: { column: FileColumn; width: n
       }}
     >
       <div
-        className="h-[72%] rounded-full transition-colors"
+        className="h-full transition-colors"
         style={{
           width: 2,
           background: isActive ? "var(--t-accent)" : "var(--t-text-dim)",
@@ -720,14 +722,12 @@ function ColumnHeaders({ sortCol, sortDir, isLocal, colWidths, visibleCols, onSo
   const nameActive = sortCol === "name";
   const dataColumns = visibleDataColumns(isLocal, visibleCols);
   return (
-    <div className="flex items-center gap-2 px-3 py-1 shrink-0 overflow-hidden border-b border-b-[var(--t-border)]" style={{ background: "var(--t-bg-card)" }}>
-      <div className="w-[13px] shrink-0" />
-
-      {/* Name */}
+    <div className="flex items-stretch gap-2 h-7 pl-5 pr-3 shrink-0 overflow-hidden" style={{ background: "var(--t-bg-elevated)", borderBottom: "1px solid var(--t-border-hover)" }}>
+      {/* Name — flex-1 fills remaining space; minWidth comes from resize handle */}
       <button
         onClick={() => onSort("name")}
-        className="relative shrink-0 min-w-0 flex items-center gap-0.5 text-xs font-medium transition-colors text-left"
-        style={{ width: colWidths.name, color: nameActive ? "var(--t-text-secondary)" : "var(--t-text-dim)" }}
+        className="relative flex-1 min-w-0 flex h-full items-center gap-0.5 text-xs font-medium transition-colors text-left"
+        style={{ minWidth: colWidths.name, color: nameActive ? "var(--t-text-secondary)" : "var(--t-text-dim)" }}
         onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-secondary)"; }}
         onMouseLeave={(e) => { e.currentTarget.style.color = nameActive ? "var(--t-text-secondary)" : "var(--t-text-dim)"; }}
       >
@@ -742,13 +742,13 @@ function ColumnHeaders({ sortCol, sortDir, isLocal, colWidths, visibleCols, onSo
           <button
             key={col}
             onClick={() => onSort(col as SortCol)}
-            className="relative flex items-center justify-start gap-0.5 pl-2 pr-2 text-xs font-medium transition-colors shrink-0 text-left"
+            className="relative flex h-full items-center justify-start gap-0.5 pl-2 pr-2 text-xs font-medium transition-colors shrink-0 text-left"
             style={{ width: colWidths[col], color: active ? "var(--t-text-secondary)" : "var(--t-text-dim)" }}
             onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-secondary)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = active ? "var(--t-text-secondary)" : "var(--t-text-dim)"; }}
           >
             {/* left separator */}
-            <div className="absolute left-0 inset-y-[12%] w-px" style={{ background: "var(--t-border-hover)", opacity: 0.75 }} />
+            <div className="absolute left-0 inset-y-0 w-px" style={{ background: "var(--t-border-hover)", opacity: 0.75 }} />
             {chevron(col as SortCol)}
             <span className="truncate">{label}</span>
             <ResizeHandle column={col} width={colWidths[col]} onWidth={(w) => onResize(col, w)} />
@@ -946,20 +946,26 @@ function FileRow({ file, isSelected, isDragHover, isLocal, colWidths, visibleCol
   onDragEnd?: () => void;
 }) {
   const { pos, open, close } = useContextMenu();
+  const [hovered, setHovered] = useState(false);
   const dimColor = isSelected ? "var(--t-text-secondary)" : "var(--t-text-dim)";
   const dataColumns = visibleDataColumns(isLocal, visibleCols);
+
+  let bg = "transparent";
+  let border = "1px solid transparent";
+  if (isDragHover) { bg = "color-mix(in srgb, var(--t-accent) 35%, transparent)"; border = "1px solid color-mix(in srgb, var(--t-accent) 70%, transparent)"; }
+  else if (isSelected) { bg = "color-mix(in srgb, var(--t-accent) 22%, transparent)"; border = "1px solid color-mix(in srgb, var(--t-accent) 45%, transparent)"; }
+  else if (hovered) { bg = "color-mix(in srgb, var(--t-text-primary) 5%, transparent)"; border = "1px solid color-mix(in srgb, var(--t-text-primary) 6%, transparent)"; }
 
   return (
     <div
       draggable={!!onDragStart}
       data-selectable-id={selectableId}
-      className="flex items-center gap-2 m-1.5 px-2 py-1.5 mx-1 rounded transition-colors cursor-default select-none relative"
-      style={{
-        background: isDragHover ? "color-mix(in srgb, var(--t-accent) 35%, transparent)" : isSelected ? "color-mix(in srgb, var(--t-accent) 22%, transparent)" : "transparent",
-        border: isDragHover ? "1px solid color-mix(in srgb, var(--t-accent) 70%, transparent)" : isSelected ? "1px solid color-mix(in srgb, var(--t-accent) 45%, transparent)" : "1px solid transparent",
-      }}
+      className="flex items-center gap-2 m-1.5 px-2 py-1.5 mr-1 ml-3 rounded transition-colors cursor-default select-none relative"
+      style={{ background: bg, border }}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onContextMenu={(e) => { e.stopPropagation(); if (contextActions?.length) { if (!isSelected) onClick(e); open(e); } else { e.preventDefault(); } }}
@@ -969,7 +975,7 @@ function FileRow({ file, isSelected, isDragHover, isLocal, colWidths, visibleCol
         width={15} className="shrink-0"
         style={{ color: file.isDir ? "#f0c050" : file.isSymlink ? "var(--t-accent)" : "var(--t-text-dim)" }}
       />
-      <span className="text-sm truncate text-[var(--t-text-primary)] min-w-0 shrink-0" style={{ width: colWidths.name }}>{file.name}</span>
+      <span className="text-sm truncate text-[var(--t-text-primary)] min-w-0 flex-1">{file.name}</span>
       {dataColumns.map((col) => (
         <span key={col} className="text-xs text-right shrink-0 truncate font-mono" style={{ width: colWidths[col], color: dimColor }}>
           {col === "size" ? (!file.isDir ? formatSize(file.size) : "") : col === "modified" ? (file.modified != null ? formatDate(file.modified) : "") : (file.permissions != null ? formatPermissions(file.permissions) : "")}

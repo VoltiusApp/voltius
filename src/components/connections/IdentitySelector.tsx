@@ -12,7 +12,7 @@ interface Props {
 
 export default function IdentitySelector({ value, identities, onChange, onGoToKeychain }: Props) {
   const [open, setOpen] = useState(false);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
+  const [dropdownPos, setDropdownPos] = useState<{ top?: number; bottom?: number; left: number; width: number; maxHeight: number }>({ left: 0, width: 0, maxHeight: 320 });
   const wrapperRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -35,7 +35,13 @@ export default function IdentitySelector({ value, identities, onChange, onGoToKe
   const handleToggle = () => {
     if (!open && buttonRef.current) {
       const r = buttonRef.current.getBoundingClientRect();
-      setDropdownPos({ top: r.bottom + 4, left: r.left, width: r.width });
+      const spaceBelow = window.innerHeight - r.bottom - 8;
+      const spaceAbove = r.top - 8;
+      const goUp = spaceBelow < 150 && spaceAbove > spaceBelow;
+      setDropdownPos(goUp
+        ? { bottom: window.innerHeight - r.top + 4, left: r.left, width: r.width, maxHeight: Math.min(spaceAbove, 320) }
+        : { top: r.bottom + 4, left: r.left, width: r.width, maxHeight: Math.min(spaceBelow, 320) }
+      );
     }
     setOpen((o) => !o);
   };
@@ -81,8 +87,11 @@ export default function IdentitySelector({ value, identities, onChange, onGoToKe
           className="p-1.5 rounded-xl flex flex-col fixed z-[9999] bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)]"
           style={{
             top: dropdownPos.top,
+            bottom: dropdownPos.bottom,
             left: dropdownPos.left,
             width: dropdownPos.width,
+            maxHeight: dropdownPos.maxHeight,
+            overflowY: "auto",
             boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
           }}
         >
