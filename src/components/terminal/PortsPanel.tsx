@@ -317,9 +317,9 @@ function PortRow({
 
       {/* Toggle pause/resume — hover only */}
       <button
-        onClick={onToggle}
+        onClick={(e) => { e.stopPropagation(); onToggle(); }}
         disabled={isBusy}
-        title={isActive ? "Stop forwarding" : "Resume forwarding"}
+        title={isActive ? "Pause forwarding" : "Resume forwarding"}
         className={`w-5 h-5 flex items-center justify-center rounded shrink-0 transition-all
           opacity-0 group-hover:opacity-100
           ${isActive
@@ -338,7 +338,7 @@ function PortRow({
 
       {/* Delete — hover only */}
       <button
-        onClick={onDelete}
+        onClick={(e) => { e.stopPropagation(); onDelete(); }}
         disabled={isDeleting}
         title="Delete"
         className="w-5 h-5 flex items-center justify-center rounded shrink-0 transition-all
@@ -355,7 +355,7 @@ function PortRow({
       {/* Open in browser — always visible, rightmost */}
       {isActive && httpUrl && (
         <button
-          onClick={() => openUrl(httpUrl)}
+          onClick={(e) => { e.stopPropagation(); void openUrl(httpUrl); }}
           title={`Open ${httpUrl}`}
           className="w-5 h-5 flex items-center justify-center rounded shrink-0 transition-all
             text-[var(--t-text-muted)] hover:text-blue-400 hover:bg-blue-500/10"

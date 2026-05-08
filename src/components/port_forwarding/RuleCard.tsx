@@ -52,8 +52,8 @@ export function RuleCard({
 
   const contextMenuItems: ContextMenuItem[] = [
     ...(canEdit ? [{ label: "Edit", icon: "lucide:pencil", onClick: () => onEdit(rule), shortcut: "E" }] : []),
-    ...(status === "active" && onStop ? [{ label: "Stop", icon: "lucide:square", onClick: () => onStop(rule) }] : []),
-    ...(status !== "active" && onStart ? [{ label: "Start", icon: "lucide:play", onClick: () => onStart(rule) }] : []),
+    ...(status === "active" && onStop ? [{ label: "Pause", icon: "lucide:pause", onClick: () => onStop(rule) }] : []),
+    ...(status !== "active" && onStart ? [{ label: "Resume", icon: "lucide:play", onClick: () => onStart(rule) }] : []),
     ...(webUrl && onOpenWeb ? [{ label: "Open web link", icon: "lucide:globe", onClick: () => onOpenWeb(webUrl) }] : []),
     ...(onActivate ? [{ label: "Activate in session", icon: "lucide:plug-zap", onClick: () => onActivate(rule) }] : []),
     ...(canEdit ? [{ label: "Duplicate", icon: "lucide:copy", onClick: () => onDuplicate(rule.id), shortcut: "D" }] : []),
@@ -87,18 +87,17 @@ export function RuleCard({
   );
   const statusColor = status === "active" ? "bg-green-500" : status === "error" ? "bg-red-500" : "bg-[var(--t-text-dim)] opacity-40";
   const effectiveStatusLabel = statusLabel ?? (status === "active" ? "Active" : status === "error" ? "Error" : "Stopped");
-  const actionIcon = isBusy ? "lucide:loader-circle" : status === "active" ? "lucide:square" : "lucide:play";
-  const actionTitle = status === "active" ? "Stop forwarding" : "Start forwarding";
+  const actionIcon = isBusy ? "lucide:loader-circle" : status === "active" ? "lucide:pause" : "lucide:play";
+  const actionTitle = status === "active" ? "Pause forwarding" : "Resume forwarding";
   const handleToggle = () => {
     if (status === "active") onStop?.(rule);
     else onStart?.(rule);
   };
   const actionButtons = (
     <div className="flex items-center gap-1 shrink-0">
-      {canEdit && <CardActionButton icon="lucide:pencil" title="Edit" onClick={() => onEdit(rule)} />}
       <CardActionButton icon={actionIcon} title={actionTitle} onClick={handleToggle} />
-      {webUrl && onOpenWeb && <CardActionButton icon="lucide:globe" title={`Open ${webUrl}`} onClick={() => onOpenWeb(webUrl)} />}
       {canEdit && <CardActionButton icon="lucide:trash-2" title="Delete" onClick={() => onDelete(rule.id)} danger />}
+      {webUrl && onOpenWeb && <CardActionButton icon="lucide:globe" title={`Open ${webUrl}`} onClick={() => onOpenWeb(webUrl)} />}
     </div>
   );
 
@@ -180,19 +179,14 @@ export function RuleCard({
             </span>
           )}
           <div className="flex items-center gap-3">
+            <button onClick={(e) => { e.stopPropagation(); handleToggle(); }} className="text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] transition-colors flex items-center" title={actionTitle}>
+              <Icon icon={actionIcon} width={18} className={isBusy ? "animate-spin" : undefined} />
+            </button>
             {canEdit && (
               <button onClick={(e) => { e.stopPropagation(); onDelete(rule.id); }} className="text-[var(--t-text-dim)] hover:text-[var(--t-status-error)] transition-colors flex items-center" title="Delete">
                 <Icon icon="lucide:trash-2" width={18} />
               </button>
             )}
-            {canEdit && (
-              <button onClick={(e) => { e.stopPropagation(); onEdit(rule); }} className="text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] transition-colors flex items-center" title="Edit">
-                <Icon icon="lucide:square-pen" width={18} />
-              </button>
-            )}
-            <button onClick={(e) => { e.stopPropagation(); handleToggle(); }} className="text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] transition-colors flex items-center" title={actionTitle}>
-              <Icon icon={actionIcon} width={18} className={isBusy ? "animate-spin" : undefined} />
-            </button>
             {webUrl && onOpenWeb && (
               <button onClick={(e) => { e.stopPropagation(); onOpenWeb(webUrl); }} className="text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] transition-colors flex items-center" title={`Open ${webUrl}`}>
                 <Icon icon="lucide:globe" width={18} />

@@ -1,13 +1,14 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { open as openUrl } from "@tauri-apps/plugin-shell";
 import { Icon } from "@iconify/react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { useUIStore } from "@/stores/uiStore";
-import { BaseCard } from "@/components/shared/BaseCard";
-import { getPfState, closePfTunnel } from "@/services/portForwardingTunnels";
-import { formatActiveTunnelLabel } from "@/utils/tunnelFormat";
+import { getPfState, closePfTunnel, resumeAutoPort } from "@/services/portForwardingTunnels";
+import { formatActiveTunnelLabel, getLocalTunnelHttpUrl } from "@/utils/tunnelFormat";
+import { getDistroColor, getDistroIcon } from "@/utils/icons";
 import type { ActiveTunnel } from "@/types";
 
 interface PfStatePayload {
@@ -16,27 +17,20 @@ interface PfStatePayload {
   suppressed_ports: number[];
 }
 
+interface SessionPfState {
+  tunnels: ActiveTunnel[];
+  suppressedPorts: number[];
+}
+
 function TunnelTypeBadge({ tunnelType }: { tunnelType: ActiveTunnel["tunnel_type"] }) {
   if ((tunnelType ?? "local") === "local") {
-    return (
-      <span className="text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none bg-blue-500/15 text-blue-400">
-        Local
-      </span>
-    );
+    return <span className="text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none bg-blue-500/15 text-blue-400">Local</span>;
   }
   if (tunnelType === "remote") {
-    return (
-      <span className="text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none bg-amber-500/15 text-amber-400">
-        Remote
-      </span>
-    );
+    return <span className="text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none bg-amber-500/15 text-amber-400">Remote</span>;
   }
   if (tunnelType === "dynamic") {
-    return (
-      <span className="text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none bg-purple-500/20 text-purple-400">
-        SOCKS5
-      </span>
-    );
+    return <span className="text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none bg-purple-500/20 text-purple-400">SOCKS5</span>;
   }
   return null;
 }
@@ -47,8 +41,9 @@ export function ActiveTunnelsSection() {
   const accessibleVaultIds = useAccessibleVaultIds();
   const layoutMode = useUIStore((s) => s.portForwardingLayoutMode);
 
-  const [tunnelMap, setTunnelMap] = useState<Map<string, ActiveTunnel[]>>(new Map());
+  const [pfStateMap, setPfStateMap] = useState<Map<string, SessionPfState>>(new Map());
   const [busy, setBusy] = useState<Set<string>>(new Set());
+  const [hiddenPorts, setHiddenPorts] = useState<Set<string>>(new Set());
 
   const relevantSessions = useMemo(() => {
     return sessions.filter((s) => {
@@ -66,13 +61,11 @@ export function ActiveTunnelsSection() {
 
     for (const sessionId of ids) {
       getPfState(sessionId)
-        .then((state) => {
-          setTunnelMap((prev) => new Map(prev).set(sessionId, state.tunnels));
-        })
+        .then((state) => setPfStateMap((prev) => new Map(prev).set(sessionId, { tunnels: state.tunnels, suppressedPorts: state.suppressed_ports })))
         .catch(() => {});
     }
 
-    setTunnelMap((prev) => {
+    setPfStateMap((prev) => {
       const next = new Map(prev);
       for (const key of next.keys()) {
         if (!ids.includes(key)) next.delete(key);
@@ -88,34 +81,40 @@ export function ActiveTunnelsSection() {
 
     listen<PfStatePayload>("pf-state-changed", ({ payload }) => {
       if (!ids.includes(payload.session_id)) return;
-      setTunnelMap((prev) => new Map(prev).set(payload.session_id, payload.tunnels));
+      setPfStateMap((prev) => new Map(prev).set(payload.session_id, { tunnels: payload.tunnels, suppressedPorts: payload.suppressed_ports }));
     }).then((u) => { cleanup = u; });
 
     return () => { cleanup?.(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionIdKey]);
 
-  const ephemeralRows = useMemo(() => {
-    const rows: Array<{ sessionId: string; sessionName: string; tunnel: ActiveTunnel }> = [];
-    for (const session of relevantSessions) {
-      for (const tunnel of tunnelMap.get(session.id) ?? []) {
-        if (tunnel.origin.type !== "rule") {
-          rows.push({ sessionId: session.id, sessionName: session.connectionName, tunnel });
-        }
-      }
-    }
-    return rows;
-  }, [relevantSessions, tunnelMap]);
+  const sessionCards = useMemo(() => {
+    return relevantSessions
+      .map((session) => {
+        const connection = connections.find((c) => c.id === session.connectionId) ?? null;
+        const state = pfStateMap.get(session.id);
+        const tunnels = (state?.tunnels ?? []).filter((tunnel) => tunnel.origin.type !== "rule" && !hiddenPorts.has(`${session.id}:${tunnel.remote_port}`));
+        const activePorts = new Set(tunnels.map((tunnel) => tunnel.remote_port));
+        const suppressedPorts = (state?.suppressedPorts ?? []).filter((port) => !activePorts.has(port) && !hiddenPorts.has(`${session.id}:${port}`));
+        const errorCount = tunnels.filter((tunnel) => typeof tunnel.state === "object" && "error" in tunnel.state).length;
+        return { session, connection, tunnels, suppressedPorts, errorCount };
+      })
+      .filter(({ tunnels, suppressedPorts }) => tunnels.length > 0 || suppressedPorts.length > 0);
+  }, [relevantSessions, connections, pfStateMap, hiddenPorts]);
 
-  if (ephemeralRows.length === 0) return null;
+  const totalTunnelCount = sessionCards.reduce((sum, card) => sum + card.tunnels.length + card.suppressedPorts.length, 0);
 
-  const showSession = relevantSessions.length > 1;
+  if (totalTunnelCount === 0) return null;
 
   function setBusyKey(key: string, on: boolean) {
-    setBusy((prev) => { const s = new Set(prev); on ? s.add(key) : s.delete(key); return s; });
+    setBusy((prev) => {
+      const s = new Set(prev);
+      on ? s.add(key) : s.delete(key);
+      return s;
+    });
   }
 
-  async function handleStop(sessionId: string, tunnelId: string) {
+  async function handlePause(sessionId: string, tunnelId: string) {
     const key = `${sessionId}-${tunnelId}`;
     setBusyKey(key, true);
     try { await closePfTunnel(sessionId, tunnelId); }
@@ -123,95 +122,193 @@ export function ActiveTunnelsSection() {
     finally { setBusyKey(key, false); }
   }
 
+  async function handleResume(sessionId: string, port: number) {
+    const key = `${sessionId}-${port}`;
+    setBusyKey(key, true);
+    try { await resumeAutoPort(sessionId, port); }
+    catch (e) { console.error("pf_tunnel_resume_auto failed:", e); }
+    finally { setBusyKey(key, false); }
+  }
+
+  async function handleDeleteActive(sessionId: string, tunnel: ActiveTunnel) {
+    const key = `del-${sessionId}-${tunnel.id}`;
+    setBusyKey(key, true);
+    try {
+      await closePfTunnel(sessionId, tunnel.id);
+      setHiddenPorts((prev) => new Set([...prev, `${sessionId}:${tunnel.remote_port}`]));
+    } catch (e) { console.error("pf_tunnel_close failed:", e); }
+    finally { setBusyKey(key, false); }
+  }
+
+  function handleDeletePaused(sessionId: string, port: number) {
+    setHiddenPorts((prev) => new Set([...prev, `${sessionId}:${port}`]));
+  }
+
   return (
     <div className="mb-4">
-      <div className="flex items-center gap-2 px-4 py-2">
+      <div className="flex items-center justify-between px-1 py-2">
         <span className="text-xs font-semibold uppercase tracking-wider text-[var(--t-text-dim)]">
-          Active
+          Active session forwards
         </span>
-        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--t-bg-elevated)] text-[var(--t-text-muted)] leading-none">
-          {ephemeralRows.length}
-        </span>
+        <div className="flex items-center gap-2 text-[10px] text-[var(--t-text-muted)]">
+          <span className="px-1.5 py-0.5 rounded-full bg-[var(--t-bg-elevated)] leading-none">{sessionCards.length} host{sessionCards.length === 1 ? "" : "s"}</span>
+          <span className="px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-400 leading-none">{totalTunnelCount} tunnel{totalTunnelCount === 1 ? "" : "s"}</span>
+        </div>
       </div>
 
       <div className={layoutMode === "grid"
-        ? "grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-3 px-4"
-        : "flex flex-col gap-1 px-4"
+        ? "grid grid-cols-[repeat(auto-fill,minmax(21rem,1fr))] gap-4"
+        : "flex flex-col gap-3"
       }>
-        {ephemeralRows.map(({ sessionId, sessionName, tunnel }) => {
-          const key = `${sessionId}-${tunnel.id}`;
-          const isBusy = busy.has(key);
-          const isAuto = tunnel.origin.type === "auto";
-          const isList = layoutMode === "list";
-          const isError = typeof tunnel.state === "object" && "error" in tunnel.state;
-          const errorMsg = isError ? (tunnel.state as { error: string }).error : null;
-
-          const originBadge = (
-            <span className={`text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none ${
-              isAuto ? "bg-purple-500/20 text-purple-400" : "bg-[var(--t-bg-subtle)] text-[var(--t-text-muted)]"
-            }`}>
-              {isAuto ? "Auto" : "Ad-hoc"}
-            </span>
-          );
-
-          const portLabel = formatActiveTunnelLabel(tunnel);
-
-          const stopBtn = (
-            <button
-              onClick={(e) => { e.stopPropagation(); void handleStop(sessionId, tunnel.id); }}
-              disabled={isBusy}
-              title="Stop forwarding"
-              className="w-6 h-6 flex items-center justify-center rounded shrink-0
-                text-[var(--t-text-muted)] hover:text-amber-400 hover:bg-amber-500/10
-                opacity-0 group-hover:opacity-100 transition-all"
-            >
-              {isBusy
-                ? <Icon icon="lucide:loader-circle" width={12} className="animate-spin" />
-                : <Icon icon="lucide:square" width={12} />
-              }
-            </button>
-          );
+        {sessionCards.map(({ session, connection, tunnels, suppressedPorts, errorCount }) => {
+          const distroIcon = connection?.distro ? getDistroIcon(connection.distro) : null;
+          const distroColor = connection?.distro ? getDistroColor(connection.distro) : "var(--t-bg-card-avatar)";
+          const activeCount = tunnels.length - errorCount;
+          const totalForwards = tunnels.length + suppressedPorts.length;
 
           return (
-            <BaseCard key={key} isList={isList}>
-              <div className={`w-2 h-2 rounded-full shrink-0 ${isError ? "bg-red-500" : "bg-green-500"}`} />
-
-              {isList ? (
-                <>
-                  <p className="text-sm font-medium truncate text-[var(--t-text-bright)]">
-                    {tunnel.tunnel_type === "dynamic" ? `SOCKS5 :${tunnel.local_port}` : `Port ${tunnel.remote_port}`}
-                  </p>
-                  {originBadge}
-                  <TunnelTypeBadge tunnelType={tunnel.tunnel_type} />
-                  <p className="text-xs font-mono text-[var(--t-text-secondary)] flex-1 truncate">
-                    {isError ? errorMsg : portLabel}
-                  </p>
-                  {showSession && (
-                    <span className="text-xs text-[var(--t-text-dim)] shrink-0 truncate max-w-[8rem]">
-                      {sessionName}
-                    </span>
-                  )}
-                </>
-              ) : (
-                <div className="flex flex-col gap-1 min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <p className="text-sm font-medium truncate text-[var(--t-text-bright)]">
-                      {tunnel.tunnel_type === "dynamic" ? `SOCKS5 :${tunnel.local_port}` : `Port ${tunnel.remote_port}`}
-                    </p>
-                    {originBadge}
-                    <TunnelTypeBadge tunnelType={tunnel.tunnel_type} />
+            <div
+              key={session.id}
+              className="group overflow-hidden rounded-[1.35rem] border border-[var(--t-border)] bg-[var(--t-bg-card)] transition-all duration-150 hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-card-hover)]"
+              data-card="true"
+            >
+              <div
+                className="relative flex items-center gap-3 px-4 py-4"
+                style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${distroColor} 24%, transparent), transparent 62%)` }}
+              >
+                <div
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg shadow-black/20"
+                  style={{ background: distroColor }}
+                >
+                  <Icon icon={distroIcon ?? "lucide:server"} width={30} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <p className="truncate text-base font-bold text-[var(--t-text-bright)]">{session.connectionName}</p>
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-green-500" title="Connected" />
                   </div>
-                  <p className="text-xs font-mono text-[var(--t-text-secondary)]">
-                    {isError ? errorMsg : portLabel}
+                  <p className="truncate text-xs text-[var(--t-text-muted)]">
+                    {connection ? `${connection.username}@${connection.host}:${connection.port}` : session.id}
                   </p>
-                  {showSession && (
-                    <span className="text-xs text-[var(--t-text-dim)] truncate">{sessionName}</span>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <span className="rounded-full bg-[var(--t-bg-elevated)] px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--t-text-secondary)]">
+                    {totalForwards} forward{totalForwards === 1 ? "" : "s"}
+                  </span>
+                  {errorCount > 0 ? (
+                    <span className="text-[10px] font-medium text-red-400">{errorCount} error</span>
+                  ) : (
+                    <span className="text-[10px] font-medium text-green-400">{activeCount} active</span>
                   )}
                 </div>
-              )}
+              </div>
 
-              {stopBtn}
-            </BaseCard>
+              <div className="flex flex-col gap-1.5 px-3 pb-3">
+                {tunnels.map((tunnel) => {
+                  const key = `${session.id}-${tunnel.id}`;
+                  const deleteKey = `del-${session.id}-${tunnel.id}`;
+                  const isBusy = busy.has(key);
+                  const isDeleting = busy.has(deleteKey);
+                  const isAuto = tunnel.origin.type === "auto";
+                  const isError = typeof tunnel.state === "object" && "error" in tunnel.state;
+                  const errorMsg = isError ? (tunnel.state as { error: string }).error : null;
+                  const portLabel = formatActiveTunnelLabel(tunnel);
+                  const webUrl = !isError ? getLocalTunnelHttpUrl(tunnel.tunnel_type ?? "local", tunnel.remote_port, tunnel.local_port) : null;
+
+                  return (
+                    <div
+                      key={key}
+                      className="flex items-center gap-2 rounded-xl border border-transparent bg-[var(--t-bg-elevated)]/70 px-2.5 py-2 transition-colors hover:border-[var(--t-border-hover)]"
+                    >
+                      <div className={`h-2 w-2 shrink-0 rounded-full ${isError ? "bg-red-500" : "bg-green-500"}`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <p className="truncate text-sm font-semibold text-[var(--t-text-bright)]">
+                            {tunnel.tunnel_type === "dynamic" ? `SOCKS5 :${tunnel.local_port}` : `Port ${tunnel.remote_port}`}
+                          </p>
+                          <span className={`text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none ${isAuto ? "bg-purple-500/20 text-purple-400" : "bg-[var(--t-bg-subtle)] text-[var(--t-text-muted)]"}`}>
+                            {isAuto ? "Auto" : "Ad-hoc"}
+                          </span>
+                          <TunnelTypeBadge tunnelType={tunnel.tunnel_type} />
+                        </div>
+                        <p className={`truncate text-xs font-mono ${isError ? "text-red-400" : "text-[var(--t-text-secondary)]"}`}>
+                          {isError ? errorMsg : portLabel}
+                        </p>
+                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); void handlePause(session.id, tunnel.id); }}
+                        disabled={isBusy}
+                        title="Pause forwarding"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--t-text-muted)] transition-all hover:bg-amber-500/10 hover:text-amber-400 disabled:opacity-60"
+                      >
+                        {isBusy
+                          ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin" />
+                          : <Icon icon="lucide:pause" width={13} />
+                        }
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); void handleDeleteActive(session.id, tunnel); }}
+                        disabled={isDeleting}
+                        title="Delete"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--t-text-muted)] transition-all hover:bg-red-500/10 hover:text-red-400 disabled:opacity-60"
+                      >
+                        {isDeleting
+                          ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin" />
+                          : <Icon icon="lucide:trash-2" width={13} />
+                        }
+                      </button>
+                      {webUrl && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); void openUrl(webUrl); }}
+                          title={`Open ${webUrl}`}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--t-text-muted)] transition-all hover:bg-blue-500/10 hover:text-blue-400"
+                        >
+                          <Icon icon="lucide:globe" width={13} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+                {suppressedPorts.map((port) => {
+                  const key = `${session.id}-${port}`;
+                  const isBusy = busy.has(key);
+
+                  return (
+                    <div
+                      key={`suppressed-${session.id}-${port}`}
+                      className="flex items-center gap-2 rounded-xl border border-transparent bg-[var(--t-bg-elevated)]/70 px-2.5 py-2 transition-colors hover:border-[var(--t-border-hover)]"
+                    >
+                      <div className="h-2 w-2 shrink-0 rounded-full bg-[var(--t-text-dim)] opacity-40" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <p className="truncate text-sm font-semibold text-[var(--t-text-bright)]">Port {port}</p>
+                          <span className="text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none bg-purple-500/20 text-purple-400">Auto</span>
+                        </div>
+                        <p className="truncate text-xs font-mono text-[var(--t-text-secondary)]">{port} → 127.0.0.1:{port}</p>
+                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); void handleResume(session.id, port); }}
+                        disabled={isBusy}
+                        title="Resume forwarding"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--t-text-muted)] transition-all hover:bg-green-500/10 hover:text-green-400 disabled:opacity-60"
+                      >
+                        {isBusy
+                          ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin" />
+                          : <Icon icon="lucide:play" width={13} />
+                        }
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeletePaused(session.id, port); }}
+                        title="Delete"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--t-text-muted)] transition-all hover:bg-red-500/10 hover:text-red-400"
+                      >
+                        <Icon icon="lucide:trash-2" width={13} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </div>
