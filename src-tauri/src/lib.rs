@@ -300,6 +300,7 @@ pub fn run() {
             commands::local::local_disconnect,
             commands::local::local_send_input,
             commands::local::local_resize,
+            commands::account_http::account_http_request,
             commands::fs::fs_home_dir,
             commands::fs::fs_list_dir,
             commands::fs::fs_read_text_home,
