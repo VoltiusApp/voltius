@@ -11,39 +11,39 @@ export function useImportExportContributions() {
 
     const unregs = [
       registerContribution(ID, "connection.contextMenu",
-        (conn: Connection) => [{ label: "Export", icon: "lucide:download", onClick: () => useUIStore.getState().openImportExport("export", { connectionId: conn.id }) }]),
+        (conn: Connection) => [{ label: "Export", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export", { connectionId: conn.id }) }]),
 
       registerContribution(ID, "connection.panelActions",
-        (conn: Connection) => [{ label: "Export", icon: "lucide:download", onClick: () => useUIStore.getState().openImportExport("export", { connectionId: conn.id }) }]),
+        (conn: Connection) => [{ label: "Export", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export", { connectionId: conn.id }) }]),
 
       registerContribution(ID, "key.contextMenu",
-        (key: SshKey) => [{ label: "Export", icon: "lucide:download", onClick: () => useUIStore.getState().openImportExport("export", { keyId: key.id }) }]),
+        (key: SshKey) => [{ label: "Export", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export", { keyId: key.id }) }]),
 
       registerContribution(ID, "key.panelActions",
-        (key: SshKey | undefined) => key ? [{ label: "Export", icon: "lucide:download", onClick: () => useUIStore.getState().openImportExport("export", { keyId: key.id }) }] : []),
+        (key: SshKey | undefined) => key ? [{ label: "Export", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export", { keyId: key.id }) }] : []),
 
       registerContribution(ID, "identity.contextMenu",
-        (identity: Identity) => [{ label: "Export", icon: "lucide:download", onClick: () => useUIStore.getState().openImportExport("export", { identityId: identity.id }) }]),
+        (identity: Identity) => [{ label: "Export", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export", { identityId: identity.id }) }]),
 
       registerContribution(ID, "identity.panelActions",
-        (identity: Identity | undefined) => identity ? [{ label: "Export", icon: "lucide:download", onClick: () => useUIStore.getState().openImportExport("export", { identityId: identity.id }) }] : []),
+        (identity: Identity | undefined) => identity ? [{ label: "Export", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export", { identityId: identity.id }) }] : []),
 
       registerContribution(ID, "home.bgContextMenu",
         () => [
-          { label: "Import…", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("import"), divider: true },
-          { label: "Export…", icon: "lucide:download", onClick: () => useUIStore.getState().openImportExport("export") },
+          { label: "Import…", icon: "lucide:download", onClick: () => useUIStore.getState().openImportExport("import"), divider: true },
+          { label: "Export…", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export") },
         ]),
 
       registerContribution(ID, "keychain.bgContextMenu",
         () => [
-          { label: "Import…", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("import"), divider: true },
-          { label: "Export…", icon: "lucide:download", onClick: () => useUIStore.getState().openImportExport("export") },
+          { label: "Import…", icon: "lucide:download", onClick: () => useUIStore.getState().openImportExport("import"), divider: true },
+          { label: "Export…", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export") },
         ]),
 
       registerContribution(ID, "settings.vaults",
         () => [
-          { label: "Export Vault", icon: "lucide:download", onClick: () => useUIStore.getState().openImportExport("export") },
-          { label: "Import into Vault", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("import") },
+          { label: "Export Vault", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export") },
+          { label: "Import into Vault", icon: "lucide:download", onClick: () => useUIStore.getState().openImportExport("import") },
         ]),
     ];
 

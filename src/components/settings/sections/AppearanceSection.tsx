@@ -56,7 +56,7 @@ export default function AppearanceSection() {
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-colors text-[var(--t-text-muted)] hover:text-[var(--t-text-primary)] bg-[var(--t-bg-card)] hover:bg-[var(--t-bg-elevated)]"
               title="Import theme(s)"
             >
-              <Icon icon="lucide:upload" width={12} />
+              <Icon icon="lucide:download" width={12} />
               Import
             </button>
             {customThemes.length > 0 && (
@@ -65,7 +65,7 @@ export default function AppearanceSection() {
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-colors text-[var(--t-text-muted)] hover:text-[var(--t-text-primary)] bg-[var(--t-bg-card)] hover:bg-[var(--t-bg-elevated)]"
                 title="Export all custom themes"
               >
-                <Icon icon="lucide:download" width={12} />
+                <Icon icon="lucide:upload" width={12} />
                 Export All
               </button>
             )}

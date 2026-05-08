@@ -297,6 +297,7 @@ pub async fn docker_open_exec_session(
                 shutdown_tx,
                 channel_only: true,
                 _jump_handles: vec![],
+                remote_routes: std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
             },
         )
         .await;

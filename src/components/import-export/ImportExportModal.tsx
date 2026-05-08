@@ -556,7 +556,7 @@ function ImportTab() {
 
       <div className="mt-auto pt-3 border-t border-[var(--t-border)]">
         <ActionBtn
-          icon={importing ? "lucide:loader" : "lucide:upload"}
+          icon={importing ? "lucide:loader" : "lucide:download"}
           label={importing ? "Importing…" : totalToImport > 0 ? `Import ${totalToImport} item${totalToImport !== 1 ? "s" : ""}${targetVaultIds.length > 1 ? ` × ${targetVaultIds.length} vaults` : ""}` : "Import"}
           onClick={handleImport}
           primary
@@ -768,7 +768,7 @@ function UserDataImportTab({ onClose }: { onClose: () => void }) {
 
       <div className="mt-auto pt-3 border-t border-[var(--t-border)]">
         <ActionBtn
-          icon={importing ? "lucide:loader" : "lucide:upload"}
+          icon={importing ? "lucide:loader" : "lucide:download"}
           label={importing ? "Applying…" : selectedCount > 0 ? `Apply ${selectedCount} section${selectedCount !== 1 ? "s" : ""}` : "Apply"}
           onClick={handleImport} primary disabled={selectedCount === 0 || importing || status.type !== "ready"}
         />
@@ -817,7 +817,7 @@ export function ImportExportModal() {
         {/* Header — section tabs in center */}
         <div className="grid grid-cols-3 items-center px-6 py-4 shrink-0 border-b border-b-[var(--t-border)]">
           <div className="flex items-center gap-3">
-            <Icon icon="lucide:arrow-left-right" width={18} className="text-[var(--t-accent)]" />
+            <Icon icon="lucide:network" width={18} className="text-[var(--t-accent)]" />
             <span className="text-base font-semibold text-[var(--t-text-bright)]">Import / Export</span>
           </div>
           <div className="flex items-center justify-center gap-1">
@@ -857,7 +857,7 @@ export function ImportExportModal() {
                 borderBottom: activeMode === mode ? "2px solid var(--t-accent)" : "2px solid transparent",
               }}
             >
-              <Icon icon={mode === "export" ? "lucide:download" : "lucide:upload"} width={13} />
+              <Icon icon={mode === "export" ? "lucide:upload" : "lucide:download"} width={13} />
               {mode.charAt(0).toUpperCase() + mode.slice(1)}
             </button>
           ))}

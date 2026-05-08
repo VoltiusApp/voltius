@@ -7,12 +7,38 @@ import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { useUIStore } from "@/stores/uiStore";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { getPfState, closePfTunnel } from "@/services/portForwardingTunnels";
+import { formatActiveTunnelLabel } from "@/utils/tunnelFormat";
 import type { ActiveTunnel } from "@/types";
 
 interface PfStatePayload {
   session_id: string;
   tunnels: ActiveTunnel[];
   suppressed_ports: number[];
+}
+
+function TunnelTypeBadge({ tunnelType }: { tunnelType: ActiveTunnel["tunnel_type"] }) {
+  if ((tunnelType ?? "local") === "local") {
+    return (
+      <span className="text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none bg-blue-500/15 text-blue-400">
+        Local
+      </span>
+    );
+  }
+  if (tunnelType === "remote") {
+    return (
+      <span className="text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none bg-amber-500/15 text-amber-400">
+        Remote
+      </span>
+    );
+  }
+  if (tunnelType === "dynamic") {
+    return (
+      <span className="text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none bg-purple-500/20 text-purple-400">
+        SOCKS5
+      </span>
+    );
+  }
+  return null;
 }
 
 export function ActiveTunnelsSection() {
@@ -117,14 +143,19 @@ export function ActiveTunnelsSection() {
           const isBusy = busy.has(key);
           const isAuto = tunnel.origin.type === "auto";
           const isList = layoutMode === "list";
-          const badge = (
+          const isError = typeof tunnel.state === "object" && "error" in tunnel.state;
+          const errorMsg = isError ? (tunnel.state as { error: string }).error : null;
+
+          const originBadge = (
             <span className={`text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none ${
               isAuto ? "bg-purple-500/20 text-purple-400" : "bg-[var(--t-bg-subtle)] text-[var(--t-text-muted)]"
             }`}>
               {isAuto ? "Auto" : "Ad-hoc"}
             </span>
           );
-          const portLabel = `${tunnel.local_port} → ${tunnel.remote_host}:${tunnel.remote_port}`;
+
+          const portLabel = formatActiveTunnelLabel(tunnel);
+
           const stopBtn = (
             <button
               onClick={(e) => { e.stopPropagation(); void handleStop(sessionId, tunnel.id); }}
@@ -140,18 +171,20 @@ export function ActiveTunnelsSection() {
               }
             </button>
           );
+
           return (
             <BaseCard key={key} isList={isList}>
-              <div className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+              <div className={`w-2 h-2 rounded-full shrink-0 ${isError ? "bg-red-500" : "bg-green-500"}`} />
 
               {isList ? (
                 <>
                   <p className="text-sm font-medium truncate text-[var(--t-text-bright)]">
-                    Port {tunnel.remote_port}
+                    {tunnel.tunnel_type === "dynamic" ? `SOCKS5 :${tunnel.local_port}` : `Port ${tunnel.remote_port}`}
                   </p>
-                  {badge}
+                  {originBadge}
+                  <TunnelTypeBadge tunnelType={tunnel.tunnel_type} />
                   <p className="text-xs font-mono text-[var(--t-text-secondary)] flex-1 truncate">
-                    {portLabel}
+                    {isError ? errorMsg : portLabel}
                   </p>
                   {showSession && (
                     <span className="text-xs text-[var(--t-text-dim)] shrink-0 truncate max-w-[8rem]">
@@ -163,11 +196,14 @@ export function ActiveTunnelsSection() {
                 <div className="flex flex-col gap-1 min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <p className="text-sm font-medium truncate text-[var(--t-text-bright)]">
-                      Port {tunnel.remote_port}
+                      {tunnel.tunnel_type === "dynamic" ? `SOCKS5 :${tunnel.local_port}` : `Port ${tunnel.remote_port}`}
                     </p>
-                    {badge}
+                    {originBadge}
+                    <TunnelTypeBadge tunnelType={tunnel.tunnel_type} />
                   </div>
-                  <p className="text-xs font-mono text-[var(--t-text-secondary)]">{portLabel}</p>
+                  <p className="text-xs font-mono text-[var(--t-text-secondary)]">
+                    {isError ? errorMsg : portLabel}
+                  </p>
                   {showSession && (
                     <span className="text-xs text-[var(--t-text-dim)] truncate">{sessionName}</span>
                   )}

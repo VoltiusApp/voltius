@@ -1,6 +1,8 @@
 pub mod poller;
+pub mod socks;
 pub mod tunnel;
 
+use crate::storage::config::TunnelType;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -27,13 +29,28 @@ pub enum TunnelState {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActiveTunnel {
     pub id: String,
+    pub tunnel_type: TunnelType,
     pub local_port: u16,
     pub remote_port: u16,
     pub remote_host: String,
+    /// Remote tunnels: server-side bind address
+    #[serde(default)]
+    pub bind_host: Option<String>,
+    /// Remote/local tunnels: final target host
+    #[serde(default)]
+    pub target_host: Option<String>,
     pub origin: TunnelOrigin,
     pub state: TunnelState,
     #[serde(default)]
     pub bytes_transferred: u64,
+}
+
+/// Cleanup metadata needed to cancel a remote forward on the SSH server.
+pub(crate) struct RemoteCleanup {
+    pub(crate) bind_host: String,
+    pub(crate) remote_port: u16,
+    pub(crate) handle: Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
+    pub(crate) routes: RemoteRouteMap,
 }
 
 /// Internal tunnel entry — wraps `ActiveTunnel` with its cancellation token and bytes counter.
@@ -41,6 +58,7 @@ pub(crate) struct TunnelEntry {
     pub(crate) tunnel: ActiveTunnel,
     pub(crate) _cancel: CancellationToken,
     pub(crate) bytes: Arc<AtomicU64>,
+    pub(crate) remote_cleanup: Option<RemoteCleanup>,
 }
 
 pub(crate) struct SessionPfState {
@@ -55,6 +73,7 @@ pub(crate) struct SessionPfState {
 pub enum ForwardError {
     PortInUse(u16, u8),
     Io(std::io::Error),
+    Ssh(russh::Error),
 }
 
 impl std::fmt::Display for ForwardError {
@@ -64,6 +83,7 @@ impl std::fmt::Display for ForwardError {
                 write!(f, "Port {port} already in use after {attempts} attempts")
             }
             Self::Io(e) => write!(f, "IO error: {e}"),
+            Self::Ssh(e) => write!(f, "SSH error: {e}"),
         }
     }
 }
@@ -71,6 +91,12 @@ impl std::fmt::Display for ForwardError {
 impl From<std::io::Error> for ForwardError {
     fn from(e: std::io::Error) -> Self {
         Self::Io(e)
+    }
+}
+
+impl From<russh::Error> for ForwardError {
+    fn from(e: russh::Error) -> Self {
+        Self::Ssh(e)
     }
 }
 
@@ -88,6 +114,17 @@ pub struct PfSessionState {
     pub tunnels: Vec<ActiveTunnel>,
     pub suppressed_ports: Vec<u16>,
 }
+
+/// Route entry used by the SSH client handler when a remote-forwarded connection arrives.
+#[derive(Clone)]
+pub struct RemoteRoute {
+    pub target_host: String,
+    pub target_port: u16,
+    pub bytes: Arc<AtomicU64>,
+}
+
+/// Shared remote-forward route table for one SSH session.
+pub type RemoteRouteMap = Arc<Mutex<HashMap<(String, u16), RemoteRoute>>>;
 
 pub struct PortForwardManager {
     pub(crate) sessions: Arc<Mutex<HashMap<String, SessionPfState>>>,
@@ -177,7 +214,7 @@ impl PortForwardManager {
         handle: Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
         port: u16,
     ) -> Result<ActiveTunnel, ForwardError> {
-        self.open_tunnel(
+        self.open_local_tunnel(
             session_id,
             handle,
             port,
@@ -188,7 +225,7 @@ impl PortForwardManager {
         .await
     }
 
-    pub async fn open_tunnel(
+    pub async fn open_local_tunnel(
         &self,
         session_id: &str,
         handle: Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
@@ -209,9 +246,12 @@ impl PortForwardManager {
 
         let tunnel = ActiveTunnel {
             id: uuid::Uuid::new_v4().to_string(),
+            tunnel_type: TunnelType::Local,
             local_port: bound_port,
             remote_port,
             remote_host,
+            bind_host: None,
+            target_host: None,
             origin,
             state: TunnelState::Active,
             bytes_transferred: 0,
@@ -221,6 +261,7 @@ impl PortForwardManager {
             tunnel: tunnel.clone(),
             _cancel: cancel,
             bytes,
+            remote_cleanup: None,
         };
 
         {
@@ -233,8 +274,132 @@ impl PortForwardManager {
                     poller_cancel: None,
                     suppressed_ports: HashSet::new(),
                 });
-            // Un-suppress this port if user is manually re-enabling it
             state.suppressed_ports.remove(&remote_port);
+            state.tunnels.push(entry);
+        }
+
+        self.emit_state(session_id).await;
+        Ok(tunnel)
+    }
+
+    pub async fn open_remote_tunnel(
+        &self,
+        session_id: &str,
+        handle: Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
+        routes: RemoteRouteMap,
+        bind_host: String,
+        remote_port: u16,
+        target_host: String,
+        local_port: u16,
+        origin: TunnelOrigin,
+    ) -> Result<ActiveTunnel, ForwardError> {
+        let bytes = Arc::new(AtomicU64::new(0));
+
+        let route = RemoteRoute {
+            target_host: target_host.clone(),
+            target_port: local_port,
+            bytes: Arc::clone(&bytes),
+        };
+
+        // Register route BEFORE sending tcpip_forward to avoid a race.
+        {
+            let mut map = routes.lock().await;
+            map.insert((bind_host.clone(), remote_port), route);
+        }
+
+        match handle.tcpip_forward(&bind_host, remote_port as u32).await {
+            Ok(_) => {}
+            Err(e) => {
+                // Roll back route registration on failure.
+                routes.lock().await.remove(&(bind_host.clone(), remote_port));
+                return Err(ForwardError::Ssh(e));
+            }
+        }
+
+        let tunnel = ActiveTunnel {
+            id: uuid::Uuid::new_v4().to_string(),
+            tunnel_type: TunnelType::Remote,
+            local_port,
+            remote_port,
+            remote_host: target_host.clone(),
+            bind_host: Some(bind_host.clone()),
+            target_host: Some(target_host),
+            origin,
+            state: TunnelState::Active,
+            bytes_transferred: 0,
+        };
+
+        let cancel = CancellationToken::new();
+        let entry = TunnelEntry {
+            tunnel: tunnel.clone(),
+            _cancel: cancel,
+            bytes,
+            remote_cleanup: Some(RemoteCleanup {
+                bind_host: bind_host.clone(),
+                remote_port,
+                handle: Arc::clone(&handle),
+                routes,
+            }),
+        };
+
+        {
+            let mut sessions = self.sessions.lock().await;
+            let state = sessions
+                .entry(session_id.to_string())
+                .or_insert_with(|| SessionPfState {
+                    tunnels: Vec::new(),
+                    auto_detect: false,
+                    poller_cancel: None,
+                    suppressed_ports: HashSet::new(),
+                });
+            state.tunnels.push(entry);
+        }
+
+        self.emit_state(session_id).await;
+        Ok(tunnel)
+    }
+
+    pub async fn open_dynamic_tunnel(
+        &self,
+        session_id: &str,
+        handle: Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
+        local_port: u16,
+        origin: TunnelOrigin,
+    ) -> Result<ActiveTunnel, ForwardError> {
+        let cancel = CancellationToken::new();
+        let (bound_port, bytes) =
+            socks::create_socks_tunnel(Arc::clone(&handle), local_port, cancel.clone()).await?;
+
+        let tunnel = ActiveTunnel {
+            id: uuid::Uuid::new_v4().to_string(),
+            tunnel_type: TunnelType::Dynamic,
+            local_port: bound_port,
+            remote_port: 0,
+            remote_host: String::new(),
+            bind_host: None,
+            target_host: None,
+            origin,
+            state: TunnelState::Active,
+            bytes_transferred: 0,
+        };
+
+        let entry = TunnelEntry {
+            tunnel: tunnel.clone(),
+            _cancel: cancel,
+            bytes,
+            remote_cleanup: None,
+        };
+
+        {
+            let mut sessions = self.sessions.lock().await;
+            let state = sessions
+                .entry(session_id.to_string())
+                .or_insert_with(|| SessionPfState {
+                    tunnels: Vec::new(),
+                    auto_detect: false,
+                    poller_cancel: None,
+                    suppressed_ports: HashSet::new(),
+                });
             state.tunnels.push(entry);
         }
 
@@ -254,15 +419,13 @@ impl PortForwardManager {
             .position(|e| e.tunnel.id == tunnel_id)
             .ok_or_else(|| format!("Tunnel not found: {}", tunnel_id))?;
 
-        // Suppress auto-detected ports so the poller doesn't immediately re-open them
         if matches!(state.tunnels[pos].tunnel.origin, TunnelOrigin::Auto) {
             state
                 .suppressed_ports
                 .insert(state.tunnels[pos].tunnel.remote_port);
         }
 
-        // Drop entry — CancellationToken cancels all bridges
-        state.tunnels.remove(pos);
+        let entry = state.tunnels.remove(pos);
 
         let payload = PfStatePayload {
             session_id: session_id.to_string(),
@@ -270,6 +433,12 @@ impl PortForwardManager {
             suppressed_ports: state.suppressed_ports.iter().copied().collect(),
         };
         drop(sessions);
+
+        // Best-effort remote forward cancellation (after releasing lock).
+        if let Some(rc) = entry.remote_cleanup {
+            rc.routes.lock().await.remove(&(rc.bind_host.clone(), rc.remote_port));
+            let _ = rc.handle.cancel_tcpip_forward(&rc.bind_host, rc.remote_port as u32).await;
+        }
 
         let _ = self.app.emit("pf-state-changed", payload);
         Ok(())
@@ -280,6 +449,12 @@ impl PortForwardManager {
         if let Some(state) = sessions.remove(session_id) {
             if let Some(cancel) = state.poller_cancel {
                 cancel.cancel();
+            }
+            // Clear remote route registrations (SSH session is gone, so no cancel_tcpip_forward).
+            for entry in &state.tunnels {
+                if let Some(rc) = &entry.remote_cleanup {
+                    let _ = rc.routes.lock().await.remove(&(rc.bind_host.clone(), rc.remote_port));
+                }
             }
             // TunnelEntry._cancel fields dropped here → all bridges stop
         }
@@ -296,38 +471,100 @@ impl PortForwardManager {
     }
 
     /// Auto-activate port forwarding rules matching `connection_id` for a newly connected session.
-    /// Rules with empty `connection_ids` are global and always activated.
     pub async fn auto_activate_rules(
         &self,
         session_id: &str,
         connection_id: &str,
         handle: Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
+        routes: RemoteRouteMap,
     ) {
-        use crate::storage::config::load_port_forwarding_rules;
+        use crate::storage::config::{load_port_forwarding_rules, TunnelType as CfgTunnelType};
         let rules = load_port_forwarding_rules();
         for rule in rules {
             if rule.deleted_at.is_some() {
                 continue;
             }
-            // Skip scoped rules that don't include this connection
             if !rule.connection_ids.is_empty()
                 && !rule.connection_ids.contains(&connection_id.to_string())
             {
                 continue;
             }
-            let _ = self
-                .open_tunnel(
-                    session_id,
-                    Arc::clone(&handle),
-                    rule.local_port,
-                    rule.remote_port,
-                    rule.remote_host.clone(),
-                    TunnelOrigin::Rule {
+            let origin = TunnelOrigin::Rule {
+                rule_id: rule.id.clone(),
+                rule_name: rule.name.clone(),
+            };
+            let result = match rule.tunnel_type {
+                CfgTunnelType::Local => {
+                    self.open_local_tunnel(
+                        session_id,
+                        Arc::clone(&handle),
+                        rule.local_port,
+                        rule.remote_port,
+                        rule.remote_host.clone(),
+                        origin,
+                    )
+                    .await
+                    .map(|_| ())
+                }
+                CfgTunnelType::Remote => {
+                    self.open_remote_tunnel(
+                        session_id,
+                        Arc::clone(&handle),
+                        Arc::clone(&routes),
+                        rule.bind_host.clone(),
+                        rule.remote_port,
+                        rule.target_host.clone(),
+                        rule.local_port,
+                        origin,
+                    )
+                    .await
+                    .map(|_| ())
+                }
+                CfgTunnelType::Dynamic => {
+                    self.open_dynamic_tunnel(
+                        session_id,
+                        Arc::clone(&handle),
+                        rule.local_port,
+                        origin,
+                    )
+                    .await
+                    .map(|_| ())
+                }
+            };
+            if let Err(e) = result {
+                // Record a visible error entry for saved-rule activation failures.
+                let err_tunnel = ActiveTunnel {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    tunnel_type: rule.tunnel_type,
+                    local_port: rule.local_port,
+                    remote_port: rule.remote_port,
+                    remote_host: rule.remote_host,
+                    bind_host: Some(rule.bind_host),
+                    target_host: Some(rule.target_host),
+                    origin: TunnelOrigin::Rule {
                         rule_id: rule.id,
                         rule_name: rule.name,
                     },
-                )
-                .await;
+                    state: TunnelState::Error(e.to_string()),
+                    bytes_transferred: 0,
+                };
+                let err_entry = TunnelEntry {
+                    tunnel: err_tunnel,
+                    _cancel: CancellationToken::new(),
+                    bytes: Arc::new(AtomicU64::new(0)),
+                    remote_cleanup: None,
+                };
+                let mut s = self.sessions.lock().await;
+                let state = s.entry(session_id.to_string()).or_insert_with(|| SessionPfState {
+                    tunnels: Vec::new(),
+                    auto_detect: false,
+                    poller_cancel: None,
+                    suppressed_ports: HashSet::new(),
+                });
+                state.tunnels.push(err_entry);
+                drop(s);
+                self.emit_state(session_id).await;
+            }
         }
     }
 
@@ -350,7 +587,6 @@ impl PortForwardManager {
     }
 }
 
-/// Read live bytes from the atomic counter into the tunnel snapshot.
 fn snapshot_tunnel(entry: &TunnelEntry) -> ActiveTunnel {
     let mut t = entry.tunnel.clone();
     t.bytes_transferred = entry.bytes.load(Ordering::Relaxed);

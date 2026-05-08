@@ -19,7 +19,7 @@ import { wrapSessionKeyForUser, unwrapSessionKey, getMyX25519Keypair } from "@/s
 import * as teamService from "@/services/teamService";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { getSecret, storeSecret, deleteSecret } from "@/services/vault";
-import type { Connection, Identity, SshKey, Folder, Snippet } from "@/types";
+import type { Connection, Identity, SshKey, Folder, Snippet, PortForwardingRule } from "@/types";
 import type { TeamMember } from "@/services/teamService";
 
 export type { TeamMember };
@@ -310,6 +310,7 @@ export async function fetchTeamData(teamId: string): Promise<void> {
   const { useFolderStore } = await import("@/stores/folderStore");
   const { useSnippetStore } = await import("@/stores/snippetStore");
   const { useSnippetFolderStore } = await import("@/stores/snippetFolderStore");
+  const { usePortForwardingStore } = await import("@/stores/portForwardingStore");
 
   useConnectionStore.getState().setTeamConnections(teamId, parse<Connection>(blobPayload.files["connections.json"]));
   useIdentityStore.getState().setTeamIdentities(teamId, parse<Identity>(blobPayload.files["identities.json"]));
@@ -317,6 +318,7 @@ export async function fetchTeamData(teamId: string): Promise<void> {
   useFolderStore.getState().setTeamFolders(teamId, parse<Folder>(blobPayload.files["folders.json"]));
   useSnippetStore.getState().setTeamSnippets(teamId, parse<Snippet>(blobPayload.files["snippets.json"]));
   useSnippetFolderStore.getState().setTeamSnippetFolders(teamId, parse<Folder>(blobPayload.files["snippet_folders.json"]));
+  usePortForwardingStore.getState().setTeamRules(teamId, parse<PortForwardingRule>(blobPayload.files["port_forwarding_rules.json"]));
 
   for (const [k, v] of Object.entries(blobPayload.secrets ?? {})) {
     await storeSecret(k, v).catch(() => {});
@@ -341,6 +343,7 @@ export async function saveTeamData(teamId: string): Promise<void> {
   const { useFolderStore } = await import("@/stores/folderStore");
   const { useSnippetStore } = await import("@/stores/snippetStore");
   const { useSnippetFolderStore } = await import("@/stores/snippetFolderStore");
+  const { usePortForwardingStore } = await import("@/stores/portForwardingStore");
 
   const teamConns = useConnectionStore.getState().teamConnections[teamId] ?? [];
   const teamKeys = useKeyStore.getState().teamKeys[teamId] ?? [];
@@ -353,6 +356,7 @@ export async function saveTeamData(teamId: string): Promise<void> {
     "folders.json": JSON.stringify(useFolderStore.getState().teamFolders[teamId] ?? []),
     "snippets.json": JSON.stringify(useSnippetStore.getState().teamSnippets[teamId] ?? []),
     "snippet_folders.json": JSON.stringify(useSnippetFolderStore.getState().teamSnippetFolders[teamId] ?? []),
+    "port_forwarding_rules.json": JSON.stringify(usePortForwardingStore.getState().teamRules[teamId] ?? []),
   };
 
   const secretEntries = await Promise.all([
@@ -394,6 +398,7 @@ async function _clearTeamStores(teamId: string): Promise<void> {
   const { useFolderStore } = await import("@/stores/folderStore");
   const { useSnippetStore } = await import("@/stores/snippetStore");
   const { useSnippetFolderStore } = await import("@/stores/snippetFolderStore");
+  const { usePortForwardingStore } = await import("@/stores/portForwardingStore");
 
   // Wipe secrets from disk before clearing in-memory state so we still have the IDs.
   const conns = useConnectionStore.getState().teamConnections[teamId] ?? [];
@@ -417,4 +422,5 @@ async function _clearTeamStores(teamId: string): Promise<void> {
   useFolderStore.getState().setTeamFolders(teamId, []);
   useSnippetStore.getState().setTeamSnippets(teamId, []);
   useSnippetFolderStore.getState().setTeamSnippetFolders(teamId, []);
+  usePortForwardingStore.getState().setTeamRules(teamId, []);
 }

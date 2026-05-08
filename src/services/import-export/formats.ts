@@ -73,8 +73,12 @@ export interface PortForwardingRuleExport {
   local_port: number;
   remote_port: number;
   remote_host: string;
+  tunnel_type?: string;
+  bind_host?: string;
+  target_host?: string;
   description?: string;
   _connection_eids: string[]; // → ConnectionExport._eid in the same bundle
+  _folder_eid?: string;
 }
 
 export interface ExportBundle {

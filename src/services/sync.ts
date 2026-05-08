@@ -12,6 +12,7 @@ import { useFolderStore } from "@/stores/folderStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
+import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { mergeEntities, mergeSecrets, type TimestampedEntity } from "@/services/crdt";
 import { getMyX25519Keypair } from "@/services/multiplayerService";
 import { initTeamVaultKey } from "@/services/teamVaultSync";
@@ -37,6 +38,7 @@ export const ENTITY_FILES = [
   "folders.json",
   "snippets.json",
   "snippet_folders.json",
+  "port_forwarding_rules.json",
 ] as const;
 
 export type SyncStatus = "idle" | "syncing" | "success" | "error" | "offline";
@@ -317,6 +319,7 @@ async function reloadAllStores(): Promise<void> {
     useTeamStore.getState().loadTeams(),
     useSnippetStore.getState().loadSnippets(),
     useSnippetFolderStore.getState().loadFolders(),
+    usePortForwardingStore.getState().loadRules(),
   ]);
 }
 
@@ -758,4 +761,3 @@ async function _sseConnect(signal: AbortSignal): Promise<void> {
     _listeners.forEach((fn) => fn());
   }
 }
-

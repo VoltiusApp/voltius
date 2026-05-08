@@ -1,5 +1,6 @@
 use crate::port_forward::{ActiveTunnel, PfSessionState, PortForwardManager, TunnelOrigin};
 use crate::ssh::session::SessionManager;
+use crate::storage::config::TunnelType;
 
 #[tauri::command]
 pub async fn pf_get_state(
@@ -23,13 +24,15 @@ pub async fn pf_tunnel_open(
     pf: tauri::State<'_, PortForwardManager>,
     session_id: String,
     local_port: u16,
-    remote_port: u16,
+    remote_port: Option<u16>,
     remote_host: Option<String>,
+    tunnel_type: Option<TunnelType>,
+    bind_host: Option<String>,
+    target_host: Option<String>,
     rule_id: Option<String>,
     rule_name: Option<String>,
 ) -> Result<ActiveTunnel, String> {
     let handle = state.get_handle(&session_id).await?;
-    let host = remote_host.unwrap_or_else(|| "127.0.0.1".to_string());
 
     let origin = match rule_id {
         Some(rid) => TunnelOrigin::Rule {
@@ -39,9 +42,32 @@ pub async fn pf_tunnel_open(
         None => TunnelOrigin::AdHoc,
     };
 
-    pf.open_tunnel(&session_id, handle, local_port, remote_port, host, origin)
-        .await
-        .map_err(|e| e.to_string())
+    match tunnel_type.unwrap_or(TunnelType::Local) {
+        TunnelType::Local => {
+            let host = remote_host.unwrap_or_else(|| "127.0.0.1".to_string());
+            let rport = remote_port.unwrap_or(local_port);
+            pf.open_local_tunnel(&session_id, handle, local_port, rport, host, origin)
+                .await
+                .map_err(|e| e.to_string())
+        }
+        TunnelType::Remote => {
+            let routes = state
+                .get_remote_routes(&session_id)
+                .await
+                .map_err(|e| e.to_string())?;
+            let bh = bind_host.unwrap_or_else(|| "127.0.0.1".to_string());
+            let th = target_host.unwrap_or_else(|| "127.0.0.1".to_string());
+            let rport = remote_port.unwrap_or(local_port);
+            pf.open_remote_tunnel(&session_id, handle, routes, bh, rport, th, local_port, origin)
+                .await
+                .map_err(|e| e.to_string())
+        }
+        TunnelType::Dynamic => {
+            pf.open_dynamic_tunnel(&session_id, handle, local_port, origin)
+                .await
+                .map_err(|e| e.to_string())
+        }
+    }
 }
 
 #[tauri::command]

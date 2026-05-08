@@ -127,12 +127,12 @@ export function HomeToolbar({
           <div className="w-px h-5 self-center bg-[var(--t-border)] mx-1" />
 
           <ToolbarDropdown
-            icon="lucide:arrow-right-left"
+            icon="lucide:arrow-up-down"
             label={compact ? undefined : "Import/Export"}
             onAction={() => onOpenImportExport("import")}
             items={[
-              { label: "Import…", icon: "lucide:upload", onClick: () => onOpenImportExport("import") },
-              { label: "Export…", icon: "lucide:download", onClick: () => onOpenImportExport("export") },
+              { label: "Import…", icon: "lucide:download", onClick: () => onOpenImportExport("import") },
+              { label: "Export…", icon: "lucide:upload", onClick: () => onOpenImportExport("export") },
             ]}
             align="right"
             menuWidth={160}

@@ -11,8 +11,8 @@ function QuickActions() {
   const openImportExport = useUIStore((s) => s.openImportExport);
 
   const actions = [
-    { icon: "lucide:download", label: "Export", onClick: () => openImportExport("export") },
-    { icon: "lucide:upload", label: "Import", onClick: () => openImportExport("import") },
+    { icon: "lucide:upload", label: "Export", onClick: () => openImportExport("export") },
+    { icon: "lucide:download", label: "Import", onClick: () => openImportExport("import") },
   ];
 
   return (

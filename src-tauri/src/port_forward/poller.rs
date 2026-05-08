@@ -2,6 +2,7 @@ use crate::port_forward::tunnel::create_tunnel;
 use crate::port_forward::{
     ActiveTunnel, PfStatePayload, SessionPfState, TunnelEntry, TunnelOrigin, TunnelState,
 };
+use crate::storage::config::TunnelType;
 use crate::ssh::client::SshClient;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -75,9 +76,12 @@ pub async fn start_poller(
                         Ok((local_port, bytes)) => {
                             let tunnel = ActiveTunnel {
                                 id: uuid::Uuid::new_v4().to_string(),
+                                tunnel_type: TunnelType::Local,
                                 local_port,
                                 remote_port: port,
                                 remote_host: "127.0.0.1".to_string(),
+                                bind_host: None,
+                                target_host: None,
                                 origin: TunnelOrigin::Auto,
                                 state: TunnelState::Active,
                                 bytes_transferred: 0,
@@ -86,6 +90,7 @@ pub async fn start_poller(
                                 tunnel: tunnel.clone(),
                                 _cancel: cancel_t,
                                 bytes,
+                                remote_cleanup: None,
                             };
                             let (all_tunnels, all_suppressed) = {
                                 let mut s = sessions.lock().await;

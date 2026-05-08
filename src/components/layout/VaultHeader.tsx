@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useConnectionStore } from "@/stores/connectionStore";
-import { useKeyStore } from "@/stores/keyStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
+import { useAllKeys } from "@/hooks/useAllKeys";
+import { useAllPortForwardingRules } from "@/hooks/useAllPortForwardingRules";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamMember, TeamRole } from "@/services/teamService";
 import { StatusDot } from "@/components/shared/StatusDot";
@@ -190,8 +191,9 @@ export default function VaultHeader() {
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
   const openMembersInvite = useUIStore((s) => s.openMembersInvite);
-  const connections = useConnectionStore((s) => s.connections);
-  const keys = useKeyStore((s) => s.keys);
+  const connections = useAllConnections();
+  const keys = useAllKeys();
+  const portRules = useAllPortForwardingRules();
   const { teams, membersByTeam, rolesByTeam, loadMembers } = useTeamStore();
 
   const [syncState, setSyncState] = useState(getSyncState);
@@ -226,8 +228,10 @@ export default function VaultHeader() {
   const displayName = vault ? vault.name : (standaloneTeam!.name);
   const initial = displayName.trim().charAt(0).toUpperCase();
   const isE2EE = accountMode === "local";
-  const hostCount = connections.length;
-  const keyCount = keys.length;
+  const contentVaultId = team?.id ?? activeVaultId ?? "personal";
+  const hostCount = connections.filter((c) => (c.vault_id ?? "personal") === contentVaultId).length;
+  const keyCount = keys.filter((k) => (k.vault_id ?? "personal") === contentVaultId).length;
+  const portRuleCount = portRules.filter((r) => (r.vault_id ?? "personal") === contentVaultId).length;
   const lastSync = relativeTime(syncState.lastSync);
   const showSync = syncState.cloudActive && lastSync;
 
@@ -275,6 +279,9 @@ export default function VaultHeader() {
           )}
           {keyCount > 0 && (
             <span>{keyCount} key{keyCount !== 1 ? "s" : ""}</span>
+          )}
+          {portRuleCount > 0 && (
+            <span>{portRuleCount} port rule{portRuleCount !== 1 ? "s" : ""}</span>
           )}
           {showSync && (
             <span>Last sync {lastSync}</span>

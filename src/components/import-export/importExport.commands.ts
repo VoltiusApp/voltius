@@ -8,7 +8,7 @@ export const commands: OmniCommand[] = [
   {
     id: "import-export:export-all",
     label: "Export vault data…",
-    icon: "lucide:download",
+    icon: "lucide:upload",
     keywords: ["export", "backup", "save", "json", "csv", "download", "vault"],
     section: "Import / Export",
     execute: () => open().openImportExport("export"),
@@ -57,7 +57,7 @@ export const commands: OmniCommand[] = [
   {
     id: "import-export:import",
     label: "Import into vault…",
-    icon: "lucide:upload",
+    icon: "lucide:download",
     keywords: ["import", "upload", "json", "csv", "restore", "hosts", "connections"],
     section: "Import / Export",
     execute: () => open().openImportExport("import"),

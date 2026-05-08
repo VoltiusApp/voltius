@@ -287,7 +287,7 @@ export default function KeychainPage() {
     if (selectedKeyIds.length > 0) {
       items.push({
         label: `Export ${selectedKeyIds.length} public key${selectedKeyIds.length === 1 ? "" : "s"}`,
-        icon: "lucide:download",
+        icon: "lucide:upload",
         onClick: () => useUIStore.getState().openImportExport("export", { keyIds: selectedKeyIds, identityIds: selectedIdentityIds }),
       });
     }

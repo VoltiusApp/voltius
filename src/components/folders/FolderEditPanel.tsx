@@ -71,7 +71,7 @@ export function FolderEditPanel({
   };
 
   const panelActions = [
-    ...(onExport ? [{ label: "Export folder", icon: "lucide:download", onClick: onExport }] : []),
+    ...(onExport ? [{ label: "Export folder", icon: "lucide:upload", onClick: onExport }] : []),
     ...vaultMenuItems(vaults, canEdit, onMoveToVault, onCopyToVault),
     {
       label: isSynced ? "Disable cloud sync" : "Enable cloud sync",

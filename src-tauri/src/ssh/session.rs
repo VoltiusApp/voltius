@@ -157,6 +157,17 @@ impl SessionManager {
             .ok_or_else(|| "Session not found".into())
     }
 
+    pub async fn get_remote_routes(
+        &self,
+        id: &str,
+    ) -> Result<crate::port_forward::RemoteRouteMap, String> {
+        let sessions = self.sessions.lock().await;
+        sessions
+            .get(id)
+            .map(|s| std::sync::Arc::clone(&s.remote_routes))
+            .ok_or_else(|| "Session not found".into())
+    }
+
     pub async fn disconnect(&self, id: &str, post_command: Option<String>) -> Result<(), String> {
         let mut sessions = self.sessions.lock().await;
         if let Some(session) = sessions.remove(id) {

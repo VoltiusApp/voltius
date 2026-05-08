@@ -413,7 +413,7 @@ export default function HostsPage() {
       },
       {
         label: `Export ${ids.length} hosts`,
-        icon: "lucide:download",
+        icon: "lucide:upload",
         onClick: () => useUIStore.getState().openImportExport("export", { connectionIds: ids }),
       },
       {

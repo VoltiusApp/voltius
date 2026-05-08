@@ -4,6 +4,7 @@ import { open as openUrl } from "@tauri-apps/plugin-shell";
 import { Icon } from "@iconify/react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
+import { useAllPortForwardingRules } from "@/hooks/useAllPortForwardingRules";
 import {
   getPfState,
   openPfTunnel,
@@ -11,16 +12,8 @@ import {
   resumeAutoPort,
 } from "@/services/portForwardingTunnels";
 import { deletePfRule } from "@/services/portForwardingRules";
+import { formatActiveTunnelLabel, formatRuleLabel, getLocalTunnelHttpUrl } from "@/utils/tunnelFormat";
 import type { ActiveTunnel, PortForwardingRule } from "@/types";
-
-const HTTP_PORTS = new Set([80, 3000, 3001, 4000, 4200, 5000, 5173, 5174, 8000, 8008, 8080, 8888]);
-const HTTPS_PORTS = new Set([443, 8443]);
-
-function getHttpUrl(remotePort: number, localPort: number): string | null {
-  if (HTTP_PORTS.has(remotePort)) return `http://localhost:${localPort}`;
-  if (HTTPS_PORTS.has(remotePort)) return `https://localhost:${localPort}`;
-  return null;
-}
 
 function formatBytes(b: number): string {
   if (b === 0) return "";
@@ -37,7 +30,8 @@ interface PfStatePayload {
 
 export function PortsPanel() {
   const { sessions, activeSessionId } = useSessionStore();
-  const { rules, loadRules } = usePortForwardingStore();
+  const loadRules = usePortForwardingStore((s) => s.loadRules);
+  const rules = useAllPortForwardingRules();
   const [tunnels, setTunnels] = useState<ActiveTunnel[]>([]);
   const [suppressedPorts, setSuppressedPorts] = useState<number[]>([]);
   // Ports the user deleted from this panel — hidden even when suppressed
@@ -87,6 +81,9 @@ export function PortsPanel() {
         localPort: rule.local_port,
         remotePort: rule.remote_port,
         remoteHost: rule.remote_host,
+        tunnelType: rule.tunnel_type,
+        bindHost: rule.bind_host,
+        targetHost: rule.target_host,
         ruleId: rule.id,
         ruleName: rule.name,
       });
@@ -182,17 +179,21 @@ export function PortsPanel() {
       {rules.map((rule) => {
         const tunnel = ruleToTunnel.get(rule.id);
         const isActive = !!tunnel;
+        const isError = tunnel && typeof tunnel.state === "object" && "error" in tunnel.state;
         return (
           <PortRow
             key={rule.id}
             label={rule.name}
-            portInfo={`${rule.local_port} → ${rule.remote_host}:${rule.remote_port}`}
-            isActive={isActive}
+            portInfo={formatRuleLabel(rule)}
+            isActive={isActive && !isError}
+            isError={!!isError}
             isBusy={busy.has(rule.id)}
             isDeleting={busy.has(`del-${rule.id}`)}
             badge={null}
             bytesTransferred={tunnel?.bytes_transferred}
-            httpUrl={isActive && tunnel ? getHttpUrl(rule.remote_port, tunnel.local_port) : null}
+            httpUrl={isActive && !isError && tunnel
+              ? getLocalTunnelHttpUrl(rule.tunnel_type ?? "local", rule.remote_port, tunnel.local_port)
+              : null}
             onToggle={() => isActive ? handleRuleDisable(tunnel!.id, rule.id) : handleRuleEnable(rule)}
             onDelete={() => handleRuleDelete(rule, tunnel)}
           />
@@ -207,17 +208,22 @@ export function PortsPanel() {
           {visibleUnclaimed.map((tunnel) => {
             const isAuto = tunnel.origin.type === "auto";
             const key = `unclaimed-${tunnel.id}`;
+            const isError = typeof tunnel.state === "object" && "error" in tunnel.state;
+            const label = tunnel.tunnel_type === "dynamic"
+              ? `SOCKS5 :${tunnel.local_port}`
+              : `Port ${tunnel.remote_port}`;
             return (
               <PortRow
                 key={tunnel.id}
-                label={`Port ${tunnel.remote_port}`}
-                portInfo={`${tunnel.local_port} → ${tunnel.remote_host}:${tunnel.remote_port}`}
-                isActive={true}
+                label={label}
+                portInfo={formatActiveTunnelLabel(tunnel)}
+                isActive={!isError}
+                isError={isError}
                 isBusy={busy.has(key)}
                 isDeleting={busy.has(`del-${key}`)}
                 badge={isAuto ? "auto" : "adhoc"}
                 bytesTransferred={tunnel.bytes_transferred}
-                httpUrl={getHttpUrl(tunnel.remote_port, tunnel.local_port)}
+                httpUrl={getLocalTunnelHttpUrl(tunnel.tunnel_type ?? "local", tunnel.remote_port, tunnel.local_port)}
                 onToggle={() => handleTunnelStop(tunnel.id, key)}
                 onDelete={() => handleTunnelDelete(tunnel.id, tunnel.remote_port, key)}
               />
@@ -252,6 +258,7 @@ function PortRow({
   label,
   portInfo,
   isActive,
+  isError,
   isBusy,
   isDeleting,
   badge,
@@ -263,6 +270,7 @@ function PortRow({
   label: string;
   portInfo: string;
   isActive: boolean;
+  isError?: boolean;
   isBusy: boolean;
   isDeleting: boolean;
   badge: BadgeType;
@@ -276,7 +284,7 @@ function PortRow({
     <div className="flex items-center gap-1.5 px-2 py-1.5 group hover:bg-[var(--t-bg-elevated)]">
       {/* Status dot */}
       <div className={`w-2 h-2 rounded-full shrink-0 transition-colors ${
-        isActive ? "bg-green-500" : "bg-[var(--t-text-dim)] opacity-40"
+        isError ? "bg-red-500" : isActive ? "bg-green-500" : "bg-[var(--t-text-dim)] opacity-40"
       }`} />
 
       {/* Label + port info */}

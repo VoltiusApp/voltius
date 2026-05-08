@@ -202,7 +202,7 @@ export function KeyFileDropZone({
             ? "lucide:x-circle"
             : dragging
             ? "lucide:file-down"
-            : "lucide:upload"
+            : "lucide:import"
         }
         width={22}
         style={{ color: iconColor, transition: "color 0.15s" }}

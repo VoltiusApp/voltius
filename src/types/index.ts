@@ -216,12 +216,17 @@ export interface SnippetFormData {
   vault_id?: string;
 }
 
+export type TunnelType = "local" | "remote" | "dynamic";
+
 export interface PortForwardingRule {
   id: string;
   name: string;
   local_port: number;
   remote_port: number;
   remote_host: string;
+  tunnel_type: TunnelType;
+  bind_host: string;
+  target_host: string;
   description?: string;
   connection_ids: string[];
   folder_id?: string;
@@ -237,6 +242,9 @@ export interface PortForwardingRuleFormData {
   local_port: number;
   remote_port: number;
   remote_host: string;
+  tunnel_type: TunnelType;
+  bind_host: string;
+  target_host: string;
   description?: string;
   connection_ids: string[];
   folder_id?: string;
@@ -252,9 +260,12 @@ export type TunnelState = "active" | { error: string };
 
 export interface ActiveTunnel {
   id: string;
+  tunnel_type: TunnelType;
   local_port: number;
   remote_port: number;
   remote_host: string;
+  bind_host?: string;
+  target_host?: string;
   origin: TunnelOrigin;
   state: TunnelState;
   bytes_transferred: number;

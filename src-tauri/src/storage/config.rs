@@ -451,6 +451,15 @@ fn default_localhost() -> String {
     "127.0.0.1".to_string()
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum TunnelType {
+    #[default]
+    Local,
+    Remote,
+    Dynamic,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PortForwardingRule {
     pub id: String,
@@ -459,6 +468,14 @@ pub struct PortForwardingRule {
     pub remote_port: u16,
     #[serde(default = "default_localhost")]
     pub remote_host: String,
+    #[serde(default)]
+    pub tunnel_type: TunnelType,
+    /// Remote tunnels: server-side bind address (default 127.0.0.1)
+    #[serde(default = "default_localhost")]
+    pub bind_host: String,
+    /// Remote tunnels: local target host reached from this machine (default 127.0.0.1)
+    #[serde(default = "default_localhost")]
+    pub target_host: String,
     #[serde(default)]
     pub description: Option<String>,
     /// Which SSH connections this rule applies to (empty = all)
@@ -481,6 +498,12 @@ pub struct PortForwardingRuleFormData {
     pub remote_port: u16,
     #[serde(default = "default_localhost")]
     pub remote_host: String,
+    #[serde(default)]
+    pub tunnel_type: TunnelType,
+    #[serde(default = "default_localhost")]
+    pub bind_host: String,
+    #[serde(default = "default_localhost")]
+    pub target_host: String,
     #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]

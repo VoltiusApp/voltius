@@ -39,6 +39,9 @@ pub fn pf_rule_create(data: PortForwardingRuleFormData) -> Result<PortForwarding
     clocks.insert("local_port".to_string(), now.clone());
     clocks.insert("remote_port".to_string(), now.clone());
     clocks.insert("remote_host".to_string(), now.clone());
+    clocks.insert("tunnel_type".to_string(), now.clone());
+    clocks.insert("bind_host".to_string(), now.clone());
+    clocks.insert("target_host".to_string(), now.clone());
     clocks.insert("description".to_string(), now.clone());
     clocks.insert("connection_ids".to_string(), now.clone());
     clocks.insert("folder_id".to_string(), now.clone());
@@ -51,6 +54,9 @@ pub fn pf_rule_create(data: PortForwardingRuleFormData) -> Result<PortForwarding
         local_port: data.local_port,
         remote_port: data.remote_port,
         remote_host: data.remote_host,
+        tunnel_type: data.tunnel_type,
+        bind_host: data.bind_host,
+        target_host: data.target_host,
         description: data.description,
         connection_ids: data.connection_ids,
         folder_id: data.folder_id,
@@ -89,6 +95,15 @@ pub fn pf_rule_update(
     if rule.remote_host != data.remote_host {
         rule.clocks.insert("remote_host".to_string(), now.clone());
     }
+    if rule.tunnel_type != data.tunnel_type {
+        rule.clocks.insert("tunnel_type".to_string(), now.clone());
+    }
+    if rule.bind_host != data.bind_host {
+        rule.clocks.insert("bind_host".to_string(), now.clone());
+    }
+    if rule.target_host != data.target_host {
+        rule.clocks.insert("target_host".to_string(), now.clone());
+    }
     if rule.description != data.description {
         rule.clocks.insert("description".to_string(), now.clone());
     }
@@ -116,6 +131,9 @@ pub fn pf_rule_update(
     rule.local_port = data.local_port;
     rule.remote_port = data.remote_port;
     rule.remote_host = data.remote_host;
+    rule.tunnel_type = data.tunnel_type;
+    rule.bind_host = data.bind_host;
+    rule.target_host = data.target_host;
     rule.description = data.description;
     rule.connection_ids = data.connection_ids;
     rule.folder_id = data.folder_id;
@@ -158,6 +176,9 @@ pub fn pf_rule_duplicate(id: String) -> Result<PortForwardingRule, String> {
         local_port: source.local_port,
         remote_port: source.remote_port,
         remote_host: source.remote_host.clone(),
+        tunnel_type: source.tunnel_type,
+        bind_host: source.bind_host.clone(),
+        target_host: source.target_host.clone(),
         description: source.description.clone(),
         connection_ids: source.connection_ids.clone(),
         folder_id: source.folder_id.clone(),

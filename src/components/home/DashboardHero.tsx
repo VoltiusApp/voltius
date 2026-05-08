@@ -91,7 +91,7 @@ export function DashboardHero() {
         <StatChip icon="lucide:vault" label="vaults" value={vaultCount} />
         <StatChip icon="lucide:server" label="hosts" value={hostCount} />
         <StatChip icon="lucide:terminal" label="active sessions" value={activeSessionCount} />
-        <StatChip icon="lucide:arrow-right-left" label="port forwards" value={portForwardCount} />
+        <StatChip icon="lucide:network" label="port forwards" value={portForwardCount} />
       </div>
     </div>
   );

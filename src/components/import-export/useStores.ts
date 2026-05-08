@@ -9,16 +9,22 @@ import { useFolderStore } from "@/stores/folderStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
+import { useAllIdentities } from "@/hooks/useAllIdentities";
+import { useAllKeys } from "@/hooks/useAllKeys";
+import { useAllFolders } from "@/hooks/useAllFolders";
+import { useAllSnippets } from "@/hooks/useAllSnippets";
+import { useAllPortForwardingRules } from "@/hooks/useAllPortForwardingRules";
 import type { ImportStores, ReloadFns, StoreSlices } from "@/services/import-export/context";
 
 export function useStoreSlices(): StoreSlices {
-  const connections = useConnectionStore(s => s.connections);
-  const identities = useIdentityStore(s => s.identities);
-  const keys = useKeyStore(s => s.keys);
-  const folders = useFolderStore(s => s.folders);
-  const snippets = useSnippetStore(s => s.snippets);
+  const connections = useAllConnections();
+  const identities = useAllIdentities();
+  const keys = useAllKeys();
+  const folders = useAllFolders();
+  const snippets = useAllSnippets();
   const snippetFolders = useSnippetFolderStore(s => s.folders);
-  const pfRules = usePortForwardingStore(s => s.rules);
+  const pfRules = useAllPortForwardingRules();
   return { connections, identities, keys, folders, snippets, snippetFolders, pfRules };
 }
 

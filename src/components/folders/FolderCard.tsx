@@ -191,7 +191,7 @@ export function FolderCard({
               { label: "Rename", icon: "lucide:pencil", onClick: () => { setRenameValue(folder.name); setRenaming(true); } },
               { label: "Edit", icon: "lucide:settings-2", onClick: () => onEdit?.() },
             ] : []),
-            { label: "Export folder", icon: "lucide:download", onClick: () => onExport?.() },
+            { label: "Export folder", icon: "lucide:upload", onClick: () => onExport?.() },
             ...vaultMenuItems(vaults, canEdit, onMoveToVault, onCopyToVault),
             ...(canEdit ? [
               { label: isSynced ? "Disable cloud sync" : "Enable cloud sync", icon: isSynced ? "lucide:cloud-off" : "lucide:cloud", onClick: () => toggleSync(folder.id) },

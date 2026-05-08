@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
+import { open as openUrl } from "@tauri-apps/plugin-shell";
 import { Icon } from "@iconify/react";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
+import { useAllPortForwardingRules } from "@/hooks/useAllPortForwardingRules";
 import { useUIStore } from "@/stores/uiStore";
+import { useSessionStore } from "@/stores/sessionStore";
+import { useConnectionStore } from "@/stores/connectionStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { usePermissions } from "@/hooks/usePermission";
 import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
@@ -11,20 +16,35 @@ import { useListKeyNav } from "@/hooks/useListKeyNav";
 import { useDragToFolder } from "@/hooks/useDragToFolder";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
 import { useFolderStore } from "@/stores/folderStore";
+import { useAllFolders } from "@/hooks/useAllFolders";
 import { useVaultCascade } from "@/hooks/useVaultCascade";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { VaultCascadeModal } from "@/components/shared/VaultCascadeModal";
 import { ContextMenu, useContextMenu } from "@/components/shared/ContextMenu";
+import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { FolderCard } from "@/components/folders/FolderCard";
 import { FolderEditPanel } from "@/components/folders/FolderEditPanel";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
+import { getPfState, openPfTunnel, closePfTunnel } from "@/services/portForwardingTunnels";
+import { getLocalTunnelHttpUrl } from "@/utils/tunnelFormat";
 import { PortForwardingToolbar } from "./PortForwardingToolbar";
 import { ActiveTunnelsSection } from "./ActiveTunnelsSection";
 import { RuleCard } from "./RuleCard";
 import { RuleForm } from "./RuleForm";
-import type { Folder, PortForwardingRule, PortForwardingRuleFormData, VaultOption } from "@/types";
+import type { ActiveTunnel, Folder, PortForwardingRule, PortForwardingRuleFormData, VaultOption } from "@/types";
 import type { LayoutMode, SortMode } from "@/components/shared/ToolbarViewControls";
+
+interface PfStatePayload {
+  session_id: string;
+  tunnels: ActiveTunnel[];
+  suppressed_ports: number[];
+}
+
+interface RuleTunnelState {
+  sessionId: string;
+  tunnel: ActiveTunnel;
+}
 
 function sortRules(rules: PortForwardingRule[], mode: SortMode): PortForwardingRule[] {
   return [...rules].sort((a, b) => {
@@ -39,9 +59,13 @@ function sortRules(rules: PortForwardingRule[], mode: SortMode): PortForwardingR
 }
 
 export function PortForwardingPage() {
-  const { rules, loadRules, createRule, updateRule, deleteRule, duplicateRule, moveRuleFolder } =
+  const { loadRules, createRule, updateRule, deleteRule, duplicateRule, moveRuleFolder } =
     usePortForwardingStore();
-  const { folders, loadFolders, saveFolder, updateFolder, deleteFolder, moveFolder } = useFolderStore();
+  const rules = useAllPortForwardingRules();
+  const { sessions, activeSessionId } = useSessionStore();
+  const connections = useConnectionStore((s) => s.connections);
+  const { loadFolders, saveFolder, updateFolder, deleteFolder, moveFolder } = useFolderStore();
+  const folders = useAllFolders();
   const { pending: cascadePending, request: requestCascade, confirm: confirmCascade, cancel: cancelCascade } = useVaultCascade();
 
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
@@ -64,6 +88,8 @@ export function PortForwardingPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [confirmDeleteFolderId, setConfirmDeleteFolderId] = useState<string | null>(null);
+  const [tunnelMap, setTunnelMap] = useState<Map<string, ActiveTunnel[]>>(new Map());
+  const [busyRuleIds, setBusyRuleIds] = useState<Set<string>>(new Set());
   const ruleDirtyRef = useRef(false);
   const ruleFormVersion = useSyncedFormKey(editingRule?.updated_at, showForm, () => ruleDirtyRef.current);
 
@@ -73,6 +99,46 @@ export function PortForwardingPage() {
     void loadRules();
     void loadFolders();
   }, []);
+
+  const relevantSessions = useMemo(() => {
+    return sessions.filter((s) => {
+      if (s.type !== "ssh" || s.status !== "connected") return false;
+      const conn = connections.find((c) => c.id === s.connectionId);
+      if (!conn) return false;
+      return accessibleVaultIds.includes(conn.vault_id ?? "personal");
+    });
+  }, [sessions, connections, accessibleVaultIds]);
+
+  const sessionIdKey = relevantSessions.map((s) => s.id).join(",");
+
+  useEffect(() => {
+    const ids = relevantSessions.map((s) => s.id);
+    for (const sessionId of ids) {
+      getPfState(sessionId)
+        .then((state) => setTunnelMap((prev) => new Map(prev).set(sessionId, state.tunnels)))
+        .catch(() => {});
+    }
+
+    setTunnelMap((prev) => {
+      const next = new Map(prev);
+      for (const key of next.keys()) {
+        if (!ids.includes(key)) next.delete(key);
+      }
+      return next;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionIdKey]);
+
+  useEffect(() => {
+    const ids = relevantSessions.map((s) => s.id);
+    let cleanup: (() => void) | undefined;
+    listen<PfStatePayload>("pf-state-changed", ({ payload }) => {
+      if (!ids.includes(payload.session_id)) return;
+      setTunnelMap((prev) => new Map(prev).set(payload.session_id, payload.tunnels));
+    }).then((u) => { cleanup = u; });
+    return () => { cleanup?.(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionIdKey]);
 
   useEffect(() => {
     if (pendingAction?.action === "create") {
@@ -159,9 +225,9 @@ export function PortForwardingPage() {
     if (editingRule) {
       await updateRule(editingRule.id, data);
     } else {
-      await createRule(data);
+      const rule = await createRule(data);
+      setEditingRuleId(rule.id);
     }
-    closeForm();
   }
 
   async function confirmDelete() {
@@ -171,12 +237,78 @@ export function PortForwardingPage() {
     }
   }
 
+  function setRuleBusy(id: string, on: boolean) {
+    setBusyRuleIds((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  const ruleTunnelState = useMemo(() => {
+    const result = new Map<string, RuleTunnelState>();
+    for (const [sessionId, tunnels] of tunnelMap) {
+      for (const tunnel of tunnels) {
+        if (tunnel.origin.type === "rule") result.set(tunnel.origin.rule_id, { sessionId, tunnel });
+      }
+    }
+    return result;
+  }, [tunnelMap]);
+
+  const runningRuleCount = useMemo(() => {
+    let active = 0;
+    let error = 0;
+    for (const { tunnel } of ruleTunnelState.values()) {
+      if (typeof tunnel.state === "object" && "error" in tunnel.state) error += 1;
+      else active += 1;
+    }
+    return { active, error };
+  }, [ruleTunnelState]);
+
+  function pickSessionForRule(rule: PortForwardingRule) {
+    const active = relevantSessions.find((s) => s.id === activeSessionId);
+    if (active && (rule.connection_ids.length === 0 || rule.connection_ids.includes(active.connectionId))) return active;
+    return relevantSessions.find((s) => rule.connection_ids.length === 0 || rule.connection_ids.includes(s.connectionId)) ?? null;
+  }
+
+  async function handleStartRule(rule: PortForwardingRule) {
+    const session = pickSessionForRule(rule);
+    if (!session) return;
+    setRuleBusy(rule.id, true);
+    try {
+      await openPfTunnel({
+        sessionId: session.id,
+        localPort: rule.local_port,
+        remotePort: rule.remote_port,
+        remoteHost: rule.remote_host,
+        tunnelType: rule.tunnel_type ?? "local",
+        bindHost: rule.bind_host ?? "127.0.0.1",
+        targetHost: rule.target_host ?? "127.0.0.1",
+        ruleId: rule.id,
+        ruleName: rule.name,
+      });
+    } catch (e) { console.error("pf_tunnel_open failed:", e); }
+    finally { setRuleBusy(rule.id, false); }
+  }
+
+  async function handleStopRule(rule: PortForwardingRule) {
+    const state = ruleTunnelState.get(rule.id);
+    if (!state) return;
+    setRuleBusy(rule.id, true);
+    try { await closePfTunnel(state.sessionId, state.tunnel.id); }
+    catch (e) { console.error("pf_tunnel_close failed:", e); }
+    finally { setRuleBusy(rule.id, false); }
+  }
+
   // ── Vault move / copy for rules ───────────────────────────────────────────
 
   const handleMoveRuleToVault = (rule: PortForwardingRule, vaultId: string) => {
     void updateRule(rule.id, {
       name: rule.name, local_port: rule.local_port, remote_port: rule.remote_port,
-      remote_host: rule.remote_host, description: rule.description,
+      remote_host: rule.remote_host, tunnel_type: rule.tunnel_type ?? "local",
+      bind_host: rule.bind_host ?? "127.0.0.1", target_host: rule.target_host ?? "127.0.0.1",
+      description: rule.description,
       connection_ids: rule.connection_ids, folder_id: rule.folder_id, vault_id: vaultId,
     });
   };
@@ -186,7 +318,9 @@ export function PortForwardingPage() {
     void createRule({
       name: destHasName ? `${rule.name} (copy)` : rule.name,
       local_port: rule.local_port, remote_port: rule.remote_port,
-      remote_host: rule.remote_host, description: rule.description,
+      remote_host: rule.remote_host, tunnel_type: rule.tunnel_type ?? "local",
+      bind_host: rule.bind_host ?? "127.0.0.1", target_host: rule.target_host ?? "127.0.0.1",
+      description: rule.description,
       connection_ids: rule.connection_ids, folder_id: rule.folder_id, vault_id: vaultId,
     });
   };
@@ -226,7 +360,7 @@ export function PortForwardingPage() {
           await updateFolder(sf.id, { name: sf.name, object_type: sf.object_type, parent_folder_id: sf.parent_folder_id, vault_id: vaultId });
         }
         for (const r of treeRules) {
-          await updateRule(r.id, { name: r.name, local_port: r.local_port, remote_port: r.remote_port, remote_host: r.remote_host, description: r.description, connection_ids: r.connection_ids, folder_id: r.folder_id, vault_id: vaultId });
+          await updateRule(r.id, { name: r.name, local_port: r.local_port, remote_port: r.remote_port, remote_host: r.remote_host, tunnel_type: r.tunnel_type ?? "local", bind_host: r.bind_host ?? "127.0.0.1", target_host: r.target_host ?? "127.0.0.1", description: r.description, connection_ids: r.connection_ids, folder_id: r.folder_id, vault_id: vaultId });
         }
       },
     });
@@ -255,7 +389,7 @@ export function PortForwardingPage() {
         for (const r of treeRules) {
           const newFolderId = r.folder_id ? (folderIdMap.get(r.folder_id) ?? newRoot.id) : newRoot.id;
           const destHasRule = rules.some((x) => (x.vault_id ?? "personal") === vaultId && x.name === r.name);
-          await createRule({ name: destHasRule ? `${r.name} (copy)` : r.name, local_port: r.local_port, remote_port: r.remote_port, remote_host: r.remote_host, description: r.description, connection_ids: r.connection_ids, folder_id: newFolderId, vault_id: vaultId });
+          await createRule({ name: destHasRule ? `${r.name} (copy)` : r.name, local_port: r.local_port, remote_port: r.remote_port, remote_host: r.remote_host, tunnel_type: r.tunnel_type ?? "local", bind_host: r.bind_host ?? "127.0.0.1", target_host: r.target_host ?? "127.0.0.1", description: r.description, connection_ids: r.connection_ids, folder_id: newFolderId, vault_id: vaultId });
         }
       },
     });
@@ -263,7 +397,16 @@ export function PortForwardingPage() {
 
   // ── Drag selection & keyboard nav ─────────────────────────────────────────
 
-  const { selectedIdSet, itemAreaRef, handleItemSelect, selectSingle, setSelection } = useDragSelection(filteredIds);
+  const {
+    selectedIdSet,
+    selectionAreaRef,
+    itemAreaRef,
+    dragBox,
+    handleItemSelect,
+    handleSelectionAreaMouseDown,
+    selectSingle,
+    setSelection,
+  } = useDragSelection(filteredIds);
 
   const { focusedId, setFocusedId } = useListKeyNav({
     orderedIds: filteredIds,
@@ -372,7 +515,10 @@ export function PortForwardingPage() {
           onNewFolder={() => void saveFolder({ name: "New Folder", object_type: "port_forwarding", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { closeForm(); setEditingFolderId(f.id); })}
         />
 
-        <div
+        <DragSelectSurface
+          selectionAreaRef={selectionAreaRef}
+          onMouseDown={handleSelectionAreaMouseDown}
+          dragBox={dragBox}
           className="flex-1 overflow-y-auto px-9 pt-5 pb-9"
           onClick={() => {
             if (!showForm && !editingFolder) return;
@@ -387,7 +533,7 @@ export function PortForwardingPage() {
         >
           <ActiveTunnelsSection />
 
-          <div ref={itemAreaRef} className="space-y-6 mt-4">
+          <div ref={itemAreaRef} data-drag-surface="true" className="space-y-6 mt-4">
 
             {/* ── Folder breadcrumb ── */}
             {folderPath.length > 0 && (
@@ -508,8 +654,15 @@ export function PortForwardingPage() {
               </div>
             ) : filtered.length > 0 && (
               <div>
-                {(visibleFolders.length > 0 || activeFolderId) && (
-                  <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)] mb-3">Rules</p>
+                {(visibleFolders.length > 0 || activeFolderId || filtered.length > 0) && (
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">Rules</p>
+                    <div className="flex items-center gap-2 text-[10px] text-[var(--t-text-muted)]">
+                      <span className="px-1.5 py-0.5 rounded-full bg-[var(--t-bg-elevated)]">{filtered.length} total</span>
+                      <span className="px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-400">{runningRuleCount.active} active</span>
+                      {runningRuleCount.error > 0 && <span className="px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400">{runningRuleCount.error} error</span>}
+                    </div>
+                  </div>
                 )}
                 <div
                   className={layoutMode === "grid"
@@ -517,30 +670,48 @@ export function PortForwardingPage() {
                     : "flex flex-col gap-1.5"
                   }
                 >
-                  {filtered.map((rule) => (
-                    <RuleCard
-                      key={rule.id}
-                      rule={rule}
-                      layout={layoutMode as LayoutMode}
-                      isSelected={selectedIdSet.has(rule.id)}
-                      isFocused={focusedId === rule.id}
-                      canEdit={canEdit(rule.vault_id)}
-                      vaults={vaultOptions.filter((v) => v.id !== (rule.vault_id ?? "personal"))}
-                      onSelect={(id, e) => handleItemSelect(id, e)}
-                      onEdit={openEdit}
-                      onDuplicate={(id) => void duplicateRule(id)}
-                      onDelete={(id) => setConfirmDeleteId(id)}
-                      onMoveToVault={(r, vaultId) => handleMoveRuleToVault(r, vaultId)}
-                      onCopyToVault={(r, vaultId) => handleCopyRuleToVault(r, vaultId)}
-                      onDragStart={(e) => handleDragStart(e, rule.id)}
-                      onDragEnd={handleDragEnd}
-                    />
-                  ))}
+                  {filtered.map((rule) => {
+                    const activeState = ruleTunnelState.get(rule.id);
+                    const tunnel = activeState?.tunnel;
+                    const isError = tunnel ? typeof tunnel.state === "object" && "error" in tunnel.state : false;
+                    const status = tunnel ? (isError ? "error" : "active") : "inactive";
+                    const errorLabel = tunnel && isError ? (tunnel.state as { error: string }).error : undefined;
+                    const webUrl = tunnel && !isError
+                      ? getLocalTunnelHttpUrl(rule.tunnel_type ?? "local", rule.remote_port, tunnel.local_port)
+                      : null;
+                    return (
+                      <RuleCard
+                        key={rule.id}
+                        rule={rule}
+                        layout={layoutMode as LayoutMode}
+                        isSelected={selectedIdSet.has(rule.id)}
+                        isFocused={focusedId === rule.id}
+                        isActive={status === "active"}
+                        status={status}
+                        statusLabel={errorLabel ?? (status === "active" ? "Active" : pickSessionForRule(rule) ? "Stopped" : "No SSH session")}
+                        isBusy={busyRuleIds.has(rule.id)}
+                        webUrl={webUrl}
+                        canEdit={canEdit(rule.vault_id)}
+                        vaults={vaultOptions.filter((v) => v.id !== (rule.vault_id ?? "personal"))}
+                        onSelect={(id, e) => handleItemSelect(id, e)}
+                        onEdit={openEdit}
+                        onDuplicate={(id) => void duplicateRule(id)}
+                        onDelete={(id) => setConfirmDeleteId(id)}
+                        onStart={(r) => void handleStartRule(r)}
+                        onStop={(r) => void handleStopRule(r)}
+                        onOpenWeb={(url) => void openUrl(url)}
+                        onMoveToVault={(r, vaultId) => handleMoveRuleToVault(r, vaultId)}
+                        onCopyToVault={(r, vaultId) => handleCopyRuleToVault(r, vaultId)}
+                        onDragStart={(e) => handleDragStart(e, rule.id)}
+                        onDragEnd={handleDragEnd}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             )}
           </div>
-        </div>
+        </DragSelectSurface>
       </div>
 
       {bgMenuPos && (

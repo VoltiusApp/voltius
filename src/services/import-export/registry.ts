@@ -1,4 +1,4 @@
-import type { Connection, Folder } from "@/types";
+import type { Connection, Folder, PortForwardingRule } from "@/types";
 import type { ExportBundle, FolderExport } from "./formats";
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "./context";
 import type { DataTypeHandler } from "./handler";
@@ -73,8 +73,18 @@ export async function buildBundle(
     selectedByKey[h.key] = h.selectItems(stores, vaultIds, selection);
   }
 
-  // Cascade: connections → jump host connections (recursive)
+  // Cascade: port forwarding rules → referenced connections.
   const allLiveConnections = stores.connections.filter(c => !c.deleted_at);
+  const pfConnectionIds = new Set(
+    (selectedByKey["portForwardingRules"] as PortForwardingRule[]).flatMap((r) => r.connection_ids),
+  );
+  if (pfConnectionIds.size > 0) {
+    const existingConnIds = new Set((selectedByKey["connections"] as Connection[]).map(c => c.id));
+    const toAdd = allLiveConnections.filter(c => pfConnectionIds.has(c.id) && !existingConnIds.has(c.id));
+    if (toAdd.length > 0) selectedByKey["connections"] = [...(selectedByKey["connections"] as Connection[]), ...toAdd];
+  }
+
+  // Cascade: connections → jump host connections (recursive)
   const jumpHostConnIds = new Set<string>();
   collectJumpHostConnectionIds(selectedByKey["connections"] as Connection[], allLiveConnections, jumpHostConnIds);
   if (jumpHostConnIds.size > 0) {

@@ -25,8 +25,9 @@ export const portForwardingHandler: DataTypeHandler = {
     return stores.pfRules.filter(r => !r.deleted_at && vaultIds.includes(r.vault_id ?? "personal"));
   },
 
-  // Port forwarding rules don't use the folder system on export.
-  accumulateFolderIds() {},
+  accumulateFolderIds(items: unknown[], main: Set<string>) {
+    for (const r of items as PortForwardingRule[]) if (r.folder_id) main.add(r.folder_id);
+  },
 
   async buildExports(items: unknown[], ctx: ExportCtx, bundle: ExportBundle) {
     bundle.portForwardingRules = (items as PortForwardingRule[]).map((r, i): PortForwardingRuleExport => ({
@@ -35,10 +36,14 @@ export const portForwardingHandler: DataTypeHandler = {
       local_port: r.local_port,
       remote_port: r.remote_port,
       remote_host: r.remote_host,
+      tunnel_type: r.tunnel_type !== "local" ? r.tunnel_type : undefined,
+      bind_host: r.bind_host !== "127.0.0.1" ? r.bind_host : undefined,
+      target_host: r.target_host !== "127.0.0.1" ? r.target_host : undefined,
       description: r.description,
       _connection_eids: r.connection_ids
         .map(id => ctx.connectionEidMap.get(id))
         .filter((eid): eid is string => !!eid),
+      _folder_eid: r.folder_id ? ctx.folderEidMap.get(r.folder_id) : undefined,
     }));
   },
 
@@ -51,10 +56,14 @@ export const portForwardingHandler: DataTypeHandler = {
           local_port: rule.local_port,
           remote_port: rule.remote_port,
           remote_host: rule.remote_host,
+          tunnel_type: (rule.tunnel_type as import("@/types").TunnelType | undefined) ?? "local",
+          bind_host: rule.bind_host ?? "127.0.0.1",
+          target_host: rule.target_host ?? "127.0.0.1",
           description: rule.description,
           connection_ids: rule._connection_eids
             .map(eid => ctx.connectionEidMap.get(eid))
             .filter((id): id is string => !!id),
+          folder_id: rule._folder_eid ? ctx.folderEidMap.get(rule._folder_eid) : undefined,
           vault_id: ctx.vault_id,
         });
         imported++;

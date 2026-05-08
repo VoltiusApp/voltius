@@ -1,15 +1,18 @@
 use crate::known_hosts::{
     ConflictAction, HostKeyConflictEvent, HostKeyStatus, KnownHostsStore, PendingConflicts,
 };
+use crate::port_forward::{RemoteRoute, RemoteRouteMap};
 use russh::client;
 use russh::keys::ssh_key::{HashAlg, PublicKey};
 use russh::keys::PrivateKeyWithHashAlg;
 use russh::ChannelMsg;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::AppHandle;
 use tauri::Emitter;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
 use tokio::sync::{oneshot, Mutex};
 
 #[derive(Debug, Clone, Deserialize)]
@@ -51,16 +54,20 @@ pub struct SshClient {
     /// Set by `check_server_key` when the host key has changed without user approval.
     pub rejection_reason: Arc<Mutex<Option<String>>>,
     conflict_ctx: Option<ConflictContext>,
+    /// Remote-forward route table: (bind_host, remote_port) → RemoteRoute.
+    /// Populated by PortForwardManager before calling tcpip_forward.
+    pub remote_routes: RemoteRouteMap,
 }
 
 impl SshClient {
-    /// Non-interactive constructor (exec commands, SFTP). Conflicts cause connection rejection.
+    /// Non-interactive constructor (exec commands, SFTP, jump hosts).
     pub fn new(
         host: String,
         port: u16,
         known_hosts: Arc<KnownHostsStore>,
     ) -> (Self, Arc<Mutex<Option<String>>>) {
         let rejection_reason = Arc::new(Mutex::new(None::<String>));
+        let remote_routes: RemoteRouteMap = Arc::new(Mutex::new(HashMap::new()));
         (
             Self {
                 host,
@@ -68,12 +75,14 @@ impl SshClient {
                 known_hosts,
                 rejection_reason: Arc::clone(&rejection_reason),
                 conflict_ctx: None,
+                remote_routes,
             },
             rejection_reason,
         )
     }
 
-    /// Interactive constructor. Conflicts pause the connection and emit an event for the UI.
+    /// Interactive constructor for the final SSH session.
+    /// Returns an extra `RemoteRouteMap` that PortForwardManager uses to register routes.
     pub fn new_interactive(
         host: String,
         port: u16,
@@ -81,8 +90,9 @@ impl SshClient {
         app: AppHandle,
         session_id: String,
         pending_conflicts: Arc<PendingConflicts>,
-    ) -> (Self, Arc<Mutex<Option<String>>>) {
+    ) -> (Self, Arc<Mutex<Option<String>>>, RemoteRouteMap) {
         let rejection_reason = Arc::new(Mutex::new(None::<String>));
+        let remote_routes: RemoteRouteMap = Arc::new(Mutex::new(HashMap::new()));
         (
             Self {
                 host,
@@ -94,8 +104,10 @@ impl SshClient {
                     session_id,
                     pending_conflicts,
                 }),
+                remote_routes: Arc::clone(&remote_routes),
             },
             rejection_reason,
+            remote_routes,
         )
     }
 }
@@ -179,6 +191,30 @@ impl client::Handler for SshClient {
                 }
             }
         }
+    }
+
+    async fn server_channel_open_forwarded_tcpip(
+        &mut self,
+        channel: russh::Channel<client::Msg>,
+        connected_address: &str,
+        connected_port: u32,
+        _originator_address: &str,
+        _originator_port: u32,
+        _session: &mut client::Session,
+    ) -> Result<(), Self::Error> {
+        let route: Option<RemoteRoute> = {
+            let routes = self.remote_routes.lock().await;
+            routes
+                .get(&(connected_address.to_string(), connected_port as u16))
+                .cloned()
+        };
+
+        if let Some(route) = route {
+            tokio::spawn(bridge_remote_channel(channel, route));
+        } else {
+            let _ = channel.close().await;
+        }
+        Ok(())
     }
 
     async fn server_channel_open_agent_forward(
@@ -270,6 +306,57 @@ pub struct ConnectedSession {
     pub channel_only: bool,
     /// Keeps intermediate jump-host SSH handles alive for the lifetime of this session.
     pub _jump_handles: Vec<Arc<client::Handle<SshClient>>>,
+    /// Shared remote-forward route table for this session.
+    pub remote_routes: RemoteRouteMap,
+}
+
+async fn bridge_remote_channel(
+    channel: russh::Channel<client::Msg>,
+    route: RemoteRoute,
+) {
+    use std::sync::atomic::Ordering;
+
+    let tcp = match TcpStream::connect((route.target_host.as_str(), route.target_port)).await {
+        Ok(t) => t,
+        Err(_) => {
+            let _ = channel.close().await;
+            return;
+        }
+    };
+
+    let (mut ch_read, ch_write) = channel.split();
+    let mut ch_writer = ch_write.make_writer();
+    let (mut tcp_r, mut tcp_w) = tokio::io::split(tcp);
+
+    let bytes_up = Arc::clone(&route.bytes);
+    let tcp_to_ssh = tokio::spawn(async move {
+        let mut buf = [0u8; 65536];
+        loop {
+            match tcp_r.read(&mut buf).await {
+                Ok(0) | Err(_) => break,
+                Ok(n) => {
+                    if ch_writer.write_all(&buf[..n]).await.is_err() { break; }
+                    bytes_up.fetch_add(n as u64, Ordering::Relaxed);
+                }
+            }
+        }
+    });
+
+    let bytes_down = route.bytes;
+    let ssh_to_tcp = tokio::spawn(async move {
+        loop {
+            match ch_read.wait().await {
+                Some(ChannelMsg::Data { data }) => {
+                    if tcp_w.write_all(&data).await.is_err() { break; }
+                    bytes_down.fetch_add(data.len() as u64, Ordering::Relaxed);
+                }
+                Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) | None => break,
+                _ => {}
+            }
+        }
+    });
+
+    let _ = tokio::join!(tcp_to_ssh, ssh_to_tcp);
 }
 
 pub enum SessionInput {
@@ -341,9 +428,12 @@ pub async fn connect(
     // Each hop opens a direct-tcpip channel to the next host, layering SSH over it.
     let mut jump_handles: Vec<Arc<client::Handle<SshClient>>> = Vec::new();
 
+    #[allow(unused_assignments)]
+    let mut final_routes: RemoteRouteMap = Arc::new(Mutex::new(HashMap::new()));
+
     let mut final_handle: client::Handle<SshClient> = if jump_hosts.is_empty() {
         // Direct TCP connection
-        let (ssh_client, rejection_reason) = SshClient::new_interactive(
+        let (ssh_client, rejection_reason, routes) = SshClient::new_interactive(
             host.to_string(),
             port,
             Arc::clone(&known_hosts),
@@ -351,6 +441,7 @@ pub async fn connect(
             session_id.clone(),
             Arc::clone(&pending_conflicts),
         );
+        final_routes = routes;
         match client::connect(Arc::clone(&config), (host, port), ssh_client).await {
             Ok(h) => {
                 emit_step(
@@ -443,7 +534,7 @@ pub async fn connect(
             .map_err(|e| format!("Failed to open tunnel to final host {}: {}", host, e))?;
         let stream = channel.into_stream();
 
-        let (final_client, rejection_reason) = SshClient::new_interactive(
+        let (final_client, rejection_reason, routes) = SshClient::new_interactive(
             host.to_string(),
             port,
             Arc::clone(&known_hosts),
@@ -451,6 +542,7 @@ pub async fn connect(
             session_id.clone(),
             Arc::clone(&pending_conflicts),
         );
+        final_routes = routes;
         let h = client::connect_stream(Arc::clone(&config), stream, final_client)
             .await
             .map_err(|e| {
@@ -569,6 +661,7 @@ pub async fn connect(
         shutdown_tx,
         channel_only: false,
         _jump_handles: jump_handles,
+        remote_routes: final_routes,
     })
 }
 

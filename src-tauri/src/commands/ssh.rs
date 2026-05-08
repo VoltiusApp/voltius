@@ -46,11 +46,13 @@ pub async fn ssh_connect(
     state.add(session_id.clone(), connected).await;
 
     if let Ok(handle) = state.get_handle(&session_id).await {
-        // Auto-activate saved rules matching this connection
+        let routes = state
+            .get_remote_routes(&session_id)
+            .await
+            .unwrap_or_else(|_| Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())));
         let cid = connection_id.as_deref().unwrap_or("");
-        pf.auto_activate_rules(&session_id, cid, Arc::clone(&handle))
+        pf.auto_activate_rules(&session_id, cid, Arc::clone(&handle), routes)
             .await;
-        // Start port detection poller
         let _ = pf.set_auto_detect(&session_id, true, handle).await;
     }
 

@@ -26,6 +26,7 @@ async function migrateVaultToTeam(
   const { useFolderStore } = await import("@/stores/folderStore");
   const { useSnippetStore } = await import("@/stores/snippetStore");
   const { useSnippetFolderStore } = await import("@/stores/snippetFolderStore");
+  const { usePortForwardingStore } = await import("@/stores/portForwardingStore");
 
   const now = new Date().toISOString();
 
@@ -48,6 +49,9 @@ async function migrateVaultToTeam(
   const snippetFolders = useSnippetFolderStore.getState().folders
     .filter((f) => (f.vault_id ?? "personal") === vaultId)
     .map((f) => ({ ...f, vault_id: teamId, updated_at: now }));
+  const portRules = usePortForwardingStore.getState().rules
+    .filter((r) => (r.vault_id ?? "personal") === vaultId)
+    .map((r) => ({ ...r, vault_id: teamId, updated_at: now }));
 
   useConnectionStore.getState().setTeamConnections(teamId, conns);
   useIdentityStore.getState().setTeamIdentities(teamId, identities);
@@ -55,17 +59,19 @@ async function migrateVaultToTeam(
   useFolderStore.getState().setTeamFolders(teamId, folders);
   useSnippetStore.getState().setTeamSnippets(teamId, snippets);
   useSnippetFolderStore.getState().setTeamSnippetFolders(teamId, snippetFolders);
+  usePortForwardingStore.getState().setTeamRules(teamId, portRules);
 
   // Push to server first — only delete local copies on success
   await saveTeamData(teamId);
 
   // Delete originals from local disk
-  const [connApi, identApi, keyApi, folderApi, snippetApi] = await Promise.all([
+  const [connApi, identApi, keyApi, folderApi, snippetApi, pfApi] = await Promise.all([
     import("@/services/connections"),
     import("@/services/identities"),
     import("@/services/keys"),
     import("@/services/folders"),
     import("@/services/snippets"),
+    import("@/services/portForwardingRules"),
   ]);
   await Promise.allSettled([
     ...conns.map((e) => connApi.deleteConnection(e.id)),
@@ -74,6 +80,7 @@ async function migrateVaultToTeam(
     ...folders.map((e) => folderApi.deleteFolder(e.id)),
     ...snippets.map((e) => snippetApi.deleteSnippet(e.id)),
     ...snippetFolders.map((e) => snippetApi.deleteSnippetFolder(e.id)),
+    ...portRules.map((e) => pfApi.deletePfRule(e.id)),
   ]);
 
   // Reload personal stores from disk to reflect deletions
@@ -84,6 +91,7 @@ async function migrateVaultToTeam(
     useFolderStore.getState().loadFolders(),
     useSnippetStore.getState().loadSnippets(),
     useSnippetFolderStore.getState().loadFolders(),
+    usePortForwardingStore.getState().loadRules(),
   ]);
 }
 
@@ -1016,11 +1024,13 @@ function VaultGeneralTab({
       const { useFolderStore } = await import("@/stores/folderStore");
       const { useSnippetStore } = await import("@/stores/snippetStore");
       const { useSnippetFolderStore } = await import("@/stores/snippetFolderStore");
+      const { usePortForwardingStore } = await import("@/stores/portForwardingStore");
       const connApi = await import("@/services/connections");
       const identApi = await import("@/services/identities");
       const keyApi = await import("@/services/keys");
       const folderApi = await import("@/services/folders");
       const snippetApi = await import("@/services/snippets");
+      const pfApi = await import("@/services/portForwardingRules");
       const { fetchWithAuth, getServerUrl } = await import("@/services/sync");
       const { clearTeamKeyCache } = await import("@/services/teamVaultSync");
       const { useTeamVaultStateStore } = await import("@/stores/teamVaultStateStore");
@@ -1046,6 +1056,9 @@ function VaultGeneralTab({
         .map((s) => ({ ...s, vault_id: vaultId, updated_at: now }));
       const snippetFolders = (useSnippetFolderStore.getState().teamSnippetFolders[teamId] ?? [])
         .map((f) => ({ ...f, vault_id: vaultId, updated_at: now }));
+      const portRules = (usePortForwardingStore.getState().teamRules[teamId] ?? [])
+        .filter((r) => !r.deleted_at || r.updated_at > r.deleted_at)
+        .map((r) => ({ ...r, vault_id: vaultId, updated_at: now }));
 
       // Write to local disk
       await Promise.allSettled([
@@ -1055,6 +1068,7 @@ function VaultGeneralTab({
         ...folders.map((f) => folderApi.saveFolder({ name: f.name, object_type: f.object_type, parent_folder_id: f.parent_folder_id, vault_id: vaultId })),
         ...snippets.map((s) => snippetApi.createSnippet({ name: s.name, content: s.content, description: s.description, tags: s.tags, folder_id: s.folder_id, favorite: s.favorite, only_for_connection_tags: s.only_for_connection_tags, only_for_distros: s.only_for_distros, vault_id: vaultId })),
         ...snippetFolders.map((f) => snippetApi.createSnippetFolder({ name: f.name, object_type: f.object_type, parent_folder_id: f.parent_folder_id, vault_id: vaultId })),
+        ...portRules.map((r) => pfApi.createPfRule({ name: r.name, local_port: r.local_port, remote_port: r.remote_port, remote_host: r.remote_host, tunnel_type: r.tunnel_type, bind_host: r.bind_host, target_host: r.target_host, description: r.description, connection_ids: r.connection_ids, folder_id: r.folder_id, vault_id: vaultId })),
       ]);
 
       // Clear team memory
@@ -1064,6 +1078,7 @@ function VaultGeneralTab({
       useFolderStore.getState().clearTeamFolders(teamId);
       useSnippetStore.getState().clearTeamSnippets(teamId);
       useSnippetFolderStore.getState().clearTeamSnippetFolders(teamId);
+      usePortForwardingStore.getState().clearTeamRules(teamId);
 
       // Sever the team link
       setVaultTeamId(vaultId, null);
@@ -1084,6 +1099,7 @@ function VaultGeneralTab({
         useFolderStore.getState().loadFolders(),
         useSnippetStore.getState().loadSnippets(),
         useSnippetFolderStore.getState().loadFolders(),
+        usePortForwardingStore.getState().loadRules(),
       ]);
 
       const { useNotificationStore } = await import("@/stores/notificationStore");
