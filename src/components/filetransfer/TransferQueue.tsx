@@ -27,7 +27,7 @@ export function TransferQueue({ transfers, onClear, onCancel }: {
 
   return (
     <div className="shrink-0 border-t border-t-[var(--t-border)] bg-[var(--t-bg-card)]">
-      <div className="flex items-center justify-between px-4 py-1.5">
+      <div className="flex items-center justify-between px-4 py-2">
         <span className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">Transfers</span>
         <button
           onClick={onClear}
@@ -38,7 +38,7 @@ export function TransferQueue({ transfers, onClear, onCancel }: {
           Clear
         </button>
       </div>
-      <div className="max-h-36 overflow-y-auto pb-2 px-3 flex flex-col gap-1.5">
+      <div className="max-h-36 overflow-y-auto pb-2 px-3 flex flex-col gap-2">
         {transfers.map((t) => {
           const { icon, color, spin } = statusIcon(t);
           return (

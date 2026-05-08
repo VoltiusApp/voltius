@@ -173,7 +173,7 @@ export function SidePane({
     <div className="flex flex-col h-full min-w-0 bg-[var(--t-bg-base)]" onMouseDown={handleMouseDown}>
 
       {/* Toolbar row — host card + filter + menu */}
-      <div className="flex items-center gap-2 px-2 py-1.5 shrink-0 border-b border-b-[var(--t-border)] bg-[var(--t-bg-card)]">
+      <div className="flex items-center gap-2 px-2 py-2 shrink-0 border-b border-b-[var(--t-border)] bg-[var(--t-bg-card)]">
         <button
           onClick={canChangeHost ? onChangeHost : undefined}
           className={`flex items-center gap-1.5 px-1.5 py-1 rounded-lg transition-all bg-[var(--t-bg-elevated)] border border-[var(--t-border)] ${canChangeHost ? "cursor-pointer" : "cursor-default"}`}
