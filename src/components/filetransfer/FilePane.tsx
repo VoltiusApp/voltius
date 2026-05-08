@@ -354,7 +354,7 @@ export function FilePane({
       )}
 
       {/* Path bar */}
-      <div className="flex items-center gap-1.5 px-2 py-1.5 shrink-0 border-b border-b-[var(--t-border)]">
+      <div className="flex items-center gap-1.5 px-2 py-2 shrink-0 border-b border-b-[var(--t-border)]">
         <IconBtn icon="lucide:arrow-up" title="Parent directory" onClick={goUp} />
         <IconBtn icon="lucide:home" title="Home directory" onClick={handleGoHome} />
         <div className="flex-1 flex items-center min-w-0 px-1.5 rounded-md">
@@ -374,7 +374,7 @@ export function FilePane({
 
       {selectedIdSet.size > 1 && (
         <div
-          className="flex items-center gap-1.5 px-3 py-0.5 shrink-0 text-xs text-[var(--t-accent)]"
+          className="flex items-center gap-1.5 px-3 py-1 shrink-0 text-xs text-[var(--t-accent)]"
           style={{
             background: "color-mix(in srgb, var(--t-accent) 10%, transparent)",
             borderBottom: "1px solid color-mix(in srgb, var(--t-accent) 25%, transparent)",
@@ -725,7 +725,7 @@ function ColumnHeaders({ sortCol, sortDir, isLocal, colWidths, visibleCols, onSo
   const labelStyle: React.CSSProperties = { fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.055em", textTransform: "uppercase" };
 
   return (
-    <div className="flex items-stretch gap-2 h-6 pl-5 pr-3 shrink-0 overflow-hidden" style={{ borderBottom: "1px solid var(--t-border)" }}>
+    <div className="flex items-stretch gap-2 h-7 pl-5 pr-3 shrink-0 overflow-hidden" style={{ borderBottom: "1px solid var(--t-border)" }}>
       <button
         onClick={() => onSort("name")}
         className="relative flex-1 min-w-0 flex h-full items-center gap-0.5 text-left transition-colors"
@@ -791,13 +791,13 @@ function VirtualFileList({
   const rowVirtualizer = useVirtualizer({
     count: entries.length,
     getScrollElement: () => itemAreaRef.current,
-    estimateSize: () => 36,
+    estimateSize: () => 30,
     overscan: 15,
   });
 
   const commitCreate = creatingFolder ? onCommitCreateFolder : onCommitCreateFile;
   const inlineCreateRow = (creatingFolder || creatingFile) && (
-    <div className="flex items-center gap-2 m-1.5 px-2 py-1.5 mx-1 rounded border border-[var(--t-accent)]">
+    <div className="flex items-center gap-2 ml-3 mr-1 px-2 py-1.5 rounded border border-[var(--t-accent)]">
       <Icon icon={creatingFolder ? "lucide:folder" : "lucide:file"} width={15} className="shrink-0" style={{ color: creatingFolder ? "#f0c050" : "var(--t-text-dim)" }} />
       <input
         autoFocus
@@ -852,7 +852,7 @@ function VirtualFileList({
           if (renaming === file.path) {
             return (
               <div key={file.path} style={itemStyle}>
-                <div className="flex items-center gap-2 m-1.5 px-2 py-1.5 mx-1 rounded border border-[var(--t-accent)]">
+                <div className="flex items-center gap-2 ml-3 mr-1 px-2 py-1.5 rounded border border-[var(--t-accent)]">
                   <Icon icon={file.isDir ? "lucide:folder" : "lucide:file"} width={15} className="shrink-0" style={{ color: file.isDir ? "#f0c050" : "var(--t-text-dim)" }} />
                   <input
                     autoFocus
@@ -961,7 +961,7 @@ function FileRow({ file, isSelected, isDragHover, isLocal, colWidths, visibleCol
     <div
       draggable={!!onDragStart}
       data-selectable-id={selectableId}
-      className="flex items-center gap-2 m-1.5 px-2 py-1.5 mr-1 ml-3 rounded transition-colors cursor-default select-none relative"
+      className="flex items-center gap-2 px-2 py-1.5 mr-1 ml-3 rounded transition-colors cursor-default select-none relative"
       style={{ background: bg, border }}
       onClick={onClick}
       onDoubleClick={onDoubleClick}

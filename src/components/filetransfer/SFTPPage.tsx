@@ -334,7 +334,7 @@ export default function SFTPPage() {
           />
         </div>
 
-        <div className="flex flex-col items-center justify-center gap-2 shrink-0 px-1 w-[2.933rem] bg-[var(--t-bg-card)] border-r border-r-[var(--t-border)]">
+        <div className="flex flex-col items-center justify-center gap-3 shrink-0 px-1 w-[2.933rem] bg-[var(--t-bg-card)] border-r border-r-[var(--t-border)]">
           <TransferBtn icon="lucide:arrow-right" title={transferLRTitle} disabled={!canTransferLR} onClick={() => transfer("LR")} />
           <TransferBtn icon="lucide:arrow-left"  title={transferRLTitle} disabled={!canTransferRL} onClick={() => transfer("RL")} />
         </div>
