@@ -79,11 +79,6 @@ export async function getMyX25519Keypair(): Promise<{ privateKey: string; public
   return { privateKey: result.private_key, publicKey: result.public_key };
 }
 
-export function clearKeypairCache() {
-  _cachedPrivateKey = null;
-  _cachedPublicKey = null;
-}
-
 // ─── Session key operations ───────────────────────────────────────────────────
 
 export async function wrapSessionKeyForUser(

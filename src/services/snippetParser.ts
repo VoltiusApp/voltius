@@ -99,7 +99,7 @@ export function needsUserInput(v: ParsedVariable): boolean {
 
 // ─── Resolve dynamic ─────────────────────────────────────────────────────────
 
-export function resolveDynamicVar(name: string, ctx: DynamicContext): string {
+function resolveDynamicVar(name: string, ctx: DynamicContext): string {
   switch (name) {
     case "connection.host": return ctx.connectionHost;
     case "connection.username": return ctx.connectionUsername;

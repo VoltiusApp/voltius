@@ -82,10 +82,6 @@ export function mergeEntities<T extends TimestampedEntity>(local: T[], remote: T
  * Filter out tombstones for UI display.
  * An entity is alive if never deleted, or revived (updated_at > deleted_at).
  */
-export function filterAlive<T extends TimestampedEntity>(entities: T[]): T[] {
-  return entities.filter((e) => !e.deleted_at || e.updated_at > e.deleted_at);
-}
-
 /**
  * Union merge for secrets: combine both maps, remote values take precedence.
  */

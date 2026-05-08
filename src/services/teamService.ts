@@ -351,14 +351,3 @@ export async function revokePendingInvitation(teamId: string, invitationId: stri
   if (!res.ok) throw new Error(`Failed to revoke invitation: ${res.status}`);
 }
 
-// ─── Compatibility aliases (used by internal callers that haven't been updated) ─
-
-/** @deprecated Use listRoles */
-export const listCustomRoles = listRoles;
-/** @deprecated Use createRole */
-export const createCustomRole = (teamId: string, name: string, permissions: number) =>
-  createRole(teamId, name, permissions);
-/** @deprecated Use updateRole */
-export const updateCustomRole = updateRole;
-/** @deprecated Use deleteRole */
-export const deleteCustomRole = deleteRole;

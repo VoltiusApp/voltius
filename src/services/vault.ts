@@ -98,10 +98,6 @@ export async function deleteSecret(key: string): Promise<void> {
   await invoke("secrets_delete", { key });
 }
 
-export function isUnlocked(): boolean {
-  return pendingKey !== null;
-}
-
 export function getVaultKey(): number[] | null {
   return pendingKey;
 }
