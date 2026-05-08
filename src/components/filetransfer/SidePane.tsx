@@ -69,7 +69,9 @@ export function SidePane({
 
   const [filterQuery, setFilterQuery] = useState("");
   const menuBtnRef = useRef<HTMLButtonElement>(null);
+  const viewBtnRef = useRef<HTMLButtonElement>(null);
   const [menuOpener, setMenuOpener] = useState<((el: HTMLElement) => void) | null>(null);
+  const [viewMenuOpener, setViewMenuOpener] = useState<((el: HTMLElement) => void) | null>(null);
 
   // ── Latency / ping ──────────────────────────────────────────────────────────
   const connectionId = host?.kind === "remote" ? host.connection.id : undefined;
@@ -170,10 +172,10 @@ export function SidePane({
   }, [goBack, goForward]);
 
   return (
-    <div className="flex flex-col h-full min-w-0 bg-[var(--t-bg-base)]" onMouseDown={handleMouseDown}>
+    <div className="flex flex-col h-full min-w-0 bg-[var(--t-bg-card)]" onMouseDown={handleMouseDown}>
 
       {/* Toolbar row — host card + filter + menu */}
-      <div className="flex items-center gap-2 px-2 py-2 shrink-0 border-b border-b-[var(--t-border)] bg-[var(--t-bg-card)]">
+      <div className="flex items-center gap-2 px-2 py-2 shrink-0 border-b border-b-[var(--t-border)] bg-[var(--t-bg-elevated)]">
         <button
           onClick={canChangeHost ? onChangeHost : undefined}
           className={`flex items-center gap-1.5 px-1.5 py-1 rounded-lg transition-all bg-[var(--t-bg-elevated)] border border-[var(--t-border)] ${canChangeHost ? "cursor-pointer" : "cursor-default"}`}
@@ -212,7 +214,17 @@ export function SidePane({
           <div className="ml-auto flex items-center gap-1">
             <NavBtn icon="lucide:arrow-left"  title="Back"    disabled={!histState.canBack}    onClick={goBack} />
             <NavBtn icon="lucide:arrow-right" title="Forward" disabled={!histState.canForward} onClick={goForward} />
-            <FilterInput value={filterQuery} onChange={setFilterQuery} placeholder="Filter…" width={96} />
+            <FilterInput value={filterQuery} onChange={setFilterQuery} placeholder="Filter…" width={128} />
+            <button
+              ref={viewBtnRef}
+              title="View options"
+              onClick={() => viewBtnRef.current && viewMenuOpener?.(viewBtnRef.current)}
+              className="flex items-center justify-center w-6 h-6 rounded-md shrink-0 transition-colors text-[var(--t-text-dim)]"
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-bg-elevated)"; e.currentTarget.style.color = "var(--t-text-primary)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
+            >
+              <Icon icon="lucide:layout-list" width={14} />
+            </button>
             <button
               ref={menuBtnRef}
               title="More options"
@@ -285,9 +297,10 @@ export function SidePane({
             onDropFiles={onDropFiles}
             onTransferToTarget={onTransferToTarget}
             canTransferToTarget={canTransferToTarget ?? false}
-            onChangeHost={() => { setFilterQuery(""); setMenuOpener(null); onChangeHost(); }}
+            onChangeHost={() => { setFilterQuery(""); setMenuOpener(null); setViewMenuOpener(null); onChangeHost(); }}
             filter={filterQuery}
             onRegisterMenuOpener={(opener) => setMenuOpener(() => opener)}
+            onRegisterViewMenuOpener={(opener) => setViewMenuOpener(() => opener)}
             onOpenInTerminal={onOpenInTerminal}
           />
         )}

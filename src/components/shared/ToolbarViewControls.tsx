@@ -70,15 +70,15 @@ export function FilterInput({
     <div className="relative">
       <Icon
         icon="lucide:filter"
-        width={20}
-        className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--t-text-dim)]"
+        width={13}
+        className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--t-text-dim)]"
       />
       <input
         ref={inputRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="pl-9 pr-3 h-8 rounded-lg text-sm outline-none transition-colors bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)]"
+        className="pl-7 pr-3 h-7 rounded-lg text-xs outline-none transition-colors bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)] placeholder:text-[var(--t-text-dim)]"
         style={{
           width: `${(width / 15).toFixed(3)}rem`,
           minWidth: "4rem",

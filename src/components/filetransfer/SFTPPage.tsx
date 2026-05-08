@@ -317,8 +317,8 @@ export default function SFTPPage() {
 
   return (
     <div className="flex flex-col h-full bg-[var(--t-bg-base)]">
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 min-w-0 border-r border-r-[var(--t-border)]">
+      <div className="flex flex-1 min-h-0 gap-2 p-2 ">
+        <div className="flex-1 min-w-0 rounded-xl overflow-hidden border border-[var(--t-border)]" style={{ boxShadow: "0 2px 10px rgba(0,0,0,0.28)" }}>
           <SidePane
             host={leftHost} phase={leftPhase} refreshTick={leftRefresh}
             onPick={(h) => { setLeftHost(h); connectSide(h, setLeftPhase); }}
@@ -334,12 +334,12 @@ export default function SFTPPage() {
           />
         </div>
 
-        <div className="flex flex-col items-center justify-center gap-3 shrink-0 px-1 w-[2.933rem] bg-[var(--t-bg-card)] border-r border-r-[var(--t-border)]">
+        <div className="flex flex-col items-center justify-center gap-2 shrink-0 w-8">
           <TransferBtn icon="lucide:arrow-right" title={transferLRTitle} disabled={!canTransferLR} onClick={() => transfer("LR")} />
           <TransferBtn icon="lucide:arrow-left"  title={transferRLTitle} disabled={!canTransferRL} onClick={() => transfer("RL")} />
         </div>
 
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 rounded-xl overflow-hidden border border-[var(--t-border)]" style={{ boxShadow: "0 2px 10px rgba(0,0,0,0.28)" }}>
           <SidePane
             host={rightHost} phase={rightPhase} refreshTick={rightRefresh}
             onPick={(h) => { setRightHost(h); connectSide(h, setRightPhase); }}
@@ -383,7 +383,7 @@ function TransferBtn({ icon, title, disabled, onClick }: { icon: string; title: 
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className="flex items-center justify-center w-8 h-8 rounded-lg transition-all"
+      className="flex items-center justify-center w-6 h-6 rounded-md transition-all"
       style={{
         background: disabled ? "transparent" : "var(--t-bg-elevated)",
         border: `1px solid ${disabled ? "var(--t-border)" : "var(--t-border-hover)"}`,
@@ -394,7 +394,7 @@ function TransferBtn({ icon, title, disabled, onClick }: { icon: string; title: 
       onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.background = "var(--t-bg-card-hover)"; }}
       onMouseLeave={(e) => { if (!disabled) e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
     >
-      <Icon icon={icon} width={14} />
+      <Icon icon={icon} width={12} />
     </button>
   );
 }

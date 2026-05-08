@@ -53,7 +53,7 @@ export function FilePane({
   sftpId, isLocal, cwd, homeCwd,
   onNavigate, onSelect, onRefresh, refreshTick, side, onDropFiles,
   onTransferToTarget, canTransferToTarget, onChangeHost,
-  filter = "", onRegisterMenuOpener, onOpenInTerminal,
+  filter = "", onRegisterMenuOpener, onRegisterViewMenuOpener, onOpenInTerminal,
 }: {
   sftpId: string | null;
   isLocal: boolean;
@@ -70,6 +70,7 @@ export function FilePane({
   onChangeHost?: () => void;
   filter?: string;
   onRegisterMenuOpener?: (opener: (anchorEl: HTMLElement) => void) => void;
+  onRegisterViewMenuOpener?: (opener: (anchorEl: HTMLElement) => void) => void;
   onOpenInTerminal?: (path: string) => void;
 }) {
   const autoRefreshEnabled = useSftpSettingsStore((s) => s.autoRefreshEnabled);
@@ -84,6 +85,7 @@ export function FilePane({
   const [visibleCols, setVisibleCols] = useState<VisibleCols>({ size: true, modified: true, permissions: true });
   const [showHidden, setShowHidden] = useState(false);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const [viewMenuPos, setViewMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; resolve: (ok: boolean) => void } | null>(null);
 
   const appConfirm = (title: string, message: string): Promise<boolean> =>
@@ -93,6 +95,14 @@ export function FilePane({
     onRegisterMenuOpener?.((el) => {
       const r = el.getBoundingClientRect();
       setMenuPos({ x: Math.max(8, r.right - 202), y: r.bottom + 4 });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    onRegisterViewMenuOpener?.((el) => {
+      const r = el.getBoundingClientRect();
+      setViewMenuPos({ x: Math.max(8, r.right - 180), y: r.bottom + 4 });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -354,7 +364,7 @@ export function FilePane({
       )}
 
       {/* Path bar */}
-      <div className="flex items-center gap-1.5 px-2 py-2 shrink-0 border-b border-b-[var(--t-border)]">
+      <div className="flex items-center gap-1.5 px-2 py-2 shrink-0 border-b border-b-[var(--t-border)] bg-[var(--t-bg-elevated)]">
         <IconBtn icon="lucide:arrow-up" title="Parent directory" onClick={goUp} />
         <IconBtn icon="lucide:home" title="Home directory" onClick={handleGoHome} />
         <div className="flex-1 flex items-center min-w-0 px-1.5 rounded-md">
@@ -419,12 +429,17 @@ export function FilePane({
           pos={menuPos}
           onClose={() => setMenuPos(null)}
           items={buildPaneMenuItems({
-            showHidden, setShowHidden,
-            visibleCols, setVisibleCols,
-            isLocal, selectedEntries, entryIds,
+            selectedEntries, entryIds,
             selectionActionsCtx,
             handleMkdir, handleNewFile, setSelection, onChangeHost, cwd,
           })}
+        />
+      )}
+      {viewMenuPos && (
+        <ContextMenu
+          pos={viewMenuPos}
+          onClose={() => setViewMenuPos(null)}
+          items={buildViewMenuItems({ showHidden, setShowHidden, visibleCols, setVisibleCols, isLocal })}
         />
       )}
       {confirmDialog && (
@@ -494,10 +509,21 @@ function buildSelectionActions(files: FileEntry[], ctx: SelectionActionsCtx): Co
 
 // ── Pane menu ─────────────────────────────────────────────────────────────────
 
-function buildPaneMenuItems(ctx: {
+function buildViewMenuItems(ctx: {
   showHidden: boolean; setShowHidden: (v: boolean) => void;
   visibleCols: VisibleCols; setVisibleCols: React.Dispatch<React.SetStateAction<VisibleCols>>;
   isLocal: boolean;
+}): ContextMenuItem[] {
+  const { showHidden, setShowHidden, visibleCols, setVisibleCols, isLocal } = ctx;
+  const items: ContextMenuItem[] = [];
+  items.push({ label: showHidden ? "Hide hidden files" : "Show hidden files", icon: showHidden ? "lucide:eye" : "lucide:eye-off", onClick: () => setShowHidden(!showHidden) });
+  items.push({ label: "Size column",        icon: visibleCols.size        ? "lucide:check-square" : "lucide:square", onClick: () => setVisibleCols((v) => ({ ...v, size:        !v.size        })) });
+  items.push({ label: "Date column",        icon: visibleCols.modified    ? "lucide:check-square" : "lucide:square", onClick: () => setVisibleCols((v) => ({ ...v, modified:    !v.modified    })) });
+  if (!isLocal) items.push({ label: "Permissions column", icon: visibleCols.permissions ? "lucide:check-square" : "lucide:square", onClick: () => setVisibleCols((v) => ({ ...v, permissions: !v.permissions })) });
+  return items;
+}
+
+function buildPaneMenuItems(ctx: {
   selectedEntries: FileEntry[]; entryIds: string[];
   selectionActionsCtx: SelectionActionsCtx;
   handleMkdir: () => void;
@@ -506,17 +532,10 @@ function buildPaneMenuItems(ctx: {
   onChangeHost?: () => void;
   cwd: string;
 }): ContextMenuItem[] {
-  const { showHidden, setShowHidden, visibleCols, setVisibleCols, isLocal,
-    selectedEntries, entryIds, selectionActionsCtx,
+  const { selectedEntries, entryIds, selectionActionsCtx,
     handleMkdir, handleNewFile, setSelection, onChangeHost, cwd } = ctx;
   const sel = selectedEntries;
   const items: ContextMenuItem[] = [];
-
-  // ── View
-  items.push({ label: showHidden ? "Hide hidden files" : "Show hidden files", icon: showHidden ? "lucide:eye" : "lucide:eye-off", onClick: () => setShowHidden(!showHidden) });
-  items.push({ label: "Size column",        icon: visibleCols.size        ? "lucide:check-square" : "lucide:square", onClick: () => setVisibleCols((v) => ({ ...v, size:        !v.size        })) });
-  items.push({ label: "Date column",        icon: visibleCols.modified    ? "lucide:check-square" : "lucide:square", onClick: () => setVisibleCols((v) => ({ ...v, modified:    !v.modified    })) });
-  if (!isLocal) items.push({ label: "Permissions column", icon: visibleCols.permissions ? "lucide:check-square" : "lucide:square", onClick: () => setVisibleCols((v) => ({ ...v, permissions: !v.permissions })) });
 
   // ── File actions (delegated to shared builder)
   const fileActions = buildSelectionActions(sel, selectionActionsCtx);
@@ -791,7 +810,7 @@ function VirtualFileList({
   const rowVirtualizer = useVirtualizer({
     count: entries.length,
     getScrollElement: () => itemAreaRef.current,
-    estimateSize: () => 30,
+    estimateSize: () => 34,
     overscan: 15,
   });
 
@@ -961,7 +980,7 @@ function FileRow({ file, isSelected, isDragHover, isLocal, colWidths, visibleCol
     <div
       draggable={!!onDragStart}
       data-selectable-id={selectableId}
-      className="flex items-center gap-2 px-2 py-1.5 mr-1 ml-3 rounded transition-colors cursor-default select-none relative"
+      className="flex items-center gap-2 px-2 py-1.5 my-px mr-1 ml-3 rounded transition-colors cursor-default select-none relative"
       style={{ background: bg, border }}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
