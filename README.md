@@ -224,7 +224,7 @@ flowchart TD
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) 18+
+- [Node.js](https://nodejs.org/) 24+
 - [pnpm](https://pnpm.io/) — `npm i -g pnpm`
 - [Rust](https://rustup.rs/) (stable toolchain)
 - Tauri prerequisites for your platform — see [tauri.app/start/prerequisites](https://tauri.app/start/prerequisites/)
