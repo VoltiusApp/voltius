@@ -317,8 +317,8 @@ export default function SFTPPage() {
 
   return (
     <div className="flex flex-col h-full bg-[var(--t-bg-base)]">
-      <div className="flex flex-1 min-h-0 gap-2 p-2 ">
-        <div className="flex-1 min-w-0 rounded-xl overflow-hidden border border-[var(--t-border)]" style={{ boxShadow: "0 2px 10px rgba(0,0,0,0.28)" }}>
+      <div className="flex flex-1 min-h-0 gap-3 p-3">
+        <div className="flex-1 min-w-0 rounded-xl overflow-hidden border border-[var(--t-border)]">
           <SidePane
             host={leftHost} phase={leftPhase} refreshTick={leftRefresh}
             onPick={(h) => { setLeftHost(h); connectSide(h, setLeftPhase); }}
@@ -334,12 +334,14 @@ export default function SFTPPage() {
           />
         </div>
 
-        <div className="flex flex-col items-center justify-center gap-2 shrink-0 w-8">
-          <TransferBtn icon="lucide:arrow-right" title={transferLRTitle} disabled={!canTransferLR} onClick={() => transfer("LR")} />
-          <TransferBtn icon="lucide:arrow-left"  title={transferRLTitle} disabled={!canTransferRL} onClick={() => transfer("RL")} />
+        <div className="flex flex-col items-center justify-center shrink-0 w-10">
+          <div className="flex flex-col gap-1.5 p-1.5 rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-elevated)]">
+            <TransferBtn icon="lucide:arrow-right" title={transferLRTitle} disabled={!canTransferLR} onClick={() => transfer("LR")} />
+            <TransferBtn icon="lucide:arrow-left"  title={transferRLTitle} disabled={!canTransferRL} onClick={() => transfer("RL")} />
+          </div>
         </div>
 
-        <div className="flex-1 min-w-0 rounded-xl overflow-hidden border border-[var(--t-border)]" style={{ boxShadow: "0 2px 10px rgba(0,0,0,0.28)" }}>
+        <div className="flex-1 min-w-0 rounded-xl overflow-hidden border border-[var(--t-border)]">
           <SidePane
             host={rightHost} phase={rightPhase} refreshTick={rightRefresh}
             onPick={(h) => { setRightHost(h); connectSide(h, setRightPhase); }}
