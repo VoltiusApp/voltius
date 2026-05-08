@@ -566,8 +566,16 @@ function buildPaneMenuItems(ctx: {
 function PathBreadcrumb({ cwd, onNavigate }: { cwd: string; isLocal?: boolean; onNavigate: (p: string) => void }) {
   const [editing, setEditing] = useState(false);
   const [editVal, setEditVal] = useState(cwd);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setEditVal(cwd); setEditing(false); }, [cwd]);
+
+  // Keep current dir visible — scroll to end whenever path changes
+  useEffect(() => {
+    if (!editing && scrollRef.current) {
+      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
+    }
+  }, [cwd, editing]);
 
   const normalized = cwd.replace(/\\/g, "/");
   const isAbsolute = normalized.startsWith("/");
@@ -576,7 +584,6 @@ function PathBreadcrumb({ cwd, onNavigate }: { cwd: string; isLocal?: boolean; o
     label,
     path: (isAbsolute ? "/" : "") + parts.slice(0, i + 1).join("/"),
   }));
-  // For absolute paths, prepend a root crumb but don't add a separator before it
   const allCrumbs = isAbsolute ? [{ label: "/", path: "/" }, ...crumbs] : crumbs;
 
   if (editing) {
@@ -597,7 +604,9 @@ function PathBreadcrumb({ cwd, onNavigate }: { cwd: string; isLocal?: boolean; o
 
   return (
     <div
-      className="flex-1 flex items-center gap-0 min-w-0 overflow-hidden cursor-text select-none"
+      ref={scrollRef}
+      className="flex-1 flex items-center gap-0 min-w-0 overflow-x-auto select-none"
+      style={{ scrollbarWidth: "none", cursor: "text" }}
       onClick={() => { setEditVal(cwd); setEditing(true); }}
     >
       {allCrumbs.map((crumb, i) => {
@@ -605,25 +614,47 @@ function PathBreadcrumb({ cwd, onNavigate }: { cwd: string; isLocal?: boolean; o
         const isRoot = i === 0 && isAbsolute;
         return (
           <Fragment key={crumb.path}>
-            {/* separator: skip before root and between root icon and first segment */}
-            {i > 1 && <span className="shrink-0 mx-0.5 text-[var(--t-text-dim)]" style={{ fontSize: "0.8125rem" }}>/</span>}
-            <button
-              className="shrink-0 rounded px-1 py-0.5 transition-colors font-mono"
-              style={{
-                fontSize: "0.8125rem",
-                color: isLast ? "var(--t-text-primary)" : "var(--t-text-dim)",
-                fontWeight: isLast ? 500 : 400,
-              }}
+            {i > 1 && <span className="shrink-0 mx-0.5 text-[var(--t-text-dim)]" style={{ fontSize: "0.8125rem", flexShrink: 0 }}>/</span>}
+            <CrumbSegment
+              label={isRoot ? "/" : crumb.label}
+              isLast={isLast}
               onClick={(e) => { e.stopPropagation(); if (!isLast) onNavigate(crumb.path); else { setEditVal(cwd); setEditing(true); } }}
-              onMouseEnter={(e) => { if (!isLast) { e.currentTarget.style.color = "var(--t-text-secondary)"; e.currentTarget.style.background = "var(--t-bg-elevated)"; } }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = isLast ? "var(--t-text-primary)" : "var(--t-text-dim)"; e.currentTarget.style.background = "transparent"; }}
-            >
-              {isRoot ? "/" : crumb.label}
-            </button>
+            />
           </Fragment>
         );
       })}
     </div>
+  );
+}
+
+function CrumbSegment({ label, isLast, onClick }: { label: string; isLast: boolean; onClick: (e: React.MouseEvent) => void }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      className="shrink-0 rounded px-1 py-0.5 font-mono whitespace-nowrap"
+      style={{
+        fontSize: "0.8125rem",
+        fontWeight: isLast ? 500 : 400,
+        color: isLast
+          ? "var(--t-text-primary)"
+          : hovered ? "var(--t-accent)" : "var(--t-text-dim)",
+        background: hovered
+          ? isLast
+            ? "color-mix(in srgb, var(--t-text-primary) 6%, transparent)"
+            : "color-mix(in srgb, var(--t-accent) 15%, transparent)"
+          : "transparent",
+        cursor: isLast ? "text" : "pointer",
+        transition: "color 0.1s, background 0.1s",
+        textDecoration: !isLast && hovered ? "underline" : "none",
+        textDecorationColor: "color-mix(in srgb, var(--t-accent) 55%, transparent)",
+        textUnderlineOffset: "2px",
+      }}
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {label}
+    </button>
   );
 }
 

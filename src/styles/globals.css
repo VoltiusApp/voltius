@@ -85,23 +85,24 @@ input::-webkit-inner-spin-button {
   }
 
   ::-webkit-scrollbar {
-    width: 0.4rem;
-    height: 0.4rem;
+    width: 0.6rem;
+    height: 0.6rem;
   }
 
   ::-webkit-scrollbar-track {
-    background: transparent;
+    background: color-mix(in srgb, theme("colors.border.DEFAULT") 30%, transparent);
+    border-radius: 0.5rem;
   }
 
   ::-webkit-scrollbar-thumb {
-    background: theme("colors.border.DEFAULT");
+    background: theme("colors.border.hover");
     border-radius: 0.5rem;
     border: 2px solid transparent;
     background-clip: padding-box;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: theme("colors.border.hover");
+    background: color-mix(in srgb, theme("colors.border.hover") 160%, white);
   }
 
   ::selection {
