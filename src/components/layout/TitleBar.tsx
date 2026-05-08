@@ -296,6 +296,7 @@ export default function TitleBar() {
                   onClick={() => handleUnifiedTabClick(tab.id)}
                   onMouseDown={(e) => {
                     if (e.button === 0) useDragStore.getState().beginSplitTabDrag(tab.id, e.clientX, e.clientY);
+                    if (e.button === 1) { e.preventDefault(); handleUnifiedTabClose(e, tab.id); }
                   }}
                   className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all"
                   title="Unified split tab"
