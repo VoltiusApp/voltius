@@ -314,6 +314,20 @@ export function FilePane({
     onOpenInTerminal, setSelection, onRefresh,
   };
 
+  const resetDragState = () => {
+    dragCounter.current = 0;
+    setDragOver(false);
+    setDropFolderPath(null);
+  };
+
+  // dragend fires on the source (possibly the other pane) but dragLeave on the
+  // target is unreliable in WebView2 when drag is cancelled — hard-reset here.
+  useEffect(() => {
+    window.addEventListener("dragend", resetDragState);
+    return () => window.removeEventListener("dragend", resetDragState);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleDragEnter = (e: React.DragEvent) => {
     if (_draggingFromSide === side) return;
     e.preventDefault();
@@ -326,15 +340,14 @@ export function FilePane({
     e.dataTransfer.dropEffect = "copy";
   };
   const handleDragLeave = () => {
+    if (_draggingFromSide === side) return; // mirror the guard in handleDragEnter
     dragCounter.current--;
     if (dragCounter.current === 0) { setDragOver(false); setDropFolderPath(null); }
   };
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    dragCounter.current = 0;
-    setDragOver(false);
     const target = dropFolderPath;
-    setDropFolderPath(null);
+    resetDragState();
     try {
       const data = JSON.parse(e.dataTransfer.getData("text/plain")) as { files: FileEntry[]; fromSide: "left" | "right" };
       if (data.fromSide !== side) onDropFiles(data.files, data.fromSide, target ?? undefined);
@@ -382,27 +395,6 @@ export function FilePane({
         onResize={(col, w) => setColWidths((prev) => ({ ...prev, [col]: w }))}
       />
 
-      {selectedIdSet.size > 1 && (
-        <div
-          className="flex items-center gap-1.5 px-3 py-1 shrink-0 text-xs text-[var(--t-accent)]"
-          style={{
-            background: "color-mix(in srgb, var(--t-accent) 10%, transparent)",
-            borderBottom: "1px solid color-mix(in srgb, var(--t-accent) 25%, transparent)",
-          }}
-        >
-          <Icon icon="lucide:check-square" width={11} />
-          <span>
-            {selectedIdSet.size} items selected
-            {selectedEntries.some((f) => !f.isDir) && (
-              <> · {formatSize(selectedEntries.filter((f) => !f.isDir).reduce((acc, f) => acc + f.size, 0))}</>
-            )}
-          </span>
-          <button className="ml-auto text-xs opacity-70 hover:opacity-100 transition-opacity text-[var(--t-accent)]" onClick={() => setSelection([])}>
-            Clear
-          </button>
-        </div>
-      )}
-
       <DragSelectSurface selectionAreaRef={selectionAreaRef} onMouseDown={handleSelectionAreaMouseDown} dragBox={dragBox} className="flex-1 overflow-hidden"
         onContextMenu={(e) => { e.preventDefault(); setSelection([]); setMenuPos({ x: e.clientX, y: e.clientY }); }}>
         <VirtualFileList
@@ -423,6 +415,27 @@ export function FilePane({
           selectionActionsCtx={selectionActionsCtx}
         />
       </DragSelectSurface>
+
+      {selectedIdSet.size > 1 && (
+        <div className="flex items-center gap-2 px-3 py-1 shrink-0 border-t border-[var(--t-border)] bg-[var(--t-bg-elevated)]">
+          <Icon icon="lucide:check-square" width={11} className="text-[var(--t-accent)] shrink-0" />
+          <span className="text-xs text-[var(--t-text-secondary)]">
+            {selectedIdSet.size} selected
+            {selectedEntries.some((f) => !f.isDir) && (
+              <span className="text-[var(--t-text-dim)]"> · {formatSize(selectedEntries.filter((f) => !f.isDir).reduce((acc, f) => acc + f.size, 0))}</span>
+            )}
+          </span>
+          <button
+            className="ml-auto text-xs text-[var(--t-text-dim)] transition-colors px-1.5 py-0.5 rounded"
+            style={{ background: "transparent" }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-bg-card-hover)"; e.currentTarget.style.color = "var(--t-text-secondary)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
+            onClick={() => setSelection([])}
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {menuPos && (
         <ContextMenu

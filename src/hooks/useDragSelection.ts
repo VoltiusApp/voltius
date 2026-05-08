@@ -37,6 +37,8 @@ export function useDragSelection(orderedIds: string[]): UseDragSelectionResult {
     baseSelected: Set<string>;
     mode: SelectionMode;
   } | null>(null);
+  const autoScrollRafRef = useRef<number | null>(null);
+  const autoScrollSpeedRef = useRef(0);
   const [dragRect, setDragRect] = useState<DragRect | null>(null);
 
   const orderedIdSet = useMemo(() => new Set(orderedIds), [orderedIds]);
@@ -150,6 +152,7 @@ export function useDragSelection(orderedIds: string[]): UseDragSelectionResult {
     event.preventDefault();
     const startX = event.clientX;
     const startY = event.clientY;
+    const startScrollTop = itemAreaRef.current?.scrollTop ?? 0;
     const hasToggleModifier = event.ctrlKey || event.metaKey;
     const hasAddModifier = event.shiftKey;
     const mode: SelectionMode = hasAddModifier ? "add" : hasToggleModifier ? "toggle" : "replace";
@@ -157,33 +160,92 @@ export function useDragSelection(orderedIds: string[]): UseDragSelectionResult {
     if (mode === "replace") setSelectedIds([]);
     setDragRect({ startX, startY, endX: startX, endY: startY });
 
-    const onMouseMove = (ev: MouseEvent) => {
-      setDragRect({ startX, startY, endX: ev.clientX, endY: ev.clientY });
-      updateSelectedFromRect(startX, startY, ev.clientX, ev.clientY);
+    // Adjusts startY in viewport-space to follow content as the list scrolls,
+    // keeping the drag anchor pinned to the item it started on.
+    const getAnchorY = () => startY - ((itemAreaRef.current?.scrollTop ?? startScrollTop) - startScrollTop);
+
+    let currentEndX = startX;
+    let currentEndY = startY;
+
+    const updateRect = (endX: number, endY: number) => {
+      const anchorY = getAnchorY();
+      setDragRect({ startX, startY: anchorY, endX, endY });
+      updateSelectedFromRect(startX, anchorY, endX, endY);
     };
+
+    // Scroll starts inside the container within SCROLL_ZONE px of the edge (speed = 0
+    // at zone boundary, scaling up) and continues outside (no cap change).
+    // Matches Windows Explorer: slow near edge, fast when dragged well past it.
+    const SCROLL_ZONE = 60;
+    const MAX_SCROLL_SPEED = 28;
+
+    const tickAutoScroll = () => {
+      const speed = autoScrollSpeedRef.current;
+      if (speed === 0) { autoScrollRafRef.current = null; return; }
+      const itemArea = itemAreaRef.current;
+      if (itemArea) {
+        itemArea.scrollTop += speed;
+        updateRect(currentEndX, currentEndY);
+      }
+      autoScrollRafRef.current = requestAnimationFrame(tickAutoScroll);
+    };
+
+    const onMouseMove = (ev: MouseEvent) => {
+      currentEndX = ev.clientX;
+      currentEndY = ev.clientY;
+      updateRect(currentEndX, currentEndY);
+
+      const itemArea = itemAreaRef.current;
+      if (itemArea) {
+        const bounds = itemArea.getBoundingClientRect();
+        // pull > 0 when cursor is within SCROLL_ZONE of edge (inside) or past it (outside)
+        const topPull = bounds.top + SCROLL_ZONE - ev.clientY;
+        const bottomPull = ev.clientY - (bounds.bottom - SCROLL_ZONE);
+        let speed = 0;
+        if (topPull > 0)
+          speed = -Math.min(Math.ceil(topPull * 0.45), MAX_SCROLL_SPEED);
+        else if (bottomPull > 0)
+          speed = Math.min(Math.ceil(bottomPull * 0.45), MAX_SCROLL_SPEED);
+        autoScrollSpeedRef.current = speed;
+        if (speed !== 0 && autoScrollRafRef.current === null)
+          autoScrollRafRef.current = requestAnimationFrame(tickAutoScroll);
+      }
+    };
+
+    const onScroll = () => updateRect(currentEndX, currentEndY);
 
     const onMouseUp = () => {
       setDragRect(null);
       dragSelectionRef.current = null;
+      autoScrollSpeedRef.current = 0;
+      if (autoScrollRafRef.current !== null) {
+        cancelAnimationFrame(autoScrollRafRef.current);
+        autoScrollRafRef.current = null;
+      }
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
+      itemAreaRef.current?.removeEventListener("scroll", onScroll);
     };
 
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
+    itemAreaRef.current?.addEventListener("scroll", onScroll);
   };
 
-  // Drag box in viewport coordinates (used with position:fixed rendering).
-  // The hit-test already uses clientX/clientY + getBoundingClientRect(), so no
-  // scroll offset is needed here either.
   const dragBox = useMemo(() => {
     if (!dragRect) return null;
-    return {
-      left: Math.min(dragRect.startX, dragRect.endX),
-      top: Math.min(dragRect.startY, dragRect.endY),
-      width: Math.abs(dragRect.endX - dragRect.startX),
-      height: Math.abs(dragRect.endY - dragRect.startY),
-    };
+    const rawLeft   = Math.min(dragRect.startX, dragRect.endX);
+    const rawTop    = Math.min(dragRect.startY, dragRect.endY);
+    const rawRight  = Math.max(dragRect.startX, dragRect.endX);
+    const rawBottom = Math.max(dragRect.startY, dragRect.endY);
+    // Clamp visual box to the scroll container so it never renders outside it.
+    const b = itemAreaRef.current?.getBoundingClientRect();
+    const left   = b ? Math.max(rawLeft,   b.left)   : rawLeft;
+    const top    = b ? Math.max(rawTop,    b.top)    : rawTop;
+    const right  = b ? Math.min(rawRight,  b.right)  : rawRight;
+    const bottom = b ? Math.min(rawBottom, b.bottom) : rawBottom;
+    if (right <= left || bottom <= top) return null;
+    return { left, top, width: right - left, height: bottom - top };
   }, [dragRect]);
 
   const selectSingle = (id: string) => {
