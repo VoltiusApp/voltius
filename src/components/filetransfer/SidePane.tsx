@@ -1,4 +1,6 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
 import { getDistroIcon, getDistroColor } from "@/utils/icons";
 import { type HostChoice, type SidePhase, type FileEntry } from "./SFTPTypes";
@@ -6,6 +8,28 @@ import { HostPickerPanel } from "@/components/shared/HostPickerPanel";
 import { FilePane } from "./FilePane";
 import ConnectionOverlay, { SFTP_STEPS } from "@/components/terminal/ConnectionOverlay";
 import { FilterInput } from "@/components/shared/ToolbarViewControls";
+import { useHostPingStore } from "@/stores/hostPingStore";
+import { useConnectionStore } from "@/stores/connectionStore";
+
+function latencyColor(ms: number): string {
+  if (ms < 50) return "var(--t-status-connected)";
+  if (ms < 150) return "var(--t-status-warning)";
+  return "var(--t-status-error)";
+}
+
+const SPARKLINE_MAX = 20;
+
+function sparklinePoints(values: number[], width: number, height: number): string {
+  if (values.length < 2) return "";
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  return values.map((v, i) => {
+    const x = (i / (values.length - 1)) * width;
+    const y = height - ((v - min) / range) * (height - 2) - 1;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+}
 
 export function SidePane({
   host, phase, refreshTick,
@@ -46,6 +70,55 @@ export function SidePane({
   const [filterQuery, setFilterQuery] = useState("");
   const menuBtnRef = useRef<HTMLButtonElement>(null);
   const [menuOpener, setMenuOpener] = useState<((el: HTMLElement) => void) | null>(null);
+
+  // ── Latency / ping ──────────────────────────────────────────────────────────
+  const connectionId = host?.kind === "remote" ? host.connection.id : undefined;
+  const connection = useConnectionStore((s) => connectionId ? s.connections.find((c) => c.id === connectionId) : undefined);
+  const pingEnabled = useHostPingStore((s) => s.enabled);
+  const activePollIntervalMs = useHostPingStore((s) => s.activePollIntervalMs);
+  const setStatus = useHostPingStore((s) => s.setStatus);
+  const pingStatus = useHostPingStore((s) => connectionId ? s.statuses[connectionId] : undefined);
+  const latencyMs = useHostPingStore((s) => connectionId ? s.latencies[connectionId] : undefined);
+
+  const latencyHistoryRef = useRef<number[]>([]);
+  const [showSparkline, setShowSparkline] = useState(false);
+  const [sparklineSnapshot, setSparklineSnapshot] = useState<number[]>([]);
+  const latencyTriggerRef = useRef<HTMLDivElement>(null);
+  const [latencyRect, setLatencyRect] = useState<DOMRect | null>(null);
+
+  useEffect(() => {
+    if (pingStatus === "up" && latencyMs !== undefined) {
+      const buf = latencyHistoryRef.current;
+      buf.push(latencyMs);
+      if (buf.length > SPARKLINE_MAX) buf.shift();
+    }
+  }, [latencyMs, pingStatus]);
+
+  useEffect(() => {
+    if (showSparkline) setSparklineSnapshot([...latencyHistoryRef.current]);
+  }, [showSparkline]);
+
+  useEffect(() => {
+    if (!pingEnabled || !connectionId || !connection) return;
+    if (connection.jump_hosts?.length) return;
+
+    let cancelled = false;
+    const ping = async () => {
+      try {
+        const ms = await invoke<number | null>("ping_host", { host: connection.host, port: connection.port });
+        if (!cancelled) {
+          if (ms !== null && ms !== undefined) setStatus(connectionId, "up", ms);
+          else setStatus(connectionId, "down");
+        }
+      } catch {
+        if (!cancelled) setStatus(connectionId, "unknown");
+      }
+    };
+
+    ping();
+    const interval = setInterval(ping, activePollIntervalMs);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [pingEnabled, connectionId, connection, activePollIntervalMs, setStatus]);
 
   // ── Navigation history ──────────────────────────────────────────────────────
   const historyRef = useRef<string[]>([]);
@@ -120,6 +193,20 @@ export function SidePane({
             {hostLabel ?? "Choose host…"}
           </span>
         </button>
+
+        {phase.tag === "connected" && pingStatus === "up" && latencyMs !== undefined && (
+          <div
+            ref={latencyTriggerRef}
+            className="flex items-center gap-1 px-1 cursor-default"
+            style={{ fontSize: 11 }}
+            onMouseEnter={() => { if (latencyTriggerRef.current) setLatencyRect(latencyTriggerRef.current.getBoundingClientRect()); setShowSparkline(true); }}
+            onMouseLeave={() => setShowSparkline(false)}
+            title={`${latencyMs}ms`}
+          >
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: latencyColor(latencyMs), flexShrink: 0, transition: "background 0.4s" }} />
+            <span style={{ color: latencyColor(latencyMs), fontVariantNumeric: "tabular-nums" }}>{latencyMs}ms</span>
+          </div>
+        )}
 
         {phase.tag === "connected" && (
           <div className="ml-auto flex items-center gap-1">
@@ -205,6 +292,39 @@ export function SidePane({
           />
         )}
       </div>
+
+      {showSparkline && latencyRect && sparklineSnapshot.length >= 2 && createPortal(
+        (() => {
+          const spMin = Math.min(...sparklineSnapshot);
+          const spMax = Math.max(...sparklineSnapshot);
+          const spAvg = Math.round(sparklineSnapshot.reduce((a, b) => a + b, 0) / sparklineSnapshot.length);
+          const spPoints = sparklinePoints(sparklineSnapshot, 80, 20);
+          return (
+            <div style={{
+              position: "fixed",
+              top: latencyRect.bottom + 6,
+              left: latencyRect.left,
+              background: "var(--t-bg-card)",
+              border: "1px solid var(--t-border)",
+              borderRadius: 8,
+              padding: "8px 10px",
+              zIndex: 100,
+              boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+              pointerEvents: "none",
+            }}>
+              <svg width={80} height={20} style={{ display: "block" }}>
+                <polyline points={spPoints} fill="none" stroke={latencyColor(spAvg)} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+              </svg>
+              <div style={{ marginTop: 4, display: "flex", gap: 8, color: "var(--t-text-dim)", fontSize: 10, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                <span>min {spMin}ms</span>
+                <span>avg {spAvg}ms</span>
+                <span>max {spMax}ms</span>
+              </div>
+            </div>
+          );
+        })(),
+        document.body,
+      )}
     </div>
   );
 }

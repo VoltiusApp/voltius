@@ -357,7 +357,7 @@ export function FilePane({
       <div className="flex items-center gap-1.5 px-2 py-1.5 shrink-0 border-b border-b-[var(--t-border)]">
         <IconBtn icon="lucide:arrow-up" title="Parent directory" onClick={goUp} />
         <IconBtn icon="lucide:home" title="Home directory" onClick={handleGoHome} />
-        <div className="flex-1 flex items-center min-w-0 px-1.5 rounded-md" style={{ background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)" }}>
+        <div className="flex-1 flex items-center min-w-0 px-1.5 rounded-md">
           <PathBreadcrumb cwd={cwd} isLocal={isLocal} onNavigate={onNavigate} />
           {isLocal && <IconBtn icon="lucide:folder-open" title="Browse…" onClick={handlePickLocal} />}
         </div>
@@ -436,6 +436,7 @@ export function FilePane({
           onCancel={() => { const r = confirmDialog.resolve; setConfirmDialog(null); r(false); }}
         />
       )}
+
     </div>
   );
 }
@@ -716,22 +717,24 @@ function ColumnHeaders({ sortCol, sortDir, isLocal, colWidths, visibleCols, onSo
   onResize: (col: FileColumn, w: number) => void;
 }) {
   const chevron = (col: SortCol) => sortCol === col
-    ? <Icon icon={sortDir === "asc" ? "lucide:chevron-up" : "lucide:chevron-down"} width={10} className="shrink-0" />
+    ? <Icon icon={sortDir === "asc" ? "lucide:chevron-up" : "lucide:chevron-down"} width={9} className="shrink-0" style={{ opacity: 0.7 }} />
     : null;
 
   const nameActive = sortCol === "name";
   const dataColumns = visibleDataColumns(isLocal, visibleCols);
+  const labelStyle: React.CSSProperties = { fontSize: "0.6875rem", fontWeight: 600, letterSpacing: "0.055em", textTransform: "uppercase" };
+
   return (
-    <div className="flex items-stretch gap-2 h-7 pl-5 pr-3 shrink-0 overflow-hidden" style={{ background: "var(--t-bg-elevated)", borderBottom: "1px solid var(--t-border-hover)" }}>
-      {/* Name — flex-1 fills remaining space; minWidth comes from resize handle */}
+    <div className="flex items-stretch gap-2 h-6 pl-5 pr-3 shrink-0 overflow-hidden" style={{ borderBottom: "1px solid var(--t-border)" }}>
       <button
         onClick={() => onSort("name")}
-        className="relative flex-1 min-w-0 flex h-full items-center gap-0.5 text-xs font-medium transition-colors text-left"
+        className="relative flex-1 min-w-0 flex h-full items-center gap-0.5 text-left transition-colors"
         style={{ minWidth: colWidths.name, color: nameActive ? "var(--t-text-secondary)" : "var(--t-text-dim)" }}
         onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-secondary)"; }}
         onMouseLeave={(e) => { e.currentTarget.style.color = nameActive ? "var(--t-text-secondary)" : "var(--t-text-dim)"; }}
       >
-        <span className="truncate">Name</span> {chevron("name")}
+        <span className="truncate" style={labelStyle}>Name</span>
+        {chevron("name")}
         <ResizeHandle column="name" width={colWidths.name} onWidth={(w) => onResize("name", w)} />
       </button>
 
@@ -742,15 +745,13 @@ function ColumnHeaders({ sortCol, sortDir, isLocal, colWidths, visibleCols, onSo
           <button
             key={col}
             onClick={() => onSort(col as SortCol)}
-            className="relative flex h-full items-center justify-start gap-0.5 pl-2 pr-2 text-xs font-medium transition-colors shrink-0 text-left"
+            className="relative flex h-full items-center justify-start gap-0.5 pl-2 pr-2 shrink-0 text-left transition-colors"
             style={{ width: colWidths[col], color: active ? "var(--t-text-secondary)" : "var(--t-text-dim)" }}
             onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-secondary)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = active ? "var(--t-text-secondary)" : "var(--t-text-dim)"; }}
           >
-            {/* left separator */}
-            <div className="absolute left-0 inset-y-0 w-px" style={{ background: "var(--t-border-hover)", opacity: 0.75 }} />
             {chevron(col as SortCol)}
-            <span className="truncate">{label}</span>
+            <span className="truncate" style={labelStyle}>{label}</span>
             <ResizeHandle column={col} width={colWidths[col]} onWidth={(w) => onResize(col, w)} />
           </button>
         );
