@@ -245,6 +245,11 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
   ];
 
   const beginDrag = (e: React.MouseEvent) => {
+    if (e.button === 1) {
+      e.preventDefault();
+      handleClosePane();
+      return;
+    }
     if (e.button !== 0) return;
     useDragStore.getState().beginPaneDrag(paneId, session.id, e.clientX, e.clientY);
   };
