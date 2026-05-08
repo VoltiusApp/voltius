@@ -187,12 +187,12 @@ export function ActiveTunnelsSection() {
                     <p className="truncate text-base font-bold text-[var(--t-text-bright)]">{session.connectionName}</p>
                     <span className="h-2 w-2 shrink-0 rounded-full bg-green-500" title="Connected" />
                   </div>
-                  <p className="truncate text-xs text-[var(--t-text-muted)]">
+                  <p className="truncate text-xs text-[var(--t-text-dim)]">
                     {connection ? `${connection.username}@${connection.host}:${connection.port}` : session.id}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
-                  <span className="rounded-full bg-[var(--t-bg-elevated)] px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--t-text-secondary)]">
+                  <span className="rounded-md bg-[var(--t-bg-input)] text-[var(--t-text-dim)] border border-[var(--t-border)] px-2 py-1 text-[10px] font-semibold uppercase tracking-wider">
                     {totalForwards} forward{totalForwards === 1 ? "" : "s"}
                   </span>
                   {errorCount > 0 ? (
