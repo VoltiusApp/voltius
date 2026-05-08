@@ -42,6 +42,19 @@ async function fetchWithTimeout(input: string, init?: RequestInit, timeoutMs = 1
     if (e instanceof Error && e.name === "AbortError") {
       throw new Error("Server unreachable (timeout) — check your internet connection and server URL");
     }
+
+    try {
+      const native = await invoke<{ status: number; body: string }>("account_http_request", {
+        url: input,
+        method: init?.method ?? "GET",
+        body: typeof init?.body === "string" ? init.body : null,
+      });
+      return new Response(native.body, { status: native.status });
+    } catch (nativeError) {
+      const nativeMsg = nativeError instanceof Error ? nativeError.message : String(nativeError);
+      if (nativeMsg) throw new Error(`Network error — ${nativeMsg}`);
+    }
+
     // WebView2 / network errors are often opaque objects; normalise them.
     const msg = e instanceof Error ? e.message : String(e);
     throw new Error(`Network error — ${msg}`);
