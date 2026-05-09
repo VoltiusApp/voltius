@@ -10,7 +10,7 @@ import { findLeaf, getPaneSessionIds, useLayoutStore, type SplitPosition } from 
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
-import { getDistroColor, getDistroIcon, getDistroLabel } from "@/utils/icons";
+import { getConnectionIcon, getConnectionIconColor, getDistroColor, getDistroIcon, getDistroLabel } from "@/utils/icons";
 import { sshGetSystemInfo, type SystemInfo } from "@/services/ssh";
 import type { TerminalSession } from "@/types";
 
@@ -100,9 +100,11 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
 
   const isMaximized = maximizedPaneId === paneId;
   const excludedFromBroadcast = broadcastActive && (session.type === "multiplayer" || (!!mpState && mpState.controlHolder !== "" && mpState.controlHolder !== mpState.myUserId));
-  const distroIcon = session.type === "ssh" && connection?.distro ? getDistroIcon(connection.distro) : null;
-  const icon = distroIcon ?? (session.type === "local" ? "lucide:terminal" : session.type === "serial" ? "lucide:ethernet-port" : "lucide:radio-tower");
-  const iconBg = connection?.distro ? getDistroColor(connection.distro) : undefined;
+  const connectionIcon = session.type === "ssh" && connection ? (connection.icon || connection.distro) : null;
+  const displayConnectionIcon = connectionIcon ? getConnectionIcon(connectionIcon) : null;
+  const showDistroPopover = !!connection?.distro;
+  const icon = displayConnectionIcon ?? (session.type === "local" ? "lucide:terminal" : session.type === "serial" ? "lucide:ethernet-port" : "lucide:radio-tower");
+  const iconBg = connectionIcon ? getConnectionIconColor(connectionIcon) : undefined;
   const subtitle = session.type === "serial" && session.serialConfig
     ? `${session.serialConfig.port} · ${session.serialConfig.baud}`
     : session.type === "ssh" && connection
@@ -270,15 +272,15 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
       <div onMouseDown={beginDrag} className="min-w-0 flex-1 flex items-center gap-2 cursor-grab active:cursor-grabbing self-stretch">
         <span
           ref={distroTriggerRef}
-          className={`size-5 rounded-md flex items-center justify-center shrink-0 transition-opacity${distroIcon ? " hover:opacity-75 cursor-pointer" : ""}`}
+          className={`size-5 rounded-md flex items-center justify-center shrink-0 transition-opacity${showDistroPopover ? " hover:opacity-75 cursor-pointer" : ""}`}
           style={{
             background: iconBg ?? "var(--t-bg-elevated)",
             color: iconBg ? "#fff" : "var(--t-text-secondary)",
           }}
-          onMouseEnter={distroIcon ? handleDistroMouseEnter : undefined}
-          onMouseLeave={distroIcon ? () => setShowDistroInfo(false) : undefined}
-          onMouseDown={distroIcon ? (e) => e.stopPropagation() : undefined}
-          onClick={distroIcon ? handleDistroClick : undefined}
+          onMouseEnter={showDistroPopover ? handleDistroMouseEnter : undefined}
+          onMouseLeave={showDistroPopover ? () => setShowDistroInfo(false) : undefined}
+          onMouseDown={showDistroPopover ? (e) => e.stopPropagation() : undefined}
+          onClick={showDistroPopover ? handleDistroClick : undefined}
         >
           <Icon icon={icon} width={13} />
         </span>
@@ -350,9 +352,9 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
       {pos && <ContextMenu items={menuItems} pos={pos} onClose={close} />}
 
       {/* Distro popover — portal to escape overflow-hidden pane */}
-      {showDistroInfo && distroRect && distroIcon && connection?.distro && createPortal(
+      {showDistroInfo && distroRect && showDistroPopover && connection?.distro && createPortal(
         <div style={{ ...tooltipStyle, top: distroRect.bottom + 6, left: distroRect.left, display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap" }}>
-          <Icon icon={distroIcon} width={22} style={{ color: getDistroColor(connection.distro), flexShrink: 0 }} />
+          <Icon icon={getDistroIcon(connection.distro)} width={22} style={{ color: getDistroColor(connection.distro), flexShrink: 0 }} />
           {copiedDistro ? (
             <span style={{ color: "var(--t-text-primary)", fontSize: 11 }}>Copied!</span>
           ) : (

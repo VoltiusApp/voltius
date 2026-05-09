@@ -8,7 +8,7 @@ import { useMultiplayerHostBroadcast } from "@/hooks/useMultiplayerHostBroadcast
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
-import { getDistroIcon } from "@/utils/icons";
+import { getConnectionIcon } from "@/utils/icons";
 import { EphemeralSerialConfigOverlay } from "@/components/connections/EphemeralSerialConfigOverlay";
 import type { TerminalSession } from "@/types";
 
@@ -57,7 +57,8 @@ function SplitConnectionOverlay({
     );
   }
 
-  const icon = connection?.distro ? (getDistroIcon(connection.distro) ?? "lucide:monitor") : "lucide:monitor";
+  const displayIcon = connection ? (connection.icon || connection.distro) : null;
+  const icon = displayIcon ? (getConnectionIcon(displayIcon) ?? "lucide:monitor") : "lucide:monitor";
   const subtitle = connection ? `${connection.username}@${connection.host}:${connection.port}` : undefined;
   return (
     <ConnectionOverlay

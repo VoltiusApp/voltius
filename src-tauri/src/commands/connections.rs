@@ -49,6 +49,7 @@ pub fn connection_save(data: ConnectionFormData) -> Result<Connection, String> {
     clocks.insert("post_command".to_string(), now.clone());
     clocks.insert("terminal_encoding".to_string(), now.clone());
     clocks.insert("distro".to_string(), now.clone());
+    clocks.insert("icon".to_string(), now.clone());
     clocks.insert("connection_type".to_string(), now.clone());
     clocks.insert("serial_port".to_string(), now.clone());
     clocks.insert("serial_baud".to_string(), now.clone());
@@ -69,6 +70,7 @@ pub fn connection_save(data: ConnectionFormData) -> Result<Connection, String> {
         created_at: now.clone(),
         last_used_at: None,
         distro: data.distro,
+        icon: data.icon,
         identity_id: data.identity_id,
         folder_id: data.folder_id,
         vault_id,
@@ -160,6 +162,9 @@ pub fn connection_update(id: String, data: ConnectionFormData) -> Result<Connect
     if data.distro.is_some() && conn.distro != data.distro {
         conn.clocks.insert("distro".to_string(), now.clone());
     }
+    if data.icon.is_some() && conn.icon != data.icon {
+        conn.clocks.insert("icon".to_string(), now.clone());
+    }
     if conn.ping_disabled != data.ping_disabled {
         conn.clocks.insert("ping_disabled".to_string(), now.clone());
     }
@@ -218,6 +223,9 @@ pub fn connection_update(id: String, data: ConnectionFormData) -> Result<Connect
     conn.terminal_encoding = data.terminal_encoding;
     if data.distro.is_some() {
         conn.distro = data.distro;
+    }
+    if data.icon.is_some() {
+        conn.icon = data.icon;
     }
     conn.pinned = data.pinned;
     conn.ping_disabled = data.ping_disabled;

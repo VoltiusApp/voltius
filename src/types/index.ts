@@ -97,6 +97,7 @@ export interface Connection {
   created_at: string;
   last_used_at: string | null;
   distro?: string;
+  icon?: string;
   identity_id?: string;
   folder_id?: string;
   vault_id?: string;
@@ -137,6 +138,7 @@ export interface ConnectionFormData {
   post_command?: string;
   terminal_encoding?: string;
   distro?: string;
+  icon?: string;
   pinned?: boolean;
   ping_disabled?: boolean;
   connection_type?: "ssh" | "serial";

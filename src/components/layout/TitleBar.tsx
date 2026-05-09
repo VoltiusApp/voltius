@@ -5,7 +5,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useThemeStore } from "@/stores/themeStore";
-import { getDistroIcon, getDistroColor } from "@/utils/icons";
+import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { getSyncState, onSyncStateChange, type SyncStatus } from "@/services/sync";
 import { getGistSyncState, onGistSyncStateChange } from "@/plugins/gist-sync/sync-engine";
 import { getUpdaterState, onUpdaterStateChange, installUpdate, type UpdaterStatus } from "@/services/updater";
@@ -333,8 +333,9 @@ export default function TitleBar() {
                                               "var(--t-text-muted)";
           const connection = connections.find((c) => c.id === session.connectionId);
           const isLocal = session.type === "local";
-          const distroIcon = !isActive && !isLocal && connection?.distro ? getDistroIcon(connection.distro) : null;
-          const distroBg = distroIcon && connection?.distro ? getDistroColor(connection.distro) : null;
+          const connectionIcon = !isActive && !isLocal && connection ? (connection.icon || connection.distro) : null;
+          const distroIcon = connectionIcon ? getConnectionIcon(connectionIcon) : null;
+          const distroBg = connectionIcon ? getConnectionIconColor(connectionIcon) : null;
 
           return (
             <div key={item.key} className="contents">
@@ -593,8 +594,9 @@ function DetachedPanePreview({ session }: { session: ReturnType<typeof useSessio
   const connections = useConnectionStore((s) => s.connections);
   const connection = connections.find((c) => c.id === session.connectionId);
   const isLocal = session.type === "local";
-  const distroIcon = !isLocal && connection?.distro ? getDistroIcon(connection.distro) : null;
-  const distroBg = distroIcon && connection?.distro ? getDistroColor(connection.distro) : null;
+  const connectionIcon = !isLocal && connection ? (connection.icon || connection.distro) : null;
+  const distroIcon = connectionIcon ? getConnectionIcon(connectionIcon) : null;
+  const distroBg = connectionIcon ? getConnectionIconColor(connectionIcon) : null;
   const statusColor =
     session.status === "connected"  ? "var(--t-status-connected)" :
     session.status === "error"      ? "var(--t-status-error)" :

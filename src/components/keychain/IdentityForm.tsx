@@ -19,7 +19,7 @@ import { PinButton } from "@/components/shared/PinButton";
 import { TagBadge } from "@/components/shared/TagBadge";
 import { useIdentityStore } from "@/stores/identityStore";
 import { KeyFileDropZone } from "./KeyForm";
-import { getDistroIcon, getDistroColor } from "@/utils/icons";
+import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import type { AuthType, Connection, Identity, IdentityFormData } from "@/types";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
@@ -463,8 +463,9 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
           <FormSection label="Linked to">
             <div className="space-y-1 p-1">
               {linkedHosts.map((c) => {
-                const distroIcon = c.distro ? getDistroIcon(c.distro) : null;
-                const distroBg = c.distro ? getDistroColor(c.distro) : null;
+                const displayIcon = c.icon || c.distro;
+                const distroIcon = displayIcon ? getConnectionIcon(displayIcon) : null;
+                const distroBg = displayIcon ? getConnectionIconColor(displayIcon) : null;
                 return (
                   <div
                     key={c.id}

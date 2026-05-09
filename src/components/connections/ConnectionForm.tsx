@@ -22,7 +22,7 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { Toggle } from "@/components/shared/Toggle";
-import { DISTRO_OPTIONS, getDistroColor, getDistroIcon, getDistroLabel, normalizeDistro } from "@/utils/icons";
+import { CONNECTION_ICON_OPTIONS, getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, normalizeDistro } from "@/utils/icons";
 import {
   PanelShell,
   PanelHeader,
@@ -74,6 +74,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [postCommand, setPostCommand] = useState(initial?.post_command ?? "");
   const [terminalEncoding, setTerminalEncoding] = useState(initial?.terminal_encoding ?? "");
   const [distro, setDistro] = useState(initial?.distro ?? "");
+  const [icon, setIcon] = useState(initial?.icon ?? "");
   const [showDistroPicker, setShowDistroPicker] = useState(false);
   const [distroSearch, setDistroSearch] = useState("");
   const [detectingDistro, setDetectingDistro] = useState(false);
@@ -187,6 +188,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         post_command: postCommand.trim() || undefined,
         terminal_encoding: terminalEncoding || undefined,
         distro: distro || undefined,
+        icon: icon || undefined,
         ping_disabled: pingDisabled || undefined,
       } as ConnectionFormData,
       password: passwordDirty.current ? password : null,
@@ -202,7 +204,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, host, port, username, password, privateKey, identityId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, preCommand, postCommand, terminalEncoding, distro, pingDisabled]);
+  useEffect(() => schedule(), [name, host, port, username, password, privateKey, identityId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, preCommand, postCommand, terminalEncoding, distro, icon, pingDisabled]);
 
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
@@ -213,20 +215,28 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
     setShowDistroPicker((v) => !v);
   };
 
-  const filteredDistros = useMemo(() => {
+  const visibleIcon = icon || distro;
+
+  const filteredIcons = useMemo(() => {
     const query = distroSearch.trim().toLowerCase();
-    if (!query) return DISTRO_OPTIONS;
-    return DISTRO_OPTIONS.filter((option) => option.label.toLowerCase().includes(query) || option.id.includes(query));
+    if (!query) return CONNECTION_ICON_OPTIONS;
+    return CONNECTION_ICON_OPTIONS.filter((option) => option.label.toLowerCase().includes(query) || option.id.includes(query) || option.group.toLowerCase().includes(query));
   }, [distroSearch]);
 
-  const applyDistro = useCallback((nextDistro: string) => {
+  const applyIcon = useCallback((nextIcon: string) => {
+    setIcon(nextIcon);
+    setDistroError("");
+    markDirty();
+  }, [markDirty]);
+
+  const applyDetectedDistro = useCallback((nextDistro: string) => {
     const normalized = normalizeDistro(nextDistro);
     setDistro(normalized);
+    setIcon(normalized);
     setDistroError("");
+    markDirty();
     if (initial) {
       void setConnectionDistro(initial.id, normalized).catch((err) => setDistroError(String(err)));
-    } else {
-      markDirty();
     }
   }, [initial, markDirty, setConnectionDistro]);
 
@@ -260,13 +270,13 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
       });
       const idLine = output.split(/\r?\n/).find((line) => line.startsWith("ID="));
       const detected = normalizeDistro(idLine?.slice(3).trim().replace(/^\"|\"$/g, "") || "linux");
-      applyDistro(detected);
+      applyDetectedDistro(detected);
     } catch (err) {
       setDistroError(String(err));
     } finally {
       setDetectingDistro(false);
     }
-  }, [applyDistro, host, identityId, initial, password, port, privateKey, selectedIdentity, username]);
+  }, [applyDetectedDistro, host, identityId, initial, password, port, privateKey, selectedIdentity, username]);
 
   const panelItems = initial ? buildConnectionMenuItems({
     canEdit,
@@ -311,11 +321,11 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                   type="button"
                   onClick={toggleDistroPicker}
                   className="w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0 border border-[var(--t-border)] hover:border-[var(--t-border-hover)] transition-colors"
-                  style={{ background: distro ? getDistroColor(distro) : "var(--t-bg-card-avatar)" }}
-                  title={distro ? `Change icon (${getDistroLabel(distro)})` : "Change icon"}
+                  style={{ background: visibleIcon ? getConnectionIconColor(visibleIcon) : "var(--t-bg-card-avatar)" }}
+                  title={visibleIcon ? `Change icon (${getConnectionIconLabel(visibleIcon)})` : "Change icon"}
                   aria-label="Change connection icon"
                 >
-                  <Icon icon={distro ? getDistroIcon(distro) : "lucide:server"} width={18} />
+                  <Icon icon={visibleIcon ? getConnectionIcon(visibleIcon) : "lucide:server"} width={18} />
                 </button>
                 <input
                   className={formInputClass}
@@ -345,18 +355,18 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                         style={formInputStyle}
                         value={distroSearch}
                         onChange={(e) => setDistroSearch(e.target.value)}
-                        placeholder="Search distro"
+                        placeholder="Search icon"
                         autoFocus
                       />
                     </div>
                     <div className="grid grid-cols-4 gap-2 max-h-52 overflow-y-auto pr-1">
-                      {filteredDistros.map((option) => {
-                        const selected = normalizeDistro(distro || "linux") === option.id && !!distro;
+                      {filteredIcons.map((option) => {
+                        const selected = visibleIcon === option.id;
                         return (
                           <button
                             key={option.id}
                             type="button"
-                            onClick={() => { applyDistro(option.id); setShowDistroPicker(false); }}
+                            onClick={() => { applyIcon(option.id); setShowDistroPicker(false); }}
                             className="flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-colors"
                             style={{
                               background: selected
@@ -378,8 +388,8 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                             }}
                             title={option.label}
                           >
-                            <span className="w-8 h-8 rounded-lg flex items-center justify-center text-white" style={{ background: getDistroColor(option.id) }}>
-                              <Icon icon={getDistroIcon(option.id)} width={16} />
+                            <span className="w-8 h-8 rounded-lg flex items-center justify-center text-white" style={{ background: getConnectionIconColor(option.id) }}>
+                              <Icon icon={getConnectionIcon(option.id)} width={16} />
                             </span>
                             <span className="text-[10px] text-[var(--t-text-dim)] truncate max-w-full">{option.label}</span>
                           </button>

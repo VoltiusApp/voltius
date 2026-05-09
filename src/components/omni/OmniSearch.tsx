@@ -14,7 +14,7 @@ import {
 } from "@/services/snippetParser";
 import { broadcastSnippetInject } from "@/services/snippets";
 import type { Connection, TerminalSession, SshKey, Identity, Snippet } from "@/types";
-import { getDistroIcon, getDistroColor } from "@/utils/icons";
+import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { SETTINGS_NAV } from "@/components/settings/settingsNav";
 import { useShortcutStore, formatShortcut } from "@/stores/shortcutStore";
 
@@ -62,8 +62,9 @@ function parseSshTarget(raw: string): { user: string; host: string; port: number
 
 
 function HostAvatar({ connection, size = 28 }: { connection: Connection; size?: number }) {
-  const distroIcon = connection.distro ? getDistroIcon(connection.distro) : null;
-  const distroBg = connection.distro ? getDistroColor(connection.distro) : null;
+  const displayIcon = connection.icon || connection.distro;
+  const distroIcon = displayIcon ? getConnectionIcon(displayIcon) : null;
+  const distroBg = displayIcon ? getConnectionIconColor(displayIcon) : null;
   const iconSize = Math.round(size * 0.57);
   if (distroIcon) {
     return (

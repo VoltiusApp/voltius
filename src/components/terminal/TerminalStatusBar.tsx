@@ -370,6 +370,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, serial
     : "Unknown";
 
   const distroIcon = connection?.distro ? getDistroIcon(connection.distro) : null;
+  const showDistroPopover = !!connection?.distro;
 
   const handleCopyHost = () => {
     if (!copyHostText) return;
@@ -506,14 +507,14 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, serial
                   <div
                     className={`flex items-center px-1 ${statusBarItemClass}`}
                     style={{ position: "relative", display: "flex", alignItems: "center" }}
-                    onMouseEnter={handleDistroMouseEnter}
-                    onMouseLeave={() => setShowDistroInfo(false)}
+                    onMouseEnter={showDistroPopover ? handleDistroMouseEnter : undefined}
+                    onMouseLeave={showDistroPopover ? () => setShowDistroInfo(false) : undefined}
                   >
                     <Icon
                       icon={distroIcon}
                       width={12}
                       style={{ flexShrink: 0, color: "var(--t-text-dim)", cursor: "pointer" }}
-                      onClick={() => {
+                      onClick={showDistroPopover ? () => {
                         const text = systemInfo
                           ? `${systemInfo.pretty_name || getDistroLabel(connection.distro!)}${systemInfo.kernel ? ` · ${systemInfo.kernel} ${systemInfo.arch}` : ""}`
                           : getDistroLabel(connection.distro!);
@@ -521,9 +522,9 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, serial
                         setCopiedDistro(true);
                         if (copiedDistroTimeoutRef.current) clearTimeout(copiedDistroTimeoutRef.current);
                         copiedDistroTimeoutRef.current = setTimeout(() => setCopiedDistro(false), 1200);
-                      }}
+                      } : undefined}
                     />
-                    {showDistroInfo && (
+                    {showDistroInfo && showDistroPopover && connection.distro && (
                       <div
                         style={{
                           position: "absolute",
@@ -542,7 +543,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, serial
                           whiteSpace: "nowrap",
                         }}
                       >
-                        <Icon icon={distroIcon} width={22} style={{ color: getDistroColor(connection.distro), flexShrink: 0 }} />
+                        <Icon icon={getDistroIcon(connection.distro)} width={22} style={{ color: getDistroColor(connection.distro), flexShrink: 0 }} />
                         {copiedDistro ? (
                           <span style={{ color: "var(--t-text-primary)", fontSize: 11 }}>Copied!</span>
                         ) : (
