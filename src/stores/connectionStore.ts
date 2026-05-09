@@ -99,6 +99,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         pre_command: data.pre_command,
         post_command: data.post_command,
         terminal_encoding: data.terminal_encoding,
+        distro: data.distro,
         pinned: data.pinned,
         ping_disabled: data.ping_disabled,
         connection_type: data.connection_type,
@@ -178,6 +179,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         pre_command: data.pre_command,
         post_command: data.post_command,
         terminal_encoding: data.terminal_encoding,
+        distro: data.distro ?? prev.distro,
         pinned: data.pinned,
         connection_type: data.connection_type ?? prev.connection_type,
         serial_port: data.serial_port ?? prev.serial_port,
@@ -205,6 +207,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         vault_id: prev.vault_id, jump_hosts: prev.jump_hosts, env_vars: prev.env_vars,
         agent_forwarding: prev.agent_forwarding, pre_command: prev.pre_command,
         post_command: prev.post_command, terminal_encoding: prev.terminal_encoding,
+        distro: prev.distro,
       };
       useHistoryStore.getState().push({
         label: `Updated connection "${prev.name ?? prev.host}"`,
@@ -228,6 +231,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         vault_id: prev.vault_id, jump_hosts: prev.jump_hosts, env_vars: prev.env_vars,
         agent_forwarding: prev.agent_forwarding, pre_command: prev.pre_command,
         post_command: prev.post_command, terminal_encoding: prev.terminal_encoding,
+        distro: prev.distro,
       };
       useHistoryStore.getState().push({
         label: `Updated connection "${prev.name ?? prev.host}"`,
@@ -255,6 +259,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         vault_id: prev.vault_id, jump_hosts: prev.jump_hosts, env_vars: prev.env_vars,
         agent_forwarding: prev.agent_forwarding, pre_command: prev.pre_command,
         post_command: prev.post_command, terminal_encoding: prev.terminal_encoding,
+        distro: prev.distro,
       };
       let recreatedId: string | null = null;
       useHistoryStore.getState().push({
@@ -285,6 +290,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         vault_id: prev.vault_id, jump_hosts: prev.jump_hosts, env_vars: prev.env_vars,
         agent_forwarding: prev.agent_forwarding, pre_command: prev.pre_command,
         post_command: prev.post_command, terminal_encoding: prev.terminal_encoding,
+        distro: prev.distro,
       };
       let recreatedId: string | null = null;
       useHistoryStore.getState().push({
@@ -488,7 +494,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       folder_id: conn.folder_id, vault_id: conn.vault_id, jump_hosts: conn.jump_hosts,
       env_vars: conn.env_vars, agent_forwarding: conn.agent_forwarding,
       pre_command: conn.pre_command, post_command: conn.post_command,
-      terminal_encoding: conn.terminal_encoding, pinned,
+      terminal_encoding: conn.terminal_encoding, distro: conn.distro, pinned,
     });
     set((s) => ({ connections: s.connections.map((c) => c.id === id ? { ...c, pinned } : c) }));
     const prefs = useSyncPrefsStore.getState();

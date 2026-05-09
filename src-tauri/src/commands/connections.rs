@@ -48,6 +48,7 @@ pub fn connection_save(data: ConnectionFormData) -> Result<Connection, String> {
     clocks.insert("pre_command".to_string(), now.clone());
     clocks.insert("post_command".to_string(), now.clone());
     clocks.insert("terminal_encoding".to_string(), now.clone());
+    clocks.insert("distro".to_string(), now.clone());
     clocks.insert("connection_type".to_string(), now.clone());
     clocks.insert("serial_port".to_string(), now.clone());
     clocks.insert("serial_baud".to_string(), now.clone());
@@ -67,7 +68,7 @@ pub fn connection_save(data: ConnectionFormData) -> Result<Connection, String> {
         tags: data.tags,
         created_at: now.clone(),
         last_used_at: None,
-        distro: None,
+        distro: data.distro,
         identity_id: data.identity_id,
         folder_id: data.folder_id,
         vault_id,
@@ -156,6 +157,9 @@ pub fn connection_update(id: String, data: ConnectionFormData) -> Result<Connect
         conn.clocks
             .insert("terminal_encoding".to_string(), now.clone());
     }
+    if data.distro.is_some() && conn.distro != data.distro {
+        conn.clocks.insert("distro".to_string(), now.clone());
+    }
     if conn.ping_disabled != data.ping_disabled {
         conn.clocks.insert("ping_disabled".to_string(), now.clone());
     }
@@ -212,6 +216,9 @@ pub fn connection_update(id: String, data: ConnectionFormData) -> Result<Connect
     conn.pre_command = data.pre_command;
     conn.post_command = data.post_command;
     conn.terminal_encoding = data.terminal_encoding;
+    if data.distro.is_some() {
+        conn.distro = data.distro;
+    }
     conn.pinned = data.pinned;
     conn.ping_disabled = data.ping_disabled;
     conn.connection_type = data.connection_type;

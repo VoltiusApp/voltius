@@ -11,7 +11,7 @@ import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
 import { getPfState } from "@/services/portForwardingTunnels";
 import { sshGetSystemInfo, type SystemInfo } from "@/services/ssh";
 import { metricsStart, metricsStop, onMetricsSnapshot } from "@/services/metrics";
-import { getDistroIcon, getDistroColor } from "@/utils/icons";
+import { getDistroIcon, getDistroColor, getDistroLabel } from "@/utils/icons";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import type { ActiveTunnel, SerialConnectParams } from "@/types";
 import type { MetricsSnapshot } from "@/plugins/monitoring/types";
@@ -82,16 +82,6 @@ function sparklinePoints(values: number[], width: number, height: number): strin
 const SPARKLINE_MAX = 20;
 const statusBarItemClass = "h-full rounded-none transition-colors hover:bg-[var(--t-bg-card-hover)]";
 const statusBarIdentityGroupClass = "flex items-center h-full";
-
-const DISTRO_NAMES: Record<string, string> = {
-  ubuntu: "Ubuntu", debian: "Debian", fedora: "Fedora",
-  centos: "CentOS", arch: "Arch Linux", rhel: "Red Hat Enterprise Linux",
-  opensuse: "openSUSE", kali: "Kali Linux", mint: "Linux Mint",
-  nixos: "NixOS", gentoo: "Gentoo", raspbian: "Raspberry Pi OS",
-};
-function prettifyDistro(d: string): string {
-  return DISTRO_NAMES[d] ?? (d.charAt(0).toUpperCase() + d.slice(1));
-}
 
 export function TerminalStatusBar({ sessionId, sessionType, connectionId, serialConfig, sessionStatus, dimensions }: Props) {
   const connection = useConnectionStore((s) => s.connections.find((c) => c.id === connectionId));
@@ -525,8 +515,8 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, serial
                       style={{ flexShrink: 0, color: "var(--t-text-dim)", cursor: "pointer" }}
                       onClick={() => {
                         const text = systemInfo
-                          ? `${systemInfo.pretty_name || prettifyDistro(connection.distro!)}${systemInfo.kernel ? ` · ${systemInfo.kernel} ${systemInfo.arch}` : ""}`
-                          : prettifyDistro(connection.distro!);
+                          ? `${systemInfo.pretty_name || getDistroLabel(connection.distro!)}${systemInfo.kernel ? ` · ${systemInfo.kernel} ${systemInfo.arch}` : ""}`
+                          : getDistroLabel(connection.distro!);
                         navigator.clipboard.writeText(text).catch(() => {});
                         setCopiedDistro(true);
                         if (copiedDistroTimeoutRef.current) clearTimeout(copiedDistroTimeoutRef.current);
@@ -558,7 +548,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, serial
                         ) : (
                           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                             <span style={{ color: "var(--t-text-primary)", fontSize: 11 }}>
-                              {systemInfo?.pretty_name || prettifyDistro(connection.distro)}
+                              {systemInfo?.pretty_name || getDistroLabel(connection.distro)}
                             </span>
                             {systemInfo?.kernel && (
                               <span style={{ color: "var(--t-text-dim)", fontSize: 10 }}>

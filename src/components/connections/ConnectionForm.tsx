@@ -1,4 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import type { Connection, ConnectionFormData, AuthType, VaultOption, JumpHost, EnvVar } from "@/types";
 import { useIdentityStore } from "@/stores/identityStore";
@@ -6,6 +7,7 @@ import JumpHostsPanel from "./JumpHostsPanel";
 import EnvVarsPanel from "./EnvVarsPanel";
 import { useUIStore } from "@/stores/uiStore";
 import { getSecret } from "@/services/vault";
+import { sshExecCommand } from "@/services/ssh";
 import { useAutosave } from "@/hooks/useAutosave";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
@@ -20,6 +22,7 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { Toggle } from "@/components/shared/Toggle";
+import { DISTRO_OPTIONS, getDistroColor, getDistroIcon, getDistroLabel, normalizeDistro } from "@/utils/icons";
 import {
   PanelShell,
   PanelHeader,
@@ -70,6 +73,12 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [preCommand, setPreCommand] = useState(initial?.pre_command ?? "");
   const [postCommand, setPostCommand] = useState(initial?.post_command ?? "");
   const [terminalEncoding, setTerminalEncoding] = useState(initial?.terminal_encoding ?? "");
+  const [distro, setDistro] = useState(initial?.distro ?? "");
+  const [showDistroPicker, setShowDistroPicker] = useState(false);
+  const [distroSearch, setDistroSearch] = useState("");
+  const [detectingDistro, setDetectingDistro] = useState(false);
+  const [distroError, setDistroError] = useState("");
+  const [distroPickerRect, setDistroPickerRect] = useState<DOMRect | null>(null);
   const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.terminal_encoding || initial?.agent_forwarding || initial?.ping_disabled);
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
   const defaultVaultId = useDefaultVaultId();
@@ -85,6 +94,8 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const passwordDirty = useRef(false);
   const privateKeyDirty = useRef(false);
   const userEditedRef = useRef(false);
+  const distroPickerRef = useRef<HTMLDivElement>(null);
+  const distroPickerMenuRef = useRef<HTMLDivElement>(null);
 
   const { identities, teamIdentities, loadIdentities } = useIdentityStore();
   const relevantIdentities = useMemo(() => {
@@ -101,6 +112,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const { folders, loadFolders } = useFolderStore();
   const setActiveNav = useUIStore((s) => s.setActiveNav);
   const pinConnection = useConnectionStore((s) => s.pinConnection);
+  const setConnectionDistro = useConnectionStore((s) => s.setDistro);
   const isPinned = useConnectionStore((s) => s.connections.find((c) => c.id === initial?.id)?.pinned ?? false);
   const contributions = useUIContributions("connection.panelActions", initial);
   const { toggleExcluded, isObjectSynced } = useSyncPrefsStore();
@@ -110,6 +122,32 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
     void loadIdentities();
     void loadFolders();
   }, [loadIdentities, loadFolders]);
+
+  useEffect(() => {
+    if (!showDistroPicker) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!distroPickerRef.current?.contains(target) && !distroPickerMenuRef.current?.contains(target)) {
+        setShowDistroPicker(false);
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [showDistroPicker]);
+
+  useEffect(() => {
+    if (!showDistroPicker) return;
+    const updateRect = () => {
+      if (distroPickerRef.current) setDistroPickerRect(distroPickerRef.current.getBoundingClientRect());
+    };
+    updateRect();
+    window.addEventListener("resize", updateRect);
+    window.addEventListener("scroll", updateRect, true);
+    return () => {
+      window.removeEventListener("resize", updateRect);
+      window.removeEventListener("scroll", updateRect, true);
+    };
+  }, [showDistroPicker]);
 
   // Load existing secrets when editing
   useEffect(() => {
@@ -148,6 +186,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         pre_command: preCommand.trim() || undefined,
         post_command: postCommand.trim() || undefined,
         terminal_encoding: terminalEncoding || undefined,
+        distro: distro || undefined,
         ping_disabled: pingDisabled || undefined,
       } as ConnectionFormData,
       password: passwordDirty.current ? password : null,
@@ -163,11 +202,71 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, host, port, username, password, privateKey, identityId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, preCommand, postCommand, terminalEncoding, pingDisabled]);
+  useEffect(() => schedule(), [name, host, port, username, password, privateKey, identityId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, preCommand, postCommand, terminalEncoding, distro, pingDisabled]);
 
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
   const handleClose = () => flushAndClose(onClose);
+
+  const toggleDistroPicker = () => {
+    if (distroPickerRef.current) setDistroPickerRect(distroPickerRef.current.getBoundingClientRect());
+    setShowDistroPicker((v) => !v);
+  };
+
+  const filteredDistros = useMemo(() => {
+    const query = distroSearch.trim().toLowerCase();
+    if (!query) return DISTRO_OPTIONS;
+    return DISTRO_OPTIONS.filter((option) => option.label.toLowerCase().includes(query) || option.id.includes(query));
+  }, [distroSearch]);
+
+  const applyDistro = useCallback((nextDistro: string) => {
+    const normalized = normalizeDistro(nextDistro);
+    setDistro(normalized);
+    setDistroError("");
+    if (initial) {
+      void setConnectionDistro(initial.id, normalized).catch((err) => setDistroError(String(err)));
+    } else {
+      markDirty();
+    }
+  }, [initial, markDirty, setConnectionDistro]);
+
+  const detectDistroFromForm = useCallback(async () => {
+    if (!host.trim()) return;
+    setDetectingDistro(true);
+    setDistroError("");
+    try {
+      let detectUsername = username;
+      let detectPassword = password || undefined;
+      let detectPrivateKey = privateKey || undefined;
+
+      if (identityId && selectedIdentity) {
+        detectUsername = selectedIdentity.username;
+        detectPassword = (await getSecret(`identity:${identityId}:password`).catch(() => null)) ?? undefined;
+        detectPrivateKey = selectedIdentity.key_id
+          ? (await getSecret(`key:${selectedIdentity.key_id}:private`).catch(() => null)) ?? undefined
+          : undefined;
+      } else if (initial) {
+        detectPassword = passwordDirty.current ? (password || undefined) : ((await getSecret(`password:${initial.id}`).catch(() => null)) ?? undefined);
+        detectPrivateKey = privateKeyDirty.current ? (privateKey || undefined) : ((await getSecret(`key:${initial.id}`).catch(() => null)) ?? undefined);
+      }
+
+      const output = await sshExecCommand({
+        host: host.trim(),
+        port: port || 22,
+        username: detectUsername.trim(),
+        password: detectPassword,
+        privateKey: detectPrivateKey,
+        command: "cat /etc/os-release 2>/dev/null || echo ID=linux",
+      });
+      const idLine = output.split(/\r?\n/).find((line) => line.startsWith("ID="));
+      const detected = normalizeDistro(idLine?.slice(3).trim().replace(/^\"|\"$/g, "") || "linux");
+      applyDistro(detected);
+    } catch (err) {
+      setDistroError(String(err));
+    } finally {
+      setDetectingDistro(false);
+    }
+  }, [applyDistro, host, identityId, initial, password, port, privateKey, selectedIdentity, username]);
 
   const panelItems = initial ? buildConnectionMenuItems({
     canEdit,
@@ -207,13 +306,100 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
           <FormSection label="General">
             <div>
               <label className={formLabelClass} style={formLabelStyle}>Label</label>
-              <input
-                className={formInputClass}
-                style={formInputStyle}
-                value={name}
-                onChange={(e) => { markDirty(); setName(e.target.value); }}
-                placeholder="My Server (optional)"
-              />
+              <div className="relative flex gap-2.5" ref={distroPickerRef}>
+                <button
+                  type="button"
+                  onClick={toggleDistroPicker}
+                  className="w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0 border border-[var(--t-border)] hover:border-[var(--t-border-hover)] transition-colors"
+                  style={{ background: distro ? getDistroColor(distro) : "var(--t-bg-card-avatar)" }}
+                  title={distro ? `Change icon (${getDistroLabel(distro)})` : "Change icon"}
+                  aria-label="Change connection icon"
+                >
+                  <Icon icon={distro ? getDistroIcon(distro) : "lucide:server"} width={18} />
+                </button>
+                <input
+                  className={formInputClass}
+                  style={formInputStyle}
+                  value={name}
+                  onChange={(e) => { markDirty(); setName(e.target.value); }}
+                  placeholder="My Server (optional)"
+                />
+
+                {showDistroPicker && distroPickerRect && createPortal(
+                  <div
+                    ref={distroPickerMenuRef}
+                    className="fixed z-50 rounded-xl border p-3 space-y-3"
+                    style={{
+                      left: Math.max(12, Math.min(distroPickerRect.left, window.innerWidth - distroPickerRect.width - 12)),
+                      top: Math.min(distroPickerRect.bottom + 8, window.innerHeight - 360),
+                      width: distroPickerRect.width,
+                      background: "var(--t-bg-modal)",
+                      borderColor: "var(--t-border-hover)",
+                      boxShadow: "0 18px 48px rgba(0,0,0,0.45), inset 0 1px 0 color-mix(in srgb, var(--t-text-bright) 8%, transparent)",
+                    }}
+                  >
+                    <div className="relative">
+                      <Icon icon="lucide:search" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--t-text-dim)] pointer-events-none" />
+                      <input
+                        className={`${formInputClass} pl-7 text-xs`}
+                        style={formInputStyle}
+                        value={distroSearch}
+                        onChange={(e) => setDistroSearch(e.target.value)}
+                        placeholder="Search distro"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 gap-2 max-h-52 overflow-y-auto pr-1">
+                      {filteredDistros.map((option) => {
+                        const selected = normalizeDistro(distro || "linux") === option.id && !!distro;
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => { applyDistro(option.id); setShowDistroPicker(false); }}
+                            className="flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-colors"
+                            style={{
+                              background: selected
+                                ? "color-mix(in srgb, var(--t-accent) 18%, var(--t-bg-input))"
+                                : "var(--t-bg-input)",
+                              borderColor: selected ? "var(--t-accent)" : "var(--t-border)",
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!selected) {
+                                e.currentTarget.style.background = "var(--t-bg-input-hover)";
+                                e.currentTarget.style.borderColor = "var(--t-border-hover)";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!selected) {
+                                e.currentTarget.style.background = "var(--t-bg-input)";
+                                e.currentTarget.style.borderColor = "var(--t-border)";
+                              }
+                            }}
+                            title={option.label}
+                          >
+                            <span className="w-8 h-8 rounded-lg flex items-center justify-center text-white" style={{ background: getDistroColor(option.id) }}>
+                              <Icon icon={getDistroIcon(option.id)} width={16} />
+                            </span>
+                            <span className="text-[10px] text-[var(--t-text-dim)] truncate max-w-full">{option.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void detectDistroFromForm()}
+                      disabled={detectingDistro || !host.trim() || !username.trim()}
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-[var(--t-accent)] text-[var(--t-bg-card)] disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Icon icon={detectingDistro ? "lucide:loader-2" : "lucide:scan-search"} width={13} className={detectingDistro ? "animate-spin" : undefined} />
+                      Auto-detect OS
+                    </button>
+                    {distroError && <p className="text-[11px] text-red-400 leading-snug">{distroError}</p>}
+                  </div>,
+                  document.body,
+                )}
+              </div>
             </div>
             <div>
               <label className={formLabelClass} style={formLabelStyle}>Tags</label>

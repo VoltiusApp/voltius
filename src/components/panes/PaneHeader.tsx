@@ -10,7 +10,7 @@ import { findLeaf, getPaneSessionIds, useLayoutStore, type SplitPosition } from 
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
-import { getDistroColor, getDistroIcon } from "@/utils/icons";
+import { getDistroColor, getDistroIcon, getDistroLabel } from "@/utils/icons";
 import { sshGetSystemInfo, type SystemInfo } from "@/services/ssh";
 import type { TerminalSession } from "@/types";
 
@@ -46,16 +46,6 @@ function sparklinePoints(values: number[], width: number, height: number): strin
     const y = height - ((v - min) / range) * (height - 2) - 1;
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(" ");
-}
-
-const DISTRO_NAMES: Record<string, string> = {
-  ubuntu: "Ubuntu", debian: "Debian", fedora: "Fedora",
-  centos: "CentOS", arch: "Arch Linux", rhel: "Red Hat Enterprise Linux",
-  opensuse: "openSUSE", kali: "Kali Linux", mint: "Linux Mint",
-  nixos: "NixOS", gentoo: "Gentoo", raspbian: "Raspberry Pi OS",
-};
-function prettifyDistro(d: string): string {
-  return DISTRO_NAMES[d] ?? (d.charAt(0).toUpperCase() + d.slice(1));
 }
 
 const tooltipStyle: React.CSSProperties = {
@@ -171,8 +161,8 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
   const handleDistroClick = () => {
     if (!connection?.distro) return;
     const text = systemInfo
-      ? `${systemInfo.pretty_name || prettifyDistro(connection.distro)}${systemInfo.kernel ? ` · ${systemInfo.kernel} ${systemInfo.arch}` : ""}`
-      : prettifyDistro(connection.distro);
+      ? `${systemInfo.pretty_name || getDistroLabel(connection.distro)}${systemInfo.kernel ? ` · ${systemInfo.kernel} ${systemInfo.arch}` : ""}`
+      : getDistroLabel(connection.distro);
     navigator.clipboard.writeText(text).catch(() => {});
     setCopiedDistro(true);
     if (copiedDistroTimeoutRef.current) clearTimeout(copiedDistroTimeoutRef.current);
@@ -368,7 +358,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <span style={{ color: "var(--t-text-primary)", fontSize: 11 }}>
-                {systemInfo?.pretty_name || prettifyDistro(connection.distro)}
+                {systemInfo?.pretty_name || getDistroLabel(connection.distro)}
               </span>
               {systemInfo?.kernel ? (
                 <span style={{ color: "var(--t-text-dim)", fontSize: 10 }}>{systemInfo.kernel} · {systemInfo.arch}</span>

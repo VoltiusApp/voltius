@@ -136,6 +136,7 @@ export interface ConnectionFormData {
   pre_command?: string;
   post_command?: string;
   terminal_encoding?: string;
+  distro?: string;
   pinned?: boolean;
   ping_disabled?: boolean;
   connection_type?: "ssh" | "serial";

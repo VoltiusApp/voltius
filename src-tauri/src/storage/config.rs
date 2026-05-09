@@ -153,6 +153,8 @@ pub struct ConnectionFormData {
     #[serde(default)]
     pub terminal_encoding: Option<String>,
     #[serde(default)]
+    pub distro: Option<String>,
+    #[serde(default)]
     pub pinned: bool,
     #[serde(default)]
     pub ping_disabled: bool,
