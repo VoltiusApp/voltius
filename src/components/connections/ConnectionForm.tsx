@@ -9,6 +9,8 @@ import { useUIStore } from "@/stores/uiStore";
 import { getSecret } from "@/services/vault";
 import { sshExecCommand } from "@/services/ssh";
 import { useAutosave } from "@/hooks/useAutosave";
+import { auditContextForVaultId } from "@/services/auditContextResolver";
+import { reportAuditClientEvent } from "@/services/auditReporter";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useFolderStore } from "@/stores/folderStore";
@@ -209,6 +211,18 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
   const handleClose = () => flushAndClose(onClose);
+
+  const handleTogglePassword = useCallback(() => {
+    if (!showPassword && initial && password) {
+      reportAuditClientEvent(auditContextForVaultId(vaultId), "secret.viewed", {
+        target_type: "connection",
+        target_id: initial.id,
+        target_name: initial.name?.trim() || initial.host,
+        metadata: { kind: "password" },
+      });
+    }
+    setShowPassword((v) => !v);
+  }, [showPassword, initial, password, vaultId]);
 
   const toggleDistroPicker = () => {
     if (distroPickerRef.current) setDistroPickerRect(distroPickerRef.current.getBoundingClientRect());
@@ -616,7 +630,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                     onChange={(v) => { markDirty(); passwordDirty.current = true; setPassword(v); }}
                     placeholder="••••••••"
                     show={showPassword}
-                    onToggleShow={() => setShowPassword((v) => !v)}
+                    onToggleShow={handleTogglePassword}
                   />
                 </div>
 

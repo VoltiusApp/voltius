@@ -4,6 +4,8 @@ import { sshConnect, sshDisconnect, sshDetectDistro, sshSendInput } from "@/serv
 import { localConnect, localDisconnect } from "@/services/local";
 import { serialConnect, serialDisconnect } from "@/services/serial";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
+import { auditContextForVaultId } from "@/services/auditContextResolver";
+import { reportAuditClientEvent, type ClientAuditAction } from "@/services/auditReporter";
 import { useConnectionStore } from "./connectionStore";
 import { useUIStore } from "./uiStore";
 import { useTerminalSettingsStore } from "./terminalSettingsStore";
@@ -37,6 +39,14 @@ function findConnection(connectionId: string): Connection | undefined {
     connections.find((c) => c.id === connectionId) ??
     Object.values(teamConnections).flat().find((c) => c.id === connectionId)
   );
+}
+
+function reportConnectionAudit(connection: Connection, action: ClientAuditAction): void {
+  reportAuditClientEvent(auditContextForVaultId(connection.vault_id), action, {
+    target_type: "connection",
+    target_id: connection.id,
+    target_name: connection.name?.trim() || `${connection.username}@${connection.host}:${connection.port}`,
+  });
 }
 
 async function startSession(
@@ -101,6 +111,7 @@ async function connectSshSession(
     }));
 
     useConnectionStore.getState().setLastUsed(connection.id).catch(() => {});
+    reportConnectionAudit(connection, "connection.started");
 
     // Detect distro only if not already known
     if (!connection.distro) {
@@ -401,10 +412,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     } else if (session?.type === "serial") {
       await serialDisconnect(sessionId).catch(() => {});
     } else {
-      const connection = session?.connectionId
-        ? useConnectionStore.getState().connections.find((c) => c.id === session.connectionId)
-        : undefined;
+      const connection = session?.connectionId ? findConnection(session.connectionId) : undefined;
       await sshDisconnect(sessionId, connection?.post_command);
+      if (connection) reportConnectionAudit(connection, "connection.ended");
     }
     const state = get();
     const remaining = state.sessions.filter((s) => s.id !== sessionId);
@@ -457,7 +467,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }
     if (session.type === "serial") return; // no config, can't reconnect
 
-    const connection = useConnectionStore.getState().connections.find((c) => c.id === session.connectionId);
+    const connection = findConnection(session.connectionId);
     if (!connection) {
       set((s) => ({
         sessions: s.sessions.map((sess) =>
@@ -482,6 +492,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
         ),
       }));
+      reportConnectionAudit(connection, "connection.started");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       set((s) => ({

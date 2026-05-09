@@ -26,6 +26,7 @@ import SFTPPage from "@/components/filetransfer/SFTPPage";
 import { SnippetsPage } from "@/components/snippets/SnippetsPage";
 import { PortForwardingPage } from "@/components/port_forwarding/PortForwardingPage";
 import MembersPage from "@/components/members/MembersPage";
+import AuditLogsView from "@/components/logs/AuditLogsView";
 import { Icon } from "@iconify/react";
 import { useHostPingPolling } from "@/hooks/useHostPingPolling";
 import { EmptySplitPane } from "@/components/panes/PaneTerminal";
@@ -143,9 +144,7 @@ function TeamVaultState({
   );
 }
 
-const PLACEHOLDER_PAGES: Record<string, { icon: string; title: string; description: string }> = {
-  logs: { icon: "lucide:scroll-text", title: "Logs", description: "View connection and activity logs — coming soon" },
-};
+const PLACEHOLDER_PAGES: Record<string, { icon: string; title: string; description: string }> = {};
 
 function HostAwareTerminalView({
   session,
@@ -333,6 +332,8 @@ export default function MainPanel() {
     overlayContent = <PortForwardingPage />;
   } else if (activeNav === "members") {
     overlayContent = <MembersPage />;
+  } else if (activeNav === "logs") {
+    overlayContent = <AuditLogsView />;
   } else {
     const placeholder = PLACEHOLDER_PAGES[activeNav];
     if (placeholder) {

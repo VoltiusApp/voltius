@@ -14,32 +14,58 @@ export interface ActionItem {
   onClick: () => void;
 }
 
-interface Props<T extends string> {
+interface BaseProps<T extends string> {
   icon: string;
-  value?: T;
   options?: DropdownOption<T>[];
-  /** Action-mode items — renders without checkmarks, no value/onChange needed */
   items?: ActionItem[];
   menuWidth?: number;
   className?: string;
-  onChange?: (value: T) => void;
-  /** Text label shown beside the icon (e.g. "TERMINAL") */
   label?: string;
-  /** If set, the trigger becomes a split button: clicking the label/icon runs this action, clicking the chevron opens the menu */
   onAction?: () => void;
-  /** Which side the menu opens from (default: "right") */
   align?: "left" | "right";
   disabled?: boolean;
-  /** "accent" styles the split button as a primary CTA */
   variant?: "default" | "accent";
+  searchable?: boolean;
 }
 
+interface SingleSelectProps<T extends string> extends BaseProps<T> {
+  multiSelect?: false;
+  value?: T;
+  onChange?: (value: T) => void;
+  multiValue?: never;
+  onMultiChange?: never;
+}
+
+interface MultiSelectProps<T extends string> extends BaseProps<T> {
+  multiSelect: true;
+  multiValue: T[];
+  onMultiChange: (values: T[]) => void;
+  value?: never;
+  onChange?: never;
+}
+
+type Props<T extends string> = SingleSelectProps<T> | MultiSelectProps<T>;
+
 export function ToolbarDropdown<T extends string>({
-  icon, value, options, items, menuWidth = 160, className = "", onChange,
-  label, onAction, align = "right", disabled, variant = "default",
+  icon, options, items, menuWidth = 160, className = "",
+  label, onAction, align = "right", disabled, variant = "default", searchable,
+  ...rest
 }: Props<T>) {
   const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const isMulti = rest.multiSelect === true;
+  const multiValue: T[] = isMulti ? (rest as MultiSelectProps<T>).multiValue : [];
+  const onMultiChange = isMulti ? (rest as MultiSelectProps<T>).onMultiChange : undefined;
+  const value = !isMulti ? (rest as SingleSelectProps<T>).value : undefined;
+  const onChange = !isMulti ? (rest as SingleSelectProps<T>).onChange : undefined;
+
+  useEffect(() => {
+    if (!open) { setSearchQuery(""); return; }
+    if (searchable) setTimeout(() => searchRef.current?.focus(), 0);
+  }, [open, searchable]);
 
   useEffect(() => {
     if (!open) return;
@@ -52,34 +78,87 @@ export function ToolbarDropdown<T extends string>({
 
   const menuItems = items ?? [];
   const selectOptions = options ?? [];
+  const filteredOptions = searchQuery
+    ? selectOptions.filter((o) => o.label.toLowerCase().includes(searchQuery.toLowerCase()))
+    : selectOptions;
   const hasContent = items ? menuItems.length > 0 : selectOptions.length > 0;
+  const selectionCount = isMulti ? multiValue.length : 0;
+
+  function handleOptionClick(opt: DropdownOption<T>) {
+    if (isMulti) {
+      if (opt.value === ("" as T)) {
+        onMultiChange!([]);
+      } else {
+        const next = multiValue.includes(opt.value)
+          ? multiValue.filter((v) => v !== opt.value)
+          : [...multiValue, opt.value];
+        onMultiChange!(next);
+      }
+    } else {
+      onChange!(opt.value);
+      setOpen(false);
+    }
+  }
+
+  function isChecked(opt: DropdownOption<T>): boolean {
+    if (isMulti) {
+      return opt.value === ("" as T) ? multiValue.length === 0 : multiValue.includes(opt.value);
+    }
+    return value === opt.value;
+  }
 
   const menuEl = open && hasContent && (
     <div
-      className={`absolute top-full ${align === "left" ? "left-0" : "right-0"} p-1.5 mt-1 rounded-xl z-50 flex flex-col bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)]`}
+      className={`absolute top-full ${align === "left" ? "left-0" : "right-0"} mt-1 rounded-xl z-50 flex flex-col bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)]`}
       style={{ minWidth: `${(menuWidth / 15).toFixed(3)}rem`, boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
     >
-      {items
-        ? menuItems.map((item) => (
-            <DropdownMenuItem
-              key={item.label}
-              icon={item.icon}
-              label={item.label}
-              iconSize={15}
-              onClick={() => { item.onClick(); setOpen(false); }}
+      {searchable && (
+        <div className="px-1.5 pt-1.5">
+          <div className="flex items-center gap-1.5 px-2 h-7 rounded-lg bg-[var(--t-bg-input)] border border-[var(--t-border)]">
+            <Icon icon="lucide:search" width={12} className="text-[var(--t-text-dim)] shrink-0" />
+            <input
+              ref={searchRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search…"
+              className="flex-1 text-xs bg-transparent outline-none text-[var(--t-text-primary)] placeholder:text-[var(--t-text-dim)]"
             />
-          ))
-        : selectOptions.map((opt) => (
-            <DropdownMenuItem
-              key={opt.value}
-              icon={opt.icon}
-              label={opt.label}
-              iconSize={20}
-              checked={value === opt.value}
-              onClick={() => { onChange!(opt.value); setOpen(false); }}
-            />
-          ))
-      }
+            {searchQuery && (
+              <button type="button" onClick={() => setSearchQuery("")} className="text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)]">
+                <Icon icon="lucide:x" width={11} />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="p-1.5 flex flex-col overflow-y-auto max-h-64">
+        {items
+          ? menuItems.map((item) => (
+              <DropdownMenuItem
+                key={item.label}
+                icon={item.icon}
+                label={item.label}
+                iconSize={15}
+                onClick={() => { item.onClick(); setOpen(false); }}
+              />
+            ))
+          : filteredOptions.length > 0
+            ? filteredOptions.map((opt) => (
+                <DropdownMenuItem
+                  key={opt.value}
+                  icon={opt.icon}
+                  label={opt.label}
+                  iconSize={20}
+                  checked={isChecked(opt)}
+                  onClick={() => handleOptionClick(opt)}
+                />
+              ))
+            : (
+              <p className="text-xs text-[var(--t-text-dim)] px-3 py-2">No results</p>
+            )
+        }
+      </div>
     </div>
   );
 
@@ -131,9 +210,20 @@ export function ToolbarDropdown<T extends string>({
     <div className={`relative ${className}`} ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center px-2 h-8 rounded-lg transition-colors text-[var(--t-text-primary)] hover:text-[var(--t-tab-active-text)]"
+        className="flex items-center gap-1 px-2 h-8 rounded-lg transition-colors text-[var(--t-text-primary)] hover:text-[var(--t-tab-active-text)]"
       >
-        <Icon icon={icon} width={24} />
+        <div className="relative">
+          <Icon icon={icon} width={24} />
+          {selectionCount > 0 && (
+            <span
+              className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] flex items-center justify-center rounded-full text-[9px] font-bold px-0.5 leading-none"
+              style={{ background: "var(--t-accent)", color: "var(--t-bg-terminal)" }}
+            >
+              {selectionCount}
+            </span>
+          )}
+        </div>
+        {label && <span className="text-sm font-bold tracking-wider whitespace-nowrap">{label}</span>}
         <span className="[&_path]:[stroke-width:3]">
           <Icon
             icon="lucide:chevron-down"

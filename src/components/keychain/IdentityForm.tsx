@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useAutosave } from "@/hooks/useAutosave";
+import { auditContextForVaultId } from "@/services/auditContextResolver";
+import { reportAuditClientEvent } from "@/services/auditReporter";
 import { useKeyStore } from "@/stores/keyStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -271,6 +273,18 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
 
   const handleClose = () => flushAndClose(onClose);
 
+  const handleTogglePassword = useCallback(() => {
+    if (!showPassword && initial && password) {
+      reportAuditClientEvent(auditContextForVaultId(vaultId), "secret.viewed", {
+        target_type: "identity",
+        target_id: initial.id,
+        target_name: initial.name?.trim() || initial.username,
+        metadata: { kind: "password" },
+      });
+    }
+    setShowPassword((v) => !v);
+  }, [showPassword, initial, password, vaultId]);
+
   return (
     <PanelShell>
       <PanelHeader
@@ -395,7 +409,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
               />
               <button
                 type="button"
-                onClick={() => setShowPassword((v) => !v)}
+                onClick={handleTogglePassword}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-[var(--t-text-dim)]"
                 onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}

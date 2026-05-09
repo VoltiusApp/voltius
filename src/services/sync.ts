@@ -640,6 +640,13 @@ export function scheduleSync() {
 
 // ─── Real-time SSE sync ───────────────────────────────────────────────────────
 
+const _teamEventListeners = new Set<(teamId: string) => void>();
+
+export function onTeamSseEvent(fn: (teamId: string) => void): () => void {
+  _teamEventListeners.add(fn);
+  return () => { _teamEventListeners.delete(fn); };
+}
+
 let _sseAbort: AbortController | null = null;
 
 /**
@@ -707,6 +714,7 @@ async function _sseConnect(signal: AbortSignal): Promise<void> {
         if (!eventData) continue;
         if (eventData.startsWith("team:")) {
           const teamId = eventData.slice(5);
+          _teamEventListeners.forEach((fn) => fn(teamId));
           const { fetchTeamData } = await import("@/services/teamVaultSync");
           fetchTeamData(teamId).catch(() => {});
         } else if (eventData === "membership_changed") {
