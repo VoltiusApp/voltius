@@ -26,6 +26,7 @@ import { initUpdaterListener } from "@/services/updater";
 import { NotificationToastContainer } from "@/components/notifications/NotificationToastContainer";
 import ThemeCreator from "@/components/theme-creator/ThemeCreator";
 import { TrialExpiredModal } from "@/components/shared/TrialExpiredModal";
+import CloudAuthModal from "@/components/layout/CloudAuthModal";
 
 function App() {
   const [ready, setReady] = useState(false);
@@ -75,6 +76,7 @@ function App() {
       <NotificationToastContainer />
       <ThemeCreator />
       <TrialExpiredModal />
+      <CloudAuthModal />
 
       {/* Global snippet variable modal — triggered from OmniSearch */}
       {globalPendingInject && (

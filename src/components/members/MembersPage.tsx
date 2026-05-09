@@ -1096,6 +1096,29 @@ function PrivateVaultInvitePanel({
 
 // ─── Upgrade CTA ──────────────────────────────────────────────────────────────
 
+function SignInToCloudCTA({ onSignIn }: { onSignIn: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-full min-h-[320px] gap-5">
+      <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)" }}>
+        <Icon icon="lucide:cloud" width={28} style={{ color: "var(--t-accent)" }} />
+      </div>
+      <div className="text-center">
+        <p className="text-sm font-medium mb-1 text-[var(--t-text-primary)]">Sign in to use team features</p>
+        <p className="text-xs max-w-[240px] text-[var(--t-text-dim)]">
+          Members, invites, and shared vault access require a cloud account before you can upgrade or manage a team.
+        </p>
+      </div>
+      <button
+        onClick={onSignIn}
+        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
+        style={{ background: "var(--t-accent)" }}
+      >
+        Sign in or create cloud account →
+      </button>
+    </div>
+  );
+}
+
 function UpgradeToTeamsCTA() {
   const openCheckout = async () => {
     const { invoke } = await import("@tauri-apps/api/core");
@@ -1141,7 +1164,7 @@ export default function MembersPage() {
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const vaults = useVaultStore((s) => s.vaults);
   const { teams, loadTeams, membersByTeam, loadMembers, rolesByTeam, loadRoles } = useTeamStore();
-  const { isTeams } = useSubscriptionStore();
+  const { isTeams, accountMode } = useSubscriptionStore();
   const { createTeam } = useTeamStore();
   const { setVaultTeamId } = useVaultStore();
   const addMemberById = useTeamStore((s) => s.addMemberById);
@@ -1158,6 +1181,7 @@ export default function MembersPage() {
   const membersInvitePending = useUIStore((s) => s.membersInvitePending);
   const clearMembersInvitePending = useUIStore((s) => s.clearMembersInvitePending);
   const openSettings = useUIStore((s) => s.openSettings);
+  const openCloudAuth = useUIStore((s) => s.openCloudAuth);
 
   const [myUserId, setMyUserId] = useState("");
   const [myEmail, setMyEmail] = useState<string | null>(null);
@@ -1569,7 +1593,8 @@ const vaultTabs = selectedVaultIds.length > 1
 
   // ── Private vault (no team yet) ────────────────────────────────────────────
   if (localVault && !teamId) {
-    const canPrivateInvite = isTeams && !!myUserId;
+    const isCloudAccount = accountMode === "server";
+    const canPrivateInvite = isCloudAccount && isTeams && !!myUserId;
 
     const toolbar = (
       <MembersToolbar
@@ -1588,6 +1613,15 @@ const vaultTabs = selectedVaultIds.length > 1
         onSelectVault={setPrimaryVaultId}
       />
     );
+
+    if (!isCloudAccount) {
+      return (
+        <div className="flex-1 flex flex-col bg-[var(--t-bg-base)]">
+          {toolbar}
+          <SignInToCloudCTA onSignIn={() => openCloudAuth("signin")} />
+        </div>
+      );
+    }
 
     if (!isTeams) {
       return (

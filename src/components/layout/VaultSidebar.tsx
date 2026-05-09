@@ -10,6 +10,7 @@ import { useRipple } from "@/hooks/useRipple";
 import { SidebarAccountButton } from "./SidebarAccountButton";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { CreateVaultModal } from "@/components/shared/CreateVaultModal";
+import { Modal } from "@/components/shared/Modal";
 
 function getInitials(name: string) {
   return name.trim().charAt(0).toUpperCase();
@@ -23,20 +24,41 @@ export default function VaultSidebar() {
   const homeView = useUIStore((s) => s.homeView);
   const setHomeView = useUIStore((s) => s.setHomeView);
   const openSettings = useUIStore((s) => s.openSettings);
+  const openCloudAuth = useUIStore((s) => s.openCloudAuth);
 
   const teams = useTeamStore((s) => s.teams);
   const linkedTeamIds = new Set(vaults.map((v) => v.teamId).filter(Boolean));
   const standaloneTeams = teams.filter((t) => !linkedTeamIds.has(t.id));
 
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showVaultLimitModal, setShowVaultLimitModal] = useState(false);
+  const isPro = useSubscriptionStore((s) => s.isPro);
+  const accountMode = useSubscriptionStore((s) => s.accountMode);
+  const isCloudAccount = accountMode === "server";
 
   const handleAddVaultClick = () => {
-    const { isPro } = useSubscriptionStore.getState();
     if (!isPro && vaults.length >= 1) {
-      openSettings("account");
+      setShowVaultLimitModal(true);
       return;
     }
     setShowCreateModal(true);
+  };
+
+  const handleUpgradePro = async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const { open } = await import("@tauri-apps/plugin-shell");
+    const serverUrl = await invoke<string | null>("keychain_get", { key: "server_url" });
+    const jwt = await invoke<string | null>("keychain_get", { key: "jwt" });
+    if (!serverUrl || !jwt) return;
+    const res = await fetch(`${serverUrl}/v1/billing/checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
+      body: JSON.stringify({ plan: "pro" }),
+    });
+    if (!res.ok) return;
+    const { checkout_url } = await res.json() as { checkout_url: string };
+    await open(checkout_url);
+    setShowVaultLimitModal(false);
   };
 
   const handleCreateVault = (name: string) => {
@@ -106,14 +128,79 @@ export default function VaultSidebar() {
         />
       )}
 
+      {showVaultLimitModal && (
+        <VaultLimitModal
+          isCloudAccount={isCloudAccount}
+          onClose={() => setShowVaultLimitModal(false)}
+          onSignIn={() => {
+            setShowVaultLimitModal(false);
+            openCloudAuth("signin");
+          }}
+          onUpgrade={() => void handleUpgradePro()}
+        />
+      )}
+
       <div className="flex-1" />
 
       {/* Account */}
-      <SidebarAccountButton onOpenSettings={(tab) => openSettings(tab)} />
+      <SidebarAccountButton />
 
       {/* Settings */}
       <SettingsButton onClick={() => openSettings()} />
     </aside>
+  );
+}
+
+function VaultLimitModal({
+  isCloudAccount,
+  onClose,
+  onSignIn,
+  onUpgrade,
+}: {
+  isCloudAccount: boolean;
+  onClose: () => void;
+  onSignIn: () => void;
+  onUpgrade: () => void;
+}) {
+  return (
+    <Modal onClose={onClose} blur>
+      <div
+        className="flex flex-col gap-4 bg-[var(--t-bg-base)] border border-[var(--t-border)] p-6"
+        style={{ width: "min(25rem, 92vw)", borderRadius: "0.933rem", boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }}
+      >
+        <div className="flex items-start gap-3">
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)" }}
+          >
+            <Icon icon="lucide:vault" width={20} style={{ color: "var(--t-accent)" }} />
+          </div>
+          <div>
+            <p className="text-base font-semibold text-[var(--t-text-primary)] mb-1">
+              Multiple vaults require Pro
+            </p>
+            <p className="text-sm text-[var(--t-text-muted)] leading-relaxed">
+              Free accounts can create one vault. Upgrade to Pro to organize your credentials across multiple vaults.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={isCloudAccount ? onUpgrade : onSignIn}
+            className="w-full py-2.5 rounded-lg text-sm font-semibold bg-[var(--t-accent)] text-white hover:opacity-90 transition-opacity"
+          >
+            {isCloudAccount ? "Upgrade to Pro" : "Sign in or create cloud account"}
+          </button>
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 rounded-lg text-sm text-[var(--t-text-muted)] hover:text-[var(--t-text-primary)] transition-colors"
+          >
+            Maybe later
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

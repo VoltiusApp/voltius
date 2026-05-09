@@ -233,6 +233,7 @@ interface SyncDropdownProps {
 
 export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, accountMode }: SyncDropdownProps) {
   const openSettings = useUIStore((s) => s.openSettings);
+  const openCloudAuth = useUIStore((s) => s.openCloudAuth);
   const panelRef = useRef<HTMLDivElement>(null);
   useClickOutside(panelRef, onClose, open);
 
@@ -248,7 +249,7 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
 
   // Build per-section variants
   const voltiusVariant: SectionVariant = !isLoggedIn
-    ? { kind: "locked", onSignIn: () => { onClose(); openSettings("account"); } }
+    ? { kind: "locked", onSignIn: () => { onClose(); openCloudAuth("signin"); } }
     : { kind: "active", status: voltiusState.status, lastSync: voltiusState.lastSync, error: voltiusState.error, blobSizeBytes: voltiusState.blobSizeBytes };
 
   const gistVariant: SectionVariant = !gistPluginEnabled

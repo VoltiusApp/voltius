@@ -8,6 +8,7 @@ import { useSecurityStore } from "@/stores/securityStore";
 import { useSyncPrefsStore, SYNC_OBJECT_TYPES } from "@/stores/syncPrefsStore";
 import { ActionItem, FormButtons, SettingsInput } from "./shared";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { useUIStore } from "@/stores/uiStore";
 import { openPortal } from "@/utils/billing";
 
 type AccountStep = "idle" | "set-password" | "link-cloud" | "loading" | "confirm-wipe";
@@ -56,6 +57,7 @@ export default function AccountSection() {
   const [syncState, setSyncState] = useState(getSyncState);
   const sessionTimeoutMinutes = useSecurityStore((s) => s.sessionTimeoutMinutes);
   const setSessionTimeoutMinutes = useSecurityStore((s) => s.setSessionTimeoutMinutes);
+  const openCloudAuth = useUIStore((s) => s.openCloudAuth);
   const { syncTypes, setSyncType } = useSyncPrefsStore();
 
   useEffect(() => onSyncStateChange(() => setSyncState(getSyncState())), []);
@@ -224,21 +226,20 @@ export default function AccountSection() {
           ) : (
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-medium text-[var(--t-text-primary)]">Cloud sync not configured</p>
+                <p className="text-sm font-medium text-[var(--t-text-primary)]">Cloud account not connected</p>
                 <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
-                  Sign in or create a cloud account to sync across devices.
+                  Sign in or create a cloud account to sync across devices and use subscription features.
                 </p>
               </div>
               {(mode === "local" || mode === "local-nopassword" || mode === null) && step === "idle" && (
                 <button
                   type="button"
                   onClick={() => {
-                    reset();
-                    setStep("link-cloud");
+                    openCloudAuth("signin");
                   }}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 bg-[var(--t-bg-input)] text-[var(--t-text-primary)]"
                 >
-                  Configure sync
+                  Sign in / Create
                 </button>
               )}
             </div>

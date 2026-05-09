@@ -1,14 +1,15 @@
 import { Icon } from "@iconify/react";
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useUIStore, type SettingsSection } from "@/stores/uiStore";
+import { useUIStore } from "@/stores/uiStore";
 import { useRipple } from "@/hooks/useRipple";
 import { getAccountMode, lockVaultSession, logout } from "@/services/account";
 import { getSavedAccounts, saveCurrentAccount, switchToAccount, removeSavedAccount, type SavedAccount } from "@/services/savedAccounts";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 
-export function SidebarAccountButton({ onOpenSettings }: { onOpenSettings: (tab?: SettingsSection) => void }) {
+export function SidebarAccountButton() {
   const { createRipple, rippleEls } = useRipple();
+  const openCloudAuth = useUIStore((s) => s.openCloudAuth);
   const uiScale = useUIStore((s) => s.uiScale);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -150,7 +151,7 @@ export function SidebarAccountButton({ onOpenSettings }: { onOpenSettings: (tab?
             <DropdownMenuItem
               icon="lucide:log-in"
               label="Sign in / Sign up"
-              onClick={() => { onOpenSettings("account"); setOpen(false); }}
+              onClick={() => { openCloudAuth("signin"); setOpen(false); }}
             />
           )}
 

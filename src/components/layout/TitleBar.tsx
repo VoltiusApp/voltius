@@ -85,6 +85,7 @@ export default function TitleBar() {
   const accountMode = useSubscriptionStore((s) => s.accountMode);
   const tier = useSubscriptionStore((s) => s.tier);
   const openSettings = useUIStore((s) => s.openSettings);
+  const openCloudAuth = useUIStore((s) => s.openCloudAuth);
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);
   const isActiveSessionMultiplayer = activeSession?.type === "multiplayer";
@@ -520,7 +521,7 @@ export default function TitleBar() {
               connectionName={activeSession?.connectionName ?? "Terminal"}
               isLoggedIn={accountMode === "server"}
               tier={tier}
-              onSignIn={() => { setShareDropdownOpen(false); openSettings("account"); }}
+              onSignIn={() => { setShareDropdownOpen(false); openCloudAuth("signin"); }}
               onUpgrade={() => { setShareDropdownOpen(false); openSettings("account"); }}
             />
           )}

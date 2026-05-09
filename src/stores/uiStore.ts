@@ -54,6 +54,7 @@ export type KeychainPendingAction =
   | { action: "edit-key"; id: string }
   | { action: "edit-identity"; id: string }
   | null;
+export type CloudAuthMode = "signin" | "register";
 
 interface UIStore {
   sidebarOpen: boolean;
@@ -62,6 +63,8 @@ interface UIStore {
   omniOpen: boolean;
   shortcutsOpen: boolean;
   settingsOpen: boolean;
+  cloudAuthOpen: boolean;
+  cloudAuthMode: CloudAuthMode;
   settingsSection: SettingsSection;
   settingsPluginPageId: string | null;
   rightPanelOpen: boolean;
@@ -97,6 +100,9 @@ interface UIStore {
   setOmniOpen: (open: boolean) => void;
   setShortcutsOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
+  openCloudAuth: (mode?: CloudAuthMode) => void;
+  closeCloudAuth: () => void;
+  setCloudAuthMode: (mode: CloudAuthMode) => void;
   setSettingsSection: (section: SettingsSection) => void;
   setSettingsPluginPageId: (id: string | null) => void;
   openSettings: (section?: SettingsSection, pluginPageId?: string) => void;
@@ -133,6 +139,8 @@ export const useUIStore = create<UIStore>()(
       omniOpen: false,
       shortcutsOpen: false,
       settingsOpen: false,
+      cloudAuthOpen: false,
+      cloudAuthMode: "signin" as CloudAuthMode,
       settingsSection: "appearance" as SettingsSection,
       settingsPluginPageId: null as string | null,
       rightPanelOpen: false,
@@ -169,6 +177,9 @@ export const useUIStore = create<UIStore>()(
       setOmniOpen: (open) => set({ omniOpen: open }),
       setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
       setSettingsOpen: (open) => set({ settingsOpen: open }),
+      openCloudAuth: (mode) => set({ cloudAuthOpen: true, cloudAuthMode: mode ?? "signin" }),
+      closeCloudAuth: () => set({ cloudAuthOpen: false }),
+      setCloudAuthMode: (mode) => set({ cloudAuthMode: mode }),
       setSettingsSection: (section) => set({ settingsSection: section }),
       setSettingsPluginPageId: (id) => set({ settingsPluginPageId: id }),
       openSettings: (section, pluginPageId) => set((s) => ({ settingsOpen: true, settingsSection: section ?? s.settingsSection, settingsPluginPageId: pluginPageId ?? null })),

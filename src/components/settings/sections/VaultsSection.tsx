@@ -798,7 +798,8 @@ export function PrivateVaultMembersPanel({
 }: {
   vaultId: string; vaultName: string; myUserId: string; onTeamCreated: (teamId: string) => void;
 }) {
-  const { isTeams } = useSubscriptionStore();
+  const { isTeams, accountMode } = useSubscriptionStore();
+  const openCloudAuth = useUIStore((s) => s.openCloudAuth);
   const { createTeam, loadRoles, addMemberById, assignMemberRole } = useTeamStore();
   const { setVaultTeamId } = useVaultStore();
 
@@ -859,6 +860,24 @@ export function PrivateVaultMembersPanel({
       setAdding(null);
     }
   };
+
+  if (accountMode !== "server") {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+        <Icon icon="lucide:cloud" width={28} style={{ color: "var(--t-text-dim)" }} />
+        <p className="text-sm" style={{ color: "var(--t-text-dim)" }}>
+          Sign in to a cloud account to invite teammates to this vault.
+        </p>
+        <button
+          onClick={() => openCloudAuth("signin")}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-90"
+          style={{ background: "var(--t-accent)" }}
+        >
+          Sign in / Create account
+        </button>
+      </div>
+    );
+  }
 
   if (!isTeams) return <UpgradeToTeamsCTA />;
 
@@ -1297,8 +1316,9 @@ export default function VaultsSection() {
 
   const { teams, loadTeams } = useTeamStore();
   const [myUserId, setMyUserId] = useState("");
-  const { isPro } = useSubscriptionStore();
+  const { isPro, accountMode } = useSubscriptionStore();
   const openSettings = useUIStore((s) => s.openSettings);
+  const openCloudAuth = useUIStore((s) => s.openCloudAuth);
 
   const [detail, setDetail] = useState<VaultDetail | null>(null);
   const [activeTab, setActiveTab] = useState<DetailTab>("General");
@@ -1315,7 +1335,8 @@ export default function VaultsSection() {
     if (!isPro && vaults.length >= 1) {
       setShowCreate(false);
       setNewVaultName("");
-      openSettings("account");
+      if (accountMode === "server") openSettings("account");
+      else openCloudAuth("signin");
       return;
     }
     const vault = addVault(newVaultName.trim());
@@ -1410,7 +1431,11 @@ export default function VaultsSection() {
           <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">Vaults</h3>
           <button
             onClick={() => {
-              if (!isPro && vaults.length >= 1) { openSettings("account"); return; }
+              if (!isPro && vaults.length >= 1) {
+                if (accountMode === "server") openSettings("account");
+                else openCloudAuth("signin");
+                return;
+              }
               setShowCreate((v) => !v);
             }}
             className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-colors"
