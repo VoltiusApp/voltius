@@ -11,7 +11,7 @@ import {
 } from "@/components/shared/Panel";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { HostPickerPanel } from "@/components/shared/HostPickerPanel";
-import { getDistroIcon, getDistroColor } from "@/utils/icons";
+import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { KeyCardContent } from "./KeyCards";
 import type { SortMode } from "@/components/shared/ToolbarViewControls";
 import type { SshKey } from "@/types";
@@ -112,14 +112,17 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
                   onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    {selectedHost && (
+                    {selectedHost && (() => {
+                      const displayIcon = selectedHost.icon || selectedHost.distro;
+                      return (
                       <div
                         className="rounded-md flex items-center justify-center shrink-0 text-white"
-                        style={{ width: "1.333rem", height: "1.333rem", background: selectedHost.distro ? getDistroColor(selectedHost.distro) : "var(--t-bg-card-avatar)" }}
+                        style={{ width: "1.333rem", height: "1.333rem", background: displayIcon ? getConnectionIconColor(displayIcon) : "var(--t-bg-card-avatar)" }}
                       >
-                        <Icon icon={selectedHost.distro ? getDistroIcon(selectedHost.distro) : "lucide:server"} width={11} />
+                        <Icon icon={displayIcon ? getConnectionIcon(displayIcon) : "lucide:server"} width={11} />
                       </div>
-                    )}
+                      );
+                    })()}
                     <span className="truncate">{selectedHost ? (selectedHost.name ?? `${selectedHost.username}@${selectedHost.host}`) : "Select a host…"}</span>
                   </div>
                   <Icon icon="lucide:chevron-right" width={14} className="text-[var(--t-text-muted)] shrink-0" />

@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
-import { getDistroIcon, getDistroColor } from "@/utils/icons";
+import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { type HostChoice, type SidePhase, type FileEntry } from "./SFTPTypes";
 import { HostPickerPanel } from "@/components/shared/HostPickerPanel";
 import { FilePane } from "./FilePane";
@@ -57,12 +57,12 @@ export function SidePane({
 
   const hostIcon =
     host?.kind === "local" ? "lucide:monitor"
-    : host?.kind === "remote" && host.connection.distro ? (getDistroIcon(host.connection.distro) ?? "lucide:server")
+    : host?.kind === "remote" && (host.connection.icon || host.connection.distro) ? (getConnectionIcon(host.connection.icon || host.connection.distro!) ?? "lucide:server")
     : "lucide:server";
 
   const avatarBg =
-    host?.kind === "remote" && host.connection.distro
-      ? (getDistroColor(host.connection.distro) ?? "var(--t-bg-card-avatar)")
+    host?.kind === "remote" && (host.connection.icon || host.connection.distro)
+      ? (getConnectionIconColor(host.connection.icon || host.connection.distro!) ?? "var(--t-bg-card-avatar)")
       : "var(--t-bg-card-avatar)";
 
   const canChangeHost = phase.tag === "connected" || phase.tag === "error";
@@ -246,7 +246,7 @@ export function SidePane({
         {phase.tag === "connecting" && (() => {
           const h = phase.host;
           const phaseIcon = h.kind === "local" ? "lucide:monitor"
-            : h.kind === "remote" && h.connection.distro ? (getDistroIcon(h.connection.distro) ?? "lucide:server")
+            : h.kind === "remote" && (h.connection.icon || h.connection.distro) ? (getConnectionIcon(h.connection.icon || h.connection.distro!) ?? "lucide:server")
             : "lucide:server";
           const phaseName = h.kind === "local" ? "Local Machine"
             : h.connection.name?.trim() || `${h.connection.username}@${h.connection.host}`;

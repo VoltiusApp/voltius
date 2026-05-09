@@ -14,7 +14,7 @@ import { TerminalStatusBar } from "@/components/terminal/TerminalStatusBar";
 import { useMultiplayerHostBroadcast } from "@/hooks/useMultiplayerHostBroadcast";
 import ConnectionOverlay, { SSH_STEPS, SERIAL_STEPS } from "@/components/terminal/ConnectionOverlay";
 import { useConnectionStore } from "@/stores/connectionStore";
-import { getDistroIcon } from "@/utils/icons";
+import { getConnectionIcon } from "@/utils/icons";
 import type { TerminalSession } from "@/types";
 import { EphemeralSerialConfigOverlay } from "@/components/connections/EphemeralSerialConfigOverlay";
 import HomePage from "@/components/home/HomePage";
@@ -245,7 +245,8 @@ function SessionConnectionOverlay({
     );
   }
 
-  const icon = connection?.distro ? (getDistroIcon(connection.distro) ?? "lucide:monitor") : "lucide:monitor";
+  const displayIcon = connection ? (connection.icon || connection.distro) : null;
+  const icon = displayIcon ? (getConnectionIcon(displayIcon) ?? "lucide:monitor") : "lucide:monitor";
   const subtitle = connection ? `${connection.username}@${connection.host}:${connection.port}` : undefined;
   return (
     <ConnectionOverlay

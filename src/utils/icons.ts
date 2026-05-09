@@ -19,7 +19,9 @@ export function preloadIcons() {
   const DISTRO_PLAIN = [
     "ubuntu", "debian", "fedora", "centos", "archlinux", "redhat",
     "opensuse", "linux", "kalilinux", "linuxmint", "nixos", "gentoo",
-    "raspberrypi",
+    "raspberrypi", "docker", "nginx", "postgresql", "mysql", "redis",
+    "nodejs", "python", "git", "kubernetes", "mongodb", "apache",
+    "prometheus", "grafana",
   ];
   const distroPlainSubset: any = {
     prefix: "devicon-plain",
@@ -32,6 +34,23 @@ export function preloadIcons() {
     if (icon) distroPlainSubset.icons[name] = icon;
   }
   addCollection(distroPlainSubset);
+
+  addCollection({
+    prefix: "simple-icons",
+    icons: {
+      kalilinux: {
+        body: '<path fill="currentColor" d="M12.778 5.943s-1.97-.13-5.327.92c-3.42 1.07-5.36 2.587-5.36 2.587s5.098-2.847 10.852-3.008zm7.351 3.095l.257-.017s-1.468-1.78-4.278-2.648c1.58.642 2.954 1.493 4.021 2.665m.42.74c.039-.068.166.217.263.337c.004.024.01.039-.045.027c-.005-.025-.013-.032-.013-.032s-.135-.08-.177-.137s-.049-.157-.028-.195m3.448 8.479s.312-3.578-5.31-4.403a18 18 0 0 0-2.524-.187c-4.506.06-4.67-5.197-1.275-5.462c1.407-.116 3.087.643 4.73 1.408c-.007.204.002.385.136.552s.648.35.813.445c.164.094.691.43 1.014.85c.07-.131.654-.512.654-.512s-.14.003-.465-.119c-.326-.122-.713-.49-.722-.511s-.015-.055.06-.07c.059-.049-.072-.207-.13-.265s-.445-.716-.454-.73c-.009-.016-.012-.031-.04-.05c-.085-.027-.46.04-.46.04s-.575-.283-.774-.893c.003.107-.099.224 0 .469c-.3-.127-.558-.344-.762-.88c-.12.305 0 .499 0 .499s-.707-.198-.82-.85c-.124.293 0 .469 0 .469s-1.153-.602-3.069-.61c-1.283-.118-1.55-2.374-1.43-2.754c0 0-1.85-.975-5.493-1.406c-3.642-.43-6.628-.065-6.628-.065s6.45-.31 11.617 1.783c.176.785.704 2.094.989 2.723c-.815.563-1.733 1.092-1.876 2.97s1.472 3.53 3.474 3.58c1.9.102 3.214.116 4.806.942c1.52.84 2.766 3.4 2.89 5.703c.132-1.709-.509-5.383-3.5-6.498c4.181.732 4.549 3.832 4.549 3.832M12.68 5.663l-.15-.485s-2.484-.441-5.822-.204S0 6.38 0 6.38s6.896-1.735 12.68-.717"/>',
+      },
+      nginx: {
+        body: '<path fill="currentColor" d="M12 0L1.605 6v12L12 24l10.395-6V6zm6 16.59c0 .705-.646 1.29-1.529 1.29c-.631 0-1.351-.255-1.801-.81l-6-7.141v6.66c0 .721-.57 1.29-1.274 1.29H7.32c-.721 0-1.29-.6-1.29-1.29V7.41c0-.705.63-1.29 1.5-1.29c.646 0 1.38.255 1.83.81l5.97 7.141V7.41c0-.721.6-1.29 1.29-1.29h.075c.72 0 1.29.6 1.29 1.29v9.18z"/>',
+      },
+      prometheus: {
+        body: '<path fill="currentColor" d="M12 0C5.373 0 0 5.372 0 12c0 6.627 5.373 12 12 12s12-5.373 12-12c0-6.628-5.373-12-12-12m0 22.46c-1.885 0-3.414-1.26-3.414-2.814h6.828c0 1.553-1.528 2.813-3.414 2.813zm5.64-3.745H6.36v-2.046h11.28zm-.04-3.098H6.391q-.056-.064-.111-.13c-1.155-1.401-1.427-2.133-1.69-2.879c-.005-.025 1.4.287 2.395.511c0 0 .513.119 1.262.255c-.72-.843-1.147-1.915-1.147-3.01c0-2.406 1.845-4.508 1.18-6.207c.648.053 1.34 1.367 1.387 3.422c.689-.951.977-2.69.977-3.755c0-1.103.727-2.385 1.454-2.429c-.648 1.069.168 1.984.894 4.256c.272.854.237 2.29.447 3.201c.07-1.892.395-4.652 1.595-5.605c-.529 1.2.079 2.702.494 3.424c.671 1.164 1.078 2.047 1.078 3.716a4.64 4.64 0 0 1-1.11 2.996c.792-.149 1.34-.283 1.34-.283l2.573-.502s-.374 1.538-1.81 3.019z"/>',
+      },
+    },
+    width: 24,
+    height: 24,
+  });
 
   // Custom icons — inline SVG, no package needed
   addCollection({
@@ -63,6 +82,37 @@ export const DISTRO_OPTIONS = [
 ] as const;
 
 export type DistroId = typeof DISTRO_OPTIONS[number]["id"];
+
+export const CONNECTION_ICON_OPTIONS = [
+  { group: "OS", id: "ubuntu", label: "Ubuntu" },
+  { group: "OS", id: "debian", label: "Debian" },
+  { group: "OS", id: "fedora", label: "Fedora" },
+  { group: "OS", id: "centos", label: "CentOS" },
+  { group: "OS", id: "rhel", label: "Red Hat" },
+  { group: "OS", id: "arch", label: "Arch" },
+  { group: "OS", id: "opensuse", label: "openSUSE" },
+  { group: "OS", id: "kali", label: "Kali" },
+  { group: "OS", id: "mint", label: "Linux Mint" },
+  { group: "OS", id: "nixos", label: "NixOS" },
+  { group: "OS", id: "gentoo", label: "Gentoo" },
+  { group: "OS", id: "raspbian", label: "Raspberry Pi" },
+  { group: "OS", id: "linux", label: "Linux" },
+  { group: "Services", id: "docker", label: "Docker" },
+  { group: "Services", id: "nginx", label: "Nginx" },
+  { group: "Services", id: "apache", label: "Apache" },
+  { group: "Services", id: "postgresql", label: "PostgreSQL" },
+  { group: "Services", id: "mysql", label: "MySQL" },
+  { group: "Services", id: "mongodb", label: "MongoDB" },
+  { group: "Services", id: "redis", label: "Redis" },
+  { group: "Services", id: "nodejs", label: "Node.js" },
+  { group: "Services", id: "python", label: "Python" },
+  { group: "Services", id: "git", label: "Git" },
+  { group: "Services", id: "kubernetes", label: "Kubernetes" },
+  { group: "Monitoring", id: "prometheus", label: "Prometheus" },
+  { group: "Monitoring", id: "grafana", label: "Grafana" },
+] as const;
+
+export type ConnectionIconId = typeof CONNECTION_ICON_OPTIONS[number]["id"];
 
 const DISTRO_ALIASES: Record<string, DistroId> = {
   ubuntu: "ubuntu",
@@ -96,6 +146,18 @@ export function getDistroLabel(distro: string): string {
   return DISTRO_OPTIONS.find((option) => option.id === normalizeDistro(distro))?.label ?? "Linux";
 }
 
+function normalizeConnectionIcon(icon: string): ConnectionIconId | DistroId {
+  const normalized = icon.trim().toLowerCase();
+  const distro = DISTRO_ALIASES[normalized];
+  if (distro) return distro;
+  return CONNECTION_ICON_OPTIONS.find((option) => option.id === normalized)?.id ?? "linux";
+}
+
+export function getConnectionIconLabel(icon: string): string {
+  const normalized = normalizeConnectionIcon(icon);
+  return CONNECTION_ICON_OPTIONS.find((option) => option.id === normalized)?.label ?? getDistroLabel(normalized);
+}
+
 export function getDistroIcon(distro: string): string {
   const map: Record<string, string> = {
     ubuntu:  "custom:ubuntu",
@@ -114,6 +176,26 @@ export function getDistroIcon(distro: string): string {
   return map[normalizeDistro(distro)] ?? "devicon-plain:linux";
 }
 
+export function getConnectionIcon(icon: string): string {
+  const normalized = normalizeConnectionIcon(icon);
+  const map: Record<string, string> = {
+    docker: "devicon-plain:docker",
+    nginx: "simple-icons:nginx",
+    apache: "devicon-plain:apache",
+    postgresql: "devicon-plain:postgresql",
+    mysql: "devicon-plain:mysql",
+    mongodb: "devicon-plain:mongodb",
+    redis: "devicon-plain:redis",
+    nodejs: "devicon-plain:nodejs",
+    python: "devicon-plain:python",
+    git: "devicon-plain:git",
+    kubernetes: "devicon-plain:kubernetes",
+    prometheus: "simple-icons:prometheus",
+    grafana: "devicon-plain:grafana",
+  };
+  return map[normalized] ?? getDistroIcon(normalized);
+}
+
 export function getDistroColor(distro: string): string {
   const map: Record<string, string> = {
     ubuntu:  "#E95420",
@@ -130,4 +212,24 @@ export function getDistroColor(distro: string): string {
     raspbian:"#C51A4A",
   };
   return map[normalizeDistro(distro)] ?? "#4A5568";
+}
+
+export function getConnectionIconColor(icon: string): string {
+  const normalized = normalizeConnectionIcon(icon);
+  const map: Record<string, string> = {
+    docker: "#2496ED",
+    nginx: "#009639",
+    apache: "#D22128",
+    postgresql: "#336791",
+    mysql: "#4479A1",
+    mongodb: "#47A248",
+    redis: "#DC382D",
+    nodejs: "#5FA04E",
+    python: "#3776AB",
+    git: "#F05032",
+    kubernetes: "#326CE5",
+    prometheus: "#E6522C",
+    grafana: "#F46800",
+  };
+  return map[normalized] ?? getDistroColor(normalized);
 }

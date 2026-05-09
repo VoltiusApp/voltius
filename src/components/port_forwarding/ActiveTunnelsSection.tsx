@@ -8,7 +8,7 @@ import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { useUIStore } from "@/stores/uiStore";
 import { getPfState, closePfTunnel, resumeAutoPort } from "@/services/portForwardingTunnels";
 import { formatActiveTunnelLabel, getLocalTunnelHttpUrl } from "@/utils/tunnelFormat";
-import { getDistroColor, getDistroIcon } from "@/utils/icons";
+import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import type { ActiveTunnel } from "@/types";
 
 interface PfStatePayload {
@@ -161,8 +161,9 @@ export function ActiveTunnelsSection() {
         : "flex flex-col gap-3"
       }>
         {sessionCards.map(({ session, connection, tunnels, suppressedPorts, errorCount }) => {
-          const distroIcon = connection?.distro ? getDistroIcon(connection.distro) : null;
-          const distroColor = connection?.distro ? getDistroColor(connection.distro) : "var(--t-bg-card-avatar)";
+          const displayIcon = connection ? (connection.icon || connection.distro) : null;
+          const distroIcon = displayIcon ? getConnectionIcon(displayIcon) : null;
+          const distroColor = displayIcon ? getConnectionIconColor(displayIcon) : "var(--t-bg-card-avatar)";
           const activeCount = tunnels.length - errorCount;
           const totalForwards = tunnels.length + suppressedPorts.length;
 

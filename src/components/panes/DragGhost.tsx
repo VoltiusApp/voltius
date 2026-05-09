@@ -2,7 +2,7 @@ import { Icon } from "@iconify/react";
 import { useDragStore } from "@/stores/dragStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useSessionStore } from "@/stores/sessionStore";
-import { getDistroColor, getDistroIcon } from "@/utils/icons";
+import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import type { TerminalSession } from "@/types";
 
 function sessionBadge(session: TerminalSession): string {
@@ -24,9 +24,10 @@ export function DragGhost() {
   if (!isDragging || !session) return null;
   if (dropTarget?.type === "titlebar") return null;
 
-  const distroIcon = session.type === "ssh" && connection?.distro ? getDistroIcon(connection.distro) : null;
+  const connectionIcon = session.type === "ssh" && connection ? (connection.icon || connection.distro) : null;
+  const distroIcon = connectionIcon ? getConnectionIcon(connectionIcon) : null;
   const icon = distroIcon ?? (session.type === "local" ? "lucide:terminal" : session.type === "serial" ? "lucide:ethernet-port" : "lucide:radio-tower");
-  const iconBg = connection?.distro ? getDistroColor(connection.distro) : undefined;
+  const iconBg = connectionIcon ? getConnectionIconColor(connectionIcon) : undefined;
 
   return (
     <div

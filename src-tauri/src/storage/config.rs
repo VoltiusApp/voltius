@@ -79,6 +79,8 @@ pub struct Connection {
     #[serde(default)]
     pub distro: Option<String>,
     #[serde(default)]
+    pub icon: Option<String>,
+    #[serde(default)]
     pub identity_id: Option<String>,
     #[serde(default)]
     pub folder_id: Option<String>,
@@ -154,6 +156,8 @@ pub struct ConnectionFormData {
     pub terminal_encoding: Option<String>,
     #[serde(default)]
     pub distro: Option<String>,
+    #[serde(default)]
+    pub icon: Option<String>,
     #[serde(default)]
     pub pinned: bool,
     #[serde(default)]
