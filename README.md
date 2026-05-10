@@ -52,6 +52,7 @@ No account required. Your data, your machine.
 - **Reachability checks:** Status badges and Latency indicators. Automatic ping checks with customizable intervals.
 - **Encrypted Keychain:** Store encrypted keys/identities that you can reuse in hosts. Comes with useful features such as "Add to Host" to quickly add a public key to an host.
 - **Command Palette (Cmd+K):** Search servers, switch teams, and trigger actions instantly.
+- **Audit Logs:** Review recent vault activity.
 - **Zero-Knowledge Sync:** Your data is encrypted locally before being synced. We can't read it, and neither can hackers.
 - **Multi-Tab Support:** Native-speed tabs integrated into the window title bar.
 - **Custom Themes:** Comes with built-in themes and you can make your own and share it !
@@ -69,7 +70,7 @@ No account required. Your data, your machine.
 - **Team Vaults:** Shared vaults with easy member invites
 - **Shared terminals (unlimited guests)**
 - **Role-Based Access Control (RBAC):** Only default roles for teams plan, granular permissions and custom roles are reserved for Business plan to avoid complexity for small teams.
-- **Audit Logging**
+- **Team Audit Logs**
 
 ### 🏢 Business ($30/user/mo — contact us)
 - **On-premise self-hosted backend**
@@ -91,12 +92,13 @@ No account required. Your data, your machine.
 | **Command Palette** | ✅ | ✅ |  |  |  |  |
 | **Multi-tab** | ✅ | ✅ |  |  |  |  |
 | **Team vaults** | ✅ Teams or self-hosted | ✅ Teams plan | ✅ Free but complex |  |  |  |
+| **Audit logs** | ✅ | 🟡 Teams plan |  |  |  |  |
 | **Custom Themes** | ✅ |  |  |  |  |  |
 | **Folders &amp; Tags** | ✅ | ✅ | ✅ |  |  |  |
 | **Auto-Updates** | ✅ | ✅ | ✅ |  |  |  |
 | **Modern UI/UX** | ✅ | ✅ | 🟡 | ✅ | 🟡 | ❌ |
 | **AI assistant** | ❌ | ✅ | ✅ |  |  |  |
-| **Permissions** | ✅ (Granular permissions w/ Custom Roles) | ✅ Granular perms |  |  |  |  |
+| **Permissions** | ✅ Teams RBAC / Business custom roles | ✅ Granular perms |  |  |  |  |
 | **Terminal sharing** | ✅ Pro (1 guest) / Teams (unlimited) | ✅ needs Teams plan |  |  |  |  |
 | **Security** | **End-to-End Encrypted** | Proprietary E2EE | **End-to-End Encrypted** |  | Local Only / Manual |  |
 | **SFTP host&lt;-&gt;host** | ✅ | ✅ | ❌ |  | ❌ | ❌ |
@@ -107,9 +109,6 @@ No account required. Your data, your machine.
 | **Pricing** | Free / Pro $7 / Teams $15 / Business $30 | Very limited free tier (no sync) | Free | Free | Free | Free |
 | **License** | **AGPLv3 (Core)** | Commercial / Paid | MIT | Apache License Version 2.0 | MIT | MIT |
 | **OS Detection** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-
-
-TODO add features I dont have (objective comparison) and make 🚧 if they are planned
 
 ## 🛡️ Architecture & Security
 Voltius is built on a **Local-First, Zero-Knowledge** architecture. Your sensitive data (private keys, passwords, and server metadata) is encrypted on your machine before it ever touches a disk or a network.
@@ -265,8 +264,5 @@ Output installers are placed in `src-tauri/target/release/bundle/`.
 - [ ] Native Mobile App (via Tauri Mobile)
 
 ## 📄 Licensing
+Voltius is licensed under the AGPLv3 for the core application and MIT for plugins. This means you can use and modify the core app for free, but if you distribute a modified version, you must also share your changes under the same license. Plugins can be used and shared with more flexibility under the MIT license.
 Copyright © 2026 Killian Pavy. All rights reserved.
-
-**Client Application:** Licensed under AGPLv3. We believe in the right to repair and sovereign data.
-**Cloud Backend:** The real-time sync relay is Closed-Source to support the sustainability of the project.
-**Self-Hosting:** The Enterprise tier allows for a self-hosted version of the full infrastructure.
