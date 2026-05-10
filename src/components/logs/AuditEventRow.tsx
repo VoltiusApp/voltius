@@ -3,13 +3,13 @@ import type { AuditLog } from "@/services/auditService";
 
 // ─── Action metadata ──────────────────────────────────────────────────────────
 
-interface ActionMeta {
+export interface ActionMeta {
   icon: string;
   color: string;
   label: (log: AuditLog) => string;
 }
 
-const ACTION_META: Record<string, ActionMeta> = {
+export const ACTION_META: Record<string, ActionMeta> = {
   "member.invited":      { icon: "lucide:user-plus",  color: "#3b82f6", label: (l) => `invited ${l.target_name ?? l.target_id ?? "a user"}` },
   "member.joined":       { icon: "lucide:user-check",  color: "#3b82f6", label: (l) => `joined the team as ${l.metadata?.role ?? "member"}` },
   "member.removed":      { icon: "lucide:user-minus",  color: "#ef4444", label: (l) => `removed ${l.target_name ?? l.target_id ?? "a member"}` },
@@ -50,7 +50,7 @@ const ACTION_META: Record<string, ActionMeta> = {
   "session.left":        { icon: "lucide:monitor",     color: "#6b7280", label: () => `left terminal session` },
 };
 
-const FALLBACK_META: ActionMeta = {
+export const FALLBACK_META: ActionMeta = {
   icon: "lucide:activity",
   color: "var(--t-text-dim)",
   label: (l) => l.action,
@@ -60,7 +60,7 @@ const FALLBACK_META: ActionMeta = {
 
 const AVATAR_COLORS = ["#6366f1","#8b5cf6","#ec4899","#ef4444","#f59e0b","#10b981","#3b82f6","#14b8a6"];
 
-function avatarColor(s: string) {
+export function avatarColor(s: string) {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = s.charCodeAt(i) + ((h << 5) - h);
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];

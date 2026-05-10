@@ -4,7 +4,7 @@ import { fetchLocalAuditLogs, exportLocalAuditLogs } from "@/services/localAudit
 import type { AuditLog, AuditFilters } from "@/services/auditService";
 import type { AuditContext } from "@/services/auditContext";
 
-export type LayoutMode = "timeline" | "list";
+export type LayoutMode = "timeline" | "list" | "horizontal";
 
 const LAYOUT_KEY = "audit-layout-preference";
 
@@ -35,7 +35,7 @@ interface AuditState {
 function savedLayout(): LayoutMode {
   try {
     const v = localStorage.getItem(LAYOUT_KEY);
-    return v === "list" || v === "timeline" ? v : "timeline";
+    return v === "list" || v === "timeline" || v === "horizontal" ? v : "timeline";
   } catch {
     return "timeline";
   }

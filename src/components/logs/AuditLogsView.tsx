@@ -8,6 +8,7 @@ import { usePermissions } from "@/hooks/usePermission";
 import { AuditGate } from "./AuditGate";
 import { AuditFilters } from "./AuditFilters";
 import { AuditTimeline } from "./AuditTimeline";
+import { AuditHorizontalTimeline } from "./AuditHorizontalTimeline";
 import { AuditList } from "./AuditList";
 import { AuditExportButton } from "./AuditExportButton";
 import { applyAuditLogSearch } from "./auditLogToolbarUtils";
@@ -162,6 +163,8 @@ export default function AuditLogsView() {
             </div>
           ) : layout === "timeline" ? (
             <AuditTimeline logs={visibleLogs} />
+          ) : layout === "horizontal" ? (
+            <AuditHorizontalTimeline logs={visibleLogs} />
           ) : (
             <AuditList logs={visibleLogs} />
           )}
