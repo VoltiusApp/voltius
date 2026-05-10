@@ -68,8 +68,15 @@ const TIME_RANGE_OPTIONS: Array<{ value: AuditTimeRange; label: string; icon: st
 
 const LAYOUT_OPTIONS: Array<{ value: LayoutMode; label: string; icon: string }> = [
   { value: "timeline", label: "Timeline", icon: "lucide:layout-list" },
+  { value: "horizontal", label: "Visual", icon: "lucide:git-commit-horizontal" },
   { value: "list", label: "List", icon: "lucide:table" },
 ];
+
+const LAYOUT_ICON: Record<LayoutMode, string> = {
+  timeline: "lucide:layout-list",
+  horizontal: "lucide:git-commit-horizontal",
+  list: "lucide:table",
+};
 
 function timeRangeLabel(range: AuditTimeRange): string {
   return TIME_RANGE_OPTIONS.find((option) => option.value === range)?.label ?? "Last week";
@@ -102,7 +109,7 @@ export function AuditFilters({ actors, search, onSearchChange, layout, onLayoutC
       <div className="flex items-center gap-1.5 flex-wrap min-w-0">
         <FilterInput value={search} onChange={onSearchChange} placeholder="Filter logs..." width={176} />
 
-        <ToolbarDropdown icon={layout === "timeline" ? "lucide:layout-list" : "lucide:table"} value={layout} options={LAYOUT_OPTIONS} onChange={onLayoutChange} />
+        <ToolbarDropdown icon={LAYOUT_ICON[layout]} value={layout} options={LAYOUT_OPTIONS} onChange={onLayoutChange} />
 
         <ToolbarDropdown
           icon="lucide:user-round"
