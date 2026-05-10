@@ -6,6 +6,7 @@ import { isServerMode } from "@/services/account";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { useTeamStore } from "@/stores/teamStore";
+import { reportAuditMutation } from "@/services/auditMutations";
 
 function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
   if (!vaultId) return false;
@@ -92,6 +93,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
         },
       }));
       void triggerTeamSave(vaultId);
+      reportAuditMutation("identity", "created", { id: identity.id, name: identity.name ?? identity.username, vault_id: identity.vault_id });
       let recreatedId: string | null = null;
       useHistoryStore.getState().push({
         label: `Created identity "${identity.name ?? identity.username}"`,
@@ -112,6 +114,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     set({ identities });
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isTypeSynced("identity")) scheduleSync(); });
+    reportAuditMutation("identity", "created", { id: identity.id, name: identity.name ?? identity.username, vault_id: identity.vault_id });
     let recreatedId: string | null = null;
     useHistoryStore.getState().push({
       label: `Created identity "${identity.name ?? identity.username}"`,
@@ -151,6 +154,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
         },
       }));
       void triggerTeamSave(teamId);
+      reportAuditMutation("identity", "updated", { id: updated.id, name: updated.name ?? updated.username, vault_id: updated.vault_id });
       const prevData: IdentityFormData = {
         name: prev.name, username: prev.username, key_id: prev.key_id,
         tags: prev.tags,
@@ -170,6 +174,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     set({ identities });
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "identity")) scheduleSync(); });
+    if (prev) reportAuditMutation("identity", "updated", { id, name: data.name ?? prev.name ?? prev.username, vault_id: data.vault_id ?? prev.vault_id });
     if (prev) {
       const prevData: IdentityFormData = {
         name: prev.name, username: prev.username, key_id: prev.key_id,
@@ -224,6 +229,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
         },
       }));
       void triggerTeamSave(teamId);
+      reportAuditMutation("identity", "deleted", { id: prev.id, name: prev.name ?? prev.username, vault_id: prev.vault_id });
       const prevData: IdentityFormData = {
         name: prev.name, username: prev.username, key_id: prev.key_id,
         tags: prev.tags,
@@ -250,6 +256,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     set({ identities });
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "identity")) scheduleSync(); });
+    if (prev) reportAuditMutation("identity", "deleted", { id: prev.id, name: prev.name ?? prev.username, vault_id: prev.vault_id });
     if (prev) {
       const prevData: IdentityFormData = {
         name: prev.name, username: prev.username, key_id: prev.key_id,

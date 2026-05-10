@@ -4,6 +4,7 @@ import type { ParsedVariable } from "@/services/snippetParser";
 import * as api from "@/services/snippets";
 import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
+import { reportAuditMutation } from "@/services/auditMutations";
 import { useHistoryStore } from "@/stores/historyStore";
 import { useTeamStore } from "@/stores/teamStore";
 
@@ -114,6 +115,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
         },
       }));
       void triggerTeamSave(vaultId);
+      reportAuditMutation("snippet", "created", { id: snippet.id, name: snippet.name, vault_id: snippet.vault_id });
       let recreatedId: string | null = null;
       useHistoryStore.getState().push({
         label: `Created snippet "${snippet.name}"`,
@@ -133,6 +135,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     const snippets = await api.listSnippets();
     set({ snippets });
     isServerMode().then((s) => { if (s) scheduleSync(); });
+    reportAuditMutation("snippet", "created", { id: snippet.id, name: snippet.name, vault_id: snippet.vault_id });
     let recreatedId: string | null = null;
     useHistoryStore.getState().push({
       label: `Created snippet "${snippet.name}"`,
@@ -174,6 +177,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
         },
       }));
       void triggerTeamSave(teamId);
+      reportAuditMutation("snippet", "updated", { id: updated.id, name: updated.name, vault_id: updated.vault_id });
       const prevData: SnippetFormData = {
         name: prev.name, content: prev.content, description: prev.description,
         tags: prev.tags, folder_id: prev.folder_id, favorite: prev.favorite,
@@ -193,6 +197,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     const snippets = await api.listSnippets();
     set({ snippets });
     isServerMode().then((s) => { if (s) scheduleSync(); });
+    if (prev) reportAuditMutation("snippet", "updated", { id, name: data.name ?? prev.name, vault_id: data.vault_id ?? prev.vault_id });
     if (prev) {
       const prevData: SnippetFormData = {
         name: prev.name, content: prev.content, description: prev.description,
@@ -219,6 +224,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
         },
       }));
       void triggerTeamSave(teamId);
+      reportAuditMutation("snippet", "deleted", { id: prev.id, name: prev.name, vault_id: prev.vault_id });
       const prevData: SnippetFormData = {
         name: prev.name, content: prev.content, description: prev.description,
         tags: prev.tags, folder_id: prev.folder_id, favorite: prev.favorite,
@@ -245,6 +251,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     const snippets = await api.listSnippets();
     set({ snippets });
     isServerMode().then((s) => { if (s) scheduleSync(); });
+    if (prev) reportAuditMutation("snippet", "deleted", { id: prev.id, name: prev.name, vault_id: prev.vault_id });
     if (prev) {
       const prevData: SnippetFormData = {
         name: prev.name, content: prev.content, description: prev.description,

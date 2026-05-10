@@ -42,7 +42,7 @@ function savedLayout(): LayoutMode {
 }
 
 async function fetchForContext(context: AuditContext, filters: AuditFilters): Promise<{ logs: AuditLog[]; total: number }> {
-  if (context.kind === "team") return fetchAuditLogs(context.teamId, filters);
+  if (context.kind === "team") return fetchAuditLogs(context.teamId, context.vaultId, filters);
   return fetchLocalAuditLogs(context.vaultId, filters);
 }
 
@@ -51,7 +51,7 @@ async function exportForContext(
   filters: Omit<AuditFilters, "page" | "per_page">,
   format: "csv" | "json",
 ): Promise<Blob> {
-  if (context.kind === "team") return exportAuditLogs(context.teamId, filters, format);
+  if (context.kind === "team") return exportAuditLogs(context.teamId, context.vaultId, filters, format);
   return exportLocalAuditLogs(context.vaultId, filters, format);
 }
 

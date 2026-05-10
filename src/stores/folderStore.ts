@@ -3,6 +3,7 @@ import type { Folder, FolderFormData } from "@/types";
 import * as api from "@/services/folders";
 import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
+import { reportAuditMutation } from "@/services/auditMutations";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { useConnectionStore } from "@/stores/connectionStore";
@@ -98,6 +99,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
           },
         }));
         void triggerTeamSave(vaultId);
+        reportAuditMutation("folder", "created", { id: folder.id, name: folder.name, vault_id: folder.vault_id }, { object_type: folder.object_type });
         let recreatedId: string | null = null;
         useHistoryStore.getState().push({
           label: `Created folder "${folder.name}"`,
@@ -118,6 +120,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
     const folders = await api.listFolders();
     set({ folders });
     isServerMode().then((s) => { if (s && useSyncPrefsStore.getState().isTypeSynced("folder")) scheduleSync(); });
+    reportAuditMutation("folder", "created", { id: folder.id, name: folder.name, vault_id: folder.vault_id }, { object_type: folder.object_type });
     let recreatedId: string | null = null;
     useHistoryStore.getState().push({
       label: `Created folder "${folder.name}"`,
@@ -156,6 +159,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
         },
       }));
       void triggerTeamSave(teamId);
+      reportAuditMutation("folder", "updated", { id: updated.id, name: updated.name, vault_id: updated.vault_id }, { object_type: updated.object_type });
       const prevData: FolderFormData = {
         name: prev.name, object_type: prev.object_type,
         parent_folder_id: prev.parent_folder_id, vault_id: prev.vault_id,
@@ -174,6 +178,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
     const folders = await api.listFolders();
     set({ folders });
     isServerMode().then((s) => { if (s && useSyncPrefsStore.getState().isObjectSynced(id, "folder")) scheduleSync(); });
+    if (prev) reportAuditMutation("folder", "updated", { id, name: data.name ?? prev.name, vault_id: data.vault_id ?? prev.vault_id }, { object_type: data.object_type ?? prev.object_type });
     if (prev) {
       const prevData: FolderFormData = {
         name: prev.name, object_type: prev.object_type,
@@ -199,6 +204,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
         },
       }));
       void triggerTeamSave(teamId);
+      reportAuditMutation("folder", "deleted", { id: prev.id, name: prev.name, vault_id: prev.vault_id }, { object_type: prev.object_type });
       const prevData: FolderFormData = {
         name: prev.name, object_type: prev.object_type,
         parent_folder_id: prev.parent_folder_id, vault_id: prev.vault_id,
@@ -224,6 +230,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
     const folders = await api.listFolders();
     set({ folders });
     isServerMode().then((s) => { if (s && useSyncPrefsStore.getState().isObjectSynced(id, "folder")) scheduleSync(); });
+    if (prev) reportAuditMutation("folder", "deleted", { id: prev.id, name: prev.name, vault_id: prev.vault_id }, { object_type: prev.object_type });
     if (prev) {
       const prevData: FolderFormData = {
         name: prev.name, object_type: prev.object_type,

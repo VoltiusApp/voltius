@@ -87,8 +87,7 @@ No account required. Your data, your machine.
 | **Cloud Sync** | Gist (Free) / Real-Time (Paid) | 🟡 Only Pro | 🟡 Complex setup | ❌ | Community Plugins | ❌ |
 | **Import/Export** | ✅ |  | ✅ |  |  |  |
 | **Port Forwarding** | ✅ | ✅ | ✅ |  |  |  |
-| **Snippets** | ✅ | 🟡 Only Pro |  |  |  |  |
-| **Multi-Exec snippets** |  |  | ✅ |  |  |  |
+| **Snippets** | ✅ + multi-exec | 🟡 Only Pro | ✅ + multi-exec |  |  |  |
 | **Command Palette** | ✅ | ✅ |  |  |  |  |
 | **Multi-tab** | ✅ | ✅ |  |  |  |  |
 | **Team vaults** | ✅ Teams or self-hosted | ✅ Teams plan | ✅ Free but complex |  |  |  |
@@ -263,7 +262,6 @@ Output installers are placed in `src-tauri/target/release/bundle/`.
 
 ## 🗺️ Roadmap
 -  [ ] Import Cloud (AWS, Azure, DigitalOcean) (Only for Pro plan, need to make sure it can't be bypassed by forking Tauri Client)
--  [ ] Execute snippets on multiple hosts at once (add context menu option "Execute Snippet...")
 - [ ] Native Mobile App (via Tauri Mobile)
 
 ## 📄 Licensing

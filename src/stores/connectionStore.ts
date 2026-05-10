@@ -6,6 +6,7 @@ import { isServerMode } from "@/services/account";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { useTeamStore } from "@/stores/teamStore";
+import { reportAuditMutation } from "@/services/auditMutations";
 
 // ─── Team vault helpers ───────────────────────────────────────────────────────
 
@@ -123,6 +124,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         },
       }));
       void triggerTeamSave(vaultId);
+      reportAuditMutation("connection", "created", { id: conn.id, name: conn.name ?? conn.host, vault_id: conn.vault_id });
       let recreatedId: string | null = null;
       useHistoryStore.getState().push({
         label: `Created connection "${data.name ?? data.host}"`,
@@ -143,6 +145,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     set({ connections });
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isTypeSynced("connection")) scheduleSync(); });
+    reportAuditMutation("connection", "created", { id: conn.id, name: conn.name ?? conn.host, vault_id: conn.vault_id });
     let recreatedId: string | null = null;
     useHistoryStore.getState().push({
       label: `Created connection "${data.name ?? data.host}"`,
@@ -202,6 +205,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         },
       }));
       void triggerTeamSave(teamId);
+      reportAuditMutation("connection", "updated", { id: updated.id, name: updated.name ?? updated.host, vault_id: updated.vault_id });
       const prevData: ConnectionFormData = {
         name: prev.name, host: prev.host, port: prev.port,
         username: prev.username, auth_type: prev.auth_type as AuthType,
@@ -225,6 +229,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     set({ connections });
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "connection")) scheduleSync(); });
+    if (prev) reportAuditMutation("connection", "updated", { id, name: data.name ?? prev.name ?? prev.host, vault_id: data.vault_id ?? prev.vault_id });
     if (prev) {
       const prevData: ConnectionFormData = {
         name: prev.name, host: prev.host, port: prev.port,
@@ -254,6 +259,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         },
       }));
       void triggerTeamSave(teamId);
+      reportAuditMutation("connection", "deleted", { id: prev.id, name: prev.name ?? prev.host, vault_id: prev.vault_id });
       const prevData: ConnectionFormData = {
         name: prev.name, host: prev.host, port: prev.port,
         username: prev.username, auth_type: prev.auth_type as AuthType,
@@ -284,6 +290,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     set({ connections });
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "connection")) scheduleSync(); });
+    if (prev) reportAuditMutation("connection", "deleted", { id: prev.id, name: prev.name ?? prev.host, vault_id: prev.vault_id });
     if (prev) {
       const prevData: ConnectionFormData = {
         name: prev.name, host: prev.host, port: prev.port,

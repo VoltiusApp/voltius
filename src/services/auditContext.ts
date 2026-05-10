@@ -11,5 +11,5 @@ export interface AuditTarget {
 }
 
 export function auditContextKey(context: AuditContext): string {
-  return context.kind === "team" ? `team:${context.teamId}` : `local:${context.vaultId}`;
+  return context.kind === "team" ? `team:${context.teamId}:${context.vaultId ?? ""}` : `local:${context.vaultId}`;
 }

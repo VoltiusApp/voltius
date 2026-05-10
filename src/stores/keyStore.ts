@@ -6,6 +6,7 @@ import { isServerMode } from "@/services/account";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { useTeamStore } from "@/stores/teamStore";
+import { reportAuditMutation } from "@/services/auditMutations";
 
 function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
   if (!vaultId) return false;
@@ -91,6 +92,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
         },
       }));
       void triggerTeamSave(vaultId);
+      reportAuditMutation("key", "created", { id: key.id, name: key.name ?? "unnamed", vault_id: key.vault_id }, { key_type: key.key_type });
       let recreatedId: string | null = null;
       useHistoryStore.getState().push({
         label: `Saved key "${key.name ?? "unnamed"}"`,
@@ -111,6 +113,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
     set({ keys });
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isTypeSynced("key")) scheduleSync(); });
+    reportAuditMutation("key", "created", { id: key.id, name: key.name ?? "unnamed", vault_id: key.vault_id }, { key_type: key.key_type });
     let recreatedId: string | null = null;
     useHistoryStore.getState().push({
       label: `Saved key "${key.name ?? "unnamed"}"`,
@@ -149,6 +152,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
         },
       }));
       void triggerTeamSave(teamId);
+      reportAuditMutation("key", "updated", { id: updated.id, name: updated.name ?? "unnamed", vault_id: updated.vault_id }, { key_type: updated.key_type });
       const prevData: SshKeyFormData = {
         name: prev.name, key_type: prev.key_type,
         tags: prev.tags,
@@ -168,6 +172,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
     set({ keys });
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "key")) scheduleSync(); });
+    if (prev) reportAuditMutation("key", "updated", { id, name: data.name ?? prev.name ?? "unnamed", vault_id: data.vault_id ?? prev.vault_id }, { key_type: data.key_type ?? prev.key_type });
     if (prev) {
       const prevData: SshKeyFormData = {
         name: prev.name, key_type: prev.key_type,
@@ -223,6 +228,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
         },
       }));
       void triggerTeamSave(teamId);
+      reportAuditMutation("key", "deleted", { id: prev.id, name: prev.name ?? "unnamed", vault_id: prev.vault_id }, { key_type: prev.key_type });
       const prevData: SshKeyFormData = {
         name: prev.name, key_type: prev.key_type,
         tags: prev.tags,
@@ -249,6 +255,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
     set({ keys });
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "key")) scheduleSync(); });
+    if (prev) reportAuditMutation("key", "deleted", { id: prev.id, name: prev.name ?? "unnamed", vault_id: prev.vault_id }, { key_type: prev.key_type });
     if (prev) {
       const prevData: SshKeyFormData = {
         name: prev.name, key_type: prev.key_type,

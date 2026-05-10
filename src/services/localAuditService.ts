@@ -3,7 +3,14 @@ import type { AuditTarget } from "@/services/auditContext";
 
 const LOCAL_AUDIT_KEY = "voltius-local-audit-logs";
 
-type ClientAction = "connection.started" | "connection.ended" | "secret.viewed";
+type ClientAction =
+  | "connection.started" | "connection.ended" | "secret.viewed"
+  | "connection.created" | "connection.updated" | "connection.deleted"
+  | "identity.created" | "identity.updated" | "identity.deleted"
+  | "key.created" | "key.updated" | "key.deleted"
+  | "snippet.created" | "snippet.updated" | "snippet.deleted"
+  | "folder.created" | "folder.updated" | "folder.deleted"
+  | "port_forward.created" | "port_forward.updated" | "port_forward.deleted";
 
 interface LocalAuditLog extends AuditLog {
   team_id: "local";

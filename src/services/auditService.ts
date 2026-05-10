@@ -54,6 +54,7 @@ async function fetchAuth(url: string, init: RequestInit = {}): Promise<Response>
 
 export async function fetchAuditLogs(
   teamId: string,
+  vaultId: string | undefined,
   filters: AuditFilters,
 ): Promise<{ logs: AuditLog[]; total: number }> {
   const serverUrl = await getServerUrl();
@@ -62,6 +63,7 @@ export async function fetchAuditLogs(
   const params = new URLSearchParams();
   params.set("page", String(filters.page));
   params.set("per_page", String(filters.per_page));
+  if (vaultId) params.set("vault_id", vaultId);
   if (filters.actions?.length) filters.actions.forEach((a) => params.append("action", a));
   if (filters.actor_id) params.set("actor_id", filters.actor_id);
   if (filters.from) params.set("from", filters.from);
@@ -74,6 +76,7 @@ export async function fetchAuditLogs(
 
 export async function exportAuditLogs(
   teamId: string,
+  vaultId: string | undefined,
   filters: Omit<AuditFilters, "page" | "per_page">,
   format: "csv" | "json",
 ): Promise<Blob> {
@@ -81,6 +84,7 @@ export async function exportAuditLogs(
   if (!serverUrl) throw new Error("Not connected to server");
 
   const params = new URLSearchParams({ format });
+  if (vaultId) params.set("vault_id", vaultId);
   if (filters.actions?.length) filters.actions.forEach((a) => params.append("action", a));
   if (filters.actor_id) params.set("actor_id", filters.actor_id);
   if (filters.from) params.set("from", filters.from);
@@ -94,7 +98,14 @@ export async function exportAuditLogs(
 export async function reportClientEvent(
   teamId: string,
   event: {
-    action: "connection.started" | "connection.ended" | "secret.viewed";
+    action:
+      | "connection.started" | "connection.ended" | "secret.viewed"
+      | "connection.created" | "connection.updated" | "connection.deleted"
+      | "identity.created" | "identity.updated" | "identity.deleted"
+      | "key.created" | "key.updated" | "key.deleted"
+      | "snippet.created" | "snippet.updated" | "snippet.deleted"
+      | "folder.created" | "folder.updated" | "folder.deleted"
+      | "port_forward.created" | "port_forward.updated" | "port_forward.deleted";
     vault_id?: string;
     target_type?: string;
     target_id?: string;
