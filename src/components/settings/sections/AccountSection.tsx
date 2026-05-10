@@ -496,26 +496,27 @@ export default function AccountSection() {
 // ─── Plans section ────────────────────────────────────────────────────────────
 
 const PLAN_FEATURES = [
-  { label: "Local vault", free: true, pro: true, teams: true },
-  { label: "GitHub Gist sync", free: true, pro: true, teams: true },
-  { label: "Real-time cloud sync", free: false, pro: true, teams: true },
-  { label: "Unlimited private vaults", free: false, pro: true, teams: true },
-  { label: "Terminal sharing (1 guest)", free: false, pro: true, teams: true },
-  { label: "Shared team vaults", free: false, pro: false, teams: true },
-  { label: "Unlimited terminal guests", free: false, pro: false, teams: true },
-  { label: "Custom roles", free: false, pro: false, teams: true },
+  { label: "Local vault", free: true, pro: true, teams: true, business: true },
+  { label: "Audit logs", free: true, pro: true, teams: true, business: true },
+  { label: "GitHub Gist sync", free: true, pro: true, teams: true, business: true },
+  { label: "Real-time cloud sync", free: false, pro: true, teams: true, business: true },
+  { label: "Unlimited private vaults", free: false, pro: true, teams: true, business: true },
+  { label: "Terminal sharing (1 guest)", free: false, pro: true, teams: true, business: true },
+  { label: "Shared team vaults", free: false, pro: false, teams: true, business: true },
+  { label: "Unlimited terminal guests", free: false, pro: false, teams: true, business: true },
+  { label: "Custom roles", free: false, pro: false, teams: false, business: true },
 ];
 
 function PlansSection() {
-  const { tier, trialEndsAt, isTrialActive, isPro, isTeams, usedSeats, totalSeats } = useSubscriptionStore();
+  const { tier, trialEndsAt, isTrialActive, isPro, isTeams, isBusiness, usedSeats, totalSeats } = useSubscriptionStore();
 
   const daysLeft = trialEndsAt
     ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / 86_400_000))
     : 0;
 
   const badgeLabel =
+    isBusiness ? "Business" :
     isTeams ? "Teams" :
-    tier === "business" ? "Business" :
     isTrialActive ? `Pro Trial — ${daysLeft}d left` :
     tier === "pro" ? "Pro" : "Free";
 
@@ -586,8 +587,8 @@ function PlansSection() {
 
         {/* Feature comparison */}
         <div className="border-t border-[var(--t-border)] pt-3 space-y-1.5">
-          {PLAN_FEATURES.map(({ label, free, pro, teams: t }) => {
-            const active = isTeams ? t : isPro ? pro : free;
+          {PLAN_FEATURES.map(({ label, free, pro, teams: t, business }) => {
+            const active = isBusiness ? business : isTeams ? t : isPro ? pro : free;
             return (
               <div key={label} className="flex items-center justify-between">
                 <span className="text-xs" style={{ color: active ? "var(--t-text-primary)" : "var(--t-text-muted)" }}>
