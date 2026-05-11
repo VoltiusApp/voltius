@@ -227,18 +227,49 @@ flowchart TD
 - [Rust](https://rustup.rs/) (stable toolchain)
 - Tauri prerequisites for your platform — see [tauri.app/start/prerequisites](https://tauri.app/start/prerequisites/)
 
-## 🛠️ Development
+## 🛠️ Development & Build
+
+For dev, you simply need to run:
+```bash
+pnpm i
+pnpm tauri dev
+```
+
+### Building in Docker (recommended)
+
+I've made a Dockerfile that allows cross-compilation to any platform (Windows ARM64/x64; Linux ARM64/x64) without needing to set up a complex toolchain on your machine:
+
+```bash
+# Build the cross-compilation image
+docker build -f Dockerfile.cross-compile -t voltius-cross .
+
+# Run the build inside the container
+docker run --rm -it \
+  -v "$(pwd):/project" \
+  voltius-cross \
+  bash -c 'pnpm tauri build --target aarch64-pc-windows-msvc --runner cargo-xwin --no-bundle'
+```
+
+The `--no-bundle` flag skips NSIS installer creation (not supported in cross-compilation). The built executable is at:
+```
+src-tauri/target/aarch64-pc-windows-msvc/release/voltius.exe
+```
+
+You can replace `aarch64-pc-windows-msvc` with the appropriate target. Here's a quick reference for targets:
+- Windows x64: `x86_64-pc-windows-msvc`
+- Windows ARM64: `aarch64-pc-windows-msvc`
+- Linux x64: `x86_64-unknown-linux-gnu`
+- Linux ARM64: `aarch64-unknown-linux-gnu`
+- macOS x64: `x86_64-apple-darwin`
+- macOS ARM64: `aarch64-apple-darwin`
+
+If you want to build for other target, see `rustup target list` and add with `rustup target add <target>`. I have not tested other targets.
 
 ### 🐧WSL2 dev note
 
 ```sh
 sudo apt install -y build-essential libssl-dev pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
 LIBGL_ALWAYS_SOFTWARE=1 && pnpm tauri dev
-```
-
-```bash
-pnpm install
-pnpm tauri dev
 ```
 
 ### Build

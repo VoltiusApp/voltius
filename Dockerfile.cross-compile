@@ -1,0 +1,33 @@
+FROM debian:trixie-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    unzip \
+    build-essential \
+    clang \
+    lld \
+    llvm \
+    nasm \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && \
+    . "$HOME/.cargo/env"
+
+RUN /root/.cargo/bin/rustup target add aarch64-pc-windows-msvc
+RUN /root/.cargo/bin/rustup target add x86_64-pc-windows-msvc
+RUN /root/.cargo/bin/cargo install --locked cargo-xwin
+
+RUN ln -s / /imsvc
+
+RUN printf '#!/bin/bash\nXWIN="/root/.cache/cargo-xwin/xwin"\nargs=()\nis_cross=false\nfor arg in "$@"; do\n    case "$arg" in\n        --target=*windows*) is_cross=true ;;\n    esac\ndone\nif [ "$is_cross" = true ]; then\n    for arg in "$@"; do\n        case "$arg" in\n            /imsvc/*) args+=(-I "${arg#/imsvc}") ;;\n            /*) [ -d "$arg" ] && args+=(-I "$arg") || args+=("$arg") ;;\n            *) args+=("$arg") ;;\n        esac\n    done\n    args+=(-isystem "$XWIN/crt/include" -isystem "$XWIN/sdk/include/ucrt" -isystem "$XWIN/sdk/include/um" -isystem "$XWIN/sdk/include/shared" -isystem "$XWIN/sdk/include/winrt")\n    exec clang-19 "${args[@]}"\nelse\n    exec clang-19 "$@"\nfi' > /usr/bin/clang-wrapper && \
+    chmod +x /usr/bin/clang-wrapper && \
+    ln -sf /usr/bin/clang-wrapper /usr/local/bin/clang && \
+    ln -sf /usr/bin/clang-wrapper /usr/local/bin/clang++ && \
+    ln -sf /usr/bin/clang-wrapper /usr/local/bin/cc
+
+RUN printf '#!/bin/bash\nXWIN="/root/.cache/cargo-xwin/xwin"\nargs=()\noutfile=""\nwhile [ $# -gt 0 ]; do\n    arg="$1"\n    shift\n    case "$arg" in\n        -Fo*) outfile="${arg#-Fo}" ;;\n    esac\n    args+=("$arg")\ndone\nif [ -n "$outfile" ] && [ $# -ge 1 ]; then\n    src="${@: -1}"\n    filtered=()\n    for a in "${args[@]}"; do\n        case "$a" in\n            -fuse-ld=*) ;;\n            *) filtered+=("$a") ;;\n        esac\n    done\n    exec clang-19 -target aarch64-pc-windows-msvc -Wno-unused-command-line-argument "${filtered[@]}" -c "$src" -o "$outfile"\nelse\n    exec clang-cl-19 -nologo "${args[@]}" "$@"\nfi' > /usr/bin/clang-cl && chmod +x /usr/bin/clang-cl
+
+WORKDIR /project
+CMD ["/bin/bash"]

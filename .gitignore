@@ -2,6 +2,7 @@
 .serena/
 
 node_modules/
+.pnpm-store/
 dist/
 .worktrees/
 
