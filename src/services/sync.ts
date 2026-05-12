@@ -18,6 +18,7 @@ import { getMyX25519Keypair } from "@/services/multiplayerService";
 import { initTeamVaultKey } from "@/services/teamVaultSync";
 import { onTeamLogin } from "@/services/teamDataManager";
 import * as teamService from "@/services/teamService";
+import { appFetch } from "@/services/http";
 
 export interface BlobPayload {
   files: Record<string, string>;
@@ -117,7 +118,7 @@ async function tryRefreshJwt(): Promise<string | null> {
   ]);
   if (!refreshToken || !serverUrl) return null;
 
-  const res = await fetch(`${serverUrl}/v1/auth/refresh`, {
+  const res = await appFetch(`${serverUrl}/v1/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh_token: refreshToken }),
@@ -190,13 +191,13 @@ export async function fetchWithAuth(url: string, init: RequestInit): Promise<Res
     Authorization: `Bearer ${token}`,
   });
 
-  let res = await fetch(url, { ...init, headers: makeHeaders(jwt) });
+  let res = await appFetch(url, { ...init, headers: makeHeaders(jwt) });
 
   // Fallback: if server still returns 401, try one more refresh
   if (res.status === 401) {
     const newJwt = await tryRefreshJwt();
     if (!newJwt) throw new Error("Session expired — please log in again");
-    res = await fetch(url, { ...init, headers: makeHeaders(newJwt) });
+    res = await appFetch(url, { ...init, headers: makeHeaders(newJwt) });
   }
 
   if (res.status === 429) {
@@ -687,7 +688,7 @@ async function _sseConnect(signal: AbortSignal): Promise<void> {
   ]);
   if (!serverUrl || !jwt) return;
 
-  const res = await fetch(`${serverUrl}/v1/sync/stream`, {
+  const res = await appFetch(`${serverUrl}/v1/sync/stream`, {
     headers: { Authorization: `Bearer ${jwt}`, Accept: "text/event-stream" },
     signal,
   });

@@ -21,6 +21,7 @@ import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { getSecret, storeSecret, deleteSecret } from "@/services/vault";
 import type { Connection, Identity, SshKey, Folder, Snippet, PortForwardingRule } from "@/types";
 import type { TeamMember } from "@/services/teamService";
+import { appFetch } from "@/services/http";
 
 export type { TeamMember };
 
@@ -80,7 +81,7 @@ async function tryRefreshJwt(): Promise<string | null> {
     getServerUrl(),
   ]);
   if (!refreshToken || !serverUrl) return null;
-  const res = await fetch(`${serverUrl}/v1/auth/refresh`, {
+  const res = await appFetch(`${serverUrl}/v1/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh_token: refreshToken }),
@@ -101,11 +102,11 @@ async function fetchWithAuth(url: string, init: RequestInit): Promise<Response> 
     ...(init.headers as Record<string, string>),
     Authorization: `Bearer ${token}`,
   });
-  let res = await fetch(url, { ...init, headers: makeHeaders(jwt) });
+  let res = await appFetch(url, { ...init, headers: makeHeaders(jwt) });
   if (res.status === 401) {
     const newJwt = await tryRefreshJwt();
     if (!newJwt) throw new Error("Session expired — please log in again");
-    res = await fetch(url, { ...init, headers: makeHeaders(newJwt) });
+    res = await appFetch(url, { ...init, headers: makeHeaders(newJwt) });
   }
   if (res.status === 429) {
     const retryAfter = parseInt(res.headers.get("Retry-After") ?? "60", 10);

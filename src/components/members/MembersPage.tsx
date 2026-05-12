@@ -28,6 +28,7 @@ import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
 import BuySeatsModal from "@/components/settings/BuySeatsModal";
 import { effectivePermissions, hasBuiltinRole, PERM_BITS } from "@/hooks/usePermission";
+import { appFetch } from "@/services/http";
 import { RoleModal, PERM_META, TeamRolesPanel } from "@/components/settings/sections/RolesSection";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -1126,7 +1127,7 @@ function UpgradeToTeamsCTA() {
     const serverUrl = await invoke<string | null>("keychain_get", { key: "server_url" });
     const jwt = await invoke<string | null>("keychain_get", { key: "jwt" });
     if (!serverUrl || !jwt) return;
-    const res = await fetch(`${serverUrl}/v1/billing/checkout`, {
+    const res = await appFetch(`${serverUrl}/v1/billing/checkout`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
       body: JSON.stringify({ plan: "teams" }),

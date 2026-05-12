@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { appFetch } from "@/services/http";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -25,7 +26,7 @@ async function tryRefreshJwt(): Promise<string | null> {
     getServerUrl(),
   ]);
   if (!refreshToken || !serverUrl) return null;
-  const res = await fetch(`${serverUrl}/v1/auth/refresh`, {
+  const res = await appFetch(`${serverUrl}/v1/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh_token: refreshToken }),
@@ -47,11 +48,11 @@ async function fetchAuth(url: string, init: RequestInit = {}): Promise<Response>
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
   });
-  let res = await fetch(url, { ...init, headers: makeHeaders(jwt) });
+  let res = await appFetch(url, { ...init, headers: makeHeaders(jwt) });
   if (res.status === 401) {
     const newJwt = await tryRefreshJwt();
     if (!newJwt) throw new Error("Session expired — please log in again");
-    res = await fetch(url, { ...init, headers: makeHeaders(newJwt) });
+    res = await appFetch(url, { ...init, headers: makeHeaders(newJwt) });
   }
   return res;
 }
@@ -350,4 +351,3 @@ export async function revokePendingInvitation(teamId: string, invitationId: stri
   });
   if (!res.ok) throw new Error(`Failed to revoke invitation: ${res.status}`);
 }
-

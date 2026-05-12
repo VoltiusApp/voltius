@@ -1,4 +1,6 @@
-// GitHub Gist REST API wrapper. Uses native fetch (no sandbox restriction).
+import { appFetch } from "@/services/http";
+
+// GitHub Gist REST API wrapper. Uses Tauri HTTP to avoid WebView networking quirks.
 
 const BASE = "https://api.github.com";
 
@@ -52,7 +54,7 @@ export async function createGist(
   pat: string,
   manifest: GistManifest,
 ): Promise<{ id: string; url: string }> {
-  const res = await fetch(`${BASE}/gists`, {
+  const res = await appFetch(`${BASE}/gists`, {
     method: "POST",
     headers: headers(pat),
     body: JSON.stringify({
@@ -78,7 +80,7 @@ export async function getManifest(pat: string, gistId: string): Promise<GistMani
 }
 
 export async function getFile(pat: string, gistId: string, filename: string): Promise<string> {
-  const res = await fetch(`${BASE}/gists/${gistId}`, {
+  const res = await appFetch(`${BASE}/gists/${gistId}`, {
     headers: headers(pat),
   });
   await checkResponse(res, `getFile(${filename})`);
@@ -88,7 +90,7 @@ export async function getFile(pat: string, gistId: string, filename: string): Pr
 
   // GitHub truncates files >1MB — fetch raw URL if needed
   if (file.truncated && file.raw_url) {
-    const rawRes = await fetch(file.raw_url, { headers: headers(pat) });
+    const rawRes = await appFetch(file.raw_url, { headers: headers(pat) });
     await checkResponse(rawRes, `getFile raw(${filename})`);
     return rawRes.text();
   }
@@ -102,7 +104,7 @@ export async function getDeviceBlobs(
   deviceIds: string[],
 ): Promise<string[]> {
   // Fetch gist once, extract all requested device files
-  const res = await fetch(`${BASE}/gists/${gistId}`, {
+  const res = await appFetch(`${BASE}/gists/${gistId}`, {
     headers: headers(pat),
   });
   await checkResponse(res, "getDeviceBlobs");
@@ -116,7 +118,7 @@ export async function getDeviceBlobs(
 
     let content = file.content ?? "";
     if (file.truncated && file.raw_url) {
-      const rawRes = await fetch(file.raw_url, { headers: headers(pat) });
+      const rawRes = await appFetch(file.raw_url, { headers: headers(pat) });
       if (rawRes.ok) content = await rawRes.text();
     }
     if (content) blobs.push(content);
@@ -134,7 +136,7 @@ export async function patchFiles(
   for (const [key, val] of Object.entries(files)) {
     filesPayload[key] = val ? { content: val.content } : null;
   }
-  const res = await fetch(`${BASE}/gists/${gistId}`, {
+  const res = await appFetch(`${BASE}/gists/${gistId}`, {
     method: "PATCH",
     headers: headers(pat),
     body: JSON.stringify({ files: filesPayload }),
@@ -155,7 +157,7 @@ export async function listVoltiusGists(pat: string): Promise<{ id: string; url: 
   const results: { id: string; url: string }[] = [];
   let page = 1;
   while (true) {
-    const res = await fetch(`${BASE}/gists?per_page=100&page=${page}`, { headers: headers(pat) });
+    const res = await appFetch(`${BASE}/gists?per_page=100&page=${page}`, { headers: headers(pat) });
     await checkResponse(res, "listVoltiusGists");
     const data: { id: string; html_url: string; description: string }[] = await res.json();
     if (data.length === 0) break;
@@ -170,7 +172,7 @@ export async function listVoltiusGists(pat: string): Promise<{ id: string; url: 
 }
 
 export async function deleteGistById(pat: string, gistId: string): Promise<void> {
-  const res = await fetch(`${BASE}/gists/${gistId}`, {
+  const res = await appFetch(`${BASE}/gists/${gistId}`, {
     method: "DELETE",
     headers: headers(pat),
   });

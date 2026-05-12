@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getVaultKey } from "@/services/vault";
 import * as teamService from "@/services/teamService";
+import { appFetch } from "@/services/http";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -113,7 +114,7 @@ export async function listActiveSessions(): Promise<ActiveSession[]> {
   if (!serverUrl) return [];
   const jwt = await teamService.getJwtToken();
   if (!jwt) return [];
-  const res = await fetch(`${serverUrl}/v1/terminal-sessions`, {
+  const res = await appFetch(`${serverUrl}/v1/terminal-sessions`, {
     headers: { Authorization: `Bearer ${jwt}` },
   });
   if (!res.ok) return [];
@@ -153,7 +154,7 @@ export async function createVaultSession(
   const jwt = await teamService.getJwtToken();
   if (!jwt) throw new Error("Not authenticated");
 
-  const res = await fetch(`${serverUrl}/v1/terminal-sessions`, {
+  const res = await appFetch(`${serverUrl}/v1/terminal-sessions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${jwt}`,
@@ -189,7 +190,7 @@ export async function createInviteLinkSession(
   const sessionKey = await importSessionKey(sessionKeyBytes);
   const sessionKeyB64 = btoa(String.fromCharCode(...sessionKeyBytes));
 
-  const res = await fetch(`${serverUrl}/v1/terminal-sessions`, {
+  const res = await appFetch(`${serverUrl}/v1/terminal-sessions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${jwt}`,
@@ -220,7 +221,7 @@ export async function getMySessionKey(
     ? `${serverUrl}/v1/terminal-sessions/${sessionId}/my-key?invite_token=${encodeURIComponent(inviteToken)}`
     : `${serverUrl}/v1/terminal-sessions/${sessionId}/my-key`;
 
-  const res = await fetch(url, {
+  const res = await appFetch(url, {
     headers: { Authorization: `Bearer ${jwt}` },
   });
   if (!res.ok) throw new Error(`Failed to get session key: ${res.status}`);
@@ -245,7 +246,7 @@ export async function endMultiplayerSession(sessionId: string): Promise<void> {
   if (!serverUrl) throw new Error("Not connected to server");
   const jwt = await teamService.getJwtToken();
   if (!jwt) throw new Error("Not authenticated");
-  await fetch(`${serverUrl}/v1/terminal-sessions/${sessionId}`, {
+  await appFetch(`${serverUrl}/v1/terminal-sessions/${sessionId}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${jwt}` },
   });
