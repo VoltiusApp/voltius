@@ -237,7 +237,7 @@ pnpm tauri dev
 
 ### Building in Docker (recommended)
 
-I've made a Dockerfile that allows cross-compilation to any platform (Windows ARM64/x64; Linux ARM64/x64) without needing to set up a complex toolchain on your machine:
+I've made a Dockerfile that allows cross-compilation to Windows ARM64/x64; Linux ARM64/x64 without needing to set up a complex toolchain on your machine:
 
 ```bash
 # Build the cross-compilation image
@@ -260,10 +260,10 @@ You can replace `aarch64-pc-windows-msvc` with the appropriate target. Here's a 
 - Windows ARM64: `aarch64-pc-windows-msvc`
 - Linux x64: `x86_64-unknown-linux-gnu`
 - Linux ARM64: `aarch64-unknown-linux-gnu`
-- macOS x64: `x86_64-apple-darwin`
-- macOS ARM64: `aarch64-apple-darwin`
 
 If you want to build for other target, see `rustup target list` and add with `rustup target add <target>`. I have not tested other targets.
+
+> Note: build will work but throw an error except if you set TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_KEY_PASSWORD to dummy values, which is required by the Tauri build process even if you don't do code signing in cross-compilation. You can set them to any non-empty value to bypass the error.
 
 ### 🐧WSL2 dev note
 

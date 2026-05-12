@@ -10,30 +10,39 @@ RUN apt-get update && apt-get install -y \
     nsis \
     lld \
     llvm \
-    nasm \
-    && rm -rf /var/lib/apt/lists/*
+    nasm
 
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && \
-    . "$HOME/.cargo/env"
+# Node & PNPM
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && corepack enable && corepack prepare pnpm --activate \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN /root/.cargo/bin/rustup target add aarch64-pc-windows-msvc
-RUN /root/.cargo/bin/rustup target add x86_64-pc-windows-msvc
-RUN /root/.cargo/bin/rustup target add aarch64-unknown-linux-gnu
-RUN /root/.cargo/bin/rustup target add x86_64-unknown-linux-gnu
-RUN /root/.cargo/bin/rustup target add x86_64-apple-darwin
-RUN /root/.cargo/bin/rustup target add aarch64-apple-darwin
+# Rust
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y \
+    && $HOME/.cargo/bin/rustup target add \
+    aarch64-pc-windows-msvc \
+    x86_64-pc-windows-msvc \
+    aarch64-unknown-linux-gnu \
+    x86_64-unknown-linux-gnu
 
-RUN /root/.cargo/bin/cargo install --locked cargo-xwin
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+RUN cargo install --locked cargo-xwin && \
+    cargo xwin cache xwin && \
+    rm -rf /root/.cargo/registry /root/.cargo/git
 
 RUN ln -s / /imsvc
 
-RUN printf '#!/bin/bash\nXWIN="/root/.cache/cargo-xwin/xwin"\nargs=()\nis_cross=false\nfor arg in "$@"; do\n    case "$arg" in\n        --target=*windows*) is_cross=true ;;\n    esac\ndone\nif [ "$is_cross" = true ]; then\n    for arg in "$@"; do\n        case "$arg" in\n            /imsvc/*) args+=(-I "${arg#/imsvc}") ;;\n            /*) [ -d "$arg" ] && args+=(-I "$arg") || args+=("$arg") ;;\n            *) args+=("$arg") ;;\n        esac\n    done\n    args+=(-isystem "$XWIN/crt/include" -isystem "$XWIN/sdk/include/ucrt" -isystem "$XWIN/sdk/include/um" -isystem "$XWIN/sdk/include/shared" -isystem "$XWIN/sdk/include/winrt")\n    exec clang-19 "${args[@]}"\nelse\n    exec clang-19 "$@"\nfi' > /usr/bin/clang-wrapper && \
+# Generic Clang Wrapper
+RUN printf '#!/bin/bash\nXWIN="/root/.cache/cargo-xwin/xwin"\nargs=()\nis_cross=false\nfor arg in "$@"; do\n    case "$arg" in\n        --target=*windows*) is_cross=true ;;\n    esac\ndone\nif [ "$is_cross" = true ]; then\n    skip_next=false\n    for arg in "$@"; do\n        if $skip_next; then\n            args+=(-I "$arg")\n            skip_next=false\n            continue\n        fi\n        case "$arg" in\n            /imsvc)\n                skip_next=true\n                ;;\n            /imsvc/*)\n                args+=(-I "${arg#/imsvc}")\n                ;;\n            *)\n                args+=("$arg")\n                ;;\n        esac\n    done\n    args+=(-isystem "$XWIN/crt/include" -isystem "$XWIN/sdk/include/ucrt" -isystem "$XWIN/sdk/include/um" -isystem "$XWIN/sdk/include/shared" -isystem "$XWIN/sdk/include/winrt")\n    exec clang-19 "${args[@]}"\nelse\n    exec clang-19 "$@"\nfi' > /usr/bin/clang-wrapper && \
     chmod +x /usr/bin/clang-wrapper && \
     ln -sf /usr/bin/clang-wrapper /usr/local/bin/clang && \
     ln -sf /usr/bin/clang-wrapper /usr/local/bin/clang++ && \
     ln -sf /usr/bin/clang-wrapper /usr/local/bin/cc
 
-RUN printf '#!/bin/bash\nXWIN="/root/.cache/cargo-xwin/xwin"\nargs=()\noutfile=""\nwhile [ $# -gt 0 ]; do\n    arg="$1"\n    shift\n    case "$arg" in\n        -Fo*) outfile="${arg#-Fo}" ;;\n    esac\n    args+=("$arg")\ndone\nif [ -n "$outfile" ] && [ $# -ge 1 ]; then\n    src="${@: -1}"\n    filtered=()\n    for a in "${args[@]}"; do\n        case "$a" in\n            -fuse-ld=*) ;;\n            *) filtered+=("$a") ;;\n        esac\n    done\n    exec clang-19 -target aarch64-pc-windows-msvc -Wno-unused-command-line-argument "${filtered[@]}" -c "$src" -o "$outfile"\nelse\n    exec clang-cl-19 -nologo "${args[@]}" "$@"\nfi' > /usr/bin/clang-cl && chmod +x /usr/bin/clang-cl
-
+RUN CLANG_VERSION=$(clang --version | grep -oP '(?<=clang version )\d+' | head -1) && \
+    ln -sf $(which clang-cl-${CLANG_VERSION}) /usr/bin/clang-cl
+    
 WORKDIR /project
 CMD ["/bin/bash"]
