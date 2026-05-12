@@ -4,6 +4,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { loadPlugin, unloadPlugin } from "@/plugins/runtime";
 import type { PluginManifest, PluginRegisterFn } from "@/plugins/api";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
+import { appFetch } from "@/services/http";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -97,7 +98,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
   sources: [FIRST_PARTY_SOURCE],
 
   async addSource(url: string) {
-    const res = await fetch(url);
+    const res = await appFetch(url);
     if (!res.ok) throw new Error(`Failed to fetch source: HTTP ${res.status}`);
     const data = await res.json() as { id?: string; name?: string };
     const id = data.id ?? url.replace(/[^a-z0-9]/gi, "-").toLowerCase();
@@ -130,7 +131,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
     const results: MarketplacePlugin[] = [];
     for (const source of sources.filter((s) => s.enabled)) {
       try {
-        const res = await fetch(source.url);
+        const res = await appFetch(source.url);
         if (!res.ok) continue;
         const data = await res.json();
         const list: MarketplacePlugin[] = Array.isArray(data) ? data : (data.plugins ?? []);

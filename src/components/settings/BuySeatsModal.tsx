@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { invoke } from "@tauri-apps/api/core";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useTeamStore } from "@/stores/teamStore";
+import { appFetch } from "@/services/http";
 
 const SEAT_PRICE_MONTHLY = 15;
 
@@ -33,7 +34,7 @@ export default function BuySeatsModal({ teamId, pendingUser, pendingRole, onClos
       const jwt = await invoke<string | null>("keychain_get", { key: "jwt" });
       if (!serverUrl || !jwt) throw new Error("Not connected to server");
 
-      const res = await fetch(`${serverUrl}/v1/billing/seats`, {
+      const res = await appFetch(`${serverUrl}/v1/billing/seats`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
         body: JSON.stringify({ seats: newTotal, invoice_immediately: true }),

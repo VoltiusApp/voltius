@@ -10,6 +10,7 @@ import { ActionItem, FormButtons, SettingsInput } from "./shared";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { openPortal } from "@/utils/billing";
+import { appFetch } from "@/services/http";
 
 type AccountStep = "idle" | "set-password" | "link-cloud" | "loading" | "confirm-wipe";
 type CloudAction = "register" | "signin";
@@ -31,7 +32,7 @@ async function openCheckout(plan: "pro" | "teams") {
   const serverUrl = await invoke<string | null>("keychain_get", { key: "server_url" });
   const jwt = await invoke<string | null>("keychain_get", { key: "jwt" });
   if (!serverUrl || !jwt) return;
-  const res = await fetch(`${serverUrl}/v1/billing/checkout`, {
+  const res = await appFetch(`${serverUrl}/v1/billing/checkout`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
     body: JSON.stringify({ plan }),

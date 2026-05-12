@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
+import { appFetch } from "@/services/http";
 
 export type Tier = "free" | "pro" | "teams" | "business";
 
@@ -85,7 +86,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
       try {
         const serverUrl = await keychainGet("server_url").catch(() => null);
         if (serverUrl) {
-          const res = await fetch(`${serverUrl}/v1/billing/subscription`, {
+          const res = await appFetch(`${serverUrl}/v1/billing/subscription`, {
             headers: { Authorization: `Bearer ${jwt}` },
           });
           if (res.ok) {

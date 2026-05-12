@@ -22,6 +22,7 @@ import * as connectionService from "@/services/connections";
 import * as keyService from "@/services/keys";
 import * as identityService from "@/services/identities";
 import { storePluginSecret, getPluginSecret, deletePluginSecret, storeSecret, deleteSecret } from "@/services/vault";
+import { appFetch } from "@/services/http";
 import type {
   PluginAPI,
   PluginManifest,
@@ -542,13 +543,13 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
     http: {
       async get<T>(url: string, opts?: RequestInit) {
         requirePerm(manifest, "http");
-        const res = await fetch(url, { ...opts, method: "GET" });
+        const res = await appFetch(url, { ...opts, method: "GET" });
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${url}`);
         return res.json() as Promise<T>;
       },
       async post<T>(url: string, body: unknown, opts?: RequestInit) {
         requirePerm(manifest, "http");
-        const res = await fetch(url, {
+        const res = await appFetch(url, {
           ...opts,
           method: "POST",
           headers: { "Content-Type": "application/json", ...(opts?.headers ?? {}) },

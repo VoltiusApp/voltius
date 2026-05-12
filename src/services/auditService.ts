@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { appFetch } from "@/services/http";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,7 +41,7 @@ async function getServerUrl(): Promise<string | null> {
 async function fetchAuth(url: string, init: RequestInit = {}): Promise<Response> {
   const jwt = await getJwt();
   if (!jwt) throw new Error("Not authenticated");
-  return fetch(url, {
+  return appFetch(url, {
     ...init,
     headers: {
       ...(init.headers as Record<string, string>),

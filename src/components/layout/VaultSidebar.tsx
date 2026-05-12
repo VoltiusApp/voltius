@@ -11,6 +11,7 @@ import { SidebarAccountButton } from "./SidebarAccountButton";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { CreateVaultModal } from "@/components/shared/CreateVaultModal";
 import { Modal } from "@/components/shared/Modal";
+import { appFetch } from "@/services/http";
 
 function getInitials(name: string) {
   return name.trim().charAt(0).toUpperCase();
@@ -50,7 +51,7 @@ export default function VaultSidebar() {
     const serverUrl = await invoke<string | null>("keychain_get", { key: "server_url" });
     const jwt = await invoke<string | null>("keychain_get", { key: "jwt" });
     if (!serverUrl || !jwt) return;
-    const res = await fetch(`${serverUrl}/v1/billing/checkout`, {
+    const res = await appFetch(`${serverUrl}/v1/billing/checkout`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
       body: JSON.stringify({ plan: "pro" }),
