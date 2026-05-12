@@ -179,7 +179,6 @@ async fn updater_check(app: tauri::AppHandle) {
 pub fn run() {
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
-        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init());
 
@@ -301,6 +300,7 @@ pub fn run() {
             commands::local::local_disconnect,
             commands::local::local_send_input,
             commands::local::local_resize,
+            commands::http::http_request,
             commands::fs::fs_home_dir,
             commands::fs::fs_list_dir,
             commands::fs::fs_read_text_home,

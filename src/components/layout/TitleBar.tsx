@@ -62,11 +62,15 @@ export default function TitleBar() {
   useEffect(() => { return onGistSyncStateChange(() => setGistSyncState(getGistSyncState())); }, []);
 
   const gistPluginEnabled = usePluginRegistryStore((s) => s.isEnabled("plugin-gist-sync", false));
+  const accountMode = useSubscriptionStore((s) => s.accountMode);
 
-  const effectiveConfigured = syncState.cloudActive || gistSyncState.configured;
-  const effectiveSyncStatus = syncState.cloudActive ? syncState.status : gistSyncState.configured ? gistSyncState.status : syncState.status;
-  const effectiveLastSync = syncState.cloudActive ? syncState.lastSync : gistSyncState.lastSync;
-  const effectiveError = syncState.cloudActive ? syncState.error : gistSyncState.error;
+  const voltiusConfigured = accountMode === "server";
+  const gistConfigured = gistPluginEnabled && gistSyncState.configured;
+  const showVoltiusState = voltiusConfigured || !gistConfigured;
+  const effectiveConfigured = voltiusConfigured || gistConfigured;
+  const effectiveSyncStatus = showVoltiusState ? syncState.status : gistSyncState.status;
+  const effectiveLastSync = showVoltiusState ? syncState.lastSync : gistSyncState.lastSync;
+  const effectiveError = showVoltiusState ? syncState.error : gistSyncState.error;
 
   const [syncDropdownOpen, setSyncDropdownOpen] = useState(false);
   const syncButtonRef = useRef<HTMLButtonElement>(null);
@@ -82,7 +86,6 @@ export default function TitleBar() {
   const leaveMultiplayerSession = useTeamSessionStore((s) => s.leaveSession);
   const [shareDropdownOpen, setShareDropdownOpen] = useState(false);
   const shareButtonRef = useRef<HTMLButtonElement>(null);
-  const accountMode = useSubscriptionStore((s) => s.accountMode);
   const tier = useSubscriptionStore((s) => s.tier);
   const openSettings = useUIStore((s) => s.openSettings);
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);

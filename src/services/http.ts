@@ -1,9 +1,30 @@
-import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+import { invoke } from "@tauri-apps/api/core";
 
 export type AppFetchInit = RequestInit & { connectTimeout?: number };
 
+interface NativeHttpResponse {
+  status: number;
+  status_text: string;
+  headers: Array<{ name: string; value: string }>;
+  body: string;
+}
+
 export async function appFetch(input: string | URL, init?: AppFetchInit): Promise<Response> {
-  return tauriFetch(input, init ? { ...init } : undefined);
+  const request = new Request(input, init);
+  const body = await request.text();
+  const response = await invoke<NativeHttpResponse>("http_request", {
+    url: request.url,
+    method: request.method,
+    headers: Array.from(request.headers.entries()).map(([name, value]) => ({ name, value })),
+    body: body.length > 0 ? body : null,
+    connectTimeoutMs: init?.connectTimeout ?? null,
+  });
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.status_text,
+    headers: response.headers.map(({ name, value }) => [name, value]),
+  });
 }
 
 export function isAbortError(error: unknown): boolean {

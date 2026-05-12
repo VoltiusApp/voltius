@@ -688,7 +688,7 @@ async function _sseConnect(signal: AbortSignal): Promise<void> {
   ]);
   if (!serverUrl || !jwt) return;
 
-  const res = await appFetch(`${serverUrl}/v1/sync/stream`, {
+  const res = await fetch(`${serverUrl}/v1/sync/stream`, {
     headers: { Authorization: `Bearer ${jwt}`, Accept: "text/event-stream" },
     signal,
   });

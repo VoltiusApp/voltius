@@ -3,6 +3,7 @@ pub mod crypto;
 pub mod docker;
 pub mod folders;
 pub mod fs;
+pub mod http;
 pub mod identities;
 pub mod keychain;
 pub mod keygen;
