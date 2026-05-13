@@ -3,7 +3,7 @@ import { Icon } from "@iconify/react";
 import { invoke } from "@tauri-apps/api/core";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
-import { localConnect } from "@/services/local";
+import { localConnect, localSendInput } from "@/services/local";
 import {
   dockerListContainers,
   dockerListImages,
@@ -92,6 +92,7 @@ export function DockerPanel() {
 
   const isRemote = activeSession?.type === "ssh";
   const sessionId = activeSession?.id ?? "";
+  const localShell = activeSession?.type === "local" ? (activeSession.localShell ?? null) : null;
 
   const handleOpenTerminal = useCallback(
     async (containerId: string, containerName: string) => {
@@ -132,12 +133,14 @@ export function DockerPanel() {
               connectionName: `exec: ${containerName}`,
               status: "connecting" as const,
               type: "local" as const,
+              localShell: localShell ?? undefined,
             },
           ],
           activeSessionId: newSessionId,
         }));
         try {
-          await localConnect(newSessionId, 80, 24, `docker exec -it ${containerId} sh`);
+          await localConnect(newSessionId, 80, 24, localShell ?? undefined);
+          await localSendInput(newSessionId, new TextEncoder().encode(`docker exec -it ${containerId} sh\r`));
           useSessionStore.setState((s) => ({
             sessions: s.sessions.map((sess) =>
               sess.id === newSessionId ? { ...sess, status: "connected" as const } : sess,
@@ -156,7 +159,7 @@ export function DockerPanel() {
       useUIStore.getState().setActiveNav("terminal" as any);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sessionId, isRemote, activeSession?.connectionId],
+    [sessionId, isRemote, activeSession?.connectionId, localShell],
   );
 
   const fetchForView = useCallback(
@@ -166,22 +169,22 @@ export function DockerPanel() {
       try {
         switch (view) {
           case "containers": {
-            const containers = await dockerListContainers(sessionId, isRemote, true);
+            const containers = await dockerListContainers(sessionId, isRemote, localShell, true);
             dispatch({ type: "SET_CONTAINERS", containers });
             break;
           }
           case "images": {
-            const images = await dockerListImages(sessionId, isRemote);
+            const images = await dockerListImages(sessionId, isRemote, localShell);
             dispatch({ type: "SET_IMAGES", images });
             break;
           }
           case "volumes": {
-            const volumes = await dockerListVolumes(sessionId, isRemote);
+            const volumes = await dockerListVolumes(sessionId, isRemote, localShell);
             dispatch({ type: "SET_VOLUMES", volumes });
             break;
           }
           case "networks": {
-            const networks = await dockerListNetworks(sessionId, isRemote);
+            const networks = await dockerListNetworks(sessionId, isRemote, localShell);
             dispatch({ type: "SET_NETWORKS", networks });
             break;
           }
@@ -229,6 +232,7 @@ export function DockerPanel() {
       <LogsView
         sessionId={sessionId}
         isRemote={isRemote}
+        localShell={localShell}
         containerId={state.logsContainerId}
         containerName={logsContainerNameRef.current}
         onBack={() => dispatch({ type: "CLOSE_LOGS" })}
@@ -240,7 +244,34 @@ export function DockerPanel() {
     state.error &&
     (state.error.includes("Docker not available") ||
       state.error.includes("command not found") ||
-      state.error.includes("connect: no such file"));
+      state.error.includes("connect: no such file") ||
+      state.error.includes("client error (Connect)"));
+
+  if (isDockerError) {
+    return (
+      <div className="flex h-full items-center justify-center px-6 text-center">
+        <div className="max-w-[260px] space-y-2">
+          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--t-bg-card)] text-[var(--t-text-muted)] border border-[var(--t-border)]">
+            <Icon icon="mdi:docker" width={22} />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-[var(--t-text)]">Docker is not reachable</h3>
+            <p className="mt-1 text-[11px] leading-4 text-[var(--t-text-muted)]">
+              Start Docker in this environment, then refresh.
+            </p>
+          </div>
+          <button
+            onClick={() => fetchForView(state.view)}
+            disabled={state.loading}
+            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--t-border)] px-2.5 py-1 text-[11px] text-[var(--t-text-muted)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] disabled:opacity-40"
+          >
+            <Icon icon="lucide:refresh-cw" width={12} className={state.loading ? "animate-spin" : ""} />
+            Refresh
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -274,7 +305,7 @@ export function DockerPanel() {
               setSysPruning(true);
               setSysPruneMsg(null);
               try {
-                const msg = await dockerSystemPrune(sessionId, isRemote);
+                const msg = await dockerSystemPrune(sessionId, isRemote, localShell);
                 setSysPruneMsg(msg);
                 fetchForView(state.view);
               } catch (e) {
@@ -300,12 +331,8 @@ export function DockerPanel() {
 
       {/* Error state */}
       {state.error && (
-        <div className="px-3 py-2 text-[10px] text-[var(--t-status-error)]">
-          {isDockerError ? (
-            <p>Docker not available on this host.</p>
-          ) : (
-            <p className="break-all">{state.error}</p>
-          )}
+        <div className="px-3 py-2 text-[10px] text-[var(--t-text-muted)]">
+          <p className="break-all">{state.error}</p>
         </div>
       )}
 
@@ -318,6 +345,7 @@ export function DockerPanel() {
               showStopped={state.showStopped}
               sessionId={sessionId}
               isRemote={isRemote}
+              localShell={localShell}
               onLogs={(id, name) => {
                 logsContainerNameRef.current = name;
                 dispatch({ type: "OPEN_LOGS", containerId: id, containerName: name });
@@ -332,6 +360,7 @@ export function DockerPanel() {
               images={state.images}
               sessionId={sessionId}
               isRemote={isRemote}
+              localShell={localShell}
               onRefresh={() => fetchForView("images")}
             />
           )}
@@ -340,6 +369,7 @@ export function DockerPanel() {
               volumes={state.volumes}
               sessionId={sessionId}
               isRemote={isRemote}
+              localShell={localShell}
               onRefresh={() => fetchForView("volumes")}
             />
           )}
@@ -348,6 +378,7 @@ export function DockerPanel() {
               networks={state.networks}
               sessionId={sessionId}
               isRemote={isRemote}
+              localShell={localShell}
               onRefresh={() => fetchForView("networks")}
             />
           )}

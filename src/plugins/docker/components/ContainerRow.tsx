@@ -7,6 +7,7 @@ interface Props {
   container: DockerContainer;
   sessionId: string;
   isRemote: boolean;
+  localShell: string | null;
   onLogs: (id: string, name: string) => void;
   onTerminal: (id: string, name: string) => void;
   onRefresh: () => void;
@@ -23,14 +24,14 @@ function displayName(names: string[]): string {
   return n.startsWith("/") ? n.slice(1) : n;
 }
 
-export function ContainerRow({ container, sessionId, isRemote, onLogs, onTerminal, onRefresh }: Props) {
+export function ContainerRow({ container, sessionId, isRemote, localShell, onLogs, onTerminal, onRefresh }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const act = async (action: ContainerAction) => {
     setBusy(true);
     try {
-      await dockerContainerAction(sessionId, isRemote, container.id, action);
+      await dockerContainerAction(sessionId, isRemote, localShell, container.id, action);
       onRefresh();
     } catch (e) {
       console.error("[docker] action failed:", e);

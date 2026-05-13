@@ -7,10 +7,11 @@ interface Props {
   volumes: DockerVolume[];
   sessionId: string;
   isRemote: boolean;
+  localShell: string | null;
   onRefresh: () => void;
 }
 
-export function VolumeList({ volumes, sessionId, isRemote, onRefresh }: Props) {
+export function VolumeList({ volumes, sessionId, isRemote, localShell, onRefresh }: Props) {
   const [pruning, setPruning] = useState(false);
   const [pruneMsg, setPruneMsg] = useState<string | null>(null);
 
@@ -18,7 +19,7 @@ export function VolumeList({ volumes, sessionId, isRemote, onRefresh }: Props) {
     setPruning(true);
     setPruneMsg(null);
     try {
-      const msg = await dockerPruneVolumes(sessionId, isRemote);
+      const msg = await dockerPruneVolumes(sessionId, isRemote, localShell);
       setPruneMsg(msg);
       onRefresh();
     } catch (e) {
@@ -60,6 +61,7 @@ export function VolumeList({ volumes, sessionId, isRemote, onRefresh }: Props) {
               volume={v}
               sessionId={sessionId}
               isRemote={isRemote}
+              localShell={localShell}
               onRefresh={onRefresh}
             />
           ))
@@ -73,11 +75,13 @@ function VolumeRow({
   volume,
   sessionId,
   isRemote,
+  localShell,
   onRefresh,
 }: {
   volume: DockerVolume;
   sessionId: string;
   isRemote: boolean;
+  localShell: string | null;
   onRefresh: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -85,7 +89,7 @@ function VolumeRow({
   const remove = async () => {
     setBusy(true);
     try {
-      await dockerRemoveVolume(sessionId, isRemote, volume.name);
+      await dockerRemoveVolume(sessionId, isRemote, localShell, volume.name);
       onRefresh();
     } catch (e) {
       console.error("[docker] remove volume failed:", e);
