@@ -6,6 +6,7 @@ interface Props {
   showStopped: boolean;
   sessionId: string;
   isRemote: boolean;
+  localShell: string | null;
   onLogs: (id: string, name: string) => void;
   onTerminal: (id: string, name: string) => void;
   onRefresh: () => void;
@@ -17,6 +18,7 @@ export function ContainerList({
   showStopped,
   sessionId,
   isRemote,
+  localShell,
   onLogs,
   onTerminal,
   onRefresh,
@@ -60,6 +62,7 @@ export function ContainerList({
               container={c}
               sessionId={sessionId}
               isRemote={isRemote}
+              localShell={localShell}
               onLogs={onLogs}
               onTerminal={onTerminal}
               onRefresh={onRefresh}

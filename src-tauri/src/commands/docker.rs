@@ -20,13 +20,14 @@ pub async fn docker_list_containers(
     session_manager: State<'_, SessionManager>,
     session_id: String,
     is_remote: bool,
+    local_shell: Option<String>,
     all: bool,
 ) -> Result<Vec<DockerContainer>, String> {
     if is_remote {
         let handle = session_manager.get_handle(&session_id).await?;
         remote::list_containers(&handle, all).await
     } else {
-        local::list_containers(all).await
+        local::list_containers(local_shell.as_deref(), all).await
     }
 }
 
@@ -35,12 +36,13 @@ pub async fn docker_list_images(
     session_manager: State<'_, SessionManager>,
     session_id: String,
     is_remote: bool,
+    local_shell: Option<String>,
 ) -> Result<Vec<DockerImage>, String> {
     if is_remote {
         let handle = session_manager.get_handle(&session_id).await?;
         remote::list_images(&handle).await
     } else {
-        local::list_images().await
+        local::list_images(local_shell.as_deref()).await
     }
 }
 
@@ -49,12 +51,13 @@ pub async fn docker_list_volumes(
     session_manager: State<'_, SessionManager>,
     session_id: String,
     is_remote: bool,
+    local_shell: Option<String>,
 ) -> Result<Vec<DockerVolume>, String> {
     if is_remote {
         let handle = session_manager.get_handle(&session_id).await?;
         remote::list_volumes(&handle).await
     } else {
-        local::list_volumes().await
+        local::list_volumes(local_shell.as_deref()).await
     }
 }
 
@@ -63,12 +66,13 @@ pub async fn docker_list_networks(
     session_manager: State<'_, SessionManager>,
     session_id: String,
     is_remote: bool,
+    local_shell: Option<String>,
 ) -> Result<Vec<DockerNetwork>, String> {
     if is_remote {
         let handle = session_manager.get_handle(&session_id).await?;
         remote::list_networks(&handle).await
     } else {
-        local::list_networks().await
+        local::list_networks(local_shell.as_deref()).await
     }
 }
 
@@ -77,6 +81,7 @@ pub async fn docker_container_action(
     session_manager: State<'_, SessionManager>,
     session_id: String,
     is_remote: bool,
+    local_shell: Option<String>,
     container_id: String,
     action: ContainerAction,
 ) -> Result<(), String> {
@@ -84,7 +89,7 @@ pub async fn docker_container_action(
         let handle = session_manager.get_handle(&session_id).await?;
         remote::container_action(&handle, &container_id, &action).await
     } else {
-        local::container_action(&container_id, &action).await
+        local::container_action(local_shell.as_deref(), &container_id, &action).await
     }
 }
 
@@ -95,6 +100,7 @@ pub async fn docker_start_log_stream(
     stream_manager: State<'_, DockerLogStreamManager>,
     session_id: String,
     is_remote: bool,
+    local_shell: Option<String>,
     container_id: String,
     tail: u32,
 ) -> Result<String, String> {
@@ -113,7 +119,7 @@ pub async fn docker_start_log_stream(
         let sid = stream_id.clone();
         let cid = container_id.clone();
         tokio::spawn(async move {
-            local::stream_logs(app, sid, cid, tail).await;
+            local::stream_logs(app, sid, cid, tail, local_shell).await;
         })
     };
 
@@ -140,13 +146,14 @@ pub async fn docker_remove_image(
     session_manager: State<'_, SessionManager>,
     session_id: String,
     is_remote: bool,
+    local_shell: Option<String>,
     image_id: String,
 ) -> Result<(), String> {
     if is_remote {
         let handle = session_manager.get_handle(&session_id).await?;
         remote::remove_image(&handle, &image_id).await
     } else {
-        local::remove_image(&image_id).await
+        local::remove_image(local_shell.as_deref(), &image_id).await
     }
 }
 
@@ -155,13 +162,14 @@ pub async fn docker_remove_volume(
     session_manager: State<'_, SessionManager>,
     session_id: String,
     is_remote: bool,
+    local_shell: Option<String>,
     volume_name: String,
 ) -> Result<(), String> {
     if is_remote {
         let handle = session_manager.get_handle(&session_id).await?;
         remote::remove_volume(&handle, &volume_name).await
     } else {
-        local::remove_volume(&volume_name).await
+        local::remove_volume(local_shell.as_deref(), &volume_name).await
     }
 }
 
@@ -170,13 +178,14 @@ pub async fn docker_remove_network(
     session_manager: State<'_, SessionManager>,
     session_id: String,
     is_remote: bool,
+    local_shell: Option<String>,
     network_id: String,
 ) -> Result<(), String> {
     if is_remote {
         let handle = session_manager.get_handle(&session_id).await?;
         remote::remove_network(&handle, &network_id).await
     } else {
-        local::remove_network(&network_id).await
+        local::remove_network(local_shell.as_deref(), &network_id).await
     }
 }
 
@@ -185,12 +194,13 @@ pub async fn docker_prune_images(
     session_manager: State<'_, SessionManager>,
     session_id: String,
     is_remote: bool,
+    local_shell: Option<String>,
 ) -> Result<String, String> {
     if is_remote {
         let handle = session_manager.get_handle(&session_id).await?;
         remote::prune_images(&handle).await
     } else {
-        local::prune_images().await
+        local::prune_images(local_shell.as_deref()).await
     }
 }
 
@@ -199,12 +209,13 @@ pub async fn docker_prune_volumes(
     session_manager: State<'_, SessionManager>,
     session_id: String,
     is_remote: bool,
+    local_shell: Option<String>,
 ) -> Result<String, String> {
     if is_remote {
         let handle = session_manager.get_handle(&session_id).await?;
         remote::prune_volumes(&handle).await
     } else {
-        local::prune_volumes().await
+        local::prune_volumes(local_shell.as_deref()).await
     }
 }
 
@@ -213,12 +224,13 @@ pub async fn docker_prune_networks(
     session_manager: State<'_, SessionManager>,
     session_id: String,
     is_remote: bool,
+    local_shell: Option<String>,
 ) -> Result<String, String> {
     if is_remote {
         let handle = session_manager.get_handle(&session_id).await?;
         remote::prune_networks(&handle).await
     } else {
-        local::prune_networks().await
+        local::prune_networks(local_shell.as_deref()).await
     }
 }
 
@@ -297,7 +309,9 @@ pub async fn docker_open_exec_session(
                 shutdown_tx,
                 channel_only: true,
                 _jump_handles: vec![],
-                remote_routes: std::sync::Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
+                remote_routes: std::sync::Arc::new(tokio::sync::Mutex::new(
+                    std::collections::HashMap::new(),
+                )),
             },
         )
         .await;
@@ -310,11 +324,12 @@ pub async fn docker_system_prune(
     session_manager: State<'_, SessionManager>,
     session_id: String,
     is_remote: bool,
+    local_shell: Option<String>,
 ) -> Result<String, String> {
     if is_remote {
         let handle = session_manager.get_handle(&session_id).await?;
         remote::system_prune(&handle).await
     } else {
-        local::system_prune().await
+        local::system_prune(local_shell.as_deref()).await
     }
 }

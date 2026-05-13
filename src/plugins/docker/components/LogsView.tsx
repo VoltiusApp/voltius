@@ -12,12 +12,13 @@ function stripAnsi(s: string): string {
 interface Props {
   sessionId: string;
   isRemote: boolean;
+  localShell: string | null;
   containerId: string;
   containerName: string;
   onBack: () => void;
 }
 
-export function LogsView({ sessionId, isRemote, containerId, containerName, onBack }: Props) {
+export function LogsView({ sessionId, isRemote, localShell, containerId, containerName, onBack }: Props) {
   const [lines, setLines] = useState<DockerLogLine[]>([]);
   const [autoScroll, setAutoScroll] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -42,7 +43,7 @@ export function LogsView({ sessionId, isRemote, containerId, containerName, onBa
       if (cancelled) return;
 
       try {
-        const sid = await dockerStartLogStream(sessionId, isRemote, containerId, 200);
+        const sid = await dockerStartLogStream(sessionId, isRemote, localShell, containerId, 200);
         if (cancelled) {
           dockerStopLogStream(sid).catch(() => {});
           return;

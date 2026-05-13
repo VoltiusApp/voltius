@@ -181,6 +181,7 @@ export interface TerminalSession {
   type: "ssh" | "local" | "multiplayer" | "serial";
   errorMessage?: string;
   encoding?: string;
+  localShell?: string;
   serialConfig?: SerialConnectParams;
 }
 

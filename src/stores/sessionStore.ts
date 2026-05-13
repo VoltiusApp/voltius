@@ -281,6 +281,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       connectionName: formatLocalShellTitle(preferredShell),
       status: "connecting",
       type: "local",
+      localShell: preferredShell ?? undefined,
     };
     set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
     useLayoutStore.getState().setSplitTabActive(false);
@@ -312,6 +313,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       connectionName: formatLocalShellTitle(preferredShell),
       status: "connecting",
       type: "local",
+      localShell: preferredShell ?? undefined,
     };
     set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
     useLayoutStore.getState().setSplitTabActive(false);

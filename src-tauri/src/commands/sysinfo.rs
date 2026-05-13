@@ -47,8 +47,10 @@ if command -v lspci >/dev/null 2>&1; then
 fi
 "#;
 
+#[cfg(target_os = "windows")]
 const WINDOWS_CREATE_NO_WINDOW: u32 = 0x08000000;
 
+#[cfg(target_os = "windows")]
 fn windows_hidden_child_process_flags() -> u32 {
     WINDOWS_CREATE_NO_WINDOW
 }
@@ -306,6 +308,7 @@ GPU: Advanced Micro Devices, Inc. [AMD/ATI] Phoenix1
         );
     }
 
+    #[cfg(target_os = "windows")]
     #[test]
     fn windows_child_processes_are_configured_without_visible_windows() {
         assert_eq!(windows_hidden_child_process_flags(), 0x08000000);

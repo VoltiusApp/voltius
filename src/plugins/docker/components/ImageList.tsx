@@ -22,10 +22,11 @@ interface Props {
   images: DockerImage[];
   sessionId: string;
   isRemote: boolean;
+  localShell: string | null;
   onRefresh: () => void;
 }
 
-export function ImageList({ images, sessionId, isRemote, onRefresh }: Props) {
+export function ImageList({ images, sessionId, isRemote, localShell, onRefresh }: Props) {
   const [pruning, setPruning] = useState(false);
   const [pruneMsg, setPruneMsg] = useState<string | null>(null);
 
@@ -33,7 +34,7 @@ export function ImageList({ images, sessionId, isRemote, onRefresh }: Props) {
     setPruning(true);
     setPruneMsg(null);
     try {
-      const msg = await dockerPruneImages(sessionId, isRemote);
+      const msg = await dockerPruneImages(sessionId, isRemote, localShell);
       setPruneMsg(msg);
       onRefresh();
     } catch (e) {
@@ -76,6 +77,7 @@ export function ImageList({ images, sessionId, isRemote, onRefresh }: Props) {
               img={img}
               sessionId={sessionId}
               isRemote={isRemote}
+              localShell={localShell}
               onRefresh={onRefresh}
             />
           ))
@@ -89,11 +91,13 @@ function ImageRow({
   img,
   sessionId,
   isRemote,
+  localShell,
   onRefresh,
 }: {
   img: DockerImage;
   sessionId: string;
   isRemote: boolean;
+  localShell: string | null;
   onRefresh: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -103,7 +107,7 @@ function ImageRow({
   const remove = async () => {
     setBusy(true);
     try {
-      await dockerRemoveImage(sessionId, isRemote, img.id);
+      await dockerRemoveImage(sessionId, isRemote, localShell, img.id);
       onRefresh();
     } catch (e) {
       console.error("[docker] remove image failed:", e);

@@ -7,10 +7,11 @@ interface Props {
   networks: DockerNetwork[];
   sessionId: string;
   isRemote: boolean;
+  localShell: string | null;
   onRefresh: () => void;
 }
 
-export function NetworkList({ networks, sessionId, isRemote, onRefresh }: Props) {
+export function NetworkList({ networks, sessionId, isRemote, localShell, onRefresh }: Props) {
   const [pruning, setPruning] = useState(false);
   const [pruneMsg, setPruneMsg] = useState<string | null>(null);
 
@@ -18,7 +19,7 @@ export function NetworkList({ networks, sessionId, isRemote, onRefresh }: Props)
     setPruning(true);
     setPruneMsg(null);
     try {
-      const msg = await dockerPruneNetworks(sessionId, isRemote);
+      const msg = await dockerPruneNetworks(sessionId, isRemote, localShell);
       setPruneMsg(msg);
       onRefresh();
     } catch (e) {
@@ -60,6 +61,7 @@ export function NetworkList({ networks, sessionId, isRemote, onRefresh }: Props)
               network={n}
               sessionId={sessionId}
               isRemote={isRemote}
+              localShell={localShell}
               onRefresh={onRefresh}
             />
           ))
@@ -73,11 +75,13 @@ function NetworkRow({
   network,
   sessionId,
   isRemote,
+  localShell,
   onRefresh,
 }: {
   network: DockerNetwork;
   sessionId: string;
   isRemote: boolean;
+  localShell: string | null;
   onRefresh: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -85,7 +89,7 @@ function NetworkRow({
   const remove = async () => {
     setBusy(true);
     try {
-      await dockerRemoveNetwork(sessionId, isRemote, network.id);
+      await dockerRemoveNetwork(sessionId, isRemote, localShell, network.id);
       onRefresh();
     } catch (e) {
       console.error("[docker] remove network failed:", e);
