@@ -483,7 +483,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
   return (
     <>
       <div
-        className="flex items-center justify-between shrink-0"
+        className="flex items-center justify-between px-3 shrink-0"
         style={{
           height: 24,
           background: "var(--t-bg-status-bar)",
