@@ -29,6 +29,7 @@ export interface SubscriptionState {
   tier: Tier;
   trialEndsAt: Date | null;
   trialUsed: boolean;
+  trialKnown: boolean;
   isTrialActive: boolean;
   isPro: boolean;
   isTeams: boolean;
@@ -47,6 +48,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
   tier: "free",
   trialEndsAt: null,
   trialUsed: false,
+  trialKnown: false,
   isTrialActive: false,
   isPro: false,
   isTeams: false,
@@ -62,24 +64,25 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
   async load() {
     const mode = await keychainGet("mode").catch(() => null);
     if (mode !== "server") {
-      set({ tier: "free", trialEndsAt: null, trialUsed: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, accountMode: mode, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null });
+      set({ tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, accountMode: mode, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null });
       return;
     }
 
     const jwt = await keychainGet("jwt").catch(() => null);
     if (!jwt) {
-      set({ tier: "free", trialEndsAt: null, trialUsed: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null });
+      set({ tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null });
       return;
     }
 
     const payload = parseJwtPayload(jwt);
     if (!payload) {
-      set({ tier: "free", trialEndsAt: null, trialUsed: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null });
+      set({ tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null });
       return;
     }
 
     const tier = (payload.tier as Tier) ?? "free";
     const trialEndsAt = payload.trial_ends_at ? new Date(payload.trial_ends_at * 1000) : null;
+    const trialKnown = "trial_used" in payload || "trial_ends_at" in payload;
     const trialUsed = payload.trial_used ?? false;
     const now = new Date();
     const isTrialActive = tier === "pro" && trialEndsAt != null && trialEndsAt > now;
@@ -87,7 +90,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
     const isTeams = tier === "teams" || tier === "business";
     const isBusiness = tier === "business";
 
-    set({ tier, trialEndsAt, trialUsed, isTrialActive, isPro, isTeams, isBusiness, accountMode: mode, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null });
+    set({ tier, trialEndsAt, trialUsed, trialKnown, isTrialActive, isPro, isTeams, isBusiness, accountMode: mode, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null });
 
     // Non-fatal: enrich paid plans with live billing lifecycle and seat data.
     if (isPro) {
