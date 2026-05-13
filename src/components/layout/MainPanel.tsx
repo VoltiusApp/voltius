@@ -170,7 +170,7 @@ function HostAwareTerminalView({
   // Map serial to local for terminal rendering (both use raw byte I/O from xterm)
   const terminalType = session.type === "serial" ? "serial" : (session.type as "ssh" | "local");
 
-  const showStatusBar = session.type === "ssh" || session.type === "serial";
+  const showStatusBar = session.type === "ssh" || session.type === "local" || session.type === "serial";
 
   return (
     <div className="absolute inset-0 flex flex-col">
@@ -189,8 +189,9 @@ function HostAwareTerminalView({
       {showStatusBar && (
         <TerminalStatusBar
           sessionId={session.id}
-          sessionType={session.type as "ssh" | "serial"}
+          sessionType={session.type as "ssh" | "local" | "serial"}
           connectionId={session.connectionId}
+          connectionName={session.connectionName}
           serialConfig={session.serialConfig}
           sessionStatus={session.status}
           dimensions={dimensions}

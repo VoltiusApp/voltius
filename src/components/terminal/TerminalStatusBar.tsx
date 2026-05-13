@@ -25,17 +25,52 @@ interface PfStatePayload {
 
 interface Props {
   sessionId: string;
-  sessionType: "ssh" | "serial";
+  sessionType: "ssh" | "local" | "serial";
   connectionId: string;
+  connectionName?: string;
   serialConfig?: SerialConnectParams;
   sessionStatus: "connecting" | "connected" | "disconnected" | "error";
   dimensions?: { cols: number; rows: number };
+}
+
+interface ConnectedSystemInfo {
+  os_name: string;
+  os_version: string;
+  kernel_version: string;
+  host_name: string;
+  arch: string;
 }
 
 function latencyColor(ms: number): string {
   if (ms < 50) return "var(--t-status-connected)";
   if (ms < 150) return "var(--t-status-warning)";
   return "var(--t-status-error)";
+}
+
+function sessionBadge(sessionType: Props["sessionType"]): string {
+  if (sessionType === "ssh") return "SSH";
+  if (sessionType === "serial") return "SERIAL";
+  return "LOCAL";
+}
+
+function localSystemIcon(osName: string): string {
+  const os = osName.toLowerCase();
+  if (os.includes("darwin") || os.includes("mac")) return "lucide:apple";
+  if (os.includes("windows")) return "lucide:monitor";
+  return getDistroIcon(osName || "linux");
+}
+
+function localSystemColor(osName: string): string {
+  const os = osName.toLowerCase();
+  if (os.includes("darwin") || os.includes("mac")) return "var(--t-text-dim)";
+  if (os.includes("windows")) return "#0078D4";
+  return getDistroColor(osName || "linux");
+}
+
+function localSystemLabel(info: ConnectedSystemInfo | null): string {
+  if (!info) return "Local system";
+  const version = info.os_version ? ` ${info.os_version}` : "";
+  return `${info.os_name || "Local system"}${version}`;
 }
 
 function cpuColor(pct: number): string {
@@ -83,7 +118,7 @@ const SPARKLINE_MAX = 20;
 const statusBarItemClass = "h-full rounded-none transition-colors hover:bg-[var(--t-bg-card-hover)]";
 const statusBarIdentityGroupClass = "flex items-center h-full";
 
-export function TerminalStatusBar({ sessionId, sessionType, connectionId, serialConfig, sessionStatus, dimensions }: Props) {
+export function TerminalStatusBar({ sessionId, sessionType, connectionId, connectionName, serialConfig, sessionStatus, dimensions }: Props) {
   const connection = useConnectionStore((s) => s.connections.find((c) => c.id === connectionId));
   const pingStatus = useHostPingStore((s) => s.statuses[connectionId]);
   const latencyMs = useHostPingStore((s) => s.latencies[connectionId]);
@@ -111,21 +146,42 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, serial
   const [showDimensions, setShowDimensions] = useState(false);
   const dimensionsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Distro popover
+  // System info popover
   const [showDistroInfo, setShowDistroInfo] = useState(false);
   const [copiedDistro, setCopiedDistro] = useState(false);
   const copiedDistroTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
+  const [localSystemInfo, setLocalSystemInfo] = useState<ConnectedSystemInfo | null>(null);
   const systemInfoFetchedRef = useRef(false);
 
-  // Fetch system info lazily on first hover (SSH only, when connected)
+  // SSH details are fetched lazily because they require a remote command.
   const handleDistroMouseEnter = useCallback(() => {
     setShowDistroInfo(true);
-    if (!systemInfoFetchedRef.current && sessionType === "ssh" && sessionStatus === "connected") {
-      systemInfoFetchedRef.current = true;
+    if (systemInfoFetchedRef.current || sessionStatus !== "connected") return;
+    systemInfoFetchedRef.current = true;
+    if (sessionType === "ssh") {
       sshGetSystemInfo(sessionId).then(setSystemInfo).catch(() => {});
     }
   }, [sessionId, sessionType, sessionStatus]);
+
+  useEffect(() => {
+    systemInfoFetchedRef.current = false;
+    setSystemInfo(null);
+    setLocalSystemInfo(null);
+  }, [sessionId, sessionType]);
+
+  useEffect(() => {
+    if (sessionType !== "local" || sessionStatus !== "connected") return;
+    let cancelled = false;
+    invoke<ConnectedSystemInfo>("get_connected_system_info", {
+      sessionId,
+      sessionType,
+      sessionName: connectionName ?? "Local",
+    }).then((info) => {
+      if (!cancelled) setLocalSystemInfo(info);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [sessionId, sessionType, sessionStatus, connectionName]);
 
   // Latency sparkline
   const latencyHistoryRef = useRef<number[]>([]);
@@ -333,8 +389,19 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, serial
         },
       ];
     }
+    if (sessionType === "local") {
+      return [
+        {
+          label: "Disconnect",
+          icon: "lucide:plug",
+          danger: true,
+          divider: true,
+          onClick: () => void disconnect(sessionId),
+        },
+      ];
+    }
     return [];
-  }, [sessionType, connection, serialConfig, sessionId, toggleRightPanel, disconnect]);
+  }, [sessionType, connection, serialConfig, connectionName, sessionId, toggleRightPanel, disconnect]);
 
   const statusBarContributionContext = useMemo<TerminalStatusBarContributionContext>(() => ({
     sessionId,
@@ -342,9 +409,10 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, serial
     connectionId,
     sessionStatus,
     connection,
+    connectionName,
     serialConfig,
     dimensions,
-  }), [sessionId, sessionType, connectionId, sessionStatus, connection, serialConfig, dimensions]);
+  }), [sessionId, sessionType, connectionId, sessionStatus, connection, connectionName, serialConfig, dimensions]);
 
   const statusBarContributions = useStatusBarContributions(
     "terminal.statusBar.right",
@@ -370,7 +438,18 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, serial
     : "Unknown";
 
   const distroIcon = connection?.distro ? getDistroIcon(connection.distro) : null;
-  const showDistroPopover = !!connection?.distro;
+  const localOsName = localSystemInfo?.os_name ?? "linux";
+  const systemIcon = sessionType === "ssh" ? distroIcon : sessionType === "local" ? localSystemIcon(localOsName) : null;
+  const showDistroPopover = (sessionType === "ssh" && !!connection?.distro) || sessionType === "local";
+  const systemInfoCopyText = sessionType === "ssh" && connection?.distro
+    ? systemInfo
+      ? `${systemInfo.pretty_name || getDistroLabel(connection.distro)}${systemInfo.kernel ? ` · ${systemInfo.kernel} ${systemInfo.arch}` : ""}`
+      : getDistroLabel(connection.distro)
+    : sessionType === "local"
+    ? localSystemInfo
+      ? `${localSystemLabel(localSystemInfo)}${localSystemInfo.kernel_version ? ` · ${localSystemInfo.kernel_version} ${localSystemInfo.arch}` : ""}`
+      : "Local system"
+    : "";
 
   const handleCopyHost = () => {
     if (!copyHostText) return;
@@ -404,7 +483,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, serial
   return (
     <>
       <div
-        className="flex items-center justify-between px-3 shrink-0"
+        className="flex items-center justify-between shrink-0"
         style={{
           height: 24,
           background: "var(--t-bg-status-bar)",
@@ -415,6 +494,9 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, serial
       >
         {/* Left: connection info */}
         <div className={`flex items-center gap-2 h-full${sessionStatus === "connecting" ? " statusbar-connecting-pulse" : ""}`}>
+          <span className="px-1.5 text-[10px] font-semibold text-[var(--t-text-dim)]">
+            {sessionBadge(sessionType)}
+          </span>
           {sessionType === "ssh" && connection && (
             <>
               {/* Dot + latency: hover area for sparkline */}
@@ -503,7 +585,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, serial
               )}
 
               <div className={statusBarIdentityGroupClass}>
-                {distroIcon && connection.distro && (
+                {systemIcon && showDistroPopover && (
                   <div
                     className={`flex items-center px-1 ${statusBarItemClass}`}
                     style={{ position: "relative", display: "flex", alignItems: "center" }}
@@ -511,20 +593,18 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, serial
                     onMouseLeave={showDistroPopover ? () => setShowDistroInfo(false) : undefined}
                   >
                     <Icon
-                      icon={distroIcon}
+                      icon={systemIcon}
                       width={12}
                       style={{ flexShrink: 0, color: "var(--t-text-dim)", cursor: "pointer" }}
                       onClick={showDistroPopover ? () => {
-                        const text = systemInfo
-                          ? `${systemInfo.pretty_name || getDistroLabel(connection.distro!)}${systemInfo.kernel ? ` · ${systemInfo.kernel} ${systemInfo.arch}` : ""}`
-                          : getDistroLabel(connection.distro!);
-                        navigator.clipboard.writeText(text).catch(() => {});
+                        if (!systemInfoCopyText) return;
+                        navigator.clipboard.writeText(systemInfoCopyText).catch(() => {});
                         setCopiedDistro(true);
                         if (copiedDistroTimeoutRef.current) clearTimeout(copiedDistroTimeoutRef.current);
                         copiedDistroTimeoutRef.current = setTimeout(() => setCopiedDistro(false), 1200);
                       } : undefined}
                     />
-                    {showDistroInfo && showDistroPopover && connection.distro && (
+                    {showDistroInfo && showDistroPopover && (
                       <div
                         style={{
                           position: "absolute",
@@ -543,13 +623,20 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, serial
                           whiteSpace: "nowrap",
                         }}
                       >
-                        <Icon icon={getDistroIcon(connection.distro)} width={22} style={{ color: getDistroColor(connection.distro), flexShrink: 0 }} />
+                        <Icon
+                          icon={systemIcon}
+                          width={22}
+                          style={{
+                            color: getDistroColor(connection?.distro ?? "linux"),
+                            flexShrink: 0,
+                          }}
+                        />
                         {copiedDistro ? (
                           <span style={{ color: "var(--t-text-primary)", fontSize: 11 }}>Copied!</span>
                         ) : (
                           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                             <span style={{ color: "var(--t-text-primary)", fontSize: 11 }}>
-                              {systemInfo?.pretty_name || getDistroLabel(connection.distro)}
+                              {systemInfo?.pretty_name || getDistroLabel(connection!.distro!)}
                             </span>
                             {systemInfo?.kernel && (
                               <span style={{ color: "var(--t-text-dim)", fontSize: 10 }}>
@@ -591,6 +678,71 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, serial
                 </button>
               )}
             </>
+          )}
+          {sessionType === "local" && systemIcon && showDistroPopover && (
+            <div
+              className={`flex items-center px-1 ${statusBarItemClass}`}
+              style={{ position: "relative", display: "flex", alignItems: "center" }}
+              onMouseEnter={handleDistroMouseEnter}
+              onMouseLeave={() => setShowDistroInfo(false)}
+            >
+              <Icon
+                icon={systemIcon}
+                width={12}
+                style={{ flexShrink: 0, color: localSystemColor(localOsName), cursor: "pointer" }}
+                onClick={() => {
+                  if (!systemInfoCopyText) return;
+                  navigator.clipboard.writeText(systemInfoCopyText).catch(() => {});
+                  setCopiedDistro(true);
+                  if (copiedDistroTimeoutRef.current) clearTimeout(copiedDistroTimeoutRef.current);
+                  copiedDistroTimeoutRef.current = setTimeout(() => setCopiedDistro(false), 1200);
+                }}
+              />
+              {showDistroInfo && (
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: "calc(100% + 6px)",
+                    left: 0,
+                    background: "var(--t-bg-card)",
+                    border: "1px solid var(--t-border)",
+                    borderRadius: 8,
+                    padding: "8px 12px",
+                    zIndex: 50,
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+                    pointerEvents: "none",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <Icon icon={systemIcon} width={22} style={{ color: localSystemColor(localOsName), flexShrink: 0 }} />
+                  {copiedDistro ? (
+                    <span style={{ color: "var(--t-text-primary)", fontSize: 11 }}>Copied!</span>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      <span style={{ color: "var(--t-text-primary)", fontSize: 11 }}>
+                        {localSystemLabel(localSystemInfo)}
+                      </span>
+                      {localSystemInfo?.kernel_version && (
+                        <span style={{ color: "var(--t-text-dim)", fontSize: 10 }}>
+                          {localSystemInfo.kernel_version} · {localSystemInfo.arch}
+                        </span>
+                      )}
+                      {localSystemInfo?.host_name && (
+                        <span style={{ color: "var(--t-text-dim)", fontSize: 10 }}>
+                          {localSystemInfo.host_name}
+                        </span>
+                      )}
+                      {!localSystemInfo && (
+                        <span style={{ color: "var(--t-text-dim)", fontSize: 10 }}>loading…</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
           {sessionType === "serial" && (
             <>

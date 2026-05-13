@@ -34,6 +34,34 @@ function sessionBadge(session: TerminalSession): string {
   return "LOCAL";
 }
 
+interface ConnectedSystemInfo {
+  os_name: string;
+  os_version: string;
+  kernel_version: string;
+  host_name: string;
+  arch: string;
+}
+
+function localSystemIcon(osName: string): string {
+  const os = osName.toLowerCase();
+  if (os.includes("darwin") || os.includes("mac")) return "lucide:apple";
+  if (os.includes("windows")) return "lucide:monitor";
+  return getDistroIcon(osName || "linux");
+}
+
+function localSystemColor(osName: string): string {
+  const os = osName.toLowerCase();
+  if (os.includes("darwin") || os.includes("mac")) return "var(--t-text-secondary)";
+  if (os.includes("windows")) return "#0078D4";
+  return getDistroColor(osName || "linux");
+}
+
+function localSystemLabel(info: ConnectedSystemInfo | null): string {
+  if (!info) return "Local system";
+  const version = info.os_version ? ` ${info.os_version}` : "";
+  return `${info.os_name || "Local system"}${version}`;
+}
+
 const SPARKLINE_MAX = 20;
 
 function sparklinePoints(values: number[], width: number, height: number): string {
@@ -87,6 +115,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
   const [copiedDistro, setCopiedDistro] = useState(false);
   const copiedDistroTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
+  const [localSystemInfo, setLocalSystemInfo] = useState<ConnectedSystemInfo | null>(null);
   const systemInfoFetchedRef = useRef(false);
   const distroTriggerRef = useRef<HTMLSpanElement>(null);
   const [distroRect, setDistroRect] = useState<DOMRect | null>(null);
@@ -102,9 +131,10 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
   const excludedFromBroadcast = broadcastActive && (session.type === "multiplayer" || (!!mpState && mpState.controlHolder !== "" && mpState.controlHolder !== mpState.myUserId));
   const connectionIcon = session.type === "ssh" && connection ? (connection.icon || connection.distro) : null;
   const displayConnectionIcon = connectionIcon ? getConnectionIcon(connectionIcon) : null;
-  const showDistroPopover = !!connection?.distro;
-  const icon = displayConnectionIcon ?? (session.type === "local" ? "lucide:terminal" : session.type === "serial" ? "lucide:ethernet-port" : "lucide:radio-tower");
-  const iconBg = connectionIcon ? getConnectionIconColor(connectionIcon) : undefined;
+  const localOsName = localSystemInfo?.os_name ?? "linux";
+  const showDistroPopover = !!connection?.distro || session.type === "local";
+  const icon = displayConnectionIcon ?? (session.type === "local" ? localSystemIcon(localOsName) : session.type === "serial" ? "lucide:ethernet-port" : "lucide:radio-tower");
+  const iconBg = connectionIcon ? getConnectionIconColor(connectionIcon) : session.type === "local" ? localSystemColor(localOsName) : undefined;
   const subtitle = session.type === "serial" && session.serialConfig
     ? `${session.serialConfig.port} · ${session.serialConfig.baud}`
     : session.type === "ssh" && connection
@@ -124,6 +154,22 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
   useEffect(() => {
     if (showSparkline) setSparklineSnapshot([...latencyHistoryRef.current]);
   }, [showSparkline]);
+
+  useEffect(() => {
+    if (session.type !== "local" || session.status !== "connected") {
+      setLocalSystemInfo(null);
+      return;
+    }
+    let cancelled = false;
+    invoke<ConnectedSystemInfo>("get_connected_system_info", {
+      sessionId: session.id,
+      sessionType: session.type,
+      sessionName: session.connectionName,
+    }).then((info) => {
+      if (!cancelled) setLocalSystemInfo(info);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [session.id, session.type, session.status, session.connectionName]);
 
   // ── Fast ping for active pane ─────────────────────────────────────────────
 
@@ -161,10 +207,16 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
   }, [session.id, session.type, session.status]);
 
   const handleDistroClick = () => {
-    if (!connection?.distro) return;
-    const text = systemInfo
-      ? `${systemInfo.pretty_name || getDistroLabel(connection.distro)}${systemInfo.kernel ? ` · ${systemInfo.kernel} ${systemInfo.arch}` : ""}`
-      : getDistroLabel(connection.distro);
+    const text = session.type === "local"
+      ? localSystemInfo
+        ? `${localSystemLabel(localSystemInfo)}${localSystemInfo.kernel_version ? ` · ${localSystemInfo.kernel_version} ${localSystemInfo.arch}` : ""}`
+        : "Local system"
+      : connection?.distro
+      ? systemInfo
+        ? `${systemInfo.pretty_name || getDistroLabel(connection.distro)}${systemInfo.kernel ? ` · ${systemInfo.kernel} ${systemInfo.arch}` : ""}`
+        : getDistroLabel(connection.distro)
+      : "";
+    if (!text) return;
     navigator.clipboard.writeText(text).catch(() => {});
     setCopiedDistro(true);
     if (copiedDistroTimeoutRef.current) clearTimeout(copiedDistroTimeoutRef.current);
@@ -351,16 +403,37 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
       </div>
       {pos && <ContextMenu items={menuItems} pos={pos} onClose={close} />}
 
-      {/* Distro popover — portal to escape overflow-hidden pane */}
-      {showDistroInfo && distroRect && showDistroPopover && connection?.distro && createPortal(
+      {/* System info popover — portal to escape overflow-hidden pane */}
+      {showDistroInfo && distroRect && showDistroPopover && createPortal(
         <div style={{ ...tooltipStyle, top: distroRect.bottom + 6, left: distroRect.left, display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap" }}>
-          <Icon icon={getDistroIcon(connection.distro)} width={22} style={{ color: getDistroColor(connection.distro), flexShrink: 0 }} />
+          <Icon
+            icon={icon}
+            width={22}
+            style={{
+              color: session.type === "local" ? localSystemColor(localOsName) : getDistroColor(connection?.distro ?? "linux"),
+              flexShrink: 0,
+            }}
+          />
           {copiedDistro ? (
             <span style={{ color: "var(--t-text-primary)", fontSize: 11 }}>Copied!</span>
+          ) : session.type === "local" ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span style={{ color: "var(--t-text-primary)", fontSize: 11 }}>
+                {localSystemLabel(localSystemInfo)}
+              </span>
+              {localSystemInfo?.kernel_version ? (
+                <span style={{ color: "var(--t-text-dim)", fontSize: 10 }}>{localSystemInfo.kernel_version} · {localSystemInfo.arch}</span>
+              ) : !localSystemInfo ? (
+                <span style={{ color: "var(--t-text-dim)", fontSize: 10 }}>loading…</span>
+              ) : null}
+              {localSystemInfo?.host_name && (
+                <span style={{ color: "var(--t-text-dim)", fontSize: 10 }}>{localSystemInfo.host_name}</span>
+              )}
+            </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <span style={{ color: "var(--t-text-primary)", fontSize: 11 }}>
-                {systemInfo?.pretty_name || getDistroLabel(connection.distro)}
+                {systemInfo?.pretty_name || getDistroLabel(connection!.distro!)}
               </span>
               {systemInfo?.kernel ? (
                 <span style={{ color: "var(--t-text-dim)", fontSize: 10 }}>{systemInfo.kernel} · {systemInfo.arch}</span>

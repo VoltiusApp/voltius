@@ -169,8 +169,9 @@ export type UIStatusBarSlot = "terminal.statusBar.right";
 
 export interface TerminalStatusBarContributionContext {
   sessionId: string;
-  sessionType: "ssh" | "serial";
+  sessionType: "ssh" | "local" | "serial";
   connectionId: string;
+  connectionName?: string;
   sessionStatus: "connecting" | "connected" | "disconnected" | "error";
   connection?: PluginConnection;
   serialConfig?: SerialConnectParams;
