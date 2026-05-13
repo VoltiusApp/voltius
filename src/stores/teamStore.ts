@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import * as api from "@/services/teamService";
 import type { Team, TeamMember, TeamRole } from "@/services/teamService";
 import { distributeKeyToNewMember } from "@/services/teamVaultSync";
+import { useNotificationStore } from "@/stores/notificationStore";
 export type { Team, TeamMember, TeamRole };
 
 interface TeamStore {
@@ -83,7 +84,25 @@ export const useTeamStore = create<TeamStore>()(
     const members = get().membersByTeam[teamId] ?? [];
     const newMember = members.find((m) => m.email === email);
     if (newMember?.public_key) {
-      distributeKeyToNewMember(teamId, newMember.user_id, newMember.public_key).catch(() => {});
+      distributeKeyToNewMember(teamId, newMember.user_id, newMember.public_key).catch(() => {
+        useNotificationStore.getState().addToast({
+          pluginId: "system",
+          pluginName: "Voltius",
+          type: "toast",
+          message: `Member added, but vault key sharing failed for ${newMember.email}. Try redistributing keys after they sign in again.`,
+          severity: "warning",
+          duration: 7000,
+        });
+      });
+    } else if (newMember) {
+      useNotificationStore.getState().addToast({
+        pluginId: "system",
+        pluginName: "Voltius",
+        type: "toast",
+        message: `${newMember.email} was added, but they need to sign in once before vault access can be encrypted for them.`,
+        severity: "warning",
+        duration: 7000,
+      });
     }
   },
 
@@ -93,7 +112,25 @@ export const useTeamStore = create<TeamStore>()(
     const members = get().membersByTeam[teamId] ?? [];
     const newMember = members.find((m) => m.user_id === userId);
     if (newMember?.public_key) {
-      distributeKeyToNewMember(teamId, newMember.user_id, newMember.public_key).catch(() => {});
+      distributeKeyToNewMember(teamId, newMember.user_id, newMember.public_key).catch(() => {
+        useNotificationStore.getState().addToast({
+          pluginId: "system",
+          pluginName: "Voltius",
+          type: "toast",
+          message: `Member added, but vault key sharing failed for ${newMember.email}. Try redistributing keys after they sign in again.`,
+          severity: "warning",
+          duration: 7000,
+        });
+      });
+    } else if (newMember) {
+      useNotificationStore.getState().addToast({
+        pluginId: "system",
+        pluginName: "Voltius",
+        type: "toast",
+        message: `${newMember.email} was added, but they need to sign in once before vault access can be encrypted for them.`,
+        severity: "warning",
+        duration: 7000,
+      });
     }
   },
 

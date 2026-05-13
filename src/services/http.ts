@@ -9,6 +9,8 @@ interface NativeHttpResponse {
   body: string;
 }
 
+const NULL_BODY_STATUSES = new Set([204, 205, 304]);
+
 export async function appFetch(input: string | URL, init?: AppFetchInit): Promise<Response> {
   const request = new Request(input, init);
   const body = await request.text();
@@ -20,7 +22,7 @@ export async function appFetch(input: string | URL, init?: AppFetchInit): Promis
     connectTimeoutMs: init?.connectTimeout ?? null,
   });
 
-  return new Response(response.body, {
+  return new Response(NULL_BODY_STATUSES.has(response.status) ? null : response.body, {
     status: response.status,
     statusText: response.status_text,
     headers: response.headers.map(({ name, value }) => [name, value]),

@@ -177,6 +177,15 @@ function isJwtExpiredOrExpiring(jwt: string): boolean {
   }
 }
 
+function isPaymentRequired(error: unknown): boolean {
+  return error instanceof Error && (error.message.includes("402") || error.message.includes("Payment Required"));
+}
+
+async function loadTeamsForCurrentUser(): Promise<boolean> {
+  await useTeamStore.getState().loadTeams().catch(() => {});
+  return useTeamStore.getState().teams.length > 0;
+}
+
 /** fetch() wrapper that proactively refreshes the JWT before expiry and backs off on 429. */
 export async function fetchWithAuth(url: string, init: RequestInit): Promise<Response> {
   let jwt = await getJwt();
@@ -324,6 +333,48 @@ async function reloadAllStores(): Promise<void> {
   ]);
 }
 
+async function completeTeamLoginSetup(): Promise<void> {
+  // Register public key unconditionally — needed even for users with no linked vaults
+  // so that when they're added to a team their key is already on the server.
+  try {
+    const { publicKey } = await getMyX25519Keypair();
+    await teamService.updatePublicKey(publicKey);
+  } catch { /* best-effort */ }
+
+  // Owners/managers: re-distribute key to ALL current members (idempotent).
+  const teamIds = useTeamStore.getState().teams.map((t) => t.id);
+  for (const teamId of teamIds) {
+    try {
+      await useTeamStore.getState().loadRoles(teamId).catch(() => {});
+      const { teams, rolesByTeam } = useTeamStore.getState();
+      const myTeam = teams.find((t) => t.id === teamId);
+      const teamRoles = rolesByTeam[teamId] ?? [];
+      const isPrivileged = (myTeam?.role_ids ?? []).some((rid) => {
+        const r = teamRoles.find((role) => role.id === rid);
+        return r?.is_builtin && (r.name === "owner" || r.name === "manager");
+      });
+      if (isPrivileged) {
+        const members = await teamService.listMembers(teamId);
+        await initTeamVaultKey(teamId, members);
+      }
+    } catch { /* best-effort */ }
+  }
+
+  // Migrate stale keychain entries from the old implementation (one-time).
+  const migrated = localStorage.getItem("voltius.team_key_migration_v1");
+  if (!migrated) {
+    const { invoke: inv } = await import("@tauri-apps/api/core");
+    const teams = useTeamStore.getState().teams;
+    await Promise.allSettled(
+      teams.map((t) => inv("keychain_delete", { key: `team_vault_key_${t.id}` }).catch(() => {})),
+    );
+    localStorage.setItem("voltius.team_key_migration_v1", "1");
+  }
+
+  // Load all team vaults into memory.
+  await onTeamLogin();
+}
+
 /**
  * Fetch a remote device's blob, decrypt it, CRDT-merge with local state, and write to disk.
  * Returns true if remote had data newer than local (i.e. local state actually changed).
@@ -411,7 +462,12 @@ export async function syncNow(forcePush = false): Promise<void> {
 
     // Refresh team membership first so getSyncableTeamIds() sees current state
     // and the sidebar immediately reflects joins/removals (no blob change needed).
-    await useTeamStore.getState().loadTeams().catch(() => {});
+    const hasTeams = await loadTeamsForCurrentUser();
+    if (!useSubscriptionStore.getState().isPro && hasTeams) {
+      await completeTeamLoginSetup();
+      setState("success");
+      return;
+    }
 
     const [devices, localDeviceId] = await Promise.all([listDevices(), getDeviceId()]);
 
@@ -447,6 +503,11 @@ export async function syncNow(forcePush = false): Promise<void> {
   } catch (e) {
     const elapsed = Date.now() - start;
     if (elapsed < minDisplay) await new Promise((r) => setTimeout(r, minDisplay - elapsed));
+    if (isPaymentRequired(e) && await loadTeamsForCurrentUser()) {
+      await completeTeamLoginSetup();
+      setState("success");
+      return;
+    }
     const msg = e instanceof Error ? e.message : String(e);
     setState(navigator.onLine === false ? "offline" : "error", msg);
     throw e;
@@ -466,6 +527,12 @@ export async function syncNow(forcePush = false): Promise<void> {
 export async function syncOnLoginReplace(): Promise<void> {
   try {
     await unlockVaultIfNeeded();
+
+    if (!useSubscriptionStore.getState().isPro && await loadTeamsForCurrentUser()) {
+      await completeTeamLoginSetup();
+      setState("success");
+      return;
+    }
 
     const encKey = await getEncKey();
     const serverUrl = await getServerUrl();
@@ -512,48 +579,15 @@ export async function syncOnLoginReplace(): Promise<void> {
     await invoke("state_import", { files: mergedFiles, secrets: mergedSecrets });
     await reloadAllStores();
     await push();
-
-    // Register public key unconditionally — needed even for users with no linked vaults
-    // so that when they're added to a team their key is already on the server.
-    try {
-      const { publicKey } = await getMyX25519Keypair();
-      await teamService.updatePublicKey(publicKey);
-    } catch { /* best-effort */ }
-
-    // Owners/managers: re-distribute key to ALL current members (idempotent).
-    const teamIds = useTeamStore.getState().teams.map((t) => t.id);
-    for (const teamId of teamIds) {
-      try {
-        const { teams, rolesByTeam } = useTeamStore.getState();
-        const myTeam = teams.find((t) => t.id === teamId);
-        const teamRoles = rolesByTeam[teamId] ?? [];
-        const isPrivileged = (myTeam?.role_ids ?? []).some((rid) => {
-          const r = teamRoles.find((role) => role.id === rid);
-          return r?.is_builtin && (r.name === "owner" || r.name === "manager");
-        });
-        if (isPrivileged) {
-          const members = await teamService.listMembers(teamId);
-          await initTeamVaultKey(teamId, members);
-        }
-      } catch { /* best-effort */ }
-    }
-
-    // Migrate stale keychain entries from the old implementation (one-time).
-    const migrated = localStorage.getItem("voltius.team_key_migration_v1");
-    if (!migrated) {
-      const { invoke: inv } = await import("@tauri-apps/api/core");
-      const teams = useTeamStore.getState().teams;
-      await Promise.allSettled(
-        teams.map((t) => inv("keychain_delete", { key: `team_vault_key_${t.id}` }).catch(() => {})),
-      );
-      localStorage.setItem("voltius.team_key_migration_v1", "1");
-    }
-
-    // Load all team vaults into memory.
-    await onTeamLogin();
+    await completeTeamLoginSetup();
 
     setState("success");
   } catch (e) {
+    if (isPaymentRequired(e) && await loadTeamsForCurrentUser()) {
+      await completeTeamLoginSetup();
+      setState("success");
+      return;
+    }
     const msg = e instanceof Error ? e.message : String(e);
     setState("error", msg);
   }
@@ -563,6 +597,12 @@ export async function syncOnLoginReplace(): Promise<void> {
 export async function syncOnLogin(): Promise<void> {
   try {
     await unlockVaultIfNeeded();
+
+    if (!useSubscriptionStore.getState().isPro && await loadTeamsForCurrentUser()) {
+      await completeTeamLoginSetup();
+      setState("success");
+      return;
+    }
 
     // Pull ALL devices including own — skipping self would prevent recovery
     // after a local wipe (single-user: own blob is the only source of truth).
@@ -579,48 +619,15 @@ export async function syncOnLogin(): Promise<void> {
 
     await reloadAllStores();
     await push();
-
-    // Register public key unconditionally — needed even for users with no linked vaults
-    // so that when they're added to a team their key is already on the server.
-    try {
-      const { publicKey } = await getMyX25519Keypair();
-      await teamService.updatePublicKey(publicKey);
-    } catch { /* best-effort */ }
-
-    // Owners/managers: re-distribute key to ALL current members (idempotent).
-    const teamIds = useTeamStore.getState().teams.map((t) => t.id);
-    for (const teamId of teamIds) {
-      try {
-        const { teams, rolesByTeam } = useTeamStore.getState();
-        const myTeam = teams.find((t) => t.id === teamId);
-        const teamRoles = rolesByTeam[teamId] ?? [];
-        const isPrivileged = (myTeam?.role_ids ?? []).some((rid) => {
-          const r = teamRoles.find((role) => role.id === rid);
-          return r?.is_builtin && (r.name === "owner" || r.name === "manager");
-        });
-        if (isPrivileged) {
-          const members = await teamService.listMembers(teamId);
-          await initTeamVaultKey(teamId, members);
-        }
-      } catch { /* best-effort */ }
-    }
-
-    // Migrate stale keychain entries from the old implementation (one-time).
-    const migrated = localStorage.getItem("voltius.team_key_migration_v1");
-    if (!migrated) {
-      const { invoke: inv } = await import("@tauri-apps/api/core");
-      const teams = useTeamStore.getState().teams;
-      await Promise.allSettled(
-        teams.map((t) => inv("keychain_delete", { key: `team_vault_key_${t.id}` }).catch(() => {})),
-      );
-      localStorage.setItem("voltius.team_key_migration_v1", "1");
-    }
-
-    // Load all team vaults into memory.
-    await onTeamLogin();
+    await completeTeamLoginSetup();
 
     setState("success");
   } catch (e) {
+    if (isPaymentRequired(e) && await loadTeamsForCurrentUser()) {
+      await completeTeamLoginSetup();
+      setState("success");
+      return;
+    }
     const msg = e instanceof Error ? e.message : String(e);
     setState("error", msg);
   }
@@ -718,6 +725,11 @@ async function _sseConnect(signal: AbortSignal): Promise<void> {
           _teamEventListeners.forEach((fn) => fn(teamId));
           const { fetchTeamData } = await import("@/services/teamVaultSync");
           fetchTeamData(teamId).catch(() => {});
+        } else if (eventData.startsWith("team_members:")) {
+          const teamId = eventData.slice("team_members:".length);
+          useTeamStore.getState().loadTeams().catch(() => {});
+          useTeamStore.getState().loadMembers(teamId).catch(() => {});
+          useTeamStore.getState().loadRoles(teamId).catch(() => {});
         } else if (eventData === "membership_changed") {
           const prevTeamIds = new Set(useTeamStore.getState().teams.map((t) => t.id));
           useTeamStore.getState().loadTeams().then(async () => {

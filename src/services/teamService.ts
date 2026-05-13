@@ -332,6 +332,7 @@ export async function inviteByEmail(
     if (res.status === 403) throw new Error("You don't have permission to invite members");
     throw new Error(`Failed to invite member: ${res.status}`);
   }
+  if (res.status === 204) return { status: "added" };
   return res.json();
 }
 

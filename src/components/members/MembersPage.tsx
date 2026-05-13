@@ -29,6 +29,8 @@ import { useListKeyNav } from "@/hooks/useListKeyNav";
 import BuySeatsModal from "@/components/settings/BuySeatsModal";
 import { effectivePermissions, hasBuiltinRole, PERM_BITS } from "@/hooks/usePermission";
 import { appFetch } from "@/services/http";
+import { runTeamAction } from "@/services/teamActionFeedback";
+import { distributeKeyToNewMember } from "@/services/teamVaultSync";
 import { RoleModal, PERM_META, TeamRolesPanel } from "@/components/settings/sections/RolesSection";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -400,7 +402,11 @@ function MemberDetailPanel({
     setError("");
     try {
       if (hasRole) {
-        await removeMemberRole(teamId, member.user_id, role.id);
+        await runTeamAction({
+          pending: `Removing ${role.name} from ${member.email}...`,
+          success: `${role.name} removed from ${member.email}`,
+          run: () => removeMemberRole(teamId, member.user_id, role.id),
+        });
         push({
           label: `Remove role: ${member.email}`,
           undo: async () => {
@@ -413,7 +419,11 @@ function MemberDetailPanel({
           },
         });
       } else {
-        await assignMemberRole(teamId, member.user_id, role.id);
+        await runTeamAction({
+          pending: `Assigning ${role.name} to ${member.email}...`,
+          success: `${role.name} assigned to ${member.email}`,
+          run: () => assignMemberRole(teamId, member.user_id, role.id),
+        });
         push({
           label: `Assign role: ${member.email}`,
           undo: async () => {
@@ -441,7 +451,11 @@ function MemberDetailPanel({
     const snapshot = { ...member };
     setRemoving(true); setError("");
     try {
-      await removeMember(teamId, member.user_id);
+      await runTeamAction({
+        pending: `Removing ${member.email}...`,
+        success: `${member.email} removed`,
+        run: () => removeMember(teamId, member.user_id),
+      });
       push({
         label: `Remove: ${member.email}`,
         undo: async () => {
@@ -606,9 +620,13 @@ function PendingInviteCard({
   const handleRevoke = async () => {
     setRevoking(true);
     try {
-      await revokePendingInvitation(teamId, inv.id);
+      await runTeamAction({
+        pending: `Revoking invitation for ${inv.email}...`,
+        success: `Invitation revoked for ${inv.email}`,
+        run: () => revokePendingInvitation(teamId, inv.id),
+      });
       onRevoked(inv.id);
-    } catch { /* ignore */ }
+    } catch { /* toast already reports the failure */ }
     finally { setRevoking(false); }
   };
 
@@ -666,6 +684,7 @@ interface InvitePanelProps {
 function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }: InvitePanelProps) {
   const addMemberById = useTeamStore((s) => s.addMemberById);
   const assignMemberRole = useTeamStore((s) => s.assignMemberRole);
+  const loadMembers = useTeamStore((s) => s.loadMembers);
   const { usedSeats, totalSeats, load: reloadSubscription } = useSubscriptionStore();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -741,7 +760,11 @@ function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }:
     if (isAtSeatLimit) { setBuySeatsFor(user); setOpen(false); return; }
     setAdding(user.user_id); setError(""); setSuccess("");
     try {
-      await addMemberById(teamId, user.user_id);
+      await runTeamAction({
+        pending: `Adding ${user.email}...`,
+        success: `${user.email} added`,
+        run: () => addMemberById(teamId, user.user_id),
+      });
       for (const roleId of selectedRoleIds) {
         await assignMemberRole(teamId, user.user_id, roleId).catch(() => {});
       }
@@ -764,9 +787,22 @@ function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }:
     if (isAtSeatLimit) { setBuySeatsFor(null); return; }
     setSendingInvite(true); setError(""); setSuccess("");
     try {
-      const result = await inviteByEmail(teamId, query, primaryRoleName);
+      const invitedEmail = query;
+      const result = await runTeamAction({
+        pending: `Inviting ${invitedEmail}...`,
+        success: (r) => r.status === "invited" ? `Invitation sent to ${invitedEmail}` : `${invitedEmail} added`,
+        run: () => inviteByEmail(teamId, invitedEmail, primaryRoleName),
+      });
+      if (result.status === "added") {
+        await loadMembers(teamId);
+        const addedMember = useTeamStore.getState().membersByTeam[teamId]
+          ?.find((m) => m.email.toLowerCase() === invitedEmail.toLowerCase());
+        if (addedMember?.public_key) {
+          distributeKeyToNewMember(teamId, addedMember.user_id, addedMember.public_key).catch(() => {});
+        }
+      }
       setQuery(""); setResults([]); setOpen(false);
-      setSuccess(result.status === "invited" ? `Invitation sent to ${query}` : `${query} added`);
+      setSuccess(result.status === "invited" ? `Invitation sent to ${invitedEmail}` : `${invitedEmail} added`);
       await reloadSubscription();
       onMemberAdded();
     } catch (e) {
