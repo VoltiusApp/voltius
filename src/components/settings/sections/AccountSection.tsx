@@ -508,8 +508,13 @@ const PLAN_FEATURES = [
   { label: "Custom roles", free: false, pro: false, teams: false, business: true },
 ];
 
+function formatPlanDate(date: Date | null): string | null {
+  if (!date) return null;
+  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(date);
+}
+
 function PlansSection() {
-  const { tier, trialEndsAt, isTrialActive, isPro, isTeams, isBusiness, usedSeats, totalSeats } = useSubscriptionStore();
+  const { tier, trialEndsAt, isTrialActive, isPro, isTeams, isBusiness, usedSeats, totalSeats, subscriptionStatus, subscriptionCancelled, renewsAt, endsAt } = useSubscriptionStore();
 
   const daysLeft = trialEndsAt
     ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / 86_400_000))
@@ -524,6 +529,8 @@ function PlansSection() {
   const isPaidPro = isPro && !isTrialActive; // on a real subscription (not trial)
 
   const badgeColor = isPro ? "#f59e0b" : "var(--t-text-muted)";
+  const renewalDate = formatPlanDate(renewsAt);
+  const cancellationDate = formatPlanDate(endsAt ?? renewsAt);
 
   return (
     <div>
@@ -552,6 +559,18 @@ function PlansSection() {
             )}
           </div>
         </div>
+
+        {isPaidPro && (
+          <div className="rounded-md px-3 py-2 bg-[var(--t-bg-input)] text-xs text-[var(--t-text-muted)]">
+            {subscriptionCancelled ? (
+              <span>Cancels on {cancellationDate ?? "the period end"}. You keep access until then.</span>
+            ) : subscriptionStatus === "active" && renewalDate ? (
+              <span>Renews on {renewalDate}.</span>
+            ) : (
+              <span>Your subscription is active.</span>
+            )}
+          </div>
+        )}
 
         {isTeams && totalSeats != null && (
           <div className="flex items-center justify-between text-xs py-0.5">

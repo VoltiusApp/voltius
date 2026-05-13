@@ -36,6 +36,10 @@ export interface SubscriptionState {
   accountMode: string | null;
   usedSeats: number | null;
   totalSeats: number | null;
+  subscriptionStatus: string | null;
+  subscriptionCancelled: boolean;
+  renewsAt: Date | null;
+  endsAt: Date | null;
   load: () => Promise<void>;
 }
 
@@ -50,23 +54,27 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
   accountMode: null,
   usedSeats: null,
   totalSeats: null,
+  subscriptionStatus: null,
+  subscriptionCancelled: false,
+  renewsAt: null,
+  endsAt: null,
 
   async load() {
     const mode = await keychainGet("mode").catch(() => null);
     if (mode !== "server") {
-      set({ tier: "free", trialEndsAt: null, trialUsed: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, accountMode: mode, usedSeats: null, totalSeats: null });
+      set({ tier: "free", trialEndsAt: null, trialUsed: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, accountMode: mode, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null });
       return;
     }
 
     const jwt = await keychainGet("jwt").catch(() => null);
     if (!jwt) {
-      set({ tier: "free", trialEndsAt: null, trialUsed: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, usedSeats: null, totalSeats: null });
+      set({ tier: "free", trialEndsAt: null, trialUsed: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null });
       return;
     }
 
     const payload = parseJwtPayload(jwt);
     if (!payload) {
-      set({ tier: "free", trialEndsAt: null, trialUsed: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, usedSeats: null, totalSeats: null });
+      set({ tier: "free", trialEndsAt: null, trialUsed: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null });
       return;
     }
 
@@ -79,10 +87,10 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
     const isTeams = tier === "teams" || tier === "business";
     const isBusiness = tier === "business";
 
-    set({ tier, trialEndsAt, trialUsed, isTrialActive, isPro, isTeams, isBusiness, accountMode: mode, usedSeats: null, totalSeats: null });
+    set({ tier, trialEndsAt, trialUsed, isTrialActive, isPro, isTeams, isBusiness, accountMode: mode, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null });
 
-    // For Teams/Business, fetch live seat usage from API
-    if (isTeams) {
+    // Non-fatal: enrich paid plans with live billing lifecycle and seat data.
+    if (isPro) {
       try {
         const serverUrl = await keychainGet("server_url").catch(() => null);
         if (serverUrl) {
@@ -90,12 +98,26 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
             headers: { Authorization: `Bearer ${jwt}` },
           });
           if (res.ok) {
-            const data = await res.json() as { used_seats?: number | null; seats?: number | null };
-            set({ usedSeats: data.used_seats ?? null, totalSeats: data.seats ?? null });
+            const data = await res.json() as {
+              used_seats?: number | null;
+              seats?: number | null;
+              status?: string | null;
+              cancelled?: boolean;
+              renews_at?: number | null;
+              ends_at?: number | null;
+            };
+            set({
+              usedSeats: data.used_seats ?? null,
+              totalSeats: data.seats ?? null,
+              subscriptionStatus: data.status ?? null,
+              subscriptionCancelled: data.cancelled ?? false,
+              renewsAt: data.renews_at ? new Date(data.renews_at * 1000) : null,
+              endsAt: data.ends_at ? new Date(data.ends_at * 1000) : null,
+            });
           }
         }
       } catch {
-        // Non-fatal: seats display will just be empty
+        // Non-fatal: lifecycle and seats display will just be empty
       }
     }
   },
