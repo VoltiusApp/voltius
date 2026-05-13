@@ -718,7 +718,7 @@ function UpdateIndicator({ state }: { state: UpdaterStatus }) {
 
 function SubscriptionBadge() {
   const openSettings = useUIStore((s) => s.openSettings);
-  const { tier, trialEndsAt, trialUsed, isTrialActive } = useSubscriptionStore();
+  const { tier, trialEndsAt, trialUsed, trialKnown, isTrialActive } = useSubscriptionStore();
   const [hovered, setHovered] = useState(false);
 
   const isPremium = tier !== "free";
@@ -732,8 +732,8 @@ function SubscriptionBadge() {
     : tier === "teams" ? "Teams"
     : tier === "business" ? "Business"
     : tier === "pro" ? "Pro"
-    : trialUsed ? "Upgrade"
-    : "Upgrade · 14d Free Trial";
+    : trialKnown && !trialUsed ? "Upgrade · 14d Free Trial"
+    : "Upgrade";
 
   return (
     <div className="flex items-center px-1 shrink-0">
