@@ -13,6 +13,8 @@ import { useUIStore } from "@/stores/uiStore";
 import { TeamRolesPanel } from "./RolesSection";
 import BuySeatsModal from "@/components/settings/BuySeatsModal";
 import { appFetch } from "@/services/http";
+import { runTeamAction } from "@/services/teamActionFeedback";
+import { distributeKeyToNewMember } from "@/services/teamVaultSync";
 
 // ─── Vault migration helpers ──────────────────────────────────────────────────
 
@@ -176,6 +178,7 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
 }) {
   const addMemberById = useTeamStore((s) => s.addMemberById);
   const assignMemberRole = useTeamStore((s) => s.assignMemberRole);
+  const loadMembers = useTeamStore((s) => s.loadMembers);
   const { usedSeats, totalSeats, load: reloadSubscription } = useSubscriptionStore();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -240,7 +243,11 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
     setAdding(user.user_id);
     setError(""); setSuccess("");
     try {
-      await addMemberById(teamId, user.user_id);
+      await runTeamAction({
+        pending: `Adding ${user.email}...`,
+        success: `${user.email} added`,
+        run: () => addMemberById(teamId, user.user_id),
+      });
       for (const roleId of selectedRoleIds) {
         await assignMemberRole(teamId, user.user_id, roleId).catch(() => {});
       }
@@ -265,9 +272,22 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
     setSendingInvite(true);
     setError(""); setSuccess("");
     try {
-      const result = await inviteByEmail(teamId, query, primaryRoleName);
+      const invitedEmail = query;
+      const result = await runTeamAction({
+        pending: `Inviting ${invitedEmail}...`,
+        success: (r) => r.status === "invited" ? `Invitation sent to ${invitedEmail}` : `${invitedEmail} added`,
+        run: () => inviteByEmail(teamId, invitedEmail, primaryRoleName),
+      });
+      if (result.status === "added") {
+        await loadMembers(teamId);
+        const addedMember = useTeamStore.getState().membersByTeam[teamId]
+          ?.find((m) => m.email.toLowerCase() === invitedEmail.toLowerCase());
+        if (addedMember?.public_key) {
+          distributeKeyToNewMember(teamId, addedMember.user_id, addedMember.public_key).catch(() => {});
+        }
+      }
       setQuery(""); setResults([]); setOpen(false);
-      setSuccess(result.status === "invited" ? `Invitation sent to ${query}` : `${query} added`);
+      setSuccess(result.status === "invited" ? `Invitation sent to ${invitedEmail}` : `${invitedEmail} added`);
       await reloadSubscription();
       onMemberAdded?.();
     } catch (e) {
@@ -442,9 +462,17 @@ function MemberRow({ member, isMe, myMember, teamId, roles }: {
     setBusy(true); setError("");
     try {
       if (hasRole) {
-        await removeMemberRole(teamId, member.user_id, role.id);
+        await runTeamAction({
+          pending: `Removing ${role.name} from ${member.email}...`,
+          success: `${role.name} removed from ${member.email}`,
+          run: () => removeMemberRole(teamId, member.user_id, role.id),
+        });
       } else {
-        await assignMemberRole(teamId, member.user_id, role.id);
+        await runTeamAction({
+          pending: `Assigning ${role.name} to ${member.email}...`,
+          success: `${role.name} assigned to ${member.email}`,
+          run: () => assignMemberRole(teamId, member.user_id, role.id),
+        });
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed");
@@ -456,7 +484,13 @@ function MemberRow({ member, isMe, myMember, teamId, roles }: {
   const handleRemove = async () => {
     if (!confirmRemove) { setConfirmRemove(true); return; }
     setBusy(true); setError("");
-    try { await removeMember(teamId, member.user_id); }
+    try {
+      await runTeamAction({
+        pending: `Removing ${member.email}...`,
+        success: `${member.email} removed`,
+        run: () => removeMember(teamId, member.user_id),
+      });
+    }
     catch (e) { setError(e instanceof Error ? e.message : "Failed"); setBusy(false); setConfirmRemove(false); }
   };
 
@@ -563,11 +597,16 @@ export function TeamVaultPanel({ teamId, myUserId }: { teamId: string; myUserId:
 
   const handleRevoke = async (invId: string) => {
     setRevokingId(invId);
+    const invite = pendingInvites.find((i) => i.id === invId);
     try {
-      await revokePendingInvitation(teamId, invId);
+      await runTeamAction({
+        pending: `Revoking invitation for ${invite?.email ?? "member"}...`,
+        success: `Invitation revoked for ${invite?.email ?? "member"}`,
+        run: () => revokePendingInvitation(teamId, invId),
+      });
       setPendingInvites((prev) => prev.filter((i) => i.id !== invId));
     } catch {
-      // silently ignore
+      // toast already reports the failure
     } finally {
       setRevokingId(null);
     }
