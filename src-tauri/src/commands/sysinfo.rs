@@ -47,6 +47,19 @@ if command -v lspci >/dev/null 2>&1; then
 fi
 "#;
 
+const WINDOWS_CREATE_NO_WINDOW: u32 = 0x08000000;
+
+fn windows_hidden_child_process_flags() -> u32 {
+    WINDOWS_CREATE_NO_WINDOW
+}
+
+#[cfg(target_os = "windows")]
+fn prevent_visible_child_window(command: &mut std::process::Command) {
+    use std::os::windows::process::CommandExt;
+
+    command.creation_flags(windows_hidden_child_process_flags());
+}
+
 fn detect_gpus() -> Vec<String> {
     #[cfg(target_os = "linux")]
     {
@@ -99,14 +112,16 @@ fn detect_gpus() -> Vec<String> {
 
     #[cfg(target_os = "windows")]
     {
-        if let Ok(output) = std::process::Command::new("powershell")
-            .args([
-                "-NoProfile",
-                "-Command",
-                "Get-WmiObject Win32_VideoController | ForEach-Object { $_.Name }",
-            ])
-            .output()
-        {
+        let mut command = std::process::Command::new("powershell");
+        command.args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "Get-WmiObject Win32_VideoController | ForEach-Object { $_.Name }",
+        ]);
+        prevent_visible_child_window(&mut command);
+
+        if let Ok(output) = command.output() {
             let text = String::from_utf8_lossy(&output.stdout);
             let gpus: Vec<String> = text
                 .lines()
@@ -289,5 +304,10 @@ GPU: Advanced Micro Devices, Inc. [AMD/ATI] Phoenix1
                 "Advanced Micro Devices, Inc. [AMD/ATI] Phoenix1".to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn windows_child_processes_are_configured_without_visible_windows() {
+        assert_eq!(windows_hidden_child_process_flags(), 0x08000000);
     }
 }
