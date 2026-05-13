@@ -13,7 +13,7 @@ import { MultiplayerBar } from "@/components/terminal/MultiplayerBar";
 import { TerminalStatusBar } from "@/components/terminal/TerminalStatusBar";
 import { useMultiplayerHostBroadcast } from "@/hooks/useMultiplayerHostBroadcast";
 import ConnectionOverlay, { SSH_STEPS, SERIAL_STEPS } from "@/components/terminal/ConnectionOverlay";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
 import { getConnectionIcon } from "@/utils/icons";
 import type { TerminalSession } from "@/types";
 import { EphemeralSerialConfigOverlay } from "@/components/connections/EphemeralSerialConfigOverlay";
@@ -208,7 +208,8 @@ function SessionConnectionOverlay({
   onDismiss?: () => void;
   onRetry?: () => void;
 }) {
-  const connection = useConnectionStore((s) => s.connections.find((c) => c.id === session.connectionId));
+  const connections = useAllConnections();
+  const connection = connections.find((c) => c.id === session.connectionId);
   const connectSerialEphemeralFinalize = useSessionStore((s) => s.connectSerialEphemeralFinalize);
   const resetSerialEphemeral = useSessionStore((s) => s.resetSerialEphemeral);
 

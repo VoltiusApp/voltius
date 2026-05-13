@@ -6,7 +6,7 @@ import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useAllPortForwardingRules } from "@/hooks/useAllPortForwardingRules";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
 import { useVaultStore } from "@/stores/vaultStore";
 import { usePermissions } from "@/hooks/usePermission";
 import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
@@ -63,7 +63,7 @@ export function PortForwardingPage() {
     usePortForwardingStore();
   const rules = useAllPortForwardingRules();
   const { sessions, activeSessionId } = useSessionStore();
-  const connections = useConnectionStore((s) => s.connections);
+  const connections = useAllConnections();
   const { loadFolders, saveFolder, updateFolder, deleteFolder, moveFolder } = useFolderStore();
   const folders = useAllFolders();
   const { pending: cascadePending, request: requestCascade, confirm: confirmCascade, cancel: cancelCascade } = useVaultCascade();

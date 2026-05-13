@@ -21,6 +21,7 @@ import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
 import { TagBadge } from "@/components/shared/TagBadge";
 import { useConnectionStore } from "@/stores/connectionStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
 import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { Toggle } from "@/components/shared/Toggle";
@@ -116,7 +117,8 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const setActiveNav = useUIStore((s) => s.setActiveNav);
   const pinConnection = useConnectionStore((s) => s.pinConnection);
   const setConnectionDistro = useConnectionStore((s) => s.setDistro);
-  const isPinned = useConnectionStore((s) => s.connections.find((c) => c.id === initial?.id)?.pinned ?? false);
+  const connections = useAllConnections();
+  const isPinned = connections.find((c) => c.id === initial?.id)?.pinned ?? false;
   const contributions = useUIContributions("connection.panelActions", initial);
   const { toggleExcluded, isObjectSynced } = useSyncPrefsStore();
   const isSynced = initial ? isObjectSynced(initial.id, "connection") : true;

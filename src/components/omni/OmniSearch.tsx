@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { useConnectionStore } from "@/stores/connectionStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
 import type { SettingsSection } from "@/stores/uiStore";
@@ -92,7 +93,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const connections = useConnectionStore((s) => s.connections);
+  const connections = useAllConnections();
   const deleteConnection = useConnectionStore((s) => s.deleteConnection);
   const { sessions, setActive, connect, connectDirect } = useSessionStore();
   const snippets = useSnippetStore((s) => s.snippets);

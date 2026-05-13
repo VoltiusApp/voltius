@@ -9,7 +9,7 @@ import { FilePane } from "./FilePane";
 import ConnectionOverlay, { SFTP_STEPS } from "@/components/terminal/ConnectionOverlay";
 import { FilterInput } from "@/components/shared/ToolbarViewControls";
 import { useHostPingStore } from "@/stores/hostPingStore";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
 
 function latencyColor(ms: number): string {
   if (ms < 50) return "var(--t-status-connected)";
@@ -75,7 +75,8 @@ export function SidePane({
 
   // ── Latency / ping ──────────────────────────────────────────────────────────
   const connectionId = host?.kind === "remote" ? host.connection.id : undefined;
-  const connection = useConnectionStore((s) => connectionId ? s.connections.find((c) => c.id === connectionId) : undefined);
+  const connections = useAllConnections();
+  const connection = connectionId ? connections.find((c) => c.id === connectionId) : undefined;
   const pingEnabled = useHostPingStore((s) => s.enabled);
   const activePollIntervalMs = useHostPingStore((s) => s.activePollIntervalMs);
   const setStatus = useHostPingStore((s) => s.setStatus);

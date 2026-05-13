@@ -1,5 +1,5 @@
 import { Icon } from "@iconify/react";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -87,7 +87,7 @@ function VaultCard({ name, hosts, totalHosts, onConnect }: VaultCardProps) {
 }
 
 export function VaultsOverview() {
-  const connections = useConnectionStore((s) => s.connections);
+  const connections = useAllConnections();
   const vaults = useVaultStore((s) => s.vaults);
   const connect = useSessionStore((s) => s.connect);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
