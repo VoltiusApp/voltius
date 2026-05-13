@@ -10,6 +10,7 @@ import { useConnectionStore } from "./connectionStore";
 import { useUIStore } from "./uiStore";
 import { useTerminalSettingsStore } from "./terminalSettingsStore";
 import { useLayoutStore } from "./layoutStore";
+import { formatLocalShellTitle } from "@/utils/localShellTitle";
 
 interface SessionStore {
   sessions: TerminalSession[];
@@ -273,17 +274,17 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   connectLocal: async () => {
     const sessionId = crypto.randomUUID();
+    const preferredShell = useTerminalSettingsStore.getState().preferredShell;
     const session: TerminalSession = {
       id: sessionId,
       connectionId: "local",
-      connectionName: "Local Shell",
+      connectionName: formatLocalShellTitle(preferredShell),
       status: "connecting",
       type: "local",
     };
     set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
     useLayoutStore.getState().setSplitTabActive(false);
     try {
-      const preferredShell = useTerminalSettingsStore.getState().preferredShell;
       await localConnect(sessionId, 80, 24, preferredShell ?? undefined);
       set((s) => ({
         sessions: s.sessions.map((sess) =>
@@ -304,17 +305,17 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   connectLocalAt: async (cwd: string) => {
     const sessionId = crypto.randomUUID();
+    const preferredShell = useTerminalSettingsStore.getState().preferredShell;
     const session: TerminalSession = {
       id: sessionId,
       connectionId: "local",
-      connectionName: "Local Shell",
+      connectionName: formatLocalShellTitle(preferredShell),
       status: "connecting",
       type: "local",
     };
     set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
     useLayoutStore.getState().setSplitTabActive(false);
     try {
-      const preferredShell = useTerminalSettingsStore.getState().preferredShell;
       await localConnect(sessionId, 80, 24, preferredShell ?? undefined, cwd);
       set((s) => ({
         sessions: s.sessions.map((sess) =>
