@@ -7,6 +7,7 @@ import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { reportAuditMutation } from "@/services/auditMutations";
+import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 
 function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
   if (!vaultId) return false;
@@ -30,11 +31,6 @@ function findTeamEntry(
     if (item) return { teamId, item };
   }
   return null;
-}
-
-async function triggerTeamSave(teamId: string): Promise<void> {
-  const { saveTeamData } = await import("@/services/teamVaultSync");
-  saveTeamData(teamId).catch(() => {});
 }
 
 interface IdentityStore {
@@ -86,13 +82,13 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
         clocks: { created_at: now, updated_at: now },
       };
       const vaultId = data.vault_id!;
+      await saveTeamVaultObject(vaultId, "identity", identity);
       set((s) => ({
         teamIdentities: {
           ...s.teamIdentities,
           [vaultId]: upsert(s.teamIdentities[vaultId] ?? [], identity),
         },
       }));
-      void triggerTeamSave(vaultId);
       reportAuditMutation("identity", "created", { id: identity.id, name: identity.name ?? identity.username, vault_id: identity.vault_id });
       let recreatedId: string | null = null;
       useHistoryStore.getState().push({
@@ -147,13 +143,13 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
         updated_at: now,
         clocks: { ...prev.clocks, updated_at: now },
       };
+      await saveTeamVaultObject(teamId, "identity", updated);
       set((s) => ({
         teamIdentities: {
           ...s.teamIdentities,
           [teamId]: upsert(s.teamIdentities[teamId] ?? [], updated),
         },
       }));
-      void triggerTeamSave(teamId);
       reportAuditMutation("identity", "updated", { id: updated.id, name: updated.name ?? updated.username, vault_id: updated.vault_id });
       const prevData: IdentityFormData = {
         name: prev.name, username: prev.username, key_id: prev.key_id,
@@ -195,13 +191,13 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
       const { teamId, item: prev } = teamEntry;
       const now = new Date().toISOString();
       const updated: Identity = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
+      await saveTeamVaultObject(teamId, "identity", updated);
       set((s) => ({
         teamIdentities: {
           ...s.teamIdentities,
           [teamId]: upsert(s.teamIdentities[teamId] ?? [], updated),
         },
       }));
-      void triggerTeamSave(teamId);
       return;
     }
 
@@ -222,13 +218,13 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     const teamEntry = findTeamEntry(get().teamIdentities, id);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
+      await removeTeamVaultObject(teamId, id);
       set((s) => ({
         teamIdentities: {
           ...s.teamIdentities,
           [teamId]: (s.teamIdentities[teamId] ?? []).filter((x) => x.id !== id),
         },
       }));
-      void triggerTeamSave(teamId);
       reportAuditMutation("identity", "deleted", { id: prev.id, name: prev.name ?? prev.username, vault_id: prev.vault_id });
       const prevData: IdentityFormData = {
         name: prev.name, username: prev.username, key_id: prev.key_id,

@@ -7,6 +7,7 @@ import { isServerMode } from "@/services/account";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { useHistoryStore } from "@/stores/historyStore";
 import { useTeamStore } from "@/stores/teamStore";
+import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 
 function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
   if (!vaultId) return false;
@@ -30,11 +31,6 @@ function findTeamEntry(
     if (item) return { teamId, item };
   }
   return null;
-}
-
-async function triggerTeamSave(teamId: string): Promise<void> {
-  const { saveTeamData } = await import("@/services/teamVaultSync");
-  saveTeamData(teamId).catch(() => {});
 }
 
 export interface GlobalPendingInject {
@@ -108,13 +104,13 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
         clocks: { created_at: now, updated_at: now },
       };
       const vaultId = data.vault_id!;
+      await saveTeamVaultObject(vaultId, "snippet", snippet);
       set((s) => ({
         teamSnippets: {
           ...s.teamSnippets,
           [vaultId]: upsert(s.teamSnippets[vaultId] ?? [], snippet),
         },
       }));
-      void triggerTeamSave(vaultId);
       reportAuditMutation("snippet", "created", { id: snippet.id, name: snippet.name, vault_id: snippet.vault_id });
       let recreatedId: string | null = null;
       useHistoryStore.getState().push({
@@ -170,13 +166,13 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
         updated_at: now,
         clocks: { ...prev.clocks, updated_at: now },
       };
+      await saveTeamVaultObject(teamId, "snippet", updated);
       set((s) => ({
         teamSnippets: {
           ...s.teamSnippets,
           [teamId]: upsert(s.teamSnippets[teamId] ?? [], updated),
         },
       }));
-      void triggerTeamSave(teamId);
       reportAuditMutation("snippet", "updated", { id: updated.id, name: updated.name, vault_id: updated.vault_id });
       const prevData: SnippetFormData = {
         name: prev.name, content: prev.content, description: prev.description,
@@ -217,13 +213,13 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     const teamEntry = findTeamEntry(get().teamSnippets, id);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
+      await removeTeamVaultObject(teamId, id);
       set((s) => ({
         teamSnippets: {
           ...s.teamSnippets,
           [teamId]: (s.teamSnippets[teamId] ?? []).filter((x) => x.id !== id),
         },
       }));
-      void triggerTeamSave(teamId);
       reportAuditMutation("snippet", "deleted", { id: prev.id, name: prev.name, vault_id: prev.vault_id });
       const prevData: SnippetFormData = {
         name: prev.name, content: prev.content, description: prev.description,
@@ -280,13 +276,13 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
       const { teamId, item: snippet } = teamEntry;
       const now = new Date().toISOString();
       const updated: Snippet = { ...snippet, favorite: pinned, updated_at: now, clocks: { ...snippet.clocks, updated_at: now } };
+      await saveTeamVaultObject(teamId, "snippet", updated);
       set((s) => ({
         teamSnippets: {
           ...s.teamSnippets,
           [teamId]: upsert(s.teamSnippets[teamId] ?? [], updated),
         },
       }));
-      void triggerTeamSave(teamId);
       return;
     }
 

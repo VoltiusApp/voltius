@@ -3,11 +3,7 @@ import type { Folder, FolderFormData } from "@/types";
 import * as api from "@/services/snippets";
 import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
-
-async function triggerTeamSave(teamId: string): Promise<void> {
-  const { saveTeamData } = await import("@/services/teamVaultSync");
-  saveTeamData(teamId).catch(() => {});
-}
+import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 
 function upsert(arr: Folder[], item: Folder): Folder[] {
   const idx = arr.findIndex((x) => x.id === item.id);
@@ -79,13 +75,13 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
           clocks: { created_at: now, updated_at: now },
         };
         const vaultId = data.vault_id;
+        await saveTeamVaultObject(vaultId, "snippet_folder", folder);
         set((s) => ({
           teamSnippetFolders: {
             ...s.teamSnippetFolders,
             [vaultId]: upsert(s.teamSnippetFolders[vaultId] ?? [], folder),
           },
         }));
-        void triggerTeamSave(vaultId);
         return folder;
       }
     }
@@ -111,13 +107,13 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
         updated_at: now,
         clocks: { ...prev.clocks, updated_at: now },
       };
+      await saveTeamVaultObject(teamId, "snippet_folder", updated);
       set((s) => ({
         teamSnippetFolders: {
           ...s.teamSnippetFolders,
           [teamId]: upsert(s.teamSnippetFolders[teamId] ?? [], updated),
         },
       }));
-      void triggerTeamSave(teamId);
       return;
     }
 
@@ -131,13 +127,13 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
     const teamEntry = findTeamEntry(get().teamSnippetFolders, id);
     if (teamEntry) {
       const { teamId } = teamEntry;
+      await removeTeamVaultObject(teamId, id);
       set((s) => ({
         teamSnippetFolders: {
           ...s.teamSnippetFolders,
           [teamId]: (s.teamSnippetFolders[teamId] ?? []).filter((x) => x.id !== id),
         },
       }));
-      void triggerTeamSave(teamId);
       return;
     }
 
@@ -158,13 +154,13 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
         updated_at: now,
         clocks: { ...folder.clocks, updated_at: now },
       };
+      await saveTeamVaultObject(teamId, "snippet_folder", updated);
       set((s) => ({
         teamSnippetFolders: {
           ...s.teamSnippetFolders,
           [teamId]: upsert(s.teamSnippetFolders[teamId] ?? [], updated),
         },
       }));
-      void triggerTeamSave(teamId);
       return;
     }
 

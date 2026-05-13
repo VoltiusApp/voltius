@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { CardActionButton } from "@/components/shared/CardActionButton";
-import { ContextMenu, useContextMenu } from "@/components/shared/ContextMenu";
+import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
@@ -29,6 +29,7 @@ interface FolderCardProps {
   canEdit?: boolean;
   onMoveToVault?: (vaultId: string) => void;
   onCopyToVault?: (vaultId: string) => void;
+  bulkContextMenuItems?: ContextMenuItem[];
 }
 
 export function FolderCard({
@@ -53,6 +54,7 @@ export function FolderCard({
   canEdit,
   onMoveToVault,
   onCopyToVault,
+  bulkContextMenuItems,
 }: FolderCardProps) {
   const isList = layout === "list";
   const avatarSize = isList ? 28 : 48;
@@ -62,6 +64,7 @@ export function FolderCard({
   const { pos: ctxPos, open: openCtx, close: closeCtx } = useContextMenu();
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(folder.id, "folder"));
   const toggleSync = useSyncPrefsStore((s) => s.toggleExcluded);
+  const activeMenuItems = isSelected && bulkContextMenuItems?.length ? bulkContextMenuItems : undefined;
 
   const handleRenameCommit = () => {
     const trimmed = renameValue.trim();
@@ -186,6 +189,7 @@ export function FolderCard({
           pos={ctxPos}
           onClose={closeCtx}
           items={[
+            ...(activeMenuItems ?? [
             { label: "Open folder", icon: "lucide:folder-open", onClick: onClick, shortcut: "↩" },
             ...(canEdit ? [
               { label: "Rename", icon: "lucide:pencil", onClick: () => { setRenameValue(folder.name); setRenaming(true); } },
@@ -197,6 +201,7 @@ export function FolderCard({
               { label: isSynced ? "Disable cloud sync" : "Enable cloud sync", icon: isSynced ? "lucide:cloud-off" : "lucide:cloud", onClick: () => toggleSync(folder.id) },
               { label: "Delete folder", icon: "lucide:trash-2", onClick: () => onDelete(folder), danger: true as const, shortcut: getShortcutHint("delete") },
             ] : []),
+            ]),
           ]}
         />
       )}

@@ -42,6 +42,7 @@ import { useAllConnections } from "@/hooks/useAllConnections";
 import { useAllFolders } from "@/hooks/useAllFolders";
 import { SnippetPickerPanel } from "./SnippetPickerPanel";
 import { shouldUseBulkHostContextMenu } from "./hostSelection";
+import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 
 
 export default function HostsPage() {
@@ -208,6 +209,10 @@ export default function HostsPage() {
     () => filtered.filter((c) => selectedIdSet.has(c.id)),
     [filtered, selectedIdSet],
   );
+  const selectedFolders = useMemo(
+    () => visibleFolders.filter((f) => selectedIdSet.has(f.id)),
+    [visibleFolders, selectedIdSet],
+  );
 
   const { focusedId, setFocusedId } = useListKeyNav({
     orderedIds: filteredIds,
@@ -368,10 +373,41 @@ export default function HostsPage() {
     if (selectedIdSet.size === 0) return undefined;
     const selectedConns = selectedConnections;
     const ids = selectedConns.map((c) => c.id);
-    if (ids.length === 0) return undefined;
+    const folderIds = selectedFolders.map((f) => f.id);
+    const totalSelected = ids.length + folderIds.length;
+    if (totalSelected === 0) return undefined;
     const { isObjectSynced } = useSyncPrefsStore.getState();
     const allSynced = selectedConns.every((c) => isObjectSynced(c.id, "connection"));
     const allCanEdit = selectedConns.every((c) => can("EDIT_CONNECTIONS", c.vault_id ?? "personal"));
+    const bulkVaultChildren = (operation: TransferOperation): ContextMenuItem[] => vaultOptions
+      .filter((v) => [...selectedConns.map((c) => c.vault_id ?? "personal"), ...selectedFolders.map((f) => f.vault_id ?? "personal")].some((sourceVaultId) => sourceVaultId !== v.id))
+      .filter((v) => buildTeamVaultTransferPlan({
+        operation,
+        targetVaultId: v.id,
+        selected: { connectionIds: ids, folderIds },
+        can: (permission, vaultId) => can(permission, vaultId),
+        connections,
+        identities,
+        keys,
+        folders: scopedFolders,
+        snippets: [],
+        snippetFolders: [],
+      }).allowed)
+      .map((v) => ({
+        label: v.name,
+        icon: operation === "move" ? "lucide:vault" : "lucide:copy-plus",
+        onClick: () => {
+          if (operation === "move") {
+            for (const folder of selectedFolders) handleMoveFolderToVault(folder, v.id);
+            for (const conn of selectedConns) handleMoveConnectionToVault(conn, v.id);
+          } else {
+            for (const folder of selectedFolders) handleCopyFolderToVault(folder, v.id);
+            for (const conn of selectedConns) handleCopyConnectionToVault(conn, v.id);
+          }
+        },
+      }));
+    const moveChildren = bulkVaultChildren("move");
+    const copyChildren = bulkVaultChildren("copy");
     return [
       {
         label: `Execute Snippet on ${ids.length} host${ids.length === 1 ? "" : "s"}`,
@@ -389,6 +425,17 @@ export default function HostsPage() {
         label: `Duplicate ${ids.length} hosts`,
         icon: "lucide:copy",
         onClick: () => { void Promise.all(selectedConns.map((c) => handleDuplicate(c))); },
+      }] : []),
+      ...(moveChildren.length > 0 ? [{
+        label: `Move ${totalSelected} item${totalSelected === 1 ? "" : "s"} to`,
+        icon: "lucide:vault",
+        children: moveChildren,
+        divider: true,
+      }] : []),
+      ...(copyChildren.length > 0 ? [{
+        label: `Copy ${totalSelected} item${totalSelected === 1 ? "" : "s"} to`,
+        icon: "lucide:copy-plus",
+        children: copyChildren,
       }] : []),
       {
         label: allSynced ? `Disable cloud sync (${ids.length})` : `Enable cloud sync (${ids.length})`,
@@ -417,14 +464,14 @@ export default function HostsPage() {
         onClick: () => useUIStore.getState().openImportExport("export", { connectionIds: ids }),
       },
       {
-        label: `Delete ${ids.length} hosts`,
+        label: `Delete ${totalSelected} item${totalSelected === 1 ? "" : "s"}`,
         icon: "lucide:trash-2",
-        onClick: () => setConfirmDeleteIds(ids),
+        onClick: () => setConfirmDeleteIds([...ids, ...folderIds]),
         danger: true,
         divider: true,
       },
     ];
-  }, [selectedIdSet, selectedConnections, excludedIds, syncTypes, handleDuplicate, can, updateConnection, handleBulkConnect, openSnippetPicker]);
+  }, [selectedIdSet, selectedConnections, selectedFolders, excludedIds, syncTypes, handleDuplicate, can, updateConnection, handleBulkConnect, openSnippetPicker, vaultOptions, connections, identities, keys, scopedFolders]);
 
   const handleSubmit = async (data: ConnectionFormData, password: string | null, privateKey: string | null) => {
     try {
@@ -917,6 +964,7 @@ export default function HostsPage() {
                           canEdit={canEditFolder}
                           onMoveToVault={(vaultId) => handleMoveFolderToVault(folder, vaultId)}
                           onCopyToVault={(vaultId) => handleCopyFolderToVault(folder, vaultId)}
+                          bulkContextMenuItems={selectedIdSet.size > 1 ? bulkContextMenuItems : undefined}
                         />
                       );
                     })}
@@ -1110,11 +1158,14 @@ export default function HostsPage() {
 
       {confirmDeleteIds && (
         <ConfirmModal
-          title={`Delete ${confirmDeleteIds.length} hosts`}
-          message={`Are you sure you want to delete ${confirmDeleteIds.length} host${confirmDeleteIds.length === 1 ? "" : "s"}? This cannot be undone.`}
+          title={`Delete ${confirmDeleteIds.length} item${confirmDeleteIds.length === 1 ? "" : "s"}`}
+          message={`Are you sure you want to delete ${confirmDeleteIds.length} item${confirmDeleteIds.length === 1 ? "" : "s"}? This cannot be undone.`}
           confirmLabel="Delete"
           onConfirm={() => {
-            for (const id of confirmDeleteIds) void deleteConnection(id);
+            for (const id of confirmDeleteIds) {
+              if (scopedFolders.some((f) => f.id === id)) void deleteFolder(id);
+              else void deleteConnection(id);
+            }
             setSelection([]);
             setConfirmDeleteIds(null);
           }}

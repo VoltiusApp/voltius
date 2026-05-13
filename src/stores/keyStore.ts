@@ -7,6 +7,7 @@ import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { reportAuditMutation } from "@/services/auditMutations";
+import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 
 function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
   if (!vaultId) return false;
@@ -30,11 +31,6 @@ function findTeamEntry(
     if (item) return { teamId, item };
   }
   return null;
-}
-
-async function triggerTeamSave(teamId: string): Promise<void> {
-  const { saveTeamData } = await import("@/services/teamVaultSync");
-  saveTeamData(teamId).catch(() => {});
 }
 
 interface KeyStore {
@@ -85,13 +81,13 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
         clocks: { created_at: now, updated_at: now },
       };
       const vaultId = data.vault_id!;
+      await saveTeamVaultObject(vaultId, "key", key);
       set((s) => ({
         teamKeys: {
           ...s.teamKeys,
           [vaultId]: upsert(s.teamKeys[vaultId] ?? [], key),
         },
       }));
-      void triggerTeamSave(vaultId);
       reportAuditMutation("key", "created", { id: key.id, name: key.name ?? "unnamed", vault_id: key.vault_id }, { key_type: key.key_type });
       let recreatedId: string | null = null;
       useHistoryStore.getState().push({
@@ -145,13 +141,13 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
         updated_at: now,
         clocks: { ...prev.clocks, updated_at: now },
       };
+      await saveTeamVaultObject(teamId, "key", updated);
       set((s) => ({
         teamKeys: {
           ...s.teamKeys,
           [teamId]: upsert(s.teamKeys[teamId] ?? [], updated),
         },
       }));
-      void triggerTeamSave(teamId);
       reportAuditMutation("key", "updated", { id: updated.id, name: updated.name ?? "unnamed", vault_id: updated.vault_id }, { key_type: updated.key_type });
       const prevData: SshKeyFormData = {
         name: prev.name, key_type: prev.key_type,
@@ -194,13 +190,13 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
       const { teamId, item: prev } = teamEntry;
       const now = new Date().toISOString();
       const updated: SshKey = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
+      await saveTeamVaultObject(teamId, "key", updated);
       set((s) => ({
         teamKeys: {
           ...s.teamKeys,
           [teamId]: upsert(s.teamKeys[teamId] ?? [], updated),
         },
       }));
-      void triggerTeamSave(teamId);
       return;
     }
 
@@ -221,13 +217,13 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
     const teamEntry = findTeamEntry(get().teamKeys, id);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
+      await removeTeamVaultObject(teamId, id);
       set((s) => ({
         teamKeys: {
           ...s.teamKeys,
           [teamId]: (s.teamKeys[teamId] ?? []).filter((x) => x.id !== id),
         },
       }));
-      void triggerTeamSave(teamId);
       reportAuditMutation("key", "deleted", { id: prev.id, name: prev.name ?? "unnamed", vault_id: prev.vault_id }, { key_type: prev.key_type });
       const prevData: SshKeyFormData = {
         name: prev.name, key_type: prev.key_type,

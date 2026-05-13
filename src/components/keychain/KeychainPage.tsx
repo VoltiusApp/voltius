@@ -37,6 +37,7 @@ import { getSecret, storeSecret, deleteSecret } from "@/services/vault";
 import type { Folder, Identity, IdentityFormData, SshKey, SshKeyFormData, VaultOption } from "@/types";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
+import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 
 export default function KeychainPage() {
   const { loadIdentities, saveIdentity, updateIdentity, deleteIdentity } =
@@ -260,16 +261,64 @@ export default function KeychainPage() {
     () => filteredIdentities.filter((i) => selectedIdSet.has(i.id)).map((i) => i.id),
     [filteredIdentities, selectedIdSet],
   );
+  const selectedFolders = useMemo(
+    () => visibleFolders.filter((f) => selectedIdSet.has(f.id)),
+    [visibleFolders, selectedIdSet],
+  );
 
   const bulkContextMenuItems = useMemo<ContextMenuItem[] | undefined>(() => {
     if (selectedIdSet.size <= 1) return undefined;
     const allIds = [...selectedIdSet];
+    const selectedKeys = filteredKeys.filter((k) => selectedIdSet.has(k.id));
+    const selectedIdentities = filteredIdentities.filter((i) => selectedIdSet.has(i.id));
+    const selectedFolderIds = selectedFolders.map((f) => f.id);
     const { isObjectSynced } = useSyncPrefsStore.getState();
     const allSynced = allIds.every((id) => {
       const typeId = selectedKeyIds.includes(id) ? "key" : "identity";
       return isObjectSynced(id, typeId);
     });
+    const bulkVaultChildren = (operation: TransferOperation): ContextMenuItem[] => vaultOptions
+      .filter((v) => [...selectedKeys.map((k) => k.vault_id ?? "personal"), ...selectedIdentities.map((i) => i.vault_id ?? "personal"), ...selectedFolders.map((f) => f.vault_id ?? "personal")].some((sourceVaultId) => sourceVaultId !== v.id))
+      .filter((v) => buildTeamVaultTransferPlan({
+        operation,
+        targetVaultId: v.id,
+        selected: { keyIds: selectedKeyIds, identityIds: selectedIdentityIds, folderIds: selectedFolderIds },
+        can: (permission, vaultId) => can(permission, vaultId),
+        connections: [],
+        identities,
+        keys,
+        folders: scopedFolders,
+        snippets: [],
+        snippetFolders: [],
+      }).allowed)
+      .map((v) => ({
+        label: v.name,
+        icon: operation === "move" ? "lucide:vault" : "lucide:copy-plus",
+        onClick: () => {
+          if (operation === "move") {
+            for (const folder of selectedFolders) handleMoveFolderToVault(folder, v.id);
+            for (const key of selectedKeys) void handleMoveKeyToVault(key, v.id);
+            for (const identity of selectedIdentities) handleMoveIdentityToVault(identity, v.id);
+          } else {
+            for (const folder of selectedFolders) handleCopyFolderToVault(folder, v.id);
+            for (const key of selectedKeys) void handleCopyKeyToVault(key, v.id);
+            for (const identity of selectedIdentities) handleCopyIdentityToVault(identity, v.id);
+          }
+        },
+      }));
+    const moveChildren = bulkVaultChildren("move");
+    const copyChildren = bulkVaultChildren("copy");
     const items: ContextMenuItem[] = [
+      ...(moveChildren.length > 0 ? [{
+        label: `Move ${allIds.length} item${allIds.length === 1 ? "" : "s"} to`,
+        icon: "lucide:vault",
+        children: moveChildren,
+      }] : []),
+      ...(copyChildren.length > 0 ? [{
+        label: `Copy ${allIds.length} item${allIds.length === 1 ? "" : "s"} to`,
+        icon: "lucide:copy-plus",
+        children: copyChildren,
+      }] : []),
       {
         label: allSynced ? `Disable cloud sync (${allIds.length})` : `Enable cloud sync (${allIds.length})`,
         icon: allSynced ? "lucide:cloud-off" : "lucide:cloud",
@@ -300,7 +349,7 @@ export default function KeychainPage() {
     });
     return items;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIdSet, filteredKeys, filteredIdentities, selectedKeyIds, selectedIdentityIds, excludedIds, syncTypes]);
+  }, [selectedIdSet, filteredKeys, filteredIdentities, selectedKeyIds, selectedIdentityIds, selectedFolders, excludedIds, syncTypes, vaultOptions, can, identities, keys, scopedFolders]);
 
   useEffect(() => {
     void loadKeys();
@@ -858,6 +907,7 @@ export default function KeychainPage() {
                       canEdit={can("EDIT_KEYS", folder.vault_id ?? "personal")}
                       onMoveToVault={(vaultId) => handleMoveFolderToVault(folder, vaultId)}
                       onCopyToVault={(vaultId) => handleCopyFolderToVault(folder, vaultId)}
+                      bulkContextMenuItems={selectedIdSet.size > 1 ? bulkContextMenuItems : undefined}
                     />
                   ))}
                 </div>
@@ -1021,7 +1071,8 @@ export default function KeychainPage() {
           onConfirm={async () => {
             for (const id of confirmDeleteIds) {
               if (selectedKeyIds.includes(id)) await handleDeleteKey(id);
-              else await handleDeleteIdentity(id);
+              else if (selectedIdentityIds.includes(id)) await handleDeleteIdentity(id);
+              else if (scopedFolders.some((f) => f.id === id)) await deleteFolder(id);
             }
             setSelection([]);
             setConfirmDeleteIds(null);

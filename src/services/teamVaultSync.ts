@@ -22,6 +22,7 @@ import { getSecret, storeSecret, deleteSecret } from "@/services/vault";
 import type { Connection, Identity, SshKey, Folder, Snippet, PortForwardingRule } from "@/types";
 import type { TeamMember } from "@/services/teamService";
 import { appFetch } from "@/services/http";
+import { listTeamObjects, type TeamObjectRecord } from "@/services/teamObjects";
 
 export type { TeamMember };
 
@@ -258,6 +259,26 @@ export async function fetchTeamData(teamId: string): Promise<void> {
   const stateStore = useTeamVaultStateStore.getState();
   stateStore.setStatus(teamId, "loading");
 
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) {
+    await _clearTeamStores(teamId);
+    stateStore.setStatus(teamId, "offline");
+    return;
+  }
+
+  try {
+    const objects = await listTeamObjects(teamId);
+    if (objects.length > 0) {
+      await _hydrateTeamObjectStores(teamId, objects);
+      stateStore.setStatus(teamId, "loaded");
+      return;
+    }
+  } catch {
+    await _clearTeamStores(teamId);
+    stateStore.setStatus(teamId, "error");
+    return;
+  }
+
   let key: number[];
   try {
     key = await getTeamVaultKey(teamId);
@@ -268,13 +289,6 @@ export async function fetchTeamData(teamId: string): Promise<void> {
     // Clear team store slices so stale data doesn't linger
     await _clearTeamStores(teamId);
     stateStore.setStatus(teamId, status);
-    return;
-  }
-
-  const serverUrl = await getServerUrl();
-  if (!serverUrl) {
-    await _clearTeamStores(teamId);
-    stateStore.setStatus(teamId, "offline");
     return;
   }
 
@@ -326,6 +340,28 @@ export async function fetchTeamData(teamId: string): Promise<void> {
   }
 
   stateStore.setStatus(teamId, "loaded");
+}
+
+async function _hydrateTeamObjectStores(teamId: string, objects: TeamObjectRecord[]): Promise<void> {
+  const active = objects.filter((o) => !o.deleted_at);
+  const byType = <T>(type: TeamObjectRecord["object_type"]): T[] =>
+    active.filter((o) => o.object_type === type).map((o) => o.metadata as T);
+
+  const { useConnectionStore } = await import("@/stores/connectionStore");
+  const { useIdentityStore } = await import("@/stores/identityStore");
+  const { useKeyStore } = await import("@/stores/keyStore");
+  const { useFolderStore } = await import("@/stores/folderStore");
+  const { useSnippetStore } = await import("@/stores/snippetStore");
+  const { useSnippetFolderStore } = await import("@/stores/snippetFolderStore");
+  const { usePortForwardingStore } = await import("@/stores/portForwardingStore");
+
+  useConnectionStore.getState().setTeamConnections(teamId, byType<Connection>("connection"));
+  useIdentityStore.getState().setTeamIdentities(teamId, byType<Identity>("identity"));
+  useKeyStore.getState().setTeamKeys(teamId, byType<SshKey>("key"));
+  useFolderStore.getState().setTeamFolders(teamId, byType<Folder>("folder"));
+  useSnippetStore.getState().setTeamSnippets(teamId, byType<Snippet>("snippet"));
+  useSnippetFolderStore.getState().setTeamSnippetFolders(teamId, byType<Folder>("snippet_folder"));
+  usePortForwardingStore.getState().setTeamRules(teamId, byType<PortForwardingRule>("port_forwarding_rule"));
 }
 
 /**

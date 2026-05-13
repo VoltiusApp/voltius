@@ -9,11 +9,7 @@ import { useHistoryStore } from "@/stores/historyStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
-
-async function triggerTeamSave(teamId: string): Promise<void> {
-  const { saveTeamData } = await import("@/services/teamVaultSync");
-  saveTeamData(teamId).catch(() => {});
-}
+import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 
 function upsert(arr: Folder[], item: Folder): Folder[] {
   const idx = arr.findIndex((x) => x.id === item.id);
@@ -92,13 +88,13 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
           clocks: { created_at: now, updated_at: now },
         };
         const vaultId = data.vault_id;
+        await saveTeamVaultObject(vaultId, "folder", folder);
         set((s) => ({
           teamFolders: {
             ...s.teamFolders,
             [vaultId]: upsert(s.teamFolders[vaultId] ?? [], folder),
           },
         }));
-        void triggerTeamSave(vaultId);
         reportAuditMutation("folder", "created", { id: folder.id, name: folder.name, vault_id: folder.vault_id }, { object_type: folder.object_type });
         let recreatedId: string | null = null;
         useHistoryStore.getState().push({
@@ -152,13 +148,13 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
         updated_at: now,
         clocks: { ...prev.clocks, updated_at: now },
       };
+      await saveTeamVaultObject(teamId, "folder", updated);
       set((s) => ({
         teamFolders: {
           ...s.teamFolders,
           [teamId]: upsert(s.teamFolders[teamId] ?? [], updated),
         },
       }));
-      void triggerTeamSave(teamId);
       reportAuditMutation("folder", "updated", { id: updated.id, name: updated.name, vault_id: updated.vault_id }, { object_type: updated.object_type });
       const prevData: FolderFormData = {
         name: prev.name, object_type: prev.object_type,
@@ -197,13 +193,13 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
     const teamEntry = findTeamEntry(get().teamFolders, id);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
+      await removeTeamVaultObject(teamId, id);
       set((s) => ({
         teamFolders: {
           ...s.teamFolders,
           [teamId]: (s.teamFolders[teamId] ?? []).filter((x) => x.id !== id),
         },
       }));
-      void triggerTeamSave(teamId);
       reportAuditMutation("folder", "deleted", { id: prev.id, name: prev.name, vault_id: prev.vault_id }, { object_type: prev.object_type });
       const prevData: FolderFormData = {
         name: prev.name, object_type: prev.object_type,
@@ -303,13 +299,13 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
         updated_at: now,
         clocks: { ...folder.clocks, updated_at: now },
       };
+      await saveTeamVaultObject(teamId, "folder", updated);
       set((s) => ({
         teamFolders: {
           ...s.teamFolders,
           [teamId]: upsert(s.teamFolders[teamId] ?? [], updated),
         },
       }));
-      void triggerTeamSave(teamId);
       useHistoryStore.getState().push({
         label: `Moved folder "${folder.name}"`,
         undo: async () => { await useFolderStore.getState().moveFolder(id, prevParentId); },

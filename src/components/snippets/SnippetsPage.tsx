@@ -38,6 +38,7 @@ import { FolderEditPanel } from "@/components/folders/FolderEditPanel";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import type { Snippet, Folder, SnippetFormData, Connection, VaultOption } from "@/types";
 import type { SortMode } from "@/components/shared/ToolbarViewControls";
+import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -293,6 +294,11 @@ export function SnippetsPage() {
     setSelection,
   } = useDragSelection(filteredIds);
 
+  const selectedFolders = useMemo(
+    () => visibleFolders.filter((f) => selectedIdSet.has(f.id)),
+    [visibleFolders, selectedIdSet],
+  );
+
   const { focusedId, setFocusedId } = useListKeyNav({
     orderedIds: filteredIds,
     selectedIdSet,
@@ -376,14 +382,55 @@ export function SnippetsPage() {
     if (selectedIdSet.size <= 1) return undefined;
     const ids = [...selectedIdSet];
     const selectedSnippets = viewSnippets.filter((s) => selectedIdSet.has(s.id));
+    const selectedSnippetFolderIds = selectedFolders.map((f) => f.id);
     const { isObjectSynced } = useSyncPrefsStore.getState();
     const allSynced = selectedSnippets.every((s) => isObjectSynced(s.id, "snippet"));
     const allCanEdit = selectedSnippets.every((s) => can("EDIT_CONNECTIONS", s.vault_id ?? "personal"));
+    const bulkVaultChildren = (operation: TransferOperation): ContextMenuItem[] => vaultOptions
+      .filter((v) => [...selectedSnippets.map((s) => s.vault_id ?? "personal"), ...selectedFolders.map((f) => f.vault_id ?? "personal")].some((sourceVaultId) => sourceVaultId !== v.id))
+      .filter((v) => buildTeamVaultTransferPlan({
+        operation,
+        targetVaultId: v.id,
+        selected: { snippetIds: selectedSnippets.map((s) => s.id), snippetFolderIds: selectedSnippetFolderIds },
+        can: (permission, vaultId) => can(permission, vaultId),
+        connections: [],
+        identities: [],
+        keys: [],
+        folders: [],
+        snippets,
+        snippetFolders: folders,
+      }).allowed)
+      .map((v) => ({
+        label: v.name,
+        icon: operation === "move" ? "lucide:vault" : "lucide:copy-plus",
+        onClick: () => {
+          if (operation === "move") {
+            for (const folder of selectedFolders) void handleMoveFolderToVault(folder, v.id);
+            for (const snippet of selectedSnippets) void handleMoveToVault(snippet, v.id);
+          } else {
+            for (const folder of selectedFolders) void handleCopyFolderToVault(folder, v.id);
+            for (const snippet of selectedSnippets) void handleCopyToVault(snippet, v.id);
+          }
+        },
+      }));
+    const moveChildren = bulkVaultChildren("move");
+    const copyChildren = bulkVaultChildren("copy");
     return [
       ...(allCanEdit ? [{
         label: `Duplicate ${ids.length} snippets`,
         icon: "lucide:copy",
         onClick: () => { void Promise.all(selectedSnippets.map((s) => handleDuplicate(s))); },
+      }] : []),
+      ...(moveChildren.length > 0 ? [{
+        label: `Move ${ids.length} item${ids.length === 1 ? "" : "s"} to`,
+        icon: "lucide:vault",
+        children: moveChildren,
+        divider: true,
+      }] : []),
+      ...(copyChildren.length > 0 ? [{
+        label: `Copy ${ids.length} item${ids.length === 1 ? "" : "s"} to`,
+        icon: "lucide:copy-plus",
+        children: copyChildren,
       }] : []),
       {
         label: allSynced ? `Disable cloud sync (${ids.length})` : `Enable cloud sync (${ids.length})`,
@@ -407,7 +454,7 @@ export function SnippetsPage() {
       },
     ];
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIdSet, viewSnippets, excludedIds, syncTypes, can]);
+  }, [selectedIdSet, viewSnippets, selectedFolders, excludedIds, syncTypes, can, vaultOptions, snippets, folders]);
 
   // ── Injection ────────────────────────────────────────────────────────────
 
@@ -726,6 +773,7 @@ export function SnippetsPage() {
                         vaults={vaultOptions.filter((v) => v.id !== (folder.vault_id ?? "personal"))}
                         onMoveToVault={(vaultId) => void handleMoveFolderToVault(folder, vaultId)}
                         onCopyToVault={(vaultId) => void handleCopyFolderToVault(folder, vaultId)}
+                        bulkContextMenuItems={selectedIdSet.size > 1 ? bulkContextMenuItems : undefined}
                       />
                     ))}
                   </div>
@@ -817,11 +865,15 @@ export function SnippetsPage() {
     {/* ── Confirm bulk delete ── */}
     {confirmDeleteIds && (
       <ConfirmModal
-        title={`Delete ${confirmDeleteIds.length} snippets`}
-        message={`Are you sure you want to delete ${confirmDeleteIds.length} snippet${confirmDeleteIds.length === 1 ? "" : "s"}? This cannot be undone.`}
+        title={`Delete ${confirmDeleteIds.length} item${confirmDeleteIds.length === 1 ? "" : "s"}`}
+        message={`Are you sure you want to delete ${confirmDeleteIds.length} item${confirmDeleteIds.length === 1 ? "" : "s"}? This cannot be undone.`}
         confirmLabel="Delete"
         onConfirm={() => {
-          for (const id of confirmDeleteIds) void deleteSnippet(id);
+          for (const id of confirmDeleteIds) {
+            const folder = folders.find((f) => f.id === id);
+            if (folder) void handleDeleteFolder(folder);
+            else void deleteSnippet(id);
+          }
           setSelection([]);
           setConfirmDeleteIds(null);
         }}

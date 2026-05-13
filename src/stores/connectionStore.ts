@@ -7,6 +7,7 @@ import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { reportAuditMutation } from "@/services/auditMutations";
+import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 
 // ─── Team vault helpers ───────────────────────────────────────────────────────
 
@@ -32,11 +33,6 @@ function findTeamConn(
     if (conn) return { teamId, conn };
   }
   return null;
-}
-
-async function triggerTeamSave(teamId: string): Promise<void> {
-  const { saveTeamData } = await import("@/services/teamVaultSync");
-  saveTeamData(teamId).catch(() => {});
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -117,13 +113,13 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         clocks: { created_at: now, updated_at: now },
       };
       const vaultId = data.vault_id!;
+      await saveTeamVaultObject(vaultId, "connection", conn);
       set((s) => ({
         teamConnections: {
           ...s.teamConnections,
           [vaultId]: upsertConn(s.teamConnections[vaultId] ?? [], conn),
         },
       }));
-      void triggerTeamSave(vaultId);
       reportAuditMutation("connection", "created", { id: conn.id, name: conn.name ?? conn.host, vault_id: conn.vault_id });
       let recreatedId: string | null = null;
       useHistoryStore.getState().push({
@@ -198,13 +194,13 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         clocks: { ...prev.clocks, updated_at: now },
       };
       const { teamId } = teamEntry;
+      await saveTeamVaultObject(teamId, "connection", updated);
       set((s) => ({
         teamConnections: {
           ...s.teamConnections,
           [teamId]: upsertConn(s.teamConnections[teamId] ?? [], updated),
         },
       }));
-      void triggerTeamSave(teamId);
       reportAuditMutation("connection", "updated", { id: updated.id, name: updated.name ?? updated.host, vault_id: updated.vault_id });
       const prevData: ConnectionFormData = {
         name: prev.name, host: prev.host, port: prev.port,
@@ -252,13 +248,13 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     const teamEntry = findTeamConn(get().teamConnections, id);
     if (teamEntry) {
       const { teamId, conn: prev } = teamEntry;
+      await removeTeamVaultObject(teamId, id);
       set((s) => ({
         teamConnections: {
           ...s.teamConnections,
           [teamId]: (s.teamConnections[teamId] ?? []).filter((c) => c.id !== id),
         },
       }));
-      void triggerTeamSave(teamId);
       reportAuditMutation("connection", "deleted", { id: prev.id, name: prev.name ?? prev.host, vault_id: prev.vault_id });
       const prevData: ConnectionFormData = {
         name: prev.name, host: prev.host, port: prev.port,
@@ -322,13 +318,13 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       const { teamId, conn: prev } = teamEntry;
       const now = new Date().toISOString();
       const updated: Connection = { ...prev, distro, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
+      await saveTeamVaultObject(teamId, "connection", updated);
       set((s) => ({
         teamConnections: {
           ...s.teamConnections,
           [teamId]: upsertConn(s.teamConnections[teamId] ?? [], updated),
         },
       }));
-      void triggerTeamSave(teamId);
       const prevDistro = prev.distro ?? "";
       useHistoryStore.getState().push({
         label: `Changed distro for "${prev.name ?? prev.host}"`,
@@ -362,10 +358,12 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     const teamEntry = findTeamConn(get().teamConnections, id);
     if (teamEntry) {
       const { teamId, conn: prev } = teamEntry;
+      const updated = { ...prev, last_used_at: now };
+      await saveTeamVaultObject(teamId, "connection", updated);
       set((s) => ({
         teamConnections: {
           ...s.teamConnections,
-          [teamId]: upsertConn(s.teamConnections[teamId] ?? [], { ...prev, last_used_at: now }),
+          [teamId]: upsertConn(s.teamConnections[teamId] ?? [], updated),
         },
       }));
       return;
@@ -412,8 +410,10 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       updatedTeamMap[teamId] = updated;
     }
     if (affectedTeams.size > 0) {
+      for (const teamId of affectedTeams) {
+        await Promise.all((updatedTeamMap[teamId] ?? []).map((c) => saveTeamVaultObject(teamId, "connection", c)));
+      }
       set({ teamConnections: updatedTeamMap });
-      for (const teamId of affectedTeams) void triggerTeamSave(teamId);
     }
 
     useHistoryStore.getState().push({
@@ -455,8 +455,10 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       updatedTeamMap[teamId] = updated;
     }
     if (affectedTeams.size > 0) {
+      for (const teamId of affectedTeams) {
+        await Promise.all((updatedTeamMap[teamId] ?? []).map((c) => saveTeamVaultObject(teamId, "connection", c)));
+      }
       set({ teamConnections: updatedTeamMap });
-      for (const teamId of affectedTeams) void triggerTeamSave(teamId);
     }
 
     useHistoryStore.getState().push({
@@ -485,13 +487,13 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       const { teamId, conn: prev } = teamEntry;
       const now = new Date().toISOString();
       const updated: Connection = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
+      await saveTeamVaultObject(teamId, "connection", updated);
       set((s) => ({
         teamConnections: {
           ...s.teamConnections,
           [teamId]: upsertConn(s.teamConnections[teamId] ?? [], updated),
         },
       }));
-      void triggerTeamSave(teamId);
       return;
     }
 
