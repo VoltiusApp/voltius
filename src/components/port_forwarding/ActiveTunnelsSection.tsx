@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { open as openUrl } from "@tauri-apps/plugin-shell";
 import { Icon } from "@iconify/react";
 import { useSessionStore } from "@/stores/sessionStore";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
 import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { useUIStore } from "@/stores/uiStore";
 import { getPfState, closePfTunnel, resumeAutoPort } from "@/services/portForwardingTunnels";
@@ -37,7 +37,7 @@ function TunnelTypeBadge({ tunnelType }: { tunnelType: ActiveTunnel["tunnel_type
 
 export function ActiveTunnelsSection() {
   const sessions = useSessionStore((s) => s.sessions);
-  const connections = useConnectionStore((s) => s.connections);
+  const connections = useAllConnections();
   const accessibleVaultIds = useAccessibleVaultIds();
   const layoutMode = useUIStore((s) => s.portForwardingLayoutMode);
 

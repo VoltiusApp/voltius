@@ -3,13 +3,13 @@ import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
-import { useConnectionStore } from "@/stores/connectionStore";
 import { useDragStore } from "@/stores/dragStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
 import { findLeaf, getPaneSessionIds, useLayoutStore, type SplitPosition } from "@/stores/layoutStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
 import { getConnectionIcon, getConnectionIconColor, getDistroColor, getDistroIcon, getDistroLabel } from "@/utils/icons";
 import { sshGetSystemInfo, type SystemInfo } from "@/services/ssh";
 import type { TerminalSession } from "@/types";
@@ -88,7 +88,8 @@ const tooltipStyle: React.CSSProperties = {
 };
 
 export function PaneHeader({ paneId, session, active }: { paneId: string; session: TerminalSession; active: boolean }) {
-  const connection = useConnectionStore((s) => s.connections.find((c) => c.id === session.connectionId));
+  const connections = useAllConnections();
+  const connection = connections.find((c) => c.id === session.connectionId);
   const latencyMs = useHostPingStore((s) => s.latencies[session.connectionId]);
   const pingStatus = useHostPingStore((s) => s.statuses[session.connectionId]);
   const pingEnabled = useHostPingStore((s) => s.enabled);

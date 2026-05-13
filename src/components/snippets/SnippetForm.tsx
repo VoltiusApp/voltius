@@ -6,7 +6,7 @@ import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVau
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
 import { useSnippetStore } from "@/stores/snippetStore";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { TagBadge } from "@/components/shared/TagBadge";
 import {
@@ -47,7 +47,7 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
   const isPinned = useSnippetStore((s) => s.snippets.find((sn) => sn.id === initial?.id)?.favorite ?? false);
   const { folders } = useSnippetFolderStore();
   const defaultVaultId = useDefaultVaultId();
-  const connections = useConnectionStore((s) => s.connections);
+  const connections = useAllConnections();
   const allConnectionTags = useMemo(
     () => [...new Set(connections.flatMap((c) => c.tags))].sort(),
     [connections],

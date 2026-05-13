@@ -5,7 +5,7 @@ import MultiplayerTerminalView from "@/components/terminal/MultiplayerTerminalVi
 import { MultiplayerBar } from "@/components/terminal/MultiplayerBar";
 import ConnectionOverlay, { SSH_STEPS, SERIAL_STEPS } from "@/components/terminal/ConnectionOverlay";
 import { useMultiplayerHostBroadcast } from "@/hooks/useMultiplayerHostBroadcast";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { getConnectionIcon } from "@/utils/icons";
@@ -21,7 +21,8 @@ function SplitConnectionOverlay({
   onDismiss?: () => void;
   onRetry?: () => void;
 }) {
-  const connection = useConnectionStore((s) => s.connections.find((c) => c.id === session.connectionId));
+  const connections = useAllConnections();
+  const connection = connections.find((c) => c.id === session.connectionId);
   const connectSerialEphemeralFinalize = useSessionStore((s) => s.connectSerialEphemeralFinalize);
   const resetSerialEphemeral = useSessionStore((s) => s.resetSerialEphemeral);
 

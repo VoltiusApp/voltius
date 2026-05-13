@@ -68,6 +68,14 @@ interface SessionSnapshot {
   type: string;
 }
 
+function findConnection(connectionId: string) {
+  const { connections, teamConnections } = useConnectionStore.getState();
+  return (
+    connections.find((c) => c.id === connectionId) ??
+    Object.values(teamConnections).flat().find((c) => c.id === connectionId)
+  );
+}
+
 const _onConnectionEstablished = new Set<(conn: PluginConnection) => void>();
 const _onConnectionClosed = new Set<(conn: PluginConnection) => void>();
 const _onSessionActivated = new Set<(session: PluginSession) => void>();
@@ -105,7 +113,7 @@ function ensureLifecycleSetup() {
     for (const [sid, snap] of currentMap) {
       const prev = prevSessions.get(sid);
       if (snap.status === "connected" && prev?.status !== "connected") {
-        const conn = useConnectionStore.getState().connections.find((c) => c.id === snap.connectionId);
+        const conn = findConnection(snap.connectionId);
         if (conn) _onConnectionEstablished.forEach((cb) => safeCall(cb, conn as PluginConnection));
         const session: PluginSession = { id: sid, ...snap };
         _onSessionConnected.forEach((cb) => safeCall(cb, session));
@@ -117,7 +125,7 @@ function ensureLifecycleSetup() {
       if (snap.status !== "connected") continue;
       const curr = currentMap.get(sid);
       if (!curr || curr.status === "disconnected") {
-        const conn = useConnectionStore.getState().connections.find((c) => c.id === snap.connectionId);
+        const conn = findConnection(snap.connectionId);
         if (conn) _onConnectionClosed.forEach((cb) => safeCall(cb, conn as PluginConnection));
         const session: PluginSession = { id: sid, ...snap };
         _onSessionDisconnected.forEach((cb) => safeCall(cb, session));

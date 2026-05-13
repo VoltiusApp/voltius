@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
-import { useConnectionStore } from "@/stores/connectionStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { getSyncState, onSyncStateChange, type SyncStatus } from "@/services/sync";
@@ -21,6 +20,7 @@ import { useDragStore } from "@/stores/dragStore";
 import { findLeaf, firstLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 import { shouldSuppressDragClick } from "@/components/panes/usePaneDragController";
 import { mergeTitlebarItems } from "@/utils/titlebarOrder";
+import { useAllConnections } from "@/hooks/useAllConnections";
 
 const appWindow = getCurrentWindow();
 
@@ -38,7 +38,7 @@ export default function TitleBar() {
   const setSftpPanelOpen = useUIStore((s) => s.setSftpPanelOpen);
   const activeThemeName = useThemeStore((s) => s.getActiveTheme().name);
   const { sessions, activeSessionId, setActive, disconnect, removeSession } = useSessionStore();
-  const connections = useConnectionStore((s) => s.connections);
+  const connections = useAllConnections();
   const splitTabs = useLayoutStore((s) => s.splitTabs);
   const activeSplitTabId = useLayoutStore((s) => s.activeSplitTabId);
   const splitTabActive = useLayoutStore((s) => s.splitTabActive);
@@ -594,7 +594,7 @@ function NewTabButton({ onNavigate }: { onNavigate: () => void }) {
 }
 
 function DetachedPanePreview({ session }: { session: ReturnType<typeof useSessionStore.getState>["sessions"][number] }) {
-  const connections = useConnectionStore((s) => s.connections);
+  const connections = useAllConnections();
   const connection = connections.find((c) => c.id === session.connectionId);
   const isLocal = session.type === "local";
   const connectionIcon = !isLocal && connection ? (connection.icon || connection.distro) : null;

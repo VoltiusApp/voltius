@@ -1,5 +1,5 @@
 import { Icon } from "@iconify/react";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { DashboardHostCard } from "./DashboardHostCard";
@@ -18,7 +18,7 @@ interface Props {
 }
 
 export function AllHostsView({ onBack }: Props) {
-  const connections = useConnectionStore((s) => s.connections);
+  const connections = useAllConnections();
   const connect = useSessionStore((s) => s.connect);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
 

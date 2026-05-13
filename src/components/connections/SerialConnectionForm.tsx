@@ -8,6 +8,7 @@ import { serialListPorts } from "@/services/serial";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
 import { useConnectionStore } from "@/stores/connectionStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import {
   PanelShell,
@@ -88,7 +89,8 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
   const userEditedRef = useRef(false);
   const { folders, loadFolders } = useFolderStore();
   const pinConnection = useConnectionStore((s) => s.pinConnection);
-  const isPinned = useConnectionStore((s) => s.connections.find((c) => c.id === initial?.id)?.pinned ?? false);
+  const connections = useAllConnections();
+  const isPinned = connections.find((c) => c.id === initial?.id)?.pinned ?? false;
 
   useEffect(() => {
     void loadFolders();

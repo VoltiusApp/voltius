@@ -1,6 +1,6 @@
 import { Icon } from "@iconify/react";
 import { useDragStore } from "@/stores/dragStore";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSessionStore } from "@/stores/sessionStore";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import type { TerminalSession } from "@/types";
@@ -19,7 +19,8 @@ export function DragGhost() {
   const sessionId = useDragStore((s) => s.sessionId);
   const dropTarget = useDragStore((s) => s.dropTarget);
   const session = useSessionStore((s) => s.sessions.find((sess) => sess.id === sessionId));
-  const connection = useConnectionStore((s) => s.connections.find((c) => c.id === session?.connectionId));
+  const connections = useAllConnections();
+  const connection = connections.find((c) => c.id === session?.connectionId);
 
   if (!isDragging || !session) return null;
   if (dropTarget?.type === "titlebar") return null;

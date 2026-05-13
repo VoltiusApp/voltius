@@ -2,11 +2,11 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
-import { useConnectionStore } from "@/stores/connectionStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useAllConnections } from "@/hooks/useAllConnections";
 import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
 import { getPfState } from "@/services/portForwardingTunnels";
 import { sshGetSystemInfo, type SystemInfo } from "@/services/ssh";
@@ -119,7 +119,8 @@ const statusBarItemClass = "h-full rounded-none transition-colors hover:bg-[var(
 const statusBarIdentityGroupClass = "flex items-center h-full";
 
 export function TerminalStatusBar({ sessionId, sessionType, connectionId, connectionName, serialConfig, sessionStatus, dimensions }: Props) {
-  const connection = useConnectionStore((s) => s.connections.find((c) => c.id === connectionId));
+  const connections = useAllConnections();
+  const connection = useMemo(() => connections.find((c) => c.id === connectionId), [connections, connectionId]);
   const pingStatus = useHostPingStore((s) => s.statuses[connectionId]);
   const latencyMs = useHostPingStore((s) => s.latencies[connectionId]);
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
