@@ -14,6 +14,7 @@ import {
   type ConnectionExport, type ExportBundle,
 } from "@/services/import-export/formats";
 import { HANDLERS, buildBundle, runImport, reloadAll } from "@/services/import-export/registry";
+import { existingConnectionsForVault } from "@/services/import-export/context";
 import { useStoreSlices, useImportStores, useReloadFns } from "./useStores";
 import type { SelectionProps } from "@/services/import-export/context";
 import {
@@ -379,13 +380,18 @@ function ImportTab() {
         setStatus({ type: "error", message: "Could not detect format. Make sure it's valid JSON or CSV." });
         return;
       }
-      const existingSet = new Set(existingConnections.map(c => `${c.host}:${c.port}:${c.username}`));
-      const filtered = skipDupes ? bundle.connections.filter(c => !existingSet.has(`${c.host}:${c.port}:${c.username}`)) : bundle.connections;
+      const targetVaultSaveIds = targetVaultIds.map(resolveVaultIdForSave);
+      const existingSets = targetVaultSaveIds.map((vaultId) => new Set(
+        existingConnectionsForVault(existingConnections, vaultId).map(c => `${c.host}:${c.port}:${c.username}`),
+      ));
+      const filtered = skipDupes
+        ? bundle.connections.filter(c => existingSets.some((existingSet) => !existingSet.has(`${c.host}:${c.port}:${c.username}`)))
+        : bundle.connections;
       setStatus({ type: "ready", bundle, connections: filtered });
     } catch (err) {
       setStatus({ type: "error", message: String(err) });
     }
-  }, [existingConnections, skipDupes]);
+  }, [existingConnections, skipDupes, targetVaultIds]);
 
   useEffect(() => { parse(text); }, [text, skipDupes, parse]);
 

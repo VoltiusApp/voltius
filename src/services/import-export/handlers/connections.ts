@@ -3,6 +3,7 @@ import type { Connection, JumpHost } from "@/types";
 import type { DataTypeHandler } from "../handler";
 import type { ConnectionExport, JumpHostExport, ExportBundle } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "../context";
+import { existingConnectionsForVault } from "../context";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 
 export const connectionsHandler: DataTypeHandler = {
@@ -67,7 +68,8 @@ export const connectionsHandler: DataTypeHandler = {
 
   async importItems(bundle: ExportBundle, ctx: ImportCtx) {
     let imported = 0; let errors = 0;
-    const existingSet = new Set(ctx.existingConnections.map(c => `${c.host}:${c.port}:${c.username}`));
+    const existingConnections = existingConnectionsForVault(ctx.existingConnections, ctx.vault_id);
+    const existingSet = new Set(existingConnections.map(c => `${c.host}:${c.port}:${c.username}`));
 
     // Topological sort: connections whose jump host deps are already resolved come first.
     const pending = [...bundle.connections];
@@ -97,14 +99,14 @@ export const connectionsHandler: DataTypeHandler = {
       if (ctx.skipDupes && existingSet.has(key)) {
         // Register existing ID in eid map so other connections can resolve this jump host.
         if (conn._eid) {
-          const existing = ctx.existingConnections.find(c => c.host === conn.host && c.port === conn.port && c.username === conn.username);
+          const existing = existingConnections.find(c => c.host === conn.host && c.port === conn.port && c.username === conn.username);
           if (existing) ctx.connectionEidMap.set(conn._eid, existing.id);
         }
         // Best-effort: move skipped connection into the imported folder.
         if (conn._folder_eid) {
           const newFolderId = ctx.folderEidMap.get(conn._folder_eid);
           if (newFolderId) {
-            const existing = ctx.existingConnections.find(c => c.host === conn.host && c.port === conn.port && c.username === conn.username);
+            const existing = existingConnections.find(c => c.host === conn.host && c.port === conn.port && c.username === conn.username);
             if (existing) {
               try {
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars

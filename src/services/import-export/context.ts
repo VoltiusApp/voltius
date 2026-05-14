@@ -89,3 +89,7 @@ export interface ImportCtx {
   connectionEidMap: Map<string, string>;
   stores: ImportStores;
 }
+
+export function existingConnectionsForVault<T extends { vault_id?: string }>(connections: T[], vault_id: string): T[] {
+  return connections.filter((connection) => (connection.vault_id ?? "personal") === vault_id);
+}
