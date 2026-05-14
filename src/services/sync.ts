@@ -724,7 +724,7 @@ async function _sseConnect(signal: AbortSignal): Promise<void> {
           const teamId = eventData.slice(5);
           _teamEventListeners.forEach((fn) => fn(teamId));
           const { fetchTeamData } = await import("@/services/teamVaultSync");
-          fetchTeamData(teamId).catch(() => {});
+          fetchTeamData(teamId, { background: true }).catch(() => {});
         } else if (eventData.startsWith("team_members:")) {
           const teamId = eventData.slice("team_members:".length);
           useTeamStore.getState().loadTeams().catch(() => {});

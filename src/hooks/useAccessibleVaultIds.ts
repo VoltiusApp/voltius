@@ -2,6 +2,7 @@ import { useMemo, useEffect, useState } from "react";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { getSyncState, onSyncStateChange } from "@/services/sync";
+import { deriveAccessibleVaultIds } from "@/hooks/accessibleVaults";
 
 /**
  * Returns the subset of selectedVaultIds that are currently accessible.
@@ -23,29 +24,10 @@ export function useAccessibleVaultIds(): string[] {
     return onSyncStateChange(() => setCloudActive(getSyncState().cloudActive));
   }, []);
 
-  return useMemo(() => {
-    const loadedTeamIds = new Set(teams.map((t) => t.id));
-    const result: string[] = [];
-
-    for (const vid of selectedVaultIds) {
-      if (vid === "personal") { result.push(vid); continue; }
-      const vault = vaults.find((v) => v.id === vid);
-      if (vault) {
-        // Local vault: accessible when local-only or when cloud is active
-        if (!vault.teamId || cloudActive) {
-          result.push(vid);
-          // Also expose the teamId so connections stored with the portable team UUID
-          // (written by any account) remain visible to this account.
-          if (vault.teamId && cloudActive) result.push(vault.teamId);
-        }
-      } else {
-        // Raw server UUID (standalone team toggle): only valid when cloud is active
-        // AND the team is actually present in the loaded teams list.
-        // Unknown/stale UUIDs with no matching team are silently excluded.
-        if (cloudActive && loadedTeamIds.has(vid)) result.push(vid);
-      }
-    }
-
-    return result;
-  }, [selectedVaultIds, vaults, teams, cloudActive]);
+  return useMemo(() => deriveAccessibleVaultIds({
+    selectedVaultIds,
+    vaults,
+    teams,
+    cloudActive,
+  }), [selectedVaultIds, vaults, teams, cloudActive]);
 }

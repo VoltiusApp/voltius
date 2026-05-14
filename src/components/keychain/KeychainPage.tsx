@@ -38,6 +38,7 @@ import type { Folder, Identity, IdentityFormData, SshKey, SshKeyFormData, VaultO
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
+import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 
 export default function KeychainPage() {
   const { loadIdentities, saveIdentity, updateIdentity, deleteIdentity } =
@@ -390,17 +391,31 @@ export default function KeychainPage() {
       if (editingKey) {
         await updateKey(editingKey.id, data);
         if (privateKey !== null) {
-          if (privateKey) await storeSecret(`key:${editingKey.id}:private`, privateKey);
-          else await deleteSecret(`key:${editingKey.id}:private`).catch(() => {});
+          const localKey = `key:${editingKey.id}:private`;
+          if (privateKey) {
+            await storeSecret(localKey, privateKey);
+            await saveTeamVaultSecretForVault(data.vault_id ?? editingKey.vault_id, localKey, privateKey).catch(() => {});
+          } else await deleteSecret(localKey).catch(() => {});
         }
         if (publicKey !== null) {
-          if (publicKey) await storeSecret(`key:${editingKey.id}:public`, publicKey);
-          else await deleteSecret(`key:${editingKey.id}:public`).catch(() => {});
+          const localKey = `key:${editingKey.id}:public`;
+          if (publicKey) {
+            await storeSecret(localKey, publicKey);
+            await saveTeamVaultSecretForVault(data.vault_id ?? editingKey.vault_id, localKey, publicKey).catch(() => {});
+          } else await deleteSecret(localKey).catch(() => {});
         }
       } else {
         const key = await saveKey(data);
-        if (privateKey) await storeSecret(`key:${key.id}:private`, privateKey);
-        if (publicKey) await storeSecret(`key:${key.id}:public`, publicKey);
+        if (privateKey) {
+          const localKey = `key:${key.id}:private`;
+          await storeSecret(localKey, privateKey);
+          await saveTeamVaultSecretForVault(key.vault_id, localKey, privateKey).catch(() => {});
+        }
+        if (publicKey) {
+          const localKey = `key:${key.id}:public`;
+          await storeSecret(localKey, publicKey);
+          await saveTeamVaultSecretForVault(key.vault_id, localKey, publicKey).catch(() => {});
+        }
         setEditingKeyId(key.id);
       }
     } catch (err) {
@@ -435,12 +450,19 @@ export default function KeychainPage() {
       if (editingIdentity) {
         await updateIdentity(editingIdentity.id, resolvedData);
         if (password !== null) {
-          if (password) await storeSecret(`identity:${editingIdentity.id}:password`, password);
-          else await deleteSecret(`identity:${editingIdentity.id}:password`).catch(() => {});
+          const localKey = `identity:${editingIdentity.id}:password`;
+          if (password) {
+            await storeSecret(localKey, password);
+            await saveTeamVaultSecretForVault(resolvedData.vault_id ?? editingIdentity.vault_id, localKey, password).catch(() => {});
+          } else await deleteSecret(localKey).catch(() => {});
         }
       } else {
         const identity = await saveIdentity(resolvedData);
-        if (password) await storeSecret(`identity:${identity.id}:password`, password);
+        if (password) {
+          const localKey = `identity:${identity.id}:password`;
+          await storeSecret(localKey, password);
+          await saveTeamVaultSecretForVault(identity.vault_id, localKey, password).catch(() => {});
+        }
         setEditingIdentityId(identity.id);
       }
     } catch (err) {

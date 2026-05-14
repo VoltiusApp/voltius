@@ -22,7 +22,7 @@ import { fetchTeamData, clearTeamKeyCache } from "@/services/teamVaultSync";
  */
 export async function onTeamLogin(): Promise<void> {
   const teamIds = useTeamStore.getState().teams.map((t) => t.id);
-  await Promise.allSettled(teamIds.map(fetchTeamData));
+  await Promise.allSettled(teamIds.map((teamId) => fetchTeamData(teamId)));
 }
 
 /**

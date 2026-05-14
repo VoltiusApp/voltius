@@ -43,6 +43,7 @@ import { useAllFolders } from "@/hooks/useAllFolders";
 import { SnippetPickerPanel } from "./SnippetPickerPanel";
 import { shouldUseBulkHostContextMenu } from "./hostSelection";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
+import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 
 
 export default function HostsPage() {
@@ -478,17 +479,31 @@ export default function HostsPage() {
       if (editing) {
         await updateConnection(editing.id, data);
         if (password !== null) {
-          if (password) await storeSecret(`password:${editing.id}`, password);
-          else await deleteSecret(`password:${editing.id}`).catch(() => {});
+          const localKey = `password:${editing.id}`;
+          if (password) {
+            await storeSecret(localKey, password);
+            await saveTeamVaultSecretForVault(data.vault_id ?? editing.vault_id, localKey, password).catch(() => {});
+          } else await deleteSecret(localKey).catch(() => {});
         }
         if (privateKey !== null) {
-          if (privateKey) await storeSecret(`key:${editing.id}`, privateKey);
-          else await deleteSecret(`key:${editing.id}`).catch(() => {});
+          const localKey = `key:${editing.id}`;
+          if (privateKey) {
+            await storeSecret(localKey, privateKey);
+            await saveTeamVaultSecretForVault(data.vault_id ?? editing.vault_id, localKey, privateKey).catch(() => {});
+          } else await deleteSecret(localKey).catch(() => {});
         }
       } else {
         const conn = await saveConnection({ ...data, vault_id: data.vault_id ?? selectedVaultIds[0] ?? "personal" });
-        if (password && conn) await storeSecret(`password:${conn.id}`, password);
-        if (privateKey && conn) await storeSecret(`key:${conn.id}`, privateKey);
+        if (password && conn) {
+          const localKey = `password:${conn.id}`;
+          await storeSecret(localKey, password);
+          await saveTeamVaultSecretForVault(conn.vault_id, localKey, password).catch(() => {});
+        }
+        if (privateKey && conn) {
+          const localKey = `key:${conn.id}`;
+          await storeSecret(localKey, privateKey);
+          await saveTeamVaultSecretForVault(conn.vault_id, localKey, privateKey).catch(() => {});
+        }
         if (conn) setEditingId(conn.id);
       }
     } catch (err) {
