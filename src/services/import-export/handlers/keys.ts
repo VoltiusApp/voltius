@@ -3,6 +3,7 @@ import type { SshKey } from "@/types";
 import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, KeyExport } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "../context";
+import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 
 export const keysHandler: DataTypeHandler = {
   key: "keys",
@@ -63,8 +64,16 @@ export const keysHandler: DataTypeHandler = {
           folder_id: key._folder_eid ? ctx.folderEidMap.get(key._folder_eid) : undefined,
           vault_id: ctx.vault_id,
         });
-        if (key.private_key) await storeSecret(`key:${saved.id}:private`, key.private_key);
-        if (key.public_key) await storeSecret(`key:${saved.id}:public`, key.public_key);
+        if (key.private_key) {
+          const localKey = `key:${saved.id}:private`;
+          await storeSecret(localKey, key.private_key);
+          await saveTeamVaultSecretForVault(ctx.vault_id, localKey, key.private_key).catch(() => {});
+        }
+        if (key.public_key) {
+          const localKey = `key:${saved.id}:public`;
+          await storeSecret(localKey, key.public_key);
+          await saveTeamVaultSecretForVault(ctx.vault_id, localKey, key.public_key).catch(() => {});
+        }
         if (key._eid) ctx.keyEidMap.set(key._eid, saved.id);
         imported++;
       } catch { errors++; }

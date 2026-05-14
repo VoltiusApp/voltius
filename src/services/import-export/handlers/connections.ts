@@ -3,6 +3,7 @@ import type { Connection, JumpHost } from "@/types";
 import type { DataTypeHandler } from "../handler";
 import type { ConnectionExport, JumpHostExport, ExportBundle } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "../context";
+import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 
 export const connectionsHandler: DataTypeHandler = {
   key: "connections",
@@ -137,8 +138,16 @@ export const connectionsHandler: DataTypeHandler = {
           jump_hosts: resolvedJumpHosts?.length ? resolvedJumpHosts : undefined,
         });
         if (conn._eid) ctx.connectionEidMap.set(conn._eid, saved.id);
-        if (conn.password) await storeSecret(`password:${saved.id}`, conn.password);
-        if (conn.private_key) await storeSecret(`key:${saved.id}`, conn.private_key);
+        if (conn.password) {
+          const localKey = `password:${saved.id}`;
+          await storeSecret(localKey, conn.password);
+          await saveTeamVaultSecretForVault(ctx.vault_id, localKey, conn.password).catch(() => {});
+        }
+        if (conn.private_key) {
+          const localKey = `key:${saved.id}`;
+          await storeSecret(localKey, conn.private_key);
+          await saveTeamVaultSecretForVault(ctx.vault_id, localKey, conn.private_key).catch(() => {});
+        }
         imported++;
       } catch { errors++; }
     }

@@ -23,6 +23,11 @@ import type { Connection, Identity, SshKey, Folder, Snippet, PortForwardingRule 
 import type { TeamMember } from "@/services/teamService";
 import { appFetch } from "@/services/http";
 import { listTeamObjects, type TeamObjectRecord } from "@/services/teamObjects";
+import {
+  shouldShowBlockingTeamVaultLoad,
+  TeamVaultRefreshQueue,
+  type TeamVaultRefreshOptions,
+} from "@/services/teamVaultRefresh";
 
 export type { TeamMember };
 
@@ -36,6 +41,7 @@ interface BlobPayload {
 // ─── In-memory key cache (process memory only — gone on logout/close) ─────────
 
 const _teamKeyCache = new Map<string, number[]>();
+const _teamRefreshQueue = new TeamVaultRefreshQueue();
 
 export function clearTeamKeyCache(): void {
   _teamKeyCache.clear();
@@ -255,12 +261,18 @@ export async function distributeKeyToNewMember(
  * Sets teamVaultStatus to the appropriate state. Never throws — all errors are
  * surfaced via the store status.
  */
-export async function fetchTeamData(teamId: string): Promise<void> {
+export async function fetchTeamData(teamId: string, options: TeamVaultRefreshOptions = {}): Promise<void> {
+  return _teamRefreshQueue.run(teamId, () => _fetchTeamData(teamId, options));
+}
+
+async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions): Promise<void> {
   const stateStore = useTeamVaultStateStore.getState();
-  stateStore.setStatus(teamId, "loading");
+  const blockingLoad = shouldShowBlockingTeamVaultLoad(options);
+  if (blockingLoad) stateStore.setStatus(teamId, "loading");
 
   const serverUrl = await getServerUrl();
   if (!serverUrl) {
+    if (options.background) return;
     await _clearTeamStores(teamId);
     stateStore.setStatus(teamId, "offline");
     return;
@@ -270,10 +282,14 @@ export async function fetchTeamData(teamId: string): Promise<void> {
     const objects = await listTeamObjects(teamId);
     if (objects.length > 0) {
       await _hydrateTeamObjectStores(teamId, objects);
+      const { backfillExistingTeamVaultSecrets, hydrateTeamVaultSecrets } = await import("@/services/teamVaultSecrets");
+      await hydrateTeamVaultSecrets(teamId).catch(() => {});
+      if (!options.background) await backfillExistingTeamVaultSecrets(teamId).catch(() => {});
       stateStore.setStatus(teamId, "loaded");
       return;
     }
   } catch {
+    if (options.background) return;
     await _clearTeamStores(teamId);
     stateStore.setStatus(teamId, "error");
     return;
@@ -286,6 +302,7 @@ export async function fetchTeamData(teamId: string): Promise<void> {
     const validStatuses = ["offline", "forbidden", "payment_required", "not_found", "error"] as const;
     type S = typeof validStatuses[number];
     const status: S = validStatuses.includes(err as S) ? (err as S) : "error";
+    if (options.background) return;
     // Clear team store slices so stale data doesn't linger
     await _clearTeamStores(teamId);
     stateStore.setStatus(teamId, status);
@@ -297,11 +314,13 @@ export async function fetchTeamData(teamId: string): Promise<void> {
     const res = await fetchWithAuth(`${serverUrl}/v1/teams/${teamId}/sync-blob`, { method: "GET" });
     if (res.status === 404) {
       // No blob yet — owner hasn't pushed data. Show as empty vault.
+      if (options.background) return;
       await _clearTeamStores(teamId);
       stateStore.setStatus(teamId, "loaded");
       return;
     }
     if (!res.ok) {
+      if (options.background) return;
       await _clearTeamStores(teamId);
       stateStore.setStatus(teamId, "error");
       return;
@@ -310,6 +329,7 @@ export async function fetchTeamData(teamId: string): Promise<void> {
     const blobBytes = base64ToBytes(blobB64);
     blobPayload = await invoke<BlobPayload>("backup_decrypt", { encKey: key, blob: blobBytes });
   } catch {
+    if (options.background) return;
     await _clearTeamStores(teamId);
     stateStore.setStatus(teamId, "error");
     return;
