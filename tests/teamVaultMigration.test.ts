@@ -116,3 +116,31 @@ test("same-scope helper updates local only for local objects", async () => {
 
   assert.deepEqual(calls, ["update-local"]);
 });
+
+test("cascade dependencies use the same local-to-team migration path", async () => {
+  const calls: string[] = [];
+  const key = { id: "key-1", vault_id: "team-1" };
+  const identity = { id: "identity-1", vault_id: "team-1", key_id: "key-1" };
+  const host = { id: "host-1", vault_id: "team-1", identity_id: "identity-1" };
+
+  for (const item of [key, identity, host]) {
+    await migrateVaultObject({
+      previousVaultId: "personal",
+      nextVaultId: "team-1",
+      isTeamVaultId,
+      item,
+      updateLocal: async () => { calls.push(`update-local:${item.id}`); return item; },
+      saveTeam: async (teamId, savedItem) => { calls.push(`save-team:${teamId}:${savedItem.id}`); },
+      removeTeam: async (teamId, id) => { calls.push(`remove-team:${teamId}:${id}`); },
+    });
+  }
+
+  assert.deepEqual(calls, [
+    "update-local:key-1",
+    "save-team:team-1:key-1",
+    "update-local:identity-1",
+    "save-team:team-1:identity-1",
+    "update-local:host-1",
+    "save-team:team-1:host-1",
+  ]);
+});
