@@ -8,6 +8,7 @@ import { useHistoryStore } from "@/stores/historyStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
+import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 
 function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
   if (!vaultId) return false;
@@ -143,14 +144,32 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
         updated_at: now,
         clocks: { ...prev.clocks, updated_at: now },
       };
-      await saveTeamVaultObject(teamId, "identity", updated);
-      set((s) => ({
-        teamIdentities: {
-          ...s.teamIdentities,
-          [teamId]: upsert(s.teamIdentities[teamId] ?? [], updated),
-        },
-      }));
-      reportAuditMutation("identity", "updated", { id: updated.id, name: updated.name ?? updated.username, vault_id: updated.vault_id });
+      const migrated = await migrateVaultObject({
+        previousVaultId: teamId,
+        nextVaultId: updated.vault_id,
+        isTeamVaultId,
+        item: updated,
+        updateLocal: () => api.updateIdentity(id, data).then(() => updated),
+        saveTeam: (tid, item) => saveTeamVaultObject(tid, "identity", item),
+        removeTeam: removeTeamVaultObject,
+      });
+      const transition = classifyVaultTransition(teamId, migrated.vault_id, isTeamVaultId);
+      const localIdentities = transition.kind === "team-to-local" ? await api.listIdentities() : undefined;
+      set((s) => {
+        const nextTeamIdentities = { ...s.teamIdentities };
+        if (transition.kind === "team-to-team") {
+          nextTeamIdentities[transition.sourceTeamId] = (nextTeamIdentities[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
+          nextTeamIdentities[transition.destinationTeamId] = upsert(nextTeamIdentities[transition.destinationTeamId] ?? [], migrated);
+          return { teamIdentities: nextTeamIdentities };
+        }
+        if (transition.kind === "team-to-local") {
+          nextTeamIdentities[transition.sourceTeamId] = (nextTeamIdentities[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
+          return { identities: localIdentities, teamIdentities: nextTeamIdentities };
+        }
+        nextTeamIdentities[teamId] = upsert(nextTeamIdentities[teamId] ?? [], migrated);
+        return { teamIdentities: nextTeamIdentities };
+      });
+      reportAuditMutation("identity", "updated", { id: migrated.id, name: migrated.name ?? migrated.username, vault_id: migrated.vault_id });
       const prevData: IdentityFormData = {
         name: prev.name, username: prev.username, key_id: prev.key_id,
         tags: prev.tags,
@@ -165,9 +184,37 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     }
 
     const prev = get().identities.find((i) => i.id === id);
-    await api.updateIdentity(id, data);
+    let updated: Identity | undefined;
+    if (prev) {
+      const nextVaultId = data.vault_id ?? prev.vault_id;
+      updated = await migrateVaultObject<Identity>({
+        previousVaultId: prev.vault_id,
+        nextVaultId,
+        isTeamVaultId,
+        item: { ...prev, ...data, vault_id: nextVaultId } as Identity,
+        updateLocal: () => api.updateIdentity(id, data).then(() => ({ ...prev, ...data, vault_id: nextVaultId } as Identity)),
+        saveTeam: (teamId, item) => saveTeamVaultObject(teamId, "identity", item),
+        removeTeam: removeTeamVaultObject,
+      });
+    } else {
+      await api.updateIdentity(id, data);
+    }
     const identities = await api.listIdentities();
-    set({ identities });
+    set((s) => {
+      const nextTeamIdentities = { ...s.teamIdentities };
+      if (prev && updated) {
+        const transition = classifyVaultTransition(prev.vault_id, updated.vault_id, isTeamVaultId);
+        if (transition.kind === "local-to-team") {
+          nextTeamIdentities[transition.destinationTeamId] = upsert(nextTeamIdentities[transition.destinationTeamId] ?? [], updated);
+        } else if (transition.kind === "team-to-team") {
+          nextTeamIdentities[transition.sourceTeamId] = (nextTeamIdentities[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
+          nextTeamIdentities[transition.destinationTeamId] = upsert(nextTeamIdentities[transition.destinationTeamId] ?? [], updated);
+        } else if (transition.kind === "team-to-local") {
+          nextTeamIdentities[transition.sourceTeamId] = (nextTeamIdentities[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
+        }
+      }
+      return { identities, teamIdentities: nextTeamIdentities };
+    });
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "identity")) scheduleSync(); });
     if (prev) reportAuditMutation("identity", "updated", { id, name: data.name ?? prev.name ?? prev.username, vault_id: data.vault_id ?? prev.vault_id });

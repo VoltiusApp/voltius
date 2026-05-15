@@ -10,6 +10,13 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
+import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
+import { useTeamStore } from "@/stores/teamStore";
+
+function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
+  if (!vaultId) return false;
+  return useTeamStore.getState().teams.some((t) => t.id === vaultId);
+}
 
 function upsert(arr: Folder[], item: Folder): Folder[] {
   const idx = arr.findIndex((x) => x.id === item.id);
@@ -148,14 +155,32 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
         updated_at: now,
         clocks: { ...prev.clocks, updated_at: now },
       };
-      await saveTeamVaultObject(teamId, "folder", updated);
-      set((s) => ({
-        teamFolders: {
-          ...s.teamFolders,
-          [teamId]: upsert(s.teamFolders[teamId] ?? [], updated),
-        },
-      }));
-      reportAuditMutation("folder", "updated", { id: updated.id, name: updated.name, vault_id: updated.vault_id }, { object_type: updated.object_type });
+      const migrated = await migrateVaultObject({
+        previousVaultId: teamId,
+        nextVaultId: updated.vault_id,
+        isTeamVaultId,
+        item: updated,
+        updateLocal: () => api.updateFolder(id, data).then(() => updated),
+        saveTeam: (tid, item) => saveTeamVaultObject(tid, "folder", item),
+        removeTeam: removeTeamVaultObject,
+      });
+      const transition = classifyVaultTransition(teamId, migrated.vault_id, isTeamVaultId);
+      const localFolders = transition.kind === "team-to-local" ? await api.listFolders() : undefined;
+      set((s) => {
+        const nextTeamFolders = { ...s.teamFolders };
+        if (transition.kind === "team-to-team") {
+          nextTeamFolders[transition.sourceTeamId] = (nextTeamFolders[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
+          nextTeamFolders[transition.destinationTeamId] = upsert(nextTeamFolders[transition.destinationTeamId] ?? [], migrated);
+          return { teamFolders: nextTeamFolders };
+        }
+        if (transition.kind === "team-to-local") {
+          nextTeamFolders[transition.sourceTeamId] = (nextTeamFolders[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
+          return { folders: localFolders, teamFolders: nextTeamFolders };
+        }
+        nextTeamFolders[teamId] = upsert(nextTeamFolders[teamId] ?? [], migrated);
+        return { teamFolders: nextTeamFolders };
+      });
+      reportAuditMutation("folder", "updated", { id: migrated.id, name: migrated.name, vault_id: migrated.vault_id }, { object_type: migrated.object_type });
       const prevData: FolderFormData = {
         name: prev.name, object_type: prev.object_type,
         parent_folder_id: prev.parent_folder_id, vault_id: prev.vault_id,
@@ -170,9 +195,37 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
     }
 
     const prev = get().folders.find((f) => f.id === id);
-    await api.updateFolder(id, data);
+    let updated: Folder | undefined;
+    if (prev) {
+      const nextVaultId = data.vault_id ?? prev.vault_id;
+      updated = await migrateVaultObject<Folder>({
+        previousVaultId: prev.vault_id,
+        nextVaultId,
+        isTeamVaultId,
+        item: { ...prev, ...data, vault_id: nextVaultId } as Folder,
+        updateLocal: () => api.updateFolder(id, data).then(() => ({ ...prev, ...data, vault_id: nextVaultId } as Folder)),
+        saveTeam: (teamId, item) => saveTeamVaultObject(teamId, "folder", item),
+        removeTeam: removeTeamVaultObject,
+      });
+    } else {
+      await api.updateFolder(id, data);
+    }
     const folders = await api.listFolders();
-    set({ folders });
+    set((s) => {
+      const nextTeamFolders = { ...s.teamFolders };
+      if (prev && updated) {
+        const transition = classifyVaultTransition(prev.vault_id, updated.vault_id, isTeamVaultId);
+        if (transition.kind === "local-to-team") {
+          nextTeamFolders[transition.destinationTeamId] = upsert(nextTeamFolders[transition.destinationTeamId] ?? [], updated);
+        } else if (transition.kind === "team-to-team") {
+          nextTeamFolders[transition.sourceTeamId] = (nextTeamFolders[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
+          nextTeamFolders[transition.destinationTeamId] = upsert(nextTeamFolders[transition.destinationTeamId] ?? [], updated);
+        } else if (transition.kind === "team-to-local") {
+          nextTeamFolders[transition.sourceTeamId] = (nextTeamFolders[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
+        }
+      }
+      return { folders, teamFolders: nextTeamFolders };
+    });
     isServerMode().then((s) => { if (s && useSyncPrefsStore.getState().isObjectSynced(id, "folder")) scheduleSync(); });
     if (prev) reportAuditMutation("folder", "updated", { id, name: data.name ?? prev.name, vault_id: data.vault_id ?? prev.vault_id }, { object_type: data.object_type ?? prev.object_type });
     if (prev) {
