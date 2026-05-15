@@ -543,6 +543,10 @@ export default function HostsPage() {
             username: conn.username, auth_type: conn.auth_type, tags: conn.tags,
             identity_id: conn.identity_id, folder_id: conn.folder_id, vault_id: vaultId,
           });
+          const pwd = await getSecret(`password:${conn.id}`).catch(() => null);
+          const k = await getSecret(`key:${conn.id}`).catch(() => null);
+          if (pwd) await saveTeamVaultSecretForVault(vaultId, `password:${conn.id}`, pwd).catch(() => {});
+          if (k) await saveTeamVaultSecretForVault(vaultId, `key:${conn.id}`, k).catch(() => {});
         } catch (err) { setError(String(err)); }
       },
     });
@@ -596,12 +600,13 @@ export default function HostsPage() {
           if (newConn) {
             const pwd = await getSecret(`password:${conn.id}`).catch(() => null);
             const k = await getSecret(`key:${conn.id}`).catch(() => null);
-            if (pwd) await storeSecret(`password:${newConn.id}`, pwd);
-            if (k) await storeSecret(`key:${newConn.id}`, k);
-            // saveConnection fires saveTeamData before storeSecret runs — re-save to include inline secrets.
-            if ((pwd || k) && useTeamStore.getState().teams.some((t) => t.id === vaultId)) {
-              const { saveTeamData } = await import("@/services/teamVaultSync");
-              await saveTeamData(vaultId).catch(() => {});
+            if (pwd) {
+              await storeSecret(`password:${newConn.id}`, pwd);
+              await saveTeamVaultSecretForVault(vaultId, `password:${newConn.id}`, pwd).catch(() => {});
+            }
+            if (k) {
+              await storeSecret(`key:${newConn.id}`, k);
+              await saveTeamVaultSecretForVault(vaultId, `key:${newConn.id}`, k).catch(() => {});
             }
           }
         } catch (err) { setError(String(err)); }
@@ -723,8 +728,14 @@ export default function HostsPage() {
               getSecret(`key:${key.id}:private`).catch(() => null),
               getSecret(`key:${key.id}:public`).catch(() => null),
             ]);
-            if (priv) await storeSecret(`key:${newKey.id}:private`, priv);
-            if (pub) await storeSecret(`key:${newKey.id}:public`, pub);
+            if (priv) {
+              await storeSecret(`key:${newKey.id}:private`, priv);
+              await saveTeamVaultSecretForVault(vaultId, `key:${newKey.id}:private`, priv).catch(() => {});
+            }
+            if (pub) {
+              await storeSecret(`key:${newKey.id}:public`, pub);
+              await saveTeamVaultSecretForVault(vaultId, `key:${newKey.id}:public`, pub).catch(() => {});
+            }
             keyIdMap.set(key.id, newKey.id);
           }
 
@@ -734,12 +745,14 @@ export default function HostsPage() {
             const newKeyId = identity.key_id ? (keyIdMap.get(identity.key_id) ?? identity.key_id) : undefined;
             const newIdentity = await useIdentityStore.getState().saveIdentity({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId });
             const pwd = await getSecret(`identity:${identity.id}:password`).catch(() => null);
-            if (pwd) await storeSecret(`identity:${newIdentity.id}:password`, pwd);
+            if (pwd) {
+              await storeSecret(`identity:${newIdentity.id}:password`, pwd);
+              await saveTeamVaultSecretForVault(vaultId, `identity:${newIdentity.id}:password`, pwd).catch(() => {});
+            }
             identityIdMap.set(identity.id, newIdentity.id);
           }
 
           // Copy connections
-          let hasInlineSecrets = false;
           for (const conn of allConns) {
             const newIdentityId = conn.identity_id ? (identityIdMap.get(conn.identity_id) ?? conn.identity_id) : undefined;
             const newFolderId = conn.folder_id ? (folderIdMap.get(conn.folder_id) ?? newFolder.id) : newFolder.id;
@@ -747,14 +760,15 @@ export default function HostsPage() {
             if (newConn) {
               const pwd = await getSecret(`password:${conn.id}`).catch(() => null);
               const k = await getSecret(`key:${conn.id}`).catch(() => null);
-              if (pwd) { await storeSecret(`password:${newConn.id}`, pwd); hasInlineSecrets = true; }
-              if (k) { await storeSecret(`key:${newConn.id}`, k); hasInlineSecrets = true; }
+              if (pwd) {
+                await storeSecret(`password:${newConn.id}`, pwd);
+                await saveTeamVaultSecretForVault(vaultId, `password:${newConn.id}`, pwd).catch(() => {});
+              }
+              if (k) {
+                await storeSecret(`key:${newConn.id}`, k);
+                await saveTeamVaultSecretForVault(vaultId, `key:${newConn.id}`, k).catch(() => {});
+              }
             }
-          }
-          // saveConnection fires saveTeamData before storeSecret runs — re-save to include inline secrets.
-          if (hasInlineSecrets && useTeamStore.getState().teams.some((t) => t.id === vaultId)) {
-            const { saveTeamData } = await import("@/services/teamVaultSync");
-            await saveTeamData(vaultId).catch(() => {});
           }
         } catch (err) { setError(String(err)); }
       },

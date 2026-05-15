@@ -23,7 +23,6 @@ import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 async function migrateVaultToTeam(
   vaultId: string,
   teamId: string,
-  saveTeamData: (teamId: string) => Promise<void>,
 ): Promise<void> {
   const { useConnectionStore } = await import("@/stores/connectionStore");
   const { useIdentityStore } = await import("@/stores/identityStore");
@@ -32,6 +31,8 @@ async function migrateVaultToTeam(
   const { useSnippetStore } = await import("@/stores/snippetStore");
   const { useSnippetFolderStore } = await import("@/stores/snippetFolderStore");
   const { usePortForwardingStore } = await import("@/stores/portForwardingStore");
+  const { saveTeamVaultObject } = await import("@/services/teamObjectPersistence");
+  const { backfillExistingTeamVaultSecrets } = await import("@/services/teamVaultSecrets");
 
   const now = new Date().toISOString();
 
@@ -58,6 +59,19 @@ async function migrateVaultToTeam(
     .filter((r) => (r.vault_id ?? "personal") === vaultId)
     .map((r) => ({ ...r, vault_id: teamId, updated_at: now }));
 
+  // Push each entity to the per-object API — this is what members read on fetch
+  await Promise.all([
+    ...conns.map((c) => saveTeamVaultObject(teamId, "connection", c)),
+    ...identities.map((i) => saveTeamVaultObject(teamId, "identity", i)),
+    ...keys.map((k) => saveTeamVaultObject(teamId, "key", k)),
+    ...folders.map((f) => saveTeamVaultObject(teamId, "folder", f)),
+    ...snippets.map((s) => saveTeamVaultObject(teamId, "snippet", s)),
+    ...snippetFolders.map((f) => saveTeamVaultObject(teamId, "snippet_folder", f)),
+    ...portRules.map((r) => saveTeamVaultObject(teamId, "port_forwarding_rule", r)),
+  ]);
+
+  // Populate in-memory stores so backfillExistingTeamVaultSecrets can resolve IDs,
+  // and so the UI reflects the migration immediately
   useConnectionStore.getState().setTeamConnections(teamId, conns);
   useIdentityStore.getState().setTeamIdentities(teamId, identities);
   useKeyStore.getState().setTeamKeys(teamId, keys);
@@ -66,8 +80,8 @@ async function migrateVaultToTeam(
   useSnippetFolderStore.getState().setTeamSnippetFolders(teamId, snippetFolders);
   usePortForwardingStore.getState().setTeamRules(teamId, portRules);
 
-  // Push to server first — only delete local copies on success
-  await saveTeamData(teamId);
+  // Upload secrets while they still exist in the local keychain
+  await backfillExistingTeamVaultSecrets(teamId);
 
   // Delete originals from local disk
   const [connApi, identApi, keyApi, folderApi, snippetApi, pfApi] = await Promise.all([
@@ -882,10 +896,9 @@ export function PrivateVaultMembersPanel({
     try {
       const team = await createTeam(vaultName);
       setVaultTeamId(vaultId, team.id);
-      const { initTeamVaultKey, saveTeamData } = await import("@/services/teamVaultSync");
+      const { initTeamVaultKey } = await import("@/services/teamVaultSync");
       await initTeamVaultKey(team.id, []);
-      // Migrate existing vault entities into the team blob
-      await migrateVaultToTeam(vaultId, team.id, saveTeamData);
+      await migrateVaultToTeam(vaultId, team.id);
       markTeamVaultLoadedAfterLocalActivation(team.id, useTeamVaultStateStore.getState());
       await addMemberById(team.id, user.user_id);
       await loadRoles(team.id);
@@ -1079,7 +1092,7 @@ function VaultGeneralTab({
     if (!detail.vaultId || !detail.teamId || makingPrivate) return;
     setMakingPrivate(true);
     try {
-      const { fetchTeamData, saveTeamData } = await import("@/services/teamVaultSync");
+      const { fetchTeamData } = await import("@/services/teamVaultSync");
       const { useConnectionStore } = await import("@/stores/connectionStore");
       const { useIdentityStore } = await import("@/stores/identityStore");
       const { useKeyStore } = await import("@/stores/keyStore");
@@ -1101,7 +1114,6 @@ function VaultGeneralTab({
       const teamId = detail.teamId!;
 
       await fetchTeamData(teamId);
-      void saveTeamData; // referenced above for typing
 
       const now = new Date().toISOString();
 
