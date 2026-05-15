@@ -8,6 +8,7 @@ import { useHistoryStore } from "@/stores/historyStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
+import { movedIntoTeamVault } from "@/services/teamVaultMigration";
 
 // ─── Team vault helpers ───────────────────────────────────────────────────────
 
@@ -220,9 +221,19 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     }
 
     const prev = get().connections.find((c) => c.id === id);
-    await api.updateConnection(id, data);
+    const updated = await api.updateConnection(id, data);
     const connections = await api.listConnections();
     set({ connections });
+    if (prev && movedIntoTeamVault(prev.vault_id, updated.vault_id, isTeamVaultId)) {
+      const teamId = updated.vault_id!;
+      await saveTeamVaultObject(teamId, "connection", updated);
+      set((s) => ({
+        teamConnections: {
+          ...s.teamConnections,
+          [teamId]: upsertConn(s.teamConnections[teamId] ?? [], updated),
+        },
+      }));
+    }
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "connection")) scheduleSync(); });
     if (prev) reportAuditMutation("connection", "updated", { id, name: data.name ?? prev.name ?? prev.host, vault_id: data.vault_id ?? prev.vault_id });
