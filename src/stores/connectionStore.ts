@@ -8,6 +8,7 @@ import { useHistoryStore } from "@/stores/historyStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
+import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 
 // ─── Team vault helpers ───────────────────────────────────────────────────────
 
@@ -194,13 +195,31 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         clocks: { ...prev.clocks, updated_at: now },
       };
       const { teamId } = teamEntry;
-      await saveTeamVaultObject(teamId, "connection", updated);
-      set((s) => ({
-        teamConnections: {
-          ...s.teamConnections,
-          [teamId]: upsertConn(s.teamConnections[teamId] ?? [], updated),
-        },
-      }));
+      const migrated = await migrateVaultObject({
+        previousVaultId: teamId,
+        nextVaultId: updated.vault_id,
+        isTeamVaultId,
+        item: updated,
+        updateLocal: () => api.updateConnection(id, data),
+        saveTeam: (teamId, item) => saveTeamVaultObject(teamId, "connection", item),
+        removeTeam: removeTeamVaultObject,
+      });
+      const transition = classifyVaultTransition(teamId, migrated.vault_id, isTeamVaultId);
+      const connections = transition.kind === "team-to-local" ? await api.listConnections() : undefined;
+      set((s) => {
+        const teamConnections = { ...s.teamConnections };
+        if (transition.kind === "team-to-team") {
+          teamConnections[transition.sourceTeamId] = (teamConnections[transition.sourceTeamId] ?? []).filter((c) => c.id !== id);
+          teamConnections[transition.destinationTeamId] = upsertConn(teamConnections[transition.destinationTeamId] ?? [], migrated);
+          return { teamConnections };
+        }
+        if (transition.kind === "team-to-local") {
+          teamConnections[transition.sourceTeamId] = (teamConnections[transition.sourceTeamId] ?? []).filter((c) => c.id !== id);
+          return { connections, teamConnections };
+        }
+        teamConnections[teamId] = upsertConn(teamConnections[teamId] ?? [], migrated);
+        return { teamConnections };
+      });
       reportAuditMutation("connection", "updated", { id: updated.id, name: updated.name ?? updated.host, vault_id: updated.vault_id });
       const prevData: ConnectionFormData = {
         name: prev.name, host: prev.host, port: prev.port,
@@ -220,9 +239,89 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     }
 
     const prev = get().connections.find((c) => c.id === id);
-    await api.updateConnection(id, data);
+    const now = new Date().toISOString();
+    const item: Connection = prev
+      ? {
+          ...prev,
+          name: data.name,
+          host: data.host ?? prev.host,
+          port: data.port ?? prev.port,
+          username: data.username ?? prev.username,
+          auth_type: data.auth_type ?? prev.auth_type,
+          tags: data.tags ?? prev.tags,
+          identity_id: data.identity_id,
+          folder_id: data.folder_id,
+          vault_id: data.vault_id ?? prev.vault_id,
+          jump_hosts: data.jump_hosts,
+          env_vars: data.env_vars,
+          agent_forwarding: data.agent_forwarding,
+          pre_command: data.pre_command,
+          post_command: data.post_command,
+          terminal_encoding: data.terminal_encoding,
+          distro: data.distro ?? prev.distro,
+          icon: data.icon ?? prev.icon,
+          pinned: data.pinned,
+          connection_type: data.connection_type ?? prev.connection_type,
+          serial_port: data.serial_port ?? prev.serial_port,
+          serial_baud: data.serial_baud ?? prev.serial_baud,
+          serial_data_bits: data.serial_data_bits ?? prev.serial_data_bits,
+          serial_parity: data.serial_parity ?? prev.serial_parity,
+          serial_stop_bits: data.serial_stop_bits ?? prev.serial_stop_bits,
+          serial_flow_control: data.serial_flow_control ?? prev.serial_flow_control,
+          ping_disabled: data.ping_disabled,
+          updated_at: now,
+          clocks: { ...prev.clocks, updated_at: now },
+        }
+      : ({ id, vault_id: data.vault_id } as Connection);
+    const updated = await migrateVaultObject({
+      previousVaultId: prev?.vault_id,
+      nextVaultId: data.vault_id ?? prev?.vault_id,
+      isTeamVaultId,
+      item,
+      updateLocal: () => api.updateConnection(id, data),
+      saveTeam: (teamId, item) => saveTeamVaultObject(teamId, "connection", item),
+      removeTeam: removeTeamVaultObject,
+    });
     const connections = await api.listConnections();
-    set({ connections });
+    const transition = classifyVaultTransition(prev?.vault_id, updated.vault_id, isTeamVaultId);
+    set((s) => {
+      if (transition.kind === "local-to-team") {
+        return {
+          connections,
+          teamConnections: {
+            ...s.teamConnections,
+            [transition.destinationTeamId]: upsertConn(s.teamConnections[transition.destinationTeamId] ?? [], updated),
+          },
+        };
+      }
+      if (transition.kind === "team-to-team") {
+        const teamConnections = { ...s.teamConnections };
+        teamConnections[transition.sourceTeamId] = (teamConnections[transition.sourceTeamId] ?? []).filter((c) => c.id !== id);
+        teamConnections[transition.destinationTeamId] = upsertConn(teamConnections[transition.destinationTeamId] ?? [], updated);
+        return { connections, teamConnections };
+      }
+      if (transition.kind === "team-to-local") {
+        return {
+          connections,
+          teamConnections: {
+            ...s.teamConnections,
+            [transition.sourceTeamId]: (s.teamConnections[transition.sourceTeamId] ?? []).filter((c) => c.id !== id),
+          },
+        };
+      }
+      if (isTeamVaultId(updated.vault_id)) {
+        return {
+          connections,
+          teamConnections: {
+            ...s.teamConnections,
+            [updated.vault_id]: upsertConn(s.teamConnections[updated.vault_id] ?? [], updated),
+          },
+        };
+      }
+      return {
+        connections,
+      };
+    });
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "connection")) scheduleSync(); });
     if (prev) reportAuditMutation("connection", "updated", { id, name: data.name ?? prev.name ?? prev.host, vault_id: data.vault_id ?? prev.vault_id });
