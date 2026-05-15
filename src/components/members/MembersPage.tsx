@@ -281,6 +281,7 @@ interface MemberCardProps {
   member: TeamMember;
   roles: TeamRole[];
   isMe: boolean;
+  isOwner: boolean;
   isSelected: boolean;
   isFocused: boolean;
   layoutMode: LayoutMode;
@@ -304,7 +305,7 @@ function MemberAvatar({ member, size }: { member: TeamMember; size: number }) {
 }
 
 function MemberCard({
-  member, roles, isMe, isSelected, isFocused, layoutMode,
+  member, roles, isMe, isOwner, isSelected, isFocused, layoutMode,
   canManage, onAddRole,
   onSelect, onDoubleClick, contextMenuItems, bulkContextMenuItems,
 }: MemberCardProps) {
@@ -321,7 +322,14 @@ function MemberCard({
         bulkContextMenuItems={bulkContextMenuItems}
         className="flex-col items-center text-center gap-2 py-4"
       >
-        <MemberAvatar member={member} size={40} />
+        <div className="relative">
+          <MemberAvatar member={member} size={40} />
+          {isOwner && (
+            <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center w-4 h-4 rounded-full" style={{ background: "rgba(167,139,250,0.2)", border: "1px solid rgba(167,139,250,0.35)" }}>
+              <Icon icon="lucide:crown" width={8} style={{ color: "#a78bfa" }} />
+            </span>
+          )}
+        </div>
         <div className="w-full min-w-0 flex flex-col items-center gap-1">
           <div className="flex items-center gap-1 justify-center">
             <p className="text-xs font-medium truncate text-[var(--t-text-bright)] max-w-[120px]">{member.email}</p>
@@ -350,6 +358,7 @@ function MemberCard({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <p className="text-sm font-medium truncate text-[var(--t-text-bright)]">{member.email}</p>
+          {isOwner && <Icon icon="lucide:crown" width={11} style={{ color: "#a78bfa", flexShrink: 0 }} />}
           {isMe && (
             <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>you</span>
           )}
@@ -505,7 +514,9 @@ function MemberDetailPanel({
         <FormSection label="Roles">
           {canChangeRoles ? (
             <div className="flex flex-wrap gap-2">
-              {[...teamRoles].sort((a, b) => a.position - b.position).map((role) => {
+              {[...teamRoles]
+                .filter((r) => !(r.is_builtin && r.name === "owner"))
+                .sort((a, b) => a.position - b.position).map((role) => {
 
                 const hasRole = member.role_ids.includes(role.id);
                 const meta = ROLE_META[role.name];
@@ -1222,6 +1233,9 @@ export default function MembersPage() {
   const [showInvitePanel, setShowInvitePanel] = useState(false);
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [showRolesPanel, setShowRolesPanel] = useState(false);
+  const [transferOwnerTarget, setTransferOwnerTarget] = useState<TeamMember | null>(null);
+  const [transferring, setTransferring] = useState(false);
+  const [transferError, setTransferError] = useState("");
 
   useEffect(() => {
     if (membersInvitePending) {
@@ -1398,7 +1412,9 @@ export default function MembersPage() {
     const items: ContextMenuItem[] = [];
 
     if (canActOnMember && teamRoles.length > 0) {
-      const sortedRoles = [...teamRoles].sort((a, b) => a.position - b.position);
+      const sortedRoles = [...teamRoles]
+        .filter((r) => !(r.is_builtin && r.name === "owner"))
+        .sort((a, b) => a.position - b.position);
       const assignedRoles = sortedRoles.filter((r) => member.role_ids.includes(r.id));
       const unassignedRoles = sortedRoles.filter((r) => !member.role_ids.includes(r.id));
 
@@ -1441,6 +1457,16 @@ export default function MembersPage() {
           children: roleChildren,
         });
       }
+    }
+
+    // Transfer ownership — only shown to the current owner, only for non-owner members
+    if (myMember && isOwnerMember(myMember) && canActOnMember) {
+      items.push({
+        label: "Transfer Ownership",
+        icon: "lucide:crown",
+        divider: items.length > 0,
+        onClick: () => setTransferOwnerTarget(member),
+      });
     }
 
     items.push({
@@ -1501,7 +1527,9 @@ export default function MembersPage() {
     const items: ContextMenuItem[] = [];
 
     if (canManageMembers && teamRoles.length > 0) {
-      const sortedBulkRoles = [...teamRoles].sort((a, b) => a.position - b.position);
+      const sortedBulkRoles = [...teamRoles]
+        .filter((r) => !(r.is_builtin && r.name === "owner"))
+        .sort((a, b) => a.position - b.position);
       items.push({
         label: `Assign Role (${selectedMembers.length})`,
         icon: "lucide:shield",
@@ -1758,7 +1786,87 @@ const vaultTabs = selectedVaultIds.length > 1
   // ── Team vault ─────────────────────────────────────────────────────────────
   const panelOpen = showDetailPanel || showInvitePanel || showRolesPanel;
 
+  const handleTransferOwnership = async () => {
+    if (!transferOwnerTarget || !teamId || !myMember) return;
+    const ownerRole = teamRoles.find((r) => r.is_builtin && r.name === "owner");
+    if (!ownerRole) return;
+    setTransferring(true);
+    setTransferError("");
+    try {
+      await runTeamAction({
+        pending: `Transferring ownership to ${transferOwnerTarget.email}…`,
+        success: `Ownership transferred to ${transferOwnerTarget.email}`,
+        run: async () => {
+          await assignMemberRole(teamId, transferOwnerTarget.user_id, ownerRole.id);
+          await removeMemberRole(teamId, myMember.user_id, ownerRole.id);
+        },
+      });
+      setTransferOwnerTarget(null);
+      reload();
+    } catch (e) {
+      setTransferError(e instanceof Error ? e.message : "Transfer failed");
+    } finally {
+      setTransferring(false);
+    }
+  };
+
   return (
+    <>
+      {transferOwnerTarget && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.6)" }}
+          onClick={() => { if (!transferring) { setTransferOwnerTarget(null); setTransferError(""); } }}
+        >
+          <div
+            className="rounded-2xl p-6 w-[400px] max-w-[90vw] space-y-4"
+            style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)", boxShadow: "0 24px 64px rgba(0,0,0,0.5)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(167,139,250,0.15)" }}>
+                <Icon icon="lucide:crown" width={18} style={{ color: "#a78bfa" }} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold" style={{ color: "var(--t-text-bright)" }}>Transfer Ownership</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--t-text-dim)" }}>This is a critical, irreversible action</p>
+              </div>
+            </div>
+
+            <p className="text-sm leading-relaxed" style={{ color: "var(--t-text-primary)" }}>
+              You are about to transfer ownership of this team vault to{" "}
+              <span className="font-semibold" style={{ color: "var(--t-text-bright)" }}>{transferOwnerTarget.email}</span>.
+              {" "}You will lose your owner privileges immediately and cannot undo this yourself.
+            </p>
+
+            {transferError && (
+              <p className="text-xs px-3 py-2 rounded-lg" style={{ background: "rgba(239,68,68,0.1)", color: "var(--t-status-error)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                {transferError}
+              </p>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => { setTransferOwnerTarget(null); setTransferError(""); }}
+                disabled={transferring}
+                className="flex-1 py-2 rounded-xl text-sm font-medium transition-colors"
+                style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-primary)", border: "1px solid var(--t-border)" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => void handleTransferOwnership()}
+                disabled={transferring}
+                className="flex-1 py-2 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                style={{ background: transferring ? "rgba(239,68,68,0.5)" : "#dc2626", color: "#fff", opacity: transferring ? 0.7 : 1 }}
+              >
+                {transferring && <Icon icon="lucide:loader-2" width={13} className="animate-spin" />}
+                Transfer Ownership
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     <SidePanelLayout
       panelOpen={panelOpen}
       panelWidth={320}
@@ -1906,6 +2014,7 @@ const vaultTabs = selectedVaultIds.length > 1
                     member={m}
                     roles={teamRoles}
                     isMe={m.user_id === myUserId}
+                    isOwner={isOwnerMember(m)}
                     isSelected={selectedIdSet.has(m.user_id)}
                     isFocused={focusedId === m.user_id}
                     layoutMode={layoutMode}
@@ -1944,5 +2053,6 @@ const vaultTabs = selectedVaultIds.length > 1
         </DragSelectSurface>
       </div>
     </SidePanelLayout>
+    </>
   );
 }
