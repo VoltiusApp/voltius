@@ -103,8 +103,8 @@ export function MenuItemList({
       {activeSub !== null && items[activeSub.idx]?.children &&
         createPortal(
           <div
-            className="fixed z-[101] p-1.5 rounded-xl flex flex-col bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)] min-w-[12.667rem]"
-            style={{ left: activeSub.x, top: activeSub.y, boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
+            className="fixed z-[101] p-1.5 rounded-xl flex flex-col bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)] min-w-[12.667rem] overflow-y-auto"
+            style={{ left: activeSub.x, top: activeSub.y, maxHeight: window.innerHeight - activeSub.y - 8, boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
             onMouseEnter={clearTimer}
             onMouseLeave={scheduleClose}
           >
@@ -132,6 +132,8 @@ interface ContextMenuProps {
 export function ContextMenu({ items, pos, onClose, direction = "down" }: ContextMenuProps) {
   const uiScale = useUIStore((s) => s.uiScale);
 
+  const maxHeight = direction === "up" ? pos.y - 8 : window.innerHeight - pos.y - 8;
+
   const placement = direction === "up"
     ? { bottom: window.innerHeight - pos.y, transformOrigin: "bottom left" }
     : { top: pos.y, transformOrigin: "top left" };
@@ -143,9 +145,10 @@ export function ContextMenu({ items, pos, onClose, direction = "down" }: Context
           submenus to unmount before onClick fired — backdrop avoids that. */}
       <div className="fixed inset-0 z-[99]" onMouseDown={onClose} />
       <div
-        className="fixed z-[100] p-1.5 rounded-xl flex flex-col bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)] min-w-[12.667rem]"
+        className="fixed z-[100] p-1.5 rounded-xl flex flex-col bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)] min-w-[12.667rem] overflow-y-auto"
         style={{
           left: pos.x,
+          maxHeight,
           transform: `scale(${uiScale})`,
           boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
           ...placement,
