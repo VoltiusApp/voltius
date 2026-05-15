@@ -31,6 +31,8 @@ import { effectivePermissions, hasBuiltinRole, PERM_BITS } from "@/hooks/usePerm
 import { appFetch } from "@/services/http";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { distributeKeyToNewMember } from "@/services/teamVaultSync";
+import { markTeamVaultLoadedAfterLocalActivation } from "@/services/teamVaultActivation";
+import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { RoleModal, PERM_META, TeamRolesPanel } from "@/components/settings/sections/RolesSection";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -1334,6 +1336,7 @@ export default function MembersPage() {
       setVaultTeamId(primaryVaultId, team.id);
       const { initTeamVaultKey } = await import("@/services/teamVaultSync");
       await initTeamVaultKey(team.id, []);
+      markTeamVaultLoadedAfterLocalActivation(team.id, useTeamVaultStateStore.getState());
       await addMemberById(team.id, user.user_id);
       await loadRoles(team.id);
       const role = useTeamStore.getState().rolesByTeam[team.id]?.find(

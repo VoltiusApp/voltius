@@ -1,4 +1,9 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
+use tauri::{AppHandle, Emitter, State};
+use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
 #[derive(Deserialize)]
 pub struct HttpRequestHeader {
@@ -18,6 +23,29 @@ pub struct HttpResponse {
     status_text: String,
     headers: Vec<HttpResponseHeader>,
     body: String,
+}
+
+#[derive(Clone, Serialize)]
+pub struct HttpSseClosedPayload {
+    error: Option<String>,
+}
+
+pub struct HttpSseStreamManager {
+    streams: Arc<Mutex<HashMap<String, JoinHandle<()>>>>,
+}
+
+impl HttpSseStreamManager {
+    pub fn new() -> Self {
+        Self {
+            streams: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    pub async fn stop(&self, stream_id: &str) {
+        if let Some(handle) = self.streams.lock().await.remove(stream_id) {
+            handle.abort();
+        }
+    }
 }
 
 #[tauri::command]
@@ -77,4 +105,87 @@ pub async fn http_request(
         headers,
         body,
     })
+}
+
+#[tauri::command]
+pub async fn http_sse_start(
+    app: AppHandle,
+    stream_manager: State<'_, HttpSseStreamManager>,
+    stream_id: String,
+    url: String,
+    headers: Vec<HttpRequestHeader>,
+) -> Result<(), String> {
+    let url = reqwest::Url::parse(&url).map_err(|_| "invalid URL".to_string())?;
+    if url.scheme() != "http" && url.scheme() != "https" {
+        return Err("unsupported URL scheme".to_string());
+    }
+
+    let task_stream_id = stream_id.clone();
+    let join_handle = tokio::spawn(async move {
+        let data_event = format!("http:sse:data:{task_stream_id}");
+        let closed_event = format!("http:sse:closed:{task_stream_id}");
+        let close = |app: &AppHandle, error: Option<String>| {
+            let _ = app.emit(&closed_event, HttpSseClosedPayload { error });
+        };
+
+        let client = match reqwest::Client::builder().user_agent("Voltius").build() {
+            Ok(client) => client,
+            Err(e) => {
+                close(&app, Some(e.to_string()));
+                return;
+            }
+        };
+
+        let mut request = client.get(url);
+        for header in headers {
+            request = request.header(header.name, header.value);
+        }
+
+        let mut response = match request.send().await {
+            Ok(response) => response,
+            Err(e) => {
+                close(&app, Some(e.to_string()));
+                return;
+            }
+        };
+
+        if !response.status().is_success() {
+            close(&app, Some(format!("Server error: {}", response.status().as_u16())));
+            return;
+        }
+
+        loop {
+            match response.chunk().await {
+                Ok(Some(chunk)) => {
+                    let text = String::from_utf8_lossy(&chunk).to_string();
+                    let _ = app.emit(&data_event, text);
+                }
+                Ok(None) => {
+                    close(&app, None);
+                    return;
+                }
+                Err(e) => {
+                    close(&app, Some(e.to_string()));
+                    return;
+                }
+            }
+        }
+    });
+
+    stream_manager
+        .streams
+        .lock()
+        .await
+        .insert(stream_id, join_handle);
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn http_sse_stop(
+    stream_manager: State<'_, HttpSseStreamManager>,
+    stream_id: String,
+) -> Result<(), String> {
+    stream_manager.stop(&stream_id).await;
+    Ok(())
 }

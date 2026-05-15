@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { clearPersistedAccountUiState } from "@/stores/persistedAccountUiState";
 
 // Pending key: set at login/setup, used to unlock secrets on first access
 let pendingKey: number[] | null = null;
@@ -74,6 +75,7 @@ export async function wipeLocalConfig(): Promise<void> {
 export async function resetVault(): Promise<void> {
   pendingKey = null;
   unlocked = false;
+  clearPersistedAccountUiState();
   await invoke("secrets_lock");
   await invoke("vault_reset"); // deletes secrets.enc + connections.json + legacy vault.hold
 

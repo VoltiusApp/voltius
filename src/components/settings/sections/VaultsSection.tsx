@@ -15,6 +15,8 @@ import BuySeatsModal from "@/components/settings/BuySeatsModal";
 import { appFetch } from "@/services/http";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { distributeKeyToNewMember } from "@/services/teamVaultSync";
+import { markTeamVaultLoadedAfterLocalActivation } from "@/services/teamVaultActivation";
+import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 
 // ─── Vault migration helpers ──────────────────────────────────────────────────
 
@@ -884,6 +886,7 @@ export function PrivateVaultMembersPanel({
       await initTeamVaultKey(team.id, []);
       // Migrate existing vault entities into the team blob
       await migrateVaultToTeam(vaultId, team.id, saveTeamData);
+      markTeamVaultLoadedAfterLocalActivation(team.id, useTeamVaultStateStore.getState());
       await addMemberById(team.id, user.user_id);
       await loadRoles(team.id);
       const memberRole = useTeamStore.getState().rolesByTeam[team.id]?.find(

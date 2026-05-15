@@ -13,6 +13,7 @@ mod storage;
 mod vault_auth;
 
 use docker::stream::DockerLogStreamManager;
+use commands::http::HttpSseStreamManager;
 use known_hosts::{KnownHostsStore, PendingConflicts};
 use metrics::stream::MetricsStreamManager;
 use processes::stream::ProcessStreamManager;
@@ -216,6 +217,7 @@ pub fn run() {
             Ok(())
         })
         .manage(DockerLogStreamManager::new())
+        .manage(HttpSseStreamManager::new())
         .manage(MetricsStreamManager::new())
         .manage(ProcessStreamManager::new())
         .manage(SessionManager::new())
@@ -301,6 +303,8 @@ pub fn run() {
             commands::local::local_send_input,
             commands::local::local_resize,
             commands::http::http_request,
+            commands::http::http_sse_start,
+            commands::http::http_sse_stop,
             commands::fs::fs_home_dir,
             commands::fs::fs_list_dir,
             commands::fs::fs_read_text_home,

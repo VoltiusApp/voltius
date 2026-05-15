@@ -17,8 +17,11 @@ import { mergeEntities, mergeSecrets, type TimestampedEntity } from "@/services/
 import { getMyX25519Keypair } from "@/services/multiplayerService";
 import { initTeamVaultKey } from "@/services/teamVaultSync";
 import { onTeamLogin } from "@/services/teamDataManager";
+import { handleMembershipChangedEvent } from "@/services/teamMembershipEvents";
 import * as teamService from "@/services/teamService";
 import { appFetch } from "@/services/http";
+import { SseDataLineParser } from "@/services/realtimeSseEvents";
+import { connectNativeSse } from "@/services/nativeSseStream";
 
 export interface BlobPayload {
   files: Record<string, string>;
@@ -687,19 +690,79 @@ async function _sseLoop(signal: AbortSignal): Promise<void> {
   }
 }
 
+async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promise<void> {
+  if (eventData.startsWith("team:")) {
+    const teamId = eventData.slice(5);
+    _teamEventListeners.forEach((fn) => fn(teamId));
+    const { fetchTeamData } = await import("@/services/teamVaultSync");
+    fetchTeamData(teamId, { background: true }).catch(() => {});
+  } else if (eventData.startsWith("team_members:")) {
+    const teamId = eventData.slice("team_members:".length);
+    useTeamStore.getState().loadTeams().catch(() => {});
+    useTeamStore.getState().loadMembers(teamId).catch(() => {});
+    useTeamStore.getState().loadRoles(teamId).catch(() => {});
+  } else if (eventData === "membership_changed") {
+    handleMembershipChangedEvent({
+      getTeamIds: () => useTeamStore.getState().teams.map((t) => t.id),
+      loadTeams: () => useTeamStore.getState().loadTeams(),
+      onTeamAdded: async (teamId) => {
+        await Promise.allSettled([
+          useTeamStore.getState().loadMembers(teamId),
+          useTeamStore.getState().loadRoles(teamId),
+        ]);
+        const { fetchTeamData } = await import("@/services/teamVaultSync");
+        await fetchTeamData(teamId, { background: true }).catch(() => {});
+      },
+      onTeamRemoved: async (tid) => {
+        const [
+          { useTeamVaultStateStore },
+          { useConnectionStore },
+          { useIdentityStore },
+          { useKeyStore },
+          { useFolderStore },
+          { useSnippetStore },
+          { useSnippetFolderStore },
+        ] = await Promise.all([
+          import("@/stores/teamVaultStateStore"),
+          import("@/stores/connectionStore"),
+          import("@/stores/identityStore"),
+          import("@/stores/keyStore"),
+          import("@/stores/folderStore"),
+          import("@/stores/snippetStore"),
+          import("@/stores/snippetFolderStore"),
+        ]);
+        useTeamVaultStateStore.getState().setStatus(tid, "forbidden");
+        useConnectionStore.getState().clearTeamConnections(tid);
+        useIdentityStore.getState().clearTeamIdentities(tid);
+        useKeyStore.getState().clearTeamKeys(tid);
+        useFolderStore.getState().clearTeamFolders(tid);
+        useSnippetStore.getState().clearTeamSnippets(tid);
+        useSnippetFolderStore.getState().clearTeamSnippetFolders(tid);
+      },
+    }).catch(() => {});
+  } else if (eventData.startsWith("presence:")) {
+    const parts = eventData.split(":");
+    const userId = parts[1];
+    const online = parts[2] === "online";
+    useTeamStore.getState().setMemberOnline(userId, online);
+  } else if (eventData === "token_invalidated") {
+    tryRefreshJwt().catch(() => {});
+  } else if (eventData !== myDeviceId) {
+    syncNow().catch(() => {});
+  }
+}
+
 async function _sseConnect(signal: AbortSignal): Promise<void> {
-  const [serverUrl, jwt, myDeviceId] = await Promise.all([
+  const [serverUrl, storedJwt, myDeviceId] = await Promise.all([
     getServerUrl(),
     getJwt(),
     getDeviceId(),
   ]);
-  if (!serverUrl || !jwt) return;
+  if (!serverUrl) return;
 
-  const res = await fetch(`${serverUrl}/v1/sync/stream`, {
-    headers: { Authorization: `Bearer ${jwt}`, Accept: "text/event-stream" },
-    signal,
-  });
-  if (!res.ok || !res.body) return;
+  let jwt = storedJwt;
+  if (!jwt || isJwtExpiredOrExpiring(jwt)) jwt = await tryRefreshJwt();
+  if (!jwt) return;
 
   _cloudActive = true;
   _listeners.forEach((fn) => fn());
@@ -707,77 +770,36 @@ async function _sseConnect(signal: AbortSignal): Promise<void> {
   // Sync immediately on (re)connect to catch any events missed while offline
   syncNow().catch(() => {});
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const text = decoder.decode(value, { stream: true });
+  const parser = new SseDataLineParser();
+  const connect = (token: string) => connectNativeSse(
+    `${serverUrl}/v1/sync/stream`,
+    { Authorization: `Bearer ${token}`, Accept: "text/event-stream" },
+    signal,
+    (text) => {
       // Each SSE data line contains either the pusher's device_id (personal sync)
       // or "team:{team_id}" (team blob pushed by another member).
-      for (const line of text.split("\n")) {
-        if (!line.startsWith("data:")) continue;
-        const eventData = line.slice(5).trim();
-        if (!eventData) continue;
-        if (eventData.startsWith("team:")) {
-          const teamId = eventData.slice(5);
-          _teamEventListeners.forEach((fn) => fn(teamId));
-          const { fetchTeamData } = await import("@/services/teamVaultSync");
-          fetchTeamData(teamId, { background: true }).catch(() => {});
-        } else if (eventData.startsWith("team_members:")) {
-          const teamId = eventData.slice("team_members:".length);
-          useTeamStore.getState().loadTeams().catch(() => {});
-          useTeamStore.getState().loadMembers(teamId).catch(() => {});
-          useTeamStore.getState().loadRoles(teamId).catch(() => {});
-        } else if (eventData === "membership_changed") {
-          const prevTeamIds = new Set(useTeamStore.getState().teams.map((t) => t.id));
-          useTeamStore.getState().loadTeams().then(async () => {
-            const newTeamIds = new Set(useTeamStore.getState().teams.map((t) => t.id));
-            const removed = [...prevTeamIds].filter((tid) => !newTeamIds.has(tid));
-            if (removed.length > 0) {
-              const [
-                { useTeamVaultStateStore },
-                { useConnectionStore },
-                { useIdentityStore },
-                { useKeyStore },
-                { useFolderStore },
-                { useSnippetStore },
-                { useSnippetFolderStore },
-              ] = await Promise.all([
-                import("@/stores/teamVaultStateStore"),
-                import("@/stores/connectionStore"),
-                import("@/stores/identityStore"),
-                import("@/stores/keyStore"),
-                import("@/stores/folderStore"),
-                import("@/stores/snippetStore"),
-                import("@/stores/snippetFolderStore"),
-              ]);
-              for (const tid of removed) {
-                useTeamVaultStateStore.getState().setStatus(tid, "forbidden");
-                useConnectionStore.getState().clearTeamConnections(tid);
-                useIdentityStore.getState().clearTeamIdentities(tid);
-                useKeyStore.getState().clearTeamKeys(tid);
-                useFolderStore.getState().clearTeamFolders(tid);
-                useSnippetStore.getState().clearTeamSnippets(tid);
-                useSnippetFolderStore.getState().clearTeamSnippetFolders(tid);
-              }
-            }
-          }).catch(() => {});
-        } else if (eventData.startsWith("presence:")) {
-          const parts = eventData.split(":");
-          const userId = parts[1];
-          const online = parts[2] === "online";
-          useTeamStore.getState().setMemberOnline(userId, online);
-        } else if (eventData === "token_invalidated") {
-          tryRefreshJwt().catch(() => {});
-        } else if (eventData !== myDeviceId) {
-          syncNow().catch(() => {});
-        }
+      for (const eventData of parser.push(text)) {
+        handleRealtimeEvent(eventData, myDeviceId).catch(() => {});
       }
+    },
+  );
+  const connectAndFlush = async (token: string) => {
+    await connect(token);
+    for (const eventData of parser.flush()) {
+      await handleRealtimeEvent(eventData, myDeviceId);
+    }
+  };
+
+  try {
+    await connectAndFlush(jwt);
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("401")) {
+      const refreshedJwt = await tryRefreshJwt();
+      if (refreshedJwt) await connectAndFlush(refreshedJwt);
+    } else {
+      throw err;
     }
   } finally {
-    reader.cancel();
     _cloudActive = false;
     _listeners.forEach((fn) => fn());
   }

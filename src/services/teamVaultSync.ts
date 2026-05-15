@@ -28,6 +28,7 @@ import {
   TeamVaultRefreshQueue,
   type TeamVaultRefreshOptions,
 } from "@/services/teamVaultRefresh";
+import { classifyTeamObjectListError } from "@/services/teamVaultLoadErrors";
 
 export type { TeamMember };
 
@@ -288,11 +289,18 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
       stateStore.setStatus(teamId, "loaded");
       return;
     }
-  } catch {
+  } catch (err) {
     if (options.background) return;
-    await _clearTeamStores(teamId);
-    stateStore.setStatus(teamId, "error");
-    return;
+    const action = classifyTeamObjectListError(err);
+    if (action === "fallback") {
+      // Fall through to legacy key/blob loading. Some clients may hit transient
+      // object-route failures immediately after invitation while the legacy blob
+      // route already has the vault data available.
+    } else {
+      await _clearTeamStores(teamId);
+      stateStore.setStatus(teamId, action);
+      return;
+    }
   }
 
   let key: number[];
