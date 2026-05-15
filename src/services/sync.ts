@@ -698,22 +698,52 @@ async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promi
     fetchTeamData(teamId, { background: true }).catch(() => {});
   } else if (eventData.startsWith("team_members:")) {
     const teamId = eventData.slice("team_members:".length);
-    useTeamStore.getState().loadTeams().catch(() => {});
-    useTeamStore.getState().loadMembers(teamId).catch(() => {});
-    useTeamStore.getState().loadRoles(teamId).catch(() => {});
+    const prevMemberIds = new Set(
+      (useTeamStore.getState().membersByTeam[teamId] ?? []).map((m) => m.user_id),
+    );
+    await Promise.all([
+      useTeamStore.getState().loadTeams(),
+      useTeamStore.getState().loadMembers(teamId),
+      useTeamStore.getState().loadRoles(teamId),
+    ]);
+    const newMembers = (useTeamStore.getState().membersByTeam[teamId] ?? []).filter(
+      (m) => !prevMemberIds.has(m.user_id) && m.public_key,
+    );
+    if (newMembers.length > 0) {
+      const { distributeKeyToNewMember } = await import("@/services/teamVaultSync");
+      await Promise.allSettled(
+        newMembers.map((m) => distributeKeyToNewMember(teamId, m.user_id, m.public_key)),
+      );
+    }
+    useTeamStore.getState().loadPendingInvitations(teamId).catch(() => {});
+  } else if (eventData.startsWith("pending_invitations_changed:")) {
+    useTeamStore.getState().loadMyPendingInvitations().catch(() => {});
   } else if (eventData === "membership_changed") {
     handleMembershipChangedEvent({
       getTeamIds: () => useTeamStore.getState().teams.map((t) => t.id),
       loadTeams: () => useTeamStore.getState().loadTeams(),
       onTeamAdded: async (teamId) => {
-        await Promise.allSettled([
-          useTeamStore.getState().loadMembers(teamId),
-          useTeamStore.getState().loadRoles(teamId),
-        ]);
-        const { fetchTeamData } = await import("@/services/teamVaultSync");
-        await fetchTeamData(teamId, { background: true }).catch(() => {});
+        const { joinAndLoadTeamVault } = await import("@/services/teamDataManager");
+        await joinAndLoadTeamVault(teamId);
       },
       onTeamRemoved: async (tid) => {
+        // Evict the in-memory vault key immediately so the kicked member can't
+        // use a cached key to decrypt data after losing access.
+        const { deleteTeamKey } = await import("@/services/teamVaultSync");
+        deleteTeamKey(tid);
+
+        // Remove all per-team slices from the team store (members, roles, etc.)
+        useTeamStore.getState().removeTeam(tid);
+
+        // Unlink any local vault that was pointing at this team so the vault
+        // button disappears from the sidebar rather than staying as a broken
+        // cloud-linked vault.
+        const { useVaultStore } = await import("@/stores/vaultStore");
+        const vaultStore = useVaultStore.getState();
+        for (const vault of vaultStore.vaults.filter((v) => v.teamId === tid)) {
+          vaultStore.setVaultTeamId(vault.id, null);
+        }
+
         const [
           { useTeamVaultStateStore },
           { useConnectionStore },
@@ -722,6 +752,7 @@ async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promi
           { useFolderStore },
           { useSnippetStore },
           { useSnippetFolderStore },
+          { usePortForwardingStore },
         ] = await Promise.all([
           import("@/stores/teamVaultStateStore"),
           import("@/stores/connectionStore"),
@@ -730,6 +761,7 @@ async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promi
           import("@/stores/folderStore"),
           import("@/stores/snippetStore"),
           import("@/stores/snippetFolderStore"),
+          import("@/stores/portForwardingStore"),
         ]);
         useTeamVaultStateStore.getState().setStatus(tid, "forbidden");
         useConnectionStore.getState().clearTeamConnections(tid);
@@ -738,6 +770,7 @@ async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promi
         useFolderStore.getState().clearTeamFolders(tid);
         useSnippetStore.getState().clearTeamSnippets(tid);
         useSnippetFolderStore.getState().clearTeamSnippetFolders(tid);
+        usePortForwardingStore.getState().clearTeamRules(tid);
       },
     }).catch(() => {});
   } else if (eventData.startsWith("presence:")) {

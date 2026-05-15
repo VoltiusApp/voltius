@@ -130,13 +130,13 @@ function TeamVaultState({
             Manage subscription →
           </button>
         )}
-        {status === "error" && (
+        {(status === "error" || status === "not_found") && (
           <button
             onClick={() => fetchTeamData(teamId).catch(() => {})}
             className="mt-2 text-sm px-3 py-1.5 rounded-lg"
             style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-primary)", border: "1px solid var(--t-border)" }}
           >
-            Retry
+            Try again
           </button>
         )}
       </div>

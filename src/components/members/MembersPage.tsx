@@ -13,10 +13,9 @@ import {
   getMyUserId,
   getMyEmail,
   inviteByEmail,
-  listPendingInvitations,
   revokePendingInvitation,
 } from "@/services/teamService";
-import type { PendingInvitation } from "@/services/teamService";
+import type { PendingInvitation } from "@/stores/teamStore";
 import { BaseCard } from "@/components/shared/BaseCard";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
@@ -30,7 +29,6 @@ import BuySeatsModal from "@/components/settings/BuySeatsModal";
 import { effectivePermissions, hasBuiltinRole, PERM_BITS } from "@/hooks/usePermission";
 import { appFetch } from "@/services/http";
 import { runTeamAction } from "@/services/teamActionFeedback";
-import { distributeKeyToNewMember } from "@/services/teamVaultSync";
 import { markTeamVaultLoadedAfterLocalActivation } from "@/services/teamVaultActivation";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { RoleModal, PERM_META, TeamRolesPanel } from "@/components/settings/sections/RolesSection";
@@ -686,7 +684,6 @@ interface InvitePanelProps {
 function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }: InvitePanelProps) {
   const addMemberById = useTeamStore((s) => s.addMemberById);
   const assignMemberRole = useTeamStore((s) => s.assignMemberRole);
-  const loadMembers = useTeamStore((s) => s.loadMembers);
   const { usedSeats, totalSeats, load: reloadSubscription } = useSubscriptionStore();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -762,16 +759,18 @@ function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }:
     if (isAtSeatLimit) { setBuySeatsFor(user); setOpen(false); return; }
     setAdding(user.user_id); setError(""); setSuccess("");
     try {
-      await runTeamAction({
-        pending: `Adding ${user.email}...`,
-        success: `${user.email} added`,
+      const result = await runTeamAction({
+        pending: `Inviting ${user.email}...`,
+        success: (r) => r.status === "pending" ? `Invitation sent to ${user.email}` : `${user.email} added`,
         run: () => addMemberById(teamId, user.user_id),
       });
-      for (const roleId of selectedRoleIds) {
-        await assignMemberRole(teamId, user.user_id, roleId).catch(() => {});
+      if (result.status === "pending") {
+        for (const roleId of selectedRoleIds) {
+          await assignMemberRole(teamId, user.user_id, roleId).catch(() => {});
+        }
       }
       setQuery(""); setResults([]); setOpen(false);
-      setSuccess(`${user.email} added`);
+      setSuccess(result.status === "pending" ? `Invitation sent to ${user.email}` : `${user.email} added`);
       await reloadSubscription();
       onMemberAdded();
     } catch (e) {
@@ -792,19 +791,12 @@ function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }:
       const invitedEmail = query;
       const result = await runTeamAction({
         pending: `Inviting ${invitedEmail}...`,
-        success: (r) => r.status === "invited" ? `Invitation sent to ${invitedEmail}` : `${invitedEmail} added`,
+        success: () => `Invitation sent to ${invitedEmail}`,
         run: () => inviteByEmail(teamId, invitedEmail, primaryRoleName),
       });
-      if (result.status === "added") {
-        await loadMembers(teamId);
-        const addedMember = useTeamStore.getState().membersByTeam[teamId]
-          ?.find((m) => m.email.toLowerCase() === invitedEmail.toLowerCase());
-        if (addedMember?.public_key) {
-          distributeKeyToNewMember(teamId, addedMember.user_id, addedMember.public_key).catch(() => {});
-        }
-      }
+      void result;
       setQuery(""); setResults([]); setOpen(false);
-      setSuccess(result.status === "invited" ? `Invitation sent to ${invitedEmail}` : `${invitedEmail} added`);
+      setSuccess(`Invitation sent to ${invitedEmail}`);
       await reloadSubscription();
       onMemberAdded();
     } catch (e) {
@@ -1202,7 +1194,7 @@ function UpgradeToTeamsCTA() {
 export default function MembersPage() {
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const vaults = useVaultStore((s) => s.vaults);
-  const { teams, loadTeams, membersByTeam, loadMembers, rolesByTeam, loadRoles } = useTeamStore();
+  const { teams, loadTeams, membersByTeam, loadMembers, rolesByTeam, loadRoles, pendingInvitationsByTeam, loadPendingInvitations } = useTeamStore();
   const { isTeams, accountMode } = useSubscriptionStore();
   const { createTeam } = useTeamStore();
   const { setVaultTeamId } = useVaultStore();
@@ -1239,7 +1231,6 @@ export default function MembersPage() {
     }
   }, [membersInvitePending, clearMembersInvitePending]);
   const [detailMemberId, setDetailMemberId] = useState<string | null>(null);
-  const [pendingInvites, setPendingInvites] = useState<PendingInvitation[]>([]);
 
   // Private-vault invite state
   const [privateQuery, setPrivateQuery] = useState("");
@@ -1270,6 +1261,7 @@ export default function MembersPage() {
   const localVault = primaryVaultId ? vaults.find((v) => v.id === primaryVaultId) : null;
   const standaloneTeam = !localVault && primaryVaultId ? teams.find((t) => t.id === primaryVaultId) : null;
   const teamId = localVault?.teamId ?? standaloneTeam?.id ?? null;
+  const pendingInvites = pendingInvitationsByTeam[teamId ?? ""] ?? [];
 
   const members = useMemo(() => (teamId ? (membersByTeam[teamId] ?? []) : []), [teamId, membersByTeam]);
   const teamRoles = useMemo(() => (teamId ? (rolesByTeam[teamId] ?? []) : []), [teamId, rolesByTeam]);
@@ -1290,7 +1282,7 @@ export default function MembersPage() {
     if (!teamId) return;
     loadMembers(teamId).catch(() => {});
     if (canManageMembers) {
-      listPendingInvitations(teamId).then(setPendingInvites).catch(() => {});
+      loadPendingInvitations(teamId).catch(() => {});
     }
   };
 
@@ -1302,8 +1294,8 @@ export default function MembersPage() {
 
   useEffect(() => {
     if (!teamId || !canManageMembers) return;
-    listPendingInvitations(teamId).then(setPendingInvites).catch(() => {});
-  }, [teamId, canManageMembers]);
+    loadPendingInvitations(teamId).catch(() => {});
+  }, [teamId, canManageMembers, loadPendingInvitations]);
 
   // Private vault search
   useEffect(() => {
@@ -1941,7 +1933,7 @@ const vaultTabs = selectedVaultIds.length > 1
                       inv={inv}
                       teamId={teamId}
                       roles={teamRoles}
-                      onRevoked={(id) => setPendingInvites((prev) => prev.filter((i) => i.id !== id))}
+                      onRevoked={() => { if (teamId) loadPendingInvitations(teamId).catch(() => {}); }}
                     />
                   ))}
                 </div>

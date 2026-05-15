@@ -16,8 +16,20 @@ export function getTeamMembershipDelta(prevTeamIds: string[], nextTeamIds: strin
 
 export async function handleMembershipChangedEvent(deps: TeamMembershipEventDeps): Promise<void> {
   const prevTeamIds = deps.getTeamIds();
-  await deps.loadTeams();
-  const nextTeamIds = deps.getTeamIds();
+
+  // loadTeams() swallows its own errors — if listTeams() had a transient failure,
+  // the returned list equals prevTeamIds and the delta is zero. Retry with backoff
+  // so a brief network hiccup doesn't leave the user staring at a vault they were
+  // just kicked from (or missing a vault they just joined).
+  let nextTeamIds = prevTeamIds;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise<void>((r) => setTimeout(r, 1000 * attempt));
+    await deps.loadTeams();
+    nextTeamIds = deps.getTeamIds();
+    const { added, removed } = getTeamMembershipDelta(prevTeamIds, nextTeamIds);
+    if (added.length > 0 || removed.length > 0) break;
+  }
+
   const delta = getTeamMembershipDelta(prevTeamIds, nextTeamIds);
 
   await Promise.all([

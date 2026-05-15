@@ -15,6 +15,9 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { fetchTeamData, clearTeamKeyCache } from "@/services/teamVaultSync";
 
+// Statuses that warrant a retry (transient — key not yet distributed)
+const TRANSIENT_STATUSES = new Set(["not_found", "error"]);
+
 /**
  * Load team vault data for all teams the user belongs to.
  * Called at the end of syncOnLogin / syncOnLoginReplace.
@@ -33,6 +36,32 @@ export async function onVaultSelect(teamId: string): Promise<void> {
   const status = useTeamVaultStateStore.getState().statusByTeamId[teamId];
   if (status === "loading" || status === "loaded") return;
   await fetchTeamData(teamId);
+}
+
+/**
+ * Load roles/members and fetch team vault data after joining a team, with
+ * automatic retry for the key-not-yet-distributed race (admin distributes the
+ * vault key asynchronously after the member appears in team_members).
+ *
+ * Call this any time a user joins or re-joins a team — both from the SSE
+ * membership_changed handler (onTeamAdded) and from the in-app invite acceptance
+ * path in VaultSidebar (which loads teams before the SSE delta is computed,
+ * causing the SSE handler to see a zero delta and skip onTeamAdded).
+ */
+export async function joinAndLoadTeamVault(teamId: string): Promise<void> {
+  await Promise.allSettled([
+    useTeamStore.getState().loadMembers(teamId),
+    useTeamStore.getState().loadRoles(teamId),
+  ]);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await fetchTeamData(teamId).catch(() => {});
+    const status = useTeamVaultStateStore.getState().statusByTeamId[teamId];
+    if (!TRANSIENT_STATUSES.has(status ?? "")) break;
+    if (attempt < 4) {
+      useTeamVaultStateStore.getState().setStatus(teamId, "loading");
+      await new Promise<void>((r) => setTimeout(r, 1500 * (attempt + 1)));
+    }
+  }
 }
 
 /**

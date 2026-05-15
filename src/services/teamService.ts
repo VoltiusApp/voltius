@@ -139,7 +139,7 @@ export async function addMemberById(
   teamId: string,
   userId: string,
   role?: string,
-): Promise<void> {
+): Promise<{ status: "pending" | "already_member" }> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) throw new Error("Not connected to server");
   const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members`, {
@@ -149,8 +149,10 @@ export async function addMemberById(
   if (!res.ok) {
     if (res.status === 404) throw new Error("User not found");
     if (res.status === 400) throw new Error("Cannot add yourself");
+    if (res.status === 402) throw Object.assign(new Error("Seat limit reached"), { code: 402 });
     throw new Error(`Failed to add member: ${res.status}`);
   }
+  return res.json();
 }
 
 export async function removeMember(teamId: string, userId: string): Promise<void> {
@@ -351,4 +353,42 @@ export async function revokePendingInvitation(teamId: string, invitationId: stri
     method: "DELETE",
   });
   if (!res.ok) throw new Error(`Failed to revoke invitation: ${res.status}`);
+}
+
+// ─── My pending invitations (in-app consent flow) ──────────────────────────────
+
+export interface MyPendingInvitation {
+  id: string;
+  team_id: string;
+  team_name: string;
+  inviter_email: string | null;
+  role: string;
+  created_at: string;
+  expires_at: string;
+}
+
+export async function fetchMyPendingInvitations(): Promise<MyPendingInvitation[]> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) return [];
+  const res = await fetchAuth(`${serverUrl}/v1/my/pending-invitations`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function acceptMyPendingInvitation(invitationId: string): Promise<void> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) throw new Error("Not connected to server");
+  const res = await fetchAuth(`${serverUrl}/v1/my/pending-invitations/${invitationId}/accept`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(`Failed to accept invitation: ${res.status}`);
+}
+
+export async function declineMyPendingInvitation(invitationId: string): Promise<void> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) throw new Error("Not connected to server");
+  const res = await fetchAuth(`${serverUrl}/v1/my/pending-invitations/${invitationId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error(`Failed to decline invitation: ${res.status}`);
 }

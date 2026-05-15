@@ -2,15 +2,15 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { invoke } from "@tauri-apps/api/core";
 import * as api from "@/services/teamService";
-import type { Team, TeamMember, TeamRole } from "@/services/teamService";
-import { distributeKeyToNewMember } from "@/services/teamVaultSync";
-import { useNotificationStore } from "@/stores/notificationStore";
-export type { Team, TeamMember, TeamRole };
+import type { Team, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation } from "@/services/teamService";
+export type { Team, TeamMember, TeamRole, PendingInvitation, MyPendingInvitation };
 
 interface TeamStore {
   teams: Team[];
   membersByTeam: Record<string, TeamMember[]>;
   rolesByTeam: Record<string, TeamRole[]>;
+  pendingInvitationsByTeam: Record<string, PendingInvitation[]>;
+  myPendingInvitations: MyPendingInvitation[];
   activeTeamId: string | null;
   loading: boolean;
 
@@ -18,11 +18,14 @@ interface TeamStore {
   createTeam: (name: string) => Promise<Team>;
   loadMembers: (teamId: string) => Promise<void>;
   addMember: (teamId: string, email: string, role?: string) => Promise<void>;
-  addMemberById: (teamId: string, userId: string, role?: string) => Promise<void>;
+  addMemberById: (teamId: string, userId: string, role?: string) => Promise<{ status: "pending" | "already_member" }>;
   removeMember: (teamId: string, userId: string) => Promise<void>;
   setActiveTeam: (teamId: string | null) => void;
   getActiveMembers: () => TeamMember[];
   setMemberOnline: (userId: string, online: boolean) => void;
+  loadPendingInvitations: (teamId: string) => Promise<void>;
+  loadMyPendingInvitations: () => Promise<void>;
+  removeTeam: (teamId: string) => void;
   // Roles
   loadRoles: (teamId: string) => Promise<void>;
   createRole: (teamId: string, name: string, permissions: number, color?: string) => Promise<TeamRole>;
@@ -38,6 +41,8 @@ export const useTeamStore = create<TeamStore>()(
   teams: [],
   membersByTeam: {},
   rolesByTeam: {},
+  pendingInvitationsByTeam: {},
+  myPendingInvitations: [],
   activeTeamId: null,
   loading: false,
 
@@ -81,57 +86,13 @@ export const useTeamStore = create<TeamStore>()(
   addMember: async (teamId, email, role) => {
     await api.addMember(teamId, email, role);
     await get().loadMembers(teamId);
-    const members = get().membersByTeam[teamId] ?? [];
-    const newMember = members.find((m) => m.email === email);
-    if (newMember?.public_key) {
-      distributeKeyToNewMember(teamId, newMember.user_id, newMember.public_key).catch(() => {
-        useNotificationStore.getState().addToast({
-          pluginId: "system",
-          pluginName: "Voltius",
-          type: "toast",
-          message: `Member added, but vault key sharing failed for ${newMember.email}. Try redistributing keys after they sign in again.`,
-          severity: "warning",
-          duration: 7000,
-        });
-      });
-    } else if (newMember) {
-      useNotificationStore.getState().addToast({
-        pluginId: "system",
-        pluginName: "Voltius",
-        type: "toast",
-        message: `${newMember.email} was added, but they need to sign in once before vault access can be encrypted for them.`,
-        severity: "warning",
-        duration: 7000,
-      });
-    }
   },
 
   addMemberById: async (teamId, userId, role) => {
-    await api.addMemberById(teamId, userId, role);
+    const result = await api.addMemberById(teamId, userId, role);
+    // Pending invites don't appear in the members list yet; reload to pick up any state changes
     await get().loadMembers(teamId);
-    const members = get().membersByTeam[teamId] ?? [];
-    const newMember = members.find((m) => m.user_id === userId);
-    if (newMember?.public_key) {
-      distributeKeyToNewMember(teamId, newMember.user_id, newMember.public_key).catch(() => {
-        useNotificationStore.getState().addToast({
-          pluginId: "system",
-          pluginName: "Voltius",
-          type: "toast",
-          message: `Member added, but vault key sharing failed for ${newMember.email}. Try redistributing keys after they sign in again.`,
-          severity: "warning",
-          duration: 7000,
-        });
-      });
-    } else if (newMember) {
-      useNotificationStore.getState().addToast({
-        pluginId: "system",
-        pluginName: "Voltius",
-        type: "toast",
-        message: `${newMember.email} was added, but they need to sign in once before vault access can be encrypted for them.`,
-        severity: "warning",
-        duration: 7000,
-      });
-    }
+    return result;
   },
 
   removeMember: async (teamId, userId) => {
@@ -145,6 +106,30 @@ export const useTeamStore = create<TeamStore>()(
   },
 
   setActiveTeam: (teamId) => set({ activeTeamId: teamId }),
+
+  loadPendingInvitations: async (teamId) => {
+    const invites = await api.listPendingInvitations(teamId).catch(() => [] as PendingInvitation[]);
+    set((s) => ({ pendingInvitationsByTeam: { ...s.pendingInvitationsByTeam, [teamId]: invites } }));
+  },
+
+  loadMyPendingInvitations: async () => {
+    const invites = await api.fetchMyPendingInvitations().catch(() => [] as MyPendingInvitation[]);
+    set({ myPendingInvitations: invites });
+  },
+
+  removeTeam: (teamId) => {
+    set((s) => {
+      const { [teamId]: _m, ...membersByTeam } = s.membersByTeam;
+      const { [teamId]: _r, ...rolesByTeam } = s.rolesByTeam;
+      const { [teamId]: _p, ...pendingInvitationsByTeam } = s.pendingInvitationsByTeam;
+      return {
+        teams: s.teams.filter((t) => t.id !== teamId),
+        membersByTeam,
+        rolesByTeam,
+        pendingInvitationsByTeam,
+      };
+    });
+  },
 
   setMemberOnline: (userId, online) =>
     set((state) => ({

@@ -48,6 +48,10 @@ export function clearTeamKeyCache(): void {
   _teamKeyCache.clear();
 }
 
+export function deleteTeamKey(teamId: string): void {
+  _teamKeyCache.delete(teamId);
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function bytesToBase64(bytes: number[]): string {
