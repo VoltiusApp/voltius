@@ -41,7 +41,7 @@ import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useAllFolders } from "@/hooks/useAllFolders";
 import { SnippetPickerPanel } from "./SnippetPickerPanel";
-import { shouldUseBulkHostContextMenu } from "./hostSelection";
+import { getHostDeleteTargetIds, shouldUseBulkHostContextMenu } from "./hostSelection";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 
@@ -369,6 +369,15 @@ export default function HostsPage() {
       // Error is shown in ConnectionOverlay
     }
   }, [connect, handleBulkConnect, selectedConnections, selectedIdSet, setActiveNav]);
+
+  const handleDeleteConnection = useCallback((id: string) => {
+    const targetIds = getHostDeleteTargetIds(id, selectedIdSet, selectedConnections.map((c) => c.id));
+    if (targetIds.length > 1) {
+      setConfirmDeleteIds(targetIds);
+      return;
+    }
+    void deleteConnection(id);
+  }, [deleteConnection, selectedConnections, selectedIdSet]);
 
   const bulkContextMenuItems = useMemo<ContextMenuItem[] | undefined>(() => {
     if (selectedIdSet.size === 0) return undefined;
@@ -1047,7 +1056,7 @@ export default function HostsPage() {
                           onEdit={(c) => { selectSingle(c.id); openEdit(c); }}
                           onDuplicate={handleDuplicate}
                           onExecuteSnippet={(c) => openSnippetPicker([c.id])}
-                          onDelete={deleteConnection}
+                          onDelete={handleDeleteConnection}
                           onMoveToVault={handleMoveConnectionToVault}
                           onCopyToVault={handleCopyConnectionToVault}
                           bulkContextMenuItems={shouldUseBulkHostContextMenu(selectedConnections.length) ? bulkContextMenuItems : undefined}
@@ -1119,7 +1128,7 @@ export default function HostsPage() {
                           onEdit={(c) => { selectSingle(c.id); openEdit(c); }}
                           onDuplicate={handleDuplicate}
                           onExecuteSnippet={(c) => openSnippetPicker([c.id])}
-                          onDelete={deleteConnection}
+                          onDelete={handleDeleteConnection}
                           onMoveToVault={handleMoveConnectionToVault}
                           onCopyToVault={handleCopyConnectionToVault}
                           bulkContextMenuItems={shouldUseBulkHostContextMenu(selectedConnections.length) ? bulkContextMenuItems : undefined}
