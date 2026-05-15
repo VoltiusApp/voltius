@@ -11,7 +11,7 @@ interface Props {
 
 export function ConfirmModal({ title, message, confirmLabel = "Confirm", onConfirm, onCancel }: Props) {
   return (
-    <Modal onClose={onCancel}>
+    <Modal onClose={onCancel} onEnter={onConfirm}>
       <div
         className="p-6 rounded-2xl flex flex-col gap-4 mx-4 bg-[var(--t-bg-card)] border border-[var(--t-border)] min-w-[21.333rem] max-w-[26.667rem]"
         style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}

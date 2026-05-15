@@ -3,18 +3,20 @@ import { createPortal } from "react-dom";
 
 interface Props {
   onClose: () => void;
+  onEnter?: () => void;
   children: React.ReactNode;
   blur?: boolean;
 }
 
-export function Modal({ onClose, children, blur = false }: Props) {
+export function Modal({ onClose, onEnter, children, blur = false }: Props) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
+      if (e.key === "Enter" && onEnter) { e.stopPropagation(); onEnter(); }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
+  }, [onClose, onEnter]);
 
   return createPortal(
     <div
