@@ -105,6 +105,15 @@ input::-webkit-inner-spin-button {
     background: color-mix(in srgb, theme("colors.border.hover") 160%, white);
   }
 
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   ::selection {
     background: theme("colors.accent.DEFAULT / 30%");
   }

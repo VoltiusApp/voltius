@@ -71,56 +71,62 @@ export default function VaultSidebar() {
 
   return (
     <aside
-      className="flex flex-col shrink-0 items-center gap-2.5 overflow-y-auto overflow-x-hidden"
+      className="flex flex-col shrink-0 items-center gap-2.5 overflow-hidden"
       style={{ width: "4.75rem", background: "var(--t-bg-terminal)" }}
     >
       {/* App icon */}
       <AppIconButton isActive={homeView} onClick={() => setHomeView(true)} />
 
-      <div className="w-7 h-px my-1" style={{ background: "var(--t-border)" }} />
+      <div className="w-7 h-px my-1 shrink-0" style={{ background: "var(--t-border)" }} />
 
-      {/* Local vault buttons */}
-      {vaults.map((vault) => {
-        const isActive = selectedVaultIds.includes(vault.id) && !homeView;
-        return (
-          <div key={vault.id} className="relative flex items-center justify-center w-full">
-            <VaultButton
-              initial={getInitials(vault.name)}
-              label={vault.teamId ? `${vault.name} (Cloud vault)` : vault.name}
-              isActive={isActive}
-              onClick={() => {
-                selectVaultOnly(vault.id);
-                setHomeView(false);
-                if (vault.teamId) onVaultSelect(vault.teamId).catch(() => {});
-              }}
-            />
-            {vault.teamId && <TeamVaultBadge teamId={vault.teamId} />}
-          </div>
-        );
-      })}
+      <div
+        data-testid="vault-sidebar-scroll-area"
+        className="flex flex-col items-center gap-2.5 min-h-0 overflow-y-auto overflow-x-hidden w-full scrollbar-none"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
+        {/* Local vault buttons */}
+        {vaults.map((vault) => {
+          const isActive = selectedVaultIds.includes(vault.id) && !homeView;
+          return (
+            <div key={vault.id} className="relative flex items-center justify-center w-full shrink-0">
+              <VaultButton
+                initial={getInitials(vault.name)}
+                label={vault.teamId ? `${vault.name} (Cloud vault)` : vault.name}
+                isActive={isActive}
+                onClick={() => {
+                  selectVaultOnly(vault.id);
+                  setHomeView(false);
+                  if (vault.teamId) onVaultSelect(vault.teamId).catch(() => {});
+                }}
+              />
+              {vault.teamId && <TeamVaultBadge teamId={vault.teamId} />}
+            </div>
+          );
+        })}
 
-      {/* Standalone team vault buttons (invited members who have no linked local vault) */}
-      {standaloneTeams.map((team) => {
-        const isActive = selectedVaultIds.includes(team.id) && !homeView;
-        return (
-          <div key={team.id} className="relative flex items-center justify-center w-full">
-            <VaultButton
-              initial={getInitials(team.name)}
-              label={`${team.name} (Cloud vault)`}
-              isActive={isActive}
-              onClick={() => {
-                selectVaultOnly(team.id);
-                setHomeView(false);
-                onVaultSelect(team.id).catch(() => {});
-              }}
-            />
-            <TeamVaultBadge teamId={team.id} />
-          </div>
-        );
-      })}
+        {/* Standalone team vault buttons (invited members who have no linked local vault) */}
+        {standaloneTeams.map((team) => {
+          const isActive = selectedVaultIds.includes(team.id) && !homeView;
+          return (
+            <div key={team.id} className="relative flex items-center justify-center w-full shrink-0">
+              <VaultButton
+                initial={getInitials(team.name)}
+                label={`${team.name} (Cloud vault)`}
+                isActive={isActive}
+                onClick={() => {
+                  selectVaultOnly(team.id);
+                  setHomeView(false);
+                  onVaultSelect(team.id).catch(() => {});
+                }}
+              />
+              <TeamVaultBadge teamId={team.id} />
+            </div>
+          );
+        })}
 
-      {/* Add vault */}
-      <AddVaultButton onClick={handleAddVaultClick} />
+        {/* Add vault */}
+        <AddVaultButton onClick={handleAddVaultClick} />
+      </div>
 
       {showCreateModal && (
         <CreateVaultModal
@@ -262,7 +268,7 @@ function AppIconButton({ isActive, onClick }: { isActive: boolean; onClick: () =
   const borderRadius = isActive || hovered ? "0.75rem" : "1.375rem";
   return (
     <div
-      className="relative flex items-center justify-center w-full"
+      className="relative flex items-center justify-center w-full shrink-0"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -343,7 +349,7 @@ function SettingsButton({ onClick }: { onClick: () => void }) {
       onClick={onClick}
       onMouseDown={createRipple}
       title="Settings"
-      className="flex items-center justify-center mb-3 relative overflow-hidden transition-all"
+      className="flex items-center justify-center mb-3 relative overflow-hidden transition-all shrink-0"
       style={{
         width: 44,
         height: 44,
@@ -376,7 +382,7 @@ function AddVaultButton({ onClick }: { onClick: () => void }) {
       onClick={onClick}
       onMouseDown={createRipple}
       title="Add vault"
-      className="flex items-center justify-center relative overflow-hidden transition-all"
+      className="flex items-center justify-center relative overflow-hidden transition-all shrink-0"
       style={{
         width: 44,
         height: 44,

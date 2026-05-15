@@ -87,7 +87,7 @@ export function SidebarAccountButton() {
         onClick={() => void openDropdown()}
         onMouseDown={createRipple}
         title="Account"
-        className="flex items-center justify-center relative overflow-hidden transition-all"
+        className="flex items-center justify-center relative overflow-hidden transition-all shrink-0"
         style={{
           width: 44,
           height: 44,
