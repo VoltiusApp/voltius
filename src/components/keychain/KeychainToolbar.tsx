@@ -41,13 +41,14 @@ export function KeychainToolbar({
 
   return (
     <>
-      <div ref={rowRef} className="flex items-center gap-2 px-5 py-2.5 shrink-0 bg-[var(--t-bg-toolbar)] border-b border-b-[var(--t-bg-terminal)]">
+      <div ref={rowRef} className="flex items-center gap-2 px-5 py-2.5 shrink-0 bg-[var(--t-bg-toolbar)] border-b border-b-[var(--t-border)]">
         <div ref={leftRef} className="flex items-center">
           <ToolbarViewControls
             search={search}
             onSearchChange={onSearchChange}
             filterPlaceholder="Filter..."
             filterShortcutId="filter"
+            filterWidth={176}
             layoutMode={layoutMode}
             onLayoutModeChange={onLayoutModeChange}
             sortMode={sortMode}
