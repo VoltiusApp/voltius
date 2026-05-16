@@ -105,8 +105,8 @@ export function AuditFilters({ actors, search, onSearchChange, layout, onLayoutC
   }
 
   return (
-    <div className="flex items-center gap-2 px-5 py-2.5 bg-[var(--t-bg-toolbar)] border-b border-b-[var(--t-bg-terminal)]">
-      <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+    <div className="flex items-center gap-2 px-5 py-2.5 shrink-0 bg-[var(--t-bg-toolbar)] border-b border-b-[var(--t-border)]">
+      <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
         <FilterInput value={search} onChange={onSearchChange} placeholder="Filter logs..." width={176} />
 
         <ToolbarDropdown icon={LAYOUT_ICON[layout]} value={layout} options={LAYOUT_OPTIONS} onChange={onLayoutChange} />
@@ -142,7 +142,7 @@ export function AuditFilters({ actors, search, onSearchChange, layout, onLayoutC
         />
 
         {timeRange === "custom" && (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             <input
               type="datetime-local"
               className={inputCls}
@@ -164,7 +164,7 @@ export function AuditFilters({ actors, search, onSearchChange, layout, onLayoutC
         {hasActiveFilters && (
           <button
             onClick={handleReset}
-            className="text-xs px-2.5 h-7 rounded-lg text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors"
+            className="text-xs px-2.5 h-7 rounded-lg text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors shrink-0"
             type="button"
           >
             Reset
@@ -172,9 +172,9 @@ export function AuditFilters({ actors, search, onSearchChange, layout, onLayoutC
         )}
       </div>
 
-      <div className="flex-1" />
-
-      {actions}
+      <div className="ml-auto flex items-center gap-2 shrink-0">
+        {actions}
+      </div>
     </div>
   );
 }

@@ -185,7 +185,7 @@ function MembersToolbar({
 }: MembersToolbarProps) {
   return (
     <div
-      className="flex items-center gap-2 px-4 py-2.5 shrink-0"
+      className="flex items-center gap-2 px-5 py-2.5 shrink-0"
       style={{ borderBottom: "1px solid var(--t-border)", background: "var(--t-bg-toolbar)" }}
     >
       <div className="flex items-center gap-2 min-w-0">
@@ -217,7 +217,7 @@ function MembersToolbar({
           sortMode={sortMode}
           onSortModeChange={onSortModeChange}
           extraSortOptions={[{ value: "role-asc", label: "By role", icon: "lucide:shield" }]}
-          filterWidth={144}
+          filterWidth={176}
         />
       </div>
 

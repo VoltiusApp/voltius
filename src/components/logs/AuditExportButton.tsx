@@ -42,7 +42,7 @@ export function AuditExportButton({ context }: Props) {
       <button
         onClick={() => setOpen((v) => !v)}
         disabled={exporting}
-        className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg transition-colors"
+        className="flex items-center gap-1.5 text-sm px-3 h-8 rounded-lg transition-colors"
         style={{
           background: "var(--t-bg-elevated)",
           border: "1px solid var(--t-border)",
