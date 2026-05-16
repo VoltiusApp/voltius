@@ -64,17 +64,18 @@ No account required. Your data, your machine.
 ### ⚡ Pro ($7/mo annual · $9/mo monthly — 14-day free trial, no card)
 - **Real-Time Cloud Sync:** High-performance real-time engine using CRDTs for instant, conflict-free merging and SSE for sub-second updates across all devices.
 - **Unlimited Private Vaults**
-- **Terminal Sharing:** Share a terminal session ad-hoc with 1 guest — great for pair debugging or quick help.
+- **Terminal Sharing:** 1 invite-link session · 1 guest — great for pair debugging or quick help.
 
 ### 👥 Teams ($15/user/mo annual · $18/user/mo monthly — 3-user minimum)
 - **Team Vaults:** Shared vaults with easy member invites
-- **Shared terminals (unlimited guests)**
+- **Shared terminals — 5 sessions · 10 guests each** (session quota shared across the vault owner's vaults)
 - **Role-Based Access Control (RBAC):** Only default roles for teams plan, granular permissions and custom roles are reserved for Business plan to avoid complexity for small teams.
 - **Team Audit Logs**
 
 ### 🏢 Business ($30/user/mo — contact us)
 - **On-premise self-hosted backend**
 - **Priority SLA support**
+- **Shared terminals — 20 sessions · 50 guests each**
 - **Granular permissions & Custom Roles**
 - **Custom contracts**
 

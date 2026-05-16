@@ -526,9 +526,9 @@ const PLAN_FEATURES = [
   { label: "GitHub Gist sync", free: true, pro: true, teams: true, business: true },
   { label: "Real-time cloud sync", free: false, pro: true, teams: true, business: true },
   { label: "Unlimited private vaults", free: false, pro: true, teams: true, business: true },
-  { label: "Terminal sharing (1 guest)", free: false, pro: true, teams: true, business: true },
+  { label: "Terminal sharing (1 session · 1 guest)", free: false, pro: true, teams: true, business: true },
   { label: "Shared team vaults", free: false, pro: false, teams: true, business: true },
-  { label: "Unlimited terminal guests", free: false, pro: false, teams: true, business: true },
+  { label: "Team sharing (5 sessions · 10 guests)", free: false, pro: false, teams: true, business: true },
   { label: "Custom roles", free: false, pro: false, teams: false, business: true },
 ];
 
