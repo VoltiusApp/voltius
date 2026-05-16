@@ -1,5 +1,7 @@
 use crate::crypto;
+use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::Serialize;
+use x25519_dalek::{PublicKey, StaticSecret};
 
 fn decode_hex(s: &str) -> Result<Vec<u8>, String> {
     if s.len() % 2 != 0 {
@@ -52,9 +54,60 @@ pub struct GenerateKeypairResult {
 #[tauri::command]
 pub fn generate_keypair() -> GenerateKeypairResult {
     let kp = crypto::generate_keypair();
-    // private_key_bytes would be stored in Stronghold, encrypted with enc_key
-    // For now, we only return the public key
     GenerateKeypairResult {
         public_key: kp.public_key,
+    }
+}
+
+// ─── User secrets wrap/unwrap ──────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn wrap_user_secrets_cmd(
+    kek: Vec<u8>,
+    dek: Vec<u8>,
+    x25519_private: Vec<u8>,
+) -> Result<String, String> {
+    let kek: &[u8; 32] = kek.as_slice().try_into().map_err(|_| "kek must be 32 bytes")?;
+    let dek: &[u8; 32] = dek.as_slice().try_into().map_err(|_| "dek must be 32 bytes")?;
+    let x: &[u8; 32] = x25519_private.as_slice().try_into().map_err(|_| "x25519_private must be 32 bytes")?;
+    let wrapped = voltius_crypto::wrap_user_secrets(kek, dek, x)?;
+    Ok(STANDARD.encode(&wrapped))
+}
+
+#[derive(Serialize)]
+pub struct UnwrappedUserSecrets {
+    pub dek: Vec<u8>,
+    pub x25519_private: Vec<u8>,
+}
+
+#[tauri::command]
+pub fn unwrap_user_secrets_cmd(kek: Vec<u8>, wrapped_b64: String) -> Result<UnwrappedUserSecrets, String> {
+    let kek: &[u8; 32] = kek.as_slice().try_into().map_err(|_| "kek must be 32 bytes")?;
+    let wrapped = STANDARD.decode(&wrapped_b64).map_err(|e| e.to_string())?;
+    let (dek, x25519_private) = voltius_crypto::unwrap_user_secrets(kek, &wrapped)?;
+    Ok(UnwrappedUserSecrets {
+        dek: dek.to_vec(),
+        x25519_private: x25519_private.to_vec(),
+    })
+}
+
+#[derive(Serialize)]
+pub struct GeneratedUserSecrets {
+    pub dek: Vec<u8>,
+    pub x25519_private: Vec<u8>,
+    pub x25519_public: String, // base64
+}
+
+#[tauri::command]
+pub fn generate_user_secrets_cmd() -> GeneratedUserSecrets {
+    let dek = voltius_crypto::random_bytes(32);
+    let x25519_private_bytes = voltius_crypto::random_bytes(32);
+    let private_arr: [u8; 32] = x25519_private_bytes.clone().try_into().unwrap();
+    let secret = StaticSecret::from(private_arr);
+    let public = PublicKey::from(&secret);
+    GeneratedUserSecrets {
+        dek,
+        x25519_private: x25519_private_bytes,
+        x25519_public: STANDARD.encode(public.as_bytes()),
     }
 }

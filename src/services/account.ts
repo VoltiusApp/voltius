@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { setVaultKey, verifyVaultKey, lockVault, getVaultStatus, unlockVaultIfNeeded, wipeLocalConfig } from "./vault";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { appFetch, isAbortError } from "@/services/http";
 
 function reloadSubscription() {
@@ -11,7 +12,18 @@ const FORCE_LOCK_FLAG_KEY = "voltius.force-lock-next-auth";
 
 interface DeriveKeysResult {
   auth_key: string;   // base64 — sent to server
-  enc_key: number[];  // raw 32 bytes — used to encrypt secrets
+  enc_key: number[];  // raw 32 bytes — kek (semantic rename; bit-identical to old enc_key)
+}
+
+interface GeneratedUserSecrets {
+  dek: number[];
+  x25519_private: number[];
+  x25519_public: string; // base64
+}
+
+interface UnwrappedUserSecrets {
+  dek: number[];
+  x25519_private: number[];
 }
 
 function hexToBytes(hex: string): number[] {
@@ -28,6 +40,18 @@ function isHexEncoded32ByteKey(value: string): boolean {
 
 async function deriveKeys(password: string, accountId: string): Promise<DeriveKeysResult> {
   return invoke<DeriveKeysResult>("derive_keys", { password, accountId });
+}
+
+async function generateUserSecrets(): Promise<GeneratedUserSecrets> {
+  return invoke<GeneratedUserSecrets>("generate_user_secrets_cmd");
+}
+
+async function wrapUserSecrets(kek: number[], dek: number[], x25519Private: number[]): Promise<string> {
+  return invoke<string>("wrap_user_secrets_cmd", { kek, dek, x25519Private });
+}
+
+async function unwrapUserSecrets(kek: number[], wrappedB64: string): Promise<UnwrappedUserSecrets> {
+  return invoke<UnwrappedUserSecrets>("unwrap_user_secrets_cmd", { kek, wrappedB64 });
 }
 
 function normalizeServerUrl(url: string): string {
@@ -133,13 +157,21 @@ export async function createServerAccount(
   serverUrl = normalizeServerUrl(serverUrl);
   const accountId = crypto.randomUUID();
   const { auth_key, enc_key } = await deriveKeys(password, accountId);
-  const { public_key } = await invoke<{ public_key: string }>("generate_keypair");
+  const secrets = await generateUserSecrets();
+  const wrapped_user_secrets = await wrapUserSecrets(enc_key, secrets.dek, secrets.x25519_private);
   const machine_fingerprint = await invoke<string | null>("get_machine_fingerprint").catch(() => null);
 
   const res = await fetchWithTimeout(`${serverUrl}/v1/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, account_id: accountId, auth_key, public_key, machine_fingerprint }),
+    body: JSON.stringify({
+      email,
+      account_id: accountId,
+      auth_key,
+      public_key: secrets.x25519_public,
+      wrapped_user_secrets,
+      machine_fingerprint,
+    }),
   });
 
   if (res.status === 409) throw new Error("Email already registered");
@@ -147,7 +179,8 @@ export async function createServerAccount(
 
   const data = await res.json();
 
-  setVaultKey(enc_key);
+  useVaultKeysStore.getState().set({ dek: secrets.dek, x25519Private: secrets.x25519_private, kek: enc_key });
+  setVaultKey(secrets.dek);
 
   await keychainSet("master_password", password);
   await keychainSet("account_id", accountId);
@@ -201,7 +234,7 @@ export async function login(password: string, email?: string, serverUrl?: string
   const resolvedServerUrl = rawServerUrl ? normalizeServerUrl(rawServerUrl) : null;
 
   if (resolvedEmail && resolvedServerUrl && (mode === "server" || serverUrl)) {
-    const { auth_key } = await deriveKeys(password, accountId);
+    const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
     const res = await fetchWithTimeout(`${resolvedServerUrl}/v1/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -214,6 +247,16 @@ export async function login(password: string, email?: string, serverUrl?: string
     await keychainSet("mode", "server");
     await keychainSet("email", resolvedEmail);
     await keychainSet("server_url", resolvedServerUrl);
+
+    if (data.wrapped_user_secrets) {
+      const unwrapped = await unwrapUserSecrets(kek, data.wrapped_user_secrets);
+      useVaultKeysStore.getState().set({ dek: unwrapped.dek, x25519Private: unwrapped.x25519_private, kek });
+      setVaultKey(unwrapped.dek);
+    } else {
+      // Legacy account — trigger one-time migration
+      await migrateToWrappedUserSecrets(password, accountId, kek, resolvedServerUrl, data.jwt_token);
+    }
+
     reloadSubscription();
   }
 }
@@ -261,6 +304,7 @@ export async function autoLogin(): Promise<boolean> {
 /** Sign out from cloud session — wipes local vault and all keychain entries so the
  *  app starts fresh on next launch (same as first-launch home screen). */
 export async function logout(): Promise<void> {
+  useVaultKeysStore.getState().clear();
   const { stopRealtimeSync } = await import("@/services/sync");
   stopRealtimeSync();
   const { onSessionEnd } = await import("@/services/teamDataManager");
@@ -356,7 +400,7 @@ export async function signInToCloud(
   if (!res.ok) throw new Error("Account not found");
   const { account_id: accountId } = await res.json();
 
-  const { auth_key, enc_key } = await deriveKeys(password, accountId);
+  const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
 
   const loginRes = await fetchWithTimeout(`${serverUrl}/v1/auth/login`, {
     method: "POST",
@@ -366,7 +410,14 @@ export async function signInToCloud(
   if (!loginRes.ok) throw new Error("Invalid email or password");
   const data = await loginRes.json();
 
-  setVaultKey(enc_key);
+  let vaultKey = kek;
+  if (data.wrapped_user_secrets) {
+    const unwrapped = await unwrapUserSecrets(kek, data.wrapped_user_secrets);
+    useVaultKeysStore.getState().set({ dek: unwrapped.dek, x25519Private: unwrapped.x25519_private, kek });
+    vaultKey = unwrapped.dek;
+  }
+
+  setVaultKey(vaultKey);
 
   await keychainSet("master_password", password);
   await keychainSet("account_id", accountId);
@@ -400,14 +451,22 @@ export async function linkToCloud(
   if (mode === "local-nopassword") throw new Error("Set a master password before linking to cloud");
   if (!password) throw new Error("Master password required");
 
-  const { auth_key } = await deriveKeys(password, accountId);
-  const { public_key } = await invoke<{ public_key: string }>("generate_keypair");
+  const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
+  const secrets = await generateUserSecrets();
+  const wrapped_user_secrets = await wrapUserSecrets(kek, secrets.dek, secrets.x25519_private);
   const machine_fingerprint = await invoke<string | null>("get_machine_fingerprint").catch(() => null);
 
   const res = await fetchWithTimeout(`${serverUrl}/v1/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, account_id: accountId, auth_key, public_key, machine_fingerprint }),
+    body: JSON.stringify({
+      email,
+      account_id: accountId,
+      auth_key,
+      public_key: secrets.x25519_public,
+      wrapped_user_secrets,
+      machine_fingerprint,
+    }),
   });
 
   if (res.status === 409) throw new Error("Email already registered");
@@ -415,10 +474,140 @@ export async function linkToCloud(
 
   const data = await res.json();
 
+  useVaultKeysStore.getState().set({ dek: secrets.dek, x25519Private: secrets.x25519_private, kek });
+
   await keychainSet("mode", "server");
   await keychainSet("email", email);
   await keychainSet("server_url", serverUrl);
   await keychainSet("jwt", data.jwt_token);
   await keychainSet("refresh_token", data.refresh_token);
   reloadSubscription();
+}
+
+// ─── New account management features ─────────────────────────────────────────
+
+export async function changeMasterPassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  const [accountId, jwt, serverUrl] = await Promise.all([
+    keychainGet("account_id"),
+    keychainGet("jwt"),
+    keychainGet("server_url"),
+  ]);
+  if (!accountId) throw new Error("No account found");
+  if (!jwt || !serverUrl) throw new Error("Not connected to server");
+
+  const { auth_key: old_auth_key, enc_key: old_kek } = await deriveKeys(currentPassword, accountId);
+
+  // Get wrapped_user_secrets from cached store or fetch from server
+  let cachedDek = useVaultKeysStore.getState().dek;
+  let cachedX25519 = useVaultKeysStore.getState().x25519Private;
+
+  if (!cachedDek || !cachedX25519) {
+    const meRes = await fetchWithTimeout(`${serverUrl}/v1/auth/me`, {
+      headers: { Authorization: `Bearer ${jwt}` },
+    });
+    if (!meRes.ok) throw new Error("Failed to fetch account info");
+    const me = await meRes.json();
+    if (!me.wrapped_user_secrets) throw new Error("Account not migrated yet — please log in from the Tauri app first");
+    const unwrapped = await unwrapUserSecrets(old_kek, me.wrapped_user_secrets);
+    cachedDek = unwrapped.dek;
+    cachedX25519 = unwrapped.x25519_private;
+  }
+
+  const { auth_key: new_auth_key, enc_key: new_kek } = await deriveKeys(newPassword, accountId);
+  const new_wrapped_user_secrets = await wrapUserSecrets(new_kek, cachedDek, cachedX25519);
+
+  const res = await fetchWithTimeout(`${serverUrl}/v1/auth/password`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
+    body: JSON.stringify({ old_auth_key, new_auth_key, new_wrapped_user_secrets }),
+  });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error("Current password is incorrect");
+    throw new Error(`Password change failed: ${res.status}`);
+  }
+
+  const data = await res.json();
+  await keychainSet("master_password", newPassword);
+  await keychainSet("jwt", data.jwt_token);
+  await keychainSet("refresh_token", data.refresh_token);
+  useVaultKeysStore.getState().set({ dek: cachedDek, x25519Private: cachedX25519, kek: new_kek });
+  reloadSubscription();
+}
+
+export async function changeEmail(newEmail: string, currentPassword: string): Promise<void> {
+  const [accountId, jwt, serverUrl] = await Promise.all([
+    keychainGet("account_id"),
+    keychainGet("jwt"),
+    keychainGet("server_url"),
+  ]);
+  if (!accountId) throw new Error("No account found");
+  if (!jwt || !serverUrl) throw new Error("Not connected to server");
+
+  const { auth_key } = await deriveKeys(currentPassword, accountId);
+
+  const res = await fetchWithTimeout(`${serverUrl}/v1/auth/email`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
+    body: JSON.stringify({ new_email: newEmail, auth_key }),
+  });
+  if (res.status === 409) throw new Error("Email is already in use");
+  if (res.status === 401) throw new Error("Incorrect password");
+  if (!res.ok) throw new Error(`Email update failed: ${res.status}`);
+
+  await keychainSet("email", newEmail);
+  await refreshSession();
+}
+
+async function migrateToWrappedUserSecrets(
+  _password: string,
+  _accountId: string,
+  kek: number[],
+  serverUrl: string,
+  jwt: string,
+): Promise<void> {
+  try {
+    // Derive existing deterministic X25519 keypair from legacy enc_key (= kek)
+    const { private_key: legacyX25519PrivateB64 } =
+      await invoke<{ public_key: string; private_key: string }>("derive_x25519_keypair", { encKey: kek });
+
+    const legacyX25519Private = Array.from(
+      Uint8Array.from(atob(legacyX25519PrivateB64), (c) => c.charCodeAt(0))
+    );
+
+    // Generate a fresh random DEK
+    const secrets = await generateUserSecrets();
+    const dek = secrets.dek;
+
+    // Re-encrypt secrets.enc: old key was kek (legacy), new key is dek
+    await invoke("secrets_rekey", { oldEncKey: kek, newEncKey: dek });
+
+    // Build user_secrets with legacy X25519 private key (preserves public key on server)
+    const wrapped_user_secrets = await wrapUserSecrets(kek, dek, legacyX25519Private);
+
+    // Upload to server
+    const res = await fetchWithTimeout(`${serverUrl}/v1/auth/wrapped-user-secrets`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
+      body: JSON.stringify({ wrapped_user_secrets }),
+    });
+    if (!res.ok) {
+      console.warn("Migration upload failed:", res.status);
+      // Don't throw — fall back to using kek as vault key
+      setVaultKey(kek);
+      return;
+    }
+
+    useVaultKeysStore.getState().set({ dek, x25519Private: legacyX25519Private, kek });
+    setVaultKey(dek);
+
+    // Push re-encrypted data if cloud sync enabled
+    const { push } = await import("@/services/sync");
+    push().catch(() => {});
+  } catch (e) {
+    console.warn("Migration failed, falling back to legacy key:", e);
+    setVaultKey(kek);
+  }
 }

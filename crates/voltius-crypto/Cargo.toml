@@ -12,3 +12,4 @@ sha2 = "0.10"
 rand = "0.8"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
 base64 = "0.22"
+aes-gcm = "0.10"

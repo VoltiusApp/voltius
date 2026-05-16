@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Toggle } from "@/components/shared/Toggle";
 import { Icon } from "@iconify/react";
-import { getAccountMode, setMasterPassword, linkToCloud, signInToCloud, logout, lockVaultSession } from "@/services/account";
+import { getAccountMode, getCurrentUserEmail, setMasterPassword, linkToCloud, signInToCloud, logout, lockVaultSession } from "@/services/account";
 import { resetVault } from "@/services/vault";
 import { syncOnLogin, syncOnLoginReplace, startRealtimeSync, getSyncState, onSyncStateChange, syncNow } from "@/services/sync";
 import { useSecurityStore } from "@/stores/securityStore";
@@ -11,6 +11,8 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { openPortal } from "@/utils/billing";
 import { openBillingCheckout } from "@/services/billingCheckout";
+import EditEmailModal from "./EditEmailModal";
+import ChangeMasterPasswordModal from "./ChangeMasterPasswordModal";
 
 type AccountStep = "idle" | "set-password" | "link-cloud" | "loading" | "confirm-wipe";
 type CloudAction = "register" | "signin";
@@ -36,6 +38,7 @@ export default function AccountSection() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [email, setEmail] = useState("");
+  const [currentEmail, setCurrentEmail] = useState<string | null>(null);
   const [linkPassword, setLinkPassword] = useState("");
   const [linkConfirm, setLinkConfirm] = useState("");
   const [cloudAction, setCloudAction] = useState<CloudAction>("signin");
@@ -43,6 +46,8 @@ export default function AccountSection() {
   const [showServerUrl, setShowServerUrl] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showEditEmail, setShowEditEmail] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const [syncState, setSyncState] = useState(getSyncState);
   const sessionTimeoutMinutes = useSecurityStore((s) => s.sessionTimeoutMinutes);
   const setSessionTimeoutMinutes = useSecurityStore((s) => s.setSessionTimeoutMinutes);
@@ -53,6 +58,7 @@ export default function AccountSection() {
 
   useEffect(() => {
     getAccountMode().then(setMode).catch(() => setMode(null));
+    getCurrentUserEmail().then(setCurrentEmail).catch(() => {});
     setStep("idle");
     setError("");
     setSuccess("");
@@ -374,6 +380,22 @@ export default function AccountSection() {
 
       {step === "idle" && (
         <div className="space-y-2">
+          {mode === "server" && currentEmail && (
+            <ActionItem
+              icon="lucide:mail"
+              label="Email"
+              sub={currentEmail}
+              onClick={() => setShowEditEmail(true)}
+            />
+          )}
+          {mode === "server" && (
+            <ActionItem
+              icon="lucide:key-round"
+              label="Change master password"
+              sub="Update your password without re-encrypting your vault"
+              onClick={() => setShowChangePassword(true)}
+            />
+          )}
           {mode === "local-nopassword" && (
             <ActionItem
               icon="lucide:lock"
@@ -423,6 +445,20 @@ export default function AccountSection() {
             }}
           />
         </div>
+      )}
+
+      {showEditEmail && currentEmail && (
+        <EditEmailModal
+          currentEmail={currentEmail}
+          onClose={() => {
+            setShowEditEmail(false);
+            getCurrentUserEmail().then(setCurrentEmail).catch(() => {});
+          }}
+        />
+      )}
+
+      {showChangePassword && (
+        <ChangeMasterPasswordModal onClose={() => setShowChangePassword(false)} />
       )}
 
       {step === "confirm-wipe" && (

@@ -186,6 +186,39 @@ pub fn secrets_reencrypt(
     save(inner)
 }
 
+/// Re-key the secrets store: decrypt with old_key, re-encrypt with new_key.
+/// Used during the KEK/DEK migration when the DEK changes.
+#[tauri::command]
+pub fn secrets_rekey(
+    app: AppHandle,
+    state: tauri::State<SecretsStore>,
+    old_enc_key: Vec<u8>,
+    new_enc_key: Vec<u8>,
+) -> Result<(), String> {
+    if old_enc_key.len() != 32 {
+        return Err("old_enc_key must be 32 bytes".to_string());
+    }
+    if new_enc_key.len() != 32 {
+        return Err("new_enc_key must be 32 bytes".to_string());
+    }
+    let old_key: [u8; 32] = old_enc_key.try_into().unwrap();
+    let new_key: [u8; 32] = new_enc_key.try_into().unwrap();
+
+    let path = secrets_path(&app);
+    let secrets = if path.exists() {
+        let data = std::fs::read(&path).map_err(|e| format!("Read failed: {e}"))?;
+        decrypt(&old_key, &data)?
+    } else {
+        std::collections::HashMap::new()
+    };
+
+    let mut guard = state.inner.lock().unwrap();
+    let inner = guard.as_mut().ok_or("Secrets store is locked")?;
+    inner.secrets = secrets;
+    inner.enc_key = new_key;
+    save(inner)
+}
+
 #[tauri::command]
 pub fn secrets_get(
     state: tauri::State<SecretsStore>,

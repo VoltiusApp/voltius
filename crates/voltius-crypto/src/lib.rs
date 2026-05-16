@@ -1,5 +1,10 @@
+use aes_gcm::{
+    aead::{Aead, AeadCore, KeyInit, OsRng as AeadOsRng},
+    Aes256Gcm, Key, Nonce,
+};
 use argon2::{Algorithm, Argon2, Params, Version};
 use hkdf::Hkdf;
+use rand::RngCore;
 use sha2::Sha256;
 
 fn derive_master_key(password: &str, account_id: &str) -> Result<[u8; 32], String> {
@@ -41,6 +46,61 @@ pub fn derive_keys(password: &str, account_id: &str) -> Result<DerivedKeys, Stri
 pub struct DerivedKeys {
     pub auth_key: [u8; 32],
     pub enc_key: [u8; 32],
+}
+
+pub fn random_bytes(n: usize) -> Vec<u8> {
+    let mut buf = vec![0u8; n];
+    rand::rngs::OsRng.fill_bytes(&mut buf);
+    buf
+}
+
+pub fn aes_gcm_encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>, String> {
+    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(key));
+    let nonce = Aes256Gcm::generate_nonce(&mut AeadOsRng);
+    let ciphertext = cipher
+        .encrypt(&nonce, plaintext)
+        .map_err(|e| format!("AES-GCM encrypt failed: {e}"))?;
+    let mut out = Vec::with_capacity(12 + ciphertext.len());
+    out.extend_from_slice(&nonce);
+    out.extend_from_slice(&ciphertext);
+    Ok(out)
+}
+
+pub fn aes_gcm_decrypt(key: &[u8; 32], data: &[u8]) -> Result<Vec<u8>, String> {
+    if data.len() < 12 {
+        return Err("Ciphertext too short".to_string());
+    }
+    let nonce = Nonce::from_slice(&data[..12]);
+    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(key));
+    cipher
+        .decrypt(nonce, &data[12..])
+        .map_err(|_| "AES-GCM decrypt failed — wrong key or corrupted data".to_string())
+}
+
+/// Serialize and encrypt `{dek, x25519_private}` with `kek`.
+/// Format: nonce(12) || AES-GCM(dek(32) || x25519_private(32))
+pub fn wrap_user_secrets(
+    kek: &[u8; 32],
+    dek: &[u8; 32],
+    x25519_private: &[u8; 32],
+) -> Result<Vec<u8>, String> {
+    let mut plaintext = Vec::with_capacity(64);
+    plaintext.extend_from_slice(dek);
+    plaintext.extend_from_slice(x25519_private);
+    aes_gcm_encrypt(kek, &plaintext)
+}
+
+/// Decrypt and deserialize `{dek, x25519_private}`.
+pub fn unwrap_user_secrets(kek: &[u8; 32], wrapped: &[u8]) -> Result<([u8; 32], [u8; 32]), String> {
+    let plaintext = aes_gcm_decrypt(kek, wrapped)?;
+    if plaintext.len() != 64 {
+        return Err(format!("Unexpected user_secrets length: {}", plaintext.len()));
+    }
+    let mut dek = [0u8; 32];
+    let mut x25519_private = [0u8; 32];
+    dek.copy_from_slice(&plaintext[..32]);
+    x25519_private.copy_from_slice(&plaintext[32..]);
+    Ok((dek, x25519_private))
 }
 
 pub fn generate_keypair() -> Keypair {
