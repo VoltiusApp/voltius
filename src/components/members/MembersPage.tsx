@@ -27,9 +27,9 @@ import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
 import BuySeatsModal from "@/components/settings/BuySeatsModal";
 import { effectivePermissions, hasBuiltinRole, PERM_BITS } from "@/hooks/usePermission";
-import { appFetch } from "@/services/http";
 import { runTeamAction } from "@/services/teamActionFeedback";
 import { markTeamVaultLoadedAfterLocalActivation } from "@/services/teamVaultActivation";
+import { openBillingCheckout } from "@/services/billingCheckout";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { RoleModal, PERM_META, TeamRolesPanel } from "@/components/settings/sections/RolesSection";
 
@@ -1163,19 +1163,7 @@ function SignInToCloudCTA({ onSignIn }: { onSignIn: () => void }) {
 
 function UpgradeToTeamsCTA() {
   const openCheckout = async () => {
-    const { invoke } = await import("@tauri-apps/api/core");
-    const { open } = await import("@tauri-apps/plugin-shell");
-    const serverUrl = await invoke<string | null>("keychain_get", { key: "server_url" });
-    const jwt = await invoke<string | null>("keychain_get", { key: "jwt" });
-    if (!serverUrl || !jwt) return;
-    const res = await appFetch(`${serverUrl}/v1/billing/checkout`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
-      body: JSON.stringify({ plan: "teams" }),
-    });
-    if (!res.ok) return;
-    const { checkout_url } = await res.json() as { checkout_url: string };
-    await open(checkout_url);
+    await openBillingCheckout("teams");
   };
 
   return (

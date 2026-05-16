@@ -277,6 +277,39 @@ export async function getCurrentUserEmail(): Promise<string | null> {
   return keychainGet("email");
 }
 
+export async function refreshSession(): Promise<void> {
+  const [refreshToken, serverUrl] = await Promise.all([
+    keychainGet("refresh_token"),
+    keychainGet("server_url"),
+  ]);
+  if (!refreshToken || !serverUrl) throw new Error("Session expired — please log in again");
+
+  const res = await fetchWithTimeout(`${serverUrl}/v1/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+  if (!res.ok) throw new Error("Session refresh failed");
+
+  const { jwt_token } = await res.json();
+  await keychainSet("jwt", jwt_token);
+  reloadSubscription();
+}
+
+export async function resendVerificationEmail(): Promise<void> {
+  const [jwt, serverUrl] = await Promise.all([
+    keychainGet("jwt"),
+    keychainGet("server_url"),
+  ]);
+  if (!jwt || !serverUrl) throw new Error("Not connected to server");
+
+  const res = await fetchWithTimeout(`${serverUrl}/v1/auth/resend-verification-email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
+  });
+  if (!res.ok) throw new Error("Could not resend verification email");
+}
+
 export async function isServerMode(): Promise<boolean> {
   return (await keychainGet("mode")) === "server";
 }

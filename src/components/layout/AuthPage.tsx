@@ -6,6 +6,7 @@ import {
   createServerAccount,
   login,
 } from "@/services/account";
+import { useNotificationStore } from "@/stores/notificationStore";
 
 type View = "home" | "cloud";
 type CloudMode = "signup" | "signin";
@@ -28,6 +29,7 @@ export default function AuthPage({ isLocked, onReady }: Props) {
   const [email, setEmail] = useState("");
   const [serverUrl, setServerUrl] = useState(DEFAULT_SERVER);
   const [showServerUrl, setShowServerUrl] = useState(false);
+  const addToast = useNotificationStore((s) => s.addToast);
 
   const reset = (v: View, mode?: CloudMode) => {
     setView(v);
@@ -129,7 +131,17 @@ export default function AuthPage({ isLocked, onReady }: Props) {
       if (isSignup) {
         if (password.length < 8) { setError("At least 8 characters"); return; }
         if (password !== confirm) { setError("Passwords don't match"); return; }
-        await wrap(() => createServerAccount(email, password, normalizedUrl));
+        await wrap(async () => {
+          await createServerAccount(email, password, normalizedUrl);
+          addToast({
+            pluginId: "system",
+            pluginName: "Voltius",
+            type: "toast",
+            message: "Account created! Check your email to verify.",
+            severity: "info",
+            duration: 5000,
+          });
+        });
       } else {
         await wrap(() => login(password, email, normalizedUrl));
       }

@@ -23,6 +23,7 @@ import type { Connection, Identity, SshKey, Folder, Snippet, PortForwardingRule 
 import type { TeamMember } from "@/services/teamService";
 import { appFetch } from "@/services/http";
 import { listTeamObjects, type TeamObjectRecord } from "@/services/teamObjects";
+import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import {
   shouldShowBlockingTeamVaultLoad,
   TeamVaultRefreshQueue,
@@ -101,6 +102,7 @@ async function tryRefreshJwt(): Promise<string | null> {
   if (!res.ok) return null;
   const { jwt_token } = await res.json();
   await invoke("keychain_set", { key: "jwt", value: jwt_token });
+  await useSubscriptionStore.getState().load().catch(() => undefined);
   return jwt_token;
 }
 

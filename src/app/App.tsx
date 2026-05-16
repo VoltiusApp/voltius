@@ -27,6 +27,8 @@ import { NotificationToastContainer } from "@/components/notifications/Notificat
 import ThemeCreator from "@/components/theme-creator/ThemeCreator";
 import { TrialExpiredModal } from "@/components/shared/TrialExpiredModal";
 import CloudAuthModal from "@/components/layout/CloudAuthModal";
+import { EmailVerificationBanner } from "@/components/notifications/EmailVerificationBanner";
+import { EmailVerificationRequiredModal } from "@/components/notifications/EmailVerificationRequiredModal";
 
 function App() {
   const [ready, setReady] = useState(false);
@@ -57,6 +59,7 @@ function App() {
   return (
     <div className="h-full w-full flex flex-col bg-surface-0 overflow-hidden animate-fadeIn">
       <TitleBar />
+      <EmailVerificationBanner />
       <div className="flex flex-1 overflow-hidden">
         {!inTerminal && !sftpPanelOpen && <VaultSidebar />}
         <div className="flex flex-col flex-1 overflow-hidden bg-[var(--t-bg-terminal)]">
@@ -77,6 +80,7 @@ function App() {
       <ThemeCreator />
       <TrialExpiredModal />
       <CloudAuthModal />
+      <EmailVerificationRequiredModal />
 
       {/* Global snippet variable modal — triggered from OmniSearch */}
       {globalPendingInject && (

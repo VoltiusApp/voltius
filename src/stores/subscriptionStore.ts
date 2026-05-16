@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { appFetch } from "@/services/http";
+import { parseJwtPayload } from "@/utils/emailVerification";
 
 export type Tier = "free" | "pro" | "teams" | "business";
 
@@ -8,17 +9,7 @@ interface JwtPayload {
   tier?: string;
   trial_ends_at?: number; // unix timestamp
   trial_used?: boolean;
-}
-
-function parseJwtPayload(token: string): JwtPayload | null {
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const raw = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
-    return JSON.parse(raw) as JwtPayload;
-  } catch {
-    return null;
-  }
+  email_verified?: boolean;
 }
 
 async function keychainGet(key: string): Promise<string | null> {
@@ -41,6 +32,7 @@ export interface SubscriptionState {
   subscriptionCancelled: boolean;
   renewsAt: Date | null;
   endsAt: Date | null;
+  emailVerified: boolean;
   load: () => Promise<void>;
 }
 
@@ -60,23 +52,24 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
   subscriptionCancelled: false,
   renewsAt: null,
   endsAt: null,
+  emailVerified: true,
 
   async load() {
     const mode = await keychainGet("mode").catch(() => null);
     if (mode !== "server") {
-      set({ tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, accountMode: mode, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null });
+      set({ tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, accountMode: mode, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null, emailVerified: true });
       return;
     }
 
     const jwt = await keychainGet("jwt").catch(() => null);
     if (!jwt) {
-      set({ tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null });
+      set({ tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null, emailVerified: true });
       return;
     }
 
-    const payload = parseJwtPayload(jwt);
+    const payload = parseJwtPayload<JwtPayload>(jwt);
     if (!payload) {
-      set({ tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null });
+      set({ tier: "free", trialEndsAt: null, trialUsed: false, trialKnown: false, isTrialActive: false, isPro: false, isTeams: false, isBusiness: false, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null, emailVerified: true });
       return;
     }
 
@@ -89,8 +82,9 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
     const isPro = tier !== "free";
     const isTeams = tier === "teams" || tier === "business";
     const isBusiness = tier === "business";
+    const emailVerified = payload.email_verified !== false;
 
-    set({ tier, trialEndsAt, trialUsed, trialKnown, isTrialActive, isPro, isTeams, isBusiness, accountMode: mode, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null });
+    set({ tier, trialEndsAt, trialUsed, trialKnown, isTrialActive, isPro, isTeams, isBusiness, accountMode: mode, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null, emailVerified });
 
     // Non-fatal: enrich paid plans with live billing lifecycle and seat data.
     if (isPro) {

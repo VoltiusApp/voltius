@@ -11,7 +11,7 @@ import { SidebarAccountButton } from "./SidebarAccountButton";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { CreateVaultModal } from "@/components/shared/CreateVaultModal";
 import { Modal } from "@/components/shared/Modal";
-import { appFetch } from "@/services/http";
+import { openBillingCheckout } from "@/services/billingCheckout";
 import {
   acceptMyPendingInvitation,
   declineMyPendingInvitation,
@@ -59,20 +59,7 @@ export default function VaultSidebar() {
   };
 
   const handleUpgradePro = async () => {
-    const { invoke } = await import("@tauri-apps/api/core");
-    const { open } = await import("@tauri-apps/plugin-shell");
-    const serverUrl = await invoke<string | null>("keychain_get", { key: "server_url" });
-    const jwt = await invoke<string | null>("keychain_get", { key: "jwt" });
-    if (!serverUrl || !jwt) return;
-    const res = await appFetch(`${serverUrl}/v1/billing/checkout`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
-      body: JSON.stringify({ plan: "pro" }),
-    });
-    if (!res.ok) return;
-    const { checkout_url } = await res.json() as { checkout_url: string };
-    await open(checkout_url);
-    setShowVaultLimitModal(false);
+    if (await openBillingCheckout("pro")) setShowVaultLimitModal(false);
   };
 
   const handleCreateVault = (name: string) => {

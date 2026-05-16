@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { appFetch } from "@/services/http";
+import { useSubscriptionStore } from "@/stores/subscriptionStore";
 
 export type TeamObjectType =
   | "connection"
@@ -74,6 +75,7 @@ async function tryRefreshJwt(): Promise<string | null> {
   if (!res.ok) return null;
   const { jwt_token } = await res.json();
   await invoke("keychain_set", { key: "jwt", value: jwt_token });
+  await useSubscriptionStore.getState().load().catch(() => undefined);
   return jwt_token;
 }
 
