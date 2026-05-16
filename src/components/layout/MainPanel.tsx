@@ -2,7 +2,6 @@ import { useRef, useState } from "react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
-import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
@@ -130,7 +129,7 @@ function TeamVaultState({
             Manage subscription →
           </button>
         )}
-        {(status === "error" || status === "not_found") && (
+        {(!status || status === "error" || status === "not_found") && (
           <button
             onClick={() => fetchTeamData(teamId).catch(() => {})}
             className="mt-2 text-sm px-3 py-1.5 rounded-lg"
@@ -293,7 +292,7 @@ export default function MainPanel() {
   const homeView = useUIStore((s) => s.homeView);
   const activeNav = useUIStore((s) => s.activeNav);
   const sftpPanelOpen = useUIStore((s) => s.sftpPanelOpen);
-  const accessibleVaultIds = useAccessibleVaultIds();
+  const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const splitRoot = useLayoutStore((s) => s.root);
   const splitTabs = useLayoutStore((s) => s.splitTabs);
   const splitTabActive = useLayoutStore((s) => s.splitTabActive);
@@ -301,7 +300,7 @@ export default function MainPanel() {
 
   usePaneDragController();
 
-  const noVaultSelected = accessibleVaultIds.length === 0;
+  const noVaultSelected = selectedVaultIds.length === 0;
   useHostPingPolling();
 
   // Check if selected vault is a team vault in a non-loaded state
