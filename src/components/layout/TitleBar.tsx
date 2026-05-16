@@ -523,6 +523,7 @@ export default function TitleBar() {
               onClose={() => setShareDropdownOpen(false)}
               activeSessionId={activeSessionId}
               connectionName={activeSession?.connectionName ?? "Terminal"}
+              connectionVaultId={connections.find((c) => c.id === activeSession?.connectionId)?.vault_id}
               isLoggedIn={accountMode === "server"}
               tier={tier}
               onSignIn={() => { setShareDropdownOpen(false); openCloudAuth("signin"); }}

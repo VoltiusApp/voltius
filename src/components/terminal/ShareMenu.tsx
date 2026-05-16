@@ -12,13 +12,14 @@ interface ShareMenuProps {
   onClose: () => void;
   activeSessionId: string;
   connectionName: string;
+  connectionVaultId?: string;
   isLoggedIn: boolean;
   tier: "free" | "pro" | "teams" | "business";
   onSignIn: () => void;
   onUpgrade: () => void;
 }
 
-export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectionName, isLoggedIn, tier, onSignIn, onUpgrade }: ShareMenuProps) {
+export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectionName, connectionVaultId, isLoggedIn, tier, onSignIn, onUpgrade }: ShareMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const guestCap = tier === "business" ? 50 : tier === "teams" ? 10 : 1;
@@ -51,7 +52,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
     loadTeams().catch(() => {});
     setSessionName(connectionName);
     setTab(availableTabs[0]);
-    setSelectedVaultIds(new Set());
+    setSelectedVaultIds(connectionVaultId && connectionVaultId !== "personal" ? new Set([connectionVaultId]) : new Set());
     setVaultRoles({});
     setError(null);
     if (!isSharing) {
