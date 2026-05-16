@@ -65,6 +65,7 @@ export interface Team {
   id: string;
   name: string;
   owner_id: string;
+  owner_tier: string;
   created_at: string;
   role_ids: string[];
 }

@@ -1221,9 +1221,6 @@ export default function MembersPage() {
   const [showInvitePanel, setShowInvitePanel] = useState(false);
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [showRolesPanel, setShowRolesPanel] = useState(false);
-  const [transferOwnerTarget, setTransferOwnerTarget] = useState<TeamMember | null>(null);
-  const [transferring, setTransferring] = useState(false);
-  const [transferError, setTransferError] = useState("");
 
   useEffect(() => {
     if (membersInvitePending) {
@@ -1447,15 +1444,6 @@ export default function MembersPage() {
       }
     }
 
-    // Transfer ownership — only shown to the current owner, only for non-owner members
-    if (myMember && isOwnerMember(myMember) && canActOnMember) {
-      items.push({
-        label: "Transfer Ownership",
-        icon: "lucide:crown",
-        divider: items.length > 0,
-        onClick: () => setTransferOwnerTarget(member),
-      });
-    }
 
     items.push({
       label: "Invite to Session",
@@ -1774,87 +1762,8 @@ const vaultTabs = selectedVaultIds.length > 1
   // ── Team vault ─────────────────────────────────────────────────────────────
   const panelOpen = showDetailPanel || showInvitePanel || showRolesPanel;
 
-  const handleTransferOwnership = async () => {
-    if (!transferOwnerTarget || !teamId || !myMember) return;
-    const ownerRole = teamRoles.find((r) => r.is_builtin && r.name === "owner");
-    if (!ownerRole) return;
-    setTransferring(true);
-    setTransferError("");
-    try {
-      await runTeamAction({
-        pending: `Transferring ownership to ${transferOwnerTarget.email}…`,
-        success: `Ownership transferred to ${transferOwnerTarget.email}`,
-        run: async () => {
-          await assignMemberRole(teamId, transferOwnerTarget.user_id, ownerRole.id);
-          await removeMemberRole(teamId, myMember.user_id, ownerRole.id);
-        },
-      });
-      setTransferOwnerTarget(null);
-      reload();
-    } catch (e) {
-      setTransferError(e instanceof Error ? e.message : "Transfer failed");
-    } finally {
-      setTransferring(false);
-    }
-  };
-
   return (
     <>
-      {transferOwnerTarget && (
-        <div
-          className="fixed inset-0 z-[200] flex items-center justify-center"
-          style={{ background: "rgba(0,0,0,0.6)" }}
-          onClick={() => { if (!transferring) { setTransferOwnerTarget(null); setTransferError(""); } }}
-        >
-          <div
-            className="rounded-2xl p-6 w-[400px] max-w-[90vw] space-y-4"
-            style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)", boxShadow: "0 24px 64px rgba(0,0,0,0.5)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(167,139,250,0.15)" }}>
-                <Icon icon="lucide:crown" width={18} style={{ color: "#a78bfa" }} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold" style={{ color: "var(--t-text-bright)" }}>Transfer Ownership</p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--t-text-dim)" }}>This is a critical, irreversible action</p>
-              </div>
-            </div>
-
-            <p className="text-sm leading-relaxed" style={{ color: "var(--t-text-primary)" }}>
-              You are about to transfer ownership of this team vault to{" "}
-              <span className="font-semibold" style={{ color: "var(--t-text-bright)" }}>{transferOwnerTarget.email}</span>.
-              {" "}You will lose your owner privileges immediately and cannot undo this yourself.
-            </p>
-
-            {transferError && (
-              <p className="text-xs px-3 py-2 rounded-lg" style={{ background: "rgba(239,68,68,0.1)", color: "var(--t-status-error)", border: "1px solid rgba(239,68,68,0.2)" }}>
-                {transferError}
-              </p>
-            )}
-
-            <div className="flex gap-2 pt-1">
-              <button
-                onClick={() => { setTransferOwnerTarget(null); setTransferError(""); }}
-                disabled={transferring}
-                className="flex-1 py-2 rounded-xl text-sm font-medium transition-colors"
-                style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-primary)", border: "1px solid var(--t-border)" }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => void handleTransferOwnership()}
-                disabled={transferring}
-                className="flex-1 py-2 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                style={{ background: transferring ? "rgba(239,68,68,0.5)" : "#dc2626", color: "#fff", opacity: transferring ? 0.7 : 1 }}
-              >
-                {transferring && <Icon icon="lucide:loader-2" width={13} className="animate-spin" />}
-                Transfer Ownership
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     <SidePanelLayout
       panelOpen={panelOpen}
       panelWidth={320}

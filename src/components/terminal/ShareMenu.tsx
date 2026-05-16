@@ -22,9 +22,7 @@ interface ShareMenuProps {
 export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectionName, connectionVaultId, isLoggedIn, tier, onSignIn, onUpgrade }: ShareMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: 0, left: 0 });
-  const guestCap = tier === "business" ? 50 : tier === "teams" ? 10 : 1;
-  const availableTabs = tier === "pro" ? (["invite"] as const) : (["team", "invite"] as const);
-  const [tab, setTab] = useState<"team" | "invite">(availableTabs[0]);
+  const [tab, setTab] = useState<"team" | "invite">("team");
   const [sessionName, setSessionName] = useState(connectionName);
   const [selectedVaultIds, setSelectedVaultIds] = useState<Set<string>>(new Set());
   const [vaultRoles, setVaultRoles] = useState<Record<string, Set<string>>>({});
@@ -33,7 +31,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
   const [inviteLinkToken, setInviteLinkToken] = useState<string | null>(null);
   const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
 
-  const { teams, loadTeams, loadMembers, membersByTeam } = useTeamStore();
+  const { teams, loading: teamsLoading, loadTeams, loadMembers, membersByTeam } = useTeamStore();
   const mpConnections = useTeamSessionStore((s) => s.connections);
   const startSharing = useTeamSessionStore((s) => s.startSharing);
   const startSharingInviteLink = useTeamSessionStore((s) => s.startSharingInviteLink);
@@ -41,6 +39,20 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
 
   const activeMp = mpConnections[activeSessionId];
   const isSharing = !!activeMp && !activeMp.ended;
+
+  // Vaults whose owner has a qualifying plan (teams/business) — free-tier users can share to these
+  const qualifyingVaults = teams.filter((t) => t.owner_tier === "teams" || t.owner_tier === "business");
+  const hasQualifyingVaults = qualifyingVaults.length > 0;
+
+  // Effective cap for the active session: use vault owner's tier when available
+  const effectiveTier = activeMp?.vaultOwnerTier ?? tier;
+  const guestCap = effectiveTier === "business" ? 50 : effectiveTier === "teams" ? 10 : 1;
+
+  // Tab availability: free users with qualifying vaults get team-only; pro users get invite-only
+  const availableTabs =
+    tier === "pro" ? (["invite"] as const)
+    : tier === "free" ? (["team"] as const)
+    : (["team", "invite"] as const);
 
   // Position + load teams on open
   useEffect(() => {
@@ -101,7 +113,12 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
       const state = useTeamStore.getState();
       const allMembers = vaultIds.flatMap((id) => state.membersByTeam[id] ?? []);
       const allowedRoles = Array.from(new Set(vaultIds.flatMap((id) => Array.from(vaultRoles[id] ?? []))));
-      await startSharing(activeSessionId, vaultIds, allowedRoles, sessionName || connectionName, allMembers);
+      // Derive highest-tier owner across selected vaults so ActiveSharingView shows the correct cap
+      const ownerTierRank = (t: string) => t === "business" ? 2 : t === "teams" ? 1 : 0;
+      const vaultOwnerTier = vaultIds
+        .map((id) => teams.find((t) => t.id === id)?.owner_tier ?? "free")
+        .reduce((best, t) => ownerTierRank(t) > ownerTierRank(best) ? t : best, "free");
+      await startSharing(activeSessionId, vaultIds, allowedRoles, sessionName || connectionName, allMembers, vaultOwnerTier);
       onClose();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
@@ -192,8 +209,13 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
             Sign in / Sign up
           </button>
         </div>
-      ) : tier === "free" ? (
-        /* ── Free-tier upgrade wall ── */
+      ) : tier === "free" && teamsLoading ? (
+        /* ── Loading — defer upgrade wall decision until teams are known ── */
+        <div className="px-4 py-6 flex items-center justify-center">
+          <Icon icon="lucide:loader-2" width={16} className="animate-spin" style={{ color: "var(--t-text-dim)" }} />
+        </div>
+      ) : tier === "free" && !hasQualifyingVaults ? (
+        /* ── Free-tier upgrade wall — no qualifying team vaults ── */
         <div className="px-4 py-4 flex flex-col items-center text-center gap-3">
           <div
             className="flex items-center justify-center size-9 rounded-full"
@@ -293,7 +315,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
           {/* Tab content */}
           {tab === "team" ? (
             <TeamTab
-              teams={teams}
+              teams={tier === "free" ? qualifyingVaults : teams}
               selectedVaultIds={selectedVaultIds}
               vaultRoles={vaultRoles}
               loading={loading}
