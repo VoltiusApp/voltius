@@ -44,14 +44,24 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
   const qualifyingVaults = teams.filter((t) => t.owner_tier === "teams" || t.owner_tier === "business");
   const hasQualifyingVaults = qualifyingVaults.length > 0;
 
+  // For free/pro users, team sharing is only allowed when the connection itself lives in a qualifying vault.
+  // This prevents piggybacking on a team owner's plan for personal connections.
+  const connectionInQualifyingVault =
+    !!connectionVaultId &&
+    connectionVaultId !== "personal" &&
+    qualifyingVaults.some((v) => v.id === connectionVaultId);
+
   // Effective cap for the active session: use vault owner's tier when available
   const effectiveTier = activeMp?.vaultOwnerTier ?? tier;
   const guestCap = effectiveTier === "business" ? 50 : effectiveTier === "teams" ? 10 : 1;
 
-  // Tab availability: free users with qualifying vaults get team-only; pro users get invite-only
+  // Tab availability:
+  //   free → team only, but only when connection is in a qualifying vault
+  //   pro  → invite always; team only when connection is in a qualifying vault
+  //   teams/business → both tabs always
   const availableTabs =
-    tier === "pro" ? (["invite"] as const)
-    : tier === "free" ? (["team"] as const)
+    tier === "free" ? (["team"] as const)
+    : (tier === "pro" && !connectionInQualifyingVault) ? (["invite"] as const)
     : (["team", "invite"] as const);
 
   // Position + load teams on open
@@ -214,7 +224,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
         <div className="px-4 py-6 flex items-center justify-center">
           <Icon icon="lucide:loader-2" width={16} className="animate-spin" style={{ color: "var(--t-text-dim)" }} />
         </div>
-      ) : tier === "free" && !hasQualifyingVaults ? (
+      ) : tier === "free" && (!hasQualifyingVaults || !connectionInQualifyingVault) ? (
         /* ── Free-tier upgrade wall — no qualifying team vaults ── */
         <div className="px-4 py-4 flex flex-col items-center text-center gap-3">
           <div
@@ -315,7 +325,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
           {/* Tab content */}
           {tab === "team" ? (
             <TeamTab
-              teams={tier === "free" ? qualifyingVaults : teams}
+              teams={(tier === "free" || tier === "pro") ? qualifyingVaults : teams}
               selectedVaultIds={selectedVaultIds}
               vaultRoles={vaultRoles}
               loading={loading}
