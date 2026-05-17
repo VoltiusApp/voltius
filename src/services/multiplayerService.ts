@@ -13,6 +13,8 @@ export interface ActiveSession {
   visibility: string;
   created_at: string;
   participant_count: number;
+  /** Included when the server returns full participant info. */
+  participants?: Participant[];
 }
 
 export interface Participant {

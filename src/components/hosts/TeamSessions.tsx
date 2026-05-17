@@ -5,6 +5,8 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore as useMpStore } from "@/stores/teamSessionStore";
 import { getCurrentUserEmail } from "@/services/account";
 import { useUIStore } from "@/stores/uiStore";
+import { AvatarStack } from "@/components/shared/AvatarStack";
+import { BaseCard } from "@/components/shared/BaseCard";
 
 export function TeamSessions() {
   const { activeSessions, fetchActiveSessions, joinSession } = useTeamSessionStore();
@@ -220,59 +222,71 @@ export function TeamSessions() {
       <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
         {activeSessions.map((session) => {
           const alreadyIn = myMpSessionIds.has(session.id);
+
+          // Resolve live participant names: prefer WebSocket data for sessions
+          // we're in, then fall back to server-provided participants (if any).
+          const liveLocalId = Object.entries(useMpStore.getState().connections).find(
+            ([, v]) => v.multiplayerSessionId === session.id,
+          )?.[0];
+          const liveParticipants = liveLocalId
+            ? useMpStore.getState().connections[liveLocalId]?.participants
+            : undefined;
+          const participants = (liveParticipants ?? session.participants)?.map((p) => ({
+            name: p.display_name,
+          }));
+
           return (
-            <button
+            <BaseCard
               key={session.id}
+              isSelected={alreadyIn}
               onClick={() => void handleJoinCard(session)}
-              className="flex-shrink-0 flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left"
-              style={{
-                background: "var(--t-bg-card)",
-                border: alreadyIn
-                  ? "1.5px solid var(--t-accent)"
-                  : "1.5px solid var(--t-border)",
-                minWidth: 200,
-                maxWidth: 260,
-              }}
-              onMouseEnter={(e) => {
-                if (!alreadyIn)
-                  (e.currentTarget as HTMLButtonElement).style.borderColor =
-                    "var(--t-border-hover)";
-              }}
-              onMouseLeave={(e) => {
-                if (!alreadyIn)
-                  (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-border)";
-              }}
+              className="flex-shrink-0"
+              style={{ minWidth: 220, maxWidth: 280 }}
             >
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                style={{ background: "var(--t-bg-card-avatar)" }}
-              >
-                <Icon
-                  icon="lucide:terminal"
-                  width={15}
-                  style={{ color: alreadyIn ? "var(--t-accent)" : "var(--t-text-muted)" }}
-                />
+              <div className="flex-1 min-w-0 self-start flex flex-col gap-1">
+                {/* Top: icon + name + badge */}
+                <div className="flex items-start gap-2 min-w-0">
+                  <div
+                    className="flex items-center justify-center shrink-0 select-none text-white"
+                    style={{ width: "2rem", height: "2rem", borderRadius: "8px", background: "color-mix(in srgb, var(--t-accent) 80%, #000)" }}
+                  >
+                    <Icon icon="lucide:radio" width={15} />
+                  </div>
+
+                  <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                    <p className="text-sm font-bold truncate text-[var(--t-text-bright)]">
+                      {session.connection_name}
+                    </p>
+
+                    {/* Avatar stack — where tags sit on host cards */}
+                    <div className="min-h-[22px] flex items-center">
+                      <AvatarStack
+                        participants={participants}
+                        count={session.participant_count}
+                        size={20}
+                        maxVisible={5}
+                        ringColor="var(--t-bg-card)"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Join / Resume button */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); void handleJoinCard(session); }}
+                    className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors self-center text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)]"
+                    style={{
+                      background: "var(--t-bg-terminal)",
+                      border: "1px solid var(--t-border)",
+                      color: alreadyIn ? "var(--t-accent)" : undefined,
+                    }}
+                  >
+                    <Icon icon={alreadyIn ? "lucide:monitor-play" : "lucide:log-in"} width={12} />
+                    {alreadyIn ? "Resume" : "Join"}
+                  </button>
+                </div>
+
               </div>
-              <div className="flex-1 min-w-0">
-                <p
-                  className="text-sm font-medium truncate"
-                  style={{ color: "var(--t-text-primary)" }}
-                >
-                  {session.connection_name}
-                </p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--t-text-dim)" }}>
-                  {session.participant_count} participant{session.participant_count !== 1 ? "s" : ""}
-                  {alreadyIn ? " · Joined" : ""}
-                </p>
-              </div>
-              {!alreadyIn && (
-                <Icon
-                  icon="lucide:log-in"
-                  width={14}
-                  style={{ color: "var(--t-text-dim)", flexShrink: 0 }}
-                />
-              )}
-            </button>
+            </BaseCard>
           );
         })}
       </div>
