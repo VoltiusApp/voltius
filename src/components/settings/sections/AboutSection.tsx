@@ -136,6 +136,7 @@ export default function AboutSection() {
         <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">
           Links
         </h3>
+        <div className="space-y-2">
         <a
           href="https://github.com/VoltiusApp/voltius"
           target="_blank"
@@ -149,6 +150,20 @@ export default function AboutSection() {
           </div>
           <Icon icon="lucide:external-link" width={20} className="ml-auto text-[var(--t-text-dim)]" />
         </a>
+        <a
+          href="https://ko-fi.com/kipavy"
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-lg px-4 py-3 flex items-center gap-3 bg-[var(--t-bg-elevated)] border border-[var(--t-border)] transition-colors hover:border-[var(--t-border-hover)]"
+        >
+          <Icon icon="simple-icons:kofi" width={20} className="text-[var(--t-text-primary)] shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-[var(--t-text-primary)]">Ko-Fi</p>
+            <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">ko-fi.com/kipavy</p>
+          </div>
+          <Icon icon="lucide:external-link" width={20} className="ml-auto text-[var(--t-text-dim)]" />
+        </a>
+        </div>
       </div>
     </div>
   );

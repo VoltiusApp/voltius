@@ -310,10 +310,10 @@ export default function MainPanel() {
   );
   const showTeamVaultState =
     selectedTeamId !== null &&
-    teamVaultStatus !== null &&
-    teamVaultStatus !== "loaded" &&
-    teamVaultStatus !== "not_found" &&
-    teamVaultStatus !== "idle" &&
+    (teamVaultStatus === "offline" ||
+      teamVaultStatus === "forbidden" ||
+      teamVaultStatus === "payment_required" ||
+      teamVaultStatus === "error") &&
     !homeView;
   const showSplitWorkspace = activeNav === ("terminal" as any) && splitTabActive && !sftpPanelOpen;
 
