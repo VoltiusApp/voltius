@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useHostPingStore } from "@/stores/hostPingStore";
+import { useConnectionPresenceStore } from "@/stores/connectionPresenceStore";
 import { Toggle } from "@/components/shared/Toggle";
 
 export default function HostsSection() {
@@ -9,6 +10,8 @@ export default function HostsSection() {
   const setPollIntervalMs = useHostPingStore((s) => s.setPollIntervalMs);
   const activePollIntervalMs = useHostPingStore((s) => s.activePollIntervalMs);
   const setActivePollIntervalMs = useHostPingStore((s) => s.setActivePollIntervalMs);
+  const presenceEnabled = useConnectionPresenceStore((s) => s.enabled);
+  const setPresenceEnabled = useConnectionPresenceStore((s) => s.setEnabled);
 
   const [raw, setRaw] = useState(() => String(pollIntervalMs));
   const [rawActive, setRawActive] = useState(() => String(activePollIntervalMs));
@@ -82,6 +85,26 @@ export default function HostsSection() {
               </div>
             </>
           )}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">
+          Team presence
+        </h3>
+        <div className="rounded-lg bg-[var(--t-bg-elevated)] border border-[var(--t-border)]">
+          <div className="flex items-center justify-between px-4 py-3 gap-4">
+            <div>
+              <p className="text-sm font-medium text-[var(--t-text-primary)]">
+                Share which team-vault hosts you're using
+              </p>
+              <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
+                When on, your avatar appears on a host card while you have a terminal open to it.
+                Only teammates with access to the host see it.
+              </p>
+            </div>
+            <Toggle checked={presenceEnabled} onChange={setPresenceEnabled} />
+          </div>
         </div>
       </div>
     </div>

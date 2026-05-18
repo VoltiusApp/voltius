@@ -18,6 +18,7 @@ import { useApplyTheme } from "@/hooks/useApplyTheme";
 import { useApplyUiScale } from "@/hooks/useApplyUiScale";
 import { useCoreOmniCommands } from "@/hooks/useCoreOmniCommands";
 import { useImportExportContributions } from "@/hooks/useImportExportContributions";
+import { useConnectionPresenceBroadcast } from "@/hooks/useConnectionPresenceBroadcast";
 import { useUIStore } from "@/stores/uiStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -39,6 +40,7 @@ function App() {
   useApplyUiScale();
   useCoreOmniCommands();
   useImportExportContributions();
+  useConnectionPresenceBroadcast();
   useEffect(() => { initUpdaterListener(); }, []);
   const omniOpen = useUIStore((s) => s.omniOpen);
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
