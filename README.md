@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="src-tauri/icons/128x128.png" alt="Voltius Logo" width="96" />
+  <img src="src-tauri/icons/12c8x128.png" alt="Voltius Logo" width="96" />
   
   <br/>
 
@@ -7,7 +7,7 @@
 
   <h1>Voltius</h1>
 
-  <p><strong>A modern SSH client built with Tauri, React, and Rust.</strong></p>
+  <p><strong>A local-first SSH/SFTP/Serial client with E2EE sync, plugins, and no account required — a modern alternative to Termius.</strong></p>
 
   <p>
     <img src="https://img.shields.io/badge/status-beta-f59e0b" alt="Beta" />
@@ -199,7 +199,7 @@ flowchart TD
 
 ## 🛠️ Development & Build
 
-Early beta — PRs and issues are welcome.
+Early beta — PRs and issues are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
 
 For dev, you simply need to run:
 ```bash
