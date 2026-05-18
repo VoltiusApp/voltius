@@ -778,6 +778,19 @@ async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promi
     const userId = parts[1];
     const online = parts[2] === "online";
     useTeamStore.getState().setMemberOnline(userId, online);
+  } else if (eventData.startsWith("using:")) {
+    // Format: using:<subject_user_id>:<connection_id>:<0|1>
+    const rest = eventData.slice("using:".length);
+    const firstColon = rest.indexOf(":");
+    const lastColon = rest.lastIndexOf(":");
+    if (firstColon > 0 && lastColon > firstColon) {
+      const userId = rest.slice(0, firstColon);
+      const connectionId = rest.slice(firstColon + 1, lastColon);
+      const inUse = rest.slice(lastColon + 1) === "1";
+      const { useConnectionPresenceStore } = await import("@/stores/connectionPresenceStore");
+      if (inUse) useConnectionPresenceStore.getState().addUser(connectionId, userId);
+      else useConnectionPresenceStore.getState().removeUser(connectionId, userId);
+    }
   } else if (eventData === "token_invalidated") {
     tryRefreshJwt().catch(() => {});
   } else if (eventData !== myDeviceId) {
@@ -802,6 +815,17 @@ async function _sseConnect(signal: AbortSignal): Promise<void> {
 
   // Sync immediately on (re)connect to catch any events missed while offline
   syncNow().catch(() => {});
+
+  // Seed connection-presence snapshot so we render correct state even before any
+  // SSE event arrives this session.
+  (async () => {
+    const [{ fetchCurrentConnectionUsage }, { useConnectionPresenceStore }] = await Promise.all([
+      import("@/services/connectionPresence"),
+      import("@/stores/connectionPresenceStore"),
+    ]);
+    const entries = await fetchCurrentConnectionUsage();
+    useConnectionPresenceStore.getState().setSnapshot(entries);
+  })().catch(() => {});
 
   const parser = new SseDataLineParser();
   const connect = (token: string) => connectNativeSse(

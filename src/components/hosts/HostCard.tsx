@@ -7,12 +7,15 @@ import { CardActionButton } from "@/components/shared/CardActionButton";
 import { OverflowTagList } from "@/components/shared/OverflowTagList";
 import { type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { StatusDot } from "@/components/shared/StatusDot";
+import { MiniAvatar } from "@/components/shared/AvatarStack";
+import { useConnectionPresence } from "@/hooks/useConnectionPresence";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
 import { useUIStore } from "@/stores/uiStore";
+import { connectionDisplayName } from "@/utils/connectionDisplayName";
 
 interface Props {
   connection: Connection;
@@ -37,13 +40,6 @@ interface Props {
   onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
 }
 
-function displayName(c: { name?: string; username?: string; host?: string; port?: number; connection_type?: string; serial_port?: string }) {
-  if (c.connection_type === "serial") {
-    return c.name?.trim() || c.serial_port || "Serial Device";
-  }
-  return c.name?.trim() || `${c.username ?? ""}@${c.host ?? ""}:${c.port ?? ""}`;
-}
-
 export default function HostCard({
   connection, isActive, isSelected, isEditing, isFocused, canEdit = true,
   vaults = [], layout = "grid",
@@ -61,6 +57,22 @@ export default function HostCard({
   const pingStatus = useHostPingStore((s) => s.statuses[connection.id]);
   const pingLatency = useHostPingStore((s) => s.latencies[connection.id]);
   const showPingDot = !isSerial && pingEnabled && !connection.ping_disabled;
+  const presence = useConnectionPresence(connection);
+  const presenceTitle = presence
+    ? presence.overflow > 0
+      ? `In use by ${presence.primary.displayName} + ${presence.overflow} other${presence.overflow === 1 ? "" : "s"}`
+      : `In use by ${presence.primary.displayName}`
+    : "";
+  const presenceAvatar = presence && (
+    <span className="flex items-center" title={presenceTitle}>
+      <MiniAvatar name={presence.primary.displayName} size={18} />
+      {presence.overflow > 0 && (
+        <span className="ml-1 text-[10px] font-semibold px-1 rounded-full bg-[var(--t-bg-elevated)] text-[var(--t-text-dim)]">
+          +{presence.overflow}
+        </span>
+      )}
+    </span>
+  );
 
   const contextMenuItems: ContextMenuItem[] = [
     ...(canEdit ? [{ label: "Edit", icon: "lucide:square-pen", onClick: () => onEdit(connection), shortcut: "E" }] : []),
@@ -155,7 +167,7 @@ export default function HostCard({
             )}
           </div>
           <p className="font-medium-bold truncate w-48 shrink-0 text-[var(--t-text-bright)]">
-            {displayName(connection)}
+            {connectionDisplayName(connection)}
           </p>
           <p className="text-xs truncate flex-1 text-[var(--t-text-secondary)]">
             {isSerial
@@ -167,6 +179,7 @@ export default function HostCard({
             <OverflowTagList tags={connection.tags} className="max-w-32 flex-1" />
           )}
           <div className="flex items-center gap-1 shrink-0">
+            {presenceAvatar}
             {syncIcon}
             {canEdit && <CardActionButton icon="lucide:square-pen" title="Edit" onClick={() => onEdit(connection)} />}
             {canEdit && <CardActionButton icon="lucide:trash-2" title="Delete" onClick={() => onDelete(connection.id)} danger />}
@@ -188,7 +201,7 @@ export default function HostCard({
               <div ref={contentColRef} className="flex flex-col gap-0.5 flex-1 min-w-0">
                 <div className="flex items-center gap-2 min-w-0">
                   <p className="text-sm font-bold truncate text-[var(--t-text-bright)]">
-                    {displayName(connection)}
+                    {connectionDisplayName(connection)}
                   </p>
                   <span className="shrink-0 px-1.5 py-0.5 rounded-md text-[11px] font-semibold bg-[var(--t-bg-input)] text-[var(--t-text-dim)] border border-[var(--t-border)]">
                     {isSerial ? "SERIAL" : "SSH"}
@@ -200,8 +213,9 @@ export default function HostCard({
                   >
                     <Icon icon="lucide:pin" width={14} />
                   </button>
-                  {(showPingDot || syncIcon) && (
+                  {(showPingDot || syncIcon || presenceAvatar) && (
                     <div className="flex items-center gap-1.5 ml-auto shrink-0 mr-1">
+                      {presenceAvatar}
                       {showPingDot && (
                         <>
                           {pingStatus === "up" && pingLatency !== undefined && (
