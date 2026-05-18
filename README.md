@@ -87,14 +87,14 @@ No account required. Your data, your machine.
 | **RAM Usage** | ~300MB | ~500MB+ | ~300MB | NOT TESTED | NOT TESTED | **~5MB** |
 | **Installed Size** | ~60MB | ~1GB | ~60MB | NOT TESTED | NOT TESTED | **~3MB** |
 | **Cloud Sync** | Gist (Free) / Real-Time (Paid) | 🟡 Only Pro | 🟡 Complex setup | ❌ | Community Plugins | ❌ |
-| **Import/Export** | ✅ |  | ✅ |  |  |  |
-| **Port Forwarding** | ✅ | ✅ | ✅ |  |  |  |
+| **Import/Export** | ✅ | 🟡 Strong Import Integrations but no Export | ✅ |  |  |  |
+| **Port Forwarding** | ✅ | ✅ | ✅ |  | ✅ | ✅ |
 | **Snippets** | ✅ + multi-exec | 🟡 Only Pro | ✅ + multi-exec |  |  |  |
-| **Command Palette** | ✅ | ✅ |  |  |  |  |
-| **Multi-tab** | ✅ | ✅ |  |  |  |  |
+| **Command Palette** | ✅ | ✅ |  |  | ✅ |  |
+| **Multi-tab** | ✅ | ✅ |  |  | ✅ |  |
 | **Team vaults** | ✅ Teams or self-hosted | ✅ Teams plan | ✅ Free but complex |  |  |  |
 | **Audit logs** | ✅ | 🟡 Teams plan |  |  |  |  |
-| **Custom Themes** | ✅ |  |  |  |  |  |
+| **Custom Themes** | ✅ |  |  |  | ✅ |  |
 | **Folders &amp; Tags** | ✅ | ✅ | ✅ |  |  |  |
 | **Auto-Updates** | ✅ | ✅ | ✅ |  |  |  |
 | **Modern UI/UX** | ✅ | ✅ | 🟡 | ✅ | 🟡 | ❌ |
@@ -103,10 +103,10 @@ No account required. Your data, your machine.
 | **Terminal sharing** | ✅ Pro (1 guest) / Teams (unlimited) | ✅ needs Teams plan |  |  |  |  |
 | **Security** | **End-to-End Encrypted** | Proprietary E2EE | **End-to-End Encrypted** |  | Local Only / Manual |  |
 | **SFTP host&lt;-&gt;host** | ✅ | ✅ | ❌ |  | ❌ | ❌ |
-| **Serial Console** | ✅ | ✅ | ✅ |  |  |  |
+| **Serial Console** | ✅ | ✅ | ✅ |  | ✅ | ✅ |
 | **Local-first** | ✅ 100% (No account needed) | ❌ (Requires account) | ✅ | ✅ | ✅ | ✅ |
 | **Plugins** | ✅ | ❌ | ✅ | ❌ | ✅ | ❌ |
-| **Platforms** | Windows, Linux, MacOS (Mobile coming soon) | Windows, Linux, MacOS, Android, IOS | Windows, Linux, MacOS, Android | All (web-based) | Windows, Linux, MacOS, we | Windows, ReactOS, macOS, Linux |
+| **Platforms** | Windows, Linux, MacOS (Mobile coming soon) | Windows, Linux, MacOS, Android, IOS | Windows, Linux, MacOS, Android | All (web-based) | Windows, Linux, MacOS, Web | Windows, ReactOS, macOS, Linux |
 | **Pricing** | Free / Pro $7 / Teams $15 / Business $30 | Very limited free tier (no sync) | Free | Free | Free | Free |
 | **License** | **AGPLv3 (Core)** | Commercial / Paid | MIT | Apache License Version 2.0 | MIT | MIT |
 | **OS Detection** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
