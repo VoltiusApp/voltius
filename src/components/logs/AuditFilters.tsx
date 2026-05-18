@@ -106,7 +106,7 @@ export function AuditFilters({ actors, search, onSearchChange, layout, onLayoutC
 
   return (
     <div className="flex items-center gap-2 px-5 py-2.5 shrink-0 bg-[var(--t-bg-toolbar)] border-b border-b-[var(--t-border)]">
-      <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+      <div className="flex items-center gap-1.5 min-w-0">
         <FilterInput value={search} onChange={onSearchChange} placeholder="Filter logs..." width={176} />
 
         <ToolbarDropdown icon={LAYOUT_ICON[layout]} value={layout} options={LAYOUT_OPTIONS} onChange={onLayoutChange} />
