@@ -25,6 +25,7 @@ pub mod sync;
 pub mod sysinfo;
 pub mod team_crypto;
 pub mod vault;
+pub mod win_proc;
 
 #[tauri::command]
 pub fn greet(name: &str) -> String {

@@ -954,6 +954,7 @@ pub async fn sftp_upload_batch_tar(
                 cmd.arg(name);
             }
         }
+        crate::commands::win_proc::prevent_visible_child_window(&mut cmd);
         let tar_out = cmd.output().await.map_err(|e| format!("tar not found: {e}"))?;
         if !tar_out.status.success() {
             return Err(String::from_utf8_lossy(&tar_out.stderr).trim().to_string());
@@ -1052,8 +1053,10 @@ pub async fn sftp_download_batch_tar(
         tokio::fs::create_dir_all(&local_dir)
             .await
             .map_err(|e| format!("Cannot create local dir: {e}"))?;
-        let extract_out = tokio::process::Command::new("tar")
-            .args(["-xzf", tmp_local.to_str().unwrap_or(""), "-C", &local_dir])
+        let mut extract_cmd = tokio::process::Command::new("tar");
+        extract_cmd.args(["-xzf", tmp_local.to_str().unwrap_or(""), "-C", &local_dir]);
+        crate::commands::win_proc::prevent_visible_child_window(&mut extract_cmd);
+        let extract_out = extract_cmd
             .output()
             .await
             .map_err(|e| format!("tar not found: {e}"))?;
@@ -1159,8 +1162,10 @@ pub async fn sftp_upload_dir_tar(
         // 1. Archive locally
         let parent = Path::new(&local_path).parent().and_then(|p| p.to_str()).unwrap_or(".");
         let basename = Path::new(&local_path).file_name().and_then(|n| n.to_str()).unwrap_or("");
-        let tar_out = tokio::process::Command::new("tar")
-            .args(["-czf", tmp_local.to_str().unwrap_or(""), "-C", parent, basename])
+        let mut tar_cmd = tokio::process::Command::new("tar");
+        tar_cmd.args(["-czf", tmp_local.to_str().unwrap_or(""), "-C", parent, basename]);
+        crate::commands::win_proc::prevent_visible_child_window(&mut tar_cmd);
+        let tar_out = tar_cmd
             .output()
             .await
             .map_err(|e| format!("tar not found: {e}"))?;
@@ -1257,14 +1262,16 @@ pub async fn sftp_download_dir_tar(
         tokio::fs::create_dir_all(&local_path)
             .await
             .map_err(|e| format!("Cannot create local dir: {e}"))?;
-        let extract_out = tokio::process::Command::new("tar")
-            .args([
-                "-xzf",
-                tmp_local.to_str().unwrap_or(""),
-                "--strip-components=1",
-                "-C",
-                &local_path,
-            ])
+        let mut extract_cmd = tokio::process::Command::new("tar");
+        extract_cmd.args([
+            "-xzf",
+            tmp_local.to_str().unwrap_or(""),
+            "--strip-components=1",
+            "-C",
+            &local_path,
+        ]);
+        crate::commands::win_proc::prevent_visible_child_window(&mut extract_cmd);
+        let extract_out = extract_cmd
             .output()
             .await
             .map_err(|e| format!("tar not found: {e}"))?;

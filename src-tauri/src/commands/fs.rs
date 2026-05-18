@@ -184,11 +184,10 @@ pub async fn fs_compress(source_path: String, archive_path: String) -> Result<()
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
-    let output = tokio::process::Command::new("tar")
-        .args(["-czf", &archive_path, "-C", &parent, &basename])
-        .output()
-        .await
-        .map_err(|e| format!("tar not found: {e}"))?;
+    let mut cmd = tokio::process::Command::new("tar");
+    cmd.args(["-czf", &archive_path, "-C", &parent, &basename]);
+    crate::commands::win_proc::prevent_visible_child_window(&mut cmd);
+    let output = cmd.output().await.map_err(|e| format!("tar not found: {e}"))?;
     if !output.status.success() {
         let msg = String::from_utf8_lossy(&output.stderr);
         return Err(msg.trim().to_string());
@@ -202,11 +201,10 @@ pub async fn fs_extract(archive_path: String, dest_dir: String) -> Result<(), St
     tokio::fs::create_dir_all(&dest_dir)
         .await
         .map_err(|e| format!("Cannot create dest dir: {e}"))?;
-    let output = tokio::process::Command::new("tar")
-        .args(["-xzf", &archive_path, "-C", &dest_dir])
-        .output()
-        .await
-        .map_err(|e| format!("tar not found: {e}"))?;
+    let mut cmd = tokio::process::Command::new("tar");
+    cmd.args(["-xzf", &archive_path, "-C", &dest_dir]);
+    crate::commands::win_proc::prevent_visible_child_window(&mut cmd);
+    let output = cmd.output().await.map_err(|e| format!("tar not found: {e}"))?;
     if !output.status.success() {
         let msg = String::from_utf8_lossy(&output.stderr);
         return Err(msg.trim().to_string());
