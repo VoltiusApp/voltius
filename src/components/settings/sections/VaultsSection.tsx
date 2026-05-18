@@ -13,7 +13,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { TeamRolesPanel } from "./RolesSection";
 import BuySeatsModal from "@/components/settings/BuySeatsModal";
 import { runTeamAction } from "@/services/teamActionFeedback";
-import { distributeKeyToNewMember } from "@/services/teamVaultSync";
+
 import { markTeamVaultLoadedAfterLocalActivation } from "@/services/teamVaultActivation";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
@@ -179,7 +179,7 @@ function MemberRoleBadges({ member, roles }: { member: TeamMember; roles: TeamRo
 
 // ─── Invite search bar ────────────────────────────────────────────────────────
 
-interface SearchResult { user_id: string; email: string; public_key: string; }
+interface SearchResult { user_id: string; display_name: string; public_key: string; }
 
 function isValidEmail(s: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
@@ -194,7 +194,6 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
 }) {
   const addMemberById = useTeamStore((s) => s.addMemberById);
   const assignMemberRole = useTeamStore((s) => s.assignMemberRole);
-  const loadMembers = useTeamStore((s) => s.loadMembers);
   const { usedSeats, totalSeats, load: reloadSubscription } = useSubscriptionStore();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -260,8 +259,8 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
     setError(""); setSuccess("");
     try {
       await runTeamAction({
-        pending: `Adding ${user.email}...`,
-        success: `${user.email} added`,
+        pending: `Adding ${user.display_name}...`,
+        success: `${user.display_name} added`,
         run: () => addMemberById(teamId, user.user_id),
       });
       for (const roleId of selectedRoleIds) {
@@ -294,14 +293,6 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
         success: (r) => r.status === "invited" ? `Invitation sent to ${invitedEmail}` : `${invitedEmail} added`,
         run: () => inviteByEmail(teamId, invitedEmail, primaryRoleName),
       });
-      if (result.status === "added") {
-        await loadMembers(teamId);
-        const addedMember = useTeamStore.getState().membersByTeam[teamId]
-          ?.find((m) => m.email.toLowerCase() === invitedEmail.toLowerCase());
-        if (addedMember?.public_key) {
-          distributeKeyToNewMember(teamId, addedMember.user_id, addedMember.public_key).catch(() => {});
-        }
-      }
       setQuery(""); setResults([]); setOpen(false);
       setSuccess(result.status === "invited" ? `Invitation sent to ${invitedEmail}` : `${invitedEmail} added`);
       await reloadSubscription();
@@ -409,8 +400,8 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
                   disabled={!!adding}
                   onClick={() => void handleAdd(user)}
                 >
-                  <Avatar email={user.email} size={26} />
-                  <span className="flex-1 text-sm truncate">{user.email}</span>
+                  <Avatar email={user.display_name} size={26} />
+                  <span className="flex-1 text-sm truncate">{user.display_name}</span>
                   {adding === user.user_id
                     ? <Icon icon="lucide:loader-2" width={13} className="animate-spin shrink-0" style={{ color: "var(--t-text-dim)" }} />
                     : <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0" style={{ background: "var(--t-accent)", color: "#fff" }}>
@@ -479,14 +470,14 @@ function MemberRow({ member, isMe, myMember, teamId, roles }: {
     try {
       if (hasRole) {
         await runTeamAction({
-          pending: `Removing ${role.name} from ${member.email}...`,
-          success: `${role.name} removed from ${member.email}`,
+          pending: `Removing ${role.name} from ${member.display_name}...`,
+          success: `${role.name} removed from ${member.display_name}`,
           run: () => removeMemberRole(teamId, member.user_id, role.id),
         });
       } else {
         await runTeamAction({
-          pending: `Assigning ${role.name} to ${member.email}...`,
-          success: `${role.name} assigned to ${member.email}`,
+          pending: `Assigning ${role.name} to ${member.display_name}...`,
+          success: `${role.name} assigned to ${member.display_name}`,
           run: () => assignMemberRole(teamId, member.user_id, role.id),
         });
       }
@@ -502,8 +493,8 @@ function MemberRow({ member, isMe, myMember, teamId, roles }: {
     setBusy(true); setError("");
     try {
       await runTeamAction({
-        pending: `Removing ${member.email}...`,
-        success: `${member.email} removed`,
+        pending: `Removing ${member.display_name}...`,
+        success: `${member.display_name} removed`,
         run: () => removeMember(teamId, member.user_id),
       });
     }
@@ -517,10 +508,10 @@ function MemberRow({ member, isMe, myMember, teamId, roles }: {
   return (
     <div style={{ borderBottom: "1px solid var(--t-border)" }}>
       <div className="flex items-center gap-3 px-4 py-2.5">
-        <Avatar email={member.email} size={30} />
+        <Avatar email={member.display_name} size={30} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <p className="text-sm font-medium truncate" style={{ color: "var(--t-text-primary)" }}>{member.email}</p>
+            <p className="text-sm font-medium truncate" style={{ color: "var(--t-text-primary)" }}>{member.display_name}</p>
             {isMe && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>you</span>}
           </div>
         </div>
@@ -616,8 +607,8 @@ export function TeamVaultPanel({ teamId, myUserId }: { teamId: string; myUserId:
     const invite = pendingInvites.find((i) => i.id === invId);
     try {
       await runTeamAction({
-        pending: `Revoking invitation for ${invite?.email ?? "member"}...`,
-        success: `Invitation revoked for ${invite?.email ?? "member"}`,
+        pending: `Revoking invitation for ${invite?.display_name ?? "member"}...`,
+        success: `Invitation revoked for ${invite?.display_name ?? "member"}`,
         run: () => revokePendingInvitation(teamId, invId),
       });
       setPendingInvites((prev) => prev.filter((i) => i.id !== invId));
@@ -661,9 +652,9 @@ export function TeamVaultPanel({ teamId, myUserId }: { teamId: string; myUserId:
           <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--t-border)" }}>
             {pendingInvites.map((inv) => (
               <div key={inv.id} className="flex items-center gap-3 px-4 py-2.5" style={{ borderTop: "1px solid var(--t-border)" }}>
-                <Avatar email={inv.email} size={28} />
+                <Avatar email={inv.display_name} size={28} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm truncate" style={{ color: "var(--t-text-primary)" }}>{inv.email}</p>
+                  <p className="text-sm truncate" style={{ color: "var(--t-text-primary)" }}>{inv.display_name}</p>
                 </div>
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>
                   Pending
@@ -744,11 +735,11 @@ function TeamMembersSummary({ teamId }: { teamId: string }) {
           {preview.map((m, i) => (
             <div
               key={m.user_id}
-              title={m.email}
+              title={m.display_name}
               style={{ marginLeft: i === 0 ? 0 : -8, zIndex: preview.length - i }}
               className="rounded-full border-2 border-[var(--t-bg-card)]"
             >
-              <Avatar email={m.email} size={24} />
+              <Avatar email={m.display_name} size={24} />
             </div>
           ))}
           {overflow > 0 && (
@@ -998,8 +989,8 @@ export function PrivateVaultMembersPanel({
                     disabled={!!adding}
                     onClick={() => void handleAdd(user)}
                   >
-                    <Avatar email={user.email} size={26} />
-                    <span className="flex-1 text-sm truncate">{user.email}</span>
+                    <Avatar email={user.display_name} size={26} />
+                    <span className="flex-1 text-sm truncate">{user.display_name}</span>
                     {adding === user.user_id
                       ? <Icon icon="lucide:loader-2" width={13} className="animate-spin shrink-0" style={{ color: "var(--t-text-dim)" }} />
                       : <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0" style={{ background: "var(--t-accent)", color: "#fff" }}>

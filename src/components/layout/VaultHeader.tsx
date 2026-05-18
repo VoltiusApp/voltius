@@ -45,7 +45,7 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
           {visible.map((m, i) => (
             <div
               key={m.user_id}
-              title={m.email}
+              title={m.display_name}
               style={{
                 marginLeft: i === 0 ? 0 : -9,
                 zIndex: MAX_STACK - i,
@@ -58,7 +58,7 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
                 transition: "border-color 0.2s, opacity 0.2s",
               }}
             >
-              <MiniAvatar name={m.email} size={24} />
+              <MiniAvatar name={m.display_name} size={24} />
             </div>
           ))}
           {overflow > 0 && (
@@ -101,11 +101,11 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
                 return (
                   <div key={m.user_id} className="flex items-center gap-2.5 px-3 py-2" style={{ opacity: m.is_online ? 1 : 0.5 }}>
                     <div className="relative shrink-0">
-                      <MiniAvatar name={m.email} size={22} />
+                      <MiniAvatar name={m.display_name} size={22} />
                       {m.is_online && <StatusDot color="var(--t-status-connected)" size={7} />}
                     </div>
                     <div className="flex flex-col min-w-0 flex-1">
-                      <span className="text-xs truncate" style={{ color: "var(--t-text-primary)" }}>{m.email}</span>
+                      <span className="text-xs truncate" style={{ color: "var(--t-text-primary)" }}>{m.display_name}</span>
                       {memberRoles.length > 0 && (
                         <div className="flex items-center gap-1 flex-wrap mt-0.5">
                           {memberRoles.map((r) => {

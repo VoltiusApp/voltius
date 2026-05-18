@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Toggle } from "@/components/shared/Toggle";
 import { Icon } from "@iconify/react";
-import { getAccountMode, getCurrentUserEmail, setMasterPassword, linkToCloud, signInToCloud, logout, lockVaultSession } from "@/services/account";
+import { getAccountMode, getCurrentUserEmail, fetchAndCacheDisplayName, updateDisplayName, setMasterPassword, linkToCloud, signInToCloud, logout, lockVaultSession } from "@/services/account";
 import { resetVault } from "@/services/vault";
 import { syncOnLogin, syncOnLoginReplace, startRealtimeSync, getSyncState, onSyncStateChange, syncNow } from "@/services/sync";
 import { useSecurityStore } from "@/stores/securityStore";
@@ -39,6 +39,11 @@ export default function AccountSection() {
   const [confirm, setConfirm] = useState("");
   const [email, setEmail] = useState("");
   const [currentEmail, setCurrentEmail] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [editingDisplayName, setEditingDisplayName] = useState(false);
+  const [displayNameInput, setDisplayNameInput] = useState("");
+  const [displayNameError, setDisplayNameError] = useState("");
+  const [displayNameLoading, setDisplayNameLoading] = useState(false);
   const [linkPassword, setLinkPassword] = useState("");
   const [linkConfirm, setLinkConfirm] = useState("");
   const [cloudAction, setCloudAction] = useState<CloudAction>("signin");
@@ -59,6 +64,7 @@ export default function AccountSection() {
   useEffect(() => {
     getAccountMode().then(setMode).catch(() => setMode(null));
     getCurrentUserEmail().then(setCurrentEmail).catch(() => {});
+    fetchAndCacheDisplayName().then((n) => { if (n) setDisplayName(n); }).catch(() => {});
     setStep("idle");
     setError("");
     setSuccess("");
@@ -387,6 +393,68 @@ export default function AccountSection() {
               sub={currentEmail}
               onClick={() => setShowEditEmail(true)}
             />
+          )}
+          {mode === "server" && (
+            editingDisplayName ? (
+              <div
+                className="flex flex-col gap-2 rounded-lg px-4 py-3"
+                style={{ background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)" }}
+              >
+                <p className="text-xs font-medium text-[var(--t-text-dim)]">Display name</p>
+                <input
+                  autoFocus
+                  type="text"
+                  value={displayNameInput}
+                  maxLength={50}
+                  onChange={(e) => { setDisplayNameInput(e.target.value); setDisplayNameError(""); }}
+                  className="rounded-lg px-3 py-1.5 text-sm outline-none"
+                  style={{ background: "var(--t-bg-input)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
+                />
+                {displayNameError && <p className="text-xs text-[var(--t-status-error)]">{displayNameError}</p>}
+                <div className="flex gap-2">
+                  <button
+                    className="flex-1 text-xs px-3 py-1.5 rounded-lg"
+                    style={{ background: "var(--t-bg-input)", color: "var(--t-text-muted)", border: "1px solid var(--t-border)" }}
+                    onClick={() => { setEditingDisplayName(false); setDisplayNameError(""); }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={displayNameLoading}
+                    className="flex-1 text-xs px-3 py-1.5 rounded-lg font-medium disabled:opacity-50"
+                    style={{ background: "var(--t-accent)", color: "#fff" }}
+                    onClick={async () => {
+                      const trimmed = displayNameInput.trim();
+                      if (!trimmed) { setDisplayNameError("Cannot be empty"); return; }
+                      setDisplayNameLoading(true);
+                      setDisplayNameError("");
+                      try {
+                        await updateDisplayName(trimmed);
+                        setDisplayName(trimmed);
+                        setEditingDisplayName(false);
+                      } catch (e) {
+                        setDisplayNameError(e instanceof Error ? e.message : "Update failed");
+                      } finally {
+                        setDisplayNameLoading(false);
+                      }
+                    }}
+                  >
+                    {displayNameLoading ? "Saving…" : "Save"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <ActionItem
+                icon="lucide:user"
+                label="Display name"
+                sub={displayName ?? "—"}
+                onClick={() => {
+                  setDisplayNameInput(displayName ?? "");
+                  setDisplayNameError("");
+                  setEditingDisplayName(true);
+                }}
+              />
+            )
           )}
           {mode === "server" && (
             <ActionItem

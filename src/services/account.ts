@@ -321,6 +321,41 @@ export async function getCurrentUserEmail(): Promise<string | null> {
   return keychainGet("email");
 }
 
+export async function getCurrentDisplayName(): Promise<string | null> {
+  return keychainGet("display_name");
+}
+
+export async function fetchAndCacheDisplayName(): Promise<string | null> {
+  const [jwt, serverUrl] = await Promise.all([keychainGet("jwt"), keychainGet("server_url")]);
+  if (!jwt || !serverUrl) return null;
+  try {
+    const res = await fetchWithTimeout(`${serverUrl}/v1/auth/me`, {
+      headers: { Authorization: `Bearer ${jwt}` },
+    });
+    if (!res.ok) return null;
+    const me = await res.json();
+    if (me.display_name) await keychainSet("display_name", me.display_name);
+    return me.display_name ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function updateDisplayName(newName: string): Promise<void> {
+  const [jwt, serverUrl] = await Promise.all([keychainGet("jwt"), keychainGet("server_url")]);
+  if (!jwt || !serverUrl) throw new Error("Not connected to server");
+
+  const res = await fetchWithTimeout(`${serverUrl}/v1/auth/display-name`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
+    body: JSON.stringify({ display_name: newName }),
+  });
+  if (res.status === 422) throw new Error("Display name must be 1–50 characters");
+  if (!res.ok) throw new Error(`Failed to update display name: ${res.status}`);
+
+  await keychainSet("display_name", newName);
+}
+
 export async function refreshSession(): Promise<void> {
   const [refreshToken, serverUrl] = await Promise.all([
     keychainGet("refresh_token"),

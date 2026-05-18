@@ -110,9 +110,9 @@ export function usePermissions(): (permission: Permission, vaultId: string) => b
     const fakeMember: TeamMember = {
       team_id: teamId,
       user_id: myUserId,
-      email: "",
+      display_name: "",
       public_key: "",
-      invited_by_email: null,
+      invited_by_display_name: null,
       joined_at: "",
       role_ids: myTeam.role_ids,
     };

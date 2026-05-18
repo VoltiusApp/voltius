@@ -73,9 +73,9 @@ export interface Team {
 export interface TeamMember {
   team_id: string;
   user_id: string;
-  invited_by_email: string | null;
+  invited_by_display_name: string | null;
   joined_at: string;
-  email: string;
+  display_name: string;
   public_key: string;
   role_ids: string[];
   is_online?: boolean;
@@ -268,7 +268,7 @@ export async function deleteRole(teamId: string, roleId: string): Promise<void> 
   }
 }
 
-export async function searchUsers(q: string): Promise<{ user_id: string; email: string; public_key: string }[]> {
+export async function searchUsers(q: string): Promise<{ user_id: string; display_name: string; public_key: string }[]> {
   if (q.length < 2) return [];
   const serverUrl = await getServerUrl();
   if (!serverUrl) return [];
@@ -314,9 +314,9 @@ export async function getServerUrlValue(): Promise<string | null> {
 
 export interface PendingInvitation {
   id: string;
-  email: string;
+  display_name: string;
   role: string;
-  invited_by_email: string | null;
+  invited_by_display_name: string | null;
   created_at: string;
   expires_at: string;
 }
@@ -364,7 +364,7 @@ export interface MyPendingInvitation {
   id: string;
   team_id: string;
   team_name: string;
-  inviter_email: string | null;
+  inviter_display_name: string | null;
   role: string;
   created_at: string;
   expires_at: string;

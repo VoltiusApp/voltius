@@ -275,7 +275,7 @@ function PendingInviteModal({
           <div className="min-w-0">
             <p className="text-base font-semibold text-[var(--t-text-primary)] mb-0.5">Vault invitation</p>
             <p className="text-sm text-[var(--t-text-muted)] leading-relaxed">
-              <span className="text-[var(--t-text-primary)] font-medium">{invite.inviter_email ?? "Someone"}</span>
+              <span className="text-[var(--t-text-primary)] font-medium">{invite.inviter_display_name ?? "Someone"}</span>
               {" "}invited you to{" "}
               <span className="text-[var(--t-text-primary)] font-medium">{invite.team_name}</span>
               {" "}as <span className="capitalize font-medium" style={{ color: "var(--t-accent)" }}>{invite.role}</span>.
