@@ -20,64 +20,22 @@
 
 ---
 
-## ⚡ Why Voltius?
-
-I built Voltius because I couldn't find an SSH client that checked every box. I wanted a tool that was blazingly fast and lightweight, featured a modern UI, and came complete with the features I actually use like Cloud E2EE Sync, SFTP host<->host w/ drag & drop...
-
-Most existing tools are either stuck in the 90s, feel bloated, or lock essential features like device syncing behind expensive subscriptions. This project is my "no-compromise" solution: a native-speed, professional terminal that respects your data and your workflow.
-
 ## ✨ Features
 
-### 🏠 Local-First Core (Free Forever)
-No account required. Your data, your machine.
-- **Plugin system:**
-- **Gist Sync**: Decentralized state-based E2EE sync using private Gists. Each device maintains its own encrypted "blob" in your private Gist. Pulls are triggered via interval polling to keep your devices in sync without a central server.
-- **SFTP:** Host/Local <-> Host/Local, supports drag & drop
-- **Identity Management:** Manage your SSH keys and credentials and reuse them across connections.
-- **Jump Hosts:** Define a chain of jump hosts to connect to hard-to-reach servers (SSH Tunneling).
-- **SSH Config Import:** Import your existing `~/.ssh/config` and keep it in sync (read-only).
-- **SSH Agent Forwarding:** Forward your SSH agent to use local keys on remote hosts.
-- **Environment Variables:** Set environment variables for each connection.
-- **Custom Commands:** Define pre-connection and post-connection commands.
-- **Import/Export:** No vendor lock-in, Import/Export your vaults in a few clicks
-- **Docker:** Manager Docker resources and open terminals directly in Voltius.
-- **Serial Console:** Connect to serial devices directly from Voltius.
-- **System Monitoring:** Live CPU, memory, and disk usage stats from connected hosts.
-- **Local Terminal:** Start local terminals (Bash, Zsh, Fish, PowerShell, WSL, Git Bash, CMD, Cygwin, Cmder).
-- **Split Panes:** Organize your workspace with horizontal and vertical splits and broadcast input to multiple panes simultaneously.
-- **OS Detection:** Auto detect distros to show relevant icons and colors in the UI.
-- **Process Manager:** View and manage running processes on connected hosts with a built-in process manager.
-- **Port-Forwarding:** Automatic detection of open ports on connected hosts and one-click port forwarding.
-- **Snippets**
-- **Reachability checks:** Status badges and Latency indicators. Automatic ping checks with customizable intervals.
-- **Encrypted Keychain:** Store encrypted keys/identities that you can reuse in hosts. Comes with useful features such as "Add to Host" to quickly add a public key to an host.
-- **Command Palette (Cmd+K):** Search servers, switch teams, and trigger actions instantly.
-- **Audit Logs:** Review recent vault activity.
-- **Zero-Knowledge Sync:** Your data is encrypted locally before being synced. We can't read it, and neither can hackers.
-- **Multi-Tab Support:** Native-speed tabs integrated into the window title bar.
-- **Custom Themes:** Comes with built-in themes and you can make your own and share it !
-- **Folders & Tags**
-- **Cross-Platform:** Single-binary performance for macOS, Windows, and Linux.
-- **Auto-Updates**
-- **Status Badges:** Shows hosts status by using ping polling
+No account required. Everything below is free, forever.
 
-### ⚡ Pro ($7/mo annual · $9/mo monthly — 14-day free trial, no card)
-- **Real-Time Cloud Sync:** High-performance real-time engine using CRDTs for instant, conflict-free merging and SSE for sub-second updates across all devices.
-- **Unlimited Private Vaults**
-- **Terminal Sharing:** 1 invite-link session · 1 guest — great for pair debugging or quick help.
+- **Gist Sync** — E2EE device sync via your own private GitHub Gist. No central server, bring your own token.
+- **SFTP** — Host↔Host and Host↔Local with drag & drop support.
+- **Docker Integration** — Manage containers and open terminals directly in Voltius.
+- **Split Panes** — Horizontal/vertical splits with broadcast input to multiple panes.
+- **Plugin System** — Extend Voltius with MIT-licensed plugins.
+- **Process Manager** — View and kill processes on connected hosts.
+- **System Monitoring** — Live CPU, memory, and disk stats from connected hosts.
+- **Local Terminal** — Bash, Zsh, Fish, PowerShell, WSL, Git Bash, CMD, and more.
 
-### 👥 Teams ($15/user/mo annual · $18/user/mo monthly — 3-user minimum)
-- **Team Vaults:** Shared vaults with easy member invites
-- **Shared terminals — 5 sessions · 10 guests each** (session quota shared across the vault owner's vaults)
-- **Role-Based Access Control (RBAC):** Only default roles for teams plan, granular permissions and custom roles are reserved for Business plan to avoid complexity for small teams.
-- **Team Audit Logs**
+> Full feature list at [docs.voltius.app](https://docs.voltius.app) *(coming soon)* · **Pro · Teams · Business** — see [voltius.app/#pricing](https://voltius.app/#pricing) for paid plans.
 
-### 🏢 Business ($30/user/mo — contact us)
-- **On-premise self-hosted backend**
-- **Priority SLA support**
-- **Shared terminals — 20 sessions · 50 guests each**
-- **Granular permissions & Custom Roles**
-- **Custom contracts**
+> Early beta — PRs and issues are welcome.
 
 ## ⚖️ Comparison
 
@@ -91,7 +49,11 @@ No account required. Your data, your machine.
 | **Port Forwarding** | ✅ | ✅ | ✅ |  | ✅ | ✅ |
 | **Snippets** | ✅ + multi-exec | 🟡 Only Pro | ✅ + multi-exec |  |  |  |
 | **Command Palette** | ✅ | ✅ |  |  | ✅ |  |
-| **Multi-tab** | ✅ | ✅ |  |  | ✅ |  |
+| **Split panes** | ✅ | | ❌ |  |  |  |
+| **X11 Forwarding** | ❌ | | ❌ |  |  |  |
+| **Docker Integration** | ✅ |  |  |  |  |  |
+| **System Monitoring** | ✅ |  |  |  |  |  |
+| **Jump Hosts** | ✅ | ✅ | ✅ |  |  |  |
 | **Team vaults** | ✅ Teams or self-hosted | ✅ Teams plan | ✅ Free but complex |  |  |  |
 | **Audit logs** | ✅ | 🟡 Teams plan |  |  |  |  |
 | **Custom Themes** | ✅ |  |  |  | ✅ |  |
@@ -124,7 +86,10 @@ We offer three levels of security to fit your workflow:
 - **Cloud Account:** Enables seamless E2EE synchronization across devices via our high-speed relay service.
 
 ### Zero-Knowledge Synchronization
-Whether you use our professional Cloud Sync or our built-in Gist Plugin, we follow a **Zero-Knowledge** protocol.
+Whether you use our professional Cloud Sync or our built-in Gist Plugin, we follow a **Zero-Knowledge** protocol. All data leaving the device is strictly ciphertext — the auth server, SSE server, and GitHub have zero knowledge of vault contents.
+
+<details>
+<summary>Sync architecture diagram</summary>
 
 ```mermaid
 flowchart TD
@@ -221,6 +186,8 @@ flowchart TD
     SyncLayer --- Note1
 ```
 
+</details>
+
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) 24+
@@ -281,7 +248,7 @@ pnpm tauri build
 
 Output installers are placed in `src-tauri/target/release/bundle/`.
 
-## 🛠️ Tech Stack
+## 🧰 Tech Stack
 
 | Layer    | Tech                               |
 |----------|------------------------------------|
@@ -290,10 +257,6 @@ Output installers are placed in `src-tauri/target/release/bundle/`.
 | Terminal | xterm.js (WebGL Accelerated)       |
 | SSH/SFTP | russh (Custom Rust implementation) |
 | Security | Argon2id, AES-256-GCM (E2EE)       |
-
-## 🗺️ Roadmap
--  [ ] Import Cloud (AWS, Azure, DigitalOcean) (Only for Pro plan, need to make sure it can't be bypassed by forking Tauri Client)
-- [ ] Native Mobile App (via Tauri Mobile)
 
 ## 📄 Licensing
 Voltius is licensed under the AGPLv3 for the core application and MIT for plugins. This means you can use and modify the core app for free, but if you distribute a modified version, you must also share your changes under the same license. Plugins can be used and shared with more flexibility under the MIT license.
