@@ -8,7 +8,6 @@ const WINDOWS_CREATE_NO_WINDOW: u32 = 0x08000000;
 /// No-op on other platforms.
 #[cfg(target_os = "windows")]
 pub fn prevent_visible_child_window(command: &mut tokio::process::Command) {
-    use std::os::windows::process::CommandExt;
     command.creation_flags(WINDOWS_CREATE_NO_WINDOW);
 }
 
