@@ -85,6 +85,10 @@ We offer three levels of security to fit your workflow:
 
 - **Cloud Account:** Enables seamless E2EE synchronization across devices via our high-speed relay service.
 
+### Web Portal
+
+Account registration and login at [app.voltius.app](https://app.voltius.app) are also fully E2EE. The same `voltius-crypto` crate is compiled to WebAssembly and runs entirely in your browser — key derivation (Argon2id + HKDF-SHA256) happens client-side before anything touches the network. The server only ever receives an `auth_key`, never your password or encryption key.
+
 ### Zero-Knowledge Synchronization
 Whether you use our professional Cloud Sync or our built-in Gist Plugin, we follow a **Zero-Knowledge** protocol. All data leaving the device is strictly ciphertext — the auth server, SSE server, and GitHub have zero knowledge of vault contents.
 
@@ -250,13 +254,14 @@ Output installers are placed in `src-tauri/target/release/bundle/`.
 
 ## 🧰 Tech Stack
 
-| Layer    | Tech                               |
-|----------|------------------------------------|
-| Frontend | React 19, TypeScript, Tailwind CSS |
-| Backend  | Rust, Tauri 2, PostgreSQL (Sync)   |
-| Terminal | xterm.js (WebGL Accelerated)       |
-| SSH/SFTP | russh (Custom Rust implementation) |
-| Security | Argon2id, AES-256-GCM (E2EE)       |
+| Layer       | Tech                               |
+|-------------|------------------------------------|
+| Frontend    | React 19, TypeScript, Tailwind CSS |
+| Desktop     | Rust, Tauri 2                      |
+| Sync Server | Rust, Axum, PostgreSQL             |
+| Terminal    | xterm.js (WebGL Accelerated)       |
+| SSH/SFTP    | russh                              |
+| Security    | Argon2id, AES-256-GCM (E2EE)       |
 
 ## 📄 Licensing
 Voltius is licensed under the AGPLv3 for the core application and MIT for plugins. This means you can use and modify the core app for free, but if you distribute a modified version, you must also share your changes under the same license. Plugins can be used and shared with more flexibility under the MIT license.
