@@ -224,6 +224,11 @@ export async function fsTouch(path: string): Promise<void> {
   return invoke("fs_touch", { path });
 }
 
+/** Recursively copy a file or directory on the local filesystem. */
+export async function fsCopy(from: string, to: string): Promise<void> {
+  return invoke("fs_copy", { from, to });
+}
+
 /** Returns true if path exists on the remote, false otherwise. */
 export async function sftpExists(sftpId: string, path: string): Promise<boolean> {
   const result: boolean | null = await invoke("sftp_stat", { sftpId, path });

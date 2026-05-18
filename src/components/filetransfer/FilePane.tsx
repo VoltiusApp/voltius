@@ -12,8 +12,9 @@ import {
   type RemoteFile, type LocalFile,
 } from "@/services/sftp";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
-import { type FileEntry, type SortCol, type SortDir, type VisibleCols, _draggingFromSide, setDraggingFromSide, formatSize } from "./SFTPTypes";
+import { type FileEntry, type SortCol, type SortDir, type VisibleCols, formatSize } from "./SFTPTypes";
 import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
+import { startInternalDragGesture, useSemanticDragState } from "./internalDrag";
 
 // ── SelectionActionsCtx ───────────────────────────────────────────────────────
 
@@ -111,12 +112,15 @@ export function FilePane({
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [creatingFile, setCreatingFile] = useState(false);
   const [newItemName, setNewItemName] = useState("");
-  const [dropFolderPath, setDropFolderPath] = useState<string | null>(null);
-  const [dragOver, setDragOver] = useState(false);
   const [autoTick, setAutoTick] = useState(0);
-  const dragCounter = useRef(0);
   const focusIndex = useRef<number>(-1);
   const prevLocationRef = useRef({ isLocal, sftpId, cwd });
+
+  // Drag-drop state from the pointer-driven drag controller. The pane shows
+  // its overlay when a drag from the OTHER side is currently hovering over us.
+  const dragSemantic = useSemanticDragState();
+  const isDropTarget = !!dragSemantic && dragSemantic.hoverSide === side && dragSemantic.side !== side;
+  const dropFolderPath = isDropTarget ? dragSemantic.hoverFolder : null;
 
   useEffect(() => {
     if (!autoRefreshEnabled) return;
@@ -314,44 +318,10 @@ export function FilePane({
     onOpenInTerminal, setSelection, onRefresh,
   };
 
-  const resetDragState = () => {
-    dragCounter.current = 0;
-    setDragOver(false);
-    setDropFolderPath(null);
-  };
-
-  // dragend fires on the source (possibly the other pane) but dragLeave on the
-  // target is unreliable in WebView2 when drag is cancelled — hard-reset here.
-  useEffect(() => {
-    window.addEventListener("dragend", resetDragState);
-    return () => window.removeEventListener("dragend", resetDragState);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleDragEnter = (e: React.DragEvent) => {
-    if (_draggingFromSide === side) return;
-    e.preventDefault();
-    dragCounter.current++;
-    setDragOver(true);
-  };
-  const handleDragOver = (e: React.DragEvent) => {
-    if (_draggingFromSide === side) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "copy";
-  };
-  const handleDragLeave = () => {
-    if (_draggingFromSide === side) return; // mirror the guard in handleDragEnter
-    dragCounter.current--;
-    if (dragCounter.current === 0) { setDragOver(false); setDropFolderPath(null); }
-  };
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const target = dropFolderPath;
-    resetDragState();
-    try {
-      const data = JSON.parse(e.dataTransfer.getData("text/plain")) as { files: FileEntry[]; fromSide: "left" | "right" };
-      if (data.fromSide !== side) onDropFiles(data.files, data.fromSide, target ?? undefined);
-    } catch { /* ignore malformed drag data */ }
+  // The pointer-driven drag controller invokes this when a drop is committed
+  // on this pane. Hand off to the SFTPPage's transfer pipeline.
+  const handleInternalDrop = (files: FileEntry[], fromSide: "left" | "right", targetFolder?: string) => {
+    onDropFiles(files, fromSide, targetFolder);
   };
 
   return (
@@ -359,12 +329,9 @@ export function FilePane({
       className="flex flex-col h-full min-w-0 relative"
       onKeyDown={handleKeyDown}
       tabIndex={-1}
-      onDragEnter={handleDragEnter}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      data-drop-side={side}
     >
-      {dragOver && (
+      {isDropTarget && (
         <div
           className="absolute inset-0 z-20 flex items-center justify-center rounded pointer-events-none"
           style={{ background: "color-mix(in srgb, var(--t-accent) 12%, transparent)", border: "2px solid var(--t-accent)" }}
@@ -410,8 +377,9 @@ export function FilePane({
           side={side} isLocal={isLocal} selectedEntries={selectedEntries}
           colWidths={colWidths} visibleCols={visibleCols}
           onCommitRename={commitRename} onCancelRename={() => setRenaming(null)}
-          onDropFolderPath={setDropFolderPath} onItemSelect={handleItemSelect}
+          onItemSelect={handleItemSelect}
           onNavigate={onNavigate} onSetSelection={setSelection}
+          onInternalDrop={handleInternalDrop}
           selectionActionsCtx={selectionActionsCtx}
         />
       </DragSelectSurface>
@@ -833,8 +801,9 @@ function VirtualFileList({
   selectedIdSet, dropFolderPath,
   focusIndex, itemAreaRef,
   side, isLocal, selectedEntries, colWidths, visibleCols,
-  onCommitRename, onCancelRename, onDropFolderPath,
+  onCommitRename, onCancelRename,
   onItemSelect, onNavigate, onSetSelection,
+  onInternalDrop,
   selectionActionsCtx,
 }: {
   entries: FileEntry[]; loading: boolean; error: string | null;
@@ -846,9 +815,9 @@ function VirtualFileList({
   focusIndex: React.MutableRefObject<number>; itemAreaRef: React.RefObject<HTMLDivElement | null>;
   side: "left" | "right"; isLocal: boolean; selectedEntries: FileEntry[]; colWidths: ColumnWidths; visibleCols: VisibleCols;
   onCommitRename: (f: FileEntry) => void; onCancelRename: () => void;
-  onDropFolderPath: (path: string | null) => void;
   onItemSelect: (id: string, event: React.MouseEvent<HTMLDivElement>) => void;
   onNavigate: (p: string) => void; onSetSelection: (ids: string[]) => void;
+  onInternalDrop: (files: FileEntry[], fromSide: "left" | "right", targetFolder?: string) => void;
   selectionActionsCtx: SelectionActionsCtx;
 }) {
   const rowVirtualizer = useVirtualizer({
@@ -857,9 +826,6 @@ function VirtualFileList({
     estimateSize: () => 34,
     overscan: 15,
   });
-
-  const dragGhostRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => () => { dragGhostRef.current?.remove(); dragGhostRef.current = null; }, []);
 
   const commitCreate = creatingFolder ? onCommitCreateFolder : onCommitCreateFile;
   const inlineCreateRow = (creatingFolder || creatingFile) && (
@@ -941,7 +907,7 @@ function VirtualFileList({
               key={file.path}
               data-drag-surface="true"
               style={itemStyle}
-              onDragEnter={() => { if (file.isDir && _draggingFromSide !== side) onDropFolderPath(file.path); }}
+              {...(file.isDir ? { "data-drop-folder": file.path } : {})}
             >
               <FileRow
                 file={file}
@@ -954,56 +920,21 @@ function VirtualFileList({
                 onClick={(e) => { focusIndex.current = virtualItem.index; onItemSelect(file.path, e as React.MouseEvent<HTMLDivElement>); }}
                 onDoubleClick={() => { if (file.isDir) onNavigate(file.path); }}
                 contextActions={contextActions.length > 0 ? contextActions : undefined}
-                onDragStart={(e) => {
-                  setDraggingFromSide(side);
+                onPointerDown={(e) => {
+                  if (e.button !== 0) return;
+                  // Don't initiate a drag on modifier-clicks (which extend/toggle selection).
+                  if (e.shiftKey || e.ctrlKey || e.metaKey) return;
                   const filesToDrag = isSelected && selectedEntries.length > 0 ? selectedEntries : [file];
-                  e.dataTransfer.setData("text/plain", JSON.stringify({ files: filesToDrag, fromSide: side }));
-                  e.dataTransfer.effectAllowed = "copyMove";
-                  if (!isSelected) { onSetSelection([file.path]); focusIndex.current = virtualItem.index; }
-                  const count = filesToDrag.length;
-                  const hasDir = filesToDrag.some((f) => f.isDir);
-                  const icon = count === 1
-                    ? (file.isDir
-                      ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f0c050" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`
-                      : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t-text-dim)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>`)
-                    : (hasDir
-                      ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f0c050" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`
-                      : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t-text-dim)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>`);
-                  const label = count === 1 ? file.name : `${count} items`;
-                  const ghost = document.createElement("div");
-                  ghost.style.cssText = "position:fixed;top:0;left:0;display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;font-size:12px;font-family:inherit;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,0.5);pointer-events:none;";
-                  ghost.style.background = "var(--t-bg-card)";
-                  ghost.style.border = "1px solid var(--t-accent)";
-                  ghost.style.color = "var(--t-text-primary)";
-                  ghost.innerHTML = `${icon}<span>${label}</span>`;
-                  if (count > 1) {
-                    const badge = document.createElement("span");
-                    badge.style.cssText = "border-radius:9999px;padding:0 6px;font-size:11px;font-weight:600;line-height:18px;";
-                    badge.style.background = "var(--t-accent)";
-                    badge.style.color = "#fff";
-                    badge.textContent = String(count);
-                    ghost.appendChild(badge);
-                  }
-                  document.body.appendChild(ghost);
-                  const gw = ghost.offsetWidth;
-                  const gh = ghost.offsetHeight;
-                  // Position under cursor after measuring so setDragImage sees a
-                  // viewport-resident element (WebView2 ignores off-screen images).
-                  ghost.style.left = `${e.clientX - gw / 2}px`;
-                  ghost.style.top = `${e.clientY - gh / 2}px`;
-                  e.dataTransfer.setDragImage(ghost, gw / 2, gh / 2);
-                  // Keep ghost attached (WebView2 cancels the drag if the
-                  // setDragImage element is detached before its compositor
-                  // snapshot completes) but hide it after one frame so the
-                  // live element doesn't double-render alongside the snapshot.
-                  dragGhostRef.current?.remove();
-                  dragGhostRef.current = ghost;
-                  requestAnimationFrame(() => { ghost.style.visibility = "hidden"; });
-                }}
-                onDragEnd={() => {
-                  setDraggingFromSide(null);
-                  dragGhostRef.current?.remove();
-                  dragGhostRef.current = null;
+                  startInternalDragGesture({
+                    side,
+                    files: filesToDrag,
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    onActivate: () => {
+                      if (!isSelected) { onSetSelection([file.path]); focusIndex.current = virtualItem.index; }
+                    },
+                    onDrop: onInternalDrop,
+                  });
                 }}
               />
             </div>
@@ -1016,12 +947,11 @@ function VirtualFileList({
 
 // ── FileRow ───────────────────────────────────────────────────────────────────
 
-function FileRow({ file, isSelected, isDragHover, isLocal, colWidths, visibleCols, selectableId, onClick, onDoubleClick, contextActions, onDragStart, onDragEnd }: {
+function FileRow({ file, isSelected, isDragHover, isLocal, colWidths, visibleCols, selectableId, onClick, onDoubleClick, contextActions, onPointerDown }: {
   file: FileEntry; isSelected: boolean; isDragHover?: boolean; isLocal: boolean; colWidths: ColumnWidths; visibleCols: VisibleCols; selectableId?: string;
   onClick: (e: React.MouseEvent) => void; onDoubleClick: () => void;
   contextActions?: ContextMenuItem[];
-  onDragStart?: (e: React.DragEvent) => void;
-  onDragEnd?: () => void;
+  onPointerDown?: (e: React.PointerEvent) => void;
 }) {
   const { pos, open, close } = useContextMenu();
   const [hovered, setHovered] = useState(false);
@@ -1036,7 +966,6 @@ function FileRow({ file, isSelected, isDragHover, isLocal, colWidths, visibleCol
 
   return (
     <div
-      draggable={!!onDragStart}
       data-selectable-id={selectableId}
       className="flex items-center gap-2 px-2 py-1.5 my-px mr-1 ml-3 rounded transition-colors cursor-default select-none relative"
       style={{ background: bg, border }}
@@ -1044,8 +973,7 @@ function FileRow({ file, isSelected, isDragHover, isLocal, colWidths, visibleCol
       onDoubleClick={onDoubleClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+      onPointerDown={onPointerDown}
       onContextMenu={(e) => { e.stopPropagation(); if (contextActions?.length) { if (!isSelected) onClick(e); open(e); } else { e.preventDefault(); } }}
     >
       <Icon

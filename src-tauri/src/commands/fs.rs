@@ -149,6 +149,30 @@ pub fn fs_touch(path: String) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// Recursively copy a file or directory on the local filesystem.
+#[tauri::command]
+pub fn fs_copy(from: String, to: String) -> Result<(), String> {
+    let src = std::path::Path::new(&from);
+    let dst = std::path::Path::new(&to);
+    fn copy_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+        let meta = src.symlink_metadata()?;
+        if meta.is_dir() {
+            std::fs::create_dir_all(dst)?;
+            for entry in std::fs::read_dir(src)? {
+                let entry = entry?;
+                copy_recursive(&entry.path(), &dst.join(entry.file_name()))?;
+            }
+        } else {
+            if let Some(parent) = dst.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::fs::copy(src, dst)?;
+        }
+        Ok(())
+    }
+    copy_recursive(src, dst).map_err(|e| e.to_string())
+}
+
 /// Compress a local file or directory into a .tar.gz archive.
 #[tauri::command]
 pub async fn fs_compress(source_path: String, archive_path: String) -> Result<(), String> {

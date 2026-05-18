@@ -319,6 +319,7 @@ pub fn run() {
             commands::fs::fs_rename,
             commands::fs::fs_delete,
             commands::fs::fs_touch,
+            commands::fs::fs_copy,
             commands::fs::fs_compress,
             commands::fs::fs_extract,
             commands::sftp::sftp_cancel_transfer,
