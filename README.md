@@ -28,7 +28,7 @@ No account required. Everything below is free, forever.
 - **SFTP** — Host↔Host and Host↔Local with drag & drop support.
 - **Docker Integration** — Manage containers and open terminals directly in Voltius.
 - **Split Panes** — Horizontal/vertical splits with broadcast input to multiple panes.
-- **Plugin System** — Extend Voltius with MIT-licensed plugins.
+- **Plugin System** — Install plugins from the [official registry](https://github.com/VoltiusApp/marketplace) or point to your own custom repo.
 - **Process Manager** — View and kill processes on connected hosts.
 - **System Monitoring** — Live CPU, memory, and disk stats from connected hosts.
 - **Local Terminal** — Bash, Zsh, Fish, PowerShell, WSL, Git Bash, CMD, and more.
