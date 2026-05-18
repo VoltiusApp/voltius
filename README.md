@@ -37,39 +37,38 @@ No account required. Everything below is free, forever.
 
 ## ⚖️ Comparison
 
-| Feature | Voltius | Termius | [Reach](https://github.com/alexandrosnt/Reach) | [Termix](https://github.com/Termix-SSH/Termix) | Tabby | PuTTY |
-| --- | --- | --- | --- | --- | --- | --- |
-| **Engine** | **Rust + Tauri** 🦀 | Electron | **Rust + Tauri** 🦀 |  | Electron / Node.js | C |
-| **RAM Usage** | ~300MB | ~500MB+ | ~300MB | NOT TESTED | NOT TESTED | **~5MB** |
-| **Installed Size** | ~60MB | ~1GB | ~60MB | NOT TESTED | NOT TESTED | **~3MB** |
-| **Cloud Sync** | Gist (Free) / Real-Time (Paid) | 🟡 Only Pro | 🟡 Complex setup | ❌ | Community Plugins | ❌ |
-| **Import/Export** | ✅ | 🟡 Strong Import Integrations but no Export | ✅ |  |  |  |
-| **Port Forwarding** | ✅ | ✅ | ✅ |  | ✅ | ✅ |
-| **Snippets** | ✅ + multi-exec | 🟡 Only Pro | ✅ + multi-exec |  |  |  |
-| **Command Palette** | ✅ | ✅ |  |  | ✅ |  |
-| **Split panes** | ✅ | | ❌ |  |  |  |
-| **X11 Forwarding** | ❌ | | ❌ |  |  |  |
-| **Docker Integration** | ✅ |  |  |  |  |  |
-| **System Monitoring** | ✅ |  |  |  |  |  |
-| **Jump Hosts** | ✅ | ✅ | ✅ |  |  |  |
-| **Team vaults** | ✅ Teams or self-hosted | ✅ Teams plan | ✅ Free but complex |  |  |  |
-| **Audit logs** | ✅ | 🟡 Teams plan |  |  |  |  |
-| **Custom Themes** | ✅ |  |  |  | ✅ |  |
-| **Folders &amp; Tags** | ✅ | ✅ | ✅ |  |  |  |
-| **Auto-Updates** | ✅ | ✅ | ✅ |  |  |  |
-| **Modern UI/UX** | ✅ | ✅ | 🟡 | ✅ | 🟡 | ❌ |
-| **AI assistant** | ❌ | ✅ | ✅ |  |  |  |
-| **Permissions** | ✅ Teams RBAC / Business custom roles | ✅ Granular perms |  |  |  |  |
-| **Terminal sharing** | ✅ Pro (1 guest) / Teams (unlimited) | ✅ needs Teams plan |  |  |  |  |
-| **Security** | **End-to-End Encrypted** | Proprietary E2EE | **End-to-End Encrypted** |  | Local Only / Manual |  |
-| **SFTP host&lt;-&gt;host** | ✅ | ✅ | ❌ |  | ❌ | ❌ |
-| **Serial Console** | ✅ | ✅ | ✅ |  | ✅ | ✅ |
-| **Local-first** | ✅ 100% (No account needed) | ❌ (Requires account) | ✅ | ✅ | ✅ | ✅ |
-| **Plugins** | ✅ | ❌ | ✅ | ❌ | ✅ | ❌ |
-| **Platforms** | Windows, Linux, MacOS (Mobile coming soon) | Windows, Linux, MacOS, Android, IOS | Windows, Linux, MacOS, Android | All (web-based) | Windows, Linux, MacOS, Web | Windows, ReactOS, macOS, Linux |
-| **Pricing** | Free / Pro $7 / Teams $15 / Business $30 | Very limited free tier (no sync) | Free | Free | Free | Free |
-| **License** | **AGPLv3 (Core)** | Commercial / Paid | MIT | Apache License Version 2.0 | MIT | MIT |
-| **OS Detection** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Feature | Voltius | Termius | [Reach](https://github.com/alexandrosnt/Reach) | [Termix](https://github.com/Termix-SSH/Termix) | Tabby |
+| --- | --- | --- | --- | --- | --- |
+| **Engine** | **Rust + Tauri** 🦀 | Flutter + Dart (likely; closed-source) | **Rust + Tauri** 🦀 | Web (React + Node.js) | Electron / Node.js |
+| **RAM Usage** | ~300MB | ~500MB+ | ~300MB | NOT TESTED | NOT TESTED |
+| **Installed Size** | ~60MB | ~1GB | ~60MB | NOT TESTED | NOT TESTED |
+| **Cloud Sync** | Gist (Free) / Real-Time (Paid) | 🟡 Only Pro | 🟡 Via Turso (own account) | ❌ | Community Plugins |
+| **Import/Export** | 🚧 WIP: Only JSON Import/Export for now | 🟡 Strong Import Integrations but no Export | ✅ |  |  |
+| **Port Forwarding** | ✅ | ✅ | ✅ |  | ✅ |
+| **Snippets** | ✅ + multi-exec | 🟡 (Multi-exec + startup snippets only Pro) | ✅ + multi-exec |  |  |
+| **Command Palette** | ✅ | ✅ |  |  | ✅ |
+| **Split panes** | ✅ | ✅ | ❌ |  |  |
+| **X11 Forwarding** | ❌ | | ❌ |  |  |
+| **Docker Integration** | ✅ |  |  |  |  |
+| **System Monitoring** | ✅ |  |  |  |  |
+| **Jump Hosts** | ✅ | ✅ | ✅ |  |  |
+| **Team vaults** | ✅ Teams or self-hosted | ✅ Teams plan | ✅ Free but complex |  |  |
+| **Audit logs** | ✅ | 🟡 Teams plan |  |  |  |
+| **Custom Themes** | ✅ |  |  |  | ✅ |
+| **Folders &amp; Tags** | ✅ | ✅ | ✅ |  |  |
+| **Auto-Updates** | ✅ | ✅ | ✅ |  |  |
+| **Modern UI/UX** | ✅ | ✅ | 🟡 | ✅ | 🟡 |
+| **AI assistant** | ❌ | ✅ | ✅ |  |  |
+| **Permissions** | ✅ Teams RBAC / Business custom roles | ✅ Granular perms |  |  |  |
+| **Terminal sharing** | ✅ Pro (1 guest) / Teams (unlimited) | ✅ needs Teams plan |  |  |  |
+| **Security** | **End-to-End Encrypted** | Proprietary E2EE | **End-to-End Encrypted** |  | Local Only / Manual |
+| **SFTP host&lt;-&gt;host** | ✅ | ✅ | ❌ |  | ❌ |
+| **Serial Console** | ✅ | ✅ | ✅ |  | ✅ |
+| **Local-first** | ✅ 100% (No account needed) | ❌ (Requires account) | ✅ | ✅ | ✅ |
+| **Plugins** | ✅ | ❌ | ✅ | ❌ | ✅ |
+| **Platforms** | Windows, Linux, MacOS (Mobile coming soon) | Windows, Linux, MacOS, Android, IOS | Windows, Linux, MacOS, Android | All (web-based) | Windows, Linux, MacOS, Web |
+| **License** | **AGPLv3** | Commercial / Paid | MIT | Apache License Version 2.0 | MIT |
+| **OS Detection** | ✅ | ✅ | ✅ | ❌ | ❌ |
 
 ## 🛡️ Architecture & Security
 Voltius is built on a **Local-First, Zero-Knowledge** architecture. Your sensitive data (private keys, passwords, and server metadata) is encrypted on your machine before it ever touches a disk or a network.
