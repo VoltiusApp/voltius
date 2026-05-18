@@ -858,6 +858,9 @@ function VirtualFileList({
     overscan: 15,
   });
 
+  const dragGhostRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => () => { dragGhostRef.current?.remove(); dragGhostRef.current = null; }, []);
+
   const commitCreate = creatingFolder ? onCommitCreateFolder : onCommitCreateFile;
   const inlineCreateRow = (creatingFolder || creatingFile) && (
     <div className="flex items-center gap-2 ml-3 mr-1 px-2 py-1.5 rounded border border-[var(--t-accent)]">
@@ -955,6 +958,7 @@ function VirtualFileList({
                   setDraggingFromSide(side);
                   const filesToDrag = isSelected && selectedEntries.length > 0 ? selectedEntries : [file];
                   e.dataTransfer.setData("text/plain", JSON.stringify({ files: filesToDrag, fromSide: side }));
+                  e.dataTransfer.effectAllowed = "copyMove";
                   if (!isSelected) { onSetSelection([file.path]); focusIndex.current = virtualItem.index; }
                   const count = filesToDrag.length;
                   const hasDir = filesToDrag.some((f) => f.isDir);
@@ -988,9 +992,19 @@ function VirtualFileList({
                   ghost.style.left = `${e.clientX - gw / 2}px`;
                   ghost.style.top = `${e.clientY - gh / 2}px`;
                   e.dataTransfer.setDragImage(ghost, gw / 2, gh / 2);
-                  setTimeout(() => ghost.remove(), 0);
+                  // Keep ghost attached (WebView2 cancels the drag if the
+                  // setDragImage element is detached before its compositor
+                  // snapshot completes) but hide it after one frame so the
+                  // live element doesn't double-render alongside the snapshot.
+                  dragGhostRef.current?.remove();
+                  dragGhostRef.current = ghost;
+                  requestAnimationFrame(() => { ghost.style.visibility = "hidden"; });
                 }}
-                onDragEnd={() => { setDraggingFromSide(null); }}
+                onDragEnd={() => {
+                  setDraggingFromSide(null);
+                  dragGhostRef.current?.remove();
+                  dragGhostRef.current = null;
+                }}
               />
             </div>
           );
