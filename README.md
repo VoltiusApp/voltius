@@ -35,8 +35,6 @@ No account required. Everything below is free, forever.
 
 > Full feature list at [docs.voltius.app](https://docs.voltius.app) *(coming soon)* · **Pro · Teams · Business** — see [voltius.app/#pricing](https://voltius.app/#pricing) for paid plans.
 
-> Early beta — PRs and issues are welcome.
-
 ## ⚖️ Comparison
 
 | Feature | Voltius | Termius | [Reach](https://github.com/alexandrosnt/Reach) | [Termix](https://github.com/Termix-SSH/Termix) | Tabby | PuTTY |
@@ -200,6 +198,8 @@ flowchart TD
 - Tauri prerequisites for your platform — see [tauri.app/start/prerequisites](https://tauri.app/start/prerequisites/)
 
 ## 🛠️ Development & Build
+
+Early beta — PRs and issues are welcome.
 
 For dev, you simply need to run:
 ```bash
