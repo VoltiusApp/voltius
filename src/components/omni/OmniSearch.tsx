@@ -18,6 +18,8 @@ import type { Connection, TerminalSession, SshKey, Identity, Snippet } from "@/t
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { SETTINGS_NAV } from "@/components/settings/settingsNav";
 import { useShortcutStore, formatShortcut } from "@/stores/shortcutStore";
+import { useVaultStore } from "@/stores/vaultStore";
+import { useTeamStore } from "@/stores/teamStore";
 
 interface OmniSearchProps {
   onClose: () => void;
@@ -87,6 +89,26 @@ function HostAvatar({ connection, size = 28 }: { connection: Connection; size?: 
   );
 }
 
+function VaultBadge({ vaultId, vaults, teams }: { vaultId: string | undefined; vaults: import("@/stores/vaultStore").Vault[]; teams: import("@/stores/teamStore").Team[] }) {
+  const effectiveId = vaultId ?? "personal";
+  const vault = vaults.find((v) => v.id === effectiveId || v.teamId === effectiveId);
+  const team = !vault ? teams.find((t) => t.id === effectiveId) : undefined;
+  const name = vault?.name ?? team?.name ?? "Personal";
+  const isPersonal = effectiveId === "personal";
+  return (
+    <span
+      className="shrink-0 flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded border"
+      style={isPersonal
+        ? { background: "var(--t-bg-elevated)", color: "var(--t-text-muted)", borderColor: "var(--t-border)" }
+        : { background: "color-mix(in srgb, var(--t-accent) 12%, transparent)", color: "var(--t-accent)", borderColor: "color-mix(in srgb, var(--t-accent) 30%, transparent)" }
+      }
+    >
+      <Icon icon="lucide:vault" width={10} />
+      {name}
+    </span>
+  );
+}
+
 export default function OmniSearch({ onClose }: OmniSearchProps) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
@@ -100,6 +122,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const { trackUsed, setGlobalPendingInject } = useSnippetStore();
   const identities = useIdentityStore((s) => s.identities);
   const keys = useKeyStore((s) => s.keys);
+  const vaults = useVaultStore((s) => s.vaults);
+  const teams = useTeamStore((s) => s.teams);
   const omniCommandsMap = usePluginStore((s) => s.omniCommands);
   const pluginCommands = useMemo(() => [...omniCommandsMap.values()], [omniCommandsMap]);
   const shortcuts = useShortcutStore((s) => s.shortcuts);
@@ -438,6 +462,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
             style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
             {item.session.connectionName}
           </span>
+          <VaultBadge vaultId={item.connection?.vault_id} vaults={vaults} teams={teams} />
           <span className="text-xs shrink-0 text-[var(--t-text-dim)]">
             {item.session.status}
           </span>
@@ -463,6 +488,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               {conn.name || `${conn.username}@${conn.host}`}
             </span>
           </div>
+          <VaultBadge vaultId={conn.vault_id} vaults={vaults} teams={teams} />
           <span className="text-xs shrink-0 group-hover/row:hidden text-[var(--t-text-muted)]">
             ssh, {conn.username}
           </span>
@@ -510,6 +536,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               {item.key.name}
             </span>
           </div>
+          <VaultBadge vaultId={item.key.vault_id} vaults={vaults} teams={teams} />
           {item.key.key_type && (
             <span className="text-xs font-mono shrink-0 px-1.5 py-0.5 rounded bg-[var(--t-bg-elevated)] text-[var(--t-accent)]">
               {item.key.key_type}
@@ -538,6 +565,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               {item.identity.name ?? item.identity.username}
             </span>
           </div>
+          <VaultBadge vaultId={item.identity.vault_id} vaults={vaults} teams={teams} />
           <span className="text-xs shrink-0 text-[var(--t-text-muted)]">
             {item.identity.username}
           </span>
@@ -600,6 +628,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               {item.snippet.content}
             </p>
           </div>
+          <VaultBadge vaultId={item.snippet.vault_id} vaults={vaults} teams={teams} />
           {item.snippet.tags.length > 0 && (
             <span className="text-[10px] shrink-0 text-[var(--t-text-muted)]">
               {item.snippet.tags[0]}
