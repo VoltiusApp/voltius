@@ -150,7 +150,14 @@ export default function HostsPage() {
     return counts;
   }, [connections]);
 
-  const scopedFolders = useMemo(() => folders.filter((f) => f.object_type === "connection"), [folders]);
+  const scopedFolders = useMemo(
+    () => folders.filter((f) => {
+      if (f.object_type !== "connection") return false;
+      const fvid = f.vault_id ?? "personal";
+      return accessibleVaultIds.length === 0 || accessibleVaultIds.includes(fvid);
+    }),
+    [folders, accessibleVaultIds],
+  );
   const scopedFolderIds = useMemo(() => new Set(scopedFolders.map((f) => f.id)), [scopedFolders]);
   const editingFolder = editingFolderId ? scopedFolders.find((f) => f.id === editingFolderId) ?? null : null;
 

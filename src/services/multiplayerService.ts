@@ -15,6 +15,8 @@ export interface ActiveSession {
   participant_count: number;
   /** Included when the server returns full participant info. */
   participants?: Participant[];
+  /** Vault scope(s) this session is shared with. Absent for invite-link sessions. */
+  vault_ids?: string[];
 }
 
 export interface Participant {

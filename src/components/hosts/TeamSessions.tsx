@@ -1,17 +1,40 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore as useMpStore } from "@/stores/teamSessionStore";
 import { getCurrentUserEmail } from "@/services/account";
+import { getMyUserId } from "@/services/teamService";
 import { useUIStore } from "@/stores/uiStore";
+import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { AvatarStack } from "@/components/shared/AvatarStack";
 import { BaseCard } from "@/components/shared/BaseCard";
 
 export function TeamSessions() {
-  const { activeSessions, fetchActiveSessions, joinSession } = useTeamSessionStore();
+  const { activeSessions: rawSessions, fetchActiveSessions, joinSession } = useTeamSessionStore();
   const setActive = useSessionStore((s) => s.setActive);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
+  const homeView = useUIStore((s) => s.homeView);
+  const accessibleVaultIds = useAccessibleVaultIds();
+  const [myUserId, setMyUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    getMyUserId().then(setMyUserId).catch(() => {});
+  }, []);
+
+  // Scope sessions to the current vault unless we're on the home dashboard.
+  // - homeView: show everything
+  // - vault selected: show sessions whose vault_ids overlap accessibleVaultIds
+  // - always include sessions I host (so I never lose track of my own)
+  const activeSessions = useMemo(() => {
+    if (homeView) return rawSessions;
+    return rawSessions.filter((s) => {
+      if (myUserId && s.host_user_id === myUserId) return true;
+      const vids = s.vault_ids;
+      if (!vids || vids.length === 0) return false;
+      return vids.some((v) => accessibleVaultIds.includes(v));
+    });
+  }, [rawSessions, homeView, accessibleVaultIds, myUserId]);
 
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [inviteCode, setInviteCode] = useState("");

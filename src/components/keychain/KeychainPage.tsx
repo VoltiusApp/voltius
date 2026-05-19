@@ -98,7 +98,14 @@ export default function KeychainPage() {
     ];
   }, [vaults, teams]);
   const q = useMemo(() => search.trim().toLowerCase(), [search]);
-  const scopedFolders = useMemo(() => folders.filter((f) => f.object_type === "keychain"), [folders]);
+  const scopedFolders = useMemo(
+    () => folders.filter((f) => {
+      if (f.object_type !== "keychain") return false;
+      const fvid = f.vault_id ?? "personal";
+      return accessibleVaultIds.length === 0 || accessibleVaultIds.includes(fvid);
+    }),
+    [folders, accessibleVaultIds],
+  );
   const scopedFolderIds = useMemo(() => new Set(scopedFolders.map((f) => f.id)), [scopedFolders]);
   const editingFolder = editingFolderId ? scopedFolders.find((f) => f.id === editingFolderId) ?? null : null;
 

@@ -219,6 +219,14 @@ export function SnippetsPage() {
   } | null>(null);
 
 
+  const scopedFolders = useMemo(
+    () => folders.filter((f) => {
+      const fvid = f.vault_id ?? "personal";
+      return accessibleVaultIds.length === 0 || accessibleVaultIds.includes(fvid);
+    }),
+    [folders, accessibleVaultIds],
+  );
+
   // Folder navigation
   const {
     folderPath,
@@ -229,7 +237,7 @@ export function SnippetsPage() {
     navigateTo,
     navigateToRoot,
     onFolderDeleted,
-  } = useFolderNavigation(folders);
+  } = useFolderNavigation(scopedFolders);
 
   useEffect(() => {
     void loadSnippets();
