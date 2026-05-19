@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="src-tauri/icons/12c8x128.png" alt="Voltius Logo" width="96" />
+  <img src="src-tauri/icons/128x128.png" alt="Voltius Logo" width="96" />
   
   <br/>
 
