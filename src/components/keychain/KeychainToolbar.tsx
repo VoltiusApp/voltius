@@ -88,14 +88,14 @@ export function KeychainToolbar({
 
 function NewKeyChevron({ onGenerate, onNewIdentity, onNewFolder, accent }: { onImport?: () => void; onGenerate?: () => void; onNewIdentity?: () => void; onNewFolder: () => void; accent?: boolean }) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
   const wrapperRef = useRef<HTMLDivElement>(null);
   const { createRipple, rippleEls } = useRipple();
 
   const handleClick = () => {
     if (!open && wrapperRef.current) {
       const r = wrapperRef.current.getBoundingClientRect();
-      setPos({ top: r.bottom + 4, left: r.left });
+      setPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
     }
     setOpen((o) => !o);
   };
@@ -132,7 +132,7 @@ function NewKeyChevron({ onGenerate, onNewIdentity, onNewFolder, accent }: { onI
           className="p-1.5 rounded-xl fixed z-[9999] bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)]"
           style={{
             top: pos.top,
-            left: pos.left,
+            right: pos.right,
             width: "max-content",
             boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
           }}
