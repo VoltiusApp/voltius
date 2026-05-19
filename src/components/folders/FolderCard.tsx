@@ -5,6 +5,14 @@ import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
+import { useFolderStore } from "@/stores/folderStore";
+import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
+import { useTeamStore } from "@/stores/teamStore";
+import {
+  useEffectivePinned,
+  useEffectivePinSource,
+  nextPersonalPinValue,
+} from "@/hooks/useEffectivePinned";
 import type { Folder, VaultOption } from "@/types";
 
 interface FolderCardProps {
@@ -64,6 +72,38 @@ export function FolderCard({
   const { pos: ctxPos, open: openCtx, close: closeCtx } = useContextMenu();
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(folder.id, "folder"));
   const toggleSync = useSyncPrefsStore((s) => s.toggleExcluded);
+  const isSnippetFolder = folder.object_type === "snippet_folder";
+  const folderType: "folder" | "snippet_folder" = isSnippetFolder ? "snippet_folder" : "folder";
+  const pinFolder = useFolderStore((s) => s.pinFolder);
+  const pinFolderForTeam = useFolderStore((s) => s.pinFolderForTeam);
+  const pinSnippetFolder = useSnippetFolderStore((s) => s.pinSnippetFolder);
+  const pinSnippetFolderForTeam = useSnippetFolderStore((s) => s.pinSnippetFolderForTeam);
+  const effPinned = useEffectivePinned(folder, folderType);
+  const pinSource = useEffectivePinSource(folder, folderType);
+  const isTeamVault = useTeamStore((s) => s.teams.some((t) => t.id === folder.vault_id));
+  const pinPersonal = (pinned: boolean | null) => {
+    if (isSnippetFolder) pinSnippetFolder(folder.id, pinned).catch(() => {});
+    else pinFolder(folder.id, pinned).catch(() => {});
+  };
+  const pinTeam = (pinned: boolean) => {
+    if (isSnippetFolder) pinSnippetFolderForTeam(folder.id, pinned).catch(() => {});
+    else pinFolderForTeam(folder.id, pinned).catch(() => {});
+  };
+  const handlePinClick = () => {
+    if (!isTeamVault) {
+      pinPersonal(!effPinned);
+    } else {
+      pinPersonal(nextPersonalPinValue(pinSource));
+    }
+  };
+  const pinIcon = pinSource === "team-hidden" ? "lucide:pin-off" : "lucide:pin";
+  const pinColor =
+    pinSource === "personal" || pinSource === "team+personal"
+      ? "var(--t-accent)"
+      : pinSource === "team"
+      ? "var(--t-text-secondary)"
+      : "var(--t-text-dim)";
+  const pinAlwaysVisible = pinSource !== "none" && pinSource !== "team-hidden";
   const activeMenuItems = isSelected && bulkContextMenuItems?.length ? bulkContextMenuItems : undefined;
 
   const handleRenameCommit = () => {
@@ -174,6 +214,14 @@ export function FolderCard({
         )}
 
         <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); handlePinClick(); }}
+            className={`shrink-0 flex items-center transition-colors ${pinAlwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100 hover:text-[var(--t-text-bright)]"}`}
+            style={{ color: pinColor }}
+            title={effPinned ? "Unpin" : "Pin"}
+          >
+            <Icon icon={pinIcon} width={16} />
+          </button>
           {!isSynced && (
             <span title="Cloud sync disabled" className="text-[var(--t-text-dim)] flex items-center">
               <Icon icon="lucide:cloud-off" width={18} />
@@ -195,6 +243,27 @@ export function FolderCard({
               { label: "Rename", icon: "lucide:pencil", onClick: () => { setRenameValue(folder.name); setRenaming(true); } },
               { label: "Edit", icon: "lucide:settings-2", onClick: () => onEdit?.() },
             ] : []),
+            {
+              label: isTeamVault
+                ? (pinSource === "personal" || pinSource === "team+personal")
+                  ? "Unpin for me"
+                  : pinSource === "team-hidden"
+                  ? "Show in my view"
+                  : pinSource === "team"
+                  ? "Hide for me"
+                  : "Pin for me"
+                : effPinned ? "Unpin" : "Pin",
+              icon: (pinSource === "personal" || pinSource === "team+personal" || (!isTeamVault && effPinned))
+                ? "lucide:pin-off"
+                : "lucide:pin",
+              onClick: handlePinClick,
+              divider: true as const,
+            },
+            ...(canEdit && isTeamVault ? [{
+              label: folder.pinned ? "Unpin for team" : "Pin for team",
+              icon: "lucide:users",
+              onClick: () => pinTeam(!folder.pinned),
+            }] : []),
             { label: "Export folder", icon: "lucide:upload", onClick: () => onExport?.() },
             ...vaultMenuItems(vaults, canEdit, onMoveToVault, onCopyToVault),
             ...(canEdit ? [

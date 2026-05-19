@@ -20,6 +20,12 @@ import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
 import { TagBadge } from "@/components/shared/TagBadge";
 import { useIdentityStore } from "@/stores/identityStore";
+import { useTeamStore } from "@/stores/teamStore";
+import {
+  useEffectivePinned,
+  useEffectivePinSource,
+  nextPersonalPinValue,
+} from "@/hooks/useEffectivePinned";
 import { KeyFileDropZone } from "./KeyForm";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import type { AuthType, Connection, Identity, IdentityFormData } from "@/types";
@@ -179,7 +185,10 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
   const { connections, loadConnections, updateConnection } = useConnectionStore();
   const { setActiveNav, setHomePendingAction } = useUIStore();
   const pinIdentity = useIdentityStore((s) => s.pinIdentity);
-  const isPinned = useIdentityStore((s) => s.identities.find((i) => i.id === initial?.id)?.pinned ?? false);
+  const effPinned = useEffectivePinned(initial ?? { id: "", pinned: false }, "identity");
+  const pinSource = useEffectivePinSource(initial ?? { id: "", pinned: false }, "identity");
+  const isPinned = effPinned;
+  const isTeamVault = useTeamStore((s) => initial ? s.teams.some((t) => t.id === initial.vault_id) : false);
   const contributions = useUIContributions("identity.panelActions", initial);
   const { toggleExcluded, isObjectSynced } = useSyncPrefsStore();
   const isSynced = initial ? isObjectSynced(initial.id, "identity") : true;
@@ -307,7 +316,13 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
           ];
           return (
             <>
-              <PinButton pinned={isPinned} onToggle={() => pinIdentity(initial.id, !isPinned).catch(() => {})} />
+              <PinButton pinned={isPinned} onToggle={() => {
+                if (!isTeamVault) {
+                  pinIdentity(initial.id, !isPinned).catch(() => {});
+                } else {
+                  pinIdentity(initial.id, nextPersonalPinValue(pinSource)).catch(() => {});
+                }
+              }} />
               {items.length > 0 && <PanelActionsMenu items={items} />}
             </>
           );

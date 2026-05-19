@@ -9,6 +9,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
+import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 
 // ─── Team vault helpers ───────────────────────────────────────────────────────
 
@@ -52,7 +53,8 @@ interface ConnectionStore {
   setLastUsed: (id: string) => Promise<void>;
   renameTag: (oldName: string, newName: string) => Promise<void>;
   deleteTag: (name: string) => Promise<void>;
-  pinConnection: (id: string, pinned: boolean) => Promise<void>;
+  pinConnection: (id: string, pinned: boolean | null) => Promise<void>;
+  pinConnectionForTeam: (id: string, pinned: boolean) => Promise<void>;
 }
 
 export const useConnectionStore = create<ConnectionStore>((set, get) => ({
@@ -583,31 +585,38 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   pinConnection: async (id, pinned) => {
     const teamEntry = findTeamConn(get().teamConnections, id);
     if (teamEntry) {
-      const { teamId, conn: prev } = teamEntry;
-      const now = new Date().toISOString();
-      const updated: Connection = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
-      await saveTeamVaultObject(teamId, "connection", updated);
-      set((s) => ({
-        teamConnections: {
-          ...s.teamConnections,
-          [teamId]: upsertConn(s.teamConnections[teamId] ?? [], updated),
-        },
-      }));
+      await useTeamObjectPrefsStore.getState().setPinned(teamEntry.teamId, id, pinned);
       return;
     }
 
     const conn = get().connections.find((c) => c.id === id);
     if (!conn) return;
+    const nextPinned = pinned ?? false;
     await api.updateConnection(id, {
       name: conn.name, host: conn.host, port: conn.port, username: conn.username,
       auth_type: conn.auth_type as AuthType, tags: conn.tags, identity_id: conn.identity_id,
       folder_id: conn.folder_id, vault_id: conn.vault_id, jump_hosts: conn.jump_hosts,
       env_vars: conn.env_vars, agent_forwarding: conn.agent_forwarding,
       pre_command: conn.pre_command, post_command: conn.post_command,
-      terminal_encoding: conn.terminal_encoding, distro: conn.distro, icon: conn.icon, pinned,
+      terminal_encoding: conn.terminal_encoding, distro: conn.distro, icon: conn.icon, pinned: nextPinned,
     });
-    set((s) => ({ connections: s.connections.map((c) => c.id === id ? { ...c, pinned } : c) }));
+    set((s) => ({ connections: s.connections.map((c) => c.id === id ? { ...c, pinned: nextPinned } : c) }));
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "connection")) scheduleSync(); });
+  },
+
+  pinConnectionForTeam: async (id, pinned) => {
+    const teamEntry = findTeamConn(get().teamConnections, id);
+    if (!teamEntry) return;
+    const { teamId, conn: prev } = teamEntry;
+    const now = new Date().toISOString();
+    const updated: Connection = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
+    await saveTeamVaultObject(teamId, "connection", updated);
+    set((s) => ({
+      teamConnections: {
+        ...s.teamConnections,
+        [teamId]: upsertConn(s.teamConnections[teamId] ?? [], updated),
+      },
+    }));
   },
 }));

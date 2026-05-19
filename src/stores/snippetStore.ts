@@ -8,6 +8,7 @@ import { reportAuditMutation } from "@/services/auditMutations";
 import { useHistoryStore } from "@/stores/historyStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
+import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 
 function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
@@ -57,7 +58,8 @@ interface SnippetStore {
   createSnippet: (data: SnippetFormData) => Promise<Snippet>;
   updateSnippet: (id: string, data: SnippetFormData) => Promise<void>;
   deleteSnippet: (id: string) => Promise<void>;
-  pinSnippet: (id: string, pinned: boolean) => Promise<void>;
+  pinSnippet: (id: string, pinned: boolean | null) => Promise<void>;
+  pinSnippetForTeam: (id: string, pinned: boolean) => Promise<void>;
   trackUsed: (id: string) => void;
   setGlobalPendingInject: (v: GlobalPendingInject | null) => void;
 }
@@ -323,29 +325,36 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   pinSnippet: async (id, pinned) => {
     const teamEntry = findTeamEntry(get().teamSnippets, id);
     if (teamEntry) {
-      const { teamId, item: snippet } = teamEntry;
-      const now = new Date().toISOString();
-      const updated: Snippet = { ...snippet, favorite: pinned, updated_at: now, clocks: { ...snippet.clocks, updated_at: now } };
-      await saveTeamVaultObject(teamId, "snippet", updated);
-      set((s) => ({
-        teamSnippets: {
-          ...s.teamSnippets,
-          [teamId]: upsert(s.teamSnippets[teamId] ?? [], updated),
-        },
-      }));
+      await useTeamObjectPrefsStore.getState().setPinned(teamEntry.teamId, id, pinned);
       return;
     }
 
     const snippet = (get().snippets as Snippet[]).find((s) => s.id === id);
     if (!snippet) return;
+    const nextFavorite = pinned ?? false;
     await api.updateSnippet(id, {
       name: snippet.name, content: snippet.content, description: snippet.description,
-      tags: snippet.tags, folder_id: snippet.folder_id, favorite: pinned,
+      tags: snippet.tags, folder_id: snippet.folder_id, favorite: nextFavorite,
       only_for_connection_tags: snippet.only_for_connection_tags,
       only_for_distros: snippet.only_for_distros, vault_id: snippet.vault_id,
     });
-    set((s) => ({ snippets: (s.snippets as Snippet[]).map((sn) => sn.id === id ? { ...sn, favorite: pinned } : sn) }));
+    set((s) => ({ snippets: (s.snippets as Snippet[]).map((sn) => sn.id === id ? { ...sn, favorite: nextFavorite } : sn) }));
     isServerMode().then((s) => { if (s) scheduleSync(); });
+  },
+
+  pinSnippetForTeam: async (id, pinned) => {
+    const teamEntry = findTeamEntry(get().teamSnippets, id);
+    if (!teamEntry) return;
+    const { teamId, item: snippet } = teamEntry;
+    const now = new Date().toISOString();
+    const updated: Snippet = { ...snippet, favorite: pinned, updated_at: now, clocks: { ...snippet.clocks, updated_at: now } };
+    await saveTeamVaultObject(teamId, "snippet", updated);
+    set((s) => ({
+      teamSnippets: {
+        ...s.teamSnippets,
+        [teamId]: upsert(s.teamSnippets[teamId] ?? [], updated),
+      },
+    }));
   },
 
   trackUsed: (id) => {

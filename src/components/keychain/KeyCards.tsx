@@ -13,6 +13,12 @@ import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
+import { useTeamStore } from "@/stores/teamStore";
+import {
+  useEffectivePinned,
+  useEffectivePinSource,
+  nextPersonalPinValue,
+} from "@/hooks/useEffectivePinned";
 
 // ─────────────────────────────────────────────────────────────────
 // Small shared display components
@@ -151,16 +157,41 @@ function KeyCard({
   const contributions = useUIContributions("key.contextMenu", sshKey);
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(sshKey.id, "key"));
   const pinKey = useKeyStore((s) => s.pinKey);
+  const pinKeyForTeam = useKeyStore((s) => s.pinKeyForTeam);
+  const effPinned = useEffectivePinned(sshKey, "key");
+  const pinSource = useEffectivePinSource(sshKey, "key");
+  const isTeamVault = useTeamStore((s) => s.teams.some((t) => t.id === sshKey.vault_id));
 
   const contextMenuItems = useMemo<ContextMenuItem[]>(() => [
     ...(canEdit ? [{ label: "Edit", icon: "lucide:pencil", onClick: () => onEdit(sshKey), shortcut: "E" }] : []),
     { label: "Add to host", icon: "lucide:square-arrow-right", onClick: () => onExport(sshKey) },
     {
-      label: sshKey.pinned ? "Unpin" : "Pin",
-      icon: sshKey.pinned ? "lucide:pin-off" : "lucide:pin",
-      onClick: () => pinKey(sshKey.id, !sshKey.pinned).catch(() => {}),
+      label: isTeamVault
+        ? (pinSource === "personal" || pinSource === "team+personal")
+          ? "Unpin for me"
+          : pinSource === "team-hidden"
+          ? "Show in my view"
+          : pinSource === "team"
+          ? "Hide for me"
+          : "Pin for me"
+        : effPinned ? "Unpin" : "Pin",
+      icon: (pinSource === "personal" || pinSource === "team+personal" || (!isTeamVault && effPinned))
+        ? "lucide:pin-off"
+        : "lucide:pin",
+      onClick: () => {
+        if (!isTeamVault) {
+          pinKey(sshKey.id, !effPinned).catch(() => {});
+        } else {
+          pinKey(sshKey.id, nextPersonalPinValue(pinSource)).catch(() => {});
+        }
+      },
       divider: true as const,
     },
+    ...(canEdit && isTeamVault ? [{
+      label: sshKey.pinned ? "Unpin for team" : "Pin for team",
+      icon: "lucide:users",
+      onClick: () => pinKeyForTeam(sshKey.id, !sshKey.pinned).catch(() => {}),
+    }] : []),
     ...contributions.map((a, i) => ({ ...a, icon: a.icon ?? "lucide:chevron-right", divider: i === 0 })),
     ...vaultMenuItems(vaults, canEdit,
       (vId) => onMoveToVault?.(sshKey, vId),
@@ -173,7 +204,7 @@ function KeyCard({
       divider: true,
     },
     ...(canEdit ? [{ label: "Delete", icon: "lucide:trash-2", onClick: () => onDelete(sshKey.id), danger: true, shortcut: getShortcutHint("delete") }] : []),
-  ], [canEdit, sshKey, contributions, vaults, isSynced, pinKey, onEdit, onDelete, onExport, onMoveToVault, onCopyToVault]);
+  ], [canEdit, sshKey, contributions, vaults, isSynced, pinKey, pinKeyForTeam, effPinned, pinSource, isTeamVault, onEdit, onDelete, onExport, onMoveToVault, onCopyToVault]);
 
   const handleDragStart = useCallback(
     (e: React.DragEvent<HTMLDivElement>) => onSectionDragStart?.(e, sshKey.id),
@@ -332,6 +363,10 @@ function IdentityCard({
   const contributions = useUIContributions("identity.contextMenu", identity);
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(identity.id, "identity"));
   const pinIdentity = useIdentityStore((s) => s.pinIdentity);
+  const pinIdentityForTeam = useIdentityStore((s) => s.pinIdentityForTeam);
+  const effPinned = useEffectivePinned(identity, "identity");
+  const pinSource = useEffectivePinSource(identity, "identity");
+  const isTeamVault = useTeamStore((s) => s.teams.some((t) => t.id === identity.vault_id));
   const formattedDate = new Date(identity.created_at).toLocaleDateString(undefined, {
     year: "numeric", month: "short", day: "numeric",
   });
@@ -343,11 +378,32 @@ function IdentityCard({
   const contextMenuItems = useMemo<ContextMenuItem[]>(() => [
     ...(canEdit ? [{ label: "Edit", icon: "lucide:pencil", onClick: () => onEdit(identity), shortcut: "E" }] : []),
     {
-      label: identity.pinned ? "Unpin" : "Pin",
-      icon: identity.pinned ? "lucide:pin-off" : "lucide:pin",
-      onClick: () => pinIdentity(identity.id, !identity.pinned).catch(() => {}),
+      label: isTeamVault
+        ? (pinSource === "personal" || pinSource === "team+personal")
+          ? "Unpin for me"
+          : pinSource === "team-hidden"
+          ? "Show in my view"
+          : pinSource === "team"
+          ? "Hide for me"
+          : "Pin for me"
+        : effPinned ? "Unpin" : "Pin",
+      icon: (pinSource === "personal" || pinSource === "team+personal" || (!isTeamVault && effPinned))
+        ? "lucide:pin-off"
+        : "lucide:pin",
+      onClick: () => {
+        if (!isTeamVault) {
+          pinIdentity(identity.id, !effPinned).catch(() => {});
+        } else {
+          pinIdentity(identity.id, nextPersonalPinValue(pinSource)).catch(() => {});
+        }
+      },
       divider: true as const,
     },
+    ...(canEdit && isTeamVault ? [{
+      label: identity.pinned ? "Unpin for team" : "Pin for team",
+      icon: "lucide:users",
+      onClick: () => pinIdentityForTeam(identity.id, !identity.pinned).catch(() => {}),
+    }] : []),
     ...contributions.map((a, i) => ({ ...a, icon: a.icon ?? "lucide:chevron-right", divider: i === 0 })),
     ...vaultMenuItems(vaults, canEdit,
       (vId) => onMoveToVault?.(identity, vId),
@@ -360,7 +416,7 @@ function IdentityCard({
       divider: true,
     },
     ...(canEdit ? [{ label: "Delete", icon: "lucide:trash-2", onClick: () => onDelete(identity.id), danger: true, shortcut: getShortcutHint("delete") }] : []),
-  ], [canEdit, identity, contributions, vaults, isSynced, pinIdentity, onEdit, onDelete, onMoveToVault, onCopyToVault]);
+  ], [canEdit, identity, contributions, vaults, isSynced, pinIdentity, pinIdentityForTeam, effPinned, pinSource, isTeamVault, onEdit, onDelete, onMoveToVault, onCopyToVault]);
 
   const handleDragStart = useCallback(
     (e: React.DragEvent<HTMLDivElement>) => onSectionDragStart?.(e, identity.id),

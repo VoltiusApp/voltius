@@ -8,7 +8,12 @@ import { serialListPorts } from "@/services/serial";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
 import { useConnectionStore } from "@/stores/connectionStore";
-import { useAllConnections } from "@/hooks/useAllConnections";
+import { useTeamStore } from "@/stores/teamStore";
+import {
+  useEffectivePinned,
+  useEffectivePinSource,
+  nextPersonalPinValue,
+} from "@/hooks/useEffectivePinned";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import {
   PanelShell,
@@ -89,8 +94,10 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
   const userEditedRef = useRef(false);
   const { folders, loadFolders } = useFolderStore();
   const pinConnection = useConnectionStore((s) => s.pinConnection);
-  const connections = useAllConnections();
-  const isPinned = connections.find((c) => c.id === initial?.id)?.pinned ?? false;
+  const effPinned = useEffectivePinned(initial ?? { id: "", pinned: false }, "connection");
+  const pinSource = useEffectivePinSource(initial ?? { id: "", pinned: false }, "connection");
+  const isPinned = effPinned;
+  const isTeamVault = useTeamStore((s) => initial ? s.teams.some((t) => t.id === initial.vault_id) : false);
 
   useEffect(() => {
     void loadFolders();
@@ -167,7 +174,13 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
         saveState={initial ? saveState : undefined}
         actions={initial ? (
           <>
-            <PinButton pinned={isPinned} onToggle={() => pinConnection(initial.id, !isPinned).catch(() => {})} />
+            <PinButton pinned={isPinned} onToggle={() => {
+              if (!isTeamVault) {
+                pinConnection(initial.id, !isPinned).catch(() => {});
+              } else {
+                pinConnection(initial.id, nextPersonalPinValue(pinSource)).catch(() => {});
+              }
+            }} />
             {panelItems.length > 0 && <PanelActionsMenu items={panelItems} />}
           </>
         ) : undefined}

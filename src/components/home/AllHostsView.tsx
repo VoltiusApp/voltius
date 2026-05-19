@@ -3,11 +3,15 @@ import { useAllConnections } from "@/hooks/useAllConnections";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { DashboardHostCard } from "./DashboardHostCard";
+import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import type { Connection } from "@/types";
 
-function sortHosts(connections: Connection[]): Connection[] {
-  const pinned = connections.filter((c) => c.pinned);
-  const remaining = [...connections.filter((c) => !c.pinned)].sort((a, b) =>
+function sortHosts(
+  connections: Connection[],
+  isPinned: (c: Connection) => boolean,
+): Connection[] {
+  const pinned = connections.filter((c) => isPinned(c));
+  const remaining = [...connections.filter((c) => !isPinned(c))].sort((a, b) =>
     (b.last_used_at ?? "").localeCompare(a.last_used_at ?? ""),
   );
   return [...pinned, ...remaining];
@@ -27,7 +31,8 @@ export function AllHostsView({ onBack }: Props) {
     setActiveNav("terminal" as any);
   };
 
-  const hosts = sortHosts(connections);
+  const isPinnedFn = useEffectivePinnedPredicate();
+  const hosts = sortHosts(connections, (c) => isPinnedFn(c, "connection"));
 
   return (
     <div className="h-full overflow-y-auto bg-[var(--t-bg-base)]">

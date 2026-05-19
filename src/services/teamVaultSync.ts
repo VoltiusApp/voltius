@@ -379,7 +379,9 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
 async function _hydrateTeamObjectStores(teamId: string, objects: TeamObjectRecord[]): Promise<void> {
   const active = objects.filter((o) => !o.deleted_at);
   const byType = <T>(type: TeamObjectRecord["object_type"]): T[] =>
-    active.filter((o) => o.object_type === type).map((o) => o.metadata as T);
+    active
+      .filter((o) => o.object_type === type)
+      .map((o) => ({ ...(o.metadata as object), updated_by: o.updated_by } as T));
 
   const { useConnectionStore } = await import("@/stores/connectionStore");
   const { useIdentityStore } = await import("@/stores/identityStore");
@@ -396,6 +398,9 @@ async function _hydrateTeamObjectStores(teamId: string, objects: TeamObjectRecor
   useSnippetStore.getState().setTeamSnippets(teamId, byType<Snippet>("snippet"));
   useSnippetFolderStore.getState().setTeamSnippetFolders(teamId, byType<Folder>("snippet_folder"));
   usePortForwardingStore.getState().setTeamRules(teamId, byType<PortForwardingRule>("port_forwarding_rule"));
+
+  const { useTeamObjectPrefsStore } = await import("@/stores/teamObjectPrefsStore");
+  await useTeamObjectPrefsStore.getState().load(teamId).catch(() => {});
 }
 
 /**
@@ -494,4 +499,7 @@ async function _clearTeamStores(teamId: string): Promise<void> {
   useSnippetStore.getState().setTeamSnippets(teamId, []);
   useSnippetFolderStore.getState().setTeamSnippetFolders(teamId, []);
   usePortForwardingStore.getState().setTeamRules(teamId, []);
+
+  const { useTeamObjectPrefsStore } = await import("@/stores/teamObjectPrefsStore");
+  useTeamObjectPrefsStore.getState().clearTeam(teamId);
 }

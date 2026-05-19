@@ -15,7 +15,16 @@ import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useTeamStore } from "@/stores/teamStore";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
+import type { TeamMember } from "@/stores/teamStore";
+import {
+  useEffectivePinned,
+  useEffectivePinSource,
+  nextPersonalPinValue,
+} from "@/hooks/useEffectivePinned";
+
+const EMPTY_TEAM_MEMBERS: TeamMember[] = [];
 
 interface Props {
   connection: Connection;
@@ -52,7 +61,49 @@ export default function HostCard({
   const contributions = useUIContributions("connection.contextMenu", connection);
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(connection.id, "connection"));
   const pinConnection = useConnectionStore((s) => s.pinConnection);
+  const pinConnectionForTeam = useConnectionStore((s) => s.pinConnectionForTeam);
   const updateConnection = useConnectionStore((s) => s.updateConnection);
+  const effectivePinned = useEffectivePinned(connection, "connection");
+  const pinSource = useEffectivePinSource(connection, "connection");
+  const isTeamVault = useTeamStore((s) => s.teams.some((t) => t.id === connection.vault_id));
+  const teamMembers = useTeamStore((s) => connection.vault_id ? s.membersByTeam[connection.vault_id] ?? EMPTY_TEAM_MEMBERS : EMPTY_TEAM_MEMBERS);
+  const pinnerName = (() => {
+    if (!isTeamVault || pinSource === "none" || pinSource === "personal") return undefined;
+    const updatedBy = (connection as { updated_by?: string }).updated_by;
+    const member = updatedBy ? teamMembers.find((m) => m.user_id === updatedBy) : undefined;
+    return member?.display_name ?? "a team member";
+  })();
+  const handlePinClick = () => {
+    if (!isTeamVault) {
+      pinConnection(connection.id, !effectivePinned).catch(() => {});
+      return;
+    }
+    const next = nextPersonalPinValue(pinSource);
+    pinConnection(connection.id, next).catch(() => {});
+  };
+  const pinTooltip = (() => {
+    if (!isTeamVault) return effectivePinned ? "Unpin" : "Pin";
+    switch (pinSource) {
+      case "none":
+        return "Pin";
+      case "personal":
+        return "Pinned";
+      case "team":
+        return `Pinned by ${pinnerName} for the team`;
+      case "team+personal":
+        return `Pinned by ${pinnerName} for the team · you also pinned this`;
+      case "team-hidden":
+        return `Hidden from your view · pinned by ${pinnerName} for the team`;
+    }
+  })();
+  const pinIcon = pinSource === "team-hidden" ? "lucide:pin-off" : "lucide:pin";
+  const pinColor =
+    pinSource === "personal" || pinSource === "team+personal"
+      ? "var(--t-accent)"
+      : pinSource === "team"
+      ? "var(--t-text-secondary)"
+      : "var(--t-text-dim)";
+  const pinAlwaysVisible = pinSource !== "none" && pinSource !== "team-hidden";
   const pingEnabled = useHostPingStore((s) => s.enabled);
   const pingStatus = useHostPingStore((s) => s.statuses[connection.id]);
   const pingLatency = useHostPingStore((s) => s.latencies[connection.id]);
@@ -93,12 +144,29 @@ export default function HostCard({
       onToggleSync: () => useSyncPrefsStore.getState().toggleExcluded(connection.id),
       onTogglePing: () => updateConnection(connection.id, { name: connection.name, host: connection.host, port: connection.port, username: connection.username, auth_type: connection.auth_type, tags: connection.tags, identity_id: connection.identity_id, folder_id: connection.folder_id, vault_id: connection.vault_id, jump_hosts: connection.jump_hosts, env_vars: connection.env_vars, agent_forwarding: connection.agent_forwarding, pre_command: connection.pre_command, post_command: connection.post_command, terminal_encoding: connection.terminal_encoding, pinned: connection.pinned, ping_disabled: !connection.ping_disabled }),
       onDelete: canEdit ? () => onDelete(connection.id) : undefined,
-      extras: [{
-        label: connection.pinned ? "Unpin" : "Pin",
-        icon: connection.pinned ? "lucide:pin-off" : "lucide:pin",
-        onClick: () => pinConnection(connection.id, !connection.pinned).catch(() => {}),
-        divider: true,
-      }],
+      extras: [
+        {
+          label: isTeamVault
+            ? (pinSource === "personal" || pinSource === "team+personal")
+              ? "Unpin for me"
+              : pinSource === "team-hidden"
+              ? "Show in my view"
+              : pinSource === "team"
+              ? "Hide for me"
+              : "Pin for me"
+            : effectivePinned ? "Unpin" : "Pin",
+          icon: (pinSource === "personal" || pinSource === "team+personal" || (!isTeamVault && effectivePinned))
+            ? "lucide:pin-off"
+            : "lucide:pin",
+          onClick: handlePinClick,
+          divider: true,
+        },
+        ...(canEdit && isTeamVault ? [{
+          label: (connection.pinned === true) ? "Unpin for team" : "Pin for team",
+          icon: "lucide:users",
+          onClick: () => pinConnectionForTeam(connection.id, !(connection.pinned === true)).catch(() => {}),
+        }] : []),
+      ],
     }),
   ];
 
@@ -207,11 +275,12 @@ export default function HostCard({
                     {isSerial ? "SERIAL" : "SSH"}
                   </span>
                   <button
-                    onClick={(e) => { e.stopPropagation(); pinConnection(connection.id, !connection.pinned).catch(() => {}); }}
-                    className={`shrink-0 flex items-center transition-colors ${connection.pinned ? "text-[var(--t-accent)] opacity-100" : "text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] opacity-0 group-hover:opacity-100"}`}
-                    title={connection.pinned ? "Unpin" : "Pin"}
+                    onClick={(e) => { e.stopPropagation(); handlePinClick(); }}
+                    className={`shrink-0 flex items-center transition-colors ${pinAlwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100 hover:text-[var(--t-text-bright)]"}`}
+                    style={{ color: pinColor }}
+                    title={pinTooltip}
                   >
-                    <Icon icon="lucide:pin" width={14} />
+                    <Icon icon={pinIcon} width={14} />
                   </button>
                   {(showPingDot || syncIcon || presenceAvatar) && (
                     <div className="flex items-center gap-1.5 ml-auto shrink-0 mr-1">

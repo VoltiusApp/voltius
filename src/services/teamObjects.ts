@@ -18,6 +18,7 @@ export interface TeamObjectRecord<T = unknown> {
   folder_id?: string;
   metadata: T;
   updated_at: string;
+  updated_by: string;
   deleted_at?: string | null;
 }
 
@@ -125,6 +126,40 @@ export async function upsertTeamObject(teamId: string, object: UpsertTeamObject)
 export async function deleteTeamObject(teamId: string, objectId: string): Promise<void> {
   const res = await fetchTeamApi(`/v1/teams/${teamId}/objects/${objectId}`, { method: "DELETE" });
   if (!res.ok) throw new Error(`Failed to delete team object: ${res.status}`);
+}
+
+export interface TeamObjectPrefRecord {
+  object_id: string;
+  pinned: boolean | null;
+  updated_at: string;
+}
+
+export async function listTeamObjectPrefs(teamId: string): Promise<TeamObjectPrefRecord[]> {
+  const res = await fetchTeamApi(`/v1/teams/${teamId}/object_prefs`, { method: "GET" });
+  if (!res.ok) throw new Error(`Failed to list team object prefs: ${res.status}`);
+  return res.json();
+}
+
+export async function upsertTeamObjectPref(
+  teamId: string,
+  objectId: string,
+  pinned: boolean | null,
+): Promise<void> {
+  const res = await fetchTeamApi(`/v1/teams/${teamId}/object_prefs/${objectId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pinned }),
+  });
+  if (!res.ok) throw new Error(`Failed to save team object pref: ${res.status}`);
+}
+
+export async function deleteTeamObjectPref(teamId: string, objectId: string): Promise<void> {
+  const res = await fetchTeamApi(`/v1/teams/${teamId}/object_prefs/${objectId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`Failed to delete team object pref: ${res.status}`);
+  }
 }
 
 export async function listTeamSecrets(teamId: string): Promise<TeamSecretRecord[]> {

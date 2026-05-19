@@ -13,6 +13,7 @@ import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
 import { useDragToFolder } from "@/hooks/useDragToFolder";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
+import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { useAllSnippets } from "@/hooks/useAllSnippets";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
@@ -146,7 +147,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function SnippetsPage() {
-  const { loading, loadSnippets, createSnippet, updateSnippet, deleteSnippet, trackUsed } = useSnippetStore();
+  const { loading, loadSnippets, createSnippet, updateSnippet, deleteSnippet, trackUsed, pinSnippet } = useSnippetStore();
   const snippets = useAllSnippets();
   const { folders, loadFolders, saveFolder, updateFolder, deleteFolder, moveFolder } = useSnippetFolderStore();
   const { sessions, activeSessionId } = useSessionStore();
@@ -171,7 +172,7 @@ export function SnippetsPage() {
     ];
   }, [vaults, teams]);
 
-  const canCreate = selectedVaultIds.some((vid) => can("EDIT_CONNECTIONS", vid));
+  const canCreate = selectedVaultIds.some((vid) => can("EDIT_SNIPPETS", vid));
 
   // Sync prefs (reactive)
   const excludedIds = useSyncPrefsStore((s) => s.excludedIds);
@@ -268,9 +269,10 @@ export function SnippetsPage() {
     [visibleFolders, viewSnippets],
   );
 
+  const isPinnedFn = useEffectivePinnedPredicate();
   const favorites = useMemo(
-    () => (!hasSearch && !activeFolderId) ? filtered.filter((s) => s.favorite) : [],
-    [filtered, hasSearch, activeFolderId],
+    () => (!hasSearch && !activeFolderId) ? filtered.filter((s) => isPinnedFn(s, "snippet")) : [],
+    [filtered, hasSearch, activeFolderId, isPinnedFn],
   );
 
   const folderCounts = useMemo(() => {
@@ -385,7 +387,7 @@ export function SnippetsPage() {
     const selectedSnippetFolderIds = selectedFolders.map((f) => f.id);
     const { isObjectSynced } = useSyncPrefsStore.getState();
     const allSynced = selectedSnippets.every((s) => isObjectSynced(s.id, "snippet"));
-    const allCanEdit = selectedSnippets.every((s) => can("EDIT_CONNECTIONS", s.vault_id ?? "personal"));
+    const allCanEdit = selectedSnippets.every((s) => can("EDIT_SNIPPETS", s.vault_id ?? "personal"));
     const bulkVaultChildren = (operation: TransferOperation): ContextMenuItem[] => vaultOptions
       .filter((v) => [...selectedSnippets.map((s) => s.vault_id ?? "personal"), ...selectedFolders.map((f) => f.vault_id ?? "personal")].some((sourceVaultId) => sourceVaultId !== v.id))
       .filter((v) => buildTeamVaultTransferPlan({
@@ -510,7 +512,8 @@ export function SnippetsPage() {
   }
 
   async function handleToggleFavorite(snippet: Snippet) {
-    await updateSnippet(snippet.id, { ...snippetToForm(snippet), favorite: !snippet.favorite });
+    const next = isPinnedFn(snippet, "snippet");
+    await pinSnippet(snippet.id, !next);
   }
 
   async function handleMoveToVault(snippet: Snippet, vaultId: string) {
@@ -602,7 +605,7 @@ export function SnippetsPage() {
 
   function renderCard(s: Snippet) {
     const svid = s.vault_id ?? "personal";
-    const canEdit = can("EDIT_CONNECTIONS", svid);
+    const canEdit = can("EDIT_SNIPPETS", svid);
     const otherVaults = vaultOptions.filter((v) => v.id !== svid);
     const syncEnabled = useSyncPrefsStore.getState().isObjectSynced(s.id, "snippet");
     return (

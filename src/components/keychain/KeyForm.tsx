@@ -10,6 +10,12 @@ import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
 import { TagBadge } from "@/components/shared/TagBadge";
 import { useKeyStore } from "@/stores/keyStore";
+import { useTeamStore } from "@/stores/teamStore";
+import {
+  useEffectivePinned,
+  useEffectivePinSource,
+  nextPersonalPinValue,
+} from "@/hooks/useEffectivePinned";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useFolderStore } from "@/stores/folderStore";
@@ -277,7 +283,10 @@ export function KeyForm({ initial, onSubmit, onClose, onExport, onDelete, flushR
   useEffect(() => { void loadFolders(); }, [loadFolders]);
 
   const pinKey = useKeyStore((s) => s.pinKey);
-  const isPinned = useKeyStore((s) => s.keys.find((k) => k.id === initial?.id)?.pinned ?? false);
+  const effPinned = useEffectivePinned(initial ?? { id: "", pinned: false }, "key");
+  const pinSource = useEffectivePinSource(initial ?? { id: "", pinned: false }, "key");
+  const isPinned = effPinned;
+  const isTeamVault = useTeamStore((s) => initial ? s.teams.some((t) => t.id === initial.vault_id) : false);
   const contributions = useUIContributions("key.panelActions", initial);
   const { toggleExcluded, isObjectSynced } = useSyncPrefsStore();
   const isSynced = initial ? isObjectSynced(initial.id, "key") : true;
@@ -325,7 +334,13 @@ export function KeyForm({ initial, onSubmit, onClose, onExport, onDelete, flushR
           ];
           return (
             <>
-              <PinButton pinned={isPinned} onToggle={() => pinKey(initial.id, !isPinned).catch(() => {})} />
+              <PinButton pinned={isPinned} onToggle={() => {
+                if (!isTeamVault) {
+                  pinKey(initial.id, !isPinned).catch(() => {});
+                } else {
+                  pinKey(initial.id, nextPersonalPinValue(pinSource)).catch(() => {});
+                }
+              }} />
               {items.length > 0 && <PanelActionsMenu items={items} />}
             </>
           );

@@ -42,6 +42,8 @@ pub struct Folder {
     pub object_type: String,
     #[serde(default = "default_personal")]
     pub vault_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pinned: Option<bool>,
     pub updated_at: String,
     pub deleted_at: Option<String>,
     /// Per-field LWW clocks: field_name → RFC3339 timestamp of last write.
@@ -58,6 +60,8 @@ pub struct FolderFormData {
     pub object_type: String,
     #[serde(default)]
     pub vault_id: Option<String>,
+    #[serde(default)]
+    pub pinned: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

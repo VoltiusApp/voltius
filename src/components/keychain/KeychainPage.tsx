@@ -9,6 +9,7 @@ import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { VaultCascadeModal } from "@/components/shared/VaultCascadeModal";
+import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { useVaultCascade } from "@/hooks/useVaultCascade";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { usePermissions } from "@/hooks/usePermission";
@@ -158,13 +159,14 @@ export default function KeychainPage() {
     [visibleFolders, filteredKeys, filteredIdentities],
   );
 
+  const isPinnedFn = useEffectivePinnedPredicate();
   const pinnedKeys = useMemo(
-    () => (!q && !activeFolderId) ? filteredKeys.filter((k) => k.pinned) : [],
-    [filteredKeys, q, activeFolderId],
+    () => (!q && !activeFolderId) ? filteredKeys.filter((k) => isPinnedFn(k, "key")) : [],
+    [filteredKeys, q, activeFolderId, isPinnedFn],
   );
   const pinnedIdentities = useMemo(
-    () => (!q && !activeFolderId) ? filteredIdentities.filter((i) => i.pinned) : [],
-    [filteredIdentities, q, activeFolderId],
+    () => (!q && !activeFolderId) ? filteredIdentities.filter((i) => isPinnedFn(i, "identity")) : [],
+    [filteredIdentities, q, activeFolderId, isPinnedFn],
   );
   const { selectedIdSet, selectionAreaRef, itemAreaRef, dragBox, handleItemSelect, handleSelectionAreaMouseDown, selectSingle, setSelection } =
     useDragSelection(orderedIds);

@@ -9,6 +9,7 @@ export interface Folder {
   vault_id?: string;
   color?: string;
   icon?: string;
+  pinned?: boolean;
   updated_at: string;
   deleted_at?: string;
   clocks: Record<string, string>;
@@ -21,6 +22,7 @@ export interface FolderFormData {
   vault_id?: string;
   color?: string;
   icon?: string;
+  pinned?: boolean;
 }
 
 export interface SshKey {

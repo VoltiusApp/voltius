@@ -6,6 +6,7 @@ export type TeamVaultPermission =
   | "EDIT_CONNECTIONS"
   | "EDIT_IDENTITIES"
   | "EDIT_KEYS"
+  | "EDIT_SNIPPETS"
   | "EDIT_FOLDERS";
 
 export type TransferOperation = "move" | "copy";
@@ -145,8 +146,8 @@ export function buildTeamVaultTransferPlan(input: BuildTransferPlanInput): TeamV
     if (input.operation === "move") addPermission(sourcePermissions, "EDIT_FOLDERS");
   }
   if (snippets.size > 0) {
-    addPermission(destinationPermissions, "EDIT_CONNECTIONS");
-    if (input.operation === "move") addPermission(sourcePermissions, "EDIT_CONNECTIONS");
+    addPermission(destinationPermissions, "EDIT_SNIPPETS");
+    if (input.operation === "move") addPermission(sourcePermissions, "EDIT_SNIPPETS");
   }
 
   if (input.operation === "copy" && (connections.size > 0 || identities.size > 0 || keys.size > 0)) {

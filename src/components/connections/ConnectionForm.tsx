@@ -3,6 +3,12 @@ import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import type { Connection, ConnectionFormData, AuthType, VaultOption, JumpHost, EnvVar } from "@/types";
 import { useIdentityStore } from "@/stores/identityStore";
+import { useTeamStore } from "@/stores/teamStore";
+import {
+  useEffectivePinned,
+  useEffectivePinSource,
+  nextPersonalPinValue,
+} from "@/hooks/useEffectivePinned";
 import JumpHostsPanel from "./JumpHostsPanel";
 import EnvVarsPanel from "./EnvVarsPanel";
 import { useUIStore } from "@/stores/uiStore";
@@ -21,7 +27,6 @@ import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
 import { TagBadge } from "@/components/shared/TagBadge";
 import { useConnectionStore } from "@/stores/connectionStore";
-import { useAllConnections } from "@/hooks/useAllConnections";
 import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { Toggle } from "@/components/shared/Toggle";
@@ -117,8 +122,10 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const setActiveNav = useUIStore((s) => s.setActiveNav);
   const pinConnection = useConnectionStore((s) => s.pinConnection);
   const setConnectionDistro = useConnectionStore((s) => s.setDistro);
-  const connections = useAllConnections();
-  const isPinned = connections.find((c) => c.id === initial?.id)?.pinned ?? false;
+  const effPinned = useEffectivePinned(initial ?? { id: "", pinned: false }, "connection");
+  const pinSource = useEffectivePinSource(initial ?? { id: "", pinned: false }, "connection");
+  const isPinned = effPinned;
+  const isTeamVault = useTeamStore((s) => initial ? s.teams.some((t) => t.id === initial.vault_id) : false);
   const contributions = useUIContributions("connection.panelActions", initial);
   const { toggleExcluded, isObjectSynced } = useSyncPrefsStore();
   const isSynced = initial ? isObjectSynced(initial.id, "connection") : true;
@@ -320,7 +327,13 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         saveState={initial ? saveState : undefined}
         actions={initial ? (
           <>
-            <PinButton pinned={isPinned} onToggle={() => pinConnection(initial.id, !isPinned).catch(() => {})} />
+            <PinButton pinned={isPinned} onToggle={() => {
+              if (!isTeamVault) {
+                pinConnection(initial.id, !isPinned).catch(() => {});
+              } else {
+                pinConnection(initial.id, nextPersonalPinValue(pinSource)).catch(() => {});
+              }
+            }} />
             {panelItems.length > 0 && <PanelActionsMenu items={panelItems} />}
           </>
         ) : undefined}

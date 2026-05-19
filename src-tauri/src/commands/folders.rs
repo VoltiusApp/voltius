@@ -51,6 +51,7 @@ pub fn folder_save(data: FolderFormData) -> Result<Folder, String> {
         parent_folder_id: data.parent_folder_id,
         object_type: data.object_type,
         vault_id: data.vault_id.unwrap_or_else(|| "personal".to_string()),
+        pinned: data.pinned,
         created_at: now.clone(),
         updated_at: now,
         deleted_at: None,
@@ -88,9 +89,13 @@ pub fn folder_update(id: String, data: FolderFormData) -> Result<Folder, String>
     if folder.vault_id != new_vault_id {
         folder.clocks.insert("vault_id".to_string(), now.clone());
     }
+    if folder.pinned != data.pinned {
+        folder.clocks.insert("pinned".to_string(), now.clone());
+    }
     folder.name = data.name;
     folder.parent_folder_id = data.parent_folder_id;
     folder.vault_id = new_vault_id;
+    folder.pinned = data.pinned;
     folder.deleted_at = None;
     folder.updated_at = max_clock(&folder.clocks, &now);
     let updated = folder.clone();

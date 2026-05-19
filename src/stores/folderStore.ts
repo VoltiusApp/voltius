@@ -12,6 +12,7 @@ import { useIdentityStore } from "@/stores/identityStore";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { useTeamStore } from "@/stores/teamStore";
+import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 
 function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
   if (!vaultId) return false;
@@ -53,6 +54,8 @@ interface FolderStore {
     folderId: string | null,
   ) => Promise<void>;
   moveFolder: (id: string, parentFolderId: string | null) => Promise<void>;
+  pinFolder: (id: string, pinned: boolean | null) => Promise<void>;
+  pinFolderForTeam: (id: string, pinned: boolean) => Promise<void>;
 }
 
 export const useFolderStore = create<FolderStore>((set, get) => ({
@@ -384,5 +387,41 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
       undo: async () => { await useFolderStore.getState().moveFolder(id, prevParentId); },
       redo: async () => { await useFolderStore.getState().moveFolder(id, parentFolderId); },
     });
+  },
+
+  pinFolder: async (id, pinned) => {
+    const teamEntry = findTeamEntry(get().teamFolders, id);
+    if (teamEntry) {
+      await useTeamObjectPrefsStore.getState().setPinned(teamEntry.teamId, id, pinned);
+      return;
+    }
+
+    const folder = get().folders.find((f) => f.id === id);
+    if (!folder) return;
+    const nextPinned = pinned ?? false;
+    await api.updateFolder(id, {
+      name: folder.name,
+      object_type: folder.object_type,
+      parent_folder_id: folder.parent_folder_id,
+      vault_id: folder.vault_id,
+      pinned: nextPinned,
+    });
+    set((s) => ({ folders: s.folders.map((f) => f.id === id ? { ...f, pinned: nextPinned } : f) }));
+    isServerMode().then((s) => { if (s && useSyncPrefsStore.getState().isObjectSynced(id, "folder")) scheduleSync(); });
+  },
+
+  pinFolderForTeam: async (id, pinned) => {
+    const teamEntry = findTeamEntry(get().teamFolders, id);
+    if (!teamEntry) return;
+    const { teamId, item: prev } = teamEntry;
+    const now = new Date().toISOString();
+    const updated: Folder = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
+    await saveTeamVaultObject(teamId, "folder", updated);
+    set((s) => ({
+      teamFolders: {
+        ...s.teamFolders,
+        [teamId]: upsert(s.teamFolders[teamId] ?? [], updated),
+      },
+    }));
   },
 }));

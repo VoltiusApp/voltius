@@ -23,6 +23,7 @@ import { VaultCascadeModal } from "@/components/shared/VaultCascadeModal";
 import { useVaultCascade } from "@/hooks/useVaultCascade";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useVaultStore } from "@/stores/vaultStore";
+import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { useTeamStore } from "@/stores/teamStore";
 import { usePermissions } from "@/hooks/usePermission";
 import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
@@ -185,9 +186,10 @@ export default function HostsPage() {
     [visibleFolders, filtered],
   );
 
+  const isPinnedFn = useEffectivePinnedPredicate();
   const pinnedHosts = useMemo(
-    () => (!searchQuery && !activeFolderId) ? filtered.filter((c) => c.pinned) : [],
-    [filtered, searchQuery, activeFolderId],
+    () => (!searchQuery && !activeFolderId) ? filtered.filter((c) => isPinnedFn(c, "connection")) : [],
+    [filtered, searchQuery, activeFolderId, isPinnedFn],
   );
   const activeConnectionIds = useMemo(
     () => new Set(sessions.map((s) => s.connectionId)),

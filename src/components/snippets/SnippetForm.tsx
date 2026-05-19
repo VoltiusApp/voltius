@@ -6,7 +6,13 @@ import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVau
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
 import { useSnippetStore } from "@/stores/snippetStore";
+import { useTeamStore } from "@/stores/teamStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
+import {
+  useEffectivePinned,
+  useEffectivePinSource,
+  nextPersonalPinValue,
+} from "@/hooks/useEffectivePinned";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { TagBadge } from "@/components/shared/TagBadge";
 import {
@@ -44,7 +50,10 @@ interface Props {
 export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete, isDirtyRef }: Props) {
   const isNew = !initial;
   const pinSnippet = useSnippetStore((s) => s.pinSnippet);
-  const isPinned = useSnippetStore((s) => s.snippets.find((sn) => sn.id === initial?.id)?.favorite ?? false);
+  const effPinned = useEffectivePinned(initial ?? { id: "", favorite: false }, "snippet");
+  const pinSource = useEffectivePinSource(initial ?? { id: "", favorite: false }, "snippet");
+  const isPinned = effPinned;
+  const isTeamVault = useTeamStore((s) => initial ? s.teams.some((t) => t.id === initial.vault_id) : false);
   const { folders } = useSnippetFolderStore();
   const defaultVaultId = useDefaultVaultId();
   const connections = useAllConnections();
@@ -170,7 +179,13 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
         saveState={saveState}
         actions={
           <>
-            {!isNew && <PinButton pinned={isPinned} onToggle={() => pinSnippet(initial!.id, !isPinned).catch(() => {})} />}
+            {!isNew && <PinButton pinned={isPinned} onToggle={() => {
+              if (!isTeamVault) {
+                pinSnippet(initial!.id, !isPinned).catch(() => {});
+              } else {
+                pinSnippet(initial!.id, nextPersonalPinValue(pinSource)).catch(() => {});
+              }
+            }} />}
             {panelItems.length > 0 && <PanelActionsMenu items={panelItems} />}
           </>
         }

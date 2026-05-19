@@ -8,6 +8,7 @@ import { useHistoryStore } from "@/stores/historyStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
+import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 
 function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
@@ -43,7 +44,8 @@ interface KeyStore {
   saveKey: (data: SshKeyFormData) => Promise<SshKey>;
   updateKey: (id: string, data: SshKeyFormData) => Promise<SshKey>;
   deleteKey: (id: string) => Promise<void>;
-  pinKey: (id: string, pinned: boolean) => Promise<void>;
+  pinKey: (id: string, pinned: boolean | null) => Promise<void>;
+  pinKeyForTeam: (id: string, pinned: boolean) => Promise<void>;
 }
 
 export const useKeyStore = create<KeyStore>((set, get) => ({
@@ -234,30 +236,37 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
   pinKey: async (id, pinned) => {
     const teamEntry = findTeamEntry(get().teamKeys, id);
     if (teamEntry) {
-      const { teamId, item: prev } = teamEntry;
-      const now = new Date().toISOString();
-      const updated: SshKey = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
-      await saveTeamVaultObject(teamId, "key", updated);
-      set((s) => ({
-        teamKeys: {
-          ...s.teamKeys,
-          [teamId]: upsert(s.teamKeys[teamId] ?? [], updated),
-        },
-      }));
+      await useTeamObjectPrefsStore.getState().setPinned(teamEntry.teamId, id, pinned);
       return;
     }
 
     const key = get().keys.find((k) => k.id === id);
     if (!key) return;
+    const nextPinned = pinned ?? false;
     await api.updateKey(id, {
       name: key.name, key_type: key.key_type,
       tags: key.tags,
-      folder_id: key.folder_id, vault_id: key.vault_id, pinned,
+      folder_id: key.folder_id, vault_id: key.vault_id, pinned: nextPinned,
     });
     const keys = await api.listKeys();
     set({ keys });
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "key")) scheduleSync(); });
+  },
+
+  pinKeyForTeam: async (id, pinned) => {
+    const teamEntry = findTeamEntry(get().teamKeys, id);
+    if (!teamEntry) return;
+    const { teamId, item: prev } = teamEntry;
+    const now = new Date().toISOString();
+    const updated: SshKey = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
+    await saveTeamVaultObject(teamId, "key", updated);
+    set((s) => ({
+      teamKeys: {
+        ...s.teamKeys,
+        [teamId]: upsert(s.teamKeys[teamId] ?? [], updated),
+      },
+    }));
   },
 
   deleteKey: async (id) => {
