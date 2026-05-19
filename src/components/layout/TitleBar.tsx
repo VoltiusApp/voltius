@@ -310,7 +310,7 @@ export default function TitleBar() {
                     border: isActiveSplitTab ? "1px solid var(--t-tab-active-border)" : "1px solid transparent",
                   }}
                 >
-                  <Icon icon="lucide:panel-top-open" width={18} />
+                  <Icon icon="lucide:layout-dashboard" width={18} />
                   <span className="max-w-[140px] truncate">
                     {tabActiveSession?.connectionName ?? "Split"}{tabSessionIds.length > 1 ? ` + ${tabSessionIds.length - 1}` : ""}
                   </span>
