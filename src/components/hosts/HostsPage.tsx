@@ -274,7 +274,6 @@ export default function HostsPage() {
     dragOverEject,
     handleDragStart,
     handleFolderDragStart,
-    handleDragEnd,
     folderDropProps,
     ejectDropProps,
   } = useDragToFolder({
@@ -1004,8 +1003,7 @@ export default function HostsPage() {
                           onSelect={(id) => { if (!selectedIdSet.has(id)) selectSingle(id); }}
                           onEdit={() => { setShowForm(false); setEditingId(null); setEditingFolderId(folder.id); }}
                           onExport={() => useUIStore.getState().openImportExport("export", { connectionIds: connections.filter((c) => c.folder_id === folder.id).map((c) => c.id) })}
-                          onDragStart={(e) => handleFolderDragStart(e, folder.id)}
-                          onDragEnd={handleDragEnd}
+                          onPointerDown={(e) => handleFolderDragStart(e, folder.id)}
                           {...(canEditFolder ? folderDropProps(folder.id) : {})}
                           vaults={vaultOptions.filter((v) => v.id !== (folder.vault_id ?? "personal"))}
                           canEdit={canEditFolder}
@@ -1083,8 +1081,7 @@ export default function HostsPage() {
                           onMoveToVault={handleMoveConnectionToVault}
                           onCopyToVault={handleCopyConnectionToVault}
                           bulkContextMenuItems={shouldUseBulkHostContextMenu(selectedConnections.length) ? bulkContextMenuItems : undefined}
-                          onDragStart={(e) => handleDragStart(e, conn.id)}
-                          onDragEnd={handleDragEnd}
+                          onPointerDown={(e) => handleDragStart(e, conn.id)}
                         />
                       );
                     })}
@@ -1155,8 +1152,7 @@ export default function HostsPage() {
                           onMoveToVault={handleMoveConnectionToVault}
                           onCopyToVault={handleCopyConnectionToVault}
                           bulkContextMenuItems={shouldUseBulkHostContextMenu(selectedConnections.length) ? bulkContextMenuItems : undefined}
-                          onDragStart={(e) => handleDragStart(e, conn.id)}
-                          onDragEnd={handleDragEnd}
+                          onPointerDown={(e) => handleDragStart(e, conn.id)}
                         />
                       );
                     })}

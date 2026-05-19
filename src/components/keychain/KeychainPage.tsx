@@ -229,7 +229,6 @@ export default function KeychainPage() {
     dragOverEject,
     handleDragStart,
     handleFolderDragStart,
-    handleDragEnd,
     folderDropProps,
     ejectDropProps,
   } = useDragToFolder({
@@ -931,8 +930,7 @@ export default function KeychainPage() {
                       onSelect={(id) => { if (!selectedIdSet.has(id)) selectSingle(id); }}
                       onEdit={() => { closePanel(); setEditingFolderId(folder.id); }}
                       onExport={() => useUIStore.getState().openImportExport("export", { keyIds: keys.filter((k) => k.folder_id === folder.id).map((k) => k.id), identityIds: identities.filter((i) => i.folder_id === folder.id).map((i) => i.id) })}
-                      onDragStart={(e) => handleFolderDragStart(e, folder.id)}
-                      onDragEnd={handleDragEnd}
+                      onPointerDown={(e) => handleFolderDragStart(e, folder.id)}
                       {...folderDropProps(folder.id)}
                       vaults={vaultOptions.filter((v) => v.id !== (folder.vault_id ?? "personal"))}
                       canEdit={can("EDIT_KEYS", folder.vault_id ?? "personal")}
@@ -988,8 +986,7 @@ export default function KeychainPage() {
                     onSelect={handleKeySelect}
                     onExport={openExportPanel}
                     bulkContextMenuItems={bulkContextMenuItems}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
+                    onPointerDown={handleDragStart}
                     vaultOptions={vaultOptions}
                     onMoveToVault={handleMoveKeyToVault}
                     onCopyToVault={handleCopyKeyToVault}
@@ -1009,8 +1006,7 @@ export default function KeychainPage() {
                     onDelete={handleDeleteIdentity}
                     onSelect={handleIdentitySelect}
                     bulkContextMenuItems={bulkContextMenuItems}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
+                    onPointerDown={handleDragStart}
                     vaultOptions={vaultOptions}
                     onMoveToVault={handleMoveIdentityToVault}
                     onCopyToVault={handleCopyIdentityToVault}
@@ -1032,8 +1028,7 @@ export default function KeychainPage() {
               onSelect={handleKeySelect}
               onExport={openExportPanel}
               bulkContextMenuItems={bulkContextMenuItems}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
+              onPointerDown={handleDragStart}
               vaultOptions={vaultOptions}
               onMoveToVault={handleMoveKeyToVault}
               onCopyToVault={handleCopyKeyToVault}
@@ -1052,8 +1047,7 @@ export default function KeychainPage() {
               onDelete={handleDeleteIdentity}
               onSelect={handleIdentitySelect}
               bulkContextMenuItems={bulkContextMenuItems}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
+              onPointerDown={handleDragStart}
               vaultOptions={vaultOptions}
               onMoveToVault={handleMoveIdentityToVault}
               onCopyToVault={handleCopyIdentityToVault}
