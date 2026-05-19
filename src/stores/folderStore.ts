@@ -306,27 +306,97 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
 
   moveObjectsToFolder: async (objectIds, objectType, folderId) => {
     const prevFolderIds = new Map<string, string | null>();
+    // Partition objects into personal (local DB) vs team-vault (server-backed)
+    const personalIds: string[] = [];
+    const teamIdsByTeam = new Map<string, string[]>();
+
+    const partition = <T extends { id: string; folder_id?: string | null }>(
+      personal: T[],
+      teamMap: Record<string, T[]>,
+    ) => {
+      for (const oid of objectIds) {
+        const local = personal.find((x) => x.id === oid);
+        if (local) {
+          personalIds.push(oid);
+          prevFolderIds.set(oid, local.folder_id ?? null);
+          continue;
+        }
+        let found = false;
+        for (const [tid, items] of Object.entries(teamMap)) {
+          const item = items.find((x) => x.id === oid);
+          if (item) {
+            prevFolderIds.set(oid, item.folder_id ?? null);
+            const arr = teamIdsByTeam.get(tid) ?? [];
+            arr.push(oid);
+            teamIdsByTeam.set(tid, arr);
+            found = true;
+            break;
+          }
+        }
+        if (!found) prevFolderIds.set(oid, null);
+      }
+    };
+
     if (objectType === "connection") {
-      const conns = useConnectionStore.getState().connections;
-      objectIds.forEach((oid) => {
-        const c = conns.find((c) => c.id === oid);
-        prevFolderIds.set(oid, c?.folder_id ?? null);
-      });
+      const cs = useConnectionStore.getState();
+      partition(cs.connections, cs.teamConnections);
     } else if (objectType === "key") {
-      const keys = useKeyStore.getState().keys;
-      objectIds.forEach((oid) => {
-        const k = keys.find((k) => k.id === oid);
-        prevFolderIds.set(oid, k?.folder_id ?? null);
-      });
+      const ks = useKeyStore.getState();
+      partition(ks.keys, ks.teamKeys);
     } else if (objectType === "identity") {
-      const identities = useIdentityStore.getState().identities;
-      objectIds.forEach((oid) => {
-        const i = identities.find((i) => i.id === oid);
-        prevFolderIds.set(oid, i?.folder_id ?? null);
-      });
+      const is = useIdentityStore.getState();
+      partition(is.identities, is.teamIdentities);
     }
-    await api.moveObjectsToFolder(objectIds, objectType, folderId);
-    isServerMode().then((s) => { if (s && useSyncPrefsStore.getState().isTypeSynced("folder")) scheduleSync(); });
+
+    if (personalIds.length > 0) {
+      await api.moveObjectsToFolder(personalIds, objectType, folderId);
+      isServerMode().then((s) => { if (s && useSyncPrefsStore.getState().isTypeSynced("folder")) scheduleSync(); });
+    }
+
+    for (const [teamId, ids] of teamIdsByTeam) {
+      const now = new Date().toISOString();
+      if (objectType === "connection") {
+        const items = useConnectionStore.getState().teamConnections[teamId] ?? [];
+        const updated = items.map((c) =>
+          ids.includes(c.id)
+            ? { ...c, folder_id: folderId ?? undefined, updated_at: now, clocks: { ...c.clocks, updated_at: now } }
+            : c,
+        );
+        for (const c of updated) {
+          if (ids.includes(c.id)) await saveTeamVaultObject(teamId, "connection", c);
+        }
+        useConnectionStore.setState((s) => ({
+          teamConnections: { ...s.teamConnections, [teamId]: updated },
+        }));
+      } else if (objectType === "key") {
+        const items = useKeyStore.getState().teamKeys[teamId] ?? [];
+        const updated = items.map((k) =>
+          ids.includes(k.id)
+            ? { ...k, folder_id: folderId ?? undefined, updated_at: now, clocks: { ...k.clocks, updated_at: now } }
+            : k,
+        );
+        for (const k of updated) {
+          if (ids.includes(k.id)) await saveTeamVaultObject(teamId, "key", k);
+        }
+        useKeyStore.setState((s) => ({
+          teamKeys: { ...s.teamKeys, [teamId]: updated },
+        }));
+      } else if (objectType === "identity") {
+        const items = useIdentityStore.getState().teamIdentities[teamId] ?? [];
+        const updated = items.map((i) =>
+          ids.includes(i.id)
+            ? { ...i, folder_id: folderId ?? undefined, updated_at: now, clocks: { ...i.clocks, updated_at: now } }
+            : i,
+        );
+        for (const i of updated) {
+          if (ids.includes(i.id)) await saveTeamVaultObject(teamId, "identity", i);
+        }
+        useIdentityStore.setState((s) => ({
+          teamIdentities: { ...s.teamIdentities, [teamId]: updated },
+        }));
+      }
+    }
+
     useHistoryStore.getState().push({
       label: `Moved ${objectIds.length} ${objectType}(s) to folder`,
       undo: async () => {
