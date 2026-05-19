@@ -557,7 +557,7 @@ export default function KeychainPage() {
     label: string,
   ) => {
     try {
-      const key = await saveKey({ name: label || undefined, key_type: keyTypeLabel, tags: [] });
+      const key = await saveKey({ name: label || undefined, key_type: keyTypeLabel, tags: [], vault_id: defaultVaultId });
       await storeSecret(`key:${key.id}:private`, privateKey);
       if (publicKey) await storeSecret(`key:${key.id}:public`, publicKey);
       if (passphrase && savePassphrase) await storeSecret(`key:${key.id}:passphrase`, passphrase);
