@@ -15,9 +15,7 @@ interface BaseCardProps {
   children: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
-  draggable?: boolean;
-  onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
-  onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
+  onPointerDown?: (e: React.PointerEvent<HTMLDivElement>) => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
   "data-card"?: boolean | string;
@@ -39,9 +37,7 @@ export const BaseCard = memo(function BaseCard({
   children,
   className = "",
   style,
-  draggable,
-  onDragStart,
-  onDragEnd,
+  onPointerDown,
   onMouseEnter,
   onMouseLeave,
   "data-card": dataCard,
@@ -65,9 +61,7 @@ export const BaseCard = memo(function BaseCard({
         data-selectable-id={dataSelectableId}
         className={`group relative flex items-center px-3 rounded-2xl cursor-pointer transition-all duration-150 bg-[var(--t-bg-card)] ${isList ? "gap-3 py-2" : "gap-4 py-3"} ${className}`}
         style={{ border: "2px solid transparent", ...style }}
-        draggable={draggable}
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
+        onPointerDown={onPointerDown}
         onClick={onClick ? (e) => { e.stopPropagation(); onClick(e); } : undefined}
         onDoubleClick={onDoubleClick}
         onContextMenu={activeMenuItems?.length ? (e) => { e.stopPropagation(); open(e); if (!isSelected) onClick?.(e); } : undefined}

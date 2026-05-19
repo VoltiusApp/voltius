@@ -28,16 +28,13 @@ interface FolderCardProps {
   onSelect?: (id: string, e: React.MouseEvent<HTMLDivElement>) => void;
   onEdit?: () => void;
   onExport?: () => void;
-  onDragStart?: (e: React.DragEvent) => void;
-  onDragEnd?: () => void;
-  onDragOver?: (e: React.DragEvent) => void;
-  onDragLeave?: () => void;
-  onDrop?: (e: React.DragEvent) => void;
+  onPointerDown?: (e: React.PointerEvent) => void;
   vaults?: VaultOption[];
   canEdit?: boolean;
   onMoveToVault?: (vaultId: string) => void;
   onCopyToVault?: (vaultId: string) => void;
   bulkContextMenuItems?: ContextMenuItem[];
+  "data-drop-folder"?: string;
 }
 
 export function FolderCard({
@@ -53,16 +50,13 @@ export function FolderCard({
   onSelect,
   onEdit,
   onExport,
-  onDragStart,
-  onDragEnd,
-  onDragOver,
-  onDragLeave,
-  onDrop,
+  onPointerDown,
   vaults,
   canEdit,
   onMoveToVault,
   onCopyToVault,
   bulkContextMenuItems,
+  "data-drop-folder": dataDropFolder,
 }: FolderCardProps) {
   const isList = layout === "list";
   const avatarSize = isList ? 28 : 48;
@@ -127,7 +121,7 @@ export function FolderCard({
       <div
         data-folder-card="true"
         data-selectable-id={folder.id}
-        draggable={!!onDragStart}
+        data-drop-folder={dataDropFolder}
         className={`group flex items-center px-4 rounded-2xl cursor-pointer transition-all duration-150 ${isList ? "gap-3 py-2" : "gap-4 py-4"}`}
         style={{
           background: isDragOver
@@ -138,11 +132,7 @@ export function FolderCard({
         }}
         onClick={(e) => { e.stopPropagation(); if (!renaming) onClick(); }}
         onContextMenu={(e) => { e.stopPropagation(); e.preventDefault(); onSelect?.(folder.id, e); openCtx(e); }}
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
+        onPointerDown={onPointerDown}
         onMouseEnter={(e) => { if (!isDragOver) e.currentTarget.style.background = "var(--t-bg-card-hover)"; }}
         onMouseLeave={(e) => { if (!isDragOver) e.currentTarget.style.background = "var(--t-bg-card)"; }}
       >

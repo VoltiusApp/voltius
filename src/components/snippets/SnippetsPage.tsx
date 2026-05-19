@@ -360,7 +360,6 @@ export function SnippetsPage() {
     dragOverEject,
     handleDragStart,
     handleFolderDragStart,
-    handleDragEnd,
     folderDropProps,
     ejectDropProps,
   } = useDragToFolder({
@@ -643,8 +642,7 @@ export function SnippetsPage() {
         onCopyToVault={canEdit ? (vaultId) => void handleCopyToVault(s, vaultId) : undefined}
         syncEnabled={syncEnabled}
         onToggleSync={() => useSyncPrefsStore.getState().toggleExcluded(s.id)}
-        onDragStart={(e) => handleDragStart(e, s.id)}
-        onDragEnd={handleDragEnd}
+        onPointerDown={(e) => handleDragStart(e, s.id)}
       />
     );
   }
@@ -778,8 +776,7 @@ export function SnippetsPage() {
                         onSelect={(id) => { if (!selectedIdSet.has(id)) selectSingle(id); }}
                         onEdit={() => { ep.closeEdit(); folderEp.transitionToExisting(folder); }}
                         canEdit
-                        onDragStart={(e) => handleFolderDragStart(e, folder.id)}
-                        onDragEnd={handleDragEnd}
+                        onPointerDown={(e) => handleFolderDragStart(e, folder.id)}
                         {...folderDropProps(folder.id)}
                         vaults={vaultOptions.filter((v) => v.id !== (folder.vault_id ?? "personal"))}
                         onMoveToVault={(vaultId) => void handleMoveFolderToVault(folder, vaultId)}

@@ -455,7 +455,6 @@ export function PortForwardingPage() {
     dragOverEject,
     handleDragStart,
     handleFolderDragStart,
-    handleDragEnd,
     folderDropProps,
     ejectDropProps,
   } = useDragToFolder({
@@ -605,8 +604,7 @@ export function PortForwardingPage() {
                         onDelete={(f) => setConfirmDeleteFolderId(f.id)}
                         onSelect={(id) => { if (!selectedIdSet.has(id)) selectSingle(id); }}
                         onEdit={() => { closeForm(); setEditingFolderId(folder.id); }}
-                        onDragStart={(e) => handleFolderDragStart(e, folder.id)}
-                        onDragEnd={handleDragEnd}
+                        onPointerDown={(e) => handleFolderDragStart(e, folder.id)}
                         {...(folderCanEdit ? folderDropProps(folder.id) : {})}
                         vaults={vaultOptions.filter((v) => v.id !== (folder.vault_id ?? "personal"))}
                         canEdit={folderCanEdit}
@@ -709,8 +707,7 @@ export function PortForwardingPage() {
                         onOpenWeb={(url) => void openUrl(url)}
                         onMoveToVault={(r, vaultId) => handleMoveRuleToVault(r, vaultId)}
                         onCopyToVault={(r, vaultId) => handleCopyRuleToVault(r, vaultId)}
-                        onDragStart={(e) => handleDragStart(e, rule.id)}
-                        onDragEnd={handleDragEnd}
+                        onPointerDown={(e) => handleDragStart(e, rule.id)}
                       />
                     );
                   })}

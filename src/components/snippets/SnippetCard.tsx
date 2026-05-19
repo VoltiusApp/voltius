@@ -37,8 +37,7 @@ interface Props {
   onCopyToVault?: (vaultId: string) => void;
   syncEnabled?: boolean;
   onToggleSync?: () => void;
-  onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
-  onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
+  onPointerDown?: (e: React.PointerEvent<HTMLDivElement>) => void;
 }
 
 export function SnippetCard({
@@ -63,8 +62,7 @@ export function SnippetCard({
   onCopyToVault,
   syncEnabled,
   onToggleSync,
-  onDragStart,
-  onDragEnd,
+  onPointerDown,
 }: Props) {
   const isList = layout === "list";
   const pinSnippet = useSnippetStore((s) => s.pinSnippet);
@@ -132,9 +130,7 @@ export function SnippetCard({
           isFocused={isFocused}
           data-selectable-id={snippet.id}
           data-card={snippet.id}
-          draggable={!!onDragStart}
-          onDragStart={onDragStart}
-          onDragEnd={onDragEnd}
+          onPointerDown={onPointerDown}
           onClick={(e) => {
             if (onSelect) onSelect(snippet.id, e);
             else onEdit();
@@ -262,9 +258,7 @@ export function SnippetCard({
         isFocused={isFocused}
         data-selectable-id={snippet.id}
         data-card={snippet.id}
-        draggable={!!onDragStart}
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
+        onPointerDown={onPointerDown}
         onClick={(e) => {
           if (onSelect) onSelect(snippet.id, e);
           else onEdit();

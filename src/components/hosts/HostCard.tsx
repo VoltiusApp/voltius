@@ -45,8 +45,7 @@ interface Props {
   onMoveToVault?: (conn: Connection, vaultId: string) => void;
   onCopyToVault?: (conn: Connection, vaultId: string) => void;
   bulkContextMenuItems?: ContextMenuItem[];
-  onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
-  onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
+  onPointerDown?: (e: React.PointerEvent<HTMLDivElement>) => void;
 }
 
 export default function HostCard({
@@ -54,7 +53,7 @@ export default function HostCard({
   vaults = [], layout = "grid",
   onSelect, onConnect, onEdit, onDuplicate, onExecuteSnippet, onDelete,
   onMoveToVault, onCopyToVault,
-  bulkContextMenuItems, onDragStart, onDragEnd,
+  bulkContextMenuItems, onPointerDown,
 }: Props) {
   const isList = layout === "list";
   const isSerial = connection.connection_type === "serial";
@@ -216,9 +215,7 @@ export default function HostCard({
       isEditing={isEditing}
       isActive={isActive}
       isFocused={isFocused}
-      draggable={!!onDragStart}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+      onPointerDown={onPointerDown}
       onMouseEnter={showPingDot ? () => useHostPingStore.getState().addPriorityConnection(connection.id) : undefined}
       onMouseLeave={showPingDot ? () => useHostPingStore.getState().removePriorityConnection(connection.id) : undefined}
       onClick={(e) => onSelect?.(connection.id, e)}

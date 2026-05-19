@@ -132,7 +132,7 @@ export function KeyCardContent({ sshKey, avatarSize, iconSize }: { sshKey: SshKe
 function KeyCard({
   sshKey, canEdit, vaults, isEditing, isSelected, isFocused, layoutMode,
   onEdit, onDelete, onSelect, onExport, onMoveToVault, onCopyToVault,
-  bulkContextMenuItems, onSectionDragStart, onDragEnd,
+  bulkContextMenuItems, onSectionPointerDown,
 }: {
   sshKey: SshKey;
   canEdit: boolean;
@@ -148,8 +148,7 @@ function KeyCard({
   onMoveToVault?: (key: SshKey, vaultId: string) => void;
   onCopyToVault?: (key: SshKey, vaultId: string) => void;
   bulkContextMenuItems?: ContextMenuItem[];
-  onSectionDragStart?: (e: React.DragEvent<HTMLDivElement>, id: string) => void;
-  onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
+  onSectionPointerDown?: (e: React.PointerEvent<HTMLDivElement>, id: string) => void;
 }) {
   const isList = layoutMode === "list";
   const avatarSize = isList ? 28 : 48;
@@ -206,9 +205,9 @@ function KeyCard({
     ...(canEdit ? [{ label: "Delete", icon: "lucide:trash-2", onClick: () => onDelete(sshKey.id), danger: true, shortcut: getShortcutHint("delete") }] : []),
   ], [canEdit, sshKey, contributions, vaults, isSynced, pinKey, pinKeyForTeam, effPinned, pinSource, isTeamVault, onEdit, onDelete, onExport, onMoveToVault, onCopyToVault]);
 
-  const handleDragStart = useCallback(
-    (e: React.DragEvent<HTMLDivElement>) => onSectionDragStart?.(e, sshKey.id),
-    [onSectionDragStart, sshKey.id],
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => onSectionPointerDown?.(e, sshKey.id),
+    [onSectionPointerDown, sshKey.id],
   );
 
   return (
@@ -219,9 +218,7 @@ function KeyCard({
       isSelected={isSelected}
       isFocused={isFocused}
       data-selectable-id={sshKey.id}
-      draggable={!!onSectionDragStart}
-      onDragStart={onSectionDragStart ? handleDragStart : undefined}
-      onDragEnd={onDragEnd}
+      onPointerDown={onSectionPointerDown ? handlePointerDown : undefined}
       onClick={(e) => onSelect(sshKey.id, e)}
       onDoubleClick={() => onEdit(sshKey)}
       bulkContextMenuItems={bulkContextMenuItems}
@@ -247,7 +244,7 @@ export function KeySection({
   vaultOptions, label,
   onAdd, onEdit, onDelete, onSelect, onExport,
   onMoveToVault, onCopyToVault,
-  bulkContextMenuItems, onDragStart, onDragEnd,
+  bulkContextMenuItems, onPointerDown,
 }: {
   keys: SshKey[];
   showDraft: boolean;
@@ -266,8 +263,7 @@ export function KeySection({
   onMoveToVault?: (key: SshKey, vaultId: string) => void;
   onCopyToVault?: (key: SshKey, vaultId: string) => void;
   bulkContextMenuItems?: ContextMenuItem[];
-  onDragStart?: (e: React.DragEvent<HTMLDivElement>, id: string) => void;
-  onDragEnd?: () => void;
+  onPointerDown?: (e: React.PointerEvent<HTMLDivElement>, id: string) => void;
 }) {
   // usePermissions called ONCE at section level, not per card
   const can = usePermissions();
@@ -323,8 +319,7 @@ export function KeySection({
               onMoveToVault={onMoveToVault}
               onCopyToVault={onCopyToVault}
               bulkContextMenuItems={bulkContextMenuItems}
-              onSectionDragStart={onDragStart}
-              onDragEnd={onDragEnd}
+              onSectionPointerDown={onPointerDown}
             />
           );
         })}
@@ -341,7 +336,7 @@ function IdentityCard({
   identity, linkedKey, canEdit, vaults,
   isEditing, isSelected, isFocused, layoutMode,
   onEdit, onDelete, onSelect, onMoveToVault, onCopyToVault,
-  bulkContextMenuItems, onSectionDragStart, onDragEnd,
+  bulkContextMenuItems, onSectionPointerDown,
 }: {
   identity: Identity;
   linkedKey: SshKey | undefined;
@@ -357,8 +352,7 @@ function IdentityCard({
   onMoveToVault?: (identity: Identity, vaultId: string) => void;
   onCopyToVault?: (identity: Identity, vaultId: string) => void;
   bulkContextMenuItems?: ContextMenuItem[];
-  onSectionDragStart?: (e: React.DragEvent<HTMLDivElement>, id: string) => void;
-  onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
+  onSectionPointerDown?: (e: React.PointerEvent<HTMLDivElement>, id: string) => void;
 }) {
   const contributions = useUIContributions("identity.contextMenu", identity);
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(identity.id, "identity"));
@@ -418,9 +412,9 @@ function IdentityCard({
     ...(canEdit ? [{ label: "Delete", icon: "lucide:trash-2", onClick: () => onDelete(identity.id), danger: true, shortcut: getShortcutHint("delete") }] : []),
   ], [canEdit, identity, contributions, vaults, isSynced, pinIdentity, pinIdentityForTeam, effPinned, pinSource, isTeamVault, onEdit, onDelete, onMoveToVault, onCopyToVault]);
 
-  const handleDragStart = useCallback(
-    (e: React.DragEvent<HTMLDivElement>) => onSectionDragStart?.(e, identity.id),
-    [onSectionDragStart, identity.id],
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => onSectionPointerDown?.(e, identity.id),
+    [onSectionPointerDown, identity.id],
   );
 
   return (
@@ -431,9 +425,7 @@ function IdentityCard({
       isEditing={isEditing}
       isSelected={isSelected}
       isFocused={isFocused}
-      draggable={!!onSectionDragStart}
-      onDragStart={onSectionDragStart ? handleDragStart : undefined}
-      onDragEnd={onDragEnd}
+      onPointerDown={onSectionPointerDown ? handlePointerDown : undefined}
       onClick={(e) => onSelect(identity.id, e)}
       onDoubleClick={() => onEdit(identity)}
       bulkContextMenuItems={bulkContextMenuItems}
@@ -498,7 +490,7 @@ export function IdentitySection({
   vaultOptions, label,
   onAdd, onEdit, onDelete, onSelect,
   onMoveToVault, onCopyToVault,
-  bulkContextMenuItems, onDragStart, onDragEnd,
+  bulkContextMenuItems, onPointerDown,
 }: {
   identities: Identity[];
   keys: SshKey[];
@@ -516,8 +508,7 @@ export function IdentitySection({
   onMoveToVault?: (identity: Identity, vaultId: string) => void;
   onCopyToVault?: (identity: Identity, vaultId: string) => void;
   bulkContextMenuItems?: ContextMenuItem[];
-  onDragStart?: (e: React.DragEvent<HTMLDivElement>, id: string) => void;
-  onDragEnd?: () => void;
+  onPointerDown?: (e: React.PointerEvent<HTMLDivElement>, id: string) => void;
 }) {
   // usePermissions called ONCE at section level, not per card
   const can = usePermissions();
@@ -579,8 +570,7 @@ export function IdentitySection({
               onMoveToVault={onMoveToVault}
               onCopyToVault={onCopyToVault}
               bulkContextMenuItems={bulkContextMenuItems}
-              onSectionDragStart={onDragStart}
-              onDragEnd={onDragEnd}
+              onSectionPointerDown={onPointerDown}
             />
           );
         })}
