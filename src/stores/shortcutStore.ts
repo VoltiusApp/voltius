@@ -38,7 +38,7 @@ export function getDefaultShortcut(id: string): Omit<Shortcut, "key"> | undefine
 }
 
 const DEFAULTS: Omit<Shortcut, "key">[] = [
-  { id: "omni",         label: "Omni Search",       description: "Search hosts & tabs",    defaultKey: "k",   ctrl: true,  shift: false },
+  { id: "omni",         label: "Omni Search",       description: "Access everything from one place",    defaultKey: "k",   ctrl: true,  shift: false },
   { id: "shortcuts",    label: "Shortcuts Panel",   description: "Show/hide this panel",   defaultKey: " ",   ctrl: true,  shift: false },
   { id: "themes",       label: "Theme Panel",       description: "Open theme selector",    defaultKey: ",",   ctrl: true,  shift: false },
   { id: "new-tab",      label: "New Tab",           description: "Go to hosts view",       defaultKey: "t",   ctrl: true,  shift: false },

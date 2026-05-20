@@ -887,7 +887,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl rounded-xl overflow-hidden shadow-2xl bg-[var(--t-bg-modal)] border border-[var(--t-border-hover)]"
+        className="w-full max-w-xl rounded-xl overflow-hidden shadow-2xl bg-[var(--t-bg-modal)] border border-[var(--t-border-hover)] animate-fadeIn"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input */}
