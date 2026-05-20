@@ -24,10 +24,10 @@ import { useFolderStore } from "@/stores/folderStore";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import IdentitySelector from "./IdentitySelector";
 import KeySelector from "./KeySelector";
+import TagSelector from "./TagSelector";
 import EncodingSelector from "./EncodingSelector";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
-import { TagBadge } from "@/components/shared/TagBadge";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
 import { VaultPicker } from "@/components/shared/VaultPicker";
@@ -69,7 +69,6 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [port, setPort] = useState<number | "">(initial?.port ?? 22);
   const [username, setUsername] = useState(initial?.username ?? "root");
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
-  const [tagInput, setTagInput] = useState("");
   const [password, setPassword] = useState("");
   const [privateKey, setPrivateKey] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -464,41 +463,9 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
             </div>
             <div>
               <label className={formLabelClass} style={formLabelStyle}>Tags</label>
-              {tags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {tags.map((tag) => (
-                    <TagBadge key={tag} tag={tag} className="flex items-center gap-1 px-2 rounded-md font-medium">
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() => { markDirty(); setTags((t) => t.filter((x) => x !== tag)); }}
-                        className="transition-opacity opacity-60 hover:opacity-100"
-                        aria-label={`Remove tag ${tag}`}
-                      >
-                        <Icon icon="lucide:x" width={10} />
-                      </button>
-                    </TagBadge>
-                  ))}
-                </div>
-              )}
-              <input
-                className={formInputClass}
-                style={formInputStyle}
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if ((e.key === "Enter" || e.key === ",") && tagInput.trim()) {
-                    e.preventDefault();
-                    const newTag = tagInput.trim().replace(/,$/, "");
-                    if (newTag && !tags.includes(newTag)) {
-                      markDirty(); setTags((t) => [...t, newTag]);
-                    }
-                    setTagInput("");
-                  } else if (e.key === "Backspace" && !tagInput && tags.length > 0) {
-                    markDirty(); setTags((t) => t.slice(0, -1));
-                  }
-                }}
-                placeholder="Add tag, press Enter"
+              <TagSelector
+                value={tags}
+                onChange={(next) => { markDirty(); setTags(next); }}
               />
             </div>
 
