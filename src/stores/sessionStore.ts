@@ -241,12 +241,26 @@ async function connectConnection(
     return sessionId;
   }
 
-  const credentials = await resolveConnectionCredentials(connection);
-  const sessionConnection = { ...connection, username: credentials.username };
+  // Add the session synchronously before awaiting credentials so the TitleBar
+  // guard (sessions.length === 0 → redirect to hosts) doesn't fire during the
+  // async credential resolution window.
+  createSshSession(set, connection, sessionId);
 
   try {
-    await startSession(set, sessionConnection, sessionId, credentials.password, credentials.privateKey);
+    const credentials = await resolveConnectionCredentials(connection);
+    const sessionConnection = { ...connection, username: credentials.username };
+    await connectSshSession(set, sessionConnection, sessionId, credentials.password, credentials.privateKey);
   } catch (err) {
+    // connectSshSession already marks the session as "error"; if the failure
+    // happened earlier (e.g. credential resolution), mark it here so the
+    // error overlay is shown rather than leaving the session stuck on "connecting".
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId && sess.status === "connecting"
+          ? { ...sess, status: "error" as const, errorMessage: err instanceof Error ? err.message : String(err) }
+          : sess,
+      ),
+    }));
     if (!options.keepFailedSession) throw err;
   }
   return sessionId;
