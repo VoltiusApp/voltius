@@ -137,18 +137,26 @@ export default function HostsPage() {
 
   const searchQuery = search.trim().toLowerCase();
 
+  const scopedConnections = useMemo(
+    () => connections.filter((c) => {
+      const cvid = c.vault_id ?? "personal";
+      return accessibleVaultIds.length === 0 || accessibleVaultIds.includes(cvid);
+    }),
+    [connections, accessibleVaultIds],
+  );
+
   const availableTags = useMemo(
-    () => [...new Set(connections.flatMap((c) => c.tags))].sort(),
-    [connections],
+    () => [...new Set(scopedConnections.flatMap((c) => c.tags))].sort(),
+    [scopedConnections],
   );
 
   const tagCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const c of connections) {
+    for (const c of scopedConnections) {
       for (const t of c.tags) counts[t] = (counts[t] ?? 0) + 1;
     }
     return counts;
-  }, [connections]);
+  }, [scopedConnections]);
 
   const scopedFolders = useMemo(
     () => folders.filter((f) => {

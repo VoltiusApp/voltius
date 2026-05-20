@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { ToolbarDropdown } from "./ToolbarDropdown";
 import { matchShortcut } from "@/stores/shortcutStore";
+import { getTagColorStyle } from "@/utils/tagColors";
 
 export type LayoutMode = "grid" | "list";
 export type SortMode = "name-asc" | "name-desc" | "newest" | "oldest" | "role-asc";
@@ -485,11 +486,9 @@ function TagRow({
             onClick={onSelect}
             className="flex items-center gap-2 flex-1 min-w-0 text-left"
           >
-            <Icon
-              icon="lucide:tag"
-              width={14}
-              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-dim)" }}
-              className="shrink-0"
+            <span
+              className="w-3.5 h-3.5 rounded shrink-0 border"
+              style={getTagColorStyle(tag)}
             />
             <span
               className="text-xs truncate"
