@@ -132,18 +132,20 @@ export default function AppearanceSection() {
               </button>
             );
           })}
-        </div>
 
-        <button
-          onClick={() => openThemeCreator()}
-          className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm transition-colors bg-[var(--t-bg-card)] text-[var(--t-text-muted)]"
-          style={{ border: "1.5px dashed var(--t-border)" }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-accent)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-accent)"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-border)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
-        >
-          <Icon icon="lucide:plus" width={14} />
-          New Custom Theme
-        </button>
+          <button
+            onClick={() => openThemeCreator()}
+            className="flex flex-col gap-2.5 p-3 rounded-xl text-left transition-all text-[var(--t-text-muted)]"
+            style={{ background: "var(--t-bg-card)", border: "1.5px dashed var(--t-border)" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-accent)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-accent)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-border)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
+          >
+            <div className="h-5 flex items-center">
+              <Icon icon="lucide:plus" width={14} />
+            </div>
+            <span className="text-xs font-medium leading-tight">New Custom Theme</span>
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -169,7 +169,7 @@ export const useUIStore = create<UIStore>()(
       openImportExport: (mode, opts) => set({ importExportModal: { open: true, mode, section: opts?.section ?? "vaults", preselectedTypes: opts?.preselectedTypes, singleConnectionId: opts?.connectionId, singleKeyId: opts?.keyId, singleIdentityId: opts?.identityId, connectionIds: opts?.connectionIds, keyIds: opts?.keyIds, identityIds: opts?.identityIds } }),
       closeImportExport: () => set((s) => ({ importExportModal: { ...s.importExportModal, open: false } })),
       openThemeImportExport: (mode) => set({ importExportModal: { open: true, mode, section: "user-data" as ImportExportSection } }),
-      openThemeCreator: (editId) => set({ themeCreatorOpen: true, themeCreatorEditId: editId ?? null }),
+      openThemeCreator: (editId) => set({ themeCreatorOpen: true, themeCreatorEditId: editId ?? null, settingsOpen: false }),
       closeThemeCreator: () => set({ themeCreatorOpen: false, themeCreatorEditId: null }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
