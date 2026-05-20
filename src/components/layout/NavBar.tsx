@@ -73,7 +73,7 @@ function NavTabButton({
       }}
       onMouseEnter={(e) => {
         if (!isActive)
-          (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-secondary)";
+          (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)";
       }}
       onMouseLeave={(e) => {
         if (!isActive)
