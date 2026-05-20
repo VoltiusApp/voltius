@@ -109,7 +109,7 @@ export function RecentHostsSection({ onSeeAll }: Props) {
               key={i}
               className="w-1.5 h-1.5 rounded-full transition-all"
               style={{
-                background: i === page ? "var(--t-accent)" : "var(--t-border-hover)",
+                background: i === page ? "var(--t-accent)" : "var(--t-text-dim)",
                 opacity: i === page ? 1 : 0.5,
               }}
               onClick={() => setPage(i)}
