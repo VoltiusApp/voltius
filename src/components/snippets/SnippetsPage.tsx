@@ -155,6 +155,8 @@ export function SnippetsPage() {
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
   const layoutMode = useUIStore((s) => s.snippetsLayoutMode);
   const setLayoutMode = useUIStore((s) => s.setSnippetsLayoutMode);
+  const snippetsPendingAction = useUIStore((s) => s.snippetsPendingAction);
+  const setSnippetsPendingAction = useUIStore((s) => s.setSnippetsPendingAction);
 
   // Vault & permissions
   const vaults = useVaultStore((s) => s.vaults);
@@ -194,6 +196,13 @@ export function SnippetsPage() {
     snippetIsDirtyRef.current = false;
     ep.openEdit(item);
   }, [ep.openEdit]);
+
+  useEffect(() => {
+    if (snippetsPendingAction?.action === "create") {
+      openSnippet("new");
+      setSnippetsPendingAction(null);
+    }
+  }, [snippetsPendingAction, openSnippet, setSnippetsPendingAction]);
   const liveEditingSnippet = ep.editing && ep.editing !== "new"
     ? (snippets.find((s) => s.id === (ep.editing as Snippet).id) ?? (ep.editing as Snippet))
     : null;

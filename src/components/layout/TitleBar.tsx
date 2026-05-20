@@ -114,6 +114,14 @@ export default function TitleBar() {
     syncTitlebarOrder(visibleItemKeys);
   }, [syncTitlebarOrder, visibleItemKeys.join("|")]);
 
+  // Ensure the user never gets stuck on an empty terminal view.
+  // When all sessions are gone, fall back to Vaults.
+  useEffect(() => {
+    if (sessions.length === 0 && activeNav === ("terminal" as any)) {
+      setActiveNav("hosts");
+    }
+  }, [sessions.length, activeNav, setActiveNav]);
+
   const handleTabClick = (sessionId: string) => {
     if (shouldSuppressDragClick()) return;
     setSftpPanelOpen(false);
