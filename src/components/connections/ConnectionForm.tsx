@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import type { Connection, ConnectionFormData, AuthType, VaultOption, JumpHost, EnvVar } from "@/types";
 import { useIdentityStore } from "@/stores/identityStore";
+import { useKeyStore } from "@/stores/keyStore";
 import { useTeamStore } from "@/stores/teamStore";
 import {
   useEffectivePinned,
@@ -22,6 +23,7 @@ import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import IdentitySelector from "./IdentitySelector";
+import KeySelector from "./KeySelector";
 import EncodingSelector from "./EncodingSelector";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
@@ -71,6 +73,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [privateKey, setPrivateKey] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [identityId, setIdentityId] = useState<string | null>(initial?.identity_id ?? null);
+  const [keyId, setKeyId] = useState<string | null>(initial?.key_id ?? null);
   const [folderId, setFolderId] = useState<string | null>(initial?.folder_id ?? null);
   const [jumpHosts, setJumpHosts] = useState<JumpHost[]>(initial?.jump_hosts ?? []);
   const [showChaining, setShowChaining] = useState(false);
@@ -107,15 +110,22 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const distroPickerMenuRef = useRef<HTMLDivElement>(null);
 
   const { identities, teamIdentities, loadIdentities } = useIdentityStore();
+  const { keys, teamKeys, loadKeys } = useKeyStore();
   const relevantIdentities = useMemo(() => {
     if (vaultId === "personal") return identities;
     const teamId = resolveVaultIdForSave(vaultId);
     return teamIdentities[teamId] ?? [];
   }, [vaultId, identities, teamIdentities]);
+  const relevantKeys = useMemo(() => {
+    if (vaultId === "personal") return keys;
+    const teamId = resolveVaultIdForSave(vaultId);
+    return teamKeys[teamId] ?? [];
+  }, [vaultId, keys, teamKeys]);
   useEffect(() => {
     if (prevVaultIdRef.current !== vaultId) {
       prevVaultIdRef.current = vaultId;
       setIdentityId(null);
+      setKeyId(null);
     }
   }, [vaultId]);
   const { folders, loadFolders } = useFolderStore();
@@ -132,8 +142,9 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
   useEffect(() => {
     void loadIdentities();
+    void loadKeys();
     void loadFolders();
-  }, [loadIdentities, loadFolders]);
+  }, [loadIdentities, loadKeys, loadFolders]);
 
   useEffect(() => {
     if (!showDistroPicker) return;
@@ -166,9 +177,11 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
     if (!initial) return;
     (async () => {
       const pwd = await getSecret(`password:${initial.id}`).catch(() => null);
-      const key = await getSecret(`key:${initial.id}`).catch(() => null);
       if (pwd && !passwordDirty.current) setPassword(pwd);
-      if (key && !privateKeyDirty.current) setPrivateKey(key);
+      if (!initial.key_id) {
+        const key = await getSecret(`key:${initial.id}`).catch(() => null);
+        if (key && !privateKeyDirty.current) setPrivateKey(key);
+      }
     })();
   }, [initial?.id]);
 
@@ -176,7 +189,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
   const buildSubmit = () => {
     let submitUsername = username;
-    let submitAuthType: AuthType = privateKey.trim() ? "key" : "password";
+    let submitAuthType: AuthType = (keyId || privateKey.trim()) ? "key" : "password";
     if (identityId && selectedIdentity) {
       submitUsername = selectedIdentity.username;
       submitAuthType = selectedIdentity.key_id ? "key" : "password";
@@ -190,6 +203,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         auth_type: submitAuthType,
         tags,
         identity_id: identityId ?? undefined,
+        key_id: !identityId ? (keyId ?? undefined) : undefined,
         folder_id: folderId ?? undefined,
         vault_id: resolveVaultIdForSave(vaultId),
         jump_hosts: jumpHosts.length > 0 ? jumpHosts : undefined,
@@ -203,7 +217,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         ping_disabled: pingDisabled || undefined,
       } as ConnectionFormData,
       password: passwordDirty.current ? password : null,
-      privateKey: privateKeyDirty.current ? privateKey : null,
+      privateKey: (!identityId && !keyId && privateKeyDirty.current) ? privateKey : null,
     };
   };
 
@@ -215,7 +229,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, host, port, username, password, privateKey, identityId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, preCommand, postCommand, terminalEncoding, distro, icon, pingDisabled]);
+  useEffect(() => schedule(), [name, host, port, username, password, privateKey, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, preCommand, postCommand, terminalEncoding, distro, icon, pingDisabled]);
 
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
@@ -278,6 +292,13 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         detectPrivateKey = selectedIdentity.key_id
           ? (await getSecret(`key:${selectedIdentity.key_id}:private`).catch(() => null)) ?? undefined
           : undefined;
+      } else if (keyId) {
+        detectPrivateKey = (await getSecret(`key:${keyId}:private`).catch(() => null)) ?? undefined;
+        if (initial) {
+          detectPassword = passwordDirty.current ? (password || undefined) : ((await getSecret(`password:${initial.id}`).catch(() => null)) ?? undefined);
+        } else {
+          detectPassword = password || undefined;
+        }
       } else if (initial) {
         detectPassword = passwordDirty.current ? (password || undefined) : ((await getSecret(`password:${initial.id}`).catch(() => null)) ?? undefined);
         detectPrivateKey = privateKeyDirty.current ? (privateKey || undefined) : ((await getSecret(`key:${initial.id}`).catch(() => null)) ?? undefined);
@@ -299,7 +320,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
     } finally {
       setDetectingDistro(false);
     }
-  }, [applyDetectedDistro, host, identityId, initial, password, port, privateKey, selectedIdentity, username]);
+  }, [applyDetectedDistro, host, identityId, keyId, initial, password, port, privateKey, selectedIdentity, username]);
 
   const panelItems = initial ? buildConnectionMenuItems({
     canEdit,
@@ -651,13 +672,21 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
                 <div>
                   <label className={formLabelClass} style={formLabelStyle}>Private Key</label>
-                  <textarea
-                    className={`${formInputClass} font-mono text-xs h-28 resize-none`}
-                    style={formInputStyle}
-                    value={privateKey}
-                    onChange={(e) => { markDirty(); privateKeyDirty.current = true; setPrivateKey(e.target.value); }}
-                    placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..."
+                  <KeySelector
+                    value={keyId}
+                    keys={relevantKeys}
+                    onChange={(id) => { markDirty(); setKeyId(id); if (id) { privateKeyDirty.current = false; setPrivateKey(""); } }}
+                    onGoToKeychain={() => setActiveNav("keychain")}
                   />
+                  {!keyId && (
+                    <textarea
+                      className={`${formInputClass} font-mono text-xs h-28 resize-none mt-2`}
+                      style={formInputStyle}
+                      value={privateKey}
+                      onChange={(e) => { markDirty(); privateKeyDirty.current = true; setPrivateKey(e.target.value); }}
+                      placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..."
+                    />
+                  )}
                 </div>
               </>
             )}

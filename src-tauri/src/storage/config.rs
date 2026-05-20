@@ -87,6 +87,8 @@ pub struct Connection {
     #[serde(default)]
     pub identity_id: Option<String>,
     #[serde(default)]
+    pub key_id: Option<String>,
+    #[serde(default)]
     pub folder_id: Option<String>,
     #[serde(default = "default_personal")]
     pub vault_id: String,
@@ -141,6 +143,8 @@ pub struct ConnectionFormData {
     pub tags: Vec<String>,
     #[serde(default)]
     pub identity_id: Option<String>,
+    #[serde(default)]
+    pub key_id: Option<String>,
     #[serde(default)]
     pub folder_id: Option<String>,
     /// None = keep existing vault on update, defaults to "personal" on create

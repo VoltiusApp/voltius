@@ -316,6 +316,7 @@ export default function HostsPage() {
         auth_type: conn.auth_type,
         tags: [...conn.tags],
         identity_id: conn.identity_id,
+        key_id: conn.key_id,
         folder_id: conn.folder_id,
         vault_id: conn.vault_id ?? "personal",
         serial_port: conn.serial_port,
@@ -330,9 +331,11 @@ export default function HostsPage() {
       });
       if (newConn && conn.connection_type !== "serial") {
         const pwd = await getSecret(`password:${conn.id}`).catch(() => null);
-        const key = await getSecret(`key:${conn.id}`).catch(() => null);
         if (pwd) await storeSecret(`password:${newConn.id}`, pwd);
-        if (key) await storeSecret(`key:${newConn.id}`, key);
+        if (!conn.key_id) {
+          const key = await getSecret(`key:${conn.id}`).catch(() => null);
+          if (key) await storeSecret(`key:${newConn.id}`, key);
+        }
       }
     } catch (err) {
       setError(String(err));
@@ -602,19 +605,21 @@ export default function HostsPage() {
             name: conn.name ? (destHasConnName ? `${conn.name} (copy)` : conn.name) : undefined,
             host: conn.host, port: conn.port, username: conn.username,
             auth_type: conn.auth_type, tags: [...conn.tags],
-            identity_id: newIdentityId, folder_id: conn.folder_id,
+            identity_id: newIdentityId, key_id: conn.key_id, folder_id: conn.folder_id,
             vault_id: vaultId,
           });
           if (newConn) {
             const pwd = await getSecret(`password:${conn.id}`).catch(() => null);
-            const k = await getSecret(`key:${conn.id}`).catch(() => null);
             if (pwd) {
               await storeSecret(`password:${newConn.id}`, pwd);
               await saveTeamVaultSecretForVault(vaultId, `password:${newConn.id}`, pwd).catch(() => {});
             }
-            if (k) {
-              await storeSecret(`key:${newConn.id}`, k);
-              await saveTeamVaultSecretForVault(vaultId, `key:${newConn.id}`, k).catch(() => {});
+            if (!conn.key_id) {
+              const k = await getSecret(`key:${conn.id}`).catch(() => null);
+              if (k) {
+                await storeSecret(`key:${newConn.id}`, k);
+                await saveTeamVaultSecretForVault(vaultId, `key:${newConn.id}`, k).catch(() => {});
+              }
             }
           }
         } catch (err) { setError(String(err)); }
@@ -682,7 +687,7 @@ export default function HostsPage() {
             await useIdentityStore.getState().updateIdentity(identity.id, { name: identity.name, username: identity.username, key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId });
           }
           for (const conn of allConns) {
-            await updateConnection(conn.id, { name: conn.name, host: conn.host, port: conn.port, username: conn.username, auth_type: conn.auth_type, tags: conn.tags, identity_id: conn.identity_id, folder_id: conn.folder_id, vault_id: vaultId });
+            await updateConnection(conn.id, { name: conn.name, host: conn.host, port: conn.port, username: conn.username, auth_type: conn.auth_type, tags: conn.tags, identity_id: conn.identity_id, key_id: conn.key_id, folder_id: conn.folder_id, vault_id: vaultId });
           }
         } catch (err) { setError(String(err)); }
       },
@@ -764,17 +769,20 @@ export default function HostsPage() {
           for (const conn of allConns) {
             const newIdentityId = conn.identity_id ? (identityIdMap.get(conn.identity_id) ?? conn.identity_id) : undefined;
             const newFolderId = conn.folder_id ? (folderIdMap.get(conn.folder_id) ?? newFolder.id) : newFolder.id;
-            const newConn = await saveConnection({ name: conn.name, host: conn.host, port: conn.port, username: conn.username, auth_type: conn.auth_type, tags: [...conn.tags], identity_id: newIdentityId, folder_id: newFolderId, vault_id: vaultId });
+            const newKeyId = conn.key_id ? (keyIdMap.get(conn.key_id) ?? conn.key_id) : undefined;
+            const newConn = await saveConnection({ name: conn.name, host: conn.host, port: conn.port, username: conn.username, auth_type: conn.auth_type, tags: [...conn.tags], identity_id: newIdentityId, key_id: newKeyId, folder_id: newFolderId, vault_id: vaultId });
             if (newConn) {
               const pwd = await getSecret(`password:${conn.id}`).catch(() => null);
-              const k = await getSecret(`key:${conn.id}`).catch(() => null);
               if (pwd) {
                 await storeSecret(`password:${newConn.id}`, pwd);
                 await saveTeamVaultSecretForVault(vaultId, `password:${newConn.id}`, pwd).catch(() => {});
               }
-              if (k) {
-                await storeSecret(`key:${newConn.id}`, k);
-                await saveTeamVaultSecretForVault(vaultId, `key:${newConn.id}`, k).catch(() => {});
+              if (!conn.key_id) {
+                const k = await getSecret(`key:${conn.id}`).catch(() => null);
+                if (k) {
+                  await storeSecret(`key:${newConn.id}`, k);
+                  await saveTeamVaultSecretForVault(vaultId, `key:${newConn.id}`, k).catch(() => {});
+                }
               }
             }
           }

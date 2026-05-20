@@ -91,6 +91,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         auth_type: data.auth_type ?? "password",
         tags: data.tags ?? [],
         identity_id: data.identity_id,
+        key_id: data.key_id,
         folder_id: data.folder_id,
         vault_id: data.vault_id,
         jump_hosts: data.jump_hosts,
@@ -174,6 +175,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         auth_type: data.auth_type ?? prev.auth_type,
         tags: data.tags ?? prev.tags,
         identity_id: data.identity_id,
+        key_id: data.key_id,
         folder_id: data.folder_id,
         vault_id: data.vault_id ?? prev.vault_id,
         jump_hosts: data.jump_hosts,
@@ -226,7 +228,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       const prevData: ConnectionFormData = {
         name: prev.name, host: prev.host, port: prev.port,
         username: prev.username, auth_type: prev.auth_type as AuthType,
-        tags: prev.tags, identity_id: prev.identity_id, folder_id: prev.folder_id,
+        tags: prev.tags, identity_id: prev.identity_id, key_id: prev.key_id, folder_id: prev.folder_id,
         vault_id: prev.vault_id, jump_hosts: prev.jump_hosts, env_vars: prev.env_vars,
         agent_forwarding: prev.agent_forwarding, pre_command: prev.pre_command,
         post_command: prev.post_command, terminal_encoding: prev.terminal_encoding,
@@ -252,6 +254,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
           auth_type: data.auth_type ?? prev.auth_type,
           tags: data.tags ?? prev.tags,
           identity_id: data.identity_id,
+          key_id: data.key_id,
           folder_id: data.folder_id,
           vault_id: data.vault_id ?? prev.vault_id,
           jump_hosts: data.jump_hosts,
@@ -331,7 +334,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       const prevData: ConnectionFormData = {
         name: prev.name, host: prev.host, port: prev.port,
         username: prev.username, auth_type: prev.auth_type as AuthType,
-        tags: prev.tags, identity_id: prev.identity_id, folder_id: prev.folder_id,
+        tags: prev.tags, identity_id: prev.identity_id, key_id: prev.key_id, folder_id: prev.folder_id,
         vault_id: prev.vault_id, jump_hosts: prev.jump_hosts, env_vars: prev.env_vars,
         agent_forwarding: prev.agent_forwarding, pre_command: prev.pre_command,
         post_command: prev.post_command, terminal_encoding: prev.terminal_encoding,
@@ -360,7 +363,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       const prevData: ConnectionFormData = {
         name: prev.name, host: prev.host, port: prev.port,
         username: prev.username, auth_type: prev.auth_type as AuthType,
-        tags: prev.tags, identity_id: prev.identity_id, folder_id: prev.folder_id,
+        tags: prev.tags, identity_id: prev.identity_id, key_id: prev.key_id, folder_id: prev.folder_id,
         vault_id: prev.vault_id, jump_hosts: prev.jump_hosts, env_vars: prev.env_vars,
         agent_forwarding: prev.agent_forwarding, pre_command: prev.pre_command,
         post_command: prev.post_command, terminal_encoding: prev.terminal_encoding,
@@ -392,7 +395,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       const prevData: ConnectionFormData = {
         name: prev.name, host: prev.host, port: prev.port,
         username: prev.username, auth_type: prev.auth_type as AuthType,
-        tags: prev.tags, identity_id: prev.identity_id, folder_id: prev.folder_id,
+        tags: prev.tags, identity_id: prev.identity_id, key_id: prev.key_id, folder_id: prev.folder_id,
         vault_id: prev.vault_id, jump_hosts: prev.jump_hosts, env_vars: prev.env_vars,
         agent_forwarding: prev.agent_forwarding, pre_command: prev.pre_command,
         post_command: prev.post_command, terminal_encoding: prev.terminal_encoding,
@@ -489,7 +492,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
           name: c.name, host: c.host, port: c.port, username: c.username,
           auth_type: c.auth_type as AuthType,
           tags: c.tags.map((t) => (t === oldName ? newName : t)),
-          identity_id: c.identity_id, folder_id: c.folder_id,
+          identity_id: c.identity_id, key_id: c.key_id, folder_id: c.folder_id,
         }),
       ),
     );
@@ -534,7 +537,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
           name: c.name, host: c.host, port: c.port, username: c.username,
           auth_type: c.auth_type as AuthType,
           tags: c.tags.filter((t) => t !== name),
-          identity_id: c.identity_id, folder_id: c.folder_id,
+          identity_id: c.identity_id, key_id: c.key_id, folder_id: c.folder_id,
         }),
       ),
     );
@@ -573,7 +576,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
             return store.updateConnection(connId, {
               name: conn.name, host: conn.host, port: conn.port,
               username: conn.username, auth_type: conn.auth_type as AuthType,
-              tags, identity_id: conn.identity_id, folder_id: conn.folder_id,
+              tags, identity_id: conn.identity_id, key_id: conn.key_id, folder_id: conn.folder_id,
             });
           }),
         );
@@ -594,7 +597,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     const nextPinned = pinned ?? false;
     await api.updateConnection(id, {
       name: conn.name, host: conn.host, port: conn.port, username: conn.username,
-      auth_type: conn.auth_type as AuthType, tags: conn.tags, identity_id: conn.identity_id,
+      auth_type: conn.auth_type as AuthType, tags: conn.tags, identity_id: conn.identity_id, key_id: conn.key_id,
       folder_id: conn.folder_id, vault_id: conn.vault_id, jump_hosts: conn.jump_hosts,
       env_vars: conn.env_vars, agent_forwarding: conn.agent_forwarding,
       pre_command: conn.pre_command, post_command: conn.post_command,

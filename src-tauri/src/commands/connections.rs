@@ -72,6 +72,7 @@ pub fn connection_save(data: ConnectionFormData) -> Result<Connection, String> {
         distro: data.distro,
         icon: data.icon,
         identity_id: data.identity_id,
+        key_id: data.key_id,
         folder_id: data.folder_id,
         vault_id,
         jump_hosts: data.jump_hosts,

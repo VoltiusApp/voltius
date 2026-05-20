@@ -101,6 +101,7 @@ export interface Connection {
   distro?: string;
   icon?: string;
   identity_id?: string;
+  key_id?: string;
   folder_id?: string;
   vault_id?: string;
   jump_hosts?: JumpHost[];
@@ -131,6 +132,7 @@ export interface ConnectionFormData {
   auth_type?: AuthType;
   tags: string[];
   identity_id?: string;
+  key_id?: string;
   folder_id?: string;
   vault_id?: string;
   jump_hosts?: JumpHost[];
