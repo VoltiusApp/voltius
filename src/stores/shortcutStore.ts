@@ -33,6 +33,10 @@ export function getAliases(id: string): ShortcutAlias[] | undefined {
   return ALIASES[id];
 }
 
+export function getDefaultShortcut(id: string): Omit<Shortcut, "key"> | undefined {
+  return DEFAULTS.find((d) => d.id === id);
+}
+
 const DEFAULTS: Omit<Shortcut, "key">[] = [
   { id: "omni",         label: "Omni Search",       description: "Search hosts & tabs",    defaultKey: "k",   ctrl: true,  shift: false },
   { id: "shortcuts",    label: "Shortcuts Panel",   description: "Show/hide this panel",   defaultKey: " ",   ctrl: true,  shift: false },

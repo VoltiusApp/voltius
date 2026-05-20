@@ -6,7 +6,6 @@ import NavBar from "@/components/layout/NavBar";
 import MainPanel from "@/components/layout/MainPanel";
 import SplashScreen from "@/components/layout/SplashScreen";
 import OmniSearch from "@/components/omni/OmniSearch";
-import ShortcutsPanel from "@/components/shortcuts/ShortcutsPanel";
 import SettingsModal from "@/components/settings/SettingsModal";
 import { ImportExportModal } from "@/components/import-export/ImportExportModal";
 import RightPanel from "@/components/terminal/RightPanel";
@@ -74,7 +73,6 @@ function App() {
         </div>
       </div>
       {omniOpen && <OmniSearch onClose={() => setOmniOpen(false)} />}
-      <ShortcutsPanel />
       <SettingsModal />
       <ImportExportModal />
 

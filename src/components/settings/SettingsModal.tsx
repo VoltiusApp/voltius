@@ -8,6 +8,7 @@ import PluginsSection from "@/components/settings/sections/PluginsSection";
 import SFTPSection from "@/components/settings/sections/SFTPSection";
 import AboutSection from "@/components/settings/sections/AboutSection";
 import HostsSection from "@/components/settings/sections/HostsSection";
+import ShortcutsSection from "@/components/settings/sections/ShortcutsSection";
 import { SETTINGS_NAV } from "@/components/settings/settingsNav";
 
 export default function SettingsModal() {
@@ -91,6 +92,7 @@ export default function SettingsModal() {
             {section === "plugins" && <PluginsSection />}
             {section === "sftp" && <SFTPSection />}
             {section === "hosts" && <HostsSection />}
+            {section === "shortcuts" && <ShortcutsSection />}
             {section === "about" && <AboutSection />}
           </div>
         </div>

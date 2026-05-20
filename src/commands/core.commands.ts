@@ -56,13 +56,12 @@ export const commands: OmniCommand[] = [
     },
   },
   {
-    id: "core:keyboard-shortcuts",
-    label: "Keyboard Shortcuts",
-    icon: "lucide:keyboard",
-    keywords: ["keybind", "hotkey", "shortcut", "rebind"],
+    id: "core:settings",
+    label: "Settings",
+    icon: "lucide:settings",
+    keywords: ["preferences", "config", "options", "appearance", "theme"],
     section: "Actions",
-    shortcutId: "shortcuts",
-    execute: () => useUIStore.getState().setShortcutsOpen(true),
+    execute: () => useUIStore.getState().openSettings(),
   },
   {
     id: "core:check-for-update",

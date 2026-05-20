@@ -6,7 +6,7 @@ export type NavItem = "hosts" | "keychain" | "port-forwarding" | "snippets" | "k
 export type BuiltinRightPanelSection = "snippets" | "history" | "themes" | "ports";
 /** Widened to allow plugin-contributed section IDs (prefixed with "plugin:") */
 export type RightPanelSection = BuiltinRightPanelSection | (string & {});
-export type SettingsSection = "appearance" | "account" | "vaults" | "plugins" | "sftp" | "hosts" | "about";
+export type SettingsSection = "appearance" | "account" | "vaults" | "plugins" | "sftp" | "hosts" | "shortcuts" | "about";
 
 export type LayoutMode = "grid" | "list";
 export type SortMode   = "name-asc" | "name-desc" | "newest" | "oldest" | "role-asc";
@@ -62,7 +62,6 @@ interface UIStore {
   homeView: boolean;
   activeNav: NavItem;
   omniOpen: boolean;
-  shortcutsOpen: boolean;
   settingsOpen: boolean;
   cloudAuthOpen: boolean;
   cloudAuthMode: CloudAuthMode;
@@ -99,7 +98,6 @@ interface UIStore {
   setHomeView: (v: boolean) => void;
   setActiveNav: (nav: NavItem) => void;
   setOmniOpen: (open: boolean) => void;
-  setShortcutsOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
   openCloudAuth: (mode?: CloudAuthMode) => void;
   closeCloudAuth: () => void;
@@ -140,7 +138,6 @@ export const useUIStore = create<UIStore>()(
       homeView: true,
       activeNav: "hosts" as NavItem,
       omniOpen: false,
-      shortcutsOpen: false,
       settingsOpen: false,
       cloudAuthOpen: false,
       cloudAuthMode: "signin" as CloudAuthMode,
@@ -179,7 +176,6 @@ export const useUIStore = create<UIStore>()(
       setHomeView: (v) => set({ homeView: v }),
       setActiveNav: (nav) => set({ activeNav: nav }),
       setOmniOpen: (open) => set({ omniOpen: open }),
-      setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
       setSettingsOpen: (open) => set({ settingsOpen: open }),
       openCloudAuth: (mode) => set({ cloudAuthOpen: true, cloudAuthMode: mode ?? "signin" }),
       closeCloudAuth: () => set({ cloudAuthOpen: false }),
@@ -218,6 +214,7 @@ export const useUIStore = create<UIStore>()(
       name: "voltius-ui",
       partialize: (state) => ({
         uiScale: state.uiScale,
+        settingsSection: state.settingsSection,
         homeLayoutMode: state.homeLayoutMode,
         homeSortMode: state.homeSortMode,
         keychainLayoutMode: state.keychainLayoutMode,

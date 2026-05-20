@@ -20,19 +20,19 @@ export function useKeyboard() {
 
       if (matchShortcut("shortcuts", e)) {
         e.preventDefault();
-        useUIStore.getState().setShortcutsOpen(!useUIStore.getState().shortcutsOpen);
+        const { settingsOpen, settingsSection, setSettingsOpen, openSettings } = useUIStore.getState();
+        if (settingsOpen && settingsSection === "shortcuts") {
+          setSettingsOpen(false);
+        } else {
+          openSettings("shortcuts");
+        }
         return;
       }
 
       if (matchShortcut("themes", e)) {
         e.preventDefault();
-        const { settingsOpen, setSettingsOpen, setSettingsSection } = useUIStore.getState();
-        if (settingsOpen) {
-          setSettingsOpen(false);
-        } else {
-          setSettingsSection("appearance");
-          setSettingsOpen(true);
-        }
+        const { settingsOpen, setSettingsOpen } = useUIStore.getState();
+        setSettingsOpen(!settingsOpen);
         return;
       }
 
