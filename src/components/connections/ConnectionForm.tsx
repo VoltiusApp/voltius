@@ -32,6 +32,7 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { Toggle } from "@/components/shared/Toggle";
+import FolderSelector from "./FolderSelector";
 import { CONNECTION_ICON_OPTIONS, getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, normalizeDistro } from "@/utils/icons";
 import {
   PanelShell,
@@ -128,7 +129,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
       setKeyId(null);
     }
   }, [vaultId]);
-  const { folders, loadFolders } = useFolderStore();
+  const { folders, loadFolders, saveFolder } = useFolderStore();
   const setActiveNav = useUIStore((s) => s.setActiveNav);
   const pinConnection = useConnectionStore((s) => s.pinConnection);
   const setConnectionDistro = useConnectionStore((s) => s.setDistro);
@@ -500,26 +501,22 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                 placeholder="Add tag, press Enter"
               />
             </div>
-          </FormSection>
 
-          {folders.length > 0 && (
-            <FormSection label="Organization">
-              <div>
-                <label className={formLabelClass} style={formLabelStyle}>Folder</label>
-                <select
-                  className={formInputClass}
-                  style={{ ...formInputStyle, cursor: "pointer" }}
-                  value={folderId ?? ""}
-                  onChange={(e) => { markDirty(); setFolderId(e.target.value || null); }}
-                >
-                  <option value="">No folder</option>
-                  {folders.map((f) => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
-                  ))}
-                </select>
-              </div>
-            </FormSection>
-          )}
+            <div>
+              <label className={formLabelClass} style={formLabelStyle}>Folder</label>
+              <FolderSelector
+                value={folderId}
+                folders={folders}
+                onChange={(id) => { markDirty(); setFolderId(id); }}
+                onCreateFolder={async (name) => {
+                  const folder = await saveFolder({ name, object_type: "connection", vault_id: resolveVaultIdForSave(vaultId) || undefined });
+                  markDirty();
+                  setFolderId(folder.id);
+                  return folder.id;
+                }}
+              />
+            </div>
+          </FormSection>
 
           <FormSection label="Connection">
             <div className="flex gap-2.5">
