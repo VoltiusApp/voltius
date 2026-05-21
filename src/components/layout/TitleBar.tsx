@@ -326,6 +326,8 @@ export default function TitleBar() {
                     onClick={(e) => handleUnifiedTabClose(e, tab.id)}
                     className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5"
                     style={{ color: isActiveSplitTab ? "var(--t-tab-active-text)" : "var(--t-text-muted)" }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--t-status-error)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = isActiveSplitTab ? "var(--t-tab-active-text)" : "var(--t-text-muted)"; }}
                   >
                     <span className="[&_path]:[stroke-width:2.1]"><Icon icon="lucide:x" width={20} /></span>
                   </span>
@@ -405,7 +407,8 @@ export default function TitleBar() {
                   onClick={(e) => handleTabClose(e, session.id)}
                   className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5"
                   style={{ color: isActive ? "var(--t-tab-active-text)" : "var(--t-text-muted)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; (e.currentTarget as HTMLElement).style.color = "var(--t-status-error)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = isActive ? "var(--t-tab-active-text)" : "var(--t-text-muted)"; }}
                 >
                   <span className="[&_path]:[stroke-width:2.1]">
                   <Icon icon="lucide:x" width={20} />
