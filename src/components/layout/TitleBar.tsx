@@ -346,7 +346,7 @@ export default function TitleBar() {
                                               "var(--t-text-muted)";
           const connection = connections.find((c) => c.id === session.connectionId);
           const isLocal = session.type === "local";
-          const connectionIcon = !isActive && !isLocal && connection ? (connection.icon || connection.distro) : null;
+          const connectionIcon = !isLocal && connection ? (connection.icon || connection.distro) : null;
           const distroIcon = connectionIcon ? getConnectionIcon(connectionIcon) : null;
           const distroBg = connectionIcon ? getConnectionIconColor(connectionIcon) : null;
 
@@ -396,10 +396,7 @@ export default function TitleBar() {
                 ) : (
                   <span
                     className="w-2 h-2 rounded-full shrink-0"
-                    style={{
-                      background: isActive ? "var(--t-tab-active-text)" : statusColor,
-                      opacity: isActive ? 0.8 : 1,
-                    }}
+                    style={{ background: statusColor }}
                   />
                 )}
                 <span className="max-w-[140px] truncate">{session.connectionName}</span>
