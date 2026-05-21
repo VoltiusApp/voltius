@@ -13,7 +13,7 @@ export const manifest: PluginManifest = {
     "connections:read", "connections:write",
     "keys:read", "keys:write",
     "identities:read", "identities:write",
-    "fs", "settings-page",
+    "fs", "settings-page", "notifications",
   ],
   defaultEnabled: true,
 };
@@ -128,8 +128,13 @@ async function ensureKey(
   keyPath: string,
   keyMap: KeyMap,
   allKeys: Awaited<ReturnType<typeof api.keys.list>>,
+  notifyEnabled: boolean,
 ): Promise<string | null> {
-  if (keyMap[keyPath]) return keyMap[keyPath];
+  if (keyMap[keyPath]) {
+    const stillExists = allKeys.find((k) => k.id === keyMap[keyPath]);
+    if (stillExists) return keyMap[keyPath];
+    delete keyMap[keyPath]; // stale — key was deleted externally
+  }
 
   const privPath = normalizePath(keyPath);
   const pubPath = `${privPath}.pub`;
@@ -159,8 +164,9 @@ async function ensureKey(
     }
   } catch { /* optional */ }
 
-  const key = await api.keys.create({ name }, privateKey, publicKey);
+  const key = await api.keys.create({ name, tags: [SSH_CONFIG_TAG] }, privateKey, publicKey);
   keyMap[keyPath] = key.id;
+  if (notifyEnabled) api.notifications.toast(`SSH key imported: ${name}`, { severity: "success", duration: 3000 });
   return key.id;
 }
 
@@ -183,6 +189,7 @@ async function sync(api: PluginAPI): Promise<void> {
   const aliasMap: AliasMap = (await api.storage.get<AliasMap>(ALIAS_MAP_KEY)) ?? {};
   const keyMap: KeyMap = (await api.storage.get<KeyMap>(KEY_MAP_KEY)) ?? {};
   const identityMap: IdentityMap = (await api.storage.get<IdentityMap>(IDENTITY_MAP_KEY)) ?? {};
+  const notifyEnabled = (await api.storage.get<boolean>(NOTIFICATIONS_ENABLED_KEY)) ?? DEFAULT_NOTIFICATIONS_ENABLED;
 
   // Hosts present in the config file (keyed by alias)
   const configAliases = new Set(hosts.map((h) => h.alias));
@@ -211,11 +218,17 @@ async function sync(api: PluginAPI): Promise<void> {
     // Resolve identity: create key + identity if IdentityFile is set
     let identityId: string | undefined;
     if (host.identityFile) {
-      const keyId = await ensureKey(api, host.identityFile, keyMap, allKeys);
+      const keyId = await ensureKey(api, host.identityFile, keyMap, allKeys, notifyEnabled);
       if (keyId) {
         if (identityMap[host.alias]) {
-          identityId = identityMap[host.alias];
-        } else {
+          const stillExists = allIdentities.find((i) => i.id === identityMap[host.alias]);
+          if (stillExists) {
+            identityId = identityMap[host.alias];
+          } else {
+            delete identityMap[host.alias]; // stale — identity was deleted externally
+          }
+        }
+        if (!identityId) {
           // Fallback: reuse existing identity if the map was lost/stale
           const existingIdentity = allIdentities.find(
             (i) => i.name === host.alias && i.username === host.user && i.key_id === keyId,
@@ -228,9 +241,11 @@ async function sync(api: PluginAPI): Promise<void> {
               name: host.alias,
               username: host.user,
               key_id: keyId,
+              tags: [SSH_CONFIG_TAG],
             });
             identityId = identity.id;
             identityMap[host.alias] = identityId;
+            if (notifyEnabled) api.notifications.toast(`SSH identity created: ${host.alias}`, { severity: "success", duration: 3000 });
           }
         }
       }
@@ -266,6 +281,7 @@ async function sync(api: PluginAPI): Promise<void> {
     if (!existing) {
       const conn = await api.connections.create(data);
       aliasMap[host.alias] = conn.id;
+      if (notifyEnabled) api.notifications.toast(`SSH host added: ${host.alias}`, { severity: "success", duration: 3000 });
     } else {
       const changed =
         existing.host !== data.host ||
@@ -335,23 +351,86 @@ async function sync(api: PluginAPI): Promise<void> {
 
 const POLL_INTERVAL_KEY = "poll_interval_ms";
 const DEFAULT_POLL_INTERVAL = 5000;
+const NOTIFICATIONS_ENABLED_KEY = "notifications_enabled";
+const DEFAULT_NOTIFICATIONS_ENABLED = true;
 const RESTART_EVENT = "ssh-config:restart-watcher";
+const SYNC_NOW_EVENT = "ssh-config:sync-now";
 
 function createSettingsComponent(api: PluginAPI): React.FC {
   return function SshConfigSettings() {
     const [intervalMs, setIntervalMs] = useState<number>(DEFAULT_POLL_INTERVAL);
+    const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(DEFAULT_NOTIFICATIONS_ENABLED);
+    const [syncing, setSyncing] = useState(false);
 
     useEffect(() => {
-      api.storage.get<number>(POLL_INTERVAL_KEY).then((v) => {
-        if (v != null) setIntervalMs(v);
+      void Promise.all([
+        api.storage.get<number>(POLL_INTERVAL_KEY),
+        api.storage.get<boolean>(NOTIFICATIONS_ENABLED_KEY),
+      ]).then(([interval, notify]) => {
+        if (interval != null) setIntervalMs(interval);
+        if (notify != null) setNotificationsEnabled(notify);
       });
     }, []);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleIntervalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const next = Math.max(1, Number(e.target.value)) * 1000;
       setIntervalMs(next);
       void api.storage.set(POLL_INTERVAL_KEY, next);
       api.events.emit(RESTART_EVENT, next);
+    };
+
+    const handleNotificationsToggle = () => {
+      const next = !notificationsEnabled;
+      setNotificationsEnabled(next);
+      void api.storage.set(NOTIFICATIONS_ENABLED_KEY, next);
+    };
+
+    const handleSyncNow = () => {
+      setSyncing(true);
+      api.events.emit(SYNC_NOW_EVENT);
+      setTimeout(() => setSyncing(false), 1500);
+    };
+
+    const divider = React.createElement("div", {
+      style: { borderTop: "1px solid var(--t-border)", margin: "12px -16px", padding: "0 16px" },
+    });
+
+    const cardStyle = { background: "var(--t-bg-card)", border: "1px solid var(--t-border)" };
+    const labelStyle = { color: "var(--t-text-primary)" };
+    const dimStyle = { color: "var(--t-text-dim)" };
+    const inputStyle = {
+      background: "var(--t-bg-elevated)",
+      border: "1px solid var(--t-border)",
+      color: "var(--t-text-primary)",
+      outline: "none",
+    };
+    const toggleTrackStyle = {
+      width: 36,
+      height: 20,
+      borderRadius: 10,
+      background: notificationsEnabled ? "var(--t-accent)" : "var(--t-border)",
+      position: "relative" as const,
+      cursor: "pointer",
+      transition: "background 0.15s",
+      flexShrink: 0,
+    };
+    const toggleThumbStyle = {
+      position: "absolute" as const,
+      top: 2,
+      left: notificationsEnabled ? 18 : 2,
+      width: 16,
+      height: 16,
+      borderRadius: "50%",
+      background: "white",
+      transition: "left 0.15s",
+    };
+    const syncBtnStyle = {
+      ...inputStyle,
+      padding: "4px 12px",
+      borderRadius: 8,
+      fontSize: 12,
+      cursor: syncing ? "default" : "pointer",
+      opacity: syncing ? 0.6 : 1,
     };
 
     return React.createElement(
@@ -362,32 +441,23 @@ function createSettingsComponent(api: PluginAPI): React.FC {
         null,
         React.createElement(
           "h3",
-          {
-            className: "text-xs font-bold uppercase tracking-widest mb-3",
-            style: { color: "var(--t-text-dim)" },
-          },
+          { className: "text-xs font-bold uppercase tracking-widest mb-3", style: dimStyle },
           "Sync"
         ),
         React.createElement(
           "div",
-          {
-            className: "rounded-xl p-4",
-            style: { background: "var(--t-bg-card)", border: "1px solid var(--t-border)" },
-          },
+          { className: "rounded-xl p-4", style: cardStyle },
+          // Poll interval row
           React.createElement(
             "div",
             { className: "flex items-center justify-between" },
             React.createElement(
               "div",
               null,
+              React.createElement("p", { className: "text-sm font-medium", style: labelStyle }, "Poll interval"),
               React.createElement(
                 "p",
-                { className: "text-sm font-medium", style: { color: "var(--t-text-primary)" } },
-                "Poll interval"
-              ),
-              React.createElement(
-                "p",
-                { className: "text-xs mt-0.5", style: { color: "var(--t-text-dim)" } },
+                { className: "text-xs mt-0.5", style: dimStyle },
                 "How often to check ~/.ssh/config for changes"
               )
             ),
@@ -399,20 +469,37 @@ function createSettingsComponent(api: PluginAPI): React.FC {
                 min: 1,
                 max: 3600,
                 value: intervalMs / 1000,
-                onChange: handleChange,
+                onChange: handleIntervalChange,
                 className: "w-20 text-sm text-center rounded-lg px-2 py-1.5",
-                style: {
-                  background: "var(--t-bg-elevated)",
-                  border: "1px solid var(--t-border)",
-                  color: "var(--t-text-primary)",
-                  outline: "none",
-                },
+                style: inputStyle,
               }),
+              React.createElement("span", { className: "text-xs", style: dimStyle }, "seconds"),
               React.createElement(
-                "span",
-                { className: "text-xs", style: { color: "var(--t-text-dim)" } },
-                "seconds"
+                "button",
+                { onClick: handleSyncNow, disabled: syncing, style: syncBtnStyle },
+                syncing ? "Syncing…" : "Sync now"
               )
+            )
+          ),
+          divider,
+          // Notifications toggle row
+          React.createElement(
+            "div",
+            { className: "flex items-center justify-between" },
+            React.createElement(
+              "div",
+              null,
+              React.createElement("p", { className: "text-sm font-medium", style: labelStyle }, "Notifications"),
+              React.createElement(
+                "p",
+                { className: "text-xs mt-0.5", style: dimStyle },
+                "Show a toast when hosts, keys, or identities are created"
+              )
+            ),
+            React.createElement(
+              "div",
+              { style: toggleTrackStyle, onClick: handleNotificationsToggle },
+              React.createElement("div", { style: toggleThumbStyle })
             )
           )
         )
@@ -458,6 +545,12 @@ export const register: PluginRegisterFn = (api) => {
     startWatcher(newInterval);
   });
 
+  // Manual sync triggered from settings
+  const offSyncNow = api.events.on(SYNC_NOW_EVENT, () => {
+    api.log.info("Manual sync triggered");
+    sync(api).catch((e) => api.log.error("ssh-config manual sync failed", e));
+  });
+
   // Register settings page
   const unregisterSettings = api.ui.registerSettingsPage({
     id: `${manifest.id}:settings`,
@@ -469,6 +562,7 @@ export const register: PluginRegisterFn = (api) => {
   return () => {
     stopWatch?.();
     offEvent();
+    offSyncNow();
     unregisterSettings();
   };
 };

@@ -31,6 +31,7 @@ export interface PluginKey {
   id: string;
   name?: string;
   key_type?: string;
+  tags: string[];
 }
 
 export interface PluginIdentity {
@@ -38,6 +39,7 @@ export interface PluginIdentity {
   name?: string;
   username: string;
   key_id?: string;
+  tags: string[];
 }
 
 export interface OmniCommand {
@@ -191,14 +193,14 @@ export interface PluginAPI {
   keys: {
     list(): Promise<PluginKey[]>;
     /** Creates a key entry and stores private/public content in the vault. */
-    create(data: { name?: string; key_type?: string }, privateKey: string, publicKey?: string): Promise<PluginKey>;
+    create(data: { name?: string; key_type?: string; tags?: string[] }, privateKey: string, publicKey?: string): Promise<PluginKey>;
     delete(id: string): Promise<void>;
   };
 
   // Identités (requiert identities:*)
   identities: {
     list(): Promise<PluginIdentity[]>;
-    create(data: { name?: string; username: string; key_id?: string }): Promise<PluginIdentity>;
+    create(data: { name?: string; username: string; key_id?: string; tags?: string[] }): Promise<PluginIdentity>;
     delete(id: string): Promise<void>;
   };
 
