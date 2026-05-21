@@ -24,7 +24,7 @@ import { useFolderStore } from "@/stores/folderStore";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import IdentitySelector from "./IdentitySelector";
 import KeySelector from "./KeySelector";
-import TagSelector from "./TagSelector";
+import TagSelector from "@/components/shared/TagSelector";
 import EncodingSelector from "./EncodingSelector";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
@@ -32,7 +32,7 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { Toggle } from "@/components/shared/Toggle";
-import FolderSelector from "./FolderSelector";
+import FolderSelector from "@/components/shared/FolderSelector";
 import { CONNECTION_ICON_OPTIONS, getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, normalizeDistro } from "@/utils/icons";
 import {
   PanelShell,
@@ -465,6 +465,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
               <label className={formLabelClass} style={formLabelStyle}>Tags</label>
               <TagSelector
                 value={tags}
+                vaultId={vaultId}
                 onChange={(next) => { markDirty(); setTags(next); }}
               />
             </div>

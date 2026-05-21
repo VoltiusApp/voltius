@@ -8,9 +8,10 @@ import { getTagColorStyle } from "@/utils/tagColors";
 interface Props {
   value: string[];
   onChange: (tags: string[]) => void;
+  vaultId?: string;
 }
 
-export default function TagSelector({ value, onChange }: Props) {
+export default function TagSelector({ value, onChange, vaultId }: Props) {
   const [input, setInput] = useState("");
   const [open, setOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
@@ -21,9 +22,10 @@ export default function TagSelector({ value, onChange }: Props) {
   const connections = useConnectionStore((s) => s.connections);
   const allTags = useMemo(() => {
     const set = new Set<string>();
-    for (const c of connections) for (const t of c.tags) set.add(t);
+    const scoped = vaultId ? connections.filter((c) => c.vault_id === vaultId) : connections;
+    for (const c of scoped) for (const t of c.tags) set.add(t);
     return [...set].sort((a, b) => a.localeCompare(b));
-  }, [connections]);
+  }, [connections, vaultId]);
 
   const query = input.trim().toLowerCase();
   const suggestions = useMemo(() => {

@@ -26,14 +26,47 @@ pub struct SerialPortInfo {
 
 #[tauri::command]
 pub fn serial_list_ports() -> Result<Vec<SerialPortInfo>, String> {
-    let ports = serialport::available_ports().map_err(|e| e.to_string())?;
-    Ok(ports
-        .iter()
-        .map(|p| SerialPortInfo {
-            name: p.port_name.clone(),
-            path: p.port_name.clone(),
-        })
-        .collect())
+    let mut ports: Vec<SerialPortInfo> = Vec::new();
+
+    if let Ok(detected) = serialport::available_ports() {
+        for p in detected {
+            ports.push(SerialPortInfo {
+                name: p.port_name.clone(),
+                path: p.port_name,
+            });
+        }
+    }
+
+    // On Linux, libudev is disabled so available_ports() returns nothing.
+    // Scan /dev for device nodes that only appear when hardware is attached.
+    #[cfg(target_os = "linux")]
+    {
+        use std::fs;
+        let prefixes = ["ttyUSB", "ttyACM", "ttyAMA", "rfcomm"];
+        let existing: std::collections::HashSet<String> =
+            ports.iter().map(|p| p.path.clone()).collect();
+        if let Ok(entries) = fs::read_dir("/dev") {
+            let mut extra: Vec<SerialPortInfo> = entries
+                .flatten()
+                .filter_map(|e| {
+                    let file_name = e.file_name().to_string_lossy().to_string();
+                    if prefixes.iter().any(|pfx| file_name.starts_with(pfx)) {
+                        let path = format!("/dev/{}", file_name);
+                        (!existing.contains(&path)).then_some(SerialPortInfo {
+                            name: file_name,
+                            path,
+                        })
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            extra.sort_by(|a, b| a.path.cmp(&b.path));
+            ports.extend(extra);
+        }
+    }
+
+    Ok(ports)
 }
 
 #[tauri::command]

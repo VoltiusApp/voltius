@@ -23,6 +23,7 @@ export function EphemeralSerialConfigOverlay({
   const [stopBits, setStopBits] = useState(1);
   const [flowControl, setFlowControl] = useState("none");
   const [availablePorts, setAvailablePorts] = useState<{ name: string; path: string }[]>([]);
+  const [isCustomPort, setIsCustomPort] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
@@ -45,15 +46,36 @@ export function EphemeralSerialConfigOverlay({
           <div>
             <label className="text-xs text-[var(--t-text-dim)] mb-1 block">Port</label>
             {availablePorts.length > 0 ? (
-              <select className={sel} value={port} onChange={(e) => setPort(e.target.value)}>
+              <select
+                className={sel}
+                value={isCustomPort ? "__custom__" : port}
+                onChange={(e) => {
+                  if (e.target.value === "__custom__") {
+                    setIsCustomPort(true);
+                  } else {
+                    setIsCustomPort(false);
+                    setPort(e.target.value);
+                  }
+                }}
+              >
                 <option value="">Select port…</option>
                 {availablePorts.map((p) => (
                   <option key={p.path} value={p.path}>{p.name}</option>
                 ))}
+                <option value="__custom__">Enter manually…</option>
               </select>
             ) : (
               <input
                 className={sel}
+                value={port}
+                onChange={(e) => setPort(e.target.value)}
+                placeholder="/dev/ttyUSB0 or COM3"
+                autoFocus
+              />
+            )}
+            {availablePorts.length > 0 && isCustomPort && (
+              <input
+                className={`${sel} mt-2`}
                 value={port}
                 onChange={(e) => setPort(e.target.value)}
                 placeholder="/dev/ttyUSB0 or COM3"

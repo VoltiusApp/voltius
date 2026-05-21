@@ -8,7 +8,6 @@ import {
 } from "@/components/shared/Panel";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
-import { TagBadge } from "@/components/shared/TagBadge";
 import { useKeyStore } from "@/stores/keyStore";
 import { useTeamStore } from "@/stores/teamStore";
 import {
@@ -19,6 +18,8 @@ import {
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useFolderStore } from "@/stores/folderStore";
+import FolderSelector from "@/components/shared/FolderSelector";
+import TagSelector from "@/components/shared/TagSelector";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import type { SshKey, SshKeyFormData } from "@/types";
@@ -252,7 +253,6 @@ export interface KeyFormProps {
 export function KeyForm({ initial, onSubmit, onClose, onExport, onDelete, flushRef, isDirtyRef, vaults, canEdit, onMoveToVault, onCopyToVault }: KeyFormProps) {
   const [name, setName] = useState(initial?.name ?? "");
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
-  const [tagInput, setTagInput] = useState("");
   const [privateKey, setPrivateKey] = useState("");
   const [publicKey, setPublicKey] = useState("");
   const [folderId, setFolderId] = useState<string | null>(initial?.folder_id ?? null);
@@ -268,7 +268,7 @@ export function KeyForm({ initial, onSubmit, onClose, onExport, onDelete, flushR
   const keyInfo = useMemo(() => detectKeyInfo(privateKey, publicKey), [privateKey, publicKey]);
   const privateKeyDirty = useRef(false);
   const publicKeyDirty = useRef(false);
-  const { folders, loadFolders } = useFolderStore();
+  const { folders, loadFolders, saveFolder } = useFolderStore();
 
   useEffect(() => {
     if (!initial) return;
@@ -362,59 +362,26 @@ export function KeyForm({ initial, onSubmit, onClose, onExport, onDelete, flushR
           </div>
           <div>
             <label className={formLabelClass} style={formLabelStyle}>Tags</label>
-            {tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {tags.map((tag) => (
-                  <TagBadge key={tag} tag={tag} className="flex items-center gap-1 px-2 rounded-md font-medium">
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => { markDirty(); setTags((t) => t.filter((x) => x !== tag)); }}
-                      className="transition-opacity opacity-60 hover:opacity-100"
-                      aria-label={`Remove tag ${tag}`}
-                    >
-                      <Icon icon="lucide:x" width={10} />
-                    </button>
-                  </TagBadge>
-                ))}
-              </div>
-            )}
-            <input
-              className={formInputClass}
-              style={formInputStyle}
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if ((e.key === "Enter" || e.key === ",") && tagInput.trim()) {
-                  e.preventDefault();
-                  const newTag = tagInput.trim().replace(/,$/, "");
-                  if (newTag && !tags.includes(newTag)) {
-                    markDirty(); setTags((t) => [...t, newTag]);
-                  }
-                  setTagInput("");
-                } else if (e.key === "Backspace" && !tagInput && tags.length > 0) {
-                  markDirty(); setTags((t) => t.slice(0, -1));
-                }
-              }}
-              placeholder="Add tag, press Enter"
+            <TagSelector
+              value={tags}
+              vaultId={vaultId}
+              onChange={(next) => { markDirty(); setTags(next); }}
             />
           </div>
-          {folders.length > 0 && (
-            <div>
-              <label className={formLabelClass} style={formLabelStyle}>Folder</label>
-              <select
-                className={formInputClass}
-                style={{ ...formInputStyle, cursor: "pointer" }}
-                value={folderId ?? ""}
-                onChange={(e) => { markDirty(); setFolderId(e.target.value || null); }}
-              >
-                <option value="">No folder</option>
-                {folders.map((f) => (
-                  <option key={f.id} value={f.id}>{f.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div>
+            <label className={formLabelClass} style={formLabelStyle}>Folder</label>
+            <FolderSelector
+              value={folderId}
+              folders={folders}
+              onChange={(id) => { markDirty(); setFolderId(id); }}
+              onCreateFolder={async (name) => {
+                const folder = await saveFolder({ name, object_type: "connection", vault_id: resolveVaultIdForSave(vaultId) || undefined });
+                markDirty();
+                setFolderId(folder.id);
+                return folder.id;
+              }}
+            />
+          </div>
         </FormSection>
 
         <FormSection label="Key Material">
