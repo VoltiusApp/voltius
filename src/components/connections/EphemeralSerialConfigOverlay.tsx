@@ -4,6 +4,7 @@ import type { SerialConnectParams } from "@/types";
 import { serialListPorts } from "@/services/serial";
 import { Pills } from "@/components/shared/Pills";
 import { FormSelect } from "@/components/shared/FormSelect";
+import { PortInput } from "@/components/shared/PortInput";
 
 const BAUD_RATE_PRESETS = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
 
@@ -23,14 +24,11 @@ export function EphemeralSerialConfigOverlay({
   const [stopBits, setStopBits] = useState(1);
   const [flowControl, setFlowControl] = useState("none");
   const [availablePorts, setAvailablePorts] = useState<{ name: string; path: string }[]>([]);
-  const [isCustomPort, setIsCustomPort] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     serialListPorts().then(setAvailablePorts).catch(() => {});
   }, []);
-
-  const sel = "w-full text-sm px-3 py-1.5 rounded-lg bg-[var(--t-bg-elevated)] border border-[var(--t-border)] text-[var(--t-text-primary)] focus:outline-none";
 
   return (
     <div className="absolute inset-0 z-20 flex items-center justify-center bg-[var(--t-bg-terminal)]">
@@ -45,43 +43,12 @@ export function EphemeralSerialConfigOverlay({
         <div className="w-full space-y-3 text-left">
           <div>
             <label className="text-xs text-[var(--t-text-dim)] mb-1 block">Port</label>
-            {availablePorts.length > 0 ? (
-              <select
-                className={sel}
-                value={isCustomPort ? "__custom__" : port}
-                onChange={(e) => {
-                  if (e.target.value === "__custom__") {
-                    setIsCustomPort(true);
-                  } else {
-                    setIsCustomPort(false);
-                    setPort(e.target.value);
-                  }
-                }}
-              >
-                <option value="">Select port…</option>
-                {availablePorts.map((p) => (
-                  <option key={p.path} value={p.path}>{p.name}</option>
-                ))}
-                <option value="__custom__">Enter manually…</option>
-              </select>
-            ) : (
-              <input
-                className={sel}
-                value={port}
-                onChange={(e) => setPort(e.target.value)}
-                placeholder="/dev/ttyUSB0 or COM3"
-                autoFocus
-              />
-            )}
-            {availablePorts.length > 0 && isCustomPort && (
-              <input
-                className={`${sel} mt-2`}
-                value={port}
-                onChange={(e) => setPort(e.target.value)}
-                placeholder="/dev/ttyUSB0 or COM3"
-                autoFocus
-              />
-            )}
+            <PortInput
+              value={port}
+              ports={availablePorts}
+              onChange={setPort}
+              autoFocus
+            />
           </div>
           <div>
             <label className="text-xs text-[var(--t-text-dim)] mb-1 block">Baud Rate</label>

@@ -28,6 +28,7 @@ import {
 } from "@/components/shared/Panel";
 import { Pills } from "@/components/shared/Pills";
 import { FormSelect } from "@/components/shared/FormSelect";
+import { PortInput } from "@/components/shared/PortInput";
 import EncodingSelector from "./EncodingSelector";
 import type { ConnectionFormHandle } from "./ConnectionForm";
 
@@ -81,7 +82,6 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
   const [folderId, setFolderId] = useState<string | null>(initial?.folder_id ?? null);
   const [availablePorts, setAvailablePorts] = useState<{ name: string; path: string }[]>([]);
-  const [isCustomPort, setIsCustomPort] = useState(false);
 
   const defaultVaultId = useDefaultVaultId();
   const [vaultId, setVaultId] = useState<string>(() => initial?.vault_id ?? defaultVaultId);
@@ -104,12 +104,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
   useEffect(() => {
     void loadFolders();
     serialListPorts()
-      .then((ports) => {
-        setAvailablePorts(ports);
-        if (initial?.serial_port && !ports.some((p) => p.path === initial.serial_port)) {
-          setIsCustomPort(true);
-        }
-      })
+      .then(setAvailablePorts)
       .catch(() => {});
   }, [loadFolders]);
 
@@ -235,46 +230,11 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
               <label className={formLabelClass} style={formLabelStyle}>
                 Port <span className="text-[var(--t-accent)]">*</span>
               </label>
-              {availablePorts.length > 0 ? (
-                <select
-                  className={formInputClass}
-                  style={{ ...formInputStyle, cursor: "pointer" }}
-                  value={isCustomPort ? "__custom__" : serialPort}
-                  onChange={(e) => {
-                    if (e.target.value === "__custom__") {
-                      setIsCustomPort(true);
-                    } else {
-                      setIsCustomPort(false);
-                      markDirty();
-                      setSerialPort(e.target.value);
-                    }
-                  }}
-                >
-                  <option value="">Select port…</option>
-                  {availablePorts.map((p) => (
-                    <option key={p.path} value={p.path}>{p.name}</option>
-                  ))}
-                  <option value="__custom__">Enter manually…</option>
-                </select>
-              ) : (
-                <input
-                  className={formInputClass}
-                  style={formInputStyle}
-                  value={serialPort}
-                  onChange={(e) => { markDirty(); setSerialPort(e.target.value); }}
-                  placeholder="/dev/ttyUSB0 or COM3"
-                />
-              )}
-              {availablePorts.length > 0 && isCustomPort && (
-                <input
-                  className={`${formInputClass} mt-2`}
-                  style={formInputStyle}
-                  value={serialPort}
-                  onChange={(e) => { markDirty(); setSerialPort(e.target.value); }}
-                  placeholder="/dev/ttyUSB0 or COM3"
-                  autoFocus
-                />
-              )}
+              <PortInput
+                value={serialPort}
+                ports={availablePorts}
+                onChange={(v) => { markDirty(); setSerialPort(v); }}
+              />
             </div>
 
             <div>
