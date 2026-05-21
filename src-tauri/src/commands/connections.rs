@@ -129,6 +129,9 @@ pub fn connection_update(id: String, data: ConnectionFormData) -> Result<Connect
     if conn.identity_id != data.identity_id {
         conn.clocks.insert("identity_id".to_string(), now.clone());
     }
+    if conn.key_id != data.key_id {
+        conn.clocks.insert("key_id".to_string(), now.clone());
+    }
     if conn.folder_id != data.folder_id {
         conn.clocks.insert("folder_id".to_string(), now.clone());
     }
@@ -215,6 +218,7 @@ pub fn connection_update(id: String, data: ConnectionFormData) -> Result<Connect
     conn.auth_type = data.auth_type;
     conn.tags = data.tags;
     conn.identity_id = data.identity_id;
+    conn.key_id = data.key_id;
     conn.folder_id = data.folder_id;
     conn.jump_hosts = data.jump_hosts;
     conn.env_vars = data.env_vars;
