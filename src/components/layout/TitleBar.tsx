@@ -451,7 +451,7 @@ export default function TitleBar() {
       />
 
       {/* Update indicator */}
-      {(updaterState.status === "checking" || updaterState.status === "downloading" || updaterState.status === "ready") && (
+      {(updaterState.status === "downloading" || updaterState.status === "ready") && (
         <UpdateIndicator state={updaterState} />
       )}
 
