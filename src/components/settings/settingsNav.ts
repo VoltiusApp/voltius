@@ -8,6 +8,7 @@ export const SETTINGS_NAV: {
 }[] = [
   { id: "appearance", label: "Appearance", icon: "lucide:palette",       keywords: ["theme", "color", "font", "ui"] },
   { id: "account",    label: "Account",    icon: "lucide:user-circle",   keywords: ["profile", "login", "auth"] },
+  { id: "sync",       label: "Sync",       icon: "lucide:cloud",         keywords: ["backup", "cloud", "gist", "sync", "pro"] },
   { id: "vaults",     label: "Vaults",     icon: "lucide:vault",         keywords: ["secret", "password", "storage", "keyring"] },
   { id: "plugins",    label: "Plugins",    icon: "lucide:puzzle",        keywords: ["extensions", "addons", "marketplace"] },
   { id: "sftp",       label: "SFTP",       icon: "lucide:folder-closed", keywords: ["file", "transfer", "ftp", "files"] },
