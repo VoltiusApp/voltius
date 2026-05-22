@@ -5,7 +5,7 @@ import { getSyncState, onSyncStateChange, syncNow } from "@/services/sync";
 import { useSyncPrefsStore, SYNC_OBJECT_TYPES } from "@/stores/syncPrefsStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useUIStore } from "@/stores/uiStore";
-import { openBillingCheckout } from "@/services/billingCheckout";
+import { openPortal } from "@/utils/billing";
 
 export default function SyncSection() {
   const [syncState, setSyncState] = useState(getSyncState);
@@ -63,7 +63,7 @@ export default function SyncSection() {
                 <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">Requires a Pro subscription</p>
               </div>
               <button
-                onClick={() => openBillingCheckout("pro").catch(() => {})}
+                onClick={() => openPortal()}
                 className="text-xs px-2.5 py-1 rounded-md font-medium shrink-0 bg-[var(--t-accent)] text-white hover:opacity-85 transition-opacity"
               >
                 Upgrade

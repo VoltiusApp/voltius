@@ -11,6 +11,7 @@ import {
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { useUIStore } from "@/stores/uiStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { openPortal } from "@/utils/billing";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -269,7 +270,7 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
   const voltiusVariant: SectionVariant = !isLoggedIn
     ? { kind: "locked", onSignIn: () => { onClose(); openCloudAuth("signin"); } }
     : !isPro
-    ? { kind: "needs_upgrade", onUpgrade: () => { onClose(); openSettings("account"); } }
+    ? { kind: "needs_upgrade", onUpgrade: () => { onClose(); openPortal(); } }
     : { kind: "active", status: voltiusState.status, lastSync: voltiusState.lastSync, error: voltiusState.error, blobSizeBytes: voltiusState.blobSizeBytes };
 
   const gistVariant: SectionVariant = !gistPluginEnabled
