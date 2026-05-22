@@ -10,6 +10,7 @@ import {
 } from "@/plugins/gist-sync/sync-engine";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { useUIStore } from "@/stores/uiStore";
+import { useSubscriptionStore } from "@/stores/subscriptionStore";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -53,7 +54,8 @@ type SectionVariant =
   | { kind: "active"; status: SyncStatus; lastSync: Date | null; error: string | null; blobSizeBytes: number | null }
   | { kind: "misconfigured"; onConfigure: () => void }
   | { kind: "disabled"; onEnable: () => void }
-  | { kind: "locked"; onSignIn: () => void };
+  | { kind: "locked"; onSignIn: () => void }
+  | { kind: "needs_upgrade"; onUpgrade: () => void };
 
 function SyncSection({
   label,
@@ -127,6 +129,21 @@ function SyncSection({
           <span className="text-xs">Sign in for cloud sync</span>
           <Icon icon="lucide:arrow-right" width={10} className="ml-auto" />
         </button>
+      )}
+
+      {variant.kind === "needs_upgrade" && (
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>Requires Pro</span>
+          <button
+            onClick={variant.onUpgrade}
+            className="text-[10px] font-medium transition-opacity"
+            style={{ color: "var(--t-accent)" }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = "0.75")}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = "1")}
+          >
+            Upgrade →
+          </button>
+        </div>
       )}
 
       {variant.kind === "disabled" && (
@@ -234,6 +251,7 @@ interface SyncDropdownProps {
 export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, accountMode }: SyncDropdownProps) {
   const openSettings = useUIStore((s) => s.openSettings);
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
+  const isPro = useSubscriptionStore((s) => s.isPro);
   const panelRef = useRef<HTMLDivElement>(null);
   useClickOutside(panelRef, onClose, open);
 
@@ -250,6 +268,8 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
   // Build per-section variants
   const voltiusVariant: SectionVariant = !isLoggedIn
     ? { kind: "locked", onSignIn: () => { onClose(); openCloudAuth("signin"); } }
+    : !isPro
+    ? { kind: "needs_upgrade", onUpgrade: () => { onClose(); openSettings("account"); } }
     : { kind: "active", status: voltiusState.status, lastSync: voltiusState.lastSync, error: voltiusState.error, blobSizeBytes: voltiusState.blobSizeBytes };
 
   const gistVariant: SectionVariant = !gistPluginEnabled

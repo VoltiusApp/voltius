@@ -63,8 +63,9 @@ export default function TitleBar() {
 
   const gistPluginEnabled = usePluginRegistryStore((s) => s.isEnabled("plugin-gist-sync", false));
   const accountMode = useSubscriptionStore((s) => s.accountMode);
+  const isPro = useSubscriptionStore((s) => s.isPro);
 
-  const voltiusConfigured = accountMode === "server";
+  const voltiusConfigured = accountMode === "server" && isPro;
   const gistConfigured = gistPluginEnabled && gistSyncState.configured;
   const showVoltiusState = voltiusConfigured || !gistConfigured;
   const effectiveConfigured = voltiusConfigured || gistConfigured;

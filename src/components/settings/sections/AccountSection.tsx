@@ -57,6 +57,7 @@ export default function AccountSection() {
   const sessionTimeoutMinutes = useSecurityStore((s) => s.sessionTimeoutMinutes);
   const setSessionTimeoutMinutes = useSecurityStore((s) => s.setSessionTimeoutMinutes);
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
+  const isPro = useSubscriptionStore((s) => s.isPro);
   const { syncTypes, setSyncType } = useSyncPrefsStore();
 
   useEffect(() => onSyncStateChange(() => setSyncState(getSyncState())), []);
@@ -193,7 +194,7 @@ export default function AccountSection() {
         <div
           className="rounded-lg px-4 py-3 bg-[var(--t-bg-elevated)] border border-[var(--t-border)]"
         >
-          {mode === "server" ? (
+          {mode === "server" && isPro ? (
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-[var(--t-text-primary)]">Cloud sync active</p>
@@ -223,6 +224,13 @@ export default function AccountSection() {
                 />
                 Sync now
               </button>
+            </div>
+          ) : mode === "server" && !isPro ? (
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-[var(--t-text-primary)]">Cloud sync</p>
+                <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">Requires a Pro subscription</p>
+              </div>
             </div>
           ) : (
             <div className="flex items-center justify-between gap-3">

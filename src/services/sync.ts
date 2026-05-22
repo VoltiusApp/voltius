@@ -455,6 +455,10 @@ async function pullAndMerge(remoteDeviceId: string): Promise<boolean> {
  */
 export async function syncNow(forcePush = false): Promise<void> {
   if (_status === "syncing") return;
+
+  // Personal blob sync is a Pro feature — free-tier accounts have no blob quota.
+  if (!useSubscriptionStore.getState().isPro) return;
+
   setState("syncing");
 
   const start = Date.now();
@@ -465,12 +469,7 @@ export async function syncNow(forcePush = false): Promise<void> {
 
     // Refresh team membership first so getSyncableTeamIds() sees current state
     // and the sidebar immediately reflects joins/removals (no blob change needed).
-    const hasTeams = await loadTeamsForCurrentUser();
-    if (!useSubscriptionStore.getState().isPro && hasTeams) {
-      await completeTeamLoginSetup();
-      setState("success");
-      return;
-    }
+    await loadTeamsForCurrentUser();
 
     const [devices, localDeviceId] = await Promise.all([listDevices(), getDeviceId()]);
 
@@ -642,6 +641,7 @@ let _syncTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** Schedule a sync 2 s after the last mutation (debounced). */
 export function scheduleSync() {
+  if (!useSubscriptionStore.getState().isPro) return;
   if (_syncTimer) clearTimeout(_syncTimer);
   _syncTimer = setTimeout(() => {
     _syncTimer = null;
