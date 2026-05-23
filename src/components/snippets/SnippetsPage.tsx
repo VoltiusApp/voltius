@@ -192,8 +192,10 @@ export function SnippetsPage() {
   const editingFolder = folderEp.editing !== null && folderEp.editing !== "new" ? folderEp.editing : null;
 
   const snippetIsDirtyRef = useRef(false);
+  const formSessionKeyRef = useRef<string>("__new__");
   const openSnippet = useCallback((item: Snippet | "new") => {
     snippetIsDirtyRef.current = false;
+    formSessionKeyRef.current = item === "new" ? `new-${Date.now()}` : item.id;
     ep.openEdit(item);
   }, [ep.openEdit]);
 
@@ -677,7 +679,7 @@ export function SnippetsPage() {
           />
         ) : ep.editing !== null ? (
           <SnippetForm
-            key={ep.editing === "new" ? "__new__" : `${liveEditingSnippet?.id ?? ""}-${snippetFormVersion}`}
+            key={`${formSessionKeyRef.current}-${snippetFormVersion}`}
             initial={ep.editing === "new" ? undefined : liveEditingSnippet ?? undefined}
             onSubmit={handleSaveSnippet}
             onClose={ep.closeEdit}

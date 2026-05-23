@@ -91,6 +91,7 @@ export function PortForwardingPage() {
   const [tunnelMap, setTunnelMap] = useState<Map<string, ActiveTunnel[]>>(new Map());
   const [busyRuleIds, setBusyRuleIds] = useState<Set<string>>(new Set());
   const ruleDirtyRef = useRef(false);
+  const ruleFormSessionKeyRef = useRef<string>("new-rule");
   const ruleFormVersion = useSyncedFormKey(editingRule?.updated_at, showForm, () => ruleDirtyRef.current);
 
   const { pos: bgMenuPos, open: openBgMenu, close: closeBgMenu } = useContextMenu();
@@ -142,12 +143,14 @@ export function PortForwardingPage() {
 
   useEffect(() => {
     if (pendingAction?.action === "create") {
+      ruleFormSessionKeyRef.current = `new-rule-${Date.now()}`;
       setEditingRuleId(null);
       setShowForm(true);
       setPendingAction(null);
     } else if (pendingAction?.action === "edit") {
       const rule = rules.find((r) => r.id === pendingAction.id) ?? null;
       ruleDirtyRef.current = false;
+      ruleFormSessionKeyRef.current = rule?.id ?? `new-rule-${Date.now()}`;
       setEditingRuleId(rule?.id ?? null);
       setShowForm(true);
       setPendingAction(null);
@@ -211,6 +214,7 @@ export function PortForwardingPage() {
 
   function openNew() {
     ruleDirtyRef.current = false;
+    ruleFormSessionKeyRef.current = `new-rule-${Date.now()}`;
     setEditingRuleId(null);
     setShowForm(true);
     setEditingFolderId(null);
@@ -218,6 +222,7 @@ export function PortForwardingPage() {
 
   function openEdit(rule: PortForwardingRule) {
     ruleDirtyRef.current = false;
+    ruleFormSessionKeyRef.current = rule.id;
     setEditingRuleId(rule.id);
     setShowForm(true);
     setEditingFolderId(null);
@@ -499,7 +504,7 @@ export function PortForwardingPage() {
           )}
           {showForm && (
             <RuleForm
-              key={`${editingRuleId ?? "new-rule"}-${ruleFormVersion}`}
+              key={`${ruleFormSessionKeyRef.current}-${ruleFormVersion}`}
               rule={editingRule}
               onSave={handleSave}
               onClose={closeForm}
