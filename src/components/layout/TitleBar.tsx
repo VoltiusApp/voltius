@@ -546,7 +546,7 @@ export default function TitleBar() {
       {showTerminal && (
         <div className="flex items-center px-2 shrink-0">
           <button
-            onClick={() => toggleRightPanel("themes")}
+            onClick={() => toggleRightPanel()}
             className="p-1.5 rounded-md transition-all"
             style={{
               background: rightPanelOpen ? "var(--t-tab-active-bg)" : "transparent",

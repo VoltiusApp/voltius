@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
@@ -15,6 +15,7 @@ import {
   type DynamicContext,
 } from "@/services/snippetParser";
 import { SnippetVariableModal } from "@/components/terminal/SnippetVariableModal";
+import { SnippetForm } from "@/components/snippets/SnippetForm";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import type { Snippet, Folder, SnippetFormData, FolderFormData } from "@/types";
 import type { Connection } from "@/types";
@@ -282,129 +283,6 @@ function SnippetRow({
   );
 }
 
-// ─── Snippet edit/create modal ────────────────────────────────────────────────
-
-function SnippetModal({ snippet, onSave, onClose, isDirtyRef }: {
-  snippet: Snippet | null;
-  onSave: (data: SnippetFormData) => Promise<void>;
-  onClose: () => void;
-  isDirtyRef?: React.MutableRefObject<boolean>;
-}) {
-  const [name, setName] = useState(snippet?.name ?? "");
-  const [content, setContent] = useState(snippet?.content ?? "");
-  const [description, setDescription] = useState(snippet?.description ?? "");
-  const [tagsRaw, setTagsRaw] = useState(snippet?.tags.join(", ") ?? "");
-  const [connTagsRaw, setConnTagsRaw] = useState(snippet?.only_for_connection_tags?.join(", ") ?? "");
-  const [distrosRaw, setDistrosRaw] = useState(snippet?.only_for_distros?.join(", ") ?? "");
-  const [saving, setSaving] = useState(false);
-
-  function markDirty() { if (isDirtyRef) isDirtyRef.current = true; }
-
-  async function handleSave() {
-    if (!name.trim() || !content.trim()) return;
-    setSaving(true);
-    try {
-      await onSave({
-        name: name.trim(),
-        content: content.trim(),
-        description: description.trim() || undefined,
-        tags: tagsRaw.split(",").map((t) => t.trim()).filter(Boolean),
-        folder_id: snippet?.folder_id,
-        favorite: snippet?.favorite ?? false,
-        only_for_connection_tags: connTagsRaw.split(",").map((t) => t.trim()).filter(Boolean),
-        only_for_distros: distrosRaw.split(",").map((t) => t.trim()).filter(Boolean),
-        vault_id: snippet?.vault_id,
-      });
-    } finally { setSaving(false); }
-  }
-
-  const inputClass = "w-full px-2.5 py-1.5 text-xs rounded border outline-none";
-  const inputStyle = { background: "var(--t-bg-input)", borderColor: "var(--t-border)", color: "var(--t-text-primary)" };
-  const labelClass = "text-[11px] font-medium";
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.5)" }}
-      onKeyDown={(e) => e.key === "Escape" && onClose()}>
-      <div className="w-[480px] max-h-[90vh] rounded-xl shadow-2xl border flex flex-col overflow-hidden"
-        style={{ background: "var(--t-bg-modal)", borderColor: "var(--t-border)" }}>
-        <div className="flex items-center justify-between px-4 py-3 border-b shrink-0" style={{ borderColor: "var(--t-border)" }}>
-          <h2 className="text-sm font-semibold" style={{ color: "var(--t-text-primary)" }}>
-            {snippet ? "Edit snippet" : "New snippet"}
-          </h2>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg"
-            style={{ color: "var(--t-text-muted)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-muted)")}>
-            <Icon icon="lucide:x" width={14} />
-          </button>
-        </div>
-
-        <div className="p-4 flex flex-col gap-3 overflow-y-auto">
-          <div className="flex flex-col gap-1">
-            <label className={labelClass} style={{ color: "var(--t-text-muted)" }}>
-              Name <span style={{ color: "var(--t-status-error)" }}>*</span>
-            </label>
-            <input autoFocus value={name} onChange={(e) => { markDirty(); setName(e.target.value); }}
-              placeholder="e.g. Deploy to env" className={inputClass} style={inputStyle} />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className={labelClass} style={{ color: "var(--t-text-muted)" }}>
-              Command <span style={{ color: "var(--t-status-error)" }}>*</span>
-            </label>
-            <textarea value={content} onChange={(e) => { markDirty(); setContent(e.target.value); }}
-              placeholder={"e.g. git pull && ./deploy.sh\nUse {{var}} for variables"}
-              rows={4} className={`${inputClass} font-mono resize-none`} style={inputStyle} />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className={labelClass} style={{ color: "var(--t-text-muted)" }}>Description</label>
-            <input value={description} onChange={(e) => { markDirty(); setDescription(e.target.value); }}
-              placeholder="Optional description" className={inputClass} style={inputStyle} />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className={labelClass} style={{ color: "var(--t-text-muted)" }}>Tags</label>
-            <input value={tagsRaw} onChange={(e) => { markDirty(); setTagsRaw(e.target.value); }}
-              placeholder="deploy, prod (comma-separated)" className={inputClass} style={inputStyle} />
-          </div>
-          <div className="border-t pt-3 flex flex-col gap-3" style={{ borderColor: "var(--t-border)" }}>
-            <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--t-text-muted)" }}>
-              Contextual filters (optional)
-            </p>
-            <div className="flex flex-col gap-1">
-              <label className={labelClass} style={{ color: "var(--t-text-muted)" }}>
-                Only for connection tags
-              </label>
-              <input value={connTagsRaw} onChange={(e) => { markDirty(); setConnTagsRaw(e.target.value); }}
-                placeholder="prod, k8s (comma-separated — leave empty for all)"
-                className={inputClass} style={inputStyle} />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className={labelClass} style={{ color: "var(--t-text-muted)" }}>Only for distros</label>
-              <input value={distrosRaw} onChange={(e) => { markDirty(); setDistrosRaw(e.target.value); }}
-                placeholder="ubuntu, debian (comma-separated — leave empty for all)"
-                className={inputClass} style={inputStyle} />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-2 px-4 py-3 border-t shrink-0" style={{ borderColor: "var(--t-border)" }}>
-          <button onClick={onClose} className="px-3 py-1.5 text-xs rounded-lg border"
-            style={{ borderColor: "var(--t-border)", color: "var(--t-text-muted)", background: "transparent" }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>Cancel</button>
-          <button onClick={handleSave} disabled={saving || !name.trim() || !content.trim()}
-            className="px-3 py-1.5 text-xs rounded-lg disabled:opacity-50"
-            style={{ background: "var(--t-accent)", color: "var(--t-tab-active-text)" }}
-            onMouseEnter={(e) => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = "var(--t-accent-hover)"; }}
-            onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.background = "var(--t-accent)"}>
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Section header ───────────────────────────────────────────────────────────
 
 function SectionHeader({ label, count, collapsible, collapsed, onToggle }: {
@@ -452,37 +330,53 @@ export function SnippetsPanel() {
 
   const [query, setQuery] = useState("");
   const [editingSnippetId, setEditingSnippetId] = useState<string | null | "new">(null);
-  const editingSnippet = editingSnippetId && editingSnippetId !== "new"
+  // Tracks the id of a snippet created during a "new" session, so subsequent
+  // autosaves update rather than re-create.
+  const [createdSnippetId, setCreatedSnippetId] = useState<string | null>(null);
+  const liveEditingSnippet = editingSnippetId && editingSnippetId !== "new"
     ? (snippets.find((s) => s.id === editingSnippetId) ?? null)
     : null;
   const snippetIsDirtyRef = useRef(false);
+  const formSessionKeyRef = useRef<string>("__new__");
   const snippetFormVersion = useSyncedFormKey(
-    editingSnippet?.updated_at,
+    liveEditingSnippet?.updated_at,
     editingSnippetId !== null && editingSnippetId !== "new",
     () => snippetIsDirtyRef.current,
   );
   const [editingFolder, setEditingFolder] = useState<Folder | null | "new">(null);
   const [pendingInject, setPendingInject] = useState<PendingInject | null>(null);
-  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
-  const addMenuRef = useRef<HTMLDivElement>(null);
+
+  const openSnippetEditor = useCallback((item: Snippet | "new") => {
+    snippetIsDirtyRef.current = false;
+    formSessionKeyRef.current = item === "new" ? `new-${Date.now()}` : item.id;
+    setCreatedSnippetId(null);
+    setEditingSnippetId(item === "new" ? "new" : item.id);
+  }, []);
+
+  const closeSnippetEditor = useCallback(() => {
+    setEditingSnippetId(null);
+    setCreatedSnippetId(null);
+  }, []);
+
+  const handleSnippetFormSubmit = useCallback(async (data: SnippetFormData) => {
+    if (editingSnippetId === "new") {
+      if (createdSnippetId) {
+        await updateSnippet(createdSnippetId, data);
+      } else {
+        const created = await createSnippet(data);
+        setCreatedSnippetId(created.id);
+      }
+    } else if (editingSnippetId) {
+      await updateSnippet(editingSnippetId, data);
+    }
+  }, [editingSnippetId, createdSnippetId, createSnippet, updateSnippet]);
 
   useEffect(() => {
     loadSnippets();
     loadFolders();
   }, []);
-
-  useEffect(() => {
-    if (!addMenuOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
-        setAddMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [addMenuOpen]);
 
   const canInject = !!activeSession && activeSession.type !== "multiplayer";
 
@@ -593,7 +487,7 @@ export function SnippetsPanel() {
         folders={folders}
         onInsert={() => handleTrigger(snippet, false)}
         onExecute={() => handleTrigger(snippet, true)}
-        onEdit={() => { snippetIsDirtyRef.current = false; setEditingSnippetId(snippet.id); }}
+        onEdit={() => openSnippetEditor(snippet)}
         onDuplicate={() => handleDuplicate(snippet)}
         onDelete={() => deleteSnippet(snippet.id)}
         onToggleFavorite={() => handleToggleFavorite(snippet)}
@@ -620,6 +514,21 @@ export function SnippetsPanel() {
 
   const hasQuery = query.length > 0;
 
+  // Slide-in editor takes over the whole panel — same pattern as SnippetPickerPanel
+  if (editingSnippetId !== null) {
+    return (
+      <SnippetForm
+        key={`${formSessionKeyRef.current}-${snippetFormVersion}`}
+        initial={liveEditingSnippet ?? undefined}
+        onSubmit={handleSnippetFormSubmit}
+        onClose={closeSnippetEditor}
+        onDuplicate={liveEditingSnippet ? () => { void handleDuplicate(liveEditingSnippet); closeSnippetEditor(); } : undefined}
+        onDelete={liveEditingSnippet ? () => { void deleteSnippet(liveEditingSnippet.id); closeSnippetEditor(); } : undefined}
+        isDirtyRef={snippetIsDirtyRef}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Search + Add */}
@@ -633,34 +542,13 @@ export function SnippetsPanel() {
             className="w-full pl-6 pr-2 py-1 text-xs rounded border outline-none"
             style={{ background: "var(--t-bg-input)", borderColor: "var(--t-border)", color: "var(--t-text-primary)" }} />
         </div>
-        <div className="relative" ref={addMenuRef}>
-          <button onClick={() => setAddMenuOpen((o) => !o)} title="Add"
-            className="w-7 h-7 flex items-center justify-center rounded-lg shrink-0"
-            style={{ color: "var(--t-text-muted)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-muted)")}>
-            <Icon icon="lucide:plus" width={15} />
-          </button>
-          {addMenuOpen && (
-            <div className="absolute right-0 top-8 z-50 rounded-lg shadow-lg border py-1 min-w-[140px]"
-              style={{ background: "var(--t-bg-modal)", borderColor: "var(--t-border)" }}>
-              <button onClick={() => { snippetIsDirtyRef.current = false; setEditingSnippetId("new"); setAddMenuOpen(false); }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left"
-                style={{ color: "var(--t-text-primary)" }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                <Icon icon="lucide:braces" width={12} /> New snippet
-              </button>
-              <button onClick={() => { setEditingFolder("new"); setAddMenuOpen(false); }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left"
-                style={{ color: "var(--t-text-primary)" }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                <Icon icon="lucide:folder-plus" width={12} /> New folder
-              </button>
-            </div>
-          )}
-        </div>
+        <button onClick={() => openSnippetEditor("new")} title="New snippet"
+          className="w-7 h-7 flex items-center justify-center rounded-lg shrink-0"
+          style={{ color: "var(--t-text-muted)" }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-muted)")}>
+          <Icon icon="lucide:plus" width={15} />
+        </button>
       </div>
 
       {/* List */}
@@ -765,20 +653,6 @@ export function SnippetsPanel() {
       </div>
 
       {/* Modals */}
-      {editingSnippetId !== null && (
-        <SnippetModal
-          key={editingSnippetId === "new" ? "new-snippet" : `${editingSnippetId}-${snippetFormVersion}`}
-          snippet={editingSnippet}
-          onSave={async (data) => {
-            if (editingSnippetId === "new") await createSnippet(data);
-            else await updateSnippet(editingSnippetId, data);
-            setEditingSnippetId(null);
-          }}
-          onClose={() => setEditingSnippetId(null)}
-          isDirtyRef={snippetIsDirtyRef}
-        />
-      )}
-
       {editingFolder !== null && (
         <FolderModal
           folder={editingFolder === "new" ? null : editingFolder}

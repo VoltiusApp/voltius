@@ -224,6 +224,7 @@ export const useUIStore = create<UIStore>()(
         membersLayoutMode: state.membersLayoutMode,
         membersSortMode: state.membersSortMode,
         snippetsLayoutMode: state.snippetsLayoutMode,
+        rightPanelSection: state.rightPanelSection,
         prefsUpdatedAt: state.prefsUpdatedAt,
       }),
     },
