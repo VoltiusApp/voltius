@@ -112,11 +112,17 @@ export function DockerPanel() {
                 id: execSessionId,
                 connectionId: activeSession!.connectionId,
                 connectionName: `exec: ${containerName}`,
-                status: "connected" as const,
+                status: "connecting" as const,
                 type: "ssh" as const,
               },
             ],
             activeSessionId: execSessionId,
+          }));
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          useSessionStore.setState((s) => ({
+            sessions: s.sessions.map((sess) =>
+              sess.id === execSessionId ? { ...sess, status: "connected" as const } : sess,
+            ),
           }));
         } catch (e) {
           console.error("[docker] open exec session failed:", e);
