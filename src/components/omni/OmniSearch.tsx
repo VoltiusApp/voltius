@@ -275,6 +275,19 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         .map((i): OmniItem => ({ kind: "identity", identity: i })),
     );
 
+    // Snippets
+    if (q) {
+      result.push(
+        ...snippets
+          .filter((s) =>
+            s.name.toLowerCase().includes(q) ||
+            s.content.toLowerCase().includes(q) ||
+            s.tags.some((t) => t.toLowerCase().includes(q)),
+          )
+          .map((s): OmniItem => ({ kind: "snippet", snippet: s })),
+      );
+    }
+
     // Plugin + core commands
     const filteredPluginCmds = pluginCommands.filter((cmd) => {
       if (!q) return true;
@@ -518,12 +531,15 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     const identityCount = items.filter((i) => i.kind === "identity").length;
     const identityStart = idx; idx += identityCount;
 
+    const snippetCount = items.filter((i) => i.kind === "snippet").length;
+    const snippetStart = idx; idx += snippetCount;
+
     const settingsCount = items.filter((i) => i.kind === "action" && i.id.startsWith("open-settings:")).length;
     const actionCount = items.filter((i) => i.kind === "action" && !i.id.startsWith("open-settings:")).length;
     const actionStart = idx; idx += actionCount;
     const settingsStart = idx;
 
-    return { activeStart, activeCount, teamSessionStart, teamSessionCount, recentStart, recentCount, hostStart, hostCount, keyStart, keyCount, identityStart, identityCount, actionStart, actionCount, settingsStart, settingsCount };
+    return { activeStart, activeCount, teamSessionStart, teamSessionCount, recentStart, recentCount, hostStart, hostCount, keyStart, keyCount, identityStart, identityCount, snippetStart, snippetCount, actionStart, actionCount, settingsStart, settingsCount };
   }, [category, items, q, recentConnections.length]);
 
   const statusColor = (s: TerminalSession) =>
@@ -972,6 +988,14 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
                   {items.slice(sectionBoundaries.keyStart, sectionBoundaries.keyStart + sectionBoundaries.keyCount)
                     .map((item) => renderItem(item, runningIdx++))}
                   {items.slice(sectionBoundaries.identityStart, sectionBoundaries.identityStart + sectionBoundaries.identityCount)
+                    .map((item) => renderItem(item, runningIdx++))}
+                </>
+              )}
+
+              {sectionBoundaries.snippetCount > 0 && (
+                <>
+                  {sectionHeader("Snippets", runningIdx > 0)}
+                  {items.slice(sectionBoundaries.snippetStart, sectionBoundaries.snippetStart + sectionBoundaries.snippetCount)
                     .map((item) => renderItem(item, runningIdx++))}
                 </>
               )}
