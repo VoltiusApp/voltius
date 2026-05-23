@@ -296,6 +296,14 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
             />
           </div>
           <div>
+            <label className={formLabelClass} style={formLabelStyle}>Tags</label>
+            <TagSelector
+              value={tags}
+              vaultId={vaultId}
+              onChange={(next) => { markDirty(); setTags(next); }}
+            />
+          </div>
+          <div>
             <label className={formLabelClass} style={formLabelStyle}>Folder</label>
             <FolderSelector
               value={folderId}
@@ -307,18 +315,6 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
                 setFolderId(folder.id);
                 return folder.id;
               }}
-            />
-          </div>
-        </FormSection>
-
-        {/* ── Organization ── */}
-        <FormSection label="Organization">
-          <div>
-            <label className={formLabelClass} style={formLabelStyle}>Tags</label>
-            <TagSelector
-              value={tags}
-              vaultId={vaultId}
-              onChange={(next) => { markDirty(); setTags(next); }}
             />
           </div>
 
