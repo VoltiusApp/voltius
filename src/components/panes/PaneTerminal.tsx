@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import TerminalView from "@/components/terminal/Terminal";
+import { TerminalSearch } from "@/components/terminal/TerminalSearch";
 import MultiplayerTerminalView from "@/components/terminal/MultiplayerTerminalView";
 import { MultiplayerBar } from "@/components/terminal/MultiplayerBar";
 import ConnectionOverlay, { SSH_STEPS, SERIAL_STEPS } from "@/components/terminal/ConnectionOverlay";
@@ -129,6 +130,7 @@ export function PaneTerminal({ session, active }: { session: TerminalSession; ac
             }
           }}
         />
+        <TerminalSearch sessionId={session.id} />
       </div>
       {isSharing && <MultiplayerBar localSessionId={session.id} />}
     </div>

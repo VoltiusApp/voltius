@@ -3,6 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
+import { SearchAddon, type ISearchOptions } from "@xterm/addon-search";
 import { open as openUrl } from "@tauri-apps/plugin-shell";
 import { sshSendInput, sshResize, onSshOutput, onSshClosed } from "@/services/ssh";
 import { localSendInput, localResize, onLocalOutput, onLocalClosed } from "@/services/local";
@@ -79,9 +80,29 @@ function focusPaneInDirection(direction: "left" | "right" | "up" | "down") {
 // Xterm instances are keyed by sessionId and survive component remounts.
 // This prevents the scrollback buffer from being wiped when pane layouts change.
 
+export interface TerminalSearchSnapshot {
+  open: boolean;
+  query: string;
+  caseSensitive: boolean;
+  wholeWord: boolean;
+  regex: boolean;
+  resultIndex: number;  // -1 when no active match
+  resultCount: number;
+  invalidRegex: boolean;
+  /** Increments on every open() call so the input can re-focus + select-all even when already open. */
+  focusTick: number;
+}
+
+interface SearchState {
+  snapshot: TerminalSearchSnapshot;
+  subscribers: Set<() => void>;
+}
+
 type CacheEntry = {
   terminal: Terminal;
   fitAddon: FitAddon;
+  searchAddon: SearchAddon;
+  search: SearchState;
   sessionType: "ssh" | "local" | "serial";
   connectedRef: { current: boolean };
   onClosedRef: { current: (() => void) | undefined };
@@ -90,6 +111,138 @@ type CacheEntry = {
 };
 
 const terminalCache = new Map<string, CacheEntry>();
+
+// ─── Search controller (module-level, callable from anywhere) ────────────────
+
+const EMPTY_SNAPSHOT: TerminalSearchSnapshot = {
+  open: false,
+  query: "",
+  caseSensitive: false,
+  wholeWord: false,
+  regex: false,
+  resultIndex: -1,
+  resultCount: 0,
+  invalidRegex: false,
+  focusTick: 0,
+};
+
+function notifySearch(entry: CacheEntry) {
+  entry.search.subscribers.forEach((fn) => fn());
+}
+
+function searchDecorations() {
+  const css = getComputedStyle(document.documentElement);
+  const accent = css.getPropertyValue("--t-accent").trim() || "#6366f1";
+  return {
+    matchBackground: accent + "55",
+    matchBorder: accent,
+    matchOverviewRuler: accent,
+    activeMatchBackground: accent,
+    activeMatchBorder: accent,
+    activeMatchColorOverviewRuler: accent,
+  };
+}
+
+function isRegexValid(pattern: string): boolean {
+  try { new RegExp(pattern); return true; } catch { return false; }
+}
+
+function runSearch(entry: CacheEntry, direction: "next" | "prev", incremental: boolean) {
+  const s = entry.search.snapshot;
+  if (!s.query) {
+    entry.searchAddon.clearDecorations();
+    entry.search.snapshot = { ...s, resultIndex: -1, resultCount: 0, invalidRegex: false };
+    notifySearch(entry);
+    return;
+  }
+  if (s.regex && !isRegexValid(s.query)) {
+    entry.searchAddon.clearDecorations();
+    entry.search.snapshot = { ...s, resultIndex: -1, resultCount: 0, invalidRegex: true };
+    notifySearch(entry);
+    return;
+  }
+  if (s.invalidRegex) {
+    entry.search.snapshot = { ...s, invalidRegex: false };
+  }
+  const opts: ISearchOptions = {
+    regex: s.regex,
+    caseSensitive: s.caseSensitive,
+    wholeWord: s.wholeWord,
+    incremental,
+    decorations: searchDecorations(),
+  };
+  if (direction === "next") entry.searchAddon.findNext(s.query, opts);
+  else entry.searchAddon.findPrevious(s.query, opts);
+}
+
+export interface TerminalSearchController {
+  subscribe: (fn: () => void) => () => void;
+  getSnapshot: () => TerminalSearchSnapshot;
+  open: () => void;
+  close: () => void;
+  setQuery: (q: string) => void;
+  next: () => void;
+  prev: () => void;
+  toggleCaseSensitive: () => void;
+  toggleWholeWord: () => void;
+  toggleRegex: () => void;
+}
+
+export function getTerminalSearchController(sessionId: string): TerminalSearchController | null {
+  const entry = terminalCache.get(sessionId);
+  if (!entry) return null;
+  const sub = entry.search.subscribers;
+  return {
+    subscribe: (fn) => { sub.add(fn); return () => { sub.delete(fn); }; },
+    getSnapshot: () => entry.search.snapshot,
+    open: () => {
+      const cur = entry.search.snapshot;
+      const wasOpen = cur.open;
+      // Only pre-fill from a single-line terminal selection on the first open.
+      const selection = entry.terminal.getSelection();
+      const initialQuery =
+        !wasOpen && selection && !selection.includes("\n") ? selection : cur.query;
+      entry.search.snapshot = {
+        ...cur,
+        open: true,
+        query: initialQuery,
+        focusTick: cur.focusTick + 1,
+      };
+      notifySearch(entry);
+      if (!wasOpen && initialQuery && initialQuery !== cur.query) runSearch(entry, "next", true);
+    },
+    close: () => {
+      entry.searchAddon.clearDecorations();
+      entry.search.snapshot = { ...entry.search.snapshot, open: false, resultIndex: -1, resultCount: 0, invalidRegex: false };
+      notifySearch(entry);
+      // Return focus to the terminal
+      entry.terminal.focus();
+    },
+    setQuery: (q) => {
+      entry.search.snapshot = { ...entry.search.snapshot, query: q };
+      runSearch(entry, "next", true);
+    },
+    next: () => runSearch(entry, "next", false),
+    prev: () => runSearch(entry, "prev", false),
+    toggleCaseSensitive: () => {
+      entry.search.snapshot = { ...entry.search.snapshot, caseSensitive: !entry.search.snapshot.caseSensitive };
+      runSearch(entry, "next", true);
+    },
+    toggleWholeWord: () => {
+      entry.search.snapshot = { ...entry.search.snapshot, wholeWord: !entry.search.snapshot.wholeWord };
+      runSearch(entry, "next", true);
+    },
+    toggleRegex: () => {
+      entry.search.snapshot = { ...entry.search.snapshot, regex: !entry.search.snapshot.regex };
+      runSearch(entry, "next", true);
+    },
+  };
+}
+
+/** Open the search widget for a given session (no-op if the session has no cached terminal yet). */
+export function openTerminalSearch(sessionId: string): void {
+  getTerminalSearchController(sessionId)?.open();
+}
 
 // Auto-cleanup when sessions are removed from the store
 useSessionStore.subscribe((state) => {
@@ -190,6 +343,9 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       const fitAddon = new FitAddon();
       term.loadAddon(fitAddon);
 
+      const searchAddon = new SearchAddon();
+      term.loadAddon(searchAddon);
+
       let linkTooltip: HTMLDivElement | null = null;
       const hideLinkTooltip = () => {
         linkTooltip?.remove();
@@ -246,6 +402,8 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       const entry: CacheEntry = {
         terminal: term,
         fitAddon,
+        searchAddon,
+        search: { snapshot: { ...EMPTY_SNAPSHOT }, subscribers: new Set() },
         sessionType,
         connectedRef: { current: sessionType === "local" || sessionType === "serial" },
         onClosedRef: { current: onClosed },
@@ -253,6 +411,11 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         dispose: () => {}, // filled in below
       };
       terminalCache.set(sessionId, entry);
+
+      const searchResultsDispose = searchAddon.onDidChangeResults(({ resultIndex, resultCount }) => {
+        entry.search.snapshot = { ...entry.search.snapshot, resultIndex, resultCount };
+        notifySearch(entry);
+      });
 
       // Intercept app shortcuts before xterm processes them
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
@@ -310,6 +473,13 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           e.preventDefault();
           if (e.type === "keydown") {
             navigator.clipboard.readText().then((text) => { if (text) term.paste(text); });
+          }
+          return false;
+        }
+        if (e.ctrlKey && !e.shiftKey && (e.key === "f" || e.key === "F")) {
+          if (e.type === "keydown") {
+            e.preventDefault();
+            getTerminalSearchController(sessionId)?.open();
           }
           return false;
         }
@@ -396,6 +566,8 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       entry.dispose = () => {
         onDataDispose.dispose();
         onResizeDispose.dispose();
+        searchResultsDispose.dispose();
+        entry.search.subscribers.clear();
         hideLinkTooltip();
         Promise.all(unlistenPromises).then((fns) => fns.forEach((fn) => fn()));
         term.dispose();

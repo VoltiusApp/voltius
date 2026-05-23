@@ -4,6 +4,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { matchShortcut } from "@/stores/shortcutStore";
 import { useHistoryStore } from "@/stores/historyStore";
+import { openTerminalSearch } from "@/hooks/useTerminal";
 
 export function useKeyboard() {
   useEffect(() => {
@@ -33,6 +34,17 @@ export function useKeyboard() {
         e.preventDefault();
         const { settingsOpen, setSettingsOpen } = useUIStore.getState();
         setSettingsOpen(!settingsOpen);
+        return;
+      }
+
+      // Ctrl+F when terminal isn't focused (e.g., focus is on sidebar). The
+      // terminal-focused path is handled in useTerminal's attachCustomKeyEventHandler.
+      if (matchShortcut("terminal-search", e)) {
+        const activeId = useSessionStore.getState().activeSessionId;
+        if (activeId) {
+          e.preventDefault();
+          openTerminalSearch(activeId);
+        }
         return;
       }
 

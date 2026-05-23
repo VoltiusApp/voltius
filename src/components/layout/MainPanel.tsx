@@ -7,6 +7,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { fetchTeamData } from "@/services/teamVaultSync";
 import TerminalView from "@/components/terminal/Terminal";
+import { TerminalSearch } from "@/components/terminal/TerminalSearch";
 import MultiplayerTerminalView from "@/components/terminal/MultiplayerTerminalView";
 import { MultiplayerBar } from "@/components/terminal/MultiplayerBar";
 import { TerminalStatusBar } from "@/components/terminal/TerminalStatusBar";
@@ -183,6 +184,7 @@ function HostAwareTerminalView({
           encoding={session.encoding}
           onResize={(cols, rows) => setDimensions({ cols, rows })}
         />
+        <TerminalSearch sessionId={session.id} />
       </div>
       {isSharing && <MultiplayerBar localSessionId={session.id} />}
       {showStatusBar && (
