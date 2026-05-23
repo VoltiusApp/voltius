@@ -5,6 +5,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { usePluginStore } from "@/stores/pluginStore";
 import { SnippetsPanel } from "@/components/terminal/SnippetsPanel";
 import { PortsPanel } from "@/components/terminal/PortsPanel";
+import { HistoryPanel } from "@/components/terminal/HistoryPanel";
 import { useThemeStore } from "@/stores/themeStore";
 import { BUILT_IN_THEMES } from "@/themes/presets";
 import type { AppTheme } from "@/themes/types";
@@ -137,17 +138,6 @@ function ThemesSection() {
   );
 }
 
-// ─── Placeholder sections ─────────────────────────────────────────────────────
-
-function PlaceholderSection({ icon, label }: { icon: string; label: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center h-full gap-3 opacity-40">
-      <Icon icon={icon} width={28} className="text-[var(--t-text-muted)]" />
-      <p className="text-sm text-[var(--t-text-muted)]">{label} — coming soon</p>
-    </div>
-  );
-}
-
 // ─── Main RightPanel ──────────────────────────────────────────────────────────
 
 const BUILTIN_SECTIONS: { id: RightPanelSection; icon: string; title: string }[] = [
@@ -211,7 +201,7 @@ function PanelContent() {
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-hidden">
         {rightPanelSection === "snippets" && <SnippetsPanel />}
-        {rightPanelSection === "history"  && <PlaceholderSection icon="lucide:clock"  label="History"  />}
+        {rightPanelSection === "history"  && <HistoryPanel />}
         {rightPanelSection === "themes"   && <ThemesSection />}
         {rightPanelSection === "ports"    && <PortsPanel />}
         {rightPanelSection?.startsWith("plugin:") && (() => {

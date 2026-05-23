@@ -13,6 +13,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { findLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { useCommandHistoryStore } from "@/stores/commandHistoryStore";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 
 interface UseTerminalOptions {
@@ -498,6 +499,14 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       const onDataDispose = term.onData((data) => {
         if (inputGate && !inputGate.current?.()) return;
         if (!entry.connectedRef.current) return;
+
+        const sess = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
+        if (sess) {
+          useCommandHistoryStore
+            .getState()
+            .addInput(sessionId, sess.connectionName, sess.connectionId, data);
+        }
+
         const bytes = encoder.encode(data);
         const layout = useLayoutStore.getState();
         const paneSessionIds = getPaneSessionIds(layout.root);
