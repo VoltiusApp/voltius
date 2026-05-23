@@ -78,6 +78,7 @@ export default function HostsPage() {
   const [error, setError] = useState<string | null>(null);
   const formRef = useRef<ConnectionFormHandle>(null);
   const serialFormRef = useRef<ConnectionFormHandle>(null);
+  const hostFormSessionKeyRef = useRef<string>("new");
   const formVersion = useSyncedFormKey(editing?.updated_at, showForm || showSerialForm, () => (formRef.current?.isDirty() ?? serialFormRef.current?.isDirty() ?? false));
   const [confirmDeleteFolderId, setConfirmDeleteFolderId] = useState<string | null>(null);
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
@@ -91,6 +92,7 @@ export default function HostsPage() {
   }, [loadConnections, loadFolders]);
 
   const openEdit = (conn: { id: string; connection_type?: string }) => {
+    hostFormSessionKeyRef.current = conn.id;
     setEditingId(conn.id);
     setEditingFolderId(null);
     if (conn.connection_type === "serial") {
@@ -105,6 +107,7 @@ export default function HostsPage() {
   useEffect(() => {
     if (!homePendingAction) return;
     if (homePendingAction.action === "create") {
+      hostFormSessionKeyRef.current = `new-${Date.now()}`;
       setEditingId(null);
       setShowForm(true);
       setShowSerialForm(false);
@@ -840,7 +843,7 @@ export default function HostsPage() {
           {!showSnippetPicker && showSerialForm && (
             <SerialConnectionForm
               ref={serialFormRef}
-              key={`serial-${editing?.id ?? "new"}-${formVersion}`}
+              key={`serial-${hostFormSessionKeyRef.current}-${formVersion}`}
               initial={editing ?? undefined}
               onSubmit={handleSubmit}
               onClose={() => { setShowSerialForm(false); setEditingId(null); }}
@@ -856,7 +859,7 @@ export default function HostsPage() {
           {!showSnippetPicker && showForm && !isEditingSerial && (
             <ConnectionForm
               ref={formRef}
-              key={`${editing?.id ?? "new"}-${formVersion}`}
+              key={`${hostFormSessionKeyRef.current}-${formVersion}`}
               initial={editing ?? undefined}
               onSubmit={handleSubmit}
               onClose={() => { setShowForm(false); setEditingId(null); }}
@@ -878,6 +881,7 @@ export default function HostsPage() {
             onSearchChange={setSearch}
             onCreateHost={() => {
               if (!canCreate) return;
+              hostFormSessionKeyRef.current = `new-${Date.now()}`;
               setEditingId(null);
               setShowForm(true);
               setShowSerialForm(false);
@@ -887,6 +891,7 @@ export default function HostsPage() {
             canCreateFolder={canCreateFolder}
             onCreateFolder={() => void saveFolder({ name: "New Folder", object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { setShowForm(false); setShowSerialForm(false); setEditingId(null); setEditingFolderId(f.id); })}
             onCreateSerial={canCreate ? () => {
+              hostFormSessionKeyRef.current = `new-${Date.now()}`;
               setEditingId(null);
               setShowSerialForm(true);
               setShowForm(false);
@@ -1123,7 +1128,7 @@ export default function HostsPage() {
                           e.currentTarget.style.color = "var(--t-text-dim)";
                           e.currentTarget.style.background = "transparent";
                         }}
-                        onClick={() => { if (canCreate) { setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); } }}
+                        onClick={() => { if (canCreate) { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); } }}
                         disabled={!canCreate}
                         style={{ opacity: !canCreate ? 0.35 : undefined }}
                       >
@@ -1183,7 +1188,7 @@ export default function HostsPage() {
                   <p className="text-sm text-[var(--t-text-dim)]">This folder is empty</p>
                   <button
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-[var(--t-bg-elevated)] text-[var(--t-accent)] border border-[var(--t-border-hover)]"
-                    onClick={() => { setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); }}
+                    onClick={() => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); }}
                   >
                     <Icon icon="lucide:plus" width={12} />
                     Add Host
@@ -1206,8 +1211,8 @@ export default function HostsPage() {
           pos={bgMenuPos}
           onClose={closeBgMenu}
           items={[
-            ...(canCreate ? [{ label: "New Host", icon: "lucide:server", onClick: () => { setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); } } as const] : []),
-            ...(canCreate ? [{ label: "New Serial Host", icon: "lucide:ethernet-port", onClick: () => { setEditingId(null); setShowSerialForm(true); setShowForm(false); setEditingFolderId(null); } } as const] : []),
+            ...(canCreate ? [{ label: "New Host", icon: "lucide:server", onClick: () => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); } } as const] : []),
+            ...(canCreate ? [{ label: "New Serial Host", icon: "lucide:ethernet-port", onClick: () => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowSerialForm(true); setShowForm(false); setEditingFolderId(null); } } as const] : []),
             ...(canCreateFolder ? [{ label: "New Folder", icon: "lucide:folder-plus", onClick: () => void saveFolder({ name: "New Folder", object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { setShowForm(false); setEditingId(null); setEditingFolderId(f.id); }) } as const] : []),
             ...bgContributions,
           ]}

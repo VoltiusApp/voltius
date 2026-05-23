@@ -62,6 +62,8 @@ export default function KeychainPage() {
   const identityFormFlushRef = useRef<(() => void) | null>(null);
   const keyFormIsDirtyRef = useRef(false);
   const identityFormIsDirtyRef = useRef(false);
+  const keyFormSessionKeyRef = useRef<string>("new-key");
+  const identityFormSessionKeyRef = useRef<string>("new-identity");
   const [showKeyForm, setShowKeyForm] = useState(false);
   const [showKeyGenForm, setShowKeyGenForm] = useState(false);
   const [showIdentityForm, setShowIdentityForm] = useState(false);
@@ -189,15 +191,15 @@ export default function KeychainPage() {
       const folder = visibleFolders.find((f) => f.id === id);
       if (folder) { navigateInto(folder); return; }
       const key = keys.find((k) => k.id === id);
-      if (key) { setEditingKeyId(key.id); setShowKeyForm(true); return; }
+      if (key) { keyFormSessionKeyRef.current = key.id; setEditingKeyId(key.id); setShowKeyForm(true); return; }
       const identity = identities.find((i) => i.id === id);
-      if (identity) { setEditingIdentityId(identity.id); setShowIdentityForm(true); }
+      if (identity) { identityFormSessionKeyRef.current = identity.id; setEditingIdentityId(identity.id); setShowIdentityForm(true); }
     },
     onEdit: (id) => {
       const key = keys.find((k) => k.id === id);
-      if (key) { setEditingKeyId(key.id); setShowKeyForm(true); return; }
+      if (key) { keyFormSessionKeyRef.current = key.id; setEditingKeyId(key.id); setShowKeyForm(true); return; }
       const identity = identities.find((i) => i.id === id);
-      if (identity) { setEditingIdentityId(identity.id); setShowIdentityForm(true); }
+      if (identity) { identityFormSessionKeyRef.current = identity.id; setEditingIdentityId(identity.id); setShowIdentityForm(true); }
     },
     onEscape: () => {
       if (showPanel) { setShowKeyForm(false); setShowKeyGenForm(false); setShowIdentityForm(false); setExportingKey(null); }
@@ -379,17 +381,19 @@ export default function KeychainPage() {
     if (!keychainPendingAction) return;
     const { action } = keychainPendingAction;
     if (action === "create-key") {
+      keyFormSessionKeyRef.current = `new-key-${Date.now()}`;
       setEditingKeyId(null);
       setShowKeyForm(true);
     } else if (action === "create-identity") {
+      identityFormSessionKeyRef.current = `new-identity-${Date.now()}`;
       setEditingIdentityId(null);
       setShowIdentityForm(true);
     } else if (action === "edit-key") {
       const key = keys.find((k) => k.id === (keychainPendingAction as any).id);
-      if (key) { setEditingKeyId(key.id); setShowKeyForm(true); }
+      if (key) { keyFormSessionKeyRef.current = key.id; setEditingKeyId(key.id); setShowKeyForm(true); }
     } else if (action === "edit-identity") {
       const identity = identities.find((i) => i.id === (keychainPendingAction as any).id);
-      if (identity) { setEditingIdentityId(identity.id); setShowIdentityForm(true); }
+      if (identity) { identityFormSessionKeyRef.current = identity.id; setEditingIdentityId(identity.id); setShowIdentityForm(true); }
     }
     setKeychainPendingAction(null);
   }, [keychainPendingAction, keys, identities, setKeychainPendingAction]);
@@ -494,6 +498,7 @@ export default function KeychainPage() {
 
   const openKeyForm = (key: SshKey | null) => {
     keyFormIsDirtyRef.current = false;
+    keyFormSessionKeyRef.current = key?.id ?? `new-key-${Date.now()}`;
     setEditingKeyId(key?.id ?? null);
     if (key) selectSingle(key.id);
     setShowKeyForm(true);
@@ -513,6 +518,7 @@ export default function KeychainPage() {
 
   const openIdentityForm = (identity: Identity | null) => {
     identityFormIsDirtyRef.current = false;
+    identityFormSessionKeyRef.current = identity?.id ?? `new-identity-${Date.now()}`;
     setEditingIdentityId(identity?.id ?? null);
     if (identity) selectSingle(identity.id);
     setShowIdentityForm(true);
@@ -782,7 +788,7 @@ export default function KeychainPage() {
           )}
           {showKeyForm && (
             <KeyForm
-              key={`${editingKey?.id ?? "new-key"}-${keyFormVersion}`}
+              key={`${keyFormSessionKeyRef.current}-${keyFormVersion}`}
               initial={editingKey ?? undefined}
               onSubmit={handleKeySubmit}
               onClose={closePanel}
@@ -804,7 +810,7 @@ export default function KeychainPage() {
           )}
           {showIdentityForm && (
             <IdentityForm
-              key={`${editingIdentity?.id ?? "new-identity"}-${identityFormVersion}`}
+              key={`${identityFormSessionKeyRef.current}-${identityFormVersion}`}
               initial={editingIdentity ?? undefined}
               onSubmit={handleIdentitySubmit}
               onClose={closePanel}
