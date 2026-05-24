@@ -17,6 +17,8 @@ import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { useAllSnippets } from "@/hooks/useAllSnippets";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
+import { BaseCard } from "@/components/shared/BaseCard";
+import { waitForConnectedSessionIds } from "@/components/shared/sessionPickerTargets";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { broadcastSnippetInject } from "@/services/snippets";
 import {
@@ -40,6 +42,7 @@ import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import type { Snippet, Folder, SnippetFormData, Connection, VaultOption } from "@/types";
 import type { SortMode } from "@/components/shared/ToolbarViewControls";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
+import { useSnippetRecentStore, type RecentSnippetExecution } from "@/stores/snippetRecentStore";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -95,6 +98,129 @@ function snippetToForm(s: Snippet): SnippetFormData {
 }
 
 
+function formatRelativeTime(ts: number): string {
+  const diff = Date.now() - ts;
+  const s = Math.floor(diff / 1000);
+  if (s < 5) return "just now";
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d ago`;
+  return new Date(ts).toLocaleDateString();
+}
+
+// ─── Recent section ────────────────────────────────────────────────────────────
+
+const RECENT_PREVIEW_COUNT = 5;
+
+interface RecentCardProps {
+  entry: RecentSnippetExecution;
+  snippet: Snippet | undefined;
+  layout: "grid" | "list";
+  onReplay: () => void;
+}
+
+function RecentCard({ entry, snippet, layout, onReplay }: RecentCardProps) {
+  const isList = layout === "list";
+  const label = snippet?.name ?? "Deleted snippet";
+  const isDeleted = !snippet;
+  const host = entry.sessionType === "local" ? "Local Shell" : entry.connectionName;
+  const hostIcon = entry.sessionType === "local" ? "lucide:terminal" : "lucide:server";
+
+  const modeBadge = (
+    <span
+      className="text-[10px] px-1.5 py-0.5 rounded-md font-medium shrink-0"
+      style={{
+        background: entry.execute
+          ? "color-mix(in srgb, var(--t-accent) 12%, transparent)"
+          : "color-mix(in srgb, var(--t-text-dim) 10%, transparent)",
+        color: entry.execute ? "var(--t-accent)" : "var(--t-text-dim)",
+      }}
+    >
+      {entry.execute ? "run" : "insert"}
+    </span>
+  );
+
+  const replayButton = (
+    <button
+      title="Replay"
+      disabled={isDeleted}
+      onClick={(e) => { e.stopPropagation(); onReplay(); }}
+      className="p-1.5 rounded-lg transition-colors text-[var(--t-text-secondary)] disabled:opacity-30 disabled:cursor-not-allowed"
+      onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-bright)")}
+      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-secondary)")}
+    >
+      <Icon icon="lucide:rotate-ccw" width={14} />
+    </button>
+  );
+
+  if (!isList) {
+    return (
+      <BaseCard
+        isList={false}
+        style={{ opacity: isDeleted ? 0.5 : 1 }}
+        onClick={!isDeleted ? onReplay : undefined}
+      >
+        <div className="flex-1 min-w-0 self-start flex flex-col gap-2.5">
+          {/* Header */}
+          <div className="flex items-start gap-2 min-w-0">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-card-avatar)]">
+              <Icon icon="lucide:history" width={14} />
+            </div>
+            <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <p className="text-sm font-bold truncate text-[var(--t-text-bright)] flex-1 min-w-0">{label}</p>
+                {modeBadge}
+              </div>
+              <p className="text-xs text-[var(--t-text-muted)] truncate">{formatRelativeTime(entry.timestamp)}</p>
+            </div>
+          </div>
+
+          {/* Target host */}
+          <div
+            className="flex items-center gap-2 px-2.5 py-2 rounded-lg"
+            style={{ background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)" }}
+          >
+            <Icon icon={hostIcon} width={12} className="shrink-0 text-[var(--t-text-dim)]" />
+            <span className="text-xs text-[var(--t-text-secondary)] truncate">{host}</span>
+          </div>
+
+          <div className="flex justify-end -mt-0.5">{replayButton}</div>
+        </div>
+      </BaseCard>
+    );
+  }
+
+  return (
+    <BaseCard isList style={{ opacity: isDeleted ? 0.5 : 1 }} onClick={!isDeleted ? onReplay : undefined}>
+      {/* Icon */}
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-card-avatar)]">
+        <Icon icon="lucide:history" width={14} />
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-sm font-semibold text-[var(--t-text-bright)] truncate flex-1 min-w-0">{label}</span>
+          {modeBadge}
+        </div>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <Icon icon={hostIcon} width={10} className="shrink-0 text-[var(--t-text-dim)]" />
+          <span className="text-xs text-[var(--t-text-muted)] truncate">{host}</span>
+          <span className="text-xs text-[var(--t-text-dim)]">·</span>
+          <span className="text-xs text-[var(--t-text-dim)]">{formatRelativeTime(entry.timestamp)}</span>
+        </div>
+      </div>
+
+      {/* Replay */}
+      {replayButton}
+    </BaseCard>
+  );
+}
+
 // ─── Section header ────────────────────────────────────────────────────────────
 
 function SectionHeader({ label, count }: { label: string; count?: number }) {
@@ -106,6 +232,24 @@ function SectionHeader({ label, count }: { label: string; count?: number }) {
           <span className="ml-2 font-normal normal-case tracking-normal">{count}</span>
         )}
       </p>
+    </div>
+  );
+}
+
+// ─── Loading skeleton ─────────────────────────────────────────────────────────
+
+function SkeletonList() {
+  return (
+    <div className="flex flex-col gap-1.5 animate-pulse">
+      {[...Array(6)].map((_, i) => (
+        <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-[var(--t-bg-card)]">
+          <div className="w-8 h-8 rounded-lg shrink-0 bg-[var(--t-bg-card-avatar)]" />
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <div className="h-3 rounded-md bg-[var(--t-bg-elevated)]" style={{ width: `${45 + (i * 17) % 40}%` }} />
+            <div className="h-2.5 rounded-md bg-[var(--t-bg-elevated)]" style={{ width: `${55 + (i * 13) % 30}%` }} />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -148,6 +292,8 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 
 export function SnippetsPage() {
   const { loading, loadSnippets, createSnippet, updateSnippet, deleteSnippet, trackUsed, pinSnippet } = useSnippetStore();
+  const recentEntries = useSnippetRecentStore((s) => s.entries);
+  const addRecentEntry = useSnippetRecentStore((s) => s.add);
   const snippets = useAllSnippets();
   const { folders, loadFolders, saveFolder, updateFolder, deleteFolder, moveFolder } = useSnippetFolderStore();
   const { sessions, activeSessionId } = useSessionStore();
@@ -185,6 +331,7 @@ export function SnippetsPage() {
 
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("name-asc");
+  const [showAllRecent, setShowAllRecent] = useState(false);
 
   // Editing state
   const ep = useEditPanel<Snippet>();
@@ -478,6 +625,18 @@ export function SnippetsPage() {
 
   // ── Injection ────────────────────────────────────────────────────────────
 
+  function recordExecution(snippet: Snippet, execute: boolean, session: { type: string; connectionId: string; connectionName: string }) {
+    if (session.type === "multiplayer") return;
+    addRecentEntry({
+      snippetId: snippet.id,
+      connectionId: session.connectionId,
+      connectionName: session.connectionName,
+      sessionType: session.type as "ssh" | "local" | "serial",
+      execute,
+      timestamp: Date.now(),
+    });
+  }
+
   async function handleTrigger(snippet: Snippet, execute: boolean, sessionId: string) {
     const targetSession = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
     if (!targetSession || targetSession.type === "multiplayer") return;
@@ -499,6 +658,7 @@ export function SnippetsPage() {
       const resolved = resolveTemplate(partialTemplate, initialValues);
       const payload = execute ? `${resolved}\n` : resolved;
       await broadcastSnippetInject(targetSession.id, targetSession.type, payload, execute).catch(console.error);
+      recordExecution(snippet, execute, targetSession);
     } else {
       setPendingInject({ snippet, partialTemplate, userVars, initialValues, execute, sessionId });
     }
@@ -532,6 +692,42 @@ export function SnippetsPage() {
   async function handleToggleFavorite(snippet: Snippet) {
     const next = isPinnedFn(snippet, "snippet");
     await pinSnippet(snippet.id, !next);
+  }
+
+  async function handleReplay(entry: RecentSnippetExecution) {
+    const snippet = snippets.find((s) => s.id === entry.snippetId);
+    if (!snippet) return;
+
+    const { sessions } = useSessionStore.getState();
+    const match =
+      sessions.find((s) => s.connectionId === entry.connectionId && s.status === "connected") ??
+      sessions.find((s) => s.id === activeSessionId && s.status === "connected");
+
+    if (match) {
+      await handleTrigger(snippet, entry.execute, match.id);
+      return;
+    }
+
+    // No active session — open one automatically
+    let newSessionId: string | undefined;
+    if (entry.sessionType === "local") {
+      newSessionId = useSessionStore.getState().beginLocalSession();
+    } else if (entry.connectionId) {
+      const ids = await useSessionStore.getState().connectMany([entry.connectionId]).catch(() => [] as string[]);
+      newSessionId = ids[0];
+    }
+    if (!newSessionId) return;
+
+    useUIStore.getState().setActiveNav("terminal" as any);
+    useSessionStore.getState().setActive(newSessionId);
+
+    void waitForConnectedSessionIds(
+      [newSessionId],
+      () => useSessionStore.getState().sessions,
+      (listener) => useSessionStore.subscribe(listener),
+    ).then(([connectedId]) => {
+      if (connectedId) void handleTrigger(snippet, entry.execute, connectedId);
+    });
   }
 
   async function handleMoveToVault(snippet: Snippet, vaultId: string) {
@@ -721,9 +917,7 @@ export function SnippetsPage() {
       >
         <div ref={itemAreaRef} data-drag-surface="true">
           {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <span className="text-sm text-[var(--t-text-dim)]">Loading…</span>
-            </div>
+            <SkeletonList />
           ) : snippets.length === 0 ? (
             <EmptyState onAdd={() => openSnippet("new")} />
           ) : (
@@ -756,6 +950,53 @@ export function SnippetsPage() {
                       )}
                     </span>
                   ))}
+                </div>
+              )}
+
+              {/* ── Recent executions (root only) ── */}
+              {!hasSearch && !activeFolderId && recentEntries.length > 0 && (
+                <div
+                  className="rounded-2xl p-3"
+                  style={{ border: "1px solid var(--t-border)" }}
+                >
+                  <div className="flex items-center justify-between mb-2.5 px-1">
+                    <div className="flex items-center gap-1.5">
+                      <Icon icon="lucide:history" width={12} className="text-[var(--t-text-dim)]" />
+                      <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">
+                        Recent
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => { useSnippetRecentStore.getState().clear(); setShowAllRecent(false); }}
+                      className="text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div
+                    className={layoutMode === "grid" ? "grid gap-3" : "flex flex-col gap-1.5"}
+                    style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" } : undefined}
+                  >
+                    {(showAllRecent ? recentEntries : recentEntries.slice(0, RECENT_PREVIEW_COUNT)).map((entry) => (
+                      <RecentCard
+                        key={entry.id}
+                        entry={entry}
+                        layout={layoutMode}
+                        snippet={snippets.find((s) => s.id === entry.snippetId)}
+                        onReplay={() => void handleReplay(entry)}
+                      />
+                    ))}
+                  </div>
+                  {recentEntries.length > RECENT_PREVIEW_COUNT && (
+                    <button
+                      onClick={() => setShowAllRecent((v) => !v)}
+                      className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors"
+                      style={{ background: "var(--t-bg-elevated)" }}
+                    >
+                      <Icon icon={showAllRecent ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} />
+                      {showAllRecent ? "Show less" : `Show ${recentEntries.length - RECENT_PREVIEW_COUNT} more`}
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -828,9 +1069,9 @@ export function SnippetsPage() {
               {/* ── Snippets in current view ── */}
               {viewSnippets.length > 0 ? (
                 <div>
-                  {(visibleFolders.length > 0 || favorites.length > 0 || activeFolderId) && !hasSearch && (
+                  {!hasSearch && (visibleFolders.length > 0 || favorites.length > 0 || activeFolderId) && (
                     <SectionHeader
-                      label={activeFolderId ? "Snippets" : "Unfiled"}
+                      label={activeFolderId ? "Snippets" : "Other"}
                       count={viewSnippets.length}
                     />
                   )}
@@ -849,7 +1090,19 @@ export function SnippetsPage() {
                   </button>
                 </div>
               ) : hasSearch && filtered.length === 0 ? (
-                <p className="mt-6 text-sm text-[var(--t-text-dim)]">No snippets match "{search}"</p>
+                <div className="flex flex-col items-center gap-3 py-12">
+                  <Icon icon="lucide:search-x" width={28} className="text-[var(--t-text-dim)]" />
+                  <p className="text-sm text-[var(--t-text-dim)]">No snippets match "{search}"</p>
+                  <button
+                    onClick={() => setSearch("")}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-[var(--t-bg-elevated)] text-[var(--t-text-secondary)] border border-[var(--t-border-hover)]"
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-card-hover)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
+                  >
+                    <Icon icon="lucide:x" width={11} />
+                    Clear search
+                  </button>
+                </div>
               ) : null}
 
             </div>
@@ -912,6 +1165,7 @@ export function SnippetsPage() {
           if (!targetSession) return;
           const payload = execute ? `${resolvedText}\n` : resolvedText;
           await broadcastSnippetInject(targetSession.id, targetSession.type, payload, execute).catch(console.error);
+          recordExecution(pendingInject.snippet, execute, targetSession);
           setPendingInject(null);
         }}
         onClose={() => setPendingInject(null)}

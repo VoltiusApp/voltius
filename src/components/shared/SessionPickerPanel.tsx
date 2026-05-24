@@ -264,7 +264,7 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
               onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
               onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
             >
-              <Icon icon={mode === "insert" ? "lucide:skip-forward" : "lucide:play"} width={14} />
+              <Icon icon={mode === "insert" ? "lucide:arrow-down-to-line" : "lucide:play"} width={14} />
               {confirmLabel}
             </button>
           </div>

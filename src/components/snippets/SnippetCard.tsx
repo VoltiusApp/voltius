@@ -219,7 +219,7 @@ export function SnippetCard({
                   onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-bright)")}
                   onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-secondary)")}
                 >
-                  <Icon icon="lucide:skip-forward" width={15} />
+                  <Icon icon="lucide:arrow-down-to-line" width={15} />
                 </button>
                 <button
                   title="Execute"
@@ -323,7 +323,7 @@ export function SnippetCard({
             onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-secondary)")}
           >
-            <Icon icon="lucide:skip-forward" width={16} />
+            <Icon icon="lucide:arrow-down-to-line" width={16} />
           </button>
           <button
             title="Execute"

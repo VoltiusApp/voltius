@@ -312,7 +312,7 @@ function SnippetRow({ snippet, onTrigger }: { snippet: Snippet; onTrigger: (s: S
             e.currentTarget.style.color = "var(--t-text-dim)";
           }}
         >
-          <Icon icon="lucide:skip-forward" width={12} />
+          <Icon icon="lucide:arrow-down-to-line" width={12} />
         </button>
         <button
           title="Execute"
