@@ -625,13 +625,14 @@ export function SnippetsPage() {
 
   // ── Injection ────────────────────────────────────────────────────────────
 
-  function recordExecution(snippet: Snippet, execute: boolean, session: { type: string; connectionId: string; connectionName: string }) {
+  function recordExecution(snippet: Snippet, execute: boolean, session: { type: string; connectionId: string; connectionName: string; localShell?: string }) {
     if (session.type === "multiplayer") return;
     addRecentEntry({
       snippetId: snippet.id,
       connectionId: session.connectionId,
       connectionName: session.connectionName,
       sessionType: session.type as "ssh" | "local" | "serial",
+      localShell: session.localShell,
       execute,
       timestamp: Date.now(),
     });
@@ -711,7 +712,7 @@ export function SnippetsPage() {
     // No active session — open one automatically
     let newSessionId: string | undefined;
     if (entry.sessionType === "local") {
-      newSessionId = useSessionStore.getState().beginLocalSession();
+      newSessionId = useSessionStore.getState().beginLocalSession(entry.localShell);
     } else if (entry.connectionId) {
       const ids = await useSessionStore.getState().connectMany([entry.connectionId]).catch(() => [] as string[]);
       newSessionId = ids[0];

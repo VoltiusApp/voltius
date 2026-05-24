@@ -7,6 +7,7 @@ export interface RecentSnippetExecution {
   connectionId: string;
   connectionName: string;
   sessionType: "ssh" | "local" | "serial";
+  localShell?: string;
   execute: boolean;
   timestamp: number;
 }
