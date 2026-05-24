@@ -5,6 +5,7 @@ import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useVaultStore } from "@/stores/vaultStore";
+import { useLayoutStore } from "@/stores/layoutStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { usePermissions } from "@/hooks/usePermission";
@@ -42,7 +43,7 @@ import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import type { Snippet, Folder, SnippetFormData, Connection, VaultOption } from "@/types";
 import type { SortMode } from "@/components/shared/ToolbarViewControls";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
-import { useSnippetRecentStore, type RecentSnippetExecution } from "@/stores/snippetRecentStore";
+import { useSnippetRecentStore, type RecentSnippetExecution, type RecentTarget } from "@/stores/snippetRecentStore";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -128,8 +129,13 @@ function RecentCard({ entry, snippet, layout, onReplay, onRemove }: RecentCardPr
   const isList = layout === "list";
   const label = snippet?.name ?? "Deleted snippet";
   const isDeleted = !snippet;
-  const host = entry.connectionName;
-  const hostIcon = entry.sessionType === "local" ? "lucide:terminal" : "lucide:server";
+  const primaryTarget = entry.targets[0];
+  const host = primaryTarget
+    ? entry.targets.length > 1
+      ? `${primaryTarget.connectionName} +${entry.targets.length - 1} more`
+      : primaryTarget.connectionName
+    : "Unknown";
+  const hostIcon = primaryTarget?.sessionType === "local" ? "lucide:terminal" : "lucide:server";
 
   const modeBadge = (
     <span
@@ -393,7 +399,7 @@ export function SnippetsPage() {
     userVars: ReturnType<typeof parseVariables>;
     initialValues: Record<string, string>;
     execute: boolean;
-    sessionId: string;
+    sessionIds: string[];
   } | null>(null);
 
 
@@ -645,28 +651,24 @@ export function SnippetsPage() {
 
   // ── Injection ────────────────────────────────────────────────────────────
 
-  function recordExecution(snippet: Snippet, execute: boolean, session: { type: string; connectionId: string; connectionName: string; localShell?: string }) {
-    if (session.type === "multiplayer") return;
-    addRecentEntry({
-      snippetId: snippet.id,
-      connectionId: session.connectionId,
-      connectionName: session.connectionName,
-      sessionType: session.type as "ssh" | "local" | "serial",
-      localShell: session.localShell,
-      execute,
-      timestamp: Date.now(),
-    });
+  function recordExecution(snippet: Snippet, execute: boolean, targets: RecentTarget[]) {
+    if (targets.length === 0) return;
+    addRecentEntry({ snippetId: snippet.id, targets, execute, timestamp: Date.now() });
   }
 
-  async function handleTrigger(snippet: Snippet, execute: boolean, sessionId: string) {
-    const targetSession = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
-    if (!targetSession || targetSession.type === "multiplayer") return;
+  async function handleTrigger(snippet: Snippet, execute: boolean, sessionIds: string[]) {
+    const allSessions = useSessionStore.getState().sessions;
+    const targetSessions = sessionIds
+      .map((id) => allSessions.find((s) => s.id === id))
+      .filter((s) => s && s.type !== "multiplayer") as typeof allSessions;
+    if (targetSessions.length === 0) return;
     trackUsed(snippet.id);
 
     let clipboard = "";
     try { clipboard = await navigator.clipboard.readText(); } catch { /* permission denied */ }
-    const ctx = buildDynamicContext(targetSession, connections, clipboard);
 
+    // Use the first session for dynamic variable resolution (host, user, etc.)
+    const ctx = buildDynamicContext(targetSessions[0], connections, clipboard);
     const vars = parseVariables(snippet.content);
     const dynValues = buildDynamicValues(vars, ctx);
     const partialTemplate = resolveTemplate(snippet.content, dynValues);
@@ -678,10 +680,18 @@ export function SnippetsPage() {
     if (missing.length === 0) {
       const resolved = resolveTemplate(partialTemplate, initialValues);
       const payload = execute ? `${resolved}\n` : resolved;
-      await broadcastSnippetInject(targetSession.id, targetSession.type, payload, execute).catch(console.error);
-      recordExecution(snippet, execute, targetSession);
+      await Promise.all(
+        targetSessions.map((s) => broadcastSnippetInject(s.id, s.type, payload, execute).catch(console.error)),
+      );
+      const targets: RecentTarget[] = targetSessions.map((s) => ({
+        connectionId: s.connectionId,
+        connectionName: s.connectionName,
+        sessionType: s.type as "ssh" | "local" | "serial",
+        localShell: (s as any).localShell,
+      }));
+      recordExecution(snippet, execute, targets);
     } else {
-      setPendingInject({ snippet, partialTemplate, userVars, initialValues, execute, sessionId });
+      setPendingInject({ snippet, partialTemplate, userVars, initialValues, execute, sessionIds: targetSessions.map((s) => s.id) });
     }
   }
 
@@ -720,35 +730,55 @@ export function SnippetsPage() {
     if (!snippet) return;
 
     const { sessions } = useSessionStore.getState();
-    const match =
-      sessions.find((s) => s.connectionId === entry.connectionId && s.status === "connected") ??
-      sessions.find((s) => s.id === activeSessionId && s.status === "connected");
+    const resolvedSessionIds: string[] = [];
+    const connectionIdsToOpen: string[] = [];
+    let localShellPath: string | null = null;
 
-    if (match) {
-      await handleTrigger(snippet, entry.execute, match.id);
-      return;
+    for (const target of entry.targets) {
+      if (target.sessionType === "local") {
+        const match = sessions.find((s) => s.type === "local" && s.status === "connected");
+        if (match) resolvedSessionIds.push(match.id);
+        else localShellPath = target.localShell ?? "";
+      } else if (target.connectionId) {
+        const match = sessions.find((s) => s.connectionId === target.connectionId && s.status === "connected");
+        if (match) resolvedSessionIds.push(match.id);
+        else connectionIdsToOpen.push(target.connectionId);
+      }
     }
 
-    // No active session — open one automatically
-    let newSessionId: string | undefined;
-    if (entry.sessionType === "local") {
-      newSessionId = useSessionStore.getState().beginLocalSession(entry.localShell);
-    } else if (entry.connectionId) {
-      const ids = await useSessionStore.getState().connectMany([entry.connectionId]).catch(() => [] as string[]);
-      newSessionId = ids[0];
-    }
-    if (!newSessionId) return;
+    // Immediately inject into already-connected sessions
+    if (resolvedSessionIds.length > 0) void handleTrigger(snippet, entry.execute, resolvedSessionIds);
+
+    // Open new sessions for unresolved targets
+    const connectionSessionIds = connectionIdsToOpen.length > 0
+      ? await useSessionStore.getState().connectMany(connectionIdsToOpen).catch(() => [] as string[])
+      : [];
+    const localSessionId = localShellPath !== null
+      ? useSessionStore.getState().beginLocalSession(localShellPath || undefined)
+      : null;
+    const newSessionIds = localSessionId ? [...connectionSessionIds, localSessionId] : connectionSessionIds;
+
+    const allSessionIds = [...resolvedSessionIds, ...newSessionIds];
+    if (allSessionIds.length === 0) return;
 
     useUIStore.getState().setActiveNav("terminal" as any);
-    useSessionStore.getState().setActive(newSessionId);
+    if (allSessionIds.length === 1) {
+      useSessionStore.getState().setActive(allSessionIds[0]);
+    } else {
+      useLayoutStore.getState().openSessions(allSessionIds);
+      useSessionStore.getState().setActive(allSessionIds[0]);
+    }
 
-    void waitForConnectedSessionIds(
-      [newSessionId],
-      () => useSessionStore.getState().sessions,
-      (listener) => useSessionStore.subscribe(listener),
-    ).then(([connectedId]) => {
-      if (connectedId) void handleTrigger(snippet, entry.execute, connectedId);
-    });
+    if (newSessionIds.length > 0) {
+      void waitForConnectedSessionIds(
+        newSessionIds,
+        () => useSessionStore.getState().sessions,
+        (listener) => useSessionStore.subscribe(listener),
+      ).then((connectedIds) => {
+        const validIds = connectedIds.filter(Boolean) as string[];
+        if (validIds.length > 0) void handleTrigger(snippet, entry.execute, validIds);
+      });
+    }
   }
 
   async function handleMoveToVault(snippet: Snippet, vaultId: string) {
@@ -858,8 +888,8 @@ export function SnippetsPage() {
           handleItemSelect(id, e);
           if (!e.ctrlKey && !e.metaKey && !e.shiftKey) openSnippet(s);
         }}
-        onInsert={(sessionId) => void handleTrigger(s, false, sessionId)}
-        onExecute={(sessionId) => void handleTrigger(s, true, sessionId)}
+        onInsert={(sessionIds) => void handleTrigger(s, false, sessionIds)}
+        onExecute={(sessionIds) => void handleTrigger(s, true, sessionIds)}
         onDuplicate={() => void handleDuplicate(s)}
         onDelete={() => void deleteSnippet(s.id)}
         onToggleFavorite={() => void handleToggleFavorite(s)}
@@ -1183,11 +1213,22 @@ export function SnippetsPage() {
         userVars={pendingInject.userVars}
         initialValues={pendingInject.initialValues}
         onInject={async (resolvedText, execute) => {
-          const targetSession = useSessionStore.getState().sessions.find((s) => s.id === pendingInject.sessionId);
-          if (!targetSession) return;
+          const allSessions = useSessionStore.getState().sessions;
+          const targetSessions = pendingInject.sessionIds
+            .map((id) => allSessions.find((s) => s.id === id))
+            .filter(Boolean) as typeof allSessions;
+          if (targetSessions.length === 0) return;
           const payload = execute ? `${resolvedText}\n` : resolvedText;
-          await broadcastSnippetInject(targetSession.id, targetSession.type, payload, execute).catch(console.error);
-          recordExecution(pendingInject.snippet, execute, targetSession);
+          await Promise.all(
+            targetSessions.map((s) => broadcastSnippetInject(s.id, s.type, payload, execute).catch(console.error)),
+          );
+          const targets: RecentTarget[] = targetSessions.map((s) => ({
+            connectionId: s.connectionId,
+            connectionName: s.connectionName,
+            sessionType: s.type as "ssh" | "local" | "serial",
+            localShell: (s as any).localShell,
+          }));
+          recordExecution(pendingInject.snippet, execute, targets);
           setPendingInject(null);
         }}
         onClose={() => setPendingInject(null)}

@@ -25,8 +25,8 @@ interface Props {
   layout?: "grid" | "list";
   onEdit: () => void;
   onSelect?: (id: string, e: React.MouseEvent<HTMLDivElement>) => void;
-  onInsert: (sessionId: string) => void;
-  onExecute: (sessionId: string) => void;
+  onInsert: (sessionIds: string[]) => void;
+  onExecute: (sessionIds: string[]) => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onToggleFavorite: () => void;
@@ -240,7 +240,7 @@ export function SnippetCard({
             mode={panelMode}
             onConfirm={(sessionIds) => {
               const action = panelMode === "insert" ? onInsert : onExecute;
-              sessionIds.forEach((id) => action(id));
+              action(sessionIds);
             }}
             onClose={() => setPanelMode(null)}
           />
@@ -342,7 +342,7 @@ export function SnippetCard({
           mode={panelMode}
           onConfirm={(sessionIds) => {
             const action = panelMode === "insert" ? onInsert : onExecute;
-            sessionIds.forEach((id) => action(id));
+            action(sessionIds);
           }}
           onClose={() => setPanelMode(null)}
         />

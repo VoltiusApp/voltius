@@ -1,13 +1,17 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export interface RecentSnippetExecution {
-  id: string;
-  snippetId: string;
+export interface RecentTarget {
   connectionId: string;
   connectionName: string;
   sessionType: "ssh" | "local" | "serial";
   localShell?: string;
+}
+
+export interface RecentSnippetExecution {
+  id: string;
+  snippetId: string;
+  targets: RecentTarget[];
   execute: boolean;
   timestamp: number;
 }
@@ -29,12 +33,9 @@ export const useSnippetRecentStore = create<SnippetRecentStore>()(
       add: (entry) =>
         set((s) => {
           const next: RecentSnippetExecution = { ...entry, id: crypto.randomUUID() };
-          // De-duplicate: drop older entries for the same snippet+connection+mode
+          // De-duplicate: drop older entries for the same snippet+mode
           const deduped = s.entries.filter(
-            (e) =>
-              !(e.snippetId === entry.snippetId &&
-                e.connectionId === entry.connectionId &&
-                e.execute === entry.execute),
+            (e) => !(e.snippetId === entry.snippetId && e.execute === entry.execute),
           );
           return { entries: [next, ...deduped].slice(0, MAX) };
         }),
@@ -45,6 +46,7 @@ export const useSnippetRecentStore = create<SnippetRecentStore>()(
     }),
     {
       name: "voltius-snippet-recent",
+      version: 1,
       partialize: (s) => ({ entries: s.entries }),
     },
   ),
