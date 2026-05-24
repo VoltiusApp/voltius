@@ -51,6 +51,7 @@ const DEFAULTS: Omit<Shortcut, "key">[] = [
   { id: "redo",         label: "Redo",              description: "Redo last undone action",  defaultKey: "z",      ctrl: true,  shift: true  },
   { id: "filter",          label: "Focus Filter",      description: "Focus the search filter",              defaultKey: "f", ctrl: true, shift: false },
   { id: "terminal-search", label: "Find in Terminal",  description: "Search the terminal scrollback",       defaultKey: "f", ctrl: true, shift: false },
+  { id: "history",         label: "History Panel",     description: "Open command history in right panel",  defaultKey: "h", ctrl: true, shift: true  },
 ];
 
 function toShortcut(s: Omit<Shortcut, "key">): Shortcut {
@@ -95,25 +96,7 @@ export const useShortcutStore = create<ShortcutStore>()(
     }),
     {
       name: "voltius-shortcuts",
-      version: 2,
-      migrate: (persisted, version) => {
-        if (persisted && typeof persisted === "object") {
-          const state = persisted as { shortcuts?: Shortcut[] };
-          // v0 → v1: renamed "filter" placeholder to "terminal-search"
-          if (version < 1 && Array.isArray(state.shortcuts)) {
-            state.shortcuts = state.shortcuts.map((sc) =>
-              sc.id === "filter"
-                ? { ...sc, id: "terminal-search", label: "Find in Terminal", description: "Search the terminal scrollback" }
-                : sc,
-            );
-          }
-          // v1 → v2: restore "filter" shortcut (was accidentally removed)
-          if (version < 2 && Array.isArray(state.shortcuts) && !state.shortcuts.find((sc) => sc.id === "filter")) {
-            state.shortcuts.push({ id: "filter", label: "Focus Filter", description: "Focus the search filter", defaultKey: "f", key: "f", ctrl: true, shift: false });
-          }
-        }
-        return persisted as ShortcutStore;
-      },
+      version: 3,
     },
   ),
 );

@@ -72,6 +72,12 @@ export function useKeyboard() {
         return;
       }
 
+      if (matchShortcut("history", e)) {
+        e.preventDefault();
+        useUIStore.getState().toggleRightPanel("history");
+        return;
+      }
+
       if (matchShortcut("sidebar", e)) {
         e.preventDefault();
         useUIStore.getState().toggleSidebar();

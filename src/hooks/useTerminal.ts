@@ -484,6 +484,10 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           }
           return false;
         }
+        if (e.ctrlKey && e.shiftKey && (e.key === "h" || e.key === "H")) {
+          if (e.type === "keydown") useUIStore.getState().toggleRightPanel("history");
+          return false;
+        }
         return true;
       });
 
