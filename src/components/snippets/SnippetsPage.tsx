@@ -127,7 +127,7 @@ function RecentCard({ entry, snippet, layout, onReplay }: RecentCardProps) {
   const isList = layout === "list";
   const label = snippet?.name ?? "Deleted snippet";
   const isDeleted = !snippet;
-  const host = entry.sessionType === "local" ? "Local Shell" : entry.connectionName;
+  const host = entry.connectionName;
   const hostIcon = entry.sessionType === "local" ? "lucide:terminal" : "lucide:server";
 
   const modeBadge = (
