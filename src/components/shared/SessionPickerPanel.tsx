@@ -1,14 +1,21 @@
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
+import { invoke } from "@tauri-apps/api/core";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { matchesSearch } from "@/utils/connectionFilter";
+import { formatLocalShellTitle } from "@/utils/localShellTitle";
 import { ConnectionAvatar } from "./ConnectionAvatar";
 import { HostRow } from "./HostPickerPanel";
 import { getSnippetInjectionTargetIds, waitForConnectedSessionIds } from "./sessionPickerTargets";
+
+interface ShellOption {
+  name: string;
+  path: string;
+}
 
 interface Props {
   mode: "insert" | "execute";
@@ -22,6 +29,12 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
   const [search, setSearch] = useState("");
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
   const [selectedConnectionIds, setSelectedConnectionIds] = useState<Set<string>>(new Set());
+  const [localShell, setLocalShell] = useState<string | null>(null);
+  const [shells, setShells] = useState<ShellOption[]>([]);
+
+  useEffect(() => {
+    invoke<ShellOption[]>("local_list_shells").then(setShells).catch(() => {});
+  }, []);
 
   const activeSessions = useMemo(
     () => sessions.filter((s) => s.status === "connected" && s.type !== "multiplayer"),
@@ -66,7 +79,7 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
     });
   }
 
-  const totalSelected = selectedSessionIds.size + selectedConnectionIds.size;
+  const totalSelected = selectedSessionIds.size + selectedConnectionIds.size + (localShell !== null ? 1 : 0);
 
   async function handleConfirm() {
     const sessionIds = [...selectedSessionIds];
@@ -75,9 +88,17 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
     // Inject into already-connected sessions immediately
     onConfirm(sessionIds);
 
-    const newSessionIds = pickedConnections.length > 0
+    const connectionSessionIds = pickedConnections.length > 0
       ? await useSessionStore.getState().connectMany(pickedConnections.map((conn) => conn.id)).catch(() => [])
       : [];
+
+    const localSessionId = localShell !== null
+      ? useSessionStore.getState().beginLocalSession(localShell || undefined)
+      : null;
+
+    const newSessionIds = localSessionId
+      ? [...connectionSessionIds, localSessionId]
+      : connectionSessionIds;
 
     const allSessionIds = getSnippetInjectionTargetIds(sessionIds, newSessionIds);
 
@@ -165,7 +186,7 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
                     </div>
                   }
                   name={s.connectionName}
-                  sub={s.type === "local" ? "Local Machine" : "SSH Session"}
+                  sub={s.type === "local" ? "This computer" : "SSH Session"}
                   isSelected={selectedSessionIds.has(s.id)}
                   onClick={() => toggleSession(s.id)}
                 />
@@ -178,7 +199,39 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
             Open New Connection
           </p>
 
-          {filteredHosts.length === 0 && (
+          {/* Local shell rows */}
+          {!search && (shells.length > 0 ? shells : [{ name: "Local Shell", path: "" }]).map((s) => {
+            const selected = localShell === s.path;
+            return (
+              <HostRow
+                key={`local-${s.path}`}
+                avatar={
+                  <div
+                    className="rounded-lg flex items-center justify-center shrink-0 w-[1.867rem] h-[1.867rem] transition-colors"
+                    style={{
+                      background: selected ? "var(--t-accent)" : "var(--t-bg-elevated)",
+                      color: selected ? "#fff" : "var(--t-text-dim)",
+                    }}
+                  >
+                    <Icon icon={selected ? "lucide:check" : "lucide:monitor"} width={13} />
+                  </div>
+                }
+                name={formatLocalShellTitle(s.path) || s.name}
+                sub="This computer"
+                isSelected={selected}
+                onClick={() => setLocalShell(selected ? null : s.path)}
+              />
+            );
+          })}
+
+          {!search && filteredHosts.length > 0 && (
+            <div className="mx-2 my-1.5 border-t border-[var(--t-bg-terminal)]" />
+          )}
+
+          {filteredHosts.length === 0 && !search && (
+            <p className="px-3 py-4 text-xs text-center text-[var(--t-text-muted)]">No remote hosts found</p>
+          )}
+          {filteredHosts.length === 0 && search && (
             <p className="px-3 py-4 text-xs text-center text-[var(--t-text-muted)]">No hosts found</p>
           )}
 

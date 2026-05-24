@@ -20,6 +20,7 @@ interface SessionStore {
   connectDirect: (connection: Connection) => Promise<void>;
   connectLocal: () => Promise<void>;
   connectLocalAt: (cwd: string) => Promise<void>;
+  beginLocalSession: (shell?: string) => string;
   connectAt: (connectionId: string, cwd: string) => Promise<void>;
   connectSerial: (connectionId: string) => Promise<void>;
   connectSerialEphemeral: () => Promise<void>;
@@ -348,6 +349,35 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       }));
       throw err;
     }
+  },
+
+  beginLocalSession: (shell) => {
+    const sessionId = crypto.randomUUID();
+    const session: TerminalSession = {
+      id: sessionId,
+      connectionId: "local",
+      connectionName: formatLocalShellTitle(shell ?? null),
+      status: "connecting",
+      type: "local",
+      localShell: shell ?? undefined,
+    };
+    set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
+    useLayoutStore.getState().setSplitTabActive(false);
+    void localConnect(sessionId, 80, 24, shell).then(() => {
+      set((s) => ({
+        sessions: s.sessions.map((sess) =>
+          sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
+        ),
+      }));
+    }).catch((err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      set((s) => ({
+        sessions: s.sessions.map((sess) =>
+          sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
+        ),
+      }));
+    });
+    return sessionId;
   },
 
   connectAt: async (connectionId, cwd) => {
