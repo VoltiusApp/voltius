@@ -481,6 +481,16 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           }
           return false;
         }
+        if (e.ctrlKey && !e.altKey && (e.key === "g" || e.key === "G")) {
+          if (e.type === "keydown") {
+            const ctrl = getTerminalSearchController(sessionId);
+            if (ctrl?.getSnapshot().open) {
+              if (e.shiftKey) ctrl.prev();
+              else ctrl.next();
+            }
+          }
+          return false;
+        }
         if (matchShortcut("history", e)) {
           if (e.type === "keydown") useUIStore.getState().toggleRightPanel("history");
           return false;

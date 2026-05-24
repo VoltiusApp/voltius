@@ -4,7 +4,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { matchShortcut } from "@/stores/shortcutStore";
 import { useHistoryStore } from "@/stores/historyStore";
-import { openTerminalSearch } from "@/hooks/useTerminal";
+import { openTerminalSearch, getTerminalSearchController } from "@/hooks/useTerminal";
 
 export function useKeyboard() {
   useEffect(() => {
@@ -46,6 +46,23 @@ export function useKeyboard() {
         if (useUIStore.getState().activeNav === ("terminal" as any)) {
           const activeId = useSessionStore.getState().activeSessionId;
           if (activeId) openTerminalSearch(activeId);
+        }
+        return;
+      }
+
+      // Ctrl+G / Shift+Ctrl+G: always prevent the native webview find-next dialog.
+      // When the terminal search widget is open, drive it to next/prev result.
+      if (e.ctrlKey && !e.altKey && (e.key === "g" || e.key === "G")) {
+        e.preventDefault();
+        if (useUIStore.getState().activeNav === ("terminal" as any)) {
+          const activeId = useSessionStore.getState().activeSessionId;
+          if (activeId) {
+            const ctrl = getTerminalSearchController(activeId);
+            if (ctrl?.getSnapshot().open) {
+              if (e.shiftKey) ctrl.prev();
+              else ctrl.next();
+            }
+          }
         }
         return;
       }
