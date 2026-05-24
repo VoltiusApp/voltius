@@ -223,20 +223,21 @@ export async function fetchWithAuth(url: string, init: RequestInit): Promise<Res
 let _deviceId: string | null = null;
 
 /**
- * Returns a device ID that is:
- * - Stable within a process session (module variable + sessionStorage)
- * - Unique per simultaneous instance (sessionStorage is per-WebView-process)
+ * Returns a stable device ID that persists across app restarts.
  *
- * Previously used the OS keychain, which is shared between all instances of
- * the app running as the same OS user. That caused the SSE self-push filter
- * (`pusherDeviceId !== myDeviceId`) to suppress cross-instance sync events.
+ * Uses localStorage so the ID survives process restarts (unlike sessionStorage,
+ * which generated a new UUID on every launch and accumulated orphaned blobs on
+ * the server). The SSE self-push filter still works correctly for the common
+ * single-instance case. In the rare scenario of two simultaneous instances they
+ * share the ID, which means one won't receive live SSE nudges from itself — a
+ * minor degradation that's acceptable vs. unbounded blob accumulation.
  */
 async function getDeviceId(): Promise<string> {
   if (_deviceId) return _deviceId;
-  let id = sessionStorage.getItem("voltius.device_id");
+  let id = localStorage.getItem("voltius.device_id");
   if (!id) {
     id = crypto.randomUUID();
-    sessionStorage.setItem("voltius.device_id", id);
+    localStorage.setItem("voltius.device_id", id);
   }
   _deviceId = id;
   return id;
