@@ -37,13 +37,15 @@ export function useKeyboard() {
         return;
       }
 
-      // Ctrl+F when terminal isn't focused (e.g., focus is on sidebar). The
-      // terminal-focused path is handled in useTerminal's attachCustomKeyEventHandler.
+      // Ctrl+F: always prevent the native webview find dialog.
+      // On the terminal tab, open the in-terminal search widget (when the
+      // terminal canvas itself has focus, useTerminal's attachCustomKeyEventHandler
+      // handles it instead). On other views, FilterInput listeners handle focus.
       if (matchShortcut("terminal-search", e)) {
-        const activeId = useSessionStore.getState().activeSessionId;
-        if (activeId) {
-          e.preventDefault();
-          openTerminalSearch(activeId);
+        e.preventDefault();
+        if (useUIStore.getState().activeNav === ("terminal" as any)) {
+          const activeId = useSessionStore.getState().activeSessionId;
+          if (activeId) openTerminalSearch(activeId);
         }
         return;
       }

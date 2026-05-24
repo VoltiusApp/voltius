@@ -79,7 +79,7 @@ function Pagination({
 
 // ─── Main view ────────────────────────────────────────────────────────────────
 
-export default function AuditLogsView() {
+export default function AuditLogsPage() {
   const auditContext = useSelectedAuditContext();
   const can = usePermissions();
   const canFetchAudit = auditContext?.kind === "local" || !!(auditContext && can("VIEW_AUDIT_LOG", auditContext.teamId));

@@ -26,7 +26,7 @@ import SFTPPage from "@/components/filetransfer/SFTPPage";
 import { SnippetsPage } from "@/components/snippets/SnippetsPage";
 import { PortForwardingPage } from "@/components/port_forwarding/PortForwardingPage";
 import MembersPage from "@/components/members/MembersPage";
-import AuditLogsView from "@/components/logs/AuditLogsView";
+import AuditLogsPage from "@/components/logs/AuditLogsPage";
 import { Icon } from "@iconify/react";
 import { useHostPingPolling } from "@/hooks/useHostPingPolling";
 import { EmptySplitPane } from "@/components/panes/PaneTerminal";
@@ -336,7 +336,7 @@ export default function MainPanel() {
   } else if (activeNav === "members") {
     overlayContent = <MembersPage />;
   } else if (activeNav === "logs") {
-    overlayContent = <AuditLogsView />;
+    overlayContent = <AuditLogsPage />;
   } else {
     const placeholder = PLACEHOLDER_PAGES[activeNav];
     if (placeholder) {
