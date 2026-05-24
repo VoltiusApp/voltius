@@ -121,9 +121,10 @@ interface RecentCardProps {
   snippet: Snippet | undefined;
   layout: "grid" | "list";
   onReplay: () => void;
+  onRemove: () => void;
 }
 
-function RecentCard({ entry, snippet, layout, onReplay }: RecentCardProps) {
+function RecentCard({ entry, snippet, layout, onReplay, onRemove }: RecentCardProps) {
   const isList = layout === "list";
   const label = snippet?.name ?? "Deleted snippet";
   const isDeleted = !snippet;
@@ -142,6 +143,18 @@ function RecentCard({ entry, snippet, layout, onReplay }: RecentCardProps) {
     >
       {entry.execute ? "run" : "insert"}
     </span>
+  );
+
+  const removeButton = (
+    <button
+      title="Remove"
+      onClick={(e) => { e.stopPropagation(); onRemove(); }}
+      className="p-1.5 rounded-lg transition-colors text-[var(--t-text-dim)]"
+      onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
+      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-dim)")}
+    >
+      <Icon icon="lucide:x" width={13} />
+    </button>
   );
 
   const replayButton = (
@@ -188,7 +201,10 @@ function RecentCard({ entry, snippet, layout, onReplay }: RecentCardProps) {
             <span className="text-xs text-[var(--t-text-secondary)] truncate">{host}</span>
           </div>
 
-          <div className="flex justify-end -mt-0.5">{replayButton}</div>
+          <div className="flex justify-between items-center -mt-0.5">
+            {removeButton}
+            {replayButton}
+          </div>
         </div>
       </BaseCard>
     );
@@ -215,8 +231,11 @@ function RecentCard({ entry, snippet, layout, onReplay }: RecentCardProps) {
         </div>
       </div>
 
-      {/* Replay */}
-      {replayButton}
+      {/* Actions */}
+      <div className="flex items-center gap-0.5 shrink-0">
+        {removeButton}
+        {replayButton}
+      </div>
     </BaseCard>
   );
 }
@@ -294,6 +313,7 @@ export function SnippetsPage() {
   const { loading, loadSnippets, createSnippet, updateSnippet, deleteSnippet, trackUsed, pinSnippet } = useSnippetStore();
   const recentEntries = useSnippetRecentStore((s) => s.entries);
   const addRecentEntry = useSnippetRecentStore((s) => s.add);
+  const removeRecentEntry = useSnippetRecentStore((s) => s.remove);
   const snippets = useAllSnippets();
   const { folders, loadFolders, saveFolder, updateFolder, deleteFolder, moveFolder } = useSnippetFolderStore();
   const { sessions, activeSessionId } = useSessionStore();
@@ -985,6 +1005,7 @@ export function SnippetsPage() {
                         layout={layoutMode}
                         snippet={snippets.find((s) => s.id === entry.snippetId)}
                         onReplay={() => void handleReplay(entry)}
+                        onRemove={() => removeRecentEntry(entry.id)}
                       />
                     ))}
                   </div>

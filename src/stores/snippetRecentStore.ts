@@ -15,6 +15,7 @@ export interface RecentSnippetExecution {
 interface SnippetRecentStore {
   entries: RecentSnippetExecution[];
   add: (entry: Omit<RecentSnippetExecution, "id">) => void;
+  remove: (id: string) => void;
   clear: () => void;
 }
 
@@ -37,6 +38,8 @@ export const useSnippetRecentStore = create<SnippetRecentStore>()(
           );
           return { entries: [next, ...deduped].slice(0, MAX) };
         }),
+
+      remove: (id) => set((s) => ({ entries: s.entries.filter((e) => e.id !== id) })),
 
       clear: () => set({ entries: [] }),
     }),
