@@ -488,6 +488,14 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           if (e.type === "keydown") useUIStore.getState().toggleRightPanel("history");
           return false;
         }
+        if (e.ctrlKey && e.shiftKey && (e.key === "s" || e.key === "S")) {
+          if (e.type === "keydown") useUIStore.getState().toggleRightPanel("snippets");
+          return false;
+        }
+        if (e.ctrlKey && e.shiftKey && (e.key === "t" || e.key === "T")) {
+          if (e.type === "keydown") useUIStore.getState().toggleRightPanel("themes");
+          return false;
+        }
         return true;
       });
 

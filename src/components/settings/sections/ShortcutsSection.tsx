@@ -94,14 +94,15 @@ export default function ShortcutsSection() {
 
       const ctrl = e.ctrlKey || e.metaKey;
       const shift = e.shiftKey;
+      const alt = e.altKey;
       const key = e.key;
 
       const existing = shortcuts.find((sc) => {
         if (sc.id === recording) return false;
-        if (sc.key === key && sc.ctrl === ctrl && sc.shift === shift) return true;
+        if (sc.key === key && sc.ctrl === ctrl && sc.shift === shift && (sc.alt ?? false) === alt) return true;
         return (
           getAliases(sc.id)?.some(
-            (a) => a.key === key && a.ctrl === ctrl && a.shift === shift,
+            (a) => a.key === key && a.ctrl === ctrl && a.shift === shift && (a.alt ?? false) === alt,
           ) ?? false
         );
       });
@@ -111,7 +112,7 @@ export default function ShortcutsSection() {
         return;
       }
 
-      setKey(recording, key, ctrl, shift);
+      setKey(recording, key, ctrl, shift, alt);
       setRecording(null);
       setConflict(null);
     };
@@ -127,7 +128,7 @@ export default function ShortcutsSection() {
   const isShortcutModified = (sc: Shortcut): boolean => {
     const def = getDefaultShortcut(sc.id);
     if (!def) return false;
-    return sc.key !== def.defaultKey || sc.ctrl !== def.ctrl || sc.shift !== def.shift;
+    return sc.key !== def.defaultKey || sc.ctrl !== def.ctrl || sc.shift !== def.shift || (sc.alt ?? false) !== def.alt;
   };
 
   return (

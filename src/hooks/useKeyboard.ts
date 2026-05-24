@@ -78,6 +78,18 @@ export function useKeyboard() {
         return;
       }
 
+      if (matchShortcut("snippets", e)) {
+        e.preventDefault();
+        useUIStore.getState().toggleRightPanel("snippets");
+        return;
+      }
+
+      if (matchShortcut("panel-themes", e)) {
+        e.preventDefault();
+        useUIStore.getState().toggleRightPanel("themes");
+        return;
+      }
+
       if (matchShortcut("sidebar", e)) {
         e.preventDefault();
         useUIStore.getState().toggleSidebar();

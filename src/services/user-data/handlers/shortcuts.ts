@@ -6,6 +6,7 @@ interface ShortcutOverride {
   key: string;
   ctrl: boolean;
   shift: boolean;
+  alt: boolean;
 }
 
 export const shortcutsHandler: UserDataHandler = {
@@ -14,14 +15,14 @@ export const shortcutsHandler: UserDataHandler = {
   icon: "lucide:keyboard",
 
   export(): ShortcutOverride[] {
-    return useShortcutStore.getState().shortcuts.map(({ id, key, ctrl, shift }) => ({ id, key, ctrl, shift }));
+    return useShortcutStore.getState().shortcuts.map(({ id, key, ctrl, shift, alt }) => ({ id, key, ctrl, shift, alt: alt ?? false }));
   },
 
   async import(data: unknown): Promise<void> {
     const overrides = data as ShortcutOverride[];
     const store = useShortcutStore.getState();
     for (const o of (overrides ?? [])) {
-      store.setKey(o.id, o.key, o.ctrl, o.shift);
+      store.setKey(o.id, o.key, o.ctrl, o.shift, o.alt ?? false);
     }
   },
 
