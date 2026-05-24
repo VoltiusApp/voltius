@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useAllSnippets } from "@/hooks/useAllSnippets";
 import { useSnippetStore } from "@/stores/snippetStore";
@@ -17,6 +17,7 @@ import {
 } from "@/services/snippetParser";
 import { SnippetVariableModal } from "@/components/terminal/SnippetVariableModal";
 import { PanelShell, PanelHeader, PanelHeaderIconButton } from "@/components/shared/Panel";
+import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
 import { SnippetForm } from "@/components/snippets/SnippetForm";
 import type { Snippet, SnippetFormData } from "@/types";
 import { shouldOpenSnippetTargetsInSplitTab } from "./hostSelection";
@@ -44,6 +45,8 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
   useEffect(() => { void loadSnippets(); }, [loadSnippets]);
 
   const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  useFilterShortcut(searchRef);
   const [pendingInject, setPendingInject] = useState<PendingInject | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -180,6 +183,7 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
                 className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--t-text-dim)]"
               />
               <input
+                ref={searchRef}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Filter snippets..."

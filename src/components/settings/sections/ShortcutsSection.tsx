@@ -7,6 +7,7 @@ import {
   getDefaultShortcut,
   type Shortcut,
 } from "@/stores/shortcutStore";
+import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
 
 const BLOCKED_KEYS = new Set(["Escape", "Tab"]);
 
@@ -52,6 +53,7 @@ export default function ShortcutsSection() {
   const [recording, setRecording] = useState<string | null>(null);
   const [conflict, setConflict] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  useFilterShortcut(searchRef);
 
   const grouped = useMemo(() => {
     const byId = new Map(shortcuts.map((sc) => [sc.id, sc]));

@@ -1,8 +1,24 @@
 import { useEffect, useRef, useState } from "react";
+import type { RefObject } from "react";
 import { Icon } from "@iconify/react";
 import { ToolbarDropdown } from "./ToolbarDropdown";
 import { matchShortcut } from "@/stores/shortcutStore";
 import { getTagColorStyle } from "@/utils/tagColors";
+
+/** Focus a search/filter input when the user presses the `filter` shortcut (Ctrl+F). */
+export function useFilterShortcut(ref: RefObject<HTMLInputElement | null>) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (matchShortcut("filter", e)) {
+        e.preventDefault();
+        ref.current?.focus();
+        ref.current?.select();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [ref]);
+}
 
 export type LayoutMode = "grid" | "list";
 export type SortMode = "name-asc" | "name-desc" | "newest" | "oldest" | "role-asc";
@@ -53,19 +69,7 @@ export function FilterInput({
   shortcutId?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!shortcutId) return;
-    const handler = (e: KeyboardEvent) => {
-      if (matchShortcut(shortcutId, e)) {
-        e.preventDefault();
-        inputRef.current?.focus();
-        inputRef.current?.select();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [shortcutId]);
+  useFilterShortcut(shortcutId ? inputRef : { current: null });
 
   return (
     <div className="relative">

@@ -215,7 +215,7 @@ export function SidePane({
           <div className="ml-auto flex items-center gap-1">
             <NavBtn icon="lucide:arrow-left"  title="Back"    disabled={!histState.canBack}    onClick={goBack} />
             <NavBtn icon="lucide:arrow-right" title="Forward" disabled={!histState.canForward} onClick={goForward} />
-            <FilterInput value={filterQuery} onChange={setFilterQuery} placeholder="Filter…" width={128} />
+            <FilterInput value={filterQuery} onChange={setFilterQuery} placeholder="Filter…" width={128} shortcutId="filter" />
             <button
               ref={viewBtnRef}
               title="View options"

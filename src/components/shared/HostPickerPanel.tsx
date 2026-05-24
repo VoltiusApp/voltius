@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { matchesSearch, compareConnections } from "@/utils/connectionFilter";
 import { ConnectionAvatar } from "./ConnectionAvatar";
 import { ToolbarDropdown } from "./ToolbarDropdown";
-import { SORT_MODE_ICONS } from "./ToolbarViewControls";
+import { SORT_MODE_ICONS, useFilterShortcut } from "./ToolbarViewControls";
 import type { SortMode } from "./ToolbarViewControls";
 import type { Connection } from "@/types";
 
@@ -26,6 +26,8 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly }: Pro
 
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
+  const searchRef = useRef<HTMLInputElement>(null);
+  useFilterShortcut(searchRef);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
   const setHomePendingAction = useUIStore((s) => s.setHomePendingAction);
 
@@ -76,6 +78,7 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly }: Pro
         <div className="flex-1 relative">
           <Icon icon="lucide:filter" width={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--t-text-dim)]" />
           <input
+            ref={searchRef}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Filter hosts..."

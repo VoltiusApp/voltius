@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Toggle } from "@/components/shared/Toggle";
 import { Icon } from "@iconify/react";
 import { usePluginStore } from "@/stores/pluginStore";
@@ -6,6 +6,7 @@ import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useMarketplaceStore } from "@/stores/marketplaceStore";
 import { useUIStore } from "@/stores/uiStore";
 import { BUNDLED_PLUGINS } from "@/plugins/bundled";
+import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
 import { setPluginActive, getLoadedPlugins, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
 import type { PluginManifest, PluginConfigField } from "@/plugins/api";
 
@@ -115,6 +116,8 @@ function InstalledTab() {
   const [uninstalling, setUninstalling] = useState<Set<string>>(new Set());
   const [scanning, setScanning] = useState(false);
   const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  useFilterShortcut(searchRef);
 
   const refreshLoaded = () =>
     setLoadedIds(new Set(getLoadedPlugins().map((m) => m.id)));
@@ -227,6 +230,7 @@ function InstalledTab() {
       <div className="relative flex items-center gap-2">
         <Icon icon="lucide:search" width={14} className="absolute left-3 text-[var(--t-text-dim)] pointer-events-none" />
         <input
+          ref={searchRef}
           type="text"
           placeholder="Filter plugins…"
           value={search}
@@ -390,6 +394,8 @@ function BrowseTab() {
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [showSources, setShowSources] = useState(false);
   const [uninstalling, setUninstalling] = useState<Set<string>>(new Set());
+  const searchRef = useRef<HTMLInputElement>(null);
+  useFilterShortcut(searchRef);
 
   const handleUninstall = async (id: string) => {
     setUninstalling((s) => new Set([...s, id]));
@@ -506,6 +512,7 @@ function BrowseTab() {
           <div className="relative flex-1">
             <Icon icon="lucide:search" width={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--t-text-dim)]" />
             <input
+              ref={searchRef}
               type="text"
               placeholder="Search plugins…"
               value={search}
