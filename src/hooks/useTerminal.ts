@@ -10,6 +10,7 @@ import { localSendInput, localResize, onLocalOutput, onLocalClosed } from "@/ser
 import { serialWrite, onSerialOutput, onSerialClosed } from "@/services/serial";
 import { useThemeStore } from "@/stores/themeStore";
 import { useUIStore } from "@/stores/uiStore";
+import { matchShortcut } from "@/stores/shortcutStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { findLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
@@ -440,11 +441,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           }
           return false;
         }
-        if (e.ctrlKey && e.shiftKey && e.key === "P") {
-          if (e.type === "keydown") useUIStore.getState().setOmniOpen(true);
-          return false;
-        }
-        if (e.key === "F1") {
+        if (matchShortcut("omni", e)) {
           if (e.type === "keydown") useUIStore.getState().setOmniOpen(true);
           return false;
         }
@@ -477,22 +474,22 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           }
           return false;
         }
-        if (e.ctrlKey && !e.shiftKey && (e.key === "f" || e.key === "F")) {
+        if (matchShortcut("terminal-search", e)) {
           if (e.type === "keydown") {
             e.preventDefault();
             getTerminalSearchController(sessionId)?.open();
           }
           return false;
         }
-        if (e.ctrlKey && e.shiftKey && (e.key === "h" || e.key === "H")) {
+        if (matchShortcut("history", e)) {
           if (e.type === "keydown") useUIStore.getState().toggleRightPanel("history");
           return false;
         }
-        if (e.ctrlKey && e.shiftKey && (e.key === "s" || e.key === "S")) {
+        if (matchShortcut("snippets", e)) {
           if (e.type === "keydown") useUIStore.getState().toggleRightPanel("snippets");
           return false;
         }
-        if (e.ctrlKey && e.shiftKey && (e.key === "t" || e.key === "T")) {
+        if (matchShortcut("panel-themes", e)) {
           if (e.type === "keydown") useUIStore.getState().toggleRightPanel("themes");
           return false;
         }

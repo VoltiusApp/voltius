@@ -105,17 +105,22 @@ export const useShortcutStore = create<ShortcutStore>()(
   ),
 );
 
+// Single-char letter keys normalize case so Ctrl+Shift+H matches defaultKey "h"
+function normalizeKey(k: string): string {
+  return k.length === 1 ? k.toLowerCase() : k;
+}
+
 export function matchShortcut(id: string, e: KeyboardEvent): boolean {
   const sc = useShortcutStore.getState().shortcuts.find((s) => s.id === id);
   if (!sc) return false;
   const ctrl = e.ctrlKey || e.metaKey;
 
   // Check primary
-  if (ctrl === sc.ctrl && e.shiftKey === sc.shift && e.altKey === (sc.alt ?? false) && e.key === sc.key) return true;
+  if (ctrl === sc.ctrl && e.shiftKey === sc.shift && e.altKey === (sc.alt ?? false) && normalizeKey(e.key) === normalizeKey(sc.key)) return true;
 
   // Check static aliases
   return ALIASES[id]?.some(
-    (a) => ctrl === a.ctrl && e.shiftKey === a.shift && e.altKey === (a.alt ?? false) && e.key === a.key,
+    (a) => ctrl === a.ctrl && e.shiftKey === a.shift && e.altKey === (a.alt ?? false) && normalizeKey(e.key) === normalizeKey(a.key),
   ) ?? false;
 }
 
