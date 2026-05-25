@@ -238,8 +238,8 @@ export function bundleFromTermius(text: string): ExportBundle {
   // jump, the host whose ssh_config matched is the final target).
   const chainBySshConfigId = new Map<number, number[]>();
   for (const chain of idx.hostChains) {
-    const sshConfigId = chain.foreign_keys?.ssh_config;
-    const hops = chain.foreign_key_arrays?.hosts_chain ?? [];
+    const sshConfigId = chain.foreign_keys?.ssh_config ?? num(chain.decrypted.ssh_config);
+    const hops = (chain.foreign_key_arrays?.hosts_chain ?? []).filter(id => id > 0);
     if (sshConfigId != null && hops.length > 0) {
       chainBySshConfigId.set(sshConfigId, hops);
     }
@@ -248,6 +248,11 @@ export function bundleFromTermius(text: string): ExportBundle {
   // ─── Connections (one per host) ──────────────────────────────────────────
   const connectionsOut: ConnectionExport[] = [];
   const connectionEidByHostId = new Map<number, string>();
+
+  for (const host of idx.hosts.values()) {
+    if (host.status && host.status.toLowerCase() === "deleted") continue;
+    connectionEidByHostId.set(host.termius_id, `tc${connectionEidByHostId.size}`);
+  }
 
   for (const host of idx.hosts.values()) {
     if (host.status && host.status.toLowerCase() === "deleted") continue;
@@ -313,6 +318,7 @@ export function bundleFromTermius(text: string): ExportBundle {
             host: str(hopHost?.decrypted.address) ?? "",
             port: num(hopSettings?.decrypted.port ?? hopHost?.decrypted.port) ?? 22,
             username: str(hopIdentity?.decrypted.username) ?? "",
+            _connection_eid: connectionEidByHostId.get(hopHostId),
             _identity_eid: hopIdentity && bool(hopIdentity.decrypted.is_visible)
               ? identityEidByTermiusId.get(hopIdentity.termius_id)
               : undefined,
@@ -324,8 +330,7 @@ export function bundleFromTermius(text: string): ExportBundle {
     const groupId = host.foreign_keys?.group;
     const folderEid = groupId != null ? folderEidByGroupId.get(groupId) : undefined;
 
-    const eid = `tc${connectionsOut.length}`;
-    connectionEidByHostId.set(host.termius_id, eid);
+    const eid = connectionEidByHostId.get(host.termius_id) ?? `tc${connectionsOut.length}`;
     connectionsOut.push({
       _eid: eid,
       name: label,

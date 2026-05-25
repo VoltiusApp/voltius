@@ -245,9 +245,37 @@ run("emits jump_hosts from host_chains records", () => {
   ]));
 
   const target = bundle.connections.find(c => c.name === "target");
+  const bastion = bundle.connections.find(c => c.name === "bastion");
   assertEqual(target?.jump_hosts?.length, 1);
   assertEqual(target?.jump_hosts?.[0].host, "10.0.0.99");
   assertEqual(target?.jump_hosts?.[0].username, "ubuntu");
+  assertEqual(target?.jump_hosts?.[0]._connection_eid, bastion?._eid);
+});
+
+run("emits jump_hosts from actual Termius host_chains numeric fields", () => {
+  const bundle = bundleFromTermius(snapshot([
+    sshConfig(15442900),
+    sshConfig(45672876),
+    host(15442900, 15442900, "La Plexance", "89.168.41.244"),
+    host(45716684, 45672876, "Serv Maison Jump", "192.168.1.149"),
+    key(500, "k"),
+    identity(700, "ubuntu", { visible: false, keyId: 500 }),
+    bindIdentity(15442900, 700),
+    bindIdentity(45672876, 700),
+    {
+      db_name: "host_chains",
+      termius_id: 45672876,
+      foreign_key_arrays: { hosts_chain: [0, 15442900] },
+      decrypted: { ssh_config: 45672876 },
+    },
+  ]));
+
+  const target = bundle.connections.find(c => c.name === "Serv Maison Jump");
+  const jump = bundle.connections.find(c => c.name === "La Plexance");
+  assertEqual(target?.jump_hosts?.length, 1);
+  assertEqual(target?.jump_hosts?.[0].host, "89.168.41.244");
+  assertEqual(target?.jump_hosts?.[0].username, "ubuntu");
+  assertEqual(target?.jump_hosts?.[0]._connection_eid, jump?._eid);
 });
 
 // ─── Port forwarding ──────────────────────────────────────────────────────────
