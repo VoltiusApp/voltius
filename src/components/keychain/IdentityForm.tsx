@@ -32,6 +32,7 @@ import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import type { AuthType, Connection, Identity, IdentityFormData } from "@/types";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
+import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
 
 // ─────────────────────────────────────────────────────────────────
 // Dropdown sub-components (used by KeySelector)
@@ -70,10 +71,16 @@ function KeySelector({
   vaultId: string;
 }) {
   const { keys: personalKeys, teamKeys } = useKeyStore();
+  const teams = useTeamStore((s) => s.teams);
+  const teamVaultIds = useMemo(() => new Set(teams.map((team) => team.id)), [teams]);
   const effectiveVaultId = vaultId || "personal";
-  const keys = effectiveVaultId === "personal"
-    ? personalKeys.filter((k) => !k.vault_id || k.vault_id === "personal")
-    : (teamKeys[effectiveVaultId] ?? []);
+  const keys = useMemo(() => selectVaultScopedItems({
+    vaultId: effectiveVaultId,
+    localItems: personalKeys,
+    teamItems: teamKeys,
+    teamVaultIds,
+    resolveVaultId: resolveVaultIdForSave,
+  }), [effectiveVaultId, personalKeys, teamKeys, teamVaultIds]);
   const [open, setOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState<{ top?: number; bottom?: number; left: number; width: number }>({ left: 0, width: 0 });
   const wrapperRef = useRef<HTMLDivElement>(null);

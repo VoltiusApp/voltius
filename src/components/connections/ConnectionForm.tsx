@@ -33,6 +33,7 @@ import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { Toggle } from "@/components/shared/Toggle";
 import FolderSelector from "@/components/shared/FolderSelector";
+import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
 import { CONNECTION_ICON_OPTIONS, getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, normalizeDistro } from "@/utils/icons";
 import {
   PanelShell,
@@ -111,16 +112,26 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
   const { identities, teamIdentities, loadIdentities } = useIdentityStore();
   const { keys, teamKeys, loadKeys } = useKeyStore();
+  const teams = useTeamStore((s) => s.teams);
+  const teamVaultIds = useMemo(() => new Set(teams.map((team) => team.id)), [teams]);
   const relevantIdentities = useMemo(() => {
-    if (vaultId === "personal") return identities;
-    const teamId = resolveVaultIdForSave(vaultId);
-    return teamIdentities[teamId] ?? [];
-  }, [vaultId, identities, teamIdentities]);
+    return selectVaultScopedItems({
+      vaultId,
+      localItems: identities,
+      teamItems: teamIdentities,
+      teamVaultIds,
+      resolveVaultId: resolveVaultIdForSave,
+    });
+  }, [vaultId, identities, teamIdentities, teamVaultIds]);
   const relevantKeys = useMemo(() => {
-    if (vaultId === "personal") return keys;
-    const teamId = resolveVaultIdForSave(vaultId);
-    return teamKeys[teamId] ?? [];
-  }, [vaultId, keys, teamKeys]);
+    return selectVaultScopedItems({
+      vaultId,
+      localItems: keys,
+      teamItems: teamKeys,
+      teamVaultIds,
+      resolveVaultId: resolveVaultIdForSave,
+    });
+  }, [vaultId, keys, teamKeys, teamVaultIds]);
   useEffect(() => {
     if (prevVaultIdRef.current !== vaultId) {
       prevVaultIdRef.current = vaultId;
