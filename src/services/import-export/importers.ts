@@ -57,9 +57,9 @@ export const IMPORTERS: Importer[] = [
     label: "Termius",
     icon: "lucide:terminal",
     sub: "Local install · auto-extract",
-    fileAccept: ".json,.txt",
-    hint: "Reads and decrypts the local Termius database directly. Termius must be installed and logged in on this machine. The text box below is only needed if you have a pre-extracted JSON dump.",
-    placeholder: 'Or paste a pre-extracted Termius JSON dump here…\n\n["{\\"host\\":...}", "{\\"username\\":...}", …]',
+    fileAccept: ".json",
+    hint: "Reads and decrypts the local Termius database directly. Termius must be installed and logged in on this machine. Faithful import requires live extraction because legacy dumps do not include record metadata.",
+    placeholder: "Use Auto Extract for Termius. Pasted legacy Termius dumps are not supported for faithful import.",
     parse: bundleFromTermius,
     autoExtract: extractTermiusBundle,
   },
@@ -72,5 +72,5 @@ export function parseImport(text: string): ExportBundle | "encrypted" {
   if (detected === "csv") return connectionsOnlyBundle(connectionsFromCSV(text));
   if (detected === "mobaxterm") return connectionsOnlyBundle(connectionsFromMobaXterm(text));
   if (detected === "termius") return bundleFromTermius(text);
-  throw new Error("Could not detect format. Supported: Voltius JSON, CSV, MobaXterm.ini / .mxtsessions, Termius dump.");
+  throw new Error("Could not detect format. Supported: Voltius JSON, CSV, MobaXterm.ini / .mxtsessions, or live Termius extraction.");
 }

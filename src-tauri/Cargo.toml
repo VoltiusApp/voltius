@@ -41,6 +41,7 @@ x25519-dalek = { version = "2", features = ["static_secrets"] }
 keyring = { version = "3", features = ["linux-native", "windows-native", "apple-native"] }
 base64 = "0.22"
 crypto_secretbox = "0.1"
+rusty-leveldb = "4"
 portable-pty = "0.8"
 ssh-key = { version = "0.6", features = ["dsa", "ed25519", "p256", "p384", "p521", "rsa", "encryption"] }
 rsa = { version = "0.9", features = ["getrandom"] }

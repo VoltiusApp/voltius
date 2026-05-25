@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { save as dialogSave } from "@tauri-apps/plugin-dialog";
 import { Icon } from "@iconify/react";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import { useConnectionStore } from "@/stores/connectionStore";
@@ -217,6 +218,52 @@ export function ImportTab() {
           <span className="text-sm flex-1" style={{ color: "var(--t-text-primary)" }}>
             Read and decrypt the local {source.label} database
           </span>
+          {selectedSource === "termius" && (
+            <>
+              <button
+                onClick={async () => {
+                  const target = await dialogSave({
+                    defaultPath: "voltius-termius-snapshot.json",
+                    filters: [{ name: "JSON", extensions: ["json"] }],
+                  }).catch(() => null);
+                  if (!target) return;
+                  try {
+                    const written = await invoke<string>("termius_extract_debug", { path: target });
+                    setImportResult(`Diagnostic snapshot saved to ${written}`);
+                  } catch (err) {
+                    setImportResult(`Error: ${String(err)}`);
+                  }
+                }}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium shrink-0 transition-opacity hover:opacity-80"
+                style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-primary)", border: "1px solid var(--t-border-hover)" }}
+                title="Save a redacted diagnostic snapshot for debugging"
+              >
+                <Icon icon="lucide:bug" width={12} />
+                Save snapshot
+              </button>
+              <button
+                onClick={async () => {
+                  const target = await dialogSave({
+                    defaultPath: "voltius-termius-leveldb-keys.json",
+                    filters: [{ name: "JSON", extensions: ["json"] }],
+                  }).catch(() => null);
+                  if (!target) return;
+                  try {
+                    const written = await invoke<string>("termius_extract_leveldb_keys", { path: target });
+                    setImportResult(`Leveldb key dump saved to ${written}`);
+                  } catch (err) {
+                    setImportResult(`Error: ${String(err)}`);
+                  }
+                }}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium shrink-0 transition-opacity hover:opacity-80"
+                style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-primary)", border: "1px solid var(--t-border-hover)" }}
+                title="Dump the raw leveldb key/value structure (no plaintext secrets)"
+              >
+                <Icon icon="lucide:database" width={12} />
+                Dump keys
+              </button>
+            </>
+          )}
           <button
             onClick={handleAutoExtract}
             disabled={extracting}
