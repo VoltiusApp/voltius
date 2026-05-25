@@ -44,6 +44,7 @@ import type { Snippet, Folder, SnippetFormData, Connection, VaultOption } from "
 import type { SortMode } from "@/components/shared/ToolbarViewControls";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 import { useSnippetRecentStore, type RecentSnippetExecution, type RecentTarget } from "@/stores/snippetRecentStore";
+import { selectRecentSnippetEntries } from "@/utils/snippetRecent";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -465,6 +466,10 @@ export function SnippetsPage() {
   const favorites = useMemo(
     () => (!hasSearch && !activeFolderId) ? filtered.filter((s) => isPinnedFn(s, "snippet")) : [],
     [filtered, hasSearch, activeFolderId, isPinnedFn],
+  );
+  const scopedRecentEntries = useMemo(
+    () => selectRecentSnippetEntries(recentEntries, filtered),
+    [recentEntries, filtered],
   );
 
   const folderCounts = useMemo(() => {
@@ -1005,7 +1010,7 @@ export function SnippetsPage() {
               )}
 
               {/* ── Recent executions (root only) ── */}
-              {!hasSearch && !activeFolderId && recentEntries.length > 0 && (
+              {!hasSearch && !activeFolderId && scopedRecentEntries.length > 0 && (
                 <div
                   className="rounded-2xl p-3"
                   style={{ border: "1px solid var(--t-border)" }}
@@ -1028,7 +1033,7 @@ export function SnippetsPage() {
                     className={layoutMode === "grid" ? "grid gap-3" : "flex flex-col gap-1.5"}
                     style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" } : undefined}
                   >
-                    {(showAllRecent ? recentEntries : recentEntries.slice(0, RECENT_PREVIEW_COUNT)).map((entry) => (
+                    {(showAllRecent ? scopedRecentEntries : scopedRecentEntries.slice(0, RECENT_PREVIEW_COUNT)).map((entry) => (
                       <RecentCard
                         key={entry.id}
                         entry={entry}
@@ -1039,14 +1044,14 @@ export function SnippetsPage() {
                       />
                     ))}
                   </div>
-                  {recentEntries.length > RECENT_PREVIEW_COUNT && (
+                  {scopedRecentEntries.length > RECENT_PREVIEW_COUNT && (
                     <button
                       onClick={() => setShowAllRecent((v) => !v)}
                       className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors"
                       style={{ background: "var(--t-bg-elevated)" }}
                     >
                       <Icon icon={showAllRecent ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} />
-                      {showAllRecent ? "Show less" : `Show ${recentEntries.length - RECENT_PREVIEW_COUNT} more`}
+                      {showAllRecent ? "Show less" : `Show ${scopedRecentEntries.length - RECENT_PREVIEW_COUNT} more`}
                     </button>
                   )}
                 </div>
