@@ -50,6 +50,7 @@ export interface ConnectionExport extends ConnectionPassthrough {
   _eid?: string;        // → referenced by PortForwardingRuleExport._connection_eids
   password?: string;
   private_key?: string;
+  _key_eid?: string;      // → KeyExport._eid in the same bundle
   _identity_eid?: string; // → IdentityExport._eid in the same bundle
   _folder_eid?: string;
   jump_hosts?: JumpHostExport[];
@@ -189,6 +190,7 @@ export function detectFormat(text: string): "json" | "csv" | "mobaxterm" | "term
   const t = text.trim();
   if (t.startsWith("{")) {
     if (/"type"\s*:\s*"voltius-encrypted"/.test(t.slice(0, 120))) return "voltius-encrypted";
+    if (/"records"\s*:/.test(t.slice(0, 300)) && /"version"\s*:\s*[12]/.test(t.slice(0, 300))) return "termius";
     return "json";
   }
   if (t.startsWith("[") && /#\d+#/.test(t)) return "mobaxterm";

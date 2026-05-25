@@ -120,7 +120,7 @@ export const connectionsHandler: DataTypeHandler = {
       }
       try {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { _eid, password, private_key, _identity_eid, _folder_eid, tags, jump_hosts, ...passthrough } = conn;
+        const { _eid, password, private_key, _identity_eid, _key_eid, _folder_eid, tags, jump_hosts, ...passthrough } = conn;
         const resolvedJumpHosts: JumpHost[] | undefined = jump_hosts?.map(jh => ({
           id: crypto.randomUUID(),
           connection_id: jh._connection_eid ? (ctx.connectionEidMap.get(jh._connection_eid) ?? "") : "",
@@ -135,6 +135,7 @@ export const connectionsHandler: DataTypeHandler = {
           ...passthrough,
           tags: ctx.tag ? [...tags, ctx.tag] : tags,
           identity_id: _identity_eid ? ctx.identityEidMap.get(_identity_eid) : undefined,
+          key_id: _key_eid ? ctx.keyEidMap.get(_key_eid) : undefined,
           folder_id: _folder_eid ? ctx.folderEidMap.get(_folder_eid) : undefined,
           vault_id: ctx.vault_id,
           jump_hosts: resolvedJumpHosts?.length ? resolvedJumpHosts : undefined,
