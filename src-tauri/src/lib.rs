@@ -310,6 +310,7 @@ pub fn run() {
             commands::http::http_sse_start,
             commands::http::http_sse_stop,
             commands::fs::read_mobaxterm_config,
+            commands::termius::termius_extract,
             commands::fs::fs_home_dir,
             commands::fs::fs_list_dir,
             commands::fs::fs_read_text_home,

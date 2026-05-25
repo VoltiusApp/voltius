@@ -2,6 +2,7 @@ import { fromJSON, detectFormat } from "./formats";
 import type { ConnectionExport, ExportBundle } from "./formats";
 import { connectionsFromCSV } from "./parsers/csv";
 import { connectionsFromMobaXterm } from "./parsers/mobaxterm";
+import { bundleFromTermius, extractTermiusBundle } from "./parsers/termius";
 
 export interface Importer {
   key: string;
@@ -12,6 +13,8 @@ export interface Importer {
   hint?: string;
   placeholder: string;
   parse(text: string): ExportBundle;
+  /** Optional: one-step extraction from a locally-installed source app. */
+  autoExtract?(): Promise<ExportBundle>;
 }
 
 function connectionsOnlyBundle(connections: ConnectionExport[]): ExportBundle {
@@ -49,6 +52,17 @@ export const IMPORTERS: Importer[] = [
     placeholder: "Drop MobaXterm.ini here, or paste its contents…",
     parse: (text) => connectionsOnlyBundle(connectionsFromMobaXterm(text)),
   },
+  {
+    key: "termius",
+    label: "Termius",
+    icon: "lucide:terminal",
+    sub: "Local install · auto-extract",
+    fileAccept: ".json,.txt",
+    hint: "Reads and decrypts the local Termius database directly. Termius must be installed and logged in on this machine. The text box below is only needed if you have a pre-extracted JSON dump.",
+    placeholder: 'Or paste a pre-extracted Termius JSON dump here…\n\n["{\\"host\\":...}", "{\\"username\\":...}", …]',
+    parse: bundleFromTermius,
+    autoExtract: extractTermiusBundle,
+  },
 ];
 
 export function parseImport(text: string): ExportBundle | "encrypted" {
@@ -57,5 +71,6 @@ export function parseImport(text: string): ExportBundle | "encrypted" {
   if (detected === "json") return fromJSON(text);
   if (detected === "csv") return connectionsOnlyBundle(connectionsFromCSV(text));
   if (detected === "mobaxterm") return connectionsOnlyBundle(connectionsFromMobaXterm(text));
-  throw new Error("Could not detect format. Supported: Voltius JSON, CSV, MobaXterm.ini / .mxtsessions.");
+  if (detected === "termius") return bundleFromTermius(text);
+  throw new Error("Could not detect format. Supported: Voltius JSON, CSV, MobaXterm.ini / .mxtsessions, Termius dump.");
 }

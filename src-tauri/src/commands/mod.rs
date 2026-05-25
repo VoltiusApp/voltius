@@ -24,6 +24,7 @@ pub mod ssh;
 pub mod sync;
 pub mod sysinfo;
 pub mod team_crypto;
+pub mod termius;
 pub mod vault;
 pub mod win_proc;
 

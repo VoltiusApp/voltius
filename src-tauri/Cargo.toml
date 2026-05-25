@@ -40,6 +40,7 @@ rand = "0.8"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
 keyring = { version = "3", features = ["linux-native", "windows-native", "apple-native"] }
 base64 = "0.22"
+crypto_secretbox = "0.1"
 portable-pty = "0.8"
 ssh-key = { version = "0.6", features = ["dsa", "ed25519", "p256", "p384", "p521", "rsa", "encryption"] }
 rsa = { version = "0.9", features = ["getrandom"] }
@@ -52,3 +53,6 @@ serialport = { version = "4", default-features = false }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security_Credentials"] }

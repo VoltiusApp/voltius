@@ -185,13 +185,16 @@ export async function decryptText(text: string, password: string): Promise<strin
 
 // ─── Format detection ──────────────────────────────────────────────────────────
 
-export function detectFormat(text: string): "json" | "csv" | "mobaxterm" | "voltius-encrypted" | null {
+export function detectFormat(text: string): "json" | "csv" | "mobaxterm" | "termius" | "voltius-encrypted" | null {
   const t = text.trim();
   if (t.startsWith("{")) {
     if (/"type"\s*:\s*"voltius-encrypted"/.test(t.slice(0, 120))) return "voltius-encrypted";
     return "json";
   }
   if (t.startsWith("[") && /#\d+#/.test(t)) return "mobaxterm";
+  // Termius dumps are JSON arrays of strings; each string is an escaped JSON object
+  // containing Termius-specific field names like `connection_type` / `user_name`.
+  if (t.startsWith("[") && /\\"(?:connection_type|user_name)\\"/.test(t)) return "termius";
   if (t.startsWith("[")) return "json";
   const firstLine = t.split("\n")[0].toLowerCase();
   if (firstLine.includes("host") || firstLine.includes("username") || firstLine.includes("user")) return "csv";

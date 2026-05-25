@@ -75,7 +75,7 @@ function KeySelector({
     ? personalKeys.filter((k) => !k.vault_id || k.vault_id === "personal")
     : (teamKeys[effectiveVaultId] ?? []);
   const [open, setOpen] = useState(false);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
+  const [dropdownPos, setDropdownPos] = useState<{ top?: number; bottom?: number; left: number; width: number }>({ left: 0, width: 0 });
   const wrapperRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const isInline = value === "__inline__";
@@ -84,7 +84,13 @@ function KeySelector({
   const handleToggle = () => {
     if (!open && buttonRef.current) {
       const r = buttonRef.current.getBoundingClientRect();
-      setDropdownPos({ top: r.bottom + 4, left: r.left, width: r.width });
+      const estimatedHeight = 12 + 2 * 33 + (keys.length > 0 ? 9 + keys.length * 33 : 0);
+      const spaceBelow = window.innerHeight - r.bottom;
+      if (spaceBelow < estimatedHeight) {
+        setDropdownPos({ bottom: window.innerHeight - r.top + 4, left: r.left, width: r.width });
+      } else {
+        setDropdownPos({ top: r.bottom + 4, left: r.left, width: r.width });
+      }
     }
     setOpen((o) => !o);
   };
@@ -127,6 +133,7 @@ function KeySelector({
           className="p-1.5 rounded-xl fixed z-[9999] bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)]"
           style={{
             top: dropdownPos.top,
+            bottom: dropdownPos.bottom,
             left: dropdownPos.left,
             width: dropdownPos.width,
             boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
