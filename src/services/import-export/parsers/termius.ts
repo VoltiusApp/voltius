@@ -209,18 +209,39 @@ export function bundleFromTermius(text: string): ExportBundle {
   // ─── Identities (only visible ones become Voltius Identity rows) ─────────
   const identitiesOut: IdentityExport[] = [];
   const identityEidByTermiusId = new Map<number, string>();
-  for (const identity of idx.sshIdentities.values()) {
-    if (!bool(identity.decrypted.is_visible)) continue; // invisible identities are inlined into connections
-    const username = str(identity.decrypted.username) ?? "";
-    if (!username) continue;
+  const pushIdentity = (termiusId: number, identity: Omit<IdentityExport, "_eid" | "tags"> & { tags?: string[] }) => {
+    if (identityEidByTermiusId.has(termiusId)) return;
     const eid = `ti${identitiesOut.length}`;
-    identityEidByTermiusId.set(identity.termius_id, eid);
-    const keyId = identity.foreign_keys?.ssh_key;
+    identityEidByTermiusId.set(termiusId, eid);
     identitiesOut.push({
       _eid: eid,
+      tags: ["termius"],
+      ...identity,
+    });
+  };
+
+  for (const auth of idx.sshKeys.values()) {
+    if (!bool(auth.decrypted.is_visible)) continue;
+    const username = str(auth.decrypted.username) ?? "";
+    const password = str(auth.decrypted.password);
+    if (!username || !password) continue;
+    pushIdentity(auth.termius_id, {
+      name: str(auth.decrypted.label) ?? username,
+      username,
+      password,
+    });
+  }
+
+  for (const identity of idx.sshIdentities.values()) {
+    if (!bool(identity.decrypted.is_visible)) continue; // invisible identities are inlined into connections
+    const linkedAuth = identity.foreign_keys?.ssh_key != null ? idx.sshKeys.get(identity.foreign_keys.ssh_key) : undefined;
+    const username = str(identity.decrypted.username) ?? str(linkedAuth?.decrypted.username) ?? "";
+    if (!username) continue;
+    const keyId = linkedAuth && str(linkedAuth.decrypted.private_key) ? linkedAuth.termius_id : undefined;
+    pushIdentity(identity.termius_id, {
       name: str(identity.decrypted.label) ?? username,
       username,
-      tags: ["termius"],
+      password: str(identity.decrypted.password) ?? str(linkedAuth?.decrypted.password),
       _key_eid: keyId != null ? keyEidByTermiusId.get(keyId) : undefined,
     });
   }
@@ -283,14 +304,14 @@ export function bundleFromTermius(text: string): ExportBundle {
       const identity = identityBySshConfigId.get(sshConfigId);
       if (identity) {
         const idBody = identity.decrypted;
-        const idUsername = str(idBody.username) ?? "";
-        const idPassword = str(idBody.password);
-        const isVisible = bool(idBody.is_visible) === true;
         const keyTermiusId = identity.foreign_keys?.ssh_key;
         const linkedKey = keyTermiusId != null ? idx.sshKeys.get(keyTermiusId) : undefined;
+        const idUsername = str(idBody.username) ?? str(linkedKey?.decrypted.username) ?? "";
+        const idPassword = str(idBody.password) ?? str(linkedKey?.decrypted.password);
+        const isVisible = bool(idBody.is_visible) === true;
 
         username = idUsername;
-        if (linkedKey) {
+        if (linkedKey && str(linkedKey.decrypted.private_key)) {
           authType = "key";
           privateKey = str(linkedKey.decrypted.private_key);
           keyEid = keyEidByTermiusId.get(linkedKey.termius_id);

@@ -1,4 +1,6 @@
 import type { Identity } from "@/types";
+import { getSecret, storeSecret } from "@/services/vault";
+import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, IdentityExport } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "../context";
@@ -48,14 +50,15 @@ export const identitiesHandler: DataTypeHandler = {
     // Here we just export what we received.
     ctx.identityEidMap.clear();
     selected.forEach((i, idx) => ctx.identityEidMap.set(i.id, `i${idx}`));
-    bundle.identities = selected.map((i): IdentityExport => ({
+    bundle.identities = await Promise.all(selected.map(async (i): Promise<IdentityExport> => ({
       _eid: ctx.identityEidMap.get(i.id),
       name: i.name,
       username: i.username,
+      password: await getSecret(`identity:${i.id}:password`).catch(() => null) ?? undefined,
       tags: i.tags,
       _key_eid: i.key_id ? ctx.keyEidMap.get(i.key_id) : undefined,
       _folder_eid: i.folder_id ? ctx.folderEidMap.get(i.folder_id) : undefined,
-    }));
+    })));
     void connIdentityIds; // cascade resolved in registry orchestrator
   },
 
@@ -72,6 +75,11 @@ export const identitiesHandler: DataTypeHandler = {
           vault_id: ctx.vault_id,
         });
         if (identity._eid) ctx.identityEidMap.set(identity._eid, saved.id);
+        if (identity.password) {
+          const localKey = `identity:${saved.id}:password`;
+          await storeSecret(localKey, identity.password);
+          await saveTeamVaultSecretForVault(ctx.vault_id, localKey, identity.password).catch(() => {});
+        }
         imported++;
       } catch { errors++; }
     }

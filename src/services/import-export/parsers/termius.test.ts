@@ -64,6 +64,19 @@ function key(id: number, label: string): TermiusRecord {
   };
 }
 
+function passwordCredential(id: number, label: string, username: string, password: string, visible = true): TermiusRecord {
+  return {
+    db_name: "keys",
+    termius_id: id,
+    decrypted: {
+      is_visible: visible,
+      label,
+      username,
+      password,
+    },
+  };
+}
+
 function identity(id: number, username: string, opts: { visible?: boolean; password?: string; keyId?: number; label?: string } = {}): TermiusRecord {
   const fk: Record<string, number> = {};
   if (opts.keyId != null) fk.ssh_key = opts.keyId;
@@ -183,6 +196,17 @@ run("creates a Voltius Identity row for visible password identities", () => {
   assertEqual(conn?.auth_type, "password");
   assertEqual(conn?.password, "secret");
   assertEqual(conn?._identity_eid, bundle.identities[0]?._eid);
+});
+
+run("creates Voltius Identity rows from visible Termius password credentials", () => {
+  const bundle = bundleFromTermius(snapshot([
+    passwordCredential(7308652, "root", "root", "secret"),
+  ]));
+
+  assertEqual(bundle.identities.length, 1);
+  assertEqual(bundle.identities[0]?.name, "root");
+  assertEqual(bundle.identities[0]?.username, "root");
+  assertEqual(bundle.identities[0]?.password, "secret");
 });
 
 run("falls back to password when identity has no linked key", () => {
