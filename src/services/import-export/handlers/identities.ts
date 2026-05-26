@@ -64,7 +64,19 @@ export const identitiesHandler: DataTypeHandler = {
 
   async importItems(bundle: ExportBundle, ctx: ImportCtx) {
     let imported = 0; let errors = 0;
+    const existingNames = new Set(
+      ctx.existingIdentities
+        .filter(i => !i.deleted_at && (i.vault_id ?? "personal") === ctx.vault_id)
+        .map(i => i.name),
+    );
     for (const identity of bundle.identities) {
+      if (ctx.skipDupes && identity.name && existingNames.has(identity.name)) {
+        if (identity._eid) {
+          const existing = ctx.existingIdentities.find(i => !i.deleted_at && (i.vault_id ?? "personal") === ctx.vault_id && i.name === identity.name);
+          if (existing) ctx.identityEidMap.set(identity._eid, existing.id);
+        }
+        continue;
+      }
       try {
         const saved = await ctx.stores.saveIdentity({
           name: identity.name,

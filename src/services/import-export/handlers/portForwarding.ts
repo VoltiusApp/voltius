@@ -49,7 +49,13 @@ export const portForwardingHandler: DataTypeHandler = {
 
   async importItems(bundle: ExportBundle, ctx: ImportCtx) {
     let imported = 0; let errors = 0;
+    const existingNames = new Set(
+      ctx.existingPfRules
+        .filter(r => !r.deleted_at && (r.vault_id ?? "personal") === ctx.vault_id)
+        .map(r => r.name),
+    );
     for (const rule of bundle.portForwardingRules) {
+      if (ctx.skipDupes && existingNames.has(rule.name)) continue;
       try {
         await ctx.stores.createPfRule({
           name: rule.name,

@@ -56,7 +56,19 @@ export const keysHandler: DataTypeHandler = {
 
   async importItems(bundle: ExportBundle, ctx: ImportCtx) {
     let imported = 0; let errors = 0;
+    const existingNames = new Set(
+      ctx.existingKeys
+        .filter(k => !k.deleted_at && (k.vault_id ?? "personal") === ctx.vault_id)
+        .map(k => k.name),
+    );
     for (const key of bundle.keys) {
+      if (ctx.skipDupes && key.name && existingNames.has(key.name)) {
+        if (key._eid) {
+          const existing = ctx.existingKeys.find(k => !k.deleted_at && (k.vault_id ?? "personal") === ctx.vault_id && k.name === key.name);
+          if (existing) ctx.keyEidMap.set(key._eid, existing.id);
+        }
+        continue;
+      }
       try {
         const saved = await ctx.stores.saveKey({
           name: key.name, key_type: key.key_type,

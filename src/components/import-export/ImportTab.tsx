@@ -2,13 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
-import { useConnectionStore } from "@/stores/connectionStore";
 import { decryptText, fromJSON } from "@/services/import-export/formats";
 import type { ConnectionExport, ExportBundle } from "@/services/import-export/formats";
 import { runImport, reloadAll } from "@/services/import-export/registry";
 import { existingConnectionsForVault } from "@/services/import-export/context";
 import { IMPORTERS, parseImport } from "@/services/import-export/importers";
-import { useImportStores, useReloadFns } from "./useStores";
+import { useImportStores, useReloadFns, useStoreSlices } from "./useStores";
 import { ActionBtn, Checkbox, VaultChipSelect } from "./shared";
 import { FileInputArea } from "./FileInputArea";
 
@@ -17,10 +16,11 @@ type ImportStatus =
   | { type: "parsing" }
   | { type: "error"; message: string }
   | { type: "needs-password" }
-  | { type: "ready"; bundle: ExportBundle; connections: ConnectionExport[] };
+  | { type: "ready"; bundle: ExportBundle; connections: ConnectionExport[]; skippedKeys: number; skippedIdentities: number; skippedSnippets: number; skippedPfRules: number };
 
 export function ImportTab() {
-  const { connections: existingConnections } = useConnectionStore();
+  const storeSlices = useStoreSlices();
+  const { connections: existingConnections } = storeSlices;
   const importStores = useImportStores();
   const reloaders = useReloadFns();
   const defaultVaultId = useDefaultVaultId();
@@ -41,13 +41,37 @@ export function ImportTab() {
 
   const applyBundle = (bundle: ExportBundle) => {
     const targetVaultSaveIds = targetVaultIds.map(resolveVaultIdForSave);
-    const existingSets = targetVaultSaveIds.map((vaultId) => new Set(
+    const existingConnSets = targetVaultSaveIds.map((vaultId) => new Set(
       existingConnectionsForVault(existingConnections, vaultId).map(c => `${c.host}:${c.port}:${c.username}`),
     ));
+    const existingKeySets = targetVaultSaveIds.map(vId => new Set(
+      storeSlices.keys.filter(k => !k.deleted_at && (k.vault_id ?? "personal") === vId).map(k => k.name),
+    ));
+    const existingIdentitySets = targetVaultSaveIds.map(vId => new Set(
+      storeSlices.identities.filter(i => !i.deleted_at && (i.vault_id ?? "personal") === vId).map(i => i.name),
+    ));
+    const existingSnippetSets = targetVaultSaveIds.map(vId => new Set(
+      storeSlices.snippets.filter(s => !s.deleted_at && (s.vault_id ?? "personal") === vId).map(s => s.name),
+    ));
+    const existingPfSets = targetVaultSaveIds.map(vId => new Set(
+      storeSlices.pfRules.filter(r => !r.deleted_at && (r.vault_id ?? "personal") === vId).map(r => r.name),
+    ));
     const connections = skipDupes
-      ? bundle.connections.filter(c => existingSets.some((existingSet) => !existingSet.has(`${c.host}:${c.port}:${c.username}`)))
+      ? bundle.connections.filter(c => existingConnSets.some((s) => !s.has(`${c.host}:${c.port}:${c.username}`)))
       : bundle.connections;
-    setStatus({ type: "ready", bundle, connections });
+    const skippedKeys = skipDupes
+      ? bundle.keys.filter(k => k.name && existingKeySets.every(s => s.has(k.name!))).length
+      : 0;
+    const skippedIdentities = skipDupes
+      ? bundle.identities.filter(i => i.name && existingIdentitySets.every(s => s.has(i.name!))).length
+      : 0;
+    const skippedSnippets = skipDupes
+      ? bundle.snippets.filter(s => existingSnippetSets.every(es => es.has(s.name))).length
+      : 0;
+    const skippedPfRules = skipDupes
+      ? bundle.portForwardingRules.filter(r => existingPfSets.every(s => s.has(r.name))).length
+      : 0;
+    setStatus({ type: "ready", bundle, connections, skippedKeys, skippedIdentities, skippedSnippets, skippedPfRules });
   };
 
   const parse = useCallback((raw: string) => {
@@ -66,7 +90,7 @@ export function ImportTab() {
       setStatus({ type: "error", message: String(err) });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [existingConnections, skipDupes, targetVaultIds]);
+  }, [existingConnections, storeSlices.keys, storeSlices.identities, storeSlices.snippets, storeSlices.pfRules, skipDupes, targetVaultIds]);
 
   useEffect(() => { parse(text); }, [text, skipDupes, parse]);
 
@@ -92,7 +116,7 @@ export function ImportTab() {
       setExtracting(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, existingConnections, skipDupes, targetVaultIds]);
+  }, [source, existingConnections, storeSlices.keys, storeSlices.identities, storeSlices.snippets, storeSlices.pfRules, skipDupes, targetVaultIds]);
 
   const handleDecrypt = useCallback(async () => {
     if (!decryptPassword) return;
@@ -105,7 +129,7 @@ export function ImportTab() {
       setStatus({ type: "error", message: String(err) });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [decryptPassword, text, existingConnections, skipDupes, targetVaultIds]);
+  }, [decryptPassword, text, existingConnections, storeSlices.keys, storeSlices.identities, storeSlices.snippets, storeSlices.pfRules, skipDupes, targetVaultIds]);
 
   const handleImport = async () => {
     if (status.type !== "ready") return;
@@ -120,6 +144,10 @@ export function ImportTab() {
           tag: addTag.trim(),
           skipDupes,
           existingConnections,
+          existingKeys: storeSlices.keys,
+          existingIdentities: storeSlices.identities,
+          existingSnippets: storeSlices.snippets,
+          existingPfRules: storeSlices.pfRules,
           folderEidMap: new Map(),
           snippetFolderEidMap: new Map(),
           keyEidMap: new Map(),
@@ -147,11 +175,11 @@ export function ImportTab() {
   const readyStatus = status.type === "ready" ? status : null;
   const itemsPerVault = readyStatus
     ? readyStatus.connections.length
-      + readyStatus.bundle.identities.length
-      + readyStatus.bundle.keys.length
+      + (readyStatus.bundle.identities.length - readyStatus.skippedIdentities)
+      + (readyStatus.bundle.keys.length - readyStatus.skippedKeys)
       + readyStatus.bundle.folders.length
-      + readyStatus.bundle.snippets.length
-      + readyStatus.bundle.portForwardingRules.length
+      + (readyStatus.bundle.snippets.length - readyStatus.skippedSnippets)
+      + (readyStatus.bundle.portForwardingRules.length - readyStatus.skippedPfRules)
     : 0;
   const totalToImport = itemsPerVault * targetVaultIds.length;
 
@@ -274,19 +302,32 @@ export function ImportTab() {
           <div className="flex items-center gap-2 text-sm text-[var(--t-text-primary)]">
             <Icon icon="lucide:check-circle" width={15} className="text-[var(--t-status-ok)]" />
             <span>
-              Found{" "}
-              {[
-                status.connections.length > 0 && `${status.connections.length} connection${status.connections.length !== 1 ? "s" : ""}`,
-                status.bundle.identities.length > 0 && `${status.bundle.identities.length} identit${status.bundle.identities.length !== 1 ? "ies" : "y"}`,
-                status.bundle.keys.length > 0 && `${status.bundle.keys.length} key${status.bundle.keys.length !== 1 ? "s" : ""}`,
-                status.bundle.snippets.length > 0 && `${status.bundle.snippets.length} snippet${status.bundle.snippets.length !== 1 ? "s" : ""}`,
-                status.bundle.portForwardingRules.length > 0 && `${status.bundle.portForwardingRules.length} port rule${status.bundle.portForwardingRules.length !== 1 ? "s" : ""}`,
-              ].filter(Boolean).join(", ") || "no items"}
-              {skipDupes && status.bundle.connections.length !== status.connections.length && (
-                <span className="text-[var(--t-text-muted)]">
-                  {" "}({status.bundle.connections.length - status.connections.length} duplicate{status.bundle.connections.length - status.connections.length !== 1 ? "s" : ""} skipped)
-                </span>
-              )}
+              {(() => {
+                const effConn = status.connections.length;
+                const effIdent = status.bundle.identities.length - status.skippedIdentities;
+                const effKeys = status.bundle.keys.length - status.skippedKeys;
+                const effSnippets = status.bundle.snippets.length - status.skippedSnippets;
+                const effPf = status.bundle.portForwardingRules.length - status.skippedPfRules;
+                const totalSkipped = (status.bundle.connections.length - status.connections.length)
+                  + status.skippedKeys + status.skippedIdentities + status.skippedSnippets + status.skippedPfRules;
+                return (
+                  <>
+                    {"Found "}
+                    {[
+                      effConn > 0 && `${effConn} connection${effConn !== 1 ? "s" : ""}`,
+                      effIdent > 0 && `${effIdent} identit${effIdent !== 1 ? "ies" : "y"}`,
+                      effKeys > 0 && `${effKeys} key${effKeys !== 1 ? "s" : ""}`,
+                      effSnippets > 0 && `${effSnippets} snippet${effSnippets !== 1 ? "s" : ""}`,
+                      effPf > 0 && `${effPf} port rule${effPf !== 1 ? "s" : ""}`,
+                    ].filter(Boolean).join(", ") || "no items"}
+                    {skipDupes && totalSkipped > 0 && (
+                      <span className="text-[var(--t-text-muted)]">
+                        {" "}({totalSkipped} duplicate{totalSkipped !== 1 ? "s" : ""} skipped)
+                      </span>
+                    )}
+                  </>
+                );
+              })()}
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-4 pt-1 border-t border-t-[var(--t-border)]">

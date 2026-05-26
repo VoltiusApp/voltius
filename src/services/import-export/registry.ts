@@ -1,6 +1,7 @@
 import type { Connection, Folder, PortForwardingRule } from "@/types";
 import type { ExportBundle, FolderExport } from "./formats";
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "./context";
+import { existingConnectionsForVault } from "./context";
 import type { DataTypeHandler } from "./handler";
 import { keysHandler } from "./handlers/keys";
 import { identitiesHandler } from "./handlers/identities";
@@ -170,6 +171,66 @@ export async function buildBundle(
   return bundle;
 }
 
+// ─── Import helpers ───────────────────────────────────────────────────────────
+
+function neededFolderEids(bundle: ExportBundle, ctx: ImportCtx): Set<string> {
+  const needed = new Set<string>();
+
+  const existingConnSet = new Set(
+    existingConnectionsForVault(ctx.existingConnections, ctx.vault_id).map(c => `${c.host}:${c.port}:${c.username}`)
+  );
+  for (const c of bundle.connections) {
+    if (!ctx.skipDupes || !existingConnSet.has(`${c.host}:${c.port}:${c.username}`))
+      if (c._folder_eid) needed.add(c._folder_eid);
+  }
+
+  const existingKeyNames = new Set(
+    ctx.existingKeys.filter(k => !k.deleted_at && (k.vault_id ?? "personal") === ctx.vault_id).map(k => k.name)
+  );
+  for (const k of bundle.keys) {
+    if (!ctx.skipDupes || !k.name || !existingKeyNames.has(k.name))
+      if (k._folder_eid) needed.add(k._folder_eid);
+  }
+
+  const existingIdentityNames = new Set(
+    ctx.existingIdentities.filter(i => !i.deleted_at && (i.vault_id ?? "personal") === ctx.vault_id).map(i => i.name)
+  );
+  for (const i of bundle.identities) {
+    if (!ctx.skipDupes || !i.name || !existingIdentityNames.has(i.name))
+      if (i._folder_eid) needed.add(i._folder_eid);
+  }
+
+  const existingSnippetNames = new Set(
+    ctx.existingSnippets.filter(s => !s.deleted_at && (s.vault_id ?? "personal") === ctx.vault_id).map(s => s.name)
+  );
+  for (const s of bundle.snippets) {
+    if (!ctx.skipDupes || !existingSnippetNames.has(s.name))
+      if (s._folder_eid) needed.add(s._folder_eid);
+  }
+
+  const existingPfNames = new Set(
+    ctx.existingPfRules.filter(r => !r.deleted_at && (r.vault_id ?? "personal") === ctx.vault_id).map(r => r.name)
+  );
+  for (const r of bundle.portForwardingRules) {
+    if (!ctx.skipDupes || !existingPfNames.has(r.name))
+      if (r._folder_eid) needed.add(r._folder_eid);
+  }
+
+  // Expand to include all ancestor folders
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const f of bundle.folders) {
+      if (needed.has(f._eid) && f.parent_folder_eid && !needed.has(f.parent_folder_eid)) {
+        needed.add(f.parent_folder_eid);
+        changed = true;
+      }
+    }
+  }
+
+  return needed;
+}
+
 // ─── Import orchestrator ──────────────────────────────────────────────────────
 
 export async function runImport(
@@ -179,8 +240,9 @@ export async function runImport(
   let imported = 0;
   let errors = 0;
 
-  // 1. Folders — topological sort, route by object_type
-  const pending = [...bundle.folders];
+  // 1. Folders — only create those referenced by items that will actually be imported
+  const needed = neededFolderEids(bundle, ctx);
+  const pending = bundle.folders.filter(f => needed.has(f._eid));
   let maxPasses = pending.length + 1;
   while (pending.length > 0 && maxPasses-- > 0) {
     const remaining: FolderExport[] = [];
