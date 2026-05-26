@@ -74,7 +74,7 @@ export default function SFTPPage() {
           resolveConnectionCredentials(host.connection),
           resolveJumpHosts(host.connection),
         ]);
-        sftpId = await sftpConnect({ connectId, host: host.connection.host, port: host.connection.port, username: creds.username, password: creds.password, privateKey: creds.privateKey, jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined });
+        sftpId = await sftpConnect({ connectId, host: host.connection.host, port: host.connection.port, username: creds.username, password: creds.password, privateKey: creds.privateKey, passphrase: creds.passphrase, jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined });
         openSftpIds.current.add(sftpId);
         const { sftpCanonicalize } = await import("@/services/sftp");
         cwd = await sftpCanonicalize(sftpId, ".");

@@ -92,6 +92,7 @@ impl SftpManager {
         username: &str,
         password: Option<&str>,
         private_key: Option<&str>,
+        passphrase: Option<&str>,
         jump_hosts: Vec<JumpHostConnect>,
         known_hosts: Arc<KnownHostsStore>,
     ) -> Result<String, String> {
@@ -124,7 +125,7 @@ impl SftpManager {
                 }
             };
             emit_step(app, connect_id, SftpStep::TcpConnected, format!("{}:{} (jump 1)", first.host, first.port));
-            authenticate_handle(&mut current_handle, &first.username, first.password.as_deref(), first.private_key.as_deref())
+            authenticate_handle(&mut current_handle, &first.username, first.password.as_deref(), first.private_key.as_deref(), first.passphrase.as_deref())
                 .await
                 .map_err(|e| format!("Jump host {} auth failed: {}", first.host, e))?;
 
@@ -137,7 +138,7 @@ impl SftpManager {
                 let mut next_handle = russh::client::connect_stream(Arc::clone(&config), channel.into_stream(), next_client)
                     .await
                     .map_err(|e| format!("Jump host {} SSH handshake failed: {}", jump.host, e))?;
-                authenticate_handle(&mut next_handle, &jump.username, jump.password.as_deref(), jump.private_key.as_deref())
+                authenticate_handle(&mut next_handle, &jump.username, jump.password.as_deref(), jump.private_key.as_deref(), jump.passphrase.as_deref())
                     .await
                     .map_err(|e| format!("Jump host {} auth failed: {}", jump.host, e))?;
                 let prev = std::mem::replace(&mut current_handle, next_handle);
@@ -160,7 +161,7 @@ impl SftpManager {
 
         emit_step(app, connect_id, SftpStep::Handshake, "Negotiating algorithms");
         emit_step(app, connect_id, SftpStep::Authenticating, format!("{}@{}", username, host));
-        authenticate_handle(&mut final_handle, username, password, private_key).await?;
+        authenticate_handle(&mut final_handle, username, password, private_key, passphrase).await?;
 
         emit_step(
             app,

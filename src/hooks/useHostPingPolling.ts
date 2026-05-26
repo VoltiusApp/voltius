@@ -21,7 +21,10 @@ async function resolveJumpHosts(connection: Connection): Promise<JumpHostConnect
           const pk = identity.key_id
             ? (await getSecret(`key:${identity.key_id}:private`).catch(() => null)) ?? undefined
             : undefined;
-          return { host: jh.host, port: jh.port, username: identity.username, password: pwd, privateKey: pk };
+          const pass = identity.key_id
+            ? (await getSecret(`key:${identity.key_id}:passphrase`).catch(() => null)) ?? undefined
+            : undefined;
+          return { host: jh.host, port: jh.port, username: identity.username, password: pwd, privateKey: pk, passphrase: pass };
         }
       }
       const pwd = (await getSecret(`password:${jh.connection_id}`).catch(() => null)) ?? undefined;

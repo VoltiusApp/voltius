@@ -35,7 +35,8 @@ export async function sftpConnect(params: {
   username: string;
   password?: string;
   privateKey?: string;
-  jumpHosts?: Array<{ host: string; port: number; username: string; password?: string; privateKey?: string }>;
+  passphrase?: string;
+  jumpHosts?: Array<{ host: string; port: number; username: string; password?: string; privateKey?: string; passphrase?: string }>;
 }): Promise<string> {
   return invoke("sftp_connect", {
     connectId: params.connectId,
@@ -44,6 +45,7 @@ export async function sftpConnect(params: {
     username: params.username,
     password: params.password ?? null,
     privateKey: params.privateKey ?? null,
+    passphrase: params.passphrase ?? null,
     jumpHosts: params.jumpHosts ?? null,
   });
 }

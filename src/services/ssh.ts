@@ -7,6 +7,7 @@ export interface JumpHostConnect {
   username: string;
   password?: string;
   privateKey?: string;
+  passphrase?: string;
 }
 
 export async function sshConnect(params: {
@@ -16,6 +17,7 @@ export async function sshConnect(params: {
   username: string;
   password?: string;
   privateKey?: string;
+  passphrase?: string;
   connectionId?: string;
   jumpHosts?: JumpHostConnect[];
   envVars?: [string, string][];
@@ -29,6 +31,7 @@ export async function sshConnect(params: {
     username: params.username,
     password: params.password ?? null,
     privateKey: params.privateKey ?? null,
+    passphrase: params.passphrase ?? null,
     connectionId: params.connectionId ?? null,
     jumpHosts: params.jumpHosts && params.jumpHosts.length > 0 ? params.jumpHosts : null,
     envVars: params.envVars && params.envVars.length > 0 ? params.envVars : null,
@@ -70,6 +73,7 @@ export async function sshExecCommand(params: {
   username: string;
   password?: string;
   privateKey?: string;
+  passphrase?: string;
   command: string;
 }): Promise<string> {
   return invoke("ssh_exec_command", {
@@ -78,6 +82,7 @@ export async function sshExecCommand(params: {
     username: params.username,
     password: params.password ?? null,
     privateKey: params.privateKey ?? null,
+    passphrase: params.passphrase ?? null,
     command: params.command,
   });
 }

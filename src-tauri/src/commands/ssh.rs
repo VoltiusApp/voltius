@@ -20,6 +20,7 @@ pub async fn ssh_connect(
     username: String,
     password: Option<String>,
     private_key: Option<String>,
+    passphrase: Option<String>,
     connection_id: Option<String>,
     jump_hosts: Option<Vec<JumpHostConnect>>,
     env_vars: Option<Vec<(String, String)>>,
@@ -34,6 +35,7 @@ pub async fn ssh_connect(
         &username,
         password.as_deref(),
         private_key.as_deref(),
+        passphrase.as_deref(),
         jump_hosts.unwrap_or_default(),
         env_vars.unwrap_or_default(),
         agent_forwarding,
@@ -113,6 +115,7 @@ pub async fn ssh_exec_command(
     username: String,
     password: Option<String>,
     private_key: Option<String>,
+    passphrase: Option<String>,
     command: String,
 ) -> Result<String, String> {
     use russh::client as russh_client;
@@ -134,7 +137,7 @@ pub async fn ssh_exec_command(
         };
 
     let authenticated = if let Some(key_str) = private_key {
-        let key_pair = russh::keys::decode_secret_key(&key_str, None)
+        let key_pair = russh::keys::decode_secret_key(&key_str, passphrase.as_deref())
             .map_err(|e| format!("Invalid private key: {}", e))?;
         let key = russh::keys::PrivateKeyWithHashAlg::new(
             Arc::new(key_pair),

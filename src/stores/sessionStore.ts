@@ -57,9 +57,10 @@ async function startSession(
   sessionId: string,
   password?: string,
   privateKey?: string,
+  passphrase?: string,
 ) {
   createSshSession(set, connection, sessionId);
-  await connectSshSession(set, connection, sessionId, password, privateKey);
+  await connectSshSession(set, connection, sessionId, password, privateKey, passphrase);
 }
 
 function createSshSession(
@@ -86,6 +87,7 @@ async function connectSshSession(
   sessionId: string,
   password?: string,
   privateKey?: string,
+  passphrase?: string,
 ) {
   const jumpHosts = await resolveJumpHosts(connection);
 
@@ -100,6 +102,7 @@ async function connectSshSession(
       username: connection.username,
       password,
       privateKey,
+      passphrase,
       connectionId: connection.id,
       jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
       envVars: envVars.length > 0 ? envVars : undefined,
@@ -220,7 +223,7 @@ function beginConnection(set: SessionSetter, connectionId: string): string {
   void resolveConnectionCredentials(connection)
     .then((credentials) => {
       const resolvedConnection = { ...connection, username: credentials.username };
-      return connectSshSession(set, resolvedConnection, sessionId, credentials.password, credentials.privateKey);
+      return connectSshSession(set, resolvedConnection, sessionId, credentials.password, credentials.privateKey, credentials.passphrase);
     })
     .catch((err) => markSessionError(set, sessionId, err));
 
@@ -250,7 +253,7 @@ async function connectConnection(
   try {
     const credentials = await resolveConnectionCredentials(connection);
     const sessionConnection = { ...connection, username: credentials.username };
-    await connectSshSession(set, sessionConnection, sessionId, credentials.password, credentials.privateKey);
+    await connectSshSession(set, sessionConnection, sessionId, credentials.password, credentials.privateKey, credentials.passphrase);
   } catch (err) {
     // connectSshSession already marks the session as "error"; if the failure
     // happened earlier (e.g. credential resolution), mark it here so the
@@ -533,7 +536,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     try {
       const credentials = await resolveConnectionCredentials(connection);
 
-      await sshConnect({ sessionId, host: connection.host, port: connection.port, username: credentials.username, password: credentials.password, privateKey: credentials.privateKey, connectionId: connection.id });
+      await sshConnect({ sessionId, host: connection.host, port: connection.port, username: credentials.username, password: credentials.password, privateKey: credentials.privateKey, passphrase: credentials.passphrase, connectionId: connection.id });
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,

@@ -23,6 +23,7 @@ pub struct JumpHostConnect {
     pub username: String,
     pub password: Option<String>,
     pub private_key: Option<String>,
+    pub passphrase: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -379,9 +380,10 @@ pub async fn authenticate_handle(
     username: &str,
     password: Option<&str>,
     private_key: Option<&str>,
+    passphrase: Option<&str>,
 ) -> Result<(), String> {
     let authenticated = if let Some(key_str) = private_key {
-        let key_pair = russh::keys::decode_secret_key(key_str, None)
+        let key_pair = russh::keys::decode_secret_key(key_str, passphrase)
             .map_err(|e| format!("Invalid private key: {}", e))?;
         let key = PrivateKeyWithHashAlg::new(Arc::new(key_pair), Some(HashAlg::Sha256));
         handle
@@ -411,6 +413,7 @@ pub async fn connect(
     username: &str,
     password: Option<&str>,
     private_key: Option<&str>,
+    passphrase: Option<&str>,
     jump_hosts: Vec<JumpHostConnect>,
     env_vars: Vec<(String, String)>,
     agent_forwarding: bool,
@@ -488,6 +491,7 @@ pub async fn connect(
             &first.username,
             first.password.as_deref(),
             first.private_key.as_deref(),
+            first.passphrase.as_deref(),
         )
         .await
         .map_err(|e| format!("Jump host {} auth failed: {}", first.host, e))?;
@@ -513,6 +517,7 @@ pub async fn connect(
                 &jump.username,
                 jump.password.as_deref(),
                 jump.private_key.as_deref(),
+                jump.passphrase.as_deref(),
             )
             .await
             .map_err(|e| format!("Jump host {} auth failed: {}", next_host, e))?;
@@ -575,7 +580,7 @@ pub async fn connect(
         SshStep::Authenticating,
         format!("as {}", username),
     );
-    authenticate_handle(&mut final_handle, username, password, private_key).await?;
+    authenticate_handle(&mut final_handle, username, password, private_key, passphrase).await?;
 
     // Open channel + shell
     emit_step(&app, &session_id, SshStep::OpeningShell, "Requesting PTY");

@@ -68,6 +68,7 @@ pub async fn sftp_connect(
     username: String,
     password: Option<String>,
     private_key: Option<String>,
+    passphrase: Option<String>,
     jump_hosts: Option<Vec<JumpHostConnect>>,
 ) -> Result<String, String> {
     sftp_state
@@ -79,6 +80,7 @@ pub async fn sftp_connect(
             &username,
             password.as_deref(),
             private_key.as_deref(),
+            passphrase.as_deref(),
             jump_hosts.unwrap_or_default(),
             Arc::clone(&*known_hosts),
         )

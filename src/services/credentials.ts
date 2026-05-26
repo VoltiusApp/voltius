@@ -6,6 +6,7 @@ export interface ResolvedCredentials {
   username: string;
   password?: string;
   privateKey?: string;
+  passphrase?: string;
 }
 
 export interface ResolvedJumpHost {
@@ -14,6 +15,7 @@ export interface ResolvedJumpHost {
   username: string;
   password?: string;
   privateKey?: string;
+  passphrase?: string;
 }
 
 function getLoadedIdentities() {
@@ -41,7 +43,10 @@ export async function resolveJumpHosts(conn: Connection): Promise<ResolvedJumpHo
           const pk = identity.key_id
             ? (await getSecret(`key:${identity.key_id}:private`).catch(() => null)) ?? undefined
             : undefined;
-          return { host: jh.host, port: jh.port, username: identity.username, password: pwd, privateKey: pk };
+          const pass = identity.key_id
+            ? (await getSecret(`key:${identity.key_id}:passphrase`).catch(() => null)) ?? undefined
+            : undefined;
+          return { host: jh.host, port: jh.port, username: identity.username, password: pwd, privateKey: pk, passphrase: pass };
         }
       }
       const pwd = (await getSecret(`password:${jh.connection_id}`).catch(() => null)) ?? undefined;
@@ -59,7 +64,10 @@ export async function resolveConnectionCredentials(conn: Connection): Promise<Re
       const privateKey = identity.key_id
         ? (await getSecret(`key:${identity.key_id}:private`).catch(() => null)) ?? undefined
         : undefined;
-      return { username: identity.username, password, privateKey };
+      const passphrase = identity.key_id
+        ? (await getSecret(`key:${identity.key_id}:passphrase`).catch(() => null)) ?? undefined
+        : undefined;
+      return { username: identity.username, password, privateKey, passphrase };
     }
   }
 
@@ -67,5 +75,8 @@ export async function resolveConnectionCredentials(conn: Connection): Promise<Re
   const privateKey = conn.key_id
     ? (await getSecret(`key:${conn.key_id}:private`).catch(() => null)) ?? undefined
     : (await getSecret(`key:${conn.id}`).catch(() => null)) ?? undefined;
-  return { username: conn.username, password, privateKey };
+  const passphrase = conn.key_id
+    ? (await getSecret(`key:${conn.key_id}:passphrase`).catch(() => null)) ?? undefined
+    : undefined;
+  return { username: conn.username, password, privateKey, passphrase };
 }
