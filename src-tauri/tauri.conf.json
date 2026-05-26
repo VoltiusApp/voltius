@@ -1,5 +1,5 @@
 {
-  "productName": "voltius",
+  "productName": "Voltius",
   "version": "0.1.46",
   "identifier": "com.voltius.app",
   "build": {
@@ -11,7 +11,7 @@
   "app": {
     "windows": [
       {
-        "title": "voltius",
+        "title": "Voltius",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
