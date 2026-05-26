@@ -103,7 +103,10 @@ fn termius_db_candidates() -> Vec<PathBuf> {
     #[cfg(target_os = "macos")]
     {
         if let Some(home) = dirs::home_dir() {
-            out.push(home.join("Library/Application Support").join(TERMIUS_DB_SUBPATH));
+            out.push(
+                home.join("Library/Application Support")
+                    .join(TERMIUS_DB_SUBPATH),
+            );
         }
     }
     #[cfg(all(unix, not(target_os = "macos")))]
@@ -125,7 +128,11 @@ fn termius_db_dir() -> Result<PathBuf, String> {
     }
     Err(format!(
         "Termius database not found. Looked in:\n  {}",
-        candidates.iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join("\n  ")
+        candidates
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect::<Vec<_>>()
+            .join("\n  ")
     ))
 }
 
@@ -144,12 +151,15 @@ fn fetch_master_key() -> Result<[u8; 32], String> {
     let bytes = STANDARD
         .decode(b64.trim())
         .map_err(|e| format!("Master key is not valid base64: {e}"))?;
-    bytes.try_into().map_err(|_| "Master key must be 32 bytes".to_string())
+    bytes
+        .try_into()
+        .map_err(|_| "Master key must be 32 bytes".to_string())
 }
 
 #[cfg(not(target_os = "windows"))]
 fn read_termius_localkey() -> Result<String, String> {
-    let entry = Entry::new("Termius", "localKey").map_err(|e| format!("Keychain unavailable: {e}"))?;
+    let entry =
+        Entry::new("Termius", "localKey").map_err(|e| format!("Keychain unavailable: {e}"))?;
     entry.get_password().map_err(|e| match e {
         keyring::Error::NoEntry => {
             "Termius key not found in OS keychain — is Termius installed and logged in on this machine?".to_string()
@@ -186,7 +196,8 @@ fn read_termius_localkey() -> Result<String, String> {
     // SAFETY: CredReadW returned success, so cred_ptr points to a valid CREDENTIALW.
     let result = unsafe {
         let cred = &*cred_ptr;
-        let blob = std::slice::from_raw_parts(cred.CredentialBlob, cred.CredentialBlobSize as usize);
+        let blob =
+            std::slice::from_raw_parts(cred.CredentialBlob, cred.CredentialBlobSize as usize);
         decode_keytar_blob(blob)
     };
     unsafe { CredFree(cred_ptr as *mut _) };
@@ -201,7 +212,10 @@ fn decode_keytar_blob(blob: &[u8]) -> Result<String, String> {
         return Ok(s.to_string());
     }
     if blob.len() % 2 == 0 {
-        let u16: Vec<u16> = blob.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+        let u16: Vec<u16> = blob
+            .chunks_exact(2)
+            .map(|c| u16::from_le_bytes([c[0], c[1]]))
+            .collect();
         if let Ok(s) = String::from_utf16(&u16) {
             return Ok(s);
         }
@@ -237,7 +251,9 @@ mod v8 {
     }
 
     impl<'a> Parser<'a> {
-        fn peek(&self) -> Option<u8> { self.bytes.get(self.pos).copied() }
+        fn peek(&self) -> Option<u8> {
+            self.bytes.get(self.pos).copied()
+        }
 
         fn advance(&mut self) -> Option<u8> {
             let b = self.peek()?;
@@ -409,7 +425,14 @@ fn build_db_name_map(entries: &[(Vec<u8>, Vec<u8>)]) -> HashMap<u8, String> {
     let mut out = HashMap::new();
     for (k, v) in entries {
         // We're looking for keys starting `00 <db_id> 00 00 32 01 00`.
-        if k.len() < 7 || k[0] != 0x00 || k[2] != 0x00 || k[3] != 0x00 || k[4] != 0x32 || k[5] != 0x01 || k[6] != 0x00 {
+        if k.len() < 7
+            || k[0] != 0x00
+            || k[2] != 0x00
+            || k[3] != 0x00
+            || k[4] != 0x32
+            || k[5] != 0x01
+            || k[6] != 0x00
+        {
             continue;
         }
         let db_id = k[1];
@@ -455,7 +478,9 @@ struct ExtractedRecord {
 }
 
 fn id_from_object(v: &Value) -> Option<i64> {
-    v.as_object().and_then(|m| m.get("id")).and_then(|x| x.as_i64())
+    v.as_object()
+        .and_then(|m| m.get("id"))
+        .and_then(|x| x.as_i64())
 }
 
 fn extract_record(envelope: Value, cipher: &XSalsa20Poly1305) -> Option<ExtractedRecord> {
@@ -463,8 +488,14 @@ fn extract_record(envelope: Value, cipher: &XSalsa20Poly1305) -> Option<Extracte
 
     let termius_id = obj.get("id").and_then(|v| v.as_i64())?;
     let local_id = obj.get("local_id").and_then(|v| v.as_i64());
-    let updated_at = obj.get("updated_at").and_then(|v| v.as_str()).map(str::to_string);
-    let status = obj.get("status").and_then(|v| v.as_str()).map(str::to_string);
+    let updated_at = obj
+        .get("updated_at")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+    let status = obj
+        .get("status")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
 
     let mut foreign_keys: BTreeMap<String, i64> = BTreeMap::new();
     let mut foreign_key_arrays: BTreeMap<String, Vec<i64>> = BTreeMap::new();
@@ -544,7 +575,8 @@ fn extract_record(envelope: Value, cipher: &XSalsa20Poly1305) -> Option<Extracte
 fn looks_encrypted(s: &str) -> bool {
     s.len() >= 32
         && s.starts_with("BA")
-        && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'+' || b == b'/' || b == b'=')
+        && s.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'+' || b == b'/' || b == b'=')
 }
 
 fn decrypt_blob(cipher: &XSalsa20Poly1305, blob_b64: &str) -> Option<String> {
@@ -600,7 +632,9 @@ fn read_all_entries(dir: &Path) -> Result<Vec<(Vec<u8>, Vec<u8>)>, String> {
     let mut opts = Options::default();
     opts.create_if_missing = false;
     let mut db = DB::open(dir, opts).map_err(|e| format!("Failed to open leveldb: {e}"))?;
-    let mut iter = db.new_iter().map_err(|e| format!("Failed to iterate leveldb: {e}"))?;
+    let mut iter = db
+        .new_iter()
+        .map_err(|e| format!("Failed to iterate leveldb: {e}"))?;
     let mut out = Vec::new();
     while let Some((k, v)) = iter.next() {
         out.push((k, v));
@@ -614,14 +648,14 @@ fn read_all_entries(dir: &Path) -> Result<Vec<(Vec<u8>, Vec<u8>)>, String> {
 pub fn termius_extract() -> Result<TermiusSnapshot, String> {
     // Wrap in catch_unwind so any panic in the V8 SSV decoder or leveldb reader
     // surfaces as a clean error string instead of aborting the Tauri app.
-    std::panic::catch_unwind(termius_extract_inner)
-        .map_err(|panic| {
-            let msg = panic
-                .downcast_ref::<&'static str>().copied()
-                .or_else(|| panic.downcast_ref::<String>().map(String::as_str))
-                .unwrap_or("unknown panic");
-            format!("Termius extraction panicked: {msg}")
-        })?
+    std::panic::catch_unwind(termius_extract_inner).map_err(|panic| {
+        let msg = panic
+            .downcast_ref::<&'static str>()
+            .copied()
+            .or_else(|| panic.downcast_ref::<String>().map(String::as_str))
+            .unwrap_or("unknown panic");
+        format!("Termius extraction panicked: {msg}")
+    })?
 }
 
 fn termius_extract_inner() -> Result<TermiusSnapshot, String> {
@@ -639,7 +673,9 @@ fn termius_extract_inner() -> Result<TermiusSnapshot, String> {
     let mut records: Vec<TermiusRecord> = Vec::new();
     let mut decoded_count = 0usize;
     for (k, v) in &entries {
-        let Some(idb) = decode_idb_key(k) else { continue };
+        let Some(idb) = decode_idb_key(k) else {
+            continue;
+        };
         // Object-store DATA entries only. Index id 1 is the primary store;
         // anything else (2 = exists, 0x1f/0x20/0x21/0x22/0x23 = indexes) is
         // either internal or a denormalised index, which we don't need
@@ -648,9 +684,15 @@ fn termius_extract_inner() -> Result<TermiusSnapshot, String> {
             continue;
         }
 
-        let Some(db_name) = db_names.get(&idb.db_id) else { continue };
-        let Some(envelope) = v8::decode_envelope(v) else { continue };
-        let Some(rec) = extract_record(envelope, &cipher) else { continue };
+        let Some(db_name) = db_names.get(&idb.db_id) else {
+            continue;
+        };
+        let Some(envelope) = v8::decode_envelope(v) else {
+            continue;
+        };
+        let Some(rec) = extract_record(envelope, &cipher) else {
+            continue;
+        };
         decoded_count += 1;
 
         if is_inactive_status(rec.status.as_deref()) {
@@ -681,9 +723,14 @@ fn termius_extract_inner() -> Result<TermiusSnapshot, String> {
     }
 
     // Stable ordering: by db_name then termius_id.
-    records.sort_by(|a, b| (a.db_name.as_str(), a.termius_id).cmp(&(b.db_name.as_str(), b.termius_id)));
+    records.sort_by(|a, b| {
+        (a.db_name.as_str(), a.termius_id).cmp(&(b.db_name.as_str(), b.termius_id))
+    });
 
-    Ok(TermiusSnapshot { version: 2, records })
+    Ok(TermiusSnapshot {
+        version: 2,
+        records,
+    })
 }
 
 /// Diagnostic: redact secrets in a snapshot and write it to the given path.
@@ -745,9 +792,7 @@ pub fn termius_extract_leveldb_keys(path: String) -> Result<String, String> {
     }
 
     // Linkage-relevant DBs we capture full value bytes for.
-    const FULL_VALUE_DBS: &[u8] = &[
-        0x10, 0x16, 0x09, 0x14, 0x0f, 0x04, 0x0c, 0x12, 0x13,
-    ];
+    const FULL_VALUE_DBS: &[u8] = &[0x10, 0x16, 0x09, 0x14, 0x0f, 0x04, 0x0c, 0x12, 0x13];
 
     let mut out: Vec<Entry> = Vec::new();
     for (k, v) in &entries {
@@ -786,8 +831,8 @@ pub fn termius_extract_leveldb_keys(path: String) -> Result<String, String> {
         "entry_count": out.len(),
         "entries": out,
     });
-    let pretty = serde_json::to_string_pretty(&json)
-        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    let pretty =
+        serde_json::to_string_pretty(&json).map_err(|e| format!("Failed to serialize: {e}"))?;
     std::fs::write(&path, pretty).map_err(|e| format!("Failed to write {path}: {e}"))?;
     Ok(path)
 }
@@ -864,8 +909,14 @@ mod tests {
         let v = v8::decode_envelope(&bytes).unwrap();
         let obj = v.as_object().unwrap();
         assert_eq!(obj.get("id").and_then(|v| v.as_i64()), Some(7347589));
-        assert_eq!(obj.get("updated_at").and_then(|v| v.as_str()), Some("2026-04-08T16:37:59"));
-        assert_eq!(obj.get("status").and_then(|v| v.as_str()), Some("SYNCHRONIZED"));
+        assert_eq!(
+            obj.get("updated_at").and_then(|v| v.as_str()),
+            Some("2026-04-08T16:37:59")
+        );
+        assert_eq!(
+            obj.get("status").and_then(|v| v.as_str()),
+            Some("SYNCHRONIZED")
+        );
     }
 
     #[test]
@@ -905,7 +956,10 @@ mod tests {
         assert_eq!(rec.updated_at.as_deref(), Some("2026-05-25T10:07:45"));
         assert_eq!(rec.status.as_deref(), Some("SYNCHRONIZED"));
         assert_eq!(rec.foreign_keys.get("ssh_config"), Some(&45672876));
-        assert_eq!(rec.body.get("backspace").and_then(|v| v.as_str()), Some("default"));
+        assert_eq!(
+            rec.body.get("backspace").and_then(|v| v.as_str()),
+            Some("default")
+        );
         // `group: null` is plaintext (not a FK), so it lands in the body.
         assert!(rec.body.get("group").map(|v| v.is_null()).unwrap_or(false));
     }

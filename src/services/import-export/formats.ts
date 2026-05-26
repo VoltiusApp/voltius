@@ -2,6 +2,7 @@
 // Format-specific parsers live in parsers/*.ts — one file per format.
 
 import type { ConnectionFormData } from "@/types";
+import { decryptXChaCha20Poly1305, encryptXChaCha20Poly1305 } from "../crypto/xchacha.ts";
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 // _eid fields are export-scoped IDs used only within a bundle for cross-referencing.
@@ -124,13 +125,14 @@ export function fromJSON(text: string): ExportBundle {
   };
 }
 
-// ─── Encrypted bundle (AES-256-GCM, PBKDF2 key derivation) ───────────────────
+// ─── Encrypted bundle (XChaCha20-Poly1305, PBKDF2 key derivation) ─────────────
 
 interface EncryptedBundleFile {
   type: "voltius-encrypted";
-  version: 1;
+  version: 2;
+  cipher: "xchacha20poly1305";
   salt: string; // base64, 16 bytes
-  iv: string;   // base64, 12 bytes
+  nonce: string; // base64, 24 bytes
   data: string; // base64 ciphertext
 }
 
@@ -145,28 +147,27 @@ function bytesToB64(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes));
 }
 
-async function deriveKey(password: string, salt: Uint8Array<ArrayBuffer>, usage: "encrypt" | "decrypt"): Promise<CryptoKey> {
-  const raw = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
-  return crypto.subtle.deriveKey(
+async function deriveKey(password: string, salt: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
+  const raw = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
     { name: "PBKDF2", salt, iterations: 100_000, hash: "SHA-256" },
     raw,
-    { name: "AES-GCM", length: 256 },
-    false,
-    [usage],
+    256,
   );
+  return new Uint8Array(bits);
 }
 
 export async function encryptText(plaintext: string, password: string): Promise<string> {
   const salt = crypto.getRandomValues(new Uint8Array(16)) as Uint8Array<ArrayBuffer>;
-  const iv = crypto.getRandomValues(new Uint8Array(12)) as Uint8Array<ArrayBuffer>;
-  const key = await deriveKey(password, salt, "encrypt");
-  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(plaintext));
+  const key = await deriveKey(password, salt);
+  const encrypted = encryptXChaCha20Poly1305(key, new TextEncoder().encode(plaintext));
   const file: EncryptedBundleFile = {
     type: "voltius-encrypted",
-    version: 1,
+    version: 2,
+    cipher: "xchacha20poly1305",
     salt: bytesToB64(salt),
-    iv: bytesToB64(iv),
-    data: bytesToB64(new Uint8Array(encrypted)),
+    nonce: bytesToB64(encrypted.nonce),
+    data: bytesToB64(encrypted.ciphertext),
   };
   return JSON.stringify(file, null, 2);
 }
@@ -176,10 +177,11 @@ export async function decryptText(text: string, password: string): Promise<strin
   try { parsed = JSON.parse(text); } catch { throw new Error("Invalid encrypted file"); }
   const obj = parsed as EncryptedBundleFile;
   if (obj?.type !== "voltius-encrypted") throw new Error("Not an encrypted Voltius backup");
-  const key = await deriveKey(password, b64ToBytes(obj.salt), "decrypt");
-  let decrypted: ArrayBuffer;
+  if (obj.version !== 2 || obj.cipher !== "xchacha20poly1305") throw new Error("Unsupported encrypted Voltius backup");
+  const key = await deriveKey(password, b64ToBytes(obj.salt));
+  let decrypted: Uint8Array;
   try {
-    decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64ToBytes(obj.iv) }, key, b64ToBytes(obj.data));
+    decrypted = decryptXChaCha20Poly1305(key, b64ToBytes(obj.nonce), b64ToBytes(obj.data));
   } catch {
     throw new Error("Wrong password or corrupted file");
   }

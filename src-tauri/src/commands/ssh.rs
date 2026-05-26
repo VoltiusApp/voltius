@@ -51,7 +51,9 @@ pub async fn ssh_connect(
         let routes = state
             .get_remote_routes(&session_id)
             .await
-            .unwrap_or_else(|_| Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())));
+            .unwrap_or_else(|_| {
+                Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()))
+            });
         let cid = connection_id.as_deref().unwrap_or("");
         pf.auto_activate_rules(&session_id, cid, Arc::clone(&handle), routes)
             .await;

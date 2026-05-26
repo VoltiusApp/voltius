@@ -1,6 +1,6 @@
 use sysinfo::{ProcessesToUpdate, System, Users};
 
-use super::{ProcessEntry, ProcessSnapshot, now_ms};
+use super::{now_ms, ProcessEntry, ProcessSnapshot};
 
 pub struct LocalProcesses {
     sys: System,

@@ -335,7 +335,7 @@ export interface PluginAPI {
     triggerReload(storeKey: string): Promise<void>;
     /**
      * Export the full app state (connections, keys, identities, secrets) as a
-     * base64-encoded AES-256-GCM encrypted blob — same format as cloud sync.
+     * base64-encoded XChaCha20-Poly1305 encrypted blob — same format as cloud sync.
      * encKey: 64-char hex string (32 bytes). Requires sync:write.
      */
     exportState(encKey: string, deviceId: string): Promise<string>;

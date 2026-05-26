@@ -32,7 +32,7 @@ pub async fn derive_keys(password: String, account_id: String) -> Result<DeriveK
     })
 }
 
-/// Derive an AES-256-GCM key for gist-sync using Argon2id + HKDF-SHA256.
+/// Derive an XChaCha20-Poly1305 key for gist-sync using Argon2id + HKDF-SHA256.
 /// `salt_hex` is the 32-char hex salt stored in the Gist manifest (16 raw bytes).
 /// Returns the 32-byte enc key as a 64-char hex string.
 #[tauri::command]
@@ -67,9 +67,18 @@ pub fn wrap_user_secrets_cmd(
     dek: Vec<u8>,
     x25519_private: Vec<u8>,
 ) -> Result<String, String> {
-    let kek: &[u8; 32] = kek.as_slice().try_into().map_err(|_| "kek must be 32 bytes")?;
-    let dek: &[u8; 32] = dek.as_slice().try_into().map_err(|_| "dek must be 32 bytes")?;
-    let x: &[u8; 32] = x25519_private.as_slice().try_into().map_err(|_| "x25519_private must be 32 bytes")?;
+    let kek: &[u8; 32] = kek
+        .as_slice()
+        .try_into()
+        .map_err(|_| "kek must be 32 bytes")?;
+    let dek: &[u8; 32] = dek
+        .as_slice()
+        .try_into()
+        .map_err(|_| "dek must be 32 bytes")?;
+    let x: &[u8; 32] = x25519_private
+        .as_slice()
+        .try_into()
+        .map_err(|_| "x25519_private must be 32 bytes")?;
     let wrapped = voltius_crypto::wrap_user_secrets(kek, dek, x)?;
     Ok(STANDARD.encode(&wrapped))
 }
@@ -81,8 +90,14 @@ pub struct UnwrappedUserSecrets {
 }
 
 #[tauri::command]
-pub fn unwrap_user_secrets_cmd(kek: Vec<u8>, wrapped_b64: String) -> Result<UnwrappedUserSecrets, String> {
-    let kek: &[u8; 32] = kek.as_slice().try_into().map_err(|_| "kek must be 32 bytes")?;
+pub fn unwrap_user_secrets_cmd(
+    kek: Vec<u8>,
+    wrapped_b64: String,
+) -> Result<UnwrappedUserSecrets, String> {
+    let kek: &[u8; 32] = kek
+        .as_slice()
+        .try_into()
+        .map_err(|_| "kek must be 32 bytes")?;
     let wrapped = STANDARD.decode(&wrapped_b64).map_err(|e| e.to_string())?;
     let (dek, x25519_private) = voltius_crypto::unwrap_user_secrets(kek, &wrapped)?;
     Ok(UnwrappedUserSecrets {

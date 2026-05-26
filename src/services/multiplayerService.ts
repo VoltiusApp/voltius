@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getVaultKey } from "@/services/vault";
 import * as teamService from "@/services/teamService";
 import { appFetch } from "@/services/http";
+import { openXChaCha20Poly1305, sealXChaCha20Poly1305 } from "@/services/crypto/xchacha";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,34 +35,23 @@ export interface SessionCallbacks {
   onSessionEnded: () => void;
 }
 
-// ─── WebCrypto AES-GCM helpers ────────────────────────────────────────────────
+// ─── XChaCha20-Poly1305 helpers ───────────────────────────────────────────────
 
-function toArrayBuffer(u8: Uint8Array): ArrayBuffer {
-  return u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength) as ArrayBuffer;
+export type SessionKey = Uint8Array;
+
+export async function importSessionKey(rawBytes: Uint8Array): Promise<SessionKey> {
+  if (rawBytes.length !== 32) throw new Error("Session key must be 32 bytes");
+  return new Uint8Array(rawBytes);
 }
 
-export async function importSessionKey(rawBytes: Uint8Array): Promise<CryptoKey> {
-  return crypto.subtle.importKey("raw", toArrayBuffer(rawBytes), { name: "AES-GCM" }, false, [
-    "encrypt",
-    "decrypt",
-  ]);
-}
-
-export async function encryptData(key: CryptoKey, plaintext: Uint8Array): Promise<string> {
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, toArrayBuffer(plaintext));
-  const out = new Uint8Array(12 + ciphertext.byteLength);
-  out.set(iv, 0);
-  out.set(new Uint8Array(ciphertext), 12);
+export async function encryptData(key: SessionKey, plaintext: Uint8Array): Promise<string> {
+  const out = sealXChaCha20Poly1305(key, plaintext);
   return btoa(String.fromCharCode(...out));
 }
 
-export async function decryptData(key: CryptoKey, b64: string): Promise<Uint8Array> {
+export async function decryptData(key: SessionKey, b64: string): Promise<Uint8Array> {
   const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-  const iv = bytes.slice(0, 12);
-  const ciphertext = bytes.slice(12);
-  const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, toArrayBuffer(ciphertext));
-  return new Uint8Array(plaintext);
+  return openXChaCha20Poly1305(key, bytes);
 }
 
 // ─── Private key derivation ───────────────────────────────────────────────────
@@ -134,7 +124,7 @@ export async function createVaultSession(
   allowedRoles: string[],
   connectionName: string,
   members: teamService.TeamMember[],
-): Promise<{ sessionId: string; sessionKey: CryptoKey; sessionKeyBytes: Uint8Array }> {
+): Promise<{ sessionId: string; sessionKey: SessionKey; sessionKeyBytes: Uint8Array }> {
   const { publicKey } = await getMyX25519Keypair();
   await teamService.updatePublicKey(publicKey);
 
@@ -184,7 +174,7 @@ export async function createVaultSession(
  */
 export async function createInviteLinkSession(
   connectionName: string,
-): Promise<{ sessionId: string; sessionKey: CryptoKey; inviteToken: string }> {
+): Promise<{ sessionId: string; sessionKey: SessionKey; inviteToken: string }> {
   const serverUrl = await teamService.getServerUrlValue();
   if (!serverUrl) throw new Error("Not connected to server");
   const jwt = await teamService.getJwtToken();
@@ -215,7 +205,7 @@ export async function createInviteLinkSession(
 export async function getMySessionKey(
   sessionId: string,
   inviteToken?: string,
-): Promise<{ sessionKey: CryptoKey; hostPublicKey: string }> {
+): Promise<{ sessionKey: SessionKey; hostPublicKey: string }> {
   const serverUrl = await teamService.getServerUrlValue();
   if (!serverUrl) throw new Error("Not connected to server");
   const jwt = await teamService.getJwtToken();
@@ -302,7 +292,7 @@ export function openWebSocket(
   sessionId: string,
   jwt: string,
   displayName: string,
-  sessionKey: CryptoKey,
+  sessionKey: SessionKey,
   callbacks: SessionCallbacks,
   inviteToken?: string,
   initialSnapshot?: Uint8Array,

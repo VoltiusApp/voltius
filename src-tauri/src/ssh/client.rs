@@ -311,10 +311,7 @@ pub struct ConnectedSession {
     pub remote_routes: RemoteRouteMap,
 }
 
-async fn bridge_remote_channel(
-    channel: russh::Channel<client::Msg>,
-    route: RemoteRoute,
-) {
+async fn bridge_remote_channel(channel: russh::Channel<client::Msg>, route: RemoteRoute) {
     use std::sync::atomic::Ordering;
 
     let tcp = match TcpStream::connect((route.target_host.as_str(), route.target_port)).await {
@@ -336,7 +333,9 @@ async fn bridge_remote_channel(
             match tcp_r.read(&mut buf).await {
                 Ok(0) | Err(_) => break,
                 Ok(n) => {
-                    if ch_writer.write_all(&buf[..n]).await.is_err() { break; }
+                    if ch_writer.write_all(&buf[..n]).await.is_err() {
+                        break;
+                    }
                     bytes_up.fetch_add(n as u64, Ordering::Relaxed);
                 }
             }
@@ -348,7 +347,9 @@ async fn bridge_remote_channel(
         loop {
             match ch_read.wait().await {
                 Some(ChannelMsg::Data { data }) => {
-                    if tcp_w.write_all(&data).await.is_err() { break; }
+                    if tcp_w.write_all(&data).await.is_err() {
+                        break;
+                    }
                     bytes_down.fetch_add(data.len() as u64, Ordering::Relaxed);
                 }
                 Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) | None => break,
@@ -580,7 +581,14 @@ pub async fn connect(
         SshStep::Authenticating,
         format!("as {}", username),
     );
-    authenticate_handle(&mut final_handle, username, password, private_key, passphrase).await?;
+    authenticate_handle(
+        &mut final_handle,
+        username,
+        password,
+        private_key,
+        passphrase,
+    )
+    .await?;
 
     // Open channel + shell
     emit_step(&app, &session_id, SshStep::OpeningShell, "Requesting PTY");

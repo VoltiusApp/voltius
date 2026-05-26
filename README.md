@@ -78,7 +78,7 @@ We offer three levels of security to fit your workflow:
 
 - **OS Keychain (Local-Only)**: Uses your system's native secure storage (macOS Keychain, Windows Credential Manager, or Secret Service via keytar/libsecret). No master password required; maximum convenience for local-only use.
 
-- **Master Password:** Encrypts your vault using a user-defined passphrase. Uses Argon2id for key derivation and AES-256-GCM for data encryption.
+- **Master Password:** Encrypts your vault using a user-defined passphrase. Uses Argon2id for key derivation and XChaCha20-Poly1305 for data encryption.
 
 - **Cloud Account:** Enables seamless E2EE synchronization across devices via our high-speed relay service.
 
@@ -139,7 +139,7 @@ flowchart TD
         end
 
         KDF["Argon2id + HKDF-SHA256\n(32 MB mem · 2 iters)"]:::secure
-        EncKey(("enc_key\n(AES-256-GCM key)")):::secure
+        EncKey(("enc_key\n(XChaCha20-Poly1305 key)")):::secure
         AuthKey(("auth_key\n→ server login")):::secure
 
         Cloud -->|"password + account_id"| KDF
@@ -153,13 +153,13 @@ flowchart TD
 
     RegLayer -.->|"account created — use same\ncredentials in desktop Cloud Account"| Cloud
 
-    subgraph VaultLayer ["2. Local Vault (Rust · aes-gcm crate)"]
-        AesGcm{"AES-256-GCM\n(Rust, via Tauri IPC)"}:::secure
+    subgraph VaultLayer ["2. Local Vault (Rust · chacha20poly1305 crate)"]
+        XChaCha{"XChaCha20-Poly1305\n(Rust, via Tauri IPC)"}:::secure
         LocalStore[("secrets.enc\n(disk)")]:::local
-        AesGcm <==>|"encrypt / decrypt"| LocalStore
+        XChaCha <==>|"encrypt / decrypt"| LocalStore
     end
 
-    EncKey -->|"enc_key passed over Tauri IPC"| AesGcm
+    EncKey -->|"enc_key passed over Tauri IPC"| XChaCha
 
     subgraph SyncLayer ["3. Zero-Knowledge Remote Sync"]
         direction LR
@@ -167,21 +167,21 @@ flowchart TD
         subgraph GistSync ["Gist Sync (free · polling)"]
             direction TB
             GistKDF["derive_gist_key (Tauri cmd)\nArgon2id + HKDF-SHA256\npassphrase/PAT + manifest salt"]:::secure
-            GistAes{"AES-256-GCM\n(Rust)"}:::secure
+            GistAead{"XChaCha20-Poly1305\n(Rust)"}:::secure
             Gist[("GitHub Gists\n(Bring-Your-Own)")]:::remote
-            GistKDF -->|"gist_enc_key"| GistAes
-            GistAes <==>|"Encrypted CRDT blobs"| Gist
+            GistKDF -->|"gist_enc_key"| GistAead
+            GistAead <==>|"Encrypted CRDT blobs"| Gist
         end
 
         subgraph CloudSync ["Cloud Sync (Pro/Teams · SSE)"]
             direction TB
-            SseAes{"AES-256-GCM\n(Rust · encrypt_payload)"}:::secure
+            SseAead{"XChaCha20-Poly1305\n(Rust · encrypt_payload)"}:::secure
             SSE[("Voltius SSE Server")]:::remote
-            SseAes <==>|"Encrypted CRDT payloads"| SSE
+            SseAead <==>|"Encrypted CRDT payloads"| SSE
         end
     end
 
-    EncKey -->|"enc_key"| SseAes
+    EncKey -->|"enc_key"| SseAead
 
     Note1>All data leaving the device is strictly ciphertext.\nAuth Server, SSE Server, and GitHub have zero knowledge of vault contents.]:::note
     SyncLayer --- Note1
@@ -260,7 +260,7 @@ Output installers are placed in `src-tauri/target/release/bundle/`.
 | Sync Server | Rust, Axum, PostgreSQL             |
 | Terminal    | xterm.js (WebGL Accelerated)       |
 | SSH/SFTP    | russh                              |
-| Security    | Argon2id, AES-256-GCM (E2EE)       |
+| Security    | Argon2id, HKDF-SHA256, XChaCha20-Poly1305 (E2EE) |
 
 ## 📄 Licensing
 Voltius is licensed under the AGPLv3 for the core application and MIT for plugins. This means you can use and modify the core app for free, but if you distribute a modified version, you must also share your changes under the same license. Plugins can be used and shared with more flexibility under the MIT license.

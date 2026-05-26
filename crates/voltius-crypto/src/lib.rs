@@ -1,8 +1,8 @@
-use aes_gcm::{
-    aead::{Aead, AeadCore, KeyInit, OsRng as AeadOsRng},
-    Aes256Gcm, Key, Nonce,
-};
 use argon2::{Algorithm, Argon2, Params, Version};
+use chacha20poly1305::{
+    aead::{Aead, AeadCore, KeyInit, OsRng as AeadOsRng},
+    Key, XChaCha20Poly1305, XNonce,
+};
 use hkdf::Hkdf;
 use rand::RngCore;
 use sha2::Sha256;
@@ -54,31 +54,33 @@ pub fn random_bytes(n: usize) -> Vec<u8> {
     buf
 }
 
-pub fn aes_gcm_encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>, String> {
-    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(key));
-    let nonce = Aes256Gcm::generate_nonce(&mut AeadOsRng);
+const XCHACHA20POLY1305_NONCE_LEN: usize = 24;
+
+pub fn xchacha20poly1305_encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>, String> {
+    let cipher = XChaCha20Poly1305::new(Key::from_slice(key));
+    let nonce = XChaCha20Poly1305::generate_nonce(&mut AeadOsRng);
     let ciphertext = cipher
         .encrypt(&nonce, plaintext)
-        .map_err(|e| format!("AES-GCM encrypt failed: {e}"))?;
-    let mut out = Vec::with_capacity(12 + ciphertext.len());
+        .map_err(|e| format!("XChaCha20-Poly1305 encrypt failed: {e}"))?;
+    let mut out = Vec::with_capacity(XCHACHA20POLY1305_NONCE_LEN + ciphertext.len());
     out.extend_from_slice(&nonce);
     out.extend_from_slice(&ciphertext);
     Ok(out)
 }
 
-pub fn aes_gcm_decrypt(key: &[u8; 32], data: &[u8]) -> Result<Vec<u8>, String> {
-    if data.len() < 12 {
+pub fn xchacha20poly1305_decrypt(key: &[u8; 32], data: &[u8]) -> Result<Vec<u8>, String> {
+    if data.len() < XCHACHA20POLY1305_NONCE_LEN {
         return Err("Ciphertext too short".to_string());
     }
-    let nonce = Nonce::from_slice(&data[..12]);
-    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(key));
+    let nonce = XNonce::from_slice(&data[..XCHACHA20POLY1305_NONCE_LEN]);
+    let cipher = XChaCha20Poly1305::new(Key::from_slice(key));
     cipher
-        .decrypt(nonce, &data[12..])
-        .map_err(|_| "AES-GCM decrypt failed — wrong key or corrupted data".to_string())
+        .decrypt(nonce, &data[XCHACHA20POLY1305_NONCE_LEN..])
+        .map_err(|_| "XChaCha20-Poly1305 decrypt failed — wrong key or corrupted data".to_string())
 }
 
 /// Serialize and encrypt `{dek, x25519_private}` with `kek`.
-/// Format: nonce(12) || AES-GCM(dek(32) || x25519_private(32))
+/// Format: nonce(24) || XChaCha20-Poly1305(dek(32) || x25519_private(32))
 pub fn wrap_user_secrets(
     kek: &[u8; 32],
     dek: &[u8; 32],
@@ -87,14 +89,17 @@ pub fn wrap_user_secrets(
     let mut plaintext = Vec::with_capacity(64);
     plaintext.extend_from_slice(dek);
     plaintext.extend_from_slice(x25519_private);
-    aes_gcm_encrypt(kek, &plaintext)
+    xchacha20poly1305_encrypt(kek, &plaintext)
 }
 
 /// Decrypt and deserialize `{dek, x25519_private}`.
 pub fn unwrap_user_secrets(kek: &[u8; 32], wrapped: &[u8]) -> Result<([u8; 32], [u8; 32]), String> {
-    let plaintext = aes_gcm_decrypt(kek, wrapped)?;
+    let plaintext = xchacha20poly1305_decrypt(kek, wrapped)?;
     if plaintext.len() != 64 {
-        return Err(format!("Unexpected user_secrets length: {}", plaintext.len()));
+        return Err(format!(
+            "Unexpected user_secrets length: {}",
+            plaintext.len()
+        ));
     }
     let mut dek = [0u8; 32];
     let mut x25519_private = [0u8; 32];
@@ -123,4 +128,46 @@ pub struct Keypair {
     pub public_key: String,
     #[allow(dead_code)]
     pub private_key_bytes: Vec<u8>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn xchacha20poly1305_encrypt_uses_24_byte_nonce_and_round_trips() {
+        let key = [7u8; 32];
+        let plaintext = b"voltius secret payload";
+
+        let encrypted = xchacha20poly1305_encrypt(&key, plaintext).unwrap();
+
+        assert!(encrypted.len() >= 24 + plaintext.len());
+        let decrypted = xchacha20poly1305_decrypt(&key, &encrypted).unwrap();
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn xchacha20poly1305_decrypt_rejects_wrong_key() {
+        let key = [7u8; 32];
+        let wrong_key = [8u8; 32];
+        let encrypted = xchacha20poly1305_encrypt(&key, b"secret").unwrap();
+
+        let result = xchacha20poly1305_decrypt(&wrong_key, &encrypted);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn wrap_user_secrets_uses_xchacha20poly1305_format() {
+        let kek = [1u8; 32];
+        let dek = [2u8; 32];
+        let x25519_private = [3u8; 32];
+
+        let wrapped = wrap_user_secrets(&kek, &dek, &x25519_private).unwrap();
+
+        assert!(wrapped.len() >= 24 + 64);
+        let (unwrapped_dek, unwrapped_private) = unwrap_user_secrets(&kek, &wrapped).unwrap();
+        assert_eq!(unwrapped_dek, dek);
+        assert_eq!(unwrapped_private, x25519_private);
+    }
 }

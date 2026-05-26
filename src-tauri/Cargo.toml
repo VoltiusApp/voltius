@@ -32,7 +32,7 @@ tokio-util = "0.7"
 tauri-plugin-dialog = "2"
 async-trait = "0.1"
 log = "0.4"
-aes-gcm = "0.10"
+chacha20poly1305 = { version = "0.10", features = ["rand_core"] }
 voltius-crypto = { path = "../crates/voltius-crypto" }
 hkdf = "0.12"
 sha2 = "0.10"

@@ -1,7 +1,7 @@
 /**
  * Team vault sync service.
  *
- * Team vaults are cloud-only (online-only). The AES-256-GCM key is held in
+ * Team vaults are cloud-only (online-only). The XChaCha20-Poly1305 key is held in
  * memory for the session; never written to the OS keychain.
  *
  * Key management:

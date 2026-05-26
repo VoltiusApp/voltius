@@ -72,7 +72,8 @@ fn bump_changed_clocks(old: &Connection, new: &mut Connection, now: &str) {
     macro_rules! bump {
         ($field:ident) => {
             if old.$field != new.$field {
-                new.clocks.insert(stringify!($field).to_string(), now.to_string());
+                new.clocks
+                    .insert(stringify!($field).to_string(), now.to_string());
             }
         };
     }
@@ -203,7 +204,11 @@ pub fn connection_update(id: String, data: ConnectionFormData) -> Result<Connect
         .ok_or_else(|| format!("Connection {} not found", id))?
         .clone();
 
-    let effective_vault = data.vault_id.as_deref().unwrap_or(&existing.vault_id).to_string();
+    let effective_vault = data
+        .vault_id
+        .as_deref()
+        .unwrap_or(&existing.vault_id)
+        .to_string();
     check_vault_write(&[effective_vault])?;
 
     let now = Utc::now().to_rfc3339();

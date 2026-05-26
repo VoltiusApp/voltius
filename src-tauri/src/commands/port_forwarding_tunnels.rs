@@ -58,15 +58,23 @@ pub async fn pf_tunnel_open(
             let bh = bind_host.unwrap_or_else(|| "127.0.0.1".to_string());
             let th = target_host.unwrap_or_else(|| "127.0.0.1".to_string());
             let rport = remote_port.unwrap_or(local_port);
-            pf.open_remote_tunnel(&session_id, handle, routes, bh, rport, th, local_port, origin)
-                .await
-                .map_err(|e| e.to_string())
+            pf.open_remote_tunnel(
+                &session_id,
+                handle,
+                routes,
+                bh,
+                rport,
+                th,
+                local_port,
+                origin,
+            )
+            .await
+            .map_err(|e| e.to_string())
         }
-        TunnelType::Dynamic => {
-            pf.open_dynamic_tunnel(&session_id, handle, local_port, origin)
-                .await
-                .map_err(|e| e.to_string())
-        }
+        TunnelType::Dynamic => pf
+            .open_dynamic_tunnel(&session_id, handle, local_port, origin)
+            .await
+            .map_err(|e| e.to_string()),
     }
 }
 

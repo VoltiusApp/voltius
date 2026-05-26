@@ -203,7 +203,10 @@ pub async fn fs_compress(source_path: String, archive_path: String) -> Result<()
     let mut cmd = tokio::process::Command::new("tar");
     cmd.args(["-czf", &archive_path, "-C", &parent, &basename]);
     crate::commands::win_proc::prevent_visible_child_window(&mut cmd);
-    let output = cmd.output().await.map_err(|e| format!("tar not found: {e}"))?;
+    let output = cmd
+        .output()
+        .await
+        .map_err(|e| format!("tar not found: {e}"))?;
     if !output.status.success() {
         let msg = String::from_utf8_lossy(&output.stderr);
         return Err(msg.trim().to_string());
@@ -220,7 +223,10 @@ pub async fn fs_extract(archive_path: String, dest_dir: String) -> Result<(), St
     let mut cmd = tokio::process::Command::new("tar");
     cmd.args(["-xzf", &archive_path, "-C", &dest_dir]);
     crate::commands::win_proc::prevent_visible_child_window(&mut cmd);
-    let output = cmd.output().await.map_err(|e| format!("tar not found: {e}"))?;
+    let output = cmd
+        .output()
+        .await
+        .map_err(|e| format!("tar not found: {e}"))?;
     if !output.status.success() {
         let msg = String::from_utf8_lossy(&output.stderr);
         return Err(msg.trim().to_string());

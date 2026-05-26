@@ -1,9 +1,9 @@
 mod commands;
 mod crypto;
 mod docker;
-mod metrics;
 mod known_hosts;
 mod local;
+mod metrics;
 mod port_forward;
 mod processes;
 mod serial;
@@ -12,17 +12,17 @@ mod ssh;
 mod storage;
 mod vault_auth;
 
-use docker::stream::DockerLogStreamManager;
 use commands::http::HttpSseStreamManager;
+use docker::stream::DockerLogStreamManager;
 use known_hosts::{KnownHostsStore, PendingConflicts};
-use metrics::stream::MetricsStreamManager;
-use processes::stream::ProcessStreamManager;
-use port_forward::PortForwardManager;
-use serial::connect::SerialSessionManager;
-use std::sync::{Arc, Mutex};
 use local::session::LocalSessionManager;
+use metrics::stream::MetricsStreamManager;
+use port_forward::PortForwardManager;
+use processes::stream::ProcessStreamManager;
+use serial::connect::SerialSessionManager;
 use sftp::SftpManager;
 use ssh::session::SessionManager;
+use std::sync::{Arc, Mutex};
 use storage::secrets::SecretsStore;
 
 #[cfg(desktop)]
@@ -31,7 +31,10 @@ struct PendingUpdate(Mutex<Option<(tauri_plugin_updater::Update, Vec<u8>)>>);
 #[cfg(desktop)]
 fn update_cache_dir(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     use tauri::Manager;
-    app.path().app_data_dir().ok().map(|d| d.join("pending_update"))
+    app.path()
+        .app_data_dir()
+        .ok()
+        .map(|d| d.join("pending_update"))
 }
 
 #[cfg(desktop)]
@@ -77,7 +80,12 @@ async fn check_for_update(handle: tauri::AppHandle) {
     let updater = match handle.updater_builder().build() {
         Ok(u) => u,
         Err(e) => {
-            let _ = handle.emit("updater-status", UpdaterEvent::Error { message: e.to_string() });
+            let _ = handle.emit(
+                "updater-status",
+                UpdaterEvent::Error {
+                    message: e.to_string(),
+                },
+            );
             return;
         }
     };
@@ -89,7 +97,12 @@ async fn check_for_update(handle: tauri::AppHandle) {
             return;
         }
         Err(e) => {
-            let _ = handle.emit("updater-status", UpdaterEvent::Error { message: e.to_string() });
+            let _ = handle.emit(
+                "updater-status",
+                UpdaterEvent::Error {
+                    message: e.to_string(),
+                },
+            );
             return;
         }
     };
@@ -109,7 +122,13 @@ async fn check_for_update(handle: tauri::AppHandle) {
     }
     clear_update_cache(&handle);
 
-    let _ = handle.emit("updater-status", UpdaterEvent::Downloading { version: version.clone(), progress: 0 });
+    let _ = handle.emit(
+        "updater-status",
+        UpdaterEvent::Downloading {
+            version: version.clone(),
+            progress: 0,
+        },
+    );
 
     let mut downloaded: u64 = 0;
     let mut total: u64 = 0;
@@ -130,7 +149,10 @@ async fn check_for_update(handle: tauri::AppHandle) {
                 };
                 let _ = handle_clone.emit(
                     "updater-status",
-                    UpdaterEvent::Downloading { version: version_clone.clone(), progress },
+                    UpdaterEvent::Downloading {
+                        version: version_clone.clone(),
+                        progress,
+                    },
                 );
             },
             || {},
@@ -139,7 +161,12 @@ async fn check_for_update(handle: tauri::AppHandle) {
     {
         Ok(b) => b,
         Err(e) => {
-            let _ = handle.emit("updater-status", UpdaterEvent::Error { message: e.to_string() });
+            let _ = handle.emit(
+                "updater-status",
+                UpdaterEvent::Error {
+                    message: e.to_string(),
+                },
+            );
             return;
         }
     };
@@ -205,7 +232,8 @@ pub fn run() {
                     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                     check_for_update(handle.clone()).await;
                     // Re-check every 4 hours while the app is running
-                    let mut interval = tokio::time::interval(std::time::Duration::from_secs(4 * 60 * 60));
+                    let mut interval =
+                        tokio::time::interval(std::time::Duration::from_secs(4 * 60 * 60));
                     interval.tick().await; // consume the immediate first tick
                     loop {
                         interval.tick().await;

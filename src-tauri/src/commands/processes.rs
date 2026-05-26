@@ -2,11 +2,7 @@ use tauri::{AppHandle, Emitter, State};
 use uuid::Uuid;
 
 use crate::{
-    processes::{
-        local::LocalProcesses,
-        remote::RemoteProcesses,
-        stream::ProcessStreamManager,
-    },
+    processes::{local::LocalProcesses, remote::RemoteProcesses, stream::ProcessStreamManager},
     ssh::session::SessionManager,
 };
 
