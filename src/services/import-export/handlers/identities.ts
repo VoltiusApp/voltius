@@ -70,7 +70,7 @@ export const identitiesHandler: DataTypeHandler = {
           name: identity.name,
           username: identity.username,
           key_id: identity._key_eid ? ctx.keyEidMap.get(identity._key_eid) : undefined,
-          tags: identity.tags ?? [],
+          tags: ctx.tag ? [...(identity.tags ?? []), ctx.tag] : identity.tags ?? [],
           folder_id: identity._folder_eid ? ctx.folderEidMap.get(identity._folder_eid) : undefined,
           vault_id: ctx.vault_id,
         });

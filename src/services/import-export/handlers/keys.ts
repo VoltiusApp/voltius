@@ -60,7 +60,7 @@ export const keysHandler: DataTypeHandler = {
       try {
         const saved = await ctx.stores.saveKey({
           name: key.name, key_type: key.key_type,
-          tags: key.tags ?? [],
+          tags: ctx.tag ? [...(key.tags ?? []), ctx.tag] : key.tags ?? [],
           folder_id: key._folder_eid ? ctx.folderEidMap.get(key._folder_eid) : undefined,
           vault_id: ctx.vault_id,
         });

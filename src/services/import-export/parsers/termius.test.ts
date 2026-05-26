@@ -209,6 +209,21 @@ run("creates Voltius Identity rows from visible Termius password credentials", (
   assertEqual(bundle.identities[0]?.password, "secret");
 });
 
+run("does not force a Termius tag onto parsed objects", () => {
+  const bundle = bundleFromTermius(snapshot([
+    sshConfig(100),
+    host(101, 100, "web", "10.0.0.1"),
+    key(500, "k"),
+    passwordCredential(700, "prod", "ubuntu", "secret"),
+    snippet(900, "deploy", "echo deploy"),
+  ]));
+
+  assertDeepEqual(bundle.connections[0]?.tags, []);
+  assertDeepEqual(bundle.keys[0]?.tags, []);
+  assertDeepEqual(bundle.identities[0]?.tags, []);
+  assertDeepEqual(bundle.snippets[0]?.tags, []);
+});
+
 run("falls back to password when identity has no linked key", () => {
   const bundle = bundleFromTermius(snapshot([
     sshConfig(200),

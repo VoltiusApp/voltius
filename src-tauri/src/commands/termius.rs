@@ -380,14 +380,13 @@ mod v8 {
 /// A Chromium IndexedDB key. We only care about a subset:
 ///   `0x00 <db_id> <store_id> <index_id> <user_key…>`
 /// Index id 1 is the primary object-store data; 2 is the "exists" sidecar.
-struct IdbKey<'a> {
+struct IdbKey {
     db_id: u8,
     object_store_id: u8,
     index_id: u8,
-    user_key: &'a [u8],
 }
 
-fn decode_idb_key(key: &[u8]) -> Option<IdbKey<'_>> {
+fn decode_idb_key(key: &[u8]) -> Option<IdbKey> {
     if key.len() < 4 || key[0] != 0x00 {
         return None;
     }
@@ -395,7 +394,6 @@ fn decode_idb_key(key: &[u8]) -> Option<IdbKey<'_>> {
         db_id: key[1],
         object_store_id: key[2],
         index_id: key[3],
-        user_key: &key[4..],
     })
 }
 
@@ -920,7 +918,6 @@ mod tests {
         assert_eq!(k.db_id, 0x10);
         assert_eq!(k.object_store_id, 0x01);
         assert_eq!(k.index_id, 0x01);
-        assert_eq!(k.user_key.len(), 9);
     }
 
     #[test]

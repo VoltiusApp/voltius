@@ -54,7 +54,7 @@ export const snippetsHandler: DataTypeHandler = {
           name: snippet.name,
           content: snippet.content,
           description: snippet.description,
-          tags: snippet.tags,
+          tags: ctx.tag ? [...snippet.tags, ctx.tag] : snippet.tags,
           favorite: snippet.favorite,
           only_for_connection_tags: snippet.only_for_connection_tags,
           only_for_distros: snippet.only_for_distros,

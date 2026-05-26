@@ -172,7 +172,7 @@ export function bundleFromTermius(text: string): ExportBundle {
       name: label,
       private_key: privateKey,
       public_key: str(k.decrypted.public_key),
-      tags: ["termius"],
+      tags: [],
     });
   }
 
@@ -215,7 +215,7 @@ export function bundleFromTermius(text: string): ExportBundle {
     identityEidByTermiusId.set(termiusId, eid);
     identitiesOut.push({
       _eid: eid,
-      tags: ["termius"],
+      tags: [],
       ...identity,
     });
   };
@@ -364,7 +364,7 @@ export function bundleFromTermius(text: string): ExportBundle {
       _key_eid: keyEid,
       _identity_eid: identityEid,
       _folder_eid: folderEid,
-      tags: ["termius"],
+      tags: [],
       connection_type: "ssh",
       ...(envVars.length && { env_vars: envVars }),
       ...(distro && { distro }),
@@ -380,7 +380,7 @@ export function bundleFromTermius(text: string): ExportBundle {
     _eid: `ts${i}`,
     name: str(s.decrypted.label) ?? `Snippet ${s.termius_id}`,
     content: str(s.decrypted.script) ?? "",
-    tags: ["termius"],
+    tags: [],
     favorite: false,
     only_for_connection_tags: [],
     only_for_distros: [],
