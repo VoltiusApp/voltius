@@ -4,6 +4,11 @@ import { Icon } from "@iconify/react";
 import type { KnownHost } from "@/types";
 import { resolveKnownHostConflict } from "@/services/knownHosts";
 
+function isPassphraseError(msg?: string): boolean {
+  if (!msg) return false;
+  return msg.includes("The key is encrypted") || msg.toLowerCase().includes("invalid passphrase");
+}
+
 type StepStatus = "pending" | "active" | "done" | "error";
 
 interface StepConfig {
@@ -42,6 +47,7 @@ export interface ConnectionOverlayProps {
   className?: string;
   onDismiss?: () => void;
   onRetry?: () => void;
+  onRetryWithPassphrase?: (passphrase: string, save: boolean) => void;
 }
 
 export const SSH_STEPS: StepConfig[] = [
@@ -68,7 +74,7 @@ export default function ConnectionOverlay({
   name, subtitle, icon,
   steps: stepConfigs, stepEventName, conflictEventName,
   className,
-  onDismiss, onRetry,
+  onDismiss, onRetry, onRetryWithPassphrase,
 }: ConnectionOverlayProps) {
   const toSteps = (): Step[] => stepConfigs.map((s) => ({ ...s, status: "pending" as StepStatus }));
 
@@ -137,6 +143,7 @@ export default function ConnectionOverlay({
   const isError = status === "error";
   const isDisconnected = status === "disconnected";
   const isConnecting = status === "connecting";
+  const showPassphrasePrompt = isError && isPassphraseError(errorMessage) && !!onRetryWithPassphrase;
 
   const handleResolve = async (action: "add_new" | "replace" | "abort") => {
     if (resolving) return;
@@ -149,6 +156,8 @@ export default function ConnectionOverlay({
     }
   };
 
+  const showSpecialPanel = (conflict && !isError) || showPassphrasePrompt;
+
   return (
     <div className={className ?? "absolute inset-0 z-20 flex items-center justify-center bg-[var(--t-bg-terminal)]"}>
       <div className="flex flex-col items-center gap-6 w-80 text-center">
@@ -157,7 +166,7 @@ export default function ConnectionOverlay({
           <div className="w-14 h-14 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center">
             <Icon icon={icon} width={22} className="text-accent" />
           </div>
-          {isConnecting && !conflict && (
+          {isConnecting && !showSpecialPanel && (
             <svg
               className="absolute inset-0 w-full h-full pointer-events-none"
               viewBox="0 0 56 56"
@@ -179,6 +188,11 @@ export default function ConnectionOverlay({
 
         {conflict && !isError ? (
           <HostKeyConflictPanel conflict={conflict} resolving={resolving} onResolve={handleResolve} />
+        ) : showPassphrasePrompt ? (
+          <PassphrasePromptPanel
+            onSubmit={onRetryWithPassphrase!}
+            onCancel={onDismiss}
+          />
         ) : (
           <>
             <div className="w-full space-y-2.5 text-left">
@@ -268,6 +282,78 @@ function StepIcon({ status }: { status: StepStatus }) {
     );
   }
   return <div className="w-5 h-5 rounded-full border border-border/50 shrink-0" />;
+}
+
+function PassphrasePromptPanel({
+  onSubmit, onCancel,
+}: {
+  onSubmit: (passphrase: string, save: boolean) => void;
+  onCancel?: () => void;
+}) {
+  const [passphrase, setPassphrase] = useState("");
+  const [showPassphrase, setShowPassphrase] = useState(false);
+
+  return (
+    <div className="w-full flex flex-col gap-4">
+      <div className="w-full p-3 rounded-lg bg-[var(--t-bg-elevated)] border border-[var(--t-border)] text-left">
+        <div className="flex items-center gap-2 mb-2">
+          <Icon icon="lucide:lock" width={14} className="text-[var(--t-text-dim)] shrink-0" />
+          <span className="text-[var(--t-text-primary)] text-xs font-semibold tracking-wide">KEY PASSPHRASE REQUIRED</span>
+        </div>
+        <p className="text-[var(--t-text-secondary)] text-xs">
+          This key is encrypted. Enter the passphrase to continue.
+        </p>
+      </div>
+
+      <div className="w-full relative">
+        <input
+          type={showPassphrase ? "text" : "password"}
+          value={passphrase}
+          onChange={(e) => setPassphrase(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && passphrase) onSubmit(passphrase, false); }}
+          placeholder="Passphrase"
+          autoFocus
+          className="w-full px-3 pr-9 py-2 rounded-lg text-sm outline-none bg-[var(--t-bg-base)] border border-[var(--t-border)] text-[var(--t-text-primary)]"
+          style={{ borderColor: "var(--t-border)" }}
+          onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
+          onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => setShowPassphrase((v) => !v)}
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--t-text-dim)] transition-colors"
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-dim)")}
+        >
+          <Icon icon={showPassphrase ? "lucide:eye-off" : "lucide:eye"} width={14} />
+        </button>
+      </div>
+
+      <div className="w-full flex flex-col gap-2">
+        <button
+          disabled={!passphrase}
+          onClick={() => onSubmit(passphrase, true)}
+          className="w-full px-4 py-2 rounded-lg text-sm font-medium bg-accent text-white hover:bg-accent/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Connect &amp; Save
+        </button>
+        <button
+          disabled={!passphrase}
+          onClick={() => onSubmit(passphrase, false)}
+          className="w-full px-4 py-2 rounded-lg text-sm font-medium bg-[var(--t-bg-elevated)] text-[var(--t-text-primary)] border border-[var(--t-border)] hover:bg-[var(--t-bg-card-hover)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Connect
+        </button>
+        <button
+          onClick={onCancel}
+          className="w-full px-4 py-2 rounded-lg text-sm text-[var(--t-text-muted)] hover:text-[var(--t-text-primary)] transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function truncateFp(fp: string): string {

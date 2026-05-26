@@ -4,6 +4,8 @@ import { sshConnect, sshDisconnect, sshDetectDistro, sshSendInput } from "@/serv
 import { localConnect, localDisconnect } from "@/services/local";
 import { serialConnect, serialDisconnect } from "@/services/serial";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
+import { storeSecret } from "@/services/vault";
+import { useIdentityStore } from "@/stores/identityStore";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportAuditClientEvent, type ClientAuditAction } from "@/services/auditReporter";
 import { useConnectionStore } from "./connectionStore";
@@ -31,6 +33,7 @@ interface SessionStore {
   markDisconnected: (sessionId: string) => void;
   removeSession: (sessionId: string) => void;
   reconnect: (sessionId: string) => Promise<void>;
+  reconnectWithPassphrase: (sessionId: string, passphrase: string, save: boolean) => Promise<void>;
 }
 
 type SessionSetter = (fn: (s: { sessions: TerminalSession[]; activeSessionId: string | null }) => Partial<SessionStore>) => void;
@@ -537,6 +540,59 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       const credentials = await resolveConnectionCredentials(connection);
 
       await sshConnect({ sessionId, host: connection.host, port: connection.port, username: credentials.username, password: credentials.password, privateKey: credentials.privateKey, passphrase: credentials.passphrase, connectionId: connection.id });
+      set((s) => ({
+        sessions: s.sessions.map((sess) =>
+          sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
+        ),
+      }));
+      reportConnectionAudit(connection, "connection.started");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      set((s) => ({
+        sessions: s.sessions.map((sess) =>
+          sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
+        ),
+      }));
+    }
+  },
+
+  reconnectWithPassphrase: async (sessionId, passphrase, save) => {
+    const session = get().sessions.find((s) => s.id === sessionId);
+    if (!session || session.type !== "ssh") return;
+    const connection = findConnection(session.connectionId);
+    if (!connection) return;
+
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId ? { ...sess, status: "connecting" as const, errorMessage: undefined } : sess,
+      ),
+    }));
+
+    try {
+      const credentials = await resolveConnectionCredentials(connection);
+
+      if (save) {
+        const keyId = connection.key_id ?? (() => {
+          if (!connection.identity_id) return undefined;
+          const { identities, teamIdentities } = useIdentityStore.getState();
+          const allIdentities = [...identities, ...Object.values(teamIdentities).flat()];
+          return allIdentities.find((i) => i.id === connection.identity_id)?.key_id;
+        })();
+        if (keyId) await storeSecret(`key:${keyId}:passphrase`, passphrase);
+      }
+
+      const jumpHosts = await resolveJumpHosts(connection);
+      await sshConnect({
+        sessionId,
+        host: connection.host,
+        port: connection.port,
+        username: credentials.username,
+        password: credentials.password,
+        privateKey: credentials.privateKey,
+        passphrase,
+        connectionId: connection.id,
+        jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
+      });
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,

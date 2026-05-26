@@ -203,11 +203,12 @@ function HostAwareTerminalView({
 }
 
 function SessionConnectionOverlay({
-  session, onDismiss, onRetry,
+  session, onDismiss, onRetry, onRetryWithPassphrase,
 }: {
   session: TerminalSession;
   onDismiss?: () => void;
   onRetry?: () => void;
+  onRetryWithPassphrase?: (passphrase: string, save: boolean) => void;
 }) {
   const connections = useAllConnections();
   const connection = connections.find((c) => c.id === session.connectionId);
@@ -263,6 +264,7 @@ function SessionConnectionOverlay({
       conflictEventName={`ssh-host-key-conflict-${session.id}`}
       onDismiss={onDismiss}
       onRetry={onRetry}
+      onRetryWithPassphrase={onRetryWithPassphrase}
     />
   );
 }
@@ -290,6 +292,7 @@ export default function MainPanel() {
   const { sessions, activeSessionId } = useSessionStore();
   const markDisconnected = useSessionStore((s) => s.markDisconnected);
   const reconnect = useSessionStore((s) => s.reconnect);
+  const reconnectWithPassphrase = useSessionStore((s) => s.reconnectWithPassphrase);
   const removeSession = useSessionStore((s) => s.removeSession);
   const homeView = useUIStore((s) => s.homeView);
   const activeNav = useUIStore((s) => s.activeNav);
@@ -386,6 +389,7 @@ export default function MainPanel() {
                         session={session}
                         onDismiss={() => removeSession(session.id)}
                         onRetry={(session.type === "ssh" || session.type === "serial") ? () => reconnect(session.id) : undefined}
+                        onRetryWithPassphrase={session.type === "ssh" ? (passphrase, save) => void reconnectWithPassphrase(session.id, passphrase, save) : undefined}
                       />
                     )}
                     {session.type === "multiplayer" ? (
