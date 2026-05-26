@@ -101,6 +101,34 @@ interface Indexed {
   tagHosts: TermiusRecord[];
 }
 
+interface KeyBuildResult {
+  keys: KeyExport[];
+  keyEidByTermiusId: Map<number, string>;
+}
+
+interface FolderBuildResult {
+  folders: ExportBundle["folders"];
+  folderEidByGroupId: Map<number, string>;
+}
+
+interface IdentityBuildResult {
+  identities: IdentityExport[];
+  identityBySshConfigId: Map<number, TermiusRecord>;
+  identityEidByTermiusId: Map<number, string>;
+}
+
+interface ConnectionBuildInput {
+  keyEidByTermiusId: Map<number, string>;
+  folderEidByGroupId: Map<number, string>;
+  identityBySshConfigId: Map<number, TermiusRecord>;
+  identityEidByTermiusId: Map<number, string>;
+}
+
+interface ConnectionBuildResult {
+  connections: ConnectionExport[];
+  connectionEidByHostId: Map<number, string>;
+}
+
 function indexRecords(records: TermiusRecord[]): Indexed {
   const out: Indexed = {
     hosts: new Map(),
@@ -121,19 +149,45 @@ function indexRecords(records: TermiusRecord[]): Indexed {
   };
   for (const r of records) {
     switch (r.db_name) {
-      case "hosts": out.hosts.set(r.termius_id, r); break;
-      case "ssh_configs": out.sshConfigs.set(r.termius_id, r); break;
-      case "settings": out.sshConfigSettings.set(r.termius_id, r); break;
-      case "groups": out.groups.set(r.termius_id, r); break;
-      case "ssh_identities": out.sshIdentities.set(r.termius_id, r); break;
-      case "ssh_config_identities": out.sshConfigIdentities.push(r); break;
-      case "keys": out.sshKeys.set(r.termius_id, r); break;
-      case "host_chains": out.hostChains.push(r); break;
-      case "pf_rules": out.pfRules.push(r); break;
-      case "snippets": out.snippets.push(r); break;
-      case "host_snippets": out.hostSnippets.push(r); break;
-      case "tags": out.tags.set(r.termius_id, r); break;
-      case "tag_hosts": out.tagHosts.push(r); break;
+      case "hosts":
+        out.hosts.set(r.termius_id, r);
+        break;
+      case "ssh_configs":
+        out.sshConfigs.set(r.termius_id, r);
+        break;
+      case "settings":
+        out.sshConfigSettings.set(r.termius_id, r);
+        break;
+      case "groups":
+        out.groups.set(r.termius_id, r);
+        break;
+      case "ssh_identities":
+        out.sshIdentities.set(r.termius_id, r);
+        break;
+      case "ssh_config_identities":
+        out.sshConfigIdentities.push(r);
+        break;
+      case "keys":
+        out.sshKeys.set(r.termius_id, r);
+        break;
+      case "host_chains":
+        out.hostChains.push(r);
+        break;
+      case "pf_rules":
+        out.pfRules.push(r);
+        break;
+      case "snippets":
+        out.snippets.push(r);
+        break;
+      case "host_snippets":
+        out.hostSnippets.push(r);
+        break;
+      case "tags":
+        out.tags.set(r.termius_id, r);
+        break;
+      case "tag_hosts":
+        out.tagHosts.push(r);
+        break;
     }
   }
   return out;
@@ -141,7 +195,7 @@ function indexRecords(records: TermiusRecord[]): Indexed {
 
 // ─── Bundle builder ───────────────────────────────────────────────────────────
 
-export function bundleFromTermius(text: string): ExportBundle {
+function parseSnapshot(text: string): TermiusSnapshot {
   let raw: unknown;
   try {
     raw = JSON.parse(text);
@@ -155,19 +209,19 @@ export function bundleFromTermius(text: string): ExportBundle {
   if (snapshot?.version !== 2 || !Array.isArray(snapshot.records)) {
     throw new Error("Termius extraction must return { version: 2, records: [...] }");
   }
+  return snapshot as TermiusSnapshot;
+}
 
-  const idx = indexRecords(snapshot.records);
-
-  // ─── Keys ────────────────────────────────────────────────────────────────
-  const keysOut: KeyExport[] = [];
+function buildKeys(idx: Indexed): KeyBuildResult {
+  const keys: KeyExport[] = [];
   const keyEidByTermiusId = new Map<number, string>();
   for (const k of idx.sshKeys.values()) {
     const label = str(k.decrypted.label);
     const privateKey = str(k.decrypted.private_key);
     if (!privateKey) continue; // key with no private material — skip
-    const eid = `tk${keysOut.length}`;
+    const eid = `tk${keys.length}`;
     keyEidByTermiusId.set(k.termius_id, eid);
-    keysOut.push({
+    keys.push({
       _eid: eid,
       name: label,
       private_key: privateKey,
@@ -177,11 +231,14 @@ export function bundleFromTermius(text: string): ExportBundle {
     });
   }
 
-  // ─── Folders (Termius groups) ────────────────────────────────────────────
+  return { keys, keyEidByTermiusId };
+}
+
+function buildFolders(idx: Indexed): FolderBuildResult {
   // Each group maps to a Voltius folder; folder hierarchy via group's
   // `parent_group` foreign key.
   const folderEidByGroupId = new Map<number, string>();
-  const foldersOut = Array.from(idx.groups.values()).map((g, i) => {
+  const folders = Array.from(idx.groups.values()).map((g, i) => {
     const eid = `tf${i}`;
     folderEidByGroupId.set(g.termius_id, eid);
     return { eid, group: g };
@@ -194,7 +251,10 @@ export function bundleFromTermius(text: string): ExportBundle {
       : undefined,
   }));
 
-  // ─── Identity resolution ─────────────────────────────────────────────────
+  return { folders, folderEidByGroupId };
+}
+
+function buildIdentities(idx: Indexed, keyEidByTermiusId: Map<number, string>): IdentityBuildResult {
   // For each host (via ssh_config.id), find the bound ssh_identity, then walk
   // identity → ssh_key (when is_visible:false) or use the identity directly
   // (when is_visible:true).
@@ -207,14 +267,14 @@ export function bundleFromTermius(text: string): ExportBundle {
     if (identity) identityBySshConfigId.set(sshConfigId, identity);
   }
 
-  // ─── Identities (only visible ones become Voltius Identity rows) ─────────
-  const identitiesOut: IdentityExport[] = [];
+  // Only visible identities become Voltius Identity rows.
+  const identities: IdentityExport[] = [];
   const identityEidByTermiusId = new Map<number, string>();
   const pushIdentity = (termiusId: number, identity: Omit<IdentityExport, "_eid" | "tags"> & { tags?: string[] }) => {
     if (identityEidByTermiusId.has(termiusId)) return;
-    const eid = `ti${identitiesOut.length}`;
+    const eid = `ti${identities.length}`;
     identityEidByTermiusId.set(termiusId, eid);
-    identitiesOut.push({
+    identities.push({
       _eid: eid,
       tags: [],
       ...identity,
@@ -247,17 +307,12 @@ export function bundleFromTermius(text: string): ExportBundle {
     });
   }
 
-  // ─── Host chains (jump hosts) ────────────────────────────────────────────
-  // Termius stores jump host chains in host_chains: { ssh_config: <id>,
-  // hosts_chain: [host_id, ...] }. Each host_id in the chain references a
-  // host (not a sshConfig). We need to map back: host_id → ssh_config_id.
-  const sshConfigIdByHostPrimaryId = new Map<number, number>();
-  for (const host of idx.hosts.values()) {
-    const sshConfigId = host.foreign_keys?.ssh_config;
-    if (sshConfigId != null) sshConfigIdByHostPrimaryId.set(host.termius_id, sshConfigId);
-  }
-  // Map ssh_config_id → list of host_ids (in jump order, host[0] is the first
-  // jump, the host whose ssh_config matched is the final target).
+  return { identities, identityBySshConfigId, identityEidByTermiusId };
+}
+
+function buildChainBySshConfigId(idx: Indexed): Map<number, number[]> {
+  // Map ssh_config_id -> list of host_ids (in jump order, host[0] is the
+  // first jump, the host whose ssh_config matched is the final target).
   const chainBySshConfigId = new Map<number, number[]>();
   for (const chain of idx.hostChains) {
     const sshConfigId = chain.foreign_keys?.ssh_config ?? num(chain.decrypted.ssh_config);
@@ -267,9 +322,13 @@ export function bundleFromTermius(text: string): ExportBundle {
     }
   }
 
-  // ─── Connections (one per host) ──────────────────────────────────────────
-  const connectionsOut: ConnectionExport[] = [];
+  return chainBySshConfigId;
+}
+
+function buildConnections(idx: Indexed, input: ConnectionBuildInput): ConnectionBuildResult {
+  const connections: ConnectionExport[] = [];
   const connectionEidByHostId = new Map<number, string>();
+  const chainBySshConfigId = buildChainBySshConfigId(idx);
 
   for (const host of idx.hosts.values()) {
     if (host.status && host.status.toLowerCase() === "deleted") continue;
@@ -302,7 +361,7 @@ export function bundleFromTermius(text: string): ExportBundle {
     let keyEid: string | undefined;
 
     if (sshConfigId != null) {
-      const identity = identityBySshConfigId.get(sshConfigId);
+      const identity = input.identityBySshConfigId.get(sshConfigId);
       if (identity) {
         const idBody = identity.decrypted;
         const keyTermiusId = identity.foreign_keys?.ssh_key;
@@ -315,13 +374,13 @@ export function bundleFromTermius(text: string): ExportBundle {
         if (linkedKey && str(linkedKey.decrypted.private_key)) {
           authType = "key";
           privateKey = str(linkedKey.decrypted.private_key);
-          keyEid = keyEidByTermiusId.get(linkedKey.termius_id);
+          keyEid = input.keyEidByTermiusId.get(linkedKey.termius_id);
         } else if (idPassword) {
           authType = "password";
           password = idPassword;
         }
         if (isVisible) {
-          identityEid = identityEidByTermiusId.get(identity.termius_id);
+          identityEid = input.identityEidByTermiusId.get(identity.termius_id);
         }
       }
     }
@@ -334,7 +393,7 @@ export function bundleFromTermius(text: string): ExportBundle {
           const hopHost = idx.hosts.get(hopHostId);
           const hopSshConfigId = hopHost?.foreign_keys?.ssh_config;
           const hopSettings = hopSshConfigId != null ? idx.sshConfigSettings.get(hopSshConfigId) : undefined;
-          const hopIdentity = hopSshConfigId != null ? identityBySshConfigId.get(hopSshConfigId) : undefined;
+          const hopIdentity = hopSshConfigId != null ? input.identityBySshConfigId.get(hopSshConfigId) : undefined;
           return {
             id: crypto.randomUUID(),
             host: str(hopHost?.decrypted.address) ?? "",
@@ -342,7 +401,7 @@ export function bundleFromTermius(text: string): ExportBundle {
             username: str(hopIdentity?.decrypted.username) ?? "",
             _connection_eid: connectionEidByHostId.get(hopHostId),
             _identity_eid: hopIdentity && bool(hopIdentity.decrypted.is_visible)
-              ? identityEidByTermiusId.get(hopIdentity.termius_id)
+              ? input.identityEidByTermiusId.get(hopIdentity.termius_id)
               : undefined,
           };
         })
@@ -350,10 +409,10 @@ export function bundleFromTermius(text: string): ExportBundle {
 
     // Folder via group FK on host.
     const groupId = host.foreign_keys?.group;
-    const folderEid = groupId != null ? folderEidByGroupId.get(groupId) : undefined;
+    const folderEid = groupId != null ? input.folderEidByGroupId.get(groupId) : undefined;
 
-    const eid = connectionEidByHostId.get(host.termius_id) ?? `tc${connectionsOut.length}`;
-    connectionsOut.push({
+    const eid = connectionEidByHostId.get(host.termius_id) ?? `tc${connections.length}`;
+    connections.push({
       _eid: eid,
       name: label,
       host: address,
@@ -376,8 +435,11 @@ export function bundleFromTermius(text: string): ExportBundle {
     });
   }
 
-  // ─── Snippets ────────────────────────────────────────────────────────────
-  const snippetsOut: SnippetExport[] = idx.snippets.map((s, i) => ({
+  return { connections, connectionEidByHostId };
+}
+
+function buildSnippets(idx: Indexed): SnippetExport[] {
+  return idx.snippets.map((s, i) => ({
     _eid: `ts${i}`,
     name: str(s.decrypted.label) ?? `Snippet ${s.termius_id}`,
     content: str(s.decrypted.script) ?? "",
@@ -386,9 +448,13 @@ export function bundleFromTermius(text: string): ExportBundle {
     only_for_connection_tags: [],
     only_for_distros: [],
   }));
+}
 
-  // ─── Port forwarding rules ───────────────────────────────────────────────
-  const pfOut: PortForwardingRuleExport[] = idx.pfRules.map((rule, i) => {
+function buildPortForwardingRules(
+  idx: Indexed,
+  connectionEidByHostId: Map<number, string>,
+): PortForwardingRuleExport[] {
+  return idx.pfRules.map((rule, i) => {
     const pfType = str(rule.decrypted.pf_type) ?? "Local Rule";
     const hostId = rule.foreign_keys?.host;
     const connEid = hostId != null ? connectionEidByHostId.get(hostId) : undefined;
@@ -404,6 +470,26 @@ export function bundleFromTermius(text: string): ExportBundle {
       _connection_eids: connEid ? [connEid] : [],
     };
   });
+}
+
+export function bundleFromTermius(text: string): ExportBundle {
+  const snapshot = parseSnapshot(text);
+  const idx = indexRecords(snapshot.records);
+  const { keys: keysOut, keyEidByTermiusId } = buildKeys(idx);
+  const { folders: foldersOut, folderEidByGroupId } = buildFolders(idx);
+  const {
+    identities: identitiesOut,
+    identityBySshConfigId,
+    identityEidByTermiusId,
+  } = buildIdentities(idx, keyEidByTermiusId);
+  const { connections: connectionsOut, connectionEidByHostId } = buildConnections(idx, {
+    keyEidByTermiusId,
+    folderEidByGroupId,
+    identityBySshConfigId,
+    identityEidByTermiusId,
+  });
+  const snippetsOut = buildSnippets(idx);
+  const pfOut = buildPortForwardingRules(idx, connectionEidByHostId);
 
   return {
     version: 1,
