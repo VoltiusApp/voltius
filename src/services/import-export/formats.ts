@@ -28,6 +28,7 @@ export interface IdentityExport {
   _eid?: string;
   name?: string;
   username: string;
+  password?: string;
   tags?: string[];
   _key_eid?: string;    // → KeyExport._eid in the same bundle
   _folder_eid?: string;
