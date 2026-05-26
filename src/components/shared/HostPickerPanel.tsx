@@ -18,9 +18,10 @@ interface Props {
   selectedHostId?: string;
   onBack?: () => void;
   sshOnly?: boolean;
+  vaultId?: string;
 }
 
-export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly }: Props) {
+export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vaultId }: Props) {
   const { connections, loadConnections } = useConnectionStore();
   useEffect(() => { void loadConnections(); }, [loadConnections]);
 
@@ -33,10 +34,11 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly }: Pro
 
   const filtered = useMemo(
     () => connections
+      .filter((c) => !vaultId || (c.vault_id ?? "personal") === vaultId)
       .filter((c) => !sshOnly || c.connection_type !== "serial")
       .filter((c) => matchesSearch(c, search))
       .sort((a, b) => compareConnections(a, b, sortMode)),
-    [connections, search, sortMode, sshOnly],
+    [connections, search, sortMode, sshOnly, vaultId],
   );
 
   return (

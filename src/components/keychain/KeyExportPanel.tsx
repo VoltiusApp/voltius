@@ -209,6 +209,7 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
           selectedHostId={selectedHostId}
           onPick={(h) => { if (h.kind === "remote") setSelectedHostId(h.connection.id); setShowHostSelect(false); }}
           onBack={() => setShowHostSelect(false)}
+          vaultId={sshKey.vault_id ?? "personal"}
         />
       </div>
     </div>
