@@ -398,7 +398,7 @@ export default function KeychainPage() {
     setKeychainPendingAction(null);
   }, [keychainPendingAction, keys, identities, setKeychainPendingAction]);
 
-  const handleKeySubmit = async (data: SshKeyFormData, privateKey: string | null, publicKey: string | null) => {
+  const handleKeySubmit = async (data: SshKeyFormData, privateKey: string | null, publicKey: string | null, passphrase: string | null) => {
     try {
       if (editingKey) {
         await updateKey(editingKey.id, data);
@@ -416,6 +416,13 @@ export default function KeychainPage() {
             await saveTeamVaultSecretForVault(data.vault_id ?? editingKey.vault_id, localKey, publicKey).catch(() => {});
           } else await deleteSecret(localKey).catch(() => {});
         }
+        if (passphrase !== null) {
+          const localKey = `key:${editingKey.id}:passphrase`;
+          if (passphrase) {
+            await storeSecret(localKey, passphrase);
+            await saveTeamVaultSecretForVault(data.vault_id ?? editingKey.vault_id, localKey, passphrase).catch(() => {});
+          } else await deleteSecret(localKey).catch(() => {});
+        }
       } else {
         const key = await saveKey(data);
         if (privateKey) {
@@ -427,6 +434,11 @@ export default function KeychainPage() {
           const localKey = `key:${key.id}:public`;
           await storeSecret(localKey, publicKey);
           await saveTeamVaultSecretForVault(key.vault_id, localKey, publicKey).catch(() => {});
+        }
+        if (passphrase) {
+          const localKey = `key:${key.id}:passphrase`;
+          await storeSecret(localKey, passphrase);
+          await saveTeamVaultSecretForVault(key.vault_id, localKey, passphrase).catch(() => {});
         }
         setEditingKeyId(key.id);
       }
@@ -583,12 +595,14 @@ export default function KeychainPage() {
   const handleCopyKeyToVault = async (key: SshKey, vaultId: string) => {
     try {
       const newKey = await saveKey({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId });
-      const [priv, pub] = await Promise.all([
+      const [priv, pub, pass] = await Promise.all([
         getSecret(`key:${key.id}:private`).catch(() => null),
         getSecret(`key:${key.id}:public`).catch(() => null),
+        getSecret(`key:${key.id}:passphrase`).catch(() => null),
       ]);
       if (priv) await storeSecret(`key:${newKey.id}:private`, priv);
       if (pub) await storeSecret(`key:${newKey.id}:public`, pub);
+      if (pass) await storeSecret(`key:${newKey.id}:passphrase`, pass);
     } catch (err) { setError(String(err)); }
   };
 

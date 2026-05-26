@@ -50,6 +50,7 @@ export const keysHandler: DataTypeHandler = {
       tags: k.tags,
       private_key: await getSecret(`key:${k.id}:private`).catch(() => null) ?? undefined,
       public_key: await getSecret(`key:${k.id}:public`).catch(() => null) ?? undefined,
+      passphrase: await getSecret(`key:${k.id}:passphrase`).catch(() => null) ?? undefined,
       _folder_eid: k.folder_id ? ctx.folderEidMap.get(k.folder_id) : undefined,
     })));
   },
@@ -85,6 +86,11 @@ export const keysHandler: DataTypeHandler = {
           const localKey = `key:${saved.id}:public`;
           await storeSecret(localKey, key.public_key);
           await saveTeamVaultSecretForVault(ctx.vault_id, localKey, key.public_key).catch(() => {});
+        }
+        if (key.passphrase) {
+          const localKey = `key:${saved.id}:passphrase`;
+          await storeSecret(localKey, key.passphrase);
+          await saveTeamVaultSecretForVault(ctx.vault_id, localKey, key.passphrase).catch(() => {});
         }
         if (key._eid) ctx.keyEidMap.set(key._eid, saved.id);
         imported++;

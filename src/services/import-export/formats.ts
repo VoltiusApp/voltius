@@ -21,6 +21,7 @@ export interface KeyExport {
   tags?: string[];
   private_key?: string;
   public_key?: string;
+  passphrase?: string;
   _folder_eid?: string;
 }
 

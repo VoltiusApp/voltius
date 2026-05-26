@@ -64,6 +64,16 @@ function key(id: number, label: string): TermiusRecord {
   };
 }
 
+function encryptedKey(id: number, label: string, passphrase: string): TermiusRecord {
+  return {
+    ...key(id, label),
+    decrypted: {
+      ...key(id, label).decrypted,
+      passphrase,
+    },
+  };
+}
+
 function passwordCredential(id: number, label: string, username: string, password: string, visible = true): TermiusRecord {
   return {
     db_name: "keys",
@@ -207,6 +217,15 @@ run("creates Voltius Identity rows from visible Termius password credentials", (
   assertEqual(bundle.identities[0]?.name, "root");
   assertEqual(bundle.identities[0]?.username, "root");
   assertEqual(bundle.identities[0]?.password, "secret");
+});
+
+run("preserves Termius key passphrases", () => {
+  const bundle = bundleFromTermius(snapshot([
+    encryptedKey(500, "encrypted", "key-passphrase"),
+  ]));
+
+  assertEqual(bundle.keys.length, 1);
+  assertEqual(bundle.keys[0]?.passphrase, "key-passphrase");
 });
 
 run("does not force a Termius tag onto parsed objects", () => {

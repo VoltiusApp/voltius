@@ -172,6 +172,7 @@ export function bundleFromTermius(text: string): ExportBundle {
       name: label,
       private_key: privateKey,
       public_key: str(k.decrypted.public_key),
+      passphrase: str(k.decrypted.passphrase),
       tags: [],
     });
   }

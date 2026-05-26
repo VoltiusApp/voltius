@@ -238,7 +238,7 @@ export function KeyFileDropZone({
 
 export interface KeyFormProps {
   initial?: SshKey;
-  onSubmit: (data: SshKeyFormData, privateKey: string | null, publicKey: string | null) => void | Promise<void>;
+  onSubmit: (data: SshKeyFormData, privateKey: string | null, publicKey: string | null, passphrase: string | null) => void | Promise<void>;
   onClose: () => void;
   onExport?: (key: SshKey) => void;
   onDelete?: (id: string) => void;
@@ -255,6 +255,8 @@ export function KeyForm({ initial, onSubmit, onClose, onExport, onDelete, flushR
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
   const [privateKey, setPrivateKey] = useState("");
   const [publicKey, setPublicKey] = useState("");
+  const [passphrase, setPassphrase] = useState("");
+  const [showPassphrase, setShowPassphrase] = useState(false);
   const [folderId, setFolderId] = useState<string | null>(initial?.folder_id ?? null);
   const defaultVaultId = useDefaultVaultId();
   const [vaultId, setVaultId] = useState<string>(() => initial?.vault_id ?? defaultVaultId);
@@ -268,6 +270,7 @@ export function KeyForm({ initial, onSubmit, onClose, onExport, onDelete, flushR
   const keyInfo = useMemo(() => detectKeyInfo(privateKey, publicKey), [privateKey, publicKey]);
   const privateKeyDirty = useRef(false);
   const publicKeyDirty = useRef(false);
+  const passphraseDirty = useRef(false);
   const { folders, loadFolders, saveFolder } = useFolderStore();
 
   useEffect(() => {
@@ -275,8 +278,10 @@ export function KeyForm({ initial, onSubmit, onClose, onExport, onDelete, flushR
     (async () => {
       const priv = await getSecret(`key:${initial.id}:private`).catch(() => null);
       const pub = await getSecret(`key:${initial.id}:public`).catch(() => null);
+      const pass = await getSecret(`key:${initial.id}:passphrase`).catch(() => null);
       if (priv && !privateKeyDirty.current) setPrivateKey(priv);
       if (pub && !publicKeyDirty.current) setPublicKey(pub);
+      if (pass && !passphraseDirty.current) setPassphrase(pass);
     })();
   }, [initial?.id]);
 
@@ -296,6 +301,7 @@ export function KeyForm({ initial, onSubmit, onClose, onExport, onDelete, flushR
       { name: name.trim() || `${keyInfo.type ?? "SSH Key"} · ${new Date().toLocaleDateString()}`, key_type: keyInfo.type ?? undefined, tags, folder_id: folderId ?? undefined, vault_id: resolveVaultIdForSave(vaultId) },
       privateKeyDirty.current ? privateKey : null,
       publicKeyDirty.current ? publicKey : null,
+      passphraseDirty.current ? passphrase : null,
     ) ?? undefined,
     canSave: () => !!privateKey.trim(),
   });
@@ -307,7 +313,7 @@ export function KeyForm({ initial, onSubmit, onClose, onExport, onDelete, flushR
   if (flushRef) flushRef.current = flush;
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, tags, privateKey, publicKey, folderId, vaultId]);
+  useEffect(() => schedule(), [name, tags, privateKey, publicKey, passphrase, folderId, vaultId]);
 
   const handleClose = () => flushAndClose(onClose);
 
@@ -420,6 +426,32 @@ export function KeyForm({ initial, onSubmit, onClose, onExport, onDelete, flushR
                 )}
               </div>
             )}
+          </div>
+          <div>
+            <label className={formLabelClass} style={formLabelStyle}>
+              Passphrase <span className="text-[var(--t-text-dim)] font-normal">(optional)</span>
+            </label>
+            <div className="relative">
+              <input
+                type={showPassphrase ? "text" : "password"}
+                className={`${formInputClass} pr-9`}
+                style={formInputStyle}
+                value={passphrase}
+                onChange={(e) => { markDirty(); passphraseDirty.current = true; setPassphrase(e.target.value); }}
+                placeholder="Key passphrase"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassphrase((v) => !v)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-[var(--t-text-dim)]"
+                onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
+                tabIndex={-1}
+              >
+                <Icon icon={showPassphrase ? "lucide:eye-off" : "lucide:eye"} width={14} />
+              </button>
+            </div>
           </div>
           <div>
             <label className={formLabelClass} style={formLabelStyle}>
