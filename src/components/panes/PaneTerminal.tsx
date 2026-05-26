@@ -4,7 +4,7 @@ import TerminalView from "@/components/terminal/Terminal";
 import { TerminalSearch } from "@/components/terminal/TerminalSearch";
 import MultiplayerTerminalView from "@/components/terminal/MultiplayerTerminalView";
 import { MultiplayerBar } from "@/components/terminal/MultiplayerBar";
-import ConnectionOverlay, { SSH_STEPS, SERIAL_STEPS } from "@/components/terminal/ConnectionOverlay";
+import ConnectionOverlay, { SSH_STEPS, SERIAL_STEPS } from "@/components/terminal/connection-overlay";
 import { useMultiplayerHostBroadcast } from "@/hooks/useMultiplayerHostBroadcast";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -52,7 +52,6 @@ function SplitConnectionOverlay({
         icon="lucide:ethernet-port"
         steps={SERIAL_STEPS}
         stepEventName={`serial-step-${session.id}`}
-        conflictEventName=""
         onDismiss={onDismiss}
         onRetry={isEphemeral ? () => resetSerialEphemeral(session.id) : onRetry}
       />

@@ -6,7 +6,7 @@ import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { type HostChoice, type SidePhase, type FileEntry } from "./SFTPTypes";
 import { HostPickerPanel } from "@/components/shared/HostPickerPanel";
 import { FilePane } from "./FilePane";
-import ConnectionOverlay, { SFTP_STEPS } from "@/components/terminal/ConnectionOverlay";
+import ConnectionOverlay, { SFTP_STEPS } from "@/components/terminal/connection-overlay";
 import { FilterInput } from "@/components/shared/ToolbarViewControls";
 import { useHostPingStore } from "@/stores/hostPingStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
