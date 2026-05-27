@@ -1,6 +1,6 @@
 [package]
 name = "voltius-crypto"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "Shared pure-Rust crypto primitives for Voltius"
 license = "AGPL-3.0"
