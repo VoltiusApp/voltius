@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
-import { dockerStartLogStream, dockerStopLogStream, onDockerLog } from "../services";
+import { dockerStopLogStream, onDockerLog } from "../services";
 import type { DockerLogLine } from "../types";
 
 const ANSI_RE = /\x1b\[[0-9;]*m/g;
@@ -10,15 +10,13 @@ function stripAnsi(s: string): string {
 }
 
 interface Props {
-  sessionId: string;
-  isRemote: boolean;
-  localShell: string | null;
-  containerId: string;
-  containerName: string;
+  streamKey: string;
+  displayName: string;
+  startStream: (tail: number) => Promise<string>;
   onBack: () => void;
 }
 
-export function LogsView({ sessionId, isRemote, localShell, containerId, containerName, onBack }: Props) {
+export function LogsView({ streamKey, displayName, startStream, onBack }: Props) {
   const [lines, setLines] = useState<DockerLogLine[]>([]);
   const [autoScroll, setAutoScroll] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -43,7 +41,7 @@ export function LogsView({ sessionId, isRemote, localShell, containerId, contain
       if (cancelled) return;
 
       try {
-        const sid = await dockerStartLogStream(sessionId, isRemote, localShell, containerId, 200);
+        const sid = await startStream(200);
         if (cancelled) {
           dockerStopLogStream(sid).catch(() => {});
           return;
@@ -74,7 +72,7 @@ export function LogsView({ sessionId, isRemote, localShell, containerId, contain
       stopStream();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [containerId]);
+  }, [streamKey]);
 
   useEffect(() => {
     if (autoScroll) {
@@ -93,7 +91,7 @@ export function LogsView({ sessionId, isRemote, localShell, containerId, contain
           <Icon icon="lucide:arrow-left" width={14} />
         </button>
         <span className="text-[11px] font-mono text-[var(--t-text)] truncate flex-1">
-          {containerName}
+          {displayName}
         </span>
         <button
           onClick={() => setAutoScroll((v) => !v)}
@@ -104,7 +102,7 @@ export function LogsView({ sessionId, isRemote, localShell, containerId, contain
               : "text-[var(--t-text-muted)] hover:bg-[var(--t-bg-hover)]"
           }`}
         >
-          <Icon icon="lucide:arrow-down-to-line" width={13} />
+          <Icon icon="lucide:chevrons-down" width={13} />
         </button>
       </div>
 

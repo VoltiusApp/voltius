@@ -37,6 +37,10 @@ async fn exec_command(handle: &SshHandle, cmd: &str) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output).to_string())
 }
 
+fn shell_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\\''"))
+}
+
 #[derive(Deserialize)]
 struct RawContainer {
     #[serde(rename = "ID", default)]
@@ -247,6 +251,26 @@ pub async fn list_networks(handle: &SshHandle) -> Result<Vec<DockerNetwork>, Str
     Ok(networks)
 }
 
+pub async fn list_stacks(handle: &SshHandle) -> Result<Vec<DockerStack>, String> {
+    let output = exec_command(handle, "docker compose ls --all --format json").await?;
+    parse_compose_stacks(&output)
+}
+
+pub async fn list_stack_services(
+    handle: &SshHandle,
+    stack_name: &str,
+) -> Result<Vec<DockerStackService>, String> {
+    let output = exec_command(
+        handle,
+        &format!(
+            "docker compose -p {} ps --all --format json",
+            shell_quote(stack_name)
+        ),
+    )
+    .await?;
+    parse_compose_services(&output)
+}
+
 pub async fn container_action(
     handle: &SshHandle,
     container_id: &str,
@@ -260,6 +284,34 @@ pub async fn container_action(
         ContainerAction::Pause => format!("docker pause {container_id}"),
         ContainerAction::Unpause => format!("docker unpause {container_id}"),
     };
+    exec_command(handle, &cmd).await?;
+    Ok(())
+}
+
+pub async fn stack_action(
+    handle: &SshHandle,
+    stack_name: &str,
+    action: &StackAction,
+) -> Result<(), String> {
+    let config_files = list_stacks(handle)
+        .await
+        .ok()
+        .and_then(|stacks| stacks.into_iter().find(|stack| stack.name == stack_name))
+        .map(|stack| stack.config_files)
+        .unwrap_or_default();
+
+    let file_args = config_files
+        .iter()
+        .map(|file| format!(" -f {}", shell_quote(file)))
+        .collect::<String>();
+    let project = shell_quote(stack_name);
+    let action_cmd = match action {
+        StackAction::Up => "up -d",
+        StackAction::Stop => "stop",
+        StackAction::Restart => "restart",
+        StackAction::Down => "down",
+    };
+    let cmd = format!("docker compose{file_args} -p {project} {action_cmd}");
     exec_command(handle, &cmd).await?;
     Ok(())
 }
@@ -314,6 +366,69 @@ fn now_ms() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64
+}
+
+pub async fn stream_stack_logs(
+    app: AppHandle,
+    stream_id: String,
+    stack_name: String,
+    tail: u32,
+    handle: SshHandle,
+) {
+    let event = format!("docker:log:{stream_id}");
+
+    let channel = match handle.channel_open_session().await {
+        Ok(c) => c,
+        Err(e) => {
+            let _ = app.emit(
+                &event,
+                &DockerLogLine {
+                    line: format!("Error opening channel: {e}"),
+                    stream: "stderr".to_string(),
+                    ts: now_ms(),
+                },
+            );
+            return;
+        }
+    };
+
+    let cmd = format!("docker compose -p {stack_name} logs --follow --tail {tail}");
+    if let Err(e) = channel.exec(true, cmd.as_str()).await {
+        let _ = app.emit(
+            &event,
+            &DockerLogLine {
+                line: format!("Error: {e}"),
+                stream: "stderr".to_string(),
+                ts: now_ms(),
+            },
+        );
+        return;
+    }
+
+    let mut stream = channel.into_stream();
+    let mut buf = [0u8; 4096];
+
+    loop {
+        match stream.read(&mut buf).await {
+            Ok(0) | Err(_) => break,
+            Ok(n) => {
+                let text = String::from_utf8_lossy(&buf[..n]);
+                for line in text.lines() {
+                    if line.is_empty() {
+                        continue;
+                    }
+                    let _ = app.emit(
+                        &event,
+                        &DockerLogLine {
+                            line: line.to_string(),
+                            stream: "stdout".to_string(),
+                            ts: now_ms(),
+                        },
+                    );
+                }
+            }
+        }
+    }
 }
 
 pub async fn stream_logs(

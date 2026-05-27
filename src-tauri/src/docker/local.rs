@@ -65,6 +65,36 @@ async fn run_wsl_docker(local_shell: Option<&str>, args: &[&str]) -> Result<Stri
     }
 }
 
+async fn run_local_docker(args: &[&str]) -> Result<String, String> {
+    let mut command = Command::new("docker");
+    command.args(args);
+    prevent_visible_child_window(&mut command);
+
+    let output = command
+        .output()
+        .await
+        .map_err(|e| format!("Docker not available: {e}"))?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        Err(if stderr.is_empty() { stdout } else { stderr })
+    }
+}
+
+async fn run_compose(local_shell: Option<&str>, args: &[&str]) -> Result<String, String> {
+    let mut docker_args = vec!["compose"];
+    docker_args.extend_from_slice(args);
+
+    if should_use_wsl_cli(local_shell) {
+        run_wsl_docker(local_shell, &docker_args).await
+    } else {
+        run_local_docker(&docker_args).await
+    }
+}
+
 #[derive(Deserialize)]
 struct CliContainer {
     #[serde(rename = "ID", default)]
@@ -362,6 +392,23 @@ pub async fn list_networks(local_shell: Option<&str>) -> Result<Vec<DockerNetwor
         .collect())
 }
 
+pub async fn list_stacks(local_shell: Option<&str>) -> Result<Vec<DockerStack>, String> {
+    let output = run_compose(local_shell, &["ls", "--all", "--format", "json"]).await?;
+    parse_compose_stacks(&output)
+}
+
+pub async fn list_stack_services(
+    local_shell: Option<&str>,
+    stack_name: &str,
+) -> Result<Vec<DockerStackService>, String> {
+    let output = run_compose(
+        local_shell,
+        &["-p", stack_name, "ps", "--all", "--format", "json"],
+    )
+    .await?;
+    parse_compose_services(&output)
+}
+
 pub async fn container_action(
     local_shell: Option<&str>,
     container_id: &str,
@@ -418,6 +465,38 @@ pub async fn container_action(
             .await
             .map_err(|e| format!("{e}"))?,
     }
+    Ok(())
+}
+
+pub async fn stack_action(
+    local_shell: Option<&str>,
+    stack_name: &str,
+    action: &StackAction,
+) -> Result<(), String> {
+    let config_files = list_stacks(local_shell)
+        .await
+        .ok()
+        .and_then(|stacks| stacks.into_iter().find(|stack| stack.name == stack_name))
+        .map(|stack| stack.config_files)
+        .unwrap_or_default();
+
+    let mut args = Vec::new();
+    for file in &config_files {
+        args.push("-f".to_string());
+        args.push(file.clone());
+    }
+    args.push("-p".to_string());
+    args.push(stack_name.to_string());
+
+    match action {
+        StackAction::Up => args.extend(["up".to_string(), "-d".to_string()]),
+        StackAction::Stop => args.push("stop".to_string()),
+        StackAction::Restart => args.push("restart".to_string()),
+        StackAction::Down => args.push("down".to_string()),
+    };
+
+    let arg_refs = args.iter().map(String::as_str).collect::<Vec<_>>();
+    run_compose(local_shell, &arg_refs).await?;
     Ok(())
 }
 
@@ -556,11 +635,127 @@ mod tests {
         assert!(!should_use_wsl_cli(None));
     }
 
+    #[test]
+    fn parses_compose_stack_list_json_array() {
+        let output = r#"[
+          {"Name":"demo","Status":"running(2)","ConfigFiles":"/tmp/docker-compose.yml"},
+          {"Name":"stopped","Status":"exited(1), running(1)","ConfigFiles":"/tmp/compose.yml,/tmp/override.yml"}
+        ]"#;
+
+        let stacks = parse_compose_stacks(output).expect("stacks parse");
+
+        assert_eq!(stacks.len(), 2);
+        assert_eq!(stacks[0].name, "demo");
+        assert_eq!(stacks[0].running, 2);
+        assert_eq!(stacks[0].total, 2);
+        assert_eq!(stacks[0].config_files, vec!["/tmp/docker-compose.yml"]);
+        assert_eq!(stacks[1].running, 1);
+        assert_eq!(stacks[1].exited, 1);
+        assert_eq!(stacks[1].total, 2);
+        assert_eq!(stacks[1].config_files, vec!["/tmp/compose.yml", "/tmp/override.yml"]);
+    }
+
+    #[test]
+    fn parses_compose_service_ps_json_lines() {
+        let output = r#"{"ID":"abc123","Name":"demo-web-1","Project":"demo","Service":"web","Image":"nginx:latest","State":"running","Status":"Up 2 minutes","Publishers":[{"URL":"0.0.0.0","TargetPort":80,"PublishedPort":8080,"Protocol":"tcp"}]}
+{"ID":"def456","Name":"demo-db-1","Project":"demo","Service":"db","Image":"postgres:16","State":"exited","Status":"Exited (0)"}"#;
+
+        let services = parse_compose_services(output).expect("services parse");
+
+        assert_eq!(services.len(), 2);
+        assert_eq!(services[0].service, "web");
+        assert_eq!(services[0].ports.len(), 1);
+        assert_eq!(services[0].ports[0].host_port, Some(8080));
+        assert_eq!(services[0].ports[0].container_port, 80);
+        assert_eq!(services[1].state, "exited");
+    }
+
     #[cfg(target_os = "windows")]
     #[test]
     fn windows_wsl_child_processes_are_configured_without_visible_windows() {
         assert_eq!(windows_hidden_child_process_flags(), 0x08000000);
     }
+}
+
+pub async fn stream_stack_logs(
+    app: AppHandle,
+    stream_id: String,
+    stack_name: String,
+    tail: u32,
+    local_shell: Option<String>,
+) {
+    let event = format!("docker:log:{stream_id}");
+    let tail_str = tail.to_string();
+
+    let mut command = if should_use_wsl_cli(local_shell.as_deref()) {
+        let shell = local_shell.unwrap_or_else(|| "wsl.exe".to_string());
+        let mut cmd = Command::new(shell);
+        cmd.arg("docker")
+            .args(["compose", "-p", &stack_name, "logs", "--follow", "--tail", &tail_str]);
+        cmd
+    } else {
+        let mut cmd = Command::new("docker");
+        cmd.args(["compose", "-p", &stack_name, "logs", "--follow", "--tail", &tail_str]);
+        cmd
+    };
+
+    command
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    prevent_visible_child_window(&mut command);
+
+    let mut child = match command.spawn() {
+        Ok(child) => child,
+        Err(e) => {
+            let _ = app.emit(
+                &event,
+                &DockerLogLine {
+                    line: format!("Error: {e}"),
+                    stream: "stderr".to_string(),
+                    ts: now_ms(),
+                },
+            );
+            return;
+        }
+    };
+
+    if let Some(stdout) = child.stdout.take() {
+        let app = app.clone();
+        let event = event.clone();
+        tokio::spawn(async move {
+            let mut lines = BufReader::new(stdout).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                let _ = app.emit(
+                    &event,
+                    &DockerLogLine {
+                        line,
+                        stream: "stdout".to_string(),
+                        ts: now_ms(),
+                    },
+                );
+            }
+        });
+    }
+
+    if let Some(stderr) = child.stderr.take() {
+        let app = app.clone();
+        let event = event.clone();
+        tokio::spawn(async move {
+            let mut lines = BufReader::new(stderr).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                let _ = app.emit(
+                    &event,
+                    &DockerLogLine {
+                        line,
+                        stream: "stderr".to_string(),
+                        ts: now_ms(),
+                    },
+                );
+            }
+        });
+    }
+
+    let _ = child.wait().await;
 }
 
 pub async fn stream_logs(

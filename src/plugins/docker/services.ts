@@ -6,7 +6,10 @@ import type {
   DockerImage,
   DockerLogLine,
   DockerNetwork,
+  DockerStack,
+  DockerStackService,
   DockerVolume,
+  StackAction,
 } from "./types";
 
 export function dockerListContainers(
@@ -42,6 +45,23 @@ export function dockerListNetworks(
   return invoke("docker_list_networks", { sessionId, isRemote, localShell });
 }
 
+export function dockerListStacks(
+  sessionId: string,
+  isRemote: boolean,
+  localShell: string | null,
+): Promise<DockerStack[]> {
+  return invoke("docker_list_stacks", { sessionId, isRemote, localShell });
+}
+
+export function dockerListStackServices(
+  sessionId: string,
+  isRemote: boolean,
+  localShell: string | null,
+  stackName: string,
+): Promise<DockerStackService[]> {
+  return invoke("docker_list_stack_services", { sessionId, isRemote, localShell, stackName });
+}
+
 export function dockerContainerAction(
   sessionId: string,
   isRemote: boolean,
@@ -50,6 +70,26 @@ export function dockerContainerAction(
   action: ContainerAction,
 ): Promise<void> {
   return invoke("docker_container_action", { sessionId, isRemote, localShell, containerId, action });
+}
+
+export function dockerStackAction(
+  sessionId: string,
+  isRemote: boolean,
+  localShell: string | null,
+  stackName: string,
+  action: StackAction,
+): Promise<void> {
+  return invoke("docker_stack_action", { sessionId, isRemote, localShell, stackName, action });
+}
+
+export function dockerStartStackLogStream(
+  sessionId: string,
+  isRemote: boolean,
+  localShell: string | null,
+  stackName: string,
+  tail: number,
+): Promise<string> {
+  return invoke("docker_start_stack_log_stream", { sessionId, isRemote, localShell, stackName, tail });
 }
 
 export function dockerStartLogStream(

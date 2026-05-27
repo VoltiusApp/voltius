@@ -7,7 +7,10 @@ use crate::{
     docker::{
         local, remote,
         stream::DockerLogStreamManager,
-        types::{ContainerAction, DockerContainer, DockerImage, DockerNetwork, DockerVolume},
+        types::{
+            ContainerAction, DockerContainer, DockerImage, DockerNetwork, DockerStack,
+            DockerStackService, DockerVolume, StackAction,
+        },
     },
     ssh::{
         client::{ConnectedSession, SessionInput},
@@ -120,6 +123,45 @@ pub async fn docker_start_log_stream(
         let cid = container_id.clone();
         tokio::spawn(async move {
             local::stream_logs(app, sid, cid, tail, local_shell).await;
+        })
+    };
+
+    stream_manager
+        .streams
+        .lock()
+        .await
+        .insert(stream_id.clone(), join_handle);
+
+    Ok(stream_id)
+}
+
+#[tauri::command]
+pub async fn docker_start_stack_log_stream(
+    app: AppHandle,
+    session_manager: State<'_, SessionManager>,
+    stream_manager: State<'_, DockerLogStreamManager>,
+    session_id: String,
+    is_remote: bool,
+    local_shell: Option<String>,
+    stack_name: String,
+    tail: u32,
+) -> Result<String, String> {
+    let stream_id = Uuid::new_v4().to_string();
+
+    let join_handle = if is_remote {
+        let handle = session_manager.get_handle(&session_id).await?;
+        let app = app.clone();
+        let sid = stream_id.clone();
+        let name = stack_name.clone();
+        tokio::spawn(async move {
+            remote::stream_stack_logs(app, sid, name, tail, handle).await;
+        })
+    } else {
+        let app = app.clone();
+        let sid = stream_id.clone();
+        let name = stack_name.clone();
+        tokio::spawn(async move {
+            local::stream_stack_logs(app, sid, name, tail, local_shell).await;
         })
     };
 
@@ -331,5 +373,53 @@ pub async fn docker_system_prune(
         remote::system_prune(&handle).await
     } else {
         local::system_prune(local_shell.as_deref()).await
+    }
+}
+
+#[tauri::command]
+pub async fn docker_list_stacks(
+    session_manager: State<'_, SessionManager>,
+    session_id: String,
+    is_remote: bool,
+    local_shell: Option<String>,
+) -> Result<Vec<DockerStack>, String> {
+    if is_remote {
+        let handle = session_manager.get_handle(&session_id).await?;
+        remote::list_stacks(&handle).await
+    } else {
+        local::list_stacks(local_shell.as_deref()).await
+    }
+}
+
+#[tauri::command]
+pub async fn docker_list_stack_services(
+    session_manager: State<'_, SessionManager>,
+    session_id: String,
+    is_remote: bool,
+    local_shell: Option<String>,
+    stack_name: String,
+) -> Result<Vec<DockerStackService>, String> {
+    if is_remote {
+        let handle = session_manager.get_handle(&session_id).await?;
+        remote::list_stack_services(&handle, &stack_name).await
+    } else {
+        local::list_stack_services(local_shell.as_deref(), &stack_name).await
+    }
+}
+
+#[tauri::command]
+pub async fn docker_stack_action(
+    session_manager: State<'_, SessionManager>,
+    session_id: String,
+    is_remote: bool,
+    local_shell: Option<String>,
+    stack_name: String,
+    action: StackAction,
+) -> Result<(), String> {
+    if is_remote {
+        let handle = session_manager.get_handle(&session_id).await?;
+        remote::stack_action(&handle, &stack_name, &action).await
+    } else {
+        local::stack_action(local_shell.as_deref(), &stack_name, &action).await
     }
 }

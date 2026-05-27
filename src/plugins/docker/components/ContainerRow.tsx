@@ -47,7 +47,10 @@ export function ContainerRow({ container, sessionId, isRemote, localShell, onLog
   return (
     <div className="border-b border-[var(--t-border)] last:border-0">
       {/* Main row */}
-      <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--t-bg-card-hover)]">
+      <div
+        onClick={() => setExpanded((v) => !v)}
+        className="flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--t-bg-card-hover)] cursor-pointer select-none"
+      >
         <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${stateDot(container.state)}`} />
         <div className="flex-1 min-w-0">
           <p className="text-[11px] text-[var(--t-text)] truncate font-medium">{name}</p>
@@ -56,12 +59,11 @@ export function ContainerRow({ container, sessionId, isRemote, localShell, onLog
         <span className="text-[10px] text-[var(--t-text-muted)] shrink-0">
           {container.status.split(" ").slice(0, 2).join(" ")}
         </span>
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="p-0.5 text-[var(--t-text-muted)] hover:text-[var(--t-text)]"
-        >
-          <Icon icon={expanded ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} />
-        </button>
+        <Icon
+          icon={expanded ? "lucide:chevron-up" : "lucide:chevron-down"}
+          width={12}
+          className="text-[var(--t-text-muted)] shrink-0"
+        />
       </div>
 
       {/* Actions — icons only */}

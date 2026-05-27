@@ -39,9 +39,32 @@ export interface DockerLogLine {
   ts: number;
 }
 
+export interface DockerStack {
+  name: string;
+  status: string;
+  config_files: string[];
+  running: number;
+  exited: number;
+  paused: number;
+  total: number;
+}
+
+export interface DockerStackService {
+  id: string;
+  name: string;
+  project: string;
+  service: string;
+  image: string;
+  state: string;
+  status: string;
+  ports: PortMapping[];
+}
+
 export type ContainerAction = "start" | "stop" | "restart" | "remove" | "pause" | "unpause";
 
-export type DockerView = "containers" | "images" | "volumes" | "networks" | "logs";
+export type StackAction = "up" | "stop" | "restart" | "down";
+
+export type DockerView = "containers" | "images" | "volumes" | "networks" | "stacks" | "logs";
 
 export interface DockerState {
   view: DockerView;
@@ -49,7 +72,12 @@ export interface DockerState {
   images: DockerImage[];
   volumes: DockerVolume[];
   networks: DockerNetwork[];
+  stacks: DockerStack[];
+  stackServices: DockerStackService[];
+  selectedStackName: string | null;
   logsContainerId: string | null;
+  logsStackName: string | null;
+  logsReturnView: DockerView;
   logLines: DockerLogLine[];
   loading: boolean;
   error: string | null;
