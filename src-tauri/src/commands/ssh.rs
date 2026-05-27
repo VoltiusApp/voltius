@@ -27,6 +27,7 @@ pub async fn ssh_connect(
     agent_forwarding: bool,
     pre_command: Option<String>,
     auto_forward: bool,
+    shell_integration: Option<bool>,
 ) -> Result<(), String> {
     let connected = client::connect(
         app,
@@ -41,6 +42,7 @@ pub async fn ssh_connect(
         env_vars.unwrap_or_default(),
         agent_forwarding,
         pre_command,
+        shell_integration.unwrap_or(true),
         Arc::clone(&*known_hosts),
         Arc::clone(&*pending_conflicts),
     )

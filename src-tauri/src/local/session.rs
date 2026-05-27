@@ -1,6 +1,8 @@
+use crate::shell_integration;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use std::collections::HashMap;
 use std::io::{Read, Write};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
 use tokio::sync;
@@ -9,6 +11,7 @@ pub struct LocalSession {
     pub input_tx: std::sync::mpsc::SyncSender<Vec<u8>>,
     pub master: Arc<Mutex<Box<dyn portable_pty::MasterPty + Send>>>,
     pub child: Arc<Mutex<Box<dyn portable_pty::Child + Send + Sync>>>,
+    pub tempfiles: Vec<PathBuf>,
 }
 
 pub struct LocalSessionManager {
@@ -30,6 +33,7 @@ impl LocalSessionManager {
         rows: u16,
         shell: Option<String>,
         cwd: Option<String>,
+        shell_integration_enabled: bool,
     ) -> Result<(), String> {
         let pty_system = native_pty_system();
         let pair = pty_system
@@ -51,7 +55,27 @@ impl LocalSessionManager {
                 std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string())
             }
         });
-        let mut cmd = CommandBuilder::new(&shell);
+
+        // Optional invisible OSC 7 injection via per-shell rcfile + custom
+        // args. Falls back silently if the rcfile can't be written.
+        let integration = if shell_integration_enabled {
+            shell_integration::prepare_local(&shell, &session_id).ok().flatten()
+        } else {
+            None
+        };
+
+        let mut cmd = if let Some(ref info) = integration {
+            let mut c = CommandBuilder::new(&info.program);
+            for arg in &info.args {
+                c.arg(arg);
+            }
+            for (k, v) in &info.env {
+                c.env(k, v);
+            }
+            c
+        } else {
+            CommandBuilder::new(&shell)
+        };
         cmd.env("TERM", "xterm-256color");
         if let Some(dir) = cwd {
             cmd.cwd(dir);
@@ -114,6 +138,7 @@ impl LocalSessionManager {
             input_tx,
             master,
             child,
+            tempfiles: integration.map(|i| i.tempfiles).unwrap_or_default(),
         };
         self.sessions.lock().await.insert(session_id, session);
         Ok(())
@@ -148,12 +173,13 @@ impl LocalSessionManager {
     }
 
     pub async fn disconnect(&self, id: &str) -> Result<(), String> {
-        let child = {
+        let removed = {
             let mut sessions = self.sessions.lock().await;
-            sessions.remove(id).map(|s| s.child)
+            sessions.remove(id)
         };
-        if let Some(child) = child {
-            let _ = child.lock().unwrap().kill();
+        if let Some(s) = removed {
+            let _ = s.child.lock().unwrap().kill();
+            shell_integration::cleanup(&s.tempfiles);
         }
         Ok(())
     }

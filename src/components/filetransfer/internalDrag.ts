@@ -12,7 +12,7 @@
 import { useSyncExternalStore } from "react";
 import type { FileEntry } from "./SFTPTypes";
 
-export type DragSide = "left" | "right";
+export type DragSide = "left" | "right" | "panel";
 
 // `side: "external"` indicates an OS-originated drag (files from Finder /
 // Explorer). The drop overlay logic treats this like any other foreign side,

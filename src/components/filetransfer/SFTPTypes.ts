@@ -27,14 +27,6 @@ export type Transfer = {
 
 export type ConflictResolution = "overwrite" | "overwrite-all" | "skip" | "skip-all" | "cancel";
 
-export type PendingTransfer = {
-  fromSide: "left" | "right";
-  conflicts: FileEntry[];
-  toTransfer: FileEntry[];
-  totalConflicts: number;
-  targetFolder?: string;
-};
-
 let _tid = 0;
 export const genId = () => `t-${Date.now()}-${_tid++}`;
 

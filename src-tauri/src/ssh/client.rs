@@ -419,6 +419,7 @@ pub async fn connect(
     env_vars: Vec<(String, String)>,
     agent_forwarding: bool,
     pre_command: Option<String>,
+    shell_integration: bool,
     known_hosts: Arc<KnownHostsStore>,
     pending_conflicts: Arc<PendingConflicts>,
 ) -> Result<ConnectedSession, String> {
@@ -610,10 +611,23 @@ pub async fn connect(
             .map_err(|e| format!("Agent forwarding request failed: {}", e))?;
     }
 
-    channel
-        .request_shell(false)
-        .await
-        .map_err(|e| format!("Shell request failed: {}", e))?;
+    // When shell integration is enabled we replace the standard shell channel
+    // request with an exec of our wrapper script. The wrapper detects the
+    // remote $SHELL and execs into it with OSC 7 emission already hooked
+    // (writes a temp rcfile under /tmp). Falling back to request_shell keeps
+    // the historical behavior available via the setting.
+    if shell_integration {
+        let exec_cmd = crate::shell_integration::ssh_exec_command();
+        channel
+            .exec(false, exec_cmd.as_bytes())
+            .await
+            .map_err(|e| format!("Shell exec failed: {}", e))?;
+    } else {
+        channel
+            .request_shell(false)
+            .await
+            .map_err(|e| format!("Shell request failed: {}", e))?;
+    }
 
     // I/O loop
     let (input_tx, mut input_rx) = tokio::sync::mpsc::channel::<SessionInput>(256);

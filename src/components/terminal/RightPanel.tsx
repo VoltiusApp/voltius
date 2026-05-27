@@ -6,6 +6,7 @@ import { usePluginStore } from "@/stores/pluginStore";
 import { SnippetsPanel } from "@/components/terminal/SnippetsPanel";
 import { PortsPanel } from "@/components/terminal/PortsPanel";
 import { HistoryPanel } from "@/components/terminal/HistoryPanel";
+import PanelSftpSection from "@/components/terminal/PanelSftpSection";
 import { useThemeStore } from "@/stores/themeStore";
 import { BUILT_IN_THEMES } from "@/themes/presets";
 import type { AppTheme } from "@/themes/types";
@@ -141,10 +142,11 @@ function ThemesSection() {
 // ─── Main RightPanel ──────────────────────────────────────────────────────────
 
 const BUILTIN_SECTIONS: { id: RightPanelSection; icon: string; title: string }[] = [
-  { id: "snippets", icon: "lucide:braces",  title: "Snippets" },
-  { id: "history",  icon: "lucide:clock",   title: "History"  },
-  { id: "themes",   icon: "lucide:palette", title: "Themes"   },
-  { id: "ports",    icon: "lucide:network", title: "Ports"    },
+  { id: "snippets", icon: "lucide:braces",      title: "Snippets" },
+  { id: "history",  icon: "lucide:clock",       title: "History"  },
+  { id: "themes",   icon: "lucide:palette",     title: "Themes"   },
+  { id: "ports",    icon: "lucide:network",     title: "Ports"    },
+  { id: "sftp",     icon: "lucide:folder-tree", title: "SFTP"     },
 ];
 
 function PanelContent() {
@@ -204,6 +206,7 @@ function PanelContent() {
         {rightPanelSection === "history"  && <HistoryPanel />}
         {rightPanelSection === "themes"   && <ThemesSection />}
         {rightPanelSection === "ports"    && <PortsPanel />}
+        {rightPanelSection === "sftp"     && <PanelSftpSection />}
         {rightPanelSection?.startsWith("plugin:") && (() => {
           const pluginId = rightPanelSection.slice("plugin:".length);
           const section = pluginSections.get(pluginId);

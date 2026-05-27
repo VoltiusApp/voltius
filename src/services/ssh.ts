@@ -24,6 +24,7 @@ export async function sshConnect(params: {
   agentForwarding?: boolean;
   preCommand?: string;
   autoForward?: boolean;
+  shellIntegration?: boolean;
 }): Promise<void> {
   return invoke("ssh_connect", {
     sessionId: params.sessionId,
@@ -39,6 +40,7 @@ export async function sshConnect(params: {
     agentForwarding: params.agentForwarding ?? false,
     preCommand: params.preCommand ?? null,
     autoForward: params.autoForward ?? true,
+    shellIntegration: params.shellIntegration ?? null,
   });
 }
 

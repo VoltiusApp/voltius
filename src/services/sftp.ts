@@ -191,6 +191,17 @@ export async function pickLocalPath(opts: { directory?: boolean; title?: string 
   return result;
 }
 
+/** Open a native OS file picker that allows selecting multiple files. */
+export async function pickLocalPaths(opts: { title?: string } = {}): Promise<string[]> {
+  const result = await dialogOpen({
+    directory: false,
+    multiple: true,
+    title: opts.title,
+  });
+  if (Array.isArray(result)) return result;
+  return result ? [result] : [];
+}
+
 export async function onTransferProgress(
   transferId: string,
   callback: (progress: TransferProgress) => void,

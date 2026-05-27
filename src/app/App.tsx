@@ -29,6 +29,7 @@ import { TrialExpiredModal } from "@/components/shared/TrialExpiredModal";
 import CloudAuthModal from "@/components/layout/CloudAuthModal";
 import { EmailVerificationBanner } from "@/components/notifications/EmailVerificationBanner";
 import { EmailVerificationRequiredModal } from "@/components/notifications/EmailVerificationRequiredModal";
+import { GlobalTransferQueue } from "@/components/filetransfer/GlobalTransferQueue";
 
 function App() {
   const [ready, setReady] = useState(false);
@@ -81,6 +82,7 @@ function App() {
       <TrialExpiredModal />
       <CloudAuthModal />
       <EmailVerificationRequiredModal />
+      <GlobalTransferQueue />
 
       {/* Global snippet variable modal — triggered from OmniSearch */}
       {globalPendingInject && (
