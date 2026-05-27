@@ -30,7 +30,7 @@ No account required. Everything below is free, forever.
 - **Split Panes** — Horizontal/vertical splits with broadcast input to multiple panes.
 - **Local Terminal** — Bash, Zsh, Fish, PowerShell, WSL, Git Bash, CMD, and more.
 - **Plugin System** — Install plugins from the [official registry](https://github.com/VoltiusApp/marketplace) or point to your own custom repo.
-- **Docker Integration** — Manage containers and open terminals directly in Voltius.
+- **Container Management** — Docker and Proxmox LXC. Browse containers, open terminals, and manage resources without leaving Voltius.
 - **Process Manager** — View and kill processes on connected hosts.
 - **System Monitoring** — Live CPU, memory, and disk stats from connected hosts.
 
@@ -51,6 +51,7 @@ No account required. Everything below is free, forever.
 | **Split panes** | ✅ | ✅ | ❌ |  |  |
 | **X11 Forwarding** | ❌ | | ❌ |  |  |
 | **Docker Integration** | ✅ |  |  |  |  |
+| **Proxmox LXC Integration** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **System Monitoring** | ✅ |  |  |  |  |
 | **Jump Hosts** | ✅ | ✅ | ✅ |  |  |
 | **Team vaults** | ✅ Teams or self-hosted | ✅ Teams plan | ✅ Free but complex |  |  |
