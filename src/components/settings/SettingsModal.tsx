@@ -7,6 +7,7 @@ import SyncSection from "@/components/settings/sections/SyncSection";
 import VaultsSection from "@/components/settings/sections/VaultsSection";
 import PluginsSection from "@/components/settings/sections/PluginsSection";
 import SFTPSection from "@/components/settings/sections/SFTPSection";
+import PortForwardingSection from "@/components/settings/sections/PortForwardingSection";
 import AboutSection from "@/components/settings/sections/AboutSection";
 import HostsSection from "@/components/settings/sections/HostsSection";
 import ShortcutsSection from "@/components/settings/sections/ShortcutsSection";
@@ -93,6 +94,7 @@ export default function SettingsModal() {
             {section === "vaults" && <VaultsSection />}
             {section === "plugins" && <PluginsSection />}
             {section === "sftp" && <SFTPSection />}
+            {section === "portForwarding" && <PortForwardingSection />}
             {section === "hosts" && <HostsSection />}
             {section === "shortcuts" && <ShortcutsSection />}
             {section === "about" && <AboutSection />}

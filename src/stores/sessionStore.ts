@@ -11,6 +11,7 @@ import { reportAuditClientEvent, type ClientAuditAction } from "@/services/audit
 import { useConnectionStore } from "./connectionStore";
 import { useUIStore } from "./uiStore";
 import { useTerminalSettingsStore } from "./terminalSettingsStore";
+import { usePortForwardingSettingsStore } from "./portForwardingSettingsStore";
 import { useLayoutStore } from "./layoutStore";
 import { formatLocalShellTitle } from "@/utils/localShellTitle";
 
@@ -111,6 +112,7 @@ async function connectSshSession(
       envVars: envVars.length > 0 ? envVars : undefined,
       agentForwarding: connection.agent_forwarding ?? false,
       preCommand,
+      autoForward: usePortForwardingSettingsStore.getState().autoForwardEnabled,
     });
     set((s) => ({
       sessions: s.sessions.map((sess) =>
@@ -539,7 +541,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     try {
       const credentials = await resolveConnectionCredentials(connection);
 
-      await sshConnect({ sessionId, host: connection.host, port: connection.port, username: credentials.username, password: credentials.password, privateKey: credentials.privateKey, passphrase: credentials.passphrase, connectionId: connection.id });
+      await sshConnect({ sessionId, host: connection.host, port: connection.port, username: credentials.username, password: credentials.password, privateKey: credentials.privateKey, passphrase: credentials.passphrase, connectionId: connection.id, autoForward: usePortForwardingSettingsStore.getState().autoForwardEnabled });
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
@@ -592,6 +594,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         passphrase,
         connectionId: connection.id,
         jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
+        autoForward: usePortForwardingSettingsStore.getState().autoForwardEnabled,
       });
       set((s) => ({
         sessions: s.sessions.map((sess) =>

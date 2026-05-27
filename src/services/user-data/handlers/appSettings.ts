@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
+import { usePortForwardingSettingsStore } from "@/stores/portForwardingSettingsStore";
 import { useAppSettingsTimestampStore } from "@/stores/appSettingsTimestampStore";
 import type { UserDataHandler } from "../handler";
 
@@ -9,6 +10,7 @@ interface AppSettingsData {
   sftp?: { autoRefreshEnabled: boolean; autoRefreshIntervalMs: number; tarTransferEnabled: boolean };
   terminal?: { preferredShell: string | null };
   plugins?: { overrides: Record<string, boolean> };
+  portForwarding?: { autoForwardEnabled: boolean; autoForwardNotificationsEnabled: boolean };
 }
 
 export const appSettingsHandler: UserDataHandler = {
@@ -20,6 +22,7 @@ export const appSettingsHandler: UserDataHandler = {
     const sftp = useSftpSettingsStore.getState();
     const terminal = useTerminalSettingsStore.getState();
     const plugins = usePluginRegistryStore.getState();
+    const pf = usePortForwardingSettingsStore.getState();
     return {
       sftp: {
         autoRefreshEnabled: sftp.autoRefreshEnabled,
@@ -28,6 +31,10 @@ export const appSettingsHandler: UserDataHandler = {
       },
       terminal: { preferredShell: terminal.preferredShell },
       plugins: { overrides: plugins.overrides },
+      portForwarding: {
+        autoForwardEnabled: pf.autoForwardEnabled,
+        autoForwardNotificationsEnabled: pf.autoForwardNotificationsEnabled,
+      },
     };
   },
 
@@ -46,6 +53,11 @@ export const appSettingsHandler: UserDataHandler = {
       const overrides = d.plugins.overrides;
       usePluginRegistryStore.setState({ overrides });
       await invoke("plugin_registry_save", { overrides }).catch(() => {});
+    }
+    if (d.portForwarding) {
+      const s = usePortForwardingSettingsStore.getState();
+      if (d.portForwarding.autoForwardEnabled != null) s.setAutoForwardEnabled(d.portForwarding.autoForwardEnabled);
+      if (d.portForwarding.autoForwardNotificationsEnabled != null) s.setAutoForwardNotificationsEnabled(d.portForwarding.autoForwardNotificationsEnabled);
     }
   },
 

@@ -26,6 +26,7 @@ pub async fn ssh_connect(
     env_vars: Option<Vec<(String, String)>>,
     agent_forwarding: bool,
     pre_command: Option<String>,
+    auto_forward: bool,
 ) -> Result<(), String> {
     let connected = client::connect(
         app,
@@ -57,7 +58,7 @@ pub async fn ssh_connect(
         let cid = connection_id.as_deref().unwrap_or("");
         pf.auto_activate_rules(&session_id, cid, Arc::clone(&handle), routes)
             .await;
-        let _ = pf.set_auto_detect(&session_id, true, handle).await;
+        let _ = pf.set_auto_detect(&session_id, auto_forward, handle).await;
     }
 
     Ok(())
