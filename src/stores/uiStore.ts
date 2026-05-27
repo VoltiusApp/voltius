@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 
 export type NavItem = "hosts" | "keychain" | "port-forwarding" | "snippets" | "known-hosts" | "members" | "logs";
 
-export type BuiltinRightPanelSection = "snippets" | "history" | "themes" | "ports";
+export type BuiltinRightPanelSection = "snippets" | "history" | "themes" | "ports" | "sftp";
 /** Widened to allow plugin-contributed section IDs (prefixed with "plugin:") */
 export type RightPanelSection = BuiltinRightPanelSection | (string & {});
 export type SettingsSection = "appearance" | "account" | "sync" | "vaults" | "plugins" | "sftp" | "portForwarding" | "hosts" | "shortcuts" | "about";

@@ -188,8 +188,19 @@ pub async fn local_connect(
     rows: u16,
     shell: Option<String>,
     cwd: Option<String>,
+    shell_integration: Option<bool>,
 ) -> Result<(), String> {
-    state.spawn(app, session_id, cols, rows, shell, cwd).await
+    state
+        .spawn(
+            app,
+            session_id,
+            cols,
+            rows,
+            shell,
+            cwd,
+            shell_integration.unwrap_or(true),
+        )
+        .await
 }
 
 #[tauri::command]

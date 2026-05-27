@@ -8,6 +8,7 @@ mod port_forward;
 mod processes;
 mod serial;
 mod sftp;
+mod shell_integration;
 mod ssh;
 mod storage;
 mod vault_auth;

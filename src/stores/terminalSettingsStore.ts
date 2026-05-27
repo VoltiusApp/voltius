@@ -7,9 +7,11 @@ interface TerminalSettingsStore {
   preferredShell: string | null;
   scrollMinimapEnabled: boolean;
   scrollbackLines: number;
+  shellIntegrationEnabled: boolean;
   setPreferredShell: (shell: string | null) => void;
   setScrollMinimapEnabled: (enabled: boolean) => void;
   setScrollbackLines: (lines: number) => void;
+  setShellIntegrationEnabled: (enabled: boolean) => void;
 }
 
 export const useTerminalSettingsStore = create<TerminalSettingsStore>()(
@@ -18,9 +20,11 @@ export const useTerminalSettingsStore = create<TerminalSettingsStore>()(
       preferredShell: null,
       scrollMinimapEnabled: true,
       scrollbackLines: DEFAULT_SCROLLBACK_LINES,
+      shellIntegrationEnabled: true,
       setPreferredShell: (shell) => { set({ preferredShell: shell }); useAppSettingsTimestampStore.getState().touch(); },
       setScrollMinimapEnabled: (enabled) => { set({ scrollMinimapEnabled: enabled }); useAppSettingsTimestampStore.getState().touch(); },
       setScrollbackLines: (lines) => { set({ scrollbackLines: clampScrollbackLines(lines) }); useAppSettingsTimestampStore.getState().touch(); },
+      setShellIntegrationEnabled: (enabled) => { set({ shellIntegrationEnabled: enabled }); useAppSettingsTimestampStore.getState().touch(); },
     }),
     {
       name: "voltius-terminal-settings",

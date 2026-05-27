@@ -45,7 +45,7 @@ export function SidePane({
   onRefresh: () => void;
   onChangeHost: () => void;
   side: "left" | "right";
-  onDropFiles: (files: FileEntry[], fromSide: "left" | "right", targetFolder?: string) => void;
+  onDropFiles: (files: FileEntry[], fromSide: "left" | "right" | "panel", targetFolder?: string) => void;
   onTransferToTarget?: (files: FileEntry[]) => void;
   canTransferToTarget?: boolean;
   onOpenInTerminal?: (path: string) => void;

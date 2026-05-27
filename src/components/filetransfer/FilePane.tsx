@@ -50,11 +50,14 @@ export function IconBtn({ icon, title, onClick }: { icon: string; title: string;
 
 // ── FilePane ──────────────────────────────────────────────────────────────────
 
+const DEFAULT_VISIBLE_COLS: VisibleCols = { size: true, modified: true, permissions: true };
+
 export function FilePane({
   sftpId, isLocal, cwd, homeCwd,
   onNavigate, onSelect, onRefresh, refreshTick, side, onDropFiles,
   onTransferToTarget, canTransferToTarget, onChangeHost,
   filter = "", onRegisterMenuOpener, onRegisterViewMenuOpener, onOpenInTerminal,
+  initialVisibleCols,
 }: {
   sftpId: string | null;
   isLocal: boolean;
@@ -64,8 +67,8 @@ export function FilePane({
   onSelect: (files: FileEntry[]) => void;
   onRefresh: () => void;
   refreshTick: number;
-  side: "left" | "right";
-  onDropFiles: (files: FileEntry[], fromSide: "left" | "right", targetFolder?: string) => void;
+  side: "left" | "right" | "panel";
+  onDropFiles: (files: FileEntry[], fromSide: "left" | "right" | "panel", targetFolder?: string) => void;
   onTransferToTarget?: (files: FileEntry[]) => void;
   canTransferToTarget?: boolean;
   onChangeHost?: () => void;
@@ -73,6 +76,8 @@ export function FilePane({
   onRegisterMenuOpener?: (opener: (anchorEl: HTMLElement) => void) => void;
   onRegisterViewMenuOpener?: (opener: (anchorEl: HTMLElement) => void) => void;
   onOpenInTerminal?: (path: string) => void;
+  /** Override the default per-column visibility (used for narrow embeddings). */
+  initialVisibleCols?: VisibleCols;
 }) {
   const autoRefreshEnabled = useSftpSettingsStore((s) => s.autoRefreshEnabled);
   const autoRefreshIntervalMs = useSftpSettingsStore((s) => s.autoRefreshIntervalMs);
@@ -83,7 +88,7 @@ export function FilePane({
   const [sortCol, setSortCol] = useState<SortCol>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [colWidths, setColWidths] = useState<ColumnWidths>(DEFAULT_COLUMN_WIDTHS);
-  const [visibleCols, setVisibleCols] = useState<VisibleCols>({ size: true, modified: true, permissions: true });
+  const [visibleCols, setVisibleCols] = useState<VisibleCols>(initialVisibleCols ?? DEFAULT_VISIBLE_COLS);
   const [showHidden, setShowHidden] = useState(false);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [viewMenuPos, setViewMenuPos] = useState<{ x: number; y: number } | null>(null);
@@ -320,7 +325,7 @@ export function FilePane({
 
   // The pointer-driven drag controller invokes this when a drop is committed
   // on this pane. Hand off to the SFTPPage's transfer pipeline.
-  const handleInternalDrop = (files: FileEntry[], fromSide: "left" | "right", targetFolder?: string) => {
+  const handleInternalDrop = (files: FileEntry[], fromSide: "left" | "right" | "panel", targetFolder?: string) => {
     onDropFiles(files, fromSide, targetFolder);
   };
 
@@ -813,11 +818,11 @@ function VirtualFileList({
   onCommitCreateFolder: () => void; onCommitCreateFile: () => void; onCancelCreate: () => void;
   selectedIdSet: Set<string>; dropFolderPath: string | null;
   focusIndex: React.MutableRefObject<number>; itemAreaRef: React.RefObject<HTMLDivElement | null>;
-  side: "left" | "right"; isLocal: boolean; selectedEntries: FileEntry[]; colWidths: ColumnWidths; visibleCols: VisibleCols;
+  side: "left" | "right" | "panel"; isLocal: boolean; selectedEntries: FileEntry[]; colWidths: ColumnWidths; visibleCols: VisibleCols;
   onCommitRename: (f: FileEntry) => void; onCancelRename: () => void;
   onItemSelect: (id: string, event: React.MouseEvent<HTMLDivElement>) => void;
   onNavigate: (p: string) => void; onSetSelection: (ids: string[]) => void;
-  onInternalDrop: (files: FileEntry[], fromSide: "left" | "right", targetFolder?: string) => void;
+  onInternalDrop: (files: FileEntry[], fromSide: "left" | "right" | "panel", targetFolder?: string) => void;
   selectionActionsCtx: SelectionActionsCtx;
 }) {
   const rowVirtualizer = useVirtualizer({
@@ -924,6 +929,8 @@ function VirtualFileList({
                   if (e.button !== 0) return;
                   // Don't initiate a drag on modifier-clicks (which extend/toggle selection).
                   if (e.shiftKey || e.ctrlKey || e.metaKey) return;
+                  // Panel embedding has no cross-pane drop target, so suppress drag-out.
+                  if (side === "panel") return;
                   const filesToDrag = isSelected && selectedEntries.length > 0 ? selectedEntries : [file];
                   startInternalDragGesture({
                     side,

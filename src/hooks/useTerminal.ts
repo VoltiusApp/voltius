@@ -13,6 +13,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { matchShortcut } from "@/stores/shortcutStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
 import { findLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useCommandHistoryStore } from "@/stores/commandHistoryStore";
@@ -682,6 +683,36 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         // WebGL not available, use default canvas renderer
       }
 
+      // OSC 7 — shell-reported cwd (file://host/path). Used by the right-panel
+      // SFTP tab's "follow cwd" feature. Silently no-ops for shells that don't
+      // emit it.
+      const oscCwdDispose = term.parser.registerOscHandler(7, (data) => {
+        try {
+          if (!data.startsWith("file://")) return false;
+          // Manual parse — URL constructor mangles Windows backslashes and
+          // throws on unencoded characters that cmd's $P happily includes.
+          const rest = data.slice("file://".length);
+          const slashIdx = rest.indexOf("/");
+          if (slashIdx === -1) return true;
+          const host = rest.slice(0, slashIdx);
+          const raw = rest.slice(slashIdx);
+          let path: string;
+          try { path = decodeURIComponent(raw); } catch { path = raw; }
+          // Windows drive paths arrive as `/C:\Users\foo` (from cmd's $P) —
+          // strip the leading slash, normalize backslashes for display.
+          if (/^\/[A-Za-z]:/.test(path)) path = path.slice(1);
+          path = path.replace(/\\/g, "/");
+          // WSL sessions emit host=wsl.localhost with the distro embedded as
+          // the first path segment. Convert to a UNC path that Windows' fs
+          // API can actually read (`\\wsl.localhost\<distro>\…`).
+          if (host === "wsl.localhost" || host === "wsl$") {
+            path = `//${host}${path}`;
+          }
+          if (path) useTerminalCwdStore.getState().setCwd(sessionId, path);
+        } catch { /* malformed OSC 7 payload */ }
+        return true;
+      });
+
       // Send user input
       const onDataDispose = term.onData((data) => {
         if (inputGate && !inputGate.current?.()) return;
@@ -763,6 +794,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       entry.dispose = () => {
         onDataDispose.dispose();
         onResizeDispose.dispose();
+        oscCwdDispose.dispose();
         searchResultsDispose.dispose();
         scrollDispose.dispose();
         bufferChangeDispose.dispose();

@@ -13,6 +13,8 @@ import { useUIStore } from "./uiStore";
 import { useTerminalSettingsStore } from "./terminalSettingsStore";
 import { usePortForwardingSettingsStore } from "./portForwardingSettingsStore";
 import { useLayoutStore } from "./layoutStore";
+import { useTerminalCwdStore } from "./terminalCwdStore";
+import { usePanelSftpStore } from "./panelSftpStore";
 import { formatLocalShellTitle } from "@/utils/localShellTitle";
 
 interface SessionStore {
@@ -113,6 +115,7 @@ async function connectSshSession(
       agentForwarding: connection.agent_forwarding ?? false,
       preCommand,
       autoForward: usePortForwardingSettingsStore.getState().autoForwardEnabled,
+      shellIntegration: useTerminalSettingsStore.getState().shellIntegrationEnabled,
     });
     set((s) => ({
       sessions: s.sessions.map((sess) =>
@@ -309,7 +312,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
     useLayoutStore.getState().setSplitTabActive(false);
     try {
-      await localConnect(sessionId, 80, 24, preferredShell ?? undefined);
+      await localConnect(sessionId, 80, 24, preferredShell ?? undefined, undefined, useTerminalSettingsStore.getState().shellIntegrationEnabled);
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
@@ -341,7 +344,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
     useLayoutStore.getState().setSplitTabActive(false);
     try {
-      await localConnect(sessionId, 80, 24, preferredShell ?? undefined, cwd);
+      await localConnect(sessionId, 80, 24, preferredShell ?? undefined, cwd, useTerminalSettingsStore.getState().shellIntegrationEnabled);
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
@@ -371,7 +374,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     };
     set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
     useLayoutStore.getState().setSplitTabActive(false);
-    void localConnect(sessionId, 80, 24, shell).then(() => {
+    void localConnect(sessionId, 80, 24, shell, undefined, useTerminalSettingsStore.getState().shellIntegrationEnabled).then(() => {
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
@@ -481,6 +484,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       : state.activeSessionId,
     } as any);
     useLayoutStore.getState().removeSession(sessionId);
+    useTerminalCwdStore.getState().clear(sessionId);
+    usePanelSftpStore.getState().closeSession(sessionId);
   },
 
   setActive: (sessionId) => set({ activeSessionId: sessionId } as any),
@@ -541,7 +546,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     try {
       const credentials = await resolveConnectionCredentials(connection);
 
-      await sshConnect({ sessionId, host: connection.host, port: connection.port, username: credentials.username, password: credentials.password, privateKey: credentials.privateKey, passphrase: credentials.passphrase, connectionId: connection.id, autoForward: usePortForwardingSettingsStore.getState().autoForwardEnabled });
+      await sshConnect({ sessionId, host: connection.host, port: connection.port, username: credentials.username, password: credentials.password, privateKey: credentials.privateKey, passphrase: credentials.passphrase, connectionId: connection.id, autoForward: usePortForwardingSettingsStore.getState().autoForwardEnabled, shellIntegration: useTerminalSettingsStore.getState().shellIntegrationEnabled });
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
@@ -595,6 +600,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         connectionId: connection.id,
         jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
         autoForward: usePortForwardingSettingsStore.getState().autoForwardEnabled,
+        shellIntegration: useTerminalSettingsStore.getState().shellIntegrationEnabled,
       });
       set((s) => ({
         sessions: s.sessions.map((sess) =>
@@ -623,5 +629,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       : state.activeSessionId,
     } as any);
     useLayoutStore.getState().removeSession(sessionId);
+    useTerminalCwdStore.getState().clear(sessionId);
+    usePanelSftpStore.getState().closeSession(sessionId);
   },
 }));
