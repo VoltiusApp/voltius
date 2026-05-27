@@ -23,6 +23,12 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import type { ActiveSession } from "@/stores/teamSessionStore";
 import { getCurrentUserEmail } from "@/services/account";
+import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { usePortForwardingSettingsStore } from "@/stores/portForwardingSettingsStore";
+import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
+import { useHostPingStore } from "@/stores/hostPingStore";
+import { useConnectionPresenceStore } from "@/stores/connectionPresenceStore";
+import { useSyncPrefsStore, SYNC_OBJECT_TYPES } from "@/stores/syncPrefsStore";
 
 interface OmniSearchProps {
   onClose: () => void;
@@ -35,7 +41,8 @@ type OmniItem =
   | { kind: "identity"; identity: Identity }
   | { kind: "action"; id: string; label: string; icon: string; description?: string; keybinding?: string }
   | { kind: "snippet"; snippet: Snippet }
-  | { kind: "team-session"; session: ActiveSession; alreadyIn: boolean };
+  | { kind: "team-session"; session: ActiveSession; alreadyIn: boolean }
+  | { kind: "toggle"; id: string; label: string; icon: string; description?: string; keywords?: string[]; value: boolean; onToggle: (v: boolean) => void };
 
 type Category = "all" | "snippets" | "marketplace" | "settings" | "ssh" | "join";
 
@@ -164,6 +171,115 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const setHomePendingAction = useUIStore((s) => s.setHomePendingAction);
   const setKeychainPendingAction = useUIStore((s) => s.setKeychainPendingAction);
 
+  // Toggle settings subscriptions
+  const scrollMinimapEnabled = useTerminalSettingsStore((s) => s.scrollMinimapEnabled);
+  const setScrollMinimapEnabled = useTerminalSettingsStore((s) => s.setScrollMinimapEnabled);
+  const autoForwardEnabled = usePortForwardingSettingsStore((s) => s.autoForwardEnabled);
+  const setAutoForwardEnabled = usePortForwardingSettingsStore((s) => s.setAutoForwardEnabled);
+  const autoForwardNotificationsEnabled = usePortForwardingSettingsStore((s) => s.autoForwardNotificationsEnabled);
+  const setAutoForwardNotificationsEnabled = usePortForwardingSettingsStore((s) => s.setAutoForwardNotificationsEnabled);
+  const sftpTarEnabled = useSftpSettingsStore((s) => s.tarTransferEnabled);
+  const setSftpTarEnabled = useSftpSettingsStore((s) => s.setTarTransferEnabled);
+  const sftpAutoRefreshEnabled = useSftpSettingsStore((s) => s.autoRefreshEnabled);
+  const setSftpAutoRefreshEnabled = useSftpSettingsStore((s) => s.setAutoRefreshEnabled);
+  const reachabilityEnabled = useHostPingStore((s) => s.enabled);
+  const setReachabilityEnabled = useHostPingStore((s) => s.setEnabled);
+  const teamPresenceEnabled = useConnectionPresenceStore((s) => s.enabled);
+  const setTeamPresenceEnabled = useConnectionPresenceStore((s) => s.setEnabled);
+  const { syncTypes, setSyncType } = useSyncPrefsStore();
+
+  const toggleItems = useMemo<OmniItem[]>(() => [
+    {
+      kind: "toggle",
+      id: "toggle:scroll-minimap",
+      label: "Scroll Minimap",
+      icon: "lucide:layout-panel-right",
+      description: "Appearance",
+      keywords: ["minimap", "scrollbar", "terminal", "map"],
+      value: scrollMinimapEnabled,
+      onToggle: setScrollMinimapEnabled,
+    },
+    {
+      kind: "toggle",
+      id: "toggle:auto-port-forwarding",
+      label: "Automatic Port Forwarding",
+      icon: "lucide:arrow-left-right",
+      description: "Port Forwarding",
+      keywords: ["forward", "port", "tunnel", "auto", "detect", "ssh"],
+      value: autoForwardEnabled,
+      onToggle: setAutoForwardEnabled,
+    },
+    {
+      kind: "toggle",
+      id: "toggle:forwarding-notifications",
+      label: "Port Forwarding Notifications",
+      icon: "lucide:bell",
+      description: "Port Forwarding",
+      keywords: ["notification", "alert", "forward", "port", "notify"],
+      value: autoForwardNotificationsEnabled,
+      onToggle: setAutoForwardNotificationsEnabled,
+    },
+    {
+      kind: "toggle",
+      id: "toggle:sftp-tar",
+      label: "SFTP Tar Acceleration",
+      icon: "lucide:package",
+      description: "SFTP",
+      keywords: ["sftp", "transfer", "tar", "compress", "file", "fast"],
+      value: sftpTarEnabled,
+      onToggle: setSftpTarEnabled,
+    },
+    {
+      kind: "toggle",
+      id: "toggle:sftp-autorefresh",
+      label: "SFTP Auto-Refresh",
+      icon: "lucide:folder-sync",
+      description: "SFTP",
+      keywords: ["sftp", "refresh", "auto", "file", "panel", "reload"],
+      value: sftpAutoRefreshEnabled,
+      onToggle: setSftpAutoRefreshEnabled,
+    },
+    {
+      kind: "toggle",
+      id: "toggle:reachability",
+      label: "Reachability Check",
+      icon: "lucide:radio-tower",
+      description: "Hosts",
+      keywords: ["ping", "reachability", "status", "check", "connectivity", "dot", "latency"],
+      value: reachabilityEnabled,
+      onToggle: setReachabilityEnabled,
+    },
+    {
+      kind: "toggle",
+      id: "toggle:team-presence",
+      label: "Team Presence",
+      icon: "lucide:user-check",
+      description: "Hosts",
+      keywords: ["presence", "team", "avatar", "share", "online", "activity"],
+      value: teamPresenceEnabled,
+      onToggle: setTeamPresenceEnabled,
+    },
+    ...SYNC_OBJECT_TYPES.map((t): OmniItem => ({
+      kind: "toggle",
+      id: `toggle:sync-${t.id}`,
+      label: `Sync ${t.label}`,
+      icon: "lucide:cloud",
+      description: "Sync",
+      keywords: ["sync", "cloud", "backup", t.id, t.label.toLowerCase()],
+      value: syncTypes[t.id] ?? true,
+      onToggle: (v) => setSyncType(t.id, v),
+    })),
+  ], [
+    scrollMinimapEnabled, setScrollMinimapEnabled,
+    autoForwardEnabled, setAutoForwardEnabled,
+    autoForwardNotificationsEnabled, setAutoForwardNotificationsEnabled,
+    sftpTarEnabled, setSftpTarEnabled,
+    sftpAutoRefreshEnabled, setSftpAutoRefreshEnabled,
+    reachabilityEnabled, setReachabilityEnabled,
+    teamPresenceEnabled, setTeamPresenceEnabled,
+    syncTypes, setSyncType,
+  ]);
+
   useEffect(() => { inputRef.current?.focus(); }, []);
   useEffect(() => { fetchActiveSessions().catch(() => {}); }, [fetchActiveSessions]);
 
@@ -196,13 +312,17 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
   const items: OmniItem[] = useMemo(() => {
     if (category === "settings") {
-      return settingsItems.filter((a) => {
+      const navItems = settingsItems.filter((a) => {
         if (!q) return true;
         if (a.kind !== "action") return false;
         if (a.label.toLowerCase().includes(q)) return true;
         const navEntry = SETTINGS_NAV.find((n) => `open-settings:${n.id}` === a.id);
         return navEntry?.keywords?.some((k) => k.toLowerCase().includes(q)) ?? false;
       });
+      const filteredToggles = toggleItems.filter((t) =>
+        t.kind === "toggle" && (!q || t.label.toLowerCase().includes(q) || t.keywords?.some((k) => k.toLowerCase().includes(q))),
+      );
+      return [...navItems, ...filteredToggles];
     }
     if (category === "snippets") {
       return snippets
@@ -312,6 +432,15 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       }),
     );
 
+    // Toggle settings (only when query matches — avoids flooding the empty state)
+    if (q) {
+      result.push(
+        ...toggleItems.filter((t) =>
+          t.kind === "toggle" && (t.label.toLowerCase().includes(q) || t.keywords?.some((k) => k.toLowerCase().includes(q))),
+        ),
+      );
+    }
+
     // Settings pages (only when query matches — avoids flooding the empty state)
     if (q) {
       result.push(
@@ -325,7 +454,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     }
 
     return result;
-  }, [category, q, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts, teamSessions, myMpSessionIds]);
+  }, [category, q, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts, teamSessions, myMpSessionIds, toggleItems]);
 
   const clamp = useCallback(
     (idx: number) => Math.max(0, Math.min(idx, items.length - 1)),
@@ -397,6 +526,9 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           const resolved = resolveTemplate(partialTemplate, defaultValues);
           broadcastSnippetInject(activeSession.id, activeSession.type, resolved, true).catch(console.error);
         }
+      } else if (item.kind === "toggle") {
+        item.onToggle(!item.value);
+        // Stay in palette so the user can see the updated state
       } else if (item.kind === "team-session") {
         const { session, alreadyIn } = item;
         if (alreadyIn) {
@@ -536,10 +668,12 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
     const settingsCount = items.filter((i) => i.kind === "action" && i.id.startsWith("open-settings:")).length;
     const actionCount = items.filter((i) => i.kind === "action" && !i.id.startsWith("open-settings:")).length;
+    const toggleCount = items.filter((i) => i.kind === "toggle").length;
     const actionStart = idx; idx += actionCount;
+    const toggleStart = idx; idx += toggleCount;
     const settingsStart = idx;
 
-    return { activeStart, activeCount, teamSessionStart, teamSessionCount, recentStart, recentCount, hostStart, hostCount, keyStart, keyCount, identityStart, identityCount, snippetStart, snippetCount, actionStart, actionCount, settingsStart, settingsCount };
+    return { activeStart, activeCount, teamSessionStart, teamSessionCount, recentStart, recentCount, hostStart, hostCount, keyStart, keyCount, identityStart, identityCount, snippetStart, snippetCount, actionStart, actionCount, toggleStart, toggleCount, settingsStart, settingsCount };
   }, [category, items, q, recentConnections.length]);
 
   const statusColor = (s: TerminalSession) =>
@@ -750,6 +884,54 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               {item.snippet.tags[0]}
             </span>
           )}
+        </button>
+      );
+    }
+
+    if (item.kind === "toggle") {
+      const isOn = item.value;
+      return (
+        <button
+          key={`t-${item.id}`}
+          data-idx={idx}
+          onClick={() => item.onToggle(!item.value)}
+          onMouseEnter={() => setSelected(idx)}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+          style={{ background: baseBg }}
+        >
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-toolbar)]">
+            <Icon icon={item.icon} width={13} className="text-[var(--t-text-muted)]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium"
+              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
+              {item.label}
+            </span>
+            {item.description && (
+              <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">{item.description}</p>
+            )}
+          </div>
+          <div
+            className="shrink-0 rounded-full transition-colors"
+            style={{
+              width: "2.4rem",
+              height: "1.333rem",
+              background: isOn ? "var(--t-accent)" : "var(--t-bg-input)",
+              border: "1px solid var(--t-border)",
+              position: "relative",
+            }}
+          >
+            <span
+              className="absolute rounded-full bg-white transition-transform"
+              style={{
+                width: "1.067rem",
+                height: "1.067rem",
+                top: "1px",
+                left: "0.067rem",
+                transform: isOn ? "translateX(1.067rem)" : "translateX(0)",
+              }}
+            />
+          </div>
         </button>
       );
     }
@@ -1004,6 +1186,14 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
                 <>
                   {sectionHeader("Actions", runningIdx > 0)}
                   {items.slice(sectionBoundaries.actionStart, sectionBoundaries.actionStart + sectionBoundaries.actionCount)
+                    .map((item) => renderItem(item, runningIdx++))}
+                </>
+              )}
+
+              {sectionBoundaries.toggleCount > 0 && (
+                <>
+                  {sectionHeader("Quick Settings", runningIdx > 0)}
+                  {items.slice(sectionBoundaries.toggleStart, sectionBoundaries.toggleStart + sectionBoundaries.toggleCount)
                     .map((item) => renderItem(item, runningIdx++))}
                 </>
               )}
