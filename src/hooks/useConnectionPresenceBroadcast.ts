@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useConnectionPresenceStore } from "@/stores/connectionPresenceStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import { notifyConnectionUsage } from "@/services/connectionPresence";
 import { getMyUserId } from "@/services/teamService";
 
@@ -16,7 +17,7 @@ import { getMyUserId } from "@/services/teamService";
  */
 export function useConnectionPresenceBroadcast() {
   const sessions = useSessionStore((s) => s.sessions);
-  const enabled = useConnectionPresenceStore((s) => s.enabled);
+  const [enabled] = useToggle("team-presence");
   const broadcastedRef = useRef<Set<string>>(new Set());
   const wasEnabledRef = useRef(enabled);
 

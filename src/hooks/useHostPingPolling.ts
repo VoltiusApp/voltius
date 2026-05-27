@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useHostPingStore, type PingStatus } from "@/stores/hostPingStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -54,7 +55,7 @@ async function pingConnection(c: Connection, onResult: (id: string, status: Ping
 }
 
 export function useHostPingPolling() {
-  const enabled = useHostPingStore((s) => s.enabled);
+  const [enabled] = useToggle("reachability");
   const pollIntervalMs = useHostPingStore((s) => s.pollIntervalMs);
   const activePollIntervalMs = useHostPingStore((s) => s.activePollIntervalMs);
   const priorityConnectionIds = useHostPingStore((s) => s.priorityConnectionIds);

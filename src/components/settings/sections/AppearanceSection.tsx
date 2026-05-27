@@ -4,6 +4,7 @@ import { usePluginStore } from "@/stores/pluginStore";
 import { BUILT_IN_THEMES } from "@/themes/presets";
 import { useUIStore } from "@/stores/uiStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import { MAX_SCROLLBACK_LINES, MIN_SCROLLBACK_LINES } from "@/stores/terminalSettingsUtils";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { Toggle } from "@/components/shared/Toggle";
@@ -31,8 +32,8 @@ export default function AppearanceSection() {
   const { activeThemeId, customThemes, setTheme, deleteCustomTheme } = useThemeStore();
   const { openThemeCreator, openThemeImportExport } = useUIStore();
   const pluginThemeMap = usePluginStore((s) => s.pluginThemes);
-  const scrollMinimapEnabled = useTerminalSettingsStore((s) => s.scrollMinimapEnabled);
-  const setScrollMinimapEnabled = useTerminalSettingsStore((s) => s.setScrollMinimapEnabled);
+  const [scrollMinimapEnabled, setScrollMinimapEnabled] = useToggle("scroll-minimap");
+  const [selectToCopy, setSelectToCopy] = useToggle("select-to-copy");
   const scrollbackLines = useTerminalSettingsStore((s) => s.scrollbackLines);
   const setScrollbackLines = useTerminalSettingsStore((s) => s.setScrollbackLines);
 
@@ -76,6 +77,15 @@ export default function AppearanceSection() {
             </div>
           </div>
           <Toggle checked={scrollMinimapEnabled} onChange={setScrollMinimapEnabled} />
+        </div>
+        <div className="mt-4 rounded-xl bg-[var(--t-bg-card)] border border-[var(--t-border)] p-4 flex items-center justify-between gap-4">
+          <div>
+            <div className="text-sm font-medium text-[var(--t-text-primary)]">Select to copy</div>
+            <div className="text-xs mt-1 text-[var(--t-text-dim)]">
+              Show a copy button when text is selected in a terminal.
+            </div>
+          </div>
+          <Toggle checked={selectToCopy} onChange={setSelectToCopy} />
         </div>
       </div>
 

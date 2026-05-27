@@ -11,7 +11,7 @@ import {
   sftpExists, fsExists, fsHomeDir,
 } from "@/services/sftp";
 import { hitTestDropTarget, setExternalDragHover, clearExternalDragHover } from "./internalDrag";
-import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
 import {
@@ -27,7 +27,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 
 export default function SFTPPage() {
-  const tarTransferEnabled = useSftpSettingsStore((s) => s.tarTransferEnabled);
+  const [tarTransferEnabled] = useToggle("sftp-tar");
   const sftpPanelOpen = useUIStore((s) => s.sftpPanelOpen);
   const pendingSftpConnectionId = useUIStore((s) => s.pendingSftpConnectionId);
   const clearPendingSftpConnection = useUIStore((s) => s.clearPendingSftpConnection);

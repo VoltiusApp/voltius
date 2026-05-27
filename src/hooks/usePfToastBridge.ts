@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useUIStore } from "@/stores/uiStore";
-import { usePortForwardingSettingsStore } from "@/stores/portForwardingSettingsStore";
+import { getToggle } from "@/stores/toggleSettingsStore";
 
 interface PfPortDetectedPayload {
   session_id: string;
@@ -57,7 +57,7 @@ export function usePfToastBridge() {
     }
 
     const unlistenPromise = listen<PfPortDetectedPayload>("pf-port-detected", ({ payload }) => {
-      if (!usePortForwardingSettingsStore.getState().autoForwardNotificationsEnabled) return;
+      if (!getToggle("forwarding-notifications")) return;
       pendingPorts.current.push(payload);
 
       if (timerRef.current) clearTimeout(timerRef.current);

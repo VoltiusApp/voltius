@@ -1,17 +1,15 @@
 import { useState } from "react";
 import { useHostPingStore } from "@/stores/hostPingStore";
-import { useConnectionPresenceStore } from "@/stores/connectionPresenceStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
 
 export default function HostsSection() {
-  const enabled = useHostPingStore((s) => s.enabled);
-  const setEnabled = useHostPingStore((s) => s.setEnabled);
+  const [enabled, setEnabled] = useToggle("reachability");
+  const [presenceEnabled, setPresenceEnabled] = useToggle("team-presence");
   const pollIntervalMs = useHostPingStore((s) => s.pollIntervalMs);
   const setPollIntervalMs = useHostPingStore((s) => s.setPollIntervalMs);
   const activePollIntervalMs = useHostPingStore((s) => s.activePollIntervalMs);
   const setActivePollIntervalMs = useHostPingStore((s) => s.setActivePollIntervalMs);
-  const presenceEnabled = useConnectionPresenceStore((s) => s.enabled);
-  const setPresenceEnabled = useConnectionPresenceStore((s) => s.setEnabled);
 
   const [raw, setRaw] = useState(() => String(pollIntervalMs));
   const [rawActive, setRawActive] = useState(() => String(activePollIntervalMs));

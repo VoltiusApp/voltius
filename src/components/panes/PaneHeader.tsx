@@ -5,6 +5,7 @@ import { Icon } from "@iconify/react";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { useDragStore } from "@/stores/dragStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import { findLeaf, getPaneSessionIds, useLayoutStore, type SplitPosition } from "@/stores/layoutStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -92,7 +93,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
   const connection = connections.find((c) => c.id === session.connectionId);
   const latencyMs = useHostPingStore((s) => s.latencies[session.connectionId]);
   const pingStatus = useHostPingStore((s) => s.statuses[session.connectionId]);
-  const pingEnabled = useHostPingStore((s) => s.enabled);
+  const [pingEnabled] = useToggle("reachability");
   const activePollIntervalMs = useHostPingStore((s) => s.activePollIntervalMs);
   const setStatus = useHostPingStore((s) => s.setStatus);
   const closePane = useLayoutStore((s) => s.closePane);

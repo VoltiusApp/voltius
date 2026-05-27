@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import type React from "react";
 import { useTerminal } from "@/hooks/useTerminal";
 import { TerminalMinimap } from "@/components/terminal/TerminalMinimap";
-import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import { terminalViewportClass } from "@/components/terminal/terminalLayout";
 import "@xterm/xterm/css/xterm.css";
 
@@ -18,7 +18,7 @@ interface Props {
 
 export default function TerminalView({ sessionId, sessionType, onClosed, active, inputGate, encoding, onResize }: Props) {
   const { attach, focus, fit } = useTerminal({ sessionId, sessionType, onClosed, inputGate, encoding, onResize });
-  const scrollMinimapEnabled = useTerminalSettingsStore((s) => s.scrollMinimapEnabled);
+  const [scrollMinimapEnabled] = useToggle("scroll-minimap");
 
   useEffect(() => {
     if (active) {

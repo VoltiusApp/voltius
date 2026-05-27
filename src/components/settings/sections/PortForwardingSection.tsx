@@ -1,11 +1,9 @@
-import { usePortForwardingSettingsStore } from "@/stores/portForwardingSettingsStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
 
 export default function PortForwardingSection() {
-  const autoForwardEnabled = usePortForwardingSettingsStore((s) => s.autoForwardEnabled);
-  const autoForwardNotificationsEnabled = usePortForwardingSettingsStore((s) => s.autoForwardNotificationsEnabled);
-  const setAutoForwardEnabled = usePortForwardingSettingsStore((s) => s.setAutoForwardEnabled);
-  const setAutoForwardNotificationsEnabled = usePortForwardingSettingsStore((s) => s.setAutoForwardNotificationsEnabled);
+  const [autoForwardEnabled, setAutoForwardEnabled] = useToggle("auto-forward");
+  const [autoForwardNotificationsEnabled, setAutoForwardNotificationsEnabled] = useToggle("forwarding-notifications");
 
   return (
     <div className="p-6 max-w-lg space-y-6">

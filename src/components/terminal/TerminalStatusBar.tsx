@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
 import { useHostPingStore } from "@/stores/hostPingStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -315,7 +316,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
 
   // ── Fast ping for active session ──────────────────────────────────────────
 
-  const pingEnabled = useHostPingStore((s) => s.enabled);
+  const [pingEnabled] = useToggle("reachability");
   const activePollIntervalMs = useHostPingStore((s) => s.activePollIntervalMs);
   const setStatus = useHostPingStore((s) => s.setStatus);
 

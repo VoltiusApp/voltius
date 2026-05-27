@@ -3,6 +3,7 @@ import type { Connection } from "@/types";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import {
   useEffectivePinned,
   useEffectivePinSource,
@@ -30,7 +31,7 @@ export function DashboardHostCard({ connection, onConnect }: Props) {
   const isPinned = useEffectivePinned(connection, "connection");
   const pinSource = useEffectivePinSource(connection, "connection");
   const isTeamVault = useTeamStore((s) => s.teams.some((t) => t.id === connection.vault_id));
-  const pingEnabled = useHostPingStore((s) => s.enabled);
+  const [pingEnabled] = useToggle("reachability");
   const pingStatus = useHostPingStore((s) => s.statuses[connection.id]);
   const isSerial = isSerialConn(connection);
   const showPingDot = pingEnabled && !connection.ping_disabled && !isSerial;

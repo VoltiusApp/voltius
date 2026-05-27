@@ -5,12 +5,9 @@ import type { ConnectionUsageEntry } from "@/services/connectionPresence";
 interface ConnectionPresenceStore {
   /** connection_id -> teammate user_ids currently broadcasting "in use" */
   usageByConnection: Record<string, string[]>;
-  /** When false, the local client skips broadcasting and we don't track outgoing state. */
-  enabled: boolean;
   /** Cached current-user ID for synchronous self-exclusion in per-card hooks. */
   myUserId: string | null;
 
-  setEnabled: (enabled: boolean) => void;
   setMyUserId: (id: string | null) => void;
   setSnapshot: (entries: ConnectionUsageEntry[]) => void;
   addUser: (connectionId: string, userId: string) => void;
@@ -22,10 +19,8 @@ export const useConnectionPresenceStore = create<ConnectionPresenceStore>()(
   persist(
     (set) => ({
       usageByConnection: {},
-      enabled: true,
       myUserId: null,
 
-      setEnabled: (enabled) => set({ enabled }),
       setMyUserId: (id) => set({ myUserId: id }),
 
       setSnapshot: (entries) =>
@@ -59,7 +54,7 @@ export const useConnectionPresenceStore = create<ConnectionPresenceStore>()(
     }),
     {
       name: "voltius-connection-presence",
-      partialize: (state) => ({ enabled: state.enabled }),
+      partialize: () => ({}),
     },
   ),
 );

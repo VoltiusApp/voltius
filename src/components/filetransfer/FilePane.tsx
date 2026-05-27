@@ -14,6 +14,7 @@ import {
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { type FileEntry, type SortCol, type SortDir, type VisibleCols, formatSize } from "./SFTPTypes";
 import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import { startInternalDragGesture, useSemanticDragState } from "./internalDrag";
 
 // ── SelectionActionsCtx ───────────────────────────────────────────────────────
@@ -79,7 +80,7 @@ export function FilePane({
   /** Override the default per-column visibility (used for narrow embeddings). */
   initialVisibleCols?: VisibleCols;
 }) {
-  const autoRefreshEnabled = useSftpSettingsStore((s) => s.autoRefreshEnabled);
+  const [autoRefreshEnabled] = useToggle("sftp-autorefresh");
   const autoRefreshIntervalMs = useSftpSettingsStore((s) => s.autoRefreshIntervalMs);
 
   const [entries, setEntries] = useState<FileEntry[]>([]);

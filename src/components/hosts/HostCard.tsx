@@ -14,6 +14,7 @@ import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
@@ -103,7 +104,7 @@ export default function HostCard({
       ? "var(--t-text-secondary)"
       : "var(--t-text-dim)";
   const pinAlwaysVisible = pinSource !== "none" && pinSource !== "team-hidden";
-  const pingEnabled = useHostPingStore((s) => s.enabled);
+  const [pingEnabled] = useToggle("reachability");
   const pingStatus = useHostPingStore((s) => s.statuses[connection.id]);
   const pingLatency = useHostPingStore((s) => s.latencies[connection.id]);
   const showPingDot = !isSerial && pingEnabled && !connection.ping_disabled;

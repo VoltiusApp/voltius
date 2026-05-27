@@ -4,7 +4,7 @@ import {
   sftpExists, fsExists, fsCopy,
 } from "@/services/sftp";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
-import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
+import { getToggle } from "@/stores/toggleSettingsStore";
 import { type FileEntry } from "./SFTPTypes";
 
 export type UploadTarget = {
@@ -31,7 +31,7 @@ async function statOsPaths(paths: string[]): Promise<FileEntry[]> {
 
 async function uploadEntries(files: FileEntry[], target: UploadTarget): Promise<void> {
   const { runTransfer } = useTransferQueueStore.getState();
-  const tarEnabled = useSftpSettingsStore.getState().tarTransferEnabled;
+  const tarEnabled = getToggle("sftp-tar");
   const dstBase = target.cwd.replace(/\/$/, "");
 
   // Batch-tar path: pack everything into one archive when uploading multiple

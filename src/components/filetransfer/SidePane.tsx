@@ -9,6 +9,7 @@ import { FilePane } from "./FilePane";
 import ConnectionOverlay, { SFTP_STEPS } from "@/components/terminal/connection-overlay";
 import { FilterInput } from "@/components/shared/ToolbarViewControls";
 import { useHostPingStore } from "@/stores/hostPingStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
 
 function latencyColor(ms: number): string {
@@ -77,7 +78,7 @@ export function SidePane({
   const connectionId = host?.kind === "remote" ? host.connection.id : undefined;
   const connections = useAllConnections();
   const connection = connectionId ? connections.find((c) => c.id === connectionId) : undefined;
-  const pingEnabled = useHostPingStore((s) => s.enabled);
+  const [pingEnabled] = useToggle("reachability");
   const activePollIntervalMs = useHostPingStore((s) => s.activePollIntervalMs);
   const setStatus = useHostPingStore((s) => s.setStatus);
   const pingStatus = useHostPingStore((s) => connectionId ? s.statuses[connectionId] : undefined);

@@ -11,6 +11,7 @@ import { serialWrite, onSerialOutput, onSerialClosed } from "@/services/serial";
 import { useThemeStore } from "@/stores/themeStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { getToggle } from "@/stores/toggleSettingsStore";
 import { matchShortcut } from "@/stores/shortcutStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
@@ -137,6 +138,7 @@ type CacheEntry = {
   connectedRef: { current: boolean };
   onClosedRef: { current: (() => void) | undefined };
   onResizeRef: { current: ((cols: number, rows: number) => void) | undefined };
+  copyBtnRef: { el: HTMLDivElement | null; timer: ReturnType<typeof setTimeout> | null };
   dispose: () => void; // full teardown, called only when the session is deleted
 };
 
@@ -275,6 +277,61 @@ function scrollMinimapToRatio(entry: CacheEntry, ratio: number) {
   const delta = scrollDeltaForRatio(ratio, buffer.length, entry.terminal.rows, buffer.viewportY);
   entry.terminal.scrollLines(delta);
   scheduleMinimapNotify(entry);
+}
+
+function hideCopyFeedback(entry: CacheEntry) {
+  if (entry.copyBtnRef.timer !== null) { clearTimeout(entry.copyBtnRef.timer); entry.copyBtnRef.timer = null; }
+  entry.copyBtnRef.el?.remove();
+  entry.copyBtnRef.el = null;
+}
+
+function showCopyFeedback(entry: CacheEntry, x: number, y: number, sel: string) {
+  hideCopyFeedback(entry);
+  navigator.clipboard.writeText(sel);
+  if (!getToggle("select-to-copy")) return;
+  const bw = 46;
+  const bh = 28;
+  let bx = x + 8;
+  let by = y - bh - 8;
+  if (bx + bw > window.innerWidth) bx = x - bw - 8;
+  if (by < 0) by = y + 8;
+  const el = document.createElement("div");
+  Object.assign(el.style, {
+    position: "fixed",
+    zIndex: "10000",
+    left: `${bx}px`,
+    top: `${by}px`,
+    width: `${bw}px`,
+    height: `${bh}px`,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "3px",
+    borderRadius: "6px",
+    background: "var(--t-bg-card)",
+    border: "1px solid var(--t-border)",
+    color: "var(--t-text-primary)",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+    pointerEvents: "none",
+    opacity: "0",
+    transform: "translateY(4px)",
+    transition: "opacity 100ms ease-out, transform 100ms ease-out",
+  });
+  el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+  document.body.appendChild(el);
+  entry.copyBtnRef.el = el;
+  requestAnimationFrame(() => {
+    if (entry.copyBtnRef.el !== el) return;
+    el.style.opacity = "1";
+    el.style.transform = "translateY(0)";
+    entry.copyBtnRef.timer = setTimeout(() => {
+      el.style.opacity = "0";
+      el.style.transform = "translateY(4px)";
+      entry.copyBtnRef.timer = setTimeout(() => {
+        if (entry.copyBtnRef.el === el) hideCopyFeedback(entry);
+      }, 110);
+    }, 1200);
+  });
 }
 
 function searchDecorations() {
@@ -470,6 +527,14 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         const handleWindowResize = () => fitAddon.fit();
         window.addEventListener("resize", handleWindowResize);
 
+        const handleContainerMouseUp = (e: MouseEvent) => {
+          setTimeout(() => {
+            const sel = existing.terminal.getSelection();
+            if (sel) showCopyFeedback(existing, e.clientX, e.clientY, sel);
+          }, 20);
+        };
+        container.addEventListener("mouseup", handleContainerMouseUp);
+
         let fitTimer: ReturnType<typeof setTimeout> | null = null;
         const resizeObserver = new ResizeObserver(() => {
           if (fitTimer !== null) clearTimeout(fitTimer);
@@ -479,6 +544,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
         mountCleanupRef.current = () => {
           container.removeEventListener("contextmenu", handleContextMenu);
+          container.removeEventListener("mouseup", handleContainerMouseUp);
           window.removeEventListener("resize", handleWindowResize);
           resizeObserver.disconnect();
           if (fitTimer !== null) clearTimeout(fitTimer);
@@ -575,6 +641,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         connectedRef: { current: sessionType === "local" || sessionType === "serial" },
         onClosedRef: { current: onClosed },
         onResizeRef: { current: onResize },
+        copyBtnRef: { el: null, timer: null },
         dispose: () => {}, // filled in below
       };
       terminalCache.set(sessionId, entry);
@@ -583,6 +650,10 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       const searchResultsDispose = searchAddon.onDidChangeResults(({ resultIndex, resultCount }) => {
         entry.search.snapshot = { ...entry.search.snapshot, resultIndex, resultCount };
         notifySearch(entry);
+      });
+
+      const selectionChangeDispose = term.onSelectionChange(() => {
+        if (!term.getSelection()) hideCopyFeedback(entry);
       });
 
       const scrollDispose = term.onScroll(() => scheduleMinimapNotify(entry));
@@ -796,12 +867,14 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         onResizeDispose.dispose();
         oscCwdDispose.dispose();
         searchResultsDispose.dispose();
+        selectionChangeDispose.dispose();
         scrollDispose.dispose();
         bufferChangeDispose.dispose();
         if (entry.minimap.frame !== null) cancelAnimationFrame(entry.minimap.frame);
         entry.search.subscribers.clear();
         entry.minimap.subscribers.clear();
         hideLinkTooltip();
+        hideCopyFeedback(entry);
         Promise.all(unlistenPromises).then((fns) => fns.forEach((fn) => fn()));
         term.dispose();
       };
@@ -816,6 +889,14 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       const handleWindowResize = () => fitAddon.fit();
       window.addEventListener("resize", handleWindowResize);
 
+      const handleContainerMouseUp = (e: MouseEvent) => {
+        setTimeout(() => {
+          const sel = entry.terminal.getSelection();
+          if (sel) showCopyFeedback(entry, e.clientX, e.clientY, sel);
+        }, 20);
+      };
+      container.addEventListener("mouseup", handleContainerMouseUp);
+
       let fitTimer: ReturnType<typeof setTimeout> | null = null;
       const resizeObserver = new ResizeObserver(() => {
         if (fitTimer !== null) clearTimeout(fitTimer);
@@ -825,6 +906,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       mountCleanupRef.current = () => {
         container.removeEventListener("contextmenu", handleContextMenu);
+        container.removeEventListener("mouseup", handleContainerMouseUp);
         window.removeEventListener("resize", handleWindowResize);
         resizeObserver.disconnect();
         if (fitTimer !== null) clearTimeout(fitTimer);

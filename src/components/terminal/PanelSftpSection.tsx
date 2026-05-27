@@ -6,7 +6,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { usePanelSftpStore } from "@/stores/panelSftpStore";
 import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
-import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import {
   pickLocalPath, pickLocalPaths,
   sftpDownload, sftpDownloadDir, sftpDownloadDirTar, sftpDownloadBatchTar,
@@ -27,7 +27,7 @@ export default function PanelSftpSection() {
   const setFollowCwd = usePanelSftpStore((s) => s.setFollowCwd);
   const terminalCwd = useTerminalCwdStore((s) => (activeSessionId ? s.cwds[activeSessionId] : undefined));
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
-  const tarTransferEnabled = useSftpSettingsStore((s) => s.tarTransferEnabled);
+  const [tarTransferEnabled] = useToggle("sftp-tar");
 
   const [selected, setSelected] = useState<FileEntry[]>([]);
   const [refreshTick, setRefreshTick] = useState(0);

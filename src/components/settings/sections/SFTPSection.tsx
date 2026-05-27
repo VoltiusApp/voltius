@@ -1,13 +1,12 @@
 import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
 
 export default function SFTPSection() {
-  const autoRefreshEnabled = useSftpSettingsStore((s) => s.autoRefreshEnabled);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useToggle("sftp-autorefresh");
+  const [tarTransferEnabled, setTarTransferEnabled] = useToggle("sftp-tar");
   const autoRefreshIntervalMs = useSftpSettingsStore((s) => s.autoRefreshIntervalMs);
-  const tarTransferEnabled = useSftpSettingsStore((s) => s.tarTransferEnabled);
-  const setAutoRefreshEnabled = useSftpSettingsStore((s) => s.setAutoRefreshEnabled);
   const setAutoRefreshIntervalMs = useSftpSettingsStore((s) => s.setAutoRefreshIntervalMs);
-  const setTarTransferEnabled = useSftpSettingsStore((s) => s.setTarTransferEnabled);
 
   const intervalSeconds = autoRefreshIntervalMs / 1000;
 
@@ -46,7 +45,6 @@ export default function SFTPSection() {
         <div
           className="rounded-lg divide-y bg-[var(--t-bg-elevated)] border border-[var(--t-border)]"
         >
-          {/* Toggle row */}
           <div className="flex items-center justify-between px-4 py-3 gap-4">
             <div>
               <p className="text-sm font-medium text-[var(--t-text-primary)]">Auto-refresh</p>
@@ -57,7 +55,6 @@ export default function SFTPSection() {
             <Toggle checked={autoRefreshEnabled} onChange={setAutoRefreshEnabled} />
           </div>
 
-          {/* Interval row */}
           <div className="flex items-center justify-between px-4 py-3 gap-4">
             <div>
               <p className="text-sm font-medium text-[var(--t-text-primary)]" style={{ opacity: autoRefreshEnabled ? 1 : 0.45 }}>
@@ -76,9 +73,7 @@ export default function SFTPSection() {
                 disabled={!autoRefreshEnabled}
                 onChange={(e) => handleIntervalChange(e.target.value)}
                 className="w-20 px-2 py-1 rounded-lg text-sm text-right outline-none transition-colors bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)]"
-                style={{
-                  opacity: autoRefreshEnabled ? 1 : 0.45,
-                }}
+                style={{ opacity: autoRefreshEnabled ? 1 : 0.45 }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = "var(--t-accent)"; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; }}
               />

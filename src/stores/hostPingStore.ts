@@ -4,8 +4,6 @@ import { persist } from "zustand/middleware";
 export type PingStatus = "up" | "down" | "unknown";
 
 interface HostPingStore {
-  enabled: boolean;
-  setEnabled: (v: boolean) => void;
   pollIntervalMs: number;
   setPollIntervalMs: (v: number) => void;
   activePollIntervalMs: number;
@@ -22,12 +20,10 @@ interface HostPingStore {
 export const useHostPingStore = create<HostPingStore>()(
   persist(
     (set) => ({
-      enabled: true,
       pollIntervalMs: 10_000,
       activePollIntervalMs: 2_000,
       statuses: {},
       latencies: {},
-      setEnabled: (v) => set({ enabled: v }),
       setPollIntervalMs: (v) => set({ pollIntervalMs: v }),
       setActivePollIntervalMs: (v) => set({ activePollIntervalMs: v }),
       setStatus: (id, status, latencyMs) =>
@@ -46,7 +42,7 @@ export const useHostPingStore = create<HostPingStore>()(
     }),
     {
       name: "voltius-host-ping",
-      partialize: (s) => ({ enabled: s.enabled, pollIntervalMs: s.pollIntervalMs, activePollIntervalMs: s.activePollIntervalMs }),
+      partialize: (s) => ({ pollIntervalMs: s.pollIntervalMs, activePollIntervalMs: s.activePollIntervalMs }),
     },
   ),
 );

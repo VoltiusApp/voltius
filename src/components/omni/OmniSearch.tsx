@@ -23,12 +23,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import type { ActiveSession } from "@/stores/teamSessionStore";
 import { getCurrentUserEmail } from "@/services/account";
-import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
-import { usePortForwardingSettingsStore } from "@/stores/portForwardingSettingsStore";
-import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
-import { useHostPingStore } from "@/stores/hostPingStore";
-import { useConnectionPresenceStore } from "@/stores/connectionPresenceStore";
-import { useSyncPrefsStore, SYNC_OBJECT_TYPES } from "@/stores/syncPrefsStore";
+import { useToggleSettings } from "@/hooks/useToggleSettings";
 
 interface OmniSearchProps {
   onClose: () => void;
@@ -172,113 +167,11 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const setKeychainPendingAction = useUIStore((s) => s.setKeychainPendingAction);
 
   // Toggle settings subscriptions
-  const scrollMinimapEnabled = useTerminalSettingsStore((s) => s.scrollMinimapEnabled);
-  const setScrollMinimapEnabled = useTerminalSettingsStore((s) => s.setScrollMinimapEnabled);
-  const autoForwardEnabled = usePortForwardingSettingsStore((s) => s.autoForwardEnabled);
-  const setAutoForwardEnabled = usePortForwardingSettingsStore((s) => s.setAutoForwardEnabled);
-  const autoForwardNotificationsEnabled = usePortForwardingSettingsStore((s) => s.autoForwardNotificationsEnabled);
-  const setAutoForwardNotificationsEnabled = usePortForwardingSettingsStore((s) => s.setAutoForwardNotificationsEnabled);
-  const sftpTarEnabled = useSftpSettingsStore((s) => s.tarTransferEnabled);
-  const setSftpTarEnabled = useSftpSettingsStore((s) => s.setTarTransferEnabled);
-  const sftpAutoRefreshEnabled = useSftpSettingsStore((s) => s.autoRefreshEnabled);
-  const setSftpAutoRefreshEnabled = useSftpSettingsStore((s) => s.setAutoRefreshEnabled);
-  const reachabilityEnabled = useHostPingStore((s) => s.enabled);
-  const setReachabilityEnabled = useHostPingStore((s) => s.setEnabled);
-  const teamPresenceEnabled = useConnectionPresenceStore((s) => s.enabled);
-  const setTeamPresenceEnabled = useConnectionPresenceStore((s) => s.setEnabled);
-  const { syncTypes, setSyncType } = useSyncPrefsStore();
-
-  const toggleItems = useMemo<OmniItem[]>(() => [
-    {
-      kind: "toggle",
-      id: "toggle:scroll-minimap",
-      label: "Scroll Minimap",
-      icon: "lucide:layout-panel-right",
-      description: "Appearance",
-      keywords: ["minimap", "scrollbar", "terminal", "map"],
-      value: scrollMinimapEnabled,
-      onToggle: setScrollMinimapEnabled,
-    },
-    {
-      kind: "toggle",
-      id: "toggle:auto-port-forwarding",
-      label: "Automatic Port Forwarding",
-      icon: "lucide:arrow-left-right",
-      description: "Port Forwarding",
-      keywords: ["forward", "port", "tunnel", "auto", "detect", "ssh"],
-      value: autoForwardEnabled,
-      onToggle: setAutoForwardEnabled,
-    },
-    {
-      kind: "toggle",
-      id: "toggle:forwarding-notifications",
-      label: "Port Forwarding Notifications",
-      icon: "lucide:bell",
-      description: "Port Forwarding",
-      keywords: ["notification", "alert", "forward", "port", "notify"],
-      value: autoForwardNotificationsEnabled,
-      onToggle: setAutoForwardNotificationsEnabled,
-    },
-    {
-      kind: "toggle",
-      id: "toggle:sftp-tar",
-      label: "SFTP Tar Acceleration",
-      icon: "lucide:package",
-      description: "SFTP",
-      keywords: ["sftp", "transfer", "tar", "compress", "file", "fast"],
-      value: sftpTarEnabled,
-      onToggle: setSftpTarEnabled,
-    },
-    {
-      kind: "toggle",
-      id: "toggle:sftp-autorefresh",
-      label: "SFTP Auto-Refresh",
-      icon: "lucide:folder-sync",
-      description: "SFTP",
-      keywords: ["sftp", "refresh", "auto", "file", "panel", "reload"],
-      value: sftpAutoRefreshEnabled,
-      onToggle: setSftpAutoRefreshEnabled,
-    },
-    {
-      kind: "toggle",
-      id: "toggle:reachability",
-      label: "Reachability Check",
-      icon: "lucide:radio-tower",
-      description: "Hosts",
-      keywords: ["ping", "reachability", "status", "check", "connectivity", "dot", "latency"],
-      value: reachabilityEnabled,
-      onToggle: setReachabilityEnabled,
-    },
-    {
-      kind: "toggle",
-      id: "toggle:team-presence",
-      label: "Team Presence",
-      icon: "lucide:user-check",
-      description: "Hosts",
-      keywords: ["presence", "team", "avatar", "share", "online", "activity"],
-      value: teamPresenceEnabled,
-      onToggle: setTeamPresenceEnabled,
-    },
-    ...SYNC_OBJECT_TYPES.map((t): OmniItem => ({
-      kind: "toggle",
-      id: `toggle:sync-${t.id}`,
-      label: `Sync ${t.label}`,
-      icon: "lucide:cloud",
-      description: "Sync",
-      keywords: ["sync", "cloud", "backup", t.id, t.label.toLowerCase()],
-      value: syncTypes[t.id] ?? true,
-      onToggle: (v) => setSyncType(t.id, v),
-    })),
-  ], [
-    scrollMinimapEnabled, setScrollMinimapEnabled,
-    autoForwardEnabled, setAutoForwardEnabled,
-    autoForwardNotificationsEnabled, setAutoForwardNotificationsEnabled,
-    sftpTarEnabled, setSftpTarEnabled,
-    sftpAutoRefreshEnabled, setSftpAutoRefreshEnabled,
-    reachabilityEnabled, setReachabilityEnabled,
-    teamPresenceEnabled, setTeamPresenceEnabled,
-    syncTypes, setSyncType,
-  ]);
+  const toggleSettings = useToggleSettings();
+  const toggleItems = useMemo<OmniItem[]>(
+    () => toggleSettings.map(({ id, ...d }) => ({ kind: "toggle" as const, id: `toggle:${id}`, ...d })),
+    [toggleSettings],
+  );
 
   useEffect(() => { inputRef.current?.focus(); }, []);
   useEffect(() => { fetchActiveSessions().catch(() => {}); }, [fetchActiveSessions]);
