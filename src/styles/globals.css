@@ -156,6 +156,24 @@ input::-webkit-inner-spin-button {
   display: none;
 }
 
+.terminal-minimap-enabled .xterm .xterm-viewport {
+  overflow-y: hidden !important;
+  scrollbar-width: none !important;
+}
+
+.terminal-minimap-enabled .xterm .xterm-viewport::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.terminal-minimap-enabled .xterm .xterm-scrollable-element > .scrollbar,
+.terminal-minimap-enabled .xterm .xterm-scrollable-element > .shadow {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 .ripple {
   position: absolute;
   border-radius: 50%;

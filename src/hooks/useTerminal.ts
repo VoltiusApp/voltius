@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
-import { Terminal } from "@xterm/xterm";
+import { Terminal, type IBufferCell } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -10,11 +10,14 @@ import { localSendInput, localResize, onLocalOutput, onLocalClosed } from "@/ser
 import { serialWrite, onSerialOutput, onSerialClosed } from "@/services/serial";
 import { useThemeStore } from "@/stores/themeStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { matchShortcut } from "@/stores/shortcutStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { findLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useCommandHistoryStore } from "@/stores/commandHistoryStore";
+import { sampleLineDensities, scrollDeltaForRatio, type TerminalMinimapCell, type TerminalMinimapSample } from "@/components/terminal/minimapMath";
+import type { TerminalTheme } from "@/themes/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 
 interface UseTerminalOptions {
@@ -100,11 +103,35 @@ interface SearchState {
   subscribers: Set<() => void>;
 }
 
+export interface TerminalMinimapSnapshot {
+  bufferLength: number;
+  viewportY: number;
+  baseY: number;
+  rows: number;
+  cols: number;
+  version: number;
+}
+
+interface MinimapState {
+  snapshot: TerminalMinimapSnapshot;
+  subscribers: Set<() => void>;
+  frame: number | null;
+}
+
+export interface TerminalMinimapController {
+  subscribe: (fn: () => void) => () => void;
+  getSnapshot: () => TerminalMinimapSnapshot;
+  sample: (height: number) => TerminalMinimapSample[];
+  scrollToRatio: (ratio: number) => void;
+  focus: () => void;
+}
+
 type CacheEntry = {
   terminal: Terminal;
   fitAddon: FitAddon;
   searchAddon: SearchAddon;
   search: SearchState;
+  minimap: MinimapState;
   sessionType: "ssh" | "local" | "serial";
   connectedRef: { current: boolean };
   onClosedRef: { current: (() => void) | undefined };
@@ -130,6 +157,123 @@ const EMPTY_SNAPSHOT: TerminalSearchSnapshot = {
 
 function notifySearch(entry: CacheEntry) {
   entry.search.subscribers.forEach((fn) => fn());
+}
+
+function minimapSnapshot(entry: CacheEntry): TerminalMinimapSnapshot {
+  const buffer = entry.terminal.buffer.active;
+  return {
+    bufferLength: buffer.length,
+    viewportY: buffer.viewportY,
+    baseY: buffer.baseY,
+    rows: entry.terminal.rows,
+    cols: entry.terminal.cols,
+    version: entry.minimap.snapshot.version + 1,
+  };
+}
+
+function notifyMinimap(entry: CacheEntry) {
+  entry.minimap.snapshot = minimapSnapshot(entry);
+  entry.minimap.subscribers.forEach((fn) => fn());
+}
+
+function scheduleMinimapNotify(entry: CacheEntry) {
+  if (entry.minimap.frame !== null) return;
+  entry.minimap.frame = requestAnimationFrame(() => {
+    entry.minimap.frame = null;
+    notifyMinimap(entry);
+  });
+}
+
+function sampleMinimap(entry: CacheEntry, height: number): TerminalMinimapSample[] {
+  const buffer = entry.terminal.buffer.active;
+  const maxSamples = Math.max(1, Math.floor(height));
+  const length = Math.max(1, buffer.length);
+  const cols = Math.max(1, entry.terminal.cols);
+  const theme = useThemeStore.getState().getActiveTheme().terminal;
+  const lines: string[] = [];
+  const cellRows: TerminalMinimapCell[][] = [];
+  const nullCell = buffer.getNullCell();
+  const rows = Math.min(maxSamples, length);
+
+  for (let y = 0; y < rows; y += 1) {
+    const start = length <= maxSamples ? y : Math.floor((y / rows) * length);
+    const end = length <= maxSamples ? y + 1 : Math.max(start + 1, Math.floor(((y + 1) / rows) * length));
+    let text = "";
+    let cells: TerminalMinimapCell[] = [];
+
+    for (let lineIndex = start; lineIndex < end; lineIndex += 1) {
+      const line = buffer.getLine(lineIndex);
+      if (!line) continue;
+      const lineText = line.translateToString(true);
+      if (!text && lineText) {
+        text = lineText;
+        const maxCells = Math.min(line.length, cols);
+        cells = [];
+        for (let x = 0; x < maxCells; x += 1) {
+          const cell = line.getCell(x, nullCell);
+          if (!cell || cell.getWidth() === 0 || !cell.getChars().trim() || cell.isInvisible()) continue;
+          cells.push({
+            x,
+            width: Math.max(1, cell.getWidth()),
+            fg: colorForCell(cell, "fg", theme),
+            bg: cell.isBgDefault() ? undefined : colorForCell(cell, "bg", theme),
+          });
+        }
+      }
+    }
+    lines.push(text);
+    cellRows.push(cells);
+  }
+
+  return sampleLineDensities(lines, maxSamples, cols).map((sample, index) => ({
+    ...sample,
+    cells: cellRows[index],
+  }));
+}
+
+function colorForCell(cell: IBufferCell, target: "fg" | "bg", theme: TerminalTheme): string {
+  const color = target === "fg" ? cell.getFgColor() : cell.getBgColor();
+  const isDefault = target === "fg" ? cell.isFgDefault() : cell.isBgDefault();
+  const isRgb = target === "fg" ? cell.isFgRGB() : cell.isBgRGB();
+  const isPalette = target === "fg" ? cell.isFgPalette() : cell.isBgPalette();
+
+  if (isDefault) return target === "fg" ? theme.foreground : theme.background;
+  if (isRgb) return `#${color.toString(16).padStart(6, "0")}`;
+  if (isPalette) return ansiPaletteColor(color, theme);
+  return target === "fg" ? theme.foreground : theme.background;
+}
+
+function ansiPaletteColor(index: number, theme: TerminalTheme): string {
+  const basic = [
+    theme.black, theme.red, theme.green, theme.yellow,
+    theme.blue, theme.magenta, theme.cyan, theme.white,
+    theme.brightBlack, theme.brightRed, theme.brightGreen, theme.brightYellow,
+    theme.brightBlue, theme.brightMagenta, theme.brightCyan, theme.brightWhite,
+  ];
+  if (index < basic.length) return basic[index];
+  if (index >= 16 && index <= 231) {
+    const n = index - 16;
+    const r = Math.floor(n / 36);
+    const g = Math.floor((n % 36) / 6);
+    const b = n % 6;
+    return rgbHex(r === 0 ? 0 : 55 + r * 40, g === 0 ? 0 : 55 + g * 40, b === 0 ? 0 : 55 + b * 40);
+  }
+  if (index >= 232 && index <= 255) {
+    const v = 8 + (index - 232) * 10;
+    return rgbHex(v, v, v);
+  }
+  return theme.foreground;
+}
+
+function rgbHex(r: number, g: number, b: number): string {
+  return `#${[r, g, b].map((v) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, "0")).join("")}`;
+}
+
+function scrollMinimapToRatio(entry: CacheEntry, ratio: number) {
+  const buffer = entry.terminal.buffer.active;
+  const delta = scrollDeltaForRatio(ratio, buffer.length, entry.terminal.rows, buffer.viewportY);
+  entry.terminal.scrollLines(delta);
+  scheduleMinimapNotify(entry);
 }
 
 function searchDecorations() {
@@ -241,6 +385,19 @@ export function getTerminalSearchController(sessionId: string): TerminalSearchCo
   };
 }
 
+export function getTerminalMinimapController(sessionId: string): TerminalMinimapController | null {
+  const entry = terminalCache.get(sessionId);
+  if (!entry) return null;
+  const subscribers = entry.minimap.subscribers;
+  return {
+    subscribe: (fn) => { subscribers.add(fn); return () => { subscribers.delete(fn); }; },
+    getSnapshot: () => entry.minimap.snapshot,
+    sample: (height) => sampleMinimap(entry, height),
+    scrollToRatio: (ratio) => scrollMinimapToRatio(entry, ratio),
+    focus: () => entry.terminal.focus(),
+  };
+}
+
 /** Open the search widget for a given session (no-op if the session has no cached terminal yet). */
 export function openTerminalSearch(sessionId: string): void {
   getTerminalSearchController(sessionId)?.open();
@@ -331,12 +488,14 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       // ── Create new terminal ───────────────────────────────────────────────
       const activeTheme = useThemeStore.getState().getActiveTheme();
+      const scrollback = useTerminalSettingsStore.getState().scrollbackLines;
       const term = new Terminal({
         altClickMovesCursor: false,
         cursorBlink: true,
         cursorStyle: "bar",
         fontSize: activeTheme.terminalFontSize,
         fontFamily: activeTheme.terminalFontFamily,
+        scrollback,
         theme: activeTheme.terminal,
         overviewRuler: { width: 4 },
         allowProposedApi: true,
@@ -406,6 +565,11 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         fitAddon,
         searchAddon,
         search: { snapshot: { ...EMPTY_SNAPSHOT }, subscribers: new Set() },
+        minimap: {
+          snapshot: { bufferLength: 0, viewportY: 0, baseY: 0, rows: term.rows, cols: term.cols, version: 0 },
+          subscribers: new Set(),
+          frame: null,
+        },
         sessionType,
         connectedRef: { current: sessionType === "local" || sessionType === "serial" },
         onClosedRef: { current: onClosed },
@@ -413,11 +577,15 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         dispose: () => {}, // filled in below
       };
       terminalCache.set(sessionId, entry);
+      notifyMinimap(entry);
 
       const searchResultsDispose = searchAddon.onDidChangeResults(({ resultIndex, resultCount }) => {
         entry.search.snapshot = { ...entry.search.snapshot, resultIndex, resultCount };
         notifySearch(entry);
       });
+
+      const scrollDispose = term.onScroll(() => scheduleMinimapNotify(entry));
+      const bufferChangeDispose = term.buffer.onBufferChange(() => scheduleMinimapNotify(entry));
 
       // Intercept app shortcuts before xterm processes them
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
@@ -548,7 +716,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       if (sessionType === "local") {
         unlistenPromises.push(
-          onLocalOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data); }),
+          onLocalOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data, () => scheduleMinimapNotify(entry)); }),
         );
         unlistenPromises.push(
           onLocalClosed(sessionId, () => {
@@ -558,7 +726,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         );
       } else if (sessionType === "serial") {
         unlistenPromises.push(
-          onSerialOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data); }),
+          onSerialOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data, () => scheduleMinimapNotify(entry)); }),
         );
         unlistenPromises.push(
           onSerialClosed(sessionId, () => {
@@ -568,7 +736,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         );
       } else {
         unlistenPromises.push(
-          onSshOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data); }),
+          onSshOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data, () => scheduleMinimapNotify(entry)); }),
         );
         unlistenPromises.push(
           onSshClosed(sessionId, () => {
@@ -580,6 +748,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       const onResizeDispose = term.onResize(({ cols, rows }) => {
         entry.onResizeRef.current?.(cols, rows);
+        scheduleMinimapNotify(entry);
         if (!entry.connectedRef.current) return;
         if (sessionType === "local") {
           localResize(sessionId, cols, rows);
@@ -595,7 +764,11 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         onDataDispose.dispose();
         onResizeDispose.dispose();
         searchResultsDispose.dispose();
+        scrollDispose.dispose();
+        bufferChangeDispose.dispose();
+        if (entry.minimap.frame !== null) cancelAnimationFrame(entry.minimap.frame);
         entry.search.subscribers.clear();
+        entry.minimap.subscribers.clear();
         hideLinkTooltip();
         Promise.all(unlistenPromises).then((fns) => fns.forEach((fn) => fn()));
         term.dispose();

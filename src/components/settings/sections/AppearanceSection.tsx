@@ -3,6 +3,10 @@ import { useThemeStore } from "@/stores/themeStore";
 import { usePluginStore } from "@/stores/pluginStore";
 import { BUILT_IN_THEMES } from "@/themes/presets";
 import { useUIStore } from "@/stores/uiStore";
+import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { MAX_SCROLLBACK_LINES, MIN_SCROLLBACK_LINES } from "@/stores/terminalSettingsUtils";
+import { FormSelect } from "@/components/shared/FormSelect";
+import { Toggle } from "@/components/shared/Toggle";
 import type { AppTheme } from "@/themes/types";
 import ScaleSection from "./ScaleSection";
 
@@ -27,9 +31,16 @@ export default function AppearanceSection() {
   const { activeThemeId, customThemes, setTheme, deleteCustomTheme } = useThemeStore();
   const { openThemeCreator, openThemeImportExport } = useUIStore();
   const pluginThemeMap = usePluginStore((s) => s.pluginThemes);
+  const scrollMinimapEnabled = useTerminalSettingsStore((s) => s.scrollMinimapEnabled);
+  const setScrollMinimapEnabled = useTerminalSettingsStore((s) => s.setScrollMinimapEnabled);
+  const scrollbackLines = useTerminalSettingsStore((s) => s.scrollbackLines);
+  const setScrollbackLines = useTerminalSettingsStore((s) => s.setScrollbackLines);
 
   const pluginThemes: AppTheme[] = [...pluginThemeMap.values()].map((t) => ({ ...t, builtIn: true }));
   const allThemes = [...BUILT_IN_THEMES, ...customThemes, ...pluginThemes];
+  const scrollbackOptions = [1_000, 10_000, 50_000, 100_000, 250_000]
+    .filter((value) => value >= MIN_SCROLLBACK_LINES && value <= MAX_SCROLLBACK_LINES)
+    .map((value) => ({ value: String(value), label: `${value.toLocaleString()} lines` }));
 
   const handleDelete = (id: string) => {
     deleteCustomTheme(id);
@@ -43,6 +54,29 @@ export default function AppearanceSection() {
           Interface
         </h3>
         <ScaleSection />
+        <div className="mt-4 rounded-xl bg-[var(--t-bg-card)] border border-[var(--t-border)] p-4 flex items-center justify-between gap-4">
+          <div>
+            <div className="text-sm font-medium text-[var(--t-text-primary)]">Terminal scrollback</div>
+            <div className="text-xs mt-1 text-[var(--t-text-dim)]">
+              Retained lines per terminal session. Applies to new terminals.
+            </div>
+          </div>
+          <FormSelect
+            className="w-44 shrink-0"
+            value={String(scrollbackLines)}
+            options={scrollbackOptions}
+            onChange={(value) => setScrollbackLines(Number(value))}
+          />
+        </div>
+        <div className="mt-4 rounded-xl bg-[var(--t-bg-card)] border border-[var(--t-border)] p-4 flex items-center justify-between gap-4">
+          <div>
+            <div className="text-sm font-medium text-[var(--t-text-primary)]">Scroll minimap</div>
+            <div className="text-xs mt-1 text-[var(--t-text-dim)]">
+              Show a miniature scrollback overview beside terminals.
+            </div>
+          </div>
+          <Toggle checked={scrollMinimapEnabled} onChange={setScrollMinimapEnabled} />
+        </div>
       </div>
 
       <div>
