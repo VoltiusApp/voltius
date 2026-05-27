@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useCommandHistoryStore, type CommandHistoryEntry } from "@/stores/commandHistoryStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -124,8 +124,15 @@ export function HistoryPanel() {
   const [query, setQuery] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
   const [filterCurrent, setFilterCurrent] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const canInject = !!activeSession && activeSession.type !== "multiplayer";
+
+  useEffect(() => {
+    const focus = () => { searchRef.current?.focus(); searchRef.current?.select(); };
+    window.addEventListener("voltius:focus-panel-search", focus);
+    return () => window.removeEventListener("voltius:focus-panel-search", focus);
+  }, []);
 
   const filtered = useMemo(() => {
     let list = entries;
@@ -164,7 +171,7 @@ export function HistoryPanel() {
           <Icon icon="lucide:search" width={12}
             className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none"
             style={{ color: "var(--t-text-muted)" }} />
-          <input value={query} onChange={(e) => setQuery(e.target.value)}
+          <input ref={searchRef} value={query} onChange={(e) => setQuery(e.target.value)}
             placeholder="Search history…"
             className="w-full pl-6 pr-2 py-1 text-xs rounded border outline-none"
             style={{ background: "var(--t-bg-input)", borderColor: "var(--t-border)", color: "var(--t-text-primary)" }} />

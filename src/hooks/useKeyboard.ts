@@ -38,12 +38,17 @@ export function useKeyboard() {
       }
 
       // Ctrl+F: always prevent the native webview find dialog.
-      // On the terminal tab, open the in-terminal search widget (when the
-      // terminal canvas itself has focus, useTerminal's attachCustomKeyEventHandler
-      // handles it instead). On other views, FilterInput listeners handle focus.
+      // If the right panel is open on a section with a search bar, focus that
+      // instead. Otherwise open the in-terminal search widget (when the terminal
+      // canvas itself has focus, useTerminal's attachCustomKeyEventHandler
+      // handles it instead).
       if (matchShortcut("terminal-search", e)) {
         e.preventDefault();
-        if (useUIStore.getState().activeNav === ("terminal" as any)) {
+        const { rightPanelOpen, rightPanelSection, activeNav } = useUIStore.getState();
+        const SEARCHABLE_SECTIONS = ["snippets", "history"];
+        if (rightPanelOpen && SEARCHABLE_SECTIONS.includes(rightPanelSection)) {
+          window.dispatchEvent(new CustomEvent("voltius:focus-panel-search"));
+        } else if (activeNav === ("terminal" as any)) {
           const activeId = useSessionStore.getState().activeSessionId;
           if (activeId) openTerminalSearch(activeId);
         }

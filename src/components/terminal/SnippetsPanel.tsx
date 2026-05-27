@@ -329,6 +329,7 @@ export function SnippetsPanel() {
   const activeConn = connections.find((c) => c.id === activeSession?.connectionId);
 
   const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
   const [editingSnippetId, setEditingSnippetId] = useState<string | null | "new">(null);
   // Tracks the id of a snippet created during a "new" session, so subsequent
   // autosaves update rather than re-create.
@@ -376,6 +377,12 @@ export function SnippetsPanel() {
   useEffect(() => {
     loadSnippets();
     loadFolders();
+  }, []);
+
+  useEffect(() => {
+    const focus = () => { searchRef.current?.focus(); searchRef.current?.select(); };
+    window.addEventListener("voltius:focus-panel-search", focus);
+    return () => window.removeEventListener("voltius:focus-panel-search", focus);
   }, []);
 
   const canInject = !!activeSession && activeSession.type !== "multiplayer";
@@ -537,7 +544,7 @@ export function SnippetsPanel() {
           <Icon icon="lucide:search" width={12}
             className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none"
             style={{ color: "var(--t-text-muted)" }} />
-          <input value={query} onChange={(e) => setQuery(e.target.value)}
+          <input ref={searchRef} value={query} onChange={(e) => setQuery(e.target.value)}
             placeholder="Search snippets…"
             className="w-full pl-6 pr-2 py-1 text-xs rounded border outline-none"
             style={{ background: "var(--t-bg-input)", borderColor: "var(--t-border)", color: "var(--t-text-primary)" }} />
