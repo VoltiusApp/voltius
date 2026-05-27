@@ -12,6 +12,7 @@ import { usePermissions } from "@/hooks/usePermission";
 import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
+import { usePageBulkActions } from "@/hooks/usePageBulkActions";
 import { useDragToFolder } from "@/hooks/useDragToFolder";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
@@ -530,14 +531,13 @@ export function SnippetsPage() {
 
   useEffect(() => { setFocusedId(null); }, [activeFolderId]);
 
-  useEffect(() => {
-    const handler = () => {
-      if (useUIStore.getState().activeNav !== "snippets") return;
-      if (selectedIdSet.size > 0) setConfirmDeleteIds([...selectedIdSet]);
-    };
-    window.addEventListener("voltius:delete", handler);
-    return () => window.removeEventListener("voltius:delete", handler);
-  }, [selectedIdSet]);
+  usePageBulkActions({
+    navItem: "snippets",
+    filteredIds,
+    selectedIdSet,
+    setSelection,
+    onDelete: (ids) => setConfirmDeleteIds(ids),
+  });
 
   // ── Drag-to-folder ────────────────────────────────────────────────────────
 

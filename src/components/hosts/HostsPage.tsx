@@ -14,6 +14,7 @@ import { useUIContributions } from "@/hooks/useUIContributions";
 import type { Connection, ConnectionFormData, VaultOption, Folder, SshKey, Identity } from "@/types";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
+import { usePageBulkActions } from "@/hooks/usePageBulkActions";
 import { useDragToFolder } from "@/hooks/useDragToFolder";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
 import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
@@ -266,14 +267,13 @@ export default function HostsPage() {
 
   useEffect(() => { setFocusedId(null); }, [activeFolderId]);
 
-  useEffect(() => {
-    const handler = () => {
-      if (useUIStore.getState().activeNav !== "hosts") return;
-      if (selectedIdSet.size > 0) setConfirmDeleteIds([...selectedIdSet]);
-    };
-    window.addEventListener("voltius:delete", handler);
-    return () => window.removeEventListener("voltius:delete", handler);
-  }, [selectedIdSet]);
+  usePageBulkActions({
+    navItem: "hosts",
+    filteredIds,
+    selectedIdSet,
+    setSelection,
+    onDelete: (ids) => setConfirmDeleteIds(ids),
+  });
 
   // ── Drag-to-folder ────────────────────────────────────────────────────────
 

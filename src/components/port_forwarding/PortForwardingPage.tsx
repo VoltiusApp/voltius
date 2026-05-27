@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { open as openUrl } from "@tauri-apps/plugin-shell";
 import { Icon } from "@iconify/react";
@@ -13,6 +13,7 @@ import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
+import { usePageBulkActions } from "@/hooks/usePageBulkActions";
 import { useDragToFolder } from "@/hooks/useDragToFolder";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
 import { useFolderStore } from "@/stores/folderStore";
@@ -21,13 +22,14 @@ import { useVaultCascade } from "@/hooks/useVaultCascade";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { VaultCascadeModal } from "@/components/shared/VaultCascadeModal";
-import { ContextMenu, useContextMenu } from "@/components/shared/ContextMenu";
+import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { FolderCard } from "@/components/folders/FolderCard";
 import { FolderEditPanel } from "@/components/folders/FolderEditPanel";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { getPfState, openPfTunnel, closePfTunnel } from "@/services/portForwardingTunnels";
 import { getLocalTunnelHttpUrl } from "@/utils/tunnelFormat";
+import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { PortForwardingToolbar } from "./PortForwardingToolbar";
 import { ActiveTunnelsSection } from "./ActiveTunnelsSection";
 import { RuleCard } from "./RuleCard";
@@ -86,6 +88,7 @@ export function PortForwardingPage() {
   const editingRule = editingRuleId ? (rules.find((r) => r.id === editingRuleId) ?? null) : null;
   const [showForm, setShowForm] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmDeleteIds, setConfirmDeleteIds] = useState<string[] | null>(null);
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [confirmDeleteFolderId, setConfirmDeleteFolderId] = useState<string | null>(null);
   const [tunnelMap, setTunnelMap] = useState<Map<string, ActiveTunnel[]>>(new Map());
@@ -449,6 +452,19 @@ export function PortForwardingPage() {
 
   useEffect(() => { setFocusedId(null); }, [activeFolderId]);
 
+  const filteredRuleIdSet = useMemo(() => new Set(filtered.map((r) => r.id)), [filtered]);
+
+  usePageBulkActions({
+    navItem: "port-forwarding",
+    filteredIds,
+    selectedIdSet,
+    setSelection,
+    onDelete: (ids) => {
+      const ruleIds = ids.filter((id) => filteredRuleIdSet.has(id));
+      if (ruleIds.length > 0) setConfirmDeleteIds(ruleIds);
+    },
+  });
+
   // ── Drag-to-folder ────────────────────────────────────────────────────────
 
   const visibleFolderIds = useMemo(() => new Set(visibleFolders.map((f) => f.id)), [visibleFolders]);
@@ -482,6 +498,50 @@ export function PortForwardingPage() {
       await loadFolders();
     },
   });
+
+  // ── Selection-aware delete & bulk context menu ────────────────────────────
+
+  const selectedRules = useMemo(
+    () => filtered.filter((r) => selectedIdSet.has(r.id)),
+    [filtered, selectedIdSet],
+  );
+
+  const handleDeleteRule = useCallback((id: string) => {
+    if (selectedIdSet.has(id) && selectedRules.length > 1) {
+      setConfirmDeleteIds(selectedRules.map((r) => r.id));
+    } else {
+      setConfirmDeleteId(id);
+    }
+  }, [selectedIdSet, selectedRules]);
+
+  const bulkContextMenuItems = useMemo<ContextMenuItem[] | undefined>(() => {
+    if (selectedRules.length < 2) return undefined;
+    const n = selectedRules.length;
+    const allCanEdit = selectedRules.every((r) => canEdit(r.vault_id ?? "personal"));
+    const sharedVaults = vaultOptions.filter((v) =>
+      selectedRules.some((r) => (r.vault_id ?? "personal") !== v.id),
+    );
+    return [
+      ...(allCanEdit ? [{
+        label: `Duplicate ${n} rules`,
+        icon: "lucide:copy",
+        onClick: () => { void Promise.all(selectedRules.map((r) => duplicateRule(r.id))); },
+      }] : []),
+      ...vaultMenuItems(
+        allCanEdit ? sharedVaults : undefined,
+        allCanEdit,
+        sharedVaults.length > 0 ? (vaultId) => { for (const r of selectedRules) handleMoveRuleToVault(r, vaultId); } : undefined,
+        sharedVaults.length > 0 ? (vaultId) => { for (const r of selectedRules) handleCopyRuleToVault(r, vaultId); } : undefined,
+      ),
+      {
+        label: `Delete ${n} rules`,
+        icon: "lucide:trash-2",
+        onClick: () => setConfirmDeleteIds(selectedRules.map((r) => r.id)),
+        danger: true,
+        divider: true,
+      },
+    ];
+  }, [selectedRules, canEdit, vaultOptions, duplicateRule, handleMoveRuleToVault, handleCopyRuleToVault]);
 
   return (
     <>
@@ -524,6 +584,8 @@ export function PortForwardingPage() {
           onSortModeChange={setSortMode}
           onNewRule={openNew}
           onNewFolder={() => void saveFolder({ name: "New Folder", object_type: "port_forwarding", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { closeForm(); setEditingFolderId(f.id); })}
+          selectedCount={[...selectedIdSet].filter((id) => filteredRuleIdSet.has(id)).length}
+          onDeleteSelected={[...selectedIdSet].some((id) => filteredRuleIdSet.has(id)) ? () => setConfirmDeleteIds([...selectedIdSet].filter((id) => filteredRuleIdSet.has(id))) : undefined}
         />
 
         <DragSelectSurface
@@ -706,12 +768,13 @@ export function PortForwardingPage() {
                         onSelect={(id, e) => handleItemSelect(id, e)}
                         onEdit={openEdit}
                         onDuplicate={(id) => void duplicateRule(id)}
-                        onDelete={(id) => setConfirmDeleteId(id)}
+                        onDelete={handleDeleteRule}
                         onStart={(r) => void handleStartRule(r)}
                         onStop={(r) => void handleStopRule(r)}
                         onOpenWeb={(url) => void openUrl(url)}
                         onMoveToVault={(r, vaultId) => handleMoveRuleToVault(r, vaultId)}
                         onCopyToVault={(r, vaultId) => handleCopyRuleToVault(r, vaultId)}
+                        bulkContextMenuItems={bulkContextMenuItems}
                         onPointerDown={(e) => handleDragStart(e, rule.id)}
                       />
                     );
@@ -742,6 +805,20 @@ export function PortForwardingPage() {
         confirmLabel="Delete"
         onConfirm={confirmDelete}
         onCancel={() => setConfirmDeleteId(null)}
+      />
+    )}
+
+    {confirmDeleteIds && (
+      <ConfirmModal
+        title={`Delete ${confirmDeleteIds.length} rule${confirmDeleteIds.length === 1 ? "" : "s"}`}
+        message={`Are you sure you want to delete ${confirmDeleteIds.length} rule${confirmDeleteIds.length === 1 ? "" : "s"}? This cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={async () => {
+          for (const id of confirmDeleteIds) await deleteRule(id);
+          setConfirmDeleteIds(null);
+          setSelection([]);
+        }}
+        onCancel={() => setConfirmDeleteIds(null)}
       />
     )}
 

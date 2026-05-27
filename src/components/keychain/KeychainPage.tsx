@@ -19,6 +19,7 @@ import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
+import { usePageBulkActions } from "@/hooks/usePageBulkActions";
 import { useDragToFolder } from "@/hooks/useDragToFolder";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
 import { useFolderStore } from "@/stores/folderStore";
@@ -368,14 +369,13 @@ export default function KeychainPage() {
     void loadFolders();
   }, [loadKeys, loadIdentities, loadFolders]);
 
-  useEffect(() => {
-    const handler = () => {
-      if (useUIStore.getState().activeNav !== "keychain") return;
-      if (selectedIdSet.size > 0) setConfirmDeleteIds([...selectedIdSet]);
-    };
-    window.addEventListener("voltius:delete", handler);
-    return () => window.removeEventListener("voltius:delete", handler);
-  }, [selectedIdSet]);
+  usePageBulkActions({
+    navItem: "keychain",
+    filteredIds: orderedIds,
+    selectedIdSet,
+    setSelection,
+    onDelete: (ids) => setConfirmDeleteIds(ids),
+  });
 
   useEffect(() => {
     if (!keychainPendingAction) return;

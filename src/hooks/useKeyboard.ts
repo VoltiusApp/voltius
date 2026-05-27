@@ -69,6 +69,12 @@ export function useKeyboard() {
 
       if (isInput) return;
 
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key === "a") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("voltius:select-all"));
+        return;
+      }
+
       if (matchShortcut("undo", e)) {
         e.preventDefault();
         const { canUndo, undo } = useHistoryStore.getState();
