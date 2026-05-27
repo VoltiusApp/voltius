@@ -8,6 +8,7 @@ import {
   type Shortcut,
 } from "@/stores/shortcutStore";
 import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
+import { DirtyDot, ResetButton } from "./shared";
 
 const BLOCKED_KEYS = new Set(["Escape", "Tab"]);
 
@@ -246,29 +247,8 @@ export default function ShortcutsSection() {
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        {modified && (
-                          <button
-                            onClick={() => reset(sc.id)}
-                            className="p-1 rounded transition-opacity opacity-0 group-hover:opacity-100 text-[var(--t-text-muted)]"
-                            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-bright)"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-muted)"; }}
-                            title="Reset to default"
-                          >
-                            <Icon icon="lucide:rotate-ccw" width={11} />
-                          </button>
-                        )}
-                        {modified && (
-                          <span
-                            aria-hidden
-                            title="Modified from default"
-                            className="inline-block shrink-0 rounded-full"
-                            style={{
-                              width: 5,
-                              height: 5,
-                              background: "var(--t-accent)",
-                            }}
-                          />
-                        )}
+                        {modified && <ResetButton onReset={() => reset(sc.id)} />}
+                        {modified && <DirtyDot />}
 
                         <button
                           onClick={() => {

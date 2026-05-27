@@ -3,6 +3,9 @@ import { persist } from "zustand/middleware";
 
 export type PingStatus = "up" | "down" | "unknown";
 
+export const DEFAULT_POLL_INTERVAL_MS = 10_000;
+export const DEFAULT_ACTIVE_POLL_INTERVAL_MS = 2_000;
+
 interface HostPingStore {
   pollIntervalMs: number;
   setPollIntervalMs: (v: number) => void;
@@ -20,8 +23,8 @@ interface HostPingStore {
 export const useHostPingStore = create<HostPingStore>()(
   persist(
     (set) => ({
-      pollIntervalMs: 10_000,
-      activePollIntervalMs: 2_000,
+      pollIntervalMs: DEFAULT_POLL_INTERVAL_MS,
+      activePollIntervalMs: DEFAULT_ACTIVE_POLL_INTERVAL_MS,
       statuses: {},
       latencies: {},
       setPollIntervalMs: (v) => set({ pollIntervalMs: v }),

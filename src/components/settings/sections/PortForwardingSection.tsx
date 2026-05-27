@@ -1,5 +1,6 @@
-import { useToggle } from "@/stores/toggleSettingsStore";
+import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
+import { DirtyDot, ResetButton } from "./shared";
 
 export default function PortForwardingSection() {
   const [autoForwardEnabled, setAutoForwardEnabled] = useToggle("auto-forward");
@@ -13,17 +14,23 @@ export default function PortForwardingSection() {
         </h3>
 
         <div className="rounded-lg divide-y bg-[var(--t-bg-elevated)] border border-[var(--t-border)]">
-          <div className="flex items-center justify-between px-4 py-3 gap-4">
+          <div className="group flex items-center justify-between px-4 py-3 gap-4">
             <div>
               <p className="text-sm font-medium text-[var(--t-text-primary)]">Automatic port forwarding</p>
               <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
                 Detected listening ports are forwarded automatically during SSH sessions
               </p>
             </div>
-            <Toggle checked={autoForwardEnabled} onChange={setAutoForwardEnabled} />
+            <div className="flex items-center gap-2 shrink-0">
+              {autoForwardEnabled !== TOGGLE_DEFS["auto-forward"].default && (
+                <ResetButton onReset={() => setAutoForwardEnabled(TOGGLE_DEFS["auto-forward"].default)} />
+              )}
+              {autoForwardEnabled !== TOGGLE_DEFS["auto-forward"].default && <DirtyDot />}
+              <Toggle checked={autoForwardEnabled} onChange={setAutoForwardEnabled} />
+            </div>
           </div>
 
-          <div className="flex items-center justify-between px-4 py-3 gap-4">
+          <div className="group flex items-center justify-between px-4 py-3 gap-4">
             <div>
               <p
                 className="text-sm font-medium text-[var(--t-text-primary)]"
@@ -38,11 +45,17 @@ export default function PortForwardingSection() {
                 Show a notification each time a port is auto-forwarded
               </p>
             </div>
-            <Toggle
-              checked={autoForwardNotificationsEnabled}
-              onChange={setAutoForwardNotificationsEnabled}
-              disabled={!autoForwardEnabled}
-            />
+            <div className="flex items-center gap-2 shrink-0">
+              {autoForwardNotificationsEnabled !== TOGGLE_DEFS["forwarding-notifications"].default && (
+                <ResetButton onReset={() => setAutoForwardNotificationsEnabled(TOGGLE_DEFS["forwarding-notifications"].default)} />
+              )}
+              {autoForwardNotificationsEnabled !== TOGGLE_DEFS["forwarding-notifications"].default && <DirtyDot />}
+              <Toggle
+                checked={autoForwardNotificationsEnabled}
+                onChange={setAutoForwardNotificationsEnabled}
+                disabled={!autoForwardEnabled}
+              />
+            </div>
           </div>
         </div>
       </div>

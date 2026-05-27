@@ -4,12 +4,13 @@ import { usePluginStore } from "@/stores/pluginStore";
 import { BUILT_IN_THEMES } from "@/themes/presets";
 import { useUIStore } from "@/stores/uiStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
-import { useToggle } from "@/stores/toggleSettingsStore";
-import { MAX_SCROLLBACK_LINES, MIN_SCROLLBACK_LINES } from "@/stores/terminalSettingsUtils";
+import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
+import { DEFAULT_SCROLLBACK_LINES, MAX_SCROLLBACK_LINES, MIN_SCROLLBACK_LINES } from "@/stores/terminalSettingsUtils";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { Toggle } from "@/components/shared/Toggle";
 import type { AppTheme } from "@/themes/types";
 import ScaleSection from "./ScaleSection";
+import { DirtyDot, ResetButton } from "./shared";
 
 function downloadJson(filename: string, data: unknown) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -55,37 +56,55 @@ export default function AppearanceSection() {
           Interface
         </h3>
         <ScaleSection />
-        <div className="mt-4 rounded-xl bg-[var(--t-bg-card)] border border-[var(--t-border)] p-4 flex items-center justify-between gap-4">
+        <div className="group mt-4 rounded-xl bg-[var(--t-bg-card)] border border-[var(--t-border)] p-4 flex items-center justify-between gap-4">
           <div>
             <div className="text-sm font-medium text-[var(--t-text-primary)]">Terminal scrollback</div>
             <div className="text-xs mt-1 text-[var(--t-text-dim)]">
               Retained lines per terminal session. Applies to new terminals.
             </div>
           </div>
-          <FormSelect
-            className="w-44 shrink-0"
-            value={String(scrollbackLines)}
-            options={scrollbackOptions}
-            onChange={(value) => setScrollbackLines(Number(value))}
-          />
+          <div className="flex items-center gap-2 shrink-0">
+            {scrollbackLines !== DEFAULT_SCROLLBACK_LINES && (
+              <ResetButton onReset={() => setScrollbackLines(DEFAULT_SCROLLBACK_LINES)} />
+            )}
+            {scrollbackLines !== DEFAULT_SCROLLBACK_LINES && <DirtyDot />}
+            <FormSelect
+              className="w-44 shrink-0"
+              value={String(scrollbackLines)}
+              options={scrollbackOptions}
+              onChange={(value) => setScrollbackLines(Number(value))}
+            />
+          </div>
         </div>
-        <div className="mt-4 rounded-xl bg-[var(--t-bg-card)] border border-[var(--t-border)] p-4 flex items-center justify-between gap-4">
+        <div className="group mt-4 rounded-xl bg-[var(--t-bg-card)] border border-[var(--t-border)] p-4 flex items-center justify-between gap-4">
           <div>
             <div className="text-sm font-medium text-[var(--t-text-primary)]">Scroll minimap</div>
             <div className="text-xs mt-1 text-[var(--t-text-dim)]">
               Show a miniature scrollback overview beside terminals.
             </div>
           </div>
-          <Toggle checked={scrollMinimapEnabled} onChange={setScrollMinimapEnabled} />
+          <div className="flex items-center gap-2 shrink-0">
+            {scrollMinimapEnabled !== TOGGLE_DEFS["scroll-minimap"].default && (
+              <ResetButton onReset={() => setScrollMinimapEnabled(TOGGLE_DEFS["scroll-minimap"].default)} />
+            )}
+            {scrollMinimapEnabled !== TOGGLE_DEFS["scroll-minimap"].default && <DirtyDot />}
+            <Toggle checked={scrollMinimapEnabled} onChange={setScrollMinimapEnabled} />
+          </div>
         </div>
-        <div className="mt-4 rounded-xl bg-[var(--t-bg-card)] border border-[var(--t-border)] p-4 flex items-center justify-between gap-4">
+        <div className="group mt-4 rounded-xl bg-[var(--t-bg-card)] border border-[var(--t-border)] p-4 flex items-center justify-between gap-4">
           <div>
             <div className="text-sm font-medium text-[var(--t-text-primary)]">Select to copy</div>
             <div className="text-xs mt-1 text-[var(--t-text-dim)]">
               Show a copy button when text is selected in a terminal.
             </div>
           </div>
-          <Toggle checked={selectToCopy} onChange={setSelectToCopy} />
+          <div className="flex items-center gap-2 shrink-0">
+            {selectToCopy !== TOGGLE_DEFS["select-to-copy"].default && (
+              <ResetButton onReset={() => setSelectToCopy(TOGGLE_DEFS["select-to-copy"].default)} />
+            )}
+            {selectToCopy !== TOGGLE_DEFS["select-to-copy"].default && <DirtyDot />}
+            <Toggle checked={selectToCopy} onChange={setSelectToCopy} />
+          </div>
         </div>
       </div>
 
