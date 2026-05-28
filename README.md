@@ -140,7 +140,7 @@ flowchart TD
             Cloud["Cloud Account\n(Email & Password)"]:::remote
         end
 
-        KDF["Argon2id + HKDF-SHA256\n(32 MB mem · 2 iters)"]:::secure
+        KDF["Argon2id + HKDF-SHA256\n(128 MB mem · 3 iters · p=4)"]:::secure
         EncKey(("enc_key\n(XChaCha20-Poly1305 key)")):::secure
         AuthKey(("auth_key\n→ server login")):::secure
 
