@@ -36,7 +36,7 @@ const BAUD_RATES = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 23
 
 interface Props {
   initial?: Connection;
-  onSubmit: (data: ConnectionFormData, password: string | null, privateKey: string | null) => void | Promise<void>;
+  onSubmit: (data: ConnectionFormData, password: string | null, privateKey: string | null, passphrase: string | null) => void | Promise<void>;
   onClose: () => void;
   onDuplicate?: () => void;
   onConnect?: () => void;
@@ -141,7 +141,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
     onSave: () => {
       const { data, password: pwd, privateKey: pk } = buildSubmit();
-      return onSubmit(data, pwd, pk) ?? undefined;
+      return onSubmit(data, pwd, pk, null) ?? undefined;
     },
     canSave: () => !!serialPort.trim(),
   });

@@ -544,6 +544,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }));
 
     try {
+      await sshDisconnect(sessionId).catch(() => {});
       const credentials = await resolveConnectionCredentials(connection);
 
       await sshConnect({ sessionId, host: connection.host, port: connection.port, username: credentials.username, password: credentials.password, privateKey: credentials.privateKey, passphrase: credentials.passphrase, connectionId: connection.id, autoForward: getToggle("auto-forward"), shellIntegration: useTerminalSettingsStore.getState().shellIntegrationEnabled });
@@ -576,6 +577,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }));
 
     try {
+      await sshDisconnect(sessionId).catch(() => {});
       const credentials = await resolveConnectionCredentials(connection);
 
       if (save) {
@@ -585,7 +587,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           const allIdentities = [...identities, ...Object.values(teamIdentities).flat()];
           return allIdentities.find((i) => i.id === connection.identity_id)?.key_id;
         })();
-        if (keyId) await storeSecret(`key:${keyId}:passphrase`, passphrase);
+        if (keyId) {
+          await storeSecret(`key:${keyId}:passphrase`, passphrase);
+        } else if (!connection.identity_id) {
+          await storeSecret(`passphrase:${connection.id}`, passphrase);
+        }
       }
 
       const jumpHosts = await resolveJumpHosts(connection);

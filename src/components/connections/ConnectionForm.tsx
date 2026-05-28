@@ -47,7 +47,7 @@ import {
 
 interface Props {
   initial?: Connection;
-  onSubmit: (data: ConnectionFormData, password: string | null, privateKey: string | null) => void | Promise<void>;
+  onSubmit: (data: ConnectionFormData, password: string | null, privateKey: string | null, passphrase: string | null) => void | Promise<void>;
   onClose: () => void;
   onDuplicate?: () => void;
   onConnect?: () => void;
@@ -72,7 +72,9 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
   const [password, setPassword] = useState("");
   const [privateKey, setPrivateKey] = useState("");
+  const [passphrase, setPassphrase] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showPassphrase, setShowPassphrase] = useState(false);
   const [identityId, setIdentityId] = useState<string | null>(initial?.identity_id ?? null);
   const [keyId, setKeyId] = useState<string | null>(initial?.key_id ?? null);
   const [folderId, setFolderId] = useState<string | null>(initial?.folder_id ?? null);
@@ -106,6 +108,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   }, [isNew, defaultVaultId]);
   const passwordDirty = useRef(false);
   const privateKeyDirty = useRef(false);
+  const passphraseDirty = useRef(false);
   const userEditedRef = useRef(false);
   const distroPickerRef = useRef<HTMLDivElement>(null);
   const distroPickerMenuRef = useRef<HTMLDivElement>(null);
@@ -192,6 +195,8 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
       if (!initial.key_id) {
         const key = await getSecret(`key:${initial.id}`).catch(() => null);
         if (key && !privateKeyDirty.current) setPrivateKey(key);
+        const pass = await getSecret(`passphrase:${initial.id}`).catch(() => null);
+        if (pass && !passphraseDirty.current) setPassphrase(pass);
       }
     })();
   }, [initial?.id]);
@@ -229,18 +234,19 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
       } as ConnectionFormData,
       password: passwordDirty.current ? password : null,
       privateKey: (!identityId && !keyId && privateKeyDirty.current) ? privateKey : null,
+      passphrase: (!identityId && !keyId && passphraseDirty.current) ? passphrase : null,
     };
   };
 
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
-    onSave: () => { const { data, password: pwd, privateKey: pk } = buildSubmit(); return onSubmit(data, pwd, pk) ?? undefined; },
+    onSave: () => { const { data, password: pwd, privateKey: pk, passphrase: pp } = buildSubmit(); return onSubmit(data, pwd, pk, pp) ?? undefined; },
     canSave: () => !!host.trim() && !!username.trim() && (port === "" || (port >= 1 && port <= 65535)),
   });
   const markDirty = useCallback(() => { userEditedRef.current = true; _markDirty(); }, [_markDirty]);
 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, host, port, username, password, privateKey, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, preCommand, postCommand, terminalEncoding, distro, icon, pingDisabled]);
+  useEffect(() => schedule(), [name, host, port, username, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, preCommand, postCommand, terminalEncoding, distro, icon, pingDisabled]);
 
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
@@ -296,6 +302,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
       let detectUsername = username;
       let detectPassword = password || undefined;
       let detectPrivateKey = privateKey || undefined;
+      let detectPassphrase = passphrase || undefined;
 
       if (identityId && selectedIdentity) {
         detectUsername = selectedIdentity.username;
@@ -303,8 +310,10 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         detectPrivateKey = selectedIdentity.key_id
           ? (await getSecret(`key:${selectedIdentity.key_id}:private`).catch(() => null)) ?? undefined
           : undefined;
+        detectPassphrase = undefined;
       } else if (keyId) {
         detectPrivateKey = (await getSecret(`key:${keyId}:private`).catch(() => null)) ?? undefined;
+        detectPassphrase = undefined;
         if (initial) {
           detectPassword = passwordDirty.current ? (password || undefined) : ((await getSecret(`password:${initial.id}`).catch(() => null)) ?? undefined);
         } else {
@@ -313,6 +322,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
       } else if (initial) {
         detectPassword = passwordDirty.current ? (password || undefined) : ((await getSecret(`password:${initial.id}`).catch(() => null)) ?? undefined);
         detectPrivateKey = privateKeyDirty.current ? (privateKey || undefined) : ((await getSecret(`key:${initial.id}`).catch(() => null)) ?? undefined);
+        detectPassphrase = passphraseDirty.current ? (passphrase || undefined) : ((await getSecret(`passphrase:${initial.id}`).catch(() => null)) ?? undefined);
       }
 
       const output = await sshExecCommand({
@@ -321,6 +331,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         username: detectUsername.trim(),
         password: detectPassword,
         privateKey: detectPrivateKey,
+        passphrase: detectPassphrase,
         command: "cat /etc/os-release 2>/dev/null || echo ID=linux",
       });
       const idLine = output.split(/\r?\n/).find((line) => line.startsWith("ID="));
@@ -331,7 +342,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
     } finally {
       setDetectingDistro(false);
     }
-  }, [applyDetectedDistro, host, identityId, keyId, initial, password, port, privateKey, selectedIdentity, username]);
+  }, [applyDetectedDistro, host, identityId, keyId, initial, passphrase, password, port, privateKey, selectedIdentity, username]);
 
   const panelItems = initial ? buildConnectionMenuItems({
     canEdit,
@@ -655,13 +666,41 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                     onGoToKeychain={() => setActiveNav("keychain")}
                   />
                   {!keyId && (
-                    <textarea
-                      className={`${formInputClass} font-mono text-xs h-28 resize-none mt-2`}
-                      style={formInputStyle}
-                      value={privateKey}
-                      onChange={(e) => { markDirty(); privateKeyDirty.current = true; setPrivateKey(e.target.value); }}
-                      placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..."
-                    />
+                    <>
+                      <textarea
+                        className={`${formInputClass} font-mono text-xs h-28 resize-none mt-2`}
+                        style={formInputStyle}
+                        value={privateKey}
+                        onChange={(e) => { markDirty(); privateKeyDirty.current = true; setPrivateKey(e.target.value); }}
+                        placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..."
+                      />
+                      <div className="mt-2">
+                        <label className={formLabelClass} style={formLabelStyle}>
+                          Passphrase <span className="text-[var(--t-text-dim)] font-normal">(optional)</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showPassphrase ? "text" : "password"}
+                            className={`${formInputClass} pr-9`}
+                            style={formInputStyle}
+                            value={passphrase}
+                            onChange={(e) => { markDirty(); passphraseDirty.current = true; setPassphrase(e.target.value); }}
+                            placeholder="Key passphrase"
+                            autoComplete="new-password"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassphrase((v) => !v)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-[var(--t-text-dim)]"
+                            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
+                            tabIndex={-1}
+                          >
+                            <Icon icon={showPassphrase ? "lucide:eye-off" : "lucide:eye"} width={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               </>

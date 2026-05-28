@@ -77,6 +77,6 @@ export async function resolveConnectionCredentials(conn: Connection): Promise<Re
     : (await getSecret(`key:${conn.id}`).catch(() => null)) ?? undefined;
   const passphrase = conn.key_id
     ? (await getSecret(`key:${conn.key_id}:passphrase`).catch(() => null)) ?? undefined
-    : undefined;
+    : (await getSecret(`passphrase:${conn.id}`).catch(() => null)) ?? undefined;
   return { username: conn.username, password, privateKey, passphrase };
 }
