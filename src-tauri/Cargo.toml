@@ -29,7 +29,7 @@ chrono = { version = "0.4", features = ["serde"] }
 dirs = "6"
 russh = "0.60"
 russh-sftp = "2.1"
-tokio-util = { version = "0.7", default-features = false, features = ["sync"] }
+tokio-util = { version = "0.7", default-features = false }
 tauri-plugin-dialog = "2"
 async-trait = "0.1"
 log = "0.4"
