@@ -27,7 +27,7 @@ No account required. Everything below is free, forever.
 - **Easy Import & Export** — No vendor lock-in. Import your existing setup from Termius (1-click), MobaXterm, SecureCRT, and more. Your data is always exportable as open JSON.
 - **Gist Sync** — E2EE device sync via your own private GitHub Gist. No central server, bring your own token.
 - **SFTP** — Easy file transfers and browsing, works for Host↔Host and Host↔Local with drag & drop support.
-- **Split Panes** — Horizontal/vertical splits with broadcast input to multiple panes.
+- **Split Panes** — Split terminals as much as you want, broadcast inputs to all panes.
 - **Local Terminal** — Bash, Zsh, Fish, PowerShell, WSL, Git Bash, CMD, and more.
 - **Plugin System** — Install plugins from the [official registry](https://github.com/VoltiusApp/marketplace) or point to your own custom repo.
 - **Container Management** — Docker and Proxmox LXC. Browse containers, open terminals, and manage resources without leaving Voltius.
