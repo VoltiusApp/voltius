@@ -10,11 +10,11 @@ pub struct GeneratedKeyPair {
     pub key_type_label: String,
 }
 
-/// key_type:   "ed25519" | "ecdsa" | "rsa" | "dsa"
-/// curve:      "256" | "384" | "521"           (ecdsa only)
-/// bits:       1024 | 2048 | 4096              (rsa only)
+/// key_type:   "ed25519" | "ecdsa" | "rsa"
+/// curve:      "256" | "384" | "521"     (ecdsa only)
+/// bits:       2048 | 4096               (rsa only)
 /// passphrase: empty string = no encryption
-/// cipher:     "aes256-ctr" | "aes256-gcm" | "aes128-ctr" | "3des-cbc"
+/// cipher:     "aes256-ctr" | "aes256-gcm"
 /// rounds:     bcrypt-pbkdf iterations (default 16)
 #[tauri::command]
 pub async fn generate_ssh_keypair(
@@ -58,12 +58,6 @@ pub async fn generate_ssh_keypair(
                 let key = PrivateKey::new(ssh_key::private::KeypairData::Rsa(keypair), "")
                     .map_err(|e| e.to_string())?;
                 (key, label)
-            }
-
-            "dsa" => {
-                let key =
-                    PrivateKey::random(&mut rng, Algorithm::Dsa).map_err(|e| e.to_string())?;
-                (key, "DSA".to_string())
             }
 
             other => return Err(format!("Unsupported key type: {other}")),
