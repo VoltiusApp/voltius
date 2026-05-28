@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
+import LogoSvg from "/logo.svg?react";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import { decryptText, fromJSON } from "@/services/import-export/formats";
 import type { ConnectionExport, ExportBundle } from "@/services/import-export/formats";
@@ -188,7 +189,7 @@ export function ImportTab() {
 
       <div className="flex flex-col gap-2">
         <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">Import from</p>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {IMPORTERS.map(importer => {
             const active = selectedSource === importer.key;
             return (
@@ -196,16 +197,17 @@ export function ImportTab() {
                 key={importer.key}
                 type="button"
                 onClick={() => setSelectedSource(importer.key)}
-                className="flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl text-center transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors"
                 style={{
                   background: active ? "color-mix(in srgb, var(--t-accent) 12%, transparent)" : "var(--t-bg-elevated)",
-                  border: `1.5px solid ${active ? "var(--t-accent)" : "var(--t-border-hover)"}`,
-                  color: active ? "var(--t-accent)" : "var(--t-text-muted)",
+                  border: `1px solid ${active ? "var(--t-accent)" : "var(--t-border-hover)"}`,
+                  color: active ? "var(--t-accent)" : "var(--t-text-primary)",
                 }}
               >
-                <Icon icon={importer.icon} width={18} />
-                <span className="text-xs font-semibold leading-tight" style={{ color: active ? "var(--t-accent)" : "var(--t-text-primary)" }}>{importer.label}</span>
-                <span className="text-[10px] leading-tight" style={{ color: active ? "color-mix(in srgb, var(--t-accent) 70%, var(--t-text-muted))" : "var(--t-text-dim)" }}>{importer.sub}</span>
+                {importer.key === "voltius"
+                  ? <LogoSvg style={{ height: 14, width: "auto" }} />
+                  : <Icon icon={importer.icon} width={14} />}
+                {importer.label}
               </button>
             );
           })}

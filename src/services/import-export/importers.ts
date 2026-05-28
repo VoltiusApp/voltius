@@ -24,7 +24,7 @@ function connectionsOnlyBundle(connections: ConnectionExport[]): ExportBundle {
 export const IMPORTERS: Importer[] = [
   {
     key: "voltius",
-    label: "Voltius Backup",
+    label: "Voltius JSON",
     icon: "lucide:vault",
     sub: "JSON",
     fileAccept: ".json",
@@ -45,7 +45,7 @@ export const IMPORTERS: Importer[] = [
   {
     key: "mobaxterm",
     label: "MobaXterm",
-    icon: "lucide:monitor",
+    icon: "custom:mobaxterm",
     sub: ".ini · .mxtsessions · .mobaconf",
     fileAccept: ".ini,.mxtsessions,.mobaconf,.txt",
     hint: "SSH keys are not included in MobaXterm exports — add them manually in Voltius and link them after importing.",
@@ -55,7 +55,7 @@ export const IMPORTERS: Importer[] = [
   {
     key: "termius",
     label: "Termius",
-    icon: "lucide:terminal",
+    icon: "simple-icons:termius",
     sub: "Local install · auto-extract",
     fileAccept: ".json",
     hint: "Reads and decrypts the local Termius database directly. Termius must be installed and logged in on this machine. Faithful import requires live extraction because legacy dumps do not include record metadata.",
