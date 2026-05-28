@@ -505,7 +505,7 @@ export default function HostsPage() {
     ];
   }, [selectedIdSet, selectedConnections, selectedFolders, excludedIds, syncTypes, handleDuplicate, can, updateConnection, handleBulkConnect, openSnippetPicker, vaultOptions, connections, identities, keys, scopedFolders]);
 
-  const handleSubmit = async (data: ConnectionFormData, password: string | null, privateKey: string | null) => {
+  const handleSubmit = async (data: ConnectionFormData, password: string | null, privateKey: string | null, passphrase: string | null) => {
     try {
       if (editing) {
         await updateConnection(editing.id, data);
@@ -523,6 +523,13 @@ export default function HostsPage() {
             await saveTeamVaultSecretForVault(data.vault_id ?? editing.vault_id, localKey, privateKey).catch(() => {});
           } else await deleteSecret(localKey).catch(() => {});
         }
+        if (passphrase !== null) {
+          const localKey = `passphrase:${editing.id}`;
+          if (passphrase) {
+            await storeSecret(localKey, passphrase);
+            await saveTeamVaultSecretForVault(data.vault_id ?? editing.vault_id, localKey, passphrase).catch(() => {});
+          } else await deleteSecret(localKey).catch(() => {});
+        }
       } else {
         const conn = await saveConnection({ ...data, vault_id: data.vault_id ?? selectedVaultIds[0] ?? "personal" });
         if (password && conn) {
@@ -534,6 +541,11 @@ export default function HostsPage() {
           const localKey = `key:${conn.id}`;
           await storeSecret(localKey, privateKey);
           await saveTeamVaultSecretForVault(conn.vault_id, localKey, privateKey).catch(() => {});
+        }
+        if (passphrase && conn) {
+          const localKey = `passphrase:${conn.id}`;
+          await storeSecret(localKey, passphrase);
+          await saveTeamVaultSecretForVault(conn.vault_id, localKey, passphrase).catch(() => {});
         }
         if (conn) setEditingId(conn.id);
       }

@@ -96,6 +96,7 @@ export async function backfillExistingTeamVaultSecrets(teamId: string): Promise<
     ...conns.flatMap((conn) => [
       saveExistingTeamVaultSecret(teamId, `password:${conn.id}`),
       saveExistingTeamVaultSecret(teamId, `key:${conn.id}`),
+      saveExistingTeamVaultSecret(teamId, `passphrase:${conn.id}`),
     ]),
     ...identities.map((identity) => saveExistingTeamVaultSecret(teamId, `identity:${identity.id}:password`)),
     ...keys.flatMap((key) => [
