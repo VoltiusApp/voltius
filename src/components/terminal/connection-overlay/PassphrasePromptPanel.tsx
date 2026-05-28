@@ -43,7 +43,7 @@ export function PassphrasePromptPanel({
           value={passphrase}
           onChange={(event) => setPassphrase(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && passphrase) onSubmit(passphrase, false);
+            if (event.key === "Enter" && passphrase) onSubmit(passphrase, true);
           }}
           placeholder="Passphrase"
           autoFocus
