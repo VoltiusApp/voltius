@@ -24,7 +24,7 @@ export const commands: OmniCommand[] = [
   {
     id: "import-export:export-identities",
     label: "Export identities…",
-    icon: "lucide:user",
+    icon: "lucide:id-card",
     keywords: ["export", "identities", "users"],
     section: "Import / Export",
     execute: () => open().openImportExport("export", { preselectedTypes: ["identities"] }),
@@ -40,7 +40,7 @@ export const commands: OmniCommand[] = [
   {
     id: "import-export:export-snippets",
     label: "Export snippets…",
-    icon: "lucide:code-2",
+    icon: "lucide:braces",
     keywords: ["export", "snippets", "commands"],
     section: "Import / Export",
     execute: () => open().openImportExport("export", { preselectedTypes: ["snippets"] }),
@@ -48,7 +48,7 @@ export const commands: OmniCommand[] = [
   {
     id: "import-export:export-port-forwarding",
     label: "Export port forwarding rules…",
-    icon: "lucide:git-branch",
+    icon: "lucide:arrow-right-left",
     keywords: ["export", "port", "forwarding", "rules", "tunnel"],
     section: "Import / Export",
     execute: () => open().openImportExport("export", { preselectedTypes: ["portForwardingRules"] }),
