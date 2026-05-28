@@ -13,23 +13,20 @@ import { Pills, type PillOption } from "@/components/shared/Pills";
 // KeyGenForm (side panel)
 // ─────────────────────────────────────────────────────────────────
 
-type KeyType = "ed25519" | "ecdsa" | "rsa" | "dsa";
+type KeyType = "ed25519" | "ecdsa" | "rsa";
 type EcdsaCurve = "256" | "384" | "521";
-type RsaBits = "1024" | "2048" | "4096";
-type CipherOption = "aes256-ctr" | "aes256-gcm" | "aes128-ctr" | "3des-cbc";
+type RsaBits = "2048" | "4096";
+type CipherOption = "aes256-ctr" | "aes256-gcm";
 
 const CIPHER_OPTIONS: PillOption<CipherOption>[] = [
-  { value: "aes256-ctr", label: "AES-256" },
+  { value: "aes256-ctr", label: "AES-256-CTR" },
   { value: "aes256-gcm", label: "AES-256-GCM" },
-  { value: "aes128-ctr", label: "AES-128" },
-  { value: "3des-cbc",   label: "3DES" },
 ];
 
 const KEY_TYPE_OPTIONS: PillOption<KeyType>[] = [
   { value: "ed25519", label: "ED25519" },
   { value: "ecdsa", label: "ECDSA" },
   { value: "rsa", label: "RSA" },
-  { value: "dsa", label: "DSA" },
 ];
 
 const ECDSA_CURVES: PillOption<EcdsaCurve>[] = [
@@ -39,7 +36,6 @@ const ECDSA_CURVES: PillOption<EcdsaCurve>[] = [
 ];
 
 const RSA_BITS: PillOption<RsaBits>[] = [
-  { value: "1024", label: "1024" },
   { value: "2048", label: "2048" },
   { value: "4096", label: "4096" },
 ];
