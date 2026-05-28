@@ -1,13 +1,9 @@
 import type { Connection } from "@/types";
 import { useIdentityStore } from "@/stores/identityStore";
 import { getSecret } from "@/services/vault";
+import { resolveCredentials, type ResolvedCredentials } from "@/services/credentialLogic";
 
-export interface ResolvedCredentials {
-  username: string;
-  password?: string;
-  privateKey?: string;
-  passphrase?: string;
-}
+export type { ResolvedCredentials } from "@/services/credentialLogic";
 
 export interface ResolvedJumpHost {
   host: string;
@@ -57,26 +53,5 @@ export async function resolveJumpHosts(conn: Connection): Promise<ResolvedJumpHo
 }
 
 export async function resolveConnectionCredentials(conn: Connection): Promise<ResolvedCredentials> {
-  if (conn.identity_id) {
-    const identity = await findIdentity(conn.identity_id);
-    if (identity) {
-      const password = (await getSecret(`identity:${conn.identity_id}:password`).catch(() => null)) ?? undefined;
-      const privateKey = identity.key_id
-        ? (await getSecret(`key:${identity.key_id}:private`).catch(() => null)) ?? undefined
-        : undefined;
-      const passphrase = identity.key_id
-        ? (await getSecret(`key:${identity.key_id}:passphrase`).catch(() => null)) ?? undefined
-        : undefined;
-      return { username: identity.username, password, privateKey, passphrase };
-    }
-  }
-
-  const password = (await getSecret(`password:${conn.id}`).catch(() => null)) ?? undefined;
-  const privateKey = conn.key_id
-    ? (await getSecret(`key:${conn.key_id}:private`).catch(() => null)) ?? undefined
-    : (await getSecret(`key:${conn.id}`).catch(() => null)) ?? undefined;
-  const passphrase = conn.key_id
-    ? (await getSecret(`key:${conn.key_id}:passphrase`).catch(() => null)) ?? undefined
-    : (await getSecret(`passphrase:${conn.id}`).catch(() => null)) ?? undefined;
-  return { username: conn.username, password, privateKey, passphrase };
+  return resolveCredentials(conn, findIdentity, (key) => getSecret(key).catch(() => null));
 }

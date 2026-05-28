@@ -5,6 +5,7 @@ import type { ConnectionExport, JumpHostExport, ExportBundle } from "../formats"
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "../context";
 import { existingConnectionsForVault } from "../context";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
+import { fetchConnectionSecrets, storeConnectionSecrets, resolveConnectionKeyEid, resolveConnectionKeyId } from "../secretsLogic";
 
 export const connectionsHandler: DataTypeHandler = {
   key: "connections",
@@ -47,12 +48,12 @@ export const connectionsHandler: DataTypeHandler = {
     bundle.connections = await Promise.all(connections.map(async (c, i): Promise<ConnectionExport> => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id, identity_id, folder_id, vault_id, created_at, last_used_at, updated_at, deleted_at, clocks, distro, jump_hosts, ...passthrough } = c;
+      const secrets = await fetchConnectionSecrets(c.id, (key) => getSecret(key).catch(() => null));
       return {
         ...passthrough,
         _eid: `c${i}`,
-        password: await getSecret(`password:${c.id}`).catch(() => null) ?? undefined,
-        private_key: await getSecret(`key:${c.id}`).catch(() => null) ?? undefined,
-        passphrase: await getSecret(`passphrase:${c.id}`).catch(() => null) ?? undefined,
+        ...secrets,
+        _key_eid: resolveConnectionKeyEid(c.key_id, ctx.keyEidMap),
         _identity_eid: c.identity_id ? ctx.identityEidMap.get(c.identity_id) : undefined,
         _folder_eid: c.folder_id ? ctx.folderEidMap.get(c.folder_id) : undefined,
         jump_hosts: jump_hosts?.map((jh): JumpHostExport => ({
@@ -136,27 +137,16 @@ export const connectionsHandler: DataTypeHandler = {
           ...passthrough,
           tags: ctx.tag ? [...tags, ctx.tag] : tags,
           identity_id: _identity_eid ? ctx.identityEidMap.get(_identity_eid) : undefined,
-          key_id: _key_eid ? ctx.keyEidMap.get(_key_eid) : undefined,
+          key_id: resolveConnectionKeyId(_key_eid, ctx.keyEidMap),
           folder_id: _folder_eid ? ctx.folderEidMap.get(_folder_eid) : undefined,
           vault_id: ctx.vault_id,
           jump_hosts: resolvedJumpHosts?.length ? resolvedJumpHosts : undefined,
         });
         if (conn._eid) ctx.connectionEidMap.set(conn._eid, saved.id);
-        if (conn.password) {
-          const localKey = `password:${saved.id}`;
-          await storeSecret(localKey, conn.password);
-          await saveTeamVaultSecretForVault(ctx.vault_id, localKey, conn.password).catch(() => {});
-        }
-        if (conn.private_key) {
-          const localKey = `key:${saved.id}`;
-          await storeSecret(localKey, conn.private_key);
-          await saveTeamVaultSecretForVault(ctx.vault_id, localKey, conn.private_key).catch(() => {});
-        }
-        if (conn.passphrase) {
-          const localKey = `passphrase:${saved.id}`;
-          await storeSecret(localKey, conn.passphrase);
-          await saveTeamVaultSecretForVault(ctx.vault_id, localKey, conn.passphrase).catch(() => {});
-        }
+        await storeConnectionSecrets(conn, saved.id, async (key, value) => {
+          await storeSecret(key, value);
+          await saveTeamVaultSecretForVault(ctx.vault_id, key, value).catch(() => {});
+        });
         imported++;
       } catch { errors++; }
     }

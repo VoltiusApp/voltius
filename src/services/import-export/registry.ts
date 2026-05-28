@@ -112,6 +112,7 @@ export async function buildBundle(
   const cascadedKeyIds = new Set([
     ...(selectedByKey["keys"] as { id: string }[]).map(k => k.id),
     ...idItems.map(i => i.key_id).filter((id): id is string => !!id),
+    ...connItems.map(c => c.key_id).filter((id): id is string => !!id),
   ]);
   if (enabled["keys"] || cascadedKeyIds.size > 0) {
     const effectiveKeys = stores.keys.filter(k => cascadedKeyIds.has(k.id));

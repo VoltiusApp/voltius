@@ -4,6 +4,7 @@ import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, IdentityExport } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "../context";
+import { fetchIdentitySecrets, storeIdentitySecrets } from "../secretsLogic";
 
 export const identitiesHandler: DataTypeHandler = {
   key: "identities",
@@ -54,7 +55,7 @@ export const identitiesHandler: DataTypeHandler = {
       _eid: ctx.identityEidMap.get(i.id),
       name: i.name,
       username: i.username,
-      password: await getSecret(`identity:${i.id}:password`).catch(() => null) ?? undefined,
+      ...(await fetchIdentitySecrets(i.id, (key) => getSecret(key).catch(() => null))),
       tags: i.tags,
       _key_eid: i.key_id ? ctx.keyEidMap.get(i.key_id) : undefined,
       _folder_eid: i.folder_id ? ctx.folderEidMap.get(i.folder_id) : undefined,
@@ -87,11 +88,10 @@ export const identitiesHandler: DataTypeHandler = {
           vault_id: ctx.vault_id,
         });
         if (identity._eid) ctx.identityEidMap.set(identity._eid, saved.id);
-        if (identity.password) {
-          const localKey = `identity:${saved.id}:password`;
-          await storeSecret(localKey, identity.password);
-          await saveTeamVaultSecretForVault(ctx.vault_id, localKey, identity.password).catch(() => {});
-        }
+        await storeIdentitySecrets(identity, saved.id, async (key, value) => {
+          await storeSecret(key, value);
+          await saveTeamVaultSecretForVault(ctx.vault_id, key, value).catch(() => {});
+        });
         imported++;
       } catch { errors++; }
     }
