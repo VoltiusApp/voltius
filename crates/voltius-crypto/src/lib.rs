@@ -7,12 +7,15 @@ use hkdf::Hkdf;
 use rand::RngCore;
 use sha2::Sha256;
 
+/// Bumping this requires a vault migration — existing blobs will fail to decrypt.
+const CIPHERTEXT_VERSION: u8 = 1;
+
 fn derive_master_key(password: &str, account_id: &str) -> Result<[u8; 32], String> {
     derive_master_key_raw_salt(password, account_id.as_bytes())
 }
 
 fn derive_master_key_raw_salt(password: &str, salt: &[u8]) -> Result<[u8; 32], String> {
-    let params = Params::new(32 * 1024, 2, 1, Some(32)).map_err(|e| e.to_string())?;
+    let params = Params::new(128 * 1024, 3, 4, Some(32)).map_err(|e| e.to_string())?;
     let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
     let mut master_key = [0u8; 32];
     argon2
@@ -29,7 +32,7 @@ pub fn derive_enc_key_raw_salt(password: &str, salt: &[u8]) -> Result<[u8; 32], 
 }
 
 fn hkdf_expand(master_key: &[u8; 32], info: &[u8]) -> Result<[u8; 32], String> {
-    let hkdf = Hkdf::<Sha256>::new(None, master_key);
+    let hkdf = Hkdf::<Sha256>::new(Some(b"voltius-hkdf-v1"), master_key);
     let mut out = [0u8; 32];
     hkdf.expand(info, &mut out)
         .map_err(|e| format!("HKDF expand failed: {e}"))?;
@@ -56,26 +59,32 @@ pub fn random_bytes(n: usize) -> Vec<u8> {
 
 const XCHACHA20POLY1305_NONCE_LEN: usize = 24;
 
+// Wire format: version(1) || nonce(24) || XChaCha20-Poly1305 ciphertext+tag
 pub fn xchacha20poly1305_encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>, String> {
     let cipher = XChaCha20Poly1305::new(Key::from_slice(key));
     let nonce = XChaCha20Poly1305::generate_nonce(&mut AeadOsRng);
     let ciphertext = cipher
         .encrypt(&nonce, plaintext)
         .map_err(|e| format!("XChaCha20-Poly1305 encrypt failed: {e}"))?;
-    let mut out = Vec::with_capacity(XCHACHA20POLY1305_NONCE_LEN + ciphertext.len());
+    let mut out = Vec::with_capacity(1 + XCHACHA20POLY1305_NONCE_LEN + ciphertext.len());
+    out.push(CIPHERTEXT_VERSION);
     out.extend_from_slice(&nonce);
     out.extend_from_slice(&ciphertext);
     Ok(out)
 }
 
 pub fn xchacha20poly1305_decrypt(key: &[u8; 32], data: &[u8]) -> Result<Vec<u8>, String> {
-    if data.len() < XCHACHA20POLY1305_NONCE_LEN {
+    if data.len() < 1 + XCHACHA20POLY1305_NONCE_LEN {
         return Err("Ciphertext too short".to_string());
     }
-    let nonce = XNonce::from_slice(&data[..XCHACHA20POLY1305_NONCE_LEN]);
+    let version = data[0];
+    if version != CIPHERTEXT_VERSION {
+        return Err(format!("Unsupported ciphertext version: {version}"));
+    }
+    let nonce = XNonce::from_slice(&data[1..1 + XCHACHA20POLY1305_NONCE_LEN]);
     let cipher = XChaCha20Poly1305::new(Key::from_slice(key));
     cipher
-        .decrypt(nonce, &data[XCHACHA20POLY1305_NONCE_LEN..])
+        .decrypt(nonce, &data[1 + XCHACHA20POLY1305_NONCE_LEN..])
         .map_err(|_| "XChaCha20-Poly1305 decrypt failed — wrong key or corrupted data".to_string())
 }
 
@@ -141,7 +150,8 @@ mod tests {
 
         let encrypted = xchacha20poly1305_encrypt(&key, plaintext).unwrap();
 
-        assert!(encrypted.len() >= 24 + plaintext.len());
+        assert!(encrypted.len() >= 1 + 24 + plaintext.len());
+        assert_eq!(encrypted[0], CIPHERTEXT_VERSION);
         let decrypted = xchacha20poly1305_decrypt(&key, &encrypted).unwrap();
         assert_eq!(decrypted, plaintext);
     }
@@ -165,7 +175,7 @@ mod tests {
 
         let wrapped = wrap_user_secrets(&kek, &dek, &x25519_private).unwrap();
 
-        assert!(wrapped.len() >= 24 + 64);
+        assert!(wrapped.len() >= 1 + 24 + 64);
         let (unwrapped_dek, unwrapped_private) = unwrap_user_secrets(&kek, &wrapped).unwrap();
         assert_eq!(unwrapped_dek, dek);
         assert_eq!(unwrapped_private, x25519_private);
