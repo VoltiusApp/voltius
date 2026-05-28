@@ -172,7 +172,7 @@ flowchart TD
             GistAead{"XChaCha20-Poly1305\n(Rust)"}:::secure
             Gist[("GitHub Gists\n(Bring-Your-Own)")]:::remote
             GistKDF -->|"gist_enc_key"| GistAead
-            GistAead <==>|"Encrypted CRDT blobs"| Gist
+            GistAead <==>|"Encrypted app-state blobs"| Gist
         end
 
         subgraph CloudSync ["Cloud Sync (Pro/Teams · SSE)"]
