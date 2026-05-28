@@ -3,7 +3,7 @@
  * Both @iconify-json/lucide and @iconify-json/devicon-plain are bundled in the app.
  */
 import { addCollection } from "@iconify/react";
-import lucideIcons from "@iconify-json/lucide/icons.json";
+import lucideSubset from "virtual:lucide-subset";
 import { icons as deviconPlainIcons } from "@iconify-json/devicon-plain";
 
 let loaded = false;
@@ -12,8 +12,8 @@ export function preloadIcons() {
   if (loaded) return;
   loaded = true;
 
-  // Lucide — used throughout the UI
-  addCollection(lucideIcons as any);
+  // Lucide — subset auto-generated at build time by vite-plugin-lucide-subset
+  addCollection(lucideSubset as any);
 
   // Devicon plain subset — white icon on brand color background
   const DISTRO_PLAIN = [

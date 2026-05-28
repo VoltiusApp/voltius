@@ -7,12 +7,13 @@ edition = "2021"
 
 [lib]
 name = "voltius_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+crate-type = ["cdylib", "rlib"]
 
 [profile.release]
 codegen-units = 1
 lto = true
 strip = true
+panic = "abort"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -22,13 +23,13 @@ tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-shell = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "fs", "io-util", "process", "time", "sync"] }
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 dirs = "6"
 russh = "0.60"
 russh-sftp = "2.1"
-tokio-util = "0.7"
+tokio-util = { version = "0.7", default-features = false, features = ["sync"] }
 tauri-plugin-dialog = "2"
 async-trait = "0.1"
 log = "0.4"
@@ -43,12 +44,12 @@ base64 = "0.22"
 crypto_secretbox = "0.1"
 rusty-leveldb = "4"
 portable-pty = "0.8"
-ssh-key = { version = "0.6", features = ["dsa", "ed25519", "p256", "p384", "p521", "rsa", "encryption"] }
+ssh-key = { version = "0.6", features = ["ed25519", "p256", "p384", "p521", "rsa", "encryption"] }
 rsa = { version = "0.9", features = ["getrandom"] }
 sysinfo = "0.33"
 bollard = "0.17"
-futures-util = "0.3"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "blocking"] }
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 machine-uid = "0.5"
 serialport = { version = "4", default-features = false }
 
