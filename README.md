@@ -1,10 +1,6 @@
 <div align="center">
   <img src="src-tauri/icons/128x128.png" alt="Voltius Logo" width="96" />
-  
   <br/>
-
-  <img src="./assets/demo.gif" alt="App Demo" width="100%" />
-
   <h1>Voltius</h1>
 
   <p><strong>A local-first SSH/SFTP/Serial client with E2EE sync, plugins, and no account required — a modern alternative to Termius.</strong></p>
@@ -16,6 +12,10 @@
     <img src="https://img.shields.io/badge/Security-E2EE-green" alt="E2EE" />
     <img src="https://img.shields.io/github/license/Voltius/voltius" alt="License" />
   </p>
+
+  <video autoplay loop muted playsinline style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); max-width: 100%; height: auto;">
+     <source src="https://voltius.app/demo.mp4" type="video/mp4">
+  </video>
 </div>
 
 ---
