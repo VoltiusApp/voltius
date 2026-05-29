@@ -13,8 +13,7 @@
     <img src="https://img.shields.io/github/license/Voltius/voltius" alt="License" />
   </p>
 
-  <video src="https://github.com/user-attachments/assets/1ff28994-09bd-41d5-83c3-9d361949ad50" autoplay loop muted playsinline width="100%">
-  </video>
+  <img width="800" height="450" alt="demo" src="https://github.com/user-attachments/assets/7e63331a-3362-4edc-8172-0d6d1b66c593" />
 </div>
 
 ---
