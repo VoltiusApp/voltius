@@ -13,8 +13,7 @@
     <img src="https://img.shields.io/github/license/Voltius/voltius" alt="License" />
   </p>
 
-  <video autoplay loop muted playsinline style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); max-width: 100%; height: auto;">
-     <source src="https://voltius.app/demo.mp4" type="video/mp4">
+  <video src="https://voltius.app/demo.mp4" autoplay loop muted playsinline width="100%">
   </video>
 </div>
 
