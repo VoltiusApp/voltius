@@ -12,6 +12,7 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { TeamRolesPanel } from "./RolesSection";
 import BuySeatsModal from "@/components/settings/BuySeatsModal";
+import { ContentCounts } from "@/components/shared/ContentCounts";
 import { runTeamAction } from "@/services/teamActionFeedback";
 
 import { markTeamVaultLoadedAfterLocalActivation } from "@/services/teamVaultActivation";
@@ -1312,18 +1313,7 @@ function VaultGeneralTab({
 // ─── Vault content counts (list row, skips zeros) ─────────────────────────────
 
 function VaultContentCounts({ vaultId }: { vaultId: string }) {
-  const counts = useVaultContents(vaultId).filter((c) => c.count > 0);
-  if (counts.length === 0) return null;
-  return (
-    <>
-      {counts.map(({ icon, count }) => (
-        <span key={icon} className="flex items-center gap-1">
-          <Icon icon={icon} width={12} style={{ color: "var(--t-text-dim)" }} />
-          <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>{count}</span>
-        </span>
-      ))}
-    </>
-  );
+  return <ContentCounts counts={useVaultContents(vaultId)} />;
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────

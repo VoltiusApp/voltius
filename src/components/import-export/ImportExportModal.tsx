@@ -46,7 +46,7 @@ export function ImportExportModal() {
       >
         <div className="grid grid-cols-3 items-center px-6 py-4 shrink-0 border-b border-b-[var(--t-border)]">
           <div className="flex items-center gap-3">
-            <Icon icon="lucide:network" width={18} className="text-[var(--t-accent)]" />
+            <Icon icon="lucide:database" width={18} className="text-[var(--t-accent)]" />
             <span className="text-base font-semibold text-[var(--t-text-bright)]">Import / Export</span>
           </div>
           <div className="flex items-center justify-center gap-1">

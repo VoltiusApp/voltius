@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
+import { useVaultContents } from "@/hooks/useVaultContents";
+import { ContentCounts } from "@/components/shared/ContentCounts";
 import { encryptText, toJSON } from "@/services/import-export/formats";
 import { connectionsToCSV } from "@/services/import-export/parsers/csv";
 import type { ExportBundle } from "@/services/import-export/formats";
@@ -16,6 +18,7 @@ export function ExportTab({ singleConnectionId, singleKeyId, singleIdentityId, c
 }) {
   const stores = useStoreSlices();
   const accessibleVaultIds = useAccessibleVaultIds();
+  const vaultContentCounts = useVaultContents();
 
   const selection: SelectionProps = { singleConnectionId, singleKeyId, singleIdentityId, connectionIds, keyIds, identityIds };
   const isSingleItem = !!(singleConnectionId ?? singleKeyId ?? singleIdentityId);
@@ -71,6 +74,10 @@ export function ExportTab({ singleConnectionId, singleKeyId, singleIdentityId, c
   }, [included, format, exportVaultIds, stores.connections, stores.identities, stores.keys, stores.snippets, stores.pfRules]);
 
   const totalItems = Object.values(bundleCounts).reduce((a, b) => a + b, 0);
+  const recapCounts = vaultContentCounts.map((item) => ({
+    ...item,
+    count: bundleCounts[item.key] ?? 0,
+  }));
   const encryptReady = !encrypt || (!!encryptPassword && encryptPassword === encryptConfirm);
 
   const getExportContent = async (): Promise<{ content: string; ext: string }> => {
@@ -103,17 +110,6 @@ export function ExportTab({ singleConnectionId, singleKeyId, singleIdentityId, c
     if ((bundleCounts["identities"] ?? 0) > 0 && !singleIdentityId) autoIncludes.push(`${bundleCounts["identities"]} identity`);
     if ((bundleCounts["keys"] ?? 0) > 0 && !singleKeyId) autoIncludes.push(`${bundleCounts["keys"]} key`);
   }
-
-  const plural = (n: number, word: string) => `${n} ${word}${n !== 1 ? "s" : ""}`;
-  const summaryParts = HANDLERS
-    .map(h => ({ h, n: bundleCounts[h.key] ?? 0 }))
-    .filter(({ n }) => n > 0)
-    .map(({ h, n }) => {
-      if (h.key === "identities") return `${n} identit${n !== 1 ? "ies" : "y"}`;
-      if (h.key === "portForwardingRules") return plural(n, "port rule");
-      return plural(n, h.label.toLowerCase().replace(/s$/, ""));
-    });
-  if ((bundleCounts["folders"] ?? 0) > 0) summaryParts.push(plural(bundleCounts["folders"], "folder"));
 
   return (
     <div className="flex flex-col gap-5 h-full">
@@ -196,9 +192,11 @@ export function ExportTab({ singleConnectionId, singleKeyId, singleIdentityId, c
             </span>
           ) : (
             <>
-              <span className="text-sm text-[var(--t-text-muted)] truncate">
-                {summaryParts.length > 0 ? summaryParts.join(" · ") : "Nothing to export"}
-              </span>
+              {totalItems > 0 ? (
+                <ContentCounts counts={recapCounts} />
+              ) : (
+                <span className="text-sm text-[var(--t-text-muted)] truncate">Nothing to export</span>
+              )}
               {autoIncludes.length > 0 && (
                 <span className="text-xs flex items-center gap-1 text-[var(--t-text-dim)] shrink-0">
                   <Icon icon="lucide:link" width={11} />

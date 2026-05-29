@@ -9,6 +9,7 @@ import {
   type GistSyncState,
 } from "@/plugins/gist-sync/sync-engine";
 import { useVaultContents } from "@/hooks/useVaultContents";
+import { ContentCounts } from "@/components/shared/ContentCounts";
 import { useUIStore } from "@/stores/uiStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { openPortal } from "@/utils/billing";
@@ -220,21 +221,14 @@ function SyncSection({
 // ─── Entity counts ────────────────────────────────────────────────────────────
 
 function EntityCounts() {
-  const counts = useVaultContents().filter((c) => c.count > 0);
-  if (counts.length === 0) return null;
   return (
-    <div className="px-3 py-2 flex flex-wrap gap-1.5">
-      {counts.map(({ icon, count }) => (
-        <span
-          key={icon}
-          className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px]"
-          style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-secondary)", border: "1px solid var(--t-border)" }}
-        >
-          <Icon icon={icon} width={10} />
-          {count}
-        </span>
-      ))}
-    </div>
+    <ContentCounts
+      counts={useVaultContents()}
+      className="px-3 py-2 flex flex-wrap gap-1.5"
+      itemClassName="flex items-center gap-1 px-2 py-0.5 rounded text-[10px]"
+      itemStyle={{ background: "var(--t-bg-elevated)", color: "var(--t-text-secondary)", border: "1px solid var(--t-border)" }}
+      iconWidth={10}
+    />
   );
 }
 
