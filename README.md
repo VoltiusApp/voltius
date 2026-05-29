@@ -13,7 +13,7 @@
     <img src="https://img.shields.io/github/license/Voltius/voltius" alt="License" />
   </p>
 
-  <img width="800" height="450" alt="demo" src="https://github.com/user-attachments/assets/7e63331a-3362-4edc-8172-0d6d1b66c593" />
+  <img width="800" height="450" alt="demo" src="https://github.com/user-attachments/assets/840f49d3-e047-4efa-b9f6-14409bbc3937" />
 </div>
 
 ---
