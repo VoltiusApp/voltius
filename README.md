@@ -34,7 +34,7 @@ No account required. Everything below is free, forever.
 
 > Full feature list at [docs.voltius.app](https://docs.voltius.app) *(coming soon)* · **Pro · Teams · Business** — see [voltius.app/#pricing](https://voltius.app/#pricing) for paid plans.
 
-## ⚖️ Comparison
+## ⚖️ Comparison (WIP)
 
 | Feature | Voltius | Termius | [Reach](https://github.com/alexandrosnt/Reach) | [Termix](https://github.com/Termix-SSH/Termix) | Tabby |
 | --- | --- | --- | --- | --- | --- |
