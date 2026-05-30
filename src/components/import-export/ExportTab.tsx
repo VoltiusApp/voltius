@@ -144,9 +144,6 @@ export function ExportTab({ singleConnectionId, singleKeyId, singleIdentityId, c
                 {(connectionIds?.length ?? 0) + (identityIds?.length ?? 0) + (keyIds?.length ?? 0)} selected item{((connectionIds?.length ?? 0) + (identityIds?.length ?? 0) + (keyIds?.length ?? 0)) !== 1 ? "s" : ""}
               </p>
             )}
-            {isCsvOnly && !isSingleItem && (
-              <p className="text-xs mt-1 text-[var(--t-text-muted)]">CSV supports connections only</p>
-            )}
           </div>
         </div>
 
@@ -182,20 +179,20 @@ export function ExportTab({ singleConnectionId, singleKeyId, singleIdentityId, c
                 </div>
                 {encrypt && (
                   <div className="flex flex-col gap-2 ml-6">
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-1.5">
                       <input
                         type="password"
                         value={encryptPassword}
                         onChange={e => setEncryptPassword(e.target.value)}
                         placeholder="Password"
-                        className="flex-1 px-2.5 py-1.5 rounded-lg text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border-hover)] text-[var(--t-text-primary)]"
+                        className="w-full px-2.5 py-1.5 rounded-lg text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border-hover)] text-[var(--t-text-primary)]"
                       />
                       <input
                         type="password"
                         value={encryptConfirm}
                         onChange={e => setEncryptConfirm(e.target.value)}
-                        placeholder="Confirm"
-                        className="flex-1 px-2.5 py-1.5 rounded-lg text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border-hover)] text-[var(--t-text-primary)]"
+                        placeholder="Confirm password"
+                        className="w-full px-2.5 py-1.5 rounded-lg text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border-hover)] text-[var(--t-text-primary)]"
                       />
                     </div>
                     {encryptPassword && encryptConfirm && encryptPassword !== encryptConfirm && (

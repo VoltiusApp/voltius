@@ -522,7 +522,7 @@ export function ImportTab() {
         {/* Header */}
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setStep(1)}
+            onClick={() => { setStep(1); setStatus({ type: "idle" }); }}
             className="flex items-center gap-1 text-xs transition-opacity hover:opacity-70"
             style={{ color: "var(--t-text-dim)" }}
           >
