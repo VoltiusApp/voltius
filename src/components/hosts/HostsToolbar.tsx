@@ -7,6 +7,7 @@ import { useToolbarResize } from "@/hooks/useToolbarResize";
 import { useRipple } from "@/hooks/useRipple";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { useUIContributions } from "@/hooks/useUIContributions";
+import { IMPORTERS } from "@/services/import-export/importers";
 
 interface ShellOption {
   name: string;
@@ -23,7 +24,7 @@ interface HomeToolbarProps {
   canCreateFolder?: boolean;
   onOpenLocalTerminal: () => void;
   onOpenSerial: () => void;
-  onOpenImportExport: (mode: "import" | "export") => void;
+  onOpenImportExport: (mode: "import" | "export", opts?: { source?: string; autoTrigger?: boolean }) => void;
   layoutMode: LayoutMode;
   onLayoutModeChange: (value: LayoutMode) => void;
   sortMode: SortMode;
@@ -133,9 +134,15 @@ export function HomeToolbar({
             items={[
               { label: "Import…", icon: "lucide:download", onClick: () => onOpenImportExport("import") },
               { label: "Export…", icon: "lucide:upload", onClick: () => onOpenImportExport("export") },
+              { separator: true },
+              ...IMPORTERS.map(imp => ({
+                label: `From ${imp.label}`,
+                icon: imp.icon,
+                onClick: () => onOpenImportExport("import", { source: imp.key, autoTrigger: !!imp.autoExtract }),
+              })),
             ]}
             align="right"
-            menuWidth={160}
+            menuWidth={190}
           />
 
           <ToolbarDropdown

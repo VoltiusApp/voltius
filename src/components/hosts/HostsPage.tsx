@@ -914,7 +914,7 @@ export default function HostsPage() {
             } : undefined}
             onOpenLocalTerminal={() => connectLocal().catch((e) => setError(String(e)))}
             onOpenSerial={() => connectSerialEphemeral().catch((e) => setError(String(e)))}
-            onOpenImportExport={(mode) => useUIStore.getState().openImportExport(mode)}
+            onOpenImportExport={(mode, opts) => useUIStore.getState().openImportExport(mode, opts)}
             layoutMode={layoutMode}
             onLayoutModeChange={setLayoutMode}
             sortMode={sortMode}

@@ -25,7 +25,7 @@ export const IMPORTERS: Importer[] = [
   {
     key: "voltius",
     label: "Voltius JSON",
-    icon: "lucide:vault",
+    icon: "lucide:braces",
     sub: "JSON",
     fileAccept: ".json",
     placeholder: 'Paste Voltius JSON here, or drop a .json file…\n\n{ "version": 1, "connections": [...] }',

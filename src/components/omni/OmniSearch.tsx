@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
@@ -971,9 +972,9 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   let runningIdx = 0;
   const hasAbove = (...counts: number[]) => counts.some((c) => c > 0);
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-24"
+      className="fixed inset-0 z-[60] flex items-start justify-center pt-24"
       style={{ background: "rgba(0,0,0,0.55)" }}
       onClick={onClose}
     >
@@ -1120,6 +1121,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

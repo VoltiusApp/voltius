@@ -20,6 +20,9 @@ export function clampUiScale(value: number): number {
 
 export type ImportExportSection = "vaults" | "user-data";
 
+/** Monotonic counter for import/export modal opens — drives a fresh remount per invocation. */
+let ieNonce = 0;
+
 export type ImportExportModalState = {
   open: boolean;
   mode: "import" | "export";
@@ -31,6 +34,10 @@ export type ImportExportModalState = {
   connectionIds?: string[];
   keyIds?: string[];
   identityIds?: string[];
+  source?: string;
+  autoTrigger?: boolean;
+  /** Bumped on every open() call so the modal can force a fresh mount per invocation. */
+  nonce?: number;
 };
 export type ImportExportOpenOpts = {
   section?: ImportExportSection;
@@ -41,6 +48,8 @@ export type ImportExportOpenOpts = {
   connectionIds?: string[];
   keyIds?: string[];
   identityIds?: string[];
+  source?: string;
+  autoTrigger?: boolean;
 };
 
 export type HomePendingAction = { action: "create" } | { action: "edit"; id: string } | null;
@@ -166,9 +175,9 @@ export const useUIStore = create<UIStore>()(
       importExportModal: { open: false, mode: "export" as const, section: "vaults" as ImportExportSection },
       themeCreatorOpen: false,
       themeCreatorEditId: null as string | null,
-      openImportExport: (mode, opts) => set({ importExportModal: { open: true, mode, section: opts?.section ?? "vaults", preselectedTypes: opts?.preselectedTypes, singleConnectionId: opts?.connectionId, singleKeyId: opts?.keyId, singleIdentityId: opts?.identityId, connectionIds: opts?.connectionIds, keyIds: opts?.keyIds, identityIds: opts?.identityIds } }),
+      openImportExport: (mode, opts) => set({ importExportModal: { open: true, mode, section: opts?.section ?? "vaults", preselectedTypes: opts?.preselectedTypes, singleConnectionId: opts?.connectionId, singleKeyId: opts?.keyId, singleIdentityId: opts?.identityId, connectionIds: opts?.connectionIds, keyIds: opts?.keyIds, identityIds: opts?.identityIds, source: opts?.source, autoTrigger: opts?.autoTrigger, nonce: ieNonce++ } }),
       closeImportExport: () => set((s) => ({ importExportModal: { ...s.importExportModal, open: false } })),
-      openThemeImportExport: (mode) => set({ importExportModal: { open: true, mode, section: "user-data" as ImportExportSection } }),
+      openThemeImportExport: (mode) => set({ importExportModal: { open: true, mode, section: "user-data" as ImportExportSection, nonce: ieNonce++ } }),
       openThemeCreator: (editId) => set({ themeCreatorOpen: true, themeCreatorEditId: editId ?? null, settingsOpen: false }),
       closeThemeCreator: () => set({ themeCreatorOpen: false, themeCreatorEditId: null }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
