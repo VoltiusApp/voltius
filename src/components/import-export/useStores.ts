@@ -39,6 +39,15 @@ export function useImportStores(): ImportStores {
   return { saveFolder, saveSnippetFolder, saveKey, saveIdentity, saveConnection, updateConnection, createSnippet, createPfRule };
 }
 
+export function useDeleteStores() {
+  const deleteConnection = useConnectionStore(s => s.deleteConnection);
+  const deleteIdentity = useIdentityStore(s => s.deleteIdentity);
+  const deleteKey = useKeyStore(s => s.deleteKey);
+  const deleteSnippet = useSnippetStore(s => s.deleteSnippet);
+  const deleteRule = usePortForwardingStore(s => s.deleteRule);
+  return { deleteConnection, deleteIdentity, deleteKey, deleteSnippet, deleteRule };
+}
+
 export function useReloadFns(): ReloadFns {
   const loadConnections = useConnectionStore(s => s.loadConnections);
   const loadIdentities = useIdentityStore(s => s.loadIdentities);
