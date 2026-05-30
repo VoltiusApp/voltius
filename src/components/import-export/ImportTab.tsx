@@ -8,7 +8,7 @@ import { runImport, reloadAll } from "@/services/import-export/registry";
 import { existingConnectionsForVault } from "@/services/import-export/context";
 import { IMPORTERS, parseImport } from "@/services/import-export/importers";
 import { useImportStores, useReloadFns, useStoreSlices, useDeleteStores } from "./useStores";
-import { ActionBtn, VaultChipSelect } from "./shared";
+import { ActionBtn, VaultChipSelect, useVaultList } from "./shared";
 import { FileInputArea } from "./FileInputArea";
 
 type ItemAction = "include" | "skip" | "overwrite";
@@ -170,7 +170,9 @@ export function ImportTab() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
   const [extracting, setExtracting] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
+  const writableVaults = useVaultList(true);
   const source = IMPORTERS.find(i => i.key === selectedSource)!;
 
   const applyBundle = useCallback((bundle: ExportBundle) => {
@@ -594,12 +596,8 @@ export function ImportTab() {
           </div>
         )}
 
-        <div className="flex flex-col gap-3 pt-3 border-t border-[var(--t-border)]">
-          <div className="flex flex-col gap-1.5">
-            <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">Import into</p>
-            <VaultChipSelect selectedIds={targetVaultIds} onChange={setTargetVaultIds} writableOnly />
-          </div>
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-2 pt-3 border-t border-[var(--t-border)]">
+          {showAdvanced && (
             <label className="flex items-center gap-2">
               <span className="text-xs text-[var(--t-text-dim)]">Tag:</span>
               <input value={addTag} onChange={e => setAddTag(e.target.value)} placeholder="optional"
@@ -607,17 +605,29 @@ export function ImportTab() {
                 style={{ width: 100 }}
               />
             </label>
-            <ActionBtn
-              icon={importing ? "lucide:loader" : "lucide:download"}
-              label={importing
-                ? "Importing…"
-                : totalToImport > 0
-                  ? `Import ${totalToImport} item${totalToImport !== 1 ? "s" : ""}${targetVaultIds.length > 1 ? ` × ${targetVaultIds.length} vaults` : ""}`
-                  : "Nothing selected"}
-              onClick={handleImport}
-              primary
-              disabled={totalToImport === 0 || importing}
-            />
+          )}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowAdvanced(p => !p)}
+              className="flex items-center gap-1 text-xs transition-opacity hover:opacity-70"
+              style={{ color: "var(--t-text-dim)" }}
+            >
+              <Icon icon={showAdvanced ? "lucide:chevron-down" : "lucide:chevron-right"} width={11} />
+              Advanced
+            </button>
+            <div className="ml-auto">
+              <ActionBtn
+                icon={importing ? "lucide:loader" : "lucide:download"}
+                label={importing
+                  ? "Importing…"
+                  : totalToImport > 0
+                    ? `Import ${totalToImport} item${totalToImport !== 1 ? "s" : ""}${targetVaultIds.length > 1 ? ` × ${targetVaultIds.length} vaults` : ""}`
+                    : "Nothing selected"}
+                onClick={handleImport}
+                primary
+                disabled={totalToImport === 0 || importing}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -666,24 +676,51 @@ export function ImportTab() {
         )}
       </div>
 
+      {writableVaults.length > 1 && (
+        <div className="flex flex-col gap-1.5">
+          <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">Import into</p>
+          <VaultChipSelect selectedIds={targetVaultIds} onChange={setTargetVaultIds} writableOnly />
+        </div>
+      )}
+
       {source.autoExtract && !text.trim() && status.type !== "ready" && (
         <div
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg"
-          style={{ background: "color-mix(in srgb, var(--t-accent) 10%, transparent)", border: "1px solid color-mix(in srgb, var(--t-accent) 35%, transparent)" }}
+          className="flex flex-col gap-3 p-4 rounded-xl"
+          style={{ background: "color-mix(in srgb, var(--t-accent) 8%, var(--t-bg-elevated))", border: "1px solid color-mix(in srgb, var(--t-accent) 30%, transparent)" }}
         >
-          <Icon icon="lucide:database" width={15} style={{ color: "var(--t-accent)", flexShrink: 0 }} />
-          <span className="text-sm flex-1" style={{ color: "var(--t-text-primary)" }}>
-            Read and decrypt the local {source.label} install
-          </span>
+          <div className="flex items-start gap-3">
+            <div
+              className="flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
+              style={{ background: "color-mix(in srgb, var(--t-accent) 15%, transparent)" }}
+            >
+              <Icon icon="lucide:database" width={18} style={{ color: "var(--t-accent)" }} />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-semibold" style={{ color: "var(--t-text-bright)" }}>
+                Auto-extract from {source.label}
+              </span>
+              <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>
+                Reads and decrypts your local {source.label} data — no manual export needed
+              </span>
+            </div>
+          </div>
           <button
             onClick={handleAutoExtract}
             disabled={extracting}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium shrink-0 transition-opacity hover:opacity-80 disabled:opacity-50"
+            className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
             style={{ background: "var(--t-accent)", color: "#fff" }}
           >
-            <Icon icon={extracting ? "lucide:loader-2" : "lucide:download"} width={12} className={extracting ? "animate-spin" : ""} />
+            <Icon icon={extracting ? "lucide:loader-2" : "lucide:download"} width={14} className={extracting ? "animate-spin" : ""} />
             {extracting ? "Extracting…" : `Extract from ${source.label}`}
           </button>
+        </div>
+      )}
+
+      {source.autoExtract && selectedSource !== "termius" && !text.trim() && status.type !== "ready" && (
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-px" style={{ background: "var(--t-border)" }} />
+          <span className="text-xs font-medium" style={{ color: "var(--t-text-dim)" }}>or import from file</span>
+          <div className="flex-1 h-px" style={{ background: "var(--t-border)" }} />
         </div>
       )}
 

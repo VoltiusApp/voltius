@@ -67,9 +67,7 @@ export function ActionBtn({ icon, label, onClick, primary, disabled }: {
   );
 }
 
-export function VaultChipSelect({ selectedIds, onChange, writableOnly = false }: {
-  selectedIds: string[]; onChange: (ids: string[]) => void; writableOnly?: boolean;
-}) {
+export function useVaultList(writableOnly = false) {
   const { vaults } = useVaultStore();
   const { teams, membersByTeam, rolesByTeam } = useTeamStore();
   const [myUserId, setMyUserId] = useState("");
@@ -88,10 +86,16 @@ export function VaultChipSelect({ selectedIds, onChange, writableOnly = false }:
   };
 
   const linkedTeamIds = new Set(vaults.map(v => v.teamId).filter(Boolean));
-  const allVaults = [
+  return [
     ...vaults.map(v => ({ id: v.teamId ?? v.id, name: v.name })),
     ...teams.filter(t => !linkedTeamIds.has(t.id)).map(t => ({ id: t.id, name: t.name })),
   ].filter(v => !writableOnly || canWrite(v.id));
+}
+
+export function VaultChipSelect({ selectedIds, onChange, writableOnly = false }: {
+  selectedIds: string[]; onChange: (ids: string[]) => void; writableOnly?: boolean;
+}) {
+  const allVaults = useVaultList(writableOnly);
 
   if (allVaults.length <= 1) return null;
 

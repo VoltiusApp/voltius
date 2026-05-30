@@ -174,41 +174,40 @@ export function ExportTab({ singleConnectionId, singleKeyId, singleIdentityId, c
             <p className="text-xs text-[var(--t-text-dim)]">
               {format === "csv" ? "Connections only — spreadsheet-friendly" : "Full data including key content"}
             </p>
+            {format === "json" && (
+              <div className="flex flex-col gap-2 mt-1">
+                <div className="flex items-center gap-2.5">
+                  <Toggle checked={encrypt} onChange={v => { setEncrypt(v); if (!v) { setEncryptPassword(""); setEncryptConfirm(""); } }} />
+                  <span className="text-sm text-[var(--t-text-primary)]">Encrypt backup</span>
+                </div>
+                {encrypt && (
+                  <div className="flex flex-col gap-2 ml-6">
+                    <div className="flex gap-2">
+                      <input
+                        type="password"
+                        value={encryptPassword}
+                        onChange={e => setEncryptPassword(e.target.value)}
+                        placeholder="Password"
+                        className="flex-1 px-2.5 py-1.5 rounded-lg text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border-hover)] text-[var(--t-text-primary)]"
+                      />
+                      <input
+                        type="password"
+                        value={encryptConfirm}
+                        onChange={e => setEncryptConfirm(e.target.value)}
+                        placeholder="Confirm"
+                        className="flex-1 px-2.5 py-1.5 rounded-lg text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border-hover)] text-[var(--t-text-primary)]"
+                      />
+                    </div>
+                    {encryptPassword && encryptConfirm && encryptPassword !== encryptConfirm && (
+                      <p className="text-xs" style={{ color: "var(--t-status-error)" }}>Passwords don't match</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
-
-      {format === "json" && (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2.5">
-            <Toggle checked={encrypt} onChange={v => { setEncrypt(v); if (!v) { setEncryptPassword(""); setEncryptConfirm(""); } }} />
-            <span className="text-sm text-[var(--t-text-primary)]">Encrypt backup</span>
-          </div>
-          {encrypt && (
-            <div className="flex flex-col gap-2 ml-6">
-              <div className="flex gap-2">
-                <input
-                  type="password"
-                  value={encryptPassword}
-                  onChange={e => setEncryptPassword(e.target.value)}
-                  placeholder="Password"
-                  className="flex-1 px-2.5 py-1.5 rounded-lg text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border-hover)] text-[var(--t-text-primary)]"
-                />
-                <input
-                  type="password"
-                  value={encryptConfirm}
-                  onChange={e => setEncryptConfirm(e.target.value)}
-                  placeholder="Confirm"
-                  className="flex-1 px-2.5 py-1.5 rounded-lg text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border-hover)] text-[var(--t-text-primary)]"
-                />
-              </div>
-              {encryptPassword && encryptConfirm && encryptPassword !== encryptConfirm && (
-                <p className="text-xs" style={{ color: "var(--t-status-error)" }}>Passwords don't match</p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
 
       <div className="flex items-center gap-3 py-3 border-y border-[var(--t-border)]">
         <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -250,6 +249,7 @@ export function ExportTab({ singleConnectionId, singleKeyId, singleIdentityId, c
         {showPreview && (
           <textarea readOnly value={preview}
             className="flex-1 w-full text-xs rounded-lg p-3 resize-none font-mono outline-none bg-[var(--t-bg-terminal)] text-[var(--t-text-secondary)] border border-[var(--t-border)]"
+            style={{ minHeight: 160 }}
           />
         )}
       </div>
