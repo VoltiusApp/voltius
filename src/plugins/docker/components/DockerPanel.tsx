@@ -449,6 +449,7 @@ export function DockerPanel() {
                 dispatch({ type: "OPEN_LOGS", containerId: id, containerName: name });
               }}
               onStackLogs={(name) => dispatch({ type: "OPEN_STACK_LOGS", stackName: name })}
+              onTerminal={handleOpenTerminal}
               onRefresh={() => fetchForView("stacks")}
             />
           )}

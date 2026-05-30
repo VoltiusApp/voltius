@@ -13,6 +13,7 @@ interface Props {
   onSelectStack: (name: string) => void;
   onLogs: (id: string, name: string) => void;
   onStackLogs: (name: string) => void;
+  onTerminal: (id: string, name: string) => void;
   onRefresh: () => void;
 }
 
@@ -36,6 +37,7 @@ export function StackList({
   onSelectStack,
   onLogs,
   onStackLogs,
+  onTerminal,
   onRefresh,
 }: Props) {
   const [expandedStackName, setExpandedStackName] = useState<string | null>(selectedStackName);
@@ -146,7 +148,7 @@ export function StackList({
                     busy={false}
                   />
                   <Btn
-                    icon="lucide:trash-2"
+                    icon="lucide:arrow-big-down"
                     title="Down"
                     disabled={busyAction !== null}
                     onClick={() => runAction(stack.name, "down")}
@@ -174,6 +176,7 @@ export function StackList({
                             isRemote={isRemote}
                             localShell={localShell}
                             onLogs={onLogs}
+                            onTerminal={onTerminal}
                             onRefresh={onRefresh}
                           />
                         ))}
@@ -196,6 +199,7 @@ function ServiceRow({
   isRemote,
   localShell,
   onLogs,
+  onTerminal,
   onRefresh,
 }: {
   service: DockerStackService;
@@ -203,6 +207,7 @@ function ServiceRow({
   isRemote: boolean;
   localShell: string | null;
   onLogs: (id: string, name: string) => void;
+  onTerminal: (id: string, name: string) => void;
   onRefresh: () => void;
 }) {
   const [busyAction, setBusyAction] = useState<ContainerAction | null>(null);
@@ -264,6 +269,24 @@ function ServiceRow({
         >
           <Icon icon="lucide:scroll-text" width={12} />
         </button>
+        {state === "running" && (
+          <button
+            disabled={!service.id}
+            onClick={() => onTerminal(service.id, service.name || service.service)}
+            title="Open terminal"
+            className="p-1 rounded text-[var(--t-accent)] opacity-80 hover:opacity-100 hover:bg-[var(--t-bg-card-hover)] disabled:opacity-30"
+          >
+            <Icon icon="lucide:terminal" width={12} />
+          </button>
+        )}
+        <Btn
+          icon="lucide:arrow-big-down"
+          title="Down"
+          disabled={busy || !service.id}
+          busy={busyAction === "remove"}
+          onClick={() => runAction("remove")}
+          color="text-[var(--t-status-error)] opacity-60 hover:opacity-100"
+        />
       </div>
     </div>
   );
