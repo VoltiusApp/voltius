@@ -896,7 +896,7 @@ dependencies = [
 
 [[package]]
 name = "crypto-wasm"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "base64 0.22.1",
  "getrandom 0.2.17",
@@ -6717,7 +6717,7 @@ dependencies = [
 
 [[package]]
 name = "voltius-crypto"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "argon2",
  "base64 0.22.1",
