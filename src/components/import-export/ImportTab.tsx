@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import LogoSvg from "/logo.svg?react";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
@@ -149,7 +149,7 @@ function GroupHeader({ label, icon, included, total, allSkipped, collapsed, onTo
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function ImportTab() {
+export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: string; autoTrigger?: boolean }) {
   const storeSlices = useStoreSlices();
   const { connections: existingConnections } = storeSlices;
   const importStores = useImportStores();
@@ -161,7 +161,14 @@ export function ImportTab() {
   const [itemAction, setItemAction] = useState<Map<string, ItemAction>>(new Map());
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [selectedSource, setSelectedSource] = useState(IMPORTERS[0].key);
+  const [selectedSource, setSelectedSource] = useState(
+    defaultSource && IMPORTERS.find(i => i.key === defaultSource) ? defaultSource : IMPORTERS[0].key
+  );
+  const didAutoTrigger = useRef(false);
+  // True once an auto-extract owns the current status. Prevents the empty-text
+  // parse effect (which fires whenever store slices reload) from wiping the
+  // extracted bundle back to "idle" — text stays "" during auto-extract.
+  const autoExtracted = useRef(false);
   const [targetVaultIds, setTargetVaultIds] = useState<string[]>([defaultVaultId]);
   const [text, setText] = useState("");
   const [addTag, setAddTag] = useState("");
@@ -223,7 +230,7 @@ export function ImportTab() {
 
   const parse = useCallback((raw: string) => {
     const trimmed = raw.trim();
-    if (!trimmed) { setStatus({ type: "idle" }); return; }
+    if (!trimmed) { if (!autoExtracted.current) setStatus({ type: "idle" }); return; }
     setStatus({ type: "parsing" });
     try {
       const result = parseImport(trimmed);
@@ -240,8 +247,31 @@ export function ImportTab() {
 
   useEffect(() => { parse(text); }, [text, parse]);
 
+  useEffect(() => {
+    autoExtracted.current = false;
+    setStatus({ type: "idle" });
+    setText("");
+    setImportResult(null);
+  }, [selectedSource]);
+
+  useEffect(() => {
+    if (autoTrigger && source.autoExtract && !didAutoTrigger.current) {
+      didAutoTrigger.current = true;
+      void handleAutoExtract();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (autoTrigger && status.type === "ready" && step === 1 && writableVaults.length <= 1) {
+      setSearch("");
+      setStep(2);
+    }
+  }, [autoTrigger, status.type, step, writableVaults.length]);
+
   const handleAutoExtract = useCallback(async () => {
     if (!source.autoExtract) return;
+    autoExtracted.current = true;
     setExtracting(true);
     setImportResult(null);
     setStatus({ type: "parsing" });

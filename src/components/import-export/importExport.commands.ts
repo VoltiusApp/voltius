@@ -1,7 +1,20 @@
 import type { OmniCommand } from "@/plugins/api";
 import { useUIStore } from "@/stores/uiStore";
+import { IMPORTERS } from "@/services/import-export/importers";
 
 const open = useUIStore.getState;
+
+const importerCommands: OmniCommand[] = IMPORTERS.map(importer => ({
+  id: `import-export:import-${importer.key}`,
+  label: `Import from ${importer.label}${importer.autoExtract ? "" : "…"}`,
+  icon: importer.icon,
+  keywords: ["import", importer.key, importer.label.toLowerCase(), "sessions", "hosts", "connections"],
+  section: "Import / Export",
+  execute: () => open().openImportExport("import", {
+    source: importer.key,
+    autoTrigger: !!importer.autoExtract,
+  }),
+}));
 
 export const commands: OmniCommand[] = [
   // ── Vault export ───────────────────────────────────────────────────────────
@@ -54,14 +67,7 @@ export const commands: OmniCommand[] = [
     execute: () => open().openImportExport("export", { preselectedTypes: ["portForwardingRules"] }),
   },
   // ── Vault import ───────────────────────────────────────────────────────────
-  {
-    id: "import-export:import",
-    label: "Import into vault…",
-    icon: "lucide:download",
-    keywords: ["import", "upload", "json", "csv", "restore", "hosts", "connections"],
-    section: "Import / Export",
-    execute: () => open().openImportExport("import"),
-  },
+  ...importerCommands,
   // ── User data ──────────────────────────────────────────────────────────────
   {
     id: "import-export:export-themes",

@@ -16,15 +16,17 @@ export function ImportExportModal() {
 
   const [activeSection, setActiveSection] = useState<"vaults" | "user-data">(state?.section ?? "vaults");
   const [activeMode, setActiveMode] = useState<"export" | "import">(state?.mode ?? "export");
-  const prevOpen = useRef(false);
+  const lastNonce = useRef<number | undefined>(undefined);
 
+  // Re-apply section/mode on every open invocation (identified by nonce), so
+  // opening for a specific source while the modal is already open still works.
   useEffect(() => {
-    if (state?.open && !prevOpen.current) {
+    if (state?.open && state.nonce !== lastNonce.current) {
+      lastNonce.current = state.nonce;
       setActiveSection(state.section ?? "vaults");
       setActiveMode(state.mode ?? "export");
     }
-    prevOpen.current = !!state?.open;
-  }, [state?.open, state?.mode, state?.section]);
+  }, [state?.open, state?.nonce, state?.mode, state?.section]);
 
   useEffect(() => {
     if (state?.open && activeSection === "vaults") void reloadAll(reloaders);
@@ -104,7 +106,7 @@ export function ImportExportModal() {
                 preselectedTypes={state.preselectedTypes}
               />
             ) : (
-              <ImportTab />
+              <ImportTab key={state.nonce} defaultSource={state.source} autoTrigger={state.autoTrigger} />
             )
           ) : (
             activeMode === "export" ? <UserDataExportTab /> : <UserDataImportTab onClose={close} />
