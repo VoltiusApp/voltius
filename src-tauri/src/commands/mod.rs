@@ -11,6 +11,7 @@ pub mod keys;
 pub mod known_hosts;
 pub mod local;
 pub mod metrics;
+pub mod mobaxterm;
 pub mod ping;
 pub mod plugin_registry;
 pub mod plugin_storage;

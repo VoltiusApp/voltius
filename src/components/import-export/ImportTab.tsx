@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
 import LogoSvg from "/logo.svg?react";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
@@ -35,7 +34,6 @@ export function ImportTab() {
   const [decryptPassword, setDecryptPassword] = useState("");
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
-  const [mobaDetected, setMobaDetected] = useState<string | null>(null);
   const [extracting, setExtracting] = useState(false);
 
   const source = IMPORTERS.find(i => i.key === selectedSource)!;
@@ -94,14 +92,6 @@ export function ImportTab() {
   }, [existingConnections, storeSlices.keys, storeSlices.identities, storeSlices.snippets, storeSlices.pfRules, skipDupes, targetVaultIds]);
 
   useEffect(() => { parse(text); }, [text, skipDupes, parse]);
-
-  useEffect(() => {
-    if (selectedSource !== "mobaxterm") return;
-    setMobaDetected(null);
-    invoke<string | null>("read_mobaxterm_config")
-      .then(content => setMobaDetected(content ?? null))
-      .catch(() => {});
-  }, [selectedSource]);
 
   const handleAutoExtract = useCallback(async () => {
     if (!source.autoExtract) return;
@@ -220,24 +210,6 @@ export function ImportTab() {
         )}
       </div>
 
-      {selectedSource === "mobaxterm" && mobaDetected && !text.trim() && (
-        <div
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg"
-          style={{ background: "color-mix(in srgb, var(--t-accent) 10%, transparent)", border: "1px solid color-mix(in srgb, var(--t-accent) 35%, transparent)" }}
-        >
-          <Icon icon="lucide:circle-check" width={15} style={{ color: "var(--t-accent)", flexShrink: 0 }} />
-          <span className="text-sm flex-1" style={{ color: "var(--t-text-primary)" }}>MobaXterm installation detected</span>
-          <button
-            onClick={() => setText(mobaDetected)}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium shrink-0 transition-opacity hover:opacity-80"
-            style={{ background: "var(--t-accent)", color: "#fff" }}
-          >
-            <Icon icon="lucide:download" width={12} />
-            Import now
-          </button>
-        </div>
-      )}
-
       {source.autoExtract && !text.trim() && status.type !== "ready" && (
         <div
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg"
@@ -245,7 +217,7 @@ export function ImportTab() {
         >
           <Icon icon="lucide:database" width={15} style={{ color: "var(--t-accent)", flexShrink: 0 }} />
           <span className="text-sm flex-1" style={{ color: "var(--t-text-primary)" }}>
-            Read and decrypt the local {source.label} database
+            Read and decrypt the local {source.label} install
           </span>
           <button
             onClick={handleAutoExtract}

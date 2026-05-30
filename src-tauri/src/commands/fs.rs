@@ -101,22 +101,6 @@ pub fn fs_write_text_home(path: String, content: String) -> Result<(), String> {
     std::fs::write(resolved, content).map_err(|e| e.to_string())
 }
 
-/// Read %APPDATA%\MobaXterm\MobaXterm.ini if it exists (Windows only).
-/// Returns None on non-Windows platforms or when the file is absent.
-#[tauri::command]
-pub fn read_mobaxterm_config() -> Option<String> {
-    #[cfg(target_os = "windows")]
-    {
-        let appdata = std::env::var("APPDATA").ok()?;
-        let path = std::path::Path::new(&appdata)
-            .join("MobaXterm")
-            .join("MobaXterm.ini");
-        std::fs::read_to_string(path).ok()
-    }
-    #[cfg(not(target_os = "windows"))]
-    None
-}
-
 /// Returns Some(is_dir) if path exists, None if it doesn't.
 #[tauri::command]
 pub fn fs_stat(path: String) -> Result<Option<bool>, String> {

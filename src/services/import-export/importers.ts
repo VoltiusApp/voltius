@@ -1,7 +1,7 @@
 import { fromJSON, detectFormat } from "./formats";
 import type { ConnectionExport, ExportBundle } from "./formats";
 import { connectionsFromCSV } from "./parsers/csv";
-import { connectionsFromMobaXterm } from "./parsers/mobaxterm";
+import { connectionsFromMobaXterm, extractMobaXtermBundle } from "./parsers/mobaxterm";
 import { bundleFromTermius, extractTermiusBundle } from "./parsers/termius";
 
 export interface Importer {
@@ -46,11 +46,12 @@ export const IMPORTERS: Importer[] = [
     key: "mobaxterm",
     label: "MobaXterm",
     icon: "custom:mobaxterm",
-    sub: ".ini · .mxtsessions · .mobaconf",
+    sub: "Local install · auto-decrypt",
     fileAccept: ".ini,.mxtsessions,.mobaconf,.txt",
-    hint: "SSH keys are not included in MobaXterm exports — add them manually in Voltius and link them after importing.",
+    hint: "Reads and decrypts the local MobaXterm install directly — sessions and passwords, no master password needed (Windows only). You can also drop a MobaXterm.ini / .mxtsessions file (sessions only; passwords stay in the registry). SSH keys are not included — add them in Voltius and link them after importing.",
     placeholder: "Drop MobaXterm.ini here, or paste its contents…",
     parse: (text) => connectionsOnlyBundle(connectionsFromMobaXterm(text)),
+    autoExtract: extractMobaXtermBundle,
   },
   {
     key: "termius",
