@@ -9,7 +9,8 @@ import type { ExportBundle } from "@/services/import-export/formats";
 import { HANDLERS, buildBundle } from "@/services/import-export/registry";
 import { useStoreSlices } from "./useStores";
 import type { SelectionProps } from "@/services/import-export/context";
-import { ActionBtn, Checkbox, Radio, VaultChipSelect } from "./shared";
+import { ActionBtn, Checkbox, VaultChipSelect } from "./shared";
+import { Toggle } from "@/components/shared/Toggle";
 
 export function ExportTab({ singleConnectionId, singleKeyId, singleIdentityId, connectionIds, keyIds, identityIds, preselectedTypes }: {
   singleConnectionId?: string; singleKeyId?: string; singleIdentityId?: string;
@@ -121,15 +122,21 @@ export function ExportTab({ singleConnectionId, singleKeyId, singleIdentityId, c
           <div className="flex flex-col gap-2.5">
             {HANDLERS.map(h => {
               if (!h.isActive(selection)) return null;
-              const count = h.countAvailable(stores, exportVaultIds);
+              const available = h.countAvailable(stores, exportVaultIds);
+              const bundled = bundleCounts[h.key];
+              const displayCount = bundled !== undefined ? bundled : available;
               const disabled = h.jsonOnly && isCsvOnly;
               return (
-                <Checkbox
-                  key={h.key}
-                  checked={included[h.key] && !disabled}
-                  onChange={v => !disabled && toggle(h.key, v)}
-                  label={h.checkboxLabel(selection, count)}
-                />
+                <div key={h.key} className="flex items-center gap-2">
+                  <Checkbox
+                    checked={included[h.key] && !disabled}
+                    onChange={v => !disabled && toggle(h.key, v)}
+                    label={h.checkboxLabel(selection, displayCount)}
+                  />
+                  {bundled !== undefined && bundled !== available && (
+                    <span className="text-xs text-[var(--t-text-muted)]">/ {available}</span>
+                  )}
+                </div>
               );
             })}
             {isBulk && !isSingleItem && (
@@ -145,18 +152,38 @@ export function ExportTab({ singleConnectionId, singleKeyId, singleIdentityId, c
 
         <div className="flex-1">
           <p className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">Format</p>
-          <div className="flex flex-col gap-3">
-            <Radio checked={format === "json"} onChange={() => setFormat("json")} label="JSON" sub="Full data including key content" />
-            {!singleKeyId && !singleIdentityId && (
-              <Radio checked={format === "csv"} onChange={() => setFormat("csv")} label="CSV" sub="Connections only — spreadsheet-friendly" />
+          <div className="flex flex-col gap-2">
+            {!singleKeyId && !singleIdentityId ? (
+              <div className="flex gap-0.5 p-0.5 rounded-lg w-fit" style={{ background: "var(--t-bg-input)", border: "1px solid var(--t-border)" }}>
+                {(["json", "csv"] as const).map(f => (
+                  <button key={f} onClick={() => setFormat(f)}
+                    className="px-4 py-1 rounded-md text-sm font-medium transition-colors"
+                    style={{
+                      background: format === f ? "var(--t-bg-elevated)" : "transparent",
+                      color: format === f ? "var(--t-text-bright)" : "var(--t-text-muted)",
+                      border: `1px solid ${format === f ? "var(--t-border-hover)" : "transparent"}`,
+                    }}
+                  >
+                    {f.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <span className="text-sm font-medium text-[var(--t-text-primary)]">JSON</span>
             )}
+            <p className="text-xs text-[var(--t-text-dim)]">
+              {format === "csv" ? "Connections only — spreadsheet-friendly" : "Full data including key content"}
+            </p>
           </div>
         </div>
       </div>
 
       {format === "json" && (
         <div className="flex flex-col gap-2">
-          <Checkbox checked={encrypt} onChange={v => { setEncrypt(v); if (!v) { setEncryptPassword(""); setEncryptConfirm(""); } }} label="Encrypt backup" />
+          <div className="flex items-center gap-2.5">
+            <Toggle checked={encrypt} onChange={v => { setEncrypt(v); if (!v) { setEncryptPassword(""); setEncryptConfirm(""); } }} />
+            <span className="text-sm text-[var(--t-text-primary)]">Encrypt backup</span>
+          </div>
           {encrypt && (
             <div className="flex flex-col gap-2 ml-6">
               <div className="flex gap-2">

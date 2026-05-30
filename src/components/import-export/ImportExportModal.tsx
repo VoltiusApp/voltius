@@ -76,7 +76,7 @@ export function ImportExportModal() {
         </div>
 
         <div className="flex gap-1 px-6 pt-3 pb-0 shrink-0">
-          {(["export", "import"] as const).map(mode => (
+          {(["import", "export"] as const).map(mode => (
             <button key={mode} onClick={() => setActiveMode(mode)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-sm font-medium transition-colors"
               style={{
