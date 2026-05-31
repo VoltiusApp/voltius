@@ -2,16 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useAutosave } from "@/hooks/useAutosave";
 import { getSecret } from "@/services/vault";
-import { generateSshKeypair } from "@/services/keys";
 import {
   PanelShell, PanelHeader, FormSection,
   formInputClass, formInputStyle, formLabelClass, formLabelStyle,
 } from "@/components/shared/Panel";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
-import { Pills, type PillOption } from "@/components/shared/Pills";
-import { InfoTooltip } from "@/components/shared/InfoTooltip";
-import { useRipple } from "@/hooks/useRipple";
 import { useKeyStore } from "@/stores/keyStore";
 import { useTeamStore } from "@/stores/teamStore";
 import {
@@ -29,243 +25,13 @@ import { VaultPicker } from "@/components/shared/VaultPicker";
 import type { SshKey, SshKeyFormData } from "@/types";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
+import { detectKeyInfo } from "./keyDetection";
+import { KeyFileDropZone } from "./KeyFileDropZone";
+import { KeyGenFields } from "./KeyGenFields";
 
-// ─────────────────────────────────────────────────────────────────
-// Key detection
-// ─────────────────────────────────────────────────────────────────
-
-export const PUB_TYPE_MAP: Record<string, string> = {
-  "ssh-ed25519": "ED25519",
-  "ssh-rsa": "RSA",
-  "ecdsa-sha2-nistp256": "ECDSA P-256",
-  "ecdsa-sha2-nistp384": "ECDSA P-384",
-  "ecdsa-sha2-nistp521": "ECDSA P-521",
-  "ssh-dss": "DSA",
-};
-
-export function detectKeyInfo(
-  privateKey: string,
-  publicKey: string,
-): { type: string | null; valid: boolean; error?: string } {
-  const pk = privateKey.trim();
-  if (!pk) return { type: null, valid: true };
-
-  const pemTypes: [string, string, string][] = [
-    ["-----BEGIN RSA PRIVATE KEY-----", "-----END RSA PRIVATE KEY-----", "RSA"],
-    ["-----BEGIN EC PRIVATE KEY-----", "-----END EC PRIVATE KEY-----", "ECDSA"],
-    ["-----BEGIN DSA PRIVATE KEY-----", "-----END DSA PRIVATE KEY-----", "DSA"],
-    ["-----BEGIN PRIVATE KEY-----", "-----END PRIVATE KEY-----", "PKCS8"],
-  ];
-  for (const [header, footer, type] of pemTypes) {
-    if (pk.startsWith(header)) {
-      return { type, valid: pk.includes(footer) };
-    }
-  }
-
-  if (pk.startsWith("-----BEGIN OPENSSH PRIVATE KEY-----")) {
-    if (!pk.includes("-----END OPENSSH PRIVATE KEY-----")) {
-      return { type: null, valid: false, error: "Incomplete key" };
-    }
-
-    const pub = publicKey.trim();
-    for (const [prefix, type] of Object.entries(PUB_TYPE_MAP)) {
-      if (pub.startsWith(prefix)) return { type, valid: true };
-    }
-
-    try {
-      const b64 = pk
-        .replace("-----BEGIN OPENSSH PRIVATE KEY-----", "")
-        .replace("-----END OPENSSH PRIVATE KEY-----", "")
-        .replace(/\s/g, "");
-      const bin = atob(b64);
-
-      const magic = "openssh-key-v1\0";
-      if (!bin.startsWith(magic)) return { type: "OpenSSH", valid: true };
-
-      const u32 = (p: number) =>
-        (((bin.charCodeAt(p) << 24) | (bin.charCodeAt(p + 1) << 16) |
-          (bin.charCodeAt(p + 2) << 8) | bin.charCodeAt(p + 3)) >>> 0);
-      const skipStr = (p: number) => p + 4 + u32(p);
-
-      let pos = magic.length;
-      pos = skipStr(pos); // cipher
-      pos = skipStr(pos); // kdf
-      pos = skipStr(pos); // kdf options
-      pos += 4;           // num keys
-
-      pos += 4;           // skip pubkey block length
-      const typeLen = u32(pos);
-      pos += 4;
-      const keyType = bin.slice(pos, pos + typeLen);
-
-      return { type: PUB_TYPE_MAP[keyType] ?? keyType, valid: true };
-    } catch {
-      return { type: "OpenSSH", valid: true };
-    }
-  }
-
-  return { type: null, valid: false, error: "Unrecognized key format" };
-}
-
-// ─────────────────────────────────────────────────────────────────
-// KeyFileDropZone
-// ─────────────────────────────────────────────────────────────────
-
-export function KeyFileDropZone({
-  onPrivateKey,
-  onPublicKey,
-}: {
-  onPrivateKey: (v: string) => void;
-  onPublicKey: (v: string) => void;
-}) {
-  const [dragging, setDragging] = useState(false);
-  const [status, setStatus] = useState<"idle" | "ok" | "err">("idle");
-  const counterRef = useRef(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const handleFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = (e.target?.result as string) ?? "";
-      const isPublic =
-        file.name.endsWith(".pub") ||
-        /^(ssh-|ecdsa-|sk-)/.test(text.trimStart());
-      if (isPublic) {
-        onPublicKey(text.trim());
-      } else {
-        onPrivateKey(text.trim());
-      }
-      setStatus("ok");
-      setTimeout(() => setStatus("idle"), 2000);
-    };
-    reader.onerror = () => {
-      setStatus("err");
-      setTimeout(() => setStatus("idle"), 2000);
-    };
-    reader.readAsText(file);
-  };
-
-  const onDragEnter = (e: React.DragEvent) => {
-    e.preventDefault();
-    counterRef.current += 1;
-    setDragging(true);
-  };
-  const onDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    counterRef.current -= 1;
-    if (counterRef.current === 0) setDragging(false);
-  };
-  const onDragOver = (e: React.DragEvent) => e.preventDefault();
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    counterRef.current = 0;
-    setDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
-  };
-
-  const borderColor = dragging
-    ? "var(--t-accent)"
-    : status === "ok"
-    ? "var(--t-status-connected)"
-    : status === "err"
-    ? "var(--t-status-error)"
-    : "var(--t-border)";
-
-  const bgColor = dragging
-    ? "color-mix(in srgb, var(--t-accent) 8%, transparent)"
-    : "transparent";
-
-  const iconColor = dragging
-    ? "var(--t-accent)"
-    : status === "ok"
-    ? "var(--t-status-connected)"
-    : status === "err"
-    ? "var(--t-status-error)"
-    : "var(--t-text-dim)";
-
-  return (
-    <div
-      className="m-3 flex flex-col items-center justify-center gap-2 rounded-lg py-5 transition-all duration-150"
-      style={{
-        border: `1.5px dashed ${borderColor}`,
-        background: bgColor,
-        cursor: "pointer",
-      }}
-      onClick={() => inputRef.current?.click()}
-      onDragEnter={onDragEnter}
-      onDragLeave={onDragLeave}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-    >
-      <input
-        ref={inputRef}
-        type="file"
-        className="hidden"
-        accept=".pem,.key,.pub,.ppk,*"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}
-      />
-      <Icon
-        icon={
-          status === "ok"
-            ? "lucide:check-circle"
-            : status === "err"
-            ? "lucide:x-circle"
-            : dragging
-            ? "lucide:file-down"
-            : "lucide:import"
-        }
-        width={22}
-        style={{ color: iconColor, transition: "color 0.15s" }}
-      />
-      <p className="text-xs text-center" style={{ color: iconColor, transition: "color 0.15s" }}>
-        {status === "ok"
-          ? "Key file loaded"
-          : status === "err"
-          ? "Could not read file"
-          : dragging
-          ? "Drop to load key file"
-          : "Drop a key file here"}
-      </p>
-      {status === "idle" && (
-        <p className="text-xs text-[var(--t-text-muted)]">
-          .pem, .key, .pub or any SSH key file
-        </p>
-      )}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────
-// Generate-mode config
-// ─────────────────────────────────────────────────────────────────
-
-type KeyType = "ed25519" | "ecdsa" | "rsa";
-type EcdsaCurve = "256" | "384" | "521";
-type RsaBits = "2048" | "4096";
-type CipherOption = "aes256-ctr" | "aes256-gcm";
-
-const CIPHER_OPTIONS: PillOption<CipherOption>[] = [
-  { value: "aes256-ctr", label: "AES-256-CTR" },
-  { value: "aes256-gcm", label: "AES-256-GCM" },
-];
-
-const KEY_TYPE_OPTIONS: PillOption<KeyType>[] = [
-  { value: "ed25519", label: "ED25519" },
-  { value: "ecdsa", label: "ECDSA" },
-  { value: "rsa", label: "RSA" },
-];
-
-const ECDSA_CURVES: PillOption<EcdsaCurve>[] = [
-  { value: "256", label: "P-256" },
-  { value: "384", label: "P-384" },
-  { value: "521", label: "P-521" },
-];
-
-const RSA_BITS: PillOption<RsaBits>[] = [
-  { value: "2048", label: "2048" },
-  { value: "4096", label: "4096" },
-];
+// Re-exported for back-compat (IdentityForm imports KeyFileDropZone from here).
+export { KeyFileDropZone } from "./KeyFileDropZone";
+export { detectKeyInfo, PUB_TYPE_MAP } from "./keyDetection";
 
 type KeyFormMode = "import" | "generate";
 
@@ -329,28 +95,18 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
   const [vaultId, setVaultId] = useState<string>(() => initial?.vault_id ?? defaultVaultId);
   const isNew = !initial;
   const [mode, setMode] = useState<KeyFormMode>(initial ? "import" : (initialMode ?? "import"));
+  const keyInfo = useMemo(() => detectKeyInfo(privateKey, publicKey), [privateKey, publicKey]);
+  const privateKeyDirty = useRef(false);
+  const publicKeyDirty = useRef(false);
+  const passphraseDirty = useRef(false);
+  const { folders, loadFolders, saveFolder } = useFolderStore();
 
-  // Generate-mode state
-  const [keyType, setKeyType] = useState<KeyType>("ed25519");
-  const [curve, setCurve] = useState<EcdsaCurve>("256");
-  const [rsaBits, setRsaBits] = useState<RsaBits>("4096");
-  const [savePassphrase, setSavePassphrase] = useState(true);
-  const [cipher, setCipher] = useState<CipherOption>("aes256-ctr");
-  const [rounds, setRounds] = useState(100);
-  const [generating, setGenerating] = useState(false);
-  const [genError, setGenError] = useState<string | null>(null);
-  const { createRipple: rippleGenerate, rippleEls: ripplesGenerate } = useRipple();
   const vaultPickerTouched = useRef(false);
   useEffect(() => {
     if (isNew && !vaultPickerTouched.current) {
       setVaultId(defaultVaultId);
     }
   }, [isNew, defaultVaultId]);
-  const keyInfo = useMemo(() => detectKeyInfo(privateKey, publicKey), [privateKey, publicKey]);
-  const privateKeyDirty = useRef(false);
-  const publicKeyDirty = useRef(false);
-  const passphraseDirty = useRef(false);
-  const { folders, loadFolders, saveFolder } = useFolderStore();
 
   useEffect(() => {
     if (!initial) return;
@@ -396,34 +152,17 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
 
   const handleClose = () => flushAndClose(onClose);
 
-  const handleGenerate = async () => {
-    setGenerating(true);
-    setGenError(null);
-    try {
-      const result = await generateSshKeypair({
-        keyType,
-        curve: keyType === "ecdsa" ? curve : undefined,
-        bits: keyType === "rsa" ? parseInt(rsaBits) : undefined,
-        passphrase: passphrase || undefined,
-        cipher: passphrase ? cipher : undefined,
-        rounds: passphrase ? rounds : undefined,
-      });
-      markDirty();
-      privateKeyDirty.current = true;
-      publicKeyDirty.current = true;
-      passphraseDirty.current = true;
-      setPrivateKey(result.private_key);
-      setPublicKey(result.public_key);
-      // The key is already encrypted with the passphrase; only retain it in the
-      // form (and thus persist it) when the user opted to save it.
-      if (!(passphrase && savePassphrase)) setPassphrase("");
-      // Reveal the generated material in the import view; autosave persists it.
-      setMode("import");
-    } catch (err) {
-      setGenError(String(err));
-    } finally {
-      setGenerating(false);
-    }
+  // Generated material flows in here; reveal it in the import view and let
+  // autosave persist it like any other key.
+  const handleGenerated = (priv: string, pub: string, pass: string) => {
+    markDirty();
+    privateKeyDirty.current = true;
+    publicKeyDirty.current = true;
+    passphraseDirty.current = true;
+    setPrivateKey(priv);
+    setPublicKey(pub);
+    setPassphrase(pass);
+    setMode("import");
   };
 
   return (
@@ -499,183 +238,94 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
           </div>
         </FormSection>
 
-        {isNew && <ModeToggle mode={mode} onChange={(m) => { setGenError(null); setMode(m); }} />}
+        {isNew && <ModeToggle mode={mode} onChange={setMode} />}
 
-        {mode === "import" && (<>
-        <FormSection label="Key Material">
-          <div>
-            <label className={formLabelClass} style={formLabelStyle}>
-              Private Key <span className="text-[var(--t-accent)]">*</span>
-            </label>
-            <textarea
-              className={`${formInputClass} font-mono text-xs h-32 resize-none`}
-              style={formInputStyle}
-              value={privateKey}
-              onChange={(e) => { markDirty(); privateKeyDirty.current = true; setPrivateKey(e.target.value); }}
-              placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..."
-            />
-            {privateKey.trim() && (
-              <div className="flex items-center gap-1.5 mt-1.5">
-                {keyInfo.valid && keyInfo.type ? (
-                  <>
-                    <Icon icon="lucide:check-circle" width={12} className="text-[var(--t-status-connected)]" />
-                    <span className="text-xs text-[var(--t-status-connected)]">
-                      {keyInfo.type}
-                    </span>
-                  </>
-                ) : keyInfo.valid ? (
-                  <>
-                    <Icon icon="lucide:help-circle" width={12} className="text-[var(--t-text-dim)]" />
-                    <span className="text-xs text-[var(--t-text-dim)]">Unknown type</span>
-                  </>
-                ) : (
-                  <>
-                    <Icon icon="lucide:x-circle" width={12} className="text-[var(--t-status-error)]" />
-                    <span className="text-xs text-[var(--t-status-error)]">
-                      {keyInfo.error ?? "Invalid key"}
-                    </span>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-          <div>
-            <label className={formLabelClass} style={formLabelStyle}>
-              Passphrase <span className="text-[var(--t-text-dim)] font-normal">(optional)</span>
-            </label>
-            <div className="relative">
-              <input
-                type={showPassphrase ? "text" : "password"}
-                className={`${formInputClass} pr-9`}
+        {mode === "generate" ? (
+          <KeyGenFields onGenerated={handleGenerated} />
+        ) : (<>
+          <FormSection label="Key Material">
+            <div>
+              <label className={formLabelClass} style={formLabelStyle}>
+                Private Key <span className="text-[var(--t-accent)]">*</span>
+              </label>
+              <textarea
+                className={`${formInputClass} font-mono text-xs h-32 resize-none`}
                 style={formInputStyle}
-                value={passphrase}
-                onChange={(e) => { markDirty(); passphraseDirty.current = true; setPassphrase(e.target.value); }}
-                placeholder="Key passphrase"
-                autoComplete="new-password"
+                value={privateKey}
+                onChange={(e) => { markDirty(); privateKeyDirty.current = true; setPrivateKey(e.target.value); }}
+                placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..."
               />
-              <button
-                type="button"
-                onClick={() => setShowPassphrase((v) => !v)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-[var(--t-text-dim)]"
-                onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
-                tabIndex={-1}
-              >
-                <Icon icon={showPassphrase ? "lucide:eye-off" : "lucide:eye"} width={14} />
-              </button>
-            </div>
-          </div>
-          <div>
-            <label className={formLabelClass} style={formLabelStyle}>
-              Public Key <span className="text-[var(--t-text-dim)] font-normal">(optional)</span>
-            </label>
-            <textarea
-              className={`${formInputClass} font-mono text-xs h-20 resize-none`}
-              style={formInputStyle}
-              value={publicKey}
-              onChange={(e) => { markDirty(); publicKeyDirty.current = true; setPublicKey(e.target.value); }}
-              placeholder="ssh-ed25519 AAAA..."
-            />
-          </div>
-        </FormSection>
-
-        <FormSection label="Import from File">
-          <KeyFileDropZone
-            onPrivateKey={(v) => { markDirty(); privateKeyDirty.current = true; setPrivateKey(v); }}
-            onPublicKey={(v) => { markDirty(); publicKeyDirty.current = true; setPublicKey(v); }}
-          />
-        </FormSection>
-        </>)}
-
-        {mode === "generate" && (<>
-        <FormSection label="Key Type">
-          <Pills<KeyType> options={KEY_TYPE_OPTIONS} value={keyType} onChange={setKeyType} />
-
-          {keyType === "ecdsa" && (
-            <div>
-              <label className={formLabelClass} style={formLabelStyle}>Elliptic curve</label>
-              <Pills<EcdsaCurve> options={ECDSA_CURVES} value={curve} onChange={setCurve} />
-            </div>
-          )}
-
-          {keyType === "rsa" && (
-            <div>
-              <label className={formLabelClass} style={formLabelStyle}>Key size (bits)</label>
-              <Pills<RsaBits> options={RSA_BITS} value={rsaBits} onChange={setRsaBits} />
-            </div>
-          )}
-        </FormSection>
-
-        <FormSection label="Passphrase">
-          <div className="relative">
-            <input
-              type={showPassphrase ? "text" : "password"}
-              className={`${formInputClass} pr-9`}
-              style={formInputStyle}
-              value={passphrase}
-              onChange={(e) => setPassphrase(e.target.value)}
-              placeholder="Optional passphrase"
-              autoComplete="new-password"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassphrase((v) => !v)}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-[var(--t-text-dim)]"
-              onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
-              tabIndex={-1}
-            >
-              <Icon icon={showPassphrase ? "lucide:eye-off" : "lucide:eye"} width={14} />
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between py-1">
-            <span className="text-xs text-[var(--t-text-dim)]">Save passphrase</span>
-            <button
-              type="button"
-              onClick={() => setSavePassphrase((v) => !v)}
-              className="w-9 h-5 rounded-full transition-colors relative border border-[var(--t-border)]"
-              style={{ background: savePassphrase ? "var(--t-accent)" : "var(--t-bg-elevated)" }}
-            >
-              <span
-                className="absolute top-0.5 w-3.5 h-3.5 rounded-full transition-all bg-white"
-                style={{ left: savePassphrase ? "calc(100% - 18px)" : "2px" }}
-              />
-            </button>
-          </div>
-
-          {passphrase && (
-            <>
-              <div>
-                <label className={formLabelClass} style={formLabelStyle}>Cipher</label>
-                <Pills<CipherOption> options={CIPHER_OPTIONS} value={cipher} onChange={setCipher} />
-              </div>
-
-              <div>
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <label className={formLabelClass} style={{ ...formLabelStyle, marginBottom: 0 }}>Rounds</label>
-                  <InfoTooltip text="Number of bcrypt-pbkdf iterations used to derive the encryption key from your passphrase. Higher values slow down brute-force attacks at the cost of slightly slower key loading. OpenSSH default is 16; 100 is a good balance." width={18} />
+              {privateKey.trim() && (
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  {keyInfo.valid && keyInfo.type ? (
+                    <>
+                      <Icon icon="lucide:check-circle" width={12} className="text-[var(--t-status-connected)]" />
+                      <span className="text-xs text-[var(--t-status-connected)]">
+                        {keyInfo.type}
+                      </span>
+                    </>
+                  ) : keyInfo.valid ? (
+                    <>
+                      <Icon icon="lucide:help-circle" width={12} className="text-[var(--t-text-dim)]" />
+                      <span className="text-xs text-[var(--t-text-dim)]">Unknown type</span>
+                    </>
+                  ) : (
+                    <>
+                      <Icon icon="lucide:x-circle" width={12} className="text-[var(--t-status-error)]" />
+                      <span className="text-xs text-[var(--t-status-error)]">
+                        {keyInfo.error ?? "Invalid key"}
+                      </span>
+                    </>
+                  )}
                 </div>
+              )}
+            </div>
+            <div>
+              <label className={formLabelClass} style={formLabelStyle}>
+                Passphrase <span className="text-[var(--t-text-dim)] font-normal">(optional)</span>
+              </label>
+              <div className="relative">
                 <input
-                  type="number"
-                  min={1}
-                  max={10000}
-                  className={formInputClass}
+                  type={showPassphrase ? "text" : "password"}
+                  className={`${formInputClass} pr-9`}
                   style={formInputStyle}
-                  value={rounds}
-                  onChange={(e) => setRounds(Math.max(1, parseInt(e.target.value) || 1))}
+                  value={passphrase}
+                  onChange={(e) => { markDirty(); passphraseDirty.current = true; setPassphrase(e.target.value); }}
+                  placeholder="Key passphrase"
+                  autoComplete="new-password"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassphrase((v) => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-[var(--t-text-dim)]"
+                  onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
+                  tabIndex={-1}
+                >
+                  <Icon icon={showPassphrase ? "lucide:eye-off" : "lucide:eye"} width={14} />
+                </button>
               </div>
-            </>
-          )}
-        </FormSection>
+            </div>
+            <div>
+              <label className={formLabelClass} style={formLabelStyle}>
+                Public Key <span className="text-[var(--t-text-dim)] font-normal">(optional)</span>
+              </label>
+              <textarea
+                className={`${formInputClass} font-mono text-xs h-20 resize-none`}
+                style={formInputStyle}
+                value={publicKey}
+                onChange={(e) => { markDirty(); publicKeyDirty.current = true; setPublicKey(e.target.value); }}
+                placeholder="ssh-ed25519 AAAA..."
+              />
+            </div>
+          </FormSection>
 
-        {genError && (
-          <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs bg-[#2D1515] border border-[#5C2020] text-[#F87171]">
-            <Icon icon="lucide:alert-circle" width={13} />
-            <span className="flex-1">{genError}</span>
-          </div>
-        )}
+          <FormSection label="Import from File">
+            <KeyFileDropZone
+              onPrivateKey={(v) => { markDirty(); privateKeyDirty.current = true; setPrivateKey(v); }}
+              onPublicKey={(v) => { markDirty(); publicKeyDirty.current = true; setPublicKey(v); }}
+            />
+          </FormSection>
         </>)}
 
         {initial && onExport && (
@@ -703,35 +353,6 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
           </div>
         )}
       </div>
-
-      {mode === "generate" && (
-        <div className="px-4 py-3 shrink-0">
-          <button
-            onClick={handleGenerate}
-            onMouseDown={generating ? undefined : rippleGenerate}
-            disabled={generating}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors relative overflow-hidden"
-            style={{
-              background: generating ? "var(--t-bg-elevated)" : "var(--t-accent)",
-              color: generating ? "var(--t-text-dim)" : "var(--t-bg-base)",
-              cursor: generating ? "not-allowed" : "pointer",
-            }}
-          >
-            {ripplesGenerate}
-            {generating ? (
-              <>
-                <Icon icon="lucide:loader-2" width={15} className="animate-spin" />
-                Generating…
-              </>
-            ) : (
-              <>
-                <Icon icon="lucide:sparkles" width={15} />
-                Generate
-              </>
-            )}
-          </button>
-        </div>
-      )}
     </PanelShell>
   );
 }
