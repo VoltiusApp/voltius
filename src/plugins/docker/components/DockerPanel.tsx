@@ -137,6 +137,7 @@ export function DockerPanel() {
                 connectionName: `exec: ${containerName}`,
                 status: "connecting" as const,
                 type: "ssh" as const,
+                containerExec: { kind: "docker" as const, containerId, parentSessionId: sessionId },
               },
             ],
             activeSessionId: execSessionId,

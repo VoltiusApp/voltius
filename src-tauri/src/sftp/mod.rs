@@ -1,5 +1,8 @@
+pub mod docker_fs;
+
 use crate::known_hosts::KnownHostsStore;
 use crate::ssh::client::{authenticate_handle, JumpHostConnect, SshClient};
+use docker_fs::DockerFs;
 use russh::client::Handle;
 use russh_sftp::client::SftpSession;
 use serde::Serialize;
@@ -37,8 +40,16 @@ fn emit_step(app: &AppHandle, connect_id: &str, step: SftpStep, detail: impl Int
     );
 }
 
+/// The transport behind an `sftpId`. Most sessions speak real SFTP; container
+/// sessions whose image lacks an sftp-server binary use a `docker exec` shim.
+#[derive(Clone)]
+pub enum SftpBackend {
+    Real(Arc<Mutex<SftpSession>>),
+    Docker(DockerFs),
+}
+
 struct SftpEntry {
-    sftp: Arc<Mutex<SftpSession>>,
+    backend: SftpBackend,
     handle: Arc<Handle<SshClient>>,
     cancel: CancellationToken,
     _jump_handles: Vec<Arc<Handle<SshClient>>>,
@@ -58,6 +69,53 @@ impl SftpManager {
         }
     }
 
+    /// Open SFTP by exec-ing an sftp-server command on the remote host (e.g. `docker exec -i <id> sftp-server`).
+    pub async fn open_exec(&self, handle: Arc<Handle<SshClient>>, cmd: &str) -> Result<String, String> {
+        let channel = handle
+            .channel_open_session()
+            .await
+            .map_err(|e| format!("Channel error: {e}"))?;
+        channel
+            .exec(true, cmd)
+            .await
+            .map_err(|e| format!("Exec error: {e}"))?;
+        let sftp = SftpSession::new(channel.into_stream())
+            .await
+            .map_err(|e| format!("SFTP session error: {e}"))?;
+        let id = Uuid::new_v4().to_string();
+        self.sessions.lock().await.insert(
+            id.clone(),
+            SftpEntry {
+                backend: SftpBackend::Real(Arc::new(Mutex::new(sftp))),
+                handle,
+                cancel: CancellationToken::new(),
+                _jump_handles: vec![],
+            },
+        );
+        Ok(id)
+    }
+
+    /// Register a `docker exec`-based filesystem backend for a container that has
+    /// no sftp-server binary. `handle` is the host SSH connection.
+    pub async fn open_docker(
+        &self,
+        handle: Arc<Handle<SshClient>>,
+        container_id: String,
+    ) -> Result<String, String> {
+        let fs = DockerFs::new(Arc::clone(&handle), container_id);
+        let id = Uuid::new_v4().to_string();
+        self.sessions.lock().await.insert(
+            id.clone(),
+            SftpEntry {
+                backend: SftpBackend::Docker(fs),
+                handle,
+                cancel: CancellationToken::new(),
+                _jump_handles: vec![],
+            },
+        );
+        Ok(id)
+    }
+
     pub async fn open(&self, handle: Arc<Handle<SshClient>>) -> Result<String, String> {
         let channel = handle
             .channel_open_session()
@@ -74,7 +132,7 @@ impl SftpManager {
         self.sessions.lock().await.insert(
             id.clone(),
             SftpEntry {
-                sftp: Arc::new(Mutex::new(sftp)),
+                backend: SftpBackend::Real(Arc::new(Mutex::new(sftp))),
                 handle,
                 cancel: CancellationToken::new(),
                 _jump_handles: vec![],
@@ -257,7 +315,7 @@ impl SftpManager {
         self.sessions.lock().await.insert(
             id.clone(),
             SftpEntry {
-                sftp: Arc::clone(&sftp_arc),
+                backend: SftpBackend::Real(Arc::clone(&sftp_arc)),
                 handle: Arc::clone(&handle),
                 cancel: cancel.clone(),
                 _jump_handles: jump_handles,
@@ -295,19 +353,27 @@ impl SftpManager {
         Ok(id)
     }
 
+    /// Fetch the real SFTP session for an id. Returns None for docker-exec
+    /// backends (callers that need docker should use `backend`).
     pub async fn get(&self, id: &str) -> Option<Arc<Mutex<SftpSession>>> {
-        self.sessions
-            .lock()
-            .await
-            .get(id)
-            .map(|e| Arc::clone(&e.sftp))
+        self.sessions.lock().await.get(id).and_then(|e| match &e.backend {
+            SftpBackend::Real(s) => Some(Arc::clone(s)),
+            SftpBackend::Docker(_) => None,
+        })
+    }
+
+    /// Fetch the backend (real SFTP or docker-exec) for an id.
+    pub async fn backend(&self, id: &str) -> Option<SftpBackend> {
+        self.sessions.lock().await.get(id).map(|e| e.backend.clone())
     }
 
     pub async fn close(&self, id: &str) {
         let entry = self.sessions.lock().await.remove(id);
         if let Some(e) = entry {
             e.cancel.cancel();
-            let _ = e.sftp.lock().await.close().await;
+            if let SftpBackend::Real(s) = &e.backend {
+                let _ = s.lock().await.close().await;
+            }
         }
     }
 

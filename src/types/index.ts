@@ -187,6 +187,9 @@ export interface TerminalSession {
   encoding?: string;
   localShell?: string;
   serialConfig?: SerialConnectParams;
+  containerExec?:
+    | { kind: "docker"; containerId: string; parentSessionId: string }
+    | { kind: "lxc"; vmid: number; parentSessionId: string };
 }
 
 /** A vault option for context menu move/copy actions. id is the stored team ID or "personal". */

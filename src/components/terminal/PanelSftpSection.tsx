@@ -186,8 +186,14 @@ export default function PanelSftpSection() {
       <div className="flex items-center gap-1 px-2 py-1.5 shrink-0 border-b border-b-[var(--t-border)]">
         <HeaderBtn
           icon={isReady && panelState.followCwd ? "lucide:link" : "lucide:link-2-off"}
-          title={isReady && panelState.followCwd ? "Following terminal cwd · click to unpin" : "Follow terminal cwd"}
-          active={isReady && panelState.followCwd}
+          title={
+            isReady && panelState.followCwd
+              ? terminalCwd
+                ? "Following terminal cwd · click to unpin"
+                : "Following terminal cwd · waiting for shell to report cwd (requires shell integration)"
+              : "Follow terminal cwd"
+          }
+          active={isReady && panelState.followCwd && !!terminalCwd}
           disabled={!isReady}
           onClick={toggleFollow}
         />
