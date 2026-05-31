@@ -9,6 +9,7 @@ import { BUNDLED_PLUGINS } from "@/plugins/bundled";
 import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
 import { setPluginActive, getLoadedPlugins, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
 import type { PluginManifest, PluginConfigField } from "@/plugins/api";
+import { DirtyDot, ResetButton } from "./shared";
 
 // ─── Auto-generated settings form ─────────────────────────────────────────
 
@@ -59,55 +60,84 @@ function PluginConfigForm({ manifest }: { manifest: PluginManifest }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="max-w-lg rounded-lg divide-y divide-[var(--t-border)] bg-[var(--t-bg-elevated)] border border-[var(--t-border)]">
       {keys.map((key) => {
         const field: PluginConfigField = config[key];
         const value = values[key] ?? field.default;
         const isSaving = saving[key] ?? false;
+        const isDirty = field.default !== undefined && value !== field.default;
+
+        if (field.type === "string") {
+          return (
+            <div key={key} className="group px-4 py-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-[var(--t-text-primary)]">{field.label ?? humanizeKey(key)}</p>
+                  {field.description && <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">{field.description}</p>}
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0 ml-4">
+                  {isDirty && <ResetButton onReset={() => void save(key, field.default)} />}
+                  {isDirty && <DirtyDot />}
+                  {isSaving && <Icon icon="lucide:loader" width={13} className="animate-spin text-[var(--t-text-muted)]" />}
+                </div>
+              </div>
+              <input
+                type={field.secret ? "password" : "text"}
+                value={String(value ?? "")}
+                onChange={(e) => void save(key, e.target.value)}
+                className="w-full px-3 py-1.5 rounded-lg text-sm outline-none transition-colors bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)]"
+                onFocus={(e) => { e.currentTarget.style.borderColor = "var(--t-accent)"; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; }}
+              />
+            </div>
+          );
+        }
 
         return (
-          <div key={key} className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-[var(--t-text-primary)]">{field.label ?? humanizeKey(key)}</label>
-              {isSaving && <Icon icon="lucide:loader" width={13} className="animate-spin text-[var(--t-text-muted)]" />}
+          <div key={key} className="group flex items-center justify-between px-4 py-3 gap-4">
+            <div>
+              <p className="text-sm font-medium text-[var(--t-text-primary)]">{field.label ?? humanizeKey(key)}</p>
+              {field.description && <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">{field.description}</p>}
             </div>
-            <p className="text-xs text-[var(--t-text-dim)]">{field.description}</p>
-
-            {field.type === "boolean" && (
-              <Toggle checked={!!value} onChange={(v) => void save(key, v)} />
-            )}
-
-            {(field.type === "string" || field.type === "number") && (
-              <input
-                type={field.secret ? "password" : field.type === "number" ? "number" : "text"}
-                value={String(value ?? "")}
-                min={field.type === "number" ? field.min : undefined}
-                max={field.type === "number" ? field.max : undefined}
-                onChange={(e) => {
-                  if (field.type === "number") {
+            <div className="flex items-center gap-2 shrink-0">
+              {isDirty && <ResetButton onReset={() => void save(key, field.default)} />}
+              {isDirty && <DirtyDot />}
+              {isSaving && <Icon icon="lucide:loader" width={13} className="animate-spin text-[var(--t-text-muted)]" />}
+              {field.type === "boolean" && (
+                <Toggle checked={!!value} onChange={(v) => void save(key, v)} />
+              )}
+              {field.type === "number" && (
+                <input
+                  type="number"
+                  value={String(value ?? "")}
+                  min={field.min}
+                  max={field.max}
+                  onChange={(e) => {
                     let n = Number(e.target.value);
                     if (field.min !== undefined) n = Math.max(field.min, n);
                     if (field.max !== undefined) n = Math.min(field.max, n);
                     void save(key, n);
-                  } else {
-                    void save(key, e.target.value);
-                  }
-                }}
-                className="w-full px-3 py-2 rounded-lg text-sm bg-[var(--t-bg-elevated)] border border-[var(--t-border)] text-[var(--t-text-primary)] focus:outline-none focus:border-[var(--t-accent)]"
-              />
-            )}
-
-            {field.type === "select" && (
-              <select
-                value={String(value ?? "")}
-                onChange={(e) => void save(key, e.target.value)}
-                className="w-full px-3 py-2 rounded-lg text-sm bg-[var(--t-bg-elevated)] border border-[var(--t-border)] text-[var(--t-text-primary)] focus:outline-none focus:border-[var(--t-accent)]"
-              >
-                {(field.options ?? []).map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
-            )}
+                  }}
+                  className="w-24 px-2 py-1 rounded-lg text-sm text-right outline-none transition-colors bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)]"
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "var(--t-accent)"; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; }}
+                />
+              )}
+              {field.type === "select" && (
+                <select
+                  value={String(value ?? "")}
+                  onChange={(e) => void save(key, e.target.value)}
+                  className="px-2 py-1 rounded-lg text-sm outline-none transition-colors bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)]"
+                  style={{ minWidth: "8rem" }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "var(--t-accent)"; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; }}
+                >
+                  {(field.options ?? []).map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              )}
+            </div>
           </div>
         );
       })}
