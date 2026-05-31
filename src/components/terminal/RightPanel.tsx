@@ -164,12 +164,10 @@ function PanelContent() {
   ], [pluginSections]);
 
   return (
-    <>
-      {/* Top nav bar */}
-      <div
-        className="flex items-center justify-between px-3 py-2 shrink-0 border-b border-b-[var(--t-border)]"
-      >
-        <div className="flex items-center gap-1">
+    <div className="flex flex-row h-full">
+      {/* Vertical tab rail */}
+      <div className="flex flex-col items-center py-2 gap-1 shrink-0 border-r border-r-[var(--t-border)]" style={{ width: 40 }}>
+        <div className="flex flex-col items-center gap-1 flex-1">
           {allSections.map((s) => {
             const isActive = rightPanelSection === s.id;
             return (
@@ -192,16 +190,17 @@ function PanelContent() {
         </div>
         <button
           onClick={() => toggleRightPanel()}
-          className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors text-[var(--t-text-muted)]"
+          className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-[var(--t-text-muted)]"
           onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
           onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-muted)")}
+          title="Close panel"
         >
           <Icon icon="lucide:x" width={13} />
         </button>
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-w-0 min-h-0 overflow-hidden">
         {rightPanelSection === "snippets" && <SnippetsPanel />}
         {rightPanelSection === "history"  && <HistoryPanel />}
         {rightPanelSection === "themes"   && <ThemesSection />}
@@ -215,7 +214,7 @@ function PanelContent() {
           return <Component />;
         })()}
       </div>
-    </>
+    </div>
   );
 }
 

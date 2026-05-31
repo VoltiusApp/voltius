@@ -6,6 +6,7 @@ mod local;
 mod metrics;
 mod port_forward;
 mod processes;
+mod proxmox;
 mod serial;
 mod sftp;
 mod shell_integration;
@@ -445,6 +446,13 @@ pub fn run() {
             commands::docker::docker_list_stack_services,
             commands::docker::docker_stack_action,
             commands::docker::docker_open_exec_session,
+            commands::proxmox::proxmox_lxc_list,
+            commands::proxmox::proxmox_lxc_action,
+            commands::proxmox::proxmox_lxc_list_snapshots,
+            commands::proxmox::proxmox_lxc_snapshot_create,
+            commands::proxmox::proxmox_lxc_snapshot_rollback,
+            commands::proxmox::proxmox_lxc_snapshot_delete,
+            commands::proxmox::proxmox_lxc_open_shell,
             serial::connect::serial_list_ports,
             serial::connect::serial_connect,
             serial::connect::serial_write,
