@@ -32,7 +32,6 @@ import { Icon } from "@iconify/react";
 import { KeychainToolbar } from "./KeychainToolbar";
 import { KeySection, IdentitySection } from "./KeyCards";
 import { KeyForm } from "./KeyForm";
-import { KeyGenForm } from "./KeyGenForm";
 import { IdentityForm } from "./IdentityForm";
 import { KeyExportPanel, sortByMode } from "./KeyExportPanel";
 import { getSecret, storeSecret, deleteSecret } from "@/services/vault";
@@ -66,7 +65,7 @@ export default function KeychainPage() {
   const keyFormSessionKeyRef = useRef<string>("new-key");
   const identityFormSessionKeyRef = useRef<string>("new-identity");
   const [showKeyForm, setShowKeyForm] = useState(false);
-  const [showKeyGenForm, setShowKeyGenForm] = useState(false);
+  const [keyFormMode, setKeyFormMode] = useState<"import" | "generate">("import");
   const [showIdentityForm, setShowIdentityForm] = useState(false);
   const keyFormVersion = useSyncedFormKey(editingKey?.updated_at, showKeyForm, () => keyFormIsDirtyRef.current);
   const identityFormVersion = useSyncedFormKey(editingIdentity?.updated_at, showIdentityForm, () => identityFormIsDirtyRef.current);
@@ -154,7 +153,7 @@ export default function KeychainPage() {
     [identities, q, sortMode, tagFilter, activeFolderId, scopedFolders, scopedFolderIds, accessibleVaultIds],
   );
 
-  const showPanel = showKeyForm || showKeyGenForm || showIdentityForm || exportingKey !== null;
+  const showPanel = showKeyForm || showIdentityForm || exportingKey !== null;
 
   // Refs for stable onSelect callbacks (avoid re-creating per render)
   const showPanelRef = useRef(showPanel);
@@ -203,7 +202,7 @@ export default function KeychainPage() {
       if (identity) { identityFormSessionKeyRef.current = identity.id; setEditingIdentityId(identity.id); setShowIdentityForm(true); }
     },
     onEscape: () => {
-      if (showPanel) { setShowKeyForm(false); setShowKeyGenForm(false); setShowIdentityForm(false); setExportingKey(null); }
+      if (showPanel) { setShowKeyForm(false); setShowIdentityForm(false); setExportingKey(null); }
       else setSelection([]);
     },
     onSearch: () => setOmniOpen(true),
@@ -382,6 +381,7 @@ export default function KeychainPage() {
     const { action } = keychainPendingAction;
     if (action === "create-key") {
       keyFormSessionKeyRef.current = `new-key-${Date.now()}`;
+      setKeyFormMode("import");
       setEditingKeyId(null);
       setShowKeyForm(true);
     } else if (action === "create-identity") {
@@ -508,25 +508,19 @@ export default function KeychainPage() {
     } catch (err) { setError(String(err)); }
   };
 
-  const openKeyForm = (key: SshKey | null) => {
+  const openKeyForm = (key: SshKey | null, mode: "import" | "generate" = "import") => {
     keyFormIsDirtyRef.current = false;
     keyFormSessionKeyRef.current = key?.id ?? `new-key-${Date.now()}`;
+    setKeyFormMode(key ? "import" : mode);
     setEditingKeyId(key?.id ?? null);
     if (key) selectSingle(key.id);
     setShowKeyForm(true);
-    setShowKeyGenForm(false);
     setShowIdentityForm(false);
     setExportingKey(null);
     setEditingIdentityId(null);
   };
 
-  const openKeyGenForm = () => {
-    setEditingKeyId(null);
-    setShowKeyGenForm(true);
-    setShowKeyForm(false);
-    setShowIdentityForm(false);
-    setEditingIdentityId(null);
-  };
+  const openKeyGenForm = () => openKeyForm(null, "generate");
 
   const openIdentityForm = (identity: Identity | null) => {
     identityFormIsDirtyRef.current = false;
@@ -535,7 +529,6 @@ export default function KeychainPage() {
     if (identity) selectSingle(identity.id);
     setShowIdentityForm(true);
     setShowKeyForm(false);
-    setShowKeyGenForm(false);
     setEditingKeyId(null);
   };
 
@@ -550,7 +543,6 @@ export default function KeychainPage() {
   const openExportPanel = (key: SshKey) => {
     setExportingKey(key);
     setShowKeyForm(false);
-    setShowKeyGenForm(false);
     setShowIdentityForm(false);
     setEditingKeyId(null);
     setEditingIdentityId(null);
@@ -558,33 +550,11 @@ export default function KeychainPage() {
 
   const closePanel = () => {
     setShowKeyForm(false);
-    setShowKeyGenForm(false);
     setShowIdentityForm(false);
     setExportingKey(null);
     setEditingKeyId(null);
     inlineKeyIdRef.current = null;
     setEditingIdentityId(null);
-  };
-
-  const handleGenerateKey = async (
-    privateKey: string,
-    publicKey: string,
-    keyTypeLabel: string,
-    passphrase: string,
-    savePassphrase: boolean,
-    label: string,
-  ) => {
-    try {
-      const key = await saveKey({ name: label || undefined, key_type: keyTypeLabel, tags: [], vault_id: defaultVaultId });
-      await storeSecret(`key:${key.id}:private`, privateKey);
-      if (publicKey) await storeSecret(`key:${key.id}:public`, publicKey);
-      if (passphrase && savePassphrase) await storeSecret(`key:${key.id}:passphrase`, passphrase);
-      setEditingKeyId(key.id);
-      setShowKeyGenForm(false);
-      setShowKeyForm(true);
-    } catch (err) {
-      setError(String(err));
-    }
   };
 
   const handleMoveKeyToVault = async (key: SshKey, vaultId: string) => {
@@ -804,6 +774,7 @@ export default function KeychainPage() {
             <KeyForm
               key={`${keyFormSessionKeyRef.current}-${keyFormVersion}`}
               initial={editingKey ?? undefined}
+              initialMode={keyFormMode}
               onSubmit={handleKeySubmit}
               onClose={closePanel}
               onExport={openExportPanel}
@@ -814,12 +785,6 @@ export default function KeychainPage() {
               canEdit={editingKey ? can("EDIT_KEYS", editingKey.vault_id ?? "personal") : false}
               onMoveToVault={editingKey ? (vaultId) => { void handleMoveKeyToVault(editingKey, vaultId); } : undefined}
               onCopyToVault={editingKey ? (vaultId) => { void handleCopyKeyToVault(editingKey, vaultId); } : undefined}
-            />
-          )}
-          {showKeyGenForm && (
-            <KeyGenForm
-              onGenerate={handleGenerateKey}
-              onClose={closePanel}
             />
           )}
           {showIdentityForm && (
