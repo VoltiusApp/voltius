@@ -148,6 +148,7 @@ export function ProxmoxPanel() {
               connectionName: `pct: ${vmName}`,
               status: "connecting" as const,
               type: "ssh" as const,
+              containerExec: { kind: "lxc" as const, vmid, parentSessionId: sessionId },
             },
           ],
           activeSessionId: execSessionId,

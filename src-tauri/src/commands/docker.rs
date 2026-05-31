@@ -1,7 +1,10 @@
+use russh::client::Handle;
 use russh::ChannelMsg;
 use tauri::{AppHandle, Emitter, State};
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use uuid::Uuid;
+
+use crate::ssh::client::SshClient;
 
 use crate::{
     docker::{
@@ -12,6 +15,7 @@ use crate::{
             DockerStackService, DockerVolume, ImageUpdateStatus, RecreateResult, StackAction,
         },
     },
+    sftp::SftpManager,
     ssh::{
         client::{ConnectedSession, SessionInput},
         session::SessionManager,
@@ -409,7 +413,12 @@ pub async fn docker_open_exec_session(
         .await
         .map_err(|e| format!("PTY error: {e}"))?;
 
-    let cmd = format!("docker exec -it {container_id} sh");
+    // Launch the container shell with OSC 7 cwd reporting injected, so the
+    // SFTP panel's "follow cwd" works inside the container too.
+    let cmd = format!(
+        "docker exec -it {container_id} sh -c '{}'",
+        crate::shell_integration::container_exec_payload()
+    );
     channel
         .exec(false, cmd.as_str())
         .await
@@ -535,4 +544,96 @@ pub async fn docker_stack_action(
     } else {
         local::stack_action(local_shell.as_deref(), &stack_name, &action).await
     }
+}
+
+/// Run a command on the SSH host and capture its stdout (stderr is dropped unless the
+/// command redirects it). Used to probe the container before opening an SFTP session.
+async fn exec_capture(handle: &Handle<SshClient>, cmd: &str) -> Result<String, String> {
+    let channel = handle
+        .channel_open_session()
+        .await
+        .map_err(|e| format!("channel error: {e}"))?;
+    channel
+        .exec(true, cmd)
+        .await
+        .map_err(|e| format!("exec error: {e}"))?;
+    let mut stream = channel.into_stream();
+    let mut out = Vec::new();
+    let mut buf = vec![0u8; 4096];
+    let _ = tokio::time::timeout(std::time::Duration::from_secs(15), async {
+        loop {
+            match stream.read(&mut buf).await {
+                Ok(0) | Err(_) => break,
+                Ok(n) => out.extend_from_slice(&buf[..n]),
+            }
+        }
+    })
+    .await;
+    Ok(String::from_utf8_lossy(&out).to_string())
+}
+
+/// Open an SFTP session rooted inside a Docker container.
+///
+/// Uses nsenter to enter the container's mount namespace directly from the host SSH
+/// connection, bypassing docker exec's I/O multiplexing layer which corrupts the binary
+/// SFTP protocol. Falls back to docker exec if nsenter is unavailable.
+#[tauri::command]
+pub async fn docker_sftp_open(
+    session_manager: State<'_, SessionManager>,
+    sftp_state: State<'_, SftpManager>,
+    session_id: String,
+    container_id: String,
+) -> Result<String, String> {
+    let handle = session_manager.get_handle(&session_id).await?;
+
+    // A "Timeout" from SftpSession::new means the command we exec'd never spoke the SFTP
+    // protocol (no SSH_FXP_VERSION on stdout). The two usual causes are: (a) the container
+    // has no sftp-server binary at all, or (b) the chosen entry method (nsenter vs docker
+    // exec) silently failed. Both produce an identical, opaque timeout. So we *probe* first
+    // — discover CPID, whether nsenter is usable, and which sftp-server path exists — then
+    // exec exactly the method we confirmed works, or return a precise error.
+    let paths = "/usr/lib/openssh/sftp-server /usr/lib/ssh/sftp-server /usr/libexec/openssh/sftp-server /usr/sbin/sftp-server /usr/libexec/sftp-server";
+    let find_sftp = format!("for p in {paths}; do [ -x \"$p\" ] && echo \"SFTP=$p\" && break; done");
+    let probe = format!(
+        "CPID=$(docker inspect --format '{{{{.State.Pid}}}}' {cid} 2>/dev/null); \
+         echo \"CPID=$CPID\"; \
+         if [ -n \"$CPID\" ] && nsenter --target \"$CPID\" --mount -- sh -c 'exit 0' 2>/dev/null; then \
+           echo NSENTER=ok; \
+           nsenter --target \"$CPID\" --mount -- sh -c '{find_sftp}' 2>&1; \
+         else \
+           echo NSENTER=no; \
+           docker exec -i {cid} sh -c '{find_sftp}' 2>&1; \
+         fi; \
+         echo PROBE_DONE",
+        cid = container_id,
+    );
+
+    let report = exec_capture(&handle, &probe).await?;
+    let nsenter_ok = report.lines().any(|l| l.trim() == "NSENTER=ok");
+    let sftp_path = report
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("SFTP=").map(str::to_string));
+
+    let sftp_path = match sftp_path {
+        Some(p) => p,
+        None => {
+            // No sftp-server binary in the container (the common case for slim
+            // images). Fall back to the `docker exec` filesystem shim, which needs
+            // only docker access — no binary, no nsenter, no root.
+            return sftp_state.open_docker(handle, container_id).await;
+        }
+    };
+
+    // Run the confirmed method directly (no fallback loop needed — we already know what works).
+    let cmd = if nsenter_ok {
+        format!(
+            "CPID=$(docker inspect --format '{{{{.State.Pid}}}}' {cid} 2>/dev/null); \
+             exec nsenter --target \"$CPID\" --mount -- {path}",
+            cid = container_id,
+            path = sftp_path,
+        )
+    } else {
+        format!("exec docker exec -i {cid} {path}", cid = container_id, path = sftp_path)
+    };
+    sftp_state.open_exec(handle, &cmd).await
 }

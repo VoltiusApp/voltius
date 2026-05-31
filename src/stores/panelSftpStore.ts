@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { invoke } from "@tauri-apps/api/core";
 import { sftpConnect, sftpClose, sftpCanonicalize, fsHomeDir } from "@/services/sftp";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
 import { genId } from "@/components/filetransfer/SFTPTypes";
@@ -54,6 +55,28 @@ export const usePanelSftpStore = create<PanelSftpStore>((set, get) => ({
 
       if (session.type !== "ssh") {
         set((s) => ({ sessions: { ...s.sessions, [session.id]: { tag: "error", message: "SFTP not supported for this session type" } } }));
+        return;
+      }
+
+      // Container exec sessions (docker exec / pct enter): run sftp-server inside the container.
+      if (session.containerExec) {
+        const { kind, parentSessionId } = session.containerExec;
+        let sftpId: string;
+        if (kind === "docker") {
+          sftpId = await invoke<string>("docker_sftp_open", {
+            sessionId: parentSessionId,
+            containerId: session.containerExec.containerId,
+          });
+        } else {
+          sftpId = await invoke<string>("proxmox_lxc_sftp_open", {
+            sessionId: parentSessionId,
+            vmid: session.containerExec.vmid,
+          });
+        }
+        const cwd = await sftpCanonicalize(sftpId, ".");
+        set((s) => ({
+          sessions: { ...s.sessions, [session.id]: { tag: "connected", sftpId, isLocal: false, cwd, followCwd: true } },
+        }));
         return;
       }
 

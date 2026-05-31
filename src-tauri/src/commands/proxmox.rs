@@ -8,6 +8,7 @@ use crate::{
         remote,
         types::{LxcAction, LxcContainer, LxcSnapshot},
     },
+    sftp::SftpManager,
     ssh::{
         client::{ConnectedSession, SessionInput},
         session::SessionManager,
@@ -138,7 +139,12 @@ pub async fn proxmox_lxc_open_shell(
         .await
         .map_err(|e| format!("PTY error: {e}"))?;
 
-    let cmd = format!("pct enter {vmid}");
+    // Use `pct exec … -- sh -c` (instead of `pct enter`) so we can inject OSC 7
+    // cwd reporting into the LXC shell, enabling the SFTP panel's "follow cwd".
+    let cmd = format!(
+        "pct exec {vmid} -- sh -c '{}'",
+        crate::shell_integration::container_exec_payload()
+    );
     channel
         .exec(false, cmd.as_str())
         .await
@@ -201,4 +207,20 @@ pub async fn proxmox_lxc_open_shell(
         .await;
 
     Ok(new_session_id)
+}
+
+/// Open an SFTP session rooted inside an LXC container by exec-ing sftp-server via pct.
+#[tauri::command]
+pub async fn proxmox_lxc_sftp_open(
+    session_manager: State<'_, SessionManager>,
+    sftp_state: State<'_, SftpManager>,
+    session_id: String,
+    vmid: u32,
+) -> Result<String, String> {
+    let handle = session_manager.get_handle(&session_id).await?;
+    let cmd = format!(
+        "pct exec {} -- sh -c 'for p in /usr/lib/openssh/sftp-server /usr/lib/ssh/sftp-server /usr/libexec/openssh/sftp-server /usr/sbin/sftp-server; do [ -x \"$p\" ] && exec \"$p\"; done; exit 127'",
+        vmid
+    );
+    sftp_state.open_exec(handle, &cmd).await
 }

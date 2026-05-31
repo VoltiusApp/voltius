@@ -1,10 +1,11 @@
 use crate::known_hosts::KnownHostsStore;
-use crate::sftp::SftpManager;
+use crate::sftp::{SftpBackend, SftpManager};
 use crate::ssh::client::JumpHostConnect;
 use crate::ssh::session::SessionManager;
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::OpenFlags;
 use serde::Serialize;
+use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
@@ -42,6 +43,13 @@ fn get_session<'a>(
             .await
             .ok_or_else(|| format!("SFTP session '{}' not found", sftp_id))
     }
+}
+
+async fn get_backend(manager: &SftpManager, sftp_id: &str) -> Result<SftpBackend, String> {
+    manager
+        .backend(sftp_id)
+        .await
+        .ok_or_else(|| format!("SFTP session '{}' not found", sftp_id))
 }
 
 // ── Session lifecycle ─────────────────────────────────────────────────────────
@@ -112,7 +120,10 @@ pub async fn sftp_stat(
     sftp_id: String,
     path: String,
 ) -> Result<Option<bool>, String> {
-    let session = get_session(&sftp_state, &sftp_id).await?;
+    let session = match get_backend(&sftp_state, &sftp_id).await? {
+        SftpBackend::Docker(d) => return d.stat(&path).await,
+        SftpBackend::Real(s) => s,
+    };
     let sftp = session.lock().await;
     match sftp.metadata(&path).await {
         Ok(meta) => Ok(Some(meta.is_dir())),
@@ -128,7 +139,10 @@ pub async fn sftp_list_dir(
     sftp_id: String,
     path: String,
 ) -> Result<Vec<RemoteFile>, String> {
-    let session = get_session(&sftp_state, &sftp_id).await?;
+    let session = match get_backend(&sftp_state, &sftp_id).await? {
+        SftpBackend::Docker(d) => return d.list_dir(&path).await,
+        SftpBackend::Real(s) => s,
+    };
     let sftp = session.lock().await;
     let entries = sftp
         .read_dir(&path)
@@ -165,7 +179,10 @@ pub async fn sftp_canonicalize(
     sftp_id: String,
     path: String,
 ) -> Result<String, String> {
-    let session = get_session(&sftp_state, &sftp_id).await?;
+    let session = match get_backend(&sftp_state, &sftp_id).await? {
+        SftpBackend::Docker(d) => return d.canonicalize(&path).await,
+        SftpBackend::Real(s) => s,
+    };
     let sftp = session.lock().await;
     sftp.canonicalize(&path)
         .await
@@ -178,7 +195,10 @@ pub async fn sftp_mkdir(
     sftp_id: String,
     path: String,
 ) -> Result<(), String> {
-    let session = get_session(&sftp_state, &sftp_id).await?;
+    let session = match get_backend(&sftp_state, &sftp_id).await? {
+        SftpBackend::Docker(d) => return d.mkdir(&path).await,
+        SftpBackend::Real(s) => s,
+    };
     let sftp = session.lock().await;
     sftp.create_dir(&path)
         .await
@@ -191,7 +211,10 @@ pub async fn sftp_touch(
     sftp_id: String,
     path: String,
 ) -> Result<(), String> {
-    let session = get_session(&sftp_state, &sftp_id).await?;
+    let session = match get_backend(&sftp_state, &sftp_id).await? {
+        SftpBackend::Docker(d) => return d.touch(&path).await,
+        SftpBackend::Real(s) => s,
+    };
     let sftp = session.lock().await;
     // Open with create + write flags to create an empty file if it doesn't exist
     let flags = OpenFlags::CREATE | OpenFlags::WRITE | OpenFlags::TRUNCATE;
@@ -208,7 +231,10 @@ pub async fn sftp_rename(
     from: String,
     to: String,
 ) -> Result<(), String> {
-    let session = get_session(&sftp_state, &sftp_id).await?;
+    let session = match get_backend(&sftp_state, &sftp_id).await? {
+        SftpBackend::Docker(d) => return d.rename(&from, &to).await,
+        SftpBackend::Real(s) => s,
+    };
     let sftp = session.lock().await;
     sftp.rename(&from, &to)
         .await
@@ -221,9 +247,53 @@ pub async fn sftp_delete(
     sftp_id: String,
     path: String,
 ) -> Result<(), String> {
-    let escaped = path.replace('\'', "'\\''");
-    let cmd = format!("rm -rf '{}' ; echo __TF_EXIT__:$?", escaped);
-    sftp_state.exec_command(&sftp_id, &cmd).await
+    let session = match get_backend(&sftp_state, &sftp_id).await? {
+        SftpBackend::Docker(d) => return d.delete(&path).await,
+        SftpBackend::Real(s) => s,
+    };
+    sftp_remove_recursive(session, path).await
+}
+
+fn sftp_remove_recursive(
+    session: Arc<Mutex<SftpSession>>,
+    path: String,
+) -> Pin<Box<dyn Future<Output = Result<(), String>> + Send>> {
+    Box::pin(async move {
+        let is_dir = {
+            let sftp = session.lock().await;
+            // Use symlink_metadata so symlinks to directories are deleted as files.
+            match sftp.symlink_metadata(&path).await {
+                Ok(meta) => meta.is_dir(),
+                Err(_) => false,
+            }
+        };
+
+        if is_dir {
+            let entries: Vec<String> = {
+                let sftp = session.lock().await;
+                sftp.read_dir(&path)
+                    .await
+                    .map_err(|e| format!("read_dir failed: {e}"))?
+                    .map(|e| e.file_name())
+                    .collect()
+            };
+            for name in entries {
+                let child = format!("{}/{}", path.trim_end_matches('/'), name);
+                sftp_remove_recursive(Arc::clone(&session), child).await?;
+            }
+            let sftp = session.lock().await;
+            sftp.remove_dir(&path)
+                .await
+                .map_err(|e| format!("remove_dir failed: {e}"))?;
+        } else {
+            let sftp = session.lock().await;
+            sftp.remove_file(&path)
+                .await
+                .map_err(|e| format!("remove_file failed: {e}"))?;
+        }
+
+        Ok(())
+    })
 }
 
 // ── Single file transfer ──────────────────────────────────────────────────────
@@ -237,18 +307,16 @@ pub async fn sftp_upload(
     remote_path: String,
     transfer_id: String,
 ) -> Result<(), String> {
-    let session = get_session(&sftp_state, &sftp_id).await?;
     let token = sftp_state.register_transfer(&transfer_id).await;
-
-    let result = sftp_upload_inner(
-        &app,
-        session,
-        &local_path,
-        &remote_path,
-        &transfer_id,
-        &token,
-    )
-    .await;
+    let result = match get_backend(&sftp_state, &sftp_id).await {
+        Ok(SftpBackend::Docker(d)) => {
+            d.upload_file(&app, &local_path, &remote_path, &transfer_id, &token).await
+        }
+        Ok(SftpBackend::Real(session)) => {
+            sftp_upload_inner(&app, session, &local_path, &remote_path, &transfer_id, &token).await
+        }
+        Err(e) => Err(e),
+    };
     sftp_state.finish_transfer(&transfer_id).await;
     result
 }
@@ -315,18 +383,16 @@ pub async fn sftp_download(
     local_path: String,
     transfer_id: String,
 ) -> Result<(), String> {
-    let session = get_session(&sftp_state, &sftp_id).await?;
     let token = sftp_state.register_transfer(&transfer_id).await;
-
-    let result = sftp_download_inner(
-        &app,
-        session,
-        &remote_path,
-        &local_path,
-        &transfer_id,
-        &token,
-    )
-    .await;
+    let result = match get_backend(&sftp_state, &sftp_id).await {
+        Ok(SftpBackend::Docker(d)) => {
+            d.download_file(&app, &remote_path, &local_path, &transfer_id, &token).await
+        }
+        Ok(SftpBackend::Real(session)) => {
+            sftp_download_inner(&app, session, &remote_path, &local_path, &transfer_id, &token).await
+        }
+        Err(e) => Err(e),
+    };
     sftp_state.finish_transfer(&transfer_id).await;
     result
 }
@@ -396,8 +462,19 @@ pub async fn sftp_upload_dir(
     remote_path: String,
     transfer_id: String,
 ) -> Result<(), String> {
-    let session = get_session(&sftp_state, &sftp_id).await?;
     let token = sftp_state.register_transfer(&transfer_id).await;
+    let session = match get_backend(&sftp_state, &sftp_id).await {
+        Ok(SftpBackend::Docker(d)) => {
+            let r = d.upload_dir(&app, &local_path, &remote_path, &transfer_id, &token).await;
+            sftp_state.finish_transfer(&transfer_id).await;
+            return r;
+        }
+        Ok(SftpBackend::Real(s)) => s,
+        Err(e) => {
+            sftp_state.finish_transfer(&transfer_id).await;
+            return Err(e);
+        }
+    };
     let local_base = PathBuf::from(&local_path);
 
     // Collect all files and their sizes
@@ -498,8 +575,19 @@ pub async fn sftp_download_dir(
     local_path: String,
     transfer_id: String,
 ) -> Result<(), String> {
-    let session = get_session(&sftp_state, &sftp_id).await?;
     let token = sftp_state.register_transfer(&transfer_id).await;
+    let session = match get_backend(&sftp_state, &sftp_id).await {
+        Ok(SftpBackend::Docker(d)) => {
+            let r = d.download_dir(&app, &remote_path, &local_path, &transfer_id, &token).await;
+            sftp_state.finish_transfer(&transfer_id).await;
+            return r;
+        }
+        Ok(SftpBackend::Real(s)) => s,
+        Err(e) => {
+            sftp_state.finish_transfer(&transfer_id).await;
+            return Err(e);
+        }
+    };
 
     // Collect remote files recursively
     let remote_entries: Vec<(String, String, u64)> = {
@@ -937,8 +1025,19 @@ pub async fn sftp_upload_batch_tar(
     if local_paths.is_empty() {
         return Ok(());
     }
-    let session = get_session(&sftp_state, &sftp_id).await?;
     let token = sftp_state.register_transfer(&transfer_id).await;
+    let session = match get_backend(&sftp_state, &sftp_id).await {
+        Ok(SftpBackend::Docker(d)) => {
+            let r = d.upload_batch(&app, &local_paths, &remote_dir, &transfer_id, &token).await;
+            sftp_state.finish_transfer(&transfer_id).await;
+            return r;
+        }
+        Ok(SftpBackend::Real(s)) => s,
+        Err(e) => {
+            sftp_state.finish_transfer(&transfer_id).await;
+            return Err(e);
+        }
+    };
 
     let result = async {
         let archive_name = temp_archive_name(&transfer_id);
@@ -1002,8 +1101,19 @@ pub async fn sftp_download_batch_tar(
     if remote_paths.is_empty() {
         return Ok(());
     }
-    let session = get_session(&sftp_state, &sftp_id).await?;
     let token = sftp_state.register_transfer(&transfer_id).await;
+    let session = match get_backend(&sftp_state, &sftp_id).await {
+        Ok(SftpBackend::Docker(d)) => {
+            let r = d.download_batch(&app, &remote_paths, &local_dir, &transfer_id, &token).await;
+            sftp_state.finish_transfer(&transfer_id).await;
+            return r;
+        }
+        Ok(SftpBackend::Real(s)) => s,
+        Err(e) => {
+            sftp_state.finish_transfer(&transfer_id).await;
+            return Err(e);
+        }
+    };
 
     let result = async {
         let archive_name = temp_archive_name(&transfer_id);
@@ -1153,8 +1263,19 @@ pub async fn sftp_upload_dir_tar(
     remote_path: String,
     transfer_id: String,
 ) -> Result<(), String> {
-    let session = get_session(&sftp_state, &sftp_id).await?;
     let token = sftp_state.register_transfer(&transfer_id).await;
+    let session = match get_backend(&sftp_state, &sftp_id).await {
+        Ok(SftpBackend::Docker(d)) => {
+            let r = d.upload_dir(&app, &local_path, &remote_path, &transfer_id, &token).await;
+            sftp_state.finish_transfer(&transfer_id).await;
+            return r;
+        }
+        Ok(SftpBackend::Real(s)) => s,
+        Err(e) => {
+            sftp_state.finish_transfer(&transfer_id).await;
+            return Err(e);
+        }
+    };
 
     let result = async {
         let archive_name = temp_archive_name(&transfer_id);
@@ -1212,8 +1333,19 @@ pub async fn sftp_download_dir_tar(
     local_path: String,
     transfer_id: String,
 ) -> Result<(), String> {
-    let session = get_session(&sftp_state, &sftp_id).await?;
     let token = sftp_state.register_transfer(&transfer_id).await;
+    let session = match get_backend(&sftp_state, &sftp_id).await {
+        Ok(SftpBackend::Docker(d)) => {
+            let r = d.download_dir(&app, &remote_path, &local_path, &transfer_id, &token).await;
+            sftp_state.finish_transfer(&transfer_id).await;
+            return r;
+        }
+        Ok(SftpBackend::Real(s)) => s,
+        Err(e) => {
+            sftp_state.finish_transfer(&transfer_id).await;
+            return Err(e);
+        }
+    };
 
     let result = async {
         let archive_name = temp_archive_name(&transfer_id);

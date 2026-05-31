@@ -220,6 +220,52 @@ fn encode_wrapper(script: &str) -> String {
     format!("echo {encoded} | base64 -d | sh")
 }
 
+/// Container wrapper (docker exec / pct exec). Like SSH_WRAPPER, but:
+///   - It must survive minimal images: bash often isn't present, so the
+///     fallback is a POSIX `sh` whose `$ENV` startup file hooks OSC 7 into PS1
+///     via command substitution (`$(__voltius_pwd)` re-runs every prompt and
+///     emits the sequence — portable across dash and busybox ash).
+///   - No `</dev/tty` is needed: it's run via `eval "$(… | base64 -d)"`, so the
+///     wrapping shell keeps the container TTY on stdin and `exec sh -i`
+///     inherits it directly (no pipe to escape from).
+const CONTAINER_WRAPPER: &str = r#"if command -v bash >/dev/null 2>&1; then
+  RC=$(mktemp 2>/dev/null || echo /tmp/.voltius_rc)
+  cat > "$RC" <<'EOF'
+[ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"
+__voltius_pwd() { printf '\033]7;file://%s%s\007' "${HOSTNAME:-}" "$PWD"; }
+case ";${PROMPT_COMMAND-};" in
+  *";__voltius_pwd;"*) ;;
+  *) PROMPT_COMMAND="__voltius_pwd${PROMPT_COMMAND:+;${PROMPT_COMMAND}}" ;;
+esac
+__voltius_pwd 2>/dev/null
+EOF
+  exec bash --rcfile "$RC" -i
+else
+  ENVF=$(mktemp 2>/dev/null || echo /tmp/.voltius_env)
+  cat > "$ENVF" <<'EOF'
+__voltius_pwd() { printf '\033]7;file://%s%s\007' "${HOSTNAME:-}" "$PWD"; }
+PROMPT_COMMAND="__voltius_pwd"
+PS1='$(__voltius_pwd)'"${PS1:-$ }"
+EOF
+  ENV="$ENVF" exec sh -i
+fi
+"#;
+
+/// Build the argument for `sh -c '<…>'` inside a container (the caller prefixes
+/// `docker exec -it <cid>` or `pct exec <vmid> --`). Base64-decodes the wrapper
+/// and `eval`s it (keeping the container TTY on stdin); if `base64` is missing,
+/// falls back to a plain interactive shell so the session still opens.
+pub fn container_exec_payload() -> String {
+    use base64::engine::general_purpose;
+    use base64::Engine;
+    let encoded = general_purpose::STANDARD.encode(CONTAINER_WRAPPER);
+    // Single-quote-free (only double quotes + base64 alphabet) so the caller can
+    // safely wrap the whole thing in single quotes for the host shell.
+    format!(
+        "if command -v base64 >/dev/null 2>&1; then eval \"$(printf %s \"{encoded}\" | base64 -d)\"; else exec sh -i; fi"
+    )
+}
+
 /// WSL flavor: same structure as SSH_WRAPPER but the printf format embeds
 /// the distro into the OSC 7 path. The frontend recognizes the
 /// `wsl.localhost` host and constructs a UNC path Windows can read.
