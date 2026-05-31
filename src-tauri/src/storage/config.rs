@@ -17,9 +17,16 @@ fn default_ssh() -> String {
 pub struct JumpHost {
     pub id: String,
     pub connection_id: String,
-    pub host: String,
-    pub port: u16,
-    pub username: String,
+    // Snapshot fields, optional. Host/port/username/credentials are resolved
+    // dynamically from `connection_id` at use time; these remain only as a
+    // fallback for deleted connections or jump hosts imported from external
+    // formats that have no managed connection.
+    #[serde(default)]
+    pub host: Option<String>,
+    #[serde(default)]
+    pub port: Option<u16>,
+    #[serde(default)]
+    pub username: Option<String>,
     #[serde(default)]
     pub identity_id: Option<String>,
 }

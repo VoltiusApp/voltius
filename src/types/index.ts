@@ -75,10 +75,15 @@ export interface IdentityFormData {
 
 export interface JumpHost {
   id: string;
+  // Live reference to a managed connection. Host/port/username/credentials are
+  // resolved dynamically from this connection at use time — see resolveJumpHosts.
   connection_id: string;
-  host: string;
-  port: number;
-  username: string;
+  // Snapshot fields, kept only as a fallback when the referenced connection is
+  // missing (deleted) or for jump hosts imported from external formats (e.g.
+  // Termius) that have no managed connection. Not written for managed references.
+  host?: string;
+  port?: number;
+  username?: string;
   identity_id?: string;
 }
 
