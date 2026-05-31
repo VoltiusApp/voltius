@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
 import {
   sftpConnect, sftpClose,
@@ -9,8 +10,10 @@ import {
   sftpUploadBatchTar, sftpDownloadBatchTar, sftpTransferBatchTar,
   sftpTransfer, sftpTransferDir,
   sftpExists, fsExists, fsHomeDir,
+  pickLocalPath, pickLocalPaths,
 } from "@/services/sftp";
 import { hitTestDropTarget, setExternalDragHover, clearExternalDragHover } from "./internalDrag";
+import { triggerUpload } from "./osDropPipeline";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
@@ -302,6 +305,56 @@ export default function SFTPPage() {
     return () => { cancelled = true; unlistenFn?.(); };
   }, [triggerOsDrop]);
 
+  // ── Local-disk upload / download (independent of the cross-pane transfer) ──
+  // Mirrors the SFTP right-panel: "Upload" picks local files into this pane's
+  // cwd, "Download" pulls the selected remote files to a chosen local folder.
+
+  const uploadToSide = useCallback(async (side: "left" | "right") => {
+    const phase = side === "left" ? leftPhase : rightPhase;
+    const host  = side === "left" ? leftHost  : rightHost;
+    if (phase.tag !== "connected") return;
+    const paths = await pickLocalPaths({ title: "Select files to upload" });
+    if (paths.length === 0) return;
+    const items: FileEntry[] = [];
+    for (const path of paths) {
+      try {
+        const isDir = await invoke<boolean | null>("fs_stat", { path });
+        if (isDir === null) continue;
+        const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path;
+        items.push({ name, path, size: 0, isDir });
+      } catch { /* skip */ }
+    }
+    const refresh = side === "left" ? () => setLeftRefresh((n) => n + 1) : () => setRightRefresh((n) => n + 1);
+    await triggerUpload(items, { isLocal: host?.kind === "local", sftpId: phase.sftpId, cwd: phase.cwd, onRefresh: refresh });
+  }, [leftPhase, rightPhase, leftHost, rightHost]);
+
+  const downloadFromSide = useCallback(async (side: "left" | "right", files: FileEntry[]) => {
+    const phase = side === "left" ? leftPhase : rightPhase;
+    const host  = side === "left" ? leftHost  : rightHost;
+    if (phase.tag !== "connected" || host?.kind === "local" || !phase.sftpId || files.length === 0) return;
+    const dstDir = await pickLocalPath({ directory: true, title: "Download to folder" });
+    if (!dstDir) return;
+    const sftpId = phase.sftpId;
+    const base = dstDir.replace(/[\\/]$/, "");
+    const label = files.length === 1 ? files[0].name : `${files.length} items`;
+
+    if (tarTransferEnabled && files.length > 1) {
+      await runTransfer(label, "←", (tid) =>
+        sftpDownloadBatchTar({ sftpId, remotePaths: files.map((f) => f.path), localDir: base, transferId: tid }));
+      return;
+    }
+
+    for (const file of files) {
+      const sep = /\\/.test(base) ? "\\" : "/";
+      const localPath = `${base}${sep}${file.name}`;
+      await runTransfer(file.name, "←", (tid) => file.isDir
+        ? (tarTransferEnabled
+            ? sftpDownloadDirTar({ sftpId, remotePath: file.path, localPath, transferId: tid })
+            : sftpDownloadDir({ sftpId, remotePath: file.path, localPath, transferId: tid }))
+        : sftpDownload({ sftpId, remotePath: file.path, localPath, transferId: tid }));
+    }
+  }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer, tarTransferEnabled]);
+
   // ── Derived state ──────────────────────────────────────────────────────────
 
   const { connectLocalAt, connectAt } = useSessionStore();
@@ -338,6 +391,9 @@ export default function SFTPPage() {
             onTransferToTarget={(files) => void triggerTransfer(files, "left")}
             canTransferToTarget={rightPhase.tag === "connected"}
             onOpenInTerminal={makeOpenInTerminal(leftHost)}
+            selected={leftSelected}
+            onUpload={() => void uploadToSide("left")}
+            onDownloadFiles={leftHost?.kind === "local" ? undefined : (files) => void downloadFromSide("left", files)}
           />
         </div>
 
@@ -361,6 +417,9 @@ export default function SFTPPage() {
             onTransferToTarget={(files) => void triggerTransfer(files, "right")}
             canTransferToTarget={leftPhase.tag === "connected"}
             onOpenInTerminal={makeOpenInTerminal(rightHost)}
+            selected={rightSelected}
+            onUpload={() => void uploadToSide("right")}
+            onDownloadFiles={rightHost?.kind === "local" ? undefined : (files) => void downloadFromSide("right", files)}
           />
         </div>
       </div>

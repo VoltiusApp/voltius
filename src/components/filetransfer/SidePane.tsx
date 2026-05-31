@@ -36,6 +36,7 @@ export function SidePane({
   host, phase, refreshTick,
   onPick, onNavigate, onSelect, onRefresh, onChangeHost, side, onDropFiles,
   onTransferToTarget, canTransferToTarget, onOpenInTerminal,
+  selected = [], onUpload, onDownloadFiles,
 }: {
   host: HostChoice | null;
   phase: SidePhase;
@@ -50,6 +51,12 @@ export function SidePane({
   onTransferToTarget?: (files: FileEntry[]) => void;
   canTransferToTarget?: boolean;
   onOpenInTerminal?: (path: string) => void;
+  /** Current selection in this pane (drives the download button's enabled state). */
+  selected?: FileEntry[];
+  /** Pick local files and upload them into this pane's cwd. */
+  onUpload?: () => void;
+  /** Download the given remote files to a chosen local folder (remote panes only). */
+  onDownloadFiles?: (files: FileEntry[]) => void;
 }) {
   const hostLabel =
     host == null ? null
@@ -217,6 +224,19 @@ export function SidePane({
             <NavBtn icon="lucide:arrow-left"  title="Back"    disabled={!histState.canBack}    onClick={goBack} />
             <NavBtn icon="lucide:arrow-right" title="Forward" disabled={!histState.canForward} onClick={goForward} />
             <FilterInput value={filterQuery} onChange={setFilterQuery} placeholder="Filter…" width={128} shortcutId="filter" />
+            {onUpload && (
+              <NavBtn icon="lucide:upload" title="Upload files here" disabled={false} onClick={onUpload} />
+            )}
+            {onDownloadFiles && (
+              <NavBtn
+                icon="lucide:download"
+                title={selected.length > 0
+                  ? `Download ${selected.length === 1 ? `"${selected[0].name}"` : `${selected.length} items`}`
+                  : "Select files to download"}
+                disabled={selected.length === 0}
+                onClick={() => onDownloadFiles(selected)}
+              />
+            )}
             <button
               ref={viewBtnRef}
               title="View options"
@@ -304,6 +324,8 @@ export function SidePane({
             onRegisterMenuOpener={(opener) => setMenuOpener(() => opener)}
             onRegisterViewMenuOpener={(opener) => setViewMenuOpener(() => opener)}
             onOpenInTerminal={onOpenInTerminal}
+            onPanelUpload={onUpload}
+            onPanelDownload={onDownloadFiles}
           />
         )}
       </div>
