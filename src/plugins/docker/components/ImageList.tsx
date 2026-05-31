@@ -1,7 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 import { dockerPruneImages, dockerRemoveImage } from "../services";
-import type { DockerImage } from "../types";
+import type { DockerImage, ImageUpdateStatus } from "../types";
+import { getDockerApi } from "../runtime";
+import { checkableImage, useImageUpdates } from "../useImageUpdates";
+import { pullAndMaybeRecreate } from "../updateActions";
+import { UpdateBadge } from "./UpdateBadge";
 
 function fmtSize(bytes: number): string {
   if (bytes <= 0) return "—";
@@ -30,6 +34,19 @@ export function ImageList({ images, sessionId, isRemote, localShell, onRefresh }
   const [pruning, setPruning] = useState(false);
   const [pruneMsg, setPruneMsg] = useState<string | null>(null);
 
+  const imageRefs = useMemo(() => images.map((i) => i.repo_tags[0] ?? ""), [images]);
+  const { statuses, checking, settings, runChecks, checkAll } = useImageUpdates({
+    images: imageRefs,
+    sessionId,
+    isRemote,
+    localShell,
+  });
+
+  const onUpdated = (tag: string) => {
+    onRefresh();
+    void runChecks([tag], true);
+  };
+
   const prune = async () => {
     setPruning(true);
     setPruneMsg(null);
@@ -44,19 +61,41 @@ export function ImageList({ images, sessionId, isRemote, localShell, onRefresh }
     }
   };
 
+  const outdatedCount = useMemo(
+    () => images.filter((i) => statuses[checkableImage(i.repo_tags[0]) ?? ""]?.status === "outdated").length,
+    [images, statuses],
+  );
+  const isChecking = checking.size > 0;
+
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
       <div className="flex items-center justify-between px-3 py-1 border-b border-[var(--t-border)] shrink-0">
-        <span className="text-[10px] text-[var(--t-text-muted)]">{images.length} images</span>
-        <button
-          onClick={prune}
-          disabled={pruning}
-          className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded text-[var(--t-status-warning)] hover:bg-[var(--t-bg-hover)] disabled:opacity-40"
-        >
-          <Icon icon="lucide:trash" width={10} />
-          {pruning ? "pruning…" : "prune"}
-        </button>
+        <span className="text-[10px] text-[var(--t-text-muted)]">
+          {images.length} images
+          {outdatedCount > 0 && (
+            <span className="ml-1.5 text-[var(--t-status-warning)]">· {outdatedCount} outdated</span>
+          )}
+        </span>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={checkAll}
+            disabled={isChecking}
+            title="Check all images for registry updates"
+            className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded text-[var(--t-text-muted)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] disabled:opacity-40"
+          >
+            <Icon icon="lucide:arrow-up-circle" width={10} className={isChecking ? "animate-pulse" : ""} />
+            {isChecking ? "checking…" : "check updates"}
+          </button>
+          <button
+            onClick={prune}
+            disabled={pruning}
+            className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded text-[var(--t-status-warning)] hover:bg-[var(--t-bg-hover)] disabled:opacity-40"
+          >
+            <Icon icon="lucide:trash" width={10} />
+            {pruning ? "pruning…" : "prune"}
+          </button>
+        </div>
       </div>
 
       {pruneMsg && (
@@ -71,16 +110,23 @@ export function ImageList({ images, sessionId, isRemote, localShell, onRefresh }
             <p className="text-[11px] text-[var(--t-text-muted)]">No images</p>
           </div>
         ) : (
-          images.map((img) => (
-            <ImageRow
-              key={img.id}
-              img={img}
-              sessionId={sessionId}
-              isRemote={isRemote}
-              localShell={localShell}
-              onRefresh={onRefresh}
-            />
-          ))
+          images.map((img) => {
+            const tag = checkableImage(img.repo_tags[0]);
+            return (
+              <ImageRow
+                key={img.id}
+                img={img}
+                sessionId={sessionId}
+                isRemote={isRemote}
+                localShell={localShell}
+                status={tag ? statuses[tag] : undefined}
+                checking={tag ? checking.has(tag) : false}
+                recreateAfterPull={settings?.recreateAfterPull ?? true}
+                onRefresh={onRefresh}
+                onUpdated={onUpdated}
+              />
+            );
+          })
         )}
       </div>
     </div>
@@ -92,15 +138,24 @@ function ImageRow({
   sessionId,
   isRemote,
   localShell,
+  status,
+  checking,
+  recreateAfterPull,
   onRefresh,
+  onUpdated,
 }: {
   img: DockerImage;
   sessionId: string;
   isRemote: boolean;
   localShell: string | null;
+  status: ImageUpdateStatus | undefined;
+  checking: boolean;
+  recreateAfterPull: boolean;
   onRefresh: () => void;
+  onUpdated: (tag: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [pulling, setPulling] = useState(false);
   const tag = img.repo_tags[0] ?? "<none>";
   const [repo, ver] = tag.includes(":") ? tag.split(":") : [tag, ""];
 
@@ -116,12 +171,48 @@ function ImageRow({
     }
   };
 
+  const update = async () => {
+    setPulling(true);
+    try {
+      await pullAndMaybeRecreate({ sessionId, isRemote, localShell, image: tag, recreate: recreateAfterPull });
+      onUpdated(tag);
+    } catch (e) {
+      getDockerApi()?.notifications.toast(`Pull failed: ${e}`, { severity: "error" });
+    } finally {
+      setPulling(false);
+    }
+  };
+
+  const outdated = status?.status === "outdated";
+
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--t-border)] last:border-0 hover:bg-[var(--t-bg-hover)] group">
       <div className="flex-1 min-w-0">
-        <p className="text-[11px] text-[var(--t-text)] truncate">{repo}</p>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <p className="text-[11px] text-[var(--t-text)] truncate">{repo}</p>
+          <UpdateBadge status={status} checking={checking} />
+        </div>
         <p className="text-[10px] text-[var(--t-text-muted)] font-mono">{ver || "latest"}</p>
       </div>
+
+      {outdated && (
+        <button
+          disabled={pulling}
+          onClick={update}
+          title={
+            recreateAfterPull ? `Pull ${tag} and recreate its containers` : `Pull newer image for ${tag}`
+          }
+          className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-[color-mix(in_srgb,var(--t-status-warning)_14%,transparent)] text-[var(--t-status-warning)] hover:bg-[color-mix(in_srgb,var(--t-status-warning)_24%,transparent)] disabled:opacity-40 shrink-0"
+        >
+          <Icon
+            icon={pulling ? "lucide:loader-circle" : "lucide:download"}
+            width={10}
+            className={pulling ? "animate-spin" : ""}
+          />
+          {pulling ? (recreateAfterPull ? "updating…" : "pulling…") : recreateAfterPull ? "update" : "pull"}
+        </button>
+      )}
+
       <div className="text-right shrink-0">
         <p className="text-[10px] text-[var(--t-text-muted)]">{fmtSize(img.size)}</p>
         <p className="text-[10px] text-[var(--t-text-muted)]">{fmtAge(img.created)}</p>
