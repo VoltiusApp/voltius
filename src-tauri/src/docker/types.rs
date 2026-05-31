@@ -27,6 +27,142 @@ pub struct DockerImage {
     pub created: i64,
 }
 
+/// Result of checking a tagged image against its registry.
+/// `status` is one of: "current", "outdated", "unknown".
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageUpdateStatus {
+    pub repo_tag: String,
+    pub status: String,
+    pub local_digest: Option<String>,
+    pub remote_digest: Option<String>,
+    pub error: Option<String>,
+}
+
+/// Outcome of recreating the containers that use a freshly-pulled image.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RecreateResult {
+    /// Whether the pull actually fetched a different image (id changed).
+    pub image_updated: bool,
+    /// `docker pull` output — surfaced when the image didn't change so the real
+    /// reason (rate limit, "up to date", auth) is visible.
+    pub pull_output: String,
+    /// Compose services recreated, as "project/service".
+    pub recreated: Vec<String>,
+    /// Running standalone (non-compose) containers that need manual recreation.
+    pub manual: Vec<String>,
+    /// Per-service recreate failures.
+    pub errors: Vec<String>,
+}
+
+/// Keep the last `max` chars of `s` (docker pull tails are the informative part).
+pub fn tail_chars(s: &str, max: usize) -> String {
+    let s = s.trim();
+    let count = s.chars().count();
+    if count <= max {
+        return s.to_string();
+    }
+    s.chars().skip(count - max).collect()
+}
+
+/// Go-template for `docker ps --format` that emits the fields needed to map a
+/// container back to its compose service. Tab-delimited; docker converts `\t`.
+pub const RECREATE_PS_FORMAT: &str = r#"{{.ID}}\t{{.Names}}\t{{.Label "com.docker.compose.project"}}\t{{.Label "com.docker.compose.service"}}\t{{.Label "com.docker.compose.project.config_files"}}\t{{.Label "com.docker.compose.project.working_dir"}}"#;
+
+/// Parsed compose identity of a running container (or standalone name).
+pub struct ContainerComposeRef {
+    pub id: String,
+    pub name: String,
+    pub project: String,
+    pub service: String,
+    pub config_files: Vec<String>,
+    pub working_dir: String,
+}
+
+impl ContainerComposeRef {
+    pub fn is_compose(&self) -> bool {
+        !self.project.is_empty() && !self.service.is_empty()
+    }
+}
+
+/// Parse one tab-delimited line produced by [`RECREATE_PS_FORMAT`].
+pub fn parse_recreate_ps_line(line: &str) -> Option<ContainerComposeRef> {
+    let line = line.trim();
+    if line.is_empty() {
+        return None;
+    }
+    let mut fields = line.split('\t');
+    let id = fields.next()?.to_string();
+    let name = fields.next().unwrap_or("").to_string();
+    let project = fields.next().unwrap_or("").trim().to_string();
+    let service = fields.next().unwrap_or("").trim().to_string();
+    let config_files = fields
+        .next()
+        .unwrap_or("")
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToString::to_string)
+        .collect();
+    let working_dir = fields.next().unwrap_or("").trim().to_string();
+    Some(ContainerComposeRef {
+        id,
+        name,
+        project,
+        service,
+        config_files,
+        working_dir,
+    })
+}
+
+/// Strip the tag from an image reference to get the repository part.
+/// Handles `registry:port/path:tag` — the trailing `:tag` is only a tag when
+/// the part after the last colon contains no slash.
+pub fn image_repo(image_ref: &str) -> &str {
+    match image_ref.rsplit_once(':') {
+        Some((repo, tag)) if !tag.contains('/') => repo,
+        _ => image_ref,
+    }
+}
+
+/// From a parsed `RepoDigests` array (entries like `repo@sha256:...`), pick the
+/// digest whose repo matches `image_ref`, falling back to the first available.
+pub fn pick_repo_digest(repo_digests: &[String], image_ref: &str) -> Option<String> {
+    let repo = image_repo(image_ref);
+    repo_digests
+        .iter()
+        .find_map(|entry| {
+            let (entry_repo, digest) = entry.split_once('@')?;
+            (entry_repo == repo).then(|| digest.to_string())
+        })
+        .or_else(|| {
+            repo_digests
+                .first()
+                .and_then(|e| e.split_once('@').map(|(_, d)| d.to_string()))
+        })
+}
+
+/// Derive an [`ImageUpdateStatus`] from the local and registry digests.
+pub fn build_update_status(
+    repo_tag: String,
+    local_digest: Option<String>,
+    remote_digest: Option<String>,
+    error: Option<String>,
+) -> ImageUpdateStatus {
+    let status = match (&local_digest, &remote_digest) {
+        (Some(l), Some(r)) if l == r => "current",
+        (Some(_), Some(_)) => "outdated",
+        _ => "unknown",
+    }
+    .to_string();
+    ImageUpdateStatus {
+        repo_tag,
+        status,
+        local_digest,
+        remote_digest,
+        error,
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DockerVolume {
     pub name: String,

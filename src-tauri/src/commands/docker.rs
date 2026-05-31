@@ -9,7 +9,7 @@ use crate::{
         stream::DockerLogStreamManager,
         types::{
             ContainerAction, DockerContainer, DockerImage, DockerNetwork, DockerStack,
-            DockerStackService, DockerVolume, StackAction,
+            DockerStackService, DockerVolume, ImageUpdateStatus, RecreateResult, StackAction,
         },
     },
     ssh::{
@@ -196,6 +196,119 @@ pub async fn docker_remove_image(
         remote::remove_image(&handle, &image_id).await
     } else {
         local::remove_image(local_shell.as_deref(), &image_id).await
+    }
+}
+
+#[tauri::command]
+pub async fn docker_check_image_update(
+    session_manager: State<'_, SessionManager>,
+    session_id: String,
+    is_remote: bool,
+    local_shell: Option<String>,
+    image: String,
+) -> Result<ImageUpdateStatus, String> {
+    // Local "current" digest comes from the host the image lives on.
+    let local_digest = if is_remote {
+        let handle = session_manager.get_handle(&session_id).await?;
+        remote::local_image_digest(&handle, &image).await
+    } else {
+        local::local_image_digest(local_shell.as_deref(), &image).await
+    };
+
+    // Registry digest via a quota-free HEAD (host-independent), so this never
+    // touches the Docker Hub pull rate limit.
+    let (remote_digest, error) = match crate::docker::registry::manifest_digest(&image).await {
+        Ok(digest) => (Some(digest), None),
+        Err(e) => (None, Some(e)),
+    };
+
+    Ok(crate::docker::types::build_update_status(
+        image,
+        local_digest,
+        remote_digest,
+        error,
+    ))
+}
+
+#[tauri::command]
+pub async fn docker_pull_image(
+    session_manager: State<'_, SessionManager>,
+    session_id: String,
+    is_remote: bool,
+    local_shell: Option<String>,
+    image: String,
+) -> Result<String, String> {
+    if is_remote {
+        let handle = session_manager.get_handle(&session_id).await?;
+        remote::pull_image(&handle, &image).await
+    } else {
+        local::pull_image(local_shell.as_deref(), &image).await
+    }
+}
+
+#[tauri::command]
+pub async fn docker_stack_update(
+    session_manager: State<'_, SessionManager>,
+    session_id: String,
+    is_remote: bool,
+    local_shell: Option<String>,
+    stack_name: String,
+) -> Result<(), String> {
+    if is_remote {
+        let handle = session_manager.get_handle(&session_id).await?;
+        remote::stack_update(&handle, &stack_name).await
+    } else {
+        local::stack_update(local_shell.as_deref(), &stack_name).await
+    }
+}
+
+#[tauri::command]
+pub async fn docker_container_run_command(
+    session_manager: State<'_, SessionManager>,
+    session_id: String,
+    is_remote: bool,
+    local_shell: Option<String>,
+    container_id: String,
+    image: String,
+) -> Result<String, String> {
+    if is_remote {
+        let handle = session_manager.get_handle(&session_id).await?;
+        remote::container_run_command(&handle, &container_id, &image).await
+    } else {
+        local::container_run_command(local_shell.as_deref(), &container_id, &image).await
+    }
+}
+
+#[tauri::command]
+pub async fn docker_update_image(
+    session_manager: State<'_, SessionManager>,
+    session_id: String,
+    is_remote: bool,
+    local_shell: Option<String>,
+    image: String,
+    recreate: bool,
+) -> Result<RecreateResult, String> {
+    if is_remote {
+        let handle = session_manager.get_handle(&session_id).await?;
+        remote::pull_and_recreate(&handle, &image, recreate).await
+    } else {
+        local::pull_and_recreate(local_shell.as_deref(), &image, recreate).await
+    }
+}
+
+#[tauri::command]
+pub async fn docker_recreate_image_containers(
+    session_manager: State<'_, SessionManager>,
+    session_id: String,
+    is_remote: bool,
+    local_shell: Option<String>,
+    image: String,
+) -> Result<RecreateResult, String> {
+    if is_remote {
+        let handle = session_manager.get_handle(&session_id).await?;
+        remote::recreate_image_containers(&handle, &image).await
+    } else {
+        local::recreate_image_containers(local_shell.as_deref(), &image).await
     }
 }
 

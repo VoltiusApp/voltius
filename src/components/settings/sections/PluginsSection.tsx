@@ -12,6 +12,21 @@ import type { PluginManifest, PluginConfigField } from "@/plugins/api";
 
 // ─── Auto-generated settings form ─────────────────────────────────────────
 
+/**
+ * Derive a human label from a config key so the host guarantees a readable
+ * baseline regardless of plugin-author effort: camelCase, snake_case and
+ * kebab-case all become Title Case. `field.label` overrides this when the
+ * derivation is wrong (e.g. acronyms or unit hints).
+ */
+function humanizeKey(key: string): string {
+  return key
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function PluginConfigForm({ manifest }: { manifest: PluginManifest }) {
   const config = manifest.contributes?.configuration ?? {};
   const keys = Object.keys(config);
@@ -53,7 +68,7 @@ function PluginConfigForm({ manifest }: { manifest: PluginManifest }) {
         return (
           <div key={key} className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-[var(--t-text-primary)]">{key}</label>
+              <label className="text-sm font-medium text-[var(--t-text-primary)]">{field.label ?? humanizeKey(key)}</label>
               {isSaving && <Icon icon="lucide:loader" width={13} className="animate-spin text-[var(--t-text-muted)]" />}
             </div>
             <p className="text-xs text-[var(--t-text-dim)]">{field.description}</p>
@@ -66,9 +81,17 @@ function PluginConfigForm({ manifest }: { manifest: PluginManifest }) {
               <input
                 type={field.secret ? "password" : field.type === "number" ? "number" : "text"}
                 value={String(value ?? "")}
+                min={field.type === "number" ? field.min : undefined}
+                max={field.type === "number" ? field.max : undefined}
                 onChange={(e) => {
-                  const v = field.type === "number" ? Number(e.target.value) : e.target.value;
-                  void save(key, v);
+                  if (field.type === "number") {
+                    let n = Number(e.target.value);
+                    if (field.min !== undefined) n = Math.max(field.min, n);
+                    if (field.max !== undefined) n = Math.min(field.max, n);
+                    void save(key, n);
+                  } else {
+                    void save(key, e.target.value);
+                  }
                 }}
                 className="w-full px-3 py-2 rounded-lg text-sm bg-[var(--t-bg-elevated)] border border-[var(--t-border)] text-[var(--t-text-primary)] focus:outline-none focus:border-[var(--t-accent)]"
               />

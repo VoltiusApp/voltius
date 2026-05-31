@@ -22,6 +22,29 @@ export interface DockerImage {
   created: number;
 }
 
+export type ImageUpdateState = "current" | "outdated" | "unknown";
+
+export interface ImageUpdateStatus {
+  repo_tag: string;
+  status: ImageUpdateState;
+  local_digest: string | null;
+  remote_digest: string | null;
+  error: string | null;
+}
+
+export interface RecreateResult {
+  /** Whether the pull actually fetched a different image. */
+  image_updated: boolean;
+  /** `docker pull` output, surfaced when the image didn't change. */
+  pull_output: string;
+  /** Containers/services recreated (compose "project/service" or container name). */
+  recreated: string[];
+  /** Containers that couldn't be auto-recreated and need manual attention. */
+  manual: string[];
+  /** Per-target recreate failures. */
+  errors: string[];
+}
+
 export interface DockerVolume {
   name: string;
   driver: string;

@@ -364,8 +364,12 @@ export interface PluginConfigField {
   type: "string" | "number" | "boolean" | "select";
   default: unknown;
   description: string;
+  /** Overrides the auto-derived label (the host humanizes the key by default). */
+  label?: string;
   options?: string[];  // for select
   secret?: boolean;    // render as password input
+  min?: number;        // for number: minimum (also clamps on save)
+  max?: number;        // for number: maximum (also clamps on save)
 }
 
 export interface PluginManifest {

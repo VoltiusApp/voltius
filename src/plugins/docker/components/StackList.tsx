@@ -1,7 +1,17 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
-import { dockerContainerAction, dockerStackAction } from "../services";
-import type { ContainerAction, DockerStack, DockerStackService, PortMapping, StackAction } from "../types";
+import { dockerContainerAction, dockerStackAction, dockerStackUpdate } from "../services";
+import { getDockerApi } from "../runtime";
+import { checkableImage, useImageUpdates } from "../useImageUpdates";
+import type {
+  ContainerAction,
+  DockerStack,
+  DockerStackService,
+  ImageUpdateStatus,
+  PortMapping,
+  StackAction,
+} from "../types";
+import { UpdateBadge } from "./UpdateBadge";
 
 interface Props {
   stacks: DockerStack[];
@@ -43,6 +53,30 @@ export function StackList({
   const [expandedStackName, setExpandedStackName] = useState<string | null>(selectedStackName);
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
+  const imageRefs = useMemo(() => services.map((s) => s.image), [services]);
+  const { statuses, checking, checkAll } = useImageUpdates({
+    images: imageRefs,
+    sessionId,
+    isRemote,
+    localShell,
+  });
+  const isChecking = checking.size > 0;
+
+  const updateStack = async (stackName: string) => {
+    const key = `${stackName}:update`;
+    setBusyAction(key);
+    try {
+      await dockerStackUpdate(sessionId, isRemote, localShell, stackName);
+      getDockerApi()?.notifications.toast(`Updated stack ${stackName}`, { severity: "success" });
+      onRefresh();
+      checkAll();
+    } catch (e) {
+      getDockerApi()?.notifications.toast(`Stack update failed: ${e}`, { severity: "error" });
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
   const toggleStack = (stackName: string) => {
     if (expandedStackName === stackName) {
       setExpandedStackName(null);
@@ -70,6 +104,15 @@ export function StackList({
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-3 py-1 border-b border-[var(--t-border)] shrink-0">
         <span className="text-[10px] text-[var(--t-text-muted)]">{stacks.length} stacks</span>
+        <button
+          onClick={checkAll}
+          disabled={isChecking || services.length === 0}
+          title="Check the expanded stack's services for image updates"
+          className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded text-[var(--t-text-muted)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] disabled:opacity-40"
+        >
+          <Icon icon="lucide:arrow-up-circle" width={10} className={isChecking ? "animate-pulse" : ""} />
+          {isChecking ? "checking…" : "updates"}
+        </button>
       </div>
 
       {stacks.length === 0 ? (
@@ -141,6 +184,14 @@ export function StackList({
                     busy={busyAction === `${stack.name}:restart`}
                   />
                   <Btn
+                    icon="lucide:arrow-up-circle"
+                    title="Update stack (compose pull + up -d)"
+                    disabled={busyAction !== null}
+                    onClick={() => updateStack(stack.name)}
+                    busy={busyAction === `${stack.name}:update`}
+                    color="text-[var(--t-status-warning)] hover:text-[var(--t-status-warning)]"
+                  />
+                  <Btn
                     icon="lucide:scroll-text"
                     title="Compose logs"
                     disabled={busyAction !== null}
@@ -168,18 +219,23 @@ export function StackList({
                       <p className="text-[10px] text-[var(--t-text-muted)] opacity-60">No services</p>
                     ) : (
                       <div className="rounded-md border border-[var(--t-border)] overflow-hidden">
-                        {stackServices.map((service) => (
-                          <ServiceRow
-                            key={service.id || service.name}
-                            service={service}
-                            sessionId={sessionId}
-                            isRemote={isRemote}
-                            localShell={localShell}
-                            onLogs={onLogs}
-                            onTerminal={onTerminal}
-                            onRefresh={onRefresh}
-                          />
-                        ))}
+                        {stackServices.map((service) => {
+                          const tag = checkableImage(service.image);
+                          return (
+                            <ServiceRow
+                              key={service.id || service.name}
+                              service={service}
+                              sessionId={sessionId}
+                              isRemote={isRemote}
+                              localShell={localShell}
+                              status={tag ? statuses[tag] : undefined}
+                              checking={tag ? checking.has(tag) : false}
+                              onLogs={onLogs}
+                              onTerminal={onTerminal}
+                              onRefresh={onRefresh}
+                            />
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -198,6 +254,8 @@ function ServiceRow({
   sessionId,
   isRemote,
   localShell,
+  status,
+  checking = false,
   onLogs,
   onTerminal,
   onRefresh,
@@ -206,6 +264,8 @@ function ServiceRow({
   sessionId: string;
   isRemote: boolean;
   localShell: string | null;
+  status?: ImageUpdateStatus;
+  checking?: boolean;
   onLogs: (id: string, name: string) => void;
   onTerminal: (id: string, name: string) => void;
   onRefresh: () => void;
@@ -242,7 +302,10 @@ function ServiceRow({
       <div className="flex-1 min-w-0">
         <p className="text-[11px] text-[var(--t-text)] truncate">{service.service || service.name}</p>
         <p className="text-[10px] text-[var(--t-text-muted)] truncate">{service.status || state}</p>
-        <p className="text-[10px] text-[var(--t-text-muted)] truncate font-mono">{service.image}</p>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <p className="text-[10px] text-[var(--t-text-muted)] truncate font-mono">{service.image}</p>
+          <UpdateBadge status={status} checking={checking} />
+        </div>
         {service.ports.length > 0 && (
           <p className="text-[10px] text-[var(--t-text-muted)] truncate font-mono">{fmtPorts(service.ports)}</p>
         )}

@@ -1,16 +1,23 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
-import { dockerContainerAction } from "../services";
-import type { ContainerAction, DockerContainer } from "../types";
+import { dockerContainerAction, dockerContainerRunCommand } from "../services";
+import { getDockerApi } from "../runtime";
+import { pullAndMaybeRecreate } from "../updateActions";
+import type { ContainerAction, DockerContainer, ImageUpdateStatus } from "../types";
+import { UpdateBadge } from "./UpdateBadge";
 
 interface Props {
   container: DockerContainer;
   sessionId: string;
   isRemote: boolean;
   localShell: string | null;
+  status?: ImageUpdateStatus;
+  checking?: boolean;
+  recreateAfterPull?: boolean;
   onLogs: (id: string, name: string) => void;
   onTerminal: (id: string, name: string) => void;
   onRefresh: () => void;
+  onUpdated?: () => void;
 }
 
 function stateDot(state: string) {
@@ -24,9 +31,59 @@ function displayName(names: string[]): string {
   return n.startsWith("/") ? n.slice(1) : n;
 }
 
-export function ContainerRow({ container, sessionId, isRemote, localShell, onLogs, onTerminal, onRefresh }: Props) {
+export function ContainerRow({
+  container,
+  sessionId,
+  isRemote,
+  localShell,
+  status,
+  checking = false,
+  recreateAfterPull = true,
+  onLogs,
+  onTerminal,
+  onRefresh,
+  onUpdated,
+}: Props) {
   const [expanded, setExpanded] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [updating, setUpdating] = useState(false);
+
+  const update = async () => {
+    setUpdating(true);
+    try {
+      await pullAndMaybeRecreate({
+        sessionId,
+        isRemote,
+        localShell,
+        image: container.image,
+        recreate: recreateAfterPull,
+      });
+      onUpdated?.();
+      onRefresh();
+    } catch (e) {
+      getDockerApi()?.notifications.toast(`Pull failed: ${e}`, { severity: "error" });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const copyRunCommand = async () => {
+    try {
+      const cmd = await dockerContainerRunCommand(
+        sessionId,
+        isRemote,
+        localShell,
+        container.id,
+        container.image,
+      );
+      await navigator.clipboard.writeText(cmd);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (e) {
+      console.error("[docker] copy docker run failed:", e);
+    }
+  };
 
   const act = async (action: ContainerAction) => {
     setBusy(true);
@@ -54,7 +111,10 @@ export function ContainerRow({ container, sessionId, isRemote, localShell, onLog
         <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${stateDot(container.state)}`} />
         <div className="flex-1 min-w-0">
           <p className="text-[11px] text-[var(--t-text)] truncate font-medium">{name}</p>
-          <p className="text-[10px] text-[var(--t-text-muted)] truncate">{container.image}</p>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <p className="text-[10px] text-[var(--t-text-muted)] truncate">{container.image}</p>
+            <UpdateBadge status={status} checking={checking} />
+          </div>
         </div>
         <span className="text-[10px] text-[var(--t-text-muted)] shrink-0">
           {container.status.split(" ").slice(0, 2).join(" ")}
@@ -94,6 +154,26 @@ export function ContainerRow({ container, sessionId, isRemote, localShell, onLog
           />
         )}
         <Btn icon="lucide:scroll-text" title="Logs" disabled={busy} onClick={() => onLogs(container.id, name)} />
+        <Btn
+          icon={copied ? "lucide:check" : "lucide:clipboard-copy"}
+          title="Copy docker run command"
+          disabled={busy}
+          onClick={copyRunCommand}
+          color={copied ? "text-[var(--t-status-connected)]" : undefined}
+        />
+        {status?.status === "outdated" && (
+          <Btn
+            icon={updating ? "lucide:loader-circle" : "lucide:download"}
+            title={
+              recreateAfterPull
+                ? "Pull update and recreate this container"
+                : "Pull newer image"
+            }
+            disabled={busy || updating}
+            onClick={update}
+            color={`text-[var(--t-status-warning)] ${updating ? "animate-spin" : ""}`}
+          />
+        )}
         {running && (
           <Btn
             icon="lucide:terminal"
