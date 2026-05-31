@@ -332,10 +332,14 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         password: detectPassword,
         privateKey: detectPrivateKey,
         passphrase: detectPassphrase,
-        command: "cat /etc/os-release 2>/dev/null || echo ID=linux",
+        command: "{ cat /etc/os-release 2>/dev/null || echo ID=linux; }; test -d /etc/pve && echo 'PROXMOX_VE=1'; test -d /etc/proxmox-backup && echo 'PBS_DETECTED=1'; true",
       });
-      const idLine = output.split(/\r?\n/).find((line) => line.startsWith("ID="));
-      const detected = normalizeDistro(idLine?.slice(3).trim().replace(/^\"|\"$/g, "") || "linux");
+      const lines = output.split(/\r?\n/);
+      const idLine = lines.find((line) => line.startsWith("ID="));
+      const rawId = idLine?.slice(3).trim().replace(/^"|"$/g, "") || "linux";
+      const isProxmox = lines.some((line) => line.trim() === "PROXMOX_VE=1");
+      const isPbs = lines.some((line) => line.trim() === "PBS_DETECTED=1");
+      const detected = isProxmox ? "proxmox" : isPbs ? "pbs" : normalizeDistro(rawId);
       applyDetectedDistro(detected);
     } catch (err) {
       setDistroError(String(err));
