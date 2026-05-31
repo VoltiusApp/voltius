@@ -56,14 +56,20 @@ export const connectionsHandler: DataTypeHandler = {
         _key_eid: resolveConnectionKeyEid(c.key_id, ctx.keyEidMap),
         _identity_eid: c.identity_id ? ctx.identityEidMap.get(c.identity_id) : undefined,
         _folder_eid: c.folder_id ? ctx.folderEidMap.get(c.folder_id) : undefined,
-        jump_hosts: jump_hosts?.map((jh): JumpHostExport => ({
-          id: jh.id,
-          host: jh.host,
-          port: jh.port,
-          username: jh.username,
-          _identity_eid: jh.identity_id ? ctx.identityEidMap.get(jh.identity_id) : undefined,
-          _connection_eid: jh.connection_id ? ctx.connectionEidMap.get(jh.connection_id) : undefined,
-        })),
+        jump_hosts: jump_hosts?.map((jh): JumpHostExport => {
+          // Jump hosts are live references; materialize the referenced
+          // connection's address into the export so other formats / cross-vault
+          // imports that can't resolve _connection_eid still have an address.
+          const ref = connections.find((x) => x.id === jh.connection_id);
+          return {
+            id: jh.id,
+            host: ref?.host ?? jh.host ?? "",
+            port: ref?.port ?? jh.port ?? 22,
+            username: ref?.username ?? jh.username ?? "",
+            _identity_eid: (ref?.identity_id ?? jh.identity_id) ? ctx.identityEidMap.get((ref?.identity_id ?? jh.identity_id)!) : undefined,
+            _connection_eid: jh.connection_id ? ctx.connectionEidMap.get(jh.connection_id) : undefined,
+          };
+        }),
       };
     }));
   },

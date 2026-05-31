@@ -26,13 +26,11 @@ export default function JumpHostsPanel({ jumpHosts, onChange, onBack }: Props) {
       setShowPicker(false);
       return;
     }
+    // Store only a live reference — host/port/username/creds are resolved from
+    // the referenced connection at use time, so later edits to it take effect.
     onChange([...jumpHosts, {
       id: crypto.randomUUID(),
       connection_id: conn.id,
-      host: conn.host,
-      port: conn.port,
-      username: conn.username,
-      identity_id: conn.identity_id,
     }]);
     setShowPicker(false);
   };
@@ -113,6 +111,11 @@ export default function JumpHostsPanel({ jumpHosts, onChange, onBack }: Props) {
 
           {jumpHosts.map((jh, idx) => {
             const conn = connections.find((c) => c.id === jh.connection_id);
+            // Prefer live values from the referenced connection; fall back to
+            // the snapshot for deleted/imported jump hosts.
+            const host = conn?.host ?? jh.host ?? "?";
+            const port = conn?.port ?? jh.port ?? 22;
+            const username = conn?.username ?? jh.username ?? "?";
             const isDragging = draggingId === jh.id;
             const isOver = dragOverId === jh.id && draggingId !== jh.id;
             return (
@@ -151,10 +154,10 @@ export default function JumpHostsPanel({ jumpHosts, onChange, onBack }: Props) {
 
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-[var(--t-text-primary)] truncate">
-                    {conn?.name ?? `${jh.username}@${jh.host}`}
+                    {conn?.name ?? `${username}@${host}`}
                   </p>
                   <p className="text-xs text-[var(--t-text-dim)] truncate">
-                    {jh.username}@{jh.host}:{jh.port}
+                    {username}@{host}:{port}
                   </p>
                 </div>
 
