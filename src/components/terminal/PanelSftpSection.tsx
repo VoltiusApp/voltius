@@ -12,6 +12,7 @@ import {
   sftpDownload, sftpDownloadDir, sftpDownloadDirTar, sftpDownloadBatchTar,
 } from "@/services/sftp";
 import { FilePane } from "@/components/filetransfer/FilePane";
+import { TransferQueue } from "@/components/filetransfer/TransferQueue";
 import { triggerOsDrop, triggerUpload } from "@/components/filetransfer/osDropPipeline";
 import { hitTestDropTarget, setExternalDragHover, clearExternalDragHover } from "@/components/filetransfer/internalDrag";
 import type { FileEntry, VisibleCols } from "@/components/filetransfer/SFTPTypes";
@@ -27,6 +28,9 @@ export default function PanelSftpSection() {
   const setFollowCwd = usePanelSftpStore((s) => s.setFollowCwd);
   const terminalCwd = useTerminalCwdStore((s) => (activeSessionId ? s.cwds[activeSessionId] : undefined));
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
+  const transfers = useTransferQueueStore((s) => s.transfers);
+  const clearCompleted = useTransferQueueStore((s) => s.clearCompleted);
+  const cancelTransfer = useTransferQueueStore((s) => s.cancelTransfer);
   const [tarTransferEnabled] = useToggle("sftp-tar");
 
   const [selected, setSelected] = useState<FileEntry[]>([]);
@@ -258,6 +262,13 @@ export default function PanelSftpSection() {
           />
         )}
       </div>
+
+      {/* Transfers dock inside the panel so the queue stays within the panel
+          card rather than the viewport-corner global widget (which is wider
+          than the panel and overflows it). */}
+      {transfers.length > 0 && (
+        <TransferQueue transfers={transfers} onClear={clearCompleted} onCancel={cancelTransfer} />
+      )}
     </div>
   );
 }
