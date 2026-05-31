@@ -136,22 +136,22 @@ export default function PanelSftpSection() {
   }, [panelState]);
 
   const canDownload = panelState?.tag === "connected" && !panelState.isLocal && selected.length > 0;
-  const handleDownload = useCallback(async () => {
-    if (!canDownload || panelState?.tag !== "connected" || panelState.isLocal || !panelState.sftpId) return;
+  const downloadFiles = useCallback(async (files: FileEntry[]) => {
+    if (files.length === 0 || panelState?.tag !== "connected" || panelState.isLocal || !panelState.sftpId) return;
     const dstDir = await pickLocalPath({ directory: true, title: "Download to folder" });
     if (!dstDir) return;
     const sftpId = panelState.sftpId;
     const base = dstDir.replace(/[\\/]$/, "");
-    const label = selected.length === 1 ? selected[0].name : `${selected.length} items`;
+    const label = files.length === 1 ? files[0].name : `${files.length} items`;
 
-    if (tarTransferEnabled && selected.length > 1) {
+    if (tarTransferEnabled && files.length > 1) {
       await runTransfer(label, "←", (tid) =>
-        sftpDownloadBatchTar({ sftpId, remotePaths: selected.map((f) => f.path), localDir: base, transferId: tid }),
+        sftpDownloadBatchTar({ sftpId, remotePaths: files.map((f) => f.path), localDir: base, transferId: tid }),
       );
       return;
     }
 
-    for (const file of selected) {
+    for (const file of files) {
       const sep = /[\\/]/.test(base) && /\\/.test(base) ? "\\" : "/";
       const localPath = `${base}${sep}${file.name}`;
       await runTransfer(file.name, "←", (tid) => file.isDir
@@ -161,7 +161,8 @@ export default function PanelSftpSection() {
         : sftpDownload({ sftpId, remotePath: file.path, localPath, transferId: tid }),
       );
     }
-  }, [canDownload, panelState, selected, runTransfer, tarTransferEnabled]);
+  }, [panelState, runTransfer, tarTransferEnabled]);
+  const handleDownload = useCallback(() => { void downloadFiles(selected); }, [downloadFiles, selected]);
 
   // ── Layout ──────────────────────────────────────────────────────────────────
 
@@ -250,6 +251,8 @@ export default function PanelSftpSection() {
             side="panel"
             onDropFiles={() => { /* internal drag-out is disabled for panel embedding */ }}
             initialVisibleCols={PANEL_VISIBLE_COLS}
+            onPanelUpload={handleUpload}
+            onPanelDownload={panelState.isLocal ? undefined : (files) => void downloadFiles(files)}
             onRegisterMenuOpener={(opener) => setMenuOpener(() => opener)}
             onRegisterViewMenuOpener={(opener) => setViewMenuOpener(() => opener)}
           />

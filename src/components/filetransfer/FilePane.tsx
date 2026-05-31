@@ -29,6 +29,7 @@ type SelectionActionsCtx = {
   onCompress: (file: FileEntry) => Promise<void>;
   onExtract: (file: FileEntry) => Promise<void>;
   onOpenInTerminal?: (path: string) => void;
+  onPanelDownload?: (files: FileEntry[]) => void;
   setSelection: (ids: string[]) => void;
   onRefresh: () => void;
 };
@@ -58,7 +59,7 @@ export function FilePane({
   onNavigate, onSelect, onRefresh, refreshTick, side, onDropFiles,
   onTransferToTarget, canTransferToTarget, onChangeHost,
   filter = "", onRegisterMenuOpener, onRegisterViewMenuOpener, onOpenInTerminal,
-  initialVisibleCols,
+  initialVisibleCols, onPanelDownload, onPanelUpload,
 }: {
   sftpId: string | null;
   isLocal: boolean;
@@ -79,6 +80,10 @@ export function FilePane({
   onOpenInTerminal?: (path: string) => void;
   /** Override the default per-column visibility (used for narrow embeddings). */
   initialVisibleCols?: VisibleCols;
+  /** Panel embedding only: download the given remote files to the local disk. */
+  onPanelDownload?: (files: FileEntry[]) => void;
+  /** Panel embedding only: pick local files and upload them to the current dir. */
+  onPanelUpload?: () => void;
 }) {
   const [autoRefreshEnabled] = useToggle("sftp-autorefresh");
   const autoRefreshIntervalMs = useSftpSettingsStore((s) => s.autoRefreshIntervalMs);
@@ -321,7 +326,7 @@ export function FilePane({
     isLocal, sftpId, canTransferToTarget: canTransferToTarget ?? false,
     onTransferToTarget, onStartRename: startRename, onDelete: handleDelete,
     onCompress: handleCompress, onExtract: handleExtract,
-    onOpenInTerminal, setSelection, onRefresh,
+    onOpenInTerminal, onPanelDownload, setSelection, onRefresh,
   };
 
   // The pointer-driven drag controller invokes this when a drop is committed
@@ -419,6 +424,7 @@ export function FilePane({
             selectedEntries, entryIds,
             selectionActionsCtx,
             handleMkdir, handleNewFile, setSelection, onChangeHost, cwd,
+            onPanelUpload,
           })}
         />
       )}
@@ -450,6 +456,12 @@ export function FilePane({
 function buildSelectionActions(files: FileEntry[], ctx: SelectionActionsCtx): ContextMenuItem[] {
   const items: ContextMenuItem[] = [];
   const single = files.length === 1 ? files[0] : null;
+
+  // Download (panel embedding only — remote → local disk)
+  if (ctx.onPanelDownload && files.length > 0) {
+    const multiLabel = files.length > 1 ? ` ${files.length} items` : "";
+    items.push({ label: `Download${multiLabel}`, icon: "lucide:download", onClick: () => ctx.onPanelDownload!(files) });
+  }
 
   // Transfer
   if (ctx.canTransferToTarget && files.length > 0) {
@@ -518,11 +530,17 @@ function buildPaneMenuItems(ctx: {
   setSelection: (ids: string[]) => void;
   onChangeHost?: () => void;
   cwd: string;
+  onPanelUpload?: () => void;
 }): ContextMenuItem[] {
   const { selectedEntries, entryIds, selectionActionsCtx,
-    handleMkdir, handleNewFile, setSelection, onChangeHost, cwd } = ctx;
+    handleMkdir, handleNewFile, setSelection, onChangeHost, cwd, onPanelUpload } = ctx;
   const sel = selectedEntries;
   const items: ContextMenuItem[] = [];
+
+  // ── Upload (panel embedding only — shown when nothing is selected)
+  if (onPanelUpload && sel.length === 0) {
+    items.push({ label: "Upload files", icon: "lucide:upload", onClick: onPanelUpload });
+  }
 
   // ── File actions (delegated to shared builder)
   const fileActions = buildSelectionActions(sel, selectionActionsCtx);
