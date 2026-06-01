@@ -935,16 +935,23 @@ export function loadPlugin(manifest: PluginManifest, register: PluginRegisterFn,
 
 /**
  * Toggle a plugin's active state without fully unloading it.
- * Settings pages and other UI registrations are preserved.
- * The plugin's cleanup runs, then register() re-fires with the updated isActive() value.
+ * Tears down the plugin's contributions via its cleanup, then re-runs register()
+ * only when activating — so a disabled plugin's UI (right-panel sections, hooks,
+ * etc.) actually stays gone. Plugins that need certain contributions to survive
+ * while disabled (e.g. a settings page) register those imperatively and leave them
+ * out of their cleanup; register() re-fires on activation with isActive() === true.
  */
 export function setPluginActive(pluginId: string, active: boolean): void {
   const entry = _registry.get(pluginId);
   if (!entry) return;
   entry.cleanup?.();
+  entry.cleanup = undefined;
   entry.active = active;
-  if (!active) useNotificationStore.getState().dismissAllForPlugin(pluginId);
-  entry.cleanup = entry.register(entry.api);
+  if (active) {
+    entry.cleanup = entry.register(entry.api);
+  } else {
+    useNotificationStore.getState().dismissAllForPlugin(pluginId);
+  }
   console.info(`[plugin-runtime] Plugin "${pluginId}" set active=${active}`);
 }
 
