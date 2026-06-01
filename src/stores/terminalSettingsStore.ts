@@ -6,10 +6,8 @@ import { clampScrollbackLines, DEFAULT_SCROLLBACK_LINES } from "./terminalSettin
 interface TerminalSettingsStore {
   preferredShell: string | null;
   scrollbackLines: number;
-  shellIntegrationEnabled: boolean;
   setPreferredShell: (shell: string | null) => void;
   setScrollbackLines: (lines: number) => void;
-  setShellIntegrationEnabled: (enabled: boolean) => void;
 }
 
 export const useTerminalSettingsStore = create<TerminalSettingsStore>()(
@@ -17,10 +15,8 @@ export const useTerminalSettingsStore = create<TerminalSettingsStore>()(
     (set) => ({
       preferredShell: null,
       scrollbackLines: DEFAULT_SCROLLBACK_LINES,
-      shellIntegrationEnabled: true,
       setPreferredShell: (shell) => { set({ preferredShell: shell }); useAppSettingsTimestampStore.getState().touch(); },
       setScrollbackLines: (lines) => { set({ scrollbackLines: clampScrollbackLines(lines) }); useAppSettingsTimestampStore.getState().touch(); },
-      setShellIntegrationEnabled: (enabled) => { set({ shellIntegrationEnabled: enabled }); useAppSettingsTimestampStore.getState().touch(); },
     }),
     {
       name: "voltius-terminal-settings",

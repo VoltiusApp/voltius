@@ -115,7 +115,7 @@ async function connectSshSession(
       agentForwarding: connection.agent_forwarding ?? false,
       preCommand,
       autoForward: getToggle("auto-forward"),
-      shellIntegration: useTerminalSettingsStore.getState().shellIntegrationEnabled && !connection.shell_integration_disabled,
+      shellIntegration: getToggle("shell-integration") && !connection.shell_integration_disabled,
     });
     set((s) => ({
       sessions: s.sessions.map((sess) =>
@@ -312,7 +312,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
     useLayoutStore.getState().setSplitTabActive(false);
     try {
-      await localConnect(sessionId, 80, 24, preferredShell ?? undefined, undefined, useTerminalSettingsStore.getState().shellIntegrationEnabled);
+      await localConnect(sessionId, 80, 24, preferredShell ?? undefined, undefined, getToggle("shell-integration"));
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
@@ -344,7 +344,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
     useLayoutStore.getState().setSplitTabActive(false);
     try {
-      await localConnect(sessionId, 80, 24, preferredShell ?? undefined, cwd, useTerminalSettingsStore.getState().shellIntegrationEnabled);
+      await localConnect(sessionId, 80, 24, preferredShell ?? undefined, cwd, getToggle("shell-integration"));
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
@@ -374,7 +374,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     };
     set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
     useLayoutStore.getState().setSplitTabActive(false);
-    void localConnect(sessionId, 80, 24, shell, undefined, useTerminalSettingsStore.getState().shellIntegrationEnabled).then(() => {
+    void localConnect(sessionId, 80, 24, shell, undefined, getToggle("shell-integration")).then(() => {
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
@@ -547,7 +547,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       await sshDisconnect(sessionId).catch(() => {});
       const credentials = await resolveConnectionCredentials(connection);
 
-      await sshConnect({ sessionId, host: connection.host, port: connection.port, username: credentials.username, password: credentials.password, privateKey: credentials.privateKey, passphrase: credentials.passphrase, connectionId: connection.id, autoForward: getToggle("auto-forward"), shellIntegration: useTerminalSettingsStore.getState().shellIntegrationEnabled && !connection.shell_integration_disabled });
+      await sshConnect({ sessionId, host: connection.host, port: connection.port, username: credentials.username, password: credentials.password, privateKey: credentials.privateKey, passphrase: credentials.passphrase, connectionId: connection.id, autoForward: getToggle("auto-forward"), shellIntegration: getToggle("shell-integration") && !connection.shell_integration_disabled });
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
@@ -606,7 +606,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         connectionId: connection.id,
         jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
         autoForward: getToggle("auto-forward"),
-        shellIntegration: useTerminalSettingsStore.getState().shellIntegrationEnabled,
+        shellIntegration: getToggle("shell-integration"),
       });
       set((s) => ({
         sessions: s.sessions.map((sess) =>

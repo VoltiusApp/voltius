@@ -5,17 +5,15 @@ import {
   useHostPingStore,
 } from "@/stores/hostPingStore";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
-import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
 import { DirtyDot, ResetButton } from "./shared";
 
-const SHELL_INTEGRATION_DEFAULT = true;
+const SHELL_INTEGRATION_DEFAULT = TOGGLE_DEFS["shell-integration"].default;
 
 export default function HostsSection() {
   const [enabled, setEnabled] = useToggle("reachability");
   const [presenceEnabled, setPresenceEnabled] = useToggle("team-presence");
-  const shellIntegration = useTerminalSettingsStore((s) => s.shellIntegrationEnabled);
-  const setShellIntegration = useTerminalSettingsStore((s) => s.setShellIntegrationEnabled);
+  const [shellIntegration, setShellIntegration] = useToggle("shell-integration");
   const pollIntervalMs = useHostPingStore((s) => s.pollIntervalMs);
   const setPollIntervalMs = useHostPingStore((s) => s.setPollIntervalMs);
   const activePollIntervalMs = useHostPingStore((s) => s.activePollIntervalMs);

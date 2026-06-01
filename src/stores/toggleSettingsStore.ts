@@ -73,6 +73,13 @@ export const TOGGLE_DEFS = {
     keywords: ["presence", "team", "avatar", "share", "online", "activity"],
     default: true,
   },
+  "shell-integration": {
+    label: "Shell Integration",
+    icon: "lucide:terminal",
+    description: "Hosts",
+    keywords: ["shell", "integration", "osc", "prompt", "cwd", "directory", "motd", "command"],
+    default: true,
+  },
 } as const satisfies Record<string, ToggleDef>;
 
 export type ToggleId = keyof typeof TOGGLE_DEFS;
