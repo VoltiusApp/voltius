@@ -115,6 +115,8 @@ pub struct Connection {
     pub pinned: bool,
     #[serde(default)]
     pub ping_disabled: bool,
+    #[serde(default)]
+    pub shell_integration_disabled: bool,
     #[serde(default = "default_ssh")]
     pub connection_type: String,
     #[serde(default)]
@@ -177,6 +179,8 @@ pub struct ConnectionFormData {
     pub pinned: bool,
     #[serde(default)]
     pub ping_disabled: bool,
+    #[serde(default)]
+    pub shell_integration_disabled: bool,
     #[serde(default = "default_ssh")]
     pub connection_type: String,
     #[serde(default)]

@@ -52,6 +52,7 @@ fn merge_form_into_connection(existing: &Connection, data: ConnectionFormData) -
         icon: data.icon.or_else(|| existing.icon.clone()),
         pinned: data.pinned,
         ping_disabled: data.ping_disabled,
+        shell_integration_disabled: data.shell_integration_disabled,
         connection_type: data.connection_type,
         serial_port: data.serial_port,
         serial_baud: data.serial_baud,
@@ -94,6 +95,7 @@ fn bump_changed_clocks(old: &Connection, new: &mut Connection, now: &str) {
     bump!(distro);
     bump!(icon);
     bump!(ping_disabled);
+    bump!(shell_integration_disabled);
     bump!(connection_type);
     bump!(serial_port);
     bump!(serial_baud);
@@ -181,6 +183,7 @@ pub fn connection_save(data: ConnectionFormData) -> Result<Connection, String> {
         deleted_at: None,
         pinned: data.pinned,
         ping_disabled: data.ping_disabled,
+        shell_integration_disabled: data.shell_integration_disabled,
         connection_type: data.connection_type,
         serial_port: data.serial_port,
         serial_baud: data.serial_baud,

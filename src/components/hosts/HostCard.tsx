@@ -142,7 +142,7 @@ export default function HostCard({
       onMoveToVault: onMoveToVault ? (vId) => onMoveToVault(connection, vId) : undefined,
       onCopyToVault: onCopyToVault ? (vId) => onCopyToVault(connection, vId) : undefined,
       onToggleSync: () => useSyncPrefsStore.getState().toggleExcluded(connection.id),
-      onTogglePing: () => updateConnection(connection.id, { name: connection.name, host: connection.host, port: connection.port, username: connection.username, auth_type: connection.auth_type, tags: connection.tags, identity_id: connection.identity_id, folder_id: connection.folder_id, vault_id: connection.vault_id, jump_hosts: connection.jump_hosts, env_vars: connection.env_vars, agent_forwarding: connection.agent_forwarding, pre_command: connection.pre_command, post_command: connection.post_command, terminal_encoding: connection.terminal_encoding, pinned: connection.pinned, ping_disabled: !connection.ping_disabled }),
+      onTogglePing: () => updateConnection(connection.id, { name: connection.name, host: connection.host, port: connection.port, username: connection.username, auth_type: connection.auth_type, tags: connection.tags, identity_id: connection.identity_id, folder_id: connection.folder_id, vault_id: connection.vault_id, jump_hosts: connection.jump_hosts, env_vars: connection.env_vars, agent_forwarding: connection.agent_forwarding, pre_command: connection.pre_command, post_command: connection.post_command, terminal_encoding: connection.terminal_encoding, pinned: connection.pinned, ping_disabled: !connection.ping_disabled, shell_integration_disabled: connection.shell_integration_disabled }),
       onDelete: canEdit ? () => onDelete(connection.id) : undefined,
       extras: [
         {

@@ -115,7 +115,7 @@ async function connectSshSession(
       agentForwarding: connection.agent_forwarding ?? false,
       preCommand,
       autoForward: getToggle("auto-forward"),
-      shellIntegration: useTerminalSettingsStore.getState().shellIntegrationEnabled,
+      shellIntegration: useTerminalSettingsStore.getState().shellIntegrationEnabled && !connection.shell_integration_disabled,
     });
     set((s) => ({
       sessions: s.sessions.map((sess) =>
@@ -547,7 +547,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       await sshDisconnect(sessionId).catch(() => {});
       const credentials = await resolveConnectionCredentials(connection);
 
-      await sshConnect({ sessionId, host: connection.host, port: connection.port, username: credentials.username, password: credentials.password, privateKey: credentials.privateKey, passphrase: credentials.passphrase, connectionId: connection.id, autoForward: getToggle("auto-forward"), shellIntegration: useTerminalSettingsStore.getState().shellIntegrationEnabled });
+      await sshConnect({ sessionId, host: connection.host, port: connection.port, username: credentials.username, password: credentials.password, privateKey: credentials.privateKey, passphrase: credentials.passphrase, connectionId: connection.id, autoForward: getToggle("auto-forward"), shellIntegration: useTerminalSettingsStore.getState().shellIntegrationEnabled && !connection.shell_integration_disabled });
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,

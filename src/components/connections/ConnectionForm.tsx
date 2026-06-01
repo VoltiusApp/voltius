@@ -84,6 +84,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [showEnvVars, setShowEnvVars] = useState(false);
   const [agentForwarding, setAgentForwarding] = useState(initial?.agent_forwarding ?? false);
   const [pingDisabled, setPingDisabled] = useState(initial?.ping_disabled ?? false);
+  const [shellIntegrationDisabled, setShellIntegrationDisabled] = useState(initial?.shell_integration_disabled ?? false);
   const [preCommand, setPreCommand] = useState(initial?.pre_command ?? "");
   const [postCommand, setPostCommand] = useState(initial?.post_command ?? "");
   const [terminalEncoding, setTerminalEncoding] = useState(initial?.terminal_encoding ?? "");
@@ -94,7 +95,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [detectingDistro, setDetectingDistro] = useState(false);
   const [distroError, setDistroError] = useState("");
   const [distroPickerRect, setDistroPickerRect] = useState<DOMRect | null>(null);
-  const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.terminal_encoding || initial?.agent_forwarding || initial?.ping_disabled);
+  const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.terminal_encoding || initial?.agent_forwarding || initial?.ping_disabled || initial?.shell_integration_disabled);
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
   const defaultVaultId = useDefaultVaultId();
   const [vaultId, setVaultId] = useState<string>(() => initial?.vault_id ?? defaultVaultId);
@@ -231,6 +232,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         distro: distro || undefined,
         icon: icon || undefined,
         ping_disabled: pingDisabled || undefined,
+        shell_integration_disabled: shellIntegrationDisabled || undefined,
       } as ConnectionFormData,
       password: passwordDirty.current ? password : null,
       privateKey: (!identityId && !keyId && privateKeyDirty.current) ? privateKey : null,
@@ -246,7 +248,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, host, port, username, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, preCommand, postCommand, terminalEncoding, distro, icon, pingDisabled]);
+  useEffect(() => schedule(), [name, host, port, username, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, preCommand, postCommand, terminalEncoding, distro, icon, pingDisabled, shellIntegrationDisabled]);
 
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
@@ -545,7 +547,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
               className="flex items-center gap-1.5 text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors w-full pt-1"
             >
               <span>Advanced</span>
-              {!showAdvanced && (jumpHosts.length > 0 || envVars.length > 0 || preCommand || postCommand || terminalEncoding || agentForwarding || pingDisabled) && (
+              {!showAdvanced && (jumpHosts.length > 0 || envVars.length > 0 || preCommand || postCommand || terminalEncoding || agentForwarding || pingDisabled || shellIntegrationDisabled) && (
                 <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-[var(--t-accent)]" />
               )}
               <Icon icon={showAdvanced ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} className="ml-auto" />
@@ -615,6 +617,16 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                     <Toggle
                       checked={agentForwarding}
                       onChange={(v) => { markDirty(); setAgentForwarding(v); }}
+                    />
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-[var(--t-text-dim)] w-full py-1">
+                  <Icon icon="lucide:terminal" width={13} />
+                  <span>Shell Integration</span>
+                  <span className="ml-auto">
+                    <Toggle
+                      checked={!shellIntegrationDisabled}
+                      onChange={(v) => { markDirty(); setShellIntegrationDisabled(!v); }}
                     />
                   </span>
                 </div>

@@ -5,12 +5,17 @@ import {
   useHostPingStore,
 } from "@/stores/hostPingStore";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
+import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
 import { DirtyDot, ResetButton } from "./shared";
+
+const SHELL_INTEGRATION_DEFAULT = true;
 
 export default function HostsSection() {
   const [enabled, setEnabled] = useToggle("reachability");
   const [presenceEnabled, setPresenceEnabled] = useToggle("team-presence");
+  const shellIntegration = useTerminalSettingsStore((s) => s.shellIntegrationEnabled);
+  const setShellIntegration = useTerminalSettingsStore((s) => s.setShellIntegrationEnabled);
   const pollIntervalMs = useHostPingStore((s) => s.pollIntervalMs);
   const setPollIntervalMs = useHostPingStore((s) => s.setPollIntervalMs);
   const activePollIntervalMs = useHostPingStore((s) => s.activePollIntervalMs);
@@ -112,6 +117,31 @@ export default function HostsSection() {
               </div>
             </>
           )}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">
+          Terminal
+        </h3>
+        <div className="rounded-lg bg-[var(--t-bg-elevated)] border border-[var(--t-border)]">
+          <div className="group flex items-center justify-between px-4 py-3 gap-4">
+            <div>
+              <p className="text-sm font-medium text-[var(--t-text-primary)]">Shell integration</p>
+              <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
+                Hooks the remote/local shell to report its working directory (OSC 7) for cwd-aware
+                file panels. If a host's welcome banner or prompt looks wrong, disable it there.
+                Can be disabled per host in the host's settings.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {shellIntegration !== SHELL_INTEGRATION_DEFAULT && (
+                <ResetButton onReset={() => setShellIntegration(SHELL_INTEGRATION_DEFAULT)} />
+              )}
+              {shellIntegration !== SHELL_INTEGRATION_DEFAULT && <DirtyDot />}
+              <Toggle checked={shellIntegration} onChange={setShellIntegration} />
+            </div>
+          </div>
         </div>
       </div>
 
