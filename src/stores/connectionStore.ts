@@ -104,6 +104,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         icon: data.icon,
         pinned: data.pinned,
         ping_disabled: data.ping_disabled,
+        shell_integration_disabled: data.shell_integration_disabled,
         connection_type: data.connection_type,
         serial_port: data.serial_port,
         serial_baud: data.serial_baud,
@@ -195,6 +196,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         serial_stop_bits: data.serial_stop_bits ?? prev.serial_stop_bits,
         serial_flow_control: data.serial_flow_control ?? prev.serial_flow_control,
         ping_disabled: data.ping_disabled,
+        shell_integration_disabled: data.shell_integration_disabled,
         updated_at: now,
         clocks: { ...prev.clocks, updated_at: now },
       };
@@ -274,6 +276,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
           serial_stop_bits: data.serial_stop_bits ?? prev.serial_stop_bits,
           serial_flow_control: data.serial_flow_control ?? prev.serial_flow_control,
           ping_disabled: data.ping_disabled,
+          shell_integration_disabled: data.shell_integration_disabled,
           updated_at: now,
           clocks: { ...prev.clocks, updated_at: now },
         }

@@ -117,6 +117,7 @@ export interface Connection {
   terminal_encoding?: string;
   pinned?: boolean;
   ping_disabled?: boolean;
+  shell_integration_disabled?: boolean;
   connection_type?: "ssh" | "serial";
   serial_port?: string;
   serial_baud?: number;
@@ -150,6 +151,7 @@ export interface ConnectionFormData {
   icon?: string;
   pinned?: boolean;
   ping_disabled?: boolean;
+  shell_integration_disabled?: boolean;
   connection_type?: "ssh" | "serial";
   serial_port?: string;
   serial_baud?: number;

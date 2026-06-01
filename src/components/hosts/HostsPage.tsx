@@ -487,7 +487,7 @@ export default function HostsPage() {
         icon: selectedConns.every((c) => c.ping_disabled) ? "lucide:wifi" : "lucide:wifi-off",
         onClick: () => {
           const allDisabled = selectedConns.every((c) => c.ping_disabled);
-          void Promise.all(selectedConns.map((c) => updateConnection(c.id, { name: c.name, host: c.host, port: c.port, username: c.username, auth_type: c.auth_type, tags: c.tags, identity_id: c.identity_id, key_id: c.key_id, folder_id: c.folder_id, vault_id: c.vault_id, jump_hosts: c.jump_hosts, env_vars: c.env_vars, agent_forwarding: c.agent_forwarding, pre_command: c.pre_command, post_command: c.post_command, terminal_encoding: c.terminal_encoding, pinned: c.pinned, ping_disabled: !allDisabled })));
+          void Promise.all(selectedConns.map((c) => updateConnection(c.id, { name: c.name, host: c.host, port: c.port, username: c.username, auth_type: c.auth_type, tags: c.tags, identity_id: c.identity_id, key_id: c.key_id, folder_id: c.folder_id, vault_id: c.vault_id, jump_hosts: c.jump_hosts, env_vars: c.env_vars, agent_forwarding: c.agent_forwarding, pre_command: c.pre_command, post_command: c.post_command, terminal_encoding: c.terminal_encoding, pinned: c.pinned, ping_disabled: !allDisabled, shell_integration_disabled: c.shell_integration_disabled })));
         },
       },
       {
@@ -579,6 +579,7 @@ export default function HostsPage() {
             jump_hosts: conn.jump_hosts, env_vars: conn.env_vars, agent_forwarding: conn.agent_forwarding,
             pre_command: conn.pre_command, post_command: conn.post_command, terminal_encoding: conn.terminal_encoding,
             pinned: conn.pinned, ping_disabled: conn.ping_disabled,
+            shell_integration_disabled: conn.shell_integration_disabled,
           });
           const pwd = await getSecret(`password:${conn.id}`).catch(() => null);
           const k = await getSecret(`key:${conn.id}`).catch(() => null);
