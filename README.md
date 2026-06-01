@@ -10,7 +10,7 @@
     <img src="https://img.shields.io/badge/built_with-Rust-dea584?logo=rust" alt="Rust" />
     <img src="https://img.shields.io/badge/UI-Tauri-24c8db?logo=tauri" alt="Tauri" />
     <img src="https://img.shields.io/badge/Security-E2EE-green" alt="E2EE" />
-    <img src="https://img.shields.io/github/license/Voltius/voltius" alt="License" />
+    <img src="https://img.shields.io/github/license/VoltiusApp/voltius" alt="License" />
   </p>
 
   <img width="800" height="450" alt="demo" src="https://github.com/user-attachments/assets/dbb5092c-4536-4112-b481-745bbbba80e8" />
