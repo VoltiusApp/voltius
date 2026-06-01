@@ -21,7 +21,7 @@ jobs:
           # --- LINUX ARM64 ---
           - platform: 'ubuntu-24.04'
             target: 'aarch64-unknown-linux-gnu'
-            args: ''
+            args: '--target aarch64-unknown-linux-gnu'
             
           # --- WINDOWS x64 ---
           - platform: 'windows-latest'
@@ -31,17 +31,17 @@ jobs:
           # --- WINDOWS ARM64 ---
           - platform: 'windows-latest'
             target: 'aarch64-pc-windows-msvc'
-            args: ''
+            args: '--target aarch64-pc-windows-msvc'
 
           # # --- MACOS x64 ---
           - platform: 'macos-latest'
             target: 'x86_64-apple-darwin'
-            args: ''
+            args: '--target x86_64-apple-darwin'
 
           # # --- MACOS ARM64 ---
           - platform: 'macos-latest'
             target: 'aarch64-apple-darwin'
-            args: '' 
+            args: '--target aarch64-apple-darwin'
 
     runs-on: ${{ matrix.platform }}
     steps:
