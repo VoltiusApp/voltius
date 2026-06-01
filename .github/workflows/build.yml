@@ -41,7 +41,7 @@ jobs:
           # # --- MACOS ARM64 ---
           - platform: 'macos-latest'
             target: 'aarch64-apple-darwin'
-            args: '--target aarch64-apple-darwin' 
+            args: '' 
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -82,6 +82,20 @@ jobs:
         if: matrix.platform == 'ubuntu-24.04' && matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
           sudo dpkg --add-architecture arm64
+          if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+            sudo sed -i 's/^Types: deb$/Types: deb\nArchitectures: amd64/' /etc/apt/sources.list.d/ubuntu.sources
+          fi
+          if [ -f /etc/apt/sources.list ]; then
+            sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list
+          fi
+          sudo tee /etc/apt/sources.list.d/ubuntu-arm64.sources > /dev/null <<'EOF'
+          Types: deb
+          URIs: http://ports.ubuntu.com/ubuntu-ports
+          Suites: noble noble-updates noble-security noble-backports
+          Components: main universe
+          Architectures: arm64
+          Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+          EOF
           sudo apt-get update
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu \
