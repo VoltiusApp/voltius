@@ -51,7 +51,7 @@ pub fn prepare_local(shell: &str, session_id: &str) -> std::io::Result<Option<Lo
                 .unwrap_or_default();
             Ok(Some(LocalIntegration {
                 program: shell.to_string(),
-                args: vec!["-i".into()],
+                args: vec!["-l".into(), "-i".into()],
                 env: vec![
                     ("ZDOTDIR".into(), zdotdir.to_string_lossy().into_owned()),
                     ("ZDOTDIR_ORIG".into(), orig),
@@ -123,7 +123,14 @@ pub fn cleanup(tempfiles: &[PathBuf]) {
     }
 }
 
-const BASH_RC: &str = "[ -f \"$HOME/.bashrc\" ] && source \"$HOME/.bashrc\"\n\
+const BASH_RC: &str = "if [ -r /etc/profile ]; then . /etc/profile; fi\n\
+if [ -r \"$HOME/.bash_profile\" ]; then . \"$HOME/.bash_profile\"\n\
+elif [ -r \"$HOME/.bash_login\" ]; then . \"$HOME/.bash_login\"\n\
+elif [ -r \"$HOME/.profile\" ]; then . \"$HOME/.profile\"\n\
+else\n\
+  [ -r /etc/bash.bashrc ] && . /etc/bash.bashrc\n\
+  [ -r \"$HOME/.bashrc\" ] && . \"$HOME/.bashrc\"\n\
+fi\n\
 __voltius_pwd() { printf '\\e]7;file://%s%s\\a' \"$HOSTNAME\" \"$PWD\"; }\n\
 case \";${PROMPT_COMMAND-};\" in\n\
   *\";__voltius_pwd;\"*) ;;\n\
@@ -131,7 +138,9 @@ case \";${PROMPT_COMMAND-};\" in\n\
 esac\n\
 __voltius_pwd 2>/dev/null\n";
 
-const ZSH_RC: &str = "[ -f \"${ZDOTDIR_ORIG}/.zshrc\" ] && source \"${ZDOTDIR_ORIG}/.zshrc\"\n\
+const ZSH_RC: &str = "[ -f \"${ZDOTDIR_ORIG}/.zprofile\" ] && source \"${ZDOTDIR_ORIG}/.zprofile\"\n\
+[ -f \"${ZDOTDIR_ORIG}/.zshrc\" ] && source \"${ZDOTDIR_ORIG}/.zshrc\"\n\
+[ -f \"${ZDOTDIR_ORIG}/.zlogin\" ] && source \"${ZDOTDIR_ORIG}/.zlogin\"\n\
 __voltius_pwd() { printf '\\e]7;file://%s%s\\a' \"${HOST}\" \"$PWD\"; }\n\
 typeset -ag precmd_functions\n\
 (($precmd_functions[(I)__voltius_pwd])) || precmd_functions+=(__voltius_pwd)\n\
@@ -167,24 +176,36 @@ function global:prompt {\n\
 /// to rm it from inside the rcfile races with bash/zsh reading it.
 const SSH_WRAPPER: &str = r#"case "$(basename "${SHELL:-/bin/sh}")" in
 zsh)
-  ZDOTDIR_TMP=$(mktemp -d 2>/dev/null) || exec zsh -i </dev/tty
+  ZDOTDIR_TMP=$(mktemp -d 2>/dev/null) || exec zsh -l -i </dev/tty
   export ZDOTDIR_ORIG="${ZDOTDIR:-$HOME}"
   cat > "$ZDOTDIR_TMP/.zshrc" <<'EOF'
+[ -f "${ZDOTDIR_ORIG}/.zprofile" ] && source "${ZDOTDIR_ORIG}/.zprofile"
 [ -f "${ZDOTDIR_ORIG}/.zshrc" ] && source "${ZDOTDIR_ORIG}/.zshrc"
+[ -f "${ZDOTDIR_ORIG}/.zlogin" ] && source "${ZDOTDIR_ORIG}/.zlogin"
 __voltius_pwd() { printf '\e]7;file://%s%s\a' "${HOST}" "$PWD"; }
 typeset -ag precmd_functions
 (($precmd_functions[(I)__voltius_pwd])) || precmd_functions+=(__voltius_pwd)
 __voltius_pwd 2>/dev/null
 EOF
-  ZDOTDIR="$ZDOTDIR_TMP" exec zsh -i </dev/tty
+  ZDOTDIR="$ZDOTDIR_TMP" exec zsh -l -i </dev/tty
   ;;
 fish)
-  exec fish -i </dev/tty
+  exec fish -l -i </dev/tty
   ;;
 *)
-  RCFILE_TMP=$(mktemp 2>/dev/null) || exec bash -i </dev/tty
+  RCFILE_TMP=$(mktemp 2>/dev/null) || exec bash -l -i </dev/tty
   cat > "$RCFILE_TMP" <<'EOF'
-[ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc"
+# Replicate bash's own startup so the session matches a normal interactive
+# login: --rcfile otherwise skips /etc/profile, /etc/bash.bashrc and the
+# profile chain, which is where PS1 and profile-driven welcome text live.
+if [ -r /etc/profile ]; then . /etc/profile; fi
+if [ -r "$HOME/.bash_profile" ]; then . "$HOME/.bash_profile"
+elif [ -r "$HOME/.bash_login" ]; then . "$HOME/.bash_login"
+elif [ -r "$HOME/.profile" ]; then . "$HOME/.profile"
+else
+  [ -r /etc/bash.bashrc ] && . /etc/bash.bashrc
+  [ -r "$HOME/.bashrc" ] && . "$HOME/.bashrc"
+fi
 __voltius_pwd() { printf '\e]7;file://%s%s\a' "$HOSTNAME" "$PWD"; }
 case ";${PROMPT_COMMAND-};" in
   *";__voltius_pwd;"*) ;;
