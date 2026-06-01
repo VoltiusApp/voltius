@@ -5,6 +5,16 @@ export function isPassphraseError(msg?: string): boolean {
   return msg.includes("The key is encrypted") || msg.toLowerCase().includes("invalid passphrase");
 }
 
+export function isNoAuthError(msg?: string): boolean {
+  if (!msg) return false;
+  return msg.includes("No authentication method provided");
+}
+
+export function isMissingUsernameError(msg?: string): boolean {
+  if (!msg) return false;
+  return msg.includes("No username provided");
+}
+
 export function createSteps(stepConfigs: readonly StepConfig[]): Step[] {
   return stepConfigs.map((step) => ({ ...step, status: "pending" }));
 }

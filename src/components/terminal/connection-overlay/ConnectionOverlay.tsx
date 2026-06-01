@@ -3,9 +3,11 @@ import { ConnectionErrorPanel, ConnectionLostPanel } from "./ConnectionStatusPan
 import { ConnectionSteps } from "./ConnectionSteps";
 import { HostKeyConflictPanel } from "./HostKeyConflictPanel";
 import { PassphrasePromptPanel } from "./PassphrasePromptPanel";
+import { AuthPromptPanel } from "./AuthPromptPanel";
+import { UsernamePromptPanel } from "./UsernamePromptPanel";
 import { useConnectionSteps, useHostKeyConflict } from "./hooks";
 import type { ConnectionOverlayProps } from "./types";
-import { isPassphraseError } from "./utils";
+import { isMissingUsernameError, isNoAuthError, isPassphraseError } from "./utils";
 
 export default function ConnectionOverlay({
   sessionId,
@@ -14,6 +16,7 @@ export default function ConnectionOverlay({
   name,
   subtitle,
   icon,
+  vaultId,
   steps: stepConfigs,
   stepEventName,
   conflictEventName,
@@ -21,6 +24,7 @@ export default function ConnectionOverlay({
   onDismiss,
   onRetry,
   onRetryWithPassphrase,
+  onRetryWithAuth,
 }: ConnectionOverlayProps) {
   const { steps, visible } = useConnectionSteps({ status, stepConfigs, stepEventName });
   const { conflict, resolving, resolveConflict } = useHostKeyConflict({
@@ -35,7 +39,9 @@ export default function ConnectionOverlay({
   const isDisconnected = status === "disconnected";
   const isConnecting = status === "connecting";
   const showPassphrasePrompt = isError && isPassphraseError(errorMessage) && !!onRetryWithPassphrase;
-  const showSpecialPanel = (conflict && !isError) || showPassphrasePrompt;
+  const showUsernamePrompt = isError && isMissingUsernameError(errorMessage) && !!onRetryWithAuth;
+  const showAuthPrompt = isError && isNoAuthError(errorMessage) && !!onRetryWithAuth;
+  const showSpecialPanel = (conflict && !isError) || showPassphrasePrompt || showUsernamePrompt || showAuthPrompt;
 
   return (
     <div className={className ?? "absolute inset-0 z-20 flex items-center justify-center bg-[var(--t-bg-terminal)]"}>
@@ -53,6 +59,18 @@ export default function ConnectionOverlay({
         ) : showPassphrasePrompt ? (
           <PassphrasePromptPanel
             onSubmit={onRetryWithPassphrase}
+            onCancel={onDismiss}
+          />
+        ) : showUsernamePrompt ? (
+          <UsernamePromptPanel
+            vaultId={vaultId}
+            onSubmit={(override, save) => onRetryWithAuth?.(override, save)}
+            onCancel={onDismiss}
+          />
+        ) : showAuthPrompt ? (
+          <AuthPromptPanel
+            vaultId={vaultId}
+            onSubmit={(override, save) => onRetryWithAuth?.(override, save)}
             onCancel={onDismiss}
           />
         ) : (

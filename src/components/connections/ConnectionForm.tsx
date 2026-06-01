@@ -242,7 +242,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
     onSave: () => { const { data, password: pwd, privateKey: pk, passphrase: pp } = buildSubmit(); return onSubmit(data, pwd, pk, pp) ?? undefined; },
-    canSave: () => !!host.trim() && !!username.trim() && (port === "" || (port >= 1 && port <= 65535)),
+    canSave: () => !!host.trim() && (port === "" || (port >= 1 && port <= 65535)),
   });
   const markDirty = useCallback(() => { userEditedRef.current = true; _markDirty(); }, [_markDirty]);
 
@@ -651,7 +651,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
               <>
                 <div>
                   <label className={formLabelClass} style={formLabelStyle}>
-                    Username <span className="text-[var(--t-accent)]">*</span>
+                    Username
                   </label>
                   <input
                     className={formInputClass}
