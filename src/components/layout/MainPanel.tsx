@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useSessionStore } from "@/stores/sessionStore";
+import { useSessionStore, type ConnectRetryOverride } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useVaultStore } from "@/stores/vaultStore";
@@ -203,12 +203,13 @@ function HostAwareTerminalView({
 }
 
 function SessionConnectionOverlay({
-  session, onDismiss, onRetry, onRetryWithPassphrase,
+  session, onDismiss, onRetry, onRetryWithPassphrase, onRetryWithAuth,
 }: {
   session: TerminalSession;
   onDismiss?: () => void;
   onRetry?: () => void;
   onRetryWithPassphrase?: (passphrase: string, save: boolean) => void;
+  onRetryWithAuth?: (override: ConnectRetryOverride, save: boolean) => void;
 }) {
   const connections = useAllConnections();
   const connection = connections.find((c) => c.id === session.connectionId);
@@ -258,12 +259,14 @@ function SessionConnectionOverlay({
       name={session.connectionName}
       subtitle={subtitle}
       icon={icon}
+      vaultId={connection?.vault_id}
       steps={SSH_STEPS}
       stepEventName={`ssh-step-${session.id}`}
       conflictEventName={`ssh-host-key-conflict-${session.id}`}
       onDismiss={onDismiss}
       onRetry={onRetry}
       onRetryWithPassphrase={onRetryWithPassphrase}
+      onRetryWithAuth={onRetryWithAuth}
     />
   );
 }
@@ -292,6 +295,7 @@ export default function MainPanel() {
   const markDisconnected = useSessionStore((s) => s.markDisconnected);
   const reconnect = useSessionStore((s) => s.reconnect);
   const reconnectWithPassphrase = useSessionStore((s) => s.reconnectWithPassphrase);
+  const retryConnect = useSessionStore((s) => s.retryConnect);
   const removeSession = useSessionStore((s) => s.removeSession);
   const homeView = useUIStore((s) => s.homeView);
   const activeNav = useUIStore((s) => s.activeNav);
@@ -389,6 +393,7 @@ export default function MainPanel() {
                         onDismiss={() => removeSession(session.id)}
                         onRetry={(session.type === "ssh" || session.type === "serial") ? () => reconnect(session.id) : undefined}
                         onRetryWithPassphrase={session.type === "ssh" ? (passphrase, save) => void reconnectWithPassphrase(session.id, passphrase, save) : undefined}
+                        onRetryWithAuth={session.type === "ssh" ? (override, save) => void retryConnect(session.id, override, save) : undefined}
                       />
                     )}
                     {session.type === "multiplayer" ? (

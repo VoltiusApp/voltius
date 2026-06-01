@@ -384,6 +384,9 @@ export default function HostsPage() {
     }
 
     setError(null);
+    // Persist any pending edits (e.g. a just-typed inline password) before
+    // connecting, so credential resolution sees them.
+    formRef.current?.flush();
     setActiveNav("terminal" as any);
     try {
       await connect(conn.id);

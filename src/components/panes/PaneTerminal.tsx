@@ -26,6 +26,8 @@ function SplitConnectionOverlay({
   const connection = connections.find((c) => c.id === session.connectionId);
   const connectSerialEphemeralFinalize = useSessionStore((s) => s.connectSerialEphemeralFinalize);
   const resetSerialEphemeral = useSessionStore((s) => s.resetSerialEphemeral);
+  const reconnectWithPassphrase = useSessionStore((s) => s.reconnectWithPassphrase);
+  const retryConnect = useSessionStore((s) => s.retryConnect);
 
   if (session.type === "serial") {
     const isEphemeral = session.connectionId === "serial-ephemeral";
@@ -69,11 +71,14 @@ function SplitConnectionOverlay({
       name={session.connectionName}
       subtitle={subtitle}
       icon={icon}
+      vaultId={connection?.vault_id}
       steps={SSH_STEPS}
       stepEventName={`ssh-step-${session.id}`}
       conflictEventName={`ssh-host-key-conflict-${session.id}`}
       onDismiss={onDismiss}
       onRetry={onRetry}
+      onRetryWithPassphrase={(passphrase, save) => void reconnectWithPassphrase(session.id, passphrase, save)}
+      onRetryWithAuth={(override, save) => void retryConnect(session.id, override, save)}
     />
   );
 }

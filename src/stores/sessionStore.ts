@@ -1,10 +1,25 @@
 import { create } from "zustand";
-import type { Connection, TerminalSession, SerialConnectParams } from "@/types";
+import type { Connection, ConnectionFormData, TerminalSession, SerialConnectParams } from "@/types";
+
+/**
+ * Auth/username supplied through the connection overlay when a host is missing
+ * credentials. Mirrors the connection form's choices: an existing identity, an
+ * existing key, or inline password / private key material.
+ */
+export interface ConnectRetryOverride {
+  username?: string;
+  identityId?: string | null;
+  keyId?: string | null;
+  password?: string;
+  privateKey?: string;
+  passphrase?: string;
+}
 import { sshConnect, sshDisconnect, sshDetectDistro, sshSendInput } from "@/services/ssh";
 import { localConnect, localDisconnect } from "@/services/local";
 import { serialConnect, serialDisconnect } from "@/services/serial";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
-import { storeSecret } from "@/services/vault";
+import { storeSecret, getSecret } from "@/services/vault";
+import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import { useIdentityStore } from "@/stores/identityStore";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportAuditClientEvent, type ClientAuditAction } from "@/services/auditReporter";
@@ -37,6 +52,7 @@ interface SessionStore {
   removeSession: (sessionId: string) => void;
   reconnect: (sessionId: string) => Promise<void>;
   reconnectWithPassphrase: (sessionId: string, passphrase: string, save: boolean) => Promise<void>;
+  retryConnect: (sessionId: string, override: ConnectRetryOverride, save: boolean) => Promise<void>;
 }
 
 type SessionSetter = (fn: (s: { sessions: TerminalSession[]; activeSessionId: string | null }) => Partial<SessionStore>) => void;
@@ -87,6 +103,28 @@ function createSshSession(
   useLayoutStore.getState().setSplitTabActive(false);
 }
 
+/**
+ * Validate that a host has the minimum needed to attempt an SSH connection.
+ * Returns a sentinel error message (detected by the connection overlay to show
+ * the username / auth prompt) or null when the connection can proceed.
+ *
+ * `hasConfiguredAuth` lets a host that references a keychain identity or key be
+ * treated as having auth even if the secret momentarily resolves empty (e.g.
+ * identities not yet loaded). In that case we proceed and let the backend be the
+ * authority — it returns "No authentication method provided" if there's truly
+ * nothing, which surfaces the same prompt without false positives.
+ */
+function preflightConnect(
+  username: string | undefined,
+  password?: string,
+  privateKey?: string,
+  hasConfiguredAuth = false,
+): string | null {
+  if (!username || !username.trim()) return "No username provided";
+  if (!password && !privateKey && !hasConfiguredAuth) return "No authentication method provided";
+  return null;
+}
+
 async function connectSshSession(
   set: SessionSetter,
   connection: Connection,
@@ -95,6 +133,17 @@ async function connectSshSession(
   privateKey?: string,
   passphrase?: string,
 ) {
+  const hasConfiguredAuth = !!connection.identity_id || !!connection.key_id;
+  const preflightError = preflightConnect(connection.username, password, privateKey, hasConfiguredAuth);
+  if (preflightError) {
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: preflightError } : sess,
+      ),
+    }));
+    throw new Error(preflightError);
+  }
+
   const jumpHosts = await resolveJumpHosts(connection);
 
   const envVars = connection.env_vars?.map((e): [string, string] => [e.key, e.value]) ?? [];
@@ -213,6 +262,110 @@ function markSessionError(set: SessionSetter, sessionId: string, err: unknown) {
       sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
     ),
   }));
+}
+
+// Auth/username supplied through the overlay, carried across the two-step prompt
+// flow (username first, then auth) for a single session. Cleared on success.
+const connectOverrides = new Map<string, ConnectRetryOverride>();
+
+function findIdentityById(id: string) {
+  const { identities, teamIdentities } = useIdentityStore.getState();
+  return [...identities, ...Object.values(teamIdentities).flat()].find((i) => i.id === id);
+}
+
+interface ResolvedRetryAuth {
+  username: string;
+  password?: string;
+  privateKey?: string;
+  passphrase?: string;
+}
+
+/**
+ * Resolve the effective credentials for a retry, layering the overlay-supplied
+ * override on top of whatever the host already has stored.
+ */
+async function resolveOverrideAuth(connection: Connection, override: ConnectRetryOverride): Promise<ResolvedRetryAuth> {
+  const base = await resolveConnectionCredentials(connection);
+  let username = override.username?.trim() || base.username || connection.username;
+  let password = base.password;
+  let privateKey = base.privateKey;
+  let passphrase = base.passphrase;
+
+  if (override.identityId) {
+    const identity = findIdentityById(override.identityId);
+    if (identity) {
+      username = identity.username;
+      password = (await getSecret(`identity:${override.identityId}:password`).catch(() => null)) ?? undefined;
+      privateKey = identity.key_id ? (await getSecret(`key:${identity.key_id}:private`).catch(() => null)) ?? undefined : undefined;
+      passphrase = identity.key_id ? (await getSecret(`key:${identity.key_id}:passphrase`).catch(() => null)) ?? undefined : undefined;
+    }
+  } else if (override.keyId) {
+    privateKey = (await getSecret(`key:${override.keyId}:private`).catch(() => null)) ?? undefined;
+    passphrase = (await getSecret(`key:${override.keyId}:passphrase`).catch(() => null)) ?? undefined;
+    password = undefined;
+  } else if (override.password !== undefined || override.privateKey !== undefined || override.passphrase !== undefined) {
+    password = override.password || undefined;
+    privateKey = override.privateKey || undefined;
+    passphrase = override.passphrase || undefined;
+  }
+
+  return { username, password, privateKey, passphrase };
+}
+
+function connectionToFormData(c: Connection): ConnectionFormData {
+  return {
+    name: c.name, host: c.host, port: c.port, username: c.username,
+    auth_type: c.auth_type, tags: c.tags, identity_id: c.identity_id, key_id: c.key_id,
+    folder_id: c.folder_id, vault_id: c.vault_id, jump_hosts: c.jump_hosts, env_vars: c.env_vars,
+    agent_forwarding: c.agent_forwarding, pre_command: c.pre_command, post_command: c.post_command,
+    terminal_encoding: c.terminal_encoding, distro: c.distro, icon: c.icon, pinned: c.pinned,
+    ping_disabled: c.ping_disabled, shell_integration_disabled: c.shell_integration_disabled,
+    connection_type: c.connection_type, serial_port: c.serial_port, serial_baud: c.serial_baud,
+    serial_data_bits: c.serial_data_bits, serial_parity: c.serial_parity, serial_stop_bits: c.serial_stop_bits,
+    serial_flow_control: c.serial_flow_control,
+  };
+}
+
+/**
+ * Persist overlay-supplied auth/username back onto the host config so future
+ * connections succeed without prompting. Mirrors the connection form's save:
+ * identity/key references go on the record, inline secrets go to the vault.
+ */
+async function persistConnectAuth(connection: Connection, override: ConnectRetryOverride): Promise<void> {
+  const data = connectionToFormData(connection);
+
+  if (override.username?.trim() && !override.identityId) {
+    data.username = override.username.trim();
+  }
+
+  if (override.identityId) {
+    const identity = findIdentityById(override.identityId);
+    data.identity_id = override.identityId;
+    data.key_id = undefined;
+    data.auth_type = identity?.key_id ? "key" : "password";
+  } else if (override.keyId) {
+    data.identity_id = undefined;
+    data.key_id = override.keyId;
+    data.auth_type = "key";
+  } else if (override.privateKey?.trim()) {
+    data.identity_id = undefined;
+    data.key_id = undefined;
+    data.auth_type = "key";
+    await storeSecret(`key:${connection.id}`, override.privateKey.trim());
+    await saveTeamVaultSecretForVault(connection.vault_id, `key:${connection.id}`, override.privateKey.trim()).catch(() => {});
+    if (override.passphrase) {
+      await storeSecret(`passphrase:${connection.id}`, override.passphrase);
+      await saveTeamVaultSecretForVault(connection.vault_id, `passphrase:${connection.id}`, override.passphrase).catch(() => {});
+    }
+  } else if (override.password) {
+    data.identity_id = undefined;
+    data.key_id = undefined;
+    data.auth_type = "password";
+    await storeSecret(`password:${connection.id}`, override.password);
+    await saveTeamVaultSecretForVault(connection.vault_id, `password:${connection.id}`, override.password).catch(() => {});
+  }
+
+  await useConnectionStore.getState().updateConnection(connection.id, data);
 }
 
 function beginConnection(set: SessionSetter, connectionId: string): string {
@@ -624,9 +777,91 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }
   },
 
+  retryConnect: async (sessionId, override, save) => {
+    const session = get().sessions.find((s) => s.id === sessionId);
+    if (!session || session.type !== "ssh") return;
+    const connection = findConnection(session.connectionId);
+    if (!connection) return;
+
+    // Carry overrides across the two-step prompt flow: a username entered first
+    // must survive into the subsequent auth prompt.
+    const prior = connectOverrides.get(sessionId) ?? {};
+    const merged: ConnectRetryOverride = { ...prior };
+    for (const [k, v] of Object.entries(override)) {
+      if (v !== undefined) (merged as Record<string, unknown>)[k] = v;
+    }
+    connectOverrides.set(sessionId, merged);
+
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId ? { ...sess, status: "connecting" as const, errorMessage: undefined } : sess,
+      ),
+    }));
+
+    try {
+      await sshDisconnect(sessionId).catch(() => {});
+      const { username, password, privateKey, passphrase } = await resolveOverrideAuth(connection, merged);
+
+      // Still missing something — re-surface the appropriate prompt and keep the
+      // accumulated overrides for the next step. Persist the username now if the
+      // user asked to save it, so the intent survives into the auth step.
+      const preflightError = preflightConnect(username, password, privateKey);
+      if (preflightError) {
+        if (save && merged.username?.trim()) {
+          await persistConnectAuth(connection, { username: merged.username }).catch(() => {});
+        }
+        set((s) => ({
+          sessions: s.sessions.map((sess) =>
+            sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: preflightError } : sess,
+          ),
+        }));
+        return;
+      }
+
+      if (save) {
+        await persistConnectAuth(connection, merged).catch(() => {});
+      }
+
+      const jumpHosts = await resolveJumpHosts(connection);
+      const envVars = connection.env_vars?.map((e): [string, string] => [e.key, e.value]) ?? [];
+      await sshConnect({
+        sessionId,
+        host: connection.host,
+        port: connection.port,
+        username,
+        password,
+        privateKey,
+        passphrase,
+        connectionId: connection.id,
+        jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
+        envVars: envVars.length > 0 ? envVars : undefined,
+        agentForwarding: connection.agent_forwarding ?? false,
+        preCommand: connection.pre_command ?? undefined,
+        autoForward: getToggle("auto-forward"),
+        shellIntegration: getToggle("shell-integration") && !connection.shell_integration_disabled,
+      });
+      connectOverrides.delete(sessionId);
+      set((s) => ({
+        sessions: s.sessions.map((sess) =>
+          sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
+        ),
+      }));
+      useConnectionStore.getState().setLastUsed(connection.id).catch(() => {});
+      reportConnectionAudit(connection, "connection.started");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      set((s) => ({
+        sessions: s.sessions.map((sess) =>
+          sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
+        ),
+      }));
+    }
+  },
+
   removeSession: (sessionId) => {
     const state = get();
     const remaining = state.sessions.filter((s) => s.id !== sessionId);
+    connectOverrides.delete(sessionId);
     set({
       sessions: remaining,
       activeSessionId:
