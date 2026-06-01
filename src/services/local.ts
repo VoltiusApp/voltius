@@ -1,8 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
-export async function localConnect(sessionId: string, cols: number, rows: number, shell?: string, cwd?: string): Promise<void> {
-  return invoke("local_connect", { sessionId, cols, rows, shell: shell ?? null, cwd: cwd ?? null });
+export async function localConnect(sessionId: string, cols: number, rows: number, shell?: string, cwd?: string, shellIntegration?: boolean): Promise<void> {
+  return invoke("local_connect", {
+    sessionId, cols, rows,
+    shell: shell ?? null,
+    cwd: cwd ?? null,
+    shellIntegration: shellIntegration ?? null,
+  });
 }
 
 export async function localDisconnect(sessionId: string): Promise<void> {

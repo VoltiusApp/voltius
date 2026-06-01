@@ -9,6 +9,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
+import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 
 function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
   if (!vaultId) return false;
@@ -43,7 +44,8 @@ interface IdentityStore {
   saveIdentity: (data: IdentityFormData) => Promise<Identity>;
   updateIdentity: (id: string, data: IdentityFormData) => Promise<void>;
   deleteIdentity: (id: string) => Promise<void>;
-  pinIdentity: (id: string, pinned: boolean) => Promise<void>;
+  pinIdentity: (id: string, pinned: boolean | null) => Promise<void>;
+  pinIdentityForTeam: (id: string, pinned: boolean) => Promise<void>;
 }
 
 export const useIdentityStore = create<IdentityStore>((set, get) => ({
@@ -235,30 +237,37 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
   pinIdentity: async (id, pinned) => {
     const teamEntry = findTeamEntry(get().teamIdentities, id);
     if (teamEntry) {
-      const { teamId, item: prev } = teamEntry;
-      const now = new Date().toISOString();
-      const updated: Identity = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
-      await saveTeamVaultObject(teamId, "identity", updated);
-      set((s) => ({
-        teamIdentities: {
-          ...s.teamIdentities,
-          [teamId]: upsert(s.teamIdentities[teamId] ?? [], updated),
-        },
-      }));
+      await useTeamObjectPrefsStore.getState().setPinned(teamEntry.teamId, id, pinned);
       return;
     }
 
     const identity = get().identities.find((i) => i.id === id);
     if (!identity) return;
+    const nextPinned = pinned ?? false;
     await api.updateIdentity(id, {
       name: identity.name, username: identity.username, key_id: identity.key_id,
       tags: identity.tags,
-      folder_id: identity.folder_id, vault_id: identity.vault_id, pinned,
+      folder_id: identity.folder_id, vault_id: identity.vault_id, pinned: nextPinned,
     });
     const identities = await api.listIdentities();
     set({ identities });
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "identity")) scheduleSync(); });
+  },
+
+  pinIdentityForTeam: async (id, pinned) => {
+    const teamEntry = findTeamEntry(get().teamIdentities, id);
+    if (!teamEntry) return;
+    const { teamId, item: prev } = teamEntry;
+    const now = new Date().toISOString();
+    const updated: Identity = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
+    await saveTeamVaultObject(teamId, "identity", updated);
+    set((s) => ({
+      teamIdentities: {
+        ...s.teamIdentities,
+        [teamId]: upsert(s.teamIdentities[teamId] ?? [], updated),
+      },
+    }));
   },
 
   deleteIdentity: async (id) => {

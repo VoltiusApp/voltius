@@ -1,8 +1,8 @@
-use aes_gcm::{
-    aead::{Aead, AeadCore, KeyInit, OsRng as AeadOsRng},
-    Aes256Gcm, Key, Nonce,
-};
 use base64::{engine::general_purpose::STANDARD, Engine};
+use chacha20poly1305::{
+    aead::{Aead, AeadCore, KeyInit, OsRng as AeadOsRng},
+    Key, XChaCha20Poly1305, XNonce,
+};
 use hkdf::Hkdf;
 use rand::RngCore;
 use serde::Serialize;
@@ -38,7 +38,9 @@ pub fn derive_x25519_keypair(enc_key: Vec<u8>) -> Result<X25519KeypairResult, St
 
 // ─── Session key generation ───────────────────────────────────────────────────
 
-/// Generate a random 32-byte AES-256-GCM session key.
+const NONCE_LEN: usize = 24;
+
+/// Generate a random 32-byte XChaCha20-Poly1305 session key.
 #[tauri::command]
 pub fn generate_session_key() -> Vec<u8> {
     let mut key = vec![0u8; 32];
@@ -48,11 +50,11 @@ pub fn generate_session_key() -> Vec<u8> {
 
 // ─── Key wrapping / unwrapping ────────────────────────────────────────────────
 
-/// Wrap (encrypt) a session key for a recipient using X25519 ECDH + AES-256-GCM.
+/// Wrap (encrypt) a session key for a recipient using X25519 ECDH + XChaCha20-Poly1305.
 ///
 /// Steps:
 /// 1. ECDH: shared = X25519(my_private, recipient_public)
-/// 2. Encrypt session_key with AES-256-GCM(key=shared)
+/// 2. Encrypt session_key with XChaCha20-Poly1305(key=shared)
 /// 3. Return base64(nonce || ciphertext)
 #[tauri::command]
 pub fn x25519_wrap_key(
@@ -76,9 +78,9 @@ pub fn x25519_wrap_key(
     let recipient_public = PublicKey::from(recipient_public_bytes);
     let shared = my_secret.diffie_hellman(&recipient_public);
 
-    let key = Key::<Aes256Gcm>::from_slice(shared.as_bytes());
-    let cipher = Aes256Gcm::new(key);
-    let nonce = Aes256Gcm::generate_nonce(&mut AeadOsRng);
+    let key = Key::from_slice(shared.as_bytes());
+    let cipher = XChaCha20Poly1305::new(key);
+    let nonce = XChaCha20Poly1305::generate_nonce(&mut AeadOsRng);
 
     let ciphertext = cipher
         .encrypt(&nonce, plaintext.as_ref())
@@ -89,11 +91,11 @@ pub fn x25519_wrap_key(
     Ok(STANDARD.encode(&out))
 }
 
-/// Unwrap (decrypt) a session key using X25519 ECDH + AES-256-GCM.
+/// Unwrap (decrypt) a session key using X25519 ECDH + XChaCha20-Poly1305.
 ///
 /// Steps:
 /// 1. ECDH: shared = X25519(my_private, sender_public)
-/// 2. Decrypt with AES-256-GCM(key=shared, nonce||ciphertext)
+/// 2. Decrypt with XChaCha20-Poly1305(key=shared, nonce||ciphertext)
 /// 3. Return plaintext session key bytes
 #[tauri::command]
 pub fn x25519_unwrap_key(
@@ -118,15 +120,15 @@ pub fn x25519_unwrap_key(
     let shared = my_secret.diffie_hellman(&sender_public);
 
     let wrapped = STANDARD.decode(&wrapped_b64).map_err(|e| e.to_string())?;
-    if wrapped.len() < 12 {
+    if wrapped.len() < NONCE_LEN {
         return Err("Wrapped key too short".to_string());
     }
 
-    let nonce = Nonce::from_slice(&wrapped[..12]);
-    let ciphertext = &wrapped[12..];
+    let nonce = XNonce::from_slice(&wrapped[..NONCE_LEN]);
+    let ciphertext = &wrapped[NONCE_LEN..];
 
-    let key = Key::<Aes256Gcm>::from_slice(shared.as_bytes());
-    let cipher = Aes256Gcm::new(key);
+    let key = Key::from_slice(shared.as_bytes());
+    let cipher = XChaCha20Poly1305::new(key);
 
     cipher.decrypt(nonce, ciphertext).map_err(|e| e.to_string())
 }

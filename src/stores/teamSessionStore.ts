@@ -21,6 +21,7 @@ interface TeamSessionStore {
     allowedRoles: string[],
     connectionName: string,
     members: import("@/services/teamService").TeamMember[],
+    vaultOwnerTier?: string,
   ) => Promise<string>; // returns multiplayerSessionId
 
   /**
@@ -60,6 +61,7 @@ export interface MultiplayerSessionState {
   controlRequester: string | null;
   connection: MultiplayerConnection;
   ended?: boolean;
+  vaultOwnerTier?: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -112,7 +114,7 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
     set({ activeSessions: sessions });
   },
 
-  startSharing: async (localSessionId, vaultIds, allowedRoles, connectionName, members) => {
+  startSharing: async (localSessionId, vaultIds, allowedRoles, connectionName, members, vaultOwnerTier) => {
     const { sessionId, sessionKey } = await mp.createVaultSession(vaultIds, allowedRoles, connectionName, members);
 
     const serverUrl = await import("@/services/teamService").then((m) => m.getServerUrlValue());
@@ -131,7 +133,7 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
     set((s) => ({
       connections: {
         ...s.connections,
-        [localSessionId]: { multiplayerSessionId: sessionId, role: "host", myUserId, participants: [], controlHolder: "", controlRequester: null, connection: conn },
+        [localSessionId]: { multiplayerSessionId: sessionId, role: "host", myUserId, participants: [], controlHolder: "", controlRequester: null, connection: conn, vaultOwnerTier },
       },
     }));
 

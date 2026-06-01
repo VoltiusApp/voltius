@@ -4,6 +4,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { matchShortcut } from "@/stores/shortcutStore";
 import { useHistoryStore } from "@/stores/historyStore";
+import { openTerminalSearch, getTerminalSearchController } from "@/hooks/useTerminal";
 
 export function useKeyboard() {
   useEffect(() => {
@@ -20,23 +21,64 @@ export function useKeyboard() {
 
       if (matchShortcut("shortcuts", e)) {
         e.preventDefault();
-        useUIStore.getState().setShortcutsOpen(!useUIStore.getState().shortcutsOpen);
+        const { settingsOpen, settingsSection, setSettingsOpen, openSettings } = useUIStore.getState();
+        if (settingsOpen && settingsSection === "shortcuts") {
+          setSettingsOpen(false);
+        } else {
+          openSettings("shortcuts");
+        }
         return;
       }
 
       if (matchShortcut("themes", e)) {
         e.preventDefault();
-        const { settingsOpen, setSettingsOpen, setSettingsSection } = useUIStore.getState();
-        if (settingsOpen) {
-          setSettingsOpen(false);
-        } else {
-          setSettingsSection("appearance");
-          setSettingsOpen(true);
+        const { settingsOpen, setSettingsOpen } = useUIStore.getState();
+        setSettingsOpen(!settingsOpen);
+        return;
+      }
+
+      // Ctrl+F: always prevent the native webview find dialog.
+      // If the right panel is open on a section with a search bar, focus that
+      // instead. Otherwise open the in-terminal search widget (when the terminal
+      // canvas itself has focus, useTerminal's attachCustomKeyEventHandler
+      // handles it instead).
+      if (matchShortcut("terminal-search", e)) {
+        e.preventDefault();
+        const { rightPanelOpen, rightPanelSection, activeNav } = useUIStore.getState();
+        const SEARCHABLE_SECTIONS = ["snippets", "history"];
+        if (rightPanelOpen && SEARCHABLE_SECTIONS.includes(rightPanelSection)) {
+          window.dispatchEvent(new CustomEvent("voltius:focus-panel-search"));
+        } else if (activeNav === ("terminal" as any)) {
+          const activeId = useSessionStore.getState().activeSessionId;
+          if (activeId) openTerminalSearch(activeId);
+        }
+        return;
+      }
+
+      // Ctrl+G / Shift+Ctrl+G: always prevent the native webview find-next dialog.
+      // When the terminal search widget is open, drive it to next/prev result.
+      if (e.ctrlKey && !e.altKey && (e.key === "g" || e.key === "G")) {
+        e.preventDefault();
+        if (useUIStore.getState().activeNav === ("terminal" as any)) {
+          const activeId = useSessionStore.getState().activeSessionId;
+          if (activeId) {
+            const ctrl = getTerminalSearchController(activeId);
+            if (ctrl?.getSnapshot().open) {
+              if (e.shiftKey) ctrl.prev();
+              else ctrl.next();
+            }
+          }
         }
         return;
       }
 
       if (isInput) return;
+
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key === "a") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("voltius:select-all"));
+        return;
+      }
 
       if (matchShortcut("undo", e)) {
         e.preventDefault();
@@ -55,6 +97,24 @@ export function useKeyboard() {
       if (matchShortcut("delete", e)) {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent("voltius:delete"));
+        return;
+      }
+
+      if (matchShortcut("history", e)) {
+        e.preventDefault();
+        useUIStore.getState().toggleRightPanel("history");
+        return;
+      }
+
+      if (matchShortcut("snippets", e)) {
+        e.preventDefault();
+        useUIStore.getState().toggleRightPanel("snippets");
+        return;
+      }
+
+      if (matchShortcut("panel-themes", e)) {
+        e.preventDefault();
+        useUIStore.getState().toggleRightPanel("themes");
         return;
       }
 

@@ -1,7 +1,8 @@
-// formats.ts — pure data: interfaces, JSON/CSV serialization, format detection.
-// No business logic, no store imports, no eid building. See registry.ts for that.
+// Pure types, JSON serialization, encryption, and format detection.
+// Format-specific parsers live in parsers/*.ts — one file per format.
 
 import type { ConnectionFormData } from "@/types";
+import { decryptXChaCha20Poly1305, encryptXChaCha20Poly1305 } from "../crypto/xchacha.ts";
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 // _eid fields are export-scoped IDs used only within a bundle for cross-referencing.
@@ -21,6 +22,7 @@ export interface KeyExport {
   tags?: string[];
   private_key?: string;
   public_key?: string;
+  passphrase?: string;
   _folder_eid?: string;
 }
 
@@ -28,6 +30,7 @@ export interface IdentityExport {
   _eid?: string;
   name?: string;
   username: string;
+  password?: string;
   tags?: string[];
   _key_eid?: string;    // → KeyExport._eid in the same bundle
   _folder_eid?: string;
@@ -50,6 +53,8 @@ export interface ConnectionExport extends ConnectionPassthrough {
   _eid?: string;        // → referenced by PortForwardingRuleExport._connection_eids
   password?: string;
   private_key?: string;
+  passphrase?: string;
+  _key_eid?: string;      // → KeyExport._eid in the same bundle
   _identity_eid?: string; // → IdentityExport._eid in the same bundle
   _folder_eid?: string;
   jump_hosts?: JumpHostExport[];
@@ -121,87 +126,83 @@ export function fromJSON(text: string): ExportBundle {
   };
 }
 
-// ─── CSV (connections only) ───────────────────────────────────────────────────
+// ─── Encrypted bundle (XChaCha20-Poly1305, PBKDF2 key derivation) ─────────────
 
-const CSV_HEADERS = ["name", "host", "port", "username", "auth_type", "tags"];
-
-function csvEscape(v: string): string {
-  if (v.includes(",") || v.includes('"') || v.includes("\n")) {
-    return `"${v.replace(/"/g, '""')}"`;
-  }
-  return v;
+interface EncryptedBundleFile {
+  type: "voltius-encrypted";
+  version: 2;
+  cipher: "xchacha20poly1305";
+  salt: string; // base64, 16 bytes
+  nonce: string; // base64, 24 bytes
+  data: string; // base64 ciphertext
 }
 
-export function connectionsToCSV(connections: ConnectionExport[]): string {
-  const rows: string[][] = [CSV_HEADERS];
-  for (const c of connections) {
-    rows.push([c.name ?? "", c.host ?? "", String(c.port ?? 0), c.username ?? "", c.auth_type ?? "", c.tags.join(";")]);
-  }
-  return rows.map((r) => r.map(csvEscape).join(",")).join("\n");
+function b64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
+  const str = atob(b64);
+  const bytes = new Uint8Array(str.length);
+  for (let i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i);
+  return bytes;
 }
 
-function parseCSVRow(line: string): string[] {
-  const result: string[] = [];
-  let i = 0;
-  while (i <= line.length) {
-    if (i === line.length) { result.push(""); break; }
-    if (line[i] === '"') {
-      let value = "";
-      i++;
-      while (i < line.length) {
-        if (line[i] === '"' && line[i + 1] === '"') { value += '"'; i += 2; }
-        else if (line[i] === '"') { i++; break; }
-        else { value += line[i++]; }
-      }
-      result.push(value);
-      if (line[i] === ",") i++;
-    } else {
-      const end = line.indexOf(",", i);
-      if (end === -1) { result.push(line.slice(i)); break; }
-      result.push(line.slice(i, end));
-      i = end + 1;
-    }
-  }
-  return result;
+function bytesToB64(bytes: Uint8Array): string {
+  return btoa(String.fromCharCode(...bytes));
 }
 
-export function connectionsFromCSV(text: string): ConnectionExport[] {
-  const lines = text.trim().split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return [];
-  const headers = parseCSVRow(lines[0]).map((h) => h.toLowerCase().trim());
-  const col = (name: string) => headers.indexOf(name);
-
-  const hostIdx = col("host") >= 0 ? col("host") : col("hostname");
-  const usernameIdx = col("username") >= 0 ? col("username") : col("user");
-  if (hostIdx === -1 || usernameIdx === -1) {
-    throw new Error("CSV must have at least 'host' and 'username' columns");
-  }
-
-  const connections: ConnectionExport[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const row = parseCSVRow(lines[i]);
-    const host = row[hostIdx]?.trim();
-    const username = row[usernameIdx]?.trim();
-    if (!host || !username) continue;
-    connections.push({
-      name: col("name") >= 0 ? row[col("name")]?.trim() || undefined : undefined,
-      host,
-      port: col("port") >= 0 ? parseInt(row[col("port")], 10) || 22 : 22,
-      username,
-      auth_type: (col("auth_type") >= 0 && row[col("auth_type")]?.trim() === "key") ? "key" : "password",
-      tags: col("tags") >= 0 && row[col("tags")]?.trim()
-        ? row[col("tags")].trim().split(";").map((t) => t.trim()).filter(Boolean)
-        : [],
-    });
-  }
-  return connections;
+async function deriveKey(password: string, salt: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
+  const raw = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt, iterations: 100_000, hash: "SHA-256" },
+    raw,
+    256,
+  );
+  return new Uint8Array(bits);
 }
 
-// ─── Auto-detection ───────────────────────────────────────────────────────────
+export async function encryptText(plaintext: string, password: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(16)) as Uint8Array<ArrayBuffer>;
+  const key = await deriveKey(password, salt);
+  const encrypted = encryptXChaCha20Poly1305(key, new TextEncoder().encode(plaintext));
+  const file: EncryptedBundleFile = {
+    type: "voltius-encrypted",
+    version: 2,
+    cipher: "xchacha20poly1305",
+    salt: bytesToB64(salt),
+    nonce: bytesToB64(encrypted.nonce),
+    data: bytesToB64(encrypted.ciphertext),
+  };
+  return JSON.stringify(file, null, 2);
+}
 
-export function detectFormat(text: string): "json" | "csv" | null {
+export async function decryptText(text: string, password: string): Promise<string> {
+  let parsed: unknown;
+  try { parsed = JSON.parse(text); } catch { throw new Error("Invalid encrypted file"); }
+  const obj = parsed as EncryptedBundleFile;
+  if (obj?.type !== "voltius-encrypted") throw new Error("Not an encrypted Voltius backup");
+  if (obj.version !== 2 || obj.cipher !== "xchacha20poly1305") throw new Error("Unsupported encrypted Voltius backup");
+  const key = await deriveKey(password, b64ToBytes(obj.salt));
+  let decrypted: Uint8Array;
+  try {
+    decrypted = decryptXChaCha20Poly1305(key, b64ToBytes(obj.nonce), b64ToBytes(obj.data));
+  } catch {
+    throw new Error("Wrong password or corrupted file");
+  }
+  return new TextDecoder().decode(decrypted);
+}
+
+// ─── Format detection ──────────────────────────────────────────────────────────
+
+export function detectFormat(text: string): "json" | "csv" | "mobaxterm" | "termius" | "voltius-encrypted" | null {
   const t = text.trim();
-  if (t.startsWith("{") || t.startsWith("[")) return "json";
+  if (t.startsWith("{")) {
+    if (/"type"\s*:\s*"voltius-encrypted"/.test(t.slice(0, 120))) return "voltius-encrypted";
+    if (/"records"\s*:/.test(t.slice(0, 300)) && /"version"\s*:\s*[12]/.test(t.slice(0, 300))) return "termius";
+    return "json";
+  }
+  if (t.startsWith("[") && /#\d+#/.test(t)) return "mobaxterm";
+  // Termius dumps are JSON arrays of strings; each string is an escaped JSON object
+  // containing Termius-specific field names like `connection_type` / `user_name`.
+  if (t.startsWith("[") && /\\"(?:connection_type|user_name)\\"/.test(t)) return "termius";
+  if (t.startsWith("[")) return "json";
   const firstLine = t.split("\n")[0].toLowerCase();
   if (firstLine.includes("host") || firstLine.includes("username") || firstLine.includes("user")) return "csv";
   return null;

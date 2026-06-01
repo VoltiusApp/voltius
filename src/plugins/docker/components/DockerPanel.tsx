@@ -8,14 +8,19 @@ import {
   dockerListContainers,
   dockerListImages,
   dockerListNetworks,
+  dockerListStackServices,
+  dockerListStacks,
   dockerListVolumes,
+  dockerStartLogStream,
+  dockerStartStackLogStream,
   dockerSystemPrune,
 } from "../services";
-import type { DockerImage, DockerNetwork, DockerState, DockerView, DockerVolume } from "../types";
+import type { DockerImage, DockerNetwork, DockerStack, DockerStackService, DockerState, DockerView, DockerVolume } from "../types";
 import { ContainerList } from "./ContainerList";
 import { ImageList } from "./ImageList";
 import { LogsView } from "./LogsView";
 import { NetworkList } from "./NetworkList";
+import { StackList } from "./StackList";
 import { VolumeList } from "./VolumeList";
 import type { DockerContainer } from "../types";
 
@@ -25,9 +30,13 @@ type Action =
   | { type: "SET_IMAGES"; images: DockerImage[] }
   | { type: "SET_VOLUMES"; volumes: DockerVolume[] }
   | { type: "SET_NETWORKS"; networks: DockerNetwork[] }
+  | { type: "SET_STACKS"; stacks: DockerStack[] }
+  | { type: "SET_STACK_SERVICES"; services: DockerStackService[] }
+  | { type: "SELECT_STACK"; stackName: string }
   | { type: "SET_LOADING"; loading: boolean }
   | { type: "SET_ERROR"; error: string | null }
   | { type: "OPEN_LOGS"; containerId: string; containerName: string }
+  | { type: "OPEN_STACK_LOGS"; stackName: string }
   | { type: "CLOSE_LOGS" }
   | { type: "TOGGLE_STOPPED" }
   | { type: "RESET" };
@@ -38,7 +47,12 @@ const initial: DockerState = {
   images: [],
   volumes: [],
   networks: [],
+  stacks: [],
+  stackServices: [],
+  selectedStackName: null,
   logsContainerId: null,
+  logsStackName: null,
+  logsReturnView: "containers",
   logLines: [],
   loading: false,
   error: null,
@@ -57,14 +71,22 @@ function reducer(state: DockerState, action: Action): DockerState {
       return { ...state, volumes: action.volumes, loading: false, error: null };
     case "SET_NETWORKS":
       return { ...state, networks: action.networks, loading: false, error: null };
+    case "SET_STACKS":
+      return { ...state, stacks: action.stacks, loading: false, error: null };
+    case "SET_STACK_SERVICES":
+      return { ...state, stackServices: action.services, loading: false, error: null };
+    case "SELECT_STACK":
+      return { ...state, selectedStackName: action.stackName, stackServices: [], error: null };
     case "SET_LOADING":
       return { ...state, loading: action.loading };
     case "SET_ERROR":
       return { ...state, error: action.error, loading: false };
     case "OPEN_LOGS":
-      return { ...state, view: "logs", logsContainerId: action.containerId, logLines: [] };
+      return { ...state, view: "logs", logsContainerId: action.containerId, logsStackName: null, logsReturnView: state.view, logLines: [] };
+    case "OPEN_STACK_LOGS":
+      return { ...state, view: "logs", logsStackName: action.stackName, logsContainerId: null, logsReturnView: state.view, logLines: [] };
     case "CLOSE_LOGS":
-      return { ...state, view: "containers", logsContainerId: null, logLines: [] };
+      return { ...state, view: state.logsReturnView, logsContainerId: null, logsStackName: null, logLines: [] };
     case "TOGGLE_STOPPED":
       return { ...state, showStopped: !state.showStopped };
     case "RESET":
@@ -79,6 +101,7 @@ const TABS: { id: DockerView; label: string; icon: string }[] = [
   { id: "images", label: "Images", icon: "lucide:layers" },
   { id: "volumes", label: "Volumes", icon: "lucide:hard-drive" },
   { id: "networks", label: "Networks", icon: "lucide:network" },
+  { id: "stacks", label: "Stacks", icon: "lucide:boxes" },
 ];
 
 export function DockerPanel() {
@@ -112,11 +135,18 @@ export function DockerPanel() {
                 id: execSessionId,
                 connectionId: activeSession!.connectionId,
                 connectionName: `exec: ${containerName}`,
-                status: "connected" as const,
+                status: "connecting" as const,
                 type: "ssh" as const,
+                containerExec: { kind: "docker" as const, containerId, parentSessionId: sessionId },
               },
             ],
             activeSessionId: execSessionId,
+          }));
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          useSessionStore.setState((s) => ({
+            sessions: s.sessions.map((sess) =>
+              sess.id === execSessionId ? { ...sess, status: "connected" as const } : sess,
+            ),
           }));
         } catch (e) {
           console.error("[docker] open exec session failed:", e);
@@ -188,6 +218,15 @@ export function DockerPanel() {
             dispatch({ type: "SET_NETWORKS", networks });
             break;
           }
+          case "stacks": {
+            const stacks = await dockerListStacks(sessionId, isRemote, localShell);
+            dispatch({ type: "SET_STACKS", stacks });
+            if (state.selectedStackName) {
+              const services = await dockerListStackServices(sessionId, isRemote, localShell, state.selectedStackName);
+              dispatch({ type: "SET_STACK_SERVICES", services });
+            }
+            break;
+          }
           default:
             dispatch({ type: "SET_LOADING", loading: false });
         }
@@ -227,14 +266,18 @@ export function DockerPanel() {
     );
   }
 
-  if (state.view === "logs" && state.logsContainerId) {
+  if (state.view === "logs" && (state.logsContainerId || state.logsStackName)) {
+    const isStackLogs = state.logsStackName !== null;
+    const streamKey = isStackLogs ? state.logsStackName! : state.logsContainerId!;
+    const displayName = isStackLogs ? state.logsStackName! : logsContainerNameRef.current;
+    const startStream = isStackLogs
+      ? (tail: number) => dockerStartStackLogStream(sessionId, isRemote, localShell, state.logsStackName!, tail)
+      : (tail: number) => dockerStartLogStream(sessionId, isRemote, localShell, state.logsContainerId!, tail);
     return (
       <LogsView
-        sessionId={sessionId}
-        isRemote={isRemote}
-        localShell={localShell}
-        containerId={state.logsContainerId}
-        containerName={logsContainerNameRef.current}
+        streamKey={streamKey}
+        displayName={displayName}
+        startStream={startStream}
         onBack={() => dispatch({ type: "CLOSE_LOGS" })}
       />
     );
@@ -272,6 +315,17 @@ export function DockerPanel() {
       </div>
     );
   }
+
+  const selectStack = async (stackName: string) => {
+    dispatch({ type: "SELECT_STACK", stackName });
+    dispatch({ type: "SET_LOADING", loading: true });
+    try {
+      const services = await dockerListStackServices(sessionId, isRemote, localShell, stackName);
+      dispatch({ type: "SET_STACK_SERVICES", services });
+    } catch (e) {
+      dispatch({ type: "SET_ERROR", error: String(e) });
+    }
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -380,6 +434,24 @@ export function DockerPanel() {
               isRemote={isRemote}
               localShell={localShell}
               onRefresh={() => fetchForView("networks")}
+            />
+          )}
+          {state.view === "stacks" && (
+            <StackList
+              stacks={state.stacks}
+              services={state.stackServices}
+              selectedStackName={state.selectedStackName}
+              sessionId={sessionId}
+              isRemote={isRemote}
+              localShell={localShell}
+              onSelectStack={selectStack}
+              onLogs={(id, name) => {
+                logsContainerNameRef.current = name;
+                dispatch({ type: "OPEN_LOGS", containerId: id, containerName: name });
+              }}
+              onStackLogs={(name) => dispatch({ type: "OPEN_STACK_LOGS", stackName: name })}
+              onTerminal={handleOpenTerminal}
+              onRefresh={() => fetchForView("stacks")}
             />
           )}
         </div>

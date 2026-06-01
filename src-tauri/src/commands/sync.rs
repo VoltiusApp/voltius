@@ -1,6 +1,6 @@
-use aes_gcm::{
+use chacha20poly1305::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
-    Aes256Gcm, Key, Nonce,
+    Key, XChaCha20Poly1305, XNonce,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -11,8 +11,8 @@ use crate::storage::secrets::SecretsStore;
 
 // ─── encrypt_payload ──────────────────────────────────────────────────────────
 
-/// Encrypt an arbitrary files+secrets payload with the provided 32-byte AES-256-GCM key.
-/// Uses the same binary format as backup_export (4-byte LE header len + header JSON + 12-byte nonce + ciphertext)
+/// Encrypt an arbitrary files+secrets payload with the provided 32-byte XChaCha20-Poly1305 key.
+/// Uses the same binary format as backup_export (4-byte LE header len + header JSON + 24-byte nonce + ciphertext)
 /// but with a minimal header (no account/device id needed for team blobs).
 ///
 /// This command is used by the TypeScript team-vault-sync layer to encrypt the merged
@@ -34,15 +34,15 @@ pub fn encrypt_payload(
     let payload = BlobPayload { files, secrets };
     let payload_json = serde_json::to_vec(&payload).map_err(|e| e.to_string())?;
 
-    let key = Key::<Aes256Gcm>::from_slice(&enc_key);
-    let cipher = Aes256Gcm::new(key);
-    let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+    let key = Key::from_slice(&enc_key);
+    let cipher = XChaCha20Poly1305::new(key);
+    let nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
     let ciphertext = cipher
         .encrypt(&nonce, payload_json.as_slice())
         .map_err(|e| format!("Encryption failed: {e}"))?;
 
     let header_len = header_json.len() as u32;
-    let mut blob = Vec::with_capacity(4 + header_json.len() + 12 + ciphertext.len());
+    let mut blob = Vec::with_capacity(4 + header_json.len() + NONCE_LEN + ciphertext.len());
     blob.extend_from_slice(&header_len.to_le_bytes());
     blob.extend_from_slice(&header_json);
     blob.extend_from_slice(&nonce);
@@ -51,7 +51,8 @@ pub fn encrypt_payload(
     Ok(blob)
 }
 
-const BLOB_VERSION: u32 = 1;
+const BLOB_VERSION: u32 = 2;
+const NONCE_LEN: usize = 24;
 
 #[derive(Serialize, Deserialize)]
 struct BlobHeader {
@@ -72,18 +73,18 @@ fn decrypt_blob(enc_key: &[u8], blob: &[u8]) -> Result<BlobPayload, String> {
     if enc_key.len() != 32 {
         return Err("enc_key must be 32 bytes".to_string());
     }
-    if blob.len() < 4 + 12 {
+    if blob.len() < 4 + NONCE_LEN {
         return Err("Blob too short".to_string());
     }
     let header_len = u32::from_le_bytes(blob[..4].try_into().unwrap()) as usize;
-    if blob.len() < 4 + header_len + 12 {
+    if blob.len() < 4 + header_len + NONCE_LEN {
         return Err("Blob malformed".to_string());
     }
     let nonce_start = 4 + header_len;
-    let nonce = Nonce::from_slice(&blob[nonce_start..nonce_start + 12]);
-    let ciphertext = &blob[nonce_start + 12..];
-    let key = Key::<Aes256Gcm>::from_slice(enc_key);
-    let cipher = Aes256Gcm::new(key);
+    let nonce = XNonce::from_slice(&blob[nonce_start..nonce_start + NONCE_LEN]);
+    let ciphertext = &blob[nonce_start + NONCE_LEN..];
+    let key = Key::from_slice(enc_key);
+    let cipher = XChaCha20Poly1305::new(key);
     let plaintext = cipher
         .decrypt(nonce, ciphertext)
         .map_err(|_| "Decryption failed — wrong key or corrupted blob".to_string())?;
@@ -146,15 +147,15 @@ pub fn backup_export(
     let payload = BlobPayload { files, secrets };
     let payload_json = serde_json::to_vec(&payload).map_err(|e| e.to_string())?;
 
-    let key = Key::<Aes256Gcm>::from_slice(&enc_key);
-    let cipher = Aes256Gcm::new(key);
-    let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+    let key = Key::from_slice(&enc_key);
+    let cipher = XChaCha20Poly1305::new(key);
+    let nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
     let ciphertext = cipher
         .encrypt(&nonce, payload_json.as_slice())
         .map_err(|e| format!("Encryption failed: {e}"))?;
 
     let header_len = header_json.len() as u32;
-    let mut blob = Vec::with_capacity(4 + header_json.len() + 12 + ciphertext.len());
+    let mut blob = Vec::with_capacity(4 + header_json.len() + NONCE_LEN + ciphertext.len());
     blob.extend_from_slice(&header_len.to_le_bytes());
     blob.extend_from_slice(&header_json);
     blob.extend_from_slice(&nonce);
@@ -174,11 +175,11 @@ pub fn backup_import(
     enc_key: Vec<u8>,
     blob: Vec<u8>,
 ) -> Result<ImportResult, String> {
-    if blob.len() < 4 + 12 {
+    if blob.len() < 4 + NONCE_LEN {
         return Err("Blob too short".to_string());
     }
     let header_len = u32::from_le_bytes(blob[..4].try_into().unwrap()) as usize;
-    if blob.len() < 4 + header_len + 12 {
+    if blob.len() < 4 + header_len + NONCE_LEN {
         return Err("Blob malformed".to_string());
     }
     let header: BlobHeader =

@@ -69,6 +69,31 @@ export function SettingsInput({ type = "text", placeholder, value, onChange, aut
   );
 }
 
+export function DirtyDot() {
+  return (
+    <span
+      aria-hidden
+      title="Modified from default"
+      className="inline-block shrink-0 rounded-full"
+      style={{ width: 5, height: 5, background: "var(--t-accent)" }}
+    />
+  );
+}
+
+export function ResetButton({ onReset }: { onReset: () => void }) {
+  return (
+    <button
+      onClick={onReset}
+      className="p-1 rounded transition-opacity opacity-0 group-hover:opacity-100 text-[var(--t-text-muted)]"
+      onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-bright)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-muted)"; }}
+      title="Reset to default"
+    >
+      <Icon icon="lucide:rotate-ccw" width={11} />
+    </button>
+  );
+}
+
 export function FormButtons({ onCancel, submitLabel }: { onCancel: () => void; submitLabel: string }) {
   return (
     <div className="flex gap-2 pt-1">

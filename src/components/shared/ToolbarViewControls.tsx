@@ -1,7 +1,24 @@
 import { useEffect, useRef, useState } from "react";
+import type { RefObject } from "react";
 import { Icon } from "@iconify/react";
 import { ToolbarDropdown } from "./ToolbarDropdown";
 import { matchShortcut } from "@/stores/shortcutStore";
+import { getTagColorStyle } from "@/utils/tagColors";
+
+/** Focus a search/filter input when the user presses the `filter` shortcut (Ctrl+F). */
+export function useFilterShortcut(ref: RefObject<HTMLInputElement | null>) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (matchShortcut("filter", e)) {
+        e.preventDefault();
+        ref.current?.focus();
+        ref.current?.select();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [ref]);
+}
 
 export type LayoutMode = "grid" | "list";
 export type SortMode = "name-asc" | "name-desc" | "newest" | "oldest" | "role-asc";
@@ -52,19 +69,7 @@ export function FilterInput({
   shortcutId?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!shortcutId) return;
-    const handler = (e: KeyboardEvent) => {
-      if (matchShortcut(shortcutId, e)) {
-        e.preventDefault();
-        inputRef.current?.focus();
-        inputRef.current?.select();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [shortcutId]);
+  useFilterShortcut(shortcutId ? inputRef : { current: null });
 
   return (
     <div className="relative">
@@ -485,11 +490,9 @@ function TagRow({
             onClick={onSelect}
             className="flex items-center gap-2 flex-1 min-w-0 text-left"
           >
-            <Icon
-              icon="lucide:tag"
-              width={14}
-              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-dim)" }}
-              className="shrink-0"
+            <span
+              className="w-3.5 h-3.5 rounded shrink-0 border"
+              style={getTagColorStyle(tag)}
             />
             <span
               className="text-xs truncate"

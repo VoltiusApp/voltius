@@ -8,15 +8,11 @@ import { useAllPortForwardingRules } from "@/hooks/useAllPortForwardingRules";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamMember, TeamRole } from "@/services/teamService";
 import { StatusDot } from "@/components/shared/StatusDot";
+import { MiniAvatar, avatarColor } from "@/components/shared/AvatarStack";
 import { getSyncState, onSyncStateChange } from "@/services/sync";
 import { getAccountMode } from "@/services/account";
 
 // ─── Online members stack ─────────────────────────────────────────────────────
-
-const AVATAR_COLORS = [
-  "#6366f1","#8b5cf6","#ec4899","#ef4444",
-  "#f59e0b","#10b981","#3b82f6","#14b8a6",
-];
 
 const BUILTIN_ROLE_COLORS: Record<string, string> = {
   owner: "#f59e0b",
@@ -25,23 +21,6 @@ const BUILTIN_ROLE_COLORS: Record<string, string> = {
   member: "#10b981",
   "connect-only": "#6b7280",
 };
-
-function memberAvatarColor(s: string) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = s.charCodeAt(i) + ((h << 5) - h);
-  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
-}
-
-function MiniAvatar({ email, size = 26 }: { email: string; size?: number }) {
-  return (
-    <div
-      className="rounded-full flex items-center justify-center font-bold select-none shrink-0"
-      style={{ width: size, height: size, background: memberAvatarColor(email), color: "#fff", fontSize: size * 0.38 }}
-    >
-      {email[0]?.toUpperCase() ?? "?"}
-    </div>
-  );
-}
 
 const MAX_STACK = 3;
 
@@ -66,7 +45,7 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
           {visible.map((m, i) => (
             <div
               key={m.user_id}
-              title={m.email}
+              title={m.display_name}
               style={{
                 marginLeft: i === 0 ? 0 : -9,
                 zIndex: MAX_STACK - i,
@@ -79,7 +58,7 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
                 transition: "border-color 0.2s, opacity 0.2s",
               }}
             >
-              <MiniAvatar email={m.email} size={24} />
+              <MiniAvatar name={m.display_name} size={24} />
             </div>
           ))}
           {overflow > 0 && (
@@ -122,15 +101,15 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
                 return (
                   <div key={m.user_id} className="flex items-center gap-2.5 px-3 py-2" style={{ opacity: m.is_online ? 1 : 0.5 }}>
                     <div className="relative shrink-0">
-                      <MiniAvatar email={m.email} size={22} />
+                      <MiniAvatar name={m.display_name} size={22} />
                       {m.is_online && <StatusDot color="var(--t-status-connected)" size={7} />}
                     </div>
                     <div className="flex flex-col min-w-0 flex-1">
-                      <span className="text-xs truncate" style={{ color: "var(--t-text-primary)" }}>{m.email}</span>
+                      <span className="text-xs truncate" style={{ color: "var(--t-text-primary)" }}>{m.display_name}</span>
                       {memberRoles.length > 0 && (
                         <div className="flex items-center gap-1 flex-wrap mt-0.5">
                           {memberRoles.map((r) => {
-                            const color = r.color ?? BUILTIN_ROLE_COLORS[r.name] ?? memberAvatarColor(r.name);
+                            const color = r.color ?? BUILTIN_ROLE_COLORS[r.name] ?? avatarColor(r.name);
                             return (
                               <span
                                 key={r.id}

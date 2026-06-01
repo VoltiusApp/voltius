@@ -223,20 +223,21 @@ export async function fetchWithAuth(url: string, init: RequestInit): Promise<Res
 let _deviceId: string | null = null;
 
 /**
- * Returns a device ID that is:
- * - Stable within a process session (module variable + sessionStorage)
- * - Unique per simultaneous instance (sessionStorage is per-WebView-process)
+ * Returns a stable device ID that persists across app restarts.
  *
- * Previously used the OS keychain, which is shared between all instances of
- * the app running as the same OS user. That caused the SSE self-push filter
- * (`pusherDeviceId !== myDeviceId`) to suppress cross-instance sync events.
+ * Uses localStorage so the ID survives process restarts (unlike sessionStorage,
+ * which generated a new UUID on every launch and accumulated orphaned blobs on
+ * the server). The SSE self-push filter still works correctly for the common
+ * single-instance case. In the rare scenario of two simultaneous instances they
+ * share the ID, which means one won't receive live SSE nudges from itself — a
+ * minor degradation that's acceptable vs. unbounded blob accumulation.
  */
 async function getDeviceId(): Promise<string> {
   if (_deviceId) return _deviceId;
-  let id = sessionStorage.getItem("voltius.device_id");
+  let id = localStorage.getItem("voltius.device_id");
   if (!id) {
     id = crypto.randomUUID();
-    sessionStorage.setItem("voltius.device_id", id);
+    localStorage.setItem("voltius.device_id", id);
   }
   _deviceId = id;
   return id;
@@ -455,6 +456,10 @@ async function pullAndMerge(remoteDeviceId: string): Promise<boolean> {
  */
 export async function syncNow(forcePush = false): Promise<void> {
   if (_status === "syncing") return;
+
+  // Personal blob sync is a Pro feature — free-tier accounts have no blob quota.
+  if (!useSubscriptionStore.getState().isPro) return;
+
   setState("syncing");
 
   const start = Date.now();
@@ -465,12 +470,7 @@ export async function syncNow(forcePush = false): Promise<void> {
 
     // Refresh team membership first so getSyncableTeamIds() sees current state
     // and the sidebar immediately reflects joins/removals (no blob change needed).
-    const hasTeams = await loadTeamsForCurrentUser();
-    if (!useSubscriptionStore.getState().isPro && hasTeams) {
-      await completeTeamLoginSetup();
-      setState("success");
-      return;
-    }
+    await loadTeamsForCurrentUser();
 
     const [devices, localDeviceId] = await Promise.all([listDevices(), getDeviceId()]);
 
@@ -642,6 +642,7 @@ let _syncTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** Schedule a sync 2 s after the last mutation (debounced). */
 export function scheduleSync() {
+  if (!useSubscriptionStore.getState().isPro) return;
   if (_syncTimer) clearTimeout(_syncTimer);
   _syncTimer = setTimeout(() => {
     _syncTimer = null;
@@ -778,6 +779,19 @@ async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promi
     const userId = parts[1];
     const online = parts[2] === "online";
     useTeamStore.getState().setMemberOnline(userId, online);
+  } else if (eventData.startsWith("using:")) {
+    // Format: using:<subject_user_id>:<connection_id>:<0|1>
+    const rest = eventData.slice("using:".length);
+    const firstColon = rest.indexOf(":");
+    const lastColon = rest.lastIndexOf(":");
+    if (firstColon > 0 && lastColon > firstColon) {
+      const userId = rest.slice(0, firstColon);
+      const connectionId = rest.slice(firstColon + 1, lastColon);
+      const inUse = rest.slice(lastColon + 1) === "1";
+      const { useConnectionPresenceStore } = await import("@/stores/connectionPresenceStore");
+      if (inUse) useConnectionPresenceStore.getState().addUser(connectionId, userId);
+      else useConnectionPresenceStore.getState().removeUser(connectionId, userId);
+    }
   } else if (eventData === "token_invalidated") {
     tryRefreshJwt().catch(() => {});
   } else if (eventData !== myDeviceId) {
@@ -802,6 +816,17 @@ async function _sseConnect(signal: AbortSignal): Promise<void> {
 
   // Sync immediately on (re)connect to catch any events missed while offline
   syncNow().catch(() => {});
+
+  // Seed connection-presence snapshot so we render correct state even before any
+  // SSE event arrives this session.
+  (async () => {
+    const [{ fetchCurrentConnectionUsage }, { useConnectionPresenceStore }] = await Promise.all([
+      import("@/services/connectionPresence"),
+      import("@/stores/connectionPresenceStore"),
+    ]);
+    const entries = await fetchCurrentConnectionUsage();
+    useConnectionPresenceStore.getState().setSnapshot(entries);
+  })().catch(() => {});
 
   const parser = new SseDataLineParser();
   const connect = (token: string) => connectNativeSse(

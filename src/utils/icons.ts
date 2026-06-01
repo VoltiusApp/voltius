@@ -3,7 +3,7 @@
  * Both @iconify-json/lucide and @iconify-json/devicon-plain are bundled in the app.
  */
 import { addCollection } from "@iconify/react";
-import lucideIcons from "@iconify-json/lucide/icons.json";
+import lucideSubset from "virtual:lucide-subset";
 import { icons as deviconPlainIcons } from "@iconify-json/devicon-plain";
 
 let loaded = false;
@@ -12,8 +12,8 @@ export function preloadIcons() {
   if (loaded) return;
   loaded = true;
 
-  // Lucide — used throughout the UI
-  addCollection(lucideIcons as any);
+  // Lucide — subset auto-generated at build time by vite-plugin-lucide-subset
+  addCollection(lucideSubset as any);
 
   // Devicon plain subset — white icon on brand color background
   const DISTRO_PLAIN = [
@@ -38,6 +38,9 @@ export function preloadIcons() {
   addCollection({
     prefix: "simple-icons",
     icons: {
+      termius: {
+        body: '<path fill="currentColor" d="M17.812 19.381A6.194 6.194 0 0 0 24 13.193c0-1.7-.723-3.352-1.958-4.515a6.01 6.01 0 0 0-6.005-5.955a6 6 0 0 0-2.731.656a6 6 0 0 0-4.12-1.635a6.01 6.01 0 0 0-6 5.743A6.22 6.22 0 0 0 0 12.917a6.225 6.225 0 0 0 6.706 6.2a6.43 6.43 0 0 0 5.508 3.14a6.4 6.4 0 0 0 5.347-2.881q.126.005.25.005zm-5.598 1.242A4.79 4.79 0 0 1 7.9 17.888l-.267-.562l-.613.108a4.592 4.592 0 0 1-5.387-4.516A4.59 4.59 0 0 1 4.34 8.734l.506-.228l-.026-.555a4.377 4.377 0 0 1 4.367-4.574c1.297 0 2.512.566 3.347 1.56l.47.56l.609-.407a4.35 4.35 0 0 1 2.425-.734a4.38 4.38 0 0 1 4.364 4.632l-.025.416l.322.265a4.61 4.61 0 0 1 1.669 3.524a4.56 4.56 0 0 1-5.14 4.518l-.554-.071l-.267.49a4.76 4.76 0 0 1-4.192 2.493zm3.102-6.533l.016-.007c.212-.091.288-.171.288-.393v-.278c0-.244-.14-.401-.37-.401h-.013l-.046.01a4.5 4.5 0 0 1-1.502.272c-.48 0-.954-.09-1.409-.27l-.013-.005l-.052-.007c-.23 0-.37.157-.37.401v.278c0 .209.078.303.261.382l.02.009l.02.008a3.9 3.9 0 0 0 1.544.32c.525 0 1.071-.107 1.626-.319m-7.081-2.285c0-.224.116-.348.272-.38l1.501-.394l-1.505-.395c-.156-.041-.268-.164-.268-.38v-.473c0-.207.124-.296.266-.296q.07 0 .141.028l2.68.867c.203.068.315.231.315.455v.387c0 .224-.112.388-.316.456l-2.685.868a.4.4 0 0 1-.125.02c-.168 0-.276-.12-.276-.297z"/>',
+      },
       kalilinux: {
         body: '<path fill="currentColor" d="M12.778 5.943s-1.97-.13-5.327.92c-3.42 1.07-5.36 2.587-5.36 2.587s5.098-2.847 10.852-3.008zm7.351 3.095l.257-.017s-1.468-1.78-4.278-2.648c1.58.642 2.954 1.493 4.021 2.665m.42.74c.039-.068.166.217.263.337c.004.024.01.039-.045.027c-.005-.025-.013-.032-.013-.032s-.135-.08-.177-.137s-.049-.157-.028-.195m3.448 8.479s.312-3.578-5.31-4.403a18 18 0 0 0-2.524-.187c-4.506.06-4.67-5.197-1.275-5.462c1.407-.116 3.087.643 4.73 1.408c-.007.204.002.385.136.552s.648.35.813.445c.164.094.691.43 1.014.85c.07-.131.654-.512.654-.512s-.14.003-.465-.119c-.326-.122-.713-.49-.722-.511s-.015-.055.06-.07c.059-.049-.072-.207-.13-.265s-.445-.716-.454-.73c-.009-.016-.012-.031-.04-.05c-.085-.027-.46.04-.46.04s-.575-.283-.774-.893c.003.107-.099.224 0 .469c-.3-.127-.558-.344-.762-.88c-.12.305 0 .499 0 .499s-.707-.198-.82-.85c-.124.293 0 .469 0 .469s-1.153-.602-3.069-.61c-1.283-.118-1.55-2.374-1.43-2.754c0 0-1.85-.975-5.493-1.406c-3.642-.43-6.628-.065-6.628-.065s6.45-.31 11.617 1.783c.176.785.704 2.094.989 2.723c-.815.563-1.733 1.092-1.876 2.97s1.472 3.53 3.474 3.58c1.9.102 3.214.116 4.806.942c1.52.84 2.766 3.4 2.89 5.703c.132-1.709-.509-5.383-3.5-6.498c4.181.732 4.549 3.832 4.549 3.832M12.68 5.663l-.15-.485s-2.484-.441-5.822-.204S0 6.38 0 6.38s6.896-1.735 12.68-.717"/>',
       },
@@ -54,8 +57,27 @@ export function preloadIcons() {
 
   // Custom icons — inline SVG, no package needed
   addCollection({
+    prefix: "devicon",
+    icons: {
+      "proxmox-wordmark": {
+        body: '<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" viewBox="0 34 512 444"><path d="M137.9 34.1c-10.5 0-19.7 1.9-28.5 5.7-8.6 3.8-16.2 8.9-22.9 15.6l170 186.4L426.1 55.3c-6.7-6.7-14.3-11.8-23.4-15.6-8.3-3.8-18-5.7-28-5.7-10.5 0-20.5 2.2-29.4 6.2-9.2 4-16.7 10-23.7 17l-65.2 72.2-66-72.2c-6.7-7-14.3-12.9-23.7-17-8.3-4-18.3-6.1-28.8-6.1M256.4 270l-170 186.7c6.7 6.5 14.3 11.8 22.9 15.6 8.9 3.8 18.1 5.7 28 5.7 11 0 20.5-2.4 29.4-6.2 9.4-4.3 17.5-10 24.2-17l65.5-72.2 65.4 72.2c6.7 7 14.3 12.7 23.4 17 8.9 3.8 18.6 6.2 29.4 6.2 10 0 19.7-1.9 28-5.7 9.2-3.8 16.7-9.2 23.4-15.6z" style="fill-rule:evenodd;clip-rule:evenodd"/><path d="M56 90.1c-10.8.3-21.3 2.4-30.7 6.5-9.7 4-18 9.7-25.3 16.7L129.8 256 0 398.5c7.3 7.3 15.6 12.9 25.3 17.2 9.4 4.3 19.9 6.2 30.7 6.7 11.6-.5 22.4-2.4 32.3-7.3q15-6.9 25.8-18.6l128-140.5-127.9-140.3c-7.8-7.5-16.2-13.7-26.1-18.6-10-4.6-20.5-6.7-32.1-7m399.7 0c-11.6.3-21.8 2.4-31.8 7-10 4.8-18.6 11-26.1 18.6L270.4 256l127.4 140.6q11.25 11.7 26.1 18.6c10 4.8 20.2 6.7 31.8 7.3 11.6-.5 21.5-2.4 31-6.7 10.2-4.3 18-10 25.3-17.2L382.5 256 512 113.3c-7.3-7-15.1-12.7-25.3-16.7-9.4-4.1-19.4-6.2-31-6.5" style="fill-rule:evenodd;clip-rule:evenodd;fill:#e57000"/></svg>',
+      },
+      "proxmox-plain": {
+        body: '<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" viewBox="0 34 512 444"><path fill="currentColor" d="M137.9 34.1c-10.5 0-19.7 1.9-28.5 5.7-8.6 3.8-16.2 8.9-22.9 15.6l170 186.4L426.1 55.3c-6.7-6.7-14.3-11.8-23.4-15.6-8.3-3.8-18-5.7-28-5.7-10.5 0-20.5 2.2-29.4 6.2-9.2 4-16.7 10-23.7 17l-65.2 72.2-66-72.2c-6.7-7-14.3-12.9-23.7-17-8.3-4-18.3-6.1-28.8-6.1M256.4 270l-170 186.7c6.7 6.5 14.3 11.8 22.9 15.6 8.9 3.8 18.1 5.7 28 5.7 11 0 20.5-2.4 29.4-6.2 9.4-4.3 17.5-10 24.2-17l65.5-72.2 65.4 72.2c6.7 7 14.3 12.7 23.4 17 8.9 3.8 18.6 6.2 29.4 6.2 10 0 19.7-1.9 28-5.7 9.2-3.8 16.7-9.2 23.4-15.6z" style="fill-rule:evenodd;clip-rule:evenodd"/><path fill="currentColor" d="M56 90.1c-10.8.3-21.3 2.4-30.7 6.5-9.7 4-18 9.7-25.3 16.7L129.8 256 0 398.5c7.3 7.3 15.6 12.9 25.3 17.2 9.4 4.3 19.9 6.2 30.7 6.7 11.6-.5 22.4-2.4 32.3-7.3q15-6.9 25.8-18.6l128-140.5-127.9-140.3c-7.8-7.5-16.2-13.7-26.1-18.6-10-4.6-20.5-6.7-32.1-7m399.7 0c-11.6.3-21.8 2.4-31.8 7-10 4.8-18.6 11-26.1 18.6L270.4 256l127.4 140.6q11.25 11.7 26.1 18.6c10 4.8 20.2 6.7 31.8 7.3 11.6-.5 21.5-2.4 31-6.7 10.2-4.3 18-10 25.3-17.2L382.5 256 512 113.3c-7.3-7-15.1-12.7-25.3-16.7-9.4-4.1-19.4-6.2-31-6.5" style="fill-rule:evenodd;clip-rule:evenodd"/></svg>',
+      },
+    },
+    width: 128,
+    height: 128,
+  });
+
+  addCollection({
     prefix: "custom",
     icons: {
+      mobaxterm: {
+        width: 512,
+        height: 496,
+        body: '<path fill="#353535" d="M0 0h512v384h-41v2h-2v1h-1v1h-2v2h-3v2h-2v1h-1v1h-2v2h-2v2h-2v1h-1v1h-1v1h-1v1h-2v2h-3v2h-2v1h-1v1h-1v1h-1v1h-2v2h-3v2h-2v2h-3v2h-2v1h-1v1h-2v2h-2v2h-3v2h-2v1h-1v1h-2v2h-1v1h-1v1h-2v1h-1v1h-1v1h-1v1h-2v2h-3v2h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-1v1h-1v1h-1v2h-4v2h-2v1h-1v1h-2v2h-2v2h-3v2h-2v2h-3v2h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-2v2h-2v2h-2v2h-5v-2h-3v-2h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-1h-1v-1h-1v-1h-1v-1h-1v-2h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-2h-2v-2h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-2h-1v-1h-1v-1h-2v-2h-1v-1h-1v-1h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-1h-1v-1H0Z"/><path fill="#cccbcb" d="M0 0h512v384h-41v2h-2v1h-1v1h-2v2h-3v2h-2v1h-1v1h-2v2h-2v2h-2v1h-1v1h-1v1h-1v1h-2v2h-3v2h-2v1h-1v1h-1v1h-1v1h-2v2h-3v2h-2v2h-3v2h-2v1h-1v1h-2v2h-2v2h-3v2h-2v1h-1v1h-2v2h-1v1h-1v1h-2v1h-1v1h-1v1h-1v1h-2v2h-3v2h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-1v1h-1v1h-1v2h-4v2h-2v1h-1v1h-2v2h-2v2h-3v2h-2v2h-3v2h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-2v2h-2v2h-2v2h-5v-2h-3v-2h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-1h-1v-1h-1v-1h-1v-1h-1v-2h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-2h-2v-2h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-2h-1v-1h-1v-1h-2v-2h-1v-1h-1v-1h-2v-1h2v-41h1v-1h1v-1h3v-2h1v-2h4v-2h2v-2h2v-2h2v-2h2v-2h2v-2h6v-4h3v-1h-1v-1h2v-2h4v-2h2v-2h2v-2h2v-2h1v-2h3v-2h4v-2h4v-2h2v-4h-2v-2h-2v-2h-3v-3h-1v-1h-3v-2h-2v-2h-2v-2h-1v-2h-2v-2h-4v-3h-1v-1h-3v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-3v-2h-2v-3h-1v-1h-2v-4h2v-2h2v-2h4v-2h2v-2h4v-2h2v-2h1v-2h3v-2h2v-2h2v-2h3v-1h1v-1h2v-2h2v-2h2v-2h4v-2h2v-2h2v-2h2v-2h2v-2h3v-2h3v-2h2v2h2v2h2v2h2v2h2v2h2v1h1v1h1v1h1v1h3v2h2v2h1v1h1v1h2v2h2v2h2v2h2v2h2v2h2v2h2v2h2v2h2v2h2v2h2v1h1v1h1v2h3v2h2v2h5v-2h2v-2h2v-2h4v-2h2v-2h2v-1h1v-1h1v-1h1v-1h3v-2h2v-2h2v-2h2v-2h4v-2h2v-2h2v-1h1v-1h1v-2h2v-2h3v-2h3v-2h2v-2h2v-2h3v-1h1v-1h3v1h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1V24H24v336h163v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v1h1v1h1v1h1v1H0Z"/><path fill="#bffd03" d="M340 270h2v2h2v2h2v2h2v2h2v2h2v1h1v1h1v1h1v1h3v2h2v2h1v1h1v1h2v2h2v2h2v2h2v2h2v2h2v2h2v2h2v2h2v2h2v1h1v1h1v2h3v2h2v2h5v-2h2v-2h2v-2h4v-2h2v-2h2v-1h1v-1h1v-1h1v-1h3v-2h2v-2h2v-2h2v-2h4v-2h2v-2h2v-1h1v-1h1v-2h2v-2h3v-2h3v-2h2v-2h2v-2h3v-1h1v-1h3v1h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v2h2v2h2v2h2v2h2v44h-1v1h-1v1h-2v1h-1v1h-1v2h-2v1h-1v1h-2v1h-1v1h-1v1h-2v1h-1v1h-1v1h-2v2h-2v1h-1v1h-1v1h-1v1h-1v2h-2v1h-1v1h-2v2h-3v2h-2v1h-1v1h-2v2h-2v2h-2v1h-1v1h-1v1h-1v1h-2v2h-3v2h-2v1h-1v1h-1v1h-1v1h-2v2h-3v2h-2v2h-3v2h-2v1h-1v1h-2v2h-2v2h-3v2h-2v1h-1v1h-2v2h-1v1h-1v1h-2v1h-1v1h-1v1h-1v1h-2v2h-3v2h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-1v1h-1v1h-1v2h-4v2h-2v1h-1v1h-2v2h-2v2h-3v2h-2v2h-3v2h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-2v2h-2v2h-2v2h-5v-2h-3v-2h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-1h-1v-1h-1v-1h-1v-1h-1v-2h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-2h-2v-2h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-2h-1v-1h-1v-1h-2v-2h-1v-1h-1v-1h-2v-1h2v-41h1v-1h1v-1h3v-2h1v-2h4v-2h2v-2h2v-2h2v-2h2v-2h2v-2h6v-4h3v-1h-1v-1h2v-2h4v-2h2v-2h2v-2h2v-2h1v-2h3v-2h4v-2h4v-2h2v-4h-2v-2h-2v-2h-3v-3h-1v-1h-3v-2h-2v-2h-2v-2h-1v-2h-2v-2h-4v-3h-1v-1h-3v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-3v-2h-2v-3h-1v-1h-2v-4h2v-2h2v-2h4v-2h2v-2h4v-2h2v-2h1v-2h3v-2h2v-2h2v-2h3v-1h1v-1h2v-2h2v-2h2v-2h4v-2h2v-2h2v-2h2v-2h2v-2h3v-2h3Z"/><path fill="#fd5d5b" d="M240 176h1v1h1v1h2v2h2v2h2v2h2v1h1v1h1v1h1v1h1v1h1v1h1v2h3v1h1v1h1v1h1v1h1v1h1v2h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v1h1v2h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v2h-2v2h-2v2h-2v2h-3v2h-3v2h-2v2h-2v2h-2v2h-3v2h-3v2h-2v2h-3v2h-2v2h-3v2h-2v2h-2v2h-4v2h-2v2h-2v2h-2v2h-2v2h-2v2h1v2h1v2h2v2h2v2h4v2h1v2h3v2h2v2h2v2h2v2h2v2h2v2h2v2h2v2h2v2h2v2h2v2h2v2h2v2h4v2h1v2h2v2h3v2h2v2h2v2h2v1h1v3h2v2h3v2h2v2h2v2h2v2h2v2h2v2h2v2h2v2h3v1h1v3h4v2h2v2h1v2h2v2h2v2h3v1h1v3h3v2h2v2h2v4h-2v2h-4v2h-4v2h-3v2h-1v2h-2v2h-2v2h-2v2h-4v2h-2v1h1v1h-3v4h-6v2h-2v2h-2v2h-2v2h-2v2h-2v2h-4v2h-1v2h-3v1h-1v1h-1v41h-3v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-1h-1v-2h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-1v-2h-4v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-3v-2h-1v-2h-4v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-47h2v-1h1v-1h1v-1h2v-2h2v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-2h2v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-2h2v-1h2v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h2v-1h1Z"/><path fill="#619ffb" d="M399 135h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v2h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v1h1v2h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v2h1v1h1v1h1v1h1v42h-1v2h-1v2h-2v2h-3v2h-3v2h-2v2h-2v2h-3v2h-3v2h-2v2h-3v2h-1v2h-3v2h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h-3v1h-1v1h-3v2h-2v2h-2v2h-3v2h-3v2h-2v2h-1v1h-1v1h-2v2h-2v2h-4v2h-2v2h-2v2h-2v2h-3v1h-1v1h-1v1h-1v1h-2v2h-2v2h-4v2h-2v2h-2v2h-5v-2h-2v-2h-3v-2h-1v-1h-1v-1h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-1h-1v-1h-1v-2h-2v-2h-3v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v2h-3v2h-3v2h-2v2h-2v2h-2v2h-2v2h-4v2h-2v2h-2v2h-2v1h-1v1h-3v2h-2v2h-2v2h-3v2h-1v2h-2v2h-4v2h-2v2h-4v2h-2v2h-2v2h-2v-2h-2v-2h-3v-2h-2v-2h-1v-2h-4v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-3v-2h-1v-2h-4v-2h-2v-2h-2v-2h-1v-2h-1v-2h2v-2h2v-2h2v-2h2v-2h2v-2h4v-2h2v-2h2v-2h3v-2h2v-2h3v-2h2v-2h3v-2h3v-2h2v-2h2v-2h2v-2h3v-2h3v-2h2v-2h2v-2h2v-2h2v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-2h2v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h2Z"/><path fill="#75c406" d="M494 321h2v43h-1v1h-1v1h-2v1h-1v1h-1v2h-2v1h-1v1h-2v1h-1v1h-1v1h-2v1h-1v1h-1v1h-2v2h-2v1h-1v1h-1v1h-1v1h-1v2h-2v1h-1v1h-2v2h-3v2h-2v1h-1v1h-2v2h-2v2h-2v1h-1v1h-1v1h-1v1h-2v2h-3v2h-2v1h-1v1h-1v1h-1v1h-2v2h-3v2h-2v2h-3v2h-2v1h-1v1h-2v2h-2v2h-3v2h-2v1h-1v1h-2v2h-1v1h-1v1h-2v1h-1v1h-1v1h-1v1h-2v2h-3v2h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-1v1h-1v1h-1v2h-4v2h-2v1h-1v1h-2v2h-2v2h-3v2h-2v2h-3v2h-2v2h-2v1h-1v1h-2v2h-2v1h-1v1h-2v2h-2v2h-2v2h-5v-2h-3v-2h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-1h-1v-1h-1v-1h-1v-1h-1v-2h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-2h-2v-2h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-2h-1v-1h-1v-1h-2v-2h-1v-1h-1v-1h-2v-1h2v-41h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v1h2v-1h1v-1h1v-1h1v-1h2v-1h2v-1h1v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h2v-2h2v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-2h2v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h2v-2h2v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h2v-1h2v-2h2v-1h1Z"/><path fill="#c70304" d="M132 263h1v2h1v1h1v1h1v2h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v2h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v2h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h2v2h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v42h-3v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-1h-1v-2h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-1v-2h-4v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-3v-2h-1v-2h-4v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2v-2h-2Z"/><path fill="#fcfcfc" d="M64 64h1v1h2v1h2v1h2v1h1v1h3v1h1v1h2v1h2v1h2v1h2v1h2v1h2v1h2v1h1v1h2v1h2v1h2v1h2v1h2v1h2v1h2v1h2v1h2v1h2v1h2v1h2v1h1v1h2v1h2v1h2v1h2v1h2v1h2v22h-2v1h-2v1h-2v1h-2v1h-2v1h-2v1h-2v1h-2v1h-1v1h-2v1h-2v1h-2v1h-2v1h-2v1h-2v1h-2v1h-1v1h-2v1h-2v1h-2v1h-2v1h-2v1h-2v1h-1v1h-2v1h-2v1h-2v1h-2v1h-2v1h-2v1h-2v1h-1v1h-2v1h-2v-24h1v-1h2v-1h2v-1h2v-1h2v-1h2v-1h2v-1h2v-1h2v-1h2v-1h2v-1h3v-1h1v-1h3v-1h2v-1h2v-1h2v-1h2v-1h2v-1h2v-1h-2v-1h-2v-1h-2v-1h-2v-1h-2v-1h-2v-1h-2v-1h-2v-1h-2v-1h-2v-1h-2v-1h-2v-1h-2v-1h-2v-1h-2v-1h-2v-1h-2v-1h-2v-1h-2v-1h-2Z"/><path fill="#548a08" d="M282 406h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h2v1h1v1h1v2h1v41h-5v-2h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-1h-1v-1h-1v-1h-1v-1h-1v-2h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-2h-2v-2h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-2h-2v-2h-1v-1h-1v-1h-2v-2h-1v-1h-1v-1h-2v-1h2Z"/><path fill="#0259e5" d="M449 182h1v42h-1v2h-1v2h-2v2h-3v2h-3v2h-2v2h-2v2h-3v2h-3v2h-2v2h-3v2h-1v2h-3v1h-1v-1h-1v-1h-2v-1h-1v-2h-1v-1h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-1h-2v-1h-1v-1h-1v-1h-1v-1h-1v-1h-1v-2h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h1v-1h1v-1h2v-1h1v-1h1v-1h2v-1h1Z"/><path fill="#fff" d="M144 144h32v16h-32Z"/>',
+      },
       ubuntu: {
         body: '<path fill="currentColor" stroke-width="0.7" stroke="currentColor" d="m8.668 19.273l1.006-1.742a6 6 0 0 0 8.282-4.781h2.012A8 8 0 0 1 18.929 16a8 8 0 0 1-1.452 1.835a2.5 2.5 0 0 0-1.976.227a2.5 2.5 0 0 0-1.184 1.595a7.98 7.98 0 0 1-5.65-.384m-1.3-.75a7.98 7.98 0 0 1-3.157-4.7C4.696 13.367 5 12.719 5 12c0-.72-.304-1.369-.791-1.825A8 8 0 0 1 5.073 8a8 8 0 0 1 2.295-2.524l1.006 1.742a6 6 0 0 0 0 9.563zm1.3-13.796a8 8 0 0 1 5.648-.387a2.497 2.497 0 0 0 3.161 1.825a8 8 0 0 1 2.49 5.085h-2.013A5.99 5.99 0 0 0 15 6.804a5.99 5.99 0 0 0-5.327-.335zM16 5.072a1.5 1.5 0 1 1 1.5-2.598A1.5 1.5 0 0 1 16 5.072M4.001 12a1.5 1.5 0 1 1-3 0a1.5 1.5 0 0 1 3 0m12 6.928a1.5 1.5 0 1 1 1.5 2.598a1.5 1.5 0 0 1-1.5-2.598"/>',
       },
@@ -79,6 +101,8 @@ export const DISTRO_OPTIONS = [
   { id: "gentoo", label: "Gentoo" },
   { id: "raspbian", label: "Raspberry Pi" },
   { id: "linux", label: "Linux" },
+  { id: "proxmox", label: "Proxmox VE" },
+  { id: "pbs", label: "Proxmox BS" },
 ] as const;
 
 export type DistroId = typeof DISTRO_OPTIONS[number]["id"];
@@ -97,6 +121,8 @@ export const CONNECTION_ICON_OPTIONS = [
   { group: "OS", id: "gentoo", label: "Gentoo" },
   { group: "OS", id: "raspbian", label: "Raspberry Pi" },
   { group: "OS", id: "linux", label: "Linux" },
+  { group: "OS", id: "proxmox", label: "Proxmox VE" },
+  { group: "OS", id: "pbs", label: "Proxmox BS" },
   { group: "Services", id: "docker", label: "Docker" },
   { group: "Services", id: "nginx", label: "Nginx" },
   { group: "Services", id: "apache", label: "Apache" },
@@ -136,6 +162,9 @@ const DISTRO_ALIASES: Record<string, DistroId> = {
   raspbian: "raspbian",
   raspberrypi: "raspbian",
   linux: "linux",
+  proxmox: "proxmox",
+  pve: "proxmox",
+  pbs: "pbs",
 };
 
 export function normalizeDistro(id: string): DistroId {
@@ -172,6 +201,8 @@ export function getDistroIcon(distro: string): string {
     nixos:   "devicon-plain:nixos",
     gentoo:  "devicon-plain:gentoo",
     raspbian:"devicon-plain:raspberrypi",
+    proxmox: "devicon:proxmox-wordmark",
+    pbs:     "devicon:proxmox-wordmark",
   };
   return map[normalizeDistro(distro)] ?? "devicon-plain:linux";
 }
@@ -210,6 +241,8 @@ export function getDistroColor(distro: string): string {
     nixos:   "#5277C3",
     gentoo:  "#54487A",
     raspbian:"#C51A4A",
+    proxmox: "#F2F2F2",
+    pbs:     "#E57000",
   };
   return map[normalizeDistro(distro)] ?? "#4A5568";
 }

@@ -1,17 +1,25 @@
 import { useEffect, useRef, useCallback } from "react";
-import { Terminal } from "@xterm/xterm";
+import { Terminal, type IBufferCell } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
+import { SearchAddon, type ISearchOptions } from "@xterm/addon-search";
 import { open as openUrl } from "@tauri-apps/plugin-shell";
 import { sshSendInput, sshResize, onSshOutput, onSshClosed } from "@/services/ssh";
 import { localSendInput, localResize, onLocalOutput, onLocalClosed } from "@/services/local";
 import { serialWrite, onSerialOutput, onSerialClosed } from "@/services/serial";
 import { useThemeStore } from "@/stores/themeStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { getToggle } from "@/stores/toggleSettingsStore";
+import { matchShortcut } from "@/stores/shortcutStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
 import { findLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { useCommandHistoryStore } from "@/stores/commandHistoryStore";
+import { sampleLineDensities, scrollDeltaForRatio, type TerminalMinimapCell, type TerminalMinimapSample } from "@/components/terminal/minimapMath";
+import type { TerminalTheme } from "@/themes/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 
 interface UseTerminalOptions {
@@ -79,17 +87,379 @@ function focusPaneInDirection(direction: "left" | "right" | "up" | "down") {
 // Xterm instances are keyed by sessionId and survive component remounts.
 // This prevents the scrollback buffer from being wiped when pane layouts change.
 
+export interface TerminalSearchSnapshot {
+  open: boolean;
+  query: string;
+  caseSensitive: boolean;
+  wholeWord: boolean;
+  regex: boolean;
+  resultIndex: number;  // -1 when no active match
+  resultCount: number;
+  invalidRegex: boolean;
+  /** Increments on every open() call so the input can re-focus + select-all even when already open. */
+  focusTick: number;
+}
+
+interface SearchState {
+  snapshot: TerminalSearchSnapshot;
+  subscribers: Set<() => void>;
+}
+
+export interface TerminalMinimapSnapshot {
+  bufferLength: number;
+  viewportY: number;
+  baseY: number;
+  rows: number;
+  cols: number;
+  version: number;
+}
+
+interface MinimapState {
+  snapshot: TerminalMinimapSnapshot;
+  subscribers: Set<() => void>;
+  frame: number | null;
+}
+
+export interface TerminalMinimapController {
+  subscribe: (fn: () => void) => () => void;
+  getSnapshot: () => TerminalMinimapSnapshot;
+  sample: (height: number) => TerminalMinimapSample[];
+  scrollToRatio: (ratio: number) => void;
+  focus: () => void;
+}
+
 type CacheEntry = {
   terminal: Terminal;
   fitAddon: FitAddon;
+  searchAddon: SearchAddon;
+  search: SearchState;
+  minimap: MinimapState;
   sessionType: "ssh" | "local" | "serial";
   connectedRef: { current: boolean };
   onClosedRef: { current: (() => void) | undefined };
   onResizeRef: { current: ((cols: number, rows: number) => void) | undefined };
+  copyBtnRef: { el: HTMLDivElement | null; timer: ReturnType<typeof setTimeout> | null };
   dispose: () => void; // full teardown, called only when the session is deleted
 };
 
 const terminalCache = new Map<string, CacheEntry>();
+
+// ─── Search controller (module-level, callable from anywhere) ────────────────
+
+const EMPTY_SNAPSHOT: TerminalSearchSnapshot = {
+  open: false,
+  query: "",
+  caseSensitive: false,
+  wholeWord: false,
+  regex: false,
+  resultIndex: -1,
+  resultCount: 0,
+  invalidRegex: false,
+  focusTick: 0,
+};
+
+function notifySearch(entry: CacheEntry) {
+  entry.search.subscribers.forEach((fn) => fn());
+}
+
+function minimapSnapshot(entry: CacheEntry): TerminalMinimapSnapshot {
+  const buffer = entry.terminal.buffer.active;
+  return {
+    bufferLength: buffer.length,
+    viewportY: buffer.viewportY,
+    baseY: buffer.baseY,
+    rows: entry.terminal.rows,
+    cols: entry.terminal.cols,
+    version: entry.minimap.snapshot.version + 1,
+  };
+}
+
+function notifyMinimap(entry: CacheEntry) {
+  entry.minimap.snapshot = minimapSnapshot(entry);
+  entry.minimap.subscribers.forEach((fn) => fn());
+}
+
+function scheduleMinimapNotify(entry: CacheEntry) {
+  if (entry.minimap.frame !== null) return;
+  entry.minimap.frame = requestAnimationFrame(() => {
+    entry.minimap.frame = null;
+    notifyMinimap(entry);
+  });
+}
+
+function sampleMinimap(entry: CacheEntry, height: number): TerminalMinimapSample[] {
+  const buffer = entry.terminal.buffer.active;
+  const maxSamples = Math.max(1, Math.floor(height));
+  const length = Math.max(1, buffer.length);
+  const cols = Math.max(1, entry.terminal.cols);
+  const theme = useThemeStore.getState().getActiveTheme().terminal;
+  const lines: string[] = [];
+  const cellRows: TerminalMinimapCell[][] = [];
+  const nullCell = buffer.getNullCell();
+  const rows = Math.min(maxSamples, length);
+
+  for (let y = 0; y < rows; y += 1) {
+    const start = length <= maxSamples ? y : Math.floor((y / rows) * length);
+    const end = length <= maxSamples ? y + 1 : Math.max(start + 1, Math.floor(((y + 1) / rows) * length));
+    let text = "";
+    let cells: TerminalMinimapCell[] = [];
+
+    for (let lineIndex = start; lineIndex < end; lineIndex += 1) {
+      const line = buffer.getLine(lineIndex);
+      if (!line) continue;
+      const lineText = line.translateToString(true);
+      if (!text && lineText) {
+        text = lineText;
+        const maxCells = Math.min(line.length, cols);
+        cells = [];
+        for (let x = 0; x < maxCells; x += 1) {
+          const cell = line.getCell(x, nullCell);
+          if (!cell || cell.getWidth() === 0 || !cell.getChars().trim() || cell.isInvisible()) continue;
+          cells.push({
+            x,
+            width: Math.max(1, cell.getWidth()),
+            fg: colorForCell(cell, "fg", theme),
+            bg: cell.isBgDefault() ? undefined : colorForCell(cell, "bg", theme),
+          });
+        }
+      }
+    }
+    lines.push(text);
+    cellRows.push(cells);
+  }
+
+  return sampleLineDensities(lines, maxSamples, cols).map((sample, index) => ({
+    ...sample,
+    cells: cellRows[index],
+  }));
+}
+
+function colorForCell(cell: IBufferCell, target: "fg" | "bg", theme: TerminalTheme): string {
+  const color = target === "fg" ? cell.getFgColor() : cell.getBgColor();
+  const isDefault = target === "fg" ? cell.isFgDefault() : cell.isBgDefault();
+  const isRgb = target === "fg" ? cell.isFgRGB() : cell.isBgRGB();
+  const isPalette = target === "fg" ? cell.isFgPalette() : cell.isBgPalette();
+
+  if (isDefault) return target === "fg" ? theme.foreground : theme.background;
+  if (isRgb) return `#${color.toString(16).padStart(6, "0")}`;
+  if (isPalette) return ansiPaletteColor(color, theme);
+  return target === "fg" ? theme.foreground : theme.background;
+}
+
+function ansiPaletteColor(index: number, theme: TerminalTheme): string {
+  const basic = [
+    theme.black, theme.red, theme.green, theme.yellow,
+    theme.blue, theme.magenta, theme.cyan, theme.white,
+    theme.brightBlack, theme.brightRed, theme.brightGreen, theme.brightYellow,
+    theme.brightBlue, theme.brightMagenta, theme.brightCyan, theme.brightWhite,
+  ];
+  if (index < basic.length) return basic[index];
+  if (index >= 16 && index <= 231) {
+    const n = index - 16;
+    const r = Math.floor(n / 36);
+    const g = Math.floor((n % 36) / 6);
+    const b = n % 6;
+    return rgbHex(r === 0 ? 0 : 55 + r * 40, g === 0 ? 0 : 55 + g * 40, b === 0 ? 0 : 55 + b * 40);
+  }
+  if (index >= 232 && index <= 255) {
+    const v = 8 + (index - 232) * 10;
+    return rgbHex(v, v, v);
+  }
+  return theme.foreground;
+}
+
+function rgbHex(r: number, g: number, b: number): string {
+  return `#${[r, g, b].map((v) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, "0")).join("")}`;
+}
+
+function scrollMinimapToRatio(entry: CacheEntry, ratio: number) {
+  const buffer = entry.terminal.buffer.active;
+  const delta = scrollDeltaForRatio(ratio, buffer.length, entry.terminal.rows, buffer.viewportY);
+  entry.terminal.scrollLines(delta);
+  scheduleMinimapNotify(entry);
+}
+
+function hideCopyFeedback(entry: CacheEntry) {
+  if (entry.copyBtnRef.timer !== null) { clearTimeout(entry.copyBtnRef.timer); entry.copyBtnRef.timer = null; }
+  entry.copyBtnRef.el?.remove();
+  entry.copyBtnRef.el = null;
+}
+
+function showCopyFeedback(entry: CacheEntry, x: number, y: number, sel: string) {
+  hideCopyFeedback(entry);
+  navigator.clipboard.writeText(sel);
+  if (!getToggle("select-to-copy")) return;
+  const bw = 46;
+  const bh = 28;
+  let bx = x + 8;
+  let by = y - bh - 8;
+  if (bx + bw > window.innerWidth) bx = x - bw - 8;
+  if (by < 0) by = y + 8;
+  const el = document.createElement("div");
+  Object.assign(el.style, {
+    position: "fixed",
+    zIndex: "10000",
+    left: `${bx}px`,
+    top: `${by}px`,
+    width: `${bw}px`,
+    height: `${bh}px`,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "3px",
+    borderRadius: "6px",
+    background: "var(--t-bg-card)",
+    border: "1px solid var(--t-border)",
+    color: "var(--t-text-primary)",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+    pointerEvents: "none",
+    opacity: "0",
+    transform: "translateY(4px)",
+    transition: "opacity 100ms ease-out, transform 100ms ease-out",
+  });
+  el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+  document.body.appendChild(el);
+  entry.copyBtnRef.el = el;
+  requestAnimationFrame(() => {
+    if (entry.copyBtnRef.el !== el) return;
+    el.style.opacity = "1";
+    el.style.transform = "translateY(0)";
+    entry.copyBtnRef.timer = setTimeout(() => {
+      el.style.opacity = "0";
+      el.style.transform = "translateY(4px)";
+      entry.copyBtnRef.timer = setTimeout(() => {
+        if (entry.copyBtnRef.el === el) hideCopyFeedback(entry);
+      }, 110);
+    }, 1200);
+  });
+}
+
+function searchDecorations() {
+  const css = getComputedStyle(document.documentElement);
+  const accent = css.getPropertyValue("--t-accent").trim() || "#6366f1";
+  return {
+    matchBackground: accent + "55",
+    matchBorder: accent,
+    matchOverviewRuler: accent,
+    activeMatchBackground: accent,
+    activeMatchBorder: accent,
+    activeMatchColorOverviewRuler: accent,
+  };
+}
+
+function isRegexValid(pattern: string): boolean {
+  try { new RegExp(pattern); return true; } catch { return false; }
+}
+
+function runSearch(entry: CacheEntry, direction: "next" | "prev", incremental: boolean) {
+  const s = entry.search.snapshot;
+  if (!s.query) {
+    entry.searchAddon.clearDecorations();
+    entry.search.snapshot = { ...s, resultIndex: -1, resultCount: 0, invalidRegex: false };
+    notifySearch(entry);
+    return;
+  }
+  if (s.regex && !isRegexValid(s.query)) {
+    entry.searchAddon.clearDecorations();
+    entry.search.snapshot = { ...s, resultIndex: -1, resultCount: 0, invalidRegex: true };
+    notifySearch(entry);
+    return;
+  }
+  if (s.invalidRegex) {
+    entry.search.snapshot = { ...s, invalidRegex: false };
+  }
+  const opts: ISearchOptions = {
+    regex: s.regex,
+    caseSensitive: s.caseSensitive,
+    wholeWord: s.wholeWord,
+    incremental,
+    decorations: searchDecorations(),
+  };
+  if (direction === "next") entry.searchAddon.findNext(s.query, opts);
+  else entry.searchAddon.findPrevious(s.query, opts);
+}
+
+export interface TerminalSearchController {
+  subscribe: (fn: () => void) => () => void;
+  getSnapshot: () => TerminalSearchSnapshot;
+  open: () => void;
+  close: () => void;
+  setQuery: (q: string) => void;
+  next: () => void;
+  prev: () => void;
+  toggleCaseSensitive: () => void;
+  toggleWholeWord: () => void;
+  toggleRegex: () => void;
+}
+
+export function getTerminalSearchController(sessionId: string): TerminalSearchController | null {
+  const entry = terminalCache.get(sessionId);
+  if (!entry) return null;
+  const sub = entry.search.subscribers;
+  return {
+    subscribe: (fn) => { sub.add(fn); return () => { sub.delete(fn); }; },
+    getSnapshot: () => entry.search.snapshot,
+    open: () => {
+      const cur = entry.search.snapshot;
+      const wasOpen = cur.open;
+      // Only pre-fill from a single-line terminal selection on the first open.
+      const selection = entry.terminal.getSelection();
+      const initialQuery =
+        !wasOpen && selection && !selection.includes("\n") ? selection : cur.query;
+      entry.search.snapshot = {
+        ...cur,
+        open: true,
+        query: initialQuery,
+        focusTick: cur.focusTick + 1,
+      };
+      notifySearch(entry);
+      if (!wasOpen && initialQuery && initialQuery !== cur.query) runSearch(entry, "next", true);
+    },
+    close: () => {
+      entry.searchAddon.clearDecorations();
+      entry.search.snapshot = { ...entry.search.snapshot, open: false, resultIndex: -1, resultCount: 0, invalidRegex: false };
+      notifySearch(entry);
+      // Return focus to the terminal
+      entry.terminal.focus();
+    },
+    setQuery: (q) => {
+      entry.search.snapshot = { ...entry.search.snapshot, query: q };
+      runSearch(entry, "next", true);
+    },
+    next: () => runSearch(entry, "next", false),
+    prev: () => runSearch(entry, "prev", false),
+    toggleCaseSensitive: () => {
+      entry.search.snapshot = { ...entry.search.snapshot, caseSensitive: !entry.search.snapshot.caseSensitive };
+      runSearch(entry, "next", true);
+    },
+    toggleWholeWord: () => {
+      entry.search.snapshot = { ...entry.search.snapshot, wholeWord: !entry.search.snapshot.wholeWord };
+      runSearch(entry, "next", true);
+    },
+    toggleRegex: () => {
+      entry.search.snapshot = { ...entry.search.snapshot, regex: !entry.search.snapshot.regex };
+      runSearch(entry, "next", true);
+    },
+  };
+}
+
+export function getTerminalMinimapController(sessionId: string): TerminalMinimapController | null {
+  const entry = terminalCache.get(sessionId);
+  if (!entry) return null;
+  const subscribers = entry.minimap.subscribers;
+  return {
+    subscribe: (fn) => { subscribers.add(fn); return () => { subscribers.delete(fn); }; },
+    getSnapshot: () => entry.minimap.snapshot,
+    sample: (height) => sampleMinimap(entry, height),
+    scrollToRatio: (ratio) => scrollMinimapToRatio(entry, ratio),
+    focus: () => entry.terminal.focus(),
+  };
+}
+
+/** Open the search widget for a given session (no-op if the session has no cached terminal yet). */
+export function openTerminalSearch(sessionId: string): void {
+  getTerminalSearchController(sessionId)?.open();
+}
 
 // Auto-cleanup when sessions are removed from the store
 useSessionStore.subscribe((state) => {
@@ -157,6 +527,14 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         const handleWindowResize = () => fitAddon.fit();
         window.addEventListener("resize", handleWindowResize);
 
+        const handleContainerMouseUp = (e: MouseEvent) => {
+          setTimeout(() => {
+            const sel = existing.terminal.getSelection();
+            if (sel) showCopyFeedback(existing, e.clientX, e.clientY, sel);
+          }, 20);
+        };
+        container.addEventListener("mouseup", handleContainerMouseUp);
+
         let fitTimer: ReturnType<typeof setTimeout> | null = null;
         const resizeObserver = new ResizeObserver(() => {
           if (fitTimer !== null) clearTimeout(fitTimer);
@@ -166,6 +544,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
         mountCleanupRef.current = () => {
           container.removeEventListener("contextmenu", handleContextMenu);
+          container.removeEventListener("mouseup", handleContainerMouseUp);
           window.removeEventListener("resize", handleWindowResize);
           resizeObserver.disconnect();
           if (fitTimer !== null) clearTimeout(fitTimer);
@@ -176,12 +555,14 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       // ── Create new terminal ───────────────────────────────────────────────
       const activeTheme = useThemeStore.getState().getActiveTheme();
+      const scrollback = useTerminalSettingsStore.getState().scrollbackLines;
       const term = new Terminal({
         altClickMovesCursor: false,
         cursorBlink: true,
         cursorStyle: "bar",
         fontSize: activeTheme.terminalFontSize,
         fontFamily: activeTheme.terminalFontFamily,
+        scrollback,
         theme: activeTheme.terminal,
         overviewRuler: { width: 4 },
         allowProposedApi: true,
@@ -189,6 +570,9 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       const fitAddon = new FitAddon();
       term.loadAddon(fitAddon);
+
+      const searchAddon = new SearchAddon();
+      term.loadAddon(searchAddon);
 
       let linkTooltip: HTMLDivElement | null = null;
       const hideLinkTooltip = () => {
@@ -246,13 +630,34 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       const entry: CacheEntry = {
         terminal: term,
         fitAddon,
+        searchAddon,
+        search: { snapshot: { ...EMPTY_SNAPSHOT }, subscribers: new Set() },
+        minimap: {
+          snapshot: { bufferLength: 0, viewportY: 0, baseY: 0, rows: term.rows, cols: term.cols, version: 0 },
+          subscribers: new Set(),
+          frame: null,
+        },
         sessionType,
         connectedRef: { current: sessionType === "local" || sessionType === "serial" },
         onClosedRef: { current: onClosed },
         onResizeRef: { current: onResize },
+        copyBtnRef: { el: null, timer: null },
         dispose: () => {}, // filled in below
       };
       terminalCache.set(sessionId, entry);
+      notifyMinimap(entry);
+
+      const searchResultsDispose = searchAddon.onDidChangeResults(({ resultIndex, resultCount }) => {
+        entry.search.snapshot = { ...entry.search.snapshot, resultIndex, resultCount };
+        notifySearch(entry);
+      });
+
+      const selectionChangeDispose = term.onSelectionChange(() => {
+        if (!term.getSelection()) hideCopyFeedback(entry);
+      });
+
+      const scrollDispose = term.onScroll(() => scheduleMinimapNotify(entry));
+      const bufferChangeDispose = term.buffer.onBufferChange(() => scheduleMinimapNotify(entry));
 
       // Intercept app shortcuts before xterm processes them
       term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
@@ -276,11 +681,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           }
           return false;
         }
-        if (e.ctrlKey && e.shiftKey && e.key === "P") {
-          if (e.type === "keydown") useUIStore.getState().setOmniOpen(true);
-          return false;
-        }
-        if (e.key === "F1") {
+        if (matchShortcut("omni", e)) {
           if (e.type === "keydown") useUIStore.getState().setOmniOpen(true);
           return false;
         }
@@ -313,6 +714,35 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
           }
           return false;
         }
+        if (matchShortcut("terminal-search", e)) {
+          if (e.type === "keydown") {
+            e.preventDefault();
+            getTerminalSearchController(sessionId)?.open();
+          }
+          return false;
+        }
+        if (e.ctrlKey && !e.altKey && (e.key === "g" || e.key === "G")) {
+          if (e.type === "keydown") {
+            const ctrl = getTerminalSearchController(sessionId);
+            if (ctrl?.getSnapshot().open) {
+              if (e.shiftKey) ctrl.prev();
+              else ctrl.next();
+            }
+          }
+          return false;
+        }
+        if (matchShortcut("history", e)) {
+          if (e.type === "keydown") useUIStore.getState().toggleRightPanel("history");
+          return false;
+        }
+        if (matchShortcut("snippets", e)) {
+          if (e.type === "keydown") useUIStore.getState().toggleRightPanel("snippets");
+          return false;
+        }
+        if (matchShortcut("panel-themes", e)) {
+          if (e.type === "keydown") useUIStore.getState().toggleRightPanel("themes");
+          return false;
+        }
         return true;
       });
 
@@ -324,10 +754,48 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         // WebGL not available, use default canvas renderer
       }
 
+      // OSC 7 — shell-reported cwd (file://host/path). Used by the right-panel
+      // SFTP tab's "follow cwd" feature. Silently no-ops for shells that don't
+      // emit it.
+      const oscCwdDispose = term.parser.registerOscHandler(7, (data) => {
+        try {
+          if (!data.startsWith("file://")) return false;
+          // Manual parse — URL constructor mangles Windows backslashes and
+          // throws on unencoded characters that cmd's $P happily includes.
+          const rest = data.slice("file://".length);
+          const slashIdx = rest.indexOf("/");
+          if (slashIdx === -1) return true;
+          const host = rest.slice(0, slashIdx);
+          const raw = rest.slice(slashIdx);
+          let path: string;
+          try { path = decodeURIComponent(raw); } catch { path = raw; }
+          // Windows drive paths arrive as `/C:\Users\foo` (from cmd's $P) —
+          // strip the leading slash, normalize backslashes for display.
+          if (/^\/[A-Za-z]:/.test(path)) path = path.slice(1);
+          path = path.replace(/\\/g, "/");
+          // WSL sessions emit host=wsl.localhost with the distro embedded as
+          // the first path segment. Convert to a UNC path that Windows' fs
+          // API can actually read (`\\wsl.localhost\<distro>\…`).
+          if (host === "wsl.localhost" || host === "wsl$") {
+            path = `//${host}${path}`;
+          }
+          if (path) useTerminalCwdStore.getState().setCwd(sessionId, path);
+        } catch { /* malformed OSC 7 payload */ }
+        return true;
+      });
+
       // Send user input
       const onDataDispose = term.onData((data) => {
         if (inputGate && !inputGate.current?.()) return;
         if (!entry.connectedRef.current) return;
+
+        const sess = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
+        if (sess) {
+          useCommandHistoryStore
+            .getState()
+            .addInput(sessionId, sess.connectionName, sess.connectionId, data);
+        }
+
         const bytes = encoder.encode(data);
         const layout = useLayoutStore.getState();
         const paneSessionIds = getPaneSessionIds(layout.root);
@@ -350,7 +818,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       if (sessionType === "local") {
         unlistenPromises.push(
-          onLocalOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data); }),
+          onLocalOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data, () => scheduleMinimapNotify(entry)); }),
         );
         unlistenPromises.push(
           onLocalClosed(sessionId, () => {
@@ -360,7 +828,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         );
       } else if (sessionType === "serial") {
         unlistenPromises.push(
-          onSerialOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data); }),
+          onSerialOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data, () => scheduleMinimapNotify(entry)); }),
         );
         unlistenPromises.push(
           onSerialClosed(sessionId, () => {
@@ -370,7 +838,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         );
       } else {
         unlistenPromises.push(
-          onSshOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data); }),
+          onSshOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data, () => scheduleMinimapNotify(entry)); }),
         );
         unlistenPromises.push(
           onSshClosed(sessionId, () => {
@@ -382,6 +850,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       const onResizeDispose = term.onResize(({ cols, rows }) => {
         entry.onResizeRef.current?.(cols, rows);
+        scheduleMinimapNotify(entry);
         if (!entry.connectedRef.current) return;
         if (sessionType === "local") {
           localResize(sessionId, cols, rows);
@@ -396,7 +865,16 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       entry.dispose = () => {
         onDataDispose.dispose();
         onResizeDispose.dispose();
+        oscCwdDispose.dispose();
+        searchResultsDispose.dispose();
+        selectionChangeDispose.dispose();
+        scrollDispose.dispose();
+        bufferChangeDispose.dispose();
+        if (entry.minimap.frame !== null) cancelAnimationFrame(entry.minimap.frame);
+        entry.search.subscribers.clear();
+        entry.minimap.subscribers.clear();
         hideLinkTooltip();
+        hideCopyFeedback(entry);
         Promise.all(unlistenPromises).then((fns) => fns.forEach((fn) => fn()));
         term.dispose();
       };
@@ -411,6 +889,14 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       const handleWindowResize = () => fitAddon.fit();
       window.addEventListener("resize", handleWindowResize);
 
+      const handleContainerMouseUp = (e: MouseEvent) => {
+        setTimeout(() => {
+          const sel = entry.terminal.getSelection();
+          if (sel) showCopyFeedback(entry, e.clientX, e.clientY, sel);
+        }, 20);
+      };
+      container.addEventListener("mouseup", handleContainerMouseUp);
+
       let fitTimer: ReturnType<typeof setTimeout> | null = null;
       const resizeObserver = new ResizeObserver(() => {
         if (fitTimer !== null) clearTimeout(fitTimer);
@@ -420,6 +906,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
 
       mountCleanupRef.current = () => {
         container.removeEventListener("contextmenu", handleContextMenu);
+        container.removeEventListener("mouseup", handleContainerMouseUp);
         window.removeEventListener("resize", handleWindowResize);
         resizeObserver.disconnect();
         if (fitTimer !== null) clearTimeout(fitTimer);

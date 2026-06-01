@@ -9,6 +9,8 @@ import { useUIStore } from "@/stores/uiStore";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useFolderStore } from "@/stores/folderStore";
+import FolderSelector from "@/components/shared/FolderSelector";
+import TagSelector from "@/components/shared/TagSelector";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { storeSecret, getSecret } from "@/services/vault";
@@ -18,13 +20,19 @@ import {
 } from "@/components/shared/Panel";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
-import { TagBadge } from "@/components/shared/TagBadge";
 import { useIdentityStore } from "@/stores/identityStore";
+import { useTeamStore } from "@/stores/teamStore";
+import {
+  useEffectivePinned,
+  useEffectivePinSource,
+  nextPersonalPinValue,
+} from "@/hooks/useEffectivePinned";
 import { KeyFileDropZone } from "./KeyForm";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import type { AuthType, Connection, Identity, IdentityFormData } from "@/types";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
+import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
 
 // ─────────────────────────────────────────────────────────────────
 // Dropdown sub-components (used by KeySelector)
@@ -63,12 +71,18 @@ function KeySelector({
   vaultId: string;
 }) {
   const { keys: personalKeys, teamKeys } = useKeyStore();
+  const teams = useTeamStore((s) => s.teams);
+  const teamVaultIds = useMemo(() => new Set(teams.map((team) => team.id)), [teams]);
   const effectiveVaultId = vaultId || "personal";
-  const keys = effectiveVaultId === "personal"
-    ? personalKeys.filter((k) => !k.vault_id || k.vault_id === "personal")
-    : (teamKeys[effectiveVaultId] ?? []);
+  const keys = useMemo(() => selectVaultScopedItems({
+    vaultId: effectiveVaultId,
+    localItems: personalKeys,
+    teamItems: teamKeys,
+    teamVaultIds,
+    resolveVaultId: resolveVaultIdForSave,
+  }), [effectiveVaultId, personalKeys, teamKeys, teamVaultIds]);
   const [open, setOpen] = useState(false);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
+  const [dropdownPos, setDropdownPos] = useState<{ top?: number; bottom?: number; left: number; width: number }>({ left: 0, width: 0 });
   const wrapperRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const isInline = value === "__inline__";
@@ -77,7 +91,13 @@ function KeySelector({
   const handleToggle = () => {
     if (!open && buttonRef.current) {
       const r = buttonRef.current.getBoundingClientRect();
-      setDropdownPos({ top: r.bottom + 4, left: r.left, width: r.width });
+      const estimatedHeight = 12 + 2 * 33 + (keys.length > 0 ? 9 + keys.length * 33 : 0);
+      const spaceBelow = window.innerHeight - r.bottom;
+      if (spaceBelow < estimatedHeight) {
+        setDropdownPos({ bottom: window.innerHeight - r.top + 4, left: r.left, width: r.width });
+      } else {
+        setDropdownPos({ top: r.bottom + 4, left: r.left, width: r.width });
+      }
     }
     setOpen((o) => !o);
   };
@@ -120,6 +140,7 @@ function KeySelector({
           className="p-1.5 rounded-xl fixed z-[9999] bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)]"
           style={{
             top: dropdownPos.top,
+            bottom: dropdownPos.bottom,
             left: dropdownPos.left,
             width: dropdownPos.width,
             boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
@@ -179,13 +200,15 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
   const { connections, loadConnections, updateConnection } = useConnectionStore();
   const { setActiveNav, setHomePendingAction } = useUIStore();
   const pinIdentity = useIdentityStore((s) => s.pinIdentity);
-  const isPinned = useIdentityStore((s) => s.identities.find((i) => i.id === initial?.id)?.pinned ?? false);
+  const effPinned = useEffectivePinned(initial ?? { id: "", pinned: false }, "identity");
+  const pinSource = useEffectivePinSource(initial ?? { id: "", pinned: false }, "identity");
+  const isPinned = effPinned;
+  const isTeamVault = useTeamStore((s) => initial ? s.teams.some((t) => t.id === initial.vault_id) : false);
   const contributions = useUIContributions("identity.panelActions", initial);
   const { toggleExcluded, isObjectSynced } = useSyncPrefsStore();
   const isSynced = initial ? isObjectSynced(initial.id, "identity") : true;
   const [name, setName] = useState(initial?.name ?? "");
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
-  const [tagInput, setTagInput] = useState("");
   const [username, setUsername] = useState(initial?.username ?? "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -204,7 +227,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
   const [inlinePrivKey, setInlinePrivKey] = useState("");
   const [inlinePublicKey, setInlinePublicKey] = useState("");
   const passwordDirty = useRef(false);
-  const { folders, loadFolders } = useFolderStore();
+  const { folders, loadFolders, saveFolder } = useFolderStore();
 
   const linkedHosts = useMemo(
     () => (initial ? connections.filter((c) => c.identity_id === initial.id) : []),
@@ -307,7 +330,13 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
           ];
           return (
             <>
-              <PinButton pinned={isPinned} onToggle={() => pinIdentity(initial.id, !isPinned).catch(() => {})} />
+              <PinButton pinned={isPinned} onToggle={() => {
+                if (!isTeamVault) {
+                  pinIdentity(initial.id, !isPinned).catch(() => {});
+                } else {
+                  pinIdentity(initial.id, nextPersonalPinValue(pinSource)).catch(() => {});
+                }
+              }} />
               {items.length > 0 && <PanelActionsMenu items={items} />}
             </>
           );
@@ -327,59 +356,26 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
           </div>
           <div>
             <label className={formLabelClass} style={formLabelStyle}>Tags</label>
-            {tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {tags.map((tag) => (
-                  <TagBadge key={tag} tag={tag} className="flex items-center gap-1 px-2 rounded-md font-medium">
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => { markDirty(); setTags((t) => t.filter((x) => x !== tag)); }}
-                      className="transition-opacity opacity-60 hover:opacity-100"
-                      aria-label={`Remove tag ${tag}`}
-                    >
-                      <Icon icon="lucide:x" width={10} />
-                    </button>
-                  </TagBadge>
-                ))}
-              </div>
-            )}
-            <input
-              className={formInputClass}
-              style={formInputStyle}
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if ((e.key === "Enter" || e.key === ",") && tagInput.trim()) {
-                  e.preventDefault();
-                  const newTag = tagInput.trim().replace(/,$/, "");
-                  if (newTag && !tags.includes(newTag)) {
-                    markDirty(); setTags((t) => [...t, newTag]);
-                  }
-                  setTagInput("");
-                } else if (e.key === "Backspace" && !tagInput && tags.length > 0) {
-                  markDirty(); setTags((t) => t.slice(0, -1));
-                }
-              }}
-              placeholder="Add tag, press Enter"
+            <TagSelector
+              value={tags}
+              vaultId={vaultId}
+              onChange={(next) => { markDirty(); setTags(next); }}
             />
           </div>
-          {folders.length > 0 && (
-            <div>
-              <label className={formLabelClass} style={formLabelStyle}>Folder</label>
-              <select
-                className={formInputClass}
-                style={{ ...formInputStyle, cursor: "pointer" }}
-                value={folderId ?? ""}
-                onChange={(e) => { markDirty(); setFolderId(e.target.value || null); }}
-              >
-                <option value="">No folder</option>
-                {folders.map((f) => (
-                  <option key={f.id} value={f.id}>{f.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div>
+            <label className={formLabelClass} style={formLabelStyle}>Folder</label>
+            <FolderSelector
+              value={folderId}
+              folders={folders}
+              onChange={(id) => { markDirty(); setFolderId(id); }}
+              onCreateFolder={async (name) => {
+                const folder = await saveFolder({ name, object_type: "connection", vault_id: resolveVaultIdForSave(vaultId) || undefined });
+                markDirty();
+                setFolderId(folder.id);
+                return folder.id;
+              }}
+            />
+          </div>
         </FormSection>
 
         <FormSection label="Credentials">

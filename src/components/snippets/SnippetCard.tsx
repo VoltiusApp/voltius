@@ -8,6 +8,12 @@ import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import type { Snippet, Folder, VaultOption } from "@/types";
 import { useSnippetStore } from "@/stores/snippetStore";
+import { useTeamStore } from "@/stores/teamStore";
+import {
+  useEffectivePinned,
+  useEffectivePinSource,
+  nextPersonalPinValue,
+} from "@/hooks/useEffectivePinned";
 
 interface Props {
   snippet: Snippet;
@@ -19,8 +25,8 @@ interface Props {
   layout?: "grid" | "list";
   onEdit: () => void;
   onSelect?: (id: string, e: React.MouseEvent<HTMLDivElement>) => void;
-  onInsert: (sessionId: string) => void;
-  onExecute: (sessionId: string) => void;
+  onInsert: (sessionIds: string[]) => void;
+  onExecute: (sessionIds: string[]) => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onToggleFavorite: () => void;
@@ -31,8 +37,7 @@ interface Props {
   onCopyToVault?: (vaultId: string) => void;
   syncEnabled?: boolean;
   onToggleSync?: () => void;
-  onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
-  onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
+  onPointerDown?: (e: React.PointerEvent<HTMLDivElement>) => void;
 }
 
 export function SnippetCard({
@@ -57,23 +62,55 @@ export function SnippetCard({
   onCopyToVault,
   syncEnabled,
   onToggleSync,
-  onDragStart,
-  onDragEnd,
+  onPointerDown,
 }: Props) {
   const isList = layout === "list";
   const pinSnippet = useSnippetStore((s) => s.pinSnippet);
+  const pinSnippetForTeam = useSnippetStore((s) => s.pinSnippetForTeam);
   const folder = folders.find((f) => f.id === snippet.folder_id);
   const [panelMode, setPanelMode] = useState<"insert" | "execute" | null>(null);
+  const effPinned = useEffectivePinned(snippet, "snippet");
+  const pinSource = useEffectivePinSource(snippet, "snippet");
+  const isTeamVault = useTeamStore((s) => s.teams.some((t) => t.id === snippet.vault_id));
+  const handlePinClick = () => {
+    if (!isTeamVault) {
+      pinSnippet(snippet.id, !effPinned).catch(() => {});
+    } else {
+      pinSnippet(snippet.id, nextPersonalPinValue(pinSource)).catch(() => {});
+    }
+  };
+  const pinColor =
+    pinSource === "personal" || pinSource === "team+personal"
+      ? "var(--t-accent)"
+      : pinSource === "team"
+      ? "var(--t-text-secondary)"
+      : "var(--t-text-dim)";
+  const pinAlwaysVisible = pinSource !== "none" && pinSource !== "team-hidden";
 
   const contextMenuItems: ContextMenuItem[] = [
     { label: "Edit",      icon: "lucide:pencil",  onClick: onEdit, shortcut: "E" },
     { label: "Duplicate", icon: "lucide:copy",    onClick: onDuplicate, shortcut: "D" },
     {
-      label: snippet.favorite ? "Unpin" : "Pin",
-      icon: snippet.favorite ? "lucide:pin-off" : "lucide:pin",
-      onClick: () => pinSnippet(snippet.id, !snippet.favorite).catch(() => {}),
+      label: isTeamVault
+        ? (pinSource === "personal" || pinSource === "team+personal")
+          ? "Unpin for me"
+          : pinSource === "team-hidden"
+          ? "Show in my view"
+          : pinSource === "team"
+          ? "Hide for me"
+          : "Pin for me"
+        : effPinned ? "Unpin" : "Pin",
+      icon: (pinSource === "personal" || pinSource === "team+personal" || (!isTeamVault && effPinned))
+        ? "lucide:pin-off"
+        : "lucide:pin",
+      onClick: handlePinClick,
       divider: true as const,
     },
+    ...(canEdit && isTeamVault ? [{
+      label: snippet.favorite ? "Unpin for team" : "Pin for team",
+      icon: "lucide:users",
+      onClick: () => pinSnippetForTeam(snippet.id, !snippet.favorite).catch(() => {}),
+    }] : []),
     ...(onToggleSync ? [{
       label: syncEnabled ? "Disable cloud sync" : "Enable cloud sync",
       icon: syncEnabled ? "lucide:cloud-off" : "lucide:cloud",
@@ -93,9 +130,7 @@ export function SnippetCard({
           isFocused={isFocused}
           data-selectable-id={snippet.id}
           data-card={snippet.id}
-          draggable={!!onDragStart}
-          onDragStart={onDragStart}
-          onDragEnd={onDragEnd}
+          onPointerDown={onPointerDown}
           onClick={(e) => {
             if (onSelect) onSelect(snippet.id, e);
             else onEdit();
@@ -119,8 +154,9 @@ export function SnippetCard({
                   </p>
                   <button
                     onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
-                    className={`shrink-0 flex items-center transition-colors ${snippet.favorite ? "text-[var(--t-accent)] opacity-100" : "text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] opacity-0 group-hover:opacity-100"}`}
-                    title={snippet.favorite ? "Unstar" : "Star"}
+                    className={`shrink-0 flex items-center transition-colors ${pinAlwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100 hover:text-[var(--t-text-bright)]"}`}
+                    style={{ color: pinColor }}
+                    title={effPinned ? "Unstar" : "Star"}
                   >
                     <Icon icon="lucide:star" width={14} />
                   </button>
@@ -183,7 +219,7 @@ export function SnippetCard({
                   onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-bright)")}
                   onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-secondary)")}
                 >
-                  <Icon icon="lucide:skip-forward" width={15} />
+                  <Icon icon="lucide:arrow-down-to-line" width={15} />
                 </button>
                 <button
                   title="Execute"
@@ -204,7 +240,7 @@ export function SnippetCard({
             mode={panelMode}
             onConfirm={(sessionIds) => {
               const action = panelMode === "insert" ? onInsert : onExecute;
-              sessionIds.forEach((id) => action(id));
+              action(sessionIds);
             }}
             onClose={() => setPanelMode(null)}
           />
@@ -222,9 +258,7 @@ export function SnippetCard({
         isFocused={isFocused}
         data-selectable-id={snippet.id}
         data-card={snippet.id}
-        draggable={!!onDragStart}
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
+        onPointerDown={onPointerDown}
         onClick={(e) => {
           if (onSelect) onSelect(snippet.id, e);
           else onEdit();
@@ -244,8 +278,8 @@ export function SnippetCard({
             <span className="text-sm font-semibold text-[var(--t-text-bright)] truncate flex-1 min-w-0">
               {snippet.name}
             </span>
-            {snippet.favorite && (
-              <Icon icon="lucide:star" width={11} className="shrink-0 text-[var(--t-accent)]" />
+            {effPinned && (
+              <Icon icon="lucide:star" width={11} className="shrink-0" style={{ color: pinColor }} />
             )}
             {folder && (
               <span className="flex items-center gap-1 text-xs text-[var(--t-text-dim)] shrink-0">
@@ -272,12 +306,12 @@ export function SnippetCard({
         {/* Actions */}
         <div className="flex items-center gap-0.5 shrink-0">
           <button
-            title={snippet.favorite ? "Unstar" : "Star"}
+            title={effPinned ? "Unstar" : "Star"}
             onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
-            className="p-1.5 hidden group-hover:flex rounded-lg transition-colors"
-            style={{ color: snippet.favorite ? "var(--t-accent)" : "var(--t-text-secondary)" }}
+            className={`p-1.5 rounded-lg transition-colors ${pinAlwaysVisible ? "flex" : "hidden group-hover:flex"}`}
+            style={{ color: pinColor }}
             onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-accent)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = snippet.favorite ? "var(--t-accent)" : "var(--t-text-secondary)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = pinColor)}
           >
             <Icon icon="lucide:star" width={16} />
           </button>
@@ -289,7 +323,7 @@ export function SnippetCard({
             onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-secondary)")}
           >
-            <Icon icon="lucide:skip-forward" width={16} />
+            <Icon icon="lucide:arrow-down-to-line" width={16} />
           </button>
           <button
             title="Execute"
@@ -308,7 +342,7 @@ export function SnippetCard({
           mode={panelMode}
           onConfirm={(sessionIds) => {
             const action = panelMode === "insert" ? onInsert : onExecute;
-            sessionIds.forEach((id) => action(id));
+            action(sessionIds);
           }}
           onClose={() => setPanelMode(null)}
         />

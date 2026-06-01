@@ -31,6 +31,7 @@ export interface PluginKey {
   id: string;
   name?: string;
   key_type?: string;
+  tags: string[];
 }
 
 export interface PluginIdentity {
@@ -38,6 +39,7 @@ export interface PluginIdentity {
   name?: string;
   username: string;
   key_id?: string;
+  tags: string[];
 }
 
 export interface OmniCommand {
@@ -191,14 +193,14 @@ export interface PluginAPI {
   keys: {
     list(): Promise<PluginKey[]>;
     /** Creates a key entry and stores private/public content in the vault. */
-    create(data: { name?: string; key_type?: string }, privateKey: string, publicKey?: string): Promise<PluginKey>;
+    create(data: { name?: string; key_type?: string; tags?: string[] }, privateKey: string, publicKey?: string): Promise<PluginKey>;
     delete(id: string): Promise<void>;
   };
 
   // Identités (requiert identities:*)
   identities: {
     list(): Promise<PluginIdentity[]>;
-    create(data: { name?: string; username: string; key_id?: string }): Promise<PluginIdentity>;
+    create(data: { name?: string; username: string; key_id?: string; tags?: string[] }): Promise<PluginIdentity>;
     delete(id: string): Promise<void>;
   };
 
@@ -333,7 +335,7 @@ export interface PluginAPI {
     triggerReload(storeKey: string): Promise<void>;
     /**
      * Export the full app state (connections, keys, identities, secrets) as a
-     * base64-encoded AES-256-GCM encrypted blob — same format as cloud sync.
+     * base64-encoded XChaCha20-Poly1305 encrypted blob — same format as cloud sync.
      * encKey: 64-char hex string (32 bytes). Requires sync:write.
      */
     exportState(encKey: string, deviceId: string): Promise<string>;
@@ -362,8 +364,12 @@ export interface PluginConfigField {
   type: "string" | "number" | "boolean" | "select";
   default: unknown;
   description: string;
+  /** Overrides the auto-derived label (the host humanizes the key by default). */
+  label?: string;
   options?: string[];  // for select
   secret?: boolean;    // render as password input
+  min?: number;        // for number: minimum (also clamps on save)
+  max?: number;        // for number: maximum (also clamps on save)
 }
 
 export interface PluginManifest {

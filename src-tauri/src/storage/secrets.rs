@@ -1,6 +1,6 @@
-use aes_gcm::{
+use chacha20poly1305::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
-    Aes256Gcm, Key, Nonce,
+    Key, XChaCha20Poly1305, XNonce,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -17,6 +17,8 @@ struct StoreInner {
     secrets: HashMap<String, String>,
     path: PathBuf,
 }
+
+const NONCE_LEN: usize = 24;
 
 fn secrets_path(app: &AppHandle) -> PathBuf {
     let dir = app
@@ -101,25 +103,25 @@ fn save(inner: &StoreInner) -> Result<(), String> {
 }
 
 fn encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>, String> {
-    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(key));
-    let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+    let cipher = XChaCha20Poly1305::new(Key::from_slice(key));
+    let nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
     let ciphertext = cipher
         .encrypt(&nonce, plaintext)
         .map_err(|e| format!("Encryption failed: {e}"))?;
-    let mut out = Vec::with_capacity(12 + ciphertext.len());
+    let mut out = Vec::with_capacity(NONCE_LEN + ciphertext.len());
     out.extend_from_slice(&nonce);
     out.extend_from_slice(&ciphertext);
     Ok(out)
 }
 
 fn decrypt(key: &[u8; 32], data: &[u8]) -> Result<HashMap<String, String>, String> {
-    if data.len() < 12 {
+    if data.len() < NONCE_LEN {
         return Err("Secrets file too short".to_string());
     }
-    let nonce = Nonce::from_slice(&data[..12]);
-    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(key));
+    let nonce = XNonce::from_slice(&data[..NONCE_LEN]);
+    let cipher = XChaCha20Poly1305::new(Key::from_slice(key));
     let plaintext = cipher
-        .decrypt(nonce, &data[12..])
+        .decrypt(nonce, &data[NONCE_LEN..])
         .map_err(|_| "Decryption failed — wrong key or corrupted file".to_string())?;
     serde_json::from_slice(&plaintext).map_err(|e| e.to_string())
 }

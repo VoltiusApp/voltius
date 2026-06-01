@@ -82,6 +82,10 @@ export interface ImportCtx {
   tag: string;
   skipDupes: boolean;
   existingConnections: Connection[];
+  existingKeys: SshKey[];
+  existingIdentities: Identity[];
+  existingSnippets: Snippet[];
+  existingPfRules: PortForwardingRule[];
   folderEidMap: Map<string, string>;
   snippetFolderEidMap: Map<string, string>;
   keyEidMap: Map<string, string>;

@@ -13,6 +13,12 @@ import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
+import { useTeamStore } from "@/stores/teamStore";
+import {
+  useEffectivePinned,
+  useEffectivePinSource,
+  nextPersonalPinValue,
+} from "@/hooks/useEffectivePinned";
 
 // ─────────────────────────────────────────────────────────────────
 // Small shared display components
@@ -126,7 +132,7 @@ export function KeyCardContent({ sshKey, avatarSize, iconSize }: { sshKey: SshKe
 function KeyCard({
   sshKey, canEdit, vaults, isEditing, isSelected, isFocused, layoutMode,
   onEdit, onDelete, onSelect, onExport, onMoveToVault, onCopyToVault,
-  bulkContextMenuItems, onSectionDragStart, onDragEnd,
+  bulkContextMenuItems, onSectionPointerDown,
 }: {
   sshKey: SshKey;
   canEdit: boolean;
@@ -142,8 +148,7 @@ function KeyCard({
   onMoveToVault?: (key: SshKey, vaultId: string) => void;
   onCopyToVault?: (key: SshKey, vaultId: string) => void;
   bulkContextMenuItems?: ContextMenuItem[];
-  onSectionDragStart?: (e: React.DragEvent<HTMLDivElement>, id: string) => void;
-  onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
+  onSectionPointerDown?: (e: React.PointerEvent<HTMLDivElement>, id: string) => void;
 }) {
   const isList = layoutMode === "list";
   const avatarSize = isList ? 28 : 48;
@@ -151,16 +156,41 @@ function KeyCard({
   const contributions = useUIContributions("key.contextMenu", sshKey);
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(sshKey.id, "key"));
   const pinKey = useKeyStore((s) => s.pinKey);
+  const pinKeyForTeam = useKeyStore((s) => s.pinKeyForTeam);
+  const effPinned = useEffectivePinned(sshKey, "key");
+  const pinSource = useEffectivePinSource(sshKey, "key");
+  const isTeamVault = useTeamStore((s) => s.teams.some((t) => t.id === sshKey.vault_id));
 
   const contextMenuItems = useMemo<ContextMenuItem[]>(() => [
     ...(canEdit ? [{ label: "Edit", icon: "lucide:pencil", onClick: () => onEdit(sshKey), shortcut: "E" }] : []),
     { label: "Add to host", icon: "lucide:square-arrow-right", onClick: () => onExport(sshKey) },
     {
-      label: sshKey.pinned ? "Unpin" : "Pin",
-      icon: sshKey.pinned ? "lucide:pin-off" : "lucide:pin",
-      onClick: () => pinKey(sshKey.id, !sshKey.pinned).catch(() => {}),
+      label: isTeamVault
+        ? (pinSource === "personal" || pinSource === "team+personal")
+          ? "Unpin for me"
+          : pinSource === "team-hidden"
+          ? "Show in my view"
+          : pinSource === "team"
+          ? "Hide for me"
+          : "Pin for me"
+        : effPinned ? "Unpin" : "Pin",
+      icon: (pinSource === "personal" || pinSource === "team+personal" || (!isTeamVault && effPinned))
+        ? "lucide:pin-off"
+        : "lucide:pin",
+      onClick: () => {
+        if (!isTeamVault) {
+          pinKey(sshKey.id, !effPinned).catch(() => {});
+        } else {
+          pinKey(sshKey.id, nextPersonalPinValue(pinSource)).catch(() => {});
+        }
+      },
       divider: true as const,
     },
+    ...(canEdit && isTeamVault ? [{
+      label: sshKey.pinned ? "Unpin for team" : "Pin for team",
+      icon: "lucide:users",
+      onClick: () => pinKeyForTeam(sshKey.id, !sshKey.pinned).catch(() => {}),
+    }] : []),
     ...contributions.map((a, i) => ({ ...a, icon: a.icon ?? "lucide:chevron-right", divider: i === 0 })),
     ...vaultMenuItems(vaults, canEdit,
       (vId) => onMoveToVault?.(sshKey, vId),
@@ -173,11 +203,11 @@ function KeyCard({
       divider: true,
     },
     ...(canEdit ? [{ label: "Delete", icon: "lucide:trash-2", onClick: () => onDelete(sshKey.id), danger: true, shortcut: getShortcutHint("delete") }] : []),
-  ], [canEdit, sshKey, contributions, vaults, isSynced, pinKey, onEdit, onDelete, onExport, onMoveToVault, onCopyToVault]);
+  ], [canEdit, sshKey, contributions, vaults, isSynced, pinKey, pinKeyForTeam, effPinned, pinSource, isTeamVault, onEdit, onDelete, onExport, onMoveToVault, onCopyToVault]);
 
-  const handleDragStart = useCallback(
-    (e: React.DragEvent<HTMLDivElement>) => onSectionDragStart?.(e, sshKey.id),
-    [onSectionDragStart, sshKey.id],
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => onSectionPointerDown?.(e, sshKey.id),
+    [onSectionPointerDown, sshKey.id],
   );
 
   return (
@@ -188,9 +218,7 @@ function KeyCard({
       isSelected={isSelected}
       isFocused={isFocused}
       data-selectable-id={sshKey.id}
-      draggable={!!onSectionDragStart}
-      onDragStart={onSectionDragStart ? handleDragStart : undefined}
-      onDragEnd={onDragEnd}
+      onPointerDown={onSectionPointerDown ? handlePointerDown : undefined}
       onClick={(e) => onSelect(sshKey.id, e)}
       onDoubleClick={() => onEdit(sshKey)}
       bulkContextMenuItems={bulkContextMenuItems}
@@ -216,7 +244,7 @@ export function KeySection({
   vaultOptions, label,
   onAdd, onEdit, onDelete, onSelect, onExport,
   onMoveToVault, onCopyToVault,
-  bulkContextMenuItems, onDragStart, onDragEnd,
+  bulkContextMenuItems, onPointerDown,
 }: {
   keys: SshKey[];
   showDraft: boolean;
@@ -235,8 +263,7 @@ export function KeySection({
   onMoveToVault?: (key: SshKey, vaultId: string) => void;
   onCopyToVault?: (key: SshKey, vaultId: string) => void;
   bulkContextMenuItems?: ContextMenuItem[];
-  onDragStart?: (e: React.DragEvent<HTMLDivElement>, id: string) => void;
-  onDragEnd?: () => void;
+  onPointerDown?: (e: React.PointerEvent<HTMLDivElement>, id: string) => void;
 }) {
   // usePermissions called ONCE at section level, not per card
   const can = usePermissions();
@@ -292,8 +319,7 @@ export function KeySection({
               onMoveToVault={onMoveToVault}
               onCopyToVault={onCopyToVault}
               bulkContextMenuItems={bulkContextMenuItems}
-              onSectionDragStart={onDragStart}
-              onDragEnd={onDragEnd}
+              onSectionPointerDown={onPointerDown}
             />
           );
         })}
@@ -310,7 +336,7 @@ function IdentityCard({
   identity, linkedKey, canEdit, vaults,
   isEditing, isSelected, isFocused, layoutMode,
   onEdit, onDelete, onSelect, onMoveToVault, onCopyToVault,
-  bulkContextMenuItems, onSectionDragStart, onDragEnd,
+  bulkContextMenuItems, onSectionPointerDown,
 }: {
   identity: Identity;
   linkedKey: SshKey | undefined;
@@ -326,12 +352,15 @@ function IdentityCard({
   onMoveToVault?: (identity: Identity, vaultId: string) => void;
   onCopyToVault?: (identity: Identity, vaultId: string) => void;
   bulkContextMenuItems?: ContextMenuItem[];
-  onSectionDragStart?: (e: React.DragEvent<HTMLDivElement>, id: string) => void;
-  onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
+  onSectionPointerDown?: (e: React.PointerEvent<HTMLDivElement>, id: string) => void;
 }) {
   const contributions = useUIContributions("identity.contextMenu", identity);
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(identity.id, "identity"));
   const pinIdentity = useIdentityStore((s) => s.pinIdentity);
+  const pinIdentityForTeam = useIdentityStore((s) => s.pinIdentityForTeam);
+  const effPinned = useEffectivePinned(identity, "identity");
+  const pinSource = useEffectivePinSource(identity, "identity");
+  const isTeamVault = useTeamStore((s) => s.teams.some((t) => t.id === identity.vault_id));
   const formattedDate = new Date(identity.created_at).toLocaleDateString(undefined, {
     year: "numeric", month: "short", day: "numeric",
   });
@@ -343,11 +372,32 @@ function IdentityCard({
   const contextMenuItems = useMemo<ContextMenuItem[]>(() => [
     ...(canEdit ? [{ label: "Edit", icon: "lucide:pencil", onClick: () => onEdit(identity), shortcut: "E" }] : []),
     {
-      label: identity.pinned ? "Unpin" : "Pin",
-      icon: identity.pinned ? "lucide:pin-off" : "lucide:pin",
-      onClick: () => pinIdentity(identity.id, !identity.pinned).catch(() => {}),
+      label: isTeamVault
+        ? (pinSource === "personal" || pinSource === "team+personal")
+          ? "Unpin for me"
+          : pinSource === "team-hidden"
+          ? "Show in my view"
+          : pinSource === "team"
+          ? "Hide for me"
+          : "Pin for me"
+        : effPinned ? "Unpin" : "Pin",
+      icon: (pinSource === "personal" || pinSource === "team+personal" || (!isTeamVault && effPinned))
+        ? "lucide:pin-off"
+        : "lucide:pin",
+      onClick: () => {
+        if (!isTeamVault) {
+          pinIdentity(identity.id, !effPinned).catch(() => {});
+        } else {
+          pinIdentity(identity.id, nextPersonalPinValue(pinSource)).catch(() => {});
+        }
+      },
       divider: true as const,
     },
+    ...(canEdit && isTeamVault ? [{
+      label: identity.pinned ? "Unpin for team" : "Pin for team",
+      icon: "lucide:users",
+      onClick: () => pinIdentityForTeam(identity.id, !identity.pinned).catch(() => {}),
+    }] : []),
     ...contributions.map((a, i) => ({ ...a, icon: a.icon ?? "lucide:chevron-right", divider: i === 0 })),
     ...vaultMenuItems(vaults, canEdit,
       (vId) => onMoveToVault?.(identity, vId),
@@ -360,11 +410,11 @@ function IdentityCard({
       divider: true,
     },
     ...(canEdit ? [{ label: "Delete", icon: "lucide:trash-2", onClick: () => onDelete(identity.id), danger: true, shortcut: getShortcutHint("delete") }] : []),
-  ], [canEdit, identity, contributions, vaults, isSynced, pinIdentity, onEdit, onDelete, onMoveToVault, onCopyToVault]);
+  ], [canEdit, identity, contributions, vaults, isSynced, pinIdentity, pinIdentityForTeam, effPinned, pinSource, isTeamVault, onEdit, onDelete, onMoveToVault, onCopyToVault]);
 
-  const handleDragStart = useCallback(
-    (e: React.DragEvent<HTMLDivElement>) => onSectionDragStart?.(e, identity.id),
-    [onSectionDragStart, identity.id],
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => onSectionPointerDown?.(e, identity.id),
+    [onSectionPointerDown, identity.id],
   );
 
   return (
@@ -375,9 +425,7 @@ function IdentityCard({
       isEditing={isEditing}
       isSelected={isSelected}
       isFocused={isFocused}
-      draggable={!!onSectionDragStart}
-      onDragStart={onSectionDragStart ? handleDragStart : undefined}
-      onDragEnd={onDragEnd}
+      onPointerDown={onSectionPointerDown ? handlePointerDown : undefined}
       onClick={(e) => onSelect(identity.id, e)}
       onDoubleClick={() => onEdit(identity)}
       bulkContextMenuItems={bulkContextMenuItems}
@@ -442,7 +490,7 @@ export function IdentitySection({
   vaultOptions, label,
   onAdd, onEdit, onDelete, onSelect,
   onMoveToVault, onCopyToVault,
-  bulkContextMenuItems, onDragStart, onDragEnd,
+  bulkContextMenuItems, onPointerDown,
 }: {
   identities: Identity[];
   keys: SshKey[];
@@ -460,8 +508,7 @@ export function IdentitySection({
   onMoveToVault?: (identity: Identity, vaultId: string) => void;
   onCopyToVault?: (identity: Identity, vaultId: string) => void;
   bulkContextMenuItems?: ContextMenuItem[];
-  onDragStart?: (e: React.DragEvent<HTMLDivElement>, id: string) => void;
-  onDragEnd?: () => void;
+  onPointerDown?: (e: React.PointerEvent<HTMLDivElement>, id: string) => void;
 }) {
   // usePermissions called ONCE at section level, not per card
   const can = usePermissions();
@@ -523,8 +570,7 @@ export function IdentitySection({
               onMoveToVault={onMoveToVault}
               onCopyToVault={onCopyToVault}
               bulkContextMenuItems={bulkContextMenuItems}
-              onSectionDragStart={onDragStart}
-              onDragEnd={onDragEnd}
+              onSectionPointerDown={onPointerDown}
             />
           );
         })}

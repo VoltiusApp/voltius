@@ -20,5 +20,5 @@ export function formatLocalShellTitle(shellPath?: string | null): string {
   const name = basename(shellPath).replace(/\.exe$/i, "").trim();
   if (!name) return "Local Shell";
 
-  return `Local: ${SHELL_LABELS[name.toLowerCase()] ?? titleCase(name)}`;
+  return `Local Shell › ${SHELL_LABELS[name.toLowerCase()] ?? titleCase(name)}`;
 }

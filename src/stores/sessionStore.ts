@@ -4,12 +4,17 @@ import { sshConnect, sshDisconnect, sshDetectDistro, sshSendInput } from "@/serv
 import { localConnect, localDisconnect } from "@/services/local";
 import { serialConnect, serialDisconnect } from "@/services/serial";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
+import { storeSecret } from "@/services/vault";
+import { useIdentityStore } from "@/stores/identityStore";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportAuditClientEvent, type ClientAuditAction } from "@/services/auditReporter";
 import { useConnectionStore } from "./connectionStore";
 import { useUIStore } from "./uiStore";
 import { useTerminalSettingsStore } from "./terminalSettingsStore";
+import { getToggle } from "./toggleSettingsStore";
 import { useLayoutStore } from "./layoutStore";
+import { useTerminalCwdStore } from "./terminalCwdStore";
+import { usePanelSftpStore } from "./panelSftpStore";
 import { formatLocalShellTitle } from "@/utils/localShellTitle";
 
 interface SessionStore {
@@ -20,6 +25,7 @@ interface SessionStore {
   connectDirect: (connection: Connection) => Promise<void>;
   connectLocal: () => Promise<void>;
   connectLocalAt: (cwd: string) => Promise<void>;
+  beginLocalSession: (shell?: string) => string;
   connectAt: (connectionId: string, cwd: string) => Promise<void>;
   connectSerial: (connectionId: string) => Promise<void>;
   connectSerialEphemeral: () => Promise<void>;
@@ -30,6 +36,7 @@ interface SessionStore {
   markDisconnected: (sessionId: string) => void;
   removeSession: (sessionId: string) => void;
   reconnect: (sessionId: string) => Promise<void>;
+  reconnectWithPassphrase: (sessionId: string, passphrase: string, save: boolean) => Promise<void>;
 }
 
 type SessionSetter = (fn: (s: { sessions: TerminalSession[]; activeSessionId: string | null }) => Partial<SessionStore>) => void;
@@ -56,9 +63,10 @@ async function startSession(
   sessionId: string,
   password?: string,
   privateKey?: string,
+  passphrase?: string,
 ) {
   createSshSession(set, connection, sessionId);
-  await connectSshSession(set, connection, sessionId, password, privateKey);
+  await connectSshSession(set, connection, sessionId, password, privateKey, passphrase);
 }
 
 function createSshSession(
@@ -85,6 +93,7 @@ async function connectSshSession(
   sessionId: string,
   password?: string,
   privateKey?: string,
+  passphrase?: string,
 ) {
   const jumpHosts = await resolveJumpHosts(connection);
 
@@ -99,11 +108,14 @@ async function connectSshSession(
       username: connection.username,
       password,
       privateKey,
+      passphrase,
       connectionId: connection.id,
       jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
       envVars: envVars.length > 0 ? envVars : undefined,
       agentForwarding: connection.agent_forwarding ?? false,
       preCommand,
+      autoForward: getToggle("auto-forward"),
+      shellIntegration: getToggle("shell-integration") && !connection.shell_integration_disabled,
     });
     set((s) => ({
       sessions: s.sessions.map((sess) =>
@@ -219,7 +231,7 @@ function beginConnection(set: SessionSetter, connectionId: string): string {
   void resolveConnectionCredentials(connection)
     .then((credentials) => {
       const resolvedConnection = { ...connection, username: credentials.username };
-      return connectSshSession(set, resolvedConnection, sessionId, credentials.password, credentials.privateKey);
+      return connectSshSession(set, resolvedConnection, sessionId, credentials.password, credentials.privateKey, credentials.passphrase);
     })
     .catch((err) => markSessionError(set, sessionId, err));
 
@@ -241,12 +253,26 @@ async function connectConnection(
     return sessionId;
   }
 
-  const credentials = await resolveConnectionCredentials(connection);
-  const sessionConnection = { ...connection, username: credentials.username };
+  // Add the session synchronously before awaiting credentials so the TitleBar
+  // guard (sessions.length === 0 → redirect to hosts) doesn't fire during the
+  // async credential resolution window.
+  createSshSession(set, connection, sessionId);
 
   try {
-    await startSession(set, sessionConnection, sessionId, credentials.password, credentials.privateKey);
+    const credentials = await resolveConnectionCredentials(connection);
+    const sessionConnection = { ...connection, username: credentials.username };
+    await connectSshSession(set, sessionConnection, sessionId, credentials.password, credentials.privateKey, credentials.passphrase);
   } catch (err) {
+    // connectSshSession already marks the session as "error"; if the failure
+    // happened earlier (e.g. credential resolution), mark it here so the
+    // error overlay is shown rather than leaving the session stuck on "connecting".
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId && sess.status === "connecting"
+          ? { ...sess, status: "error" as const, errorMessage: err instanceof Error ? err.message : String(err) }
+          : sess,
+      ),
+    }));
     if (!options.keepFailedSession) throw err;
   }
   return sessionId;
@@ -286,7 +312,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
     useLayoutStore.getState().setSplitTabActive(false);
     try {
-      await localConnect(sessionId, 80, 24, preferredShell ?? undefined);
+      await localConnect(sessionId, 80, 24, preferredShell ?? undefined, undefined, getToggle("shell-integration"));
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
@@ -318,7 +344,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
     useLayoutStore.getState().setSplitTabActive(false);
     try {
-      await localConnect(sessionId, 80, 24, preferredShell ?? undefined, cwd);
+      await localConnect(sessionId, 80, 24, preferredShell ?? undefined, cwd, getToggle("shell-integration"));
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
@@ -334,6 +360,35 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       }));
       throw err;
     }
+  },
+
+  beginLocalSession: (shell) => {
+    const sessionId = crypto.randomUUID();
+    const session: TerminalSession = {
+      id: sessionId,
+      connectionId: "local",
+      connectionName: formatLocalShellTitle(shell ?? null),
+      status: "connecting",
+      type: "local",
+      localShell: shell ?? undefined,
+    };
+    set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
+    useLayoutStore.getState().setSplitTabActive(false);
+    void localConnect(sessionId, 80, 24, shell, undefined, getToggle("shell-integration")).then(() => {
+      set((s) => ({
+        sessions: s.sessions.map((sess) =>
+          sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
+        ),
+      }));
+    }).catch((err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      set((s) => ({
+        sessions: s.sessions.map((sess) =>
+          sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
+        ),
+      }));
+    });
+    return sessionId;
   },
 
   connectAt: async (connectionId, cwd) => {
@@ -429,6 +484,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       : state.activeSessionId,
     } as any);
     useLayoutStore.getState().removeSession(sessionId);
+    useTerminalCwdStore.getState().clear(sessionId);
+    usePanelSftpStore.getState().closeSession(sessionId);
   },
 
   setActive: (sessionId) => set({ activeSessionId: sessionId } as any),
@@ -487,9 +544,70 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }));
 
     try {
+      await sshDisconnect(sessionId).catch(() => {});
       const credentials = await resolveConnectionCredentials(connection);
 
-      await sshConnect({ sessionId, host: connection.host, port: connection.port, username: credentials.username, password: credentials.password, privateKey: credentials.privateKey, connectionId: connection.id });
+      await sshConnect({ sessionId, host: connection.host, port: connection.port, username: credentials.username, password: credentials.password, privateKey: credentials.privateKey, passphrase: credentials.passphrase, connectionId: connection.id, autoForward: getToggle("auto-forward"), shellIntegration: getToggle("shell-integration") && !connection.shell_integration_disabled });
+      set((s) => ({
+        sessions: s.sessions.map((sess) =>
+          sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
+        ),
+      }));
+      reportConnectionAudit(connection, "connection.started");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      set((s) => ({
+        sessions: s.sessions.map((sess) =>
+          sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
+        ),
+      }));
+    }
+  },
+
+  reconnectWithPassphrase: async (sessionId, passphrase, save) => {
+    const session = get().sessions.find((s) => s.id === sessionId);
+    if (!session || session.type !== "ssh") return;
+    const connection = findConnection(session.connectionId);
+    if (!connection) return;
+
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId ? { ...sess, status: "connecting" as const, errorMessage: undefined } : sess,
+      ),
+    }));
+
+    try {
+      await sshDisconnect(sessionId).catch(() => {});
+      const credentials = await resolveConnectionCredentials(connection);
+
+      if (save) {
+        const keyId = connection.key_id ?? (() => {
+          if (!connection.identity_id) return undefined;
+          const { identities, teamIdentities } = useIdentityStore.getState();
+          const allIdentities = [...identities, ...Object.values(teamIdentities).flat()];
+          return allIdentities.find((i) => i.id === connection.identity_id)?.key_id;
+        })();
+        if (keyId) {
+          await storeSecret(`key:${keyId}:passphrase`, passphrase);
+        } else if (!connection.identity_id) {
+          await storeSecret(`passphrase:${connection.id}`, passphrase);
+        }
+      }
+
+      const jumpHosts = await resolveJumpHosts(connection);
+      await sshConnect({
+        sessionId,
+        host: connection.host,
+        port: connection.port,
+        username: credentials.username,
+        password: credentials.password,
+        privateKey: credentials.privateKey,
+        passphrase,
+        connectionId: connection.id,
+        jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
+        autoForward: getToggle("auto-forward"),
+        shellIntegration: getToggle("shell-integration"),
+      });
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
@@ -517,5 +635,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       : state.activeSessionId,
     } as any);
     useLayoutStore.getState().removeSession(sessionId);
+    useTerminalCwdStore.getState().clear(sessionId);
+    usePanelSftpStore.getState().closeSession(sessionId);
   },
 }));

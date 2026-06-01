@@ -3,6 +3,13 @@ import type { Connection } from "@/types";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
+import {
+  useEffectivePinned,
+  useEffectivePinSource,
+  nextPersonalPinValue,
+} from "@/hooks/useEffectivePinned";
+import { useTeamStore } from "@/stores/teamStore";
 
 function isSerialConn(c: Connection): boolean {
   return c.connection_type === "serial" || !!c.serial_port;
@@ -21,11 +28,28 @@ interface Props {
 
 export function DashboardHostCard({ connection, onConnect }: Props) {
   const pinConnection = useConnectionStore((s) => s.pinConnection);
-  const isPinned = connection.pinned ?? false;
-  const pingEnabled = useHostPingStore((s) => s.enabled);
+  const isPinned = useEffectivePinned(connection, "connection");
+  const pinSource = useEffectivePinSource(connection, "connection");
+  const isTeamVault = useTeamStore((s) => s.teams.some((t) => t.id === connection.vault_id));
+  const [pingEnabled] = useToggle("reachability");
   const pingStatus = useHostPingStore((s) => s.statuses[connection.id]);
   const isSerial = isSerialConn(connection);
   const showPingDot = pingEnabled && !connection.ping_disabled && !isSerial;
+  const pinAlwaysVisible = pinSource !== "none" && pinSource !== "team-hidden";
+  const handlePinClick = () => {
+    if (!isTeamVault) {
+      pinConnection(connection.id, !isPinned).catch(() => {});
+    } else {
+      pinConnection(connection.id, nextPersonalPinValue(pinSource)).catch(() => {});
+    }
+  };
+  const pinIcon = pinSource === "team-hidden" ? "lucide:pin-off" : "lucide:pin";
+  const pinColor =
+    pinSource === "personal" || pinSource === "team+personal"
+      ? "var(--t-accent)"
+      : pinSource === "team"
+      ? "var(--t-text-secondary)"
+      : "var(--t-text-dim)";
 
   return (
     <div
@@ -44,15 +68,15 @@ export function DashboardHostCard({ connection, onConnect }: Props) {
       }}
     >
       <button
-        className={`absolute top-1.5 right-1.5 transition-opacity p-0.5 rounded ${isPinned ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
-        style={{ color: isPinned ? "var(--t-accent)" : "var(--t-text-dim)" }}
+        className={`absolute top-1.5 right-1.5 transition-opacity p-0.5 rounded ${pinAlwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+        style={{ color: pinColor }}
         onClick={(e) => {
           e.stopPropagation();
-          pinConnection(connection.id, !isPinned).catch(() => {});
+          handlePinClick();
         }}
         title={isPinned ? "Unpin" : "Pin"}
       >
-        <Icon icon={isPinned ? "lucide:pin" : "lucide:pin-off"} width={11} />
+        <Icon icon={pinIcon} width={11} />
       </button>
       <div className="relative">
         <ConnectionAvatar connection={connection} size={36} />

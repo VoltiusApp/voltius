@@ -62,7 +62,7 @@ impl SessionManager {
             .map_err(|e| format!("Channel error: {}", e))?;
 
         channel
-            .exec(true, "cat /etc/os-release 2>/dev/null || echo 'ID=linux'")
+            .exec(true, "{ cat /etc/os-release 2>/dev/null || echo 'ID=linux'; }; test -d /etc/pve && echo 'PROXMOX_VE=1'; test -d /etc/proxmox-backup && echo 'PBS_DETECTED=1'; true")
             .await
             .map_err(|e| format!("Exec error: {}", e))?;
 
@@ -85,13 +85,28 @@ impl SessionManager {
         }
 
         let text = String::from_utf8_lossy(&output);
+        let mut id_value = String::new();
+        let mut is_proxmox = false;
+        let mut is_pbs = false;
         for line in text.lines() {
             if let Some(rest) = line.strip_prefix("ID=") {
-                let distro = rest.trim().trim_matches('"').to_lowercase();
-                if !distro.is_empty() {
-                    return Ok(normalize_distro(&distro));
-                }
+                id_value = rest.trim().trim_matches('"').to_lowercase();
+            } else if line.trim() == "PROXMOX_VE=1" {
+                is_proxmox = true;
+            } else if line.trim() == "PBS_DETECTED=1" {
+                is_pbs = true;
             }
+        }
+
+        if is_proxmox {
+            return Ok("proxmox".to_string());
+        }
+        if is_pbs {
+            return Ok("pbs".to_string());
+        }
+
+        if !id_value.is_empty() {
+            return Ok(normalize_distro(&id_value));
         }
 
         Ok("linux".to_string())
@@ -110,7 +125,7 @@ impl SessionManager {
             .map_err(|e| format!("Channel error: {}", e))?;
 
         channel
-            .exec(true, "grep -E '^(PRETTY_NAME|VERSION_ID)=' /etc/os-release 2>/dev/null; uname -srm 2>/dev/null")
+            .exec(true, "grep -E '^(PRETTY_NAME|VERSION_ID)=' /etc/os-release 2>/dev/null; uname -srm 2>/dev/null; pveversion 2>/dev/null | head -1; proxmox-backup-manager versions 2>/dev/null | grep '^proxmox-backup-server:' | head -1")
             .await
             .map_err(|e| format!("Exec error: {}", e))?;
 
@@ -141,6 +156,15 @@ impl SessionManager {
                     info.kernel = parts[1].to_string();
                     info.arch = parts[2].trim().to_string();
                 }
+            } else if line.starts_with("pve-manager/") {
+                // e.g. "pve-manager/8.2.4/43f4d7ca (running kernel: 6.8.12-5-pve)"
+                if let Some(version) = line.splitn(3, '/').nth(1) {
+                    info.pretty_name = format!("Proxmox VE {}", version.split_whitespace().next().unwrap_or(version));
+                }
+            } else if let Some(rest) = line.strip_prefix("proxmox-backup-server:") {
+                // e.g. "proxmox-backup-server: 3.2.4-1"
+                let version = rest.trim().split('-').next().unwrap_or(rest.trim());
+                info.pretty_name = format!("Proxmox BS {}", version);
             }
         }
         Ok(info)
@@ -208,6 +232,8 @@ fn normalize_distro(id: &str) -> String {
         "nixos" => "nixos",
         "void" => "void",
         "gentoo" => "gentoo",
+        "proxmox" | "pve" => "proxmox",
+        "pbs" => "pbs",
         _ => "linux",
     }
     .to_string()

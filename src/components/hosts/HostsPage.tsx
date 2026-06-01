@@ -14,6 +14,7 @@ import { useUIContributions } from "@/hooks/useUIContributions";
 import type { Connection, ConnectionFormData, VaultOption, Folder, SshKey, Identity } from "@/types";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
+import { usePageBulkActions } from "@/hooks/usePageBulkActions";
 import { useDragToFolder } from "@/hooks/useDragToFolder";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
 import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
@@ -23,6 +24,7 @@ import { VaultCascadeModal } from "@/components/shared/VaultCascadeModal";
 import { useVaultCascade } from "@/hooks/useVaultCascade";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useVaultStore } from "@/stores/vaultStore";
+import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { useTeamStore } from "@/stores/teamStore";
 import { usePermissions } from "@/hooks/usePermission";
 import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
@@ -77,6 +79,7 @@ export default function HostsPage() {
   const [error, setError] = useState<string | null>(null);
   const formRef = useRef<ConnectionFormHandle>(null);
   const serialFormRef = useRef<ConnectionFormHandle>(null);
+  const hostFormSessionKeyRef = useRef<string>("new");
   const formVersion = useSyncedFormKey(editing?.updated_at, showForm || showSerialForm, () => (formRef.current?.isDirty() ?? serialFormRef.current?.isDirty() ?? false));
   const [confirmDeleteFolderId, setConfirmDeleteFolderId] = useState<string | null>(null);
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
@@ -90,6 +93,7 @@ export default function HostsPage() {
   }, [loadConnections, loadFolders]);
 
   const openEdit = (conn: { id: string; connection_type?: string }) => {
+    hostFormSessionKeyRef.current = conn.id;
     setEditingId(conn.id);
     setEditingFolderId(null);
     if (conn.connection_type === "serial") {
@@ -104,6 +108,7 @@ export default function HostsPage() {
   useEffect(() => {
     if (!homePendingAction) return;
     if (homePendingAction.action === "create") {
+      hostFormSessionKeyRef.current = `new-${Date.now()}`;
       setEditingId(null);
       setShowForm(true);
       setShowSerialForm(false);
@@ -136,20 +141,35 @@ export default function HostsPage() {
 
   const searchQuery = search.trim().toLowerCase();
 
+  const scopedConnections = useMemo(
+    () => connections.filter((c) => {
+      const cvid = c.vault_id ?? "personal";
+      return accessibleVaultIds.length === 0 || accessibleVaultIds.includes(cvid);
+    }),
+    [connections, accessibleVaultIds],
+  );
+
   const availableTags = useMemo(
-    () => [...new Set(connections.flatMap((c) => c.tags))].sort(),
-    [connections],
+    () => [...new Set(scopedConnections.flatMap((c) => c.tags))].sort(),
+    [scopedConnections],
   );
 
   const tagCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const c of connections) {
+    for (const c of scopedConnections) {
       for (const t of c.tags) counts[t] = (counts[t] ?? 0) + 1;
     }
     return counts;
-  }, [connections]);
+  }, [scopedConnections]);
 
-  const scopedFolders = useMemo(() => folders.filter((f) => f.object_type === "connection"), [folders]);
+  const scopedFolders = useMemo(
+    () => folders.filter((f) => {
+      if (f.object_type !== "connection") return false;
+      const fvid = f.vault_id ?? "personal";
+      return accessibleVaultIds.length === 0 || accessibleVaultIds.includes(fvid);
+    }),
+    [folders, accessibleVaultIds],
+  );
   const scopedFolderIds = useMemo(() => new Set(scopedFolders.map((f) => f.id)), [scopedFolders]);
   const editingFolder = editingFolderId ? scopedFolders.find((f) => f.id === editingFolderId) ?? null : null;
 
@@ -185,9 +205,10 @@ export default function HostsPage() {
     [visibleFolders, filtered],
   );
 
+  const isPinnedFn = useEffectivePinnedPredicate();
   const pinnedHosts = useMemo(
-    () => (!searchQuery && !activeFolderId) ? filtered.filter((c) => c.pinned) : [],
-    [filtered, searchQuery, activeFolderId],
+    () => (!searchQuery && !activeFolderId) ? filtered.filter((c) => isPinnedFn(c, "connection")) : [],
+    [filtered, searchQuery, activeFolderId, isPinnedFn],
   );
   const activeConnectionIds = useMemo(
     () => new Set(sessions.map((s) => s.connectionId)),
@@ -246,14 +267,13 @@ export default function HostsPage() {
 
   useEffect(() => { setFocusedId(null); }, [activeFolderId]);
 
-  useEffect(() => {
-    const handler = () => {
-      if (useUIStore.getState().activeNav !== "hosts") return;
-      if (selectedIdSet.size > 0) setConfirmDeleteIds([...selectedIdSet]);
-    };
-    window.addEventListener("voltius:delete", handler);
-    return () => window.removeEventListener("voltius:delete", handler);
-  }, [selectedIdSet]);
+  usePageBulkActions({
+    navItem: "hosts",
+    filteredIds,
+    selectedIdSet,
+    setSelection,
+    onDelete: (ids) => setConfirmDeleteIds(ids),
+  });
 
   // ── Drag-to-folder ────────────────────────────────────────────────────────
 
@@ -265,7 +285,6 @@ export default function HostsPage() {
     dragOverEject,
     handleDragStart,
     handleFolderDragStart,
-    handleDragEnd,
     folderDropProps,
     ejectDropProps,
   } = useDragToFolder({
@@ -308,6 +327,7 @@ export default function HostsPage() {
         auth_type: conn.auth_type,
         tags: [...conn.tags],
         identity_id: conn.identity_id,
+        key_id: conn.key_id,
         folder_id: conn.folder_id,
         vault_id: conn.vault_id ?? "personal",
         serial_port: conn.serial_port,
@@ -322,9 +342,11 @@ export default function HostsPage() {
       });
       if (newConn && conn.connection_type !== "serial") {
         const pwd = await getSecret(`password:${conn.id}`).catch(() => null);
-        const key = await getSecret(`key:${conn.id}`).catch(() => null);
         if (pwd) await storeSecret(`password:${newConn.id}`, pwd);
-        if (key) await storeSecret(`key:${newConn.id}`, key);
+        if (!conn.key_id) {
+          const key = await getSecret(`key:${conn.id}`).catch(() => null);
+          if (key) await storeSecret(`key:${newConn.id}`, key);
+        }
       }
     } catch (err) {
       setError(String(err));
@@ -465,7 +487,7 @@ export default function HostsPage() {
         icon: selectedConns.every((c) => c.ping_disabled) ? "lucide:wifi" : "lucide:wifi-off",
         onClick: () => {
           const allDisabled = selectedConns.every((c) => c.ping_disabled);
-          void Promise.all(selectedConns.map((c) => updateConnection(c.id, { name: c.name, host: c.host, port: c.port, username: c.username, auth_type: c.auth_type, tags: c.tags, identity_id: c.identity_id, folder_id: c.folder_id, vault_id: c.vault_id, jump_hosts: c.jump_hosts, env_vars: c.env_vars, agent_forwarding: c.agent_forwarding, pre_command: c.pre_command, post_command: c.post_command, terminal_encoding: c.terminal_encoding, pinned: c.pinned, ping_disabled: !allDisabled })));
+          void Promise.all(selectedConns.map((c) => updateConnection(c.id, { name: c.name, host: c.host, port: c.port, username: c.username, auth_type: c.auth_type, tags: c.tags, identity_id: c.identity_id, key_id: c.key_id, folder_id: c.folder_id, vault_id: c.vault_id, jump_hosts: c.jump_hosts, env_vars: c.env_vars, agent_forwarding: c.agent_forwarding, pre_command: c.pre_command, post_command: c.post_command, terminal_encoding: c.terminal_encoding, pinned: c.pinned, ping_disabled: !allDisabled, shell_integration_disabled: c.shell_integration_disabled })));
         },
       },
       {
@@ -483,7 +505,7 @@ export default function HostsPage() {
     ];
   }, [selectedIdSet, selectedConnections, selectedFolders, excludedIds, syncTypes, handleDuplicate, can, updateConnection, handleBulkConnect, openSnippetPicker, vaultOptions, connections, identities, keys, scopedFolders]);
 
-  const handleSubmit = async (data: ConnectionFormData, password: string | null, privateKey: string | null) => {
+  const handleSubmit = async (data: ConnectionFormData, password: string | null, privateKey: string | null, passphrase: string | null) => {
     try {
       if (editing) {
         await updateConnection(editing.id, data);
@@ -501,6 +523,13 @@ export default function HostsPage() {
             await saveTeamVaultSecretForVault(data.vault_id ?? editing.vault_id, localKey, privateKey).catch(() => {});
           } else await deleteSecret(localKey).catch(() => {});
         }
+        if (passphrase !== null) {
+          const localKey = `passphrase:${editing.id}`;
+          if (passphrase) {
+            await storeSecret(localKey, passphrase);
+            await saveTeamVaultSecretForVault(data.vault_id ?? editing.vault_id, localKey, passphrase).catch(() => {});
+          } else await deleteSecret(localKey).catch(() => {});
+        }
       } else {
         const conn = await saveConnection({ ...data, vault_id: data.vault_id ?? selectedVaultIds[0] ?? "personal" });
         if (password && conn) {
@@ -512,6 +541,11 @@ export default function HostsPage() {
           const localKey = `key:${conn.id}`;
           await storeSecret(localKey, privateKey);
           await saveTeamVaultSecretForVault(conn.vault_id, localKey, privateKey).catch(() => {});
+        }
+        if (passphrase && conn) {
+          const localKey = `passphrase:${conn.id}`;
+          await storeSecret(localKey, passphrase);
+          await saveTeamVaultSecretForVault(conn.vault_id, localKey, passphrase).catch(() => {});
         }
         if (conn) setEditingId(conn.id);
       }
@@ -541,7 +575,11 @@ export default function HostsPage() {
           await updateConnection(conn.id, {
             name: conn.name, host: conn.host, port: conn.port,
             username: conn.username, auth_type: conn.auth_type, tags: conn.tags,
-            identity_id: conn.identity_id, folder_id: conn.folder_id, vault_id: vaultId,
+            identity_id: conn.identity_id, key_id: conn.key_id, folder_id: conn.folder_id, vault_id: vaultId,
+            jump_hosts: conn.jump_hosts, env_vars: conn.env_vars, agent_forwarding: conn.agent_forwarding,
+            pre_command: conn.pre_command, post_command: conn.post_command, terminal_encoding: conn.terminal_encoding,
+            pinned: conn.pinned, ping_disabled: conn.ping_disabled,
+            shell_integration_disabled: conn.shell_integration_disabled,
           });
           const pwd = await getSecret(`password:${conn.id}`).catch(() => null);
           const k = await getSecret(`key:${conn.id}`).catch(() => null);
@@ -594,19 +632,21 @@ export default function HostsPage() {
             name: conn.name ? (destHasConnName ? `${conn.name} (copy)` : conn.name) : undefined,
             host: conn.host, port: conn.port, username: conn.username,
             auth_type: conn.auth_type, tags: [...conn.tags],
-            identity_id: newIdentityId, folder_id: conn.folder_id,
+            identity_id: newIdentityId, key_id: conn.key_id, folder_id: conn.folder_id,
             vault_id: vaultId,
           });
           if (newConn) {
             const pwd = await getSecret(`password:${conn.id}`).catch(() => null);
-            const k = await getSecret(`key:${conn.id}`).catch(() => null);
             if (pwd) {
               await storeSecret(`password:${newConn.id}`, pwd);
               await saveTeamVaultSecretForVault(vaultId, `password:${newConn.id}`, pwd).catch(() => {});
             }
-            if (k) {
-              await storeSecret(`key:${newConn.id}`, k);
-              await saveTeamVaultSecretForVault(vaultId, `key:${newConn.id}`, k).catch(() => {});
+            if (!conn.key_id) {
+              const k = await getSecret(`key:${conn.id}`).catch(() => null);
+              if (k) {
+                await storeSecret(`key:${newConn.id}`, k);
+                await saveTeamVaultSecretForVault(vaultId, `key:${newConn.id}`, k).catch(() => {});
+              }
             }
           }
         } catch (err) { setError(String(err)); }
@@ -674,7 +714,7 @@ export default function HostsPage() {
             await useIdentityStore.getState().updateIdentity(identity.id, { name: identity.name, username: identity.username, key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId });
           }
           for (const conn of allConns) {
-            await updateConnection(conn.id, { name: conn.name, host: conn.host, port: conn.port, username: conn.username, auth_type: conn.auth_type, tags: conn.tags, identity_id: conn.identity_id, folder_id: conn.folder_id, vault_id: vaultId });
+            await updateConnection(conn.id, { name: conn.name, host: conn.host, port: conn.port, username: conn.username, auth_type: conn.auth_type, tags: conn.tags, identity_id: conn.identity_id, key_id: conn.key_id, folder_id: conn.folder_id, vault_id: vaultId });
           }
         } catch (err) { setError(String(err)); }
       },
@@ -756,17 +796,20 @@ export default function HostsPage() {
           for (const conn of allConns) {
             const newIdentityId = conn.identity_id ? (identityIdMap.get(conn.identity_id) ?? conn.identity_id) : undefined;
             const newFolderId = conn.folder_id ? (folderIdMap.get(conn.folder_id) ?? newFolder.id) : newFolder.id;
-            const newConn = await saveConnection({ name: conn.name, host: conn.host, port: conn.port, username: conn.username, auth_type: conn.auth_type, tags: [...conn.tags], identity_id: newIdentityId, folder_id: newFolderId, vault_id: vaultId });
+            const newKeyId = conn.key_id ? (keyIdMap.get(conn.key_id) ?? conn.key_id) : undefined;
+            const newConn = await saveConnection({ name: conn.name, host: conn.host, port: conn.port, username: conn.username, auth_type: conn.auth_type, tags: [...conn.tags], identity_id: newIdentityId, key_id: newKeyId, folder_id: newFolderId, vault_id: vaultId });
             if (newConn) {
               const pwd = await getSecret(`password:${conn.id}`).catch(() => null);
-              const k = await getSecret(`key:${conn.id}`).catch(() => null);
               if (pwd) {
                 await storeSecret(`password:${newConn.id}`, pwd);
                 await saveTeamVaultSecretForVault(vaultId, `password:${newConn.id}`, pwd).catch(() => {});
               }
-              if (k) {
-                await storeSecret(`key:${newConn.id}`, k);
-                await saveTeamVaultSecretForVault(vaultId, `key:${newConn.id}`, k).catch(() => {});
+              if (!conn.key_id) {
+                const k = await getSecret(`key:${conn.id}`).catch(() => null);
+                if (k) {
+                  await storeSecret(`key:${newConn.id}`, k);
+                  await saveTeamVaultSecretForVault(vaultId, `key:${newConn.id}`, k).catch(() => {});
+                }
               }
             }
           }
@@ -816,7 +859,7 @@ export default function HostsPage() {
           {!showSnippetPicker && showSerialForm && (
             <SerialConnectionForm
               ref={serialFormRef}
-              key={`serial-${editing?.id ?? "new"}-${formVersion}`}
+              key={`serial-${hostFormSessionKeyRef.current}-${formVersion}`}
               initial={editing ?? undefined}
               onSubmit={handleSubmit}
               onClose={() => { setShowSerialForm(false); setEditingId(null); }}
@@ -832,7 +875,7 @@ export default function HostsPage() {
           {!showSnippetPicker && showForm && !isEditingSerial && (
             <ConnectionForm
               ref={formRef}
-              key={`${editing?.id ?? "new"}-${formVersion}`}
+              key={`${hostFormSessionKeyRef.current}-${formVersion}`}
               initial={editing ?? undefined}
               onSubmit={handleSubmit}
               onClose={() => { setShowForm(false); setEditingId(null); }}
@@ -854,6 +897,7 @@ export default function HostsPage() {
             onSearchChange={setSearch}
             onCreateHost={() => {
               if (!canCreate) return;
+              hostFormSessionKeyRef.current = `new-${Date.now()}`;
               setEditingId(null);
               setShowForm(true);
               setShowSerialForm(false);
@@ -863,6 +907,7 @@ export default function HostsPage() {
             canCreateFolder={canCreateFolder}
             onCreateFolder={() => void saveFolder({ name: "New Folder", object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { setShowForm(false); setShowSerialForm(false); setEditingId(null); setEditingFolderId(f.id); })}
             onCreateSerial={canCreate ? () => {
+              hostFormSessionKeyRef.current = `new-${Date.now()}`;
               setEditingId(null);
               setShowSerialForm(true);
               setShowForm(false);
@@ -870,7 +915,7 @@ export default function HostsPage() {
             } : undefined}
             onOpenLocalTerminal={() => connectLocal().catch((e) => setError(String(e)))}
             onOpenSerial={() => connectSerialEphemeral().catch((e) => setError(String(e)))}
-            onOpenImportExport={(mode) => useUIStore.getState().openImportExport(mode)}
+            onOpenImportExport={(mode, opts) => useUIStore.getState().openImportExport(mode, opts)}
             layoutMode={layoutMode}
             onLayoutModeChange={setLayoutMode}
             sortMode={sortMode}
@@ -995,8 +1040,7 @@ export default function HostsPage() {
                           onSelect={(id) => { if (!selectedIdSet.has(id)) selectSingle(id); }}
                           onEdit={() => { setShowForm(false); setEditingId(null); setEditingFolderId(folder.id); }}
                           onExport={() => useUIStore.getState().openImportExport("export", { connectionIds: connections.filter((c) => c.folder_id === folder.id).map((c) => c.id) })}
-                          onDragStart={(e) => handleFolderDragStart(e, folder.id)}
-                          onDragEnd={handleDragEnd}
+                          onPointerDown={(e) => handleFolderDragStart(e, folder.id)}
                           {...(canEditFolder ? folderDropProps(folder.id) : {})}
                           vaults={vaultOptions.filter((v) => v.id !== (folder.vault_id ?? "personal"))}
                           canEdit={canEditFolder}
@@ -1074,8 +1118,7 @@ export default function HostsPage() {
                           onMoveToVault={handleMoveConnectionToVault}
                           onCopyToVault={handleCopyConnectionToVault}
                           bulkContextMenuItems={shouldUseBulkHostContextMenu(selectedConnections.length) ? bulkContextMenuItems : undefined}
-                          onDragStart={(e) => handleDragStart(e, conn.id)}
-                          onDragEnd={handleDragEnd}
+                          onPointerDown={(e) => handleDragStart(e, conn.id)}
                         />
                       );
                     })}
@@ -1101,7 +1144,7 @@ export default function HostsPage() {
                           e.currentTarget.style.color = "var(--t-text-dim)";
                           e.currentTarget.style.background = "transparent";
                         }}
-                        onClick={() => { if (canCreate) { setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); } }}
+                        onClick={() => { if (canCreate) { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); } }}
                         disabled={!canCreate}
                         style={{ opacity: !canCreate ? 0.35 : undefined }}
                       >
@@ -1146,8 +1189,7 @@ export default function HostsPage() {
                           onMoveToVault={handleMoveConnectionToVault}
                           onCopyToVault={handleCopyConnectionToVault}
                           bulkContextMenuItems={shouldUseBulkHostContextMenu(selectedConnections.length) ? bulkContextMenuItems : undefined}
-                          onDragStart={(e) => handleDragStart(e, conn.id)}
-                          onDragEnd={handleDragEnd}
+                          onPointerDown={(e) => handleDragStart(e, conn.id)}
                         />
                       );
                     })}
@@ -1162,7 +1204,7 @@ export default function HostsPage() {
                   <p className="text-sm text-[var(--t-text-dim)]">This folder is empty</p>
                   <button
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-[var(--t-bg-elevated)] text-[var(--t-accent)] border border-[var(--t-border-hover)]"
-                    onClick={() => { setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); }}
+                    onClick={() => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); }}
                   >
                     <Icon icon="lucide:plus" width={12} />
                     Add Host
@@ -1185,8 +1227,8 @@ export default function HostsPage() {
           pos={bgMenuPos}
           onClose={closeBgMenu}
           items={[
-            ...(canCreate ? [{ label: "New Host", icon: "lucide:server", onClick: () => { setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); } } as const] : []),
-            ...(canCreate ? [{ label: "New Serial Host", icon: "lucide:ethernet-port", onClick: () => { setEditingId(null); setShowSerialForm(true); setShowForm(false); setEditingFolderId(null); } } as const] : []),
+            ...(canCreate ? [{ label: "New Host", icon: "lucide:server", onClick: () => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); } } as const] : []),
+            ...(canCreate ? [{ label: "New Serial Host", icon: "lucide:ethernet-port", onClick: () => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowSerialForm(true); setShowForm(false); setEditingFolderId(null); } } as const] : []),
             ...(canCreateFolder ? [{ label: "New Folder", icon: "lucide:folder-plus", onClick: () => void saveFolder({ name: "New Folder", object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { setShowForm(false); setEditingId(null); setEditingFolderId(f.id); }) } as const] : []),
             ...bgContributions,
           ]}

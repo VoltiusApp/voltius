@@ -152,7 +152,7 @@ export function useDragSelection(orderedIds: string[]): UseDragSelectionResult {
     event.preventDefault();
     const startX = event.clientX;
     const startY = event.clientY;
-    const startScrollTop = itemAreaRef.current?.scrollTop ?? 0;
+    const startScrollTop = selectionAreaRef.current?.scrollTop ?? 0;
     const hasToggleModifier = event.ctrlKey || event.metaKey;
     const hasAddModifier = event.shiftKey;
     const mode: SelectionMode = hasAddModifier ? "add" : hasToggleModifier ? "toggle" : "replace";
@@ -162,7 +162,7 @@ export function useDragSelection(orderedIds: string[]): UseDragSelectionResult {
 
     // Adjusts startY in viewport-space to follow content as the list scrolls,
     // keeping the drag anchor pinned to the item it started on.
-    const getAnchorY = () => startY - ((itemAreaRef.current?.scrollTop ?? startScrollTop) - startScrollTop);
+    const getAnchorY = () => startY - ((selectionAreaRef.current?.scrollTop ?? startScrollTop) - startScrollTop);
 
     let currentEndX = startX;
     let currentEndY = startY;
@@ -182,9 +182,9 @@ export function useDragSelection(orderedIds: string[]): UseDragSelectionResult {
     const tickAutoScroll = () => {
       const speed = autoScrollSpeedRef.current;
       if (speed === 0) { autoScrollRafRef.current = null; return; }
-      const itemArea = itemAreaRef.current;
-      if (itemArea) {
-        itemArea.scrollTop += speed;
+      const scrollArea = selectionAreaRef.current;
+      if (scrollArea) {
+        scrollArea.scrollTop += speed;
         updateRect(currentEndX, currentEndY);
       }
       autoScrollRafRef.current = requestAnimationFrame(tickAutoScroll);
@@ -195,7 +195,7 @@ export function useDragSelection(orderedIds: string[]): UseDragSelectionResult {
       currentEndY = ev.clientY;
       updateRect(currentEndX, currentEndY);
 
-      const itemArea = itemAreaRef.current;
+      const itemArea = selectionAreaRef.current;
       if (itemArea) {
         const bounds = itemArea.getBoundingClientRect();
         // pull > 0 when cursor is within SCROLL_ZONE of edge (inside) or past it (outside)
@@ -224,12 +224,12 @@ export function useDragSelection(orderedIds: string[]): UseDragSelectionResult {
       }
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
-      itemAreaRef.current?.removeEventListener("scroll", onScroll);
+      selectionAreaRef.current?.removeEventListener("scroll", onScroll);
     };
 
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
-    itemAreaRef.current?.addEventListener("scroll", onScroll);
+    selectionAreaRef.current?.addEventListener("scroll", onScroll);
   };
 
   const dragBox = useMemo(() => {
@@ -239,7 +239,7 @@ export function useDragSelection(orderedIds: string[]): UseDragSelectionResult {
     const rawRight  = Math.max(dragRect.startX, dragRect.endX);
     const rawBottom = Math.max(dragRect.startY, dragRect.endY);
     // Clamp visual box to the scroll container so it never renders outside it.
-    const b = itemAreaRef.current?.getBoundingClientRect();
+    const b = selectionAreaRef.current?.getBoundingClientRect();
     const left   = b ? Math.max(rawLeft,   b.left)   : rawLeft;
     const top    = b ? Math.max(rawTop,    b.top)    : rawTop;
     const right  = b ? Math.min(rawRight,  b.right)  : rawRight;

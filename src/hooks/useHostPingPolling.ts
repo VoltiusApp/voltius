@@ -1,35 +1,11 @@
 import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useHostPingStore, type PingStatus } from "@/stores/hostPingStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import { useConnectionStore } from "@/stores/connectionStore";
-import { useIdentityStore } from "@/stores/identityStore";
 import { useSessionStore } from "@/stores/sessionStore";
-import { getSecret } from "@/services/vault";
+import { resolveJumpHosts } from "@/services/credentials";
 import type { Connection } from "@/types";
-import type { JumpHostConnect } from "@/services/ssh";
-
-async function resolveJumpHosts(connection: Connection): Promise<JumpHostConnect[]> {
-  if (!connection.jump_hosts?.length) return [];
-  const { identities, teamIdentities } = useIdentityStore.getState();
-  const allIdentities = [...identities, ...Object.values(teamIdentities).flat()];
-  return Promise.all(
-    connection.jump_hosts.map(async (jh) => {
-      if (jh.identity_id) {
-        const identity = allIdentities.find((i) => i.id === jh.identity_id);
-        if (identity) {
-          const pwd = (await getSecret(`identity:${jh.identity_id}:password`).catch(() => null)) ?? undefined;
-          const pk = identity.key_id
-            ? (await getSecret(`key:${identity.key_id}:private`).catch(() => null)) ?? undefined
-            : undefined;
-          return { host: jh.host, port: jh.port, username: identity.username, password: pwd, privateKey: pk };
-        }
-      }
-      const pwd = (await getSecret(`password:${jh.connection_id}`).catch(() => null)) ?? undefined;
-      const pk = (await getSecret(`key:${jh.connection_id}`).catch(() => null)) ?? undefined;
-      return { host: jh.host, port: jh.port, username: jh.username, password: pwd, privateKey: pk };
-    }),
-  );
-}
 
 async function pingConnection(c: Connection, onResult: (id: string, status: PingStatus, latencyMs?: number) => void) {
   try {
@@ -51,7 +27,7 @@ async function pingConnection(c: Connection, onResult: (id: string, status: Ping
 }
 
 export function useHostPingPolling() {
-  const enabled = useHostPingStore((s) => s.enabled);
+  const [enabled] = useToggle("reachability");
   const pollIntervalMs = useHostPingStore((s) => s.pollIntervalMs);
   const activePollIntervalMs = useHostPingStore((s) => s.activePollIntervalMs);
   const priorityConnectionIds = useHostPingStore((s) => s.priorityConnectionIds);

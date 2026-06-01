@@ -23,6 +23,7 @@ pub struct JumpHostConnect {
     pub username: String,
     pub password: Option<String>,
     pub private_key: Option<String>,
+    pub passphrase: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -310,10 +311,7 @@ pub struct ConnectedSession {
     pub remote_routes: RemoteRouteMap,
 }
 
-async fn bridge_remote_channel(
-    channel: russh::Channel<client::Msg>,
-    route: RemoteRoute,
-) {
+async fn bridge_remote_channel(channel: russh::Channel<client::Msg>, route: RemoteRoute) {
     use std::sync::atomic::Ordering;
 
     let tcp = match TcpStream::connect((route.target_host.as_str(), route.target_port)).await {
@@ -335,7 +333,9 @@ async fn bridge_remote_channel(
             match tcp_r.read(&mut buf).await {
                 Ok(0) | Err(_) => break,
                 Ok(n) => {
-                    if ch_writer.write_all(&buf[..n]).await.is_err() { break; }
+                    if ch_writer.write_all(&buf[..n]).await.is_err() {
+                        break;
+                    }
                     bytes_up.fetch_add(n as u64, Ordering::Relaxed);
                 }
             }
@@ -347,7 +347,9 @@ async fn bridge_remote_channel(
         loop {
             match ch_read.wait().await {
                 Some(ChannelMsg::Data { data }) => {
-                    if tcp_w.write_all(&data).await.is_err() { break; }
+                    if tcp_w.write_all(&data).await.is_err() {
+                        break;
+                    }
                     bytes_down.fetch_add(data.len() as u64, Ordering::Relaxed);
                 }
                 Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) | None => break,
@@ -379,9 +381,10 @@ pub async fn authenticate_handle(
     username: &str,
     password: Option<&str>,
     private_key: Option<&str>,
+    passphrase: Option<&str>,
 ) -> Result<(), String> {
     let authenticated = if let Some(key_str) = private_key {
-        let key_pair = russh::keys::decode_secret_key(key_str, None)
+        let key_pair = russh::keys::decode_secret_key(key_str, passphrase)
             .map_err(|e| format!("Invalid private key: {}", e))?;
         let key = PrivateKeyWithHashAlg::new(Arc::new(key_pair), Some(HashAlg::Sha256));
         handle
@@ -411,10 +414,12 @@ pub async fn connect(
     username: &str,
     password: Option<&str>,
     private_key: Option<&str>,
+    passphrase: Option<&str>,
     jump_hosts: Vec<JumpHostConnect>,
     env_vars: Vec<(String, String)>,
     agent_forwarding: bool,
     pre_command: Option<String>,
+    shell_integration: bool,
     known_hosts: Arc<KnownHostsStore>,
     pending_conflicts: Arc<PendingConflicts>,
 ) -> Result<ConnectedSession, String> {
@@ -488,6 +493,7 @@ pub async fn connect(
             &first.username,
             first.password.as_deref(),
             first.private_key.as_deref(),
+            first.passphrase.as_deref(),
         )
         .await
         .map_err(|e| format!("Jump host {} auth failed: {}", first.host, e))?;
@@ -513,6 +519,7 @@ pub async fn connect(
                 &jump.username,
                 jump.password.as_deref(),
                 jump.private_key.as_deref(),
+                jump.passphrase.as_deref(),
             )
             .await
             .map_err(|e| format!("Jump host {} auth failed: {}", next_host, e))?;
@@ -575,7 +582,14 @@ pub async fn connect(
         SshStep::Authenticating,
         format!("as {}", username),
     );
-    authenticate_handle(&mut final_handle, username, password, private_key).await?;
+    authenticate_handle(
+        &mut final_handle,
+        username,
+        password,
+        private_key,
+        passphrase,
+    )
+    .await?;
 
     // Open channel + shell
     emit_step(&app, &session_id, SshStep::OpeningShell, "Requesting PTY");
@@ -597,10 +611,23 @@ pub async fn connect(
             .map_err(|e| format!("Agent forwarding request failed: {}", e))?;
     }
 
-    channel
-        .request_shell(false)
-        .await
-        .map_err(|e| format!("Shell request failed: {}", e))?;
+    // When shell integration is enabled we replace the standard shell channel
+    // request with an exec of our wrapper script. The wrapper detects the
+    // remote $SHELL and execs into it with OSC 7 emission already hooked
+    // (writes a temp rcfile under /tmp). Falling back to request_shell keeps
+    // the historical behavior available via the setting.
+    if shell_integration {
+        let exec_cmd = crate::shell_integration::ssh_exec_command();
+        channel
+            .exec(false, exec_cmd.as_bytes())
+            .await
+            .map_err(|e| format!("Shell exec failed: {}", e))?;
+    } else {
+        channel
+            .request_shell(false)
+            .await
+            .map_err(|e| format!("Shell request failed: {}", e))?;
+    }
 
     // I/O loop
     let (input_tx, mut input_rx) = tokio::sync::mpsc::channel::<SessionInput>(256);

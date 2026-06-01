@@ -3,10 +3,10 @@ import { persist } from "zustand/middleware";
 
 export type NavItem = "hosts" | "keychain" | "port-forwarding" | "snippets" | "known-hosts" | "members" | "logs";
 
-export type BuiltinRightPanelSection = "snippets" | "history" | "themes" | "ports";
+export type BuiltinRightPanelSection = "snippets" | "history" | "themes" | "ports" | "sftp";
 /** Widened to allow plugin-contributed section IDs (prefixed with "plugin:") */
 export type RightPanelSection = BuiltinRightPanelSection | (string & {});
-export type SettingsSection = "appearance" | "account" | "vaults" | "plugins" | "sftp" | "hosts" | "about";
+export type SettingsSection = "appearance" | "account" | "sync" | "vaults" | "plugins" | "sftp" | "portForwarding" | "hosts" | "shortcuts" | "about";
 
 export type LayoutMode = "grid" | "list";
 export type SortMode   = "name-asc" | "name-desc" | "newest" | "oldest" | "role-asc";
@@ -20,6 +20,9 @@ export function clampUiScale(value: number): number {
 
 export type ImportExportSection = "vaults" | "user-data";
 
+/** Monotonic counter for import/export modal opens — drives a fresh remount per invocation. */
+let ieNonce = 0;
+
 export type ImportExportModalState = {
   open: boolean;
   mode: "import" | "export";
@@ -31,6 +34,10 @@ export type ImportExportModalState = {
   connectionIds?: string[];
   keyIds?: string[];
   identityIds?: string[];
+  source?: string;
+  autoTrigger?: boolean;
+  /** Bumped on every open() call so the modal can force a fresh mount per invocation. */
+  nonce?: number;
 };
 export type ImportExportOpenOpts = {
   section?: ImportExportSection;
@@ -41,9 +48,12 @@ export type ImportExportOpenOpts = {
   connectionIds?: string[];
   keyIds?: string[];
   identityIds?: string[];
+  source?: string;
+  autoTrigger?: boolean;
 };
 
 export type HomePendingAction = { action: "create" } | { action: "edit"; id: string } | null;
+export type SnippetsPendingAction = { action: "create" } | null;
 export type PortForwardingPendingAction =
   | { action: "create" }
   | { action: "edit"; id: string }
@@ -61,7 +71,6 @@ interface UIStore {
   homeView: boolean;
   activeNav: NavItem;
   omniOpen: boolean;
-  shortcutsOpen: boolean;
   settingsOpen: boolean;
   cloudAuthOpen: boolean;
   cloudAuthMode: CloudAuthMode;
@@ -98,7 +107,6 @@ interface UIStore {
   setHomeView: (v: boolean) => void;
   setActiveNav: (nav: NavItem) => void;
   setOmniOpen: (open: boolean) => void;
-  setShortcutsOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
   openCloudAuth: (mode?: CloudAuthMode) => void;
   closeCloudAuth: () => void;
@@ -125,6 +133,8 @@ interface UIStore {
   setMembersLayoutMode: (v: LayoutMode) => void;
   setMembersSortMode: (v: SortMode) => void;
   setSnippetsLayoutMode: (v: LayoutMode) => void;
+  snippetsPendingAction: SnippetsPendingAction;
+  setSnippetsPendingAction: (action: SnippetsPendingAction) => void;
   membersInvitePending: boolean;
   openMembersInvite: () => void;
   clearMembersInvitePending: () => void;
@@ -137,7 +147,6 @@ export const useUIStore = create<UIStore>()(
       homeView: true,
       activeNav: "hosts" as NavItem,
       omniOpen: false,
-      shortcutsOpen: false,
       settingsOpen: false,
       cloudAuthOpen: false,
       cloudAuthMode: "signin" as CloudAuthMode,
@@ -159,23 +168,23 @@ export const useUIStore = create<UIStore>()(
       membersLayoutMode: "list" as LayoutMode,
       membersSortMode: "role-asc" as SortMode,
       snippetsLayoutMode: "list" as LayoutMode,
+      snippetsPendingAction: null as SnippetsPendingAction,
       membersInvitePending: false,
       prefsUpdatedAt: new Date(0).toISOString(),
       keychainPendingAction: null as KeychainPendingAction,
       importExportModal: { open: false, mode: "export" as const, section: "vaults" as ImportExportSection },
       themeCreatorOpen: false,
       themeCreatorEditId: null as string | null,
-      openImportExport: (mode, opts) => set({ importExportModal: { open: true, mode, section: opts?.section ?? "vaults", preselectedTypes: opts?.preselectedTypes, singleConnectionId: opts?.connectionId, singleKeyId: opts?.keyId, singleIdentityId: opts?.identityId, connectionIds: opts?.connectionIds, keyIds: opts?.keyIds, identityIds: opts?.identityIds } }),
+      openImportExport: (mode, opts) => set({ importExportModal: { open: true, mode, section: opts?.section ?? "vaults", preselectedTypes: opts?.preselectedTypes, singleConnectionId: opts?.connectionId, singleKeyId: opts?.keyId, singleIdentityId: opts?.identityId, connectionIds: opts?.connectionIds, keyIds: opts?.keyIds, identityIds: opts?.identityIds, source: opts?.source, autoTrigger: opts?.autoTrigger, nonce: ieNonce++ } }),
       closeImportExport: () => set((s) => ({ importExportModal: { ...s.importExportModal, open: false } })),
-      openThemeImportExport: (mode) => set({ importExportModal: { open: true, mode, section: "user-data" as ImportExportSection } }),
-      openThemeCreator: (editId) => set({ themeCreatorOpen: true, themeCreatorEditId: editId ?? null }),
+      openThemeImportExport: (mode) => set({ importExportModal: { open: true, mode, section: "user-data" as ImportExportSection, nonce: ieNonce++ } }),
+      openThemeCreator: (editId) => set({ themeCreatorOpen: true, themeCreatorEditId: editId ?? null, settingsOpen: false }),
       closeThemeCreator: () => set({ themeCreatorOpen: false, themeCreatorEditId: null }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
       setHomeView: (v) => set({ homeView: v }),
       setActiveNav: (nav) => set({ activeNav: nav }),
       setOmniOpen: (open) => set({ omniOpen: open }),
-      setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
       setSettingsOpen: (open) => set({ settingsOpen: open }),
       openCloudAuth: (mode) => set({ cloudAuthOpen: true, cloudAuthMode: mode ?? "signin" }),
       closeCloudAuth: () => set({ cloudAuthOpen: false }),
@@ -206,6 +215,7 @@ export const useUIStore = create<UIStore>()(
       setMembersLayoutMode: (v) => { set({ membersLayoutMode: v, prefsUpdatedAt: new Date().toISOString() }); import("@/services/sync").then((m) => m.scheduleSync()).catch(() => {}); },
       setMembersSortMode: (v) => { set({ membersSortMode: v, prefsUpdatedAt: new Date().toISOString() }); import("@/services/sync").then((m) => m.scheduleSync()).catch(() => {}); },
       setSnippetsLayoutMode: (v) => { set({ snippetsLayoutMode: v, prefsUpdatedAt: new Date().toISOString() }); import("@/services/sync").then((m) => m.scheduleSync()).catch(() => {}); },
+      setSnippetsPendingAction: (action) => set({ snippetsPendingAction: action }),
       openMembersInvite: () => set({ activeNav: "members", homeView: false, membersInvitePending: true }),
       clearMembersInvitePending: () => set({ membersInvitePending: false }),
     }),
@@ -213,6 +223,7 @@ export const useUIStore = create<UIStore>()(
       name: "voltius-ui",
       partialize: (state) => ({
         uiScale: state.uiScale,
+        settingsSection: state.settingsSection,
         homeLayoutMode: state.homeLayoutMode,
         homeSortMode: state.homeSortMode,
         keychainLayoutMode: state.keychainLayoutMode,
@@ -222,6 +233,7 @@ export const useUIStore = create<UIStore>()(
         membersLayoutMode: state.membersLayoutMode,
         membersSortMode: state.membersSortMode,
         snippetsLayoutMode: state.snippetsLayoutMode,
+        rightPanelSection: state.rightPanelSection,
         prefsUpdatedAt: state.prefsUpdatedAt,
       }),
     },

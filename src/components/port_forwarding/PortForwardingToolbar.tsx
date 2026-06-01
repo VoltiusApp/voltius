@@ -1,3 +1,4 @@
+import { Icon } from "@iconify/react";
 import { ToolbarViewControls, type LayoutMode, type SortMode } from "@/components/shared/ToolbarViewControls";
 import { ToolbarDropdown } from "@/components/shared/ToolbarDropdown";
 import { useToolbarResize } from "@/hooks/useToolbarResize";
@@ -11,6 +12,8 @@ interface Props {
   onSortModeChange: (v: SortMode) => void;
   onNewRule?: () => void;
   onNewFolder?: () => void;
+  selectedCount?: number;
+  onDeleteSelected?: () => void;
 }
 
 export function PortForwardingToolbar({
@@ -18,6 +21,8 @@ export function PortForwardingToolbar({
   layoutMode, onLayoutModeChange,
   sortMode, onSortModeChange,
   onNewRule, onNewFolder,
+  selectedCount = 0,
+  onDeleteSelected,
 }: Props) {
   const { compact, rowRef, leftRef, rightRef } = useToolbarResize();
 
@@ -38,7 +43,23 @@ export function PortForwardingToolbar({
           />
         </div>
 
-        <div ref={rightRef} className="ml-auto shrink-0">
+        <div ref={rightRef} className="flex items-center gap-2 ml-auto shrink-0">
+          {selectedCount > 0 && onDeleteSelected && (
+            <button
+              onClick={onDeleteSelected}
+              title="Delete selected"
+              className="flex items-center gap-2 px-3 h-8 rounded-lg text-sm font-bold tracking-wider transition-colors bg-status-error/10 text-status-error border border-status-error/20 hover:bg-status-error/20"
+              type="button"
+            >
+              <Icon icon="lucide:trash-2" width={15} />
+              {!compact && (
+                <span>
+                  DELETE{" "}
+                  <span className="opacity-70">({selectedCount})</span>
+                </span>
+              )}
+            </button>
+          )}
           <ToolbarDropdown
             icon="lucide:plus"
             label={compact ? undefined : "New Rule"}

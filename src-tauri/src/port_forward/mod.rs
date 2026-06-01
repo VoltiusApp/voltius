@@ -311,7 +311,10 @@ impl PortForwardManager {
             Ok(_) => {}
             Err(e) => {
                 // Roll back route registration on failure.
-                routes.lock().await.remove(&(bind_host.clone(), remote_port));
+                routes
+                    .lock()
+                    .await
+                    .remove(&(bind_host.clone(), remote_port));
                 return Err(ForwardError::Ssh(e));
             }
         }
@@ -436,8 +439,14 @@ impl PortForwardManager {
 
         // Best-effort remote forward cancellation (after releasing lock).
         if let Some(rc) = entry.remote_cleanup {
-            rc.routes.lock().await.remove(&(rc.bind_host.clone(), rc.remote_port));
-            let _ = rc.handle.cancel_tcpip_forward(&rc.bind_host, rc.remote_port as u32).await;
+            rc.routes
+                .lock()
+                .await
+                .remove(&(rc.bind_host.clone(), rc.remote_port));
+            let _ = rc
+                .handle
+                .cancel_tcpip_forward(&rc.bind_host, rc.remote_port as u32)
+                .await;
         }
 
         let _ = self.app.emit("pf-state-changed", payload);
@@ -453,7 +462,11 @@ impl PortForwardManager {
             // Clear remote route registrations (SSH session is gone, so no cancel_tcpip_forward).
             for entry in &state.tunnels {
                 if let Some(rc) = &entry.remote_cleanup {
-                    let _ = rc.routes.lock().await.remove(&(rc.bind_host.clone(), rc.remote_port));
+                    let _ = rc
+                        .routes
+                        .lock()
+                        .await
+                        .remove(&(rc.bind_host.clone(), rc.remote_port));
                 }
             }
             // TunnelEntry._cancel fields dropped here → all bridges stop
@@ -494,8 +507,8 @@ impl PortForwardManager {
                 rule_name: rule.name.clone(),
             };
             let result = match rule.tunnel_type {
-                CfgTunnelType::Local => {
-                    self.open_local_tunnel(
+                CfgTunnelType::Local => self
+                    .open_local_tunnel(
                         session_id,
                         Arc::clone(&handle),
                         rule.local_port,
@@ -504,10 +517,9 @@ impl PortForwardManager {
                         origin,
                     )
                     .await
-                    .map(|_| ())
-                }
-                CfgTunnelType::Remote => {
-                    self.open_remote_tunnel(
+                    .map(|_| ()),
+                CfgTunnelType::Remote => self
+                    .open_remote_tunnel(
                         session_id,
                         Arc::clone(&handle),
                         Arc::clone(&routes),
@@ -518,18 +530,11 @@ impl PortForwardManager {
                         origin,
                     )
                     .await
-                    .map(|_| ())
-                }
-                CfgTunnelType::Dynamic => {
-                    self.open_dynamic_tunnel(
-                        session_id,
-                        Arc::clone(&handle),
-                        rule.local_port,
-                        origin,
-                    )
+                    .map(|_| ()),
+                CfgTunnelType::Dynamic => self
+                    .open_dynamic_tunnel(session_id, Arc::clone(&handle), rule.local_port, origin)
                     .await
-                    .map(|_| ())
-                }
+                    .map(|_| ()),
             };
             if let Err(e) = result {
                 // Record a visible error entry for saved-rule activation failures.
@@ -555,12 +560,14 @@ impl PortForwardManager {
                     remote_cleanup: None,
                 };
                 let mut s = self.sessions.lock().await;
-                let state = s.entry(session_id.to_string()).or_insert_with(|| SessionPfState {
-                    tunnels: Vec::new(),
-                    auto_detect: false,
-                    poller_cancel: None,
-                    suppressed_ports: HashSet::new(),
-                });
+                let state = s
+                    .entry(session_id.to_string())
+                    .or_insert_with(|| SessionPfState {
+                        tunnels: Vec::new(),
+                        auto_detect: false,
+                        poller_cancel: None,
+                        suppressed_ports: HashSet::new(),
+                    });
                 state.tunnels.push(err_entry);
                 drop(s);
                 self.emit_state(session_id).await;

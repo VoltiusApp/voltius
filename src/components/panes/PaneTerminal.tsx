@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import TerminalView from "@/components/terminal/Terminal";
+import { TerminalSearch } from "@/components/terminal/TerminalSearch";
 import MultiplayerTerminalView from "@/components/terminal/MultiplayerTerminalView";
 import { MultiplayerBar } from "@/components/terminal/MultiplayerBar";
-import ConnectionOverlay, { SSH_STEPS, SERIAL_STEPS } from "@/components/terminal/ConnectionOverlay";
+import ConnectionOverlay, { SSH_STEPS, SERIAL_STEPS } from "@/components/terminal/connection-overlay";
 import { useMultiplayerHostBroadcast } from "@/hooks/useMultiplayerHostBroadcast";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -51,7 +52,6 @@ function SplitConnectionOverlay({
         icon="lucide:ethernet-port"
         steps={SERIAL_STEPS}
         stepEventName={`serial-step-${session.id}`}
-        conflictEventName=""
         onDismiss={onDismiss}
         onRetry={isEphemeral ? () => resetSerialEphemeral(session.id) : onRetry}
       />
@@ -129,6 +129,7 @@ export function PaneTerminal({ session, active }: { session: TerminalSession; ac
             }
           }}
         />
+        <TerminalSearch sessionId={session.id} />
       </div>
       {isSharing && <MultiplayerBar localSessionId={session.id} />}
     </div>
@@ -139,7 +140,7 @@ export function EmptySplitPane() {
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-3 text-[var(--t-text-dim)] bg-[var(--t-bg-terminal)]">
       <div className="size-12 rounded-2xl flex items-center justify-center border border-[var(--t-border)] bg-[var(--t-bg-card)]">
-        <Icon icon="lucide:panel-top-open" width={24} />
+        <Icon icon="lucide:layout-dashboard" width={24} />
       </div>
       <div className="text-sm font-medium text-[var(--t-text-secondary)]">Split workspace is empty</div>
       <div className="text-xs">Drag a session tab here to start splitting panes.</div>

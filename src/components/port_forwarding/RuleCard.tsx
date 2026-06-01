@@ -33,8 +33,7 @@ interface Props {
   onMoveToVault?: (rule: PortForwardingRule, vaultId: string) => void;
   onCopyToVault?: (rule: PortForwardingRule, vaultId: string) => void;
   bulkContextMenuItems?: ContextMenuItem[];
-  onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
-  onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
+  onPointerDown?: (e: React.PointerEvent<HTMLDivElement>) => void;
 }
 
 export function RuleCard({
@@ -44,7 +43,7 @@ export function RuleCard({
   onSelect, onEdit, onDuplicate, onDelete, onActivate,
   onStart, onStop, onOpenWeb,
   onMoveToVault, onCopyToVault,
-  bulkContextMenuItems, onDragStart, onDragEnd,
+  bulkContextMenuItems, onPointerDown,
 }: Props) {
   const isList = layout === "list";
   const contributions = useUIContributions("connection.contextMenu", rule);
@@ -109,9 +108,7 @@ export function RuleCard({
       isEditing={isEditing}
       isFocused={isFocused}
       isActive={isActive}
-      draggable={!!onDragStart}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+      onPointerDown={onPointerDown}
       onClick={(e) => onSelect?.(rule.id, e)}
       bulkContextMenuItems={bulkContextMenuItems}
       contextMenuItems={contextMenuItems}

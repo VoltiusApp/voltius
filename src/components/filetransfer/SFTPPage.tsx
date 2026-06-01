@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
 import {
   sftpConnect, sftpClose,
@@ -7,27 +9,36 @@ import {
   sftpUploadDirTar, sftpDownloadDirTar, sftpTransferDirTar,
   sftpUploadBatchTar, sftpDownloadBatchTar, sftpTransferBatchTar,
   sftpTransfer, sftpTransferDir,
-  sftpCancelTransfer, onTransferProgress,
   sftpExists, fsExists, fsHomeDir,
+  pickLocalPath, pickLocalPaths,
 } from "@/services/sftp";
-import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
+import { hitTestDropTarget, setExternalDragHover, clearExternalDragHover } from "./internalDrag";
+import { triggerUpload } from "./osDropPipeline";
+import { useToggle } from "@/stores/toggleSettingsStore";
+import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
 import {
-  type HostChoice, type SidePhase, type FileEntry, type Transfer, type PendingTransfer, type ConflictResolution,
+  type HostChoice, type SidePhase, type FileEntry,
   genId,
 } from "./SFTPTypes";
 import { SidePane } from "./SidePane";
 import { ConflictDialog } from "./ConflictDialog";
-import { TransferQueue } from "./TransferQueue";
+import { InternalDragGhost } from "./InternalDragGhost";
+import { triggerOsDrop as triggerOsDropPipeline } from "./osDropPipeline";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 
 export default function SFTPPage() {
-  const tarTransferEnabled = useSftpSettingsStore((s) => s.tarTransferEnabled);
+  const [tarTransferEnabled] = useToggle("sftp-tar");
   const sftpPanelOpen = useUIStore((s) => s.sftpPanelOpen);
   const pendingSftpConnectionId = useUIStore((s) => s.pendingSftpConnectionId);
   const clearPendingSftpConnection = useUIStore((s) => s.clearPendingSftpConnection);
+  const runTransfer = useTransferQueueStore((s) => s.runTransfer);
+  const pending = useTransferQueueStore((s) => s.pending);
+  const setPending = useTransferQueueStore((s) => s.setPending);
+  const resolvePending = useTransferQueueStore((s) => s.resolvePending);
+
   const [leftHost, setLeftHost] = useState<HostChoice | null>(null);
   const [leftPhase, setLeftPhase] = useState<SidePhase>({ tag: "picking" });
   const [leftRefresh, setLeftRefresh] = useState(0);
@@ -36,14 +47,10 @@ export default function SFTPPage() {
   const [rightPhase, setRightPhase] = useState<SidePhase>({ tag: "picking" });
   const [rightRefresh, setRightRefresh] = useState(0);
 
-  const [transfers, setTransfers] = useState<Transfer[]>([]);
-  const [pendingTransfer, setPendingTransfer] = useState<PendingTransfer | null>(null);
-  const unlisteners = useRef<(() => void)[]>([]);
   const openSftpIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     return () => {
-      unlisteners.current.forEach((u) => u());
       openSftpIds.current.forEach((id) => sftpClose(id).catch(() => {}));
     };
   }, []);
@@ -63,7 +70,7 @@ export default function SFTPPage() {
           resolveConnectionCredentials(host.connection),
           resolveJumpHosts(host.connection),
         ]);
-        sftpId = await sftpConnect({ connectId, host: host.connection.host, port: host.connection.port, username: creds.username, password: creds.password, privateKey: creds.privateKey, jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined });
+        sftpId = await sftpConnect({ connectId, host: host.connection.host, port: host.connection.port, username: creds.username, password: creds.password, privateKey: creds.privateKey, passphrase: creds.passphrase, jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined });
         openSftpIds.current.add(sftpId);
         const { sftpCanonicalize } = await import("@/services/sftp");
         cwd = await sftpCanonicalize(sftpId, ".");
@@ -136,37 +143,6 @@ export default function SFTPPage() {
   }, [rightPhase.tag === "connected" ? rightPhase.sftpId : null, rightHost]);
 
   // ── Transfers ──────────────────────────────────────────────────────────────
-
-  const runTransfer = useCallback(async (label: string, direction: "→" | "←", fn: (tid: string) => Promise<void>, onDone?: () => void) => {
-    const tid = genId();
-    const entry: Transfer = { id: tid, label, direction, transferred: 0, total: 0, status: "running" };
-    setTransfers((prev) => [entry, ...prev.slice(0, 29)]);
-    const startTime = Date.now();
-    const unlisten = await onTransferProgress(tid, (p) => {
-      const elapsed = (Date.now() - startTime) / 1000;
-      const speed = elapsed > 0.5 ? p.transferred / elapsed : undefined;
-      const eta = speed && p.total > p.transferred ? Math.round((p.total - p.transferred) / speed) : undefined;
-      setTransfers((prev) => prev.map((t) => t.id === tid ? { ...t, transferred: p.transferred, total: p.total, speed, eta } : t));
-    });
-    unlisteners.current.push(unlisten);
-    try {
-      await fn(tid);
-      setTransfers((prev) => prev.map((t) => t.id === tid ? { ...t, status: "done" } : t));
-      onDone?.();
-    } catch (e) {
-      const msg = String(e);
-      const wasCancelled = msg.toLowerCase().includes("cancel");
-      setTransfers((prev) =>
-        prev.map((t) => {
-          if (t.id !== tid) return t;
-          if (t.status === "cancelled") return t;
-          return wasCancelled ? { ...t, status: "cancelled" } : { ...t, status: "error", error: msg };
-        }),
-      );
-    } finally {
-      unlisten();
-    }
-  }, []);
 
   const execTransfer = useCallback(async (file: FileEntry, fromSide: "left" | "right", targetFolder?: string) => {
     const src     = fromSide === "left" ? leftPhase  : rightPhase;
@@ -257,36 +233,21 @@ export default function SFTPPage() {
       }))
     ).filter((f): f is FileEntry => f !== null);
 
+    const conflictPaths = new Set(conflicts.map((f) => f.path));
+    const toTransfer = files.filter((f) => !conflictPaths.has(f.path));
+
     if (conflicts.length > 0) {
-      const conflictPaths = new Set(conflicts.map((f) => f.path));
-      setPendingTransfer({ fromSide, conflicts, toTransfer: files.filter((f) => !conflictPaths.has(f.path)), totalConflicts: conflicts.length, targetFolder });
+      setPending({
+        conflicts,
+        toTransfer,
+        totalConflicts: conflicts.length,
+        execute: (files) => executeFiles(files, fromSide, targetFolder),
+      });
       return;
     }
 
     executeFiles(files, fromSide, targetFolder);
-  }, [leftPhase, rightPhase, leftHost, rightHost, executeFiles]);
-
-  const resolveConflict = useCallback((resolution: ConflictResolution) => {
-    if (!pendingTransfer) return;
-    const { fromSide, conflicts, toTransfer, totalConflicts, targetFolder } = pendingTransfer;
-    const [current, ...remaining] = conflicts;
-    const execute = (files: FileEntry[]) => { setPendingTransfer(null); executeFiles(files, fromSide, targetFolder); };
-
-    if (resolution === "cancel") { setPendingTransfer(null); return; }
-    if (resolution === "skip") {
-      if (remaining.length > 0) setPendingTransfer({ fromSide, conflicts: remaining, toTransfer, totalConflicts, targetFolder });
-      else execute(toTransfer);
-      return;
-    }
-    if (resolution === "skip-all") { execute(toTransfer); return; }
-    if (resolution === "overwrite") {
-      const next = [...toTransfer, current];
-      if (remaining.length > 0) setPendingTransfer({ fromSide, conflicts: remaining, toTransfer: next, totalConflicts, targetFolder });
-      else execute(next);
-      return;
-    }
-    if (resolution === "overwrite-all") { execute([...toTransfer, current, ...remaining]); return; }
-  }, [pendingTransfer, execTransfer, executeFiles]);
+  }, [leftPhase, rightPhase, leftHost, rightHost, executeFiles, setPending]);
 
   const transfer = useCallback((direction: "LR" | "RL") => {
     const fromSide = direction === "LR" ? "left" : "right" as const;
@@ -294,6 +255,105 @@ export default function SFTPPage() {
     if (srcPhase.tag !== "connected" || srcPhase.selected.length === 0) return;
     void triggerTransfer(srcPhase.selected, fromSide);
   }, [leftPhase, rightPhase, triggerTransfer]);
+
+  // ── OS-originated drops (files dragged from Finder / Explorer) ────────────
+
+  const triggerOsDrop = useCallback(async (paths: string[], dstSide: "left" | "right", targetFolder?: string) => {
+    const dst     = dstSide === "left" ? leftPhase  : rightPhase;
+    const dstHost = dstSide === "left" ? leftHost   : rightHost;
+    const refreshDst = dstSide === "left" ? () => setLeftRefresh((n) => n + 1) : () => setRightRefresh((n) => n + 1);
+    if (dst.tag !== "connected") return;
+
+    await triggerOsDropPipeline(paths, {
+      isLocal: dstHost?.kind === "local",
+      sftpId: dst.sftpId,
+      cwd: targetFolder ?? dst.cwd,
+      onRefresh: refreshDst,
+    });
+  }, [leftPhase, rightPhase, leftHost, rightHost]);
+
+  // Tauri's drag-drop event delivers OS file paths once the user releases over
+  // the webview. Position is in physical pixels; elementFromPoint wants CSS
+  // pixels, so we scale by devicePixelRatio for hit-testing.
+  useEffect(() => {
+    let unlistenFn: (() => void) | null = null;
+    let cancelled = false;
+    (async () => {
+      const unlisten = await getCurrentWebview().onDragDropEvent((event) => {
+        const p = event.payload;
+        const dpr = window.devicePixelRatio || 1;
+        if (p.type === "enter" || p.type === "over") {
+          const { x, y } = p.position;
+          const hit = hitTestDropTarget(x / dpr, y / dpr, null);
+          if (hit.side === "left" || hit.side === "right") {
+            setExternalDragHover(hit.side, hit.folder);
+          }
+        } else if (p.type === "drop") {
+          clearExternalDragHover();
+          const { x, y } = p.position;
+          const hit = hitTestDropTarget(x / dpr, y / dpr, null);
+          if ((hit.side === "left" || hit.side === "right") && p.paths.length > 0) {
+            void triggerOsDrop(p.paths, hit.side, hit.folder ?? undefined);
+          }
+        } else {
+          clearExternalDragHover();
+        }
+      });
+      if (cancelled) unlisten();
+      else unlistenFn = unlisten;
+    })();
+    return () => { cancelled = true; unlistenFn?.(); };
+  }, [triggerOsDrop]);
+
+  // ── Local-disk upload / download (independent of the cross-pane transfer) ──
+  // Mirrors the SFTP right-panel: "Upload" picks local files into this pane's
+  // cwd, "Download" pulls the selected remote files to a chosen local folder.
+
+  const uploadToSide = useCallback(async (side: "left" | "right") => {
+    const phase = side === "left" ? leftPhase : rightPhase;
+    const host  = side === "left" ? leftHost  : rightHost;
+    if (phase.tag !== "connected") return;
+    const paths = await pickLocalPaths({ title: "Select files to upload" });
+    if (paths.length === 0) return;
+    const items: FileEntry[] = [];
+    for (const path of paths) {
+      try {
+        const isDir = await invoke<boolean | null>("fs_stat", { path });
+        if (isDir === null) continue;
+        const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path;
+        items.push({ name, path, size: 0, isDir });
+      } catch { /* skip */ }
+    }
+    const refresh = side === "left" ? () => setLeftRefresh((n) => n + 1) : () => setRightRefresh((n) => n + 1);
+    await triggerUpload(items, { isLocal: host?.kind === "local", sftpId: phase.sftpId, cwd: phase.cwd, onRefresh: refresh });
+  }, [leftPhase, rightPhase, leftHost, rightHost]);
+
+  const downloadFromSide = useCallback(async (side: "left" | "right", files: FileEntry[]) => {
+    const phase = side === "left" ? leftPhase : rightPhase;
+    const host  = side === "left" ? leftHost  : rightHost;
+    if (phase.tag !== "connected" || host?.kind === "local" || !phase.sftpId || files.length === 0) return;
+    const dstDir = await pickLocalPath({ directory: true, title: "Download to folder" });
+    if (!dstDir) return;
+    const sftpId = phase.sftpId;
+    const base = dstDir.replace(/[\\/]$/, "");
+    const label = files.length === 1 ? files[0].name : `${files.length} items`;
+
+    if (tarTransferEnabled && files.length > 1) {
+      await runTransfer(label, "←", (tid) =>
+        sftpDownloadBatchTar({ sftpId, remotePaths: files.map((f) => f.path), localDir: base, transferId: tid }));
+      return;
+    }
+
+    for (const file of files) {
+      const sep = /\\/.test(base) ? "\\" : "/";
+      const localPath = `${base}${sep}${file.name}`;
+      await runTransfer(file.name, "←", (tid) => file.isDir
+        ? (tarTransferEnabled
+            ? sftpDownloadDirTar({ sftpId, remotePath: file.path, localPath, transferId: tid })
+            : sftpDownloadDir({ sftpId, remotePath: file.path, localPath, transferId: tid }))
+        : sftpDownload({ sftpId, remotePath: file.path, localPath, transferId: tid }));
+    }
+  }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer, tarTransferEnabled]);
 
   // ── Derived state ──────────────────────────────────────────────────────────
 
@@ -327,10 +387,13 @@ export default function SFTPPage() {
             onRefresh={() => setLeftRefresh((n) => n + 1)}
             onChangeHost={() => { disconnectSide(setLeftPhase, leftPhase); setLeftHost(null); }}
             side="left"
-            onDropFiles={(files, fromSide, targetFolder) => void triggerTransfer(files, fromSide, targetFolder)}
+            onDropFiles={(files, fromSide, targetFolder) => { if (fromSide !== "panel") void triggerTransfer(files, fromSide, targetFolder); }}
             onTransferToTarget={(files) => void triggerTransfer(files, "left")}
             canTransferToTarget={rightPhase.tag === "connected"}
             onOpenInTerminal={makeOpenInTerminal(leftHost)}
+            selected={leftSelected}
+            onUpload={() => void uploadToSide("left")}
+            onDownloadFiles={leftHost?.kind === "local" ? undefined : (files) => void downloadFromSide("left", files)}
           />
         </div>
 
@@ -350,31 +413,27 @@ export default function SFTPPage() {
             onRefresh={() => setRightRefresh((n) => n + 1)}
             onChangeHost={() => { disconnectSide(setRightPhase, rightPhase); setRightHost(null); }}
             side="right"
-            onDropFiles={(files, fromSide, targetFolder) => void triggerTransfer(files, fromSide, targetFolder)}
+            onDropFiles={(files, fromSide, targetFolder) => { if (fromSide !== "panel") void triggerTransfer(files, fromSide, targetFolder); }}
             onTransferToTarget={(files) => void triggerTransfer(files, "right")}
             canTransferToTarget={leftPhase.tag === "connected"}
             onOpenInTerminal={makeOpenInTerminal(rightHost)}
+            selected={rightSelected}
+            onUpload={() => void uploadToSide("right")}
+            onDownloadFiles={rightHost?.kind === "local" ? undefined : (files) => void downloadFromSide("right", files)}
           />
         </div>
       </div>
 
-      {pendingTransfer && (
+      {pending && (
         <ConflictDialog
-          conflict={pendingTransfer.conflicts[0]}
-          conflictNumber={pendingTransfer.totalConflicts - pendingTransfer.conflicts.length + 1}
-          totalConflicts={pendingTransfer.totalConflicts}
-          onResolve={resolveConflict}
+          conflict={pending.conflicts[0]}
+          conflictNumber={pending.totalConflicts - pending.conflicts.length + 1}
+          totalConflicts={pending.totalConflicts}
+          onResolve={resolvePending}
         />
       )}
 
-      <TransferQueue
-        transfers={transfers}
-        onClear={() => setTransfers((prev) => prev.filter((t) => t.status === "running"))}
-        onCancel={(id) => {
-          sftpCancelTransfer(id).catch(() => {});
-          setTransfers((prev) => prev.map((t) => t.id === id ? { ...t, status: "cancelled" } : t));
-        }}
-      />
+      <InternalDragGhost />
     </div>
   );
 }

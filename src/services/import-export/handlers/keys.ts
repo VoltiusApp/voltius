@@ -4,6 +4,7 @@ import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, KeyExport } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "../context";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
+import { fetchKeySecrets, storeKeySecrets } from "../secretsLogic";
 
 export const keysHandler: DataTypeHandler = {
   key: "keys",
@@ -48,32 +49,37 @@ export const keysHandler: DataTypeHandler = {
       name: k.name,
       key_type: k.key_type,
       tags: k.tags,
-      private_key: await getSecret(`key:${k.id}:private`).catch(() => null) ?? undefined,
-      public_key: await getSecret(`key:${k.id}:public`).catch(() => null) ?? undefined,
+      ...(await fetchKeySecrets(k.id, (key) => getSecret(key).catch(() => null))),
       _folder_eid: k.folder_id ? ctx.folderEidMap.get(k.folder_id) : undefined,
     })));
   },
 
   async importItems(bundle: ExportBundle, ctx: ImportCtx) {
     let imported = 0; let errors = 0;
+    const existingNames = new Set(
+      ctx.existingKeys
+        .filter(k => !k.deleted_at && (k.vault_id ?? "personal") === ctx.vault_id)
+        .map(k => k.name),
+    );
     for (const key of bundle.keys) {
+      if (ctx.skipDupes && key.name && existingNames.has(key.name)) {
+        if (key._eid) {
+          const existing = ctx.existingKeys.find(k => !k.deleted_at && (k.vault_id ?? "personal") === ctx.vault_id && k.name === key.name);
+          if (existing) ctx.keyEidMap.set(key._eid, existing.id);
+        }
+        continue;
+      }
       try {
         const saved = await ctx.stores.saveKey({
           name: key.name, key_type: key.key_type,
-          tags: key.tags ?? [],
+          tags: ctx.tag ? [...(key.tags ?? []), ctx.tag] : key.tags ?? [],
           folder_id: key._folder_eid ? ctx.folderEidMap.get(key._folder_eid) : undefined,
           vault_id: ctx.vault_id,
         });
-        if (key.private_key) {
-          const localKey = `key:${saved.id}:private`;
-          await storeSecret(localKey, key.private_key);
-          await saveTeamVaultSecretForVault(ctx.vault_id, localKey, key.private_key).catch(() => {});
-        }
-        if (key.public_key) {
-          const localKey = `key:${saved.id}:public`;
-          await storeSecret(localKey, key.public_key);
-          await saveTeamVaultSecretForVault(ctx.vault_id, localKey, key.public_key).catch(() => {});
-        }
+        await storeKeySecrets(key, saved.id, async (k, value) => {
+          await storeSecret(k, value);
+          await saveTeamVaultSecretForVault(ctx.vault_id, k, value).catch(() => {});
+        });
         if (key._eid) ctx.keyEidMap.set(key._eid, saved.id);
         imported++;
       } catch { errors++; }

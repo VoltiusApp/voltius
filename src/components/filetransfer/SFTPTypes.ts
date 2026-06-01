@@ -27,20 +27,8 @@ export type Transfer = {
 
 export type ConflictResolution = "overwrite" | "overwrite-all" | "skip" | "skip-all" | "cancel";
 
-export type PendingTransfer = {
-  fromSide: "left" | "right";
-  conflicts: FileEntry[];
-  toTransfer: FileEntry[];
-  totalConflicts: number;
-  targetFolder?: string;
-};
-
 let _tid = 0;
 export const genId = () => `t-${Date.now()}-${_tid++}`;
-
-// Track which side is currently being dragged so the same side ignores dragover
-export let _draggingFromSide: "left" | "right" | null = null;
-export const setDraggingFromSide = (v: "left" | "right" | null) => { _draggingFromSide = v; };
 
 export function formatSize(b: number) {
   if (b < 1024) return `${b} B`;

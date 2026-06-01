@@ -150,7 +150,10 @@ pub async fn http_sse_start(
         };
 
         if !response.status().is_success() {
-            close(&app, Some(format!("Server error: {}", response.status().as_u16())));
+            close(
+                &app,
+                Some(format!("Server error: {}", response.status().as_u16())),
+            );
             return;
         }
 

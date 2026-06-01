@@ -9,6 +9,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
+import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 
 // ─── Team vault helpers ───────────────────────────────────────────────────────
 
@@ -52,7 +53,8 @@ interface ConnectionStore {
   setLastUsed: (id: string) => Promise<void>;
   renameTag: (oldName: string, newName: string) => Promise<void>;
   deleteTag: (name: string) => Promise<void>;
-  pinConnection: (id: string, pinned: boolean) => Promise<void>;
+  pinConnection: (id: string, pinned: boolean | null) => Promise<void>;
+  pinConnectionForTeam: (id: string, pinned: boolean) => Promise<void>;
 }
 
 export const useConnectionStore = create<ConnectionStore>((set, get) => ({
@@ -89,6 +91,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         auth_type: data.auth_type ?? "password",
         tags: data.tags ?? [],
         identity_id: data.identity_id,
+        key_id: data.key_id,
         folder_id: data.folder_id,
         vault_id: data.vault_id,
         jump_hosts: data.jump_hosts,
@@ -101,6 +104,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         icon: data.icon,
         pinned: data.pinned,
         ping_disabled: data.ping_disabled,
+        shell_integration_disabled: data.shell_integration_disabled,
         connection_type: data.connection_type,
         serial_port: data.serial_port,
         serial_baud: data.serial_baud,
@@ -172,6 +176,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         auth_type: data.auth_type ?? prev.auth_type,
         tags: data.tags ?? prev.tags,
         identity_id: data.identity_id,
+        key_id: data.key_id,
         folder_id: data.folder_id,
         vault_id: data.vault_id ?? prev.vault_id,
         jump_hosts: data.jump_hosts,
@@ -191,6 +196,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         serial_stop_bits: data.serial_stop_bits ?? prev.serial_stop_bits,
         serial_flow_control: data.serial_flow_control ?? prev.serial_flow_control,
         ping_disabled: data.ping_disabled,
+        shell_integration_disabled: data.shell_integration_disabled,
         updated_at: now,
         clocks: { ...prev.clocks, updated_at: now },
       };
@@ -224,7 +230,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       const prevData: ConnectionFormData = {
         name: prev.name, host: prev.host, port: prev.port,
         username: prev.username, auth_type: prev.auth_type as AuthType,
-        tags: prev.tags, identity_id: prev.identity_id, folder_id: prev.folder_id,
+        tags: prev.tags, identity_id: prev.identity_id, key_id: prev.key_id, folder_id: prev.folder_id,
         vault_id: prev.vault_id, jump_hosts: prev.jump_hosts, env_vars: prev.env_vars,
         agent_forwarding: prev.agent_forwarding, pre_command: prev.pre_command,
         post_command: prev.post_command, terminal_encoding: prev.terminal_encoding,
@@ -250,6 +256,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
           auth_type: data.auth_type ?? prev.auth_type,
           tags: data.tags ?? prev.tags,
           identity_id: data.identity_id,
+          key_id: data.key_id,
           folder_id: data.folder_id,
           vault_id: data.vault_id ?? prev.vault_id,
           jump_hosts: data.jump_hosts,
@@ -269,6 +276,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
           serial_stop_bits: data.serial_stop_bits ?? prev.serial_stop_bits,
           serial_flow_control: data.serial_flow_control ?? prev.serial_flow_control,
           ping_disabled: data.ping_disabled,
+          shell_integration_disabled: data.shell_integration_disabled,
           updated_at: now,
           clocks: { ...prev.clocks, updated_at: now },
         }
@@ -329,7 +337,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       const prevData: ConnectionFormData = {
         name: prev.name, host: prev.host, port: prev.port,
         username: prev.username, auth_type: prev.auth_type as AuthType,
-        tags: prev.tags, identity_id: prev.identity_id, folder_id: prev.folder_id,
+        tags: prev.tags, identity_id: prev.identity_id, key_id: prev.key_id, folder_id: prev.folder_id,
         vault_id: prev.vault_id, jump_hosts: prev.jump_hosts, env_vars: prev.env_vars,
         agent_forwarding: prev.agent_forwarding, pre_command: prev.pre_command,
         post_command: prev.post_command, terminal_encoding: prev.terminal_encoding,
@@ -358,7 +366,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       const prevData: ConnectionFormData = {
         name: prev.name, host: prev.host, port: prev.port,
         username: prev.username, auth_type: prev.auth_type as AuthType,
-        tags: prev.tags, identity_id: prev.identity_id, folder_id: prev.folder_id,
+        tags: prev.tags, identity_id: prev.identity_id, key_id: prev.key_id, folder_id: prev.folder_id,
         vault_id: prev.vault_id, jump_hosts: prev.jump_hosts, env_vars: prev.env_vars,
         agent_forwarding: prev.agent_forwarding, pre_command: prev.pre_command,
         post_command: prev.post_command, terminal_encoding: prev.terminal_encoding,
@@ -390,7 +398,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       const prevData: ConnectionFormData = {
         name: prev.name, host: prev.host, port: prev.port,
         username: prev.username, auth_type: prev.auth_type as AuthType,
-        tags: prev.tags, identity_id: prev.identity_id, folder_id: prev.folder_id,
+        tags: prev.tags, identity_id: prev.identity_id, key_id: prev.key_id, folder_id: prev.folder_id,
         vault_id: prev.vault_id, jump_hosts: prev.jump_hosts, env_vars: prev.env_vars,
         agent_forwarding: prev.agent_forwarding, pre_command: prev.pre_command,
         post_command: prev.post_command, terminal_encoding: prev.terminal_encoding,
@@ -487,7 +495,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
           name: c.name, host: c.host, port: c.port, username: c.username,
           auth_type: c.auth_type as AuthType,
           tags: c.tags.map((t) => (t === oldName ? newName : t)),
-          identity_id: c.identity_id, folder_id: c.folder_id,
+          identity_id: c.identity_id, key_id: c.key_id, folder_id: c.folder_id,
         }),
       ),
     );
@@ -532,7 +540,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
           name: c.name, host: c.host, port: c.port, username: c.username,
           auth_type: c.auth_type as AuthType,
           tags: c.tags.filter((t) => t !== name),
-          identity_id: c.identity_id, folder_id: c.folder_id,
+          identity_id: c.identity_id, key_id: c.key_id, folder_id: c.folder_id,
         }),
       ),
     );
@@ -571,7 +579,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
             return store.updateConnection(connId, {
               name: conn.name, host: conn.host, port: conn.port,
               username: conn.username, auth_type: conn.auth_type as AuthType,
-              tags, identity_id: conn.identity_id, folder_id: conn.folder_id,
+              tags, identity_id: conn.identity_id, key_id: conn.key_id, folder_id: conn.folder_id,
             });
           }),
         );
@@ -583,31 +591,38 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   pinConnection: async (id, pinned) => {
     const teamEntry = findTeamConn(get().teamConnections, id);
     if (teamEntry) {
-      const { teamId, conn: prev } = teamEntry;
-      const now = new Date().toISOString();
-      const updated: Connection = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
-      await saveTeamVaultObject(teamId, "connection", updated);
-      set((s) => ({
-        teamConnections: {
-          ...s.teamConnections,
-          [teamId]: upsertConn(s.teamConnections[teamId] ?? [], updated),
-        },
-      }));
+      await useTeamObjectPrefsStore.getState().setPinned(teamEntry.teamId, id, pinned);
       return;
     }
 
     const conn = get().connections.find((c) => c.id === id);
     if (!conn) return;
+    const nextPinned = pinned ?? false;
     await api.updateConnection(id, {
       name: conn.name, host: conn.host, port: conn.port, username: conn.username,
-      auth_type: conn.auth_type as AuthType, tags: conn.tags, identity_id: conn.identity_id,
+      auth_type: conn.auth_type as AuthType, tags: conn.tags, identity_id: conn.identity_id, key_id: conn.key_id,
       folder_id: conn.folder_id, vault_id: conn.vault_id, jump_hosts: conn.jump_hosts,
       env_vars: conn.env_vars, agent_forwarding: conn.agent_forwarding,
       pre_command: conn.pre_command, post_command: conn.post_command,
-      terminal_encoding: conn.terminal_encoding, distro: conn.distro, icon: conn.icon, pinned,
+      terminal_encoding: conn.terminal_encoding, distro: conn.distro, icon: conn.icon, pinned: nextPinned,
     });
-    set((s) => ({ connections: s.connections.map((c) => c.id === id ? { ...c, pinned } : c) }));
+    set((s) => ({ connections: s.connections.map((c) => c.id === id ? { ...c, pinned: nextPinned } : c) }));
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "connection")) scheduleSync(); });
+  },
+
+  pinConnectionForTeam: async (id, pinned) => {
+    const teamEntry = findTeamConn(get().teamConnections, id);
+    if (!teamEntry) return;
+    const { teamId, conn: prev } = teamEntry;
+    const now = new Date().toISOString();
+    const updated: Connection = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
+    await saveTeamVaultObject(teamId, "connection", updated);
+    set((s) => ({
+      teamConnections: {
+        ...s.teamConnections,
+        [teamId]: upsertConn(s.teamConnections[teamId] ?? [], updated),
+      },
+    }));
   },
 }));

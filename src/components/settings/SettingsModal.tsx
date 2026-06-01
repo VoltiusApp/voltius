@@ -3,11 +3,14 @@ import { useUIStore } from "@/stores/uiStore";
 import { Modal } from "@/components/shared/Modal";
 import AppearanceSection from "@/components/settings/sections/AppearanceSection";
 import AccountSection from "@/components/settings/sections/AccountSection";
+import SyncSection from "@/components/settings/sections/SyncSection";
 import VaultsSection from "@/components/settings/sections/VaultsSection";
 import PluginsSection from "@/components/settings/sections/PluginsSection";
 import SFTPSection from "@/components/settings/sections/SFTPSection";
+import PortForwardingSection from "@/components/settings/sections/PortForwardingSection";
 import AboutSection from "@/components/settings/sections/AboutSection";
 import HostsSection from "@/components/settings/sections/HostsSection";
+import ShortcutsSection from "@/components/settings/sections/ShortcutsSection";
 import { SETTINGS_NAV } from "@/components/settings/settingsNav";
 
 export default function SettingsModal() {
@@ -87,10 +90,13 @@ export default function SettingsModal() {
           <div className="flex-1 overflow-y-auto">
             {section === "appearance" && <AppearanceSection />}
             {section === "account" && <AccountSection />}
+            {section === "sync" && <SyncSection />}
             {section === "vaults" && <VaultsSection />}
             {section === "plugins" && <PluginsSection />}
             {section === "sftp" && <SFTPSection />}
+            {section === "portForwarding" && <PortForwardingSection />}
             {section === "hosts" && <HostsSection />}
+            {section === "shortcuts" && <ShortcutsSection />}
             {section === "about" && <AboutSection />}
           </div>
         </div>

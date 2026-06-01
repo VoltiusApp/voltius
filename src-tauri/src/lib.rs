@@ -1,28 +1,30 @@
 mod commands;
 mod crypto;
 mod docker;
-mod metrics;
 mod known_hosts;
 mod local;
+mod metrics;
 mod port_forward;
 mod processes;
+mod proxmox;
 mod serial;
 mod sftp;
+mod shell_integration;
 mod ssh;
 mod storage;
 mod vault_auth;
 
-use docker::stream::DockerLogStreamManager;
 use commands::http::HttpSseStreamManager;
+use docker::stream::DockerLogStreamManager;
 use known_hosts::{KnownHostsStore, PendingConflicts};
-use metrics::stream::MetricsStreamManager;
-use processes::stream::ProcessStreamManager;
-use port_forward::PortForwardManager;
-use serial::connect::SerialSessionManager;
-use std::sync::{Arc, Mutex};
 use local::session::LocalSessionManager;
+use metrics::stream::MetricsStreamManager;
+use port_forward::PortForwardManager;
+use processes::stream::ProcessStreamManager;
+use serial::connect::SerialSessionManager;
 use sftp::SftpManager;
 use ssh::session::SessionManager;
+use std::sync::{Arc, Mutex};
 use storage::secrets::SecretsStore;
 
 #[cfg(desktop)]
@@ -31,7 +33,10 @@ struct PendingUpdate(Mutex<Option<(tauri_plugin_updater::Update, Vec<u8>)>>);
 #[cfg(desktop)]
 fn update_cache_dir(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     use tauri::Manager;
-    app.path().app_data_dir().ok().map(|d| d.join("pending_update"))
+    app.path()
+        .app_data_dir()
+        .ok()
+        .map(|d| d.join("pending_update"))
 }
 
 #[cfg(desktop)]
@@ -77,7 +82,12 @@ async fn check_for_update(handle: tauri::AppHandle) {
     let updater = match handle.updater_builder().build() {
         Ok(u) => u,
         Err(e) => {
-            let _ = handle.emit("updater-status", UpdaterEvent::Error { message: e.to_string() });
+            let _ = handle.emit(
+                "updater-status",
+                UpdaterEvent::Error {
+                    message: e.to_string(),
+                },
+            );
             return;
         }
     };
@@ -89,7 +99,12 @@ async fn check_for_update(handle: tauri::AppHandle) {
             return;
         }
         Err(e) => {
-            let _ = handle.emit("updater-status", UpdaterEvent::Error { message: e.to_string() });
+            let _ = handle.emit(
+                "updater-status",
+                UpdaterEvent::Error {
+                    message: e.to_string(),
+                },
+            );
             return;
         }
     };
@@ -109,7 +124,13 @@ async fn check_for_update(handle: tauri::AppHandle) {
     }
     clear_update_cache(&handle);
 
-    let _ = handle.emit("updater-status", UpdaterEvent::Downloading { version: version.clone(), progress: 0 });
+    let _ = handle.emit(
+        "updater-status",
+        UpdaterEvent::Downloading {
+            version: version.clone(),
+            progress: 0,
+        },
+    );
 
     let mut downloaded: u64 = 0;
     let mut total: u64 = 0;
@@ -130,7 +151,10 @@ async fn check_for_update(handle: tauri::AppHandle) {
                 };
                 let _ = handle_clone.emit(
                     "updater-status",
-                    UpdaterEvent::Downloading { version: version_clone.clone(), progress },
+                    UpdaterEvent::Downloading {
+                        version: version_clone.clone(),
+                        progress,
+                    },
                 );
             },
             || {},
@@ -139,7 +163,12 @@ async fn check_for_update(handle: tauri::AppHandle) {
     {
         Ok(b) => b,
         Err(e) => {
-            let _ = handle.emit("updater-status", UpdaterEvent::Error { message: e.to_string() });
+            let _ = handle.emit(
+                "updater-status",
+                UpdaterEvent::Error {
+                    message: e.to_string(),
+                },
+            );
             return;
         }
     };
@@ -205,7 +234,8 @@ pub fn run() {
                     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                     check_for_update(handle.clone()).await;
                     // Re-check every 4 hours while the app is running
-                    let mut interval = tokio::time::interval(std::time::Duration::from_secs(4 * 60 * 60));
+                    let mut interval =
+                        tokio::time::interval(std::time::Duration::from_secs(4 * 60 * 60));
                     interval.tick().await; // consume the immediate first tick
                     loop {
                         interval.tick().await;
@@ -309,6 +339,10 @@ pub fn run() {
             commands::http::http_request,
             commands::http::http_sse_start,
             commands::http::http_sse_stop,
+            commands::termius::termius_extract,
+            commands::termius::termius_extract_debug,
+            commands::termius::termius_extract_leveldb_keys,
+            commands::mobaxterm::mobaxterm_extract,
             commands::fs::fs_home_dir,
             commands::fs::fs_list_dir,
             commands::fs::fs_read_text_home,
@@ -319,6 +353,7 @@ pub fn run() {
             commands::fs::fs_rename,
             commands::fs::fs_delete,
             commands::fs::fs_touch,
+            commands::fs::fs_copy,
             commands::fs::fs_compress,
             commands::fs::fs_extract,
             commands::sftp::sftp_cancel_transfer,
@@ -392,15 +427,34 @@ pub fn run() {
             commands::docker::docker_list_networks,
             commands::docker::docker_container_action,
             commands::docker::docker_start_log_stream,
+            commands::docker::docker_start_stack_log_stream,
             commands::docker::docker_stop_log_stream,
             commands::docker::docker_remove_image,
+            commands::docker::docker_check_image_update,
+            commands::docker::docker_pull_image,
+            commands::docker::docker_update_image,
+            commands::docker::docker_recreate_image_containers,
+            commands::docker::docker_container_run_command,
+            commands::docker::docker_stack_update,
             commands::docker::docker_remove_volume,
             commands::docker::docker_remove_network,
             commands::docker::docker_prune_images,
             commands::docker::docker_prune_volumes,
             commands::docker::docker_prune_networks,
             commands::docker::docker_system_prune,
+            commands::docker::docker_list_stacks,
+            commands::docker::docker_list_stack_services,
+            commands::docker::docker_stack_action,
             commands::docker::docker_open_exec_session,
+            commands::docker::docker_sftp_open,
+            commands::proxmox::proxmox_lxc_list,
+            commands::proxmox::proxmox_lxc_action,
+            commands::proxmox::proxmox_lxc_list_snapshots,
+            commands::proxmox::proxmox_lxc_snapshot_create,
+            commands::proxmox::proxmox_lxc_snapshot_rollback,
+            commands::proxmox::proxmox_lxc_snapshot_delete,
+            commands::proxmox::proxmox_lxc_open_shell,
+            commands::proxmox::proxmox_lxc_sftp_open,
             serial::connect::serial_list_ports,
             serial::connect::serial_connect,
             serial::connect::serial_write,

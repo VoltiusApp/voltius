@@ -69,6 +69,7 @@ async fn ping_via_chain(
         &first.username,
         first.password.as_deref(),
         first.private_key.as_deref(),
+        first.passphrase.as_deref(),
     )
     .await
     .is_err()
@@ -99,6 +100,7 @@ async fn ping_via_chain(
             &jump.username,
             jump.password.as_deref(),
             jump.private_key.as_deref(),
+            jump.passphrase.as_deref(),
         )
         .await
         .is_err()

@@ -87,8 +87,8 @@ export function useListKeyNav({
 
   // Check if keyboard input should be blocked
   const isBlocked = useCallback((e: KeyboardEvent): boolean => {
-    const { omniOpen, settingsOpen, shortcutsOpen, importExportModal } = useUIStore.getState();
-    if (omniOpen || settingsOpen || shortcutsOpen || importExportModal?.open) return true;
+    const { omniOpen, settingsOpen, importExportModal } = useUIStore.getState();
+    if (omniOpen || settingsOpen || importExportModal?.open) return true;
     const target = e.target as HTMLElement;
     if (target.closest("input, textarea, [contenteditable]")) return true;
     if (document.querySelector("[role='dialog']")) return true;

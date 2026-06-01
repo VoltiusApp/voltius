@@ -2,13 +2,15 @@ import { invoke } from "@tauri-apps/api/core";
 import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
+import { useToggleSettingsStore, TOGGLE_DEFS, type ToggleId } from "@/stores/toggleSettingsStore";
 import { useAppSettingsTimestampStore } from "@/stores/appSettingsTimestampStore";
 import type { UserDataHandler } from "../handler";
 
 interface AppSettingsData {
-  sftp?: { autoRefreshEnabled: boolean; autoRefreshIntervalMs: number; tarTransferEnabled: boolean };
+  sftp?: { autoRefreshIntervalMs: number };
   terminal?: { preferredShell: string | null };
   plugins?: { overrides: Record<string, boolean> };
+  toggles?: Partial<Record<string, boolean>>;
 }
 
 export const appSettingsHandler: UserDataHandler = {
@@ -20,14 +22,12 @@ export const appSettingsHandler: UserDataHandler = {
     const sftp = useSftpSettingsStore.getState();
     const terminal = useTerminalSettingsStore.getState();
     const plugins = usePluginRegistryStore.getState();
+    const { values } = useToggleSettingsStore.getState();
     return {
-      sftp: {
-        autoRefreshEnabled: sftp.autoRefreshEnabled,
-        autoRefreshIntervalMs: sftp.autoRefreshIntervalMs,
-        tarTransferEnabled: sftp.tarTransferEnabled,
-      },
+      sftp: { autoRefreshIntervalMs: sftp.autoRefreshIntervalMs },
       terminal: { preferredShell: terminal.preferredShell },
       plugins: { overrides: plugins.overrides },
+      toggles: { ...values },
     };
   },
 
@@ -35,9 +35,7 @@ export const appSettingsHandler: UserDataHandler = {
     const d = data as Partial<AppSettingsData>;
     if (d.sftp) {
       const s = useSftpSettingsStore.getState();
-      if (d.sftp.autoRefreshEnabled != null) s.setAutoRefreshEnabled(d.sftp.autoRefreshEnabled);
       if (d.sftp.autoRefreshIntervalMs != null) s.setAutoRefreshIntervalMs(d.sftp.autoRefreshIntervalMs);
-      if (d.sftp.tarTransferEnabled != null) s.setTarTransferEnabled(d.sftp.tarTransferEnabled);
     }
     if (d.terminal) {
       useTerminalSettingsStore.getState().setPreferredShell(d.terminal.preferredShell ?? null);
@@ -46,6 +44,12 @@ export const appSettingsHandler: UserDataHandler = {
       const overrides = d.plugins.overrides;
       usePluginRegistryStore.setState({ overrides });
       await invoke("plugin_registry_save", { overrides }).catch(() => {});
+    }
+    if (d.toggles) {
+      const { set } = useToggleSettingsStore.getState();
+      for (const [id, value] of Object.entries(d.toggles)) {
+        if (id in TOGGLE_DEFS && value != null) set(id as ToggleId, value);
+      }
     }
   },
 

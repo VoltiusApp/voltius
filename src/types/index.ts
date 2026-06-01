@@ -9,6 +9,7 @@ export interface Folder {
   vault_id?: string;
   color?: string;
   icon?: string;
+  pinned?: boolean;
   updated_at: string;
   deleted_at?: string;
   clocks: Record<string, string>;
@@ -21,6 +22,7 @@ export interface FolderFormData {
   vault_id?: string;
   color?: string;
   icon?: string;
+  pinned?: boolean;
 }
 
 export interface SshKey {
@@ -73,10 +75,15 @@ export interface IdentityFormData {
 
 export interface JumpHost {
   id: string;
+  // Live reference to a managed connection. Host/port/username/credentials are
+  // resolved dynamically from this connection at use time — see resolveJumpHosts.
   connection_id: string;
-  host: string;
-  port: number;
-  username: string;
+  // Snapshot fields, kept only as a fallback when the referenced connection is
+  // missing (deleted) or for jump hosts imported from external formats (e.g.
+  // Termius) that have no managed connection. Not written for managed references.
+  host?: string;
+  port?: number;
+  username?: string;
   identity_id?: string;
 }
 
@@ -99,6 +106,7 @@ export interface Connection {
   distro?: string;
   icon?: string;
   identity_id?: string;
+  key_id?: string;
   folder_id?: string;
   vault_id?: string;
   jump_hosts?: JumpHost[];
@@ -109,6 +117,7 @@ export interface Connection {
   terminal_encoding?: string;
   pinned?: boolean;
   ping_disabled?: boolean;
+  shell_integration_disabled?: boolean;
   connection_type?: "ssh" | "serial";
   serial_port?: string;
   serial_baud?: number;
@@ -129,6 +138,7 @@ export interface ConnectionFormData {
   auth_type?: AuthType;
   tags: string[];
   identity_id?: string;
+  key_id?: string;
   folder_id?: string;
   vault_id?: string;
   jump_hosts?: JumpHost[];
@@ -141,6 +151,7 @@ export interface ConnectionFormData {
   icon?: string;
   pinned?: boolean;
   ping_disabled?: boolean;
+  shell_integration_disabled?: boolean;
   connection_type?: "ssh" | "serial";
   serial_port?: string;
   serial_baud?: number;
@@ -183,6 +194,9 @@ export interface TerminalSession {
   encoding?: string;
   localShell?: string;
   serialConfig?: SerialConnectParams;
+  containerExec?:
+    | { kind: "docker"; containerId: string; parentSessionId: string }
+    | { kind: "lxc"; vmid: number; parentSessionId: string };
 }
 
 /** A vault option for context menu move/copy actions. id is the stored team ID or "personal". */

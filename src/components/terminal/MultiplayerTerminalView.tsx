@@ -3,6 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { useThemeStore } from "@/stores/themeStore";
+import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import "@xterm/xterm/css/xterm.css";
 
@@ -24,11 +25,13 @@ export default function MultiplayerTerminalView({ localSessionId, active }: Prop
       containerRef.current = container;
 
       const activeTheme = useThemeStore.getState().getActiveTheme();
+      const scrollback = useTerminalSettingsStore.getState().scrollbackLines;
       const term = new Terminal({
         cursorBlink: true,
         cursorStyle: "bar",
         fontSize: activeTheme.terminalFontSize,
         fontFamily: activeTheme.terminalFontFamily,
+        scrollback,
         theme: activeTheme.terminal,
         allowProposedApi: true,
       });

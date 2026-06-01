@@ -4,6 +4,7 @@ import { useVaultStore } from "@/stores/vaultStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
+import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import type { Connection } from "@/types";
 
 const HOSTS_PER_VAULT = 6;
@@ -14,10 +15,13 @@ function displayName(c: Connection): string {
   return `${c.username}@${c.host}`;
 }
 
-function topHosts(connections: Connection[]): Connection[] {
-  const pinned = connections.filter((c) => c.pinned);
+function topHosts(
+  connections: Connection[],
+  isPinned: (c: Connection) => boolean,
+): Connection[] {
+  const pinned = connections.filter((c) => isPinned(c));
   const rest = connections
-    .filter((c) => !c.pinned)
+    .filter((c) => !isPinned(c))
     .sort((a, b) => (b.last_used_at ?? "").localeCompare(a.last_used_at ?? ""));
   return [...pinned, ...rest].slice(0, HOSTS_PER_VAULT);
 }
@@ -99,11 +103,12 @@ export function VaultsOverview() {
     setActiveNav("terminal" as any);
   };
 
+  const isPinnedFn = useEffectivePinnedPredicate();
   const sections = vaults.map((vault) => {
     const vaultConns = connections.filter((c) => (c.vault_id ?? "personal") === vault.id);
     return {
       vault,
-      hosts: topHosts(vaultConns),
+      hosts: topHosts(vaultConns, (c) => isPinnedFn(c, "connection")),
       totalHosts: vaultConns.length,
     };
   });

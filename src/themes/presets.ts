@@ -30,7 +30,7 @@ export const BUILT_IN_THEMES: AppTheme[] = [
       textSecondary: "#7A8FA6",
       textPrimary: "#C5D4E8",
       textBright: "#E2EBF8",
-      accent: "#5fe2f7",
+      accent: "#57c7d8",
       accentHover: "#5fe2f7",
       tabBg: "#0f1823",
       tabActiveBg: "#5ffff226",

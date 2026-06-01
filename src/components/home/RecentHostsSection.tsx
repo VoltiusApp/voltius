@@ -4,14 +4,18 @@ import { useAllConnections } from "@/hooks/useAllConnections";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { DashboardHostCard } from "./DashboardHostCard";
+import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import type { Connection } from "@/types";
 
 const PAGE_SIZE = 6;
 
-function selectHosts(connections: Connection[]): Connection[] {
-  const pinned = connections.filter((c) => c.pinned);
+function selectHosts(
+  connections: Connection[],
+  isPinned: (c: Connection) => boolean,
+): Connection[] {
+  const pinned = connections.filter((c) => isPinned(c));
   const used = connections
-    .filter((c) => !c.pinned && c.last_used_at)
+    .filter((c) => !isPinned(c) && c.last_used_at)
     .sort((a, b) => (b.last_used_at ?? "").localeCompare(a.last_used_at ?? ""));
   return [...pinned, ...used];
 }
@@ -31,7 +35,8 @@ export function RecentHostsSection({ onSeeAll }: Props) {
     setActiveNav("terminal" as any);
   };
 
-  const hosts = selectHosts(connections);
+  const isPinnedFn = useEffectivePinnedPredicate();
+  const hosts = selectHosts(connections, (c) => isPinnedFn(c, "connection"));
   if (hosts.length === 0) return null;
 
   const totalPages = Math.ceil(hosts.length / PAGE_SIZE);
@@ -104,7 +109,7 @@ export function RecentHostsSection({ onSeeAll }: Props) {
               key={i}
               className="w-1.5 h-1.5 rounded-full transition-all"
               style={{
-                background: i === page ? "var(--t-accent)" : "var(--t-border-hover)",
+                background: i === page ? "var(--t-accent)" : "var(--t-text-dim)",
                 opacity: i === page ? 1 : 0.5,
               }}
               onClick={() => setPage(i)}

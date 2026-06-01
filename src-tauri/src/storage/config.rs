@@ -17,9 +17,16 @@ fn default_ssh() -> String {
 pub struct JumpHost {
     pub id: String,
     pub connection_id: String,
-    pub host: String,
-    pub port: u16,
-    pub username: String,
+    // Snapshot fields, optional. Host/port/username/credentials are resolved
+    // dynamically from `connection_id` at use time; these remain only as a
+    // fallback for deleted connections or jump hosts imported from external
+    // formats that have no managed connection.
+    #[serde(default)]
+    pub host: Option<String>,
+    #[serde(default)]
+    pub port: Option<u16>,
+    #[serde(default)]
+    pub username: Option<String>,
     #[serde(default)]
     pub identity_id: Option<String>,
 }
@@ -42,6 +49,8 @@ pub struct Folder {
     pub object_type: String,
     #[serde(default = "default_personal")]
     pub vault_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pinned: Option<bool>,
     pub updated_at: String,
     pub deleted_at: Option<String>,
     /// Per-field LWW clocks: field_name → RFC3339 timestamp of last write.
@@ -58,6 +67,8 @@ pub struct FolderFormData {
     pub object_type: String,
     #[serde(default)]
     pub vault_id: Option<String>,
+    #[serde(default)]
+    pub pinned: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -83,6 +94,8 @@ pub struct Connection {
     #[serde(default)]
     pub identity_id: Option<String>,
     #[serde(default)]
+    pub key_id: Option<String>,
+    #[serde(default)]
     pub folder_id: Option<String>,
     #[serde(default = "default_personal")]
     pub vault_id: String,
@@ -102,6 +115,8 @@ pub struct Connection {
     pub pinned: bool,
     #[serde(default)]
     pub ping_disabled: bool,
+    #[serde(default)]
+    pub shell_integration_disabled: bool,
     #[serde(default = "default_ssh")]
     pub connection_type: String,
     #[serde(default)]
@@ -138,6 +153,8 @@ pub struct ConnectionFormData {
     #[serde(default)]
     pub identity_id: Option<String>,
     #[serde(default)]
+    pub key_id: Option<String>,
+    #[serde(default)]
     pub folder_id: Option<String>,
     /// None = keep existing vault on update, defaults to "personal" on create
     #[serde(default)]
@@ -162,6 +179,8 @@ pub struct ConnectionFormData {
     pub pinned: bool,
     #[serde(default)]
     pub ping_disabled: bool,
+    #[serde(default)]
+    pub shell_integration_disabled: bool,
     #[serde(default = "default_ssh")]
     pub connection_type: String,
     #[serde(default)]

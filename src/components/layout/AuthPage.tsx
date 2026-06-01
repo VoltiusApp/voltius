@@ -8,43 +8,6 @@ import {
 } from "@/services/account";
 import { useNotificationStore } from "@/stores/notificationStore";
 
-function ForgotPasswordModal({ onClose }: { onClose: () => void }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="w-80 rounded-xl p-5 shadow-2xl bg-[var(--t-bg-terminal)] border border-[var(--t-border)] space-y-3"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-[var(--t-text-primary)]">Forgot password?</h2>
-          <button
-            onClick={onClose}
-            className="text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors"
-          >
-            <Icon icon="lucide:x" width={14} />
-          </button>
-        </div>
-        <p className="text-xs leading-relaxed text-[var(--t-text-muted)]">
-          Voltius encrypts your vault end-to-end with your master password. We do not store it
-          and cannot reset it.
-        </p>
-        <p className="text-xs leading-relaxed text-[var(--t-text-muted)]">
-          If you've lost access, your data cannot be recovered — you'll need to delete your
-          account and start over. Self-service account deletion is coming in a future update.
-        </p>
-        <button
-          onClick={onClose}
-          className="w-full py-1.5 rounded-lg text-sm font-medium text-white bg-[var(--t-accent)]"
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  );
-}
 
 type View = "home" | "cloud";
 type CloudMode = "signup" | "signin";
@@ -61,7 +24,6 @@ export default function AuthPage({ isLocked, onReady }: Props) {
   const [cloudMode, setCloudMode] = useState<CloudMode>("signup");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -100,7 +62,6 @@ export default function AuthPage({ isLocked, onReady }: Props) {
     };
     return (
       <Layout>
-        {showForgotPassword && <ForgotPasswordModal onClose={() => setShowForgotPassword(false)} />}
         <p className="text-xs mb-4 text-center text-[var(--t-text-muted)]">
           Enter your master password to unlock
         </p>
@@ -110,13 +71,6 @@ export default function AuthPage({ isLocked, onReady }: Props) {
           <ErrorMsg msg={error} />
           <SubmitBtn loading={loading} label="Unlock" />
         </form>
-        <button
-          type="button"
-          onClick={() => setShowForgotPassword(true)}
-          className="mt-2 text-xs w-full text-center transition-colors text-[var(--t-text-dim)] hover:text-[var(--t-text-muted)]"
-        >
-          Forgot password?
-        </button>
         <button
           type="button"
           onClick={async () => {
@@ -196,7 +150,6 @@ export default function AuthPage({ isLocked, onReady }: Props) {
 
     return (
       <Layout onBack={() => reset("home")}>
-        {showForgotPassword && <ForgotPasswordModal onClose={() => setShowForgotPassword(false)} />}
         <p className="text-xs mb-4 text-center text-[var(--t-text-muted)]">
           {isSignup ? "Create an account to sync across devices" : "Sign in to restore your synced data"}
         </p>
@@ -247,18 +200,6 @@ export default function AuthPage({ isLocked, onReady }: Props) {
             </>
           )}
         </div>
-
-        {!isSignup && (
-          <div className="mt-2 text-center">
-            <button
-              type="button"
-              onClick={() => setShowForgotPassword(true)}
-              className="text-xs transition-colors text-[var(--t-text-dim)] hover:text-[var(--t-text-muted)]"
-            >
-              Forgot password?
-            </button>
-          </div>
-        )}
 
         {isSignup && (
           <p className="mt-2 text-xs text-center text-[var(--t-text-dim)] leading-relaxed">

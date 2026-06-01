@@ -1,6 +1,6 @@
 [package]
 name = "voltius-crypto"
-version = "0.2.0"
+version = "0.4.0"
 edition = "2021"
 description = "Shared pure-Rust crypto primitives for Voltius"
 license = "AGPL-3.0"
@@ -12,4 +12,4 @@ sha2 = "0.10"
 rand = "0.8"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
 base64 = "0.22"
-aes-gcm = "0.10"
+chacha20poly1305 = { version = "0.10", features = ["rand_core"] }

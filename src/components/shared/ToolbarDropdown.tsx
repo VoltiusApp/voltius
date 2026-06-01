@@ -8,11 +8,9 @@ export interface DropdownOption<T extends string> {
   icon?: string;
 }
 
-export interface ActionItem {
-  label: string;
-  icon?: string;
-  onClick: () => void;
-}
+export type ActionItem =
+  | { separator: true; label?: never; icon?: never; onClick?: never }
+  | { separator?: false; label: string; icon?: string; onClick: () => void };
 
 interface BaseProps<T extends string> {
   icon: string;
@@ -134,15 +132,19 @@ export function ToolbarDropdown<T extends string>({
       )}
       <div className="p-1.5 flex flex-col overflow-y-auto max-h-64">
         {items
-          ? menuItems.map((item) => (
-              <DropdownMenuItem
-                key={item.label}
-                icon={item.icon}
-                label={item.label}
-                iconSize={15}
-                onClick={() => { item.onClick(); setOpen(false); }}
-              />
-            ))
+          ? menuItems.map((item, idx) =>
+              item.separator
+                ? <div key={idx} className="my-1 h-px mx-1" style={{ background: "var(--t-border)" }} />
+                : (
+                  <DropdownMenuItem
+                    key={item.label}
+                    icon={item.icon}
+                    label={item.label}
+                    iconSize={15}
+                    onClick={() => { item.onClick(); setOpen(false); }}
+                  />
+                )
+            )
           : filteredOptions.length > 0
             ? filteredOptions.map((opt) => (
                 <DropdownMenuItem

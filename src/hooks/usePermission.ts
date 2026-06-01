@@ -20,7 +20,8 @@ export type Permission =
   | "START_TERMINAL_SESSION"
   | "JOIN_TERMINAL_SESSION"
   | "VIEW_TERMINAL_SESSIONS"
-  | "MANAGE_ROLES";
+  | "MANAGE_ROLES"
+  | "EDIT_SNIPPETS";
 
 // Bitmask values for each permission — must stay in sync with server/src/permissions.rs
 export const PERM_BITS: Record<Permission, number> = {
@@ -40,6 +41,7 @@ export const PERM_BITS: Record<Permission, number> = {
   JOIN_TERMINAL_SESSION:  1 << 13,  //  8192
   VIEW_TERMINAL_SESSIONS: 1 << 14,  // 16384
   MANAGE_ROLES:           1 << 15,  // 32768
+  EDIT_SNIPPETS:          1 << 16,  // 65536
 };
 
 /** OR together all permission bits for a member's assigned roles. */
@@ -110,9 +112,9 @@ export function usePermissions(): (permission: Permission, vaultId: string) => b
     const fakeMember: TeamMember = {
       team_id: teamId,
       user_id: myUserId,
-      email: "",
+      display_name: "",
       public_key: "",
-      invited_by_email: null,
+      invited_by_display_name: null,
       joined_at: "",
       role_ids: myTeam.role_ids,
     };

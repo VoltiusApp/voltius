@@ -63,8 +63,9 @@ export default function TitleBar() {
 
   const gistPluginEnabled = usePluginRegistryStore((s) => s.isEnabled("plugin-gist-sync", false));
   const accountMode = useSubscriptionStore((s) => s.accountMode);
+  const isPro = useSubscriptionStore((s) => s.isPro);
 
-  const voltiusConfigured = accountMode === "server";
+  const voltiusConfigured = accountMode === "server" && isPro;
   const gistConfigured = gistPluginEnabled && gistSyncState.configured;
   const showVoltiusState = voltiusConfigured || !gistConfigured;
   const effectiveConfigured = voltiusConfigured || gistConfigured;
@@ -113,6 +114,14 @@ export default function TitleBar() {
   useEffect(() => {
     syncTitlebarOrder(visibleItemKeys);
   }, [syncTitlebarOrder, visibleItemKeys.join("|")]);
+
+  // Ensure the user never gets stuck on an empty terminal view.
+  // When all sessions are gone, fall back to Vaults.
+  useEffect(() => {
+    if (sessions.length === 0 && activeNav === ("terminal" as any)) {
+      setActiveNav("hosts");
+    }
+  }, [sessions.length, activeNav, setActiveNav]);
 
   const handleTabClick = (sessionId: string) => {
     if (shouldSuppressDragClick()) return;
@@ -310,7 +319,7 @@ export default function TitleBar() {
                     border: isActiveSplitTab ? "1px solid var(--t-tab-active-border)" : "1px solid transparent",
                   }}
                 >
-                  <Icon icon="lucide:panel-top-open" width={18} />
+                  <Icon icon="lucide:layout-dashboard" width={18} />
                   <span className="max-w-[140px] truncate">
                     {tabActiveSession?.connectionName ?? "Split"}{tabSessionIds.length > 1 ? ` + ${tabSessionIds.length - 1}` : ""}
                   </span>
@@ -318,6 +327,8 @@ export default function TitleBar() {
                     onClick={(e) => handleUnifiedTabClose(e, tab.id)}
                     className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5"
                     style={{ color: isActiveSplitTab ? "var(--t-tab-active-text)" : "var(--t-text-muted)" }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--t-status-error)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = isActiveSplitTab ? "var(--t-tab-active-text)" : "var(--t-text-muted)"; }}
                   >
                     <span className="[&_path]:[stroke-width:2.1]"><Icon icon="lucide:x" width={20} /></span>
                   </span>
@@ -336,7 +347,7 @@ export default function TitleBar() {
                                               "var(--t-text-muted)";
           const connection = connections.find((c) => c.id === session.connectionId);
           const isLocal = session.type === "local";
-          const connectionIcon = !isActive && !isLocal && connection ? (connection.icon || connection.distro) : null;
+          const connectionIcon = !isLocal && connection ? (connection.icon || connection.distro) : null;
           const distroIcon = connectionIcon ? getConnectionIcon(connectionIcon) : null;
           const distroBg = connectionIcon ? getConnectionIconColor(connectionIcon) : null;
 
@@ -386,10 +397,7 @@ export default function TitleBar() {
                 ) : (
                   <span
                     className="w-2 h-2 rounded-full shrink-0"
-                    style={{
-                      background: isActive ? "var(--t-tab-active-text)" : statusColor,
-                      opacity: isActive ? 0.8 : 1,
-                    }}
+                    style={{ background: statusColor }}
                   />
                 )}
                 <span className="max-w-[140px] truncate">{session.connectionName}</span>
@@ -397,7 +405,8 @@ export default function TitleBar() {
                   onClick={(e) => handleTabClose(e, session.id)}
                   className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5"
                   style={{ color: isActive ? "var(--t-tab-active-text)" : "var(--t-text-muted)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; (e.currentTarget as HTMLElement).style.color = "var(--t-status-error)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = isActive ? "var(--t-tab-active-text)" : "var(--t-text-muted)"; }}
                 >
                   <span className="[&_path]:[stroke-width:2.1]">
                   <Icon icon="lucide:x" width={20} />
@@ -443,7 +452,7 @@ export default function TitleBar() {
       />
 
       {/* Update indicator */}
-      {(updaterState.status === "checking" || updaterState.status === "downloading" || updaterState.status === "ready") && (
+      {(updaterState.status === "downloading" || updaterState.status === "ready") && (
         <UpdateIndicator state={updaterState} />
       )}
 
@@ -523,6 +532,7 @@ export default function TitleBar() {
               onClose={() => setShareDropdownOpen(false)}
               activeSessionId={activeSessionId}
               connectionName={activeSession?.connectionName ?? "Terminal"}
+              connectionVaultId={connections.find((c) => c.id === activeSession?.connectionId)?.vault_id}
               isLoggedIn={accountMode === "server"}
               tier={tier}
               onSignIn={() => { setShareDropdownOpen(false); openCloudAuth("signin"); }}
@@ -536,7 +546,7 @@ export default function TitleBar() {
       {showTerminal && (
         <div className="flex items-center px-2 shrink-0">
           <button
-            onClick={() => toggleRightPanel("themes")}
+            onClick={() => toggleRightPanel()}
             className="p-1.5 rounded-md transition-all"
             style={{
               background: rightPanelOpen ? "var(--t-tab-active-bg)" : "transparent",

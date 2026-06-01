@@ -608,7 +608,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
 
         <p className="text-sm text-[var(--t-text-dim)] -mt-4">
           Sync your data across devices via encrypted GitHub Gist — no Voltius account required.
-          Data is AES-256-GCM encrypted client-side before upload.
+          Data is XChaCha20-Poly1305 encrypted client-side before upload.
         </p>
 
         {error && (

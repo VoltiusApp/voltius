@@ -48,13 +48,19 @@ export const snippetsHandler: DataTypeHandler = {
 
   async importItems(bundle: ExportBundle, ctx: ImportCtx) {
     let imported = 0; let errors = 0;
+    const existingNames = new Set(
+      ctx.existingSnippets
+        .filter(s => !s.deleted_at && (s.vault_id ?? "personal") === ctx.vault_id)
+        .map(s => s.name),
+    );
     for (const snippet of bundle.snippets) {
+      if (ctx.skipDupes && existingNames.has(snippet.name)) continue;
       try {
         await ctx.stores.createSnippet({
           name: snippet.name,
           content: snippet.content,
           description: snippet.description,
-          tags: snippet.tags,
+          tags: ctx.tag ? [...snippet.tags, ctx.tag] : snippet.tags,
           favorite: snippet.favorite,
           only_for_connection_tags: snippet.only_for_connection_tags,
           only_for_distros: snippet.only_for_distros,

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
@@ -18,6 +19,12 @@ import type { Connection, TerminalSession, SshKey, Identity, Snippet } from "@/t
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { SETTINGS_NAV } from "@/components/settings/settingsNav";
 import { useShortcutStore, formatShortcut } from "@/stores/shortcutStore";
+import { useVaultStore } from "@/stores/vaultStore";
+import { useTeamStore } from "@/stores/teamStore";
+import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import type { ActiveSession } from "@/stores/teamSessionStore";
+import { getCurrentUserEmail } from "@/services/account";
+import { useToggleSettings } from "@/hooks/useToggleSettings";
 
 interface OmniSearchProps {
   onClose: () => void;
@@ -29,22 +36,26 @@ type OmniItem =
   | { kind: "key"; key: SshKey }
   | { kind: "identity"; identity: Identity }
   | { kind: "action"; id: string; label: string; icon: string; description?: string; keybinding?: string }
-  | { kind: "snippet"; snippet: Snippet };
+  | { kind: "snippet"; snippet: Snippet }
+  | { kind: "team-session"; session: ActiveSession; alreadyIn: boolean }
+  | { kind: "toggle"; id: string; label: string; icon: string; description?: string; keywords?: string[]; value: boolean; onToggle: (v: boolean) => void };
 
-type Category = "all" | "snippets" | "marketplace" | "settings" | "ssh";
+type Category = "all" | "snippets" | "marketplace" | "settings" | "ssh" | "join";
 
 const CATEGORY_BADGES: { category: Category; prefix: string; label: string }[] = [
-  { category: "all",         prefix: "",    label: "All" },
-  { category: "snippets",    prefix: "> ",  label: "> Snippets" },
-  { category: "marketplace", prefix: "m> ", label: "m> Marketplace" },
-  { category: "settings",    prefix: "@ ",  label: "@ Settings" },
+  { category: "all",         prefix: "",      label: "All" },
+  { category: "join",        prefix: "join ", label: "join> Sessions" },
+  { category: "snippets",    prefix: "> ",    label: "> Snippets" },
+  { category: "marketplace", prefix: "m> ",   label: "m> Marketplace" },
+  { category: "settings",    prefix: "@ ",    label: "@ Settings" },
 ];
 
 function detectCategory(raw: string): { category: Category; query: string } {
-  if (raw.startsWith("m> "))  return { category: "marketplace", query: raw.slice(3) };
-  if (raw.startsWith("> "))   return { category: "snippets",    query: raw.slice(2) };
-  if (raw.startsWith("@ "))   return { category: "settings",    query: raw.slice(2) };
-  if (raw.startsWith("ssh ")) return { category: "ssh",         query: raw.slice(4) };
+  if (raw.startsWith("m> "))   return { category: "marketplace", query: raw.slice(3) };
+  if (raw.startsWith("> "))    return { category: "snippets",    query: raw.slice(2) };
+  if (raw.startsWith("@ "))    return { category: "settings",    query: raw.slice(2) };
+  if (raw.startsWith("ssh "))  return { category: "ssh",         query: raw.slice(4) };
+  if (raw.startsWith("join ")) return { category: "join",        query: raw.slice(5) };
   return { category: "all", query: raw };
 }
 
@@ -87,6 +98,26 @@ function HostAvatar({ connection, size = 28 }: { connection: Connection; size?: 
   );
 }
 
+function VaultBadge({ vaultId, vaults, teams }: { vaultId: string | undefined; vaults: import("@/stores/vaultStore").Vault[]; teams: import("@/stores/teamStore").Team[] }) {
+  const effectiveId = vaultId ?? "personal";
+  const vault = vaults.find((v) => v.id === effectiveId || v.teamId === effectiveId);
+  const team = !vault ? teams.find((t) => t.id === effectiveId) : undefined;
+  const name = vault?.name ?? team?.name ?? "Personal";
+  const isPersonal = effectiveId === "personal";
+  return (
+    <span
+      className="shrink-0 flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded border"
+      style={isPersonal
+        ? { background: "var(--t-bg-elevated)", color: "var(--t-text-muted)", borderColor: "var(--t-border)" }
+        : { background: "color-mix(in srgb, var(--t-accent) 12%, transparent)", color: "var(--t-accent)", borderColor: "color-mix(in srgb, var(--t-accent) 30%, transparent)" }
+      }
+    >
+      <Icon icon="lucide:vault" width={10} />
+      {name}
+    </span>
+  );
+}
+
 export default function OmniSearch({ onClose }: OmniSearchProps) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
@@ -100,6 +131,14 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const { trackUsed, setGlobalPendingInject } = useSnippetStore();
   const identities = useIdentityStore((s) => s.identities);
   const keys = useKeyStore((s) => s.keys);
+  const vaults = useVaultStore((s) => s.vaults);
+  const teams = useTeamStore((s) => s.teams);
+  const { activeSessions: teamSessions, fetchActiveSessions, joinSession } = useTeamSessionStore();
+  const mpConnections = useTeamSessionStore((s) => s.connections);
+  const myMpSessionIds = useMemo(
+    () => new Set(Object.values(mpConnections).map((c) => c.multiplayerSessionId)),
+    [mpConnections],
+  );
   const omniCommandsMap = usePluginStore((s) => s.omniCommands);
   const pluginCommands = useMemo(() => [...omniCommandsMap.values()], [omniCommandsMap]);
   const shortcuts = useShortcutStore((s) => s.shortcuts);
@@ -128,7 +167,15 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const setHomePendingAction = useUIStore((s) => s.setHomePendingAction);
   const setKeychainPendingAction = useUIStore((s) => s.setKeychainPendingAction);
 
+  // Toggle settings subscriptions
+  const toggleSettings = useToggleSettings();
+  const toggleItems = useMemo<OmniItem[]>(
+    () => toggleSettings.map(({ id, ...d }) => ({ kind: "toggle" as const, id: `toggle:${id}`, ...d })),
+    [toggleSettings],
+  );
+
   useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => { fetchActiveSessions().catch(() => {}); }, [fetchActiveSessions]);
 
   const { category, query: q } = useMemo(() => {
     const parsed = detectCategory(query);
@@ -159,13 +206,17 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
   const items: OmniItem[] = useMemo(() => {
     if (category === "settings") {
-      return settingsItems.filter((a) => {
+      const navItems = settingsItems.filter((a) => {
         if (!q) return true;
         if (a.kind !== "action") return false;
         if (a.label.toLowerCase().includes(q)) return true;
         const navEntry = SETTINGS_NAV.find((n) => `open-settings:${n.id}` === a.id);
         return navEntry?.keywords?.some((k) => k.toLowerCase().includes(q)) ?? false;
       });
+      const filteredToggles = toggleItems.filter((t) =>
+        t.kind === "toggle" && (!q || t.label.toLowerCase().includes(q) || t.keywords?.some((k) => k.toLowerCase().includes(q))),
+      );
+      return [...navItems, ...filteredToggles];
     }
     if (category === "snippets") {
       return snippets
@@ -182,14 +233,30 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       const target = parseSshTarget(q);
       return target ? [{ kind: "ssh-quick" as unknown as "action", id: "", label: "", icon: "", ...target }] : [];
     }
+    if (category === "join") {
+      if (q.includes(":")) {
+        return [{ kind: "join-code" as unknown as "action", id: "", label: "", icon: "", code: q } as OmniItem];
+      }
+      const sessionItems = teamSessions
+        .filter((s) => !q || s.connection_name.toLowerCase().includes(q))
+        .map((s): OmniItem => ({ kind: "team-session", session: s, alreadyIn: myMpSessionIds.has(s.id) }));
+      return [...sessionItems, { kind: "join-code-prompt" as unknown as "action", id: "", label: "", icon: "" } as OmniItem];
+    }
 
     const result: OmniItem[] = [];
 
-    // Active sessions
+    // Active SSH sessions
     result.push(
       ...activeSessions
         .filter((s) => !q || s.connectionName.toLowerCase().includes(q))
         .map((s): OmniItem => ({ kind: "session", session: s, connection: connectionById.get(s.connectionId) })),
+    );
+
+    // Active team sessions
+    result.push(
+      ...teamSessions
+        .filter((s) => !q || s.connection_name.toLowerCase().includes(q))
+        .map((s): OmniItem => ({ kind: "team-session", session: s, alreadyIn: myMpSessionIds.has(s.id) })),
     );
 
     // Recent (only when no query)
@@ -222,6 +289,19 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         .map((i): OmniItem => ({ kind: "identity", identity: i })),
     );
 
+    // Snippets
+    if (q) {
+      result.push(
+        ...snippets
+          .filter((s) =>
+            s.name.toLowerCase().includes(q) ||
+            s.content.toLowerCase().includes(q) ||
+            s.tags.some((t) => t.toLowerCase().includes(q)),
+          )
+          .map((s): OmniItem => ({ kind: "snippet", snippet: s })),
+      );
+    }
+
     // Plugin + core commands
     const filteredPluginCmds = pluginCommands.filter((cmd) => {
       if (!q) return true;
@@ -246,6 +326,15 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       }),
     );
 
+    // Toggle settings (only when query matches — avoids flooding the empty state)
+    if (q) {
+      result.push(
+        ...toggleItems.filter((t) =>
+          t.kind === "toggle" && (t.label.toLowerCase().includes(q) || t.keywords?.some((k) => k.toLowerCase().includes(q))),
+        ),
+      );
+    }
+
     // Settings pages (only when query matches — avoids flooding the empty state)
     if (q) {
       result.push(
@@ -259,7 +348,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     }
 
     return result;
-  }, [category, q, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts]);
+  }, [category, q, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts, teamSessions, myMpSessionIds, toggleItems]);
 
   const clamp = useCallback(
     (idx: number) => Math.max(0, Math.min(idx, items.length - 1)),
@@ -331,6 +420,77 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           const resolved = resolveTemplate(partialTemplate, defaultValues);
           broadcastSnippetInject(activeSession.id, activeSession.type, resolved, true).catch(console.error);
         }
+      } else if (item.kind === "toggle") {
+        item.onToggle(!item.value);
+        // Stay in palette so the user can see the updated state
+      } else if (item.kind === "team-session") {
+        const { session, alreadyIn } = item;
+        if (alreadyIn) {
+          const localId = Object.entries(useTeamSessionStore.getState().connections).find(
+            ([, v]) => v.multiplayerSessionId === session.id,
+          )?.[0];
+          if (localId) {
+            setActive(localId);
+            setActiveNav("terminal" as any);
+          }
+        } else {
+          (async () => {
+            const displayName = (await getCurrentUserEmail()) ?? "Me";
+            const localSessionId = await joinSession(session.id, displayName, () => {});
+            useSessionStore.setState((s) => ({
+              sessions: [
+                ...s.sessions,
+                {
+                  id: localSessionId,
+                  connectionId: session.id,
+                  connectionName: session.connection_name,
+                  status: "connected" as const,
+                  type: "multiplayer" as any,
+                },
+              ],
+              activeSessionId: localSessionId,
+            }));
+            setSidebarOpen(false);
+            setActiveNav("terminal" as any);
+          })().catch(console.error);
+        }
+        onClose();
+      } else if ((item as any).kind === "join-code-prompt") {
+        inputRef.current?.focus();
+        setTimeout(() => {
+          if (inputRef.current) {
+            inputRef.current.setSelectionRange(inputRef.current.value.length, inputRef.current.value.length);
+          }
+        }, 0);
+      } else if ((item as any).kind === "join-code") {
+        const code = (item as any).code as string;
+        const colonIdx = code.indexOf(":");
+        if (colonIdx !== -1) {
+          const sessionId = code.slice(0, colonIdx);
+          const token = code.slice(colonIdx + 1);
+          if (sessionId && token) {
+            (async () => {
+              const displayName = (await getCurrentUserEmail()) ?? "Me";
+              const localSessionId = await joinSession(sessionId, displayName, () => {}, token);
+              useSessionStore.setState((s) => ({
+                sessions: [
+                  ...s.sessions,
+                  {
+                    id: localSessionId,
+                    connectionId: sessionId,
+                    connectionName: "Shared Terminal",
+                    status: "connected" as const,
+                    type: "multiplayer" as any,
+                  },
+                ],
+                activeSessionId: localSessionId,
+              }));
+              setSidebarOpen(false);
+              setActiveNav("terminal" as any);
+            })().catch(console.error);
+          }
+        }
+        onClose();
       } else if ((item as any).kind === "ssh-quick") {
         const i = item as any;
         connectDirect({
@@ -353,7 +513,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     },
     [connect, connectDirect, setActive, setActiveNav, onClose, setSidebarOpen,
      openSettings, setHomePendingAction, setKeychainPendingAction, pluginCommands,
-     sessions, connections, trackUsed, setGlobalPendingInject],
+     sessions, connections, trackUsed, setGlobalPendingInject, joinSession],
   );
 
   useEffect(() => {
@@ -382,6 +542,9 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     const activeCount = items.filter((i) => i.kind === "session").length;
     const activeStart = idx; idx += activeCount;
 
+    const teamSessionCount = items.filter((i) => i.kind === "team-session").length;
+    const teamSessionStart = idx; idx += teamSessionCount;
+
     const recentCount = !q ? recentConnections.length : 0;
     const recentStart = idx; idx += recentCount;
 
@@ -394,12 +557,17 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     const identityCount = items.filter((i) => i.kind === "identity").length;
     const identityStart = idx; idx += identityCount;
 
+    const snippetCount = items.filter((i) => i.kind === "snippet").length;
+    const snippetStart = idx; idx += snippetCount;
+
     const settingsCount = items.filter((i) => i.kind === "action" && i.id.startsWith("open-settings:")).length;
     const actionCount = items.filter((i) => i.kind === "action" && !i.id.startsWith("open-settings:")).length;
+    const toggleCount = items.filter((i) => i.kind === "toggle").length;
     const actionStart = idx; idx += actionCount;
+    const toggleStart = idx; idx += toggleCount;
     const settingsStart = idx;
 
-    return { activeStart, activeCount, recentStart, recentCount, hostStart, hostCount, keyStart, keyCount, identityStart, identityCount, actionStart, actionCount, settingsStart, settingsCount };
+    return { activeStart, activeCount, teamSessionStart, teamSessionCount, recentStart, recentCount, hostStart, hostCount, keyStart, keyCount, identityStart, identityCount, snippetStart, snippetCount, actionStart, actionCount, toggleStart, toggleCount, settingsStart, settingsCount };
   }, [category, items, q, recentConnections.length]);
 
   const statusColor = (s: TerminalSession) =>
@@ -438,6 +606,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
             style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
             {item.session.connectionName}
           </span>
+          <VaultBadge vaultId={item.connection?.vault_id} vaults={vaults} teams={teams} />
           <span className="text-xs shrink-0 text-[var(--t-text-dim)]">
             {item.session.status}
           </span>
@@ -463,6 +632,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               {conn.name || `${conn.username}@${conn.host}`}
             </span>
           </div>
+          <VaultBadge vaultId={conn.vault_id} vaults={vaults} teams={teams} />
           <span className="text-xs shrink-0 group-hover/row:hidden text-[var(--t-text-muted)]">
             ssh, {conn.username}
           </span>
@@ -510,6 +680,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               {item.key.name}
             </span>
           </div>
+          <VaultBadge vaultId={item.key.vault_id} vaults={vaults} teams={teams} />
           {item.key.key_type && (
             <span className="text-xs font-mono shrink-0 px-1.5 py-0.5 rounded bg-[var(--t-bg-elevated)] text-[var(--t-accent)]">
               {item.key.key_type}
@@ -538,6 +709,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               {item.identity.name ?? item.identity.username}
             </span>
           </div>
+          <VaultBadge vaultId={item.identity.vault_id} vaults={vaults} teams={teams} />
           <span className="text-xs shrink-0 text-[var(--t-text-muted)]">
             {item.identity.username}
           </span>
@@ -600,11 +772,155 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               {item.snippet.content}
             </p>
           </div>
+          <VaultBadge vaultId={item.snippet.vault_id} vaults={vaults} teams={teams} />
           {item.snippet.tags.length > 0 && (
             <span className="text-[10px] shrink-0 text-[var(--t-text-muted)]">
               {item.snippet.tags[0]}
             </span>
           )}
+        </button>
+      );
+    }
+
+    if (item.kind === "toggle") {
+      const isOn = item.value;
+      return (
+        <button
+          key={`t-${item.id}`}
+          data-idx={idx}
+          onClick={() => item.onToggle(!item.value)}
+          onMouseEnter={() => setSelected(idx)}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+          style={{ background: baseBg }}
+        >
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-toolbar)]">
+            <Icon icon={item.icon} width={13} className="text-[var(--t-text-muted)]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium"
+              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
+              {item.label}
+            </span>
+            {item.description && (
+              <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">{item.description}</p>
+            )}
+          </div>
+          <div
+            className="shrink-0 rounded-full transition-colors"
+            style={{
+              width: "2.4rem",
+              height: "1.333rem",
+              background: isOn ? "var(--t-accent)" : "var(--t-bg-input)",
+              border: "1px solid var(--t-border)",
+              position: "relative",
+            }}
+          >
+            <span
+              className="absolute rounded-full bg-white transition-transform"
+              style={{
+                width: "1.067rem",
+                height: "1.067rem",
+                top: "1px",
+                left: "0.067rem",
+                transform: isOn ? "translateX(1.067rem)" : "translateX(0)",
+              }}
+            />
+          </div>
+        </button>
+      );
+    }
+
+    if (item.kind === "team-session") {
+      const { session, alreadyIn } = item;
+      return (
+        <button
+          key={`ts-${session.id}`}
+          data-idx={idx}
+          onClick={() => selectItem(item)}
+          onMouseEnter={() => setSelected(idx)}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+          style={{ background: baseBg }}
+        >
+          <div
+            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+            style={{ background: "color-mix(in srgb, var(--t-accent) 80%, #000)", color: "#fff" }}
+          >
+            <Icon icon="lucide:radio" width={13} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium truncate"
+              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
+              {session.connection_name}
+            </span>
+          </div>
+          <span className="text-xs shrink-0 text-[var(--t-text-dim)]">
+            {session.participant_count} {session.participant_count === 1 ? "person" : "people"}
+          </span>
+          <span
+            className="text-xs shrink-0 px-1.5 py-0.5 rounded font-medium"
+            style={{
+              background: alreadyIn ? "color-mix(in srgb, var(--t-accent) 20%, transparent)" : "var(--t-bg-elevated)",
+              color: alreadyIn ? "var(--t-accent)" : "var(--t-text-dim)",
+            }}
+          >
+            {alreadyIn ? "Resume" : "Join"}
+          </span>
+        </button>
+      );
+    }
+
+    // join-code-prompt — always visible in join mode to surface the invite code flow
+    const maybeJoin = item as any;
+    if (maybeJoin.kind === "join-code-prompt") {
+      return (
+        <button
+          key="join-code-prompt"
+          data-idx={idx}
+          onClick={() => selectItem(item)}
+          onMouseEnter={() => setSelected(idx)}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+          style={{ background: baseBg }}
+        >
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-toolbar)]">
+            <Icon icon="lucide:link" width={13} className="text-[var(--t-text-muted)]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium"
+              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
+              Join by invite code...
+            </span>
+            <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
+              Paste your invite code here to join a private session
+            </p>
+          </div>
+        </button>
+      );
+    }
+
+    // join-code (untyped, entered via "join " prefix)
+    const joinItem = item as any;
+    if (joinItem.kind === "join-code") {
+      return (
+        <button
+          key="join-code"
+          data-idx={idx}
+          onClick={() => selectItem(item)}
+          onMouseEnter={() => setSelected(idx)}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+          style={{ background: baseBg }}
+        >
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-toolbar)]">
+            <Icon icon="lucide:log-in" width={13} className="text-[var(--t-accent)]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium"
+              style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
+              Join by invite code
+            </span>
+            <p className="text-xs mt-0.5 font-mono truncate text-[var(--t-text-dim)]">
+              {joinItem.code}
+            </p>
+          </div>
         </button>
       );
     }
@@ -656,14 +972,14 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   let runningIdx = 0;
   const hasAbove = (...counts: number[]) => counts.some((c) => c > 0);
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-24"
+      className="fixed inset-0 z-[60] flex items-start justify-center pt-24"
       style={{ background: "rgba(0,0,0,0.55)" }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl rounded-xl overflow-hidden shadow-2xl bg-[var(--t-bg-modal)] border border-[var(--t-border-hover)]"
+        className="w-full max-w-xl rounded-xl overflow-hidden shadow-2xl bg-[var(--t-bg-modal)] border border-[var(--t-border-hover)] animate-fadeIn"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input */}
@@ -718,6 +1034,14 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
                 </>
               )}
 
+              {sectionBoundaries.teamSessionCount > 0 && (
+                <>
+                  {sectionHeader("Team Sessions", sectionBoundaries.activeCount > 0)}
+                  {items.slice(sectionBoundaries.teamSessionStart, sectionBoundaries.teamSessionStart + sectionBoundaries.teamSessionCount)
+                    .map((item) => renderItem(item, runningIdx++))}
+                </>
+              )}
+
               {sectionBoundaries.recentCount > 0 && (
                 <>
                   {sectionHeader("Recent", sectionBoundaries.activeCount > 0)}
@@ -744,10 +1068,26 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
                 </>
               )}
 
+              {sectionBoundaries.snippetCount > 0 && (
+                <>
+                  {sectionHeader("Snippets", runningIdx > 0)}
+                  {items.slice(sectionBoundaries.snippetStart, sectionBoundaries.snippetStart + sectionBoundaries.snippetCount)
+                    .map((item) => renderItem(item, runningIdx++))}
+                </>
+              )}
+
               {sectionBoundaries.actionCount > 0 && (
                 <>
                   {sectionHeader("Actions", runningIdx > 0)}
                   {items.slice(sectionBoundaries.actionStart, sectionBoundaries.actionStart + sectionBoundaries.actionCount)
+                    .map((item) => renderItem(item, runningIdx++))}
+                </>
+              )}
+
+              {sectionBoundaries.toggleCount > 0 && (
+                <>
+                  {sectionHeader("Quick Settings", runningIdx > 0)}
+                  {items.slice(sectionBoundaries.toggleStart, sectionBoundaries.toggleStart + sectionBoundaries.toggleCount)
                     .map((item) => renderItem(item, runningIdx++))}
                 </>
               )}
@@ -764,6 +1104,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
             <>
               {category === "settings" && sectionHeader("Settings", false)}
               {category === "ssh" && items.length > 0 && sectionHeader("Quick connect", false)}
+              {category === "join" && (items[0] as any)?.kind === "join-code" && sectionHeader("Join by invite code", false)}
+              {category === "join" && (items[0] as any)?.kind !== "join-code" && sectionHeader("Team Sessions", false)}
               {items.map((item) => renderItem(item, runningIdx++))}
             </>
           )}
@@ -773,11 +1115,13 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               {category === "snippets" ? "No snippets yet" :
                category === "marketplace" ? "Marketplace coming soon" :
                category === "ssh" ? "Type ssh user@host to quick connect" :
+               category === "join" ? (q ? `No sessions match "${q}"` : "No active team sessions") :
                `No results for "${q || query}"`}
             </p>
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

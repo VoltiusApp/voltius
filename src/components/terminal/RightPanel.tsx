@@ -5,6 +5,8 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { usePluginStore } from "@/stores/pluginStore";
 import { SnippetsPanel } from "@/components/terminal/SnippetsPanel";
 import { PortsPanel } from "@/components/terminal/PortsPanel";
+import { HistoryPanel } from "@/components/terminal/HistoryPanel";
+import PanelSftpSection from "@/components/terminal/PanelSftpSection";
 import { useThemeStore } from "@/stores/themeStore";
 import { BUILT_IN_THEMES } from "@/themes/presets";
 import type { AppTheme } from "@/themes/types";
@@ -137,24 +139,14 @@ function ThemesSection() {
   );
 }
 
-// ─── Placeholder sections ─────────────────────────────────────────────────────
-
-function PlaceholderSection({ icon, label }: { icon: string; label: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center h-full gap-3 opacity-40">
-      <Icon icon={icon} width={28} className="text-[var(--t-text-muted)]" />
-      <p className="text-sm text-[var(--t-text-muted)]">{label} — coming soon</p>
-    </div>
-  );
-}
-
 // ─── Main RightPanel ──────────────────────────────────────────────────────────
 
 const BUILTIN_SECTIONS: { id: RightPanelSection; icon: string; title: string }[] = [
-  { id: "snippets", icon: "lucide:braces",  title: "Snippets" },
-  { id: "history",  icon: "lucide:clock",   title: "History"  },
-  { id: "themes",   icon: "lucide:palette", title: "Themes"   },
-  { id: "ports",    icon: "lucide:network", title: "Ports"    },
+  { id: "snippets", icon: "lucide:braces",      title: "Snippets" },
+  { id: "history",  icon: "lucide:clock",       title: "History"  },
+  { id: "themes",   icon: "lucide:palette",     title: "Themes"   },
+  { id: "ports",    icon: "lucide:network",     title: "Ports"    },
+  { id: "sftp",     icon: "lucide:folder-tree", title: "SFTP"     },
 ];
 
 function PanelContent() {
@@ -172,12 +164,10 @@ function PanelContent() {
   ], [pluginSections]);
 
   return (
-    <>
-      {/* Top nav bar */}
-      <div
-        className="flex items-center justify-between px-3 py-2 shrink-0 border-b border-b-[var(--t-border)]"
-      >
-        <div className="flex items-center gap-1">
+    <div className="flex flex-row h-full">
+      {/* Vertical tab rail */}
+      <div className="flex flex-col items-center py-2 gap-1 shrink-0 border-r border-r-[var(--t-border)]" style={{ width: 40 }}>
+        <div className="flex flex-col items-center gap-1 flex-1">
           {allSections.map((s) => {
             const isActive = rightPanelSection === s.id;
             return (
@@ -200,20 +190,22 @@ function PanelContent() {
         </div>
         <button
           onClick={() => toggleRightPanel()}
-          className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors text-[var(--t-text-muted)]"
+          className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-[var(--t-text-muted)]"
           onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
           onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-muted)")}
+          title="Close panel"
         >
           <Icon icon="lucide:x" width={13} />
         </button>
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-w-0 min-h-0 overflow-hidden">
         {rightPanelSection === "snippets" && <SnippetsPanel />}
-        {rightPanelSection === "history"  && <PlaceholderSection icon="lucide:clock"  label="History"  />}
+        {rightPanelSection === "history"  && <HistoryPanel />}
         {rightPanelSection === "themes"   && <ThemesSection />}
         {rightPanelSection === "ports"    && <PortsPanel />}
+        {rightPanelSection === "sftp"     && <PanelSftpSection />}
         {rightPanelSection?.startsWith("plugin:") && (() => {
           const pluginId = rightPanelSection.slice("plugin:".length);
           const section = pluginSections.get(pluginId);
@@ -222,7 +214,7 @@ function PanelContent() {
           return <Component />;
         })()}
       </div>
-    </>
+    </div>
   );
 }
 

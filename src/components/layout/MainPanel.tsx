@@ -7,11 +7,12 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { fetchTeamData } from "@/services/teamVaultSync";
 import TerminalView from "@/components/terminal/Terminal";
+import { TerminalSearch } from "@/components/terminal/TerminalSearch";
 import MultiplayerTerminalView from "@/components/terminal/MultiplayerTerminalView";
 import { MultiplayerBar } from "@/components/terminal/MultiplayerBar";
 import { TerminalStatusBar } from "@/components/terminal/TerminalStatusBar";
 import { useMultiplayerHostBroadcast } from "@/hooks/useMultiplayerHostBroadcast";
-import ConnectionOverlay, { SSH_STEPS, SERIAL_STEPS } from "@/components/terminal/ConnectionOverlay";
+import ConnectionOverlay, { SSH_STEPS, SERIAL_STEPS } from "@/components/terminal/connection-overlay";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { getConnectionIcon } from "@/utils/icons";
 import type { TerminalSession } from "@/types";
@@ -25,7 +26,7 @@ import SFTPPage from "@/components/filetransfer/SFTPPage";
 import { SnippetsPage } from "@/components/snippets/SnippetsPage";
 import { PortForwardingPage } from "@/components/port_forwarding/PortForwardingPage";
 import MembersPage from "@/components/members/MembersPage";
-import AuditLogsView from "@/components/logs/AuditLogsView";
+import AuditLogsPage from "@/components/logs/AuditLogsPage";
 import { Icon } from "@iconify/react";
 import { useHostPingPolling } from "@/hooks/useHostPingPolling";
 import { EmptySplitPane } from "@/components/panes/PaneTerminal";
@@ -183,6 +184,7 @@ function HostAwareTerminalView({
           encoding={session.encoding}
           onResize={(cols, rows) => setDimensions({ cols, rows })}
         />
+        <TerminalSearch sessionId={session.id} />
       </div>
       {isSharing && <MultiplayerBar localSessionId={session.id} />}
       {showStatusBar && (
@@ -201,11 +203,12 @@ function HostAwareTerminalView({
 }
 
 function SessionConnectionOverlay({
-  session, onDismiss, onRetry,
+  session, onDismiss, onRetry, onRetryWithPassphrase,
 }: {
   session: TerminalSession;
   onDismiss?: () => void;
   onRetry?: () => void;
+  onRetryWithPassphrase?: (passphrase: string, save: boolean) => void;
 }) {
   const connections = useAllConnections();
   const connection = connections.find((c) => c.id === session.connectionId);
@@ -238,7 +241,6 @@ function SessionConnectionOverlay({
         icon="lucide:ethernet-port"
         steps={SERIAL_STEPS}
         stepEventName={`serial-step-${session.id}`}
-        conflictEventName=""
         onDismiss={onDismiss}
         onRetry={isEphemeral ? () => resetSerialEphemeral(session.id) : onRetry}
       />
@@ -261,6 +263,7 @@ function SessionConnectionOverlay({
       conflictEventName={`ssh-host-key-conflict-${session.id}`}
       onDismiss={onDismiss}
       onRetry={onRetry}
+      onRetryWithPassphrase={onRetryWithPassphrase}
     />
   );
 }
@@ -288,6 +291,7 @@ export default function MainPanel() {
   const { sessions, activeSessionId } = useSessionStore();
   const markDisconnected = useSessionStore((s) => s.markDisconnected);
   const reconnect = useSessionStore((s) => s.reconnect);
+  const reconnectWithPassphrase = useSessionStore((s) => s.reconnectWithPassphrase);
   const removeSession = useSessionStore((s) => s.removeSession);
   const homeView = useUIStore((s) => s.homeView);
   const activeNav = useUIStore((s) => s.activeNav);
@@ -310,10 +314,10 @@ export default function MainPanel() {
   );
   const showTeamVaultState =
     selectedTeamId !== null &&
-    teamVaultStatus !== null &&
-    teamVaultStatus !== "loaded" &&
-    teamVaultStatus !== "not_found" &&
-    teamVaultStatus !== "idle" &&
+    (teamVaultStatus === "offline" ||
+      teamVaultStatus === "forbidden" ||
+      teamVaultStatus === "payment_required" ||
+      teamVaultStatus === "error") &&
     !homeView;
   const showSplitWorkspace = activeNav === ("terminal" as any) && splitTabActive && !sftpPanelOpen;
 
@@ -334,7 +338,7 @@ export default function MainPanel() {
   } else if (activeNav === "members") {
     overlayContent = <MembersPage />;
   } else if (activeNav === "logs") {
-    overlayContent = <AuditLogsView />;
+    overlayContent = <AuditLogsPage />;
   } else {
     const placeholder = PLACEHOLDER_PAGES[activeNav];
     if (placeholder) {
@@ -384,6 +388,7 @@ export default function MainPanel() {
                         session={session}
                         onDismiss={() => removeSession(session.id)}
                         onRetry={(session.type === "ssh" || session.type === "serial") ? () => reconnect(session.id) : undefined}
+                        onRetryWithPassphrase={session.type === "ssh" ? (passphrase, save) => void reconnectWithPassphrase(session.id, passphrase, save) : undefined}
                       />
                     )}
                     {session.type === "multiplayer" ? (

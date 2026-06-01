@@ -2,12 +2,11 @@ use std::sync::Arc;
 use tokio::io::AsyncReadExt;
 use tokio::time::{timeout, Duration};
 
-use super::{ProcessEntry, ProcessSnapshot, now_ms};
+use super::{now_ms, ProcessEntry, ProcessSnapshot};
 
 // Works on Linux and macOS: awk strips the header row, columns are positional.
 // Fields: pid ppid pcpu rss user stat comm
-const PS_CMD: &str =
-    "ps -eo pid,ppid,pcpu,rss,user,stat,comm 2>/dev/null | awk 'NR>1{print}'";
+const PS_CMD: &str = "ps -eo pid,ppid,pcpu,rss,user,stat,comm 2>/dev/null | awk 'NR>1{print}'";
 
 const KILL_TIMEOUT_SECS: u64 = 5;
 
@@ -95,7 +94,9 @@ fn parse_snapshot(text: &str) -> ProcessSnapshot {
 
 fn parse_line(line: &str) -> Option<ProcessEntry> {
     // ps output: pid ppid pcpu rss user stat comm [rest ignored]
-    let mut parts = line.splitn(8, char::is_whitespace).filter(|s| !s.is_empty());
+    let mut parts = line
+        .splitn(8, char::is_whitespace)
+        .filter(|s| !s.is_empty());
 
     let pid: u32 = parts.next()?.parse().ok()?;
     let ppid: u32 = parts.next()?.parse().unwrap_or(0);

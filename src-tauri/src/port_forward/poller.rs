@@ -2,8 +2,8 @@ use crate::port_forward::tunnel::create_tunnel;
 use crate::port_forward::{
     ActiveTunnel, PfStatePayload, SessionPfState, TunnelEntry, TunnelOrigin, TunnelState,
 };
-use crate::storage::config::TunnelType;
 use crate::ssh::client::SshClient;
+use crate::storage::config::TunnelType;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;

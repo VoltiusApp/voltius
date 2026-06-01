@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { getVersion } from "@tauri-apps/api/app";
+
+const LINKS = [
+  { icon: "simple-icons:github", label: "GitHub",  sub: "VoltiusApp/voltius", href: "https://github.com/VoltiusApp/voltius" },
+  { icon: "lucide:book-open", label: "Documentation", sub: "docs.voltius.app", href: "https://docs.voltius.app" },
+  { icon: "simple-icons:kofi",   label: "Ko-Fi",   sub: "ko-fi.com/kipavy",   href: "https://ko-fi.com/kipavy" },
+  { icon: "lucide:mail", label: "Contact", sub: "contact@voltius.app", href: "mailto:contact@voltius.app" },
+];
 import {
   getUpdaterState,
   onUpdaterStateChange,
@@ -136,19 +143,24 @@ export default function AboutSection() {
         <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">
           Links
         </h3>
-        <a
-          href="https://github.com/VoltiusApp/voltius"
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-lg px-4 py-3 flex items-center gap-3 bg-[var(--t-bg-elevated)] border border-[var(--t-border)] transition-colors hover:border-[var(--t-border-hover)]"
-        >
-          <Icon icon="simple-icons:github" width={20} className="text-[var(--t-text-primary)] shrink-0" />
-          <div>
-            <p className="text-sm font-medium text-[var(--t-text-primary)]">GitHub</p>
-            <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">VoltiusApp/voltius</p>
-          </div>
-          <Icon icon="lucide:external-link" width={20} className="ml-auto text-[var(--t-text-dim)]" />
-        </a>
+        <div className="space-y-2">
+          {LINKS.map(({ icon, label, sub, href }) => (
+            <a
+              key={href}
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg px-4 py-3 flex items-center gap-3 bg-[var(--t-bg-elevated)] border border-[var(--t-border)] transition-colors hover:border-[var(--t-border-hover)]"
+            >
+              <Icon icon={icon} width={20} className="text-[var(--t-text-primary)] shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-[var(--t-text-primary)]">{label}</p>
+                <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">{sub}</p>
+              </div>
+              <Icon icon="lucide:external-link" width={20} className="ml-auto text-[var(--t-text-dim)]" />
+            </a>
+          ))}
+        </div>
       </div>
     </div>
   );

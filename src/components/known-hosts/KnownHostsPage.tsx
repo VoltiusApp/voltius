@@ -6,6 +6,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { usePermissions } from "@/hooks/usePermission";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
+import { usePageBulkActions } from "@/hooks/usePageBulkActions";
 import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { KnownHostCard } from "./KnownHostCard";
@@ -87,6 +88,14 @@ export default function KnownHostsPage() {
   });
 
   useEffect(() => { loadKnownHosts(); }, []);
+
+  usePageBulkActions({
+    navItem: "known-hosts",
+    filteredIds: orderedIds,
+    selectedIdSet,
+    setSelection,
+    onDelete: (ids) => setConfirmDeleteIds(ids),
+  });
 
   const handleDelete = useCallback(
     (ids: string[]) => setConfirmDeleteIds(ids),

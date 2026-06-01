@@ -7,12 +7,25 @@ import { CardActionButton } from "@/components/shared/CardActionButton";
 import { OverflowTagList } from "@/components/shared/OverflowTagList";
 import { type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { StatusDot } from "@/components/shared/StatusDot";
+import { MiniAvatar } from "@/components/shared/AvatarStack";
+import { useConnectionPresence } from "@/hooks/useConnectionPresence";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useTeamStore } from "@/stores/teamStore";
+import { connectionDisplayName } from "@/utils/connectionDisplayName";
+import type { TeamMember } from "@/stores/teamStore";
+import {
+  useEffectivePinned,
+  useEffectivePinSource,
+  nextPersonalPinValue,
+} from "@/hooks/useEffectivePinned";
+
+const EMPTY_TEAM_MEMBERS: TeamMember[] = [];
 
 interface Props {
   connection: Connection;
@@ -33,15 +46,7 @@ interface Props {
   onMoveToVault?: (conn: Connection, vaultId: string) => void;
   onCopyToVault?: (conn: Connection, vaultId: string) => void;
   bulkContextMenuItems?: ContextMenuItem[];
-  onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
-  onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
-}
-
-function displayName(c: { name?: string; username?: string; host?: string; port?: number; connection_type?: string; serial_port?: string }) {
-  if (c.connection_type === "serial") {
-    return c.name?.trim() || c.serial_port || "Serial Device";
-  }
-  return c.name?.trim() || `${c.username ?? ""}@${c.host ?? ""}:${c.port ?? ""}`;
+  onPointerDown?: (e: React.PointerEvent<HTMLDivElement>) => void;
 }
 
 export default function HostCard({
@@ -49,18 +54,76 @@ export default function HostCard({
   vaults = [], layout = "grid",
   onSelect, onConnect, onEdit, onDuplicate, onExecuteSnippet, onDelete,
   onMoveToVault, onCopyToVault,
-  bulkContextMenuItems, onDragStart, onDragEnd,
+  bulkContextMenuItems, onPointerDown,
 }: Props) {
   const isList = layout === "list";
   const isSerial = connection.connection_type === "serial";
   const contributions = useUIContributions("connection.contextMenu", connection);
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(connection.id, "connection"));
   const pinConnection = useConnectionStore((s) => s.pinConnection);
+  const pinConnectionForTeam = useConnectionStore((s) => s.pinConnectionForTeam);
   const updateConnection = useConnectionStore((s) => s.updateConnection);
-  const pingEnabled = useHostPingStore((s) => s.enabled);
+  const effectivePinned = useEffectivePinned(connection, "connection");
+  const pinSource = useEffectivePinSource(connection, "connection");
+  const isTeamVault = useTeamStore((s) => s.teams.some((t) => t.id === connection.vault_id));
+  const teamMembers = useTeamStore((s) => connection.vault_id ? s.membersByTeam[connection.vault_id] ?? EMPTY_TEAM_MEMBERS : EMPTY_TEAM_MEMBERS);
+  const pinnerName = (() => {
+    if (!isTeamVault || pinSource === "none" || pinSource === "personal") return undefined;
+    const updatedBy = (connection as { updated_by?: string }).updated_by;
+    const member = updatedBy ? teamMembers.find((m) => m.user_id === updatedBy) : undefined;
+    return member?.display_name ?? "a team member";
+  })();
+  const handlePinClick = () => {
+    if (!isTeamVault) {
+      pinConnection(connection.id, !effectivePinned).catch(() => {});
+      return;
+    }
+    const next = nextPersonalPinValue(pinSource);
+    pinConnection(connection.id, next).catch(() => {});
+  };
+  const pinTooltip = (() => {
+    if (!isTeamVault) return effectivePinned ? "Unpin" : "Pin";
+    switch (pinSource) {
+      case "none":
+        return "Pin";
+      case "personal":
+        return "Pinned";
+      case "team":
+        return `Pinned by ${pinnerName} for the team`;
+      case "team+personal":
+        return `Pinned by ${pinnerName} for the team · you also pinned this`;
+      case "team-hidden":
+        return `Hidden from your view · pinned by ${pinnerName} for the team`;
+    }
+  })();
+  const pinIcon = pinSource === "team-hidden" ? "lucide:pin-off" : "lucide:pin";
+  const pinColor =
+    pinSource === "personal" || pinSource === "team+personal"
+      ? "var(--t-accent)"
+      : pinSource === "team"
+      ? "var(--t-text-secondary)"
+      : "var(--t-text-dim)";
+  const pinAlwaysVisible = pinSource !== "none" && pinSource !== "team-hidden";
+  const [pingEnabled] = useToggle("reachability");
   const pingStatus = useHostPingStore((s) => s.statuses[connection.id]);
   const pingLatency = useHostPingStore((s) => s.latencies[connection.id]);
   const showPingDot = !isSerial && pingEnabled && !connection.ping_disabled;
+  const presence = useConnectionPresence(connection);
+  const presenceTitle = presence
+    ? presence.overflow > 0
+      ? `In use by ${presence.primary.displayName} + ${presence.overflow} other${presence.overflow === 1 ? "" : "s"}`
+      : `In use by ${presence.primary.displayName}`
+    : "";
+  const presenceAvatar = presence && (
+    <span className="flex items-center" title={presenceTitle}>
+      <MiniAvatar name={presence.primary.displayName} size={18} />
+      {presence.overflow > 0 && (
+        <span className="ml-1 text-[10px] font-semibold px-1 rounded-full bg-[var(--t-bg-elevated)] text-[var(--t-text-dim)]">
+          +{presence.overflow}
+        </span>
+      )}
+    </span>
+  );
 
   const contextMenuItems: ContextMenuItem[] = [
     ...(canEdit ? [{ label: "Edit", icon: "lucide:square-pen", onClick: () => onEdit(connection), shortcut: "E" }] : []),
@@ -79,14 +142,31 @@ export default function HostCard({
       onMoveToVault: onMoveToVault ? (vId) => onMoveToVault(connection, vId) : undefined,
       onCopyToVault: onCopyToVault ? (vId) => onCopyToVault(connection, vId) : undefined,
       onToggleSync: () => useSyncPrefsStore.getState().toggleExcluded(connection.id),
-      onTogglePing: () => updateConnection(connection.id, { name: connection.name, host: connection.host, port: connection.port, username: connection.username, auth_type: connection.auth_type, tags: connection.tags, identity_id: connection.identity_id, folder_id: connection.folder_id, vault_id: connection.vault_id, jump_hosts: connection.jump_hosts, env_vars: connection.env_vars, agent_forwarding: connection.agent_forwarding, pre_command: connection.pre_command, post_command: connection.post_command, terminal_encoding: connection.terminal_encoding, pinned: connection.pinned, ping_disabled: !connection.ping_disabled }),
+      onTogglePing: () => updateConnection(connection.id, { name: connection.name, host: connection.host, port: connection.port, username: connection.username, auth_type: connection.auth_type, tags: connection.tags, identity_id: connection.identity_id, folder_id: connection.folder_id, vault_id: connection.vault_id, jump_hosts: connection.jump_hosts, env_vars: connection.env_vars, agent_forwarding: connection.agent_forwarding, pre_command: connection.pre_command, post_command: connection.post_command, terminal_encoding: connection.terminal_encoding, pinned: connection.pinned, ping_disabled: !connection.ping_disabled, shell_integration_disabled: connection.shell_integration_disabled }),
       onDelete: canEdit ? () => onDelete(connection.id) : undefined,
-      extras: [{
-        label: connection.pinned ? "Unpin" : "Pin",
-        icon: connection.pinned ? "lucide:pin-off" : "lucide:pin",
-        onClick: () => pinConnection(connection.id, !connection.pinned).catch(() => {}),
-        divider: true,
-      }],
+      extras: [
+        {
+          label: isTeamVault
+            ? (pinSource === "personal" || pinSource === "team+personal")
+              ? "Unpin for me"
+              : pinSource === "team-hidden"
+              ? "Show in my view"
+              : pinSource === "team"
+              ? "Hide for me"
+              : "Pin for me"
+            : effectivePinned ? "Unpin" : "Pin",
+          icon: (pinSource === "personal" || pinSource === "team+personal" || (!isTeamVault && effectivePinned))
+            ? "lucide:pin-off"
+            : "lucide:pin",
+          onClick: handlePinClick,
+          divider: true,
+        },
+        ...(canEdit && isTeamVault ? [{
+          label: (connection.pinned === true) ? "Unpin for team" : "Pin for team",
+          icon: "lucide:users",
+          onClick: () => pinConnectionForTeam(connection.id, !(connection.pinned === true)).catch(() => {}),
+        }] : []),
+      ],
     }),
   ];
 
@@ -136,9 +216,7 @@ export default function HostCard({
       isEditing={isEditing}
       isActive={isActive}
       isFocused={isFocused}
-      draggable={!!onDragStart}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+      onPointerDown={onPointerDown}
       onMouseEnter={showPingDot ? () => useHostPingStore.getState().addPriorityConnection(connection.id) : undefined}
       onMouseLeave={showPingDot ? () => useHostPingStore.getState().removePriorityConnection(connection.id) : undefined}
       onClick={(e) => onSelect?.(connection.id, e)}
@@ -155,7 +233,7 @@ export default function HostCard({
             )}
           </div>
           <p className="font-medium-bold truncate w-48 shrink-0 text-[var(--t-text-bright)]">
-            {displayName(connection)}
+            {connectionDisplayName(connection)}
           </p>
           <p className="text-xs truncate flex-1 text-[var(--t-text-secondary)]">
             {isSerial
@@ -167,6 +245,7 @@ export default function HostCard({
             <OverflowTagList tags={connection.tags} className="max-w-32 flex-1" />
           )}
           <div className="flex items-center gap-1 shrink-0">
+            {presenceAvatar}
             {syncIcon}
             {canEdit && <CardActionButton icon="lucide:square-pen" title="Edit" onClick={() => onEdit(connection)} />}
             {canEdit && <CardActionButton icon="lucide:trash-2" title="Delete" onClick={() => onDelete(connection.id)} danger />}
@@ -188,20 +267,22 @@ export default function HostCard({
               <div ref={contentColRef} className="flex flex-col gap-0.5 flex-1 min-w-0">
                 <div className="flex items-center gap-2 min-w-0">
                   <p className="text-sm font-bold truncate text-[var(--t-text-bright)]">
-                    {displayName(connection)}
+                    {connectionDisplayName(connection)}
                   </p>
                   <span className="shrink-0 px-1.5 py-0.5 rounded-md text-[11px] font-semibold bg-[var(--t-bg-input)] text-[var(--t-text-dim)] border border-[var(--t-border)]">
                     {isSerial ? "SERIAL" : "SSH"}
                   </span>
                   <button
-                    onClick={(e) => { e.stopPropagation(); pinConnection(connection.id, !connection.pinned).catch(() => {}); }}
-                    className={`shrink-0 flex items-center transition-colors ${connection.pinned ? "text-[var(--t-accent)] opacity-100" : "text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] opacity-0 group-hover:opacity-100"}`}
-                    title={connection.pinned ? "Unpin" : "Pin"}
+                    onClick={(e) => { e.stopPropagation(); handlePinClick(); }}
+                    className={`shrink-0 flex items-center transition-colors ${pinAlwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100 hover:text-[var(--t-text-bright)]"}`}
+                    style={{ color: pinColor }}
+                    title={pinTooltip}
                   >
-                    <Icon icon="lucide:pin" width={14} />
+                    <Icon icon={pinIcon} width={14} />
                   </button>
-                  {(showPingDot || syncIcon) && (
+                  {(showPingDot || syncIcon || presenceAvatar) && (
                     <div className="flex items-center gap-1.5 ml-auto shrink-0 mr-1">
+                      {presenceAvatar}
                       {showPingDot && (
                         <>
                           {pingStatus === "up" && pingLatency !== undefined && (

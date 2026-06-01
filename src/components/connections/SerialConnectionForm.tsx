@@ -5,10 +5,17 @@ import { useAutosave } from "@/hooks/useAutosave";
 import { useFolderStore } from "@/stores/folderStore";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import { serialListPorts } from "@/services/serial";
+import FolderSelector from "@/components/shared/FolderSelector";
+import TagSelector from "@/components/shared/TagSelector";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
 import { useConnectionStore } from "@/stores/connectionStore";
-import { useAllConnections } from "@/hooks/useAllConnections";
+import { useTeamStore } from "@/stores/teamStore";
+import {
+  useEffectivePinned,
+  useEffectivePinSource,
+  nextPersonalPinValue,
+} from "@/hooks/useEffectivePinned";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import {
   PanelShell,
@@ -21,6 +28,7 @@ import {
 } from "@/components/shared/Panel";
 import { Pills } from "@/components/shared/Pills";
 import { FormSelect } from "@/components/shared/FormSelect";
+import { PortInput } from "@/components/shared/PortInput";
 import EncodingSelector from "./EncodingSelector";
 import type { ConnectionFormHandle } from "./ConnectionForm";
 
@@ -28,7 +36,7 @@ const BAUD_RATES = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 23
 
 interface Props {
   initial?: Connection;
-  onSubmit: (data: ConnectionFormData, password: string | null, privateKey: string | null) => void | Promise<void>;
+  onSubmit: (data: ConnectionFormData, password: string | null, privateKey: string | null, passphrase: string | null) => void | Promise<void>;
   onClose: () => void;
   onDuplicate?: () => void;
   onConnect?: () => void;
@@ -72,7 +80,6 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
     ),
   );
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
-  const [tagInput, setTagInput] = useState("");
   const [folderId, setFolderId] = useState<string | null>(initial?.folder_id ?? null);
   const [availablePorts, setAvailablePorts] = useState<{ name: string; path: string }[]>([]);
 
@@ -87,14 +94,15 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
   }, [isNew, defaultVaultId]);
 
   const userEditedRef = useRef(false);
-  const { folders, loadFolders } = useFolderStore();
+  const { folders, loadFolders, saveFolder } = useFolderStore();
   const pinConnection = useConnectionStore((s) => s.pinConnection);
-  const connections = useAllConnections();
-  const isPinned = connections.find((c) => c.id === initial?.id)?.pinned ?? false;
+  const effPinned = useEffectivePinned(initial ?? { id: "", pinned: false }, "connection");
+  const pinSource = useEffectivePinSource(initial ?? { id: "", pinned: false }, "connection");
+  const isPinned = effPinned;
+  const isTeamVault = useTeamStore((s) => initial ? s.teams.some((t) => t.id === initial.vault_id) : false);
 
   useEffect(() => {
     void loadFolders();
-    // Fetch available serial ports
     serialListPorts()
       .then(setAvailablePorts)
       .catch(() => {});
@@ -133,7 +141,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
     onSave: () => {
       const { data, password: pwd, privateKey: pk } = buildSubmit();
-      return onSubmit(data, pwd, pk) ?? undefined;
+      return onSubmit(data, pwd, pk, null) ?? undefined;
     },
     canSave: () => !!serialPort.trim(),
   });
@@ -167,7 +175,13 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
         saveState={initial ? saveState : undefined}
         actions={initial ? (
           <>
-            <PinButton pinned={isPinned} onToggle={() => pinConnection(initial.id, !isPinned).catch(() => {})} />
+            <PinButton pinned={isPinned} onToggle={() => {
+              if (!isTeamVault) {
+                pinConnection(initial.id, !isPinned).catch(() => {});
+              } else {
+                pinConnection(initial.id, nextPersonalPinValue(pinSource)).catch(() => {});
+              }
+            }} />
             {panelItems.length > 0 && <PanelActionsMenu items={panelItems} />}
           </>
         ) : undefined}
@@ -189,106 +203,38 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
             </div>
             <div>
               <label className={formLabelClass} style={formLabelStyle}>Tags</label>
-              {tags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-[var(--t-bg-elevated)] text-[var(--t-accent)] border border-[var(--t-border-hover)]"
-                    >
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() => { markDirty(); setTags((t) => t.filter((x) => x !== tag)); }}
-                        className="transition-opacity opacity-60 hover:opacity-100"
-                        aria-label={`Remove tag ${tag}`}
-                      >
-                        <Icon icon="lucide:x" width={10} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-              <input
-                className={formInputClass}
-                style={formInputStyle}
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if ((e.key === "Enter" || e.key === ",") && tagInput.trim()) {
-                    e.preventDefault();
-                    const newTag = tagInput.trim().replace(/,$/, "");
-                    if (newTag && !tags.includes(newTag)) {
-                      markDirty();
-                      setTags((t) => [...t, newTag]);
-                    }
-                    setTagInput("");
-                  } else if (e.key === "Backspace" && !tagInput && tags.length > 0) {
-                    markDirty();
-                    setTags((t) => t.slice(0, -1));
-                  }
+              <TagSelector
+                value={tags}
+                vaultId={vaultId}
+                onChange={(next) => { markDirty(); setTags(next); }}
+              />
+            </div>
+            <div>
+              <label className={formLabelClass} style={formLabelStyle}>Folder</label>
+              <FolderSelector
+                value={folderId}
+                folders={folders}
+                onChange={(id) => { markDirty(); setFolderId(id); }}
+                onCreateFolder={async (name) => {
+                  const folder = await saveFolder({ name, object_type: "connection", vault_id: resolveVaultIdForSave(vaultId) || undefined });
+                  markDirty();
+                  setFolderId(folder.id);
+                  return folder.id;
                 }}
-                placeholder="Add tag, press Enter"
               />
             </div>
           </FormSection>
-
-          {folders.length > 0 && (
-            <FormSection label="Organization">
-              <div>
-                <label className={formLabelClass} style={formLabelStyle}>Folder</label>
-                <select
-                  className={formInputClass}
-                  style={{ ...formInputStyle, cursor: "pointer" }}
-                  value={folderId ?? ""}
-                  onChange={(e) => { markDirty(); setFolderId(e.target.value || null); }}
-                >
-                  <option value="">No folder</option>
-                  {folders.map((f) => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
-                  ))}
-                </select>
-              </div>
-            </FormSection>
-          )}
 
           <FormSection label="Serial Port">
             <div>
               <label className={formLabelClass} style={formLabelStyle}>
                 Port <span className="text-[var(--t-accent)]">*</span>
               </label>
-              {availablePorts.length > 0 ? (
-                <select
-                  className={formInputClass}
-                  style={{ ...formInputStyle, cursor: "pointer" }}
-                  value={serialPort}
-                  onChange={(e) => { markDirty(); setSerialPort(e.target.value); }}
-                >
-                  <option value="">Select port…</option>
-                  {availablePorts.map((p) => (
-                    <option key={p.path} value={p.path}>{p.name}</option>
-                  ))}
-                  <option value="__custom__">Enter manually…</option>
-                </select>
-              ) : (
-                <input
-                  className={formInputClass}
-                  style={formInputStyle}
-                  value={serialPort}
-                  onChange={(e) => { markDirty(); setSerialPort(e.target.value); }}
-                  placeholder="/dev/ttyUSB0 or COM3"
-                />
-              )}
-              {availablePorts.length > 0 && serialPort === "__custom__" && (
-                <input
-                  className={`${formInputClass} mt-2`}
-                  style={formInputStyle}
-                  value={serialPort === "__custom__" ? "" : serialPort}
-                  onChange={(e) => { markDirty(); setSerialPort(e.target.value); }}
-                  placeholder="/dev/ttyUSB0 or COM3"
-                  autoFocus
-                />
-              )}
+              <PortInput
+                value={serialPort}
+                ports={availablePorts}
+                onChange={(v) => { markDirty(); setSerialPort(v); }}
+              />
             </div>
 
             <div>

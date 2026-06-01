@@ -3,6 +3,13 @@ import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import type { Connection, ConnectionFormData, AuthType, VaultOption, JumpHost, EnvVar } from "@/types";
 import { useIdentityStore } from "@/stores/identityStore";
+import { useKeyStore } from "@/stores/keyStore";
+import { useTeamStore } from "@/stores/teamStore";
+import {
+  useEffectivePinned,
+  useEffectivePinSource,
+  nextPersonalPinValue,
+} from "@/hooks/useEffectivePinned";
 import JumpHostsPanel from "./JumpHostsPanel";
 import EnvVarsPanel from "./EnvVarsPanel";
 import { useUIStore } from "@/stores/uiStore";
@@ -16,15 +23,17 @@ import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import IdentitySelector from "./IdentitySelector";
+import KeySelector from "./KeySelector";
+import TagSelector from "@/components/shared/TagSelector";
 import EncodingSelector from "./EncodingSelector";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
-import { TagBadge } from "@/components/shared/TagBadge";
 import { useConnectionStore } from "@/stores/connectionStore";
-import { useAllConnections } from "@/hooks/useAllConnections";
 import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { Toggle } from "@/components/shared/Toggle";
+import FolderSelector from "@/components/shared/FolderSelector";
+import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
 import { CONNECTION_ICON_OPTIONS, getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, normalizeDistro } from "@/utils/icons";
 import {
   PanelShell,
@@ -38,7 +47,7 @@ import {
 
 interface Props {
   initial?: Connection;
-  onSubmit: (data: ConnectionFormData, password: string | null, privateKey: string | null) => void | Promise<void>;
+  onSubmit: (data: ConnectionFormData, password: string | null, privateKey: string | null, passphrase: string | null) => void | Promise<void>;
   onClose: () => void;
   onDuplicate?: () => void;
   onConnect?: () => void;
@@ -61,11 +70,13 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [port, setPort] = useState<number | "">(initial?.port ?? 22);
   const [username, setUsername] = useState(initial?.username ?? "root");
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
-  const [tagInput, setTagInput] = useState("");
   const [password, setPassword] = useState("");
   const [privateKey, setPrivateKey] = useState("");
+  const [passphrase, setPassphrase] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showPassphrase, setShowPassphrase] = useState(false);
   const [identityId, setIdentityId] = useState<string | null>(initial?.identity_id ?? null);
+  const [keyId, setKeyId] = useState<string | null>(initial?.key_id ?? null);
   const [folderId, setFolderId] = useState<string | null>(initial?.folder_id ?? null);
   const [jumpHosts, setJumpHosts] = useState<JumpHost[]>(initial?.jump_hosts ?? []);
   const [showChaining, setShowChaining] = useState(false);
@@ -73,6 +84,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [showEnvVars, setShowEnvVars] = useState(false);
   const [agentForwarding, setAgentForwarding] = useState(initial?.agent_forwarding ?? false);
   const [pingDisabled, setPingDisabled] = useState(initial?.ping_disabled ?? false);
+  const [shellIntegrationDisabled, setShellIntegrationDisabled] = useState(initial?.shell_integration_disabled ?? false);
   const [preCommand, setPreCommand] = useState(initial?.pre_command ?? "");
   const [postCommand, setPostCommand] = useState(initial?.post_command ?? "");
   const [terminalEncoding, setTerminalEncoding] = useState(initial?.terminal_encoding ?? "");
@@ -83,7 +95,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [detectingDistro, setDetectingDistro] = useState(false);
   const [distroError, setDistroError] = useState("");
   const [distroPickerRect, setDistroPickerRect] = useState<DOMRect | null>(null);
-  const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.terminal_encoding || initial?.agent_forwarding || initial?.ping_disabled);
+  const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.terminal_encoding || initial?.agent_forwarding || initial?.ping_disabled || initial?.shell_integration_disabled);
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
   const defaultVaultId = useDefaultVaultId();
   const [vaultId, setVaultId] = useState<string>(() => initial?.vault_id ?? defaultVaultId);
@@ -97,36 +109,57 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   }, [isNew, defaultVaultId]);
   const passwordDirty = useRef(false);
   const privateKeyDirty = useRef(false);
+  const passphraseDirty = useRef(false);
   const userEditedRef = useRef(false);
   const distroPickerRef = useRef<HTMLDivElement>(null);
   const distroPickerMenuRef = useRef<HTMLDivElement>(null);
 
   const { identities, teamIdentities, loadIdentities } = useIdentityStore();
+  const { keys, teamKeys, loadKeys } = useKeyStore();
+  const teams = useTeamStore((s) => s.teams);
+  const teamVaultIds = useMemo(() => new Set(teams.map((team) => team.id)), [teams]);
   const relevantIdentities = useMemo(() => {
-    if (vaultId === "personal") return identities;
-    const teamId = resolveVaultIdForSave(vaultId);
-    return teamIdentities[teamId] ?? [];
-  }, [vaultId, identities, teamIdentities]);
+    return selectVaultScopedItems({
+      vaultId,
+      localItems: identities,
+      teamItems: teamIdentities,
+      teamVaultIds,
+      resolveVaultId: resolveVaultIdForSave,
+    });
+  }, [vaultId, identities, teamIdentities, teamVaultIds]);
+  const relevantKeys = useMemo(() => {
+    return selectVaultScopedItems({
+      vaultId,
+      localItems: keys,
+      teamItems: teamKeys,
+      teamVaultIds,
+      resolveVaultId: resolveVaultIdForSave,
+    });
+  }, [vaultId, keys, teamKeys, teamVaultIds]);
   useEffect(() => {
     if (prevVaultIdRef.current !== vaultId) {
       prevVaultIdRef.current = vaultId;
       setIdentityId(null);
+      setKeyId(null);
     }
   }, [vaultId]);
-  const { folders, loadFolders } = useFolderStore();
+  const { folders, loadFolders, saveFolder } = useFolderStore();
   const setActiveNav = useUIStore((s) => s.setActiveNav);
   const pinConnection = useConnectionStore((s) => s.pinConnection);
   const setConnectionDistro = useConnectionStore((s) => s.setDistro);
-  const connections = useAllConnections();
-  const isPinned = connections.find((c) => c.id === initial?.id)?.pinned ?? false;
+  const effPinned = useEffectivePinned(initial ?? { id: "", pinned: false }, "connection");
+  const pinSource = useEffectivePinSource(initial ?? { id: "", pinned: false }, "connection");
+  const isPinned = effPinned;
+  const isTeamVault = useTeamStore((s) => initial ? s.teams.some((t) => t.id === initial.vault_id) : false);
   const contributions = useUIContributions("connection.panelActions", initial);
   const { toggleExcluded, isObjectSynced } = useSyncPrefsStore();
   const isSynced = initial ? isObjectSynced(initial.id, "connection") : true;
 
   useEffect(() => {
     void loadIdentities();
+    void loadKeys();
     void loadFolders();
-  }, [loadIdentities, loadFolders]);
+  }, [loadIdentities, loadKeys, loadFolders]);
 
   useEffect(() => {
     if (!showDistroPicker) return;
@@ -159,9 +192,13 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
     if (!initial) return;
     (async () => {
       const pwd = await getSecret(`password:${initial.id}`).catch(() => null);
-      const key = await getSecret(`key:${initial.id}`).catch(() => null);
       if (pwd && !passwordDirty.current) setPassword(pwd);
-      if (key && !privateKeyDirty.current) setPrivateKey(key);
+      if (!initial.key_id) {
+        const key = await getSecret(`key:${initial.id}`).catch(() => null);
+        if (key && !privateKeyDirty.current) setPrivateKey(key);
+        const pass = await getSecret(`passphrase:${initial.id}`).catch(() => null);
+        if (pass && !passphraseDirty.current) setPassphrase(pass);
+      }
     })();
   }, [initial?.id]);
 
@@ -169,7 +206,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
   const buildSubmit = () => {
     let submitUsername = username;
-    let submitAuthType: AuthType = privateKey.trim() ? "key" : "password";
+    let submitAuthType: AuthType = (keyId || privateKey.trim()) ? "key" : "password";
     if (identityId && selectedIdentity) {
       submitUsername = selectedIdentity.username;
       submitAuthType = selectedIdentity.key_id ? "key" : "password";
@@ -183,6 +220,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         auth_type: submitAuthType,
         tags,
         identity_id: identityId ?? undefined,
+        key_id: !identityId ? (keyId ?? undefined) : undefined,
         folder_id: folderId ?? undefined,
         vault_id: resolveVaultIdForSave(vaultId),
         jump_hosts: jumpHosts.length > 0 ? jumpHosts : undefined,
@@ -194,21 +232,23 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         distro: distro || undefined,
         icon: icon || undefined,
         ping_disabled: pingDisabled || undefined,
+        shell_integration_disabled: shellIntegrationDisabled || undefined,
       } as ConnectionFormData,
       password: passwordDirty.current ? password : null,
-      privateKey: privateKeyDirty.current ? privateKey : null,
+      privateKey: (!identityId && !keyId && privateKeyDirty.current) ? privateKey : null,
+      passphrase: (!identityId && !keyId && passphraseDirty.current) ? passphrase : null,
     };
   };
 
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
-    onSave: () => { const { data, password: pwd, privateKey: pk } = buildSubmit(); return onSubmit(data, pwd, pk) ?? undefined; },
+    onSave: () => { const { data, password: pwd, privateKey: pk, passphrase: pp } = buildSubmit(); return onSubmit(data, pwd, pk, pp) ?? undefined; },
     canSave: () => !!host.trim() && !!username.trim() && (port === "" || (port >= 1 && port <= 65535)),
   });
   const markDirty = useCallback(() => { userEditedRef.current = true; _markDirty(); }, [_markDirty]);
 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, host, port, username, password, privateKey, identityId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, preCommand, postCommand, terminalEncoding, distro, icon, pingDisabled]);
+  useEffect(() => schedule(), [name, host, port, username, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, preCommand, postCommand, terminalEncoding, distro, icon, pingDisabled, shellIntegrationDisabled]);
 
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
@@ -264,6 +304,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
       let detectUsername = username;
       let detectPassword = password || undefined;
       let detectPrivateKey = privateKey || undefined;
+      let detectPassphrase = passphrase || undefined;
 
       if (identityId && selectedIdentity) {
         detectUsername = selectedIdentity.username;
@@ -271,9 +312,19 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         detectPrivateKey = selectedIdentity.key_id
           ? (await getSecret(`key:${selectedIdentity.key_id}:private`).catch(() => null)) ?? undefined
           : undefined;
+        detectPassphrase = undefined;
+      } else if (keyId) {
+        detectPrivateKey = (await getSecret(`key:${keyId}:private`).catch(() => null)) ?? undefined;
+        detectPassphrase = undefined;
+        if (initial) {
+          detectPassword = passwordDirty.current ? (password || undefined) : ((await getSecret(`password:${initial.id}`).catch(() => null)) ?? undefined);
+        } else {
+          detectPassword = password || undefined;
+        }
       } else if (initial) {
         detectPassword = passwordDirty.current ? (password || undefined) : ((await getSecret(`password:${initial.id}`).catch(() => null)) ?? undefined);
         detectPrivateKey = privateKeyDirty.current ? (privateKey || undefined) : ((await getSecret(`key:${initial.id}`).catch(() => null)) ?? undefined);
+        detectPassphrase = passphraseDirty.current ? (passphrase || undefined) : ((await getSecret(`passphrase:${initial.id}`).catch(() => null)) ?? undefined);
       }
 
       const output = await sshExecCommand({
@@ -282,17 +333,22 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         username: detectUsername.trim(),
         password: detectPassword,
         privateKey: detectPrivateKey,
-        command: "cat /etc/os-release 2>/dev/null || echo ID=linux",
+        passphrase: detectPassphrase,
+        command: "{ cat /etc/os-release 2>/dev/null || echo ID=linux; }; test -d /etc/pve && echo 'PROXMOX_VE=1'; test -d /etc/proxmox-backup && echo 'PBS_DETECTED=1'; true",
       });
-      const idLine = output.split(/\r?\n/).find((line) => line.startsWith("ID="));
-      const detected = normalizeDistro(idLine?.slice(3).trim().replace(/^\"|\"$/g, "") || "linux");
+      const lines = output.split(/\r?\n/);
+      const idLine = lines.find((line) => line.startsWith("ID="));
+      const rawId = idLine?.slice(3).trim().replace(/^"|"$/g, "") || "linux";
+      const isProxmox = lines.some((line) => line.trim() === "PROXMOX_VE=1");
+      const isPbs = lines.some((line) => line.trim() === "PBS_DETECTED=1");
+      const detected = isProxmox ? "proxmox" : isPbs ? "pbs" : normalizeDistro(rawId);
       applyDetectedDistro(detected);
     } catch (err) {
       setDistroError(String(err));
     } finally {
       setDetectingDistro(false);
     }
-  }, [applyDetectedDistro, host, identityId, initial, password, port, privateKey, selectedIdentity, username]);
+  }, [applyDetectedDistro, host, identityId, keyId, initial, passphrase, password, port, privateKey, selectedIdentity, username]);
 
   const panelItems = initial ? buildConnectionMenuItems({
     canEdit,
@@ -320,7 +376,13 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         saveState={initial ? saveState : undefined}
         actions={initial ? (
           <>
-            <PinButton pinned={isPinned} onToggle={() => pinConnection(initial.id, !isPinned).catch(() => {})} />
+            <PinButton pinned={isPinned} onToggle={() => {
+              if (!isTeamVault) {
+                pinConnection(initial.id, !isPinned).catch(() => {});
+              } else {
+                pinConnection(initial.id, nextPersonalPinValue(pinSource)).catch(() => {});
+              }
+            }} />
             {panelItems.length > 0 && <PanelActionsMenu items={panelItems} />}
           </>
         ) : undefined}
@@ -429,63 +491,28 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
             </div>
             <div>
               <label className={formLabelClass} style={formLabelStyle}>Tags</label>
-              {tags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {tags.map((tag) => (
-                    <TagBadge key={tag} tag={tag} className="flex items-center gap-1 px-2 rounded-md font-medium">
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() => { markDirty(); setTags((t) => t.filter((x) => x !== tag)); }}
-                        className="transition-opacity opacity-60 hover:opacity-100"
-                        aria-label={`Remove tag ${tag}`}
-                      >
-                        <Icon icon="lucide:x" width={10} />
-                      </button>
-                    </TagBadge>
-                  ))}
-                </div>
-              )}
-              <input
-                className={formInputClass}
-                style={formInputStyle}
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if ((e.key === "Enter" || e.key === ",") && tagInput.trim()) {
-                    e.preventDefault();
-                    const newTag = tagInput.trim().replace(/,$/, "");
-                    if (newTag && !tags.includes(newTag)) {
-                      markDirty(); setTags((t) => [...t, newTag]);
-                    }
-                    setTagInput("");
-                  } else if (e.key === "Backspace" && !tagInput && tags.length > 0) {
-                    markDirty(); setTags((t) => t.slice(0, -1));
-                  }
+              <TagSelector
+                value={tags}
+                vaultId={vaultId}
+                onChange={(next) => { markDirty(); setTags(next); }}
+              />
+            </div>
+
+            <div>
+              <label className={formLabelClass} style={formLabelStyle}>Folder</label>
+              <FolderSelector
+                value={folderId}
+                folders={folders}
+                onChange={(id) => { markDirty(); setFolderId(id); }}
+                onCreateFolder={async (name) => {
+                  const folder = await saveFolder({ name, object_type: "connection", vault_id: resolveVaultIdForSave(vaultId) || undefined });
+                  markDirty();
+                  setFolderId(folder.id);
+                  return folder.id;
                 }}
-                placeholder="Add tag, press Enter"
               />
             </div>
           </FormSection>
-
-          {folders.length > 0 && (
-            <FormSection label="Organization">
-              <div>
-                <label className={formLabelClass} style={formLabelStyle}>Folder</label>
-                <select
-                  className={formInputClass}
-                  style={{ ...formInputStyle, cursor: "pointer" }}
-                  value={folderId ?? ""}
-                  onChange={(e) => { markDirty(); setFolderId(e.target.value || null); }}
-                >
-                  <option value="">No folder</option>
-                  {folders.map((f) => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
-                  ))}
-                </select>
-              </div>
-            </FormSection>
-          )}
 
           <FormSection label="Connection">
             <div className="flex gap-2.5">
@@ -520,7 +547,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
               className="flex items-center gap-1.5 text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors w-full pt-1"
             >
               <span>Advanced</span>
-              {!showAdvanced && (jumpHosts.length > 0 || envVars.length > 0 || preCommand || postCommand || terminalEncoding || agentForwarding || pingDisabled) && (
+              {!showAdvanced && (jumpHosts.length > 0 || envVars.length > 0 || preCommand || postCommand || terminalEncoding || agentForwarding || pingDisabled || shellIntegrationDisabled) && (
                 <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-[var(--t-accent)]" />
               )}
               <Icon icon={showAdvanced ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} className="ml-auto" />
@@ -593,6 +620,16 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                     />
                   </span>
                 </div>
+                <div className="flex items-center gap-1.5 text-xs text-[var(--t-text-dim)] w-full py-1">
+                  <Icon icon="lucide:terminal" width={13} />
+                  <span>Shell Integration</span>
+                  <span className="ml-auto">
+                    <Toggle
+                      checked={!shellIntegrationDisabled}
+                      onChange={(v) => { markDirty(); setShellIntegrationDisabled(!v); }}
+                    />
+                  </span>
+                </div>
 
               </div>
               </div>
@@ -638,13 +675,49 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
                 <div>
                   <label className={formLabelClass} style={formLabelStyle}>Private Key</label>
-                  <textarea
-                    className={`${formInputClass} font-mono text-xs h-28 resize-none`}
-                    style={formInputStyle}
-                    value={privateKey}
-                    onChange={(e) => { markDirty(); privateKeyDirty.current = true; setPrivateKey(e.target.value); }}
-                    placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..."
+                  <KeySelector
+                    value={keyId}
+                    keys={relevantKeys}
+                    onChange={(id) => { markDirty(); setKeyId(id); if (id) { privateKeyDirty.current = false; setPrivateKey(""); } }}
+                    onGoToKeychain={() => setActiveNav("keychain")}
                   />
+                  {!keyId && (
+                    <>
+                      <textarea
+                        className={`${formInputClass} font-mono text-xs h-28 resize-none mt-2`}
+                        style={formInputStyle}
+                        value={privateKey}
+                        onChange={(e) => { markDirty(); privateKeyDirty.current = true; setPrivateKey(e.target.value); }}
+                        placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..."
+                      />
+                      <div className="mt-2">
+                        <label className={formLabelClass} style={formLabelStyle}>
+                          Passphrase <span className="text-[var(--t-text-dim)] font-normal">(optional)</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showPassphrase ? "text" : "password"}
+                            className={`${formInputClass} pr-9`}
+                            style={formInputStyle}
+                            value={passphrase}
+                            onChange={(e) => { markDirty(); passphraseDirty.current = true; setPassphrase(e.target.value); }}
+                            placeholder="Key passphrase"
+                            autoComplete="new-password"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassphrase((v) => !v)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-[var(--t-text-dim)]"
+                            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
+                            tabIndex={-1}
+                          >
+                            <Icon icon={showPassphrase ? "lucide:eye-off" : "lucide:eye"} width={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </>
             )}

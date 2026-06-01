@@ -6,7 +6,6 @@ import NavBar from "@/components/layout/NavBar";
 import MainPanel from "@/components/layout/MainPanel";
 import SplashScreen from "@/components/layout/SplashScreen";
 import OmniSearch from "@/components/omni/OmniSearch";
-import ShortcutsPanel from "@/components/shortcuts/ShortcutsPanel";
 import SettingsModal from "@/components/settings/SettingsModal";
 import { ImportExportModal } from "@/components/import-export/ImportExportModal";
 import RightPanel from "@/components/terminal/RightPanel";
@@ -18,6 +17,7 @@ import { useApplyTheme } from "@/hooks/useApplyTheme";
 import { useApplyUiScale } from "@/hooks/useApplyUiScale";
 import { useCoreOmniCommands } from "@/hooks/useCoreOmniCommands";
 import { useImportExportContributions } from "@/hooks/useImportExportContributions";
+import { useConnectionPresenceBroadcast } from "@/hooks/useConnectionPresenceBroadcast";
 import { useUIStore } from "@/stores/uiStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -29,6 +29,7 @@ import { TrialExpiredModal } from "@/components/shared/TrialExpiredModal";
 import CloudAuthModal from "@/components/layout/CloudAuthModal";
 import { EmailVerificationBanner } from "@/components/notifications/EmailVerificationBanner";
 import { EmailVerificationRequiredModal } from "@/components/notifications/EmailVerificationRequiredModal";
+import { GlobalTransferQueue } from "@/components/filetransfer/GlobalTransferQueue";
 
 function App() {
   const [ready, setReady] = useState(false);
@@ -39,6 +40,7 @@ function App() {
   useApplyUiScale();
   useCoreOmniCommands();
   useImportExportContributions();
+  useConnectionPresenceBroadcast();
   useEffect(() => { initUpdaterListener(); }, []);
   const omniOpen = useUIStore((s) => s.omniOpen);
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
@@ -72,7 +74,6 @@ function App() {
         </div>
       </div>
       {omniOpen && <OmniSearch onClose={() => setOmniOpen(false)} />}
-      <ShortcutsPanel />
       <SettingsModal />
       <ImportExportModal />
 
@@ -81,6 +82,7 @@ function App() {
       <TrialExpiredModal />
       <CloudAuthModal />
       <EmailVerificationRequiredModal />
+      <GlobalTransferQueue />
 
       {/* Global snippet variable modal — triggered from OmniSearch */}
       {globalPendingInject && (

@@ -9,6 +9,7 @@ import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { VaultCascadeModal } from "@/components/shared/VaultCascadeModal";
+import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { useVaultCascade } from "@/hooks/useVaultCascade";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { usePermissions } from "@/hooks/usePermission";
@@ -18,6 +19,7 @@ import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
+import { usePageBulkActions } from "@/hooks/usePageBulkActions";
 import { useDragToFolder } from "@/hooks/useDragToFolder";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
 import { useFolderStore } from "@/stores/folderStore";
@@ -30,7 +32,6 @@ import { Icon } from "@iconify/react";
 import { KeychainToolbar } from "./KeychainToolbar";
 import { KeySection, IdentitySection } from "./KeyCards";
 import { KeyForm } from "./KeyForm";
-import { KeyGenForm } from "./KeyGenForm";
 import { IdentityForm } from "./IdentityForm";
 import { KeyExportPanel, sortByMode } from "./KeyExportPanel";
 import { getSecret, storeSecret, deleteSecret } from "@/services/vault";
@@ -61,8 +62,10 @@ export default function KeychainPage() {
   const identityFormFlushRef = useRef<(() => void) | null>(null);
   const keyFormIsDirtyRef = useRef(false);
   const identityFormIsDirtyRef = useRef(false);
+  const keyFormSessionKeyRef = useRef<string>("new-key");
+  const identityFormSessionKeyRef = useRef<string>("new-identity");
   const [showKeyForm, setShowKeyForm] = useState(false);
-  const [showKeyGenForm, setShowKeyGenForm] = useState(false);
+  const [keyFormMode, setKeyFormMode] = useState<"import" | "generate">("import");
   const [showIdentityForm, setShowIdentityForm] = useState(false);
   const keyFormVersion = useSyncedFormKey(editingKey?.updated_at, showKeyForm, () => keyFormIsDirtyRef.current);
   const identityFormVersion = useSyncedFormKey(editingIdentity?.updated_at, showIdentityForm, () => identityFormIsDirtyRef.current);
@@ -97,7 +100,14 @@ export default function KeychainPage() {
     ];
   }, [vaults, teams]);
   const q = useMemo(() => search.trim().toLowerCase(), [search]);
-  const scopedFolders = useMemo(() => folders.filter((f) => f.object_type === "keychain"), [folders]);
+  const scopedFolders = useMemo(
+    () => folders.filter((f) => {
+      if (f.object_type !== "keychain") return false;
+      const fvid = f.vault_id ?? "personal";
+      return accessibleVaultIds.length === 0 || accessibleVaultIds.includes(fvid);
+    }),
+    [folders, accessibleVaultIds],
+  );
   const scopedFolderIds = useMemo(() => new Set(scopedFolders.map((f) => f.id)), [scopedFolders]);
   const editingFolder = editingFolderId ? scopedFolders.find((f) => f.id === editingFolderId) ?? null : null;
 
@@ -143,7 +153,7 @@ export default function KeychainPage() {
     [identities, q, sortMode, tagFilter, activeFolderId, scopedFolders, scopedFolderIds, accessibleVaultIds],
   );
 
-  const showPanel = showKeyForm || showKeyGenForm || showIdentityForm || exportingKey !== null;
+  const showPanel = showKeyForm || showIdentityForm || exportingKey !== null;
 
   // Refs for stable onSelect callbacks (avoid re-creating per render)
   const showPanelRef = useRef(showPanel);
@@ -158,13 +168,14 @@ export default function KeychainPage() {
     [visibleFolders, filteredKeys, filteredIdentities],
   );
 
+  const isPinnedFn = useEffectivePinnedPredicate();
   const pinnedKeys = useMemo(
-    () => (!q && !activeFolderId) ? filteredKeys.filter((k) => k.pinned) : [],
-    [filteredKeys, q, activeFolderId],
+    () => (!q && !activeFolderId) ? filteredKeys.filter((k) => isPinnedFn(k, "key")) : [],
+    [filteredKeys, q, activeFolderId, isPinnedFn],
   );
   const pinnedIdentities = useMemo(
-    () => (!q && !activeFolderId) ? filteredIdentities.filter((i) => i.pinned) : [],
-    [filteredIdentities, q, activeFolderId],
+    () => (!q && !activeFolderId) ? filteredIdentities.filter((i) => isPinnedFn(i, "identity")) : [],
+    [filteredIdentities, q, activeFolderId, isPinnedFn],
   );
   const { selectedIdSet, selectionAreaRef, itemAreaRef, dragBox, handleItemSelect, handleSelectionAreaMouseDown, selectSingle, setSelection } =
     useDragSelection(orderedIds);
@@ -180,18 +191,18 @@ export default function KeychainPage() {
       const folder = visibleFolders.find((f) => f.id === id);
       if (folder) { navigateInto(folder); return; }
       const key = keys.find((k) => k.id === id);
-      if (key) { setEditingKeyId(key.id); setShowKeyForm(true); return; }
+      if (key) { keyFormSessionKeyRef.current = key.id; setEditingKeyId(key.id); setShowKeyForm(true); return; }
       const identity = identities.find((i) => i.id === id);
-      if (identity) { setEditingIdentityId(identity.id); setShowIdentityForm(true); }
+      if (identity) { identityFormSessionKeyRef.current = identity.id; setEditingIdentityId(identity.id); setShowIdentityForm(true); }
     },
     onEdit: (id) => {
       const key = keys.find((k) => k.id === id);
-      if (key) { setEditingKeyId(key.id); setShowKeyForm(true); return; }
+      if (key) { keyFormSessionKeyRef.current = key.id; setEditingKeyId(key.id); setShowKeyForm(true); return; }
       const identity = identities.find((i) => i.id === id);
-      if (identity) { setEditingIdentityId(identity.id); setShowIdentityForm(true); }
+      if (identity) { identityFormSessionKeyRef.current = identity.id; setEditingIdentityId(identity.id); setShowIdentityForm(true); }
     },
     onEscape: () => {
-      if (showPanel) { setShowKeyForm(false); setShowKeyGenForm(false); setShowIdentityForm(false); setExportingKey(null); }
+      if (showPanel) { setShowKeyForm(false); setShowIdentityForm(false); setExportingKey(null); }
       else setSelection([]);
     },
     onSearch: () => setOmniOpen(true),
@@ -220,7 +231,6 @@ export default function KeychainPage() {
     dragOverEject,
     handleDragStart,
     handleFolderDragStart,
-    handleDragEnd,
     folderDropProps,
     ejectDropProps,
   } = useDragToFolder({
@@ -358,35 +368,37 @@ export default function KeychainPage() {
     void loadFolders();
   }, [loadKeys, loadIdentities, loadFolders]);
 
-  useEffect(() => {
-    const handler = () => {
-      if (useUIStore.getState().activeNav !== "keychain") return;
-      if (selectedIdSet.size > 0) setConfirmDeleteIds([...selectedIdSet]);
-    };
-    window.addEventListener("voltius:delete", handler);
-    return () => window.removeEventListener("voltius:delete", handler);
-  }, [selectedIdSet]);
+  usePageBulkActions({
+    navItem: "keychain",
+    filteredIds: orderedIds,
+    selectedIdSet,
+    setSelection,
+    onDelete: (ids) => setConfirmDeleteIds(ids),
+  });
 
   useEffect(() => {
     if (!keychainPendingAction) return;
     const { action } = keychainPendingAction;
     if (action === "create-key") {
+      keyFormSessionKeyRef.current = `new-key-${Date.now()}`;
+      setKeyFormMode("import");
       setEditingKeyId(null);
       setShowKeyForm(true);
     } else if (action === "create-identity") {
+      identityFormSessionKeyRef.current = `new-identity-${Date.now()}`;
       setEditingIdentityId(null);
       setShowIdentityForm(true);
     } else if (action === "edit-key") {
       const key = keys.find((k) => k.id === (keychainPendingAction as any).id);
-      if (key) { setEditingKeyId(key.id); setShowKeyForm(true); }
+      if (key) { keyFormSessionKeyRef.current = key.id; setEditingKeyId(key.id); setShowKeyForm(true); }
     } else if (action === "edit-identity") {
       const identity = identities.find((i) => i.id === (keychainPendingAction as any).id);
-      if (identity) { setEditingIdentityId(identity.id); setShowIdentityForm(true); }
+      if (identity) { identityFormSessionKeyRef.current = identity.id; setEditingIdentityId(identity.id); setShowIdentityForm(true); }
     }
     setKeychainPendingAction(null);
   }, [keychainPendingAction, keys, identities, setKeychainPendingAction]);
 
-  const handleKeySubmit = async (data: SshKeyFormData, privateKey: string | null, publicKey: string | null) => {
+  const handleKeySubmit = async (data: SshKeyFormData, privateKey: string | null, publicKey: string | null, passphrase: string | null) => {
     try {
       if (editingKey) {
         await updateKey(editingKey.id, data);
@@ -404,6 +416,13 @@ export default function KeychainPage() {
             await saveTeamVaultSecretForVault(data.vault_id ?? editingKey.vault_id, localKey, publicKey).catch(() => {});
           } else await deleteSecret(localKey).catch(() => {});
         }
+        if (passphrase !== null) {
+          const localKey = `key:${editingKey.id}:passphrase`;
+          if (passphrase) {
+            await storeSecret(localKey, passphrase);
+            await saveTeamVaultSecretForVault(data.vault_id ?? editingKey.vault_id, localKey, passphrase).catch(() => {});
+          } else await deleteSecret(localKey).catch(() => {});
+        }
       } else {
         const key = await saveKey(data);
         if (privateKey) {
@@ -415,6 +434,11 @@ export default function KeychainPage() {
           const localKey = `key:${key.id}:public`;
           await storeSecret(localKey, publicKey);
           await saveTeamVaultSecretForVault(key.vault_id, localKey, publicKey).catch(() => {});
+        }
+        if (passphrase) {
+          const localKey = `key:${key.id}:passphrase`;
+          await storeSecret(localKey, passphrase);
+          await saveTeamVaultSecretForVault(key.vault_id, localKey, passphrase).catch(() => {});
         }
         setEditingKeyId(key.id);
       }
@@ -484,32 +508,27 @@ export default function KeychainPage() {
     } catch (err) { setError(String(err)); }
   };
 
-  const openKeyForm = (key: SshKey | null) => {
+  const openKeyForm = (key: SshKey | null, mode: "import" | "generate" = "import") => {
     keyFormIsDirtyRef.current = false;
+    keyFormSessionKeyRef.current = key?.id ?? `new-key-${Date.now()}`;
+    setKeyFormMode(key ? "import" : mode);
     setEditingKeyId(key?.id ?? null);
     if (key) selectSingle(key.id);
     setShowKeyForm(true);
-    setShowKeyGenForm(false);
     setShowIdentityForm(false);
     setExportingKey(null);
     setEditingIdentityId(null);
   };
 
-  const openKeyGenForm = () => {
-    setEditingKeyId(null);
-    setShowKeyGenForm(true);
-    setShowKeyForm(false);
-    setShowIdentityForm(false);
-    setEditingIdentityId(null);
-  };
+  const openKeyGenForm = () => openKeyForm(null, "generate");
 
   const openIdentityForm = (identity: Identity | null) => {
     identityFormIsDirtyRef.current = false;
+    identityFormSessionKeyRef.current = identity?.id ?? `new-identity-${Date.now()}`;
     setEditingIdentityId(identity?.id ?? null);
     if (identity) selectSingle(identity.id);
     setShowIdentityForm(true);
     setShowKeyForm(false);
-    setShowKeyGenForm(false);
     setEditingKeyId(null);
   };
 
@@ -524,7 +543,6 @@ export default function KeychainPage() {
   const openExportPanel = (key: SshKey) => {
     setExportingKey(key);
     setShowKeyForm(false);
-    setShowKeyGenForm(false);
     setShowIdentityForm(false);
     setEditingKeyId(null);
     setEditingIdentityId(null);
@@ -532,33 +550,11 @@ export default function KeychainPage() {
 
   const closePanel = () => {
     setShowKeyForm(false);
-    setShowKeyGenForm(false);
     setShowIdentityForm(false);
     setExportingKey(null);
     setEditingKeyId(null);
     inlineKeyIdRef.current = null;
     setEditingIdentityId(null);
-  };
-
-  const handleGenerateKey = async (
-    privateKey: string,
-    publicKey: string,
-    keyTypeLabel: string,
-    passphrase: string,
-    savePassphrase: boolean,
-    label: string,
-  ) => {
-    try {
-      const key = await saveKey({ name: label || undefined, key_type: keyTypeLabel, tags: [] });
-      await storeSecret(`key:${key.id}:private`, privateKey);
-      if (publicKey) await storeSecret(`key:${key.id}:public`, publicKey);
-      if (passphrase && savePassphrase) await storeSecret(`key:${key.id}:passphrase`, passphrase);
-      setEditingKeyId(key.id);
-      setShowKeyGenForm(false);
-      setShowKeyForm(true);
-    } catch (err) {
-      setError(String(err));
-    }
   };
 
   const handleMoveKeyToVault = async (key: SshKey, vaultId: string) => {
@@ -569,12 +565,14 @@ export default function KeychainPage() {
   const handleCopyKeyToVault = async (key: SshKey, vaultId: string) => {
     try {
       const newKey = await saveKey({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId });
-      const [priv, pub] = await Promise.all([
+      const [priv, pub, pass] = await Promise.all([
         getSecret(`key:${key.id}:private`).catch(() => null),
         getSecret(`key:${key.id}:public`).catch(() => null),
+        getSecret(`key:${key.id}:passphrase`).catch(() => null),
       ]);
       if (priv) await storeSecret(`key:${newKey.id}:private`, priv);
       if (pub) await storeSecret(`key:${newKey.id}:public`, pub);
+      if (pass) await storeSecret(`key:${newKey.id}:passphrase`, pass);
     } catch (err) { setError(String(err)); }
   };
 
@@ -774,8 +772,9 @@ export default function KeychainPage() {
           )}
           {showKeyForm && (
             <KeyForm
-              key={`${editingKey?.id ?? "new-key"}-${keyFormVersion}`}
+              key={`${keyFormSessionKeyRef.current}-${keyFormVersion}`}
               initial={editingKey ?? undefined}
+              initialMode={keyFormMode}
               onSubmit={handleKeySubmit}
               onClose={closePanel}
               onExport={openExportPanel}
@@ -788,15 +787,9 @@ export default function KeychainPage() {
               onCopyToVault={editingKey ? (vaultId) => { void handleCopyKeyToVault(editingKey, vaultId); } : undefined}
             />
           )}
-          {showKeyGenForm && (
-            <KeyGenForm
-              onGenerate={handleGenerateKey}
-              onClose={closePanel}
-            />
-          )}
           {showIdentityForm && (
             <IdentityForm
-              key={`${editingIdentity?.id ?? "new-identity"}-${identityFormVersion}`}
+              key={`${identityFormSessionKeyRef.current}-${identityFormVersion}`}
               initial={editingIdentity ?? undefined}
               onSubmit={handleIdentitySubmit}
               onClose={closePanel}
@@ -922,8 +915,7 @@ export default function KeychainPage() {
                       onSelect={(id) => { if (!selectedIdSet.has(id)) selectSingle(id); }}
                       onEdit={() => { closePanel(); setEditingFolderId(folder.id); }}
                       onExport={() => useUIStore.getState().openImportExport("export", { keyIds: keys.filter((k) => k.folder_id === folder.id).map((k) => k.id), identityIds: identities.filter((i) => i.folder_id === folder.id).map((i) => i.id) })}
-                      onDragStart={(e) => handleFolderDragStart(e, folder.id)}
-                      onDragEnd={handleDragEnd}
+                      onPointerDown={(e) => handleFolderDragStart(e, folder.id)}
                       {...folderDropProps(folder.id)}
                       vaults={vaultOptions.filter((v) => v.id !== (folder.vault_id ?? "personal"))}
                       canEdit={can("EDIT_KEYS", folder.vault_id ?? "personal")}
@@ -979,8 +971,7 @@ export default function KeychainPage() {
                     onSelect={handleKeySelect}
                     onExport={openExportPanel}
                     bulkContextMenuItems={bulkContextMenuItems}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
+                    onPointerDown={handleDragStart}
                     vaultOptions={vaultOptions}
                     onMoveToVault={handleMoveKeyToVault}
                     onCopyToVault={handleCopyKeyToVault}
@@ -1000,8 +991,7 @@ export default function KeychainPage() {
                     onDelete={handleDeleteIdentity}
                     onSelect={handleIdentitySelect}
                     bulkContextMenuItems={bulkContextMenuItems}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
+                    onPointerDown={handleDragStart}
                     vaultOptions={vaultOptions}
                     onMoveToVault={handleMoveIdentityToVault}
                     onCopyToVault={handleCopyIdentityToVault}
@@ -1023,8 +1013,7 @@ export default function KeychainPage() {
               onSelect={handleKeySelect}
               onExport={openExportPanel}
               bulkContextMenuItems={bulkContextMenuItems}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
+              onPointerDown={handleDragStart}
               vaultOptions={vaultOptions}
               onMoveToVault={handleMoveKeyToVault}
               onCopyToVault={handleCopyKeyToVault}
@@ -1043,8 +1032,7 @@ export default function KeychainPage() {
               onDelete={handleDeleteIdentity}
               onSelect={handleIdentitySelect}
               bulkContextMenuItems={bulkContextMenuItems}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
+              onPointerDown={handleDragStart}
               vaultOptions={vaultOptions}
               onMoveToVault={handleMoveIdentityToVault}
               onCopyToVault={handleCopyIdentityToVault}

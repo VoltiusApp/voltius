@@ -70,7 +70,7 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
       const pubKey = await getSecret(`key:${sshKey.id}:public`);
       if (!pubKey) throw new Error("Public key not found");
 
-      const { username, password, privateKey } = await resolveConnectionCredentials(selectedHost);
+      const { username, password, privateKey, passphrase } = await resolveConnectionCredentials(selectedHost);
 
       const label = sshKey.name ?? "SSH";
       const comment = `# ${label} Key by Voltius`;
@@ -81,6 +81,7 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
         username,
         password,
         privateKey,
+        passphrase,
         command,
       });
       setExportStatus("success");
@@ -209,6 +210,7 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
           selectedHostId={selectedHostId}
           onPick={(h) => { if (h.kind === "remote") setSelectedHostId(h.connection.id); setShowHostSelect(false); }}
           onBack={() => setShowHostSelect(false)}
+          vaultId={sshKey.vault_id ?? "personal"}
         />
       </div>
     </div>

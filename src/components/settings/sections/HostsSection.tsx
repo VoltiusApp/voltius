@@ -1,10 +1,19 @@
 import { useState } from "react";
-import { useHostPingStore } from "@/stores/hostPingStore";
+import {
+  DEFAULT_ACTIVE_POLL_INTERVAL_MS,
+  DEFAULT_POLL_INTERVAL_MS,
+  useHostPingStore,
+} from "@/stores/hostPingStore";
+import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
+import { DirtyDot, ResetButton } from "./shared";
+
+const SHELL_INTEGRATION_DEFAULT = TOGGLE_DEFS["shell-integration"].default;
 
 export default function HostsSection() {
-  const enabled = useHostPingStore((s) => s.enabled);
-  const setEnabled = useHostPingStore((s) => s.setEnabled);
+  const [enabled, setEnabled] = useToggle("reachability");
+  const [presenceEnabled, setPresenceEnabled] = useToggle("team-presence");
+  const [shellIntegration, setShellIntegration] = useToggle("shell-integration");
   const pollIntervalMs = useHostPingStore((s) => s.pollIntervalMs);
   const setPollIntervalMs = useHostPingStore((s) => s.setPollIntervalMs);
   const activePollIntervalMs = useHostPingStore((s) => s.activePollIntervalMs);
@@ -32,7 +41,7 @@ export default function HostsSection() {
           Connectivity
         </h3>
         <div className="rounded-lg bg-[var(--t-bg-elevated)] border border-[var(--t-border)] divide-y divide-[var(--t-border)]">
-          <div className="flex items-center justify-between px-4 py-3 gap-4">
+          <div className="group flex items-center justify-between px-4 py-3 gap-4">
             <div>
               <p className="text-sm font-medium text-[var(--t-text-primary)]">Reachability check</p>
               <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
@@ -40,16 +49,31 @@ export default function HostsSection() {
                 Can be disabled per host in the host's settings.
               </p>
             </div>
-            <Toggle checked={enabled} onChange={setEnabled} />
+            <div className="flex items-center gap-2 shrink-0">
+              {enabled !== TOGGLE_DEFS.reachability.default && (
+                <ResetButton onReset={() => setEnabled(TOGGLE_DEFS.reachability.default)} />
+              )}
+              {enabled !== TOGGLE_DEFS.reachability.default && <DirtyDot />}
+              <Toggle checked={enabled} onChange={setEnabled} />
+            </div>
           </div>
           {enabled && (
             <>
-              <div className="flex items-center justify-between px-4 py-3 gap-4">
+              <div className="group flex items-center justify-between px-4 py-3 gap-4">
                 <div>
                   <p className="text-sm font-medium text-[var(--t-text-primary)]">Poll interval</p>
                   <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">Background check cadence for the hosts page.</p>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2 shrink-0">
+                  {pollIntervalMs !== DEFAULT_POLL_INTERVAL_MS && (
+                    <ResetButton
+                      onReset={() => {
+                        setPollIntervalMs(DEFAULT_POLL_INTERVAL_MS);
+                        setRaw(String(DEFAULT_POLL_INTERVAL_MS));
+                      }}
+                    />
+                  )}
+                  {pollIntervalMs !== DEFAULT_POLL_INTERVAL_MS && <DirtyDot />}
                   <input
                     type="number"
                     min={1}
@@ -62,12 +86,21 @@ export default function HostsSection() {
                   <span className="text-xs text-[var(--t-text-dim)]">ms</span>
                 </div>
               </div>
-              <div className="flex items-center justify-between px-4 py-3 gap-4">
+              <div className="group flex items-center justify-between px-4 py-3 gap-4">
                 <div>
                   <p className="text-sm font-medium text-[var(--t-text-primary)]">Active session interval</p>
                   <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">Faster cadence used for the latency chip in the terminal status bar.</p>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2 shrink-0">
+                  {activePollIntervalMs !== DEFAULT_ACTIVE_POLL_INTERVAL_MS && (
+                    <ResetButton
+                      onReset={() => {
+                        setActivePollIntervalMs(DEFAULT_ACTIVE_POLL_INTERVAL_MS);
+                        setRawActive(String(DEFAULT_ACTIVE_POLL_INTERVAL_MS));
+                      }}
+                    />
+                  )}
+                  {activePollIntervalMs !== DEFAULT_ACTIVE_POLL_INTERVAL_MS && <DirtyDot />}
                   <input
                     type="number"
                     min={1}
@@ -82,6 +115,57 @@ export default function HostsSection() {
               </div>
             </>
           )}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">
+          Terminal
+        </h3>
+        <div className="rounded-lg bg-[var(--t-bg-elevated)] border border-[var(--t-border)]">
+          <div className="group flex items-center justify-between px-4 py-3 gap-4">
+            <div>
+              <p className="text-sm font-medium text-[var(--t-text-primary)]">Shell integration</p>
+              <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
+                Hooks the remote/local shell to report its working directory (OSC 7) for cwd-aware
+                file panels. If a host's welcome banner or prompt looks wrong, disable it there.
+                Can be disabled per host in the host's settings.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {shellIntegration !== SHELL_INTEGRATION_DEFAULT && (
+                <ResetButton onReset={() => setShellIntegration(SHELL_INTEGRATION_DEFAULT)} />
+              )}
+              {shellIntegration !== SHELL_INTEGRATION_DEFAULT && <DirtyDot />}
+              <Toggle checked={shellIntegration} onChange={setShellIntegration} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">
+          Team presence
+        </h3>
+        <div className="rounded-lg bg-[var(--t-bg-elevated)] border border-[var(--t-border)]">
+          <div className="group flex items-center justify-between px-4 py-3 gap-4">
+            <div>
+              <p className="text-sm font-medium text-[var(--t-text-primary)]">
+                Share which team-vault hosts you're using
+              </p>
+              <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
+                When on, your avatar appears on a host card while you have a terminal open to it.
+                Only teammates with access to the host see it.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {presenceEnabled !== TOGGLE_DEFS["team-presence"].default && (
+                <ResetButton onReset={() => setPresenceEnabled(TOGGLE_DEFS["team-presence"].default)} />
+              )}
+              {presenceEnabled !== TOGGLE_DEFS["team-presence"].default && <DirtyDot />}
+              <Toggle checked={presenceEnabled} onChange={setPresenceEnabled} />
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -1,13 +1,13 @@
-import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
+import { DEFAULT_AUTO_REFRESH_INTERVAL_MS, useSftpSettingsStore } from "@/stores/sftpSettingsStore";
+import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
+import { DirtyDot, ResetButton } from "./shared";
 
 export default function SFTPSection() {
-  const autoRefreshEnabled = useSftpSettingsStore((s) => s.autoRefreshEnabled);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useToggle("sftp-autorefresh");
+  const [tarTransferEnabled, setTarTransferEnabled] = useToggle("sftp-tar");
   const autoRefreshIntervalMs = useSftpSettingsStore((s) => s.autoRefreshIntervalMs);
-  const tarTransferEnabled = useSftpSettingsStore((s) => s.tarTransferEnabled);
-  const setAutoRefreshEnabled = useSftpSettingsStore((s) => s.setAutoRefreshEnabled);
   const setAutoRefreshIntervalMs = useSftpSettingsStore((s) => s.setAutoRefreshIntervalMs);
-  const setTarTransferEnabled = useSftpSettingsStore((s) => s.setTarTransferEnabled);
 
   const intervalSeconds = autoRefreshIntervalMs / 1000;
 
@@ -25,7 +25,7 @@ export default function SFTPSection() {
         </h3>
 
         <div className="rounded-lg bg-[var(--t-bg-elevated)] border border-[var(--t-border)]">
-          <div className="flex items-center justify-between px-4 py-3 gap-4">
+          <div className="group flex items-center justify-between px-4 py-3 gap-4">
             <div>
               <p className="text-sm font-medium text-[var(--t-text-primary)]">Tar acceleration</p>
               <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
@@ -33,7 +33,13 @@ export default function SFTPSection() {
                 Requires <code className="font-mono">tar</code> on both sides.
               </p>
             </div>
-            <Toggle checked={tarTransferEnabled} onChange={setTarTransferEnabled} />
+            <div className="flex items-center gap-2 shrink-0">
+              {tarTransferEnabled !== TOGGLE_DEFS["sftp-tar"].default && (
+                <ResetButton onReset={() => setTarTransferEnabled(TOGGLE_DEFS["sftp-tar"].default)} />
+              )}
+              {tarTransferEnabled !== TOGGLE_DEFS["sftp-tar"].default && <DirtyDot />}
+              <Toggle checked={tarTransferEnabled} onChange={setTarTransferEnabled} />
+            </div>
           </div>
         </div>
       </div>
@@ -46,19 +52,23 @@ export default function SFTPSection() {
         <div
           className="rounded-lg divide-y bg-[var(--t-bg-elevated)] border border-[var(--t-border)]"
         >
-          {/* Toggle row */}
-          <div className="flex items-center justify-between px-4 py-3 gap-4">
+          <div className="group flex items-center justify-between px-4 py-3 gap-4">
             <div>
               <p className="text-sm font-medium text-[var(--t-text-primary)]">Auto-refresh</p>
               <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
                 Silently re-fetches directory contents in the background
               </p>
             </div>
-            <Toggle checked={autoRefreshEnabled} onChange={setAutoRefreshEnabled} />
+            <div className="flex items-center gap-2 shrink-0">
+              {autoRefreshEnabled !== TOGGLE_DEFS["sftp-autorefresh"].default && (
+                <ResetButton onReset={() => setAutoRefreshEnabled(TOGGLE_DEFS["sftp-autorefresh"].default)} />
+              )}
+              {autoRefreshEnabled !== TOGGLE_DEFS["sftp-autorefresh"].default && <DirtyDot />}
+              <Toggle checked={autoRefreshEnabled} onChange={setAutoRefreshEnabled} />
+            </div>
           </div>
 
-          {/* Interval row */}
-          <div className="flex items-center justify-between px-4 py-3 gap-4">
+          <div className="group flex items-center justify-between px-4 py-3 gap-4">
             <div>
               <p className="text-sm font-medium text-[var(--t-text-primary)]" style={{ opacity: autoRefreshEnabled ? 1 : 0.45 }}>
                 Refresh interval
@@ -68,6 +78,10 @@ export default function SFTPSection() {
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
+              {autoRefreshIntervalMs !== DEFAULT_AUTO_REFRESH_INTERVAL_MS && (
+                <ResetButton onReset={() => setAutoRefreshIntervalMs(DEFAULT_AUTO_REFRESH_INTERVAL_MS)} />
+              )}
+              {autoRefreshIntervalMs !== DEFAULT_AUTO_REFRESH_INTERVAL_MS && <DirtyDot />}
               <input
                 type="number"
                 min={0.5}
@@ -76,9 +90,7 @@ export default function SFTPSection() {
                 disabled={!autoRefreshEnabled}
                 onChange={(e) => handleIntervalChange(e.target.value)}
                 className="w-20 px-2 py-1 rounded-lg text-sm text-right outline-none transition-colors bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)]"
-                style={{
-                  opacity: autoRefreshEnabled ? 1 : 0.45,
-                }}
+                style={{ opacity: autoRefreshEnabled ? 1 : 0.45 }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = "var(--t-accent)"; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; }}
               />

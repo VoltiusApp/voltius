@@ -54,7 +54,8 @@ function avatarColor(s: string) {
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
 }
 
-function Avatar({ email, size = 32 }: { email: string; size?: number }) {
+function Avatar({ name, size = 32 }: { name: string; size?: number }) {
+  const email = name;
   return (
     <div
       className="rounded-full flex items-center justify-center shrink-0 font-bold select-none"
@@ -296,7 +297,7 @@ interface MemberCardProps {
 function MemberAvatar({ member, size }: { member: TeamMember; size: number }) {
   return (
     <div className="relative shrink-0">
-      <Avatar email={member.email} size={size} />
+      <Avatar name={member.display_name} size={size} />
       {member.is_online && (
         <StatusDot color="var(--t-status-connected)" animate size={9} />
       )}
@@ -332,7 +333,7 @@ function MemberCard({
         </div>
         <div className="w-full min-w-0 flex flex-col items-center gap-1">
           <div className="flex items-center gap-1 justify-center">
-            <p className="text-xs font-medium truncate text-[var(--t-text-bright)] max-w-[120px]">{member.email}</p>
+            <p className="text-xs font-medium truncate text-[var(--t-text-bright)] max-w-[120px]">{member.display_name}</p>
             {isMe && (
               <span className="text-[9px] px-1 py-0.5 rounded shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>you</span>
             )}
@@ -357,7 +358,7 @@ function MemberCard({
       <MemberAvatar member={member} size={32} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="text-sm font-medium truncate text-[var(--t-text-bright)]">{member.email}</p>
+          <p className="text-sm font-medium truncate text-[var(--t-text-bright)]">{member.display_name}</p>
           {isOwner && <Icon icon="lucide:crown" width={11} style={{ color: "#a78bfa", flexShrink: 0 }} />}
           {isMe && (
             <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>you</span>
@@ -412,12 +413,12 @@ function MemberDetailPanel({
     try {
       if (hasRole) {
         await runTeamAction({
-          pending: `Removing ${role.name} from ${member.email}...`,
-          success: `${role.name} removed from ${member.email}`,
+          pending: `Removing ${role.name} from ${member.display_name}...`,
+          success: `${role.name} removed from ${member.display_name}`,
           run: () => removeMemberRole(teamId, member.user_id, role.id),
         });
         push({
-          label: `Remove role: ${member.email}`,
+          label: `Remove role: ${member.display_name}`,
           undo: async () => {
             await useTeamStore.getState().assignMemberRole(teamId, member.user_id, role.id);
             onUpdated();
@@ -429,12 +430,12 @@ function MemberDetailPanel({
         });
       } else {
         await runTeamAction({
-          pending: `Assigning ${role.name} to ${member.email}...`,
-          success: `${role.name} assigned to ${member.email}`,
+          pending: `Assigning ${role.name} to ${member.display_name}...`,
+          success: `${role.name} assigned to ${member.display_name}`,
           run: () => assignMemberRole(teamId, member.user_id, role.id),
         });
         push({
-          label: `Assign role: ${member.email}`,
+          label: `Assign role: ${member.display_name}`,
           undo: async () => {
             await useTeamStore.getState().removeMemberRole(teamId, member.user_id, role.id);
             onUpdated();
@@ -461,12 +462,12 @@ function MemberDetailPanel({
     setRemoving(true); setError("");
     try {
       await runTeamAction({
-        pending: `Removing ${member.email}...`,
-        success: `${member.email} removed`,
+        pending: `Removing ${member.display_name}...`,
+        success: `${member.display_name} removed`,
         run: () => removeMember(teamId, member.user_id),
       });
       push({
-        label: `Remove: ${member.email}`,
+        label: `Remove: ${member.display_name}`,
         undo: async () => {
           await useTeamStore.getState().addMemberById(teamId, snapshot.user_id);
           for (const rid of snapshot.role_ids) {
@@ -504,7 +505,7 @@ function MemberDetailPanel({
     <PanelShell>
       <PanelHeader
         icon="lucide:user"
-        title={member.email}
+        title={member.display_name}
         subtitle={<RoleBadges member={member} roles={teamRoles} />}
         onClose={onClose}
       />
@@ -575,10 +576,10 @@ function MemberDetailPanel({
               <span className="text-[var(--t-text-dim)]">Member since</span>
               <span className="text-[var(--t-text-primary)]">{joinedDate}</span>
             </div>
-            {member.invited_by_email && (
+            {member.invited_by_display_name && (
               <div className="flex items-center justify-between gap-4">
                 <span className="text-[var(--t-text-dim)] shrink-0">Invited by</span>
-                <span className="text-[var(--t-text-primary)] truncate">{member.invited_by_email}</span>
+                <span className="text-[var(--t-text-primary)] truncate">{member.invited_by_display_name}</span>
               </div>
             )}
           </div>
@@ -632,8 +633,8 @@ function PendingInviteCard({
     setRevoking(true);
     try {
       await runTeamAction({
-        pending: `Revoking invitation for ${inv.email}...`,
-        success: `Invitation revoked for ${inv.email}`,
+        pending: `Revoking invitation for ${inv.display_name}...`,
+        success: `Invitation revoked for ${inv.display_name}`,
         run: () => revokePendingInvitation(teamId, inv.id),
       });
       onRevoked(inv.id);
@@ -648,9 +649,9 @@ function PendingInviteCard({
 
   return (
     <BaseCard isList>
-      <Avatar email={inv.email} size={32} />
+      <Avatar name={inv.display_name} size={32} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate text-[var(--t-text-bright)]">{inv.email}</p>
+        <p className="text-sm font-medium truncate text-[var(--t-text-bright)]">{inv.display_name}</p>
       </div>
       <span className="text-[10px] px-2 py-0.5 rounded-full shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>
         Pending
@@ -678,7 +679,7 @@ function PendingInviteCard({
 
 // ─── Invite panel ─────────────────────────────────────────────────────────────
 
-interface SearchResult { user_id: string; email: string; public_key: string; }
+interface SearchResult { user_id: string; display_name: string; public_key: string; }
 
 function isValidEmail(s: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
@@ -771,8 +772,8 @@ function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }:
     setAdding(user.user_id); setError(""); setSuccess("");
     try {
       const result = await runTeamAction({
-        pending: `Inviting ${user.email}...`,
-        success: (r) => r.status === "pending" ? `Invitation sent to ${user.email}` : `${user.email} added`,
+        pending: `Inviting ${user.display_name}...`,
+        success: (r) => r.status === "pending" ? `Invitation sent to ${user.display_name}` : `${user.display_name} added`,
         run: () => addMemberById(teamId, user.user_id),
       });
       if (result.status === "pending") {
@@ -781,7 +782,7 @@ function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }:
         }
       }
       setQuery(""); setResults([]); setOpen(false);
-      setSuccess(result.status === "pending" ? `Invitation sent to ${user.email}` : `${user.email} added`);
+      setSuccess(result.status === "pending" ? `Invitation sent to ${user.display_name}` : `${user.display_name} added`);
       await reloadSubscription();
       onMemberAdded();
     } catch (e) {
@@ -943,8 +944,8 @@ function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }:
                       disabled={!!adding}
                       onClick={() => void handleAdd(user)}
                     >
-                      <Avatar email={user.email} size={26} />
-                      <span className="flex-1 text-sm truncate">{user.email}</span>
+                      <Avatar name={user.display_name} size={26} />
+                      <span className="flex-1 text-sm truncate">{user.display_name}</span>
                       {adding === user.user_id
                         ? <Icon icon="lucide:loader-2" width={13} className="animate-spin shrink-0" style={{ color: "var(--t-text-dim)" }} />
                         : <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0" style={{ background: "var(--t-accent)", color: "#fff" }}>
@@ -1005,7 +1006,7 @@ function PrivateVaultInvitePanel({
 }: {
   query: string;
   onQueryChange: (v: string) => void;
-  results: { user_id: string; email: string; public_key: string }[];
+  results: { user_id: string; display_name: string; public_key: string }[];
   searching: boolean;
   open: boolean;
   setOpen: (v: boolean) => void;
@@ -1013,7 +1014,7 @@ function PrivateVaultInvitePanel({
   error: string;
   inputRef: React.RefObject<HTMLInputElement | null>;
   dropdownRef: React.RefObject<HTMLDivElement | null>;
-  onAdd: (user: { user_id: string; email: string; public_key: string }, roleName: string) => void;
+  onAdd: (user: { user_id: string; display_name: string; public_key: string }, roleName: string) => void;
   onClose: () => void;
 }) {
   const { usedSeats, totalSeats, load: reloadSubscription } = useSubscriptionStore();
@@ -1115,8 +1116,8 @@ function PrivateVaultInvitePanel({
                     disabled={!!adding}
                     onClick={() => onAdd(user, selectedRole)}
                   >
-                    <Avatar email={user.email} size={26} />
-                    <span className="flex-1 text-sm truncate">{user.email}</span>
+                    <Avatar name={user.display_name} size={26} />
+                    <span className="flex-1 text-sm truncate">{user.display_name}</span>
                     {adding === user.user_id
                       ? <Icon icon="lucide:loader-2" width={13} className="animate-spin shrink-0" style={{ color: "var(--t-text-dim)" }} />
                       : <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0" style={{ background: "var(--t-accent)", color: "#fff" }}>
@@ -1221,9 +1222,6 @@ export default function MembersPage() {
   const [showInvitePanel, setShowInvitePanel] = useState(false);
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [showRolesPanel, setShowRolesPanel] = useState(false);
-  const [transferOwnerTarget, setTransferOwnerTarget] = useState<TeamMember | null>(null);
-  const [transferring, setTransferring] = useState(false);
-  const [transferError, setTransferError] = useState("");
 
   useEffect(() => {
     if (membersInvitePending) {
@@ -1236,7 +1234,7 @@ export default function MembersPage() {
 
   // Private-vault invite state
   const [privateQuery, setPrivateQuery] = useState("");
-  const [privateResults, setPrivateResults] = useState<{ user_id: string; email: string; public_key: string }[]>([]);
+  const [privateResults, setPrivateResults] = useState<{ user_id: string; display_name: string; public_key: string }[]>([]);
   const [privateSearching, setPrivateSearching] = useState(false);
   const [privateOpen, setPrivateOpen] = useState(false);
   const [privateAdding, setPrivateAdding] = useState<string | null>(null);
@@ -1322,7 +1320,7 @@ export default function MembersPage() {
     return () => document.removeEventListener("mousedown", h);
   }, [privateOpen]);
 
-  const handlePrivateAdd = async (user: { user_id: string; email: string; public_key: string }, roleName: string) => {
+  const handlePrivateAdd = async (user: { user_id: string; display_name: string; public_key: string }, roleName: string) => {
     if (!localVault || !primaryVaultId) return;
     setPrivateAdding(user.user_id); setPrivateError("");
     try {
@@ -1349,7 +1347,7 @@ export default function MembersPage() {
   const searchLower = search.trim().toLowerCase();
   const filteredMembers = useMemo(() => {
     let result = members;
-    if (searchLower) result = result.filter((m) => m.email.toLowerCase().includes(searchLower));
+    if (searchLower) result = result.filter((m) => m.display_name.toLowerCase().includes(searchLower));
     if (roleFilter.length > 0) result = result.filter((m) => roleFilter.some((rid) => m.role_ids.includes(rid)));
     return result;
   }, [members, searchLower, roleFilter]);
@@ -1357,15 +1355,15 @@ export default function MembersPage() {
   const sortedMembers = useMemo(() => {
     return [...filteredMembers].sort((a, b) => {
       switch (sortMode) {
-        case "name-asc":  return a.email.localeCompare(b.email);
-        case "name-desc": return b.email.localeCompare(a.email);
+        case "name-asc":  return a.display_name.localeCompare(b.display_name);
+        case "name-desc": return b.display_name.localeCompare(a.display_name);
         case "newest":    return b.joined_at.localeCompare(a.joined_at);
         case "oldest":    return a.joined_at.localeCompare(b.joined_at);
         case "role-asc": {
           const posA = Math.min(...(a.role_ids.map((rid) => teamRoles.find((r) => r.id === rid)?.position ?? 9999)));
           const posB = Math.min(...(b.role_ids.map((rid) => teamRoles.find((r) => r.id === rid)?.position ?? 9999)));
           if (posA !== posB) return posA - posB;
-          return a.email.localeCompare(b.email);
+          return a.display_name.localeCompare(b.display_name);
         }
         default: return 0;
       }
@@ -1412,7 +1410,7 @@ export default function MembersPage() {
         onClick: () => {
           void removeMemberRole(teamId!, member.user_id, r.id).then(() => {
             push({
-              label: `Remove role: ${member.email}`,
+              label: `Remove role: ${member.display_name}`,
               undo: async () => { await assignMemberRole(teamId!, member.user_id, r.id); reload(); },
               redo: async () => { await removeMemberRole(teamId!, member.user_id, r.id); reload(); },
             });
@@ -1428,7 +1426,7 @@ export default function MembersPage() {
         onClick: () => {
           void assignMemberRole(teamId!, member.user_id, r.id).then(() => {
             push({
-              label: `Assign role: ${member.email}`,
+              label: `Assign role: ${member.display_name}`,
               undo: async () => { await removeMemberRole(teamId!, member.user_id, r.id); reload(); },
               redo: async () => { await assignMemberRole(teamId!, member.user_id, r.id); reload(); },
             });
@@ -1447,15 +1445,6 @@ export default function MembersPage() {
       }
     }
 
-    // Transfer ownership — only shown to the current owner, only for non-owner members
-    if (myMember && isOwnerMember(myMember) && canActOnMember) {
-      items.push({
-        label: "Transfer Ownership",
-        icon: "lucide:crown",
-        divider: items.length > 0,
-        onClick: () => setTransferOwnerTarget(member),
-      });
-    }
 
     items.push({
       label: "Invite to Session",
@@ -1486,7 +1475,7 @@ export default function MembersPage() {
           const snapshot = { ...member };
           void removeMember(teamId!, member.user_id).then(() => {
             push({
-              label: `Remove: ${member.email}`,
+              label: `Remove: ${member.display_name}`,
               undo: async () => {
                 await addMemberById(teamId!, snapshot.user_id);
                 for (const rid of snapshot.role_ids) {
@@ -1724,7 +1713,7 @@ const vaultTabs = selectedVaultIds.length > 1
             >
               {layoutMode === "grid" ? (
                 <BaseCard isList={false} className="flex-col items-center text-center gap-2 py-4">
-                  <Avatar email={myEmail || "?"} size={40} />
+                  <Avatar name={myEmail || "?"} size={40} />
                   <div className="w-full min-w-0 flex flex-col items-center gap-1">
                     <div className="flex items-center gap-1 justify-center">
                       {myEmail === null
@@ -1738,7 +1727,7 @@ const vaultTabs = selectedVaultIds.length > 1
                 </BaseCard>
               ) : (
                 <BaseCard isList>
-                  <Avatar email={myEmail || "?"} size={32} />
+                  <Avatar name={myEmail || "?"} size={32} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       {myEmail === null
@@ -1774,87 +1763,8 @@ const vaultTabs = selectedVaultIds.length > 1
   // ── Team vault ─────────────────────────────────────────────────────────────
   const panelOpen = showDetailPanel || showInvitePanel || showRolesPanel;
 
-  const handleTransferOwnership = async () => {
-    if (!transferOwnerTarget || !teamId || !myMember) return;
-    const ownerRole = teamRoles.find((r) => r.is_builtin && r.name === "owner");
-    if (!ownerRole) return;
-    setTransferring(true);
-    setTransferError("");
-    try {
-      await runTeamAction({
-        pending: `Transferring ownership to ${transferOwnerTarget.email}…`,
-        success: `Ownership transferred to ${transferOwnerTarget.email}`,
-        run: async () => {
-          await assignMemberRole(teamId, transferOwnerTarget.user_id, ownerRole.id);
-          await removeMemberRole(teamId, myMember.user_id, ownerRole.id);
-        },
-      });
-      setTransferOwnerTarget(null);
-      reload();
-    } catch (e) {
-      setTransferError(e instanceof Error ? e.message : "Transfer failed");
-    } finally {
-      setTransferring(false);
-    }
-  };
-
   return (
     <>
-      {transferOwnerTarget && (
-        <div
-          className="fixed inset-0 z-[200] flex items-center justify-center"
-          style={{ background: "rgba(0,0,0,0.6)" }}
-          onClick={() => { if (!transferring) { setTransferOwnerTarget(null); setTransferError(""); } }}
-        >
-          <div
-            className="rounded-2xl p-6 w-[400px] max-w-[90vw] space-y-4"
-            style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)", boxShadow: "0 24px 64px rgba(0,0,0,0.5)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(167,139,250,0.15)" }}>
-                <Icon icon="lucide:crown" width={18} style={{ color: "#a78bfa" }} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold" style={{ color: "var(--t-text-bright)" }}>Transfer Ownership</p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--t-text-dim)" }}>This is a critical, irreversible action</p>
-              </div>
-            </div>
-
-            <p className="text-sm leading-relaxed" style={{ color: "var(--t-text-primary)" }}>
-              You are about to transfer ownership of this team vault to{" "}
-              <span className="font-semibold" style={{ color: "var(--t-text-bright)" }}>{transferOwnerTarget.email}</span>.
-              {" "}You will lose your owner privileges immediately and cannot undo this yourself.
-            </p>
-
-            {transferError && (
-              <p className="text-xs px-3 py-2 rounded-lg" style={{ background: "rgba(239,68,68,0.1)", color: "var(--t-status-error)", border: "1px solid rgba(239,68,68,0.2)" }}>
-                {transferError}
-              </p>
-            )}
-
-            <div className="flex gap-2 pt-1">
-              <button
-                onClick={() => { setTransferOwnerTarget(null); setTransferError(""); }}
-                disabled={transferring}
-                className="flex-1 py-2 rounded-xl text-sm font-medium transition-colors"
-                style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-primary)", border: "1px solid var(--t-border)" }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => void handleTransferOwnership()}
-                disabled={transferring}
-                className="flex-1 py-2 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                style={{ background: transferring ? "rgba(239,68,68,0.5)" : "#dc2626", color: "#fff", opacity: transferring ? 0.7 : 1 }}
-              >
-                {transferring && <Icon icon="lucide:loader-2" width={13} className="animate-spin" />}
-                Transfer Ownership
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     <SidePanelLayout
       panelOpen={panelOpen}
       panelWidth={320}

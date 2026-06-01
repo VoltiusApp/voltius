@@ -35,7 +35,8 @@ export async function sftpConnect(params: {
   username: string;
   password?: string;
   privateKey?: string;
-  jumpHosts?: Array<{ host: string; port: number; username: string; password?: string; privateKey?: string }>;
+  passphrase?: string;
+  jumpHosts?: Array<{ host: string; port: number; username: string; password?: string; privateKey?: string; passphrase?: string }>;
 }): Promise<string> {
   return invoke("sftp_connect", {
     connectId: params.connectId,
@@ -44,6 +45,7 @@ export async function sftpConnect(params: {
     username: params.username,
     password: params.password ?? null,
     privateKey: params.privateKey ?? null,
+    passphrase: params.passphrase ?? null,
     jumpHosts: params.jumpHosts ?? null,
   });
 }
@@ -189,6 +191,17 @@ export async function pickLocalPath(opts: { directory?: boolean; title?: string 
   return result;
 }
 
+/** Open a native OS file picker that allows selecting multiple files. */
+export async function pickLocalPaths(opts: { title?: string } = {}): Promise<string[]> {
+  const result = await dialogOpen({
+    directory: false,
+    multiple: true,
+    title: opts.title,
+  });
+  if (Array.isArray(result)) return result;
+  return result ? [result] : [];
+}
+
 export async function onTransferProgress(
   transferId: string,
   callback: (progress: TransferProgress) => void,
@@ -222,6 +235,11 @@ export async function fsDelete(path: string): Promise<void> {
 
 export async function fsTouch(path: string): Promise<void> {
   return invoke("fs_touch", { path });
+}
+
+/** Recursively copy a file or directory on the local filesystem. */
+export async function fsCopy(from: string, to: string): Promise<void> {
+  return invoke("fs_copy", { from, to });
 }
 
 /** Returns true if path exists on the remote, false otherwise. */

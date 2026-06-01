@@ -16,7 +16,7 @@ const PERMISSION_GROUPS: { label: string; perms: Permission[] }[] = [
   },
   {
     label: "Connection Management",
-    perms: ["EDIT_CONNECTIONS", "EDIT_IDENTITIES", "EDIT_KEYS", "EDIT_FOLDERS"],
+    perms: ["EDIT_CONNECTIONS", "EDIT_IDENTITIES", "EDIT_KEYS", "EDIT_SNIPPETS", "EDIT_FOLDERS"],
   },
   {
     label: "Team Administration",
@@ -35,6 +35,7 @@ export const PERM_META: Record<Permission, { label: string; description: string 
   EDIT_CONNECTIONS:       { label: "Edit connections",   description: "Create, modify, and delete connections" },
   EDIT_IDENTITIES:        { label: "Edit identities",    description: "Create, modify, and delete SSH identities" },
   EDIT_KEYS:              { label: "Edit keys",          description: "Create, modify, and delete SSH keys" },
+  EDIT_SNIPPETS:          { label: "Edit snippets",      description: "Create, modify, and delete command snippets" },
   EDIT_FOLDERS:           { label: "Edit folders",       description: "Manage folder structure" },
   VIEW_AUDIT_LOG:         { label: "View audit log",     description: "Read the activity audit log" },
   INVITE_MEMBERS:         { label: "Invite members",     description: "Invite new members to the vault" },

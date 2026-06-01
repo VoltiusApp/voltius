@@ -6,9 +6,10 @@ import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { type HostChoice, type SidePhase, type FileEntry } from "./SFTPTypes";
 import { HostPickerPanel } from "@/components/shared/HostPickerPanel";
 import { FilePane } from "./FilePane";
-import ConnectionOverlay, { SFTP_STEPS } from "@/components/terminal/ConnectionOverlay";
+import ConnectionOverlay, { SFTP_STEPS } from "@/components/terminal/connection-overlay";
 import { FilterInput } from "@/components/shared/ToolbarViewControls";
 import { useHostPingStore } from "@/stores/hostPingStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
 
 function latencyColor(ms: number): string {
@@ -35,6 +36,7 @@ export function SidePane({
   host, phase, refreshTick,
   onPick, onNavigate, onSelect, onRefresh, onChangeHost, side, onDropFiles,
   onTransferToTarget, canTransferToTarget, onOpenInTerminal,
+  selected = [], onUpload, onDownloadFiles,
 }: {
   host: HostChoice | null;
   phase: SidePhase;
@@ -45,10 +47,16 @@ export function SidePane({
   onRefresh: () => void;
   onChangeHost: () => void;
   side: "left" | "right";
-  onDropFiles: (files: FileEntry[], fromSide: "left" | "right", targetFolder?: string) => void;
+  onDropFiles: (files: FileEntry[], fromSide: "left" | "right" | "panel", targetFolder?: string) => void;
   onTransferToTarget?: (files: FileEntry[]) => void;
   canTransferToTarget?: boolean;
   onOpenInTerminal?: (path: string) => void;
+  /** Current selection in this pane (drives the download button's enabled state). */
+  selected?: FileEntry[];
+  /** Pick local files and upload them into this pane's cwd. */
+  onUpload?: () => void;
+  /** Download the given remote files to a chosen local folder (remote panes only). */
+  onDownloadFiles?: (files: FileEntry[]) => void;
 }) {
   const hostLabel =
     host == null ? null
@@ -77,7 +85,7 @@ export function SidePane({
   const connectionId = host?.kind === "remote" ? host.connection.id : undefined;
   const connections = useAllConnections();
   const connection = connectionId ? connections.find((c) => c.id === connectionId) : undefined;
-  const pingEnabled = useHostPingStore((s) => s.enabled);
+  const [pingEnabled] = useToggle("reachability");
   const activePollIntervalMs = useHostPingStore((s) => s.activePollIntervalMs);
   const setStatus = useHostPingStore((s) => s.setStatus);
   const pingStatus = useHostPingStore((s) => connectionId ? s.statuses[connectionId] : undefined);
@@ -215,7 +223,20 @@ export function SidePane({
           <div className="ml-auto flex items-center gap-1">
             <NavBtn icon="lucide:arrow-left"  title="Back"    disabled={!histState.canBack}    onClick={goBack} />
             <NavBtn icon="lucide:arrow-right" title="Forward" disabled={!histState.canForward} onClick={goForward} />
-            <FilterInput value={filterQuery} onChange={setFilterQuery} placeholder="Filter…" width={128} />
+            <FilterInput value={filterQuery} onChange={setFilterQuery} placeholder="Filter…" width={128} shortcutId="filter" />
+            {onUpload && (
+              <NavBtn icon="lucide:upload" title="Upload files here" disabled={false} onClick={onUpload} />
+            )}
+            {onDownloadFiles && (
+              <NavBtn
+                icon="lucide:download"
+                title={selected.length > 0
+                  ? `Download ${selected.length === 1 ? `"${selected[0].name}"` : `${selected.length} items`}`
+                  : "Select files to download"}
+                disabled={selected.length === 0}
+                onClick={() => onDownloadFiles(selected)}
+              />
+            )}
             <button
               ref={viewBtnRef}
               title="View options"
@@ -303,6 +324,8 @@ export function SidePane({
             onRegisterMenuOpener={(opener) => setMenuOpener(() => opener)}
             onRegisterViewMenuOpener={(opener) => setViewMenuOpener(() => opener)}
             onOpenInTerminal={onOpenInTerminal}
+            onPanelUpload={onUpload}
+            onPanelDownload={onDownloadFiles}
           />
         )}
       </div>

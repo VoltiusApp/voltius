@@ -8,9 +8,12 @@ export const SETTINGS_NAV: {
 }[] = [
   { id: "appearance", label: "Appearance", icon: "lucide:palette",       keywords: ["theme", "color", "font", "ui"] },
   { id: "account",    label: "Account",    icon: "lucide:user-circle",   keywords: ["profile", "login", "auth"] },
+  { id: "sync",       label: "Sync",       icon: "lucide:cloud",         keywords: ["backup", "cloud", "gist", "sync", "pro"] },
   { id: "vaults",     label: "Vaults",     icon: "lucide:vault",         keywords: ["secret", "password", "storage", "keyring"] },
   { id: "plugins",    label: "Plugins",    icon: "lucide:puzzle",        keywords: ["extensions", "addons", "marketplace"] },
-  { id: "sftp",       label: "SFTP",       icon: "lucide:folder-closed", keywords: ["file", "transfer", "ftp", "files"] },
-  { id: "hosts",      label: "Hosts",      icon: "lucide:server",        keywords: ["ping", "reachability", "connectivity", "status"] },
+  { id: "sftp",            label: "SFTP",            icon: "lucide:folder-closed",    keywords: ["file", "transfer", "ftp", "files"] },
+  { id: "portForwarding", label: "Port Forwarding", icon: "lucide:arrow-right-left", keywords: ["tunnel", "forward", "ports", "ssh", "auto"] },
+  { id: "hosts",           label: "Hosts",           icon: "lucide:server",           keywords: ["ping", "reachability", "connectivity", "status"] },
+  { id: "shortcuts",  label: "Shortcuts",  icon: "lucide:keyboard",      keywords: ["keybind", "hotkey", "shortcut", "rebind", "keyboard"] },
   { id: "about",      label: "About",      icon: "lucide:info",          keywords: ["version", "update", "release", "changelog"] },
 ];

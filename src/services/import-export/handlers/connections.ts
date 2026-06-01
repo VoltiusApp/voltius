@@ -5,6 +5,7 @@ import type { ConnectionExport, JumpHostExport, ExportBundle } from "../formats"
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "../context";
 import { existingConnectionsForVault } from "../context";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
+import { fetchConnectionSecrets, storeConnectionSecrets, resolveConnectionKeyEid, resolveConnectionKeyId } from "../secretsLogic";
 
 export const connectionsHandler: DataTypeHandler = {
   key: "connections",
@@ -47,21 +48,28 @@ export const connectionsHandler: DataTypeHandler = {
     bundle.connections = await Promise.all(connections.map(async (c, i): Promise<ConnectionExport> => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id, identity_id, folder_id, vault_id, created_at, last_used_at, updated_at, deleted_at, clocks, distro, jump_hosts, ...passthrough } = c;
+      const secrets = await fetchConnectionSecrets(c.id, (key) => getSecret(key).catch(() => null));
       return {
         ...passthrough,
         _eid: `c${i}`,
-        password: await getSecret(`password:${c.id}`).catch(() => null) ?? undefined,
-        private_key: await getSecret(`key:${c.id}`).catch(() => null) ?? undefined,
+        ...secrets,
+        _key_eid: resolveConnectionKeyEid(c.key_id, ctx.keyEidMap),
         _identity_eid: c.identity_id ? ctx.identityEidMap.get(c.identity_id) : undefined,
         _folder_eid: c.folder_id ? ctx.folderEidMap.get(c.folder_id) : undefined,
-        jump_hosts: jump_hosts?.map((jh): JumpHostExport => ({
-          id: jh.id,
-          host: jh.host,
-          port: jh.port,
-          username: jh.username,
-          _identity_eid: jh.identity_id ? ctx.identityEidMap.get(jh.identity_id) : undefined,
-          _connection_eid: jh.connection_id ? ctx.connectionEidMap.get(jh.connection_id) : undefined,
-        })),
+        jump_hosts: jump_hosts?.map((jh): JumpHostExport => {
+          // Jump hosts are live references; materialize the referenced
+          // connection's address into the export so other formats / cross-vault
+          // imports that can't resolve _connection_eid still have an address.
+          const ref = connections.find((x) => x.id === jh.connection_id);
+          return {
+            id: jh.id,
+            host: ref?.host ?? jh.host ?? "",
+            port: ref?.port ?? jh.port ?? 22,
+            username: ref?.username ?? jh.username ?? "",
+            _identity_eid: (ref?.identity_id ?? jh.identity_id) ? ctx.identityEidMap.get((ref?.identity_id ?? jh.identity_id)!) : undefined,
+            _connection_eid: jh.connection_id ? ctx.connectionEidMap.get(jh.connection_id) : undefined,
+          };
+        }),
       };
     }));
   },
@@ -120,7 +128,7 @@ export const connectionsHandler: DataTypeHandler = {
       }
       try {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { _eid, password, private_key, _identity_eid, _folder_eid, tags, jump_hosts, ...passthrough } = conn;
+        const { _eid, password, private_key, passphrase, _identity_eid, _key_eid, _folder_eid, tags, jump_hosts, ...passthrough } = conn;
         const resolvedJumpHosts: JumpHost[] | undefined = jump_hosts?.map(jh => ({
           id: crypto.randomUUID(),
           connection_id: jh._connection_eid ? (ctx.connectionEidMap.get(jh._connection_eid) ?? "") : "",
@@ -135,21 +143,16 @@ export const connectionsHandler: DataTypeHandler = {
           ...passthrough,
           tags: ctx.tag ? [...tags, ctx.tag] : tags,
           identity_id: _identity_eid ? ctx.identityEidMap.get(_identity_eid) : undefined,
+          key_id: resolveConnectionKeyId(_key_eid, ctx.keyEidMap),
           folder_id: _folder_eid ? ctx.folderEidMap.get(_folder_eid) : undefined,
           vault_id: ctx.vault_id,
           jump_hosts: resolvedJumpHosts?.length ? resolvedJumpHosts : undefined,
         });
         if (conn._eid) ctx.connectionEidMap.set(conn._eid, saved.id);
-        if (conn.password) {
-          const localKey = `password:${saved.id}`;
-          await storeSecret(localKey, conn.password);
-          await saveTeamVaultSecretForVault(ctx.vault_id, localKey, conn.password).catch(() => {});
-        }
-        if (conn.private_key) {
-          const localKey = `key:${saved.id}`;
-          await storeSecret(localKey, conn.private_key);
-          await saveTeamVaultSecretForVault(ctx.vault_id, localKey, conn.private_key).catch(() => {});
-        }
+        await storeConnectionSecrets(conn, saved.id, async (key, value) => {
+          await storeSecret(key, value);
+          await saveTeamVaultSecretForVault(ctx.vault_id, key, value).catch(() => {});
+        });
         imported++;
       } catch { errors++; }
     }

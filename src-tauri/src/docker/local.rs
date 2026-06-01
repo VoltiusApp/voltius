@@ -9,6 +9,7 @@ use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
+use super::recreate::{build_network_connects, build_run_args, build_run_command, parse_inspect};
 use super::types::*;
 
 fn now_ms() -> u64 {
@@ -63,6 +64,235 @@ async fn run_wsl_docker(local_shell: Option<&str>, args: &[&str]) -> Result<Stri
         let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
         Err(if stderr.is_empty() { stdout } else { stderr })
     }
+}
+
+async fn run_local_docker(args: &[&str]) -> Result<String, String> {
+    let mut command = Command::new("docker");
+    command.args(args);
+    prevent_visible_child_window(&mut command);
+
+    let output = command
+        .output()
+        .await
+        .map_err(|e| format!("Docker not available: {e}"))?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        Err(if stderr.is_empty() { stdout } else { stderr })
+    }
+}
+
+async fn run_compose(local_shell: Option<&str>, args: &[&str]) -> Result<String, String> {
+    let mut docker_args = vec!["compose"];
+    docker_args.extend_from_slice(args);
+
+    if should_use_wsl_cli(local_shell) {
+        run_wsl_docker(local_shell, &docker_args).await
+    } else {
+        run_local_docker(&docker_args).await
+    }
+}
+
+/// Run a `docker` CLI command, transparently routing through WSL when needed.
+async fn run_docker(local_shell: Option<&str>, args: &[&str]) -> Result<String, String> {
+    if should_use_wsl_cli(local_shell) {
+        run_wsl_docker(local_shell, args).await
+    } else {
+        run_local_docker(args).await
+    }
+}
+
+/// The digest the image was pulled at locally (its registry `RepoDigest`), used
+/// as the "current" side of an update check. `None` for locally-built images.
+pub async fn local_image_digest(local_shell: Option<&str>, image: &str) -> Option<String> {
+    match run_docker(
+        local_shell,
+        &["image", "inspect", image, "--format", "{{json .RepoDigests}}"],
+    )
+    .await
+    {
+        Ok(out) => serde_json::from_str::<Vec<String>>(out.trim())
+            .ok()
+            .and_then(|digests| pick_repo_digest(&digests, image)),
+        Err(_) => None,
+    }
+}
+
+/// Pull the latest image for a tag. Returns the CLI output.
+pub async fn pull_image(local_shell: Option<&str>, image: &str) -> Result<String, String> {
+    run_docker(local_shell, &["pull", image]).await
+}
+
+/// Reconstruct a pasteable `docker run …` command for a container.
+pub async fn container_run_command(
+    local_shell: Option<&str>,
+    container_id: &str,
+    image: &str,
+) -> Result<String, String> {
+    let inspect = run_docker(local_shell, &["inspect", container_id]).await?;
+    let parsed = parse_inspect(&inspect)?;
+    Ok(build_run_command(&parsed, image))
+}
+
+/// Recreate a single standalone container against the new `image` by
+/// reconstructing its `docker run` invocation from `docker inspect`. The old
+/// container is renamed to a backup and restored if the new `run` fails.
+async fn recreate_standalone(
+    local_shell: Option<&str>,
+    image: &str,
+    container_id: &str,
+    name: &str,
+) -> Result<(), String> {
+    let inspect = run_docker(local_shell, &["inspect", container_id]).await?;
+    let parsed = parse_inspect(&inspect)?;
+    let run_args = build_run_args(&parsed, image);
+    let connects = build_network_connects(&parsed, name);
+
+    let backup = format!("{name}-old-{}", now_ms());
+
+    let _ = run_docker(local_shell, &["stop", container_id]).await;
+    run_docker(local_shell, &["rename", container_id, &backup])
+        .await
+        .map_err(|e| format!("rename failed: {e}"))?;
+
+    let run_refs: Vec<&str> = run_args.iter().map(String::as_str).collect();
+    match run_docker(local_shell, &run_refs).await {
+        Ok(_) => {
+            for cmd in &connects {
+                let refs: Vec<&str> = cmd.iter().map(String::as_str).collect();
+                let _ = run_docker(local_shell, &refs).await;
+            }
+            let _ = run_docker(local_shell, &["rm", "-f", &backup]).await;
+            Ok(())
+        }
+        Err(e) => {
+            // Roll back to the original container.
+            let _ = run_docker(local_shell, &["rm", "-f", name]).await;
+            let _ = run_docker(local_shell, &["rename", &backup, name]).await;
+            let _ = run_docker(local_shell, &["start", name]).await;
+            Err(format!("run failed (restored original): {e}"))
+        }
+    }
+}
+
+/// List running containers using `image`, with their compose identity. Must be
+/// called *before* pulling — once the tag moves to the new image, an `ancestor`
+/// filter no longer matches the still-running containers on the old image id.
+async fn list_image_container_refs(
+    local_shell: Option<&str>,
+    image: &str,
+) -> Result<Vec<ContainerComposeRef>, String> {
+    let ancestor = format!("ancestor={image}");
+    let output = run_docker(
+        local_shell,
+        &["ps", "--filter", &ancestor, "--format", RECREATE_PS_FORMAT],
+    )
+    .await?;
+    Ok(output.lines().filter_map(parse_recreate_ps_line).collect())
+}
+
+/// Recreate the given containers against `image`. Compose-managed services are
+/// recreated via `docker compose up -d`; standalone containers are rebuilt from
+/// their inspected `docker run` config.
+async fn recreate_refs(
+    local_shell: Option<&str>,
+    image: &str,
+    refs: Vec<ContainerComposeRef>,
+) -> RecreateResult {
+    let mut result = RecreateResult::default();
+    let mut seen = std::collections::HashSet::new();
+
+    for ctr in refs {
+        if !ctr.is_compose() {
+            match recreate_standalone(local_shell, image, &ctr.id, &ctr.name).await {
+                Ok(()) => result.recreated.push(ctr.name),
+                Err(e) => {
+                    result.manual.push(ctr.name.clone());
+                    result.errors.push(format!("{}: {e}", ctr.name));
+                }
+            }
+            continue;
+        }
+        let key = format!("{}/{}", ctr.project, ctr.service);
+        if !seen.insert(key.clone()) {
+            continue;
+        }
+
+        let mut args: Vec<String> = vec!["compose".into(), "--project-name".into(), ctr.project];
+        for cf in &ctr.config_files {
+            args.push("-f".into());
+            args.push(cf.clone());
+        }
+        if !ctr.working_dir.is_empty() {
+            args.push("--project-directory".into());
+            args.push(ctr.working_dir);
+        }
+        args.extend(["up".into(), "-d".into(), "--no-deps".into(), ctr.service]);
+
+        let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+        match run_docker(local_shell, &arg_refs).await {
+            Ok(_) => result.recreated.push(key),
+            Err(e) => result.errors.push(format!("{key}: {e}")),
+        }
+    }
+
+    result
+}
+
+/// Recreate the containers currently using `image` (no pull). Standalone use.
+pub async fn recreate_image_containers(
+    local_shell: Option<&str>,
+    image: &str,
+) -> Result<RecreateResult, String> {
+    let refs = list_image_container_refs(local_shell, image).await?;
+    Ok(recreate_refs(local_shell, image, refs).await)
+}
+
+/// Resolve an image's content id (`docker image inspect --format {{.Id}}`),
+/// used to detect whether a pull actually changed the image.
+async fn image_id(local_shell: Option<&str>, image: &str) -> Option<String> {
+    run_docker(local_shell, &["image", "inspect", image, "--format", "{{.Id}}"])
+        .await
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// Pull `image` and, when `recreate` is set and the pull actually fetched a new
+/// image, recreate the containers that were using it. The target list is
+/// captured *before* the pull so the tag move doesn't hide them from `ancestor`.
+pub async fn pull_and_recreate(
+    local_shell: Option<&str>,
+    image: &str,
+    recreate: bool,
+) -> Result<RecreateResult, String> {
+    let before = image_id(local_shell, image).await;
+    let refs = if recreate {
+        list_image_container_refs(local_shell, image)
+            .await
+            .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+
+    let pull_output = pull_image(local_shell, image).await?;
+
+    let after = image_id(local_shell, image).await;
+    let image_updated = after.is_some() && before != after;
+
+    let mut result = if recreate && image_updated {
+        recreate_refs(local_shell, image, refs).await
+    } else {
+        RecreateResult::default()
+    };
+    result.image_updated = image_updated;
+    if !image_updated {
+        result.pull_output = tail_chars(&pull_output, 300);
+    }
+    Ok(result)
 }
 
 #[derive(Deserialize)]
@@ -362,6 +592,23 @@ pub async fn list_networks(local_shell: Option<&str>) -> Result<Vec<DockerNetwor
         .collect())
 }
 
+pub async fn list_stacks(local_shell: Option<&str>) -> Result<Vec<DockerStack>, String> {
+    let output = run_compose(local_shell, &["ls", "--all", "--format", "json"]).await?;
+    parse_compose_stacks(&output)
+}
+
+pub async fn list_stack_services(
+    local_shell: Option<&str>,
+    stack_name: &str,
+) -> Result<Vec<DockerStackService>, String> {
+    let output = run_compose(
+        local_shell,
+        &["-p", stack_name, "ps", "--all", "--format", "json"],
+    )
+    .await?;
+    parse_compose_services(&output)
+}
+
 pub async fn container_action(
     local_shell: Option<&str>,
     container_id: &str,
@@ -418,6 +665,67 @@ pub async fn container_action(
             .await
             .map_err(|e| format!("{e}"))?,
     }
+    Ok(())
+}
+
+pub async fn stack_action(
+    local_shell: Option<&str>,
+    stack_name: &str,
+    action: &StackAction,
+) -> Result<(), String> {
+    let config_files = list_stacks(local_shell)
+        .await
+        .ok()
+        .and_then(|stacks| stacks.into_iter().find(|stack| stack.name == stack_name))
+        .map(|stack| stack.config_files)
+        .unwrap_or_default();
+
+    let mut args = Vec::new();
+    for file in &config_files {
+        args.push("-f".to_string());
+        args.push(file.clone());
+    }
+    args.push("-p".to_string());
+    args.push(stack_name.to_string());
+
+    match action {
+        StackAction::Up => args.extend(["up".to_string(), "-d".to_string()]),
+        StackAction::Stop => args.push("stop".to_string()),
+        StackAction::Restart => args.push("restart".to_string()),
+        StackAction::Down => args.push("down".to_string()),
+    };
+
+    let arg_refs = args.iter().map(String::as_str).collect::<Vec<_>>();
+    run_compose(local_shell, &arg_refs).await?;
+    Ok(())
+}
+
+/// Pull newer images for a stack and recreate it: `compose pull` then `up -d`.
+pub async fn stack_update(local_shell: Option<&str>, stack_name: &str) -> Result<(), String> {
+    let config_files = list_stacks(local_shell)
+        .await
+        .ok()
+        .and_then(|stacks| stacks.into_iter().find(|stack| stack.name == stack_name))
+        .map(|stack| stack.config_files)
+        .unwrap_or_default();
+
+    let mut base = Vec::new();
+    for file in &config_files {
+        base.push("-f".to_string());
+        base.push(file.clone());
+    }
+    base.push("-p".to_string());
+    base.push(stack_name.to_string());
+
+    let mut pull = base.clone();
+    pull.push("pull".to_string());
+    let pull_refs = pull.iter().map(String::as_str).collect::<Vec<_>>();
+    run_compose(local_shell, &pull_refs).await?;
+
+    let mut up = base;
+    up.extend(["up".to_string(), "-d".to_string()]);
+    let up_refs = up.iter().map(String::as_str).collect::<Vec<_>>();
+    run_compose(local_shell, &up_refs).await?;
     Ok(())
 }
 
@@ -556,11 +864,127 @@ mod tests {
         assert!(!should_use_wsl_cli(None));
     }
 
+    #[test]
+    fn parses_compose_stack_list_json_array() {
+        let output = r#"[
+          {"Name":"demo","Status":"running(2)","ConfigFiles":"/tmp/docker-compose.yml"},
+          {"Name":"stopped","Status":"exited(1), running(1)","ConfigFiles":"/tmp/compose.yml,/tmp/override.yml"}
+        ]"#;
+
+        let stacks = parse_compose_stacks(output).expect("stacks parse");
+
+        assert_eq!(stacks.len(), 2);
+        assert_eq!(stacks[0].name, "demo");
+        assert_eq!(stacks[0].running, 2);
+        assert_eq!(stacks[0].total, 2);
+        assert_eq!(stacks[0].config_files, vec!["/tmp/docker-compose.yml"]);
+        assert_eq!(stacks[1].running, 1);
+        assert_eq!(stacks[1].exited, 1);
+        assert_eq!(stacks[1].total, 2);
+        assert_eq!(stacks[1].config_files, vec!["/tmp/compose.yml", "/tmp/override.yml"]);
+    }
+
+    #[test]
+    fn parses_compose_service_ps_json_lines() {
+        let output = r#"{"ID":"abc123","Name":"demo-web-1","Project":"demo","Service":"web","Image":"nginx:latest","State":"running","Status":"Up 2 minutes","Publishers":[{"URL":"0.0.0.0","TargetPort":80,"PublishedPort":8080,"Protocol":"tcp"}]}
+{"ID":"def456","Name":"demo-db-1","Project":"demo","Service":"db","Image":"postgres:16","State":"exited","Status":"Exited (0)"}"#;
+
+        let services = parse_compose_services(output).expect("services parse");
+
+        assert_eq!(services.len(), 2);
+        assert_eq!(services[0].service, "web");
+        assert_eq!(services[0].ports.len(), 1);
+        assert_eq!(services[0].ports[0].host_port, Some(8080));
+        assert_eq!(services[0].ports[0].container_port, 80);
+        assert_eq!(services[1].state, "exited");
+    }
+
     #[cfg(target_os = "windows")]
     #[test]
     fn windows_wsl_child_processes_are_configured_without_visible_windows() {
         assert_eq!(windows_hidden_child_process_flags(), 0x08000000);
     }
+}
+
+pub async fn stream_stack_logs(
+    app: AppHandle,
+    stream_id: String,
+    stack_name: String,
+    tail: u32,
+    local_shell: Option<String>,
+) {
+    let event = format!("docker:log:{stream_id}");
+    let tail_str = tail.to_string();
+
+    let mut command = if should_use_wsl_cli(local_shell.as_deref()) {
+        let shell = local_shell.unwrap_or_else(|| "wsl.exe".to_string());
+        let mut cmd = Command::new(shell);
+        cmd.arg("docker")
+            .args(["compose", "-p", &stack_name, "logs", "--follow", "--tail", &tail_str]);
+        cmd
+    } else {
+        let mut cmd = Command::new("docker");
+        cmd.args(["compose", "-p", &stack_name, "logs", "--follow", "--tail", &tail_str]);
+        cmd
+    };
+
+    command
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    prevent_visible_child_window(&mut command);
+
+    let mut child = match command.spawn() {
+        Ok(child) => child,
+        Err(e) => {
+            let _ = app.emit(
+                &event,
+                &DockerLogLine {
+                    line: format!("Error: {e}"),
+                    stream: "stderr".to_string(),
+                    ts: now_ms(),
+                },
+            );
+            return;
+        }
+    };
+
+    if let Some(stdout) = child.stdout.take() {
+        let app = app.clone();
+        let event = event.clone();
+        tokio::spawn(async move {
+            let mut lines = BufReader::new(stdout).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                let _ = app.emit(
+                    &event,
+                    &DockerLogLine {
+                        line,
+                        stream: "stdout".to_string(),
+                        ts: now_ms(),
+                    },
+                );
+            }
+        });
+    }
+
+    if let Some(stderr) = child.stderr.take() {
+        let app = app.clone();
+        let event = event.clone();
+        tokio::spawn(async move {
+            let mut lines = BufReader::new(stderr).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                let _ = app.emit(
+                    &event,
+                    &DockerLogLine {
+                        line,
+                        stream: "stderr".to_string(),
+                        ts: now_ms(),
+                    },
+                );
+            }
+        });
+    }
+
+    let _ = child.wait().await;
 }
 
 pub async fn stream_logs(
