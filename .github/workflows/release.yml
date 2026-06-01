@@ -1,9 +1,9 @@
-name: 'publish'
+name: release
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*'
 
 jobs:
   publish-tauri:
@@ -13,32 +13,26 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # --- LINUX x64 ---
           - platform: 'ubuntu-24.04'
             target: 'x86_64-unknown-linux-gnu'
             args: ''
-          
-          # --- LINUX ARM64 ---
+
           - platform: 'ubuntu-24.04-arm'
             target: 'aarch64-unknown-linux-gnu'
             args: ''
-            
-          # --- WINDOWS x64 ---
+
           - platform: 'windows-latest'
             target: 'x86_64-pc-windows-msvc'
             args: ''
-            
-          # --- WINDOWS ARM64 ---
+
           - platform: 'windows-latest'
             target: 'aarch64-pc-windows-msvc'
             args: '--target aarch64-pc-windows-msvc'
 
-          # # --- MACOS x64 ---
           - platform: 'macos-latest'
             target: 'x86_64-apple-darwin'
             args: '--target x86_64-apple-darwin'
 
-          # # --- MACOS ARM64 ---
           - platform: 'macos-latest'
             target: 'aarch64-apple-darwin'
             args: '--target aarch64-apple-darwin'
@@ -67,13 +61,11 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          # On ajoute la target dans la clé pour ne pas mélanger 
-          # le cache Windows x64 et Windows ARM64
           key: ${{ matrix.target }}
           workspaces: 'src-tauri -> target'
 
       - name: Install dependencies (Ubuntu native)
-        if: (matrix.platform == 'ubuntu-24.04' && matrix.target == 'x86_64-unknown-linux-gnu') || matrix.platform == 'ubuntu-24.04-arm'
+        if: matrix.platform == 'ubuntu-24.04' || matrix.platform == 'ubuntu-24.04-arm'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
@@ -93,15 +85,39 @@ jobs:
           SCCACHE_GHA_ENABLED: "true"
           RUSTC_WRAPPER: "sccache"
         with:
-          tagName: v__VERSION__
-          releaseName: 'Voltius v__VERSION__'
-          releaseBody: 'See the assets to download this version.'
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Voltius ${{ github.ref_name }}'
+          releaseBody: |
+            ## Downloads
+
+            See the assets below for your platform.
+
+            > **Verify integrity** — each asset has a corresponding `.sha256` checksum file.
           releaseDraft: false
           prerelease: false
-          
-          # CORRECTION: Il fallait passer l'argument ici pour cibler l'ARM64 !
-          args: ${{ matrix.args }} 
-          
-          # Upload le binaire brut (.exe portable) en plus des installeurs
+          args: ${{ matrix.args }}
           uploadPlainBinary: true
           updaterJsonPreferNsis: true
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          cd src-tauri/target/release/bundle
+          find . -type f ! -name '*.sha256' -print0 | while IFS= read -r -d '' f; do
+            sha256sum "$f" > "$f.sha256"
+          done
+          echo "=== Checksums ==="
+          find . -name '*.sha256' -print0 | while IFS= read -r -d '' f; do
+            echo "  $f:"
+            cat "$f"
+          done
+
+      - name: Upload checksums to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          cd src-tauri/target/release/bundle
+          find . -name '*.sha256' -print0 | while IFS= read -r -d '' f; do
+            gh release upload "${{ github.ref_name }}" "$f"
+          done
