@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { TOGGLE_DEFS, useToggleSettingsStore, type ToggleId } from "@/stores/toggleSettingsStore";
 import { useSyncPrefsStore, SYNC_OBJECT_TYPES } from "@/stores/syncPrefsStore";
+import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
+import { getLoadedPlugins, setPluginActive } from "@/plugins/runtime";
 
 export interface ToggleItem {
   id: string;
@@ -16,6 +18,9 @@ export function useToggleSettings(): ToggleItem[] {
   const values = useToggleSettingsStore((s) => s.values);
   const set = useToggleSettingsStore((s) => s.set);
   const { syncTypes, setSyncType } = useSyncPrefsStore();
+  // Subscribe to overrides so plugin toggle values stay live as they're flipped.
+  const pluginOverrides = usePluginRegistryStore((s) => s.overrides);
+  const setPluginEnabled = usePluginRegistryStore((s) => s.setEnabled);
 
   return useMemo<ToggleItem[]>(() => [
     ...(Object.entries(TOGGLE_DEFS) as [ToggleId, typeof TOGGLE_DEFS[ToggleId]][]).map(([id, def]) => ({
@@ -36,5 +41,17 @@ export function useToggleSettings(): ToggleItem[] {
       value: syncTypes[t.id] ?? true,
       onToggle: (v: boolean) => setSyncType(t.id, v),
     })),
-  ], [values, set, syncTypes, setSyncType]);
+    ...getLoadedPlugins().map((m) => ({
+      id: `plugin:${m.id}`,
+      label: m.name,
+      icon: "lucide:puzzle",
+      description: "Plugin",
+      keywords: ["plugin", "extension", m.name.toLowerCase(), m.id],
+      value: pluginOverrides[m.id] ?? m.defaultEnabled ?? true,
+      onToggle: (v: boolean) => {
+        setPluginActive(m.id, v);
+        void setPluginEnabled(m.id, v);
+      },
+    })),
+  ], [values, set, syncTypes, setSyncType, pluginOverrides, setPluginEnabled]);
 }
