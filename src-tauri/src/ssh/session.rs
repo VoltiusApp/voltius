@@ -159,7 +159,10 @@ impl SessionManager {
             } else if line.starts_with("pve-manager/") {
                 // e.g. "pve-manager/8.2.4/43f4d7ca (running kernel: 6.8.12-5-pve)"
                 if let Some(version) = line.splitn(3, '/').nth(1) {
-                    info.pretty_name = format!("Proxmox VE {}", version.split_whitespace().next().unwrap_or(version));
+                    info.pretty_name = format!(
+                        "Proxmox VE {}",
+                        version.split_whitespace().next().unwrap_or(version)
+                    );
                 }
             } else if let Some(rest) = line.strip_prefix("proxmox-backup-server:") {
                 // e.g. "proxmox-backup-server: 3.2.4-1"

@@ -38,7 +38,10 @@ fn parent_of(path: &str) -> &str {
 
 fn basename_of(path: &str) -> &str {
     let trimmed = path.trim_end_matches('/');
-    trimmed.rfind('/').map(|i| &trimmed[i + 1..]).unwrap_or(trimmed)
+    trimmed
+        .rfind('/')
+        .map(|i| &trimmed[i + 1..])
+        .unwrap_or(trimmed)
 }
 
 #[derive(Clone)]
@@ -49,7 +52,10 @@ pub struct DockerFs {
 
 impl DockerFs {
     pub fn new(handle: Arc<Handle<SshClient>>, container_id: String) -> Self {
-        Self { handle, container_id }
+        Self {
+            handle,
+            container_id,
+        }
     }
 
     /// Build a `docker exec -i <cid> sh -c '<script>' x <arg…>` command string.
@@ -133,7 +139,11 @@ impl DockerFs {
         if code != 0 {
             return Err(format!(
                 "read_dir failed: {}",
-                if err.trim().is_empty() { format!("cannot access {path}") } else { err.trim().to_string() }
+                if err.trim().is_empty() {
+                    format!("cannot access {path}")
+                } else {
+                    err.trim().to_string()
+                }
             ));
         }
         let base = path.trim_end_matches('/');
@@ -141,10 +151,23 @@ impl DockerFs {
         for line in out.lines() {
             let mut parts = line.splitn(6, '\t');
             let (Some(l), Some(d), Some(s), Some(m), Some(p), Some(name)) = (
-                parts.next(), parts.next(), parts.next(), parts.next(), parts.next(), parts.next(),
-            ) else { continue };
-            if name.is_empty() { continue; }
-            let entry_path = if base.is_empty() { format!("/{name}") } else { format!("{base}/{name}") };
+                parts.next(),
+                parts.next(),
+                parts.next(),
+                parts.next(),
+                parts.next(),
+                parts.next(),
+            ) else {
+                continue;
+            };
+            if name.is_empty() {
+                continue;
+            }
+            let entry_path = if base.is_empty() {
+                format!("/{name}")
+            } else {
+                format!("{base}/{name}")
+            };
             files.push(RemoteFile {
                 path: entry_path,
                 name: name.to_string(),
@@ -183,7 +206,8 @@ impl DockerFs {
     }
 
     pub async fn rename(&self, from: &str, to: &str) -> Result<(), String> {
-        self.simple("mv \"$1\" \"$2\"", &[from, to], "rename failed").await
+        self.simple("mv \"$1\" \"$2\"", &[from, to], "rename failed")
+            .await
     }
 
     pub async fn delete(&self, path: &str) -> Result<(), String> {
@@ -195,7 +219,11 @@ impl DockerFs {
         if code != 0 {
             return Err(format!(
                 "{label}: {}",
-                if err.trim().is_empty() { format!("exit {code}") } else { err.trim().to_string() }
+                if err.trim().is_empty() {
+                    format!("exit {code}")
+                } else {
+                    err.trim().to_string()
+                }
             ));
         }
         Ok(())
@@ -231,7 +259,10 @@ impl DockerFs {
             .channel_open_session()
             .await
             .map_err(|e| format!("channel error: {e}"))?;
-        channel.exec(true, cmd.as_str()).await.map_err(|e| format!("exec error: {e}"))?;
+        channel
+            .exec(true, cmd.as_str())
+            .await
+            .map_err(|e| format!("exec error: {e}"))?;
         let mut writer = channel.make_writer();
 
         let mut buf = vec![0u8; CHUNK_SIZE];
@@ -240,11 +271,17 @@ impl DockerFs {
             if token.is_cancelled() {
                 return Err("Transfer cancelled".into());
             }
-            let n = local.read(&mut buf).await.map_err(|e| format!("Read error: {e}"))?;
+            let n = local
+                .read(&mut buf)
+                .await
+                .map_err(|e| format!("Read error: {e}"))?;
             if n == 0 {
                 break;
             }
-            writer.write_all(&buf[..n]).await.map_err(|e| format!("Write error: {e}"))?;
+            writer
+                .write_all(&buf[..n])
+                .await
+                .map_err(|e| format!("Write error: {e}"))?;
             transferred += n as u64;
             let _ = app.emit(
                 &format!("sftp-progress-{transfer_id}"),
@@ -281,7 +318,10 @@ impl DockerFs {
             .channel_open_session()
             .await
             .map_err(|e| format!("channel error: {e}"))?;
-        channel.exec(true, cmd.as_str()).await.map_err(|e| format!("exec error: {e}"))?;
+        channel
+            .exec(true, cmd.as_str())
+            .await
+            .map_err(|e| format!("exec error: {e}"))?;
 
         let mut transferred = 0u64;
         let mut err = Vec::new();
@@ -292,7 +332,10 @@ impl DockerFs {
             }
             match channel.wait().await {
                 Some(ChannelMsg::Data { data }) => {
-                    local.write_all(&data).await.map_err(|e| format!("Write error: {e}"))?;
+                    local
+                        .write_all(&data)
+                        .await
+                        .map_err(|e| format!("Write error: {e}"))?;
                     transferred += data.len() as u64;
                     let _ = app.emit(
                         &format!("sftp-progress-{transfer_id}"),
@@ -349,8 +392,14 @@ impl DockerFs {
         transfer_id: &str,
         token: &CancellationToken,
     ) -> Result<(), String> {
-        let parent = Path::new(local_path).parent().and_then(|p| p.to_str()).unwrap_or(".");
-        let base = Path::new(local_path).file_name().and_then(|n| n.to_str()).unwrap_or("");
+        let parent = Path::new(local_path)
+            .parent()
+            .and_then(|p| p.to_str())
+            .unwrap_or(".");
+        let base = Path::new(local_path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("");
         let remote_script = "mkdir -p \"$1\" && tar -C \"$1\" --strip-components=1 -xzf -";
         self.tar_into_container(
             app,
@@ -374,7 +423,10 @@ impl DockerFs {
         if local_paths.is_empty() {
             return Ok(());
         }
-        let parent = Path::new(&local_paths[0]).parent().and_then(|p| p.to_str()).unwrap_or(".");
+        let parent = Path::new(&local_paths[0])
+            .parent()
+            .and_then(|p| p.to_str())
+            .unwrap_or(".");
         let mut args: Vec<&str> = vec!["-C", parent, "-czf", "-"];
         for p in local_paths {
             if let Some(name) = Path::new(p).file_name().and_then(|n| n.to_str()) {
@@ -382,8 +434,14 @@ impl DockerFs {
             }
         }
         let remote_script = "mkdir -p \"$1\" && tar -C \"$1\" -xzf -";
-        self.tar_into_container(app, &args, &self.dexec(remote_script, &[remote_dir]), transfer_id, token)
-            .await
+        self.tar_into_container(
+            app,
+            &args,
+            &self.dexec(remote_script, &[remote_dir]),
+            transfer_id,
+            token,
+        )
+        .await
     }
 
     /// Download a container directory: `tar -c` in the container → pipe to local
@@ -425,7 +483,10 @@ impl DockerFs {
         let parent = parent_of(&remote_paths[0]).to_string();
         // sh -c 'cd "$1"; shift; tar -czf - "$@"' x <parent> <base…>
         let mut args: Vec<&str> = vec![&parent];
-        let basenames: Vec<String> = remote_paths.iter().map(|p| basename_of(p).to_string()).collect();
+        let basenames: Vec<String> = remote_paths
+            .iter()
+            .map(|p| basename_of(p).to_string())
+            .collect();
         for b in &basenames {
             args.push(b);
         }
@@ -451,7 +512,10 @@ impl DockerFs {
         token: &CancellationToken,
     ) -> Result<(), String> {
         let mut tar_cmd = tokio::process::Command::new("tar");
-        tar_cmd.args(tar_args).stdout(Stdio::piped()).stderr(Stdio::piped());
+        tar_cmd
+            .args(tar_args)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
         crate::commands::win_proc::prevent_visible_child_window(&mut tar_cmd);
         let mut child = tar_cmd.spawn().map_err(|e| format!("tar not found: {e}"))?;
         let mut tar_out = child.stdout.take().ok_or("tar stdout unavailable")?;
@@ -461,7 +525,10 @@ impl DockerFs {
             .channel_open_session()
             .await
             .map_err(|e| format!("channel error: {e}"))?;
-        channel.exec(true, remote_cmd).await.map_err(|e| format!("exec error: {e}"))?;
+        channel
+            .exec(true, remote_cmd)
+            .await
+            .map_err(|e| format!("exec error: {e}"))?;
         let mut writer = channel.make_writer();
 
         let mut buf = vec![0u8; CHUNK_SIZE];
@@ -471,22 +538,34 @@ impl DockerFs {
                 let _ = child.kill().await;
                 return Err("Transfer cancelled".into());
             }
-            let n = tar_out.read(&mut buf).await.map_err(|e| format!("tar read error: {e}"))?;
+            let n = tar_out
+                .read(&mut buf)
+                .await
+                .map_err(|e| format!("tar read error: {e}"))?;
             if n == 0 {
                 break;
             }
-            writer.write_all(&buf[..n]).await.map_err(|e| format!("Write error: {e}"))?;
+            writer
+                .write_all(&buf[..n])
+                .await
+                .map_err(|e| format!("Write error: {e}"))?;
             transferred += n as u64;
             let _ = app.emit(
                 &format!("sftp-progress-{transfer_id}"),
-                TransferProgress { transferred, total: 0 },
+                TransferProgress {
+                    transferred,
+                    total: 0,
+                },
             );
         }
         writer.flush().await.ok();
         drop(writer);
         channel.eof().await.ok();
 
-        let status = child.wait().await.map_err(|e| format!("tar wait error: {e}"))?;
+        let status = child
+            .wait()
+            .await
+            .map_err(|e| format!("tar wait error: {e}"))?;
         if !status.success() {
             return Err("Local tar archiving failed".into());
         }
@@ -508,7 +587,10 @@ impl DockerFs {
             .map_err(|e| format!("Cannot create local dir: {e}"))?;
 
         let mut tar_cmd = tokio::process::Command::new("tar");
-        tar_cmd.args(tar_args).stdin(Stdio::piped()).stderr(Stdio::piped());
+        tar_cmd
+            .args(tar_args)
+            .stdin(Stdio::piped())
+            .stderr(Stdio::piped());
         crate::commands::win_proc::prevent_visible_child_window(&mut tar_cmd);
         let mut child = tar_cmd.spawn().map_err(|e| format!("tar not found: {e}"))?;
         let mut tar_in = child.stdin.take().ok_or("tar stdin unavailable")?;
@@ -518,7 +600,10 @@ impl DockerFs {
             .channel_open_session()
             .await
             .map_err(|e| format!("channel error: {e}"))?;
-        channel.exec(true, remote_cmd).await.map_err(|e| format!("exec error: {e}"))?;
+        channel
+            .exec(true, remote_cmd)
+            .await
+            .map_err(|e| format!("exec error: {e}"))?;
 
         let mut transferred = 0u64;
         let mut err = Vec::new();
@@ -530,11 +615,17 @@ impl DockerFs {
             }
             match channel.wait().await {
                 Some(ChannelMsg::Data { data }) => {
-                    tar_in.write_all(&data).await.map_err(|e| format!("tar write error: {e}"))?;
+                    tar_in
+                        .write_all(&data)
+                        .await
+                        .map_err(|e| format!("tar write error: {e}"))?;
                     transferred += data.len() as u64;
                     let _ = app.emit(
                         &format!("sftp-progress-{transfer_id}"),
-                        TransferProgress { transferred, total: 0 },
+                        TransferProgress {
+                            transferred,
+                            total: 0,
+                        },
                     );
                 }
                 Some(ChannelMsg::ExtendedData { data, .. }) => err.extend_from_slice(&data),
@@ -544,9 +635,15 @@ impl DockerFs {
             }
         }
         drop(tar_in); // close stdin so local tar finishes
-        let status = child.wait().await.map_err(|e| format!("tar wait error: {e}"))?;
+        let status = child
+            .wait()
+            .await
+            .map_err(|e| format!("tar wait error: {e}"))?;
         if code != 0 {
-            return Err(format!("download failed: {}", String::from_utf8_lossy(&err).trim()));
+            return Err(format!(
+                "download failed: {}",
+                String::from_utf8_lossy(&err).trim()
+            ));
         }
         if !status.success() {
             return Err("Local tar extraction failed".into());

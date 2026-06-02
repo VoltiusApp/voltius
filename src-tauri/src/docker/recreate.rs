@@ -192,7 +192,12 @@ pub fn build_run_args(c: &InspectContainer, image: &str) -> Vec<String> {
     if let Some(net) = &primary {
         a.push("--network".into());
         a.push(net.clone());
-        if let Some(ip) = c.network_settings.networks.get(net).and_then(NetworkEndpoint::static_ipv4) {
+        if let Some(ip) = c
+            .network_settings
+            .networks
+            .get(net)
+            .and_then(NetworkEndpoint::static_ipv4)
+        {
             a.push("--ip".into());
             a.push(ip);
         }
@@ -408,7 +413,13 @@ pub fn build_run_command(c: &InspectContainer, image: &str) -> String {
 
     // Image + any command/args on a final line.
     if i < args.len() {
-        lines.push(args[i..].iter().map(|a| sh_arg(a)).collect::<Vec<_>>().join(" "));
+        lines.push(
+            args[i..]
+                .iter()
+                .map(|a| sh_arg(a))
+                .collect::<Vec<_>>()
+                .join(" "),
+        );
     }
 
     // Extra network attachments, chained so they run after the container exists.

@@ -386,8 +386,11 @@ pub async fn container_run_command(
     container_id: &str,
     image: &str,
 ) -> Result<String, String> {
-    let inspect =
-        exec_command(handle, &format!("docker inspect {}", shell_quote(container_id))).await?;
+    let inspect = exec_command(
+        handle,
+        &format!("docker inspect {}", shell_quote(container_id)),
+    )
+    .await?;
     let parsed = parse_inspect(&inspect)?;
     Ok(build_run_command(&parsed, image))
 }
@@ -402,7 +405,11 @@ async fn recreate_standalone(
     container_id: &str,
     name: &str,
 ) -> Result<(), String> {
-    let inspect = exec_command(handle, &format!("docker inspect {}", shell_quote(container_id))).await?;
+    let inspect = exec_command(
+        handle,
+        &format!("docker inspect {}", shell_quote(container_id)),
+    )
+    .await?;
     let parsed = parse_inspect(&inspect)?;
     let run_args = build_run_args(&parsed, image);
     let connects = build_network_connects(&parsed, name);
@@ -420,14 +427,21 @@ async fn recreate_standalone(
     let name_q = shell_quote(name);
     let run_cmd = format!(
         "docker {}",
-        run_args.iter().map(|a| shell_quote(a)).collect::<Vec<_>>().join(" ")
+        run_args
+            .iter()
+            .map(|a| shell_quote(a))
+            .collect::<Vec<_>>()
+            .join(" ")
     );
     let connect_cmds = connects
         .iter()
         .map(|cmd| {
             format!(
                 "docker {} >/dev/null 2>&1 || true; ",
-                cmd.iter().map(|a| shell_quote(a)).collect::<Vec<_>>().join(" ")
+                cmd.iter()
+                    .map(|a| shell_quote(a))
+                    .collect::<Vec<_>>()
+                    .join(" ")
             )
         })
         .collect::<String>();
@@ -497,14 +511,23 @@ async fn recreate_refs(
             continue;
         }
 
-        let mut cmd = format!("docker compose --project-name {}", shell_quote(&ctr.project));
+        let mut cmd = format!(
+            "docker compose --project-name {}",
+            shell_quote(&ctr.project)
+        );
         for cf in &ctr.config_files {
             cmd.push_str(&format!(" -f {}", shell_quote(cf)));
         }
         if !ctr.working_dir.is_empty() {
-            cmd.push_str(&format!(" --project-directory {}", shell_quote(&ctr.working_dir)));
+            cmd.push_str(&format!(
+                " --project-directory {}",
+                shell_quote(&ctr.working_dir)
+            ));
         }
-        cmd.push_str(&format!(" up -d --no-deps {} 2>&1", shell_quote(&ctr.service)));
+        cmd.push_str(&format!(
+            " up -d --no-deps {} 2>&1",
+            shell_quote(&ctr.service)
+        ));
 
         match exec_command_timeout(handle, &cmd, LONG_EXEC_TIMEOUT).await {
             Ok(_) => result.recreated.push(key),
@@ -528,7 +551,10 @@ pub async fn recreate_image_containers(
 async fn image_id(handle: &SshHandle, image: &str) -> Option<String> {
     exec_command(
         handle,
-        &format!("docker image inspect {} --format '{{{{.Id}}}}'", shell_quote(image)),
+        &format!(
+            "docker image inspect {} --format '{{{{.Id}}}}'",
+            shell_quote(image)
+        ),
     )
     .await
     .ok()

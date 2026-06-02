@@ -100,11 +100,7 @@ pub async fn snapshot_rollback(
     Ok(())
 }
 
-pub async fn snapshot_delete(
-    handle: &SshHandle,
-    vmid: u32,
-    snapname: &str,
-) -> Result<(), String> {
+pub async fn snapshot_delete(handle: &SshHandle, vmid: u32, snapname: &str) -> Result<(), String> {
     let cmd = format!("pct delsnapshot {vmid} {}", shell_quote(snapname));
     exec_command_timeout(handle, &cmd, LONG_EXEC_TIMEOUT).await?;
     Ok(())

@@ -310,10 +310,19 @@ pub async fn sftp_upload(
     let token = sftp_state.register_transfer(&transfer_id).await;
     let result = match get_backend(&sftp_state, &sftp_id).await {
         Ok(SftpBackend::Docker(d)) => {
-            d.upload_file(&app, &local_path, &remote_path, &transfer_id, &token).await
+            d.upload_file(&app, &local_path, &remote_path, &transfer_id, &token)
+                .await
         }
         Ok(SftpBackend::Real(session)) => {
-            sftp_upload_inner(&app, session, &local_path, &remote_path, &transfer_id, &token).await
+            sftp_upload_inner(
+                &app,
+                session,
+                &local_path,
+                &remote_path,
+                &transfer_id,
+                &token,
+            )
+            .await
         }
         Err(e) => Err(e),
     };
@@ -386,10 +395,19 @@ pub async fn sftp_download(
     let token = sftp_state.register_transfer(&transfer_id).await;
     let result = match get_backend(&sftp_state, &sftp_id).await {
         Ok(SftpBackend::Docker(d)) => {
-            d.download_file(&app, &remote_path, &local_path, &transfer_id, &token).await
+            d.download_file(&app, &remote_path, &local_path, &transfer_id, &token)
+                .await
         }
         Ok(SftpBackend::Real(session)) => {
-            sftp_download_inner(&app, session, &remote_path, &local_path, &transfer_id, &token).await
+            sftp_download_inner(
+                &app,
+                session,
+                &remote_path,
+                &local_path,
+                &transfer_id,
+                &token,
+            )
+            .await
         }
         Err(e) => Err(e),
     };
@@ -465,7 +483,9 @@ pub async fn sftp_upload_dir(
     let token = sftp_state.register_transfer(&transfer_id).await;
     let session = match get_backend(&sftp_state, &sftp_id).await {
         Ok(SftpBackend::Docker(d)) => {
-            let r = d.upload_dir(&app, &local_path, &remote_path, &transfer_id, &token).await;
+            let r = d
+                .upload_dir(&app, &local_path, &remote_path, &transfer_id, &token)
+                .await;
             sftp_state.finish_transfer(&transfer_id).await;
             return r;
         }
@@ -578,7 +598,9 @@ pub async fn sftp_download_dir(
     let token = sftp_state.register_transfer(&transfer_id).await;
     let session = match get_backend(&sftp_state, &sftp_id).await {
         Ok(SftpBackend::Docker(d)) => {
-            let r = d.download_dir(&app, &remote_path, &local_path, &transfer_id, &token).await;
+            let r = d
+                .download_dir(&app, &remote_path, &local_path, &transfer_id, &token)
+                .await;
             sftp_state.finish_transfer(&transfer_id).await;
             return r;
         }
@@ -1028,7 +1050,9 @@ pub async fn sftp_upload_batch_tar(
     let token = sftp_state.register_transfer(&transfer_id).await;
     let session = match get_backend(&sftp_state, &sftp_id).await {
         Ok(SftpBackend::Docker(d)) => {
-            let r = d.upload_batch(&app, &local_paths, &remote_dir, &transfer_id, &token).await;
+            let r = d
+                .upload_batch(&app, &local_paths, &remote_dir, &transfer_id, &token)
+                .await;
             sftp_state.finish_transfer(&transfer_id).await;
             return r;
         }
@@ -1104,7 +1128,9 @@ pub async fn sftp_download_batch_tar(
     let token = sftp_state.register_transfer(&transfer_id).await;
     let session = match get_backend(&sftp_state, &sftp_id).await {
         Ok(SftpBackend::Docker(d)) => {
-            let r = d.download_batch(&app, &remote_paths, &local_dir, &transfer_id, &token).await;
+            let r = d
+                .download_batch(&app, &remote_paths, &local_dir, &transfer_id, &token)
+                .await;
             sftp_state.finish_transfer(&transfer_id).await;
             return r;
         }
@@ -1266,7 +1292,9 @@ pub async fn sftp_upload_dir_tar(
     let token = sftp_state.register_transfer(&transfer_id).await;
     let session = match get_backend(&sftp_state, &sftp_id).await {
         Ok(SftpBackend::Docker(d)) => {
-            let r = d.upload_dir(&app, &local_path, &remote_path, &transfer_id, &token).await;
+            let r = d
+                .upload_dir(&app, &local_path, &remote_path, &transfer_id, &token)
+                .await;
             sftp_state.finish_transfer(&transfer_id).await;
             return r;
         }
@@ -1336,7 +1364,9 @@ pub async fn sftp_download_dir_tar(
     let token = sftp_state.register_transfer(&transfer_id).await;
     let session = match get_backend(&sftp_state, &sftp_id).await {
         Ok(SftpBackend::Docker(d)) => {
-            let r = d.download_dir(&app, &remote_path, &local_path, &transfer_id, &token).await;
+            let r = d
+                .download_dir(&app, &remote_path, &local_path, &transfer_id, &token)
+                .await;
             sftp_state.finish_transfer(&transfer_id).await;
             return r;
         }

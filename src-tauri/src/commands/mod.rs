@@ -19,6 +19,7 @@ pub mod plugins;
 pub mod port_forwarding_rules;
 pub mod port_forwarding_tunnels;
 pub mod processes;
+pub mod proxmox;
 pub mod sftp;
 pub mod snippets;
 pub mod ssh;
@@ -26,7 +27,6 @@ pub mod sync;
 pub mod sysinfo;
 pub mod team_crypto;
 pub mod termius;
-pub mod proxmox;
 pub mod vault;
 pub mod win_proc;
 

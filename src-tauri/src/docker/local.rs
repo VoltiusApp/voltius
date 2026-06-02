@@ -110,7 +110,13 @@ async fn run_docker(local_shell: Option<&str>, args: &[&str]) -> Result<String, 
 pub async fn local_image_digest(local_shell: Option<&str>, image: &str) -> Option<String> {
     match run_docker(
         local_shell,
-        &["image", "inspect", image, "--format", "{{json .RepoDigests}}"],
+        &[
+            "image",
+            "inspect",
+            image,
+            "--format",
+            "{{json .RepoDigests}}",
+        ],
     )
     .await
     {
@@ -254,11 +260,14 @@ pub async fn recreate_image_containers(
 /// Resolve an image's content id (`docker image inspect --format {{.Id}}`),
 /// used to detect whether a pull actually changed the image.
 async fn image_id(local_shell: Option<&str>, image: &str) -> Option<String> {
-    run_docker(local_shell, &["image", "inspect", image, "--format", "{{.Id}}"])
-        .await
-        .ok()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
+    run_docker(
+        local_shell,
+        &["image", "inspect", image, "--format", "{{.Id}}"],
+    )
+    .await
+    .ok()
+    .map(|s| s.trim().to_string())
+    .filter(|s| !s.is_empty())
 }
 
 /// Pull `image` and, when `recreate` is set and the pull actually fetched a new
@@ -881,7 +890,10 @@ mod tests {
         assert_eq!(stacks[1].running, 1);
         assert_eq!(stacks[1].exited, 1);
         assert_eq!(stacks[1].total, 2);
-        assert_eq!(stacks[1].config_files, vec!["/tmp/compose.yml", "/tmp/override.yml"]);
+        assert_eq!(
+            stacks[1].config_files,
+            vec!["/tmp/compose.yml", "/tmp/override.yml"]
+        );
     }
 
     #[test]
@@ -919,12 +931,27 @@ pub async fn stream_stack_logs(
     let mut command = if should_use_wsl_cli(local_shell.as_deref()) {
         let shell = local_shell.unwrap_or_else(|| "wsl.exe".to_string());
         let mut cmd = Command::new(shell);
-        cmd.arg("docker")
-            .args(["compose", "-p", &stack_name, "logs", "--follow", "--tail", &tail_str]);
+        cmd.arg("docker").args([
+            "compose",
+            "-p",
+            &stack_name,
+            "logs",
+            "--follow",
+            "--tail",
+            &tail_str,
+        ]);
         cmd
     } else {
         let mut cmd = Command::new("docker");
-        cmd.args(["compose", "-p", &stack_name, "logs", "--follow", "--tail", &tail_str]);
+        cmd.args([
+            "compose",
+            "-p",
+            &stack_name,
+            "logs",
+            "--follow",
+            "--tail",
+            &tail_str,
+        ]);
         cmd
     };
 
