@@ -849,4 +849,39 @@ mod tests {
         let got: Vec<Mini> = parse_with_migration(r#"[{"id":"a"},{"nope":"b"}]"#);
         assert_eq!(got, vec![Mini { id: "a".into() }]);
     }
+
+    // ── End-to-end persistence (golden master for the load/save layer) ───────
+    //
+    // Linux only: `config_dir()` resolves via `dirs::config_dir()`, which honors
+    // `XDG_CONFIG_HOME` on Linux but not on macOS/Windows. CI runs on Linux, so
+    // this still guards the layer Phase 1's generic JSON store will replace.
+    // Kept in a single test (no `serial_test` dep) because it mutates the
+    // process-global `XDG_CONFIG_HOME`; no other test reads `config_dir()`.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn persistence_round_trip_and_on_disk_migration() {
+        let dir = std::env::temp_dir().join(format!("voltius-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::env::set_var("XDG_CONFIG_HOME", &dir);
+
+        // A missing file loads as empty, not an error.
+        assert!(load_identities().is_empty());
+
+        // save → load preserves the record.
+        save_connections(&[sample_connection()]).expect("save");
+        let loaded = load_connections();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].id, "conn-1");
+        assert_eq!(loaded[0].vault_id, "team");
+
+        // Legacy `vault_ids` on disk is migrated to `vault_id` on load.
+        let legacy = r#"[{"id":"c2","tags":[],"created_at":"t","last_used_at":null,
+            "updated_at":"t","deleted_at":null,"clocks":{},"vault_ids":["legacy-team","x"]}]"#;
+        std::fs::write(config_dir().join("connections.json"), legacy).unwrap();
+        let migrated = load_connections();
+        assert_eq!(migrated.len(), 1);
+        assert_eq!(migrated[0].vault_id, "legacy-team");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
