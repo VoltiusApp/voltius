@@ -406,4 +406,18 @@ mod tests {
         assert!(encoded.contains('@') || encoded.contains('_'));
         assert_eq!(moba_b64().decode(&encoded).unwrap(), data);
     }
+
+    #[test]
+    fn decrypt_value_rejects_short_inline_iv() {
+        // "_@" present but fewer than 16 IV chars follow.
+        let err = decrypt_value(&[0u8; 32], "_@abc").unwrap_err();
+        assert!(err.contains("too short for inline IV"), "got: {err}");
+    }
+
+    #[test]
+    fn decrypt_value_rejects_invalid_base64() {
+        // '!' is outside the @_ variant alphabet, so the legacy branch fails to decode.
+        let err = decrypt_value(&[0u8; 32], "!!!!").unwrap_err();
+        assert!(err.contains("base64 decode failed"), "got: {err}");
+    }
 }
