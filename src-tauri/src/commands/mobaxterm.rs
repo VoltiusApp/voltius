@@ -135,9 +135,11 @@ pub fn mobaxterm_extract() -> Result<MobaSnapshot, String> {
     }
     #[cfg(not(target_os = "windows"))]
     {
-        Err("MobaXterm automatic import is only available on Windows. Use the file \
+        Err(
+            "MobaXterm automatic import is only available on Windows. Use the file \
              upload below to import a MobaXterm.ini / .mxtsessions file instead."
-            .into())
+                .into(),
+        )
     }
 }
 
@@ -255,9 +257,8 @@ fn dpapi_unprotect(data: &[u8], entropy: &[u8]) -> Result<Vec<u8>, String> {
         return Err(format!("CryptUnprotectData failed (error {err})"));
     }
 
-    let out = unsafe {
-        std::slice::from_raw_parts(out_blob.pbData, out_blob.cbData as usize).to_vec()
-    };
+    let out =
+        unsafe { std::slice::from_raw_parts(out_blob.pbData, out_blob.cbData as usize).to_vec() };
     unsafe { LocalFree(out_blob.pbData as *mut _) };
     Ok(out)
 }

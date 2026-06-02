@@ -72,8 +72,9 @@ pub fn parse_lxc_snapshots(output: &str) -> Vec<LxcSnapshot> {
             continue;
         }
         if line.contains("You are here!") {
-            let stripped =
-                line.trim_start_matches(|c: char| c.is_whitespace() || c == '`' || c == '-' || c == '\'');
+            let stripped = line.trim_start_matches(|c: char| {
+                c.is_whitespace() || c == '`' || c == '-' || c == '\''
+            });
             let name = stripped
                 .split_whitespace()
                 .next()
@@ -87,8 +88,8 @@ pub fn parse_lxc_snapshots(output: &str) -> Vec<LxcSnapshot> {
             });
             continue;
         }
-        let stripped =
-            line.trim_start_matches(|c: char| c.is_whitespace() || c == '`' || c == '-' || c == '\'');
+        let stripped = line
+            .trim_start_matches(|c: char| c.is_whitespace() || c == '`' || c == '-' || c == '\'');
         let tokens: Vec<&str> = stripped.split_whitespace().collect();
         if tokens.is_empty() {
             continue;
@@ -96,14 +97,17 @@ pub fn parse_lxc_snapshots(output: &str) -> Vec<LxcSnapshot> {
         let name = tokens[0].to_string();
         // Detect timestamp: tokens[1] is YYYY-MM-DD (10 chars, contains '-')
         // and tokens[2] is HH:MM:SS (contains ':')
-        let (timestamp, description) =
-            if tokens.len() >= 3 && tokens[1].len() == 10 && tokens[1].contains('-') && tokens[2].contains(':') {
-                let ts = format!("{} {}", tokens[1], tokens[2]);
-                let desc = tokens[3..].join(" ");
-                (Some(ts), desc)
-            } else {
-                (None, tokens[1..].join(" "))
-            };
+        let (timestamp, description) = if tokens.len() >= 3
+            && tokens[1].len() == 10
+            && tokens[1].contains('-')
+            && tokens[2].contains(':')
+        {
+            let ts = format!("{} {}", tokens[1], tokens[2]);
+            let desc = tokens[3..].join(" ");
+            (Some(ts), desc)
+        } else {
+            (None, tokens[1..].join(" "))
+        };
         result.push(LxcSnapshot {
             name,
             timestamp,
@@ -147,7 +151,8 @@ mod tests {
 
     #[test]
     fn parses_pct_list_skips_header_and_empty() {
-        let output = "\nVMID       Status     Lock         Name\n\n200        running                 ct2\n";
+        let output =
+            "\nVMID       Status     Lock         Name\n\n200        running                 ct2\n";
         let containers = parse_lxc_list(output);
         assert_eq!(containers.len(), 1);
         assert_eq!(containers[0].vmid, 200);

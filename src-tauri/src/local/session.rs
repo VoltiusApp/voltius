@@ -59,7 +59,9 @@ impl LocalSessionManager {
         // Optional invisible OSC 7 injection via per-shell rcfile + custom
         // args. Falls back silently if the rcfile can't be written.
         let integration = if shell_integration_enabled {
-            shell_integration::prepare_local(&shell, &session_id).ok().flatten()
+            shell_integration::prepare_local(&shell, &session_id)
+                .ok()
+                .flatten()
         } else {
             None
         };

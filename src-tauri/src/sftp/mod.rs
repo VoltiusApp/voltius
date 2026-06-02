@@ -70,7 +70,11 @@ impl SftpManager {
     }
 
     /// Open SFTP by exec-ing an sftp-server command on the remote host (e.g. `docker exec -i <id> sftp-server`).
-    pub async fn open_exec(&self, handle: Arc<Handle<SshClient>>, cmd: &str) -> Result<String, String> {
+    pub async fn open_exec(
+        &self,
+        handle: Arc<Handle<SshClient>>,
+        cmd: &str,
+    ) -> Result<String, String> {
         let channel = handle
             .channel_open_session()
             .await
@@ -356,15 +360,23 @@ impl SftpManager {
     /// Fetch the real SFTP session for an id. Returns None for docker-exec
     /// backends (callers that need docker should use `backend`).
     pub async fn get(&self, id: &str) -> Option<Arc<Mutex<SftpSession>>> {
-        self.sessions.lock().await.get(id).and_then(|e| match &e.backend {
-            SftpBackend::Real(s) => Some(Arc::clone(s)),
-            SftpBackend::Docker(_) => None,
-        })
+        self.sessions
+            .lock()
+            .await
+            .get(id)
+            .and_then(|e| match &e.backend {
+                SftpBackend::Real(s) => Some(Arc::clone(s)),
+                SftpBackend::Docker(_) => None,
+            })
     }
 
     /// Fetch the backend (real SFTP or docker-exec) for an id.
     pub async fn backend(&self, id: &str) -> Option<SftpBackend> {
-        self.sessions.lock().await.get(id).map(|e| e.backend.clone())
+        self.sessions
+            .lock()
+            .await
+            .get(id)
+            .map(|e| e.backend.clone())
     }
 
     pub async fn close(&self, id: &str) {

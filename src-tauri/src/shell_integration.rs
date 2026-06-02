@@ -96,12 +96,7 @@ pub fn prepare_local(shell: &str, session_id: &str) -> std::io::Result<Option<Lo
             // temp files.
             Ok(Some(LocalIntegration {
                 program: shell.to_string(),
-                args: vec![
-                    "--".into(),
-                    "sh".into(),
-                    "-c".into(),
-                    wsl_exec_command(),
-                ],
+                args: vec!["--".into(), "sh".into(), "-c".into(), wsl_exec_command()],
                 env: vec![],
                 tempfiles: vec![],
             }))
@@ -138,7 +133,8 @@ case \";${PROMPT_COMMAND-};\" in\n\
 esac\n\
 __voltius_pwd 2>/dev/null\n";
 
-const ZSH_RC: &str = "[ -f \"${ZDOTDIR_ORIG}/.zprofile\" ] && source \"${ZDOTDIR_ORIG}/.zprofile\"\n\
+const ZSH_RC: &str =
+    "[ -f \"${ZDOTDIR_ORIG}/.zprofile\" ] && source \"${ZDOTDIR_ORIG}/.zprofile\"\n\
 [ -f \"${ZDOTDIR_ORIG}/.zshrc\" ] && source \"${ZDOTDIR_ORIG}/.zshrc\"\n\
 [ -f \"${ZDOTDIR_ORIG}/.zlogin\" ] && source \"${ZDOTDIR_ORIG}/.zlogin\"\n\
 __voltius_pwd() { printf '\\e]7;file://%s%s\\a' \"${HOST}\" \"$PWD\"; }\n\

@@ -593,7 +593,8 @@ pub async fn docker_sftp_open(
     // — discover CPID, whether nsenter is usable, and which sftp-server path exists — then
     // exec exactly the method we confirmed works, or return a precise error.
     let paths = "/usr/lib/openssh/sftp-server /usr/lib/ssh/sftp-server /usr/libexec/openssh/sftp-server /usr/sbin/sftp-server /usr/libexec/sftp-server";
-    let find_sftp = format!("for p in {paths}; do [ -x \"$p\" ] && echo \"SFTP=$p\" && break; done");
+    let find_sftp =
+        format!("for p in {paths}; do [ -x \"$p\" ] && echo \"SFTP=$p\" && break; done");
     let probe = format!(
         "CPID=$(docker inspect --format '{{{{.State.Pid}}}}' {cid} 2>/dev/null); \
          echo \"CPID=$CPID\"; \
@@ -633,7 +634,11 @@ pub async fn docker_sftp_open(
             path = sftp_path,
         )
     } else {
-        format!("exec docker exec -i {cid} {path}", cid = container_id, path = sftp_path)
+        format!(
+            "exec docker exec -i {cid} {path}",
+            cid = container_id,
+            path = sftp_path
+        )
     };
     sftp_state.open_exec(handle, &cmd).await
 }
