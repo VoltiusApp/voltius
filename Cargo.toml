@@ -5,3 +5,14 @@ members = [
   "crates/voltius-crypto-wasm",
 ]
 resolver = "2"
+
+# Workspace-root release profile. Must live here: Cargo silently ignores
+# `[profile.*]` declared in non-root members.
+#
+# `panic` is intentionally left at the default ("unwind"): `commands/termius.rs`
+# relies on `std::panic::catch_unwind` to turn import-time panics (V8/leveldb
+# decoder) into recoverable errors, which `panic = "abort"` would defeat.
+[profile.release]
+codegen-units = 1
+lto = true
+strip = true

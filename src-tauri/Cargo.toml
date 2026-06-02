@@ -9,11 +9,8 @@ edition = "2021"
 name = "voltius_lib"
 crate-type = ["cdylib", "rlib"]
 
-[profile.release]
-codegen-units = 1
-lto = true
-strip = true
-panic = "abort"
+# NOTE: profiles are defined at the workspace root (Cargo.toml). Cargo ignores
+# `[profile.*]` in non-root members, so they must not live here.
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
