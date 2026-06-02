@@ -21,18 +21,36 @@ jobs:
           node-version: lts/*
           cache: 'pnpm'
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-unknown-linux-gnu
+      # Installs the toolchain + components pinned in rust-toolchain.toml.
+      - name: Install Rust (pinned by rust-toolchain.toml)
+        run: rustup show
 
       - uses: swatinem/rust-cache@v2
         with:
-          workspaces: 'src-tauri -> target'
+          workspaces: '. -> target'
 
       - run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libsoup-3.0-dev
 
       - run: pnpm install
 
+      # Build the frontend first so `dist/` exists for the Tauri build script.
       - run: pnpm build
+
+      - name: Rustfmt
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo test --workspace
+
+      # Informational coverage on the modules under refactor — never blocks CI.
+      - name: Coverage (informational)
+        continue-on-error: true
+        run: |
+          rustup component add llvm-tools-preview
+          curl -LsSf https://github.com/taiki-e/cargo-llvm-cov/releases/latest/download/cargo-llvm-cov-x86_64-unknown-linux-gnu.tar.gz | tar xzf - -C "$HOME/.cargo/bin"
+          cargo llvm-cov --workspace --summary-only
