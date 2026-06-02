@@ -22,7 +22,7 @@
 
 No account required. Everything below is free, forever.
 
-- **Easy Import & Export** — No vendor lock-in. Import your existing setup from Termius (1-click), MobaXterm, SecureCRT, and more. Your data is always exportable as open JSON.
+- **Easy Import & Export** — No vendor lock-in. Import your existing setup from Termius or MobaXterm in 1-click. Your data is always exportable as open JSON.
 - **Gist Sync** — E2EE device sync via your own private GitHub Gist. No central server, bring your own token.
 - **SFTP** — Easy file transfers and browsing, works for Host↔Host and Host↔Local with drag & drop support.
 - **Split Panes** — Split terminals as much as you want, broadcast inputs to all panes.
@@ -38,11 +38,11 @@ No account required. Everything below is free, forever.
 
 | Feature | Voltius | Termius | [Reach](https://github.com/alexandrosnt/Reach) | [Termix](https://github.com/Termix-SSH/Termix) | Tabby |
 | --- | --- | --- | --- | --- | --- |
-| **Engine** | **Rust + Tauri** 🦀 | Flutter + Dart (likely; closed-source) | **Rust + Tauri** 🦀 | Web (React + Node.js) | Electron / Node.js |
+| **Engine** | **Rust + Tauri** 🦀 | likely Electron (closed-source) | **Rust + Tauri** 🦀 | Web (React + Node.js) | Electron / Node.js |
 | **RAM Usage** | ~300MB | ~500MB+ | ~300MB | NOT TESTED | NOT TESTED |
-| **Installed Size** | ~60MB | ~1GB | ~60MB | NOT TESTED | NOT TESTED |
+| **Installed Size** | ~40MB | ~1GB | ~40MB | NOT TESTED | NOT TESTED |
 | **Cloud Sync** | Gist (Free) / Real-Time (Paid) | 🟡 Only Pro | 🟡 Via Turso (own account) | ❌ | Community Plugins |
-| **Import/Export** | 🚧 WIP: Only JSON Import/Export for now | 🟡 Strong Import Integrations but no Export | ✅ |  |  |
+| **Import/Export** | ✅ 1-click import from Termius/MobaXterm, JSON Export | 🟡 Strong Import Integrations but no Export | ✅ |  |  |
 | **Port Forwarding** | ✅ | ✅ | ✅ |  | ✅ |
 | **Snippets** | ✅ + multi-exec | 🟡 (Multi-exec + startup snippets only Pro) | ✅ + multi-exec |  |  |
 | **Command Palette** | ✅ | ✅ |  |  | ✅ |
@@ -64,7 +64,7 @@ No account required. Everything below is free, forever.
 | **Security** | **End-to-End Encrypted** | Proprietary E2EE | **End-to-End Encrypted** |  | Local Only / Manual |
 | **SFTP host&lt;-&gt;host** | ✅ | ✅ | ❌ |  | ❌ |
 | **Serial Console** | ✅ | ✅ | ✅ |  | ✅ |
-| **Local-first** | ✅ 100% (No account needed) | ❌ (Requires account) | ✅ | ✅ | ✅ |
+| **Local-first** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Plugins** | ✅ | ❌ | ✅ | ❌ | ✅ |
 | **Platforms** | Windows, Linux, MacOS (Mobile coming soon) | Windows, Linux, MacOS, Android, IOS | Windows, Linux, MacOS, Android | All (web-based) | Windows, Linux, MacOS, Web |
 | **License** | **AGPLv3** | Commercial / Paid | MIT | Apache License Version 2.0 | MIT |
