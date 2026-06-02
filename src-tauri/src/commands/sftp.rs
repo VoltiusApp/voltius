@@ -16,6 +16,13 @@ use tokio_util::sync::CancellationToken;
 
 const CHUNK_SIZE: usize = 256 * 1024; // 256 KB
 
+/// `(absolute_path, relative_path, size_bytes)` for a remote file.
+type RemoteEntry = (String, String, u64);
+
+/// Boxed, `Send` future with a borrowed lifetime. Needed by the recursive
+/// directory-walk helpers below — recursion through `async fn` requires boxing.
+type DirWalkFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T, String>> + Send + 'a>>;
+
 #[derive(Serialize, Clone)]
 pub struct RemoteFile {
     pub name: String,
@@ -33,16 +40,14 @@ pub struct TransferProgress {
     pub total: u64,
 }
 
-fn get_session<'a>(
+async fn get_session<'a>(
     manager: &'a SftpManager,
     sftp_id: &'a str,
-) -> impl std::future::Future<Output = Result<Arc<Mutex<SftpSession>>, String>> + 'a {
-    async move {
-        manager
-            .get(sftp_id)
-            .await
-            .ok_or_else(|| format!("SFTP session '{}' not found", sftp_id))
-    }
+) -> Result<Arc<Mutex<SftpSession>>, String> {
+    manager
+        .get(sftp_id)
+        .await
+        .ok_or_else(|| format!("SFTP session '{}' not found", sftp_id))
 }
 
 async fn get_backend(manager: &SftpManager, sftp_id: &str) -> Result<SftpBackend, String> {
@@ -710,9 +715,7 @@ fn collect_remote_entries<'a>(
     sftp: &'a SftpSession,
     base: &'a str,
     current: &'a str,
-) -> Pin<
-    Box<dyn std::future::Future<Output = Result<Vec<(String, String, u64)>, String>> + Send + 'a>,
-> {
+) -> DirWalkFuture<'a, Vec<RemoteEntry>> {
     Box::pin(async move {
         let mut result = Vec::new();
         let entries = sftp
@@ -749,13 +752,7 @@ fn collect_remote_structure<'a>(
     sftp: &'a SftpSession,
     base: &'a str,
     current: &'a str,
-) -> Pin<
-    Box<
-        dyn std::future::Future<Output = Result<(Vec<String>, Vec<(String, String, u64)>), String>>
-            + Send
-            + 'a,
-    >,
-> {
+) -> DirWalkFuture<'a, (Vec<String>, Vec<RemoteEntry>)> {
     Box::pin(async move {
         let mut dirs: Vec<String> = Vec::new();
         let mut files: Vec<(String, String, u64)> = Vec::new();

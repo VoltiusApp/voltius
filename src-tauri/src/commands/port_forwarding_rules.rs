@@ -47,7 +47,7 @@ pub fn pf_rule_create(data: PortForwardingRuleFormData) -> Result<PortForwarding
     clocks.insert("folder_id".to_string(), now.clone());
     clocks.insert("vault_id".to_string(), now.clone());
     let vault_id = data.vault_id.unwrap_or_else(|| "personal".to_string());
-    check_vault_write(&[vault_id.clone()])?;
+    check_vault_write(std::slice::from_ref(&vault_id))?;
     let rule = PortForwardingRule {
         id: Uuid::new_v4().to_string(),
         name: data.name,
@@ -156,7 +156,7 @@ pub fn pf_rule_delete(id: String) -> Result<(), String> {
         .iter_mut()
         .find(|r| r.id == id)
         .ok_or_else(|| format!("Rule {} not found", id))?;
-    check_vault_write(&[rule.vault_id.clone()])?;
+    check_vault_write(std::slice::from_ref(&rule.vault_id))?;
     rule.deleted_at = Some(now.clone());
     rule.clocks.insert("__deleted__".to_string(), now.clone());
     rule.updated_at = max_clock(&rule.clocks, &now);

@@ -40,7 +40,7 @@ pub fn identity_save(data: IdentityFormData) -> Result<Identity, String> {
     clocks.insert("folder_id".to_string(), now.clone());
     clocks.insert("vault_id".to_string(), now.clone());
     let vault_id = data.vault_id.unwrap_or_else(|| "personal".to_string());
-    check_vault_write(&[vault_id.clone()])?;
+    check_vault_write(std::slice::from_ref(&vault_id))?;
     let identity = Identity {
         id: Uuid::new_v4().to_string(),
         name: data.name,
@@ -120,7 +120,7 @@ pub fn identity_delete(id: String) -> Result<(), String> {
         .iter_mut()
         .find(|i| i.id == id)
         .ok_or_else(|| format!("Identity {} not found", id))?;
-    check_vault_write(&[identity.vault_id.clone()])?;
+    check_vault_write(std::slice::from_ref(&identity.vault_id))?;
     identity.deleted_at = Some(now.clone());
     identity
         .clocks

@@ -109,9 +109,7 @@ fn parse_ports(ports_str: &str) -> Vec<PortMapping> {
         .filter_map(|part| {
             let part = part.trim();
             if part.contains("->") {
-                let mut it = part.splitn(2, "->");
-                let host_part = it.next()?;
-                let container_proto = it.next()?;
+                let (host_part, container_proto) = part.split_once("->")?;
 
                 let (container_port_str, protocol) = if container_proto.contains('/') {
                     let mut it2 = container_proto.splitn(2, '/');

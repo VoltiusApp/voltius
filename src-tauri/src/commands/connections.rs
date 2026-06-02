@@ -156,7 +156,7 @@ pub fn connection_save(data: ConnectionFormData) -> Result<Connection, String> {
     clocks.insert("serial_stop_bits".to_string(), now.clone());
     clocks.insert("serial_flow_control".to_string(), now.clone());
     let vault_id = data.vault_id.unwrap_or_else(|| "personal".to_string());
-    check_vault_write(&[vault_id.clone()])?;
+    check_vault_write(std::slice::from_ref(&vault_id))?;
     let conn = Connection {
         id: Uuid::new_v4().to_string(),
         name: data.name,
@@ -260,7 +260,7 @@ pub fn connection_delete(id: String) -> Result<(), String> {
         .iter_mut()
         .find(|c| c.id == id)
         .ok_or_else(|| format!("Connection {} not found", id))?;
-    check_vault_write(&[conn.vault_id.clone()])?;
+    check_vault_write(std::slice::from_ref(&conn.vault_id))?;
     conn.deleted_at = Some(now.clone());
     conn.clocks.insert("__deleted__".to_string(), now.clone());
     conn.updated_at = max_clock(&conn.clocks, &now);

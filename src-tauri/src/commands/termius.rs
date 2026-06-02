@@ -301,7 +301,7 @@ mod v8 {
                     Some(bytes.iter().map(|&b| b as char).collect())
                 }
                 b'c' => {
-                    if len % 2 != 0 {
+                    if !len.is_multiple_of(2) {
                         return None;
                     }
                     let u16s: Vec<u16> = bytes
@@ -353,13 +353,10 @@ mod v8 {
             let mut map = Map::new();
             loop {
                 self.skip_padding();
-                match self.peek()? {
-                    b'{' => {
-                        self.pos += 1;
-                        let _properties = self.varint()?;
-                        return Some(Value::Object(map));
-                    }
-                    _ => {}
+                if self.peek()? == b'{' {
+                    self.pos += 1;
+                    let _properties = self.varint()?;
+                    return Some(Value::Object(map));
                 }
                 let key_tag = self.advance()?;
                 let key = match key_tag {
@@ -627,10 +624,15 @@ fn copy_db_to_temp(src: &Path) -> Result<PathBuf, String> {
     Ok(temp)
 }
 
-fn read_all_entries(dir: &Path) -> Result<Vec<(Vec<u8>, Vec<u8>)>, String> {
+/// Raw `(key, value)` byte pairs read straight out of a LevelDB.
+type RawLevelDbEntries = Vec<(Vec<u8>, Vec<u8>)>;
+
+fn read_all_entries(dir: &Path) -> Result<RawLevelDbEntries, String> {
     use rusty_leveldb::{LdbIterator, Options, DB};
-    let mut opts = Options::default();
-    opts.create_if_missing = false;
+    let opts = Options {
+        create_if_missing: false,
+        ..Options::default()
+    };
     let mut db = DB::open(dir, opts).map_err(|e| format!("Failed to open leveldb: {e}"))?;
     let mut iter = db
         .new_iter()

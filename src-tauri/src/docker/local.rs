@@ -412,8 +412,8 @@ pub async fn list_containers(
                 .into_iter()
                 .map(|p| PortMapping {
                     host_ip: p.ip,
-                    host_port: p.public_port.map(|x| x as u16),
-                    container_port: p.private_port as u16,
+                    host_port: p.public_port,
+                    container_port: p.private_port,
                     protocol: p
                         .typ
                         .map(|t| match t {
@@ -861,63 +861,6 @@ fn fmt_freed(bytes: i64) -> String {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn detects_wsl_shell_path() {
-        assert!(should_use_wsl_cli(Some(r"C:\Windows\System32\wsl.exe")));
-        assert!(should_use_wsl_cli(Some(r"C:\Windows\Sysnative\wsl.exe")));
-        assert!(!should_use_wsl_cli(Some(r"C:\Windows\System32\cmd.exe")));
-        assert!(!should_use_wsl_cli(None));
-    }
-
-    #[test]
-    fn parses_compose_stack_list_json_array() {
-        let output = r#"[
-          {"Name":"demo","Status":"running(2)","ConfigFiles":"/tmp/docker-compose.yml"},
-          {"Name":"stopped","Status":"exited(1), running(1)","ConfigFiles":"/tmp/compose.yml,/tmp/override.yml"}
-        ]"#;
-
-        let stacks = parse_compose_stacks(output).expect("stacks parse");
-
-        assert_eq!(stacks.len(), 2);
-        assert_eq!(stacks[0].name, "demo");
-        assert_eq!(stacks[0].running, 2);
-        assert_eq!(stacks[0].total, 2);
-        assert_eq!(stacks[0].config_files, vec!["/tmp/docker-compose.yml"]);
-        assert_eq!(stacks[1].running, 1);
-        assert_eq!(stacks[1].exited, 1);
-        assert_eq!(stacks[1].total, 2);
-        assert_eq!(
-            stacks[1].config_files,
-            vec!["/tmp/compose.yml", "/tmp/override.yml"]
-        );
-    }
-
-    #[test]
-    fn parses_compose_service_ps_json_lines() {
-        let output = r#"{"ID":"abc123","Name":"demo-web-1","Project":"demo","Service":"web","Image":"nginx:latest","State":"running","Status":"Up 2 minutes","Publishers":[{"URL":"0.0.0.0","TargetPort":80,"PublishedPort":8080,"Protocol":"tcp"}]}
-{"ID":"def456","Name":"demo-db-1","Project":"demo","Service":"db","Image":"postgres:16","State":"exited","Status":"Exited (0)"}"#;
-
-        let services = parse_compose_services(output).expect("services parse");
-
-        assert_eq!(services.len(), 2);
-        assert_eq!(services[0].service, "web");
-        assert_eq!(services[0].ports.len(), 1);
-        assert_eq!(services[0].ports[0].host_port, Some(8080));
-        assert_eq!(services[0].ports[0].container_port, 80);
-        assert_eq!(services[1].state, "exited");
-    }
-
-    #[cfg(target_os = "windows")]
-    #[test]
-    fn windows_wsl_child_processes_are_configured_without_visible_windows() {
-        assert_eq!(windows_hidden_child_process_flags(), 0x08000000);
-    }
-}
-
 pub async fn stream_stack_logs(
     app: AppHandle,
     stream_id: String,
@@ -1156,4 +1099,61 @@ async fn stream_logs_cli(
     }
 
     let _ = child.wait().await;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detects_wsl_shell_path() {
+        assert!(should_use_wsl_cli(Some(r"C:\Windows\System32\wsl.exe")));
+        assert!(should_use_wsl_cli(Some(r"C:\Windows\Sysnative\wsl.exe")));
+        assert!(!should_use_wsl_cli(Some(r"C:\Windows\System32\cmd.exe")));
+        assert!(!should_use_wsl_cli(None));
+    }
+
+    #[test]
+    fn parses_compose_stack_list_json_array() {
+        let output = r#"[
+          {"Name":"demo","Status":"running(2)","ConfigFiles":"/tmp/docker-compose.yml"},
+          {"Name":"stopped","Status":"exited(1), running(1)","ConfigFiles":"/tmp/compose.yml,/tmp/override.yml"}
+        ]"#;
+
+        let stacks = parse_compose_stacks(output).expect("stacks parse");
+
+        assert_eq!(stacks.len(), 2);
+        assert_eq!(stacks[0].name, "demo");
+        assert_eq!(stacks[0].running, 2);
+        assert_eq!(stacks[0].total, 2);
+        assert_eq!(stacks[0].config_files, vec!["/tmp/docker-compose.yml"]);
+        assert_eq!(stacks[1].running, 1);
+        assert_eq!(stacks[1].exited, 1);
+        assert_eq!(stacks[1].total, 2);
+        assert_eq!(
+            stacks[1].config_files,
+            vec!["/tmp/compose.yml", "/tmp/override.yml"]
+        );
+    }
+
+    #[test]
+    fn parses_compose_service_ps_json_lines() {
+        let output = r#"{"ID":"abc123","Name":"demo-web-1","Project":"demo","Service":"web","Image":"nginx:latest","State":"running","Status":"Up 2 minutes","Publishers":[{"URL":"0.0.0.0","TargetPort":80,"PublishedPort":8080,"Protocol":"tcp"}]}
+{"ID":"def456","Name":"demo-db-1","Project":"demo","Service":"db","Image":"postgres:16","State":"exited","Status":"Exited (0)"}"#;
+
+        let services = parse_compose_services(output).expect("services parse");
+
+        assert_eq!(services.len(), 2);
+        assert_eq!(services[0].service, "web");
+        assert_eq!(services[0].ports.len(), 1);
+        assert_eq!(services[0].ports[0].host_port, Some(8080));
+        assert_eq!(services[0].ports[0].container_port, 80);
+        assert_eq!(services[1].state, "exited");
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_wsl_child_processes_are_configured_without_visible_windows() {
+        assert_eq!(windows_hidden_child_process_flags(), 0x08000000);
+    }
 }

@@ -77,9 +77,9 @@ fn detect_gpus() -> Vec<String> {
                 .lines()
                 .filter_map(|l| {
                     // lspci format: "00:02.0 VGA compatible controller: Intel HD Graphics 620 (rev 02)"
-                    l.splitn(2, ':')
-                        .nth(1)
-                        .and_then(|s| s.splitn(2, ':').nth(1))
+                    l.split_once(':')
+                        .map(|x| x.1)
+                        .and_then(|s| s.split_once(':').map(|x| x.1))
                         .map(|s| s.trim().to_string())
                 })
                 .filter(|s| !s.is_empty())

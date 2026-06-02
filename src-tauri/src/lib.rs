@@ -1,3 +1,9 @@
+// Many Tauri command handlers take a wide parameter list that mirrors the
+// JS-side `invoke` call (host, port, user, key, …). Bundling these into param
+// structs would change the JS-facing API, so the lint is allowed crate-wide
+// rather than worked around per-call.
+#![allow(clippy::too_many_arguments)]
+
 mod commands;
 mod crypto;
 mod docker;
@@ -144,11 +150,10 @@ async fn check_for_update(handle: tauri::AppHandle) {
                 if let Some(len) = content_length {
                     total = len;
                 }
-                let progress = if total > 0 {
-                    ((downloaded * 100) / total).min(99) as u8
-                } else {
-                    0
-                };
+                let progress = (downloaded * 100)
+                    .checked_div(total)
+                    .map(|p| p.min(99) as u8)
+                    .unwrap_or(0);
                 let _ = handle_clone.emit(
                     "updater-status",
                     UpdaterEvent::Downloading {

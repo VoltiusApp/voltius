@@ -340,7 +340,7 @@ pub fn build_run_args(c: &InspectContainer, image: &str) -> Vec<String> {
 /// (a container can only attach to one network at `run` time).
 pub fn build_network_connects(c: &InspectContainer, name: &str) -> Vec<Vec<String>> {
     let primary = (!is_default_network(&c.host_config.network_mode))
-        .then(|| c.host_config.network_mode.as_str());
+        .then_some(c.host_config.network_mode.as_str());
 
     let mut cmds = Vec::new();
     for (net, ep) in &c.network_settings.networks {

@@ -52,7 +52,7 @@ pub fn snippet_create(data: SnippetFormData) -> Result<Snippet, String> {
         clocks.insert(field.to_string(), now.clone());
     }
     let vault_id = data.vault_id.unwrap_or_else(|| "personal".to_string());
-    check_vault_write(&[vault_id.clone()])?;
+    check_vault_write(std::slice::from_ref(&vault_id))?;
     let snippet = Snippet {
         id: Uuid::new_v4().to_string(),
         name: data.name,
@@ -152,7 +152,7 @@ pub fn snippet_delete(id: String) -> Result<(), String> {
         .iter_mut()
         .find(|s| s.id == id)
         .ok_or_else(|| format!("Snippet {} not found", id))?;
-    check_vault_write(&[snippet.vault_id.clone()])?;
+    check_vault_write(std::slice::from_ref(&snippet.vault_id))?;
     snippet.deleted_at = Some(now.clone());
     snippet
         .clocks
@@ -202,7 +202,7 @@ pub fn snippet_folder_create(data: SnippetFolderFormData) -> Result<SnippetFolde
         clocks.insert(field.to_string(), now.clone());
     }
     let vault_id = data.vault_id.unwrap_or_else(|| "personal".to_string());
-    check_vault_write(&[vault_id.clone()])?;
+    check_vault_write(std::slice::from_ref(&vault_id))?;
     let folder = SnippetFolder {
         id: Uuid::new_v4().to_string(),
         name: data.name,
@@ -278,7 +278,7 @@ pub fn snippet_folder_delete(id: String) -> Result<(), String> {
         .iter_mut()
         .find(|f| f.id == id)
         .ok_or_else(|| format!("SnippetFolder {} not found", id))?;
-    check_vault_write(&[folder.vault_id.clone()])?;
+    check_vault_write(std::slice::from_ref(&folder.vault_id))?;
     folder.deleted_at = Some(now.clone());
     folder.clocks.insert("__deleted__".to_string(), now.clone());
     folder.updated_at = max_clock(&folder.clocks, &now);

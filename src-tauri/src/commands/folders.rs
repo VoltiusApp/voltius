@@ -114,7 +114,7 @@ pub fn folder_delete(id: String) -> Result<(), String> {
         .iter_mut()
         .find(|f| f.id == id)
         .ok_or_else(|| format!("Folder {} not found", id))?;
-    check_vault_write(&[folder.vault_id.clone()])?;
+    check_vault_write(std::slice::from_ref(&folder.vault_id))?;
     folder.deleted_at = Some(now.clone());
     folder.clocks.insert("__deleted__".to_string(), now.clone());
     folder.updated_at = max_clock(&folder.clocks, &now);

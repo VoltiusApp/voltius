@@ -4,7 +4,7 @@ use serde::Serialize;
 use x25519_dalek::{PublicKey, StaticSecret};
 
 fn decode_hex(s: &str) -> Result<Vec<u8>, String> {
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return Err("hex string must have even length".to_string());
     }
     (0..s.len())

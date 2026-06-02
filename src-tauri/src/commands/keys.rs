@@ -39,7 +39,7 @@ pub fn key_save(data: SshKeyFormData) -> Result<SshKey, String> {
     clocks.insert("folder_id".to_string(), now.clone());
     clocks.insert("vault_id".to_string(), now.clone());
     let vault_id = data.vault_id.unwrap_or_else(|| "personal".to_string());
-    check_vault_write(&[vault_id.clone()])?;
+    check_vault_write(std::slice::from_ref(&vault_id))?;
     let key = SshKey {
         id: Uuid::new_v4().to_string(),
         name: data.name,
@@ -114,7 +114,7 @@ pub fn key_delete(id: String) -> Result<(), String> {
         .iter_mut()
         .find(|k| k.id == id)
         .ok_or_else(|| format!("Key {} not found", id))?;
-    check_vault_write(&[key.vault_id.clone()])?;
+    check_vault_write(std::slice::from_ref(&key.vault_id))?;
     key.deleted_at = Some(now.clone());
     key.clocks.insert("__deleted__".to_string(), now.clone());
     key.updated_at = max_clock(&key.clocks, &now);
