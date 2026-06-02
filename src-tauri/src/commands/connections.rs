@@ -266,3 +266,319 @@ pub fn connection_delete(id: String) -> Result<(), String> {
     conn.updated_at = max_clock(&conn.clocks, &now);
     save_connections(&connections)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage::config::{Connection, ConnectionFormData, EnvVar, JumpHost};
+    use std::collections::HashMap;
+
+    /// A fully-populated `Connection` with deterministic, distinct field values.
+    /// Every test starts from this and mutates only what it exercises.
+    fn sample_connection() -> Connection {
+        Connection {
+            id: "conn-1".into(),
+            name: Some("orig-name".into()),
+            host: "orig.host".into(),
+            port: 22,
+            username: "orig-user".into(),
+            auth_type: "password".into(),
+            tags: vec!["a".into()],
+            created_at: "2026-01-01T00:00:00Z".into(),
+            last_used_at: Some("2026-01-05T00:00:00Z".into()),
+            distro: Some("ubuntu".into()),
+            icon: Some("server".into()),
+            identity_id: Some("id-1".into()),
+            key_id: Some("key-1".into()),
+            folder_id: Some("folder-1".into()),
+            vault_id: "team".into(),
+            jump_hosts: vec![JumpHost {
+                id: "jh-1".into(),
+                connection_id: "c-9".into(),
+                host: None,
+                port: None,
+                username: None,
+                identity_id: None,
+            }],
+            env_vars: vec![EnvVar {
+                id: "ev-1".into(),
+                key: "K".into(),
+                value: "V".into(),
+            }],
+            agent_forwarding: false,
+            pre_command: Some("pre".into()),
+            post_command: Some("post".into()),
+            terminal_encoding: Some("utf-8".into()),
+            pinned: false,
+            ping_disabled: false,
+            shell_integration_disabled: false,
+            connection_type: "ssh".into(),
+            serial_port: Some("/dev/ttyU0".into()),
+            serial_baud: Some(9600),
+            serial_data_bits: Some(8),
+            serial_parity: Some("none".into()),
+            serial_stop_bits: Some(1),
+            serial_flow_control: Some("none".into()),
+            updated_at: "2026-01-01T00:00:00Z".into(),
+            deleted_at: None,
+            clocks: HashMap::new(),
+        }
+    }
+
+    /// Form data whose every field differs from `sample_connection()`.
+    fn sample_form() -> ConnectionFormData {
+        ConnectionFormData {
+            name: Some("new-name".into()),
+            host: "new.host".into(),
+            port: 2222,
+            username: "new-user".into(),
+            auth_type: "key".into(),
+            tags: vec!["b".into(), "c".into()],
+            identity_id: Some("id-2".into()),
+            key_id: Some("key-2".into()),
+            folder_id: Some("folder-2".into()),
+            vault_id: Some("personal".into()),
+            jump_hosts: vec![JumpHost {
+                id: "jh-2".into(),
+                connection_id: "c-10".into(),
+                host: None,
+                port: None,
+                username: None,
+                identity_id: None,
+            }],
+            env_vars: vec![EnvVar {
+                id: "ev-2".into(),
+                key: "K2".into(),
+                value: "V2".into(),
+            }],
+            agent_forwarding: true,
+            pre_command: Some("pre2".into()),
+            post_command: Some("post2".into()),
+            terminal_encoding: Some("latin-1".into()),
+            distro: Some("debian".into()),
+            icon: Some("laptop".into()),
+            pinned: true,
+            ping_disabled: true,
+            shell_integration_disabled: true,
+            connection_type: "serial".into(),
+            serial_port: Some("/dev/ttyU1".into()),
+            serial_baud: Some(115200),
+            serial_data_bits: Some(7),
+            serial_parity: Some("even".into()),
+            serial_stop_bits: Some(2),
+            serial_flow_control: Some("rtscts".into()),
+        }
+    }
+
+    // ── is_alive ────────────────────────────────────────────────────────────
+    #[test]
+    fn is_alive_true_when_never_deleted() {
+        assert!(is_alive(&None, "2026-01-01T00:00:00Z"));
+    }
+
+    #[test]
+    fn is_alive_true_when_updated_after_delete() {
+        let deleted = Some("2026-01-01T00:00:00Z".to_string());
+        assert!(is_alive(&deleted, "2026-01-02T00:00:00Z"));
+    }
+
+    #[test]
+    fn is_alive_false_when_updated_equals_delete() {
+        // Strict `>`: an equal timestamp counts as deleted, not alive.
+        let deleted = Some("2026-01-01T00:00:00Z".to_string());
+        assert!(!is_alive(&deleted, "2026-01-01T00:00:00Z"));
+    }
+
+    #[test]
+    fn is_alive_false_when_updated_before_delete() {
+        let deleted = Some("2026-01-02T00:00:00Z".to_string());
+        assert!(!is_alive(&deleted, "2026-01-01T00:00:00Z"));
+    }
+
+    // ── max_clock ───────────────────────────────────────────────────────────
+    #[test]
+    fn max_clock_uses_fallback_when_empty() {
+        assert_eq!(max_clock(&HashMap::new(), "fallback"), "fallback");
+    }
+
+    #[test]
+    fn max_clock_returns_lexicographic_max() {
+        let mut clocks = HashMap::new();
+        clocks.insert("name".into(), "2026-01-01T00:00:00Z".into());
+        clocks.insert("host".into(), "2026-03-01T00:00:00Z".into());
+        clocks.insert("port".into(), "2026-02-01T00:00:00Z".into());
+        // RFC3339 strings sort chronologically under lexicographic max.
+        assert_eq!(max_clock(&clocks, "fallback"), "2026-03-01T00:00:00Z");
+    }
+
+    // ── merge_form_into_connection ──────────────────────────────────────────
+    #[test]
+    fn merge_overwrites_form_backed_fields() {
+        let existing = sample_connection();
+        let merged = merge_form_into_connection(&existing, sample_form());
+        assert_eq!(merged.name, Some("new-name".to_string()));
+        assert_eq!(merged.host, "new.host");
+        assert_eq!(merged.port, 2222);
+        assert_eq!(merged.username, "new-user");
+        assert_eq!(merged.auth_type, "key");
+        assert_eq!(merged.tags, vec!["b".to_string(), "c".to_string()]);
+        assert_eq!(merged.connection_type, "serial");
+        assert!(merged.agent_forwarding);
+        assert!(merged.pinned);
+    }
+
+    #[test]
+    fn merge_keeps_existing_distro_and_icon_when_form_omits_them() {
+        let existing = sample_connection();
+        let mut form = sample_form();
+        form.distro = None;
+        form.icon = None;
+        let merged = merge_form_into_connection(&existing, form);
+        assert_eq!(merged.distro, Some("ubuntu".to_string()));
+        assert_eq!(merged.icon, Some("server".to_string()));
+    }
+
+    #[test]
+    fn merge_uses_form_distro_and_icon_when_present() {
+        let merged = merge_form_into_connection(&sample_connection(), sample_form());
+        assert_eq!(merged.distro, Some("debian".to_string()));
+        assert_eq!(merged.icon, Some("laptop".to_string()));
+    }
+
+    #[test]
+    fn merge_vault_id_falls_back_to_existing_when_form_none() {
+        let existing = sample_connection(); // vault_id = "team"
+        let mut form = sample_form();
+        form.vault_id = None;
+        let merged = merge_form_into_connection(&existing, form);
+        assert_eq!(merged.vault_id, "team");
+    }
+
+    #[test]
+    fn merge_preserves_identity_and_clears_deleted_at() {
+        let mut existing = sample_connection();
+        existing.deleted_at = Some("2026-01-09T00:00:00Z".into());
+        existing
+            .clocks
+            .insert("host".into(), "2026-01-08T00:00:00Z".into());
+        let merged = merge_form_into_connection(&existing, sample_form());
+        // Identity + provenance fields come from `existing`, not the form.
+        assert_eq!(merged.id, "conn-1");
+        assert_eq!(merged.created_at, "2026-01-01T00:00:00Z");
+        assert_eq!(
+            merged.last_used_at,
+            Some("2026-01-05T00:00:00Z".to_string())
+        );
+        assert_eq!(merged.updated_at, "2026-01-01T00:00:00Z"); // caller bumps later
+        assert_eq!(
+            merged.clocks.get("host").map(String::as_str),
+            Some("2026-01-08T00:00:00Z")
+        );
+        // A merge always revives the entity.
+        assert_eq!(merged.deleted_at, None);
+    }
+
+    // ── bump_changed_clocks ─────────────────────────────────────────────────
+    #[test]
+    fn bump_stamps_only_changed_fields() {
+        let old = sample_connection();
+        let mut new = old.clone();
+        new.host = "changed.host".into();
+        new.port = 2200;
+        bump_changed_clocks(&old, &mut new, "2026-02-02T00:00:00Z");
+        let mut keys: Vec<_> = new.clocks.keys().cloned().collect();
+        keys.sort();
+        assert_eq!(keys, vec!["host".to_string(), "port".to_string()]);
+        assert_eq!(new.clocks["host"], "2026-02-02T00:00:00Z");
+    }
+
+    #[test]
+    fn bump_with_no_changes_adds_no_clocks() {
+        let old = sample_connection();
+        let mut new = old.clone();
+        bump_changed_clocks(&old, &mut new, "2026-02-02T00:00:00Z");
+        assert!(new.clocks.is_empty());
+    }
+
+    #[test]
+    fn bump_jump_hosts_compares_ids_only() {
+        let old = sample_connection();
+
+        // Same ID, different snapshot content → NOT a change (tracked per-entry).
+        let mut same_ids = old.clone();
+        same_ids.jump_hosts[0].host = Some("snapshot.changed".into());
+        bump_changed_clocks(&old, &mut same_ids, "2026-02-02T00:00:00Z");
+        assert!(!same_ids.clocks.contains_key("jump_hosts"));
+
+        // Different ID set → a change.
+        let mut diff_ids = old.clone();
+        diff_ids.jump_hosts[0].id = "jh-other".into();
+        bump_changed_clocks(&old, &mut diff_ids, "2026-02-02T00:00:00Z");
+        assert!(diff_ids.clocks.contains_key("jump_hosts"));
+    }
+
+    #[test]
+    fn bump_env_vars_compares_ids_only() {
+        let old = sample_connection();
+
+        let mut same_ids = old.clone();
+        same_ids.env_vars[0].value = "changed".into();
+        bump_changed_clocks(&old, &mut same_ids, "2026-02-02T00:00:00Z");
+        assert!(!same_ids.clocks.contains_key("env_vars"));
+
+        let mut diff_ids = old.clone();
+        diff_ids.env_vars[0].id = "ev-other".into();
+        bump_changed_clocks(&old, &mut diff_ids, "2026-02-02T00:00:00Z");
+        assert!(diff_ids.clocks.contains_key("env_vars"));
+    }
+
+    /// Pins the exact set of fields `bump_changed_clocks` tracks when everything
+    /// changes. NOTE: this set (27 fields, incl. `agent_forwarding`,
+    /// `ping_disabled`, `shell_integration_disabled`) is intentionally pinned
+    /// as-is. It does NOT match the 24-key clock map hand-built in
+    /// `connection_save` (which omits those three and never tracks `pinned`).
+    /// That divergence is a known wart for Phase 1's clock-field unification to
+    /// reconcile — this test exists so that reconciliation is deliberate.
+    #[test]
+    fn bump_covers_the_expected_field_set() {
+        let old = sample_connection();
+        let merged = merge_form_into_connection(&old, sample_form());
+        let mut new = merged;
+        bump_changed_clocks(&old, &mut new, "2026-02-02T00:00:00Z");
+
+        let mut keys: Vec<String> = new.clocks.keys().cloned().collect();
+        keys.sort();
+        let mut expected = vec![
+            "agent_forwarding",
+            "auth_type",
+            "connection_type",
+            "distro",
+            "env_vars",
+            "folder_id",
+            "host",
+            "icon",
+            "identity_id",
+            "jump_hosts",
+            "key_id",
+            "name",
+            "ping_disabled",
+            "port",
+            "post_command",
+            "pre_command",
+            "serial_baud",
+            "serial_data_bits",
+            "serial_flow_control",
+            "serial_parity",
+            "serial_port",
+            "serial_stop_bits",
+            "shell_integration_disabled",
+            "tags",
+            "terminal_encoding",
+            "username",
+            "vault_id",
+        ];
+        expected.sort();
+        assert_eq!(keys, expected);
+        assert_eq!(keys.len(), 27);
+    }
+}
