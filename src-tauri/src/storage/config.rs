@@ -625,3 +625,228 @@ pub fn save_snippet_folders(folders: &[SnippetFolder]) -> Result<(), String> {
     let data = serde_json::to_string_pretty(folders).map_err(|e| e.to_string())?;
     fs::write(snippet_folders_file(), data).map_err(|e| e.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde::de::DeserializeOwned;
+
+    /// Asserts that `value` survives a JSON serialize → deserialize → serialize
+    /// cycle unchanged. Compares `serde_json::Value`s (not strings) so that
+    /// `HashMap` clock ordering does not make the assertion flaky.
+    fn assert_json_round_trip<T: Serialize + DeserializeOwned>(value: &T) {
+        let v1 = serde_json::to_value(value).expect("serialize");
+        let back: T = serde_json::from_value(v1.clone()).expect("deserialize");
+        let v2 = serde_json::to_value(&back).expect("re-serialize");
+        assert_eq!(v1, v2);
+    }
+
+    fn clocks() -> HashMap<String, String> {
+        let mut c = HashMap::new();
+        c.insert("name".to_string(), "2026-01-01T00:00:00Z".to_string());
+        c.insert("host".to_string(), "2026-01-02T00:00:00Z".to_string());
+        c
+    }
+
+    fn sample_connection() -> Connection {
+        Connection {
+            id: "conn-1".into(),
+            name: Some("web".into()),
+            host: "example.com".into(),
+            port: 22,
+            username: "root".into(),
+            auth_type: "key".into(),
+            tags: vec!["prod".into(), "eu".into()],
+            created_at: "2026-01-01T00:00:00Z".into(),
+            last_used_at: Some("2026-01-05T00:00:00Z".into()),
+            distro: Some("ubuntu".into()),
+            icon: Some("server".into()),
+            identity_id: Some("id-1".into()),
+            key_id: Some("key-1".into()),
+            folder_id: Some("folder-1".into()),
+            vault_id: "team".into(),
+            jump_hosts: vec![JumpHost {
+                id: "jh-1".into(),
+                connection_id: "c-9".into(),
+                host: Some("bastion".into()),
+                port: Some(2222),
+                username: Some("jump".into()),
+                identity_id: Some("id-2".into()),
+            }],
+            env_vars: vec![EnvVar {
+                id: "ev-1".into(),
+                key: "TERM".into(),
+                value: "xterm".into(),
+            }],
+            agent_forwarding: true,
+            pre_command: Some("echo hi".into()),
+            post_command: Some("echo bye".into()),
+            terminal_encoding: Some("utf-8".into()),
+            pinned: true,
+            ping_disabled: false,
+            shell_integration_disabled: false,
+            connection_type: "ssh".into(),
+            serial_port: Some("/dev/ttyU0".into()),
+            serial_baud: Some(9600),
+            serial_data_bits: Some(8),
+            serial_parity: Some("none".into()),
+            serial_stop_bits: Some(1),
+            serial_flow_control: Some("none".into()),
+            updated_at: "2026-01-02T00:00:00Z".into(),
+            deleted_at: None,
+            clocks: clocks(),
+        }
+    }
+
+    fn sample_identity() -> Identity {
+        Identity {
+            id: "id-1".into(),
+            name: Some("admin".into()),
+            username: "root".into(),
+            key_id: Some("key-1".into()),
+            tags: vec!["prod".into()],
+            created_at: "2026-01-01T00:00:00Z".into(),
+            folder_id: Some("folder-1".into()),
+            vault_id: "team".into(),
+            pinned: true,
+            updated_at: "2026-01-02T00:00:00Z".into(),
+            deleted_at: None,
+            clocks: clocks(),
+        }
+    }
+
+    fn sample_folder() -> Folder {
+        Folder {
+            id: "folder-1".into(),
+            name: "Servers".into(),
+            created_at: "2026-01-01T00:00:00Z".into(),
+            parent_folder_id: Some("root".into()),
+            object_type: "connection".into(),
+            vault_id: "team".into(),
+            pinned: Some(true),
+            updated_at: "2026-01-02T00:00:00Z".into(),
+            deleted_at: None,
+            clocks: clocks(),
+        }
+    }
+
+    #[test]
+    fn connection_serde_round_trip() {
+        assert_json_round_trip(&sample_connection());
+    }
+
+    #[test]
+    fn identity_serde_round_trip() {
+        assert_json_round_trip(&sample_identity());
+    }
+
+    #[test]
+    fn folder_serde_round_trip() {
+        assert_json_round_trip(&sample_folder());
+    }
+
+    #[test]
+    fn deleted_connection_serde_round_trip() {
+        let mut c = sample_connection();
+        c.deleted_at = Some("2026-02-01T00:00:00Z".into());
+        c.clocks
+            .insert("__deleted__".into(), "2026-02-01T00:00:00Z".into());
+        assert_json_round_trip(&c);
+    }
+
+    // ── migrate_vault_id ────────────────────────────────────────────────────
+    /// Runs `migrate_vault_id` over `input`'s object and returns the result.
+    fn migrate(input: serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
+        let mut map = input.as_object().expect("object").clone();
+        migrate_vault_id(&mut map);
+        map
+    }
+
+    #[test]
+    fn migrate_keeps_existing_vault_id_and_drops_vault_ids() {
+        let out = migrate(serde_json::json!({ "vault_id": "keep", "vault_ids": ["x"] }));
+        assert_eq!(out.get("vault_id").unwrap(), "keep");
+        assert!(!out.contains_key("vault_ids"));
+    }
+
+    #[test]
+    fn migrate_takes_first_element_of_vault_ids_array() {
+        let out = migrate(serde_json::json!({ "vault_ids": ["team", "other"] }));
+        assert_eq!(out.get("vault_id").unwrap(), "team");
+        assert!(!out.contains_key("vault_ids"));
+    }
+
+    #[test]
+    fn migrate_accepts_vault_ids_as_bare_string() {
+        let out = migrate(serde_json::json!({ "vault_ids": "solo" }));
+        assert_eq!(out.get("vault_id").unwrap(), "solo");
+    }
+
+    #[test]
+    fn migrate_defaults_to_personal_for_empty_array() {
+        let out = migrate(serde_json::json!({ "vault_ids": [] }));
+        assert_eq!(out.get("vault_id").unwrap(), "personal");
+    }
+
+    #[test]
+    fn migrate_defaults_to_personal_when_absent() {
+        let out = migrate(serde_json::json!({ "other": 1 }));
+        assert_eq!(out.get("vault_id").unwrap(), "personal");
+    }
+
+    #[test]
+    fn migrate_defaults_to_personal_for_wrong_type() {
+        let out = migrate(serde_json::json!({ "vault_ids": 42 }));
+        assert_eq!(out.get("vault_id").unwrap(), "personal");
+    }
+
+    // ── parse_with_migration ────────────────────────────────────────────────
+    #[derive(serde::Deserialize, Debug, PartialEq)]
+    struct Mini {
+        id: String,
+    }
+
+    #[derive(serde::Deserialize, Debug, PartialEq)]
+    struct WithVault {
+        id: String,
+        vault_id: String,
+    }
+
+    #[test]
+    fn parse_reads_valid_array() {
+        let got: Vec<Mini> = parse_with_migration(r#"[{"id":"a"},{"id":"b"}]"#);
+        assert_eq!(got, vec![Mini { id: "a".into() }, Mini { id: "b".into() }]);
+    }
+
+    #[test]
+    fn parse_applies_migration_to_each_record() {
+        let got: Vec<WithVault> = parse_with_migration(r#"[{"id":"a","vault_ids":["team","x"]}]"#);
+        assert_eq!(
+            got,
+            vec![WithVault {
+                id: "a".into(),
+                vault_id: "team".into(),
+            }]
+        );
+    }
+
+    #[test]
+    fn parse_returns_empty_on_malformed_json() {
+        // Pinned current behavior: `unwrap_or_default()` swallows parse errors.
+        let got: Vec<Mini> = parse_with_migration("not valid json {");
+        assert!(got.is_empty());
+    }
+
+    #[test]
+    fn parse_returns_empty_when_top_level_is_not_an_array() {
+        let got: Vec<Mini> = parse_with_migration(r#"{"id":"a"}"#);
+        assert!(got.is_empty());
+    }
+
+    #[test]
+    fn parse_silently_drops_records_that_fail_to_deserialize() {
+        // Pinned current behavior: a bad record is filtered out, not surfaced.
+        let got: Vec<Mini> = parse_with_migration(r#"[{"id":"a"},{"nope":"b"}]"#);
+        assert_eq!(got, vec![Mini { id: "a".into() }]);
+    }
+}
