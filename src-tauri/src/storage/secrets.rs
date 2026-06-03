@@ -1,3 +1,4 @@
+use crate::error::AppError;
 use chacha20poly1305::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
     Key, XChaCha20Poly1305, XNonce,
@@ -36,7 +37,7 @@ impl SecretsStore {
         }
     }
 
-    pub fn unlock(&self, path: PathBuf, enc_key: [u8; 32]) -> Result<(), String> {
+    pub fn unlock(&self, path: PathBuf, enc_key: [u8; 32]) -> Result<(), AppError> {
         let secrets = if path.exists() {
             let data = std::fs::read(&path).map_err(|e| format!("Read failed: {e}"))?;
             decrypt(&enc_key, &data)?
@@ -55,20 +56,20 @@ impl SecretsStore {
         *self.inner.lock().unwrap() = None;
     }
 
-    pub fn get(&self, key: &str) -> Result<Option<String>, String> {
+    pub fn get(&self, key: &str) -> Result<Option<String>, AppError> {
         let guard = self.inner.lock().unwrap();
         let inner = guard.as_ref().ok_or("Secrets store is locked")?;
         Ok(inner.secrets.get(key).cloned())
     }
 
-    pub fn set(&self, key: String, value: String) -> Result<(), String> {
+    pub fn set(&self, key: String, value: String) -> Result<(), AppError> {
         let mut guard = self.inner.lock().unwrap();
         let inner = guard.as_mut().ok_or("Secrets store is locked")?;
         inner.secrets.insert(key, value);
         save(inner)
     }
 
-    pub fn delete(&self, key: &str) -> Result<(), String> {
+    pub fn delete(&self, key: &str) -> Result<(), AppError> {
         let mut guard = self.inner.lock().unwrap();
         let inner = guard.as_mut().ok_or("Secrets store is locked")?;
         inner.secrets.remove(key);
@@ -81,14 +82,14 @@ impl SecretsStore {
     }
 
     /// Export all secrets (for backup_export).
-    pub fn export_all(&self) -> Result<HashMap<String, String>, String> {
+    pub fn export_all(&self) -> Result<HashMap<String, String>, AppError> {
         let guard = self.inner.lock().unwrap();
         let inner = guard.as_ref().ok_or("Secrets store is locked")?;
         Ok(inner.secrets.clone())
     }
 
     /// Import secrets from backup (bulk insert, no save — caller must call save explicitly).
-    pub fn import_all(&self, secrets: HashMap<String, String>) -> Result<(), String> {
+    pub fn import_all(&self, secrets: HashMap<String, String>) -> Result<(), AppError> {
         let mut guard = self.inner.lock().unwrap();
         let inner = guard.as_mut().ok_or("Secrets store is locked")?;
         inner.secrets.extend(secrets);
@@ -96,13 +97,13 @@ impl SecretsStore {
     }
 }
 
-fn save(inner: &StoreInner) -> Result<(), String> {
-    let json = serde_json::to_vec(&inner.secrets).map_err(|e| e.to_string())?;
+fn save(inner: &StoreInner) -> Result<(), AppError> {
+    let json = serde_json::to_vec(&inner.secrets)?;
     let encrypted = encrypt(&inner.enc_key, &json)?;
-    std::fs::write(&inner.path, encrypted).map_err(|e| format!("Write failed: {e}"))
+    std::fs::write(&inner.path, encrypted).map_err(|e| AppError::Msg(format!("Write failed: {e}")))
 }
 
-fn encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>, String> {
+fn encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>, AppError> {
     let cipher = XChaCha20Poly1305::new(Key::from_slice(key));
     let nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
     let ciphertext = cipher
@@ -114,16 +115,16 @@ fn encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
-fn decrypt(key: &[u8; 32], data: &[u8]) -> Result<HashMap<String, String>, String> {
+fn decrypt(key: &[u8; 32], data: &[u8]) -> Result<HashMap<String, String>, AppError> {
     if data.len() < NONCE_LEN {
-        return Err("Secrets file too short".to_string());
+        return Err("Secrets file too short".into());
     }
     let nonce = XNonce::from_slice(&data[..NONCE_LEN]);
     let cipher = XChaCha20Poly1305::new(Key::from_slice(key));
     let plaintext = cipher
         .decrypt(nonce, &data[NONCE_LEN..])
         .map_err(|_| "Decryption failed — wrong key or corrupted file".to_string())?;
-    serde_json::from_slice(&plaintext).map_err(|e| e.to_string())
+    Ok(serde_json::from_slice(&plaintext)?)
 }
 
 // ─── Tauri commands ───────────────────────────────────────────────────────────
@@ -133,9 +134,9 @@ pub fn secrets_unlock(
     app: AppHandle,
     state: tauri::State<SecretsStore>,
     enc_key: Vec<u8>,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     if enc_key.len() != 32 {
-        return Err("enc_key must be 32 bytes".to_string());
+        return Err("enc_key must be 32 bytes".into());
     }
     let path = secrets_path(&app);
     let key: [u8; 32] = enc_key.try_into().unwrap();
@@ -147,9 +148,9 @@ pub fn secrets_verify(
     app: AppHandle,
     _state: tauri::State<SecretsStore>,
     enc_key: Vec<u8>,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     if enc_key.len() != 32 {
-        return Err("enc_key must be 32 bytes".to_string());
+        return Err("enc_key must be 32 bytes".into());
     }
     let path = secrets_path(&app);
     // If no file yet, key is always valid (will be created on first write)
@@ -177,9 +178,9 @@ pub fn secrets_lock(state: tauri::State<SecretsStore>) {
 pub fn secrets_reencrypt(
     state: tauri::State<SecretsStore>,
     new_enc_key: Vec<u8>,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     if new_enc_key.len() != 32 {
-        return Err("new_enc_key must be 32 bytes".to_string());
+        return Err("new_enc_key must be 32 bytes".into());
     }
     let mut guard = state.inner.lock().unwrap();
     let inner = guard.as_mut().ok_or("Secrets store is locked")?;
@@ -196,12 +197,12 @@ pub fn secrets_rekey(
     state: tauri::State<SecretsStore>,
     old_enc_key: Vec<u8>,
     new_enc_key: Vec<u8>,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     if old_enc_key.len() != 32 {
-        return Err("old_enc_key must be 32 bytes".to_string());
+        return Err("old_enc_key must be 32 bytes".into());
     }
     if new_enc_key.len() != 32 {
-        return Err("new_enc_key must be 32 bytes".to_string());
+        return Err("new_enc_key must be 32 bytes".into());
     }
     let old_key: [u8; 32] = old_enc_key.try_into().unwrap();
     let new_key: [u8; 32] = new_enc_key.try_into().unwrap();
@@ -225,7 +226,7 @@ pub fn secrets_rekey(
 pub fn secrets_get(
     state: tauri::State<SecretsStore>,
     key: String,
-) -> Result<Option<String>, String> {
+) -> Result<Option<String>, AppError> {
     state.get(&key)
 }
 
@@ -234,19 +235,19 @@ pub fn secrets_set(
     state: tauri::State<SecretsStore>,
     key: String,
     value: String,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     state.set(key, value)
 }
 
 #[tauri::command]
-pub fn secrets_delete(state: tauri::State<SecretsStore>, key: String) -> Result<(), String> {
+pub fn secrets_delete(state: tauri::State<SecretsStore>, key: String) -> Result<(), AppError> {
     state.delete(&key)
 }
 
 /// Delete secrets.enc from disk and lock the store.
 /// Used for recovery when the file was encrypted with a stale key.
 #[tauri::command]
-pub fn secrets_wipe(app: AppHandle, state: tauri::State<SecretsStore>) -> Result<(), String> {
+pub fn secrets_wipe(app: AppHandle, state: tauri::State<SecretsStore>) -> Result<(), AppError> {
     state.lock();
     let path = secrets_path(&app);
     if path.exists() {

@@ -7,6 +7,7 @@
 mod commands;
 mod crypto;
 mod docker;
+mod error;
 mod known_hosts;
 mod local;
 mod metrics;
