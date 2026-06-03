@@ -334,60 +334,65 @@ pub fn known_hosts_file() -> PathBuf {
     config_dir().join("known_hosts.json")
 }
 
-pub fn load_connections() -> Vec<Connection> {
-    let path = connections_file();
+// ─── Generic JSON load/save ──────────────────────────────────────────────────
+
+/// Load a JSON value from `path`, returning `T::default()` if the file is
+/// missing, unreadable, or malformed. Mirrors the historical
+/// `unwrap_or_default()` behavior: errors are swallowed, never surfaced.
+fn load_json<T: serde::de::DeserializeOwned + Default>(path: PathBuf) -> T {
     if !path.exists() {
-        return Vec::new();
-    }
-    let data = fs::read_to_string(path).unwrap_or_default();
-    parse_with_migration(&data)
-}
-
-pub fn save_connections(connections: &[Connection]) -> Result<(), String> {
-    let data = serde_json::to_string_pretty(connections).map_err(|e| e.to_string())?;
-    fs::write(connections_file(), data).map_err(|e| e.to_string())
-}
-
-pub fn load_identities() -> Vec<Identity> {
-    let path = identities_file();
-    if !path.exists() {
-        return Vec::new();
-    }
-    let data = fs::read_to_string(path).unwrap_or_default();
-    parse_with_migration(&data)
-}
-
-pub fn save_identities(identities: &[Identity]) -> Result<(), String> {
-    let data = serde_json::to_string_pretty(identities).map_err(|e| e.to_string())?;
-    fs::write(identities_file(), data).map_err(|e| e.to_string())
-}
-
-pub fn load_keys() -> Vec<SshKey> {
-    let path = keys_file();
-    if !path.exists() {
-        return Vec::new();
-    }
-    let data = fs::read_to_string(path).unwrap_or_default();
-    parse_with_migration(&data)
-}
-
-pub fn save_keys(keys: &[SshKey]) -> Result<(), String> {
-    let data = serde_json::to_string_pretty(keys).map_err(|e| e.to_string())?;
-    fs::write(keys_file(), data).map_err(|e| e.to_string())
-}
-
-pub fn load_folders() -> Vec<Folder> {
-    let path = folders_file();
-    if !path.exists() {
-        return Vec::new();
+        return T::default();
     }
     let data = fs::read_to_string(path).unwrap_or_default();
     serde_json::from_str(&data).unwrap_or_default()
 }
 
+/// Like [`load_json`] but applies the `vault_ids` → `vault_id` migration to
+/// each record (see [`parse_with_migration`]). Used by the entity stores.
+fn load_json_migrated<T: serde::de::DeserializeOwned>(path: PathBuf) -> Vec<T> {
+    if !path.exists() {
+        return Vec::new();
+    }
+    let data = fs::read_to_string(path).unwrap_or_default();
+    parse_with_migration(&data)
+}
+
+/// Pretty-print `value` as JSON and write it to `path`.
+fn save_json<T: Serialize + ?Sized>(path: PathBuf, value: &T) -> Result<(), String> {
+    let data = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
+    fs::write(path, data).map_err(|e| e.to_string())
+}
+
+pub fn load_connections() -> Vec<Connection> {
+    load_json_migrated(connections_file())
+}
+
+pub fn save_connections(connections: &[Connection]) -> Result<(), String> {
+    save_json(connections_file(), connections)
+}
+
+pub fn load_identities() -> Vec<Identity> {
+    load_json_migrated(identities_file())
+}
+
+pub fn save_identities(identities: &[Identity]) -> Result<(), String> {
+    save_json(identities_file(), identities)
+}
+
+pub fn load_keys() -> Vec<SshKey> {
+    load_json_migrated(keys_file())
+}
+
+pub fn save_keys(keys: &[SshKey]) -> Result<(), String> {
+    save_json(keys_file(), keys)
+}
+
+pub fn load_folders() -> Vec<Folder> {
+    load_json(folders_file())
+}
+
 pub fn save_folders(folders: &[Folder]) -> Result<(), String> {
-    let data = serde_json::to_string_pretty(folders).map_err(|e| e.to_string())?;
-    fs::write(folders_file(), data).map_err(|e| e.to_string())
+    save_json(folders_file(), folders)
 }
 
 // ─── Known Hosts ─────────────────────────────────────────────────────────────
@@ -410,17 +415,11 @@ pub struct KnownHost {
 }
 
 pub fn load_known_hosts() -> Vec<KnownHost> {
-    let path = known_hosts_file();
-    if !path.exists() {
-        return Vec::new();
-    }
-    let data = fs::read_to_string(path).unwrap_or_default();
-    serde_json::from_str(&data).unwrap_or_default()
+    load_json(known_hosts_file())
 }
 
 pub fn save_known_hosts(entries: &[KnownHost]) -> Result<(), String> {
-    let data = serde_json::to_string_pretty(entries).map_err(|e| e.to_string())?;
-    fs::write(known_hosts_file(), data).map_err(|e| e.to_string())
+    save_json(known_hosts_file(), entries)
 }
 
 // ─── Snippets ────────────────────────────────────────────────────────────────
@@ -544,17 +543,11 @@ fn port_forwarding_rules_file() -> PathBuf {
 }
 
 pub fn load_port_forwarding_rules() -> Vec<PortForwardingRule> {
-    let path = port_forwarding_rules_file();
-    if !path.exists() {
-        return Vec::new();
-    }
-    let data = fs::read_to_string(path).unwrap_or_default();
-    parse_with_migration(&data)
+    load_json_migrated(port_forwarding_rules_file())
 }
 
 pub fn save_port_forwarding_rules(rules: &[PortForwardingRule]) -> Result<(), String> {
-    let data = serde_json::to_string_pretty(rules).map_err(|e| e.to_string())?;
-    fs::write(port_forwarding_rules_file(), data).map_err(|e| e.to_string())
+    save_json(port_forwarding_rules_file(), rules)
 }
 
 fn snippets_file() -> PathBuf {
@@ -562,17 +555,11 @@ fn snippets_file() -> PathBuf {
 }
 
 pub fn load_snippets() -> Vec<Snippet> {
-    let path = snippets_file();
-    if !path.exists() {
-        return Vec::new();
-    }
-    let data = fs::read_to_string(path).unwrap_or_default();
-    parse_with_migration(&data)
+    load_json_migrated(snippets_file())
 }
 
 pub fn save_snippets(snippets: &[Snippet]) -> Result<(), String> {
-    let data = serde_json::to_string_pretty(snippets).map_err(|e| e.to_string())?;
-    fs::write(snippets_file(), data).map_err(|e| e.to_string())
+    save_json(snippets_file(), snippets)
 }
 
 // ─── Snippet folders ──────────────────────────────────────────────────────────
@@ -613,17 +600,11 @@ fn snippet_folders_file() -> PathBuf {
 }
 
 pub fn load_snippet_folders() -> Vec<SnippetFolder> {
-    let path = snippet_folders_file();
-    if !path.exists() {
-        return Vec::new();
-    }
-    let data = fs::read_to_string(path).unwrap_or_default();
-    parse_with_migration(&data)
+    load_json_migrated(snippet_folders_file())
 }
 
 pub fn save_snippet_folders(folders: &[SnippetFolder]) -> Result<(), String> {
-    let data = serde_json::to_string_pretty(folders).map_err(|e| e.to_string())?;
-    fs::write(snippet_folders_file(), data).map_err(|e| e.to_string())
+    save_json(snippet_folders_file(), folders)
 }
 
 #[cfg(test)]
