@@ -57,6 +57,12 @@ jobs:
       contents: write
     strategy:
       fail-fast: false
+      # Serialize the matrix: tauri-action's updater-manifest upload is a
+      # non-atomic read-merge-upload of the shared latest.json. Running jobs
+      # concurrently races — two jobs read latest.json before either writes,
+      # so the second loses (or fails with ReleaseAsset already_exists). One
+      # job at a time guarantees every platform lands in latest.json.
+      max-parallel: 1
       matrix:
         include:
           - platform: 'ubuntu-24.04'
