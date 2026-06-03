@@ -20,6 +20,9 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          # Admin-owned PAT so the tag push bypasses the tag-creation ruleset
+          # (the Actions bot cannot be granted ruleset bypass).
+          token: ${{ secrets.RELEASE_PAT }}
 
       - name: Read version
         id: version
