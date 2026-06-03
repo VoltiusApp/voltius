@@ -160,9 +160,11 @@ jobs:
         run: |
           mkdir -p assets && cd assets
           gh release download "${{ inputs.tag }}" -R "${{ github.repository }}"
+          # Checksum only the distributable artifacts — skip signatures,
+          # the updater manifest, and existing checksums.
           for f in *; do
             [ -f "$f" ] || continue
-            case "$f" in *.sha256) continue ;; esac
+            case "$f" in *.sha256|*.sig|latest.json) continue ;; esac
             sha256sum "$f" > "$f.sha256"
           done
           echo "=== Checksums ==="
