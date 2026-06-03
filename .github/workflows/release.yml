@@ -1,9 +1,18 @@
 name: release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Release tag to build (e.g. v0.1.51)'
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build (e.g. v0.1.51)'
+        required: true
+        type: string
 
 jobs:
   changelog:
@@ -13,12 +22,16 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
 
       - name: Extract release notes from CHANGELOG.md
         id: extract
         shell: bash
+        env:
+          TAG: ${{ inputs.tag }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${TAG#v}"
           notes=$(awk -v hdr="## [$version]" '
             index($0, hdr) == 1 { flag=1; next }
             flag && /^## / { flag=0 }
@@ -74,6 +87,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v5
@@ -124,8 +139,8 @@ jobs:
           SCCACHE_GHA_ENABLED: "true"
           RUSTC_WRAPPER: "sccache"
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Voltius ${{ github.ref_name }}'
+          tagName: ${{ inputs.tag }}
+          releaseName: 'Voltius ${{ inputs.tag }}'
           releaseBody: ${{ needs.changelog.outputs.notes }}
           releaseDraft: true
           prerelease: false
@@ -153,7 +168,7 @@ jobs:
         run: |
           cd src-tauri/target/release/bundle
           find . -name '*.sha256' -print0 | while IFS= read -r -d '' f; do
-            gh release upload "${{ github.ref_name }}" "$f"
+            gh release upload "${{ inputs.tag }}" "$f"
           done
 
   publish-release:
@@ -165,4 +180,4 @@ jobs:
       - name: Publish the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit "${{ github.ref_name }}" --draft=false --latest -R "${{ github.repository }}"
+        run: gh release edit "${{ inputs.tag }}" --draft=false --latest -R "${{ github.repository }}"
