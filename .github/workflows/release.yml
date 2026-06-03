@@ -6,7 +6,40 @@ on:
       - 'v*'
 
 jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    outputs:
+      notes: ${{ steps.extract.outputs.notes }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Extract release notes from CHANGELOG.md
+        id: extract
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          notes=$(awk -v hdr="## [$version]" '
+            index($0, hdr) == 1 { flag=1; next }
+            flag && /^## / { flag=0 }
+            flag { print }
+          ' CHANGELOG.md)
+          # Trim leading/trailing blank lines
+          notes=$(printf '%s\n' "$notes" | sed -e '/./,$!d' | tac | sed -e '/./,$!d' | tac)
+          if [ -z "$notes" ]; then
+            echo "::error::No CHANGELOG.md section found for version $version. Add a '## [$version]' entry before releasing."
+            exit 1
+          fi
+          {
+            echo "notes<<CHANGELOG_EOF"
+            printf '%s\n' "$notes"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "Extracted release notes for $version:"
+          printf '%s\n' "$notes"
+
   publish-tauri:
+    needs: changelog
     permissions:
       contents: write
     strategy:
@@ -87,12 +120,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Voltius ${{ github.ref_name }}'
-          releaseBody: |
-            ## Downloads
-
-            See the assets below for your platform.
-
-            > **Verify integrity** — each asset has a corresponding `.sha256` checksum file.
+          releaseBody: ${{ needs.changelog.outputs.notes }}
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
