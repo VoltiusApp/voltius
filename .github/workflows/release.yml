@@ -151,9 +151,13 @@ jobs:
       - name: Generate checksums
         shell: bash
         run: |
-          cd src-tauri/target/release/bundle
+          bundle_dir=$(find target -type d -path '*/release/bundle' | head -n1)
+          if [ -z "$bundle_dir" ]; then echo "::error::no release bundle dir found under target/"; exit 1; fi
+          echo "Bundle dir: $bundle_dir"
+          sha() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1"; else shasum -a 256 "$1"; fi; }
+          cd "$bundle_dir"
           find . -type f ! -name '*.sha256' -print0 | while IFS= read -r -d '' f; do
-            sha256sum "$f" > "$f.sha256"
+            sha "$f" > "$f.sha256"
           done
           echo "=== Checksums ==="
           find . -name '*.sha256' -print0 | while IFS= read -r -d '' f; do
@@ -166,9 +170,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          cd src-tauri/target/release/bundle
+          bundle_dir=$(find target -type d -path '*/release/bundle' | head -n1)
+          cd "$bundle_dir"
           find . -name '*.sha256' -print0 | while IFS= read -r -d '' f; do
-            gh release upload "${{ inputs.tag }}" "$f"
+            gh release upload "${{ inputs.tag }}" "$f" --clobber
           done
 
   publish-release:
