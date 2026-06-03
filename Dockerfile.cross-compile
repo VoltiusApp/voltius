@@ -18,13 +18,17 @@ RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && corepack enable && corepack prepare pnpm --activate \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Rust
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y \
-    && $HOME/.cargo/bin/rustup target add \
-    aarch64-pc-windows-msvc \
-    x86_64-pc-windows-msvc \
-    aarch64-unknown-linux-gnu \
-    x86_64-unknown-linux-gnu
+# Rust — channel pinned by the repo's rust-toolchain.toml (single source of truth)
+COPY rust-toolchain.toml /tmp/rust-toolchain.toml
+RUN CHANNEL=$(sed -nE 's/^channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' /tmp/rust-toolchain.toml) \
+    && curl https://sh.rustup.rs -sSf | sh -s -- -y \
+        --default-toolchain "$CHANNEL" --profile minimal -c rustfmt -c clippy \
+    && /root/.cargo/bin/rustup target add \
+        aarch64-pc-windows-msvc \
+        x86_64-pc-windows-msvc \
+        aarch64-unknown-linux-gnu \
+        x86_64-unknown-linux-gnu \
+    && rm -f /tmp/rust-toolchain.toml
 
 ENV PATH="/root/.cargo/bin:${PATH}"
 
