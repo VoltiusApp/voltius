@@ -3,7 +3,7 @@
   "platforms": [
     "windows",
     "linux",
-    "macos"
+    "macOS"
   ],
   "windows": [
     "main"
