@@ -17,6 +17,8 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          # PAT so the pushed tag triggers release.yml (GITHUB_TOKEN-pushed tags don't).
+          token: ${{ secrets.RELEASE_PAT }}
 
       - name: Read version
         id: version
