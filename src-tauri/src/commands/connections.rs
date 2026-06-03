@@ -68,53 +68,67 @@ fn merge_form_into_connection(existing: &Connection, data: ConnectionFormData) -
     }
 }
 
-/// Stamps a CRDT clock for every field that changed between `old` and `new`.
-fn bump_changed_clocks(old: &Connection, new: &mut Connection, now: &str) {
-    macro_rules! bump {
-        ($field:ident) => {
-            if old.$field != new.$field {
-                new.clocks
-                    .insert(stringify!($field).to_string(), now.to_string());
-            }
-        };
-    }
-    bump!(name);
-    bump!(host);
-    bump!(port);
-    bump!(username);
-    bump!(auth_type);
-    bump!(tags);
-    bump!(identity_id);
-    bump!(key_id);
-    bump!(folder_id);
-    bump!(vault_id);
-    bump!(agent_forwarding);
-    bump!(pre_command);
-    bump!(post_command);
-    bump!(terminal_encoding);
-    bump!(distro);
-    bump!(icon);
-    bump!(ping_disabled);
-    bump!(shell_integration_disabled);
-    bump!(connection_type);
-    bump!(serial_port);
-    bump!(serial_baud);
-    bump!(serial_data_bits);
-    bump!(serial_parity);
-    bump!(serial_stop_bits);
-    bump!(serial_flow_control);
-    // ID-only comparison: content changes within the same set of IDs are tracked
-    // by each entry's own sync mechanism, not the parent connection clock.
-    let old_jh: Vec<_> = old.jump_hosts.iter().map(|j| j.id.as_str()).collect();
-    let new_jh: Vec<_> = new.jump_hosts.iter().map(|j| j.id.as_str()).collect();
-    if old_jh != new_jh {
-        new.clocks.insert("jump_hosts".to_string(), now.to_string());
-    }
-    let old_ev: Vec<_> = old.env_vars.iter().map(|e| e.id.as_str()).collect();
-    let new_ev: Vec<_> = new.env_vars.iter().map(|e| e.id.as_str()).collect();
-    if old_ev != new_ev {
-        new.clocks.insert("env_vars".to_string(), now.to_string());
-    }
+/// Single source of truth for the CRDT-clock-tracked fields of `Connection`.
+///
+/// One invocation generates both [`CLOCK_FIELDS`] (used to seed clocks when a
+/// connection is created) and [`bump_changed_clocks`] (used to stamp clocks for
+/// fields that changed on update). Adding a synced field means editing exactly
+/// this one list — plus the compiler-enforced struct literal in
+/// `merge_form_into_connection`; init and bump can no longer silently diverge.
+///
+/// `simple` fields are compared by value equality. `by_id` collections are
+/// compared by the set/order of their element ids only: content edits within
+/// the same ids sync via each element's own mechanism, not the parent clock.
+/// `pinned` is intentionally absent — it is device-local and never synced.
+macro_rules! connection_clocks {
+    (
+        simple: [$($simple:ident),* $(,)?],
+        by_id: [$($coll:ident),* $(,)?],
+    ) => {
+        /// Every clock-tracked field name, in declaration order.
+        const CLOCK_FIELDS: &[&str] = &[
+            $(stringify!($simple),)*
+            $(stringify!($coll),)*
+        ];
+
+        /// Stamps a CRDT clock for every field that changed between `old` and `new`.
+        fn bump_changed_clocks(old: &Connection, new: &mut Connection, now: &str) {
+            $(
+                if old.$simple != new.$simple {
+                    new.clocks
+                        .insert(stringify!($simple).to_string(), now.to_string());
+                }
+            )*
+            $(
+                let old_ids: Vec<_> = old.$coll.iter().map(|e| e.id.as_str()).collect();
+                let new_ids: Vec<_> = new.$coll.iter().map(|e| e.id.as_str()).collect();
+                if old_ids != new_ids {
+                    new.clocks
+                        .insert(stringify!($coll).to_string(), now.to_string());
+                }
+            )*
+        }
+    };
+}
+
+connection_clocks! {
+    simple: [
+        name, host, port, username, auth_type, tags, identity_id, key_id,
+        folder_id, vault_id, agent_forwarding, pre_command, post_command,
+        terminal_encoding, distro, icon, ping_disabled,
+        shell_integration_disabled, connection_type, serial_port, serial_baud,
+        serial_data_bits, serial_parity, serial_stop_bits, serial_flow_control,
+    ],
+    by_id: [jump_hosts, env_vars],
+}
+
+/// Seeds a fresh clock map for a new connection: every [`CLOCK_FIELDS`] entry
+/// stamped at `now`. Mirrors the field set that `bump_changed_clocks` tracks.
+fn initial_clocks(now: &str) -> HashMap<String, String> {
+    CLOCK_FIELDS
+        .iter()
+        .map(|field| ((*field).to_string(), now.to_string()))
+        .collect()
 }
 
 #[tauri::command]
@@ -130,31 +144,7 @@ pub fn connection_list() -> Result<Vec<Connection>, String> {
 pub fn connection_save(data: ConnectionFormData) -> Result<Connection, String> {
     let mut connections = load_connections();
     let now = Utc::now().to_rfc3339();
-    let mut clocks = HashMap::new();
-    clocks.insert("name".to_string(), now.clone());
-    clocks.insert("host".to_string(), now.clone());
-    clocks.insert("port".to_string(), now.clone());
-    clocks.insert("username".to_string(), now.clone());
-    clocks.insert("auth_type".to_string(), now.clone());
-    clocks.insert("tags".to_string(), now.clone());
-    clocks.insert("identity_id".to_string(), now.clone());
-    clocks.insert("key_id".to_string(), now.clone());
-    clocks.insert("folder_id".to_string(), now.clone());
-    clocks.insert("vault_id".to_string(), now.clone());
-    clocks.insert("jump_hosts".to_string(), now.clone());
-    clocks.insert("env_vars".to_string(), now.clone());
-    clocks.insert("pre_command".to_string(), now.clone());
-    clocks.insert("post_command".to_string(), now.clone());
-    clocks.insert("terminal_encoding".to_string(), now.clone());
-    clocks.insert("distro".to_string(), now.clone());
-    clocks.insert("icon".to_string(), now.clone());
-    clocks.insert("connection_type".to_string(), now.clone());
-    clocks.insert("serial_port".to_string(), now.clone());
-    clocks.insert("serial_baud".to_string(), now.clone());
-    clocks.insert("serial_data_bits".to_string(), now.clone());
-    clocks.insert("serial_parity".to_string(), now.clone());
-    clocks.insert("serial_stop_bits".to_string(), now.clone());
-    clocks.insert("serial_flow_control".to_string(), now.clone());
+    let clocks = initial_clocks(&now);
     let vault_id = data.vault_id.unwrap_or_else(|| "personal".to_string());
     check_vault_write(std::slice::from_ref(&vault_id))?;
     let conn = Connection {
@@ -533,12 +523,11 @@ mod tests {
     }
 
     /// Pins the exact set of fields `bump_changed_clocks` tracks when everything
-    /// changes. NOTE: this set (27 fields, incl. `agent_forwarding`,
-    /// `ping_disabled`, `shell_integration_disabled`) is intentionally pinned
-    /// as-is. It does NOT match the 24-key clock map hand-built in
-    /// `connection_save` (which omits those three and never tracks `pinned`).
-    /// That divergence is a known wart for Phase 1's clock-field unification to
-    /// reconcile — this test exists so that reconciliation is deliberate.
+    /// changes (27 fields, incl. `agent_forwarding`, `ping_disabled`,
+    /// `shell_integration_disabled`; `pinned` is excluded as device-local).
+    /// Since Phase 1, create-time init and update-time bump both derive from the
+    /// single `connection_clocks!` list, so this set equals the one seeded by
+    /// `initial_clocks` — see `initial_clocks_match_bumpable_field_set`.
     #[test]
     fn bump_covers_the_expected_field_set() {
         let old = sample_connection();
@@ -580,5 +569,25 @@ mod tests {
         expected.sort();
         assert_eq!(keys, expected);
         assert_eq!(keys.len(), 27);
+    }
+
+    /// Phase 1 reconciliation: the clocks seeded for a brand-new connection
+    /// (`initial_clocks` → `CLOCK_FIELDS`) must be exactly the set of fields that
+    /// `bump_changed_clocks` can later stamp. Before Phase 1 these diverged
+    /// (24 seeded vs 27 bumpable); this test pins that they no longer can.
+    #[test]
+    fn initial_clocks_match_bumpable_field_set() {
+        use std::collections::HashSet;
+
+        let now = "2026-02-02T00:00:00Z";
+        let seeded: HashSet<String> = initial_clocks(now).into_keys().collect();
+
+        let old = sample_connection();
+        let mut new = merge_form_into_connection(&old, sample_form());
+        bump_changed_clocks(&old, &mut new, now);
+        let bumpable: HashSet<String> = new.clocks.into_keys().collect();
+
+        assert_eq!(seeded, bumpable);
+        assert_eq!(seeded.len(), 27);
     }
 }
