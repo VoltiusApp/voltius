@@ -38,6 +38,7 @@
       "nsis",
       "msi",
       "deb",
+      "rpm",
       "appimage"
     ],
     "icon": [
