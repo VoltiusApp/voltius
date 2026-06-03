@@ -127,7 +127,7 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'Voltius ${{ github.ref_name }}'
           releaseBody: ${{ needs.changelog.outputs.notes }}
-          releaseDraft: false
+          releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
           uploadPlainBinary: true
@@ -155,3 +155,14 @@ jobs:
           find . -name '*.sha256' -print0 | while IFS= read -r -d '' f; do
             gh release upload "${{ github.ref_name }}" "$f"
           done
+
+  publish-release:
+    needs: publish-tauri
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${{ github.ref_name }}" --draft=false --latest -R "${{ github.repository }}"
