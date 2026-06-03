@@ -11,3 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fedora / RHEL builds: releases now include a native `.rpm` package, installable
   with `sudo dnf install ./Voltius-*.x86_64.rpm`.
+
+### Fixed
+
+- Release build profile settings are now applied (they were previously ignored),
+  producing roughly 10% smaller binaries.
