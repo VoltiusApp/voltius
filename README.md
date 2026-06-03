@@ -2,9 +2,10 @@
   <img src="src-tauri/icons/128x128.png" alt="Voltius Logo" width="96" />
   <br/>
   <h1>Voltius</h1>
-
+  
+  <p>📢 <strong>Latest Update:</strong> <a href="https://github.com/orgs/VoltiusApp/discussions/7">Huge thanks for the 200+ stars in 24h!</a></p>
   <p><strong>A local-first SSH/SFTP/Serial client with E2EE sync, plugins, and no account required — a modern alternative to Termius.</strong></p>
-
+  
   <p>
     <img src="https://img.shields.io/badge/status-beta-f59e0b" alt="Beta" />
     <img src="https://img.shields.io/badge/built_with-Rust-dea584?logo=rust" alt="Rust" />
