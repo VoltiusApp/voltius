@@ -6706,6 +6706,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-shell",
  "tauri-plugin-updater",
+ "thiserror 2.0.18",
  "tokio",
  "tokio-util",
  "uuid",
