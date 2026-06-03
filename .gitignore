@@ -1,5 +1,6 @@
 .vscode/
 .serena/
+.understand-anything/
 
 node_modules/
 .pnpm-store/

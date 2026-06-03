@@ -2,7 +2,8 @@
   "identifier": "desktop-capability",
   "platforms": [
     "windows",
-    "linux"
+    "linux",
+    "macos"
   ],
   "windows": [
     "main"

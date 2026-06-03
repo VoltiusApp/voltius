@@ -237,6 +237,25 @@ If you want to build for other target, see `rustup target list` and add with `ru
 
 > Note: build will work but throw an error except if you set TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_KEY_PASSWORD to dummy values, which is required by the Tauri build process even if you don't do code signing in cross-compilation. You can set them to any non-empty value to bypass the error.
 
+### Apple Silicon macOS build
+
+For a local Apple Silicon build, use an M-series Mac with Node.js 24, pnpm 10, Rust stable, and Xcode Command Line Tools installed.
+
+```bash
+rustup target add aarch64-apple-darwin
+pnpm install --frozen-lockfile
+pnpm run build:mac:arm64
+```
+
+This uses `src-tauri/tauri.macos.conf.json` to produce local `.app` and `.dmg` artifacts without updater signing assets. Outputs are placed under:
+
+```text
+src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Voltius.app
+src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/
+```
+
+For unsigned local builds, macOS may require right-clicking the app and choosing Open on first launch.
+
 ### 🐧WSL2 dev note
 
 ```sh

@@ -7,6 +7,7 @@
     "dev:2": "tauri dev & XDG_DATA_HOME=/tmp/voltius-user2/data XDG_CONFIG_HOME=/tmp/voltius-user2/config VOLTIUS_KEYCHAIN_NS=2 tauri dev --config '{\"build\":{\"devUrl\":\"http://localhost:1421\",\"beforeDevCommand\":\"VITE_PORT=1421 vite\"}}'",
     "test:termius": "node --experimental-strip-types src/services/import-export/parsers/termius.test.ts",
     "build": "tsc && vite build",
+    "build:mac:arm64": "tauri build --target aarch64-apple-darwin --bundles app,dmg",
     "preview": "vite preview",
     "tauri": "tauri",
     "version:bump": "node -e \"const v=process.argv[1],fs=require('fs');const pj=JSON.parse(fs.readFileSync('package.json'));pj.version=v;fs.writeFileSync('package.json',JSON.stringify(pj,null,2)+'\\n');const tj=JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json'));tj.version=v;fs.writeFileSync('src-tauri/tauri.conf.json',JSON.stringify(tj,null,2)+'\\n');let ct=fs.readFileSync('src-tauri/Cargo.toml','utf8');ct=ct.replace(/^version = \\\".*\\\"/m,'version = \\\"'+v+'\\\"');fs.writeFileSync('src-tauri/Cargo.toml',ct);let cl=fs.readFileSync('src-tauri/Cargo.lock','utf8');cl=cl.replace(/(name = \\\"voltius\\\"\\nversion = \\\")[^\\\"]*\\\"/,(_,p)=>p+v+'\\\"');fs.writeFileSync('src-tauri/Cargo.lock',cl);console.log('Bumped to',v);\""
