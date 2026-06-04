@@ -209,7 +209,10 @@ pub fn connection_update(id: String, data: ConnectionFormData) -> Result<Connect
     bump_changed_clocks(&existing, &mut updated, &now);
     updated.updated_at = max_clock(&updated.clocks, &now);
 
-    *connections.iter_mut().find(|c| c.id == id).unwrap() = updated.clone();
+    *connections
+        .iter_mut()
+        .find(|c| c.id == id)
+        .ok_or_else(|| format!("Connection {} not found", id))? = updated.clone();
     save_connections(&connections)?;
     Ok(updated)
 }
