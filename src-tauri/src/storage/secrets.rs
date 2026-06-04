@@ -135,11 +135,8 @@ pub fn secrets_unlock(
     state: tauri::State<SecretsStore>,
     enc_key: Vec<u8>,
 ) -> Result<(), AppError> {
-    if enc_key.len() != 32 {
-        return Err("enc_key must be 32 bytes".into());
-    }
+    let key: [u8; 32] = enc_key.try_into().map_err(|_| "enc_key must be 32 bytes")?;
     let path = secrets_path(&app);
-    let key: [u8; 32] = enc_key.try_into().unwrap();
     state.unlock(path, key)
 }
 
@@ -149,15 +146,12 @@ pub fn secrets_verify(
     _state: tauri::State<SecretsStore>,
     enc_key: Vec<u8>,
 ) -> Result<(), AppError> {
-    if enc_key.len() != 32 {
-        return Err("enc_key must be 32 bytes".into());
-    }
+    let key: [u8; 32] = enc_key.try_into().map_err(|_| "enc_key must be 32 bytes")?;
     let path = secrets_path(&app);
     // If no file yet, key is always valid (will be created on first write)
     if !path.exists() {
         return Ok(());
     }
-    let key: [u8; 32] = enc_key.try_into().unwrap();
     // Try to decrypt without mutating state
     let data = std::fs::read(&path).map_err(|e| format!("Read failed: {e}"))?;
     decrypt(&key, &data).map(|_| ())
@@ -179,12 +173,11 @@ pub fn secrets_reencrypt(
     state: tauri::State<SecretsStore>,
     new_enc_key: Vec<u8>,
 ) -> Result<(), AppError> {
-    if new_enc_key.len() != 32 {
-        return Err("new_enc_key must be 32 bytes".into());
-    }
+    let new_key: [u8; 32] = new_enc_key
+        .try_into()
+        .map_err(|_| "new_enc_key must be 32 bytes")?;
     let mut guard = state.inner.lock().unwrap();
     let inner = guard.as_mut().ok_or("Secrets store is locked")?;
-    let new_key: [u8; 32] = new_enc_key.try_into().unwrap();
     inner.enc_key = new_key;
     save(inner)
 }
@@ -198,14 +191,12 @@ pub fn secrets_rekey(
     old_enc_key: Vec<u8>,
     new_enc_key: Vec<u8>,
 ) -> Result<(), AppError> {
-    if old_enc_key.len() != 32 {
-        return Err("old_enc_key must be 32 bytes".into());
-    }
-    if new_enc_key.len() != 32 {
-        return Err("new_enc_key must be 32 bytes".into());
-    }
-    let old_key: [u8; 32] = old_enc_key.try_into().unwrap();
-    let new_key: [u8; 32] = new_enc_key.try_into().unwrap();
+    let old_key: [u8; 32] = old_enc_key
+        .try_into()
+        .map_err(|_| "old_enc_key must be 32 bytes")?;
+    let new_key: [u8; 32] = new_enc_key
+        .try_into()
+        .map_err(|_| "new_enc_key must be 32 bytes")?;
 
     let path = secrets_path(&app);
     let secrets = if path.exists() {
