@@ -360,4 +360,45 @@ mod tests {
         assert_eq!(services[0].ports[0].container_port, 80);
         assert_eq!(services[1].state, "exited");
     }
+
+    // ── Characterization gate (Step 2.4) ──────────────────────────────────────
+    // Pins the *current* local parsers' output on real `{{json .}}` rows. These
+    // outlive the upcoming dedup unchanged (the shared parser adopts exactly this
+    // behavior — local never captured `host_ip`).
+
+    #[test]
+    fn local_parse_cli_ports_published_drops_host_ip() {
+        let ports = parse_cli_ports("0.0.0.0:8080->80/tcp");
+        assert_eq!(ports.len(), 1);
+        assert_eq!(ports[0].host_ip, None);
+        assert_eq!(ports[0].host_port, Some(8080));
+        assert_eq!(ports[0].container_port, 80);
+        assert_eq!(ports[0].protocol, "tcp");
+    }
+
+    #[test]
+    fn local_parse_cli_ports_exposed_only_and_multi() {
+        let ports = parse_cli_ports("80/tcp, 0.0.0.0:5432->5432/tcp");
+        assert_eq!(ports.len(), 2);
+        assert_eq!(ports[0].host_ip, None);
+        assert_eq!(ports[0].host_port, None);
+        assert_eq!(ports[0].container_port, 80);
+        assert_eq!(ports[1].host_ip, None);
+        assert_eq!(ports[1].host_port, Some(5432));
+        assert_eq!(ports[1].container_port, 5432);
+    }
+
+    #[test]
+    fn local_parse_cli_ports_empty_is_empty() {
+        assert!(parse_cli_ports("").is_empty());
+    }
+
+    #[test]
+    fn local_parse_cli_size_units() {
+        assert_eq!(parse_cli_size("1.5GB"), 1_610_612_736);
+        assert_eq!(parse_cli_size("100MB"), 104_857_600);
+        assert_eq!(parse_cli_size("512kB"), 524_288);
+        assert_eq!(parse_cli_size("42B"), 42);
+        assert_eq!(parse_cli_size("garbage"), 0);
+    }
 }

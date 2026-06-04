@@ -766,3 +766,87 @@ pub async fn stream_logs(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── Characterization gate (Step 2.4) ──────────────────────────────────────
+    // Pins the *current* remote parsers' output on real `{{json .}}` rows, so the
+    // upcoming dedup onto a shared `docker/cli.rs` is provably behavior-preserving
+    // for everything it must preserve. The one intentional change (remote no longer
+    // capturing `host_ip`) shows up here as a reviewed assertion edit.
+
+    #[test]
+    fn remote_parse_ports_published_mapping_keeps_host_ip() {
+        let ports = parse_ports("0.0.0.0:8080->80/tcp");
+        assert_eq!(ports.len(), 1);
+        assert_eq!(ports[0].host_ip, Some("0.0.0.0".to_string()));
+        assert_eq!(ports[0].host_port, Some(8080));
+        assert_eq!(ports[0].container_port, 80);
+        assert_eq!(ports[0].protocol, "tcp");
+    }
+
+    #[test]
+    fn remote_parse_ports_exposed_only_and_multi() {
+        let ports = parse_ports("80/tcp, 0.0.0.0:5432->5432/tcp");
+        assert_eq!(ports.len(), 2);
+        // Exposed-only (no `->`): no host binding.
+        assert_eq!(ports[0].host_ip, None);
+        assert_eq!(ports[0].host_port, None);
+        assert_eq!(ports[0].container_port, 80);
+        assert_eq!(ports[0].protocol, "tcp");
+        // Published: host_ip captured.
+        assert_eq!(ports[1].host_ip, Some("0.0.0.0".to_string()));
+        assert_eq!(ports[1].host_port, Some(5432));
+        assert_eq!(ports[1].container_port, 5432);
+    }
+
+    #[test]
+    fn remote_parse_ports_empty_is_empty() {
+        assert!(parse_ports("").is_empty());
+    }
+
+    #[test]
+    fn remote_parse_size_str_units() {
+        assert_eq!(parse_size_str("1.5GB"), 1_610_612_736);
+        assert_eq!(parse_size_str("100MB"), 104_857_600);
+        assert_eq!(parse_size_str("512kB"), 524_288);
+        assert_eq!(parse_size_str("42B"), 42);
+        assert_eq!(parse_size_str("garbage"), 0);
+    }
+
+    #[test]
+    fn remote_container_row_deserializes() {
+        let line = r#"{"ID":"abc","Names":"web,web2","Image":"nginx","Status":"Up","State":"running","Ports":"0.0.0.0:8080->80/tcp"}"#;
+        let raw: RawContainer = serde_json::from_str(line).unwrap();
+        assert_eq!(raw.id, "abc");
+        assert_eq!(raw.names, "web,web2");
+        assert_eq!(raw.image, "nginx");
+        assert_eq!(raw.status, "Up");
+        assert_eq!(raw.state, "running");
+        assert_eq!(raw.ports, "0.0.0.0:8080->80/tcp");
+    }
+
+    #[test]
+    fn remote_image_row_deserializes() {
+        let line = r#"{"ID":"img1","Repository":"nginx","Tag":"latest","Size":"142MB"}"#;
+        let raw: RawImage = serde_json::from_str(line).unwrap();
+        assert_eq!(raw.id, "img1");
+        assert_eq!(raw.repository, "nginx");
+        assert_eq!(raw.tag, "latest");
+        assert_eq!(raw.size, "142MB");
+    }
+
+    #[test]
+    fn remote_volume_and_network_rows_deserialize() {
+        let v: RawVolume = serde_json::from_str(r#"{"Name":"data","Driver":"local"}"#).unwrap();
+        assert_eq!(v.name, "data");
+        assert_eq!(v.driver, "local");
+        let n: RawNetwork =
+            serde_json::from_str(r#"{"ID":"net1","Name":"bridge","Driver":"bridge"}"#).unwrap();
+        assert_eq!(n.id, "net1");
+        assert_eq!(n.name, "bridge");
+        assert_eq!(n.driver, "bridge");
+    }
+}
