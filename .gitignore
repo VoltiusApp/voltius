@@ -1,6 +1,8 @@
 .vscode/
 .serena/
 
+graphify-out/
+
 node_modules/
 .pnpm-store/
 dist/
