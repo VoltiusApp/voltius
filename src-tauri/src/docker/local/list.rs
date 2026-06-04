@@ -1,25 +1,9 @@
 use super::exec::{connect, run_compose, run_wsl_docker, should_use_wsl_cli};
+use crate::docker::cli::{self, CliContainer, CliImage, CliNetwork, CliVolume};
 use crate::docker::types::*;
 use bollard::container::ListContainersOptions;
 use bollard::image::ListImagesOptions;
 use bollard::models::PortTypeEnum;
-use serde::Deserialize;
-
-#[derive(Deserialize)]
-struct CliContainer {
-    #[serde(rename = "ID", default)]
-    id: String,
-    #[serde(rename = "Names", default)]
-    names: String,
-    #[serde(rename = "Image", default)]
-    image: String,
-    #[serde(rename = "Status", default)]
-    status: String,
-    #[serde(rename = "State", default)]
-    state: String,
-    #[serde(rename = "Ports", default)]
-    ports: String,
-}
 
 async fn list_containers_cli(
     local_shell: Option<&str>,
@@ -29,7 +13,7 @@ async fn list_containers_cli(
     if all {
         args.push("-a");
     }
-    args.extend(["--format", "{{json .}}"]);
+    args.extend(["--format", cli::JSON_LINE_FORMAT]);
     let output = run_wsl_docker(local_shell, &args).await?;
 
     output
@@ -37,54 +21,10 @@ async fn list_containers_cli(
         .filter(|line| !line.trim().is_empty())
         .map(|line| {
             serde_json::from_str::<CliContainer>(line)
-                .map(|raw| DockerContainer {
-                    id: raw.id,
-                    names: raw.names.split(',').map(|s| s.trim().to_string()).collect(),
-                    image: raw.image,
-                    status: raw.status,
-                    state: raw.state,
-                    ports: parse_cli_ports(&raw.ports),
-                    created: 0,
-                })
+                .map(CliContainer::into_domain)
                 .map_err(|e| format!("Failed to parse docker ps output: {e}"))
         })
         .collect()
-}
-
-fn parse_cli_ports(ports_str: &str) -> Vec<PortMapping> {
-    ports_str
-        .split(", ")
-        .filter_map(|part| {
-            let part = part.trim();
-            if part.is_empty() {
-                return None;
-            }
-
-            if let Some((host_part, container_part)) = part.split_once("->") {
-                let (container_port, protocol) = split_port_proto(container_part)?;
-                let (_, host_port_str) = host_part.rsplit_once(':').unwrap_or(("", host_part));
-                return Some(PortMapping {
-                    host_ip: None,
-                    host_port: host_port_str.parse().ok(),
-                    container_port,
-                    protocol,
-                });
-            }
-
-            let (container_port, protocol) = split_port_proto(part)?;
-            Some(PortMapping {
-                host_ip: None,
-                host_port: None,
-                container_port,
-                protocol,
-            })
-        })
-        .collect()
-}
-
-fn split_port_proto(value: &str) -> Option<(u16, String)> {
-    let (port, proto) = value.split_once('/').unwrap_or((value, "tcp"));
-    Some((port.parse().ok()?, proto.to_string()))
 }
 
 pub async fn list_containers(
@@ -141,39 +81,16 @@ pub async fn list_containers(
         .collect())
 }
 
-#[derive(Deserialize)]
-struct CliImage {
-    #[serde(rename = "ID", default)]
-    id: String,
-    #[serde(rename = "Repository", default)]
-    repository: String,
-    #[serde(rename = "Tag", default)]
-    tag: String,
-    #[serde(rename = "Size", default)]
-    size: String,
-}
-
 pub async fn list_images(local_shell: Option<&str>) -> Result<Vec<DockerImage>, String> {
     if should_use_wsl_cli(local_shell) {
-        let output = run_wsl_docker(local_shell, &["images", "--format", "{{json .}}"]).await?;
+        let output =
+            run_wsl_docker(local_shell, &["images", "--format", cli::JSON_LINE_FORMAT]).await?;
         return output
             .lines()
             .filter(|line| !line.trim().is_empty())
             .map(|line| {
                 serde_json::from_str::<CliImage>(line)
-                    .map(|raw| {
-                        let repo_tag = if raw.tag.is_empty() || raw.tag == "<none>" {
-                            raw.repository.clone()
-                        } else {
-                            format!("{}:{}", raw.repository, raw.tag)
-                        };
-                        DockerImage {
-                            id: raw.id,
-                            repo_tags: vec![repo_tag],
-                            size: parse_cli_size(&raw.size),
-                            created: 0,
-                        }
-                    })
+                    .map(CliImage::into_domain)
                     .map_err(|e| format!("Failed to parse docker images output: {e}"))
             })
             .collect();
@@ -199,44 +116,19 @@ pub async fn list_images(local_shell: Option<&str>) -> Result<Vec<DockerImage>, 
         .collect())
 }
 
-fn parse_cli_size(s: &str) -> i64 {
-    let s = s.trim();
-    if let Some(val) = s.strip_suffix("GB") {
-        return (val.trim().parse::<f64>().unwrap_or(0.0) * 1024.0 * 1024.0 * 1024.0) as i64;
-    }
-    if let Some(val) = s.strip_suffix("MB") {
-        return (val.trim().parse::<f64>().unwrap_or(0.0) * 1024.0 * 1024.0) as i64;
-    }
-    if let Some(val) = s.strip_suffix("kB") {
-        return (val.trim().parse::<f64>().unwrap_or(0.0) * 1024.0) as i64;
-    }
-    if let Some(val) = s.strip_suffix('B') {
-        return val.trim().parse::<f64>().unwrap_or(0.0) as i64;
-    }
-    0
-}
-
-#[derive(Deserialize)]
-struct CliVolume {
-    #[serde(rename = "Name", default)]
-    name: String,
-    #[serde(rename = "Driver", default)]
-    driver: String,
-}
-
 pub async fn list_volumes(local_shell: Option<&str>) -> Result<Vec<DockerVolume>, String> {
     if should_use_wsl_cli(local_shell) {
-        let output =
-            run_wsl_docker(local_shell, &["volume", "ls", "--format", "{{json .}}"]).await?;
+        let output = run_wsl_docker(
+            local_shell,
+            &["volume", "ls", "--format", cli::JSON_LINE_FORMAT],
+        )
+        .await?;
         return output
             .lines()
             .filter(|line| !line.trim().is_empty())
             .map(|line| {
                 serde_json::from_str::<CliVolume>(line)
-                    .map(|raw| DockerVolume {
-                        name: raw.name,
-                        driver: raw.driver,
-                    })
+                    .map(CliVolume::into_domain)
                     .map_err(|e| format!("Failed to parse docker volume output: {e}"))
             })
             .collect();
@@ -258,30 +150,19 @@ pub async fn list_volumes(local_shell: Option<&str>) -> Result<Vec<DockerVolume>
         .collect())
 }
 
-#[derive(Deserialize)]
-struct CliNetwork {
-    #[serde(rename = "ID", default)]
-    id: String,
-    #[serde(rename = "Name", default)]
-    name: String,
-    #[serde(rename = "Driver", default)]
-    driver: String,
-}
-
 pub async fn list_networks(local_shell: Option<&str>) -> Result<Vec<DockerNetwork>, String> {
     if should_use_wsl_cli(local_shell) {
-        let output =
-            run_wsl_docker(local_shell, &["network", "ls", "--format", "{{json .}}"]).await?;
+        let output = run_wsl_docker(
+            local_shell,
+            &["network", "ls", "--format", cli::JSON_LINE_FORMAT],
+        )
+        .await?;
         return output
             .lines()
             .filter(|line| !line.trim().is_empty())
             .map(|line| {
                 serde_json::from_str::<CliNetwork>(line)
-                    .map(|raw| DockerNetwork {
-                        id: raw.id,
-                        name: raw.name,
-                        driver: raw.driver,
-                    })
+                    .map(CliNetwork::into_domain)
                     .map_err(|e| format!("Failed to parse docker network output: {e}"))
             })
             .collect();
