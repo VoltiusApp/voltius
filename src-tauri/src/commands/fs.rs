@@ -91,7 +91,7 @@ pub fn fs_write_text_home(path: String, content: String) -> Result<(), String> {
     // Canonicalize both sides to handle Windows UNC paths (\\?\C:\...).
     let canonical_dir = resolved
         .parent()
-        .unwrap()
+        .ok_or("Cannot determine parent directory")?
         .canonicalize()
         .map_err(|e| format!("Path error: {e}"))?;
     let home_canonical = home.canonicalize().unwrap_or(home);

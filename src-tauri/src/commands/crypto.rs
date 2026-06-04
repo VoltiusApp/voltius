@@ -117,7 +117,10 @@ pub struct GeneratedUserSecrets {
 pub fn generate_user_secrets_cmd() -> GeneratedUserSecrets {
     let dek = voltius_crypto::random_bytes(32);
     let x25519_private_bytes = voltius_crypto::random_bytes(32);
-    let private_arr: [u8; 32] = x25519_private_bytes.clone().try_into().unwrap();
+    let private_arr: [u8; 32] = x25519_private_bytes
+        .clone()
+        .try_into()
+        .expect("random_bytes(32) always yields exactly 32 bytes");
     let secret = StaticSecret::from(private_arr);
     let public = PublicKey::from(&secret);
     GeneratedUserSecrets {

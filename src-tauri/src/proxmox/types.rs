@@ -47,7 +47,9 @@ pub fn parse_lxc_list(output: &str) -> Vec<LxcContainer> {
         };
         let status = tokens[1].to_string();
         // tokens[2] is either the lock word or the name; name is always last
-        let name = tokens.last().unwrap().to_string();
+        let Some(name) = tokens.last().map(|s| s.to_string()) else {
+            continue;
+        };
         result.push(LxcContainer {
             vmid,
             name,
