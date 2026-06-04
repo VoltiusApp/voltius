@@ -76,7 +76,11 @@ fn decrypt_blob(enc_key: &[u8], blob: &[u8]) -> Result<BlobPayload, String> {
     if blob.len() < 4 + NONCE_LEN {
         return Err("Blob too short".to_string());
     }
-    let header_len = u32::from_le_bytes(blob[..4].try_into().unwrap()) as usize;
+    let header_len = u32::from_le_bytes(
+        blob[..4]
+            .try_into()
+            .map_err(|_| "Blob too short".to_string())?,
+    ) as usize;
     if blob.len() < 4 + header_len + NONCE_LEN {
         return Err("Blob malformed".to_string());
     }
@@ -178,7 +182,11 @@ pub fn backup_import(
     if blob.len() < 4 + NONCE_LEN {
         return Err("Blob too short".to_string());
     }
-    let header_len = u32::from_le_bytes(blob[..4].try_into().unwrap()) as usize;
+    let header_len = u32::from_le_bytes(
+        blob[..4]
+            .try_into()
+            .map_err(|_| "Blob too short".to_string())?,
+    ) as usize;
     if blob.len() < 4 + header_len + NONCE_LEN {
         return Err("Blob malformed".to_string());
     }
