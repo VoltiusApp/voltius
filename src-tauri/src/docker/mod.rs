@@ -1,3 +1,4 @@
+pub mod cli;
 pub mod local;
 pub mod recreate;
 pub mod registry;
