@@ -1,3 +1,4 @@
+import { readClipboard } from "../../utils/clipboard";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useSnippetStore } from "@/stores/snippetStore";
@@ -397,7 +398,7 @@ export function SnippetsPanel() {
 
   async function buildContext(): Promise<DynamicContext> {
     let clipboard = "";
-    try { clipboard = await navigator.clipboard.readText(); } catch { /* permission denied or unavailable */ }
+    try { clipboard = await readClipboard(); } catch { /* permission denied or unavailable */ }
     return buildDynamicContext(activeSession, connections, clipboard);
   }
 

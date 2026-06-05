@@ -1,3 +1,4 @@
+import { readClipboard } from "../../utils/clipboard";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useSnippetStore } from "@/stores/snippetStore";
@@ -675,7 +676,7 @@ export function SnippetsPage() {
     trackUsed(snippet.id);
 
     let clipboard = "";
-    try { clipboard = await navigator.clipboard.readText(); } catch { /* permission denied */ }
+    try { clipboard = await readClipboard(); } catch { /* permission denied */ }
 
     // Use the first session for dynamic variable resolution (host, user, etc.)
     const ctx = buildDynamicContext(targetSessions[0], connections, clipboard);

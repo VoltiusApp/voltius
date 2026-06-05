@@ -1,3 +1,4 @@
+import { writeClipboard } from "../../utils/clipboard";
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { USER_DATA_HANDLERS, buildUserDataBundle } from "@/services/user-data/registry";
@@ -23,7 +24,7 @@ export function UserDataExportTab() {
   const payload = toUserDataJSON(bundle);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(payload);
+    await writeClipboard(payload);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

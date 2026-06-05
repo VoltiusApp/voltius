@@ -1,3 +1,4 @@
+import { writeClipboard } from "../../utils/clipboard";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
@@ -93,7 +94,7 @@ export function ExportTab({ selection, preselectedTypes }: {
 
   const handleCopy = async () => {
     const { content } = await getExportContent();
-    await navigator.clipboard.writeText(content);
+    await writeClipboard(content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

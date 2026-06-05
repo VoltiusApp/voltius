@@ -1,3 +1,4 @@
+import { writeClipboard } from "../../utils/clipboard";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useCommandHistoryStore, type CommandHistoryEntry } from "@/stores/commandHistoryStore";
@@ -160,7 +161,7 @@ export function HistoryPanel() {
   }
 
   function handleCopy(text: string) {
-    navigator.clipboard.writeText(text).catch(() => {});
+    writeClipboard(text).catch(() => {});
   }
 
   return (

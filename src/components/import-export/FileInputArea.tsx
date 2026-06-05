@@ -1,3 +1,4 @@
+import { readClipboard } from "../../utils/clipboard";
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { ActionBtn } from "./shared";
@@ -52,7 +53,7 @@ export function FileInputArea({
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
         <ActionBtn icon="lucide:folder-open" label={openLabel} onClick={handleFileOpen} />
-        <ActionBtn icon="lucide:clipboard" label="Paste from Clipboard" onClick={async () => onChange(await navigator.clipboard.readText())} />
+        <ActionBtn icon="lucide:clipboard" label="Paste from Clipboard" onClick={async () => onChange(await readClipboard())} />
         {text.trim() && (
           <button
             onClick={handleClear}

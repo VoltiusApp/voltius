@@ -1,3 +1,4 @@
+import { writeClipboard, readClipboard } from "../utils/clipboard";
 import { useEffect, useRef, useCallback } from "react";
 import { Terminal, type IBufferCell } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -287,7 +288,7 @@ function hideCopyFeedback(entry: CacheEntry) {
 
 function showCopyFeedback(entry: CacheEntry, x: number, y: number, sel: string) {
   hideCopyFeedback(entry);
-  navigator.clipboard.writeText(sel);
+  writeClipboard(sel);
   if (!getToggle("select-to-copy")) return;
   const bw = 46;
   const bh = 28;
@@ -520,7 +521,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         // Container-specific listeners (re-registered on each mount)
         const handleContextMenu = (e: MouseEvent) => {
           e.preventDefault();
-          navigator.clipboard.readText().then((text) => { if (text) terminal.paste(text); });
+          readClipboard().then((text) => { if (text) terminal.paste(text); });
         };
         container.addEventListener("contextmenu", handleContextMenu);
 
@@ -688,21 +689,21 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         if (e.ctrlKey && e.shiftKey && e.key === "C") {
           if (e.type === "keydown") {
             const sel = term.getSelection();
-            if (sel) navigator.clipboard.writeText(sel);
+            if (sel) writeClipboard(sel);
           }
           return false;
         }
         if (e.ctrlKey && e.shiftKey && e.key === "V") {
           e.preventDefault();
           if (e.type === "keydown") {
-            navigator.clipboard.readText().then((text) => { if (text) term.paste(text); });
+            readClipboard().then((text) => { if (text) term.paste(text); });
           }
           return false;
         }
         if (e.ctrlKey && !e.shiftKey && e.key === "c") {
           const sel = term.getSelection();
           if (sel) {
-            if (e.type === "keydown") navigator.clipboard.writeText(sel);
+            if (e.type === "keydown") writeClipboard(sel);
             return false;
           }
           return true;
@@ -710,7 +711,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         if (e.ctrlKey && !e.shiftKey && e.key === "v") {
           e.preventDefault();
           if (e.type === "keydown") {
-            navigator.clipboard.readText().then((text) => { if (text) term.paste(text); });
+            readClipboard().then((text) => { if (text) term.paste(text); });
           }
           return false;
         }
@@ -882,7 +883,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       // Container-specific listeners (registered on each mount, torn down on unmount)
       const handleContextMenu = (e: MouseEvent) => {
         e.preventDefault();
-        navigator.clipboard.readText().then((text) => { if (text) term.paste(text); });
+        readClipboard().then((text) => { if (text) term.paste(text); });
       };
       container.addEventListener("contextmenu", handleContextMenu);
 

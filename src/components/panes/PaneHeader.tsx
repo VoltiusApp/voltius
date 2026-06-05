@@ -1,3 +1,4 @@
+import { writeClipboard } from "../../utils/clipboard";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
@@ -219,7 +220,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
         : getDistroLabel(connection.distro)
       : "";
     if (!text) return;
-    navigator.clipboard.writeText(text).catch(() => {});
+    writeClipboard(text).catch(() => {});
     setCopiedDistro(true);
     if (copiedDistroTimeoutRef.current) clearTimeout(copiedDistroTimeoutRef.current);
     copiedDistroTimeoutRef.current = setTimeout(() => setCopiedDistro(false), 1200);
@@ -232,12 +233,12 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
 
   const handleLatencyClick = () => {
     if (latencyMs === undefined) return;
-    navigator.clipboard.writeText(`${latencyMs}ms`).catch(() => {});
+    writeClipboard(`${latencyMs}ms`).catch(() => {});
   };
 
   const handleCopySubtitle = () => {
     if (!subtitle) return;
-    navigator.clipboard.writeText(subtitle).then(() => {
+    writeClipboard(subtitle).then(() => {
       setCopied(true);
       if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
       copyTimeoutRef.current = setTimeout(() => setCopied(false), 1200);
