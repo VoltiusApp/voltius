@@ -46,7 +46,7 @@ export function RuleCard({
   bulkContextMenuItems, onPointerDown,
 }: Props) {
   const isList = layout === "list";
-  const contributions = useUIContributions("connection.contextMenu", rule);
+  const contributions = useUIContributions("portForwardingRule.contextMenu", rule);
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(rule.id, "port-forwarding-rule"));
 
   const contextMenuItems: ContextMenuItem[] = [

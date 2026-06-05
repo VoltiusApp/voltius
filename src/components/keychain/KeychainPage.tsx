@@ -348,7 +348,7 @@ export default function KeychainPage() {
       items.push({
         label: `Export ${selectedKeyIds.length} public key${selectedKeyIds.length === 1 ? "" : "s"}`,
         icon: "lucide:upload",
-        onClick: () => useUIStore.getState().openImportExport("export", { keyIds: selectedKeyIds, identityIds: selectedIdentityIds }),
+        onClick: () => useUIStore.getState().openImportExport("export", { bulk: { keys: selectedKeyIds, identities: selectedIdentityIds } }),
       });
     }
     items.push({
@@ -756,7 +756,7 @@ export default function KeychainPage() {
               folder={editingFolder}
               onUpdate={(id, data) => void updateFolder(id, data)}
               onDelete={(f) => setConfirmDeleteFolderId(f.id)}
-              onExport={() => useUIStore.getState().openImportExport("export", { keyIds: keys.filter((k) => k.folder_id === editingFolder.id).map((k) => k.id), identityIds: identities.filter((i) => i.folder_id === editingFolder.id).map((i) => i.id) })}
+              onExport={() => useUIStore.getState().openImportExport("export", { bulk: { keys: keys.filter((k) => k.folder_id === editingFolder.id).map((k) => k.id), identities: identities.filter((i) => i.folder_id === editingFolder.id).map((i) => i.id) } })}
               onClose={() => setEditingFolderId(null)}
               vaults={vaultOptions.filter((v) => v.id !== (editingFolder.vault_id ?? "personal"))}
               canEdit={can("EDIT_KEYS", editingFolder.vault_id ?? "personal")}
@@ -914,7 +914,7 @@ export default function KeychainPage() {
                       onDelete={(f) => setConfirmDeleteFolderId(f.id)}
                       onSelect={(id) => { if (!selectedIdSet.has(id)) selectSingle(id); }}
                       onEdit={() => { closePanel(); setEditingFolderId(folder.id); }}
-                      onExport={() => useUIStore.getState().openImportExport("export", { keyIds: keys.filter((k) => k.folder_id === folder.id).map((k) => k.id), identityIds: identities.filter((i) => i.folder_id === folder.id).map((i) => i.id) })}
+                      onExport={() => useUIStore.getState().openImportExport("export", { bulk: { keys: keys.filter((k) => k.folder_id === folder.id).map((k) => k.id), identities: identities.filter((i) => i.folder_id === folder.id).map((i) => i.id) } })}
                       onPointerDown={(e) => handleFolderDragStart(e, folder.id)}
                       {...folderDropProps(folder.id)}
                       vaults={vaultOptions.filter((v) => v.id !== (folder.vault_id ?? "personal"))}

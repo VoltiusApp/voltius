@@ -45,15 +45,43 @@ export interface ReloadFns {
 }
 
 // ─── Selection props ──────────────────────────────────────────────────────────
-// Forwarded from the modal's props for single-item and bulk-item export modes.
+// Generic over handler keys ("connections", "keys", "snippets", …) so every
+// entity type flows through one path. Handlers read it only via the helpers below.
 
 export interface SelectionProps {
-  singleConnectionId?: string;
-  singleKeyId?: string;
-  singleIdentityId?: string;
-  connectionIds?: string[];
-  keyIds?: string[];
-  identityIds?: string[];
+  single?: { key: string; id: string };
+  bulk?: Partial<Record<string, string[]>>;
+}
+
+// The handler keys the selection targets, or null for a full export. An empty
+// bulk list does not count, so keys-only (passed with `identities: []`) → {keys}.
+export function selectionTargets(s: SelectionProps): Set<string> | null {
+  if (s.single) return new Set([s.single.key]);
+  if (s.bulk) {
+    const keys = Object.keys(s.bulk).filter((k) => (s.bulk![k]?.length ?? 0) > 0);
+    if (keys.length > 0) return new Set(keys);
+  }
+  return null;
+}
+
+export function handlerActive(key: string, s: SelectionProps): boolean {
+  const targets = selectionTargets(s);
+  return targets === null || targets.has(key);
+}
+
+// The ids `key` should restrict its export to, or null for "all in vault".
+export function selectedIds(key: string, s: SelectionProps): string[] | null {
+  if (s.single?.key === key) return [s.single.id];
+  const bulk = s.bulk?.[key];
+  return bulk && bulk.length > 0 ? bulk : null;
+}
+
+export function isSingleSelection(key: string, s: SelectionProps): boolean {
+  return s.single?.key === key;
+}
+
+export function hasSelection(s: SelectionProps): boolean {
+  return selectionTargets(s) !== null;
 }
 
 // ─── Export context ───────────────────────────────────────────────────────────

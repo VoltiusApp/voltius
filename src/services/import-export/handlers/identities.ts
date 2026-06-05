@@ -4,6 +4,7 @@ import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, IdentityExport } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "../context";
+import { handlerActive, isSingleSelection, selectedIds } from "../context";
 import { fetchIdentitySecrets, storeIdentitySecrets } from "../secretsLogic";
 
 export const identitiesHandler: DataTypeHandler = {
@@ -12,13 +13,13 @@ export const identitiesHandler: DataTypeHandler = {
   jsonOnly: true,
 
   isActive(s: SelectionProps) {
-    return !s.singleConnectionId && !s.singleKeyId && !s.connectionIds && !s.keyIds;
+    return handlerActive("identities", s);
   },
 
   checkboxLabel(s: SelectionProps, count: number) {
-    if (s.singleIdentityId) return "Identity (1)";
-    if (s.identityIds) return `Identities (${s.identityIds.length})`;
-    return `Identities (${count})`;
+    if (isSingleSelection("identities", s)) return "Identity (1)";
+    const ids = selectedIds("identities", s);
+    return `Identities (${ids ? ids.length : count})`;
   },
 
   countAvailable(stores: StoreSlices, vaultIds: string[]) {
@@ -26,12 +27,9 @@ export const identitiesHandler: DataTypeHandler = {
   },
 
   selectItems(stores: StoreSlices, vaultIds: string[], s: SelectionProps) {
-    return (s.singleIdentityId
-      ? stores.identities.filter(i => i.id === s.singleIdentityId)
-      : s.identityIds
-      ? stores.identities.filter(i => s.identityIds!.includes(i.id))
-      : stores.identities
-    ).filter(i => vaultIds.includes(i.vault_id ?? "personal"));
+    const ids = selectedIds("identities", s);
+    return stores.identities.filter(i =>
+      (ids === null || ids.includes(i.id)) && vaultIds.includes(i.vault_id ?? "personal"));
   },
 
   accumulateFolderIds(items: unknown[], main: Set<string>) {

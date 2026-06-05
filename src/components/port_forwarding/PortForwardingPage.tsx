@@ -534,6 +534,11 @@ export function PortForwardingPage() {
         sharedVaults.length > 0 ? (vaultId) => { for (const r of selectedRules) handleCopyRuleToVault(r, vaultId); } : undefined,
       ),
       {
+        label: `Export ${n} rule${n === 1 ? "" : "s"}`,
+        icon: "lucide:upload",
+        onClick: () => useUIStore.getState().openImportExport("export", { bulk: { portForwardingRules: selectedRules.map((r) => r.id) } }),
+      },
+      {
         label: `Delete ${n} rules`,
         icon: "lucide:trash-2",
         onClick: () => setConfirmDeleteIds(selectedRules.map((r) => r.id)),
@@ -560,6 +565,7 @@ export function PortForwardingPage() {
               canEdit={canEdit(editingFolder.vault_id ?? "personal")}
               onMoveToVault={(vaultId) => handleMoveFolderToVault(editingFolder, vaultId)}
               onCopyToVault={(vaultId) => handleCopyFolderToVault(editingFolder, vaultId)}
+              onExport={() => useUIStore.getState().openImportExport("export", { bulk: { portForwardingRules: rules.filter((r) => r.folder_id === editingFolder.id).map((r) => r.id) } })}
             />
           )}
           {showForm && (
@@ -677,6 +683,7 @@ export function PortForwardingPage() {
                         canEdit={folderCanEdit}
                         onMoveToVault={(vaultId) => handleMoveFolderToVault(folder, vaultId)}
                         onCopyToVault={(vaultId) => handleCopyFolderToVault(folder, vaultId)}
+                        onExport={() => useUIStore.getState().openImportExport("export", { bulk: { portForwardingRules: rules.filter((r) => r.folder_id === folder.id).map((r) => r.id) } })}
                       />
                     );
                   })}

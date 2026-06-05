@@ -2,6 +2,7 @@ import type { Snippet } from "@/types";
 import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, SnippetExport } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "../context";
+import { handlerActive, selectedIds } from "../context";
 
 export const snippetsHandler: DataTypeHandler = {
   key: "snippets",
@@ -9,21 +10,22 @@ export const snippetsHandler: DataTypeHandler = {
   jsonOnly: true,
 
   isActive(s: SelectionProps) {
-    // Only shown in full export (not when a specific item type is targeted)
-    return !s.singleConnectionId && !s.singleKeyId && !s.singleIdentityId
-      && !s.connectionIds && !s.keyIds && !s.identityIds;
+    return handlerActive("snippets", s);
   },
 
-  checkboxLabel(_s: SelectionProps, count: number) {
-    return `Snippets (${count})`;
+  checkboxLabel(s: SelectionProps, count: number) {
+    const ids = selectedIds("snippets", s);
+    return `Snippets (${ids ? ids.length : count})`;
   },
 
   countAvailable(stores: StoreSlices, vaultIds: string[]) {
     return stores.snippets.filter(s => !s.deleted_at && vaultIds.includes(s.vault_id ?? "personal")).length;
   },
 
-  selectItems(stores: StoreSlices, vaultIds: string[]) {
-    return stores.snippets.filter(s => !s.deleted_at && vaultIds.includes(s.vault_id ?? "personal"));
+  selectItems(stores: StoreSlices, vaultIds: string[], s: SelectionProps) {
+    const ids = selectedIds("snippets", s);
+    return stores.snippets.filter(sn =>
+      !sn.deleted_at && (ids === null || ids.includes(sn.id)) && vaultIds.includes(sn.vault_id ?? "personal"));
   },
 
   accumulateFolderIds(items: unknown[], _main: Set<string>, snippet: Set<string>) {

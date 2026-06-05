@@ -2,6 +2,7 @@ import type { PortForwardingRule } from "@/types";
 import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, PortForwardingRuleExport } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "../context";
+import { handlerActive, selectedIds } from "../context";
 
 export const portForwardingHandler: DataTypeHandler = {
   key: "portForwardingRules",
@@ -9,20 +10,22 @@ export const portForwardingHandler: DataTypeHandler = {
   jsonOnly: true,
 
   isActive(s: SelectionProps) {
-    return !s.singleConnectionId && !s.singleKeyId && !s.singleIdentityId
-      && !s.connectionIds && !s.keyIds && !s.identityIds;
+    return handlerActive("portForwardingRules", s);
   },
 
-  checkboxLabel(_s: SelectionProps, count: number) {
-    return `Port Forwarding (${count})`;
+  checkboxLabel(s: SelectionProps, count: number) {
+    const ids = selectedIds("portForwardingRules", s);
+    return `Port Forwarding (${ids ? ids.length : count})`;
   },
 
   countAvailable(stores: StoreSlices, vaultIds: string[]) {
     return stores.pfRules.filter(r => !r.deleted_at && vaultIds.includes(r.vault_id ?? "personal")).length;
   },
 
-  selectItems(stores: StoreSlices, vaultIds: string[]) {
-    return stores.pfRules.filter(r => !r.deleted_at && vaultIds.includes(r.vault_id ?? "personal"));
+  selectItems(stores: StoreSlices, vaultIds: string[], s: SelectionProps) {
+    const ids = selectedIds("portForwardingRules", s);
+    return stores.pfRules.filter(r =>
+      !r.deleted_at && (ids === null || ids.includes(r.id)) && vaultIds.includes(r.vault_id ?? "personal"));
   },
 
   accumulateFolderIds(items: unknown[], main: Set<string>) {

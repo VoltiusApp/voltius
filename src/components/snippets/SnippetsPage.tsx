@@ -644,6 +644,11 @@ export function SnippetsPage() {
         divider: true,
       },
       {
+        label: `Export ${ids.length} snippet${ids.length === 1 ? "" : "s"}`,
+        icon: "lucide:upload",
+        onClick: () => useUIStore.getState().openImportExport("export", { bulk: { snippets: ids } }),
+      },
+      {
         label: `Delete ${ids.length} snippets`,
         icon: "lucide:trash-2",
         onClick: () => setConfirmDeleteIds(ids),
@@ -928,6 +933,7 @@ export function SnippetsPage() {
             vaults={vaultOptions.filter((v) => v.id !== (editingFolder.vault_id ?? "personal"))}
             onMoveToVault={(vaultId) => void handleMoveFolderToVault(editingFolder, vaultId)}
             onCopyToVault={(vaultId) => void handleCopyFolderToVault(editingFolder, vaultId)}
+            onExport={() => useUIStore.getState().openImportExport("export", { bulk: { snippets: snippets.filter((s) => s.folder_id === editingFolder.id).map((s) => s.id) } })}
           />
         ) : ep.editing !== null ? (
           <SnippetForm
@@ -1090,6 +1096,7 @@ export function SnippetsPage() {
                         vaults={vaultOptions.filter((v) => v.id !== (folder.vault_id ?? "personal"))}
                         onMoveToVault={(vaultId) => void handleMoveFolderToVault(folder, vaultId)}
                         onCopyToVault={(vaultId) => void handleCopyFolderToVault(folder, vaultId)}
+                        onExport={() => useUIStore.getState().openImportExport("export", { bulk: { snippets: snippets.filter((s) => s.folder_id === folder.id).map((s) => s.id) } })}
                         bulkContextMenuItems={selectedIdSet.size > 1 ? bulkContextMenuItems : undefined}
                       />
                     ))}

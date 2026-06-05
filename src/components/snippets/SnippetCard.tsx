@@ -9,6 +9,7 @@ import { getShortcutHint } from "@/stores/shortcutStore";
 import type { Snippet, Folder, VaultOption } from "@/types";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useTeamStore } from "@/stores/teamStore";
+import { useUIStore } from "@/stores/uiStore";
 import {
   useEffectivePinned,
   useEffectivePinSource,
@@ -116,6 +117,12 @@ export function SnippetCard({
       icon: syncEnabled ? "lucide:cloud-off" : "lucide:cloud",
       onClick: onToggleSync,
     }] : []),
+    {
+      label: "Export",
+      icon: "lucide:upload",
+      onClick: () => useUIStore.getState().openImportExport("export", { single: { key: "snippets", id: snippet.id } }),
+      divider: true as const,
+    },
     ...vaultMenuItems(vaults, canEdit, onMoveToVault, onCopyToVault),
     { label: "Delete", icon: "lucide:trash-2", onClick: onDelete, danger: true as const, divider: true as const, shortcut: getShortcutHint("delete") },
   ];

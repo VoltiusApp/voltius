@@ -28,12 +28,10 @@ export type ImportExportModalState = {
   mode: "import" | "export";
   section: ImportExportSection;
   preselectedTypes?: string[];
-  singleConnectionId?: string;
-  singleKeyId?: string;
-  singleIdentityId?: string;
-  connectionIds?: string[];
-  keyIds?: string[];
-  identityIds?: string[];
+  /** Single-item export: one entity of a handler key (e.g. { key: "keys", id }). */
+  single?: { key: string; id: string };
+  /** Bulk export: handler key → selected ids (e.g. { connections: [...] }). */
+  bulk?: Partial<Record<string, string[]>>;
   source?: string;
   autoTrigger?: boolean;
   /** Bumped on every open() call so the modal can force a fresh mount per invocation. */
@@ -42,12 +40,8 @@ export type ImportExportModalState = {
 export type ImportExportOpenOpts = {
   section?: ImportExportSection;
   preselectedTypes?: string[];
-  connectionId?: string;
-  keyId?: string;
-  identityId?: string;
-  connectionIds?: string[];
-  keyIds?: string[];
-  identityIds?: string[];
+  single?: { key: string; id: string };
+  bulk?: Partial<Record<string, string[]>>;
   source?: string;
   autoTrigger?: boolean;
 };
@@ -175,7 +169,7 @@ export const useUIStore = create<UIStore>()(
       importExportModal: { open: false, mode: "export" as const, section: "vaults" as ImportExportSection },
       themeCreatorOpen: false,
       themeCreatorEditId: null as string | null,
-      openImportExport: (mode, opts) => set({ importExportModal: { open: true, mode, section: opts?.section ?? "vaults", preselectedTypes: opts?.preselectedTypes, singleConnectionId: opts?.connectionId, singleKeyId: opts?.keyId, singleIdentityId: opts?.identityId, connectionIds: opts?.connectionIds, keyIds: opts?.keyIds, identityIds: opts?.identityIds, source: opts?.source, autoTrigger: opts?.autoTrigger, nonce: ieNonce++ } }),
+      openImportExport: (mode, opts) => set({ importExportModal: { open: true, mode, section: opts?.section ?? "vaults", preselectedTypes: opts?.preselectedTypes, single: opts?.single, bulk: opts?.bulk, source: opts?.source, autoTrigger: opts?.autoTrigger, nonce: ieNonce++ } }),
       closeImportExport: () => set((s) => ({ importExportModal: { ...s.importExportModal, open: false } })),
       openThemeImportExport: (mode) => set({ importExportModal: { open: true, mode, section: "user-data" as ImportExportSection, nonce: ieNonce++ } }),
       openThemeCreator: (editId) => set({ themeCreatorOpen: true, themeCreatorEditId: editId ?? null, settingsOpen: false }),

@@ -496,7 +496,7 @@ export default function HostsPage() {
       {
         label: `Export ${ids.length} hosts`,
         icon: "lucide:upload",
-        onClick: () => useUIStore.getState().openImportExport("export", { connectionIds: ids }),
+        onClick: () => useUIStore.getState().openImportExport("export", { bulk: { connections: ids } }),
       },
       {
         label: `Delete ${totalSelected} item${totalSelected === 1 ? "" : "s"}`,
@@ -851,7 +851,7 @@ export default function HostsPage() {
               folder={editingFolder}
               onUpdate={(id, data) => void updateFolder(id, data)}
               onDelete={(f) => setConfirmDeleteFolderId(f.id)}
-              onExport={() => useUIStore.getState().openImportExport("export", { connectionIds: connections.filter((c) => c.folder_id === editingFolder.id).map((c) => c.id) })}
+              onExport={() => useUIStore.getState().openImportExport("export", { bulk: { connections: connections.filter((c) => c.folder_id === editingFolder.id).map((c) => c.id) } })}
               onClose={() => setEditingFolderId(null)}
               vaults={vaultOptions.filter((v) => v.id !== (editingFolder.vault_id ?? "personal"))}
               canEdit={can("EDIT_CONNECTIONS", editingFolder.vault_id ?? "personal")}
@@ -1042,7 +1042,7 @@ export default function HostsPage() {
                           onDelete={(f) => setConfirmDeleteFolderId(f.id)}
                           onSelect={(id) => { if (!selectedIdSet.has(id)) selectSingle(id); }}
                           onEdit={() => { setShowForm(false); setEditingId(null); setEditingFolderId(folder.id); }}
-                          onExport={() => useUIStore.getState().openImportExport("export", { connectionIds: connections.filter((c) => c.folder_id === folder.id).map((c) => c.id) })}
+                          onExport={() => useUIStore.getState().openImportExport("export", { bulk: { connections: connections.filter((c) => c.folder_id === folder.id).map((c) => c.id) } })}
                           onPointerDown={(e) => handleFolderDragStart(e, folder.id)}
                           {...(canEditFolder ? folderDropProps(folder.id) : {})}
                           vaults={vaultOptions.filter((v) => v.id !== (folder.vault_id ?? "personal"))}

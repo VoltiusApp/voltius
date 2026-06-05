@@ -159,6 +159,7 @@ export type UISlot =
   | "key.panelActions"
   | "identity.contextMenu"
   | "identity.panelActions"
+  | "portForwardingRule.contextMenu"
   | "home.bgContextMenu"
   | "keychain.bgContextMenu"
   | "home.toolbar.hostMenu"

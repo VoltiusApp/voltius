@@ -9,21 +9,24 @@ import type { ExportBundle } from "@/services/import-export/formats";
 import { HANDLERS, buildBundle } from "@/services/import-export/registry";
 import { useStoreSlices } from "./useStores";
 import type { SelectionProps } from "@/services/import-export/context";
+import { hasSelection, isSingleSelection } from "@/services/import-export/context";
 import { ActionBtn, Checkbox, VaultChipSelect } from "./shared";
 import { Toggle } from "@/components/shared/Toggle";
 
-export function ExportTab({ singleConnectionId, singleKeyId, singleIdentityId, connectionIds, keyIds, identityIds, preselectedTypes }: {
-  singleConnectionId?: string; singleKeyId?: string; singleIdentityId?: string;
-  connectionIds?: string[]; keyIds?: string[]; identityIds?: string[];
+export function ExportTab({ selection, preselectedTypes }: {
+  selection: SelectionProps;
   preselectedTypes?: string[];
 }) {
   const stores = useStoreSlices();
   const accessibleVaultIds = useAccessibleVaultIds();
   const vaultContentCounts = useVaultContents();
 
-  const selection: SelectionProps = { singleConnectionId, singleKeyId, singleIdentityId, connectionIds, keyIds, identityIds };
-  const isSingleItem = !!(singleConnectionId ?? singleKeyId ?? singleIdentityId);
-  const isBulk = !!(connectionIds ?? keyIds ?? identityIds);
+  const isSingleItem = !!selection.single;
+  const isBulk = !!selection.bulk && hasSelection(selection);
+  const bulkCount = Object.values(selection.bulk ?? {}).reduce((a, b) => a + (b?.length ?? 0), 0);
+  // JSON-only single items (key, identity, snippet) can't be CSV — lock to JSON.
+  const singleHandler = selection.single ? HANDLERS.find(h => h.key === selection.single!.key) : undefined;
+  const lockJsonFormat = !!singleHandler?.jsonOnly;
 
   const [included, setIncluded] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(HANDLERS.map(h => [
@@ -108,8 +111,8 @@ export function ExportTab({ singleConnectionId, singleKeyId, singleIdentityId, c
 
   const autoIncludes: string[] = [];
   if (isSingleItem && !isCsvOnly) {
-    if ((bundleCounts["identities"] ?? 0) > 0 && !singleIdentityId) autoIncludes.push(`${bundleCounts["identities"]} identity`);
-    if ((bundleCounts["keys"] ?? 0) > 0 && !singleKeyId) autoIncludes.push(`${bundleCounts["keys"]} key`);
+    if ((bundleCounts["identities"] ?? 0) > 0 && !isSingleSelection("identities", selection)) autoIncludes.push(`${bundleCounts["identities"]} identity`);
+    if ((bundleCounts["keys"] ?? 0) > 0 && !isSingleSelection("keys", selection)) autoIncludes.push(`${bundleCounts["keys"]} key`);
   }
 
   return (
@@ -141,7 +144,7 @@ export function ExportTab({ singleConnectionId, singleKeyId, singleIdentityId, c
             })}
             {isBulk && !isSingleItem && (
               <p className="text-xs text-[var(--t-text-muted)]">
-                {(connectionIds?.length ?? 0) + (identityIds?.length ?? 0) + (keyIds?.length ?? 0)} selected item{((connectionIds?.length ?? 0) + (identityIds?.length ?? 0) + (keyIds?.length ?? 0)) !== 1 ? "s" : ""}
+                {bulkCount} selected item{bulkCount !== 1 ? "s" : ""}
               </p>
             )}
           </div>
@@ -150,7 +153,7 @@ export function ExportTab({ singleConnectionId, singleKeyId, singleIdentityId, c
         <div className="flex-1">
           <p className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">Format</p>
           <div className="flex flex-col gap-2">
-            {!singleKeyId && !singleIdentityId ? (
+            {!lockJsonFormat ? (
               <div className="flex gap-0.5 p-0.5 rounded-lg w-fit" style={{ background: "var(--t-bg-input)", border: "1px solid var(--t-border)" }}>
                 {(["json", "csv"] as const).map(f => (
                   <button key={f} onClick={() => setFormat(f)}

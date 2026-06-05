@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useUIContributionStore } from "@/stores/uiContributionStore";
 import { useUIStore } from "@/stores/uiStore";
-import type { Connection, SshKey, Identity } from "@/types";
+import type { Connection, SshKey, Identity, PortForwardingRule } from "@/types";
 
 const ID = "core:import-export";
 
@@ -11,22 +11,25 @@ export function useImportExportContributions() {
 
     const unregs = [
       registerContribution(ID, "connection.contextMenu",
-        (conn: Connection) => [{ label: "Export", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export", { connectionId: conn.id }) }]),
+        (conn: Connection) => [{ label: "Export", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export", { single: { key: "connections", id: conn.id } }) }]),
 
       registerContribution(ID, "connection.panelActions",
-        (conn: Connection) => [{ label: "Export", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export", { connectionId: conn.id }) }]),
+        (conn: Connection) => [{ label: "Export", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export", { single: { key: "connections", id: conn.id } }) }]),
 
       registerContribution(ID, "key.contextMenu",
-        (key: SshKey) => [{ label: "Export", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export", { keyId: key.id }) }]),
+        (key: SshKey) => [{ label: "Export", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export", { single: { key: "keys", id: key.id } }) }]),
 
       registerContribution(ID, "key.panelActions",
-        (key: SshKey | undefined) => key ? [{ label: "Export", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export", { keyId: key.id }) }] : []),
+        (key: SshKey | undefined) => key ? [{ label: "Export", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export", { single: { key: "keys", id: key.id } }) }] : []),
 
       registerContribution(ID, "identity.contextMenu",
-        (identity: Identity) => [{ label: "Export", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export", { identityId: identity.id }) }]),
+        (identity: Identity) => [{ label: "Export", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export", { single: { key: "identities", id: identity.id } }) }]),
 
       registerContribution(ID, "identity.panelActions",
-        (identity: Identity | undefined) => identity ? [{ label: "Export", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export", { identityId: identity.id }) }] : []),
+        (identity: Identity | undefined) => identity ? [{ label: "Export", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export", { single: { key: "identities", id: identity.id } }) }] : []),
+
+      registerContribution(ID, "portForwardingRule.contextMenu",
+        (rule: PortForwardingRule) => [{ label: "Export", icon: "lucide:upload", onClick: () => useUIStore.getState().openImportExport("export", { single: { key: "portForwardingRules", id: rule.id } }) }]),
 
       registerContribution(ID, "home.bgContextMenu",
         () => [

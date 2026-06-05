@@ -97,12 +97,7 @@ export function ImportExportModal() {
           {activeSection === "vaults" ? (
             activeMode === "export" ? (
               <ExportTab
-                singleConnectionId={state.singleConnectionId}
-                singleKeyId={state.singleKeyId}
-                singleIdentityId={state.singleIdentityId}
-                connectionIds={state.connectionIds}
-                keyIds={state.keyIds}
-                identityIds={state.identityIds}
+                selection={{ single: state.single, bulk: state.bulk }}
                 preselectedTypes={state.preselectedTypes}
               />
             ) : (

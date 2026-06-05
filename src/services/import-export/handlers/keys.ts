@@ -3,6 +3,7 @@ import type { SshKey } from "@/types";
 import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, KeyExport } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "../context";
+import { handlerActive, isSingleSelection, selectedIds } from "../context";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import { fetchKeySecrets, storeKeySecrets } from "../secretsLogic";
 
@@ -12,13 +13,13 @@ export const keysHandler: DataTypeHandler = {
   jsonOnly: true,
 
   isActive(s: SelectionProps) {
-    return !s.singleConnectionId && !s.singleIdentityId && !s.connectionIds && !s.identityIds;
+    return handlerActive("keys", s);
   },
 
   checkboxLabel(s: SelectionProps, count: number) {
-    if (s.singleKeyId) return "SSH Key (1)";
-    if (s.keyIds) return `SSH Keys (${s.keyIds.length})`;
-    return `SSH Keys (${count})`;
+    if (isSingleSelection("keys", s)) return "SSH Key (1)";
+    const ids = selectedIds("keys", s);
+    return `SSH Keys (${ids ? ids.length : count})`;
   },
 
   countAvailable(stores: StoreSlices, vaultIds: string[]) {
@@ -26,12 +27,9 @@ export const keysHandler: DataTypeHandler = {
   },
 
   selectItems(stores: StoreSlices, vaultIds: string[], s: SelectionProps) {
-    return (s.singleKeyId
-      ? stores.keys.filter(k => k.id === s.singleKeyId)
-      : s.keyIds
-      ? stores.keys.filter(k => s.keyIds!.includes(k.id))
-      : stores.keys
-    ).filter(k => vaultIds.includes(k.vault_id ?? "personal"));
+    const ids = selectedIds("keys", s);
+    return stores.keys.filter(k =>
+      (ids === null || ids.includes(k.id)) && vaultIds.includes(k.vault_id ?? "personal"));
   },
 
   accumulateFolderIds(items: unknown[], main: Set<string>) {

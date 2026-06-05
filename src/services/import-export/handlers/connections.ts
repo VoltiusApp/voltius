@@ -3,7 +3,7 @@ import type { Connection, JumpHost } from "@/types";
 import type { DataTypeHandler } from "../handler";
 import type { ConnectionExport, JumpHostExport, ExportBundle } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "../context";
-import { existingConnectionsForVault } from "../context";
+import { existingConnectionsForVault, handlerActive, isSingleSelection, selectedIds } from "../context";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import { fetchConnectionSecrets, storeConnectionSecrets, resolveConnectionKeyEid, resolveConnectionKeyId } from "../secretsLogic";
 
@@ -13,13 +13,13 @@ export const connectionsHandler: DataTypeHandler = {
   jsonOnly: false,
 
   isActive(s: SelectionProps) {
-    return !s.singleKeyId && !s.singleIdentityId && !s.keyIds && !s.identityIds;
+    return handlerActive("connections", s);
   },
 
   checkboxLabel(s: SelectionProps, count: number) {
-    if (s.singleConnectionId) return "Connection (1)";
-    if (s.connectionIds) return `Connections (${s.connectionIds.length})`;
-    return `Connections (${count})`;
+    if (isSingleSelection("connections", s)) return "Connection (1)";
+    const ids = selectedIds("connections", s);
+    return `Connections (${ids ? ids.length : count})`;
   },
 
   countAvailable(stores: StoreSlices, vaultIds: string[]) {
@@ -27,12 +27,9 @@ export const connectionsHandler: DataTypeHandler = {
   },
 
   selectItems(stores: StoreSlices, vaultIds: string[], s: SelectionProps) {
-    return (s.singleConnectionId
-      ? stores.connections.filter(c => c.id === s.singleConnectionId)
-      : s.connectionIds
-      ? stores.connections.filter(c => s.connectionIds!.includes(c.id))
-      : stores.connections
-    ).filter(c => vaultIds.includes(c.vault_id ?? "personal"));
+    const ids = selectedIds("connections", s);
+    return stores.connections.filter(c =>
+      (ids === null || ids.includes(c.id)) && vaultIds.includes(c.vault_id ?? "personal"));
   },
 
   accumulateFolderIds(items: unknown[], main: Set<string>) {
