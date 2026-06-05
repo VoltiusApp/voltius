@@ -508,10 +508,12 @@ export function SnippetsPanel() {
   const recentSnippets = recentSnippetIds
     .map((id) => allFiltered.find((s) => s.id === id))
     .filter(Boolean) as Snippet[];
+  const folderIds = new Set(folders.map((f) => f.id));
   const byFolder = new Map<string, Snippet[]>();
   const unfiled: Snippet[] = [];
   for (const s of allFiltered) {
-    if (s.folder_id) {
+    // Orphaned snippets (folder_id of a deleted folder) fall back to unfiled.
+    if (s.folder_id && folderIds.has(s.folder_id)) {
       if (!byFolder.has(s.folder_id)) byFolder.set(s.folder_id, []);
       byFolder.get(s.folder_id)!.push(s);
     } else {
@@ -653,10 +655,6 @@ export function SnippetsPanel() {
             {(!collapsedSections.has("unfiled") || hasQuery) && unfiled.map(renderSnippetRow)}
           </>
         )}
-
-        {/* When searching: flat list with no folder grouping */}
-        {hasQuery && allFiltered.length > 0 && folders.length === 0 &&
-          allFiltered.map(renderSnippetRow)}
       </div>
 
       {/* Modals */}
