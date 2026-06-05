@@ -12,6 +12,7 @@ export function GlobalTransferQueue() {
   const transfers = useTransferQueueStore((s) => s.transfers);
   const clearCompleted = useTransferQueueStore((s) => s.clearCompleted);
   const cancelTransfer = useTransferQueueStore((s) => s.cancelTransfer);
+  const cancelAll = useTransferQueueStore((s) => s.cancelAll);
   // Only surface the floating widget on the full SFTPPage. Anywhere else the
   // queue is either irrelevant (terminal, vault) or already docked inside the
   // SFTP right panel, so the global one would just be noise / a duplicate.
@@ -24,7 +25,7 @@ export function GlobalTransferQueue() {
   // top corners so it reads as a detached card docked to the bottom.
   return (
     <div className="fixed bottom-0 right-3 z-40 w-[22rem] max-w-[90vw] rounded-t-xl overflow-hidden shadow-2xl">
-      <TransferQueue transfers={transfers} onClear={clearCompleted} onCancel={cancelTransfer} collapsible />
+      <TransferQueue transfers={transfers} onClear={clearCompleted} onCancel={cancelTransfer} onCancelAll={cancelAll} collapsible />
     </div>
   );
 }

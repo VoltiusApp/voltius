@@ -25,6 +25,7 @@ interface TransferQueueStore {
     onDone?: () => void,
   ) => Promise<void>;
   cancelTransfer: (id: string) => void;
+  cancelAll: () => void;
   clearCompleted: () => void;
 }
 
@@ -99,6 +100,14 @@ export const useTransferQueueStore = create<TransferQueueStore>((set, get) => ({
     sftpCancelTransfer(id).catch(() => {});
     set((s) => ({
       transfers: s.transfers.map((t) => (t.id === id ? { ...t, status: "cancelled" } : t)),
+    }));
+  },
+
+  cancelAll: () => {
+    const running = get().transfers.filter((t) => t.status === "running");
+    for (const t of running) sftpCancelTransfer(t.id).catch(() => {});
+    set((s) => ({
+      transfers: s.transfers.map((t) => (t.status === "running" ? { ...t, status: "cancelled" } : t)),
     }));
   },
 

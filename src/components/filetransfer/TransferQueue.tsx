@@ -2,10 +2,11 @@ import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { type Transfer, formatSize } from "./SFTPTypes";
 
-export function TransferQueue({ transfers, onClear, onCancel, collapsible = false }: {
+export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, collapsible = false }: {
   transfers: Transfer[];
   onClear: () => void;
   onCancel: (id: string) => void;
+  onCancelAll: () => void;
   /** When true the list collapses to a compact header and expands on hover. */
   collapsible?: boolean;
 }) {
@@ -81,6 +82,17 @@ export function TransferQueue({ transfers, onClear, onCancel, collapsible = fals
               className="shrink-0 transition-transform duration-300 text-[var(--t-text-dim)]"
               style={{ transform: expanded ? "rotate(0deg)" : "rotate(180deg)" }}
             />
+          )}
+          {hasActive && (
+            <button
+              onClick={onCancelAll}
+              title="Cancel all transfers"
+              className="flex items-center justify-center w-6 h-6 rounded-md shrink-0 transition-colors text-[var(--t-text-dim)]"
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-bg-card-hover)"; e.currentTarget.style.color = "var(--t-status-error)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
+            >
+              <Icon icon="lucide:circle-x" width={13} />
+            </button>
           )}
           <button
             onClick={onClear}

@@ -31,6 +31,7 @@ export default function PanelSftpSection() {
   const transfers = useTransferQueueStore((s) => s.transfers);
   const clearCompleted = useTransferQueueStore((s) => s.clearCompleted);
   const cancelTransfer = useTransferQueueStore((s) => s.cancelTransfer);
+  const cancelAll = useTransferQueueStore((s) => s.cancelAll);
   const [tarTransferEnabled] = useToggle("sftp-tar");
 
   const [selected, setSelected] = useState<FileEntry[]>([]);
@@ -273,7 +274,7 @@ export default function PanelSftpSection() {
           card rather than the viewport-corner global widget (which is wider
           than the panel and overflows it). */}
       {transfers.length > 0 && (
-        <TransferQueue transfers={transfers} onClear={clearCompleted} onCancel={cancelTransfer} />
+        <TransferQueue transfers={transfers} onClear={clearCompleted} onCancel={cancelTransfer} onCancelAll={cancelAll} />
       )}
     </div>
   );
