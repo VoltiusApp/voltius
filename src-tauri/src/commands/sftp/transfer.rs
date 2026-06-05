@@ -179,6 +179,12 @@ pub(super) async fn sftp_download_inner(
             TransferProgress { transferred, total },
         );
     }
+    // Properly close the remote read handle; `Drop` alone leaks the client-side
+    // open-handle counter in russh-sftp (fire-and-forget close).
+    remote_file
+        .shutdown()
+        .await
+        .map_err(|e| format!("Close error: {e}"))?;
     Ok(())
 }
 
@@ -305,5 +311,11 @@ pub(super) async fn sftp_rr_file_inner_accum(
         .shutdown()
         .await
         .map_err(|e| format!("Flush error: {e}"))?;
+    // Close the source read handle too; otherwise russh-sftp's client-side
+    // handle counter leaks on the source session across many files.
+    src_file
+        .shutdown()
+        .await
+        .map_err(|e| format!("Close error: {e}"))?;
     Ok(())
 }

@@ -214,6 +214,13 @@ pub async fn sftp_download_dir(
                 TransferProgress { transferred, total },
             );
         }
+        // Properly close the remote handle. `File`'s `Drop` uses a fire-and-forget
+        // close that never decrements russh-sftp's client-side open-handle counter,
+        // so dropping thousands of files (e.g. node_modules) hits "handle limit reached".
+        remote_file
+            .shutdown()
+            .await
+            .map_err(|e| format!("Close error: {e}"))?;
     }
     sftp_state.finish_transfer(&transfer_id).await;
     Ok(())
