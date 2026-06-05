@@ -1,3 +1,4 @@
+import { writeClipboard } from "../../utils/clipboard";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
@@ -163,7 +164,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
   const handleCopyInviteLink = async () => {
     if (!inviteLinkToken) return;
     const sessionId = activeMp?.multiplayerSessionId ?? "";
-    await navigator.clipboard.writeText(`${sessionId}:${inviteLinkToken}`);
+    await writeClipboard(`${sessionId}:${inviteLinkToken}`);
     setInviteLinkCopied(true);
     setTimeout(() => setInviteLinkCopied(false), 2000);
   };
@@ -379,7 +380,7 @@ function ActiveSharingView({
 
   const handleCopy = async () => {
     if (!inviteLinkToken) return;
-    await navigator.clipboard.writeText(`${activeMp.multiplayerSessionId}:${inviteLinkToken}`);
+    await writeClipboard(`${activeMp.multiplayerSessionId}:${inviteLinkToken}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

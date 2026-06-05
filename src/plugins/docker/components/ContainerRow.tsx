@@ -1,3 +1,4 @@
+import { writeClipboard } from "../../../utils/clipboard";
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { dockerContainerAction, dockerContainerRunCommand } from "../services";
@@ -77,7 +78,7 @@ export function ContainerRow({
         container.id,
         container.image,
       );
-      await navigator.clipboard.writeText(cmd);
+      await writeClipboard(cmd);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch (e) {

@@ -1,3 +1,4 @@
+import { writeClipboard } from "../../utils/clipboard";
 import React, { useEffect, useRef, useState } from "react";
 import { useAutosave, type SaveState } from "@/hooks/useAutosave";
 import { Icon } from "@iconify/react";
@@ -199,7 +200,7 @@ function GistRow({
   const shortId = `${gist.id.slice(0, 8)}…`;
   const [copied, setCopied] = useState(false);
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(url).then(() => {
+    writeClipboard(url).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });

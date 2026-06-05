@@ -1,3 +1,4 @@
+import { writeClipboard } from "../../utils/clipboard";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
@@ -354,12 +355,12 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
         {
           label: `Copy ${connection.username}@${connection.host}`,
           icon: "lucide:copy",
-          onClick: () => navigator.clipboard.writeText(`${connection.username}@${connection.host}`).catch(() => {}),
+          onClick: () => writeClipboard(`${connection.username}@${connection.host}`).catch(() => {}),
         },
         {
           label: `Copy ${connection.host}`,
           icon: "lucide:server",
-          onClick: () => navigator.clipboard.writeText(connection.host).catch(() => {}),
+          onClick: () => writeClipboard(connection.host).catch(() => {}),
         },
         {
           label: "Open ports panel",
@@ -380,7 +381,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
         {
           label: `Copy ${serialConfig.port}`,
           icon: "lucide:copy",
-          onClick: () => navigator.clipboard.writeText(serialConfig.port).catch(() => {}),
+          onClick: () => writeClipboard(serialConfig.port).catch(() => {}),
         },
         {
           label: "Disconnect",
@@ -455,7 +456,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
 
   const handleCopyHost = () => {
     if (!copyHostText) return;
-    navigator.clipboard.writeText(copyHostText).then(() => {
+    writeClipboard(copyHostText).then(() => {
       setCopied(true);
       if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
       copyTimeoutRef.current = setTimeout(() => setCopied(false), 1200);
@@ -600,7 +601,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
                       style={{ flexShrink: 0, color: "var(--t-text-dim)", cursor: "pointer" }}
                       onClick={showDistroPopover ? () => {
                         if (!systemInfoCopyText) return;
-                        navigator.clipboard.writeText(systemInfoCopyText).catch(() => {});
+                        writeClipboard(systemInfoCopyText).catch(() => {});
                         setCopiedDistro(true);
                         if (copiedDistroTimeoutRef.current) clearTimeout(copiedDistroTimeoutRef.current);
                         copiedDistroTimeoutRef.current = setTimeout(() => setCopiedDistro(false), 1200);
@@ -694,7 +695,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
                 style={{ flexShrink: 0, color: localSystemColor(localOsName), cursor: "pointer" }}
                 onClick={() => {
                   if (!systemInfoCopyText) return;
-                  navigator.clipboard.writeText(systemInfoCopyText).catch(() => {});
+                  writeClipboard(systemInfoCopyText).catch(() => {});
                   setCopiedDistro(true);
                   if (copiedDistroTimeoutRef.current) clearTimeout(copiedDistroTimeoutRef.current);
                   copiedDistroTimeoutRef.current = setTimeout(() => setCopiedDistro(false), 1200);
