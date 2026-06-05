@@ -254,6 +254,7 @@ export function FilePane({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (confirmDialog) return;
     if ((e.target as HTMLElement).tagName === "INPUT") return;
     if ((e.ctrlKey || e.metaKey) && e.key === "a") {
       e.preventDefault();
