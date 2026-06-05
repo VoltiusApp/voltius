@@ -41,6 +41,20 @@ pub fn fs_home_dir() -> Result<String, String> {
 
 #[tauri::command]
 pub fn fs_list_dir(path: String) -> Result<Vec<LocalFile>, String> {
+    // The bare WSL server root can't be read_dir'd; list distros as folders instead.
+    if let Some(prefix) = crate::commands::wsl::root_prefix(&path) {
+        return Ok(crate::commands::wsl::list_distros()
+            .into_iter()
+            .map(|distro| LocalFile {
+                path: format!("{prefix}\\{distro}"),
+                name: distro,
+                size: 0,
+                is_dir: true,
+                modified: None,
+            })
+            .collect());
+    }
+
     let p = PathBuf::from(&path);
     let entries = std::fs::read_dir(&p).map_err(|e| format!("Cannot read directory: {e}"))?;
     let mut files: Vec<LocalFile> = entries

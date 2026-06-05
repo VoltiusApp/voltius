@@ -181,12 +181,16 @@ export function FilePane({
   }, [isLocal, sftpId, cwd, refreshTick, autoTick]);
 
   const goUp = () => {
+    const isUnc = cwd.startsWith("\\\\") || cwd.startsWith("//");
     const normalized = cwd.replace(/\\/g, "/");
     const parts = normalized.split("/").filter(Boolean);
     if (parts.length === 0) return;
+    if (isUnc && parts.length <= 1) return; // already at the UNC server root
     const parentParts = parts.slice(0, -1);
     let parent: string;
-    if (normalized.startsWith("/")) {
+    if (isUnc) {
+      parent = "\\\\" + parentParts.join("\\");
+    } else if (normalized.startsWith("/")) {
       parent = "/" + parentParts.join("/");
     } else {
       parent = parentParts.length > 0 ? parentParts.join("/") : parts[0] + "/";
@@ -583,14 +587,17 @@ function PathBreadcrumb({ cwd, onNavigate }: { cwd: string; isLocal?: boolean; o
     }
   }, [cwd, editing]);
 
+  const isUnc = cwd.startsWith("\\\\") || cwd.startsWith("//");
   const normalized = cwd.replace(/\\/g, "/");
   const isAbsolute = normalized.startsWith("/");
   const parts = normalized.split("/").filter(Boolean);
   const crumbs = parts.map((label, i) => ({
     label,
-    path: (isAbsolute ? "/" : "") + parts.slice(0, i + 1).join("/"),
+    path: isUnc
+      ? "\\\\" + parts.slice(0, i + 1).join("\\")
+      : (isAbsolute ? "/" : "") + parts.slice(0, i + 1).join("/"),
   }));
-  const allCrumbs = isAbsolute ? [{ label: "/", path: "/" }, ...crumbs] : crumbs;
+  const allCrumbs = isUnc || !isAbsolute ? crumbs : [{ label: "/", path: "/" }, ...crumbs];
 
   if (editing) {
     return (

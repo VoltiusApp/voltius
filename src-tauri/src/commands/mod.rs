@@ -29,6 +29,7 @@ pub mod team_crypto;
 pub mod termius;
 pub mod vault;
 pub mod win_proc;
+pub mod wsl;
 
 #[tauri::command]
 pub fn greet(name: &str) -> String {
