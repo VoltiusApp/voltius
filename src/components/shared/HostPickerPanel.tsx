@@ -5,12 +5,14 @@ import { useUIStore } from "@/stores/uiStore";
 import { matchesSearch, compareConnections } from "@/utils/connectionFilter";
 import { ConnectionAvatar } from "./ConnectionAvatar";
 import { ToolbarDropdown } from "./ToolbarDropdown";
+import { wslListDistros } from "@/services/sftp";
+import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { SORT_MODE_ICONS, useFilterShortcut } from "./ToolbarViewControls";
 import type { SortMode } from "./ToolbarViewControls";
 import type { Connection } from "@/types";
 
 export type HostChoice =
-  | { kind: "local" }
+  | { kind: "local"; wslDistro?: string }
   | { kind: "remote"; connection: Connection };
 
 interface Props {
@@ -27,6 +29,8 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
 
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
+  const [wslDistros, setWslDistros] = useState<string[]>([]);
+  useEffect(() => { wslListDistros().then(setWslDistros).catch(() => {}); }, []);
   const searchRef = useRef<HTMLInputElement>(null);
   useFilterShortcut(searchRef);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
@@ -119,6 +123,29 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
           isSelected={false}
           onClick={() => onPick({ kind: "local" })}
         />
+
+        {wslDistros
+          .filter((d) => d.toLowerCase().includes(search.toLowerCase()))
+          .map((d) => {
+            const icon = getConnectionIcon(d.split(/[-_ ]/)[0]);
+            return (
+              <HostRow
+                key={`wsl:${d}`}
+                avatar={
+                  <div
+                    className="rounded-lg flex items-center justify-center shrink-0 w-[1.867rem] h-[1.867rem]"
+                    style={{ background: getConnectionIconColor(d.split(/[-_ ]/)[0]) ?? "var(--t-bg-card-avatar)" }}
+                  >
+                    <Icon icon={icon} width={14} />
+                  </div>
+                }
+                name={d}
+                sub="WSL"
+                isSelected={false}
+                onClick={() => onPick({ kind: "local", wslDistro: d })}
+              />
+            );
+          })}
 
         {connections.length === 0 && (
           <p className="px-3 py-4 text-xs text-center text-[var(--t-text-muted)]">No hosts configured</p>

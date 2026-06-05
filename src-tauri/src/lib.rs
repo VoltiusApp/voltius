@@ -352,6 +352,7 @@ pub fn run() {
             commands::mobaxterm::mobaxterm_extract,
             commands::fs::fs_home_dir,
             commands::fs::fs_list_dir,
+            commands::wsl::wsl_list_distros,
             commands::fs::fs_read_text_home,
             commands::fs::fs_write_text_home,
             commands::fs::fs_exists_home,

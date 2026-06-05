@@ -221,6 +221,10 @@ export async function fsListDir(path: string): Promise<LocalFile[]> {
   return invoke("fs_list_dir", { path });
 }
 
+export async function wslListDistros(): Promise<string[]> {
+  return invoke("wsl_list_distros");
+}
+
 export async function fsMkdir(path: string): Promise<void> {
   return invoke("fs_mkdir", { path });
 }

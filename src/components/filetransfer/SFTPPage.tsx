@@ -64,7 +64,7 @@ export default function SFTPPage() {
       let sftpId: string | null = null;
       let cwd = "/";
       if (host.kind === "local") {
-        cwd = await fsHomeDir();
+        cwd = host.wslDistro ? `\\\\wsl.localhost\\${host.wslDistro}` : await fsHomeDir();
       } else {
         const [creds, jumpHosts] = await Promise.all([
           resolveConnectionCredentials(host.connection),

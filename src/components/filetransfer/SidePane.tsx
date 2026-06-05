@@ -60,16 +60,18 @@ export function SidePane({
 }) {
   const hostLabel =
     host == null ? null
-    : host.kind === "local" ? "Local Machine"
+    : host.kind === "local" ? (host.wslDistro ?? "Local Machine")
     : host.connection.name?.trim() || `${host.connection.username}@${host.connection.host}`;
 
   const hostIcon =
-    host?.kind === "local" ? "lucide:monitor"
+    host?.kind === "local" ? (host.wslDistro ? getConnectionIcon(host.wslDistro.split(/[-_ ]/)[0]) : "lucide:monitor")
     : host?.kind === "remote" && (host.connection.icon || host.connection.distro) ? (getConnectionIcon(host.connection.icon || host.connection.distro!) ?? "lucide:server")
     : "lucide:server";
 
   const avatarBg =
-    host?.kind === "remote" && (host.connection.icon || host.connection.distro)
+    host?.kind === "local" && host.wslDistro
+      ? (getConnectionIconColor(host.wslDistro.split(/[-_ ]/)[0]) ?? "var(--t-bg-card-avatar)")
+      : host?.kind === "remote" && (host.connection.icon || host.connection.distro)
       ? (getConnectionIconColor(host.connection.icon || host.connection.distro!) ?? "var(--t-bg-card-avatar)")
       : "var(--t-bg-card-avatar)";
 
@@ -267,10 +269,10 @@ export function SidePane({
 
         {phase.tag === "connecting" && (() => {
           const h = phase.host;
-          const phaseIcon = h.kind === "local" ? "lucide:monitor"
+          const phaseIcon = h.kind === "local" ? (h.wslDistro ? getConnectionIcon(h.wslDistro.split(/[-_ ]/)[0]) : "lucide:monitor")
             : h.kind === "remote" && (h.connection.icon || h.connection.distro) ? (getConnectionIcon(h.connection.icon || h.connection.distro!) ?? "lucide:server")
             : "lucide:server";
-          const phaseName = h.kind === "local" ? "Local Machine"
+          const phaseName = h.kind === "local" ? (h.wslDistro ?? "Local Machine")
             : h.connection.name?.trim() || `${h.connection.username}@${h.connection.host}`;
           const phaseSubtitle = h.kind === "remote"
             ? `${h.connection.username}@${h.connection.host}:${h.connection.port}`
