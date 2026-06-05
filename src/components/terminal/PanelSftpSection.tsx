@@ -274,7 +274,9 @@ export default function PanelSftpSection() {
           card rather than the viewport-corner global widget (which is wider
           than the panel and overflows it). */}
       {transfers.length > 0 && (
-        <TransferQueue transfers={transfers} onClear={clearCompleted} onCancel={cancelTransfer} onCancelAll={cancelAll} />
+        <div className="rounded-t-xl overflow-hidden">
+          <TransferQueue transfers={transfers} onClear={clearCompleted} onCancel={cancelTransfer} onCancelAll={cancelAll} collapsible />
+        </div>
       )}
     </div>
   );
