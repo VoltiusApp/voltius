@@ -7,6 +7,12 @@ use std::path::Path;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
 
+// Windows tar can't recreate POSIX symlinks: dereference them when extracting locally.
+#[cfg(windows)]
+const WIN_DEREF: &str = "-h --ignore-failed-read ";
+#[cfg(not(windows))]
+const WIN_DEREF: &str = "";
+
 // ── Compress / Extract ────────────────────────────────────────────────────────
 
 /// Compress a remote file or directory into a .tar.gz archive via SSH exec.
@@ -178,8 +184,9 @@ pub async fn sftp_download_batch_tar(
         // 1. Archive all items on remote
         let items_quoted: Vec<String> = basenames.iter().map(|b| shell_quote(b)).collect();
         let cmd = format!(
-            "tar -czf {arch} -C {parent} {items} 2>&1; echo __TF_EXIT__:$?",
+            "tar -czf {arch} {deref}-C {parent} {items} 2>&1; echo __TF_EXIT__:$?",
             arch = shell_quote(&tmp_remote),
+            deref = WIN_DEREF,
             parent = shell_quote(remote_parent),
             items = items_quoted.join(" "),
         );
@@ -412,8 +419,9 @@ pub async fn sftp_download_dir_tar(
             .map(|i| &remote_path[i + 1..])
             .unwrap_or(&remote_path);
         let cmd = format!(
-            "tar -czf {arch} -C {parent} {base} 2>&1; echo __TF_EXIT__:$?",
+            "tar -czf {arch} {deref}-C {parent} {base} 2>&1; echo __TF_EXIT__:$?",
             arch = shell_quote(&tmp_remote),
+            deref = WIN_DEREF,
             parent = shell_quote(remote_parent),
             base = shell_quote(remote_basename),
         );
