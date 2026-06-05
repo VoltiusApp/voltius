@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
-import { FilterInput, SORT_MODE_ICONS, LAYOUT_MODE_ICONS, type SortMode, type LayoutMode } from "@/components/shared/ToolbarViewControls";
+import { FilterInput, SORT_MODE_ICONS, type SortMode, type LayoutMode } from "@/components/shared/ToolbarViewControls";
 import { ToolbarDropdown } from "@/components/shared/ToolbarDropdown";
+import { Pills } from "@/components/shared/Pills";
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 import { useToolbarResize } from "@/hooks/useToolbarResize";
 import { useRipple } from "@/hooks/useRipple";
@@ -65,13 +66,12 @@ export function SnippetsToolbar({
             width={176}
             shortcutId="filter"
           />
-          <ToolbarDropdown
-            icon={LAYOUT_MODE_ICONS[layoutMode]}
-            value={layoutMode}
+          <Pills
             options={[
               { value: "grid", label: "Grid", icon: "lucide:layout-grid" },
               { value: "list", label: "List", icon: "lucide:layout-list" },
             ]}
+            value={layoutMode}
             onChange={onLayoutModeChange}
           />
           <ToolbarDropdown

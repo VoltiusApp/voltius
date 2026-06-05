@@ -4,6 +4,7 @@ import { useAuditStore } from "@/stores/auditStore";
 import type { LayoutMode } from "@/stores/auditStore";
 import { FilterInput } from "@/components/shared/ToolbarViewControls";
 import { ToolbarDropdown } from "@/components/shared/ToolbarDropdown";
+import { Pills } from "@/components/shared/Pills";
 import { getAuditTimeRange, type AuditTimeRange } from "./auditLogToolbarUtils";
 
 const ACTION_OPTIONS = [
@@ -72,11 +73,6 @@ const LAYOUT_OPTIONS: Array<{ value: LayoutMode; label: string; icon: string }> 
   { value: "list", label: "List", icon: "lucide:table" },
 ];
 
-const LAYOUT_ICON: Record<LayoutMode, string> = {
-  timeline: "lucide:layout-list",
-  horizontal: "lucide:git-commit-horizontal",
-  list: "lucide:table",
-};
 
 function timeRangeLabel(range: AuditTimeRange): string {
   return TIME_RANGE_OPTIONS.find((option) => option.value === range)?.label ?? "Last week";
@@ -109,7 +105,7 @@ export function AuditFilters({ actors, search, onSearchChange, layout, onLayoutC
       <div className="flex items-center gap-1.5 min-w-0">
         <FilterInput value={search} onChange={onSearchChange} placeholder="Filter logs..." width={176} shortcutId="filter" />
 
-        <ToolbarDropdown icon={LAYOUT_ICON[layout]} value={layout} options={LAYOUT_OPTIONS} onChange={onLayoutChange} />
+        <Pills options={LAYOUT_OPTIONS} value={layout} onChange={onLayoutChange} />
 
         <ToolbarDropdown
           icon="lucide:user-round"

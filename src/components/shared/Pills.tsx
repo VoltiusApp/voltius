@@ -1,8 +1,10 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { Icon } from "@iconify/react";
 
 export interface PillOption<T extends string> {
   value: T;
   label: string;
+  icon?: string;
   disabled?: boolean;
 }
 
@@ -74,7 +76,7 @@ export function Pills<T extends string>({
             opacity: opt.disabled ? 0.4 : 1,
           }}
         >
-          {opt.label}
+          {opt.icon ? <Icon icon={opt.icon} width={16} /> : opt.label}
         </button>
       ))}
     </div>

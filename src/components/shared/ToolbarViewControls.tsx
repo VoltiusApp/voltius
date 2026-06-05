@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import { Icon } from "@iconify/react";
 import { ToolbarDropdown } from "./ToolbarDropdown";
+import { Pills } from "./Pills";
 import { matchShortcut } from "@/stores/shortcutStore";
 import { getTagColorStyle } from "@/utils/tagColors";
 
@@ -117,14 +118,13 @@ export function ToolbarViewControls({
     <div className="flex items-center gap-1.5">
       <FilterInput value={search} onChange={onSearchChange} placeholder={filterPlaceholder} width={filterWidth} shortcutId={filterShortcutId} />
 
-      <div className="flex items-center">
-        <ToolbarDropdown
-          icon={LAYOUT_MODE_ICONS[layoutMode]}
-          value={layoutMode}
+      <div className="flex items-center gap-1">
+        <Pills
           options={[
             { value: "grid", label: "Grid", icon: "lucide:layout-grid" },
             { value: "list", label: "List", icon: "lucide:layout-list" },
           ]}
+          value={layoutMode}
           onChange={onLayoutModeChange}
         />
         {availableTags !== undefined && onTagFilterChange && (
