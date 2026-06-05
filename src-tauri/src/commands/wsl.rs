@@ -35,7 +35,12 @@ pub fn list_distros() -> Vec<String> {
         .collect();
     String::from_utf16_lossy(&utf16)
         .lines()
-        .map(|l| l.trim_start_matches('\u{feff}').trim_matches('\0').trim().to_string())
+        .map(|l| {
+            l.trim_start_matches('\u{feff}')
+                .trim_matches('\0')
+                .trim()
+                .to_string()
+        })
         .filter(|l| !l.is_empty() && l != "docker-desktop" && l != "docker-desktop-data")
         .collect()
 }
