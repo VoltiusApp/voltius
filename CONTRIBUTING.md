@@ -20,7 +20,7 @@ Use the format `type: short description` — for example:
 - `feat: add process manager keyboard shortcuts`
 - `chore: update russh to 0.61`
 
-Common types: `feat`, `fix`, `refactor`, `chore`, `docs`, `perf`. Keep the subject line under 72 characters.
+Common types: `feat`, `fix`, `refactor`, `chore`, `docs`, `perf`, `style`. Keep the subject line under 72 characters.
 
 ## Submitting a pull request
 
