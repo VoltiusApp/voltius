@@ -4,6 +4,8 @@ import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useToggleSettingsStore, TOGGLE_DEFS, type ToggleId } from "@/stores/toggleSettingsStore";
 import { useAppSettingsTimestampStore } from "@/stores/appSettingsTimestampStore";
+import { useConnectivitySettingsStore } from "@/stores/connectivitySettingsStore";
+import { KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
 import type { UserDataHandler } from "../handler";
 
 interface AppSettingsData {
@@ -11,6 +13,7 @@ interface AppSettingsData {
   terminal?: { preferredShell: string | null };
   plugins?: { overrides: Record<string, boolean> };
   toggles?: Partial<Record<string, boolean>>;
+  keepalivePreset?: KeepalivePreset;
 }
 
 export const appSettingsHandler: UserDataHandler = {
@@ -28,6 +31,7 @@ export const appSettingsHandler: UserDataHandler = {
       terminal: { preferredShell: terminal.preferredShell },
       plugins: { overrides: plugins.overrides },
       toggles: { ...values },
+      keepalivePreset: useConnectivitySettingsStore.getState().keepalivePreset,
     };
   },
 
@@ -50,6 +54,9 @@ export const appSettingsHandler: UserDataHandler = {
       for (const [id, value] of Object.entries(d.toggles)) {
         if (id in TOGGLE_DEFS && value != null) set(id as ToggleId, value);
       }
+    }
+    if (d.keepalivePreset && d.keepalivePreset in KEEPALIVE_PRESETS) {
+      useConnectivitySettingsStore.setState({ keepalivePreset: d.keepalivePreset });
     }
   },
 

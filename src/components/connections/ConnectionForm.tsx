@@ -2,6 +2,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRe
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import type { Connection, ConnectionFormData, AuthType, VaultOption, JumpHost, EnvVar } from "@/types";
+import { KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useTeamStore } from "@/stores/teamStore";
@@ -32,6 +33,7 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { Toggle } from "@/components/shared/Toggle";
+import { FormSelect } from "@/components/shared/FormSelect";
 import FolderSelector from "@/components/shared/FolderSelector";
 import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
 import { CONNECTION_ICON_OPTIONS, getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, normalizeDistro } from "@/utils/icons";
@@ -44,6 +46,11 @@ import {
   formLabelClass,
   formLabelStyle,
 } from "@/components/shared/Panel";
+
+const KEEPALIVE_SELECT_OPTIONS = [
+  { value: "", label: "Inherit global" },
+  ...(Object.keys(KEEPALIVE_PRESETS) as KeepalivePreset[]).map((p) => ({ value: p, label: KEEPALIVE_PRESETS[p].label })),
+];
 
 interface Props {
   initial?: Connection;
@@ -88,6 +95,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [preCommand, setPreCommand] = useState(initial?.pre_command ?? "");
   const [postCommand, setPostCommand] = useState(initial?.post_command ?? "");
   const [terminalEncoding, setTerminalEncoding] = useState(initial?.terminal_encoding ?? "");
+  const [keepalivePreset, setKeepalivePreset] = useState<KeepalivePreset | "">(initial?.keepalive_preset ?? "");
   const [distro, setDistro] = useState(initial?.distro ?? "");
   const [icon, setIcon] = useState(initial?.icon ?? "");
   const [showDistroPicker, setShowDistroPicker] = useState(false);
@@ -95,7 +103,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [detectingDistro, setDetectingDistro] = useState(false);
   const [distroError, setDistroError] = useState("");
   const [distroPickerRect, setDistroPickerRect] = useState<DOMRect | null>(null);
-  const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.terminal_encoding || initial?.agent_forwarding || initial?.ping_disabled || initial?.shell_integration_disabled);
+  const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.terminal_encoding || initial?.agent_forwarding || initial?.ping_disabled || initial?.shell_integration_disabled || initial?.keepalive_preset);
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
   const defaultVaultId = useDefaultVaultId();
   const [vaultId, setVaultId] = useState<string>(() => initial?.vault_id ?? defaultVaultId);
@@ -233,6 +241,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         icon: icon || undefined,
         ping_disabled: pingDisabled || undefined,
         shell_integration_disabled: shellIntegrationDisabled || undefined,
+        keepalive_preset: keepalivePreset || undefined,
       } as ConnectionFormData,
       password: passwordDirty.current ? password : null,
       privateKey: (!identityId && !keyId && privateKeyDirty.current) ? privateKey : null,
@@ -248,7 +257,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, host, port, username, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, preCommand, postCommand, terminalEncoding, distro, icon, pingDisabled, shellIntegrationDisabled]);
+  useEffect(() => schedule(), [name, host, port, username, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, preCommand, postCommand, terminalEncoding, distro, icon, pingDisabled, shellIntegrationDisabled, keepalivePreset]);
 
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
@@ -547,7 +556,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
               className="flex items-center gap-1.5 text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors w-full pt-1"
             >
               <span>Advanced</span>
-              {!showAdvanced && (jumpHosts.length > 0 || envVars.length > 0 || preCommand || postCommand || terminalEncoding || agentForwarding || pingDisabled || shellIntegrationDisabled) && (
+              {!showAdvanced && (jumpHosts.length > 0 || envVars.length > 0 || preCommand || postCommand || terminalEncoding || agentForwarding || pingDisabled || shellIntegrationDisabled || keepalivePreset) && (
                 <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-[var(--t-accent)]" />
               )}
               <Icon icon={showAdvanced ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} className="ml-auto" />
@@ -629,6 +638,16 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                       onChange={(v) => { markDirty(); setShellIntegrationDisabled(!v); }}
                     />
                   </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-[var(--t-text-dim)] w-full py-1">
+                  <Icon icon="lucide:heart-pulse" width={13} />
+                  <span>Keepalive</span>
+                  <FormSelect
+                    className="ml-auto w-36"
+                    value={keepalivePreset}
+                    options={KEEPALIVE_SELECT_OPTIONS}
+                    onChange={(v) => { markDirty(); setKeepalivePreset(v as KeepalivePreset | ""); }}
+                  />
                 </div>
 
               </div>

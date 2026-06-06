@@ -406,6 +406,28 @@ pub async fn authenticate_handle(
     Ok(())
 }
 
+// Retry transient connect failures: busy/throttling sshd often RSTs new connections.
+const CONNECT_MAX_ATTEMPTS: u32 = 3;
+const CONNECT_RETRY_BACKOFF_MS: u64 = 300;
+
+// Host-key rejections set `rejection_reason` instead, so they never reach here.
+fn is_transient_connect_error(e: &russh::Error) -> bool {
+    use std::io::ErrorKind;
+    match e {
+        russh::Error::IO(io) => matches!(
+            io.kind(),
+            ErrorKind::ConnectionReset
+                | ErrorKind::ConnectionAborted
+                | ErrorKind::ConnectionRefused
+                | ErrorKind::TimedOut
+                | ErrorKind::BrokenPipe
+                | ErrorKind::UnexpectedEof
+        ),
+        russh::Error::HUP | russh::Error::ConnectionTimeout => true,
+        _ => false,
+    }
+}
+
 pub async fn connect(
     app: AppHandle,
     session_id: String,
@@ -422,10 +444,14 @@ pub async fn connect(
     shell_integration: bool,
     known_hosts: Arc<KnownHostsStore>,
     pending_conflicts: Arc<PendingConflicts>,
+    keepalive_interval_secs: u64,
+    keepalive_max: usize,
 ) -> Result<ConnectedSession, String> {
     let config = Arc::new(client::Config {
-        keepalive_interval: Some(std::time::Duration::from_secs(2)),
-        keepalive_max: 2,
+        // interval 0 = keepalive disabled.
+        keepalive_interval: (keepalive_interval_secs > 0)
+            .then(|| std::time::Duration::from_secs(keepalive_interval_secs)),
+        keepalive_max,
         ..Default::default()
     });
 
@@ -437,49 +463,80 @@ pub async fn connect(
     let mut final_routes: RemoteRouteMap = Arc::new(Mutex::new(HashMap::new()));
 
     let mut final_handle: client::Handle<SshClient> = if jump_hosts.is_empty() {
-        // Direct TCP connection
-        let (ssh_client, rejection_reason, routes) = SshClient::new_interactive(
-            host.to_string(),
-            port,
-            Arc::clone(&known_hosts),
-            app.clone(),
-            session_id.clone(),
-            Arc::clone(&pending_conflicts),
-        );
-        final_routes = routes;
-        match client::connect(Arc::clone(&config), (host, port), ssh_client).await {
-            Ok(h) => {
-                emit_step(
-                    &app,
-                    &session_id,
-                    SshStep::TcpConnected,
-                    format!("{}:{}", host, port),
-                );
-                h
-            }
-            Err(e) => {
-                let reason = rejection_reason.lock().await.take();
-                return Err(reason.unwrap_or_else(|| format!("Connection failed: {}", e)));
+        // Rebuilt each attempt: `connect` consumes the handler.
+        let mut attempt = 1;
+        loop {
+            let (ssh_client, rejection_reason, routes) = SshClient::new_interactive(
+                host.to_string(),
+                port,
+                Arc::clone(&known_hosts),
+                app.clone(),
+                session_id.clone(),
+                Arc::clone(&pending_conflicts),
+            );
+            match client::connect(Arc::clone(&config), (host, port), ssh_client).await {
+                Ok(h) => {
+                    final_routes = routes;
+                    emit_step(
+                        &app,
+                        &session_id,
+                        SshStep::TcpConnected,
+                        format!("{}:{}", host, port),
+                    );
+                    break h;
+                }
+                Err(e) => {
+                    let reason = rejection_reason.lock().await.take();
+                    // Reason set = deliberate rejection (host-key/abort); don't retry.
+                    if reason.is_none()
+                        && attempt < CONNECT_MAX_ATTEMPTS
+                        && is_transient_connect_error(&e)
+                    {
+                        tokio::time::sleep(std::time::Duration::from_millis(
+                            CONNECT_RETRY_BACKOFF_MS * attempt as u64,
+                        ))
+                        .await;
+                        attempt += 1;
+                        continue;
+                    }
+                    return Err(reason.unwrap_or_else(|| format!("Connection failed: {}", e)));
+                }
             }
         }
     } else {
-        // Connect to the first jump host via TCP
+        // Rebuilt each attempt: `connect` consumes the handler.
         let first = &jump_hosts[0];
-        let (first_client, rejection_reason) =
-            SshClient::new(first.host.clone(), first.port, Arc::clone(&known_hosts));
-        let mut current_handle = match client::connect(
-            Arc::clone(&config),
-            (first.host.as_str(), first.port),
-            first_client,
-        )
-        .await
-        {
-            Ok(h) => h,
-            Err(e) => {
-                let reason = rejection_reason.lock().await.take();
-                return Err(reason.unwrap_or_else(|| {
-                    format!("Jump host {} connection failed: {}", first.host, e)
-                }));
+        let mut current_handle = {
+            let mut attempt = 1;
+            loop {
+                let (first_client, rejection_reason) =
+                    SshClient::new(first.host.clone(), first.port, Arc::clone(&known_hosts));
+                match client::connect(
+                    Arc::clone(&config),
+                    (first.host.as_str(), first.port),
+                    first_client,
+                )
+                .await
+                {
+                    Ok(h) => break h,
+                    Err(e) => {
+                        let reason = rejection_reason.lock().await.take();
+                        if reason.is_none()
+                            && attempt < CONNECT_MAX_ATTEMPTS
+                            && is_transient_connect_error(&e)
+                        {
+                            tokio::time::sleep(std::time::Duration::from_millis(
+                                CONNECT_RETRY_BACKOFF_MS * attempt as u64,
+                            ))
+                            .await;
+                            attempt += 1;
+                            continue;
+                        }
+                        return Err(reason.unwrap_or_else(|| {
+                            format!("Jump host {} connection failed: {}", first.host, e)
+                        }));
+                    }
+                }
             }
         };
         emit_step(

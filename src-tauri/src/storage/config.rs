@@ -117,6 +117,9 @@ pub struct Connection {
     pub ping_disabled: bool,
     #[serde(default)]
     pub shell_integration_disabled: bool,
+    /// Per-host keepalive preset; None inherits the global setting.
+    #[serde(default)]
+    pub keepalive_preset: Option<String>,
     #[serde(default = "default_ssh")]
     pub connection_type: String,
     #[serde(default)]
@@ -181,6 +184,8 @@ pub struct ConnectionFormData {
     pub ping_disabled: bool,
     #[serde(default)]
     pub shell_integration_disabled: bool,
+    #[serde(default)]
+    pub keepalive_preset: Option<String>,
     #[serde(default = "default_ssh")]
     pub connection_type: String,
     #[serde(default)]
@@ -666,6 +671,7 @@ mod tests {
             pinned: true,
             ping_disabled: false,
             shell_integration_disabled: false,
+            keepalive_preset: None,
             connection_type: "ssh".into(),
             serial_port: Some("/dev/ttyU0".into()),
             serial_baud: Some(9600),
