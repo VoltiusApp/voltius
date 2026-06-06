@@ -16,6 +16,7 @@ export interface ConnectRetryOverride {
 }
 import { sshConnect, sshDisconnect, sshDetectDistro, sshSendInput } from "@/services/ssh";
 import { resolveKeepalive } from "@/utils/keepalive";
+import { resolveDisableOverride } from "@/utils/inheritedSetting";
 import { getGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
 import { localConnect, localDisconnect } from "@/services/local";
 import { serialConnect, serialDisconnect } from "@/services/serial";
@@ -172,7 +173,7 @@ async function connectSshSession(
       agentForwarding: connection.agent_forwarding ?? false,
       preCommand,
       autoForward: getToggle("auto-forward"),
-      shellIntegration: getToggle("shell-integration") && !connection.shell_integration_disabled,
+      shellIntegration: resolveDisableOverride(connection.shell_integration_disabled, getToggle("shell-integration")),
       ...keepaliveArgs(connection),
     });
     set((s) => ({
@@ -709,7 +710,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       await sshDisconnect(sessionId).catch(() => {});
       const credentials = await resolveConnectionCredentials(connection);
 
-      await sshConnect({ sessionId, host: connection.host, port: connection.port, username: credentials.username, password: credentials.password, privateKey: credentials.privateKey, passphrase: credentials.passphrase, connectionId: connection.id, autoForward: getToggle("auto-forward"), shellIntegration: getToggle("shell-integration") && !connection.shell_integration_disabled, ...keepaliveArgs(connection) });
+      await sshConnect({ sessionId, host: connection.host, port: connection.port, username: credentials.username, password: credentials.password, privateKey: credentials.privateKey, passphrase: credentials.passphrase, connectionId: connection.id, autoForward: getToggle("auto-forward"), shellIntegration: resolveDisableOverride(connection.shell_integration_disabled, getToggle("shell-integration")), ...keepaliveArgs(connection) });
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
@@ -848,7 +849,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         agentForwarding: connection.agent_forwarding ?? false,
         preCommand: connection.pre_command ?? undefined,
         autoForward: getToggle("auto-forward"),
-        shellIntegration: getToggle("shell-integration") && !connection.shell_integration_disabled,
+        shellIntegration: resolveDisableOverride(connection.shell_integration_disabled, getToggle("shell-integration")),
       });
       connectOverrides.delete(sessionId);
       set((s) => ({

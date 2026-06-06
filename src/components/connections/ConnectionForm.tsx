@@ -34,6 +34,10 @@ import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
+import { DirtyDot, ResetButton } from "@/components/settings/sections/shared";
+import { useToggle } from "@/stores/toggleSettingsStore";
+import { useGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
+import { resolveDisableOverride } from "@/utils/inheritedSetting";
 import FolderSelector from "@/components/shared/FolderSelector";
 import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
 import { CONNECTION_ICON_OPTIONS, getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, normalizeDistro } from "@/utils/icons";
@@ -46,11 +50,6 @@ import {
   formLabelClass,
   formLabelStyle,
 } from "@/components/shared/Panel";
-
-const KEEPALIVE_SELECT_OPTIONS = [
-  { value: "", label: "Inherit global" },
-  ...(Object.keys(KEEPALIVE_PRESETS) as KeepalivePreset[]).map((p) => ({ value: p, label: KEEPALIVE_PRESETS[p].label })),
-];
 
 interface Props {
   initial?: Connection;
@@ -91,7 +90,9 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [showEnvVars, setShowEnvVars] = useState(false);
   const [agentForwarding, setAgentForwarding] = useState(initial?.agent_forwarding ?? false);
   const [pingDisabled, setPingDisabled] = useState(initial?.ping_disabled ?? false);
-  const [shellIntegrationDisabled, setShellIntegrationDisabled] = useState(initial?.shell_integration_disabled ?? false);
+  const [shellIntegrationDisabled, setShellIntegrationDisabled] = useState<boolean | undefined>(initial?.shell_integration_disabled);
+  const [globalShellIntegration] = useToggle("shell-integration");
+  const [globalKeepalive] = useGlobalKeepalivePreset();
   const [preCommand, setPreCommand] = useState(initial?.pre_command ?? "");
   const [postCommand, setPostCommand] = useState(initial?.post_command ?? "");
   const [terminalEncoding, setTerminalEncoding] = useState(initial?.terminal_encoding ?? "");
@@ -103,7 +104,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [detectingDistro, setDetectingDistro] = useState(false);
   const [distroError, setDistroError] = useState("");
   const [distroPickerRect, setDistroPickerRect] = useState<DOMRect | null>(null);
-  const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.terminal_encoding || initial?.agent_forwarding || initial?.ping_disabled || initial?.shell_integration_disabled || initial?.keepalive_preset);
+  const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.terminal_encoding || initial?.agent_forwarding || initial?.ping_disabled || initial?.shell_integration_disabled !== undefined || initial?.keepalive_preset);
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
   const defaultVaultId = useDefaultVaultId();
   const [vaultId, setVaultId] = useState<string>(() => initial?.vault_id ?? defaultVaultId);
@@ -240,7 +241,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         distro: distro || undefined,
         icon: icon || undefined,
         ping_disabled: pingDisabled || undefined,
-        shell_integration_disabled: shellIntegrationDisabled || undefined,
+        shell_integration_disabled: shellIntegrationDisabled,
         keepalive_preset: keepalivePreset || undefined,
       } as ConnectionFormData,
       password: passwordDirty.current ? password : null,
@@ -281,6 +282,11 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   };
 
   const visibleIcon = icon || distro;
+
+  const keepaliveOptions = useMemo(() => [
+    { value: "", label: `Inherit (${KEEPALIVE_PRESETS[globalKeepalive].label})` },
+    ...(Object.keys(KEEPALIVE_PRESETS) as KeepalivePreset[]).map((p) => ({ value: p, label: KEEPALIVE_PRESETS[p].label })),
+  ], [globalKeepalive]);
 
   const filteredIcons = useMemo(() => {
     const query = distroSearch.trim().toLowerCase();
@@ -556,7 +562,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
               className="flex items-center gap-1.5 text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors w-full pt-1"
             >
               <span>Advanced</span>
-              {!showAdvanced && (jumpHosts.length > 0 || envVars.length > 0 || preCommand || postCommand || terminalEncoding || agentForwarding || pingDisabled || shellIntegrationDisabled || keepalivePreset) && (
+              {!showAdvanced && (jumpHosts.length > 0 || envVars.length > 0 || preCommand || postCommand || terminalEncoding || agentForwarding || pingDisabled || shellIntegrationDisabled !== undefined || keepalivePreset) && (
                 <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-[var(--t-accent)]" />
               )}
               <Icon icon={showAdvanced ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} className="ml-auto" />
@@ -629,15 +635,24 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                     />
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-[var(--t-text-dim)] w-full py-1">
+                <div className="group flex items-center gap-1.5 text-xs text-[var(--t-text-dim)] w-full py-1">
                   <Icon icon="lucide:terminal" width={13} />
                   <span>Shell Integration</span>
-                  <span className="ml-auto">
-                    <Toggle
-                      checked={!shellIntegrationDisabled}
-                      onChange={(v) => { markDirty(); setShellIntegrationDisabled(!v); }}
-                    />
-                  </span>
+                  <div className="ml-auto flex items-center gap-2">
+                    {shellIntegrationDisabled !== undefined && (
+                      <ResetButton onReset={() => { markDirty(); setShellIntegrationDisabled(undefined); }} />
+                    )}
+                    {shellIntegrationDisabled !== undefined && <DirtyDot />}
+                    <span
+                      style={{ opacity: shellIntegrationDisabled === undefined ? 0.45 : 1 }}
+                      title={shellIntegrationDisabled === undefined ? `Following global (${globalShellIntegration ? "On" : "Off"})` : "Overriding global for this host"}
+                    >
+                      <Toggle
+                        checked={resolveDisableOverride(shellIntegrationDisabled, globalShellIntegration)}
+                        onChange={(v) => { markDirty(); setShellIntegrationDisabled(v ? undefined : true); }}
+                      />
+                    </span>
+                  </div>
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-[var(--t-text-dim)] w-full py-1">
                   <Icon icon="lucide:heart-pulse" width={13} />
@@ -645,7 +660,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                   <FormSelect
                     className="ml-auto w-36"
                     value={keepalivePreset}
-                    options={KEEPALIVE_SELECT_OPTIONS}
+                    options={keepaliveOptions}
                     onChange={(v) => { markDirty(); setKeepalivePreset(v as KeepalivePreset | ""); }}
                   />
                 </div>

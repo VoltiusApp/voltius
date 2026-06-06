@@ -115,8 +115,10 @@ pub struct Connection {
     pub pinned: bool,
     #[serde(default)]
     pub ping_disabled: bool,
-    #[serde(default)]
-    pub shell_integration_disabled: bool,
+    /// Absent inherits the global toggle; Some(true) forces shell integration
+    /// off for this host. (Force-on isn't stored — not sync-safe as a bool.)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shell_integration_disabled: Option<bool>,
     /// Per-host keepalive preset; None inherits the global setting.
     #[serde(default)]
     pub keepalive_preset: Option<String>,
@@ -183,7 +185,7 @@ pub struct ConnectionFormData {
     #[serde(default)]
     pub ping_disabled: bool,
     #[serde(default)]
-    pub shell_integration_disabled: bool,
+    pub shell_integration_disabled: Option<bool>,
     #[serde(default)]
     pub keepalive_preset: Option<String>,
     #[serde(default = "default_ssh")]
@@ -301,12 +303,21 @@ fn migrate_vault_id(obj: &mut serde_json::Map<String, serde_json::Value>) {
     obj.insert("vault_id".to_string(), serde_json::Value::String(vault_id));
 }
 
+/// Legacy `shell_integration_disabled: false` (= follow global) becomes absent
+/// (inherit). `true` is kept; new code never writes `false`, so this is idempotent.
+fn migrate_shell_integration(obj: &mut serde_json::Map<String, serde_json::Value>) {
+    if obj.get("shell_integration_disabled") == Some(&serde_json::Value::Bool(false)) {
+        obj.remove("shell_integration_disabled");
+    }
+}
+
 fn parse_with_migration<T: serde::de::DeserializeOwned>(data: &str) -> Vec<T> {
     let raw: Vec<serde_json::Value> = serde_json::from_str(data).unwrap_or_default();
     raw.into_iter()
         .filter_map(|mut v| {
             if let serde_json::Value::Object(ref mut map) = v {
                 migrate_vault_id(map);
+                migrate_shell_integration(map);
             }
             serde_json::from_value(v).ok()
         })
@@ -670,7 +681,7 @@ mod tests {
             terminal_encoding: Some("utf-8".into()),
             pinned: true,
             ping_disabled: false,
-            shell_integration_disabled: false,
+            shell_integration_disabled: None,
             keepalive_preset: None,
             connection_type: "ssh".into(),
             serial_port: Some("/dev/ttyU0".into()),
