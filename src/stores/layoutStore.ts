@@ -142,12 +142,12 @@ function removeLeaf(root: PaneNode, paneId: string): { root: PaneNode | null; re
 
   const first = removeLeaf(root.first, paneId);
   if (first.removed) {
-    return { root: first.root ?? root.second, removed: first.removed };
+    return { root: first.root ? { ...root, first: first.root } : root.second, removed: first.removed };
   }
 
   const second = removeLeaf(root.second, paneId);
   if (second.removed) {
-    return { root: second.root ?? root.first, removed: second.removed };
+    return { root: second.root ? { ...root, second: second.root } : root.first, removed: second.removed };
   }
 
   return { root, removed: null };
