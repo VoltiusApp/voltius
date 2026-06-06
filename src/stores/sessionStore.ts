@@ -444,7 +444,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   connectDirect: async (connection) => {
     const sessionId = crypto.randomUUID();
-    await startSession(set as any, connection, sessionId);
+    await startSession(set as SessionSetter, connection, sessionId);
   },
 
   connectLocal: async () => {
@@ -584,21 +584,21 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           ? { ...sess, serialConfig: params, status: "connecting" as const, errorMessage: undefined }
           : sess,
       ),
-    }) as any);
+    }));
     try {
       await serialConnect(params);
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
         ),
-      }) as any);
+      }));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
         ),
-      }) as any);
+      }));
     }
   },
 
@@ -609,7 +609,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           ? { ...sess, serialConfig: undefined, status: "connecting" as const, errorMessage: undefined }
           : sess,
       ),
-    }) as any);
+    }));
   },
 
   disconnect: async (sessionId) => {
@@ -631,20 +631,20 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         state.activeSessionId === sessionId
           ? (remaining[remaining.length - 1]?.id ?? null)
       : state.activeSessionId,
-    } as any);
+    });
     useLayoutStore.getState().removeSession(sessionId);
     useTerminalCwdStore.getState().clear(sessionId);
     usePanelSftpStore.getState().closeSession(sessionId);
   },
 
-  setActive: (sessionId) => set({ activeSessionId: sessionId } as any),
+  setActive: (sessionId) => set({ activeSessionId: sessionId }),
 
   markDisconnected: (sessionId) =>
     set((s) => ({
       sessions: s.sessions.map((sess) =>
         sess.id === sessionId ? { ...sess, status: "disconnected" as const } : sess,
       ),
-    }) as any),
+    })),
 
   reconnect: async (sessionId) => {
     const session = get().sessions.find((s) => s.id === sessionId);
@@ -865,7 +865,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         state.activeSessionId === sessionId
           ? (remaining[remaining.length - 1]?.id ?? null)
       : state.activeSessionId,
-    } as any);
+    });
     useLayoutStore.getState().removeSession(sessionId);
     useTerminalCwdStore.getState().clear(sessionId);
     usePanelSftpStore.getState().closeSession(sessionId);
