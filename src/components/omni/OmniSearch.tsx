@@ -501,6 +501,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           username: i.user,
           auth_type: "password",
           tags: [],
+          vault_id: "personal",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           last_used_at: null,
