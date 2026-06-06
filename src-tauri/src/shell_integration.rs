@@ -189,6 +189,7 @@ fish)
   exec fish -l -i </dev/tty
   ;;
 *)
+  if command -v bash >/dev/null 2>&1; then
   RCFILE_TMP=$(mktemp 2>/dev/null) || exec bash -l -i </dev/tty
   cat > "$RCFILE_TMP" <<'EOF'
 # Replicate bash's own startup so the session matches a normal interactive
@@ -210,6 +211,18 @@ esac
 __voltius_pwd 2>/dev/null
 EOF
   exec bash --rcfile "$RCFILE_TMP" -i </dev/tty
+  else
+  # No bash on the remote (busybox/dash-only host). Hooking OSC 7 into a POSIX
+  # sh via an $ENV file keeps integration working; without this branch the
+  # `exec bash` above would fail with 127, the sh would exit, and the session
+  # would loop disconnect/reconnect.
+  ENVF=$(mktemp 2>/dev/null) || exec sh -i </dev/tty
+  cat > "$ENVF" <<'EOF'
+__voltius_pwd() { printf '\033]7;file://%s%s\007' "${HOSTNAME:-}" "$PWD"; }
+PS1='$(__voltius_pwd)'"${PS1:-$ }"
+EOF
+  ENV="$ENVF" exec sh -i </dev/tty
+  fi
   ;;
 esac
 "#;
