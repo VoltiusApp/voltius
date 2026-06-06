@@ -141,13 +141,11 @@ export default function TitleBar() {
         leaveMultiplayerSession(sessionId);
       }
     }
-    if (session?.type === ("multiplayer" as any)) {
-      removeSession(sessionId);
-    } else if (session?.status === "connected" || session?.status === "connecting") {
+    // disconnect() is async; remove synchronously so the session can't linger as an ungrouped tab
+    if (session?.type !== ("multiplayer" as any) && (session?.status === "connected" || session?.status === "connecting")) {
       disconnect(sessionId);
-    } else {
-      removeSession(sessionId);
     }
+    removeSession(sessionId);
   };
 
   const handleTabClose = (e: React.MouseEvent, sessionId: string) => {
@@ -171,8 +169,8 @@ export default function TitleBar() {
     e.stopPropagation();
     const tab = useLayoutStore.getState().splitTabs.find((candidate) => candidate.id === tabId);
     const ids = tab ? getPaneSessionIds(tab.root) : [];
-    ids.forEach(closeSessionById);
     closeSplitTab(tabId);
+    ids.forEach(closeSessionById);
     if (sessions.length <= ids.length) setActiveNav("hosts");
   };
 
