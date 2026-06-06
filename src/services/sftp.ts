@@ -225,6 +225,11 @@ export async function wslListDistros(): Promise<string[]> {
   return invoke("wsl_list_distros");
 }
 
+/** Windows UNC path of a WSL distro's home dir (falls back to the distro root). */
+export async function wslHomeDir(distro: string): Promise<string> {
+  return invoke("wsl_home_dir", { distro });
+}
+
 export async function fsMkdir(path: string): Promise<void> {
   return invoke("fs_mkdir", { path });
 }
@@ -242,8 +247,8 @@ export async function fsTouch(path: string): Promise<void> {
 }
 
 /** Recursively copy a file or directory on the local filesystem. */
-export async function fsCopy(from: string, to: string): Promise<void> {
-  return invoke("fs_copy", { from, to });
+export async function fsCopy(from: string, to: string, transferId: string): Promise<void> {
+  return invoke("fs_copy", { from, to, transferId });
 }
 
 /** Returns true if path exists on the remote, false otherwise. */

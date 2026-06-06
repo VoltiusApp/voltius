@@ -50,7 +50,41 @@ pub fn list_distros() -> Vec<String> {
     Vec::new()
 }
 
+/// Windows UNC path of the distro's home dir. The bare distro root maps to `/`,
+/// which is root-owned and not writable, so transfers must land in `$HOME`.
+#[cfg(target_os = "windows")]
+pub fn home_dir(distro: &str) -> Option<String> {
+    use std::os::windows::process::CommandExt;
+    let output = std::process::Command::new("wsl.exe")
+        .args(["-d", distro, "--", "sh", "-lc", r#"wslpath -w "$HOME""#])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    // Commands run inside the distro emit UTF-8 (unlike `wsl --list`).
+    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if path.is_empty() {
+        None
+    } else {
+        Some(path)
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn home_dir(_distro: &str) -> Option<String> {
+    None
+}
+
 #[tauri::command]
 pub fn wsl_list_distros() -> Vec<String> {
     list_distros()
+}
+
+/// Home directory of a WSL distro as a Windows path. Falls back to the distro
+/// root if resolution fails.
+#[tauri::command]
+pub fn wsl_home_dir(distro: String) -> String {
+    home_dir(&distro).unwrap_or_else(|| format!(r"\\wsl.localhost\{distro}"))
 }

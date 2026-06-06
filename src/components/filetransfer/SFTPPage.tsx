@@ -9,7 +9,7 @@ import {
   sftpUploadDirTar, sftpDownloadDirTar, sftpTransferDirTar,
   sftpUploadBatchTar, sftpDownloadBatchTar, sftpTransferBatchTar,
   sftpTransfer, sftpTransferDir,
-  sftpExists, fsExists, fsHomeDir,
+  sftpExists, fsExists, fsHomeDir, fsCopy, wslHomeDir,
   pickLocalPath, pickLocalPaths,
 } from "@/services/sftp";
 import { hitTestDropTarget, setExternalDragHover, clearExternalDragHover } from "./internalDrag";
@@ -64,7 +64,7 @@ export default function SFTPPage() {
       let sftpId: string | null = null;
       let cwd = "/";
       if (host.kind === "local") {
-        cwd = host.wslDistro ? `\\\\wsl.localhost\\${host.wslDistro}` : await fsHomeDir();
+        cwd = host.wslDistro ? await wslHomeDir(host.wslDistro) : await fsHomeDir();
       } else {
         const [creds, jumpHosts] = await Promise.all([
           resolveConnectionCredentials(host.connection),
@@ -159,7 +159,9 @@ export default function SFTPPage() {
     const srcIsLocal = srcHost?.kind === "local";
     const dstIsLocal = dstHost?.kind === "local";
 
-    if (srcIsLocal && !dstIsLocal && dst.sftpId) {
+    if (srcIsLocal && dstIsLocal) {
+      await runTransfer(file.name, dir, (tid) => fsCopy(file.path, destPath, tid), refreshDst);
+    } else if (srcIsLocal && !dstIsLocal && dst.sftpId) {
       await runTransfer(file.name, dir, (tid) => file.isDir
         ? (tarTransferEnabled
             ? sftpUploadDirTar({ sftpId: dst.sftpId!, localPath: file.path, remotePath: destPath, transferId: tid })
@@ -196,7 +198,12 @@ export default function SFTPPage() {
     const dstIsLocal = dstHost?.kind === "local";
     const label      = files.length === 1 ? files[0].name : `${files.length} items`;
 
-    if (srcIsLocal && !dstIsLocal && dst.sftpId) {
+    if (srcIsLocal && dstIsLocal) {
+      for (const file of files) {
+        const destPath = `${dstBase.replace(/\/$/, "")}/${file.name}`;
+        await runTransfer(file.name, dir, (tid) => fsCopy(file.path, destPath, tid), refreshDst);
+      }
+    } else if (srcIsLocal && !dstIsLocal && dst.sftpId) {
       await runTransfer(label, dir, (tid) =>
         sftpUploadBatchTar({ sftpId: dst.sftpId!, localPaths: files.map((f) => f.path), remoteDir: dstBase, transferId: tid }), refreshDst);
     } else if (!srcIsLocal && dstIsLocal && src.sftpId) {

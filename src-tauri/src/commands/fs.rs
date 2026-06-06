@@ -1,5 +1,12 @@
+use crate::commands::sftp::TransferProgress;
+use crate::sftp::SftpManager;
 use serde::Serialize;
-use std::path::PathBuf;
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
+use tauri::{AppHandle, Emitter, State};
+use tokio_util::sync::CancellationToken;
+
+const COPY_CHUNK_SIZE: usize = 256 * 1024;
 
 fn resolve_home_path(path: &str) -> Result<PathBuf, String> {
     let home = dirs::home_dir().ok_or("Cannot determine home directory")?;
@@ -163,28 +170,95 @@ pub fn fs_touch(path: String) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+// Must mirror `copy_recursive`'s traversal so the total matches bytes transferred.
+fn copy_total_bytes(src: &Path) -> std::io::Result<u64> {
+    let meta = src.symlink_metadata()?;
+    if meta.is_dir() {
+        let mut total = 0u64;
+        for entry in std::fs::read_dir(src)? {
+            total += copy_total_bytes(&entry?.path())?;
+        }
+        Ok(total)
+    } else {
+        Ok(std::fs::metadata(src).map(|m| m.len()).unwrap_or(0))
+    }
+}
+
 /// Recursively copy a file or directory on the local filesystem.
 #[tauri::command]
-pub fn fs_copy(from: String, to: String) -> Result<(), String> {
-    let src = std::path::Path::new(&from);
-    let dst = std::path::Path::new(&to);
-    fn copy_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
-        let meta = src.symlink_metadata()?;
-        if meta.is_dir() {
-            std::fs::create_dir_all(dst)?;
-            for entry in std::fs::read_dir(src)? {
-                let entry = entry?;
-                copy_recursive(&entry.path(), &dst.join(entry.file_name()))?;
+pub async fn fs_copy(
+    app: AppHandle,
+    sftp_state: State<'_, SftpManager>,
+    from: String,
+    to: String,
+    transfer_id: String,
+) -> Result<(), String> {
+    let token = sftp_state.register_transfer(&transfer_id).await;
+    let event = format!("sftp-progress-{}", transfer_id);
+    let result = tokio::task::spawn_blocking(move || {
+        let src = Path::new(&from);
+        let dst = Path::new(&to);
+        let total = copy_total_bytes(src).unwrap_or(0);
+        let mut transferred = 0u64;
+        let emit = |transferred: u64| {
+            let _ = app.emit(&event, TransferProgress { transferred, total });
+        };
+        emit(0);
+
+        fn copy_recursive(
+            src: &Path,
+            dst: &Path,
+            total: u64,
+            transferred: &mut u64,
+            token: &CancellationToken,
+            emit: &dyn Fn(u64),
+        ) -> std::io::Result<()> {
+            if token.is_cancelled() {
+                return Err(std::io::Error::other("Transfer cancelled"));
             }
-        } else {
-            if let Some(parent) = dst.parent() {
-                std::fs::create_dir_all(parent)?;
+            let meta = src.symlink_metadata()?;
+            if meta.is_dir() {
+                std::fs::create_dir_all(dst)?;
+                for entry in std::fs::read_dir(src)? {
+                    let entry = entry?;
+                    copy_recursive(
+                        &entry.path(),
+                        &dst.join(entry.file_name()),
+                        total,
+                        transferred,
+                        token,
+                        emit,
+                    )?;
+                }
+            } else {
+                if let Some(parent) = dst.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+                let mut reader = std::fs::File::open(src)?;
+                let mut writer = std::fs::File::create(dst)?;
+                let mut buf = vec![0u8; COPY_CHUNK_SIZE];
+                loop {
+                    if token.is_cancelled() {
+                        return Err(std::io::Error::other("Transfer cancelled"));
+                    }
+                    let n = reader.read(&mut buf)?;
+                    if n == 0 {
+                        break;
+                    }
+                    writer.write_all(&buf[..n])?;
+                    *transferred += n as u64;
+                    emit(*transferred);
+                }
             }
-            std::fs::copy(src, dst)?;
+            Ok(())
         }
-        Ok(())
-    }
-    copy_recursive(src, dst).map_err(|e| e.to_string())
+
+        copy_recursive(src, dst, total, &mut transferred, &token, &emit).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    sftp_state.finish_transfer(&transfer_id).await;
+    result
 }
 
 /// Compress a local file or directory into a .tar.gz archive.

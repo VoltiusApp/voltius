@@ -49,7 +49,7 @@ async function uploadEntries(files: FileEntry[], target: UploadTarget): Promise<
   for (const file of files) {
     const destPath = `${dstBase}/${file.name}`;
     if (target.isLocal) {
-      await runTransfer(file.name, "→", async () => { await fsCopy(file.path, destPath); }, target.onRefresh);
+      await runTransfer(file.name, "→", (tid) => fsCopy(file.path, destPath, tid), target.onRefresh);
     } else if (target.sftpId) {
       const sftpId = target.sftpId;
       await runTransfer(file.name, "→", (tid) => file.isDir
