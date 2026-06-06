@@ -38,7 +38,8 @@ hkdf = "0.12"
 sha2 = "0.10"
 rand = "0.8"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
-keyring = { version = "3", features = ["linux-native", "windows-native", "apple-native"] }
+keyring = "4"
+keyring-core = "1"
 base64 = "0.22"
 crypto_secretbox = "0.1"
 rusty-leveldb = "4"

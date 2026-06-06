@@ -213,6 +213,14 @@ async fn updater_check(app: tauri::AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // keyring 4 requires registering a platform credential store before any
+    // `Entry` use; `false` selects keyutils on Linux (matching the previous
+    // `linux-native` feature), the Keychain on macOS, and Credential Manager
+    // on Windows.
+    if let Err(e) = keyring::use_native_store(false) {
+        log::error!("Failed to initialize OS keychain store: {e}");
+    }
+
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
