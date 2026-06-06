@@ -208,7 +208,6 @@ pub async fn fs_copy(
         fn copy_recursive(
             src: &Path,
             dst: &Path,
-            total: u64,
             transferred: &mut u64,
             token: &CancellationToken,
             emit: &dyn Fn(u64),
@@ -224,7 +223,6 @@ pub async fn fs_copy(
                     copy_recursive(
                         &entry.path(),
                         &dst.join(entry.file_name()),
-                        total,
                         transferred,
                         token,
                         emit,
@@ -253,7 +251,7 @@ pub async fn fs_copy(
             Ok(())
         }
 
-        copy_recursive(src, dst, total, &mut transferred, &token, &emit).map_err(|e| e.to_string())
+        copy_recursive(src, dst, &mut transferred, &token, &emit).map_err(|e| e.to_string())
     })
     .await
     .map_err(|e| e.to_string())?;
