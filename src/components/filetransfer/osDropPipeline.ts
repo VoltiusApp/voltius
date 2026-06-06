@@ -4,7 +4,7 @@ import {
   sftpExists, fsExists, fsCopy,
 } from "@/services/sftp";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
-import { getToggle } from "@/stores/toggleSettingsStore";
+import { tarUsable } from "./tarSupport";
 import { type FileEntry } from "./SFTPTypes";
 
 export type UploadTarget = {
@@ -31,12 +31,14 @@ async function statOsPaths(paths: string[]): Promise<FileEntry[]> {
 
 async function uploadEntries(files: FileEntry[], target: UploadTarget): Promise<void> {
   const { runTransfer } = useTransferQueueStore.getState();
-  const tarEnabled = getToggle("sftp-tar");
   const dstBase = target.cwd.replace(/\/$/, "");
+  // Upload archives locally and extracts on the remote: both need tar. Local
+  // targets use fsCopy, so tar never applies there.
+  const useTar = !target.isLocal && target.sftpId ? await tarUsable([target.sftpId], true) : false;
 
   // Batch-tar path: pack everything into one archive when uploading multiple
   // items to a remote target. Mirrors SFTPPage's execBatchTar dispatch.
-  if (!target.isLocal && target.sftpId && tarEnabled && files.length > 1) {
+  if (useTar && target.sftpId && files.length > 1) {
     const sftpId = target.sftpId;
     const label = `${files.length} items`;
     await runTransfer(label, "→", (tid) =>
@@ -53,7 +55,7 @@ async function uploadEntries(files: FileEntry[], target: UploadTarget): Promise<
     } else if (target.sftpId) {
       const sftpId = target.sftpId;
       await runTransfer(file.name, "→", (tid) => file.isDir
-        ? (tarEnabled
+        ? (useTar
             ? sftpUploadDirTar({ sftpId, localPath: file.path, remotePath: destPath, transferId: tid })
             : sftpUploadDir({ sftpId, localPath: file.path, remotePath: destPath, transferId: tid }))
         : sftpUpload({ sftpId, localPath: file.path, remotePath: destPath, transferId: tid }),

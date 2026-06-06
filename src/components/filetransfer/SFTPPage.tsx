@@ -14,7 +14,7 @@ import {
 } from "@/services/sftp";
 import { hitTestDropTarget, setExternalDragHover, clearExternalDragHover } from "./internalDrag";
 import { triggerUpload } from "./osDropPipeline";
-import { useToggle } from "@/stores/toggleSettingsStore";
+import { tarUsable } from "./tarSupport";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
 import {
@@ -30,7 +30,6 @@ import { useUIStore } from "@/stores/uiStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 
 export default function SFTPPage() {
-  const [tarTransferEnabled] = useToggle("sftp-tar");
   const sftpPanelOpen = useUIStore((s) => s.sftpPanelOpen);
   const pendingSftpConnectionId = useUIStore((s) => s.pendingSftpConnectionId);
   const clearPendingSftpConnection = useUIStore((s) => s.clearPendingSftpConnection);
@@ -144,7 +143,7 @@ export default function SFTPPage() {
 
   // ── Transfers ──────────────────────────────────────────────────────────────
 
-  const execTransfer = useCallback(async (file: FileEntry, fromSide: "left" | "right", targetFolder?: string) => {
+  const execTransfer = useCallback(async (file: FileEntry, fromSide: "left" | "right", useTar: boolean, targetFolder?: string) => {
     const src     = fromSide === "left" ? leftPhase  : rightPhase;
     const dst     = fromSide === "left" ? rightPhase : leftPhase;
     const srcHost = fromSide === "left" ? leftHost   : rightHost;
@@ -163,24 +162,24 @@ export default function SFTPPage() {
       await runTransfer(file.name, dir, (tid) => fsCopy(file.path, destPath, tid), refreshDst);
     } else if (srcIsLocal && !dstIsLocal && dst.sftpId) {
       await runTransfer(file.name, dir, (tid) => file.isDir
-        ? (tarTransferEnabled
+        ? (useTar
             ? sftpUploadDirTar({ sftpId: dst.sftpId!, localPath: file.path, remotePath: destPath, transferId: tid })
             : sftpUploadDir({ sftpId: dst.sftpId!, localPath: file.path, remotePath: destPath, transferId: tid }))
         : sftpUpload({ sftpId: dst.sftpId!, localPath: file.path, remotePath: destPath, transferId: tid }), refreshDst);
     } else if (!srcIsLocal && dstIsLocal && src.sftpId) {
       await runTransfer(file.name, dir, (tid) => file.isDir
-        ? (tarTransferEnabled
+        ? (useTar
             ? sftpDownloadDirTar({ sftpId: src.sftpId!, remotePath: file.path, localPath: destPath, transferId: tid })
             : sftpDownloadDir({ sftpId: src.sftpId!, remotePath: file.path, localPath: destPath, transferId: tid }))
         : sftpDownload({ sftpId: src.sftpId!, remotePath: file.path, localPath: destPath, transferId: tid }), refreshDst);
     } else if (!srcIsLocal && !dstIsLocal && src.sftpId && dst.sftpId) {
       await runTransfer(file.name, dir, (tid) => file.isDir
-        ? (tarTransferEnabled
+        ? (useTar
             ? sftpTransferDirTar({ srcSftpId: src.sftpId!, srcPath: file.path, dstSftpId: dst.sftpId!, dstPath: destPath, transferId: tid })
             : sftpTransferDir({ srcSftpId: src.sftpId!, srcPath: file.path, dstSftpId: dst.sftpId!, dstPath: destPath, transferId: tid }))
         : sftpTransfer({ srcSftpId: src.sftpId!, srcPath: file.path, dstSftpId: dst.sftpId!, dstPath: destPath, transferId: tid }), refreshDst);
     }
-  }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer, tarTransferEnabled]);
+  }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer]);
 
   // Batch-tar path: packs all selected items into one archive per transfer.
   const execBatchTar = useCallback(async (files: FileEntry[], fromSide: "left" | "right", targetFolder?: string) => {
@@ -215,14 +214,26 @@ export default function SFTPPage() {
     }
   }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer]);
 
-  // Dispatch: batch-tar for multiple items when enabled, otherwise per-file.
-  const executeFiles = useCallback((files: FileEntry[], fromSide: "left" | "right", targetFolder?: string) => {
-    if (tarTransferEnabled && files.length > 1) {
-      void execBatchTar(files, fromSide, targetFolder);
+  // Dispatch: batch-tar for multiple items when tar is usable, otherwise
+  // per-file. Falls back to plain SFTP whenever a relevant host lacks tar.
+  const executeFiles = useCallback(async (files: FileEntry[], fromSide: "left" | "right", targetFolder?: string) => {
+    const src = fromSide === "left" ? leftPhase : rightPhase;
+    const dst = fromSide === "left" ? rightPhase : leftPhase;
+    const srcHost = fromSide === "left" ? leftHost : rightHost;
+    const dstHost = fromSide === "left" ? rightHost : leftHost;
+    const srcIsLocal = srcHost?.kind === "local";
+    const dstIsLocal = dstHost?.kind === "local";
+    const srcSftpId = src.tag === "connected" ? src.sftpId : null;
+    const dstSftpId = dst.tag === "connected" ? dst.sftpId : null;
+    // local↔local uses fsCopy, never tar.
+    const useTar = !(srcIsLocal && dstIsLocal)
+      && await tarUsable([srcSftpId, dstSftpId], srcIsLocal || dstIsLocal);
+    if (useTar && files.length > 1) {
+      await execBatchTar(files, fromSide, targetFolder);
     } else {
-      for (const file of files) void execTransfer(file, fromSide, targetFolder);
+      for (const file of files) await execTransfer(file, fromSide, useTar, targetFolder);
     }
-  }, [tarTransferEnabled, execBatchTar, execTransfer]);
+  }, [leftPhase, rightPhase, leftHost, rightHost, execBatchTar, execTransfer]);
 
   const triggerTransfer = useCallback(async (files: FileEntry[], fromSide: "left" | "right", targetFolder?: string) => {
     const dst     = fromSide === "left" ? rightPhase : leftPhase;
@@ -248,12 +259,12 @@ export default function SFTPPage() {
         conflicts,
         toTransfer,
         totalConflicts: conflicts.length,
-        execute: (files) => executeFiles(files, fromSide, targetFolder),
+        execute: (files) => void executeFiles(files, fromSide, targetFolder),
       });
       return;
     }
 
-    executeFiles(files, fromSide, targetFolder);
+    void executeFiles(files, fromSide, targetFolder);
   }, [leftPhase, rightPhase, leftHost, rightHost, executeFiles, setPending]);
 
   const transfer = useCallback((direction: "LR" | "RL") => {
@@ -344,8 +355,10 @@ export default function SFTPPage() {
     const sftpId = phase.sftpId;
     const base = dstDir.replace(/[\\/]$/, "");
     const label = files.length === 1 ? files[0].name : `${files.length} items`;
+    // Download archives on the remote and extracts locally: both need tar.
+    const useTar = await tarUsable([sftpId], true);
 
-    if (tarTransferEnabled && files.length > 1) {
+    if (useTar && files.length > 1) {
       await runTransfer(label, "←", (tid) =>
         sftpDownloadBatchTar({ sftpId, remotePaths: files.map((f) => f.path), localDir: base, transferId: tid }));
       return;
@@ -355,12 +368,12 @@ export default function SFTPPage() {
       const sep = /\\/.test(base) ? "\\" : "/";
       const localPath = `${base}${sep}${file.name}`;
       await runTransfer(file.name, "←", (tid) => file.isDir
-        ? (tarTransferEnabled
+        ? (useTar
             ? sftpDownloadDirTar({ sftpId, remotePath: file.path, localPath, transferId: tid })
             : sftpDownloadDir({ sftpId, remotePath: file.path, localPath, transferId: tid }))
         : sftpDownload({ sftpId, remotePath: file.path, localPath, transferId: tid }));
     }
-  }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer, tarTransferEnabled]);
+  }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer]);
 
   // ── Derived state ──────────────────────────────────────────────────────────
 

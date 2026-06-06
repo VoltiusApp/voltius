@@ -60,6 +60,16 @@ pub async fn sftp_extract(
 
 // ── Tar-based directory transfer ──────────────────────────────────────────────
 
+/// True if `tar` is available on the remote host.
+#[tauri::command]
+pub async fn sftp_tar_available(
+    sftp_state: State<'_, SftpManager>,
+    sftp_id: String,
+) -> Result<bool, String> {
+    let cmd = "command -v tar >/dev/null 2>&1; echo __TF_EXIT__:$?".to_string();
+    Ok(sftp_state.exec_command(&sftp_id, &cmd).await.is_ok())
+}
+
 /// Upload multiple local files/directories as a single tar.gz batch.
 #[tauri::command]
 pub async fn sftp_upload_batch_tar(
