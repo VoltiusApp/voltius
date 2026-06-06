@@ -23,6 +23,7 @@ interface TransferQueueStore {
     direction: "→" | "←",
     fn: (transferId: string) => Promise<void>,
     onDone?: () => void,
+    accelerated?: boolean,
   ) => Promise<void>;
   cancelTransfer: (id: string) => void;
   cancelAll: () => void;
@@ -60,9 +61,9 @@ export const useTransferQueueStore = create<TransferQueueStore>((set, get) => ({
     if (resolution === "overwrite-all") { finish([...toTransfer, current, ...remaining]); return; }
   },
 
-  runTransfer: async (label, direction, fn, onDone) => {
+  runTransfer: async (label, direction, fn, onDone, accelerated = false) => {
     const tid = genId();
-    const entry: Transfer = { id: tid, label, direction, transferred: 0, total: 0, status: "running" };
+    const entry: Transfer = { id: tid, label, direction, transferred: 0, total: 0, status: "running", accelerated };
     set((s) => ({ transfers: [entry, ...s.transfers.slice(0, MAX_TRANSFERS - 1)] }));
     const startTime = Date.now();
     const unlisten = await onTransferProgress(tid, (p) => {

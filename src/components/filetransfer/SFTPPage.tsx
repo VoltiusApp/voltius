@@ -165,19 +165,19 @@ export default function SFTPPage() {
         ? (useTar
             ? sftpUploadDirTar({ sftpId: dst.sftpId!, localPath: file.path, remotePath: destPath, transferId: tid })
             : sftpUploadDir({ sftpId: dst.sftpId!, localPath: file.path, remotePath: destPath, transferId: tid }))
-        : sftpUpload({ sftpId: dst.sftpId!, localPath: file.path, remotePath: destPath, transferId: tid }), refreshDst);
+        : sftpUpload({ sftpId: dst.sftpId!, localPath: file.path, remotePath: destPath, transferId: tid }), refreshDst, file.isDir && useTar);
     } else if (!srcIsLocal && dstIsLocal && src.sftpId) {
       await runTransfer(file.name, dir, (tid) => file.isDir
         ? (useTar
             ? sftpDownloadDirTar({ sftpId: src.sftpId!, remotePath: file.path, localPath: destPath, transferId: tid })
             : sftpDownloadDir({ sftpId: src.sftpId!, remotePath: file.path, localPath: destPath, transferId: tid }))
-        : sftpDownload({ sftpId: src.sftpId!, remotePath: file.path, localPath: destPath, transferId: tid }), refreshDst);
+        : sftpDownload({ sftpId: src.sftpId!, remotePath: file.path, localPath: destPath, transferId: tid }), refreshDst, file.isDir && useTar);
     } else if (!srcIsLocal && !dstIsLocal && src.sftpId && dst.sftpId) {
       await runTransfer(file.name, dir, (tid) => file.isDir
         ? (useTar
             ? sftpTransferDirTar({ srcSftpId: src.sftpId!, srcPath: file.path, dstSftpId: dst.sftpId!, dstPath: destPath, transferId: tid })
             : sftpTransferDir({ srcSftpId: src.sftpId!, srcPath: file.path, dstSftpId: dst.sftpId!, dstPath: destPath, transferId: tid }))
-        : sftpTransfer({ srcSftpId: src.sftpId!, srcPath: file.path, dstSftpId: dst.sftpId!, dstPath: destPath, transferId: tid }), refreshDst);
+        : sftpTransfer({ srcSftpId: src.sftpId!, srcPath: file.path, dstSftpId: dst.sftpId!, dstPath: destPath, transferId: tid }), refreshDst, file.isDir && useTar);
     }
   }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer]);
 
@@ -204,13 +204,13 @@ export default function SFTPPage() {
       }
     } else if (srcIsLocal && !dstIsLocal && dst.sftpId) {
       await runTransfer(label, dir, (tid) =>
-        sftpUploadBatchTar({ sftpId: dst.sftpId!, localPaths: files.map((f) => f.path), remoteDir: dstBase, transferId: tid }), refreshDst);
+        sftpUploadBatchTar({ sftpId: dst.sftpId!, localPaths: files.map((f) => f.path), remoteDir: dstBase, transferId: tid }), refreshDst, true);
     } else if (!srcIsLocal && dstIsLocal && src.sftpId) {
       await runTransfer(label, dir, (tid) =>
-        sftpDownloadBatchTar({ sftpId: src.sftpId!, remotePaths: files.map((f) => f.path), localDir: dstBase, transferId: tid }), refreshDst);
+        sftpDownloadBatchTar({ sftpId: src.sftpId!, remotePaths: files.map((f) => f.path), localDir: dstBase, transferId: tid }), refreshDst, true);
     } else if (!srcIsLocal && !dstIsLocal && src.sftpId && dst.sftpId) {
       await runTransfer(label, dir, (tid) =>
-        sftpTransferBatchTar({ srcSftpId: src.sftpId!, srcPaths: files.map((f) => f.path), dstSftpId: dst.sftpId!, dstDir: dstBase, transferId: tid }), refreshDst);
+        sftpTransferBatchTar({ srcSftpId: src.sftpId!, srcPaths: files.map((f) => f.path), dstSftpId: dst.sftpId!, dstDir: dstBase, transferId: tid }), refreshDst, true);
     }
   }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer]);
 
@@ -359,7 +359,7 @@ export default function SFTPPage() {
 
     if (useTar && files.length > 1) {
       await runTransfer(label, "←", (tid) =>
-        sftpDownloadBatchTar({ sftpId, remotePaths: files.map((f) => f.path), localDir: base, transferId: tid }));
+        sftpDownloadBatchTar({ sftpId, remotePaths: files.map((f) => f.path), localDir: base, transferId: tid }), undefined, true);
       return;
     }
 
@@ -370,7 +370,7 @@ export default function SFTPPage() {
         ? (useTar
             ? sftpDownloadDirTar({ sftpId, remotePath: file.path, localPath, transferId: tid })
             : sftpDownloadDir({ sftpId, remotePath: file.path, localPath, transferId: tid }))
-        : sftpDownload({ sftpId, remotePath: file.path, localPath, transferId: tid }));
+        : sftpDownload({ sftpId, remotePath: file.path, localPath, transferId: tid }), undefined, file.isDir && useTar);
     }
   }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer]);
 

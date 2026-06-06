@@ -41,6 +41,7 @@ async function uploadEntries(files: FileEntry[], target: UploadTarget): Promise<
     await runTransfer(label, "→", (tid) =>
       sftpUploadBatchTar({ sftpId, localPaths: files.map((f) => f.path), remoteDir: dstBase, transferId: tid }),
       target.onRefresh,
+      true,
     );
     return;
   }
@@ -57,6 +58,7 @@ async function uploadEntries(files: FileEntry[], target: UploadTarget): Promise<
             : sftpUploadDir({ sftpId, localPath: file.path, remotePath: destPath, transferId: tid }))
         : sftpUpload({ sftpId, localPath: file.path, remotePath: destPath, transferId: tid }),
         target.onRefresh,
+        file.isDir && useTar,
       );
     }
   }
