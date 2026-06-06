@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { matchesSearch, compareConnections } from "@/utils/connectionFilter";
 import { ErrorBanner } from "@/components/shared/ErrorBanner";
 import { Icon } from "@iconify/react";
-import { useConnectionStore } from "@/stores/connectionStore";
+import { useConnectionStore, connectionToFormData } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -490,7 +490,7 @@ export default function HostsPage() {
         icon: selectedConns.every((c) => c.ping_disabled) ? "lucide:wifi" : "lucide:wifi-off",
         onClick: () => {
           const allDisabled = selectedConns.every((c) => c.ping_disabled);
-          void Promise.all(selectedConns.map((c) => updateConnection(c.id, { name: c.name, host: c.host, port: c.port, username: c.username, auth_type: c.auth_type, tags: c.tags, identity_id: c.identity_id, key_id: c.key_id, folder_id: c.folder_id, vault_id: c.vault_id, jump_hosts: c.jump_hosts, env_vars: c.env_vars, agent_forwarding: c.agent_forwarding, pre_command: c.pre_command, post_command: c.post_command, terminal_encoding: c.terminal_encoding, pinned: c.pinned, ping_disabled: !allDisabled, shell_integration_disabled: c.shell_integration_disabled })));
+          void Promise.all(selectedConns.map((c) => updateConnection(c.id, { ...connectionToFormData(c), ping_disabled: !allDisabled })));
         },
       },
       {

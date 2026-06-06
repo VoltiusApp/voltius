@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Connection, ConnectionFormData, TerminalSession, SerialConnectParams } from "@/types";
+import type { Connection, TerminalSession, SerialConnectParams } from "@/types";
 
 /**
  * Auth/username supplied through the connection overlay when a host is missing
@@ -26,7 +26,7 @@ import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import { useIdentityStore } from "@/stores/identityStore";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportAuditClientEvent, type ClientAuditAction } from "@/services/auditReporter";
-import { useConnectionStore } from "./connectionStore";
+import { useConnectionStore, connectionToFormData } from "./connectionStore";
 import { useUIStore } from "./uiStore";
 import { useTerminalSettingsStore } from "./terminalSettingsStore";
 import { getToggle } from "./toggleSettingsStore";
@@ -320,20 +320,6 @@ async function resolveOverrideAuth(connection: Connection, override: ConnectRetr
   }
 
   return { username, password, privateKey, passphrase };
-}
-
-function connectionToFormData(c: Connection): ConnectionFormData {
-  return {
-    name: c.name, host: c.host, port: c.port, username: c.username,
-    auth_type: c.auth_type, tags: c.tags, identity_id: c.identity_id, key_id: c.key_id,
-    folder_id: c.folder_id, vault_id: c.vault_id, jump_hosts: c.jump_hosts, env_vars: c.env_vars,
-    agent_forwarding: c.agent_forwarding, pre_command: c.pre_command, post_command: c.post_command,
-    terminal_encoding: c.terminal_encoding, distro: c.distro, icon: c.icon, pinned: c.pinned,
-    ping_disabled: c.ping_disabled, shell_integration_disabled: c.shell_integration_disabled,
-    connection_type: c.connection_type, serial_port: c.serial_port, serial_baud: c.serial_baud,
-    serial_data_bits: c.serial_data_bits, serial_parity: c.serial_parity, serial_stop_bits: c.serial_stop_bits,
-    serial_flow_control: c.serial_flow_control,
-  };
 }
 
 /**

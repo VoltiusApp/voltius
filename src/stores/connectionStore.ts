@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Connection, ConnectionFormData, AuthType } from "@/types";
+import type { Connection, ConnectionFormData } from "@/types";
 import * as api from "@/services/connections";
 import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
@@ -35,6 +35,29 @@ function findTeamConn(
     if (conn) return { teamId, conn };
   }
   return null;
+}
+
+/**
+ * Canonical Connection → ConnectionFormData mapper. Exhaustive against every
+ * field of ConnectionFormData so a full edit payload can be rebuilt from an
+ * existing record without silently dropping fields. `connection_update` is a
+ * near-total replace (see merge_form_into_connection), so any field omitted
+ * from an update payload is wiped — always build partial updates by spreading
+ * this, e.g. `{ ...connectionToFormData(c), ping_disabled: !c.ping_disabled }`.
+ */
+export function connectionToFormData(c: Connection): ConnectionFormData {
+  return {
+    name: c.name, host: c.host, port: c.port, username: c.username,
+    auth_type: c.auth_type, tags: c.tags, identity_id: c.identity_id, key_id: c.key_id,
+    folder_id: c.folder_id, vault_id: c.vault_id, jump_hosts: c.jump_hosts, env_vars: c.env_vars,
+    agent_forwarding: c.agent_forwarding, pre_command: c.pre_command, post_command: c.post_command,
+    terminal_encoding: c.terminal_encoding, distro: c.distro, icon: c.icon, pinned: c.pinned,
+    ping_disabled: c.ping_disabled, shell_integration_disabled: c.shell_integration_disabled,
+    keepalive_preset: c.keepalive_preset,
+    connection_type: c.connection_type, serial_port: c.serial_port, serial_baud: c.serial_baud,
+    serial_data_bits: c.serial_data_bits, serial_parity: c.serial_parity, serial_stop_bits: c.serial_stop_bits,
+    serial_flow_control: c.serial_flow_control,
+  };
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -105,6 +128,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         pinned: data.pinned,
         ping_disabled: data.ping_disabled,
         shell_integration_disabled: data.shell_integration_disabled,
+        keepalive_preset: data.keepalive_preset,
         connection_type: data.connection_type,
         serial_port: data.serial_port,
         serial_baud: data.serial_baud,
@@ -197,6 +221,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         serial_flow_control: data.serial_flow_control ?? prev.serial_flow_control,
         ping_disabled: data.ping_disabled,
         shell_integration_disabled: data.shell_integration_disabled,
+        keepalive_preset: data.keepalive_preset,
         updated_at: now,
         clocks: { ...prev.clocks, updated_at: now },
       };
@@ -227,15 +252,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         return { teamConnections };
       });
       reportAuditMutation("connection", "updated", { id: updated.id, name: updated.name ?? updated.host, vault_id: updated.vault_id });
-      const prevData: ConnectionFormData = {
-        name: prev.name, host: prev.host, port: prev.port,
-        username: prev.username, auth_type: prev.auth_type as AuthType,
-        tags: prev.tags, identity_id: prev.identity_id, key_id: prev.key_id, folder_id: prev.folder_id,
-        vault_id: prev.vault_id, jump_hosts: prev.jump_hosts, env_vars: prev.env_vars,
-        agent_forwarding: prev.agent_forwarding, pre_command: prev.pre_command,
-        post_command: prev.post_command, terminal_encoding: prev.terminal_encoding,
-        distro: prev.distro, icon: prev.icon,
-      };
+      const prevData: ConnectionFormData = connectionToFormData(prev);
       useHistoryStore.getState().push({
         label: `Updated connection "${prev.name ?? prev.host}"`,
         undo: async () => { await useConnectionStore.getState().updateConnection(id, prevData); },
@@ -277,6 +294,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
           serial_flow_control: data.serial_flow_control ?? prev.serial_flow_control,
           ping_disabled: data.ping_disabled,
           shell_integration_disabled: data.shell_integration_disabled,
+          keepalive_preset: data.keepalive_preset,
           updated_at: now,
           clocks: { ...prev.clocks, updated_at: now },
         }
@@ -334,15 +352,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "connection")) scheduleSync(); });
     if (prev) reportAuditMutation("connection", "updated", { id, name: data.name ?? prev.name ?? prev.host, vault_id: data.vault_id ?? prev.vault_id });
     if (prev) {
-      const prevData: ConnectionFormData = {
-        name: prev.name, host: prev.host, port: prev.port,
-        username: prev.username, auth_type: prev.auth_type as AuthType,
-        tags: prev.tags, identity_id: prev.identity_id, key_id: prev.key_id, folder_id: prev.folder_id,
-        vault_id: prev.vault_id, jump_hosts: prev.jump_hosts, env_vars: prev.env_vars,
-        agent_forwarding: prev.agent_forwarding, pre_command: prev.pre_command,
-        post_command: prev.post_command, terminal_encoding: prev.terminal_encoding,
-        distro: prev.distro, icon: prev.icon,
-      };
+      const prevData: ConnectionFormData = connectionToFormData(prev);
       useHistoryStore.getState().push({
         label: `Updated connection "${prev.name ?? prev.host}"`,
         undo: async () => { await useConnectionStore.getState().updateConnection(id, prevData); },
@@ -363,15 +373,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         },
       }));
       reportAuditMutation("connection", "deleted", { id: prev.id, name: prev.name ?? prev.host, vault_id: prev.vault_id });
-      const prevData: ConnectionFormData = {
-        name: prev.name, host: prev.host, port: prev.port,
-        username: prev.username, auth_type: prev.auth_type as AuthType,
-        tags: prev.tags, identity_id: prev.identity_id, key_id: prev.key_id, folder_id: prev.folder_id,
-        vault_id: prev.vault_id, jump_hosts: prev.jump_hosts, env_vars: prev.env_vars,
-        agent_forwarding: prev.agent_forwarding, pre_command: prev.pre_command,
-        post_command: prev.post_command, terminal_encoding: prev.terminal_encoding,
-        distro: prev.distro, icon: prev.icon,
-      };
+      const prevData: ConnectionFormData = connectionToFormData(prev);
       let recreatedId: string | null = null;
       useHistoryStore.getState().push({
         label: `Deleted connection "${prev.name ?? prev.host}"`,
@@ -395,15 +397,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "connection")) scheduleSync(); });
     if (prev) reportAuditMutation("connection", "deleted", { id: prev.id, name: prev.name ?? prev.host, vault_id: prev.vault_id });
     if (prev) {
-      const prevData: ConnectionFormData = {
-        name: prev.name, host: prev.host, port: prev.port,
-        username: prev.username, auth_type: prev.auth_type as AuthType,
-        tags: prev.tags, identity_id: prev.identity_id, key_id: prev.key_id, folder_id: prev.folder_id,
-        vault_id: prev.vault_id, jump_hosts: prev.jump_hosts, env_vars: prev.env_vars,
-        agent_forwarding: prev.agent_forwarding, pre_command: prev.pre_command,
-        post_command: prev.post_command, terminal_encoding: prev.terminal_encoding,
-        distro: prev.distro, icon: prev.icon,
-      };
+      const prevData: ConnectionFormData = connectionToFormData(prev);
       let recreatedId: string | null = null;
       useHistoryStore.getState().push({
         label: `Deleted connection "${prev.name ?? prev.host}"`,
@@ -492,10 +486,8 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     await Promise.all(
       toUpdate.map((c) =>
         api.updateConnection(c.id, {
-          name: c.name, host: c.host, port: c.port, username: c.username,
-          auth_type: c.auth_type as AuthType,
+          ...connectionToFormData(c),
           tags: c.tags.map((t) => (t === oldName ? newName : t)),
-          identity_id: c.identity_id, key_id: c.key_id, folder_id: c.folder_id,
         }),
       ),
     );
@@ -537,10 +529,8 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     await Promise.all(
       toUpdate.map((c) =>
         api.updateConnection(c.id, {
-          name: c.name, host: c.host, port: c.port, username: c.username,
-          auth_type: c.auth_type as AuthType,
+          ...connectionToFormData(c),
           tags: c.tags.filter((t) => t !== name),
-          identity_id: c.identity_id, key_id: c.key_id, folder_id: c.folder_id,
         }),
       ),
     );
@@ -576,11 +566,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
           [...prevTagsById.entries()].map(([connId, tags]) => {
             const conn = store.connections.find((c) => c.id === connId);
             if (!conn) return Promise.resolve();
-            return store.updateConnection(connId, {
-              name: conn.name, host: conn.host, port: conn.port,
-              username: conn.username, auth_type: conn.auth_type as AuthType,
-              tags, identity_id: conn.identity_id, key_id: conn.key_id, folder_id: conn.folder_id,
-            });
+            return store.updateConnection(connId, { ...connectionToFormData(conn), tags });
           }),
         );
       },
@@ -598,14 +584,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     const conn = get().connections.find((c) => c.id === id);
     if (!conn) return;
     const nextPinned = pinned ?? false;
-    await api.updateConnection(id, {
-      name: conn.name, host: conn.host, port: conn.port, username: conn.username,
-      auth_type: conn.auth_type as AuthType, tags: conn.tags, identity_id: conn.identity_id, key_id: conn.key_id,
-      folder_id: conn.folder_id, vault_id: conn.vault_id, jump_hosts: conn.jump_hosts,
-      env_vars: conn.env_vars, agent_forwarding: conn.agent_forwarding,
-      pre_command: conn.pre_command, post_command: conn.post_command,
-      terminal_encoding: conn.terminal_encoding, distro: conn.distro, icon: conn.icon, pinned: nextPinned,
-    });
+    await api.updateConnection(id, { ...connectionToFormData(conn), pinned: nextPinned });
     set((s) => ({ connections: s.connections.map((c) => c.id === id ? { ...c, pinned: nextPinned } : c) }));
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "connection")) scheduleSync(); });
