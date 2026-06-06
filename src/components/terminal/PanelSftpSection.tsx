@@ -6,7 +6,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { usePanelSftpStore } from "@/stores/panelSftpStore";
 import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
-import { useToggle } from "@/stores/toggleSettingsStore";
+import { tarUsable } from "@/components/filetransfer/tarSupport";
 import {
   pickLocalPath, pickLocalPaths,
   sftpDownload, sftpDownloadDir, sftpDownloadDirTar, sftpDownloadBatchTar,
@@ -32,7 +32,6 @@ export default function PanelSftpSection() {
   const clearCompleted = useTransferQueueStore((s) => s.clearCompleted);
   const cancelTransfer = useTransferQueueStore((s) => s.cancelTransfer);
   const cancelAll = useTransferQueueStore((s) => s.cancelAll);
-  const [tarTransferEnabled] = useToggle("sftp-tar");
 
   const [selected, setSelected] = useState<FileEntry[]>([]);
   const [refreshTick, setRefreshTick] = useState(0);
@@ -148,10 +147,13 @@ export default function PanelSftpSection() {
     const sftpId = panelState.sftpId;
     const base = dstDir.replace(/[\\/]$/, "");
     const label = files.length === 1 ? files[0].name : `${files.length} items`;
+    // Archives remotely + extracts locally, so both ends need tar.
+    const useTar = await tarUsable([sftpId], true);
 
-    if (tarTransferEnabled && files.length > 1) {
+    if (useTar && files.length > 1) {
       await runTransfer(label, "←", (tid) =>
         sftpDownloadBatchTar({ sftpId, remotePaths: files.map((f) => f.path), localDir: base, transferId: tid }),
+        undefined, true,
       );
       return;
     }
@@ -160,13 +162,14 @@ export default function PanelSftpSection() {
       const sep = /[\\/]/.test(base) && /\\/.test(base) ? "\\" : "/";
       const localPath = `${base}${sep}${file.name}`;
       await runTransfer(file.name, "←", (tid) => file.isDir
-        ? (tarTransferEnabled
+        ? (useTar
             ? sftpDownloadDirTar({ sftpId, remotePath: file.path, localPath, transferId: tid })
             : sftpDownloadDir({ sftpId, remotePath: file.path, localPath, transferId: tid }))
         : sftpDownload({ sftpId, remotePath: file.path, localPath, transferId: tid }),
+        undefined, file.isDir && useTar,
       );
     }
-  }, [panelState, runTransfer, tarTransferEnabled]);
+  }, [panelState, runTransfer]);
   const handleDownload = useCallback(() => { void downloadFiles(selected); }, [downloadFiles, selected]);
 
   // ── Layout ──────────────────────────────────────────────────────────────────

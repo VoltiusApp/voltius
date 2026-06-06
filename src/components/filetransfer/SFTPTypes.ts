@@ -23,6 +23,7 @@ export type Transfer = {
   speed?: number;   // bytes/sec
   eta?: number;     // seconds remaining
   status: "running" | "done" | "cancelled" | "error"; error?: string;
+  accelerated?: boolean; // ran via tar acceleration
 };
 
 export type ConflictResolution = "overwrite" | "overwrite-all" | "skip" | "skip-all" | "cancel";

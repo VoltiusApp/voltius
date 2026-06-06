@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { type Transfer, formatSize } from "./SFTPTypes";
+import { AcceleratedBadge } from "./AcceleratedBadge";
 
 export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, collapsible = false }: {
   transfers: Transfer[];
@@ -130,6 +131,7 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, colla
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <Icon icon={icon} width={12} className={`${spin ? "animate-spin" : ""} shrink-0`} style={{ color }} />
+                      {t.accelerated && <AcceleratedBadge />}
                       <span className="text-xs truncate text-[var(--t-text-primary)]">{t.direction} {t.label}</span>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
