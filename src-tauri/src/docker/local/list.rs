@@ -1,9 +1,10 @@
 use super::exec::{connect, run_compose, run_wsl_docker, should_use_wsl_cli};
 use crate::docker::cli::{self, CliContainer, CliImage, CliNetwork, CliVolume};
 use crate::docker::types::*;
-use bollard::container::ListContainersOptions;
-use bollard::image::ListImagesOptions;
-use bollard::models::PortTypeEnum;
+use bollard::models::PortSummaryTypeEnum;
+use bollard::query_parameters::{
+    ListContainersOptionsBuilder, ListImagesOptionsBuilder, ListVolumesOptions,
+};
 
 async fn list_containers_cli(
     local_shell: Option<&str>,
@@ -37,10 +38,7 @@ pub async fn list_containers(
 
     let docker = connect()?;
     let containers = docker
-        .list_containers(Some(ListContainersOptions::<String> {
-            all,
-            ..Default::default()
-        }))
+        .list_containers(Some(ListContainersOptionsBuilder::new().all(all).build()))
         .await
         .map_err(|e| format!("{e}"))?;
 
@@ -58,9 +56,9 @@ pub async fn list_containers(
                     protocol: p
                         .typ
                         .map(|t| match t {
-                            PortTypeEnum::TCP => "tcp",
-                            PortTypeEnum::UDP => "udp",
-                            PortTypeEnum::SCTP => "sctp",
+                            PortSummaryTypeEnum::TCP => "tcp",
+                            PortSummaryTypeEnum::UDP => "udp",
+                            PortSummaryTypeEnum::SCTP => "sctp",
                             _ => "tcp",
                         })
                         .unwrap_or("tcp")
@@ -73,7 +71,7 @@ pub async fn list_containers(
                 names: c.names.unwrap_or_default(),
                 image: c.image.unwrap_or_default(),
                 status: c.status.unwrap_or_default(),
-                state: c.state.unwrap_or_default(),
+                state: c.state.map(|s| s.to_string()).unwrap_or_default(),
                 ports,
                 created: c.created.unwrap_or(0),
             }
@@ -98,10 +96,7 @@ pub async fn list_images(local_shell: Option<&str>) -> Result<Vec<DockerImage>, 
 
     let docker = connect()?;
     let images = docker
-        .list_images(Some(ListImagesOptions::<String> {
-            all: false,
-            ..Default::default()
-        }))
+        .list_images(Some(ListImagesOptionsBuilder::new().all(false).build()))
         .await
         .map_err(|e| format!("{e}"))?;
 
@@ -136,7 +131,7 @@ pub async fn list_volumes(local_shell: Option<&str>) -> Result<Vec<DockerVolume>
 
     let docker = connect()?;
     let resp = docker
-        .list_volumes::<String>(None)
+        .list_volumes(Option::<ListVolumesOptions>::None)
         .await
         .map_err(|e| format!("{e}"))?;
     Ok(resp
@@ -170,7 +165,7 @@ pub async fn list_networks(local_shell: Option<&str>) -> Result<Vec<DockerNetwor
 
     let docker = connect()?;
     let networks = docker
-        .list_networks::<String>(None)
+        .list_networks(None)
         .await
         .map_err(|e| format!("{e}"))?;
     Ok(networks

@@ -1,6 +1,6 @@
 use super::exec::{connect, now_ms, prevent_visible_child_window, should_use_wsl_cli};
 use crate::docker::types::*;
-use bollard::container::LogsOptions;
+use bollard::query_parameters::LogsOptionsBuilder;
 use futures_util::StreamExt;
 use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -133,15 +133,17 @@ pub async fn stream_logs(
 
     let mut log_stream = docker.logs(
         &container_id,
-        Some(LogsOptions::<String> {
-            follow: true,
-            stdout: true,
-            stderr: true,
-            since: 0,
-            until: 0,
-            timestamps: false,
-            tail: tail.to_string(),
-        }),
+        Some(
+            LogsOptionsBuilder::new()
+                .follow(true)
+                .stdout(true)
+                .stderr(true)
+                .since(0)
+                .until(0)
+                .timestamps(false)
+                .tail(&tail.to_string())
+                .build(),
+        ),
     );
 
     while let Some(result) = log_stream.next().await {

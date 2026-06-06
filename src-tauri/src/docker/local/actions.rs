@@ -2,9 +2,10 @@ use super::exec::{connect, run_compose, run_docker, run_wsl_docker, should_use_w
 use super::list::list_stacks;
 use crate::docker::recreate::{build_run_command, parse_inspect};
 use crate::docker::types::*;
-use bollard::container::RemoveContainerOptions;
-use bollard::image::RemoveImageOptions;
-use bollard::volume::RemoveVolumeOptions;
+use bollard::query_parameters::{
+    PruneImagesOptions, PruneVolumesOptions, RemoveContainerOptionsBuilder,
+    RemoveImageOptionsBuilder, RemoveVolumeOptionsBuilder,
+};
 
 /// Reconstruct a pasteable `docker run …` command for a container.
 pub async fn container_run_command(
@@ -43,7 +44,7 @@ pub async fn container_action(
     let docker = connect()?;
     match action {
         ContainerAction::Start => docker
-            .start_container::<String>(container_id, None)
+            .start_container(container_id, None)
             .await
             .map_err(|e| format!("{e}"))?,
         ContainerAction::Stop => docker
@@ -57,10 +58,7 @@ pub async fn container_action(
         ContainerAction::Remove => docker
             .remove_container(
                 container_id,
-                Some(RemoveContainerOptions {
-                    force: true,
-                    ..Default::default()
-                }),
+                Some(RemoveContainerOptionsBuilder::new().force(true).build()),
             )
             .await
             .map_err(|e| format!("{e}"))?,
@@ -147,10 +145,12 @@ pub async fn remove_image(local_shell: Option<&str>, image_id: &str) -> Result<(
     docker
         .remove_image(
             image_id,
-            Some(RemoveImageOptions {
-                force: true,
-                noprune: false,
-            }),
+            Some(
+                RemoveImageOptionsBuilder::new()
+                    .force(true)
+                    .noprune(false)
+                    .build(),
+            ),
             None,
         )
         .await
@@ -166,7 +166,10 @@ pub async fn remove_volume(local_shell: Option<&str>, name: &str) -> Result<(), 
 
     let docker = connect()?;
     docker
-        .remove_volume(name, Some(RemoveVolumeOptions { force: true }))
+        .remove_volume(
+            name,
+            Some(RemoveVolumeOptionsBuilder::new().force(true).build()),
+        )
         .await
         .map_err(|e| format!("{e}"))?;
     Ok(())
@@ -193,7 +196,7 @@ pub async fn prune_images(local_shell: Option<&str>) -> Result<String, String> {
 
     let docker = connect()?;
     let result = docker
-        .prune_images::<String>(None)
+        .prune_images(Option::<PruneImagesOptions>::None)
         .await
         .map_err(|e| format!("{e}"))?;
     let reclaimed = result.space_reclaimed.unwrap_or(0);
@@ -207,7 +210,7 @@ pub async fn prune_volumes(local_shell: Option<&str>) -> Result<String, String> 
 
     let docker = connect()?;
     let result = docker
-        .prune_volumes::<String>(None)
+        .prune_volumes(Option::<PruneVolumesOptions>::None)
         .await
         .map_err(|e| format!("{e}"))?;
     let reclaimed = result.space_reclaimed.unwrap_or(0);
@@ -221,7 +224,7 @@ pub async fn prune_networks(local_shell: Option<&str>) -> Result<String, String>
 
     let docker = connect()?;
     docker
-        .prune_networks::<String>(None)
+        .prune_networks(None)
         .await
         .map_err(|e| format!("{e}"))?;
     Ok("Networks pruned".to_string())
@@ -235,16 +238,22 @@ pub async fn system_prune(local_shell: Option<&str>) -> Result<String, String> {
     let docker = connect()?;
     let mut total: i64 = 0;
 
-    if let Ok(r) = docker.prune_containers::<String>(None).await {
+    if let Ok(r) = docker.prune_containers(None).await {
         total += r.space_reclaimed.unwrap_or(0);
     }
-    if let Ok(r) = docker.prune_images::<String>(None).await {
+    if let Ok(r) = docker
+        .prune_images(Option::<PruneImagesOptions>::None)
+        .await
+    {
         total += r.space_reclaimed.unwrap_or(0);
     }
-    if let Ok(r) = docker.prune_volumes::<String>(None).await {
+    if let Ok(r) = docker
+        .prune_volumes(Option::<PruneVolumesOptions>::None)
+        .await
+    {
         total += r.space_reclaimed.unwrap_or(0);
     }
-    let _ = docker.prune_networks::<String>(None).await;
+    let _ = docker.prune_networks(None).await;
 
     Ok(fmt_freed(total))
 }
