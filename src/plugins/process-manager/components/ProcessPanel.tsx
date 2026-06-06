@@ -77,7 +77,7 @@ function ProcessRow({
 
   return (
     <div
-      className="group flex items-center px-3 gap-2 border-b border-b-[var(--t-border)]"
+      className="group flex items-center px-3 gap-2 border-b border-b-(--t-border)"
       style={{
         height: ROW_H,
         background: isConfirming ? "color-mix(in srgb, var(--t-status-error) 12%, transparent)" : "transparent",
@@ -130,14 +130,14 @@ function ProcessRow({
           <>
             <button
               onClick={() => onKillConfirm(entry.pid)}
-              className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+              className="text-[10px] px-1.5 py-0.5 rounded-sm font-medium"
               style={{ background: "var(--t-status-error)", color: "#fff" }}
             >
               Kill
             </button>
             <button
               onClick={onKillCancel}
-              className="text-[10px] px-1.5 py-0.5 rounded"
+              className="text-[10px] px-1.5 py-0.5 rounded-sm"
               style={{ color: "var(--t-text-muted)", background: "var(--t-bg-elevated)" }}
             >
               Cancel
@@ -146,7 +146,7 @@ function ProcessRow({
         ) : (
           <button
             onClick={() => onKillRequest(entry.pid)}
-            className="opacity-0 group-hover:opacity-100 p-1 rounded transition-all"
+            className="opacity-0 group-hover:opacity-100 p-1 rounded-sm transition-all"
             style={{ color: "var(--t-text-muted)" }}
             onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-status-error)")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-muted)")}
@@ -284,7 +284,7 @@ export function ProcessPanel() {
   if (!activeSession || activeSession.status !== "connected" || activeSession.type === "serial") {
     return (
       <div className="flex items-center justify-center h-full opacity-40">
-        <p className="text-sm text-[var(--t-text-muted)]">No active session</p>
+        <p className="text-sm text-(--t-text-muted)">No active session</p>
       </div>
     );
   }
@@ -292,16 +292,16 @@ export function ProcessPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* Search bar */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--t-border)] shrink-0">
-        <Icon icon="lucide:search" width={12} className="text-[var(--t-text-muted)] shrink-0" />
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-(--t-border) shrink-0">
+        <Icon icon="lucide:search" width={12} className="text-(--t-text-muted) shrink-0" />
         <input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filter processes…"
-          className="flex-1 bg-transparent text-[11px] text-[var(--t-text-primary)] placeholder:text-[var(--t-text-dim)] outline-none"
+          className="flex-1 bg-transparent text-[11px] text-(--t-text-primary) placeholder:text-(--t-text-dim) outline-hidden"
         />
         {snapshot && (
-          <span className="text-[10px] text-[var(--t-text-dim)] shrink-0">
+          <span className="text-[10px] text-(--t-text-dim) shrink-0">
             {entries.length}/{snapshot.entries.length}
           </span>
         )}
@@ -309,7 +309,7 @@ export function ProcessPanel() {
 
       {/* Column headers */}
       <div
-        className="grid px-3 py-1 border-b border-[var(--t-border)] shrink-0"
+        className="grid px-3 py-1 border-b border-(--t-border) shrink-0"
         style={{ gridTemplateColumns: "100px 60px 36px 36px 1fr" }}
       >
         <ColHeader label="Name"  col="name" sortCol={sortCol} sortAsc={sortAsc} onClick={handleSort} />
@@ -320,7 +320,7 @@ export function ProcessPanel() {
       </div>
 
       {killError && (
-        <div className="px-3 py-1.5 text-[10px] text-[var(--t-status-error)] border-b border-[var(--t-border)] shrink-0 flex items-center justify-between gap-2">
+        <div className="px-3 py-1.5 text-[10px] text-(--t-status-error) border-b border-(--t-border) shrink-0 flex items-center justify-between gap-2">
           <span className="truncate">{killError}</span>
           <button onClick={() => setKillError(null)} className="shrink-0">
             <Icon icon="lucide:x" width={10} />
@@ -332,7 +332,7 @@ export function ProcessPanel() {
       <div ref={scrollParentRef} className="flex-1 overflow-y-auto min-h-0">
         {entries.length === 0 && snapshot ? (
           <div className="flex items-center justify-center h-16 opacity-40">
-            <p className="text-[11px] text-[var(--t-text-muted)]">No processes found</p>
+            <p className="text-[11px] text-(--t-text-muted)">No processes found</p>
           </div>
         ) : (
           <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>

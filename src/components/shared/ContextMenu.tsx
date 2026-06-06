@@ -61,7 +61,7 @@ export function MenuItemList({
         return (
           <div key={i}>
             {item.divider && i > 0 && (
-              <div className="my-1 mx-1 h-px bg-[var(--t-border)]" />
+              <div className="my-1 mx-1 h-px bg-(--t-border)" />
             )}
             <button
               onClick={item.children ? undefined : () => { item.onClick?.(); onClose(); }}
@@ -87,12 +87,12 @@ export function MenuItemList({
                 {item.label}
               </span>
               {item.shortcut && !item.children && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0 bg-[var(--t-bg-elevated)] text-[var(--t-text-dim)] border border-[var(--t-border)]">
+                <span className="text-[10px] px-1.5 py-0.5 rounded-sm font-mono shrink-0 bg-(--t-bg-elevated) text-(--t-text-dim) border border-(--t-border)">
                   {item.shortcut}
                 </span>
               )}
               {item.children && (
-                <Icon icon="lucide:chevron-right" width={14} className="shrink-0 text-[var(--t-text-dim)]" />
+                <Icon icon="lucide:chevron-right" width={14} className="shrink-0 text-(--t-text-dim)" />
               )}
             </button>
           </div>
@@ -103,7 +103,7 @@ export function MenuItemList({
       {activeSub !== null && items[activeSub.idx]?.children &&
         createPortal(
           <div
-            className="fixed z-[101] p-1.5 rounded-xl flex flex-col bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)] min-w-[12.667rem] overflow-y-auto"
+            className="fixed z-101 p-1.5 rounded-xl flex flex-col bg-(--t-bg-card) border border-(--t-bg-card-hover) min-w-[12.667rem] overflow-y-auto"
             style={{ left: activeSub.x, top: activeSub.y, maxHeight: window.innerHeight - activeSub.y - 8, boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
             onMouseEnter={clearTimer}
             onMouseLeave={scheduleClose}
@@ -143,9 +143,9 @@ export function ContextMenu({ items, pos, onClose, direction = "down" }: Context
       {/* Backdrop at z-99: catches outside clicks without interfering with
           submenu portals at z-101. useClickOutside on mousedown was causing
           submenus to unmount before onClick fired — backdrop avoids that. */}
-      <div className="fixed inset-0 z-[99]" onMouseDown={onClose} />
+      <div className="fixed inset-0 z-99" onMouseDown={onClose} />
       <div
-        className="fixed z-[100] p-1.5 rounded-xl flex flex-col bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)] min-w-[12.667rem] overflow-y-auto"
+        className="fixed z-100 p-1.5 rounded-xl flex flex-col bg-(--t-bg-card) border border-(--t-bg-card-hover) min-w-[12.667rem] overflow-y-auto"
         style={{
           left: pos.x,
           maxHeight,

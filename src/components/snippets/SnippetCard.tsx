@@ -150,18 +150,18 @@ export function SnippetCard({
           <div className="flex-1 min-w-0 self-start flex flex-col gap-2.5">
             {/* Header: avatar + name/fav/tags + description */}
             <div className="flex items-start gap-2 min-w-0">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-card-avatar)]">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-card-avatar)">
                 <Icon icon="lucide:braces" width={14} />
               </div>
               <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                 {/* Name + favorite (pin position) + tags */}
                 <div className="flex items-center gap-2 min-w-0">
-                  <p className="text-sm font-bold truncate text-[var(--t-text-bright)] flex-1 min-w-0">
+                  <p className="text-sm font-bold truncate text-(--t-text-bright) flex-1 min-w-0">
                     {snippet.name}
                   </p>
                   <button
                     onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
-                    className={`shrink-0 flex items-center transition-colors ${pinAlwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100 hover:text-[var(--t-text-bright)]"}`}
+                    className={`shrink-0 flex items-center transition-colors ${pinAlwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100 hover:text-(--t-text-bright)"}`}
                     style={{ color: pinColor }}
                     title={effPinned ? "Unstar" : "Star"}
                   >
@@ -171,12 +171,12 @@ export function SnippetCard({
                     <TagBadge key={tag} tag={tag} className="rounded-md shrink-0 py-0 text-[10px]" />
                   ))}
                   {snippet.tags.length > 2 && (
-                    <span className="text-[10px] text-[var(--t-text-dim)] shrink-0">+{snippet.tags.length - 2}</span>
+                    <span className="text-[10px] text-(--t-text-dim) shrink-0">+{snippet.tags.length - 2}</span>
                   )}
                 </div>
                 {/* Description */}
                 {snippet.description && (
-                  <p className="text-xs text-[var(--t-text-muted)] truncate leading-tight">
+                  <p className="text-xs text-(--t-text-muted) truncate leading-tight">
                     {snippet.description}
                   </p>
                 )}
@@ -210,7 +210,7 @@ export function SnippetCard({
 
             {/* Actions row */}
             <div className="flex items-center justify-between -mt-0.5">
-              <div className="flex items-center gap-1 text-xs text-[var(--t-text-dim)]">
+              <div className="flex items-center gap-1 text-xs text-(--t-text-dim)">
                 {folder && (
                   <>
                     <Icon icon="lucide:folder" width={10} />
@@ -222,7 +222,7 @@ export function SnippetCard({
                 <button
                   title="Insert"
                   onClick={(e) => { e.stopPropagation(); setPanelMode("insert"); }}
-                  className="p-1.5 rounded-lg transition-colors text-[var(--t-text-secondary)]"
+                  className="p-1.5 rounded-lg transition-colors text-(--t-text-secondary)"
                   onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-bright)")}
                   onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-secondary)")}
                 >
@@ -231,7 +231,7 @@ export function SnippetCard({
                 <button
                   title="Execute"
                   onClick={(e) => { e.stopPropagation(); setPanelMode("execute"); }}
-                  className="p-1.5 rounded-lg transition-colors text-[var(--t-text-secondary)]"
+                  className="p-1.5 rounded-lg transition-colors text-(--t-text-secondary)"
                   onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-bright)")}
                   onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-secondary)")}
                 >
@@ -275,36 +275,36 @@ export function SnippetCard({
         style={{ opacity: dimmed ? 0.45 : 1 }}
       >
         {/* Icon */}
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-card-avatar)]">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-card-avatar)">
           <Icon icon="lucide:braces" width={14} />
         </div>
 
         {/* Body */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-sm font-semibold text-[var(--t-text-bright)] truncate flex-1 min-w-0">
+            <span className="text-sm font-semibold text-(--t-text-bright) truncate flex-1 min-w-0">
               {snippet.name}
             </span>
             {effPinned && (
               <Icon icon="lucide:star" width={11} className="shrink-0" style={{ color: pinColor }} />
             )}
             {folder && (
-              <span className="flex items-center gap-1 text-xs text-[var(--t-text-dim)] shrink-0">
+              <span className="flex items-center gap-1 text-xs text-(--t-text-dim) shrink-0">
                 <Icon icon="lucide:folder" width={10} />
                 {folder.name}
               </span>
             )}
           </div>
           {snippet.description ? (
-            <p className="mt-0.5 text-xs text-[var(--t-text-muted)] truncate">{snippet.description}</p>
+            <p className="mt-0.5 text-xs text-(--t-text-muted) truncate">{snippet.description}</p>
           ) : (
-            <p className="mt-0.5 text-xs font-mono text-[var(--t-text-muted)] truncate">{snippet.content}</p>
+            <p className="mt-0.5 text-xs font-mono text-(--t-text-muted) truncate">{snippet.content}</p>
           )}
           {snippet.tags.length > 0 && (
             <div className="flex items-center gap-1 mt-1 flex-wrap">
               {snippet.tags.slice(0, 5).map((tag) => <TagBadge key={tag} tag={tag} className="rounded-md" />)}
               {snippet.tags.length > 5 && (
-                <span className="text-xs text-[var(--t-text-dim)]">+{snippet.tags.length - 5}</span>
+                <span className="text-xs text-(--t-text-dim)">+{snippet.tags.length - 5}</span>
               )}
             </div>
           )}
@@ -326,7 +326,7 @@ export function SnippetCard({
           <button
             title="Insert"
             onClick={(e) => { e.stopPropagation(); setPanelMode("insert"); }}
-            className="p-1.5 flex rounded-lg transition-colors text-[var(--t-text-secondary)]"
+            className="p-1.5 flex rounded-lg transition-colors text-(--t-text-secondary)"
             onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-secondary)")}
           >
@@ -335,7 +335,7 @@ export function SnippetCard({
           <button
             title="Execute"
             onClick={(e) => { e.stopPropagation(); setPanelMode("execute"); }}
-            className="p-1.5 flex rounded-lg transition-colors text-[var(--t-text-secondary)]"
+            className="p-1.5 flex rounded-lg transition-colors text-(--t-text-secondary)"
             onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-secondary)")}
           >

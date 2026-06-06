@@ -59,7 +59,7 @@ export const BaseCard = memo(function BaseCard({
         data-host-card={dataHostCard}
         data-connection-id={dataConnectionId}
         data-selectable-id={dataSelectableId}
-        className={`group relative flex items-center px-3 rounded-2xl cursor-pointer transition-all duration-150 bg-[var(--t-bg-card)] ${isList ? "gap-3 py-2" : "gap-4 py-3"} ${className}`}
+        className={`group relative flex items-center px-3 rounded-2xl cursor-pointer transition-all duration-150 bg-(--t-bg-card) ${isList ? "gap-3 py-2" : "gap-4 py-3"} ${className}`}
         style={{ border: "2px solid transparent", ...style }}
         onPointerDown={onPointerDown}
         onClick={onClick ? (e) => { e.stopPropagation(); onClick(e); } : undefined}

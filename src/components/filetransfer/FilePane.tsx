@@ -41,7 +41,7 @@ export function IconBtn({ icon, title, onClick }: { icon: string; title: string;
     <button
       onClick={onClick}
       title={title}
-      className="flex items-center justify-center w-6 h-6 rounded-md shrink-0 transition-colors text-[var(--t-text-dim)]"
+      className="flex items-center justify-center w-6 h-6 rounded-md shrink-0 transition-colors text-(--t-text-dim)"
       onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-bg-elevated)"; e.currentTarget.style.color = "var(--t-text-primary)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
     >
@@ -349,18 +349,18 @@ export function FilePane({
     >
       {isDropTarget && (
         <div
-          className="absolute inset-0 z-20 flex items-center justify-center rounded pointer-events-none"
+          className="absolute inset-0 z-20 flex items-center justify-center rounded-sm pointer-events-none"
           style={{ background: "color-mix(in srgb, var(--t-accent) 12%, transparent)", border: "2px solid var(--t-accent)" }}
         >
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--t-bg-card)] border border-[var(--t-accent)]">
-            <Icon icon="lucide:arrow-down-to-line" width={14} className="text-[var(--t-accent)]" />
-            <span className="text-xs font-medium text-[var(--t-accent)]">Drop to transfer</span>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-(--t-bg-card) border border-(--t-accent)">
+            <Icon icon="lucide:arrow-down-to-line" width={14} className="text-(--t-accent)" />
+            <span className="text-xs font-medium text-(--t-accent)">Drop to transfer</span>
           </div>
         </div>
       )}
 
       {/* Path bar */}
-      <div className="flex items-center gap-1.5 px-2 py-2 shrink-0 border-b border-b-[var(--t-border)] bg-[var(--t-bg-elevated)]">
+      <div className="flex items-center gap-1.5 px-2 py-2 shrink-0 border-b border-b-(--t-border) bg-(--t-bg-elevated)">
         <IconBtn icon="lucide:arrow-up" title="Parent directory" onClick={goUp} />
         <IconBtn icon="lucide:home" title="Home directory" onClick={handleGoHome} />
         <div className="flex-1 flex items-center min-w-0 px-1.5 rounded-md">
@@ -401,16 +401,16 @@ export function FilePane({
       </DragSelectSurface>
 
       {selectedIdSet.size > 1 && (
-        <div className="flex items-center gap-2 px-3 py-1 shrink-0 border-t border-[var(--t-border)] bg-[var(--t-bg-elevated)]">
-          <Icon icon="lucide:check-square" width={11} className="text-[var(--t-accent)] shrink-0" />
-          <span className="text-xs text-[var(--t-text-secondary)]">
+        <div className="flex items-center gap-2 px-3 py-1 shrink-0 border-t border-(--t-border) bg-(--t-bg-elevated)">
+          <Icon icon="lucide:check-square" width={11} className="text-(--t-accent) shrink-0" />
+          <span className="text-xs text-(--t-text-secondary)">
             {selectedIdSet.size} selected
             {selectedEntries.some((f) => !f.isDir) && (
-              <span className="text-[var(--t-text-dim)]"> · {formatSize(selectedEntries.filter((f) => !f.isDir).reduce((acc, f) => acc + f.size, 0))}</span>
+              <span className="text-(--t-text-dim)"> · {formatSize(selectedEntries.filter((f) => !f.isDir).reduce((acc, f) => acc + f.size, 0))}</span>
             )}
           </span>
           <button
-            className="ml-auto text-xs text-[var(--t-text-dim)] transition-colors px-1.5 py-0.5 rounded"
+            className="ml-auto text-xs text-(--t-text-dim) transition-colors px-1.5 py-0.5 rounded-sm"
             style={{ background: "transparent" }}
             onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-bg-card-hover)"; e.currentTarget.style.color = "var(--t-text-secondary)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
@@ -610,7 +610,7 @@ function PathBreadcrumb({ cwd, onNavigate }: { cwd: string; isLocal?: boolean; o
           if (e.key === "Enter") { onNavigate(editVal); setEditing(false); }
           if (e.key === "Escape") setEditing(false);
         }}
-        className="flex-1 text-sm px-2 py-0.5 rounded-md outline-none font-mono min-w-0 bg-[var(--t-bg-elevated)] border border-[var(--t-accent)] text-[var(--t-text-secondary)]"
+        className="flex-1 text-sm px-2 py-0.5 rounded-md outline-hidden font-mono min-w-0 bg-(--t-bg-elevated) border border-(--t-accent) text-(--t-text-secondary)"
       />
     );
   }
@@ -627,7 +627,7 @@ function PathBreadcrumb({ cwd, onNavigate }: { cwd: string; isLocal?: boolean; o
         const isRoot = i === 0 && isAbsolute;
         return (
           <Fragment key={crumb.path}>
-            {i > 1 && <span className="shrink-0 mx-0.5 text-[var(--t-text-dim)]" style={{ fontSize: "0.8125rem", flexShrink: 0 }}>/</span>}
+            {i > 1 && <span className="shrink-0 mx-0.5 text-(--t-text-dim)" style={{ fontSize: "0.8125rem", flexShrink: 0 }}>/</span>}
             <CrumbSegment
               label={isRoot ? "/" : crumb.label}
               isLast={isLast}
@@ -644,7 +644,7 @@ function CrumbSegment({ label, isLast, onClick }: { label: string; isLast: boole
   const [hovered, setHovered] = useState(false);
   return (
     <button
-      className="shrink-0 rounded px-1 py-0.5 font-mono whitespace-nowrap"
+      className="shrink-0 rounded-sm px-1 py-0.5 font-mono whitespace-nowrap"
       style={{
         fontSize: "0.8125rem",
         fontWeight: isLast ? 500 : 400,
@@ -861,7 +861,7 @@ function VirtualFileList({
 
   const commitCreate = creatingFolder ? onCommitCreateFolder : onCommitCreateFile;
   const inlineCreateRow = (creatingFolder || creatingFile) && (
-    <div className="flex items-center gap-2 ml-3 mr-1 px-2 py-1.5 rounded border border-[var(--t-accent)]">
+    <div className="flex items-center gap-2 ml-3 mr-1 px-2 py-1.5 rounded-sm border border-(--t-accent)">
       <Icon icon={creatingFolder ? "lucide:folder" : "lucide:file"} width={15} className="shrink-0" style={{ color: creatingFolder ? "#f0c050" : "var(--t-text-dim)" }} />
       <input
         autoFocus
@@ -873,7 +873,7 @@ function VirtualFileList({
           if (e.key === "Escape") onCancelCreate();
         }}
         placeholder={creatingFolder ? "Folder name" : "File name"}
-        className="flex-1 text-sm bg-transparent outline-none text-[var(--t-text-primary)] placeholder:text-[var(--t-text-dim)]"
+        className="flex-1 text-sm bg-transparent outline-hidden text-(--t-text-primary) placeholder:text-(--t-text-dim)"
       />
     </div>
   );
@@ -881,13 +881,13 @@ function VirtualFileList({
   if (loading) {
     return (
       <div ref={itemAreaRef} data-drag-surface="true" className="h-full overflow-y-auto flex items-center justify-center">
-        <Icon icon="lucide:loader-2" className="animate-spin text-[var(--t-text-dim)]" width={16} />
+        <Icon icon="lucide:loader-2" className="animate-spin text-(--t-text-dim)" width={16} />
       </div>
     );
   }
   if (error) {
     return (
-      <div ref={itemAreaRef} data-drag-surface="true" className="h-full overflow-y-auto px-4 py-3 text-xs text-[var(--t-status-error)]">
+      <div ref={itemAreaRef} data-drag-surface="true" className="h-full overflow-y-auto px-4 py-3 text-xs text-(--t-status-error)">
         {error}
       </div>
     );
@@ -897,7 +897,7 @@ function VirtualFileList({
       <div ref={itemAreaRef} data-drag-surface="true" className="h-full overflow-y-auto">
         {inlineCreateRow}
         {!creatingFolder && !creatingFile && (
-          <div className="flex items-center justify-center h-16 text-xs text-[var(--t-text-dim)]">Empty directory</div>
+          <div className="flex items-center justify-center h-16 text-xs text-(--t-text-dim)">Empty directory</div>
         )}
       </div>
     );
@@ -916,7 +916,7 @@ function VirtualFileList({
           if (renaming === file.path) {
             return (
               <div key={file.path} style={itemStyle}>
-                <div className="flex items-center gap-2 ml-3 mr-1 px-2 py-1.5 rounded border border-[var(--t-accent)]">
+                <div className="flex items-center gap-2 ml-3 mr-1 px-2 py-1.5 rounded-sm border border-(--t-accent)">
                   <Icon icon={file.isDir ? "lucide:folder" : "lucide:file"} width={15} className="shrink-0" style={{ color: file.isDir ? "#f0c050" : "var(--t-text-dim)" }} />
                   <input
                     autoFocus
@@ -924,7 +924,7 @@ function VirtualFileList({
                     onChange={(e) => onRenameValChange(e.target.value)}
                     onBlur={() => onCommitRename(file)}
                     onKeyDown={(e) => { if (e.key === "Enter") onCommitRename(file); if (e.key === "Escape") onCancelRename(); }}
-                    className="flex-1 text-sm bg-transparent outline-none text-[var(--t-text-primary)]"
+                    className="flex-1 text-sm bg-transparent outline-hidden text-(--t-text-primary)"
                   />
                 </div>
               </div>
@@ -1001,7 +1001,7 @@ function FileRow({ file, isSelected, isDragHover, isLocal, colWidths, visibleCol
   return (
     <div
       data-selectable-id={selectableId}
-      className="flex items-center gap-2 px-2 py-1.5 my-px mr-1 ml-3 rounded transition-colors cursor-default select-none relative"
+      className="flex items-center gap-2 px-2 py-1.5 my-px mr-1 ml-3 rounded-sm transition-colors cursor-default select-none relative"
       style={{ background: bg, border }}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
@@ -1015,7 +1015,7 @@ function FileRow({ file, isSelected, isDragHover, isLocal, colWidths, visibleCol
         width={15} className="shrink-0"
         style={{ color: file.isDir ? "#f0c050" : file.isSymlink ? "var(--t-accent)" : "var(--t-text-dim)" }}
       />
-      <span className="text-sm truncate text-[var(--t-text-primary)] min-w-0 flex-1">{file.name}</span>
+      <span className="text-sm truncate text-(--t-text-primary) min-w-0 flex-1">{file.name}</span>
       {dataColumns.map((col) => (
         <span key={col} className="text-xs text-right shrink-0 truncate font-mono" style={{ width: colWidths[col], color: dimColor }}>
           {col === "size" ? (!file.isDir ? formatSize(file.size) : "") : col === "modified" ? (file.modified != null ? formatDate(file.modified) : "") : (file.permissions != null ? formatPermissions(file.permissions) : "")}

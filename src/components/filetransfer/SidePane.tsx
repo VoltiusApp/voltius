@@ -183,13 +183,13 @@ export function SidePane({
   }, [goBack, goForward]);
 
   return (
-    <div className="flex flex-col h-full min-w-0 bg-[var(--t-bg-card)]" onMouseDown={handleMouseDown}>
+    <div className="flex flex-col h-full min-w-0 bg-(--t-bg-card)" onMouseDown={handleMouseDown}>
 
       {/* Toolbar row — host card + filter + menu */}
-      <div className="flex items-center gap-2 px-2 py-2 shrink-0 border-b border-b-[var(--t-border)] bg-[var(--t-bg-card)]">
+      <div className="flex items-center gap-2 px-2 py-2 shrink-0 border-b border-b-(--t-border) bg-(--t-bg-card)">
         <button
           onClick={canChangeHost ? onChangeHost : undefined}
-          className={`flex items-center gap-1.5 px-1.5 py-1 rounded-lg transition-all bg-[var(--t-bg-elevated)] border border-[var(--t-border)] ${canChangeHost ? "cursor-pointer" : "cursor-default"}`}
+          className={`flex items-center gap-1.5 px-1.5 py-1 rounded-lg transition-all bg-(--t-bg-elevated) border border-(--t-border) ${canChangeHost ? "cursor-pointer" : "cursor-default"}`}
           onMouseEnter={(e) => { if (canChangeHost) { e.currentTarget.style.borderColor = "var(--t-border-hover)"; e.currentTarget.style.background = "var(--t-bg-card-hover)"; } }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
         >
@@ -243,7 +243,7 @@ export function SidePane({
               ref={viewBtnRef}
               title="View options"
               onClick={() => viewBtnRef.current && viewMenuOpener?.(viewBtnRef.current)}
-              className="flex items-center justify-center w-6 h-6 rounded-md shrink-0 transition-colors text-[var(--t-text-dim)]"
+              className="flex items-center justify-center w-6 h-6 rounded-md shrink-0 transition-colors text-(--t-text-dim)"
               onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-bg-elevated)"; e.currentTarget.style.color = "var(--t-text-primary)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
             >
@@ -253,7 +253,7 @@ export function SidePane({
               ref={menuBtnRef}
               title="More options"
               onClick={() => menuBtnRef.current && menuOpener?.(menuBtnRef.current)}
-              className="flex items-center justify-center w-6 h-6 rounded-md shrink-0 transition-colors text-[var(--t-text-dim)]"
+              className="flex items-center justify-center w-6 h-6 rounded-md shrink-0 transition-colors text-(--t-text-dim)"
               onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-bg-elevated)"; e.currentTarget.style.color = "var(--t-text-primary)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
             >
@@ -287,18 +287,18 @@ export function SidePane({
               steps={SFTP_STEPS}
               stepEventName={`sftp-step-${phase.connectId}`}
               conflictEventName={`sftp-host-key-conflict-${phase.connectId}`}
-              className="flex items-center justify-center h-full bg-[var(--t-bg-base)]"
+              className="flex items-center justify-center h-full bg-(--t-bg-base)"
             />
           );
         })()}
 
         {phase.tag === "error" && (
           <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
-            <Icon icon="lucide:wifi-off" width={24} className="text-[var(--t-status-error)]" />
-            <p className="text-sm text-[var(--t-status-error)]">{phase.message}</p>
+            <Icon icon="lucide:wifi-off" width={24} className="text-(--t-status-error)" />
+            <p className="text-sm text-(--t-status-error)">{phase.message}</p>
             <button
               onClick={onChangeHost}
-              className="text-xs px-3 py-1.5 rounded-lg transition-colors bg-[var(--t-bg-elevated)] text-[var(--t-text-secondary)] border border-[var(--t-border)]"
+              className="text-xs px-3 py-1.5 rounded-lg transition-colors bg-(--t-bg-elevated) text-(--t-text-secondary) border border-(--t-border)"
               onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-card-hover)")}
               onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
             >

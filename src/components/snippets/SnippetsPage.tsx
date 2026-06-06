@@ -158,7 +158,7 @@ function RecentCard({ entry, snippet, layout, onReplay, onRemove }: RecentCardPr
     <button
       title="Remove"
       onClick={(e) => { e.stopPropagation(); onRemove(); }}
-      className="p-1.5 rounded-lg transition-colors text-[var(--t-text-dim)]"
+      className="p-1.5 rounded-lg transition-colors text-(--t-text-dim)"
       onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
       onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-dim)")}
     >
@@ -171,7 +171,7 @@ function RecentCard({ entry, snippet, layout, onReplay, onRemove }: RecentCardPr
       title="Replay"
       disabled={isDeleted}
       onClick={(e) => { e.stopPropagation(); onReplay(); }}
-      className="p-1.5 rounded-lg transition-colors text-[var(--t-text-secondary)] disabled:opacity-30 disabled:cursor-not-allowed"
+      className="p-1.5 rounded-lg transition-colors text-(--t-text-secondary) disabled:opacity-30 disabled:cursor-not-allowed"
       onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-bright)")}
       onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-secondary)")}
     >
@@ -189,15 +189,15 @@ function RecentCard({ entry, snippet, layout, onReplay, onRemove }: RecentCardPr
         <div className="flex-1 min-w-0 self-start flex flex-col gap-2.5">
           {/* Header */}
           <div className="flex items-start gap-2 min-w-0">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-card-avatar)]">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-card-avatar)">
               <Icon icon="lucide:history" width={14} />
             </div>
             <div className="flex flex-col gap-0.5 flex-1 min-w-0">
               <div className="flex items-center gap-2 min-w-0">
-                <p className="text-sm font-bold truncate text-[var(--t-text-bright)] flex-1 min-w-0">{label}</p>
+                <p className="text-sm font-bold truncate text-(--t-text-bright) flex-1 min-w-0">{label}</p>
                 {modeBadge}
               </div>
-              <p className="text-xs text-[var(--t-text-muted)] truncate">{formatRelativeTime(entry.timestamp)}</p>
+              <p className="text-xs text-(--t-text-muted) truncate">{formatRelativeTime(entry.timestamp)}</p>
             </div>
           </div>
 
@@ -206,8 +206,8 @@ function RecentCard({ entry, snippet, layout, onReplay, onRemove }: RecentCardPr
             className="flex items-center gap-2 px-2.5 py-2 rounded-lg"
             style={{ background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)" }}
           >
-            <Icon icon={hostIcon} width={12} className="shrink-0 text-[var(--t-text-dim)]" />
-            <span className="text-xs text-[var(--t-text-secondary)] truncate">{host}</span>
+            <Icon icon={hostIcon} width={12} className="shrink-0 text-(--t-text-dim)" />
+            <span className="text-xs text-(--t-text-secondary) truncate">{host}</span>
           </div>
 
           <div className="flex justify-between items-center -mt-0.5">
@@ -222,21 +222,21 @@ function RecentCard({ entry, snippet, layout, onReplay, onRemove }: RecentCardPr
   return (
     <BaseCard isList style={{ opacity: isDeleted ? 0.5 : 1 }} onClick={!isDeleted ? onReplay : undefined}>
       {/* Icon */}
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-card-avatar)]">
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-card-avatar)">
         <Icon icon="lucide:history" width={14} />
       </div>
 
       {/* Body */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-sm font-semibold text-[var(--t-text-bright)] truncate flex-1 min-w-0">{label}</span>
+          <span className="text-sm font-semibold text-(--t-text-bright) truncate flex-1 min-w-0">{label}</span>
           {modeBadge}
         </div>
         <div className="flex items-center gap-1.5 mt-0.5">
-          <Icon icon={hostIcon} width={10} className="shrink-0 text-[var(--t-text-dim)]" />
-          <span className="text-xs text-[var(--t-text-muted)] truncate">{host}</span>
-          <span className="text-xs text-[var(--t-text-dim)]">·</span>
-          <span className="text-xs text-[var(--t-text-dim)]">{formatRelativeTime(entry.timestamp)}</span>
+          <Icon icon={hostIcon} width={10} className="shrink-0 text-(--t-text-dim)" />
+          <span className="text-xs text-(--t-text-muted) truncate">{host}</span>
+          <span className="text-xs text-(--t-text-dim)">·</span>
+          <span className="text-xs text-(--t-text-dim)">{formatRelativeTime(entry.timestamp)}</span>
         </div>
       </div>
 
@@ -254,7 +254,7 @@ function RecentCard({ entry, snippet, layout, onReplay, onRemove }: RecentCardPr
 function SectionHeader({ label, count }: { label: string; count?: number }) {
   return (
     <div className="flex items-center justify-between mb-2">
-      <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">
+      <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
         {label}
         {count !== undefined && (
           <span className="ml-2 font-normal normal-case tracking-normal">{count}</span>
@@ -270,11 +270,11 @@ function SkeletonList() {
   return (
     <div className="flex flex-col gap-1.5 animate-pulse">
       {[...Array(6)].map((_, i) => (
-        <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-[var(--t-bg-card)]">
-          <div className="w-8 h-8 rounded-lg shrink-0 bg-[var(--t-bg-card-avatar)]" />
+        <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-(--t-bg-card)">
+          <div className="w-8 h-8 rounded-lg shrink-0 bg-(--t-bg-card-avatar)" />
           <div className="flex-1 min-w-0 space-y-1.5">
-            <div className="h-3 rounded-md bg-[var(--t-bg-elevated)]" style={{ width: `${45 + (i * 17) % 40}%` }} />
-            <div className="h-2.5 rounded-md bg-[var(--t-bg-elevated)]" style={{ width: `${55 + (i * 13) % 30}%` }} />
+            <div className="h-3 rounded-md bg-(--t-bg-elevated)" style={{ width: `${45 + (i * 17) % 40}%` }} />
+            <div className="h-2.5 rounded-md bg-(--t-bg-elevated)" style={{ width: `${55 + (i * 13) % 30}%` }} />
           </div>
         </div>
       ))}
@@ -288,7 +288,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center h-full gap-4 text-center py-16">
       <div
-        className="flex items-center justify-center rounded-3xl w-[5.333rem] h-[5.333rem] text-[var(--t-text-dim)]"
+        className="flex items-center justify-center rounded-3xl w-[5.333rem] h-[5.333rem] text-(--t-text-dim)"
         style={{
           background: "linear-gradient(135deg, var(--t-bg-elevated) 0%, var(--t-bg-card) 100%)",
           border: "1px solid var(--t-border)",
@@ -297,14 +297,14 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
         <Icon icon="lucide:braces" width={36} />
       </div>
       <div className="flex flex-col gap-1.5">
-        <span className="text-base font-semibold text-[var(--t-text-primary)]">No snippets yet</span>
-        <span className="text-sm text-[var(--t-text-dim)] max-w-[18rem]">
+        <span className="text-base font-semibold text-(--t-text-primary)">No snippets yet</span>
+        <span className="text-sm text-(--t-text-dim) max-w-[18rem]">
           Save reusable terminal commands with dynamic variables.
         </span>
       </div>
       <button
         onClick={onAdd}
-        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors bg-[var(--t-bg-elevated)] text-[var(--t-accent)] border border-[var(--t-border-hover)]"
+        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors bg-(--t-bg-elevated) text-(--t-accent) border border-(--t-border-hover)"
         onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-card-hover)")}
         onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
       >
@@ -990,7 +990,7 @@ export function SnippetsPage() {
               {folderPath.length > 0 && (
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
-                    className="flex items-center gap-1.5 text-xs transition-colors text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)]"
+                    className="flex items-center gap-1.5 text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
                     onClick={navigateToRoot}
                   >
                     <Icon icon="lucide:chevron-left" width={13} />
@@ -998,16 +998,16 @@ export function SnippetsPage() {
                   </button>
                   {folderPath.map((folder, i) => (
                     <span key={folder.id} className="flex items-center gap-2">
-                      <span className="text-[var(--t-text-dim)]">/</span>
+                      <span className="text-(--t-text-dim)">/</span>
                       {i < folderPath.length - 1 ? (
                         <button
-                          className="text-xs transition-colors text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)]"
+                          className="text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
                           onClick={() => navigateTo(i)}
                         >
                           {folder.name}
                         </button>
                       ) : (
-                        <span className="text-xs font-medium text-[var(--t-text-primary)]">
+                        <span className="text-xs font-medium text-(--t-text-primary)">
                           {folder.name}
                         </span>
                       )}
@@ -1024,14 +1024,14 @@ export function SnippetsPage() {
                 >
                   <div className="flex items-center justify-between mb-2.5 px-1">
                     <div className="flex items-center gap-1.5">
-                      <Icon icon="lucide:history" width={12} className="text-[var(--t-text-dim)]" />
-                      <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">
+                      <Icon icon="lucide:history" width={12} className="text-(--t-text-dim)" />
+                      <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
                         Recent
                       </p>
                     </div>
                     <button
                       onClick={() => { useSnippetRecentStore.getState().clear(); setShowAllRecent(false); }}
-                      className="text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors"
+                      className="text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors"
                     >
                       Clear
                     </button>
@@ -1054,7 +1054,7 @@ export function SnippetsPage() {
                   {scopedRecentEntries.length > RECENT_PREVIEW_COUNT && (
                     <button
                       onClick={() => setShowAllRecent((v) => !v)}
-                      className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors"
+                      className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors"
                       style={{ background: "var(--t-bg-elevated)" }}
                     >
                       <Icon icon={showAllRecent ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} />
@@ -1144,10 +1144,10 @@ export function SnippetsPage() {
                 </div>
               ) : !hasSearch && filtered.length > 0 && activeFolderId ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-3">
-                  <Icon icon="lucide:folder-open" width={32} className="text-[var(--t-text-dim)]" />
-                  <p className="text-sm text-[var(--t-text-dim)]">This folder is empty</p>
+                  <Icon icon="lucide:folder-open" width={32} className="text-(--t-text-dim)" />
+                  <p className="text-sm text-(--t-text-dim)">This folder is empty</p>
                   <button
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-[var(--t-bg-elevated)] text-[var(--t-accent)] border border-[var(--t-border-hover)]"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-(--t-bg-elevated) text-(--t-accent) border border-(--t-border-hover)"
                     onClick={() => openSnippet("new")}
                   >
                     <Icon icon="lucide:plus" width={12} />
@@ -1156,11 +1156,11 @@ export function SnippetsPage() {
                 </div>
               ) : hasSearch && filtered.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 py-12">
-                  <Icon icon="lucide:search-x" width={28} className="text-[var(--t-text-dim)]" />
-                  <p className="text-sm text-[var(--t-text-dim)]">No snippets match "{search}"</p>
+                  <Icon icon="lucide:search-x" width={28} className="text-(--t-text-dim)" />
+                  <p className="text-sm text-(--t-text-dim)">No snippets match "{search}"</p>
                   <button
                     onClick={() => setSearch("")}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-[var(--t-bg-elevated)] text-[var(--t-text-secondary)] border border-[var(--t-border-hover)]"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-(--t-bg-elevated) text-(--t-text-secondary) border border-(--t-border-hover)"
                     onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-card-hover)")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
                   >

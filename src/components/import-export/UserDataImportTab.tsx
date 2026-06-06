@@ -71,17 +71,17 @@ export function UserDataImportTab({ onClose }: { onClose: () => void }) {
       )}
 
       {status.type === "ready" && (
-        <div className="flex flex-col gap-3 p-3 rounded-lg bg-[var(--t-bg-elevated)] border border-[var(--t-border)]">
-          <div className="flex items-center gap-2 text-sm text-[var(--t-text-primary)]">
-            <Icon icon="lucide:check-circle" width={15} className="text-[var(--t-status-ok)]" />
+        <div className="flex flex-col gap-3 p-3 rounded-lg bg-(--t-bg-elevated) border border-(--t-border)">
+          <div className="flex items-center gap-2 text-sm text-(--t-text-primary)">
+            <Icon icon="lucide:check-circle" width={15} className="text-(--t-status-ok)" />
             Found {Object.keys(status.bundle.sections).length} setting section{Object.keys(status.bundle.sections).length !== 1 ? "s" : ""}
           </div>
-          <div className="flex flex-col gap-2 pt-2 border-t border-[var(--t-border)]">
+          <div className="flex flex-col gap-2 pt-2 border-t border-(--t-border)">
             {USER_DATA_HANDLERS.filter((h) => status.bundle.sections[h.key]).map((h) => (
               <label key={h.key} className="flex items-center gap-2 cursor-pointer select-none">
                 <span
                   onClick={() => setIncluded((p) => ({ ...p, [h.key]: !p[h.key] }))}
-                  className="flex items-center justify-center w-4 h-4 rounded transition-colors shrink-0"
+                  className="flex items-center justify-center w-4 h-4 rounded-sm transition-colors shrink-0"
                   style={{
                     background: included[h.key] ? "var(--t-accent)" : "var(--t-bg-input)",
                     border: `1px solid ${included[h.key] ? "var(--t-accent)" : "var(--t-border-hover)"}`,
@@ -89,8 +89,8 @@ export function UserDataImportTab({ onClose }: { onClose: () => void }) {
                 >
                   {included[h.key] && <Icon icon="lucide:check" width={10} color="white" />}
                 </span>
-                <Icon icon={h.icon} width={13} className="text-[var(--t-text-muted)]" />
-                <span className="text-sm text-[var(--t-text-primary)]">{h.label}</span>
+                <Icon icon={h.icon} width={13} className="text-(--t-text-muted)" />
+                <span className="text-sm text-(--t-text-primary)">{h.label}</span>
               </label>
             ))}
           </div>
@@ -109,7 +109,7 @@ export function UserDataImportTab({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      <div className="mt-auto pt-3 border-t border-[var(--t-border)]">
+      <div className="mt-auto pt-3 border-t border-(--t-border)">
         <ActionBtn
           icon={importing ? "lucide:loader" : "lucide:download"}
           label={importing ? "Applying…" : selectedCount > 0 ? `Apply ${selectedCount} section${selectedCount !== 1 ? "s" : ""}` : "Apply"}

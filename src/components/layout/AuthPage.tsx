@@ -62,7 +62,7 @@ export default function AuthPage({ isLocked, onReady }: Props) {
     };
     return (
       <Layout>
-        <p className="text-xs mb-4 text-center text-[var(--t-text-muted)]">
+        <p className="text-xs mb-4 text-center text-(--t-text-muted)">
           Enter your master password to unlock
         </p>
         <form onSubmit={submit} className="w-full space-y-2">
@@ -78,7 +78,7 @@ export default function AuthPage({ isLocked, onReady }: Props) {
             await resetVault();
             window.location.reload();
           }}
-          className="mt-1 text-xs w-full text-center transition-colors text-[var(--t-text-dim)] hover:text-[var(--t-status-error)]"
+          className="mt-1 text-xs w-full text-center transition-colors text-(--t-text-dim) hover:text-(--t-status-error)"
         >
           Reset vault (deletes all local data)
         </button>
@@ -91,7 +91,7 @@ export default function AuthPage({ isLocked, onReady }: Props) {
   if (view === "home") {
     return (
       <Layout>
-        <p className="text-xs mb-6 text-center text-[var(--t-text-muted)]">
+        <p className="text-xs mb-6 text-center text-(--t-text-muted)">
           Choose how you want to use Voltius
         </p>
 
@@ -105,9 +105,9 @@ export default function AuthPage({ isLocked, onReady }: Props) {
         />
 
         <div className="flex items-center gap-2 my-4">
-          <div className="flex-1 h-px bg-[var(--t-border)]" />
-          <span className="text-xs text-[var(--t-text-dim)]">or</span>
-          <div className="flex-1 h-px bg-[var(--t-border)]" />
+          <div className="flex-1 h-px bg-(--t-border)" />
+          <span className="text-xs text-(--t-text-dim)">or</span>
+          <div className="flex-1 h-px bg-(--t-border)" />
         </div>
 
         <ActionButton
@@ -150,7 +150,7 @@ export default function AuthPage({ isLocked, onReady }: Props) {
 
     return (
       <Layout onBack={() => reset("home")}>
-        <p className="text-xs mb-4 text-center text-[var(--t-text-muted)]">
+        <p className="text-xs mb-4 text-center text-(--t-text-muted)">
           {isSignup ? "Create an account to sync across devices" : "Sign in to restore your synced data"}
         </p>
         <form onSubmit={submit} className="w-full space-y-2">
@@ -163,7 +163,7 @@ export default function AuthPage({ isLocked, onReady }: Props) {
           <button
             type="button"
             onClick={() => setShowServerUrl((v) => !v)}
-            className="text-xs w-full text-left transition-colors text-[var(--t-text-dim)]"
+            className="text-xs w-full text-left transition-colors text-(--t-text-dim)"
           >
             {showServerUrl ? "▾" : "▸"} Custom server URL
           </button>
@@ -178,22 +178,22 @@ export default function AuthPage({ isLocked, onReady }: Props) {
         <div className="mt-3 text-center">
           {isSignup ? (
             <>
-              <span className="text-xs text-[var(--t-text-dim)]">Already have an account? </span>
+              <span className="text-xs text-(--t-text-dim)">Already have an account? </span>
               <button
                 type="button"
                 onClick={() => { setCloudMode("signin"); setError(""); setConfirm(""); }}
-                className="text-xs text-[var(--t-accent)] hover:underline"
+                className="text-xs text-(--t-accent) hover:underline"
               >
                 Sign in
               </button>
             </>
           ) : (
             <>
-              <span className="text-xs text-[var(--t-text-dim)]">New here? </span>
+              <span className="text-xs text-(--t-text-dim)">New here? </span>
               <button
                 type="button"
                 onClick={() => { setCloudMode("signup"); setError(""); }}
-                className="text-xs text-[var(--t-accent)] hover:underline"
+                className="text-xs text-(--t-accent) hover:underline"
               >
                 Create account
               </button>
@@ -202,21 +202,21 @@ export default function AuthPage({ isLocked, onReady }: Props) {
         </div>
 
         {isSignup && (
-          <p className="mt-2 text-xs text-center text-[var(--t-text-dim)] leading-relaxed">
+          <p className="mt-2 text-xs text-center text-(--t-text-dim) leading-relaxed">
             Your data is E2E encrypted — the server cannot read it.{" "}
             <a href="https://github.com/VoltiusApp/voltius" target="_blank" rel="noreferrer"
-              className="text-[var(--t-accent)] hover:underline">
+              className="text-(--t-accent) hover:underline">
               Open source.
             </a>
             <br />
             By creating an account you agree to our{" "}
             <a href="https://voltius.app/terms" target="_blank" rel="noreferrer"
-              className="text-[var(--t-accent)] hover:underline">
+              className="text-(--t-accent) hover:underline">
               Terms of Service
             </a>{" "}
             and{" "}
             <a href="https://voltius.app/privacy" target="_blank" rel="noreferrer"
-              className="text-[var(--t-accent)] hover:underline">
+              className="text-(--t-accent) hover:underline">
               Privacy Policy
             </a>
             .
@@ -233,10 +233,10 @@ export default function AuthPage({ isLocked, onReady }: Props) {
 
 function Layout({ children, onBack }: { children: React.ReactNode; onBack?: () => void }) {
   return (
-    <div className="h-full w-full flex flex-col items-center justify-center bg-[var(--t-bg-terminal)]">
+    <div className="h-full w-full flex flex-col items-center justify-center bg-(--t-bg-terminal)">
       {onBack && (
         <button onClick={onBack}
-          className="absolute top-6 left-6 flex items-center gap-1.5 text-xs transition-colors text-[var(--t-text-muted)] hover:text-[var(--t-text-primary)]"
+          className="absolute top-6 left-6 flex items-center gap-1.5 text-xs transition-colors text-(--t-text-muted) hover:text-(--t-text-primary)"
         >
           <Icon icon="lucide:arrow-left" width={13} /> Back
         </button>
@@ -244,7 +244,7 @@ function Layout({ children, onBack }: { children: React.ReactNode; onBack?: () =
 
       <div className="mb-8 text-center">
         <LogoBadge size={12} className="mb-3" />
-        <h1 className="text-lg font-bold text-[var(--t-text-bright)]">Voltius</h1>
+        <h1 className="text-lg font-bold text-(--t-text-bright)">Voltius</h1>
       </div>
 
       <div className="w-72">{children}</div>
@@ -299,7 +299,7 @@ function Input({ type, placeholder, value, onChange, autoFocus }: {
       value={value}
       onChange={(e) => onChange(e.target.value)}
       autoFocus={autoFocus}
-      className="w-full px-3 py-2 rounded-lg text-sm outline-none transition-colors bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)]"
+      className="w-full px-3 py-2 rounded-lg text-sm outline-hidden transition-colors bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
       onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
       onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
     />
@@ -308,13 +308,13 @@ function Input({ type, placeholder, value, onChange, autoFocus }: {
 
 function ErrorMsg({ msg }: { msg: string }) {
   if (!msg) return null;
-  return <p className="text-xs text-center py-1 text-[var(--t-status-error)]">{msg}</p>;
+  return <p className="text-xs text-center py-1 text-(--t-status-error)">{msg}</p>;
 }
 
 function SubmitBtn({ loading, label }: { loading: boolean; label: string }) {
   return (
     <button type="submit" disabled={loading}
-      className="w-full py-2 rounded-lg text-sm font-medium text-white transition-colors flex items-center justify-center gap-2 bg-[var(--t-accent)]"
+      className="w-full py-2 rounded-lg text-sm font-medium text-white transition-colors flex items-center justify-center gap-2 bg-(--t-accent)"
       style={{ opacity: loading ? 0.7 : 1 }}
       onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = "var(--t-accent-hover)"; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-accent)"; }}

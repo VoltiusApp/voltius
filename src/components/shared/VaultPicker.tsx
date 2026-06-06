@@ -96,10 +96,10 @@ export function VaultPicker({
 
       {open && createPortal(
         <>
-          <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-9998" onClick={() => setOpen(false)} />
           <div
             ref={dropdownRef}
-            className="fixed z-[9999] p-1.5 rounded-xl min-w-[13rem]"
+            className="fixed z-9999 p-1.5 rounded-xl min-w-52"
             style={{
               top: pos.top,
               left: pos.left,
@@ -126,7 +126,7 @@ export function VaultPicker({
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-secondary)"; }}
                 >
                   <Icon icon="lucide:vault" width={14} className="shrink-0" style={{ color: "var(--t-text-muted)" }} />
-                  <span className="flex-1 text-left text-[var(--t-text-primary)] truncate">
+                  <span className="flex-1 text-left text-(--t-text-primary) truncate">
                     {v.name}
                   </span>
                   {!writable && (
@@ -140,7 +140,7 @@ export function VaultPicker({
                     </span>
                   )}
                   {selected && (
-                    <span className="[&_path]:[stroke-width:2.5] shrink-0">
+                    <span className="[&_path]:stroke-[2.5] shrink-0">
                       <Icon icon="lucide:check" width={14} />
                     </span>
                   )}

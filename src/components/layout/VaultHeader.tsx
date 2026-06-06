@@ -295,7 +295,7 @@ export default function VaultHeader() {
         <Icon icon="lucide:search" width={14} className="shrink-0" />
         <span className="text-sm flex-1 text-left">Jump to...</span>
         <kbd
-          className="flex items-center gap-0.5 text-[10px] px-1 rounded"
+          className="flex items-center gap-0.5 text-[10px] px-1 rounded-sm"
           style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-dim)" }}
         >
           <span>⌘</span>

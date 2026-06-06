@@ -78,33 +78,33 @@ export default function JumpHostsPanel({ jumpHosts, onChange, onBack }: Props) {
   };
 
   return (
-    <div className="relative flex flex-col h-full overflow-hidden bg-[var(--t-bg-card)]">
+    <div className="relative flex flex-col h-full overflow-hidden bg-(--t-bg-card)">
       <div className="flex flex-col h-full" onMouseUp={handleDrop} onMouseLeave={cancelDrag}>
         {/* Header */}
-        <div className="flex items-center gap-2 px-3 py-3 shrink-0 border-b border-b-[var(--t-bg-terminal)]">
+        <div className="flex items-center gap-2 px-3 py-3 shrink-0 border-b border-b-(--t-bg-terminal)">
           <button
             onClick={onBack}
-            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] hover:bg-[var(--t-bg-elevated)]"
+            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors text-(--t-text-dim) hover:text-(--t-text-primary) hover:bg-(--t-bg-elevated)"
           >
-            <span className="[&_path]:[stroke-width:3]">
+            <span className="[&_path]:stroke-3">
               <Icon icon="lucide:arrow-left" width={16} />
             </span>
           </button>
-          <Icon icon="lucide:waypoints" width={14} className="text-[var(--t-text-dim)]" />
-          <h2 className="text-sm font-semibold flex-1 text-[var(--t-text-primary)]">Hosts Chaining</h2>
+          <Icon icon="lucide:waypoints" width={14} className="text-(--t-text-dim)" />
+          <h2 className="text-sm font-semibold flex-1 text-(--t-text-primary)">Hosts Chaining</h2>
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
           {jumpHosts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
-              <Icon icon="lucide:waypoints" width={32} className="text-[var(--t-text-dim)] opacity-40" />
-              <p className="text-xs text-[var(--t-text-dim)]">No jump hosts configured</p>
-              <p className="text-xs text-[var(--t-text-dim)] opacity-70">
+              <Icon icon="lucide:waypoints" width={32} className="text-(--t-text-dim) opacity-40" />
+              <p className="text-xs text-(--t-text-dim)">No jump hosts configured</p>
+              <p className="text-xs text-(--t-text-dim) opacity-70">
                 Add hosts to connect through before the final destination
               </p>
             </div>
           ) : (
-            <p className="text-xs text-[var(--t-text-dim)] pb-1">
+            <p className="text-xs text-(--t-text-dim) pb-1">
               Hold and drag to reorder · Connected in order before reaching the final host
             </p>
           )}
@@ -129,34 +129,34 @@ export default function JumpHostsPanel({ jumpHosts, onChange, onBack }: Props) {
                   cursor: draggingId ? "grabbing" : undefined,
                   userSelect: "none",
                 }}
-                className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-[var(--t-bg-elevated)] border border-[var(--t-border)] transition-colors"
+                className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-(--t-bg-elevated) border border-(--t-border) transition-colors"
               >
                 {/* Drag handle */}
                 <div
                   onMouseDown={() => handleDragStart(jh.id)}
-                  className="text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors shrink-0 cursor-grab active:cursor-grabbing"
+                  className="text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors shrink-0 cursor-grab active:cursor-grabbing"
                   aria-label="Drag to reorder"
                 >
                   <Icon icon="lucide:grip-vertical" width={14} />
                 </div>
 
-                <span className="w-5 h-5 rounded-full bg-[var(--t-accent)] text-[var(--t-bg-card)] text-[10px] font-bold flex items-center justify-center shrink-0">
+                <span className="w-5 h-5 rounded-full bg-(--t-accent) text-(--t-bg-card) text-[10px] font-bold flex items-center justify-center shrink-0">
                   {idx + 1}
                 </span>
 
                 {conn ? (
                   <ConnectionAvatar connection={conn} size={24} />
                 ) : (
-                  <div className="w-6 h-6 rounded flex items-center justify-center bg-[var(--t-bg-base)] text-[var(--t-text-dim)] shrink-0">
+                  <div className="w-6 h-6 rounded-sm flex items-center justify-center bg-(--t-bg-base) text-(--t-text-dim) shrink-0">
                     <Icon icon="lucide:server" width={12} />
                   </div>
                 )}
 
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-[var(--t-text-primary)] truncate">
+                  <p className="text-xs font-medium text-(--t-text-primary) truncate">
                     {conn?.name ?? `${username}@${host}`}
                   </p>
-                  <p className="text-xs text-[var(--t-text-dim)] truncate">
+                  <p className="text-xs text-(--t-text-dim) truncate">
                     {username}@{host}:{port}
                   </p>
                 </div>
@@ -165,7 +165,7 @@ export default function JumpHostsPanel({ jumpHosts, onChange, onBack }: Props) {
                   type="button"
                   onMouseDown={(e) => e.stopPropagation()}
                   onClick={() => removeJumpHost(jh.id)}
-                  className="text-[var(--t-text-dim)] hover:text-red-400 transition-colors shrink-0"
+                  className="text-(--t-text-dim) hover:text-red-400 transition-colors shrink-0"
                   aria-label="Remove jump host"
                 >
                   <Icon icon="lucide:x" width={14} />
@@ -177,7 +177,7 @@ export default function JumpHostsPanel({ jumpHosts, onChange, onBack }: Props) {
           <button
             type="button"
             onClick={() => setShowPicker(true)}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-[var(--t-border)] text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] hover:border-[var(--t-border-hover)] transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-dashed border-(--t-border) text-xs text-(--t-text-dim) hover:text-(--t-text-primary) hover:border-(--t-border-hover) transition-colors"
           >
             <Icon icon="lucide:plus" width={13} />
             Add Jump Host

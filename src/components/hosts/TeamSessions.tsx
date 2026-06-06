@@ -140,11 +140,11 @@ export function TeamSessions() {
     return (
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">
+          <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
             Team Sessions
           </p>
           <button
-            className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors"
+            className="flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium transition-colors"
             style={{ color: "var(--t-text-dim)", border: "1px solid var(--t-border)" }}
             onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)")}
             onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)")}
@@ -175,7 +175,7 @@ export function TeamSessions() {
             onChange={(e) => { setInviteCode(e.target.value); setJoinError(null); }}
             onKeyDown={(e) => { if (e.key === "Enter") void handleJoinByCode(); if (e.key === "Escape") setShowJoinModal(false); }}
             placeholder="sessionId:token"
-            className="flex-1 text-xs px-2.5 py-1.5 rounded-lg outline-none"
+            className="flex-1 text-xs px-2.5 py-1.5 rounded-lg outline-hidden"
             style={{
               background: "var(--t-bg-elevated)",
               border: "1px solid var(--t-border)",
@@ -212,11 +212,11 @@ export function TeamSessions() {
   return (
     <div className="mb-6">
       <div className="flex items-center gap-2 mb-3">
-        <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">
+        <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
           Team Sessions
         </p>
         <span
-          className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold"
+          className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-semibold"
           style={{
             background: "color-mix(in srgb, var(--t-accent) 15%, transparent)",
             color: "var(--t-accent)",
@@ -229,7 +229,7 @@ export function TeamSessions() {
           LIVE
         </span>
         <button
-          className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors"
+          className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium transition-colors"
           style={{ color: "var(--t-text-dim)", border: "1px solid var(--t-border)" }}
           onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)")}
           onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)")}
@@ -263,7 +263,7 @@ export function TeamSessions() {
               key={session.id}
               isSelected={alreadyIn}
               onClick={() => void handleJoinCard(session)}
-              className="flex-shrink-0"
+              className="shrink-0"
               style={{ minWidth: 220, maxWidth: 280 }}
             >
               <div className="flex-1 min-w-0 self-start flex flex-col gap-1">
@@ -277,7 +277,7 @@ export function TeamSessions() {
                   </div>
 
                   <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                    <p className="text-sm font-bold truncate text-[var(--t-text-bright)]">
+                    <p className="text-sm font-bold truncate text-(--t-text-bright)">
                       {session.connection_name}
                     </p>
 
@@ -296,7 +296,7 @@ export function TeamSessions() {
                   {/* Join / Resume button */}
                   <button
                     onClick={(e) => { e.stopPropagation(); void handleJoinCard(session); }}
-                    className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors self-center text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)]"
+                    className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors self-center text-(--t-text-dim) hover:text-(--t-text-bright)"
                     style={{
                       background: "var(--t-bg-terminal)",
                       border: "1px solid var(--t-border)",

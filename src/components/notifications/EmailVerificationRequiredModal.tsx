@@ -46,7 +46,7 @@ export function EmailVerificationRequiredModal() {
   return (
     <Modal onClose={() => setVisible(false)} blur>
       <div
-        className="flex flex-col gap-4 animate-fadeIn bg-[var(--t-bg-base)] border border-[var(--t-border)] p-8"
+        className="flex flex-col gap-4 animate-fadeIn bg-(--t-bg-base) border border-(--t-border) p-8"
         style={{
           width: "min(28rem, 92vw)",
           borderRadius: "0.933rem",
@@ -54,10 +54,10 @@ export function EmailVerificationRequiredModal() {
         }}
       >
         <div>
-          <p className="text-base font-semibold text-[var(--t-text-primary)] mb-1">
+          <p className="text-base font-semibold text-(--t-text-primary) mb-1">
             Verify your email first
           </p>
-          <p className="text-sm text-[var(--t-text-muted)] leading-relaxed">
+          <p className="text-sm text-(--t-text-muted) leading-relaxed">
             Cloud upgrades require a verified email address. Check your inbox for the verification link, or send a new one.
           </p>
         </div>
@@ -66,13 +66,13 @@ export function EmailVerificationRequiredModal() {
           <button
             onClick={() => void handleResend()}
             disabled={sending}
-            className="w-full py-2.5 rounded-lg text-sm font-semibold bg-[var(--t-accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-60"
+            className="w-full py-2.5 rounded-lg text-sm font-semibold bg-(--t-accent) text-white hover:opacity-90 transition-opacity disabled:opacity-60"
           >
             {sending ? "Sending..." : "Resend email"}
           </button>
           <button
             onClick={() => setVisible(false)}
-            className="w-full py-2.5 rounded-lg text-sm text-[var(--t-text-muted)] hover:text-[var(--t-text-primary)] transition-colors"
+            className="w-full py-2.5 rounded-lg text-sm text-(--t-text-muted) hover:text-(--t-text-primary) transition-colors"
           >
             Close
           </button>

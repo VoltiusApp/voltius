@@ -41,10 +41,10 @@ function Btn({
   const size = small ? "px-3 py-1 text-xs" : "px-4 py-2 text-sm";
   const colors =
     variant === "primary"
-      ? "bg-[var(--t-accent)] text-white hover:bg-[var(--t-accent-hover)]"
+      ? "bg-(--t-accent) text-white hover:bg-(--t-accent-hover)"
       : variant === "danger"
-        ? "bg-transparent border border-[var(--t-status-error)] text-[var(--t-status-error)] hover:bg-[color-mix(in_srgb,var(--t-status-error)_10%,transparent)]"
-        : "bg-[var(--t-bg-elevated)] border border-[var(--t-border)] text-[var(--t-text-muted)] hover:border-[var(--t-border-hover)]";
+        ? "bg-transparent border border-(--t-status-error) text-(--t-status-error) hover:bg-[color-mix(in_srgb,var(--t-status-error)_10%,transparent)]"
+        : "bg-(--t-bg-elevated) border border-(--t-border) text-(--t-text-muted) hover:border-(--t-border-hover)";
   return (
     <button className={`${base} ${size} ${colors}`} onClick={onClick} disabled={disabled}>
       {children}
@@ -54,9 +54,9 @@ function Btn({
 
 function SaveIndicator({ saveState }: { saveState: SaveState }) {
   if (saveState === "dirty" || saveState === "saving")
-    return <Icon icon="lucide:loader-circle" width={13} className="animate-spin text-[var(--t-text-dim)]" />;
+    return <Icon icon="lucide:loader-circle" width={13} className="animate-spin text-(--t-text-dim)" />;
   if (saveState === "saved")
-    return <Icon icon="lucide:check" width={13} className="text-[var(--t-status-connected)]" />;
+    return <Icon icon="lucide:check" width={13} className="text-(--t-status-connected)" />;
   return null;
 }
 
@@ -80,7 +80,7 @@ function SecretInput({
   const [show, setShow] = useState(false);
   return (
     <div className="flex flex-col gap-1">
-      <label className="flex items-center gap-1.5 text-xs font-medium text-[var(--t-text-muted)]">
+      <label className="flex items-center gap-1.5 text-xs font-medium text-(--t-text-muted)">
         {label}{labelSuffix}
       </label>
       <div className="relative flex items-center">
@@ -89,7 +89,7 @@ function SecretInput({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full px-3 py-2 pr-16 rounded-lg text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)] transition-colors"
+          className="w-full px-3 py-2 pr-16 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) transition-colors"
           onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
           onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
         />
@@ -97,7 +97,7 @@ function SecretInput({
           {saveState && <SaveIndicator saveState={saveState} />}
           <button
             type="button"
-            className="text-[var(--t-text-dim)] hover:text-[var(--t-text-muted)]"
+            className="text-(--t-text-dim) hover:text-(--t-text-muted)"
             onClick={() => setShow((s) => !s)}
             tabIndex={-1}
           >
@@ -105,7 +105,7 @@ function SecretInput({
           </button>
         </div>
       </div>
-      {hint && <p className="text-xs text-[var(--t-text-dim)]">{hint}</p>}
+      {hint && <p className="text-xs text-(--t-text-dim)">{hint}</p>}
     </div>
   );
 }
@@ -113,7 +113,7 @@ function SecretInput({
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 py-2">
-      <span className="text-sm text-[var(--t-text-muted)] shrink-0">{label}</span>
+      <span className="text-sm text-(--t-text-muted) shrink-0">{label}</span>
       <div className="flex items-center gap-2">{children}</div>
     </div>
   );
@@ -154,10 +154,10 @@ function RolePill({
       className={[
         "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border transition-colors",
         active
-          ? "bg-[color-mix(in_srgb,var(--t-accent)_14%,transparent)] text-[var(--t-accent)] border-[var(--t-accent)]"
+          ? "bg-[color-mix(in_srgb,var(--t-accent)_14%,transparent)] text-(--t-accent) border-(--t-accent)"
           : disabled
-          ? "opacity-40 cursor-not-allowed text-[var(--t-text-dim)] border-[var(--t-border)]"
-          : "cursor-pointer text-[var(--t-text-dim)] border-[var(--t-border)] hover:border-[var(--t-border-hover)] hover:text-[var(--t-text-muted)]",
+          ? "opacity-40 cursor-not-allowed text-(--t-text-dim) border-(--t-border)"
+          : "cursor-pointer text-(--t-text-dim) border-(--t-border) hover:border-(--t-border-hover) hover:text-(--t-text-muted)",
         disabled ? "cursor-not-allowed" : "cursor-pointer",
       ].join(" ")}
     >
@@ -208,8 +208,8 @@ function GistRow({
 
   if (isConfirmingDelete) {
     return (
-      <div className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-[var(--t-status-error)] bg-[color-mix(in_srgb,var(--t-status-error)_6%,transparent)]">
-        <span className="text-xs text-[var(--t-status-error)]">
+      <div className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-(--t-status-error) bg-[color-mix(in_srgb,var(--t-status-error)_6%,transparent)]">
+        <span className="text-xs text-(--t-status-error)">
           Permanently delete <span className="font-mono">{shortId}</span> from GitHub?
         </span>
         <div className="flex gap-1.5 shrink-0">
@@ -230,16 +230,16 @@ function GistRow({
   }
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-base)] hover:border-[var(--t-border-hover)] group transition-colors">
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-(--t-border) bg-(--t-bg-base) hover:border-(--t-border-hover) group transition-colors">
       {/* Gist ID + link */}
       <div className="flex items-center gap-1.5 flex-1 min-w-0">
-        <Icon icon="mdi:github" width={13} className="shrink-0 text-[var(--t-text-dim)]" />
-        <span className="text-sm font-mono text-[var(--t-text-primary)]">{shortId}</span>
+        <Icon icon="mdi:github" width={13} className="shrink-0 text-(--t-text-dim)" />
+        <span className="text-sm font-mono text-(--t-text-primary)">{shortId}</span>
         <a
           href={url}
           target="_blank"
           rel="noreferrer"
-          className="text-[var(--t-text-dim)] hover:text-[var(--t-accent)] transition-colors"
+          className="text-(--t-text-dim) hover:text-(--t-accent) transition-colors"
           title="Open on GitHub"
         >
           <Icon icon="lucide:external-link" width={11} />
@@ -272,15 +272,15 @@ function GistRow({
           type="button"
           onClick={handleCopyLink}
           title="Copy gist URL"
-          className="p-1 rounded text-[var(--t-text-dim)] hover:text-[var(--t-text-muted)] hover:bg-[var(--t-bg-hover)] transition-colors cursor-pointer"
+          className="p-1 rounded-sm text-(--t-text-dim) hover:text-(--t-text-muted) hover:bg-(--t-bg-hover) transition-colors cursor-pointer"
         >
-          <Icon icon={copied ? "lucide:check" : "lucide:copy"} width={13} className={copied ? "text-[var(--t-status-connected)]" : ""} />
+          <Icon icon={copied ? "lucide:check" : "lucide:copy"} width={13} className={copied ? "text-(--t-status-connected)" : ""} />
         </button>
         <button
           type="button"
           onClick={onUnlink}
           title="Unlink (keep gist on GitHub)"
-          className="p-1 rounded text-[var(--t-text-dim)] hover:text-[var(--t-text-muted)] hover:bg-[var(--t-bg-hover)] transition-colors cursor-pointer"
+          className="p-1 rounded-sm text-(--t-text-dim) hover:text-(--t-text-muted) hover:bg-(--t-bg-hover) transition-colors cursor-pointer"
         >
           <Icon icon="lucide:unlink" width={13} />
         </button>
@@ -288,7 +288,7 @@ function GistRow({
           type="button"
           onClick={onDeleteRequest}
           title="Delete gist from GitHub"
-          className="p-1 rounded text-[var(--t-text-dim)] hover:text-[var(--t-status-error)] hover:bg-[color-mix(in_srgb,var(--t-status-error)_8%,transparent)] transition-colors cursor-pointer"
+          className="p-1 rounded-sm text-(--t-text-dim) hover:text-(--t-status-error) hover:bg-[color-mix(in_srgb,var(--t-status-error)_8%,transparent)] transition-colors cursor-pointer"
         >
           <Icon icon="lucide:trash-2" width={13} />
         </button>
@@ -602,25 +602,25 @@ export function createSettingsPage(api: PluginAPI): React.FC {
       <div className="flex flex-col gap-6 max-w-lg">
         {/* Header */}
         <div className="flex items-center gap-2">
-          <Icon icon="mdi:github" width={20} className="text-[var(--t-text-primary)]" />
-          <h2 className="text-base font-semibold text-[var(--t-text-primary)]">GitHub Gist Sync</h2>
+          <Icon icon="mdi:github" width={20} className="text-(--t-text-primary)" />
+          <h2 className="text-base font-semibold text-(--t-text-primary)">GitHub Gist Sync</h2>
           {configured && <StatusDot ok={!syncError} />}
         </div>
 
-        <p className="text-sm text-[var(--t-text-dim)] -mt-4">
+        <p className="text-sm text-(--t-text-dim) -mt-4">
           Sync your data across devices via encrypted GitHub Gist — no Voltius account required.
           Data is XChaCha20-Poly1305 encrypted client-side before upload.
         </p>
 
         {error && (
-          <div className="px-3 py-2 rounded-lg text-sm text-[var(--t-status-error)] border border-[var(--t-status-error)] bg-[color-mix(in_srgb,var(--t-status-error)_8%,transparent)]">
+          <div className="px-3 py-2 rounded-lg text-sm text-(--t-status-error) border border-(--t-status-error) bg-[color-mix(in_srgb,var(--t-status-error)_8%,transparent)]">
             {error}
           </div>
         )}
 
         {/* Credentials */}
-        <div className="flex flex-col gap-3 p-4 rounded-xl bg-[var(--t-bg-elevated)] border border-[var(--t-border)]">
-          <p className="text-xs font-semibold text-[var(--t-text-muted)] uppercase tracking-wide">
+        <div className="flex flex-col gap-3 p-4 rounded-xl bg-(--t-bg-elevated) border border-(--t-border)">
+          <p className="text-xs font-semibold text-(--t-text-muted) uppercase tracking-wide">
             Credentials
           </p>
           <SecretInput
@@ -631,12 +631,12 @@ export function createSettingsPage(api: PluginAPI): React.FC {
             saveState={patSave.saveState}
             hint={
               <>
-                Needs <code className="text-[var(--t-accent)]">gist</code> scope.{" "}
+                Needs <code className="text-(--t-accent)">gist</code> scope.{" "}
                 <a
                   href="https://github.com/settings/tokens"
                   target="_blank"
                   rel="noreferrer"
-                  className="text-[var(--t-accent)] hover:underline"
+                  className="text-(--t-accent) hover:underline"
                 >
                   github.com/settings/tokens
                 </a>
@@ -647,7 +647,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
             label="Sync Passphrase"
             labelSuffix={
               <>
-                <span className="font-normal text-[var(--t-text-dim)]">— optional</span>
+                <span className="font-normal text-(--t-text-dim)">— optional</span>
                 <InfoTooltip text="Without a passphrase, data is encrypted using your PAT as the key. If your PAT is compromised, your synced data (including SSH private keys) is also exposed." />
               </>
             }
@@ -660,13 +660,13 @@ export function createSettingsPage(api: PluginAPI): React.FC {
         </div>
 
         {/* Registered Gists */}
-        <div className="flex flex-col gap-3 p-4 rounded-xl bg-[var(--t-bg-elevated)] border border-[var(--t-border)]">
+        <div className="flex flex-col gap-3 p-4 rounded-xl bg-(--t-bg-elevated) border border-(--t-border)">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-[var(--t-text-muted)] uppercase tracking-wide">
+            <p className="text-xs font-semibold text-(--t-text-muted) uppercase tracking-wide">
               Gists {gists.length > 0 && `(${gists.length})`}
             </p>
             {gists.length > 0 && (
-              <p className="text-[10px] text-[var(--t-text-dim)]">
+              <p className="text-[10px] text-(--t-text-dim)">
                 Toggle <span className="font-medium">Import</span> / <span className="font-medium">Export</span> roles per gist
               </p>
             )}
@@ -694,13 +694,13 @@ export function createSettingsPage(api: PluginAPI): React.FC {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2 py-4 text-center">
-              <Icon icon="mdi:github" width={28} className="text-[var(--t-text-dim)] opacity-40" />
-              <p className="text-sm text-[var(--t-text-dim)]">No gists registered yet.</p>
-              <p className="text-xs text-[var(--t-text-dim)] opacity-70">Create a new gist or link an existing one below.</p>
+              <Icon icon="mdi:github" width={28} className="text-(--t-text-dim) opacity-40" />
+              <p className="text-sm text-(--t-text-dim)">No gists registered yet.</p>
+              <p className="text-xs text-(--t-text-dim) opacity-70">Create a new gist or link an existing one below.</p>
             </div>
           )}
 
-          <div className="flex gap-2 flex-wrap pt-1 border-t border-[var(--t-border)]">
+          <div className="flex gap-2 flex-wrap pt-1 border-t border-(--t-border)">
             <Btn onClick={handleCreateGist} disabled={saving || detecting}>
               {saving && !showLinkInput ? (
                 <span className="flex items-center gap-1.5">
@@ -730,7 +730,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
             <button
               type="button"
               onClick={() => { setShowLinkInput((v) => !v); setDetectedGists(null); }}
-              className="text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-muted)] underline underline-offset-2 transition-colors"
+              className="text-xs text-(--t-text-dim) hover:text-(--t-text-muted) underline underline-offset-2 transition-colors"
             >
               {showLinkInput ? "Cancel" : "Enter ID manually"}
             </button>
@@ -739,7 +739,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
           {/* Auto-detected gists */}
           {detectedGists !== null && detectedGists.length > 0 && (
             <div className="flex flex-col gap-1.5">
-              <p className="text-xs text-[var(--t-text-dim)]">
+              <p className="text-xs text-(--t-text-dim)">
                 Found {detectedGists.length} Voltius gist{detectedGists.length !== 1 ? "s" : ""} — select to link:
               </p>
               {detectedGists.map((g) => {
@@ -747,23 +747,23 @@ export function createSettingsPage(api: PluginAPI): React.FC {
                 return (
                   <div
                     key={g.id}
-                    className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-base)]"
+                    className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-(--t-border) bg-(--t-bg-base)"
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <Icon icon="mdi:github" width={13} className="shrink-0 text-[var(--t-text-dim)]" />
-                      <span className="text-sm font-mono text-[var(--t-text-primary)]">{g.id.slice(0, 8)}…</span>
+                      <Icon icon="mdi:github" width={13} className="shrink-0 text-(--t-text-dim)" />
+                      <span className="text-sm font-mono text-(--t-text-primary)">{g.id.slice(0, 8)}…</span>
                       <a
                         href={g.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-[var(--t-text-dim)] hover:text-[var(--t-accent)] transition-colors"
+                        className="text-(--t-text-dim) hover:text-(--t-accent) transition-colors"
                         title="Open on GitHub"
                       >
                         <Icon icon="lucide:external-link" width={11} />
                       </a>
                     </div>
                     {alreadyLinked ? (
-                      <span className="text-xs text-[var(--t-text-dim)] opacity-60">linked</span>
+                      <span className="text-xs text-(--t-text-dim) opacity-60">linked</span>
                     ) : (
                       <Btn small onClick={() => handleLinkDetected(g.id)} disabled={saving}>
                         Link
@@ -784,7 +784,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
                 onChange={(e) => setLinkInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleLinkGist()}
                 placeholder="Gist ID or URL (e.g. a1b2c3d4e5f6…)"
-                className="flex-1 px-3 py-2 rounded-lg text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)]"
+                className="flex-1 px-3 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
                 onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
                 onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
               />
@@ -797,13 +797,13 @@ export function createSettingsPage(api: PluginAPI): React.FC {
 
         {/* Sync */}
         {configured && (
-          <div className="flex flex-col gap-3 p-4 rounded-xl bg-[var(--t-bg-elevated)] border border-[var(--t-border)]">
-            <p className="text-xs font-semibold text-[var(--t-text-muted)] uppercase tracking-wide">
+          <div className="flex flex-col gap-3 p-4 rounded-xl bg-(--t-bg-elevated) border border-(--t-border)">
+            <p className="text-xs font-semibold text-(--t-text-muted) uppercase tracking-wide">
               Sync
             </p>
             <Row label="Status">
               <StatusDot ok={!syncError} />
-              <span className="text-sm text-[var(--t-text-primary)]">
+              <span className="text-sm text-(--t-text-primary)">
                 {syncError
                   ? syncError
                   : lastSync
@@ -818,9 +818,9 @@ export function createSettingsPage(api: PluginAPI): React.FC {
                 max={3600}
                 value={interval}
                 onChange={(e) => setIntervalVal(Number(e.target.value))}
-                className="w-20 px-2 py-1 rounded-lg text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)]"
+                className="w-20 px-2 py-1 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
               />
-              <span className="text-sm text-[var(--t-text-dim)]">seconds</span>
+              <span className="text-sm text-(--t-text-dim)">seconds</span>
               <SaveIndicator saveState={intervalSave.saveState} />
             </Row>
             <div className="flex justify-end">
@@ -838,8 +838,8 @@ export function createSettingsPage(api: PluginAPI): React.FC {
 
         {/* Devices (import source gist only) */}
         {configured && sourceManifest && sourceManifest.devices.length > 0 && (
-          <div className="flex flex-col gap-3 p-4 rounded-xl bg-[var(--t-bg-elevated)] border border-[var(--t-border)]">
-            <p className="text-xs font-semibold text-[var(--t-text-muted)] uppercase tracking-wide">
+          <div className="flex flex-col gap-3 p-4 rounded-xl bg-(--t-bg-elevated) border border-(--t-border)">
+            <p className="text-xs font-semibold text-(--t-text-muted) uppercase tracking-wide">
               Devices — import source ({sourceManifest.devices.length})
             </p>
             <div className="flex flex-col gap-1">
@@ -859,18 +859,18 @@ export function createSettingsPage(api: PluginAPI): React.FC {
                       <Icon
                         icon={isMe ? "lucide:monitor-check" : "lucide:monitor"}
                         width={14}
-                        className="shrink-0 text-[var(--t-text-dim)]"
+                        className="shrink-0 text-(--t-text-dim)"
                       />
                       <div className="min-w-0">
-                        <p className="text-sm text-[var(--t-text-primary)] truncate">
+                        <p className="text-sm text-(--t-text-primary) truncate">
                           {device.label}
                           {isMe && (
-                            <span className="ml-1.5 text-xs text-[var(--t-accent)]">
+                            <span className="ml-1.5 text-xs text-(--t-accent)">
                               (this device)
                             </span>
                           )}
                         </p>
-                        <p className="text-xs text-[var(--t-text-dim)]">
+                        <p className="text-xs text-(--t-text-dim)">
                           last push: {formatRelative(device.pushedAt)}
                         </p>
                       </div>

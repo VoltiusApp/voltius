@@ -135,14 +135,14 @@ export default function ShortcutsSection() {
   return (
     <div className="flex flex-col h-full">
       <div
-        className="sticky top-0 z-10 px-6 pt-4 pb-3 bg-[var(--t-bg-toolbar)] border-b border-b-[var(--t-border)]"
+        className="sticky top-0 z-10 px-6 pt-4 pb-3 bg-(--t-bg-toolbar) border-b border-b-(--t-border)"
       >
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Icon
               icon="lucide:search"
               width={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--t-text-muted)] pointer-events-none"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-(--t-text-muted) pointer-events-none"
             />
             <input
               ref={searchRef}
@@ -150,14 +150,14 @@ export default function ShortcutsSection() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search shortcuts…"
-              className="w-full pl-9 pr-8 py-2 rounded-lg text-sm outline-none transition-colors bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)]"
+              className="w-full pl-9 pr-8 py-2 rounded-lg text-sm outline-hidden transition-colors bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
               onFocus={(e) => { e.currentTarget.style.borderColor = "var(--t-accent)"; }}
               onBlur={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; }}
             />
             {query && (
               <button
                 onClick={() => setQuery("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-[var(--t-text-muted)]"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-sm text-(--t-text-muted)"
                 onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-bright)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-muted)"; }}
                 title="Clear search"
@@ -168,7 +168,7 @@ export default function ShortcutsSection() {
           </div>
           <button
             onClick={resetAll}
-            className="px-3 py-2 rounded-lg text-xs transition-colors text-[var(--t-text-secondary)] bg-[var(--t-bg-input)] border border-[var(--t-border)]"
+            className="px-3 py-2 rounded-lg text-xs transition-colors text-(--t-text-secondary) bg-(--t-bg-input) border border-(--t-border)"
             onMouseEnter={(e) => {
               e.currentTarget.style.color = "var(--t-text-bright)";
               e.currentTarget.style.background = "var(--t-bg-input-hover)";
@@ -194,7 +194,7 @@ export default function ShortcutsSection() {
               : "Click a shortcut to rebind it."}
           </span>
           {query && (
-            <span className="text-[var(--t-text-muted)]">
+            <span className="text-(--t-text-muted)">
               {totalMatches} {totalMatches === 1 ? "result" : "results"}
             </span>
           )}
@@ -203,18 +203,18 @@ export default function ShortcutsSection() {
 
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
         {grouped.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-3 text-[var(--t-text-muted)]">
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-(--t-text-muted)">
             <Icon icon="lucide:search-x" width={32} />
             <p className="text-sm">No shortcuts match "{query}"</p>
           </div>
         ) : (
           grouped.map((group) => (
             <div key={group.id}>
-              <h3 className="text-[11px] font-bold uppercase tracking-widest mb-2 px-1 text-[var(--t-text-secondary)]">
+              <h3 className="text-[11px] font-bold uppercase tracking-widest mb-2 px-1 text-(--t-text-secondary)">
                 {group.label}
               </h3>
               <div
-                className="rounded-xl overflow-hidden border bg-[var(--t-bg-card)]"
+                className="rounded-xl overflow-hidden border bg-(--t-bg-card)"
                 style={{ borderColor: "var(--t-border)" }}
               >
                 {group.items.map((sc, idx) => {
@@ -238,10 +238,10 @@ export default function ShortcutsSection() {
                       }}
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-[var(--t-text-bright)] truncate">
+                        <p className="text-sm font-medium text-(--t-text-bright) truncate">
                           {displayLabel(sc)}
                         </p>
-                        <p className="text-xs mt-0.5 text-[var(--t-text-muted)] truncate">
+                        <p className="text-xs mt-0.5 text-(--t-text-muted) truncate">
                           {displayDescription(sc)}
                         </p>
                       </div>
@@ -298,7 +298,7 @@ export default function ShortcutsSection() {
                           <span
                             key={alias.label}
                             title="Fixed shortcut — always active"
-                            className="rounded-md text-[11px] font-mono leading-none text-[var(--t-text-muted)]"
+                            className="rounded-md text-[11px] font-mono leading-none text-(--t-text-muted)"
                             style={{
                               background: "var(--t-bg-base)",
                               border: "1px solid var(--t-border)",

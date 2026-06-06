@@ -107,7 +107,7 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
                 <label className={formLabelClass} style={formLabelStyle}>Destination host</label>
                 <button
                   onClick={() => setShowHostSelect(true)}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm outline-none transition-colors bg-[var(--t-bg-base)] border border-[var(--t-border)]"
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm outline-hidden transition-colors bg-(--t-bg-base) border border-(--t-border)"
                   style={{ color: selectedHost ? "var(--t-text-primary)" : "var(--t-text-muted)" }}
                   onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--t-border-hover)")}
                   onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
@@ -126,7 +126,7 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
                     })()}
                     <span className="truncate">{selectedHost ? (selectedHost.name ?? `${selectedHost.username}@${selectedHost.host}`) : "Select a host…"}</span>
                   </div>
-                  <Icon icon="lucide:chevron-right" width={14} className="text-[var(--t-text-muted)] shrink-0" />
+                  <Icon icon="lucide:chevron-right" width={14} className="text-(--t-text-muted) shrink-0" />
                 </button>
               </div>
               <div>
@@ -137,9 +137,9 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
                 <label className={formLabelClass} style={formLabelStyle}>Filename</label>
                 <input value={filename} onChange={(e) => setFilename(e.target.value)} className={`${formInputClass} font-mono`} style={formInputStyle} onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")} onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")} />
               </div>
-              <div className="flex gap-2 p-3 rounded-lg bg-[var(--t-bg-card-hover)]">
-                <Icon icon="lucide:info" width={14} className="text-[var(--t-text-notice)] shrink-0" style={{ marginTop: 1 }} />
-                <p className="text-xs leading-relaxed text-[var(--t-text-notice)]">
+              <div className="flex gap-2 p-3 rounded-lg bg-(--t-bg-card-hover)">
+                <Icon icon="lucide:info" width={14} className="text-(--t-text-notice) shrink-0" style={{ marginTop: 1 }} />
+                <p className="text-xs leading-relaxed text-(--t-text-notice)">
                   Key export currently supports only UNIX systems. Use Advanced section to customize the export script.
                 </p>
               </div>
@@ -149,15 +149,15 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
           <FormSection label="Advanced">
             <div className="p-1">
               <button onClick={() => setAdvancedOpen((o) => !o)} className="flex items-center gap-2 w-full mb-2">
-                <span className="flex-1 text-left text-xs text-[var(--t-text-muted)]">Export script</span>
-                <Icon icon="lucide:chevron-down" width={14} className="text-[var(--t-text-muted)]" style={{ transform: advancedOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 150ms" }} />
+                <span className="flex-1 text-left text-xs text-(--t-text-muted)">Export script</span>
+                <Icon icon="lucide:chevron-down" width={14} className="text-(--t-text-muted)" style={{ transform: advancedOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 150ms" }} />
               </button>
               {advancedOpen && (
                 <textarea
                   value={script}
                   onChange={(e) => setScript(e.target.value)}
                   rows={9}
-                  className="w-full px-2.5 py-2 rounded-md text-xs outline-none font-mono resize-none bg-[var(--t-bg-base)] border border-[var(--t-border)] text-[var(--t-text-primary)]"
+                  className="w-full px-2.5 py-2 rounded-md text-xs outline-hidden font-mono resize-none bg-(--t-bg-base) border border-(--t-border) text-(--t-text-primary)"
                   style={{ lineHeight: 1.6 }}
                   onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
                   onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
@@ -168,25 +168,25 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
 
           {exportStatus === "success" && (
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg mx-1" style={{ background: "color-mix(in srgb, var(--t-accent) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--t-accent) 30%, transparent)" }}>
-              <Icon icon="lucide:check-circle" width={14} className="text-[var(--t-accent)] shrink-0" />
-              <span className="text-xs text-[var(--t-accent)]">Key exported successfully</span>
+              <Icon icon="lucide:check-circle" width={14} className="text-(--t-accent) shrink-0" />
+              <span className="text-xs text-(--t-accent)">Key exported successfully</span>
             </div>
           )}
           {exportStatus === "error" && (
             <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg mx-1" style={{ background: "color-mix(in srgb, var(--t-danger, #ef4444) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--t-danger, #ef4444) 30%, transparent)" }}>
-              <Icon icon="lucide:x-circle" width={14} className="text-[var(--t-danger,#ef4444)] shrink-0" style={{ marginTop: 1 }} />
-              <span className="text-xs break-all text-[var(--t-danger,#ef4444)]">{exportError}</span>
+              <Icon icon="lucide:x-circle" width={14} className="text-(--t-danger,#ef4444) shrink-0" style={{ marginTop: 1 }} />
+              <span className="text-xs break-all text-(--t-danger,#ef4444)">{exportError}</span>
             </div>
           )}
 
         </div>
 
-        <div className="px-4 py-3 border-t border-t-[var(--t-border)]">
+        <div className="px-4 py-3 border-t border-t-(--t-border)">
           <button
             onClick={() => { void handleExport(); }}
             onMouseDown={(!selectedHostId || exportStatus === "loading") ? undefined : rippleExport}
             disabled={!selectedHostId || exportStatus === "loading"}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-opacity bg-[var(--t-accent)] text-white relative overflow-hidden"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-opacity bg-(--t-accent) text-white relative overflow-hidden"
             style={{
               opacity: !selectedHostId || exportStatus === "loading" ? 0.5 : 1,
               cursor: !selectedHostId || exportStatus === "loading" ? "not-allowed" : "pointer",
@@ -203,7 +203,7 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
 
       {/* Select Host slide-over */}
       <div
-        className="absolute inset-0 transition-transform duration-200 ease-out border-l border-l-[var(--t-bg-terminal)] border-t border-t-[var(--t-bg-card-hover)]"
+        className="absolute inset-0 transition-transform duration-200 ease-out border-l border-l-(--t-bg-terminal) border-t border-t-(--t-bg-card-hover)"
         style={{ transform: showHostSelect ? "translateX(0)" : "translateX(100%)" }}
       >
         <HostPickerPanel

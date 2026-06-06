@@ -44,7 +44,7 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, colla
 
   return (
     <div
-      className="shrink-0 border-t border-t-[var(--t-border)] bg-[var(--t-bg-elevated)]"
+      className="shrink-0 border-t border-t-(--t-border) bg-(--t-bg-elevated)"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -57,7 +57,7 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, colla
             className={`shrink-0 ${hasActive ? "animate-spin" : ""}`}
             style={{ color: hasActive ? "var(--t-accent)" : "var(--t-text-dim)" }}
           />
-          <span className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">Transfers</span>
+          <span className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">Transfers</span>
           <span
             className="shrink-0 min-w-[1.1rem] h-[1.1rem] px-1 inline-flex items-center justify-center rounded-full text-[0.625rem] font-bold tabular-nums leading-none"
             style={{
@@ -72,7 +72,7 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, colla
 
         <div className="flex items-center gap-2 shrink-0">
           {hasActive && totalSpeed > 0 && (
-            <span className="text-xs font-mono tabular-nums text-[var(--t-text-dim)]" title="Combined throughput">
+            <span className="text-xs font-mono tabular-nums text-(--t-text-dim)" title="Combined throughput">
               {formatSize(Math.round(totalSpeed))}/s
             </span>
           )}
@@ -80,7 +80,7 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, colla
             <Icon
               icon="lucide:chevron-up"
               width={13}
-              className="shrink-0 transition-transform duration-300 text-[var(--t-text-dim)]"
+              className="shrink-0 transition-transform duration-300 text-(--t-text-dim)"
               style={{ transform: expanded ? "rotate(0deg)" : "rotate(180deg)" }}
             />
           )}
@@ -88,7 +88,7 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, colla
             <button
               onClick={onCancelAll}
               title="Cancel all transfers"
-              className="flex items-center justify-center w-6 h-6 rounded-md shrink-0 transition-colors text-[var(--t-text-dim)]"
+              className="flex items-center justify-center w-6 h-6 rounded-md shrink-0 transition-colors text-(--t-text-dim)"
               onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-bg-card-hover)"; e.currentTarget.style.color = "var(--t-status-error)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
             >
@@ -98,7 +98,7 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, colla
           <button
             onClick={onClear}
             title="Clear finished transfers"
-            className="flex items-center justify-center w-6 h-6 rounded-md shrink-0 transition-colors text-[var(--t-text-dim)]"
+            className="flex items-center justify-center w-6 h-6 rounded-md shrink-0 transition-colors text-(--t-text-dim)"
             onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-bg-card-hover)"; e.currentTarget.style.color = "var(--t-text-primary)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
           >
@@ -108,8 +108,8 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, colla
 
         {/* Slim overall progress along the bottom of the header while collapsed */}
         {!expanded && hasActive && aggTotal > 0 && (
-          <div className="absolute left-0 right-0 bottom-0 h-0.5 bg-[var(--t-border)]">
-            <div className="h-full bg-[var(--t-accent)] transition-all duration-200" style={{ width: `${overallPct}%` }} />
+          <div className="absolute left-0 right-0 bottom-0 h-0.5 bg-(--t-border)">
+            <div className="h-full bg-(--t-accent) transition-all duration-200" style={{ width: `${overallPct}%` }} />
           </div>
         )}
       </div>
@@ -132,15 +132,15 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, colla
                     <div className="flex items-center gap-1.5 min-w-0">
                       <Icon icon={icon} width={12} className={`${spin ? "animate-spin" : ""} shrink-0`} style={{ color }} />
                       {t.accelerated && <AcceleratedBadge />}
-                      <span className="text-xs truncate text-[var(--t-text-primary)]">{t.direction} {t.label}</span>
+                      <span className="text-xs truncate text-(--t-text-primary)">{t.direction} {t.label}</span>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-xs text-[var(--t-text-dim)]">{statusLabel(t)}</span>
+                      <span className="text-xs text-(--t-text-dim)">{statusLabel(t)}</span>
                       {t.status === "running" && (
                         <button
                           onClick={() => onCancel(t.id)}
                           title="Cancel transfer"
-                          className="flex items-center justify-center w-4 h-4 rounded transition-colors text-[var(--t-text-dim)]"
+                          className="flex items-center justify-center w-4 h-4 rounded-sm transition-colors text-(--t-text-dim)"
                           onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-status-error)")}
                           onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-dim)")}
                         >
@@ -150,15 +150,15 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, colla
                     </div>
                   </div>
                   {t.status === "running" && t.total > 0 && (
-                    <div className="h-0.5 rounded-full overflow-hidden bg-[var(--t-border)]">
+                    <div className="h-0.5 rounded-full overflow-hidden bg-(--t-border)">
                       <div
-                        className="h-full rounded-full transition-all duration-150 bg-[var(--t-accent)]"
+                        className="h-full rounded-full transition-all duration-150 bg-(--t-accent)"
                         style={{ width: `${Math.round((t.transferred / t.total) * 100)}%` }}
                       />
                     </div>
                   )}
                   {t.status === "error" && t.error && (
-                    <p className="text-xs mt-0.5 leading-snug text-[var(--t-status-error)]">{t.error}</p>
+                    <p className="text-xs mt-0.5 leading-snug text-(--t-status-error)">{t.error}</p>
                   )}
                 </div>
               );

@@ -43,13 +43,13 @@ export function ImportExportModal() {
   return (
     <Modal onClose={close} blur>
       <div
-        className="flex flex-col animate-fadeIn overflow-hidden bg-[var(--t-bg-base)] border border-[var(--t-border)]"
+        className="flex flex-col animate-fadeIn overflow-hidden bg-(--t-bg-base) border border-(--t-border)"
         style={{ width: "min(680px, 94vw)", height: "min(580px, 90vh)", borderRadius: 14, boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }}
       >
-        <div className="grid grid-cols-3 items-center px-6 py-4 shrink-0 border-b border-b-[var(--t-border)]">
+        <div className="grid grid-cols-3 items-center px-6 py-4 shrink-0 border-b border-b-(--t-border)">
           <div className="flex items-center gap-3">
-            <Icon icon="lucide:database" width={18} className="text-[var(--t-accent)]" />
-            <span className="text-base font-semibold text-[var(--t-text-bright)]">Import / Export</span>
+            <Icon icon="lucide:database" width={18} className="text-(--t-accent)" />
+            <span className="text-base font-semibold text-(--t-text-bright)">Import / Export</span>
           </div>
           <div className="flex items-center justify-center gap-1">
             {SECTIONS.map(s => (
@@ -68,7 +68,7 @@ export function ImportExportModal() {
           </div>
           <div className="flex justify-end">
             <button onClick={close}
-              className="flex items-center justify-center w-7 h-7 rounded-lg transition-colors text-[var(--t-text-muted)]"
+              className="flex items-center justify-center w-7 h-7 rounded-lg transition-colors text-(--t-text-muted)"
               onMouseEnter={e => { e.currentTarget.style.background = "var(--t-bg-card-hover)"; e.currentTarget.style.color = "var(--t-text-primary)"; }}
               onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-muted)"; }}
             >

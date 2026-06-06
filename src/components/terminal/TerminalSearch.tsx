@@ -131,7 +131,7 @@ export function TerminalSearch({ sessionId }: { sessionId: string }) {
           spellCheck={false}
           autoComplete="off"
           placeholder="Find"
-          className="w-full bg-transparent text-sm outline-none px-1 py-1 text-[var(--t-text-primary)] placeholder-[var(--t-text-muted)]"
+          className="w-full bg-transparent text-sm outline-hidden px-1 py-1 text-(--t-text-primary) placeholder-(--t-text-muted)"
           style={{
             boxShadow: showError ? "inset 2px 0 0 var(--t-status-error, #ef4444)" : undefined,
           }}
@@ -202,7 +202,7 @@ function ToggleChip({
       title={title}
       onClick={onClick}
       onMouseDown={(e) => e.preventDefault()}
-      className="rounded transition-colors flex items-center justify-center select-none"
+      className="rounded-sm transition-colors flex items-center justify-center select-none"
       style={{
         width: "22px",
         height: "22px",
@@ -244,7 +244,7 @@ function IconButton({
       onClick={onClick}
       onMouseDown={(e) => e.preventDefault()}
       disabled={disabled}
-      className="rounded transition-colors flex items-center justify-center"
+      className="rounded-sm transition-colors flex items-center justify-center"
       style={{
         width: "22px",
         height: "22px",

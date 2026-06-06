@@ -99,7 +99,7 @@ function SyncSection({
         <button
           onClick={handleSync}
           disabled={!canSync}
-          className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-all"
+          className="flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium transition-all"
           style={{
             color: canSync ? "var(--t-text-secondary)" : "var(--t-text-dim)",
             background: "var(--t-bg-elevated)",
@@ -225,7 +225,7 @@ function EntityCounts() {
     <ContentCounts
       counts={useVaultContents()}
       className="px-3 py-2 flex flex-wrap gap-1.5"
-      itemClassName="flex items-center gap-1 px-2 py-0.5 rounded text-[10px]"
+      itemClassName="flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px]"
       itemStyle={{ background: "var(--t-bg-elevated)", color: "var(--t-text-secondary)", border: "1px solid var(--t-border)" }}
       iconWidth={10}
     />
@@ -301,7 +301,7 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
         </span>
         <button
           onClick={onClose}
-          className="p-0.5 rounded transition-colors"
+          className="p-0.5 rounded-sm transition-colors"
           style={{ color: "var(--t-text-dim)" }}
           onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)")}
           onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)")}

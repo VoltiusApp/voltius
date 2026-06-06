@@ -80,7 +80,7 @@ export default function CloudAuthModal() {
   return (
     <Modal onClose={onClose} blur>
       <div
-        className="flex flex-col gap-5 bg-[var(--t-bg-base)] border border-[var(--t-border)] p-6"
+        className="flex flex-col gap-5 bg-(--t-bg-base) border border-(--t-border) p-6"
         style={{ width: "min(27rem, 92vw)", borderRadius: "0.933rem", boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }}
       >
         <div className="flex items-start gap-3">
@@ -91,10 +91,10 @@ export default function CloudAuthModal() {
             <Icon icon="lucide:cloud" width={20} style={{ color: "var(--t-accent)" }} />
           </div>
           <div>
-            <p className="text-base font-semibold text-[var(--t-text-primary)] mb-1">
+            <p className="text-base font-semibold text-(--t-text-primary) mb-1">
               {isRegister ? "Create cloud account" : "Sign in to cloud account"}
             </p>
-            <p className="text-sm text-[var(--t-text-muted)] leading-relaxed">
+            <p className="text-sm text-(--t-text-muted) leading-relaxed">
               {isRegister
                 ? "Create an account to sync this vault and unlock cloud features. Your data stays end-to-end encrypted."
                 : "Sign in to enable sync, subscriptions, team features, and shared vaults."
@@ -103,7 +103,7 @@ export default function CloudAuthModal() {
           </div>
         </div>
 
-        <div className="flex rounded-lg overflow-hidden border border-[var(--t-border)]">
+        <div className="flex rounded-lg overflow-hidden border border-(--t-border)">
           {(["signin", "register"] as CloudAuthMode[]).map((next) => {
             const active = mode === next;
             return (
@@ -135,7 +135,7 @@ export default function CloudAuthModal() {
           <button
             type="button"
             onClick={() => setShowServerUrl((v) => !v)}
-            className="text-xs w-full text-left transition-colors text-[var(--t-text-dim)]"
+            className="text-xs w-full text-left transition-colors text-(--t-text-dim)"
           >
             {showServerUrl ? "▾" : "▸"} Custom server URL
           </button>
@@ -143,19 +143,19 @@ export default function CloudAuthModal() {
             <AuthInput type="url" placeholder="https://api.voltius.app" value={serverUrl} onChange={setServerUrl} />
           )}
 
-          {error && <p className="text-xs px-1 text-[var(--t-status-error)]">{error}</p>}
+          {error && <p className="text-xs px-1 text-(--t-status-error)">{error}</p>}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-lg text-sm font-semibold bg-[var(--t-accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-60"
+            className="w-full py-2.5 rounded-lg text-sm font-semibold bg-(--t-accent) text-white hover:opacity-90 transition-opacity disabled:opacity-60"
           >
             {loading ? "Please wait…" : isRegister ? "Create account" : "Sign in"}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2.5 rounded-lg text-sm text-[var(--t-text-muted)] hover:text-[var(--t-text-primary)] transition-colors"
+            className="w-full py-2.5 rounded-lg text-sm text-(--t-text-muted) hover:text-(--t-text-primary) transition-colors"
           >
             Cancel
           </button>
@@ -185,7 +185,7 @@ function AuthInput({
       value={value}
       autoFocus={autoFocus}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full px-3 py-2.5 rounded-lg text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)] placeholder:text-[var(--t-text-muted)] focus:border-[var(--t-accent)]"
+      className="w-full px-3 py-2.5 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) placeholder:text-(--t-text-muted) focus:border-(--t-accent)"
     />
   );
 }

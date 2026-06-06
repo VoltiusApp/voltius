@@ -64,7 +64,7 @@ export function KnownHostCard({
       data-selectable-id={host.id}
     >
       {/* Fingerprint icon */}
-      <div className="w-10 h-10 rounded-xl bg-[var(--t-bg-card-avatar)] flex items-center justify-center shrink-0">
+      <div className="w-10 h-10 rounded-xl bg-(--t-bg-card-avatar) flex items-center justify-center shrink-0">
         <Icon icon="lucide:fingerprint" width={18} />
       </div>
 
@@ -73,31 +73,31 @@ export function KnownHostCard({
           /* List layout */
           <div className="flex items-center gap-4">
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-[var(--t-text-primary)] truncate">
+              <p className="text-sm font-medium text-(--t-text-primary) truncate">
                 {host.name ?? `${host.host}:${host.port}`}
               </p>
               {host.name && (
-                <p className="text-xs text-[var(--t-text-dim)] truncate">
+                <p className="text-xs text-(--t-text-dim) truncate">
                   {host.host}:{host.port}
                 </p>
               )}
             </div>
-            <p className="text-xs text-[var(--t-text-dim)] font-mono shrink-0 hidden md:block">
+            <p className="text-xs text-(--t-text-dim) font-mono shrink-0 hidden md:block">
               {truncateFingerprint(host.fingerprint)}
             </p>
           </div>
         ) : (
           /* Grid layout */
           <>
-            <p className="text-sm font-medium text-[var(--t-text-primary)] truncate">
+            <p className="text-sm font-medium text-(--t-text-primary) truncate">
               {host.name ?? `${host.host}:${host.port}`}
             </p>
             {host.name && (
-              <p className="text-xs text-[var(--t-text-dim)] truncate mt-0.5">
+              <p className="text-xs text-(--t-text-dim) truncate mt-0.5">
                 {host.host}:{host.port}
               </p>
             )}
-            <p className="text-xs text-[var(--t-text-dim)] font-mono truncate mt-1">
+            <p className="text-xs text-(--t-text-dim) font-mono truncate mt-1">
               {truncateFingerprint(host.fingerprint)}
             </p>
           </>
@@ -107,7 +107,7 @@ export function KnownHostCard({
       {/* Delete action (visible on hover) */}
       {canEdit && onDelete && (
         <button
-          className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-[var(--t-text-dim)] opacity-0 group-hover:opacity-100 transition-opacity hover:text-status-error hover:bg-status-error/10"
+          className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-(--t-text-dim) opacity-0 group-hover:opacity-100 transition-opacity hover:text-status-error hover:bg-status-error/10"
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
           title="Delete"
           type="button"

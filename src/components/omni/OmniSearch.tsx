@@ -109,7 +109,7 @@ function VaultBadge({ vaultId, vaults, teams }: { vaultId: string | undefined; v
   const isPersonal = effectiveId === "personal";
   return (
     <span
-      className="shrink-0 flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded border"
+      className="shrink-0 flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-sm border"
       style={isPersonal
         ? { background: "var(--t-bg-elevated)", color: "var(--t-text-muted)", borderColor: "var(--t-border)" }
         : { background: "color-mix(in srgb, var(--t-accent) 12%, transparent)", color: "var(--t-accent)", borderColor: "color-mix(in srgb, var(--t-accent) 30%, transparent)" }
@@ -599,7 +599,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
             <div className="relative shrink-0">
               <HostAvatar connection={conn} size={28} />
               <span
-                className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[var(--t-bg-modal)]"
+                className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-(--t-bg-modal)"
                 style={{ background: statusColor(item.session) }}
               />
             </div>
@@ -611,7 +611,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
             {item.session.connectionName}
           </span>
           <VaultBadge vaultId={item.connection?.vault_id} vaults={vaults} teams={teams} />
-          <span className="text-xs shrink-0 text-[var(--t-text-dim)]">
+          <span className="text-xs shrink-0 text-(--t-text-dim)">
             {item.session.status}
           </span>
         </button>
@@ -637,14 +637,14 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
             </span>
           </div>
           <VaultBadge vaultId={conn.vault_id} vaults={vaults} teams={teams} />
-          <span className="text-xs shrink-0 group-hover/row:hidden text-[var(--t-text-muted)]">
+          <span className="text-xs shrink-0 group-hover/row:hidden text-(--t-text-muted)">
             ssh, {conn.username}
           </span>
           {/* Inline actions on hover */}
           <div className="hidden group-hover/row:flex items-center gap-0.5 shrink-0">
             <button
               onClick={(e) => { e.stopPropagation(); setHomePendingAction({ action: "edit", id: conn.id }); setActiveNav("hosts"); onClose(); }}
-              className="p-1.5 rounded-md transition-colors text-[var(--t-text-dim)]"
+              className="p-1.5 rounded-md transition-colors text-(--t-text-dim)"
               onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-bg-elevated)"; e.currentTarget.style.color = "var(--t-text-primary)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
               title="Edit host"
@@ -653,7 +653,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); deleteConnection(conn.id).catch(() => {}); }}
-              className="p-1.5 rounded-md transition-colors text-[var(--t-text-dim)]"
+              className="p-1.5 rounded-md transition-colors text-(--t-text-dim)"
               onMouseEnter={(e) => { e.currentTarget.style.background = "#3D1515"; e.currentTarget.style.color = "#F87171"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
               title="Delete host"
@@ -675,7 +675,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
           style={{ background: baseBg }}
         >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-card-avatar)]">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-card-avatar)">
             <Icon icon="lucide:key-round" width={13} />
           </div>
           <div className="flex-1 min-w-0">
@@ -686,7 +686,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           </div>
           <VaultBadge vaultId={item.key.vault_id} vaults={vaults} teams={teams} />
           {item.key.key_type && (
-            <span className="text-xs font-mono shrink-0 px-1.5 py-0.5 rounded bg-[var(--t-bg-elevated)] text-[var(--t-accent)]">
+            <span className="text-xs font-mono shrink-0 px-1.5 py-0.5 rounded-sm bg-(--t-bg-elevated) text-(--t-accent)">
               {item.key.key_type}
             </span>
           )}
@@ -704,7 +704,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
           style={{ background: baseBg }}
         >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-card-avatar)]">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-card-avatar)">
             <Icon icon="lucide:id-card" width={13} />
           </div>
           <div className="flex-1 min-w-0">
@@ -714,7 +714,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
             </span>
           </div>
           <VaultBadge vaultId={item.identity.vault_id} vaults={vaults} teams={teams} />
-          <span className="text-xs shrink-0 text-[var(--t-text-muted)]">
+          <span className="text-xs shrink-0 text-(--t-text-muted)">
             {item.identity.username}
           </span>
         </button>
@@ -731,8 +731,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
           style={{ background: baseBg }}
         >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-toolbar)]">
-            <Icon icon={item.icon} width={13} className="text-[var(--t-text-muted)]" />
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-toolbar)">
+            <Icon icon={item.icon} width={13} className="text-(--t-text-muted)" />
           </div>
           <div className="flex-1 min-w-0">
             <span className="text-sm font-medium"
@@ -740,13 +740,13 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               {item.label}
             </span>
             {item.description && (
-              <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
+              <p className="text-xs mt-0.5 text-(--t-text-dim)">
                 {item.description}
               </p>
             )}
           </div>
           {item.keybinding && (
-            <span className="text-xs px-1.5 py-0.5 rounded shrink-0 font-mono bg-[var(--t-bg-elevated)] text-[var(--t-text-dim)] border border-[var(--t-border)]">
+            <span className="text-xs px-1.5 py-0.5 rounded-sm shrink-0 font-mono bg-(--t-bg-elevated) text-(--t-text-dim) border border-(--t-border)">
               {item.keybinding}
             </span>
           )}
@@ -764,21 +764,21 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
           style={{ background: baseBg }}
         >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-card-avatar)]">
-            <Icon icon="lucide:braces" width={13} className="text-[var(--t-accent)]" />
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-card-avatar)">
+            <Icon icon="lucide:braces" width={13} className="text-(--t-accent)" />
           </div>
           <div className="flex-1 min-w-0">
             <span className="text-sm font-medium"
               style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
               {item.snippet.name}
             </span>
-            <p className="text-xs mt-0.5 font-mono truncate text-[var(--t-text-dim)]">
+            <p className="text-xs mt-0.5 font-mono truncate text-(--t-text-dim)">
               {item.snippet.content}
             </p>
           </div>
           <VaultBadge vaultId={item.snippet.vault_id} vaults={vaults} teams={teams} />
           {item.snippet.tags.length > 0 && (
-            <span className="text-[10px] shrink-0 text-[var(--t-text-muted)]">
+            <span className="text-[10px] shrink-0 text-(--t-text-muted)">
               {item.snippet.tags[0]}
             </span>
           )}
@@ -797,8 +797,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
           style={{ background: baseBg }}
         >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-toolbar)]">
-            <Icon icon={item.icon} width={13} className="text-[var(--t-text-muted)]" />
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-toolbar)">
+            <Icon icon={item.icon} width={13} className="text-(--t-text-muted)" />
           </div>
           <div className="flex-1 min-w-0">
             <span className="text-sm font-medium"
@@ -806,7 +806,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               {item.label}
             </span>
             {item.description && (
-              <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">{item.description}</p>
+              <p className="text-xs mt-0.5 text-(--t-text-dim)">{item.description}</p>
             )}
           </div>
           <div
@@ -857,11 +857,11 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               {session.connection_name}
             </span>
           </div>
-          <span className="text-xs shrink-0 text-[var(--t-text-dim)]">
+          <span className="text-xs shrink-0 text-(--t-text-dim)">
             {session.participant_count} {session.participant_count === 1 ? "person" : "people"}
           </span>
           <span
-            className="text-xs shrink-0 px-1.5 py-0.5 rounded font-medium"
+            className="text-xs shrink-0 px-1.5 py-0.5 rounded-sm font-medium"
             style={{
               background: alreadyIn ? "color-mix(in srgb, var(--t-accent) 20%, transparent)" : "var(--t-bg-elevated)",
               color: alreadyIn ? "var(--t-accent)" : "var(--t-text-dim)",
@@ -884,15 +884,15 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
           style={{ background: baseBg }}
         >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-toolbar)]">
-            <Icon icon="lucide:link" width={13} className="text-[var(--t-text-muted)]" />
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-toolbar)">
+            <Icon icon="lucide:link" width={13} className="text-(--t-text-muted)" />
           </div>
           <div className="flex-1 min-w-0">
             <span className="text-sm font-medium"
               style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
               Join by invite code...
             </span>
-            <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
+            <p className="text-xs mt-0.5 text-(--t-text-dim)">
               Paste your invite code here to join a private session
             </p>
           </div>
@@ -911,15 +911,15 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
           style={{ background: baseBg }}
         >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-toolbar)]">
-            <Icon icon="lucide:log-in" width={13} className="text-[var(--t-accent)]" />
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-toolbar)">
+            <Icon icon="lucide:log-in" width={13} className="text-(--t-accent)" />
           </div>
           <div className="flex-1 min-w-0">
             <span className="text-sm font-medium"
               style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
               Join by invite code
             </span>
-            <p className="text-xs mt-0.5 font-mono truncate text-[var(--t-text-dim)]">
+            <p className="text-xs mt-0.5 font-mono truncate text-(--t-text-dim)">
               {item.code}
             </p>
           </div>
@@ -938,15 +938,15 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
           style={{ background: baseBg }}
         >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-[var(--t-bg-toolbar)]">
-            <Icon icon="lucide:arrow-right" width={13} className="text-[var(--t-accent)]" />
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-toolbar)">
+            <Icon icon="lucide:arrow-right" width={13} className="text-(--t-accent)" />
           </div>
           <div className="flex-1 min-w-0">
             <span className="text-sm font-medium"
               style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
               Connect to {item.user}@{item.host}
             </span>
-            <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
+            <p className="text-xs mt-0.5 text-(--t-text-dim)">
               Port {item.port} — quick SSH connection
             </p>
           </div>
@@ -961,9 +961,9 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     return (
       <>
         {showDivider && (
-          <div className="border-t border-t-[var(--t-border)] my-1" />
+          <div className="border-t border-t-(--t-border) my-1" />
         )}
-        <p className="px-4 pt-1 pb-1.5 text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">
+        <p className="px-4 pt-1 pb-1.5 text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
           {label}
         </p>
       </>
@@ -975,32 +975,32 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center pt-24"
+      className="fixed inset-0 z-60 flex items-start justify-center pt-24"
       style={{ background: "rgba(0,0,0,0.55)" }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl rounded-xl overflow-hidden shadow-2xl bg-[var(--t-bg-modal)] border border-[var(--t-border-hover)] animate-fadeIn"
+        className="w-full max-w-xl rounded-xl overflow-hidden shadow-2xl bg-(--t-bg-modal) border border-(--t-border-hover) animate-fadeIn"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-b-[var(--t-border)]">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-b-(--t-border)">
           <Icon icon="lucide:search" width={16}
-            className="text-[var(--t-accent)] shrink-0" />
+            className="text-(--t-accent) shrink-0" />
           <input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search hosts, keys, identities & commands..."
-            className="flex-1 bg-transparent text-sm outline-none placeholder-opacity-40 text-[var(--t-text-primary)]"
+            className="flex-1 bg-transparent text-sm outline-hidden placeholder-opacity-40 text-(--t-text-primary)"
           />
-          <span className="text-xs px-1.5 py-0.5 rounded-lg font-mono bg-[var(--t-bg-base)] text-[var(--t-text-muted)] border border-[var(--t-border-hover)]">
+          <span className="text-xs px-1.5 py-0.5 rounded-lg font-mono bg-(--t-bg-base) text-(--t-text-muted) border border-(--t-border-hover)">
             Ctrl+K
           </span>
         </div>
 
         {/* Category badges */}
-        <div className="flex items-center gap-1.5 px-4 py-2 border-b border-b-[var(--t-border)]">
+        <div className="flex items-center gap-1.5 px-4 py-2 border-b border-b-(--t-border)">
           {CATEGORY_BADGES.map((badge) => {
             const isActive = category === badge.category;
             return (
@@ -1010,7 +1010,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
                   setQuery(badge.prefix);
                   inputRef.current?.focus();
                 }}
-                className="px-2 py-0.5 rounded text-xs font-mono transition-colors"
+                className="px-2 py-0.5 rounded-sm text-xs font-mono transition-colors"
                 style={{
                   background: isActive ? "var(--t-accent)" : "var(--t-bg-base)",
                   color: isActive ? "var(--t-bg-terminal)" : "var(--t-text-muted)",
@@ -1112,7 +1112,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           )}
 
           {items.length === 0 && (
-            <p className="px-4 py-6 text-sm text-center text-[var(--t-text-dim)]">
+            <p className="px-4 py-6 text-sm text-center text-(--t-text-dim)">
               {category === "snippets" ? "No snippets yet" :
                category === "marketplace" ? "Marketplace coming soon" :
                category === "ssh" ? "Type ssh user@host to quick connect" :

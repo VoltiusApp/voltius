@@ -7,10 +7,10 @@ import { effectivePermissions, PERM_BITS } from "@/hooks/usePermission";
 
 export function Checkbox({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
-    <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-[var(--t-text-primary)]">
+    <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-(--t-text-primary)">
       <span
         onClick={() => onChange(!checked)}
-        className="flex items-center justify-center w-4 h-4 rounded transition-colors shrink-0"
+        className="flex items-center justify-center w-4 h-4 rounded-sm transition-colors shrink-0"
         style={{
           background: checked ? "var(--t-accent)" : "var(--t-bg-input)",
           border: `1px solid ${checked ? "var(--t-accent)" : "var(--t-border-hover)"}`,
@@ -36,8 +36,8 @@ export function Radio({ checked, onChange, label, sub }: { checked: boolean; onC
         {checked && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
       </span>
       <div>
-        <span className="text-sm text-[var(--t-text-primary)]">{label}</span>
-        {sub && <p className="text-xs mt-0.5 text-[var(--t-text-muted)]">{sub}</p>}
+        <span className="text-sm text-(--t-text-primary)">{label}</span>
+        {sub && <p className="text-xs mt-0.5 text-(--t-text-muted)">{sub}</p>}
       </div>
     </label>
   );

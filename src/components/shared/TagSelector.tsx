@@ -125,7 +125,7 @@ export default function TagSelector({ value, onChange, vaultId }: Props) {
         ))}
         <div className="flex items-center gap-1 flex-1 min-w-[80px]">
           {value.length === 0 && !input && (
-            <Icon icon="lucide:tag" width={12} className="text-[var(--t-text-dim)] shrink-0" />
+            <Icon icon="lucide:tag" width={12} className="text-(--t-text-dim) shrink-0" />
           )}
           <input
             ref={inputRef}
@@ -140,7 +140,7 @@ export default function TagSelector({ value, onChange, vaultId }: Props) {
             }}
             onKeyDown={handleKeyDown}
             placeholder={value.length === 0 ? "Add tags…" : ""}
-            className="flex-1 bg-transparent outline-none text-xs text-[var(--t-text-primary)] placeholder:text-[var(--t-text-dim)] min-w-0"
+            className="flex-1 bg-transparent outline-hidden text-xs text-(--t-text-primary) placeholder:text-(--t-text-dim) min-w-0"
           />
         </div>
       </div>
@@ -148,7 +148,7 @@ export default function TagSelector({ value, onChange, vaultId }: Props) {
       {showDropdown && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed z-[9999] p-1.5 rounded-xl bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)] flex flex-col max-h-[220px] overflow-y-auto"
+          className="fixed z-9999 p-1.5 rounded-xl bg-(--t-bg-card) border border-(--t-bg-card-hover) flex flex-col max-h-[220px] overflow-y-auto"
           style={{
             top: dropdownPos.top,
             left: dropdownPos.left,
@@ -165,14 +165,14 @@ export default function TagSelector({ value, onChange, vaultId }: Props) {
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
             >
               <span
-                className="w-4 h-4 rounded flex items-center justify-center shrink-0"
+                className="w-4 h-4 rounded-sm flex items-center justify-center shrink-0"
                 style={getTagColorStyle(input.trim())}
               >
                 <Icon icon="lucide:plus" width={9} />
               </span>
-              <span className="text-[var(--t-text-dim)]">Create</span>
+              <span className="text-(--t-text-dim)">Create</span>
               <span
-                className="px-1.5 py-0.5 rounded text-[11px] font-medium border"
+                className="px-1.5 py-0.5 rounded-sm text-[11px] font-medium border"
                 style={getTagColorStyle(input.trim())}
               >
                 {input.trim()}
@@ -181,7 +181,7 @@ export default function TagSelector({ value, onChange, vaultId }: Props) {
           )}
 
           {canCreate && suggestions.length > 0 && (
-            <div className="my-1 border-t border-t-[var(--t-bg-card-hover)]" />
+            <div className="my-1 border-t border-t-(--t-bg-card-hover)" />
           )}
 
           {suggestions.map((tag) => (
@@ -194,10 +194,10 @@ export default function TagSelector({ value, onChange, vaultId }: Props) {
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
             >
               <span
-                className="w-4 h-4 rounded shrink-0 border"
+                className="w-4 h-4 rounded-sm shrink-0 border"
                 style={getTagColorStyle(tag)}
               />
-              <span className="flex-1 text-left text-[var(--t-text-primary)]">{tag}</span>
+              <span className="flex-1 text-left text-(--t-text-primary)">{tag}</span>
             </button>
           ))}
         </div>,

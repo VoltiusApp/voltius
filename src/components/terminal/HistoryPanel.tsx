@@ -70,7 +70,7 @@ function HistoryRow({
           <button
             onClick={handleCopy}
             title={copied ? "Copied" : "Copy"}
-            className="w-6 h-6 flex items-center justify-center rounded transition-colors"
+            className="w-6 h-6 flex items-center justify-center rounded-sm transition-colors"
             style={{ color: copied ? "var(--t-accent)" : "var(--t-text-muted)" }}
             onMouseEnter={(e) => { if (!copied) (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
             onMouseLeave={(e) => { if (!copied) (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
@@ -81,7 +81,7 @@ function HistoryRow({
             onClick={onInsert}
             disabled={!canInject}
             title={canInject ? "Insert" : "No active session"}
-            className="w-6 h-6 flex items-center justify-center rounded transition-colors disabled:opacity-30"
+            className="w-6 h-6 flex items-center justify-center rounded-sm transition-colors disabled:opacity-30"
             style={{ color: "var(--t-text-muted)" }}
             onMouseEnter={(e) => { if (canInject) (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
             onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"}
@@ -92,7 +92,7 @@ function HistoryRow({
             onClick={onExecute}
             disabled={!canInject}
             title={canInject ? "Insert & execute" : "No active session"}
-            className="w-6 h-6 flex items-center justify-center rounded transition-colors disabled:opacity-30"
+            className="w-6 h-6 flex items-center justify-center rounded-sm transition-colors disabled:opacity-30"
             style={{ color: "var(--t-text-muted)" }}
             onMouseEnter={(e) => { if (canInject) (e.currentTarget as HTMLButtonElement).style.color = "var(--t-accent)"; }}
             onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"}
@@ -102,7 +102,7 @@ function HistoryRow({
           <button
             onClick={onDelete}
             title="Remove from history"
-            className="w-6 h-6 flex items-center justify-center rounded transition-colors opacity-0 group-hover:opacity-100"
+            className="w-6 h-6 flex items-center justify-center rounded-sm transition-colors opacity-0 group-hover:opacity-100"
             style={{ color: "var(--t-text-muted)" }}
             onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-status-error)")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-muted)")}
@@ -174,7 +174,7 @@ export function HistoryPanel() {
             style={{ color: "var(--t-text-muted)" }} />
           <input ref={searchRef} value={query} onChange={(e) => setQuery(e.target.value)}
             placeholder="Search history…"
-            className="w-full pl-6 pr-2 py-1 text-xs rounded border outline-none"
+            className="w-full pl-6 pr-2 py-1 text-xs rounded-sm border outline-hidden"
             style={{ background: "var(--t-bg-input)", borderColor: "var(--t-border)", color: "var(--t-text-primary)" }} />
         </div>
         <button

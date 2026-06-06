@@ -25,7 +25,7 @@ export function DragSelectSurface({ selectionAreaRef, onMouseDown, dragBox, chil
       {children}
       {dragBox && dragBox.width > 0 && dragBox.height > 0 && createPortal(
         <div
-          className="pointer-events-none fixed z-20 border border-[var(--t-accent)]"
+          className="pointer-events-none fixed z-20 border border-(--t-accent)"
           style={{
             left: dragBox.left,
             top: dragBox.top,

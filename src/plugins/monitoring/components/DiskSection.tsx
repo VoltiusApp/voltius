@@ -8,8 +8,8 @@ function fmtSize(kb: number): string {
 
 export function DiskSection({ disks, loading = false }: { disks: DiskInfo[]; loading?: boolean }) {
   return (
-    <div className="px-4 pt-3 pb-3 border-b border-[var(--t-border)]">
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--t-text-dim)] mb-2">
+    <div className="px-4 pt-3 pb-3 border-b border-(--t-border)">
+      <p className="text-[10px] font-semibold uppercase tracking-widest text-(--t-text-dim) mb-2">
         Disk
       </p>
       {loading ? (
@@ -17,11 +17,11 @@ export function DiskSection({ disks, loading = false }: { disks: DiskInfo[]; loa
           {[0, 1].map((row) => (
             <div key={row}>
               <div className="flex justify-between mb-1">
-                <div className="h-3 w-16 rounded bg-[var(--t-bg-input)]" />
-                <div className="h-3 w-24 rounded bg-[var(--t-bg-input)]" />
+                <div className="h-3 w-16 rounded-sm bg-(--t-bg-input)" />
+                <div className="h-3 w-24 rounded-sm bg-(--t-bg-input)" />
               </div>
-              <div className="w-full h-1 rounded-full bg-[var(--t-bg-input)] overflow-hidden">
-                <div className="h-full w-1/2 rounded-full bg-[var(--t-border)]" />
+              <div className="w-full h-1 rounded-full bg-(--t-bg-input) overflow-hidden">
+                <div className="h-full w-1/2 rounded-full bg-(--t-border)" />
               </div>
             </div>
           ))}
@@ -34,14 +34,14 @@ export function DiskSection({ disks, loading = false }: { disks: DiskInfo[]; loa
           return (
             <div key={disk.mount} className="mb-2.5 last:mb-0">
               <div className="flex justify-between text-[11px] mb-1">
-                <span className="font-mono text-[var(--t-text-secondary)] truncate max-w-[120px]">
+                <span className="font-mono text-(--t-text-secondary) truncate max-w-[120px]">
                   {disk.mount}
                 </span>
-                <span className="text-[var(--t-text-muted)] shrink-0 ml-2">
+                <span className="text-(--t-text-muted) shrink-0 ml-2">
                   {fmtSize(disk.used_kb)} / {fmtSize(disk.total_kb)}
                 </span>
               </div>
-              <div className="w-full h-1 rounded-full bg-[var(--t-bg-input)] overflow-hidden">
+              <div className="w-full h-1 rounded-full bg-(--t-bg-input) overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{ width: `${pct}%`, background: barColor }}

@@ -21,14 +21,14 @@ function VarInput({ variable, value, onChange }: VarInputProps) {
   };
 
   const inputClass =
-    "w-full px-2.5 py-1.5 text-xs rounded border outline-none transition-colors font-mono";
+    "w-full px-2.5 py-1.5 text-xs rounded-sm border outline-hidden transition-colors font-mono";
 
   switch (variable.type) {
     case "boolean":
       return (
         <button
           onClick={() => onChange(value === "true" ? "false" : "true")}
-          className="flex items-center gap-2 px-3 py-1.5 rounded border text-xs transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-sm border text-xs transition-colors"
           style={{
             background: value === "true" ? "var(--t-accent)" : "var(--t-bg-input)",
             borderColor: value === "true" ? "var(--t-accent)" : "var(--t-border)",
@@ -184,7 +184,7 @@ export function SnippetVariableModal({
                 {v.label ?? v.name}
                 {v.type === "password" && (
                   <span
-                    className="ml-1.5 text-[10px] px-1 py-0.5 rounded"
+                    className="ml-1.5 text-[10px] px-1 py-0.5 rounded-sm"
                     style={{ background: "var(--t-bg-input)", color: "var(--t-text-muted)" }}
                   >
                     masked
@@ -202,7 +202,7 @@ export function SnippetVariableModal({
 
         {/* Preview */}
         <div
-          className="mx-4 mb-3 px-3 py-2 rounded border text-[11px] font-mono break-all leading-relaxed"
+          className="mx-4 mb-3 px-3 py-2 rounded-sm border text-[11px] font-mono break-all leading-relaxed"
           style={{
             background: "var(--t-bg-input)",
             borderColor: "var(--t-border)",

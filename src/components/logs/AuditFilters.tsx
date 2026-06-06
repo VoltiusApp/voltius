@@ -54,9 +54,9 @@ interface Props {
 }
 
 const inputCls = `
-  text-xs bg-[var(--t-bg-input)] border border-[var(--t-border)] rounded-lg
-  px-2.5 h-7 text-[var(--t-text-primary)] outline-none
-  focus:border-[var(--t-accent)]
+  text-xs bg-(--t-bg-input) border border-(--t-border) rounded-lg
+  px-2.5 h-7 text-(--t-text-primary) outline-hidden
+  focus:border-(--t-accent)
 `.trim();
 
 const TIME_RANGE_OPTIONS: Array<{ value: AuditTimeRange; label: string; icon: string }> = [
@@ -101,7 +101,7 @@ export function AuditFilters({ actors, search, onSearchChange, layout, onLayoutC
   }
 
   return (
-    <div className="flex items-center gap-2 px-5 py-2.5 shrink-0 bg-[var(--t-bg-toolbar)] border-b border-b-[var(--t-border)]">
+    <div className="flex items-center gap-2 px-5 py-2.5 shrink-0 bg-(--t-bg-toolbar) border-b border-b-(--t-border)">
       <div className="flex items-center gap-1.5 min-w-0">
         <FilterInput value={search} onChange={onSearchChange} placeholder="Filter logs..." width={176} shortcutId="filter" />
 
@@ -146,7 +146,7 @@ export function AuditFilters({ actors, search, onSearchChange, layout, onLayoutC
               onChange={(e) => setFilter("from", e.target.value ? new Date(e.target.value).toISOString() : undefined)}
               title="From date"
             />
-            <span className="text-xs text-[var(--t-text-dim)]">to</span>
+            <span className="text-xs text-(--t-text-dim)">to</span>
             <input
               type="datetime-local"
               className={inputCls}
@@ -160,7 +160,7 @@ export function AuditFilters({ actors, search, onSearchChange, layout, onLayoutC
         {hasActiveFilters && (
           <button
             onClick={handleReset}
-            className="text-xs px-2.5 h-7 rounded-lg text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors shrink-0"
+            className="text-xs px-2.5 h-7 rounded-lg text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors shrink-0"
             type="button"
           >
             Reset

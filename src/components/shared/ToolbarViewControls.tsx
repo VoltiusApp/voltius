@@ -77,14 +77,14 @@ export function FilterInput({
       <Icon
         icon="lucide:filter"
         width={13}
-        className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--t-text-dim)]"
+        className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none text-(--t-text-dim)"
       />
       <input
         ref={inputRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="pl-7 pr-3 h-7 rounded-lg text-xs outline-none transition-colors bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)] placeholder:text-[var(--t-text-dim)]"
+        className="pl-7 pr-3 h-7 rounded-lg text-xs outline-hidden transition-colors bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) placeholder:text-(--t-text-dim)"
         style={{
           width: `${(width / 15).toFixed(3)}rem`,
           minWidth: "4rem",
@@ -255,13 +255,13 @@ function TagFilterButton({
         <Icon icon="lucide:tag" width={20} />
         {tagFilter.length > 1 && (
           <span
-            className="text-xs font-bold px-1 rounded bg-[var(--t-accent)] text-[var(--t-bg-terminal)]"
+            className="text-xs font-bold px-1 rounded-sm bg-(--t-accent) text-(--t-bg-terminal)"
             style={{ lineHeight: "16px" }}
           >
             {tagFilter.length}
           </span>
         )}
-        <span className="[&_path]:[stroke-width:3]">
+        <span className="[&_path]:stroke-3">
           <Icon
             icon="lucide:chevron-down"
             width={20}
@@ -273,7 +273,7 @@ function TagFilterButton({
       {/* Dropdown */}
       {open && (
         <div
-          className="absolute right-0 top-full mt-1 rounded-xl z-50 flex flex-col overflow-hidden bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)] w-[16rem]"
+          className="absolute right-0 top-full mt-1 rounded-xl z-50 flex flex-col overflow-hidden bg-(--t-bg-card) border border-(--t-bg-card-hover) w-[16rem]"
           style={{ boxShadow: "0 4px 16px rgba(0,0,0,0.3)" }}
         >
           {availableTags.length === 0 ? (
@@ -283,14 +283,14 @@ function TagFilterButton({
               style={{ background: "linear-gradient(135deg, var(--t-bg-elevated) 0%, var(--t-bg-card) 100%)" }}
             >
               <div
-                className="flex items-center justify-center rounded-2xl w-[3.2rem] h-[3.2rem] text-[var(--t-text-dim)] border border-[var(--t-border)]"
+                className="flex items-center justify-center rounded-2xl w-[3.2rem] h-[3.2rem] text-(--t-text-dim) border border-(--t-border)"
                 style={{ background: "linear-gradient(135deg, var(--t-bg-card) 0%, var(--t-bg-toolbar) 100%)" }}
               >
                 <Icon icon="lucide:tag" width={22} />
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-sm font-bold text-[var(--t-text-primary)]">Add tags</span>
-                <span className="text-xs leading-relaxed text-[var(--t-text-dim)]" style={{ maxWidth: "12rem" }}>
+                <span className="text-sm font-bold text-(--t-text-primary)">Add tags</span>
+                <span className="text-xs leading-relaxed text-(--t-text-dim)" style={{ maxWidth: "12rem" }}>
                   Tags help you filter your hosts. You can add a tag when editing a host.
                 </span>
               </div>
@@ -299,19 +299,19 @@ function TagFilterButton({
             <>
               {/* ── Search bar ── */}
               <div
-                className="flex items-center gap-2 px-3 py-2 border-b border-b-[var(--t-border)]"
+                className="flex items-center gap-2 px-3 py-2 border-b border-b-(--t-border)"
               >
-                <Icon icon="lucide:search" width={14} className="text-[var(--t-text-dim)] shrink-0" />
+                <Icon icon="lucide:search" width={14} className="text-(--t-text-dim) shrink-0" />
                 <input
                   ref={searchInputRef}
                   value={tagSearch}
                   onChange={(e) => setTagSearch(e.target.value)}
                   placeholder="Filter tags..."
-                  className="flex-1 bg-transparent text-xs outline-none text-[var(--t-text-primary)]"
+                  className="flex-1 bg-transparent text-xs outline-hidden text-(--t-text-primary)"
                   onKeyDown={(e) => e.key === "Escape" && (setTagSearch(""), setOpen(false))}
                 />
                 {tagSearch && (
-                  <button onClick={() => setTagSearch("")} className="text-[var(--t-text-dim)]">
+                  <button onClick={() => setTagSearch("")} className="text-(--t-text-dim)">
                     <Icon icon="lucide:x" width={12} />
                   </button>
                 )}
@@ -319,10 +319,10 @@ function TagFilterButton({
 
               {/* ── Clear selection ── */}
               {isActive && (
-                <div className="border-b border-b-[var(--t-border)]">
+                <div className="border-b border-b-(--t-border)">
                   <button
                     onClick={() => onTagFilterChange([])}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors text-left text-[var(--t-text-muted)]"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors text-left text-(--t-text-muted)"
                     onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                   >
@@ -335,7 +335,7 @@ function TagFilterButton({
               {/* ── Tag list ── */}
               <div className="p-1.5 flex flex-col max-h-[240px] overflow-y-auto">
                 {filteredTags.length === 0 ? (
-                  <p className="px-3 py-3 text-xs text-center text-[var(--t-text-dim)]">
+                  <p className="px-3 py-3 text-xs text-center text-(--t-text-dim)">
                     No tags match "{tagSearch}"
                   </p>
                 ) : (
@@ -367,22 +367,22 @@ function TagFilterButton({
       {/* ── Confirm delete modal (inside ref so outside-click doesn't close dropdown) ── */}
       {deletingTag && (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center"
+          className="fixed inset-0 z-9999 flex items-center justify-center"
           style={{ background: "rgba(0,0,0,0.55)" }}
           onClick={() => setDeletingTag(null)}
         >
           <div
-            className="flex flex-col gap-4 p-5 rounded-2xl bg-[var(--t-bg-modal)] border border-[var(--t-border-hover)] w-[21.333rem]"
+            className="flex flex-col gap-4 p-5 rounded-2xl bg-(--t-bg-modal) border border-(--t-border-hover) w-[21.333rem]"
             style={{ boxShadow: "0 16px 48px rgba(0,0,0,0.5)" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex flex-col gap-1.5">
-              <p className="text-sm font-semibold text-[var(--t-text-primary)]">
+              <p className="text-sm font-semibold text-(--t-text-primary)">
                 Delete tag "{deletingTag}"?
               </p>
-              <p className="text-xs text-[var(--t-text-dim)]">
+              <p className="text-xs text-(--t-text-dim)">
                 This will remove the tag from{" "}
-                <span className="text-[var(--t-text-secondary)]">
+                <span className="text-(--t-text-secondary)">
                   {tagCounts?.[deletingTag] ?? 0} host{(tagCounts?.[deletingTag] ?? 0) !== 1 ? "s" : ""}
                 </span>
                 . The hosts themselves won't be deleted.
@@ -391,7 +391,7 @@ function TagFilterButton({
             <div className="flex items-center justify-end gap-2">
               <button
                 onClick={() => setDeletingTag(null)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-[var(--t-bg-elevated)] text-[var(--t-text-primary)] border border-[var(--t-border-hover)]"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-(--t-bg-elevated) text-(--t-text-primary) border border-(--t-border-hover)"
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-border-hover)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
               >
@@ -456,7 +456,7 @@ function TagRow({
       {isEditing ? (
         /* ── Inline edit mode ── */
         <>
-          <Icon icon="lucide:tag" width={14} className="text-[var(--t-accent)] shrink-0" />
+          <Icon icon="lucide:tag" width={14} className="text-(--t-accent) shrink-0" />
           <input
             ref={editInputRef as React.RefObject<HTMLInputElement>}
             value={editValue}
@@ -466,19 +466,19 @@ function TagRow({
               if (e.key === "Escape") { e.preventDefault(); onEditCancel(); }
             }}
             onBlur={onEditCommit}
-            className="flex-1 text-xs bg-transparent outline-none border-b min-w-0 text-[var(--t-text-primary)] border-b-[var(--t-accent)]"
+            className="flex-1 text-xs bg-transparent outline-hidden border-b min-w-0 text-(--t-text-primary) border-b-(--t-accent)"
           />
           <button
             onMouseDown={(e) => { e.preventDefault(); onEditCommit(); }}
             title="Save"
-            className="shrink-0 p-1 rounded transition-colors text-[var(--t-accent)]"
+            className="shrink-0 p-1 rounded-sm transition-colors text-(--t-accent)"
           >
             <Icon icon="lucide:check" width={13} />
           </button>
           <button
             onMouseDown={(e) => { e.preventDefault(); onEditCancel(); }}
             title="Cancel"
-            className="shrink-0 p-1 rounded transition-colors text-[var(--t-text-dim)]"
+            className="shrink-0 p-1 rounded-sm transition-colors text-(--t-text-dim)"
           >
             <Icon icon="lucide:x" width={13} />
           </button>
@@ -491,7 +491,7 @@ function TagRow({
             className="flex items-center gap-2 flex-1 min-w-0 text-left"
           >
             <span
-              className="w-3.5 h-3.5 rounded shrink-0 border"
+              className="w-3.5 h-3.5 rounded-sm shrink-0 border"
               style={getTagColorStyle(tag)}
             />
             <span
@@ -501,20 +501,20 @@ function TagRow({
               {tag}
             </span>
             {count !== undefined && (
-              <span className="text-xs ml-auto pl-2 shrink-0 text-[var(--t-text-dim)]">
+              <span className="text-xs ml-auto pl-2 shrink-0 text-(--t-text-dim)">
                 {count}
               </span>
             )}
           </button>
           {isSelected && !hovered && (
-            <Icon icon="lucide:check" width={13} className="text-[var(--t-accent)] shrink-0" />
+            <Icon icon="lucide:check" width={13} className="text-(--t-accent) shrink-0" />
           )}
           {canManage && hovered && (
             <div className="flex items-center gap-0.5 shrink-0">
               <button
                 onClick={(e) => { e.stopPropagation(); onStartEdit(); }}
                 title="Rename tag"
-                className="p-1 rounded transition-colors text-[var(--t-text-dim)]"
+                className="p-1 rounded-sm transition-colors text-(--t-text-dim)"
                 onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-bg-card)"; e.currentTarget.style.color = "var(--t-text-primary)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
               >
@@ -523,7 +523,7 @@ function TagRow({
               <button
                 onClick={(e) => { e.stopPropagation(); onDelete(); }}
                 title="Delete tag"
-                className="p-1 rounded transition-colors text-[var(--t-text-dim)]"
+                className="p-1 rounded-sm transition-colors text-(--t-text-dim)"
                 onMouseEnter={(e) => { e.currentTarget.style.background = "#3D1515"; e.currentTarget.style.color = "#F87171"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
               >

@@ -5,7 +5,7 @@ import { useRipple } from "@/hooks/useRipple";
 // ─── Shared form style constants ───────────────────────────────────────────
 
 export const formInputClass =
-  "w-full px-3 py-2 rounded-lg text-sm placeholder-text-muted focus:outline-none transition-colors";
+  "w-full px-3 py-2 rounded-lg text-sm placeholder-text-muted focus:outline-hidden transition-colors";
 
 export const formInputStyle: React.CSSProperties = {
   background: "var(--t-bg-base)",
@@ -21,7 +21,7 @@ export const formLabelStyle: React.CSSProperties = { color: "var(--t-text-dim)" 
 
 export function PanelShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-col h-full bg-[var(--t-bg-base)] border-l border-l-[var(--t-bg-terminal)] border-t border-t-[var(--t-bg-card-hover)]">
+    <div className="flex flex-col h-full bg-(--t-bg-base) border-l border-l-(--t-bg-terminal) border-t border-t-(--t-bg-card-hover)">
       {children}
     </div>
   );
@@ -43,7 +43,7 @@ export function PanelHeaderIconButton({
       onClick={onClick}
       onMouseDown={createRipple}
       title={title}
-      className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors text-[var(--t-text-dim)] relative overflow-hidden"
+      className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors text-(--t-text-dim) relative overflow-hidden"
       onMouseEnter={(e) => {
         e.currentTarget.style.background = "var(--t-bg-elevated)";
         e.currentTarget.style.color = "var(--t-text-primary)";
@@ -92,13 +92,13 @@ export function PanelHeader({
   saveState?: SaveState;
 }) {
   return (
-    <div className="px-4 py-3 shrink-0 bg-[var(--t-bg-card)] border-b border-b-[var(--t-bg-terminal)]">
+    <div className="px-4 py-3 shrink-0 bg-(--t-bg-card) border-b border-b-(--t-bg-terminal)">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-[var(--t-bg-elevated)] border border-[var(--t-border-hover)]">
-            <Icon icon={icon} width={13} className="text-[var(--t-accent)]" />
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-(--t-bg-elevated) border border-(--t-border-hover)">
+            <Icon icon={icon} width={13} className="text-(--t-accent)" />
           </div>
-          <h2 className="text-sm font-semibold text-[var(--t-text-primary)]">
+          <h2 className="text-sm font-semibold text-(--t-text-primary)">
             {title}
           </h2>
         </div>
@@ -121,8 +121,8 @@ export function PanelHeader({
 
 export function FormSection({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={`rounded-xl overflow-hidden bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)] ${className ?? ""}`}>
-      <div className="px-4 py-2 text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)] border-b border-b-[var(--t-bg-card-hover)]">
+    <div className={`rounded-xl overflow-hidden bg-(--t-bg-card) border border-(--t-bg-card-hover) ${className ?? ""}`}>
+      <div className="px-4 py-2 text-xs font-bold uppercase tracking-widest text-(--t-text-dim) border-b border-b-(--t-bg-card-hover)">
         {label}
       </div>
       <div className="px-4 py-3 space-y-3">{children}</div>

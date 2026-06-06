@@ -52,12 +52,12 @@ export function ProgressToast({ toast, onDismiss, pluginUnloaded }: Props) {
         >
           [{toast.pluginName.slice(0, 20)}]
         </span>
-        <span className="flex-1 text-[var(--t-text-primary)] font-medium truncate">{toast.message}</span>
+        <span className="flex-1 text-(--t-text-primary) font-medium truncate">{toast.message}</span>
         {(isFinished || toast.cancellable) && (
           <button
             onClick={onDismiss}
             disabled={pluginUnloaded && !isFinished}
-            className="w-4 h-4 flex items-center justify-center rounded shrink-0 transition-colors"
+            className="w-4 h-4 flex items-center justify-center rounded-sm shrink-0 transition-colors"
             style={{ color: "var(--t-text-dim)" }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
@@ -91,7 +91,7 @@ export function ProgressToast({ toast, onDismiss, pluginUnloaded }: Props) {
             <button
               onClick={onDismiss}
               disabled={pluginUnloaded}
-              className="text-xs px-1.5 py-0.5 rounded transition-colors"
+              className="text-xs px-1.5 py-0.5 rounded-sm transition-colors"
               style={{
                 color: "var(--t-text-muted)",
                 opacity: pluginUnloaded ? 0.5 : 1,

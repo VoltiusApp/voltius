@@ -14,7 +14,7 @@ export function UpdateBadge({
       <Icon
         icon="lucide:loader-circle"
         width={10}
-        className="shrink-0 animate-spin text-[var(--t-text-muted)]"
+        className="shrink-0 animate-spin text-(--t-text-muted)"
       />
     );
   }
@@ -23,7 +23,7 @@ export function UpdateBadge({
     return (
       <span
         title="A newer image is available in the registry"
-        className="shrink-0 inline-flex items-center gap-0.5 rounded px-1 text-[9px] font-medium bg-[color-mix(in_srgb,var(--t-status-warning)_16%,transparent)] text-[var(--t-status-warning)]"
+        className="shrink-0 inline-flex items-center gap-0.5 rounded-sm px-1 text-[9px] font-medium bg-[color-mix(in_srgb,var(--t-status-warning)_16%,transparent)] text-(--t-status-warning)"
       >
         update
       </span>
@@ -32,7 +32,7 @@ export function UpdateBadge({
   if (status.status === "current") {
     return (
       <span title="Up to date" className="shrink-0 inline-flex">
-        <Icon icon="lucide:check" width={11} className="text-[var(--t-status-connected)]" />
+        <Icon icon="lucide:check" width={11} className="text-(--t-status-connected)" />
       </span>
     );
   }
@@ -42,7 +42,7 @@ export function UpdateBadge({
       title={status.error ? `Could not check: ${status.error}` : "Update status unknown"}
       className="shrink-0 inline-flex"
     >
-      <Icon icon="lucide:help-circle" width={10} className="text-[var(--t-text-dim)]" />
+      <Icon icon="lucide:help-circle" width={10} className="text-(--t-text-dim)" />
     </span>
   );
 }

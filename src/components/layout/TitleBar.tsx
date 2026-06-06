@@ -201,13 +201,13 @@ export default function TitleBar() {
     if (dropTarget?.type !== "titlebar" || dropTarget.targetKey !== itemKey || (dropTarget.placement ?? "after") !== placement) return null;
     if (titlebarDropActive && draggedSession) return <DetachedPanePreview key={`preview-${itemKey ?? "end"}-${placement}`} session={draggedSession} />;
     if (!isDraggingTitlebarItem) return null;
-    return <div key={`marker-${itemKey ?? "end"}-${placement}`} className="h-7 w-0.5 rounded-full shrink-0 bg-[var(--t-accent)]" />;
+    return <div key={`marker-${itemKey ?? "end"}-${placement}`} className="h-7 w-0.5 rounded-full shrink-0 bg-(--t-accent)" />;
   };
 
   return (
     <div
       onMouseDown={handleDragRegionMouseDown}
-      className="flex items-center h-[4.133rem] shrink-0 select-none bg-[var(--t-bg-terminal)]"
+      className="flex items-center h-[4.133rem] shrink-0 select-none bg-(--t-bg-terminal)"
     >
       {/* Tabs row */}
       <div
@@ -274,7 +274,7 @@ export default function TitleBar() {
 
         {/* Separator */}
         {sessions.length > 0 && (
-          <div className="shrink-0 w-px h-[1.667rem] bg-[var(--t-bg-card-hover)]" />
+          <div className="shrink-0 w-px h-[1.667rem] bg-(--t-bg-card-hover)" />
         )}
 
         {/* Scrollable session tabs */}
@@ -323,12 +323,12 @@ export default function TitleBar() {
                   </span>
                   <span
                     onClick={(e) => handleUnifiedTabClose(e, tab.id)}
-                    className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5"
+                    className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded-sm p-0.5"
                     style={{ color: isActiveSplitTab ? "var(--t-tab-active-text)" : "var(--t-text-muted)" }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--t-status-error)"; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = isActiveSplitTab ? "var(--t-tab-active-text)" : "var(--t-text-muted)"; }}
                   >
-                    <span className="[&_path]:[stroke-width:2.1]"><Icon icon="lucide:x" width={20} /></span>
+                    <span className="[&_path]:stroke-[2.1]"><Icon icon="lucide:x" width={20} /></span>
                   </span>
                 </button>
                 {renderTitlebarDropCue(item.key, "after")}
@@ -401,12 +401,12 @@ export default function TitleBar() {
                 <span className="max-w-[140px] truncate">{session.connectionName}</span>
                 <span
                   onClick={(e) => handleTabClose(e, session.id)}
-                  className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5"
+                  className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded-sm p-0.5"
                   style={{ color: isActive ? "var(--t-tab-active-text)" : "var(--t-text-muted)" }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; (e.currentTarget as HTMLElement).style.color = "var(--t-status-error)"; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = isActive ? "var(--t-tab-active-text)" : "var(--t-text-muted)"; }}
                 >
-                  <span className="[&_path]:[stroke-width:2.1]">
+                  <span className="[&_path]:stroke-[2.1]">
                   <Icon icon="lucide:x" width={20} />
                   </span>
                 </span>
@@ -584,7 +584,7 @@ function NewTabButton({ onNavigate }: { onNavigate: () => void }) {
     <button
       onClick={onNavigate}
       onMouseDown={createRipple}
-      className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 transition-colors text-[var(--t-text-dim)] relative overflow-hidden"
+      className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 transition-colors text-(--t-text-dim) relative overflow-hidden"
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLButtonElement).style.color = "var(--t-tab-active-text)";
         (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-toolbar)";
@@ -657,7 +657,7 @@ function TitleBarBtn({ onClick, title, children }: {
       onClick={onClick}
       onMouseDown={createRipple}
       title={title}
-      className="flex items-center justify-center size-8 rounded-md transition-colors text-[var(--t-text-dim)] bg-transparent relative overflow-hidden"
+      className="flex items-center justify-center size-8 rounded-md transition-colors text-(--t-text-dim) bg-transparent relative overflow-hidden"
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)";
       }}
@@ -678,7 +678,7 @@ function UpdateIndicator({ state }: { state: UpdaterStatus }) {
     return (
       <div className="flex items-center px-1 shrink-0">
         <div
-          className="flex items-center justify-center w-8 h-8 rounded-xl text-[var(--t-text-dim)] cursor-default"
+          className="flex items-center justify-center w-8 h-8 rounded-xl text-(--t-text-dim) cursor-default"
           title="Checking for updates…"
         >
           <Icon icon="lucide:refresh-cw" width={15} className="animate-spin" />
@@ -693,7 +693,7 @@ function UpdateIndicator({ state }: { state: UpdaterStatus }) {
     return (
       <div className="flex items-center px-1 shrink-0">
         <div
-          className="flex items-center justify-center w-8 h-8 rounded-xl text-[var(--t-text-primary)] cursor-default"
+          className="flex items-center justify-center w-8 h-8 rounded-xl text-(--t-text-primary) cursor-default"
           title={label}
         >
           <Icon icon="lucide:download" width={18} className="animate-bounce" />
@@ -709,7 +709,7 @@ function UpdateIndicator({ state }: { state: UpdaterStatus }) {
           onClick={() => installUpdate().catch(() => {})}
           onMouseDown={createRipple}
           title={`v${state.version} downloaded — click to restart and update`}
-          className="flex items-center gap-1.5 h-8 px-2.5 rounded-xl transition-all bg-[var(--t-accent)] text-white text-[0.8rem] font-semibold relative overflow-hidden"
+          className="flex items-center gap-1.5 h-8 px-2.5 rounded-xl transition-all bg-(--t-accent) text-white text-[0.8rem] font-semibold relative overflow-hidden"
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.85"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
         >

@@ -187,7 +187,7 @@ export default function PanelSftpSection() {
   return (
     <div className="flex flex-col h-full">
       {/* Header: follow toggle, upload, download, ellipsis */}
-      <div className="flex items-center gap-1 px-2 py-1.5 shrink-0 border-b border-b-[var(--t-border)]">
+      <div className="flex items-center gap-1 px-2 py-1.5 shrink-0 border-b border-b-(--t-border)">
         <HeaderBtn
           icon={isReady && panelState.followCwd ? "lucide:link" : "lucide:link-2-off"}
           title={
@@ -219,7 +219,7 @@ export default function PanelSftpSection() {
           title="View options"
           disabled={!isReady}
           onClick={() => viewBtnRef.current && viewMenuOpener?.(viewBtnRef.current)}
-          className="flex items-center justify-center w-7 h-7 rounded-md shrink-0 transition-colors text-[var(--t-text-dim)] disabled:opacity-40"
+          className="flex items-center justify-center w-7 h-7 rounded-md shrink-0 transition-colors text-(--t-text-dim) disabled:opacity-40"
           onMouseEnter={(e) => { if (isReady) { e.currentTarget.style.background = "var(--t-bg-elevated)"; e.currentTarget.style.color = "var(--t-text-primary)"; } }}
           onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
         >
@@ -230,7 +230,7 @@ export default function PanelSftpSection() {
           title="More options"
           disabled={!isReady}
           onClick={() => menuBtnRef.current && menuOpener?.(menuBtnRef.current)}
-          className="flex items-center justify-center w-7 h-7 rounded-md shrink-0 transition-colors text-[var(--t-text-dim)] disabled:opacity-40"
+          className="flex items-center justify-center w-7 h-7 rounded-md shrink-0 transition-colors text-(--t-text-dim) disabled:opacity-40"
           onMouseEnter={(e) => { if (isReady) { e.currentTarget.style.background = "var(--t-bg-elevated)"; e.currentTarget.style.color = "var(--t-text-primary)"; } }}
           onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
         >
@@ -243,13 +243,13 @@ export default function PanelSftpSection() {
         {headerStatus && (
           <div className="flex flex-col items-center justify-center h-full gap-2 px-6 text-center">
             {panelState?.tag === "error" ? (
-              <Icon icon="lucide:wifi-off" width={20} className="text-[var(--t-status-error)]" />
+              <Icon icon="lucide:wifi-off" width={20} className="text-(--t-status-error)" />
             ) : panelState?.tag === "connecting" ? (
-              <Icon icon="lucide:loader-2" width={16} className="animate-spin text-[var(--t-text-dim)]" />
+              <Icon icon="lucide:loader-2" width={16} className="animate-spin text-(--t-text-dim)" />
             ) : (
-              <Icon icon="lucide:folder-tree" width={20} className="text-[var(--t-text-dim)]" />
+              <Icon icon="lucide:folder-tree" width={20} className="text-(--t-text-dim)" />
             )}
-            <p className={`text-xs ${panelState?.tag === "error" ? "text-[var(--t-status-error)]" : "text-[var(--t-text-dim)]"}`}>{headerStatus}</p>
+            <p className={`text-xs ${panelState?.tag === "error" ? "text-(--t-status-error)" : "text-(--t-text-dim)"}`}>{headerStatus}</p>
           </div>
         )}
 

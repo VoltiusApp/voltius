@@ -228,7 +228,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
           <FormSection label="Serial Port">
             <div>
               <label className={formLabelClass} style={formLabelStyle}>
-                Port <span className="text-[var(--t-accent)]">*</span>
+                Port <span className="text-(--t-accent)">*</span>
               </label>
               <PortInput
                 value={serialPort}
@@ -249,7 +249,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
                   />
                   <button
                     type="button"
-                    className="text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] px-2 transition-colors whitespace-nowrap"
+                    className="text-xs text-(--t-text-dim) hover:text-(--t-text-primary) px-2 transition-colors whitespace-nowrap"
                     onClick={() => { setUseCustomBaud(true); setCustomBaud(String(baud)); }}
                   >
                     Custom
@@ -266,7 +266,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
                   />
                   <button
                     type="button"
-                    className="text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] px-2 transition-colors whitespace-nowrap"
+                    className="text-xs text-(--t-text-dim) hover:text-(--t-text-primary) px-2 transition-colors whitespace-nowrap"
                     onClick={() => { setUseCustomBaud(false); setBaud(115200); }}
                   >
                     Preset
@@ -278,11 +278,11 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
             <button
               type="button"
               onClick={() => setShowAdvanced((v) => !v)}
-              className="flex items-center gap-1.5 text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors w-full pt-1"
+              className="flex items-center gap-1.5 text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors w-full pt-1"
             >
               <span>Advanced</span>
               {!showAdvanced && (preCommand || postCommand || terminalEncoding || dataBits !== 8 || parity !== "none" || stopBits !== 1 || flowControl !== "none") && (
-                <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-[var(--t-accent)]" />
+                <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-(--t-accent)" />
               )}
               <Icon icon={showAdvanced ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} className="ml-auto" />
             </button>
@@ -345,7 +345,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
                   </div>
 
                   <div className="relative">
-                    <Icon icon="lucide:play" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--t-text-dim)] pointer-events-none" />
+                    <Icon icon="lucide:play" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-(--t-text-dim) pointer-events-none" />
                     <input
                       className={`${formInputClass} text-xs pl-7`}
                       style={formInputStyle}
@@ -355,7 +355,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
                     />
                   </div>
                   <div className="relative">
-                    <Icon icon="lucide:square" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--t-text-dim)] pointer-events-none" />
+                    <Icon icon="lucide:square" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-(--t-text-dim) pointer-events-none" />
                     <input
                       className={`${formInputClass} text-xs pl-7`}
                       style={formInputStyle}

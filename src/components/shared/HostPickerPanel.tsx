@@ -46,33 +46,33 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
   );
 
   return (
-    <div className="flex flex-col h-full bg-[var(--t-bg-base)]">
+    <div className="flex flex-col h-full bg-(--t-bg-base)">
       {/* Back header — only in slide-over mode */}
       {onBack && (
         <div
-          className="flex items-center gap-2 px-3 py-3 shrink-0 bg-[var(--t-bg-card)] border-b border-b-[var(--t-bg-terminal)]"
+          className="flex items-center gap-2 px-3 py-3 shrink-0 bg-(--t-bg-card) border-b border-b-(--t-bg-terminal)"
         >
           <button
             onClick={onBack}
-            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors shrink-0 text-[var(--t-text-dim)]"
+            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors shrink-0 text-(--t-text-dim)"
             onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-bg-elevated)"; e.currentTarget.style.color = "var(--t-text-primary)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
           >
-            <span className="[&_path]:[stroke-width:3]">
+            <span className="[&_path]:stroke-3">
               <Icon icon="lucide:arrow-left" width={16} />
             </span>
           </button>
-          <h2 className="text-sm font-semibold flex-1 text-[var(--t-text-primary)]">Select Host</h2>
+          <h2 className="text-sm font-semibold flex-1 text-(--t-text-primary)">Select Host</h2>
         </div>
       )}
 
       {/* Toolbar */}
       <div
-        className="flex items-center gap-2 px-3 py-2 shrink-0 bg-[var(--t-bg-toolbar)] border-b border-b-[var(--t-bg-terminal)]"
+        className="flex items-center gap-2 px-3 py-2 shrink-0 bg-(--t-bg-toolbar) border-b border-b-(--t-bg-terminal)"
       >
         <button
           onClick={() => { setHomePendingAction({ action: "create" }); setActiveNav("hosts"); }}
-          className="flex items-center gap-1.5 px-3 h-8 text-xs font-bold tracking-wider transition-colors shrink-0 rounded-lg whitespace-nowrap bg-[var(--t-bg-input)] text-[var(--t-text-primary)]"
+          className="flex items-center gap-1.5 px-3 h-8 text-xs font-bold tracking-wider transition-colors shrink-0 rounded-lg whitespace-nowrap bg-(--t-bg-input) text-(--t-text-primary)"
           onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-input-hover)")}
           onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-input)")}
           type="button"
@@ -82,13 +82,13 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
         </button>
 
         <div className="flex-1 relative">
-          <Icon icon="lucide:filter" width={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--t-text-dim)]" />
+          <Icon icon="lucide:filter" width={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-(--t-text-dim)" />
           <input
             ref={searchRef}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Filter hosts..."
-            className="w-full pl-8 pr-2 h-8 rounded-lg text-xs outline-none bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)]"
+            className="w-full pl-8 pr-2 h-8 rounded-lg text-xs outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
             onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
             onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
           />
@@ -113,7 +113,7 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
         <HostRow
           avatar={
             <div
-              className="rounded-lg flex items-center justify-center shrink-0 w-[1.867rem] h-[1.867rem] bg-[var(--t-bg-elevated)] text-[var(--t-text-dim)]"
+              className="rounded-lg flex items-center justify-center shrink-0 w-[1.867rem] h-[1.867rem] bg-(--t-bg-elevated) text-(--t-text-dim)"
             >
               <Icon icon="lucide:monitor" width={14} />
             </div>
@@ -148,10 +148,10 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
           })}
 
         {connections.length === 0 && (
-          <p className="px-3 py-4 text-xs text-center text-[var(--t-text-muted)]">No hosts configured</p>
+          <p className="px-3 py-4 text-xs text-center text-(--t-text-muted)">No hosts configured</p>
         )}
         {connections.length > 0 && filtered.length === 0 && (
-          <p className="px-3 py-4 text-xs text-center text-[var(--t-text-muted)]">No hosts match</p>
+          <p className="px-3 py-4 text-xs text-center text-(--t-text-muted)">No hosts match</p>
         )}
 
         {filtered.map((c) => (
@@ -186,10 +186,10 @@ export function HostRow({ avatar, name, sub, isSelected, onClick }: {
     >
       {avatar}
       <div className="flex-1 min-w-0">
-        <p className="text-sm truncate font-medium text-[var(--t-text-bright)]">{name}</p>
-        <p className="text-xs truncate text-[var(--t-text-secondary)]">{sub}</p>
+        <p className="text-sm truncate font-medium text-(--t-text-bright)">{name}</p>
+        <p className="text-xs truncate text-(--t-text-secondary)">{sub}</p>
       </div>
-      {isSelected && <Icon icon="lucide:check" width={14} className="text-[var(--t-accent)] shrink-0" />}
+      {isSelected && <Icon icon="lucide:check" width={14} className="text-(--t-accent) shrink-0" />}
     </button>
   );
 }

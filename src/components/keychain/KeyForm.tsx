@@ -41,7 +41,7 @@ function ModeToggle({ mode, onChange }: { mode: KeyFormMode; onChange: (m: KeyFo
     { value: "generate", label: "Generate", icon: "lucide:sparkles" },
   ];
   return (
-    <div className="relative grid grid-cols-2 gap-0.5 p-0.5 rounded-lg bg-[var(--t-bg-base)] border border-[var(--t-border)]">
+    <div className="relative grid grid-cols-2 gap-0.5 p-0.5 rounded-lg bg-(--t-bg-base) border border-(--t-border)">
       {opts.map((opt) => {
         const active = mode === opt.value;
         return (
@@ -246,7 +246,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
           <FormSection label="Key Material">
             <div>
               <label className={formLabelClass} style={formLabelStyle}>
-                Private Key <span className="text-[var(--t-accent)]">*</span>
+                Private Key <span className="text-(--t-accent)">*</span>
               </label>
               <textarea
                 className={`${formInputClass} font-mono text-xs h-32 resize-none`}
@@ -259,20 +259,20 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
                 <div className="flex items-center gap-1.5 mt-1.5">
                   {keyInfo.valid && keyInfo.type ? (
                     <>
-                      <Icon icon="lucide:check-circle" width={12} className="text-[var(--t-status-connected)]" />
-                      <span className="text-xs text-[var(--t-status-connected)]">
+                      <Icon icon="lucide:check-circle" width={12} className="text-(--t-status-connected)" />
+                      <span className="text-xs text-(--t-status-connected)">
                         {keyInfo.type}
                       </span>
                     </>
                   ) : keyInfo.valid ? (
                     <>
-                      <Icon icon="lucide:help-circle" width={12} className="text-[var(--t-text-dim)]" />
-                      <span className="text-xs text-[var(--t-text-dim)]">Unknown type</span>
+                      <Icon icon="lucide:help-circle" width={12} className="text-(--t-text-dim)" />
+                      <span className="text-xs text-(--t-text-dim)">Unknown type</span>
                     </>
                   ) : (
                     <>
-                      <Icon icon="lucide:x-circle" width={12} className="text-[var(--t-status-error)]" />
-                      <span className="text-xs text-[var(--t-status-error)]">
+                      <Icon icon="lucide:x-circle" width={12} className="text-(--t-status-error)" />
+                      <span className="text-xs text-(--t-status-error)">
                         {keyInfo.error ?? "Invalid key"}
                       </span>
                     </>
@@ -282,7 +282,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
             </div>
             <div>
               <label className={formLabelClass} style={formLabelStyle}>
-                Passphrase <span className="text-[var(--t-text-dim)] font-normal">(optional)</span>
+                Passphrase <span className="text-(--t-text-dim) font-normal">(optional)</span>
               </label>
               <div className="relative">
                 <input
@@ -297,7 +297,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
                 <button
                   type="button"
                   onClick={() => setShowPassphrase((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-[var(--t-text-dim)]"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-(--t-text-dim)"
                   onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
                   tabIndex={-1}
@@ -308,7 +308,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
             </div>
             <div>
               <label className={formLabelClass} style={formLabelStyle}>
-                Public Key <span className="text-[var(--t-text-dim)] font-normal">(optional)</span>
+                Public Key <span className="text-(--t-text-dim) font-normal">(optional)</span>
               </label>
               <textarea
                 className={`${formInputClass} font-mono text-xs h-20 resize-none`}
@@ -330,19 +330,19 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
 
         {initial && onExport && (
           <div
-            className="rounded-xl overflow-hidden bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)]"
+            className="rounded-xl overflow-hidden bg-(--t-bg-card) border border-(--t-bg-card-hover)"
           >
             <div
-              className="px-4 py-2 flex items-center gap-2 border-b border-b-[var(--t-bg-card-hover)]"
+              className="px-4 py-2 flex items-center gap-2 border-b border-b-(--t-bg-card-hover)"
             >
-              <span className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">
+              <span className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
                 Key Export
               </span>
             </div>
             <div className="px-4 py-3">
               <button
                 onClick={() => onExport(initial)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-opacity bg-[var(--t-accent)] text-white relative overflow-hidden"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-opacity bg-(--t-accent) text-white relative overflow-hidden"
                 onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
                 onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
               >

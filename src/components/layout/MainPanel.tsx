@@ -38,9 +38,9 @@ import { getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 
 function NoVaultSelected() {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-[var(--t-bg-base)]">
+    <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-(--t-bg-base)">
       <div
-        className="flex items-center justify-center rounded-3xl w-[5.333rem] h-[5.333rem] text-[var(--t-text-dim)]"
+        className="flex items-center justify-center rounded-3xl w-[5.333rem] h-[5.333rem] text-(--t-text-dim)"
         style={{
           background: "linear-gradient(135deg, var(--t-bg-elevated) 0%, var(--t-bg-card) 100%)",
           border: "1px solid var(--t-border)",
@@ -49,10 +49,10 @@ function NoVaultSelected() {
         <Icon icon="lucide:vault" width={36} />
       </div>
       <div className="flex flex-col items-center gap-1.5 text-center">
-        <span className="text-base font-semibold text-[var(--t-text-primary)]">
+        <span className="text-base font-semibold text-(--t-text-primary)">
           No vaults selected
         </span>
-        <span className="text-sm text-[var(--t-text-dim)] max-w-[18.667rem]">
+        <span className="text-sm text-(--t-text-dim) max-w-[18.667rem]">
           Please select at least one vault in the vault picker.
         </span>
       </div>
@@ -108,9 +108,9 @@ function TeamVaultState({
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-[var(--t-bg-base)]">
+    <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-(--t-bg-base)">
       <div
-        className="flex items-center justify-center rounded-3xl w-[5.333rem] h-[5.333rem] text-[var(--t-text-dim)]"
+        className="flex items-center justify-center rounded-3xl w-[5.333rem] h-[5.333rem] text-(--t-text-dim)"
         style={{
           background: "linear-gradient(135deg, var(--t-bg-elevated) 0%, var(--t-bg-card) 100%)",
           border: "1px solid var(--t-border)",
@@ -119,8 +119,8 @@ function TeamVaultState({
         <Icon icon={cfg.icon} width={36} />
       </div>
       <div className="flex flex-col items-center gap-1.5 text-center max-w-xs">
-        <span className="text-base font-semibold text-[var(--t-text-primary)]">{cfg.title}</span>
-        <span className="text-sm text-[var(--t-text-dim)]">{cfg.body}</span>
+        <span className="text-base font-semibold text-(--t-text-primary)">{cfg.title}</span>
+        <span className="text-sm text-(--t-text-dim)">{cfg.body}</span>
         {status === "payment_required" && isOwner && (
           <button
             onClick={openBilling}
@@ -351,7 +351,7 @@ export default function MainPanel() {
   }
 
   return (
-    <main className="flex-1 relative overflow-hidden bg-[var(--t-bg-terminal)]">
+    <main className="flex-1 relative overflow-hidden bg-(--t-bg-terminal)">
       {noVaultSelected ? (
         <div className="absolute inset-0 flex flex-col overflow-hidden">
           <NoVaultSelected />

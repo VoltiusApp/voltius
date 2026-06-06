@@ -15,7 +15,7 @@ export function PassphrasePromptPanel({
   return (
     <DecisionPanel
       tone="secure"
-      icon={<Icon icon="lucide:lock" width={14} className="text-[var(--t-text-dim)] shrink-0" />}
+      icon={<Icon icon="lucide:lock" width={14} className="text-(--t-text-dim) shrink-0" />}
       title="KEY PASSPHRASE REQUIRED"
       description="This key is encrypted. Enter the passphrase to continue."
       actions={[
@@ -47,13 +47,13 @@ export function PassphrasePromptPanel({
           }}
           placeholder="Passphrase"
           autoFocus
-          className="w-full px-3 pr-9 py-2 rounded-lg text-sm outline-none bg-[var(--t-bg-base)] border border-[var(--t-border)] text-[var(--t-text-primary)] focus:border-[var(--t-accent)]"
+          className="w-full px-3 pr-9 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-base) border border-(--t-border) text-(--t-text-primary) focus:border-(--t-accent)"
         />
         <button
           type="button"
           tabIndex={-1}
           onClick={() => setShowPassphrase((value) => !value)}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors"
         >
           <Icon icon={showPassphrase ? "lucide:eye-off" : "lucide:eye"} width={14} />
         </button>

@@ -68,7 +68,7 @@ export function DashboardHostCard({ connection, onConnect }: Props) {
       }}
     >
       <button
-        className={`absolute top-1.5 right-1.5 transition-opacity p-0.5 rounded ${pinAlwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+        className={`absolute top-1.5 right-1.5 transition-opacity p-0.5 rounded-sm ${pinAlwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
         style={{ color: pinColor }}
         onClick={(e) => {
           e.stopPropagation();
@@ -89,7 +89,7 @@ export function DashboardHostCard({ connection, onConnect }: Props) {
               />
             )}
             <span
-              className="relative block rounded-full border-2 border-[var(--t-bg-card)]"
+              className="relative block rounded-full border-2 border-(--t-bg-card)"
               style={{
                 width: 10,
                 height: 10,

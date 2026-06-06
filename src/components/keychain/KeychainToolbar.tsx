@@ -41,7 +41,7 @@ export function KeychainToolbar({
 
   return (
     <>
-      <div ref={rowRef} className="flex items-center gap-2 px-5 py-2.5 shrink-0 bg-[var(--t-bg-toolbar)] border-b border-b-[var(--t-border)]">
+      <div ref={rowRef} className="flex items-center gap-2 px-5 py-2.5 shrink-0 bg-(--t-bg-toolbar) border-b border-b-(--t-border)">
         <div ref={leftRef} className="flex items-center">
           <ToolbarViewControls
             search={search}
@@ -122,14 +122,14 @@ function NewKeyChevron({ onGenerate, onNewIdentity, onNewFolder, accent }: { onI
         aria-label="New key options"
       >
         {rippleEls}
-        <span className="[&_path]:[stroke-width:3]">
+        <span className="[&_path]:stroke-3">
           <Icon icon="lucide:chevron-down" width={20} color="var(--t-bg-terminal)" style={{ transition: "transform 150ms", transform: open ? "rotate(180deg)" : "rotate(0deg)" }} />
         </span>
       </button>
 
       {open && (
         <div
-          className="p-1.5 rounded-xl fixed z-[9999] bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)]"
+          className="p-1.5 rounded-xl fixed z-9999 bg-(--t-bg-card) border border-(--t-bg-card-hover)"
           style={{
             top: pos.top,
             right: pos.right,

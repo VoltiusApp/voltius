@@ -71,12 +71,12 @@ function RegularToast({
         >
           [{toast.pluginName.slice(0, 20)}]
         </span>
-        <span className="flex-1 text-[var(--t-text-primary)] truncate">{toast.message}</span>
+        <span className="flex-1 text-(--t-text-primary) truncate">{toast.message}</span>
         {toast.action && (
           <button
             onClick={toast.action.onClick}
             disabled={pluginUnloaded}
-            className="shrink-0 px-1.5 py-0.5 rounded text-xs font-medium transition-colors"
+            className="shrink-0 px-1.5 py-0.5 rounded-sm text-xs font-medium transition-colors"
             style={{
               background: bg,
               color,
@@ -89,7 +89,7 @@ function RegularToast({
         )}
         <button
           onClick={onDismiss}
-          className="w-4 h-4 flex items-center justify-center rounded shrink-0 transition-colors"
+          className="w-4 h-4 flex items-center justify-center rounded-sm shrink-0 transition-colors"
           style={{ color: "var(--t-text-dim)" }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}

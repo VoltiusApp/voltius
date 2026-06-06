@@ -76,7 +76,7 @@ function PermissionRow({
       onClick={() => { if (!readOnly) onToggle(bit); }}
     >
       <div
-        className="shrink-0 w-4 h-4 rounded flex items-center justify-center border transition-colors"
+        className="shrink-0 w-4 h-4 rounded-sm flex items-center justify-center border transition-colors"
         style={{
           background: checked ? "var(--t-accent)" : "transparent",
           borderColor: checked ? "var(--t-accent)" : "var(--t-border)",
@@ -169,7 +169,7 @@ export function RoleModal({
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center"
+      className="fixed inset-0 z-200 flex items-center justify-center"
       style={{ background: "rgba(0,0,0,0.6)" }}
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -184,7 +184,7 @@ export function RoleModal({
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-b-[var(--t-border)] shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-b-(--t-border) shrink-0">
           <span className="text-sm font-semibold" style={{ color: "var(--t-text-bright)" }}>
             {role ? "Edit role" : "New custom role"}
           </span>
@@ -213,7 +213,7 @@ export function RoleModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") void handleSave(); }}
-              className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+              className="w-full px-3 py-2 rounded-lg text-sm outline-hidden"
               style={{ background: "var(--t-bg-input)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
               onFocus={(e) => { (e.currentTarget as HTMLInputElement).style.borderColor = "var(--t-accent)"; }}
               onBlur={(e) => { (e.currentTarget as HTMLInputElement).style.borderColor = "var(--t-border)"; }}
@@ -245,7 +245,7 @@ export function RoleModal({
                 {color && (
                   <button
                     onClick={() => setColor("")}
-                    className="text-xs px-1.5 py-0.5 rounded"
+                    className="text-xs px-1.5 py-0.5 rounded-sm"
                     style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}
                   >
                     Clear
@@ -275,7 +275,7 @@ export function RoleModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-t-[var(--t-border)] shrink-0">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-t-(--t-border) shrink-0">
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-lg text-sm"
@@ -314,11 +314,11 @@ function BuiltinRoleCard({ name, permissions }: { name: string; permissions: num
       >
         <Icon icon="lucide:lock" width={13} style={{ color: "var(--t-text-dim)" }} />
         <span className="flex-1 text-sm font-medium capitalize" style={{ color: "var(--t-text-primary)" }}>{name}</span>
-        <span className="text-[10px] px-2 py-0.5 rounded" style={{ background: "var(--t-bg-card)", color: "var(--t-text-dim)" }}>Built-in</span>
+        <span className="text-[10px] px-2 py-0.5 rounded-sm" style={{ background: "var(--t-bg-card)", color: "var(--t-text-dim)" }}>Built-in</span>
         <Icon icon={expanded ? "lucide:chevron-up" : "lucide:chevron-down"} width={13} style={{ color: "var(--t-text-dim)" }} />
       </button>
       {expanded && (
-        <div className="px-4 py-3 border-t border-t-[var(--t-border)]">
+        <div className="px-4 py-3 border-t border-t-(--t-border)">
           <PermissionGrid value={permissions} readOnly />
         </div>
       )}
@@ -426,7 +426,7 @@ function RoleCard({
           <p className="px-4 pb-2 text-xs" style={{ color: "var(--t-status-error)" }}>{deleteError}</p>
         )}
         {expanded && (
-          <div className="px-4 py-3 border-t border-t-[var(--t-border)]">
+          <div className="px-4 py-3 border-t border-t-(--t-border)">
             <PermissionGrid value={role.permissions} readOnly />
           </div>
         )}
@@ -625,7 +625,7 @@ export default function RolesSection() {
           <select
             value={selectedTeamId ?? ""}
             onChange={(e) => setSelectedTeamId(e.target.value)}
-            className="px-3 py-2 rounded-lg text-sm outline-none"
+            className="px-3 py-2 rounded-lg text-sm outline-hidden"
             style={{ background: "var(--t-bg-input)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
           >
             {teams.map((t) => (

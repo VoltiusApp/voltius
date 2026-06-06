@@ -143,7 +143,7 @@ function RoleBadges({
         </button>
       );
     }
-    return <span className="text-[10px] text-[var(--t-text-dim)]">No role</span>;
+    return <span className="text-[10px] text-(--t-text-dim)">No role</span>;
   }
   return (
     <div className="flex flex-wrap gap-1">
@@ -224,7 +224,7 @@ function MembersToolbar({
 
       <div className="ml-auto flex items-center gap-2 shrink-0">
         {selectedCount > 1 && (
-          <span className="text-xs text-[var(--t-text-dim)] shrink-0">
+          <span className="text-xs text-(--t-text-dim) shrink-0">
             {selectedCount} selected
           </span>
         )}
@@ -246,7 +246,7 @@ function MembersToolbar({
 
         {canInvite && (
           <>
-            <div className="w-px h-5 self-center bg-[var(--t-border-hover)]" />
+            <div className="w-px h-5 self-center bg-(--t-border-hover)" />
             <button
               onClick={onToggleInvite}
               className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0"
@@ -333,9 +333,9 @@ function MemberCard({
         </div>
         <div className="w-full min-w-0 flex flex-col items-center gap-1">
           <div className="flex items-center gap-1 justify-center">
-            <p className="text-xs font-medium truncate text-[var(--t-text-bright)] max-w-[120px]">{member.display_name}</p>
+            <p className="text-xs font-medium truncate text-(--t-text-bright) max-w-[120px]">{member.display_name}</p>
             {isMe && (
-              <span className="text-[9px] px-1 py-0.5 rounded shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>you</span>
+              <span className="text-[9px] px-1 py-0.5 rounded-sm shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>you</span>
             )}
           </div>
           <RoleBadges member={member} roles={roles} canManage={canManage} onAddRole={onAddRole} />
@@ -358,10 +358,10 @@ function MemberCard({
       <MemberAvatar member={member} size={32} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="text-sm font-medium truncate text-[var(--t-text-bright)]">{member.display_name}</p>
+          <p className="text-sm font-medium truncate text-(--t-text-bright)">{member.display_name}</p>
           {isOwner && <Icon icon="lucide:crown" width={11} style={{ color: "#a78bfa", flexShrink: 0 }} />}
           {isMe && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>you</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-sm shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>you</span>
           )}
         </div>
       </div>
@@ -573,13 +573,13 @@ function MemberDetailPanel({
         <FormSection label="Info">
           <div className="space-y-2 text-xs">
             <div className="flex items-center justify-between">
-              <span className="text-[var(--t-text-dim)]">Member since</span>
-              <span className="text-[var(--t-text-primary)]">{joinedDate}</span>
+              <span className="text-(--t-text-dim)">Member since</span>
+              <span className="text-(--t-text-primary)">{joinedDate}</span>
             </div>
             {member.invited_by_display_name && (
               <div className="flex items-center justify-between gap-4">
-                <span className="text-[var(--t-text-dim)] shrink-0">Invited by</span>
-                <span className="text-[var(--t-text-primary)] truncate">{member.invited_by_display_name}</span>
+                <span className="text-(--t-text-dim) shrink-0">Invited by</span>
+                <span className="text-(--t-text-primary) truncate">{member.invited_by_display_name}</span>
               </div>
             )}
           </div>
@@ -651,7 +651,7 @@ function PendingInviteCard({
     <BaseCard isList>
       <Avatar name={inv.display_name} size={32} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate text-[var(--t-text-bright)]">{inv.display_name}</p>
+        <p className="text-sm font-medium truncate text-(--t-text-bright)">{inv.display_name}</p>
       </div>
       <span className="text-[10px] px-2 py-0.5 rounded-full shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>
         Pending
@@ -908,8 +908,8 @@ function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }:
                 style={{ background: "var(--t-bg-input)", borderColor: open ? "var(--t-accent)" : "var(--t-border)" }}
               >
                 {searching
-                  ? <Icon icon="lucide:loader-2" width={14} className="animate-spin shrink-0 text-[var(--t-text-dim)]" />
-                  : <Icon icon="lucide:search" width={14} className="shrink-0 text-[var(--t-text-dim)]" />
+                  ? <Icon icon="lucide:loader-2" width={14} className="animate-spin shrink-0 text-(--t-text-dim)" />
+                  : <Icon icon="lucide:search" width={14} className="shrink-0 text-(--t-text-dim)" />
                 }
                 <input
                   ref={inputRef}
@@ -919,7 +919,7 @@ function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }:
                   onChange={(e) => { setQuery(e.target.value); setSuccess(""); }}
                   onFocus={() => { if (results.length > 0 || showEmailInviteOption) setOpen(true); }}
                   onKeyDown={(e) => { if (e.key === "Enter" && isValidEmail(query) && results.length === 0) void handleEmailInvite(); }}
-                  className="flex-1 bg-transparent outline-none text-sm text-[var(--t-text-primary)]"
+                  className="flex-1 bg-transparent outline-hidden text-sm text-(--t-text-primary)"
                 />
                 {query && (
                   <button onClick={() => { setQuery(""); setResults([]); setOpen(false); setSuccess(""); }}>
@@ -1082,8 +1082,8 @@ function PrivateVaultInvitePanel({
               style={{ background: "var(--t-bg-input)", borderColor: open ? "var(--t-accent)" : "var(--t-border)" }}
             >
               {searching
-                ? <Icon icon="lucide:loader-2" width={14} className="animate-spin shrink-0 text-[var(--t-text-dim)]" />
-                : <Icon icon="lucide:search" width={14} className="shrink-0 text-[var(--t-text-dim)]" />
+                ? <Icon icon="lucide:loader-2" width={14} className="animate-spin shrink-0 text-(--t-text-dim)" />
+                : <Icon icon="lucide:search" width={14} className="shrink-0 text-(--t-text-dim)" />
               }
               <input
                 ref={inputRef}
@@ -1092,7 +1092,7 @@ function PrivateVaultInvitePanel({
                 value={query}
                 onChange={(e) => { onQueryChange(e.target.value); }}
                 onFocus={() => { if (results.length > 0) setOpen(true); }}
-                className="flex-1 bg-transparent outline-none text-sm text-[var(--t-text-primary)]"
+                className="flex-1 bg-transparent outline-hidden text-sm text-(--t-text-primary)"
               />
               {query && (
                 <button onClick={() => { onQueryChange(""); setOpen(false); }}>
@@ -1146,8 +1146,8 @@ function SignInToCloudCTA({ onSignIn }: { onSignIn: () => void }) {
         <Icon icon="lucide:cloud" width={28} style={{ color: "var(--t-accent)" }} />
       </div>
       <div className="text-center">
-        <p className="text-sm font-medium mb-1 text-[var(--t-text-primary)]">Sign in to use team features</p>
-        <p className="text-xs max-w-[240px] text-[var(--t-text-dim)]">
+        <p className="text-sm font-medium mb-1 text-(--t-text-primary)">Sign in to use team features</p>
+        <p className="text-xs max-w-[240px] text-(--t-text-dim)">
           Members, invites, and shared vault access require a cloud account before you can upgrade or manage a team.
         </p>
       </div>
@@ -1173,8 +1173,8 @@ function UpgradeToTeamsCTA() {
         <Icon icon="lucide:users-round" width={28} style={{ color: "var(--t-accent)" }} />
       </div>
       <div className="text-center">
-        <p className="text-sm font-medium mb-1 text-[var(--t-text-primary)]">Team Vaults require Teams</p>
-        <p className="text-xs max-w-[220px] text-[var(--t-text-dim)]">
+        <p className="text-sm font-medium mb-1 text-(--t-text-primary)">Team Vaults require Teams</p>
+        <p className="text-xs max-w-[220px] text-(--t-text-dim)">
           Invite members, assign roles, and share credentials securely with your team.
         </p>
       </div>
@@ -1608,9 +1608,9 @@ const vaultTabs = selectedVaultIds.length > 1
   // ── No vault selected ──────────────────────────────────────────────────────
   if (!primaryVaultId) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-[var(--t-bg-base)]">
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-(--t-bg-base)">
         <div
-          className="flex items-center justify-center rounded-3xl w-[5.333rem] h-[5.333rem] text-[var(--t-text-dim)]"
+          className="flex items-center justify-center rounded-3xl w-[5.333rem] h-[5.333rem] text-(--t-text-dim)"
           style={{
             background: "linear-gradient(135deg, var(--t-bg-elevated) 0%, var(--t-bg-card) 100%)",
             border: "1px solid var(--t-border)",
@@ -1619,8 +1619,8 @@ const vaultTabs = selectedVaultIds.length > 1
           <Icon icon="lucide:users-round" width={36} />
         </div>
         <div className="flex flex-col items-center gap-1.5 text-center">
-          <span className="text-base font-semibold text-[var(--t-text-primary)]">No vault selected</span>
-          <span className="text-sm text-[var(--t-text-dim)] max-w-[18.667rem]">
+          <span className="text-base font-semibold text-(--t-text-primary)">No vault selected</span>
+          <span className="text-sm text-(--t-text-dim) max-w-[18.667rem]">
             Select a vault in the sidebar to manage its members.
           </span>
         </div>
@@ -1653,7 +1653,7 @@ const vaultTabs = selectedVaultIds.length > 1
 
     if (!isCloudAccount) {
       return (
-        <div className="flex-1 flex flex-col bg-[var(--t-bg-base)]">
+        <div className="flex-1 flex flex-col bg-(--t-bg-base)">
           {toolbar}
           <SignInToCloudCTA onSignIn={() => openCloudAuth("signin")} />
         </div>
@@ -1662,7 +1662,7 @@ const vaultTabs = selectedVaultIds.length > 1
 
     if (!isTeams) {
       return (
-        <div className="flex-1 flex flex-col bg-[var(--t-bg-base)]">
+        <div className="flex-1 flex flex-col bg-(--t-bg-base)">
           {toolbar}
           <UpgradeToTeamsCTA />
         </div>
@@ -1670,11 +1670,11 @@ const vaultTabs = selectedVaultIds.length > 1
     }
     if (!myUserId) {
       return (
-        <div className="flex-1 flex flex-col bg-[var(--t-bg-base)]">
+        <div className="flex-1 flex flex-col bg-(--t-bg-base)">
           {toolbar}
           <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
             <Icon icon="lucide:users-round" width={28} style={{ color: "var(--t-text-dim)" }} />
-            <p className="text-sm text-[var(--t-text-dim)]">Sign in to invite teammates to this vault.</p>
+            <p className="text-sm text-(--t-text-dim)">Sign in to invite teammates to this vault.</p>
           </div>
         </div>
       );
@@ -1700,13 +1700,13 @@ const vaultTabs = selectedVaultIds.length > 1
             onClose={() => setShowInvitePanel(false)}
           />
         ) : null}
-        className="bg-[var(--t-bg-base)]"
+        className="bg-(--t-bg-base)"
       >
         <div className="flex flex-col h-full">
           {toolbar}
           <div className="flex-1 overflow-y-auto px-9 pt-5 pb-9">
           <div className="mb-6">
-            <p className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">Members</p>
+            <p className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">Members</p>
             <div
               className={layoutMode === "grid" ? "grid gap-3" : "flex flex-col gap-1.5"}
               style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" } : undefined}
@@ -1717,10 +1717,10 @@ const vaultTabs = selectedVaultIds.length > 1
                   <div className="w-full min-w-0 flex flex-col items-center gap-1">
                     <div className="flex items-center gap-1 justify-center">
                       {myEmail === null
-                        ? <div className="h-3.5 w-20 rounded animate-pulse" style={{ background: "var(--t-bg-elevated)" }} />
-                        : <p className="text-xs font-medium truncate text-[var(--t-text-bright)] max-w-[120px]">{myEmail || "You"}</p>
+                        ? <div className="h-3.5 w-20 rounded-sm animate-pulse" style={{ background: "var(--t-bg-elevated)" }} />
+                        : <p className="text-xs font-medium truncate text-(--t-text-bright) max-w-[120px]">{myEmail || "You"}</p>
                       }
-                      <span className="text-[9px] px-1 py-0.5 rounded shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>you</span>
+                      <span className="text-[9px] px-1 py-0.5 rounded-sm shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>you</span>
                     </div>
                     <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ color: "#a78bfa", background: "rgba(167,139,250,0.12)" }}>owner</span>
                   </div>
@@ -1731,10 +1731,10 @@ const vaultTabs = selectedVaultIds.length > 1
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       {myEmail === null
-                        ? <div className="h-3.5 w-40 rounded animate-pulse" style={{ background: "var(--t-bg-elevated)" }} />
-                        : <p className="text-sm font-medium truncate text-[var(--t-text-bright)]">{myEmail || "You"}</p>
+                        ? <div className="h-3.5 w-40 rounded-sm animate-pulse" style={{ background: "var(--t-bg-elevated)" }} />
+                        : <p className="text-sm font-medium truncate text-(--t-text-bright)">{myEmail || "You"}</p>
                       }
-                      <span className="text-[10px] px-1.5 py-0.5 rounded shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-sm shrink-0" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>
                         you
                       </span>
                     </div>
@@ -1753,9 +1753,9 @@ const vaultTabs = selectedVaultIds.length > 1
   // ── Vault not found ────────────────────────────────────────────────────────
   if (!teamId) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center bg-[var(--t-bg-base)]">
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center bg-(--t-bg-base)">
         <Icon icon="lucide:vault" width={28} style={{ color: "var(--t-text-dim)" }} />
-        <p className="text-sm text-[var(--t-text-dim)]">Vault not found.</p>
+        <p className="text-sm text-(--t-text-dim)">Vault not found.</p>
       </div>
     );
   }
@@ -1814,7 +1814,7 @@ const vaultTabs = selectedVaultIds.length > 1
               )
               : null
       }
-      className="bg-[var(--t-bg-base)]"
+      className="bg-(--t-bg-base)"
     >
       <div className="flex flex-col h-full">
         <MembersToolbar
@@ -1884,10 +1884,10 @@ const vaultTabs = selectedVaultIds.length > 1
             {/* Members section */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">
+                <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
                   Members
                 </p>
-                <span className="text-xs text-[var(--t-text-dim)]">
+                <span className="text-xs text-(--t-text-dim)">
                   {members.length} member{members.length !== 1 ? "s" : ""}
                   {myMember && (
                     <> · <RoleBadges member={myMember} roles={teamRoles} /></>
@@ -1896,10 +1896,10 @@ const vaultTabs = selectedVaultIds.length > 1
               </div>
 
               {sortedMembers.length === 0 && members.length === 0 && (
-                <p className="text-xs py-3 text-[var(--t-text-dim)]">Loading members…</p>
+                <p className="text-xs py-3 text-(--t-text-dim)">Loading members…</p>
               )}
               {sortedMembers.length === 0 && members.length > 0 && searchLower && (
-                <p className="text-xs py-3 text-[var(--t-text-dim)]">No members match "{search}"</p>
+                <p className="text-xs py-3 text-(--t-text-dim)">No members match "{search}"</p>
               )}
 
               <div
@@ -1930,7 +1930,7 @@ const vaultTabs = selectedVaultIds.length > 1
             {/* Pending invitations */}
             {pendingInvites.length > 0 && (
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">
+                <p className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
                   Pending Invitations
                 </p>
                 <div className="flex flex-col gap-1.5">

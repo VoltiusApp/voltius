@@ -104,16 +104,16 @@ export default function AccountSection() {
   return (
     <div className="p-6 max-w-lg space-y-4">
       <div>
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
           Account Mode
         </h3>
         <div
-          className="rounded-lg px-4 py-3 bg-[var(--t-bg-elevated)] border border-[var(--t-border)]"
+          className="rounded-lg px-4 py-3 bg-(--t-bg-elevated) border border-(--t-border)"
         >
-          <p className="text-xs mb-1 text-[var(--t-text-dim)]">Current mode</p>
+          <p className="text-xs mb-1 text-(--t-text-dim)">Current mode</p>
           <div className="flex items-center gap-2">
-            <Icon icon={modeIcon} width={14} className="text-[var(--t-accent)]" />
-            <span className="text-sm font-medium text-[var(--t-text-primary)]">{modeLabel}</span>
+            <Icon icon={modeIcon} width={14} className="text-(--t-accent)" />
+            <span className="text-sm font-medium text-(--t-text-primary)">{modeLabel}</span>
           </div>
         </div>
       </div>
@@ -121,14 +121,14 @@ export default function AccountSection() {
       {mode === "server" && <PlansSection />}
 
       <div>
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
           Session Security
         </h3>
         {canLockVault ? (
           <div
-            className="rounded-lg px-4 py-3 space-y-2 bg-[var(--t-bg-elevated)] border border-[var(--t-border)]"
+            className="rounded-lg px-4 py-3 space-y-2 bg-(--t-bg-elevated) border border-(--t-border)"
           >
-            <label className="text-xs text-[var(--t-text-dim)]">
+            <label className="text-xs text-(--t-text-dim)">
               Auto-lock vault after inactivity
             </label>
             <select
@@ -137,7 +137,7 @@ export default function AccountSection() {
                 const next = e.target.value === "never" ? null : Number(e.target.value);
                 setSessionTimeoutMinutes(Number.isFinite(next) ? next : null);
               }}
-              className="w-full rounded-lg px-3 py-2 text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)]"
+              className="w-full rounded-lg px-3 py-2 text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
             >
               {SESSION_TIMEOUT_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -145,19 +145,19 @@ export default function AccountSection() {
                 </option>
               ))}
             </select>
-            <p className="text-xs text-[var(--t-text-dim)]">
+            <p className="text-xs text-(--t-text-dim)">
               Locks your vault and asks for your master password when your session expires.
             </p>
           </div>
         ) : (
-          <p className="text-xs text-[var(--t-text-muted)]">
+          <p className="text-xs text-(--t-text-muted)">
             Enable a master password to use auto-lock and session timeout.
           </p>
         )}
       </div>
 
-      {success && <p className="text-xs px-1 text-[var(--t-status-connected)]">{success}</p>}
-      {error && <p className="text-xs px-1 text-[var(--t-status-error)]">{error}</p>}
+      {success && <p className="text-xs px-1 text-(--t-status-connected)">{success}</p>}
+      {error && <p className="text-xs px-1 text-(--t-status-error)">{error}</p>}
 
       {step === "idle" && (
         <div className="space-y-2">
@@ -175,17 +175,17 @@ export default function AccountSection() {
                 className="flex flex-col gap-2 rounded-lg px-4 py-3"
                 style={{ background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)" }}
               >
-                <p className="text-xs font-medium text-[var(--t-text-dim)]">Display name</p>
+                <p className="text-xs font-medium text-(--t-text-dim)">Display name</p>
                 <input
                   autoFocus
                   type="text"
                   value={displayNameInput}
                   maxLength={50}
                   onChange={(e) => { setDisplayNameInput(e.target.value); setDisplayNameError(""); }}
-                  className="rounded-lg px-3 py-1.5 text-sm outline-none"
+                  className="rounded-lg px-3 py-1.5 text-sm outline-hidden"
                   style={{ background: "var(--t-bg-input)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
                 />
-                {displayNameError && <p className="text-xs text-[var(--t-status-error)]">{displayNameError}</p>}
+                {displayNameError && <p className="text-xs text-(--t-status-error)">{displayNameError}</p>}
                 <div className="flex gap-2">
                   <button
                     className="flex-1 text-xs px-3 py-1.5 rounded-lg"
@@ -306,18 +306,18 @@ export default function AccountSection() {
 
       {step === "confirm-wipe" && (
         <div className="space-y-3">
-          <p className="text-xs text-[var(--t-text-muted)]">
+          <p className="text-xs text-(--t-text-muted)">
             This will permanently delete <strong>all local data</strong>: connections, SSH keys, identities, vault secrets, and OS keychain entries. This cannot be undone.
           </p>
           <div className="flex gap-2">
             <button
-              className="flex-1 text-xs px-3 py-1.5 rounded bg-[var(--t-bg-elevated)] text-[var(--t-text-muted)] hover:text-[var(--t-text-base)] transition-colors"
+              className="flex-1 text-xs px-3 py-1.5 rounded-sm bg-(--t-bg-elevated) text-(--t-text-muted) hover:text-(--t-text-base) transition-colors"
               onClick={reset}
             >
               Cancel
             </button>
             <button
-              className="flex-1 text-xs px-3 py-1.5 rounded bg-[var(--t-status-error)] text-white hover:opacity-80 transition-opacity font-medium"
+              className="flex-1 text-xs px-3 py-1.5 rounded-sm bg-(--t-status-error) text-white hover:opacity-80 transition-opacity font-medium"
               onClick={() => {
                 setStep("loading");
                 resetVault()
@@ -336,7 +336,7 @@ export default function AccountSection() {
 
       {step === "set-password" && (
         <form onSubmit={handleSetPassword} className="space-y-2">
-          <p className="text-xs text-[var(--t-text-muted)]">
+          <p className="text-xs text-(--t-text-muted)">
             Choose a master password. Your existing data will be re-encrypted.
           </p>
           <SettingsInput
@@ -353,8 +353,8 @@ export default function AccountSection() {
 
       {step === "loading" && (
         <div className="flex items-center gap-2 px-1">
-          <Icon icon="lucide:loader-2" width={14} className="animate-spin text-[var(--t-accent)]" />
-          <span className="text-sm text-[var(--t-text-muted)]">Working...</span>
+          <Icon icon="lucide:loader-2" width={14} className="animate-spin text-(--t-accent)" />
+          <span className="text-sm text-(--t-text-muted)">Working...</span>
         </div>
       )}
     </div>
@@ -401,11 +401,11 @@ function PlansSection() {
 
   return (
     <div>
-      <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">
+      <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
         Plan
       </h3>
 
-      <div className="rounded-lg px-4 py-3 bg-[var(--t-bg-elevated)] border border-[var(--t-border)] space-y-3">
+      <div className="rounded-lg px-4 py-3 bg-(--t-bg-elevated) border border-(--t-border) space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Icon
@@ -413,13 +413,13 @@ function PlansSection() {
               width={14}
               style={{ color: badgeColor }}
             />
-            <span className="text-sm font-medium text-[var(--t-text-primary)]">{badgeLabel}</span>
+            <span className="text-sm font-medium text-(--t-text-primary)">{badgeLabel}</span>
           </div>
           <div className="flex items-center gap-2">
             {isPaidPro && (
               <button
                 onClick={() => openPortal()}
-                className="text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors"
+                className="text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors"
               >
                 Manage billing →
               </button>
@@ -428,7 +428,7 @@ function PlansSection() {
         </div>
 
         {isPaidPro && (
-          <div className="rounded-md px-3 py-2 bg-[var(--t-bg-input)] text-xs text-[var(--t-text-muted)]">
+          <div className="rounded-md px-3 py-2 bg-(--t-bg-input) text-xs text-(--t-text-muted)">
             {subscriptionCancelled ? (
               <span>Cancels on {cancellationDate ?? "the period end"}. You keep access until then.</span>
             ) : subscriptionStatus === "active" && renewalDate ? (
@@ -449,11 +449,11 @@ function PlansSection() {
         )}
 
         {!isPro && (
-          <div className="flex items-center justify-between gap-3 rounded-md px-3 py-2 bg-[var(--t-bg-input)]">
-            <p className="text-xs text-[var(--t-text-muted)]">Upgrade to unlock cloud sync and more</p>
+          <div className="flex items-center justify-between gap-3 rounded-md px-3 py-2 bg-(--t-bg-input)">
+            <p className="text-xs text-(--t-text-muted)">Upgrade to unlock cloud sync and more</p>
             <button
               onClick={() => openCheckout("pro")}
-              className="text-xs px-2.5 py-1 rounded-md font-medium shrink-0 bg-[var(--t-accent)] text-white hover:opacity-85 transition-opacity"
+              className="text-xs px-2.5 py-1 rounded-md font-medium shrink-0 bg-(--t-accent) text-white hover:opacity-85 transition-opacity"
             >
               Upgrade
             </button>
@@ -461,11 +461,11 @@ function PlansSection() {
         )}
 
         {isPro && !isTeams && (
-          <div className="flex items-center justify-between gap-3 rounded-md px-3 py-2 bg-[var(--t-bg-input)]">
-            <p className="text-xs text-[var(--t-text-muted)]">Upgrade to Teams for shared vaults and unlimited guests</p>
+          <div className="flex items-center justify-between gap-3 rounded-md px-3 py-2 bg-(--t-bg-input)">
+            <p className="text-xs text-(--t-text-muted)">Upgrade to Teams for shared vaults and unlimited guests</p>
             <button
               onClick={() => openCheckout("teams")}
-              className="text-xs px-2.5 py-1 rounded-md font-medium shrink-0 bg-[var(--t-bg-elevated)] text-[var(--t-text-primary)] hover:opacity-85 transition-opacity border border-[var(--t-border)]"
+              className="text-xs px-2.5 py-1 rounded-md font-medium shrink-0 bg-(--t-bg-elevated) text-(--t-text-primary) hover:opacity-85 transition-opacity border border-(--t-border)"
             >
               Teams →
             </button>
@@ -473,7 +473,7 @@ function PlansSection() {
         )}
 
         {/* Feature comparison */}
-        <div className="border-t border-[var(--t-border)] pt-3 space-y-1.5">
+        <div className="border-t border-(--t-border) pt-3 space-y-1.5">
           {PLAN_FEATURES.map(({ label, free, pro, teams: t, business }) => {
             const active = isBusiness ? business : isTeams ? t : isPro ? pro : free;
             return (
@@ -493,7 +493,7 @@ function PlansSection() {
 
         <button
           onClick={() => openPortal()}
-          className="text-xs w-full text-center text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors pt-1"
+          className="text-xs w-full text-center text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors pt-1"
         >
           View all plans →
         </button>

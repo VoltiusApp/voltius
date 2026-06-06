@@ -48,18 +48,18 @@ export default function ChangeMasterPasswordModal({ onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs"
       onClick={onClose}
     >
       <div
-        className="w-80 rounded-xl p-5 shadow-2xl bg-[var(--t-bg-terminal)] border border-[var(--t-border)]"
+        className="w-80 rounded-xl p-5 shadow-2xl bg-(--t-bg-terminal) border border-(--t-border)"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-[var(--t-text-primary)]">Change master password</h2>
+          <h2 className="text-sm font-semibold text-(--t-text-primary)">Change master password</h2>
           <button
             onClick={onClose}
-            className="text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors"
+            className="text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors"
           >
             <Icon icon="lucide:x" width={14} />
           </button>
@@ -67,16 +67,16 @@ export default function ChangeMasterPasswordModal({ onClose }: Props) {
 
         {done ? (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 text-[var(--t-status-connected)]">
+            <div className="flex items-center gap-2 text-(--t-status-connected)">
               <Icon icon="lucide:check-circle" width={14} />
               <p className="text-xs font-medium">Password changed successfully.</p>
             </div>
-            <p className="text-xs text-[var(--t-text-dim)]">
+            <p className="text-xs text-(--t-text-dim)">
               You are still logged in. Your vault entries are unchanged.
             </p>
             <button
               onClick={onClose}
-              className="w-full py-1.5 rounded-lg text-sm font-medium text-white bg-[var(--t-accent)]"
+              className="w-full py-1.5 rounded-lg text-sm font-medium text-white bg-(--t-accent)"
             >
               Done
             </button>
@@ -102,19 +102,19 @@ export default function ChangeMasterPasswordModal({ onClose }: Props) {
               value={confirmPassword}
               onChange={setConfirmPassword}
             />
-            {error && <p className="text-xs text-[var(--t-status-error)]">{error}</p>}
+            {error && <p className="text-xs text-(--t-status-error)">{error}</p>}
             <div className="flex gap-2 pt-1">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 py-1.5 rounded-lg text-sm transition-colors bg-[var(--t-bg-elevated)] text-[var(--t-text-muted)]"
+                className="flex-1 py-1.5 rounded-lg text-sm transition-colors bg-(--t-bg-elevated) text-(--t-text-muted)"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 py-1.5 rounded-lg text-sm font-medium text-white transition-colors bg-[var(--t-accent)]"
+                className="flex-1 py-1.5 rounded-lg text-sm font-medium text-white transition-colors bg-(--t-accent)"
                 style={{ opacity: loading ? 0.7 : 1 }}
               >
                 {loading ? "Changing…" : "Change password"}

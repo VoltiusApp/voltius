@@ -32,7 +32,7 @@ export function DragGhost() {
 
   return (
     <div
-      className="fixed z-[9999] pointer-events-none select-none"
+      className="fixed z-9999 pointer-events-none select-none"
       style={{ left: currentX + 14, top: currentY + 10 }}
     >
       <div
@@ -50,9 +50,9 @@ export function DragGhost() {
         >
           <Icon icon={icon} width={13} />
         </span>
-        <span className="truncate max-w-[12rem]">{session.connectionName}</span>
+        <span className="truncate max-w-48">{session.connectionName}</span>
         <span
-          className="px-1.5 py-0.5 rounded border text-[10px]"
+          className="px-1.5 py-0.5 rounded-sm border text-[10px]"
           style={{ borderColor: "var(--t-border)", background: "var(--t-bg-elevated)" }}
         >
           {sessionBadge(session)}

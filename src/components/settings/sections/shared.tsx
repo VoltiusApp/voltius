@@ -14,7 +14,7 @@ export function ActionItem({ icon, label, sub, danger, disabled, onClick }: {
     <button
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className="w-full flex items-start gap-3 px-4 py-3 rounded-lg text-left transition-colors bg-[var(--t-bg-elevated)] border border-[var(--t-border)]"
+      className="w-full flex items-start gap-3 px-4 py-3 rounded-lg text-left transition-colors bg-(--t-bg-elevated) border border-(--t-border)"
       style={{
         cursor: disabled ? "default" : "pointer",
         opacity: disabled ? 0.5 : 1,
@@ -38,7 +38,7 @@ export function ActionItem({ icon, label, sub, danger, disabled, onClick }: {
       />
       <div>
         <p className="text-sm font-medium" style={{ color }}>{label}</p>
-        <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">{sub}</p>
+        <p className="text-xs mt-0.5 text-(--t-text-dim)">{sub}</p>
       </div>
     </button>
   );
@@ -58,7 +58,7 @@ export function SettingsInput({ type = "text", placeholder, value, onChange, aut
       value={value}
       autoFocus={autoFocus}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full px-3 py-2 rounded-lg text-sm outline-none transition-colors bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)]"
+      className="w-full px-3 py-2 rounded-lg text-sm outline-hidden transition-colors bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
       onFocus={(e) => {
         (e.currentTarget as HTMLInputElement).style.borderColor = "var(--t-accent)";
       }}
@@ -84,7 +84,7 @@ export function ResetButton({ onReset }: { onReset: () => void }) {
   return (
     <button
       onClick={onReset}
-      className="p-1 rounded transition-opacity opacity-0 group-hover:opacity-100 text-[var(--t-text-muted)]"
+      className="p-1 rounded-sm transition-opacity opacity-0 group-hover:opacity-100 text-(--t-text-muted)"
       onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-bright)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-muted)"; }}
       title="Reset to default"
@@ -100,13 +100,13 @@ export function FormButtons({ onCancel, submitLabel }: { onCancel: () => void; s
       <button
         type="button"
         onClick={onCancel}
-        className="flex-1 py-1.5 rounded-lg text-sm transition-colors bg-[var(--t-bg-elevated)] text-[var(--t-text-muted)]"
+        className="flex-1 py-1.5 rounded-lg text-sm transition-colors bg-(--t-bg-elevated) text-(--t-text-muted)"
       >
         Cancel
       </button>
       <button
         type="submit"
-        className="flex-1 py-1.5 rounded-lg text-sm font-medium text-white transition-colors bg-[var(--t-accent)]"
+        className="flex-1 py-1.5 rounded-lg text-sm font-medium text-white transition-colors bg-(--t-accent)"
         onMouseEnter={(e) => {
           (e.currentTarget as HTMLButtonElement).style.background = "var(--t-accent-hover)";
         }}

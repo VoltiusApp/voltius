@@ -184,7 +184,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
   return createPortal(
     <div
       ref={menuRef}
-      className="fixed z-[9999] rounded-xl"
+      className="fixed z-9999 rounded-xl"
       style={{
         top: pos.top,
         left: pos.left,
@@ -285,7 +285,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
               Share terminal
             </p>
             <input
-              className="w-full text-xs px-2.5 py-1.5 rounded-md outline-none"
+              className="w-full text-xs px-2.5 py-1.5 rounded-md outline-hidden"
               style={{
                 background: "var(--t-bg-elevated)",
                 border: "1px solid var(--t-border)",
@@ -318,7 +318,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
           )}
 
           {error && (
-            <div className="mx-3 mb-2 px-2 py-1.5 rounded text-[11px]" style={{ background: "color-mix(in srgb, var(--t-status-error) 12%, transparent)", color: "var(--t-status-error)", border: "1px solid color-mix(in srgb, var(--t-status-error) 25%, transparent)" }}>
+            <div className="mx-3 mb-2 px-2 py-1.5 rounded-sm text-[11px]" style={{ background: "color-mix(in srgb, var(--t-status-error) 12%, transparent)", color: "var(--t-status-error)", border: "1px solid color-mix(in srgb, var(--t-status-error) 25%, transparent)" }}>
               {error}
             </div>
           )}
@@ -437,7 +437,7 @@ function ActiveSharingView({
         <div className="flex items-center gap-2 mb-3">
           <input
             readOnly
-            className="flex-1 text-[11px] px-2.5 py-1.5 rounded-md outline-none font-mono"
+            className="flex-1 text-[11px] px-2.5 py-1.5 rounded-md outline-hidden font-mono"
             style={{
               background: "var(--t-bg-elevated)",
               border: "1px solid var(--t-border)",
@@ -521,7 +521,7 @@ function TeamTab({
                   onClick={() => onToggleVault(team.id)}
                 >
                   <div
-                    className="w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0"
+                    className="w-3.5 h-3.5 rounded-sm border flex items-center justify-center shrink-0"
                     style={{
                       background: selected ? "var(--t-accent)" : "transparent",
                       borderColor: selected ? "var(--t-accent)" : "var(--t-border)",
@@ -620,7 +620,7 @@ function InviteLinkTab({
           <div className="flex items-center gap-2">
             <input
               readOnly
-              className="flex-1 text-[11px] px-2.5 py-1.5 rounded-md outline-none font-mono"
+              className="flex-1 text-[11px] px-2.5 py-1.5 rounded-md outline-hidden font-mono"
               style={{
                 background: "var(--t-bg-elevated)",
                 border: "1px solid var(--t-border)",

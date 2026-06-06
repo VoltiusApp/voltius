@@ -45,7 +45,7 @@ export function Pills<T extends string>({
   return (
     <div
       ref={containerRef}
-      className="relative flex gap-0.5 p-0.5 rounded-lg bg-[var(--t-bg-base)] border border-[var(--t-border)]"
+      className="relative flex gap-0.5 p-0.5 rounded-lg bg-(--t-bg-base) border border-(--t-border)"
     >
       <div
         className="absolute rounded-md pointer-events-none"

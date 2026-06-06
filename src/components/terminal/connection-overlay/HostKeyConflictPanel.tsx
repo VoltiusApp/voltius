@@ -43,12 +43,12 @@ export function HostKeyConflictPanel({
     >
       <div className="w-full space-y-2 text-left">
         {conflict.stored_entries.slice(0, 2).map((entry) => (
-          <div key={entry.id} className="p-2 rounded bg-[var(--t-bg-elevated)]">
-            <p className="text-[var(--t-text-dim)] text-xs mb-0.5">Stored</p>
+          <div key={entry.id} className="p-2 rounded-sm bg-(--t-bg-elevated)">
+            <p className="text-(--t-text-dim) text-xs mb-0.5">Stored</p>
             <p className="font-mono text-xs text-text-secondary break-all">{truncateFp(entry.fingerprint)}</p>
           </div>
         ))}
-        <div className="p-2 rounded bg-yellow-500/5 border border-yellow-500/20">
+        <div className="p-2 rounded-sm bg-yellow-500/5 border border-yellow-500/20">
           <p className="text-yellow-400 text-xs mb-0.5">Received</p>
           <p className="font-mono text-xs text-text-secondary break-all">{truncateFp(conflict.new_fingerprint)}</p>
         </div>

@@ -136,14 +136,14 @@ export function MultiplayerBar({ localSessionId }: MultiplayerBarProps) {
             Control requested
           </span>
           <button
-            className="px-2 py-0.5 rounded text-xs font-medium transition-colors"
+            className="px-2 py-0.5 rounded-sm text-xs font-medium transition-colors"
             style={{ background: "var(--t-accent)", color: "white" }}
             onClick={() => grantControl(localSessionId, mpState.controlRequester!)}
           >
             Grant
           </button>
           <button
-            className="px-2 py-0.5 rounded text-xs font-medium transition-colors"
+            className="px-2 py-0.5 rounded-sm text-xs font-medium transition-colors"
             style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-secondary)", border: "1px solid var(--t-border)" }}
             onClick={() => revokeControl(localSessionId)}
           >

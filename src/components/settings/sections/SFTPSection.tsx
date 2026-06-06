@@ -20,15 +20,15 @@ export default function SFTPSection() {
   return (
     <div className="p-6 max-w-lg space-y-6">
       <div>
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
           Transfers
         </h3>
 
-        <div className="rounded-lg bg-[var(--t-bg-elevated)] border border-[var(--t-border)]">
+        <div className="rounded-lg bg-(--t-bg-elevated) border border-(--t-border)">
           <div className="group flex items-center justify-between px-4 py-3 gap-4">
             <div>
-              <p className="text-sm font-medium text-[var(--t-text-primary)]">Tar acceleration</p>
-              <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
+              <p className="text-sm font-medium text-(--t-text-primary)">Tar acceleration</p>
+              <p className="text-xs mt-0.5 text-(--t-text-dim)">
                 Pack directories into a single tar.gz before transfer — much faster for many small files.
                 Requires <code className="font-mono">tar</code> on both sides.
               </p>
@@ -45,17 +45,17 @@ export default function SFTPSection() {
       </div>
 
       <div>
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
           File Panel
         </h3>
 
         <div
-          className="rounded-lg divide-y bg-[var(--t-bg-elevated)] border border-[var(--t-border)]"
+          className="rounded-lg divide-y bg-(--t-bg-elevated) border border-(--t-border)"
         >
           <div className="group flex items-center justify-between px-4 py-3 gap-4">
             <div>
-              <p className="text-sm font-medium text-[var(--t-text-primary)]">Auto-refresh</p>
-              <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
+              <p className="text-sm font-medium text-(--t-text-primary)">Auto-refresh</p>
+              <p className="text-xs mt-0.5 text-(--t-text-dim)">
                 Silently re-fetches directory contents in the background
               </p>
             </div>
@@ -70,10 +70,10 @@ export default function SFTPSection() {
 
           <div className="group flex items-center justify-between px-4 py-3 gap-4">
             <div>
-              <p className="text-sm font-medium text-[var(--t-text-primary)]" style={{ opacity: autoRefreshEnabled ? 1 : 0.45 }}>
+              <p className="text-sm font-medium text-(--t-text-primary)" style={{ opacity: autoRefreshEnabled ? 1 : 0.45 }}>
                 Refresh interval
               </p>
-              <p className="text-xs mt-0.5 text-[var(--t-text-dim)]" style={{ opacity: autoRefreshEnabled ? 1 : 0.45 }}>
+              <p className="text-xs mt-0.5 text-(--t-text-dim)" style={{ opacity: autoRefreshEnabled ? 1 : 0.45 }}>
                 Minimum 0.5 s
               </p>
             </div>
@@ -89,12 +89,12 @@ export default function SFTPSection() {
                 value={intervalSeconds}
                 disabled={!autoRefreshEnabled}
                 onChange={(e) => handleIntervalChange(e.target.value)}
-                className="w-20 px-2 py-1 rounded-lg text-sm text-right outline-none transition-colors bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)]"
+                className="w-20 px-2 py-1 rounded-lg text-sm text-right outline-hidden transition-colors bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
                 style={{ opacity: autoRefreshEnabled ? 1 : 0.45 }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = "var(--t-accent)"; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; }}
               />
-              <span className="text-xs text-[var(--t-text-dim)]">s</span>
+              <span className="text-xs text-(--t-text-dim)">s</span>
             </div>
           </div>
         </div>

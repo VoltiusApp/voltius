@@ -47,8 +47,8 @@ export function ResizeHandle({
       aria-orientation={direction === "h" ? "vertical" : "horizontal"}
       tabIndex={0}
       className={direction === "h"
-        ? "group w-2 -mx-0.5 cursor-col-resize flex items-center justify-center focus:outline-none"
-        : "group h-2 -my-0.5 cursor-row-resize flex items-center justify-center focus:outline-none"}
+        ? "group w-2 -mx-0.5 cursor-col-resize flex items-center justify-center focus:outline-hidden"
+        : "group h-2 -my-0.5 cursor-row-resize flex items-center justify-center focus:outline-hidden"}
     >
       <div
         className={`${direction === "h" ? "w-0.5 h-8" : "h-0.5 w-8"} rounded-full opacity-0 transition-[opacity,background-color] duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 ${isDragging ? "opacity-100" : ""}`}
