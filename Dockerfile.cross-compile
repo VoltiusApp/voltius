@@ -48,5 +48,25 @@ RUN printf '#!/bin/bash\nXWIN="/root/.cache/cargo-xwin/xwin"\nargs=()\nis_cross=
 RUN CLANG_VERSION=$(clang --version | grep -oP '(?<=clang version )\d+' | head -1) && \
     ln -sf $(which clang-cl-${CLANG_VERSION}) /usr/bin/clang-cl
     
+# Entrypoint: the build runs as root (full access to the /root toolchain), then
+# hands the bind-mounted /project back to the host user that owns the mount, so
+# artifacts (target, dist, node_modules, .pnpm-store) aren't left root-owned.
+RUN <<'EOF'
+cat > /usr/local/bin/entrypoint.sh <<'SCRIPT'
+#!/usr/bin/env bash
+set -uo pipefail
+fix_perms() {
+  local owner
+  owner="$(stat -c %u /project 2>/dev/null):$(stat -c %g /project 2>/dev/null)" || return 0
+  chown -R "$owner" /project 2>/dev/null || true
+}
+trap fix_perms EXIT
+[ "$#" -eq 0 ] && set -- /bin/bash
+"$@"
+SCRIPT
+chmod +x /usr/local/bin/entrypoint.sh
+EOF
+
 WORKDIR /project
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["/bin/bash"]
