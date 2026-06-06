@@ -62,6 +62,9 @@ export interface MultiplayerSessionState {
   connection: MultiplayerConnection;
   ended?: boolean;
   vaultOwnerTier?: string;
+  // Runtime-only wiring between the terminal view and store; never persisted.
+  _termWrite?: (data: Uint8Array) => void;
+  _pendingOutput?: Uint8Array;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -180,7 +183,7 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
 
     const conn = mp.openWebSocket(serverUrl, multiplayerSessionId, jwt, displayName, sessionKey, {
       onOutput: (data) => {
-        const conn = get().connections[localSessionId] as any;
+        const conn = get().connections[localSessionId];
         conn?._termWrite?.(data);
       },
       onInput: () => {},

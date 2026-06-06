@@ -86,7 +86,7 @@ export default function MultiplayerTerminalView({ localSessionId, active }: Prop
             [localSessionId]: {
               ...existing,
               _termWrite: (data: Uint8Array) => term.write(data),
-            } as any,
+            },
           },
         };
       });
@@ -97,7 +97,7 @@ export default function MultiplayerTerminalView({ localSessionId, active }: Prop
   // Subscribe to output from multiplayer service
   useEffect(() => {
     const unsubscribe = useTeamSessionStore.subscribe((state) => {
-      const conn = state.connections[localSessionId] as any;
+      const conn = state.connections[localSessionId];
       if (conn?._pendingOutput && termRef.current) {
         termRef.current.write(conn._pendingOutput);
       }

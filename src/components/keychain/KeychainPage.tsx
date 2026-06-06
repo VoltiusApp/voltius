@@ -378,21 +378,20 @@ export default function KeychainPage() {
 
   useEffect(() => {
     if (!keychainPendingAction) return;
-    const { action } = keychainPendingAction;
-    if (action === "create-key") {
+    if (keychainPendingAction.action === "create-key") {
       keyFormSessionKeyRef.current = `new-key-${Date.now()}`;
       setKeyFormMode("import");
       setEditingKeyId(null);
       setShowKeyForm(true);
-    } else if (action === "create-identity") {
+    } else if (keychainPendingAction.action === "create-identity") {
       identityFormSessionKeyRef.current = `new-identity-${Date.now()}`;
       setEditingIdentityId(null);
       setShowIdentityForm(true);
-    } else if (action === "edit-key") {
-      const key = keys.find((k) => k.id === (keychainPendingAction as any).id);
+    } else if (keychainPendingAction.action === "edit-key") {
+      const key = keys.find((k) => k.id === keychainPendingAction.id);
       if (key) { keyFormSessionKeyRef.current = key.id; setEditingKeyId(key.id); setShowKeyForm(true); }
-    } else if (action === "edit-identity") {
-      const identity = identities.find((i) => i.id === (keychainPendingAction as any).id);
+    } else if (keychainPendingAction.action === "edit-identity") {
+      const identity = identities.find((i) => i.id === keychainPendingAction.id);
       if (identity) { identityFormSessionKeyRef.current = identity.id; setEditingIdentityId(identity.id); setShowIdentityForm(true); }
     }
     setKeychainPendingAction(null);
