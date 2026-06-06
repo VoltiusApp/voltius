@@ -375,7 +375,7 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
               value={query}
               onChange={(e) => { setQuery(e.target.value); setSuccess(""); }}
               onFocus={() => { if (results.length > 0 || showEmailInviteOption) setOpen(true); }}
-              className="flex-1 bg-transparent outline-none text-sm"
+              className="flex-1 bg-transparent outline-hidden text-sm"
               style={{ color: "var(--t-text-primary)" }}
             />
             {query && (
@@ -513,7 +513,7 @@ function MemberRow({ member, isMe, myMember, teamId, roles }: {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <p className="text-sm font-medium truncate" style={{ color: "var(--t-text-primary)" }}>{member.display_name}</p>
-            {isMe && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>you</span>}
+            {isMe && <span className="text-[10px] px-1.5 py-0.5 rounded-sm" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>you</span>}
           </div>
         </div>
 
@@ -555,7 +555,7 @@ function MemberRow({ member, isMe, myMember, teamId, roles }: {
           <button
             onClick={() => void handleRemove()}
             disabled={busy}
-            className="p-1 rounded transition-colors ml-1"
+            className="p-1 rounded-sm transition-colors ml-1"
             style={{ color: confirmRemove ? "var(--t-status-error)" : "var(--t-text-dim)" }}
             onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)")}
             onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = confirmRemove ? "var(--t-status-error)" : "var(--t-text-dim)")}
@@ -623,7 +623,7 @@ export function TeamVaultPanel({ teamId, myUserId }: { teamId: string; myUserId:
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-xs px-2 py-0.5 rounded" style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-dim)" }}>
+        <span className="text-xs px-2 py-0.5 rounded-sm" style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-dim)" }}>
           {members.length} member{members.length !== 1 ? "s" : ""}
         </span>
         {myMember && <MemberRoleBadges member={myMember} roles={roles} />}
@@ -665,7 +665,7 @@ export function TeamVaultPanel({ teamId, myUserId }: { teamId: string; myUserId:
                   title="Revoke invitation"
                   disabled={revokingId === inv.id}
                   onClick={() => void handleRevoke(inv.id)}
-                  className="ml-1 rounded p-0.5 transition-opacity"
+                  className="ml-1 rounded-sm p-0.5 transition-opacity"
                   style={{ color: "var(--t-text-dim)", opacity: revokingId === inv.id ? 0.4 : 1 }}
                 >
                   {revokingId === inv.id
@@ -738,14 +738,14 @@ function TeamMembersSummary({ teamId }: { teamId: string }) {
               key={m.user_id}
               title={m.display_name}
               style={{ marginLeft: i === 0 ? 0 : -8, zIndex: preview.length - i }}
-              className="rounded-full border-2 border-[var(--t-bg-card)]"
+              className="rounded-full border-2 border-(--t-bg-card)"
             >
               <Avatar email={m.display_name} size={24} />
             </div>
           ))}
           {overflow > 0 && (
             <div
-              className="flex items-center justify-center text-[10px] font-semibold rounded-full shrink-0 border-2 border-[var(--t-bg-card)]"
+              className="flex items-center justify-center text-[10px] font-semibold rounded-full shrink-0 border-2 border-(--t-bg-card)"
               style={{ marginLeft: -8, width: 24, height: 24, background: "var(--t-bg-elevated)", color: "var(--t-text-dim)" }}
             >
               +{overflow}
@@ -936,7 +936,7 @@ export function PrivateVaultMembersPanel({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               <p className="text-sm font-medium" style={{ color: "var(--t-text-primary)" }}>You</p>
-              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>you</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-sm" style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}>you</span>
             </div>
           </div>
           <RoleNameChip name="owner" isBuiltin={true} />
@@ -962,7 +962,7 @@ export function PrivateVaultMembersPanel({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => { if (results.length > 0) setOpen(true); }}
-              className="flex-1 bg-transparent outline-none text-sm"
+              className="flex-1 bg-transparent outline-hidden text-sm"
               style={{ color: "var(--t-text-primary)" }}
             />
             {query && (
@@ -1185,7 +1185,7 @@ function VaultGeneralTab({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
+              className="flex-1 px-3 py-2 rounded-lg text-sm outline-hidden"
               style={{ background: "var(--t-bg-input)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
               onFocus={(e) => { (e.currentTarget as HTMLInputElement).style.borderColor = "var(--t-accent)"; }}
               onBlur={(e) => { (e.currentTarget as HTMLInputElement).style.borderColor = "var(--t-border)"; }}
@@ -1452,7 +1452,7 @@ export default function VaultsSection() {
     <div className="p-6 space-y-8">
       <div>
         <div className="flex items-center justify-between mb-1">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">Vaults</h3>
+          <h3 className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">Vaults</h3>
           <button
             onClick={() => {
               if (!isPro && vaults.length >= 1) {
@@ -1469,7 +1469,7 @@ export default function VaultsSection() {
             New vault
           </button>
         </div>
-        <p className="text-xs mb-4 text-[var(--t-text-muted)]">Organize your connections, identities, and keys. Invite members to share a vault.</p>
+        <p className="text-xs mb-4 text-(--t-text-muted)">Organize your connections, identities, and keys. Invite members to share a vault.</p>
 
         {showCreate && (
           <form onSubmit={handleCreateVault} className="flex gap-2 mb-4">
@@ -1479,7 +1479,7 @@ export default function VaultsSection() {
               placeholder="Vault name…"
               value={newVaultName}
               onChange={(e) => setNewVaultName(e.target.value)}
-              className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
+              className="flex-1 px-3 py-2 rounded-lg text-sm outline-hidden"
               style={{ background: "var(--t-bg-input)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
               onFocus={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = "var(--t-accent)")}
               onBlur={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = "var(--t-border)")}
@@ -1529,7 +1529,7 @@ export default function VaultsSection() {
                 })}
               >
                 <Icon icon="lucide:vault" width={16} className="shrink-0" style={{ color: "var(--t-text-muted)" }} />
-                <p className="flex-1 text-sm font-medium text-[var(--t-text-primary)] truncate">{name}</p>
+                <p className="flex-1 text-sm font-medium text-(--t-text-primary) truncate">{name}</p>
 
                 {item.kind === "local" && hovered && (
                   <div className="flex items-center gap-2.5 shrink-0">
@@ -1555,8 +1555,8 @@ export default function VaultsSection() {
 
       {vaultsContributions.length > 0 && (
         <div>
-          <h3 className="text-xs font-bold uppercase tracking-widest mb-1 text-[var(--t-text-dim)]">Import / Export</h3>
-          <p className="text-xs mb-4 text-[var(--t-text-muted)]">
+          <h3 className="text-xs font-bold uppercase tracking-widest mb-1 text-(--t-text-dim)">Import / Export</h3>
+          <p className="text-xs mb-4 text-(--t-text-muted)">
             Back up or restore your hosts, identities, and SSH key metadata as JSON or CSV.
           </p>
           <div className="flex gap-3">
@@ -1564,11 +1564,11 @@ export default function VaultsSection() {
               <button
                 key={action.label}
                 onClick={action.onClick}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors bg-[var(--t-bg-elevated)] text-[var(--t-text-primary)] border border-[var(--t-border-hover)]"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors bg-(--t-bg-elevated) text-(--t-text-primary) border border-(--t-border-hover)"
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-card-hover)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
               >
-                {action.icon && <Icon icon={action.icon} width={15} className="text-[var(--t-accent)]" />}
+                {action.icon && <Icon icon={action.icon} width={15} className="text-(--t-accent)" />}
                 {action.label}
               </button>
             ))}

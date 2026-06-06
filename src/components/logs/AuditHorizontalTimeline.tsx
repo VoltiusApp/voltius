@@ -158,7 +158,7 @@ export function AuditHorizontalTimeline({ logs }: Props) {
 
   if (logs.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-sm text-[var(--t-text-dim)] py-12">
+      <div className="flex-1 flex items-center justify-center text-sm text-(--t-text-dim) py-12">
         No events match your filters.
       </div>
     );
@@ -166,28 +166,28 @@ export function AuditHorizontalTimeline({ logs }: Props) {
 
   return (
     <div className="h-full overflow-x-auto overflow-y-hidden px-5 py-6">
-      <div className="relative min-w-[56rem] h-[26rem] rounded-2xl border border-[var(--t-border)] bg-[var(--t-bg-card)] overflow-hidden">
+      <div className="relative min-w-4xl h-104 rounded-2xl border border-(--t-border) bg-(--t-bg-card) overflow-hidden">
         {scale && (
-          <div className="absolute inset-x-8 top-0 h-20 border-b border-[var(--t-border)] bg-[var(--t-bg-elevated)]/40">
+          <div className="absolute inset-x-8 top-0 h-20 border-b border-(--t-border) bg-(--t-bg-elevated)/40">
             {scale.buckets.map((bucket) => (
               <div
                 key={bucket.key}
-                className="absolute top-0 h-full border-l border-[var(--t-border)] px-2 py-3"
+                className="absolute top-0 h-full border-l border-(--t-border) px-2 py-3"
                 style={{ left: `${bucket.left}%`, width: `${bucket.width}%` }}
               >
-                <div className="text-[11px] font-semibold text-[var(--t-text-primary)] truncate">{bucket.label}</div>
-                {bucket.sublabel && <div className="text-[10px] text-[var(--t-text-dim)] truncate">{bucket.sublabel}</div>}
+                <div className="text-[11px] font-semibold text-(--t-text-primary) truncate">{bucket.label}</div>
+                {bucket.sublabel && <div className="text-[10px] text-(--t-text-dim) truncate">{bucket.sublabel}</div>}
               </div>
             ))}
           </div>
         )}
 
-        <div className="absolute inset-x-8 top-1/2 h-px bg-[var(--t-border)]" />
+        <div className="absolute inset-x-8 top-1/2 h-px bg-(--t-border)" />
 
         {scale?.buckets.map((bucket) => (
           <div
             key={`${bucket.key}-grid`}
-            className="absolute top-20 bottom-0 w-px bg-[var(--t-border)]/70"
+            className="absolute top-20 bottom-0 w-px bg-(--t-border)/70"
             style={{ left: `${bucket.left}%` }}
           />
         ))}
@@ -202,12 +202,12 @@ export function AuditHorizontalTimeline({ logs }: Props) {
           return (
             <div
               key={log.id}
-              className="group absolute -translate-x-1/2 outline-none"
+              className="group absolute -translate-x-1/2 outline-hidden"
               style={{ left: `${position}%`, top: avatarTop }}
               tabIndex={0}
             >
               <div
-                className="absolute left-1/2 w-px -translate-x-1/2 bg-[var(--t-border-hover)]"
+                className="absolute left-1/2 w-px -translate-x-1/2 bg-(--t-border-hover)"
                 style={{ top: above ? 28 : -Number.parseInt(connectorHeight, 10), height: connectorHeight }}
               />
               <div
@@ -218,7 +218,7 @@ export function AuditHorizontalTimeline({ logs }: Props) {
                 {initials(log.actor_name)}
               </div>
               <div
-                className="pointer-events-none absolute z-30 w-72 rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-card)] p-3 opacity-0 shadow-2xl transition-opacity group-hover:opacity-100 group-focus:opacity-100"
+                className="pointer-events-none absolute z-30 w-72 rounded-xl border border-(--t-border) bg-(--t-bg-card) p-3 opacity-0 shadow-2xl transition-opacity group-hover:opacity-100 group-focus:opacity-100"
                 style={{
                   left: position > 78 ? "auto" : "50%",
                   right: position > 78 ? "50%" : "auto",
@@ -234,11 +234,11 @@ export function AuditHorizontalTimeline({ logs }: Props) {
                     <Icon icon={meta.icon} width={14} />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-xs font-semibold text-[var(--t-text-primary)] truncate">{log.actor_name}</div>
-                    <div className="text-sm text-[var(--t-text-secondary)] leading-snug">{meta.label(log)}</div>
-                    <div className="mt-1 flex items-center gap-2 text-[11px] text-[var(--t-text-dim)]">
+                    <div className="text-xs font-semibold text-(--t-text-primary) truncate">{log.actor_name}</div>
+                    <div className="text-sm text-(--t-text-secondary) leading-snug">{meta.label(log)}</div>
+                    <div className="mt-1 flex items-center gap-2 text-[11px] text-(--t-text-dim)">
                       <span>{formatTime(log.created_at)}</span>
-                      {log.source === "client" && <span className="rounded-full border border-[var(--t-border)] px-1.5 py-0.5">client</span>}
+                      {log.source === "client" && <span className="rounded-full border border-(--t-border) px-1.5 py-0.5">client</span>}
                     </div>
                   </div>
                 </div>

@@ -16,7 +16,7 @@ export function StatusDot({ color, animate = false, size = 11, fast = false, cla
         />
       )}
       <span
-        className="relative block rounded-full border-2 border-[var(--t-bg-card)]"
+        className="relative block rounded-full border-2 border-(--t-bg-card)"
         style={{ width: size, height: size, background: color }}
       />
     </span>

@@ -129,12 +129,12 @@ export default function SplashScreen({ onReady }: Props) {
 
   return (
     <div
-      className={`h-full w-full flex flex-col items-center justify-center transition-opacity duration-400 bg-[var(--t-bg-terminal)] ${exiting ? "opacity-0" : "opacity-100"}`}
+      className={`h-full w-full flex flex-col items-center justify-center transition-opacity duration-400 bg-(--t-bg-terminal) ${exiting ? "opacity-0" : "opacity-100"}`}
     >
       <div className="mb-10 text-center">
         <LogoBadge size={14} className="mb-4" />
-        <h1 className="text-xl font-bold tracking-wide text-[var(--t-text-bright)]">Voltius</h1>
-        <p className="text-xs mt-1 text-[var(--t-text-muted)]">SSH Client</p>
+        <h1 className="text-xl font-bold tracking-wide text-(--t-text-bright)">Voltius</h1>
+        <p className="text-xs mt-1 text-(--t-text-muted)">SSH Client</p>
       </div>
 
       <div className="w-64 space-y-2.5">
@@ -171,7 +171,7 @@ function StepIcon({ status }: { status: StepStatus }) {
       <svg width="8" height="8" viewBox="0 0 10 10" stroke="#ef4444" strokeWidth="2"><line x1="2" y1="2" x2="8" y2="8" /><line x1="8" y1="2" x2="2" y2="8" /></svg>
     </div>
   );
-  return <div className="w-4 h-4 rounded-full shrink-0 border border-[var(--t-border)]" />;
+  return <div className="w-4 h-4 rounded-full shrink-0 border border-(--t-border)" />;
 }
 
 function delay(ms: number) { return new Promise((r) => setTimeout(r, ms)); }

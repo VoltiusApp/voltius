@@ -65,14 +65,14 @@ export default function IdentitySelector({ value, identities, onChange, onGoToKe
         <Icon
           icon={selected ? "lucide:user-check" : "lucide:user-x"}
           width={14}
-          className="text-[var(--t-text-dim)] shrink-0"
+          className="text-(--t-text-dim) shrink-0"
         />
         <span className="flex-1 text-left truncate text-xs">{displayLabel}</span>
-        <span className="[&_path]:[stroke-width:2.5]">
+        <span className="[&_path]:stroke-[2.5]">
           <Icon
             icon="lucide:chevron-down"
             width={14}
-            className="text-[var(--t-text-dim)] shrink-0"
+            className="text-(--t-text-dim) shrink-0"
             style={{
               transition: "transform 150ms",
               transform: open ? "rotate(180deg)" : "rotate(0deg)",
@@ -84,7 +84,7 @@ export default function IdentitySelector({ value, identities, onChange, onGoToKe
       {open && createPortal(
         <div
           ref={dropdownRef}
-          className="p-1.5 rounded-xl flex flex-col fixed z-[9999] bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)]"
+          className="p-1.5 rounded-xl flex flex-col fixed z-9999 bg-(--t-bg-card) border border-(--t-bg-card-hover)"
           style={{
             top: dropdownPos.top,
             bottom: dropdownPos.bottom,
@@ -113,7 +113,7 @@ export default function IdentitySelector({ value, identities, onChange, onGoToKe
             <Icon icon="lucide:user-x" width={13} className="shrink-0" />
             <span className="flex-1 text-left">No identity — inline credentials</span>
             {value === null && (
-              <span className="[&_path]:[stroke-width:2.5]">
+              <span className="[&_path]:stroke-[2.5]">
                 <Icon icon="lucide:check" width={13} />
               </span>
             )}
@@ -121,7 +121,7 @@ export default function IdentitySelector({ value, identities, onChange, onGoToKe
 
           {/* Identity list */}
           {identities.length > 0 && (
-            <div className="my-1 border-t border-t-[var(--t-bg-card-hover)]" />
+            <div className="my-1 border-t border-t-(--t-bg-card-hover)" />
           )}
           {identities.map((identity) => (
             <button
@@ -141,21 +141,21 @@ export default function IdentitySelector({ value, identities, onChange, onGoToKe
             >
               <Icon icon="lucide:user" width={13} className="shrink-0" />
               <div className="flex-1 text-left min-w-0">
-                <p className="truncate text-[var(--t-text-primary)]">
+                <p className="truncate text-(--t-text-primary)">
                   {identity.name ?? identity.username}
                 </p>
                 {identity.name && (
-                  <p className="truncate text-[var(--t-text-dim)]">
+                  <p className="truncate text-(--t-text-dim)">
                     {identity.username}
                   </p>
                 )}
               </div>
-              <span className="text-xs shrink-0 text-[var(--t-text-dim)]">
+              <span className="text-xs shrink-0 text-(--t-text-dim)">
                 {identity.key_id ? "key" : "pwd"}
               </span>
               {value === identity.id && (
-                <span className="[&_path]:[stroke-width:2.5]">
-                  <Icon icon="lucide:check" width={13} className="text-[var(--t-accent)]" />
+                <span className="[&_path]:stroke-[2.5]">
+                  <Icon icon="lucide:check" width={13} className="text-(--t-accent)" />
                 </span>
               )}
             </button>
@@ -163,12 +163,12 @@ export default function IdentitySelector({ value, identities, onChange, onGoToKe
 
           {/* Footer: go to keychain */}
           <div
-            className="mt-1 border-t border-t-[var(--t-bg-card-hover)]"
+            className="mt-1 border-t border-t-(--t-bg-card-hover)"
           />
           <button
             type="button"
             onClick={() => { setOpen(false); onGoToKeychain(); }}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors text-[var(--t-text-dim)]"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors text-(--t-text-dim)"
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLButtonElement).style.color = "var(--t-accent)";
               (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)";

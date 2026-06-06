@@ -52,7 +52,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-[var(--t-bg-base)]">
+    <div className="h-full overflow-y-auto bg-(--t-bg-base)">
       <div className="max-w-4xl mx-auto px-8 py-8">
         <DashboardHero />
         <QuickActions />

@@ -261,7 +261,7 @@ export function DockerPanel() {
   if (!activeSession || activeSession.status !== "connected") {
     return (
       <div className="flex items-center justify-center h-full opacity-40">
-        <p className="text-sm text-[var(--t-text-muted)]">No active session</p>
+        <p className="text-sm text-(--t-text-muted)">No active session</p>
       </div>
     );
   }
@@ -294,19 +294,19 @@ export function DockerPanel() {
     return (
       <div className="flex h-full items-center justify-center px-6 text-center">
         <div className="max-w-[260px] space-y-2">
-          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--t-bg-card)] text-[var(--t-text-muted)] border border-[var(--t-border)]">
+          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-(--t-bg-card) text-(--t-text-muted) border border-(--t-border)">
             <Icon icon="mdi:docker" width={22} />
           </div>
           <div>
-            <h3 className="text-sm font-medium text-[var(--t-text)]">Docker is not reachable</h3>
-            <p className="mt-1 text-[11px] leading-4 text-[var(--t-text-muted)]">
+            <h3 className="text-sm font-medium text-(--t-text)">Docker is not reachable</h3>
+            <p className="mt-1 text-[11px] leading-4 text-(--t-text-muted)">
               Start Docker in this environment, then refresh.
             </p>
           </div>
           <button
             onClick={() => fetchForView(state.view)}
             disabled={state.loading}
-            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--t-border)] px-2.5 py-1 text-[11px] text-[var(--t-text-muted)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded-md border border-(--t-border) px-2.5 py-1 text-[11px] text-(--t-text-muted) hover:bg-(--t-bg-hover) hover:text-(--t-text) disabled:opacity-40"
           >
             <Icon icon="lucide:refresh-cw" width={12} className={state.loading ? "animate-spin" : ""} />
             Refresh
@@ -330,7 +330,7 @@ export function DockerPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* Tab bar + actions */}
-      <div className="flex items-center border-b border-[var(--t-border)] shrink-0">
+      <div className="flex items-center border-b border-(--t-border) shrink-0">
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -338,19 +338,19 @@ export function DockerPanel() {
             title={tab.label}
             className={`flex-1 flex items-center justify-center py-1.5 text-[10px] gap-1 border-b-2 transition-colors ${
               state.view === tab.id
-                ? "border-[var(--t-accent)] text-[var(--t-text)]"
-                : "border-transparent text-[var(--t-text-muted)] hover:text-[var(--t-text)]"
+                ? "border-(--t-accent) text-(--t-text)"
+                : "border-transparent text-(--t-text-muted) hover:text-(--t-text)"
             }`}
           >
             <Icon icon={tab.icon} width={12} />
           </button>
         ))}
-        <div className="flex items-center gap-0.5 px-1.5 border-l border-[var(--t-border)]">
+        <div className="flex items-center gap-0.5 px-1.5 border-l border-(--t-border)">
           <button
             onClick={() => fetchForView(state.view)}
             disabled={state.loading}
             title="Refresh"
-            className="p-1 text-[var(--t-text-muted)] hover:text-[var(--t-text)] disabled:opacity-40"
+            className="p-1 text-(--t-text-muted) hover:text-(--t-text) disabled:opacity-40"
           >
             <Icon icon="lucide:refresh-cw" width={11} className={state.loading ? "animate-spin" : ""} />
           </button>
@@ -370,7 +370,7 @@ export function DockerPanel() {
             }}
             disabled={sysPruning}
             title="System prune (docker system prune -a)"
-            className="p-1 text-[var(--t-status-warning)] opacity-70 hover:opacity-100 disabled:opacity-40"
+            className="p-1 text-(--t-status-warning) opacity-70 hover:opacity-100 disabled:opacity-40"
           >
             <Icon icon="lucide:flame" width={11} />
           </button>
@@ -378,14 +378,14 @@ export function DockerPanel() {
       </div>
 
       {sysPruneMsg && (
-        <p className="px-3 py-1 text-[10px] text-[var(--t-text-muted)] border-b border-[var(--t-border)] shrink-0">
+        <p className="px-3 py-1 text-[10px] text-(--t-text-muted) border-b border-(--t-border) shrink-0">
           {sysPruneMsg}
         </p>
       )}
 
       {/* Error state */}
       {state.error && (
-        <div className="px-3 py-2 text-[10px] text-[var(--t-text-muted)]">
+        <div className="px-3 py-2 text-[10px] text-(--t-text-muted)">
           <p className="break-all">{state.error}</p>
         </div>
       )}

@@ -172,7 +172,7 @@ export function ProxmoxPanel() {
   if (!activeSession || activeSession.status !== "connected") {
     return (
       <div className="flex items-center justify-center h-full opacity-40">
-        <p className="text-sm text-[var(--t-text-muted)]">No active session</p>
+        <p className="text-sm text-(--t-text-muted)">No active session</p>
       </div>
     );
   }
@@ -185,14 +185,14 @@ export function ProxmoxPanel() {
       >
         <div className="flex flex-col items-center gap-3 max-w-[220px]">
           <div
-            className="flex items-center justify-center rounded-2xl w-[3.2rem] h-[3.2rem] text-[var(--t-text-dim)] border border-[var(--t-border)]"
+            className="flex items-center justify-center rounded-2xl w-[3.2rem] h-[3.2rem] text-(--t-text-dim) border border-(--t-border)"
             style={{ background: "linear-gradient(135deg, var(--t-bg-card) 0%, var(--t-bg-toolbar) 100%)" }}
           >
             <Icon icon="devicon:proxmox-plain" width={26} />
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-sm font-bold text-[var(--t-text-primary)]">Proxmox VE not detected</span>
-            <span className="text-xs leading-relaxed text-[var(--t-text-dim)]">
+            <span className="text-sm font-bold text-(--t-text-primary)">Proxmox VE not detected</span>
+            <span className="text-xs leading-relaxed text-(--t-text-dim)">
               This panel requires an SSH connection to a Proxmox VE host.
             </span>
           </div>
@@ -209,12 +209,12 @@ export function ProxmoxPanel() {
     <div className="flex flex-col h-full">
       {/* Header bar — only in containers view */}
       {state.view === "containers" && (
-        <div className="flex items-center justify-end px-2 py-1 border-b border-[var(--t-border)] shrink-0">
+        <div className="flex items-center justify-end px-2 py-1 border-b border-(--t-border) shrink-0">
           <button
             onClick={() => fetchContainers()}
             disabled={state.loading}
             title="Refresh"
-            className="p-1 text-[var(--t-text-muted)] hover:text-[var(--t-text)] disabled:opacity-40"
+            className="p-1 text-(--t-text-muted) hover:text-(--t-text) disabled:opacity-40"
           >
             <Icon icon="lucide:refresh-cw" width={11} className={state.loading ? "animate-spin" : ""} />
           </button>
@@ -223,7 +223,7 @@ export function ProxmoxPanel() {
 
       {/* Error state */}
       {state.error && state.view === "containers" && (
-        <div className="px-3 py-2 text-[10px] text-[var(--t-text-muted)]">
+        <div className="px-3 py-2 text-[10px] text-(--t-text-muted)">
           <p className="break-all">{state.error}</p>
         </div>
       )}

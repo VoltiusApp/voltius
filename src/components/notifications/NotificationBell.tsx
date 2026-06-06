@@ -44,12 +44,12 @@ function BannerRow({ banner, onDismiss }: { banner: BannerEntry; onDismiss: () =
           <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>
             [{banner.pluginName.slice(0, 20)}]
           </span>
-          <p className="text-sm text-[var(--t-text-primary)] leading-snug">{banner.message}</p>
+          <p className="text-sm text-(--t-text-primary) leading-snug">{banner.message}</p>
         </div>
         {banner.dismissable && (
           <button
             onClick={onDismiss}
-            className="w-4 h-4 flex items-center justify-center rounded shrink-0"
+            className="w-4 h-4 flex items-center justify-center rounded-sm shrink-0"
             style={{ color: "var(--t-text-dim)" }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
@@ -64,7 +64,7 @@ function BannerRow({ banner, onDismiss }: { banner: BannerEntry; onDismiss: () =
             <button
               key={i}
               onClick={() => { a.onClick(); onDismiss(); }}
-              className="text-xs px-2 py-0.5 rounded transition-colors"
+              className="text-xs px-2 py-0.5 rounded-sm transition-colors"
               style={{ background: "var(--t-bg-input)", color: "var(--t-text-primary)" }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-input-hover)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-input)"; }}
@@ -89,7 +89,7 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
         <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>
           [{entry.pluginName.slice(0, 20)}]
         </span>
-        <p className="text-xs text-[var(--t-text-secondary)] truncate">{entry.message}</p>
+        <p className="text-xs text-(--t-text-secondary) truncate">{entry.message}</p>
       </div>
       <span className="text-xs shrink-0" style={{ color: "var(--t-text-dim)" }}>
         {relativeTime(entry.dismissedAt)}
@@ -198,7 +198,7 @@ export function NotificationBell() {
             className="flex items-center justify-between px-3 py-2.5"
             style={{ borderBottom: "1px solid var(--t-border)" }}
           >
-            <span className="text-sm font-semibold text-[var(--t-text-primary)]">Notifications</span>
+            <span className="text-sm font-semibold text-(--t-text-primary)">Notifications</span>
             <button
               onClick={clearHistory}
               disabled={history.length === 0}

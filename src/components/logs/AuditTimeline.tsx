@@ -36,7 +36,7 @@ export function AuditTimeline({ logs }: Props) {
 
   if (groups.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-sm text-[var(--t-text-dim)] py-12">
+      <div className="flex-1 flex items-center justify-center text-sm text-(--t-text-dim) py-12">
         No events match your filters.
       </div>
     );
@@ -48,9 +48,9 @@ export function AuditTimeline({ logs }: Props) {
         <div key={group.key}>
           {/* Day separator */}
           <div className="flex items-center gap-2 px-2 py-2 mt-2">
-            <div className="flex-1 h-px bg-[var(--t-border)]" />
-            <span className="text-xs font-medium text-[var(--t-text-dim)] shrink-0">{group.label}</span>
-            <div className="flex-1 h-px bg-[var(--t-border)]" />
+            <div className="flex-1 h-px bg-(--t-border)" />
+            <span className="text-xs font-medium text-(--t-text-dim) shrink-0">{group.label}</span>
+            <div className="flex-1 h-px bg-(--t-border)" />
           </div>
           {/* Events */}
           {group.items.map((log) => (

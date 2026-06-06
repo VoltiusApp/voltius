@@ -50,13 +50,13 @@ function DropdownItem({ icon, label, active, onClick }: { icon: string; label: s
     >
       <Icon icon={icon} width={13} className="shrink-0" />
       <span className="flex-1 text-left truncate">{label}</span>
-      {active && <Icon icon="lucide:check" width={13} className="text-[var(--t-accent)]" />}
+      {active && <Icon icon="lucide:check" width={13} className="text-(--t-accent)" />}
     </button>
   );
 }
 
 function DropdownDivider() {
-  return <div className="my-1 border-t border-t-[var(--t-bg-card-hover)]" />;
+  return <div className="my-1 border-t border-t-(--t-bg-card-hover)" />;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -127,7 +127,7 @@ function KeySelector({
         <Icon
           icon="lucide:chevron-down"
           width={13}
-          className="text-[var(--t-text-dim)] shrink-0"
+          className="text-(--t-text-dim) shrink-0"
           style={{
             transition: "transform 150ms",
             transform: open ? "rotate(180deg)" : "rotate(0deg)",
@@ -137,7 +137,7 @@ function KeySelector({
 
       {open && (
         <div
-          className="p-1.5 rounded-xl fixed z-[9999] bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)]"
+          className="p-1.5 rounded-xl fixed z-9999 bg-(--t-bg-card) border border-(--t-bg-card-hover)"
           style={{
             top: dropdownPos.top,
             bottom: dropdownPos.bottom,
@@ -381,7 +381,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
         <FormSection label="Credentials">
           <div>
             <label className={formLabelClass} style={formLabelStyle}>
-              Username <span className="text-[var(--t-accent)]">*</span>
+              Username <span className="text-(--t-accent)">*</span>
             </label>
             <input
               className={formInputClass}
@@ -406,7 +406,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
               <button
                 type="button"
                 onClick={handleTogglePassword}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-[var(--t-text-dim)]"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-(--t-text-dim)"
                 onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
                 tabIndex={-1}
@@ -440,7 +440,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
             </div>
             <div>
               <label className={formLabelClass} style={formLabelStyle}>
-                Private Key <span className="text-[var(--t-accent)]">*</span>
+                Private Key <span className="text-(--t-accent)">*</span>
               </label>
               <textarea
                 className={`${formInputClass} font-mono text-xs h-28 resize-none`}
@@ -452,7 +452,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
             </div>
             <div>
               <label className={formLabelClass} style={formLabelStyle}>
-                Public Key <span className="text-[var(--t-text-dim)] font-normal">(optional)</span>
+                Public Key <span className="text-(--t-text-dim) font-normal">(optional)</span>
               </label>
               <textarea
                 className={`${formInputClass} font-mono text-xs h-16 resize-none`}
@@ -479,7 +479,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
                 return (
                   <div
                     key={c.id}
-                    className="flex items-center gap-2.5 px-2 py-2 rounded-lg bg-[var(--t-bg-base)]"
+                    className="flex items-center gap-2.5 px-2 py-2 rounded-lg bg-(--t-bg-base)"
                   >
                     <div
                       className="rounded-md flex items-center justify-center shrink-0 text-white"
@@ -488,17 +488,17 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
                       <Icon icon={distroIcon ?? "lucide:server"} width={14} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate font-medium text-[var(--t-text-bright)]">
+                      <p className="text-sm truncate font-medium text-(--t-text-bright)">
                         {c.name ?? `${c.username}@${c.host}`}
                       </p>
-                      <p className="text-xs truncate text-[var(--t-text-secondary)]">
+                      <p className="text-xs truncate text-(--t-text-secondary)">
                         {c.username}@{c.host}:{c.port}
                       </p>
                     </div>
                     <button
                       onClick={() => { setActiveNav("hosts"); setHomePendingAction({ action: "edit", id: c.id }); onClose(); }}
                       title="Edit host"
-                      className="p-1.5 rounded-lg transition-colors shrink-0 text-[var(--t-text-dim)]"
+                      className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
                       onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-bright)"; e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; e.currentTarget.style.background = "transparent"; }}
                     >
@@ -507,7 +507,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
                     <button
                       onClick={() => { void handleUnlink(c); }}
                       title="Unlink — copy credentials inline to host"
-                      className="p-1.5 rounded-lg transition-colors shrink-0 text-[var(--t-text-dim)]"
+                      className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
                       onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-status-error, #ef4444)"; e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; e.currentTarget.style.background = "transparent"; }}
                     >

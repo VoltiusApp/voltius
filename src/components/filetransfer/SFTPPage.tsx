@@ -395,9 +395,9 @@ export default function SFTPPage() {
   const transferRLTitle = canTransferRL ? (rightSelected.length === 1 ? `Transfer "${rightSelected[0].name}" ←` : `Transfer ${rightSelected.length} items ←`) : "Select a file on the right";
 
   return (
-    <div className="flex flex-col h-full bg-[var(--t-bg-base)]">
+    <div className="flex flex-col h-full bg-(--t-bg-base)">
       <div className="flex flex-1 min-h-0 gap-3 p-3">
-        <div className="flex-1 min-w-0 rounded-xl overflow-hidden border border-[var(--t-border)]">
+        <div className="flex-1 min-w-0 rounded-xl overflow-hidden border border-(--t-border)">
           <SidePane
             host={leftHost} phase={leftPhase} refreshTick={leftRefresh}
             onPick={(h) => { setLeftHost(h); connectSide(h, setLeftPhase); }}
@@ -417,13 +417,13 @@ export default function SFTPPage() {
         </div>
 
         <div className="flex flex-col items-center justify-center shrink-0 w-10">
-          <div className="flex flex-col gap-1.5 p-1.5 rounded-xl border border-[var(--t-border)] bg-[var(--t-bg-elevated)]">
+          <div className="flex flex-col gap-1.5 p-1.5 rounded-xl border border-(--t-border) bg-(--t-bg-elevated)">
             <TransferBtn icon="lucide:arrow-right" title={transferLRTitle} disabled={!canTransferLR} onClick={() => transfer("LR")} />
             <TransferBtn icon="lucide:arrow-left"  title={transferRLTitle} disabled={!canTransferRL} onClick={() => transfer("RL")} />
           </div>
         </div>
 
-        <div className="flex-1 min-w-0 rounded-xl overflow-hidden border border-[var(--t-border)]">
+        <div className="flex-1 min-w-0 rounded-xl overflow-hidden border border-(--t-border)">
           <SidePane
             host={rightHost} phase={rightPhase} refreshTick={rightRefresh}
             onPick={(h) => { setRightHost(h); connectSide(h, setRightPhase); }}

@@ -846,7 +846,7 @@ export default function KeychainPage() {
             {folderPath.length > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
                 <button
-                  className="flex items-center gap-1.5 text-xs transition-colors text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)]"
+                  className="flex items-center gap-1.5 text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
                   onClick={navigateToRoot}
                 >
                   <Icon icon="lucide:chevron-left" width={13} />
@@ -854,16 +854,16 @@ export default function KeychainPage() {
                 </button>
                 {folderPath.map((folder, i) => (
                   <span key={folder.id} className="flex items-center gap-2">
-                    <span className="text-[var(--t-text-dim)]">/</span>
+                    <span className="text-(--t-text-dim)">/</span>
                     {i < folderPath.length - 1 ? (
                       <button
-                        className="text-xs transition-colors text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)]"
+                        className="text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
                         onClick={() => navigateTo(i)}
                       >
                         {folder.name}
                       </button>
                     ) : (
-                      <span className="text-xs font-medium text-[var(--t-text-primary)]">
+                      <span className="text-xs font-medium text-(--t-text-primary)">
                         {folder.name}
                       </span>
                     )}
@@ -876,11 +876,11 @@ export default function KeychainPage() {
             {visibleFolders.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">
+                  <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
                     Folders
                   </p>
                   <button
-                    className="flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg text-[var(--t-text-dim)]"
+                    className="flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg text-(--t-text-dim)"
                     onMouseEnter={(e) => {
                       e.currentTarget.style.color = "var(--t-text-primary)";
                       e.currentTarget.style.background = "var(--t-bg-elevated)";
@@ -955,7 +955,7 @@ export default function KeychainPage() {
 
             {(pinnedKeys.length > 0 || pinnedIdentities.length > 0) && (
               <div className="mb-4">
-                <p className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">Pinned</p>
+                <p className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">Pinned</p>
                 {pinnedKeys.length > 0 && (
                   <KeySection
                     keys={pinnedKeys}

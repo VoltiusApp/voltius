@@ -84,7 +84,7 @@ export function RuleCard({
       {tunnelType === "dynamic" ? "SOCKS5" : tunnelType.toUpperCase()}
     </span>
   );
-  const statusColor = status === "active" ? "bg-green-500" : status === "error" ? "bg-red-500" : "bg-[var(--t-text-dim)] opacity-40";
+  const statusColor = status === "active" ? "bg-green-500" : status === "error" ? "bg-red-500" : "bg-(--t-text-dim) opacity-40";
   const effectiveStatusLabel = statusLabel ?? (status === "active" ? "Active" : status === "error" ? "Error" : "Stopped");
   const actionIcon = isBusy ? "lucide:loader-circle" : status === "active" ? "lucide:pause" : "lucide:play";
   const actionTitle = status === "active" ? "Pause forwarding" : "Resume forwarding";
@@ -116,16 +116,16 @@ export function RuleCard({
       {isList ? (
         <>
           <div className="relative shrink-0">
-            <div className="flex items-center justify-center shrink-0 w-7 h-7 rounded-lg bg-[var(--t-bg-card-avatar)] text-[var(--t-text-secondary)]">
+            <div className="flex items-center justify-center shrink-0 w-7 h-7 rounded-lg bg-(--t-bg-card-avatar) text-(--t-text-secondary)">
               <Icon icon="lucide:network" width={15} />
             </div>
-            <span className={`absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-[var(--t-bg-card)] ${statusColor}`} title={effectiveStatusLabel} />
+            <span className={`absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-(--t-bg-card) ${statusColor}`} title={effectiveStatusLabel} />
           </div>
-          <p className="font-medium-bold truncate w-48 shrink-0 text-[var(--t-text-bright)]">
+          <p className="font-medium-bold truncate w-48 shrink-0 text-(--t-text-bright)">
             {rule.name}
           </p>
           {typeBadge}
-          <p className="text-xs truncate flex-1 text-[var(--t-text-secondary)] font-mono">
+          <p className="text-xs truncate flex-1 text-(--t-text-secondary) font-mono">
             {portLabel}
           </p>
           {rule.connection_ids.length > 0 && (
@@ -138,33 +138,33 @@ export function RuleCard({
             </span>
           )}
           {rule.description && (
-            <p className="text-xs truncate text-[var(--t-text-muted)] hidden lg:block max-w-[12rem]">
+            <p className="text-xs truncate text-(--t-text-muted) hidden lg:block max-w-48">
               {rule.description}
             </p>
           )}
-          <span className="text-xs text-[var(--t-text-dim)] shrink-0 hidden md:inline">{effectiveStatusLabel}</span>
+          <span className="text-xs text-(--t-text-dim) shrink-0 hidden md:inline">{effectiveStatusLabel}</span>
           {actionButtons}
         </>
       ) : (
         <div className="flex-1 min-w-0 self-start flex flex-col gap-3">
           <div className="flex items-start gap-2 min-w-0">
             <div className="relative shrink-0">
-              <div className="flex items-center justify-center w-[30px] h-[30px] rounded-lg bg-[var(--t-bg-card-avatar)] text-[var(--t-text-secondary)]">
+              <div className="flex items-center justify-center w-[30px] h-[30px] rounded-lg bg-(--t-bg-card-avatar) text-(--t-text-secondary)">
                 <Icon icon="lucide:network" width={16} />
               </div>
-              <span className={`absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-[var(--t-bg-card)] ${statusColor}`} title={effectiveStatusLabel} />
+              <span className={`absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-(--t-bg-card) ${statusColor}`} title={effectiveStatusLabel} />
             </div>
             <div className="flex flex-col gap-0.5 flex-1 min-w-0">
               <div className="flex items-center gap-2 min-w-0">
-                <p className="text-sm font-bold truncate text-[var(--t-text-bright)]">{rule.name}</p>
+                <p className="text-sm font-bold truncate text-(--t-text-bright)">{rule.name}</p>
                 {typeBadge}
-                <span className="ml-auto text-xs font-medium text-[var(--t-text-dim)] shrink-0">{effectiveStatusLabel}</span>
+                <span className="ml-auto text-xs font-medium text-(--t-text-dim) shrink-0">{effectiveStatusLabel}</span>
               </div>
-              <p className="text-xs font-mono text-[var(--t-text-secondary)] truncate">{portLabel}</p>
+              <p className="text-xs font-mono text-(--t-text-secondary) truncate">{portLabel}</p>
             </div>
           </div>
           {rule.description && (
-            <p className="text-xs text-[var(--t-text-muted)] truncate">{rule.description}</p>
+            <p className="text-xs text-(--t-text-muted) truncate">{rule.description}</p>
           )}
           {rule.connection_ids.length > 0 && (
             <span
@@ -176,16 +176,16 @@ export function RuleCard({
             </span>
           )}
           <div className="flex items-center gap-3">
-            <button onClick={(e) => { e.stopPropagation(); handleToggle(); }} className="text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] transition-colors flex items-center" title={actionTitle}>
+            <button onClick={(e) => { e.stopPropagation(); handleToggle(); }} className="text-(--t-text-dim) hover:text-(--t-text-bright) transition-colors flex items-center" title={actionTitle}>
               <Icon icon={actionIcon} width={18} className={isBusy ? "animate-spin" : undefined} />
             </button>
             {canEdit && (
-              <button onClick={(e) => { e.stopPropagation(); onDelete(rule.id); }} className="text-[var(--t-text-dim)] hover:text-[var(--t-status-error)] transition-colors flex items-center" title="Delete">
+              <button onClick={(e) => { e.stopPropagation(); onDelete(rule.id); }} className="text-(--t-text-dim) hover:text-(--t-status-error) transition-colors flex items-center" title="Delete">
                 <Icon icon="lucide:trash-2" width={18} />
               </button>
             )}
             {webUrl && onOpenWeb && (
-              <button onClick={(e) => { e.stopPropagation(); onOpenWeb(webUrl); }} className="text-[var(--t-text-dim)] hover:text-[var(--t-text-bright)] transition-colors flex items-center" title={`Open ${webUrl}`}>
+              <button onClick={(e) => { e.stopPropagation(); onOpenWeb(webUrl); }} className="text-(--t-text-dim) hover:text-(--t-text-bright) transition-colors flex items-center" title={`Open ${webUrl}`}>
                 <Icon icon="lucide:globe" width={18} />
               </button>
             )}

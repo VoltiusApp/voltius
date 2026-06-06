@@ -35,7 +35,7 @@ export function AllHostsView({ onBack }: Props) {
   const hosts = sortHosts(connections, (c) => isPinnedFn(c, "connection"));
 
   return (
-    <div className="h-full overflow-y-auto bg-[var(--t-bg-base)]">
+    <div className="h-full overflow-y-auto bg-(--t-bg-base)">
       <div className="max-w-4xl mx-auto px-8 py-8">
         <div className="flex items-center gap-3 mb-8">
           <button

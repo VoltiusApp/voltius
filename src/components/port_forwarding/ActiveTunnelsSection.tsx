@@ -24,13 +24,13 @@ interface SessionPfState {
 
 function TunnelTypeBadge({ tunnelType }: { tunnelType: ActiveTunnel["tunnel_type"] }) {
   if ((tunnelType ?? "local") === "local") {
-    return <span className="text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none bg-blue-500/15 text-blue-400">Local</span>;
+    return <span className="text-[10px] px-1 py-0.5 rounded-sm font-medium shrink-0 leading-none bg-blue-500/15 text-blue-400">Local</span>;
   }
   if (tunnelType === "remote") {
-    return <span className="text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none bg-amber-500/15 text-amber-400">Remote</span>;
+    return <span className="text-[10px] px-1 py-0.5 rounded-sm font-medium shrink-0 leading-none bg-amber-500/15 text-amber-400">Remote</span>;
   }
   if (tunnelType === "dynamic") {
-    return <span className="text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none bg-purple-500/20 text-purple-400">SOCKS5</span>;
+    return <span className="text-[10px] px-1 py-0.5 rounded-sm font-medium shrink-0 leading-none bg-purple-500/20 text-purple-400">SOCKS5</span>;
   }
   return null;
 }
@@ -147,11 +147,11 @@ export function ActiveTunnelsSection() {
   return (
     <div className="mb-4">
       <div className="flex items-center justify-between px-1 py-2">
-        <span className="text-xs font-semibold uppercase tracking-wider text-[var(--t-text-dim)]">
+        <span className="text-xs font-semibold uppercase tracking-wider text-(--t-text-dim)">
           Active session forwards
         </span>
-        <div className="flex items-center gap-2 text-[10px] text-[var(--t-text-muted)]">
-          <span className="px-1.5 py-0.5 rounded-full bg-[var(--t-bg-elevated)] leading-none">{sessionCards.length} host{sessionCards.length === 1 ? "" : "s"}</span>
+        <div className="flex items-center gap-2 text-[10px] text-(--t-text-muted)">
+          <span className="px-1.5 py-0.5 rounded-full bg-(--t-bg-elevated) leading-none">{sessionCards.length} host{sessionCards.length === 1 ? "" : "s"}</span>
           <span className="px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-400 leading-none">{totalTunnelCount} tunnel{totalTunnelCount === 1 ? "" : "s"}</span>
         </div>
       </div>
@@ -170,7 +170,7 @@ export function ActiveTunnelsSection() {
           return (
             <div
               key={session.id}
-              className="group overflow-hidden rounded-[1.35rem] border border-[var(--t-border)] bg-[var(--t-bg-card)] transition-all duration-150 hover:border-[var(--t-border-hover)] hover:bg-[var(--t-bg-card-hover)]"
+              className="group overflow-hidden rounded-[1.35rem] border border-(--t-border) bg-(--t-bg-card) transition-all duration-150 hover:border-(--t-border-hover) hover:bg-(--t-bg-card-hover)"
               data-card="true"
             >
               <div
@@ -185,15 +185,15 @@ export function ActiveTunnelsSection() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 min-w-0">
-                    <p className="truncate text-base font-bold text-[var(--t-text-bright)]">{session.connectionName}</p>
+                    <p className="truncate text-base font-bold text-(--t-text-bright)">{session.connectionName}</p>
                     <span className="h-2 w-2 shrink-0 rounded-full bg-green-500" title="Connected" />
                   </div>
-                  <p className="truncate text-xs text-[var(--t-text-dim)]">
+                  <p className="truncate text-xs text-(--t-text-dim)">
                     {connection ? `${connection.username}@${connection.host}:${connection.port}` : session.id}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
-                  <span className="rounded-md bg-[var(--t-bg-input)] text-[var(--t-text-dim)] border border-[var(--t-border)] px-2 py-1 text-[10px] font-semibold uppercase tracking-wider">
+                  <span className="rounded-md bg-(--t-bg-input) text-(--t-text-dim) border border-(--t-border) px-2 py-1 text-[10px] font-semibold uppercase tracking-wider">
                     {totalForwards} forward{totalForwards === 1 ? "" : "s"}
                   </span>
                   {errorCount > 0 ? (
@@ -219,20 +219,20 @@ export function ActiveTunnelsSection() {
                   return (
                     <div
                       key={key}
-                      className="flex items-center gap-2 rounded-xl border border-transparent bg-[var(--t-bg-elevated)]/70 px-2.5 py-2 transition-colors hover:border-[var(--t-border-hover)]"
+                      className="flex items-center gap-2 rounded-xl border border-transparent bg-(--t-bg-elevated)/70 px-2.5 py-2 transition-colors hover:border-(--t-border-hover)"
                     >
                       <div className={`h-2 w-2 shrink-0 rounded-full ${isError ? "bg-red-500" : "bg-green-500"}`} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <p className="truncate text-sm font-semibold text-[var(--t-text-bright)]">
+                          <p className="truncate text-sm font-semibold text-(--t-text-bright)">
                             {tunnel.tunnel_type === "dynamic" ? `SOCKS5 :${tunnel.local_port}` : `Port ${tunnel.remote_port}`}
                           </p>
-                          <span className={`text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none ${isAuto ? "bg-purple-500/20 text-purple-400" : "bg-[var(--t-bg-subtle)] text-[var(--t-text-muted)]"}`}>
+                          <span className={`text-[10px] px-1 py-0.5 rounded-sm font-medium shrink-0 leading-none ${isAuto ? "bg-purple-500/20 text-purple-400" : "bg-(--t-bg-subtle) text-(--t-text-muted)"}`}>
                             {isAuto ? "Auto" : "Ad-hoc"}
                           </span>
                           <TunnelTypeBadge tunnelType={tunnel.tunnel_type} />
                         </div>
-                        <p className={`truncate text-xs font-mono ${isError ? "text-red-400" : "text-[var(--t-text-secondary)]"}`}>
+                        <p className={`truncate text-xs font-mono ${isError ? "text-red-400" : "text-(--t-text-secondary)"}`}>
                           {isError ? errorMsg : portLabel}
                         </p>
                       </div>
@@ -240,7 +240,7 @@ export function ActiveTunnelsSection() {
                         onClick={(e) => { e.stopPropagation(); void handlePause(session.id, tunnel.id); }}
                         disabled={isBusy}
                         title="Pause forwarding"
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--t-text-muted)] transition-all hover:bg-amber-500/10 hover:text-amber-400 disabled:opacity-60"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-(--t-text-muted) transition-all hover:bg-amber-500/10 hover:text-amber-400 disabled:opacity-60"
                       >
                         {isBusy
                           ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin" />
@@ -251,7 +251,7 @@ export function ActiveTunnelsSection() {
                         onClick={(e) => { e.stopPropagation(); void handleDeleteActive(session.id, tunnel); }}
                         disabled={isDeleting}
                         title="Delete"
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--t-text-muted)] transition-all hover:bg-red-500/10 hover:text-red-400 disabled:opacity-60"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-(--t-text-muted) transition-all hover:bg-red-500/10 hover:text-red-400 disabled:opacity-60"
                       >
                         {isDeleting
                           ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin" />
@@ -262,7 +262,7 @@ export function ActiveTunnelsSection() {
                         <button
                           onClick={(e) => { e.stopPropagation(); void openUrl(webUrl); }}
                           title={`Open ${webUrl}`}
-                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--t-text-muted)] transition-all hover:bg-blue-500/10 hover:text-blue-400"
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-(--t-text-muted) transition-all hover:bg-blue-500/10 hover:text-blue-400"
                         >
                           <Icon icon="lucide:globe" width={13} />
                         </button>
@@ -277,21 +277,21 @@ export function ActiveTunnelsSection() {
                   return (
                     <div
                       key={`suppressed-${session.id}-${port}`}
-                      className="flex items-center gap-2 rounded-xl border border-transparent bg-[var(--t-bg-elevated)]/70 px-2.5 py-2 transition-colors hover:border-[var(--t-border-hover)]"
+                      className="flex items-center gap-2 rounded-xl border border-transparent bg-(--t-bg-elevated)/70 px-2.5 py-2 transition-colors hover:border-(--t-border-hover)"
                     >
-                      <div className="h-2 w-2 shrink-0 rounded-full bg-[var(--t-text-dim)] opacity-40" />
+                      <div className="h-2 w-2 shrink-0 rounded-full bg-(--t-text-dim) opacity-40" />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <p className="truncate text-sm font-semibold text-[var(--t-text-bright)]">Port {port}</p>
-                          <span className="text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none bg-purple-500/20 text-purple-400">Auto</span>
+                          <p className="truncate text-sm font-semibold text-(--t-text-bright)">Port {port}</p>
+                          <span className="text-[10px] px-1 py-0.5 rounded-sm font-medium shrink-0 leading-none bg-purple-500/20 text-purple-400">Auto</span>
                         </div>
-                        <p className="truncate text-xs font-mono text-[var(--t-text-secondary)]">{port} → 127.0.0.1:{port}</p>
+                        <p className="truncate text-xs font-mono text-(--t-text-secondary)">{port} → 127.0.0.1:{port}</p>
                       </div>
                       <button
                         onClick={(e) => { e.stopPropagation(); void handleResume(session.id, port); }}
                         disabled={isBusy}
                         title="Resume forwarding"
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--t-text-muted)] transition-all hover:bg-green-500/10 hover:text-green-400 disabled:opacity-60"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-(--t-text-muted) transition-all hover:bg-green-500/10 hover:text-green-400 disabled:opacity-60"
                       >
                         {isBusy
                           ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin" />
@@ -301,7 +301,7 @@ export function ActiveTunnelsSection() {
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDeletePaused(session.id, port); }}
                         title="Delete"
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--t-text-muted)] transition-all hover:bg-red-500/10 hover:text-red-400"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-(--t-text-muted) transition-all hover:bg-red-500/10 hover:text-red-400"
                       >
                         <Icon icon="lucide:trash-2" width={13} />
                       </button>

@@ -29,7 +29,7 @@ export function TrialExpiredModal() {
   return (
     <Modal onClose={() => setVisible(false)} blur>
       <div
-        className="flex flex-col gap-4 animate-fadeIn bg-[var(--t-bg-base)] border border-[var(--t-border)] p-8"
+        className="flex flex-col gap-4 animate-fadeIn bg-(--t-bg-base) border border-(--t-border) p-8"
         style={{
           width: "min(28rem, 92vw)",
           borderRadius: "0.933rem",
@@ -37,10 +37,10 @@ export function TrialExpiredModal() {
         }}
       >
         <div>
-          <p className="text-base font-semibold text-[var(--t-text-primary)] mb-1">
+          <p className="text-base font-semibold text-(--t-text-primary) mb-1">
             Your Pro trial has ended
           </p>
-          <p className="text-sm text-[var(--t-text-muted)] leading-relaxed">
+          <p className="text-sm text-(--t-text-muted) leading-relaxed">
             You&apos;ve had 14 days to try Pro — hope it was useful. Upgrade to keep
             real-time sync and cloud features.
           </p>
@@ -49,13 +49,13 @@ export function TrialExpiredModal() {
         <div className="flex flex-col gap-2">
           <button
             onClick={handleUpgrade}
-            className="w-full py-2.5 rounded-lg text-sm font-semibold bg-[var(--t-accent)] text-white hover:opacity-90 transition-opacity"
+            className="w-full py-2.5 rounded-lg text-sm font-semibold bg-(--t-accent) text-white hover:opacity-90 transition-opacity"
           >
             Upgrade to Pro
           </button>
           <button
             onClick={() => setVisible(false)}
-            className="w-full py-2.5 rounded-lg text-sm text-[var(--t-text-muted)] hover:text-[var(--t-text-primary)] transition-colors"
+            className="w-full py-2.5 rounded-lg text-sm text-(--t-text-muted) hover:text-(--t-text-primary) transition-colors"
           >
             Maybe later
           </button>

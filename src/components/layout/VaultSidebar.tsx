@@ -273,11 +273,11 @@ function PendingInviteModal({
             <Icon icon="lucide:vault" width={20} style={{ color: "#f59e0b" }} />
           </div>
           <div className="min-w-0">
-            <p className="text-base font-semibold text-[var(--t-text-primary)] mb-0.5">Vault invitation</p>
-            <p className="text-sm text-[var(--t-text-muted)] leading-relaxed">
-              <span className="text-[var(--t-text-primary)] font-medium">{invite.inviter_display_name ?? "Someone"}</span>
+            <p className="text-base font-semibold text-(--t-text-primary) mb-0.5">Vault invitation</p>
+            <p className="text-sm text-(--t-text-muted) leading-relaxed">
+              <span className="text-(--t-text-primary) font-medium">{invite.inviter_display_name ?? "Someone"}</span>
               {" "}invited you to{" "}
-              <span className="text-[var(--t-text-primary)] font-medium">{invite.team_name}</span>
+              <span className="text-(--t-text-primary) font-medium">{invite.team_name}</span>
               {" "}as <span className="capitalize font-medium" style={{ color: "var(--t-accent)" }}>{invite.role}</span>.
             </p>
           </div>
@@ -326,7 +326,7 @@ function VaultLimitModal({
   return (
     <Modal onClose={onClose} blur>
       <div
-        className="flex flex-col gap-4 bg-[var(--t-bg-base)] border border-[var(--t-border)] p-6"
+        className="flex flex-col gap-4 bg-(--t-bg-base) border border-(--t-border) p-6"
         style={{ width: "min(25rem, 92vw)", borderRadius: "0.933rem", boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }}
       >
         <div className="flex items-start gap-3">
@@ -337,10 +337,10 @@ function VaultLimitModal({
             <Icon icon="lucide:vault" width={20} style={{ color: "var(--t-accent)" }} />
           </div>
           <div>
-            <p className="text-base font-semibold text-[var(--t-text-primary)] mb-1">
+            <p className="text-base font-semibold text-(--t-text-primary) mb-1">
               Multiple vaults require Pro
             </p>
-            <p className="text-sm text-[var(--t-text-muted)] leading-relaxed">
+            <p className="text-sm text-(--t-text-muted) leading-relaxed">
               Free accounts can create one vault. Upgrade to Pro to organize your credentials across multiple vaults.
             </p>
           </div>
@@ -349,13 +349,13 @@ function VaultLimitModal({
         <div className="flex flex-col gap-2">
           <button
             onClick={isCloudAccount ? onUpgrade : onSignIn}
-            className="w-full py-2.5 rounded-lg text-sm font-semibold bg-[var(--t-accent)] text-white hover:opacity-90 transition-opacity"
+            className="w-full py-2.5 rounded-lg text-sm font-semibold bg-(--t-accent) text-white hover:opacity-90 transition-opacity"
           >
             {isCloudAccount ? "Upgrade to Pro" : "Sign in or create cloud account"}
           </button>
           <button
             onClick={onClose}
-            className="w-full py-2.5 rounded-lg text-sm text-[var(--t-text-muted)] hover:text-[var(--t-text-primary)] transition-colors"
+            className="w-full py-2.5 rounded-lg text-sm text-(--t-text-muted) hover:text-(--t-text-primary) transition-colors"
           >
             Maybe later
           </button>

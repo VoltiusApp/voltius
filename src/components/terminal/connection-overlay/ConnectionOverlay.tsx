@@ -44,7 +44,7 @@ export default function ConnectionOverlay({
   const showSpecialPanel = (conflict && !isError) || showPassphrasePrompt || showUsernamePrompt || showAuthPrompt;
 
   return (
-    <div className={className ?? "absolute inset-0 z-20 flex items-center justify-center bg-[var(--t-bg-terminal)]"}>
+    <div className={className ?? "absolute inset-0 z-20 flex items-center justify-center bg-(--t-bg-terminal)"}>
       <div className="flex flex-col items-center gap-6 w-80 text-center">
         <ConnectionHeader
           icon={icon}

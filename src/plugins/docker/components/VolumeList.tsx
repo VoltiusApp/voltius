@@ -31,12 +31,12 @@ export function VolumeList({ volumes, sessionId, isRemote, localShell, onRefresh
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-3 py-1 border-b border-[var(--t-border)] shrink-0">
-        <span className="text-[10px] text-[var(--t-text-muted)]">{volumes.length} volumes</span>
+      <div className="flex items-center justify-between px-3 py-1 border-b border-(--t-border) shrink-0">
+        <span className="text-[10px] text-(--t-text-muted)">{volumes.length} volumes</span>
         <button
           onClick={prune}
           disabled={pruning}
-          className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded text-[var(--t-status-warning)] hover:bg-[var(--t-bg-hover)] disabled:opacity-40"
+          className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-sm text-(--t-status-warning) hover:bg-(--t-bg-hover) disabled:opacity-40"
         >
           <Icon icon="lucide:trash" width={10} />
           {pruning ? "pruning…" : "prune"}
@@ -44,7 +44,7 @@ export function VolumeList({ volumes, sessionId, isRemote, localShell, onRefresh
       </div>
 
       {pruneMsg && (
-        <p className="px-3 py-1 text-[10px] text-[var(--t-text-muted)] border-b border-[var(--t-border)]">
+        <p className="px-3 py-1 text-[10px] text-(--t-text-muted) border-b border-(--t-border)">
           {pruneMsg}
         </p>
       )}
@@ -52,7 +52,7 @@ export function VolumeList({ volumes, sessionId, isRemote, localShell, onRefresh
       <div className="overflow-y-auto flex-1">
         {volumes.length === 0 ? (
           <div className="flex items-center justify-center h-20 opacity-40">
-            <p className="text-[11px] text-[var(--t-text-muted)]">No volumes</p>
+            <p className="text-[11px] text-(--t-text-muted)">No volumes</p>
           </div>
         ) : (
           volumes.map((v) => (
@@ -99,16 +99,16 @@ function VolumeRow({
   };
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--t-border)] last:border-0 hover:bg-[var(--t-bg-hover)] group">
+    <div className="flex items-center gap-2 px-3 py-1.5 border-b border-(--t-border) last:border-0 hover:bg-(--t-bg-hover) group">
       <div className="flex-1 min-w-0">
-        <p className="text-[11px] text-[var(--t-text)] truncate font-mono">{volume.name}</p>
-        <p className="text-[10px] text-[var(--t-text-muted)]">{volume.driver}</p>
+        <p className="text-[11px] text-(--t-text) truncate font-mono">{volume.name}</p>
+        <p className="text-[10px] text-(--t-text-muted)">{volume.driver}</p>
       </div>
       <button
         disabled={busy}
         onClick={remove}
         title="Remove volume"
-        className="opacity-0 group-hover:opacity-100 p-0.5 text-[var(--t-status-error)] opacity-60 hover:opacity-100 disabled:opacity-40 shrink-0"
+        className="opacity-0 group-hover:opacity-100 p-0.5 text-(--t-status-error) opacity-60 hover:opacity-100 disabled:opacity-40 shrink-0"
       >
         <Icon icon="lucide:trash-2" width={11} />
       </button>

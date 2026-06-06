@@ -131,19 +131,19 @@ function FontPicker({
       <button
         type="button"
         onClick={() => { setOpen((o) => !o); setCustom(false); }}
-        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-sm bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)] cursor-pointer"
+        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) cursor-pointer"
         onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--t-border-hover)")}
         onMouseLeave={(e) => (e.currentTarget.style.borderColor = open ? "var(--t-accent)" : "var(--t-border)")}
         style={{ borderColor: open ? "var(--t-accent)" : undefined }}
       >
         <span style={{ fontFamily: value, fontSize: 13 }}>{displayLabel}</span>
-        <Icon icon={open ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} className="text-[var(--t-text-dim)] shrink-0" />
+        <Icon icon={open ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} className="text-(--t-text-dim) shrink-0" />
       </button>
 
       {/* Dropdown */}
       {open && (
         <div
-          className="absolute left-0 right-0 z-50 mt-1 rounded-md border border-[var(--t-border)] bg-[var(--t-bg-modal)] overflow-hidden"
+          className="absolute left-0 right-0 z-50 mt-1 rounded-md border border-(--t-border) bg-(--t-bg-modal) overflow-hidden"
           style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
         >
           {options.map((opt) => (
@@ -157,17 +157,17 @@ function FontPicker({
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = value === opt.value ? "color-mix(in srgb, var(--t-accent) 12%, transparent)" : "transparent"; }}
             >
               <span style={{ fontFamily: opt.value, fontSize: 13, color: "var(--t-text-primary)" }}>{opt.label}</span>
-              {value === opt.value && <Icon icon="lucide:check" width={12} className="text-[var(--t-accent)] shrink-0" />}
+              {value === opt.value && <Icon icon="lucide:check" width={12} className="text-(--t-accent) shrink-0" />}
             </button>
           ))}
 
           {/* Custom divider */}
-          <div className="border-t border-[var(--t-border)]" />
+          <div className="border-t border-(--t-border)" />
           {!custom ? (
             <button
               type="button"
               onClick={() => setCustom(true)}
-              className="w-full px-3 py-2 text-left text-xs text-[var(--t-text-muted)] cursor-pointer transition-colors"
+              className="w-full px-3 py-2 text-left text-xs text-(--t-text-muted) cursor-pointer transition-colors"
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
             >
@@ -179,13 +179,13 @@ function FontPicker({
                 autoFocus
                 defaultValue={isPreset ? "" : value}
                 placeholder="'My Font', monospace"
-                className="w-full px-2 py-1 rounded text-xs outline-none font-mono bg-[var(--t-bg-input)] border border-[var(--t-accent)] text-[var(--t-text-primary)]"
+                className="w-full px-2 py-1 rounded-sm text-xs outline-hidden font-mono bg-(--t-bg-input) border border-(--t-accent) text-(--t-text-primary)"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") { onChange(e.currentTarget.value); setOpen(false); setCustom(false); }
                   if (e.key === "Escape") { setCustom(false); }
                 }}
               />
-              <p className="text-[10px] text-[var(--t-text-dim)] mt-1">Press Enter to apply</p>
+              <p className="text-[10px] text-(--t-text-dim) mt-1">Press Enter to apply</p>
             </div>
           )}
         </div>
@@ -284,13 +284,13 @@ function ColorEditor({
     <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-5">
       {/* General */}
       <div className="space-y-2">
-        <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">General</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">General</p>
         <label className="block">
-          <span className="text-xs text-[var(--t-text-muted)]">Name</span>
+          <span className="text-xs text-(--t-text-muted)">Name</span>
           <input
             value={draft.name}
             onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-            className="w-full mt-1 px-2.5 py-1.5 rounded-md text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)]"
+            className="w-full mt-1 px-2.5 py-1.5 rounded-md text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
             onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
             onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
           />
@@ -299,9 +299,9 @@ function ColorEditor({
 
       {/* App Font */}
       <div className="space-y-2">
-        <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">App Font</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">App Font</p>
         <div>
-          <span className="text-xs text-[var(--t-text-muted)]">Family</span>
+          <span className="text-xs text-(--t-text-muted)">Family</span>
           <FontPicker
             value={draft.uiFontFamily}
             onChange={(v) => setDraft((d) => ({ ...d, uiFontFamily: v }))}
@@ -309,11 +309,11 @@ function ColorEditor({
           />
         </div>
         <label className="block">
-          <span className="text-xs text-[var(--t-text-muted)]">Size (px)</span>
+          <span className="text-xs text-(--t-text-muted)">Size (px)</span>
           <input
             type="number" min={10} max={20} value={draft.uiFontSize}
             onChange={(e) => setDraft((d) => ({ ...d, uiFontSize: Number(e.target.value) }))}
-            className="w-full mt-1 px-2.5 py-1.5 rounded-md text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)]"
+            className="w-full mt-1 px-2.5 py-1.5 rounded-md text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
             onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
             onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
           />
@@ -322,7 +322,7 @@ function ColorEditor({
 
       {UI_GROUPS.map((group) => (
         <div key={group.label} className="space-y-1.5">
-          <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">{group.label}</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">{group.label}</p>
           {group.fields.map((field) => (
             <div
               key={field}
@@ -335,8 +335,8 @@ function ColorEditor({
                 value={ui[field as string]}
                 onChange={(hex) => setUiColor(field, hex)}
               />
-              <span className="text-xs flex-1 text-[var(--t-text-secondary)]">{FIELD_LABELS[field] ?? field}</span>
-              <code className="text-xs font-mono text-[var(--t-text-muted)]">{ui[field as string]}</code>
+              <span className="text-xs flex-1 text-(--t-text-secondary)">{FIELD_LABELS[field] ?? field}</span>
+              <code className="text-xs font-mono text-(--t-text-muted)">{ui[field as string]}</code>
               <button
                 onClick={() => setSearchVar(searchVar === fieldToVar(field as string) ? null : fieldToVar(field as string))}
                 title={`Highlight elements using ${fieldToVar(field as string)}`}
@@ -360,9 +360,9 @@ function ColorEditor({
 
       {/* Terminal Font */}
       <div className="space-y-2">
-        <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">Terminal Font</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">Terminal Font</p>
         <div>
-          <span className="text-xs text-[var(--t-text-muted)]">Family</span>
+          <span className="text-xs text-(--t-text-muted)">Family</span>
           <FontPicker
             value={draft.terminalFontFamily}
             onChange={(v) => setDraft((d) => ({ ...d, terminalFontFamily: v }))}
@@ -370,11 +370,11 @@ function ColorEditor({
           />
         </div>
         <label className="block">
-          <span className="text-xs text-[var(--t-text-muted)]">Size (px)</span>
+          <span className="text-xs text-(--t-text-muted)">Size (px)</span>
           <input
             type="number" min={8} max={24} value={draft.terminalFontSize}
             onChange={(e) => setDraft((d) => ({ ...d, terminalFontSize: Number(e.target.value) }))}
-            className="w-full mt-1 px-2.5 py-1.5 rounded-md text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)]"
+            className="w-full mt-1 px-2.5 py-1.5 rounded-md text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
             onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
             onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
           />
@@ -383,7 +383,7 @@ function ColorEditor({
 
       {TERMINAL_GROUPS.map((group) => (
         <div key={group.label} className="space-y-1.5">
-          <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">{group.label}</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">{group.label}</p>
           {group.fields.map((field) => (
             <div
               key={field}
@@ -397,8 +397,8 @@ function ColorEditor({
                   ? term[field as string].slice(0, 7) : "#000000"}
                 onChange={(hex) => setTermColor(field, hex)}
               />
-              <span className="text-xs flex-1 text-[var(--t-text-secondary)]">{FIELD_LABELS[field] ?? field}</span>
-              <code className="text-xs font-mono text-[var(--t-text-muted)]">{term[field as string].slice(0, 7)}</code>
+              <span className="text-xs flex-1 text-(--t-text-secondary)">{FIELD_LABELS[field] ?? field}</span>
+              <code className="text-xs font-mono text-(--t-text-muted)">{term[field as string].slice(0, 7)}</code>
             </div>
           ))}
         </div>
@@ -617,12 +617,12 @@ export default function ThemeCreator() {
 
       <div
         ref={panelRef}
-        className="fixed right-0 top-0 bottom-0 z-[200] flex flex-col border-l border-[var(--t-border)] bg-[var(--t-bg-modal)]"
+        className="fixed right-0 top-0 bottom-0 z-200 flex flex-col border-l border-(--t-border) bg-(--t-bg-modal)"
         style={{ width: 320 }}
       >
         {/* Panel header */}
-        <div className="flex items-center gap-2 px-4 py-3 shrink-0 border-b border-[var(--t-border)]">
-          <span className="text-sm font-medium flex-1 text-[var(--t-text-bright)]">
+        <div className="flex items-center gap-2 px-4 py-3 shrink-0 border-b border-(--t-border)">
+          <span className="text-sm font-medium flex-1 text-(--t-text-bright)">
             {themeCreatorEditId ? "Edit Theme" : "New Theme"}
           </span>
 
@@ -644,7 +644,7 @@ export default function ThemeCreator() {
 
           <button
             onClick={handleCancel}
-            className="px-3 py-1 rounded-md text-xs font-medium transition-colors border border-[var(--t-border)] text-[var(--t-text-secondary)] bg-[var(--t-bg-elevated)]"
+            className="px-3 py-1 rounded-md text-xs font-medium transition-colors border border-(--t-border) text-(--t-text-secondary) bg-(--t-bg-elevated)"
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-secondary)"; }}
           >
@@ -652,7 +652,7 @@ export default function ThemeCreator() {
           </button>
           <button
             onClick={handleSave}
-            className="px-3 py-1 rounded-md text-xs font-medium transition-colors bg-[var(--t-accent)] text-white"
+            className="px-3 py-1 rounded-md text-xs font-medium transition-colors bg-(--t-accent) text-white"
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-accent-hover)"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-accent)"; }}
           >

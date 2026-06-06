@@ -116,7 +116,7 @@ export default function KnownHostsPage() {
   const selectedCount = selectedIdSet.size;
 
   return (
-    <div className="flex flex-col h-full bg-[var(--t-bg-base)]">
+    <div className="flex flex-col h-full bg-(--t-bg-base)">
       <KnownHostsToolbar
         search={search}
         onSearchChange={setSearch}
@@ -146,13 +146,13 @@ export default function KnownHostsPage() {
         >
           {filtered.length === 0 ? (
             <div className="col-span-full flex flex-col items-center justify-center gap-3 py-16 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-[var(--t-bg-elevated)] flex items-center justify-center text-[var(--t-text-dim)]">
+              <div className="w-14 h-14 rounded-2xl bg-(--t-bg-elevated) flex items-center justify-center text-(--t-text-dim)">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
                   <circle cx="12" cy="9" r="2.5"/>
                 </svg>
               </div>
-              <p className="text-[var(--t-text-dim)] text-sm">
+              <p className="text-(--t-text-dim) text-sm">
                 {q ? "No known hosts match your search" : "No known hosts yet — they appear when you connect to a server"}
               </p>
             </div>

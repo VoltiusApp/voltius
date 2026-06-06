@@ -117,7 +117,7 @@ export function KeyGenFields({
           <button
             type="button"
             onClick={() => setShowPassphrase((v) => !v)}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-[var(--t-text-dim)]"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-(--t-text-dim)"
             onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
             tabIndex={-1}
@@ -127,7 +127,7 @@ export function KeyGenFields({
         </div>
 
         <div className="flex items-center justify-between py-1">
-          <span className="text-xs text-[var(--t-text-dim)]">Save passphrase</span>
+          <span className="text-xs text-(--t-text-dim)">Save passphrase</span>
           <Toggle checked={savePassphrase} onChange={setSavePassphrase} />
         </div>
 

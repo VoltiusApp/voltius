@@ -43,7 +43,7 @@ export function PaneView({ node }: { node: PaneNode }) {
   return (
     <div
       data-pane-id={node.id}
-      className={`relative flex flex-col flex-1 min-h-0 min-w-0 rounded-lg overflow-hidden bg-[var(--t-bg-terminal)] transition-opacity duration-150 ${hiddenByMaximize ? "hidden" : ""} ${isBeingDragged ? "opacity-40" : ""}`}
+      className={`relative flex flex-col flex-1 min-h-0 min-w-0 rounded-lg overflow-hidden bg-(--t-bg-terminal) transition-opacity duration-150 ${hiddenByMaximize ? "hidden" : ""} ${isBeingDragged ? "opacity-40" : ""}`}
       style={{
         border: active
           ? "1px solid var(--t-accent)"

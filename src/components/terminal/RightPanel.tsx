@@ -51,24 +51,24 @@ function ThemesSection() {
     <div className="flex flex-col h-full">
       {/* Font row */}
       <div
-        className="flex items-center justify-between px-4 py-3 cursor-pointer transition-colors border-b border-b-[var(--t-border)]"
+        className="flex items-center justify-between px-4 py-3 cursor-pointer transition-colors border-b border-b-(--t-border)"
         onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
       >
         <div className="flex items-center gap-3">
-          <Icon icon="lucide:type" width={15} className="text-[var(--t-text-muted)]" />
+          <Icon icon="lucide:type" width={15} className="text-(--t-text-muted)" />
           <div>
-            <p className="text-sm font-medium text-[var(--t-text-primary)]">Font</p>
-            <p className="text-xs text-[var(--t-text-muted)]">
+            <p className="text-sm font-medium text-(--t-text-primary)">Font</p>
+            <p className="text-xs text-(--t-text-muted)">
               {getActiveTheme().terminalFontFamily.split(",")[0].replace(/'/g, "")} · {getActiveTheme().terminalFontSize}px
             </p>
           </div>
         </div>
-        <Icon icon="lucide:chevron-right" width={14} className="text-[var(--t-text-dim)]" />
+        <Icon icon="lucide:chevron-right" width={14} className="text-(--t-text-dim)" />
       </div>
 
       <div className="px-4 pt-4 pb-2 shrink-0">
-        <p className="text-sm font-medium text-[var(--t-text-bright)]">Themes</p>
+        <p className="text-sm font-medium text-(--t-text-bright)">Themes</p>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -78,7 +78,7 @@ function ThemesSection() {
             <div
               key={theme.id}
               onClick={() => setTheme(theme.id)}
-              className="flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors border-b border-b-[var(--t-border)]"
+              className="flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors border-b border-b-(--t-border)"
               style={{ background: isActive ? "var(--t-bg-elevated)" : "transparent" }}
               onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "var(--t-bg-card)"; }}
               onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
@@ -93,7 +93,7 @@ function ThemesSection() {
                 <p className="text-sm font-medium truncate" style={{ color: isActive ? theme.ui.tabActiveText : "var(--t-text-primary)" }}>
                   {theme.name}
                 </p>
-                <p className="text-xs mt-0.5 text-[var(--t-text-muted)]">
+                <p className="text-xs mt-0.5 text-(--t-text-muted)">
                   {isActive ? "∞ active" : theme.builtIn ? "built-in" : "custom"}
                 </p>
               </div>
@@ -102,7 +102,7 @@ function ThemesSection() {
                   <>
                     <button
                       onClick={(e) => { e.stopPropagation(); openThemeCreator(theme.id); }}
-                      className="p-1.5 rounded transition-colors text-[var(--t-text-muted)]"
+                      className="p-1.5 rounded-sm transition-colors text-(--t-text-muted)"
                       onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
                       onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-muted)")}
                       title="Edit"
@@ -111,7 +111,7 @@ function ThemesSection() {
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); deleteCustomTheme(theme.id); if (activeThemeId === theme.id) setTheme("abyss"); }}
-                      className="p-1.5 rounded transition-colors text-[var(--t-text-muted)]"
+                      className="p-1.5 rounded-sm transition-colors text-(--t-text-muted)"
                       onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-status-error)")}
                       onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-muted)")}
                       title="Delete"
@@ -127,7 +127,7 @@ function ThemesSection() {
 
         <button
           onClick={() => openThemeCreator()}
-          className="w-full flex items-center gap-3 px-4 py-3.5 transition-colors text-[var(--t-accent)]"
+          className="w-full flex items-center gap-3 px-4 py-3.5 transition-colors text-(--t-accent)"
           onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-card)")}
           onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
         >
@@ -166,7 +166,7 @@ function PanelContent() {
   return (
     <div className="flex flex-row h-full">
       {/* Vertical tab rail */}
-      <div className="flex flex-col items-center py-2 gap-1 shrink-0 border-r border-r-[var(--t-border)]" style={{ width: 40 }}>
+      <div className="flex flex-col items-center py-2 gap-1 shrink-0 border-r border-r-(--t-border)" style={{ width: 40 }}>
         <div className="flex flex-col items-center gap-1 flex-1">
           {allSections.map((s) => {
             const isActive = rightPanelSection === s.id;
@@ -190,7 +190,7 @@ function PanelContent() {
         </div>
         <button
           onClick={() => toggleRightPanel()}
-          className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-[var(--t-text-muted)]"
+          className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-(--t-text-muted)"
           onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
           onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-muted)")}
           title="Close panel"
@@ -229,10 +229,10 @@ export default function RightPanel() {
   if (!isTerminalView) return null;
 
   return (
-    <div className="relative shrink-0 overflow-hidden bg-[var(--t-bg-terminal)]" style={{ width: rightPanelOpen ? PANEL_WIDTH + 16 : 0, transition: TRANSITION }}>
+    <div className="relative shrink-0 overflow-hidden bg-(--t-bg-terminal)" style={{ width: rightPanelOpen ? PANEL_WIDTH + 16 : 0, transition: TRANSITION }}>
       {rightPanelOpen && (
         <aside
-          className="flex flex-col absolute inset-y-2 right-2 bg-[var(--t-bg-modal)] border border-[var(--t-border)] overflow-hidden rounded-[0.8rem]"
+          className="flex flex-col absolute inset-y-2 right-2 bg-(--t-bg-modal) border border-(--t-border) overflow-hidden rounded-[0.8rem]"
           style={{
             width: "20rem",
           }}

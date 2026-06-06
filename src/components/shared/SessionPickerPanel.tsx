@@ -133,28 +133,28 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
   return createPortal(
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="fixed right-0 top-0 h-full w-72 z-50 flex flex-col bg-[var(--t-bg-base)] border-l border-[var(--t-bg-terminal)] shadow-xl">
-        <div className="flex items-center gap-2 px-3 py-3 shrink-0 bg-[var(--t-bg-card)] border-b border-[var(--t-bg-terminal)]">
+      <div className="fixed right-0 top-0 h-full w-72 z-50 flex flex-col bg-(--t-bg-base) border-l border-(--t-bg-terminal) shadow-xl">
+        <div className="flex items-center gap-2 px-3 py-3 shrink-0 bg-(--t-bg-card) border-b border-(--t-bg-terminal)">
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors shrink-0 text-[var(--t-text-dim)]"
+            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors shrink-0 text-(--t-text-dim)"
             onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-bg-elevated)"; e.currentTarget.style.color = "var(--t-text-primary)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}
           >
             <Icon icon="lucide:x" width={14} />
           </button>
-          <h2 className="text-sm font-semibold flex-1 text-[var(--t-text-primary)]">{label}</h2>
+          <h2 className="text-sm font-semibold flex-1 text-(--t-text-primary)">{label}</h2>
         </div>
 
-        <div className="px-2 py-2 shrink-0 bg-[var(--t-bg-toolbar)] border-b border-[var(--t-bg-terminal)]">
+        <div className="px-2 py-2 shrink-0 bg-(--t-bg-toolbar) border-b border-(--t-bg-terminal)">
           <div className="relative">
-            <Icon icon="lucide:search" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--t-text-dim)]" />
+            <Icon icon="lucide:search" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-(--t-text-dim)" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Filter..."
               autoFocus
-              className="w-full pl-8 pr-2 h-8 rounded-lg text-xs outline-none bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-primary)]"
+              className="w-full pl-8 pr-2 h-8 rounded-lg text-xs outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
               onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
               onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
             />
@@ -163,12 +163,12 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
 
         <div className="flex-1 overflow-y-auto py-1.5 px-2">
           {activeSessions.length === 0 && !search && (
-            <p className="px-3 py-3 text-xs text-[var(--t-text-muted)]">No active sessions</p>
+            <p className="px-3 py-3 text-xs text-(--t-text-muted)">No active sessions</p>
           )}
 
           {filteredSessions.length > 0 && (
             <>
-              <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--t-text-dim)]">
+              <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-(--t-text-dim)">
                 Active Sessions
               </p>
               {filteredSessions.map((s) => (
@@ -191,11 +191,11 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
                   onClick={() => toggleSession(s.id)}
                 />
               ))}
-              <div className="mx-2 my-1.5 border-t border-[var(--t-bg-terminal)]" />
+              <div className="mx-2 my-1.5 border-t border-(--t-bg-terminal)" />
             </>
           )}
 
-          <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--t-text-dim)]">
+          <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-(--t-text-dim)">
             Open New Connection
           </p>
 
@@ -225,14 +225,14 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
           })}
 
           {!search && filteredHosts.length > 0 && (
-            <div className="mx-2 my-1.5 border-t border-[var(--t-bg-terminal)]" />
+            <div className="mx-2 my-1.5 border-t border-(--t-bg-terminal)" />
           )}
 
           {filteredHosts.length === 0 && !search && (
-            <p className="px-3 py-4 text-xs text-center text-[var(--t-text-muted)]">No remote hosts found</p>
+            <p className="px-3 py-4 text-xs text-center text-(--t-text-muted)">No remote hosts found</p>
           )}
           {filteredHosts.length === 0 && search && (
-            <p className="px-3 py-4 text-xs text-center text-[var(--t-text-muted)]">No hosts found</p>
+            <p className="px-3 py-4 text-xs text-center text-(--t-text-muted)">No hosts found</p>
           )}
 
           {filteredHosts.map((c) => (
@@ -256,7 +256,7 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
         </div>
 
         {totalSelected > 0 && (
-          <div className="shrink-0 px-3 py-3 border-t border-[var(--t-bg-terminal)] bg-[var(--t-bg-card)]">
+          <div className="shrink-0 px-3 py-3 border-t border-(--t-bg-terminal) bg-(--t-bg-card)">
             <button
               onClick={() => void handleConfirm()}
               className="w-full h-9 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-opacity"

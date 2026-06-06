@@ -70,11 +70,11 @@ export function ImageList({ images, sessionId, isRemote, localShell, onRefresh }
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-3 py-1 border-b border-[var(--t-border)] shrink-0">
-        <span className="text-[10px] text-[var(--t-text-muted)]">
+      <div className="flex items-center justify-between px-3 py-1 border-b border-(--t-border) shrink-0">
+        <span className="text-[10px] text-(--t-text-muted)">
           {images.length} images
           {outdatedCount > 0 && (
-            <span className="ml-1.5 text-[var(--t-status-warning)]">· {outdatedCount} outdated</span>
+            <span className="ml-1.5 text-(--t-status-warning)">· {outdatedCount} outdated</span>
           )}
         </span>
         <div className="flex items-center gap-1">
@@ -82,7 +82,7 @@ export function ImageList({ images, sessionId, isRemote, localShell, onRefresh }
             onClick={checkAll}
             disabled={isChecking}
             title="Check all images for registry updates"
-            className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded text-[var(--t-text-muted)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] disabled:opacity-40"
+            className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-sm text-(--t-text-muted) hover:bg-(--t-bg-hover) hover:text-(--t-text) disabled:opacity-40"
           >
             <Icon icon="lucide:arrow-up-circle" width={10} className={isChecking ? "animate-pulse" : ""} />
             {isChecking ? "checking…" : "check updates"}
@@ -90,7 +90,7 @@ export function ImageList({ images, sessionId, isRemote, localShell, onRefresh }
           <button
             onClick={prune}
             disabled={pruning}
-            className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded text-[var(--t-status-warning)] hover:bg-[var(--t-bg-hover)] disabled:opacity-40"
+            className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-sm text-(--t-status-warning) hover:bg-(--t-bg-hover) disabled:opacity-40"
           >
             <Icon icon="lucide:trash" width={10} />
             {pruning ? "pruning…" : "prune"}
@@ -99,7 +99,7 @@ export function ImageList({ images, sessionId, isRemote, localShell, onRefresh }
       </div>
 
       {pruneMsg && (
-        <p className="px-3 py-1 text-[10px] text-[var(--t-text-muted)] border-b border-[var(--t-border)]">
+        <p className="px-3 py-1 text-[10px] text-(--t-text-muted) border-b border-(--t-border)">
           {pruneMsg}
         </p>
       )}
@@ -107,7 +107,7 @@ export function ImageList({ images, sessionId, isRemote, localShell, onRefresh }
       <div className="overflow-y-auto flex-1">
         {images.length === 0 ? (
           <div className="flex items-center justify-center h-20 opacity-40">
-            <p className="text-[11px] text-[var(--t-text-muted)]">No images</p>
+            <p className="text-[11px] text-(--t-text-muted)">No images</p>
           </div>
         ) : (
           images.map((img) => {
@@ -186,13 +186,13 @@ function ImageRow({
   const outdated = status?.status === "outdated";
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--t-border)] last:border-0 hover:bg-[var(--t-bg-hover)] group">
+    <div className="flex items-center gap-2 px-3 py-1.5 border-b border-(--t-border) last:border-0 hover:bg-(--t-bg-hover) group">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 min-w-0">
-          <p className="text-[11px] text-[var(--t-text)] truncate">{repo}</p>
+          <p className="text-[11px] text-(--t-text) truncate">{repo}</p>
           <UpdateBadge status={status} checking={checking} />
         </div>
-        <p className="text-[10px] text-[var(--t-text-muted)] font-mono">{ver || "latest"}</p>
+        <p className="text-[10px] text-(--t-text-muted) font-mono">{ver || "latest"}</p>
       </div>
 
       {outdated && (
@@ -202,7 +202,7 @@ function ImageRow({
           title={
             recreateAfterPull ? `Pull ${tag} and recreate its containers` : `Pull newer image for ${tag}`
           }
-          className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-[color-mix(in_srgb,var(--t-status-warning)_14%,transparent)] text-[var(--t-status-warning)] hover:bg-[color-mix(in_srgb,var(--t-status-warning)_24%,transparent)] disabled:opacity-40 shrink-0"
+          className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-sm bg-[color-mix(in_srgb,var(--t-status-warning)_14%,transparent)] text-(--t-status-warning) hover:bg-[color-mix(in_srgb,var(--t-status-warning)_24%,transparent)] disabled:opacity-40 shrink-0"
         >
           <Icon
             icon={pulling ? "lucide:loader-circle" : "lucide:download"}
@@ -214,14 +214,14 @@ function ImageRow({
       )}
 
       <div className="text-right shrink-0">
-        <p className="text-[10px] text-[var(--t-text-muted)]">{fmtSize(img.size)}</p>
-        <p className="text-[10px] text-[var(--t-text-muted)]">{fmtAge(img.created)}</p>
+        <p className="text-[10px] text-(--t-text-muted)">{fmtSize(img.size)}</p>
+        <p className="text-[10px] text-(--t-text-muted)">{fmtAge(img.created)}</p>
       </div>
       <button
         disabled={busy}
         onClick={remove}
         title="Remove image"
-        className="opacity-0 group-hover:opacity-100 p-0.5 text-[var(--t-status-error)] opacity-60 hover:opacity-100 disabled:opacity-40 shrink-0"
+        className="opacity-0 group-hover:opacity-100 p-0.5 text-(--t-status-error) opacity-60 hover:opacity-100 disabled:opacity-40 shrink-0"
       >
         <Icon icon="lucide:trash-2" width={11} />
       </button>

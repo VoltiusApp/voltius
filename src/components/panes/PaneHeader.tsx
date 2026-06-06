@@ -342,7 +342,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
         <span className="truncate font-semibold">{session.connectionName}</span>
         {subtitle && (
           <span
-            className="hidden md:flex items-center truncate max-w-[11rem] text-[var(--t-text-dim)] px-1 -mx-1 hover:bg-[var(--t-bg-card-hover)] transition-colors cursor-pointer self-stretch"
+            className="hidden md:flex items-center truncate max-w-44 text-(--t-text-dim) px-1 -mx-1 hover:bg-(--t-bg-card-hover) transition-colors cursor-pointer self-stretch"
             title={subtitle}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={handleCopySubtitle}
@@ -353,14 +353,14 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
       </div>
 
       <div className="hidden sm:flex items-center gap-1.5 shrink-0 self-stretch">
-        <span className="px-1.5 py-0.5 rounded border border-[var(--t-border)] bg-[var(--t-bg-elevated)] text-[10px] font-semibold">
+        <span className="px-1.5 py-0.5 rounded-sm border border-(--t-border) bg-(--t-bg-elevated) text-[10px] font-semibold">
           {sessionBadge(session)}
         </span>
         <span className="size-1.5 rounded-full" style={{ background: statusColor(session.status) }} />
         {session.type === "ssh" && pingStatus === "up" && latencyMs !== undefined && (
           <div
             ref={latencyTriggerRef}
-            className="flex items-center self-stretch px-1 hover:bg-[var(--t-bg-card-hover)] transition-colors cursor-pointer"
+            className="flex items-center self-stretch px-1 hover:bg-(--t-bg-card-hover) transition-colors cursor-pointer"
             onMouseEnter={handleLatencyMouseEnter}
             onMouseLeave={() => setShowSparkline(false)}
             onClick={handleLatencyClick}
@@ -374,7 +374,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
 
       <div className="flex items-stretch shrink-0">
         <button
-          className="h-full px-1.5 flex items-center justify-center hover:bg-[var(--t-bg-card-hover)] transition-colors"
+          className="h-full px-1.5 flex items-center justify-center hover:bg-(--t-bg-card-hover) transition-colors"
           title={broadcastActive ? "Disable broadcast" : "Broadcast input"}
           onClick={() => toggleBroadcast()}
           style={{ color: broadcastActive ? "var(--t-accent)" : "var(--t-text-dim)" }}
@@ -382,7 +382,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
           <Icon icon="lucide:radio-tower" width={13} />
         </button>
         <button
-          className="h-full px-1.5 flex items-center justify-center hover:bg-[var(--t-bg-card-hover)] transition-colors text-[var(--t-text-dim)]"
+          className="h-full px-1.5 flex items-center justify-center hover:bg-(--t-bg-card-hover) transition-colors text-(--t-text-dim)"
           title="Detach pane"
           onMouseDown={(e) => e.stopPropagation()}
           onClick={handleDetachPane}
@@ -390,14 +390,14 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
           <Icon icon="lucide:square-arrow-out-up-right" width={13} />
         </button>
         <button
-          className="h-full px-1.5 flex items-center justify-center hover:bg-[var(--t-bg-card-hover)] transition-colors text-[var(--t-text-dim)]"
+          className="h-full px-1.5 flex items-center justify-center hover:bg-(--t-bg-card-hover) transition-colors text-(--t-text-dim)"
           title={isMaximized ? "Restore pane" : "Maximize pane"}
           onClick={() => setMaximized(isMaximized ? null : paneId)}
         >
           <Icon icon={isMaximized ? "lucide:minimize-2" : "lucide:maximize-2"} width={13} />
         </button>
         <button
-          className="h-full px-1.5 flex items-center justify-center hover:bg-[var(--t-bg-card-hover)] transition-colors text-[var(--t-text-dim)] hover:text-[var(--t-status-error)]"
+          className="h-full px-1.5 flex items-center justify-center hover:bg-(--t-bg-card-hover) transition-colors text-(--t-text-dim) hover:text-(--t-status-error)"
           title="Close pane"
           onClick={handleClosePane}
         >

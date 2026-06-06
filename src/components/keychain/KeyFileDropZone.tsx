@@ -122,7 +122,7 @@ export function KeyFileDropZone({
           : "Drop a key file here"}
       </p>
       {status === "idle" && (
-        <p className="text-xs text-[var(--t-text-muted)]">
+        <p className="text-xs text-(--t-text-muted)">
           .pem, .key, .pub or any SSH key file
         </p>
       )}

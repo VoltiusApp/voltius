@@ -44,14 +44,14 @@ export default function HostsSection() {
   return (
     <div className="p-6 max-w-lg space-y-6">
       <div>
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
           Connectivity
         </h3>
-        <div className="rounded-lg bg-[var(--t-bg-elevated)] border border-[var(--t-border)] divide-y divide-[var(--t-border)]">
+        <div className="rounded-lg bg-(--t-bg-elevated) border border-(--t-border) divide-y divide-(--t-border)">
           <div className="group flex items-center justify-between px-4 py-3 gap-4">
             <div>
-              <p className="text-sm font-medium text-[var(--t-text-primary)]">Reachability check</p>
-              <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
+              <p className="text-sm font-medium text-(--t-text-primary)">Reachability check</p>
+              <p className="text-xs mt-0.5 text-(--t-text-dim)">
                 Probes the SSH port and shows a status dot + latency on each host card.
                 Can be disabled per host in the host's settings.
               </p>
@@ -68,8 +68,8 @@ export default function HostsSection() {
             <>
               <div className="group flex items-center justify-between px-4 py-3 gap-4">
                 <div>
-                  <p className="text-sm font-medium text-[var(--t-text-primary)]">Poll interval</p>
-                  <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">Background check cadence for the hosts page.</p>
+                  <p className="text-sm font-medium text-(--t-text-primary)">Poll interval</p>
+                  <p className="text-xs mt-0.5 text-(--t-text-dim)">Background check cadence for the hosts page.</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {pollIntervalMs !== DEFAULT_POLL_INTERVAL_MS && (
@@ -88,15 +88,15 @@ export default function HostsSection() {
                     onChange={(e) => setRaw(e.target.value)}
                     onBlur={(e) => commit(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && commit(raw)}
-                    className="w-24 px-2 py-1 rounded text-xs text-right bg-[var(--t-bg-base)] border border-[var(--t-border)] text-[var(--t-text-primary)] focus:outline-none focus:border-[var(--t-tab-active-text)]"
+                    className="w-24 px-2 py-1 rounded-sm text-xs text-right bg-(--t-bg-base) border border-(--t-border) text-(--t-text-primary) focus:outline-hidden focus:border-(--t-tab-active-text)"
                   />
-                  <span className="text-xs text-[var(--t-text-dim)]">ms</span>
+                  <span className="text-xs text-(--t-text-dim)">ms</span>
                 </div>
               </div>
               <div className="group flex items-center justify-between px-4 py-3 gap-4">
                 <div>
-                  <p className="text-sm font-medium text-[var(--t-text-primary)]">Active session interval</p>
-                  <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">Faster cadence used for the latency chip in the terminal status bar.</p>
+                  <p className="text-sm font-medium text-(--t-text-primary)">Active session interval</p>
+                  <p className="text-xs mt-0.5 text-(--t-text-dim)">Faster cadence used for the latency chip in the terminal status bar.</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {activePollIntervalMs !== DEFAULT_ACTIVE_POLL_INTERVAL_MS && (
@@ -115,17 +115,17 @@ export default function HostsSection() {
                     onChange={(e) => setRawActive(e.target.value)}
                     onBlur={(e) => commitActive(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && commitActive(rawActive)}
-                    className="w-24 px-2 py-1 rounded text-xs text-right bg-[var(--t-bg-base)] border border-[var(--t-border)] text-[var(--t-text-primary)] focus:outline-none focus:border-[var(--t-tab-active-text)]"
+                    className="w-24 px-2 py-1 rounded-sm text-xs text-right bg-(--t-bg-base) border border-(--t-border) text-(--t-text-primary) focus:outline-hidden focus:border-(--t-tab-active-text)"
                   />
-                  <span className="text-xs text-[var(--t-text-dim)]">ms</span>
+                  <span className="text-xs text-(--t-text-dim)">ms</span>
                 </div>
               </div>
             </>
           )}
           <div className="group flex items-center justify-between px-4 py-3 gap-4">
             <div>
-              <p className="text-sm font-medium text-[var(--t-text-primary)]">Keepalive</p>
-              <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
+              <p className="text-sm font-medium text-(--t-text-primary)">Keepalive</p>
+              <p className="text-xs mt-0.5 text-(--t-text-dim)">
                 How quickly a session is declared lost when the server stops responding.
                 {" "}{KEEPALIVE_PRESETS[keepalivePreset].detail}. Can be overridden per host.
               </p>
@@ -147,14 +147,14 @@ export default function HostsSection() {
       </div>
 
       <div>
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
           Terminal
         </h3>
-        <div className="rounded-lg bg-[var(--t-bg-elevated)] border border-[var(--t-border)]">
+        <div className="rounded-lg bg-(--t-bg-elevated) border border-(--t-border)">
           <div className="group flex items-center justify-between px-4 py-3 gap-4">
             <div>
-              <p className="text-sm font-medium text-[var(--t-text-primary)]">Shell integration</p>
-              <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
+              <p className="text-sm font-medium text-(--t-text-primary)">Shell integration</p>
+              <p className="text-xs mt-0.5 text-(--t-text-dim)">
                 Hooks the remote/local shell to report its working directory (OSC 7) for cwd-aware
                 file panels. If a host's welcome banner or prompt looks wrong, disable it there.
                 Can be disabled per host in the host's settings.
@@ -172,16 +172,16 @@ export default function HostsSection() {
       </div>
 
       <div>
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
           Team presence
         </h3>
-        <div className="rounded-lg bg-[var(--t-bg-elevated)] border border-[var(--t-border)]">
+        <div className="rounded-lg bg-(--t-bg-elevated) border border-(--t-border)">
           <div className="group flex items-center justify-between px-4 py-3 gap-4">
             <div>
-              <p className="text-sm font-medium text-[var(--t-text-primary)]">
+              <p className="text-sm font-medium text-(--t-text-primary)">
                 Share which team-vault hosts you're using
               </p>
-              <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
+              <p className="text-xs mt-0.5 text-(--t-text-dim)">
                 When on, your avatar appears on a host card while you have a terminal open to it.
                 Only teammates with access to the host see it.
               </p>

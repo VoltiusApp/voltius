@@ -56,7 +56,7 @@ export function SnippetsToolbar({
     <>
       <div
         ref={rowRef}
-        className="flex items-center gap-2 px-5 py-2.5 bg-[var(--t-bg-toolbar)] border-b border-b-[var(--t-border)]"
+        className="flex items-center gap-2 px-5 py-2.5 bg-(--t-bg-toolbar) border-b border-b-(--t-border)"
       >
         <div ref={leftRef} className="flex items-center gap-1.5">
           <FilterInput
@@ -116,14 +116,14 @@ export function SnippetsToolbar({
             onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-accent)")}
           >
             {ripplesChevron}
-            <span className="[&_path]:[stroke-width:3]">
+            <span className="[&_path]:stroke-3">
               <Icon icon="lucide:chevron-down" width={20} style={{ color: "var(--t-bg-terminal)", transition: "transform 150ms", transform: menuOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
             </span>
           </button>
 
           {menuOpen && (
             <div
-              className="p-1.5 rounded-xl fixed z-[9999] bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)]"
+              className="p-1.5 rounded-xl fixed z-9999 bg-(--t-bg-card) border border-(--t-bg-card-hover)"
               style={{
                 top: menuPos.top,
                 left: menuPos.left,

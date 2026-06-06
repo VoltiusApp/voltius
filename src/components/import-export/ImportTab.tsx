@@ -43,7 +43,7 @@ function getFolderPath(eid: string | undefined, folders: FolderExport[]): string
 function ItemCheckbox({ checked }: { checked: boolean }) {
   return (
     <span
-      className="flex items-center justify-center w-4 h-4 rounded shrink-0 transition-colors"
+      className="flex items-center justify-center w-4 h-4 rounded-sm shrink-0 transition-colors"
       style={{
         background: checked ? "var(--t-accent)" : "var(--t-bg-input)",
         border: `1px solid ${checked ? "var(--t-accent)" : "var(--t-border-hover)"}`,
@@ -69,7 +69,7 @@ function DupeControl({ action, onChange }: { action: ItemAction; onChange: (a: I
         <button
           key={o.key}
           onClick={e => { e.stopPropagation(); onChange(o.key); }}
-          className="px-2 py-0.5 rounded text-xs font-medium transition-colors"
+          className="px-2 py-0.5 rounded-sm text-xs font-medium transition-colors"
           style={{
             background: action === o.key ? "var(--t-bg-elevated)" : "transparent",
             color: action === o.key ? o.activeColor : "var(--t-text-muted)",
@@ -106,8 +106,8 @@ function ItemRow({ icon, title, sub, folderPath, isDupe, action, onToggle, onAct
       {!isDupe && <ItemCheckbox checked={action !== "skip"} />}
       <Icon icon={icon} width={13} style={{ color: "var(--t-text-dim)", flexShrink: 0 }} />
       <div className="flex flex-col min-w-0 flex-1">
-        <span className="text-sm text-[var(--t-text-primary)] truncate">{title}</span>
-        <span className="text-xs text-[var(--t-text-dim)] truncate">
+        <span className="text-sm text-(--t-text-primary) truncate">{title}</span>
+        <span className="text-xs text-(--t-text-dim) truncate">
           {folderPath ? `${folderPath} · ${sub}` : sub}
         </span>
       </div>
@@ -131,8 +131,8 @@ function GroupHeader({ label, icon, included, total, allSkipped, collapsed, onTo
       >
         <Icon icon={collapsed ? "lucide:chevron-right" : "lucide:chevron-down"} width={11} style={{ color: "var(--t-text-dim)" }} />
         <Icon icon={icon} width={12} style={{ color: "var(--t-text-dim)" }} />
-        <span className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">{label}</span>
-        <span className="text-xs text-[var(--t-text-muted)]">{included}/{total}</span>
+        <span className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">{label}</span>
+        <span className="text-xs text-(--t-text-muted)">{included}/{total}</span>
       </button>
       {!collapsed && (
         <button
@@ -559,11 +559,11 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
             <Icon icon="lucide:arrow-left" width={13} />
             Back
           </button>
-          <span className="text-sm font-semibold text-[var(--t-text-bright)] ml-1">Review import</span>
+          <span className="text-sm font-semibold text-(--t-text-bright) ml-1">Review import</span>
           {totalDupes > 0 && (
             <button
               onClick={toggleAllDupes}
-              className="ml-auto text-xs px-2 py-0.5 rounded transition-opacity hover:opacity-70"
+              className="ml-auto text-xs px-2 py-0.5 rounded-sm transition-opacity hover:opacity-70"
               style={{ color: "var(--t-text-dim)", border: "1px solid var(--t-border)" }}
             >
               {allDupesSkipped ? "Re-include duplicates" : "Skip all duplicates"}
@@ -578,7 +578,7 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Filter items…"
-            className="w-full pl-8 pr-3 py-1.5 rounded-lg text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border-hover)] text-[var(--t-text-primary)]"
+            className="w-full pl-8 pr-3 py-1.5 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border-hover) text-(--t-text-primary)"
             style={{ fontSize: 13 }}
           />
           {search && (
@@ -626,12 +626,12 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
           </div>
         )}
 
-        <div className="flex flex-col gap-2 pt-3 border-t border-[var(--t-border)]">
+        <div className="flex flex-col gap-2 pt-3 border-t border-(--t-border)">
           {showAdvanced && (
             <label className="flex items-center gap-2">
-              <span className="text-xs text-[var(--t-text-dim)]">Tag:</span>
+              <span className="text-xs text-(--t-text-dim)">Tag:</span>
               <input value={addTag} onChange={e => setAddTag(e.target.value)} placeholder="optional"
-                className="px-2 py-0.5 rounded text-xs outline-none bg-[var(--t-bg-input)] border border-[var(--t-border-hover)] text-[var(--t-text-primary)]"
+                className="px-2 py-0.5 rounded-sm text-xs outline-hidden bg-(--t-bg-input) border border-(--t-border-hover) text-(--t-text-primary)"
                 style={{ width: 100 }}
               />
             </label>
@@ -674,7 +674,7 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
   return (
     <div className="flex flex-col gap-4 h-full">
       <div className="flex flex-col gap-2">
-        <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">Import from</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">Import from</p>
         <div className="flex flex-wrap gap-1.5">
           {IMPORTERS.map(importer => {
             const active = selectedSource === importer.key;
@@ -699,7 +699,7 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
           })}
         </div>
         {source.hint && (
-          <p className="text-xs text-[var(--t-text-dim)] flex items-center gap-1.5 mt-0.5">
+          <p className="text-xs text-(--t-text-dim) flex items-center gap-1.5 mt-0.5">
             <Icon icon="lucide:info" width={11} />
             {source.hint}
           </p>
@@ -708,7 +708,7 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
 
       {writableVaults.length > 1 && (
         <div className="flex flex-col gap-1.5">
-          <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">Import into</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">Import into</p>
           <VaultChipSelect selectedIds={targetVaultIds} onChange={setTargetVaultIds} writableOnly />
         </div>
       )}
@@ -774,7 +774,7 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
       )}
 
       {status.type === "needs-password" && (
-        <div className="flex flex-col gap-3 p-3 rounded-lg bg-[var(--t-bg-elevated)] border border-[var(--t-border)]">
+        <div className="flex flex-col gap-3 p-3 rounded-lg bg-(--t-bg-elevated) border border-(--t-border)">
           <div className="flex items-center gap-2 text-sm" style={{ color: "var(--t-text-primary)" }}>
             <Icon icon="lucide:lock" width={14} style={{ color: "var(--t-accent)" }} />
             Encrypted backup — enter your password to unlock
@@ -787,7 +787,7 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
               onKeyDown={e => { if (e.key === "Enter") void handleDecrypt(); }}
               placeholder="Password"
               autoFocus
-              className="flex-1 px-2.5 py-1.5 rounded-lg text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border-hover)] text-[var(--t-text-primary)]"
+              className="flex-1 px-2.5 py-1.5 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border-hover) text-(--t-text-primary)"
             />
             <ActionBtn icon="lucide:unlock" label="Unlock" onClick={handleDecrypt} primary disabled={!decryptPassword} />
           </div>
@@ -808,7 +808,7 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
       )}
 
       {status.type === "ready" && (
-        <div className="mt-auto pt-3 border-t border-[var(--t-border)]">
+        <div className="mt-auto pt-3 border-t border-(--t-border)">
           <ActionBtn
             icon="lucide:arrow-right"
             label={`Review ${totalFound} item${totalFound !== 1 ? "s" : ""}`}

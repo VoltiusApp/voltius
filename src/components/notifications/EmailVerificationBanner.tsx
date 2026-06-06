@@ -65,29 +65,29 @@ export function EmailVerificationBanner() {
   }
 
   return (
-    <div className="px-4 py-2 border-b border-[var(--t-border)] bg-[var(--t-bg-elevated)]">
+    <div className="px-4 py-2 border-b border-(--t-border) bg-(--t-bg-elevated)">
       <div className="flex items-center gap-3 text-sm">
-        <Icon icon="lucide:mail-warning" width={16} className="shrink-0 text-[var(--t-status-warning)]" />
-        <p className="flex-1 text-[var(--t-text-primary)]">
+        <Icon icon="lucide:mail-warning" width={16} className="shrink-0 text-(--t-status-warning)" />
+        <p className="flex-1 text-(--t-text-primary)">
           Verify your email to unlock cloud features. We sent a link to {email ?? "your email"}.
         </p>
         <button
           onClick={() => void handleResend()}
           disabled={resending}
-          className="px-2.5 py-1 rounded-md text-xs font-medium text-[var(--t-accent)] hover:bg-[var(--t-bg-card)] transition-colors disabled:opacity-60"
+          className="px-2.5 py-1 rounded-md text-xs font-medium text-(--t-accent) hover:bg-(--t-bg-card) transition-colors disabled:opacity-60"
         >
           {resending ? "Sending..." : "Resend email"}
         </button>
         <button
           onClick={() => void handleVerified()}
           disabled={refreshing}
-          className="px-2.5 py-1 rounded-md text-xs font-medium bg-[var(--t-accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-60"
+          className="px-2.5 py-1 rounded-md text-xs font-medium bg-(--t-accent) text-white hover:opacity-90 transition-opacity disabled:opacity-60"
         >
           {refreshing ? "Checking..." : "I've verified"}
         </button>
         <button
           onClick={() => setDismissed(true)}
-          className="w-6 h-6 flex items-center justify-center rounded-md text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] hover:bg-[var(--t-bg-card)] transition-colors"
+          className="w-6 h-6 flex items-center justify-center rounded-md text-(--t-text-dim) hover:text-(--t-text-primary) hover:bg-(--t-bg-card) transition-colors"
           aria-label="Dismiss email verification banner"
         >
           <Icon icon="lucide:x" width={14} />

@@ -6,8 +6,8 @@ const toneClasses = {
     title: "text-yellow-400",
   },
   secure: {
-    box: "bg-[var(--t-bg-elevated)] border-[var(--t-border)]",
-    title: "text-[var(--t-text-primary)]",
+    box: "bg-(--t-bg-elevated) border-(--t-border)",
+    title: "text-(--t-text-primary)",
   },
 };
 
@@ -17,7 +17,7 @@ function actionClassName(action: DecisionPanelAction): string {
     return `${base} text-text-muted hover:text-text-primary`;
   }
   if (action.variant === "secondary") {
-    return `${base} font-medium bg-[var(--t-bg-elevated)] text-text-primary border border-[var(--t-border)] hover:bg-[var(--t-bg-card-hover)]`;
+    return `${base} font-medium bg-(--t-bg-elevated) text-text-primary border border-(--t-border) hover:bg-(--t-bg-card-hover)`;
   }
   return `${base} font-medium bg-accent text-white hover:bg-accent/80`;
 }
@@ -39,7 +39,7 @@ export function DecisionPanel({
           {icon}
           <span className={`text-xs font-semibold tracking-wide ${classes.title}`}>{title}</span>
         </div>
-        <p className="text-[var(--t-text-secondary)] text-xs">{description}</p>
+        <p className="text-(--t-text-secondary) text-xs">{description}</p>
       </div>
 
       {children}

@@ -106,7 +106,7 @@ export function MetricsPanel() {
   if (!activeSession || activeSession.status !== "connected") {
     return (
       <div className="flex items-center justify-center h-full opacity-40">
-        <p className="text-sm text-[var(--t-text-muted)]">No active session</p>
+        <p className="text-sm text-(--t-text-muted)">No active session</p>
       </div>
     );
   }
@@ -114,15 +114,15 @@ export function MetricsPanel() {
   return (
     <div className="flex flex-col h-full overflow-y-auto">
       {/* Host badge */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-[var(--t-border)] shrink-0">
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-(--t-border) shrink-0">
         <div className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
-        <span className="text-[11px] text-[var(--t-text-muted)] truncate">
+        <span className="text-[11px] text-(--t-text-muted) truncate">
           {activeSession.connectionName}
         </span>
       </div>
 
       {activeSession.type === "serial" ? (
-        <div className="px-4 py-3 border-b border-[var(--t-border)] text-[11px] text-[var(--t-text-dim)]">
+        <div className="px-4 py-3 border-b border-(--t-border) text-[11px] text-(--t-text-dim)">
           Live metrics are not available for serial sessions.
         </div>
       ) : (

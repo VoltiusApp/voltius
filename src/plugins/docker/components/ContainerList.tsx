@@ -43,8 +43,8 @@ export function ContainerList({
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-3 py-1 border-b border-[var(--t-border)] shrink-0">
-        <span className="text-[10px] text-[var(--t-text-muted)]">
+      <div className="flex items-center justify-between px-3 py-1 border-b border-(--t-border) shrink-0">
+        <span className="text-[10px] text-(--t-text-muted)">
           {containers.filter((c) => c.state === "running").length} running
         </span>
         <div className="flex items-center gap-1">
@@ -52,7 +52,7 @@ export function ContainerList({
             onClick={checkAll}
             disabled={isChecking}
             title="Check containers for image updates"
-            className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded text-[var(--t-text-muted)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] disabled:opacity-40"
+            className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-sm text-(--t-text-muted) hover:bg-(--t-bg-hover) hover:text-(--t-text) disabled:opacity-40"
           >
             <Icon icon="lucide:arrow-up-circle" width={10} className={isChecking ? "animate-pulse" : ""} />
             {isChecking ? "checking…" : "updates"}
@@ -61,8 +61,8 @@ export function ContainerList({
             onClick={onToggleStopped}
             className={`text-[10px] px-1.5 py-0.5 rounded ${
               showStopped
-                ? "bg-[var(--t-bg-hover)] text-[var(--t-text)]"
-                : "text-[var(--t-text-muted)] hover:bg-[var(--t-bg-hover)]"
+                ? "bg-(--t-bg-hover) text-(--t-text)"
+                : "text-(--t-text-muted) hover:bg-(--t-bg-hover)"
             }`}
           >
             all
@@ -74,7 +74,7 @@ export function ContainerList({
       <div className="flex-1 overflow-y-auto">
         {visible.length === 0 ? (
           <div className="flex items-center justify-center h-20 opacity-40">
-            <p className="text-[11px] text-[var(--t-text-muted)]">
+            <p className="text-[11px] text-(--t-text-muted)">
               {containers.length === 0 ? "No containers" : "No running containers"}
             </p>
           </div>

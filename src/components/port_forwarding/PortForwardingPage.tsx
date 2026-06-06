@@ -618,7 +618,7 @@ export function PortForwardingPage() {
             {folderPath.length > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
                 <button
-                  className="flex items-center gap-1.5 text-xs transition-colors text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)]"
+                  className="flex items-center gap-1.5 text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
                   onClick={navigateToRoot}
                 >
                   <Icon icon="lucide:chevron-left" width={13} />
@@ -626,16 +626,16 @@ export function PortForwardingPage() {
                 </button>
                 {folderPath.map((folder, i) => (
                   <span key={folder.id} className="flex items-center gap-2">
-                    <span className="text-[var(--t-text-dim)]">/</span>
+                    <span className="text-(--t-text-dim)">/</span>
                     {i < folderPath.length - 1 ? (
                       <button
-                        className="text-xs transition-colors text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)]"
+                        className="text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
                         onClick={() => navigateTo(i)}
                       >
                         {folder.name}
                       </button>
                     ) : (
-                      <span className="text-xs font-medium text-[var(--t-text-primary)]">{folder.name}</span>
+                      <span className="text-xs font-medium text-(--t-text-primary)">{folder.name}</span>
                     )}
                   </span>
                 ))}
@@ -646,9 +646,9 @@ export function PortForwardingPage() {
             {visibleFolders.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">Folders</p>
+                  <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">Folders</p>
                   <button
-                    className="flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg text-[var(--t-text-dim)]"
+                    className="flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg text-(--t-text-dim)"
                     onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
                     onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; e.currentTarget.style.background = "transparent"; }}
                     onClick={() => void saveFolder({ name: "New Folder", object_type: "port_forwarding", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { closeForm(); setEditingFolderId(f.id); })}
@@ -717,13 +717,13 @@ export function PortForwardingPage() {
 
             {/* ── Rules section ── */}
             {filtered.length === 0 && visibleFolders.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-3 text-[var(--t-text-dim)]">
+              <div className="flex flex-col items-center justify-center py-12 gap-3 text-(--t-text-dim)">
                 <span className="text-sm">
                   {q ? "No rules match your search." : activeFolderId ? "This folder is empty." : "No rules yet. Create one to get started."}
                 </span>
                 {activeFolderId && !q && (
                   <button
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-[var(--t-bg-elevated)] text-[var(--t-accent)] border border-[var(--t-border-hover)]"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-(--t-bg-elevated) text-(--t-accent) border border-(--t-border-hover)"
                     onClick={openNew}
                   >
                     <Icon icon="lucide:plus" width={12} />
@@ -735,9 +735,9 @@ export function PortForwardingPage() {
               <div>
                 {(visibleFolders.length > 0 || activeFolderId || filtered.length > 0) && (
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">Rules</p>
-                    <div className="flex items-center gap-2 text-[10px] text-[var(--t-text-muted)]">
-                      <span className="px-1.5 py-0.5 rounded-full bg-[var(--t-bg-elevated)]">{filtered.length} total</span>
+                    <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">Rules</p>
+                    <div className="flex items-center gap-2 text-[10px] text-(--t-text-muted)">
+                      <span className="px-1.5 py-0.5 rounded-full bg-(--t-bg-elevated)">{filtered.length} total</span>
                       <span className="px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-400">{runningRuleCount.active} active</span>
                       {runningRuleCount.error > 0 && <span className="px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400">{runningRuleCount.error} error</span>}
                     </div>

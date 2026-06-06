@@ -76,7 +76,7 @@ export function FileInputArea({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           rows={rows}
-          className="w-full text-xs rounded-lg p-3 resize-none font-mono outline-none bg-[var(--t-bg-terminal)] text-[var(--t-text-secondary)] transition-colors"
+          className="w-full text-xs rounded-lg p-3 resize-none font-mono outline-hidden bg-(--t-bg-terminal) text-(--t-text-secondary) transition-colors"
           style={{ border: `1px solid ${hasError ? "var(--t-status-error)" : dragging ? "var(--t-accent)" : "var(--t-border)"}` }}
         />
         {dragging && (

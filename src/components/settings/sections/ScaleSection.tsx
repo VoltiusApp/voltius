@@ -40,12 +40,12 @@ export default function ScaleSection() {
 
   return (
     <div
-      className="rounded-xl px-4 py-3 bg-[var(--t-bg-card)] border border-[var(--t-border)]"
+      className="rounded-xl px-4 py-3 bg-(--t-bg-card) border border-(--t-border)"
     >
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-[var(--t-text-primary)]">UI Scale</p>
-          <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
+          <p className="text-sm font-medium text-(--t-text-primary)">UI Scale</p>
+          <p className="text-xs mt-0.5 text-(--t-text-dim)">
             Zoom or dezoom the entire interface.
           </p>
         </div>
@@ -57,14 +57,14 @@ export default function ScaleSection() {
             onChange={(e) => setInputValue(e.target.value)}
             onBlur={commitEdit}
             onKeyDown={handleKeyDown}
-            className="text-xs font-semibold px-2 py-1 rounded-md w-16 text-center bg-[var(--t-bg-elevated)] text-[var(--t-text-secondary)] border border-[var(--t-accent)] outline-none"
+            className="text-xs font-semibold px-2 py-1 rounded-md w-16 text-center bg-(--t-bg-elevated) text-(--t-text-secondary) border border-(--t-accent) outline-hidden"
             min={Math.round(MIN_UI_SCALE * 100)}
             max={Math.round(MAX_UI_SCALE * 100)}
           />
         ) : (
           <button
             onClick={startEditing}
-            className="text-xs font-semibold px-2 py-1 rounded-md bg-[var(--t-bg-elevated)] text-[var(--t-text-secondary)] border border-[var(--t-border)]"
+            className="text-xs font-semibold px-2 py-1 rounded-md bg-(--t-bg-elevated) text-(--t-text-secondary) border border-(--t-border)"
             title="Click to enter a value"
             style={{ cursor: "text" }}
           >
@@ -76,7 +76,7 @@ export default function ScaleSection() {
       <div className="mt-3 flex items-center gap-2.5">
         <button
           onClick={() => adjustScale(-0.05)}
-          className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors bg-[var(--t-bg-elevated)] text-[var(--t-text-muted)] border border-[var(--t-border)]"
+          className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors bg-(--t-bg-elevated) text-(--t-text-muted) border border-(--t-border)"
           title="Zoom out"
         >
           <Icon icon="lucide:minus" width={14} />
@@ -95,7 +95,7 @@ export default function ScaleSection() {
 
         <button
           onClick={() => adjustScale(0.05)}
-          className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors bg-[var(--t-bg-elevated)] text-[var(--t-text-muted)] border border-[var(--t-border)]"
+          className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors bg-(--t-bg-elevated) text-(--t-text-muted) border border-(--t-border)"
           title="Zoom in"
         >
           <Icon icon="lucide:plus" width={14} />
@@ -103,7 +103,7 @@ export default function ScaleSection() {
 
         <button
           onClick={() => setUiScale(1)}
-          className="px-2.5 h-8 rounded-lg text-xs transition-colors bg-[var(--t-bg-elevated)] text-[var(--t-text-muted)] border border-[var(--t-border)]"
+          className="px-2.5 h-8 rounded-lg text-xs transition-colors bg-(--t-bg-elevated) text-(--t-text-muted) border border-(--t-border)"
           title="Reset scale"
         >
           Reset

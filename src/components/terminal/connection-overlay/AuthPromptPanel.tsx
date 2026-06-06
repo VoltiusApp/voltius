@@ -94,7 +94,7 @@ export function AuthPromptPanel({
   return (
     <DecisionPanel
       tone="secure"
-      icon={<Icon icon="lucide:key-round" width={14} className="text-[var(--t-text-dim)] shrink-0" />}
+      icon={<Icon icon="lucide:key-round" width={14} className="text-(--t-text-dim) shrink-0" />}
       title="AUTHENTICATION REQUIRED"
       description="This host has no authentication method. Choose one to continue."
       actions={[
@@ -127,13 +127,13 @@ export function AuthPromptPanel({
               onChange={(event) => setPassword(event.target.value)}
               placeholder="Password"
               autoFocus
-              className="w-full px-3 pr-9 py-2 rounded-lg text-sm outline-none bg-[var(--t-bg-base)] border border-[var(--t-border)] text-[var(--t-text-primary)] focus:border-[var(--t-accent)]"
+              className="w-full px-3 pr-9 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-base) border border-(--t-border) text-(--t-text-primary) focus:border-(--t-accent)"
             />
             <button
               type="button"
               tabIndex={-1}
               onClick={() => setShowPassword((value) => !value)}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors"
             >
               <Icon icon={showPassword ? "lucide:eye-off" : "lucide:eye"} width={14} />
             </button>
@@ -155,7 +155,7 @@ export function AuthPromptPanel({
                   onChange={(event) => setPrivateKey(event.target.value)}
                   placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..."
                   spellCheck={false}
-                  className="w-full px-3 py-2 rounded-lg font-mono text-xs h-24 resize-none outline-none bg-[var(--t-bg-base)] border border-[var(--t-border)] text-[var(--t-text-primary)] focus:border-[var(--t-accent)]"
+                  className="w-full px-3 py-2 rounded-lg font-mono text-xs h-24 resize-none outline-hidden bg-(--t-bg-base) border border-(--t-border) text-(--t-text-primary) focus:border-(--t-accent)"
                 />
                 {privateKey.trim() && (
                   <div className="relative">
@@ -165,13 +165,13 @@ export function AuthPromptPanel({
                       onChange={(event) => setPassphrase(event.target.value)}
                       placeholder="Key passphrase (optional)"
                       autoComplete="new-password"
-                      className="w-full px-3 pr-9 py-2 rounded-lg text-sm outline-none bg-[var(--t-bg-base)] border border-[var(--t-border)] text-[var(--t-text-primary)] focus:border-[var(--t-accent)]"
+                      className="w-full px-3 pr-9 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-base) border border-(--t-border) text-(--t-text-primary) focus:border-(--t-accent)"
                     />
                     <button
                       type="button"
                       tabIndex={-1}
                       onClick={() => setShowPassphrase((value) => !value)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors"
                     >
                       <Icon icon={showPassphrase ? "lucide:eye-off" : "lucide:eye"} width={14} />
                     </button>

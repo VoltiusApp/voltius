@@ -73,7 +73,7 @@ export function OverflowTagList({ tags, className = "", badgeClassName = "", max
       <div className="flex items-center gap-1 overflow-hidden whitespace-nowrap">
         {tags.slice(0, visibleCount).map((tag) => <TagBadge key={tag} tag={tag} className={badgeClassName} />)}
         {hiddenTags.length > 0 && (
-          <span title={hiddenTitle} className="shrink-0 text-xs text-[var(--t-text-dim)]">
+          <span title={hiddenTitle} className="shrink-0 text-xs text-(--t-text-dim)">
             +{hiddenTags.length}
           </span>
         )}
@@ -85,7 +85,7 @@ export function OverflowTagList({ tags, className = "", badgeClassName = "", max
             <TagBadge tag={tag} className={badgeClassName} />
           </span>
         ))}
-        <span ref={moreRef} className="shrink-0 text-xs text-[var(--t-text-dim)]">
+        <span ref={moreRef} className="shrink-0 text-xs text-(--t-text-dim)">
           +{tags.length}
         </span>
       </div>

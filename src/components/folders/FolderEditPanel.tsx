@@ -94,9 +94,9 @@ export function FolderEditPanel({
       <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-5">
         {/* Name */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">Name</label>
+          <label className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">Name</label>
           <input
-            className="w-full px-3 py-2 rounded-lg text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border)] text-[var(--t-text-bright)]"
+            className="w-full px-3 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-bright)"
             value={name}
             onChange={(e) => { markDirty(); setName(e.target.value); }}
             onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
@@ -107,9 +107,9 @@ export function FolderEditPanel({
 
         {/* Cloud sync */}
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">Cloud Sync</label>
+          <label className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">Cloud Sync</label>
           <button
-            className={`flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors bg-[var(--t-bg-input)] border border-[var(--t-border)] ${isTypeSynced ? "cursor-pointer" : "cursor-default"}`}
+            className={`flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors bg-(--t-bg-input) border border-(--t-border) ${isTypeSynced ? "cursor-pointer" : "cursor-default"}`}
             style={{ opacity: isTypeSynced ? 1 : 0.5 }}
             onClick={() => { if (isTypeSynced) toggleExcluded(folder.id); }}
           >
@@ -119,7 +119,7 @@ export function FolderEditPanel({
                 width={15}
                 style={{ color: isSynced ? "var(--t-accent)" : "var(--t-text-dim)" }}
               />
-              <span className="text-sm text-[var(--t-text-primary)]">
+              <span className="text-sm text-(--t-text-primary)">
                 {isSynced ? "Synced to cloud" : "Not synced"}
               </span>
             </div>
@@ -134,7 +134,7 @@ export function FolderEditPanel({
             </div>
           </button>
           {!isTypeSynced && (
-            <p className="text-xs text-[var(--t-text-dim)]">
+            <p className="text-xs text-(--t-text-dim)">
               Folder sync is disabled globally in Settings → Cloud Sync.
             </p>
           )}
@@ -142,17 +142,17 @@ export function FolderEditPanel({
 
         {/* Meta */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">Created</label>
-          <p className="text-sm text-[var(--t-text-secondary)]">
+          <label className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">Created</label>
+          <p className="text-sm text-(--t-text-secondary)">
             {new Date(folder.created_at).toLocaleString()}
           </p>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="px-5 py-4 border-t border-t-[var(--t-border)]">
+      <div className="px-5 py-4 border-t border-t-(--t-border)">
         <button
-          className="flex items-center gap-2 w-full justify-center px-3 py-2 rounded-lg text-sm transition-colors text-[var(--t-danger)]"
+          className="flex items-center gap-2 w-full justify-center px-3 py-2 rounded-lg text-sm transition-colors text-(--t-danger)"
           style={{
             background: "transparent",
             border: "1px solid color-mix(in srgb, var(--t-danger) 40%, transparent)",

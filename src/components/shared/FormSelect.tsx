@@ -55,11 +55,11 @@ export function FormSelect({ value, options, onChange, className = "" }: Props) 
         onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
         onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
       >
-        <span className="text-[var(--t-text-primary)]">{selectedLabel}</span>
+        <span className="text-(--t-text-primary)">{selectedLabel}</span>
         <Icon
           icon="lucide:chevron-down"
           width={14}
-          className="text-[var(--t-text-dim)] shrink-0"
+          className="text-(--t-text-dim) shrink-0"
           style={{ transition: "transform 150ms", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
         />
       </button>
@@ -67,7 +67,7 @@ export function FormSelect({ value, options, onChange, className = "" }: Props) 
       {open && createPortal(
         <div
           ref={menuRef}
-          className="fixed p-1.5 rounded-xl z-[9999] flex flex-col bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)] max-h-[240px] overflow-y-auto"
+          className="fixed p-1.5 rounded-xl z-9999 flex flex-col bg-(--t-bg-card) border border-(--t-bg-card-hover) max-h-[240px] overflow-y-auto"
           style={{ top: menuRect.top, left: menuRect.left, width: menuRect.width, boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
         >
           {options.map((opt) => (

@@ -55,13 +55,13 @@ function TunnelTypeExplainer({ type }: { type: TunnelType }) {
   const details = TUNNEL_TYPES.find((t) => t.value === type) ?? TUNNEL_TYPES[0];
 
   return (
-    <div className="rounded-lg border border-[var(--t-border)] bg-[var(--t-bg-base)] p-3">
+    <div className="rounded-lg border border-(--t-border) bg-(--t-bg-base) p-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-[var(--t-text-primary)]">{details.title}</h3>
-          <p className="mt-1 text-xs leading-relaxed text-[var(--t-text-secondary)]">{details.summary}</p>
+          <h3 className="text-sm font-semibold text-(--t-text-primary)">{details.title}</h3>
+          <p className="mt-1 text-xs leading-relaxed text-(--t-text-secondary)">{details.summary}</p>
         </div>
-        <span className="shrink-0 rounded-full border border-[var(--t-border)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--t-text-dim)]">
+        <span className="shrink-0 rounded-full border border-(--t-border) px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-(--t-text-dim)">
           {details.label}
         </span>
       </div>
@@ -69,23 +69,23 @@ function TunnelTypeExplainer({ type }: { type: TunnelType }) {
       <div className="mt-3 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-1.5 text-center">
         {details.diagram.map((label, index) => (
           <div key={label} className="contents">
-            <div className="rounded-md border border-[var(--t-bg-card-hover)] bg-[var(--t-bg-card)] px-2 py-2 text-[10px] font-medium text-[var(--t-text-primary)]">
+            <div className="rounded-md border border-(--t-bg-card-hover) bg-(--t-bg-card) px-2 py-2 text-[10px] font-medium text-(--t-text-primary)">
               {label}
             </div>
             {index < details.diagram.length - 1 && (
-              <span className="text-xs text-[var(--t-accent)]">&rarr;</span>
+              <span className="text-xs text-(--t-accent)">&rarr;</span>
             )}
           </div>
         ))}
       </div>
 
-      <p className="mt-3 text-[11px] leading-relaxed text-[var(--t-text-dim)]">{details.example}</p>
+      <p className="mt-3 text-[11px] leading-relaxed text-(--t-text-dim)">{details.example}</p>
     </div>
   );
 }
 
 function FieldHelp({ children }: { children: React.ReactNode }) {
-  return <p className="mt-1 text-[10px] leading-relaxed text-[var(--t-text-dim)]">{children}</p>;
+  return <p className="mt-1 text-[10px] leading-relaxed text-(--t-text-dim)">{children}</p>;
 }
 
 export function RuleForm({ rule, onSave, onClose, isDirtyRef }: Props) {
@@ -318,15 +318,15 @@ export function RuleForm({ rule, onSave, onClose, isDirtyRef }: Props) {
           <div className="flex gap-2">
             <button type="button" onClick={() => { markDirty(); setIsGlobal(true); }}
               className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                isGlobal ? "bg-[var(--t-accent)] text-white"
-                : "bg-[var(--t-bg-elevated)] text-[var(--t-text-muted)] hover:text-[var(--t-text-primary)]"
+                isGlobal ? "bg-(--t-accent) text-white"
+                : "bg-(--t-bg-elevated) text-(--t-text-muted) hover:text-(--t-text-primary)"
               }`}>
               All connections
             </button>
             <button type="button" onClick={() => { markDirty(); setIsGlobal(false); }}
               className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                !isGlobal ? "bg-[var(--t-accent)] text-white"
-                : "bg-[var(--t-bg-elevated)] text-[var(--t-text-muted)] hover:text-[var(--t-text-primary)]"
+                !isGlobal ? "bg-(--t-accent) text-white"
+                : "bg-(--t-bg-elevated) text-(--t-text-muted) hover:text-(--t-text-primary)"
               }`}>
               Specific connections
             </button>
@@ -334,16 +334,16 @@ export function RuleForm({ rule, onSave, onClose, isDirtyRef }: Props) {
           {!isGlobal && (
             <div className="mt-2 flex flex-col gap-0.5 max-h-40 overflow-y-auto">
               {connections.length === 0 ? (
-                <p className="text-xs text-[var(--t-text-dim)] py-1">No saved connections.</p>
+                <p className="text-xs text-(--t-text-dim) py-1">No saved connections.</p>
               ) : connections.map((conn) => {
                 const checked = connectionIds.includes(conn.id);
                 const label = conn.name?.trim() || `${conn.username}@${conn.host}:${conn.port}`;
                 return (
                   <label key={conn.id}
-                    className="flex items-center gap-2 px-2 py-1 rounded cursor-pointer hover:bg-[var(--t-bg-elevated)]">
+                    className="flex items-center gap-2 px-2 py-1 rounded-sm cursor-pointer hover:bg-(--t-bg-elevated)">
                     <input type="checkbox" checked={checked} onChange={() => toggleConnection(conn.id)}
-                      className="accent-[var(--t-accent)]" />
-                    <span className="text-xs text-[var(--t-text-primary)] truncate">{label}</span>
+                      className="accent-(--t-accent)" />
+                    <span className="text-xs text-(--t-text-primary) truncate">{label}</span>
                   </label>
                 );
               })}

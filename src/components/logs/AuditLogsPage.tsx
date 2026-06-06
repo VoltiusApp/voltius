@@ -51,7 +51,7 @@ function Pagination({
   if (totalPages <= 1) return null;
 
   return (
-    <div className="flex items-center justify-center gap-3 px-4 py-3 border-t border-[var(--t-border)]">
+    <div className="flex items-center justify-center gap-3 px-4 py-3 border-t border-(--t-border)">
       <button
         onClick={() => onPageChange(page - 1)}
         disabled={page <= 1}
@@ -61,7 +61,7 @@ function Pagination({
         <Icon icon="lucide:chevron-left" width={14} />
         Prev
       </button>
-      <span className="text-sm text-[var(--t-text-dim)]">
+      <span className="text-sm text-(--t-text-dim)">
         Page {page} / {totalPages}
       </span>
       <button
@@ -132,7 +132,7 @@ export default function AuditLogsPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-[var(--t-bg-base)]">
+    <div className="flex-1 flex flex-col overflow-hidden bg-(--t-bg-base)">
       <AuditGate context={auditContext}>
         <AuditFilters
           actors={actors}
@@ -147,8 +147,8 @@ export default function AuditLogsPage() {
         <div className="flex-1 overflow-y-auto">
           {error ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16">
-              <Icon icon="lucide:triangle-alert" width={28} className="text-[var(--t-text-dim)]" />
-              <span className="text-sm text-[var(--t-text-dim)]">{error}</span>
+              <Icon icon="lucide:triangle-alert" width={28} className="text-(--t-text-dim)" />
+              <span className="text-sm text-(--t-text-dim)">{error}</span>
               <button
                 onClick={() => { if (auditContext && canFetchAudit) fetchLogs(auditContext); }}
                 className="text-sm px-3 py-1.5 rounded-lg"
@@ -159,7 +159,7 @@ export default function AuditLogsPage() {
             </div>
           ) : loading && logs.length === 0 ? (
             <div className="flex items-center justify-center py-16">
-              <Icon icon="lucide:loader-2" width={24} className="animate-spin text-[var(--t-text-dim)]" />
+              <Icon icon="lucide:loader-2" width={24} className="animate-spin text-(--t-text-dim)" />
             </div>
           ) : layout === "timeline" ? (
             <AuditTimeline logs={visibleLogs} />

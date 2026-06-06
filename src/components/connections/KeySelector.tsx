@@ -65,17 +65,17 @@ export default function KeySelector({ value, keys, onChange, onGoToKeychain }: P
         <Icon
           icon={selected ? "lucide:key" : "lucide:file-key"}
           width={14}
-          className="text-[var(--t-text-dim)] shrink-0"
+          className="text-(--t-text-dim) shrink-0"
         />
         <span className="flex-1 text-left truncate text-xs">{displayLabel}</span>
         {selected && selected.key_type && (
-          <span className="text-[10px] text-[var(--t-text-dim)] shrink-0">{selected.key_type}</span>
+          <span className="text-[10px] text-(--t-text-dim) shrink-0">{selected.key_type}</span>
         )}
-        <span className="[&_path]:[stroke-width:2.5]">
+        <span className="[&_path]:stroke-[2.5]">
           <Icon
             icon="lucide:chevron-down"
             width={14}
-            className="text-[var(--t-text-dim)] shrink-0"
+            className="text-(--t-text-dim) shrink-0"
             style={{
               transition: "transform 150ms",
               transform: open ? "rotate(180deg)" : "rotate(0deg)",
@@ -87,7 +87,7 @@ export default function KeySelector({ value, keys, onChange, onGoToKeychain }: P
       {open && createPortal(
         <div
           ref={dropdownRef}
-          className="p-1.5 rounded-xl flex flex-col fixed z-[9999] bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)]"
+          className="p-1.5 rounded-xl flex flex-col fixed z-9999 bg-(--t-bg-card) border border-(--t-bg-card-hover)"
           style={{
             top: dropdownPos.top,
             bottom: dropdownPos.bottom,
@@ -109,14 +109,14 @@ export default function KeySelector({ value, keys, onChange, onGoToKeychain }: P
             <Icon icon="lucide:file-key" width={13} className="shrink-0" />
             <span className="flex-1 text-left">Inline private key</span>
             {value === null && (
-              <span className="[&_path]:[stroke-width:2.5]">
+              <span className="[&_path]:stroke-[2.5]">
                 <Icon icon="lucide:check" width={13} />
               </span>
             )}
           </button>
 
           {keys.length > 0 && (
-            <div className="my-1 border-t border-t-[var(--t-bg-card-hover)]" />
+            <div className="my-1 border-t border-t-(--t-bg-card-hover)" />
           )}
           {keys.map((key) => (
             <button
@@ -130,24 +130,24 @@ export default function KeySelector({ value, keys, onChange, onGoToKeychain }: P
             >
               <Icon icon="lucide:key" width={13} className="shrink-0" />
               <div className="flex-1 text-left min-w-0">
-                <p className="truncate text-[var(--t-text-primary)]">{key.name ?? "Unnamed Key"}</p>
+                <p className="truncate text-(--t-text-primary)">{key.name ?? "Unnamed Key"}</p>
               </div>
               {key.key_type && (
-                <span className="text-[10px] shrink-0 text-[var(--t-text-dim)]">{key.key_type}</span>
+                <span className="text-[10px] shrink-0 text-(--t-text-dim)">{key.key_type}</span>
               )}
               {value === key.id && (
-                <span className="[&_path]:[stroke-width:2.5]">
-                  <Icon icon="lucide:check" width={13} className="text-[var(--t-accent)]" />
+                <span className="[&_path]:stroke-[2.5]">
+                  <Icon icon="lucide:check" width={13} className="text-(--t-accent)" />
                 </span>
               )}
             </button>
           ))}
 
-          <div className="mt-1 border-t border-t-[var(--t-bg-card-hover)]" />
+          <div className="mt-1 border-t border-t-(--t-bg-card-hover)" />
           <button
             type="button"
             onClick={() => { setOpen(false); onGoToKeychain(); }}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors text-[var(--t-text-dim)]"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors text-(--t-text-dim)"
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLButtonElement).style.color = "var(--t-accent)";
               (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)";

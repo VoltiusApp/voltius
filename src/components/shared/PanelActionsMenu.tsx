@@ -26,9 +26,9 @@ export function PanelActionsMenu({ items }: Props) {
       {open && createPortal(
         <>
           {/* Backdrop: closes menu on outside click without swallowing submenu portal clicks */}
-          <div className="fixed inset-0 z-[49]" onMouseDown={() => setOpen(false)} />
+          <div className="fixed inset-0 z-49" onMouseDown={() => setOpen(false)} />
           <div
-            className="fixed p-1.5 rounded-xl flex flex-col z-50 bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)] min-w-[12.667rem]"
+            className="fixed p-1.5 rounded-xl flex flex-col z-50 bg-(--t-bg-card) border border-(--t-bg-card-hover) min-w-[12.667rem]"
             style={{ top: pos.top, right: pos.right, boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
           >
             <MenuItemList items={items} onClose={() => setOpen(false)} />

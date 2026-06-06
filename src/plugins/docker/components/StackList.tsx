@@ -102,13 +102,13 @@ export function StackList({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-3 py-1 border-b border-[var(--t-border)] shrink-0">
-        <span className="text-[10px] text-[var(--t-text-muted)]">{stacks.length} stacks</span>
+      <div className="flex items-center justify-between px-3 py-1 border-b border-(--t-border) shrink-0">
+        <span className="text-[10px] text-(--t-text-muted)">{stacks.length} stacks</span>
         <button
           onClick={checkAll}
           disabled={isChecking || services.length === 0}
           title="Check the expanded stack's services for image updates"
-          className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded text-[var(--t-text-muted)] hover:bg-[var(--t-bg-hover)] hover:text-[var(--t-text)] disabled:opacity-40"
+          className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-sm text-(--t-text-muted) hover:bg-(--t-bg-hover) hover:text-(--t-text) disabled:opacity-40"
         >
           <Icon icon="lucide:arrow-up-circle" width={10} className={isChecking ? "animate-pulse" : ""} />
           {isChecking ? "checking…" : "updates"}
@@ -117,7 +117,7 @@ export function StackList({
 
       {stacks.length === 0 ? (
         <div className="flex items-center justify-center h-20 opacity-40">
-          <p className="text-[11px] text-[var(--t-text-muted)]">No Compose stacks</p>
+          <p className="text-[11px] text-(--t-text-muted)">No Compose stacks</p>
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto">
@@ -126,33 +126,33 @@ export function StackList({
             const stackServices = selectedStackName === stack.name ? services : [];
 
             return (
-              <div key={stack.name} className="border-b border-[var(--t-border)] last:border-0">
+              <div key={stack.name} className="border-b border-(--t-border) last:border-0">
                 <div
                   onClick={() => toggleStack(stack.name)}
-                  className="flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--t-bg-card-hover)] cursor-pointer select-none"
+                  className="flex items-center gap-2 px-3 py-1.5 hover:bg-(--t-bg-card-hover) cursor-pointer select-none"
                 >
                   <div
                     className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                       stack.running > 0
-                        ? "bg-[var(--t-status-connected)]"
+                        ? "bg-(--t-status-connected)"
                         : stack.paused > 0
-                          ? "bg-[var(--t-status-warning)]"
-                          : "bg-[var(--t-text-muted)] opacity-40"
+                          ? "bg-(--t-status-warning)"
+                          : "bg-(--t-text-muted) opacity-40"
                     }`}
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[11px] text-[var(--t-text)] truncate font-medium">{stack.name}</p>
-                    <p className="text-[10px] text-[var(--t-text-muted)] truncate">
+                    <p className="text-[11px] text-(--t-text) truncate font-medium">{stack.name}</p>
+                    <p className="text-[10px] text-(--t-text-muted) truncate">
                       {stack.status || `${stack.running}/${stack.total} running`}
                     </p>
                   </div>
-                  <span className="text-[10px] text-[var(--t-text-muted)] font-mono shrink-0">
+                  <span className="text-[10px] text-(--t-text-muted) font-mono shrink-0">
                     {stack.running}/{stack.total}
                   </span>
                   <Icon
                     icon={expanded ? "lucide:chevron-up" : "lucide:chevron-down"}
                     width={12}
-                    className="text-[var(--t-text-muted)] shrink-0"
+                    className="text-(--t-text-muted) shrink-0"
                   />
                 </div>
 
@@ -164,7 +164,7 @@ export function StackList({
                       disabled={busyAction !== null}
                       onClick={() => runAction(stack.name, "up")}
                       busy={busyAction === `${stack.name}:up`}
-                      color="text-[var(--t-status-connected)]"
+                      color="text-(--t-status-connected)"
                     />
                   )}
                   {(stack.running > 0 || stack.paused > 0) && (
@@ -189,7 +189,7 @@ export function StackList({
                     disabled={busyAction !== null}
                     onClick={() => updateStack(stack.name)}
                     busy={busyAction === `${stack.name}:update`}
-                    color="text-[var(--t-status-warning)] hover:text-[var(--t-status-warning)]"
+                    color="text-(--t-status-warning) hover:text-(--t-status-warning)"
                   />
                   <Btn
                     icon="lucide:scroll-text"
@@ -204,21 +204,21 @@ export function StackList({
                     disabled={busyAction !== null}
                     onClick={() => runAction(stack.name, "down")}
                     busy={busyAction === `${stack.name}:down`}
-                    color="text-[var(--t-status-error)] opacity-60 hover:opacity-100"
+                    color="text-(--t-status-error) opacity-60 hover:opacity-100"
                   />
                 </div>
 
                 {expanded && (
                   <div className="px-3 pb-2 space-y-1">
                     {stack.config_files.length > 0 && (
-                      <p className="text-[10px] text-[var(--t-text-muted)] truncate font-mono">
+                      <p className="text-[10px] text-(--t-text-muted) truncate font-mono">
                         {stack.config_files.join(", ")}
                       </p>
                     )}
                     {stackServices.length === 0 ? (
-                      <p className="text-[10px] text-[var(--t-text-muted)] opacity-60">No services</p>
+                      <p className="text-[10px] text-(--t-text-muted) opacity-60">No services</p>
                     ) : (
-                      <div className="rounded-md border border-[var(--t-border)] overflow-hidden">
+                      <div className="rounded-md border border-(--t-border) overflow-hidden">
                         {stackServices.map((service) => {
                           const tag = checkableImage(service.image);
                           return (
@@ -289,25 +289,25 @@ function ServiceRow({
   const { state } = service;
 
   return (
-    <div className="flex items-center gap-2 px-2 py-1.5 border-b border-[var(--t-border)] last:border-0 hover:bg-[var(--t-bg-card-hover)] group">
+    <div className="flex items-center gap-2 px-2 py-1.5 border-b border-(--t-border) last:border-0 hover:bg-(--t-bg-card-hover) group">
       <span
         className={`h-1.5 w-1.5 rounded-full shrink-0 ${
           state === "running"
-            ? "bg-[var(--t-status-connected)]"
+            ? "bg-(--t-status-connected)"
             : state === "paused"
-              ? "bg-[var(--t-status-warning)]"
-              : "bg-[var(--t-text-muted)] opacity-40"
+              ? "bg-(--t-status-warning)"
+              : "bg-(--t-text-muted) opacity-40"
         }`}
       />
       <div className="flex-1 min-w-0">
-        <p className="text-[11px] text-[var(--t-text)] truncate">{service.service || service.name}</p>
-        <p className="text-[10px] text-[var(--t-text-muted)] truncate">{service.status || state}</p>
+        <p className="text-[11px] text-(--t-text) truncate">{service.service || service.name}</p>
+        <p className="text-[10px] text-(--t-text-muted) truncate">{service.status || state}</p>
         <div className="flex items-center gap-1.5 min-w-0">
-          <p className="text-[10px] text-[var(--t-text-muted)] truncate font-mono">{service.image}</p>
+          <p className="text-[10px] text-(--t-text-muted) truncate font-mono">{service.image}</p>
           <UpdateBadge status={status} checking={checking} />
         </div>
         {service.ports.length > 0 && (
-          <p className="text-[10px] text-[var(--t-text-muted)] truncate font-mono">{fmtPorts(service.ports)}</p>
+          <p className="text-[10px] text-(--t-text-muted) truncate font-mono">{fmtPorts(service.ports)}</p>
         )}
       </div>
       <div className="flex items-center gap-0.5 shrink-0">
@@ -319,16 +319,16 @@ function ServiceRow({
           </>
         )}
         {state === "paused" && (
-          <Btn icon="lucide:play" title="Unpause" disabled={busy || !service.id} busy={busyAction === "unpause"} onClick={() => runAction("unpause")} color="text-[var(--t-status-connected)]" />
+          <Btn icon="lucide:play" title="Unpause" disabled={busy || !service.id} busy={busyAction === "unpause"} onClick={() => runAction("unpause")} color="text-(--t-status-connected)" />
         )}
         {state !== "running" && state !== "paused" && (
-          <Btn icon="lucide:play" title="Start" disabled={busy || !service.id} busy={busyAction === "start"} onClick={() => runAction("start")} color="text-[var(--t-status-connected)]" />
+          <Btn icon="lucide:play" title="Start" disabled={busy || !service.id} busy={busyAction === "start"} onClick={() => runAction("start")} color="text-(--t-status-connected)" />
         )}
         <button
           disabled={!service.id}
           onClick={() => onLogs(service.id, service.name || service.service)}
           title="Logs"
-          className="p-1 rounded text-[var(--t-text-muted)] hover:bg-[var(--t-bg-card-hover)] hover:text-[var(--t-text)] disabled:opacity-30"
+          className="p-1 rounded-sm text-(--t-text-muted) hover:bg-(--t-bg-card-hover) hover:text-(--t-text) disabled:opacity-30"
         >
           <Icon icon="lucide:scroll-text" width={12} />
         </button>
@@ -337,7 +337,7 @@ function ServiceRow({
             disabled={!service.id}
             onClick={() => onTerminal(service.id, service.name || service.service)}
             title="Open terminal"
-            className="p-1 rounded text-[var(--t-accent)] opacity-80 hover:opacity-100 hover:bg-[var(--t-bg-card-hover)] disabled:opacity-30"
+            className="p-1 rounded-sm text-(--t-accent) opacity-80 hover:opacity-100 hover:bg-(--t-bg-card-hover) disabled:opacity-30"
           >
             <Icon icon="lucide:terminal" width={12} />
           </button>
@@ -348,7 +348,7 @@ function ServiceRow({
           disabled={busy || !service.id}
           busy={busyAction === "remove"}
           onClick={() => runAction("remove")}
-          color="text-[var(--t-status-error)] opacity-60 hover:opacity-100"
+          color="text-(--t-status-error) opacity-60 hover:opacity-100"
         />
       </div>
     </div>
@@ -361,7 +361,7 @@ function Btn({
   disabled,
   busy,
   onClick,
-  color = "text-[var(--t-text-muted)] hover:text-[var(--t-text)]",
+  color = "text-(--t-text-muted) hover:text-(--t-text)",
 }: {
   icon: string;
   title: string;
@@ -375,7 +375,7 @@ function Btn({
       disabled={disabled}
       onClick={onClick}
       title={title}
-      className={`p-1 rounded hover:bg-[var(--t-bg-card-hover)] disabled:opacity-40 ${color}`}
+      className={`p-1 rounded-sm hover:bg-(--t-bg-card-hover) disabled:opacity-40 ${color}`}
     >
       <Icon icon={busy ? "lucide:loader-2" : icon} width={12} className={busy ? "animate-spin" : ""} />
     </button>

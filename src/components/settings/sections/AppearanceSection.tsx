@@ -52,14 +52,14 @@ export default function AppearanceSection() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-4 text-[var(--t-text-dim)]">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-4 text-(--t-text-dim)">
           Interface
         </h3>
         <ScaleSection />
-        <div className="group mt-4 rounded-xl bg-[var(--t-bg-card)] border border-[var(--t-border)] p-4 flex items-center justify-between gap-4">
+        <div className="group mt-4 rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4 flex items-center justify-between gap-4">
           <div>
-            <div className="text-sm font-medium text-[var(--t-text-primary)]">Terminal scrollback</div>
-            <div className="text-xs mt-1 text-[var(--t-text-dim)]">
+            <div className="text-sm font-medium text-(--t-text-primary)">Terminal scrollback</div>
+            <div className="text-xs mt-1 text-(--t-text-dim)">
               Retained lines per terminal session. Applies to new terminals.
             </div>
           </div>
@@ -76,10 +76,10 @@ export default function AppearanceSection() {
             />
           </div>
         </div>
-        <div className="group mt-4 rounded-xl bg-[var(--t-bg-card)] border border-[var(--t-border)] p-4 flex items-center justify-between gap-4">
+        <div className="group mt-4 rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4 flex items-center justify-between gap-4">
           <div>
-            <div className="text-sm font-medium text-[var(--t-text-primary)]">Scroll minimap</div>
-            <div className="text-xs mt-1 text-[var(--t-text-dim)]">
+            <div className="text-sm font-medium text-(--t-text-primary)">Scroll minimap</div>
+            <div className="text-xs mt-1 text-(--t-text-dim)">
               Show a miniature scrollback overview beside terminals.
             </div>
           </div>
@@ -91,10 +91,10 @@ export default function AppearanceSection() {
             <Toggle checked={scrollMinimapEnabled} onChange={setScrollMinimapEnabled} />
           </div>
         </div>
-        <div className="group mt-4 rounded-xl bg-[var(--t-bg-card)] border border-[var(--t-border)] p-4 flex items-center justify-between gap-4">
+        <div className="group mt-4 rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4 flex items-center justify-between gap-4">
           <div>
-            <div className="text-sm font-medium text-[var(--t-text-primary)]">Select to copy</div>
-            <div className="text-xs mt-1 text-[var(--t-text-dim)]">
+            <div className="text-sm font-medium text-(--t-text-primary)">Select to copy</div>
+            <div className="text-xs mt-1 text-(--t-text-dim)">
               Show a copy button when text is selected in a terminal.
             </div>
           </div>
@@ -110,13 +110,13 @@ export default function AppearanceSection() {
 
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
             Color Theme
           </h3>
           <div className="flex gap-1">
             <button
               onClick={() => openThemeImportExport("import")}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-colors text-[var(--t-text-muted)] hover:text-[var(--t-text-primary)] bg-[var(--t-bg-card)] hover:bg-[var(--t-bg-elevated)]"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-colors text-(--t-text-muted) hover:text-(--t-text-primary) bg-(--t-bg-card) hover:bg-(--t-bg-elevated)"
               title="Import theme(s)"
             >
               <Icon icon="lucide:download" width={12} />
@@ -125,7 +125,7 @@ export default function AppearanceSection() {
             {customThemes.length > 0 && (
               <button
                 onClick={() => openThemeImportExport("export")}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-colors text-[var(--t-text-muted)] hover:text-[var(--t-text-primary)] bg-[var(--t-bg-card)] hover:bg-[var(--t-bg-elevated)]"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-colors text-(--t-text-muted) hover:text-(--t-text-primary) bg-(--t-bg-card) hover:bg-(--t-bg-elevated)"
                 title="Export all custom themes"
               >
                 <Icon icon="lucide:upload" width={12} />
@@ -151,7 +151,7 @@ export default function AppearanceSection() {
                 onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-border)"; }}
               >
                 {isActive && (
-                  <span className="absolute top-2 right-2 w-4 h-4 rounded-full flex items-center justify-center bg-[var(--t-accent)]">
+                  <span className="absolute top-2 right-2 w-4 h-4 rounded-full flex items-center justify-center bg-(--t-accent)">
                     <Icon icon="lucide:check" width={9} className="text-white" />
                   </span>
                 )}
@@ -167,7 +167,7 @@ export default function AppearanceSection() {
                   <div className="absolute bottom-2 right-2 flex gap-1">
                     <button
                       onClick={(e) => { e.stopPropagation(); exportTheme(theme); }}
-                      className="p-1 rounded opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity text-[var(--t-text-muted)]"
+                      className="p-1 rounded-sm opacity-0 group-hover:opacity-50 hover:opacity-100! transition-opacity text-(--t-text-muted)"
                       title="Export theme"
                       onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
@@ -176,7 +176,7 @@ export default function AppearanceSection() {
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); openThemeCreator(theme.id); }}
-                      className="p-1 rounded opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity text-[var(--t-text-muted)]"
+                      className="p-1 rounded-sm opacity-0 group-hover:opacity-50 hover:opacity-100! transition-opacity text-(--t-text-muted)"
                       title="Edit theme"
                       onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
@@ -185,7 +185,7 @@ export default function AppearanceSection() {
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDelete(theme.id); }}
-                      className="p-1 rounded opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity text-[var(--t-status-error)]"
+                      className="p-1 rounded-sm opacity-0 group-hover:opacity-50 hover:opacity-100! transition-opacity text-(--t-status-error)"
                       title="Delete theme"
                     >
                       <Icon icon="lucide:trash-2" width={11} />
@@ -198,7 +198,7 @@ export default function AppearanceSection() {
 
           <button
             onClick={() => openThemeCreator()}
-            className="flex flex-col gap-2.5 p-3 rounded-xl text-left transition-all text-[var(--t-text-muted)]"
+            className="flex flex-col gap-2.5 p-3 rounded-xl text-left transition-all text-(--t-text-muted)"
             style={{ background: "var(--t-bg-card)", border: "1.5px dashed var(--t-border)" }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-accent)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-accent)"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-border)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}

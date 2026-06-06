@@ -837,7 +837,7 @@ export default function HostsPage() {
     <SidePanelLayout
       panelOpen={showForm || showSerialForm || editingFolder !== null || showSnippetPicker}
       panelWidth={showSnippetPicker ? 300 : editingFolder !== null ? 280 : 320}
-      className="bg-[--t-bg-base]"
+      className="bg-(--t-bg-base)"
       panel={
         <>
           {showSnippetPicker && (
@@ -968,7 +968,7 @@ export default function HostsPage() {
               {folderPath.length > 0 && (
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
-                    className="flex items-center gap-1.5 text-xs transition-colors text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)]"
+                    className="flex items-center gap-1.5 text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
                     onClick={navigateToRoot}
                   >
                     <Icon icon="lucide:chevron-left" width={13} />
@@ -976,16 +976,16 @@ export default function HostsPage() {
                   </button>
                   {folderPath.map((folder, i) => (
                     <span key={folder.id} className="flex items-center gap-2">
-                      <span className="text-[var(--t-text-dim)]">/</span>
+                      <span className="text-(--t-text-dim)">/</span>
                       {i < folderPath.length - 1 ? (
                         <button
-                          className="text-xs transition-colors text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)]"
+                          className="text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
                           onClick={() => navigateTo(i)}
                         >
                           {folder.name}
                         </button>
                       ) : (
-                        <span className="text-xs font-medium text-[var(--t-text-primary)]">
+                        <span className="text-xs font-medium text-(--t-text-primary)">
                           {folder.name}
                         </span>
                       )}
@@ -998,11 +998,11 @@ export default function HostsPage() {
               {visibleFolders.length > 0 && (
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">
+                    <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
                       Folders
                     </p>
                     {canCreateFolder && <button
-                      className="flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg text-[var(--t-text-dim)]"
+                      className="flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg text-(--t-text-dim)"
                       onMouseEnter={(e) => {
                         e.currentTarget.style.color = "var(--t-text-primary)";
                         e.currentTarget.style.background = "var(--t-bg-elevated)";
@@ -1086,7 +1086,7 @@ export default function HostsPage() {
               {/* ── Pinned section ── */}
               {pinnedHosts.length > 0 && (
                 <div className="mb-6">
-                  <p className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">Pinned</p>
+                  <p className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">Pinned</p>
                   <div
                     className={layoutMode === "grid" ? "grid gap-3" : "flex flex-col gap-1.5"}
                     style={layoutMode === "grid" ? { gridTemplateColumns: HOST_GRID_COLS } : undefined}
@@ -1133,12 +1133,12 @@ export default function HostsPage() {
               {(filtered.length > 0 || showForm || showSerialForm) && (
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">
+                    <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
                       Hosts
                     </p>
                     {activeFolderId && (
                       <button
-                        className="flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg text-[var(--t-text-dim)]"
+                        className="flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg text-(--t-text-dim)"
                         onMouseEnter={(e) => {
                           e.currentTarget.style.color = "var(--t-text-primary)";
                           e.currentTarget.style.background = "var(--t-bg-elevated)";
@@ -1203,10 +1203,10 @@ export default function HostsPage() {
               {/* Empty inside folder */}
               {activeFolderId && filtered.length === 0 && !showForm && !showSerialForm && (
                 <div className="flex flex-col items-center justify-center py-12 gap-3">
-                  <Icon icon="lucide:folder-open" width={32} className="text-[var(--t-text-dim)]" />
-                  <p className="text-sm text-[var(--t-text-dim)]">This folder is empty</p>
+                  <Icon icon="lucide:folder-open" width={32} className="text-(--t-text-dim)" />
+                  <p className="text-sm text-(--t-text-dim)">This folder is empty</p>
                   <button
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-[var(--t-bg-elevated)] text-[var(--t-accent)] border border-[var(--t-border-hover)]"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-(--t-bg-elevated) text-(--t-accent) border border-(--t-border-hover)"
                     onClick={() => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); }}
                   >
                     <Icon icon="lucide:plus" width={12} />
@@ -1217,7 +1217,7 @@ export default function HostsPage() {
 
               {/* No search results */}
               {filtered.length === 0 && !showForm && !showSerialForm && connections.length > 0 && searchQuery && (
-                <p className="text-sm mt-4 text-[var(--t-text-dim)]">
+                <p className="text-sm mt-4 text-(--t-text-dim)">
                   No hosts match "{search}"
                 </p>
               )}
@@ -1292,11 +1292,11 @@ function DraftHostCard({ layout, serial = false }: { layout: "grid" | "list"; se
         style={{ border: "2px dashed var(--t-accent)", opacity: 0.5 }}
       >
         <div
-          className="rounded-lg flex items-center justify-center shrink-0 w-[1.867rem] h-[1.867rem] bg-[var(--t-bg-card-avatar)]"
+          className="rounded-lg flex items-center justify-center shrink-0 w-[1.867rem] h-[1.867rem] bg-(--t-bg-card-avatar)"
         >
-          <Icon icon={icon} width={14} className="text-[var(--t-text-dim)]" />
+          <Icon icon={icon} width={14} className="text-(--t-text-dim)" />
         </div>
-        <p className="text-sm font-medium-bold text-[var(--t-text-dim)]">{label}</p>
+        <p className="text-sm font-medium-bold text-(--t-text-dim)">{label}</p>
       </div>
     );
   }
@@ -1306,13 +1306,13 @@ function DraftHostCard({ layout, serial = false }: { layout: "grid" | "list"; se
       style={{ border: "2px dashed var(--t-accent)", opacity: 0.5 }}
     >
       <div
-        className="rounded-lg flex items-center justify-center shrink-0 w-[3.2rem] h-[3.2rem] bg-[var(--t-bg-card-avatar)]"
+        className="rounded-lg flex items-center justify-center shrink-0 w-[3.2rem] h-[3.2rem] bg-(--t-bg-card-avatar)"
       >
-        <Icon icon={icon} width={22} className="text-[var(--t-text-dim)]" />
+        <Icon icon={icon} width={22} className="text-(--t-text-dim)" />
       </div>
       <div>
-        <p className="text-base font-medium-bold text-[var(--t-text-dim)]">{label}</p>
-        <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">Unsaved</p>
+        <p className="text-base font-medium-bold text-(--t-text-dim)">{label}</p>
+        <p className="text-xs mt-0.5 text-(--t-text-dim)">Unsaved</p>
       </div>
     </div>
   );
@@ -1322,17 +1322,17 @@ function EmptyState({ onAdd }: { onAdd?: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[320px] gap-5">
       <div
-        className="w-16 h-16 rounded-2xl flex items-center justify-center bg-[var(--t-bg-toolbar)] border border-[var(--t-border)]"
+        className="w-16 h-16 rounded-2xl flex items-center justify-center bg-(--t-bg-toolbar) border border-(--t-border)"
       >
-        <Icon icon="lucide:monitor" width={28} className="text-[var(--t-text-dim)]" />
+        <Icon icon="lucide:monitor" width={28} className="text-(--t-text-dim)" />
       </div>
       <div className="text-center">
-        <p className="text-sm font-medium mb-1 text-[var(--t-text-primary)]">No hosts yet</p>
-        <p className="text-xs text-[var(--t-text-dim)]">Add your first SSH host to get started</p>
+        <p className="text-sm font-medium mb-1 text-(--t-text-primary)">No hosts yet</p>
+        <p className="text-xs text-(--t-text-dim)">Add your first SSH host to get started</p>
       </div>
       {onAdd && <button
         onClick={onAdd}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-[var(--t-bg-elevated)] text-[var(--t-accent)] border border-[var(--t-border-hover)]"
+        className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-(--t-bg-elevated) text-(--t-accent) border border-(--t-border-hover)"
         onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-border-hover)")}
         onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
       >

@@ -144,7 +144,7 @@ export function PortsPanel() {
 
   if (!isSshSession) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-2 px-4 text-center text-[var(--t-text-dim)]">
+      <div className="flex flex-col items-center justify-center h-full gap-2 px-4 text-center text-(--t-text-dim)">
         <Icon icon="lucide:network" width={24} />
         <span className="text-xs">Port forwarding requires an SSH session.</span>
       </div>
@@ -170,7 +170,7 @@ export function PortsPanel() {
   return (
     <div className="flex flex-col h-full overflow-y-auto">
       {isEmpty && (
-        <div className="px-3 py-4 text-xs text-[var(--t-text-dim)]">
+        <div className="px-3 py-4 text-xs text-(--t-text-dim)">
           No forwarded ports. Ports detected on the remote host will appear here automatically.
         </div>
       )}
@@ -203,7 +203,7 @@ export function PortsPanel() {
       {/* Active auto/adhoc tunnels + suppressed auto ports */}
       {(visibleUnclaimed.length > 0 || suppressedRows.length > 0) && (
         <>
-          {rules.length > 0 && <div className="border-t border-[var(--t-border)] mx-2 my-0.5" />}
+          {rules.length > 0 && <div className="border-t border-(--t-border) mx-2 my-0.5" />}
 
           {visibleUnclaimed.map((tunnel) => {
             const isAuto = tunnel.origin.type === "auto";
@@ -281,34 +281,34 @@ function PortRow({
 }) {
   const bytes = formatBytes(bytesTransferred ?? 0);
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1.5 group hover:bg-[var(--t-bg-elevated)]">
+    <div className="flex items-center gap-1.5 px-2 py-1.5 group hover:bg-(--t-bg-elevated)">
       {/* Status dot */}
       <div className={`w-2 h-2 rounded-full shrink-0 transition-colors ${
-        isError ? "bg-red-500" : isActive ? "bg-green-500" : "bg-[var(--t-text-dim)] opacity-40"
+        isError ? "bg-red-500" : isActive ? "bg-green-500" : "bg-(--t-text-dim) opacity-40"
       }`} />
 
       {/* Label + port info */}
       <div className="flex flex-col min-w-0 flex-1">
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-xs font-medium text-[var(--t-text-primary)] truncate leading-tight">
+          <span className="text-xs font-medium text-(--t-text-primary) truncate leading-tight">
             {label}
           </span>
           {badge && (
             <span className={`text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none ${
               badge === "auto"
                 ? "bg-purple-500/20 text-purple-400"
-                : "bg-[var(--t-bg-elevated)] text-[var(--t-text-muted)]"
+                : "bg-(--t-bg-elevated) text-(--t-text-muted)"
             }`}>
               {badge === "auto" ? "Auto" : "Ad-hoc"}
             </span>
           )}
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-mono text-[var(--t-text-muted)] truncate leading-tight">
+          <span className="text-[10px] font-mono text-(--t-text-muted) truncate leading-tight">
             {portInfo}
           </span>
           {bytes && (
-            <span className="text-[10px] text-[var(--t-text-dim)] shrink-0 leading-tight">
+            <span className="text-[10px] text-(--t-text-dim) shrink-0 leading-tight">
               {bytes}
             </span>
           )}
@@ -323,8 +323,8 @@ function PortRow({
         className={`w-5 h-5 flex items-center justify-center rounded shrink-0 transition-all
           opacity-0 group-hover:opacity-100
           ${isActive
-            ? "text-[var(--t-text-muted)] hover:text-amber-400 hover:bg-amber-500/10"
-            : "text-[var(--t-text-muted)] hover:text-green-400 hover:bg-green-500/10"
+            ? "text-(--t-text-muted) hover:text-amber-400 hover:bg-amber-500/10"
+            : "text-(--t-text-muted) hover:text-green-400 hover:bg-green-500/10"
           }`}
       >
         {isBusy ? (
@@ -343,7 +343,7 @@ function PortRow({
         title="Delete"
         className="w-5 h-5 flex items-center justify-center rounded shrink-0 transition-all
           opacity-0 group-hover:opacity-100
-          text-[var(--t-text-muted)] hover:text-red-400 hover:bg-red-500/10"
+          text-(--t-text-muted) hover:text-red-400 hover:bg-red-500/10"
       >
         {isDeleting ? (
           <Icon icon="lucide:loader-circle" width={11} className="animate-spin" />
@@ -358,7 +358,7 @@ function PortRow({
           onClick={(e) => { e.stopPropagation(); void openUrl(httpUrl); }}
           title={`Open ${httpUrl}`}
           className="w-5 h-5 flex items-center justify-center rounded shrink-0 transition-all
-            text-[var(--t-text-muted)] hover:text-blue-400 hover:bg-blue-500/10"
+            text-(--t-text-muted) hover:text-blue-400 hover:bg-blue-500/10"
         >
           <Icon icon="lucide:globe" width={11} />
         </button>

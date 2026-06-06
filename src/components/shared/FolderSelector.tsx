@@ -89,14 +89,14 @@ export default function FolderSelector({ value, folders, onChange, onCreateFolde
         <Icon
           icon={selected ? "lucide:folder-open" : "lucide:folder"}
           width={14}
-          className="text-[var(--t-text-dim)] shrink-0"
+          className="text-(--t-text-dim) shrink-0"
         />
         <span className="flex-1 text-left truncate text-xs">{selected ? selected.name : "No folder"}</span>
-        <span className="[&_path]:[stroke-width:2.5]">
+        <span className="[&_path]:stroke-[2.5]">
           <Icon
             icon="lucide:chevron-down"
             width={14}
-            className="text-[var(--t-text-dim)] shrink-0"
+            className="text-(--t-text-dim) shrink-0"
             style={{ transition: "transform 150ms", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
           />
         </span>
@@ -105,7 +105,7 @@ export default function FolderSelector({ value, folders, onChange, onCreateFolde
       {open && createPortal(
         <div
           ref={dropdownRef}
-          className="p-1.5 rounded-xl flex flex-col fixed z-[9999] bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)]"
+          className="p-1.5 rounded-xl flex flex-col fixed z-9999 bg-(--t-bg-card) border border-(--t-bg-card-hover)"
           style={{
             top: dropdownPos.top,
             bottom: dropdownPos.bottom,
@@ -125,15 +125,15 @@ export default function FolderSelector({ value, folders, onChange, onCreateFolde
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
           >
             <Icon icon="lucide:folder-x" width={13} className="shrink-0" />
-            <span className="flex-1 text-left text-[var(--t-text-primary)]">No folder</span>
+            <span className="flex-1 text-left text-(--t-text-primary)">No folder</span>
             {value === null && (
-              <span className="[&_path]:[stroke-width:2.5]">
+              <span className="[&_path]:stroke-[2.5]">
                 <Icon icon="lucide:check" width={13} />
               </span>
             )}
           </button>
 
-          {folders.length > 0 && <div className="my-1 border-t border-t-[var(--t-bg-card-hover)]" />}
+          {folders.length > 0 && <div className="my-1 border-t border-t-(--t-bg-card-hover)" />}
 
           {folders.map((folder) => (
             <button
@@ -146,20 +146,20 @@ export default function FolderSelector({ value, folders, onChange, onCreateFolde
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
             >
               <Icon icon="lucide:folder" width={13} className="shrink-0" />
-              <span className="flex-1 text-left text-[var(--t-text-primary)] truncate">{folder.name}</span>
+              <span className="flex-1 text-left text-(--t-text-primary) truncate">{folder.name}</span>
               {value === folder.id && (
-                <span className="[&_path]:[stroke-width:2.5]">
-                  <Icon icon="lucide:check" width={13} className="text-[var(--t-accent)]" />
+                <span className="[&_path]:stroke-[2.5]">
+                  <Icon icon="lucide:check" width={13} className="text-(--t-accent)" />
                 </span>
               )}
             </button>
           ))}
 
-          <div className="mt-1 border-t border-t-[var(--t-bg-card-hover)]" />
+          <div className="mt-1 border-t border-t-(--t-bg-card-hover)" />
 
           {creating ? (
             <div className="flex items-center gap-1.5 px-2 py-1.5">
-              <Icon icon="lucide:folder-plus" width={13} className="text-[var(--t-text-dim)] shrink-0" />
+              <Icon icon="lucide:folder-plus" width={13} className="text-(--t-text-dim) shrink-0" />
               <input
                 ref={newNameRef}
                 type="text"
@@ -170,13 +170,13 @@ export default function FolderSelector({ value, folders, onChange, onCreateFolde
                   if (e.key === "Escape") setCreating(false);
                 }}
                 placeholder="Folder name"
-                className="flex-1 bg-transparent outline-none text-xs text-[var(--t-text-primary)] placeholder:text-[var(--t-text-dim)] min-w-0"
+                className="flex-1 bg-transparent outline-hidden text-xs text-(--t-text-primary) placeholder:text-(--t-text-dim) min-w-0"
               />
               <button
                 type="button"
                 onClick={() => void handleCreate()}
                 disabled={!newName.trim() || saving}
-                className="shrink-0 p-1 rounded transition-colors disabled:opacity-40"
+                className="shrink-0 p-1 rounded-sm transition-colors disabled:opacity-40"
                 style={{ color: "var(--t-accent)" }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)"; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
@@ -186,7 +186,7 @@ export default function FolderSelector({ value, folders, onChange, onCreateFolde
               <button
                 type="button"
                 onClick={() => setCreating(false)}
-                className="shrink-0 p-1 rounded transition-colors text-[var(--t-text-dim)]"
+                className="shrink-0 p-1 rounded-sm transition-colors text-(--t-text-dim)"
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)"; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
               >
@@ -197,7 +197,7 @@ export default function FolderSelector({ value, folders, onChange, onCreateFolde
             <button
               type="button"
               onClick={() => setCreating(true)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors text-[var(--t-text-dim)]"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors text-(--t-text-dim)"
               onMouseEnter={(e) => {
                 (e.currentTarget as HTMLButtonElement).style.color = "var(--t-accent)";
                 (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)";

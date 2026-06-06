@@ -47,7 +47,7 @@ export function InfoTooltip({
         type="button"
         onMouseEnter={show}
         onMouseLeave={hide}
-        className="flex items-center justify-center text-[var(--t-text-dim)]"
+        className="flex items-center justify-center text-(--t-text-dim)"
         style={iconColor ? { color: iconColor } : undefined}
         tabIndex={-1}
       >
@@ -57,7 +57,7 @@ export function InfoTooltip({
         <div
           onMouseEnter={interactive ? show : undefined}
           onMouseLeave={interactive ? hide : undefined}
-          className={`fixed z-[9999] px-3 py-2 rounded-lg text-xs leading-relaxed bg-[var(--t-bg-elevated)] border border-[var(--t-border)] text-[var(--t-text-secondary)] ${interactive ? "" : "pointer-events-none"}`}
+          className={`fixed z-9999 px-3 py-2 rounded-lg text-xs leading-relaxed bg-(--t-bg-elevated) border border-(--t-border) text-(--t-text-secondary) ${interactive ? "" : "pointer-events-none"}`}
           style={{
             top: pos.top,
             left: pos.left,

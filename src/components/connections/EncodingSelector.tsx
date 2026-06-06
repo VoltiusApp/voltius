@@ -107,13 +107,13 @@ export default function EncodingSelector({ value, onChange }: Props) {
           color: value ? "var(--t-text-primary)" : "var(--t-text-dim)",
         }}
       >
-        <Icon icon="lucide:binary" width={14} className="text-[var(--t-text-dim)] shrink-0" />
+        <Icon icon="lucide:binary" width={14} className="text-(--t-text-dim) shrink-0" />
         <span className="flex-1 text-left truncate text-xs">{selectedLabel}</span>
-        <span className="[&_path]:[stroke-width:2.5]">
+        <span className="[&_path]:stroke-[2.5]">
           <Icon
             icon="lucide:chevron-down"
             width={14}
-            className="text-[var(--t-text-dim)] shrink-0"
+            className="text-(--t-text-dim) shrink-0"
             style={{ transition: "transform 150ms", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
           />
         </span>
@@ -121,7 +121,7 @@ export default function EncodingSelector({ value, onChange }: Props) {
 
       {open && createPortal(
         <div
-          className="p-1.5 rounded-xl flex flex-col fixed z-[9999] bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)] overflow-y-auto"
+          className="p-1.5 rounded-xl flex flex-col fixed z-9999 bg-(--t-bg-card) border border-(--t-bg-card-hover) overflow-y-auto"
           style={{
             top: dropdownPos.top,
             left: dropdownPos.left,
@@ -140,8 +140,8 @@ export default function EncodingSelector({ value, onChange }: Props) {
 
           {ENCODING_GROUPS.map((group) => (
             <div key={group.label}>
-              <div className="my-1 border-t border-t-[var(--t-bg-card-hover)]" />
-              <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--t-text-dim)]">
+              <div className="my-1 border-t border-t-(--t-bg-card-hover)" />
+              <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-(--t-text-dim)">
                 {group.label}
               </p>
               {group.options.map((opt) => (
@@ -175,7 +175,7 @@ function OptionButton({ icon, label, selected, onClick }: { icon: string; label:
       <Icon icon={icon} width={13} className="shrink-0" />
       <span className="flex-1 text-left">{label}</span>
       {selected && (
-        <span className="[&_path]:[stroke-width:2.5]">
+        <span className="[&_path]:stroke-[2.5]">
           <Icon icon="lucide:check" width={13} />
         </span>
       )}

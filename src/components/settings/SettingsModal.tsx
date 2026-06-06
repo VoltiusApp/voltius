@@ -24,7 +24,7 @@ export default function SettingsModal() {
   return (
     <Modal onClose={() => setOpen(false)} blur>
       <div
-        className="flex overflow-hidden animate-fadeIn bg-[var(--t-bg-base)] border border-[var(--t-border)]"
+        className="flex overflow-hidden animate-fadeIn bg-(--t-bg-base) border border-(--t-border)"
         style={{
           width: "min(60rem, 92vw)",
           height: "min(38.667rem, 88vh)",
@@ -33,11 +33,11 @@ export default function SettingsModal() {
         }}
       >
         <nav
-          className="flex flex-col shrink-0 py-4 bg-[var(--t-bg-toolbar)] border-r border-r-[var(--t-border)]"
+          className="flex flex-col shrink-0 py-4 bg-(--t-bg-toolbar) border-r border-r-(--t-border)"
           style={{ width: "13.333rem" }}
         >
           <div className="px-5 mb-4">
-            <span className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">
+            <span className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
               Settings
             </span>
           </div>
@@ -65,21 +65,21 @@ export default function SettingsModal() {
             })}
           </div>
 
-          <div className="px-4 pt-3 border-t border-t-[var(--t-border)]">
-            <span className="text-xs text-[var(--t-text-dim)]">Ctrl+, to open</span>
+          <div className="px-4 pt-3 border-t border-t-(--t-border)">
+            <span className="text-xs text-(--t-text-dim)">Ctrl+, to open</span>
           </div>
         </nav>
 
         <div className="flex-1 flex flex-col overflow-hidden">
           <div
-            className="flex items-center justify-between px-6 py-4 shrink-0 border-b border-b-[var(--t-border)]"
+            className="flex items-center justify-between px-6 py-4 shrink-0 border-b border-b-(--t-border)"
           >
-            <span className="text-sm font-semibold text-[var(--t-text-bright)]">
+            <span className="text-sm font-semibold text-(--t-text-bright)">
               {SETTINGS_NAV.find((n) => n.id === section)?.label}
             </span>
             <button
               onClick={() => setOpen(false)}
-              className="p-1.5 rounded-lg transition-colors text-[var(--t-text-muted)]"
+              className="p-1.5 rounded-lg transition-colors text-(--t-text-muted)"
               onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-bright)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-muted)"; }}
             >

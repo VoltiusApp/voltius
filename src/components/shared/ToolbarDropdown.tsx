@@ -107,23 +107,23 @@ export function ToolbarDropdown<T extends string>({
 
   const menuEl = open && hasContent && (
     <div
-      className={`absolute top-full ${align === "left" ? "left-0" : "right-0"} mt-1 rounded-xl z-50 flex flex-col bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)]`}
+      className={`absolute top-full ${align === "left" ? "left-0" : "right-0"} mt-1 rounded-xl z-50 flex flex-col bg-(--t-bg-card) border border-(--t-bg-card-hover)`}
       style={{ minWidth: `${(menuWidth / 15).toFixed(3)}rem`, boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
     >
       {searchable && (
         <div className="px-1.5 pt-1.5">
-          <div className="flex items-center gap-1.5 px-2 h-7 rounded-lg bg-[var(--t-bg-input)] border border-[var(--t-border)]">
-            <Icon icon="lucide:search" width={12} className="text-[var(--t-text-dim)] shrink-0" />
+          <div className="flex items-center gap-1.5 px-2 h-7 rounded-lg bg-(--t-bg-input) border border-(--t-border)">
+            <Icon icon="lucide:search" width={12} className="text-(--t-text-dim) shrink-0" />
             <input
               ref={searchRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search…"
-              className="flex-1 text-xs bg-transparent outline-none text-[var(--t-text-primary)] placeholder:text-[var(--t-text-dim)]"
+              className="flex-1 text-xs bg-transparent outline-hidden text-(--t-text-primary) placeholder:text-(--t-text-dim)"
             />
             {searchQuery && (
-              <button type="button" onClick={() => setSearchQuery("")} className="text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)]">
+              <button type="button" onClick={() => setSearchQuery("")} className="text-(--t-text-dim) hover:text-(--t-text-primary)">
                 <Icon icon="lucide:x" width={11} />
               </button>
             )}
@@ -157,7 +157,7 @@ export function ToolbarDropdown<T extends string>({
                 />
               ))
             : (
-              <p className="text-xs text-[var(--t-text-dim)] px-3 py-2">No results</p>
+              <p className="text-xs text-(--t-text-dim) px-3 py-2">No results</p>
             )
         }
       </div>
@@ -199,7 +199,7 @@ export function ToolbarDropdown<T extends string>({
           onMouseLeave={(e) => (e.currentTarget.style.background = chevronBg)}
           title="More options"
         >
-          <span className="[&_path]:[stroke-width:3]">
+          <span className="[&_path]:stroke-3">
             <Icon icon="lucide:chevron-down" width={20} style={{ transition: "transform 150ms", transform: open ? "rotate(180deg)" : "rotate(0deg)" }} />
           </span>
         </button>}
@@ -212,7 +212,7 @@ export function ToolbarDropdown<T extends string>({
     <div className={`relative ${className}`} ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 px-2 h-8 rounded-lg transition-colors text-[var(--t-text-primary)] hover:text-[var(--t-tab-active-text)]"
+        className="flex items-center gap-1 px-2 h-8 rounded-lg transition-colors text-(--t-text-primary) hover:text-(--t-tab-active-text)"
       >
         <div className="relative">
           <Icon icon={icon} width={24} />
@@ -226,7 +226,7 @@ export function ToolbarDropdown<T extends string>({
           )}
         </div>
         {label && <span className="text-sm font-bold tracking-wider whitespace-nowrap">{label}</span>}
-        <span className="[&_path]:[stroke-width:3]">
+        <span className="[&_path]:stroke-3">
           <Icon
             icon="lucide:chevron-down"
             width={20}

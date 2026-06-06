@@ -122,7 +122,7 @@ export function ExportTab({ selection, preselectedTypes }: {
 
       <div className="flex gap-6">
         <div className="flex-1">
-          <p className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">Include</p>
+          <p className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">Include</p>
           <div className="flex flex-col gap-2.5">
             {HANDLERS.map(h => {
               if (!h.isActive(selection)) return null;
@@ -138,13 +138,13 @@ export function ExportTab({ selection, preselectedTypes }: {
                     label={h.checkboxLabel(selection, displayCount)}
                   />
                   {bundled !== undefined && bundled !== available && (
-                    <span className="text-xs text-[var(--t-text-muted)]">/ {available}</span>
+                    <span className="text-xs text-(--t-text-muted)">/ {available}</span>
                   )}
                 </div>
               );
             })}
             {isBulk && !isSingleItem && (
-              <p className="text-xs text-[var(--t-text-muted)]">
+              <p className="text-xs text-(--t-text-muted)">
                 {bulkCount} selected item{bulkCount !== 1 ? "s" : ""}
               </p>
             )}
@@ -152,7 +152,7 @@ export function ExportTab({ selection, preselectedTypes }: {
         </div>
 
         <div className="flex-1">
-          <p className="text-xs font-bold uppercase tracking-widest mb-3 text-[var(--t-text-dim)]">Format</p>
+          <p className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">Format</p>
           <div className="flex flex-col gap-2">
             {!lockJsonFormat ? (
               <div className="flex gap-0.5 p-0.5 rounded-lg w-fit" style={{ background: "var(--t-bg-input)", border: "1px solid var(--t-border)" }}>
@@ -170,16 +170,16 @@ export function ExportTab({ selection, preselectedTypes }: {
                 ))}
               </div>
             ) : (
-              <span className="text-sm font-medium text-[var(--t-text-primary)]">JSON</span>
+              <span className="text-sm font-medium text-(--t-text-primary)">JSON</span>
             )}
-            <p className="text-xs text-[var(--t-text-dim)]">
+            <p className="text-xs text-(--t-text-dim)">
               {format === "csv" ? "Connections only — spreadsheet-friendly" : "Full data including key content"}
             </p>
             {format === "json" && (
               <div className="flex flex-col gap-2 mt-1">
                 <div className="flex items-center gap-2.5">
                   <Toggle checked={encrypt} onChange={v => { setEncrypt(v); if (!v) { setEncryptPassword(""); setEncryptConfirm(""); } }} />
-                  <span className="text-sm text-[var(--t-text-primary)]">Encrypt backup</span>
+                  <span className="text-sm text-(--t-text-primary)">Encrypt backup</span>
                 </div>
                 {encrypt && (
                   <div className="flex flex-col gap-2 ml-6">
@@ -189,14 +189,14 @@ export function ExportTab({ selection, preselectedTypes }: {
                         value={encryptPassword}
                         onChange={e => setEncryptPassword(e.target.value)}
                         placeholder="Password"
-                        className="w-full px-2.5 py-1.5 rounded-lg text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border-hover)] text-[var(--t-text-primary)]"
+                        className="w-full px-2.5 py-1.5 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border-hover) text-(--t-text-primary)"
                       />
                       <input
                         type="password"
                         value={encryptConfirm}
                         onChange={e => setEncryptConfirm(e.target.value)}
                         placeholder="Confirm password"
-                        className="w-full px-2.5 py-1.5 rounded-lg text-sm outline-none bg-[var(--t-bg-input)] border border-[var(--t-border-hover)] text-[var(--t-text-primary)]"
+                        className="w-full px-2.5 py-1.5 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border-hover) text-(--t-text-primary)"
                       />
                     </div>
                     {encryptPassword && encryptConfirm && encryptPassword !== encryptConfirm && (
@@ -210,10 +210,10 @@ export function ExportTab({ selection, preselectedTypes }: {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 py-3 border-y border-[var(--t-border)]">
+      <div className="flex items-center gap-3 py-3 border-y border-(--t-border)">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {building ? (
-            <span className="text-xs text-[var(--t-text-dim)] flex items-center gap-1.5">
+            <span className="text-xs text-(--t-text-dim) flex items-center gap-1.5">
               <Icon icon="lucide:loader" width={12} className="animate-spin" />
               Building…
             </span>
@@ -222,10 +222,10 @@ export function ExportTab({ selection, preselectedTypes }: {
               {totalItems > 0 ? (
                 <ContentCounts counts={recapCounts} />
               ) : (
-                <span className="text-sm text-[var(--t-text-muted)] truncate">Nothing to export</span>
+                <span className="text-sm text-(--t-text-muted) truncate">Nothing to export</span>
               )}
               {autoIncludes.length > 0 && (
-                <span className="text-xs flex items-center gap-1 text-[var(--t-text-dim)] shrink-0">
+                <span className="text-xs flex items-center gap-1 text-(--t-text-dim) shrink-0">
                   <Icon icon="lucide:link" width={11} />
                   +{autoIncludes.join(" + ")}
                 </span>
@@ -249,7 +249,7 @@ export function ExportTab({ selection, preselectedTypes }: {
         </button>
         {showPreview && (
           <textarea readOnly value={preview}
-            className="flex-1 w-full text-xs rounded-lg p-3 resize-none font-mono outline-none bg-[var(--t-bg-terminal)] text-[var(--t-text-secondary)] border border-[var(--t-border)]"
+            className="flex-1 w-full text-xs rounded-lg p-3 resize-none font-mono outline-hidden bg-(--t-bg-terminal) text-(--t-text-secondary) border border-(--t-border)"
             style={{ minHeight: 160 }}
           />
         )}

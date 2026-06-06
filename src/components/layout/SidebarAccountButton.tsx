@@ -116,7 +116,7 @@ export function SidebarAccountButton() {
       {open && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed p-1.5 rounded-xl z-[9999] flex flex-col bg-[var(--t-bg-card)] border border-[var(--t-bg-card-hover)] min-w-[14rem]"
+          className="fixed p-1.5 rounded-xl z-9999 flex flex-col bg-(--t-bg-card) border border-(--t-bg-card-hover) min-w-56"
           style={{
             bottom: pos.bottom,
             left: pos.left,
@@ -141,7 +141,7 @@ export function SidebarAccountButton() {
                   </span>
                 )}
               </div>
-              <div className="h-px bg-[var(--t-bg-input)] -mx-1.5 my-0.5" />
+              <div className="h-px bg-(--t-bg-input) -mx-1.5 my-0.5" />
             </>
           )}
 
@@ -161,7 +161,7 @@ export function SidebarAccountButton() {
 
           {savedAccounts.length > 1 && (
             <>
-              <div className="h-px bg-[var(--t-bg-input)] -mx-1.5 my-0.5" />
+              <div className="h-px bg-(--t-bg-input) -mx-1.5 my-0.5" />
               <div className="px-3 pt-2 pb-1">
                 <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--t-text-dim)" }}>
                   Switch account
@@ -186,7 +186,7 @@ export function SidebarAccountButton() {
                     <button
                       type="button"
                       title="Remove saved account"
-                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded-sm transition-opacity"
                       style={{ color: "var(--t-text-dim)" }}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)"; }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}

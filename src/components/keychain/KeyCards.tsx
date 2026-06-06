@@ -27,12 +27,12 @@ import {
 export function SectionHeader({ label, count }: { label: string; count: number }) {
   return (
     <div className="flex items-center gap-2">
-      <p className="text-xs font-bold uppercase tracking-widest text-[var(--t-text-dim)]">
+      <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
         {label}
       </p>
       {count > 0 && (
         <span
-          className="text-xs px-1.5 py-0.5 rounded-md bg-[var(--t-bg-elevated)] text-[var(--t-text-dim)]"
+          className="text-xs px-1.5 py-0.5 rounded-md bg-(--t-bg-elevated) text-(--t-text-dim)"
         >
           {count}
         </span>
@@ -44,14 +44,14 @@ export function SectionHeader({ label, count }: { label: string; count: number }
 export function DraftCard({ icon, label }: { icon: string; label: string }) {
   return (
     <div
-      className="flex items-center gap-4 px-4 py-4 rounded-2xl border-2 border-dashed border-[var(--t-accent)] opacity-50"
+      className="flex items-center gap-4 px-4 py-4 rounded-2xl border-2 border-dashed border-(--t-accent) opacity-50"
     >
       <div
-        className="rounded-lg flex items-center justify-center shrink-0 w-[3.2rem] h-[3.2rem] bg-[var(--t-bg-card-avatar)]"
+        className="rounded-lg flex items-center justify-center shrink-0 w-[3.2rem] h-[3.2rem] bg-(--t-bg-card-avatar)"
       >
-        <Icon icon={icon} width={24} className="text-[var(--t-text-dim)]" />
+        <Icon icon={icon} width={24} className="text-(--t-text-dim)" />
       </div>
-      <p className="text-sm font-medium text-[var(--t-text-dim)]">{label}</p>
+      <p className="text-sm font-medium text-(--t-text-dim)">{label}</p>
     </div>
   );
 }
@@ -68,17 +68,17 @@ export function EmptySection({
   return (
     <div className="flex flex-col items-center justify-center py-8 gap-3">
       <div
-        className="w-12 h-12 rounded-xl flex items-center justify-center bg-[var(--t-bg-toolbar)] border border-[var(--t-border)]"
+        className="w-12 h-12 rounded-xl flex items-center justify-center bg-(--t-bg-toolbar) border border-(--t-border)"
       >
-        <Icon icon={icon} width={20} className="text-[var(--t-text-dim)]" />
+        <Icon icon={icon} width={20} className="text-(--t-text-dim)" />
       </div>
       <div className="text-center">
-        <p className="text-sm font-medium mb-1 text-[var(--t-text-primary)]">{title}</p>
-        <p className="text-xs text-[var(--t-text-dim)]">{description}</p>
+        <p className="text-sm font-medium mb-1 text-(--t-text-primary)">{title}</p>
+        <p className="text-xs text-(--t-text-dim)">{description}</p>
       </div>
       {onAdd && <button
         onClick={onAdd}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-[var(--t-bg-elevated)] text-[var(--t-accent)] border border-[var(--t-border-hover)]"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-(--t-bg-elevated) text-(--t-accent) border border-(--t-border-hover)"
         onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-border-hover)")}
         onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
       >
@@ -100,24 +100,24 @@ export function KeyCardContent({ sshKey, avatarSize, iconSize }: { sshKey: SshKe
   return (
     <>
       <div
-        className="rounded-lg flex items-center justify-center shrink-0 select-none bg-[var(--t-bg-card-avatar)]"
+        className="rounded-lg flex items-center justify-center shrink-0 select-none bg-(--t-bg-card-avatar)"
         style={{ width: `${(avatarSize / 15).toFixed(3)}rem`, height: `${(avatarSize / 15).toFixed(3)}rem` }}
       >
         <Icon icon="lucide:key-round" width={iconSize} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate text-[var(--t-text-bright)]">
+        <p className="text-sm font-medium truncate text-(--t-text-bright)">
           {sshKey.name}
         </p>
         <div className="flex items-center gap-2 mt-0.5">
           {sshKey.key_type && (
             <span
-              className="text-xs px-1.5 py-0.5 rounded font-mono bg-[var(--t-bg-elevated)] text-[var(--t-accent)]"
+              className="text-xs px-1.5 py-0.5 rounded-sm font-mono bg-(--t-bg-elevated) text-(--t-accent)"
             >
               {sshKey.key_type}
             </span>
           )}
-          <span className="text-xs text-[var(--t-text-secondary)]">{formattedDate}</span>
+          <span className="text-xs text-(--t-text-secondary)">{formattedDate}</span>
         </div>
         {sshKey.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1">
@@ -228,7 +228,7 @@ function KeyCard({
 
       <div className="flex items-center gap-1 shrink-0">
         {!isSynced && (
-          <span title="Cloud sync disabled" className="text-[var(--t-text-dim)] flex items-center">
+          <span title="Cloud sync disabled" className="text-(--t-text-dim) flex items-center">
             <Icon icon="lucide:cloud-off" width={18} />
           </span>
         )}
@@ -432,25 +432,25 @@ function IdentityCard({
       contextMenuItems={contextMenuItems}
     >
       <div
-        className="rounded-lg flex items-center justify-center shrink-0 select-none bg-[var(--t-bg-card-avatar)]"
+        className="rounded-lg flex items-center justify-center shrink-0 select-none bg-(--t-bg-card-avatar)"
         style={{ width: `${(avatarSize / 15).toFixed(3)}rem`, height: `${(avatarSize / 15).toFixed(3)}rem` }}
       >
         <Icon icon="lucide:id-card" width={iconSize} />
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate text-[var(--t-text-bright)]">
+        <p className="text-sm font-medium truncate text-(--t-text-bright)">
           {identity.name ?? identity.username}
         </p>
         <div className="flex items-center gap-2 mt-0.5">
           {identity.name && (
-            <span className="text-xs truncate text-[var(--t-text-secondary)]">
+            <span className="text-xs truncate text-(--t-text-secondary)">
               {identity.username}
             </span>
           )}
           {linkedKey && (
             <span
-              className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-[var(--t-bg-elevated)] text-[var(--t-text-dim)]"
+              className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-sm bg-(--t-bg-elevated) text-(--t-text-dim)"
             >
               <Icon icon="lucide:key-round" width={10} />
               {linkedKey.name ?? "Key"}
@@ -458,12 +458,12 @@ function IdentityCard({
           )}
           {!linkedKey && (
             <span
-              className="text-xs px-1.5 py-0.5 rounded bg-[var(--t-bg-elevated)] text-[var(--t-text-dim)]"
+              className="text-xs px-1.5 py-0.5 rounded-sm bg-(--t-bg-elevated) text-(--t-text-dim)"
             >
               Password
             </span>
           )}
-          <span className="text-xs text-[var(--t-text-secondary)]">{formattedDate}</span>
+          <span className="text-xs text-(--t-text-secondary)">{formattedDate}</span>
         </div>
         {identity.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1">
@@ -474,7 +474,7 @@ function IdentityCard({
 
       <div className="flex items-center gap-1 shrink-0">
         {!isSynced && (
-          <span title="Cloud sync disabled" className="text-[var(--t-text-dim)] flex items-center">
+          <span title="Cloud sync disabled" className="text-(--t-text-dim) flex items-center">
             <Icon icon="lucide:cloud-off" width={18} />
           </span>
         )}

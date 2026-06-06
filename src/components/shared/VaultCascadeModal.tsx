@@ -26,7 +26,7 @@ export function VaultCascadeModal({ cascade, onConfirm, onCancel }: Props) {
   return (
     <Modal onClose={onCancel} onEnter={onConfirm}>
       <div
-        className="p-6 rounded-2xl flex flex-col gap-4 mx-4 bg-[var(--t-bg-card)] border border-[var(--t-border)] min-w-[21.333rem] max-w-[26.667rem]"
+        className="p-6 rounded-2xl flex flex-col gap-4 mx-4 bg-(--t-bg-card) border border-(--t-border) min-w-[21.333rem] max-w-[26.667rem]"
         style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
       >
         <div className="flex items-center gap-3">
@@ -37,16 +37,16 @@ export function VaultCascadeModal({ cascade, onConfirm, onCancel }: Props) {
             <Icon
               icon={cascade.operation === "move" ? "lucide:folder-input" : "lucide:copy"}
               width={16}
-              className="text-[var(--t-accent)]"
+              className="text-(--t-accent)"
             />
           </div>
-          <h2 className="text-sm font-semibold text-[var(--t-text-bright)]">
+          <h2 className="text-sm font-semibold text-(--t-text-bright)">
             {verb} linked items to{" "}
-            <span className="text-[var(--t-accent)]">{cascade.targetVaultName}</span>?
+            <span className="text-(--t-accent)">{cascade.targetVaultName}</span>?
           </h2>
         </div>
 
-        <p className="text-sm text-[var(--t-text-secondary)]">
+        <p className="text-sm text-(--t-text-secondary)">
           {cascade.description ?? (
             <>
               The following linked items are in a different vault and will also be{" "}
@@ -59,15 +59,15 @@ export function VaultCascadeModal({ cascade, onConfirm, onCancel }: Props) {
           {cascade.items.map((item, i) => (
             <div
               key={i}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--t-bg-elevated)]"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-(--t-bg-elevated)"
             >
               <Icon
                 icon={typeIcon[item.type]}
                 width={14}
-                className="text-[var(--t-text-secondary)] shrink-0"
+                className="text-(--t-text-secondary) shrink-0"
               />
-              <span className="text-xs text-[var(--t-text-secondary)]">{typeLabel[item.type]}</span>
-              <span className="text-sm font-medium text-[var(--t-text-bright)] truncate">
+              <span className="text-xs text-(--t-text-secondary)">{typeLabel[item.type]}</span>
+              <span className="text-sm font-medium text-(--t-text-bright) truncate">
                 {item.label}
               </span>
             </div>
@@ -77,7 +77,7 @@ export function VaultCascadeModal({ cascade, onConfirm, onCancel }: Props) {
         <div className="flex gap-2 justify-end">
           <button
             onClick={onCancel}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-[var(--t-bg-elevated)] text-[var(--t-text-secondary)] border border-[var(--t-border)]"
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-(--t-bg-elevated) text-(--t-text-secondary) border border-(--t-border)"
             onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-card-hover)")}
             onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
           >

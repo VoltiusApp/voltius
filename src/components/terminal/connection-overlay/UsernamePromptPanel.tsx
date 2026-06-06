@@ -64,7 +64,7 @@ export function UsernamePromptPanel({
   return (
     <DecisionPanel
       tone="secure"
-      icon={<Icon icon="lucide:user" width={14} className="text-[var(--t-text-dim)] shrink-0" />}
+      icon={<Icon icon="lucide:user" width={14} className="text-(--t-text-dim) shrink-0" />}
       title="USERNAME REQUIRED"
       description="This host has no username set. Enter one or pick an identity to continue."
       actions={[
@@ -104,7 +104,7 @@ export function UsernamePromptPanel({
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
-            className="w-full px-3 py-2 rounded-lg text-sm outline-none bg-[var(--t-bg-base)] border border-[var(--t-border)] text-[var(--t-text-primary)] focus:border-[var(--t-accent)]"
+            className="w-full px-3 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-base) border border-(--t-border) text-(--t-text-primary) focus:border-(--t-accent)"
           />
         )}
       </div>

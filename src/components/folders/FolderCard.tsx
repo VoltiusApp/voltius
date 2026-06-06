@@ -156,7 +156,7 @@ export function FolderCard({
             {renaming ? (
               <input
                 autoFocus
-                className="font-medium text-sm bg-transparent outline-none flex-1 min-w-0 text-[var(--t-text-bright)]"
+                className="font-medium text-sm bg-transparent outline-hidden flex-1 min-w-0 text-(--t-text-bright)"
                 value={renameValue}
                 onChange={(e) => setRenameValue(e.target.value)}
                 onBlur={handleRenameCommit}
@@ -168,11 +168,11 @@ export function FolderCard({
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
-              <p className="font-medium-bold truncate w-48 shrink-0 text-[var(--t-text-bright)]">
+              <p className="font-medium-bold truncate w-48 shrink-0 text-(--t-text-bright)">
                 {folder.name}
               </p>
             )}
-            <p className="text-xs truncate flex-1 text-[var(--t-text-secondary)]">
+            <p className="text-xs truncate flex-1 text-(--t-text-secondary)">
               {itemCount} item{itemCount !== 1 ? "s" : ""}
             </p>
           </>
@@ -181,7 +181,7 @@ export function FolderCard({
             {renaming ? (
               <input
                 autoFocus
-                className="text-base font-medium-bold bg-transparent outline-none w-full text-[var(--t-text-bright)]"
+                className="text-base font-medium-bold bg-transparent outline-hidden w-full text-(--t-text-bright)"
                 value={renameValue}
                 onChange={(e) => setRenameValue(e.target.value)}
                 onBlur={handleRenameCommit}
@@ -193,11 +193,11 @@ export function FolderCard({
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
-              <p className="text-base font-medium-bold truncate leading-tight text-[var(--t-text-bright)]">
+              <p className="text-base font-medium-bold truncate leading-tight text-(--t-text-bright)">
                 {folder.name}
               </p>
             )}
-            <p className="text-xs mt-0.5 truncate text-[var(--t-text-secondary)]">
+            <p className="text-xs mt-0.5 truncate text-(--t-text-secondary)">
               {itemCount} item{itemCount !== 1 ? "s" : ""}
             </p>
           </div>
@@ -206,14 +206,14 @@ export function FolderCard({
         <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={(e) => { e.stopPropagation(); handlePinClick(); }}
-            className={`shrink-0 flex items-center transition-colors ${pinAlwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100 hover:text-[var(--t-text-bright)]"}`}
+            className={`shrink-0 flex items-center transition-colors ${pinAlwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100 hover:text-(--t-text-bright)"}`}
             style={{ color: pinColor }}
             title={effPinned ? "Unpin" : "Pin"}
           >
             <Icon icon={pinIcon} width={16} />
           </button>
           {!isSynced && (
-            <span title="Cloud sync disabled" className="text-[var(--t-text-dim)] flex items-center">
+            <span title="Cloud sync disabled" className="text-(--t-text-dim) flex items-center">
               <Icon icon="lucide:cloud-off" width={18} />
             </span>
           )}

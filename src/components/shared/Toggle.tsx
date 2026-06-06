@@ -12,7 +12,7 @@ export function Toggle({ checked, onChange, disabled }: ToggleProps) {
       aria-checked={checked}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className="relative shrink-0 rounded-full transition-colors border border-[var(--t-border)] disabled:opacity-40 disabled:cursor-not-allowed"
+      className="relative shrink-0 rounded-full transition-colors border border-(--t-border) disabled:opacity-40 disabled:cursor-not-allowed"
       style={{
         width: "2.4rem",
         height: "1.333rem",
@@ -20,7 +20,7 @@ export function Toggle({ checked, onChange, disabled }: ToggleProps) {
       }}
     >
       <span
-        className="absolute top-[1px] rounded-full transition-transform bg-white"
+        className="absolute top-px rounded-full transition-transform bg-white"
         style={{
           width: "1.067rem",
           height: "1.067rem",

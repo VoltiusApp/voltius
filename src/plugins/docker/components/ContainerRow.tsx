@@ -22,9 +22,9 @@ interface Props {
 }
 
 function stateDot(state: string) {
-  if (state === "running") return "bg-[var(--t-status-connected)]";
-  if (state === "paused") return "bg-[var(--t-status-warning)]";
-  return "bg-[var(--t-text-muted)] opacity-40";
+  if (state === "running") return "bg-(--t-status-connected)";
+  if (state === "paused") return "bg-(--t-status-warning)";
+  return "bg-(--t-text-muted) opacity-40";
 }
 
 function displayName(names: string[]): string {
@@ -103,27 +103,27 @@ export function ContainerRow({
   const paused = container.state === "paused";
 
   return (
-    <div className="border-b border-[var(--t-border)] last:border-0">
+    <div className="border-b border-(--t-border) last:border-0">
       {/* Main row */}
       <div
         onClick={() => setExpanded((v) => !v)}
-        className="flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--t-bg-card-hover)] cursor-pointer select-none"
+        className="flex items-center gap-2 px-3 py-1.5 hover:bg-(--t-bg-card-hover) cursor-pointer select-none"
       >
         <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${stateDot(container.state)}`} />
         <div className="flex-1 min-w-0">
-          <p className="text-[11px] text-[var(--t-text)] truncate font-medium">{name}</p>
+          <p className="text-[11px] text-(--t-text) truncate font-medium">{name}</p>
           <div className="flex items-center gap-1.5 min-w-0">
-            <p className="text-[10px] text-[var(--t-text-muted)] truncate">{container.image}</p>
+            <p className="text-[10px] text-(--t-text-muted) truncate">{container.image}</p>
             <UpdateBadge status={status} checking={checking} />
           </div>
         </div>
-        <span className="text-[10px] text-[var(--t-text-muted)] shrink-0">
+        <span className="text-[10px] text-(--t-text-muted) shrink-0">
           {container.status.split(" ").slice(0, 2).join(" ")}
         </span>
         <Icon
           icon={expanded ? "lucide:chevron-up" : "lucide:chevron-down"}
           width={12}
-          className="text-[var(--t-text-muted)] shrink-0"
+          className="text-(--t-text-muted) shrink-0"
         />
       </div>
 
@@ -135,7 +135,7 @@ export function ContainerRow({
             title="Start"
             disabled={busy}
             onClick={() => act("start")}
-            color="text-[var(--t-status-connected)]"
+            color="text-(--t-status-connected)"
           />
         )}
         {running && (
@@ -151,7 +151,7 @@ export function ContainerRow({
             title="Resume"
             disabled={busy}
             onClick={() => act("unpause")}
-            color="text-[var(--t-status-warning)]"
+            color="text-(--t-status-warning)"
           />
         )}
         <Btn icon="lucide:scroll-text" title="Logs" disabled={busy} onClick={() => onLogs(container.id, name)} />
@@ -160,7 +160,7 @@ export function ContainerRow({
           title="Copy docker run command"
           disabled={busy}
           onClick={copyRunCommand}
-          color={copied ? "text-[var(--t-status-connected)]" : undefined}
+          color={copied ? "text-(--t-status-connected)" : undefined}
         />
         {status?.status === "outdated" && (
           <Btn
@@ -172,7 +172,7 @@ export function ContainerRow({
             }
             disabled={busy || updating}
             onClick={update}
-            color={`text-[var(--t-status-warning)] ${updating ? "animate-spin" : ""}`}
+            color={`text-(--t-status-warning) ${updating ? "animate-spin" : ""}`}
           />
         )}
         {running && (
@@ -181,7 +181,7 @@ export function ContainerRow({
             title="Open terminal"
             disabled={busy}
             onClick={() => onTerminal(container.id, name)}
-            color="text-[var(--t-accent)] opacity-80 hover:opacity-100"
+            color="text-(--t-accent) opacity-80 hover:opacity-100"
           />
         )}
         <Btn
@@ -189,18 +189,18 @@ export function ContainerRow({
           title="Remove"
           disabled={busy}
           onClick={() => act("remove")}
-          color="text-[var(--t-status-error)] opacity-60 hover:opacity-100"
+          color="text-(--t-status-error) opacity-60 hover:opacity-100"
         />
       </div>
 
       {/* Expanded details */}
       {expanded && (
-        <div className="px-3 pb-2 text-[10px] text-[var(--t-text-muted)] space-y-0.5">
+        <div className="px-3 pb-2 text-[10px] text-(--t-text-muted) space-y-0.5">
           <p className="font-mono">{container.id.slice(0, 12)}</p>
           {container.ports.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-0.5">
               {container.ports.map((p, i) => (
-                <span key={i} className="bg-[var(--t-bg-card-hover)] rounded px-1 font-mono">
+                <span key={i} className="bg-(--t-bg-card-hover) rounded-sm px-1 font-mono">
                   {p.host_port ? `${p.host_port}→` : ""}
                   {p.container_port}/{p.protocol}
                 </span>
@@ -218,7 +218,7 @@ function Btn({
   title,
   disabled,
   onClick,
-  color = "text-[var(--t-text-muted)] hover:text-[var(--t-text)]",
+  color = "text-(--t-text-muted) hover:text-(--t-text)",
 }: {
   icon: string;
   title: string;
@@ -231,7 +231,7 @@ function Btn({
       disabled={disabled}
       onClick={onClick}
       title={title}
-      className={`p-1 rounded hover:bg-[var(--t-bg-card-hover)] disabled:opacity-40 ${color}`}
+      className={`p-1 rounded-sm hover:bg-(--t-bg-card-hover) disabled:opacity-40 ${color}`}
     >
       <Icon icon={icon} width={12} />
     </button>

@@ -33,7 +33,7 @@ export default function TerminalView({ sessionId, sessionType, onClosed, active,
         <div ref={attach} className="h-full w-full" />
       </div>
       {scrollMinimapEnabled && (
-        <div className="absolute right-1 top-1 bottom-1 w-24 rounded-sm overflow-hidden opacity-80 hover:opacity-100 transition-opacity">
+        <div className="absolute right-1 top-1 bottom-1 w-24 rounded-xs overflow-hidden opacity-80 hover:opacity-100 transition-opacity">
           <TerminalMinimap sessionId={sessionId} />
         </div>
       )}

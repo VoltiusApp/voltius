@@ -413,7 +413,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                 <button
                   type="button"
                   onClick={toggleDistroPicker}
-                  className="w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0 border border-[var(--t-border)] hover:border-[var(--t-border-hover)] transition-colors"
+                  className="w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0 border border-(--t-border) hover:border-(--t-border-hover) transition-colors"
                   style={{ background: visibleIcon ? getConnectionIconColor(visibleIcon) : "var(--t-bg-card-avatar)" }}
                   title={visibleIcon ? `Change icon (${getConnectionIconLabel(visibleIcon)})` : "Change icon"}
                   aria-label="Change connection icon"
@@ -442,7 +442,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                     }}
                   >
                     <div className="relative">
-                      <Icon icon="lucide:search" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--t-text-dim)] pointer-events-none" />
+                      <Icon icon="lucide:search" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-(--t-text-dim) pointer-events-none" />
                       <input
                         className={`${formInputClass} pl-7 text-xs`}
                         style={formInputStyle}
@@ -484,7 +484,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                             <span className="w-8 h-8 rounded-lg flex items-center justify-center text-white" style={{ background: getConnectionIconColor(option.id) }}>
                               <Icon icon={getConnectionIcon(option.id)} width={16} />
                             </span>
-                            <span className="text-[10px] text-[var(--t-text-dim)] truncate max-w-full">{option.label}</span>
+                            <span className="text-[10px] text-(--t-text-dim) truncate max-w-full">{option.label}</span>
                           </button>
                         );
                       })}
@@ -493,7 +493,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                       type="button"
                       onClick={() => void detectDistroFromForm()}
                       disabled={detectingDistro || !host.trim() || !username.trim()}
-                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-[var(--t-accent)] text-[var(--t-bg-card)] disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-(--t-accent) text-(--t-bg-card) disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Icon icon={detectingDistro ? "lucide:loader-2" : "lucide:scan-search"} width={13} className={detectingDistro ? "animate-spin" : undefined} />
                       Auto-detect OS
@@ -532,7 +532,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
           <FormSection label="Connection">
             <div className="flex gap-2.5">
               <div className="flex-1">
-                <label className={formLabelClass} style={formLabelStyle}>Host / IP <span className="text-[var(--t-accent)]">*</span></label>
+                <label className={formLabelClass} style={formLabelStyle}>Host / IP <span className="text-(--t-accent)">*</span></label>
                 <input
                   className={formInputClass}
                   style={formInputStyle}
@@ -542,7 +542,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                 />
               </div>
               <div className="w-20">
-                <label className={formLabelClass} style={formLabelStyle}>Port <span className="text-[var(--t-accent)]">*</span></label>
+                <label className={formLabelClass} style={formLabelStyle}>Port <span className="text-(--t-accent)">*</span></label>
                 <input
                   className={formInputClass}
                   style={{ ...formInputStyle, MozAppearance: "textfield" }}
@@ -559,11 +559,11 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
             <button
               type="button"
               onClick={() => setShowAdvanced((v) => !v)}
-              className="flex items-center gap-1.5 text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors w-full pt-1"
+              className="flex items-center gap-1.5 text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors w-full pt-1"
             >
               <span>Advanced</span>
               {!showAdvanced && (jumpHosts.length > 0 || envVars.length > 0 || preCommand || postCommand || terminalEncoding || agentForwarding || pingDisabled || shellIntegrationDisabled !== undefined || keepalivePreset) && (
-                <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-[var(--t-accent)]" />
+                <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-(--t-accent)" />
               )}
               <Icon icon={showAdvanced ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} className="ml-auto" />
             </button>
@@ -576,12 +576,12 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                 <button
                   type="button"
                   onClick={() => setShowChaining(true)}
-                  className="flex items-center gap-1.5 text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors w-full py-1"
+                  className="flex items-center gap-1.5 text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors w-full py-1"
                 >
                   <Icon icon="lucide:waypoints" width={13} />
                   <span>Hosts Chaining</span>
                   {jumpHosts.length > 0 && (
-                    <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-[var(--t-accent)] text-[var(--t-bg-card)] text-[10px] font-bold leading-none">
+                    <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-(--t-accent) text-(--t-bg-card) text-[10px] font-bold leading-none">
                       {jumpHosts.length}
                     </span>
                   )}
@@ -590,19 +590,19 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                 <button
                   type="button"
                   onClick={() => setShowEnvVars(true)}
-                  className="flex items-center gap-1.5 text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors w-full py-1"
+                  className="flex items-center gap-1.5 text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors w-full py-1"
                 >
                   <Icon icon="lucide:file-terminal" width={13} />
                   <span>Environment Variables</span>
                   {envVars.length > 0 && (
-                    <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-[var(--t-accent)] text-[var(--t-bg-card)] text-[10px] font-bold leading-none">
+                    <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-(--t-accent) text-(--t-bg-card) text-[10px] font-bold leading-none">
                       {envVars.length}
                     </span>
                   )}
                   <Icon icon="lucide:chevron-right" width={12} className="ml-auto" />
                 </button>
                 <div className="relative">
-                  <Icon icon="lucide:play" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--t-text-dim)] pointer-events-none" />
+                  <Icon icon="lucide:play" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-(--t-text-dim) pointer-events-none" />
                   <input
                     className={`${formInputClass} text-xs pl-7`}
                     style={formInputStyle}
@@ -612,7 +612,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                   />
                 </div>
                 <div className="relative">
-                  <Icon icon="lucide:square" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--t-text-dim)] pointer-events-none" />
+                  <Icon icon="lucide:square" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-(--t-text-dim) pointer-events-none" />
                   <input
                     className={`${formInputClass} text-xs pl-7`}
                     style={formInputStyle}
@@ -625,7 +625,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                   value={terminalEncoding}
                   onChange={(v) => { markDirty(); setTerminalEncoding(v); }}
                 />
-                <div className="flex items-center gap-1.5 text-xs text-[var(--t-text-dim)] w-full py-1">
+                <div className="flex items-center gap-1.5 text-xs text-(--t-text-dim) w-full py-1">
                   <Icon icon="lucide:key-round" width={13} />
                   <span>Agent Forwarding</span>
                   <span className="ml-auto">
@@ -635,7 +635,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                     />
                   </span>
                 </div>
-                <div className="group flex items-center gap-1.5 text-xs text-[var(--t-text-dim)] w-full py-1">
+                <div className="group flex items-center gap-1.5 text-xs text-(--t-text-dim) w-full py-1">
                   <Icon icon="lucide:terminal" width={13} />
                   <span>Shell Integration</span>
                   <div className="ml-auto flex items-center gap-2">
@@ -653,7 +653,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-[var(--t-text-dim)] w-full py-1">
+                <div className="flex items-center gap-1.5 text-xs text-(--t-text-dim) w-full py-1">
                   <Icon icon="lucide:heart-pulse" width={13} />
                   <span>Keepalive</span>
                   <FormSelect
@@ -725,7 +725,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                       />
                       <div className="mt-2">
                         <label className={formLabelClass} style={formLabelStyle}>
-                          Passphrase <span className="text-[var(--t-text-dim)] font-normal">(optional)</span>
+                          Passphrase <span className="text-(--t-text-dim) font-normal">(optional)</span>
                         </label>
                         <div className="relative">
                           <input
@@ -740,7 +740,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                           <button
                             type="button"
                             onClick={() => setShowPassphrase((v) => !v)}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-[var(--t-text-dim)]"
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-(--t-text-dim)"
                             onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
                             onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
                             tabIndex={-1}
@@ -757,14 +757,14 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
             {identityId && selectedIdentity && (
               <div
-                className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[var(--t-bg-base)] border border-[var(--t-border)]"
+                className="flex items-center gap-3 px-3 py-2 rounded-lg bg-(--t-bg-base) border border-(--t-border)"
               >
-                <Icon icon="lucide:user" width={14} className="text-[var(--t-text-dim)]" />
+                <Icon icon="lucide:user" width={14} className="text-(--t-text-dim)" />
                 <div>
-                  <p className="text-xs font-medium text-[var(--t-text-primary)]">
+                  <p className="text-xs font-medium text-(--t-text-primary)">
                     {selectedIdentity.username}
                   </p>
-                  <p className="text-xs text-[var(--t-text-dim)]">
+                  <p className="text-xs text-(--t-text-dim)">
                     {selectedIdentity.key_id ? "SSH Key" : "Password"}
                   </p>
                 </div>
@@ -830,7 +830,7 @@ function SecretInput({
       <button
         type="button"
         onClick={onToggleShow}
-        className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-[var(--t-text-dim)]"
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-(--t-text-dim)"
         onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
         onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
         tabIndex={-1}

@@ -243,7 +243,7 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
                       type="button"
                       onMouseDown={(e) => { e.preventDefault(); insertVar(s.value); }}
                       className={`flex items-center justify-between w-full px-3 py-1.5 text-xs text-left transition-colors ${
-                        i === varSuggestIdx ? "bg-[var(--t-bg-elevated)]" : "hover:bg-[var(--t-bg-elevated)]"
+                        i === varSuggestIdx ? "bg-(--t-bg-elevated)" : "hover:bg-(--t-bg-elevated)"
                       }`}
                     >
                       <code className="font-mono" style={{ color: "var(--t-accent)" }}>{`{{${s.value}}}`}</code>
@@ -261,7 +261,7 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
                 {detectedVars.map((v) => (
                   <span
                     key={v.name}
-                    className="inline-flex items-center gap-1 text-xs font-mono px-1.5 py-0.5 rounded"
+                    className="inline-flex items-center gap-1 text-xs font-mono px-1.5 py-0.5 rounded-sm"
                     style={{
                       background: v.dynamic ? "color-mix(in srgb, var(--t-accent) 15%, transparent)" : "var(--t-bg-elevated)",
                       color: v.dynamic ? "var(--t-accent)" : "var(--t-text)",
@@ -277,9 +277,9 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
 
             {/* Syntax hint */}
             <p className="mt-1.5 text-xs leading-relaxed" style={{ color: "var(--t-text-dim)" }}>
-              Type <code className="font-mono bg-[var(--t-bg-elevated)] px-1 rounded" style={{ color: "var(--t-text)" }}>{"{{"}</code> for autocomplete.
-              {" "}Custom prompts: <code className="font-mono bg-[var(--t-bg-elevated)] px-1 rounded" style={{ color: "var(--t-text)" }}>{"{{name:type}}"}</code>
-              {" "}— text · number · password · boolean · <code className="font-mono bg-[var(--t-bg-elevated)] px-1 rounded" style={{ color: "var(--t-text)" }}>choice:a,b</code>
+              Type <code className="font-mono bg-(--t-bg-elevated) px-1 rounded-sm" style={{ color: "var(--t-text)" }}>{"{{"}</code> for autocomplete.
+              {" "}Custom prompts: <code className="font-mono bg-(--t-bg-elevated) px-1 rounded-sm" style={{ color: "var(--t-text)" }}>{"{{name:type}}"}</code>
+              {" "}— text · number · password · boolean · <code className="font-mono bg-(--t-bg-elevated) px-1 rounded-sm" style={{ color: "var(--t-text)" }}>choice:a,b</code>
             </p>
           </div>
 
@@ -333,7 +333,7 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
 
         {/* ── Contextual filters ── */}
         <FormSection label="Contextual Filters">
-          <p className="text-xs text-[var(--t-text-dim)] -mt-1">
+          <p className="text-xs text-(--t-text-dim) -mt-1">
             Leave empty to show for all connections. Non-matching snippets are greyed out, not hidden.
           </p>
           <div>
@@ -445,7 +445,7 @@ function AutocompleteTagInput({
               key={s}
               type="button"
               onMouseDown={(e) => { e.preventDefault(); onAdd(s); setOpen(false); }}
-              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left hover:bg-[var(--t-bg-elevated)] transition-colors"
+              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left hover:bg-(--t-bg-elevated) transition-colors"
             >
               <TagBadge tag={s} />
             </button>

@@ -55,7 +55,7 @@ export function AuditExportButton({ context }: Props) {
           <Icon icon="lucide:download" width={14} />
         )}
         Export
-        <Icon icon="lucide:chevron-down" width={12} className="text-[var(--t-text-dim)]" />
+        <Icon icon="lucide:chevron-down" width={12} className="text-(--t-text-dim)" />
       </button>
 
       {open && (
@@ -67,7 +67,7 @@ export function AuditExportButton({ context }: Props) {
             <button
               key={fmt}
               onClick={() => doExport(fmt)}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-[var(--t-bg-elevated)] transition-colors text-[var(--t-text-primary)]"
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-(--t-bg-elevated) transition-colors text-(--t-text-primary)"
             >
               <Icon icon={fmt === "csv" ? "lucide:file-spreadsheet" : "lucide:file-json"} width={14} />
               {fmt.toUpperCase()}

@@ -18,8 +18,8 @@ interface Props {
 
 function statusDot(status: string) {
   return status === "running"
-    ? "bg-[var(--t-status-connected)]"
-    : "bg-[var(--t-text-muted)] opacity-40";
+    ? "bg-(--t-status-connected)"
+    : "bg-(--t-text-muted) opacity-40";
 }
 
 export function LxcList({
@@ -35,13 +35,13 @@ export function LxcList({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-3 py-1 border-b border-[var(--t-border)] shrink-0">
-        <span className="text-[10px] text-[var(--t-text-muted)]">{running} running</span>
+      <div className="px-3 py-1 border-b border-(--t-border) shrink-0">
+        <span className="text-[10px] text-(--t-text-muted)">{running} running</span>
       </div>
       <div className="flex-1 overflow-y-auto">
         {containers.length === 0 ? (
           <div className="flex items-center justify-center h-20 opacity-40">
-            <p className="text-[11px] text-[var(--t-text-muted)]">No containers</p>
+            <p className="text-[11px] text-(--t-text-muted)">No containers</p>
           </div>
         ) : (
           containers.map((c) => (
@@ -95,12 +95,12 @@ function LxcRow({
   };
 
   return (
-    <div className="border-b border-[var(--t-border)] last:border-0 px-3 py-1.5">
+    <div className="border-b border-(--t-border) last:border-0 px-3 py-1.5">
       <div className="flex items-center gap-2 min-w-0">
         <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot(container.status)}`} />
-        <span className="font-mono text-[10px] text-[var(--t-text-muted)] shrink-0">{container.vmid}</span>
-        <span className="text-[11px] text-[var(--t-text)] font-medium truncate flex-1">{container.name}</span>
-        <span className="text-[10px] text-[var(--t-text-muted)] shrink-0">{container.mem_mb}M</span>
+        <span className="font-mono text-[10px] text-(--t-text-muted) shrink-0">{container.vmid}</span>
+        <span className="text-[11px] text-(--t-text) font-medium truncate flex-1">{container.name}</span>
+        <span className="text-[10px] text-(--t-text-muted) shrink-0">{container.mem_mb}M</span>
       </div>
       <div className="flex items-center gap-0.5 mt-0.5">
         {!running && (
@@ -109,7 +109,7 @@ function LxcRow({
             title="Start"
             disabled={busy}
             onClick={() => act("start")}
-            color="text-[var(--t-status-connected)]"
+            color="text-(--t-status-connected)"
           />
         )}
         {running && (
@@ -124,7 +124,7 @@ function LxcRow({
             title="Open shell"
             disabled={busy}
             onClick={() => onShell(container.vmid, container.name)}
-            color="text-[var(--t-accent)] opacity-80 hover:opacity-100"
+            color="text-(--t-accent) opacity-80 hover:opacity-100"
           />
         )}
         <Btn
@@ -143,7 +143,7 @@ function Btn({
   title,
   disabled,
   onClick,
-  color = "text-[var(--t-text-muted)] hover:text-[var(--t-text)]",
+  color = "text-(--t-text-muted) hover:text-(--t-text)",
 }: {
   icon: string;
   title: string;
@@ -156,7 +156,7 @@ function Btn({
       disabled={disabled}
       onClick={onClick}
       title={title}
-      className={`p-1 rounded hover:bg-[var(--t-bg-card-hover)] disabled:opacity-40 ${color}`}
+      className={`p-1 rounded-sm hover:bg-(--t-bg-card-hover) disabled:opacity-40 ${color}`}
     >
       <Icon icon={icon} width={12} />
     </button>

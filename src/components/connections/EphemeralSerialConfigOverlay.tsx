@@ -31,7 +31,7 @@ export function EphemeralSerialConfigOverlay({
   }, []);
 
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center bg-[var(--t-bg-terminal)]">
+    <div className="absolute inset-0 z-20 flex items-center justify-center bg-(--t-bg-terminal)">
       <div className="flex flex-col items-center gap-5 w-80 text-center">
         <div className="w-14 h-14 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center">
           <Icon icon="lucide:ethernet-port" width={22} className="text-accent" />
@@ -42,7 +42,7 @@ export function EphemeralSerialConfigOverlay({
         </div>
         <div className="w-full space-y-3 text-left">
           <div>
-            <label className="text-xs text-[var(--t-text-dim)] mb-1 block">Port</label>
+            <label className="text-xs text-(--t-text-dim) mb-1 block">Port</label>
             <PortInput
               value={port}
               ports={availablePorts}
@@ -51,7 +51,7 @@ export function EphemeralSerialConfigOverlay({
             />
           </div>
           <div>
-            <label className="text-xs text-[var(--t-text-dim)] mb-1 block">Baud Rate</label>
+            <label className="text-xs text-(--t-text-dim) mb-1 block">Baud Rate</label>
             <FormSelect
               value={String(baud)}
               options={BAUD_RATE_PRESETS.map((r) => ({ value: String(r), label: r.toLocaleString() }))}
@@ -61,7 +61,7 @@ export function EphemeralSerialConfigOverlay({
           <button
             type="button"
             onClick={() => setShowAdvanced((v) => !v)}
-            className="flex items-center gap-1.5 text-xs text-[var(--t-text-dim)] hover:text-[var(--t-text-primary)] transition-colors"
+            className="flex items-center gap-1.5 text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors"
           >
             <Icon icon={showAdvanced ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} />
             Advanced
@@ -69,7 +69,7 @@ export function EphemeralSerialConfigOverlay({
           {showAdvanced && (
             <>
               <div>
-                <label className="text-xs text-[var(--t-text-dim)] mb-1 block">Data Bits</label>
+                <label className="text-xs text-(--t-text-dim) mb-1 block">Data Bits</label>
                 <Pills
                   options={[{ value: "5", label: "5" }, { value: "6", label: "6" }, { value: "7", label: "7" }, { value: "8", label: "8" }]}
                   value={String(dataBits)}
@@ -77,7 +77,7 @@ export function EphemeralSerialConfigOverlay({
                 />
               </div>
               <div>
-                <label className="text-xs text-[var(--t-text-dim)] mb-1 block">Stop Bits</label>
+                <label className="text-xs text-(--t-text-dim) mb-1 block">Stop Bits</label>
                 <Pills
                   options={[{ value: "1", label: "1" }, { value: "2", label: "2" }]}
                   value={String(stopBits)}
@@ -85,7 +85,7 @@ export function EphemeralSerialConfigOverlay({
                 />
               </div>
               <div>
-                <label className="text-xs text-[var(--t-text-dim)] mb-1 block">Parity</label>
+                <label className="text-xs text-(--t-text-dim) mb-1 block">Parity</label>
                 <Pills
                   options={[{ value: "none", label: "None" }, { value: "even", label: "Even" }, { value: "odd", label: "Odd" }]}
                   value={parity}
@@ -93,7 +93,7 @@ export function EphemeralSerialConfigOverlay({
                 />
               </div>
               <div>
-                <label className="text-xs text-[var(--t-text-dim)] mb-1 block">Flow Control</label>
+                <label className="text-xs text-(--t-text-dim) mb-1 block">Flow Control</label>
                 <Pills
                   options={[{ value: "none", label: "None" }, { value: "xon-xoff", label: "XON/XOFF" }, { value: "rts-cts", label: "RTS/CTS" }]}
                   value={flowControl}

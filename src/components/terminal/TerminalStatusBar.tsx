@@ -117,7 +117,7 @@ function sparklinePoints(values: number[], width: number, height: number): strin
 }
 
 const SPARKLINE_MAX = 20;
-const statusBarItemClass = "h-full rounded-none transition-colors hover:bg-[var(--t-bg-card-hover)]";
+const statusBarItemClass = "h-full rounded-none transition-colors hover:bg-(--t-bg-card-hover)";
 const statusBarIdentityGroupClass = "flex items-center h-full";
 
 export function TerminalStatusBar({ sessionId, sessionType, connectionId, connectionName, serialConfig, sessionStatus, dimensions }: Props) {
@@ -497,7 +497,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
       >
         {/* Left: connection info */}
         <div className={`flex items-center gap-2 h-full${sessionStatus === "connecting" ? " statusbar-connecting-pulse" : ""}`}>
-          <span className="px-1.5 text-[10px] font-semibold text-[var(--t-text-dim)]">
+          <span className="px-1.5 text-[10px] font-semibold text-(--t-text-dim)">
             {sessionBadge(sessionType)}
           </span>
           {sessionType === "ssh" && connection && (
@@ -583,7 +583,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
                   >
                     {jumpLabel}
                   </span>
-                  <Icon icon="lucide:arrow-right" width={9} className="text-[var(--t-text-dim)]" style={{ flexShrink: 0 }} />
+                  <Icon icon="lucide:arrow-right" width={9} className="text-(--t-text-dim)" style={{ flexShrink: 0 }} />
                 </>
               )}
 
@@ -658,7 +658,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
                 <span
                   title={`${connection.username}@${connection.host}`}
                   onClick={handleCopyHost}
-                  className={`flex items-center px-1 text-[var(--t-text-dim)] ${statusBarItemClass}`}
+                  className={`flex items-center px-1 text-(--t-text-dim) ${statusBarItemClass}`}
                   style={{
                     maxWidth: 160,
                     overflow: "hidden",
@@ -749,11 +749,11 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
           )}
           {sessionType === "serial" && (
             <>
-              <Icon icon="lucide:ethernet-port" width={11} className="text-[var(--t-text-dim)]" />
+              <Icon icon="lucide:ethernet-port" width={11} className="text-(--t-text-dim)" />
               <span
                 title={serialConfig ? `${serialConfig.port} · ${serialConfig.baud} baud` : "serial"}
                 onClick={handleCopyHost}
-                className={`flex items-center px-1 text-[var(--t-text-dim)] ${statusBarItemClass}`}
+                className={`flex items-center px-1 text-(--t-text-dim) ${statusBarItemClass}`}
                 style={{
                   maxWidth: 160,
                   overflow: "hidden",
@@ -787,12 +787,12 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
             <Fragment key={key}>{node}</Fragment>
           ))}
           {uptime && (
-            <span className="px-1.5 text-[var(--t-text-dim)]" style={{ fontVariantNumeric: "tabular-nums" }}>
+            <span className="px-1.5 text-(--t-text-dim)" style={{ fontVariantNumeric: "tabular-nums" }}>
               {uptime}
             </span>
           )}
           {showDimensions && dimensions && (
-            <span className="px-1.5 text-[var(--t-text-dim)]" style={{ fontVariantNumeric: "tabular-nums" }}>
+            <span className="px-1.5 text-(--t-text-dim)" style={{ fontVariantNumeric: "tabular-nums" }}>
               {dimensions.cols}×{dimensions.rows}
             </span>
           )}
@@ -812,13 +812,13 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
               >
                 CPU {metrics.cpu_percent.toFixed(0)}%
               </span>
-              <span className="text-[var(--t-text-dim)]">·</span>
+              <span className="text-(--t-text-dim)">·</span>
               <span style={{ fontVariantNumeric: "tabular-nums" }}>
                 {fmtMem(metrics.mem_used_kb)}/{fmtMem(metrics.mem_total_kb)}
               </span>
               {(metrics.net_rx_bytes_per_sec > 0 || metrics.net_tx_bytes_per_sec > 0) && (
                 <>
-                  <span className="text-[var(--t-text-dim)]">·</span>
+                  <span className="text-(--t-text-dim)">·</span>
                   <span className="flex items-center gap-0.5" style={{ fontVariantNumeric: "tabular-nums" }}>
                     <Icon icon="lucide:arrow-down" width={9} />
                     {fmtNet(metrics.net_rx_bytes_per_sec)}

@@ -22,7 +22,7 @@ export function SidePanelLayout({
   panel,
   panelOpen,
   panelWidth = 320,
-  className = "bg-[var(--t-bg-base)]",
+  className = "bg-(--t-bg-base)",
 }: Props) {
   return (
     <div className={`flex h-full ${className}`}>

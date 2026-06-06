@@ -78,7 +78,7 @@ export function HomeToolbar({
 
   return (
     <>
-      <div ref={rowRef} className="flex items-center gap-2 px-5 py-2.5 bg-[var(--t-bg-toolbar)] border-b border-b-[var(--t-border)]">
+      <div ref={rowRef} className="flex items-center gap-2 px-5 py-2.5 bg-(--t-bg-toolbar) border-b border-b-(--t-border)">
         <div ref={leftRef} className="flex items-center">
           <ToolbarViewControls
             search={search}
@@ -101,7 +101,7 @@ export function HomeToolbar({
 
         <div ref={rightRef} className="ml-auto flex items-center gap-2 shrink-0">
           <button
-            className="flex items-center gap-2 px-3 py-2 h-8 rounded-lg text-sm font-bold tracking-wider transition-colors shrink-0 whitespace-nowrap bg-[var(--t-bg-input)] text-[var(--t-text-primary)] border border-[var(--t-border-hover)] relative overflow-hidden"
+            className="flex items-center gap-2 px-3 py-2 h-8 rounded-lg text-sm font-bold tracking-wider transition-colors shrink-0 whitespace-nowrap bg-(--t-bg-input) text-(--t-text-primary) border border-(--t-border-hover) relative overflow-hidden"
             onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-input-hover)")}
             onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-input)")}
             onMouseDown={rippleSerial}
@@ -125,7 +125,7 @@ export function HomeToolbar({
             onChange={setPreferredShell}
           />
 
-          <div className="w-px h-5 self-center bg-[var(--t-border)] mx-1" />
+          <div className="w-px h-5 self-center bg-(--t-border) mx-1" />
 
           <ToolbarDropdown
             icon="lucide:arrow-up-down"
