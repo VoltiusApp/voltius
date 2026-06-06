@@ -1,8 +1,7 @@
 import { fsTarAvailable, sftpTarAvailable } from "@/services/sftp";
 import { getToggle } from "@/stores/toggleSettingsStore";
 
-// Cached per host ("local" or an sftpId); availability doesn't change within a
-// connection, so each host is probed at most once.
+// Cached per host ("local" or an sftpId); tar availability is stable per connection.
 const probeCache = new Map<string, Promise<boolean>>();
 
 function probe(key: string, fn: () => Promise<boolean>): Promise<boolean> {
@@ -14,12 +13,8 @@ function probe(key: string, fn: () => Promise<boolean>): Promise<boolean> {
   return p;
 }
 
-/**
- * Whether a tar-accelerated transfer can run: the toggle is on AND every host
- * the archiving touches has `tar`. When false, callers fall back to plain SFTP.
- * `sftpIds` are the remote endpoints (nulls ignored); `involvesLocal` is true
- * when either endpoint is the local machine, which does the local archiving.
- */
+// True only if the toggle is on AND every involved host has `tar`; else callers
+// fall back to plain SFTP. `involvesLocal` covers the local archiving step.
 export async function tarUsable(
   sftpIds: Array<string | null | undefined>,
   involvesLocal: boolean,

@@ -214,8 +214,7 @@ export default function SFTPPage() {
     }
   }, [leftPhase, rightPhase, leftHost, rightHost, runTransfer]);
 
-  // Dispatch: batch-tar for multiple items when tar is usable, otherwise
-  // per-file. Falls back to plain SFTP whenever a relevant host lacks tar.
+  // Batch-tar when tar is usable, else per-file; plain SFTP if any host lacks tar.
   const executeFiles = useCallback(async (files: FileEntry[], fromSide: "left" | "right", targetFolder?: string) => {
     const src = fromSide === "left" ? leftPhase : rightPhase;
     const dst = fromSide === "left" ? rightPhase : leftPhase;
@@ -355,7 +354,7 @@ export default function SFTPPage() {
     const sftpId = phase.sftpId;
     const base = dstDir.replace(/[\\/]$/, "");
     const label = files.length === 1 ? files[0].name : `${files.length} items`;
-    // Download archives on the remote and extracts locally: both need tar.
+    // Archives remotely + extracts locally, so both ends need tar.
     const useTar = await tarUsable([sftpId], true);
 
     if (useTar && files.length > 1) {

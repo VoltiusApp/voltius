@@ -32,12 +32,9 @@ async function statOsPaths(paths: string[]): Promise<FileEntry[]> {
 async function uploadEntries(files: FileEntry[], target: UploadTarget): Promise<void> {
   const { runTransfer } = useTransferQueueStore.getState();
   const dstBase = target.cwd.replace(/\/$/, "");
-  // Upload archives locally and extracts on the remote: both need tar. Local
-  // targets use fsCopy, so tar never applies there.
+  // Tar archives locally + extracts remotely, so both ends need tar; local targets use fsCopy.
   const useTar = !target.isLocal && target.sftpId ? await tarUsable([target.sftpId], true) : false;
 
-  // Batch-tar path: pack everything into one archive when uploading multiple
-  // items to a remote target. Mirrors SFTPPage's execBatchTar dispatch.
   if (useTar && target.sftpId && files.length > 1) {
     const sftpId = target.sftpId;
     const label = `${files.length} items`;
