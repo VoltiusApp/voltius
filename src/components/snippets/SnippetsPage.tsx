@@ -698,7 +698,7 @@ export function SnippetsPage() {
         connectionId: s.connectionId,
         connectionName: s.connectionName,
         sessionType: s.type as "ssh" | "local" | "serial",
-        localShell: (s as any).localShell,
+        localShell: s.localShell,
       }));
       recordExecution(snippet, execute, targets);
     } else {
@@ -1239,7 +1239,7 @@ export function SnippetsPage() {
             connectionId: s.connectionId,
             connectionName: s.connectionName,
             sessionType: s.type as "ssh" | "local" | "serial",
-            localShell: (s as any).localShell,
+            localShell: s.localShell,
           }));
           recordExecution(pendingInject.snippet, execute, targets);
           setPendingInject(null);

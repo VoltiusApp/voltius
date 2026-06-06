@@ -142,7 +142,7 @@ export default function TitleBar() {
       }
     }
     // disconnect() is async; remove synchronously so the session can't linger as an ungrouped tab
-    if (session?.type !== ("multiplayer" as any) && (session?.status === "connected" || session?.status === "connecting")) {
+    if (session?.type !== "multiplayer" && (session?.status === "connected" || session?.status === "connecting")) {
       disconnect(sessionId);
     }
     removeSession(sessionId);

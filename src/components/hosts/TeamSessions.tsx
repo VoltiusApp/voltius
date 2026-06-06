@@ -81,7 +81,7 @@ export function TeamSessions() {
           connectionId: sessionId,
           connectionName: activeSessions.find((a) => a.id === sessionId)?.connection_name ?? "Shared Terminal",
           status: "connected" as const,
-          type: "multiplayer" as any,
+          type: "multiplayer" as const,
         },
       ],
       activeSessionId: localSessionId,
