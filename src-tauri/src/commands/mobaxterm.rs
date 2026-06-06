@@ -33,11 +33,7 @@ use std::collections::HashMap;
 use base64::engine::general_purpose::STANDARD;
 
 #[cfg(target_os = "windows")]
-use winreg::enums::HKEY_CURRENT_USER;
-#[cfg(target_os = "windows")]
-use winreg::types::FromRegValue;
-#[cfg(target_os = "windows")]
-use winreg::RegKey;
+use windows_registry::{Key, CURRENT_USER};
 
 #[derive(Serialize)]
 pub struct MobaCredential {
@@ -157,8 +153,7 @@ const DPAPI_HEADER: [u8; 20] = [
 
 #[cfg(target_os = "windows")]
 fn extract_windows() -> Result<MobaSnapshot, String> {
-    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-    let base = hkcu.open_subkey(REG_BASE).map_err(|e| {
+    let base = CURRENT_USER.open(REG_BASE).map_err(|e| {
         format!("MobaXterm not found in the registry ({e}). Is MobaXterm installed for this user?")
     })?;
 
@@ -168,7 +163,7 @@ fn extract_windows() -> Result<MobaSnapshot, String> {
 
     // Passwords/credentials require the DPAPI-derived key. If derivation fails, keep
     // sessions but import passwordless (no master-password prompt, by design).
-    let (passwords, credentials, key_derived) = match derive_key_from_registry(&hkcu, &base) {
+    let (passwords, credentials, key_derived) = match derive_key_from_registry(&base) {
         Ok(key) => (
             read_subkey_passwords(&base, &key, "P"),
             read_credentials(&base, &key),
@@ -186,19 +181,19 @@ fn extract_windows() -> Result<MobaSnapshot, String> {
 }
 
 #[cfg(target_os = "windows")]
-fn derive_key_from_registry(hkcu: &RegKey, base: &RegKey) -> Result<[u8; 32], String> {
-    let session_p: String = base
-        .get_value("SessionP")
+fn derive_key_from_registry(base: &Key) -> Result<[u8; 32], String> {
+    let session_p = base
+        .get_string("SessionP")
         .map_err(|e| format!("SessionP value missing: {e}"))?;
 
     let user = std::env::var("USERNAME").map_err(|_| "USERNAME not set".to_string())?;
     let host = std::env::var("COMPUTERNAME").map_err(|_| "COMPUTERNAME not set".to_string())?;
 
-    let m = hkcu
-        .open_subkey(format!(r"{REG_BASE}\M"))
+    let m = base
+        .open("M")
         .map_err(|e| format!("M subkey missing: {e}"))?;
-    let stored: String = m
-        .get_value(format!("{user}@{host}"))
+    let stored = m
+        .get_string(format!("{user}@{host}"))
         .map_err(|e| format!("master hash for {user}@{host} missing: {e}"))?;
 
     let mut blob = DPAPI_HEADER.to_vec();
@@ -267,21 +262,24 @@ fn dpapi_unprotect(data: &[u8], entropy: &[u8]) -> Result<Vec<u8>, String> {
 /// bookmark parser can consume it unchanged. Each subkey becomes a `[section]`,
 /// each value a `name=data` line (sessions are `SessionName=#109#…`).
 #[cfg(target_os = "windows")]
-fn bookmarks_to_ini(base: &RegKey) -> Option<String> {
+fn bookmarks_to_ini(base: &Key) -> Option<String> {
     let mut out = String::new();
     let mut found = false;
-    for name in base.enum_keys().flatten() {
+    for name in base.keys().ok()? {
         if !name.starts_with("Bookmarks") {
             continue;
         }
-        let Ok(sub) = base.open_subkey(&name) else {
+        let Ok(sub) = base.open(&name) else {
             continue;
         };
         out.push('[');
         out.push_str(&name);
         out.push_str("]\r\n");
-        for (vname, val) in sub.enum_values().flatten() {
-            if let Ok(s) = String::from_reg_value(&val) {
+        let Ok(values) = sub.values() else {
+            continue;
+        };
+        for (vname, val) in values {
+            if let Ok(s) = String::try_from(val) {
                 out.push_str(&vname);
                 out.push('=');
                 out.push_str(&s);
@@ -307,13 +305,16 @@ fn read_ini_file() -> Option<String> {
 }
 
 #[cfg(target_os = "windows")]
-fn read_subkey_passwords(base: &RegKey, key: &[u8; 32], sub: &str) -> HashMap<String, String> {
+fn read_subkey_passwords(base: &Key, key: &[u8; 32], sub: &str) -> HashMap<String, String> {
     let mut out = HashMap::new();
-    let Ok(k) = base.open_subkey(sub) else {
+    let Ok(k) = base.open(sub) else {
         return out;
     };
-    for (name, val) in k.enum_values().flatten() {
-        let Ok(enc) = String::from_reg_value(&val) else {
+    let Ok(values) = k.values() else {
+        return out;
+    };
+    for (name, val) in values {
+        let Ok(enc) = String::try_from(val) else {
             continue;
         };
         if let Ok(plain) = decrypt_value(key, &enc) {
@@ -324,13 +325,16 @@ fn read_subkey_passwords(base: &RegKey, key: &[u8; 32], sub: &str) -> HashMap<St
 }
 
 #[cfg(target_os = "windows")]
-fn read_credentials(base: &RegKey, key: &[u8; 32]) -> Vec<MobaCredential> {
+fn read_credentials(base: &Key, key: &[u8; 32]) -> Vec<MobaCredential> {
     let mut out = Vec::new();
-    let Ok(k) = base.open_subkey("C") else {
+    let Ok(k) = base.open("C") else {
         return out;
     };
-    for (name, val) in k.enum_values().flatten() {
-        let Ok(raw) = String::from_reg_value(&val) else {
+    let Ok(values) = k.values() else {
+        return out;
+    };
+    for (name, val) in values {
+        let Ok(raw) = String::try_from(val) else {
             continue;
         };
         // value = "username:<encrypted>"
