@@ -9,6 +9,7 @@ export interface Folder {
   parent_folder_id?: string;
   object_type: string;
   vault_id: string;
+  // Snippet folders only; the backend Folder struct has no color/icon.
   color?: string;
   icon?: string;
   pinned?: boolean;
@@ -22,6 +23,7 @@ export interface FolderFormData {
   parent_folder_id?: string;
   object_type: string;
   vault_id?: string;
+  // Snippet folders only; the backend Folder struct has no color/icon.
   color?: string;
   icon?: string;
   pinned?: boolean;
