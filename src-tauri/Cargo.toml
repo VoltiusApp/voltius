@@ -49,7 +49,7 @@ rsa = { version = "0.9", features = ["getrandom"] }
 sysinfo = "0.39"
 bollard = "0.17"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
 machine-uid = "0.6"
 serialport = { version = "4", default-features = false }
 aes = "0.9"
