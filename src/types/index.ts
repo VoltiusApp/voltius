@@ -8,7 +8,7 @@ export interface Folder {
   created_at: string;
   parent_folder_id?: string;
   object_type: string;
-  vault_id?: string;
+  vault_id: string;
   color?: string;
   icon?: string;
   pinned?: boolean;
@@ -34,7 +34,7 @@ export interface SshKey {
   tags: string[];
   created_at: string;
   folder_id?: string;
-  vault_id?: string;
+  vault_id: string;
   pinned?: boolean;
   updated_at: string;
   deleted_at?: string;
@@ -58,7 +58,7 @@ export interface Identity {
   tags: string[];
   created_at: string;
   folder_id?: string;
-  vault_id?: string;
+  vault_id: string;
   pinned?: boolean;
   updated_at: string;
   deleted_at?: string;
@@ -110,7 +110,7 @@ export interface Connection {
   identity_id?: string;
   key_id?: string;
   folder_id?: string;
-  vault_id?: string;
+  vault_id: string;
   jump_hosts?: JumpHost[];
   env_vars?: EnvVar[];
   agent_forwarding?: boolean;
@@ -171,7 +171,7 @@ export interface KnownHost {
   port: number;
   fingerprint: string;
   name?: string;
-  vault_id?: string;
+  vault_id: string;
   created_at: string;
   updated_at: string;
   deleted_at?: string;
