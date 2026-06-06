@@ -222,6 +222,8 @@ docker run --rm -it \
   bash -c 'pnpm tauri build --target aarch64-pc-windows-msvc --runner cargo-xwin --no-bundle'
 ```
 
+Build artifacts are automatically handed back to your host user on exit, so nothing under the mounted project is left root-owned.
+
 The `--no-bundle` flag skips NSIS installer creation (not supported in cross-compilation). The built executable is at:
 ```
 src-tauri/target/aarch64-pc-windows-msvc/release/voltius.exe
