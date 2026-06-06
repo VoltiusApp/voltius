@@ -10,7 +10,7 @@
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 #[cfg(not(target_os = "windows"))]
-use keyring::Entry;
+use keyring_core::Entry;
 
 pub(super) fn fetch_master_key() -> Result<[u8; 32], String> {
     let b64 = read_termius_localkey()?;
@@ -27,7 +27,7 @@ fn read_termius_localkey() -> Result<String, String> {
     let entry =
         Entry::new("Termius", "localKey").map_err(|e| format!("Keychain unavailable: {e}"))?;
     entry.get_password().map_err(|e| match e {
-        keyring::Error::NoEntry => {
+        keyring_core::Error::NoEntry => {
             "Termius key not found in OS keychain — is Termius installed and logged in on this machine?".to_string()
         }
         other => format!("Keychain error: {other}"),

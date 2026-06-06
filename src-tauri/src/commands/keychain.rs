@@ -1,4 +1,4 @@
-use keyring::Entry;
+use keyring_core::Entry;
 
 /// Base service name. If VOLTIUS_KEYCHAIN_NS is set, it is appended
 /// (e.g. "voltius-2") so multiple simultaneous instances (dev:2) each
@@ -19,7 +19,7 @@ pub fn keychain_get(key: String) -> Result<Option<String>, String> {
     let e = entry(&key)?;
     match e.get_password() {
         Ok(val) => Ok(Some(val)),
-        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(keyring_core::Error::NoEntry) => Ok(None),
         Err(err) => Err(format!("Keychain read error: {err}")),
     }
 }
@@ -36,7 +36,7 @@ pub fn keychain_delete(key: String) -> Result<(), String> {
     let e = entry(&key)?;
     match e.delete_credential() {
         Ok(()) => Ok(()),
-        Err(keyring::Error::NoEntry) => Ok(()), // already gone
+        Err(keyring_core::Error::NoEntry) => Ok(()), // already gone
         Err(err) => Err(format!("Keychain delete error: {err}")),
     }
 }
