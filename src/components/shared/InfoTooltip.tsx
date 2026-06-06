@@ -57,7 +57,7 @@ export function InfoTooltip({
         <div
           onMouseEnter={interactive ? show : undefined}
           onMouseLeave={interactive ? hide : undefined}
-          className={`fixed z-[9999] px-3 py-2 rounded-lg text-xs leading-relaxed bg-[var(--t-bg-card-hover)] border border-[var(--t-border)] text-[var(--t-text-secondary)] ${interactive ? "" : "pointer-events-none"}`}
+          className={`fixed z-[9999] px-3 py-2 rounded-lg text-xs leading-relaxed bg-[var(--t-bg-elevated)] border border-[var(--t-border)] text-[var(--t-text-secondary)] ${interactive ? "" : "pointer-events-none"}`}
           style={{
             top: pos.top,
             left: pos.left,
