@@ -368,7 +368,7 @@ export default function HostsPage() {
     const connectionIds = conns.map((c) => c.id);
     if (connectionIds.length === 0) return;
     setError(null);
-    setActiveNav("terminal" as any);
+    setActiveNav("terminal");
     try {
       const sessionIds = await connectMany(connectionIds);
       if (sessionIds.length > 0) openSessions(sessionIds);
@@ -387,7 +387,7 @@ export default function HostsPage() {
     // Persist any pending edits (e.g. a just-typed inline password) before
     // connecting, so credential resolution sees them.
     formRef.current?.flush();
-    setActiveNav("terminal" as any);
+    setActiveNav("terminal");
     try {
       await connect(conn.id);
     } catch {

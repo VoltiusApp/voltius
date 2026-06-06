@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type NavItem = "hosts" | "keychain" | "port-forwarding" | "snippets" | "known-hosts" | "members" | "logs";
+export type NavItem = "hosts" | "keychain" | "port-forwarding" | "snippets" | "known-hosts" | "members" | "logs" | "terminal";
 
 export type BuiltinRightPanelSection = "snippets" | "history" | "themes" | "ports" | "sftp";
 /** Widened to allow plugin-contributed section IDs (prefixed with "plugin:") */

@@ -131,7 +131,7 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
         setActive(allSessionIds[0]);
         useLayoutStore.getState().setSplitTabActive(false);
       }
-      setActiveNav("terminal" as any);
+      setActiveNav("terminal");
       trackUsed(snippet.id);
       onClose();
     } catch (err) {
@@ -169,7 +169,7 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
               <PanelHeaderIconButton
                 icon="lucide:external-link"
                 title="Go to Snippets"
-                onClick={() => { setActiveNav("snippets" as any); onClose(); }}
+                onClick={() => { setActiveNav("snippets"); onClose(); }}
               />
             }
           />

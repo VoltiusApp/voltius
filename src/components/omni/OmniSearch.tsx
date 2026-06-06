@@ -362,19 +362,19 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       if (item.kind === "host") {
         connect(item.connection.id).catch(() => {});
         setSidebarOpen(false);
-        setActiveNav("terminal" as any);
+        setActiveNav("terminal");
         onClose();
       } else if (item.kind === "session") {
         setActive(item.session.id);
-        setActiveNav("terminal" as any);
+        setActiveNav("terminal");
         onClose();
       } else if (item.kind === "key") {
         setKeychainPendingAction({ action: "edit-key", id: item.key.id });
-        setActiveNav("keychain" as any);
+        setActiveNav("keychain");
         onClose();
       } else if (item.kind === "identity") {
         setKeychainPendingAction({ action: "edit-identity", id: item.identity.id });
-        setActiveNav("keychain" as any);
+        setActiveNav("keychain");
         onClose();
       } else if (item.kind === "action") {
         if (item.id.startsWith("plugin:")) {
@@ -431,7 +431,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           )?.[0];
           if (localId) {
             setActive(localId);
-            setActiveNav("terminal" as any);
+            setActiveNav("terminal");
           }
         } else {
           (async () => {
@@ -451,7 +451,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               activeSessionId: localSessionId,
             }));
             setSidebarOpen(false);
-            setActiveNav("terminal" as any);
+            setActiveNav("terminal");
           })().catch(console.error);
         }
         onClose();
@@ -486,7 +486,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
                 activeSessionId: localSessionId,
               }));
               setSidebarOpen(false);
-              setActiveNav("terminal" as any);
+              setActiveNav("terminal");
             })().catch(console.error);
           }
         }
@@ -507,7 +507,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           clocks: {},
         }).catch(() => {});
         setSidebarOpen(false);
-        setActiveNav("terminal" as any);
+        setActiveNav("terminal");
         onClose();
       }
     },
@@ -639,7 +639,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           {/* Inline actions on hover */}
           <div className="hidden group-hover/row:flex items-center gap-0.5 shrink-0">
             <button
-              onClick={(e) => { e.stopPropagation(); setHomePendingAction({ action: "edit", id: conn.id }); setActiveNav("hosts" as any); onClose(); }}
+              onClick={(e) => { e.stopPropagation(); setHomePendingAction({ action: "edit", id: conn.id }); setActiveNav("hosts"); onClose(); }}
               className="p-1.5 rounded-md transition-colors text-[var(--t-text-dim)]"
               onMouseEnter={(e) => { e.currentTarget.style.background = "var(--t-bg-elevated)"; e.currentTarget.style.color = "var(--t-text-primary)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--t-text-dim)"; }}

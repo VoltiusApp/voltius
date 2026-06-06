@@ -32,7 +32,7 @@ export function RecentHostsSection({ onSeeAll }: Props) {
 
   const handleConnect = (conn: Connection) => {
     connect(conn.id).catch(() => {});
-    setActiveNav("terminal" as any);
+    setActiveNav("terminal");
   };
 
   const isPinnedFn = useEffectivePinnedPredicate();

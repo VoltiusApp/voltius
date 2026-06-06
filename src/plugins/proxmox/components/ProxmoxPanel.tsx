@@ -159,7 +159,7 @@ export function ProxmoxPanel() {
             sess.id === execSessionId ? { ...sess, status: "connected" as const } : sess,
           ),
         }));
-        useUIStore.getState().setActiveNav("terminal" as any);
+        useUIStore.getState().setActiveNav("terminal");
       } catch (e) {
         console.error("[proxmox] open shell failed:", e);
         getProxmoxApi()?.notifications.toast(`Shell failed: ${e}`, { severity: "error" });

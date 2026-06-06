@@ -772,7 +772,7 @@ export function SnippetsPage() {
     const allSessionIds = [...resolvedSessionIds, ...newSessionIds];
     if (allSessionIds.length === 0) return;
 
-    useUIStore.getState().setActiveNav("terminal" as any);
+    useUIStore.getState().setActiveNav("terminal");
     if (allSessionIds.length === 1) {
       useSessionStore.getState().setActive(allSessionIds[0]);
     } else {

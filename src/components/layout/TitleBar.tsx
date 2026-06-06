@@ -79,8 +79,8 @@ export default function TitleBar() {
   const [updaterState, setUpdaterState] = useState(getUpdaterState);
   useEffect(() => { return onUpdaterStateChange(() => setUpdaterState(getUpdaterState())); }, []);
 
-  const showTerminal = activeSessionId !== null && sessions.length > 0 && activeNav === ("terminal" as any) && !sftpPanelOpen;
-  const isVaultsActive = !sftpPanelOpen && activeNav !== ("terminal" as any);
+  const showTerminal = activeSessionId !== null && sessions.length > 0 && activeNav === "terminal" && !sftpPanelOpen;
+  const isVaultsActive = !sftpPanelOpen && activeNav !== "terminal";
   const isVaultCompact = !isVaultsActive && sessions.length > 0;
 
   const mpConnections = useTeamSessionStore((s) => s.connections);
@@ -118,7 +118,7 @@ export default function TitleBar() {
   // Ensure the user never gets stuck on an empty terminal view.
   // When all sessions are gone, fall back to Vaults.
   useEffect(() => {
-    if (sessions.length === 0 && activeNav === ("terminal" as any)) {
+    if (sessions.length === 0 && activeNav === "terminal") {
       setActiveNav("hosts");
     }
   }, [sessions.length, activeNav, setActiveNav]);
@@ -128,7 +128,7 @@ export default function TitleBar() {
     setSftpPanelOpen(false);
     setSplitTabActive(false);
     setActive(sessionId);
-    setActiveNav("terminal" as any);
+    setActiveNav("terminal");
   };
 
   const closeSessionById = (sessionId: string) => {
@@ -162,7 +162,7 @@ export default function TitleBar() {
     const layout = useLayoutStore.getState();
     const leaf = findLeaf(layout.root, layout.activePaneId) ?? firstLeaf(layout.root);
     if (leaf) setActive(leaf.sessionId);
-    setActiveNav("terminal" as any);
+    setActiveNav("terminal");
   };
 
   const handleUnifiedTabClose = (e: React.MouseEvent, tabId: string) => {
@@ -297,7 +297,7 @@ export default function TitleBar() {
             const tabSessionIds = getPaneSessionIds(tab.root);
             const tabActiveLeaf = findLeaf(tab.root, tab.activePaneId) ?? firstLeaf(tab.root);
             const tabActiveSession = tabActiveLeaf ? sessions.find((session) => session.id === tabActiveLeaf.sessionId) : null;
-            const isActiveSplitTab = splitTabActive && activeSplitTabId === tab.id && activeNav === ("terminal" as any) && !sftpPanelOpen;
+            const isActiveSplitTab = splitTabActive && activeSplitTabId === tab.id && activeNav === "terminal" && !sftpPanelOpen;
 
             return (
               <div key={item.key} className="contents">
@@ -337,7 +337,7 @@ export default function TitleBar() {
           }
 
           const session = item.session;
-          const isActive = session.id === activeSessionId && activeNav === ("terminal" as any) && !sftpPanelOpen && !splitTabActive;
+          const isActive = session.id === activeSessionId && activeNav === "terminal" && !sftpPanelOpen && !splitTabActive;
           const statusColor =
             session.status === "connected"  ? "var(--t-status-connected)" :
             session.status === "error"      ? "var(--t-status-error)" :

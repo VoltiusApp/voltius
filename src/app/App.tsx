@@ -48,7 +48,7 @@ function App() {
   const activeNav = useUIStore((s) => s.activeNav);
   const sftpPanelOpen = useUIStore((s) => s.sftpPanelOpen);
   const inVault = !homeView;
-  const inTerminal = activeNav === ("terminal" as any);
+  const inTerminal = activeNav === "terminal";
   const showVaultChrome = inVault && !inTerminal && !sftpPanelOpen;
   const globalPendingInject = useSnippetStore((s) => s.globalPendingInject);
   const setGlobalPendingInject = useSnippetStore((s) => s.setGlobalPendingInject);

@@ -16,7 +16,7 @@ export const commands: OmniCommand[] = [
       const { setSidebarOpen, setActiveNav } = useUIStore.getState();
       connectLocal().catch(() => {});
       setSidebarOpen(false);
-      setActiveNav("terminal" as any);
+      setActiveNav("terminal");
     },
   },
   {
@@ -28,7 +28,7 @@ export const commands: OmniCommand[] = [
     execute: () => {
       const { setHomePendingAction, setActiveNav } = useUIStore.getState();
       setHomePendingAction({ action: "create" });
-      setActiveNav("hosts" as any);
+      setActiveNav("hosts");
     },
   },
   {
@@ -40,7 +40,7 @@ export const commands: OmniCommand[] = [
     execute: () => {
       const { setKeychainPendingAction, setActiveNav } = useUIStore.getState();
       setKeychainPendingAction({ action: "create-key" });
-      setActiveNav("keychain" as any);
+      setActiveNav("keychain");
     },
   },
   {
@@ -52,7 +52,7 @@ export const commands: OmniCommand[] = [
     execute: () => {
       const { setKeychainPendingAction, setActiveNav } = useUIStore.getState();
       setKeychainPendingAction({ action: "create-identity" });
-      setActiveNav("keychain" as any);
+      setActiveNav("keychain");
     },
   },
   {
@@ -80,7 +80,7 @@ export const commands: OmniCommand[] = [
     icon: "lucide:arrow-left-right",
     keywords: ["tunnel", "forward", "port", "proxy"],
     section: "Actions",
-    execute: () => useUIStore.getState().setActiveNav("port-forwarding" as any),
+    execute: () => useUIStore.getState().setActiveNav("port-forwarding"),
   },
   {
     id: "core:known-hosts",
@@ -88,7 +88,7 @@ export const commands: OmniCommand[] = [
     icon: "lucide:shield-check",
     keywords: ["known", "hosts", "fingerprint", "trust", "security"],
     section: "Actions",
-    execute: () => useUIStore.getState().setActiveNav("known-hosts" as any),
+    execute: () => useUIStore.getState().setActiveNav("known-hosts"),
   },
   {
     id: "core:logs",
@@ -96,7 +96,7 @@ export const commands: OmniCommand[] = [
     icon: "lucide:scroll-text",
     keywords: ["log", "debug", "console", "output", "trace"],
     section: "Actions",
-    execute: () => useUIStore.getState().setActiveNav("logs" as any),
+    execute: () => useUIStore.getState().setActiveNav("logs"),
   },
   {
     id: "core:new-snippet",
@@ -107,7 +107,7 @@ export const commands: OmniCommand[] = [
     execute: () => {
       const { setActiveNav, setSnippetsPendingAction } = useUIStore.getState();
       setSnippetsPendingAction({ action: "create" });
-      setActiveNav("snippets" as any);
+      setActiveNav("snippets");
     },
   },
   {
@@ -118,7 +118,7 @@ export const commands: OmniCommand[] = [
     section: "Actions",
     execute: () => {
       const { setActiveNav, setHomeView } = useUIStore.getState();
-      setActiveNav("members" as any);
+      setActiveNav("members");
       setHomeView(false);
     },
   },

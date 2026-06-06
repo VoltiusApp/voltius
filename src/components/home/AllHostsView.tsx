@@ -28,7 +28,7 @@ export function AllHostsView({ onBack }: Props) {
 
   const handleConnect = (conn: Connection) => {
     connect(conn.id).catch(() => {});
-    setActiveNav("terminal" as any);
+    setActiveNav("terminal");
   };
 
   const isPinnedFn = useEffectivePinnedPredicate();

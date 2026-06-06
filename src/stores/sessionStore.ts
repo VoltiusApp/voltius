@@ -467,7 +467,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
         ),
       }));
-      useUIStore.getState().setActiveNav("terminal" as any);
+      useUIStore.getState().setActiveNav("terminal");
       useUIStore.getState().setSidebarOpen(false);
     } catch (err) {
       set((s) => ({
@@ -499,7 +499,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
         ),
       }));
-      useUIStore.getState().setActiveNav("terminal" as any);
+      useUIStore.getState().setActiveNav("terminal");
       useUIStore.getState().setSidebarOpen(false);
     } catch (err) {
       set((s) => ({
@@ -548,7 +548,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       await new Promise((r) => setTimeout(r, 400));
       await sshSendInput(sessionId, new TextEncoder().encode(`cd "${cwd}"\r`));
     }
-    useUIStore.getState().setActiveNav("terminal" as any);
+    useUIStore.getState().setActiveNav("terminal");
     useUIStore.getState().setSidebarOpen(false);
   },
 
@@ -558,7 +558,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
     const sessionId = crypto.randomUUID();
     await startSerialSession(set as SessionSetter, connection, sessionId);
-    useUIStore.getState().setActiveNav("terminal" as any);
+    useUIStore.getState().setActiveNav("terminal");
     useUIStore.getState().setSidebarOpen(false);
   },
 
@@ -573,7 +573,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     };
     set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
     useLayoutStore.getState().setSplitTabActive(false);
-    useUIStore.getState().setActiveNav("terminal" as any);
+    useUIStore.getState().setActiveNav("terminal");
     useUIStore.getState().setSidebarOpen(false);
   },
 

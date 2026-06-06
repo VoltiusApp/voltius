@@ -323,11 +323,11 @@ export default function MainPanel() {
       teamVaultStatus === "payment_required" ||
       teamVaultStatus === "error") &&
     !homeView;
-  const showSplitWorkspace = activeNav === ("terminal" as any) && splitTabActive && !sftpPanelOpen;
+  const showSplitWorkspace = activeNav === "terminal" && splitTabActive && !sftpPanelOpen;
 
   // Determine vault/home overlay to show on top of terminals
   let overlayContent: React.ReactNode = null;
-  if (homeView && activeNav !== ("terminal" as any)) {
+  if (homeView && activeNav !== "terminal") {
     overlayContent = <HomePage />;
   } else if (activeNav === "hosts") {
     overlayContent = <HostsPage />;

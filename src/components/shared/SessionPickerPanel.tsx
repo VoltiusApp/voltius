@@ -103,7 +103,7 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
     const allSessionIds = getSnippetInjectionTargetIds(sessionIds, newSessionIds);
 
     if (allSessionIds.length > 0) {
-      useUIStore.getState().setActiveNav("terminal" as any);
+      useUIStore.getState().setActiveNav("terminal");
 
       if (allSessionIds.length === 1) {
         useSessionStore.getState().setActive(allSessionIds[0]);

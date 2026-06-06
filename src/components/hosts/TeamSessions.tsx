@@ -86,7 +86,7 @@ export function TeamSessions() {
       ],
       activeSessionId: localSessionId,
     }));
-    setActiveNav("terminal" as any);
+    setActiveNav("terminal");
   };
 
   const handleJoinCard = async (session: (typeof activeSessions)[0]) => {

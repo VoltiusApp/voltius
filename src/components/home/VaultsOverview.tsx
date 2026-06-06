@@ -100,7 +100,7 @@ export function VaultsOverview() {
   const handleConnect = (conn: Connection) => {
     connect(conn.id).catch(() => {});
     setHomeView(false);
-    setActiveNav("terminal" as any);
+    setActiveNav("terminal");
   };
 
   const isPinnedFn = useEffectivePinnedPredicate();

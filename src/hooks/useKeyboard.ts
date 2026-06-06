@@ -48,7 +48,7 @@ export function useKeyboard() {
         const SEARCHABLE_SECTIONS = ["snippets", "history"];
         if (rightPanelOpen && SEARCHABLE_SECTIONS.includes(rightPanelSection)) {
           window.dispatchEvent(new CustomEvent("voltius:focus-panel-search"));
-        } else if (activeNav === ("terminal" as any)) {
+        } else if (activeNav === "terminal") {
           const activeId = useSessionStore.getState().activeSessionId;
           if (activeId) openTerminalSearch(activeId);
         }
@@ -59,7 +59,7 @@ export function useKeyboard() {
       // When the terminal search widget is open, drive it to next/prev result.
       if (e.ctrlKey && !e.altKey && (e.key === "g" || e.key === "G")) {
         e.preventDefault();
-        if (useUIStore.getState().activeNav === ("terminal" as any)) {
+        if (useUIStore.getState().activeNav === "terminal") {
           const activeId = useSessionStore.getState().activeSessionId;
           if (activeId) {
             const ctrl = getTerminalSearchController(activeId);

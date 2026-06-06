@@ -186,7 +186,7 @@ export function DockerPanel() {
         }
       }
 
-      useUIStore.getState().setActiveNav("terminal" as any);
+      useUIStore.getState().setActiveNav("terminal");
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [sessionId, isRemote, activeSession?.connectionId, localShell],
