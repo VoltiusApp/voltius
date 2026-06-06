@@ -38,7 +38,10 @@ type OmniItem =
   | { kind: "action"; id: string; label: string; icon: string; description?: string; keybinding?: string }
   | { kind: "snippet"; snippet: Snippet }
   | { kind: "team-session"; session: ActiveSession; alreadyIn: boolean }
-  | { kind: "toggle"; id: string; label: string; icon: string; description?: string; keywords?: string[]; value: boolean; onToggle: (v: boolean) => void };
+  | { kind: "toggle"; id: string; label: string; icon: string; description?: string; keywords?: string[]; value: boolean; onToggle: (v: boolean) => void }
+  | { kind: "ssh-quick"; id: string; label: string; icon: string; user: string; host: string; port: number }
+  | { kind: "join-code"; id: string; label: string; icon: string; code: string }
+  | { kind: "join-code-prompt"; id: string; label: string; icon: string };
 
 type Category = "all" | "snippets" | "marketplace" | "settings" | "ssh" | "join";
 
@@ -231,16 +234,16 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     if (category === "marketplace") return [];
     if (category === "ssh") {
       const target = parseSshTarget(q);
-      return target ? [{ kind: "ssh-quick" as unknown as "action", id: "", label: "", icon: "", ...target }] : [];
+      return target ? [{ kind: "ssh-quick", id: "", label: "", icon: "", ...target }] : [];
     }
     if (category === "join") {
       if (q.includes(":")) {
-        return [{ kind: "join-code" as unknown as "action", id: "", label: "", icon: "", code: q } as OmniItem];
+        return [{ kind: "join-code", id: "", label: "", icon: "", code: q }];
       }
       const sessionItems = teamSessions
         .filter((s) => !q || s.connection_name.toLowerCase().includes(q))
         .map((s): OmniItem => ({ kind: "team-session", session: s, alreadyIn: myMpSessionIds.has(s.id) }));
-      return [...sessionItems, { kind: "join-code-prompt" as unknown as "action", id: "", label: "", icon: "" } as OmniItem];
+      return [...sessionItems, { kind: "join-code-prompt", id: "", label: "", icon: "" }];
     }
 
     const result: OmniItem[] = [];
@@ -445,7 +448,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
                   connectionId: session.id,
                   connectionName: session.connection_name,
                   status: "connected" as const,
-                  type: "multiplayer" as any,
+                  type: "multiplayer" as const,
                 },
               ],
               activeSessionId: localSessionId,
@@ -455,15 +458,15 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           })().catch(console.error);
         }
         onClose();
-      } else if ((item as any).kind === "join-code-prompt") {
+      } else if (item.kind === "join-code-prompt") {
         inputRef.current?.focus();
         setTimeout(() => {
           if (inputRef.current) {
             inputRef.current.setSelectionRange(inputRef.current.value.length, inputRef.current.value.length);
           }
         }, 0);
-      } else if ((item as any).kind === "join-code") {
-        const code = (item as any).code as string;
+      } else if (item.kind === "join-code") {
+        const code = item.code;
         const colonIdx = code.indexOf(":");
         if (colonIdx !== -1) {
           const sessionId = code.slice(0, colonIdx);
@@ -480,7 +483,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
                     connectionId: sessionId,
                     connectionName: "Shared Terminal",
                     status: "connected" as const,
-                    type: "multiplayer" as any,
+                    type: "multiplayer" as const,
                   },
                 ],
                 activeSessionId: localSessionId,
@@ -491,8 +494,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           }
         }
         onClose();
-      } else if ((item as any).kind === "ssh-quick") {
-        const i = item as any;
+      } else if (item.kind === "ssh-quick") {
+        const i = item;
         connectDirect({
           id: crypto.randomUUID(),
           name: `${i.user}@${i.host}`,
@@ -871,8 +874,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     }
 
     // join-code-prompt — always visible in join mode to surface the invite code flow
-    const maybeJoin = item as any;
-    if (maybeJoin.kind === "join-code-prompt") {
+    if (item.kind === "join-code-prompt") {
       return (
         <button
           key="join-code-prompt"
@@ -898,9 +900,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       );
     }
 
-    // join-code (untyped, entered via "join " prefix)
-    const joinItem = item as any;
-    if (joinItem.kind === "join-code") {
+    // join-code (entered via "join " prefix)
+    if (item.kind === "join-code") {
       return (
         <button
           key="join-code"
@@ -919,16 +920,15 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               Join by invite code
             </span>
             <p className="text-xs mt-0.5 font-mono truncate text-[var(--t-text-dim)]">
-              {joinItem.code}
+              {item.code}
             </p>
           </div>
         </button>
       );
     }
 
-    // ssh-quick (kept as untyped for backwards compat)
-    const sshItem = item as any;
-    if (sshItem.kind === "ssh-quick") {
+    // ssh-quick
+    if (item.kind === "ssh-quick") {
       return (
         <button
           key="ssh-quick"
@@ -944,10 +944,10 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           <div className="flex-1 min-w-0">
             <span className="text-sm font-medium"
               style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
-              Connect to {sshItem.user}@{sshItem.host}
+              Connect to {item.user}@{item.host}
             </span>
             <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
-              Port {sshItem.port} — quick SSH connection
+              Port {item.port} — quick SSH connection
             </p>
           </div>
         </button>
@@ -1105,8 +1105,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
             <>
               {category === "settings" && sectionHeader("Settings", false)}
               {category === "ssh" && items.length > 0 && sectionHeader("Quick connect", false)}
-              {category === "join" && (items[0] as any)?.kind === "join-code" && sectionHeader("Join by invite code", false)}
-              {category === "join" && (items[0] as any)?.kind !== "join-code" && sectionHeader("Team Sessions", false)}
+              {category === "join" && items[0]?.kind === "join-code" && sectionHeader("Join by invite code", false)}
+              {category === "join" && items[0]?.kind !== "join-code" && sectionHeader("Team Sessions", false)}
               {items.map((item) => renderItem(item, runningIdx++))}
             </>
           )}
