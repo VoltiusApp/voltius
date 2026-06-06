@@ -152,7 +152,7 @@ pub fn get_system_info() -> SystemInfo {
         .unwrap_or_default();
 
     let cpu_cores_logical = sys.cpus().len();
-    let cpu_cores_physical = sys.physical_core_count().unwrap_or(cpu_cores_logical);
+    let cpu_cores_physical = sysinfo::System::physical_core_count().unwrap_or(cpu_cores_logical);
 
     SystemInfo {
         cpu_brand,

@@ -45,7 +45,7 @@ rusty-leveldb = "4"
 portable-pty = "0.9"
 ssh-key = { version = "0.6", features = ["ed25519", "p256", "p384", "p521", "rsa", "encryption"] }
 rsa = { version = "0.9", features = ["getrandom"] }
-sysinfo = "0.33"
+sysinfo = "0.39"
 bollard = "0.17"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
