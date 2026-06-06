@@ -5,15 +5,22 @@ import {
   useHostPingStore,
 } from "@/stores/hostPingStore";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
+import { useGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
+import { DEFAULT_KEEPALIVE_PRESET, KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
 import { Toggle } from "@/components/shared/Toggle";
+import { FormSelect } from "@/components/shared/FormSelect";
 import { DirtyDot, ResetButton } from "./shared";
 
 const SHELL_INTEGRATION_DEFAULT = TOGGLE_DEFS["shell-integration"].default;
+const KEEPALIVE_OPTIONS = (Object.keys(KEEPALIVE_PRESETS) as KeepalivePreset[]).map(
+  (p) => ({ value: p, label: KEEPALIVE_PRESETS[p].label }),
+);
 
 export default function HostsSection() {
   const [enabled, setEnabled] = useToggle("reachability");
   const [presenceEnabled, setPresenceEnabled] = useToggle("team-presence");
   const [shellIntegration, setShellIntegration] = useToggle("shell-integration");
+  const [keepalivePreset, setKeepalivePreset] = useGlobalKeepalivePreset();
   const pollIntervalMs = useHostPingStore((s) => s.pollIntervalMs);
   const setPollIntervalMs = useHostPingStore((s) => s.setPollIntervalMs);
   const activePollIntervalMs = useHostPingStore((s) => s.activePollIntervalMs);
@@ -115,6 +122,27 @@ export default function HostsSection() {
               </div>
             </>
           )}
+          <div className="group flex items-center justify-between px-4 py-3 gap-4">
+            <div>
+              <p className="text-sm font-medium text-[var(--t-text-primary)]">Keepalive</p>
+              <p className="text-xs mt-0.5 text-[var(--t-text-dim)]">
+                How quickly a session is declared lost when the server stops responding.
+                {" "}{KEEPALIVE_PRESETS[keepalivePreset].detail}. Can be overridden per host.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {keepalivePreset !== DEFAULT_KEEPALIVE_PRESET && (
+                <ResetButton onReset={() => setKeepalivePreset(DEFAULT_KEEPALIVE_PRESET)} />
+              )}
+              {keepalivePreset !== DEFAULT_KEEPALIVE_PRESET && <DirtyDot />}
+              <FormSelect
+                className="w-36 shrink-0"
+                value={keepalivePreset}
+                options={KEEPALIVE_OPTIONS}
+                onChange={(v) => setKeepalivePreset(v as KeepalivePreset)}
+              />
+            </div>
+          </div>
         </div>
       </div>
 

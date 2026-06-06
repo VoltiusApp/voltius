@@ -28,6 +28,8 @@ pub async fn ssh_connect(
     pre_command: Option<String>,
     auto_forward: bool,
     shell_integration: Option<bool>,
+    keepalive_interval_secs: Option<u64>,
+    keepalive_max: Option<usize>,
 ) -> Result<(), String> {
     let connected = client::connect(
         app,
@@ -45,6 +47,8 @@ pub async fn ssh_connect(
         shell_integration.unwrap_or(true),
         Arc::clone(&*known_hosts),
         Arc::clone(&*pending_conflicts),
+        keepalive_interval_secs.unwrap_or(2),
+        keepalive_max.unwrap_or(2),
     )
     .await?;
 

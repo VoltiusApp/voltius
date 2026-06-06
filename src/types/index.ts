@@ -1,3 +1,5 @@
+import type { KeepalivePreset } from "@/utils/keepalive";
+
 export type AuthType = "password" | "key";
 
 export interface Folder {
@@ -118,6 +120,7 @@ export interface Connection {
   pinned?: boolean;
   ping_disabled?: boolean;
   shell_integration_disabled?: boolean;
+  keepalive_preset?: KeepalivePreset;
   connection_type?: "ssh" | "serial";
   serial_port?: string;
   serial_baud?: number;
@@ -152,6 +155,7 @@ export interface ConnectionFormData {
   pinned?: boolean;
   ping_disabled?: boolean;
   shell_integration_disabled?: boolean;
+  keepalive_preset?: KeepalivePreset;
   connection_type?: "ssh" | "serial";
   serial_port?: string;
   serial_baud?: number;

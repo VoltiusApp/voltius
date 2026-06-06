@@ -15,6 +15,8 @@ export interface ConnectRetryOverride {
   passphrase?: string;
 }
 import { sshConnect, sshDisconnect, sshDetectDistro, sshSendInput } from "@/services/ssh";
+import { resolveKeepalive } from "@/utils/keepalive";
+import { getGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
 import { localConnect, localDisconnect } from "@/services/local";
 import { serialConnect, serialDisconnect } from "@/services/serial";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
@@ -71,6 +73,12 @@ function reportConnectionAudit(connection: Connection, action: ClientAuditAction
     target_id: connection.id,
     target_name: connection.name?.trim() || `${connection.username}@${connection.host}:${connection.port}`,
   });
+}
+
+// Per-host preset wins; otherwise the global default.
+function keepaliveArgs(connection: Connection): { keepaliveIntervalSecs: number; keepaliveMax: number } {
+  const { intervalSecs, max } = resolveKeepalive(connection.keepalive_preset ?? getGlobalKeepalivePreset());
+  return { keepaliveIntervalSecs: intervalSecs, keepaliveMax: max };
 }
 
 async function startSession(
@@ -165,6 +173,7 @@ async function connectSshSession(
       preCommand,
       autoForward: getToggle("auto-forward"),
       shellIntegration: getToggle("shell-integration") && !connection.shell_integration_disabled,
+      ...keepaliveArgs(connection),
     });
     set((s) => ({
       sessions: s.sessions.map((sess) =>
@@ -700,7 +709,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       await sshDisconnect(sessionId).catch(() => {});
       const credentials = await resolveConnectionCredentials(connection);
 
-      await sshConnect({ sessionId, host: connection.host, port: connection.port, username: credentials.username, password: credentials.password, privateKey: credentials.privateKey, passphrase: credentials.passphrase, connectionId: connection.id, autoForward: getToggle("auto-forward"), shellIntegration: getToggle("shell-integration") && !connection.shell_integration_disabled });
+      await sshConnect({ sessionId, host: connection.host, port: connection.port, username: credentials.username, password: credentials.password, privateKey: credentials.privateKey, passphrase: credentials.passphrase, connectionId: connection.id, autoForward: getToggle("auto-forward"), shellIntegration: getToggle("shell-integration") && !connection.shell_integration_disabled, ...keepaliveArgs(connection) });
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
@@ -760,6 +769,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
         autoForward: getToggle("auto-forward"),
         shellIntegration: getToggle("shell-integration"),
+        ...keepaliveArgs(connection),
       });
       set((s) => ({
         sessions: s.sessions.map((sess) =>
