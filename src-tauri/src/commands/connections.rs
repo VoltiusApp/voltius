@@ -265,7 +265,9 @@ pub fn connection_delete(id: String) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::config::{Connection, ConnectionFormData, EnvVar, JumpHost};
+    use crate::storage::config::{
+        AuthType, Connection, ConnectionFormData, ConnectionType, EnvVar, JumpHost,
+    };
     use std::collections::HashMap;
 
     /// A fully-populated `Connection` with deterministic, distinct field values.
@@ -277,7 +279,7 @@ mod tests {
             host: "orig.host".into(),
             port: 22,
             username: "orig-user".into(),
-            auth_type: "password".into(),
+            auth_type: AuthType::Password,
             tags: vec!["a".into()],
             created_at: "2026-01-01T00:00:00Z".into(),
             last_used_at: Some("2026-01-05T00:00:00Z".into()),
@@ -308,7 +310,7 @@ mod tests {
             ping_disabled: false,
             shell_integration_disabled: None,
             keepalive_preset: None,
-            connection_type: "ssh".into(),
+            connection_type: ConnectionType::Ssh,
             serial_port: Some("/dev/ttyU0".into()),
             serial_baud: Some(9600),
             serial_data_bits: Some(8),
@@ -328,7 +330,7 @@ mod tests {
             host: "new.host".into(),
             port: 2222,
             username: "new-user".into(),
-            auth_type: "key".into(),
+            auth_type: AuthType::Key,
             tags: vec!["b".into(), "c".into()],
             identity_id: Some("id-2".into()),
             key_id: Some("key-2".into()),
@@ -357,7 +359,7 @@ mod tests {
             ping_disabled: true,
             shell_integration_disabled: Some(true),
             keepalive_preset: Some("balanced".into()),
-            connection_type: "serial".into(),
+            connection_type: ConnectionType::Serial,
             serial_port: Some("/dev/ttyU1".into()),
             serial_baud: Some(115200),
             serial_data_bits: Some(7),
@@ -417,9 +419,9 @@ mod tests {
         assert_eq!(merged.host, "new.host");
         assert_eq!(merged.port, 2222);
         assert_eq!(merged.username, "new-user");
-        assert_eq!(merged.auth_type, "key");
+        assert_eq!(merged.auth_type, AuthType::Key);
         assert_eq!(merged.tags, vec!["b".to_string(), "c".to_string()]);
-        assert_eq!(merged.connection_type, "serial");
+        assert_eq!(merged.connection_type, ConnectionType::Serial);
         assert!(merged.agent_forwarding);
         assert!(merged.pinned);
     }

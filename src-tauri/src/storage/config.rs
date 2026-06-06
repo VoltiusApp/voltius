@@ -9,8 +9,20 @@ fn default_folder_object_type() -> String {
 fn default_personal() -> String {
     "personal".to_string()
 }
-fn default_ssh() -> String {
-    "ssh".to_string()
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthType {
+    #[default]
+    Password,
+    Key,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ConnectionType {
+    #[default]
+    Ssh,
+    Serial,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -83,7 +95,7 @@ pub struct Connection {
     #[serde(default)]
     pub username: String,
     #[serde(default)]
-    pub auth_type: String,
+    pub auth_type: AuthType,
     pub tags: Vec<String>,
     pub created_at: String,
     pub last_used_at: Option<String>,
@@ -122,8 +134,8 @@ pub struct Connection {
     /// Per-host keepalive preset; None inherits the global setting.
     #[serde(default)]
     pub keepalive_preset: Option<String>,
-    #[serde(default = "default_ssh")]
-    pub connection_type: String,
+    #[serde(default)]
+    pub connection_type: ConnectionType,
     #[serde(default)]
     pub serial_port: Option<String>,
     #[serde(default)]
@@ -152,7 +164,7 @@ pub struct ConnectionFormData {
     #[serde(default)]
     pub username: String,
     #[serde(default)]
-    pub auth_type: String,
+    pub auth_type: AuthType,
     #[serde(default)]
     pub tags: Vec<String>,
     #[serde(default)]
@@ -188,8 +200,8 @@ pub struct ConnectionFormData {
     pub shell_integration_disabled: Option<bool>,
     #[serde(default)]
     pub keepalive_preset: Option<String>,
-    #[serde(default = "default_ssh")]
-    pub connection_type: String,
+    #[serde(default)]
+    pub connection_type: ConnectionType,
     #[serde(default)]
     pub serial_port: Option<String>,
     #[serde(default)]
@@ -311,6 +323,24 @@ fn migrate_shell_integration(obj: &mut serde_json::Map<String, serde_json::Value
     }
 }
 
+/// Drop legacy/invalid `auth_type`/`connection_type` strings so `#[serde(default)]`
+/// supplies a valid enum variant instead of the record failing to deserialize
+/// (which would silently drop it). New code only ever writes valid variants.
+fn migrate_enum_fields(obj: &mut serde_json::Map<String, serde_json::Value>) {
+    if !matches!(
+        obj.get("auth_type").and_then(|v| v.as_str()),
+        Some("password") | Some("key")
+    ) {
+        obj.remove("auth_type");
+    }
+    if !matches!(
+        obj.get("connection_type").and_then(|v| v.as_str()),
+        Some("ssh") | Some("serial")
+    ) {
+        obj.remove("connection_type");
+    }
+}
+
 fn parse_with_migration<T: serde::de::DeserializeOwned>(data: &str) -> Vec<T> {
     let raw: Vec<serde_json::Value> = serde_json::from_str(data).unwrap_or_default();
     raw.into_iter()
@@ -318,6 +348,7 @@ fn parse_with_migration<T: serde::de::DeserializeOwned>(data: &str) -> Vec<T> {
             if let serde_json::Value::Object(ref mut map) = v {
                 migrate_vault_id(map);
                 migrate_shell_integration(map);
+                migrate_enum_fields(map);
             }
             serde_json::from_value(v).ok()
         })
@@ -652,7 +683,7 @@ mod tests {
             host: "example.com".into(),
             port: 22,
             username: "root".into(),
-            auth_type: "key".into(),
+            auth_type: AuthType::Key,
             tags: vec!["prod".into(), "eu".into()],
             created_at: "2026-01-01T00:00:00Z".into(),
             last_used_at: Some("2026-01-05T00:00:00Z".into()),
@@ -683,7 +714,7 @@ mod tests {
             ping_disabled: false,
             shell_integration_disabled: None,
             keepalive_preset: None,
-            connection_type: "ssh".into(),
+            connection_type: ConnectionType::Ssh,
             serial_port: Some("/dev/ttyU0".into()),
             serial_baud: Some(9600),
             serial_data_bits: Some(8),
@@ -796,6 +827,31 @@ mod tests {
     fn migrate_defaults_to_personal_for_wrong_type() {
         let out = migrate(serde_json::json!({ "vault_ids": 42 }));
         assert_eq!(out.get("vault_id").unwrap(), "personal");
+    }
+
+    // ── migrate_enum_fields ─────────────────────────────────────────────────
+    fn migrate_enums(input: serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
+        let mut map = input.as_object().expect("object").clone();
+        migrate_enum_fields(&mut map);
+        map
+    }
+
+    #[test]
+    fn migrate_enum_keeps_valid_values() {
+        let out =
+            migrate_enums(serde_json::json!({ "auth_type": "key", "connection_type": "serial" }));
+        assert_eq!(out.get("auth_type").unwrap(), "key");
+        assert_eq!(out.get("connection_type").unwrap(), "serial");
+    }
+
+    #[test]
+    fn migrate_enum_drops_invalid_values_so_defaults_apply() {
+        // Legacy empty/unknown strings must be removed, not deserialized — else the
+        // whole connection record would be silently dropped on load.
+        let out =
+            migrate_enums(serde_json::json!({ "auth_type": "", "connection_type": "telnet" }));
+        assert!(!out.contains_key("auth_type"));
+        assert!(!out.contains_key("connection_type"));
     }
 
     // ── parse_with_migration ────────────────────────────────────────────────
