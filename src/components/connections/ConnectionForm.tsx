@@ -644,7 +644,6 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                     )}
                     {shellIntegrationDisabled !== undefined && <DirtyDot />}
                     <span
-                      style={{ opacity: shellIntegrationDisabled === undefined ? 0.45 : 1 }}
                       title={shellIntegrationDisabled === undefined ? `Following global (${globalShellIntegration ? "On" : "Off"})` : "Overriding global for this host"}
                     >
                       <Toggle
