@@ -99,13 +99,10 @@ export function VaultPicker({
           <div className="fixed inset-0 z-9998" onClick={() => setOpen(false)} />
           <div
             ref={dropdownRef}
-            className="fixed z-9999 p-1.5 rounded-xl min-w-52"
+            className="surface-float fixed z-9999 p-1.5 min-w-52"
             style={{
               top: pos.top,
               left: pos.left,
-              background: "var(--t-bg-card)",
-              border: "1px solid var(--t-bg-card-hover)",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
             }}
           >
             {allVaults.map((v) => {

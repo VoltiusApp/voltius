@@ -57,12 +57,11 @@ export function InfoTooltip({
         <div
           onMouseEnter={interactive ? show : undefined}
           onMouseLeave={interactive ? hide : undefined}
-          className={`fixed z-9999 px-3 py-2 rounded-lg text-xs leading-relaxed bg-(--t-bg-elevated) border border-(--t-border) text-(--t-text-secondary) ${interactive ? "" : "pointer-events-none"}`}
+          className={`surface-float fixed z-9999 px-3 py-2 text-xs leading-relaxed text-(--t-text-secondary) ${interactive ? "" : "pointer-events-none"}`}
           style={{
             top: pos.top,
             left: pos.left,
             transform: placement === "top" ? "translate(-50%, -100%)" : "translateX(-50%)",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
             width: "17.333rem",
           }}
         >

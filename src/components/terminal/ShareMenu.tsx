@@ -184,14 +184,11 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
   return createPortal(
     <div
       ref={menuRef}
-      className="fixed z-9999 rounded-xl"
+      className="surface-float fixed z-9999"
       style={{
         top: pos.top,
         left: pos.left,
         width: 280,
-        background: "var(--t-bg-card)",
-        border: "1px solid var(--t-border)",
-        boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
       }}
       onMouseDown={(e) => e.stopPropagation()}
     >

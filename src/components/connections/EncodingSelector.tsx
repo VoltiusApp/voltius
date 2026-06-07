@@ -121,13 +121,12 @@ export default function EncodingSelector({ value, onChange }: Props) {
 
       {open && createPortal(
         <div
-          className="p-1.5 rounded-xl flex flex-col fixed z-9999 bg-(--t-bg-card) border border-(--t-bg-card-hover) overflow-y-auto"
+          className="surface-float p-1.5 flex flex-col fixed z-9999 overflow-y-auto"
           style={{
             top: dropdownPos.top,
             left: dropdownPos.left,
             width: dropdownPos.width,
             maxHeight: 320,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
           }}
         >
           {/* UTF-8 default */}
