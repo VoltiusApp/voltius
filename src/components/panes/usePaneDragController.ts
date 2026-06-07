@@ -10,6 +10,16 @@ export function usePaneDragController() {
   useEffect(() => {
     if (!isPointerDown) return;
 
+    // Suppress native text selection for the whole drag gesture — without this
+    // the cursor sweeping the pane header title or the minimap gutter selects
+    // their text. Cleared on drag end via the cleanup below.
+    const body = document.body;
+    const prevUserSelect = body.style.userSelect;
+    const prevWebkitUserSelect = body.style.webkitUserSelect;
+    body.style.userSelect = "none";
+    body.style.webkitUserSelect = "none";
+    window.getSelection()?.removeAllRanges();
+
     const onMove = (e: MouseEvent) => {
       useDragStore.getState().updatePointer(e.clientX, e.clientY);
     };
@@ -82,6 +92,8 @@ export function usePaneDragController() {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
       window.removeEventListener("keydown", onKeyDown);
+      body.style.userSelect = prevUserSelect;
+      body.style.webkitUserSelect = prevWebkitUserSelect;
     };
   }, [isPointerDown]);
 }
