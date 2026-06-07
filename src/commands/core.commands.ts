@@ -3,14 +3,14 @@ import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { checkForUpdate } from "@/services/updater";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { defineCommand, navCommand, pendingActionCommand } from "./defineCommand";
 
 export const commands: OmniCommand[] = [
-  {
+  defineCommand({
     id: "core:local-terminal",
     label: "Local Terminal",
     icon: "lucide:terminal",
     keywords: ["shell", "bash", "zsh", "local", "console"],
-    section: "Actions",
     execute: () => {
       const { connectLocal } = useSessionStore.getState();
       const { setSidebarOpen, setActiveNav } = useUIStore.getState();
@@ -18,124 +18,104 @@ export const commands: OmniCommand[] = [
       setSidebarOpen(false);
       setActiveNav("terminal");
     },
-  },
-  {
+  }),
+  pendingActionCommand({
     id: "core:new-host",
     label: "New Host",
     icon: "lucide:server",
     keywords: ["add", "create", "ssh", "connection", "server"],
-    section: "Actions",
-    execute: () => {
-      const { setHomePendingAction, setActiveNav } = useUIStore.getState();
-      setHomePendingAction({ action: "create" });
-      setActiveNav("hosts");
-    },
-  },
-  {
+    setter: "setHomePendingAction",
+    action: { action: "create" },
+    nav: "hosts",
+  }),
+  pendingActionCommand({
     id: "core:new-key",
     label: "New SSH Key",
     icon: "lucide:key-round",
     keywords: ["add", "create", "key", "keychain", "ssh", "rsa", "ed25519"],
-    section: "Actions",
-    execute: () => {
-      const { setKeychainPendingAction, setActiveNav } = useUIStore.getState();
-      setKeychainPendingAction({ action: "create-key" });
-      setActiveNav("keychain");
-    },
-  },
-  {
+    setter: "setKeychainPendingAction",
+    action: { action: "create-key" },
+    nav: "keychain",
+  }),
+  pendingActionCommand({
     id: "core:new-identity",
     label: "New Identity",
     icon: "lucide:id-card",
     keywords: ["add", "create", "identity", "credential", "user"],
-    section: "Actions",
-    execute: () => {
-      const { setKeychainPendingAction, setActiveNav } = useUIStore.getState();
-      setKeychainPendingAction({ action: "create-identity" });
-      setActiveNav("keychain");
-    },
-  },
-  {
+    setter: "setKeychainPendingAction",
+    action: { action: "create-identity" },
+    nav: "keychain",
+  }),
+  defineCommand({
     id: "core:settings",
     label: "Settings",
     icon: "lucide:settings",
     keywords: ["preferences", "config", "options", "appearance", "theme"],
-    section: "Actions",
     execute: () => useUIStore.getState().openSettings(),
-  },
-  {
+  }),
+  defineCommand({
     id: "core:check-for-update",
     label: "Check for Update",
     icon: "lucide:refresh-cw",
     keywords: ["update", "version", "upgrade", "release", "changelog"],
-    section: "Actions",
     execute: () => {
       checkForUpdate().catch(() => {});
       useUIStore.getState().openSettings("about");
     },
-  },
-  {
+  }),
+  defineCommand({
     id: "core:whats-new",
     label: "What's New",
     icon: "lucide:megaphone",
     keywords: ["changelog", "release", "notes", "news", "update", "version"],
-    section: "Actions",
     execute: () => useUIStore.getState().openWhatsNew(),
-  },
-  {
+  }),
+  navCommand({
     id: "core:port-forwarding",
     label: "Port Forwarding",
     icon: "lucide:arrow-left-right",
     keywords: ["tunnel", "forward", "port", "proxy"],
-    section: "Actions",
-    execute: () => useUIStore.getState().setActiveNav("port-forwarding"),
-  },
-  {
+    nav: "port-forwarding",
+  }),
+  navCommand({
     id: "core:known-hosts",
     label: "Known Hosts",
     icon: "lucide:shield-check",
     keywords: ["known", "hosts", "fingerprint", "trust", "security"],
-    section: "Actions",
-    execute: () => useUIStore.getState().setActiveNav("known-hosts"),
-  },
-  {
+    nav: "known-hosts",
+  }),
+  navCommand({
     id: "core:logs",
     label: "Logs",
     icon: "lucide:scroll-text",
     keywords: ["log", "debug", "console", "output", "trace"],
-    section: "Actions",
-    execute: () => useUIStore.getState().setActiveNav("logs"),
-  },
-  {
+    nav: "logs",
+  }),
+  pendingActionCommand({
     id: "core:new-snippet",
     label: "New Snippet",
     icon: "lucide:braces",
     keywords: ["add", "create", "snippet", "command", "text", "macro"],
-    section: "Actions",
-    execute: () => {
-      const { setActiveNav, setSnippetsPendingAction } = useUIStore.getState();
-      setSnippetsPendingAction({ action: "create" });
-      setActiveNav("snippets");
-    },
-  },
-  {
+    setter: "setSnippetsPendingAction",
+    action: { action: "create" },
+    nav: "snippets",
+  }),
+  defineCommand({
     id: "core:team-members",
     label: "Team Members",
     icon: "lucide:users",
     keywords: ["team", "members", "people", "invite", "manage", "roles"],
-    section: "Actions",
     execute: () => {
       const { setActiveNav, setHomeView } = useUIStore.getState();
       setActiveNav("members");
       setHomeView(false);
     },
-  },
-  {
+  }),
+  defineCommand({
     id: "core:disconnect-all",
     label: "Disconnect All",
     icon: "lucide:unplug",
     keywords: ["close", "end", "stop", "quit", "sessions", "all", "kill"],
-    section: "Actions",
     execute: () => {
       const { sessions, disconnect, removeSession } = useSessionStore.getState();
       const mpStore = useTeamSessionStore.getState();
@@ -155,5 +135,5 @@ export const commands: OmniCommand[] = [
           }
         });
     },
-  },
+  }),
 ];
