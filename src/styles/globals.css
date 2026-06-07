@@ -416,6 +416,106 @@
 }
 
 /*
+  Button depth system — the same ring + top-highlight + elevation language as
+  the cards, applied to interactive controls so they stop reading flat. Drop
+  `btn` + a variant onto any existing button; padding/size/radius stay inline.
+  color-mix is inlined (not stored in a custom prop) so it survives WebKitGTK,
+  mirroring the .surface-glass convention.
+  - btn:        shared transition + tactile press feedback + disabled state
+  - btn-primary: accent fill with vertical sheen, crisp ring, soft colored glow
+  - btn-secondary: raised neutral surface (toolbars, cancel/secondary actions)
+  - btn-ghost:  flat until hover, for low-emphasis text actions
+*/
+.btn {
+  transition: filter 0.15s ease, box-shadow 0.15s ease, transform 0.06s ease, background 0.15s ease;
+}
+.btn:active {
+  transform: translateY(0.5px);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  color: #fff;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--t-accent) 84%, #ffffff 16%) 0%,
+      var(--t-accent) 52%,
+      color-mix(in srgb, var(--t-accent) 88%, #000000 12%) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 0 0 1px color-mix(in srgb, var(--t-accent) 55%, #000000 45%),
+    0 4px 14px -4px color-mix(in srgb, var(--t-accent) 55%, transparent);
+}
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.btn-primary:active:not(:disabled) {
+  filter: brightness(0.97);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.28),
+    0 0 0 1px color-mix(in srgb, var(--t-accent) 55%, #000000 45%);
+}
+
+.btn-secondary {
+  color: var(--t-text-primary);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 60%),
+    var(--t-bg-elevated);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px color-mix(in srgb, #ffffff 8%, transparent),
+    0 2px 8px -4px rgba(0, 0, 0, 0.5);
+}
+.btn-secondary:hover:not(:disabled) {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, transparent 60%),
+    var(--t-bg-card-hover);
+}
+.btn-secondary:active:not(:disabled) {
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.22),
+    0 0 0 1px color-mix(in srgb, #ffffff 8%, transparent);
+}
+
+.btn-ghost {
+  color: var(--t-text-secondary);
+  background: transparent;
+}
+.btn-ghost:hover:not(:disabled) {
+  color: var(--t-text-primary);
+  background: color-mix(in srgb, #ffffff 6%, transparent);
+}
+
+.btn-danger {
+  color: #fff;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--t-status-error) 84%, #ffffff 16%) 0%,
+      var(--t-status-error) 52%,
+      color-mix(in srgb, var(--t-status-error) 88%, #000000 12%) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 0 0 1px color-mix(in srgb, var(--t-status-error) 55%, #000000 45%),
+    0 4px 14px -4px color-mix(in srgb, var(--t-status-error) 55%, transparent);
+}
+.btn-danger:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.btn-danger:active:not(:disabled) {
+  filter: brightness(0.97);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.28),
+    0 0 0 1px color-mix(in srgb, var(--t-status-error) 55%, #000000 45%);
+}
+
+/*
   Shared form-field focus ring — adds only the accent ring (box-shadow) so it
   composes with whatever inline border/background a field already has. Pairs
   with formInputClass; any input can opt in by adding the `form-input` class.

@@ -135,9 +135,7 @@ export default function AboutSection() {
           {updater.status === "ready" && (
             <button
               onClick={() => installUpdate()}
-              className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium text-white transition-colors bg-(--t-accent)"
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.85"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
+              className="btn btn-primary w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium"
             >
               <Icon icon="lucide:refresh-cw" width={14} />
               Restart to update · v{updater.version}

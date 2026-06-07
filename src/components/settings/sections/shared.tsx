@@ -14,20 +14,19 @@ export function ActionItem({ icon, label, sub, danger, disabled, onClick }: {
     <button
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className="w-full flex items-start gap-3 px-4 py-3 rounded-lg text-left transition-colors bg-(--t-bg-elevated) border border-(--t-border)"
+      className="btn btn-secondary w-full flex items-start gap-3 px-4 py-3 rounded-lg text-left"
       style={{
         cursor: disabled ? "default" : "pointer",
         opacity: disabled ? 0.5 : 1,
       }}
       onMouseEnter={(e) => {
-        if (!disabled) {
-          (e.currentTarget as HTMLButtonElement).style.borderColor = danger
-            ? "var(--t-status-error)"
-            : "var(--t-border-hover)";
+        if (!disabled && danger) {
+          (e.currentTarget as HTMLButtonElement).style.boxShadow =
+            "0 0 0 1px color-mix(in srgb, var(--t-status-error) 70%, transparent), 0 2px 8px -4px rgba(0,0,0,0.5)";
         }
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-border)";
+        (e.currentTarget as HTMLButtonElement).style.boxShadow = "";
       }}
     >
       <Icon
@@ -100,19 +99,13 @@ export function FormButtons({ onCancel, submitLabel }: { onCancel: () => void; s
       <button
         type="button"
         onClick={onCancel}
-        className="flex-1 py-1.5 rounded-lg text-sm transition-colors bg-(--t-bg-elevated) text-(--t-text-muted)"
+        className="btn btn-secondary flex-1 py-1.5 rounded-lg text-sm"
       >
         Cancel
       </button>
       <button
         type="submit"
-        className="flex-1 py-1.5 rounded-lg text-sm font-medium text-white transition-colors bg-(--t-accent)"
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = "var(--t-accent-hover)";
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = "var(--t-accent)";
-        }}
+        className="btn btn-primary flex-1 py-1.5 rounded-lg text-sm font-medium"
       >
         {submitLabel}
       </button>

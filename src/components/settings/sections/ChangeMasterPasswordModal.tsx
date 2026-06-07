@@ -76,7 +76,7 @@ export default function ChangeMasterPasswordModal({ onClose }: Props) {
             </p>
             <button
               onClick={onClose}
-              className="w-full py-1.5 rounded-lg text-sm font-medium text-white bg-(--t-accent)"
+              className="btn btn-primary w-full py-1.5 rounded-lg text-sm font-medium"
             >
               Done
             </button>
@@ -107,14 +107,14 @@ export default function ChangeMasterPasswordModal({ onClose }: Props) {
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 py-1.5 rounded-lg text-sm transition-colors bg-(--t-bg-elevated) text-(--t-text-muted)"
+                className="btn btn-secondary flex-1 py-1.5 rounded-lg text-sm"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 py-1.5 rounded-lg text-sm font-medium text-white transition-colors bg-(--t-accent)"
+                className="btn btn-primary flex-1 py-1.5 rounded-lg text-sm font-medium"
                 style={{ opacity: loading ? 0.7 : 1 }}
               >
                 {loading ? "Changing…" : "Change password"}

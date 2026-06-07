@@ -222,28 +222,14 @@ export function SnippetVariableModal({
         >
           <button
             onClick={onClose}
-            className="px-3 py-1.5 text-xs rounded-lg border transition-colors"
-            style={{
-              borderColor: "var(--t-border)",
-              color: "var(--t-text-muted)",
-              background: "transparent",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            className="btn btn-ghost px-3 py-1.5 text-xs rounded-lg"
           >
             Cancel
           </button>
           <button
             disabled={!allFilled}
             onClick={() => onInject(preview, false)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors disabled:opacity-40"
-            style={{
-              borderColor: "var(--t-border)",
-              color: "var(--t-text-primary)",
-              background: "var(--t-bg-elevated)",
-            }}
-            onMouseEnter={(e) => { if (allFilled) (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)"; }}
-            onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)"}
+            className="btn btn-secondary flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg"
           >
             <Icon icon="lucide:arrow-down-to-line" width={12} />
             Insert
@@ -251,13 +237,7 @@ export function SnippetVariableModal({
           <button
             disabled={!allFilled}
             onClick={() => onInject(preview, true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-colors disabled:opacity-40"
-            style={{
-              background: "var(--t-accent)",
-              color: "var(--t-tab-active-text)",
-            }}
-            onMouseEnter={(e) => { if (allFilled) (e.currentTarget as HTMLButtonElement).style.background = "var(--t-accent-hover)"; }}
-            onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.background = "var(--t-accent)"}
+            className="btn btn-primary flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg"
           >
             <Icon icon="lucide:play" width={12} />
             Execute

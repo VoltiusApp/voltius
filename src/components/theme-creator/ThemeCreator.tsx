@@ -644,17 +644,13 @@ export default function ThemeCreator() {
 
           <button
             onClick={handleCancel}
-            className="px-3 py-1 rounded-md text-xs font-medium transition-colors border border-(--t-border) text-(--t-text-secondary) bg-(--t-bg-elevated)"
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-secondary)"; }}
+            className="btn btn-secondary px-3 py-1 rounded-md text-xs font-medium"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-3 py-1 rounded-md text-xs font-medium transition-colors bg-(--t-accent) text-white"
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-accent-hover)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-accent)"; }}
+            className="btn btn-primary px-3 py-1 rounded-md text-xs font-medium"
           >
             Save
           </button>

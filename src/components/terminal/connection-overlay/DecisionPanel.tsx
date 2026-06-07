@@ -12,14 +12,14 @@ const toneClasses = {
 };
 
 function actionClassName(action: DecisionPanelAction): string {
-  const base = "w-full px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
+  const base = "btn w-full px-4 py-2 rounded-lg text-sm disabled:cursor-not-allowed";
   if (action.variant === "ghost") {
-    return `${base} text-text-muted hover:text-text-primary`;
+    return `${base} btn-ghost`;
   }
   if (action.variant === "secondary") {
-    return `${base} font-medium bg-(--t-bg-elevated) text-text-primary border border-(--t-border) hover:bg-(--t-bg-card-hover)`;
+    return `${base} btn-secondary font-medium`;
   }
-  return `${base} font-medium bg-accent text-white hover:bg-accent/80`;
+  return `${base} btn-primary font-medium`;
 }
 
 export function DecisionPanel({

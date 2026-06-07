@@ -342,9 +342,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
             <div className="px-4 py-3">
               <button
                 onClick={() => onExport(initial)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-opacity bg-(--t-accent) text-white relative overflow-hidden"
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+                className="btn btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium relative overflow-hidden"
               >
                 <Icon icon="lucide:square-arrow-right" width={20} />
                 Add to host

@@ -136,9 +136,7 @@ function UpdateBanner({ state }: { state: UpdaterStatus }) {
         </span>
         <button
           onClick={() => installUpdate().catch(() => {})}
-          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-opacity bg-(--t-accent) shrink-0"
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.85"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
+          className="btn btn-primary ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0"
         >
           <Icon icon="lucide:refresh-cw" width={13} />
           Restart to update

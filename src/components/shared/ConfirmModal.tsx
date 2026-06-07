@@ -26,17 +26,13 @@ export function ConfirmModal({ title, message, confirmLabel = "Confirm", onConfi
         <div className="flex gap-2 justify-end">
           <button
             onClick={onCancel}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-(--t-bg-elevated) text-(--t-text-secondary) border border-(--t-border)"
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-card-hover)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
+            className="btn btn-secondary px-4 py-2 rounded-lg text-sm font-medium"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-(--t-status-error) text-white"
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+            className="btn btn-danger px-4 py-2 rounded-lg text-sm font-medium"
           >
             {confirmLabel}
           </button>

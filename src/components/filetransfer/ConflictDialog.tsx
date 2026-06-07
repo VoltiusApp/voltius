@@ -46,45 +46,35 @@ export function ConflictDialog({ conflict, conflictNumber, totalConflicts, onRes
         <div className="flex items-center gap-2 px-5 py-4 flex-wrap border-t border-t-(--t-border)">
           <button
             onClick={() => onResolve("cancel")}
-            className="px-3 py-1.5 rounded-lg text-xs transition-colors text-(--t-text-secondary) border border-(--t-border)"
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            className="btn btn-ghost px-3 py-1.5 rounded-lg text-xs"
           >
             Cancel
           </button>
           <div className="flex-1" />
           <button
             onClick={() => onResolve("skip")}
-            className="px-3 py-1.5 rounded-lg text-xs transition-colors bg-(--t-bg-elevated) text-(--t-text-secondary) border border-(--t-border-hover)"
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-card-hover)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
+            className="btn btn-secondary px-3 py-1.5 rounded-lg text-xs"
           >
             Skip
           </button>
           {hasMore && (
             <button
               onClick={() => onResolve("skip-all")}
-              className="px-3 py-1.5 rounded-lg text-xs transition-colors bg-(--t-bg-elevated) text-(--t-text-secondary) border border-(--t-border-hover)"
-              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-card-hover)")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
+              className="btn btn-secondary px-3 py-1.5 rounded-lg text-xs"
             >
               Skip All
             </button>
           )}
           <button
             onClick={() => onResolve("overwrite")}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-(--t-accent) text-white border border-(--t-accent)"
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+            className="btn btn-primary px-3 py-1.5 rounded-lg text-xs font-medium"
           >
             Overwrite
           </button>
           {hasMore && (
             <button
               onClick={() => onResolve("overwrite-all")}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-(--t-accent) text-white border border-(--t-accent)"
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+              className="btn btn-primary px-3 py-1.5 rounded-lg text-xs font-medium"
             >
               Overwrite All
             </button>

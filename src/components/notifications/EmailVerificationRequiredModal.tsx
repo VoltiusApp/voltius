@@ -59,13 +59,13 @@ export function EmailVerificationRequiredModal() {
           <button
             onClick={() => void handleResend()}
             disabled={sending}
-            className="w-full py-2.5 rounded-lg text-sm font-semibold bg-(--t-accent) text-white hover:opacity-90 transition-opacity disabled:opacity-60"
+            className="btn btn-primary w-full py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
           >
             {sending ? "Sending..." : "Resend email"}
           </button>
           <button
             onClick={() => setVisible(false)}
-            className="w-full py-2.5 rounded-lg text-sm text-(--t-text-muted) hover:text-(--t-text-primary) transition-colors"
+            className="btn btn-ghost w-full py-2.5 rounded-lg text-sm"
           >
             Close
           </button>

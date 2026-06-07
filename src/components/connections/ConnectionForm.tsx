@@ -493,7 +493,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                       type="button"
                       onClick={() => void detectDistroFromForm()}
                       disabled={detectingDistro || !host.trim() || !username.trim()}
-                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-(--t-accent) text-(--t-bg-card) disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="btn btn-primary w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium disabled:cursor-not-allowed"
                     >
                       <Icon icon={detectingDistro ? "lucide:loader-2" : "lucide:scan-search"} width={13} className={detectingDistro ? "animate-spin" : undefined} />
                       Auto-detect OS

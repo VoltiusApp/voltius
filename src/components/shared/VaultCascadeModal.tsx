@@ -74,18 +74,13 @@ export function VaultCascadeModal({ cascade, onConfirm, onCancel }: Props) {
         <div className="flex gap-2 justify-end">
           <button
             onClick={onCancel}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-(--t-bg-elevated) text-(--t-text-secondary) border border-(--t-border)"
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-card-hover)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
+            className="btn btn-secondary px-4 py-2 rounded-lg text-sm font-medium"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-white"
-            style={{ background: "var(--t-accent)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+            className="btn btn-primary px-4 py-2 rounded-lg text-sm font-medium"
           >
             {verb} All
           </button>

@@ -107,7 +107,7 @@ export function EphemeralSerialConfigOverlay({
           <button
             disabled={!port.trim()}
             onClick={() => onConnect({ sessionId, port: port.trim(), baud, dataBits, parity, stopBits, flowControl })}
-            className="w-full px-4 py-2 rounded-lg text-sm font-medium bg-accent text-white hover:bg-accent/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="btn btn-primary w-full px-4 py-2 rounded-lg text-sm font-medium disabled:cursor-not-allowed"
           >
             Connect
           </button>

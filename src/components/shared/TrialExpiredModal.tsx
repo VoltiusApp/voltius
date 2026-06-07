@@ -42,13 +42,13 @@ export function TrialExpiredModal() {
         <div className="flex flex-col gap-2">
           <button
             onClick={handleUpgrade}
-            className="w-full py-2.5 rounded-lg text-sm font-semibold bg-(--t-accent) text-white hover:opacity-90 transition-opacity"
+            className="btn btn-primary w-full py-2.5 rounded-lg text-sm font-semibold"
           >
             Upgrade to Pro
           </button>
           <button
             onClick={() => setVisible(false)}
-            className="w-full py-2.5 rounded-lg text-sm text-(--t-text-muted) hover:text-(--t-text-primary) transition-colors"
+            className="btn btn-ghost w-full py-2.5 rounded-lg text-sm"
           >
             Maybe later
           </button>

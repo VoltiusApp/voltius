@@ -314,10 +314,8 @@ function ErrorMsg({ msg }: { msg: string }) {
 function SubmitBtn({ loading, label }: { loading: boolean; label: string }) {
   return (
     <button type="submit" disabled={loading}
-      className="w-full py-2 rounded-lg text-sm font-medium text-white transition-colors flex items-center justify-center gap-2 bg-(--t-accent)"
+      className="btn btn-primary w-full py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
       style={{ opacity: loading ? 0.7 : 1 }}
-      onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = "var(--t-accent-hover)"; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-accent)"; }}
     >
       {loading && <Icon icon="lucide:loader-2" width={14} className="animate-spin" />}
       {label}

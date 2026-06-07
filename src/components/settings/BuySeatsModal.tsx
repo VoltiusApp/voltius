@@ -130,16 +130,15 @@ export default function BuySeatsModal({ teamId, pendingUser, pendingRole, onClos
         <div className="flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 px-3 py-2 rounded-lg text-sm transition-colors"
-            style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-secondary)", border: "1px solid var(--t-border)" }}
+            className="btn btn-secondary flex-1 px-3 py-2 rounded-lg text-sm"
           >
             Cancel
           </button>
           <button
             onClick={() => void handleConfirm()}
             disabled={loading}
-            className="flex-1 px-3 py-2 rounded-lg text-sm font-medium text-white transition-opacity"
-            style={{ background: "var(--t-accent)", opacity: loading ? 0.6 : 1 }}
+            className="btn btn-primary flex-1 px-3 py-2 rounded-lg text-sm font-medium"
+            style={{ opacity: loading ? 0.6 : 1 }}
           >
             {loading
               ? <span className="flex items-center justify-center gap-1.5">
