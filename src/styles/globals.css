@@ -92,6 +92,29 @@
   --t-chrome-shadow: 0 6px 18px -12px rgba(0, 0, 0, 0.5);
   --t-card-ring: color-mix(in srgb, var(--t-accent) 22%, transparent);
   --t-card-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.55);
+
+  /*
+    Elevation + glass surface system — the "premium" recipe first introduced
+    on the grid cards, promoted to shared tokens so cards, modals, dropdowns
+    and floating surfaces read as one system instead of two.
+    - ring/highlight: soft white edge + top-edge inner highlight
+    - elev-N: drop-shadow scale (1 card · 2 floating · 3 modal)
+    - r-N: radius scale (sm controls · md floating/list · lg cards/modals)
+    These are plain box-shadow/length values (no color-mix-in-var), so they
+    are safe to store and reference on WebKitGTK. The glass *fill* lives in
+    the .surface-glass* utility classes below, inlined for the same reason.
+  */
+  --t-ring: 0 0 0 1px rgba(255, 255, 255, 0.09);
+  --t-ring-strong: 0 0 0 1px rgba(255, 255, 255, 0.13);
+  --t-highlight: inset 0 1.5px 0 rgba(255, 255, 255, 0.18), inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+  --t-highlight-strong: inset 0 1.5px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+  --t-elev-1: 0 6px 20px -6px rgba(0, 0, 0, 0.55);
+  --t-elev-1-hover: 0 10px 28px -6px rgba(0, 0, 0, 0.65);
+  --t-elev-2: 0 12px 32px -8px rgba(0, 0, 0, 0.6);
+  --t-elev-3: 0 24px 64px -12px rgba(0, 0, 0, 0.7);
+  --r-sm: 0.625rem;
+  --r-md: 0.875rem;
+  --r-lg: 1.125rem;
 }
 
 /*
@@ -187,6 +210,29 @@
     to {
       stroke-dashoffset: -193;
     }
+  }
+
+  /*
+    Glass surfaces — color-mix is inlined here (not stored in a custom prop)
+    so it survives WebKitGTK. .surface-glass mirrors the grid card; -modal is
+    more opaque and lifts higher so it reads above the blurred backdrop.
+  */
+  .surface-glass {
+    background:
+      linear-gradient(140deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 45%, transparent 100%),
+      color-mix(in srgb, var(--t-bg-card) 68%, transparent);
+    backdrop-filter: blur(12px) saturate(1.5);
+    -webkit-backdrop-filter: blur(12px) saturate(1.5);
+    box-shadow: var(--t-ring), var(--t-elev-1), var(--t-highlight);
+  }
+
+  .surface-glass-modal {
+    background:
+      linear-gradient(150deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.025) 40%, transparent 100%),
+      color-mix(in srgb, var(--t-bg-card) 90%, transparent);
+    backdrop-filter: blur(24px) saturate(1.6);
+    -webkit-backdrop-filter: blur(24px) saturate(1.6);
+    box-shadow: var(--t-ring-strong), var(--t-elev-3), var(--t-highlight);
   }
 }
 

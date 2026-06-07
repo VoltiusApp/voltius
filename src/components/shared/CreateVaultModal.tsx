@@ -1,6 +1,6 @@
 import { Icon } from "@iconify/react";
 import { useEffect, useRef, useState } from "react";
-import { Modal } from "./Modal";
+import { Modal, ModalCard } from "./Modal";
 
 interface Props {
   onConfirm: (name: string) => void;
@@ -21,11 +21,8 @@ export function CreateVaultModal({ onConfirm, onCancel }: Props) {
   };
 
   return (
-    <Modal onClose={onCancel} blur>
-      <div
-        className="p-6 rounded-2xl flex flex-col gap-5 mx-4 bg-(--t-bg-card) border border-(--t-border)"
-        style={{ width: "22rem", boxShadow: "0 16px 48px rgba(0,0,0,0.5)" }}
-      >
+    <Modal onClose={onCancel}>
+      <ModalCard className="p-6 flex flex-col gap-5" style={{ width: "22rem" }}>
         {/* Header */}
         <div className="flex items-center gap-3">
           <div
@@ -85,7 +82,7 @@ export function CreateVaultModal({ onConfirm, onCancel }: Props) {
             Create Vault
           </button>
         </div>
-      </div>
+      </ModalCard>
     </Modal>
   );
 }
