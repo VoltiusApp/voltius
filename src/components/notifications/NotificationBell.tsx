@@ -190,7 +190,7 @@ export function NotificationBell() {
             background: "var(--t-bg-modal)",
             border: "1px solid var(--t-border)",
             borderRadius: "0.75rem",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+            boxShadow: "var(--t-elev-2)",
           }}
         >
           {/* Header */}

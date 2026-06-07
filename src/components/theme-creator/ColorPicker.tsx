@@ -224,7 +224,7 @@ function Popover({
         border: "1px solid var(--t-border)",
         borderRadius: 8,
         padding: 12,
-        boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+        boxShadow: "var(--t-elev-2)",
         display: "flex",
         flexDirection: "column",
         gap: 10,

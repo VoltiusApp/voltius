@@ -85,7 +85,7 @@ const tooltipStyle: React.CSSProperties = {
   borderRadius: 8,
   padding: "8px 10px",
   zIndex: 100,
-  boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+  boxShadow: "var(--t-elev-1)",
   pointerEvents: "none",
 };
 

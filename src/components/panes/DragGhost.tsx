@@ -41,7 +41,7 @@ export function DragGhost() {
           background: "var(--t-bg-card)",
           border: "1px solid var(--t-accent)",
           color: "var(--t-text-primary)",
-          boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+          boxShadow: "var(--t-elev-2)",
         }}
       >
         <span

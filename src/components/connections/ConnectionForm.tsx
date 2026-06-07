@@ -438,7 +438,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                       width: distroPickerRect.width,
                       background: "var(--t-bg-modal)",
                       borderColor: "var(--t-border-hover)",
-                      boxShadow: "0 18px 48px rgba(0,0,0,0.45), inset 0 1px 0 color-mix(in srgb, var(--t-text-bright) 8%, transparent)",
+                      boxShadow: "var(--t-elev-2), inset 0 1px 0 color-mix(in srgb, var(--t-text-bright) 8%, transparent)",
                     }}
                   >
                     <div className="relative">

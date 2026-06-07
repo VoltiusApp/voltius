@@ -144,7 +144,7 @@ function FontPicker({
       {open && (
         <div
           className="absolute left-0 right-0 z-50 mt-1 rounded-md border border-(--t-border) bg-(--t-bg-modal) overflow-hidden"
-          style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
+          style={{ boxShadow: "var(--t-elev-2)" }}
         >
           {options.map((opt) => (
             <button

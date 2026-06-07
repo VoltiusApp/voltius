@@ -122,7 +122,7 @@ export function SidebarAccountButton() {
             left: pos.left,
             transform: `scale(${uiScale})`,
             transformOrigin: "bottom left",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+            boxShadow: "var(--t-elev-2)",
           }}
           onMouseDown={(e) => e.stopPropagation()}
         >

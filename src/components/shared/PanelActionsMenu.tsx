@@ -29,7 +29,7 @@ export function PanelActionsMenu({ items }: Props) {
           <div className="fixed inset-0 z-49" onMouseDown={() => setOpen(false)} />
           <div
             className="fixed p-1.5 rounded-xl flex flex-col z-50 bg-(--t-bg-card) border border-(--t-bg-card-hover) min-w-[12.667rem]"
-            style={{ top: pos.top, right: pos.right, boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
+            style={{ top: pos.top, right: pos.right, boxShadow: "var(--t-elev-2)" }}
           >
             <MenuItemList items={items} onClose={() => setOpen(false)} />
           </div>

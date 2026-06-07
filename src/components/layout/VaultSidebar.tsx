@@ -268,7 +268,7 @@ function PendingInviteModal({
     <Modal onClose={onClose} blur>
       <div
         className="flex flex-col gap-5 p-6"
-        style={{ width: "min(22rem, 92vw)", background: "var(--t-bg-base)", border: "1px solid var(--t-border)", borderRadius: "0.933rem", boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }}
+        style={{ width: "min(22rem, 92vw)", background: "var(--t-bg-base)", border: "1px solid var(--t-border)", borderRadius: "0.933rem", boxShadow: "var(--t-elev-3)" }}
       >
         <div className="flex items-start gap-3">
           <div
@@ -332,7 +332,7 @@ function VaultLimitModal({
     <Modal onClose={onClose} blur>
       <div
         className="flex flex-col gap-4 bg-(--t-bg-base) border border-(--t-border) p-6"
-        style={{ width: "min(25rem, 92vw)", borderRadius: "0.933rem", boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }}
+        style={{ width: "min(25rem, 92vw)", borderRadius: "0.933rem", boxShadow: "var(--t-elev-3)" }}
       >
         <div className="flex items-start gap-3">
           <div

@@ -274,7 +274,7 @@ function TagFilterButton({
       {open && (
         <div
           className="absolute right-0 top-full mt-1 rounded-xl z-50 flex flex-col overflow-hidden bg-(--t-bg-card) border border-(--t-bg-card-hover) w-[16rem]"
-          style={{ boxShadow: "0 4px 16px rgba(0,0,0,0.3)" }}
+          style={{ boxShadow: "var(--t-elev-2)" }}
         >
           {availableTags.length === 0 ? (
             /* ── Empty state ── */
@@ -373,7 +373,7 @@ function TagFilterButton({
         >
           <div
             className="flex flex-col gap-4 p-5 rounded-2xl bg-(--t-bg-modal) border border-(--t-border-hover) w-[21.333rem]"
-            style={{ boxShadow: "0 16px 48px rgba(0,0,0,0.5)" }}
+            style={{ boxShadow: "var(--t-elev-3)" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex flex-col gap-1.5">

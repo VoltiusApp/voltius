@@ -111,7 +111,7 @@ export function TerminalSearch({ sessionId }: { sessionId: string }) {
         border: "1px solid var(--t-border-hover)",
         padding: "5px 6px",
         width: "min(420px, calc(100% - 16px))",
-        boxShadow: "0 12px 32px rgba(0,0,0,0.4)",
+        boxShadow: "var(--t-elev-2)",
       }}
       onClick={(e) => e.stopPropagation()}
     >

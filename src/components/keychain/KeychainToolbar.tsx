@@ -134,7 +134,7 @@ function NewKeyChevron({ onGenerate, onNewIdentity, onNewFolder, accent }: { onI
             top: pos.top,
             right: pos.right,
             width: "max-content",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+            boxShadow: "var(--t-elev-2)",
           }}
         >
           {onGenerate && <DropdownMenuItem icon="lucide:key-round" label="Generate Key Pair" onClick={() => { setOpen(false); onGenerate(); }} />}

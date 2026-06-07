@@ -536,7 +536,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
                       borderRadius: 8,
                       padding: "8px 10px",
                       zIndex: 50,
-                      boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+                      boxShadow: "var(--t-elev-2)",
                       pointerEvents: "none",
                     }}
                   >
@@ -618,7 +618,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
                           borderRadius: 8,
                           padding: "8px 12px",
                           zIndex: 50,
-                          boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+                          boxShadow: "var(--t-elev-2)",
                           pointerEvents: "none",
                           display: "flex",
                           alignItems: "center",
@@ -712,7 +712,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
                     borderRadius: 8,
                     padding: "8px 12px",
                     zIndex: 50,
-                    boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+                    boxShadow: "var(--t-elev-2)",
                     pointerEvents: "none",
                     display: "flex",
                     alignItems: "center",

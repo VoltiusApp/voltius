@@ -180,7 +180,7 @@ export function RoleModal({
           maxHeight: "min(44rem, 90vh)",
           background: "var(--t-bg-base)",
           border: "1px solid var(--t-border)",
-          boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
+          boxShadow: "var(--t-elev-3)",
         }}
       >
         {/* Header */}

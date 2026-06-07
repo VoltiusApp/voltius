@@ -128,7 +128,7 @@ export function SnippetsToolbar({
                 top: menuPos.top,
                 left: menuPos.left,
                 width: "max-content",
-                boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+                boxShadow: "var(--t-elev-2)",
               }}
             >
               <DropdownMenuItem

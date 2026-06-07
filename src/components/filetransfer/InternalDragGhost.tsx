@@ -37,7 +37,7 @@ export function InternalDragGhost() {
         fontSize: 12,
         fontFamily: "inherit",
         whiteSpace: "nowrap",
-        boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+        boxShadow: "var(--t-elev-2)",
       }}
     >
       <Icon icon={iconName} width={14} style={{ color: iconColor }} />

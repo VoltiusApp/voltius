@@ -95,7 +95,7 @@ function RoleChip({ role }: { role: TeamRole }) {
           style={{
             background: "var(--t-bg-card)",
             border: "1px solid var(--t-border)",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+            boxShadow: "var(--t-elev-2)",
             color: "var(--t-text-primary)",
           }}
         >
@@ -932,7 +932,7 @@ function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }:
                 <div
                   ref={dropdownRef}
                   className="absolute z-50 left-0 right-0 mt-1 rounded-xl overflow-hidden"
-                  style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)", boxShadow: "0 8px 24px rgba(0,0,0,0.35)" }}
+                  style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)", boxShadow: "var(--t-elev-2)" }}
                 >
                   {results.map((user) => (
                     <button
@@ -1104,7 +1104,7 @@ function PrivateVaultInvitePanel({
               <div
                 ref={dropdownRef}
                 className="absolute z-50 left-0 right-0 mt-1 rounded-xl overflow-hidden"
-                style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)", boxShadow: "0 8px 24px rgba(0,0,0,0.35)" }}
+                style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)", boxShadow: "var(--t-elev-2)" }}
               >
                 {results.map((user) => (
                   <button

@@ -143,7 +143,7 @@ function KeySelector({
             bottom: dropdownPos.bottom,
             left: dropdownPos.left,
             width: dropdownPos.width,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+            boxShadow: "var(--t-elev-2)",
           }}
         >
           <DropdownItem
