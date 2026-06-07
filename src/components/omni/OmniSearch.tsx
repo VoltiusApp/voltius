@@ -975,7 +975,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-60 flex items-start justify-center pt-24"
+      className="fixed inset-0 z-60 flex items-start justify-center pt-[20vh]"
       style={{
         background: "rgba(0,0,0,0.5)",
         backdropFilter: "blur(10px) saturate(1.2)",
