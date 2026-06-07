@@ -87,7 +87,7 @@ export default function KeySelector({ value, keys, onChange, onGoToKeychain }: P
       {open && createPortal(
         <div
           ref={dropdownRef}
-          className="p-1.5 rounded-xl flex flex-col fixed z-9999 bg-(--t-bg-card) border border-(--t-bg-card-hover)"
+          className="surface-float p-1.5 flex flex-col fixed z-9999"
           style={{
             top: dropdownPos.top,
             bottom: dropdownPos.bottom,
@@ -95,7 +95,6 @@ export default function KeySelector({ value, keys, onChange, onGoToKeychain }: P
             width: dropdownPos.width,
             maxHeight: dropdownPos.maxHeight,
             overflowY: "auto",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
           }}
         >
           <button

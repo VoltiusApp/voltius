@@ -148,12 +148,11 @@ export default function TagSelector({ value, onChange, vaultId }: Props) {
       {showDropdown && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed z-9999 p-1.5 rounded-xl bg-(--t-bg-card) border border-(--t-bg-card-hover) flex flex-col max-h-[220px] overflow-y-auto"
+          className="surface-float fixed z-9999 p-1.5 flex flex-col max-h-[220px] overflow-y-auto"
           style={{
             top: dropdownPos.top,
             left: dropdownPos.left,
             width: dropdownPos.width,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
           }}
         >
           {canCreate && (

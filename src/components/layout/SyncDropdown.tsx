@@ -282,13 +282,10 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
   return (
     <div
       ref={panelRef}
-      className="fixed z-50 w-64 rounded-xl overflow-hidden"
+      className="surface-float fixed z-50 w-64 overflow-hidden"
       style={{
         top,
         right,
-        background: "var(--t-bg-card)",
-        border: "1px solid var(--t-border)",
-        boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
       }}
     >
       {/* Header */}
