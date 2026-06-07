@@ -94,8 +94,7 @@ function RoleChip({ role }: { role: TeamRole }) {
           className="absolute bottom-full left-0 mb-1.5 z-50 rounded-lg p-2 text-[10px] min-w-[140px] max-w-[200px] pointer-events-none"
           style={{
             background: "var(--t-bg-card)",
-            border: "1px solid var(--t-border)",
-            boxShadow: "var(--t-elev-2)",
+            boxShadow: "var(--t-ring), var(--t-elev-2)",
             color: "var(--t-text-primary)",
           }}
         >
@@ -932,7 +931,7 @@ function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }:
                 <div
                   ref={dropdownRef}
                   className="absolute z-50 left-0 right-0 mt-1 rounded-xl overflow-hidden"
-                  style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)", boxShadow: "var(--t-elev-2)" }}
+                  style={{ background: "var(--t-bg-card)", boxShadow: "var(--t-ring), var(--t-elev-2)" }}
                 >
                   {results.map((user) => (
                     <button
@@ -1104,7 +1103,7 @@ function PrivateVaultInvitePanel({
               <div
                 ref={dropdownRef}
                 className="absolute z-50 left-0 right-0 mt-1 rounded-xl overflow-hidden"
-                style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)", boxShadow: "var(--t-elev-2)" }}
+                style={{ background: "var(--t-bg-card)", boxShadow: "var(--t-ring), var(--t-elev-2)" }}
               >
                 {results.map((user) => (
                   <button

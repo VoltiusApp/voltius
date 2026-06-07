@@ -188,9 +188,8 @@ export function NotificationBell() {
             width: "20rem",
             zIndex: 50,
             background: "var(--t-bg-modal)",
-            border: "1px solid var(--t-border)",
             borderRadius: "0.75rem",
-            boxShadow: "var(--t-elev-2)",
+            boxShadow: "var(--t-ring), var(--t-elev-2)",
           }}
         >
           {/* Header */}

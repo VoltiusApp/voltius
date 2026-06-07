@@ -65,8 +65,8 @@ export function FormSelect({ value, options, onChange, className = "" }: Props) 
       {open && createPortal(
         <div
           ref={menuRef}
-          className="fixed p-1.5 rounded-xl z-9999 flex flex-col bg-(--t-bg-card) border border-(--t-bg-card-hover) max-h-[240px] overflow-y-auto"
-          style={{ top: menuRect.top, left: menuRect.left, width: menuRect.width, boxShadow: "var(--t-elev-2)" }}
+          className="surface-float fixed p-1.5 z-9999 flex flex-col max-h-[240px] overflow-y-auto"
+          style={{ top: menuRect.top, left: menuRect.left, width: menuRect.width }}
         >
           {options.map((opt) => (
             <DropdownMenuItem

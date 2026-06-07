@@ -271,8 +271,7 @@ function TagFilterButton({
       {/* Dropdown */}
       {open && (
         <div
-          className="absolute right-0 top-full mt-1 rounded-xl z-50 flex flex-col overflow-hidden bg-(--t-bg-card) border border-(--t-bg-card-hover) w-[16rem]"
-          style={{ boxShadow: "var(--t-elev-2)" }}
+          className="surface-float absolute right-0 top-full mt-1 z-50 flex flex-col overflow-hidden w-[16rem]"
         >
           {availableTags.length === 0 ? (
             /* ── Empty state ── */

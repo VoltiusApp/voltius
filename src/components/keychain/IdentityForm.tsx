@@ -137,13 +137,12 @@ function KeySelector({
 
       {open && (
         <div
-          className="p-1.5 rounded-xl fixed z-9999 bg-(--t-bg-card) border border-(--t-bg-card-hover)"
+          className="surface-float p-1.5 fixed z-9999"
           style={{
             top: dropdownPos.top,
             bottom: dropdownPos.bottom,
             left: dropdownPos.left,
             width: dropdownPos.width,
-            boxShadow: "var(--t-elev-2)",
           }}
         >
           <DropdownItem

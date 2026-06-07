@@ -116,13 +116,12 @@ export function SidebarAccountButton() {
       {open && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed p-1.5 rounded-xl z-9999 flex flex-col bg-(--t-bg-card) border border-(--t-bg-card-hover) min-w-56"
+          className="surface-float fixed p-1.5 z-9999 flex flex-col min-w-56"
           style={{
             bottom: pos.bottom,
             left: pos.left,
             transform: `scale(${uiScale})`,
             transformOrigin: "bottom left",
-            boxShadow: "var(--t-elev-2)",
           }}
           onMouseDown={(e) => e.stopPropagation()}
         >
