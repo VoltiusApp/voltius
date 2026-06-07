@@ -212,6 +212,7 @@ export default function HostCard({
       data-connection-id={connection.id}
       data-selectable-id={connection.id}
       isList={isList}
+      glass={!isList}
       isSelected={isSelected}
       isEditing={isEditing}
       isActive={isActive}
@@ -333,7 +334,7 @@ export default function HostCard({
                 ref={terminalBtnRef}
                 onClick={(e) => { e.stopPropagation(); onConnect(connection); }}
                 className="terminal-connect-btn -mt-5 -mr-[calc(0.75rem+2px)] -mb-[calc(0.75rem+2px)] pr-[calc(0.75rem+2px)] pb-3.5 pt-2.5 pl-3 rounded-tl-xl rounded-br-2xl bg-(--t-bg-terminal) text-(--t-terminal-foreground) hover:brightness-150 transition-all text-xs flex flex-col min-w-0 overflow-hidden max-w-[75%]"
-                style={{ fontFamily: "var(--t-terminal-font-family)" }}
+                style={{ fontFamily: "var(--t-terminal-font-family)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.07), inset 1px 0 0 rgba(255,255,255,0.07)" }}
                 title="Connect (or double-click)"
               >
                 <div className="flex gap-1 mb-1.5 shrink-0">

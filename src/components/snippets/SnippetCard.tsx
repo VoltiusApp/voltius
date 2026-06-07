@@ -132,6 +132,7 @@ export function SnippetCard({
       <>
         <BaseCard
           isList={false}
+          glass
           isEditing={isEditing}
           isSelected={isSelected}
           isFocused={isFocused}

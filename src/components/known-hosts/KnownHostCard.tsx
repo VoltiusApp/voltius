@@ -58,6 +58,7 @@ export function KnownHostCard({
       isSelected={isSelected}
       isFocused={isFocused}
       isList={isList}
+      glass={!isList}
       onClick={onSelect}
       contextMenuItems={contextMenuItems}
       bulkContextMenuItems={bulkContextMenuItems}
