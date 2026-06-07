@@ -367,18 +367,16 @@
 }
 
 /*
-  Shared form-field focus ring — border lives here (not inline) so :focus can
-  override it; pairs with the formInputClass primitive in Panel.tsx so every
-  field gets the same accent ring instead of ad-hoc inline borderColor swaps.
+  Shared form-field focus ring — adds only the accent ring (box-shadow) so it
+  composes with whatever inline border/background a field already has. Pairs
+  with formInputClass; any input can opt in by adding the `form-input` class.
 */
 .form-input {
-  border: 1px solid var(--t-border);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .form-input:focus,
 .form-input:focus-visible {
   outline: none;
-  border-color: var(--t-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--t-accent) 40%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--t-accent) 22%, transparent);
 }

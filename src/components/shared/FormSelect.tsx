@@ -50,7 +50,7 @@ export function FormSelect({ value, options, onChange, className = "" }: Props) 
         ref={triggerRef}
         type="button"
         onClick={handleToggle}
-        className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors"
+        className="form-input w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm"
         style={formInputStyle}
         onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
         onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}

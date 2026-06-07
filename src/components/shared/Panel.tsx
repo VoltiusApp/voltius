@@ -9,6 +9,7 @@ export const formInputClass =
 
 export const formInputStyle: React.CSSProperties = {
   background: "var(--t-bg-base)",
+  border: "1px solid var(--t-border)",
   color: "var(--t-text-primary)",
 };
 
