@@ -5,6 +5,7 @@ import { getVersion } from "@tauri-apps/api/app";
 const LINKS = [
   { icon: "simple-icons:github", label: "GitHub",  sub: "VoltiusApp/voltius", href: "https://github.com/VoltiusApp/voltius" },
   { icon: "lucide:book-open", label: "Documentation", sub: "docs.voltius.app", href: "https://docs.voltius.app" },
+  { icon: "simple-icons:x",      label: "X",        sub: "@VoltiusApp",        href: "https://x.com/VoltiusApp" },
   { icon: "simple-icons:kofi",   label: "Ko-Fi",   sub: "ko-fi.com/kipavy",   href: "https://ko-fi.com/kipavy" },
   { icon: "lucide:mail", label: "Contact", sub: "contact@voltius.app", href: "mailto:contact@voltius.app" },
 ];
