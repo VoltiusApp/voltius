@@ -237,6 +237,7 @@ function KeyCard({
     <BaseCard
       data-card
       isList={isList}
+      glass={!isList}
       isEditing={isEditing}
       isSelected={isSelected}
       isFocused={isFocused}
@@ -445,6 +446,7 @@ function IdentityCard({
       data-card
       data-selectable-id={identity.id}
       isList={isList}
+      glass={!isList}
       isEditing={isEditing}
       isSelected={isSelected}
       isFocused={isFocused}

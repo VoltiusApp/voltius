@@ -104,6 +104,7 @@ export function RuleCard({
     <BaseCard
       data-selectable-id={rule.id}
       isList={isList}
+      glass={!isList}
       isSelected={isSelected}
       isEditing={isEditing}
       isFocused={isFocused}
