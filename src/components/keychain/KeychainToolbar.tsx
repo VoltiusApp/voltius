@@ -129,12 +129,11 @@ function NewKeyChevron({ onGenerate, onNewIdentity, onNewFolder, accent }: { onI
 
       {open && (
         <div
-          className="p-1.5 rounded-xl fixed z-9999 bg-(--t-bg-card) border border-(--t-bg-card-hover)"
+          className="surface-float p-1.5 fixed z-9999"
           style={{
             top: pos.top,
             right: pos.right,
             width: "max-content",
-            boxShadow: "var(--t-elev-2)",
           }}
         >
           {onGenerate && <DropdownMenuItem icon="lucide:key-round" label="Generate Key Pair" onClick={() => { setOpen(false); onGenerate(); }} />}

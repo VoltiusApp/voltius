@@ -143,8 +143,8 @@ function FontPicker({
       {/* Dropdown */}
       {open && (
         <div
-          className="absolute left-0 right-0 z-50 mt-1 rounded-md border border-(--t-border) bg-(--t-bg-modal) overflow-hidden"
-          style={{ boxShadow: "var(--t-elev-2)" }}
+          className="absolute left-0 right-0 z-50 mt-1 rounded-md bg-(--t-bg-modal) overflow-hidden"
+          style={{ boxShadow: "var(--t-ring), var(--t-elev-2)" }}
         >
           {options.map((opt) => (
             <button
