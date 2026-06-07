@@ -215,8 +215,6 @@ export function RoleModal({
               onKeyDown={(e) => { if (e.key === "Enter") void handleSave(); }}
               className="form-input w-full px-3 py-2 rounded-lg text-sm outline-hidden"
               style={{ background: "var(--t-bg-input)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
-              onFocus={(e) => { (e.currentTarget as HTMLInputElement).style.borderColor = "var(--t-accent)"; }}
-              onBlur={(e) => { (e.currentTarget as HTMLInputElement).style.borderColor = "var(--t-border)"; }}
             />
           </div>
 

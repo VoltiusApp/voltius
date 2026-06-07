@@ -89,8 +89,6 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Filter hosts..."
             className="form-input w-full pl-8 pr-2 h-8 rounded-lg text-xs outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
-            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
           />
         </div>
 

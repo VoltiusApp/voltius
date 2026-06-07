@@ -203,8 +203,6 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
               placeholder="My snippet"
               className={formInputClass}
               style={formInputStyle}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
             />
           </div>
 
@@ -223,12 +221,11 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
                   else if ((e.key === "Enter" || e.key === "Tab") && varQuery !== null) { e.preventDefault(); insertVar(varSuggestions[varSuggestIdx]?.value ?? ""); }
                   else if (e.key === "Escape") { setVarQuery(null); }
                 }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; setTimeout(() => setVarQuery(null), 100); }}
+                onBlur={() => setTimeout(() => setVarQuery(null), 100)}
                 placeholder="echo Hello, {{name}}!"
                 rows={6}
                 className={`${formInputClass} font-mono resize-y`}
                 style={{ ...formInputStyle, minHeight: "7rem" }}
-                onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
               />
 
               {/* Autocomplete dropdown */}
@@ -291,8 +288,6 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
               placeholder="What does this snippet do?"
               className={formInputClass}
               style={formInputStyle}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
             />
           </div>
           <div>

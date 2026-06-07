@@ -58,12 +58,6 @@ export function SettingsInput({ type = "text", placeholder, value, onChange, aut
       autoFocus={autoFocus}
       onChange={(e) => onChange(e.target.value)}
       className="form-input w-full px-3 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
-      onFocus={(e) => {
-        (e.currentTarget as HTMLInputElement).style.borderColor = "var(--t-accent)";
-      }}
-      onBlur={(e) => {
-        (e.currentTarget as HTMLInputElement).style.borderColor = "var(--t-border)";
-      }}
     />
   );
 }

@@ -131,11 +131,11 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
               </div>
               <div>
                 <label className={formLabelClass} style={formLabelStyle}>Location</label>
-                <input value={location} onChange={(e) => setLocation(e.target.value)} className={`${formInputClass} font-mono`} style={formInputStyle} onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")} onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")} />
+                <input value={location} onChange={(e) => setLocation(e.target.value)} className={`${formInputClass} font-mono`} style={formInputStyle} />
               </div>
               <div>
                 <label className={formLabelClass} style={formLabelStyle}>Filename</label>
-                <input value={filename} onChange={(e) => setFilename(e.target.value)} className={`${formInputClass} font-mono`} style={formInputStyle} onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")} onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")} />
+                <input value={filename} onChange={(e) => setFilename(e.target.value)} className={`${formInputClass} font-mono`} style={formInputStyle} />
               </div>
               <div className="flex gap-2 p-3 rounded-lg bg-(--t-bg-card-hover)">
                 <Icon icon="lucide:info" width={14} className="text-(--t-text-notice) shrink-0" style={{ marginTop: 1 }} />
@@ -159,8 +159,6 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
                   rows={9}
                   className="form-input w-full px-2.5 py-2 rounded-md text-xs outline-hidden font-mono resize-none bg-(--t-bg-base) border border-(--t-border) text-(--t-text-primary)"
                   style={{ lineHeight: 1.6 }}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
                 />
               )}
             </div>

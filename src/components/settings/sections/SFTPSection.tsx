@@ -91,8 +91,6 @@ export default function SFTPSection() {
                 onChange={(e) => handleIntervalChange(e.target.value)}
                 className="form-input w-20 px-2 py-1 rounded-lg text-sm text-right outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
                 style={{ opacity: autoRefreshEnabled ? 1 : 0.45 }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = "var(--t-accent)"; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; }}
               />
               <span className="text-xs text-(--t-text-dim)">s</span>
             </div>

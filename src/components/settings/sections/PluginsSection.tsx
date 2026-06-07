@@ -86,8 +86,6 @@ function PluginConfigForm({ manifest }: { manifest: PluginManifest }) {
                 value={String(value ?? "")}
                 onChange={(e) => void save(key, e.target.value)}
                 className="form-input w-full px-3 py-1.5 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
-                onFocus={(e) => { e.currentTarget.style.borderColor = "var(--t-accent)"; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; }}
               />
             </div>
           );
@@ -119,8 +117,6 @@ function PluginConfigForm({ manifest }: { manifest: PluginManifest }) {
                     void save(key, n);
                   }}
                   className="form-input w-24 px-2 py-1 rounded-lg text-sm text-right outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
-                  onFocus={(e) => { e.currentTarget.style.borderColor = "var(--t-accent)"; }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; }}
                 />
               )}
               {field.type === "select" && (
@@ -129,8 +125,6 @@ function PluginConfigForm({ manifest }: { manifest: PluginManifest }) {
                   onChange={(e) => void save(key, e.target.value)}
                   className="form-input px-2 py-1 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
                   style={{ minWidth: "8rem" }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = "var(--t-accent)"; }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; }}
                 >
                   {(field.options ?? []).map((opt) => (
                     <option key={opt} value={opt}>{opt}</option>

@@ -99,8 +99,6 @@ export function FolderEditPanel({
             className="form-input w-full px-3 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-bright)"
             value={name}
             onChange={(e) => { markDirty(); setName(e.target.value); }}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
             onKeyDown={(e) => e.key === "Escape" && setName(folder.name)}
           />
         </div>

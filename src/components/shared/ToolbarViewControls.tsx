@@ -89,8 +89,6 @@ export function FilterInput({
           width: `${(width / 15).toFixed(3)}rem`,
           minWidth: "4rem",
         }}
-        onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
-        onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
       />
     </div>
   );

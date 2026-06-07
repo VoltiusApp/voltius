@@ -155,8 +155,6 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
               placeholder="Filter..."
               autoFocus
               className="form-input w-full pl-8 pr-2 h-8 rounded-lg text-xs outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
-              onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
             />
           </div>
         </div>

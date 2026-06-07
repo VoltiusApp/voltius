@@ -52,8 +52,6 @@ export function FormSelect({ value, options, onChange, className = "" }: Props) 
         onClick={handleToggle}
         className="form-input w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm"
         style={formInputStyle}
-        onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
-        onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
       >
         <span className="text-(--t-text-primary)">{selectedLabel}</span>
         <Icon

@@ -1187,8 +1187,6 @@ function VaultGeneralTab({
               onChange={(e) => setName(e.target.value)}
               className="form-input flex-1 px-3 py-2 rounded-lg text-sm outline-hidden"
               style={{ background: "var(--t-bg-input)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
-              onFocus={(e) => { (e.currentTarget as HTMLInputElement).style.borderColor = "var(--t-accent)"; }}
-              onBlur={(e) => { (e.currentTarget as HTMLInputElement).style.borderColor = "var(--t-border)"; }}
             />
             <button
               type="submit"
@@ -1481,8 +1479,6 @@ export default function VaultsSection() {
               onChange={(e) => setNewVaultName(e.target.value)}
               className="form-input flex-1 px-3 py-2 rounded-lg text-sm outline-hidden"
               style={{ background: "var(--t-bg-input)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
-              onFocus={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = "var(--t-accent)")}
-              onBlur={(e) => ((e.currentTarget as HTMLInputElement).style.borderColor = "var(--t-border)")}
             />
             <button
               type="submit"

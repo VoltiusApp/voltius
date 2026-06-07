@@ -56,8 +56,6 @@ export function CreateVaultModal({ onConfirm, onCancel }: Props) {
               color: "var(--t-text-primary)",
               border: "1px solid var(--t-border)",
             }}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
           />
         </div>
 

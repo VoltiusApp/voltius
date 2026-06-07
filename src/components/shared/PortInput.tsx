@@ -55,8 +55,7 @@ export function PortInput({ value, ports, onChange, placeholder = "/dev/ttyUSB0 
         value={value}
         autoFocus={autoFocus}
         onChange={(e) => { onChange(e.target.value); showDropdown(); }}
-        onFocus={(e) => { e.currentTarget.style.borderColor = "var(--t-accent)"; showDropdown(); }}
-        onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
+        onFocus={() => showDropdown()}
         placeholder={placeholder}
         className={`w-full ${formInputClass}`}
         style={{ ...formInputStyle }}
