@@ -18,15 +18,18 @@ import { useApplyUiScale } from "@/hooks/useApplyUiScale";
 import { useCoreOmniCommands } from "@/hooks/useCoreOmniCommands";
 import { useImportExportContributions } from "@/hooks/useImportExportContributions";
 import { useConnectionPresenceBroadcast } from "@/hooks/useConnectionPresenceBroadcast";
+import { useChangelogAutoOpen } from "@/hooks/useChangelogAutoOpen";
 import { useUIStore } from "@/stores/uiStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { broadcastSnippetInject } from "@/services/snippets";
 import { initUpdaterListener } from "@/services/updater";
+import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
 import { NotificationToastContainer } from "@/components/notifications/NotificationToastContainer";
 import ThemeCreator from "@/components/theme-creator/ThemeCreator";
 import { TrialExpiredModal } from "@/components/shared/TrialExpiredModal";
 import CloudAuthModal from "@/components/layout/CloudAuthModal";
+import WhatsNewModal from "@/components/changelog/WhatsNewModal";
 import { EmailVerificationBanner } from "@/components/notifications/EmailVerificationBanner";
 import { EmailVerificationRequiredModal } from "@/components/notifications/EmailVerificationRequiredModal";
 import { GlobalTransferQueue } from "@/components/filetransfer/GlobalTransferQueue";
@@ -41,7 +44,8 @@ function App() {
   useCoreOmniCommands();
   useImportExportContributions();
   useConnectionPresenceBroadcast();
-  useEffect(() => { initUpdaterListener(); }, []);
+  useChangelogAutoOpen();
+  useEffect(() => { initUpdaterListener(); useUpdaterPrefStore.getState().load(); }, []);
   const omniOpen = useUIStore((s) => s.omniOpen);
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
   const homeView = useUIStore((s) => s.homeView);
@@ -81,6 +85,7 @@ function App() {
       <ThemeCreator />
       <TrialExpiredModal />
       <CloudAuthModal />
+      <WhatsNewModal />
       <EmailVerificationRequiredModal />
       <GlobalTransferQueue />
 

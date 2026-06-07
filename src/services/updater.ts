@@ -37,6 +37,16 @@ export async function checkForUpdate() {
   await invoke("updater_check");
 }
 
+/** Whether the background updater loop is allowed to run. */
+export async function getAutoUpdate(): Promise<boolean> {
+  return invoke<boolean>("updater_get_auto");
+}
+
+/** Enable/disable the background updater loop. */
+export async function setAutoUpdate(enabled: boolean): Promise<void> {
+  await invoke("updater_set_auto", { enabled });
+}
+
 /** Subscribe to backend updater events.  Call once at app startup. */
 export function initUpdaterListener() {
   listen<UpdaterStatus>("updater-status", (event) => {

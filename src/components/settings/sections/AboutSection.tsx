@@ -14,11 +14,17 @@ import {
   checkForUpdate,
   installUpdate,
 } from "@/services/updater";
+import { Toggle } from "@/components/shared/Toggle";
+import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
 import LogoBadge from "@/components/layout/LogoBadge";
 
 export default function AboutSection() {
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const [updater, setUpdater] = useState(getUpdaterState);
+  const autoUpdate = useUpdaterPrefStore((s) => s.autoUpdate);
+  const setAutoUpdate = useUpdaterPrefStore((s) => s.setAutoUpdate);
+  const [changelogPopup, setChangelogPopup] = useToggle("changelog-popup");
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => setAppVersion("unknown"));
@@ -136,6 +142,28 @@ export default function AboutSection() {
               Restart to update · v{updater.version}
             </button>
           )}
+
+          {/* Automatic updates toggle */}
+          <div className="flex items-center justify-between gap-3 pt-3 border-t border-(--t-border)">
+            <div className="min-w-0">
+              <p className="text-sm text-(--t-text-primary)">Automatic updates</p>
+              <p className="text-xs mt-0.5 text-(--t-text-dim)">
+                Check &amp; download new versions in the background
+              </p>
+            </div>
+            <Toggle checked={autoUpdate} onChange={setAutoUpdate} />
+          </div>
+
+          {/* What's new popup toggle */}
+          <div className="flex items-center justify-between gap-3 pt-3 border-t border-(--t-border)">
+            <div className="min-w-0">
+              <p className="text-sm text-(--t-text-primary)">Show what's new after updates</p>
+              <p className="text-xs mt-0.5 text-(--t-text-dim)">
+                Open the changelog automatically on a new release
+              </p>
+            </div>
+            <Toggle checked={changelogPopup} onChange={setChangelogPopup} />
+          </div>
         </div>
       </div>
       {/* Links */}

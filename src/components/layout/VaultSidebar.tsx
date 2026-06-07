@@ -12,6 +12,7 @@ import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { CreateVaultModal } from "@/components/shared/CreateVaultModal";
 import { Modal } from "@/components/shared/Modal";
 import { openBillingCheckout } from "@/services/billingCheckout";
+import { getUpdaterState, onUpdaterStateChange, type UpdaterStatus } from "@/services/updater";
 import {
   acceptMyPendingInvitation,
   declineMyPendingInvitation,
@@ -31,6 +32,7 @@ export default function VaultSidebar() {
   const setHomeView = useUIStore((s) => s.setHomeView);
   const openSettings = useUIStore((s) => s.openSettings);
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
+  const openWhatsNew = useUIStore((s) => s.openWhatsNew);
 
   const teams = useTeamStore((s) => s.teams);
   const pendingInvites = useTeamStore((s) => s.myPendingInvitations);
@@ -186,6 +188,9 @@ export default function VaultSidebar() {
 
       {/* Account */}
       <SidebarAccountButton />
+
+      {/* What's new */}
+      <WhatsNewButton onClick={() => openWhatsNew()} />
 
       {/* Settings */}
       <SettingsButton onClick={() => openSettings()} />
@@ -497,6 +502,67 @@ function VaultButton({
         {initial}
       </button>
     </div>
+  );
+}
+
+function WhatsNewButton({ onClick }: { onClick: () => void }) {
+  const { createRipple, rippleEls } = useRipple();
+  const [updater, setUpdater] = useState<UpdaterStatus>(getUpdaterState);
+  useEffect(() => onUpdaterStateChange(() => setUpdater(getUpdaterState())), []);
+
+  let icon = "lucide:megaphone";
+  let title = "What's new";
+  let iconClass = "";
+  let iconStyle: React.CSSProperties | undefined;
+  const ready = updater.status === "ready";
+  if (updater.status === "checking") {
+    icon = "lucide:loader-2";
+    title = "Checking for updates…";
+    iconClass = "animate-spin";
+  } else if (updater.status === "downloading") {
+    icon = "lucide:download";
+    title = `Downloading update v${updater.version}…`;
+    iconClass = "animate-bounce";
+  } else if (ready) {
+    icon = "lucide:download";
+    title = `Update v${updater.version} ready — click to view & restart`;
+    iconStyle = { color: "var(--t-accent)" };
+  }
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseDown={createRipple}
+      title={title}
+      className="flex items-center justify-center mb-3 relative overflow-hidden transition-all shrink-0"
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: "1.375rem",
+        background: "transparent",
+        color: "var(--t-text-dim)",
+        transition: "border-radius 200ms, background 200ms, color 200ms",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.borderRadius = "0.75rem";
+        (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)";
+        (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.borderRadius = "1.375rem";
+        (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+        (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)";
+      }}
+    >
+      {rippleEls}
+      <Icon icon={icon} width={20} className={iconClass} style={iconStyle} />
+      {ready && (
+        <span
+          className="absolute rounded-full"
+          style={{ top: 8, right: 8, width: 8, height: 8, background: "var(--t-accent)" }}
+        />
+      )}
+    </button>
   );
 }
 

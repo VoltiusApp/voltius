@@ -80,6 +80,13 @@ export const TOGGLE_DEFS = {
     keywords: ["shell", "integration", "osc", "prompt", "cwd", "directory", "motd", "command"],
     default: true,
   },
+  "changelog-popup": {
+    label: "Show What's New After Updates",
+    icon: "lucide:megaphone",
+    description: "Updates",
+    keywords: ["changelog", "popup", "release", "notes", "whats new", "update", "version"],
+    default: true,
+  },
 } as const satisfies Record<string, ToggleDef>;
 
 export type ToggleId = keyof typeof TOGGLE_DEFS;

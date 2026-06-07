@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { TOGGLE_DEFS, useToggleSettingsStore, type ToggleId } from "@/stores/toggleSettingsStore";
 import { useSyncPrefsStore, SYNC_OBJECT_TYPES } from "@/stores/syncPrefsStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
+import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
 import { getLoadedPlugins, setPluginActive } from "@/plugins/runtime";
 
 export interface ToggleItem {
@@ -21,8 +22,19 @@ export function useToggleSettings(): ToggleItem[] {
   // Subscribe to overrides so plugin toggle values stay live as they're flipped.
   const pluginOverrides = usePluginRegistryStore((s) => s.overrides);
   const setPluginEnabled = usePluginRegistryStore((s) => s.setEnabled);
+  const autoUpdate = useUpdaterPrefStore((s) => s.autoUpdate);
+  const setAutoUpdate = useUpdaterPrefStore((s) => s.setAutoUpdate);
 
   return useMemo<ToggleItem[]>(() => [
+    {
+      id: "auto-update",
+      label: "Automatic Updates",
+      icon: "lucide:refresh-cw",
+      description: "Updates",
+      keywords: ["update", "auto", "automatic", "background", "download", "version", "upgrade"],
+      value: autoUpdate,
+      onToggle: setAutoUpdate,
+    },
     ...(Object.entries(TOGGLE_DEFS) as [ToggleId, typeof TOGGLE_DEFS[ToggleId]][]).map(([id, def]) => ({
       id,
       label: def.label,
@@ -53,5 +65,5 @@ export function useToggleSettings(): ToggleItem[] {
         void setPluginEnabled(m.id, v);
       },
     })),
-  ], [values, set, syncTypes, setSyncType, pluginOverrides, setPluginEnabled]);
+  ], [values, set, syncTypes, setSyncType, pluginOverrides, setPluginEnabled, autoUpdate, setAutoUpdate]);
 }

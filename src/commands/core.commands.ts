@@ -75,6 +75,14 @@ export const commands: OmniCommand[] = [
     },
   },
   {
+    id: "core:whats-new",
+    label: "What's New",
+    icon: "lucide:megaphone",
+    keywords: ["changelog", "release", "notes", "news", "update", "version"],
+    section: "Actions",
+    execute: () => useUIStore.getState().openWhatsNew(),
+  },
+  {
     id: "core:port-forwarding",
     label: "Port Forwarding",
     icon: "lucide:arrow-left-right",

@@ -132,6 +132,11 @@ interface UIStore {
   membersInvitePending: boolean;
   openMembersInvite: () => void;
   clearMembersInvitePending: () => void;
+  whatsNewOpen: boolean;
+  lastSeenChangelogVersion: string | null;
+  openWhatsNew: () => void;
+  closeWhatsNew: () => void;
+  markChangelogSeen: (version: string) => void;
 }
 
 export const useUIStore = create<UIStore>()(
@@ -164,6 +169,8 @@ export const useUIStore = create<UIStore>()(
       snippetsLayoutMode: "list" as LayoutMode,
       snippetsPendingAction: null as SnippetsPendingAction,
       membersInvitePending: false,
+      whatsNewOpen: false,
+      lastSeenChangelogVersion: null as string | null,
       prefsUpdatedAt: new Date(0).toISOString(),
       keychainPendingAction: null as KeychainPendingAction,
       importExportModal: { open: false, mode: "export" as const, section: "vaults" as ImportExportSection },
@@ -212,6 +219,9 @@ export const useUIStore = create<UIStore>()(
       setSnippetsPendingAction: (action) => set({ snippetsPendingAction: action }),
       openMembersInvite: () => set({ activeNav: "members", homeView: false, membersInvitePending: true }),
       clearMembersInvitePending: () => set({ membersInvitePending: false }),
+      openWhatsNew: () => set({ whatsNewOpen: true }),
+      closeWhatsNew: () => set({ whatsNewOpen: false }),
+      markChangelogSeen: (version) => set({ lastSeenChangelogVersion: version }),
     }),
     {
       name: "voltius-ui",
@@ -229,6 +239,7 @@ export const useUIStore = create<UIStore>()(
         snippetsLayoutMode: state.snippetsLayoutMode,
         rightPanelSection: state.rightPanelSection,
         prefsUpdatedAt: state.prefsUpdatedAt,
+        lastSeenChangelogVersion: state.lastSeenChangelogVersion,
       }),
     },
   ),

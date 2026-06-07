@@ -297,3 +297,37 @@ pub fn settings_save(state: String) -> Result<(), String> {
     std::fs::write(config_dir().join("settings.json"), state)
         .map_err(|e| format!("settings_save failed: {e}"))
 }
+
+// ─── Auto-update preference ─────────────────────────────────────────────────────
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Serialize, Deserialize)]
+struct UpdaterPrefs {
+    #[serde(default = "default_true")]
+    auto: bool,
+}
+
+/// Whether the background updater loop may run. Missing/unreadable file ⇒ enabled.
+pub fn updater_auto_enabled() -> bool {
+    match fs::read_to_string(config_dir().join("updater.json")) {
+        Ok(s) => serde_json::from_str::<UpdaterPrefs>(&s)
+            .map(|p| p.auto)
+            .unwrap_or(true),
+        Err(_) => true,
+    }
+}
+
+#[tauri::command]
+pub fn updater_get_auto() -> bool {
+    updater_auto_enabled()
+}
+
+#[tauri::command]
+pub fn updater_set_auto(enabled: bool) -> Result<(), String> {
+    let body = serde_json::to_string(&UpdaterPrefs { auto: enabled }).map_err(|e| e.to_string())?;
+    fs::write(config_dir().join("updater.json"), body)
+        .map_err(|e| format!("updater_set_auto failed: {e}"))
+}

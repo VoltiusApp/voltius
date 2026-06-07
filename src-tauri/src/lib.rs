@@ -267,14 +267,18 @@ pub fn run() {
                 tauri::async_runtime::spawn(async move {
                     // Short delay so the window is visible before we start network I/O
                     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-                    check_for_update(handle.clone()).await;
+                    if commands::sync::updater_auto_enabled() {
+                        check_for_update(handle.clone()).await;
+                    }
                     // Re-check every 4 hours while the app is running
                     let mut interval =
                         tokio::time::interval(std::time::Duration::from_secs(4 * 60 * 60));
                     interval.tick().await; // consume the immediate first tick
                     loop {
                         interval.tick().await;
-                        check_for_update(handle.clone()).await;
+                        if commands::sync::updater_auto_enabled() {
+                            check_for_update(handle.clone()).await;
+                        }
                     }
                 });
             }
@@ -353,6 +357,8 @@ pub fn run() {
             commands::sync::theme_load,
             commands::sync::theme_save,
             commands::sync::settings_load,
+            commands::sync::updater_get_auto,
+            commands::sync::updater_set_auto,
             commands::sync::settings_save,
             commands::ssh::ssh_connect,
             commands::ssh::ssh_disconnect,

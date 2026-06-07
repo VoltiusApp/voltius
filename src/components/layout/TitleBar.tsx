@@ -7,7 +7,6 @@ import { useThemeStore } from "@/stores/themeStore";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { getSyncState, onSyncStateChange, type SyncStatus } from "@/services/sync";
 import { getGistSyncState, onGistSyncStateChange } from "@/plugins/gist-sync/sync-engine";
-import { getUpdaterState, onUpdaterStateChange, installUpdate, type UpdaterStatus } from "@/services/updater";
 import { useRipple } from "@/hooks/useRipple";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { ShareMenu } from "@/components/terminal/ShareMenu";
@@ -75,9 +74,6 @@ export default function TitleBar() {
 
   const [syncDropdownOpen, setSyncDropdownOpen] = useState(false);
   const syncButtonRef = useRef<HTMLButtonElement>(null);
-
-  const [updaterState, setUpdaterState] = useState(getUpdaterState);
-  useEffect(() => { return onUpdaterStateChange(() => setUpdaterState(getUpdaterState())); }, []);
 
   const showTerminal = activeSessionId !== null && sessions.length > 0 && activeNav === "terminal" && !sftpPanelOpen;
   const isVaultsActive = !sftpPanelOpen && activeNav !== "terminal";
@@ -449,11 +445,6 @@ export default function TitleBar() {
         accountMode={accountMode}
       />
 
-      {/* Update indicator */}
-      {(updaterState.status === "downloading" || updaterState.status === "ready") && (
-        <UpdateIndicator state={updaterState} />
-      )}
-
       {/* Watching / Ended badge — guest in a multiplayer session */}
       {showTerminal && isActiveSessionMultiplayer && (
         <div className="flex items-center px-1 shrink-0">
@@ -671,58 +662,6 @@ function TitleBarBtn({ onClick, title, children }: {
   );
 }
 
-function UpdateIndicator({ state }: { state: UpdaterStatus }) {
-  const { createRipple, rippleEls } = useRipple();
-
-  if (state.status === "checking") {
-    return (
-      <div className="flex items-center px-1 shrink-0">
-        <div
-          className="flex items-center justify-center w-8 h-8 rounded-xl text-(--t-text-dim) cursor-default"
-          title="Checking for updates…"
-        >
-          <Icon icon="lucide:refresh-cw" width={15} className="animate-spin" />
-        </div>
-      </div>
-    );
-  }
-
-  if (state.status === "downloading") {
-    const pct = state.progress;
-    const label = pct > 0 ? `Downloading update v${state.version} — ${pct}%` : `Downloading update v${state.version}…`;
-    return (
-      <div className="flex items-center px-1 shrink-0">
-        <div
-          className="flex items-center justify-center w-8 h-8 rounded-xl text-(--t-text-primary) cursor-default"
-          title={label}
-        >
-          <Icon icon="lucide:download" width={18} className="animate-bounce" />
-        </div>
-      </div>
-    );
-  }
-
-  if (state.status === "ready") {
-    return (
-      <div className="flex items-center px-1 shrink-0">
-        <button
-          onClick={() => installUpdate().catch(() => {})}
-          onMouseDown={createRipple}
-          title={`v${state.version} downloaded — click to restart and update`}
-          className="flex items-center gap-1.5 h-8 px-2.5 rounded-xl transition-all bg-(--t-accent) text-white text-[0.8rem] font-semibold relative overflow-hidden"
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.85"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
-        >
-          {rippleEls}
-          <Icon icon="lucide:refresh-cw" width={14} />
-          <span>Update ready · Restart</span>
-        </button>
-      </div>
-    );
-  }
-
-  return null;
-}
 
 function SubscriptionBadge() {
   const openSettings = useUIStore((s) => s.openSettings);
