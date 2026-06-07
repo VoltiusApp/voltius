@@ -19,7 +19,7 @@ function actionClassName(action: DecisionPanelAction): string {
   if (action.variant === "secondary") {
     return `${base} btn-secondary font-medium`;
   }
-  return `${base} btn-primary font-medium`;
+  return `${base} btn-primary-calm font-medium`;
 }
 
 export function DecisionPanel({

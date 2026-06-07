@@ -474,6 +474,22 @@
     0 0 0 1px color-mix(in srgb, var(--t-accent) 55%, #000000 45%);
 }
 
+/* Calm primary — accent + core ring, no gradient sheen or colored glow.
+   The "calm" counterpart to .btn-primary, chosen by role: transient chrome
+   and dense inline panels (decision panels, dropdown actions) where a lit,
+   glowing CTA is a role mismatch. See docs/design-surfaces.md. */
+.btn-primary-calm {
+  color: #fff;
+  background: var(--t-accent);
+  box-shadow: var(--t-ring);
+}
+.btn-primary-calm:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.btn-primary-calm:active:not(:disabled) {
+  filter: brightness(0.97);
+}
+
 .btn-secondary {
   color: var(--t-text-primary);
   background:
