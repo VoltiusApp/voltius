@@ -380,5 +380,5 @@
 .form-input:focus-visible {
   outline: none;
   border-color: var(--t-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--t-accent) 22%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--t-accent) 40%, transparent);
 }
