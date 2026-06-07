@@ -81,13 +81,8 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
           {/* Hover popover */}
           {hovered && (
             <div
-              className="absolute top-full mt-2 left-0 z-50 rounded-xl overflow-hidden"
-              style={{
-                background: "var(--t-bg-card)",
-                border: "1px solid var(--t-border)",
-                boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
-                minWidth: 190,
-              }}
+              className="surface-float absolute top-full mt-2 left-0 z-50 overflow-hidden"
+              style={{ minWidth: 190 }}
             >
               <div className="px-3 py-2" style={{ borderBottom: "1px solid var(--t-border)" }}>
                 <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--t-text-dim)" }}>
