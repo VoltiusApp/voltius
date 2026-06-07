@@ -40,7 +40,7 @@ import { useGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
 import { resolveDisableOverride } from "@/utils/inheritedSetting";
 import FolderSelector from "@/components/shared/FolderSelector";
 import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
-import { CONNECTION_ICON_OPTIONS, getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, normalizeDistro } from "@/utils/icons";
+import { CONNECTION_ICON_OPTIONS, getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, glossyTileStyle, normalizeDistro } from "@/utils/icons";
 import {
   PanelShell,
   PanelHeader,
@@ -413,8 +413,8 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                 <button
                   type="button"
                   onClick={toggleDistroPicker}
-                  className="w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0 border border-(--t-border) hover:border-(--t-border-hover) transition-colors"
-                  style={{ background: visibleIcon ? getConnectionIconColor(visibleIcon) : "var(--t-bg-card-avatar)" }}
+                  className="w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0 transition-all hover:brightness-110"
+                  style={glossyTileStyle(visibleIcon ? getConnectionIconColor(visibleIcon) : "var(--t-bg-card-avatar)")}
                   title={visibleIcon ? `Change icon (${getConnectionIconLabel(visibleIcon)})` : "Change icon"}
                   aria-label="Change connection icon"
                 >
@@ -481,7 +481,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                             }}
                             title={option.label}
                           >
-                            <span className="w-8 h-8 rounded-lg flex items-center justify-center text-white" style={{ background: getConnectionIconColor(option.id) }}>
+                            <span className="w-8 h-8 rounded-lg flex items-center justify-center text-white" style={glossyTileStyle(getConnectionIconColor(option.id))}>
                               <Icon icon={getConnectionIcon(option.id)} width={16} />
                             </span>
                             <span className="text-[10px] text-(--t-text-dim) truncate max-w-full">{option.label}</span>

@@ -2,6 +2,7 @@
  * Preloads all icon sets from local packages — no network requests ever made.
  * Both @iconify-json/lucide and @iconify-json/devicon-plain are bundled in the app.
  */
+import type { CSSProperties } from "react";
 import { addCollection } from "@iconify/react";
 import lucideSubset from "virtual:lucide-subset";
 import { icons as deviconPlainIcons } from "@iconify-json/devicon-plain";
@@ -121,8 +122,7 @@ export const CONNECTION_ICON_OPTIONS = [
   { group: "OS", id: "gentoo", label: "Gentoo" },
   { group: "OS", id: "raspbian", label: "Raspberry Pi" },
   { group: "OS", id: "linux", label: "Linux" },
-  { group: "OS", id: "proxmox", label: "Proxmox VE" },
-  { group: "OS", id: "pbs", label: "Proxmox BS" },
+  { group: "OS", id: "proxmox", label: "Proxmox" },
   { group: "Services", id: "docker", label: "Docker" },
   { group: "Services", id: "nginx", label: "Nginx" },
   { group: "Services", id: "apache", label: "Apache" },
@@ -242,7 +242,7 @@ export function getDistroColor(distro: string): string {
     gentoo:  "#54487A",
     raspbian:"#C51A4A",
     proxmox: "#F2F2F2",
-    pbs:     "#E57000",
+    pbs:     "#F2F2F2",
   };
   return map[normalizeDistro(distro)] ?? "#4A5568";
 }
@@ -265,4 +265,18 @@ export function getConnectionIconColor(icon: string): string {
     grafana: "#F46800",
   };
   return map[normalized] ?? getDistroColor(normalized);
+}
+
+/**
+ * Glossy macOS app-icon tile derived from a base brand color: light top → tint
+ * → dark bottom, with the shared ring + highlight and a soft colored glow.
+ * color-mix is inlined (WebKitGTK-safe), never stored in a custom prop. Shared
+ * by ConnectionAvatar and the ConnectionForm distro picker so every distro tile
+ * reads as one system.
+ */
+export function glossyTileStyle(base: string): CSSProperties {
+  return {
+    background: `linear-gradient(145deg, color-mix(in srgb, ${base} 78%, #ffffff 22%) 0%, ${base} 55%, color-mix(in srgb, ${base} 84%, #000000 16%) 100%)`,
+    boxShadow: `var(--t-ring), 0 4px 10px -5px color-mix(in srgb, ${base} 60%, transparent), var(--t-highlight)`,
+  };
 }
