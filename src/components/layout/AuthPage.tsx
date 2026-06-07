@@ -299,7 +299,7 @@ function Input({ type, placeholder, value, onChange, autoFocus }: {
       value={value}
       onChange={(e) => onChange(e.target.value)}
       autoFocus={autoFocus}
-      className="w-full px-3 py-2 rounded-lg text-sm outline-hidden transition-colors bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
+      className="form-input w-full px-3 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
       onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
       onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
     />

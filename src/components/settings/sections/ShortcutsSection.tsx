@@ -150,7 +150,7 @@ export default function ShortcutsSection() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search shortcuts…"
-              className="w-full pl-9 pr-8 py-2 rounded-lg text-sm outline-hidden transition-colors bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
+              className="form-input w-full pl-9 pr-8 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
               onFocus={(e) => { e.currentTarget.style.borderColor = "var(--t-accent)"; }}
               onBlur={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; }}
             />

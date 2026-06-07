@@ -290,7 +290,7 @@ function ColorEditor({
           <input
             value={draft.name}
             onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-            className="w-full mt-1 px-2.5 py-1.5 rounded-md text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
+            className="form-input w-full mt-1 px-2.5 py-1.5 rounded-md text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
             onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
             onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
           />
@@ -313,7 +313,7 @@ function ColorEditor({
           <input
             type="number" min={10} max={20} value={draft.uiFontSize}
             onChange={(e) => setDraft((d) => ({ ...d, uiFontSize: Number(e.target.value) }))}
-            className="w-full mt-1 px-2.5 py-1.5 rounded-md text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
+            className="form-input w-full mt-1 px-2.5 py-1.5 rounded-md text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
             onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
             onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
           />
@@ -374,7 +374,7 @@ function ColorEditor({
           <input
             type="number" min={8} max={24} value={draft.terminalFontSize}
             onChange={(e) => setDraft((d) => ({ ...d, terminalFontSize: Number(e.target.value) }))}
-            className="w-full mt-1 px-2.5 py-1.5 rounded-md text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
+            className="form-input w-full mt-1 px-2.5 py-1.5 rounded-md text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
             onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
             onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
           />

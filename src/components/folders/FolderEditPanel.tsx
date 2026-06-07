@@ -96,7 +96,7 @@ export function FolderEditPanel({
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">Name</label>
           <input
-            className="w-full px-3 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-bright)"
+            className="form-input w-full px-3 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-bright)"
             value={name}
             onChange={(e) => { markDirty(); setName(e.target.value); }}
             onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}

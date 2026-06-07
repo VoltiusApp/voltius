@@ -89,7 +89,7 @@ export default function SFTPSection() {
                 value={intervalSeconds}
                 disabled={!autoRefreshEnabled}
                 onChange={(e) => handleIntervalChange(e.target.value)}
-                className="w-20 px-2 py-1 rounded-lg text-sm text-right outline-hidden transition-colors bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
+                className="form-input w-20 px-2 py-1 rounded-lg text-sm text-right outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
                 style={{ opacity: autoRefreshEnabled ? 1 : 0.45 }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = "var(--t-accent)"; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; }}
