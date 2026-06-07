@@ -234,6 +234,17 @@
     -webkit-backdrop-filter: blur(24px) saturate(1.6);
     box-shadow: var(--t-ring-strong), var(--t-elev-3), var(--t-highlight);
   }
+
+  /*
+    Floating surfaces — dropdowns, context menus, popovers. Kept opaque for
+    legibility over busy content, but on the same ring + elevation scale as
+    the glass surfaces so everything reads as one system.
+  */
+  .surface-float {
+    background: var(--t-bg-card);
+    border-radius: var(--r-md);
+    box-shadow: var(--t-ring), var(--t-elev-2);
+  }
 }
 
 @layer base {
@@ -353,4 +364,21 @@
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.18);
   pointer-events: none;
+}
+
+/*
+  Shared form-field focus ring — border lives here (not inline) so :focus can
+  override it; pairs with the formInputClass primitive in Panel.tsx so every
+  field gets the same accent ring instead of ad-hoc inline borderColor swaps.
+*/
+.form-input {
+  border: 1px solid var(--t-border);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-input:focus,
+.form-input:focus-visible {
+  outline: none;
+  border-color: var(--t-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--t-accent) 22%, transparent);
 }

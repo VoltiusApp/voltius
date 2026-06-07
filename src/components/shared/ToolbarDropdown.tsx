@@ -107,8 +107,8 @@ export function ToolbarDropdown<T extends string>({
 
   const menuEl = open && hasContent && (
     <div
-      className={`absolute top-full ${align === "left" ? "left-0" : "right-0"} mt-1 rounded-xl z-50 flex flex-col bg-(--t-bg-card) border border-(--t-bg-card-hover)`}
-      style={{ minWidth: `${(menuWidth / 15).toFixed(3)}rem`, boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
+      className={`surface-float absolute top-full ${align === "left" ? "left-0" : "right-0"} mt-1 z-50 flex flex-col`}
+      style={{ minWidth: `${(menuWidth / 15).toFixed(3)}rem` }}
     >
       {searchable && (
         <div className="px-1.5 pt-1.5">
