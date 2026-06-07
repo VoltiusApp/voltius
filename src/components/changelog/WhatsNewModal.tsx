@@ -55,6 +55,7 @@ function WhatsNewInner() {
   return (
     <Modal onClose={handleClose}>
       <ModalCard
+        solid
         className="flex flex-col overflow-hidden animate-fadeIn"
         style={{ width: "min(34rem, 92vw)", maxHeight: "min(42rem, 80vh)" }}
       >

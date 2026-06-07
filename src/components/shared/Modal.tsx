@@ -38,22 +38,29 @@ export function Modal({ onClose, onEnter, children, blur = true }: Props) {
 }
 
 /**
- * Shared glass dialog shell — translucent fill, soft ring, top-edge highlight
- * and modal-level elevation. Use instead of hand-rolling
- * `bg-(--t-bg-card) border ... boxShadow`, so every dialog reads the same.
+ * Shared dialog shell. Both variants carry the same ring + top-edge highlight
+ * and modal-level elevation tokens, so they read as one family; only the fill
+ * differs by surface role (see docs/design-surfaces.md):
+ *  - default (glass): translucent + blurred, for lightweight transient dialogs
+ *    (confirm, small prompts).
+ *  - `solid`: opaque, no blur, for dense content/reading surfaces (changelog,
+ *    settings) where legibility comes first.
+ * Use instead of hand-rolling `bg-(--t-bg-card) border ... boxShadow`.
  */
 export function ModalCard({
   children,
   className = "",
   style,
+  solid = false,
 }: {
   children: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
+  solid?: boolean;
 }) {
   return (
     <div
-      className={`surface-glass-modal rounded-[var(--r-lg)] mx-4 ${className}`}
+      className={`${solid ? "surface-modal-solid" : "surface-glass-modal"} rounded-[var(--r-lg)] mx-4 ${className}`}
       style={style}
     >
       {children}

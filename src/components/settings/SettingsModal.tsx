@@ -24,12 +24,10 @@ export default function SettingsModal() {
   return (
     <Modal onClose={() => setOpen(false)} blur>
       <div
-        className="flex overflow-hidden animate-fadeIn bg-(--t-bg-base) border border-(--t-border)"
+        className="surface-modal-solid rounded-[var(--r-lg)] flex overflow-hidden animate-fadeIn"
         style={{
           width: "min(60rem, 92vw)",
           height: "min(38.667rem, 88vh)",
-          borderRadius: "0.933rem",
-          boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
         }}
       >
         <nav

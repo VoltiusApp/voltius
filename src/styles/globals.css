@@ -247,6 +247,19 @@
   }
 
   /*
+    Solid content modal — the "content / reading surface" role (see
+    docs/design-surfaces.md). Carries the exact same ring + highlight + elevation
+    tokens as .surface-glass-modal so it reads as one family, but the fill is
+    fully opaque with no blur for legibility on dense, text-heavy surfaces
+    (changelog, settings). A faint top sheen keeps the same lit-from-above feel.
+    color-mix inlined (WebKitGTK-safe), never stored in a custom prop.
+  */
+  .surface-modal-solid {
+    background: var(--t-bg-base);
+    box-shadow: var(--t-ring-strong), var(--t-elev-3);
+  }
+
+  /*
     Floating surfaces — dropdowns, context menus, popovers. Kept opaque for
     legibility over busy content, but on the same ring + elevation scale as
     the glass surfaces so everything reads as one system.
