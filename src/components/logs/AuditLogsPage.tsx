@@ -132,7 +132,7 @@ export default function AuditLogsPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-(--t-bg-base)">
+    <div className="flex-1 flex flex-col overflow-hidden chrome-canvas">
       <AuditGate context={auditContext}>
         <AuditFilters
           actors={actors}

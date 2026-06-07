@@ -22,7 +22,7 @@ export function SidePanelLayout({
   panel,
   panelOpen,
   panelWidth = 320,
-  className = "bg-(--t-bg-base)",
+  className = "chrome-canvas",
 }: Props) {
   return (
     <div className={`flex h-full ${className}`}>

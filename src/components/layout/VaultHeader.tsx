@@ -224,7 +224,8 @@ export default function VaultHeader() {
           style={{
             width: 40,
             height: 40,
-            background: "var(--t-accent)",
+            background: "linear-gradient(145deg, color-mix(in srgb, var(--t-accent) 78%, #ffffff 22%) 0%, var(--t-accent) 55%, color-mix(in srgb, var(--t-accent) 82%, #000000 18%) 100%)",
+            boxShadow: "var(--t-ring), 0 6px 14px -6px color-mix(in srgb, var(--t-accent) 55%, transparent), var(--t-highlight)",
           }}
         >
           {initial}

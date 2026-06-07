@@ -203,7 +203,7 @@ export default function TitleBar() {
   return (
     <div
       onMouseDown={handleDragRegionMouseDown}
-      className="flex items-center h-[4.133rem] shrink-0 select-none bg-(--t-bg-terminal)"
+      className="flex items-center h-[4.133rem] shrink-0 select-none bg-transparent"
     >
       {/* Tabs row */}
       <div

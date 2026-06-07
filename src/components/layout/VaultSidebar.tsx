@@ -73,8 +73,8 @@ export default function VaultSidebar() {
 
   return (
     <aside
-      className="flex flex-col shrink-0 items-center gap-2.5 overflow-hidden"
-      style={{ width: "4.75rem", background: "var(--t-bg-terminal)" }}
+      className="flex flex-col shrink-0 items-center gap-2.5 overflow-hidden bg-transparent"
+      style={{ width: "4.75rem" }}
     >
       {/* App icon */}
       <AppIconButton isActive={homeView} onClick={() => setHomeView(true)} />
@@ -478,9 +478,14 @@ function VaultButton({
         style={{
           width: 44,
           height: 44,
-          background: isActive ? "var(--t-accent)" : "var(--t-bg-elevated)",
+          background: isActive
+            ? "linear-gradient(145deg, color-mix(in srgb, var(--t-accent) 80%, #ffffff 20%) 0%, var(--t-accent) 60%, color-mix(in srgb, var(--t-accent) 85%, #000000 15%) 100%)"
+            : "var(--t-bg-elevated)",
           color: isActive ? "#fff" : "var(--t-text-secondary)",
           borderRadius: isActive ? "0.75rem" : "1.375rem",
+          boxShadow: isActive
+            ? "var(--t-ring), 0 6px 14px -6px color-mix(in srgb, var(--t-accent) 55%, transparent), var(--t-highlight)"
+            : "var(--t-ring), inset 0 1px 0 rgba(255,255,255,0.05)",
           transition: "border-radius 200ms, background 200ms",
         }}
         onMouseEnter={(e) => {

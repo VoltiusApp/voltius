@@ -116,7 +116,7 @@ export default function KnownHostsPage() {
   const selectedCount = selectedIdSet.size;
 
   return (
-    <div className="flex flex-col h-full bg-(--t-bg-base)">
+    <div className="flex flex-col h-full chrome-canvas">
       <KnownHostsToolbar
         search={search}
         onSearchChange={setSearch}

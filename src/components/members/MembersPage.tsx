@@ -1700,7 +1700,7 @@ const vaultTabs = selectedVaultIds.length > 1
             onClose={() => setShowInvitePanel(false)}
           />
         ) : null}
-        className="bg-(--t-bg-base)"
+        className="chrome-canvas"
       >
         <div className="flex flex-col h-full">
           {toolbar}
