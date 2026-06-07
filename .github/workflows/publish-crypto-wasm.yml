@@ -26,7 +26,7 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
-      - uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@v6
         with:
           version: latest
 
