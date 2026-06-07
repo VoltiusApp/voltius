@@ -115,6 +115,17 @@
   --r-sm: 0.625rem;
   --r-md: 0.875rem;
   --r-lg: 1.125rem;
+
+  /*
+    Chrome layering — the recessed window frame (titlebar + sidebar) and the
+    raised content slab that floats on it (macOS-style). Plain box-shadow
+    values only, so they are safe to store on WebKitGTK; the gradient fills
+    live inlined in the .chrome-* utilities below.
+    - slab-highlight: top + left light edge that catches light from above
+    - slab-shadow:    soft ambient shadow that lifts the slab off the frame
+  */
+  --t-slab-highlight: inset 1px 1px 0 0 rgba(255, 255, 255, 0.09);
+  --t-slab-shadow: -12px 0 32px -20px rgba(0, 0, 0, 0.6), 0 -10px 28px -22px rgba(0, 0, 0, 0.5);
 }
 
 /*
@@ -244,6 +255,44 @@
     background: var(--t-bg-card);
     border-radius: var(--r-md);
     box-shadow: var(--t-ring), var(--t-elev-2);
+  }
+
+  /*
+    Chrome surfaces — recessed frame, raised content slab, floating toolbar and
+    main canvas. color-mix is inlined here (not stored in a custom prop) so it
+    survives WebKitGTK, mirroring the .surface-glass convention above.
+    - chrome-frame:  titlebar + sidebar; flat terminal color so they blend with
+                     the terminal area and read as one backplate the slab floats on.
+    - chrome-slab:   the content column; rounded top-left + light top/left edge
+                     + ambient shadow, lifting it off the frame as one piece.
+    - chrome-toolbar:page toolbars; the original toolbar surface + hairline.
+    - chrome-canvas: main scroll area; a quiet top glow so it isn't dead flat.
+  */
+  .chrome-frame {
+    /*
+      The single frame backplate, painted once on the app root. Titlebar and
+      sidebar are transparent and reveal it, so the frame is one continuous
+      surface (no seam) and stays the same color as the terminal area they sit
+      against. Depth comes from the lighter slab floating on top, not from
+      tinting the frame.
+    */
+    background: var(--t-bg-terminal);
+  }
+
+  .chrome-slab {
+    border-top-left-radius: var(--r-lg);
+    box-shadow: var(--t-slab-highlight), var(--t-slab-shadow);
+  }
+
+  .chrome-toolbar {
+    background: var(--t-bg-toolbar);
+    border-bottom: 1px solid var(--t-border);
+  }
+
+  .chrome-canvas {
+    background:
+      radial-gradient(130% 90% at 50% -12%, color-mix(in srgb, var(--t-bg-base) 92%, #ffffff 8%) 0%, transparent 55%),
+      var(--t-bg-base);
   }
 }
 

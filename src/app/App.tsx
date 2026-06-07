@@ -54,6 +54,8 @@ function App() {
   const inVault = !homeView;
   const inTerminal = activeNav === "terminal";
   const showVaultChrome = inVault && !inTerminal && !sftpPanelOpen;
+  // Sidebar visible ⇒ content floats as a raised slab on the recessed frame.
+  const showFrame = !inTerminal && !sftpPanelOpen;
   const globalPendingInject = useSnippetStore((s) => s.globalPendingInject);
   const setGlobalPendingInject = useSnippetStore((s) => s.setGlobalPendingInject);
   const { sessions } = useSessionStore();
@@ -63,20 +65,16 @@ function App() {
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-surface-0 overflow-hidden animate-fadeIn">
+    <div className="chrome-frame h-full w-full flex flex-col overflow-hidden animate-fadeIn">
       <TitleBar />
       <EmailVerificationBanner />
       <div className="flex flex-1 overflow-hidden">
-        {!inTerminal && !sftpPanelOpen && <VaultSidebar />}
-        <div className="flex flex-col flex-1 overflow-hidden bg-(--t-bg-terminal)">
+        {showFrame && <VaultSidebar />}
+        <div
+          className={`flex flex-col flex-1 overflow-hidden bg-(--t-bg-terminal) relative z-10 ${showFrame ? "chrome-slab" : ""}`}
+        >
           {showVaultChrome && (
-            <div
-              className="shrink-0 rounded-tl-2xl overflow-hidden relative z-10"
-              style={{
-                background: "var(--t-bg-chrome)",
-                boxShadow: "var(--t-chrome-highlight), var(--t-chrome-shadow)",
-              }}
-            >
+            <div className="shrink-0 relative z-10" style={{ background: "var(--t-bg-chrome)" }}>
               <VaultHeader />
               <NavBar />
             </div>

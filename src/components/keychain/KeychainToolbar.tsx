@@ -41,7 +41,7 @@ export function KeychainToolbar({
 
   return (
     <>
-      <div ref={rowRef} className="flex items-center gap-2 px-5 py-2.5 shrink-0 bg-(--t-bg-toolbar) border-b border-b-(--t-border)">
+      <div ref={rowRef} className="flex items-center gap-2 px-5 py-2.5 shrink-0 chrome-toolbar">
         <div ref={leftRef} className="flex items-center">
           <ToolbarViewControls
             search={search}

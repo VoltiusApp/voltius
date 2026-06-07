@@ -837,7 +837,7 @@ export default function HostsPage() {
     <SidePanelLayout
       panelOpen={showForm || showSerialForm || editingFolder !== null || showSnippetPicker}
       panelWidth={showSnippetPicker ? 300 : editingFolder !== null ? 280 : 320}
-      className="bg-(--t-bg-base)"
+      className="chrome-canvas"
       panel={
         <>
           {showSnippetPicker && (
