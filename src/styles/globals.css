@@ -511,6 +511,18 @@
     0 0 0 1px color-mix(in srgb, #ffffff 8%, transparent);
 }
 
+/* Calm secondary — flat elevated fill + core ring, no gradient sheen or
+   inset highlight. The calm counterpart to .btn-secondary, paired with
+   .btn-primary-calm inside transient chrome. See docs/design-surfaces.md. */
+.btn-secondary-calm {
+  color: var(--t-text-primary);
+  background: var(--t-bg-elevated);
+  box-shadow: var(--t-ring);
+}
+.btn-secondary-calm:hover:not(:disabled) {
+  background: var(--t-bg-card-hover);
+}
+
 .btn-ghost {
   color: var(--t-text-secondary);
   background: transparent;

@@ -54,8 +54,8 @@ export function Pills<T extends string>({
           width: indicatorStyle.width,
           top: 2,
           bottom: 2,
-          background: "linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 65%), var(--t-bg-elevated)",
-          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1), 0 0 0 1px color-mix(in srgb, #fff 7%, transparent), 0 2px 6px -2px rgba(0,0,0,0.45)",
+          background: "var(--t-bg-elevated)",
+          boxShadow: "var(--t-ring)",
           transition: "left 150ms ease, width 150ms ease",
         }}
       />
