@@ -1,5 +1,5 @@
 import { Icon } from "@iconify/react";
-import { Modal } from "./Modal";
+import { Modal, ModalCard } from "./Modal";
 import type { PendingCascade } from "@/hooks/useVaultCascade";
 
 interface Props {
@@ -25,10 +25,7 @@ export function VaultCascadeModal({ cascade, onConfirm, onCancel }: Props) {
 
   return (
     <Modal onClose={onCancel} onEnter={onConfirm}>
-      <div
-        className="p-6 rounded-2xl flex flex-col gap-4 mx-4 bg-(--t-bg-card) border border-(--t-border) min-w-[21.333rem] max-w-[26.667rem]"
-        style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
-      >
+      <ModalCard className="p-6 flex flex-col gap-4 min-w-[21.333rem] max-w-[26.667rem]">
         <div className="flex items-center gap-3">
           <div
             className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
@@ -93,7 +90,7 @@ export function VaultCascadeModal({ cascade, onConfirm, onCancel }: Props) {
             {verb} All
           </button>
         </div>
-      </div>
+      </ModalCard>
     </Modal>
   );
 }

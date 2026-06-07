@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { getVersion } from "@tauri-apps/api/app";
-import { Modal } from "@/components/shared/Modal";
+import { Modal, ModalCard } from "@/components/shared/Modal";
 import { useUIStore } from "@/stores/uiStore";
 import {
   getUpdaterState,
@@ -53,15 +53,10 @@ function WhatsNewInner() {
   const older = entries?.slice(1) ?? [];
 
   return (
-    <Modal onClose={handleClose} blur>
-      <div
-        className="flex flex-col overflow-hidden animate-fadeIn bg-(--t-bg-base) border border-(--t-border)"
-        style={{
-          width: "min(34rem, 92vw)",
-          maxHeight: "min(42rem, 80vh)",
-          borderRadius: "0.933rem",
-          boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
-        }}
+    <Modal onClose={handleClose}>
+      <ModalCard
+        className="flex flex-col overflow-hidden animate-fadeIn"
+        style={{ width: "min(34rem, 92vw)", maxHeight: "min(42rem, 80vh)" }}
       >
         {/* Header */}
         <div className="flex items-center gap-2.5 px-5 py-4 border-b border-(--t-border) shrink-0">
@@ -112,7 +107,7 @@ function WhatsNewInner() {
             </div>
           )}
         </div>
-      </div>
+      </ModalCard>
     </Modal>
   );
 }

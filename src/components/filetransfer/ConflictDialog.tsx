@@ -1,5 +1,5 @@
 import { Icon } from "@iconify/react";
-import { Modal } from "@/components/shared/Modal";
+import { Modal, ModalCard } from "@/components/shared/Modal";
 import { type FileEntry, type ConflictResolution, formatSize } from "./SFTPTypes";
 
 export function ConflictDialog({ conflict, conflictNumber, totalConflicts, onResolve }: {
@@ -12,9 +12,7 @@ export function ConflictDialog({ conflict, conflictNumber, totalConflicts, onRes
 
   return (
     <Modal onClose={() => onResolve("cancel")}>
-      <div
-        className="relative z-10 flex flex-col rounded-2xl shadow-2xl bg-(--t-bg-card) border border-(--t-border-hover) w-[26.667rem] max-w-[90vw]"
-      >
+      <ModalCard className="relative z-10 flex flex-col overflow-hidden w-[26.667rem] max-w-[90vw]">
         <div className="flex items-center gap-3 px-5 py-4 border-b border-b-(--t-border)">
           <div
             className="flex items-center justify-center rounded-lg shrink-0 w-[2.133rem] h-[2.133rem]"
@@ -92,7 +90,7 @@ export function ConflictDialog({ conflict, conflictNumber, totalConflicts, onRes
             </button>
           )}
         </div>
-      </div>
+      </ModalCard>
     </Modal>
   );
 }

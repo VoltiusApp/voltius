@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Modal } from "@/components/shared/Modal";
+import { Modal, ModalCard } from "@/components/shared/Modal";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { openPortal } from "@/utils/billing";
 
@@ -27,15 +27,8 @@ export function TrialExpiredModal() {
   }
 
   return (
-    <Modal onClose={() => setVisible(false)} blur>
-      <div
-        className="flex flex-col gap-4 animate-fadeIn bg-(--t-bg-base) border border-(--t-border) p-8"
-        style={{
-          width: "min(28rem, 92vw)",
-          borderRadius: "0.933rem",
-          boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
-        }}
-      >
+    <Modal onClose={() => setVisible(false)}>
+      <ModalCard className="flex flex-col gap-4 animate-fadeIn p-8" style={{ width: "min(28rem, 92vw)" }}>
         <div>
           <p className="text-base font-semibold text-(--t-text-primary) mb-1">
             Your Pro trial has ended
@@ -60,7 +53,7 @@ export function TrialExpiredModal() {
             Maybe later
           </button>
         </div>
-      </div>
+      </ModalCard>
     </Modal>
   );
 }

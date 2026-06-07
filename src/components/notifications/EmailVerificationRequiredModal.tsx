@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Modal } from "@/components/shared/Modal";
+import { Modal, ModalCard } from "@/components/shared/Modal";
 import { resendVerificationEmail } from "@/services/account";
 import { EMAIL_VERIFICATION_REQUIRED_EVENT } from "@/services/billingCheckout";
 import { useNotificationStore } from "@/stores/notificationStore";
@@ -44,15 +44,8 @@ export function EmailVerificationRequiredModal() {
   }
 
   return (
-    <Modal onClose={() => setVisible(false)} blur>
-      <div
-        className="flex flex-col gap-4 animate-fadeIn bg-(--t-bg-base) border border-(--t-border) p-8"
-        style={{
-          width: "min(28rem, 92vw)",
-          borderRadius: "0.933rem",
-          boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
-        }}
-      >
+    <Modal onClose={() => setVisible(false)}>
+      <ModalCard className="flex flex-col gap-4 animate-fadeIn p-8" style={{ width: "min(28rem, 92vw)" }}>
         <div>
           <p className="text-base font-semibold text-(--t-text-primary) mb-1">
             Verify your email first
@@ -77,7 +70,7 @@ export function EmailVerificationRequiredModal() {
             Close
           </button>
         </div>
-      </div>
+      </ModalCard>
     </Modal>
   );
 }
