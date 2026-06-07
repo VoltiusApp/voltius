@@ -17,6 +17,13 @@ import {
   type ChangelogEntry,
 } from "@/services/changelog";
 
+const QUICK_LINKS = [
+  { icon: "simple-icons:github", title: "GitHub", href: "https://github.com/VoltiusApp/voltius" },
+  { icon: "lucide:book-open", title: "Documentation", href: "https://docs.voltius.app" },
+  { icon: "simple-icons:x", title: "@VoltiusApp", href: "https://x.com/VoltiusApp" },
+  { icon: "simple-icons:kofi", title: "Ko-Fi", href: "https://ko-fi.com/kipavy" },
+];
+
 export default function WhatsNewModal() {
   const open = useUIStore((s) => s.whatsNewOpen);
   if (!open) return null;
@@ -63,13 +70,27 @@ function WhatsNewInner() {
         <div className="flex items-center gap-2.5 px-5 py-4 border-b border-(--t-border) shrink-0">
           <Icon icon="lucide:megaphone" width={18} className="text-(--t-accent)" />
           <h2 className="text-sm font-semibold text-(--t-text-primary)">What's new</h2>
-          <button
-            onClick={handleClose}
-            title="Close"
-            className="ml-auto flex items-center justify-center w-7 h-7 rounded-lg text-(--t-text-dim) transition-colors hover:bg-(--t-bg-elevated) hover:text-(--t-text-primary)"
-          >
-            <Icon icon="lucide:x" width={16} />
-          </button>
+          <div className="ml-auto flex items-center gap-1">
+            {QUICK_LINKS.map(({ icon, href, title }) => (
+              <a
+                key={href}
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                title={title}
+                className="flex items-center justify-center w-7 h-7 rounded-lg text-(--t-text-dim) transition-colors hover:bg-(--t-bg-elevated) hover:text-(--t-text-primary)"
+              >
+                <Icon icon={icon} width={15} />
+              </a>
+            ))}
+            <button
+              onClick={handleClose}
+              title="Close"
+              className="flex items-center justify-center w-7 h-7 rounded-lg text-(--t-text-dim) transition-colors hover:bg-(--t-bg-elevated) hover:text-(--t-text-primary)"
+            >
+              <Icon icon="lucide:x" width={16} />
+            </button>
+          </div>
         </div>
 
         <UpdateBanner state={updater} />
