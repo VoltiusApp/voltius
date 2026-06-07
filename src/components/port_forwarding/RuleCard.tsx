@@ -121,7 +121,7 @@ export function RuleCard({
             </div>
             <span className={`absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-(--t-bg-card) ${statusColor}`} title={effectiveStatusLabel} />
           </div>
-          <p className="font-medium-bold truncate w-48 shrink-0 text-(--t-text-bright)">
+          <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">
             {rule.name}
           </p>
           {typeBadge}

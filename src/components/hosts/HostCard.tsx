@@ -232,7 +232,7 @@ export default function HostCard({
               <StatusDot color={pingColor} animate={pingStatus === "up"} fast={isActive} />
             )}
           </div>
-          <p className="font-medium-bold truncate w-48 shrink-0 text-(--t-text-bright)">
+          <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">
             {connectionDisplayName(connection)}
           </p>
           <p className="text-xs truncate flex-1 text-(--t-text-secondary)">
@@ -252,7 +252,9 @@ export default function HostCard({
             {!isSerial && <CardActionButton icon="lucide:folder-open" title="Open in SFTP" onClick={() => useUIStore.getState().openSftpWith(connection.id)} />}
             <button
               onClick={(e) => { e.stopPropagation(); onConnect(connection); }}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors hover:text-(--t-tab-active-text)"
+              className="flex items-center justify-center p-1.5 rounded-lg transition-colors text-(--t-accent)"
+              onMouseEnter={(e) => (e.currentTarget.style.background = "color-mix(in srgb, var(--t-accent) 16%, transparent)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               title="Connect (or double-click)"
             >
               <Icon icon="lucide:terminal" width={18} />
@@ -314,33 +316,15 @@ export default function HostCard({
             </div>
 
             <div className="flex items-end">
-              <div className="flex items-center gap-3 flex-1 pb-0">
+              <div className="flex items-center gap-1 flex-1 -mb-1.5">
                 {canEdit && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onDelete(connection.id); }}
-                    className="text-(--t-text-dim) hover:text-(--t-status-error) transition-colors flex items-center"
-                    title="Delete"
-                  >
-                    <Icon icon="lucide:trash-2" width={18} />
-                  </button>
+                  <CardActionButton icon="lucide:trash-2" title="Delete" danger reveal={false} onClick={() => onDelete(connection.id)} />
                 )}
                 {canEdit && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onEdit(connection); }}
-                    className="text-(--t-text-dim) hover:text-(--t-text-bright) transition-colors flex items-center"
-                    title="Edit"
-                  >
-                    <Icon icon="lucide:square-pen" width={18} />
-                  </button>
+                  <CardActionButton icon="lucide:square-pen" title="Edit" reveal={false} onClick={() => onEdit(connection)} />
                 )}
                 {!isSerial && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); useUIStore.getState().openSftpWith(connection.id); }}
-                    className="text-(--t-text-dim) hover:text-(--t-text-bright) transition-colors flex items-center"
-                    title="Open in SFTP"
-                  >
-                    <Icon icon="lucide:folder-open" width={18} />
-                  </button>
+                  <CardActionButton icon="lucide:folder-open" title="Open in SFTP" reveal={false} onClick={() => useUIStore.getState().openSftpWith(connection.id)} />
                 )}
               </div>
 

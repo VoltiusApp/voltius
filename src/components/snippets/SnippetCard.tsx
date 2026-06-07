@@ -317,8 +317,8 @@ export function SnippetCard({
             onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
             className={`p-1.5 rounded-lg transition-colors ${pinAlwaysVisible ? "flex" : "hidden group-hover:flex"}`}
             style={{ color: pinColor }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-accent)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = pinColor)}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-accent)"; e.currentTarget.style.background = "color-mix(in srgb, #ffffff 10%, transparent)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = pinColor; e.currentTarget.style.background = "transparent"; }}
           >
             <Icon icon="lucide:star" width={16} />
           </button>
@@ -327,8 +327,8 @@ export function SnippetCard({
             title="Insert"
             onClick={(e) => { e.stopPropagation(); setPanelMode("insert"); }}
             className="p-1.5 flex rounded-lg transition-colors text-(--t-text-secondary)"
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-secondary)")}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; e.currentTarget.style.background = "color-mix(in srgb, #ffffff 10%, transparent)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-secondary)"; e.currentTarget.style.background = "transparent"; }}
           >
             <Icon icon="lucide:arrow-down-to-line" width={16} />
           </button>
@@ -336,8 +336,8 @@ export function SnippetCard({
             title="Execute"
             onClick={(e) => { e.stopPropagation(); setPanelMode("execute"); }}
             className="p-1.5 flex rounded-lg transition-colors text-(--t-text-secondary)"
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-secondary)")}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; e.currentTarget.style.background = "color-mix(in srgb, #ffffff 10%, transparent)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-secondary)"; e.currentTarget.style.background = "transparent"; }}
           >
             <Icon icon="lucide:play" width={16} />
           </button>

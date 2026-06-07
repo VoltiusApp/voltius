@@ -69,8 +69,18 @@ function App() {
       <div className="flex flex-1 overflow-hidden">
         {!inTerminal && !sftpPanelOpen && <VaultSidebar />}
         <div className="flex flex-col flex-1 overflow-hidden bg-(--t-bg-terminal)">
-          {showVaultChrome && <VaultHeader />}
-          {showVaultChrome && <NavBar />}
+          {showVaultChrome && (
+            <div
+              className="shrink-0 rounded-tl-2xl overflow-hidden relative z-10"
+              style={{
+                background: "var(--t-bg-chrome)",
+                boxShadow: "var(--t-chrome-highlight), var(--t-chrome-shadow)",
+              }}
+            >
+              <VaultHeader />
+              <NavBar />
+            </div>
+          )}
           <div className="flex flex-1 overflow-hidden">
             <MainPanel />
             <RightPanel />

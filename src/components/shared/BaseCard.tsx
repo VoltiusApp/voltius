@@ -59,7 +59,7 @@ export const BaseCard = memo(function BaseCard({
         data-host-card={dataHostCard}
         data-connection-id={dataConnectionId}
         data-selectable-id={dataSelectableId}
-        className={`group relative flex items-center px-3 rounded-2xl cursor-pointer transition-all duration-150 bg-(--t-bg-card) ${isList ? "gap-3 py-2" : "gap-4 py-3"} ${className}`}
+        className={`group relative flex items-center px-3 cursor-pointer transition-all duration-150 bg-(--t-bg-card) ${isList ? "gap-2.5 py-2.5 rounded-xl" : "gap-4 py-3 rounded-2xl"} ${className}`}
         style={{ border: "2px solid transparent", ...style }}
         onPointerDown={onPointerDown}
         onClick={onClick ? (e) => { e.stopPropagation(); onClick(e); } : undefined}
@@ -67,12 +67,14 @@ export const BaseCard = memo(function BaseCard({
         onContextMenu={activeMenuItems?.length ? (e) => { e.stopPropagation(); open(e); if (!isSelected) onClick?.(e); } : undefined}
         onMouseEnter={(e) => {
           e.currentTarget.style.background = "var(--t-bg-card-hover)";
-          if (!isActive && !isSelected && !isEditing) e.currentTarget.style.borderColor = "var(--t-border-hover)";
+          if (!isActive && !isSelected && !isEditing && !isFocused) {
+            e.currentTarget.style.boxShadow = "inset 0 0 0 1px var(--t-card-ring), var(--t-card-shadow)";
+          }
           onMouseEnter?.();
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.background = "var(--t-bg-card)";
-          e.currentTarget.style.borderColor = "transparent";
+          e.currentTarget.style.boxShadow = "none";
           onMouseLeave?.();
         }}
       >

@@ -53,7 +53,7 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
                 border: m.is_online
                   ? "2px solid var(--t-status-connected)"
                   : "2px solid transparent",
-                boxShadow: "0 0 0 1.5px var(--t-bg-toolbar)",
+                boxShadow: "0 0 0 1.5px var(--t-bg-chrome)",
                 opacity: m.is_online ? 1 : 0.45,
                 transition: "border-color 0.2s, opacity 0.2s",
               }}
@@ -70,7 +70,7 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
                 width: 26,
                 height: 26,
                 background: "var(--t-bg-elevated)",
-                border: "2px solid var(--t-bg-toolbar)",
+                border: "2px solid var(--t-bg-chrome)",
                 color: "var(--t-text-dim)",
               }}
             >
@@ -216,92 +216,100 @@ export default function VaultHeader() {
 
   return (
     <div
-      className="flex items-center shrink-0 px-4 gap-4 border-b rounded-tl-2xl"
+      className="grid grid-cols-[1fr_auto_1fr] items-center shrink-0 px-5 gap-5"
       style={{
-        height: "3.75rem",
-        background: "var(--t-bg-toolbar)",
-        borderColor: "var(--t-border)",
+        height: "4.25rem",
+        background: "transparent",
       }}
     >
-      {/* Vault icon */}
-      <div
-        className="flex items-center justify-center shrink-0 rounded-xl text-base font-bold text-white"
-        style={{
-          width: 40,
-          height: 40,
-          background: "var(--t-accent)",
-        }}
-      >
-        {initial}
-      </div>
-
-      {/* Vault info */}
-      <div className="flex flex-col justify-center min-w-0 flex-1">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-base font-semibold truncate" style={{ color: "var(--t-text-primary)" }}>
-            {displayName}
-          </span>
-          {team && <Badge label="team" />}
-          {members !== null && (
-            <Badge label={`${members.length} member${members.length !== 1 ? "s" : ""}`} accent />
-          )}
+      {/* Left zone: icon + vault info */}
+      <div className="flex items-center gap-4 min-w-0">
+        <div
+          className="flex items-center justify-center shrink-0 rounded-xl text-base font-bold text-white"
+          style={{
+            width: 40,
+            height: 40,
+            background: "var(--t-accent)",
+          }}
+        >
+          {initial}
         </div>
-        <div className="flex items-center gap-3 text-xs mt-0.5 flex-wrap" style={{ color: "var(--t-text-dim)" }}>
-          {isE2EE && (
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--t-status-connected)" }} />
-              E2EE
+
+        <div className="flex flex-col justify-center min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-base font-semibold truncate" style={{ color: "var(--t-text-primary)" }}>
+              {displayName}
             </span>
-          )}
-          {hostCount > 0 && (
-            <span>{hostCount} host{hostCount !== 1 ? "s" : ""}</span>
-          )}
-          {keyCount > 0 && (
-            <span>{keyCount} key{keyCount !== 1 ? "s" : ""}</span>
-          )}
-          {portRuleCount > 0 && (
-            <span>{portRuleCount} port rule{portRuleCount !== 1 ? "s" : ""}</span>
-          )}
-          {showSync && (
-            <span>Last sync {lastSync}</span>
-          )}
+            {team && <Badge label="team" />}
+            {members !== null && (
+              <Badge label={`${members.length} member${members.length !== 1 ? "s" : ""}`} accent />
+            )}
+          </div>
+          <div className="flex items-center gap-3 text-xs mt-0.5 flex-wrap" style={{ color: "var(--t-text-dim)" }}>
+            {isE2EE && (
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--t-status-connected)" }} />
+                E2EE
+              </span>
+            )}
+            {hostCount > 0 && (
+              <span>{hostCount} host{hostCount !== 1 ? "s" : ""}</span>
+            )}
+            {keyCount > 0 && (
+              <span>{keyCount} key{keyCount !== 1 ? "s" : ""}</span>
+            )}
+            {portRuleCount > 0 && (
+              <span>{portRuleCount} port rule{portRuleCount !== 1 ? "s" : ""}</span>
+            )}
+            {showSync && (
+              <span>Last sync {lastSync}</span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Online members */}
-      {team && members !== null && (
-        <OnlineMembersStack members={members} roles={roles} onInviteClick={openMembersInvite} />
-      )}
-
-      {/* Jump to omnibar */}
+      {/* Center zone: command palette */}
       <button
         onClick={() => setOmniOpen(true)}
-        className="flex items-center gap-2 px-3 h-9 rounded-lg shrink-0 transition-colors"
+        className="flex items-center gap-2 px-3.5 h-9 rounded-lg transition-colors justify-self-center w-[clamp(20rem,30vw,27.5rem)]"
         style={{
-          background: "var(--t-bg-input)",
-          color: "var(--t-text-dim)",
-          border: "1px solid var(--t-border)",
-          minWidth: 180,
+          background: "var(--t-bg-chrome-field)",
+          color: "var(--t-text-secondary)",
+          border: "1px solid var(--t-chrome-field-border)",
+          boxShadow: "inset 0 1px 0 color-mix(in srgb, #ffffff 6%, transparent)",
         }}
         onMouseEnter={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-chrome-field-hover)";
           (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-accent)";
-          (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-secondary)";
+          (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-bright)";
         }}
         onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-border)";
-          (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)";
+          (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-chrome-field)";
+          (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-chrome-field-border)";
+          (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-secondary)";
         }}
       >
         <Icon icon="lucide:search" width={14} className="shrink-0" />
         <span className="text-sm flex-1 text-left">Jump to...</span>
         <kbd
-          className="flex items-center gap-0.5 text-[10px] px-1 rounded-sm"
-          style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-dim)" }}
+          className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md"
+          style={{
+            background: "color-mix(in srgb, #000000 22%, transparent)",
+            color: "var(--t-text-secondary)",
+            border: "1px solid color-mix(in srgb, #ffffff 7%, transparent)",
+          }}
         >
           <span>⌘</span>
           <span>K</span>
         </kbd>
       </button>
+
+      {/* Right zone: online members */}
+      <div className="flex items-center justify-end min-w-0">
+        {team && members !== null && (
+          <OnlineMembersStack members={members} roles={roles} onInviteClick={openMembersInvite} />
+        )}
+      </div>
     </div>
   );
 }

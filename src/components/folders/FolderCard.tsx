@@ -122,7 +122,7 @@ export function FolderCard({
         data-folder-card="true"
         data-selectable-id={folder.id}
         data-drop-folder={dataDropFolder}
-        className={`group flex items-center px-4 rounded-2xl cursor-pointer transition-all duration-150 ${isList ? "gap-3 py-2" : "gap-4 py-4"}`}
+        className={`group flex items-center px-4 cursor-pointer transition-all duration-150 ${isList ? "gap-2.5 py-2.5 rounded-xl" : "gap-4 py-4 rounded-2xl"}`}
         style={{
           background: isDragOver
             ? "color-mix(in srgb, var(--t-accent) 8%, var(--t-bg-card))"
@@ -133,8 +133,16 @@ export function FolderCard({
         onClick={(e) => { e.stopPropagation(); if (!renaming) onClick(); }}
         onContextMenu={(e) => { e.stopPropagation(); e.preventDefault(); onSelect?.(folder.id, e); openCtx(e); }}
         onPointerDown={onPointerDown}
-        onMouseEnter={(e) => { if (!isDragOver) e.currentTarget.style.background = "var(--t-bg-card-hover)"; }}
-        onMouseLeave={(e) => { if (!isDragOver) e.currentTarget.style.background = "var(--t-bg-card)"; }}
+        onMouseEnter={(e) => {
+          if (isDragOver) return;
+          e.currentTarget.style.background = "var(--t-bg-card-hover)";
+          if (!isSelected && !isFocused) e.currentTarget.style.boxShadow = "inset 0 0 0 1px var(--t-card-ring), var(--t-card-shadow)";
+        }}
+        onMouseLeave={(e) => {
+          if (isDragOver) return;
+          e.currentTarget.style.background = "var(--t-bg-card)";
+          e.currentTarget.style.boxShadow = focusBoxShadow ?? "";
+        }}
       >
         {/* Folder avatar */}
         <div
@@ -168,7 +176,7 @@ export function FolderCard({
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
-              <p className="font-medium-bold truncate w-48 shrink-0 text-(--t-text-bright)">
+              <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">
                 {folder.name}
               </p>
             )}

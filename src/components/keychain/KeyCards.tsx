@@ -93,30 +93,53 @@ export function EmptySection({
 // SSH Key cards
 // ─────────────────────────────────────────────────────────────────
 
-export function KeyCardContent({ sshKey, avatarSize, iconSize }: { sshKey: SshKey; avatarSize: number; iconSize: number }) {
+export function KeyCardContent({ sshKey, avatarSize, iconSize, isList }: { sshKey: SshKey; avatarSize: number; iconSize: number; isList?: boolean }) {
   const formattedDate = new Date(sshKey.created_at).toLocaleDateString(undefined, {
     year: "numeric", month: "short", day: "numeric",
   });
+  const avatar = (
+    <div
+      className="rounded-lg flex items-center justify-center shrink-0 select-none bg-(--t-bg-card-avatar)"
+      style={{ width: `${(avatarSize / 15).toFixed(3)}rem`, height: `${(avatarSize / 15).toFixed(3)}rem` }}
+    >
+      <Icon icon="lucide:key-round" width={iconSize} />
+    </div>
+  );
+  const keyType = sshKey.key_type && (
+    <span className="text-xs px-1.5 py-0.5 rounded-sm font-mono shrink-0 bg-(--t-bg-elevated) text-(--t-accent)">
+      {sshKey.key_type}
+    </span>
+  );
+
+  if (isList) {
+    return (
+      <>
+        {avatar}
+        <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">
+          {sshKey.name}
+        </p>
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {keyType}
+          <span className="text-xs text-(--t-text-secondary) shrink-0">{formattedDate}</span>
+        </div>
+        {sshKey.tags.length > 0 && (
+          <div className="flex items-center gap-1 shrink-0 max-w-40 overflow-hidden">
+            {sshKey.tags.slice(0, 3).map((tag) => <TagBadge key={tag} tag={tag} />)}
+          </div>
+        )}
+      </>
+    );
+  }
+
   return (
     <>
-      <div
-        className="rounded-lg flex items-center justify-center shrink-0 select-none bg-(--t-bg-card-avatar)"
-        style={{ width: `${(avatarSize / 15).toFixed(3)}rem`, height: `${(avatarSize / 15).toFixed(3)}rem` }}
-      >
-        <Icon icon="lucide:key-round" width={iconSize} />
-      </div>
+      {avatar}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate text-(--t-text-bright)">
           {sshKey.name}
         </p>
         <div className="flex items-center gap-2 mt-0.5">
-          {sshKey.key_type && (
-            <span
-              className="text-xs px-1.5 py-0.5 rounded-sm font-mono bg-(--t-bg-elevated) text-(--t-accent)"
-            >
-              {sshKey.key_type}
-            </span>
-          )}
+          {keyType}
           <span className="text-xs text-(--t-text-secondary)">{formattedDate}</span>
         </div>
         {sshKey.tags.length > 0 && (
@@ -224,7 +247,7 @@ function KeyCard({
       bulkContextMenuItems={bulkContextMenuItems}
       contextMenuItems={contextMenuItems}
     >
-      <KeyCardContent sshKey={sshKey} avatarSize={avatarSize} iconSize={iconSize} />
+      <KeyCardContent sshKey={sshKey} avatarSize={avatarSize} iconSize={iconSize} isList={isList} />
 
       <div className="flex items-center gap-1 shrink-0">
         {!isSynced && (
@@ -292,7 +315,7 @@ export function KeySection({
 
   const gridClass = layoutMode === "grid"
     ? "grid gap-3 mt-3"
-    : "flex flex-col gap-1.5 mt-3";
+    : "flex flex-col gap-1 mt-3";
 
   return (
     <div>
@@ -438,39 +461,70 @@ function IdentityCard({
         <Icon icon="lucide:id-card" width={iconSize} />
       </div>
 
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate text-(--t-text-bright)">
-          {identity.name ?? identity.username}
-        </p>
-        <div className="flex items-center gap-2 mt-0.5">
-          {identity.name && (
-            <span className="text-xs truncate text-(--t-text-secondary)">
-              {identity.username}
-            </span>
-          )}
-          {linkedKey && (
-            <span
-              className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-sm bg-(--t-bg-elevated) text-(--t-text-dim)"
-            >
-              <Icon icon="lucide:key-round" width={10} />
-              {linkedKey.name ?? "Key"}
-            </span>
-          )}
-          {!linkedKey && (
-            <span
-              className="text-xs px-1.5 py-0.5 rounded-sm bg-(--t-bg-elevated) text-(--t-text-dim)"
-            >
-              Password
-            </span>
-          )}
-          <span className="text-xs text-(--t-text-secondary)">{formattedDate}</span>
-        </div>
-        {identity.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1">
-            {identity.tags.map((tag) => <TagBadge key={tag} tag={tag} />)}
+      {isList ? (
+        <>
+          <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">
+            {identity.name ?? identity.username}
+          </p>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {identity.name && (
+              <span className="text-xs truncate text-(--t-text-secondary)">
+                {identity.username}
+              </span>
+            )}
+            {linkedKey ? (
+              <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-sm shrink-0 bg-(--t-bg-elevated) text-(--t-text-dim)">
+                <Icon icon="lucide:key-round" width={10} />
+                {linkedKey.name ?? "Key"}
+              </span>
+            ) : (
+              <span className="text-xs px-1.5 py-0.5 rounded-sm shrink-0 bg-(--t-bg-elevated) text-(--t-text-dim)">
+                Password
+              </span>
+            )}
+            <span className="text-xs text-(--t-text-secondary) shrink-0">{formattedDate}</span>
           </div>
-        )}
-      </div>
+          {identity.tags.length > 0 && (
+            <div className="flex items-center gap-1 shrink-0 max-w-40 overflow-hidden">
+              {identity.tags.slice(0, 3).map((tag) => <TagBadge key={tag} tag={tag} />)}
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate text-(--t-text-bright)">
+            {identity.name ?? identity.username}
+          </p>
+          <div className="flex items-center gap-2 mt-0.5">
+            {identity.name && (
+              <span className="text-xs truncate text-(--t-text-secondary)">
+                {identity.username}
+              </span>
+            )}
+            {linkedKey && (
+              <span
+                className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-sm bg-(--t-bg-elevated) text-(--t-text-dim)"
+              >
+                <Icon icon="lucide:key-round" width={10} />
+                {linkedKey.name ?? "Key"}
+              </span>
+            )}
+            {!linkedKey && (
+              <span
+                className="text-xs px-1.5 py-0.5 rounded-sm bg-(--t-bg-elevated) text-(--t-text-dim)"
+              >
+                Password
+              </span>
+            )}
+            <span className="text-xs text-(--t-text-secondary)">{formattedDate}</span>
+          </div>
+          {identity.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {identity.tags.map((tag) => <TagBadge key={tag} tag={tag} />)}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center gap-1 shrink-0">
         {!isSynced && (
@@ -543,7 +597,7 @@ export function IdentitySection({
 
   const gridClass = layoutMode === "grid"
     ? "grid gap-3 mt-3"
-    : "flex flex-col gap-1.5 mt-3";
+    : "flex flex-col gap-1 mt-3";
 
   return (
     <div>

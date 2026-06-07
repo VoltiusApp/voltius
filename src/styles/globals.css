@@ -73,6 +73,28 @@
 }
 
 /*
+  Derived UI surfaces — computed from the runtime `--t-*` theme vars so they
+  adapt to every built-in and custom theme without per-theme edits.
+  - chrome:   deep-navy header+navbar block, a subtle lift of the theme's own dark
+              surfaces (base + elevated) so it stays on-identity and refined —
+              darker/richer than a mid blue, not a flat gray. Flat + understated.
+  - card-ring: subtle accent hover ring (replaces themes whose borderHover is transparent)
+*/
+:root {
+  /* deep navy: mostly the dark base, a touch of elevated for a quiet lift */
+  --t-bg-chrome: color-mix(in srgb, var(--t-bg-base) 82%, var(--t-bg-elevated) 18%);
+  /* command-palette field — a lighter slate pill that floats above the chrome */
+  --t-bg-chrome-field: color-mix(in srgb, var(--t-bg-elevated) 84%, #ffffff 9%);
+  --t-bg-chrome-field-hover: color-mix(in srgb, var(--t-bg-elevated) 70%, #ffffff 16%);
+  --t-chrome-field-border: color-mix(in srgb, #ffffff 12%, transparent);
+  /* thin top hairline + gentle drop shadow under the block */
+  --t-chrome-highlight: inset 0 1px 0 0 color-mix(in srgb, #ffffff 5%, transparent);
+  --t-chrome-shadow: 0 6px 18px -12px rgba(0, 0, 0, 0.5);
+  --t-card-ring: color-mix(in srgb, var(--t-accent) 22%, transparent);
+  --t-card-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.55);
+}
+
+/*
   The default border color has changed to `currentcolor` in Tailwind CSS v4,
   so we've added these compatibility styles to make sure everything still
   looks the same as it did with Tailwind CSS v3.

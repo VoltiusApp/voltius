@@ -1023,7 +1023,7 @@ export default function HostsPage() {
                   </div>
                   <div
                     data-drag-surface="true"
-                    className={layoutMode === "grid" ? "grid gap-3" : "flex flex-col gap-1.5"}
+                    className={layoutMode === "grid" ? "grid gap-3" : "flex flex-col gap-1"}
                     style={layoutMode === "grid" ? { gridTemplateColumns: HOST_GRID_COLS } : undefined}
                   >
                     {visibleFolders.map((folder) => {
@@ -1088,7 +1088,7 @@ export default function HostsPage() {
                 <div className="mb-6">
                   <p className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">Pinned</p>
                   <div
-                    className={layoutMode === "grid" ? "grid gap-3" : "flex flex-col gap-1.5"}
+                    className={layoutMode === "grid" ? "grid gap-3" : "flex flex-col gap-1"}
                     style={layoutMode === "grid" ? { gridTemplateColumns: HOST_GRID_COLS } : undefined}
                   >
                     {pinnedHosts.map((conn) => {
@@ -1158,7 +1158,7 @@ export default function HostsPage() {
                   </div>
                   <div
                     data-drag-surface="true"
-                    className={layoutMode === "grid" ? "grid gap-3" : "flex flex-col gap-1.5"}
+                    className={layoutMode === "grid" ? "grid gap-3" : "flex flex-col gap-1"}
                     style={layoutMode === "grid" ? { gridTemplateColumns: HOST_GRID_COLS } : undefined}
                   >
                     {(showForm || showSerialForm) && !editing && <DraftHostCard layout={layoutMode} serial={showSerialForm} />}

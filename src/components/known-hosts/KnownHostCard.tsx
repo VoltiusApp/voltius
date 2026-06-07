@@ -64,8 +64,8 @@ export function KnownHostCard({
       data-selectable-id={host.id}
     >
       {/* Fingerprint icon */}
-      <div className="w-10 h-10 rounded-xl bg-(--t-bg-card-avatar) flex items-center justify-center shrink-0">
-        <Icon icon="lucide:fingerprint" width={18} />
+      <div className={`rounded-xl bg-(--t-bg-card-avatar) flex items-center justify-center shrink-0 ${isList ? "w-7 h-7" : "w-10 h-10"}`}>
+        <Icon icon="lucide:fingerprint" width={isList ? 14 : 18} />
       </div>
 
       <div className="min-w-0 flex-1">

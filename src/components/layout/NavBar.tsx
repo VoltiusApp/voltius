@@ -30,11 +30,11 @@ export default function NavBar() {
 
   return (
     <div
-      className="flex items-center shrink-0 px-2 border-b gap-0.5"
+      className="flex items-center shrink-0 px-2.5 border-b gap-0.5"
       style={{
         height: "2.75rem",
-        background: "var(--t-bg-toolbar)",
-        borderColor: "var(--t-border)",
+        background: "transparent",
+        borderColor: "color-mix(in srgb, #ffffff 5%, transparent)",
       }}
     >
       {NAV_ITEMS.map((item) => {
@@ -66,7 +66,7 @@ function NavTabButton({
     <button
       onClick={onClick}
       onMouseDown={createRipple}
-      className="relative flex items-center gap-2 px-3 h-full text-sm font-medium shrink-0 transition-colors overflow-hidden"
+      className="relative flex items-center gap-2 px-3.5 h-full text-sm font-medium shrink-0 transition-colors overflow-hidden"
       style={{
         color: isActive ? "var(--t-text-primary)" : "var(--t-text-dim)",
         background: "transparent",
