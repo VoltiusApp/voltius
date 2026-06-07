@@ -85,7 +85,7 @@ function PluginConfigForm({ manifest }: { manifest: PluginManifest }) {
                 type={field.secret ? "password" : "text"}
                 value={String(value ?? "")}
                 onChange={(e) => void save(key, e.target.value)}
-                className="w-full px-3 py-1.5 rounded-lg text-sm outline-hidden transition-colors bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
+                className="form-input w-full px-3 py-1.5 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
                 onFocus={(e) => { e.currentTarget.style.borderColor = "var(--t-accent)"; }}
                 onBlur={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; }}
               />
@@ -118,7 +118,7 @@ function PluginConfigForm({ manifest }: { manifest: PluginManifest }) {
                     if (field.max !== undefined) n = Math.min(field.max, n);
                     void save(key, n);
                   }}
-                  className="w-24 px-2 py-1 rounded-lg text-sm text-right outline-hidden transition-colors bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
+                  className="form-input w-24 px-2 py-1 rounded-lg text-sm text-right outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
                   onFocus={(e) => { e.currentTarget.style.borderColor = "var(--t-accent)"; }}
                   onBlur={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; }}
                 />
@@ -127,7 +127,7 @@ function PluginConfigForm({ manifest }: { manifest: PluginManifest }) {
                 <select
                   value={String(value ?? "")}
                   onChange={(e) => void save(key, e.target.value)}
-                  className="px-2 py-1 rounded-lg text-sm outline-hidden transition-colors bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
+                  className="form-input px-2 py-1 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
                   style={{ minWidth: "8rem" }}
                   onFocus={(e) => { e.currentTarget.style.borderColor = "var(--t-accent)"; }}
                   onBlur={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; }}

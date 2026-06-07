@@ -89,7 +89,7 @@ function SecretInput({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full px-3 py-2 pr-16 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) transition-colors"
+          className="form-input w-full px-3 py-2 pr-16 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
           onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
           onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
         />
@@ -784,7 +784,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
                 onChange={(e) => setLinkInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleLinkGist()}
                 placeholder="Gist ID or URL (e.g. a1b2c3d4e5f6…)"
-                className="flex-1 px-3 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
+                className="form-input flex-1 px-3 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
                 onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
                 onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}
               />

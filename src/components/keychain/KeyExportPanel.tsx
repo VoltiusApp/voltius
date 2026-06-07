@@ -157,7 +157,7 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
                   value={script}
                   onChange={(e) => setScript(e.target.value)}
                   rows={9}
-                  className="w-full px-2.5 py-2 rounded-md text-xs outline-hidden font-mono resize-none bg-(--t-bg-base) border border-(--t-border) text-(--t-text-primary)"
+                  className="form-input w-full px-2.5 py-2 rounded-md text-xs outline-hidden font-mono resize-none bg-(--t-bg-base) border border-(--t-border) text-(--t-text-primary)"
                   style={{ lineHeight: 1.6 }}
                   onFocus={(e) => (e.currentTarget.style.borderColor = "var(--t-accent)")}
                   onBlur={(e) => (e.currentTarget.style.borderColor = "var(--t-border)")}

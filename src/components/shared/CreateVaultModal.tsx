@@ -50,7 +50,7 @@ export function CreateVaultModal({ onConfirm, onCancel }: Props) {
               if (e.key === "Enter") submit();
               if (e.key === "Escape") onCancel();
             }}
-            className="w-full px-3 py-2.5 rounded-xl text-sm outline-hidden transition-all"
+            className="form-input w-full px-3 py-2.5 rounded-xl text-sm outline-hidden"
             style={{
               background: "var(--t-bg-elevated)",
               color: "var(--t-text-primary)",
