@@ -5,10 +5,11 @@ interface Props {
   onClose: () => void;
   onEnter?: () => void;
   children: React.ReactNode;
+  /** Backdrop blur strength. `true` (default) blurs the scrim; `false` keeps it flat. */
   blur?: boolean;
 }
 
-export function Modal({ onClose, onEnter, children, blur = false }: Props) {
+export function Modal({ onClose, onEnter, children, blur = true }: Props) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -21,7 +22,11 @@ export function Modal({ onClose, onEnter, children, blur = false }: Props) {
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.55)", backdropFilter: blur ? "blur(2px)" : undefined }}
+      style={{
+        background: "rgba(0,0,0,0.5)",
+        backdropFilter: blur ? "blur(10px) saturate(1.2)" : undefined,
+        WebkitBackdropFilter: blur ? "blur(10px) saturate(1.2)" : undefined,
+      }}
       onClick={onClose}
     >
       <div role="dialog" onClick={(e) => e.stopPropagation()}>
@@ -29,5 +34,29 @@ export function Modal({ onClose, onEnter, children, blur = false }: Props) {
       </div>
     </div>,
     document.body,
+  );
+}
+
+/**
+ * Shared glass dialog shell — translucent fill, soft ring, top-edge highlight
+ * and modal-level elevation. Use instead of hand-rolling
+ * `bg-(--t-bg-card) border ... boxShadow`, so every dialog reads the same.
+ */
+export function ModalCard({
+  children,
+  className = "",
+  style,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div
+      className={`surface-glass-modal rounded-[var(--r-lg)] mx-4 ${className}`}
+      style={style}
+    >
+      {children}
+    </div>
   );
 }

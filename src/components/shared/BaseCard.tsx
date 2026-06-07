@@ -27,8 +27,8 @@ interface BaseCardProps {
 
 const GLASS_BG = "linear-gradient(140deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 45%, transparent 100%), color-mix(in srgb, var(--t-bg-card) 68%, transparent)";
 const GLASS_BG_HOVER = "linear-gradient(140deg, rgba(255,255,255,0.11) 0%, rgba(255,255,255,0.03) 45%, transparent 100%), color-mix(in srgb, var(--t-bg-card) 80%, transparent)";
-const GLASS_SHADOW = "0 0 0 1px rgba(255,255,255,0.09), 0 6px 20px -6px rgba(0,0,0,0.55), inset 0 1.5px 0 rgba(255,255,255,0.18), inset 0 -1px 0 rgba(0,0,0,0.12)";
-const GLASS_SHADOW_HOVER = "0 0 0 1px rgba(255,255,255,0.13), 0 10px 28px -6px rgba(0,0,0,0.65), inset 0 1.5px 0 rgba(255,255,255,0.24), inset 0 -1px 0 rgba(0,0,0,0.15)";
+const GLASS_SHADOW = "var(--t-ring), var(--t-elev-1), var(--t-highlight)";
+const GLASS_SHADOW_HOVER = "var(--t-ring-strong), var(--t-elev-1-hover), var(--t-highlight-strong)";
 
 export const BaseCard = memo(function BaseCard({
   isSelected,
