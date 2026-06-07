@@ -976,11 +976,15 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   return createPortal(
     <div
       className="fixed inset-0 z-60 flex items-start justify-center pt-24"
-      style={{ background: "rgba(0,0,0,0.55)" }}
+      style={{
+        background: "rgba(0,0,0,0.5)",
+        backdropFilter: "blur(10px) saturate(1.2)",
+        WebkitBackdropFilter: "blur(10px) saturate(1.2)",
+      }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl rounded-xl overflow-hidden shadow-2xl bg-(--t-bg-modal) border border-(--t-border-hover) animate-fadeIn"
+        className="surface-glass-modal w-full max-w-xl rounded-[var(--r-lg)] overflow-hidden animate-fadeIn mx-4"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input */}

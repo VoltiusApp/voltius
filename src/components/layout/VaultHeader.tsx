@@ -288,6 +288,14 @@ export default function VaultHeader() {
           (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-chrome-field-border)";
           (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-secondary)";
         }}
+        onFocus={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-accent)";
+          (e.currentTarget as HTMLButtonElement).style.boxShadow = "inset 0 1px 0 color-mix(in srgb, #ffffff 6%, transparent), 0 0 0 3px color-mix(in srgb, var(--t-accent) 25%, transparent)";
+        }}
+        onBlur={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--t-chrome-field-border)";
+          (e.currentTarget as HTMLButtonElement).style.boxShadow = "inset 0 1px 0 color-mix(in srgb, #ffffff 6%, transparent)";
+        }}
       >
         <Icon icon="lucide:search" width={14} className="shrink-0" />
         <span className="text-sm flex-1 text-left">Jump to...</span>
