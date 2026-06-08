@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-06-08
+
+### Fixed
+
+- Termius import on Linux now reads the master key from the Secret Service (libsecret), fixing "Termius key not found in OS keychain" (#12)
+
 ## [0.2.0] - 2026-06-06
 
 ### Added
