@@ -450,76 +450,28 @@
   cursor: not-allowed;
 }
 
+/* Flat button treatment — accent / elevated fill + the core ring, no gradient
+   sheen, inset highlight, or colored glow. One calm look for every button,
+   regardless of host surface. Object cards/tiles keep their glossy depth; CTAs
+   do not. See docs/design-surfaces.md. */
 .btn-primary {
   color: #fff;
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--t-accent) 84%, #ffffff 16%) 0%,
-      var(--t-accent) 52%,
-      color-mix(in srgb, var(--t-accent) 88%, #000000 12%) 100%
-    );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 0 0 1px color-mix(in srgb, var(--t-accent) 55%, #000000 45%),
-    0 4px 14px -4px color-mix(in srgb, var(--t-accent) 55%, transparent);
+  background: var(--t-accent);
+  box-shadow: var(--t-ring);
 }
 .btn-primary:hover:not(:disabled) {
   filter: brightness(1.08);
 }
 .btn-primary:active:not(:disabled) {
   filter: brightness(0.97);
-  box-shadow:
-    inset 0 1px 2px rgba(0, 0, 0, 0.28),
-    0 0 0 1px color-mix(in srgb, var(--t-accent) 55%, #000000 45%);
-}
-
-/* Calm primary — accent + core ring, no gradient sheen or colored glow.
-   The "calm" counterpart to .btn-primary, chosen by role: transient chrome
-   and dense inline panels (decision panels, dropdown actions) where a lit,
-   glowing CTA is a role mismatch. See docs/design-surfaces.md. */
-.btn-primary-calm {
-  color: #fff;
-  background: var(--t-accent);
-  box-shadow: var(--t-ring);
-}
-.btn-primary-calm:hover:not(:disabled) {
-  filter: brightness(1.08);
-}
-.btn-primary-calm:active:not(:disabled) {
-  filter: brightness(0.97);
 }
 
 .btn-secondary {
   color: var(--t-text-primary);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 60%),
-    var(--t-bg-elevated);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 0 0 1px color-mix(in srgb, #ffffff 8%, transparent),
-    0 2px 8px -4px rgba(0, 0, 0, 0.5);
-}
-.btn-secondary:hover:not(:disabled) {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, transparent 60%),
-    var(--t-bg-card-hover);
-}
-.btn-secondary:active:not(:disabled) {
-  box-shadow:
-    inset 0 1px 2px rgba(0, 0, 0, 0.22),
-    0 0 0 1px color-mix(in srgb, #ffffff 8%, transparent);
-}
-
-/* Calm secondary — flat elevated fill + core ring, no gradient sheen or
-   inset highlight. The calm counterpart to .btn-secondary, paired with
-   .btn-primary-calm inside transient chrome. See docs/design-surfaces.md. */
-.btn-secondary-calm {
-  color: var(--t-text-primary);
   background: var(--t-bg-elevated);
   box-shadow: var(--t-ring);
 }
-.btn-secondary-calm:hover:not(:disabled) {
+.btn-secondary:hover:not(:disabled) {
   background: var(--t-bg-card-hover);
 }
 
@@ -534,26 +486,14 @@
 
 .btn-danger {
   color: #fff;
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--t-status-error) 84%, #ffffff 16%) 0%,
-      var(--t-status-error) 52%,
-      color-mix(in srgb, var(--t-status-error) 88%, #000000 12%) 100%
-    );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    0 0 0 1px color-mix(in srgb, var(--t-status-error) 55%, #000000 45%),
-    0 4px 14px -4px color-mix(in srgb, var(--t-status-error) 55%, transparent);
+  background: var(--t-status-error);
+  box-shadow: var(--t-ring);
 }
 .btn-danger:hover:not(:disabled) {
   filter: brightness(1.08);
 }
 .btn-danger:active:not(:disabled) {
   filter: brightness(0.97);
-  box-shadow:
-    inset 0 1px 2px rgba(0, 0, 0, 0.28),
-    0 0 0 1px color-mix(in srgb, var(--t-status-error) 55%, #000000 45%);
 }
 
 /*

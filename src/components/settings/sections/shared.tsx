@@ -14,19 +14,19 @@ export function ActionItem({ icon, label, sub, danger, disabled, onClick }: {
     <button
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className="btn btn-secondary w-full flex items-start gap-3 px-4 py-3 rounded-lg text-left"
+      className="w-full flex items-start gap-3 px-4 py-3 rounded-lg text-left transition-colors bg-(--t-bg-elevated) border border-(--t-border) hover:bg-(--t-bg-card-hover)"
       style={{
         cursor: disabled ? "default" : "pointer",
         opacity: disabled ? 0.5 : 1,
       }}
       onMouseEnter={(e) => {
         if (!disabled && danger) {
-          (e.currentTarget as HTMLButtonElement).style.boxShadow =
-            "0 0 0 1px color-mix(in srgb, var(--t-status-error) 70%, transparent), 0 2px 8px -4px rgba(0,0,0,0.5)";
+          (e.currentTarget as HTMLButtonElement).style.borderColor =
+            "color-mix(in srgb, var(--t-status-error) 55%, transparent)";
         }
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.boxShadow = "";
+        (e.currentTarget as HTMLButtonElement).style.borderColor = "";
       }}
     >
       <Icon
