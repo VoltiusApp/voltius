@@ -168,6 +168,9 @@ function KeyCard({
   const isList = layoutMode === "list";
   const avatarSize = isList ? 28 : 48;
   const iconSize = isList ? 14 : 24;
+  const formattedDate = new Date(sshKey.created_at).toLocaleDateString(undefined, {
+    year: "numeric", month: "short", day: "numeric",
+  });
   const contributions = useUIContributions("key.contextMenu", sshKey);
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(sshKey.id, "key"));
   const pinKey = useKeyStore((s) => s.pinKey);
@@ -240,17 +243,63 @@ function KeyCard({
       bulkContextMenuItems={bulkContextMenuItems}
       contextMenuItems={contextMenuItems}
     >
-      <KeyCardContent sshKey={sshKey} avatarSize={avatarSize} iconSize={iconSize} isList={isList} />
+      {isList ? (
+        <>
+          <KeyCardContent sshKey={sshKey} avatarSize={avatarSize} iconSize={iconSize} isList />
+          <div className="flex items-center gap-1 shrink-0">
+            {!isSynced && (
+              <span title="Cloud sync disabled" className="text-(--t-text-dim) flex items-center">
+                <Icon icon="lucide:cloud-off" width={18} />
+              </span>
+            )}
+            {canEdit && <CardActionButton icon="lucide:pencil" title="Edit" onClick={() => onEdit(sshKey)} />}
+            {canEdit && <CardActionButton icon="lucide:trash-2" title="Delete" onClick={() => onDelete(sshKey.id)} danger />}
+          </div>
+        </>
+      ) : (
+        <div className="flex-1 min-w-0 self-start flex flex-col gap-2.5">
+          <div className="flex items-start gap-2 min-w-0">
+            <AvatarTile icon="lucide:key-round" iconSize={16} size={30} className="rounded-lg" />
+            <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <p className="text-sm font-bold truncate flex-1 min-w-0 text-(--t-text-bright)">
+                  {sshKey.name}
+                </p>
+                {sshKey.key_type && (
+                  <span className="shrink-0 px-1.5 py-0.5 rounded-md text-[11px] font-mono bg-(--t-bg-input) text-(--t-text-dim) border border-(--t-border)">
+                    {sshKey.key_type}
+                  </span>
+                )}
+                {!isSynced && (
+                  <span title="Cloud sync disabled" className="shrink-0 text-(--t-text-dim) flex items-center">
+                    <Icon icon="lucide:cloud-off" width={14} />
+                  </span>
+                )}
+              </div>
+              <p className="text-xs truncate text-(--t-text-muted)">added {formattedDate}</p>
+            </div>
+          </div>
 
-      <div className="flex items-center gap-1 shrink-0">
-        {!isSynced && (
-          <span title="Cloud sync disabled" className="text-(--t-text-dim) flex items-center">
-            <Icon icon="lucide:cloud-off" width={18} />
-          </span>
-        )}
-        {canEdit && <CardActionButton icon="lucide:pencil" title="Edit" onClick={() => onEdit(sshKey)} />}
-        {canEdit && <CardActionButton icon="lucide:trash-2" title="Delete" onClick={() => onDelete(sshKey.id)} danger />}
-      </div>
+          {(sshKey.tags.length > 0 || canEdit) && (
+            <div className="flex items-center justify-between gap-2 -mt-0.5">
+              <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+                {sshKey.tags.slice(0, 3).map((tag) => (
+                  <TagBadge key={tag} tag={tag} className="rounded-md shrink-0 py-0 text-[10px]" />
+                ))}
+                {sshKey.tags.length > 3 && (
+                  <span className="text-[10px] text-(--t-text-dim) shrink-0">+{sshKey.tags.length - 3}</span>
+                )}
+              </div>
+              {canEdit && (
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <CardActionButton icon="lucide:pencil" title="Edit" reveal={false} onClick={() => onEdit(sshKey)} />
+                  <CardActionButton icon="lucide:trash-2" title="Delete" danger reveal={false} onClick={() => onDelete(sshKey.id)} />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </BaseCard>
   );
 }
