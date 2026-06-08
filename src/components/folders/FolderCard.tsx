@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
+import { GLASS_BG, GLASS_BG_HOVER, GLASS_SHADOW, GLASS_SHADOW_HOVER } from "@/components/shared/BaseCard";
 import { CardActionButton } from "@/components/shared/CardActionButton";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
@@ -117,6 +118,20 @@ export function FolderCard({
     ? "inset 0 0 0 2px var(--t-accent)"
     : undefined;
 
+  // Glossy depth in grid (objects-you-manipulate role); list stays calm/flat.
+  const glossy = !isList;
+  const restBg = isDragOver
+    ? "color-mix(in srgb, var(--t-accent) 8%, var(--t-bg-card))"
+    : glossy
+    ? GLASS_BG
+    : "var(--t-bg-card)";
+  const hoverBg = glossy ? GLASS_BG_HOVER : "var(--t-bg-card-hover)";
+  const restShadow =
+    [focusBoxShadow, glossy && !isDragOver ? GLASS_SHADOW : null].filter(Boolean).join(", ") || undefined;
+  const hoverShadow = glossy
+    ? GLASS_SHADOW_HOVER
+    : "inset 0 0 0 1px var(--t-card-ring), var(--t-card-shadow)";
+
   return (
     <>
       <div
@@ -125,24 +140,25 @@ export function FolderCard({
         data-drop-folder={dataDropFolder}
         className={`group flex items-center px-4 cursor-pointer transition-all duration-150 ${isList ? "gap-2.5 py-2.5 rounded-xl" : "gap-4 py-4 rounded-2xl"}`}
         style={{
-          background: isDragOver
-            ? "color-mix(in srgb, var(--t-accent) 8%, var(--t-bg-card))"
-            : "var(--t-bg-card)",
+          background: restBg,
           border: dragBorder,
-          boxShadow: focusBoxShadow,
+          boxShadow: restShadow,
+          ...(glossy
+            ? { backdropFilter: "blur(12px) saturate(1.5)", WebkitBackdropFilter: "blur(12px) saturate(1.5)" }
+            : {}),
         }}
         onClick={(e) => { e.stopPropagation(); if (!renaming) onClick(); }}
         onContextMenu={(e) => { e.stopPropagation(); e.preventDefault(); onSelect?.(folder.id, e); openCtx(e); }}
         onPointerDown={onPointerDown}
         onMouseEnter={(e) => {
           if (isDragOver) return;
-          e.currentTarget.style.background = "var(--t-bg-card-hover)";
-          if (!isSelected && !isFocused) e.currentTarget.style.boxShadow = "inset 0 0 0 1px var(--t-card-ring), var(--t-card-shadow)";
+          e.currentTarget.style.background = hoverBg;
+          if (!isSelected && !isFocused) e.currentTarget.style.boxShadow = hoverShadow;
         }}
         onMouseLeave={(e) => {
           if (isDragOver) return;
-          e.currentTarget.style.background = "var(--t-bg-card)";
-          e.currentTarget.style.boxShadow = focusBoxShadow ?? "";
+          e.currentTarget.style.background = restBg;
+          e.currentTarget.style.boxShadow = restShadow ?? "";
         }}
       >
         {/* Folder avatar */}

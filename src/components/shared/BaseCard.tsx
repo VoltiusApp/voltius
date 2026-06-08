@@ -25,10 +25,10 @@ interface BaseCardProps {
   "data-selectable-id"?: string;
 }
 
-const GLASS_BG = "linear-gradient(140deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 45%, transparent 100%), color-mix(in srgb, var(--t-bg-card) 68%, transparent)";
-const GLASS_BG_HOVER = "linear-gradient(140deg, rgba(255,255,255,0.11) 0%, rgba(255,255,255,0.03) 45%, transparent 100%), color-mix(in srgb, var(--t-bg-card) 80%, transparent)";
-const GLASS_SHADOW = "var(--t-ring), var(--t-elev-1), var(--t-highlight)";
-const GLASS_SHADOW_HOVER = "var(--t-ring-strong), var(--t-elev-1-hover), var(--t-highlight-strong)";
+export const GLASS_BG = "linear-gradient(140deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 45%, transparent 100%), color-mix(in srgb, var(--t-bg-card) 68%, transparent)";
+export const GLASS_BG_HOVER = "linear-gradient(140deg, rgba(255,255,255,0.11) 0%, rgba(255,255,255,0.03) 45%, transparent 100%), color-mix(in srgb, var(--t-bg-card) 80%, transparent)";
+export const GLASS_SHADOW = "var(--t-ring), var(--t-elev-1), var(--t-highlight)";
+export const GLASS_SHADOW_HOVER = "var(--t-ring-strong), var(--t-elev-1-hover), var(--t-highlight-strong)";
 
 export const BaseCard = memo(function BaseCard({
   isSelected,
