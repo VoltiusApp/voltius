@@ -127,6 +127,7 @@ checksum = "a7be2f067ccd8d4b4d4a66ddafe0f32a5dff31732f32dbff85fefc40929b1f72"
 dependencies = [
  "keyring-core",
  "log",
+ "security-framework",
 ]
 
 [[package]]

@@ -69,4 +69,4 @@ linux-keyutils-keyring-store = "1"
 secret-service = { version = "5", default-features = false, features = ["rt-tokio-crypto-rust"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-apple-native-keyring-store = "1"
+apple-native-keyring-store = { version = "1", features = ["keychain"] }
