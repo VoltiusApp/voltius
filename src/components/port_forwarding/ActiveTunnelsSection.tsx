@@ -9,6 +9,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { getPfState, closePfTunnel, resumeAutoPort } from "@/services/portForwardingTunnels";
 import { formatActiveTunnelLabel, getLocalTunnelHttpUrl } from "@/utils/tunnelFormat";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
+import { AvatarTile } from "@/components/shared/AvatarTile";
 import type { ActiveTunnel } from "@/types";
 
 interface PfStatePayload {
@@ -177,12 +178,7 @@ export function ActiveTunnelsSection() {
                 className="relative flex items-center gap-3 px-4 py-4"
                 style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${distroColor} 24%, transparent), transparent 62%)` }}
               >
-                <div
-                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg shadow-black/20"
-                  style={{ background: distroColor }}
-                >
-                  <Icon icon={distroIcon ?? "lucide:server"} width={30} />
-                </div>
+                <AvatarTile base={distroColor} icon={distroIcon ?? "lucide:server"} iconSize={30} className="h-14 w-14 rounded-2xl text-white" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 min-w-0">
                     <p className="truncate text-base font-bold text-(--t-text-bright)">{session.connectionName}</p>

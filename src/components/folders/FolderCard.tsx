@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import { AvatarTile } from "@/components/shared/AvatarTile";
 import { CardActionButton } from "@/components/shared/CardActionButton";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
@@ -145,19 +146,18 @@ export function FolderCard({
         }}
       >
         {/* Folder avatar */}
-        <div
-          className="rounded-lg flex items-center justify-center shrink-0 select-none"
+        <AvatarTile
+          icon={isDragOver ? "lucide:folder-open" : "lucide:folder"}
+          iconSize={iconSize}
+          className="rounded-lg text-white"
           style={{
             width: avatarSize,
             height: avatarSize,
-            background: isDragOver
-              ? "color-mix(in srgb, var(--t-accent) 20%, var(--t-bg-card-avatar))"
-              : "var(--t-bg-card-avatar)",
-            color: "#fff",
+            ...(isDragOver
+              ? { background: "color-mix(in srgb, var(--t-accent) 20%, var(--t-bg-card-avatar))" }
+              : {}),
           }}
-        >
-          <Icon icon={isDragOver ? "lucide:folder-open" : "lucide:folder"} width={iconSize} />
-        </div>
+        />
 
         {isList ? (
           <>

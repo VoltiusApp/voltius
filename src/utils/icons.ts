@@ -280,3 +280,13 @@ export function glossyTileStyle(base: string): CSSProperties {
     boxShadow: `var(--t-ring), 0 4px 10px -5px color-mix(in srgb, ${base} 60%, transparent), var(--t-highlight)`,
   };
 }
+
+/**
+ * Neutral glossy tile for vault objects without a brand color (keys, identities,
+ * snippets, folders, known hosts, port-forwarding rules). Same tile role as the
+ * distro avatar, filled with the card-avatar surface color so abstract objects
+ * read as part of the same system.
+ */
+export function neutralTileStyle(): CSSProperties {
+  return glossyTileStyle("var(--t-bg-card-avatar)");
+}

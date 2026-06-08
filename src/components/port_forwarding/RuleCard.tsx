@@ -1,4 +1,5 @@
 import { Icon } from "@iconify/react";
+import { AvatarTile } from "@/components/shared/AvatarTile";
 import type { PortForwardingRule, VaultOption } from "@/types";
 import { formatRuleLabel } from "@/utils/tunnelFormat";
 import { BaseCard } from "@/components/shared/BaseCard";
@@ -117,9 +118,7 @@ export function RuleCard({
       {isList ? (
         <>
           <div className="relative shrink-0">
-            <div className="flex items-center justify-center shrink-0 w-7 h-7 rounded-lg bg-(--t-bg-card-avatar) text-(--t-text-secondary)">
-              <Icon icon="lucide:network" width={15} />
-            </div>
+            <AvatarTile icon="lucide:network" iconSize={15} className="w-7 h-7 rounded-lg text-(--t-text-secondary)" />
             <span className={`absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-(--t-bg-card) ${statusColor}`} title={effectiveStatusLabel} />
           </div>
           <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">
@@ -150,9 +149,7 @@ export function RuleCard({
         <div className="flex-1 min-w-0 self-start flex flex-col gap-3">
           <div className="flex items-start gap-2 min-w-0">
             <div className="relative shrink-0">
-              <div className="flex items-center justify-center w-[30px] h-[30px] rounded-lg bg-(--t-bg-card-avatar) text-(--t-text-secondary)">
-                <Icon icon="lucide:network" width={16} />
-              </div>
+              <AvatarTile icon="lucide:network" iconSize={16} className="w-[30px] h-[30px] rounded-lg text-(--t-text-secondary)" />
               <span className={`absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-(--t-bg-card) ${statusColor}`} title={effectiveStatusLabel} />
             </div>
             <div className="flex flex-col gap-0.5 flex-1 min-w-0">

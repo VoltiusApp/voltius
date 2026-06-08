@@ -16,7 +16,8 @@ import {
 } from "@/services/snippetParser";
 import { broadcastSnippetInject } from "@/services/snippets";
 import type { Connection, TerminalSession, SshKey, Identity, Snippet } from "@/types";
-import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
+import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
+import { AvatarTile } from "@/components/shared/AvatarTile";
 import { SETTINGS_NAV } from "@/components/settings/settingsNav";
 import { useShortcutStore, formatShortcut } from "@/stores/shortcutStore";
 import { useVaultStore } from "@/stores/vaultStore";
@@ -75,31 +76,6 @@ function parseSshTarget(raw: string): { user: string; host: string; port: number
   return { user: user || "root", host, port };
 }
 
-
-function HostAvatar({ connection, size = 28 }: { connection: Connection; size?: number }) {
-  const displayIcon = connection.icon || connection.distro;
-  const distroIcon = displayIcon ? getConnectionIcon(displayIcon) : null;
-  const distroBg = displayIcon ? getConnectionIconColor(displayIcon) : null;
-  const iconSize = Math.round(size * 0.57);
-  if (distroIcon) {
-    return (
-      <div
-        className="rounded-lg flex items-center justify-center shrink-0"
-        style={{ background: distroBg ?? "var(--t-bg-terminal)", color: "#fff", width: size, height: size }}
-      >
-        <Icon icon={distroIcon} width={iconSize} />
-      </div>
-    );
-  }
-  return (
-    <div
-      className="rounded-lg flex items-center justify-center shrink-0"
-      style={{ background: "var(--t-bg-card-avatar)", color: "#fff", width: size, height: size }}
-    >
-      <Icon icon="lucide:server" width={iconSize} />
-    </div>
-  );
-}
 
 function VaultBadge({ vaultId, vaults, teams }: { vaultId: string | undefined; vaults: import("@/stores/vaultStore").Vault[]; teams: import("@/stores/teamStore").Team[] }) {
   const effectiveId = vaultId ?? "personal";
@@ -597,7 +573,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         >
           {conn ? (
             <div className="relative shrink-0">
-              <HostAvatar connection={conn} size={28} />
+              <ConnectionAvatar connection={conn} size={28} />
               <span
                 className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-(--t-bg-modal)"
                 style={{ background: statusColor(item.session) }}
@@ -629,7 +605,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors group/row"
           style={{ background: baseBg }}
         >
-          <HostAvatar connection={conn} size={28} />
+          <ConnectionAvatar connection={conn} size={28} />
           <div className="flex-1 min-w-0">
             <span className="text-sm font-medium"
               style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
@@ -675,9 +651,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
           style={{ background: baseBg }}
         >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-card-avatar)">
-            <Icon icon="lucide:key-round" width={13} />
-          </div>
+          <AvatarTile icon="lucide:key-round" iconSize={13} className="w-7 h-7 rounded-lg" />
           <div className="flex-1 min-w-0">
             <span className="text-sm font-medium"
               style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
@@ -704,9 +678,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
           style={{ background: baseBg }}
         >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-card-avatar)">
-            <Icon icon="lucide:id-card" width={13} />
-          </div>
+          <AvatarTile icon="lucide:id-card" iconSize={13} className="w-7 h-7 rounded-lg" />
           <div className="flex-1 min-w-0">
             <span className="text-sm font-medium"
               style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
@@ -764,9 +736,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
           style={{ background: baseBg }}
         >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-card-avatar)">
-            <Icon icon="lucide:braces" width={13} className="text-(--t-accent)" />
-          </div>
+          <AvatarTile icon="lucide:braces" iconSize={13} className="w-7 h-7 rounded-lg" iconClassName="text-(--t-accent)" />
           <div className="flex-1 min-w-0">
             <span className="text-sm font-medium"
               style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>

@@ -1,6 +1,7 @@
 import { readClipboard } from "../../utils/clipboard";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
+import { AvatarTile } from "@/components/shared/AvatarTile";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -189,9 +190,7 @@ function RecentCard({ entry, snippet, layout, onReplay, onRemove }: RecentCardPr
         <div className="flex-1 min-w-0 self-start flex flex-col gap-2.5">
           {/* Header */}
           <div className="flex items-start gap-2 min-w-0">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-card-avatar)">
-              <Icon icon="lucide:history" width={14} />
-            </div>
+            <AvatarTile icon="lucide:history" iconSize={14} className="w-7 h-7 rounded-lg" />
             <div className="flex flex-col gap-0.5 flex-1 min-w-0">
               <div className="flex items-center gap-2 min-w-0">
                 <p className="text-sm font-bold truncate text-(--t-text-bright) flex-1 min-w-0">{label}</p>
@@ -222,9 +221,7 @@ function RecentCard({ entry, snippet, layout, onReplay, onRemove }: RecentCardPr
   return (
     <BaseCard isList style={{ opacity: isDeleted ? 0.5 : 1 }} onClick={!isDeleted ? onReplay : undefined}>
       {/* Icon */}
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-card-avatar)">
-        <Icon icon="lucide:history" width={14} />
-      </div>
+      <AvatarTile icon="lucide:history" iconSize={14} className="w-8 h-8 rounded-lg" />
 
       {/* Body */}
       <div className="flex-1 min-w-0">

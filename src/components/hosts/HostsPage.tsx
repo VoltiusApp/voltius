@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { matchesSearch, compareConnections } from "@/utils/connectionFilter";
 import { ErrorBanner } from "@/components/shared/ErrorBanner";
 import { Icon } from "@iconify/react";
+import { AvatarTile } from "@/components/shared/AvatarTile";
 import { useConnectionStore, connectionToFormData } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
@@ -1291,11 +1292,7 @@ function DraftHostCard({ layout, serial = false }: { layout: "grid" | "list"; se
         className="flex items-center gap-3 px-4 py-2 rounded-xl"
         style={{ border: "2px dashed var(--t-accent)", opacity: 0.5 }}
       >
-        <div
-          className="rounded-lg flex items-center justify-center shrink-0 w-[1.867rem] h-[1.867rem] bg-(--t-bg-card-avatar)"
-        >
-          <Icon icon={icon} width={14} className="text-(--t-text-dim)" />
-        </div>
+        <AvatarTile icon={icon} iconSize={14} className="rounded-lg w-[1.867rem] h-[1.867rem]" iconClassName="text-(--t-text-dim)" />
         <p className="text-sm font-medium-bold text-(--t-text-dim)">{label}</p>
       </div>
     );
@@ -1305,11 +1302,7 @@ function DraftHostCard({ layout, serial = false }: { layout: "grid" | "list"; se
       className="flex items-center gap-4 px-4 py-4 rounded-2xl"
       style={{ border: "2px dashed var(--t-accent)", opacity: 0.5 }}
     >
-      <div
-        className="rounded-lg flex items-center justify-center shrink-0 w-[3.2rem] h-[3.2rem] bg-(--t-bg-card-avatar)"
-      >
-        <Icon icon={icon} width={22} className="text-(--t-text-dim)" />
-      </div>
+      <AvatarTile icon={icon} iconSize={22} className="rounded-lg w-[3.2rem] h-[3.2rem]" iconClassName="text-(--t-text-dim)" />
       <div>
         <p className="text-base font-medium-bold text-(--t-text-dim)">{label}</p>
         <p className="text-xs mt-0.5 text-(--t-text-dim)">Unsaved</p>

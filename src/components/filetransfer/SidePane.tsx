@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
+import { AvatarTile } from "@/components/shared/AvatarTile";
 import { type HostChoice, type SidePhase, type FileEntry } from "./SFTPTypes";
 import { HostPickerPanel } from "@/components/shared/HostPickerPanel";
 import { FilePane } from "./FilePane";
@@ -193,15 +194,16 @@ export function SidePane({
           onMouseEnter={(e) => { if (canChangeHost) { e.currentTarget.style.borderColor = "var(--t-border-hover)"; e.currentTarget.style.background = "var(--t-bg-card-hover)"; } }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--t-border)"; e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
         >
-          <div
-            className="rounded-md flex items-center justify-center shrink-0 text-white"
-            style={{ width: "1.333rem", height: "1.333rem", background: host ? avatarBg : "var(--t-bg-input)" }}
+          <AvatarTile
+            base={host ? avatarBg : undefined}
+            className="rounded-md text-white"
+            style={{ width: "1.333rem", height: "1.333rem", ...(host ? {} : { background: "var(--t-bg-input)", boxShadow: "none" }) }}
           >
             {phase.tag === "connecting"
               ? <Icon icon="lucide:loader-2" width={11} className="animate-spin" />
               : <Icon icon={hostIcon} width={11} />
             }
-          </div>
+          </AvatarTile>
           <span className="text-xs font-medium pr-0.5" style={{ color: hostLabel ? "var(--t-text-primary)" : "var(--t-text-dim)" }}>
             {hostLabel ?? "Choose host…"}
           </span>

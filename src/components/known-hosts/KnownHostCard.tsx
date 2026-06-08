@@ -1,4 +1,5 @@
 import { Icon } from "@iconify/react";
+import { AvatarTile } from "@/components/shared/AvatarTile";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
@@ -65,9 +66,7 @@ export function KnownHostCard({
       data-selectable-id={host.id}
     >
       {/* Fingerprint icon */}
-      <div className={`rounded-xl bg-(--t-bg-card-avatar) flex items-center justify-center shrink-0 ${isList ? "w-7 h-7" : "w-10 h-10"}`}>
-        <Icon icon="lucide:fingerprint" width={isList ? 14 : 18} />
-      </div>
+      <AvatarTile icon="lucide:fingerprint" iconSize={isList ? 14 : 18} className={`rounded-xl ${isList ? "w-7 h-7" : "w-10 h-10"}`} />
 
       <div className="min-w-0 flex-1">
         {isList ? (

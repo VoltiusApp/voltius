@@ -29,6 +29,7 @@ import {
 } from "@/hooks/useEffectivePinned";
 import { KeyFileDropZone } from "./KeyForm";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
+import { AvatarTile } from "@/components/shared/AvatarTile";
 import type { AuthType, Connection, Identity, IdentityFormData } from "@/types";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
@@ -480,12 +481,13 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
                     key={c.id}
                     className="flex items-center gap-2.5 px-2 py-2 rounded-lg bg-(--t-bg-base)"
                   >
-                    <div
-                      className="rounded-md flex items-center justify-center shrink-0 text-white"
-                      style={{ width: "1.867rem", height: "1.867rem", background: distroBg ?? "var(--t-bg-card-avatar)" }}
-                    >
-                      <Icon icon={distroIcon ?? "lucide:server"} width={14} />
-                    </div>
+                    <AvatarTile
+                      base={distroBg ?? "var(--t-bg-card-avatar)"}
+                      icon={distroIcon ?? "lucide:server"}
+                      iconSize={14}
+                      className="rounded-md text-white"
+                      style={{ width: "1.867rem", height: "1.867rem" }}
+                    />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm truncate font-medium text-(--t-text-bright)">
                         {c.name ?? `${c.username}@${c.host}`}

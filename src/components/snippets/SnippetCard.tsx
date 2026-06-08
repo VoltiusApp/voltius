@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import { AvatarTile } from "@/components/shared/AvatarTile";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { TagBadge } from "@/components/shared/TagBadge";
 import { SessionPickerPanel } from "@/components/shared/SessionPickerPanel";
@@ -151,9 +152,7 @@ export function SnippetCard({
           <div className="flex-1 min-w-0 self-start flex flex-col gap-2.5">
             {/* Header: avatar + name/fav/tags + description */}
             <div className="flex items-start gap-2 min-w-0">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-card-avatar)">
-                <Icon icon="lucide:braces" width={14} />
-              </div>
+              <AvatarTile icon="lucide:braces" iconSize={14} className="w-7 h-7 rounded-lg" />
               <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                 {/* Name + favorite (pin position) + tags */}
                 <div className="flex items-center gap-2 min-w-0">
@@ -276,9 +275,7 @@ export function SnippetCard({
         style={{ opacity: dimmed ? 0.45 : 1 }}
       >
         {/* Icon */}
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-card-avatar)">
-          <Icon icon="lucide:braces" width={14} />
-        </div>
+        <AvatarTile icon="lucide:braces" iconSize={14} className="w-8 h-8 rounded-lg" />
 
         {/* Body */}
         <div className="flex-1 min-w-0">

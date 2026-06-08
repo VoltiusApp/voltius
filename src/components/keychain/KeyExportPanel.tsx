@@ -12,6 +12,7 @@ import {
 import { BaseCard } from "@/components/shared/BaseCard";
 import { HostPickerPanel } from "@/components/shared/HostPickerPanel";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
+import { AvatarTile } from "@/components/shared/AvatarTile";
 import { KeyCardContent } from "./KeyCards";
 import type { SortMode } from "@/components/shared/ToolbarViewControls";
 import type { SshKey } from "@/types";
@@ -116,12 +117,13 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
                     {selectedHost && (() => {
                       const displayIcon = selectedHost.icon || selectedHost.distro;
                       return (
-                      <div
-                        className="rounded-md flex items-center justify-center shrink-0 text-white"
-                        style={{ width: "1.333rem", height: "1.333rem", background: displayIcon ? getConnectionIconColor(displayIcon) : "var(--t-bg-card-avatar)" }}
-                      >
-                        <Icon icon={displayIcon ? getConnectionIcon(displayIcon) : "lucide:server"} width={11} />
-                      </div>
+                      <AvatarTile
+                        base={displayIcon ? getConnectionIconColor(displayIcon) : "var(--t-bg-card-avatar)"}
+                        icon={displayIcon ? getConnectionIcon(displayIcon) : "lucide:server"}
+                        iconSize={11}
+                        className="rounded-md text-white"
+                        style={{ width: "1.333rem", height: "1.333rem" }}
+                      />
                       );
                     })()}
                     <span className="truncate">{selectedHost ? (selectedHost.name ?? `${selectedHost.username}@${selectedHost.host}`) : "Select a host…"}</span>

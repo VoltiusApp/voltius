@@ -7,6 +7,7 @@ import { ConnectionAvatar } from "./ConnectionAvatar";
 import { ToolbarDropdown } from "./ToolbarDropdown";
 import { wslListDistros } from "@/services/sftp";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
+import { AvatarTile } from "@/components/shared/AvatarTile";
 import { SORT_MODE_ICONS, useFilterShortcut } from "./ToolbarViewControls";
 import type { SortMode } from "./ToolbarViewControls";
 import type { Connection } from "@/types";
@@ -130,12 +131,12 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
               <HostRow
                 key={`wsl:${d}`}
                 avatar={
-                  <div
-                    className="rounded-lg flex items-center justify-center shrink-0 w-[1.867rem] h-[1.867rem]"
-                    style={{ background: getConnectionIconColor(d.split(/[-_ ]/)[0]) ?? "var(--t-bg-card-avatar)" }}
-                  >
-                    <Icon icon={icon} width={14} />
-                  </div>
+                  <AvatarTile
+                    base={getConnectionIconColor(d.split(/[-_ ]/)[0]) ?? "var(--t-bg-card-avatar)"}
+                    icon={icon}
+                    iconSize={14}
+                    className="w-[1.867rem] h-[1.867rem] rounded-lg text-white"
+                  />
                 }
                 name={d}
                 sub="WSL"

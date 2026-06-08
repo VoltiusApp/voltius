@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { Icon } from "@iconify/react";
+import { AvatarTile } from "@/components/shared/AvatarTile";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { CardActionButton } from "@/components/shared/CardActionButton";
 import { TagBadge } from "@/components/shared/TagBadge";
@@ -46,11 +47,7 @@ export function DraftCard({ icon, label }: { icon: string; label: string }) {
     <div
       className="flex items-center gap-4 px-4 py-4 rounded-2xl border-2 border-dashed border-(--t-accent) opacity-50"
     >
-      <div
-        className="rounded-lg flex items-center justify-center shrink-0 w-[3.2rem] h-[3.2rem] bg-(--t-bg-card-avatar)"
-      >
-        <Icon icon={icon} width={24} className="text-(--t-text-dim)" />
-      </div>
+      <AvatarTile icon={icon} iconSize={24} className="rounded-lg w-[3.2rem] h-[3.2rem]" iconClassName="text-(--t-text-dim)" />
       <p className="text-sm font-medium text-(--t-text-dim)">{label}</p>
     </div>
   );
@@ -98,12 +95,7 @@ export function KeyCardContent({ sshKey, avatarSize, iconSize, isList }: { sshKe
     year: "numeric", month: "short", day: "numeric",
   });
   const avatar = (
-    <div
-      className="rounded-lg flex items-center justify-center shrink-0 select-none bg-(--t-bg-card-avatar)"
-      style={{ width: `${(avatarSize / 15).toFixed(3)}rem`, height: `${(avatarSize / 15).toFixed(3)}rem` }}
-    >
-      <Icon icon="lucide:key-round" width={iconSize} />
-    </div>
+    <AvatarTile icon="lucide:key-round" iconSize={iconSize} size={avatarSize} className="rounded-lg" />
   );
   const keyType = sshKey.key_type && (
     <span className="text-xs px-1.5 py-0.5 rounded-sm font-mono shrink-0 bg-(--t-bg-elevated) text-(--t-accent)">
@@ -456,12 +448,7 @@ function IdentityCard({
       bulkContextMenuItems={bulkContextMenuItems}
       contextMenuItems={contextMenuItems}
     >
-      <div
-        className="rounded-lg flex items-center justify-center shrink-0 select-none bg-(--t-bg-card-avatar)"
-        style={{ width: `${(avatarSize / 15).toFixed(3)}rem`, height: `${(avatarSize / 15).toFixed(3)}rem` }}
-      >
-        <Icon icon="lucide:id-card" width={iconSize} />
-      </div>
+      <AvatarTile icon="lucide:id-card" iconSize={iconSize} size={avatarSize} className="rounded-lg" />
 
       {isList ? (
         <>
