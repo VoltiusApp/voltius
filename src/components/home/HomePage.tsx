@@ -21,20 +21,7 @@ function QuickActions() {
         <button
           key={a.label}
           onClick={a.onClick}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-colors"
-          style={{
-            background: "var(--t-bg-card)",
-            border: "1px solid var(--t-border)",
-            color: "var(--t-text-secondary)",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = "var(--t-accent)";
-            e.currentTarget.style.color = "var(--t-text-primary)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = "var(--t-border)";
-            e.currentTarget.style.color = "var(--t-text-secondary)";
-          }}
+          className="btn btn-secondary flex items-center gap-2 px-3 py-2 rounded-xl text-sm"
         >
           <Icon icon={a.icon} width={14} />
           {a.label}
