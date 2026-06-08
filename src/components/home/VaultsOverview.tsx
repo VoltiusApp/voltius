@@ -36,10 +36,7 @@ interface VaultCardProps {
 function VaultCard({ name, hosts, totalHosts, onConnect }: VaultCardProps) {
   const hidden = totalHosts - hosts.length;
   return (
-    <div
-      className="flex flex-col rounded-2xl p-4 gap-3"
-      style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}
-    >
+    <div className="surface-glass flex flex-col rounded-2xl p-4 gap-3">
       <div className="flex items-center gap-2">
         <Icon icon="lucide:vault" width={13} style={{ color: "var(--t-text-dim)" }} />
         <span className="text-xs font-semibold" style={{ color: "var(--t-text-secondary)" }}>
