@@ -11,7 +11,7 @@
 /// Roles are cached from the last successful server sync. An admin revoking access takes
 /// effect the next time the JWT expires and a fresh one cannot be obtained.
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use keyring::Entry;
+use keyring_core::Entry;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 

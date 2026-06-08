@@ -1,6 +1,6 @@
 [package]
 name = "voltius"
-version = "0.2.0"
+version = "0.2.1"
 description = "Open-Source SSH & SFTP Client"
 authors = ["Voltius Contributors"]
 edition = "2021"
@@ -38,7 +38,7 @@ hkdf = "0.12"
 sha2 = "0.10"
 rand = "0.8"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
-keyring = { version = "3", features = ["linux-native", "windows-native", "apple-native"] }
+keyring-core = "1"
 base64 = "0.22"
 crypto_secretbox = "0.1"
 rusty-leveldb = "4"
@@ -60,3 +60,13 @@ tauri-plugin-updater = "2"
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security_Credentials", "Win32_Security_Cryptography"] }
 winreg = "0.56"
+windows-native-keyring-store = "1"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+linux-keyutils-keyring-store = "1"
+# Termius/keytar stores its master key in the Secret Service (libsecret), not in
+# the kernel keyutils store above; we query it directly to import.
+secret-service = { version = "5", default-features = false, features = ["rt-tokio-crypto-rust"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+apple-native-keyring-store = "1"

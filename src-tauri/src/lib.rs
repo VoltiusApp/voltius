@@ -211,8 +211,36 @@ async fn updater_check(app: tauri::AppHandle) {
     let _ = app;
 }
 
+/// Register the OS-native credential store as keyring-core's default. Exactly one
+/// branch is active per target; other platforms get a no-op (keychain unavailable).
+fn init_keychain_store() -> keyring_core::Result<()> {
+    #[cfg(target_os = "linux")]
+    keyring_core::set_default_store(linux_keyutils_keyring_store::Store::new_with_configuration(
+        &std::collections::HashMap::<&str, &str>::new(),
+    )?);
+    #[cfg(target_os = "macos")]
+    keyring_core::set_default_store(
+        apple_native_keyring_store::keychain::Store::new_with_configuration(
+            &std::collections::HashMap::<&str, &str>::new(),
+        )?,
+    );
+    #[cfg(target_os = "windows")]
+    keyring_core::set_default_store(windows_native_keyring_store::Store::new_with_configuration(
+        &std::collections::HashMap::<&str, &str>::new(),
+    )?);
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // keyring-core requires registering a platform credential store before any
+    // `Entry` use. We register only the native store per-OS (keyutils on Linux,
+    // Keychain on macOS, Credential Manager on Windows) to avoid the `keyring`
+    // umbrella crate, which also pulls in a SQLite (turso) keystore we don't use.
+    if let Err(e) = init_keychain_store() {
+        log::error!("Failed to initialize OS keychain store: {e}");
+    }
+
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
