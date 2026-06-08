@@ -278,7 +278,7 @@
                      the terminal area and read as one backplate the slab floats on.
     - chrome-slab:   the content column; rounded top-left + light top/left edge
                      + ambient shadow, lifting it off the frame as one piece.
-    - chrome-toolbar:page toolbars; the original toolbar surface + hairline.
+    - chrome-toolbar:page toolbars; frame-dark plate + border + soft ambient lift.
     - chrome-canvas: main scroll area; a quiet top glow so it isn't dead flat.
   */
   .chrome-frame {
@@ -298,8 +298,11 @@
   }
 
   .chrome-toolbar {
-    background: var(--t-bg-toolbar);
+    /* B3: frame-dark plate (titlebar/terminal family) lifted off the canvas by a
+       soft ambient shadow instead of being the darkest band on screen. */
+    background: var(--t-bg-terminal);
     border-bottom: 1px solid var(--t-border);
+    box-shadow: 0 10px 22px -16px rgba(0, 0, 0, 0.7);
   }
 
   .chrome-canvas {
