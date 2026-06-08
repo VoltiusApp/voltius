@@ -62,7 +62,7 @@ export function AllHostsView({ onBack }: Props) {
           </p>
         ) : (
           <div
-            className="grid gap-3"
+            className="grid gap-4"
             style={{ gridTemplateColumns: "repeat(auto-fill, minmax(7.5rem, 1fr))" }}
           >
             {hosts.map((conn) => (
