@@ -123,7 +123,7 @@ export function VaultsOverview() {
       >
         Vaults
       </h2>
-      <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(14rem, 1fr))" }}>
+      <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(14rem, 1fr))" }}>
         {sections.map(({ vault, hosts, totalHosts }) => (
           <VaultCard
             key={vault.id}

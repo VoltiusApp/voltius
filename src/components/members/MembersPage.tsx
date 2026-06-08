@@ -1707,7 +1707,7 @@ const vaultTabs = selectedVaultIds.length > 1
           <div className="mb-6">
             <p className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">Members</p>
             <div
-              className={layoutMode === "grid" ? "grid gap-3" : "flex flex-col gap-1"}
+              className={layoutMode === "grid" ? "grid gap-4" : "flex flex-col gap-1"}
               style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" } : undefined}
             >
               {layoutMode === "grid" ? (
@@ -1902,7 +1902,7 @@ const vaultTabs = selectedVaultIds.length > 1
               )}
 
               <div
-                className={layoutMode === "grid" ? "grid gap-3" : "flex flex-col gap-1"}
+                className={layoutMode === "grid" ? "grid gap-4" : "flex flex-col gap-1"}
                 style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" } : undefined}
               >
                 {sortedMembers.map((m) => (

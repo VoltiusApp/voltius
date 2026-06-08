@@ -658,7 +658,7 @@ export function PortForwardingPage() {
                   </button>
                 </div>
                 <div
-                  className={layoutMode === "grid" ? "grid gap-3" : "flex flex-col gap-1"}
+                  className={layoutMode === "grid" ? "grid gap-4" : "flex flex-col gap-1"}
                   style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" } : undefined}
                 >
                   {visibleFolders.map((folder) => {
@@ -745,7 +745,7 @@ export function PortForwardingPage() {
                 )}
                 <div
                   className={layoutMode === "grid"
-                    ? "grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-3"
+                    ? "grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4"
                     : "flex flex-col gap-1"
                   }
                 >

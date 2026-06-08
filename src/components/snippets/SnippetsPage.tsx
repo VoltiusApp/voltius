@@ -1034,7 +1034,7 @@ export function SnippetsPage() {
                     </button>
                   </div>
                   <div
-                    className={layoutMode === "grid" ? "grid gap-3" : "flex flex-col gap-1"}
+                    className={layoutMode === "grid" ? "grid gap-4" : "flex flex-col gap-1"}
                     style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" } : undefined}
                   >
                     {(showAllRecent ? scopedRecentEntries : scopedRecentEntries.slice(0, RECENT_PREVIEW_COUNT)).map((entry) => (
@@ -1065,7 +1065,7 @@ export function SnippetsPage() {
               {favorites.length > 0 && (
                 <div>
                   <SectionHeader label="Pinned" count={favorites.length} />
-                  <div className={layoutMode === "grid" ? "grid gap-3" : "flex flex-col gap-1"} style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" } : undefined}>{favorites.map(renderCard)}</div>
+                  <div className={layoutMode === "grid" ? "grid gap-4" : "flex flex-col gap-1"} style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" } : undefined}>{favorites.map(renderCard)}</div>
                 </div>
               )}
 
@@ -1137,7 +1137,7 @@ export function SnippetsPage() {
                       count={viewSnippets.length}
                     />
                   )}
-                  <div className={layoutMode === "grid" ? "grid gap-3" : "flex flex-col gap-1"} style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" } : undefined}>{viewSnippets.map(renderCard)}</div>
+                  <div className={layoutMode === "grid" ? "grid gap-4" : "flex flex-col gap-1"} style={layoutMode === "grid" ? { gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" } : undefined}>{viewSnippets.map(renderCard)}</div>
                 </div>
               ) : !hasSearch && filtered.length > 0 && activeFolderId ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-3">

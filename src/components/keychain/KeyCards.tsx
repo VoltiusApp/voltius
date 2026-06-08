@@ -307,7 +307,7 @@ export function KeySection({
   }
 
   const gridClass = layoutMode === "grid"
-    ? "grid gap-3 mt-3"
+    ? "grid gap-4 mt-3"
     : "flex flex-col gap-1 mt-3";
 
   return (
@@ -585,7 +585,7 @@ export function IdentitySection({
   }
 
   const gridClass = layoutMode === "grid"
-    ? "grid gap-3 mt-3"
+    ? "grid gap-4 mt-3"
     : "flex flex-col gap-1 mt-3";
 
   return (
