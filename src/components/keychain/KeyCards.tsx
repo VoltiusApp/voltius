@@ -497,10 +497,9 @@ function IdentityCard({
       bulkContextMenuItems={bulkContextMenuItems}
       contextMenuItems={contextMenuItems}
     >
-      <AvatarTile icon="lucide:id-card" iconSize={iconSize} size={avatarSize} className="rounded-lg" />
-
       {isList ? (
         <>
+          <AvatarTile icon="lucide:id-card" iconSize={iconSize} size={avatarSize} className="rounded-lg" />
           <p className="text-sm font-medium-bold truncate w-52 shrink-0 text-(--t-text-bright)">
             {identity.name ?? identity.username}
           </p>
@@ -527,52 +526,67 @@ function IdentityCard({
               {identity.tags.slice(0, 3).map((tag) => <TagBadge key={tag} tag={tag} />)}
             </div>
           )}
+          <div className="flex items-center gap-1 shrink-0">
+            {!isSynced && (
+              <span title="Cloud sync disabled" className="text-(--t-text-dim) flex items-center">
+                <Icon icon="lucide:cloud-off" width={18} />
+              </span>
+            )}
+            {canEdit && <CardActionButton icon="lucide:pencil" title="Edit" onClick={() => onEdit(identity)} />}
+            {canEdit && <CardActionButton icon="lucide:trash-2" title="Delete" onClick={() => onDelete(identity.id)} danger />}
+          </div>
         </>
       ) : (
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate text-(--t-text-bright)">
-            {identity.name ?? identity.username}
-          </p>
-          <div className="flex items-center gap-2 mt-0.5">
-            {identity.name && (
-              <span className="text-xs truncate text-(--t-text-secondary)">
-                {identity.username}
-              </span>
-            )}
-            {linkedKey && (
-              <span
-                className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-sm bg-(--t-bg-elevated) text-(--t-text-dim)"
-              >
-                <Icon icon="lucide:key-round" width={10} />
-                {linkedKey.name ?? "Key"}
-              </span>
-            )}
-            {!linkedKey && (
-              <span
-                className="text-xs px-1.5 py-0.5 rounded-sm bg-(--t-bg-elevated) text-(--t-text-dim)"
-              >
-                Password
-              </span>
-            )}
-            <span className="text-xs text-(--t-text-secondary)">{formattedDate}</span>
+        <div className="flex-1 min-w-0 self-start flex flex-col gap-2.5">
+          <div className="flex items-start gap-2 min-w-0">
+            <AvatarTile icon="lucide:id-card" iconSize={16} size={30} className="rounded-lg" />
+            <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <p className="text-sm font-bold truncate flex-1 min-w-0 text-(--t-text-bright)">
+                  {identity.name ?? identity.username}
+                </p>
+                {linkedKey ? (
+                  <span className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] bg-(--t-bg-input) text-(--t-text-dim) border border-(--t-border)">
+                    <Icon icon="lucide:key-round" width={10} />
+                    {linkedKey.name ?? "Key"}
+                  </span>
+                ) : (
+                  <span className="shrink-0 px-1.5 py-0.5 rounded-md text-[11px] bg-(--t-bg-input) text-(--t-text-dim) border border-(--t-border)">
+                    Password
+                  </span>
+                )}
+                {!isSynced && (
+                  <span title="Cloud sync disabled" className="shrink-0 text-(--t-text-dim) flex items-center">
+                    <Icon icon="lucide:cloud-off" width={14} />
+                  </span>
+                )}
+              </div>
+              <p className="text-xs truncate text-(--t-text-muted)">
+                {identity.name ? `${identity.username} · added ${formattedDate}` : `added ${formattedDate}`}
+              </p>
+            </div>
           </div>
-          {identity.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
-              {identity.tags.map((tag) => <TagBadge key={tag} tag={tag} />)}
+
+          {(identity.tags.length > 0 || canEdit) && (
+            <div className="flex items-center justify-between gap-2 -mt-0.5">
+              <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+                {identity.tags.slice(0, 3).map((tag) => (
+                  <TagBadge key={tag} tag={tag} className="rounded-md shrink-0 py-0 text-[10px]" />
+                ))}
+                {identity.tags.length > 3 && (
+                  <span className="text-[10px] text-(--t-text-dim) shrink-0">+{identity.tags.length - 3}</span>
+                )}
+              </div>
+              {canEdit && (
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <CardActionButton icon="lucide:pencil" title="Edit" reveal={false} onClick={() => onEdit(identity)} />
+                  <CardActionButton icon="lucide:trash-2" title="Delete" danger reveal={false} onClick={() => onDelete(identity.id)} />
+                </div>
+              )}
             </div>
           )}
         </div>
       )}
-
-      <div className="flex items-center gap-1 shrink-0">
-        {!isSynced && (
-          <span title="Cloud sync disabled" className="text-(--t-text-dim) flex items-center">
-            <Icon icon="lucide:cloud-off" width={18} />
-          </span>
-        )}
-        {canEdit && <CardActionButton icon="lucide:pencil" title="Edit" onClick={() => onEdit(identity)} />}
-        {canEdit && <CardActionButton icon="lucide:trash-2" title="Delete" onClick={() => onDelete(identity.id)} danger />}
-      </div>
     </BaseCard>
   );
 }
