@@ -64,6 +64,9 @@ windows-native-keyring-store = "1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 linux-keyutils-keyring-store = "1"
+# Termius/keytar stores its master key in the Secret Service (libsecret), not in
+# the kernel keyutils store above; we query it directly to import.
+secret-service = { version = "5", default-features = false, features = ["rt-tokio-crypto-rust"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 apple-native-keyring-store = "1"
