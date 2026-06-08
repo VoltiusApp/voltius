@@ -53,19 +53,9 @@ export function DashboardHostCard({ connection, onConnect }: Props) {
 
   return (
     <div
-      className="group relative flex flex-col items-center gap-2 p-3 rounded-xl cursor-pointer transition-all shrink-0"
-      style={{
-        background: "var(--t-bg-card)",
-        border: "1px solid var(--t-border)",
-        width: "7.5rem",
-      }}
+      className="surface-glass group relative flex flex-col items-center gap-2 p-3 rounded-xl cursor-pointer transition-all shrink-0"
+      style={{ width: "7.5rem" }}
       onClick={() => onConnect(connection)}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLDivElement).style.borderColor = "var(--t-border-hover)";
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLDivElement).style.borderColor = "var(--t-border)";
-      }}
     >
       <button
         className={`absolute top-1.5 right-1.5 transition-opacity p-0.5 rounded-sm ${pinAlwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
@@ -89,7 +79,7 @@ export function DashboardHostCard({ connection, onConnect }: Props) {
               />
             )}
             <span
-              className="relative block rounded-full border-2 border-(--t-bg-card)"
+              className="relative block rounded-full border-2 border-(--t-bg-elevated)"
               style={{
                 width: 10,
                 height: 10,
