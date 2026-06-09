@@ -6,10 +6,17 @@
 //     as raw UTF-8 bytes in CredentialBlob — we call CredReadW directly because
 //     `keyring`'s target name doesn't match.
 //   * macOS: keytar's keychain item matches `keyring`'s default lookup.
-//   * Linux: keytar uses its own libsecret schema; not yet handled here.
+//   * Linux: keytar stores the key in the Secret Service (libsecret) under
+//     schema "org.freedesktop.Secret.Generic" with attributes service/account.
+//     Two gotchas: (1) this is a *different* store from the kernel keyutils one
+//     we register as keyring-core's default (see `init_keychain_store` in
+//     lib.rs); and (2) Termius's `service` attribute is the basename of its
+//     executable, which is "termius-app" on the Linux .deb/AppImage (only
+//     "Termius" on macOS/Windows). So we query the Secret Service directly with
+//     the right service name rather than via `keyring_core::Entry`.
 
 use base64::{engine::general_purpose::STANDARD, Engine};
-#[cfg(not(target_os = "windows"))]
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
 use keyring_core::Entry;
 
 pub(super) fn fetch_master_key() -> Result<[u8; 32], String> {
@@ -22,7 +29,9 @@ pub(super) fn fetch_master_key() -> Result<[u8; 32], String> {
         .map_err(|_| "Master key must be 32 bytes".to_string())
 }
 
-#[cfg(not(target_os = "windows"))]
+// macOS (and any other unix that isn't Linux): keytar's keychain item matches
+// keyring-core's default Keychain lookup.
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
 fn read_termius_localkey() -> Result<String, String> {
     let entry =
         Entry::new("Termius", "localKey").map_err(|e| format!("Keychain unavailable: {e}"))?;
@@ -32,6 +41,68 @@ fn read_termius_localkey() -> Result<String, String> {
         }
         other => format!("Keychain error: {other}"),
     })
+}
+
+#[cfg(target_os = "linux")]
+fn read_termius_localkey() -> Result<String, String> {
+    use secret_service::blocking::SecretService;
+    use secret_service::EncryptionType;
+    use std::collections::HashMap;
+
+    // keytar writes to the Secret Service (gnome-keyring/KWallet via libsecret),
+    // matching by attributes service/account — which differ from keyring-core's
+    // defaults — so we search the Secret Service directly with keytar's schema.
+    let ss = SecretService::connect(EncryptionType::Dh)
+        .map_err(|e| format!("Secret Service (gnome-keyring/KWallet) unavailable: {e}"))?;
+
+    // The `service` attribute is the basename of Termius's executable, NOT a
+    // fixed "Termius" string. On macOS/Windows that basename happens to be
+    // "Termius", but the Linux packages run `termius-app` (the .deb/AppImage
+    // exe), so the key is stored under service="termius-app". Try the Linux
+    // name first, then the macOS/Windows name, then fall back to matching the
+    // account alone (any keytar service) as a last resort.
+    for service in ["termius-app", "Termius"] {
+        let attrs = HashMap::from([("service", service), ("account", "localKey")]);
+        if let Some(secret) = lookup_secret(&ss, attrs)? {
+            return decode_secret(secret);
+        }
+    }
+    if let Some(secret) = lookup_secret(&ss, HashMap::from([("account", "localKey")]))? {
+        return decode_secret(secret);
+    }
+
+    Err("Termius key not found in OS keychain — is Termius installed and logged in on this machine?".to_string())
+}
+
+#[cfg(target_os = "linux")]
+fn lookup_secret(
+    ss: &secret_service::blocking::SecretService,
+    attributes: std::collections::HashMap<&str, &str>,
+) -> Result<Option<Vec<u8>>, String> {
+    let found = ss
+        .search_items(attributes)
+        .map_err(|e| format!("Secret Service search failed: {e}"))?;
+    let Some(item) = found
+        .unlocked
+        .into_iter()
+        .next()
+        .or_else(|| found.locked.into_iter().next())
+    else {
+        return Ok(None);
+    };
+    item.unlock()
+        .map_err(|e| format!("Failed to unlock keyring item: {e}"))?;
+    let secret = item
+        .get_secret()
+        .map_err(|e| format!("Failed to read Termius key from keyring: {e}"))?;
+    Ok(Some(secret))
+}
+
+#[cfg(target_os = "linux")]
+fn decode_secret(secret: Vec<u8>) -> Result<String, String> {
+    // keytar stores the value as a UTF-8 string (the base64 master key);
+    // fetch_master_key() base64-decodes it, so hand it back as a string.
+    String::from_utf8(secret).map_err(|e| format!("Termius key is not valid UTF-8: {e}"))
 }
 
 #[cfg(target_os = "windows")]
