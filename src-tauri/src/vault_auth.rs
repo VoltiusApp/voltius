@@ -1,21 +1,10 @@
-/// Vault write-permission enforcement for team vaults.
-///
-/// Personal vaults (id = "personal" or any id not in the team_vault_roles map) are always
-/// writable — they are local and the user owns them unconditionally.
-///
-/// Team vaults require:
-///   1. A non-expired JWT in the keychain (proves recent server connection).
-///   2. The cached role for this vault (written by the frontend after loadTeams) must be
-///      one of: owner, manager, editor.
-///
-/// Roles are cached from the last successful server sync. An admin revoking access takes
-/// effect the next time the JWT expires and a fresh one cannot be obtained.
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use keyring_core::Entry;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const WRITE_ROLES: &[&str] = &["owner", "manager", "editor"];
+const PERSONAL_VAULT_ID: &str = "personal";
 
 fn service() -> String {
     match std::env::var("VOLTIUS_KEYCHAIN_NS") {
@@ -72,11 +61,54 @@ fn jwt_is_expired(jwt: &str) -> bool {
     now >= exp
 }
 
+// safe to skip the roles check: "personal" is reserved, no team vault can hold this id;
+// an empty slice must NOT count as personal (fail closed)
+fn all_personal(vault_ids: &[String]) -> bool {
+    !vault_ids.is_empty() && vault_ids.iter().all(|id| id == PERSONAL_VAULT_ID)
+}
+
+fn check_roles(
+    vault_ids: &[String],
+    roles: &HashMap<String, String>,
+    jwt_valid: bool,
+) -> Result<(), String> {
+    let team_ids: Vec<&String> = vault_ids
+        .iter()
+        .filter(|id| roles.contains_key(*id))
+        .collect();
+
+    if team_ids.is_empty() {
+        return Ok(());
+    }
+
+    if !jwt_valid {
+        return Err("Team vaults require an active server connection. \
+             Please sign in to continue."
+            .to_string());
+    }
+
+    for vault_id in team_ids {
+        let role = roles.get(vault_id).map(String::as_str).unwrap_or("");
+        if !WRITE_ROLES.contains(&role) {
+            return Err(format!(
+                "You don't have write access to this vault (your role: {role}). \
+                 Only owners, managers, and editors can make changes."
+            ));
+        }
+    }
+
+    Ok(())
+}
+
 /// Returns `Ok(())` if the current user is allowed to write to all `vault_ids`.
 /// Returns `Err(message)` if:
 ///   - Any vault_id is a team vault AND the JWT is missing or expired, OR
 ///   - Any vault_id is a team vault AND the user's role is not a write role.
 pub fn check_vault_write(vault_ids: &[String]) -> Result<(), String> {
+    if all_personal(vault_ids) {
+        return Ok(());
+    }
+
     // Load the cached {teamId -> role} map written by the frontend after loadTeams().
     // A keychain failure must fail closed: we can't prove a vault is personal if we
     // can't read the roles map. Only a genuinely-absent entry means "all personal".
@@ -92,7 +124,6 @@ pub fn check_vault_write(vault_ids: &[String]) -> Result<(), String> {
         }
     };
 
-    // An entry that exists but is empty also means no team vaults have been configured.
     if roles_json.is_empty() {
         return Ok(());
     }
@@ -107,35 +138,81 @@ pub fn check_vault_write(vault_ids: &[String]) -> Result<(), String> {
         }
     };
 
-    // Which of the requested vault_ids are team vaults?
-    let team_ids: Vec<&String> = vault_ids
-        .iter()
-        .filter(|id| roles.contains_key(*id))
-        .collect();
-
-    if team_ids.is_empty() {
-        // None of these vaults are team vaults — allow.
-        return Ok(());
-    }
-
-    // At least one team vault is involved — require a valid JWT.
     let jwt = keychain_read("jwt").unwrap_or_default();
-    if jwt.is_empty() || jwt_is_expired(&jwt) {
-        return Err("Team vaults require an active server connection. \
-             Please sign in to continue."
-            .to_string());
+    let jwt_valid = !jwt.is_empty() && !jwt_is_expired(&jwt);
+    check_roles(vault_ids, &roles, jwt_valid)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn s(v: &str) -> String {
+        v.to_string()
     }
 
-    // Check the role for each team vault.
-    for vault_id in team_ids {
-        let role = roles.get(vault_id).map(String::as_str).unwrap_or("");
-        if !WRITE_ROLES.contains(&role) {
-            return Err(format!(
-                "You don't have write access to this vault (your role: {role}). \
-                 Only owners, managers, and editors can make changes."
-            ));
-        }
+    fn roles(pairs: &[(&str, &str)]) -> HashMap<String, String> {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
     }
 
-    Ok(())
+    #[test]
+    fn all_personal_true_for_single_personal() {
+        assert!(all_personal(&[s("personal")]));
+    }
+
+    #[test]
+    fn all_personal_true_for_multiple_personal() {
+        assert!(all_personal(&[s("personal"), s("personal")]));
+    }
+
+    #[test]
+    fn all_personal_false_for_empty_slice() {
+        assert!(!all_personal(&[]));
+    }
+
+    #[test]
+    fn all_personal_false_when_any_non_personal() {
+        assert!(!all_personal(&[s("personal"), s("team-uuid-abc")]));
+    }
+
+    #[test]
+    fn all_personal_false_for_unknown_id() {
+        assert!(!all_personal(&[s("some-uuid")]));
+    }
+
+    #[test]
+    fn check_roles_no_team_vaults_always_ok() {
+        let r = roles(&[("team-a", "editor")]);
+        assert!(check_roles(&[s("personal"), s("other-id")], &r, false).is_ok());
+    }
+
+    #[test]
+    fn check_roles_team_vault_requires_valid_jwt() {
+        let r = roles(&[("team-a", "editor")]);
+        let err = check_roles(&[s("team-a")], &r, false).unwrap_err();
+        assert!(err.contains("active server connection"));
+    }
+
+    #[test]
+    fn check_roles_team_vault_editor_with_valid_jwt_ok() {
+        let r = roles(&[("team-a", "editor")]);
+        assert!(check_roles(&[s("team-a")], &r, true).is_ok());
+    }
+
+    #[test]
+    fn check_roles_team_vault_viewer_rejected() {
+        let r = roles(&[("team-a", "viewer")]);
+        let err = check_roles(&[s("team-a")], &r, true).unwrap_err();
+        assert!(err.contains("viewer"));
+        assert!(err.contains("write access"));
+    }
+
+    #[test]
+    fn check_roles_empty_roles_map_ok() {
+        let r = roles(&[]);
+        assert!(check_roles(&[s("any-id")], &r, false).is_ok());
+    }
 }
