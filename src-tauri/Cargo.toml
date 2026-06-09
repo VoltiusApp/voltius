@@ -65,8 +65,12 @@ windows-native-keyring-store = "1"
 [target.'cfg(target_os = "linux")'.dependencies]
 linux-keyutils-keyring-store = "1"
 # Termius/keytar stores its master key in the Secret Service (libsecret), not in
-# the kernel keyutils store above; we query it directly to import.
-secret-service = { version = "5", default-features = false, features = ["rt-tokio-crypto-rust"] }
+# the kernel keyutils store above; we query it directly to import. We bind the
+# system libsecret (already loaded via webkit2gtk) rather than a bundled pure-Rust
+# D-Bus client (zbus), which roughly doubled the Linux binary. glib/gio are pinned
+# to 0.18 to match the versions Tauri already compiles, so nothing is duplicated.
+libsecret = "0.4"
+gio = "0.18"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 apple-native-keyring-store = { version = "1", features = ["keychain"] }

@@ -242,7 +242,7 @@ If you want to build for other target, see `rustup target list` and add with `ru
 ### 🐧WSL2 dev note
 
 ```sh
-sudo apt install -y build-essential libssl-dev pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
+sudo apt install -y build-essential libssl-dev pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libsecret-1-dev
 LIBGL_ALWAYS_SOFTWARE=1 && pnpm tauri dev
 ```
 

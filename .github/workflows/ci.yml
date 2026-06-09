@@ -10,6 +10,11 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/local/share/dotnet /opt/ghc /usr/share/dotnet /opt/hostedtoolcache/CodeQL
+          df -h
+
       - uses: actions/checkout@v6
 
       - uses: pnpm/action-setup@v6
@@ -31,7 +36,7 @@ jobs:
 
       - run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libsoup-3.0-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libsoup-3.0-dev libsecret-1-dev
 
       - run: pnpm install
 

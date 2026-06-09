@@ -45,15 +45,23 @@ fn read_termius_localkey() -> Result<String, String> {
 
 #[cfg(target_os = "linux")]
 fn read_termius_localkey() -> Result<String, String> {
-    use secret_service::blocking::SecretService;
-    use secret_service::EncryptionType;
+    use libsecret::{Schema, SchemaAttributeType, SchemaFlags};
     use std::collections::HashMap;
 
-    // keytar writes to the Secret Service (gnome-keyring/KWallet via libsecret),
+    // keytar writes to the Secret Service (gnome-keyring/KWallet) via libsecret,
     // matching by attributes service/account — which differ from keyring-core's
-    // defaults — so we search the Secret Service directly with keytar's schema.
-    let ss = SecretService::connect(EncryptionType::Dh)
-        .map_err(|e| format!("Secret Service (gnome-keyring/KWallet) unavailable: {e}"))?;
+    // defaults — so we query libsecret directly with keytar's schema. We bind the
+    // system libsecret (already loaded via webkit2gtk) instead of a bundled
+    // pure-Rust D-Bus client. `DONT_MATCH_NAME` searches by attributes only, since
+    // keytar's schema name isn't something we rely on.
+    let schema = Schema::new(
+        "org.freedesktop.Secret.Generic",
+        SchemaFlags::DONT_MATCH_NAME,
+        HashMap::from([
+            ("service", SchemaAttributeType::String),
+            ("account", SchemaAttributeType::String),
+        ]),
+    );
 
     // The `service` attribute is the basename of Termius's executable, NOT a
     // fixed "Termius" string. On macOS/Windows that basename happens to be
@@ -63,12 +71,12 @@ fn read_termius_localkey() -> Result<String, String> {
     // account alone (any keytar service) as a last resort.
     for service in ["termius-app", "Termius"] {
         let attrs = HashMap::from([("service", service), ("account", "localKey")]);
-        if let Some(secret) = lookup_secret(&ss, attrs)? {
-            return decode_secret(secret);
+        if let Some(secret) = lookup_secret(&schema, attrs)? {
+            return Ok(secret);
         }
     }
-    if let Some(secret) = lookup_secret(&ss, HashMap::from([("account", "localKey")]))? {
-        return decode_secret(secret);
+    if let Some(secret) = lookup_secret(&schema, HashMap::from([("account", "localKey")]))? {
+        return Ok(secret);
     }
 
     Err("Termius key not found in OS keychain — is Termius installed and logged in on this machine?".to_string())
@@ -76,33 +84,15 @@ fn read_termius_localkey() -> Result<String, String> {
 
 #[cfg(target_os = "linux")]
 fn lookup_secret(
-    ss: &secret_service::blocking::SecretService,
+    schema: &libsecret::Schema,
     attributes: std::collections::HashMap<&str, &str>,
-) -> Result<Option<Vec<u8>>, String> {
-    let found = ss
-        .search_items(attributes)
-        .map_err(|e| format!("Secret Service search failed: {e}"))?;
-    let Some(item) = found
-        .unlocked
-        .into_iter()
-        .next()
-        .or_else(|| found.locked.into_iter().next())
-    else {
-        return Ok(None);
-    };
-    item.unlock()
-        .map_err(|e| format!("Failed to unlock keyring item: {e}"))?;
-    let secret = item
-        .get_secret()
-        .map_err(|e| format!("Failed to read Termius key from keyring: {e}"))?;
-    Ok(Some(secret))
-}
-
-#[cfg(target_os = "linux")]
-fn decode_secret(secret: Vec<u8>) -> Result<String, String> {
-    // keytar stores the value as a UTF-8 string (the base64 master key);
-    // fetch_master_key() base64-decodes it, so hand it back as a string.
-    String::from_utf8(secret).map_err(|e| format!("Termius key is not valid UTF-8: {e}"))
+) -> Result<Option<String>, String> {
+    // keytar stores the value as a UTF-8 string (the base64 master key), which
+    // `password_lookup_sync` returns directly; `fetch_master_key()` base64-decodes
+    // it. Locked items are unlocked by the secret agent (prompting if needed).
+    libsecret::password_lookup_sync(Some(schema), attributes, gio::Cancellable::NONE)
+        .map(|found| found.map(|secret| secret.to_string()))
+        .map_err(|e| format!("Secret Service lookup failed: {e}"))
 }
 
 #[cfg(target_os = "windows")]
