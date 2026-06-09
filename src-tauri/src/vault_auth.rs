@@ -28,6 +28,17 @@ fn keychain_read(key: &str) -> Option<String> {
     Entry::new(&service(), key).ok()?.get_password().ok()
 }
 
+/// Tri-state keychain read so callers can fail closed.
+/// `Ok(None)` = no such entry, `Ok(Some)` = the value, `Err(())` = the store failed.
+fn keychain_try_read(key: &str) -> Result<Option<String>, ()> {
+    let entry = Entry::new(&service(), key).map_err(|_| ())?;
+    match entry.get_password() {
+        Ok(v) => Ok(Some(v)),
+        Err(keyring_core::Error::NoEntry) => Ok(None),
+        Err(_) => Err(()),
+    }
+}
+
 fn jwt_is_expired(jwt: &str) -> bool {
     let parts: Vec<&str> = jwt.split('.').collect();
     if parts.len() < 2 {
@@ -66,15 +77,33 @@ fn jwt_is_expired(jwt: &str) -> bool {
 ///   - Any vault_id is a team vault AND the JWT is missing or expired, OR
 ///   - Any vault_id is a team vault AND the user's role is not a write role.
 pub fn check_vault_write(vault_ids: &[String]) -> Result<(), String> {
-    // Load the cached {teamId -> role} map written by the frontend after loadTeams()
-    let roles_json = keychain_read("team_vault_roles").unwrap_or_default();
+    // Load the cached {teamId -> role} map written by the frontend after loadTeams().
+    // A keychain failure must fail closed: we can't prove a vault is personal if we
+    // can't read the roles map. Only a genuinely-absent entry means "all personal".
+    let roles_json = match keychain_try_read("team_vault_roles") {
+        Ok(Some(s)) => s,
+        Ok(None) => return Ok(()),
+        Err(()) => {
+            return Err("Unable to verify vault permissions (keychain unavailable). \
+                 Please try again."
+                .to_string())
+        }
+    };
 
-    // If no team vaults have ever been configured, every vault is personal — allow.
+    // An entry that exists but is empty also means no team vaults have been configured.
     if roles_json.is_empty() {
         return Ok(());
     }
 
-    let roles: HashMap<String, String> = serde_json::from_str(&roles_json).unwrap_or_default();
+    // A corrupted roles cache must fail closed rather than be read as an empty map.
+    let roles: HashMap<String, String> = match serde_json::from_str(&roles_json) {
+        Ok(m) => m,
+        Err(_) => {
+            return Err("Vault permission data is corrupted. \
+                 Please sign in again to refresh access."
+                .to_string())
+        }
+    };
 
     // Which of the requested vault_ids are team vaults?
     let team_ids: Vec<&String> = vault_ids
