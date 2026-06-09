@@ -152,7 +152,7 @@ export function SnippetCard({
           <div className="flex-1 min-w-0 self-start flex flex-col gap-2.5">
             {/* Header: avatar + name/fav/tags + description */}
             <div className="flex items-start gap-2 min-w-0">
-              <AvatarTile icon="lucide:braces" iconSize={14} className="w-7 h-7 rounded-lg" />
+              <AvatarTile icon="lucide:braces" iconSize={14} className="w-8 h-8 rounded-lg" />
               <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                 {/* Name + favorite (pin position) + tags */}
                 <div className="flex items-center gap-2 min-w-0">
