@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-06-09
+
+### Changed
+
+- Linux: read the Termius master key through the system libsecret instead of a
+  bundled pure-Rust D-Bus client, roughly halving the Linux binary size with no
+  change to import behavior
+
 ## [0.3.0] - 2026-06-09
 
 ### Added
