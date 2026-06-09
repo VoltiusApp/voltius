@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-09
+
+### Added
+
+- In-app "What's New" changelog modal with consolidated update controls
+- X (Twitter) link in the About section
+- Per-host shell integration is now inherit-aware
+- SSH auto-retries transient connection failures, with configurable keepalive
+
+### Changed
+
+- Redesigned the interface around a unified glass/depth design language —
+  grid cards, modals, buttons, toggles, form fields, command palette, and
+  object avatars now share consistent elevation, focus rings, and surfaces
+
+### Fixed
+
+- Closing a pane in a multi-pane tab now preserves its siblings
+- Closing a multi-pane tab removes its sessions synchronously
+- SSH falls back to POSIX sh integration when the remote lacks bash
+- Partial connection updates are routed correctly through the form mapper
+- Inherited shell-integration toggle is no longer visually dimmed
+- Text selection is suppressed while dragging panes
+
 ## [0.2.2] - 2026-06-08
 
 ### Fixed
