@@ -145,7 +145,7 @@ export default function AboutSection() {
           {/* Automatic updates toggle */}
           <div className="flex items-center justify-between gap-3 pt-3 border-t border-(--t-border)">
             <div className="min-w-0">
-              <p className="text-sm text-(--t-text-primary)">Automatic updates</p>
+              <p className="text-sm text-(--t-text-primary)">Auto-download updates</p>
               <p className="text-xs mt-0.5 text-(--t-text-dim)">
                 Check &amp; download new versions in the background
               </p>
