@@ -28,7 +28,7 @@ export function useToggleSettings(): ToggleItem[] {
   return useMemo<ToggleItem[]>(() => [
     {
       id: "auto-update",
-      label: "Automatic Updates",
+      label: "Auto-download Updates",
       icon: "lucide:refresh-cw",
       description: "Updates",
       keywords: ["update", "auto", "automatic", "background", "download", "version", "upgrade"],
