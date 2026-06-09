@@ -54,10 +54,10 @@ fn jwt_is_expired(jwt: &str) -> bool {
         Some(e) => e,
         None => return true,
     };
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as i64;
+    let now = match SystemTime::now().duration_since(UNIX_EPOCH) {
+        Ok(d) => d.as_secs() as i64,
+        Err(_) => return true,
+    };
     now >= exp
 }
 
