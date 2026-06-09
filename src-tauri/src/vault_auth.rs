@@ -84,9 +84,11 @@ pub fn check_vault_write(vault_ids: &[String]) -> Result<(), String> {
         Ok(Some(s)) => s,
         Ok(None) => return Ok(()),
         Err(()) => {
-            return Err("Unable to verify vault permissions (keychain unavailable). \
+            return Err(
+                "Unable to verify vault permissions (keychain unavailable). \
                  Please try again."
-                .to_string())
+                    .to_string(),
+            )
         }
     };
 
