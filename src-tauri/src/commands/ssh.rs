@@ -47,8 +47,8 @@ pub async fn ssh_connect(
         shell_integration.unwrap_or(true),
         Arc::clone(&*known_hosts),
         Arc::clone(&*pending_conflicts),
-        keepalive_interval_secs.unwrap_or(2),
-        keepalive_max.unwrap_or(2),
+        keepalive_interval_secs.unwrap_or(3),
+        keepalive_max.unwrap_or(3),
     )
     .await?;
 

@@ -1,6 +1,6 @@
 export type KeepalivePreset = "fast" | "balanced" | "tolerant" | "off";
 
-export const DEFAULT_KEEPALIVE_PRESET: KeepalivePreset = "fast";
+export const DEFAULT_KEEPALIVE_PRESET: KeepalivePreset = "balanced";
 
 // intervalSecs 0 disables keepalive. Detection time ≈ intervalSecs × max.
 export const KEEPALIVE_PRESETS: Record<

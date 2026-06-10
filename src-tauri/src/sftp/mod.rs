@@ -158,6 +158,7 @@ impl SftpManager {
         jump_hosts: Vec<JumpHostConnect>,
         known_hosts: Arc<KnownHostsStore>,
     ) -> Result<String, String> {
+        // keepalive 2/2 → ~4 s link-loss detection for SFTP; intentionally tighter than terminal preset
         let config = Arc::new(russh::client::Config {
             keepalive_interval: Some(std::time::Duration::from_secs(2)),
             keepalive_max: 2,
