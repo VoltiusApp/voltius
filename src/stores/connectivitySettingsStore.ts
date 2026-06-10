@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { useAppSettingsTimestampStore } from "./appSettingsTimestampStore";
 import { DEFAULT_KEEPALIVE_PRESET, type KeepalivePreset } from "@/utils/keepalive";
+import { CONNECTIVITY_SETTINGS_VERSION, migrateConnectivitySettings } from "./connectivitySettingsMigration";
 
 interface ConnectivitySettingsState {
   keepalivePreset: KeepalivePreset;
@@ -18,7 +19,15 @@ export const useConnectivitySettingsStore = create<ConnectivitySettingsState>()(
         useAppSettingsTimestampStore.getState().touch();
       },
     }),
-    { name: "voltius-connectivity-settings" },
+    {
+      name: "voltius-connectivity-settings",
+      version: CONNECTIVITY_SETTINGS_VERSION,
+      migrate: (persisted, version) => {
+        const { state, changed } = migrateConnectivitySettings(persisted, version);
+        if (changed) queueMicrotask(() => useAppSettingsTimestampStore.getState().touch());
+        return state as ConnectivitySettingsState;
+      },
+    },
   ),
 );
 
