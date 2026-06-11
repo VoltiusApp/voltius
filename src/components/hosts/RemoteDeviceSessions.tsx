@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Icon } from "@iconify/react";
 import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { getJoinableSessions, joinRemoteSession } from "@/services/crossDeviceSessions";
+import { AvatarTile } from "@/components/shared/AvatarTile";
 import { BaseCard } from "@/components/shared/BaseCard";
 
 function relativeAge(iso: string): string {
@@ -39,6 +39,7 @@ export function RemoteDeviceSessions() {
         {joinable.map((a) => (
           <BaseCard
             key={a.sessionId}
+            glass
             onClick={() => {
               if (joiningId) return;
               setJoiningId(a.sessionId);
@@ -48,12 +49,14 @@ export function RemoteDeviceSessions() {
             style={{ minWidth: 220, maxWidth: 280 }}
           >
             <div className="flex-1 min-w-0 self-start flex items-start gap-2">
-              <div
-                className="flex items-center justify-center shrink-0 select-none text-white"
-                style={{ width: "2rem", height: "2rem", borderRadius: "8px", background: "color-mix(in srgb, var(--t-accent) 80%, #000)" }}
-              >
-                <Icon icon={joiningId === a.sessionId ? "lucide:loader-2" : "lucide:monitor-smartphone"} width={15} className={joiningId === a.sessionId ? "animate-spin" : undefined} />
-              </div>
+              <AvatarTile
+                base="var(--t-accent)"
+                icon={joiningId === a.sessionId ? "lucide:loader-2" : "lucide:monitor-smartphone"}
+                size={30}
+                radius={6}
+                className="text-white"
+                iconClassName={joiningId === a.sessionId ? "animate-spin" : undefined}
+              />
 
               <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                 <p className="text-sm font-bold truncate text-(--t-text-bright)">{a.connectionName}</p>
