@@ -18,6 +18,8 @@ import { useToggle } from "@/stores/toggleSettingsStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
+import { writeClipboard } from "@/utils/clipboard";
+import { useNotificationStore } from "@/stores/notificationStore";
 import type { TeamMember } from "@/stores/teamStore";
 import {
   useEffectivePinned,
@@ -128,6 +130,21 @@ export default function HostCard({
   const contextMenuItems: ContextMenuItem[] = [
     ...(canEdit ? [{ label: "Edit", icon: "lucide:square-pen", onClick: () => onEdit(connection), shortcut: "E" }] : []),
     ...(!isSerial ? [{ label: "Open in SFTP", icon: "lucide:folder-open", onClick: () => useUIStore.getState().openSftpWith(connection.id) }] : []),
+    ...(connection.host ? [{
+      label: "Copy Hostname/IP",
+      icon: "lucide:clipboard-copy",
+      onClick: () => {
+        void writeClipboard(connection.host);
+        useNotificationStore.getState().addToast({
+          pluginId: "core",
+          pluginName: "Voltius",
+          type: "toast",
+          message: `Copied ${connection.host}`,
+          severity: "success",
+          duration: 2000,
+        });
+      },
+    }] : []),
     ...(!isSerial && onExecuteSnippet ? [{ label: "Execute Snippet", icon: "lucide:braces", onClick: () => onExecuteSnippet(connection), divider: true }] : []),
     ...buildConnectionMenuItems({
       canEdit,
