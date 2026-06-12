@@ -1,3 +1,5 @@
+import type { Connection } from "@/types";
+
 export type QuickConnectIntent =
   | { kind: "ssh"; user: string; host: string; port: number }
   | { kind: "serial"; port?: string }
@@ -63,4 +65,25 @@ export function parseQuickConnect(raw: string): QuickConnectIntent {
 
   const port = flagPort ?? (Number.isNaN(inlinePort) ? 22 : inlinePort);
   return { kind: "ssh", user: user || "root", host, port };
+}
+
+/** Ephemeral, unsaved Connection for an SSH quick-connect target. */
+export function buildQuickConnectConnection(
+  intent: Extract<QuickConnectIntent, { kind: "ssh" }>,
+): Connection {
+  const now = new Date().toISOString();
+  return {
+    id: crypto.randomUUID(),
+    name: `${intent.user}@${intent.host}`,
+    host: intent.host,
+    port: intent.port,
+    username: intent.user,
+    auth_type: "password",
+    tags: [],
+    vault_id: "personal",
+    created_at: now,
+    updated_at: now,
+    last_used_at: null,
+    clocks: {},
+  };
 }

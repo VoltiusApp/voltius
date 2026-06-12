@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseQuickConnect } from "../src/services/quickConnect.ts";
+import { parseQuickConnect, buildQuickConnectConnection } from "../src/services/quickConnect.ts";
 
 test("ssh: bare host defaults user=root port=22", () => {
   assert.deepEqual(parseQuickConnect("root@host"), { kind: "ssh", user: "root", host: "host", port: 22 });
@@ -51,4 +51,18 @@ test("negatives return null", () => {
   for (const s of ["", "   ", "prod", "my-server", "> snippet", "@ settings", "m> mp", "join abc"]) {
     assert.equal(parseQuickConnect(s), null, `expected null for ${JSON.stringify(s)}`);
   }
+});
+
+test("buildQuickConnectConnection: maps ssh intent to an ephemeral personal connection", () => {
+  const c = buildQuickConnectConnection({ kind: "ssh", user: "alice", host: "10.0.0.5", port: 2222 });
+  assert.equal(c.name, "alice@10.0.0.5");
+  assert.equal(c.host, "10.0.0.5");
+  assert.equal(c.port, 2222);
+  assert.equal(c.username, "alice");
+  assert.equal(c.auth_type, "password");
+  assert.equal(c.vault_id, "personal");
+  assert.deepEqual(c.tags, []);
+  assert.equal(c.last_used_at, null);
+  assert.equal(typeof c.id, "string");
+  assert.ok(c.id.length > 0);
 });

@@ -247,6 +247,20 @@
   }
 
   /*
+    Lit, opaque popover — the same sheen + lit highlight + elevation as
+    .surface-glass-modal, but an opaque fill and no backdrop blur. For anchored
+    launchers that float over busy content without a scrim: keeps the glassy
+    look while never revealing the app behind it, so it reads identically on
+    WebKitGTK and WebView2 (where backdrop-filter would otherwise diverge).
+  */
+  .surface-glass-solid {
+    background:
+      linear-gradient(150deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.025) 40%, transparent 100%),
+      var(--t-bg-card);
+    box-shadow: var(--t-ring-strong), var(--t-elev-3), var(--t-highlight);
+  }
+
+  /*
     Solid content modal — the "content / reading surface" role (see
     docs/design-surfaces.md). Carries the exact same ring + highlight + elevation
     tokens as .surface-glass-modal so it reads as one family, but the fill is
