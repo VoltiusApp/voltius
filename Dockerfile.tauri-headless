@@ -1,0 +1,71 @@
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# System dependencies: Xvfb + WebKit + compilers + mold (fast linker) + keyutils
+# (the app's OS keychain talks to the kernel keyutils keyring at startup).
+RUN apt-get update && apt-get install -y \
+    git \
+    xvfb \
+    webkit2gtk-driver \
+    libwebkit2gtk-4.1-dev \
+    curl \
+    build-essential \
+    libssl-dev \
+    libsecret-1-dev \
+    libgtk-3-dev \
+    mold \
+    keyutils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js and enable pnpm
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g pnpm
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Install tauri-driver
+RUN cargo install tauri-driver
+
+# Link with mold for fast incremental rebuilds. A stable config (not a one-off
+# RUSTFLAGS env) keeps the build fingerprint constant so the target/ cache is
+# reused across rebuilds. The host triple is detected at build time so this
+# works on any arch (arm64 / x86_64) without hardcoding.
+RUN mkdir -p /root/.cargo && \
+    TRIPLE="$(rustc -vV | sed -n 's/^host: //p')" && \
+    printf '[target.%s]\nrustflags = ["-C", "link-arg=-fuse-ld=mold"]\n' "$TRIPLE" \
+    > /root/.cargo/config.toml
+
+WORKDIR /app
+
+# Dev / hot-reload workflow:
+#  1. install JS deps
+#  2. build the dev (debug) binary once — cfg(dev) makes it load the live vite
+#     dev server, so frontend edits hot-reload with no rebuild
+#  3. start vite (frontend HMR on http://localhost:1420)
+#  4. start Xvfb + tauri-driver (port 4444) for the MCP, under a session keyring
+#     so the launched app can use the OS keychain
+# Iterate: frontend changes -> instant (vite HMR, re-screenshot). Rust changes ->
+# `docker exec tauri-headless cargo build --manifest-path src-tauri/Cargo.toml`
+# (debug + mold), then relaunch via the MCP.
+CMD bash -c "CI=true pnpm install && \
+             cargo build --manifest-path src-tauri/Cargo.toml && \
+             (pnpm dev > /tmp/vite.log 2>&1 &) && \
+             keyctl session - xvfb-run --auto-servernum tauri-driver --port 4444"
+
+# docker build -f Dockerfile.tauri-headless -t tauri-mcp .
+#
+# IMPORTANT: --security-opt seccomp=unconfined is REQUIRED. The app's OS keychain
+# uses the kernel keyutils keyring; the default Docker seccomp profile blocks
+# those syscalls, which makes keychain_get fail and the app hang on its splash.
+# docker run -d --name tauri-headless --security-opt seccomp=unconfined -v "$(pwd):/app" tauri-mcp
+#
+# docker logs -f tauri-headless
+# claude mcp add tauri-docker -- docker exec -i tauri-headless npx -y github:VoltiusApp/mcp-tauri-automation
+#
+# Then, in Claude Code, drive the live dev build via the MCP:
+#   launch_app  appPath=/app/target/debug/voltius
+#   capture_screenshot / click_element / type_text / ...

@@ -13,3 +13,8 @@ dist/
 target/
 src-tauri/target/
 src-tauri/gen/ 
+
+# local planning docs and Claude artifacts
+.claude/*
+!.claude/skills/
+docs/superpowers/

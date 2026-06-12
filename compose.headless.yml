@@ -1,0 +1,54 @@
+# Headless agentic UI iteration stack.
+#
+#   tauri-headless : the dev (debug) app + Xvfb + tauri-driver (port 4444),
+#                    driven by Claude Code through the tauri-docker MCP
+#                    (docker exec -i tauri-headless npx -y github:VoltiusApp/mcp-tauri-automation).
+#   ssh-host-1     : a throwaway SSH server (linuxserver/openssh-server) so the
+#                    app has a real host to add / connect / SFTP against.
+#
+# Both services share one user-defined network, so the app resolves the host
+# by name (ssh-host-1). It listens on port 2222 with password auth —
+# user "voltius", password "voltius".
+#
+#   docker compose -f compose.headless.yml up -d
+#   docker compose -f compose.headless.yml logs -f tauri-headless   # wait for tauri-driver
+#   claude mcp add tauri-docker -- docker exec -i tauri-headless npx -y github:VoltiusApp/mcp-tauri-automation
+#
+# NOTE: tauri-headless needs seccomp=unconfined — the app's OS keychain uses the
+# kernel keyutils keyring, which the default Docker seccomp profile blocks
+# (otherwise the app hangs on its splash).
+
+name: voltius-headless
+
+services:
+  tauri-headless:
+    build:
+      context: .
+      dockerfile: Dockerfile.tauri-headless
+    image: tauri-mcp
+    container_name: tauri-headless
+    security_opt:
+      - seccomp=unconfined
+    volumes:
+      - .:/app
+    networks:
+      - voltius-test
+
+  ssh-host-1:
+    image: lscr.io/linuxserver/openssh-server:latest
+    container_name: ssh-host-1
+    hostname: ssh-host-1
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - PASSWORD_ACCESS=true
+      - USER_NAME=voltius
+      - USER_PASSWORD=voltius
+      - SUDO_ACCESS=true
+    networks:
+      - voltius-test
+
+networks:
+  voltius-test:
+    driver: bridge
