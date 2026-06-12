@@ -600,7 +600,8 @@ mod tests {
         assert!(!script.contains("new-session"));
         assert!(!script.contains("-D"));
         assert!(script.contains("screen -x -S voltius_s1"));
-        assert!(script.contains("</dev/tty"));
+        // Re-attach over the stderr pty (`<&2`); modern tmux rejects `</dev/tty`.
+        assert!(script.contains("<&2"));
     }
 
     #[test]
@@ -631,12 +632,13 @@ mod tests {
     }
 
     #[test]
-    fn persistent_wrapper_keeps_dev_tty_redirects() {
+    fn persistent_wrapper_keeps_pty_redirects() {
         let inner = ssh_exec_command();
         let cmd = persistent_exec_command("voltius_s1", &inner);
         let script = decode_bootstrap(&cmd);
-        assert!(script.contains("</dev/tty"));
-        assert!(script.contains(&format!("exec sh -c \"{}\" </dev/tty", inner)));
+        // The multiplexer re-attaches over the stderr pty (`<&2`), not `/dev/tty`.
+        assert!(script.contains("<&2"));
+        assert!(script.contains(&format!("exec sh -c \"{}\" <&2", inner)));
     }
 
     #[test]

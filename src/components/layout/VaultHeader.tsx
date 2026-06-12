@@ -2,9 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useAllConnections } from "@/hooks/useAllConnections";
-import { useAllKeys } from "@/hooks/useAllKeys";
-import { useAllPortForwardingRules } from "@/hooks/useAllPortForwardingRules";
+import { useVaultContents } from "@/hooks/useVaultContents";
+import { ContentCounts } from "@/components/shared/ContentCounts";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamMember, TeamRole } from "@/services/teamService";
 import { StatusDot } from "@/components/shared/StatusDot";
@@ -165,9 +164,6 @@ export default function VaultHeader() {
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
   const openMembersInvite = useUIStore((s) => s.openMembersInvite);
-  const connections = useAllConnections();
-  const keys = useAllKeys();
-  const portRules = useAllPortForwardingRules();
   const { teams, membersByTeam, rolesByTeam, loadMembers } = useTeamStore();
 
   const [syncState, setSyncState] = useState(getSyncState);
@@ -190,6 +186,9 @@ export default function VaultHeader() {
   const members = team ? (membersByTeam[team.id] ?? null) : null;
   const roles = team ? (rolesByTeam[team.id] ?? []) : [];
 
+  const contentVaultId = team?.id ?? activeVaultId ?? "personal";
+  const counts = useVaultContents(contentVaultId);
+
   useEffect(() => {
     if (team && !membersByTeam[team.id]) {
       loadMembers(team.id).catch(() => {});
@@ -201,10 +200,6 @@ export default function VaultHeader() {
   const displayName = vault ? vault.name : (standaloneTeam!.name);
   const initial = displayName.trim().charAt(0).toUpperCase();
   const isE2EE = accountMode === "local";
-  const contentVaultId = team?.id ?? activeVaultId ?? "personal";
-  const hostCount = connections.filter((c) => (c.vault_id ?? "personal") === contentVaultId).length;
-  const keyCount = keys.filter((k) => (k.vault_id ?? "personal") === contentVaultId).length;
-  const portRuleCount = portRules.filter((r) => (r.vault_id ?? "personal") === contentVaultId).length;
   const lastSync = relativeTime(syncState.lastSync);
   const showSync = syncState.cloudActive && lastSync;
 
@@ -239,6 +234,9 @@ export default function VaultHeader() {
             {members !== null && (
               <Badge label={`${members.length} member${members.length !== 1 ? "s" : ""}`} accent />
             )}
+            {showSync && (
+              <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>Last sync {lastSync}</span>
+            )}
           </div>
           <div className="flex items-center gap-3 text-xs mt-0.5 flex-wrap" style={{ color: "var(--t-text-dim)" }}>
             {isE2EE && (
@@ -247,18 +245,7 @@ export default function VaultHeader() {
                 E2EE
               </span>
             )}
-            {hostCount > 0 && (
-              <span>{hostCount} host{hostCount !== 1 ? "s" : ""}</span>
-            )}
-            {keyCount > 0 && (
-              <span>{keyCount} key{keyCount !== 1 ? "s" : ""}</span>
-            )}
-            {portRuleCount > 0 && (
-              <span>{portRuleCount} port rule{portRuleCount !== 1 ? "s" : ""}</span>
-            )}
-            {showSync && (
-              <span>Last sync {lastSync}</span>
-            )}
+            <ContentCounts counts={counts} />
           </div>
         </div>
       </div>
