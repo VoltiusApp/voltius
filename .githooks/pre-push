@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Pre-push: ensure Rust code is rustfmt-clean before it can reach CI.
+# Mirrors the CI step `cargo fmt --all --check` (.github/workflows/ci.yml).
+#
+# Prefers a native `cargo`; falls back to the project's docker rust image;
+# skips with a warning if neither is available (never blocks on tooling gaps).
+set -uo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+rust_dir="$repo_root/src-tauri"
+docker_image="rust:1.96-bookworm"
+
+if command -v cargo >/dev/null 2>&1 && cargo fmt --version >/dev/null 2>&1; then
+  ( cd "$rust_dir" && cargo fmt --all --check )
+  status=$?
+elif command -v docker >/dev/null 2>&1; then
+  # The base rust image doesn't ship rustfmt; add the component, then check.
+  docker run --rm -v "$rust_dir":/workspace -w /workspace "$docker_image" \
+    sh -c 'rustup component add rustfmt >/dev/null 2>&1; cargo fmt --all --check'
+  status=$?
+else
+  echo "pre-push: neither cargo nor docker found — skipping rustfmt check" >&2
+  exit 0
+fi
+
+if [ "$status" -ne 0 ]; then
+  echo >&2
+  echo "✗ rustfmt check failed — push aborted." >&2
+  echo "  Run 'cargo fmt --all' in src-tauri/ (or via docker) and re-commit." >&2
+  exit 1
+fi

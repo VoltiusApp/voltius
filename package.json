@@ -3,6 +3,7 @@
   "version": "0.3.1",
   "type": "module",
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks || true",
     "dev": "vite",
     "dev:2": "tauri dev & XDG_DATA_HOME=/tmp/voltius-user2/data XDG_CONFIG_HOME=/tmp/voltius-user2/config VOLTIUS_KEYCHAIN_NS=2 tauri dev --config '{\"build\":{\"devUrl\":\"http://localhost:1421\",\"beforeDevCommand\":\"VITE_PORT=1421 vite\"}}'",
     "test:termius": "node --experimental-strip-types src/services/import-export/parsers/termius.test.ts",
