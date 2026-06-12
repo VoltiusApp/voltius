@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-12
+
+### Added
+
+- Persistent SSH sessions via tmux/screen, enabled by default
+- Cross-device shared sessions — pick up live sessions from another device
+- Restore workspace on launch, behind a restore-workspace toggle
+- New Session quick-launcher popover from the + button
+- Ephemeral ssh/serial/local quick-connect from OmniSearch
+- Local shell profiles as a Local section in the New Session popover and OmniSearch
+- "Connect & Save" creates or updates a saved host for ephemeral connections
+- Copy hostname/IP from the host context menu
+
+### Changed
+
+- Glass cards and glossy icon tiles for team & remote-device session cards
+- Vault header content now counts as icon + count
+
+### Fixed
+
+- Default keepalive to balanced across frontend and backend, with stored-preference migration
+- Short-circuit personal-vault writes before the keychain read (vault auth)
+
 ## [0.3.1] - 2026-06-09
 
 ### Changed
