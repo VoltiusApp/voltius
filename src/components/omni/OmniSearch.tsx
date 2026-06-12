@@ -27,6 +27,8 @@ import type { ActiveSession } from "@/stores/teamSessionStore";
 import { getCurrentUserEmail } from "@/services/account";
 import { useToggleSettings } from "@/hooks/useToggleSettings";
 import { parseQuickConnect, type QuickConnectIntent } from "@/services/quickConnect";
+import { launchHost, launchQuickConnect } from "@/services/launch";
+import { selectRecentHosts } from "@/components/layout/newSessionItems";
 
 interface OmniSearchProps {
   onClose: () => void;
@@ -92,7 +94,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
   const connections = useAllConnections();
   const deleteConnection = useConnectionStore((s) => s.deleteConnection);
-  const { sessions, setActive, connect, connectDirect, connectSerialEphemeral, connectLocal, beginLocalSession } = useSessionStore();
+  const { sessions, setActive } = useSessionStore();
   const snippets = useSnippetStore((s) => s.snippets);
   const { trackUsed, setGlobalPendingInject } = useSnippetStore();
   const identities = useIdentityStore((s) => s.identities);
@@ -159,9 +161,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   );
 
   const recentConnections = useMemo(
-    () => [...connections]
-      .filter((c) => c.last_used_at && !activeConnectionIds.has(c.id))
-      .sort((a, b) => (b.last_used_at ?? "").localeCompare(a.last_used_at ?? "")),
+    () => selectRecentHosts(connections, activeConnectionIds),
     [activeConnectionIds, connections],
   );
 
@@ -327,9 +327,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const selectItem = useCallback(
     (item: OmniItem) => {
       if (item.kind === "host") {
-        connect(item.connection.id).catch(() => {});
-        setSidebarOpen(false);
-        setActiveNav("terminal");
+        launchHost(item.connection.id);
         onClose();
       } else if (item.kind === "session") {
         setActive(item.session.id);
@@ -459,36 +457,11 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         }
         onClose();
       } else if (item.kind === "quick-connect") {
-        const intent = item.intent;
-        if (intent.kind === "ssh") {
-          connectDirect({
-            id: crypto.randomUUID(),
-            name: `${intent.user}@${intent.host}`,
-            host: intent.host,
-            port: intent.port,
-            username: intent.user,
-            auth_type: "password",
-            tags: [],
-            vault_id: "personal",
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            last_used_at: null,
-            clocks: {},
-          }).catch(() => {});
-        } else if (intent.kind === "serial") {
-          connectSerialEphemeral(intent.port).catch(() => {});
-        } else {
-          // intent.kind === "local"
-          if (intent.shell) beginLocalSession(intent.shell);
-          else connectLocal().catch(() => {});
-        }
-        setSidebarOpen(false);
-        setActiveNav("terminal");
+        launchQuickConnect(item.intent);
         onClose();
       }
     },
-    [connect, connectDirect, connectSerialEphemeral, connectLocal, beginLocalSession,
-     setActive, setActiveNav, onClose, setSidebarOpen,
+    [setActive, setActiveNav, onClose, setSidebarOpen,
      openSettings, setHomePendingAction, setKeychainPendingAction, pluginCommands,
      sessions, connections, trackUsed, setGlobalPendingInject, joinSession],
   );

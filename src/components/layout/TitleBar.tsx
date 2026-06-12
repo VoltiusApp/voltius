@@ -15,6 +15,7 @@ import { usePfToastBridge } from "@/hooks/usePfToastBridge";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { SyncDropdown } from "@/components/layout/SyncDropdown";
+import { NewSessionPopover } from "@/components/layout/NewSessionPopover";
 import { useDragStore } from "@/stores/dragStore";
 import { findLeaf, firstLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 import { shouldSuppressDragClick } from "@/components/panes/usePaneDragController";
@@ -415,12 +416,7 @@ export default function TitleBar() {
         {renderTitlebarDropCue(null, "after")}
 
         {/* New tab button */}
-        <NewTabButton
-          onNavigate={() => {
-            setSftpPanelOpen(false);
-            setActiveNav("hosts");
-          }}
-        />
+        <NewTabButton />
         </div>
       </div>
 
@@ -569,26 +565,40 @@ export default function TitleBar() {
   );
 }
 
-function NewTabButton({ onNavigate }: { onNavigate: () => void }) {
+function NewTabButton() {
   const { createRipple, rippleEls } = useRipple();
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
   return (
-    <button
-      onClick={onNavigate}
-      onMouseDown={createRipple}
-      className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 transition-colors text-(--t-text-dim) relative overflow-hidden"
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.color = "var(--t-tab-active-text)";
-        (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-toolbar)";
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)";
-        (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-      }}
-      title="New session"
-    >
-      {rippleEls}
-      <Icon icon="lucide:plus" width={22} />
-    </button>
+    <>
+      <button
+        ref={buttonRef}
+        onClick={() => setOpen((o) => !o)}
+        onMouseDown={createRipple}
+        className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 transition-colors relative overflow-hidden"
+        style={{
+          color: open ? "var(--t-tab-active-text)" : "var(--t-text-dim)",
+          background: open ? "var(--t-bg-toolbar)" : "transparent",
+        }}
+        onMouseEnter={(e) => {
+          if (!open) {
+            (e.currentTarget as HTMLButtonElement).style.color = "var(--t-tab-active-text)";
+            (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-toolbar)";
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!open) {
+            (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)";
+            (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+          }
+        }}
+        title="New session"
+      >
+        {rippleEls}
+        <Icon icon="lucide:plus" width={22} />
+      </button>
+      {open && <NewSessionPopover anchorRef={buttonRef} onClose={() => setOpen(false)} />}
+    </>
   );
 }
 
