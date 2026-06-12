@@ -281,6 +281,10 @@ pub fn tmux_session_key(session_id: &str) -> String {
 /// has no name-collision protection — concurrent connects can create duplicates,
 /// and once two exist `-D -R` refuses to attach ("several suitable screens"),
 /// which closes the channel and feeds the reconnect loop into spawning more.
+///
+/// Create path only: session keys derive from fresh UUIDs, so `-A`/`-D -R`
+/// never meet a session another device is attached to. Re-attach and
+/// cross-device join go through `persistent_attach_command`.
 pub fn persistent_exec_command(session_key: &str, inner: &str) -> String {
     let script = format!(
         r#"if command -v tmux >/dev/null 2>&1; then
@@ -327,6 +331,44 @@ fi
     encode_wrapper(&script)
 }
 
+/// Attach-only wrapper: co-attaches a live session (tmux plain attach, screen
+/// `-x` multi-display) and NEVER creates one — `persistent_probe_command` runs
+/// first, so reaching the fallthrough means the session died in between; the
+/// exit just closes the channel and the caller re-probes.
+pub fn persistent_attach_command(session_key: &str) -> String {
+    let script = format!(
+        r#"if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
+  exec tmux -L {socket} attach-session -t {key} <&2
+elif command -v screen >/dev/null 2>&1; then
+  exec screen -x -S {key} <&2
+fi
+printf '\r\n[voltius] session has ended\r\n'
+exit 97
+"#,
+        socket = TMUX_SOCKET,
+        key = session_key,
+    );
+    encode_wrapper(&script)
+}
+
+/// One-shot existence probe mirroring the wrapper's tmux-first order. Prints
+/// VOLTIUS_PRESENT when the session is alive; `screen -wipe` first so a dead
+/// entry left by a crash doesn't read as present.
+pub fn persistent_probe_command(session_key: &str) -> String {
+    let script = format!(
+        r#"if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
+  printf VOLTIUS_PRESENT
+elif command -v screen >/dev/null 2>&1; then
+  screen -wipe >/dev/null 2>&1
+  screen -ls 2>/dev/null | grep -qF .{key} && printf VOLTIUS_PRESENT
+fi
+true"#,
+        socket = TMUX_SOCKET,
+        key = session_key,
+    );
+    encode_wrapper(&script)
+}
+
 /// One-shot exec that dumps the scrollback history of a persistent session,
 /// picking the backend at runtime to mirror `persistent_exec_command`.
 ///
@@ -366,17 +408,33 @@ true"#,
     )
 }
 
-/// Best-effort kill of the persistent multiplexer session for `session_key`.
-/// The wrapper picks tmux or screen at runtime, so we target both and swallow
-/// errors. Socket/server flags MUST mirror `persistent_exec_command`:
-/// tmux on the `-L voltius` socket, screen by `-S <key>`.
-pub fn persistent_kill_command(session_key: &str) -> String {
-    format!(
-        "tmux -L {socket} kill-session -t {key} 2>/dev/null; \
-         screen -S {key} -X quit 2>/dev/null; true",
+/// Conditional kill for a shared session. Kills only when at most
+/// `max_clients` clients are attached (1 when the closer's own channel is
+/// still attached, 0 when it already dropped) — another device's live attach
+/// must survive a local tab close. Prints VOLTIUS_KILLED on confirmed kill,
+/// and also when the session is already gone (host rebooted: tombstoning it
+/// is accurate). No portable client count exists for screen; the frontend's
+/// manifest gate is the only protection there. Socket/server flags MUST
+/// mirror `persistent_exec_command`.
+pub fn persistent_kill_command(session_key: &str, max_clients: usize) -> String {
+    let script = format!(
+        r#"K=0
+if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
+  if [ "$(tmux -L {socket} list-clients -t {key} 2>/dev/null | grep -c .)" -le {max} ]; then
+    tmux -L {socket} kill-session -t {key} 2>/dev/null && K=1
+  fi
+elif command -v screen >/dev/null 2>&1 && screen -ls 2>/dev/null | grep -qF .{key}; then
+  screen -S {key} -X quit >/dev/null 2>&1 && K=1
+else
+  K=1
+fi
+[ "$K" = "1" ] && printf VOLTIUS_KILLED
+true"#,
         socket = TMUX_SOCKET,
         key = session_key,
-    )
+        max = max_clients,
+    );
+    encode_wrapper(&script)
 }
 
 /// Same shape as `ssh_exec_command` but encodes the WSL-flavored wrapper,
@@ -506,6 +564,8 @@ mod tests {
         assert!(script.contains("command -v tmux"));
         assert!(script.contains("tmux -L voltius"));
         assert!(script.contains("new-session -A -s voltius_s1"));
+        // Shared sessions: creating must never detach another device's client.
+        assert!(!script.contains(" -D -s"));
         assert!(script.contains("command -v screen"));
         assert!(script.contains("screen -S voltius_s1"));
         assert!(script.contains("screen -c"));
@@ -532,13 +592,42 @@ mod tests {
     }
 
     #[test]
-    fn persistent_kill_targets_both_multiplexers() {
+    fn persistent_attach_joins_without_stealing_or_creating() {
+        let script = decode_bootstrap(&persistent_attach_command("voltius_s1"));
+        assert!(script.contains("tmux -L voltius has-session -t voltius_s1"));
+        assert!(script.contains("attach-session -t voltius_s1"));
+        // Co-attach: never detach the other device, never create a session.
+        assert!(!script.contains("new-session"));
+        assert!(!script.contains("-D"));
+        assert!(script.contains("screen -x -S voltius_s1"));
+        assert!(script.contains("</dev/tty"));
+    }
+
+    #[test]
+    fn persistent_probe_detects_both_multiplexers() {
+        let script = decode_bootstrap(&persistent_probe_command("voltius_s1"));
+        assert!(script.contains("tmux -L voltius has-session -t voltius_s1"));
+        // Dead screen entries must not read as present (attach -x would fail).
+        assert!(script.contains("screen -wipe"));
+        assert!(script.contains("grep -qF .voltius_s1"));
+        assert!(script.contains("VOLTIUS_PRESENT"));
+        assert!(script.trim_end().ends_with("true"));
+    }
+
+    #[test]
+    fn persistent_kill_is_conditional_and_reports() {
         let key = tmux_session_key("s1");
-        let cmd = persistent_kill_command(&key);
-        assert!(cmd.contains("tmux -L voltius kill-session -t voltius_s1"));
-        assert!(cmd.contains("screen -S voltius_s1 -X quit"));
-        assert!(cmd.contains("2>/dev/null"));
-        assert!(cmd.trim_end().ends_with("true"));
+        let attached = decode_bootstrap(&persistent_kill_command(&key, 1));
+        let detached = decode_bootstrap(&persistent_kill_command(&key, 0));
+        // Kill only when no client beyond the closer's own is attached.
+        assert!(attached.contains("-le 1"));
+        assert!(detached.contains("-le 0"));
+        assert!(attached.contains("list-clients -t voltius_s1"));
+        assert!(attached.contains("tmux -L voltius kill-session -t voltius_s1"));
+        assert!(attached.contains("screen -S voltius_s1 -X quit"));
+        // Confirmed kill (or already gone) prints the sentinel for the tombstone.
+        assert!(attached.contains("VOLTIUS_KILLED"));
+        assert!(attached.trim_end().ends_with("true"));
     }
 
     #[test]

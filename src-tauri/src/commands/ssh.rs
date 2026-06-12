@@ -32,6 +32,7 @@ pub async fn ssh_connect(
     keepalive_max: Option<usize>,
     persist: Option<bool>,
     restore: Option<bool>,
+    attach_only: Option<bool>,
     cols: Option<u32>,
     rows: Option<u32>,
 ) -> Result<(), String> {
@@ -55,6 +56,7 @@ pub async fn ssh_connect(
         keepalive_max.unwrap_or(3),
         persist.unwrap_or(true),
         restore.unwrap_or(false),
+        attach_only.unwrap_or(false),
         cols.filter(|c| *c > 0).unwrap_or(80),
         rows.filter(|r| *r > 0).unwrap_or(24),
     )
@@ -85,10 +87,16 @@ pub async fn ssh_disconnect(
     session_id: String,
     post_command: Option<String>,
     kill_persistent: Option<bool>,
-) -> Result<(), String> {
+    attached: Option<bool>,
+) -> Result<bool, String> {
     pf.on_session_disconnect(&session_id).await;
     state
-        .disconnect(&session_id, post_command, kill_persistent.unwrap_or(false))
+        .disconnect(
+            &session_id,
+            post_command,
+            kill_persistent.unwrap_or(false),
+            attached.unwrap_or(false),
+        )
         .await
 }
 

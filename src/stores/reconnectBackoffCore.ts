@@ -21,6 +21,9 @@ export interface BackoffStore {
   /** Silent connect attempt: mutates no visible status, returns the outcome. */
   attempt(sessionId: string): Promise<{ ok: boolean; errorMessage?: string }>;
   needsInteractiveInput(msg?: string): boolean;
+  /** The multiplexer session is gone on the host (attach-only probe failed):
+   * tear the session down — retrying can never succeed. */
+  sessionEnded(sessionId: string): void;
 }
 
 /** Per-session generation counter: a newer loop supersedes any older one. */
@@ -58,6 +61,11 @@ export async function runBackoff(sessionId: string, store: BackoffStore): Promis
     if (ok) {
       store.markConnected(sessionId);
       return true;
+    }
+    // The session no longer exists on the host: terminal, tear down.
+    if (errorMessage?.includes("SESSION_ENDED")) {
+      store.sessionEnded(sessionId);
+      return false;
     }
     // Interactive auth needed (passphrase/username/key): surface the prompt.
     if (store.needsInteractiveInput(errorMessage)) {

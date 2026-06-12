@@ -29,6 +29,9 @@ export async function sshConnect(params: {
   keepaliveMax: number;
   persist?: boolean;
   restore?: boolean;
+  /** Re-attach/join an existing multiplexer session; never creates one.
+   * Rejects with SESSION_ENDED when the session is gone on the host. */
+  attachOnly?: boolean;
   cols?: number;
   rows?: number;
 }): Promise<void> {
@@ -51,20 +54,26 @@ export async function sshConnect(params: {
     keepaliveMax: params.keepaliveMax,
     persist: params.persist ?? null,
     restore: params.restore ?? null,
+    attachOnly: params.attachOnly ?? null,
     cols: params.cols ?? null,
     rows: params.rows ?? null,
   });
 }
 
+/** Resolves to whether the persistent multiplexer session was confirmed
+ * killed on the host (shared sessions: kill happens only when no other
+ * client/device uses it; `attached` = our own channel is still attached). */
 export async function sshDisconnect(
   sessionId: string,
   postCommand?: string,
   killPersistent?: boolean,
-): Promise<void> {
+  attached?: boolean,
+): Promise<boolean> {
   return invoke("ssh_disconnect", {
     sessionId,
     postCommand: postCommand ?? null,
     killPersistent: killPersistent ?? null,
+    attached: attached ?? null,
   });
 }
 

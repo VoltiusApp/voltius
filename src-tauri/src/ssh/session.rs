@@ -195,38 +195,50 @@ impl SessionManager {
             .ok_or_else(|| "Session not found".into())
     }
 
+    /// Returns whether the persistent multiplexer session was confirmed killed
+    /// (VOLTIUS_KILLED sentinel), so the caller can publish a tombstone only
+    /// for real closures. `attached` = this session's own channel is still
+    /// attached, which sets the shared-session kill threshold (1 vs 0 clients).
     pub async fn disconnect(
         &self,
         id: &str,
         post_command: Option<String>,
         kill_persistent: bool,
-    ) -> Result<(), String> {
+        attached: bool,
+    ) -> Result<bool, String> {
         let session = {
             let mut sessions = self.sessions.lock().await;
             sessions.remove(id)
         };
+        let mut killed = false;
         if let Some(session) = session {
             if kill_persistent && session.persist {
                 let kill = crate::shell_integration::persistent_kill_command(
                     &crate::shell_integration::tmux_session_key(id),
+                    if attached { 1 } else { 0 },
                 );
-                // Kill must complete (or time out) before disconnect; spawn so the
-                // caller returns immediately rather than blocking up to 3 s.
-                tokio::spawn(async move {
-                    let handle = Arc::clone(&session.handle);
-                    let _ = timeout(Duration::from_secs(3), async {
-                        if let Ok(channel) = handle.channel_open_session().await {
-                            let _ = channel.exec(true, kill.as_str()).await;
+                // The kill is awaited (3 s cap) because its sentinel decides the
+                // tombstone; the frontend removes the tab optimistically, so this
+                // blocks no UI. Channel teardown stays spawned.
+                let handle = Arc::clone(&session.handle);
+                let _ = timeout(Duration::from_secs(3), async {
+                    if let Ok(channel) = handle.channel_open_session().await {
+                        if channel.exec(true, kill.as_str()).await.is_ok() {
                             let mut stream = channel.into_stream();
+                            let mut out: Vec<u8> = Vec::new();
                             let mut buf = [0u8; 256];
                             while let Ok(n) = stream.read(&mut buf).await {
                                 if n == 0 {
                                     break;
                                 }
+                                out.extend_from_slice(&buf[..n]);
                             }
+                            killed = String::from_utf8_lossy(&out).contains("VOLTIUS_KILLED");
                         }
-                    })
-                    .await;
+                    }
+                })
+                .await;
+                tokio::spawn(async move {
                     if let Some(cmd) = post_command {
                         let data = format!("{}\n", cmd).into_bytes();
                         let _ = session.input_tx.send(SessionInput::Data(data)).await;
@@ -255,7 +267,7 @@ impl SessionManager {
                 }
             }
         }
-        Ok(())
+        Ok(killed)
     }
 }
 

@@ -199,6 +199,10 @@ export interface TerminalSession {
   status: "connecting" | "connected" | "disconnected" | "error";
   /** SSH only: persistence (remote tmux/screen) was active at connect time. */
   persist?: boolean;
+  /** The multiplexer session exists on the host (a connect succeeded, or the
+   * session came from restore/join). Reconnects then attach-only — they must
+   * never recreate a dead session; only a fresh initial connect creates. */
+  everConnected?: boolean;
   type: "ssh" | "local" | "multiplayer" | "serial";
   errorMessage?: string;
   encoding?: string;

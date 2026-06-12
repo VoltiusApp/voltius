@@ -29,13 +29,14 @@ function makeStore(opts: {
   status: () => SessionStatus;
   exists?: () => boolean;
   attempt?: Attempt;
-}): BackoffStore & { attempts: number; reconnecting: number; connected: number; errors: string[] } {
+}): BackoffStore & { attempts: number; reconnecting: number; connected: number; errors: string[]; ended: string[] } {
   const userAttempt = opts.attempt;
   const s = {
     attempts: 0,
     reconnecting: 0,
     connected: 0,
     errors: [] as string[],
+    ended: [] as string[],
     status: opts.status,
     exists: () => (opts.exists ? opts.exists() : true),
     markReconnecting: () => { s.reconnecting++; },
@@ -46,6 +47,7 @@ function makeStore(opts: {
       return userAttempt ? userAttempt() : { ok: false };
     },
     needsInteractiveInput: interactive,
+    sessionEnded: (id: string) => { s.ended.push(id); },
   };
   return s;
 }
@@ -96,6 +98,19 @@ await (async () => {
   assertEqual(ok, false, "stops on interactive passphrase error");
   assertEqual(store.attempts, 1, "attempts exactly once before bailing on passphrase error");
   assertEqual(store.errors, ["The key is encrypted"], "surfaces the interactive error so the prompt renders");
+})();
+
+await (async () => {
+  // The multiplexer session is gone on the host: terminal, tear down, no retry.
+  const store = makeStore({
+    status: () => "disconnected",
+    attempt: async () => ({ ok: false, errorMessage: "SESSION_ENDED" }),
+  });
+  const ok = await runBackoff("s-ended", store);
+  assertEqual(ok, false, "stops when the session ended on the host");
+  assertEqual(store.attempts, 1, "attempts exactly once before tearing down");
+  assertEqual(store.ended, ["s-ended"], "tears the session down");
+  assertEqual(store.errors, [], "no error overlay for an ended session");
 })();
 
 await (async () => {

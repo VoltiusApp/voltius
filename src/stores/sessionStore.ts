@@ -238,7 +238,7 @@ async function connectSshSession(
     );
     set((s) => ({
       sessions: s.sessions.map((sess) =>
-        sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
+        sess.id === sessionId ? { ...sess, status: "connected" as const, everConnected: true } : sess,
       ),
     }));
 
@@ -680,12 +680,35 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       await serialDisconnect(sessionId).catch(() => {});
     } else {
       const connection = session?.connectionId ? findConnection(session.connectionId) : undefined;
-      try {
-        await sshDisconnect(sessionId, connection?.post_command, true);
-      } catch {
-        // best effort; cleanup below must still run
-      }
-      if (connection) reportConnectionAudit(connection, "connection.ended");
+      const persist = !!session?.persist;
+      const wasAttached = session?.status === "connected";
+      // The tab closes immediately; kill/tombstone resolve in the background.
+      // Shared sessions: another device listing this session means close only
+      // detaches; otherwise the backend kills unless a client is still attached
+      // there (host-side count), and confirms with the kill sentinel — only a
+      // confirmed kill publishes the tombstone.
+      void (async () => {
+        let killed = false;
+        try {
+          let kill = true;
+          if (persist) {
+            const { otherDeviceListsSession } = await import("./crossDeviceSessionsStore");
+            kill = !otherDeviceListsSession(sessionId);
+          }
+          killed = await sshDisconnect(sessionId, connection?.post_command, kill, wasAttached);
+        } catch {
+          // best effort; an unreachable host means nothing was killed
+        }
+        if (persist && killed) {
+          const [{ useCrossDeviceSessionsStore }, { publishLiveSessionsNow }] = await Promise.all([
+            import("./crossDeviceSessionsStore"),
+            import("@/services/liveSessionPublisher"),
+          ]);
+          useCrossDeviceSessionsStore.getState().markClosed(sessionId);
+          publishLiveSessionsNow();
+        }
+        if (connection) reportConnectionAudit(connection, "connection.ended");
+      })();
     }
     const state = get();
     const remaining = state.sessions.filter((s) => s.id !== sessionId);
@@ -735,7 +758,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   markConnected: (sessionId) =>
     set((s) => ({
       sessions: s.sessions.map((sess) =>
-        sess.id === sessionId ? { ...sess, status: "connected" as const, errorMessage: undefined } : sess,
+        sess.id === sessionId
+          ? { ...sess, status: "connected" as const, errorMessage: undefined, everConnected: true }
+          : sess,
       ),
     })),
 
@@ -813,17 +838,23 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           passphrase: credentials.passphrase,
           connectionId: connection.id,
           restore: options?.restore ?? false,
+          attachOnly: !!(session.persist && session.everConnected),
           ...opts,
         });
       });
       set((s) => ({
         sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
+          sess.id === sessionId ? { ...sess, status: "connected" as const, everConnected: true } : sess,
         ),
       }));
       reportConnectionAudit(connection, "connection.started");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("SESSION_ENDED")) {
+        const { sessionEnded } = await import("@/services/crossDeviceSessions");
+        sessionEnded(sessionId);
+        return;
+      }
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
@@ -860,6 +891,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           passphrase: credentials.passphrase,
           connectionId: connection.id,
           restore: false,
+          attachOnly: !!(session.persist && session.everConnected),
           ...opts,
         });
       });
@@ -910,12 +942,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           privateKey: credentials.privateKey,
           passphrase,
           connectionId: connection.id,
+          attachOnly: !!(session.persist && session.everConnected),
           ...opts,
         });
       });
       set((s) => ({
         sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
+          sess.id === sessionId ? { ...sess, status: "connected" as const, everConnected: true } : sess,
         ),
       }));
       reportConnectionAudit(connection, "connection.started");
@@ -985,13 +1018,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           privateKey,
           passphrase,
           connectionId: connection.id,
+          attachOnly: !!(session.persist && session.everConnected),
           ...opts,
         }),
       );
       connectOverrides.delete(sessionId);
       set((s) => ({
         sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
+          sess.id === sessionId ? { ...sess, status: "connected" as const, everConnected: true } : sess,
         ),
       }));
       useConnectionStore.getState().setLastUsed(connection.id).catch(() => {});

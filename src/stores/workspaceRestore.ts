@@ -4,6 +4,8 @@ import {
   startWorkspaceSnapshotSync,
 } from "./workspaceSnapshotStore";
 import { getToggle } from "./toggleSettingsStore";
+import { resolveRemoteSessions } from "./liveSessionManifestCore";
+import { useCrossDeviceSessionsStore } from "./crossDeviceSessionsStore";
 import { useSessionStore } from "./sessionStore";
 import { useLayoutStore, getPaneSessionIds, type SplitTab } from "./layoutStore";
 import { useUIStore } from "./uiStore";
@@ -19,6 +21,8 @@ function toTerminalSession(s: SnapshotSession): TerminalSession {
     connectionName: s.connectionName,
     status: "connecting",
     persist: s.persist,
+    // Snapshot sessions existed on the host: reconnects must attach, not create.
+    everConnected: true,
     type: s.type,
     encoding: s.encoding,
     localShell: s.localShell,
@@ -94,8 +98,23 @@ export async function restoreWorkspaceOnLaunch(): Promise<void> {
   for (const s of snapshot.sessions) {
     if (s.scrollLinesFromBottom) setRestoreScrollOffset(s.id, s.scrollLinesFromBottom);
   }
+
+  // Cross-device: a cached remote tombstone means the session's multiplexer
+  // was killed — drop it instead of restoring a dead tab. (Attach-only
+  // reconnects also catch this server-side; the tombstone just saves a probe.)
+  const cds = useCrossDeviceSessionsStore.getState();
+  const { closedIds } = resolveRemoteSessions({
+    manifests: Object.values(cds.manifests),
+    myDeviceId: localStorage.getItem("voltius.device_id") ?? "",
+    myTombstones: cds.tombstones,
+    myOpenSessionIds: snapshot.sessions.map((s) => s.id),
+  });
+  const closed = new Set(closedIds);
+  for (const id of closedIds) useSessionStore.getState().removeSession(id);
+
   await Promise.allSettled(
     snapshot.sessions.map(async (s) => {
+      if (closed.has(s.id)) return; // killed on another device
       if (s.type === "ssh" || s.type === "serial") {
         await reconnect(s.id, { restore: s.persist });
       } else {

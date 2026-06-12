@@ -451,6 +451,7 @@ pub async fn connect(
     keepalive_max: usize,
     persist: bool,
     restore: bool,
+    attach_only: bool,
     pty_cols: u32,
     pty_rows: u32,
 ) -> Result<ConnectedSession, String> {
@@ -655,6 +656,36 @@ pub async fn connect(
     )
     .await?;
 
+    // Attach-only (reconnect/join): verify the multiplexer session still exists
+    // before attaching — attaching never creates, so a dead session must fail
+    // fast with the stable SESSION_ENDED error the frontend tears down on. An
+    // inconclusive probe (timeout, channel failure) falls through to the attach,
+    // whose own guard exits if the session is truly gone.
+    if persist && attach_only {
+        let key = crate::shell_integration::tmux_session_key(&session_id);
+        let probe = crate::shell_integration::persistent_probe_command(&key);
+        if let Ok(probe_channel) = final_handle.channel_open_session().await {
+            if probe_channel.exec(true, probe.as_str()).await.is_ok() {
+                let mut stream = probe_channel.into_stream();
+                let mut out: Vec<u8> = Vec::new();
+                let completed = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+                    let mut buf = [0u8; 1024];
+                    loop {
+                        match stream.read(&mut buf).await {
+                            Ok(0) | Err(_) => break,
+                            Ok(n) => out.extend_from_slice(&buf[..n]),
+                        }
+                    }
+                })
+                .await
+                .is_ok();
+                if completed && !String::from_utf8_lossy(&out).contains("VOLTIUS_PRESENT") {
+                    return Err("SESSION_ENDED".to_string());
+                }
+            }
+        }
+    }
+
     // Open channel + shell
     emit_step(&app, &session_id, SshStep::OpeningShell, "Requesting PTY");
 
@@ -729,7 +760,11 @@ pub async fn connect(
         let inner = crate::shell_integration::ssh_exec_command();
         let exec_cmd = if persist {
             let key = crate::shell_integration::tmux_session_key(&session_id);
-            crate::shell_integration::persistent_exec_command(&key, &inner)
+            if attach_only {
+                crate::shell_integration::persistent_attach_command(&key)
+            } else {
+                crate::shell_integration::persistent_exec_command(&key, &inner)
+            }
         } else {
             inner
         };
@@ -747,7 +782,11 @@ pub async fn connect(
             "{}; exec ${{SHELL:-/bin/sh}} -l",
             crate::shell_integration::MOTD_PREAMBLE
         );
-        let exec_cmd = crate::shell_integration::persistent_exec_command(&key, &inner);
+        let exec_cmd = if attach_only {
+            crate::shell_integration::persistent_attach_command(&key)
+        } else {
+            crate::shell_integration::persistent_exec_command(&key, &inner)
+        };
         channel
             .exec(false, exec_cmd.as_bytes())
             .await

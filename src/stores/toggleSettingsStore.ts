@@ -94,6 +94,13 @@ export const TOGGLE_DEFS = {
     keywords: ["restore", "workspace", "startup", "launch", "tabs", "resume", "reopen", "session"],
     default: true,
   },
+  "cross-device-sessions": {
+    label: "Cross-Device Sessions",
+    icon: "lucide:monitor-smartphone",
+    description: "Hosts",
+    keywords: ["cross", "device", "join", "shared", "continue", "mirror", "session", "remote", "tmux", "persistent"],
+    default: true,
+  },
   "changelog-popup": {
     label: "Show What's New After Updates",
     icon: "lucide:megaphone",
