@@ -55,13 +55,14 @@ interface SessionStore {
   markDisconnected: (sessionId: string) => void;
   markConnecting: (sessionId: string) => void;
   removeSession: (sessionId: string) => void;
-reconnect: (sessionId: string) => Promise<void>;
+  reconnect: (sessionId: string, options?: { restore?: boolean }) => Promise<void>;
   /** Silent reconnect for the auto-backoff loop: performs the same connect as
    * reconnect() but mutates no visible status, returning the outcome so the loop
    * can hold a single steady "reconnecting" state and decide what to surface. */
   reconnectAttempt: (sessionId: string) => Promise<{ ok: boolean; errorMessage?: string }>;
   reconnectWithPassphrase: (sessionId: string, passphrase: string, save: boolean) => Promise<void>;
   retryConnect: (sessionId: string, override: ConnectRetryOverride, save: boolean) => Promise<void>;
+  restoreSessions: (sessions: TerminalSession[], activeSessionId: string | null) => void;
   markConnected: (sessionId: string) => void;
   markError: (sessionId: string, message: string) => void;
 }
@@ -148,6 +149,7 @@ function createSshSession(
     connectionId: connection.id,
     connectionName: connection.name?.trim() || `${connection.username}@${connection.host}:${connection.port}`,
     status: "connecting",
+    persist: resolvePersistSession(connection.persist_session),
     type: "ssh",
     encoding: connection.terminal_encoding,
   };
@@ -722,6 +724,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       };
     }),
 
+  // Rehydrate the whole session list at launch (workspace restore). Replaces
+  // state wholesale — only valid while the store is empty.
+  restoreSessions: (sessions, activeSessionId) =>
+    set(() => ({
+      sessions,
+      activeSessionId: activeSessionId ?? sessions[sessions.length - 1]?.id ?? null,
+    })),
+
   markConnected: (sessionId) =>
     set((s) => ({
       sessions: s.sessions.map((sess) =>
@@ -736,7 +746,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       ),
     })),
 
-  reconnect: async (sessionId) => {
+  reconnect: async (sessionId, options) => {
     const session = get().sessions.find((s) => s.id === sessionId);
     if (!session || (session.type !== "ssh" && session.type !== "serial")) return;
 
@@ -802,6 +812,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           privateKey: credentials.privateKey,
           passphrase: credentials.passphrase,
           connectionId: connection.id,
+          restore: options?.restore ?? false,
           ...opts,
         });
       });
@@ -833,6 +844,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       if (session.type !== "ssh") return { ok: false };
       const connection = findConnection(session.connectionId);
       if (!connection) return { ok: false, errorMessage: "Connection config not found" };
+      // restore:false — the xterm buffer still holds prior output, so the
+      // re-attach redraw repaints the live screen without duplicating scrollback.
       await withSessionConnectLock(sessionId, async () => {
         await sshDisconnect(sessionId).catch(() => {});
         const credentials = await resolveConnectionCredentials(connection);
@@ -846,6 +859,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           privateKey: credentials.privateKey,
           passphrase: credentials.passphrase,
           connectionId: connection.id,
+          restore: false,
           ...opts,
         });
       });

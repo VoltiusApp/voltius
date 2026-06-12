@@ -327,6 +327,45 @@ fi
     encode_wrapper(&script)
 }
 
+/// One-shot exec that dumps the scrollback history of a persistent session,
+/// picking the backend at runtime to mirror `persistent_exec_command`.
+///
+/// tmux: `capture-pane -peJ -S -50000 -E -1` — history from 50k lines back up
+/// to just above the visible screen (`-E -1`), which the attach redraw repaints
+/// anyway. `-p` prints to stdout, `-e` preserves SGR attributes, `-J` joins
+/// wrapped lines.
+///
+/// screen: no stdout dump exists, so `hardcopy -h` writes the scrollback (plus
+/// the live screen) to a temp file. `-X` is async — the session backend writes
+/// the file — so we poll until its size settles before reading. The dump is
+/// plain text (screen strips SGR) and includes the visible viewport, so
+/// `head -n -<rows>` trims the last `pty_rows` lines to match tmux's `-E -1`
+/// and avoid duplicating the redraw. `head -n -N` is GNU coreutils; on BSD head
+/// it no-ops harmlessly (no trim).
+///
+/// Exits silently when the multiplexer or session is gone (host rebooted): the
+/// capture is empty and the caller skips replay.
+pub fn capture_history_command(session_key: &str, pty_rows: u32) -> String {
+    format!(
+        r#"if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
+  tmux -L {socket} capture-pane -t {key} -peJ -S -50000 -E -1 2>/dev/null
+elif command -v screen >/dev/null 2>&1; then
+  f=$(mktemp 2>/dev/null) || exit 0
+  screen -S {key} -X hardcopy -h "$f" 2>/dev/null
+  for i in $(seq 1 15); do
+    a=$(wc -c <"$f" 2>/dev/null); sleep 0.1; b=$(wc -c <"$f" 2>/dev/null)
+    [ "$a" = "$b" ] && break
+  done
+  head -n -{rows} "$f" 2>/dev/null
+  rm -f "$f"
+fi
+true"#,
+        socket = TMUX_SOCKET,
+        key = session_key,
+        rows = pty_rows,
+    )
+}
+
 /// Best-effort kill of the persistent multiplexer session for `session_key`.
 /// The wrapper picks tmux or screen at runtime, so we target both and swallow
 /// errors. Socket/server flags MUST mirror `persistent_exec_command`:
@@ -567,6 +606,34 @@ mod tests {
             decoded.contains("wsl.localhost"),
             "WSL wrapper must keep wsl.localhost printf, got:\n{decoded}"
         );
+    }
+
+    #[test]
+    fn capture_history_dumps_tmux_history_excluding_visible_screen() {
+        let cmd = capture_history_command("voltius_s1", 40);
+        assert!(cmd.contains("tmux -L voltius capture-pane -t voltius_s1"));
+        // History only: from 50k lines back (-S) to just above the visible
+        // screen (-E -1) so the live redraw after attach doesn't duplicate.
+        assert!(cmd.contains("-S -50000"));
+        assert!(cmd.contains("-E -1"));
+        // -p print to stdout, -e keep SGR colors, -J join wrapped lines.
+        assert!(cmd.contains("-peJ"));
+        // Only run tmux when the session actually exists on the socket.
+        assert!(cmd.contains("tmux -L voltius has-session -t voltius_s1"));
+        // Missing multiplexer/session must not error the channel.
+        assert!(cmd.contains("2>/dev/null"));
+        assert!(cmd.trim_end().ends_with("true"));
+    }
+
+    #[test]
+    fn capture_history_falls_back_to_screen_hardcopy() {
+        let cmd = capture_history_command("voltius_s1", 40);
+        // screen has no stdout dump; hardcopy -h writes scrollback to a temp file.
+        assert!(cmd.contains("screen -S voltius_s1 -X hardcopy -h"));
+        // Trim the live viewport (pty_rows) so the attach redraw isn't duplicated.
+        assert!(cmd.contains("head -n -40"));
+        // Gated behind screen availability, after the tmux branch.
+        assert!(cmd.contains("elif command -v screen >/dev/null 2>&1; then"));
     }
 
     #[test]

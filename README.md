@@ -26,6 +26,7 @@ No account required. Everything below is free, forever.
 - **Easy Import & Export** — No vendor lock-in. Import your existing setup from Termius or MobaXterm in 1-click. Your data is always exportable as open JSON.
 - **Gist Sync** — E2EE device sync via your own private GitHub Gist. No central server, bring your own token.
 - **SFTP** — Easy file transfers and browsing, works for Host↔Host and Host↔Local with drag & drop support. [Accelerated SFTP →](https://voltius.app/blog/sftp-tar-acceleration)
+- **Persistent Sessions & Workspace Restore** — Sessions survive disconnects via tmux/screen on the host, and the whole workspace (tabs, splits, running processes, scrollback) survives full app restarts.
 - **Split Panes** — Split terminals as much as you want, broadcast inputs to all panes.
 - **Local Terminal** — Bash, Zsh, Fish, PowerShell, WSL, Git Bash, CMD, and more.
 - **Plugin System** — Install plugins from the [official registry](https://github.com/VoltiusApp/marketplace) or point to your own custom repo.

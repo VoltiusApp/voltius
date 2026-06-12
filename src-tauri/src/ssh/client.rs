@@ -450,6 +450,7 @@ pub async fn connect(
     keepalive_interval_secs: u64,
     keepalive_max: usize,
     persist: bool,
+    restore: bool,
     pty_cols: u32,
     pty_rows: u32,
 ) -> Result<ConnectedSession, String> {
@@ -672,6 +673,51 @@ pub async fn connect(
             .agent_forward(false)
             .await
             .map_err(|e| format!("Agent forwarding request failed: {}", e))?;
+    }
+
+    // Workspace restore of a persistent session: replay the multiplexer's
+    // scrollback history (tmux or screen) into the frontend terminal BEFORE the
+    // attach below redraws the live screen. Runs on its own exec channel;
+    // ordering is guaranteed because the shell channel hasn't been exec'd yet.
+    // If the multiplexer or session is gone (host rebooted), the capture is
+    // empty and we skip.
+    if restore && persist {
+        let key = crate::shell_integration::tmux_session_key(&session_id);
+        let capture = crate::shell_integration::capture_history_command(&key, pty_rows);
+        if let Ok(cap_channel) = final_handle.channel_open_session().await {
+            if cap_channel.exec(true, capture.as_str()).await.is_ok() {
+                let mut stream = cap_channel.into_stream();
+                let mut history: Vec<u8> = Vec::new();
+                let _ = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+                    let mut buf = [0u8; 8192];
+                    loop {
+                        match stream.read(&mut buf).await {
+                            Ok(0) | Err(_) => break,
+                            Ok(n) => history.extend_from_slice(&buf[..n]),
+                        }
+                    }
+                })
+                .await;
+                if !history.iter().all(|b| b.is_ascii_whitespace()) {
+                    // capture-pane emits bare LF; the PTY-less exec channel
+                    // does no ONLCR translation, so normalize for xterm.
+                    let mut out: Vec<u8> =
+                        Vec::with_capacity(history.len() + (pty_rows as usize) * 2);
+                    for b in history {
+                        if b == b'\n' {
+                            out.push(b'\r');
+                        }
+                        out.push(b);
+                    }
+                    // Scroll the history fully into xterm's scrollback so the
+                    // attach redraw below paints a clean viewport.
+                    for _ in 0..pty_rows {
+                        out.extend_from_slice(b"\r\n");
+                    }
+                    let _ = app.emit(&format!("ssh-output-{}", session_id), out.as_slice());
+                }
+            }
+        }
     }
 
     // When shell integration is enabled we replace the standard shell channel

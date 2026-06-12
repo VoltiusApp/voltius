@@ -31,6 +31,7 @@ pub async fn ssh_connect(
     keepalive_interval_secs: Option<u64>,
     keepalive_max: Option<usize>,
     persist: Option<bool>,
+    restore: Option<bool>,
     cols: Option<u32>,
     rows: Option<u32>,
 ) -> Result<(), String> {
@@ -53,6 +54,7 @@ pub async fn ssh_connect(
         keepalive_interval_secs.unwrap_or(3),
         keepalive_max.unwrap_or(3),
         persist.unwrap_or(true),
+        restore.unwrap_or(false),
         cols.filter(|c| *c > 0).unwrap_or(80),
         rows.filter(|r| *r > 0).unwrap_or(24),
     )

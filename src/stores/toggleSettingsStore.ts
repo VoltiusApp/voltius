@@ -87,6 +87,13 @@ export const TOGGLE_DEFS = {
     keywords: ["persistent", "session", "tmux", "screen", "reconnect", "survive", "resume", "sleep", "reattach", "keep alive"],
     default: true,
   },
+  "restore-workspace": {
+    label: "Restore Workspace on Launch",
+    icon: "lucide:archive-restore",
+    description: "Hosts",
+    keywords: ["restore", "workspace", "startup", "launch", "tabs", "resume", "reopen", "session"],
+    default: true,
+  },
   "changelog-popup": {
     label: "Show What's New After Updates",
     icon: "lucide:megaphone",

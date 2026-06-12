@@ -197,6 +197,8 @@ export interface TerminalSession {
   connectionId: string;
   connectionName: string;
   status: "connecting" | "connected" | "disconnected" | "error";
+  /** SSH only: persistence (remote tmux/screen) was active at connect time. */
+  persist?: boolean;
   type: "ssh" | "local" | "multiplayer" | "serial";
   errorMessage?: string;
   encoding?: string;

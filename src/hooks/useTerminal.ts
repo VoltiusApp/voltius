@@ -180,6 +180,81 @@ function notifyMinimap(entry: CacheEntry) {
   entry.minimap.subscribers.forEach((fn) => fn());
 }
 
+// Scroll position lives in the xterm buffer, not a store, so the workspace
+// snapshot can't subscribe to it directly. Terminals notify these listeners on
+// scroll; the snapshot sync registers a debounced write so the persisted offset
+// tracks the viewport like cwd/layout do.
+const scrollListeners = new Set<() => void>();
+
+/** Subscribe to "a terminal scrolled" — returns an unsubscribe fn. */
+export function subscribeTerminalScroll(fn: () => void): () => void {
+  scrollListeners.add(fn);
+  return () => scrollListeners.delete(fn);
+}
+
+function notifyScrollListeners(): void {
+  scrollListeners.forEach((fn) => fn());
+}
+
+/** Lines the viewport is scrolled up from the live prompt (0 = at bottom).
+ * Read by the workspace snapshot so restore can re-apply the position. */
+export function getScrollOffset(sessionId: string): number {
+  const entry = terminalCache.get(sessionId);
+  if (!entry) return 0;
+  const buffer = entry.terminal.buffer.active;
+  return Math.max(0, buffer.baseY - buffer.viewportY);
+}
+
+// ─── Restore scroll position ─────────────────────────────────────────────────
+// On workspace restore the buffer is rebuilt from a history replay + attach
+// redraw streamed as plain output, with no "replay complete" signal. We re-arm
+// a settle timer on each write and apply the saved offset once output goes
+// quiet, with a hard cap so it fires even if output never fully settles.
+
+const RESTORE_SETTLE_MS = 400;
+const RESTORE_HARD_CAP_MS = 3000;
+const pendingRestoreScroll = new Map<string, number>();
+const restoreScrollTimers = new Map<
+  string,
+  { settle: ReturnType<typeof setTimeout> | null; cap: ReturnType<typeof setTimeout> }
+>();
+
+function applyRestoreScroll(sessionId: string): void {
+  const offset = pendingRestoreScroll.get(sessionId);
+  const timers = restoreScrollTimers.get(sessionId);
+  if (timers) {
+    if (timers.settle) clearTimeout(timers.settle);
+    clearTimeout(timers.cap);
+    restoreScrollTimers.delete(sessionId);
+  }
+  pendingRestoreScroll.delete(sessionId);
+  if (!offset) return;
+  const entry = terminalCache.get(sessionId);
+  if (!entry) return;
+  // Anchor to the bottom (where the attach redraw leaves us) then scroll up the
+  // saved offset; xterm clamps at the top if the rebuilt buffer is shorter.
+  entry.terminal.scrollToBottom();
+  entry.terminal.scrollLines(-offset);
+}
+
+/** Record a scroll offset to re-apply after this session's restore replay.
+ * Called before reconnect; a no-op for 0 (the session was at the bottom). */
+export function setRestoreScrollOffset(sessionId: string, offset: number): void {
+  if (offset <= 0) return;
+  pendingRestoreScroll.set(sessionId, offset);
+  restoreScrollTimers.set(sessionId, {
+    settle: null,
+    cap: setTimeout(() => applyRestoreScroll(sessionId), RESTORE_HARD_CAP_MS),
+  });
+}
+
+function noteRestoreOutput(sessionId: string): void {
+  const timers = restoreScrollTimers.get(sessionId);
+  if (!timers) return;
+  if (timers.settle) clearTimeout(timers.settle);
+  timers.settle = setTimeout(() => applyRestoreScroll(sessionId), RESTORE_SETTLE_MS);
+}
+
 function scheduleMinimapNotify(entry: CacheEntry) {
   if (entry.minimap.frame !== null) return;
   entry.minimap.frame = requestAnimationFrame(() => {
@@ -663,7 +738,10 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         if (!term.getSelection()) hideCopyFeedback(entry);
       });
 
-      const scrollDispose = term.onScroll(() => scheduleMinimapNotify(entry));
+      const scrollDispose = term.onScroll(() => {
+        scheduleMinimapNotify(entry);
+        notifyScrollListeners();
+      });
       const bufferChangeDispose = term.buffer.onBufferChange(() => scheduleMinimapNotify(entry));
 
       // Intercept app shortcuts before xterm processes them
@@ -844,7 +922,10 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         );
       } else {
         unlistenPromises.push(
-          onSshOutput(sessionId, (data) => { term.write(decoder ? decoder.decode(data) : data, () => scheduleMinimapNotify(entry)); }),
+          onSshOutput(sessionId, (data) => {
+            term.write(decoder ? decoder.decode(data) : data, () => scheduleMinimapNotify(entry));
+            noteRestoreOutput(sessionId);
+          }),
         );
         unlistenPromises.push(
           onSshClosed(sessionId, () => {

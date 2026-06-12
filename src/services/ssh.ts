@@ -28,6 +28,7 @@ export async function sshConnect(params: {
   keepaliveIntervalSecs: number;
   keepaliveMax: number;
   persist?: boolean;
+  restore?: boolean;
   cols?: number;
   rows?: number;
 }): Promise<void> {
@@ -49,6 +50,7 @@ export async function sshConnect(params: {
     keepaliveIntervalSecs: params.keepaliveIntervalSecs,
     keepaliveMax: params.keepaliveMax,
     persist: params.persist ?? null,
+    restore: params.restore ?? null,
     cols: params.cols ?? null,
     rows: params.rows ?? null,
   });
