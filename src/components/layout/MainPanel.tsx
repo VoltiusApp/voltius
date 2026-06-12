@@ -225,6 +225,7 @@ function SessionConnectionOverlay({
       return (
         <EphemeralSerialConfigOverlay
           sessionId={session.id}
+          initialPort={session.initialSerialPort}
           onConnect={(params) => void connectSerialEphemeralFinalize(session.id, params)}
           onDismiss={onDismiss}
         />

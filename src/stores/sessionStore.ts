@@ -47,7 +47,7 @@ interface SessionStore {
   beginLocalSession: (shell?: string) => string;
   connectAt: (connectionId: string, cwd: string) => Promise<void>;
   connectSerial: (connectionId: string) => Promise<void>;
-  connectSerialEphemeral: () => Promise<void>;
+  connectSerialEphemeral: (initialPort?: string) => Promise<void>;
   connectSerialEphemeralFinalize: (sessionId: string, params: SerialConnectParams) => Promise<void>;
   resetSerialEphemeral: (sessionId: string) => void;
   disconnect: (sessionId: string) => Promise<void>;
@@ -69,11 +69,18 @@ interface SessionStore {
 
 type SessionSetter = (fn: (s: { sessions: TerminalSession[]; activeSessionId: string | null }) => Partial<SessionStore>) => void;
 
+// Quick-connect (ephemeral) connections are never written to the connection
+// store, so retry/reconnect paths that look a connection up by id would
+// otherwise fail to find them. Registered on connectDirect, cleared on
+// removeSession.
+const ephemeralConnections = new Map<string, Connection>();
+
 function findConnection(connectionId: string): Connection | undefined {
   const { connections, teamConnections } = useConnectionStore.getState();
   return (
     connections.find((c) => c.id === connectionId) ??
-    Object.values(teamConnections).flat().find((c) => c.id === connectionId)
+    Object.values(teamConnections).flat().find((c) => c.id === connectionId) ??
+    ephemeralConnections.get(connectionId)
   );
 }
 
@@ -503,6 +510,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   connectDirect: async (connection) => {
     const sessionId = crypto.randomUUID();
+    ephemeralConnections.set(connection.id, connection);
     await startSession(set as SessionSetter, connection, sessionId);
   },
 
@@ -621,7 +629,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     useUIStore.getState().setSidebarOpen(false);
   },
 
-  connectSerialEphemeral: async () => {
+  connectSerialEphemeral: async (initialPort?: string) => {
     const sessionId = crypto.randomUUID();
     const session: TerminalSession = {
       id: sessionId,
@@ -629,6 +637,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       connectionName: "Serial",
       status: "connecting",
       type: "serial",
+      initialSerialPort: initialPort,
     };
     set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
     useLayoutStore.getState().setSplitTabActive(false);
@@ -1043,6 +1052,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   removeSession: (sessionId) => {
     cancelBackoff(sessionId);
     const state = get();
+    const closing = state.sessions.find((s) => s.id === sessionId);
+    if (closing) ephemeralConnections.delete(closing.connectionId);
     const remaining = state.sessions.filter((s) => s.id !== sessionId);
     connectOverrides.delete(sessionId);
     set({

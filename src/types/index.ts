@@ -208,6 +208,8 @@ export interface TerminalSession {
   encoding?: string;
   localShell?: string;
   serialConfig?: SerialConnectParams;
+  /** Serial only: port typed at quick-connect time, prefilled into the config overlay. */
+  initialSerialPort?: string;
   containerExec?:
     | { kind: "docker"; containerId: string; parentSessionId: string }
     | { kind: "lxc"; vmid: number; parentSessionId: string };
