@@ -19,7 +19,6 @@ pub fn vault_reset(app: AppHandle) -> Result<(), String> {
         .app_data_dir()
         .map_err(|e| format!("Failed to get app data dir: {e}"))?;
 
-    // Delete secrets store
     let secrets = data_dir.join("secrets.enc");
     if secrets.exists() {
         std::fs::remove_file(&secrets).map_err(|e| format!("Failed to delete secrets: {e}"))?;

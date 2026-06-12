@@ -123,6 +123,7 @@ export interface Connection {
   ping_disabled?: boolean;
   shell_integration_disabled?: boolean;
   keepalive_preset?: KeepalivePreset;
+  persist_session?: boolean;
   connection_type?: "ssh" | "serial";
   serial_port?: string;
   serial_baud?: number;
@@ -158,6 +159,7 @@ export interface ConnectionFormData {
   ping_disabled?: boolean;
   shell_integration_disabled?: boolean;
   keepalive_preset?: KeepalivePreset;
+  persist_session?: boolean;
   connection_type?: "ssh" | "serial";
   serial_port?: string;
   serial_baud?: number;

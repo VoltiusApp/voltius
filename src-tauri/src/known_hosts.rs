@@ -56,7 +56,6 @@ impl KnownHostsStore {
         let mut entries = load_known_hosts();
 
         // Migrate old app_data_dir-based key-value JSON (HashMap<"host:port", fingerprint>)
-        // Try both common locations.
         let old_paths: Vec<std::path::PathBuf> = {
             let mut paths = Vec::new();
             // Old Tauri app_data_dir location
@@ -77,7 +76,6 @@ impl KnownHostsStore {
                             let mut parts = key.splitn(2, ':');
                             let host = parts.next().unwrap_or("").to_string();
                             let port: u16 = parts.next().and_then(|p| p.parse().ok()).unwrap_or(22);
-                            // Only migrate if not already present
                             if !entries.iter().any(|e| {
                                 e.host == host && e.port == port && e.fingerprint == fingerprint
                             }) {

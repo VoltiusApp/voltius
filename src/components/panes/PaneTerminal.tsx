@@ -8,6 +8,8 @@ import ConnectionOverlay, { SSH_STEPS, SERIAL_STEPS } from "@/components/termina
 import { useMultiplayerHostBroadcast } from "@/hooks/useMultiplayerHostBroadcast";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSessionStore } from "@/stores/sessionStore";
+import { reconnectWithBackoff } from "@/stores/reconnectBackoff";
+import { handleSessionClosed } from "@/stores/reconnectBackoffCore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { getConnectionIcon } from "@/utils/icons";
 import { EphemeralSerialConfigOverlay } from "@/components/connections/EphemeralSerialConfigOverlay";
@@ -126,13 +128,13 @@ export function PaneTerminal({ session, active }: { session: TerminalSession; ac
           inputGate={inputGateRef}
           encoding={session.encoding}
           onResize={(cols, rows) => setDimensions({ cols, rows })}
-          onClosed={() => {
-            if (session.type === "ssh" || session.type === "serial") {
-              setTimeout(() => reconnect(session.id), 1500);
-            } else {
-              markDisconnected(session.id);
-            }
-          }}
+          onClosed={() =>
+            handleSessionClosed(session.type, session.id, {
+              status: (id) => useSessionStore.getState().sessions.find((s) => s.id === id)?.status,
+              markDisconnected,
+              reconnectWithBackoff,
+            })
+          }
         />
         <TerminalSearch sessionId={session.id} />
       </div>

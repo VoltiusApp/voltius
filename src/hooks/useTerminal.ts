@@ -393,6 +393,16 @@ export interface TerminalSearchController {
   toggleRegex: () => void;
 }
 
+/** Live terminal dimensions, so request_pty starts at the real window size
+ * (screen/tmux pin their layout to the size at creation). */
+export function getTerminalDims(sessionId: string): { cols: number; rows: number } | null {
+  const entry = terminalCache.get(sessionId);
+  if (!entry) return null;
+  const { cols, rows } = entry.terminal;
+  if (!cols || !rows) return null;
+  return { cols, rows };
+}
+
 export function getTerminalSearchController(sessionId: string): TerminalSearchController | null {
   const entry = terminalCache.get(sessionId);
   if (!entry) return null;
@@ -420,7 +430,6 @@ export function getTerminalSearchController(sessionId: string): TerminalSearchCo
       entry.searchAddon.clearDecorations();
       entry.search.snapshot = { ...entry.search.snapshot, open: false, resultIndex: -1, resultCount: 0, invalidRegex: false };
       notifySearch(entry);
-      // Return focus to the terminal
       entry.terminal.focus();
     },
     setQuery: (q) => {
@@ -462,7 +471,6 @@ export function openTerminalSearch(sessionId: string): void {
   getTerminalSearchController(sessionId)?.open();
 }
 
-// Auto-cleanup when sessions are removed from the store
 useSessionStore.subscribe((state) => {
   const currentIds = new Set(state.sessions.map((s) => s.id));
   for (const [id, entry] of terminalCache) {
@@ -472,7 +480,6 @@ useSessionStore.subscribe((state) => {
     }
   }
 
-  // Update connectedRef and trigger PTY resize when SSH sessions connect
   for (const [id, entry] of terminalCache) {
     if (entry.sessionType !== "ssh") continue;
     const session = state.sessions.find((s) => s.id === id);
@@ -513,7 +520,6 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         existing.onClosedRef.current = onClosed;
         existing.onResizeRef.current = onResize;
 
-        // Move the xterm element into the new container
         if (terminal.element) container.appendChild(terminal.element);
 
         fitAddon.fit();
@@ -785,7 +791,6 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         return true;
       });
 
-      // Send user input
       const onDataDispose = term.onData((data) => {
         if (inputGate && !inputGate.current?.()) return;
         if (!entry.connectedRef.current) return;
@@ -843,7 +848,6 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         );
         unlistenPromises.push(
           onSshClosed(sessionId, () => {
-            term.write("\r\n\x1b[90m--- Connection closed ---\x1b[0m\r\n");
             entry.onClosedRef.current?.();
           }),
         );

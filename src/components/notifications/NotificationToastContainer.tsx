@@ -171,7 +171,6 @@ export function NotificationToastContainer() {
   // Handle hover pause/resume
   useEffect(() => {
     if (hovered) {
-      // Pause all timers
       for (const [id, info] of timers.current.entries()) {
         clearTimeout(info.id);
         timers.current.set(id, { ...info });
@@ -199,7 +198,6 @@ export function NotificationToastContainer() {
     return () => clearInterval(interval);
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       for (const info of timers.current.values()) clearTimeout(info.id);

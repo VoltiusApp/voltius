@@ -215,7 +215,6 @@ export async function login(password: string, email?: string, serverUrl?: string
     encKey = enc_key;
   }
 
-  // Verify the key before committing
   const { exists } = await getVaultStatus();
   if (exists) await verifyVaultKey(encKey);
   setVaultKey(encKey);
@@ -407,11 +406,9 @@ export async function setMasterPassword(password: string): Promise<void> {
   await unlockVaultIfNeeded();
   await invoke("secrets_reencrypt", { newEncKey: enc_key });
 
-  // Update keychain
   await keychainSet("master_password", password);
   await keychainSet("mode", "local");
 
-  // Update in-memory key
   setVaultKey(enc_key);
 
   // If connected to cloud, re-push immediately so other devices get a blob
@@ -430,7 +427,6 @@ export async function signInToCloud(
   serverUrl: string,
 ): Promise<void> {
   serverUrl = normalizeServerUrl(serverUrl);
-  // Fetch accountId from server
   const res = await fetchWithTimeout(`${serverUrl}/v1/auth/challenge?email=${encodeURIComponent(email)}`);
   if (!res.ok) throw new Error("Account not found");
   const { account_id: accountId } = await res.json();
@@ -535,7 +531,6 @@ export async function changeMasterPassword(
 
   const { auth_key: old_auth_key, enc_key: old_kek } = await deriveKeys(currentPassword, accountId);
 
-  // Get wrapped_user_secrets from cached store or fetch from server
   let cachedDek = useVaultKeysStore.getState().dek;
   let cachedX25519 = useVaultKeysStore.getState().x25519Private;
 
@@ -612,7 +607,6 @@ async function migrateToWrappedUserSecrets(
       Uint8Array.from(atob(legacyX25519PrivateB64), (c) => c.charCodeAt(0))
     );
 
-    // Generate a fresh random DEK
     const secrets = await generateUserSecrets();
     const dek = secrets.dek;
 
@@ -622,7 +616,6 @@ async function migrateToWrappedUserSecrets(
     // Build user_secrets with legacy X25519 private key (preserves public key on server)
     const wrapped_user_secrets = await wrapUserSecrets(kek, dek, legacyX25519Private);
 
-    // Upload to server
     const res = await fetchWithTimeout(`${serverUrl}/v1/auth/wrapped-user-secrets`, {
       method: "PUT",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
@@ -638,7 +631,6 @@ async function migrateToWrappedUserSecrets(
     useVaultKeysStore.getState().set({ dek, x25519Private: legacyX25519Private, kek });
     setVaultKey(dek);
 
-    // Push re-encrypted data if cloud sync enabled
     const { push } = await import("@/services/sync");
     push().catch(() => {});
   } catch (e) {

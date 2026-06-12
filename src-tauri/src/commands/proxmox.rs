@@ -198,6 +198,7 @@ pub async fn proxmox_lxc_open_shell(
                 input_tx,
                 shutdown_tx,
                 channel_only: true,
+                persist: false,
                 _jump_handles: vec![],
                 remote_routes: std::sync::Arc::new(tokio::sync::Mutex::new(
                     std::collections::HashMap::new(),

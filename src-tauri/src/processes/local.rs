@@ -71,12 +71,17 @@ impl LocalProcesses {
             .process(pid)
             .ok_or_else(|| format!("Process {pid} not found"))?;
 
-        let signal = if force { Signal::Kill } else { Signal::Term };
-        process
-            .kill_with(signal)
-            .ok_or_else(|| format!("Signal {signal:?} not supported on this platform"))?;
-
-        Ok(())
+        // Windows has no SIGTERM; sysinfo only supports Kill (taskkill /F) there.
+        let signal = if force || cfg!(windows) {
+            Signal::Kill
+        } else {
+            Signal::Term
+        };
+        match process.kill_with(signal) {
+            None => Err(format!("Signal {signal:?} not supported on this platform")),
+            Some(false) => Err(format!("Failed to send {signal:?} to process {pid}")),
+            Some(true) => Ok(()),
+        }
     }
 }
 

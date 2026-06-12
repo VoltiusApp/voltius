@@ -272,7 +272,6 @@ pub fn snippet_folder_delete(id: String) -> Result<(), String> {
     }
     save_snippets(&snippets)?;
 
-    // Soft-delete the folder
     let mut folders = load_snippet_folders();
     let folder = folders
         .iter_mut()

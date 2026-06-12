@@ -170,9 +170,8 @@ pub fn parse_size(s: &str) -> i64 {
 mod tests {
     use super::*;
 
-    // Successor to the Step 2.4 characterization gate, now over the single shared
-    // parser. `host_ip` is always `None` (the local backend's long-standing
-    // behavior, which the remote backend now adopts too).
+    // `host_ip` is always `None` — the local backend's long-standing behavior,
+    // which the remote backend now adopts too.
 
     #[test]
     fn parse_ports_published_drops_host_ip() {

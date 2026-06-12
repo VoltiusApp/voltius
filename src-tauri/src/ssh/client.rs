@@ -305,6 +305,9 @@ pub struct ConnectedSession {
     /// If true, closing this session only stops the channel I/O loop;
     /// it does NOT disconnect the parent SSH handle (used for multiplexed exec sessions).
     pub channel_only: bool,
+    /// True when the remote shell was wrapped in a persistent multiplexer
+    /// (tmux/screen). A user-initiated disconnect kills that session.
+    pub persist: bool,
     /// Keeps intermediate jump-host SSH handles alive for the lifetime of this session.
     pub _jump_handles: Vec<Arc<client::Handle<SshClient>>>,
     /// Shared remote-forward route table for this session.
@@ -446,6 +449,9 @@ pub async fn connect(
     pending_conflicts: Arc<PendingConflicts>,
     keepalive_interval_secs: u64,
     keepalive_max: usize,
+    persist: bool,
+    pty_cols: u32,
+    pty_rows: u32,
 ) -> Result<ConnectedSession, String> {
     let config = Arc::new(client::Config {
         // interval 0 = keepalive disabled.
@@ -657,7 +663,7 @@ pub async fn connect(
         .map_err(|e| format!("Failed to open channel: {}", e))?;
 
     channel
-        .request_pty(false, "xterm-256color", 80, 24, 0, 0, &[])
+        .request_pty(false, "xterm-256color", pty_cols, pty_rows, 0, 0, &[])
         .await
         .map_err(|e| format!("PTY request failed: {}", e))?;
 
@@ -674,7 +680,28 @@ pub async fn connect(
     // (writes a temp rcfile under /tmp). Falling back to request_shell keeps
     // the historical behavior available via the setting.
     if shell_integration {
-        let exec_cmd = crate::shell_integration::ssh_exec_command();
+        let inner = crate::shell_integration::ssh_exec_command();
+        let exec_cmd = if persist {
+            let key = crate::shell_integration::tmux_session_key(&session_id);
+            crate::shell_integration::persistent_exec_command(&key, &inner)
+        } else {
+            inner
+        };
+        channel
+            .exec(false, exec_cmd.as_bytes())
+            .await
+            .map_err(|e| format!("Shell exec failed: {}", e))?;
+    } else if persist {
+        // Persistence without shell integration: bare login shell. `inner` must
+        // have no double quotes (embedded in the multiplexer's quoted command),
+        // so SHELL is left unquoted. MOTD runs inside the inner so tmux's redraw
+        // on attach doesn't wipe it.
+        let key = crate::shell_integration::tmux_session_key(&session_id);
+        let inner = format!(
+            "{}; exec ${{SHELL:-/bin/sh}} -l",
+            crate::shell_integration::MOTD_PREAMBLE
+        );
+        let exec_cmd = crate::shell_integration::persistent_exec_command(&key, &inner);
         channel
             .exec(false, exec_cmd.as_bytes())
             .await
@@ -744,6 +771,7 @@ pub async fn connect(
         input_tx,
         shutdown_tx,
         channel_only: false,
+        persist,
         _jump_handles: jump_handles,
         remote_routes: final_routes,
     })

@@ -190,7 +190,7 @@ export interface PluginAPI {
   /** Returns true if this plugin is currently enabled in the registry. */
   isActive(): boolean;
 
-  // Clés SSH (requiert keys:*)
+  // SSH keys (requires keys:*)
   keys: {
     list(): Promise<PluginKey[]>;
     /** Creates a key entry and stores private/public content in the vault. */
@@ -198,14 +198,14 @@ export interface PluginAPI {
     delete(id: string): Promise<void>;
   };
 
-  // Identités (requiert identities:*)
+  // Identities (requires identities:*)
   identities: {
     list(): Promise<PluginIdentity[]>;
     create(data: { name?: string; username: string; key_id?: string; tags?: string[] }): Promise<PluginIdentity>;
     delete(id: string): Promise<void>;
   };
 
-  // Connexions (requiert connections:*)
+  // Connections (requires connections:*)
   connections: {
     list(): Promise<PluginConnection[]>;
     get(id: string): Promise<PluginConnection | null>;
@@ -216,26 +216,26 @@ export interface PluginAPI {
     subscribe(cb: (connections: PluginConnection[]) => void): () => void;
   };
 
-  // Vault — secrets scopés au plugin (requiert vault:*)
+  // Vault — plugin-scoped secrets (requires vault:*)
   vault: {
     get(key: string): Promise<string | null>;
     set(key: string, value: string): Promise<void>;
     delete(key: string): Promise<void>;
   };
 
-  // Thèmes (requiert "themes")
+  // Themes (requires "themes")
   themes: {
     register(theme: PluginTheme): void;
     unregister(id: string): void;
   };
 
-  // OmniSearch (requiert "omni-commands")
+  // OmniSearch (requires "omni-commands")
   omni: {
     register(command: OmniCommand): () => void;
     unregister(id: string): void;
   };
 
-  // UI — points d'extension
+  // UI — extension points
   ui: {
     registerSettingsPage(page: SettingsPage): () => void;
     registerSidebarItem(item: SidebarItem): () => void;
@@ -248,7 +248,7 @@ export interface PluginAPI {
     unregister(id: string): void;
   };
 
-  // Stockage clé-valeur propre au plugin
+  // Plugin-scoped key-value storage
   storage: {
     get<T>(key: string): Promise<T | null>;
     set<T>(key: string, value: T): Promise<void>;
@@ -261,7 +261,7 @@ export interface PluginAPI {
     post<T>(url: string, body: unknown, opts?: RequestInit): Promise<T>;
   };
 
-  // Système de fichiers restreint au home (requiert "fs")
+  // Filesystem restricted to home (requires "fs")
   fs: {
     readText(path: string): Promise<string>;
     writeText(path: string, content: string): Promise<void>;
@@ -270,27 +270,27 @@ export interface PluginAPI {
     watch(path: string, cb: () => void, opts?: { intervalMs?: number }): () => void;
   };
 
-  // Bus d'événements (toujours disponible)
+  // Event bus (always available)
   events: {
     on(event: string, handler: (data: unknown) => void): () => void;
     emit(event: string, data?: unknown): void;
   };
 
-  // Notifications (requiert "notifications")
+  // Notifications (requires "notifications")
   notifications: {
     toast(message: string, opts?: ToastOptions): void;
     progress(title: string, opts?: ProgressOptions): ProgressHandle;
     banner(message: string, opts?: BannerOptions): BannerHandle;
   };
 
-  // Logger scopé au plugin
+  // Plugin-scoped logger
   log: {
     info(msg: string, ...args: unknown[]): void;
     warn(msg: string, ...args: unknown[]): void;
     error(msg: string, ...args: unknown[]): void;
   };
 
-  // Sessions (requiert sessions:read / sessions:write)
+  // Sessions (requires sessions:read / sessions:write)
   sessions: {
     /** Returns current sessions snapshot. */
     list(): PluginSession[];
@@ -304,7 +304,7 @@ export interface PluginAPI {
     sendCommand(sessionId: string, cmd: string): Promise<void>;
   };
 
-  // Lifecycle hooks (toujours disponible)
+  // Lifecycle hooks (always available)
   lifecycle: {
     /** Fires when an SSH/local session transitions to "connected". */
     onConnectionEstablished(cb: (conn: PluginConnection) => void): () => void;
@@ -320,7 +320,7 @@ export interface PluginAPI {
     waitForLoginSync(): Promise<void>;
   };
 
-  // Sync / blob storage (requiert sync:read / sync:write)
+  // Sync / blob storage (requires sync:read / sync:write)
   sync: {
     /** Read a plugin-scoped blob from local storage. Returns null if not set. */
     getBlob(key: string): Promise<Uint8Array | null>;
@@ -348,7 +348,7 @@ export interface PluginAPI {
     importStates(encKey: string, blobs: string[]): Promise<void>;
   };
 
-  // Inter-plugin communication (toujours disponible)
+  // Inter-plugin communication (always available)
   plugins: {
     /** Publish this plugin's public API surface so other plugins can consume it. */
     expose(publicApi: unknown): void;

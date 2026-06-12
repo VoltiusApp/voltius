@@ -260,7 +260,6 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
 
   const isLoggedIn = accountMode === "server";
 
-  // Build per-section variants
   const voltiusVariant: SectionVariant = !isLoggedIn
     ? { kind: "locked", onSignIn: () => { onClose(); openCloudAuth("signin"); } }
     : !isPro
@@ -273,7 +272,6 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
     ? { kind: "misconfigured", onConfigure: () => { onClose(); openSettings("plugins", "plugin-gist-sync:gist-sync-settings"); } }
     : { kind: "active", status: gistState.status, lastSync: gistState.lastSync, error: gistState.error, blobSizeBytes: gistState.blobSizeBytes };
 
-  // Position below anchor
   const anchor = anchorRef.current;
   const rect = anchor?.getBoundingClientRect();
   const right = rect ? window.innerWidth - rect.right : 8;

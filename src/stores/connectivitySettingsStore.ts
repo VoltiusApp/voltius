@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { useAppSettingsTimestampStore } from "./appSettingsTimestampStore";
+import { getToggle } from "./toggleSettingsStore";
 import { DEFAULT_KEEPALIVE_PRESET, type KeepalivePreset } from "@/utils/keepalive";
 import { CONNECTIVITY_SETTINGS_VERSION, migrateConnectivitySettings } from "./connectivitySettingsMigration";
 
@@ -41,4 +42,9 @@ export function useGlobalKeepalivePreset(): [KeepalivePreset, (p: KeepalivePrese
   const set = useConnectivitySettingsStore((s) => s.setKeepalivePreset);
   const setter = useCallback((p: KeepalivePreset) => set(p), [set]);
   return [value, setter];
+}
+
+/** Per-host value wins; otherwise the global `persistent-sessions` toggle. */
+export function resolvePersistSession(perHost: boolean | undefined): boolean {
+  return perHost ?? getToggle("persistent-sessions");
 }

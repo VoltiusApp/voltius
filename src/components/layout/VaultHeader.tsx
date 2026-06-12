@@ -190,7 +190,6 @@ export default function VaultHeader() {
   const members = team ? (membersByTeam[team.id] ?? null) : null;
   const roles = team ? (rolesByTeam[team.id] ?? []) : [];
 
-  // Load members if team is found but members aren't loaded yet
   useEffect(() => {
     if (team && !membersByTeam[team.id]) {
       loadMembers(team.id).catch(() => {});

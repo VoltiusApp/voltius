@@ -80,6 +80,13 @@ export const TOGGLE_DEFS = {
     keywords: ["shell", "integration", "osc", "prompt", "cwd", "directory", "motd", "command"],
     default: true,
   },
+  "persistent-sessions": {
+    label: "Persistent Sessions",
+    icon: "lucide:history",
+    description: "Hosts",
+    keywords: ["persistent", "session", "tmux", "screen", "reconnect", "survive", "resume", "sleep", "reattach", "keep alive"],
+    default: true,
+  },
   "changelog-popup": {
     label: "Show What's New After Updates",
     icon: "lucide:megaphone",

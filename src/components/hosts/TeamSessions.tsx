@@ -42,7 +42,6 @@ export function TeamSessions() {
   const [joinError, setJoinError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Poll for active sessions every 6 seconds
   useEffect(() => {
     fetchActiveSessions().catch(() => {});
     const interval = setInterval(() => {
@@ -59,7 +58,6 @@ export function TeamSessions() {
     }
   }, [showJoinModal]);
 
-  // Determine which sessions I'm already in
   const myMpSessionIds = new Set(
     Object.values(useMpStore.getState().connections).map((c) => c.multiplayerSessionId),
   );

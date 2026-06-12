@@ -50,7 +50,6 @@ export default function MultiplayerTerminalView({ localSessionId, active }: Prop
       termRef.current = term;
       fitRef.current = fitAddon;
 
-      // Handle user input if we have control
       const encoder = new TextEncoder();
       const onDataDispose = term.onData((data) => {
         const state = useTeamSessionStore.getState().connections[localSessionId];
@@ -94,7 +93,6 @@ export default function MultiplayerTerminalView({ localSessionId, active }: Prop
     [localSessionId],
   );
 
-  // Subscribe to output from multiplayer service
   useEffect(() => {
     const unsubscribe = useTeamSessionStore.subscribe((state) => {
       const conn = state.connections[localSessionId];

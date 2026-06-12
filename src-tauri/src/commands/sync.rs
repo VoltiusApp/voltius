@@ -132,7 +132,7 @@ pub fn backup_export(
         }
     }
 
-    // plugin-data/<id>.json — api.storage de chaque plugin
+    // plugin-data/<id>.json — each plugin's api.storage
     let plugin_data_dir = dir.join("plugin-data");
     if let Ok(entries) = std::fs::read_dir(&plugin_data_dir) {
         for entry in entries.flatten() {

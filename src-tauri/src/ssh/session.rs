@@ -195,20 +195,64 @@ impl SessionManager {
             .ok_or_else(|| "Session not found".into())
     }
 
-    pub async fn disconnect(&self, id: &str, post_command: Option<String>) -> Result<(), String> {
-        let mut sessions = self.sessions.lock().await;
-        if let Some(session) = sessions.remove(id) {
-            if let Some(cmd) = post_command {
-                let data = format!("{}\n", cmd).into_bytes();
-                let _ = session.input_tx.send(SessionInput::Data(data)).await;
-                tokio::time::sleep(Duration::from_millis(200)).await;
-            }
-            let _ = session.shutdown_tx.send(()).await;
-            if !session.channel_only {
-                let _ = session
-                    .handle
-                    .disconnect(russh::Disconnect::ByApplication, "User disconnected", "en")
+    pub async fn disconnect(
+        &self,
+        id: &str,
+        post_command: Option<String>,
+        kill_persistent: bool,
+    ) -> Result<(), String> {
+        let session = {
+            let mut sessions = self.sessions.lock().await;
+            sessions.remove(id)
+        };
+        if let Some(session) = session {
+            if kill_persistent && session.persist {
+                let kill = crate::shell_integration::persistent_kill_command(
+                    &crate::shell_integration::tmux_session_key(id),
+                );
+                // Kill must complete (or time out) before disconnect; spawn so the
+                // caller returns immediately rather than blocking up to 3 s.
+                tokio::spawn(async move {
+                    let handle = Arc::clone(&session.handle);
+                    let _ = timeout(Duration::from_secs(3), async {
+                        if let Ok(channel) = handle.channel_open_session().await {
+                            let _ = channel.exec(true, kill.as_str()).await;
+                            let mut stream = channel.into_stream();
+                            let mut buf = [0u8; 256];
+                            while let Ok(n) = stream.read(&mut buf).await {
+                                if n == 0 {
+                                    break;
+                                }
+                            }
+                        }
+                    })
                     .await;
+                    if let Some(cmd) = post_command {
+                        let data = format!("{}\n", cmd).into_bytes();
+                        let _ = session.input_tx.send(SessionInput::Data(data)).await;
+                        tokio::time::sleep(Duration::from_millis(200)).await;
+                    }
+                    let _ = session.shutdown_tx.send(()).await;
+                    if !session.channel_only {
+                        let _ = session
+                            .handle
+                            .disconnect(russh::Disconnect::ByApplication, "User disconnected", "en")
+                            .await;
+                    }
+                });
+            } else {
+                if let Some(cmd) = post_command {
+                    let data = format!("{}\n", cmd).into_bytes();
+                    let _ = session.input_tx.send(SessionInput::Data(data)).await;
+                    tokio::time::sleep(Duration::from_millis(200)).await;
+                }
+                let _ = session.shutdown_tx.send(()).await;
+                if !session.channel_only {
+                    let _ = session
+                        .handle
+                        .disconnect(russh::Disconnect::ByApplication, "User disconnected", "en")
+                        .await;
+                }
             }
         }
         Ok(())

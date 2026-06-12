@@ -54,6 +54,7 @@ fn merge_form_into_connection(existing: &Connection, data: ConnectionFormData) -
         ping_disabled: data.ping_disabled,
         shell_integration_disabled: data.shell_integration_disabled,
         keepalive_preset: data.keepalive_preset,
+        persist_session: data.persist_session,
         connection_type: data.connection_type,
         serial_port: data.serial_port,
         serial_baud: data.serial_baud,
@@ -117,7 +118,7 @@ connection_clocks! {
         name, host, port, username, auth_type, tags, identity_id, key_id,
         folder_id, vault_id, agent_forwarding, pre_command, post_command,
         terminal_encoding, distro, icon, ping_disabled,
-        shell_integration_disabled, keepalive_preset, connection_type, serial_port, serial_baud,
+        shell_integration_disabled, keepalive_preset, persist_session, connection_type, serial_port, serial_baud,
         serial_data_bits, serial_parity, serial_stop_bits, serial_flow_control,
     ],
     by_id: [jump_hosts, env_vars],
@@ -176,6 +177,7 @@ pub fn connection_save(data: ConnectionFormData) -> Result<Connection, String> {
         ping_disabled: data.ping_disabled,
         shell_integration_disabled: data.shell_integration_disabled,
         keepalive_preset: data.keepalive_preset,
+        persist_session: data.persist_session,
         connection_type: data.connection_type,
         serial_port: data.serial_port,
         serial_baud: data.serial_baud,
@@ -310,6 +312,7 @@ mod tests {
             ping_disabled: false,
             shell_integration_disabled: None,
             keepalive_preset: None,
+            persist_session: None,
             connection_type: ConnectionType::Ssh,
             serial_port: Some("/dev/ttyU0".into()),
             serial_baud: Some(9600),
@@ -359,6 +362,7 @@ mod tests {
             ping_disabled: true,
             shell_integration_disabled: Some(true),
             keepalive_preset: Some("balanced".into()),
+            persist_session: Some(true),
             connection_type: ConnectionType::Serial,
             serial_port: Some("/dev/ttyU1".into()),
             serial_baud: Some(115200),
@@ -532,8 +536,9 @@ mod tests {
     }
 
     /// Pins the exact set of fields `bump_changed_clocks` tracks when everything
-    /// changes (28 fields, incl. `agent_forwarding`, `ping_disabled`,
-    /// `shell_integration_disabled`, `keepalive_preset`; `pinned` is excluded as device-local).
+    /// changes (29 fields, incl. `agent_forwarding`, `ping_disabled`,
+    /// `shell_integration_disabled`, `keepalive_preset`, `persist_session`;
+    /// `pinned` is excluded as device-local).
     /// Since Phase 1, create-time init and update-time bump both derive from the
     /// single `connection_clocks!` list, so this set equals the one seeded by
     /// `initial_clocks` — see `initial_clocks_match_bumpable_field_set`.
@@ -560,6 +565,7 @@ mod tests {
             "keepalive_preset",
             "key_id",
             "name",
+            "persist_session",
             "ping_disabled",
             "port",
             "post_command",
@@ -578,7 +584,7 @@ mod tests {
         ];
         expected.sort();
         assert_eq!(keys, expected);
-        assert_eq!(keys.len(), 28);
+        assert_eq!(keys.len(), 29);
     }
 
     /// Phase 1 reconciliation: the clocks seeded for a brand-new connection
@@ -598,6 +604,6 @@ mod tests {
         let bumpable: HashSet<String> = new.clocks.into_keys().collect();
 
         assert_eq!(seeded, bumpable);
-        assert_eq!(seeded.len(), 28);
+        assert_eq!(seeded.len(), 29);
     }
 }

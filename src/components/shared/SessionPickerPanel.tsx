@@ -85,7 +85,6 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
     const sessionIds = [...selectedSessionIds];
     const pickedConnections = connections.filter((c) => selectedConnectionIds.has(c.id));
 
-    // Inject into already-connected sessions immediately
     onConfirm(sessionIds);
 
     const connectionSessionIds = pickedConnections.length > 0

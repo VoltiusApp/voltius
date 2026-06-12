@@ -44,11 +44,9 @@ function parseSshConfig(content: string): SshHost[] {
     const value = line.slice(spaceIdx).trim();
 
     if (key === "host") {
-      // Flush previous
       if (current?.hostname && current?.user) {
         hosts.push(current as SshHost);
       }
-      // Skip wildcards and patterns
       if (value.includes("*") || value.includes("?") || value.includes("!")) {
         current = null;
       } else {
@@ -65,7 +63,6 @@ function parseSshConfig(content: string): SshHost[] {
     }
   }
 
-  // Flush last
   if (current?.hostname && current?.user) {
     hosts.push(current as SshHost);
   }
@@ -215,7 +212,6 @@ async function sync(api: PluginAPI): Promise<void> {
 
   // ── Add/update connections for each host in the config ──────────────────
   for (const host of hosts) {
-    // Resolve identity: create key + identity if IdentityFile is set
     let identityId: string | undefined;
     if (host.identityFile) {
       const keyId = await ensureKey(api, host.identityFile, keyMap, allKeys, notifyEnabled);
@@ -314,7 +310,6 @@ async function sync(api: PluginAPI): Promise<void> {
 
     for (const hop of hops) {
       const parsed = parseProxyJumpHop(hop);
-      // Try to match by alias first, then by hostname
       const refConnId = aliasMap[parsed.host];
       const refConn = refConnId
         ? allConnectionsNow.find((c) => c.id === refConnId)
@@ -330,7 +325,6 @@ async function sync(api: PluginAPI): Promise<void> {
           identity_id: refConn.identity_id,
         });
       } else {
-        // Referenced host not in saved connections — skip this hop
         api.log.info(`ProxyJump: host "${parsed.host}" not found in saved connections, skipping`);
       }
     }
@@ -447,7 +441,6 @@ function createSettingsComponent(api: PluginAPI): React.FC {
         React.createElement(
           "div",
           { className: "rounded-xl p-4", style: cardStyle },
-          // Poll interval row
           React.createElement(
             "div",
             { className: "flex items-center justify-between" },
@@ -482,7 +475,6 @@ function createSettingsComponent(api: PluginAPI): React.FC {
             )
           ),
           divider,
-          // Notifications toggle row
           React.createElement(
             "div",
             { className: "flex items-center justify-between" },
@@ -533,25 +525,21 @@ export const register: PluginRegisterFn = (api) => {
     sync(api).catch((e) => api.log.error("Initial ssh-config sync failed", e)),
   );
 
-  // Start watcher with stored or default interval
   api.storage.get<number>(POLL_INTERVAL_KEY).then((stored) => {
     startWatcher(stored ?? DEFAULT_POLL_INTERVAL);
   });
 
-  // Restart watcher when interval changes from settings
   const offEvent = api.events.on(RESTART_EVENT, (data) => {
     const newInterval = typeof data === "number" ? data : DEFAULT_POLL_INTERVAL;
     api.log.info(`Poll interval changed to ${newInterval}ms`);
     startWatcher(newInterval);
   });
 
-  // Manual sync triggered from settings
   const offSyncNow = api.events.on(SYNC_NOW_EVENT, () => {
     api.log.info("Manual sync triggered");
     sync(api).catch((e) => api.log.error("ssh-config manual sync failed", e));
   });
 
-  // Register settings page
   const unregisterSettings = api.ui.registerSettingsPage({
     id: `${manifest.id}:settings`,
     label: "SSH Config Sync",

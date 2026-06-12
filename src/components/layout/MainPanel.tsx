@@ -1,5 +1,7 @@
 import { useRef, useState } from "react";
 import { useSessionStore, type ConnectRetryOverride } from "@/stores/sessionStore";
+import { reconnectWithBackoff } from "@/stores/reconnectBackoff";
+import { handleSessionClosed } from "@/stores/reconnectBackoffCore";
 import { useUIStore } from "@/stores/uiStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useVaultStore } from "@/stores/vaultStore";
@@ -408,13 +410,13 @@ export default function MainPanel() {
                       <HostAwareTerminalView
                         session={session}
                         active={session.id === activeSessionId && session.status === "connected" && !overlayContent}
-                        onClosed={() => {
-                          if (session.type === "ssh" || session.type === "serial") {
-                            setTimeout(() => reconnect(session.id), 1500);
-                          } else {
-                            markDisconnected(session.id);
-                          }
-                        }}
+                        onClosed={() =>
+                          handleSessionClosed(session.type, session.id, {
+                            status: (id) => useSessionStore.getState().sessions.find((s) => s.id === id)?.status,
+                            markDisconnected,
+                            reconnectWithBackoff,
+                          })
+                        }
                       />
                     )}
                     {session.id === activeSessionId && !overlayContent && (

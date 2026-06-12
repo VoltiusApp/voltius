@@ -27,6 +27,9 @@ export async function sshConnect(params: {
   shellIntegration?: boolean;
   keepaliveIntervalSecs: number;
   keepaliveMax: number;
+  persist?: boolean;
+  cols?: number;
+  rows?: number;
 }): Promise<void> {
   return invoke("ssh_connect", {
     sessionId: params.sessionId,
@@ -45,11 +48,22 @@ export async function sshConnect(params: {
     shellIntegration: params.shellIntegration ?? null,
     keepaliveIntervalSecs: params.keepaliveIntervalSecs,
     keepaliveMax: params.keepaliveMax,
+    persist: params.persist ?? null,
+    cols: params.cols ?? null,
+    rows: params.rows ?? null,
   });
 }
 
-export async function sshDisconnect(sessionId: string, postCommand?: string): Promise<void> {
-  return invoke("ssh_disconnect", { sessionId, postCommand: postCommand ?? null });
+export async function sshDisconnect(
+  sessionId: string,
+  postCommand?: string,
+  killPersistent?: boolean,
+): Promise<void> {
+  return invoke("ssh_disconnect", {
+    sessionId,
+    postCommand: postCommand ?? null,
+    killPersistent: killPersistent ?? null,
+  });
 }
 
 export async function sshSendInput(sessionId: string, data: Uint8Array): Promise<void> {
