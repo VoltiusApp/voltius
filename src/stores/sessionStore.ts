@@ -27,6 +27,7 @@ import { useIdentityStore } from "@/stores/identityStore";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportAuditClientEvent, type ClientAuditAction } from "@/services/auditReporter";
 import { useConnectionStore, connectionToFormData } from "./connectionStore";
+import { findSavedHostMatch } from "./savedHostMatch";
 import { useUIStore } from "./uiStore";
 import { useTerminalSettingsStore } from "./terminalSettingsStore";
 import { getToggle } from "./toggleSettingsStore";
@@ -428,6 +429,38 @@ async function persistConnectAuth(connection: Connection, override: ConnectRetry
   }
 
   await useConnectionStore.getState().updateConnection(connection.id, data);
+}
+
+/**
+ * Turn an ephemeral (quick-connect) connection into a saved host: reuse a
+ * matching Personal-vault host if one exists, otherwise create one, then
+ * persist the auth the user just entered. Returns the saved connection.
+ */
+async function materializeSavedConnection(
+  connection: Connection,
+  override: ConnectRetryOverride,
+): Promise<Connection> {
+  const username = override.username?.trim() || connection.username;
+  const { connections } = useConnectionStore.getState();
+  const match = findSavedHostMatch(connections, {
+    host: connection.host,
+    port: connection.port,
+    username,
+    vaultId: "personal",
+  });
+  const target =
+    match ??
+    (await useConnectionStore.getState().saveConnection({
+      name: connection.name,
+      host: connection.host,
+      port: connection.port,
+      username,
+      vault_id: "personal",
+      auth_type: "password", // placeholder; corrected below by persistConnectAuth
+      tags: [],
+    }));
+  await persistConnectAuth(target, override);
+  return target;
 }
 
 function beginConnection(set: SessionSetter, connectionId: string): string {
@@ -974,7 +1007,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   retryConnect: async (sessionId, override, save) => {
     const session = get().sessions.find((s) => s.id === sessionId);
     if (!session || session.type !== "ssh") return;
-    const connection = findConnection(session.connectionId);
+    let connection = findConnection(session.connectionId);
     if (!connection) return;
 
     // Carry overrides across the two-step prompt flow: a username entered first
@@ -1013,20 +1046,38 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       }
 
       if (save) {
-        await persistConnectAuth(connection, merged).catch(() => {});
+        if (ephemeralConnections.has(connection.id)) {
+          // Intentionally not caught (unlike the saved-host path below): a failed
+          // create must surface as a connect error rather than let the session
+          // proceed pointing at the now-stale ephemeral id.
+          const oldId = connection.id;
+          const target = await materializeSavedConnection(connection, merged);
+          set((s) => ({
+            sessions: s.sessions.map((sess) =>
+              sess.id === sessionId
+                ? { ...sess, connectionId: target.id, connectionName: target.name?.trim() || sess.connectionName }
+                : sess,
+            ),
+          }));
+          ephemeralConnections.delete(oldId);
+          connection = target;
+        } else {
+          await persistConnectAuth(connection, merged).catch(() => {});
+        }
       }
 
-      const opts = await buildSshConnectOptions(connection, sessionId);
+      const conn = connection;
+      const opts = await buildSshConnectOptions(conn, sessionId);
       await withSessionConnectLock(sessionId, () =>
         sshConnect({
           sessionId,
-          host: connection.host,
-          port: connection.port,
+          host: conn.host,
+          port: conn.port,
           username,
           password,
           privateKey,
           passphrase,
-          connectionId: connection.id,
+          connectionId: conn.id,
           attachOnly: !!(session.persist && session.everConnected),
           ...opts,
         }),
@@ -1037,8 +1088,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           sess.id === sessionId ? { ...sess, status: "connected" as const, everConnected: true } : sess,
         ),
       }));
-      useConnectionStore.getState().setLastUsed(connection.id).catch(() => {});
-      reportConnectionAudit(connection, "connection.started");
+      useConnectionStore.getState().setLastUsed(conn.id).catch(() => {});
+      reportConnectionAudit(conn, "connection.started");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       set((s) => ({
