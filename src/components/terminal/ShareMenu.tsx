@@ -84,7 +84,6 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
     }
   }, [open]);
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {

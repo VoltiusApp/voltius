@@ -109,7 +109,6 @@ function ensureLifecycleSetup() {
       }]),
     );
 
-    // Detect newly connected
     for (const [sid, snap] of currentMap) {
       const prev = prevSessions.get(sid);
       if (snap.status === "connected" && prev?.status !== "connected") {
@@ -120,7 +119,6 @@ function ensureLifecycleSetup() {
       }
     }
 
-    // Detect removed or disconnected sessions that were previously connected
     for (const [sid, snap] of prevSessions) {
       if (snap.status !== "connected") continue;
       const curr = currentMap.get(sid);
@@ -132,7 +130,6 @@ function ensureLifecycleSetup() {
       }
     }
 
-    // Detect active session change
     if (activeSessionId !== prevActiveId && activeSessionId) {
       const snap = currentMap.get(activeSessionId);
       if (snap) {
@@ -184,7 +181,6 @@ function parseKeybinding(raw: string): Omit<PluginKeybinding, "execute"> | null 
   const parts = raw.toLowerCase().split("+");
   const key = parts[parts.length - 1];
   if (!key) return null;
-  // Normalize: display key as uppercase single char or special key name
   const displayKey = key.length === 1 ? key.toUpperCase() : key;
   return {
     key: displayKey,
@@ -230,7 +226,6 @@ function registerKeybinding(commandId: string, raw: string, execute: () => void)
   const parsed = parseKeybinding(raw);
   if (!parsed) return null;
 
-  // Conflict check
   for (const [existingId, kb] of _pluginKeybindings) {
     if (kb.key === parsed.key && kb.ctrl === parsed.ctrl && kb.shift === parsed.shift) {
       console.warn(`[plugin-runtime] Keybinding "${raw}" already registered by "${existingId}", ignoring "${commandId}"`);
@@ -288,7 +283,7 @@ async function populateDefaults(pluginId: string, config: Record<string, PluginC
   }
 }
 
-// ─── Event bus partagé ────────────────────────────────────────────────────
+// ─── Shared event bus ─────────────────────────────────────────────────────
 
 const _eventHandlers = new Map<string, Set<(data: unknown) => void>>();
 
@@ -301,11 +296,11 @@ function busOn(event: string, handler: (data: unknown) => void): () => void {
 function busEmit(pluginId: string, event: string, data?: unknown): void {
   const prefixed = `${pluginId}:${event}`;
   _eventHandlers.get(prefixed)?.forEach((h) => h(data));
-  // émet aussi sans préfixe pour les cas intra-plugin
+  // also emit unprefixed for intra-plugin listeners
   _eventHandlers.get(event)?.forEach((h) => h(data));
 }
 
-// ─── Plugin storage (JSON dans app data) ─────────────────────────────────
+// ─── Plugin storage (JSON in app data) ───────────────────────────────────
 
 async function storageGet<T>(pluginId: string, key: string): Promise<T | null> {
   try {
@@ -324,7 +319,7 @@ async function storageDelete(pluginId: string, key: string): Promise<void> {
   await invoke("plugin_storage_delete", { pluginId, key });
 }
 
-// ─── Vérification de permissions ─────────────────────────────────────────
+// ─── Permission checks ───────────────────────────────────────────────────
 
 function requirePerm(manifest: PluginManifest, perm: string): void {
   if (!manifest.permissions.includes(perm)) {
@@ -332,7 +327,7 @@ function requirePerm(manifest: PluginManifest, perm: string): void {
   }
 }
 
-// ─── Création de l'API scopée ─────────────────────────────────────────────
+// ─── Scoped plugin API ────────────────────────────────────────────────────
 
 function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const id = manifest.id;
@@ -717,7 +712,6 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
         if (!session) throw new Error(`Session "${sessionId}" not found`);
         if (session.type === "local") {
-          // Local shell: use localSendInput if available, fall back gracefully
           const { invoke } = await import("@tauri-apps/api/core");
           const encoded = new TextEncoder().encode(cmd + "\n");
           await invoke("local_send_input", { sessionId, data: Array.from(encoded) });
@@ -781,7 +775,6 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       onRemoteChange(key, cb) {
         requirePerm(manifest, "sync:read");
         let lastKnownRaw: string | null | undefined;
-        // Initialize baseline
         storageGet<string>(id, `__sync__${key}`).then((v) => { lastKnownRaw = v; }).catch(() => {});
 
         const unsub = onSyncStateChange(async () => {
@@ -830,7 +823,6 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
 
       async importStates(encKey, blobs) {
         requirePerm(manifest, "sync:write");
-        // Start from current local state
         let { files: mergedFiles, secrets: mergedSecrets } =
           await invoke<BlobPayload>("state_export_raw");
 

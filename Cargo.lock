@@ -2346,6 +2346,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "hostname"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "617aaa3557aef3810a6369d0a99fac8a080891b68bd9f9812a1eeda0c0730cbd"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "windows-link 0.2.1",
+]
+
+[[package]]
 name = "html5ever"
 version = "0.38.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6860,7 +6871,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "voltius"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "aes 0.9.0",
  "apple-native-keyring-store",
@@ -6875,6 +6886,7 @@ dependencies = [
  "futures-util",
  "gio",
  "hkdf 0.12.4",
+ "hostname",
  "keyring-core",
  "libsecret",
  "linux-keyutils-keyring-store",

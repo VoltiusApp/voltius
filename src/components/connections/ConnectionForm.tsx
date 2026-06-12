@@ -93,10 +93,14 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [shellIntegrationDisabled, setShellIntegrationDisabled] = useState<boolean | undefined>(initial?.shell_integration_disabled);
   const [globalShellIntegration] = useToggle("shell-integration");
   const [globalKeepalive] = useGlobalKeepalivePreset();
+  const [globalPersist] = useToggle("persistent-sessions");
   const [preCommand, setPreCommand] = useState(initial?.pre_command ?? "");
   const [postCommand, setPostCommand] = useState(initial?.post_command ?? "");
   const [terminalEncoding, setTerminalEncoding] = useState(initial?.terminal_encoding ?? "");
   const [keepalivePreset, setKeepalivePreset] = useState<KeepalivePreset | "">(initial?.keepalive_preset ?? "");
+  const [persistSession, setPersistSession] = useState<"" | "on" | "off">(
+    initial?.persist_session === undefined ? "" : initial.persist_session ? "on" : "off",
+  );
   const [distro, setDistro] = useState(initial?.distro ?? "");
   const [icon, setIcon] = useState(initial?.icon ?? "");
   const [showDistroPicker, setShowDistroPicker] = useState(false);
@@ -243,6 +247,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         ping_disabled: pingDisabled || undefined,
         shell_integration_disabled: shellIntegrationDisabled,
         keepalive_preset: keepalivePreset || undefined,
+        persist_session: persistSession === "" ? undefined : persistSession === "on",
       } as ConnectionFormData,
       password: passwordDirty.current ? password : null,
       privateKey: (!identityId && !keyId && privateKeyDirty.current) ? privateKey : null,
@@ -258,7 +263,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, host, port, username, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, preCommand, postCommand, terminalEncoding, distro, icon, pingDisabled, shellIntegrationDisabled, keepalivePreset]);
+  useEffect(() => schedule(), [name, host, port, username, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, preCommand, postCommand, terminalEncoding, distro, icon, pingDisabled, shellIntegrationDisabled, keepalivePreset, persistSession]);
 
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
@@ -287,6 +292,12 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
     { value: "", label: `Inherit (${KEEPALIVE_PRESETS[globalKeepalive].label})` },
     ...(Object.keys(KEEPALIVE_PRESETS) as KeepalivePreset[]).map((p) => ({ value: p, label: KEEPALIVE_PRESETS[p].label })),
   ], [globalKeepalive]);
+
+  const persistOptions = useMemo(() => [
+    { value: "", label: `Inherit (${globalPersist ? "On" : "Off"})` },
+    { value: "on", label: "On" },
+    { value: "off", label: "Off" },
+  ], [globalPersist]);
 
   const filteredIcons = useMemo(() => {
     const query = distroSearch.trim().toLowerCase();
@@ -661,6 +672,16 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                     value={keepalivePreset}
                     options={keepaliveOptions}
                     onChange={(v) => { markDirty(); setKeepalivePreset(v as KeepalivePreset | ""); }}
+                  />
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-(--t-text-dim) w-full py-1">
+                  <Icon icon="lucide:layers" width={13} />
+                  <span>Persistent session</span>
+                  <FormSelect
+                    className="ml-auto w-36"
+                    value={persistSession}
+                    options={persistOptions}
+                    onChange={(v) => { markDirty(); setPersistSession(v as "" | "on" | "off"); }}
                   />
                 </div>
 

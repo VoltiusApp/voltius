@@ -26,6 +26,17 @@ import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import type { ActiveSession } from "@/stores/teamSessionStore";
 import { getCurrentUserEmail } from "@/services/account";
 import { useToggleSettings } from "@/hooks/useToggleSettings";
+import { parseQuickConnect, type QuickConnectIntent } from "@/services/quickConnect";
+import { launchHost, launchQuickConnect, launchLocalShell } from "@/services/launch";
+import {
+  selectRecentHosts,
+  selectLocalShellItems,
+  localShellNeedsPath,
+  shellLabel,
+  shellIcon,
+  type ShellOption,
+} from "@/components/layout/newSessionItems";
+import { useLocalShells } from "@/hooks/useLocalShells";
 
 interface OmniSearchProps {
   onClose: () => void;
@@ -40,11 +51,12 @@ type OmniItem =
   | { kind: "snippet"; snippet: Snippet }
   | { kind: "team-session"; session: ActiveSession; alreadyIn: boolean }
   | { kind: "toggle"; id: string; label: string; icon: string; description?: string; keywords?: string[]; value: boolean; onToggle: (v: boolean) => void }
-  | { kind: "ssh-quick"; id: string; label: string; icon: string; user: string; host: string; port: number }
+  | { kind: "quick-connect"; intent: Exclude<QuickConnectIntent, null> }
   | { kind: "join-code"; id: string; label: string; icon: string; code: string }
-  | { kind: "join-code-prompt"; id: string; label: string; icon: string };
+  | { kind: "join-code-prompt"; id: string; label: string; icon: string }
+  | { kind: "local-shell"; shell: ShellOption | null };
 
-type Category = "all" | "snippets" | "marketplace" | "settings" | "ssh" | "join";
+type Category = "all" | "snippets" | "marketplace" | "settings" | "join";
 
 const CATEGORY_BADGES: { category: Category; prefix: string; label: string }[] = [
   { category: "all",         prefix: "",      label: "All" },
@@ -58,22 +70,8 @@ function detectCategory(raw: string): { category: Category; query: string } {
   if (raw.startsWith("m> "))   return { category: "marketplace", query: raw.slice(3) };
   if (raw.startsWith("> "))    return { category: "snippets",    query: raw.slice(2) };
   if (raw.startsWith("@ "))    return { category: "settings",    query: raw.slice(2) };
-  if (raw.startsWith("ssh "))  return { category: "ssh",         query: raw.slice(4) };
   if (raw.startsWith("join ")) return { category: "join",        query: raw.slice(5) };
   return { category: "all", query: raw };
-}
-
-function parseSshTarget(raw: string): { user: string; host: string; port: number } | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  const atIdx = trimmed.indexOf("@");
-  const user = atIdx >= 0 ? trimmed.slice(0, atIdx) : "";
-  const rest = atIdx >= 0 ? trimmed.slice(atIdx + 1) : trimmed;
-  const colonIdx = rest.indexOf(":");
-  const host = colonIdx >= 0 ? rest.slice(0, colonIdx) : rest;
-  const port = colonIdx >= 0 ? parseInt(rest.slice(colonIdx + 1), 10) || 22 : 22;
-  if (!host) return null;
-  return { user: user || "root", host, port };
 }
 
 
@@ -104,8 +102,9 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const listRef = useRef<HTMLDivElement>(null);
 
   const connections = useAllConnections();
+  const shells = useLocalShells();
   const deleteConnection = useConnectionStore((s) => s.deleteConnection);
-  const { sessions, setActive, connect, connectDirect } = useSessionStore();
+  const { sessions, setActive } = useSessionStore();
   const snippets = useSnippetStore((s) => s.snippets);
   const { trackUsed, setGlobalPendingInject } = useSnippetStore();
   const identities = useIdentityStore((s) => s.identities);
@@ -172,9 +171,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   );
 
   const recentConnections = useMemo(
-    () => [...connections]
-      .filter((c) => c.last_used_at && !activeConnectionIds.has(c.id))
-      .sort((a, b) => (b.last_used_at ?? "").localeCompare(a.last_used_at ?? "")),
+    () => selectRecentHosts(connections, activeConnectionIds),
     [activeConnectionIds, connections],
   );
 
@@ -208,10 +205,6 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         .map((s): OmniItem => ({ kind: "snippet", snippet: s }));
     }
     if (category === "marketplace") return [];
-    if (category === "ssh") {
-      const target = parseSshTarget(q);
-      return target ? [{ kind: "ssh-quick", id: "", label: "", icon: "", ...target }] : [];
-    }
     if (category === "join") {
       if (q.includes(":")) {
         return [{ kind: "join-code", id: "", label: "", icon: "", code: q }];
@@ -223,6 +216,13 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     }
 
     const result: OmniItem[] = [];
+
+    // Local shells are surfaced by the dedicated Local section below, so skip
+    // the redundant local Quick Connect row.
+    const quickIntent = parseQuickConnect(query);
+    if (quickIntent && quickIntent.kind !== "local") {
+      result.push({ kind: "quick-connect", intent: quickIntent });
+    }
 
     // Active SSH sessions
     result.push(
@@ -253,6 +253,11 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       return !activeConnectionIds.has(c.id) && !c.last_used_at;
     });
     result.push(...filteredHosts.map((c): OmniItem => ({ kind: "host", connection: c })));
+
+    // Local shells — single entry when no query, expands to per-shell rows when query matches "local"/a shell name
+    result.push(
+      ...selectLocalShellItems(shells, q).map((it): OmniItem => ({ kind: "local-shell", shell: it.shell })),
+    );
 
     // SSH Keys
     result.push(
@@ -327,7 +332,14 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     }
 
     return result;
-  }, [category, q, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts, teamSessions, myMpSessionIds, toggleItems]);
+  }, [category, q, query, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts, teamSessions, myMpSessionIds, toggleItems, shells]);
+
+  const shellNeedsPath = useMemo(() => {
+    const shown = items
+      .filter((i): i is Extract<OmniItem, { kind: "local-shell" }> => i.kind === "local-shell" && !!i.shell)
+      .map((i) => i.shell!);
+    return localShellNeedsPath(shown);
+  }, [items]);
 
   const clamp = useCallback(
     (idx: number) => Math.max(0, Math.min(idx, items.length - 1)),
@@ -339,9 +351,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const selectItem = useCallback(
     (item: OmniItem) => {
       if (item.kind === "host") {
-        connect(item.connection.id).catch(() => {});
-        setSidebarOpen(false);
-        setActiveNav("terminal");
+        launchHost(item.connection.id);
         onClose();
       } else if (item.kind === "session") {
         setActive(item.session.id);
@@ -470,28 +480,15 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           }
         }
         onClose();
-      } else if (item.kind === "ssh-quick") {
-        const i = item;
-        connectDirect({
-          id: crypto.randomUUID(),
-          name: `${i.user}@${i.host}`,
-          host: i.host,
-          port: i.port,
-          username: i.user,
-          auth_type: "password",
-          tags: [],
-          vault_id: "personal",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          last_used_at: null,
-          clocks: {},
-        }).catch(() => {});
-        setSidebarOpen(false);
-        setActiveNav("terminal");
+      } else if (item.kind === "local-shell") {
+        launchLocalShell(item.shell?.path);
+        onClose();
+      } else if (item.kind === "quick-connect") {
+        launchQuickConnect(item.intent);
         onClose();
       }
     },
-    [connect, connectDirect, setActive, setActiveNav, onClose, setSidebarOpen,
+    [setActive, setActiveNav, onClose, setSidebarOpen,
      openSettings, setHomePendingAction, setKeychainPendingAction, pluginCommands,
      sessions, connections, trackUsed, setGlobalPendingInject, joinSession],
   );
@@ -519,6 +516,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const sectionBoundaries = useMemo(() => {
     if (category !== "all") return null;
     let idx = 0;
+    const quickConnectCount = items.filter((i) => i.kind === "quick-connect").length;
+    const quickConnectStart = idx; idx += quickConnectCount;
     const activeCount = items.filter((i) => i.kind === "session").length;
     const activeStart = idx; idx += activeCount;
 
@@ -530,6 +529,9 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
     const hostCount = items.filter((i) => i.kind === "host").length - recentCount;
     const hostStart = idx; idx += hostCount;
+
+    const localCount = items.filter((i) => i.kind === "local-shell").length;
+    const localStart = idx; idx += localCount;
 
     const keyCount = items.filter((i) => i.kind === "key").length;
     const keyStart = idx; idx += keyCount;
@@ -547,7 +549,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     const toggleStart = idx; idx += toggleCount;
     const settingsStart = idx;
 
-    return { activeStart, activeCount, teamSessionStart, teamSessionCount, recentStart, recentCount, hostStart, hostCount, keyStart, keyCount, identityStart, identityCount, snippetStart, snippetCount, actionStart, actionCount, toggleStart, toggleCount, settingsStart, settingsCount };
+    return { quickConnectStart, quickConnectCount, activeStart, activeCount, teamSessionStart, teamSessionCount, recentStart, recentCount, hostStart, hostCount, localStart, localCount, keyStart, keyCount, identityStart, identityCount, snippetStart, snippetCount, actionStart, actionCount, toggleStart, toggleCount, settingsStart, settingsCount };
   }, [category, items, q, recentConnections.length]);
 
   const statusColor = (s: TerminalSession) =>
@@ -897,11 +899,13 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       );
     }
 
-    // ssh-quick
-    if (item.kind === "ssh-quick") {
+    if (item.kind === "local-shell") {
+      const shell = item.shell;
+      const label = shell ? shellLabel(shell.name) : "Local shell";
+      const showPath = !!shell && shellNeedsPath.has(label);
       return (
         <button
-          key="ssh-quick"
+          key={shell ? `ls-${shell.path}` : "ls-default"}
           data-idx={idx}
           onClick={() => selectItem(item)}
           onMouseEnter={() => setSelected(idx)}
@@ -909,16 +913,42 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           style={{ background: baseBg }}
         >
           <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-toolbar)">
-            <Icon icon="lucide:arrow-right" width={13} className="text-(--t-accent)" />
+            <Icon icon={shell ? shellIcon(shell.name) : "lucide:square-terminal"} width={13} className="text-(--t-accent)" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium" style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>{label}</span>
+            {showPath && <p className="text-xs mt-0.5 font-mono truncate text-(--t-text-dim)">{shell?.path}</p>}
+          </div>
+        </button>
+      );
+    }
+
+    if (item.kind === "quick-connect") {
+      const intent = item.intent;
+      const { title, subtitle, icon } =
+        intent.kind === "ssh"
+          ? { title: `Connect to ${intent.user}@${intent.host}`, subtitle: `Port ${intent.port} — SSH`, icon: "lucide:arrow-right" }
+          : intent.kind === "serial"
+          ? { title: "Serial connection", subtitle: intent.port ?? "Configure port & baud", icon: "lucide:ethernet-port" }
+          : { title: intent.shell ? `Local shell (${intent.shell})` : "Local shell", subtitle: "Open a local terminal", icon: "lucide:square-terminal" };
+      return (
+        <button
+          key="quick-connect"
+          data-idx={idx}
+          onClick={() => selectItem(item)}
+          onMouseEnter={() => setSelected(idx)}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+          style={{ background: baseBg }}
+        >
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-toolbar)">
+            <Icon icon={icon} width={13} className="text-(--t-accent)" />
           </div>
           <div className="flex-1 min-w-0">
             <span className="text-sm font-medium"
               style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>
-              Connect to {item.user}@{item.host}
+              {title}
             </span>
-            <p className="text-xs mt-0.5 text-(--t-text-dim)">
-              Port {item.port} — quick SSH connection
-            </p>
+            <p className="text-xs mt-0.5 text-(--t-text-dim)">{subtitle}</p>
           </div>
         </button>
       );
@@ -1001,9 +1031,17 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         <div ref={listRef} className="overflow-y-auto py-2" style={{ maxHeight: "420px" }}>
           {category === "all" && sectionBoundaries ? (
             <>
+              {sectionBoundaries.quickConnectCount > 0 && (
+                <>
+                  {sectionHeader("Quick Connect", false)}
+                  {items.slice(sectionBoundaries.quickConnectStart, sectionBoundaries.quickConnectStart + sectionBoundaries.quickConnectCount)
+                    .map((item) => renderItem(item, runningIdx++))}
+                </>
+              )}
+
               {sectionBoundaries.activeCount > 0 && (
                 <>
-                  {sectionHeader("Active connections", false)}
+                  {sectionHeader("Active connections", sectionBoundaries.quickConnectCount > 0)}
                   {items.slice(sectionBoundaries.activeStart, sectionBoundaries.activeStart + sectionBoundaries.activeCount)
                     .map((item) => renderItem(item, runningIdx++))}
                 </>
@@ -1011,7 +1049,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
               {sectionBoundaries.teamSessionCount > 0 && (
                 <>
-                  {sectionHeader("Team Sessions", sectionBoundaries.activeCount > 0)}
+                  {sectionHeader("Team Sessions", sectionBoundaries.quickConnectCount > 0 || sectionBoundaries.activeCount > 0)}
                   {items.slice(sectionBoundaries.teamSessionStart, sectionBoundaries.teamSessionStart + sectionBoundaries.teamSessionCount)
                     .map((item) => renderItem(item, runningIdx++))}
                 </>
@@ -1019,7 +1057,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
               {sectionBoundaries.recentCount > 0 && (
                 <>
-                  {sectionHeader("Recent", sectionBoundaries.activeCount > 0)}
+                  {sectionHeader("Recent", sectionBoundaries.quickConnectCount > 0 || sectionBoundaries.activeCount > 0)}
                   {items.slice(sectionBoundaries.recentStart, sectionBoundaries.recentStart + sectionBoundaries.recentCount)
                     .map((item) => renderItem(item, runningIdx++))}
                 </>
@@ -1027,15 +1065,23 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
               {sectionBoundaries.hostCount > 0 && (
                 <>
-                  {sectionHeader("Hosts", hasAbove(sectionBoundaries.activeCount, sectionBoundaries.recentCount))}
+                  {sectionHeader("Hosts", hasAbove(sectionBoundaries.quickConnectCount, sectionBoundaries.activeCount, sectionBoundaries.recentCount))}
                   {items.slice(sectionBoundaries.hostStart, sectionBoundaries.hostStart + sectionBoundaries.hostCount)
+                    .map((item) => renderItem(item, runningIdx++))}
+                </>
+              )}
+
+              {sectionBoundaries.localCount > 0 && (
+                <>
+                  {sectionHeader("Local", hasAbove(sectionBoundaries.quickConnectCount, sectionBoundaries.activeCount, sectionBoundaries.recentCount, sectionBoundaries.hostCount))}
+                  {items.slice(sectionBoundaries.localStart, sectionBoundaries.localStart + sectionBoundaries.localCount)
                     .map((item) => renderItem(item, runningIdx++))}
                 </>
               )}
 
               {(sectionBoundaries.keyCount > 0 || sectionBoundaries.identityCount > 0) && (
                 <>
-                  {sectionHeader("Keychain", hasAbove(sectionBoundaries.activeCount, sectionBoundaries.recentCount, sectionBoundaries.hostCount))}
+                  {sectionHeader("Keychain", hasAbove(sectionBoundaries.quickConnectCount, sectionBoundaries.activeCount, sectionBoundaries.recentCount, sectionBoundaries.hostCount, sectionBoundaries.localCount))}
                   {items.slice(sectionBoundaries.keyStart, sectionBoundaries.keyStart + sectionBoundaries.keyCount)
                     .map((item) => renderItem(item, runningIdx++))}
                   {items.slice(sectionBoundaries.identityStart, sectionBoundaries.identityStart + sectionBoundaries.identityCount)
@@ -1078,7 +1124,6 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           ) : (
             <>
               {category === "settings" && sectionHeader("Settings", false)}
-              {category === "ssh" && items.length > 0 && sectionHeader("Quick connect", false)}
               {category === "join" && items[0]?.kind === "join-code" && sectionHeader("Join by invite code", false)}
               {category === "join" && items[0]?.kind !== "join-code" && sectionHeader("Team Sessions", false)}
               {items.map((item) => renderItem(item, runningIdx++))}
@@ -1089,7 +1134,6 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
             <p className="px-4 py-6 text-sm text-center text-(--t-text-dim)">
               {category === "snippets" ? "No snippets yet" :
                category === "marketplace" ? "Marketplace coming soon" :
-               category === "ssh" ? "Type ssh user@host to quick connect" :
                category === "join" ? (q ? `No sessions match "${q}"` : "No active team sessions") :
                `No results for "${q || query}"`}
             </p>

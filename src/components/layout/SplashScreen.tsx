@@ -123,7 +123,6 @@ export default function SplashScreen({ onReady }: Props) {
     await finishLoading();
   };
 
-  // Show AuthPage when vault check is done and we need user input
   if (phase === "auth-first-launch") return <AuthPage isLocked={false} onReady={handleAuthReady} />;
   if (phase === "auth-locked") return <AuthPage isLocked={true} onReady={handleAuthReady} />;
 

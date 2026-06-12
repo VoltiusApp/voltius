@@ -22,6 +22,7 @@ import * as teamService from "@/services/teamService";
 import { appFetch } from "@/services/http";
 import { SseDataLineParser } from "@/services/realtimeSseEvents";
 import { connectNativeSse } from "@/services/nativeSseStream";
+import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
 
 export interface BlobPayload {
   files: Record<string, string>;
@@ -100,6 +101,18 @@ async function applyRemoteSettings(remotePayload: BlobPayload): Promise<void> {
     if (updatedKeys.length === 0) return;
     await invoke("settings_save", { state: JSON.stringify(merged) });
     await applyUserDataBundle(merged, updatedKeys);
+  } catch {}
+}
+
+function applyRemoteLiveSessions(remoteDeviceId: string, remotePayload: BlobPayload): void {
+  try {
+    const raw = remotePayload.files["live_sessions.json"];
+    if (!raw) return;
+    const doc = JSON.parse(raw) as { deviceId?: string };
+    // The manifest names its publisher; a blob restored onto a different
+    // device could carry a stale foreign manifest — only trust a match.
+    if (doc?.deviceId !== remoteDeviceId) return;
+    useCrossDeviceSessionsStore.getState().ingestManifest(doc);
   } catch {}
 }
 
@@ -375,7 +388,6 @@ async function completeTeamLoginSetup(): Promise<void> {
     localStorage.setItem("voltius.team_key_migration_v1", "1");
   }
 
-  // Load all team vaults into memory.
   await onTeamLogin();
 }
 
@@ -398,13 +410,12 @@ async function pullAndMerge(remoteDeviceId: string): Promise<boolean> {
   const { blob: blobB64 } = await res.json();
   const blobBytes = base64ToBytes(blobB64);
 
-  // Decrypt remote blob without writing to disk
   const remotePayload = await invoke<BlobPayload>("backup_decrypt", { encKey, blob: blobBytes });
 
   await applyRemoteTheme(remotePayload);
   await applyRemoteSettings(remotePayload);
+  applyRemoteLiveSessions(remoteDeviceId, remotePayload);
 
-  // Get current local raw state (includes tombstones)
   const localPayload = await invoke<BlobPayload>("state_export_raw");
 
   const parse = (payload: BlobPayload, file: string): TimestampedEntity[] => {
@@ -412,7 +423,6 @@ async function pullAndMerge(remoteDeviceId: string): Promise<boolean> {
     catch { return []; }
   };
 
-  // CRDT-merge each entity file; track whether remote contributed any new data
   const mergedFiles: Record<string, string> = {};
   let anyChange = false;
   for (const file of ENTITY_FILES) {
@@ -489,7 +499,6 @@ export async function syncNow(forcePush = false): Promise<void> {
       }
     }
 
-    // Reload stores after all merges
     if (anyPersonalChanged) {
       await reloadAllStores();
     }
@@ -563,6 +572,7 @@ export async function syncOnLoginReplace(): Promise<void> {
 
         await applyRemoteTheme(remotePayload);
         await applyRemoteSettings(remotePayload);
+        applyRemoteLiveSessions(device.device_id, remotePayload);
 
         const newFiles: Record<string, string> = {};
         for (const file of ENTITY_FILES) {
@@ -578,7 +588,6 @@ export async function syncOnLoginReplace(): Promise<void> {
       }
     }
 
-    // Write merged cloud state to disk (local state is entirely bypassed)
     await invoke("state_import", { files: mergedFiles, secrets: mergedSecrets });
     await reloadAllStores();
     await push();

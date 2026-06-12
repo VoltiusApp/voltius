@@ -754,10 +754,8 @@ export function SnippetsPage() {
       }
     }
 
-    // Immediately inject into already-connected sessions
     if (resolvedSessionIds.length > 0) void handleTrigger(snippet, entry.execute, resolvedSessionIds);
 
-    // Open new sessions for unresolved targets
     const connectionSessionIds = connectionIdsToOpen.length > 0
       ? await useSessionStore.getState().connectMany(connectionIdsToOpen).catch(() => [] as string[])
       : [];

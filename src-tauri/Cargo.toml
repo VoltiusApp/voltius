@@ -1,6 +1,6 @@
 [package]
 name = "voltius"
-version = "0.3.1"
+version = "0.4.0"
 description = "Open-Source SSH & SFTP Client"
 authors = ["Voltius Contributors"]
 edition = "2021"
@@ -40,6 +40,7 @@ rand = "0.8"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
 keyring-core = "1"
 base64 = "0.22"
+hostname = "0.4"
 crypto_secretbox = "0.1"
 rusty-leveldb = "4"
 portable-pty = "0.9"

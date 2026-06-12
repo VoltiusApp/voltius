@@ -17,7 +17,7 @@ export interface ConnectRetryOverride {
 import { sshConnect, sshDisconnect, sshDetectDistro, sshSendInput } from "@/services/ssh";
 import { resolveKeepalive } from "@/utils/keepalive";
 import { resolveDisableOverride } from "@/utils/inheritedSetting";
-import { getGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
+import { getGlobalKeepalivePreset, resolvePersistSession } from "@/stores/connectivitySettingsStore";
 import { localConnect, localDisconnect } from "@/services/local";
 import { serialConnect, serialDisconnect } from "@/services/serial";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
@@ -27,6 +27,7 @@ import { useIdentityStore } from "@/stores/identityStore";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportAuditClientEvent, type ClientAuditAction } from "@/services/auditReporter";
 import { useConnectionStore, connectionToFormData } from "./connectionStore";
+import { findSavedHostMatch } from "./savedHostMatch";
 import { useUIStore } from "./uiStore";
 import { useTerminalSettingsStore } from "./terminalSettingsStore";
 import { getToggle } from "./toggleSettingsStore";
@@ -34,6 +35,7 @@ import { useLayoutStore } from "./layoutStore";
 import { useTerminalCwdStore } from "./terminalCwdStore";
 import { usePanelSftpStore } from "./panelSftpStore";
 import { formatLocalShellTitle } from "@/utils/localShellTitle";
+import { cancelBackoff } from "./reconnectBackoffCore";
 
 interface SessionStore {
   sessions: TerminalSession[];
@@ -46,25 +48,40 @@ interface SessionStore {
   beginLocalSession: (shell?: string) => string;
   connectAt: (connectionId: string, cwd: string) => Promise<void>;
   connectSerial: (connectionId: string) => Promise<void>;
-  connectSerialEphemeral: () => Promise<void>;
+  connectSerialEphemeral: (initialPort?: string) => Promise<void>;
   connectSerialEphemeralFinalize: (sessionId: string, params: SerialConnectParams) => Promise<void>;
   resetSerialEphemeral: (sessionId: string) => void;
   disconnect: (sessionId: string) => Promise<void>;
   setActive: (sessionId: string) => void;
   markDisconnected: (sessionId: string) => void;
+  markConnecting: (sessionId: string) => void;
   removeSession: (sessionId: string) => void;
-  reconnect: (sessionId: string) => Promise<void>;
+  reconnect: (sessionId: string, options?: { restore?: boolean }) => Promise<void>;
+  /** Silent reconnect for the auto-backoff loop: performs the same connect as
+   * reconnect() but mutates no visible status, returning the outcome so the loop
+   * can hold a single steady "reconnecting" state and decide what to surface. */
+  reconnectAttempt: (sessionId: string) => Promise<{ ok: boolean; errorMessage?: string }>;
   reconnectWithPassphrase: (sessionId: string, passphrase: string, save: boolean) => Promise<void>;
   retryConnect: (sessionId: string, override: ConnectRetryOverride, save: boolean) => Promise<void>;
+  restoreSessions: (sessions: TerminalSession[], activeSessionId: string | null) => void;
+  markConnected: (sessionId: string) => void;
+  markError: (sessionId: string, message: string) => void;
 }
 
 type SessionSetter = (fn: (s: { sessions: TerminalSession[]; activeSessionId: string | null }) => Partial<SessionStore>) => void;
+
+// Quick-connect (ephemeral) connections are never written to the connection
+// store, so retry/reconnect paths that look a connection up by id would
+// otherwise fail to find them. Registered on connectDirect, cleared on
+// removeSession.
+const ephemeralConnections = new Map<string, Connection>();
 
 function findConnection(connectionId: string): Connection | undefined {
   const { connections, teamConnections } = useConnectionStore.getState();
   return (
     connections.find((c) => c.id === connectionId) ??
-    Object.values(teamConnections).flat().find((c) => c.id === connectionId)
+    Object.values(teamConnections).flat().find((c) => c.id === connectionId) ??
+    ephemeralConnections.get(connectionId)
   );
 }
 
@@ -76,10 +93,46 @@ function reportConnectionAudit(connection: Connection, action: ClientAuditAction
   });
 }
 
-// Per-host preset wins; otherwise the global default.
-function keepaliveArgs(connection: Connection): { keepaliveIntervalSecs: number; keepaliveMax: number } {
+async function buildSshConnectOptions(
+  connection: Connection,
+  sessionId: string,
+): Promise<{
+  jumpHosts: Awaited<ReturnType<typeof resolveJumpHosts>> | undefined;
+  envVars: [string, string][] | undefined;
+  agentForwarding: boolean;
+  preCommand: string | undefined;
+  autoForward: boolean;
+  shellIntegration: boolean;
+  keepaliveIntervalSecs: number;
+  keepaliveMax: number;
+  persist: boolean;
+  cols?: number;
+  rows?: number;
+}> {
+  const jumpHosts = await resolveJumpHosts(connection);
+  const envVars = connection.env_vars?.map((e): [string, string] => [e.key, e.value]) ?? [];
   const { intervalSecs, max } = resolveKeepalive(connection.keepalive_preset ?? getGlobalKeepalivePreset());
-  return { keepaliveIntervalSecs: intervalSecs, keepaliveMax: max };
+
+  let dims: { cols: number; rows: number } | Record<string, never> = {};
+  try {
+    const { getTerminalDims } = await import("@/hooks/useTerminal");
+    dims = getTerminalDims(sessionId) ?? {};
+  } catch {
+    dims = {};
+  }
+
+  return {
+    jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
+    envVars: envVars.length > 0 ? envVars : undefined,
+    agentForwarding: connection.agent_forwarding ?? false,
+    preCommand: connection.pre_command ?? undefined,
+    autoForward: getToggle("auto-forward"),
+    shellIntegration: resolveDisableOverride(connection.shell_integration_disabled, getToggle("shell-integration")),
+    keepaliveIntervalSecs: intervalSecs,
+    keepaliveMax: max,
+    persist: resolvePersistSession(connection.persist_session),
+    ...dims,
+  };
 }
 
 async function startSession(
@@ -104,6 +157,7 @@ function createSshSession(
     connectionId: connection.id,
     connectionName: connection.name?.trim() || `${connection.username}@${connection.host}:${connection.port}`,
     status: "connecting",
+    persist: resolvePersistSession(connection.persist_session),
     type: "ssh",
     encoding: connection.terminal_encoding,
   };
@@ -134,6 +188,27 @@ function preflightConnect(
   return null;
 }
 
+/**
+ * Serialize connect attempts per session id. The backoff loop's in-flight
+ * attempt, a manual reconnect, and workspace restore can otherwise issue
+ * concurrent sshConnect for one session — and if the remote `screen` is briefly
+ * absent at that moment they race into duplicate (zombie) servers, since screen
+ * has no name-collision protection. Chaining makes the second caller wait, so it
+ * re-attaches the server the first created instead of spawning its own.
+ */
+const sessionConnectChains = new Map<string, Promise<unknown>>();
+function withSessionConnectLock<T>(sessionId: string, fn: () => Promise<T>): Promise<T> {
+  const prev = sessionConnectChains.get(sessionId) ?? Promise.resolve();
+  // Run fn after prev settles either way — a failed prior attempt must not wedge the chain.
+  const next = prev.then(fn, fn);
+  sessionConnectChains.set(sessionId, next);
+  const clear = () => {
+    if (sessionConnectChains.get(sessionId) === next) sessionConnectChains.delete(sessionId);
+  };
+  void next.then(clear, clear);
+  return next;
+}
+
 async function connectSshSession(
   set: SessionSetter,
   connection: Connection,
@@ -153,39 +228,31 @@ async function connectSshSession(
     throw new Error(preflightError);
   }
 
-  const jumpHosts = await resolveJumpHosts(connection);
-
-  const envVars = connection.env_vars?.map((e): [string, string] => [e.key, e.value]) ?? [];
-  const preCommand = connection.pre_command ?? undefined;
+  const opts = await buildSshConnectOptions(connection, sessionId);
 
   try {
-    await sshConnect({
-      sessionId,
-      host: connection.host,
-      port: connection.port,
-      username: connection.username,
-      password,
-      privateKey,
-      passphrase,
-      connectionId: connection.id,
-      jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
-      envVars: envVars.length > 0 ? envVars : undefined,
-      agentForwarding: connection.agent_forwarding ?? false,
-      preCommand,
-      autoForward: getToggle("auto-forward"),
-      shellIntegration: resolveDisableOverride(connection.shell_integration_disabled, getToggle("shell-integration")),
-      ...keepaliveArgs(connection),
-    });
+    await withSessionConnectLock(sessionId, () =>
+      sshConnect({
+        sessionId,
+        host: connection.host,
+        port: connection.port,
+        username: connection.username,
+        password,
+        privateKey,
+        passphrase,
+        connectionId: connection.id,
+        ...opts,
+      }),
+    );
     set((s) => ({
       sessions: s.sessions.map((sess) =>
-        sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
+        sess.id === sessionId ? { ...sess, status: "connected" as const, everConnected: true } : sess,
       ),
     }));
 
     useConnectionStore.getState().setLastUsed(connection.id).catch(() => {});
     reportConnectionAudit(connection, "connection.started");
 
-    // Detect distro only if not already known
     if (!connection.distro) {
       sshDetectDistro(sessionId)
         .then((distro) => useConnectionStore.getState().setDistro(connection.id, distro))
@@ -364,6 +431,38 @@ async function persistConnectAuth(connection: Connection, override: ConnectRetry
   await useConnectionStore.getState().updateConnection(connection.id, data);
 }
 
+/**
+ * Turn an ephemeral (quick-connect) connection into a saved host: reuse a
+ * matching Personal-vault host if one exists, otherwise create one, then
+ * persist the auth the user just entered. Returns the saved connection.
+ */
+async function materializeSavedConnection(
+  connection: Connection,
+  override: ConnectRetryOverride,
+): Promise<Connection> {
+  const username = override.username?.trim() || connection.username;
+  const { connections } = useConnectionStore.getState();
+  const match = findSavedHostMatch(connections, {
+    host: connection.host,
+    port: connection.port,
+    username,
+    vaultId: "personal",
+  });
+  const target =
+    match ??
+    (await useConnectionStore.getState().saveConnection({
+      name: connection.name,
+      host: connection.host,
+      port: connection.port,
+      username,
+      vault_id: "personal",
+      auth_type: "password", // placeholder; corrected below by persistConnectAuth
+      tags: [],
+    }));
+  await persistConnectAuth(target, override);
+  return target;
+}
+
 function beginConnection(set: SessionSetter, connectionId: string): string {
   const connection = findConnection(connectionId);
   if (!connection) throw new Error("Connection not found");
@@ -444,6 +543,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   connectDirect: async (connection) => {
     const sessionId = crypto.randomUUID();
+    ephemeralConnections.set(connection.id, connection);
     await startSession(set as SessionSetter, connection, sessionId);
   },
 
@@ -562,7 +662,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     useUIStore.getState().setSidebarOpen(false);
   },
 
-  connectSerialEphemeral: async () => {
+  connectSerialEphemeral: async (initialPort?: string) => {
     const sessionId = crypto.randomUUID();
     const session: TerminalSession = {
       id: sessionId,
@@ -570,6 +670,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       connectionName: "Serial",
       status: "connecting",
       type: "serial",
+      initialSerialPort: initialPort,
     };
     set((s) => ({ sessions: [...s.sessions, session], activeSessionId: sessionId }));
     useLayoutStore.getState().setSplitTabActive(false);
@@ -613,6 +714,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   disconnect: async (sessionId) => {
+    cancelBackoff(sessionId);
     const session = get().sessions.find((s) => s.id === sessionId);
     if (session?.type === "local") {
       await localDisconnect(sessionId);
@@ -620,8 +722,35 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       await serialDisconnect(sessionId).catch(() => {});
     } else {
       const connection = session?.connectionId ? findConnection(session.connectionId) : undefined;
-      await sshDisconnect(sessionId, connection?.post_command);
-      if (connection) reportConnectionAudit(connection, "connection.ended");
+      const persist = !!session?.persist;
+      const wasAttached = session?.status === "connected";
+      // The tab closes immediately; kill/tombstone resolve in the background.
+      // Shared sessions: another device listing this session means close only
+      // detaches; otherwise the backend kills unless a client is still attached
+      // there (host-side count), and confirms with the kill sentinel — only a
+      // confirmed kill publishes the tombstone.
+      void (async () => {
+        let killed = false;
+        try {
+          let kill = true;
+          if (persist) {
+            const { otherDeviceListsSession } = await import("./crossDeviceSessionsStore");
+            kill = !otherDeviceListsSession(sessionId);
+          }
+          killed = await sshDisconnect(sessionId, connection?.post_command, kill, wasAttached);
+        } catch {
+          // best effort; an unreachable host means nothing was killed
+        }
+        if (persist && killed) {
+          const [{ useCrossDeviceSessionsStore }, { publishLiveSessionsNow }] = await Promise.all([
+            import("./crossDeviceSessionsStore"),
+            import("@/services/liveSessionPublisher"),
+          ]);
+          useCrossDeviceSessionsStore.getState().markClosed(sessionId);
+          publishLiveSessionsNow();
+        }
+        if (connection) reportConnectionAudit(connection, "connection.ended");
+      })();
     }
     const state = get();
     const remaining = state.sessions.filter((s) => s.id !== sessionId);
@@ -646,11 +775,48 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       ),
     })),
 
-  reconnect: async (sessionId) => {
+  // Steady "connecting" the auto-reconnect loop holds across attempts, so the
+  // overlay shows the normal connection steps (TCP step spinning) instead of a
+  // separate panel. Idempotent and clears any prior error.
+  markConnecting: (sessionId) =>
+    set((s) => {
+      const sess = s.sessions.find((x) => x.id === sessionId);
+      if (!sess || (sess.status === "connecting" && sess.errorMessage === undefined)) return s;
+      return {
+        sessions: s.sessions.map((x) =>
+          x.id === sessionId ? { ...x, status: "connecting" as const, errorMessage: undefined } : x,
+        ),
+      };
+    }),
+
+  // Rehydrate the whole session list at launch (workspace restore). Replaces
+  // state wholesale — only valid while the store is empty.
+  restoreSessions: (sessions, activeSessionId) =>
+    set(() => ({
+      sessions,
+      activeSessionId: activeSessionId ?? sessions[sessions.length - 1]?.id ?? null,
+    })),
+
+  markConnected: (sessionId) =>
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId
+          ? { ...sess, status: "connected" as const, errorMessage: undefined, everConnected: true }
+          : sess,
+      ),
+    })),
+
+  markError: (sessionId, message) =>
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: message } : sess,
+      ),
+    })),
+
+  reconnect: async (sessionId, options) => {
     const session = get().sessions.find((s) => s.id === sessionId);
     if (!session || (session.type !== "ssh" && session.type !== "serial")) return;
 
-    // Handle serial reconnect
     if (session.type === "serial" && session.serialConfig) {
       set((s) => ({
         sessions: s.sessions.map((sess) =>
@@ -674,7 +840,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       }
       return;
     }
-    if (session.type === "serial") return; // no config, can't reconnect
+    if (session.type === "serial") {
+      set((s) => ({
+        sessions: s.sessions.map((sess) =>
+          sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: "Serial port configuration not found" } : sess,
+        ),
+      }));
+      return;
+    }
 
     const connection = findConnection(session.connectionId);
     if (!connection) {
@@ -693,23 +866,80 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }));
 
     try {
-      await sshDisconnect(sessionId).catch(() => {});
-      const credentials = await resolveConnectionCredentials(connection);
-
-      await sshConnect({ sessionId, host: connection.host, port: connection.port, username: credentials.username, password: credentials.password, privateKey: credentials.privateKey, passphrase: credentials.passphrase, connectionId: connection.id, autoForward: getToggle("auto-forward"), shellIntegration: resolveDisableOverride(connection.shell_integration_disabled, getToggle("shell-integration")), ...keepaliveArgs(connection) });
+      await withSessionConnectLock(sessionId, async () => {
+        await sshDisconnect(sessionId).catch(() => {});
+        const credentials = await resolveConnectionCredentials(connection);
+        const opts = await buildSshConnectOptions(connection, sessionId);
+        await sshConnect({
+          sessionId,
+          host: connection.host,
+          port: connection.port,
+          username: credentials.username,
+          password: credentials.password,
+          privateKey: credentials.privateKey,
+          passphrase: credentials.passphrase,
+          connectionId: connection.id,
+          restore: options?.restore ?? false,
+          attachOnly: !!(session.persist && session.everConnected),
+          ...opts,
+        });
+      });
       set((s) => ({
         sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
+          sess.id === sessionId ? { ...sess, status: "connected" as const, everConnected: true } : sess,
         ),
       }));
       reportConnectionAudit(connection, "connection.started");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("SESSION_ENDED")) {
+        const { sessionEnded } = await import("@/services/crossDeviceSessions");
+        sessionEnded(sessionId);
+        return;
+      }
       set((s) => ({
         sessions: s.sessions.map((sess) =>
           sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: msg } : sess,
         ),
       }));
+    }
+  },
+
+  reconnectAttempt: async (sessionId) => {
+    const session = get().sessions.find((s) => s.id === sessionId);
+    if (!session) return { ok: false };
+    try {
+      if (session.type === "serial") {
+        if (!session.serialConfig) return { ok: false, errorMessage: "Serial port configuration not found" };
+        await serialConnect(session.serialConfig);
+        return { ok: true };
+      }
+      if (session.type !== "ssh") return { ok: false };
+      const connection = findConnection(session.connectionId);
+      if (!connection) return { ok: false, errorMessage: "Connection config not found" };
+      // restore:false — the xterm buffer still holds prior output, so the
+      // re-attach redraw repaints the live screen without duplicating scrollback.
+      await withSessionConnectLock(sessionId, async () => {
+        await sshDisconnect(sessionId).catch(() => {});
+        const credentials = await resolveConnectionCredentials(connection);
+        const opts = await buildSshConnectOptions(connection, sessionId);
+        await sshConnect({
+          sessionId,
+          host: connection.host,
+          port: connection.port,
+          username: credentials.username,
+          password: credentials.password,
+          privateKey: credentials.privateKey,
+          passphrase: credentials.passphrase,
+          connectionId: connection.id,
+          restore: false,
+          attachOnly: !!(session.persist && session.everConnected),
+          ...opts,
+        });
+      });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, errorMessage: err instanceof Error ? err.message : String(err) };
     }
   },
 
@@ -726,41 +956,41 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }));
 
     try {
-      await sshDisconnect(sessionId).catch(() => {});
-      const credentials = await resolveConnectionCredentials(connection);
+      await withSessionConnectLock(sessionId, async () => {
+        await sshDisconnect(sessionId).catch(() => {});
+        const credentials = await resolveConnectionCredentials(connection);
 
-      if (save) {
-        const keyId = connection.key_id ?? (() => {
-          if (!connection.identity_id) return undefined;
-          const { identities, teamIdentities } = useIdentityStore.getState();
-          const allIdentities = [...identities, ...Object.values(teamIdentities).flat()];
-          return allIdentities.find((i) => i.id === connection.identity_id)?.key_id;
-        })();
-        if (keyId) {
-          await storeSecret(`key:${keyId}:passphrase`, passphrase);
-        } else if (!connection.identity_id) {
-          await storeSecret(`passphrase:${connection.id}`, passphrase);
+        if (save) {
+          const keyId = connection.key_id ?? (() => {
+            if (!connection.identity_id) return undefined;
+            const { identities, teamIdentities } = useIdentityStore.getState();
+            const allIdentities = [...identities, ...Object.values(teamIdentities).flat()];
+            return allIdentities.find((i) => i.id === connection.identity_id)?.key_id;
+          })();
+          if (keyId) {
+            await storeSecret(`key:${keyId}:passphrase`, passphrase);
+          } else if (!connection.identity_id) {
+            await storeSecret(`passphrase:${connection.id}`, passphrase);
+          }
         }
-      }
 
-      const jumpHosts = await resolveJumpHosts(connection);
-      await sshConnect({
-        sessionId,
-        host: connection.host,
-        port: connection.port,
-        username: credentials.username,
-        password: credentials.password,
-        privateKey: credentials.privateKey,
-        passphrase,
-        connectionId: connection.id,
-        jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
-        autoForward: getToggle("auto-forward"),
-        shellIntegration: getToggle("shell-integration"),
-        ...keepaliveArgs(connection),
+        const opts = await buildSshConnectOptions(connection, sessionId);
+        await sshConnect({
+          sessionId,
+          host: connection.host,
+          port: connection.port,
+          username: credentials.username,
+          password: credentials.password,
+          privateKey: credentials.privateKey,
+          passphrase,
+          connectionId: connection.id,
+          attachOnly: !!(session.persist && session.everConnected),
+          ...opts,
+        });
       });
       set((s) => ({
         sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
+          sess.id === sessionId ? { ...sess, status: "connected" as const, everConnected: true } : sess,
         ),
       }));
       reportConnectionAudit(connection, "connection.started");
@@ -777,7 +1007,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   retryConnect: async (sessionId, override, save) => {
     const session = get().sessions.find((s) => s.id === sessionId);
     if (!session || session.type !== "ssh") return;
-    const connection = findConnection(session.connectionId);
+    let connection = findConnection(session.connectionId);
     if (!connection) return;
 
     // Carry overrides across the two-step prompt flow: a username entered first
@@ -816,35 +1046,50 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       }
 
       if (save) {
-        await persistConnectAuth(connection, merged).catch(() => {});
+        if (ephemeralConnections.has(connection.id)) {
+          // Intentionally not caught (unlike the saved-host path below): a failed
+          // create must surface as a connect error rather than let the session
+          // proceed pointing at the now-stale ephemeral id.
+          const oldId = connection.id;
+          const target = await materializeSavedConnection(connection, merged);
+          set((s) => ({
+            sessions: s.sessions.map((sess) =>
+              sess.id === sessionId
+                ? { ...sess, connectionId: target.id, connectionName: target.name?.trim() || sess.connectionName }
+                : sess,
+            ),
+          }));
+          ephemeralConnections.delete(oldId);
+          connection = target;
+        } else {
+          await persistConnectAuth(connection, merged).catch(() => {});
+        }
       }
 
-      const jumpHosts = await resolveJumpHosts(connection);
-      const envVars = connection.env_vars?.map((e): [string, string] => [e.key, e.value]) ?? [];
-      await sshConnect({
-        sessionId,
-        host: connection.host,
-        port: connection.port,
-        username,
-        password,
-        privateKey,
-        passphrase,
-        connectionId: connection.id,
-        jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
-        envVars: envVars.length > 0 ? envVars : undefined,
-        agentForwarding: connection.agent_forwarding ?? false,
-        preCommand: connection.pre_command ?? undefined,
-        autoForward: getToggle("auto-forward"),
-        shellIntegration: resolveDisableOverride(connection.shell_integration_disabled, getToggle("shell-integration")),
-      });
+      const conn = connection;
+      const opts = await buildSshConnectOptions(conn, sessionId);
+      await withSessionConnectLock(sessionId, () =>
+        sshConnect({
+          sessionId,
+          host: conn.host,
+          port: conn.port,
+          username,
+          password,
+          privateKey,
+          passphrase,
+          connectionId: conn.id,
+          attachOnly: !!(session.persist && session.everConnected),
+          ...opts,
+        }),
+      );
       connectOverrides.delete(sessionId);
       set((s) => ({
         sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "connected" as const } : sess,
+          sess.id === sessionId ? { ...sess, status: "connected" as const, everConnected: true } : sess,
         ),
       }));
-      useConnectionStore.getState().setLastUsed(connection.id).catch(() => {});
-      reportConnectionAudit(connection, "connection.started");
+      useConnectionStore.getState().setLastUsed(conn.id).catch(() => {});
+      reportConnectionAudit(conn, "connection.started");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       set((s) => ({
@@ -856,7 +1101,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   removeSession: (sessionId) => {
+    cancelBackoff(sessionId);
     const state = get();
+    const closing = state.sessions.find((s) => s.id === sessionId);
+    if (closing) ephemeralConnections.delete(closing.connectionId);
     const remaining = state.sessions.filter((s) => s.id !== sessionId);
     connectOverrides.delete(sessionId);
     set({

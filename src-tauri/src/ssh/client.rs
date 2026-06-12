@@ -305,6 +305,9 @@ pub struct ConnectedSession {
     /// If true, closing this session only stops the channel I/O loop;
     /// it does NOT disconnect the parent SSH handle (used for multiplexed exec sessions).
     pub channel_only: bool,
+    /// True when the remote shell was wrapped in a persistent multiplexer
+    /// (tmux/screen). A user-initiated disconnect kills that session.
+    pub persist: bool,
     /// Keeps intermediate jump-host SSH handles alive for the lifetime of this session.
     pub _jump_handles: Vec<Arc<client::Handle<SshClient>>>,
     /// Shared remote-forward route table for this session.
@@ -446,6 +449,11 @@ pub async fn connect(
     pending_conflicts: Arc<PendingConflicts>,
     keepalive_interval_secs: u64,
     keepalive_max: usize,
+    persist: bool,
+    restore: bool,
+    attach_only: bool,
+    pty_cols: u32,
+    pty_rows: u32,
 ) -> Result<ConnectedSession, String> {
     let config = Arc::new(client::Config {
         // interval 0 = keepalive disabled.
@@ -648,6 +656,36 @@ pub async fn connect(
     )
     .await?;
 
+    // Attach-only (reconnect/join): verify the multiplexer session still exists
+    // before attaching — attaching never creates, so a dead session must fail
+    // fast with the stable SESSION_ENDED error the frontend tears down on. An
+    // inconclusive probe (timeout, channel failure) falls through to the attach,
+    // whose own guard exits if the session is truly gone.
+    if persist && attach_only {
+        let key = crate::shell_integration::tmux_session_key(&session_id);
+        let probe = crate::shell_integration::persistent_probe_command(&key);
+        if let Ok(probe_channel) = final_handle.channel_open_session().await {
+            if probe_channel.exec(true, probe.as_str()).await.is_ok() {
+                let mut stream = probe_channel.into_stream();
+                let mut out: Vec<u8> = Vec::new();
+                let completed = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+                    let mut buf = [0u8; 1024];
+                    loop {
+                        match stream.read(&mut buf).await {
+                            Ok(0) | Err(_) => break,
+                            Ok(n) => out.extend_from_slice(&buf[..n]),
+                        }
+                    }
+                })
+                .await
+                .is_ok();
+                if completed && !String::from_utf8_lossy(&out).contains("VOLTIUS_PRESENT") {
+                    return Err("SESSION_ENDED".to_string());
+                }
+            }
+        }
+    }
+
     // Open channel + shell
     emit_step(&app, &session_id, SshStep::OpeningShell, "Requesting PTY");
 
@@ -657,7 +695,7 @@ pub async fn connect(
         .map_err(|e| format!("Failed to open channel: {}", e))?;
 
     channel
-        .request_pty(false, "xterm-256color", 80, 24, 0, 0, &[])
+        .request_pty(false, "xterm-256color", pty_cols, pty_rows, 0, 0, &[])
         .await
         .map_err(|e| format!("PTY request failed: {}", e))?;
 
@@ -668,13 +706,87 @@ pub async fn connect(
             .map_err(|e| format!("Agent forwarding request failed: {}", e))?;
     }
 
+    // Workspace restore of a persistent session: replay the multiplexer's
+    // scrollback history (tmux or screen) into the frontend terminal BEFORE the
+    // attach below redraws the live screen. Runs on its own exec channel;
+    // ordering is guaranteed because the shell channel hasn't been exec'd yet.
+    // If the multiplexer or session is gone (host rebooted), the capture is
+    // empty and we skip.
+    if restore && persist {
+        let key = crate::shell_integration::tmux_session_key(&session_id);
+        let capture = crate::shell_integration::capture_history_command(&key, pty_rows);
+        if let Ok(cap_channel) = final_handle.channel_open_session().await {
+            if cap_channel.exec(true, capture.as_str()).await.is_ok() {
+                let mut stream = cap_channel.into_stream();
+                let mut history: Vec<u8> = Vec::new();
+                let _ = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+                    let mut buf = [0u8; 8192];
+                    loop {
+                        match stream.read(&mut buf).await {
+                            Ok(0) | Err(_) => break,
+                            Ok(n) => history.extend_from_slice(&buf[..n]),
+                        }
+                    }
+                })
+                .await;
+                if !history.iter().all(|b| b.is_ascii_whitespace()) {
+                    // capture-pane emits bare LF; the PTY-less exec channel
+                    // does no ONLCR translation, so normalize for xterm.
+                    let mut out: Vec<u8> =
+                        Vec::with_capacity(history.len() + (pty_rows as usize) * 2);
+                    for b in history {
+                        if b == b'\n' {
+                            out.push(b'\r');
+                        }
+                        out.push(b);
+                    }
+                    // Scroll the history fully into xterm's scrollback so the
+                    // attach redraw below paints a clean viewport.
+                    for _ in 0..pty_rows {
+                        out.extend_from_slice(b"\r\n");
+                    }
+                    let _ = app.emit(&format!("ssh-output-{}", session_id), out.as_slice());
+                }
+            }
+        }
+    }
+
     // When shell integration is enabled we replace the standard shell channel
     // request with an exec of our wrapper script. The wrapper detects the
     // remote $SHELL and execs into it with OSC 7 emission already hooked
     // (writes a temp rcfile under /tmp). Falling back to request_shell keeps
     // the historical behavior available via the setting.
     if shell_integration {
-        let exec_cmd = crate::shell_integration::ssh_exec_command();
+        let inner = crate::shell_integration::ssh_exec_command();
+        let exec_cmd = if persist {
+            let key = crate::shell_integration::tmux_session_key(&session_id);
+            if attach_only {
+                crate::shell_integration::persistent_attach_command(&key)
+            } else {
+                crate::shell_integration::persistent_exec_command(&key, &inner)
+            }
+        } else {
+            inner
+        };
+        channel
+            .exec(false, exec_cmd.as_bytes())
+            .await
+            .map_err(|e| format!("Shell exec failed: {}", e))?;
+    } else if persist {
+        // Persistence without shell integration: bare login shell. `inner` must
+        // have no double quotes (embedded in the multiplexer's quoted command),
+        // so SHELL is left unquoted. MOTD runs inside the inner so tmux's redraw
+        // on attach doesn't wipe it.
+        let key = crate::shell_integration::tmux_session_key(&session_id);
+        let inner = format!(
+            "{}; exec ${{SHELL:-/bin/sh}} -l",
+            crate::shell_integration::MOTD_PREAMBLE
+        );
+        let exec_cmd = if attach_only {
+            crate::shell_integration::persistent_attach_command(&key)
+        } else {
+            crate::shell_integration::persistent_exec_command(&key, &inner)
+        };
         channel
             .exec(false, exec_cmd.as_bytes())
             .await
@@ -744,6 +856,7 @@ pub async fn connect(
         input_tx,
         shutdown_tx,
         channel_only: false,
+        persist,
         _jump_handles: jump_handles,
         remote_routes: final_routes,
     })

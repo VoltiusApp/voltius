@@ -128,7 +128,6 @@ export function ProxmoxPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.view, activeSessionId, activeSession?.status]);
 
-  // Fetch snapshots when drill-down opens
   useEffect(() => {
     if (state.view === "snapshots" && state.selectedVmid !== null) {
       fetchSnapshots(state.selectedVmid);

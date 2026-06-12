@@ -33,7 +33,6 @@ interface TeamSessionStore {
     connectionName: string,
   ) => Promise<{ multiplayerSessionId: string; inviteToken: string }>;
 
-  // Guest: join a session
   joinSession: (
     multiplayerSessionId: string,
     displayName: string,
@@ -44,7 +43,6 @@ interface TeamSessionStore {
   stopSharing: (localSessionId: string) => Promise<void>;
   leaveSession: (localSessionId: string) => void;
 
-  // Control
   requestControl: (localSessionId: string) => void;
   grantControl: (localSessionId: string, targetUserId: string) => void;
   revokeControl: (localSessionId: string) => void;

@@ -8,6 +8,7 @@ import { getMyUserId } from "@/services/teamService";
 import { useUIStore } from "@/stores/uiStore";
 import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { AvatarStack } from "@/components/shared/AvatarStack";
+import { AvatarTile } from "@/components/shared/AvatarTile";
 import { BaseCard } from "@/components/shared/BaseCard";
 
 export function TeamSessions() {
@@ -42,7 +43,6 @@ export function TeamSessions() {
   const [joinError, setJoinError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Poll for active sessions every 6 seconds
   useEffect(() => {
     fetchActiveSessions().catch(() => {});
     const interval = setInterval(() => {
@@ -59,7 +59,6 @@ export function TeamSessions() {
     }
   }, [showJoinModal]);
 
-  // Determine which sessions I'm already in
   const myMpSessionIds = new Set(
     Object.values(useMpStore.getState().connections).map((c) => c.multiplayerSessionId),
   );
@@ -261,6 +260,7 @@ export function TeamSessions() {
           return (
             <BaseCard
               key={session.id}
+              glass
               isSelected={alreadyIn}
               onClick={() => void handleJoinCard(session)}
               className="shrink-0"
@@ -269,12 +269,13 @@ export function TeamSessions() {
               <div className="flex-1 min-w-0 self-start flex flex-col gap-1">
                 {/* Top: icon + name + badge */}
                 <div className="flex items-start gap-2 min-w-0">
-                  <div
-                    className="flex items-center justify-center shrink-0 select-none text-white"
-                    style={{ width: "2rem", height: "2rem", borderRadius: "8px", background: "color-mix(in srgb, var(--t-accent) 80%, #000)" }}
-                  >
-                    <Icon icon="lucide:radio" width={15} />
-                  </div>
+                  <AvatarTile
+                    base="var(--t-accent)"
+                    icon="lucide:radio"
+                    size={30}
+                    radius={6}
+                    className="text-white"
+                  />
 
                   <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                     <p className="text-sm font-bold truncate text-(--t-text-bright)">

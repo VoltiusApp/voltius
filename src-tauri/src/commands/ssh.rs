@@ -30,6 +30,11 @@ pub async fn ssh_connect(
     shell_integration: Option<bool>,
     keepalive_interval_secs: Option<u64>,
     keepalive_max: Option<usize>,
+    persist: Option<bool>,
+    restore: Option<bool>,
+    attach_only: Option<bool>,
+    cols: Option<u32>,
+    rows: Option<u32>,
 ) -> Result<(), String> {
     let connected = client::connect(
         app,
@@ -47,8 +52,13 @@ pub async fn ssh_connect(
         shell_integration.unwrap_or(true),
         Arc::clone(&*known_hosts),
         Arc::clone(&*pending_conflicts),
-        keepalive_interval_secs.unwrap_or(2),
-        keepalive_max.unwrap_or(2),
+        keepalive_interval_secs.unwrap_or(3),
+        keepalive_max.unwrap_or(3),
+        persist.unwrap_or(true),
+        restore.unwrap_or(false),
+        attach_only.unwrap_or(false),
+        cols.filter(|c| *c > 0).unwrap_or(80),
+        rows.filter(|r| *r > 0).unwrap_or(24),
     )
     .await?;
 
@@ -76,9 +86,18 @@ pub async fn ssh_disconnect(
     pf: tauri::State<'_, PortForwardManager>,
     session_id: String,
     post_command: Option<String>,
-) -> Result<(), String> {
+    kill_persistent: Option<bool>,
+    attached: Option<bool>,
+) -> Result<bool, String> {
     pf.on_session_disconnect(&session_id).await;
-    state.disconnect(&session_id, post_command).await
+    state
+        .disconnect(
+            &session_id,
+            post_command,
+            kill_persistent.unwrap_or(false),
+            attached.unwrap_or(false),
+        )
+        .await
 }
 
 #[tauri::command]

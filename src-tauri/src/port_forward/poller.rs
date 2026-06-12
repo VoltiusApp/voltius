@@ -72,8 +72,6 @@ pub async fn start_poller(
                     if skip { continue; }
 
                     let cancel_t = CancellationToken::new();
-                    // `match` (not `if let`) keeps the `Ok`/`Err` arms visually parallel and
-                    // leaves room for the Err arm to grow beyond "skip on conflict".
                     #[allow(clippy::single_match)]
                     match create_tunnel(Arc::clone(&handle), port, port, "127.0.0.1", cancel_t.clone()).await {
                         Ok((local_port, bytes)) => {

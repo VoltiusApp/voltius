@@ -197,7 +197,6 @@ function Popover({
     };
   }, [readSv, readHue, readAlpha]);
 
-  // Close on outside click
   const boxRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onDown = (e: MouseEvent) => {

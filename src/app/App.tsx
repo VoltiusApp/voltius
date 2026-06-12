@@ -25,6 +25,9 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { broadcastSnippetInject } from "@/services/snippets";
 import { initUpdaterListener } from "@/services/updater";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
+import { restoreWorkspaceOnLaunch } from "@/stores/workspaceRestore";
+import { startLiveSessionPublisher } from "@/services/liveSessionPublisher";
+import { startCrossDeviceSessions } from "@/services/crossDeviceSessions";
 import { NotificationToastContainer } from "@/components/notifications/NotificationToastContainer";
 import ThemeCreator from "@/components/theme-creator/ThemeCreator";
 import { TrialExpiredModal } from "@/components/shared/TrialExpiredModal";
@@ -46,6 +49,14 @@ function App() {
   useConnectionPresenceBroadcast();
   useChangelogAutoOpen();
   useEffect(() => { initUpdaterListener(); useUpdaterPrefStore.getState().load(); }, []);
+  useEffect(() => {
+    if (ready) {
+      void restoreWorkspaceOnLaunch().then(() => {
+        startLiveSessionPublisher();
+        startCrossDeviceSessions();
+      });
+    }
+  }, [ready]);
   const omniOpen = useUIStore((s) => s.omniOpen);
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
   const homeView = useUIStore((s) => s.homeView);

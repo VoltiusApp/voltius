@@ -25,8 +25,15 @@ export async function sshConnect(params: {
   preCommand?: string;
   autoForward?: boolean;
   shellIntegration?: boolean;
-  keepaliveIntervalSecs?: number;
-  keepaliveMax?: number;
+  keepaliveIntervalSecs: number;
+  keepaliveMax: number;
+  persist?: boolean;
+  restore?: boolean;
+  /** Re-attach/join an existing multiplexer session; never creates one.
+   * Rejects with SESSION_ENDED when the session is gone on the host. */
+  attachOnly?: boolean;
+  cols?: number;
+  rows?: number;
 }): Promise<void> {
   return invoke("ssh_connect", {
     sessionId: params.sessionId,
@@ -43,13 +50,31 @@ export async function sshConnect(params: {
     preCommand: params.preCommand ?? null,
     autoForward: params.autoForward ?? true,
     shellIntegration: params.shellIntegration ?? null,
-    keepaliveIntervalSecs: params.keepaliveIntervalSecs ?? null,
-    keepaliveMax: params.keepaliveMax ?? null,
+    keepaliveIntervalSecs: params.keepaliveIntervalSecs,
+    keepaliveMax: params.keepaliveMax,
+    persist: params.persist ?? null,
+    restore: params.restore ?? null,
+    attachOnly: params.attachOnly ?? null,
+    cols: params.cols ?? null,
+    rows: params.rows ?? null,
   });
 }
 
-export async function sshDisconnect(sessionId: string, postCommand?: string): Promise<void> {
-  return invoke("ssh_disconnect", { sessionId, postCommand: postCommand ?? null });
+/** Resolves to whether the persistent multiplexer session was confirmed
+ * killed on the host (shared sessions: kill happens only when no other
+ * client/device uses it; `attached` = our own channel is still attached). */
+export async function sshDisconnect(
+  sessionId: string,
+  postCommand?: string,
+  killPersistent?: boolean,
+  attached?: boolean,
+): Promise<boolean> {
+  return invoke("ssh_disconnect", {
+    sessionId,
+    postCommand: postCommand ?? null,
+    killPersistent: killPersistent ?? null,
+    attached: attached ?? null,
+  });
 }
 
 export async function sshSendInput(sessionId: string, data: Uint8Array): Promise<void> {

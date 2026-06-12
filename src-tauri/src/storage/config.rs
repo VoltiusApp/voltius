@@ -134,6 +134,9 @@ pub struct Connection {
     /// Per-host keepalive preset; None inherits the global setting.
     #[serde(default)]
     pub keepalive_preset: Option<String>,
+    /// Per-host session persistence override. None inherits the global setting.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub persist_session: Option<bool>,
     #[serde(default)]
     pub connection_type: ConnectionType,
     #[serde(default)]
@@ -200,6 +203,8 @@ pub struct ConnectionFormData {
     pub shell_integration_disabled: Option<bool>,
     #[serde(default)]
     pub keepalive_preset: Option<String>,
+    #[serde(default)]
+    pub persist_session: Option<bool>,
     #[serde(default)]
     pub connection_type: ConnectionType,
     #[serde(default)]
@@ -714,6 +719,7 @@ mod tests {
             ping_disabled: false,
             shell_integration_disabled: None,
             keepalive_preset: None,
+            persist_session: None,
             connection_type: ConnectionType::Ssh,
             serial_port: Some("/dev/ttyU0".into()),
             serial_baud: Some(9600),
@@ -907,8 +913,7 @@ mod tests {
     // ── End-to-end persistence (golden master for the load/save layer) ───────
     //
     // Linux only: `config_dir()` resolves via `dirs::config_dir()`, which honors
-    // `XDG_CONFIG_HOME` on Linux but not on macOS/Windows. CI runs on Linux, so
-    // this still guards the layer Phase 1's generic JSON store will replace.
+    // `XDG_CONFIG_HOME` on Linux but not on macOS/Windows (CI runs on Linux).
     // Kept in a single test (no `serial_test` dep) because it mutates the
     // process-global `XDG_CONFIG_HOME`; no other test reads `config_dir()`.
     #[cfg(target_os = "linux")]

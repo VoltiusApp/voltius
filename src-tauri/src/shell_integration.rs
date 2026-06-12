@@ -45,7 +45,7 @@ pub fn prepare_local(shell: &str, session_id: &str) -> std::io::Result<Option<Lo
         "zsh" => {
             let zdotdir = temp_dir.join(format!("voltius-zdotdir-{session_id}"));
             std::fs::create_dir_all(&zdotdir)?;
-            std::fs::write(zdotdir.join(".zshrc"), ZSH_RC)?;
+            std::fs::write(zdotdir.join(".zshenv"), ZSH_ZSHENV)?;
             let orig = std::env::var("ZDOTDIR")
                 .or_else(|_| std::env::var("HOME"))
                 .unwrap_or_default();
@@ -133,10 +133,16 @@ case \";${PROMPT_COMMAND-};\" in\n\
 esac\n\
 __voltius_pwd 2>/dev/null\n";
 
-const ZSH_RC: &str =
-    "[ -f \"${ZDOTDIR_ORIG}/.zprofile\" ] && source \"${ZDOTDIR_ORIG}/.zprofile\"\n\
-[ -f \"${ZDOTDIR_ORIG}/.zshrc\" ] && source \"${ZDOTDIR_ORIG}/.zshrc\"\n\
-[ -f \"${ZDOTDIR_ORIG}/.zlogin\" ] && source \"${ZDOTDIR_ORIG}/.zlogin\"\n\
+// .zshenv trampoline (kitty/ghostty technique): restores ZDOTDIR from
+// ZDOTDIR_ORIG then sources the real .zshenv so zsh continues startup with
+// the user's files. Fixes configs like zsh4humans that define functions in
+// ~/.zshenv before .zshrc runs. The hook installs at .zshenv time, so rc
+// files that overwrite precmd_functions (instead of appending) drop cwd
+// tracking — accepted trade-off shared with kitty/ghostty.
+const ZSH_ZSHENV: &str =
+    "if [ -n \"${ZDOTDIR_ORIG-}\" ]; then ZDOTDIR=\"$ZDOTDIR_ORIG\"; else unset ZDOTDIR; fi\n\
+unset ZDOTDIR_ORIG\n\
+[ -f \"${ZDOTDIR:-$HOME}/.zshenv\" ] && source \"${ZDOTDIR:-$HOME}/.zshenv\"\n\
 __voltius_pwd() { printf '\\e]7;file://%s%s\\a' \"${HOST}\" \"$PWD\"; }\n\
 typeset -ag precmd_functions\n\
 (($precmd_functions[(I)__voltius_pwd])) || precmd_functions+=(__voltius_pwd)\n\
@@ -174,10 +180,10 @@ const SSH_WRAPPER: &str = r#"case "$(basename "${SHELL:-/bin/sh}")" in
 zsh)
   ZDOTDIR_TMP=$(mktemp -d 2>/dev/null) || exec zsh -l -i </dev/tty
   export ZDOTDIR_ORIG="${ZDOTDIR:-$HOME}"
-  cat > "$ZDOTDIR_TMP/.zshrc" <<'EOF'
-[ -f "${ZDOTDIR_ORIG}/.zprofile" ] && source "${ZDOTDIR_ORIG}/.zprofile"
-[ -f "${ZDOTDIR_ORIG}/.zshrc" ] && source "${ZDOTDIR_ORIG}/.zshrc"
-[ -f "${ZDOTDIR_ORIG}/.zlogin" ] && source "${ZDOTDIR_ORIG}/.zlogin"
+  cat > "$ZDOTDIR_TMP/.zshenv" <<'EOF'
+if [ -n "${ZDOTDIR_ORIG-}" ]; then ZDOTDIR="$ZDOTDIR_ORIG"; else unset ZDOTDIR; fi
+unset ZDOTDIR_ORIG
+[ -f "${ZDOTDIR:-$HOME}/.zshenv" ] && source "${ZDOTDIR:-$HOME}/.zshenv"
 __voltius_pwd() { printf '\e]7;file://%s%s\a' "${HOST}" "$PWD"; }
 typeset -ag precmd_functions
 (($precmd_functions[(I)__voltius_pwd])) || precmd_functions+=(__voltius_pwd)
@@ -227,13 +233,208 @@ EOF
 esac
 "#;
 
+/// sshd emits the MOTD only for an interactive `shell` request, not the `exec`
+/// path integration/persistence use, so reproduce it. Single quote-free line so
+/// it can embed in the persist inner; respects ~/.hushlogin.
+pub const MOTD_PREAMBLE: &str = "[ ! -e $HOME/.hushlogin ] && { [ -r /run/motd.dynamic ] && cat /run/motd.dynamic; [ -r /etc/motd ] && cat /etc/motd; }";
+
 /// Build the SSH exec payload. The remote login shell (whatever it may be:
 /// bash, zsh, fish, csh, dash) only needs to parse `echo ... | base64 -d |
 /// sh` — a syntax common to every Unix shell. The decoded POSIX wrapper then
 /// runs under /bin/sh and execs into the user's actual shell with OSC 7
 /// emission hooked.
 pub fn ssh_exec_command() -> String {
-    encode_wrapper(SSH_WRAPPER)
+    encode_wrapper(&format!("{MOTD_PREAMBLE}\n{SSH_WRAPPER}"))
+}
+
+const TMUX_SOCKET: &str = "voltius";
+
+/// tmux/screen session name for a session id, sanitized to `[A-Za-z0-9_-]`.
+/// Stable across reconnect so the multiplexer re-attaches the live session.
+pub fn tmux_session_key(session_id: &str) -> String {
+    let sanitized: String = session_id
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    format!("voltius_{sanitized}")
+}
+
+/// Wrap `inner` (the existing exec bootstrap) in tmux, else screen, else a
+/// plain shell. `inner` must contain no double quotes: it is embedded in the
+/// double-quoted multiplexer command. The outer sh's stdin is the base64
+/// pipe, so the pty is re-attached with `<&2`: stderr still holds the
+/// original pty file description sshd created. Re-opening the device by path
+/// (`</dev/tty` or the pts path) breaks modern tmux — 3.4+ rejects
+/// `/dev/tty` outright ("can't use /dev/tty"), and a fresh open of the pts
+/// makes the server's redraw writes vanish, leaving a connected-but-blank
+/// terminal. Duplicating the inherited description avoids both.
+///
+/// The screen branch first self-heals: `screen -wipe` clears `Dead ???`
+/// entries left by abrupt drops, and any same-named duplicates are collapsed to
+/// one server. Unlike tmux's server-serialized `new-session -A`, `screen -D -R`
+/// has no name-collision protection — concurrent connects can create duplicates,
+/// and once two exist `-D -R` refuses to attach ("several suitable screens"),
+/// which closes the channel and feeds the reconnect loop into spawning more.
+///
+/// Create path only: session keys derive from fresh UUIDs, so `-A`/`-D -R`
+/// never meet a session another device is attached to. Re-attach and
+/// cross-device join go through `persistent_attach_command`.
+pub fn persistent_exec_command(session_key: &str, inner: &str) -> String {
+    let script = format!(
+        r#"if command -v tmux >/dev/null 2>&1; then
+  TMUX_CONF=$(mktemp 2>/dev/null)
+  if [ -n "$TMUX_CONF" ]; then
+    cat > "$TMUX_CONF" <<'EOF'
+set -g status off
+set -g mouse on
+set -g default-terminal "xterm-256color"
+set -g history-limit 50000
+set -sg escape-time 0
+set -g destroy-unattached off
+EOF
+    exec tmux -L {socket} -f "$TMUX_CONF" new-session -A -s {key} "{inner}" <&2
+  fi
+  exec tmux -L {socket} new-session -A -s {key} "{inner}" <&2
+elif command -v screen >/dev/null 2>&1; then
+  screen -wipe >/dev/null 2>&1
+  for d in $(screen -ls 2>/dev/null | grep -F .{key} | awk '{{print $1}}' | tail -n +2); do
+    screen -S "$d" -X quit >/dev/null 2>&1
+  done
+  SCREEN_RC=$(mktemp 2>/dev/null)
+  if [ -n "$SCREEN_RC" ]; then
+    cat > "$SCREEN_RC" <<'EOF'
+startup_message off
+msgwait 0
+msgminwait 0
+vbell off
+defscrollback 50000
+termcapinfo xterm* ti@:te@
+EOF
+    exec screen -c "$SCREEN_RC" -S {key} -D -R sh -c "{inner}" <&2
+  fi
+  exec screen -S {key} -D -R sh -c "{inner}" <&2
+else
+  printf '\r\n[voltius] tmux/screen not found - session will not survive disconnects\r\n'
+  exec sh -c "{inner}" <&2
+fi
+"#,
+        socket = TMUX_SOCKET,
+        key = session_key,
+        inner = inner,
+    );
+    encode_wrapper(&script)
+}
+
+/// Attach-only wrapper: co-attaches a live session (tmux plain attach, screen
+/// `-x` multi-display) and NEVER creates one — `persistent_probe_command` runs
+/// first, so reaching the fallthrough means the session died in between; the
+/// exit just closes the channel and the caller re-probes.
+pub fn persistent_attach_command(session_key: &str) -> String {
+    let script = format!(
+        r#"if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
+  exec tmux -L {socket} attach-session -t {key} <&2
+elif command -v screen >/dev/null 2>&1; then
+  exec screen -x -S {key} <&2
+fi
+printf '\r\n[voltius] session has ended\r\n'
+exit 97
+"#,
+        socket = TMUX_SOCKET,
+        key = session_key,
+    );
+    encode_wrapper(&script)
+}
+
+/// One-shot existence probe mirroring the wrapper's tmux-first order. Prints
+/// VOLTIUS_PRESENT when the session is alive; `screen -wipe` first so a dead
+/// entry left by a crash doesn't read as present.
+pub fn persistent_probe_command(session_key: &str) -> String {
+    let script = format!(
+        r#"if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
+  printf VOLTIUS_PRESENT
+elif command -v screen >/dev/null 2>&1; then
+  screen -wipe >/dev/null 2>&1
+  screen -ls 2>/dev/null | grep -qF .{key} && printf VOLTIUS_PRESENT
+fi
+true"#,
+        socket = TMUX_SOCKET,
+        key = session_key,
+    );
+    encode_wrapper(&script)
+}
+
+/// One-shot exec that dumps the scrollback history of a persistent session,
+/// picking the backend at runtime to mirror `persistent_exec_command`.
+///
+/// tmux: `capture-pane -peJ -S -50000 -E -1` — history from 50k lines back up
+/// to just above the visible screen (`-E -1`), which the attach redraw repaints
+/// anyway. `-p` prints to stdout, `-e` preserves SGR attributes, `-J` joins
+/// wrapped lines.
+///
+/// screen: no stdout dump exists, so `hardcopy -h` writes the scrollback (plus
+/// the live screen) to a temp file. `-X` is async — the session backend writes
+/// the file — so we poll until its size settles before reading. The dump is
+/// plain text (screen strips SGR) and includes the visible viewport, so
+/// `head -n -<rows>` trims the last `pty_rows` lines to match tmux's `-E -1`
+/// and avoid duplicating the redraw. `head -n -N` is GNU coreutils; on BSD head
+/// it no-ops harmlessly (no trim).
+///
+/// Exits silently when the multiplexer or session is gone (host rebooted): the
+/// capture is empty and the caller skips replay.
+pub fn capture_history_command(session_key: &str, pty_rows: u32) -> String {
+    format!(
+        r#"if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
+  tmux -L {socket} capture-pane -t {key} -peJ -S -50000 -E -1 2>/dev/null
+elif command -v screen >/dev/null 2>&1; then
+  f=$(mktemp 2>/dev/null) || exit 0
+  screen -S {key} -X hardcopy -h "$f" 2>/dev/null
+  for i in $(seq 1 15); do
+    a=$(wc -c <"$f" 2>/dev/null); sleep 0.1; b=$(wc -c <"$f" 2>/dev/null)
+    [ "$a" = "$b" ] && break
+  done
+  head -n -{rows} "$f" 2>/dev/null
+  rm -f "$f"
+fi
+true"#,
+        socket = TMUX_SOCKET,
+        key = session_key,
+        rows = pty_rows,
+    )
+}
+
+/// Conditional kill for a shared session. Kills only when at most
+/// `max_clients` clients are attached (1 when the closer's own channel is
+/// still attached, 0 when it already dropped) — another device's live attach
+/// must survive a local tab close. Prints VOLTIUS_KILLED on confirmed kill,
+/// and also when the session is already gone (host rebooted: tombstoning it
+/// is accurate). No portable client count exists for screen; the frontend's
+/// manifest gate is the only protection there. Socket/server flags MUST
+/// mirror `persistent_exec_command`.
+pub fn persistent_kill_command(session_key: &str, max_clients: usize) -> String {
+    let script = format!(
+        r#"K=0
+if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
+  if [ "$(tmux -L {socket} list-clients -t {key} 2>/dev/null | grep -c .)" -le {max} ]; then
+    tmux -L {socket} kill-session -t {key} 2>/dev/null && K=1
+  fi
+elif command -v screen >/dev/null 2>&1 && screen -ls 2>/dev/null | grep -qF .{key}; then
+  screen -S {key} -X quit >/dev/null 2>&1 && K=1
+else
+  K=1
+fi
+[ "$K" = "1" ] && printf VOLTIUS_KILLED
+true"#,
+        socket = TMUX_SOCKET,
+        key = session_key,
+        max = max_clients,
+    );
+    encode_wrapper(&script)
 }
 
 /// Same shape as `ssh_exec_command` but encodes the WSL-flavored wrapper,
@@ -305,8 +506,10 @@ case "$(basename "${SHELL:-/bin/sh}")" in
 zsh)
   ZDOTDIR_TMP=$(mktemp -d 2>/dev/null) || exec zsh -i </dev/tty
   export ZDOTDIR_ORIG="${ZDOTDIR:-$HOME}"
-  cat > "$ZDOTDIR_TMP/.zshrc" <<'EOF'
-[ -f "${ZDOTDIR_ORIG}/.zshrc" ] && source "${ZDOTDIR_ORIG}/.zshrc"
+  cat > "$ZDOTDIR_TMP/.zshenv" <<'EOF'
+if [ -n "${ZDOTDIR_ORIG-}" ]; then ZDOTDIR="$ZDOTDIR_ORIG"; else unset ZDOTDIR; fi
+unset ZDOTDIR_ORIG
+[ -f "${ZDOTDIR:-$HOME}/.zshenv" ] && source "${ZDOTDIR:-$HOME}/.zshenv"
 __voltius_pwd() { printf '\e]7;file://wsl.localhost/%s%s\a' "$WSL_DISTRO_NAME" "$PWD"; }
 typeset -ag precmd_functions
 (($precmd_functions[(I)__voltius_pwd])) || precmd_functions+=(__voltius_pwd)
@@ -332,3 +535,233 @@ EOF
   ;;
 esac
 "#;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use base64::engine::general_purpose;
+    use base64::Engine;
+
+    fn decode_bootstrap(cmd: &str) -> String {
+        let b64 = cmd
+            .strip_prefix("echo ")
+            .and_then(|s| s.split(" |").next())
+            .expect("bootstrap shape");
+        String::from_utf8(general_purpose::STANDARD.decode(b64).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn session_key_sanitizes_unsafe_chars() {
+        assert_eq!(tmux_session_key("abc-123"), "voltius_abc-123");
+        assert_eq!(tmux_session_key("a.b:c d"), "voltius_a_b_c_d");
+    }
+
+    #[test]
+    fn persistent_wrapper_embeds_inner_and_all_branches() {
+        let inner = ssh_exec_command();
+        let cmd = persistent_exec_command("voltius_s1", &inner);
+        let script = decode_bootstrap(&cmd);
+        assert!(script.contains("command -v tmux"));
+        assert!(script.contains("tmux -L voltius"));
+        assert!(script.contains("new-session -A -s voltius_s1"));
+        // Shared sessions: creating must never detach another device's client.
+        assert!(!script.contains(" -D -s"));
+        assert!(script.contains("command -v screen"));
+        assert!(script.contains("screen -S voltius_s1"));
+        assert!(script.contains("screen -c"));
+        // Self-heal: wipe dead entries and collapse same-named duplicates so
+        // -D -R can't fail into the "several suitable screens" reconnect loop.
+        assert!(script.contains("screen -wipe"));
+        assert!(script.contains("grep -F .voltius_s1"));
+        assert!(script.contains("-X quit"));
+        assert!(script.contains("msgwait 0"));
+        assert!(script.contains("ti@:te@"));
+        assert!(script.contains("will not survive disconnects"));
+        assert!(!inner.contains('"'));
+        assert!(script.contains(&inner));
+    }
+
+    #[test]
+    fn ssh_wrapper_reproduces_motd() {
+        let decoded = decode_bootstrap(&ssh_exec_command());
+        assert!(decoded.contains("/run/motd.dynamic"));
+        assert!(decoded.contains("/etc/motd"));
+        assert!(decoded.contains(".hushlogin"));
+        // Quote-free so it can also be embedded in the persist inner.
+        assert!(!MOTD_PREAMBLE.contains('"'));
+    }
+
+    #[test]
+    fn persistent_attach_joins_without_stealing_or_creating() {
+        let script = decode_bootstrap(&persistent_attach_command("voltius_s1"));
+        assert!(script.contains("tmux -L voltius has-session -t voltius_s1"));
+        assert!(script.contains("attach-session -t voltius_s1"));
+        // Co-attach: never detach the other device, never create a session.
+        assert!(!script.contains("new-session"));
+        assert!(!script.contains("-D"));
+        assert!(script.contains("screen -x -S voltius_s1"));
+        // Re-attach over the stderr pty (`<&2`); modern tmux rejects `</dev/tty`.
+        assert!(script.contains("<&2"));
+    }
+
+    #[test]
+    fn persistent_probe_detects_both_multiplexers() {
+        let script = decode_bootstrap(&persistent_probe_command("voltius_s1"));
+        assert!(script.contains("tmux -L voltius has-session -t voltius_s1"));
+        // Dead screen entries must not read as present (attach -x would fail).
+        assert!(script.contains("screen -wipe"));
+        assert!(script.contains("grep -qF .voltius_s1"));
+        assert!(script.contains("VOLTIUS_PRESENT"));
+        assert!(script.trim_end().ends_with("true"));
+    }
+
+    #[test]
+    fn persistent_kill_is_conditional_and_reports() {
+        let key = tmux_session_key("s1");
+        let attached = decode_bootstrap(&persistent_kill_command(&key, 1));
+        let detached = decode_bootstrap(&persistent_kill_command(&key, 0));
+        // Kill only when no client beyond the closer's own is attached.
+        assert!(attached.contains("-le 1"));
+        assert!(detached.contains("-le 0"));
+        assert!(attached.contains("list-clients -t voltius_s1"));
+        assert!(attached.contains("tmux -L voltius kill-session -t voltius_s1"));
+        assert!(attached.contains("screen -S voltius_s1 -X quit"));
+        // Confirmed kill (or already gone) prints the sentinel for the tombstone.
+        assert!(attached.contains("VOLTIUS_KILLED"));
+        assert!(attached.trim_end().ends_with("true"));
+    }
+
+    #[test]
+    fn persistent_wrapper_keeps_pty_redirects() {
+        let inner = ssh_exec_command();
+        let cmd = persistent_exec_command("voltius_s1", &inner);
+        let script = decode_bootstrap(&cmd);
+        // The multiplexer re-attaches over the stderr pty (`<&2`), not `/dev/tty`.
+        assert!(script.contains("<&2"));
+        assert!(script.contains(&format!("exec sh -c \"{}\" <&2", inner)));
+    }
+
+    #[test]
+    fn ssh_wrapper_zsh_uses_zshenv_trampoline() {
+        let decoded = decode_bootstrap(&ssh_exec_command());
+        assert!(
+            decoded.contains("$ZDOTDIR_TMP/.zshenv"),
+            "SSH wrapper zsh branch must write .zshenv, got:\n{decoded}"
+        );
+        assert!(
+            !decoded.contains("$ZDOTDIR_TMP/.zshrc"),
+            "SSH wrapper must not write .zshrc, got:\n{decoded}"
+        );
+        assert!(
+            decoded.contains("ZDOTDIR=\"$ZDOTDIR_ORIG\""),
+            "SSH wrapper must restore ZDOTDIR from ZDOTDIR_ORIG, got:\n{decoded}"
+        );
+        assert!(
+            decoded.contains("${ZDOTDIR:-$HOME}/.zshenv"),
+            "SSH wrapper must source real .zshenv, got:\n{decoded}"
+        );
+        assert!(
+            !decoded.contains("${ZDOTDIR_ORIG}/.zshrc"),
+            "SSH wrapper must not manually source user .zshrc, got:\n{decoded}"
+        );
+        assert!(
+            decoded.contains("file://%s%s") && decoded.contains("${HOST}"),
+            "SSH wrapper must use HOST-based OSC 7 printf, got:\n{decoded}"
+        );
+    }
+
+    #[test]
+    fn wsl_wrapper_zsh_uses_zshenv_trampoline() {
+        let decoded = decode_bootstrap(&wsl_exec_command());
+        assert!(
+            decoded.contains("$ZDOTDIR_TMP/.zshenv"),
+            "WSL wrapper zsh branch must write .zshenv, got:\n{decoded}"
+        );
+        assert!(
+            !decoded.contains("$ZDOTDIR_TMP/.zshrc"),
+            "WSL wrapper must not write .zshrc, got:\n{decoded}"
+        );
+        assert!(
+            decoded.contains("ZDOTDIR=\"$ZDOTDIR_ORIG\""),
+            "WSL wrapper must restore ZDOTDIR from ZDOTDIR_ORIG, got:\n{decoded}"
+        );
+        assert!(
+            decoded.contains("${ZDOTDIR:-$HOME}/.zshenv"),
+            "WSL wrapper must source real .zshenv, got:\n{decoded}"
+        );
+        assert!(
+            !decoded.contains("${ZDOTDIR_ORIG}/.zshrc"),
+            "WSL wrapper must not manually source user .zshrc, got:\n{decoded}"
+        );
+        assert!(
+            decoded.contains("wsl.localhost"),
+            "WSL wrapper must keep wsl.localhost printf, got:\n{decoded}"
+        );
+    }
+
+    #[test]
+    fn capture_history_dumps_tmux_history_excluding_visible_screen() {
+        let cmd = capture_history_command("voltius_s1", 40);
+        assert!(cmd.contains("tmux -L voltius capture-pane -t voltius_s1"));
+        // History only: from 50k lines back (-S) to just above the visible
+        // screen (-E -1) so the live redraw after attach doesn't duplicate.
+        assert!(cmd.contains("-S -50000"));
+        assert!(cmd.contains("-E -1"));
+        // -p print to stdout, -e keep SGR colors, -J join wrapped lines.
+        assert!(cmd.contains("-peJ"));
+        // Only run tmux when the session actually exists on the socket.
+        assert!(cmd.contains("tmux -L voltius has-session -t voltius_s1"));
+        // Missing multiplexer/session must not error the channel.
+        assert!(cmd.contains("2>/dev/null"));
+        assert!(cmd.trim_end().ends_with("true"));
+    }
+
+    #[test]
+    fn capture_history_falls_back_to_screen_hardcopy() {
+        let cmd = capture_history_command("voltius_s1", 40);
+        // screen has no stdout dump; hardcopy -h writes scrollback to a temp file.
+        assert!(cmd.contains("screen -S voltius_s1 -X hardcopy -h"));
+        // Trim the live viewport (pty_rows) so the attach redraw isn't duplicated.
+        assert!(cmd.contains("head -n -40"));
+        // Gated behind screen availability, after the tmux branch.
+        assert!(cmd.contains("elif command -v screen >/dev/null 2>&1; then"));
+    }
+
+    #[test]
+    fn prepare_local_zsh_writes_zshenv() {
+        let session_id = format!("test-zshenv-{}", std::process::id());
+        let result = prepare_local("/bin/zsh", &session_id).expect("prepare_local failed");
+        let integration = result.expect("expected Some(LocalIntegration) for zsh");
+
+        let zdotdir = integration
+            .env
+            .iter()
+            .find(|(k, _)| k == "ZDOTDIR")
+            .map(|(_, v)| std::path::PathBuf::from(v))
+            .expect("ZDOTDIR env var not set");
+
+        let zshenv_path = zdotdir.join(".zshenv");
+        assert!(
+            zshenv_path.exists(),
+            ".zshenv must be written at {zshenv_path:?}"
+        );
+        assert!(
+            !zdotdir.join(".zshrc").exists(),
+            ".zshrc must not be written, got it at {:?}",
+            zdotdir.join(".zshrc")
+        );
+
+        let content = std::fs::read_to_string(&zshenv_path).expect("failed to read .zshenv");
+        assert!(
+            content.contains("${ZDOTDIR:-$HOME}/.zshenv"),
+            ".zshenv must source real .zshenv, got:\n{content}"
+        );
+        assert!(
+            content.contains("ZDOTDIR=\"$ZDOTDIR_ORIG\""),
+            ".zshenv must restore ZDOTDIR, got:\n{content}"
+        );
+
+        cleanup(&integration.tempfiles);
+        assert!(!zdotdir.exists(), "cleanup must remove temp dir");
+    }
+}

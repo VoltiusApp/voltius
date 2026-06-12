@@ -123,6 +123,7 @@ export interface Connection {
   ping_disabled?: boolean;
   shell_integration_disabled?: boolean;
   keepalive_preset?: KeepalivePreset;
+  persist_session?: boolean;
   connection_type?: "ssh" | "serial";
   serial_port?: string;
   serial_baud?: number;
@@ -158,6 +159,7 @@ export interface ConnectionFormData {
   ping_disabled?: boolean;
   shell_integration_disabled?: boolean;
   keepalive_preset?: KeepalivePreset;
+  persist_session?: boolean;
   connection_type?: "ssh" | "serial";
   serial_port?: string;
   serial_baud?: number;
@@ -195,11 +197,19 @@ export interface TerminalSession {
   connectionId: string;
   connectionName: string;
   status: "connecting" | "connected" | "disconnected" | "error";
+  /** SSH only: persistence (remote tmux/screen) was active at connect time. */
+  persist?: boolean;
+  /** The multiplexer session exists on the host (a connect succeeded, or the
+   * session came from restore/join). Reconnects then attach-only — they must
+   * never recreate a dead session; only a fresh initial connect creates. */
+  everConnected?: boolean;
   type: "ssh" | "local" | "multiplayer" | "serial";
   errorMessage?: string;
   encoding?: string;
   localShell?: string;
   serialConfig?: SerialConnectParams;
+  /** Serial only: port typed at quick-connect time, prefilled into the config overlay. */
+  initialSerialPort?: string;
   containerExec?:
     | { kind: "docker"; containerId: string; parentSessionId: string }
     | { kind: "lxc"; vmid: number; parentSessionId: string };

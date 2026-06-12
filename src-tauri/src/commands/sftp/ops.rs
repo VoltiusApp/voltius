@@ -175,7 +175,6 @@ pub async fn sftp_touch(
         SftpBackend::Real(s) => s,
     };
     let sftp = session.lock().await;
-    // Open with create + write flags to create an empty file if it doesn't exist
     let flags = OpenFlags::CREATE | OpenFlags::WRITE | OpenFlags::TRUNCATE;
     sftp.open_with_flags(&path, flags)
         .await

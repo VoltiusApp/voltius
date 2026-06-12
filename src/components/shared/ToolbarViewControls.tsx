@@ -193,12 +193,10 @@ function TagFilterButton({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  // Focus edit input when entering edit mode
   useEffect(() => {
     if (editingTag !== null) editInputRef.current?.focus();
   }, [editingTag]);
 
-  // Focus search when opening
   useEffect(() => {
     if (open) setTimeout(() => searchInputRef.current?.focus(), 0);
   }, [open]);

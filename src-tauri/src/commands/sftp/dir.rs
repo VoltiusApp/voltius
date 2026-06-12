@@ -259,7 +259,6 @@ pub async fn sftp_transfer_dir(
         }
     }
 
-    // Stream files one by one
     let mut transferred = 0u64;
     for (src_abs, rel, _) in &files {
         if token.is_cancelled() {

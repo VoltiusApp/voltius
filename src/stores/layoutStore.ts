@@ -57,6 +57,12 @@ interface LayoutStore {
   setMaximized(paneId: string | null): void;
   toggleBroadcast(): void;
   openSessions(sessionIds: string[]): void;
+  hydrate(saved: {
+    splitTabs: SplitTab[];
+    activeSplitTabId: string | null;
+    splitTabActive: boolean;
+    titlebarOrder: string[];
+  }): void;
 }
 
 const clampRatio = (ratio: number) => Math.max(0.1, Math.min(0.9, ratio));
@@ -446,6 +452,24 @@ export const useLayoutStore = create<LayoutStore>((set) => ({
       return {
         splitTabs: [...state.splitTabs, tab],
         ...fieldsFromTab(tab),
+      };
+    });
+  },
+
+  // Workspace restore: replace layout state wholesale from a snapshot.
+  // fieldsFromTab re-derives the flattened active-tab fields; splitTabActive
+  // is only honored when the saved active tab still exists.
+  hydrate: (saved) => {
+    set(() => {
+      const activeTab =
+        saved.splitTabs.find((tab) => tab.id === saved.activeSplitTabId) ??
+        saved.splitTabs[saved.splitTabs.length - 1] ??
+        null;
+      return {
+        splitTabs: saved.splitTabs,
+        titlebarOrder: saved.titlebarOrder,
+        ...fieldsFromTab(activeTab),
+        splitTabActive: saved.splitTabActive && activeTab !== null,
       };
     });
   },

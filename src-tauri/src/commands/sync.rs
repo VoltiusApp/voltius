@@ -132,7 +132,7 @@ pub fn backup_export(
         }
     }
 
-    // plugin-data/<id>.json — api.storage de chaque plugin
+    // plugin-data/<id>.json — each plugin's api.storage
     let plugin_data_dir = dir.join("plugin-data");
     if let Ok(entries) = std::fs::read_dir(&plugin_data_dir) {
         for entry in entries.flatten() {
@@ -296,6 +296,29 @@ pub fn settings_load() -> Option<String> {
 pub fn settings_save(state: String) -> Result<(), String> {
     std::fs::write(config_dir().join("settings.json"), state)
         .map_err(|e| format!("settings_save failed: {e}"))
+}
+
+// ─── Cross-device live-session manifest ──────────────────────────────────────
+// Stored as a root JSON file in config_dir() so backup_export bundles it into
+// the encrypted per-device sync blob automatically.
+
+#[tauri::command]
+pub fn live_sessions_load() -> Option<String> {
+    std::fs::read_to_string(config_dir().join("live_sessions.json")).ok()
+}
+
+#[tauri::command]
+pub fn live_sessions_save(state: String) -> Result<(), String> {
+    std::fs::write(config_dir().join("live_sessions.json"), state)
+        .map_err(|e| format!("live_sessions_save failed: {e}"))
+}
+
+#[tauri::command]
+pub fn device_hostname() -> String {
+    hostname::get()
+        .ok()
+        .and_then(|h| h.into_string().ok())
+        .unwrap_or_else(|| "Unknown device".to_string())
 }
 
 // ─── Auto-update preference ─────────────────────────────────────────────────────

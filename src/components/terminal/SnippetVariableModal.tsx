@@ -122,7 +122,6 @@ export function SnippetVariableModal({
 }: Props) {
   const [values, setValues] = useState<Record<string, string>>(initialValues);
 
-  // Focus first input
   const firstInputRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const input = firstInputRef.current?.querySelector("input, select, button");

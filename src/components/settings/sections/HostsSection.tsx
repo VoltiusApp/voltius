@@ -12,6 +12,7 @@ import { FormSelect } from "@/components/shared/FormSelect";
 import { DirtyDot, ResetButton } from "./shared";
 
 const SHELL_INTEGRATION_DEFAULT = TOGGLE_DEFS["shell-integration"].default;
+const PERSIST_SESSIONS_DEFAULT = TOGGLE_DEFS["persistent-sessions"].default;
 const KEEPALIVE_OPTIONS = (Object.keys(KEEPALIVE_PRESETS) as KeepalivePreset[]).map(
   (p) => ({ value: p, label: KEEPALIVE_PRESETS[p].label }),
 );
@@ -21,6 +22,7 @@ export default function HostsSection() {
   const [presenceEnabled, setPresenceEnabled] = useToggle("team-presence");
   const [shellIntegration, setShellIntegration] = useToggle("shell-integration");
   const [keepalivePreset, setKeepalivePreset] = useGlobalKeepalivePreset();
+  const [persistSessions, setPersistSessions] = useToggle("persistent-sessions");
   const pollIntervalMs = useHostPingStore((s) => s.pollIntervalMs);
   const setPollIntervalMs = useHostPingStore((s) => s.setPollIntervalMs);
   const activePollIntervalMs = useHostPingStore((s) => s.activePollIntervalMs);
@@ -141,6 +143,23 @@ export default function HostsSection() {
                 options={KEEPALIVE_OPTIONS}
                 onChange={(v) => setKeepalivePreset(v as KeepalivePreset)}
               />
+            </div>
+          </div>
+          <div className="group flex items-center justify-between px-4 py-3 gap-4">
+            <div>
+              <p className="text-sm font-medium text-(--t-text-primary)">Persistent sessions</p>
+              <p className="text-xs mt-0.5 text-(--t-text-dim)">
+                Keep your shell and running processes alive across disconnects by wrapping the
+                remote shell in tmux (falls back to screen). Requires tmux or screen on the host.
+                Can be overridden per host.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {persistSessions !== PERSIST_SESSIONS_DEFAULT && (
+                <ResetButton onReset={() => setPersistSessions(PERSIST_SESSIONS_DEFAULT)} />
+              )}
+              {persistSessions !== PERSIST_SESSIONS_DEFAULT && <DirtyDot />}
+              <Toggle checked={persistSessions} onChange={setPersistSessions} />
             </div>
           </div>
         </div>

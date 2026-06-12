@@ -84,7 +84,6 @@ async function migrateVaultToTeam(
   // Upload secrets while they still exist in the local keychain
   await backfillExistingTeamVaultSecrets(teamId);
 
-  // Delete originals from local disk
   const [connApi, identApi, keyApi, folderApi, snippetApi, pfApi] = await Promise.all([
     import("@/services/connections"),
     import("@/services/identities"),
@@ -103,7 +102,6 @@ async function migrateVaultToTeam(
     ...portRules.map((e) => pfApi.deletePfRule(e.id)),
   ]);
 
-  // Reload personal stores from disk to reflect deletions
   await Promise.all([
     useConnectionStore.getState().loadConnections(),
     useIdentityStore.getState().loadIdentities(),
@@ -1114,7 +1112,6 @@ function VaultGeneralTab({
         .filter((r) => !r.deleted_at || r.updated_at > r.deleted_at)
         .map((r) => ({ ...r, vault_id: vaultId, updated_at: now }));
 
-      // Write to local disk
       await Promise.allSettled([
         ...conns.map((c) => connApi.saveConnection({ name: c.name, host: c.host, port: c.port, username: c.username, auth_type: c.auth_type, tags: c.tags, identity_id: c.identity_id, folder_id: c.folder_id, vault_id: vaultId })),
         ...identities.map((i) => identApi.saveIdentity({ name: i.name, username: i.username, key_id: i.key_id, tags: i.tags, folder_id: i.folder_id, vault_id: vaultId })),
@@ -1125,7 +1122,6 @@ function VaultGeneralTab({
         ...portRules.map((r) => pfApi.createPfRule({ name: r.name, local_port: r.local_port, remote_port: r.remote_port, remote_host: r.remote_host, tunnel_type: r.tunnel_type, bind_host: r.bind_host, target_host: r.target_host, description: r.description, connection_ids: r.connection_ids, folder_id: r.folder_id, vault_id: vaultId })),
       ]);
 
-      // Clear team memory
       useConnectionStore.getState().clearTeamConnections(teamId);
       useIdentityStore.getState().clearTeamIdentities(teamId);
       useKeyStore.getState().clearTeamKeys(teamId);
@@ -1134,7 +1130,6 @@ function VaultGeneralTab({
       useSnippetFolderStore.getState().clearTeamSnippetFolders(teamId);
       usePortForwardingStore.getState().clearTeamRules(teamId);
 
-      // Sever the team link
       setVaultTeamId(vaultId, null);
       clearTeamKeyCache();
       useTeamVaultStateStore.getState().setStatus(teamId, "idle");
@@ -1145,7 +1140,6 @@ function VaultGeneralTab({
         await fetchWithAuth(`${serverUrl}/v1/teams/${teamId}`, { method: "DELETE" }).catch(() => {});
       }
 
-      // Reload personal stores
       await Promise.all([
         useConnectionStore.getState().loadConnections(),
         useIdentityStore.getState().loadIdentities(),

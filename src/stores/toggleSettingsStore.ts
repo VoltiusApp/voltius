@@ -80,6 +80,27 @@ export const TOGGLE_DEFS = {
     keywords: ["shell", "integration", "osc", "prompt", "cwd", "directory", "motd", "command"],
     default: true,
   },
+  "persistent-sessions": {
+    label: "Persistent Sessions",
+    icon: "lucide:history",
+    description: "Hosts",
+    keywords: ["persistent", "session", "tmux", "screen", "reconnect", "survive", "resume", "sleep", "reattach", "keep alive"],
+    default: true,
+  },
+  "restore-workspace": {
+    label: "Restore Workspace on Launch",
+    icon: "lucide:archive-restore",
+    description: "Hosts",
+    keywords: ["restore", "workspace", "startup", "launch", "tabs", "resume", "reopen", "session"],
+    default: true,
+  },
+  "cross-device-sessions": {
+    label: "Cross-Device Sessions",
+    icon: "lucide:monitor-smartphone",
+    description: "Hosts",
+    keywords: ["cross", "device", "join", "shared", "continue", "mirror", "session", "remote", "tmux", "persistent"],
+    default: true,
+  },
   "changelog-popup": {
     label: "Show What's New After Updates",
     icon: "lucide:megaphone",

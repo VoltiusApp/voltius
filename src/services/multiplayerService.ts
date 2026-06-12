@@ -260,7 +260,6 @@ export function appendSshOutputBuffer(sessionId: string, data: Uint8Array): void
   if (!buf) { buf = { chunks: [], totalBytes: 0 }; sshOutputBuffers.set(sessionId, buf); }
   buf.chunks.push(data);
   buf.totalBytes += data.length;
-  // Trim oldest chunks if over budget
   while (buf.totalBytes > MAX_BUFFER_BYTES && buf.chunks.length > 0) {
     buf.totalBytes -= buf.chunks.shift()!.length;
   }

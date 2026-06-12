@@ -44,9 +44,8 @@ export const identitiesHandler: DataTypeHandler = {
     const connIdentityIds = new Set(
       (bundle.connections ?? []).map(c => c._identity_eid).filter(Boolean)
     );
-    // We need original IDs for cascade, which are stored in ctx.identityEidMap inverse.
-    // Instead, cascade is handled by the orchestrator passing effectiveIdentities.
-    // Here we just export what we received.
+    // Cascade is resolved by the orchestrator (it passes effectiveIdentities);
+    // export what we received.
     ctx.identityEidMap.clear();
     selected.forEach((i, idx) => ctx.identityEidMap.set(i.id, `i${idx}`));
     bundle.identities = await Promise.all(selected.map(async (i): Promise<IdentityExport> => ({

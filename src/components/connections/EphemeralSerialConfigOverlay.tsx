@@ -10,14 +10,16 @@ const BAUD_RATE_PRESETS = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115
 
 export function EphemeralSerialConfigOverlay({
   sessionId,
+  initialPort,
   onConnect,
   onDismiss,
 }: {
   sessionId: string;
+  initialPort?: string;
   onConnect: (params: SerialConnectParams) => void;
   onDismiss?: () => void;
 }) {
-  const [port, setPort] = useState("");
+  const [port, setPort] = useState(initialPort ?? "");
   const [baud, setBaud] = useState(115200);
   const [dataBits, setDataBits] = useState(8);
   const [parity, setParity] = useState("none");

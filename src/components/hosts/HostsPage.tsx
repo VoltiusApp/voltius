@@ -39,6 +39,7 @@ import ConnectionForm, { type ConnectionFormHandle } from "@/components/connecti
 import SerialConnectionForm from "@/components/connections/SerialConnectionForm";
 import { HomeToolbar } from "./HostsToolbar";
 import { TeamSessions } from "./TeamSessions";
+import { RemoteDeviceSessions } from "./RemoteDeviceSessions";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { useAllConnections } from "@/hooks/useAllConnections";
@@ -961,6 +962,9 @@ export default function HostsPage() {
             <EmptyState onAdd={canCreate ? () => { setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); } : undefined} />
           ) : (
             <div ref={itemAreaRef} data-drag-surface="true" className="space-y-6">
+
+              {/* ── Sessions live on the user's other devices ── */}
+              <RemoteDeviceSessions />
 
               {/* ── Team Sessions (live multiplayer) ── */}
               <TeamSessions />

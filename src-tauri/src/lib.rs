@@ -233,6 +233,20 @@ fn init_keychain_store() -> keyring_core::Result<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Tauri's default async runtime uses tokio's default worker-thread stack,
+    // which on Windows is too small for process_kill's call chain (sysinfo
+    // refresh / russh channel I/O) and overflows the stack
+    // (STATUS_STACK_OVERFLOW, 0xc00000fd), aborting the whole process. Register
+    // a runtime with a generous stack so commands get the headroom Linux gives
+    // by default. Must run before any async_runtime use.
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .thread_stack_size(8 * 1024 * 1024)
+        .build()
+        .expect("failed to build tokio runtime");
+    tauri::async_runtime::set(runtime.handle().clone());
+    std::mem::forget(runtime); // runtime must outlive the app
+
     // keyring-core requires registering a platform credential store before any
     // `Entry` use. We register only the native store per-OS (keyutils on Linux,
     // Keychain on macOS, Credential Manager on Windows) to avoid the `keyring`
@@ -360,6 +374,9 @@ pub fn run() {
             commands::sync::updater_get_auto,
             commands::sync::updater_set_auto,
             commands::sync::settings_save,
+            commands::sync::live_sessions_load,
+            commands::sync::live_sessions_save,
+            commands::sync::device_hostname,
             commands::ssh::ssh_connect,
             commands::ssh::ssh_disconnect,
             commands::ssh::ssh_send_input,
