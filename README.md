@@ -45,19 +45,19 @@ No account required. Everything below is free, forever.
 | **Installed Size** | ~40MB | ~1GB | ~40MB | NOT TESTED | NOT TESTED |
 | **Cloud Sync** | Gist (Free) / Real-Time (Paid) | 🟡 Only Pro | 🟡 Via Turso (own account) | ❌ | Community Plugins |
 | **Import/Export** | ✅ 1-click import from Termius/MobaXterm, JSON Export | 🟡 Strong Import Integrations but no Export | ✅ |  |  |
-| **Port Forwarding** | ✅ | ✅ | ✅ |  | ✅ |
-| **Snippets** | ✅ + multi-exec | 🟡 (Multi-exec + startup snippets only Pro) | ✅ + multi-exec |  |  |
+| **Port Forwarding** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Snippets** | ✅ + multi-exec | 🟡 (Multi-exec + startup snippets only Pro) | ✅ + multi-exec | ✅ + multi-exec |  |
 | **Command Palette** | ✅ | ✅ |  |  | ✅ |
-| **Split panes** | ✅ | ✅ | ❌ |  |  |
-| **X11 Forwarding** | ❌ | | ❌ |  |  |
-| **Docker Integration** | ✅ |  |  |  |  |
+| **Split panes** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **X11 Forwarding** | ❌ | | ❌ |  | ✅ |
+| **Docker Integration** | ✅ |  |  |  | 🟡 (community plugin) |
 | **Proxmox LXC Integration** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **System Monitoring** | ✅ |  |  |  |  |
-| **Jump Hosts** | ✅ | ✅ | ✅ |  |  |
+| **System Monitoring** | ✅ |  | ✅ | ✅ |  |
+| **Jump Hosts** | ✅ | ✅ | ✅ |  | ✅ |
 | **Team vaults** | ✅ Teams or self-hosted | ✅ Teams plan | ✅ Free but complex |  |  |
 | **Audit logs** | ✅ | 🟡 Teams plan |  |  |  |
-| **Custom Themes** | ✅ |  |  |  | ✅ |
-| **Folders &amp; Tags** | ✅ | ✅ | ✅ |  |  |
+| **Custom Themes** | ✅ |  |  | ✅ | ✅ |
+| **Folders &amp; Tags** | ✅ | ✅ | ✅ | ✅ |  |
 | **Auto-Updates** | ✅ | ✅ | ✅ |  |  |
 | **Modern UI/UX** | ✅ | ✅ | 🟡 | ✅ | 🟡 |
 | **AI assistant** | ❌ | ✅ | ✅ |  |  |
@@ -66,6 +66,8 @@ No account required. Everything below is free, forever.
 | **Security** | **End-to-End Encrypted** | Proprietary E2EE | **End-to-End Encrypted** |  | Local Only / Manual |
 | **SFTP host&lt;-&gt;host** | ✅ | ✅ | ❌ |  | ❌ |
 | **Serial Console** | ✅ | ✅ | ✅ |  | ✅ |
+| **Persistent sessions** | ✅ uses tmux/screen, default behavior | 🟡 (via Mosh, must be installed on the host; not built-in) | ❌ | ❌ | ❌ |
+| **Cross-device live resume** | ✅ Seamless pickup | ❌ | ❌ | ❌ | ❌ |
 | **Local-first** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Plugins** | ✅ | ❌ | ✅ | ❌ | ✅ |
 | **Platforms** | Windows, Linux, MacOS (Mobile coming soon) | Windows, Linux, MacOS, Android, IOS | Windows, Linux, MacOS, Android | All (web-based) | Windows, Linux, MacOS, Web |
