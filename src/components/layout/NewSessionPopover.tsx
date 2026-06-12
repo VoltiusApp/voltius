@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
-import { invoke } from "@tauri-apps/api/core";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useVaultStore } from "@/stores/vaultStore";
@@ -9,7 +8,14 @@ import { useTeamStore } from "@/stores/teamStore";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { parseQuickConnect, type QuickConnectIntent } from "@/services/quickConnect";
 import { launchHost, launchQuickConnect, launchLocalShell } from "@/services/launch";
-import { partitionLauncherHosts } from "@/components/layout/newSessionItems";
+import {
+  partitionLauncherHosts,
+  shellLabel,
+  shellIcon,
+  localShellNeedsPath,
+  type ShellOption,
+} from "@/components/layout/newSessionItems";
+import { useLocalShells } from "@/hooks/useLocalShells";
 import type { Connection } from "@/types";
 
 interface NewSessionPopoverProps {
@@ -17,29 +23,10 @@ interface NewSessionPopoverProps {
   onClose: () => void;
 }
 
-interface ShellOption {
-  name: string;
-  path: string;
-}
-
 type Row =
   | { kind: "quick-connect"; intent: Exclude<QuickConnectIntent, null> }
   | { kind: "host"; connection: Connection }
   | { kind: "local-shell"; shell: ShellOption | null };
-
-/** Icon for a shell, keyed loosely off its name. */
-function shellIcon(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes("powershell")) return "lucide:terminal";
-  if (n.includes("cmd") || n.includes("command")) return "lucide:square-chevron-right";
-  if (n.includes("wsl")) return "lucide:square-terminal";
-  return "lucide:square-terminal";
-}
-
-/** "zsh" → "Zsh", leave multi-word names ("PowerShell 7+") untouched. */
-function shellLabel(name: string): string {
-  return /\s/.test(name) ? name : name.charAt(0).toUpperCase() + name.slice(1);
-}
 
 function VaultBadge({ vaultId }: { vaultId: string | undefined }) {
   const vaults = useVaultStore((s) => s.vaults);
@@ -71,17 +58,14 @@ export function NewSessionPopover({ anchorRef, onClose }: NewSessionPopoverProps
 
   const connections = useAllConnections();
   const sessions = useSessionStore((s) => s.sessions);
-  const [shells, setShells] = useState<ShellOption[]>([]);
-
-  useEffect(() => {
-    invoke<ShellOption[]>("local_list_shells").then(setShells).catch(() => {});
-  }, []);
+  const shells = useLocalShells();
 
   // One launcher per detected shell; fall back to a single default shell.
   const localShells: (ShellOption | null)[] = useMemo(
     () => (shells.length ? shells : [null]),
     [shells],
   );
+  const shellNeedsPath = useMemo(() => localShellNeedsPath(shells), [shells]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -115,7 +99,12 @@ export function NewSessionPopover({ anchorRef, onClose }: NewSessionPopoverProps
     [connections, activeConnectionIds, query],
   );
 
-  const quickIntent = useMemo(() => parseQuickConnect(query), [query]);
+  // Local shells live in the dedicated Local section, so drop the redundant
+  // local Quick Connect row.
+  const quickIntent = useMemo(() => {
+    const intent = parseQuickConnect(query);
+    return intent && intent.kind !== "local" ? intent : null;
+  }, [query]);
 
   // Flat, ordered list of selectable rows — drives keyboard nav and Enter.
   const rows: Row[] = useMemo(() => {
@@ -181,6 +170,29 @@ export function NewSessionPopover({ anchorRef, onClose }: NewSessionPopoverProps
     );
   };
 
+  const shellRow = (shell: ShellOption | null, rowIdx: number) => {
+    const isSel = selected === rowIdx;
+    const label = shell ? shellLabel(shell.name) : "Local shell";
+    const showPath = !!shell && shellNeedsPath.has(label);
+    return (
+      <button
+        key={shell ? `shell-${shell.path}` : "shell-default"}
+        onClick={() => activate({ kind: "local-shell", shell })}
+        onMouseEnter={() => setSelected(rowIdx)}
+        className="w-full flex items-center gap-3 px-3 py-2 text-left transition-colors"
+        style={{ background: isSel ? "var(--t-border-hover)" : "transparent" }}
+      >
+        <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-(--t-bg-toolbar)">
+          <Icon icon={shell ? shellIcon(shell.name) : "lucide:square-terminal"} width={13} className="text-(--t-accent)" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className="text-sm font-medium" style={{ color: isSel ? "var(--t-accent)" : "var(--t-text-primary)" }}>{label}</span>
+          {showPath && <p className="text-xs mt-0.5 font-mono truncate text-(--t-text-dim)">{shell!.path}</p>}
+        </div>
+      </button>
+    );
+  };
+
   const sectionHeader = (label: string, divider: boolean) => (
     <>
       {divider && <div className="border-t border-t-(--t-border) my-1" />}
@@ -189,9 +201,9 @@ export function NewSessionPopover({ anchorRef, onClose }: NewSessionPopoverProps
   );
 
   const quickLabel = quickIntent && (
-    quickIntent.kind === "ssh"    ? { t: `Connect to ${quickIntent.user}@${quickIntent.host}`, s: `Port ${quickIntent.port} · SSH`, i: "lucide:arrow-right" } :
-    quickIntent.kind === "serial" ? { t: "Serial connection", s: quickIntent.port ?? "Configure port & baud", i: "lucide:ethernet-port" } :
-                                    { t: quickIntent.shell ? `Local shell (${quickIntent.shell})` : "Local shell", s: "Open a local terminal", i: "lucide:square-terminal" }
+    quickIntent.kind === "ssh"
+      ? { t: `Connect to ${quickIntent.user}@${quickIntent.host}`, s: `Port ${quickIntent.port} · SSH`, i: "lucide:arrow-right" }
+      : { t: "Serial connection", s: quickIntent.port ?? "Configure port & baud", i: "lucide:ethernet-port" }
   );
 
   return createPortal(
@@ -252,37 +264,9 @@ export function NewSessionPopover({ anchorRef, onClose }: NewSessionPopoverProps
             {query.trim() ? `No hosts match "${query.trim()}"` : "No hosts yet"}
           </p>
         )}
-      </div>
 
-      {/* Local terminal launchers — one segment per detected shell */}
-      <div className="border-t border-t-(--t-border)">
-        <p className="px-3 pt-1.5 pb-1 text-[11px] font-bold uppercase tracking-widest text-(--t-text-dim)">
-          New Local Terminal
-        </p>
-        <div className="flex items-stretch border-t border-t-(--t-border)">
-          {localShells.map((shell, i) => {
-            const rowIdx = localStart + i;
-            const isSel = selected === rowIdx;
-            const label = shell ? shellLabel(shell.name) : "Local shell";
-            return (
-              <div key={shell ? shell.path : "default"} className="flex-1 flex items-stretch min-w-0">
-                {i > 0 && <div className="w-px bg-(--t-border)" />}
-                <button
-                  onClick={() => activate({ kind: "local-shell", shell })}
-                  onMouseEnter={() => setSelected(rowIdx)}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium transition-colors min-w-0"
-                  style={{
-                    background: isSel ? "var(--t-border-hover)" : "transparent",
-                    color: isSel ? "var(--t-accent)" : "var(--t-text-secondary)",
-                  }}
-                >
-                  <Icon icon={shell ? shellIcon(shell.name) : "lucide:square-terminal"} width={15} className="shrink-0" />
-                  <span className="truncate">{label}</span>
-                </button>
-              </div>
-            );
-          })}
-        </div>
+        {sectionHeader("Local", !!quickIntent || recent.length > 0 || hosts.length > 0)}
+        {localShells.map((shell, i) => shellRow(shell, localStart + i))}
       </div>
     </div>,
     document.body,

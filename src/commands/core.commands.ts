@@ -6,19 +6,6 @@ import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { defineCommand, navCommand, pendingActionCommand } from "./defineCommand";
 
 export const commands: OmniCommand[] = [
-  defineCommand({
-    id: "core:local-terminal",
-    label: "Local Terminal",
-    icon: "lucide:terminal",
-    keywords: ["shell", "bash", "zsh", "local", "console"],
-    execute: () => {
-      const { connectLocal } = useSessionStore.getState();
-      const { setSidebarOpen, setActiveNav } = useUIStore.getState();
-      connectLocal().catch(() => {});
-      setSidebarOpen(false);
-      setActiveNav("terminal");
-    },
-  }),
   pendingActionCommand({
     id: "core:new-host",
     label: "New Host",

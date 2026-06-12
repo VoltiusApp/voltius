@@ -27,8 +27,16 @@ import type { ActiveSession } from "@/stores/teamSessionStore";
 import { getCurrentUserEmail } from "@/services/account";
 import { useToggleSettings } from "@/hooks/useToggleSettings";
 import { parseQuickConnect, type QuickConnectIntent } from "@/services/quickConnect";
-import { launchHost, launchQuickConnect } from "@/services/launch";
-import { selectRecentHosts } from "@/components/layout/newSessionItems";
+import { launchHost, launchQuickConnect, launchLocalShell } from "@/services/launch";
+import {
+  selectRecentHosts,
+  selectLocalShellItems,
+  localShellNeedsPath,
+  shellLabel,
+  shellIcon,
+  type ShellOption,
+} from "@/components/layout/newSessionItems";
+import { useLocalShells } from "@/hooks/useLocalShells";
 
 interface OmniSearchProps {
   onClose: () => void;
@@ -45,7 +53,8 @@ type OmniItem =
   | { kind: "toggle"; id: string; label: string; icon: string; description?: string; keywords?: string[]; value: boolean; onToggle: (v: boolean) => void }
   | { kind: "quick-connect"; intent: Exclude<QuickConnectIntent, null> }
   | { kind: "join-code"; id: string; label: string; icon: string; code: string }
-  | { kind: "join-code-prompt"; id: string; label: string; icon: string };
+  | { kind: "join-code-prompt"; id: string; label: string; icon: string }
+  | { kind: "local-shell"; shell: ShellOption | null };
 
 type Category = "all" | "snippets" | "marketplace" | "settings" | "join";
 
@@ -93,6 +102,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const listRef = useRef<HTMLDivElement>(null);
 
   const connections = useAllConnections();
+  const shells = useLocalShells();
   const deleteConnection = useConnectionStore((s) => s.deleteConnection);
   const { sessions, setActive } = useSessionStore();
   const snippets = useSnippetStore((s) => s.snippets);
@@ -207,8 +217,10 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
     const result: OmniItem[] = [];
 
+    // Local shells are surfaced by the dedicated Local section below, so skip
+    // the redundant local Quick Connect row.
     const quickIntent = parseQuickConnect(query);
-    if (quickIntent) {
+    if (quickIntent && quickIntent.kind !== "local") {
       result.push({ kind: "quick-connect", intent: quickIntent });
     }
 
@@ -241,6 +253,11 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       return !activeConnectionIds.has(c.id) && !c.last_used_at;
     });
     result.push(...filteredHosts.map((c): OmniItem => ({ kind: "host", connection: c })));
+
+    // Local shells — single entry when no query, expands to per-shell rows when query matches "local"/a shell name
+    result.push(
+      ...selectLocalShellItems(shells, q).map((it): OmniItem => ({ kind: "local-shell", shell: it.shell })),
+    );
 
     // SSH Keys
     result.push(
@@ -315,7 +332,14 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     }
 
     return result;
-  }, [category, q, query, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts, teamSessions, myMpSessionIds, toggleItems]);
+  }, [category, q, query, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts, teamSessions, myMpSessionIds, toggleItems, shells]);
+
+  const shellNeedsPath = useMemo(() => {
+    const shown = items
+      .filter((i): i is Extract<OmniItem, { kind: "local-shell" }> => i.kind === "local-shell" && !!i.shell)
+      .map((i) => i.shell!);
+    return localShellNeedsPath(shown);
+  }, [items]);
 
   const clamp = useCallback(
     (idx: number) => Math.max(0, Math.min(idx, items.length - 1)),
@@ -456,6 +480,9 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           }
         }
         onClose();
+      } else if (item.kind === "local-shell") {
+        launchLocalShell(item.shell?.path);
+        onClose();
       } else if (item.kind === "quick-connect") {
         launchQuickConnect(item.intent);
         onClose();
@@ -503,6 +530,9 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     const hostCount = items.filter((i) => i.kind === "host").length - recentCount;
     const hostStart = idx; idx += hostCount;
 
+    const localCount = items.filter((i) => i.kind === "local-shell").length;
+    const localStart = idx; idx += localCount;
+
     const keyCount = items.filter((i) => i.kind === "key").length;
     const keyStart = idx; idx += keyCount;
 
@@ -519,7 +549,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     const toggleStart = idx; idx += toggleCount;
     const settingsStart = idx;
 
-    return { quickConnectStart, quickConnectCount, activeStart, activeCount, teamSessionStart, teamSessionCount, recentStart, recentCount, hostStart, hostCount, keyStart, keyCount, identityStart, identityCount, snippetStart, snippetCount, actionStart, actionCount, toggleStart, toggleCount, settingsStart, settingsCount };
+    return { quickConnectStart, quickConnectCount, activeStart, activeCount, teamSessionStart, teamSessionCount, recentStart, recentCount, hostStart, hostCount, localStart, localCount, keyStart, keyCount, identityStart, identityCount, snippetStart, snippetCount, actionStart, actionCount, toggleStart, toggleCount, settingsStart, settingsCount };
   }, [category, items, q, recentConnections.length]);
 
   const statusColor = (s: TerminalSession) =>
@@ -869,6 +899,30 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       );
     }
 
+    if (item.kind === "local-shell") {
+      const shell = item.shell;
+      const label = shell ? shellLabel(shell.name) : "Local shell";
+      const showPath = !!shell && shellNeedsPath.has(label);
+      return (
+        <button
+          key={shell ? `ls-${shell.path}` : "ls-default"}
+          data-idx={idx}
+          onClick={() => selectItem(item)}
+          onMouseEnter={() => setSelected(idx)}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+          style={{ background: baseBg }}
+        >
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-(--t-bg-toolbar)">
+            <Icon icon={shell ? shellIcon(shell.name) : "lucide:square-terminal"} width={13} className="text-(--t-accent)" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium" style={{ color: isSelected ? "var(--t-accent)" : "var(--t-text-primary)" }}>{label}</span>
+            {showPath && <p className="text-xs mt-0.5 font-mono truncate text-(--t-text-dim)">{shell?.path}</p>}
+          </div>
+        </button>
+      );
+    }
+
     if (item.kind === "quick-connect") {
       const intent = item.intent;
       const { title, subtitle, icon } =
@@ -1017,9 +1071,17 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
                 </>
               )}
 
+              {sectionBoundaries.localCount > 0 && (
+                <>
+                  {sectionHeader("Local", hasAbove(sectionBoundaries.quickConnectCount, sectionBoundaries.activeCount, sectionBoundaries.recentCount, sectionBoundaries.hostCount))}
+                  {items.slice(sectionBoundaries.localStart, sectionBoundaries.localStart + sectionBoundaries.localCount)
+                    .map((item) => renderItem(item, runningIdx++))}
+                </>
+              )}
+
               {(sectionBoundaries.keyCount > 0 || sectionBoundaries.identityCount > 0) && (
                 <>
-                  {sectionHeader("Keychain", hasAbove(sectionBoundaries.quickConnectCount, sectionBoundaries.activeCount, sectionBoundaries.recentCount, sectionBoundaries.hostCount))}
+                  {sectionHeader("Keychain", hasAbove(sectionBoundaries.quickConnectCount, sectionBoundaries.activeCount, sectionBoundaries.recentCount, sectionBoundaries.hostCount, sectionBoundaries.localCount))}
                   {items.slice(sectionBoundaries.keyStart, sectionBoundaries.keyStart + sectionBoundaries.keyCount)
                     .map((item) => renderItem(item, runningIdx++))}
                   {items.slice(sectionBoundaries.identityStart, sectionBoundaries.identityStart + sectionBoundaries.identityCount)
