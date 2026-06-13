@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useIsAndroid } from "@/utils/platform";
 import {
   processesStart,
   processesStop,
@@ -165,6 +166,9 @@ function ProcessRow({
 export function ProcessPanel() {
   const { sessions, activeSessionId } = useSessionStore();
   const activeSession = sessions.find((s) => s.id === activeSessionId);
+  // Android restricts /proc to the app's own process — only remote (SSH) works.
+  const isAndroid = useIsAndroid();
+  const localUnsupported = isAndroid && !!activeSession && activeSession.type !== "ssh";
 
   const streamIdRef = useRef<string | null>(null);
   const unlistenRef = useRef<(() => void) | null>(null);
@@ -191,7 +195,8 @@ export function ProcessPanel() {
     if (
       !activeSession ||
       activeSession.status !== "connected" ||
-      activeSession.type === "serial"
+      activeSession.type === "serial" ||
+      localUnsupported
     ) {
       stopStream();
       setSnapshot(null);
@@ -285,6 +290,16 @@ export function ProcessPanel() {
     return (
       <div className="flex items-center justify-center h-full opacity-40">
         <p className="text-sm text-(--t-text-muted)">No active session</p>
+      </div>
+    );
+  }
+
+  if (localUnsupported) {
+    return (
+      <div className="flex h-full items-center justify-center px-6 text-center">
+        <p className="max-w-[240px] text-[11px] leading-4 text-(--t-text-muted)">
+          The process list for this device isn't available on Android. Connect to a host over SSH to see its processes.
+        </p>
       </div>
     );
   }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useIsAndroid } from "@/utils/platform";
 import { metricsStart, metricsStop, onMetricsSnapshot } from "@/services/metrics";
 import type { DiskInfo, MetricsSnapshot } from "../types";
 import { MetricCard } from "./MetricCard";
@@ -28,6 +29,9 @@ function pushHistory(arr: number[], val: number): number[] {
 export function MetricsPanel() {
   const { sessions, activeSessionId } = useSessionStore();
   const activeSession = sessions.find((s) => s.id === activeSessionId);
+  // Android can't read host metrics (/proc is restricted) — only remote (SSH).
+  const isAndroid = useIsAndroid();
+  const localUnsupported = isAndroid && !!activeSession && activeSession.type !== "ssh";
 
   const streamIdRef = useRef<string | null>(null);
   const unlistenRef = useRef<(() => void) | null>(null);
@@ -50,7 +54,7 @@ export function MetricsPanel() {
   }, []);
 
   useEffect(() => {
-    if (!activeSession || activeSession.status !== "connected" || activeSession.type === "serial") {
+    if (!activeSession || activeSession.status !== "connected" || activeSession.type === "serial" || localUnsupported) {
       stopStream();
       setSnap(null);
       setCpuH([]);
@@ -107,6 +111,16 @@ export function MetricsPanel() {
     return (
       <div className="flex items-center justify-center h-full opacity-40">
         <p className="text-sm text-(--t-text-muted)">No active session</p>
+      </div>
+    );
+  }
+
+  if (localUnsupported) {
+    return (
+      <div className="flex h-full items-center justify-center px-6 text-center">
+        <p className="max-w-[240px] text-[11px] leading-4 text-(--t-text-muted)">
+          Live metrics for this device aren't available on Android. Connect to a host over SSH to see its metrics.
+        </p>
       </div>
     );
   }

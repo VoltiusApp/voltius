@@ -16,6 +16,7 @@ import {
   type ShellOption,
 } from "@/components/layout/newSessionItems";
 import { useLocalShells } from "@/hooks/useLocalShells";
+import { useIsAndroid } from "@/utils/platform";
 import type { Connection } from "@/types";
 
 interface NewSessionPopoverProps {
@@ -59,11 +60,13 @@ export function NewSessionPopover({ anchorRef, onClose }: NewSessionPopoverProps
   const connections = useAllConnections();
   const sessions = useSessionStore((s) => s.sessions);
   const shells = useLocalShells();
+  // Android sandbox can't spawn a local PTY — hide local-shell launchers there.
+  const isAndroid = useIsAndroid();
 
   // One launcher per detected shell; fall back to a single default shell.
   const localShells: (ShellOption | null)[] = useMemo(
-    () => (shells.length ? shells : [null]),
-    [shells],
+    () => (isAndroid ? [] : shells.length ? shells : [null]),
+    [shells, isAndroid],
   );
   const shellNeedsPath = useMemo(() => localShellNeedsPath(shells), [shells]);
 
@@ -265,8 +268,12 @@ export function NewSessionPopover({ anchorRef, onClose }: NewSessionPopoverProps
           </p>
         )}
 
-        {sectionHeader("Local", !!quickIntent || recent.length > 0 || hosts.length > 0)}
-        {localShells.map((shell, i) => shellRow(shell, localStart + i))}
+        {!isAndroid && (
+          <>
+            {sectionHeader("Local", !!quickIntent || recent.length > 0 || hosts.length > 0)}
+            {localShells.map((shell, i) => shellRow(shell, localStart + i))}
+          </>
+        )}
       </div>
     </div>,
     document.body,

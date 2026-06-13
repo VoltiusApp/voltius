@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { invoke } from "@tauri-apps/api/core";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useIsAndroid } from "@/utils/platform";
 import { localConnect, localSendInput } from "@/services/local";
 import {
   dockerListContainers,
@@ -116,6 +117,8 @@ export function DockerPanel() {
   const isRemote = activeSession?.type === "ssh";
   const sessionId = activeSession?.id ?? "";
   const localShell = activeSession?.type === "local" ? (activeSession.localShell ?? null) : null;
+  // Android can't exec a local docker CLI — only remote (SSH) docker is supported.
+  const isAndroid = useIsAndroid();
 
   const handleOpenTerminal = useCallback(
     async (containerId: string, containerName: string) => {
@@ -195,6 +198,7 @@ export function DockerPanel() {
   const fetchForView = useCallback(
     async (view: DockerView) => {
       if (!activeSession || activeSession.status !== "connected") return;
+      if (isAndroid && !isRemote) return; // never attempt local docker on Android
       dispatch({ type: "SET_LOADING", loading: true });
       try {
         switch (view) {
@@ -262,6 +266,25 @@ export function DockerPanel() {
     return (
       <div className="flex items-center justify-center h-full opacity-40">
         <p className="text-sm text-(--t-text-muted)">No active session</p>
+      </div>
+    );
+  }
+
+  // Android sandbox can't exec a local docker CLI; only remote (SSH) docker works.
+  if (isAndroid && !isRemote) {
+    return (
+      <div className="flex h-full items-center justify-center px-6 text-center">
+        <div className="max-w-[260px] space-y-2">
+          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-(--t-bg-card) text-(--t-text-muted) border border-(--t-border)">
+            <Icon icon="mdi:docker" width={22} />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-(--t-text)">Local Docker isn't available on Android</h3>
+            <p className="mt-1 text-[11px] leading-4 text-(--t-text-muted)">
+              Connect to a host over SSH to manage its Docker.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }

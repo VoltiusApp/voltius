@@ -10,6 +10,7 @@ import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { SORT_MODE_ICONS, useFilterShortcut } from "./ToolbarViewControls";
 import type { SortMode } from "./ToolbarViewControls";
+import { useIsAndroid } from "@/utils/platform";
 import type { Connection } from "@/types";
 
 export type HostChoice =
@@ -32,6 +33,8 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [wslDistros, setWslDistros] = useState<string[]>([]);
   useEffect(() => { wslListDistros().then(setWslDistros).catch(() => {}); }, []);
+  // Android sandbox can't spawn a local shell — hide local/WSL host targets.
+  const isAndroid = useIsAndroid();
   const searchRef = useRef<HTMLInputElement>(null);
   useFilterShortcut(searchRef);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
@@ -109,21 +112,23 @@ export function HostPickerPanel({ onPick, selectedHostId, onBack, sshOnly, vault
 
       {/* List */}
       <div className="flex-1 overflow-y-auto py-1.5 px-2">
-        <HostRow
-          avatar={
-            <div
-              className="rounded-lg flex items-center justify-center shrink-0 w-[1.867rem] h-[1.867rem] bg-(--t-bg-elevated) text-(--t-text-dim)"
-            >
-              <Icon icon="lucide:monitor" width={14} />
-            </div>
-          }
-          name="Local Machine"
-          sub="This computer"
-          isSelected={false}
-          onClick={() => onPick({ kind: "local" })}
-        />
+        {!isAndroid && (
+          <HostRow
+            avatar={
+              <div
+                className="rounded-lg flex items-center justify-center shrink-0 w-[1.867rem] h-[1.867rem] bg-(--t-bg-elevated) text-(--t-text-dim)"
+              >
+                <Icon icon="lucide:monitor" width={14} />
+              </div>
+            }
+            name="Local Machine"
+            sub="This computer"
+            isSelected={false}
+            onClick={() => onPick({ kind: "local" })}
+          />
+        )}
 
-        {wslDistros
+        {!isAndroid && wslDistros
           .filter((d) => d.toLowerCase().includes(search.toLowerCase()))
           .map((d) => {
             const icon = getConnectionIcon(d.split(/[-_ ]/)[0]);

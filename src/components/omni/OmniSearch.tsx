@@ -37,6 +37,7 @@ import {
   type ShellOption,
 } from "@/components/layout/newSessionItems";
 import { useLocalShells } from "@/hooks/useLocalShells";
+import { useIsAndroid } from "@/utils/platform";
 
 interface OmniSearchProps {
   onClose: () => void;
@@ -103,6 +104,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
   const connections = useAllConnections();
   const shells = useLocalShells();
+  // Android sandbox can't spawn a local PTY — keep local shells out of search.
+  const isAndroid = useIsAndroid();
   const deleteConnection = useConnectionStore((s) => s.deleteConnection);
   const { sessions, setActive } = useSessionStore();
   const snippets = useSnippetStore((s) => s.snippets);
@@ -255,9 +258,11 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     result.push(...filteredHosts.map((c): OmniItem => ({ kind: "host", connection: c })));
 
     // Local shells — single entry when no query, expands to per-shell rows when query matches "local"/a shell name
-    result.push(
-      ...selectLocalShellItems(shells, q).map((it): OmniItem => ({ kind: "local-shell", shell: it.shell })),
-    );
+    if (!isAndroid) {
+      result.push(
+        ...selectLocalShellItems(shells, q).map((it): OmniItem => ({ kind: "local-shell", shell: it.shell })),
+      );
+    }
 
     // SSH Keys
     result.push(
@@ -332,7 +337,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     }
 
     return result;
-  }, [category, q, query, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts, teamSessions, myMpSessionIds, toggleItems, shells]);
+  }, [category, q, query, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts, teamSessions, myMpSessionIds, toggleItems, shells, isAndroid]);
 
   const shellNeedsPath = useMemo(() => {
     const shown = items

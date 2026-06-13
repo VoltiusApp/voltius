@@ -8,6 +8,7 @@ import { useRipple } from "@/hooks/useRipple";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { IMPORTERS } from "@/services/import-export/importers";
+import { useIsAndroid } from "@/utils/platform";
 
 interface ShellOption {
   name: string;
@@ -71,6 +72,8 @@ export function HomeToolbar({
 
   const [shells, setShells] = useState<ShellOption[]>([]);
   const { preferredShell, setPreferredShell } = useTerminalSettingsStore();
+  // Android sandbox can't spawn a local PTY — hide the local-terminal launcher.
+  const isAndroid = useIsAndroid();
 
   useEffect(() => {
     invoke<ShellOption[]>("local_list_shells").then(setShells).catch(() => {});
@@ -100,30 +103,35 @@ export function HomeToolbar({
         </div>
 
         <div ref={rightRef} className="ml-auto flex items-center gap-2 shrink-0">
-          <button
-            className="flex items-center gap-2 px-3 py-2 h-8 rounded-lg text-sm font-bold tracking-wider transition-colors shrink-0 whitespace-nowrap bg-(--t-bg-input) text-(--t-text-primary) border border-(--t-border-hover) relative overflow-hidden"
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-input-hover)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-input)")}
-            onMouseDown={rippleSerial}
-            onClick={onOpenSerial}
-            title="Open serial console"
-            type="button"
-          >
-            {ripplesSerial}
-            <Icon icon="lucide:ethernet-port" width={20} />
-            {!compact && "Serial"}
-          </button>
+          {/* Android sandbox has no /dev/tty* access — hide serial console. */}
+          {!isAndroid && (
+            <button
+              className="flex items-center gap-2 px-3 py-2 h-8 rounded-lg text-sm font-bold tracking-wider transition-colors shrink-0 whitespace-nowrap bg-(--t-bg-input) text-(--t-text-primary) border border-(--t-border-hover) relative overflow-hidden"
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--t-bg-input-hover)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-input)")}
+              onMouseDown={rippleSerial}
+              onClick={onOpenSerial}
+              title="Open serial console"
+              type="button"
+            >
+              {ripplesSerial}
+              <Icon icon="lucide:ethernet-port" width={20} />
+              {!compact && "Serial"}
+            </button>
+          )}
 
-          <ToolbarDropdown
-            icon="lucide:terminal"
-            label={compact ? undefined : "Terminal"}
-            value={preferredShell ?? shells[0]?.path ?? ""}
-            options={shells.map((s) => ({ value: s.path, label: s.name }))}
-            menuWidth={200}
-            align="right"
-            onAction={onOpenLocalTerminal}
-            onChange={setPreferredShell}
-          />
+          {!isAndroid && (
+            <ToolbarDropdown
+              icon="lucide:terminal"
+              label={compact ? undefined : "Terminal"}
+              value={preferredShell ?? shells[0]?.path ?? ""}
+              options={shells.map((s) => ({ value: s.path, label: s.name }))}
+              menuWidth={200}
+              align="right"
+              onAction={onOpenLocalTerminal}
+              onChange={setPreferredShell}
+            />
+          )}
 
           <div className="w-px h-5 self-center bg-(--t-border) mx-1" />
 

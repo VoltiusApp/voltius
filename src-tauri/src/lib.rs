@@ -328,6 +328,7 @@ pub fn run() {
             updater_restart,
             updater_check,
             commands::greet,
+            commands::get_platform,
             commands::ping::ping_host,
             commands::ping::ping_host_via_jumps,
             commands::connections::connection_list,
