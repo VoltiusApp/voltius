@@ -21,6 +21,7 @@ import MobileDockerScreen from "./panels/MobileDockerScreen";
 import MobileDockerLogsScreen from "./panels/MobileDockerLogsScreen";
 import MobileMetricsScreen from "./panels/MobileMetricsScreen";
 import MobileProcessesScreen from "./panels/MobileProcessesScreen";
+import MobileSftpScreen from "./panels/MobileSftpScreen";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useAndroidBack } from "@/hooks/useAndroidBack";
@@ -120,6 +121,7 @@ export default function MobileShell() {
         )}
         {top?.kind === "panel-metrics" && <MobileMetricsScreen sessionId={top.sessionId} />}
         {top?.kind === "panel-processes" && <MobileProcessesScreen sessionId={top.sessionId} />}
+        {top?.kind === "panel-sftp" && <MobileSftpScreen sessionId={top.sessionId} />}
       </div>
       {!immersive && <BottomTabBar />}
       {sheet?.kind === "vault-switcher" && <VaultSwitcherSheet />}
