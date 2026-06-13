@@ -52,7 +52,11 @@ fn raw_set(storage_key: &str, value: &str) -> Result<()> {
             CLASS,
             "set",
             "(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;)V",
-            &[JValue::Object(ctx), JValue::Object(&jkey), JValue::Object(&jval)],
+            &[
+                JValue::Object(ctx),
+                JValue::Object(&jkey),
+                JValue::Object(&jval),
+            ],
         )?
         .v()
     })
@@ -191,6 +195,9 @@ mod tests {
         assert_eq!(storage_key("voltius", "jwt"), "voltius\u{1f}jwt");
         // Voltius services/keys are fixed ASCII names that never contain the unit
         // separator, so the join is unambiguous in practice.
-        assert_ne!(storage_key("voltius", "jwt"), storage_key("voltius", "mode"));
+        assert_ne!(
+            storage_key("voltius", "jwt"),
+            storage_key("voltius", "mode")
+        );
     }
 }
