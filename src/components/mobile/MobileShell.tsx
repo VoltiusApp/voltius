@@ -17,8 +17,10 @@ import AuditLogsPage from "@/components/logs/AuditLogsPage";
 import SFTPPage from "@/components/filetransfer/SFTPPage";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useAndroidBack } from "@/hooks/useAndroidBack";
 
 export default function MobileShell() {
+  useAndroidBack();
   const tab = useMobileNavStore((s) => s.tab);
   const stack = useMobileNavStore((s) => s.stack);
   const sheet = useMobileNavStore((s) => s.sheet);
