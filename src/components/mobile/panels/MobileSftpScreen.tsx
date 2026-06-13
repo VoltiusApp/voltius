@@ -1,10 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSftpDir, breadcrumbs } from "@/services/useSftpDir";
 import { formatSize, type FileEntry } from "@/components/filetransfer/SFTPTypes";
+import { writeClipboard } from "@/utils/clipboard";
 import MobilePanelHeader from "./MobilePanelHeader";
+import BottomSheet from "../sheets/BottomSheet";
 
 function isPermissionDenied(msg: string): boolean {
   const m = msg.toLowerCase();
@@ -15,8 +17,14 @@ export default function MobileSftpScreen({ sessionId }: { sessionId: string }) {
   const session = useSessionStore((s) => s.sessions.find((x) => x.id === sessionId));
   const connections = useAllConnections();
   const connection = useMemo(() => connections.find((c) => c.id === session?.connectionId), [connections, session?.connectionId]);
-  const { phase, cwd, entries, listing, listError, navigate, goUp } = useSftpDir(connection);
+  const { phase, cwd, entries, listing, listError, navigate, goUp, mkdir, rename, remove } = useSftpDir(connection);
   const [showHidden, setShowHidden] = useState(false);
+  const [sheetFor, setSheetFor] = useState<FileEntry | null>(null);
+  const [renaming, setRenaming] = useState<FileEntry | null>(null);
+  const [renameVal, setRenameVal] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<FileEntry | null>(null);
+  const [newFolder, setNewFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
 
   const visible = useMemo(() => {
     const filtered = showHidden ? entries : entries.filter((e) => !e.name.startsWith("."));
@@ -28,10 +36,15 @@ export default function MobileSftpScreen({ sessionId }: { sessionId: string }) {
       title="SFTP"
       sessionName={session?.connectionName}
       right={
-        <button data-sftp-hidden onClick={() => setShowHidden((v) => !v)} className="px-2 py-1 text-xs rounded-lg"
-          style={{ color: showHidden ? "var(--t-accent)" : "var(--t-text-dim)" }}>
-          {showHidden ? "Hidden" : "Visible"}
-        </button>
+        <>
+          <button data-sftp-hidden onClick={() => setShowHidden((v) => !v)} className="px-2 py-1 text-xs rounded-lg"
+            style={{ color: showHidden ? "var(--t-accent)" : "var(--t-text-dim)" }}>
+            {showHidden ? "Hidden" : "Visible"}
+          </button>
+          <button data-sftp-new-folder onClick={() => setNewFolder(true)} className="p-1.5 rounded-lg text-(--t-text-dim) active:bg-(--t-bg-card)" aria-label="New folder">
+            <Icon icon="lucide:plus" width={18} />
+          </button>
+        </>
       }
     />
   );
@@ -88,17 +101,65 @@ export default function MobileSftpScreen({ sessionId }: { sessionId: string }) {
           </div>
         )}
         {phase.tag === "connected" && !listError && visible.map((f) => (
-          <FileRow key={f.path} file={f} onTap={() => (f.isDir ? navigate(f.path) : void 0 /* actions sheet — Task 3 */)} />
+          <FileRow key={f.path} file={f} onTap={() => (f.isDir ? navigate(f.path) : setSheetFor(f))} onLong={() => setSheetFor(f)} />
         ))}
       </div>
+
+      {sheetFor && (
+        <BottomSheet title={sheetFor.name} onClose={() => setSheetFor(null)}>
+          {/* Download added in Task 4 */}
+          <SheetItem icon="lucide:pencil" label="Rename" onTap={() => { setRenaming(sheetFor); setRenameVal(sheetFor.name); setSheetFor(null); }} />
+          <SheetItem icon="lucide:clipboard" label="Copy path" onTap={() => { void writeClipboard(sheetFor.path); setSheetFor(null); }} />
+          <SheetItem icon="lucide:trash-2" label="Delete" danger onTap={() => { setConfirmDelete(sheetFor); setSheetFor(null); }} />
+        </BottomSheet>
+      )}
+      {renaming && (
+        <BottomSheet title={`Rename ${renaming.name}`} onClose={() => setRenaming(null)}>
+          <input autoFocus value={renameVal} onChange={(e) => setRenameVal(e.target.value)}
+            className="w-full rounded-xl px-3 h-11 text-sm outline-none text-(--t-text-primary) mb-2"
+            style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }} />
+          <button data-sftp-rename-go className="w-full px-3 py-3 rounded-xl text-sm font-medium" style={{ background: "var(--t-accent)", color: "#fff" }}
+            onClick={async () => { const f = renaming; const v = renameVal.trim(); setRenaming(null); if (v && v !== f.name) try { await rename(f, v); } catch (e) { alert(String(e)); } }}>Rename</button>
+        </BottomSheet>
+      )}
+      {confirmDelete && (
+        <BottomSheet title={`Delete ${confirmDelete.name}?`} onClose={() => setConfirmDelete(null)}>
+          <button data-sftp-delete-go className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl" style={{ color: "var(--t-status-error)" }}
+            onClick={async () => { const f = confirmDelete; setConfirmDelete(null); try { await remove(f); } catch (e) { alert(String(e)); } }}>
+            <Icon icon="lucide:trash-2" width={18} /><span className="text-sm font-medium">Delete</span>
+          </button>
+          <button className="w-full px-3 py-3.5 rounded-xl text-sm text-(--t-text-dim)" onClick={() => setConfirmDelete(null)}>Cancel</button>
+        </BottomSheet>
+      )}
+      {newFolder && (
+        <BottomSheet title="New folder" onClose={() => setNewFolder(false)}>
+          <input autoFocus value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} placeholder="Folder name"
+            className="w-full rounded-xl px-3 h-11 text-sm outline-none text-(--t-text-primary) mb-2"
+            style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }} />
+          <button data-sftp-mkdir-go className="w-full px-3 py-3 rounded-xl text-sm font-medium" style={{ background: "var(--t-accent)", color: "#fff" }}
+            onClick={async () => { const n = newFolderName.trim(); setNewFolder(false); setNewFolderName(""); if (n) try { await mkdir(n); } catch (e) { alert(String(e)); } }}>Create</button>
+        </BottomSheet>
+      )}
     </div>
   );
 }
 
-function FileRow({ file, onTap }: { file: FileEntry; onTap: () => void }) {
+function FileRow({ file, onTap, onLong }: { file: FileEntry; onTap: () => void; onLong: () => void }) {
   const icon = file.isDir ? "lucide:folder" : file.isSymlink ? "lucide:link" : "lucide:file";
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fired = useRef(false);
+  const clear = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } };
+  useEffect(() => () => clear(), []); // cancel a pending long-press timer if the row unmounts mid-press
+  const startLong = () => {
+    fired.current = false;
+    clear();
+    timer.current = setTimeout(() => { fired.current = true; onLong(); }, 500);
+  };
   return (
-    <button data-sftp-row={file.path} onClick={onTap}
+    <button data-sftp-row={file.path}
+      onClick={() => { if (!fired.current) onTap(); fired.current = false; }}
+      onContextMenu={(e) => { e.preventDefault(); fired.current = true; onLong(); }}
+      onTouchStart={startLong} onTouchEnd={clear} onTouchMove={clear} onTouchCancel={clear}
       className="w-full flex items-center gap-3 px-4 py-3 text-left active:bg-(--t-bg-card) border-b" style={{ borderColor: "var(--t-border)" }}>
       <Icon icon={icon} width={20} className="text-(--t-text-dim) shrink-0" />
       <span className="flex flex-col min-w-0 flex-1">
@@ -106,6 +167,16 @@ function FileRow({ file, onTap }: { file: FileEntry; onTap: () => void }) {
         {!file.isDir && <span className="text-[11px] text-(--t-text-dim)">{formatSize(file.size)}</span>}
       </span>
       {file.isDir && <Icon icon="lucide:chevron-right" width={16} className="text-(--t-text-dim) shrink-0" />}
+    </button>
+  );
+}
+
+function SheetItem({ icon, label, onTap, danger }: { icon: string; label: string; onTap: () => void; danger?: boolean }) {
+  return (
+    <button data-sftp-action={label.toLowerCase().replace(/\s+/g, "-")}
+      className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl text-left active:bg-(--t-bg-card)"
+      style={{ color: danger ? "var(--t-status-error)" : "var(--t-text-primary)" }} onClick={onTap}>
+      <Icon icon={icon} width={18} /><span className="text-sm font-medium">{label}</span>
     </button>
   );
 }
