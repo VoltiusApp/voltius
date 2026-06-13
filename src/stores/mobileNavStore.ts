@@ -5,6 +5,8 @@ import {
 } from "./mobileNavCore";
 
 interface MobileNavStore extends MobileNavState {
+  /** Last tab that wasn't "terminal"; the immersive exit chevron returns here. Store-only (not in MobileNavState). */
+  lastNonTerminalTab: MobileTab;
   setTab: (tab: MobileTab) => void;
   push: (screen: MobileScreen) => void;
   pop: () => void;
@@ -16,7 +18,13 @@ interface MobileNavStore extends MobileNavState {
 
 export const useMobileNavStore = create<MobileNavStore>()((set, get) => ({
   ...initialMobileNavState,
-  setTab: (tab) => set({ tab, stack: [], sheet: null }),
+  lastNonTerminalTab: "hosts",
+  setTab: (tab) => set((s) => ({
+    tab,
+    stack: [],
+    sheet: null,
+    lastNonTerminalTab: tab === "terminal" ? s.lastNonTerminalTab : tab,
+  })),
   push: (screen) => set((s) => ({ stack: [...s.stack, screen], sheet: null })),
   pop: () => set((s) => ({ stack: s.stack.slice(0, -1) })),
   openSheet: (sheet) => set({ sheet }),
