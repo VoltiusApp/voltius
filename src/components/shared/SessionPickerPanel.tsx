@@ -8,6 +8,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { matchesSearch } from "@/utils/connectionFilter";
 import { formatLocalShellTitle } from "@/utils/localShellTitle";
+import { useIsAndroid } from "@/utils/platform";
 import { ConnectionAvatar } from "./ConnectionAvatar";
 import { HostRow } from "./HostPickerPanel";
 import { getSnippetInjectionTargetIds, waitForConnectedSessionIds } from "./sessionPickerTargets";
@@ -31,6 +32,8 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
   const [selectedConnectionIds, setSelectedConnectionIds] = useState<Set<string>>(new Set());
   const [localShell, setLocalShell] = useState<string | null>(null);
   const [shells, setShells] = useState<ShellOption[]>([]);
+  // Android sandbox can't spawn a local PTY — hide local-shell rows there.
+  const isAndroid = useIsAndroid();
 
   useEffect(() => {
     invoke<ShellOption[]>("local_list_shells").then(setShells).catch(() => {});
@@ -197,7 +200,7 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
           </p>
 
           {/* Local shell rows */}
-          {!search && (shells.length > 0 ? shells : [{ name: "Local Shell", path: "" }]).map((s) => {
+          {!search && !isAndroid && (shells.length > 0 ? shells : [{ name: "Local Shell", path: "" }]).map((s) => {
             const selected = localShell === s.path;
             return (
               <HostRow
