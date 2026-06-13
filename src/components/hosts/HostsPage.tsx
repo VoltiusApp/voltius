@@ -10,7 +10,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useFolderStore } from "@/stores/folderStore";
-import { storeSecret, deleteSecret, getSecret } from "@/services/vault";
+import { storeSecret, getSecret } from "@/services/vault";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import type { Connection, ConnectionFormData, VaultOption, Folder, SshKey, Identity } from "@/types";
 import { useDragSelection } from "@/hooks/useDragSelection";
@@ -48,6 +48,7 @@ import { SnippetPickerPanel } from "./SnippetPickerPanel";
 import { getHostDeleteTargetIds, shouldUseBulkHostContextMenu } from "./hostSelection";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
+import { saveHostFromForm } from "@/services/hostForm";
 
 
 export default function HostsPage() {
@@ -512,48 +513,8 @@ export default function HostsPage() {
 
   const handleSubmit = async (data: ConnectionFormData, password: string | null, privateKey: string | null, passphrase: string | null) => {
     try {
-      if (editing) {
-        await updateConnection(editing.id, data);
-        if (password !== null) {
-          const localKey = `password:${editing.id}`;
-          if (password) {
-            await storeSecret(localKey, password);
-            await saveTeamVaultSecretForVault(data.vault_id ?? editing.vault_id, localKey, password).catch(() => {});
-          } else await deleteSecret(localKey).catch(() => {});
-        }
-        if (privateKey !== null) {
-          const localKey = `key:${editing.id}`;
-          if (privateKey) {
-            await storeSecret(localKey, privateKey);
-            await saveTeamVaultSecretForVault(data.vault_id ?? editing.vault_id, localKey, privateKey).catch(() => {});
-          } else await deleteSecret(localKey).catch(() => {});
-        }
-        if (passphrase !== null) {
-          const localKey = `passphrase:${editing.id}`;
-          if (passphrase) {
-            await storeSecret(localKey, passphrase);
-            await saveTeamVaultSecretForVault(data.vault_id ?? editing.vault_id, localKey, passphrase).catch(() => {});
-          } else await deleteSecret(localKey).catch(() => {});
-        }
-      } else {
-        const conn = await saveConnection({ ...data, vault_id: data.vault_id ?? selectedVaultIds[0] ?? "personal" });
-        if (password && conn) {
-          const localKey = `password:${conn.id}`;
-          await storeSecret(localKey, password);
-          await saveTeamVaultSecretForVault(conn.vault_id, localKey, password).catch(() => {});
-        }
-        if (privateKey && conn) {
-          const localKey = `key:${conn.id}`;
-          await storeSecret(localKey, privateKey);
-          await saveTeamVaultSecretForVault(conn.vault_id, localKey, privateKey).catch(() => {});
-        }
-        if (passphrase && conn) {
-          const localKey = `passphrase:${conn.id}`;
-          await storeSecret(localKey, passphrase);
-          await saveTeamVaultSecretForVault(conn.vault_id, localKey, passphrase).catch(() => {});
-        }
-        if (conn) setEditingId(conn.id);
-      }
+      const saved = await saveHostFromForm(editing, data, password, privateKey, passphrase, selectedVaultIds[0] ?? "personal");
+      if (!editing && saved) setEditingId(saved.id);
     } catch (err) {
       setError(String(err));
     }

@@ -2,6 +2,7 @@ import BottomTabBar from "./BottomTabBar";
 import MobileHeader from "./MobileHeader";
 import VaultSwitcherSheet from "./sheets/VaultSwitcherSheet";
 import MobileHostsScreen from "./screens/MobileHostsScreen";
+import MobileHostEditScreen from "./screens/MobileHostEditScreen";
 import HostActionsSheet from "./sheets/HostActionsSheet";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -35,6 +36,7 @@ export default function MobileShell() {
         {tab === "snippets" && !top && <><MobileHeader /><Placeholder label="Snippets" /></>}
         {tab === "more" && !top && <><MobileHeader title="More" /><Placeholder label="More" /></>}
         {/* push pages render here from Task 6 onward */}
+        {top?.kind === "host-edit" && <MobileHostEditScreen hostId={top.hostId} />}
       </div>
       {!immersive && <BottomTabBar />}
       {sheet?.kind === "vault-switcher" && <VaultSwitcherSheet />}
