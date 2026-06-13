@@ -30,7 +30,7 @@ export default function MobileMoreScreen() {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <MobileHeader title="More" />
+      <MobileHeader />
       <div className="flex-1 overflow-y-auto py-2">
         {/* Account block */}
         {signedIn ? (
