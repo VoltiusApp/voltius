@@ -37,15 +37,15 @@ export default function MobileShell() {
       className="h-full w-full flex flex-col overflow-hidden bg-(--t-bg-base)"
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
-      <div className="flex-1 relative overflow-hidden flex flex-col">
+      <div className="flex-1 relative flex flex-col" style={{ overflow: "clip" }}>
         {/* Terminal chrome: chips row (sessions) or empty-state — only when terminal tab is foreground */}
         {terminalVisible && <MobileTerminalScreen />}
-        <div className="flex-1 relative overflow-hidden">
+        <div className="flex-1 relative" style={{ overflow: "clip", overscrollBehavior: "contain" }}>
           {/* Always-mounted sessions; visibility toggled so xterm survives tab switches */}
           <MobileSessionLayer visible={terminalVisible && hasSessions} />
           {/* Non-terminal tab content layers above the session layer when terminal isn't foreground */}
           {!terminalVisible && (
-            <div className="absolute inset-0 flex flex-col bg-(--t-bg-base)">
+            <div className="absolute inset-0 flex flex-col bg-(--t-bg-base)" style={{ overflow: "clip" }}>
               {tab === "hosts" && !top && <MobileHostsScreen />}
               {tab === "snippets" && !top && <MobileSnippetsScreen />}
               {tab === "more" && !top && <MobileMoreScreen />}

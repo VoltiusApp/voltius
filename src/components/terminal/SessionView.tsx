@@ -16,10 +16,13 @@ export function HostAwareTerminalView({
   session,
   active,
   onClosed,
+  compact,
 }: {
   session: TerminalSession;
   active: boolean;
   onClosed: () => void;
+  /** Mobile: render the terminal compact (no minimap) and suppress the status-bar footer. */
+  compact?: boolean;
 }) {
   useMultiplayerHostBroadcast(session.id);
   const mpState = useTeamSessionStore((s) => s.connections[session.id]);
@@ -49,11 +52,12 @@ export function HostAwareTerminalView({
           inputGate={inputGateRef}
           encoding={session.encoding}
           onResize={(cols, rows) => setDimensions({ cols, rows })}
+          compact={compact}
         />
         <TerminalSearch sessionId={session.id} />
       </div>
       {isSharing && <MultiplayerBar localSessionId={session.id} />}
-      {showStatusBar && (
+      {showStatusBar && !compact && (
         <TerminalStatusBar
           sessionId={session.id}
           sessionType={session.type as "ssh" | "local" | "serial"}
