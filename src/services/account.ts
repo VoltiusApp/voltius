@@ -262,11 +262,19 @@ export async function login(password: string, email?: string, serverUrl?: string
 
 /** Auto-login from keychain — instant (no secret access). */
 export async function autoLogin(): Promise<boolean> {
-  const [password, accountId, mode] = await Promise.all([
-    keychainGet("master_password"),
-    keychainGet("account_id"),
-    keychainGet("mode"),
-  ]);
+  // A keychain failure here (e.g. an OS keychain backend unavailable on a platform)
+  // must degrade to "no session", never throw — an unhandled rejection would abort the
+  // splash init and freeze the app on its loading screen.
+  let password: string | null, accountId: string | null, mode: string | null;
+  try {
+    [password, accountId, mode] = await Promise.all([
+      keychainGet("master_password"),
+      keychainGet("account_id"),
+      keychainGet("mode"),
+    ]);
+  } catch {
+    return false;
+  }
   if (!password) return false;
 
   try {

@@ -50,13 +50,15 @@ sysinfo = "0.39"
 bollard = "0.21"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
-machine-uid = "0.6"
 serialport = { version = "4", default-features = false }
 aes = "0.9"
 cfb8 = "0.9"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"
+# machine-uid 0.6 has no Android/iOS backend (its lib.rs fails to compile there).
+# Desktop reads it via raw_machine_id(); mobile uses ANDROID_ID instead (see vault.rs).
+machine-uid = "0.6"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security_Credentials", "Win32_Security_Cryptography"] }
@@ -75,3 +77,6 @@ gio = "0.18"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 apple-native-keyring-store = { version = "1", features = ["keychain"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"

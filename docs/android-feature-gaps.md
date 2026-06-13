@@ -11,6 +11,22 @@ Recommended order = by likelihood of blocking app startup, then by value.
 
 ---
 
+## 1. ✅ OS keychain / secret storage  — DONE (branch `android-keychain`, commit d3e804a)
+**Resolution:** Android keyring-core store backed by AndroidX EncryptedSharedPreferences
+(hardware-backed MasterKey) — `VoltiusKeychain.kt` + `src-tauri/src/keychain_android.rs`,
+registered in `init_keychain_store`. VM+Context captured via `nativeInit` from
+`MainActivity.onCreate` (NOT `ndk_context` — tao 0.35 stopped populating it, which made
+`ndk_context::android_context()` panic→SIGABRT across the JNI boundary). Plus graceful
+degradation in `autoLogin`/splash. Verified on device: reaches first-launch UI, secret
+set/get/delete round-trips.
+> ⚠️ **Landmine:** `src-tauri/src/commands/vault.rs` ANDROID_ID (machine fingerprint /
+> anti-abuse) still uses `ndk_context::android_context()` — will SIGABRT the same way when
+> first hit on device. Needs the same Context-capture fix. File as its own task.
+> ⚠️ MCP `execute_tauri_command` uses `window.__TAURI__` (global), absent in this app
+> (no `withGlobalTauri`); use `window.__TAURI_INTERNALS__.invoke`. MCP fix candidate.
+
+<details><summary>original</summary>
+
 ## 1. ⬜ OS keychain / secret storage  — EXPECTED FIRST BLOCKER
 - **Where:** keyring stores in `src-tauri/Cargo.toml` (`windows-native-keyring-store`,
   `apple-native-keyring-store`, `linux-keyutils-keyring-store`), `keyring-core`; usage in
@@ -22,6 +38,8 @@ Recommended order = by likelihood of blocking app startup, then by value.
   a file-based encrypted store in app-private scoped storage; (c) gate secrets off on Android with a
   clear UX until (a).
 - **Acceptance:** app reaches main UI on device; create/read/delete a secret round-trips.
+
+</details>
 
 ## 2. ⬜ Local terminal (PTY + shell spawn)
 - **Where:** `portable-pty` dep; `src-tauri/src/local/`, `shell_integration.rs`, terminal commands.

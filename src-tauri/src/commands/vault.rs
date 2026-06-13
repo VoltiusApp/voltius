@@ -45,11 +45,65 @@ pub fn vault_reset(app: AppHandle) -> Result<(), String> {
 /// Returns a stable, privacy-preserving SHA-256 fingerprint of the machine ID.
 /// Used server-side to prevent repeated free-trial signups from the same machine.
 /// The raw machine ID never leaves the device — only the hash is sent.
+/// On Android the raw id is derived from `Settings.Secure.ANDROID_ID`.
 #[tauri::command]
 pub fn get_machine_fingerprint() -> Option<String> {
-    let id = machine_uid::get().ok()?;
+    let id = raw_machine_id()?;
     let hash = Sha256::digest(id.as_bytes());
     Some(hash.iter().map(|b| format!("{b:02x}")).collect())
+}
+
+/// Platform-specific source for the raw (un-hashed) machine identifier.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn raw_machine_id() -> Option<String> {
+    machine_uid::get().ok()
+}
+
+#[cfg(target_os = "ios")]
+fn raw_machine_id() -> Option<String> {
+    // TODO(ios): identifierForVendor
+    None
+}
+
+#[cfg(target_os = "android")]
+fn raw_machine_id() -> Option<String> {
+    android_id()
+}
+
+/// Reads `Settings.Secure.ANDROID_ID` via JNI. This is the conventional Android
+/// anti-abuse identifier: stable across uninstall/reinstall for a fixed signing key.
+#[cfg(target_os = "android")]
+fn android_id() -> Option<String> {
+    use jni::objects::{JString, JValue};
+
+    // Use the captured app Context (NOT ndk_context — tao 0.35 doesn't populate it, and a
+    // panic across the JNI boundary aborts the process). See `crate::android_ctx`.
+    crate::android_ctx::with_env("android_id", |env, context| {
+        let resolver = env
+            .call_method(
+                context,
+                "getContentResolver",
+                "()Landroid/content/ContentResolver;",
+                &[],
+            )?
+            .l()?;
+        let key = env.new_string("android_id")?;
+        let id_obj = env
+            .call_static_method(
+                "android/provider/Settings$Secure",
+                "getString",
+                "(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;",
+                &[JValue::Object(&resolver), JValue::Object(&key)],
+            )?
+            .l()?;
+        if id_obj.is_null() {
+            return Ok(None);
+        }
+        let s: String = env.get_string(&JString::from(id_obj))?.into();
+        Ok(if s.is_empty() { None } else { Some(s) })
+    })
+    .ok()
+    .flatten()
 }
 
 /// Wipe local config + secrets so a different account can start clean.

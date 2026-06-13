@@ -8,6 +8,9 @@ ARCH="${1:-aarch64}"
 
 docker build -f "$REPO/Dockerfile.android" -t voltius-android "$REPO"
 
+# Drop stale APKs so a failed build can't be mistaken for a fresh one below.
+find "$REPO/src-tauri/gen/android/app/build/outputs/apk" -name '*-debug.apk' -delete 2>/dev/null || true
+
 docker run --rm -v "$REPO":/project voltius-android bash -c \
   "CI=true pnpm install && pnpm tauri android build --target ${ARCH} --apk --debug"
 

@@ -4,8 +4,12 @@
 // rather than worked around per-call.
 #![allow(clippy::too_many_arguments)]
 
+#[cfg(target_os = "android")]
+mod android_ctx;
 mod commands;
 mod crypto;
+#[cfg(target_os = "android")]
+mod keychain_android;
 mod docker;
 mod error;
 mod known_hosts;
@@ -228,6 +232,8 @@ fn init_keychain_store() -> keyring_core::Result<()> {
     keyring_core::set_default_store(windows_native_keyring_store::Store::new_with_configuration(
         &std::collections::HashMap::<&str, &str>::new(),
     )?);
+    #[cfg(target_os = "android")]
+    keyring_core::set_default_store(crate::keychain_android::Store::new());
     Ok(())
 }
 
