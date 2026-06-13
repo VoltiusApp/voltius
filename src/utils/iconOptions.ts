@@ -42,5 +42,5 @@ export type ConnectionIconId = typeof CONNECTION_ICON_OPTIONS[number]["id"];
 export function filterIconOptions(query: string): typeof CONNECTION_ICON_OPTIONS[number][] {
   const q = query.trim().toLowerCase();
   if (!q) return [...CONNECTION_ICON_OPTIONS];
-  return CONNECTION_ICON_OPTIONS.filter((o) => `${o.label} ${o.id}`.toLowerCase().includes(q));
+  return CONNECTION_ICON_OPTIONS.filter((o) => `${o.label} ${o.id} ${o.group}`.toLowerCase().includes(q));
 }

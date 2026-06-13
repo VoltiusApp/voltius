@@ -10,6 +10,7 @@ function assert(cond: boolean, msg: string): void {
 assert(filterIconOptions("").length > 5, "empty query returns all options");
 assert(filterIconOptions("UBUN").some((o) => o.id === "ubuntu"), "matches by label case-insensitively");
 assert(filterIconOptions("postgresql").some((o) => o.id === "postgresql"), "matches by id");
+assert(filterIconOptions("Monitoring").every((o) => o.group === "Monitoring") && filterIconOptions("Monitoring").length > 0, "matches by group name");
 assert(filterIconOptions("zzzznotadistro").length === 0, "no match returns empty");
 assert(filterIconOptions("   ").length === filterIconOptions("").length, "whitespace-only behaves like empty");
 console.log("ALL PASS");

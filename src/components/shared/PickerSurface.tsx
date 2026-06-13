@@ -26,17 +26,29 @@ export function PickerSurface({
   const surfaceRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<Pos>({ left: 0, width: 0, maxHeight: 320 });
 
-  // Desktop: measure the anchor when opening.
+  // Desktop: measure the anchor on open, and keep the float pinned to it while open as the
+  // form panel scrolls or the window resizes (the fixed-position float doesn't move on its own).
   useEffect(() => {
-    if (!open || isAndroid || !anchorRef.current) return;
-    const r = anchorRef.current.getBoundingClientRect();
-    const w = width ?? r.width;
-    const spaceBelow = window.innerHeight - r.bottom - 8;
-    const spaceAbove = r.top - 8;
-    const goUp = spaceBelow < 150 && spaceAbove > spaceBelow;
-    setPos(goUp
-      ? { bottom: window.innerHeight - r.top + 4, left: r.left, width: w, maxHeight: Math.min(spaceAbove, 320) }
-      : { top: r.bottom + 4, left: r.left, width: w, maxHeight: Math.min(spaceBelow, 320) });
+    if (!open || isAndroid) return;
+    const measure = () => {
+      const el = anchorRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const w = width ?? r.width;
+      const spaceBelow = window.innerHeight - r.bottom - 8;
+      const spaceAbove = r.top - 8;
+      const goUp = spaceBelow < 150 && spaceAbove > spaceBelow;
+      setPos(goUp
+        ? { bottom: window.innerHeight - r.top + 4, left: r.left, width: w, maxHeight: Math.min(spaceAbove, 320) }
+        : { top: r.bottom + 4, left: r.left, width: w, maxHeight: Math.min(spaceBelow, 320) });
+    };
+    measure();
+    window.addEventListener("scroll", measure, true); // capture: catch scrolls in any ancestor
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("scroll", measure, true);
+      window.removeEventListener("resize", measure);
+    };
   }, [open, isAndroid, anchorRef, width]);
 
   // Desktop: outside-mousedown dismiss (ignores the anchor so the trigger toggles cleanly).
