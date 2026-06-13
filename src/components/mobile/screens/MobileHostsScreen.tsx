@@ -7,6 +7,7 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import MobileHeader from "../MobileHeader";
+import MobileRemoteDeviceSessions from "../MobileRemoteDeviceSessions";
 
 export default function MobileHostsScreen() {
   const connections = useAllConnections();
@@ -67,6 +68,7 @@ export default function MobileHostsScreen() {
         </div>
       </div>
       <div className="flex-1 overflow-y-auto">
+        <MobileRemoteDeviceSessions />
         {visible.length === 0 && (
           <div className="flex flex-col items-center gap-2 pt-16 text-(--t-text-dim)">
             <Icon icon="lucide:server-off" width={28} />
