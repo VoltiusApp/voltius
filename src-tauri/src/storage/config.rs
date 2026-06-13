@@ -2,6 +2,19 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::OnceLock;
+
+/// Overrides the base config directory. Set once at startup on platforms where
+/// `dirs::config_dir()` doesn't resolve to writable, app-scoped storage — most
+/// importantly Android, where it falls back to an unwritable cwd ("/"). When
+/// set, `config_dir()` uses this instead. See `set_config_dir`.
+static CONFIG_DIR_OVERRIDE: OnceLock<PathBuf> = OnceLock::new();
+
+/// Pin the base config directory (e.g. to Tauri's `app_data_dir()` on Android).
+/// Must be called before any storage access; later calls are ignored.
+pub fn set_config_dir(dir: PathBuf) {
+    let _ = CONFIG_DIR_OVERRIDE.set(dir);
+}
 
 fn default_folder_object_type() -> String {
     "connection".to_string()
@@ -363,9 +376,12 @@ fn parse_with_migration<T: serde::de::DeserializeOwned>(data: &str) -> Vec<T> {
 // ─── File helpers ────────────────────────────────────────────────────────────
 
 pub fn config_dir() -> PathBuf {
-    let dir = dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("voltius");
+    let dir = match CONFIG_DIR_OVERRIDE.get() {
+        Some(base) => base.clone(),
+        None => dirs::config_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("voltius"),
+    };
     fs::create_dir_all(&dir).ok();
     dir
 }

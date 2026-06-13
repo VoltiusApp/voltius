@@ -108,13 +108,20 @@ export default function SplashScreen({ onReady }: Props) {
       startRealtimeSync();
     });
     useThemeStore.getState().loadFromDisk().catch(() => {});
-    await usePluginRegistryStore.getState().load();
-    const { isEnabled } = usePluginRegistryStore.getState();
-    for (const plugin of BUNDLED_PLUGINS) {
-      const active = isEnabled(plugin.manifest.id, plugin.manifest.defaultEnabled ?? true);
-      loadPlugin(plugin.manifest, plugin.register, active);
+    // Plugin loading must never freeze startup: a single rejected invoke here
+    // (e.g. a storage command failing on a locked-down platform) would leave the
+    // splash spinning forever. Swallow and continue to the main UI.
+    try {
+      await usePluginRegistryStore.getState().load();
+      const { isEnabled } = usePluginRegistryStore.getState();
+      for (const plugin of BUNDLED_PLUGINS) {
+        const active = isEnabled(plugin.manifest.id, plugin.manifest.defaultEnabled ?? true);
+        loadPlugin(plugin.manifest, plugin.register, active);
+      }
+      await loadInstalledPlugins();
+    } catch (e) {
+      console.warn("[splash] plugin loading failed, continuing to app:", e);
     }
-    await loadInstalledPlugins();
     await delay(400);
     setExiting(true);
     await delay(400);
