@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
-import { getConnectionIcon } from "@/utils/icons";
+import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import MobileHeader from "../MobileHeader";
 
 export default function MobileHostsScreen() {
@@ -15,7 +15,9 @@ export default function MobileHostsScreen() {
   const setTab = useMobileNavStore((s) => s.setTab);
   const push = useMobileNavStore((s) => s.push);
   const openSheet = useMobileNavStore((s) => s.openSheet);
-  const [search, setSearch] = useState("");
+  // Persisted in the nav store so the query survives tab switches (the screen unmounts).
+  const search = useMobileNavStore((s) => s.hostSearch);
+  const setSearch = useMobileNavStore((s) => s.setHostSearch);
 
   const visible = useMemo(() => {
     const inVault = connections.filter(
@@ -52,6 +54,16 @@ export default function MobileHostsScreen() {
             placeholder="Search hosts"
             className="flex-1 bg-transparent text-sm outline-none text-(--t-text-primary)"
           />
+          {search && (
+            <button
+              data-mobile-host-search-clear
+              onClick={() => setSearch("")}
+              className="p-0.5 -mr-1 text-(--t-text-dim) active:text-(--t-text-primary)"
+              aria-label="Clear search"
+            >
+              <Icon icon="lucide:x" width={16} />
+            </button>
+          )}
         </div>
       </div>
       <div className="flex-1 overflow-y-auto">
@@ -62,21 +74,23 @@ export default function MobileHostsScreen() {
           </div>
         )}
         {visible.map((c) => {
-          const icon = getConnectionIcon(c.icon || c.distro || "") || "lucide:server";
+          const named = !!c.name?.trim();
+          const subtitle = `${c.username}@${c.host}${c.port !== 22 ? `:${c.port}` : ""}`;
           return (
             <div key={c.id} className="flex items-center" data-mobile-host={c.id}>
               <button
                 className="flex-1 flex items-center gap-3 px-4 py-3 text-left active:bg-(--t-bg-card)"
                 onClick={() => handleConnect(c.id)}
               >
-                <Icon icon={icon} width={22} className="text-(--t-text-dim) shrink-0" />
+                <ConnectionAvatar connection={c} size={34} />
                 <span className="flex flex-col min-w-0">
                   <span className="text-sm font-medium text-(--t-text-primary) truncate">
                     {connectionDisplayName(c)}
                   </span>
-                  <span className="text-xs text-(--t-text-dim) truncate">
-                    {c.username}@{c.host}{c.port !== 22 ? `:${c.port}` : ""}
-                  </span>
+                  {/* Unnamed hosts already show "user@host" as their display name — don't repeat it. */}
+                  {named && (
+                    <span className="text-xs text-(--t-text-dim) truncate">{subtitle}</span>
+                  )}
                 </span>
               </button>
               <button
