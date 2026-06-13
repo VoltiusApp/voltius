@@ -21,6 +21,7 @@ export default function MobileTerminalTopBar() {
   const setActive = useSessionStore((s) => s.setActive);
   const disconnect = useSessionStore((s) => s.disconnect);
   const setTab = useMobileNavStore((s) => s.setTab);
+  const push = useMobileNavStore((s) => s.push);
   const exitTo = useMobileNavStore((s) => s.lastNonTerminalTab);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -83,18 +84,17 @@ export default function MobileTerminalTopBar() {
             style={{ background: "var(--t-bg-modal)", borderColor: "var(--t-border-hover)", boxShadow: "var(--t-elev-2)" }}
             onClick={() => setMenuOpen(false)}
           >
-            {/* SPEC-2 SEAM: these push panel screens wired by the panels plan. Rendered disabled in Spec 1 so the shell is complete but inert. */}
             {([
-              { icon: "lucide:folder-open", label: "SFTP" },
-              { icon: "lucide:container", label: "Docker" },
-              { icon: "lucide:activity", label: "Metrics" },
-              { icon: "lucide:cpu", label: "Processes" },
+              { icon: "lucide:folder-open", label: "SFTP", onTap: () => activeSessionId && push({ kind: "panel-sftp", sessionId: activeSessionId }) },
+              { icon: "lucide:container", label: "Docker", onTap: () => activeSessionId && push({ kind: "panel-docker", sessionId: activeSessionId }) },
+              { icon: "lucide:activity", label: "Metrics", onTap: () => activeSessionId && push({ kind: "panel-metrics", sessionId: activeSessionId }) },
+              { icon: "lucide:cpu", label: "Processes", onTap: () => activeSessionId && push({ kind: "panel-processes", sessionId: activeSessionId }) },
             ] as const).map((it) => (
               <button
                 key={it.label}
                 data-mobile-panel={it.label.toLowerCase()}
-                disabled
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm opacity-40 cursor-not-allowed text-(--t-text-primary)"
+                onClick={it.onTap}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm text-(--t-text-primary)"
               >
                 <Icon icon={it.icon} width={16} />
                 {it.label}

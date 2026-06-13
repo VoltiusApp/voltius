@@ -42,4 +42,24 @@ function assertEqual<T>(actual: T, expected: T, msg: string): void {
 
 // initial state
 assertEqual(initialMobileNavState.tab, "hosts", "initial tab is hosts");
+
+// panel kinds push + pop like any other screen, carrying sessionId
+{
+  const s: MobileNavState = { tab: "terminal", stack: [{ kind: "panel-docker", sessionId: "sess-1" }], sheet: null };
+  const r = handleBack(s);
+  assertEqual(r.handled, true, "panel-docker back pops stack");
+  assertEqual(r.state.stack.length, 0, "panel-docker stack popped");
+}
+{
+  const s: MobileNavState = {
+    tab: "terminal",
+    stack: [{ kind: "panel-metrics", sessionId: "sess-1" }, { kind: "panel-docker", sessionId: "sess-1" }],
+    sheet: null,
+  };
+  const r = handleBack(s);
+  assertEqual(r.handled, true, "nested panel back handled");
+  assertEqual(r.state.stack.length, 1, "only top panel popped");
+  assertEqual((r.state.stack[0] as { kind: string }).kind, "panel-metrics", "panel-metrics remains under");
+}
+
 console.log("ALL PASS");

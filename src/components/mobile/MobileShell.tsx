@@ -17,6 +17,10 @@ import { PortForwardingPage } from "@/components/port_forwarding/PortForwardingP
 import MembersPage from "@/components/members/MembersPage";
 import AuditLogsPage from "@/components/logs/AuditLogsPage";
 import SFTPPage from "@/components/filetransfer/SFTPPage";
+import MobileDockerScreen from "./panels/MobileDockerScreen";
+import MobileDockerLogsScreen from "./panels/MobileDockerLogsScreen";
+import MobileMetricsScreen from "./panels/MobileMetricsScreen";
+import MobileProcessesScreen from "./panels/MobileProcessesScreen";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useAndroidBack } from "@/hooks/useAndroidBack";
@@ -110,6 +114,12 @@ export default function MobileShell() {
             </div>
           </div>
         )}
+        {top?.kind === "panel-docker" && <MobileDockerScreen sessionId={top.sessionId} />}
+        {top?.kind === "panel-docker-logs" && (
+          <MobileDockerLogsScreen sessionId={top.sessionId} containerId={top.containerId} containerName={top.containerName} />
+        )}
+        {top?.kind === "panel-metrics" && <MobileMetricsScreen sessionId={top.sessionId} />}
+        {top?.kind === "panel-processes" && <MobileProcessesScreen sessionId={top.sessionId} />}
       </div>
       {!immersive && <BottomTabBar />}
       {sheet?.kind === "vault-switcher" && <VaultSwitcherSheet />}
