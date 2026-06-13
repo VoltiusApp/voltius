@@ -1,15 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useIsAndroid } from "@/utils/platform";
-import {
-  processesStart,
-  processesStop,
-  processKill,
-  onProcessesSnapshot,
-} from "@/services/processes";
-import type { ProcessEntry, ProcessSnapshot, SortCol } from "../types";
+import { useProcessList } from "../useProcessList";
+import type { ProcessEntry, SortCol } from "../types";
 
 const ROW_H = 30;
 
@@ -170,100 +165,14 @@ export function ProcessPanel() {
   const isAndroid = useIsAndroid();
   const localUnsupported = isAndroid && !!activeSession && activeSession.type !== "ssh";
 
-  const streamIdRef = useRef<string | null>(null);
-  const unlistenRef = useRef<(() => void) | null>(null);
+  const { snapshot, entries, filter, setFilter, sortCol, sortAsc, setSort, kill, killError, setKillError } =
+    useProcessList(activeSession, localUnsupported);
 
-  const [snapshot, setSnapshot] = useState<ProcessSnapshot | null>(null);
-  const [filter, setFilter] = useState("");
-  const [sortCol, setSortCol] = useState<SortCol>("cpu");
-  const [sortAsc, setSortAsc] = useState(false);
   const [confirmPid, setConfirmPid] = useState<number | null>(null);
-  const [killError, setKillError] = useState<string | null>(null);
 
   const scrollParentRef = useRef<HTMLDivElement>(null);
 
-  const stopStream = useCallback(async () => {
-    unlistenRef.current?.();
-    unlistenRef.current = null;
-    if (streamIdRef.current) {
-      await processesStop(streamIdRef.current).catch(() => {});
-      streamIdRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    if (
-      !activeSession ||
-      activeSession.status !== "connected" ||
-      activeSession.type === "serial" ||
-      localUnsupported
-    ) {
-      stopStream();
-      setSnapshot(null);
-      return;
-    }
-
-    let cancelled = false;
-
-    (async () => {
-      await stopStream();
-      if (cancelled) return;
-
-      try {
-        const isRemote = activeSession.type === "ssh";
-        const sid = await processesStart(activeSession.id, isRemote);
-        if (cancelled) { processesStop(sid).catch(() => {}); return; }
-        streamIdRef.current = sid;
-
-        const unlisten = await onProcessesSnapshot(sid, (snap) => {
-          if (cancelled) return;
-          setSnapshot(snap);
-        });
-        if (cancelled) { unlisten(); processesStop(sid).catch(() => {}); return; }
-        unlistenRef.current = unlisten;
-      } catch {
-        // session not ready yet, will retry on next session change
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      stopStream();
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSessionId, activeSession?.status]);
-
-  const handleSort = useCallback((col: SortCol) => {
-    setSortCol((prev) => {
-      if (prev === col) { setSortAsc((a) => !a); return col; }
-      setSortAsc(col === "cpu" || col === "mem" ? false : true);
-      return col;
-    });
-  }, []);
-
-  const entries = useMemo(() => {
-    if (!snapshot) return [];
-    let list = snapshot.entries;
-
-    if (filter.trim()) {
-      const q = filter.toLowerCase();
-      list = list.filter(
-        (e) => e.name.toLowerCase().includes(q) || e.user.toLowerCase().includes(q),
-      );
-    }
-
-    return [...list].sort((a, b) => {
-      let cmp = 0;
-      switch (sortCol) {
-        case "cpu": cmp = a.cpu_percent - b.cpu_percent; break;
-        case "mem": cmp = a.mem_kb - b.mem_kb; break;
-        case "pid": cmp = a.pid - b.pid; break;
-        case "name": cmp = a.name.localeCompare(b.name); break;
-        case "user": cmp = a.user.localeCompare(b.user); break;
-      }
-      return sortAsc ? cmp : -cmp;
-    });
-  }, [snapshot, filter, sortCol, sortAsc]);
+  const handleSort = setSort;
 
   const rowVirtualizer = useVirtualizer({
     count: entries.length,
@@ -273,17 +182,11 @@ export function ProcessPanel() {
   });
 
   const handleKillConfirm = useCallback(
-    async (pid: number) => {
-      if (!activeSession) return;
+    (pid: number) => {
       setConfirmPid(null);
-      setKillError(null);
-      try {
-        await processKill(activeSession.id, pid, activeSession.type === "ssh", false);
-      } catch (e) {
-        setKillError(String(e));
-      }
+      kill(pid, false);
     },
-    [activeSession],
+    [kill],
   );
 
   if (!activeSession || activeSession.status !== "connected" || activeSession.type === "serial") {
