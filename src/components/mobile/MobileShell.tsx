@@ -109,7 +109,9 @@ export default function MobileShell() {
         {top?.kind === "panel-processes" && <MobileProcessesScreen sessionId={top.sessionId} />}
         {top?.kind === "panel-sftp" && <MobileSftpScreen sessionId={top.sessionId} />}
       </div>
-      {!immersive && <BottomTabBar />}
+      {/* Hide the tab bar while a full-screen page is pushed — it would otherwise sit
+          visible-but-covered under the overlay, and tapping a tab silently clears the stack. */}
+      {!immersive && !top && <BottomTabBar />}
       {sheet?.kind === "vault-switcher" && <VaultSwitcherSheet />}
       {sheet?.kind === "host-actions" && <HostActionsSheet hostId={sheet.hostId} />}
     </div>
