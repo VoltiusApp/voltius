@@ -7,6 +7,9 @@ import {
 interface MobileNavStore extends MobileNavState {
   /** Last tab that wasn't "terminal"; the immersive exit chevron returns here. Store-only (not in MobileNavState). */
   lastNonTerminalTab: MobileTab;
+  /** Hosts-screen search query, kept here so it survives the screen unmounting on tab switch. Store-only. */
+  hostSearch: string;
+  setHostSearch: (q: string) => void;
   setTab: (tab: MobileTab) => void;
   push: (screen: MobileScreen) => void;
   pop: () => void;
@@ -19,6 +22,8 @@ interface MobileNavStore extends MobileNavState {
 export const useMobileNavStore = create<MobileNavStore>()((set, get) => ({
   ...initialMobileNavState,
   lastNonTerminalTab: "hosts",
+  hostSearch: "",
+  setHostSearch: (q) => set({ hostSearch: q }),
   setTab: (tab) => set((s) => ({
     tab,
     stack: [],
