@@ -8,7 +8,12 @@ export type MobileScreen =
   | { kind: "host-edit"; hostId?: string }
   | { kind: "snippet-edit"; snippetId?: string }
   | { kind: "more-page"; page: MorePage }
-  | { kind: "sftp" };
+  | { kind: "sftp" }
+  | { kind: "panel-sftp"; sessionId: string }
+  | { kind: "panel-docker"; sessionId: string }
+  | { kind: "panel-metrics"; sessionId: string }
+  | { kind: "panel-processes"; sessionId: string }
+  | { kind: "panel-docker-logs"; sessionId: string; containerId: string; containerName: string };
 
 export type MobileSheet =
   | { kind: "vault-switcher" }
