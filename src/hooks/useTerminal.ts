@@ -478,6 +478,15 @@ export function getTerminalDims(sessionId: string): { cols: number; rows: number
   return { cols, rows };
 }
 
+/** Re-fit a session's xterm to its current container (call on viewport/keyboard resize).
+ *  Fast-path complement to the per-container ResizeObserver: fires immediately on the
+ *  caller's frame rather than after the observer's debounce, for snappier keyboard reflow. */
+export function refitSession(sessionId: string): void {
+  const entry = terminalCache.get(sessionId);
+  if (!entry) return;
+  try { entry.fitAddon.fit(); } catch { /* container not laid out yet */ }
+}
+
 export function getTerminalSearchController(sessionId: string): TerminalSearchController | null {
   const entry = terminalCache.get(sessionId);
   if (!entry) return null;

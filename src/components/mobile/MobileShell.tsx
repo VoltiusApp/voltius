@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Icon } from "@iconify/react";
 import BottomTabBar from "./BottomTabBar";
 import VaultSwitcherSheet from "./sheets/VaultSwitcherSheet";
@@ -18,6 +19,8 @@ import SFTPPage from "@/components/filetransfer/SFTPPage";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useAndroidBack } from "@/hooks/useAndroidBack";
+import { useVisualViewport } from "@/hooks/useVisualViewport";
+import { refitSession } from "@/hooks/useTerminal";
 
 export default function MobileShell() {
   useAndroidBack();
@@ -27,17 +30,36 @@ export default function MobileShell() {
   const pop = useMobileNavStore((s) => s.pop);
   const top = stack[stack.length - 1];
   const hasSessions = useSessionStore((s) => s.sessions.length > 0);
+  const activeSessionId = useSessionStore((s) => s.activeSessionId);
 
   // Terminal tab with sessions = immersive: hide the tab bar, give xterm every pixel.
   const immersive = tab === "terminal" && hasSessions && !top;
   const terminalVisible = tab === "terminal" && !top;
+
+  // Keyboard-aware layout: shrink the terminal stack to the visual viewport so the
+  // soft keyboard reflows the prompt instead of panning the WebView, re-fitting xterm
+  // on every inset change.
+  const { usableHeight } = useVisualViewport();
+  useEffect(() => {
+    if (terminalVisible && activeSessionId) {
+      const id = requestAnimationFrame(() => refitSession(activeSessionId));
+      return () => cancelAnimationFrame(id);
+    }
+    // usableHeight (== visual viewport height) captures every keyboard inset change.
+  }, [usableHeight, terminalVisible, activeSessionId]);
 
   return (
     <div
       className="h-full w-full flex flex-col overflow-hidden bg-(--t-bg-base)"
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
-      <div className="flex-1 relative flex flex-col" style={{ overflow: "clip" }}>
+      <div
+        className="flex-1 relative flex flex-col"
+        style={{
+          overflow: "clip",
+          height: terminalVisible && usableHeight ? usableHeight : undefined,
+        }}
+      >
         {/* Terminal chrome: chips row (sessions) or empty-state — only when terminal tab is foreground */}
         {terminalVisible && <MobileTerminalScreen />}
         <div className="flex-1 relative" style={{ overflow: "clip", overscrollBehavior: "contain" }}>
