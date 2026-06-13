@@ -62,4 +62,20 @@ assertEqual(initialMobileNavState.tab, "hosts", "initial tab is hosts");
   assertEqual((r.state.stack[0] as { kind: string }).kind, "panel-metrics", "panel-metrics remains under");
 }
 
+// more-page carries an optional folderId for folder drill-in
+{
+  const s: MobileNavState = {
+    tab: "more",
+    stack: [
+      { kind: "more-page", page: "keychain" },
+      { kind: "more-page", page: "keychain", folderId: "f1" },
+    ],
+    sheet: null,
+  };
+  const r = handleBack(s);
+  assertEqual(r.handled, true, "more-page folder back pops one level");
+  assertEqual(r.state.stack.length, 1, "drilled-in folder popped");
+  assertEqual((r.state.stack[0] as { folderId?: string }).folderId, undefined, "root more-page remains");
+}
+
 console.log("ALL PASS");

@@ -10,11 +10,11 @@ import HostActionsSheet from "./sheets/HostActionsSheet";
 import MobileSessionLayer from "./MobileSessionLayer";
 import MobileTerminalScreen from "./screens/MobileTerminalScreen";
 import MobileExtraKeysRow from "./MobileExtraKeysRow";
-import KeychainPage from "@/components/keychain/KeychainPage";
-import KnownHostsPage from "@/components/known-hosts/KnownHostsPage";
-import { PortForwardingPage } from "@/components/port_forwarding/PortForwardingPage";
 import MembersPage from "@/components/members/MembersPage";
-import AuditLogsPage from "@/components/logs/AuditLogsPage";
+import MobileKeychainScreen from "./screens/MobileKeychainScreen";
+import MobilePortForwardingScreen from "./screens/MobilePortForwardingScreen";
+import MobileKnownHostsScreen from "./screens/MobileKnownHostsScreen";
+import MobileLogsScreen from "./screens/MobileLogsScreen";
 import MobileDockerScreen from "./panels/MobileDockerScreen";
 import MobileDockerLogsScreen from "./panels/MobileDockerLogsScreen";
 import MobileMetricsScreen from "./panels/MobileMetricsScreen";
@@ -95,16 +95,14 @@ export default function MobileShell() {
         {/* Pushed full-screen pages overlay everything */}
         {top?.kind === "host-edit" && <MobileHostEditScreen hostId={top.hostId} />}
         {top?.kind === "snippet-edit" && <MobileSnippetEditScreen snippetId={top.snippetId} />}
-        {top?.kind === "more-page" && (
+        {top?.kind === "more-page" && top.page === "keychain" && <MobileKeychainScreen folderId={top.folderId} />}
+        {top?.kind === "more-page" && top.page === "port-forwarding" && <MobilePortForwardingScreen folderId={top.folderId} />}
+        {top?.kind === "more-page" && top.page === "known-hosts" && <MobileKnownHostsScreen />}
+        {top?.kind === "more-page" && top.page === "logs" && <MobileLogsScreen />}
+        {top?.kind === "more-page" && top.page === "members" && (
           <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
-            <MobilePanelHeader title={MORE_PAGE_TITLES[top.page]} />
-            <div className="flex-1 overflow-hidden flex flex-col">
-              {top.page === "keychain" && <KeychainPage />}
-              {top.page === "port-forwarding" && <PortForwardingPage />}
-              {top.page === "known-hosts" && <KnownHostsPage />}
-              {top.page === "members" && <MembersPage />}
-              {top.page === "logs" && <AuditLogsPage />}
-            </div>
+            <MobilePanelHeader title={MORE_PAGE_TITLES.members} />
+            <div className="flex-1 overflow-hidden flex flex-col"><MembersPage /></div>
           </div>
         )}
         {top?.kind === "panel-docker" && <MobileDockerScreen sessionId={top.sessionId} />}
