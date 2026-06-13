@@ -126,7 +126,9 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const privateKeyDirty = useRef(false);
   const passphraseDirty = useRef(false);
   const userEditedRef = useRef(false);
-  const iconTileRef = useRef<HTMLButtonElement>(null);
+  // Anchor the icon picker to the whole tile+label row so the desktop float matches the
+  // row width (as the old inline picker did) instead of overflowing from the 40px tile.
+  const iconRowRef = useRef<HTMLDivElement>(null);
 
   const { identities, teamIdentities, loadIdentities } = useIdentityStore();
   const { keys, teamKeys, loadKeys } = useKeyStore();
@@ -387,9 +389,8 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
           <FormSection label="General">
             <div>
               <label className={formLabelClass} style={formLabelStyle}>Label</label>
-              <div className="relative flex gap-2.5">
+              <div ref={iconRowRef} className="relative flex gap-2.5">
                 <button
-                  ref={iconTileRef}
                   type="button"
                   onClick={() => setShowDistroPicker((v) => !v)}
                   className="w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0 transition-all hover:brightness-110"
@@ -409,7 +410,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                 <DistroIconPicker
                   open={showDistroPicker}
                   onClose={() => setShowDistroPicker(false)}
-                  anchorRef={iconTileRef}
+                  anchorRef={iconRowRef}
                   selectedIcon={visibleIcon}
                   onPick={(id) => { applyIcon(id); }}
                   detectingDistro={detectingDistro}

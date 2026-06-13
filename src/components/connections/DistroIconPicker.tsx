@@ -34,7 +34,7 @@ export function DistroIconPicker({
   const results = filterIconOptions(search);
 
   return (
-    <PickerSurface open={open} onClose={onClose} anchorRef={anchorRef} title="Icon" width={320}>
+    <PickerSurface open={open} onClose={onClose} anchorRef={anchorRef} title="Icon">
       <div className="p-1.5 space-y-3">
         <div className="relative">
           <Icon
