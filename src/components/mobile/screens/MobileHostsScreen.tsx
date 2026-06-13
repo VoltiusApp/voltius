@@ -4,10 +4,71 @@ import { useAllConnections } from "@/hooks/useAllConnections";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
+import { useToggle } from "@/stores/toggleSettingsStore";
+import { useHostPingStore } from "@/stores/hostPingStore";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
+import { StatusDot } from "@/components/shared/StatusDot";
+import type { Connection } from "@/types";
 import MobileHeader from "../MobileHeader";
 import MobileRemoteDeviceSessions from "../MobileRemoteDeviceSessions";
+
+function MobileHostRow({
+  c,
+  pingEnabled,
+  onConnect,
+  onActions,
+}: {
+  c: Connection;
+  pingEnabled: boolean;
+  onConnect: (id: string) => void;
+  onActions: (id: string) => void;
+}) {
+  const pingStatus = useHostPingStore((s) => s.statuses[c.id]);
+  const pingLatency = useHostPingStore((s) => s.latencies[c.id]);
+
+  const isSerial = c.connection_type === "serial";
+  const showPingDot = !isSerial && pingEnabled && !c.ping_disabled;
+  const pingColor =
+    pingStatus === "up"
+      ? "var(--t-status-connected)"
+      : pingStatus === "down"
+      ? "var(--t-status-error)"
+      : "var(--t-text-dim)";
+
+  const named = !!c.name?.trim();
+  const base = `${c.username}@${c.host}${c.port !== 22 ? `:${c.port}` : ""}`;
+  const latency = showPingDot && pingStatus === "up" && pingLatency !== undefined ? ` · ${pingLatency}ms` : "";
+  const subtitle = named ? `${base}${latency}` : latency.replace(/^ · /, "");
+
+  return (
+    <div className="flex items-center" data-mobile-host={c.id}>
+      <button
+        className="flex-1 flex items-center gap-3 px-4 py-3 text-left active:bg-(--t-bg-card)"
+        onClick={() => onConnect(c.id)}
+      >
+        <span className="relative shrink-0">
+          <ConnectionAvatar connection={c} size={34} />
+          {showPingDot && <StatusDot color={pingColor} animate={pingStatus === "up"} size={9} />}
+        </span>
+        <span className="flex flex-col min-w-0">
+          <span className="text-sm font-medium text-(--t-text-primary) truncate">
+            {connectionDisplayName(c)}
+          </span>
+          {/* Unnamed hosts already show "user@host" as their display name — don't repeat it. */}
+          {subtitle && <span className="text-xs text-(--t-text-dim) truncate">{subtitle}</span>}
+        </span>
+      </button>
+      <button
+        data-mobile-host-actions={c.id}
+        className="p-3 text-(--t-text-dim)"
+        onClick={() => onActions(c.id)}
+      >
+        <Icon icon="lucide:ellipsis-vertical" width={18} />
+      </button>
+    </div>
+  );
+}
 
 export default function MobileHostsScreen() {
   const connections = useAllConnections();
@@ -19,6 +80,7 @@ export default function MobileHostsScreen() {
   // Persisted in the nav store so the query survives tab switches (the screen unmounts).
   const search = useMobileNavStore((s) => s.hostSearch);
   const setSearch = useMobileNavStore((s) => s.setHostSearch);
+  const [pingEnabled] = useToggle("reachability");
 
   const visible = useMemo(() => {
     const inVault = connections.filter(
@@ -75,36 +137,15 @@ export default function MobileHostsScreen() {
             <span className="text-sm">{search ? "No matches" : "No hosts yet — tap + to add one"}</span>
           </div>
         )}
-        {visible.map((c) => {
-          const named = !!c.name?.trim();
-          const subtitle = `${c.username}@${c.host}${c.port !== 22 ? `:${c.port}` : ""}`;
-          return (
-            <div key={c.id} className="flex items-center" data-mobile-host={c.id}>
-              <button
-                className="flex-1 flex items-center gap-3 px-4 py-3 text-left active:bg-(--t-bg-card)"
-                onClick={() => handleConnect(c.id)}
-              >
-                <ConnectionAvatar connection={c} size={34} />
-                <span className="flex flex-col min-w-0">
-                  <span className="text-sm font-medium text-(--t-text-primary) truncate">
-                    {connectionDisplayName(c)}
-                  </span>
-                  {/* Unnamed hosts already show "user@host" as their display name — don't repeat it. */}
-                  {named && (
-                    <span className="text-xs text-(--t-text-dim) truncate">{subtitle}</span>
-                  )}
-                </span>
-              </button>
-              <button
-                data-mobile-host-actions={c.id}
-                className="p-3 text-(--t-text-dim)"
-                onClick={() => openSheet({ kind: "host-actions", hostId: c.id })}
-              >
-                <Icon icon="lucide:ellipsis-vertical" width={18} />
-              </button>
-            </div>
-          );
-        })}
+        {visible.map((c) => (
+          <MobileHostRow
+            key={c.id}
+            c={c}
+            pingEnabled={pingEnabled}
+            onConnect={handleConnect}
+            onActions={(id) => openSheet({ kind: "host-actions", hostId: id })}
+          />
+        ))}
       </div>
     </div>
   );

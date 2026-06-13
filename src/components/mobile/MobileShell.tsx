@@ -36,10 +36,12 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useAndroidBack } from "@/hooks/useAndroidBack";
 import { useVisualViewport } from "@/hooks/useVisualViewport";
+import { useHostPingPolling } from "@/hooks/useHostPingPolling";
 import { refitSession } from "@/hooks/useTerminal";
 
 export default function MobileShell() {
   useAndroidBack();
+  useHostPingPolling(); // desktop mounts this in MainPanel; the mobile shell doesn't
   const tab = useMobileNavStore((s) => s.tab);
   const stack = useMobileNavStore((s) => s.stack);
   const sheet = useMobileNavStore((s) => s.sheet);
