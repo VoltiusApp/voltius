@@ -10,11 +10,7 @@ import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useSnippetStore } from "@/stores/snippetStore";
-import {
-  parseVariables, needsUserInput, buildDynamicValues, buildDefaultValues,
-  resolveTemplate, type DynamicContext,
-} from "@/services/snippetParser";
-import { broadcastSnippetInject } from "@/services/snippets";
+import { runSnippetIntoActiveSession } from "@/services/snippetRun";
 import type { Connection, TerminalSession, SshKey, Identity, Snippet } from "@/types";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { AvatarTile } from "@/components/shared/AvatarTile";
@@ -109,7 +105,6 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const deleteConnection = useConnectionStore((s) => s.deleteConnection);
   const { sessions, setActive } = useSessionStore();
   const snippets = useSnippetStore((s) => s.snippets);
-  const { trackUsed, setGlobalPendingInject } = useSnippetStore();
   const identities = useIdentityStore((s) => s.identities);
   const keys = useKeyStore((s) => s.keys);
   const vaults = useVaultStore((s) => s.vaults);
@@ -384,36 +379,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         }
         onClose();
       } else if (item.kind === "snippet") {
-        const activeSession = sessions.find(
-          (s) => s.status === "connected" && s.type !== "multiplayer",
-        );
-        if (!activeSession) { onClose(); return; }
-
-        const conn = connections.find((c) => c.id === activeSession.connectionId);
-        const ctx: DynamicContext = activeSession.type === "local"
-          ? { connectionHost: "localhost", connectionUsername: "local", connectionName: "Local Shell" }
-          : { connectionHost: conn?.host ?? "", connectionUsername: conn?.username ?? "", connectionName: activeSession.connectionName };
-
-        const allVars = parseVariables(item.snippet.content);
-        const dynamicValues = buildDynamicValues(allVars, ctx);
-        const userVars = allVars.filter((v) => !v.dynamic);
-        const defaultValues = buildDefaultValues(userVars);
-        const partialTemplate = resolveTemplate(item.snippet.content, dynamicValues);
-
-        trackUsed(item.snippet.id);
+        runSnippetIntoActiveSession(item.snippet);
         onClose();
-
-        if (userVars.some(needsUserInput)) {
-          setGlobalPendingInject({
-            snippet: item.snippet,
-            userVars,
-            partialTemplate,
-            initialValues: defaultValues,
-          });
-        } else {
-          const resolved = resolveTemplate(partialTemplate, defaultValues);
-          broadcastSnippetInject(activeSession.id, activeSession.type, resolved, true).catch(console.error);
-        }
       } else if (item.kind === "toggle") {
         item.onToggle(!item.value);
         // Stay in palette so the user can see the updated state
@@ -495,7 +462,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     },
     [setActive, setActiveNav, onClose, setSidebarOpen,
      openSettings, setHomePendingAction, setKeychainPendingAction, pluginCommands,
-     sessions, connections, trackUsed, setGlobalPendingInject, joinSession],
+     joinSession],
   );
 
   useEffect(() => {

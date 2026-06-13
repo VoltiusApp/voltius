@@ -3,6 +3,8 @@ import MobileHeader from "./MobileHeader";
 import VaultSwitcherSheet from "./sheets/VaultSwitcherSheet";
 import MobileHostsScreen from "./screens/MobileHostsScreen";
 import MobileHostEditScreen from "./screens/MobileHostEditScreen";
+import MobileSnippetsScreen from "./screens/MobileSnippetsScreen";
+import MobileSnippetEditScreen from "./screens/MobileSnippetEditScreen";
 import HostActionsSheet from "./sheets/HostActionsSheet";
 import MobileSessionLayer from "./MobileSessionLayer";
 import MobileTerminalScreen from "./screens/MobileTerminalScreen";
@@ -43,13 +45,14 @@ export default function MobileShell() {
           {!terminalVisible && (
             <div className="absolute inset-0 flex flex-col bg-(--t-bg-base)">
               {tab === "hosts" && !top && <MobileHostsScreen />}
-              {tab === "snippets" && !top && <><MobileHeader /><Placeholder label="Snippets" /></>}
+              {tab === "snippets" && !top && <MobileSnippetsScreen />}
               {tab === "more" && !top && <><MobileHeader title="More" /><Placeholder label="More" /></>}
             </div>
           )}
         </div>
         {/* Pushed full-screen pages overlay everything */}
         {top?.kind === "host-edit" && <MobileHostEditScreen hostId={top.hostId} />}
+        {top?.kind === "snippet-edit" && <MobileSnippetEditScreen snippetId={top.snippetId} />}
       </div>
       {!immersive && <BottomTabBar />}
       {sheet?.kind === "vault-switcher" && <VaultSwitcherSheet />}
