@@ -275,6 +275,15 @@ pub fn run() {
     builder
         .setup(|app| {
             use tauri::Manager;
+
+            // On Android `dirs::config_dir()` resolves to an unwritable cwd, so
+            // pin generic file storage (connections, plugins, identities, …) to
+            // the app's scoped data dir — the same dir the vault already uses.
+            #[cfg(target_os = "android")]
+            if let Ok(dir) = app.path().app_data_dir() {
+                crate::storage::config::set_config_dir(dir.join("voltius"));
+            }
+
             #[cfg(desktop)]
             app.manage(PendingUpdate(Mutex::new(None)));
             app.manage(KnownHostsStore::load());
