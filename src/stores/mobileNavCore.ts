@@ -8,7 +8,6 @@ export type MobileScreen =
   | { kind: "host-edit"; hostId?: string }
   | { kind: "snippet-edit"; snippetId?: string }
   | { kind: "more-page"; page: MorePage }
-  | { kind: "sftp" }
   | { kind: "panel-sftp"; sessionId: string }
   | { kind: "panel-docker"; sessionId: string }
   | { kind: "panel-metrics"; sessionId: string }
