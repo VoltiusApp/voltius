@@ -1,4 +1,6 @@
 import BottomTabBar from "./BottomTabBar";
+import MobileHeader from "./MobileHeader";
+import VaultSwitcherSheet from "./sheets/VaultSwitcherSheet";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSessionStore } from "@/stores/sessionStore";
 
@@ -13,6 +15,7 @@ function Placeholder({ label }: { label: string }) {
 export default function MobileShell() {
   const tab = useMobileNavStore((s) => s.tab);
   const stack = useMobileNavStore((s) => s.stack);
+  const sheet = useMobileNavStore((s) => s.sheet);
   const top = stack[stack.length - 1];
   const hasSessions = useSessionStore((s) => s.sessions.length > 0);
 
@@ -25,13 +28,14 @@ export default function MobileShell() {
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
       <div className="flex-1 relative overflow-hidden flex flex-col">
-        {tab === "hosts" && !top && <Placeholder label="Hosts" />}
+        {tab === "hosts" && !top && <><MobileHeader /><Placeholder label="Hosts" /></>}
         {tab === "terminal" && !top && !hasSessions && <Placeholder label="Terminal" />}
-        {tab === "snippets" && !top && <Placeholder label="Snippets" />}
-        {tab === "more" && !top && <Placeholder label="More" />}
+        {tab === "snippets" && !top && <><MobileHeader /><Placeholder label="Snippets" /></>}
+        {tab === "more" && !top && <><MobileHeader title="More" /><Placeholder label="More" /></>}
         {/* push pages render here from Task 6 onward */}
       </div>
       {!immersive && <BottomTabBar />}
+      {sheet?.kind === "vault-switcher" && <VaultSwitcherSheet />}
     </div>
   );
 }
