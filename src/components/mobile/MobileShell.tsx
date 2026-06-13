@@ -16,7 +16,6 @@ import KnownHostsPage from "@/components/known-hosts/KnownHostsPage";
 import { PortForwardingPage } from "@/components/port_forwarding/PortForwardingPage";
 import MembersPage from "@/components/members/MembersPage";
 import AuditLogsPage from "@/components/logs/AuditLogsPage";
-import SFTPPage from "@/components/filetransfer/SFTPPage";
 import MobileDockerScreen from "./panels/MobileDockerScreen";
 import MobileDockerLogsScreen from "./panels/MobileDockerLogsScreen";
 import MobileMetricsScreen from "./panels/MobileMetricsScreen";
@@ -99,19 +98,6 @@ export default function MobileShell() {
               {top.page === "known-hosts" && <KnownHostsPage />}
               {top.page === "members" && <MembersPage />}
               {top.page === "logs" && <AuditLogsPage />}
-            </div>
-          </div>
-        )}
-        {top?.kind === "sftp" && (
-          <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
-            <header className="shrink-0 flex items-center gap-2 px-2 h-12 border-b"
-              style={{ background: "var(--t-bg-chrome)", borderColor: "var(--t-border)" }}>
-              <button data-mobile-back onClick={pop} className="p-2 text-(--t-text-primary)">
-                <Icon icon="lucide:arrow-left" width={22} />
-              </button>
-            </header>
-            <div className="flex-1 overflow-hidden flex flex-col">
-              <SFTPPage />
             </div>
           </div>
         )}

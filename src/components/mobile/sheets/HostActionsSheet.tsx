@@ -4,7 +4,6 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useConnectionStore, connectionToFormData } from "@/stores/connectionStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSessionStore } from "@/stores/sessionStore";
-import { useUIStore } from "@/stores/uiStore";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 
 export default function HostActionsSheet({ hostId }: { hostId: string }) {
@@ -14,8 +13,8 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
   const conn = connections.find((c) => c.id === hostId);
   const saveConnection = useConnectionStore((s) => s.saveConnection);
   const deleteConnection = useConnectionStore((s) => s.deleteConnection);
-  const hasSftpSession = useSessionStore((s) =>
-    s.sessions.some((x) => x.connectionId === hostId && x.status === "connected" && x.type === "ssh"));
+  const sftpSessionId = useSessionStore((s) =>
+    s.sessions.find((x) => x.connectionId === hostId && x.status === "connected" && x.type === "ssh")?.id);
 
   if (!conn) return null;
 
@@ -25,10 +24,9 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
         void saveConnection({ ...connectionToFormData(conn), name: `${connectionDisplayName(conn)} copy` });
         closeSheet();
       } },
-    ...(hasSftpSession ? [{ icon: "lucide:folder-open", label: "SFTP", onTap: () => {
-        useUIStore.getState().openSftpWith(hostId);
+    ...(sftpSessionId ? [{ icon: "lucide:folder-open", label: "SFTP", onTap: () => {
         closeSheet();
-        push({ kind: "sftp" });
+        push({ kind: "panel-sftp", sessionId: sftpSessionId });
       } }] : []),
     { icon: "lucide:trash-2", label: "Delete", danger: true, onTap: () => { void deleteConnection(hostId); closeSheet(); } },
   ];
