@@ -10,6 +10,7 @@ import MobileMoreScreen from "./screens/MobileMoreScreen";
 import HostActionsSheet from "./sheets/HostActionsSheet";
 import MobileSessionLayer from "./MobileSessionLayer";
 import MobileTerminalScreen from "./screens/MobileTerminalScreen";
+import MobileExtraKeysRow from "./MobileExtraKeysRow";
 import KeychainPage from "@/components/keychain/KeychainPage";
 import KnownHostsPage from "@/components/known-hosts/KnownHostsPage";
 import { PortForwardingPage } from "@/components/port_forwarding/PortForwardingPage";
@@ -39,7 +40,7 @@ export default function MobileShell() {
   // Keyboard-aware layout: shrink the terminal stack to the visual viewport so the
   // soft keyboard reflows the prompt instead of panning the WebView, re-fitting xterm
   // on every inset change.
-  const { usableHeight } = useVisualViewport();
+  const { usableHeight, keyboardVisible } = useVisualViewport();
   useEffect(() => {
     if (terminalVisible && activeSessionId) {
       const id = requestAnimationFrame(() => refitSession(activeSessionId));
@@ -74,6 +75,8 @@ export default function MobileShell() {
             </div>
           )}
         </div>
+        {/* Extra-keys row: flush above the soft keyboard, only when terminal is foreground and keyboard open */}
+        {terminalVisible && hasSessions && keyboardVisible && <MobileExtraKeysRow />}
         {/* Pushed full-screen pages overlay everything */}
         {top?.kind === "host-edit" && <MobileHostEditScreen hostId={top.hostId} />}
         {top?.kind === "snippet-edit" && <MobileSnippetEditScreen snippetId={top.snippetId} />}

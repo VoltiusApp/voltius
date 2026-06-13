@@ -1,0 +1,77 @@
+import { useRef, useState } from "react";
+import { Icon } from "@iconify/react";
+import { useSessionStore } from "@/stores/sessionStore";
+import { reduceLatch, initialLatch, isActive, type LatchState, type Modifier } from "@/stores/modifierLatchCore";
+import { sendSpecialKey } from "@/services/terminalInput";
+import type { SpecialKey } from "@/stores/terminalKeyCore";
+
+type KeyDef = { key: SpecialKey; label?: string; icon?: string };
+const KEYS: KeyDef[] = [
+  { key: "Esc", label: "Esc" }, { key: "Tab", label: "Tab" },
+  { key: "Up", icon: "lucide:arrow-up" }, { key: "Down", icon: "lucide:arrow-down" },
+  { key: "Left", icon: "lucide:arrow-left" }, { key: "Right", icon: "lucide:arrow-right" },
+  { key: "-", label: "-" }, { key: "/", label: "/" }, { key: "|", label: "|" }, { key: "~", label: "~" },
+  { key: "Home", label: "Home" }, { key: "End", label: "End" }, { key: "PgUp", label: "PgUp" }, { key: "PgDn", label: "PgDn" },
+];
+const MODS: { mod: Modifier; label: string }[] = [ { mod: "ctrl", label: "Ctrl" }, { mod: "alt", label: "Alt" } ];
+
+export default function MobileExtraKeysRow() {
+  const activeSessionId = useSessionStore((s) => s.activeSessionId);
+  const [latch, setLatch] = useState<LatchState>(initialLatch);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const press = (key: SpecialKey) => {
+    if (!activeSessionId) return;
+    sendSpecialKey(activeSessionId, key, { ctrl: isActive(latch.ctrl), alt: isActive(latch.alt) });
+    setLatch((s) => reduceLatch(s, { type: "consume" }));
+  };
+  const tapMod = (mod: Modifier) => setLatch((s) => reduceLatch(s, { type: "tap", mod }));
+  const lockMod = (mod: Modifier) => setLatch((s) => reduceLatch(s, { type: "lock", mod }));
+  const noFocusSteal = (e: React.SyntheticEvent) => e.preventDefault();
+
+  return (
+    <div data-mobile-extra-keys className="shrink-0 flex items-center gap-1 overflow-x-auto px-1.5 py-1.5 border-t"
+      style={{ background: "var(--t-bg-chrome)", borderColor: "var(--t-border)" }}
+      onMouseDown={noFocusSteal} onTouchStart={noFocusSteal}>
+      {MODS.map(({ mod, label }) => {
+        const v = latch[mod];
+        return (
+          <button key={mod} data-mobile-key={mod}
+            onMouseDown={(e) => { noFocusSteal(e); }}
+            onTouchStart={(e) => {
+              noFocusSteal(e);
+              if (longPressTimer.current) clearTimeout(longPressTimer.current);
+              // On fire, null the ref so touchend treats this as a completed lock (not a tap).
+              longPressTimer.current = setTimeout(() => { longPressTimer.current = null; lockMod(mod); }, 450);
+            }}
+            onTouchEnd={(e) => {
+              noFocusSteal(e);
+              // Timer still pending = short tap → arm/toggle. If the lock already fired it
+              // nulled the ref, so we skip tapMod and keep the lock.
+              if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; tapMod(mod); }
+            }}
+            // Row is horizontally scrollable: a scroll cancels the touch with no touchend,
+            // so clear the pending lock timer to avoid a stray lock firing mid-scroll.
+            onTouchCancel={() => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } }}
+            onClick={(e) => { noFocusSteal(e); if (!("ontouchstart" in window)) tapMod(mod); }}
+            className="shrink-0 min-w-11 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
+            style={{
+              background: v === "locked" ? "var(--t-accent)" : v === "armed" ? "color-mix(in srgb, var(--t-accent) 35%, var(--t-bg-card))" : "var(--t-bg-card)",
+              color: isActive(v) ? "#fff" : "var(--t-text-primary)", border: "1px solid var(--t-border)",
+            }}>
+            {label}
+          </button>
+        );
+      })}
+      {KEYS.map(({ key, label, icon }) => (
+        <button key={key} data-mobile-key={key}
+          onMouseDown={(e) => { noFocusSteal(e); press(key); }}
+          onTouchStart={(e) => { noFocusSteal(e); press(key); }}
+          className="shrink-0 min-w-11 px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center"
+          style={{ background: "var(--t-bg-card)", color: "var(--t-text-primary)", border: "1px solid var(--t-border)" }}>
+          {icon ? <Icon icon={icon} width={16} /> : label}
+        </button>
+      ))}
+    </div>
+  );
+}
