@@ -19,6 +19,10 @@ export default function MobileExtraKeysRow() {
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const [latch, setLatch] = useState<LatchState>(initialLatch);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tap-vs-scroll tracking for KEYS: record the touch origin, only fire on touchend
+  // if the finger barely moved (a real tap, not a horizontal scroll-drag of the row).
+  const keyTouchStart = useRef<{ x: number; y: number } | null>(null);
+  const TAP_MOVE_PX = 10;
 
   const press = (key: SpecialKey) => {
     if (!activeSessionId) return;
@@ -65,8 +69,25 @@ export default function MobileExtraKeysRow() {
       })}
       {KEYS.map(({ key, label, icon }) => (
         <button key={key} data-mobile-key={key}
-          onMouseDown={(e) => { noFocusSteal(e); press(key); }}
-          onTouchStart={(e) => { noFocusSteal(e); press(key); }}
+          // Touch path: fire once on touchend (a tap), never on touchstart — so the row
+          // can be scrolled by dragging a button without firing its key, and the ghost
+          // mousedown/click is suppressed on touch (mirrors the MODS' onClick guard).
+          onMouseDown={noFocusSteal}
+          onTouchStart={(e) => {
+            noFocusSteal(e);
+            const t = e.touches[0];
+            keyTouchStart.current = t ? { x: t.clientX, y: t.clientY } : null;
+          }}
+          onTouchEnd={(e) => {
+            noFocusSteal(e);
+            const start = keyTouchStart.current;
+            keyTouchStart.current = null;
+            const t = e.changedTouches[0];
+            if (!start || !t) return;
+            if (Math.hypot(t.clientX - start.x, t.clientY - start.y) < TAP_MOVE_PX) press(key);
+          }}
+          onTouchCancel={() => { keyTouchStart.current = null; }}
+          onClick={(e) => { noFocusSteal(e); if (!("ontouchstart" in window)) press(key); }}
           className="shrink-0 min-w-11 px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center"
           style={{ background: "var(--t-bg-card)", color: "var(--t-text-primary)", border: "1px solid var(--t-border)" }}>
           {icon ? <Icon icon={icon} width={16} /> : label}
