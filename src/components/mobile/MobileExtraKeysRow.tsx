@@ -7,7 +7,7 @@ import type { SpecialKey } from "@/stores/terminalKeyCore";
 
 type KeyDef = { key: SpecialKey; label?: string; icon?: string };
 const KEYS: KeyDef[] = [
-  { key: "Esc", label: "Esc" }, { key: "Tab", label: "Tab" },
+  { key: "Esc", label: "Esc" }, { key: "Tab", label: "Tab" }, { key: "ShiftTab", label: "⇧Tab" },
   { key: "Up", icon: "lucide:arrow-up" }, { key: "Down", icon: "lucide:arrow-down" },
   { key: "Left", icon: "lucide:arrow-left" }, { key: "Right", icon: "lucide:arrow-right" },
   { key: "-", label: "-" }, { key: "/", label: "/" }, { key: "|", label: "|" }, { key: "~", label: "~" },
