@@ -35,3 +35,14 @@ export function keyToBytes(key: SpecialKey, m: KeyMods): string {
   if (m.alt) seq = `\x1b${seq}`;
   return seq;
 }
+/** Apply a latched virtual Ctrl/Alt to a single soft-keyboard character. Returns the modified
+ *  bytes, or null when no modifier is active (caller passes the char through unchanged).
+ *  Used by the onData interception path so the extra-keys-row Ctrl/Alt latch reaches OS-keyboard
+ *  letters (e.g. latch Ctrl, type "c" → ETX / Ctrl-C). */
+export function applyLatchToChar(ch: string, mods: { ctrl: boolean; alt: boolean }): string | null {
+  if (!mods.ctrl && !mods.alt) return null;
+  let out = ch;
+  if (mods.ctrl) { const c = ctrlByte(ch); if (c) out = c; }
+  if (mods.alt) out = `\x1b${out}`;
+  return out;
+}

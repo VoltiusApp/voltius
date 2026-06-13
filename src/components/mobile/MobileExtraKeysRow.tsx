@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { Icon } from "@iconify/react";
 import { useSessionStore } from "@/stores/sessionStore";
-import { reduceLatch, initialLatch, isActive, type LatchState, type Modifier } from "@/stores/modifierLatchCore";
+import { isActive, type Modifier } from "@/stores/modifierLatchCore";
+import { useModifierLatchStore } from "@/stores/modifierLatchStore";
 import { sendSpecialKey } from "@/services/terminalInput";
 import type { SpecialKey } from "@/stores/terminalKeyCore";
 
@@ -17,7 +18,12 @@ const MODS: { mod: Modifier; label: string }[] = [ { mod: "ctrl", label: "Ctrl" 
 
 export default function MobileExtraKeysRow() {
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
-  const [latch, setLatch] = useState<LatchState>(initialLatch);
+  const ctrl = useModifierLatchStore((s) => s.ctrl);
+  const alt = useModifierLatchStore((s) => s.alt);
+  const tap = useModifierLatchStore((s) => s.tap);
+  const lock = useModifierLatchStore((s) => s.lock);
+  const consume = useModifierLatchStore((s) => s.consume);
+  const latch: Record<Modifier, typeof ctrl> = { ctrl, alt };
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Tap-vs-scroll tracking for KEYS: record the touch origin, only fire on touchend
   // if the finger barely moved (a real tap, not a horizontal scroll-drag of the row).
@@ -27,10 +33,10 @@ export default function MobileExtraKeysRow() {
   const press = (key: SpecialKey) => {
     if (!activeSessionId) return;
     sendSpecialKey(activeSessionId, key, { ctrl: isActive(latch.ctrl), alt: isActive(latch.alt) });
-    setLatch((s) => reduceLatch(s, { type: "consume" }));
+    consume();
   };
-  const tapMod = (mod: Modifier) => setLatch((s) => reduceLatch(s, { type: "tap", mod }));
-  const lockMod = (mod: Modifier) => setLatch((s) => reduceLatch(s, { type: "lock", mod }));
+  const tapMod = (mod: Modifier) => tap(mod);
+  const lockMod = (mod: Modifier) => lock(mod);
   const noFocusSteal = (e: React.SyntheticEvent) => e.preventDefault();
 
   return (

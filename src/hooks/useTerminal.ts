@@ -19,6 +19,7 @@ import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
 import { findLeaf, getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useCommandHistoryStore } from "@/stores/commandHistoryStore";
+import { consumeLatchForChar } from "@/stores/modifierLatchStore";
 import { sampleLineDensities, scrollDeltaForRatio, type TerminalMinimapCell, type TerminalMinimapSample } from "@/components/terminal/minimapMath";
 import type { TerminalTheme } from "@/themes/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
@@ -911,6 +912,11 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       const onDataDispose = term.onData((data) => {
         if (inputGate && !inputGate.current?.()) return;
         if (!entry.connectedRef.current) return;
+
+        // Mobile extra-keys row: apply a latched virtual Ctrl/Alt to this typed char
+        // (e.g. latch Ctrl, type "c" → Ctrl-C). Inert on desktop (latch never armed).
+        const latched = consumeLatchForChar(data);
+        if (latched !== null) data = latched;
 
         const sess = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
         if (sess) {

@@ -1,4 +1,4 @@
-import { keyToBytes, ctrlByte } from "./terminalKeyCore.ts";
+import { keyToBytes, ctrlByte, applyLatchToChar } from "./terminalKeyCore.ts";
 function assertEqual<T>(actual: T, expected: T, msg: string): void {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) { console.error(`FAIL ${msg}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`); throw new Error(msg); }
   console.log(`PASS ${msg}`);
@@ -16,4 +16,11 @@ assertEqual(ctrlByte("c"), "\x03", "Ctrl-C");
 assertEqual(ctrlByte("C"), "\x03", "Ctrl-C uppercase same");
 assertEqual(ctrlByte("a"), "\x01", "Ctrl-A");
 assertEqual(keyToBytes("/", { ctrl: false, alt: true, appCursor: false }), "\x1b/", "Alt-/ → ESC /");
+// applyLatchToChar — virtual Ctrl/Alt latch applied to a soft-keyboard char
+assertEqual(applyLatchToChar("c", { ctrl: true, alt: false }), "\x03", "latch Ctrl+c → ETX");
+assertEqual(applyLatchToChar("C", { ctrl: true, alt: false }), "\x03", "latch Ctrl+C (uppercase) → ETX");
+assertEqual(applyLatchToChar("a", { ctrl: false, alt: true }), "\x1ba", "latch Alt+a → ESC a");
+assertEqual(applyLatchToChar("c", { ctrl: true, alt: true }), "\x1b\x03", "latch Ctrl+Alt+c → ESC ETX");
+assertEqual(applyLatchToChar("c", { ctrl: false, alt: false }), null, "no latch → null (pass through)");
+assertEqual(applyLatchToChar("1", { ctrl: true, alt: false }), "1", "latch Ctrl+1 (no control byte) → unchanged char");
 console.log("ALL PASS");
