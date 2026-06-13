@@ -6887,6 +6887,7 @@ dependencies = [
  "gio",
  "hkdf 0.12.4",
  "hostname",
+ "jni 0.21.1",
  "keyring-core",
  "libsecret",
  "linux-keyutils-keyring-store",

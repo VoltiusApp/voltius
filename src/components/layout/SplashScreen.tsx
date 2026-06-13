@@ -74,7 +74,11 @@ export default function SplashScreen({ onReady }: Props) {
         setPhase("auth-first-launch");
       }
     }
-    init();
+    init().catch(() => {
+      // Last-resort guard: never let an unexpected rejection freeze the splash.
+      setStep("vault", "error", "Vault check failed");
+      setPhase("auth-first-launch");
+    });
   }, []);
 
   const finishLoading = async () => {
