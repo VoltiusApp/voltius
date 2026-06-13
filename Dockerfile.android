@@ -1,0 +1,73 @@
+FROM debian:trixie-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ANDROID_HOME=/opt/android-sdk
+ENV ANDROID_SDK_ROOT=/opt/android-sdk
+ENV NDK_VERSION=27.1.12297006
+ENV NDK_HOME=/opt/android-sdk/ndk/27.1.12297006
+ENV CMDLINE_TOOLS_VERSION=11076708
+
+# Add amd64 multiarch so the x86_64 NDK toolchain binaries (clang/lld) can run
+# on an aarch64 host via binfmt + QEMU. qemu-user-static provides the binfmt
+# interpreter; libc6:amd64 provides the x86_64 dynamic linker (/lib64/ld-linux-x86-64.so.2).
+RUN dpkg --add-architecture amd64 \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        curl unzip openjdk-21-jdk-headless build-essential clang lld git ca-certificates \
+        qemu-user-static libc6:amd64 zlib1g:amd64 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Node & PNPM (same as Dockerfile.cross-compile)
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && corepack enable && corepack prepare pnpm --activate \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Android SDK command-line tools
+RUN mkdir -p ${ANDROID_HOME}/cmdline-tools \
+    && curl -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-${CMDLINE_TOOLS_VERSION}_latest.zip" -o /tmp/cmdtools.zip \
+    && unzip -q /tmp/cmdtools.zip -d ${ANDROID_HOME}/cmdline-tools \
+    && mv ${ANDROID_HOME}/cmdline-tools/cmdline-tools ${ANDROID_HOME}/cmdline-tools/latest \
+    && rm /tmp/cmdtools.zip
+ENV PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${PATH}"
+
+# Accept licenses + install SDK packages
+RUN yes | sdkmanager --licenses >/dev/null \
+    && sdkmanager \
+        "platform-tools" \
+        "platforms;android-34" \
+        "build-tools;34.0.0" \
+        "ndk;${NDK_VERSION}"
+
+# Rust — channel pinned by rust-toolchain.toml (single source of truth)
+COPY rust-toolchain.toml /tmp/rust-toolchain.toml
+RUN CHANNEL=$(sed -nE 's/^channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' /tmp/rust-toolchain.toml) \
+    && curl https://sh.rustup.rs -sSf | sh -s -- -y \
+        --default-toolchain "$CHANNEL" --profile minimal -c rustfmt -c clippy \
+    && /root/.cargo/bin/rustup target add \
+        aarch64-linux-android \
+        armv7-linux-androideabi \
+        x86_64-linux-android \
+        i686-linux-android \
+    && rm -f /tmp/rust-toolchain.toml
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Non-root chown entrypoint: build as root, hand /project back to host owner.
+RUN <<'EOF'
+cat > /usr/local/bin/entrypoint.sh <<'SCRIPT'
+#!/usr/bin/env bash
+set -uo pipefail
+fix_perms() {
+  local owner
+  owner="$(stat -c %u /project 2>/dev/null):$(stat -c %g /project 2>/dev/null)" || return 0
+  chown -R "$owner" /project 2>/dev/null || true
+}
+trap fix_perms EXIT
+[ "$#" -eq 0 ] && set -- /bin/bash
+"$@"
+SCRIPT
+chmod +x /usr/local/bin/entrypoint.sh
+EOF
+
+WORKDIR /project
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/bin/bash"]
