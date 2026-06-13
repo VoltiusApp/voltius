@@ -34,6 +34,7 @@ import {
 } from "@/components/layout/newSessionItems";
 import { useLocalShells } from "@/hooks/useLocalShells";
 import { useIsAndroid } from "@/utils/platform";
+import { useMobileNavStore } from "@/stores/mobileNavStore";
 
 interface OmniSearchProps {
   onClose: () => void;
@@ -459,10 +460,17 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         launchQuickConnect(item.intent);
         onClose();
       }
+      // On mobile the desktop setActiveNav above is inert — the mobile shell uses its own
+      // nav store. Switch to the terminal tab for connect-bound selections so the new/active
+      // session is actually shown.
+      if (isAndroid && (item.kind === "host" || item.kind === "session" || item.kind === "quick-connect"
+        || item.kind === "local-shell" || item.kind === "team-session" || item.kind === "join-code")) {
+        useMobileNavStore.getState().setTab("terminal");
+      }
     },
     [setActive, setActiveNav, onClose, setSidebarOpen,
      openSettings, setHomePendingAction, setKeychainPendingAction, pluginCommands,
-     joinSession],
+     joinSession, isAndroid],
   );
 
   useEffect(() => {

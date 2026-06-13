@@ -6,6 +6,7 @@ export type MorePage = "keychain" | "port-forwarding" | "known-hosts" | "members
 
 export type MobileScreen =
   | { kind: "host-edit"; hostId?: string }
+  | { kind: "account" }
   | { kind: "snippet-edit"; snippetId?: string }
   | { kind: "more-page"; page: MorePage }
   | { kind: "panel-sftp"; sessionId: string }
@@ -17,6 +18,7 @@ export type MobileScreen =
 export type MobileSheet =
   | { kind: "vault-switcher" }
   | { kind: "host-actions"; hostId: string }
+  | { kind: "omni" }
   | null;
 
 export interface MobileNavState {

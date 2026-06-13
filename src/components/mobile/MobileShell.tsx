@@ -21,6 +21,8 @@ import MobileDockerLogsScreen from "./panels/MobileDockerLogsScreen";
 import MobileMetricsScreen from "./panels/MobileMetricsScreen";
 import MobileProcessesScreen from "./panels/MobileProcessesScreen";
 import MobileSftpScreen from "./panels/MobileSftpScreen";
+import OmniSearch from "@/components/omni/OmniSearch";
+import MobileAccountPage from "./screens/MobileAccountPage";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useAndroidBack } from "@/hooks/useAndroidBack";
@@ -33,6 +35,7 @@ export default function MobileShell() {
   const stack = useMobileNavStore((s) => s.stack);
   const sheet = useMobileNavStore((s) => s.sheet);
   const pop = useMobileNavStore((s) => s.pop);
+  const closeSheet = useMobileNavStore((s) => s.closeSheet);
   const top = stack[stack.length - 1];
   const hasSessions = useSessionStore((s) => s.sessions.length > 0);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
@@ -108,12 +111,14 @@ export default function MobileShell() {
         {top?.kind === "panel-metrics" && <MobileMetricsScreen sessionId={top.sessionId} />}
         {top?.kind === "panel-processes" && <MobileProcessesScreen sessionId={top.sessionId} />}
         {top?.kind === "panel-sftp" && <MobileSftpScreen sessionId={top.sessionId} />}
+        {top?.kind === "account" && <MobileAccountPage />}
       </div>
       {/* Hide the tab bar while a full-screen page is pushed — it would otherwise sit
           visible-but-covered under the overlay, and tapping a tab silently clears the stack. */}
       {!immersive && !top && <BottomTabBar />}
       {sheet?.kind === "vault-switcher" && <VaultSwitcherSheet />}
       {sheet?.kind === "host-actions" && <HostActionsSheet hostId={sheet.hostId} />}
+      {sheet?.kind === "omni" && <OmniSearch onClose={closeSheet} />}
     </div>
   );
 }
