@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useHostMetrics } from "@/plugins/monitoring/useHostMetrics";
 import { Sparkline } from "@/plugins/monitoring/components/Sparkline";
+import { sshGetSystemInfo, type SystemInfo } from "@/services/ssh";
 import MobilePanelHeader from "./MobilePanelHeader";
 
 function fmtBytes(n: number): string {
@@ -50,6 +51,15 @@ export default function MobileMetricsScreen({ sessionId }: { sessionId: string }
 
   const ssh = session?.type === "ssh";
 
+  // System info (OS / kernel / arch) — one remote probe once the SSH session is up.
+  const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null);
+  useEffect(() => {
+    if (!ssh || session?.status !== "connected") return;
+    let cancelled = false;
+    sshGetSystemInfo(sessionId).then((info) => { if (!cancelled) setSysInfo(info); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [ssh, session?.status, sessionId]);
+
   return (
     <div className="flex flex-col h-full" style={{ background: "var(--t-bg-base)" }}>
       <MobilePanelHeader title="Metrics" sessionName={session?.connectionName} />
@@ -62,6 +72,21 @@ export default function MobileMetricsScreen({ sessionId }: { sessionId: string }
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+          {sysInfo && (
+            <div className="rounded-xl border border-(--t-border) bg-(--t-bg-elevated) px-4 pt-3 pb-3">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-(--t-text-dim) mb-1.5">
+                System
+              </p>
+              <p className="text-sm font-medium text-(--t-text-bright) truncate">
+                {sysInfo.pretty_name || "Unknown OS"}
+              </p>
+              {sysInfo.kernel && (
+                <p className="text-xs font-mono text-(--t-text-muted) mt-0.5 truncate">
+                  {sysInfo.kernel} · {sysInfo.arch}
+                </p>
+              )}
+            </div>
+          )}
           <MobileMetricCard
             label="CPU"
             value={snap ? `${snap.cpu_percent.toFixed(1)}%` : "—"}
