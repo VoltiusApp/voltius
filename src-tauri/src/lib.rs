@@ -8,10 +8,10 @@
 mod android_ctx;
 mod commands;
 mod crypto;
-#[cfg(target_os = "android")]
-mod keychain_android;
 mod docker;
 mod error;
+#[cfg(target_os = "android")]
+mod keychain_android;
 mod known_hosts;
 mod local;
 mod metrics;

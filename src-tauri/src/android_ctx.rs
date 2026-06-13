@@ -39,7 +39,10 @@ pub extern "system" fn Java_com_voltius_app_VoltiusKeychain_nativeInit<'local>(
         Ok(g) => g,
         Err(_) => return,
     };
-    let _ = CTX.set(AndroidCtx { vm, context: global });
+    let _ = CTX.set(AndroidCtx {
+        vm,
+        context: global,
+    });
 }
 
 /// Run `f` with an attached `JNIEnv` and the application `Context`. Returns `Err` (never
