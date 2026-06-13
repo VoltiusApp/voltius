@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { Icon } from "@iconify/react";
 import BottomTabBar from "./BottomTabBar";
 import VaultSwitcherSheet from "./sheets/VaultSwitcherSheet";
 import MobileHostsScreen from "./screens/MobileHostsScreen";
@@ -23,6 +22,16 @@ import MobileProcessesScreen from "./panels/MobileProcessesScreen";
 import MobileSftpScreen from "./panels/MobileSftpScreen";
 import OmniSearch from "@/components/omni/OmniSearch";
 import MobileAccountPage from "./screens/MobileAccountPage";
+import MobilePanelHeader from "./panels/MobilePanelHeader";
+import type { MorePage } from "@/stores/mobileNavCore";
+
+const MORE_PAGE_TITLES: Record<MorePage, string> = {
+  "keychain": "Keychain",
+  "port-forwarding": "Port Forwarding",
+  "known-hosts": "Known Hosts",
+  "members": "Members",
+  "logs": "Logs",
+};
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useAndroidBack } from "@/hooks/useAndroidBack";
@@ -34,7 +43,6 @@ export default function MobileShell() {
   const tab = useMobileNavStore((s) => s.tab);
   const stack = useMobileNavStore((s) => s.stack);
   const sheet = useMobileNavStore((s) => s.sheet);
-  const pop = useMobileNavStore((s) => s.pop);
   const closeSheet = useMobileNavStore((s) => s.closeSheet);
   const top = stack[stack.length - 1];
   const hasSessions = useSessionStore((s) => s.sessions.length > 0);
@@ -89,12 +97,7 @@ export default function MobileShell() {
         {top?.kind === "snippet-edit" && <MobileSnippetEditScreen snippetId={top.snippetId} />}
         {top?.kind === "more-page" && (
           <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
-            <header className="shrink-0 flex items-center gap-2 px-2 h-12 border-b"
-              style={{ background: "var(--t-bg-chrome)", borderColor: "var(--t-border)" }}>
-              <button data-mobile-back onClick={pop} className="p-2 text-(--t-text-primary)">
-                <Icon icon="lucide:arrow-left" width={22} />
-              </button>
-            </header>
+            <MobilePanelHeader title={MORE_PAGE_TITLES[top.page]} />
             <div className="flex-1 overflow-hidden flex flex-col">
               {top.page === "keychain" && <KeychainPage />}
               {top.page === "port-forwarding" && <PortForwardingPage />}
