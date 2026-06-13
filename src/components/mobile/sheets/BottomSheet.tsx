@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useVisualViewport } from "@/hooks/useVisualViewport";
 
 /**
  * Mobile bottom sheet: scrim tap + drag-down dismiss. Children scroll internally.
@@ -13,6 +14,7 @@ export default function BottomSheet({ onClose, children, title }: {
   const dragYRef = useRef(0); // mirrors dragY so onTouchEnd reads the latest value, not a stale closure
   const startY = useRef<number | null>(null);
   const [dragging, setDragging] = useState(false); // suppress the transform transition so drag tracks the finger
+  const { usableHeight } = useVisualViewport();
 
   // Animate in
   const [entered, setEntered] = useState(false);
@@ -36,7 +38,11 @@ export default function BottomSheet({ onClose, children, title }: {
   };
 
   return (
-    <div className="absolute inset-0 z-40 flex flex-col justify-end" data-mobile-sheet>
+    <div
+      className="absolute inset-x-0 top-0 z-40 flex flex-col justify-end"
+      data-mobile-sheet
+      style={{ height: usableHeight > 0 ? usableHeight : "100%" }}
+    >
       <div
         className="absolute inset-0 transition-opacity"
         style={{ background: "rgba(0,0,0,0.5)", opacity: entered ? 1 : 0 }}
