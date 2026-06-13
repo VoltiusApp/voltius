@@ -6,6 +6,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { getSyncState, onSyncStateChange, type SyncStatus } from "@/services/sync";
+import { selectEffectiveSyncStatus } from "@/services/syncStatus";
 import { getGistSyncState, onGistSyncStateChange } from "@/plugins/gist-sync/sync-engine";
 import { useRipple } from "@/hooks/useRipple";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
@@ -65,13 +66,12 @@ export default function TitleBar() {
   const accountMode = useSubscriptionStore((s) => s.accountMode);
   const isPro = useSubscriptionStore((s) => s.isPro);
 
-  const voltiusConfigured = accountMode === "server" && isPro;
-  const gistConfigured = gistPluginEnabled && gistSyncState.configured;
-  const showVoltiusState = voltiusConfigured || !gistConfigured;
-  const effectiveConfigured = voltiusConfigured || gistConfigured;
-  const effectiveSyncStatus = showVoltiusState ? syncState.status : gistSyncState.status;
-  const effectiveLastSync = showVoltiusState ? syncState.lastSync : gistSyncState.lastSync;
-  const effectiveError = showVoltiusState ? syncState.error : gistSyncState.error;
+  const {
+    configured: effectiveConfigured,
+    status: effectiveSyncStatus,
+    lastSync: effectiveLastSync,
+    error: effectiveError,
+  } = selectEffectiveSyncStatus({ voltius: syncState, gist: gistSyncState, accountMode, isPro, gistPluginEnabled });
 
   const [syncDropdownOpen, setSyncDropdownOpen] = useState(false);
   const syncButtonRef = useRef<HTMLButtonElement>(null);
