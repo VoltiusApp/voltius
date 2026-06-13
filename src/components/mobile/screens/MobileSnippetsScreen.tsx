@@ -4,16 +4,21 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSessionStore } from "@/stores/sessionStore";
-import { runSnippetIntoActiveSession } from "@/services/snippetRun";
+import { runSnippetIntoActiveSession, isRunnableSession } from "@/services/snippetRun";
 import MobileHeader from "../MobileHeader";
+import SnippetTargetSheet from "../sheets/SnippetTargetSheet";
 
 export default function MobileSnippetsScreen() {
   const snippets = useSnippetStore((s) => s.snippets);
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const push = useMobileNavStore((s) => s.push);
   const setTab = useMobileNavStore((s) => s.setTab);
+  const setActive = useSessionStore((s) => s.setActive);
   const hasConnected = useSessionStore((s) => s.sessions.some((x) => x.status === "connected"));
+  // Primitive count (stable) — only the >1 gate needs it; the picker re-derives the list.
+  const runnableCount = useSessionStore((s) => s.sessions.filter(isRunnableSession).length);
   const [search, setSearch] = useState("");
+  const [confirm, setConfirm] = useState<{ snippetId: string; name: string } | null>(null);
 
   const visible = useMemo(() => {
     const inVault = snippets.filter((s) => !s.deleted_at && selectedVaultIds.includes(s.vault_id ?? "personal"));
@@ -22,10 +27,21 @@ export default function MobileSnippetsScreen() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [snippets, selectedVaultIds, search]);
 
+  // Direct run into a specific session (or the default first-connected when no
+  // sessionId is given). Preserves the original behavior: jump to the terminal
+  // tab on success.
+  const doRun = (snippetId: string, sessionId?: string) => {
+    const sn = snippets.find((s) => s.id === snippetId);
+    if (!sn) return;
+    if (runSnippetIntoActiveSession(sn, sessionId)) setTab("terminal");
+  };
+  // Gate: a single (or no) connected session runs directly; multiple connected
+  // sessions open the target picker so the snippet can't fire into the wrong one.
   const run = (id: string) => {
     const sn = snippets.find((s) => s.id === id);
     if (!sn) return;
-    if (runSnippetIntoActiveSession(sn)) setTab("terminal");
+    if (runnableCount <= 1) { doRun(id); return; }
+    setConfirm({ snippetId: id, name: sn.name });
   };
 
   return (
@@ -74,6 +90,13 @@ export default function MobileSnippetsScreen() {
           <div className="px-4 py-3 text-xs text-(--t-text-dim)">Connect to a host to run snippets.</div>
         )}
       </div>
+      {confirm && (
+        <SnippetTargetSheet
+          snippetName={confirm.name}
+          onClose={() => setConfirm(null)}
+          onPick={(sessionId) => { setActive(sessionId); doRun(confirm.snippetId, sessionId); }}
+        />
+      )}
     </div>
   );
 }
