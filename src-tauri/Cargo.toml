@@ -80,3 +80,9 @@ apple-native-keyring-store = { version = "1", features = ["keychain"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
+# reqwest's default rustls path uses aws-lc-rs + rustls-platform-verifier, which hangs
+# the TLS handshake on Android (aws-lc-rs / uninitialised platform trust store). We hand
+# reqwest a preconfigured ring + bundled-webpki-roots ClientConfig instead (see commands/http.rs).
+# `ring` is already in the tree (russh); rustls is pinned to reqwest's 0.23 line.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+webpki-roots = "1"
