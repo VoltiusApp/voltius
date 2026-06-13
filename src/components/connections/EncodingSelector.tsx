@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useRef, useState } from "react";
 import { Icon } from "@iconify/react";
+import { PickerSurface } from "@/components/shared/PickerSurface";
 
 const ENCODING_GROUPS: { label: string; options: { value: string; label: string }[] }[] = [
   { label: "Unicode", options: [
@@ -71,35 +71,16 @@ interface Props {
 
 export default function EncodingSelector({ value, onChange }: Props) {
   const [open, setOpen] = useState(false);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
-  const wrapperRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  const handleToggle = () => {
-    if (!open && buttonRef.current) {
-      const r = buttonRef.current.getBoundingClientRect();
-      setDropdownPos({ top: r.bottom + 4, left: r.left, width: r.width });
-    }
-    setOpen((o) => !o);
-  };
 
   const selectedLabel = value ? (ALL_OPTIONS.find((o) => o.value === value)?.label ?? value) : "UTF-8 (default)";
 
   return (
-    <div ref={wrapperRef}>
+    <div>
       <button
         ref={buttonRef}
         type="button"
-        onClick={handleToggle}
+        onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors"
         style={{
           background: "var(--t-bg-base)",
@@ -119,44 +100,33 @@ export default function EncodingSelector({ value, onChange }: Props) {
         </span>
       </button>
 
-      {open && createPortal(
-        <div
-          className="surface-float p-1.5 flex flex-col fixed z-9999 overflow-y-auto"
-          style={{
-            top: dropdownPos.top,
-            left: dropdownPos.left,
-            width: dropdownPos.width,
-            maxHeight: 320,
-          }}
-        >
-          {/* UTF-8 default */}
-          <OptionButton
-            icon="lucide:binary"
-            label="UTF-8 (default)"
-            selected={!value}
-            onClick={() => { onChange(""); setOpen(false); }}
-          />
+      <PickerSurface open={open} onClose={() => setOpen(false)} anchorRef={buttonRef} title="Encoding">
+        {/* UTF-8 default */}
+        <OptionButton
+          icon="lucide:binary"
+          label="UTF-8 (default)"
+          selected={!value}
+          onClick={() => { onChange(""); setOpen(false); }}
+        />
 
-          {ENCODING_GROUPS.map((group) => (
-            <div key={group.label}>
-              <div className="my-1 border-t border-t-(--t-bg-card-hover)" />
-              <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-(--t-text-dim)">
-                {group.label}
-              </p>
-              {group.options.map((opt) => (
-                <OptionButton
-                  key={opt.value}
-                  icon="lucide:binary"
-                  label={opt.label}
-                  selected={value === opt.value}
-                  onClick={() => { onChange(opt.value); setOpen(false); }}
-                />
-              ))}
-            </div>
-          ))}
-        </div>,
-        document.body,
-      )}
+        {ENCODING_GROUPS.map((group) => (
+          <div key={group.label}>
+            <div className="my-1 border-t border-t-(--t-bg-card-hover)" />
+            <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-(--t-text-dim)">
+              {group.label}
+            </p>
+            {group.options.map((opt) => (
+              <OptionButton
+                key={opt.value}
+                icon="lucide:binary"
+                label={opt.label}
+                selected={value === opt.value}
+                onClick={() => { onChange(opt.value); setOpen(false); }}
+              />
+            ))}
+          </div>
+        ))}
+      </PickerSurface>
     </div>
   );
 }
