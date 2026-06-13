@@ -4,6 +4,8 @@ import VaultSwitcherSheet from "./sheets/VaultSwitcherSheet";
 import MobileHostsScreen from "./screens/MobileHostsScreen";
 import MobileHostEditScreen from "./screens/MobileHostEditScreen";
 import HostActionsSheet from "./sheets/HostActionsSheet";
+import MobileSessionLayer from "./MobileSessionLayer";
+import MobileTerminalScreen from "./screens/MobileTerminalScreen";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSessionStore } from "@/stores/sessionStore";
 
@@ -24,6 +26,7 @@ export default function MobileShell() {
 
   // Terminal tab with sessions = immersive: hide the tab bar, give xterm every pixel.
   const immersive = tab === "terminal" && hasSessions && !top;
+  const terminalVisible = tab === "terminal" && !top;
 
   return (
     <div
@@ -31,11 +34,21 @@ export default function MobileShell() {
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
       <div className="flex-1 relative overflow-hidden flex flex-col">
-        {tab === "hosts" && !top && <MobileHostsScreen />}
-        {tab === "terminal" && !top && !hasSessions && <Placeholder label="Terminal" />}
-        {tab === "snippets" && !top && <><MobileHeader /><Placeholder label="Snippets" /></>}
-        {tab === "more" && !top && <><MobileHeader title="More" /><Placeholder label="More" /></>}
-        {/* push pages render here from Task 6 onward */}
+        {/* Terminal chrome: chips row (sessions) or empty-state — only when terminal tab is foreground */}
+        {terminalVisible && <MobileTerminalScreen />}
+        <div className="flex-1 relative overflow-hidden">
+          {/* Always-mounted sessions; visibility toggled so xterm survives tab switches */}
+          <MobileSessionLayer visible={terminalVisible && hasSessions} />
+          {/* Non-terminal tab content layers above the session layer when terminal isn't foreground */}
+          {!terminalVisible && (
+            <div className="absolute inset-0 flex flex-col bg-(--t-bg-base)">
+              {tab === "hosts" && !top && <MobileHostsScreen />}
+              {tab === "snippets" && !top && <><MobileHeader /><Placeholder label="Snippets" /></>}
+              {tab === "more" && !top && <><MobileHeader title="More" /><Placeholder label="More" /></>}
+            </div>
+          )}
+        </div>
+        {/* Pushed full-screen pages overlay everything */}
         {top?.kind === "host-edit" && <MobileHostEditScreen hostId={top.hostId} />}
       </div>
       {!immersive && <BottomTabBar />}
