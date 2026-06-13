@@ -139,13 +139,49 @@ notice. (`TerminalStatusBar` mini-metrics already pass `isRemote=true` hardcoded
 
 </details>
 
-## 6. ⬜ Verify the network-client features actually work — BLOCKED ON A TEST SSH HOST
+## 6. ✅ Verify the network-client features actually work — VERIFIED on device (oracle SSH host)
 - **Features:** SSH, SFTP, port-forward, Proxmox, remote Docker (SSH exec), remote metrics/processes.
-  Expected to work (pure sockets/HTTPS) but **unverified on device**.
-- **Status (2026-06-12):** deliberately deferred — needs a reachable SSH host from the phone (ideally
-  one running Docker, which also closes the #4/#5 remote-path verification debt). User opted to skip
-  for now and review/merge the #0–#5 branches first.
-- **Acceptance:** connect + basic op for each, on-device, via the MCP.
+- **Status (2026-06-13):** unblocked once cloud login worked (TLS fix 6a) — user synced an SSH host
+  ("oracle", an Oracle-cloud Ubuntu box running Docker). All verified on-device against it. **No code
+  fix needed for #6 itself** — every feature works on Android as-is over the russh transport; the only
+  fix required was the TLS hang (6a, commit 2cdcac9).
+- **Acceptance:** connect + basic op for each, on-device.
+
+### Results (oracle = ubuntu@89.168.60.177, verified via live session + CDP backend invokes)
+| Feature | Result | Evidence |
+|---|---|---|
+| SSH terminal | ✅ | Live shell, full MOTD, 18ms latency, keystroke I/O round-trips |
+| SFTP list | ✅ | `sftp_open`+`sftp_list_dir /` → 23 entries; `/home` → [opc, ubuntu] |
+| SFTP upload/download | ✅ | round-trip: downloaded `/etc/hostname` → phone cache (`instance-20260331-1910`), re-uploaded → visible in remote `/tmp` (23 B) |
+| Remote Docker (SSH exec) | ✅ | `docker_list_containers(isRemote)` → **10 containers** (closes #4 remote-path debt) |
+| Remote metrics | ✅ | live `metrics:snapshot` (cpu 2.36%, mem 2.5G/24.5G, net 59/64 KB/s) + status-bar mini-metrics (closes #5 debt) |
+| Remote process list | ✅ | `processes_start(isRemote)` → **310 entries** (dockerd, containerd, cloudflared, sshd…) |
+| Port-forward | ✅ (light) | UI shows "**6 active tunnels**" on the session — pf manager runs on Android over russh channels; not independently re-bound |
+| **Proxmox** | ⏸ **deferred** | No Proxmox host on the phone — it lives in the unsynced legacy-key (`kek`) desktop blobs (see `sync-split-key-bug.md`). Proxmox uses the HTTPS reqwest client, so the TLS fix (6a) should cover it; **verify once the Proxmox host is on-device** (sync-bug fix, or add it manually). |
+
+> Driving note: the `tauri-android` MCP CDP socket dropped repeatedly mid-session; the reliable path was
+> a direct CDP harness (node 24 `WebSocket` → `adb forward tcp:9333 localabstract:webview_devtools_remote_<pid>`)
+> calling backend commands via `__TAURI_INTERNALS__.invoke`. Stream commands (metrics/processes) deliver via
+> Tauri events — capture with `__TAURI_INTERNALS__.transformCallback` + `plugin:event|listen`; payload is in
+> the event envelope's `.payload` (`{ts, entries}` for processes). Scripts: `/tmp/cdpeval.mjs` (+ `/tmp/e_*.js`).
+
+### 6a. ✅ TLS handshake hangs on Android (HTTPS infinite hang) — FIXED (branch `android`, commit 2cdcac9)
+**Symptom:** cloud login spun forever; any HTTPS request (login, sync, Proxmox, updater) never returned.
+**Root cause:** `reqwest`'s `["rustls"]` feature = **aws-lc-rs provider + rustls-platform-verifier**, and
+the platform-verifier is **never initialised for Android** (no `rustls_platform_verifier::android::init_*`
+call exists). Under that stack the TLS handshake never completes on Android. `connect_timeout` doesn't
+cover the handshake and `appFetch` (src/services/http.ts) drops the JS `AbortController` signal it's
+handed, so nothing bounded it → infinite-pending IPC promise → frozen `CloudAuthModal`.
+**Proof (on-device, via direct CDP `__TAURI_INTERNALS__.invoke('http_request')`):** plain HTTP → 200 in
+~65ms; HTTPS → hang (10 min observed, then capped). After fix: HTTPS → 404 in ~1s (correct server reply
+for a bogus email), HTTP unchanged.
+**Fix:** on Android only, hand reqwest a preconfigured rustls `ClientConfig` (ring provider + bundled
+`webpki-roots`) via `use_preconfigured_tls` in `src-tauri/src/commands/http.rs::client_builder()`; desktop
+keeps reqwest's default. `ring` was already in the tree (russh). Added a 30s overall `.timeout()` on
+`http_request` as defence so a future stall errors instead of hanging.
+> Never caught earlier because gaps #1–#5 only exercised **local-account** paths — no HTTPS ran on-device
+> until the first cloud login attempt here.
+> ⚠️ Likely also affects **Proxmox** (HTTPS API) — now expected to work; verify under #6.
 
 ---
 
