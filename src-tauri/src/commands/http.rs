@@ -48,6 +48,38 @@ impl HttpSseStreamManager {
     }
 }
 
+/// reqwest client builder with a platform-appropriate TLS stack.
+///
+/// On Android, reqwest's default rustls path (aws-lc-rs provider + an *uninitialised*
+/// rustls-platform-verifier trust store) hangs the TLS handshake forever — every HTTPS
+/// request, including cloud login, never completes. We hand reqwest a preconfigured
+/// rustls config using the `ring` provider and bundled webpki roots instead. Desktop
+/// keeps reqwest's working default.
+fn client_builder() -> reqwest::ClientBuilder {
+    let builder = reqwest::Client::builder().user_agent("Voltius");
+    #[cfg(target_os = "android")]
+    let builder = builder.use_preconfigured_tls(android_tls_config());
+    builder
+}
+
+#[cfg(target_os = "android")]
+fn android_tls_config() -> rustls::ClientConfig {
+    use std::sync::OnceLock;
+    static CFG: OnceLock<rustls::ClientConfig> = OnceLock::new();
+    CFG.get_or_init(|| {
+        let mut roots = rustls::RootCertStore::empty();
+        roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+        rustls::ClientConfig::builder_with_provider(std::sync::Arc::new(
+            rustls::crypto::ring::default_provider(),
+        ))
+        .with_safe_default_protocol_versions()
+        .expect("ring provider supports the default TLS protocol versions")
+        .with_root_certificates(roots)
+        .with_no_client_auth()
+    })
+    .clone()
+}
+
 #[tauri::command]
 pub async fn http_request(
     url: String,
@@ -70,10 +102,13 @@ pub async fn http_request(
         _ => return Err("unsupported HTTP method".to_string()),
     };
 
-    let mut builder = reqwest::Client::builder().user_agent("Voltius");
+    let mut builder = client_builder();
     if let Some(ms) = connect_timeout_ms {
         builder = builder.connect_timeout(std::time::Duration::from_millis(ms));
     }
+    // Defensive overall cap: a stalled handshake or read must surface as an error,
+    // never an indefinitely-pending IPC promise (which froze the cloud-login UI on Android).
+    builder = builder.timeout(std::time::Duration::from_secs(30));
     let client = builder.build().map_err(|e| e.to_string())?;
 
     let mut request = client.request(method, url);
@@ -128,7 +163,7 @@ pub async fn http_sse_start(
             let _ = app.emit(&closed_event, HttpSseClosedPayload { error });
         };
 
-        let client = match reqwest::Client::builder().user_agent("Voltius").build() {
+        let client = match client_builder().build() {
             Ok(client) => client,
             Err(e) => {
                 close(&app, Some(e.to_string()));
