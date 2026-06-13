@@ -90,8 +90,10 @@ export default function MobileShell() {
             </div>
           )}
         </div>
-        {/* Extra-keys row: flush above the soft keyboard, only when terminal is foreground and keyboard open */}
-        {terminalVisible && hasSessions && keyboardVisible && <MobileExtraKeysRow />}
+        {/* Extra-keys row: always present while the terminal is foreground with a session — usable
+            even when the keyboard is closed (keys write to the PTY without needing input focus).
+            When the keyboard opens, the shell shrinks to usableHeight so the row sits above it. */}
+        {terminalVisible && hasSessions && <MobileExtraKeysRow keyboardOpen={keyboardVisible} />}
         {/* Pushed full-screen pages overlay everything */}
         {top?.kind === "host-edit" && <MobileHostEditScreen hostId={top.hostId} />}
         {top?.kind === "snippet-edit" && <MobileSnippetEditScreen snippetId={top.snippetId} />}

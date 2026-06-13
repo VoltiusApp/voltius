@@ -16,7 +16,7 @@ const KEYS: KeyDef[] = [
 ];
 const MODS: { mod: Modifier; label: string }[] = [ { mod: "ctrl", label: "Ctrl" }, { mod: "alt", label: "Alt" } ];
 
-export default function MobileExtraKeysRow() {
+export default function MobileExtraKeysRow({ keyboardOpen }: { keyboardOpen?: boolean }) {
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const ctrl = useModifierLatchStore((s) => s.ctrl);
   const alt = useModifierLatchStore((s) => s.alt);
@@ -38,11 +38,22 @@ export default function MobileExtraKeysRow() {
   const tapMod = (mod: Modifier) => tap(mod);
   const lockMod = (mod: Modifier) => lock(mod);
   const noFocusSteal = (e: React.SyntheticEvent) => e.preventDefault();
+  // The row must never summon the soft keyboard. The xterm textarea is programmatically focused
+  // (Android keeps the IME hidden), so the first touch gesture would otherwise pop the IME for it.
+  // When the keyboard is closed, blur the focused element on touch so the tap can't trigger it.
+  // Keyboard open: leave focus alone so it stays open for continued typing.
+  const keepKeyboardClosed = () => { if (!keyboardOpen) (document.activeElement as HTMLElement | null)?.blur(); };
 
   return (
     <div data-mobile-extra-keys className="shrink-0 flex items-center gap-1 overflow-x-auto px-1.5 py-1.5 border-t"
-      style={{ background: "var(--t-bg-chrome)", borderColor: "var(--t-border)" }}
-      onMouseDown={noFocusSteal} onTouchStart={noFocusSteal}>
+      style={{
+        background: "var(--t-bg-chrome)", borderColor: "var(--t-border)",
+        // Keyboard closed: the shell spans edge-to-edge, so inset the row above the Android
+        // system nav bar. Keyboard open: stay flush above the keyboard (no inset; the nav bar
+        // is behind the keyboard).
+        paddingBottom: keyboardOpen ? undefined : "env(safe-area-inset-bottom)",
+      }}
+      onMouseDown={noFocusSteal} onTouchStart={(e) => { noFocusSteal(e); keepKeyboardClosed(); }}>
       {MODS.map(({ mod, label }) => {
         const v = latch[mod];
         return (
