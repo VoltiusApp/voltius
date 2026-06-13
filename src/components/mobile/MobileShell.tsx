@@ -1,28 +1,28 @@
+import { Icon } from "@iconify/react";
 import BottomTabBar from "./BottomTabBar";
-import MobileHeader from "./MobileHeader";
 import VaultSwitcherSheet from "./sheets/VaultSwitcherSheet";
 import MobileHostsScreen from "./screens/MobileHostsScreen";
 import MobileHostEditScreen from "./screens/MobileHostEditScreen";
 import MobileSnippetsScreen from "./screens/MobileSnippetsScreen";
 import MobileSnippetEditScreen from "./screens/MobileSnippetEditScreen";
+import MobileMoreScreen from "./screens/MobileMoreScreen";
 import HostActionsSheet from "./sheets/HostActionsSheet";
 import MobileSessionLayer from "./MobileSessionLayer";
 import MobileTerminalScreen from "./screens/MobileTerminalScreen";
+import KeychainPage from "@/components/keychain/KeychainPage";
+import KnownHostsPage from "@/components/known-hosts/KnownHostsPage";
+import { PortForwardingPage } from "@/components/port_forwarding/PortForwardingPage";
+import MembersPage from "@/components/members/MembersPage";
+import AuditLogsPage from "@/components/logs/AuditLogsPage";
+import SFTPPage from "@/components/filetransfer/SFTPPage";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSessionStore } from "@/stores/sessionStore";
-
-function Placeholder({ label }: { label: string }) {
-  return (
-    <div className="flex-1 flex items-center justify-center text-(--t-text-dim) text-sm">
-      {label}
-    </div>
-  );
-}
 
 export default function MobileShell() {
   const tab = useMobileNavStore((s) => s.tab);
   const stack = useMobileNavStore((s) => s.stack);
   const sheet = useMobileNavStore((s) => s.sheet);
+  const pop = useMobileNavStore((s) => s.pop);
   const top = stack[stack.length - 1];
   const hasSessions = useSessionStore((s) => s.sessions.length > 0);
 
@@ -46,13 +46,43 @@ export default function MobileShell() {
             <div className="absolute inset-0 flex flex-col bg-(--t-bg-base)">
               {tab === "hosts" && !top && <MobileHostsScreen />}
               {tab === "snippets" && !top && <MobileSnippetsScreen />}
-              {tab === "more" && !top && <><MobileHeader title="More" /><Placeholder label="More" /></>}
+              {tab === "more" && !top && <MobileMoreScreen />}
             </div>
           )}
         </div>
         {/* Pushed full-screen pages overlay everything */}
         {top?.kind === "host-edit" && <MobileHostEditScreen hostId={top.hostId} />}
         {top?.kind === "snippet-edit" && <MobileSnippetEditScreen snippetId={top.snippetId} />}
+        {top?.kind === "more-page" && (
+          <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
+            <header className="shrink-0 flex items-center gap-2 px-2 h-12 border-b"
+              style={{ background: "var(--t-bg-chrome)", borderColor: "var(--t-border)" }}>
+              <button data-mobile-back onClick={pop} className="p-2 text-(--t-text-primary)">
+                <Icon icon="lucide:arrow-left" width={22} />
+              </button>
+            </header>
+            <div className="flex-1 overflow-hidden flex flex-col">
+              {top.page === "keychain" && <KeychainPage />}
+              {top.page === "port-forwarding" && <PortForwardingPage />}
+              {top.page === "known-hosts" && <KnownHostsPage />}
+              {top.page === "members" && <MembersPage />}
+              {top.page === "logs" && <AuditLogsPage />}
+            </div>
+          </div>
+        )}
+        {top?.kind === "sftp" && (
+          <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
+            <header className="shrink-0 flex items-center gap-2 px-2 h-12 border-b"
+              style={{ background: "var(--t-bg-chrome)", borderColor: "var(--t-border)" }}>
+              <button data-mobile-back onClick={pop} className="p-2 text-(--t-text-primary)">
+                <Icon icon="lucide:arrow-left" width={22} />
+              </button>
+            </header>
+            <div className="flex-1 overflow-hidden flex flex-col">
+              <SFTPPage />
+            </div>
+          </div>
+        )}
       </div>
       {!immersive && <BottomTabBar />}
       {sheet?.kind === "vault-switcher" && <VaultSwitcherSheet />}
