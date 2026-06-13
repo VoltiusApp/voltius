@@ -99,6 +99,11 @@ export async function switchToAccount(account: SavedAccount): Promise<void> {
   // will repopulate entity files from the cloud pull after reload.
   await wipeLocalConfig().catch(() => {});
 
+  // Drop the previous account's cached wrapped_user_secrets — it is wrapped by the
+  // old account's kek and must never be unwrapped with the new account's key. The
+  // new account writes its own on first login.
+  await keychainDelete("wrapped_user_secrets");
+
   await keychainSet("account_id", account.account_id);
   await keychainSet("mode", account.mode);
   await keychainSet("master_password", account.master_password);

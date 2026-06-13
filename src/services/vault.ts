@@ -80,7 +80,7 @@ export async function resetVault(): Promise<void> {
   await invoke("vault_reset"); // deletes secrets.enc + connections.json + legacy vault.hold
 
   // Clear all keychain entries so the app starts fresh
-  for (const key of ["master_password", "account_id", "mode", "email", "jwt", "refresh_token", "server_url", "device_id"]) {
+  for (const key of ["master_password", "account_id", "mode", "email", "jwt", "refresh_token", "server_url", "device_id", "wrapped_user_secrets"]) {
     await invoke("keychain_delete", { key }).catch(() => {});
   }
 }
