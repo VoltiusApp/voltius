@@ -37,10 +37,13 @@ export default function MobileShell() {
   const immersive = tab === "terminal" && hasSessions && !top;
   const terminalVisible = tab === "terminal" && !top;
 
-  // Keyboard-aware layout: shrink the terminal stack to the visual viewport so the
-  // soft keyboard reflows the prompt instead of panning the WebView, re-fitting xterm
-  // on every inset change.
+  // Keyboard-aware layout: pin the whole shell to the visual-viewport height while a
+  // terminal session is foreground, so the soft keyboard shrinks the app (the extra-keys
+  // row lands flush above it) instead of the WebView growing behind the keyboard. This
+  // must sit on the OUTER container — a flex-1 inner child would grow past the keyboard
+  // regardless of an explicit height. usableHeight is 0 until first measured.
   const { usableHeight, keyboardVisible } = useVisualViewport();
+  const shellHeight = immersive && usableHeight > 0 ? usableHeight : undefined;
   useEffect(() => {
     if (terminalVisible && activeSessionId) {
       const id = requestAnimationFrame(() => refitSession(activeSessionId));
@@ -52,14 +55,11 @@ export default function MobileShell() {
   return (
     <div
       className="h-full w-full flex flex-col overflow-hidden bg-(--t-bg-base)"
-      style={{ paddingTop: "env(safe-area-inset-top)" }}
+      style={{ paddingTop: "env(safe-area-inset-top)", height: shellHeight }}
     >
       <div
         className="flex-1 relative flex flex-col"
-        style={{
-          overflow: "clip",
-          height: terminalVisible && usableHeight ? usableHeight : undefined,
-        }}
+        style={{ overflow: "clip" }}
       >
         {/* Terminal chrome: chips row (sessions) or empty-state — only when terminal tab is foreground */}
         {terminalVisible && <MobileTerminalScreen />}
