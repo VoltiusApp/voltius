@@ -1,6 +1,8 @@
 import BottomTabBar from "./BottomTabBar";
 import MobileHeader from "./MobileHeader";
 import VaultSwitcherSheet from "./sheets/VaultSwitcherSheet";
+import MobileHostsScreen from "./screens/MobileHostsScreen";
+import HostActionsSheet from "./sheets/HostActionsSheet";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSessionStore } from "@/stores/sessionStore";
 
@@ -28,7 +30,7 @@ export default function MobileShell() {
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
       <div className="flex-1 relative overflow-hidden flex flex-col">
-        {tab === "hosts" && !top && <><MobileHeader /><Placeholder label="Hosts" /></>}
+        {tab === "hosts" && !top && <MobileHostsScreen />}
         {tab === "terminal" && !top && !hasSessions && <Placeholder label="Terminal" />}
         {tab === "snippets" && !top && <><MobileHeader /><Placeholder label="Snippets" /></>}
         {tab === "more" && !top && <><MobileHeader title="More" /><Placeholder label="More" /></>}
@@ -36,6 +38,7 @@ export default function MobileShell() {
       </div>
       {!immersive && <BottomTabBar />}
       {sheet?.kind === "vault-switcher" && <VaultSwitcherSheet />}
+      {sheet?.kind === "host-actions" && <HostActionsSheet hostId={sheet.hostId} />}
     </div>
   );
 }
