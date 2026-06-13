@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
+import { appCacheDir } from "@tauri-apps/api/path";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSftpDir, breadcrumbs } from "@/services/useSftpDir";
 import { formatSize, type FileEntry } from "@/components/filetransfer/SFTPTypes";
+import { sftpDownload, sftpDownloadDir } from "@/services/sftp";
+import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { writeClipboard } from "@/utils/clipboard";
 import MobilePanelHeader from "./MobilePanelHeader";
 import BottomSheet from "../sheets/BottomSheet";
@@ -17,7 +20,12 @@ export default function MobileSftpScreen({ sessionId }: { sessionId: string }) {
   const session = useSessionStore((s) => s.sessions.find((x) => x.id === sessionId));
   const connections = useAllConnections();
   const connection = useMemo(() => connections.find((c) => c.id === session?.connectionId), [connections, session?.connectionId]);
-  const { phase, cwd, entries, listing, listError, navigate, goUp, mkdir, rename, remove } = useSftpDir(connection);
+  const { phase, sftpId, cwd, entries, listing, listError, navigate, goUp, mkdir, rename, remove } = useSftpDir(connection);
+  const runTransfer = useTransferQueueStore((s) => s.runTransfer);
+  const transfers = useTransferQueueStore((s) => s.transfers);
+  const cancelTransfer = useTransferQueueStore((s) => s.cancelTransfer);
+  // Filter in render body (not in the selector) to avoid the fresh-array-selector React #185 loop.
+  const active = transfers.filter((t) => t.status === "running");
   const [showHidden, setShowHidden] = useState(false);
   const [sheetFor, setSheetFor] = useState<FileEntry | null>(null);
   const [renaming, setRenaming] = useState<FileEntry | null>(null);
@@ -30,6 +38,16 @@ export default function MobileSftpScreen({ sessionId }: { sessionId: string }) {
     const filtered = showHidden ? entries : entries.filter((e) => !e.name.startsWith("."));
     return [...filtered].sort((a, b) => (a.isDir !== b.isDir ? (a.isDir ? -1 : 1) : a.name.localeCompare(b.name)));
   }, [entries, showHidden]);
+
+  // Download into the app-private cache dir (a writable Android filesystem path; no Rust command needed).
+  const download = async (f: FileEntry) => {
+    if (!sftpId) return;
+    const base = (await appCacheDir()).replace(/\/$/, "");
+    const localPath = `${base}/${f.name}`;
+    await runTransfer(f.name, "←", (tid) => (f.isDir
+      ? sftpDownloadDir({ sftpId, remotePath: f.path, localPath, transferId: tid })
+      : sftpDownload({ sftpId, remotePath: f.path, localPath, transferId: tid })));
+  };
 
   const header = (
     <MobilePanelHeader
@@ -105,9 +123,39 @@ export default function MobileSftpScreen({ sessionId }: { sessionId: string }) {
         ))}
       </div>
 
+      {/* Upload deferred on Android: SAF returns content:// URIs, no backend copy helper (Fallback B). */}
+      {phase.tag === "connected" && (
+        <button data-sftp-upload-deferred disabled title="Upload coming soon on Android"
+          className="absolute right-4 w-14 h-14 rounded-full flex items-center justify-center shadow-lg opacity-40 cursor-not-allowed"
+          style={{ bottom: "calc(env(safe-area-inset-bottom) + 1rem)", background: "var(--t-bg-card)", border: "1px solid var(--t-border)", color: "var(--t-text-dim)" }}>
+          <Icon icon="lucide:upload" width={22} />
+        </button>
+      )}
+
+      {active.length > 0 && (
+        <div className="absolute left-0 right-0 bottom-0 px-3 pb-3 flex flex-col gap-1.5" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}>
+          {active.map((t) => {
+            const pct = t.total > 0 ? Math.round((t.transferred / t.total) * 100) : 0;
+            return (
+              <div key={t.id} data-sftp-transfer={t.id} className="rounded-xl px-3 py-2 flex items-center gap-2" style={{ background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)" }}>
+                <Icon icon={t.direction === "←" ? "lucide:download" : "lucide:upload"} width={14} className="text-(--t-text-dim) shrink-0" />
+                <span className="flex flex-col min-w-0 flex-1">
+                  <span className="text-xs text-(--t-text-primary) truncate">{t.label}</span>
+                  <div className="h-1 rounded-full mt-1 overflow-hidden" style={{ background: "var(--t-bg-card)" }}>
+                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "var(--t-accent)" }} />
+                  </div>
+                </span>
+                <span className="text-[11px] text-(--t-text-dim) tabular-nums shrink-0">{pct}%</span>
+                <button data-sftp-transfer-cancel={t.id} onClick={() => cancelTransfer(t.id)} className="p-1 text-(--t-text-dim) shrink-0"><Icon icon="lucide:x" width={14} /></button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {sheetFor && (
         <BottomSheet title={sheetFor.name} onClose={() => setSheetFor(null)}>
-          {/* Download added in Task 4 */}
+          <SheetItem icon="lucide:download" label="Download" onTap={() => { const f = sheetFor; setSheetFor(null); void download(f); }} />
           <SheetItem icon="lucide:pencil" label="Rename" onTap={() => { setRenaming(sheetFor); setRenameVal(sheetFor.name); setSheetFor(null); }} />
           <SheetItem icon="lucide:clipboard" label="Copy path" onTap={() => { void writeClipboard(sheetFor.path); setSheetFor(null); }} />
           <SheetItem icon="lucide:trash-2" label="Delete" danger onTap={() => { setConfirmDelete(sheetFor); setSheetFor(null); }} />
