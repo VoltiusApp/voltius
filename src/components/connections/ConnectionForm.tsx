@@ -61,6 +61,10 @@ interface Props {
   /** Other vaults available for move/copy (excludes the connection's current vault) */
   vaults?: VaultOption[];
   canEdit?: boolean;
+  /** Mobile embed: hide the desktop PanelHeader (close, actions) and the
+   *  VaultPicker subheader so the mobile screen owns the single header + Save.
+   *  Desktop default is undefined → unchanged behavior. */
+  hideChrome?: boolean;
   onMoveToVault?: (vaultId: string) => void;
   onCopyToVault?: (vaultId: string) => void;
 }
@@ -70,7 +74,7 @@ export interface ConnectionFormHandle {
   isDirty: () => boolean;
 }
 
-const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function ConnectionForm({ initial, onSubmit, onClose, onDuplicate, onConnect, onDelete, vaults, canEdit, onMoveToVault, onCopyToVault }, ref) {
+const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function ConnectionForm({ initial, onSubmit, onClose, onDuplicate, onConnect, onDelete, vaults, canEdit, hideChrome, onMoveToVault, onCopyToVault }, ref) {
   const [name, setName] = useState(initial?.name ?? "");
   const [host, setHost] = useState(initial?.host ?? "");
   const [port, setPort] = useState<number | "">(initial?.port ?? 22);
@@ -394,25 +398,27 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   return (
     <div className="relative flex flex-col h-full overflow-hidden">
     <PanelShell>
-      <PanelHeader
-        icon={initial ? "lucide:pencil" : "lucide:plus"}
-        title={initial ? "Edit Host" : "New Host"}
-        subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => { vaultPickerTouched.current = true; setVaultId(id); markDirty(); }} />}
-        onClose={handleClose}
-        saveState={initial ? saveState : undefined}
-        actions={initial ? (
-          <>
-            <PinButton pinned={isPinned} onToggle={() => {
-              if (!isTeamVault) {
-                pinConnection(initial.id, !isPinned).catch(() => {});
-              } else {
-                pinConnection(initial.id, nextPersonalPinValue(pinSource)).catch(() => {});
-              }
-            }} />
-            {panelItems.length > 0 && <PanelActionsMenu items={panelItems} />}
-          </>
-        ) : undefined}
-      />
+      {!hideChrome && (
+        <PanelHeader
+          icon={initial ? "lucide:pencil" : "lucide:plus"}
+          title={initial ? "Edit Host" : "New Host"}
+          subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => { vaultPickerTouched.current = true; setVaultId(id); markDirty(); }} />}
+          onClose={handleClose}
+          saveState={initial ? saveState : undefined}
+          actions={initial ? (
+            <>
+              <PinButton pinned={isPinned} onToggle={() => {
+                if (!isTeamVault) {
+                  pinConnection(initial.id, !isPinned).catch(() => {});
+                } else {
+                  pinConnection(initial.id, nextPersonalPinValue(pinSource)).catch(() => {});
+                }
+              }} />
+              {panelItems.length > 0 && <PanelActionsMenu items={panelItems} />}
+            </>
+          ) : undefined}
+        />
+      )}
 
       <div className="flex flex-col flex-1 overflow-y-auto">
         <div className="flex-1 px-4 py-4 space-y-3">
