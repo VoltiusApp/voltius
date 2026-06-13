@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import type { Folder } from "@/types";
+import { PickerSurface } from "./PickerSurface";
 
 interface Props {
   value: string | null;
@@ -15,10 +15,7 @@ export default function FolderSelector({ value, folders, onChange, onCreateFolde
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [saving, setSaving] = useState(false);
-  const [dropdownPos, setDropdownPos] = useState<{ top?: number; bottom?: number; left: number; width: number; maxHeight: number }>({ left: 0, width: 0, maxHeight: 320 });
-  const wrapperRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const newNameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -28,35 +25,6 @@ export default function FolderSelector({ value, folders, onChange, onCreateFolde
   useEffect(() => {
     if (creating) setTimeout(() => newNameRef.current?.focus(), 0);
   }, [creating]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (
-        wrapperRef.current && !wrapperRef.current.contains(target) &&
-        dropdownRef.current && !dropdownRef.current.contains(target)
-      ) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  const handleToggle = () => {
-    if (!open && buttonRef.current) {
-      const r = buttonRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - r.bottom - 8;
-      const spaceAbove = r.top - 8;
-      const goUp = spaceBelow < 150 && spaceAbove > spaceBelow;
-      setDropdownPos(goUp
-        ? { bottom: window.innerHeight - r.top + 4, left: r.left, width: r.width, maxHeight: Math.min(spaceAbove, 320) }
-        : { top: r.bottom + 4, left: r.left, width: r.width, maxHeight: Math.min(spaceBelow, 320) }
-      );
-    }
-    setOpen((o) => !o);
-  };
 
   const handleCreate = async () => {
     const name = newName.trim();
@@ -74,11 +42,11 @@ export default function FolderSelector({ value, folders, onChange, onCreateFolde
   const selected = folders.find((f) => f.id === value) ?? null;
 
   return (
-    <div ref={wrapperRef}>
+    <div>
       <button
         ref={buttonRef}
         type="button"
-        onClick={handleToggle}
+        onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors"
         style={{
           background: "var(--t-bg-base)",
@@ -102,117 +70,103 @@ export default function FolderSelector({ value, folders, onChange, onCreateFolde
         </span>
       </button>
 
-      {open && createPortal(
-        <div
-          ref={dropdownRef}
-          className="surface-float p-1.5 flex flex-col fixed z-9999"
-          style={{
-            top: dropdownPos.top,
-            bottom: dropdownPos.bottom,
-            left: dropdownPos.left,
-            width: dropdownPos.width,
-            maxHeight: dropdownPos.maxHeight,
-            overflowY: "auto",
-          }}
+      <PickerSurface open={open} onClose={() => setOpen(false)} anchorRef={buttonRef} title="Folder">
+        <button
+          type="button"
+          onClick={() => { onChange(null); setOpen(false); }}
+          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors"
+          style={{ color: value === null ? "var(--t-accent)" : "var(--t-text-secondary)" }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
         >
+          <Icon icon="lucide:folder-x" width={13} className="shrink-0" />
+          <span className="flex-1 text-left text-(--t-text-primary)">No folder</span>
+          {value === null && (
+            <span className="[&_path]:stroke-[2.5]">
+              <Icon icon="lucide:check" width={13} />
+            </span>
+          )}
+        </button>
+
+        {folders.length > 0 && <div className="my-1 border-t border-t-(--t-bg-card-hover)" />}
+
+        {folders.map((folder) => (
           <button
+            key={folder.id}
             type="button"
-            onClick={() => { onChange(null); setOpen(false); }}
+            onClick={() => { onChange(folder.id); setOpen(false); }}
             className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors"
-            style={{ color: value === null ? "var(--t-accent)" : "var(--t-text-secondary)" }}
+            style={{ color: value === folder.id ? "var(--t-accent)" : "var(--t-text-secondary)" }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
           >
-            <Icon icon="lucide:folder-x" width={13} className="shrink-0" />
-            <span className="flex-1 text-left text-(--t-text-primary)">No folder</span>
-            {value === null && (
+            <Icon icon="lucide:folder" width={13} className="shrink-0" />
+            <span className="flex-1 text-left text-(--t-text-primary) truncate">{folder.name}</span>
+            {value === folder.id && (
               <span className="[&_path]:stroke-[2.5]">
-                <Icon icon="lucide:check" width={13} />
+                <Icon icon="lucide:check" width={13} className="text-(--t-accent)" />
               </span>
             )}
           </button>
+        ))}
 
-          {folders.length > 0 && <div className="my-1 border-t border-t-(--t-bg-card-hover)" />}
+        <div className="mt-1 border-t border-t-(--t-bg-card-hover)" />
 
-          {folders.map((folder) => (
+        {creating ? (
+          <div className="flex items-center gap-1.5 px-2 py-1.5">
+            <Icon icon="lucide:folder-plus" width={13} className="text-(--t-text-dim) shrink-0" />
+            <input
+              ref={newNameRef}
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); void handleCreate(); }
+                if (e.key === "Escape") setCreating(false);
+              }}
+              placeholder="Folder name"
+              className="flex-1 bg-transparent outline-hidden text-xs text-(--t-text-primary) placeholder:text-(--t-text-dim) min-w-0"
+            />
             <button
-              key={folder.id}
               type="button"
-              onClick={() => { onChange(folder.id); setOpen(false); }}
-              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors"
-              style={{ color: value === folder.id ? "var(--t-accent)" : "var(--t-text-secondary)" }}
+              onClick={() => void handleCreate()}
+              disabled={!newName.trim() || saving}
+              className="shrink-0 p-1 rounded-sm transition-colors disabled:opacity-40"
+              style={{ color: "var(--t-accent)" }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
             >
-              <Icon icon="lucide:folder" width={13} className="shrink-0" />
-              <span className="flex-1 text-left text-(--t-text-primary) truncate">{folder.name}</span>
-              {value === folder.id && (
-                <span className="[&_path]:stroke-[2.5]">
-                  <Icon icon="lucide:check" width={13} className="text-(--t-accent)" />
-                </span>
-              )}
+              <Icon icon={saving ? "lucide:loader-2" : "lucide:check"} width={13} className={saving ? "animate-spin" : undefined} />
             </button>
-          ))}
-
-          <div className="mt-1 border-t border-t-(--t-bg-card-hover)" />
-
-          {creating ? (
-            <div className="flex items-center gap-1.5 px-2 py-1.5">
-              <Icon icon="lucide:folder-plus" width={13} className="text-(--t-text-dim) shrink-0" />
-              <input
-                ref={newNameRef}
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") { e.preventDefault(); void handleCreate(); }
-                  if (e.key === "Escape") setCreating(false);
-                }}
-                placeholder="Folder name"
-                className="flex-1 bg-transparent outline-hidden text-xs text-(--t-text-primary) placeholder:text-(--t-text-dim) min-w-0"
-              />
-              <button
-                type="button"
-                onClick={() => void handleCreate()}
-                disabled={!newName.trim() || saving}
-                className="shrink-0 p-1 rounded-sm transition-colors disabled:opacity-40"
-                style={{ color: "var(--t-accent)" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
-              >
-                <Icon icon={saving ? "lucide:loader-2" : "lucide:check"} width={13} className={saving ? "animate-spin" : undefined} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setCreating(false)}
-                className="shrink-0 p-1 rounded-sm transition-colors text-(--t-text-dim)"
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
-              >
-                <Icon icon="lucide:x" width={13} />
-              </button>
-            </div>
-          ) : (
             <button
               type="button"
-              onClick={() => setCreating(true)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors text-(--t-text-dim)"
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.color = "var(--t-accent)";
-                (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)";
-                (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-              }}
+              onClick={() => setCreating(false)}
+              className="shrink-0 p-1 rounded-sm transition-colors text-(--t-text-dim)"
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
             >
-              <Icon icon="lucide:folder-plus" width={13} />
-              <span className="flex-1 text-left">New folder</span>
+              <Icon icon="lucide:x" width={13} />
             </button>
-          )}
-        </div>,
-        document.body,
-      )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors text-(--t-text-dim)"
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--t-accent)";
+              (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)";
+              (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+            }}
+          >
+            <Icon icon="lucide:folder-plus" width={13} />
+            <span className="flex-1 text-left">New folder</span>
+          </button>
+        )}
+      </PickerSurface>
     </div>
   );
 }
