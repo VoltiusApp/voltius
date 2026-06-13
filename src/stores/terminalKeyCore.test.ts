@@ -5,6 +5,8 @@ function assertEqual<T>(actual: T, expected: T, msg: string): void {
 }
 assertEqual(keyToBytes("Esc", { ctrl: false, alt: false, appCursor: false }), "\x1b", "Esc");
 assertEqual(keyToBytes("Tab", { ctrl: false, alt: false, appCursor: false }), "\t", "Tab");
+assertEqual(keyToBytes("ShiftTab", { ctrl: false, alt: false, appCursor: false }), "\x1b[Z", "ShiftTab → CSI Z");
+assertEqual(keyToBytes("ShiftTab", { ctrl: false, alt: false, appCursor: true }), "\x1b[Z", "ShiftTab ignores appcursor");
 assertEqual(keyToBytes("Up", { ctrl: false, alt: false, appCursor: false }), "\x1b[A", "Up normal");
 assertEqual(keyToBytes("Up", { ctrl: false, alt: false, appCursor: true }), "\x1bOA", "Up appcursor");
 assertEqual(keyToBytes("Left", { ctrl: false, alt: false, appCursor: false }), "\x1b[D", "Left normal");

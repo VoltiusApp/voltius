@@ -1,7 +1,7 @@
 /** Pure key → terminal byte-sequence mapping for the mobile extra-keys row.
  *  No DOM/xterm; node-testable. Arrows respect application-cursor-keys mode. */
 export type SpecialKey =
-  | "Esc" | "Tab" | "Up" | "Down" | "Left" | "Right"
+  | "Esc" | "Tab" | "ShiftTab" | "Up" | "Down" | "Left" | "Right"
   | "Home" | "End" | "PgUp" | "PgDn"
   | "-" | "/" | "|" | "~";
 export interface KeyMods { ctrl: boolean; alt: boolean; appCursor: boolean; }
@@ -20,6 +20,7 @@ export function keyToBytes(key: SpecialKey, m: KeyMods): string {
   switch (key) {
     case "Esc": seq = "\x1b"; break;
     case "Tab": seq = "\t"; break;
+    case "ShiftTab": seq = "\x1b[Z"; break; // CSI Z — back-tab (reverse field / completion menu)
     case "Up": seq = `${csi}A`; break;
     case "Down": seq = `${csi}B`; break;
     case "Right": seq = `${csi}C`; break;
