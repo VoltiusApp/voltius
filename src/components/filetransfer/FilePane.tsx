@@ -12,7 +12,7 @@ import {
   type RemoteFile, type LocalFile,
 } from "@/services/sftp";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
-import { type FileEntry, type SortCol, type SortDir, type VisibleCols, formatSize } from "./SFTPTypes";
+import { type FileEntry, type SortCol, type SortDir, type VisibleCols, formatSize, formatPermissions, formatDate } from "./SFTPTypes";
 import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { startInternalDragGesture, useSemanticDragState } from "./internalDrag";
@@ -668,31 +668,6 @@ function CrumbSegment({ label, isLast, onClick }: { label: string; isLast: boole
     >
       {label}
     </button>
-  );
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatDate(ts: number): string {
-  const d = new Date(ts * 1000);
-  const now = new Date();
-  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const mon = months[d.getMonth()];
-  const day = String(d.getDate()).padStart(2, " ");
-  if (d.getFullYear() === now.getFullYear()) {
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mm = String(d.getMinutes()).padStart(2, "0");
-    return `${mon} ${day} ${hh}:${mm}`;
-  }
-  return `${mon} ${day} ${d.getFullYear()}`;
-}
-
-function formatPermissions(mode: number): string {
-  const b = (mask: number) => (mode & mask) ? 1 : 0;
-  return (
-    (b(0o400) ? "r" : "-") + (b(0o200) ? "w" : "-") + (b(0o100) ? "x" : "-") +
-    (b(0o040) ? "r" : "-") + (b(0o020) ? "w" : "-") + (b(0o010) ? "x" : "-") +
-    (b(0o004) ? "r" : "-") + (b(0o002) ? "w" : "-") + (b(0o001) ? "x" : "-")
   );
 }
 

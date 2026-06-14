@@ -37,3 +37,26 @@ export function formatSize(b: number) {
   if (b < 1073741824) return `${(b / 1048576).toFixed(1)} MB`;
   return `${(b / 1073741824).toFixed(2)} GB`;
 }
+
+export function formatPermissions(mode: number): string {
+  const b = (mask: number) => (mode & mask) ? 1 : 0;
+  return (
+    (b(0o400) ? "r" : "-") + (b(0o200) ? "w" : "-") + (b(0o100) ? "x" : "-") +
+    (b(0o040) ? "r" : "-") + (b(0o020) ? "w" : "-") + (b(0o010) ? "x" : "-") +
+    (b(0o004) ? "r" : "-") + (b(0o002) ? "w" : "-") + (b(0o001) ? "x" : "-")
+  );
+}
+
+export function formatDate(ts: number): string {
+  const d = new Date(ts * 1000);
+  const now = new Date();
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const mon = months[d.getMonth()];
+  const day = String(d.getDate()).padStart(2, " ");
+  if (d.getFullYear() === now.getFullYear()) {
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${mon} ${day} ${hh}:${mm}`;
+  }
+  return `${mon} ${day} ${d.getFullYear()}`;
+}
