@@ -37,14 +37,6 @@ export default function MobileHeader({ title, onAdd }: { title?: string; onAdd?:
         <ContentCounts counts={counts} className="flex items-center gap-2.5 mt-0.5" />
       </button>
       <div className="flex items-center gap-1 shrink-0">
-        <button
-          data-mobile-omni
-          onClick={() => openSheet({ kind: "omni" })}
-          className="p-2 text-(--t-text-primary)"
-          aria-label="Search everything"
-        >
-          <Icon icon="lucide:search" width={20} />
-        </button>
         {sync.configured && (
           <span
             data-mobile-sync-status

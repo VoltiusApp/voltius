@@ -21,7 +21,6 @@ import MobileDockerLogsScreen from "./panels/MobileDockerLogsScreen";
 import MobileMetricsScreen from "./panels/MobileMetricsScreen";
 import MobileProcessesScreen from "./panels/MobileProcessesScreen";
 import MobileSftpScreen from "./panels/MobileSftpScreen";
-import OmniSearch from "@/components/omni/OmniSearch";
 import MobileAccountPage from "./screens/MobileAccountPage";
 import MobilePanelHeader from "./panels/MobilePanelHeader";
 import MobileSnippetTargetSheet from "./sheets/MobileSnippetTargetSheet";
@@ -50,7 +49,6 @@ export default function MobileShell() {
   const tab = useMobileNavStore((s) => s.tab);
   const stack = useMobileNavStore((s) => s.stack);
   const sheet = useMobileNavStore((s) => s.sheet);
-  const closeSheet = useMobileNavStore((s) => s.closeSheet);
   const top = stack[stack.length - 1];
   const hasSessions = useSessionStore((s) => s.sessions.length > 0);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
@@ -137,7 +135,6 @@ export default function MobileShell() {
       {!immersive && !top && <BottomTabBar />}
       {sheet?.kind === "vault-switcher" && <VaultSwitcherSheet />}
       {sheet?.kind === "host-actions" && <HostActionsSheet hostId={sheet.hostId} />}
-      {sheet?.kind === "omni" && <OmniSearch onClose={closeSheet} />}
       {sheet?.kind === "snippet-target" && (
         <MobileSnippetTargetSheet snippetId={sheet.snippetId} mode={sheet.mode} preselectSessionId={sheet.preselectSessionId} />
       )}
