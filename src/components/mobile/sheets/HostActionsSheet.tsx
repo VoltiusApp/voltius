@@ -6,6 +6,8 @@ import { useConnectionStore, connectionToFormData } from "@/stores/connectionSto
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useVaultStore } from "@/stores/vaultStore";
+import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
+import { useEffectivePinned } from "@/hooks/useEffectivePinned";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { writeClipboard } from "@/utils/clipboard";
@@ -25,6 +27,9 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
   const deleteConnection = useConnectionStore((s) => s.deleteConnection);
   const connect = useSessionStore((s) => s.connect);
   const vaults = useVaultStore((s) => s.vaults);
+  const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(hostId, "connection"));
+  const pinConnection = useConnectionStore((s) => s.pinConnection);
+  const effectivePinned = useEffectivePinned(conn ?? { id: hostId }, "connection");
   const [mode, setMode] = useState<Mode>("menu");
 
   if (!conn) return null;
@@ -84,7 +89,16 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
         void saveConnection({ ...connectionToFormData(conn), name: `${name} copy` });
         closeSheet();
       } },
+    { icon: effectivePinned ? "lucide:pin-off" : "lucide:pin", label: effectivePinned ? "Unpin" : "Pin", onTap: () => {
+        pinConnection(hostId, !effectivePinned).catch(() => {});
+      } },
     ...(moveTargets.length > 0 ? [{ icon: "lucide:folder-input", label: "Move to vault", onTap: () => setMode("move") }] : []),
+    { icon: isSynced ? "lucide:cloud-off" : "lucide:cloud", label: isSynced ? "Disable cloud sync" : "Enable cloud sync", onTap: () => {
+        useSyncPrefsStore.getState().toggleExcluded(hostId);
+      } },
+    ...(!isSerial ? [{ icon: conn.ping_disabled ? "lucide:wifi" : "lucide:wifi-off", label: conn.ping_disabled ? "Enable reachability check" : "Disable reachability check", onTap: () => {
+        void updateConnection(hostId, { ...connectionToFormData(conn), ping_disabled: !conn.ping_disabled });
+      } }] : []),
     { icon: "lucide:trash-2", label: "Delete", danger: true, onTap: () => setMode("confirm-delete") },
   ];
 
