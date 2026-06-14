@@ -69,6 +69,8 @@ interface UIStore {
   cloudAuthOpen: boolean;
   cloudAuthMode: CloudAuthMode;
   settingsSection: SettingsSection;
+  /** Mobile drill-down page: null = section list, otherwise the open section. */
+  settingsSubPage: SettingsSection | null;
   settingsPluginPageId: string | null;
   rightPanelOpen: boolean;
   rightPanelSection: RightPanelSection;
@@ -106,6 +108,7 @@ interface UIStore {
   closeCloudAuth: () => void;
   setCloudAuthMode: (mode: CloudAuthMode) => void;
   setSettingsSection: (section: SettingsSection) => void;
+  setSettingsSubPage: (section: SettingsSection | null) => void;
   setSettingsPluginPageId: (id: string | null) => void;
   openSettings: (section?: SettingsSection, pluginPageId?: string) => void;
   setRightPanelOpen: (open: boolean) => void;
@@ -150,6 +153,7 @@ export const useUIStore = create<UIStore>()(
       cloudAuthOpen: false,
       cloudAuthMode: "signin" as CloudAuthMode,
       settingsSection: "appearance" as SettingsSection,
+      settingsSubPage: null as SettingsSection | null,
       settingsPluginPageId: null as string | null,
       rightPanelOpen: false,
       rightPanelSection: "themes" as RightPanelSection,
@@ -186,13 +190,15 @@ export const useUIStore = create<UIStore>()(
       setHomeView: (v) => set({ homeView: v }),
       setActiveNav: (nav) => set({ activeNav: nav }),
       setOmniOpen: (open) => set({ omniOpen: open }),
-      setSettingsOpen: (open) => set({ settingsOpen: open }),
+      setSettingsOpen: (open) => set((s) => ({ settingsOpen: open, settingsSubPage: open ? s.settingsSubPage : null })),
       openCloudAuth: (mode) => set({ cloudAuthOpen: true, cloudAuthMode: mode ?? "signin" }),
       closeCloudAuth: () => set({ cloudAuthOpen: false }),
       setCloudAuthMode: (mode) => set({ cloudAuthMode: mode }),
       setSettingsSection: (section) => set({ settingsSection: section }),
+      setSettingsSubPage: (section) => set({ settingsSubPage: section }),
       setSettingsPluginPageId: (id) => set({ settingsPluginPageId: id }),
-      openSettings: (section, pluginPageId) => set((s) => ({ settingsOpen: true, settingsSection: section ?? s.settingsSection, settingsPluginPageId: pluginPageId ?? null })),
+      // section given = deep-link → mobile drills straight in; no section = plain open → mobile lands on the list.
+      openSettings: (section, pluginPageId) => set((s) => ({ settingsOpen: true, settingsSection: section ?? s.settingsSection, settingsSubPage: section ?? null, settingsPluginPageId: pluginPageId ?? null })),
       setRightPanelOpen: (open) => set({ rightPanelOpen: open }),
       setRightPanelSection: (section) => set({ rightPanelSection: section }),
       toggleRightPanel: (section) =>

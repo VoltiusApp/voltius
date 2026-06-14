@@ -1,23 +1,29 @@
-import { useState } from "react";
 import { Icon } from "@iconify/react";
-import { useUIStore, type SettingsSection } from "@/stores/uiStore";
+import { useUIStore } from "@/stores/uiStore";
 import { SETTINGS_NAV } from "@/components/settings/settingsNav";
 import { renderSettingsSection } from "@/components/settings/settingsSections";
 import { mobileSettingsNav, MOBILE_HIDDEN_SECTIONS } from "@/components/settings/settingsMobileCore";
 
 export default function MobileSettings() {
   const setOpen = useUIStore((s) => s.setSettingsOpen);
-  const pending = useUIStore((s) => s.settingsSection);
-  // Deep-link lands on its detail page; plain open / hidden section → list.
-  const [subPage, setSubPage] = useState<SettingsSection | null>(
-    () => (MOBILE_HIDDEN_SECTIONS.has(pending) ? null : pending),
-  );
+  const rawSubPage = useUIStore((s) => s.settingsSubPage);
+  const setSubPage = useUIStore((s) => s.setSettingsSubPage);
+  // Hardware back drives this via the store; hidden sections fall back to the list.
+  const subPage = rawSubPage && !MOBILE_HIDDEN_SECTIONS.has(rawSubPage) ? rawSubPage : null;
 
   const nav = mobileSettingsNav(SETTINGS_NAV);
   const current = nav.find((n) => n.id === subPage);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col surface-modal-solid animate-fadeIn">
+    <div
+      className="fixed inset-0 z-50 flex flex-col surface-modal-solid animate-fadeIn"
+      style={{
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
+      }}
+    >
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 shrink-0 border-b border-b-(--t-border)">
         {subPage ? (

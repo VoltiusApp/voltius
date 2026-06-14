@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
+import { useUIStore } from "@/stores/uiStore";
 
 /**
  * Hardware-back for the mobile shell. WRY routes the Android back button to
@@ -23,9 +24,15 @@ export function useAndroidBack() {
   useEffect(() => {
     let pushed = 0;
 
+    // Settings is a full-screen overlay in its own store: +1 for the list, +1 more for a drill-down.
+    const settingsDepth = () => {
+      const { settingsOpen, settingsSubPage } = useUIStore.getState();
+      return settingsOpen ? 1 + (settingsSubPage ? 1 : 0) : 0;
+    };
+
     const wantTraps = () => {
       const { tab, stack, sheet } = useMobileNavStore.getState();
-      return (tab !== "hosts" ? 1 : 0) + stack.length + (sheet !== null ? 1 : 0);
+      return (tab !== "hosts" ? 1 : 0) + stack.length + (sheet !== null ? 1 : 0) + settingsDepth();
     };
 
     const syncTraps = () => {
@@ -39,16 +46,25 @@ export function useAndroidBack() {
 
     const onPop = () => {
       if (pushed > 0) pushed--;
-      // back() mutates the store → subscription runs syncTraps, which is a no-op
-      // now (want decreased in lock-step with pushed). No push happens here.
+      // Settings overlays the shell, so it consumes back first: drill-down → list → closed.
+      // Each step mutates a store → subscription runs syncTraps, a no-op now (want decreased
+      // in lock-step with pushed). No push happens here.
+      const ui = useUIStore.getState();
+      if (ui.settingsOpen) {
+        if (ui.settingsSubPage) ui.setSettingsSubPage(null);
+        else ui.setSettingsOpen(false);
+        return;
+      }
       useMobileNavStore.getState().back();
     };
 
-    const unsub = useMobileNavStore.subscribe(syncTraps);
+    const unsubNav = useMobileNavStore.subscribe(syncTraps);
+    const unsubUi = useUIStore.subscribe(syncTraps);
     window.addEventListener("popstate", onPop);
     syncTraps();
     return () => {
-      unsub();
+      unsubNav();
+      unsubUi();
       window.removeEventListener("popstate", onPop);
     };
   }, []);
