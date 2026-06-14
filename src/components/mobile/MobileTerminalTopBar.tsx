@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
+import { useConnectionStore } from "@/stores/connectionStore";
 import type { TerminalSession } from "@/types";
 import { terminalPanelItems } from "./terminalPanelItems";
 
@@ -26,6 +27,9 @@ export default function MobileTerminalTopBar() {
   const openSheet = useMobileNavStore((s) => s.openSheet);
   const exitTo = useMobileNavStore((s) => s.lastNonTerminalTab);
   const [menuOpen, setMenuOpen] = useState(false);
+  // Derive Proxmox gate as a primitive (boolean) — Zustand-safe; no fresh array/object from the selector.
+  const activeConnId = allSessions.find((s) => s.id === activeSessionId)?.connectionId;
+  const isProxmox = useConnectionStore((s) => s.connections.find((c) => c.id === activeConnId)?.distro === "proxmox");
 
   return (
     <div
@@ -90,6 +94,7 @@ export default function MobileTerminalTopBar() {
               activeSessionId,
               connectionIdOfActive: allSessions.find((s) => s.id === activeSessionId)?.connectionId,
               nav: { push, openSheet },
+              isProxmox,
             }).map((it) => (
               <button
                 key={it.key}

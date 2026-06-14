@@ -20,6 +20,7 @@ import MobileDockerScreen from "./panels/MobileDockerScreen";
 import MobileDockerLogsScreen from "./panels/MobileDockerLogsScreen";
 import MobileMetricsScreen from "./panels/MobileMetricsScreen";
 import MobileProcessesScreen from "./panels/MobileProcessesScreen";
+import MobileProxmoxScreen from "./panels/MobileProxmoxScreen";
 import MobileSftpScreen from "./panels/MobileSftpScreen";
 import MobileAccountPage from "./screens/MobileAccountPage";
 import MobilePanelHeader from "./panels/MobilePanelHeader";
@@ -127,6 +128,7 @@ export default function MobileShell() {
         )}
         {top?.kind === "panel-metrics" && <MobileMetricsScreen sessionId={top.sessionId} />}
         {top?.kind === "panel-processes" && <MobileProcessesScreen sessionId={top.sessionId} />}
+        {top?.kind === "panel-proxmox" && <MobileProxmoxScreen sessionId={top.sessionId} />}
         {top?.kind === "panel-sftp" && <MobileSftpScreen presetConnectionId={top.connectionId} />}
         {top?.kind === "account" && <MobileAccountPage />}
       </div>

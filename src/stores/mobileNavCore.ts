@@ -13,6 +13,7 @@ export type MobileScreen =
   | { kind: "panel-docker"; sessionId: string }
   | { kind: "panel-metrics"; sessionId: string }
   | { kind: "panel-processes"; sessionId: string }
+  | { kind: "panel-proxmox"; sessionId: string }
   | { kind: "panel-docker-logs"; sessionId: string; containerId: string; containerName: string };
 
 export type MobileSheet =

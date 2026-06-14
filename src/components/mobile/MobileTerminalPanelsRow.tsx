@@ -1,6 +1,7 @@
 import { Icon } from "@iconify/react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
+import { useConnectionStore } from "@/stores/connectionStore";
 import { terminalPanelItems } from "./terminalPanelItems";
 
 /** Toggleable quick-access row of terminal panels (mirrors the ⋮ menu). */
@@ -9,10 +10,13 @@ export default function MobileTerminalPanelsRow() {
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const push = useMobileNavStore((s) => s.push);
   const openSheet = useMobileNavStore((s) => s.openSheet);
+  const activeConnId = allSessions.find((s) => s.id === activeSessionId)?.connectionId;
+  const isProxmox = useConnectionStore((s) => s.connections.find((c) => c.id === activeConnId)?.distro === "proxmox");
   const items = terminalPanelItems({
     activeSessionId,
-    connectionIdOfActive: allSessions.find((s) => s.id === activeSessionId)?.connectionId,
+    connectionIdOfActive: activeConnId,
     nav: { push, openSheet },
+    isProxmox,
   });
   return (
     <div data-mobile-panels-row className="shrink-0 flex items-center gap-1 overflow-x-auto px-1.5 py-1.5 border-t"
