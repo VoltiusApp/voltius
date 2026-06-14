@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { appCacheDir } from "@tauri-apps/api/path";
 import { breadcrumbs, type useSftpDir } from "@/services/useSftpDir";
-import { formatSize, type FileEntry } from "@/components/filetransfer/SFTPTypes";
+import { formatSize, formatPermissions, formatDate, type FileEntry } from "@/components/filetransfer/SFTPTypes";
 import { sftpDownload, sftpDownloadDir } from "@/services/sftp";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { writeClipboard } from "@/utils/clipboard";
@@ -40,6 +40,7 @@ export default function MobileSftpPane({
   const [newFolder, setNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
+  const [detailFor, setDetailFor] = useState<FileEntry | null>(null);
 
   const downloadSelected = async () => { for (const f of selected) await download(f); };
   const deleteSelected = async () => {
@@ -152,6 +153,7 @@ export default function MobileSftpPane({
         <BottomSheet title={sheetFor.name} onClose={() => setSheetFor(null)}>
           {otherConnected && <SheetItem icon="lucide:arrow-right-left" label="Copy to other pane" onTap={() => { const f = sheetFor; setSheetFor(null); onCopyToOther(f); }} />}
           <SheetItem icon="lucide:download" label="Download" onTap={() => { const f = sheetFor; setSheetFor(null); void download(f); }} />
+          <SheetItem icon="lucide:info" label="Details" onTap={() => { setDetailFor(sheetFor); setSheetFor(null); }} />
           <SheetItem icon="lucide:pencil" label="Rename" onTap={() => { setRenaming(sheetFor); setRenameVal(sheetFor.name); setSheetFor(null); }} />
           <SheetItem icon="lucide:clipboard" label="Copy path" onTap={() => { void writeClipboard(sheetFor.path); setSheetFor(null); }} />
           <SheetItem icon="lucide:trash-2" label="Delete" danger onTap={() => { setConfirmDelete(sheetFor); setSheetFor(null); }} />
@@ -173,6 +175,17 @@ export default function MobileSftpPane({
             <Icon icon="lucide:trash-2" width={18} /><span className="text-sm font-medium">Delete</span>
           </button>
           <button className="w-full px-3 py-3.5 rounded-xl text-sm text-(--t-text-dim)" onClick={() => setConfirmDelete(null)}>Cancel</button>
+        </BottomSheet>
+      )}
+      {detailFor && (
+        <BottomSheet title={detailFor.name} onClose={() => setDetailFor(null)}>
+          <div className="flex flex-col gap-2 px-1 pb-1 text-sm">
+            <DetailRow label="Path" value={detailFor.path} />
+            <DetailRow label="Type" value={detailFor.isDir ? "Folder" : detailFor.isSymlink ? "Symlink" : "File"} />
+            {!detailFor.isDir && <DetailRow label="Size" value={formatSize(detailFor.size)} />}
+            {detailFor.permissions != null && <DetailRow label="Permissions" value={`${formatPermissions(detailFor.permissions)} (0o${detailFor.permissions.toString(8)})`} />}
+            {detailFor.modified != null && <DetailRow label="Modified" value={formatDate(detailFor.modified)} />}
+          </div>
         </BottomSheet>
       )}
       {confirmBatchDelete && (
@@ -232,6 +245,15 @@ function FileRow({ file, checked, onTap, onToggle, onLong }: { file: FileEntry; 
           style={{ color: checked ? "var(--t-accent)" : "var(--t-text-dim)" }} />
       )}
     </button>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-3 py-1.5 border-b" style={{ borderColor: "var(--t-border)" }}>
+      <span className="text-(--t-text-dim) shrink-0 w-24">{label}</span>
+      <span className="text-(--t-text-primary) break-all flex-1">{value}</span>
+    </div>
   );
 }
 
