@@ -380,6 +380,8 @@ export interface PluginManifest {
   description?: string;
   permissions: string[];
   defaultEnabled?: boolean;
+  /** Hidden in the plugin list on mobile (uses host-only resources, e.g. local fs). */
+  desktopOnly?: boolean;
   contributes?: {
     configuration?: Record<string, PluginConfigField>;
   };

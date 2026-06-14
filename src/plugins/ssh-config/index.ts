@@ -16,6 +16,7 @@ export const manifest: PluginManifest = {
     "fs", "settings-page", "notifications",
   ],
   defaultEnabled: true,
+  desktopOnly: true,
 };
 
 // ─── SSH config parser ────────────────────────────────────────────────────────
