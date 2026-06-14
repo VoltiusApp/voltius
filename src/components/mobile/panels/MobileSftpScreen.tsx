@@ -58,7 +58,8 @@ export default function MobileSftpScreen({ presetConnectionId, asTab }: { preset
         <div className="flex-1 min-h-0 flex flex-col">
           <MobileSftpPane controller={ctrlA} connection={connA} selected={selA}
             onToggleSelect={(f) => toggle("a", f)} onPickHost={() => setPicking("a")}
-            onCopyToOther={(f) => void copy("a", [f])} otherConnected={ctrlB.sftpId != null} />
+            onCopyToOther={(f) => void copy("a", [f])} otherConnected={ctrlB.sftpId != null}
+            onClearSelect={() => setSelA([])} />
         </div>
         {/* Middle transfer bar: ↓ copies top→bottom, ↑ copies bottom→top; disabled when N/A */}
         <div className="shrink-0 flex items-center justify-center gap-3 px-3 py-1.5 border-y" style={{ borderColor: "var(--t-border)", background: "var(--t-bg-chrome)" }}>
@@ -68,7 +69,8 @@ export default function MobileSftpScreen({ presetConnectionId, asTab }: { preset
         <div className="flex-1 min-h-0 flex flex-col">
           <MobileSftpPane controller={ctrlB} connection={connB} selected={selB}
             onToggleSelect={(f) => toggle("b", f)} onPickHost={() => setPicking("b")}
-            onCopyToOther={(f) => void copy("b", [f])} otherConnected={ctrlA.sftpId != null} />
+            onCopyToOther={(f) => void copy("b", [f])} otherConnected={ctrlA.sftpId != null}
+            onClearSelect={() => setSelB([])} />
         </div>
       </div>
 
