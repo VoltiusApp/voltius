@@ -703,7 +703,8 @@ type Tab = "installed" | "browse";
 export default function PluginsSection() {
   const [tab, setTab] = useState<Tab>("installed");
   const installedMeta = useMarketplaceStore((s) => s.installedMeta);
-  const totalCount = BUNDLED_PLUGINS.length + installedMeta.length;
+  const isAndroid = useIsAndroid();
+  const totalCount = visiblePlugins(BUNDLED_PLUGINS, isAndroid).length + installedMeta.length;
 
   const tabLabel = (t: Tab) =>
     t === "installed" ? `Installed (${totalCount})` : "Browse";
