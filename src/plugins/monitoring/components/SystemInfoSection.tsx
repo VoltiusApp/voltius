@@ -23,9 +23,15 @@ function Row({ icon, label, value }: { icon: string; label: string; value: strin
   );
 }
 
-export function SystemInfoSection({ session }: { session: TerminalSession }) {
+export function SystemInfoSection({
+  session,
+  defaultExpanded = false,
+}: {
+  session: TerminalSession;
+  defaultExpanded?: boolean;
+}) {
   const [info, setInfo] = useState<SystemInfo | null>(null);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
 
   useEffect(() => {
     let cancelled = false;

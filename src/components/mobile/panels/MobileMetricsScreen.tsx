@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useHostMetrics } from "@/plugins/monitoring/useHostMetrics";
 import { Sparkline } from "@/plugins/monitoring/components/Sparkline";
-import { sshGetSystemInfo, type SystemInfo } from "@/services/ssh";
+import { DiskSection } from "@/plugins/monitoring/components/DiskSection";
+import { SystemInfoSection } from "@/plugins/monitoring/components/SystemInfoSection";
 import MobilePanelHeader from "./MobilePanelHeader";
 
 function fmtBytes(n: number): string {
@@ -47,101 +48,53 @@ export default function MobileMetricsScreen({ sessionId }: { sessionId: string }
     return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
 
-  const { snap, disks, cpuH, memH, rxH, txH } = useHostMetrics(session, { paused });
+  const { snap, disks, disksLoading, cpuH, memH, rxH, txH } = useHostMetrics(session, { paused });
 
   const ssh = session?.type === "ssh";
-
-  // System info (OS / kernel / arch) — one remote probe once the SSH session is up.
-  const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null);
-  useEffect(() => {
-    if (!ssh || session?.status !== "connected") return;
-    let cancelled = false;
-    sshGetSystemInfo(sessionId).then((info) => { if (!cancelled) setSysInfo(info); }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [ssh, session?.status, sessionId]);
 
   return (
     <div className="flex flex-col h-full" style={{ background: "var(--t-bg-base)" }}>
       <MobilePanelHeader title="Metrics" sessionName={session?.connectionName} />
 
-      {!ssh ? (
+      {!ssh || !session ? (
         <div className="flex flex-1 items-center justify-center px-8 text-center">
           <p className="max-w-[260px] text-sm leading-5 text-(--t-text-muted)">
             Live metrics are only available for SSH sessions. Connect to a host over SSH to see its metrics.
           </p>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
-          {sysInfo && (
-            <div className="rounded-xl border border-(--t-border) bg-(--t-bg-elevated) px-4 pt-3 pb-3">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-(--t-text-dim) mb-1.5">
-                System
-              </p>
-              <p className="text-sm font-medium text-(--t-text-bright) truncate">
-                {sysInfo.pretty_name || "Unknown OS"}
-              </p>
-              {sysInfo.kernel && (
-                <p className="text-xs font-mono text-(--t-text-muted) mt-0.5 truncate">
-                  {sysInfo.kernel} · {sysInfo.arch}
-                </p>
-              )}
-            </div>
-          )}
-          <MobileMetricCard
-            label="CPU"
-            value={snap ? `${snap.cpu_percent.toFixed(1)}%` : "—"}
-            color="#ef4444"
-            history={cpuH}
-          />
-          <MobileMetricCard
-            label="Memory"
-            value={snap ? `${fmtMem(snap.mem_used_kb)} / ${fmtMem(snap.mem_total_kb)}` : "—"}
-            color="#22c55e"
-            history={memH}
-          />
-          <MobileMetricCard
-            label="Net RX"
-            value={fmtBytes(snap?.net_rx_bytes_per_sec ?? 0)}
-            color="#3b82f6"
-            history={rxH}
-          />
-          <MobileMetricCard
-            label="Net TX"
-            value={fmtBytes(snap?.net_tx_bytes_per_sec ?? 0)}
-            color="#f59e0b"
-            history={txH}
-          />
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-3 py-3 space-y-3">
+            <MobileMetricCard
+              label="CPU"
+              value={snap ? `${snap.cpu_percent.toFixed(1)}%` : "—"}
+              color="#ef4444"
+              history={cpuH}
+            />
+            <MobileMetricCard
+              label="Memory"
+              value={snap ? `${fmtMem(snap.mem_used_kb)} / ${fmtMem(snap.mem_total_kb)}` : "—"}
+              color="#22c55e"
+              history={memH}
+            />
+            <MobileMetricCard
+              label="Net RX"
+              value={fmtBytes(snap?.net_rx_bytes_per_sec ?? 0)}
+              color="#3b82f6"
+              history={rxH}
+            />
+            <MobileMetricCard
+              label="Net TX"
+              value={fmtBytes(snap?.net_tx_bytes_per_sec ?? 0)}
+              color="#f59e0b"
+              history={txH}
+            />
+          </div>
 
-          {disks.length > 0 && (
-            <div className="rounded-xl border border-(--t-border) bg-(--t-bg-elevated) px-4 pt-3 pb-3">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-(--t-text-dim) mb-2">
-                Disks
-              </p>
-              {disks.map((disk) => {
-                const pct = disk.total_kb > 0 ? Math.round((disk.used_kb / disk.total_kb) * 100) : 0;
-                const barColor =
-                  pct > 90 ? "var(--t-status-error)" : pct > 75 ? "#f59e0b" : "var(--t-accent)";
-                return (
-                  <div key={disk.mount} className="mb-2.5 last:mb-0">
-                    <div className="flex justify-between text-[12px] mb-1">
-                      <span className="font-mono text-(--t-text-secondary) truncate max-w-[160px]">
-                        {disk.mount}
-                      </span>
-                      <span className="text-(--t-text-muted) shrink-0 ml-2">
-                        {fmtMem(disk.used_kb)} / {fmtMem(disk.total_kb)}
-                      </span>
-                    </div>
-                    <div className="w-full h-1.5 rounded-full bg-(--t-bg-input) overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{ width: `${pct}%`, background: barColor }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          {(disksLoading || disks.length > 0) && (
+            <DiskSection disks={disks} loading={disksLoading} />
           )}
+          <SystemInfoSection session={session} defaultExpanded />
         </div>
       )}
     </div>
