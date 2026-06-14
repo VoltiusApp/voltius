@@ -30,7 +30,7 @@ export default function MobileSftpPane({
   otherConnected: boolean;
   onClearSelect: () => void;
 }) {
-  const { phase, sftpId, cwd, entries, listing, listError, navigate, goUp, mkdir, rename, remove } = controller;
+  const { phase, sftpId, cwd, entries, listing, listError, navigate, goUp, mkdir, touch, rename, remove } = controller;
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
   const [showHidden, setShowHidden] = useState(false);
   const [sheetFor, setSheetFor] = useState<FileEntry | null>(null);
@@ -39,6 +39,9 @@ export default function MobileSftpPane({
   const [confirmDelete, setConfirmDelete] = useState<FileEntry | null>(null);
   const [newFolder, setNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [newFile, setNewFile] = useState(false);
+  const [newFileName, setNewFileName] = useState("");
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
   const [detailFor, setDetailFor] = useState<FileEntry | null>(null);
 
@@ -87,7 +90,7 @@ export default function MobileSftpPane({
         <div className="flex-1" />
         <button data-sftp-hidden onClick={() => setShowHidden((v) => !v)} className="px-2 py-0.5 text-[11px] rounded-lg"
           style={{ color: showHidden ? "var(--t-accent)" : "var(--t-text-dim)" }}>{showHidden ? "Hidden" : "Visible"}</button>
-        <button data-sftp-new-folder onClick={() => setNewFolder(true)} className="p-1 rounded-lg text-(--t-text-dim)" aria-label="New folder">
+        <button data-sftp-create onClick={() => setCreating(true)} className="p-1 rounded-lg text-(--t-text-dim)" aria-label="Create">
           <Icon icon="lucide:plus" width={16} />
         </button>
       </div>
@@ -197,6 +200,12 @@ export default function MobileSftpPane({
           <button className="w-full px-3 py-3.5 rounded-xl text-sm text-(--t-text-dim)" onClick={() => setConfirmBatchDelete(false)}>Cancel</button>
         </BottomSheet>
       )}
+      {creating && (
+        <BottomSheet title="Create" onClose={() => setCreating(false)}>
+          <SheetItem icon="lucide:folder-plus" label="New folder" onTap={() => { setCreating(false); setNewFolder(true); }} />
+          <SheetItem icon="lucide:file-plus" label="New file" onTap={() => { setCreating(false); setNewFile(true); }} />
+        </BottomSheet>
+      )}
       {newFolder && (
         <BottomSheet title="New folder" onClose={() => setNewFolder(false)}>
           <input autoFocus value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} placeholder="Folder name"
@@ -204,6 +213,15 @@ export default function MobileSftpPane({
             style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }} />
           <button data-sftp-mkdir-go className="w-full px-3 py-3 rounded-xl text-sm font-medium" style={{ background: "var(--t-accent)", color: "#fff" }}
             onClick={async () => { const n = newFolderName.trim(); setNewFolder(false); setNewFolderName(""); if (n) try { await mkdir(n); } catch (e) { alert(String(e)); } }}>Create</button>
+        </BottomSheet>
+      )}
+      {newFile && (
+        <BottomSheet title="New file" onClose={() => setNewFile(false)}>
+          <input autoFocus value={newFileName} onChange={(e) => setNewFileName(e.target.value)} placeholder="File name"
+            className="w-full rounded-xl px-3 h-11 text-sm outline-none text-(--t-text-primary) mb-2"
+            style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }} />
+          <button data-sftp-touch-go className="w-full px-3 py-3 rounded-xl text-sm font-medium" style={{ background: "var(--t-accent)", color: "#fff" }}
+            onClick={async () => { const n = newFileName.trim(); setNewFile(false); setNewFileName(""); if (n) try { await touch(n); } catch (e) { alert(String(e)); } }}>Create</button>
         </BottomSheet>
       )}
     </div>
