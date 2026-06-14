@@ -120,6 +120,7 @@ export default function MobileSftpPane({
         {phase.tag === "connected" && !listError && visible.map((f) => (
           <FileRow key={f.path} file={f} checked={selectedPaths.has(f.path)}
             onTap={() => (f.isDir ? navigate(f.path) : onToggleSelect(f))}
+            onToggle={() => onToggleSelect(f)}
             onLong={() => setSheetFor(f)} />
         ))}
       </div>
@@ -164,7 +165,7 @@ export default function MobileSftpPane({
   );
 }
 
-function FileRow({ file, checked, onTap, onLong }: { file: FileEntry; checked: boolean; onTap: () => void; onLong: () => void }) {
+function FileRow({ file, checked, onTap, onToggle, onLong }: { file: FileEntry; checked: boolean; onTap: () => void; onToggle: () => void; onLong: () => void }) {
   const icon = file.isDir ? "lucide:folder" : file.isSymlink ? "lucide:link" : "lucide:file";
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fired = useRef(false);
@@ -183,9 +184,21 @@ function FileRow({ file, checked, onTap, onLong }: { file: FileEntry; checked: b
         <span className="text-sm text-(--t-text-primary) truncate">{file.name}</span>
         {!file.isDir && <span className="text-[11px] text-(--t-text-dim)">{formatSize(file.size)}</span>}
       </span>
-      {file.isDir
-        ? <Icon icon="lucide:chevron-right" width={16} className="text-(--t-text-dim) shrink-0" />
-        : <Icon icon={checked ? "lucide:check-square" : "lucide:square"} width={16} className="shrink-0" style={{ color: checked ? "var(--t-accent)" : "var(--t-text-dim)" }} />}
+      {file.isDir ? (
+        <span className="flex items-center gap-2 shrink-0">
+          <span
+            role="checkbox" aria-checked={checked} data-sftp-dirselect={file.path}
+            onClick={(e) => { e.stopPropagation(); fired.current = true; onToggle(); }}
+            className="p-1 -m-1">
+            <Icon icon={checked ? "lucide:check-square" : "lucide:square"} width={16}
+              style={{ color: checked ? "var(--t-accent)" : "var(--t-text-dim)" }} />
+          </span>
+          <Icon icon="lucide:chevron-right" width={16} className="text-(--t-text-dim)" />
+        </span>
+      ) : (
+        <Icon icon={checked ? "lucide:check-square" : "lucide:square"} width={16} className="shrink-0"
+          style={{ color: checked ? "var(--t-accent)" : "var(--t-text-dim)" }} />
+      )}
     </button>
   );
 }
