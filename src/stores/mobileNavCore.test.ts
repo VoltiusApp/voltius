@@ -78,4 +78,12 @@ assertEqual(initialMobileNavState.tab, "hosts", "initial tab is hosts");
   assertEqual((r.state.stack[0] as { folderId?: string }).folderId, undefined, "root more-page remains");
 }
 
+// panel-sftp carries a connectionId and pops like any screen
+{
+  const s: MobileNavState = { tab: "hosts", stack: [{ kind: "panel-sftp", connectionId: "conn-1" }], sheet: null };
+  const r = handleBack(s);
+  assertEqual(r.handled, true, "panel-sftp back pops stack");
+  assertEqual(r.state.stack.length, 0, "panel-sftp stack popped");
+}
+
 console.log("ALL PASS");

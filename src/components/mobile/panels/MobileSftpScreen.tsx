@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { appCacheDir } from "@tauri-apps/api/path";
-import { useSessionStore } from "@/stores/sessionStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
+import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { useSftpDir, breadcrumbs } from "@/services/useSftpDir";
 import { formatSize, type FileEntry } from "@/components/filetransfer/SFTPTypes";
 import { sftpDownload, sftpDownloadDir } from "@/services/sftp";
@@ -16,10 +16,9 @@ function isPermissionDenied(msg: string): boolean {
   return m.includes("permission denied") || m.includes("eacces");
 }
 
-export default function MobileSftpScreen({ sessionId }: { sessionId: string }) {
-  const session = useSessionStore((s) => s.sessions.find((x) => x.id === sessionId));
+export default function MobileSftpScreen({ connectionId }: { connectionId: string }) {
   const connections = useAllConnections();
-  const connection = useMemo(() => connections.find((c) => c.id === session?.connectionId), [connections, session?.connectionId]);
+  const connection = useMemo(() => connections.find((c) => c.id === connectionId), [connections, connectionId]);
   const { phase, sftpId, cwd, entries, listing, listError, navigate, goUp, mkdir, rename, remove } = useSftpDir(connection);
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
   const transfers = useTransferQueueStore((s) => s.transfers);
@@ -52,7 +51,7 @@ export default function MobileSftpScreen({ sessionId }: { sessionId: string }) {
   const header = (
     <MobilePanelHeader
       title="SFTP"
-      sessionName={session?.connectionName}
+      sessionName={connection ? connectionDisplayName(connection) : undefined}
       right={
         <>
           <button data-sftp-hidden onClick={() => setShowHidden((v) => !v)} className="px-2 py-1 text-xs rounded-lg"
@@ -67,12 +66,12 @@ export default function MobileSftpScreen({ sessionId }: { sessionId: string }) {
     />
   );
 
-  // not-connected (no SSH session backing the connection)
-  if (!session || session.type !== "ssh" || !connection) {
+  // No such connection (e.g. deleted) — nothing to browse.
+  if (!connection) {
     return (
       <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">{header}
         <div className="flex-1 flex items-center justify-center px-6 text-center text-sm text-(--t-text-dim)">
-          SFTP needs an SSH host. Connect to a host to browse its files.
+          SFTP needs an SSH host. Pick a host to browse its files.
         </div>
       </div>
     );

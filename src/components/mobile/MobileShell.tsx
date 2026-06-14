@@ -115,7 +115,7 @@ export default function MobileShell() {
         )}
         {top?.kind === "panel-metrics" && <MobileMetricsScreen sessionId={top.sessionId} />}
         {top?.kind === "panel-processes" && <MobileProcessesScreen sessionId={top.sessionId} />}
-        {top?.kind === "panel-sftp" && <MobileSftpScreen sessionId={top.sessionId} />}
+        {top?.kind === "panel-sftp" && <MobileSftpScreen connectionId={top.connectionId} />}
         {top?.kind === "account" && <MobileAccountPage />}
       </div>
       {/* Hide the tab bar while a full-screen page is pushed — it would otherwise sit

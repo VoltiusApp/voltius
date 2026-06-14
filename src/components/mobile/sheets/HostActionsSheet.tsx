@@ -25,8 +25,6 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
   const deleteConnection = useConnectionStore((s) => s.deleteConnection);
   const connect = useSessionStore((s) => s.connect);
   const vaults = useVaultStore((s) => s.vaults);
-  const sftpSessionId = useSessionStore((s) =>
-    s.sessions.find((x) => x.connectionId === hostId && x.status === "connected" && x.type === "ssh")?.id);
   const [mode, setMode] = useState<Mode>("menu");
 
   if (!conn) return null;
@@ -76,7 +74,7 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
   const items: Item[] = [
     ...(!isSerial ? [{ icon: "lucide:terminal", label: "Connect", onTap: () => { closeSheet(); void connect(hostId).catch(console.error); setTab("terminal"); } }] : []),
     { icon: "lucide:pencil", label: "Edit", onTap: () => { closeSheet(); push({ kind: "host-edit", hostId }); } },
-    ...(sftpSessionId ? [{ icon: "lucide:folder-open", label: "SFTP", onTap: () => { closeSheet(); push({ kind: "panel-sftp", sessionId: sftpSessionId }); } }] : []),
+    ...(!isSerial ? [{ icon: "lucide:folder-open", label: "SFTP", onTap: () => { closeSheet(); push({ kind: "panel-sftp", connectionId: hostId }); } }] : []),
     ...(conn.host ? [{ icon: "lucide:clipboard-copy", label: "Copy address", onTap: () => {
       void writeClipboard(conn.host);
       useNotificationStore.getState().addToast({ pluginId: "core", pluginName: "Voltius", type: "toast", message: `Copied ${conn.host}`, severity: "success", duration: 2000 });

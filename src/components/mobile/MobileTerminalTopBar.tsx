@@ -85,7 +85,7 @@ export default function MobileTerminalTopBar() {
             onClick={() => setMenuOpen(false)}
           >
             {([
-              { icon: "lucide:folder-open", label: "SFTP", onTap: () => activeSessionId && push({ kind: "panel-sftp", sessionId: activeSessionId }) },
+              { icon: "lucide:folder-open", label: "SFTP", onTap: () => { const cid = allSessions.find((s) => s.id === activeSessionId)?.connectionId; if (cid) push({ kind: "panel-sftp", connectionId: cid }); } },
               { icon: "lucide:container", label: "Docker", onTap: () => activeSessionId && push({ kind: "panel-docker", sessionId: activeSessionId }) },
               { icon: "lucide:activity", label: "Metrics", onTap: () => activeSessionId && push({ kind: "panel-metrics", sessionId: activeSessionId }) },
               { icon: "lucide:cpu", label: "Processes", onTap: () => activeSessionId && push({ kind: "panel-processes", sessionId: activeSessionId }) },
