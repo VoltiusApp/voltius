@@ -1,0 +1,112 @@
+FROM debian:trixie-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ANDROID_HOME=/opt/android-sdk
+ENV ANDROID_SDK_ROOT=/opt/android-sdk
+ENV CMDLINE_TOOLS_VERSION=11076708
+# The system-image ABI is chosen at build time to MATCH the host arch (see the
+# sdkmanager step below): KVM only accelerates a same-arch guest, so an x86_64
+# host gets an x86_64 image and an arm64 host gets an arm64-v8a image. google_apis
+# (not _playstore) ships a recent Android System WebView/Chrome — required for the
+# CDP attach the MCP relies on — and stays rootable so `adb shell input` taps work.
+ENV API_LEVEL=34
+ENV AVD_NAME=voltius
+
+# Emulator runtime libs (needed even headless with swiftshader) + Java + node for
+# the MCP (run in-container via `docker exec ... npx`). All package names exist on
+# both amd64 and arm64; cmdline-tools/emulator are pulled per host arch below.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl unzip openjdk-21-jdk-headless ca-certificates git \
+        libpulse0 libnss3 libgl1 libxcb1 libxcursor1 libxcomposite1 \
+        libxi6 libxtst6 libasound2 libx11-6 libxext6 libxdamage1 libxfixes3 \
+    && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Android SDK command-line tools
+RUN mkdir -p ${ANDROID_HOME}/cmdline-tools \
+    && curl -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-${CMDLINE_TOOLS_VERSION}_latest.zip" -o /tmp/cmdtools.zip \
+    && unzip -q /tmp/cmdtools.zip -d ${ANDROID_HOME}/cmdline-tools \
+    && mv ${ANDROID_HOME}/cmdline-tools/cmdline-tools ${ANDROID_HOME}/cmdline-tools/latest \
+    && rm /tmp/cmdtools.zip
+ENV PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${ANDROID_HOME}/emulator:${PATH}"
+
+# SDK packages + emulator + system image, then bake the AVD into the image so
+# container start only has to boot (not download/create). The image ABI matches
+# the build host arch so the guest is KVM-accelerated.
+RUN yes | sdkmanager --licenses >/dev/null \
+    && case "$(uname -m)" in \
+         aarch64|arm64) ABI=arm64-v8a ;; \
+         x86_64|amd64)  ABI=x86_64 ;; \
+         *) echo "FATAL: unsupported host arch $(uname -m) (need x86_64 or arm64)" >&2; exit 1 ;; \
+       esac \
+    && SYS_IMAGE="system-images;android-${API_LEVEL};google_apis;${ABI}" \
+    && echo "Host $(uname -m) -> system image ABI ${ABI}" \
+    && sdkmanager "platform-tools" "emulator" "platforms;android-${API_LEVEL}" "${SYS_IMAGE}" \
+    && echo "no" | avdmanager create avd -n "${AVD_NAME}" -k "${SYS_IMAGE}" -d pixel_6 \
+    && printf '%s\n' \
+        'hw.keyboard=yes' \
+        'disk.dataPartition.size=4096M' \
+        >> "/root/.android/avd/${AVD_NAME}.avd/config.ini"
+
+# Boot the emulator headless, wait for Android to come up, leave adb serving.
+# -no-snapshot keeps boots deterministic; -gpu swiftshader_indirect = software
+# GL (no host GPU needed). Container stays alive on the emulator process.
+RUN <<'EOF'
+cat > /usr/local/bin/boot-emulator.sh <<'SCRIPT'
+#!/usr/bin/env bash
+set -uo pipefail
+if [ ! -e /dev/kvm ]; then
+  echo "FATAL: /dev/kvm not present — run with --device /dev/kvm (and ensure WSL2 nested virt)." >&2
+  exit 1
+fi
+# A previous emulator instance (e.g. after `docker start` of a stopped container)
+# leaves *.lock files in the AVD dir; the next boot then aborts with "Running
+# multiple emulators with the same AVD". No live emulator can exist at container
+# start, so clearing them is safe and makes restarts deterministic.
+rm -f "/root/.android/avd/${AVD_NAME}.avd/"*.lock 2>/dev/null || true
+emulator -avd "${AVD_NAME}" -no-window -no-audio -no-boot-anim \
+  -gpu swiftshader_indirect -no-snapshot -accel on -netdelay none -netspeed full &
+EMU_PID=$!
+adb wait-for-device
+echo "Device detected — waiting for boot to complete…"
+until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; do
+  sleep 2
+done
+adb shell input keyevent 82 >/dev/null 2>&1 || true   # dismiss lock screen
+echo "boot completed — emulator-5554 ready for adb / MCP."
+wait "$EMU_PID"
+SCRIPT
+chmod +x /usr/local/bin/boot-emulator.sh
+EOF
+
+WORKDIR /project
+CMD ["/usr/local/bin/boot-emulator.sh"]
+
+# ── Usage ────────────────────────────────────────────────────────────────────
+# Build the image (downloads SDK + system image once, bakes the AVD):
+#   docker build -f Dockerfile.android-emulator -t voltius-emulator .
+#
+# Run it. --device /dev/kvm is REQUIRED (KVM accel; verified present on this WSL2
+# box). Mount the repo so the freshly-built APK is reachable for `adb install`:
+#   docker run -d --name android-emulator --device /dev/kvm \
+#     -p 5555:5555 -v "$(pwd):/project" voltius-emulator
+#   docker logs -f android-emulator     # wait for "boot completed"
+#
+# Build the debug APK for the emulator ABI (= host arch: x86_64 on Intel/AMD,
+# aarch64 on ARM) and install it. --target compiles only that rust lib; tauri
+# still emits the single "universal" flavor APK:
+#   scripts/android-build.sh x86_64    # or: aarch64 on an ARM host
+#   docker exec android-emulator adb install -r \
+#     /project/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+#
+# Register the MCP — runs INSIDE the container, so adb is local (no
+# ADB_SERVER_SOCKET, no Windows firewall, cdpHost defaults to 127.0.0.1):
+#   claude mcp add tauri-android-emu --scope user \
+#     --env PLATFORM=android --env ANDROID_SERIAL=emulator-5554 \
+#     -- docker exec -i android-emulator npx -y github:VoltiusApp/mcp-tauri-automation#android-backend
+#
+# Restart Claude Code (tool registry is fixed at startup), then drive it:
+#   launch_app → capture_screenshot → click_element / type_text / …
+#
+# scripts/android-emulator.sh wraps build → run → wait → install in one go.
