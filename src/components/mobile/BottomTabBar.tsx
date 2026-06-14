@@ -7,6 +7,7 @@ const TABS: { id: MobileTab; label: string; icon: string }[] = [
   { id: "hosts",    label: "Hosts",    icon: "lucide:server" },
   { id: "terminal", label: "Terminal", icon: "lucide:square-terminal" },
   { id: "snippets", label: "Snippets", icon: "lucide:braces" },
+  { id: "files",    label: "Files",    icon: "lucide:folder" },
   { id: "more",     label: "More",     icon: "lucide:menu" },
 ];
 

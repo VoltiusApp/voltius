@@ -88,6 +88,7 @@ export default function MobileShell() {
             <div className="absolute inset-0 flex flex-col bg-(--t-bg-base)" style={{ overflow: "clip" }}>
               {tab === "hosts" && !top && <MobileHostsScreen />}
               {tab === "snippets" && !top && <MobileSnippetsScreen />}
+              {tab === "files" && !top && <MobileSftpScreen />}
               {tab === "more" && !top && <MobileMoreScreen />}
             </div>
           )}
