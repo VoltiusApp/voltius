@@ -1,119 +1,16 @@
-import { useCallback, useEffect, useReducer, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { useSessionStore } from "@/stores/sessionStore";
-import { useConnectionStore } from "@/stores/connectionStore";
-import { useUIStore } from "@/stores/uiStore";
-import {
-  proxmoxLxcList,
-  proxmoxLxcListSnapshots,
-  proxmoxLxcOpenShell,
-} from "../services";
-import { getProxmoxApi } from "../runtime";
-import { reducer, initial } from "../proxmoxReducer";
+import { useProxmox } from "../useProxmox";
 import { LxcList } from "./LxcList";
 import { SnapshotList } from "./SnapshotList";
 
 export function ProxmoxPanel() {
   const { sessions, activeSessionId } = useSessionStore();
-  const { connections } = useConnectionStore();
   const activeSession = sessions.find((s) => s.id === activeSessionId);
-  const [state, dispatch] = useReducer(reducer, initial);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const px = useProxmox(activeSession);
+  const { state } = px;
 
-  const isRemote = activeSession?.type === "ssh";
-  const sessionId = activeSession?.id ?? "";
-  const localShell = activeSession?.type === "local" ? (activeSession.localShell ?? null) : null;
-
-  const connection = connections.find((c) => c.id === activeSession?.connectionId);
-  const isProxmox = connection?.distro === "proxmox";
-
-  const fetchContainers = useCallback(async () => {
-    if (!activeSession || activeSession.status !== "connected") return;
-    dispatch({ type: "SET_LOADING", loading: true });
-    try {
-      const containers = await proxmoxLxcList(sessionId, isRemote, localShell);
-      dispatch({ type: "SET_CONTAINERS", containers });
-    } catch (e) {
-      dispatch({ type: "SET_ERROR", error: String(e) });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSessionId, activeSession?.status]);
-
-  const fetchSnapshots = useCallback(
-    async (vmid: number) => {
-      dispatch({ type: "SET_LOADING", loading: true });
-      try {
-        const snapshots = await proxmoxLxcListSnapshots(sessionId, isRemote, localShell, vmid);
-        dispatch({ type: "SET_SNAPSHOTS", snapshots });
-      } catch (e) {
-        dispatch({ type: "SET_ERROR", error: String(e) });
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sessionId, isRemote, localShell],
-  );
-
-  // Poll containers view; no polling in snapshots view
-  useEffect(() => {
-    if (state.view !== "containers") return;
-
-    if (pollRef.current) clearInterval(pollRef.current);
-
-    if (!activeSession || activeSession.status !== "connected" || !isProxmox) {
-      dispatch({ type: "RESET" });
-      return;
-    }
-
-    fetchContainers();
-    pollRef.current = setInterval(() => fetchContainers(), 5000);
-
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.view, activeSessionId, activeSession?.status]);
-
-  useEffect(() => {
-    if (state.view === "snapshots" && state.selectedVmid !== null) {
-      fetchSnapshots(state.selectedVmid);
-    }
-  }, [state.view, state.selectedVmid, fetchSnapshots]);
-
-  const handleOpenShell = useCallback(
-    async (vmid: number, vmName: string) => {
-      try {
-        const execSessionId = await proxmoxLxcOpenShell(sessionId, vmid);
-        useSessionStore.setState((s) => ({
-          sessions: [
-            ...s.sessions,
-            {
-              id: execSessionId,
-              connectionId: activeSession!.connectionId,
-              connectionName: `pct: ${vmName}`,
-              status: "connecting" as const,
-              type: "ssh" as const,
-              containerExec: { kind: "lxc" as const, vmid, parentSessionId: sessionId },
-            },
-          ],
-          activeSessionId: execSessionId,
-        }));
-        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-        useSessionStore.setState((s) => ({
-          sessions: s.sessions.map((sess) =>
-            sess.id === execSessionId ? { ...sess, status: "connected" as const } : sess,
-          ),
-        }));
-        useUIStore.getState().setActiveNav("terminal");
-      } catch (e) {
-        console.error("[proxmox] open shell failed:", e);
-        getProxmoxApi()?.notifications.toast(`Shell failed: ${e}`, { severity: "error" });
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sessionId, activeSession?.connectionId],
-  );
-
-  if (!activeSession || activeSession.status !== "connected") {
+  if (!px.ready) {
     return (
       <div className="flex items-center justify-center h-full opacity-40">
         <p className="text-sm text-(--t-text-muted)">No active session</p>
@@ -121,7 +18,7 @@ export function ProxmoxPanel() {
     );
   }
 
-  if (!isProxmox) {
+  if (!px.isProxmox) {
     return (
       <div
         className="flex h-full items-center justify-center px-6 text-center"
@@ -146,7 +43,7 @@ export function ProxmoxPanel() {
   }
 
   const openSnapshots = (vmid: number, vmName: string) => {
-    dispatch({ type: "OPEN_SNAPSHOTS", vmid, vmName });
+    px.openSnapshots(vmid, vmName);
   };
 
   return (
@@ -155,7 +52,7 @@ export function ProxmoxPanel() {
       {state.view === "containers" && (
         <div className="flex items-center justify-end px-2 py-1 border-b border-(--t-border) shrink-0">
           <button
-            onClick={() => fetchContainers()}
+            onClick={() => px.fetchContainers()}
             disabled={state.loading}
             title="Refresh"
             className="p-1 text-(--t-text-muted) hover:text-(--t-text) disabled:opacity-40"
@@ -177,12 +74,12 @@ export function ProxmoxPanel() {
         {state.view === "containers" && !state.error && (
           <LxcList
             containers={state.containers}
-            sessionId={sessionId}
-            isRemote={isRemote}
-            localShell={localShell}
+            sessionId={px.sessionId}
+            isRemote={px.isRemote}
+            localShell={px.localShell}
             onSnapshots={openSnapshots}
-            onShell={handleOpenShell}
-            onRefresh={fetchContainers}
+            onShell={px.openShell}
+            onRefresh={px.fetchContainers}
           />
         )}
         {state.view === "snapshots" && state.selectedVmid !== null && (
@@ -190,15 +87,15 @@ export function ProxmoxPanel() {
             vmid={state.selectedVmid}
             vmName={state.selectedVmName}
             snapshots={state.snapshots}
-            sessionId={sessionId}
-            isRemote={isRemote}
-            localShell={localShell}
+            sessionId={px.sessionId}
+            isRemote={px.isRemote}
+            localShell={px.localShell}
             snapshotInput={state.snapshotInput}
             snapshotInputDesc={state.snapshotInputDesc}
-            onSnapshotInputChange={(v) => dispatch({ type: "SET_SNAPSHOT_INPUT", value: v })}
-            onSnapshotDescChange={(v) => dispatch({ type: "SET_SNAPSHOT_DESC", value: v })}
-            onBack={() => dispatch({ type: "CLOSE_SNAPSHOTS" })}
-            onRefresh={() => state.selectedVmid !== null && fetchSnapshots(state.selectedVmid)}
+            onSnapshotInputChange={(v) => px.setSnapshotInput(v)}
+            onSnapshotDescChange={(v) => px.setSnapshotDesc(v)}
+            onBack={() => px.closeSnapshots()}
+            onRefresh={() => state.selectedVmid !== null && px.fetchSnapshots(state.selectedVmid)}
           />
         )}
       </div>
