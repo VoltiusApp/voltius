@@ -1,7 +1,12 @@
 import { useState, useEffect } from "react";
 import { getVaultStatus } from "@/services/vault";
-import { listConnections } from "@/services/connections";
+import { useConnectionStore } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
+import { useKeyStore } from "@/stores/keyStore";
+import { useFolderStore } from "@/stores/folderStore";
+import { useSnippetStore } from "@/stores/snippetStore";
+import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
+import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { autoLogin, consumeForceLockFlag, isServerMode } from "@/services/account";
 import { saveCurrentAccount } from "@/services/savedAccounts";
 import { syncOnLogin, syncOnLoginReplace, startRealtimeSync } from "@/services/sync";
@@ -86,8 +91,14 @@ export default function SplashScreen({ onReady }: Props) {
     await delay(150);
     try {
       await Promise.all([
-        listConnections(),
+        // Populate stores from local cache so tabs paint at boot, before sync lands.
+        useConnectionStore.getState().loadConnections(),
         useIdentityStore.getState().loadIdentities(),
+        useKeyStore.getState().loadKeys(),
+        useFolderStore.getState().loadFolders(),
+        useSnippetStore.getState().loadSnippets(),
+        useSnippetFolderStore.getState().loadFolders(),
+        usePortForwardingStore.getState().loadRules(),
       ]);
       setStep("connections", "done");
     } catch {
