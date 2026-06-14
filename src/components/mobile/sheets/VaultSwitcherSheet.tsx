@@ -31,7 +31,7 @@ export default function VaultSwitcherSheet() {
   };
 
   return (
-    <BottomSheet title="Vaults" onClose={closeSheet}>
+    <BottomSheet title="Vaults" onClose={closeSheet} registerBack={false}>
       {entries.map((e) => {
         const active = selectedVaultIds[0] === e.id;
         return (

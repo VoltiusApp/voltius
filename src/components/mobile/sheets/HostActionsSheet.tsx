@@ -47,7 +47,7 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
 
   if (mode === "confirm-delete") {
     return (
-      <BottomSheet title="Delete host?" onClose={closeSheet}>
+      <BottomSheet title="Delete host?" onClose={closeSheet} registerBack={false}>
         <div className="px-3 pt-1 pb-2 text-sm text-(--t-text-dim)">
           Permanently delete <span className="text-(--t-text-primary) font-medium">{name}</span>? This can’t be undone.
         </div>
@@ -59,7 +59,7 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
 
   if (mode === "move") {
     return (
-      <BottomSheet title="Move to vault" onClose={closeSheet}>
+      <BottomSheet title="Move to vault" onClose={closeSheet} registerBack={false}>
         {moveTargets.map((v) => (
           <Row key={v.id} it={{ icon: "lucide:vault", label: v.name, onTap: () => {
             void updateConnection(hostId, { ...connectionToFormData(conn), vault_id: v.id });
@@ -89,7 +89,7 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
   ];
 
   return (
-    <BottomSheet title={name} onClose={closeSheet}>
+    <BottomSheet title={name} onClose={closeSheet} registerBack={false}>
       {items.map((it) => <Row key={it.label} it={it} />)}
     </BottomSheet>
   );

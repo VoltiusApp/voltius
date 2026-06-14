@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useBackStackStore } from "@/hooks/useBackInterceptor";
 
 /**
  * Hardware-back for the mobile shell. WRY routes the Android back button to
@@ -32,7 +33,8 @@ export function useAndroidBack() {
 
     const wantTraps = () => {
       const { tab, stack, sheet } = useMobileNavStore.getState();
-      return (tab !== "hosts" ? 1 : 0) + stack.length + (sheet !== null ? 1 : 0) + settingsDepth();
+      const overlays = useBackStackStore.getState().stack.length;
+      return (tab !== "hosts" ? 1 : 0) + stack.length + (sheet !== null ? 1 : 0) + overlays + settingsDepth();
     };
 
     const syncTraps = () => {
@@ -46,6 +48,13 @@ export function useAndroidBack() {
 
     const onPop = () => {
       if (pushed > 0) pushed--;
+      // Transient overlays (bottom sheets / popovers in local component state) sit
+      // topmost, so they consume back before any navigation. LIFO: close the latest.
+      const overlays = useBackStackStore.getState().stack;
+      if (overlays.length > 0) {
+        overlays[overlays.length - 1].close();
+        return;
+      }
       // Settings overlays the shell, so it consumes back first: drill-down → list → closed.
       // Each step mutates a store → subscription runs syncTraps, a no-op now (want decreased
       // in lock-step with pushed). No push happens here.
@@ -60,11 +69,13 @@ export function useAndroidBack() {
 
     const unsubNav = useMobileNavStore.subscribe(syncTraps);
     const unsubUi = useUIStore.subscribe(syncTraps);
+    const unsubBack = useBackStackStore.subscribe(syncTraps);
     window.addEventListener("popstate", onPop);
     syncTraps();
     return () => {
       unsubNav();
       unsubUi();
+      unsubBack();
       window.removeEventListener("popstate", onPop);
     };
   }, []);

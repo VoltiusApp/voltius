@@ -105,21 +105,6 @@ export default function MobileSftpPane({
           </span>
         ))}
       </div>
-      {selected.length > 0 && (
-        <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 border-b" style={{ borderColor: "var(--t-border)", background: "var(--t-bg-chrome)" }}>
-          <span className="text-xs font-medium text-(--t-text-primary)">{selected.length} selected</span>
-          <div className="flex-1" />
-          <button data-sftp-sel-download onClick={() => void downloadSelected()} className="p-1.5 rounded-lg text-(--t-text-dim)" aria-label="Download selected">
-            <Icon icon="lucide:download" width={16} />
-          </button>
-          <button data-sftp-sel-delete onClick={() => setConfirmBatchDelete(true)} className="p-1.5 rounded-lg" style={{ color: "var(--t-status-error)" }} aria-label="Delete selected">
-            <Icon icon="lucide:trash-2" width={16} />
-          </button>
-          <button data-sftp-sel-clear onClick={onClearSelect} className="p-1.5 rounded-lg text-(--t-text-dim)" aria-label="Clear selection">
-            <Icon icon="lucide:x" width={16} />
-          </button>
-        </div>
-      )}
       <div className="flex-1 overflow-y-auto min-h-0">
         {phase.tag === "connecting" && (
           <div className="flex items-center justify-center pt-10 text-sm text-(--t-text-dim) gap-2">
@@ -151,6 +136,22 @@ export default function MobileSftpPane({
             onLong={() => setSheetFor(f)} />
         ))}
       </div>
+
+      {selected.length > 0 && (
+        <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 border-t" style={{ borderColor: "var(--t-border)", background: "var(--t-bg-chrome)" }}>
+          <span className="text-xs font-medium text-(--t-text-primary)">{selected.length} selected</span>
+          <div className="flex-1" />
+          <button data-sftp-sel-download onClick={() => void downloadSelected()} className="p-1.5 rounded-lg text-(--t-text-dim)" aria-label="Download selected">
+            <Icon icon="lucide:download" width={16} />
+          </button>
+          <button data-sftp-sel-delete onClick={() => setConfirmBatchDelete(true)} className="p-1.5 rounded-lg" style={{ color: "var(--t-status-error)" }} aria-label="Delete selected">
+            <Icon icon="lucide:trash-2" width={16} />
+          </button>
+          <button data-sftp-sel-clear onClick={onClearSelect} className="p-1.5 rounded-lg text-(--t-text-dim)" aria-label="Clear selection">
+            <Icon icon="lucide:x" width={16} />
+          </button>
+        </div>
+      )}
 
       {sheetFor && (
         <BottomSheet title={sheetFor.name} onClose={() => setSheetFor(null)}>
@@ -242,26 +243,19 @@ function FileRow({ file, checked, onTap, onToggle, onLong }: { file: FileEntry; 
       onTouchStart={startLong} onTouchEnd={clear} onTouchMove={clear} onTouchCancel={clear}
       className="w-full flex items-center gap-3 px-4 py-3 text-left active:bg-(--t-bg-card) border-b"
       style={{ borderColor: "var(--t-border)", background: checked ? "var(--t-bg-card)" : undefined }}>
+      <span
+        role="checkbox" aria-checked={checked} data-sftp-select={file.path}
+        onClick={(e) => { e.stopPropagation(); onToggle(); }}
+        className="p-1 -m-1 shrink-0">
+        <Icon icon={checked ? "lucide:check-square" : "lucide:square"} width={16}
+          style={{ color: checked ? "var(--t-accent)" : "var(--t-text-dim)" }} />
+      </span>
       <Icon icon={icon} width={20} className="text-(--t-text-dim) shrink-0" />
       <span className="flex flex-col min-w-0 flex-1">
         <span className="text-sm text-(--t-text-primary) truncate">{file.name}</span>
         {!file.isDir && <span className="text-[11px] text-(--t-text-dim)">{formatSize(file.size)}</span>}
       </span>
-      {file.isDir ? (
-        <span className="flex items-center gap-2 shrink-0">
-          <span
-            role="checkbox" aria-checked={checked} data-sftp-dirselect={file.path}
-            onClick={(e) => { e.stopPropagation(); onToggle(); }}
-            className="p-1 -m-1">
-            <Icon icon={checked ? "lucide:check-square" : "lucide:square"} width={16}
-              style={{ color: checked ? "var(--t-accent)" : "var(--t-text-dim)" }} />
-          </span>
-          <Icon icon="lucide:chevron-right" width={16} className="text-(--t-text-dim)" />
-        </span>
-      ) : (
-        <Icon icon={checked ? "lucide:check-square" : "lucide:square"} width={16} className="shrink-0"
-          style={{ color: checked ? "var(--t-accent)" : "var(--t-text-dim)" }} />
-      )}
+      {file.isDir && <Icon icon="lucide:chevron-right" width={16} className="text-(--t-text-dim) shrink-0" />}
     </button>
   );
 }
