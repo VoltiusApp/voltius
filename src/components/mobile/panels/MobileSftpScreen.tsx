@@ -13,7 +13,7 @@ import SftpHostPickerSheet from "../sheets/SftpHostPickerSheet";
 
 type PaneId = "a" | "b";
 
-export default function MobileSftpScreen({ presetConnectionId }: { presetConnectionId?: string }) {
+export default function MobileSftpScreen({ presetConnectionId, asTab }: { presetConnectionId?: string; asTab?: boolean }) {
   const connections = useAllConnections();
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
   const transfers = useTransferQueueStore((s) => s.transfers);
@@ -73,7 +73,7 @@ export default function MobileSftpScreen({ presetConnectionId }: { presetConnect
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
-      <MobilePanelHeader title="SFTP" />
+      <MobilePanelHeader title="SFTP" hideBack={asTab} />
       <div className="flex-1 min-h-0 flex flex-col">
         <div className="flex-1 min-h-0 flex flex-col">
           <MobileSftpPane controller={ctrlA} connection={connA} selected={selA}
