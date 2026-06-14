@@ -86,12 +86,12 @@ assertEqual(initialMobileNavState.tab, "hosts", "initial tab is hosts");
   assertEqual(r.state.stack.length, 0, "panel-sftp stack popped");
 }
 
-// back from the files tab returns to hosts
+// back from the sftp tab returns to hosts
 {
-  const s: MobileNavState = { tab: "files", stack: [], sheet: null };
+  const s: MobileNavState = { tab: "sftp", stack: [], sheet: null };
   const r = handleBack(s);
-  assertEqual(r.handled, true, "files tab back handled");
-  assertEqual(r.state.tab, "hosts", "files tab reset to hosts");
+  assertEqual(r.handled, true, "sftp tab back handled");
+  assertEqual(r.state.tab, "hosts", "sftp tab reset to hosts");
 }
 
 console.log("ALL PASS");

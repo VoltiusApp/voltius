@@ -1,6 +1,6 @@
 /** Pure mobile navigation state machine — no React/zustand so it's node-testable. */
 
-export type MobileTab = "hosts" | "terminal" | "snippets" | "files" | "more";
+export type MobileTab = "hosts" | "terminal" | "snippets" | "sftp" | "more";
 
 export type MorePage = "keychain" | "port-forwarding" | "known-hosts" | "members" | "logs";
 
