@@ -10,6 +10,8 @@ import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
 import { setPluginActive, getLoadedPlugins, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
 import type { PluginManifest, PluginConfigField } from "@/plugins/api";
 import { DirtyDot, ResetButton } from "./shared";
+import { useIsAndroid } from "@/utils/platform";
+import { visiblePlugins } from "@/components/settings/settingsMobileCore";
 
 // ─── Auto-generated settings form ─────────────────────────────────────────
 
@@ -165,6 +167,7 @@ function InstalledTab() {
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   useFilterShortcut(searchRef);
+  const isAndroid = useIsAndroid();
 
   const refreshLoaded = () =>
     setLoadedIds(new Set(getLoadedPlugins().map((m) => m.id)));
@@ -254,7 +257,7 @@ function InstalledTab() {
   const externalPluginIds = new Set(installedMeta.map((m) => m.id));
   const externalManifests = getLoadedPlugins().filter((m) => externalPluginIds.has(m.id));
 
-  const allBundled = BUNDLED_PLUGINS;
+  const allBundled = visiblePlugins(BUNDLED_PLUGINS, isAndroid);
   const allExternal = installedMeta;
 
   const matchesSearch = (name: string, description?: string) => {
