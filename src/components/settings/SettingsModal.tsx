@@ -3,14 +3,18 @@ import { useUIStore } from "@/stores/uiStore";
 import { Modal } from "@/components/shared/Modal";
 import { SETTINGS_NAV } from "@/components/settings/settingsNav";
 import { renderSettingsSection } from "@/components/settings/settingsSections";
+import { useIsAndroid } from "@/utils/platform";
+import MobileSettings from "@/components/settings/MobileSettings";
 
 export default function SettingsModal() {
   const open = useUIStore((s) => s.settingsOpen);
   const setOpen = useUIStore((s) => s.setSettingsOpen);
   const section = useUIStore((s) => s.settingsSection);
   const setSection = useUIStore((s) => s.setSettingsSection);
+  const isAndroid = useIsAndroid();
 
   if (!open) return null;
+  if (isAndroid) return <MobileSettings />;
 
   return (
     <Modal onClose={() => setOpen(false)} blur>
