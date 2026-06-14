@@ -53,6 +53,8 @@ export default function MobileShell() {
   // Terminal tab with sessions = immersive: hide the tab bar, give xterm every pixel.
   const immersive = tab === "terminal" && hasSessions && !top;
   const terminalVisible = tab === "terminal" && !top;
+  // SFTP tab is always-mounted (below) so its connections/cwd survive tab switches; this only gates visibility.
+  const sftpVisible = !terminalVisible && tab === "sftp" && !top;
 
   // Keyboard-aware layout: pin the whole shell to the visual-viewport height while a
   // terminal session is foreground, so the soft keyboard shrinks the app (the extra-keys
@@ -84,14 +86,18 @@ export default function MobileShell() {
           {/* Always-mounted sessions; visibility toggled so xterm survives tab switches */}
           <MobileSessionLayer visible={terminalVisible && hasSessions} />
           {/* Non-terminal tab content layers above the session layer when terminal isn't foreground */}
-          {!terminalVisible && (
+          {!terminalVisible && tab !== "sftp" && (
             <div className="absolute inset-0 flex flex-col bg-(--t-bg-base)" style={{ overflow: "clip" }}>
               {tab === "hosts" && !top && <MobileHostsScreen />}
               {tab === "snippets" && !top && <MobileSnippetsScreen />}
-              {tab === "sftp" && !top && <MobileSftpScreen asTab />}
               {tab === "more" && !top && <MobileMoreScreen />}
             </div>
           )}
+          {/* Always-mounted SFTP tab; visibility toggled so connections + cwd survive tab switches.
+              MobileSftpScreen's own root is absolute inset-0 z-30 — it stacks above the overlay above. */}
+          <div className={sftpVisible ? "contents" : "invisible pointer-events-none"}>
+            <MobileSftpScreen asTab />
+          </div>
         </div>
         {/* Extra-keys row: always present while the terminal is foreground with a session — usable
             even when the keyboard is closed (keys write to the PTY without needing input focus).
