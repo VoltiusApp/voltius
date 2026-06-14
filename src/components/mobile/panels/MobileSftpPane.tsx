@@ -251,7 +251,7 @@ function FileRow({ file, checked, onTap, onToggle, onLong }: { file: FileEntry; 
         <span className="flex items-center gap-2 shrink-0">
           <span
             role="checkbox" aria-checked={checked} data-sftp-dirselect={file.path}
-            onClick={(e) => { e.stopPropagation(); fired.current = true; onToggle(); }}
+            onClick={(e) => { e.stopPropagation(); onToggle(); }}
             className="p-1 -m-1">
             <Icon icon={checked ? "lucide:check-square" : "lucide:square"} width={16}
               style={{ color: checked ? "var(--t-accent)" : "var(--t-text-dim)" }} />
