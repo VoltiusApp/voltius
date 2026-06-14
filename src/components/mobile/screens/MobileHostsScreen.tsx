@@ -6,6 +6,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { useHostPingStore } from "@/stores/hostPingStore";
+import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { StatusDot } from "@/components/shared/StatusDot";
@@ -15,11 +16,13 @@ import MobileRemoteDeviceSessions from "../MobileRemoteDeviceSessions";
 
 function MobileHostRow({
   c,
+  pinned,
   pingEnabled,
   onConnect,
   onActions,
 }: {
   c: Connection;
+  pinned: boolean;
   pingEnabled: boolean;
   onConnect: (id: string) => void;
   onActions: (id: string) => void;
@@ -52,8 +55,11 @@ function MobileHostRow({
           {showPingDot && <StatusDot color={pingColor} animate={pingStatus === "up"} size={9} />}
         </span>
         <span className="flex flex-col min-w-0">
-          <span className="text-sm font-medium text-(--t-text-primary) truncate">
-            {connectionDisplayName(c)}
+          <span className="flex items-center gap-1.5 min-w-0">
+            <span className="text-sm font-medium text-(--t-text-primary) truncate">
+              {connectionDisplayName(c)}
+            </span>
+            {pinned && <Icon icon="lucide:pin" width={12} className="shrink-0 text-(--t-accent)" />}
           </span>
           {/* Unnamed hosts already show "user@host" as their display name — don't repeat it. */}
           {subtitle && <span className="text-xs text-(--t-text-dim) truncate">{subtitle}</span>}
@@ -81,6 +87,7 @@ export default function MobileHostsScreen() {
   const search = useMobileNavStore((s) => s.hostSearch);
   const setSearch = useMobileNavStore((s) => s.setHostSearch);
   const [pingEnabled] = useToggle("reachability");
+  const isPinnedFn = useEffectivePinnedPredicate();
 
   const visible = useMemo(() => {
     const inVault = connections.filter(
@@ -93,8 +100,12 @@ export default function MobileHostsScreen() {
           c.host.toLowerCase().includes(q) ||
           (c.tags ?? []).some((t) => t.toLowerCase().includes(q)))
       : inVault;
-    return [...filtered].sort((a, b) => connectionDisplayName(a).localeCompare(connectionDisplayName(b)));
-  }, [connections, selectedVaultIds, search]);
+    const sorted = [...filtered].sort((a, b) => connectionDisplayName(a).localeCompare(connectionDisplayName(b)));
+    // Pinned float to the top, alpha order preserved within each group (desktop parity).
+    const pinned = sorted.filter((c) => isPinnedFn(c, "connection"));
+    const rest = sorted.filter((c) => !isPinnedFn(c, "connection"));
+    return [...pinned, ...rest];
+  }, [connections, selectedVaultIds, search, isPinnedFn]);
 
   const handleConnect = (id: string) => {
     void connect(id).catch(console.error);
@@ -141,6 +152,7 @@ export default function MobileHostsScreen() {
           <MobileHostRow
             key={c.id}
             c={c}
+            pinned={isPinnedFn(c, "connection")}
             pingEnabled={pingEnabled}
             onConnect={handleConnect}
             onActions={(id) => openSheet({ kind: "host-actions", hostId: id })}
