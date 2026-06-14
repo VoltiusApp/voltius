@@ -5,7 +5,6 @@ import { useSftpDir } from "@/services/useSftpDir";
 import { buildTransferTargets } from "@/services/sftpTransferCore";
 import { sftpTransfer, sftpTransferDir } from "@/services/sftp";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
-import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import type { FileEntry } from "@/components/filetransfer/SFTPTypes";
 import MobilePanelHeader from "./MobilePanelHeader";
 import MobileSftpPane from "./MobileSftpPane";
@@ -52,25 +51,6 @@ export default function MobileSftpScreen({ presetConnectionId, asTab }: { preset
     dst.refresh();
   };
 
-  const TransferBar = ({ from }: { from: PaneId }) => {
-    const sel = from === "a" ? selA : selB;
-    const other = from === "a" ? connB : connA;
-    const otherConnected = (from === "a" ? ctrlB : ctrlA).sftpId != null;
-    if (sel.length === 0 || !otherConnected || !other) return null;
-    return (
-      <div className="shrink-0 flex items-center gap-2 px-3 py-2 border-t" style={{ borderColor: "var(--t-border)", background: "var(--t-bg-elevated)" }}>
-        <button data-sftp-copy={from} onClick={() => void copy(from, sel)}
-          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium" style={{ background: "var(--t-accent)", color: "#fff" }}>
-          <Icon icon={from === "a" ? "lucide:arrow-down" : "lucide:arrow-up"} width={16} />
-          Copy {sel.length} → {connectionDisplayName(other)}
-        </button>
-        <button data-sftp-copy-clear={from} onClick={() => (from === "a" ? setSelA([]) : setSelB([]))} className="p-2 text-(--t-text-dim)">
-          <Icon icon="lucide:x" width={16} />
-        </button>
-      </div>
-    );
-  };
-
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
       <MobilePanelHeader title="SFTP" hideBack={asTab} />
@@ -80,14 +60,16 @@ export default function MobileSftpScreen({ presetConnectionId, asTab }: { preset
             onToggleSelect={(f) => toggle("a", f)} onPickHost={() => setPicking("a")}
             onCopyToOther={(f) => void copy("a", [f])} otherConnected={ctrlB.sftpId != null} />
         </div>
-        <TransferBar from="a" />
-        <div className="shrink-0 h-px" style={{ background: "var(--t-border-hover)" }} />
+        {/* Middle transfer bar: ↓ copies top→bottom, ↑ copies bottom→top; disabled when N/A */}
+        <div className="shrink-0 flex items-center justify-center gap-3 px-3 py-1.5 border-y" style={{ borderColor: "var(--t-border)", background: "var(--t-bg-chrome)" }}>
+          <TransferArrow dir="down" count={selA.length} enabled={selA.length > 0 && ctrlB.sftpId != null} onTap={() => void copy("a", selA)} />
+          <TransferArrow dir="up" count={selB.length} enabled={selB.length > 0 && ctrlA.sftpId != null} onTap={() => void copy("b", selB)} />
+        </div>
         <div className="flex-1 min-h-0 flex flex-col">
           <MobileSftpPane controller={ctrlB} connection={connB} selected={selB}
             onToggleSelect={(f) => toggle("b", f)} onPickHost={() => setPicking("b")}
             onCopyToOther={(f) => void copy("b", [f])} otherConnected={ctrlA.sftpId != null} />
         </div>
-        <TransferBar from="b" />
       </div>
 
       {active.length > 0 && (
@@ -119,5 +101,16 @@ export default function MobileSftpScreen({ presetConnectionId, asTab }: { preset
         />
       )}
     </div>
+  );
+}
+
+function TransferArrow({ dir, count, enabled, onTap }: { dir: "up" | "down"; count: number; enabled: boolean; onTap: () => void }) {
+  return (
+    <button data-sftp-copy={dir === "down" ? "a" : "b"} disabled={!enabled} onClick={onTap}
+      className="flex items-center gap-1.5 px-6 py-1.5 rounded-xl text-sm font-medium"
+      style={{ background: enabled ? "var(--t-accent)" : "var(--t-bg-card)", color: enabled ? "#fff" : "var(--t-text-dim)", opacity: enabled ? 1 : 0.45 }}>
+      <Icon icon={dir === "down" ? "lucide:arrow-down" : "lucide:arrow-up"} width={18} />
+      {count > 0 && <span className="tabular-nums">{count}</span>}
+    </button>
   );
 }

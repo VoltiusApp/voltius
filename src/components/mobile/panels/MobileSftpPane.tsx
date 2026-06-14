@@ -8,6 +8,7 @@ import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { writeClipboard } from "@/utils/clipboard";
 import type { Connection } from "@/types";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
+import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import BottomSheet from "../sheets/BottomSheet";
 
 function isPermissionDenied(msg: string): boolean {
@@ -70,7 +71,7 @@ export default function MobileSftpPane({
     <div className="h-full flex flex-col min-h-0">
       <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 border-b" style={{ borderColor: "var(--t-border)" }}>
         <button data-sftp-pane-host onClick={onPickHost} className="flex items-center gap-1.5 min-w-0">
-          <Icon icon="lucide:server" width={14} className="text-(--t-text-dim) shrink-0" />
+          <ConnectionAvatar connection={connection} size={20} />
           <span className="text-xs font-medium text-(--t-text-primary) truncate">{connectionDisplayName(connection)}</span>
           <Icon icon="lucide:chevron-down" width={12} className="text-(--t-text-dim) shrink-0" />
         </button>
