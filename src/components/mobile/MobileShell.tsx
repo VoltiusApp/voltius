@@ -10,6 +10,7 @@ import HostActionsSheet from "./sheets/HostActionsSheet";
 import MobileSessionLayer from "./MobileSessionLayer";
 import MobileTerminalScreen from "./screens/MobileTerminalScreen";
 import MobileExtraKeysRow from "./MobileExtraKeysRow";
+import MobileTerminalPanelsRow from "./MobileTerminalPanelsRow";
 import MembersPage from "@/components/members/MembersPage";
 import MobileKeychainScreen from "./screens/MobileKeychainScreen";
 import MobilePortForwardingScreen from "./screens/MobilePortForwardingScreen";
@@ -37,6 +38,7 @@ const MORE_PAGE_TITLES: Record<MorePage, string> = {
 };
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useUIStore } from "@/stores/uiStore";
 import { useAndroidBack } from "@/hooks/useAndroidBack";
 import { useVisualViewport } from "@/hooks/useVisualViewport";
 import { useHostPingPolling } from "@/hooks/useHostPingPolling";
@@ -52,6 +54,7 @@ export default function MobileShell() {
   const top = stack[stack.length - 1];
   const hasSessions = useSessionStore((s) => s.sessions.length > 0);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
+  const panelsRowOpen = useUIStore((s) => s.terminalPanelsRowOpen);
 
   // Terminal tab with sessions = immersive: hide the tab bar, give xterm every pixel.
   const immersive = tab === "terminal" && hasSessions && !top;
@@ -105,6 +108,7 @@ export default function MobileShell() {
         {/* Extra-keys row: always present while the terminal is foreground with a session — usable
             even when the keyboard is closed (keys write to the PTY without needing input focus).
             When the keyboard opens, the shell shrinks to usableHeight so the row sits above it. */}
+        {terminalVisible && hasSessions && panelsRowOpen && <MobileTerminalPanelsRow />}
         {terminalVisible && hasSessions && <MobileExtraKeysRow keyboardOpen={keyboardVisible} />}
         {/* Pushed full-screen pages overlay everything */}
         {top?.kind === "host-edit" && <MobileHostEditScreen hostId={top.hostId} />}

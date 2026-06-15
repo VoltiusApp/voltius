@@ -5,6 +5,7 @@ import { isActive, type Modifier } from "@/stores/modifierLatchCore";
 import { useModifierLatchStore } from "@/stores/modifierLatchStore";
 import { sendSpecialKey } from "@/services/terminalInput";
 import type { SpecialKey } from "@/stores/terminalKeyCore";
+import { useUIStore } from "@/stores/uiStore";
 
 type KeyDef = { key: SpecialKey; label?: string; icon?: string };
 const KEYS: KeyDef[] = [
@@ -18,6 +19,8 @@ const MODS: { mod: Modifier; label: string }[] = [ { mod: "ctrl", label: "Ctrl" 
 
 export default function MobileExtraKeysRow({ keyboardOpen }: { keyboardOpen?: boolean }) {
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
+  const panelsOpen = useUIStore((s) => s.terminalPanelsRowOpen);
+  const togglePanels = useUIStore((s) => s.toggleTerminalPanelsRow);
   const ctrl = useModifierLatchStore((s) => s.ctrl);
   const alt = useModifierLatchStore((s) => s.alt);
   const tap = useModifierLatchStore((s) => s.tap);
@@ -110,6 +113,14 @@ export default function MobileExtraKeysRow({ keyboardOpen }: { keyboardOpen?: bo
           {icon ? <Icon icon={icon} width={16} /> : label}
         </button>
       ))}
+      <button data-mobile-panels-toggle
+        onMouseDown={noFocusSteal}
+        onTouchStart={(e) => { noFocusSteal(e); keepKeyboardClosed(); }}
+        onClick={(e) => { noFocusSteal(e); togglePanels(); }}
+        className="shrink-0 min-w-11 px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center"
+        style={{ background: panelsOpen ? "var(--t-accent)" : "var(--t-bg-card)", color: panelsOpen ? "#fff" : "var(--t-text-primary)", border: "1px solid var(--t-border)" }}>
+        <Icon icon="lucide:layout-grid" width={16} />
+      </button>
     </div>
   );
 }

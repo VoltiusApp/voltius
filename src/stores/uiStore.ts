@@ -140,6 +140,8 @@ interface UIStore {
   openWhatsNew: () => void;
   closeWhatsNew: () => void;
   markChangelogSeen: (version: string) => void;
+  terminalPanelsRowOpen: boolean;
+  toggleTerminalPanelsRow: () => void;
 }
 
 export const useUIStore = create<UIStore>()(
@@ -175,6 +177,7 @@ export const useUIStore = create<UIStore>()(
       membersInvitePending: false,
       whatsNewOpen: false,
       lastSeenChangelogVersion: null as string | null,
+      terminalPanelsRowOpen: false,
       prefsUpdatedAt: new Date(0).toISOString(),
       keychainPendingAction: null as KeychainPendingAction,
       importExportModal: { open: false, mode: "export" as const, section: "vaults" as ImportExportSection },
@@ -228,6 +231,7 @@ export const useUIStore = create<UIStore>()(
       openWhatsNew: () => set({ whatsNewOpen: true }),
       closeWhatsNew: () => set({ whatsNewOpen: false }),
       markChangelogSeen: (version) => set({ lastSeenChangelogVersion: version }),
+      toggleTerminalPanelsRow: () => set((s) => ({ terminalPanelsRowOpen: !s.terminalPanelsRowOpen })),
     }),
     {
       name: "voltius-ui",
@@ -246,6 +250,7 @@ export const useUIStore = create<UIStore>()(
         rightPanelSection: state.rightPanelSection,
         prefsUpdatedAt: state.prefsUpdatedAt,
         lastSeenChangelogVersion: state.lastSeenChangelogVersion,
+        terminalPanelsRowOpen: state.terminalPanelsRowOpen,
       }),
     },
   ),
