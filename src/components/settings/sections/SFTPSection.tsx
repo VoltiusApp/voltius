@@ -1,7 +1,10 @@
+import { useEffect, useState } from "react";
 import { DEFAULT_AUTO_REFRESH_INTERVAL_MS, useSftpSettingsStore } from "@/stores/sftpSettingsStore";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
 import { DirtyDot, ResetButton } from "./shared";
+import { useIsAndroid } from "@/utils/platform";
+import { downloadDirGet, downloadDirPick, type DownloadDirInfo } from "@/services/downloads";
 
 export default function SFTPSection() {
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useToggle("sftp-autorefresh");
@@ -11,6 +14,16 @@ export default function SFTPSection() {
 
   const intervalSeconds = autoRefreshIntervalMs / 1000;
 
+  const isAndroid = useIsAndroid();
+  const [downloadDir, setDownloadDir] = useState<DownloadDirInfo | null>(null);
+  useEffect(() => {
+    if (isAndroid) void downloadDirGet().then(setDownloadDir);
+  }, [isAndroid]);
+  const changeDownloadDir = async () => {
+    const picked = await downloadDirPick();
+    if (picked) setDownloadDir(picked);
+  };
+
   const handleIntervalChange = (raw: string) => {
     const val = parseFloat(raw);
     if (!Number.isFinite(val) || val < 0.5) return;
@@ -19,6 +32,29 @@ export default function SFTPSection() {
 
   return (
     <div className="p-6 max-w-lg space-y-6">
+        {isAndroid && (
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
+              Downloads
+            </h3>
+            <div className="rounded-lg bg-(--t-bg-elevated) border border-(--t-border)">
+              <div className="flex items-center justify-between px-4 py-3 gap-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-(--t-text-primary)">Download folder</p>
+                  <p className="text-xs mt-0.5 text-(--t-text-dim) truncate">
+                    {downloadDir?.displayName ?? downloadDir?.uri ?? "Not set — chosen on first download"}
+                  </p>
+                </div>
+                <button
+                  onClick={() => void changeDownloadDir()}
+                  className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) active:bg-(--t-bg-card-hover)"
+                >
+                  Change folder
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       <div>
         <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
           Transfers
