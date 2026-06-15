@@ -19,11 +19,19 @@ class MainActivity : TauriActivity() {
     // SAF folder picker for the SFTP download directory (see VoltiusDownloads.kt).
     dirPicker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
       if (uri != null) {
-        contentResolver.takePersistableUriPermission(
-          uri,
-          Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-        )
-        VoltiusDownloads.setDir(applicationContext, uri.toString())
+        // Persist the grant so the folder stays writable across app restarts. Guard against
+        // a SecurityException so a refused grant can't crash the result callback — we still
+        // notify Rust below either way.
+        val granted = try {
+          contentResolver.takePersistableUriPermission(
+            uri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+          )
+          true
+        } catch (e: SecurityException) {
+          false
+        }
+        if (granted) VoltiusDownloads.setDir(applicationContext, uri.toString())
       }
       VoltiusDownloads.nativeDirPicked(uri?.toString())
     }
