@@ -4,6 +4,9 @@ import { appCacheDir } from "@tauri-apps/api/path";
 import { breadcrumbs, type useSftpDir } from "@/services/useSftpDir";
 import { formatSize, formatPermissions, formatDate, type FileEntry } from "@/components/filetransfer/SFTPTypes";
 import { sftpDownload, sftpDownloadDir } from "@/services/sftp";
+import { useIsAndroid } from "@/utils/platform";
+import { downloadDirGet, downloadDirPick, downloadTempPath, downloadPublish } from "@/services/downloads";
+import { needsPicker } from "@/components/terminal/androidDownloadDir";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { writeClipboard } from "@/utils/clipboard";
 import type { Connection } from "@/types";
@@ -32,6 +35,7 @@ export default function MobileSftpPane({
 }) {
   const { phase, sftpId, cwd, entries, listing, listError, navigate, goUp, mkdir, touch, rename, remove } = controller;
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
+  const isAndroid = useIsAndroid();
   const [showHidden, setShowHidden] = useState(false);
   const [sheetFor, setSheetFor] = useState<FileEntry | null>(null);
   const [renaming, setRenaming] = useState<FileEntry | null>(null);
@@ -60,6 +64,23 @@ export default function MobileSftpPane({
 
   const download = async (f: FileEntry) => {
     if (!sftpId) return;
+    // Android: stream to a temp path, then publish into the user's SAF download folder
+    // (picked once, persisted) so the file lands somewhere visible to the system Files app.
+    if (isAndroid) {
+      let dir = await downloadDirGet();
+      if (needsPicker(dir)) {
+        dir = await downloadDirPick();
+        if (needsPicker(dir)) return; // user cancelled the folder picker
+      }
+      await runTransfer(f.name, "←", async (tid) => {
+        const tmp = await downloadTempPath(tid, f.name);
+        await (f.isDir
+          ? sftpDownloadDir({ sftpId, remotePath: f.path, localPath: tmp, transferId: tid })
+          : sftpDownload({ sftpId, remotePath: f.path, localPath: tmp, transferId: tid }));
+        await downloadPublish(tmp, f.name);
+      });
+      return;
+    }
     const base = (await appCacheDir()).replace(/\/$/, "");
     const localPath = `${base}/${f.name}`;
     await runTransfer(f.name, "←", (tid) => (f.isDir
