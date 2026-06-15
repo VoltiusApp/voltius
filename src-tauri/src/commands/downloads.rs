@@ -110,7 +110,8 @@ mod android {
         *PICK_TX.lock().unwrap() = Some(tx);
         let launched = with_env("download dir pick", |env, _ctx| {
             let cls = load_class(env, CLASS)?;
-            env.call_static_method(&cls, "launchPicker", "()Z", &[])?.z()
+            env.call_static_method(&cls, "launchPicker", "()Z", &[])?
+                .z()
         })?;
         if !launched {
             // No Activity handled it (app backgrounded); don't park forever.
