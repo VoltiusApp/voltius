@@ -37,6 +37,8 @@ export async function sftpConnect(params: {
   privateKey?: string;
   passphrase?: string;
   jumpHosts?: Array<{ host: string; port: number; username: string; password?: string; privateKey?: string; passphrase?: string }>;
+  keepaliveIntervalSecs: number;
+  keepaliveMax: number;
 }): Promise<string> {
   return invoke("sftp_connect", {
     connectId: params.connectId,
@@ -47,6 +49,8 @@ export async function sftpConnect(params: {
     privateKey: params.privateKey ?? null,
     passphrase: params.passphrase ?? null,
     jumpHosts: params.jumpHosts ?? null,
+    keepaliveIntervalSecs: params.keepaliveIntervalSecs,
+    keepaliveMax: params.keepaliveMax,
   });
 }
 

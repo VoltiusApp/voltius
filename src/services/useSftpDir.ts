@@ -6,6 +6,8 @@ import {
   type RemoteFile,
 } from "@/services/sftp";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
+import { resolveKeepalive } from "@/utils/keepalive";
+import { getGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
 import { type FileEntry, genId } from "@/components/filetransfer/SFTPTypes";
 import type { Connection } from "@/types";
 
@@ -51,8 +53,10 @@ export function useSftpDir(connection: Connection | undefined) {
   const [listing, setListing] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [retryTick, setRetryTick] = useState(0);
   const sftpIdRef = useRef<string | null>(null);
   const refresh = useCallback(() => setRefreshTick((n) => n + 1), []);
+  const reconnect = useCallback(() => setRetryTick((n) => n + 1), []);
 
   // Connect once per connection.
   useEffect(() => {
@@ -66,6 +70,7 @@ export function useSftpDir(connection: Connection | undefined) {
           resolveConnectionCredentials(connection),
           resolveJumpHosts(connection),
         ]);
+        const ka = resolveKeepalive(connection.keepalive_preset ?? getGlobalKeepalivePreset());
         const sftpId = await sftpConnect({
           connectId,
           host: connection.host,
@@ -75,6 +80,8 @@ export function useSftpDir(connection: Connection | undefined) {
           privateKey: creds.privateKey,
           passphrase: creds.passphrase,
           jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
+          keepaliveIntervalSecs: ka.intervalSecs,
+          keepaliveMax: ka.max,
         });
         if (cancelled) { sftpClose(sftpId).catch(() => {}); return; }
         sftpIdRef.current = sftpId;
@@ -90,7 +97,15 @@ export function useSftpDir(connection: Connection | undefined) {
       cancelled = true;
       if (sftpIdRef.current) { sftpClose(sftpIdRef.current).catch(() => {}); sftpIdRef.current = null; }
     };
-  }, [connection?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [connection?.id, retryTick]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-reconnect on error. Mobile backgrounding (e.g. SAF picker) freezes the
+  // process and trips keepalive; retry so the drop self-heals instead of dead-ending.
+  useEffect(() => {
+    if (phase.tag !== "error") return;
+    const t = setTimeout(() => setRetryTick((n) => n + 1), 2000);
+    return () => clearTimeout(t);
+  }, [phase]);
 
   // Detect connection loss.
   useEffect(() => {
@@ -130,5 +145,5 @@ export function useSftpDir(connection: Connection | undefined) {
     if (sftpId) { await sftpDelete(sftpId, f.path); refresh(); }
   }, [sftpId, refresh]);
 
-  return { phase, sftpId, cwd, entries, listing, listError, navigate, goUp, refresh, mkdir, touch, rename, remove };
+  return { phase, sftpId, cwd, entries, listing, listError, navigate, goUp, refresh, reconnect, mkdir, touch, rename, remove };
 }
