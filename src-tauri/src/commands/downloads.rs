@@ -1,5 +1,130 @@
 use std::path::{Path, PathBuf};
 
+use serde::Serialize;
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadDirInfo {
+    pub uri: String,
+    pub display_name: Option<String>,
+}
+
+#[cfg(target_os = "android")]
+mod android {
+    use crate::android_ctx::with_env;
+    use jni::objects::{JClass, JObject, JString, JValue};
+    use jni::JNIEnv;
+    use std::sync::Mutex;
+    use tokio::sync::oneshot;
+
+    const CLASS: &str = "com/voltius/app/VoltiusDownloads";
+    static PICK_TX: Mutex<Option<oneshot::Sender<Option<String>>>> = Mutex::new(None);
+
+    fn opt_string(env: &mut JNIEnv, v: JObject) -> Result<Option<String>, jni::errors::Error> {
+        if v.is_null() {
+            Ok(None)
+        } else {
+            Ok(Some(env.get_string(&JString::from(v))?.into()))
+        }
+    }
+
+    pub fn get_dir() -> Result<Option<String>, String> {
+        with_env("download dir get", |env, ctx| {
+            let v = env
+                .call_static_method(
+                    CLASS,
+                    "getDir",
+                    "(Landroid/content/Context;)Ljava/lang/String;",
+                    &[JValue::Object(ctx)],
+                )?
+                .l()?;
+            opt_string(env, v)
+        })
+    }
+
+    pub fn display_name() -> Result<Option<String>, String> {
+        with_env("download dir name", |env, ctx| {
+            let v = env
+                .call_static_method(
+                    CLASS,
+                    "displayName",
+                    "(Landroid/content/Context;)Ljava/lang/String;",
+                    &[JValue::Object(ctx)],
+                )?
+                .l()?;
+            opt_string(env, v)
+        })
+    }
+
+    pub fn clear_dir() -> Result<(), String> {
+        with_env("download dir clear", |env, ctx| {
+            env.call_static_method(
+                CLASS,
+                "clearDir",
+                "(Landroid/content/Context;)V",
+                &[JValue::Object(ctx)],
+            )?
+            .v()
+        })
+    }
+
+    pub fn is_writable() -> Result<bool, String> {
+        with_env("download dir writable", |env, ctx| {
+            env.call_static_method(
+                CLASS,
+                "isWritable",
+                "(Landroid/content/Context;)Z",
+                &[JValue::Object(ctx)],
+            )?
+            .z()
+        })
+    }
+
+    pub fn publish_file(rel: &str, src: &str) -> Result<bool, String> {
+        with_env("download publish", |env, ctx| {
+            let jrel = env.new_string(rel)?;
+            let jsrc = env.new_string(src)?;
+            env.call_static_method(
+                CLASS,
+                "publishFile",
+                "(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;)Z",
+                &[
+                    JValue::Object(ctx),
+                    JValue::Object(&jrel),
+                    JValue::Object(&jsrc),
+                ],
+            )?
+            .z()
+        })
+    }
+
+    pub async fn pick() -> Result<Option<String>, String> {
+        let (tx, rx) = oneshot::channel();
+        *PICK_TX.lock().unwrap() = Some(tx);
+        with_env("download dir pick", |env, _ctx| {
+            env.call_static_method(CLASS, "launchPicker", "()V", &[])?.v()
+        })?;
+        rx.await.map_err(|_| "folder picker cancelled".to_string())
+    }
+
+    /// JNI entry for `VoltiusDownloads.nativeDirPicked(uri)`. Fulfils the pending picker.
+    #[no_mangle]
+    pub extern "system" fn Java_com_voltius_app_VoltiusDownloads_nativeDirPicked<'local>(
+        mut env: JNIEnv<'local>,
+        _class: JClass<'local>,
+        uri: JString<'local>,
+    ) {
+        let val = if uri.is_null() {
+            None
+        } else {
+            env.get_string(&uri).ok().map(|s| s.into())
+        };
+        if let Some(tx) = PICK_TX.lock().unwrap().take() {
+            let _ = tx.send(val);
+        }
+    }
+}
+
 /// Flatten a downloaded temp path into `(relPath, absSrc)` pairs to publish into the SAF
 /// tree. `base_name` is the destination name chosen by the user (the remote file/dir name).
 /// For a single file the result is one entry `(base_name, temp_root)`. For a directory the
@@ -40,6 +165,95 @@ pub fn collect_publish_entries(
         }
     }
     Ok(out)
+}
+
+/// A unique temp destination under the app cache for an in-flight download. The existing
+/// `sftp_download*` commands write here (real fs); `download_publish` then moves it into the
+/// SAF tree. Parent dirs are created; the leaf is returned for use as `localPath`.
+#[tauri::command]
+pub fn download_temp_path(transfer_id: String, name: String) -> Result<String, String> {
+    let safe_name = name.replace(['/', '\\'], "_");
+    let dir = std::env::temp_dir()
+        .join("voltius-downloads")
+        .join(&transfer_id);
+    std::fs::create_dir_all(&dir).map_err(|e| format!("Cannot create temp dir: {e}"))?;
+    Ok(dir.join(safe_name).to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+pub async fn download_dir_get() -> Result<Option<DownloadDirInfo>, String> {
+    #[cfg(target_os = "android")]
+    {
+        match android::get_dir()? {
+            Some(uri) => Ok(Some(DownloadDirInfo {
+                uri,
+                display_name: android::display_name().unwrap_or(None),
+            })),
+            None => Ok(None),
+        }
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+pub async fn download_dir_pick() -> Result<Option<DownloadDirInfo>, String> {
+    #[cfg(target_os = "android")]
+    {
+        match android::pick().await? {
+            Some(uri) => Ok(Some(DownloadDirInfo {
+                uri,
+                display_name: android::display_name().unwrap_or(None),
+            })),
+            None => Ok(None),
+        }
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        Err("download directory picker is Android-only".into())
+    }
+}
+
+#[tauri::command]
+pub async fn download_dir_clear() -> Result<(), String> {
+    #[cfg(target_os = "android")]
+    {
+        android::clear_dir()
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        Ok(())
+    }
+}
+
+/// Move a completed temp download (`temp_path`, a file or directory) into the SAF tree under
+/// `base_name`, then delete the temp. Android-only.
+#[tauri::command]
+pub async fn download_publish(temp_path: String, base_name: String) -> Result<(), String> {
+    #[cfg(target_os = "android")]
+    {
+        if !android::is_writable()? {
+            return Err("download folder is not set or no longer writable".into());
+        }
+        let entries = collect_publish_entries(Path::new(&temp_path), &base_name)
+            .map_err(|e| format!("Cannot read downloaded files: {e}"))?;
+        for (rel, abs) in &entries {
+            let ok = android::publish_file(rel, &abs.to_string_lossy())?;
+            if !ok {
+                return Err(format!("Failed to save {rel} to the download folder"));
+            }
+        }
+        let _ = std::fs::remove_dir_all(Path::new(&temp_path));
+        let _ = std::fs::remove_file(Path::new(&temp_path));
+        Ok(())
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = (temp_path, base_name);
+        Err("download publish is Android-only".into())
+    }
 }
 
 #[cfg(test)]
