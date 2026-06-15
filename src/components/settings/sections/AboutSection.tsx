@@ -14,6 +14,7 @@ import {
   onUpdaterStateChange,
   checkForUpdate,
   installUpdate,
+  openDownloadPage,
 } from "@/services/updater";
 import { Toggle } from "@/components/shared/Toggle";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
@@ -80,6 +81,9 @@ export default function AboutSection() {
               {updater.status === "error" && (
                 <Icon icon="lucide:alert-circle" width={14} className="shrink-0 text-(--t-status-error)" />
               )}
+              {updater.status === "externalUpdate" && (
+                <Icon icon="lucide:sparkles" width={14} className="shrink-0 text-(--t-accent)" />
+              )}
               {(updater.status === "idle" || updater.status === "upToDate" || updater.status === "checking") && (
                 <span className="text-sm text-(--t-text-primary)">
                   {updater.status === "idle" && "Not checked yet"}
@@ -95,6 +99,11 @@ export default function AboutSection() {
               {updater.status === "ready" && (
                 <span className="text-sm text-(--t-text-primary)">
                   v{updater.version} ready to install
+                </span>
+              )}
+              {updater.status === "externalUpdate" && (
+                <span className="text-sm text-(--t-text-primary)">
+                  v{updater.version} is available
                 </span>
               )}
               {updater.status === "error" && (
@@ -139,6 +148,17 @@ export default function AboutSection() {
             >
               <Icon icon="lucide:refresh-cw" width={14} />
               Restart to update · v{updater.version}
+            </button>
+          )}
+
+          {/* Download button (install can't self-update) */}
+          {updater.status === "externalUpdate" && (
+            <button
+              onClick={() => openDownloadPage().catch(() => {})}
+              className="btn btn-primary w-full flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium"
+            >
+              <Icon icon="lucide:download" width={14} />
+              Download v{updater.version}
             </button>
           )}
 
