@@ -1,5 +1,43 @@
 import type { Connection } from "@/types";
-import type { DynamicContext } from "@/services/snippetParser";
+import type { Snippet } from "@/types";
+import type { ParsedVariable, DynamicContext } from "@/services/snippetParser";
+import {
+  parseVariables, needsUserInput, buildDynamicValues, buildDefaultValues, resolveTemplate,
+} from "./snippetParser.ts";
+
+export interface SnippetPendingInject {
+  snippet: Snippet;
+  userVars: ParsedVariable[];
+  partialTemplate: string;
+  initialValues: Record<string, string>;
+  execute: boolean;
+  sessionIds: string[];
+}
+
+export interface ResolvedSnippet {
+  payload: string;
+  partialTemplate: string;
+  userVars: ParsedVariable[];
+  initialValues: Record<string, string>;
+  missing: ParsedVariable[];
+}
+
+/** Resolve dynamic vars; compute payload and which user vars still need input. Pure. */
+export function resolveSnippetPayload(
+  snippet: Snippet,
+  ctx: DynamicContext,
+  execute: boolean,
+): ResolvedSnippet {
+  const vars = parseVariables(snippet.content);
+  const dynValues = buildDynamicValues(vars, ctx);
+  const partialTemplate = resolveTemplate(snippet.content, dynValues);
+  const userVars = vars.filter((v) => !v.dynamic);
+  const initialValues = buildDefaultValues(userVars);
+  const missing = userVars.filter((v) => needsUserInput(v));
+  const resolved = resolveTemplate(partialTemplate, initialValues);
+  const payload = execute ? `${resolved}\n` : resolved;
+  return { payload, partialTemplate, userVars, initialValues, missing };
+}
 
 /** Build the dynamic-variable context from the (first) target session. Pure. */
 export function buildDynamicContext(
