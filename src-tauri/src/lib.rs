@@ -38,6 +38,57 @@ use storage::secrets::SecretsStore;
 struct PendingUpdate(Mutex<Option<(tauri_plugin_updater::Update, Vec<u8>)>>);
 
 #[cfg(desktop)]
+#[allow(dead_code)] // not every variant is constructed on every target
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Os {
+    Linux,
+    Macos,
+    Windows,
+}
+
+#[cfg(desktop)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum InstallKind {
+    SelfUpdate,
+    External,
+}
+
+/// Decide whether the running install can replace itself in place.
+/// Pure so it can be unit-tested across every platform from one host.
+#[cfg(desktop)]
+fn classify_install(
+    os: Os,
+    appimage_env: bool,
+    exe_path: &std::path::Path,
+    bundle_writable: bool,
+) -> InstallKind {
+    match os {
+        // Tauri's Linux updater only replaces an AppImage (APPIMAGE env set).
+        Os::Linux => {
+            if appimage_env {
+                InstallKind::SelfUpdate
+            } else {
+                InstallKind::External
+            }
+        }
+        // macOS replaces the .app bundle: impossible from a read-only dmg
+        // mount, from a Gatekeeper-translocated path, or when the install
+        // location isn't writable.
+        Os::Macos => {
+            let p = exe_path.to_string_lossy();
+            if p.starts_with("/Volumes/") || p.contains("AppTranslocation") || !bundle_writable {
+                InstallKind::External
+            } else {
+                InstallKind::SelfUpdate
+            }
+        }
+        // Per-user NSIS self-updates; per-machine attempts and surfaces a UAC
+        // failure via the error path. No proactive scope detection here.
+        Os::Windows => InstallKind::SelfUpdate,
+    }
+}
+
+#[cfg(desktop)]
 fn update_cache_dir(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     use tauri::Manager;
     app.path()
@@ -524,4 +575,91 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(all(test, desktop))]
+mod updater_tests {
+    use super::{classify_install, InstallKind, Os};
+    use std::path::Path;
+
+    #[test]
+    fn linux_appimage_self_updates() {
+        assert_eq!(
+            classify_install(Os::Linux, true, Path::new("/tmp/Voltius.AppImage"), true),
+            InstallKind::SelfUpdate
+        );
+    }
+
+    #[test]
+    fn linux_package_is_external() {
+        assert_eq!(
+            classify_install(Os::Linux, false, Path::new("/usr/bin/voltius"), true),
+            InstallKind::External
+        );
+    }
+
+    #[test]
+    fn macos_in_applications_self_updates() {
+        assert_eq!(
+            classify_install(
+                Os::Macos,
+                false,
+                Path::new("/Applications/Voltius.app/Contents/MacOS/Voltius"),
+                true
+            ),
+            InstallKind::SelfUpdate
+        );
+    }
+
+    #[test]
+    fn macos_from_dmg_is_external() {
+        assert_eq!(
+            classify_install(
+                Os::Macos,
+                false,
+                Path::new("/Volumes/Voltius/Voltius.app/Contents/MacOS/Voltius"),
+                true
+            ),
+            InstallKind::External
+        );
+    }
+
+    #[test]
+    fn macos_translocated_is_external() {
+        assert_eq!(
+            classify_install(
+                Os::Macos,
+                false,
+                Path::new("/private/var/folders/x/AppTranslocation/ABC/d/Voltius.app/Contents/MacOS/Voltius"),
+                true
+            ),
+            InstallKind::External
+        );
+    }
+
+    #[test]
+    fn macos_unwritable_bundle_is_external() {
+        assert_eq!(
+            classify_install(
+                Os::Macos,
+                false,
+                Path::new("/Applications/Voltius.app/Contents/MacOS/Voltius"),
+                false
+            ),
+            InstallKind::External
+        );
+    }
+
+    #[test]
+    fn windows_self_updates() {
+        assert_eq!(
+            classify_install(
+                Os::Windows,
+                false,
+                Path::new(r"C:\\Program Files\\Voltius\\voltius.exe"),
+                true
+            ),
+            InstallKind::SelfUpdate
+        );
+    }
 }
