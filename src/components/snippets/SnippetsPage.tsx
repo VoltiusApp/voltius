@@ -1,4 +1,3 @@
-import { readClipboard } from "../../utils/clipboard";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
@@ -28,11 +27,8 @@ import { broadcastSnippetInject } from "@/services/snippets";
 import {
   parseVariables,
   needsUserInput,
-  buildDynamicValues,
-  buildDefaultValues,
-  resolveTemplate,
 } from "@/services/snippetParser";
-import { buildDynamicContext } from "@/services/snippetRunCore";
+import { runSnippetIntoSessions } from "@/services/snippetRun";
 import { snippetToForm } from "@/utils/snippetForm";
 import { SnippetVariableModal } from "@/components/terminal/SnippetVariableModal";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
@@ -285,7 +281,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function SnippetsPage() {
-  const { loading, loadSnippets, createSnippet, updateSnippet, deleteSnippet, trackUsed, pinSnippet } = useSnippetStore();
+  const { loading, loadSnippets, createSnippet, updateSnippet, deleteSnippet, pinSnippet } = useSnippetStore();
   const recentEntries = useSnippetRecentStore((s) => s.entries);
   const addRecentEntry = useSnippetRecentStore((s) => s.add);
   const removeRecentEntry = useSnippetRecentStore((s) => s.remove);
@@ -639,27 +635,19 @@ export function SnippetsPage() {
       .map((id) => allSessions.find((s) => s.id === id))
       .filter((s) => s && s.type !== "multiplayer") as typeof allSessions;
     if (targetSessions.length === 0) return;
-    trackUsed(snippet.id);
 
-    let clipboard = "";
-    try { clipboard = await readClipboard(); } catch { /* permission denied */ }
+    const ran = await runSnippetIntoSessions(snippet, targetSessions.map((s) => s.id), execute, {
+      onNeedVars: (p) => setPendingInject({
+        snippet: p.snippet, partialTemplate: p.partialTemplate, userVars: p.userVars,
+        initialValues: p.initialValues, execute: p.execute, sessionIds: p.sessionIds,
+      }),
+    });
 
-    // Use the first session for dynamic variable resolution (host, user, etc.)
-    const ctx = buildDynamicContext(targetSessions[0], connections, clipboard);
-    const vars = parseVariables(snippet.content);
-    const dynValues = buildDynamicValues(vars, ctx);
-    const partialTemplate = resolveTemplate(snippet.content, dynValues);
-
-    const userVars = vars.filter((v) => !v.dynamic);
-    const initialValues = buildDefaultValues(userVars);
-    const missing = userVars.filter((v) => needsUserInput(v));
-
-    if (missing.length === 0) {
-      const resolved = resolveTemplate(partialTemplate, initialValues);
-      const payload = execute ? `${resolved}\n` : resolved;
-      await Promise.all(
-        targetSessions.map((s) => broadcastSnippetInject(s.id, s.type, payload, execute).catch(console.error)),
-      );
+    // Record recents only for the direct (no-modal) path; the modal path records on submit.
+    const noUserInputNeeded = parseVariables(snippet.content)
+      .filter((v) => !v.dynamic)
+      .every((v) => !needsUserInput(v));
+    if (ran && noUserInputNeeded) {
       const targets: RecentTarget[] = targetSessions.map((s) => ({
         connectionId: s.connectionId,
         connectionName: s.connectionName,
@@ -667,8 +655,6 @@ export function SnippetsPage() {
         localShell: s.localShell,
       }));
       recordExecution(snippet, execute, targets);
-    } else {
-      setPendingInject({ snippet, partialTemplate, userVars, initialValues, execute, sessionIds: targetSessions.map((s) => s.id) });
     }
   }
 
@@ -1195,9 +1181,8 @@ export function SnippetsPage() {
             .map((id) => allSessions.find((s) => s.id === id))
             .filter(Boolean) as typeof allSessions;
           if (targetSessions.length === 0) return;
-          const payload = execute ? `${resolvedText}\n` : resolvedText;
           await Promise.all(
-            targetSessions.map((s) => broadcastSnippetInject(s.id, s.type, payload, execute).catch(console.error)),
+            targetSessions.map((s) => broadcastSnippetInject(s.id, s.type, resolvedText, execute).catch(console.error)),
           );
           const targets: RecentTarget[] = targetSessions.map((s) => ({
             connectionId: s.connectionId,
