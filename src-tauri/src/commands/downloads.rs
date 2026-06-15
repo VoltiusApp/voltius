@@ -101,9 +101,14 @@ mod android {
     pub async fn pick() -> Result<Option<String>, String> {
         let (tx, rx) = oneshot::channel();
         *PICK_TX.lock().unwrap() = Some(tx);
-        with_env("download dir pick", |env, _ctx| {
-            env.call_static_method(CLASS, "launchPicker", "()V", &[])?.v()
+        let launched = with_env("download dir pick", |env, _ctx| {
+            env.call_static_method(CLASS, "launchPicker", "()Z", &[])?.z()
         })?;
+        if !launched {
+            // No Activity handled it (app backgrounded); don't park forever.
+            let _ = PICK_TX.lock().unwrap().take();
+            return Err("could not open the folder picker (app not in foreground)".into());
+        }
         rx.await.map_err(|_| "folder picker cancelled".to_string())
     }
 

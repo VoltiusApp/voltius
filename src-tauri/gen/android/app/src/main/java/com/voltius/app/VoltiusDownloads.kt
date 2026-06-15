@@ -53,10 +53,12 @@ object VoltiusDownloads {
         return DocumentFile.fromTreeUri(ctx, Uri.parse(uri))?.name
     }
 
-    /** Launch the SAF folder picker via MainActivity (no-op if no Activity yet). */
+    /** Launch the SAF folder picker via MainActivity. Returns false if no Activity is available. */
     @JvmStatic
-    fun launchPicker() {
-        MainActivity.instance?.launchDirPicker()
+    fun launchPicker(): Boolean {
+        val activity = MainActivity.instance ?: return false
+        activity.launchDirPicker()
+        return true
     }
 
     /**
