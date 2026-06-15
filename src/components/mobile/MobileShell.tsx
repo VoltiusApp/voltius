@@ -24,6 +24,7 @@ import OmniSearch from "@/components/omni/OmniSearch";
 import MobileAccountPage from "./screens/MobileAccountPage";
 import MobilePanelHeader from "./panels/MobilePanelHeader";
 import MobileSnippetTargetSheet from "./sheets/MobileSnippetTargetSheet";
+import MobileSnippetActionsSheet from "./sheets/MobileSnippetActionsSheet";
 import type { MorePage } from "@/stores/mobileNavCore";
 
 const MORE_PAGE_TITLES: Record<MorePage, string> = {
@@ -135,6 +136,7 @@ export default function MobileShell() {
       {sheet?.kind === "snippet-target" && (
         <MobileSnippetTargetSheet snippetId={sheet.snippetId} mode={sheet.mode} preselectSessionId={sheet.preselectSessionId} />
       )}
+      {sheet?.kind === "snippet-actions" && <MobileSnippetActionsSheet snippetId={sheet.snippetId} />}
     </div>
   );
 }
