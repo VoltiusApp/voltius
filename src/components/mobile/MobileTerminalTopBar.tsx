@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import type { TerminalSession } from "@/types";
+import { terminalPanelItems } from "./terminalPanelItems";
 
 const DOT: Record<TerminalSession["status"], string> = {
   connected: "#3fb950",
@@ -22,6 +23,7 @@ export default function MobileTerminalTopBar() {
   const disconnect = useSessionStore((s) => s.disconnect);
   const setTab = useMobileNavStore((s) => s.setTab);
   const push = useMobileNavStore((s) => s.push);
+  const openSheet = useMobileNavStore((s) => s.openSheet);
   const exitTo = useMobileNavStore((s) => s.lastNonTerminalTab);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -84,16 +86,15 @@ export default function MobileTerminalTopBar() {
             style={{ background: "var(--t-bg-modal)", borderColor: "var(--t-border-hover)", boxShadow: "var(--t-elev-2)" }}
             onClick={() => setMenuOpen(false)}
           >
-            {([
-              { icon: "lucide:folder-open", label: "SFTP", onTap: () => { const cid = allSessions.find((s) => s.id === activeSessionId)?.connectionId; if (cid) push({ kind: "panel-sftp", connectionId: cid }); } },
-              { icon: "lucide:container", label: "Docker", onTap: () => activeSessionId && push({ kind: "panel-docker", sessionId: activeSessionId }) },
-              { icon: "lucide:activity", label: "Metrics", onTap: () => activeSessionId && push({ kind: "panel-metrics", sessionId: activeSessionId }) },
-              { icon: "lucide:cpu", label: "Processes", onTap: () => activeSessionId && push({ kind: "panel-processes", sessionId: activeSessionId }) },
-            ] as const).map((it) => (
+            {terminalPanelItems({
+              activeSessionId,
+              connectionIdOfActive: allSessions.find((s) => s.id === activeSessionId)?.connectionId,
+              nav: { push, openSheet },
+            }).map((it) => (
               <button
-                key={it.label}
-                data-mobile-panel={it.label.toLowerCase()}
-                onClick={it.onTap}
+                key={it.key}
+                data-mobile-panel={it.key}
+                onClick={() => { it.onTap(); setMenuOpen(false); }}
                 className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm text-(--t-text-primary)"
               >
                 <Icon icon={it.icon} width={16} />
