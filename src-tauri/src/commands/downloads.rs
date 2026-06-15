@@ -18,7 +18,13 @@ pub fn collect_publish_entries(
         for entry in std::fs::read_dir(&dir)? {
             let entry = entry?;
             let path = entry.path();
-            if entry.file_type()?.is_dir() {
+            let ft = entry.file_type()?;
+            // Downloaded trees contain only regular files and directories;
+            // skip symlinks to avoid infinite loops.
+            if ft.is_symlink() {
+                continue;
+            }
+            if ft.is_dir() {
                 stack.push(path);
             } else {
                 let rel = path
@@ -65,5 +71,13 @@ mod tests {
             entries.iter().map(|(r, _)| r.clone()).collect::<Vec<_>>(),
             vec!["proj/README".to_string(), "proj/src/main.rs".to_string()],
         );
+    }
+
+    #[test]
+    fn empty_directory_yields_no_entries() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("empty");
+        std::fs::create_dir_all(&root).unwrap();
+        assert!(collect_publish_entries(&root, "empty").unwrap().is_empty());
     }
 }
