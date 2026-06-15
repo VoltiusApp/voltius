@@ -40,7 +40,7 @@ export async function runSnippetIntoSessions(
   try { clipboard = await readClipboard(); } catch { /* permission denied */ }
 
   const ctx = buildDynamicContext(targets[0], allConns, clipboard);
-  const r = resolveSnippetPayload(snippet, ctx, execute);
+  const r = resolveSnippetPayload(snippet, ctx);
   useSnippetStore.getState().trackUsed(snippet.id);
 
   if (r.missing.length > 0) {

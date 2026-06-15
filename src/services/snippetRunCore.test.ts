@@ -7,20 +7,19 @@ function assertEqual<T>(actual: T, expected: T, msg: string) {
 
 const ctx = { connectionHost: "h", connectionUsername: "u", connectionName: "n", clipboard: "" };
 
-// No variables: execute appends a newline, insert does not.
+// No variables: payload is the bare resolved text (the execution newline is the
+// backend's job via the execute flag, never added here).
 {
   const sn = { id: "1", name: "s", content: "echo hi" } as any;
-  const exec = resolveSnippetPayload(sn, ctx, true);
-  assertEqual(exec.missing.length, 0, "no missing vars");
-  assertEqual(exec.payload, "echo hi\n", "execute appends newline");
-  const ins = resolveSnippetPayload(sn, ctx, false);
-  assertEqual(ins.payload, "echo hi", "insert has no newline");
+  const r = resolveSnippetPayload(sn, ctx);
+  assertEqual(r.missing.length, 0, "no missing vars");
+  assertEqual(r.payload, "echo hi", "payload is bare resolved text, no newline");
 }
 
 // A user variable present and unfilled → reported as missing; pending carries a partialTemplate string.
 {
   const sn = { id: "2", name: "v", content: "deploy {{env}}" } as any;
-  const r = resolveSnippetPayload(sn, ctx, true);
+  const r = resolveSnippetPayload(sn, ctx);
   assertEqual(r.missing.length, 1, "exactly one missing user var");
   assertEqual(r.partialTemplate, "deploy {{env}}", "user var left intact in partialTemplate");
 }

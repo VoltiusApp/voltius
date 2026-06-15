@@ -22,11 +22,15 @@ export interface ResolvedSnippet {
   missing: ParsedVariable[];
 }
 
-/** Resolve dynamic vars; compute payload and which user vars still need input. Pure. */
+/**
+ * Resolve dynamic vars; compute the resolved payload text and which user vars
+ * still need input. Pure. The execution newline is NOT added here — the backend
+ * `snippet_inject` appends it when the `execute` flag is set, so payload is the
+ * bare resolved text in both insert and execute modes.
+ */
 export function resolveSnippetPayload(
   snippet: Snippet,
   ctx: DynamicContext,
-  execute: boolean,
 ): ResolvedSnippet {
   const vars = parseVariables(snippet.content);
   const dynValues = buildDynamicValues(vars, ctx);
@@ -34,8 +38,7 @@ export function resolveSnippetPayload(
   const userVars = vars.filter((v) => !v.dynamic);
   const initialValues = buildDefaultValues(userVars);
   const missing = userVars.filter((v) => needsUserInput(v));
-  const resolved = resolveTemplate(partialTemplate, initialValues);
-  const payload = execute ? `${resolved}\n` : resolved;
+  const payload = resolveTemplate(partialTemplate, initialValues);
   return { payload, partialTemplate, userVars, initialValues, missing };
 }
 
