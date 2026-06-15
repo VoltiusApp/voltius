@@ -11,13 +11,15 @@ pub struct DownloadDirInfo {
 
 #[cfg(target_os = "android")]
 mod android {
-    use crate::android_ctx::with_env;
+    use crate::android_ctx::{load_class, with_env};
     use jni::objects::{JClass, JObject, JString, JValue};
     use jni::JNIEnv;
     use std::sync::Mutex;
     use tokio::sync::oneshot;
 
-    const CLASS: &str = "com/voltius/app/VoltiusDownloads";
+    // Dotted name for the app class loader (see `android_ctx::load_class`): these commands are
+    // `async`, so they run on tokio threads whose default `FindClass` can't see app classes.
+    const CLASS: &str = "com.voltius.app.VoltiusDownloads";
     static PICK_TX: Mutex<Option<oneshot::Sender<Option<String>>>> = Mutex::new(None);
 
     fn opt_string(env: &mut JNIEnv, v: JObject) -> Result<Option<String>, jni::errors::Error> {
@@ -30,9 +32,10 @@ mod android {
 
     pub fn get_dir() -> Result<Option<String>, String> {
         with_env("download dir get", |env, ctx| {
+            let cls = load_class(env, CLASS)?;
             let v = env
                 .call_static_method(
-                    CLASS,
+                    &cls,
                     "getDir",
                     "(Landroid/content/Context;)Ljava/lang/String;",
                     &[JValue::Object(ctx)],
@@ -44,9 +47,10 @@ mod android {
 
     pub fn display_name() -> Result<Option<String>, String> {
         with_env("download dir name", |env, ctx| {
+            let cls = load_class(env, CLASS)?;
             let v = env
                 .call_static_method(
-                    CLASS,
+                    &cls,
                     "displayName",
                     "(Landroid/content/Context;)Ljava/lang/String;",
                     &[JValue::Object(ctx)],
@@ -58,8 +62,9 @@ mod android {
 
     pub fn clear_dir() -> Result<(), String> {
         with_env("download dir clear", |env, ctx| {
+            let cls = load_class(env, CLASS)?;
             env.call_static_method(
-                CLASS,
+                &cls,
                 "clearDir",
                 "(Landroid/content/Context;)V",
                 &[JValue::Object(ctx)],
@@ -70,8 +75,9 @@ mod android {
 
     pub fn is_writable() -> Result<bool, String> {
         with_env("download dir writable", |env, ctx| {
+            let cls = load_class(env, CLASS)?;
             env.call_static_method(
-                CLASS,
+                &cls,
                 "isWritable",
                 "(Landroid/content/Context;)Z",
                 &[JValue::Object(ctx)],
@@ -82,10 +88,11 @@ mod android {
 
     pub fn publish_file(rel: &str, src: &str) -> Result<bool, String> {
         with_env("download publish", |env, ctx| {
+            let cls = load_class(env, CLASS)?;
             let jrel = env.new_string(rel)?;
             let jsrc = env.new_string(src)?;
             env.call_static_method(
-                CLASS,
+                &cls,
                 "publishFile",
                 "(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;)Z",
                 &[
@@ -102,7 +109,8 @@ mod android {
         let (tx, rx) = oneshot::channel();
         *PICK_TX.lock().unwrap() = Some(tx);
         let launched = with_env("download dir pick", |env, _ctx| {
-            env.call_static_method(CLASS, "launchPicker", "()Z", &[])?.z()
+            let cls = load_class(env, CLASS)?;
+            env.call_static_method(&cls, "launchPicker", "()Z", &[])?.z()
         })?;
         if !launched {
             // No Activity handled it (app backgrounded); don't park forever.

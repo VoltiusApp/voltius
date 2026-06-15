@@ -17,6 +17,7 @@ use jni::{JNIEnv, JavaVM};
 struct AndroidCtx {
     vm: JavaVM,
     context: GlobalRef,
+    class_loader: GlobalRef,
 }
 
 // JavaVM and GlobalRef are both Send + Sync, so this is too.
@@ -39,9 +40,20 @@ pub extern "system" fn Java_com_voltius_app_VoltiusKeychain_nativeInit<'local>(
         Ok(g) => g,
         Err(_) => return,
     };
+    // Capture the app class loader: native (async-command) threads attach with only the
+    // system class loader, whose FindClass can't see app dex classes (see `load_class`).
+    let class_loader = match env
+        .call_method(&context, "getClassLoader", "()Ljava/lang/ClassLoader;", &[])
+        .and_then(|v| v.l())
+        .and_then(|o| env.new_global_ref(&o))
+    {
+        Ok(g) => g,
+        Err(_) => return,
+    };
     let _ = CTX.set(AndroidCtx {
         vm,
         context: global,
+        class_loader,
     });
 }
 
@@ -64,4 +76,26 @@ pub fn with_env<T>(
         let _ = env.exception_clear();
         format!("{op}: {e}")
     })
+}
+
+/// Resolve an app class by dotted binary name (e.g. `com.voltius.app.VoltiusDownloads`) via
+/// the application class loader captured at `nativeInit`. Use this instead of
+/// `env.find_class`/`call_static_method(<str>, ..)` from threads Rust attaches itself (async
+/// Tauri commands run on tokio workers), where the default `FindClass` only sees the system
+/// class loader and raises `ClassNotFoundException` for app classes.
+pub fn load_class<'a>(
+    env: &mut JNIEnv<'a>,
+    dotted_name: &str,
+) -> Result<JClass<'a>, jni::errors::Error> {
+    let ctx = CTX.get().ok_or(jni::errors::Error::JavaException)?;
+    let name = env.new_string(dotted_name)?;
+    let cls = env
+        .call_method(
+            ctx.class_loader.as_obj(),
+            "loadClass",
+            "(Ljava/lang/String;)Ljava/lang/Class;",
+            &[(&name).into()],
+        )?
+        .l()?;
+    Ok(JClass::from(cls))
 }
