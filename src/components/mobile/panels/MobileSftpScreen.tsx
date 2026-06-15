@@ -5,7 +5,7 @@ import { useSftpDir } from "@/services/useSftpDir";
 import { buildTransferTargets } from "@/services/sftpTransferCore";
 import { sftpTransfer, sftpTransferDir } from "@/services/sftp";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
-import type { FileEntry } from "@/components/filetransfer/SFTPTypes";
+import { formatTransferProgress, type FileEntry } from "@/components/filetransfer/SFTPTypes";
 import MobilePanelHeader from "./MobilePanelHeader";
 import MobileSftpPane from "./MobileSftpPane";
 import SftpHostPickerSheet from "../sheets/SftpHostPickerSheet";
@@ -86,6 +86,7 @@ export default function MobileSftpScreen({ presetConnectionId, asTab }: { preset
                   <div className="h-1 rounded-full mt-1 overflow-hidden" style={{ background: "var(--t-bg-card)" }}>
                     <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "var(--t-accent)" }} />
                   </div>
+                  <span data-sftp-transfer-meta className="text-[10px] text-(--t-text-dim) tabular-nums truncate mt-0.5">{formatTransferProgress(t)}</span>
                 </span>
                 <span className="text-[11px] text-(--t-text-dim) tabular-nums shrink-0">{pct}%</span>
                 <button data-sftp-transfer-cancel={t.id} onClick={() => cancelTransfer(t.id)} className="p-1 text-(--t-text-dim) shrink-0"><Icon icon="lucide:x" width={14} /></button>

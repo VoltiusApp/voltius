@@ -38,6 +38,16 @@ export function formatSize(b: number) {
   return `${(b / 1073741824).toFixed(2)} GB`;
 }
 
+/** Running-transfer meta line: "{transferred} / {total} · {speed}/s · {eta}".
+ *  Speed/ETA segments are omitted when unknown. Shared by the desktop queue and
+ *  the mobile transfer row so both render identical text. */
+export function formatTransferProgress(t: Transfer): string {
+  const progress = t.total > 0 ? `${formatSize(t.transferred)} / ${formatSize(t.total)}` : formatSize(t.transferred);
+  const speed = t.speed != null ? ` · ${formatSize(Math.round(t.speed))}/s` : "";
+  const eta = t.eta != null && t.eta > 0 ? ` · ${t.eta < 60 ? `${t.eta}s` : `${Math.round(t.eta / 60)}m`}` : "";
+  return `${progress}${speed}${eta}`;
+}
+
 export function formatPermissions(mode: number): string {
   const b = (mask: number) => (mode & mask) ? 1 : 0;
   return (
