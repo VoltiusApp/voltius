@@ -54,7 +54,6 @@ function App() {
   const platform = usePlatform();
   const globalPendingInject = useSnippetStore((s) => s.globalPendingInject);
   const setGlobalPendingInject = useSnippetStore((s) => s.setGlobalPendingInject);
-  const { sessions } = useSessionStore();
 
   if (!ready) {
     return <SplashScreen onReady={() => setReady(true)} />;
@@ -85,11 +84,13 @@ function App() {
           userVars={globalPendingInject.userVars}
           initialValues={globalPendingInject.initialValues}
           onInject={(resolvedText, execute) => {
-            const activeSession = sessions.find(
-              (s) => s.status === "connected" && s.type !== "multiplayer",
-            );
-            if (activeSession) {
-              broadcastSnippetInject(activeSession.id, activeSession.type, resolvedText, execute).catch(console.error);
+            const all = useSessionStore.getState().sessions;
+            const ids = globalPendingInject.sessionIds.length > 0
+              ? globalPendingInject.sessionIds
+              : all.filter((s) => s.status === "connected" && s.type !== "multiplayer").slice(0, 1).map((s) => s.id);
+            for (const id of ids) {
+              const s = all.find((x) => x.id === id);
+              if (s) broadcastSnippetInject(s.id, s.type, resolvedText, execute).catch(console.error);
             }
             setGlobalPendingInject(null);
           }}
