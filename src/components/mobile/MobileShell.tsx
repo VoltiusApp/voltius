@@ -25,6 +25,7 @@ import MobileAccountPage from "./screens/MobileAccountPage";
 import MobilePanelHeader from "./panels/MobilePanelHeader";
 import MobileSnippetTargetSheet from "./sheets/MobileSnippetTargetSheet";
 import MobileSnippetActionsSheet from "./sheets/MobileSnippetActionsSheet";
+import MobileSnippetsSheet from "./sheets/MobileSnippetsSheet";
 import type { MorePage } from "@/stores/mobileNavCore";
 
 const MORE_PAGE_TITLES: Record<MorePage, string> = {
@@ -137,6 +138,7 @@ export default function MobileShell() {
         <MobileSnippetTargetSheet snippetId={sheet.snippetId} mode={sheet.mode} preselectSessionId={sheet.preselectSessionId} />
       )}
       {sheet?.kind === "snippet-actions" && <MobileSnippetActionsSheet snippetId={sheet.snippetId} />}
+      {sheet?.kind === "snippets" && <MobileSnippetsSheet sessionId={sheet.sessionId} />}
     </div>
   );
 }
