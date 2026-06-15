@@ -3,6 +3,7 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { broadcastSnippetInject } from "@/services/snippets";
 import { buildDynamicContext, resolveSnippetPayload, type SnippetPendingInject } from "@/services/snippetRunCore";
+import { parseVariables } from "@/services/snippetParser";
 import { readClipboard } from "@/utils/clipboard";
 import type { Snippet, TerminalSession } from "@/types";
 
@@ -36,8 +37,12 @@ export async function runSnippetIntoSessions(
   const { connections, teamConnections } = useConnectionStore.getState();
   const allConns = [...connections, ...Object.values(teamConnections).flat()];
 
+  // Only read the clipboard when the snippet actually uses {{clipboard}} — otherwise
+  // every run would trigger a clipboard-permission prompt (notably on Android).
   let clipboard = "";
-  try { clipboard = await readClipboard(); } catch { /* permission denied */ }
+  if (parseVariables(snippet.content).some((v) => v.dynamic && v.name === "clipboard")) {
+    try { clipboard = await readClipboard(); } catch { /* permission denied */ }
+  }
 
   const ctx = buildDynamicContext(targets[0], allConns, clipboard);
   const r = resolveSnippetPayload(snippet, ctx);

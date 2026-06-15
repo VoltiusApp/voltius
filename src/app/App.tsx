@@ -18,6 +18,7 @@ import { useChangelogAutoOpen } from "@/hooks/useChangelogAutoOpen";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { broadcastSnippetInject } from "@/services/snippets";
+import { isRunnableSession } from "@/services/snippetRun";
 import { initUpdaterListener } from "@/services/updater";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
 import { restoreWorkspaceOnLaunch } from "@/stores/workspaceRestore";
@@ -87,7 +88,7 @@ function App() {
             const all = useSessionStore.getState().sessions;
             const ids = globalPendingInject.sessionIds.length > 0
               ? globalPendingInject.sessionIds
-              : all.filter((s) => s.status === "connected" && s.type !== "multiplayer").slice(0, 1).map((s) => s.id);
+              : all.filter(isRunnableSession).slice(0, 1).map((s) => s.id);
             for (const id of ids) {
               const s = all.find((x) => x.id === id);
               if (s) broadcastSnippetInject(s.id, s.type, resolvedText, execute).catch(console.error);
