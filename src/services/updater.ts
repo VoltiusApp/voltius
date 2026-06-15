@@ -1,5 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-shell";
 
 export type UpdaterStatus =
   | { status: "idle" }
@@ -7,6 +8,7 @@ export type UpdaterStatus =
   | { status: "upToDate" }
   | { status: "downloading"; version: string; progress: number }
   | { status: "ready"; version: string }
+  | { status: "externalUpdate"; version: string }
   | { status: "error"; message: string };
 
 let _state: UpdaterStatus = { status: "idle" };
@@ -35,6 +37,11 @@ export async function installUpdate() {
 /** Manually trigger an update check. */
 export async function checkForUpdate() {
   await invoke("updater_check");
+}
+
+/** Open the Voltius download page (used when this install can't self-update). */
+export async function openDownloadPage() {
+  await open("https://voltius.app/download");
 }
 
 /** Whether the background updater loop is allowed to run. */

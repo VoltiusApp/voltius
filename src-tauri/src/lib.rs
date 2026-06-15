@@ -38,35 +38,107 @@ use storage::secrets::SecretsStore;
 struct PendingUpdate(Mutex<Option<(tauri_plugin_updater::Update, Vec<u8>)>>);
 
 #[cfg(desktop)]
-fn update_cache_dir(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
-    use tauri::Manager;
-    app.path()
-        .app_data_dir()
-        .ok()
-        .map(|d| d.join("pending_update"))
-}
+struct UpdaterBusy(std::sync::Arc<std::sync::atomic::AtomicBool>);
 
 #[cfg(desktop)]
-fn cached_update_version(app: &tauri::AppHandle) -> Option<String> {
-    std::fs::read_to_string(update_cache_dir(app)?.join("version"))
-        .ok()
-        .map(|s| s.trim().to_string())
-}
+struct BusyGuard(std::sync::Arc<std::sync::atomic::AtomicBool>);
 
 #[cfg(desktop)]
-fn save_update_cache(app: &tauri::AppHandle, version: &str, bytes: &[u8]) {
-    if let Some(dir) = update_cache_dir(app) {
-        let _ = std::fs::create_dir_all(&dir);
-        let _ = std::fs::write(dir.join("update.bin"), bytes);
-        let _ = std::fs::write(dir.join("version"), version);
+impl Drop for BusyGuard {
+    fn drop(&mut self) {
+        self.0.store(false, std::sync::atomic::Ordering::SeqCst);
     }
 }
 
 #[cfg(desktop)]
-fn clear_update_cache(app: &tauri::AppHandle) {
-    if let Some(dir) = update_cache_dir(app) {
-        let _ = std::fs::remove_dir_all(dir);
+#[allow(dead_code)] // not every variant is constructed on every target
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Os {
+    Linux,
+    Macos,
+    Windows,
+}
+
+#[cfg(desktop)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum InstallKind {
+    SelfUpdate,
+    External,
+}
+
+/// Decide whether the running install can replace itself in place.
+/// Pure so it can be unit-tested across every platform from one host.
+#[cfg(desktop)]
+fn classify_install(
+    os: Os,
+    appimage_env: bool,
+    exe_path: &std::path::Path,
+    bundle_writable: bool,
+) -> InstallKind {
+    match os {
+        // Tauri's Linux updater only replaces an AppImage (APPIMAGE env set).
+        Os::Linux => {
+            if appimage_env {
+                InstallKind::SelfUpdate
+            } else {
+                InstallKind::External
+            }
+        }
+        // macOS replaces the .app bundle: impossible from a read-only dmg
+        // mount, from a Gatekeeper-translocated path, or when the install
+        // location isn't writable.
+        Os::Macos => {
+            let p_str = exe_path.to_str().unwrap_or("");
+            if exe_path.starts_with("/Volumes/")
+                || p_str.contains("AppTranslocation")
+                || !bundle_writable
+            {
+                InstallKind::External
+            } else {
+                InstallKind::SelfUpdate
+            }
+        }
+        // Per-user NSIS self-updates. A per-machine install still attempts the
+        // update and surfaces any UAC-elevation failure via the error path;
+        // no proactive install-scope detection here.
+        Os::Windows => InstallKind::SelfUpdate,
     }
+}
+
+/// Probe whether the directory containing the `.app` bundle is writable —
+/// i.e. whether the updater could replace the bundle. Writes and removes a
+/// temp file in the bundle's parent (e.g. /Applications). macOS only.
+#[cfg(target_os = "macos")]
+fn mac_install_writable(exe_path: &std::path::Path) -> bool {
+    let bundle = exe_path
+        .ancestors()
+        .find(|p| p.extension().map(|e| e == "app").unwrap_or(false));
+    let Some(parent) = bundle.and_then(|b| b.parent()) else {
+        return false;
+    };
+    let probe = parent.join(".voltius_write_probe");
+    let ok = std::fs::File::create(&probe).is_ok();
+    let _ = std::fs::remove_file(&probe);
+    ok
+}
+
+/// Whether the currently running install can self-update.
+#[cfg(desktop)]
+fn self_update_capable() -> bool {
+    let os = if cfg!(target_os = "linux") {
+        Os::Linux
+    } else if cfg!(target_os = "macos") {
+        Os::Macos
+    } else {
+        Os::Windows
+    };
+    let appimage_env = std::env::var_os("APPIMAGE").is_some();
+    let exe = std::env::current_exe().unwrap_or_default();
+    #[cfg(target_os = "macos")]
+    let bundle_writable = mac_install_writable(&exe);
+    #[cfg(not(target_os = "macos"))]
+    let bundle_writable = true;
+    classify_install(os, appimage_env, &exe, bundle_writable) == InstallKind::SelfUpdate
 }
 
 #[derive(Clone, serde::Serialize)]
@@ -76,6 +148,7 @@ enum UpdaterEvent {
     UpToDate,
     Downloading { version: String, progress: u8 },
     Ready { version: String },
+    ExternalUpdate { version: String },
     Error { message: String },
 }
 
@@ -83,6 +156,16 @@ enum UpdaterEvent {
 async fn check_for_update(handle: tauri::AppHandle) {
     use tauri::{Emitter, Manager};
     use tauri_plugin_updater::UpdaterExt;
+
+    use std::sync::atomic::Ordering;
+    let flag = handle.state::<UpdaterBusy>().0.clone();
+    if flag
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        return; // a check is already running
+    }
+    let _busy = BusyGuard(flag); // released on every return path
 
     let _ = handle.emit("updater-status", UpdaterEvent::Checking);
 
@@ -116,20 +199,20 @@ async fn check_for_update(handle: tauri::AppHandle) {
         }
     };
 
+    // Installs that can't self-update (Linux deb/rpm, macOS from dmg /
+    // translocated, etc.) must not download/install — notify instead.
+    if !self_update_capable() {
+        let _ = handle.emit(
+            "updater-status",
+            UpdaterEvent::ExternalUpdate {
+                version: update.version.clone(),
+            },
+        );
+        return;
+    }
+
     let version = update.version.clone();
     let pending = handle.state::<PendingUpdate>();
-
-    // Skip re-download if we already have this version cached on disk
-    if cached_update_version(&handle).as_deref() == Some(version.as_str()) {
-        if let Some(dir) = update_cache_dir(&handle) {
-            if let Ok(bytes) = std::fs::read(dir.join("update.bin")) {
-                *pending.0.lock().unwrap() = Some((update, bytes));
-                let _ = handle.emit("updater-status", UpdaterEvent::Ready { version });
-                return;
-            }
-        }
-    }
-    clear_update_cache(&handle);
 
     let _ = handle.emit(
         "updater-status",
@@ -179,7 +262,6 @@ async fn check_for_update(handle: tauri::AppHandle) {
         }
     };
 
-    save_update_cache(&handle, &version, &bytes);
     *pending.0.lock().unwrap() = Some((update, bytes));
     let _ = handle.emit("updater-status", UpdaterEvent::Ready { version });
 }
@@ -193,12 +275,20 @@ fn force_quit(app: tauri::AppHandle) {
 fn updater_restart(app: tauri::AppHandle) {
     #[cfg(desktop)]
     {
-        use tauri::Manager;
+        use tauri::{Emitter, Manager};
         let pending = app.state::<PendingUpdate>();
-        if let Some((update, bytes)) = pending.0.lock().unwrap().take() {
-            let _ = update.install(bytes);
-            clear_update_cache(&app);
-        };
+        let taken = pending.0.lock().unwrap().take();
+        if let Some((update, bytes)) = taken {
+            if let Err(e) = update.install(bytes) {
+                let _ = app.emit(
+                    "updater-status",
+                    UpdaterEvent::Error {
+                        message: e.to_string(),
+                    },
+                );
+                return; // do not restart into an unchanged/broken state
+            }
+        }
     }
     app.restart();
 }
@@ -271,6 +361,10 @@ pub fn run() {
             use tauri::Manager;
             #[cfg(desktop)]
             app.manage(PendingUpdate(Mutex::new(None)));
+            #[cfg(desktop)]
+            app.manage(UpdaterBusy(std::sync::Arc::new(
+                std::sync::atomic::AtomicBool::new(false),
+            )));
             app.manage(KnownHostsStore::load());
             app.manage(Arc::new(PendingConflicts::new()));
             app.manage(PortForwardManager::new(app.handle().clone()));
@@ -524,4 +618,91 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(all(test, desktop))]
+mod updater_tests {
+    use super::{classify_install, InstallKind, Os};
+    use std::path::Path;
+
+    #[test]
+    fn linux_appimage_self_updates() {
+        assert_eq!(
+            classify_install(Os::Linux, true, Path::new("/tmp/Voltius.AppImage"), true),
+            InstallKind::SelfUpdate
+        );
+    }
+
+    #[test]
+    fn linux_package_is_external() {
+        assert_eq!(
+            classify_install(Os::Linux, false, Path::new("/usr/bin/voltius"), true),
+            InstallKind::External
+        );
+    }
+
+    #[test]
+    fn macos_in_applications_self_updates() {
+        assert_eq!(
+            classify_install(
+                Os::Macos,
+                false,
+                Path::new("/Applications/Voltius.app/Contents/MacOS/Voltius"),
+                true
+            ),
+            InstallKind::SelfUpdate
+        );
+    }
+
+    #[test]
+    fn macos_from_dmg_is_external() {
+        assert_eq!(
+            classify_install(
+                Os::Macos,
+                false,
+                Path::new("/Volumes/Voltius/Voltius.app/Contents/MacOS/Voltius"),
+                true
+            ),
+            InstallKind::External
+        );
+    }
+
+    #[test]
+    fn macos_translocated_is_external() {
+        assert_eq!(
+            classify_install(
+                Os::Macos,
+                false,
+                Path::new("/private/var/folders/x/AppTranslocation/ABC/d/Voltius.app/Contents/MacOS/Voltius"),
+                true
+            ),
+            InstallKind::External
+        );
+    }
+
+    #[test]
+    fn macos_unwritable_bundle_is_external() {
+        assert_eq!(
+            classify_install(
+                Os::Macos,
+                false,
+                Path::new("/Applications/Voltius.app/Contents/MacOS/Voltius"),
+                false
+            ),
+            InstallKind::External
+        );
+    }
+
+    #[test]
+    fn windows_self_updates() {
+        assert_eq!(
+            classify_install(
+                Os::Windows,
+                false,
+                Path::new(r"C:\Program Files\Voltius\voltius.exe"),
+                true
+            ),
+            InstallKind::SelfUpdate
+        );
+    }
 }

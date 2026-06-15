@@ -8,6 +8,7 @@ import {
   onUpdaterStateChange,
   installUpdate,
   checkForUpdate,
+  openDownloadPage,
   type UpdaterStatus,
 } from "@/services/updater";
 import {
@@ -162,6 +163,24 @@ function UpdateBanner({ state }: { state: UpdaterStatus }) {
         >
           <Icon icon="lucide:refresh-cw" width={13} />
           Restart to update
+        </button>
+      </div>
+    );
+  }
+
+  if (state.status === "externalUpdate") {
+    return (
+      <div className="flex items-center gap-3 px-5 py-3 border-b border-(--t-border) bg-(--t-bg-elevated) shrink-0">
+        <Icon icon="lucide:sparkles" width={15} className="text-(--t-accent) shrink-0" />
+        <span className="text-sm text-(--t-text-primary) min-w-0">
+          v{state.version} is available
+        </span>
+        <button
+          onClick={() => openDownloadPage().catch(() => {})}
+          className="btn btn-primary ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0"
+        >
+          <Icon icon="lucide:download" width={13} />
+          Download
         </button>
       </div>
     );
