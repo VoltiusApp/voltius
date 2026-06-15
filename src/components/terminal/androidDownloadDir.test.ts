@@ -1,14 +1,14 @@
-import { describe, it, expect } from "vitest";
-import { needsPicker } from "./androidDownloadDir";
+import { needsPicker } from "./androidDownloadDir.ts";
 
-describe("needsPicker", () => {
-  it("requires a picker when no folder is set", () => {
-    expect(needsPicker(null)).toBe(true);
-  });
-  it("requires a picker when the folder URI is empty", () => {
-    expect(needsPicker({ uri: "", displayName: null })).toBe(true);
-  });
-  it("does not require a picker when a folder is set", () => {
-    expect(needsPicker({ uri: "content://tree/x", displayName: "x" })).toBe(false);
-  });
-});
+function equal<T>(actual: T, expected: T) {
+  if (actual !== expected) throw new Error(`Expected ${String(expected)}, got ${String(actual)}`);
+}
+
+function run() {
+  equal(needsPicker(null), true);
+  equal(needsPicker({ uri: "", displayName: null }), true);
+  equal(needsPicker({ uri: "content://tree/x", displayName: "x" }), false);
+}
+
+run();
+console.log("androidDownloadDir tests passed");
