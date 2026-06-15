@@ -1,22 +1,10 @@
 import { createPortal } from "react-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect } from "react";
 import { Icon } from "@iconify/react";
-import { invoke } from "@tauri-apps/api/core";
-import { useSessionStore } from "@/stores/sessionStore";
-import { useConnectionStore } from "@/stores/connectionStore";
-import { useUIStore } from "@/stores/uiStore";
-import { useLayoutStore } from "@/stores/layoutStore";
-import { matchesSearch } from "@/utils/connectionFilter";
 import { formatLocalShellTitle } from "@/utils/localShellTitle";
-import { useIsAndroid } from "@/utils/platform";
 import { ConnectionAvatar } from "./ConnectionAvatar";
 import { HostRow } from "./HostPickerPanel";
-import { getSnippetInjectionTargetIds, waitForConnectedSessionIds } from "./sessionPickerTargets";
-
-interface ShellOption {
-  name: string;
-  path: string;
-}
+import { useSnippetTargetPicker } from "@/hooks/useSnippetTargetPicker";
 
 interface Props {
   mode: "insert" | "execute";
@@ -25,38 +13,7 @@ interface Props {
 }
 
 export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
-  const { sessions } = useSessionStore();
-  const { connections } = useConnectionStore();
-  const [search, setSearch] = useState("");
-  const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
-  const [selectedConnectionIds, setSelectedConnectionIds] = useState<Set<string>>(new Set());
-  const [localShell, setLocalShell] = useState<string | null>(null);
-  const [shells, setShells] = useState<ShellOption[]>([]);
-  // Android sandbox can't spawn a local PTY — hide local-shell rows there.
-  const isAndroid = useIsAndroid();
-
-  useEffect(() => {
-    invoke<ShellOption[]>("local_list_shells").then(setShells).catch(() => {});
-  }, []);
-
-  const activeSessions = useMemo(
-    () => sessions.filter((s) => s.status === "connected" && s.type !== "multiplayer"),
-    [sessions],
-  );
-
-  const filteredSessions = useMemo(
-    () => !search
-      ? activeSessions
-      : activeSessions.filter((s) => s.connectionName.toLowerCase().includes(search.toLowerCase())),
-    [activeSessions, search],
-  );
-
-  const filteredHosts = useMemo(
-    () => connections
-      .filter((c) => c.connection_type !== "serial")
-      .filter((c) => matchesSearch(c, search)),
-    [connections, search],
-  );
+  const picker = useSnippetTargetPicker();
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -66,71 +23,10 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  function toggleSession(id: string) {
-    setSelectedSessionIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }
-
-  function toggleConnection(id: string) {
-    setSelectedConnectionIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }
-
-  const totalSelected = selectedSessionIds.size + selectedConnectionIds.size + (localShell !== null ? 1 : 0);
-
-  async function handleConfirm() {
-    const sessionIds = [...selectedSessionIds];
-    const pickedConnections = connections.filter((c) => selectedConnectionIds.has(c.id));
-
-    onConfirm(sessionIds);
-
-    const connectionSessionIds = pickedConnections.length > 0
-      ? await useSessionStore.getState().connectMany(pickedConnections.map((conn) => conn.id)).catch(() => [])
-      : [];
-
-    const localSessionId = localShell !== null
-      ? useSessionStore.getState().beginLocalSession(localShell || undefined)
-      : null;
-
-    const newSessionIds = localSessionId
-      ? [...connectionSessionIds, localSessionId]
-      : connectionSessionIds;
-
-    const allSessionIds = getSnippetInjectionTargetIds(sessionIds, newSessionIds);
-
-    if (allSessionIds.length > 0) {
-      useUIStore.getState().setActiveNav("terminal");
-
-      if (allSessionIds.length === 1) {
-        useSessionStore.getState().setActive(allSessionIds[0]);
-      } else {
-        const layout = useLayoutStore.getState();
-        layout.openSessions(allSessionIds);
-        useSessionStore.getState().setActive(allSessionIds[0]);
-      }
-    }
-
-    if (newSessionIds.length > 0) {
-      void waitForConnectedSessionIds(
-        newSessionIds,
-        () => useSessionStore.getState().sessions,
-        (listener) => useSessionStore.subscribe(listener),
-      ).then(onConfirm);
-    }
-
-    onClose();
-  }
-
   const label = mode === "insert" ? "Insert to..." : "Execute in...";
   const confirmLabel = mode === "insert"
-    ? `Insert to ${totalSelected} target${totalSelected !== 1 ? "s" : ""}`
-    : `Execute in ${totalSelected} target${totalSelected !== 1 ? "s" : ""}`;
+    ? `Insert to ${picker.totalSelected} target${picker.totalSelected !== 1 ? "s" : ""}`
+    : `Execute in ${picker.totalSelected} target${picker.totalSelected !== 1 ? "s" : ""}`;
 
   return createPortal(
     <>
@@ -152,8 +48,8 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
           <div className="relative">
             <Icon icon="lucide:search" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-(--t-text-dim)" />
             <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={picker.search}
+              onChange={(e) => picker.setSearch(e.target.value)}
               placeholder="Filter..."
               autoFocus
               className="form-input w-full pl-8 pr-2 h-8 rounded-lg text-xs outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
@@ -162,33 +58,33 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
         </div>
 
         <div className="flex-1 overflow-y-auto py-1.5 px-2">
-          {activeSessions.length === 0 && !search && (
+          {picker.activeSessions.length === 0 && !picker.search && (
             <p className="px-3 py-3 text-xs text-(--t-text-muted)">No active sessions</p>
           )}
 
-          {filteredSessions.length > 0 && (
+          {picker.filteredSessions.length > 0 && (
             <>
               <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-(--t-text-dim)">
                 Active Sessions
               </p>
-              {filteredSessions.map((s) => (
+              {picker.filteredSessions.map((s) => (
                 <HostRow
                   key={s.id}
                   avatar={
                     <div
                       className="rounded-lg flex items-center justify-center shrink-0 w-[1.867rem] h-[1.867rem] transition-colors"
                       style={{
-                        background: selectedSessionIds.has(s.id) ? "var(--t-accent)" : "var(--t-bg-elevated)",
-                        color: selectedSessionIds.has(s.id) ? "#fff" : "var(--t-text-dim)",
+                        background: picker.selectedSessionIds.has(s.id) ? "var(--t-accent)" : "var(--t-bg-elevated)",
+                        color: picker.selectedSessionIds.has(s.id) ? "#fff" : "var(--t-text-dim)",
                       }}
                     >
-                      <Icon icon={selectedSessionIds.has(s.id) ? "lucide:check" : "lucide:terminal"} width={13} />
+                      <Icon icon={picker.selectedSessionIds.has(s.id) ? "lucide:check" : "lucide:terminal"} width={13} />
                     </div>
                   }
                   name={s.connectionName}
                   sub={s.type === "local" ? "This computer" : "SSH Session"}
-                  isSelected={selectedSessionIds.has(s.id)}
-                  onClick={() => toggleSession(s.id)}
+                  isSelected={picker.selectedSessionIds.has(s.id)}
+                  onClick={() => picker.toggleSession(s.id)}
                 />
               ))}
               <div className="mx-2 my-1.5 border-t border-(--t-bg-terminal)" />
@@ -200,8 +96,8 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
           </p>
 
           {/* Local shell rows */}
-          {!search && !isAndroid && (shells.length > 0 ? shells : [{ name: "Local Shell", path: "" }]).map((s) => {
-            const selected = localShell === s.path;
+          {!picker.search && !picker.isAndroid && (picker.shells.length > 0 ? picker.shells : [{ name: "Local Shell", path: "" }]).map((s) => {
+            const selected = picker.localShell === s.path;
             return (
               <HostRow
                 key={`local-${s.path}`}
@@ -219,27 +115,27 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
                 name={formatLocalShellTitle(s.path) || s.name}
                 sub="This computer"
                 isSelected={selected}
-                onClick={() => setLocalShell(selected ? null : s.path)}
+                onClick={() => picker.setLocalShell(selected ? null : s.path)}
               />
             );
           })}
 
-          {!search && filteredHosts.length > 0 && (
+          {!picker.search && picker.filteredHosts.length > 0 && (
             <div className="mx-2 my-1.5 border-t border-(--t-bg-terminal)" />
           )}
 
-          {filteredHosts.length === 0 && !search && (
+          {picker.filteredHosts.length === 0 && !picker.search && (
             <p className="px-3 py-4 text-xs text-center text-(--t-text-muted)">No remote hosts found</p>
           )}
-          {filteredHosts.length === 0 && search && (
+          {picker.filteredHosts.length === 0 && picker.search && (
             <p className="px-3 py-4 text-xs text-center text-(--t-text-muted)">No hosts found</p>
           )}
 
-          {filteredHosts.map((c) => (
+          {picker.filteredHosts.map((c) => (
             <HostRow
               key={c.id}
               avatar={
-                selectedConnectionIds.has(c.id)
+                picker.selectedConnectionIds.has(c.id)
                   ? (
                     <div className="rounded-lg flex items-center justify-center shrink-0 w-[1.867rem] h-[1.867rem]" style={{ background: "var(--t-accent)" }}>
                       <Icon icon="lucide:check" width={13} className="text-white" />
@@ -249,16 +145,16 @@ export function SessionPickerPanel({ mode, onConfirm, onClose }: Props) {
               }
               name={c.name ?? `${c.username}@${c.host}`}
               sub={`${c.username}@${c.host}:${c.port}`}
-              isSelected={selectedConnectionIds.has(c.id)}
-              onClick={() => toggleConnection(c.id)}
+              isSelected={picker.selectedConnectionIds.has(c.id)}
+              onClick={() => picker.toggleConnection(c.id)}
             />
           ))}
         </div>
 
-        {totalSelected > 0 && (
+        {picker.totalSelected > 0 && (
           <div className="shrink-0 px-3 py-3 border-t border-(--t-bg-terminal) bg-(--t-bg-card)">
             <button
-              onClick={() => void handleConfirm()}
+              onClick={() => { void picker.confirm(onConfirm).then(() => onClose()); }}
               className="w-full h-9 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-opacity"
               style={{ background: "var(--t-accent)", color: "#fff" }}
               onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
