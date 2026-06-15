@@ -94,4 +94,12 @@ assertEqual(initialMobileNavState.tab, "hosts", "initial tab is hosts");
   assertEqual(r.state.tab, "hosts", "sftp tab reset to hosts");
 }
 
+// back clears snippet-target sheet
+{
+  const s = { ...initialMobileNavState, sheet: { kind: "snippet-target", snippetId: "x", mode: "execute" } as const };
+  const r = handleBack(s);
+  assertEqual(r.handled, true, "back handled for snippet-target sheet");
+  assertEqual(r.state.sheet, null, "snippet-target sheet cleared on back");
+}
+
 console.log("ALL PASS");

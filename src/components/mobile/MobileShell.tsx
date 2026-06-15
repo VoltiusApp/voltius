@@ -23,6 +23,7 @@ import MobileSftpScreen from "./panels/MobileSftpScreen";
 import OmniSearch from "@/components/omni/OmniSearch";
 import MobileAccountPage from "./screens/MobileAccountPage";
 import MobilePanelHeader from "./panels/MobilePanelHeader";
+import MobileSnippetTargetSheet from "./sheets/MobileSnippetTargetSheet";
 import type { MorePage } from "@/stores/mobileNavCore";
 
 const MORE_PAGE_TITLES: Record<MorePage, string> = {
@@ -131,6 +132,9 @@ export default function MobileShell() {
       {sheet?.kind === "vault-switcher" && <VaultSwitcherSheet />}
       {sheet?.kind === "host-actions" && <HostActionsSheet hostId={sheet.hostId} />}
       {sheet?.kind === "omni" && <OmniSearch onClose={closeSheet} />}
+      {sheet?.kind === "snippet-target" && (
+        <MobileSnippetTargetSheet snippetId={sheet.snippetId} mode={sheet.mode} preselectSessionId={sheet.preselectSessionId} />
+      )}
     </div>
   );
 }

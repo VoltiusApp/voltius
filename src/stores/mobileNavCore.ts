@@ -19,6 +19,9 @@ export type MobileSheet =
   | { kind: "vault-switcher" }
   | { kind: "host-actions"; hostId: string }
   | { kind: "omni" }
+  | { kind: "snippet-target"; snippetId: string; mode: "insert" | "execute"; preselectSessionId?: string }
+  | { kind: "snippet-actions"; snippetId: string }
+  | { kind: "snippets"; sessionId?: string }
   | null;
 
 export interface MobileNavState {
