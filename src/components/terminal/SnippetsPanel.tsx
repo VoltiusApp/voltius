@@ -15,6 +15,7 @@ import {
   type ParsedVariable,
   type DynamicContext,
 } from "@/services/snippetParser";
+import { buildDynamicContext } from "@/services/snippetRunCore";
 import { SnippetVariableModal } from "@/components/terminal/SnippetVariableModal";
 import { SnippetForm } from "@/components/snippets/SnippetForm";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
@@ -22,23 +23,6 @@ import type { Snippet, Folder, SnippetFormData, FolderFormData } from "@/types";
 import type { Connection } from "@/types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function buildDynamicContext(
-  session: { type: string; connectionId: string; connectionName: string } | undefined,
-  connections: Connection[],
-  clipboard = "",
-): DynamicContext {
-  if (!session || session.type === "local") {
-    return { connectionHost: "localhost", connectionUsername: "local", connectionName: "Local Shell", clipboard };
-  }
-  const conn = connections.find((c) => c.id === session.connectionId);
-  return {
-    connectionHost: conn?.host ?? "",
-    connectionUsername: conn?.username ?? "",
-    connectionName: session.connectionName,
-    clipboard,
-  };
-}
 
 function isContextuallyRelevant(snippet: Snippet, conn: Connection | undefined): boolean {
   if (snippet.only_for_connection_tags?.length && conn) {

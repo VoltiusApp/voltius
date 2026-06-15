@@ -31,8 +31,9 @@ import {
   buildDynamicValues,
   buildDefaultValues,
   resolveTemplate,
-  type DynamicContext,
 } from "@/services/snippetParser";
+import { buildDynamicContext } from "@/services/snippetRunCore";
+import { snippetToForm } from "@/utils/snippetForm";
 import { SnippetVariableModal } from "@/components/terminal/SnippetVariableModal";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { useEditPanel } from "@/hooks/useEditPanel";
@@ -50,23 +51,6 @@ import { useSnippetRecentStore, type RecentSnippetExecution, type RecentTarget }
 import { selectRecentSnippetEntries } from "@/utils/snippetRecent";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function buildDynamicContext(
-  session: { type: string; connectionId: string; connectionName: string } | undefined,
-  connections: Connection[],
-  clipboard = "",
-): DynamicContext {
-  if (!session || session.type === "local") {
-    return { connectionHost: "localhost", connectionUsername: "local", connectionName: "Local Shell", clipboard };
-  }
-  const conn = connections.find((c) => c.id === session.connectionId);
-  return {
-    connectionHost: conn?.host ?? "",
-    connectionUsername: conn?.username ?? "",
-    connectionName: session.connectionName,
-    clipboard,
-  };
-}
 
 function isContextuallyRelevant(snippet: Snippet, conn: Connection | undefined): boolean {
   if (snippet.only_for_connection_tags?.length && conn) {
@@ -87,21 +71,6 @@ function sortSnippets(list: Snippet[], mode: SortMode): Snippet[] {
     return 0;
   });
 }
-
-function snippetToForm(s: Snippet): SnippetFormData {
-  return {
-    name: s.name,
-    content: s.content,
-    description: s.description,
-    tags: s.tags,
-    folder_id: s.folder_id,
-    favorite: s.favorite,
-    only_for_connection_tags: s.only_for_connection_tags,
-    only_for_distros: s.only_for_distros,
-    vault_id: s.vault_id,
-  };
-}
-
 
 function formatRelativeTime(ts: number): string {
   const diff = Date.now() - ts;
