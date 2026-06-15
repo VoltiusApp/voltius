@@ -361,6 +361,7 @@ pub fn run() {
             use tauri::Manager;
             #[cfg(desktop)]
             app.manage(PendingUpdate(Mutex::new(None)));
+            #[cfg(desktop)]
             app.manage(UpdaterBusy(std::sync::Arc::new(
                 std::sync::atomic::AtomicBool::new(false),
             )));
