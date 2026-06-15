@@ -86,3 +86,6 @@ jni = "0.21"
 # `ring` is already in the tree (russh); rustls is pinned to reqwest's 0.23 line.
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 webpki-roots = "1"
+
+[dev-dependencies]
+tempfile = "3"

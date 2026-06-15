@@ -1,6 +1,7 @@
 pub mod connections;
 pub mod crypto;
 pub mod docker;
+pub mod downloads;
 pub mod folders;
 pub mod fs;
 pub mod http;
