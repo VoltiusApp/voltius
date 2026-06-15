@@ -11,6 +11,9 @@ import {
   pickLocalPath, pickLocalPaths,
   sftpDownload, sftpDownloadDir, sftpDownloadDirTar, sftpDownloadBatchTar,
 } from "@/services/sftp";
+import { useIsAndroid } from "@/utils/platform";
+import { downloadDirGet, downloadDirPick, downloadTempPath, downloadPublish } from "@/services/downloads";
+import { needsPicker } from "@/components/terminal/androidDownloadDir";
 import { FilePane } from "@/components/filetransfer/FilePane";
 import { TransferQueue } from "@/components/filetransfer/TransferQueue";
 import { triggerOsDrop, triggerUpload } from "@/components/filetransfer/osDropPipeline";
@@ -28,6 +31,7 @@ export default function PanelSftpSection() {
   const setFollowCwd = usePanelSftpStore((s) => s.setFollowCwd);
   const terminalCwd = useTerminalCwdStore((s) => (activeSessionId ? s.cwds[activeSessionId] : undefined));
   const runTransfer = useTransferQueueStore((s) => s.runTransfer);
+  const isAndroid = useIsAndroid();
   const transfers = useTransferQueueStore((s) => s.transfers);
   const clearCompleted = useTransferQueueStore((s) => s.clearCompleted);
   const cancelTransfer = useTransferQueueStore((s) => s.cancelTransfer);
@@ -142,9 +146,33 @@ export default function PanelSftpSection() {
   const canDownload = panelState?.tag === "connected" && !panelState.isLocal && selected.length > 0;
   const downloadFiles = useCallback(async (files: FileEntry[]) => {
     if (files.length === 0 || panelState?.tag !== "connected" || panelState.isLocal || !panelState.sftpId) return;
+    const sftpId = panelState.sftpId;
+
+    if (isAndroid) {
+      let dir = await downloadDirGet();
+      if (needsPicker(dir)) {
+        dir = await downloadDirPick();
+        if (needsPicker(dir)) return; // user cancelled the folder picker
+      }
+      for (const file of files) {
+        const useTar = file.isDir && (await tarUsable([sftpId], true));
+        await runTransfer(file.name, "←", async (tid) => {
+          const tmp = await downloadTempPath(tid, file.name);
+          if (file.isDir) {
+            await (useTar
+              ? sftpDownloadDirTar({ sftpId, remotePath: file.path, localPath: tmp, transferId: tid })
+              : sftpDownloadDir({ sftpId, remotePath: file.path, localPath: tmp, transferId: tid }));
+          } else {
+            await sftpDownload({ sftpId, remotePath: file.path, localPath: tmp, transferId: tid });
+          }
+          await downloadPublish(tmp, file.name);
+        }, undefined, useTar);
+      }
+      return;
+    }
+
     const dstDir = await pickLocalPath({ directory: true, title: "Download to folder" });
     if (!dstDir) return;
-    const sftpId = panelState.sftpId;
     const base = dstDir.replace(/[\\/]$/, "");
     const label = files.length === 1 ? files[0].name : `${files.length} items`;
     // Archives remotely + extracts locally, so both ends need tar.
@@ -169,7 +197,7 @@ export default function PanelSftpSection() {
         undefined, file.isDir && useTar,
       );
     }
-  }, [panelState, runTransfer]);
+  }, [panelState, runTransfer, isAndroid]);
   const handleDownload = useCallback(() => { void downloadFiles(selected); }, [downloadFiles, selected]);
 
   // ── Layout ──────────────────────────────────────────────────────────────────
