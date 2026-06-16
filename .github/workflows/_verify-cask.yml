@@ -1,0 +1,23 @@
+# TEMPORARY feature-branch verifier — proves the generated cask passes brew
+# audit on a real macOS runner. No side effects (no tap push, no winget).
+# DELETE before merging to main.
+name: _verify-cask
+on:
+  push:
+    branches: [feat/macos-windows-installs]
+jobs:
+  audit:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Generate cask
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p out/Casks
+          bash scripts/gen-homebrew-cask.sh v0.4.0 > out/Casks/voltius.rb
+          cat out/Casks/voltius.rb
+      - name: brew style + audit
+        run: |
+          brew style out/Casks/voltius.rb
+          brew audit --cask --online out/Casks/voltius.rb
