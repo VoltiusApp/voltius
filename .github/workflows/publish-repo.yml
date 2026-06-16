@@ -1,0 +1,39 @@
+# Publishes the apt + yum repositories to Cloudflare R2 (repo.voltius.app) from
+# the last 5 GitHub releases. Runs after a release is published (and can be
+# re-run manually). Stateless rebuild → smoke-tested install → rclone sync.
+#
+# Required repository secrets:
+#   REPO_GPG_PRIVATE_KEY, REPO_GPG_PASSPHRASE   package signing key
+#   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY      R2 S3 token (bucket voltius-repo)
+name: publish-repo
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch: {}
+
+# Don't let two publishes race the same R2 paths.
+concurrency:
+  group: publish-repo
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install rclone
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq rclone
+
+      - name: Build, smoke-test, and publish repos to R2
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.REPO_GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.REPO_GPG_PASSPHRASE }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/publish-repos.sh

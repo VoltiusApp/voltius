@@ -1,0 +1,35 @@
+# TEMPORARY: verify the R2 publish pipeline on the feature branch before the real
+# release-triggered publish-repo.yml lands on the default branch (release /
+# workflow_dispatch only fire from the default branch). Same steps as
+# publish-repo.yml, triggered by pushing this branch. DELETE before/at merge.
+name: repo-publish-test
+
+on:
+  push:
+    branches:
+      - feat/apt-yum-repos
+
+concurrency:
+  group: publish-repo
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install rclone
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq rclone
+
+      - name: Build, smoke-test, and publish repos to R2
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.REPO_GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.REPO_GPG_PASSPHRASE }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/publish-repos.sh
