@@ -20,4 +20,6 @@ jobs:
       - name: brew style + audit
         run: |
           brew style out/Casks/voltius.rb
-          brew audit --cask --online out/Casks/voltius.rb
+          brew tap-new voltiusapp/voltius --no-git
+          cp out/Casks/voltius.rb "$(brew --repository voltiusapp/voltius)/Casks/voltius.rb"
+          brew audit --cask --online voltiusapp/voltius/voltius
