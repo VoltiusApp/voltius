@@ -67,9 +67,33 @@ sudo dnf install voltius
 On older dnf, replace the `curl` line with `sudo dnf config-manager --add-repo https://repo.voltius.app/voltius.repo`.
 </details>
 
-### Windows & macOS
+### macOS — Homebrew
 
-Download from [voltius.app/download](https://voltius.app/download).
+```sh
+brew install --cask voltiusapp/voltius/voltius
+```
+
+Voltius is not yet signed/notarized. If macOS Gatekeeper blocks the first launch,
+right-click the app and choose **Open**, or install with `--no-quarantine`:
+
+```sh
+brew install --cask --no-quarantine voltiusapp/voltius/voltius
+```
+
+### Windows — winget
+
+```sh
+winget install Voltius.Voltius
+```
+
+Windows SmartScreen may warn that the publisher is unverified (the app is not yet
+code-signed) — choose **More info → Run anyway**.
+
+### Other downloads
+
+Direct installers (`.dmg`, `.msi`, `.exe`, `.AppImage`) are on
+[voltius.app/download](https://voltius.app/download). Voltius updates itself in-app
+on macOS and Windows after installation.
 
 ## ⚖️ Comparison (WIP)
 

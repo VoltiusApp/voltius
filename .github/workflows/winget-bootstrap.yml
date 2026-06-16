@@ -1,0 +1,21 @@
+# One-time bootstrap of the Voltius.Voltius winget manifest. Run manually once,
+# then delete this file — recurring updates are handled by publish-installers.yml.
+name: winget-bootstrap
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to bootstrap (e.g. v0.4.0)'
+        required: true
+        type: string
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: komac new
+        env:
+          GITHUB_TOKEN: ${{ secrets.WINGET_PKGS_TOKEN }}
+          GH_TOKEN: ${{ secrets.WINGET_PKGS_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: bash scripts/bootstrap-winget.sh

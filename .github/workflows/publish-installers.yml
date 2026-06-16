@@ -1,0 +1,84 @@
+# Publishes the Homebrew cask (tap VoltiusApp/homebrew-voltius) and the winget
+# manifest (microsoft/winget-pkgs) from a published GitHub release.
+#
+# Required repository secrets:
+#   HOMEBREW_TAP_TOKEN   PAT with push access to VoltiusApp/homebrew-voltius
+#   WINGET_PKGS_TOKEN    classic PAT (public_repo) for komac to fork winget-pkgs
+name: publish-installers
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (e.g. v0.4.0)'
+        required: true
+        type: string
+
+concurrency:
+  group: publish-installers
+  cancel-in-progress: false
+
+jobs:
+  homebrew:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Resolve tag
+        id: tag
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: echo "tag=${DISPATCH_TAG:-$RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate cask
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p out/Casks
+          bash scripts/gen-homebrew-cask.sh "${{ steps.tag.outputs.tag }}" > out/Casks/voltius.rb
+          cat out/Casks/voltius.rb
+
+      - name: Audit cask
+        run: |
+          brew style out/Casks/voltius.rb
+          brew audit --cask --online out/Casks/voltius.rb
+
+      - name: Push cask to tap
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/VoltiusApp/homebrew-voltius" tap
+          mkdir -p tap/Casks
+          cp out/Casks/voltius.rb tap/Casks/voltius.rb
+          cd tap
+          if git diff --quiet; then
+            echo "Cask already up to date for ${TAG}"; exit 0
+          fi
+          git config user.name 'voltius-bot'
+          git config user.email 'bot@voltius.app'
+          git add Casks/voltius.rb
+          git commit -m "chore: update voltius cask to ${TAG}"
+          git push origin HEAD:main
+
+  winget:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve tag
+        id: tag
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: echo "tag=${DISPATCH_TAG:-$RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Submit/update winget manifest
+        uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: Voltius.Voltius
+          release-tag: ${{ steps.tag.outputs.tag }}
+          installers-regex: '_(x64|arm64)-setup\.exe$'
+          token: ${{ secrets.WINGET_PKGS_TOKEN }}
