@@ -88,7 +88,7 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
       <MoveToFolderSheet
         targets={folderTargets}
         currentFolderId={conn.folder_id ?? null}
-        onPick={(folderId) => { void moveObjectsToFolder([hostId], "connection", folderId); }}
+        onPick={(folderId) => { void (async () => { await moveObjectsToFolder([hostId], "connection", folderId); await useConnectionStore.getState().loadConnections(); })(); }}
         onClose={closeSheet}
       />
     );
