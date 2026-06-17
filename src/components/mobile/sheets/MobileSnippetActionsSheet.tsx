@@ -6,8 +6,11 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useEffectivePinned } from "@/hooks/useEffectivePinned";
 import { snippetToForm } from "@/utils/snippetForm";
+import { useAllSnippetFolders } from "@/hooks/useAllSnippetFolders";
+import { buildMoveTargets } from "@/components/mobile/folders/mobileFolderCore";
+import MoveToFolderSheet from "./MoveToFolderSheet";
 
-type Mode = "menu" | "confirm-delete" | "move" | "copy";
+type Mode = "menu" | "confirm-delete" | "move" | "copy" | "move-folder";
 
 type Item = { icon: string; label: string; danger?: boolean; onTap: () => void };
 
@@ -20,6 +23,7 @@ export default function MobileSnippetActionsSheet({ snippetId }: { snippetId: st
   const deleteSnippet = useSnippetStore((s) => s.deleteSnippet);
   const pinSnippet = useSnippetStore((s) => s.pinSnippet);
   const vaults = useVaultStore((s) => s.vaults);
+  const allSnippetFolders = useAllSnippetFolders();
   // useEffectivePinned is a hook — must be called unconditionally BEFORE any early return
   const pinned = useEffectivePinned(snippet ?? ({} as never), "snippet");
   const [mode, setMode] = useState<Mode>("menu");
@@ -52,6 +56,17 @@ export default function MobileSnippetActionsSheet({ snippetId }: { snippetId: st
     );
   }
 
+  if (mode === "move-folder") {
+    return (
+      <MoveToFolderSheet
+        targets={buildMoveTargets(allSnippetFolders, "snippet")}
+        currentFolderId={snippet.folder_id ?? null}
+        onPick={(folderId) => { void updateSnippet(snippetId, { ...snippetToForm(snippet), folder_id: folderId ?? undefined }); }}
+        onClose={closeSheet}
+      />
+    );
+  }
+
   if (mode === "move" || mode === "copy") {
     const copy = mode === "copy";
     return (
@@ -77,6 +92,7 @@ export default function MobileSnippetActionsSheet({ snippetId }: { snippetId: st
     { icon: pinned ? "lucide:pin-off" : "lucide:pin", label: pinned ? "Unpin" : "Pin", onTap: () => { void pinSnippet(snippetId, !pinned); closeSheet(); } },
     ...(vaultTargets.length > 0 ? [{ icon: "lucide:folder-input", label: "Move to vault", onTap: () => setMode("move") }] : []),
     ...(vaultTargets.length > 0 ? [{ icon: "lucide:copy-plus", label: "Copy to vault", onTap: () => setMode("copy") }] : []),
+    { icon: "lucide:folder-input", label: "Move to folder", onTap: () => setMode("move-folder") },
     { icon: "lucide:trash-2", label: "Delete", danger: true, onTap: () => setMode("confirm-delete") },
   ];
 
