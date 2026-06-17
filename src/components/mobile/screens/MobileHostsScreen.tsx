@@ -90,8 +90,12 @@ export default function MobileHostsScreen() {
   const isPinnedFn = useEffectivePinnedPredicate();
 
   const visible = useMemo(() => {
+    // NOTE: deliberately no deleted_at filter — the rest of the app (desktop list,
+    // vault counts, SFTP picker) ignores tombstones too, and tombstones are
+    // currently set spuriously by sync (see sync-split-key bug). Filtering here
+    // silently hid live hosts and made the count (17) disagree with the list (16).
     const inVault = connections.filter(
-      (c) => !c.deleted_at && selectedVaultIds.includes(c.vault_id ?? "personal"),
+      (c) => selectedVaultIds.includes(c.vault_id ?? "personal"),
     );
     const q = search.trim().toLowerCase();
     const filtered = q
