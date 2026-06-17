@@ -112,7 +112,7 @@ export default function MobileShell() {
         {/* Pushed full-screen pages overlay everything */}
         {top?.kind === "host-edit" && <MobileHostEditScreen hostId={top.hostId} />}
         {top?.kind === "snippet-edit" && <MobileSnippetEditScreen snippetId={top.snippetId} />}
-        {top?.kind === "more-page" && top.page === "keychain" && <MobileKeychainScreen folderId={top.folderId} />}
+        {top?.kind === "more-page" && top.page === "keychain" && <MobileKeychainScreen />}
         {top?.kind === "more-page" && top.page === "port-forwarding" && <MobilePortForwardingScreen folderId={top.folderId} />}
         {top?.kind === "more-page" && top.page === "known-hosts" && <MobileKnownHostsScreen />}
         {top?.kind === "more-page" && top.page === "logs" && <MobileLogsScreen />}

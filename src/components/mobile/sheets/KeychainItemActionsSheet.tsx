@@ -1,14 +1,18 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import BottomSheet from "./BottomSheet";
+import MoveToFolderSheet from "./MoveToFolderSheet";
 import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useNotificationStore } from "@/stores/notificationStore";
+import { useFolderStore } from "@/stores/folderStore";
+import { useAllFolders } from "@/hooks/useAllFolders";
 import { getSecret } from "@/services/vault";
 import { writeClipboard } from "@/utils/clipboard";
+import { buildMoveTargets } from "@/components/mobile/folders/mobileFolderCore";
 import type { SshKey, Identity } from "@/types";
 
-type Mode = "menu" | "confirm-delete";
+type Mode = "menu" | "confirm-delete" | "move-folder";
 
 type RowItem = { icon: string; label: string; danger?: boolean; slug: string; onTap: () => void };
 
@@ -24,6 +28,8 @@ export default function KeychainItemActionsSheet(props: Props) {
   const { kind, item, onClose } = props;
   const deleteKey = useKeyStore((s) => s.deleteKey);
   const deleteIdentity = useIdentityStore((s) => s.deleteIdentity);
+  const moveObjectsToFolder = useFolderStore((s) => s.moveObjectsToFolder);
+  const allFolders = useAllFolders();
   const [mode, setMode] = useState<Mode>("menu");
 
   const name = item.name ?? (kind === "key" ? "Unnamed key" : (item as Identity).username);
@@ -39,6 +45,17 @@ export default function KeychainItemActionsSheet(props: Props) {
       <span className="text-sm font-medium">{it.label}</span>
     </button>
   );
+
+  if (mode === "move-folder") {
+    return (
+      <MoveToFolderSheet
+        targets={buildMoveTargets(allFolders, "keychain")}
+        currentFolderId={item.folder_id ?? null}
+        onPick={(folderId) => { void moveObjectsToFolder([item.id], kind === "key" ? "key" : "identity", folderId); }}
+        onClose={onClose}
+      />
+    );
+  }
 
   if (mode === "confirm-delete") {
     return (
@@ -69,6 +86,7 @@ export default function KeychainItemActionsSheet(props: Props) {
           toast("Copied username", "success");
           onClose();
         } },
+    { icon: "lucide:folder-tree", label: "Move to folder", slug: "move-folder", onTap: () => setMode("move-folder") },
     { icon: "lucide:trash-2", label: "Delete", danger: true, slug: "delete", onTap: () => setMode("confirm-delete") },
   ];
 
