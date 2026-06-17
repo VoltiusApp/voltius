@@ -4,6 +4,8 @@ import BottomSheet from "./BottomSheet";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useConnectionStore, connectionToFormData } from "@/stores/connectionStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
+import { useAllFolders } from "@/hooks/useAllFolders";
+import { useFolderStore } from "@/stores/folderStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
@@ -11,8 +13,10 @@ import { useEffectivePinned } from "@/hooks/useEffectivePinned";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { writeClipboard } from "@/utils/clipboard";
+import { buildMoveTargets } from "@/components/mobile/folders/mobileFolderCore";
+import MoveToFolderSheet from "./MoveToFolderSheet";
 
-type Mode = "menu" | "confirm-delete" | "move";
+type Mode = "menu" | "confirm-delete" | "move" | "move-folder";
 
 type Item = { icon: string; label: string; danger?: boolean; onTap: () => void };
 
@@ -30,6 +34,9 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(hostId, "connection"));
   const pinConnection = useConnectionStore((s) => s.pinConnection);
   const effectivePinned = useEffectivePinned(conn ?? { id: hostId }, "connection");
+  const allFolders = useAllFolders();
+  const moveObjectsToFolder = useFolderStore((s) => s.moveObjectsToFolder);
+  const folderTargets = buildMoveTargets(allFolders, "connection");
   const [mode, setMode] = useState<Mode>("menu");
 
   if (!conn) return null;
@@ -76,6 +83,17 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
     );
   }
 
+  if (mode === "move-folder") {
+    return (
+      <MoveToFolderSheet
+        targets={folderTargets}
+        currentFolderId={conn.folder_id ?? null}
+        onPick={(folderId) => { void moveObjectsToFolder([hostId], "connection", folderId); }}
+        onClose={closeSheet}
+      />
+    );
+  }
+
   const items: Item[] = [
     ...(!isSerial ? [{ icon: "lucide:terminal", label: "Connect", onTap: () => { closeSheet(); void connect(hostId).catch(console.error); setTab("terminal"); } }] : []),
     { icon: "lucide:pencil", label: "Edit", onTap: () => { closeSheet(); push({ kind: "host-edit", hostId }); } },
@@ -89,6 +107,7 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
         void saveConnection({ ...connectionToFormData(conn), name: `${name} copy` });
         closeSheet();
       } },
+    { icon: "lucide:folder-input", label: "Move to folder", onTap: () => setMode("move-folder") },
     { icon: effectivePinned ? "lucide:pin-off" : "lucide:pin", label: effectivePinned ? "Unpin" : "Pin", onTap: () => {
         pinConnection(hostId, !effectivePinned).catch(() => {});
       } },

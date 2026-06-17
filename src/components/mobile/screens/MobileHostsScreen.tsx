@@ -1,6 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useAllConnections } from "@/hooks/useAllConnections";
+import { useAllFolders } from "@/hooks/useAllFolders";
+import { useFolderNavigation } from "@/hooks/useFolderNavigation";
+import { useFolderStore } from "@/stores/folderStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
@@ -10,7 +13,14 @@ import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { StatusDot } from "@/components/shared/StatusDot";
-import type { Connection } from "@/types";
+import { scopeItems, folderItemCount } from "@/components/mobile/folders/mobileFolderCore";
+import MobileFolderBreadcrumb from "@/components/mobile/folders/MobileFolderBreadcrumb";
+import MobileFolderRow from "@/components/mobile/folders/MobileFolderRow";
+import FolderBackTrap from "@/components/mobile/folders/FolderBackTrap";
+import FolderFormSheet from "@/components/mobile/sheets/FolderFormSheet";
+import FolderActionsSheet from "@/components/mobile/sheets/FolderActionsSheet";
+import AddChoiceSheet from "@/components/mobile/sheets/AddChoiceSheet";
+import type { Connection, Folder } from "@/types";
 import MobileHeader from "../MobileHeader";
 import MobileRemoteDeviceSessions from "../MobileRemoteDeviceSessions";
 
@@ -76,77 +86,99 @@ function MobileHostRow({
   );
 }
 
+type AddMode = null | "menu" | "new-folder";
+
 export default function MobileHostsScreen() {
   const connections = useAllConnections();
+  const allFolders = useAllFolders();
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const connect = useSessionStore((s) => s.connect);
   const setTab = useMobileNavStore((s) => s.setTab);
   const push = useMobileNavStore((s) => s.push);
   const openSheet = useMobileNavStore((s) => s.openSheet);
-  // Persisted in the nav store so the query survives tab switches (the screen unmounts).
   const search = useMobileNavStore((s) => s.hostSearch);
   const setSearch = useMobileNavStore((s) => s.setHostSearch);
   const [pingEnabled] = useToggle("reachability");
   const isPinnedFn = useEffectivePinnedPredicate();
+  const saveFolder = useFolderStore((s) => s.saveFolder);
+  const updateFolder = useFolderStore((s) => s.updateFolder);
+  const deleteFolder = useFolderStore((s) => s.deleteFolder);
+
+  const [addMode, setAddMode] = useState<AddMode>(null);
+  const [folderSheet, setFolderSheet] = useState<Folder | null>(null);
+
+  const connFolders = useMemo(
+    () => allFolders.filter((f) => f.object_type === "connection" && selectedVaultIds.includes(f.vault_id ?? "personal")),
+    [allFolders, selectedVaultIds],
+  );
+  const nav = useFolderNavigation(connFolders);
+
+  const subFolders = useMemo(
+    () => [...nav.visibleFolders].sort((a, b) => a.name.localeCompare(b.name)),
+    [nav.visibleFolders],
+  );
+
+  const inVault = useMemo(
+    () => connections.filter((c) => selectedVaultIds.includes(c.vault_id ?? "personal")),
+    [connections, selectedVaultIds],
+  );
 
   const visible = useMemo(() => {
-    // NOTE: deliberately no deleted_at filter — the rest of the app (desktop list,
-    // vault counts, SFTP picker) ignores tombstones too, and tombstones are
-    // currently set spuriously by sync (see sync-split-key bug). Filtering here
-    // silently hid live hosts and made the count (17) disagree with the list (16).
-    const inVault = connections.filter(
-      (c) => selectedVaultIds.includes(c.vault_id ?? "personal"),
-    );
+    const scoped = scopeItems(inVault, nav.activeFolderId);
     const q = search.trim().toLowerCase();
     const filtered = q
-      ? inVault.filter((c) =>
+      ? scoped.filter((c) =>
           connectionDisplayName(c).toLowerCase().includes(q) ||
           c.host.toLowerCase().includes(q) ||
           (c.tags ?? []).some((t) => t.toLowerCase().includes(q)))
-      : inVault;
+      : scoped;
     const sorted = [...filtered].sort((a, b) => connectionDisplayName(a).localeCompare(connectionDisplayName(b)));
-    // Pinned float to the top, alpha order preserved within each group (desktop parity).
+    if (nav.activeFolderId) return sorted;
     const pinned = sorted.filter((c) => isPinnedFn(c, "connection"));
     const rest = sorted.filter((c) => !isPinnedFn(c, "connection"));
     return [...pinned, ...rest];
-  }, [connections, selectedVaultIds, search, isPinnedFn]);
+  }, [inVault, nav.activeFolderId, search, isPinnedFn]);
 
   const handleConnect = (id: string) => {
     void connect(id).catch(console.error);
     setTab("terminal");
   };
 
+  const targetVaultId = (nav.folderPath[nav.folderPath.length - 1]?.vault_id) ?? selectedVaultIds[0] ?? "personal";
+  const createFolder = (name: string) =>
+    void saveFolder({ name, object_type: "connection", parent_folder_id: nav.activeFolderId ?? undefined, vault_id: targetVaultId });
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <MobileHeader onAdd={() => push({ kind: "host-edit" })} />
+      {nav.folderPath.map((f) => <FolderBackTrap key={f.id} onBack={() => nav.setFolderPath((p) => p.slice(0, -1))} />)}
+      <MobileHeader onAdd={() => setAddMode("menu")} />
       <div className="shrink-0 px-3 py-2">
-        <div
-          className="flex items-center gap-2 rounded-xl px-3 h-10"
-          style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}
-        >
+        <div className="flex items-center gap-2 rounded-xl px-3 h-10"
+          style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}>
           <Icon icon="lucide:search" width={16} className="text-(--t-text-dim)" />
-          <input
-            data-mobile-host-search
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search hosts"
-            className="flex-1 bg-transparent text-sm outline-none text-(--t-text-primary)"
-          />
+          <input data-mobile-host-search value={search} onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search hosts" className="flex-1 bg-transparent text-sm outline-none text-(--t-text-primary)" />
           {search && (
-            <button
-              data-mobile-host-search-clear
-              onClick={() => setSearch("")}
-              className="p-0.5 -mr-1 text-(--t-text-dim) active:text-(--t-text-primary)"
-              aria-label="Clear search"
-            >
+            <button data-mobile-host-search-clear onClick={() => setSearch("")}
+              className="p-0.5 -mr-1 text-(--t-text-dim) active:text-(--t-text-primary)" aria-label="Clear search">
               <Icon icon="lucide:x" width={16} />
             </button>
           )}
         </div>
       </div>
+      <MobileFolderBreadcrumb path={nav.folderPath} onNavigate={(i) => (i < 0 ? nav.navigateToRoot() : nav.navigateTo(i))} />
       <div className="flex-1 overflow-y-auto">
-        <MobileRemoteDeviceSessions />
-        {visible.length === 0 && (
+        {!nav.activeFolderId && <MobileRemoteDeviceSessions />}
+        {!search && subFolders.map((f) => (
+          <MobileFolderRow
+            key={f.id}
+            name={f.name}
+            count={folderItemCount(inVault, f.id)}
+            onOpen={() => nav.navigateInto(f)}
+            onActions={() => setFolderSheet(f)}
+          />
+        ))}
+        {visible.length === 0 && subFolders.length === 0 && (
           <div className="flex flex-col items-center gap-2 pt-16 text-(--t-text-dim)">
             <Icon icon="lucide:server-off" width={28} />
             <span className="text-sm">{search ? "No matches" : "No hosts yet — tap + to add one"}</span>
@@ -163,6 +195,27 @@ export default function MobileHostsScreen() {
           />
         ))}
       </div>
+
+      {addMode === "menu" && (
+        <AddChoiceSheet
+          newItemLabel="New host"
+          newItemIcon="lucide:server"
+          onNewItem={() => { setAddMode(null); push({ kind: "host-edit" }); }}
+          onNewFolder={() => setAddMode("new-folder")}
+          onClose={() => setAddMode(null)}
+        />
+      )}
+      {addMode === "new-folder" && (
+        <FolderFormSheet title="New folder" submitLabel="Create" onSubmit={createFolder} onClose={() => setAddMode(null)} />
+      )}
+      {folderSheet && (
+        <FolderActionsSheet
+          folder={folderSheet}
+          onRename={(name) => void updateFolder(folderSheet.id, { name, object_type: "connection", parent_folder_id: folderSheet.parent_folder_id, vault_id: folderSheet.vault_id })}
+          onDelete={() => { nav.onFolderDeleted(folderSheet.id); void deleteFolder(folderSheet.id); }}
+          onClose={() => setFolderSheet(null)}
+        />
+      )}
     </div>
   );
 }
