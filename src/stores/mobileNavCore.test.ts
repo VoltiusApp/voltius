@@ -62,20 +62,20 @@ assertEqual(initialMobileNavState.tab, "hosts", "initial tab is hosts");
   assertEqual((r.state.stack[0] as { kind: string }).kind, "panel-metrics", "panel-metrics remains under");
 }
 
-// more-page carries an optional folderId for folder drill-in
+// more-page stacks: back pops top, root remains
 {
   const s: MobileNavState = {
     tab: "more",
     stack: [
       { kind: "more-page", page: "keychain" },
-      { kind: "more-page", page: "keychain", folderId: "f1" },
+      { kind: "more-page", page: "keychain" },
     ],
     sheet: null,
   };
   const r = handleBack(s);
-  assertEqual(r.handled, true, "more-page folder back pops one level");
-  assertEqual(r.state.stack.length, 1, "drilled-in folder popped");
-  assertEqual((r.state.stack[0] as { folderId?: string }).folderId, undefined, "root more-page remains");
+  assertEqual(r.handled, true, "more-page back pops one level");
+  assertEqual(r.state.stack.length, 1, "top more-page popped");
+  assertEqual((r.state.stack[0] as { kind: string }).kind, "more-page", "root more-page remains");
 }
 
 // panel-sftp carries a connectionId and pops like any screen
