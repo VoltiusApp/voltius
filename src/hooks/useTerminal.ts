@@ -5,7 +5,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SearchAddon, type ISearchOptions } from "@xterm/addon-search";
-import { open as openUrl } from "@tauri-apps/plugin-shell";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { sshSendInput, sshResize, onSshOutput, onSshClosed } from "@/services/ssh";
 import { localSendInput, localResize, onLocalOutput, onLocalClosed } from "@/services/local";
 import { serialWrite, onSerialOutput, onSerialClosed } from "@/services/serial";

@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-shell";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { appFetch } from "@/services/http";
 import { checkoutRequiresEmailVerification } from "@/utils/emailVerification";
 
@@ -37,6 +37,6 @@ export async function openBillingCheckout(plan: BillingPlan): Promise<boolean> {
   }
 
   const { checkout_url } = body as { checkout_url: string };
-  await open(checkout_url);
+  await openUrl(checkout_url);
   return true;
 }

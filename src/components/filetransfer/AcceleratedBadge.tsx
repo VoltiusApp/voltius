@@ -1,5 +1,5 @@
 import { Icon } from "@iconify/react";
-import { open as openUrl } from "@tauri-apps/plugin-shell";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { InfoTooltip } from "@/components/shared/InfoTooltip";
 
 const BLOG_URL = "https://voltius.app/blog/sftp-tar-acceleration";
