@@ -3,9 +3,12 @@ import { Icon } from "@iconify/react";
 import BottomSheet from "./BottomSheet";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useVaultStore } from "@/stores/vaultStore";
+import { useAllFolders } from "@/hooks/useAllFolders";
+import { buildMoveTargets } from "@/components/mobile/folders/mobileFolderCore";
+import MoveToFolderSheet from "./MoveToFolderSheet";
 import type { PortForwardingRule, PortForwardingRuleFormData } from "@/types";
 
-type Mode = "menu" | "confirm-delete" | "move" | "copy";
+type Mode = "menu" | "confirm-delete" | "move" | "copy" | "move-folder";
 
 type Item = { icon: string; label: string; slug: string; danger?: boolean; onTap: () => void };
 
@@ -38,6 +41,7 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
   const vaults = useVaultStore((s) => s.vaults);
   const [mode, setMode] = useState<Mode>("menu");
 
+  const allFolders = useAllFolders();
   const otherVaults = vaults.filter((v) => v.id !== rule.vault_id);
 
   const Row = ({ it }: { it: Item }) => (
@@ -61,6 +65,17 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
         <Row it={{ icon: "lucide:trash-2", label: "Delete", slug: "delete", danger: true, onTap: () => { void deleteRule(rule.id); onClose(); } }} />
         <Row it={{ icon: "lucide:x", label: "Cancel", slug: "cancel", onTap: () => setMode("menu") }} />
       </BottomSheet>
+    );
+  }
+
+  if (mode === "move-folder") {
+    return (
+      <MoveToFolderSheet
+        targets={buildMoveTargets(allFolders, "port_forwarding")}
+        currentFolderId={rule.folder_id ?? null}
+        onPick={(folderId) => { void updateRule(rule.id, { ...fields(rule, rule.vault_id), folder_id: folderId ?? undefined }); }}
+        onClose={onClose}
+      />
     );
   }
 
@@ -96,6 +111,7 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
 
   const items: Item[] = [
     { icon: "lucide:pencil", label: "Edit", slug: "edit", onTap: () => { onEdit(rule); onClose(); } },
+    { icon: "lucide:folder-tree", label: "Move to folder", slug: "move-folder", onTap: () => setMode("move-folder") },
     ...(otherVaults.length > 0 ? [{ icon: "lucide:folder-input", label: "Move to vault", slug: "move", onTap: () => setMode("move") }] : []),
     ...(otherVaults.length > 0 ? [{ icon: "lucide:copy", label: "Copy to vault", slug: "copy", onTap: () => setMode("copy") }] : []),
     { icon: "lucide:trash-2", label: "Delete", slug: "delete", danger: true, onTap: () => setMode("confirm-delete") },
