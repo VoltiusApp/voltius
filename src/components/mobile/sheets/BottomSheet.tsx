@@ -21,7 +21,7 @@ export default function BottomSheet({ onClose, children, title, registerBack = t
   const dragYRef = useRef(0); // mirrors dragY so onTouchEnd reads the latest value, not a stale closure
   const startY = useRef<number | null>(null);
   const [dragging, setDragging] = useState(false); // suppress the transform transition so drag tracks the finger
-  const { usableHeight } = useVisualViewport();
+  const { usableHeight, offsetTop } = useVisualViewport();
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Animate in
@@ -68,7 +68,14 @@ export default function BottomSheet({ onClose, children, title, registerBack = t
     <div
       className="fixed inset-x-0 top-0 z-40 flex flex-col justify-end"
       data-mobile-sheet
-      style={{ height: usableHeight > 0 ? usableHeight : "100%" }}
+      // Track the visual viewport, not the layout viewport: when an input autofocuses, this
+      // WebView scrolls the layout viewport under the keyboard (visualViewport.offsetTop > 0,
+      // window.innerHeight unchanged) rather than insetting it. A bare `top: 0` then anchors the
+      // sheet offsetTop px above the visible area and `justify-end` floats the panel near the top
+      // of the screen. Offsetting top by offsetTop + sizing to usableHeight (== visual height)
+      // pins the container to the visible region, so the panel sits flush above the keyboard.
+      // Keyboard closed: offsetTop is 0 and usableHeight is the full height — identical to before.
+      style={{ top: offsetTop, height: usableHeight > 0 ? usableHeight : "100%" }}
     >
       <div
         className="absolute inset-0 transition-opacity"

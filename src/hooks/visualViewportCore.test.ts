@@ -30,4 +30,18 @@ function assertEqual<T>(actual: T, expected: T, msg: string): void {
   const r = computeKeyboardLayout(i);
   assertEqual(r.keyboardVisible, false, "10px wobble ignored");
 }
+// offsetTop is surfaced so position:fixed sheets can track the visual viewport
+{
+  const i: ViewportInput = { layoutHeight: 800, visualHeight: 460, visualOffsetTop: 0 };
+  assertEqual(computeKeyboardLayout(i).offsetTop, 0, "no scroll: offsetTop 0");
+}
+// device-observed (OnePlus c351ff7f): focusing an input scrolls the layout viewport
+// instead of producing a bottom inset, so offsetTop is large and bottomInset tiny.
+// usableHeight must still be the visual height; offsetTop must be surfaced for positioning.
+{
+  const i: ViewportInput = { layoutHeight: 804, visualHeight: 476, visualOffsetTop: 309 };
+  const r = computeKeyboardLayout(i);
+  assertEqual(r.offsetTop, 309, "scroll case: offsetTop surfaced");
+  assertEqual(r.usableHeight, 476, "scroll case: usable = visual height");
+}
 console.log("ALL PASS");

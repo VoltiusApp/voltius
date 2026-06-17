@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { computeKeyboardLayout, type KeyboardLayout } from "./visualViewportCore";
 
-const INITIAL: KeyboardLayout = { keyboardVisible: false, bottomInset: 0, usableHeight: 0 };
+const INITIAL: KeyboardLayout = { keyboardVisible: false, bottomInset: 0, usableHeight: 0, offsetTop: 0 };
 
 export function useVisualViewport(): KeyboardLayout {
   const [layout, setLayout] = useState<KeyboardLayout>(INITIAL);
