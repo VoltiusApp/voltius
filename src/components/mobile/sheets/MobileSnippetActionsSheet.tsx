@@ -92,7 +92,7 @@ export default function MobileSnippetActionsSheet({ snippetId }: { snippetId: st
     { icon: pinned ? "lucide:pin-off" : "lucide:pin", label: pinned ? "Unpin" : "Pin", onTap: () => { void pinSnippet(snippetId, !pinned); closeSheet(); } },
     ...(vaultTargets.length > 0 ? [{ icon: "lucide:folder-input", label: "Move to vault", onTap: () => setMode("move") }] : []),
     ...(vaultTargets.length > 0 ? [{ icon: "lucide:copy-plus", label: "Copy to vault", onTap: () => setMode("copy") }] : []),
-    { icon: "lucide:folder-input", label: "Move to folder", onTap: () => setMode("move-folder") },
+    { icon: "lucide:folder-tree", label: "Move to folder", onTap: () => setMode("move-folder") },
     { icon: "lucide:trash-2", label: "Delete", danger: true, onTap: () => setMode("confirm-delete") },
   ];
 

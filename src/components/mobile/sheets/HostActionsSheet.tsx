@@ -107,7 +107,7 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
         void saveConnection({ ...connectionToFormData(conn), name: `${name} copy` });
         closeSheet();
       } },
-    { icon: "lucide:folder-input", label: "Move to folder", onTap: () => setMode("move-folder") },
+    { icon: "lucide:folder-tree", label: "Move to folder", onTap: () => setMode("move-folder") },
     { icon: effectivePinned ? "lucide:pin-off" : "lucide:pin", label: effectivePinned ? "Unpin" : "Pin", onTap: () => {
         pinConnection(hostId, !effectivePinned).catch(() => {});
       } },
