@@ -23,6 +23,17 @@ android {
             keyAlias = "voltius-debug"
             keyPassword = "voltius"
         }
+        // Release signing is supplied by CI via env vars (keystore decoded from a
+        // GitHub secret). Absent locally → release config stays unconfigured and
+        // the release buildType falls back below, so local debug builds are unaffected.
+        create("release") {
+            System.getenv("ANDROID_KEYSTORE_PATH")?.let { ksPath ->
+                storeFile = file(ksPath)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
     }
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
@@ -46,12 +57,16 @@ android {
             }
         }
         getByName("release") {
-            isMinifyEnabled = true
-            proguardFiles(
-                *fileTree(".") { include("**/*.pro") }
-                    .plus(getDefaultProguardFile("proguard-android-optimize.txt"))
-                    .toList().toTypedArray()
-            )
+            // R8 off: it barely shrinks this app (size is the native .so libs, which
+            // release strips regardless) and can rename/remove JNI-called Kotlin
+            // (nativeInit, VoltiusKeychain) → launch crash. Keep behavior identical
+            // to the on-device-verified debug build; only signing/debuggable differ.
+            isMinifyEnabled = false
+            // Only attach the release signing config when CI provided a keystore;
+            // otherwise leave unsigned so a local `release` build still completes.
+            if (System.getenv("ANDROID_KEYSTORE_PATH") != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     kotlinOptions {
