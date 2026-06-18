@@ -57,12 +57,11 @@ jobs:
       contents: write
     strategy:
       fail-fast: false
-      # Serialize the matrix: tauri-action's updater-manifest upload is a
-      # non-atomic read-merge-upload of the shared latest.json. Running jobs
-      # concurrently races — two jobs read latest.json before either writes,
-      # so the second loses (or fails with ReleaseAsset already_exists). One
-      # job at a time guarantees every platform lands in latest.json.
-      max-parallel: 1
+      # Builds run concurrently. The shared-file race that forced serialization
+      # is gone: each job sets uploadUpdaterJson:false (below), so no job touches
+      # latest.json. Per-platform installers + .sig files have unique names and
+      # never collide. The updater-manifest job assembles latest.json once, after
+      # all builds — single writer, no race.
       matrix:
         include:
           - platform: 'ubuntu-24.04'
@@ -153,6 +152,11 @@ jobs:
           args: ${{ matrix.args }}
           uploadPlainBinary: true
           updaterJsonPreferNsis: true
+          # Don't write latest.json here — concurrent jobs would race on the
+          # shared file. The .sig files still upload (uploadUpdaterSignatures
+          # defaults true); the updater-manifest job builds latest.json from
+          # them once all builds finish.
+          uploadUpdaterJson: false
 
   # Experimental Android build — sideload APK, not Play Store. Release-signed
   # arm64-v8a only (covers ~all modern phones). tauri-action builds the APK and
@@ -239,6 +243,82 @@ jobs:
           mobile: android
           args: '--apk --target aarch64'
 
+  # Single-writer assembly of latest.json. Each build job skipped it
+  # (uploadUpdaterJson:false) to avoid racing on the shared file; here we
+  # download every .sig from the draft release and rebuild the manifest once,
+  # reproducing exactly the key scheme tauri-action emits (bare default key per
+  # OS + per-installer-type variants). Uploaded with --clobber.
+  updater-manifest:
+    needs: [changelog, publish-tauri]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Build and upload latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+          NOTES: ${{ needs.changelog.outputs.notes }}
+        run: |
+          mkdir -p sigs
+          gh release download "$TAG" -R "$REPO" -p '*.sig' -D sigs
+          python3 - <<'PY'
+          import json, os, glob, datetime
+
+          tag = os.environ["TAG"]
+          version = tag.lstrip("v")
+          notes = os.environ["NOTES"]
+          repo = os.environ["REPO"]
+          base = f"https://github.com/{repo}/releases/download/{tag}/"
+
+          # Bare "{os}-{arch}" alias points at this installer type per OS.
+          DEFAULT = {"linux": "appimage", "windows": "nsis", "darwin": "app"}
+
+          def classify(name):
+              if name.endswith(".AppImage"):
+                  return "linux", ("x86_64" if "amd64" in name else "aarch64"), "appimage"
+              if name.endswith(".deb"):
+                  return "linux", ("x86_64" if "amd64" in name else "aarch64"), "deb"
+              if name.endswith(".rpm"):
+                  return "linux", ("x86_64" if "x86_64" in name else "aarch64"), "rpm"
+              if name.endswith("-setup.exe"):
+                  return "windows", ("x86_64" if "x64" in name else "aarch64"), "nsis"
+              if name.endswith(".msi"):
+                  return "windows", ("x86_64" if "x64" in name else "aarch64"), "msi"
+              if name.endswith(".app.tar.gz"):
+                  return "darwin", ("x86_64" if "x64" in name else "aarch64"), "app"
+              return None
+
+          platforms = {}
+          for sig in sorted(glob.glob("sigs/*.sig")):
+              asset = os.path.basename(sig)[:-4]  # strip .sig
+              c = classify(asset)
+              if not c:
+                  continue
+              o, arch, t = c
+              with open(sig) as f:
+                  entry = {"signature": f.read().strip(), "url": base + asset}
+              platforms[f"{o}-{arch}-{t}"] = entry
+              if DEFAULT[o] == t:
+                  platforms[f"{o}-{arch}"] = entry
+
+          if not platforms:
+              raise SystemExit("No updater .sig files found — refusing to write empty latest.json")
+
+          manifest = {
+              "version": version,
+              "notes": notes,
+              "pub_date": datetime.datetime.now(datetime.timezone.utc)
+                  .isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+              "platforms": platforms,
+          }
+          with open("latest.json", "w") as f:
+              json.dump(manifest, f, indent=2)
+          print(json.dumps(manifest, indent=2))
+          PY
+          gh release upload "$TAG" latest.json -R "$REPO" --clobber
+
   checksums:
     needs: [publish-tauri, publish-android]
     runs-on: ubuntu-latest
@@ -263,7 +343,7 @@ jobs:
           gh release upload "${{ inputs.tag }}" *.sha256 -R "${{ github.repository }}" --clobber
 
   publish-release:
-    needs: checksums
+    needs: [checksums, updater-manifest]
     runs-on: ubuntu-latest
     permissions:
       contents: write
