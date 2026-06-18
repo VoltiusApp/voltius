@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Snippet, SnippetFormData } from "@/types";
-import type { ParsedVariable } from "@/services/snippetParser";
+import type { SnippetPendingInject } from "@/services/snippetRunCore";
 import * as api from "@/services/snippets";
 import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
@@ -35,12 +35,7 @@ function findTeamEntry(
   return null;
 }
 
-export interface GlobalPendingInject {
-  snippet: Snippet;
-  userVars: ParsedVariable[];
-  partialTemplate: string;
-  initialValues: Record<string, string>;
-}
+export type GlobalPendingInject = SnippetPendingInject;
 
 // In-memory recent injection tracking (not persisted — cosmetic only)
 const MAX_RECENT = 5;

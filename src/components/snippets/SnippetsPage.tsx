@@ -1,4 +1,3 @@
-import { readClipboard } from "../../utils/clipboard";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
@@ -28,11 +27,9 @@ import { broadcastSnippetInject } from "@/services/snippets";
 import {
   parseVariables,
   needsUserInput,
-  buildDynamicValues,
-  buildDefaultValues,
-  resolveTemplate,
-  type DynamicContext,
 } from "@/services/snippetParser";
+import { runSnippetIntoSessions } from "@/services/snippetRun";
+import { snippetToForm } from "@/utils/snippetForm";
 import { SnippetVariableModal } from "@/components/terminal/SnippetVariableModal";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { useEditPanel } from "@/hooks/useEditPanel";
@@ -50,23 +47,6 @@ import { useSnippetRecentStore, type RecentSnippetExecution, type RecentTarget }
 import { selectRecentSnippetEntries } from "@/utils/snippetRecent";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function buildDynamicContext(
-  session: { type: string; connectionId: string; connectionName: string } | undefined,
-  connections: Connection[],
-  clipboard = "",
-): DynamicContext {
-  if (!session || session.type === "local") {
-    return { connectionHost: "localhost", connectionUsername: "local", connectionName: "Local Shell", clipboard };
-  }
-  const conn = connections.find((c) => c.id === session.connectionId);
-  return {
-    connectionHost: conn?.host ?? "",
-    connectionUsername: conn?.username ?? "",
-    connectionName: session.connectionName,
-    clipboard,
-  };
-}
 
 function isContextuallyRelevant(snippet: Snippet, conn: Connection | undefined): boolean {
   if (snippet.only_for_connection_tags?.length && conn) {
@@ -87,21 +67,6 @@ function sortSnippets(list: Snippet[], mode: SortMode): Snippet[] {
     return 0;
   });
 }
-
-function snippetToForm(s: Snippet): SnippetFormData {
-  return {
-    name: s.name,
-    content: s.content,
-    description: s.description,
-    tags: s.tags,
-    folder_id: s.folder_id,
-    favorite: s.favorite,
-    only_for_connection_tags: s.only_for_connection_tags,
-    only_for_distros: s.only_for_distros,
-    vault_id: s.vault_id,
-  };
-}
-
 
 function formatRelativeTime(ts: number): string {
   const diff = Date.now() - ts;
@@ -316,7 +281,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function SnippetsPage() {
-  const { loading, loadSnippets, createSnippet, updateSnippet, deleteSnippet, trackUsed, pinSnippet } = useSnippetStore();
+  const { loading, loadSnippets, createSnippet, updateSnippet, deleteSnippet, pinSnippet } = useSnippetStore();
   const recentEntries = useSnippetRecentStore((s) => s.entries);
   const addRecentEntry = useSnippetRecentStore((s) => s.add);
   const removeRecentEntry = useSnippetRecentStore((s) => s.remove);
@@ -670,27 +635,19 @@ export function SnippetsPage() {
       .map((id) => allSessions.find((s) => s.id === id))
       .filter((s) => s && s.type !== "multiplayer") as typeof allSessions;
     if (targetSessions.length === 0) return;
-    trackUsed(snippet.id);
 
-    let clipboard = "";
-    try { clipboard = await readClipboard(); } catch { /* permission denied */ }
+    const ran = await runSnippetIntoSessions(snippet, targetSessions.map((s) => s.id), execute, {
+      onNeedVars: (p) => setPendingInject({
+        snippet: p.snippet, partialTemplate: p.partialTemplate, userVars: p.userVars,
+        initialValues: p.initialValues, execute: p.execute, sessionIds: p.sessionIds,
+      }),
+    });
 
-    // Use the first session for dynamic variable resolution (host, user, etc.)
-    const ctx = buildDynamicContext(targetSessions[0], connections, clipboard);
-    const vars = parseVariables(snippet.content);
-    const dynValues = buildDynamicValues(vars, ctx);
-    const partialTemplate = resolveTemplate(snippet.content, dynValues);
-
-    const userVars = vars.filter((v) => !v.dynamic);
-    const initialValues = buildDefaultValues(userVars);
-    const missing = userVars.filter((v) => needsUserInput(v));
-
-    if (missing.length === 0) {
-      const resolved = resolveTemplate(partialTemplate, initialValues);
-      const payload = execute ? `${resolved}\n` : resolved;
-      await Promise.all(
-        targetSessions.map((s) => broadcastSnippetInject(s.id, s.type, payload, execute).catch(console.error)),
-      );
+    // Record recents only for the direct (no-modal) path; the modal path records on submit.
+    const noUserInputNeeded = parseVariables(snippet.content)
+      .filter((v) => !v.dynamic)
+      .every((v) => !needsUserInput(v));
+    if (ran && noUserInputNeeded) {
       const targets: RecentTarget[] = targetSessions.map((s) => ({
         connectionId: s.connectionId,
         connectionName: s.connectionName,
@@ -698,8 +655,6 @@ export function SnippetsPage() {
         localShell: s.localShell,
       }));
       recordExecution(snippet, execute, targets);
-    } else {
-      setPendingInject({ snippet, partialTemplate, userVars, initialValues, execute, sessionIds: targetSessions.map((s) => s.id) });
     }
   }
 
@@ -1226,9 +1181,8 @@ export function SnippetsPage() {
             .map((id) => allSessions.find((s) => s.id === id))
             .filter(Boolean) as typeof allSessions;
           if (targetSessions.length === 0) return;
-          const payload = execute ? `${resolvedText}\n` : resolvedText;
           await Promise.all(
-            targetSessions.map((s) => broadcastSnippetInject(s.id, s.type, payload, execute).catch(console.error)),
+            targetSessions.map((s) => broadcastSnippetInject(s.id, s.type, resolvedText, execute).catch(console.error)),
           );
           const targets: RecentTarget[] = targetSessions.map((s) => ({
             connectionId: s.connectionId,
