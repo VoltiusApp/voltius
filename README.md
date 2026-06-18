@@ -83,7 +83,7 @@ brew install --cask --no-quarantine voltiusapp/voltius/voltius
 ### Windows — winget
 
 ```sh
-winget install Voltius.Voltius
+winget install --id Voltius.Voltius -e
 ```
 
 Windows SmartScreen may warn that the publisher is unverified (the app is not yet
