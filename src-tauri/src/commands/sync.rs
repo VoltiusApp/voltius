@@ -315,10 +315,44 @@ pub fn live_sessions_save(state: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn device_hostname() -> String {
+    // Android's kernel hostname is always "localhost", so fall back to the
+    // user-facing device model (e.g. "Pixel 8") via system properties.
+    #[cfg(target_os = "android")]
+    if let Some(name) = android_device_name() {
+        return name;
+    }
     hostname::get()
         .ok()
         .and_then(|h| h.into_string().ok())
         .unwrap_or_else(|| "Unknown device".to_string())
+}
+
+#[cfg(target_os = "android")]
+fn android_device_name() -> Option<String> {
+    fn getprop(key: &str) -> String {
+        std::process::Command::new("getprop")
+            .arg(key)
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default()
+    }
+    let model = getprop("ro.product.model");
+    if model.is_empty() {
+        return None;
+    }
+    let manufacturer = getprop("ro.product.manufacturer");
+    // Avoid "Samsung Galaxy"/"samsung SM-..." dupes when model already names the brand.
+    if manufacturer.is_empty()
+        || model
+            .to_lowercase()
+            .starts_with(&manufacturer.to_lowercase())
+    {
+        Some(model)
+    } else {
+        Some(format!("{manufacturer} {model}"))
+    }
 }
 
 // ─── Auto-update preference ─────────────────────────────────────────────────────

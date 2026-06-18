@@ -4,10 +4,14 @@
 // rather than worked around per-call.
 #![allow(clippy::too_many_arguments)]
 
+#[cfg(target_os = "android")]
+mod android_ctx;
 mod commands;
 mod crypto;
 mod docker;
 mod error;
+#[cfg(target_os = "android")]
+mod keychain_android;
 mod known_hosts;
 mod local;
 mod metrics;
@@ -318,6 +322,8 @@ fn init_keychain_store() -> keyring_core::Result<()> {
     keyring_core::set_default_store(windows_native_keyring_store::Store::new_with_configuration(
         &std::collections::HashMap::<&str, &str>::new(),
     )?);
+    #[cfg(target_os = "android")]
+    keyring_core::set_default_store(crate::keychain_android::Store::new());
     Ok(())
 }
 
@@ -348,6 +354,7 @@ pub fn run() {
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init());
 
@@ -359,6 +366,15 @@ pub fn run() {
     builder
         .setup(|app| {
             use tauri::Manager;
+
+            // On Android `dirs::config_dir()` resolves to an unwritable cwd, so
+            // pin generic file storage (connections, plugins, identities, …) to
+            // the app's scoped data dir — the same dir the vault already uses.
+            #[cfg(target_os = "android")]
+            if let Ok(dir) = app.path().app_data_dir() {
+                crate::storage::config::set_config_dir(dir.join("voltius"));
+            }
+
             #[cfg(desktop)]
             app.manage(PendingUpdate(Mutex::new(None)));
             #[cfg(desktop)]
@@ -407,6 +423,7 @@ pub fn run() {
             updater_restart,
             updater_check,
             commands::greet,
+            commands::get_platform,
             commands::ping::ping_host,
             commands::ping::ping_host_via_jumps,
             commands::connections::connection_list,
@@ -536,6 +553,11 @@ pub fn run() {
             commands::sftp::sftp_tar_available,
             commands::sftp::sftp_upload_batch_tar,
             commands::sftp::sftp_download_batch_tar,
+            commands::downloads::download_temp_path,
+            commands::downloads::download_dir_get,
+            commands::downloads::download_dir_pick,
+            commands::downloads::download_dir_clear,
+            commands::downloads::download_publish,
             commands::sftp::sftp_transfer_batch_tar,
             commands::plugin_storage::plugin_storage_get,
             commands::plugin_storage::plugin_storage_set,

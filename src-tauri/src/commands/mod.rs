@@ -1,6 +1,7 @@
 pub mod connections;
 pub mod crypto;
 pub mod docker;
+pub mod downloads;
 pub mod folders;
 pub mod fs;
 pub mod http;
@@ -34,4 +35,12 @@ pub mod wsl;
 #[tauri::command]
 pub fn greet(name: &str) -> String {
     format!("Hello, {}! Welcome to Voltius.", name)
+}
+
+/// Host OS the client is running on: "android" | "ios" | "linux" | "macos" |
+/// "windows". Lets the frontend hide host-integration features the platform
+/// sandbox can't support (local terminal, serial, local Docker — UX only).
+#[tauri::command]
+pub fn get_platform() -> &'static str {
+    std::env::consts::OS
 }
