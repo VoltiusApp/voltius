@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
-import { type Transfer, formatSize } from "./SFTPTypes";
+import { type Transfer, formatSize, formatTransferProgress } from "./SFTPTypes";
 import { AcceleratedBadge } from "./AcceleratedBadge";
 
 export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, collapsible = false }: {
@@ -36,10 +36,7 @@ export function TransferQueue({ transfers, onClear, onCancel, onCancelAll, colla
     if (t.status === "done") return "Done";
     if (t.status === "error") return "Error";
     if (t.status === "cancelled") return "Cancelled";
-    const progress = t.total > 0 ? `${formatSize(t.transferred)} / ${formatSize(t.total)}` : formatSize(t.transferred);
-    const speed = t.speed != null ? ` · ${formatSize(Math.round(t.speed))}/s` : "";
-    const eta = t.eta != null && t.eta > 0 ? ` · ${t.eta < 60 ? `${t.eta}s` : `${Math.round(t.eta / 60)}m`}` : "";
-    return `${progress}${speed}${eta}`;
+    return formatTransferProgress(t);
   }
 
   return (

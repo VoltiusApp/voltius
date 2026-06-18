@@ -157,11 +157,15 @@ impl SftpManager {
         passphrase: Option<&str>,
         jump_hosts: Vec<JumpHostConnect>,
         known_hosts: Arc<KnownHostsStore>,
+        keepalive_interval_secs: u64,
+        keepalive_max: usize,
     ) -> Result<String, String> {
-        // keepalive 2/2 → ~4 s link-loss detection for SFTP; intentionally tighter than terminal preset
+        // Honor the host/global keepalive preset (same as terminal sessions).
+        // interval 0 = keepalive disabled.
         let config = Arc::new(russh::client::Config {
-            keepalive_interval: Some(std::time::Duration::from_secs(2)),
-            keepalive_max: 2,
+            keepalive_interval: (keepalive_interval_secs > 0)
+                .then(|| std::time::Duration::from_secs(keepalive_interval_secs)),
+            keepalive_max,
             ..Default::default()
         });
 
@@ -327,33 +331,43 @@ impl SftpManager {
             },
         );
 
-        // Monitor for connection loss: keepalives will kill the handle after ~4s;
-        // we detect that by trying to open a lightweight channel.
-        let monitor_handle = Arc::clone(&handle);
-        let monitor_app = app.clone();
-        let monitor_id = id.clone();
-        tokio::spawn(async move {
-            loop {
-                tokio::select! {
-                    _ = cancel.cancelled() => break,
-                    _ = tokio::time::sleep(Duration::from_secs(2)) => {}
-                }
-                let result = tokio::time::timeout(
-                    Duration::from_secs(3),
-                    monitor_handle.channel_open_session(),
-                )
-                .await;
-                match result {
-                    Ok(Ok(ch)) => {
-                        let _ = ch.close().await;
+        // Monitor for connection loss by probing a lightweight channel, paced to
+        // the keepalive preset: probe every `interval`, declare the link dead only
+        // after `max` consecutive failures (≈ interval × max detection, matching the
+        // terminal preset semantics). Disabled when keepalive is "off".
+        if keepalive_interval_secs > 0 && keepalive_max > 0 {
+            let monitor_handle = Arc::clone(&handle);
+            let monitor_app = app.clone();
+            let monitor_id = id.clone();
+            let probe_every = Duration::from_secs(keepalive_interval_secs);
+            let probe_timeout = Duration::from_secs(keepalive_interval_secs.max(2));
+            tokio::spawn(async move {
+                let mut failures = 0usize;
+                loop {
+                    tokio::select! {
+                        _ = cancel.cancelled() => break,
+                        _ = tokio::time::sleep(probe_every) => {}
                     }
-                    _ => {
-                        let _ = monitor_app.emit(&format!("sftp-closed-{}", monitor_id), ());
-                        break;
+                    let result =
+                        tokio::time::timeout(probe_timeout, monitor_handle.channel_open_session())
+                            .await;
+                    match result {
+                        Ok(Ok(ch)) => {
+                            let _ = ch.close().await;
+                            failures = 0;
+                        }
+                        _ => {
+                            failures += 1;
+                            if failures >= keepalive_max {
+                                let _ =
+                                    monitor_app.emit(&format!("sftp-closed-{}", monitor_id), ());
+                                break;
+                            }
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
 
         Ok(id)
     }

@@ -37,6 +37,8 @@ pub async fn sftp_connect(
     private_key: Option<String>,
     passphrase: Option<String>,
     jump_hosts: Option<Vec<JumpHostConnect>>,
+    keepalive_interval_secs: u64,
+    keepalive_max: usize,
 ) -> Result<String, String> {
     sftp_state
         .connect(
@@ -50,6 +52,8 @@ pub async fn sftp_connect(
             passphrase.as_deref(),
             jump_hosts.unwrap_or_default(),
             Arc::clone(&*known_hosts),
+            keepalive_interval_secs,
+            keepalive_max,
         )
         .await
 }

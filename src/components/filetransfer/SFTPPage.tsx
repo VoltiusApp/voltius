@@ -17,6 +17,8 @@ import { triggerUpload } from "./osDropPipeline";
 import { tarUsable } from "./tarSupport";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
+import { resolveKeepalive } from "@/utils/keepalive";
+import { getGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
 import {
   type HostChoice, type SidePhase, type FileEntry,
   genId,
@@ -69,7 +71,8 @@ export default function SFTPPage() {
           resolveConnectionCredentials(host.connection),
           resolveJumpHosts(host.connection),
         ]);
-        sftpId = await sftpConnect({ connectId, host: host.connection.host, port: host.connection.port, username: creds.username, password: creds.password, privateKey: creds.privateKey, passphrase: creds.passphrase, jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined });
+        const ka = resolveKeepalive(host.connection.keepalive_preset ?? getGlobalKeepalivePreset());
+        sftpId = await sftpConnect({ connectId, host: host.connection.host, port: host.connection.port, username: creds.username, password: creds.password, privateKey: creds.privateKey, passphrase: creds.passphrase, jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined, keepaliveIntervalSecs: ka.intervalSecs, keepaliveMax: ka.max });
         openSftpIds.current.add(sftpId);
         const { sftpCanonicalize } = await import("@/services/sftp");
         cwd = await sftpCanonicalize(sftpId, ".");

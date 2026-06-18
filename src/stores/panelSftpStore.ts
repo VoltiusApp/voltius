@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { sftpConnect, sftpClose, sftpCanonicalize, fsHomeDir } from "@/services/sftp";
 import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/credentials";
+import { resolveKeepalive } from "@/utils/keepalive";
+import { getGlobalKeepalivePreset } from "./connectivitySettingsStore";
 import { genId } from "@/components/filetransfer/SFTPTypes";
 import type { Connection, TerminalSession } from "@/types";
 import { useConnectionStore } from "./connectionStore";
@@ -90,12 +92,14 @@ export const usePanelSftpStore = create<PanelSftpStore>((set, get) => ({
         resolveConnectionCredentials(conn),
         resolveJumpHosts(conn),
       ]);
+      const ka = resolveKeepalive(conn.keepalive_preset ?? getGlobalKeepalivePreset());
       const sftpId = await sftpConnect({
         connectId: genId(),
         host: conn.host, port: conn.port,
         username: creds.username, password: creds.password,
         privateKey: creds.privateKey, passphrase: creds.passphrase,
         jumpHosts: jumpHosts.length > 0 ? jumpHosts : undefined,
+        keepaliveIntervalSecs: ka.intervalSecs, keepaliveMax: ka.max,
       });
       const cwd = await sftpCanonicalize(sftpId, ".");
       set((s) => ({
