@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { open as openUrl } from "@tauri-apps/plugin-shell";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { Icon } from "@iconify/react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";

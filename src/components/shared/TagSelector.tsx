@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { TagBadge } from "@/components/shared/TagBadge";
 import { getTagColorStyle } from "@/utils/tagColors";
+import { PickerSurface } from "./PickerSurface";
 
 interface Props {
   value: string[];
@@ -14,10 +14,8 @@ interface Props {
 export default function TagSelector({ value, onChange, vaultId }: Props) {
   const [input, setInput] = useState("");
   const [open, setOpen] = useState(false);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const connections = useConnectionStore((s) => s.connections);
   const allTags = useMemo(() => {
@@ -35,34 +33,6 @@ export default function TagSelector({ value, onChange, vaultId }: Props) {
   }, [allTags, value, query]);
 
   const canCreate = query.length > 0 && !value.includes(input.trim()) && !allTags.some((t) => t.toLowerCase() === query);
-
-  const updatePos = () => {
-    if (containerRef.current) {
-      const r = containerRef.current.getBoundingClientRect();
-      setDropdownPos({ top: r.bottom + 4, left: r.left, width: r.width });
-    }
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (!containerRef.current?.contains(target) && !dropdownRef.current?.contains(target)) {
-        setOpen(false);
-        setInput("");
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = () => updatePos();
-    window.addEventListener("resize", handler);
-    window.addEventListener("scroll", handler, true);
-    return () => { window.removeEventListener("resize", handler); window.removeEventListener("scroll", handler, true); };
-  }, [open]);
 
   const addTag = (tag: string) => {
     const t = tag.trim();
@@ -86,7 +56,6 @@ export default function TagSelector({ value, onChange, vaultId }: Props) {
   };
 
   const handleFocus = () => {
-    updatePos();
     setOpen(true);
   };
 
@@ -131,10 +100,10 @@ export default function TagSelector({ value, onChange, vaultId }: Props) {
             ref={inputRef}
             type="text"
             value={input}
-            onChange={(e) => { setInput(e.target.value); if (!open) { updatePos(); setOpen(true); } }}
+            onChange={(e) => { setInput(e.target.value); if (!open) { setOpen(true); } }}
             onFocus={handleFocus}
             onBlur={(e) => {
-              if (!dropdownRef.current?.contains(e.relatedTarget as Node)) {
+              if (!(e.relatedTarget instanceof Node) || !(containerRef.current?.contains(e.relatedTarget))) {
                 (containerRef.current as HTMLDivElement | null)?.style && ((containerRef.current as HTMLDivElement).style.borderColor = "var(--t-border)");
               }
             }}
@@ -145,63 +114,52 @@ export default function TagSelector({ value, onChange, vaultId }: Props) {
         </div>
       </div>
 
-      {showDropdown && createPortal(
-        <div
-          ref={dropdownRef}
-          className="surface-float fixed z-9999 p-1.5 flex flex-col max-h-[220px] overflow-y-auto"
-          style={{
-            top: dropdownPos.top,
-            left: dropdownPos.left,
-            width: dropdownPos.width,
-          }}
-        >
-          {canCreate && (
-            <button
-              type="button"
-              onMouseDown={(e) => { e.preventDefault(); addTag(input.trim()); }}
-              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors"
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+      <PickerSurface open={showDropdown} onClose={() => { setOpen(false); setInput(""); }} anchorRef={containerRef} title="Tags">
+        {canCreate && (
+          <button
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); addTag(input.trim()); }}
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors"
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+          >
+            <span
+              className="w-4 h-4 rounded-sm flex items-center justify-center shrink-0"
+              style={getTagColorStyle(input.trim())}
             >
-              <span
-                className="w-4 h-4 rounded-sm flex items-center justify-center shrink-0"
-                style={getTagColorStyle(input.trim())}
-              >
-                <Icon icon="lucide:plus" width={9} />
-              </span>
-              <span className="text-(--t-text-dim)">Create</span>
-              <span
-                className="px-1.5 py-0.5 rounded-sm text-[11px] font-medium border"
-                style={getTagColorStyle(input.trim())}
-              >
-                {input.trim()}
-              </span>
-            </button>
-          )}
-
-          {canCreate && suggestions.length > 0 && (
-            <div className="my-1 border-t border-t-(--t-bg-card-hover)" />
-          )}
-
-          {suggestions.map((tag) => (
-            <button
-              key={tag}
-              type="button"
-              onMouseDown={(e) => { e.preventDefault(); addTag(tag); }}
-              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors"
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+              <Icon icon="lucide:plus" width={9} />
+            </span>
+            <span className="text-(--t-text-dim)">Create</span>
+            <span
+              className="px-1.5 py-0.5 rounded-sm text-[11px] font-medium border"
+              style={getTagColorStyle(input.trim())}
             >
-              <span
-                className="w-4 h-4 rounded-sm shrink-0 border"
-                style={getTagColorStyle(tag)}
-              />
-              <span className="flex-1 text-left text-(--t-text-primary)">{tag}</span>
-            </button>
-          ))}
-        </div>,
-        document.body,
-      )}
+              {input.trim()}
+            </span>
+          </button>
+        )}
+
+        {canCreate && suggestions.length > 0 && (
+          <div className="my-1 border-t border-t-(--t-bg-card-hover)" />
+        )}
+
+        {suggestions.map((tag) => (
+          <button
+            key={tag}
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); addTag(tag); }}
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors"
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+          >
+            <span
+              className="w-4 h-4 rounded-sm shrink-0 border"
+              style={getTagColorStyle(tag)}
+            />
+            <span className="flex-1 text-left text-(--t-text-primary)">{tag}</span>
+          </button>
+        ))}
+      </PickerSurface>
     </div>
   );
 }

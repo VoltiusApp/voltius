@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { DropdownMenuItem } from "./DropdownMenuItem";
 import { formInputStyle } from "./Panel";
+import { PickerSurface } from "./PickerSurface";
 
 interface Option {
   value: string;
@@ -18,38 +18,16 @@ interface Props {
 
 export function FormSelect({ value, options, onChange, className = "" }: Props) {
   const [open, setOpen] = useState(false);
-  const [menuRect, setMenuRect] = useState({ top: 0, left: 0, width: 0 });
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   const selectedLabel = options.find((o) => o.value === value)?.label ?? value;
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (!triggerRef.current?.contains(target) && !menuRef.current?.contains(target)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  const handleToggle = () => {
-    if (!open && triggerRef.current) {
-      const r = triggerRef.current.getBoundingClientRect();
-      setMenuRect({ top: r.bottom + 4, left: r.left, width: r.width });
-    }
-    setOpen((o) => !o);
-  };
 
   return (
     <div className={className}>
       <button
         ref={triggerRef}
         type="button"
-        onClick={handleToggle}
+        onClick={() => setOpen((o) => !o)}
         className="form-input w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm"
         style={formInputStyle}
       >
@@ -62,24 +40,17 @@ export function FormSelect({ value, options, onChange, className = "" }: Props) 
         />
       </button>
 
-      {open && createPortal(
-        <div
-          ref={menuRef}
-          className="surface-float fixed p-1.5 z-9999 flex flex-col max-h-[240px] overflow-y-auto"
-          style={{ top: menuRect.top, left: menuRect.left, width: menuRect.width }}
-        >
-          {options.map((opt) => (
-            <DropdownMenuItem
-              key={opt.value}
-              label={opt.label}
-              iconSize={15}
-              checked={value === opt.value}
-              onClick={() => { onChange(opt.value); setOpen(false); }}
-            />
-          ))}
-        </div>,
-        document.body,
-      )}
+      <PickerSurface open={open} onClose={() => setOpen(false)} anchorRef={triggerRef} title="Select">
+        {options.map((opt) => (
+          <DropdownMenuItem
+            key={opt.value}
+            label={opt.label}
+            iconSize={15}
+            checked={value === opt.value}
+            onClick={() => { onChange(opt.value); setOpen(false); }}
+          />
+        ))}
+      </PickerSurface>
     </div>
   );
 }

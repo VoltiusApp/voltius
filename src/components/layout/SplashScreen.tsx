@@ -1,7 +1,12 @@
 import { useState, useEffect } from "react";
 import { getVaultStatus } from "@/services/vault";
-import { listConnections } from "@/services/connections";
+import { useConnectionStore } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
+import { useKeyStore } from "@/stores/keyStore";
+import { useFolderStore } from "@/stores/folderStore";
+import { useSnippetStore } from "@/stores/snippetStore";
+import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
+import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { autoLogin, consumeForceLockFlag, isServerMode } from "@/services/account";
 import { saveCurrentAccount } from "@/services/savedAccounts";
 import { syncOnLogin, syncOnLoginReplace, startRealtimeSync } from "@/services/sync";
@@ -74,7 +79,11 @@ export default function SplashScreen({ onReady }: Props) {
         setPhase("auth-first-launch");
       }
     }
-    init();
+    init().catch(() => {
+      // Last-resort guard: never let an unexpected rejection freeze the splash.
+      setStep("vault", "error", "Vault check failed");
+      setPhase("auth-first-launch");
+    });
   }, []);
 
   const finishLoading = async () => {
@@ -82,8 +91,14 @@ export default function SplashScreen({ onReady }: Props) {
     await delay(150);
     try {
       await Promise.all([
-        listConnections(),
+        // Populate stores from local cache so tabs paint at boot, before sync lands.
+        useConnectionStore.getState().loadConnections(),
         useIdentityStore.getState().loadIdentities(),
+        useKeyStore.getState().loadKeys(),
+        useFolderStore.getState().loadFolders(),
+        useSnippetStore.getState().loadSnippets(),
+        useSnippetFolderStore.getState().loadFolders(),
+        usePortForwardingStore.getState().loadRules(),
       ]);
       setStep("connections", "done");
     } catch {
@@ -104,13 +119,20 @@ export default function SplashScreen({ onReady }: Props) {
       startRealtimeSync();
     });
     useThemeStore.getState().loadFromDisk().catch(() => {});
-    await usePluginRegistryStore.getState().load();
-    const { isEnabled } = usePluginRegistryStore.getState();
-    for (const plugin of BUNDLED_PLUGINS) {
-      const active = isEnabled(plugin.manifest.id, plugin.manifest.defaultEnabled ?? true);
-      loadPlugin(plugin.manifest, plugin.register, active);
+    // Plugin loading must never freeze startup: a single rejected invoke here
+    // (e.g. a storage command failing on a locked-down platform) would leave the
+    // splash spinning forever. Swallow and continue to the main UI.
+    try {
+      await usePluginRegistryStore.getState().load();
+      const { isEnabled } = usePluginRegistryStore.getState();
+      for (const plugin of BUNDLED_PLUGINS) {
+        const active = isEnabled(plugin.manifest.id, plugin.manifest.defaultEnabled ?? true);
+        loadPlugin(plugin.manifest, plugin.register, active);
+      }
+      await loadInstalledPlugins();
+    } catch (e) {
+      console.warn("[splash] plugin loading failed, continuing to app:", e);
     }
-    await loadInstalledPlugins();
     await delay(400);
     setExiting(true);
     await delay(400);

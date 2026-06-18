@@ -1,5 +1,4 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import type { Connection, ConnectionFormData, AuthType, VaultOption, JumpHost, EnvVar } from "@/types";
 import { KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
@@ -40,7 +39,8 @@ import { useGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
 import { resolveDisableOverride } from "@/utils/inheritedSetting";
 import FolderSelector from "@/components/shared/FolderSelector";
 import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
-import { CONNECTION_ICON_OPTIONS, getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, glossyTileStyle, normalizeDistro } from "@/utils/icons";
+import { getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, glossyTileStyle, normalizeDistro } from "@/utils/icons";
+import { DistroIconPicker } from "./DistroIconPicker";
 import {
   PanelShell,
   PanelHeader,
@@ -61,6 +61,10 @@ interface Props {
   /** Other vaults available for move/copy (excludes the connection's current vault) */
   vaults?: VaultOption[];
   canEdit?: boolean;
+  /** Mobile embed: hide the desktop PanelHeader (close, actions) and the
+   *  VaultPicker subheader so the mobile screen owns the single header + Save.
+   *  Desktop default is undefined → unchanged behavior. */
+  hideChrome?: boolean;
   onMoveToVault?: (vaultId: string) => void;
   onCopyToVault?: (vaultId: string) => void;
 }
@@ -70,7 +74,7 @@ export interface ConnectionFormHandle {
   isDirty: () => boolean;
 }
 
-const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function ConnectionForm({ initial, onSubmit, onClose, onDuplicate, onConnect, onDelete, vaults, canEdit, onMoveToVault, onCopyToVault }, ref) {
+const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function ConnectionForm({ initial, onSubmit, onClose, onDuplicate, onConnect, onDelete, vaults, canEdit, hideChrome, onMoveToVault, onCopyToVault }, ref) {
   const [name, setName] = useState(initial?.name ?? "");
   const [host, setHost] = useState(initial?.host ?? "");
   const [port, setPort] = useState<number | "">(initial?.port ?? 22);
@@ -104,10 +108,8 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [distro, setDistro] = useState(initial?.distro ?? "");
   const [icon, setIcon] = useState(initial?.icon ?? "");
   const [showDistroPicker, setShowDistroPicker] = useState(false);
-  const [distroSearch, setDistroSearch] = useState("");
   const [detectingDistro, setDetectingDistro] = useState(false);
   const [distroError, setDistroError] = useState("");
-  const [distroPickerRect, setDistroPickerRect] = useState<DOMRect | null>(null);
   const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.terminal_encoding || initial?.agent_forwarding || initial?.ping_disabled || initial?.shell_integration_disabled !== undefined || initial?.keepalive_preset);
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
   const defaultVaultId = useDefaultVaultId();
@@ -124,8 +126,9 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const privateKeyDirty = useRef(false);
   const passphraseDirty = useRef(false);
   const userEditedRef = useRef(false);
-  const distroPickerRef = useRef<HTMLDivElement>(null);
-  const distroPickerMenuRef = useRef<HTMLDivElement>(null);
+  // Anchor the icon picker to the whole tile+label row so the desktop float matches the
+  // row width (as the old inline picker did) instead of overflowing from the 40px tile.
+  const iconRowRef = useRef<HTMLDivElement>(null);
 
   const { identities, teamIdentities, loadIdentities } = useIdentityStore();
   const { keys, teamKeys, loadKeys } = useKeyStore();
@@ -174,31 +177,6 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
     void loadFolders();
   }, [loadIdentities, loadKeys, loadFolders]);
 
-  useEffect(() => {
-    if (!showDistroPicker) return;
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (!distroPickerRef.current?.contains(target) && !distroPickerMenuRef.current?.contains(target)) {
-        setShowDistroPicker(false);
-      }
-    };
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, [showDistroPicker]);
-
-  useEffect(() => {
-    if (!showDistroPicker) return;
-    const updateRect = () => {
-      if (distroPickerRef.current) setDistroPickerRect(distroPickerRef.current.getBoundingClientRect());
-    };
-    updateRect();
-    window.addEventListener("resize", updateRect);
-    window.addEventListener("scroll", updateRect, true);
-    return () => {
-      window.removeEventListener("resize", updateRect);
-      window.removeEventListener("scroll", updateRect, true);
-    };
-  }, [showDistroPicker]);
 
   // Load existing secrets when editing
   useEffect(() => {
@@ -281,11 +259,6 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
     setShowPassword((v) => !v);
   }, [showPassword, initial, password, vaultId]);
 
-  const toggleDistroPicker = () => {
-    if (distroPickerRef.current) setDistroPickerRect(distroPickerRef.current.getBoundingClientRect());
-    setShowDistroPicker((v) => !v);
-  };
-
   const visibleIcon = icon || distro;
 
   const keepaliveOptions = useMemo(() => [
@@ -298,12 +271,6 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
     { value: "on", label: "On" },
     { value: "off", label: "Off" },
   ], [globalPersist]);
-
-  const filteredIcons = useMemo(() => {
-    const query = distroSearch.trim().toLowerCase();
-    if (!query) return CONNECTION_ICON_OPTIONS;
-    return CONNECTION_ICON_OPTIONS.filter((option) => option.label.toLowerCase().includes(query) || option.id.includes(query) || option.group.toLowerCase().includes(query));
-  }, [distroSearch]);
 
   const applyIcon = useCallback((nextIcon: string) => {
     setIcon(nextIcon);
@@ -394,25 +361,27 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   return (
     <div className="relative flex flex-col h-full overflow-hidden">
     <PanelShell>
-      <PanelHeader
-        icon={initial ? "lucide:pencil" : "lucide:plus"}
-        title={initial ? "Edit Host" : "New Host"}
-        subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => { vaultPickerTouched.current = true; setVaultId(id); markDirty(); }} />}
-        onClose={handleClose}
-        saveState={initial ? saveState : undefined}
-        actions={initial ? (
-          <>
-            <PinButton pinned={isPinned} onToggle={() => {
-              if (!isTeamVault) {
-                pinConnection(initial.id, !isPinned).catch(() => {});
-              } else {
-                pinConnection(initial.id, nextPersonalPinValue(pinSource)).catch(() => {});
-              }
-            }} />
-            {panelItems.length > 0 && <PanelActionsMenu items={panelItems} />}
-          </>
-        ) : undefined}
-      />
+      {!hideChrome && (
+        <PanelHeader
+          icon={initial ? "lucide:pencil" : "lucide:plus"}
+          title={initial ? "Edit Host" : "New Host"}
+          subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => { vaultPickerTouched.current = true; setVaultId(id); markDirty(); }} />}
+          onClose={handleClose}
+          saveState={initial ? saveState : undefined}
+          actions={initial ? (
+            <>
+              <PinButton pinned={isPinned} onToggle={() => {
+                if (!isTeamVault) {
+                  pinConnection(initial.id, !isPinned).catch(() => {});
+                } else {
+                  pinConnection(initial.id, nextPersonalPinValue(pinSource)).catch(() => {});
+                }
+              }} />
+              {panelItems.length > 0 && <PanelActionsMenu items={panelItems} />}
+            </>
+          ) : undefined}
+        />
+      )}
 
       <div className="flex flex-col flex-1 overflow-y-auto">
         <div className="flex-1 px-4 py-4 space-y-3">
@@ -420,10 +389,10 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
           <FormSection label="General">
             <div>
               <label className={formLabelClass} style={formLabelStyle}>Label</label>
-              <div className="relative flex gap-2.5" ref={distroPickerRef}>
+              <div ref={iconRowRef} className="relative flex gap-2.5">
                 <button
                   type="button"
-                  onClick={toggleDistroPicker}
+                  onClick={() => setShowDistroPicker((v) => !v)}
                   className="w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0 transition-all hover:brightness-110"
                   style={glossyTileStyle(visibleIcon ? getConnectionIconColor(visibleIcon) : "var(--t-bg-card-avatar)")}
                   title={visibleIcon ? `Change icon (${getConnectionIconLabel(visibleIcon)})` : "Change icon"}
@@ -438,81 +407,17 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                   onChange={(e) => { markDirty(); setName(e.target.value); }}
                   placeholder="My Server (optional)"
                 />
-
-                {showDistroPicker && distroPickerRect && createPortal(
-                  <div
-                    ref={distroPickerMenuRef}
-                    className="fixed z-50 rounded-xl border p-3 space-y-3"
-                    style={{
-                      left: Math.max(12, Math.min(distroPickerRect.left, window.innerWidth - distroPickerRect.width - 12)),
-                      top: Math.min(distroPickerRect.bottom + 8, window.innerHeight - 360),
-                      width: distroPickerRect.width,
-                      background: "var(--t-bg-modal)",
-                      borderColor: "var(--t-border-hover)",
-                      boxShadow: "var(--t-elev-2), inset 0 1px 0 color-mix(in srgb, var(--t-text-bright) 8%, transparent)",
-                    }}
-                  >
-                    <div className="relative">
-                      <Icon icon="lucide:search" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-(--t-text-dim) pointer-events-none" />
-                      <input
-                        className={`${formInputClass} pl-7 text-xs`}
-                        style={formInputStyle}
-                        value={distroSearch}
-                        onChange={(e) => setDistroSearch(e.target.value)}
-                        placeholder="Search icon"
-                        autoFocus
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 gap-2 max-h-52 overflow-y-auto pr-1">
-                      {filteredIcons.map((option) => {
-                        const selected = visibleIcon === option.id;
-                        return (
-                          <button
-                            key={option.id}
-                            type="button"
-                            onClick={() => { applyIcon(option.id); setShowDistroPicker(false); }}
-                            className="flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-colors"
-                            style={{
-                              background: selected
-                                ? "color-mix(in srgb, var(--t-accent) 18%, var(--t-bg-input))"
-                                : "var(--t-bg-input)",
-                              borderColor: selected ? "var(--t-accent)" : "var(--t-border)",
-                            }}
-                            onMouseEnter={(e) => {
-                              if (!selected) {
-                                e.currentTarget.style.background = "var(--t-bg-input-hover)";
-                                e.currentTarget.style.borderColor = "var(--t-border-hover)";
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (!selected) {
-                                e.currentTarget.style.background = "var(--t-bg-input)";
-                                e.currentTarget.style.borderColor = "var(--t-border)";
-                              }
-                            }}
-                            title={option.label}
-                          >
-                            <span className="w-8 h-8 rounded-lg flex items-center justify-center text-white" style={glossyTileStyle(getConnectionIconColor(option.id))}>
-                              <Icon icon={getConnectionIcon(option.id)} width={16} />
-                            </span>
-                            <span className="text-[10px] text-(--t-text-dim) truncate max-w-full">{option.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void detectDistroFromForm()}
-                      disabled={detectingDistro || !host.trim() || !username.trim()}
-                      className="btn btn-primary w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium disabled:cursor-not-allowed"
-                    >
-                      <Icon icon={detectingDistro ? "lucide:loader-2" : "lucide:scan-search"} width={13} className={detectingDistro ? "animate-spin" : undefined} />
-                      Auto-detect OS
-                    </button>
-                    {distroError && <p className="text-[11px] text-red-400 leading-snug">{distroError}</p>}
-                  </div>,
-                  document.body,
-                )}
+                <DistroIconPicker
+                  open={showDistroPicker}
+                  onClose={() => setShowDistroPicker(false)}
+                  anchorRef={iconRowRef}
+                  selectedIcon={visibleIcon}
+                  onPick={(id) => { applyIcon(id); }}
+                  detectingDistro={detectingDistro}
+                  distroError={distroError}
+                  onDetectDistro={() => void detectDistroFromForm()}
+                  canDetect={!!(host.trim() && username.trim())}
+                />
               </div>
             </div>
             <div>

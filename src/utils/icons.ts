@@ -108,37 +108,11 @@ export const DISTRO_OPTIONS = [
 
 export type DistroId = typeof DISTRO_OPTIONS[number]["id"];
 
-export const CONNECTION_ICON_OPTIONS = [
-  { group: "OS", id: "ubuntu", label: "Ubuntu" },
-  { group: "OS", id: "debian", label: "Debian" },
-  { group: "OS", id: "fedora", label: "Fedora" },
-  { group: "OS", id: "centos", label: "CentOS" },
-  { group: "OS", id: "rhel", label: "Red Hat" },
-  { group: "OS", id: "arch", label: "Arch" },
-  { group: "OS", id: "opensuse", label: "openSUSE" },
-  { group: "OS", id: "kali", label: "Kali" },
-  { group: "OS", id: "mint", label: "Linux Mint" },
-  { group: "OS", id: "nixos", label: "NixOS" },
-  { group: "OS", id: "gentoo", label: "Gentoo" },
-  { group: "OS", id: "raspbian", label: "Raspberry Pi" },
-  { group: "OS", id: "linux", label: "Linux" },
-  { group: "OS", id: "proxmox", label: "Proxmox" },
-  { group: "Services", id: "docker", label: "Docker" },
-  { group: "Services", id: "nginx", label: "Nginx" },
-  { group: "Services", id: "apache", label: "Apache" },
-  { group: "Services", id: "postgresql", label: "PostgreSQL" },
-  { group: "Services", id: "mysql", label: "MySQL" },
-  { group: "Services", id: "mongodb", label: "MongoDB" },
-  { group: "Services", id: "redis", label: "Redis" },
-  { group: "Services", id: "nodejs", label: "Node.js" },
-  { group: "Services", id: "python", label: "Python" },
-  { group: "Services", id: "git", label: "Git" },
-  { group: "Services", id: "kubernetes", label: "Kubernetes" },
-  { group: "Monitoring", id: "prometheus", label: "Prometheus" },
-  { group: "Monitoring", id: "grafana", label: "Grafana" },
-] as const;
-
-export type ConnectionIconId = typeof CONNECTION_ICON_OPTIONS[number]["id"];
+// Icon option list + filter live in a pure module (no virtual:lucide-subset import) so the
+// node test runner and option-only consumers can import them; re-exported here for the
+// existing `@/utils/icons` import surface.
+export { CONNECTION_ICON_OPTIONS, filterIconOptions, type ConnectionIconId } from "./iconOptions";
+import { CONNECTION_ICON_OPTIONS, type ConnectionIconId } from "./iconOptions";
 
 const DISTRO_ALIASES: Record<string, DistroId> = {
   ubuntu: "ubuntu",
