@@ -1,3 +1,4 @@
+#[cfg(any(target_os = "android", test))]
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
