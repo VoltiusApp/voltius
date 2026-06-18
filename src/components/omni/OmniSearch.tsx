@@ -403,6 +403,8 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
             snippet: item.snippet,
             userVars,
             partialTemplate,
+            execute: true,
+            sessionIds: [activeSession.id],
             initialValues: defaultValues,
           });
         } else {

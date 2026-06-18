@@ -1,0 +1,85 @@
+import { useEffect, useState } from "react";
+import { Icon } from "@iconify/react";
+import MobileHeader from "../MobileHeader";
+import { useMobileNavStore } from "@/stores/mobileNavStore";
+import { useUIStore } from "@/stores/uiStore";
+import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { getCurrentUserEmail } from "@/services/account";
+import type { MorePage } from "@/stores/mobileNavCore";
+
+const PAGES: { page: MorePage; label: string; icon: string }[] = [
+  { page: "keychain",        label: "Keychain",        icon: "lucide:key-round" },
+  { page: "port-forwarding", label: "Port Forwarding", icon: "lucide:arrow-left-right" },
+  { page: "known-hosts",     label: "Known Hosts",     icon: "lucide:fingerprint" },
+  { page: "members",         label: "Members",         icon: "lucide:users-round" },
+  { page: "logs",            label: "Logs",            icon: "lucide:scroll-text" },
+];
+
+const TIER_LABEL: Record<string, string> = { free: "Free", pro: "Pro", teams: "Teams", business: "Business" };
+
+export default function MobileMoreScreen() {
+  const push = useMobileNavStore((s) => s.push);
+  const openSettings = useUIStore((s) => s.openSettings);
+  const openCloudAuth = useUIStore((s) => s.openCloudAuth);
+  const accountMode = useSubscriptionStore((s) => s.accountMode);
+  const tier = useSubscriptionStore((s) => s.tier);
+  const [email, setEmail] = useState<string | null>(null);
+
+  const signedIn = accountMode === "server";
+  useEffect(() => { if (signedIn) void getCurrentUserEmail().then(setEmail); }, [signedIn]);
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <MobileHeader />
+      <div className="flex-1 overflow-y-auto py-2">
+        {/* Account block */}
+        {signedIn ? (
+          <button
+            data-more-account
+            className="w-full flex items-center gap-3 px-4 py-3 mb-1 text-left active:bg-(--t-bg-card)"
+            onClick={() => push({ kind: "account" })}
+          >
+            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "var(--t-accent)" }}>
+              <Icon icon="lucide:user" width={18} className="text-white" />
+            </div>
+            <span className="flex flex-col min-w-0 flex-1">
+              <span className="text-sm font-medium text-(--t-text-primary) truncate">{email ?? "Account"}</span>
+              <span className="text-xs text-(--t-text-dim)">{TIER_LABEL[tier] ?? tier} plan</span>
+            </span>
+            <Icon icon="lucide:chevron-right" width={16} className="text-(--t-text-dim)" />
+          </button>
+        ) : (
+          <button
+            data-more-signin
+            className="w-full flex items-center gap-3 px-4 py-3 mb-1 text-left active:bg-(--t-bg-card)"
+            onClick={() => openCloudAuth("signin")}
+          >
+            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}>
+              <Icon icon="lucide:log-in" width={18} className="text-(--t-text-dim)" />
+            </div>
+            <span className="flex-1 text-sm font-medium text-(--t-text-primary)">Sign in to sync</span>
+            <Icon icon="lucide:chevron-right" width={16} className="text-(--t-text-dim)" />
+          </button>
+        )}
+        <div className="mx-4 my-1 border-t" style={{ borderColor: "var(--t-border)" }} />
+
+        {PAGES.map((p) => (
+          <button key={p.page} data-more-page={p.page}
+            className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-(--t-bg-card)"
+            onClick={() => push({ kind: "more-page", page: p.page })}>
+            <Icon icon={p.icon} width={20} className="text-(--t-text-dim)" />
+            <span className="flex-1 text-sm font-medium text-(--t-text-primary)">{p.label}</span>
+            <Icon icon="lucide:chevron-right" width={16} className="text-(--t-text-dim)" />
+          </button>
+        ))}
+        <div className="mx-4 my-2 border-t" style={{ borderColor: "var(--t-border)" }} />
+        <button data-more-page="settings"
+          className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-(--t-bg-card)"
+          onClick={() => openSettings()}>
+          <Icon icon="lucide:settings" width={20} className="text-(--t-text-dim)" />
+          <span className="flex-1 text-sm font-medium text-(--t-text-primary)">Settings</span>
+        </button>
+      </div>
+    </div>
+  );
+}
