@@ -30,6 +30,10 @@ import { triggerOsDrop as triggerOsDropPipeline } from "./osDropPipeline";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useConnectionStore } from "@/stores/connectionStore";
+import { useEditorStore } from "@/stores/editorStore";
+import { EditorTabStrip } from "./editor/EditorTabStrip";
+import { EditorTab } from "./editor/EditorTab";
+import { DiffTab } from "./editor/DiffTab";
 
 export default function SFTPPage() {
   const sftpPanelOpen = useUIStore((s) => s.sftpPanelOpen);
@@ -397,9 +401,41 @@ export default function SFTPPage() {
   const transferLRTitle = canTransferLR ? (leftSelected.length  === 1 ? `Transfer "${leftSelected[0].name}" →`  : `Transfer ${leftSelected.length} items →`)  : "Select a file on the left";
   const transferRLTitle = canTransferRL ? (rightSelected.length === 1 ? `Transfer "${rightSelected[0].name}" ←` : `Transfer ${rightSelected.length} items ←`) : "Select a file on the right";
 
+  const hostLabelFor = (host: HostChoice | null) =>
+    host == null ? "remote"
+    : host.kind === "local" ? (host.wslDistro ?? "Local Machine")
+    : host.connection.name?.trim() || `${host.connection.username}@${host.connection.host}`;
+
+  const leftSingleFile  = leftSelected.length  === 1 && !leftSelected[0].isDir  ? leftSelected[0]  : null;
+  const rightSingleFile = rightSelected.length === 1 && !rightSelected[0].isDir ? rightSelected[0] : null;
+  const canCompare =
+    leftPhase.tag === "connected" && leftPhase.sftpId !== null && !!leftSingleFile &&
+    rightPhase.tag === "connected" && rightPhase.sftpId !== null && !!rightSingleFile;
+  const handleCompare = () => {
+    if (!canCompare || leftPhase.tag !== "connected" || rightPhase.tag !== "connected") return;
+    useEditorStore.getState().openDiff(
+      { sftpId: leftPhase.sftpId!, path: leftSingleFile!.path, hostLabel: hostLabelFor(leftHost) },
+      { sftpId: rightPhase.sftpId!, path: rightSingleFile!.path, hostLabel: hostLabelFor(rightHost) },
+    );
+  };
+
+  const editorTabs = useEditorStore((s) => s.tabs);
+  const activeTabId = useEditorStore((s) => s.activeTabId);
+  const activeTab = editorTabs.find((t) => t.id === activeTabId) ?? null;
+
   return (
     <div className="flex flex-col h-full bg-(--t-bg-base)">
-      <div className="flex flex-1 min-h-0 gap-3 p-3">
+      <EditorTabStrip />
+      {activeTab !== null ? (
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {activeTab.kind === "file" ? (
+            <EditorTab doc={activeTab} />
+          ) : (
+            <DiffTab doc={activeTab} />
+          )}
+        </div>
+      ) : null}
+      <div className={`flex flex-1 min-h-0 gap-3 p-3${activeTab !== null ? " hidden" : ""}`}>
         <div className="flex-1 min-w-0 rounded-xl overflow-hidden border border-(--t-border)">
           <SidePane
             host={leftHost} phase={leftPhase} refreshTick={leftRefresh}
@@ -423,6 +459,7 @@ export default function SFTPPage() {
           <div className="flex flex-col gap-1.5 p-1.5 rounded-xl border border-(--t-border) bg-(--t-bg-elevated)">
             <TransferBtn icon="lucide:arrow-right" title={transferLRTitle} disabled={!canTransferLR} onClick={() => transfer("LR")} />
             <TransferBtn icon="lucide:arrow-left"  title={transferRLTitle} disabled={!canTransferRL} onClick={() => transfer("RL")} />
+            <TransferBtn icon="lucide:diff"        title={canCompare ? `Compare "${leftSingleFile!.name}" ↔ "${rightSingleFile!.name}"` : "Select one file on each side to compare"} disabled={!canCompare} onClick={handleCompare} />
           </div>
         </div>
 

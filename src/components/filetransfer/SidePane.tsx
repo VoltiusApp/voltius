@@ -315,6 +315,7 @@ export function SidePane({
             isLocal={host.kind === "local"}
             cwd={phase.cwd}
             homeCwd={homeCwdRef.current || undefined}
+            hostLabel={hostLabel ?? "remote"}
             onNavigate={navigate}
             onSelect={onSelect}
             onRefresh={onRefresh}

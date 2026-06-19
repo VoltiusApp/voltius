@@ -59,6 +59,8 @@ pub struct SftpManager {
     sessions: Arc<Mutex<HashMap<String, SftpEntry>>>,
     /// Active transfer cancellation tokens, keyed by transfer_id
     transfers: Arc<Mutex<HashMap<String, CancellationToken>>>,
+    /// Per-(sftp_id, path) write serialization locks.
+    write_locks: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
 }
 
 impl SftpManager {
@@ -66,6 +68,7 @@ impl SftpManager {
         Self {
             sessions: Arc::new(Mutex::new(HashMap::new())),
             transfers: Arc::new(Mutex::new(HashMap::new())),
+            write_locks: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -426,6 +429,15 @@ impl SftpManager {
         self.transfers.lock().await.remove(transfer_id);
     }
 
+    /// Return a shared mutex keyed by (sftp_id, path); created on first use.
+    pub async fn path_lock(&self, sftp_id: &str, path: &str) -> Arc<Mutex<()>> {
+        let key = format!("{sftp_id}\u{0}{path}");
+        let mut map = self.write_locks.lock().await;
+        map.entry(key)
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone()
+    }
+
     /// Run a shell command on the remote host associated with an SFTP session.
     /// The command should append `; echo __TF_EXIT__:$?` to capture exit code.
     pub async fn exec_command(&self, sftp_id: &str, cmd: &str) -> Result<(), String> {
@@ -482,5 +494,27 @@ impl SftpManager {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SftpManager;
+    use std::sync::Arc;
+
+    #[tokio::test]
+    async fn path_lock_same_path_is_shared() {
+        let mgr = SftpManager::new();
+        let a = mgr.path_lock("s1", "/etc/hosts").await;
+        let b = mgr.path_lock("s1", "/etc/hosts").await;
+        assert!(Arc::ptr_eq(&a, &b));
+    }
+
+    #[tokio::test]
+    async fn path_lock_different_path_is_distinct() {
+        let mgr = SftpManager::new();
+        let a = mgr.path_lock("s1", "/a").await;
+        let b = mgr.path_lock("s1", "/b").await;
+        assert!(!Arc::ptr_eq(&a, &b));
     }
 }

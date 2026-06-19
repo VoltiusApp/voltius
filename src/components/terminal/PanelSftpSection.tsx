@@ -6,6 +6,9 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { usePanelSftpStore } from "@/stores/panelSftpStore";
 import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
 import { useTransferQueueStore } from "@/stores/transferQueueStore";
+import { useEditorStore } from "@/stores/editorStore";
+import { useUIStore } from "@/stores/uiStore";
+import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
 import { tarUsable } from "@/components/filetransfer/tarSupport";
 import {
   pickLocalPath, pickLocalPaths,
@@ -172,6 +175,23 @@ export default function PanelSftpSection() {
   }, [panelState, runTransfer]);
   const handleDownload = useCallback(() => { void downloadFiles(selected); }, [downloadFiles, selected]);
 
+  // ── Editor escalation ───────────────────────────────────────────────────────
+  const panelHostLabel =
+    !session ? "remote"
+    : session.type === "local" ? "Local Machine"
+    : session.connectionName || "remote";
+
+  const handleEdit = useCallback((path: string) => {
+    if (panelState?.tag !== "connected" || !panelState.sftpId) return;
+    useEditorStore.getState().openDoc({
+      sftpId: panelState.sftpId,
+      path,
+      hostLabel: panelHostLabel,
+      autoSave: useSftpSettingsStore.getState().editorAutoSave,
+    });
+    useUIStore.getState().setSftpPanelOpen(true);
+  }, [panelState, panelHostLabel]);
+
   // ── Layout ──────────────────────────────────────────────────────────────────
 
   const headerStatus = useMemo(() => {
@@ -258,6 +278,7 @@ export default function PanelSftpSection() {
             sftpId={panelState.sftpId}
             isLocal={panelState.isLocal}
             cwd={panelState.cwd}
+            hostLabel={panelHostLabel}
             onNavigate={handleNavigate}
             onSelect={setSelected}
             onRefresh={() => setRefreshTick((n) => n + 1)}
@@ -269,6 +290,7 @@ export default function PanelSftpSection() {
             onPanelDownload={panelState.isLocal ? undefined : (files) => void downloadFiles(files)}
             onRegisterMenuOpener={(opener) => setMenuOpener(() => opener)}
             onRegisterViewMenuOpener={(opener) => setViewMenuOpener(() => opener)}
+            onEdit={panelState.isLocal ? undefined : handleEdit}
           />
         )}
       </div>

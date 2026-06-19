@@ -11,6 +11,8 @@ export default function SFTPSection() {
   const [tarTransferEnabled, setTarTransferEnabled] = useToggle("sftp-tar");
   const autoRefreshIntervalMs = useSftpSettingsStore((s) => s.autoRefreshIntervalMs);
   const setAutoRefreshIntervalMs = useSftpSettingsStore((s) => s.setAutoRefreshIntervalMs);
+  const editorAutoSave = useSftpSettingsStore((s) => s.editorAutoSave);
+  const setEditorAutoSave = useSftpSettingsStore((s) => s.setEditorAutoSave);
 
   const intervalSeconds = autoRefreshIntervalMs / 1000;
 
@@ -129,6 +131,30 @@ export default function SFTPSection() {
                 style={{ opacity: autoRefreshEnabled ? 1 : 0.45 }}
               />
               <span className="text-xs text-(--t-text-dim)">s</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
+          Editor
+        </h3>
+
+        <div className="rounded-lg bg-(--t-bg-elevated) border border-(--t-border)">
+          <div className="group flex items-center justify-between px-4 py-3 gap-4">
+            <div>
+              <p className="text-sm font-medium text-(--t-text-primary)">Auto-save</p>
+              <p className="text-xs mt-0.5 text-(--t-text-dim)">
+                Automatically save file changes as you type
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {editorAutoSave && (
+                <ResetButton onReset={() => setEditorAutoSave(false)} />
+              )}
+              {editorAutoSave && <DirtyDot />}
+              <Toggle checked={editorAutoSave} onChange={setEditorAutoSave} />
             </div>
           </div>
         </div>

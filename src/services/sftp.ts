@@ -388,3 +388,33 @@ export async function fsCompress(sourcePath: string, archivePath: string): Promi
 export async function fsExtract(archivePath: string, destDir: string): Promise<void> {
   return invoke("fs_extract", { archivePath, destDir });
 }
+
+// ── Editor ────────────────────────────────────────────────────────────────────────
+
+export interface EditorFile {
+  content: string;
+  size: number;
+}
+
+export type EditorReadError =
+  | { kind: "too_large"; size: number; limit: number }
+  | { kind: "binary" }
+  | { kind: "io"; message: string };
+
+export const DEFAULT_EDITOR_MAX_BYTES = 5 * 1024 * 1024;
+
+export async function sftpReadFile(
+  sftpId: string,
+  path: string,
+  maxBytes: number,
+): Promise<EditorFile> {
+  return invoke("sftp_read_file", { sftpId, path, maxBytes });
+}
+
+export async function sftpWriteFile(
+  sftpId: string,
+  path: string,
+  content: string,
+): Promise<void> {
+  return invoke("sftp_write_file", { sftpId, path, content });
+}

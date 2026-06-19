@@ -229,13 +229,46 @@ impl DockerFs {
         Ok(())
     }
 
-    async fn file_size(&self, path: &str) -> u64 {
+    pub async fn file_size(&self, path: &str) -> u64 {
         let script = "stat -c %s \"$1\" 2>/dev/null || echo 0";
         self.run(&self.dexec(script, &[path]))
             .await
             .ok()
             .and_then(|(out, _, _)| out.trim().parse().ok())
             .unwrap_or(0)
+    }
+
+    pub async fn read_file(&self, path: &str) -> Result<Vec<u8>, String> {
+        let (out, err, code) = self.run(&self.dexec("base64 \"$1\"", &[path])).await?;
+        if code != 0 {
+            return Err(format!("read failed: {err}"));
+        }
+        use base64::Engine;
+        base64::engine::general_purpose::STANDARD
+            .decode(out.trim().replace('\n', ""))
+            .map_err(|e| format!("decode failed: {e}"))
+    }
+
+    pub async fn write_file(&self, path: &str, content: &str) -> Result<(), String> {
+        let cmd = self.dexec("cat > \"$1\"", &[path]);
+        let mut channel = self
+            .handle
+            .channel_open_session()
+            .await
+            .map_err(|e| format!("channel error: {e}"))?;
+        channel
+            .exec(true, cmd.as_str())
+            .await
+            .map_err(|e| format!("exec error: {e}"))?;
+        let mut writer = channel.make_writer();
+        writer
+            .write_all(content.as_bytes())
+            .await
+            .map_err(|e| format!("Write error: {e}"))?;
+        writer.flush().await.ok();
+        drop(writer);
+        channel.eof().await.ok();
+        self.drain_exit(&mut channel, "write").await
     }
 
     // ── Single file transfer ──────────────────────────────────────────────────
