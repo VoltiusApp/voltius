@@ -238,6 +238,20 @@ impl DockerFs {
             .unwrap_or(0)
     }
 
+    pub async fn read_file(&self, path: &str, max_bytes: u64) -> Result<Vec<u8>, String> {
+        if self.file_size(path).await > max_bytes {
+            return Err(format!("file exceeds limit of {max_bytes} bytes"));
+        }
+        let (out, err, code) = self.run(&self.dexec("base64 \"$1\"", &[path])).await?;
+        if code != 0 {
+            return Err(format!("read failed: {err}"));
+        }
+        use base64::Engine;
+        base64::engine::general_purpose::STANDARD
+            .decode(out.trim().replace('\n', ""))
+            .map_err(|e| format!("decode failed: {e}"))
+    }
+
     // ── Single file transfer ──────────────────────────────────────────────────
 
     pub async fn upload_file(
