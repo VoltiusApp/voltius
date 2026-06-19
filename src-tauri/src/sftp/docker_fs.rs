@@ -250,15 +250,25 @@ impl DockerFs {
     }
 
     pub async fn write_file(&self, path: &str, content: &str) -> Result<(), String> {
-        use base64::Engine;
-        let b64 = base64::engine::general_purpose::STANDARD.encode(content.as_bytes());
-        let script = "base64 -d > \"$1\"";
-        let cmd = format!("printf %s {} | {}", b64, self.dexec(script, &[path]));
-        let (_out, err, code) = self.run(&cmd).await?;
-        if code != 0 {
-            return Err(format!("write failed: {err}"));
-        }
-        Ok(())
+        let cmd = self.dexec("cat > \"$1\"", &[path]);
+        let mut channel = self
+            .handle
+            .channel_open_session()
+            .await
+            .map_err(|e| format!("channel error: {e}"))?;
+        channel
+            .exec(true, cmd.as_str())
+            .await
+            .map_err(|e| format!("exec error: {e}"))?;
+        let mut writer = channel.make_writer();
+        writer
+            .write_all(content.as_bytes())
+            .await
+            .map_err(|e| format!("Write error: {e}"))?;
+        writer.flush().await.ok();
+        drop(writer);
+        channel.eof().await.ok();
+        self.drain_exit(&mut channel, "write").await
     }
 
     // ── Single file transfer ──────────────────────────────────────────────────

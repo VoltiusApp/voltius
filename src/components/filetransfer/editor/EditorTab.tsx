@@ -70,6 +70,7 @@ export function EditorTab({ doc }: { doc: EditorDoc }) {
 
   useEffect(() => {
     let cancelled = false;
+    setError(null);
     setLoading(true);
     sftpReadFile(doc.sftpId, doc.path, maxBytes)
       .then((f) => {
