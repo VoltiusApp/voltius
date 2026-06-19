@@ -8,6 +8,14 @@ concurrency:
   group: tag-release
   cancel-in-progress: false
 
+# Set at the workflow level so the token isn't capped by the repo's
+# default_workflow_permissions. When that default is "read", per-job
+# permissions can't elevate a reusable-workflow token past it, so the
+# release job's create-release call fails with "Resource not accessible
+# by integration". An explicit top-level block overrides the repo default.
+permissions:
+  contents: write
+
 jobs:
   tag:
     runs-on: ubuntu-latest

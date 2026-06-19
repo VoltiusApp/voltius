@@ -14,6 +14,12 @@ on:
         required: true
         type: string
 
+# Needed for the workflow_dispatch entry path, which doesn't inherit the
+# caller's token. Overrides a "read" default_workflow_permissions so the
+# release jobs can create/edit the GitHub release.
+permissions:
+  contents: write
+
 jobs:
   changelog:
     runs-on: ubuntu-latest
