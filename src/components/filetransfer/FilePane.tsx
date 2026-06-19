@@ -14,6 +14,7 @@ import {
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { type FileEntry, type SortCol, type SortDir, type VisibleCols, formatSize, formatPermissions, formatDate } from "./SFTPTypes";
 import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
+import { useEditorStore } from "@/stores/editorStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { startInternalDragGesture, useSemanticDragState } from "./internalDrag";
 
@@ -22,6 +23,7 @@ import { startInternalDragGesture, useSemanticDragState } from "./internalDrag";
 type SelectionActionsCtx = {
   isLocal: boolean;
   sftpId: string | null;
+  hostLabel: string;
   canTransferToTarget: boolean;
   onTransferToTarget?: (files: FileEntry[]) => void;
   onStartRename: (f: FileEntry) => void;
@@ -30,6 +32,8 @@ type SelectionActionsCtx = {
   onExtract: (file: FileEntry) => Promise<void>;
   onOpenInTerminal?: (path: string) => void;
   onPanelDownload?: (files: FileEntry[]) => void;
+  /** Optional override for the Edit action — used by panel embedding to also open the SFTP panel. */
+  onEdit?: (path: string) => void;
   setSelection: (ids: string[]) => void;
   onRefresh: () => void;
 };
@@ -55,16 +59,18 @@ export function IconBtn({ icon, title, onClick }: { icon: string; title: string;
 const DEFAULT_VISIBLE_COLS: VisibleCols = { size: true, modified: true, permissions: true };
 
 export function FilePane({
-  sftpId, isLocal, cwd, homeCwd,
+  sftpId, isLocal, cwd, homeCwd, hostLabel = "remote",
   onNavigate, onSelect, onRefresh, refreshTick, side, onDropFiles,
   onTransferToTarget, canTransferToTarget, onChangeHost,
   filter = "", onRegisterMenuOpener, onRegisterViewMenuOpener, onOpenInTerminal,
-  initialVisibleCols, onPanelDownload, onPanelUpload,
+  initialVisibleCols, onPanelDownload, onPanelUpload, onEdit,
 }: {
   sftpId: string | null;
   isLocal: boolean;
   cwd: string;
   homeCwd?: string;
+  /** Display label for the remote host — shown in editor tab titles. */
+  hostLabel?: string;
   onNavigate: (p: string) => void;
   onSelect: (files: FileEntry[]) => void;
   onRefresh: () => void;
@@ -84,6 +90,8 @@ export function FilePane({
   onPanelDownload?: (files: FileEntry[]) => void;
   /** Panel embedding only: pick local files and upload them to the current dir. */
   onPanelUpload?: () => void;
+  /** Optional override for Edit action (panel embedding: also opens SFTP panel). */
+  onEdit?: (path: string) => void;
 }) {
   const [autoRefreshEnabled] = useToggle("sftp-autorefresh");
   const autoRefreshIntervalMs = useSftpSettingsStore((s) => s.autoRefreshIntervalMs);
@@ -328,10 +336,10 @@ export function FilePane({
   };
 
   const selectionActionsCtx: SelectionActionsCtx = {
-    isLocal, sftpId, canTransferToTarget: canTransferToTarget ?? false,
+    isLocal, sftpId, hostLabel, canTransferToTarget: canTransferToTarget ?? false,
     onTransferToTarget, onStartRename: startRename, onDelete: handleDelete,
     onCompress: handleCompress, onExtract: handleExtract,
-    onOpenInTerminal, onPanelDownload, setSelection, onRefresh,
+    onOpenInTerminal, onPanelDownload, onEdit, setSelection, onRefresh,
   };
 
   // The pointer-driven drag controller invokes this when a drop is committed
@@ -484,6 +492,27 @@ function buildSelectionActions(files: FileEntry[], ctx: SelectionActionsCtx): Co
         },
       });
     }
+  }
+
+  // Edit (single non-dir remote file only)
+  if (single && !ctx.isLocal && !single.isDir && ctx.sftpId) {
+    const { sftpId, hostLabel, onEdit } = ctx;
+    items.push({
+      label: "Edit",
+      icon: "lucide:file-pen",
+      onClick: () => {
+        if (onEdit) {
+          onEdit(single.path);
+        } else {
+          useEditorStore.getState().openDoc({
+            sftpId: sftpId!,
+            path: single.path,
+            hostLabel,
+            autoSave: useSftpSettingsStore.getState().editorAutoSave,
+          });
+        }
+      },
+    });
   }
 
   // Rename / Delete
