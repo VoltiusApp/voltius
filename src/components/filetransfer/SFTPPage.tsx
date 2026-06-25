@@ -35,6 +35,7 @@ import { useEditorStore } from "@/stores/editorStore";
 import { EditorTabStrip } from "./editor/EditorTabStrip";
 import { EditorTab } from "./editor/EditorTab";
 import { DiffTab } from "./editor/DiffTab";
+import { EditorDropOverlay } from "./editor/EditorDropOverlay";
 
 export default function SFTPPage() {
   const sftpPanelOpen = useUIStore((s) => s.sftpPanelOpen);
@@ -435,15 +436,18 @@ export default function SFTPPage() {
       <EditorTabStrip />
       {/* Keep every open tab mounted; hide inactive ones so CodeMirror state
           (unsaved edits, scroll, dirty) survives switching tabs. */}
-      {editorTabs.map((tab) => (
-        <div
-          key={tab.id}
-          className="flex-1 min-h-0 overflow-hidden"
-          style={{ display: tab.id === activeTabId ? undefined : "none" }}
-        >
-          {tab.kind === "file" ? <EditorTab doc={tab} /> : <DiffTab doc={tab} />}
-        </div>
-      ))}
+      <div className="relative flex flex-1 min-h-0 flex-col" style={{ display: activeTab !== null ? undefined : "none" }}>
+        {editorTabs.map((tab) => (
+          <div
+            key={tab.id}
+            className="flex-1 min-h-0 overflow-hidden"
+            style={{ display: tab.id === activeTabId ? undefined : "none" }}
+          >
+            {tab.kind === "file" ? <EditorTab doc={tab} /> : <DiffTab doc={tab} />}
+          </div>
+        ))}
+        <EditorDropOverlay />
+      </div>
       <div className={`flex flex-1 min-h-0 gap-3 p-3${activeTab !== null ? " hidden" : ""}`}>
         <div className="flex-1 min-w-0 rounded-xl overflow-hidden border border-(--t-border)">
           <SidePane
