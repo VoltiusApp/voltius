@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { Icon } from "@iconify/react";
 import { PortRow } from "@/components/terminal/PortRow";
+import { PortsPanelHeader } from "@/components/terminal/PortsPanelHeader";
 import { QuickForwardRow } from "@/components/terminal/QuickForwardRow";
 import { useSessionStore } from "@/stores/sessionStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
@@ -236,9 +237,11 @@ export function PortsPanel() {
   const visibleUnclaimed = unclaimedTunnels.filter((t) => !hiddenPorts.has(t.remote_port));
 
   const isEmpty = rules.length === 0 && visibleUnclaimed.length === 0 && suppressedRows.length === 0;
+  const activeCount = tunnels.filter((t) => t.state === "active").length;
 
   return (
     <div className="flex flex-col h-full">
+      <PortsPanelHeader activeCount={activeCount} onAdd={() => quickForwardInputRef.current?.focus()} />
       <div className="flex-1 min-h-0 overflow-y-auto">
       {isEmpty && (
         <div className="px-3 py-4 text-xs text-(--t-text-dim)">
@@ -247,6 +250,11 @@ export function PortsPanel() {
       )}
 
       {/* Saved rules */}
+      {rules.length > 0 && (
+        <div className="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-wide text-(--t-text-dim)">
+          SAVED
+        </div>
+      )}
       {rules.map((rule) => {
         const tunnel = ruleToTunnel.get(rule.id);
         const isActive = !!tunnel;
@@ -279,7 +287,11 @@ export function PortsPanel() {
       {/* Active auto/adhoc tunnels + suppressed auto ports */}
       {(visibleUnclaimed.length > 0 || suppressedRows.length > 0) && (
         <>
-          {rules.length > 0 && <div className="border-t border-(--t-border) mx-2 my-0.5" />}
+          {visibleUnclaimed.length > 0 && (
+            <div className="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-wide text-(--t-text-dim)">
+              ACTIVE
+            </div>
+          )}
 
           {visibleUnclaimed.map((tunnel) => {
             const isAuto = tunnel.origin.type === "auto";
@@ -307,6 +319,12 @@ export function PortsPanel() {
               />
             );
           })}
+
+          {suppressedRows.length > 0 && (
+            <div className="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-wide text-(--t-text-dim)">
+              SUPPRESSED
+            </div>
+          )}
 
           {suppressedRows.map((port) => {
             const key = `port-${port}`;
