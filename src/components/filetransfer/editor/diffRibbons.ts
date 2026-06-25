@@ -1,4 +1,4 @@
-import type { MergeView } from "@codemirror/merge";
+import type { MergeView, Chunk } from "@codemirror/merge";
 import { ribbonGeometry, type BandAt } from "./diffRibbonGeometry";
 import { applySpec, type ApplyDir } from "./diffApply";
 
@@ -46,17 +46,16 @@ export function attachDiffRibbons(view: MergeView, scroller: HTMLElement): DiffR
     };
   }
 
-  function makeBtn(dir: ApplyDir, label: string, idx: number) {
+  function makeBtn(dir: ApplyDir, label: string, chunk: Chunk) {
     const btn = document.createElement("button");
     btn.className = "cm-diff-ribbon-btn";
     btn.textContent = label;
     btn.title = dir === "toRight" ? "Apply to right (→)" : "Apply to left (←)";
     btn.addEventListener("mousedown", (e) => {
       e.preventDefault();
-      const c = view.chunks[idx];
-      if (!c) return;
+      if (!view.chunks.includes(chunk)) return;
       const src = dir === "toRight" ? view.a : view.b;
-      const spec = applySpec(c, dir, view.a.state.doc, view.b.state.doc, src.state.lineBreak);
+      const spec = applySpec(chunk, dir, view.a.state.doc, view.b.state.doc, src.state.lineBreak);
       view[spec.target].dispatch({ changes: spec.change, userEvent: "diff.apply" });
     });
     return btn;
@@ -82,7 +81,7 @@ export function attachDiffRibbons(view: MergeView, scroller: HTMLElement): DiffR
       grp.className = "cm-diff-ribbon-actions";
       grp.style.top = `${s.buttonY}px`;
       grp.style.left = `${cx}px`;
-      grp.append(makeBtn("toRight", "→", i), makeBtn("toLeft", "←", i));
+      grp.append(makeBtn("toRight", "→", c), makeBtn("toLeft", "←", c));
       buttons.appendChild(grp);
     });
   }
