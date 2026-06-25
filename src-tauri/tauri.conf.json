@@ -1,6 +1,6 @@
 {
   "productName": "Voltius",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "identifier": "com.voltius.app",
   "build": {
     "beforeDevCommand": "pnpm dev",

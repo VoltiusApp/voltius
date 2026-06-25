@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-25
+
+### Added
+
+- Built-in code editor for remote files — open and edit files over SFTP, edit
+  local files, and diff local↔remote or across hosts, powered by CodeMirror 6
+  with syntax highlighting for many languages and theming from the app palette
+- VS Code-style editor tab bar — drag tabs to reorder, drag a tab into the
+  editor area to open a diff, tab overflow handling, and type icons
+- Diff view with apply ribbons, prev/next chunk navigation, collapse-unchanged,
+  editable diffs with undo/redo, and color-coded chunks (green add / red delete
+  / yellow modified)
+- Auto-save — global and per-editor toggle, manual or debounced save, and a
+  configurable max file size
+- Double-click to open, dirty-close guard, and non-destructive save-error
+  handling
+- FTP and FTPS support
+
 ## [0.5.1] - 2026-06-18
 
 ### Fixed
