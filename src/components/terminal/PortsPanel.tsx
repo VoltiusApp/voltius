@@ -12,7 +12,8 @@ import {
   closePfTunnel,
   resumeAutoPort,
 } from "@/services/portForwardingTunnels";
-import { deletePfRule } from "@/services/portForwardingRules";
+import { createPfRule, updatePfRule, deletePfRule } from "@/services/portForwardingRules";
+import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import { formatActiveTunnelLabel, formatRuleLabel, getLocalTunnelHttpUrl } from "@/utils/tunnelFormat";
 import type { ActiveTunnel, PortForwardingRule } from "@/types";
 
@@ -33,6 +34,69 @@ export function PortsPanel() {
   const [busy, setBusy] = useState<Set<string>>(new Set());
 
   const quickForwardInputRef = useRef<HTMLInputElement>(null);
+  const defaultVaultId = useDefaultVaultId();
+  const [renamingRuleId, setRenamingRuleId] = useState<string | null>(null);
+
+  async function handleSaveAsRule(tunnel: ActiveTunnel) {
+    if (!activeSessionId) return;
+    const key = `save-${tunnel.id}`;
+    setBusyKey(key, true);
+    try {
+      const defaultName = `Port ${tunnel.remote_port}`;
+      const rule = await createPfRule({
+        name: defaultName,
+        local_port: tunnel.local_port,
+        remote_port: tunnel.remote_port,
+        remote_host: tunnel.remote_host || "127.0.0.1",
+        tunnel_type: "local",
+        bind_host: "127.0.0.1",
+        target_host: "127.0.0.1",
+        connection_ids: activeSession?.connectionId ? [activeSession.connectionId] : [],
+        vault_id: resolveVaultIdForSave(defaultVaultId),
+      });
+      await loadRules();
+      // Re-open the running tunnel as rule-backed so it migrates ACTIVE → SAVED.
+      await closePfTunnel(activeSessionId, tunnel.id);
+      await openPfTunnel({
+        sessionId: activeSessionId,
+        localPort: tunnel.local_port,
+        remotePort: tunnel.remote_port,
+        remoteHost: tunnel.remote_host,
+        tunnelType: "local",
+        ruleId: rule.id,
+        ruleName: rule.name,
+      });
+      setRenamingRuleId(rule.id);
+    } catch (e) {
+      console.error("save as rule failed:", e);
+    } finally {
+      setBusyKey(key, false);
+    }
+  }
+
+  async function commitRename(ruleId: string, name: string) {
+    setRenamingRuleId(null);
+    const rule = rules.find((r) => r.id === ruleId);
+    if (!rule || name === rule.name) return;
+    try {
+      await updatePfRule(ruleId, {
+        name,
+        local_port: rule.local_port,
+        remote_port: rule.remote_port,
+        remote_host: rule.remote_host,
+        tunnel_type: rule.tunnel_type,
+        bind_host: rule.bind_host,
+        target_host: rule.target_host,
+        description: rule.description,
+        connection_ids: rule.connection_ids,
+        folder_id: rule.folder_id,
+        vault_id: rule.vault_id,
+      });
+      await loadRules();
+    } catch (e) {
+      console.error("rename rule failed:", e);
+    }
+  }
 
   async function handleQuickForward(remotePort: number, localPort?: number) {
     if (!activeSessionId) return;
@@ -204,6 +268,10 @@ export function PortsPanel() {
               : null}
             onToggle={() => isActive ? handleRuleDisable(tunnel!.id, rule.id) : handleRuleEnable(rule)}
             onDelete={() => handleRuleDelete(rule, tunnel)}
+            isRenaming={renamingRuleId === rule.id}
+            defaultName={rule.name}
+            onRenameCommit={(name) => commitRename(rule.id, name)}
+            onRenameCancel={() => setRenamingRuleId(null)}
           />
         );
       })}
@@ -235,6 +303,7 @@ export function PortsPanel() {
                 httpUrl={getLocalTunnelHttpUrl(tunnel.tunnel_type ?? "local", tunnel.remote_port, tunnel.local_port)}
                 onToggle={() => handleTunnelStop(tunnel.id, key)}
                 onDelete={() => handleTunnelDelete(tunnel.id, tunnel.remote_port, key)}
+                onSaveAsRule={() => handleSaveAsRule(tunnel)}
               />
             );
           })}

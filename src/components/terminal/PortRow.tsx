@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { writeClipboard } from "@/utils/clipboard";
@@ -25,6 +25,11 @@ export function PortRow({
   localPort,
   onToggle,
   onDelete,
+  onSaveAsRule,
+  isRenaming,
+  onRenameCommit,
+  onRenameCancel,
+  defaultName,
 }: {
   label: string;
   portInfo: string;
@@ -38,8 +43,27 @@ export function PortRow({
   localPort?: number;
   onToggle: () => void;
   onDelete: () => void;
+  onSaveAsRule?: () => void;
+  isRenaming?: boolean;
+  onRenameCommit?: (name: string) => void;
+  onRenameCancel?: () => void;
+  defaultName?: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const [nameDraft, setNameDraft] = useState(defaultName ?? label);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isRenaming) {
+      setNameDraft(defaultName ?? label);
+      // focus + select on entering rename mode
+      requestAnimationFrame(() => {
+        renameInputRef.current?.focus();
+        renameInputRef.current?.select();
+      });
+    }
+  }, [isRenaming, defaultName, label]);
+
   const bytes = formatBytes(bytesTransferred ?? 0);
 
   async function copyAddress() {
@@ -58,9 +82,25 @@ export function PortRow({
       {/* Label + port info */}
       <div className="flex flex-col min-w-0 flex-1">
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-xs font-medium text-(--t-text-primary) truncate leading-tight">
-            {label}
-          </span>
+          {isRenaming ? (
+            <input
+              ref={renameInputRef}
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); onRenameCommit?.(nameDraft.trim() || (defaultName ?? label)); }
+                else if (e.key === "Escape") { e.preventDefault(); onRenameCancel?.(); }
+              }}
+              onBlur={() => onRenameCommit?.(nameDraft.trim() || (defaultName ?? label))}
+              spellCheck={false}
+              className="text-xs font-medium bg-(--t-bg-elevated) text-(--t-text-primary)
+                rounded px-1 -mx-1 outline-none min-w-0 flex-1 leading-tight"
+            />
+          ) : (
+            <span className="text-xs font-medium text-(--t-text-primary) truncate leading-tight">
+              {label}
+            </span>
+          )}
           {badge && (
             <span className={`text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none ${
               badge === "auto"
@@ -119,6 +159,19 @@ export function PortRow({
           <Icon icon="lucide:trash-2" width={11} />
         )}
       </button>
+
+      {/* Save as rule — ad-hoc/auto rows only */}
+      {onSaveAsRule && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onSaveAsRule(); }}
+          title="Save as rule"
+          className="w-5 h-5 flex items-center justify-center rounded shrink-0 transition-all
+            opacity-0 group-hover:opacity-100
+            text-(--t-text-muted) hover:text-(--t-accent) hover:bg-(--t-bg-elevated)"
+        >
+          <Icon icon="lucide:bookmark-plus" width={11} />
+        </button>
+      )}
 
       {/* Copy localhost:port — visible on active rows */}
       {isActive && localPort != null && (
