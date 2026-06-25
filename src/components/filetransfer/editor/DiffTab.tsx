@@ -118,7 +118,11 @@ export function DiffTab({ doc }: { doc: DiffDoc }) {
         const tops = ribbonsRef.current?.chunkTops() ?? [];
         const host = hostRef.current;
         const mid = host ? host.scrollTop + host.clientHeight / 2 : 0;
-        setNav({ count: tops.length, index: Math.max(0, activeChunkIndex(tops, mid)) });
+        const count = tops.length;
+        const index = Math.max(0, activeChunkIndex(tops, mid));
+        setNav((prev) =>
+          prev.count === count && prev.index === index ? prev : { count, index },
+        );
         if (!u.docChanged) return;
         const text = u.state.doc.toString();
         if (side === "a") {
@@ -147,7 +151,11 @@ export function DiffTab({ doc }: { doc: DiffDoc }) {
       const tops = ribbonsRef.current?.chunkTops() ?? [];
       const host = hostRef.current;
       const mid = host ? host.scrollTop + host.clientHeight / 2 : 0;
-      setNav(() => ({ count: tops.length, index: Math.max(0, activeChunkIndex(tops, mid)) }));
+      const count = tops.length;
+      const index = Math.max(0, activeChunkIndex(tops, mid));
+      setNav((prev) =>
+        prev.count === count && prev.index === index ? prev : { count, index },
+      );
     };
     hostRef.current.addEventListener("scroll", onScroll, { passive: true });
     return () => {

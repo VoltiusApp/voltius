@@ -1,4 +1,5 @@
 import type { MergeView, Chunk } from "@codemirror/merge";
+import type { EditorView } from "@codemirror/view";
 import { ribbonGeometry, type BandAt } from "./diffRibbonGeometry";
 import { applySpec, type ApplyDir } from "./diffApply";
 
@@ -26,17 +27,19 @@ export function attachDiffRibbons(view: MergeView, scroller: HTMLElement): DiffR
   overlay.append(svg, buttons);
   view.dom.appendChild(overlay);
 
-  let tops: number[] = [];
-
   const bandAt: BandAt = (side, from, to) => {
-    const ed = side === "a" ? view.a : view.b;
+    const ed: EditorView = side === "a" ? view.a : view.b;
     const oTop = overlay.getBoundingClientRect().top;
-    const t = ed.coordsAtPos(from);
-    const b = ed.coordsAtPos(Math.max(from, to));
-    const top = (t ? t.top : 0) - oTop;
-    const bottom = (b ? b.bottom : (t ? t.top : 0)) - oTop;
+    const top = ed.documentTop + ed.lineBlockAt(from).top - oTop;
+    const bottom = from === to ? top : ed.documentTop + ed.lineBlockAt(to).bottom - oTop;
     return { top, bottom: Math.max(top, bottom) };
   };
+
+  // Content-space y of a position within the scroller (scroll-independent), for nav.
+  function contentTop(pos: number): number {
+    const sTop = scroller.getBoundingClientRect().top;
+    return view.a.documentTop + view.a.lineBlockAt(pos).top - sTop + scroller.scrollTop;
+  }
 
   function channel() {
     const o = overlay.getBoundingClientRect();
@@ -68,7 +71,6 @@ export function attachDiffRibbons(view: MergeView, scroller: HTMLElement): DiffR
     svg.setAttribute("height", String(view.dom.scrollHeight));
     svg.textContent = "";
     buttons.textContent = "";
-    tops = [];
     const cx = (dims.channelLeft + dims.channelRight) / 2;
     shapes.forEach((s, i) => {
       const p = document.createElementNS(NS, "path");
@@ -76,7 +78,6 @@ export function attachDiffRibbons(view: MergeView, scroller: HTMLElement): DiffR
       p.setAttribute("class", `cm-diff-ribbon cm-diff-ribbon-${s.kind}`);
       svg.appendChild(p);
       const c = view.chunks[i];
-      tops.push(bandAt("a", c.fromA, c.fromA).top);
       const grp = document.createElement("div");
       grp.className = "cm-diff-ribbon-actions";
       grp.style.top = `${s.buttonY}px`;
@@ -101,10 +102,11 @@ export function attachDiffRibbons(view: MergeView, scroller: HTMLElement): DiffR
 
   return {
     remeasure: schedule,
-    chunkTops: () => tops,
+    chunkTops: () => view.chunks.map((c) => contentTop(c.fromA)),
     scrollToChunk(i) {
-      if (i < 0 || i >= tops.length) return;
-      scroller.scrollTo({ top: tops[i] - scroller.clientHeight / 2, behavior: "smooth" });
+      const chunks = view.chunks;
+      if (i < 0 || i >= chunks.length) return;
+      scroller.scrollTo({ top: contentTop(chunks[i].fromA) - scroller.clientHeight / 2, behavior: "smooth" });
     },
     destroy() {
       if (raf) cancelAnimationFrame(raf);
