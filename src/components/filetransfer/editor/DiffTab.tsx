@@ -10,12 +10,15 @@ import { shouldHandleSaveKey } from "./editorSaveKey";
 import { sideMeta, type DiffPane } from "./diffSave";
 import { cmTheme } from "./cmTheme";
 import { IconBtn } from "@/components/filetransfer/FilePane";
+import { attachDiffRibbons, type DiffRibbonsHandle } from "./diffRibbons";
+import "./diffRibbons.css";
 
 export function DiffTab({ doc }: { doc: DiffDoc }) {
   const maxBytes = useSftpSettingsStore((s) => s.editorMaxBytes);
   const setDiffDirty = useEditorStore((s) => s.setDiffDirty);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const mergeRef = useRef<MergeView | null>(null);
+  const ribbonsRef = useRef<DiffRibbonsHandle | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState<{ a: string; b: string } | null>(null);
   const activeThemeId = useThemeStore((s) => s.activeThemeId);
@@ -109,6 +112,7 @@ export function DiffTab({ doc }: { doc: DiffDoc }) {
     const langB = languageForPath(doc.right.path);
     const track = (side: DiffPane) =>
       EditorView.updateListener.of((u) => {
+        ribbonsRef.current?.remeasure();
         if (!u.docChanged) return;
         const text = u.state.doc.toString();
         if (side === "a") {
@@ -128,10 +132,14 @@ export function DiffTab({ doc }: { doc: DiffDoc }) {
         doc: contentB.current,
         extensions: [track("b"), ...theme, ...(langB ? [langB] : [])],
       },
+      collapseUnchanged: { margin: 3, minSize: 6 },
       parent: hostRef.current,
     });
     mergeRef.current = view;
+    ribbonsRef.current = attachDiffRibbons(view, hostRef.current);
     return () => {
+      ribbonsRef.current?.destroy();
+      ribbonsRef.current = null;
       view.destroy();
       mergeRef.current = null;
     };
