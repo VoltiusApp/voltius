@@ -1,4 +1,4 @@
-import type { DiffSide } from "@/stores/editorStore";
+import type { DiffSide, EditorTab } from "@/stores/editorStore";
 
 export type DropZone = "before" | "diff" | "after";
 
@@ -29,4 +29,31 @@ export function samePairUnordered(
 ): boolean {
   return (sameSide(left, a) && sameSide(right, b)) ||
          (sameSide(left, b) && sameSide(right, a));
+}
+
+export function editorDiffSide(relX: number, width: number): "left" | "right" {
+  return relX < width / 2 ? "left" : "right";
+}
+
+function toSide(t: { sftpId: string | null; path: string; hostLabel: string }): DiffSide {
+  return { sftpId: t.sftpId, path: t.path, hostLabel: t.hostLabel };
+}
+
+// Resolve the [left, right] pair for dropping `dragged` onto the editor area
+// over `active`. Returns null when the drop is invalid (no active tab, dragged
+// is not a file, or it would diff the active single file against itself).
+export function resolveEditorDiff(
+  dragged: EditorTab | undefined,
+  active: EditorTab | null,
+  side: "left" | "right",
+): [DiffSide, DiffSide] | null {
+  if (!dragged || dragged.kind !== "file" || !active) return null;
+  if (active.kind === "file") {
+    if (active.id === dragged.id) return null;
+    const d = toSide(dragged);
+    const f = toSide(active);
+    return side === "left" ? [d, f] : [f, d];
+  }
+  const d = toSide(dragged);
+  return side === "left" ? [d, active.right] : [active.left, d];
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { dropIntent, moveItem, samePairUnordered } from "./tabDragCore";
+import { dropIntent, moveItem, samePairUnordered, editorDiffSide, resolveEditorDiff } from "./tabDragCore";
+import type { EditorTab } from "@/stores/editorStore";
 
 describe("dropIntent", () => {
   it("splits in half when diff is not allowed", () => {
@@ -33,5 +34,54 @@ describe("samePairUnordered", () => {
   });
   it("rejects different pairs", () => {
     expect(samePairUnordered(s(null,"/a"), s("x","/b"), s(null,"/a"), s("x","/c"))).toBe(false);
+  });
+});
+
+const file = (id: string, path: string): EditorTab => ({
+  id, kind: "file", sftpId: "s1", path, hostLabel: "h", dirty: false, autoSave: false,
+});
+const side = (path: string) => ({ sftpId: "s1", path, hostLabel: "h" });
+const diff = (id: string, l: string, r: string): EditorTab => ({
+  id, kind: "diff", left: side(l), right: side(r), dirty: false,
+});
+
+describe("editorDiffSide", () => {
+  it("returns left on the left half", () => {
+    expect(editorDiffSide(10, 100)).toBe("left");
+  });
+  it("returns right on the right half", () => {
+    expect(editorDiffSide(60, 100)).toBe("right");
+  });
+  it("treats the exact midpoint as right", () => {
+    expect(editorDiffSide(50, 100)).toBe("right");
+  });
+});
+
+describe("resolveEditorDiff", () => {
+  it("active=file, left → [dragged, active]", () => {
+    const r = resolveEditorDiff(file("d", "a.txt"), file("a", "b.txt"), "left");
+    expect(r).toEqual([side("a.txt"), side("b.txt")]);
+  });
+  it("active=file, right → [active, dragged]", () => {
+    const r = resolveEditorDiff(file("d", "a.txt"), file("a", "b.txt"), "right");
+    expect(r).toEqual([side("b.txt"), side("a.txt")]);
+  });
+  it("active=diff, left → [dragged, active.right]", () => {
+    const r = resolveEditorDiff(file("d", "a.txt"), diff("x", "L.txt", "R.txt"), "left");
+    expect(r).toEqual([side("a.txt"), side("R.txt")]);
+  });
+  it("active=diff, right → [active.left, dragged]", () => {
+    const r = resolveEditorDiff(file("d", "a.txt"), diff("x", "L.txt", "R.txt"), "right");
+    expect(r).toEqual([side("L.txt"), side("a.txt")]);
+  });
+  it("returns null when active is null (browser view)", () => {
+    expect(resolveEditorDiff(file("d", "a.txt"), null, "left")).toBeNull();
+  });
+  it("returns null when dragged is the active single file (self-diff)", () => {
+    const f = file("same", "a.txt");
+    expect(resolveEditorDiff(f, f, "left")).toBeNull();
+  });
+  it("returns null when dragged is not a file", () => {
+    expect(resolveEditorDiff(diff("d", "a", "b"), file("a", "b.txt"), "left")).toBeNull();
   });
 });
