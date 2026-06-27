@@ -36,10 +36,31 @@ pub struct PfPortClosedPayload {
     pub port: u16,
 }
 
+/// Live terminal session ids attached to a host key — used to fan state events
+/// out to every terminal sharing the host.
+async fn live_sessions_for_key(
+    session_keys: &Arc<Mutex<HashMap<String, String>>>,
+    key: &str,
+) -> Vec<String> {
+    let live: Vec<String> = session_keys
+        .lock()
+        .await
+        .iter()
+        .filter(|(_, v)| v.as_str() == key)
+        .map(|(k, _)| k.clone())
+        .collect();
+    if live.is_empty() {
+        vec![key.to_string()]
+    } else {
+        live
+    }
+}
+
 pub async fn start_poller(
-    session_id: String,
+    pf_key: String,
     handle: Arc<russh::client::Handle<SshClient>>,
     sessions: Arc<Mutex<HashMap<String, SessionPfState>>>,
+    session_keys: Arc<Mutex<HashMap<String, String>>>,
     app: AppHandle,
     cancel: CancellationToken,
 ) {
@@ -63,7 +84,7 @@ pub async fn start_poller(
                 for port in new_ports {
                     let skip = {
                         let s = sessions.lock().await;
-                        s.get(&session_id).map(|st| {
+                        s.get(&pf_key).map(|st| {
                             // Skip if already tunneled OR user suppressed this port
                             st.tunnels.iter().any(|e| e.tunnel.remote_port == port)
                                 || st.suppressed_ports.contains(&port)
@@ -95,24 +116,28 @@ pub async fn start_poller(
                             };
                             let (all_tunnels, all_suppressed) = {
                                 let mut s = sessions.lock().await;
-                                let state = s.entry(session_id.clone()).or_insert_with(|| SessionPfState {
+                                let state = s.entry(pf_key.clone()).or_insert_with(|| SessionPfState {
                                     tunnels: Vec::new(),
                                     auto_detect: true,
                                     poller_cancel: None,
                                     suppressed_ports: std::collections::HashSet::new(),
+                                    owner_session: None,
                                 });
                                 state.tunnels.push(entry);
                                 let t = state.tunnels.iter().map(|e| e.tunnel.clone()).collect::<Vec<_>>();
                                 let sp = state.suppressed_ports.iter().copied().collect::<Vec<_>>();
                                 (t, sp)
                             };
-                            let _ = app.emit("pf-state-changed", PfStatePayload {
-                                session_id: session_id.clone(),
-                                tunnels: all_tunnels,
-                                suppressed_ports: all_suppressed,
-                            });
+                            // Fan out shared state to every terminal of this host.
+                            for sid in live_sessions_for_key(&session_keys, &pf_key).await {
+                                let _ = app.emit("pf-state-changed", PfStatePayload {
+                                    session_id: sid,
+                                    tunnels: all_tunnels.clone(),
+                                    suppressed_ports: all_suppressed.clone(),
+                                });
+                            }
                             let _ = app.emit("pf-port-detected", PfPortDetectedPayload {
-                                session_id: session_id.clone(),
+                                session_id: pf_key.clone(),
                                 port,
                                 tunnel_local_port: local_port,
                             });
@@ -124,17 +149,19 @@ pub async fn start_poller(
                 for port in closed_ports {
                     let has_auto = {
                         let s = sessions.lock().await;
-                        s.get(&session_id)
+                        s.get(&pf_key)
                             .map(|st| st.tunnels.iter().any(|e| {
                                 e.tunnel.remote_port == port && matches!(e.tunnel.origin, TunnelOrigin::Auto)
                             }))
                             .unwrap_or(false)
                     };
                     if has_auto {
-                        let _ = app.emit("pf-port-closed", PfPortClosedPayload {
-                            session_id: session_id.clone(),
-                            port,
-                        });
+                        for sid in live_sessions_for_key(&session_keys, &pf_key).await {
+                            let _ = app.emit("pf-port-closed", PfPortClosedPayload {
+                                session_id: sid,
+                                port,
+                            });
+                        }
                     }
                 }
 

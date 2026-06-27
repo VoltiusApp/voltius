@@ -9,10 +9,14 @@ interface PfStatePayload {
   tunnels: ActiveTunnel[];
 }
 
-/** Returns the total number of active tunnels across all connected SSH sessions. */
+/** Returns the total number of active tunnels across all connected SSH sessions.
+ *
+ * Port forwarding is host-scoped: every terminal of the same host receives the
+ * same shared tunnel list (with identical tunnel ids). We store ids per session
+ * and count the *union* so a host opened in N terminals is not counted N times. */
 export function useActiveTunnelCount(): number {
   const sessions = useSessionStore((s) => s.sessions);
-  const [tunnelMap, setTunnelMap] = useState<Map<string, number>>(new Map());
+  const [tunnelMap, setTunnelMap] = useState<Map<string, string[]>>(new Map());
 
   const sshSessionIds = sessions
     .filter((s) => s.type === "ssh" && s.status === "connected")
@@ -23,7 +27,7 @@ export function useActiveTunnelCount(): number {
     for (const sessionId of sshSessionIds) {
       getPfState(sessionId)
         .then((state) => {
-          setTunnelMap((prev) => new Map(prev).set(sessionId, state.tunnels.length));
+          setTunnelMap((prev) => new Map(prev).set(sessionId, state.tunnels.map((t) => t.id)));
         })
         .catch(() => {});
     }
@@ -43,14 +47,16 @@ export function useActiveTunnelCount(): number {
 
     listen<PfStatePayload>("pf-state-changed", ({ payload }) => {
       if (!ids.includes(payload.session_id)) return;
-      setTunnelMap((prev) => new Map(prev).set(payload.session_id, payload.tunnels.length));
+      setTunnelMap((prev) => new Map(prev).set(payload.session_id, payload.tunnels.map((t) => t.id)));
     }).then((u) => { cleanup = u; });
 
     return () => { cleanup?.(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionIdKey]);
 
-  let total = 0;
-  for (const count of tunnelMap.values()) total += count;
-  return total;
+  const unique = new Set<string>();
+  for (const ids of tunnelMap.values()) {
+    for (const id of ids) unique.add(id);
+  }
+  return unique.size;
 }

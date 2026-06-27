@@ -66,6 +66,11 @@ pub async fn ssh_connect(
 
     state.add(session_id.clone(), connected).await;
 
+    // Register this terminal under its host key so port forwarding is shared
+    // across all terminals of the same connection (not duplicated per terminal).
+    let cid = connection_id.as_deref().unwrap_or("");
+    pf.register_session(&session_id, cid).await;
+
     if let Ok(handle) = state.get_handle(&session_id).await {
         let routes = state
             .get_remote_routes(&session_id)
@@ -73,7 +78,6 @@ pub async fn ssh_connect(
             .unwrap_or_else(|_| {
                 Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()))
             });
-        let cid = connection_id.as_deref().unwrap_or("");
         pf.auto_activate_rules(&session_id, cid, Arc::clone(&handle), routes)
             .await;
         let _ = pf.set_auto_detect(&session_id, auto_forward, handle).await;
@@ -91,7 +95,27 @@ pub async fn ssh_disconnect(
     kill_persistent: Option<bool>,
     attached: Option<bool>,
 ) -> Result<bool, String> {
-    pf.on_session_disconnect(&session_id).await;
+    // Host-scoped port forwarding: only tear down when the last terminal of the
+    // host closes. If the terminal that owned the forwards leaves while siblings
+    // remain, hand the forwards off to a surviving terminal's SSH handle so they
+    // keep working.
+    let (key, remaining, was_owner) = pf.detach_session(&session_id).await;
+    if remaining.is_empty() {
+        pf.teardown_key(&key).await;
+    } else {
+        if was_owner {
+            if let Some(survivor) = remaining.first() {
+                if let Ok(handle) = state.get_handle(survivor).await {
+                    let routes = state.get_remote_routes(survivor).await.unwrap_or_else(|_| {
+                        Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()))
+                    });
+                    pf.rebind_to_handle(&key, survivor, handle, routes).await;
+                }
+            }
+        }
+        pf.clear_session_panel(&session_id).await;
+    }
+
     state
         .disconnect(
             &session_id,

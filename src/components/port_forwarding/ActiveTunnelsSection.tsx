@@ -89,8 +89,19 @@ export function ActiveTunnelsSection() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionIdKey]);
 
+  // Port forwarding is host-scoped: terminals of the same host share one tunnel
+  // list, so collapse to a single card per host (first session per connection).
+  const hostSessions = useMemo(() => {
+    const seen = new Set<string>();
+    return relevantSessions.filter((s) => {
+      if (seen.has(s.connectionId)) return false;
+      seen.add(s.connectionId);
+      return true;
+    });
+  }, [relevantSessions]);
+
   const sessionCards = useMemo(() => {
-    return relevantSessions
+    return hostSessions
       .map((session) => {
         const connection = connections.find((c) => c.id === session.connectionId) ?? null;
         const state = pfStateMap.get(session.id);
@@ -101,7 +112,7 @@ export function ActiveTunnelsSection() {
         return { session, connection, tunnels, suppressedPorts, errorCount };
       })
       .filter(({ tunnels, suppressedPorts }) => tunnels.length > 0 || suppressedPorts.length > 0);
-  }, [relevantSessions, connections, pfStateMap, hiddenPorts]);
+  }, [hostSessions, connections, pfStateMap, hiddenPorts]);
 
   const totalTunnelCount = sessionCards.reduce((sum, card) => sum + card.tunnels.length + card.suppressedPorts.length, 0);
 
