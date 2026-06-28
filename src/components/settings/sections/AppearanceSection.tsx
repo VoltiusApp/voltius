@@ -1,4 +1,5 @@
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { useThemeStore } from "@/stores/themeStore";
 import { usePluginStore } from "@/stores/pluginStore";
 import { BUILT_IN_THEMES } from "@/themes/presets";
@@ -11,6 +12,7 @@ import { Toggle } from "@/components/shared/Toggle";
 import type { AppTheme } from "@/themes/types";
 import ScaleSection from "./ScaleSection";
 import { DirtyDot, ResetButton } from "./shared";
+import { useLocaleStore, SUPPORTED_LOCALES } from "@/stores/localeStore";
 
 function downloadJson(filename: string, data: unknown) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -38,11 +40,15 @@ export default function AppearanceSection() {
   const scrollbackLines = useTerminalSettingsStore((s) => s.scrollbackLines);
   const setScrollbackLines = useTerminalSettingsStore((s) => s.setScrollbackLines);
 
-  const pluginThemes: AppTheme[] = [...pluginThemeMap.values()].map((t) => ({ ...t, builtIn: true }));
+  const { t } = useTranslation();
+  const locale = useLocaleStore((s) => s.locale);
+  const setLocale = useLocaleStore((s) => s.setLocale);
+
+  const pluginThemes: AppTheme[] = [...pluginThemeMap.values()].map((theme) => ({ ...theme, builtIn: true }));
   const allThemes = [...BUILT_IN_THEMES, ...customThemes, ...pluginThemes];
   const scrollbackOptions = [1_000, 10_000, 50_000, 100_000, 250_000]
     .filter((value) => value >= MIN_SCROLLBACK_LINES && value <= MAX_SCROLLBACK_LINES)
-    .map((value) => ({ value: String(value), label: `${value.toLocaleString()} lines` }));
+    .map((value) => ({ value: String(value), label: t("settings.appearance.scrollback.option", { count: value }) }));
 
   const handleDelete = (id: string) => {
     deleteCustomTheme(id);
@@ -53,14 +59,27 @@ export default function AppearanceSection() {
     <div className="p-6 space-y-6">
       <div>
         <h3 className="text-xs font-bold uppercase tracking-widest mb-4 text-(--t-text-dim)">
-          Interface
+          {t("settings.appearance.interface")}
         </h3>
         <ScaleSection />
         <div className="group mt-4 rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4 flex items-center justify-between gap-4">
           <div>
-            <div className="text-sm font-medium text-(--t-text-primary)">Terminal scrollback</div>
+            <div className="text-sm font-medium text-(--t-text-primary)">{t("settings.appearance.language.title")}</div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <FormSelect
+              className="w-44 shrink-0"
+              value={locale}
+              options={SUPPORTED_LOCALES}
+              onChange={(value) => setLocale(value as typeof locale)}
+            />
+          </div>
+        </div>
+        <div className="group mt-4 rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4 flex items-center justify-between gap-4">
+          <div>
+            <div className="text-sm font-medium text-(--t-text-primary)">{t("settings.appearance.scrollback.title")}</div>
             <div className="text-xs mt-1 text-(--t-text-dim)">
-              Retained lines per terminal session. Applies to new terminals.
+              {t("settings.appearance.scrollback.desc")}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -78,9 +97,9 @@ export default function AppearanceSection() {
         </div>
         <div className="group mt-4 rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4 flex items-center justify-between gap-4">
           <div>
-            <div className="text-sm font-medium text-(--t-text-primary)">Scroll minimap</div>
+            <div className="text-sm font-medium text-(--t-text-primary)">{t("settings.appearance.minimap.title")}</div>
             <div className="text-xs mt-1 text-(--t-text-dim)">
-              Show a miniature scrollback overview beside terminals.
+              {t("settings.appearance.minimap.desc")}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -93,9 +112,9 @@ export default function AppearanceSection() {
         </div>
         <div className="group mt-4 rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4 flex items-center justify-between gap-4">
           <div>
-            <div className="text-sm font-medium text-(--t-text-primary)">Select to copy</div>
+            <div className="text-sm font-medium text-(--t-text-primary)">{t("settings.appearance.selectToCopy.title")}</div>
             <div className="text-xs mt-1 text-(--t-text-dim)">
-              Show a copy button when text is selected in a terminal.
+              {t("settings.appearance.selectToCopy.desc")}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -111,25 +130,25 @@ export default function AppearanceSection() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
-            Color Theme
+            {t("settings.appearance.colorTheme")}
           </h3>
           <div className="flex gap-1">
             <button
               onClick={() => openThemeImportExport("import")}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-colors text-(--t-text-muted) hover:text-(--t-text-primary) bg-(--t-bg-card) hover:bg-(--t-bg-elevated)"
-              title="Import theme(s)"
+              title={t("settings.appearance.importTitle")}
             >
               <Icon icon="lucide:download" width={12} />
-              Import
+              {t("settings.appearance.import")}
             </button>
             {customThemes.length > 0 && (
               <button
                 onClick={() => openThemeImportExport("export")}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-colors text-(--t-text-muted) hover:text-(--t-text-primary) bg-(--t-bg-card) hover:bg-(--t-bg-elevated)"
-                title="Export all custom themes"
+                title={t("settings.appearance.exportAllTitle")}
               >
                 <Icon icon="lucide:upload" width={12} />
-                Export All
+                {t("settings.appearance.exportAll")}
               </button>
             )}
           </div>
@@ -168,7 +187,7 @@ export default function AppearanceSection() {
                     <button
                       onClick={(e) => { e.stopPropagation(); exportTheme(theme); }}
                       className="p-1 rounded-sm opacity-0 group-hover:opacity-50 hover:opacity-100! transition-opacity text-(--t-text-muted)"
-                      title="Export theme"
+                      title={t("settings.appearance.exportTheme")}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
                     >
@@ -177,7 +196,7 @@ export default function AppearanceSection() {
                     <button
                       onClick={(e) => { e.stopPropagation(); openThemeCreator(theme.id); }}
                       className="p-1 rounded-sm opacity-0 group-hover:opacity-50 hover:opacity-100! transition-opacity text-(--t-text-muted)"
-                      title="Edit theme"
+                      title={t("settings.appearance.editTheme")}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
                     >
@@ -186,7 +205,7 @@ export default function AppearanceSection() {
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDelete(theme.id); }}
                       className="p-1 rounded-sm opacity-0 group-hover:opacity-50 hover:opacity-100! transition-opacity text-(--t-status-error)"
-                      title="Delete theme"
+                      title={t("settings.appearance.deleteTheme")}
                     >
                       <Icon icon="lucide:trash-2" width={11} />
                     </button>
@@ -206,7 +225,7 @@ export default function AppearanceSection() {
             <div className="h-5 flex items-center">
               <Icon icon="lucide:plus" width={14} />
             </div>
-            <span className="text-xs font-medium leading-tight">New Custom Theme</span>
+            <span className="text-xs font-medium leading-tight">{t("settings.appearance.newCustomTheme")}</span>
           </button>
         </div>
       </div>

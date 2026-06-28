@@ -1,1 +1,30 @@
-{}
+{
+  "settings": {
+    "appearance": {
+      "interface": "Interface",
+      "language": { "title": "Langue" },
+      "scrollback": {
+        "title": "Historique du terminal",
+        "desc": "Lignes conservées par session de terminal. S'applique aux nouveaux terminaux.",
+        "option": "{{count}} lignes"
+      },
+      "minimap": {
+        "title": "Mini-carte de défilement",
+        "desc": "Afficher un aperçu miniature de l'historique à côté des terminaux."
+      },
+      "selectToCopy": {
+        "title": "Sélectionner pour copier",
+        "desc": "Afficher un bouton de copie lorsqu'on sélectionne du texte dans un terminal."
+      },
+      "colorTheme": "Thème de couleurs",
+      "import": "Importer",
+      "importTitle": "Importer un ou plusieurs thèmes",
+      "exportAll": "Tout exporter",
+      "exportAllTitle": "Exporter tous les thèmes personnalisés",
+      "exportTheme": "Exporter le thème",
+      "editTheme": "Modifier le thème",
+      "deleteTheme": "Supprimer le thème",
+      "newCustomTheme": "Nouveau thème personnalisé"
+    }
+  }
+}
