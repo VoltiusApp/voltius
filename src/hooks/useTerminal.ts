@@ -1,6 +1,6 @@
 import { attachTerminalClipboard, type TerminalClipboardHandle } from "@/components/terminal/terminalClipboard";
 import { useEffect, useRef, useCallback } from "react";
-import { Terminal, type IBufferCell } from "@xterm/xterm";
+import { Terminal, type IBufferCell, type IBufferRange } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -456,6 +456,48 @@ export function writeToSession(sessionId: string, data: string): void {
 export function getAppCursorMode(sessionId: string): boolean {
   const entry = terminalCache.get(sessionId);
   return entry?.terminal.modes.applicationCursorKeysMode ?? false;
+}
+
+export interface TerminalApi {
+  scrollLines(delta: number): void;
+  cols(): number;
+  rows(): number;
+  /** Absolute buffer line at the top of the viewport. */
+  viewportTop(): number;
+  /** The live `.xterm-screen` element (for cell-metric measurement), or null. */
+  screenEl(): HTMLElement | null;
+  /** Rendered text of an absolute buffer line (trimmed-right false). */
+  lineText(line: number): string;
+  select(col: number, line: number, len: number): void;
+  selectLines(start: number, end: number): void;
+  selectAll(): void;
+  clearSelection(): void;
+  getSelection(): string;
+  getSelectionPosition(): IBufferRange | undefined;
+  paste(text: string): void;
+}
+
+/** Narrow facade over a cached terminal for the mobile gesture layer. Null when no
+ *  terminal is cached for the session yet. */
+export function getTerminalApi(sessionId: string): TerminalApi | null {
+  const entry = terminalCache.get(sessionId);
+  if (!entry) return null;
+  const term = entry.terminal;
+  return {
+    scrollLines: (delta) => term.scrollLines(delta),
+    cols: () => term.cols,
+    rows: () => term.rows,
+    viewportTop: () => term.buffer.active.viewportY,
+    screenEl: () => term.element?.querySelector<HTMLElement>(".xterm-screen") ?? null,
+    lineText: (line) => term.buffer.active.getLine(line)?.translateToString(false) ?? "",
+    select: (col, line, len) => term.select(col, line, len),
+    selectLines: (start, end) => term.selectLines(start, end),
+    selectAll: () => term.selectAll(),
+    clearSelection: () => term.clearSelection(),
+    getSelection: () => term.getSelection(),
+    getSelectionPosition: () => term.getSelectionPosition(),
+    paste: (text) => term.paste(text),
+  };
 }
 
 export function getTerminalSearchController(sessionId: string): TerminalSearchController | null {
