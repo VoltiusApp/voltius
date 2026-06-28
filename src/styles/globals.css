@@ -445,6 +445,23 @@
   pointer-events: none !important;
 }
 
+/* Mobile/compact terminal: no scrollbar — scrolling is swipe-only (handled by
+   MobileTerminalGestures). touch-action:none yields one-finger drags to JS. */
+.terminal-compact .xterm-viewport {
+  scrollbar-width: none !important;
+}
+
+.terminal-compact .xterm-viewport::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.terminal-compact .xterm,
+.terminal-compact .xterm-screen {
+  touch-action: none;
+}
+
 .ripple {
   position: absolute;
   border-radius: 50%;

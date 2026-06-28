@@ -31,7 +31,7 @@ export default function TerminalView({ sessionId, sessionType, onClosed, active,
   }, [active, focus, fit]);
 
   return (
-    <div className="relative h-full w-full pl-3.5 pr-2.5">
+    <div className={`relative h-full w-full pl-3.5 pr-2.5${compact ? " terminal-compact" : ""}`}>
       <div className={terminalViewportClass(showMinimap)}>
         <div ref={attach} className="h-full w-full" />
       </div>
