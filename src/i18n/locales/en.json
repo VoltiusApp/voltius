@@ -72,6 +72,21 @@
         }
       },
       "email": "Email",
+      "editEmail": {
+        "title": "Change email",
+        "currentLabel": "Current:",
+        "newPlaceholder": "New email address",
+        "passwordPlaceholder": "Current master password",
+        "errorInvalidEmail": "Invalid email address",
+        "errorSameEmail": "New email must differ from the current one",
+        "errorPasswordRequired": "Password is required to confirm the change",
+        "updated": "Email updated to {{email}}. Check your inbox for a verification link.",
+        "pausedNote": "Until verified, paid features will be paused.",
+        "done": "Done",
+        "saving": "Saving…",
+        "save": "Save",
+        "toastVerification": "Verification email sent to {{email}}."
+      },
       "displayName": {
         "title": "Display name",
         "cannotBeEmpty": "Cannot be empty",
@@ -80,7 +95,19 @@
       },
       "changeMasterPassword": {
         "label": "Change master password",
-        "sub": "Update your password without re-encrypting your vault"
+        "sub": "Update your password without re-encrypting your vault",
+        "title": "Change master password",
+        "currentPlaceholder": "Current password",
+        "newPlaceholder": "New password (min 8 chars)",
+        "confirmPlaceholder": "Confirm new password",
+        "errorCurrentRequired": "Current password is required",
+        "errorMinLength": "New password must be at least 8 characters",
+        "errorSamePassword": "New password must differ from the current one",
+        "successMsg": "Password changed successfully.",
+        "successNote": "You are still logged in. Your vault entries are unchanged.",
+        "done": "Done",
+        "changing": "Changing…",
+        "changeBtn": "Change password"
       },
       "setMasterPassword": {
         "label": "Set a master password",
@@ -153,6 +180,23 @@
           "teamSharing": "Team sharing (5 sessions · 10 guests)",
           "customRoles": "Custom roles"
         }
+      },
+      "buySeats": {
+        "title": "No seats available",
+        "seatsUsed": "{{used}} / {{total}} seats used",
+        "inviting": "Inviting",
+        "additionalSeats": "Additional seats",
+        "seatsTotal": "{{from}} → {{to}} total",
+        "priceRow_one": "{{count}} seat × ${{price}}/mo",
+        "priceRow_other": "{{count}} seats × ${{price}}/mo",
+        "totalPerMonth": "${{amount}}/mo",
+        "proratedNote": "Prorated charge applied immediately for the current billing period.",
+        "processing": "Processing…",
+        "buyAndInvite_one": "Buy {{count}} seat & Invite",
+        "buyAndInvite_other": "Buy {{count}} seats & Invite",
+        "errorNotConnected": "Not connected to server",
+        "errorNoSubscription": "No active subscription found",
+        "errorUpdateSeats": "Failed to update seats: {{status}}"
       }
     },
     "about": {
@@ -322,6 +366,61 @@
         "madePrivateToast_one": "Vault is now private. {{count}} member lost access.",
         "madePrivateToast_other": "Vault is now private. {{count}} members lost access.",
         "madePrivateToastEmpty": "Vault is now private."
+      },
+      "rolesPanel": {
+        "permGroup": {
+          "dataAccess": "Data Access",
+          "connectionManagement": "Connection Management",
+          "teamAdministration": "Team Administration",
+          "terminalSessions": "Terminal Sessions"
+        },
+        "perm": {
+          "VIEW_SECRETS":           { "label": "View secrets",          "desc": "See passwords and private keys in plain text" },
+          "COPY_SECRETS":           { "label": "Copy secrets",          "desc": "Copy passwords and keys to clipboard" },
+          "CONNECT":                { "label": "Connect",               "desc": "Launch SSH connections" },
+          "EDIT_CONNECTIONS":       { "label": "Edit connections",      "desc": "Create, modify, and delete connections" },
+          "EDIT_IDENTITIES":        { "label": "Edit identities",       "desc": "Create, modify, and delete SSH identities" },
+          "EDIT_KEYS":              { "label": "Edit keys",             "desc": "Create, modify, and delete SSH keys" },
+          "EDIT_SNIPPETS":          { "label": "Edit snippets",         "desc": "Create, modify, and delete command snippets" },
+          "EDIT_FOLDERS":           { "label": "Edit folders",          "desc": "Manage folder structure" },
+          "VIEW_AUDIT_LOG":         { "label": "View audit log",        "desc": "Read the activity audit log" },
+          "INVITE_MEMBERS":         { "label": "Invite members",        "desc": "Invite new members to the vault" },
+          "MANAGE_MEMBERS":         { "label": "Manage members",        "desc": "Assign roles and remove members" },
+          "CREATE_CUSTOM_ROLES":    { "label": "Manage roles (legacy)", "desc": "Retired permission — kept for compatibility" },
+          "MANAGE_ROLES":           { "label": "Manage roles",          "desc": "Create, edit, and delete roles" },
+          "MANAGE_VAULT":           { "label": "Manage vault",          "desc": "Rename vault and manage vault settings" },
+          "START_TERMINAL_SESSION": { "label": "Start sessions",        "desc": "Start multiplayer terminal sessions" },
+          "JOIN_TERMINAL_SESSION":  { "label": "Join sessions",         "desc": "Join existing terminal sessions" },
+          "VIEW_TERMINAL_SESSIONS": { "label": "View sessions",         "desc": "See active terminal sessions" }
+        },
+        "builtinBadge": "Built-in",
+        "dragToReorder": "Drag to reorder",
+        "editRoleTitle": "Edit role",
+        "deleteRoleTitle": "Delete role",
+        "clickToConfirm": "Click again to confirm",
+        "failedToDelete": "Failed to delete",
+        "editRole": "Edit role",
+        "newRole": "New custom role",
+        "roleName": "Role name",
+        "roleNamePlaceholder": "e.g. Read-only, Deployment, DevOps…",
+        "colorLabel": "Color",
+        "clearColor": "Clear",
+        "preview": "Preview",
+        "permissionsLabel": "Permissions",
+        "saveChanges": "Save changes",
+        "createRole": "Create role",
+        "errorNameRequired": "Name is required",
+        "errorFailedToSave": "Failed to save role",
+        "builtinRoles": "Built-in roles",
+        "customRoles": "Custom roles",
+        "newRoleBtn": "New role",
+        "businessFeature": "Business plan feature",
+        "businessFeatureDesc": "Custom roles with granular permissions are available on the Business plan.",
+        "upgradeBtn": "Upgrade to Business",
+        "noCustomRolesCanEdit": "No custom roles yet. Create one to assign specific permissions.",
+        "noCustomRoles": "No custom roles defined for this team.",
+        "noTeams": "No teams yet. Create a shared vault to start managing roles.",
+        "teamLabel": "Team"
       }
     },
     "plugins": {

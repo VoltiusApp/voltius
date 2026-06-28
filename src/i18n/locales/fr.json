@@ -72,6 +72,21 @@
         }
       },
       "email": "E-mail",
+      "editEmail": {
+        "title": "Modifier l'adresse e-mail",
+        "currentLabel": "Actuel :",
+        "newPlaceholder": "Nouvelle adresse e-mail",
+        "passwordPlaceholder": "Mot de passe maître actuel",
+        "errorInvalidEmail": "Adresse e-mail invalide",
+        "errorSameEmail": "Le nouvel e-mail doit être différent de l'actuel",
+        "errorPasswordRequired": "Le mot de passe est requis pour confirmer la modification",
+        "updated": "E-mail mis à jour vers {{email}}. Vérifiez votre boîte de réception pour un lien de vérification.",
+        "pausedNote": "Jusqu'à la vérification, les fonctionnalités payantes seront suspendues.",
+        "done": "Terminé",
+        "saving": "Enregistrement…",
+        "save": "Enregistrer",
+        "toastVerification": "E-mail de vérification envoyé à {{email}}."
+      },
       "displayName": {
         "title": "Nom d'affichage",
         "cannotBeEmpty": "Ne peut pas être vide",
@@ -80,7 +95,19 @@
       },
       "changeMasterPassword": {
         "label": "Changer le mot de passe maître",
-        "sub": "Mettez à jour votre mot de passe sans rechiffrer votre coffre-fort"
+        "sub": "Mettez à jour votre mot de passe sans rechiffrer votre coffre-fort",
+        "title": "Changer le mot de passe maître",
+        "currentPlaceholder": "Mot de passe actuel",
+        "newPlaceholder": "Nouveau mot de passe (min 8 caractères)",
+        "confirmPlaceholder": "Confirmer le nouveau mot de passe",
+        "errorCurrentRequired": "Le mot de passe actuel est requis",
+        "errorMinLength": "Le nouveau mot de passe doit comporter au moins 8 caractères",
+        "errorSamePassword": "Le nouveau mot de passe doit être différent de l'actuel",
+        "successMsg": "Mot de passe modifié avec succès.",
+        "successNote": "Vous êtes toujours connecté. Les entrées de votre coffre-fort sont inchangées.",
+        "done": "Terminé",
+        "changing": "Modification…",
+        "changeBtn": "Changer le mot de passe"
       },
       "setMasterPassword": {
         "label": "Définir un mot de passe maître",
@@ -153,6 +180,23 @@
           "teamSharing": "Partage d'équipe (5 sessions · 10 invités)",
           "customRoles": "Rôles personnalisés"
         }
+      },
+      "buySeats": {
+        "title": "Aucun poste disponible",
+        "seatsUsed": "{{used}} / {{total}} postes utilisés",
+        "inviting": "Invitation de",
+        "additionalSeats": "Postes supplémentaires",
+        "seatsTotal": "{{from}} → {{to}} au total",
+        "priceRow_one": "{{count}} poste × {{price}} $/mois",
+        "priceRow_other": "{{count}} postes × {{price}} $/mois",
+        "totalPerMonth": "{{amount}} $/mois",
+        "proratedNote": "Facturation au prorata appliquée immédiatement pour la période de facturation en cours.",
+        "processing": "Traitement…",
+        "buyAndInvite_one": "Acheter {{count}} poste et inviter",
+        "buyAndInvite_other": "Acheter {{count}} postes et inviter",
+        "errorNotConnected": "Non connecté au serveur",
+        "errorNoSubscription": "Aucun abonnement actif trouvé",
+        "errorUpdateSeats": "Échec de la mise à jour des postes : {{status}}"
       }
     },
     "about": {
@@ -322,6 +366,61 @@
         "madePrivateToast_one": "Le coffre-fort est maintenant privé. {{count}} membre a perdu l'accès.",
         "madePrivateToast_other": "Le coffre-fort est maintenant privé. {{count}} membres ont perdu l'accès.",
         "madePrivateToastEmpty": "Le coffre-fort est maintenant privé."
+      },
+      "rolesPanel": {
+        "permGroup": {
+          "dataAccess": "Accès aux données",
+          "connectionManagement": "Gestion des connexions",
+          "teamAdministration": "Administration d'équipe",
+          "terminalSessions": "Sessions de terminal"
+        },
+        "perm": {
+          "VIEW_SECRETS":           { "label": "Voir les secrets",           "desc": "Voir les mots de passe et clés privées en clair" },
+          "COPY_SECRETS":           { "label": "Copier les secrets",          "desc": "Copier les mots de passe et clés dans le presse-papiers" },
+          "CONNECT":                { "label": "Se connecter",                "desc": "Lancer des connexions SSH" },
+          "EDIT_CONNECTIONS":       { "label": "Modifier les connexions",     "desc": "Créer, modifier et supprimer des connexions" },
+          "EDIT_IDENTITIES":        { "label": "Modifier les identités",      "desc": "Créer, modifier et supprimer des identités SSH" },
+          "EDIT_KEYS":              { "label": "Modifier les clés",           "desc": "Créer, modifier et supprimer des clés SSH" },
+          "EDIT_SNIPPETS":          { "label": "Modifier les snippets",       "desc": "Créer, modifier et supprimer des extraits de commandes" },
+          "EDIT_FOLDERS":           { "label": "Modifier les dossiers",       "desc": "Gérer la structure des dossiers" },
+          "VIEW_AUDIT_LOG":         { "label": "Voir le journal d'audit",     "desc": "Lire le journal d'activité" },
+          "INVITE_MEMBERS":         { "label": "Inviter des membres",         "desc": "Inviter de nouveaux membres dans le coffre-fort" },
+          "MANAGE_MEMBERS":         { "label": "Gérer les membres",           "desc": "Attribuer des rôles et retirer des membres" },
+          "CREATE_CUSTOM_ROLES":    { "label": "Gérer les rôles (hérité)",    "desc": "Permission retirée — conservée pour compatibilité" },
+          "MANAGE_ROLES":           { "label": "Gérer les rôles",             "desc": "Créer, modifier et supprimer des rôles" },
+          "MANAGE_VAULT":           { "label": "Gérer le coffre-fort",        "desc": "Renommer le coffre-fort et gérer ses paramètres" },
+          "START_TERMINAL_SESSION": { "label": "Démarrer des sessions",       "desc": "Démarrer des sessions de terminal multijoueur" },
+          "JOIN_TERMINAL_SESSION":  { "label": "Rejoindre des sessions",      "desc": "Rejoindre des sessions de terminal existantes" },
+          "VIEW_TERMINAL_SESSIONS": { "label": "Voir les sessions",           "desc": "Voir les sessions de terminal actives" }
+        },
+        "builtinBadge": "Intégré",
+        "dragToReorder": "Glisser pour réordonner",
+        "editRoleTitle": "Modifier le rôle",
+        "deleteRoleTitle": "Supprimer le rôle",
+        "clickToConfirm": "Cliquer à nouveau pour confirmer",
+        "failedToDelete": "Échec de la suppression",
+        "editRole": "Modifier le rôle",
+        "newRole": "Nouveau rôle personnalisé",
+        "roleName": "Nom du rôle",
+        "roleNamePlaceholder": "ex. Lecture seule, Déploiement, DevOps…",
+        "colorLabel": "Couleur",
+        "clearColor": "Effacer",
+        "preview": "Aperçu",
+        "permissionsLabel": "Permissions",
+        "saveChanges": "Enregistrer les modifications",
+        "createRole": "Créer le rôle",
+        "errorNameRequired": "Le nom est requis",
+        "errorFailedToSave": "Échec de l'enregistrement du rôle",
+        "builtinRoles": "Rôles intégrés",
+        "customRoles": "Rôles personnalisés",
+        "newRoleBtn": "Nouveau rôle",
+        "businessFeature": "Fonctionnalité du plan Business",
+        "businessFeatureDesc": "Les rôles personnalisés avec des permissions granulaires sont disponibles dans le plan Business.",
+        "upgradeBtn": "Passer au plan Business",
+        "noCustomRolesCanEdit": "Aucun rôle personnalisé pour l'instant. Créez-en un pour attribuer des permissions spécifiques.",
+        "noCustomRoles": "Aucun rôle personnalisé défini pour cette équipe.",
+        "noTeams": "Aucune équipe pour l'instant. Créez un coffre-fort partagé pour commencer à gérer les rôles.",
+        "teamLabel": "Équipe"
       }
     },
     "plugins": {

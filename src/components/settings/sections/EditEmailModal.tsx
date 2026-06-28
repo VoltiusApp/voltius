@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { changeEmail } from "@/services/account";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { SettingsInput } from "./shared";
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function EditEmailModal({ currentEmail, onClose }: Props) {
+  const { t } = useTranslation();
   const [newEmail, setNewEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,15 +22,15 @@ export default function EditEmailModal({ currentEmail, onClose }: Props) {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!newEmail.includes("@")) {
-      setError("Invalid email address");
+      setError(t("settings.account.editEmail.errorInvalidEmail"));
       return;
     }
     if (newEmail === currentEmail) {
-      setError("New email must differ from the current one");
+      setError(t("settings.account.editEmail.errorSameEmail"));
       return;
     }
     if (!password) {
-      setError("Password is required to confirm the change");
+      setError(t("settings.account.editEmail.errorPasswordRequired"));
       return;
     }
 
@@ -41,7 +43,7 @@ export default function EditEmailModal({ currentEmail, onClose }: Props) {
         pluginId: "system",
         pluginName: "Voltius",
         type: "toast",
-        message: `Verification email sent to ${newEmail}.`,
+        message: t("settings.account.editEmail.toastVerification", { email: newEmail }),
         severity: "info",
         duration: 5000,
       });
@@ -62,7 +64,7 @@ export default function EditEmailModal({ currentEmail, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-(--t-text-primary)">Change email</h2>
+          <h2 className="text-sm font-semibold text-(--t-text-primary)">{t("settings.account.editEmail.title")}</h2>
           <button
             onClick={onClose}
             className="text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors"
@@ -74,34 +76,34 @@ export default function EditEmailModal({ currentEmail, onClose }: Props) {
         {done ? (
           <div className="space-y-3">
             <p className="text-xs text-(--t-text-muted)">
-              Email updated to <strong className="text-(--t-text-primary)">{newEmail}</strong>.
-              Check your inbox for a verification link.
+              {t("settings.account.editEmail.updated", { email: newEmail })}
             </p>
             <p className="text-xs text-(--t-text-dim)">
-              Until verified, paid features will be paused.
+              {t("settings.account.editEmail.pausedNote")}
             </p>
             <button
               onClick={onClose}
               className="btn btn-primary w-full py-1.5 rounded-lg text-sm font-medium"
             >
-              Done
+              {t("settings.account.editEmail.done")}
             </button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-2">
             <p className="text-xs text-(--t-text-dim) mb-3">
-              Current: <span className="text-(--t-text-muted)">{currentEmail}</span>
+              {t("settings.account.editEmail.currentLabel")}{" "}
+              <span className="text-(--t-text-muted)">{currentEmail}</span>
             </p>
             <SettingsInput
               type="email"
-              placeholder="New email address"
+              placeholder={t("settings.account.editEmail.newPlaceholder")}
               value={newEmail}
               onChange={setNewEmail}
               autoFocus
             />
             <SettingsInput
               type="password"
-              placeholder="Current master password"
+              placeholder={t("settings.account.editEmail.passwordPlaceholder")}
               value={password}
               onChange={setPassword}
             />
@@ -112,7 +114,7 @@ export default function EditEmailModal({ currentEmail, onClose }: Props) {
                 onClick={onClose}
                 className="btn btn-secondary flex-1 py-1.5 rounded-lg text-sm"
               >
-                Cancel
+                {t("settings.shared.cancel")}
               </button>
               <button
                 type="submit"
@@ -120,7 +122,7 @@ export default function EditEmailModal({ currentEmail, onClose }: Props) {
                 className="btn btn-primary flex-1 py-1.5 rounded-lg text-sm font-medium"
                 style={{ opacity: loading ? 0.7 : 1 }}
               >
-                {loading ? "Saving…" : "Save"}
+                {loading ? t("settings.account.editEmail.saving") : t("settings.account.editEmail.save")}
               </button>
             </div>
           </form>

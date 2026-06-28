@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useTeamStore } from "@/stores/teamStore";
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function BuySeatsModal({ teamId, pendingUser, pendingRole, onClose, onSuccess }: Props) {
+  const { t } = useTranslation();
   const { usedSeats, totalSeats } = useSubscriptionStore();
   const addMemberById = useTeamStore((s) => s.addMemberById);
   const [additionalSeats, setAdditionalSeats] = useState(1);
@@ -32,7 +34,7 @@ export default function BuySeatsModal({ teamId, pendingUser, pendingRole, onClos
     try {
       const serverUrl = await invoke<string | null>("keychain_get", { key: "server_url" });
       const jwt = await invoke<string | null>("keychain_get", { key: "jwt" });
-      if (!serverUrl || !jwt) throw new Error("Not connected to server");
+      if (!serverUrl || !jwt) throw new Error(t("settings.account.buySeats.errorNotConnected"));
 
       const res = await appFetch(`${serverUrl}/v1/billing/seats`, {
         method: "POST",
@@ -40,8 +42,8 @@ export default function BuySeatsModal({ teamId, pendingUser, pendingRole, onClos
         body: JSON.stringify({ seats: newTotal, invoice_immediately: true }),
       });
       if (!res.ok) {
-        if (res.status === 404) throw new Error("No active subscription found");
-        throw new Error(`Failed to update seats: ${res.status}`);
+        if (res.status === 404) throw new Error(t("settings.account.buySeats.errorNoSubscription"));
+        throw new Error(t("settings.account.buySeats.errorUpdateSeats", { status: res.status }));
       }
 
       // Reload subscription to get updated seat counts
@@ -73,11 +75,11 @@ export default function BuySeatsModal({ teamId, pendingUser, pendingRole, onClos
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold" style={{ color: "var(--t-text-primary)" }}>
-              No seats available
+              {t("settings.account.buySeats.title")}
             </h2>
             <p className="text-xs mt-0.5" style={{ color: "var(--t-text-dim)" }}>
-              {usedSeats} / {totalSeats} seats used
-              {pendingUser && <> · Inviting <span className="font-medium">{pendingUser.display_name}</span></>}
+              {t("settings.account.buySeats.seatsUsed", { used: usedSeats, total: totalSeats })}
+              {pendingUser && <> · {t("settings.account.buySeats.inviting")} <span className="font-medium">{pendingUser.display_name}</span></>}
             </p>
           </div>
           <button onClick={onClose} className="shrink-0 mt-0.5" style={{ color: "var(--t-text-dim)" }}>
@@ -87,7 +89,7 @@ export default function BuySeatsModal({ teamId, pendingUser, pendingRole, onClos
 
         <div>
           <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--t-text-dim)" }}>
-            Additional seats
+            {t("settings.account.buySeats.additionalSeats")}
           </label>
           <div className="flex items-center gap-3">
             <button
@@ -108,18 +110,22 @@ export default function BuySeatsModal({ teamId, pendingUser, pendingRole, onClos
               +
             </button>
             <span className="text-xs ml-1" style={{ color: "var(--t-text-dim)" }}>
-              {currentTotal} → {newTotal} total
+              {t("settings.account.buySeats.seatsTotal", { from: currentTotal, to: newTotal })}
             </span>
           </div>
         </div>
 
         <div className="rounded-xl px-4 py-3 space-y-1" style={{ background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)" }}>
           <div className="flex items-center justify-between text-xs">
-            <span style={{ color: "var(--t-text-secondary)" }}>{newTotal} seats × ${SEAT_PRICE_MONTHLY}/mo</span>
-            <span className="font-semibold tabular-nums" style={{ color: "var(--t-text-primary)" }}>${monthlyCost}/mo</span>
+            <span style={{ color: "var(--t-text-secondary)" }}>
+              {t("settings.account.buySeats.priceRow", { count: newTotal, price: SEAT_PRICE_MONTHLY })}
+            </span>
+            <span className="font-semibold tabular-nums" style={{ color: "var(--t-text-primary)" }}>
+              {t("settings.account.buySeats.totalPerMonth", { amount: monthlyCost })}
+            </span>
           </div>
           <p className="text-[11px]" style={{ color: "var(--t-text-dim)" }}>
-            Prorated charge applied immediately for the current billing period.
+            {t("settings.account.buySeats.proratedNote")}
           </p>
         </div>
 
@@ -132,7 +138,7 @@ export default function BuySeatsModal({ teamId, pendingUser, pendingRole, onClos
             onClick={onClose}
             className="btn btn-secondary flex-1 px-3 py-2 rounded-lg text-sm"
           >
-            Cancel
+            {t("settings.shared.cancel")}
           </button>
           <button
             onClick={() => void handleConfirm()}
@@ -143,9 +149,9 @@ export default function BuySeatsModal({ teamId, pendingUser, pendingRole, onClos
             {loading
               ? <span className="flex items-center justify-center gap-1.5">
                   <Icon icon="lucide:loader-circle" width={13} className="animate-spin" />
-                  Processing…
+                  {t("settings.account.buySeats.processing")}
                 </span>
-              : `Buy ${additionalSeats} seat${additionalSeats !== 1 ? "s" : ""} & Invite`
+              : t("settings.account.buySeats.buyAndInvite", { count: additionalSeats })
             }
           </button>
         </div>

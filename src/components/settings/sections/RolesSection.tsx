@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamRole } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
@@ -9,21 +10,21 @@ import { getMyUserId } from "@/services/teamService";
 
 // ─── Permission metadata ──────────────────────────────────────────────────────
 
-const PERMISSION_GROUPS: { label: string; perms: Permission[] }[] = [
+const PERMISSION_GROUPS: { key: string; perms: Permission[] }[] = [
   {
-    label: "Data Access",
+    key: "dataAccess",
     perms: ["VIEW_SECRETS", "COPY_SECRETS", "CONNECT"],
   },
   {
-    label: "Connection Management",
+    key: "connectionManagement",
     perms: ["EDIT_CONNECTIONS", "EDIT_IDENTITIES", "EDIT_KEYS", "EDIT_SNIPPETS", "EDIT_FOLDERS"],
   },
   {
-    label: "Team Administration",
+    key: "teamAdministration",
     perms: ["VIEW_AUDIT_LOG", "INVITE_MEMBERS", "MANAGE_MEMBERS", "MANAGE_ROLES", "MANAGE_VAULT"],
   },
   {
-    label: "Terminal Sessions",
+    key: "terminalSessions",
     perms: ["START_TERMINAL_SESSION", "JOIN_TERMINAL_SESSION", "VIEW_TERMINAL_SESSIONS"],
   },
 ];
@@ -61,9 +62,11 @@ function PermissionRow({
   readOnly: boolean;
   onToggle: (bit: number) => void;
 }) {
+  const { t } = useTranslation();
   const bit = PERM_BITS[perm];
   const checked = (value & bit) !== 0;
-  const { label, description } = PERM_META[perm];
+  const tLabel = t(`settings.vaults.rolesPanel.perm.${perm}.label`);
+  const tDesc = t(`settings.vaults.rolesPanel.perm.${perm}.desc`);
   return (
     <label
       className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors"
@@ -85,8 +88,8 @@ function PermissionRow({
         {checked && <Icon icon="lucide:check" width={10} className="text-white" />}
       </div>
       <div className="flex-1 min-w-0">
-        <span className="text-sm font-medium" style={{ color: "var(--t-text-primary)" }}>{label}</span>
-        <span className="text-xs ml-2" style={{ color: "var(--t-text-dim)" }}>{description}</span>
+        <span className="text-sm font-medium" style={{ color: "var(--t-text-primary)" }}>{tLabel}</span>
+        <span className="text-xs ml-2" style={{ color: "var(--t-text-dim)" }}>{tDesc}</span>
       </div>
     </label>
   );
@@ -101,6 +104,7 @@ function PermissionGrid({
   onChange?: (v: number) => void;
   readOnly?: boolean;
 }) {
+  const { t } = useTranslation();
   const toggle = (bit: number) => {
     if (readOnly || !onChange) return;
     onChange(value ^ bit);
@@ -109,9 +113,9 @@ function PermissionGrid({
   return (
     <div className="space-y-4">
       {PERMISSION_GROUPS.map((group) => (
-        <div key={group.label}>
+        <div key={group.key}>
           <p className="text-[10px] font-bold uppercase tracking-widest mb-1 px-3" style={{ color: "var(--t-text-dim)" }}>
-            {group.label}
+            {t(`settings.vaults.rolesPanel.permGroup.${group.key}`)}
           </p>
           <div className="grid grid-cols-1 gap-0.5">
             {group.perms.filter((p) => p in PERM_BITS).map((perm) => (
@@ -142,6 +146,7 @@ export function RoleModal({
   role: TeamRole | null;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const { createRole, updateRole } = useTeamStore();
   const [name, setName] = useState(role?.name ?? "");
   const [permissions, setPermissions] = useState(role?.permissions ?? 0);
@@ -150,7 +155,7 @@ export function RoleModal({
   const [error, setError] = useState("");
 
   const handleSave = async () => {
-    if (!name.trim()) { setError("Name is required"); return; }
+    if (!name.trim()) { setError(t("settings.vaults.rolesPanel.errorNameRequired")); return; }
     setSaving(true); setError("");
     const colorValue = color.trim() || undefined;
     try {
@@ -161,7 +166,7 @@ export function RoleModal({
       }
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save role");
+      setError(e instanceof Error ? e.message : t("settings.vaults.rolesPanel.errorFailedToSave"));
     } finally {
       setSaving(false);
     }
@@ -186,7 +191,7 @@ export function RoleModal({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-b-(--t-border) shrink-0">
           <span className="text-sm font-semibold" style={{ color: "var(--t-text-bright)" }}>
-            {role ? "Edit role" : "New custom role"}
+            {role ? t("settings.vaults.rolesPanel.editRole") : t("settings.vaults.rolesPanel.newRole")}
           </span>
           <button
             onClick={onClose}
@@ -204,12 +209,12 @@ export function RoleModal({
           {/* Name */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--t-text-dim)" }}>
-              Role name
+              {t("settings.vaults.rolesPanel.roleName")}
             </label>
             <input
               autoFocus
               type="text"
-              placeholder="e.g. Read-only, Deployment, DevOps…"
+              placeholder={t("settings.vaults.rolesPanel.roleNamePlaceholder")}
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") void handleSave(); }}
@@ -221,7 +226,7 @@ export function RoleModal({
           {/* Color */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--t-text-dim)" }}>
-              Color
+              {t("settings.vaults.rolesPanel.colorLabel")}
             </label>
             <div className="flex flex-wrap gap-2 items-center">
               {PRESET_COLORS.map((c) => (
@@ -246,7 +251,7 @@ export function RoleModal({
                     className="text-xs px-1.5 py-0.5 rounded-sm"
                     style={{ color: "var(--t-text-dim)", background: "var(--t-bg-elevated)" }}
                   >
-                    Clear
+                    {t("settings.vaults.rolesPanel.clearColor")}
                   </button>
                 )}
               </div>
@@ -254,7 +259,7 @@ export function RoleModal({
             {color && (
               <div className="mt-2 flex items-center gap-2">
                 <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full capitalize" style={{ color, background: `${color}1a` }}>
-                  {name || "Preview"}
+                  {name || t("settings.vaults.rolesPanel.preview")}
                 </span>
                 <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>{color}</span>
               </div>
@@ -264,7 +269,7 @@ export function RoleModal({
           {/* Permissions */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--t-text-dim)" }}>
-              Permissions
+              {t("settings.vaults.rolesPanel.permissionsLabel")}
             </label>
             <PermissionGrid value={permissions} onChange={setPermissions} />
           </div>
@@ -279,7 +284,7 @@ export function RoleModal({
             className="px-4 py-2 rounded-lg text-sm"
             style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-muted)" }}
           >
-            Cancel
+            {t("settings.shared.cancel")}
           </button>
           <button
             onClick={() => void handleSave()}
@@ -288,7 +293,7 @@ export function RoleModal({
             style={{ background: "var(--t-accent)", opacity: saving || !name.trim() ? 0.7 : 1 }}
           >
             {saving && <Icon icon="lucide:loader-circle" width={13} className="animate-spin" />}
-            {role ? "Save changes" : "Create role"}
+            {role ? t("settings.vaults.rolesPanel.saveChanges") : t("settings.vaults.rolesPanel.createRole")}
           </button>
         </div>
       </div>
@@ -299,6 +304,7 @@ export function RoleModal({
 // ─── Built-in role card (read-only) ──────────────────────────────────────────
 
 function BuiltinRoleCard({ name, permissions }: { name: string; permissions: number }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   return (
     <div
@@ -312,7 +318,7 @@ function BuiltinRoleCard({ name, permissions }: { name: string; permissions: num
       >
         <Icon icon="lucide:lock" width={13} style={{ color: "var(--t-text-dim)" }} />
         <span className="flex-1 text-sm font-medium capitalize" style={{ color: "var(--t-text-primary)" }}>{name}</span>
-        <span className="text-[10px] px-2 py-0.5 rounded-sm" style={{ background: "var(--t-bg-card)", color: "var(--t-text-dim)" }}>Built-in</span>
+        <span className="text-[10px] px-2 py-0.5 rounded-sm" style={{ background: "var(--t-bg-card)", color: "var(--t-text-dim)" }}>{t("settings.vaults.rolesPanel.builtinBadge")}</span>
         <Icon icon={expanded ? "lucide:chevron-up" : "lucide:chevron-down"} width={13} style={{ color: "var(--t-text-dim)" }} />
       </button>
       {expanded && (
@@ -339,6 +345,7 @@ function RoleCard({
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
   isDragOver?: boolean;
 }) {
+  const { t } = useTranslation();
   const { deleteRole } = useTeamStore();
   const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -352,7 +359,7 @@ function RoleCard({
     try {
       await deleteRole(teamId, role.id);
     } catch (e) {
-      setDeleteError(e instanceof Error ? e.message : "Failed to delete");
+      setDeleteError(e instanceof Error ? e.message : t("settings.vaults.rolesPanel.failedToDelete"));
       setDeleting(false);
       setConfirmDelete(false);
     }
@@ -375,7 +382,7 @@ function RoleCard({
             <div
               {...dragHandleProps}
               className="cursor-grab active:cursor-grabbing shrink-0 opacity-30 hover:opacity-70 transition-opacity touch-none"
-              title="Drag to reorder"
+              title={t("settings.vaults.rolesPanel.dragToReorder")}
             >
               <Icon icon="lucide:grip-vertical" width={13} style={{ color: "var(--t-text-dim)" }} />
             </div>
@@ -395,7 +402,7 @@ function RoleCard({
                 style={{ color: "var(--t-text-dim)" }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
-                title="Edit role"
+                title={t("settings.vaults.rolesPanel.editRoleTitle")}
               >
                 <Icon icon="lucide:pencil" width={13} />
               </button>
@@ -407,7 +414,7 @@ function RoleCard({
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)"; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = confirmDelete ? "var(--t-status-error)" : "var(--t-text-dim)"; }}
                 onBlur={() => setConfirmDelete(false)}
-                title={confirmDelete ? "Click again to confirm" : "Delete role"}
+                title={confirmDelete ? t("settings.vaults.rolesPanel.clickToConfirm") : t("settings.vaults.rolesPanel.deleteRoleTitle")}
               >
                 {deleting
                   ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin" />
@@ -436,6 +443,7 @@ function RoleCard({
 // ─── Team roles panel ─────────────────────────────────────────────────────────
 
 export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId: string }) {
+  const { t } = useTranslation();
   const { rolesByTeam, loadRoles, membersByTeam, loadMembers, updateRole } = useTeamStore();
   const isBusiness = useSubscriptionStore((s) => s.isBusiness);
   const [creating, setCreating] = useState(false);
@@ -502,7 +510,7 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
       {/* Built-in roles */}
       <div>
         <h4 className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: "var(--t-text-dim)" }}>
-          Built-in roles
+          {t("settings.vaults.rolesPanel.builtinRoles")}
         </h4>
         <div className="space-y-2">
           {builtinRoles.map((role) => (
@@ -515,7 +523,7 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
       <div>
         <div className="flex items-center justify-between mb-3">
           <h4 className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--t-text-dim)" }}>
-            Custom roles
+            {t("settings.vaults.rolesPanel.customRoles")}
           </h4>
           {isBusiness && canEdit && (
             <button
@@ -526,7 +534,7 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
             >
               <Icon icon="lucide:plus" width={11} />
-              New role
+              {t("settings.vaults.rolesPanel.newRoleBtn")}
             </button>
           )}
         </div>
@@ -538,9 +546,9 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
           >
             <Icon icon="lucide:lock" width={20} style={{ color: "var(--t-text-dim)" }} />
             <div>
-              <p className="text-sm font-medium" style={{ color: "var(--t-text-primary)" }}>Business plan feature</p>
+              <p className="text-sm font-medium" style={{ color: "var(--t-text-primary)" }}>{t("settings.vaults.rolesPanel.businessFeature")}</p>
               <p className="text-xs mt-1 max-w-[220px]" style={{ color: "var(--t-text-dim)" }}>
-                Custom roles with granular permissions are available on the Business plan.
+                {t("settings.vaults.rolesPanel.businessFeatureDesc")}
               </p>
             </div>
             <a
@@ -550,7 +558,7 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
               className="text-xs px-3 py-1.5 rounded-lg font-medium"
               style={{ background: "var(--t-accent)", color: "#fff" }}
             >
-              Upgrade to Business
+              {t("settings.vaults.rolesPanel.upgradeBtn")}
             </a>
           </div>
         ) : customRoles.length === 0 ? (
@@ -560,7 +568,7 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
           >
             <Icon icon="lucide:shield-off" width={22} className="mx-auto mb-2" style={{ color: "var(--t-text-dim)" }} />
             <p className="text-xs" style={{ color: "var(--t-text-dim)" }}>
-              {canEdit ? "No custom roles yet. Create one to assign specific permissions." : "No custom roles defined for this team."}
+              {canEdit ? t("settings.vaults.rolesPanel.noCustomRolesCanEdit") : t("settings.vaults.rolesPanel.noCustomRoles")}
             </p>
           </div>
         ) : (
@@ -591,6 +599,7 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
 // ─── Main section ─────────────────────────────────────────────────────────────
 
 export default function RolesSection() {
+  const { t } = useTranslation();
   const { teams, loadTeams } = useTeamStore();
   const [myUserId, setMyUserId] = useState("");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
@@ -607,7 +616,7 @@ export default function RolesSection() {
       <div className="p-6 flex flex-col items-center justify-center h-full gap-3">
         <Icon icon="lucide:shield" width={32} style={{ color: "var(--t-text-dim)" }} />
         <p className="text-sm text-center" style={{ color: "var(--t-text-dim)" }}>
-          No teams yet. Create a shared vault to start managing roles.
+          {t("settings.vaults.rolesPanel.noTeams")}
         </p>
       </div>
     );
@@ -618,7 +627,7 @@ export default function RolesSection() {
       {teams.length > 1 && (
         <div>
           <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--t-text-dim)" }}>
-            Team
+            {t("settings.vaults.rolesPanel.teamLabel")}
           </label>
           <select
             value={selectedTeamId ?? ""}
@@ -626,8 +635,8 @@ export default function RolesSection() {
             className="px-3 py-2 rounded-lg text-sm outline-hidden"
             style={{ background: "var(--t-bg-input)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
           >
-            {teams.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
+            {teams.map((team) => (
+              <option key={team.id} value={team.id}>{team.name}</option>
             ))}
           </select>
         </div>

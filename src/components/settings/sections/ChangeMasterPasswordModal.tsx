@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { changeMasterPassword } from "@/services/account";
 import { SettingsInput } from "./shared";
 
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export default function ChangeMasterPasswordModal({ onClose }: Props) {
+  const { t } = useTranslation();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -18,19 +20,19 @@ export default function ChangeMasterPasswordModal({ onClose }: Props) {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!currentPassword) {
-      setError("Current password is required");
+      setError(t("settings.account.changeMasterPassword.errorCurrentRequired"));
       return;
     }
     if (newPassword.length < 8) {
-      setError("New password must be at least 8 characters");
+      setError(t("settings.account.changeMasterPassword.errorMinLength"));
       return;
     }
     if (newPassword === currentPassword) {
-      setError("New password must differ from the current one");
+      setError(t("settings.account.changeMasterPassword.errorSamePassword"));
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError("Passwords don't match");
+      setError(t("settings.account.error.mismatch"));
       return;
     }
 
@@ -56,7 +58,7 @@ export default function ChangeMasterPasswordModal({ onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-(--t-text-primary)">Change master password</h2>
+          <h2 className="text-sm font-semibold text-(--t-text-primary)">{t("settings.account.changeMasterPassword.title")}</h2>
           <button
             onClick={onClose}
             className="text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors"
@@ -69,36 +71,36 @@ export default function ChangeMasterPasswordModal({ onClose }: Props) {
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-(--t-status-connected)">
               <Icon icon="lucide:circle-check-big" width={14} />
-              <p className="text-xs font-medium">Password changed successfully.</p>
+              <p className="text-xs font-medium">{t("settings.account.changeMasterPassword.successMsg")}</p>
             </div>
             <p className="text-xs text-(--t-text-dim)">
-              You are still logged in. Your vault entries are unchanged.
+              {t("settings.account.changeMasterPassword.successNote")}
             </p>
             <button
               onClick={onClose}
               className="btn btn-primary w-full py-1.5 rounded-lg text-sm font-medium"
             >
-              Done
+              {t("settings.account.changeMasterPassword.done")}
             </button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-2">
             <SettingsInput
               type="password"
-              placeholder="Current password"
+              placeholder={t("settings.account.changeMasterPassword.currentPlaceholder")}
               value={currentPassword}
               onChange={setCurrentPassword}
               autoFocus
             />
             <SettingsInput
               type="password"
-              placeholder="New password (min 8 chars)"
+              placeholder={t("settings.account.changeMasterPassword.newPlaceholder")}
               value={newPassword}
               onChange={setNewPassword}
             />
             <SettingsInput
               type="password"
-              placeholder="Confirm new password"
+              placeholder={t("settings.account.changeMasterPassword.confirmPlaceholder")}
               value={confirmPassword}
               onChange={setConfirmPassword}
             />
@@ -109,7 +111,7 @@ export default function ChangeMasterPasswordModal({ onClose }: Props) {
                 onClick={onClose}
                 className="btn btn-secondary flex-1 py-1.5 rounded-lg text-sm"
               >
-                Cancel
+                {t("settings.shared.cancel")}
               </button>
               <button
                 type="submit"
@@ -117,7 +119,7 @@ export default function ChangeMasterPasswordModal({ onClose }: Props) {
                 className="btn btn-primary flex-1 py-1.5 rounded-lg text-sm font-medium"
                 style={{ opacity: loading ? 0.7 : 1 }}
               >
-                {loading ? "Changing…" : "Change password"}
+                {loading ? t("settings.account.changeMasterPassword.changing") : t("settings.account.changeMasterPassword.changeBtn")}
               </button>
             </div>
           </form>
