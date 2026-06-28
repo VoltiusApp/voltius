@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-06-28
+
+### Fixed
+
+- Windows and macOS builds — renamed a mobile-terminal helper module so its
+  filename no longer collides with a component file by letter case only, which
+  broke the build on case-insensitive filesystems
+
 ## [0.7.0] - 2026-06-28
 
 ### Added
