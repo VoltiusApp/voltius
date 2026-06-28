@@ -5,6 +5,7 @@ import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useToggleSettingsStore, TOGGLE_DEFS, type ToggleId } from "@/stores/toggleSettingsStore";
 import { useAppSettingsTimestampStore } from "@/stores/appSettingsTimestampStore";
 import { useConnectivitySettingsStore } from "@/stores/connectivitySettingsStore";
+import { useLocaleStore, SUPPORTED_LOCALES, type Locale } from "@/stores/localeStore";
 import { KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
 import type { UserDataHandler } from "../handler";
 
@@ -14,6 +15,7 @@ interface AppSettingsData {
   plugins?: { overrides: Record<string, boolean> };
   toggles?: Partial<Record<string, boolean>>;
   keepalivePreset?: KeepalivePreset;
+  locale?: Locale;
 }
 
 export const appSettingsHandler: UserDataHandler = {
@@ -32,6 +34,7 @@ export const appSettingsHandler: UserDataHandler = {
       plugins: { overrides: plugins.overrides },
       toggles: { ...values },
       keepalivePreset: useConnectivitySettingsStore.getState().keepalivePreset,
+      locale: useLocaleStore.getState().locale,
     };
   },
 
@@ -57,6 +60,9 @@ export const appSettingsHandler: UserDataHandler = {
     }
     if (d.keepalivePreset && d.keepalivePreset in KEEPALIVE_PRESETS) {
       useConnectivitySettingsStore.setState({ keepalivePreset: d.keepalivePreset });
+    }
+    if (d.locale && SUPPORTED_LOCALES.some((l) => l.value === d.locale)) {
+      useLocaleStore.getState().setLocale(d.locale);
     }
   },
 
