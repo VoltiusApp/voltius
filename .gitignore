@@ -5,6 +5,7 @@ graphify-out/
 
 node_modules/
 .pnpm-store/
+.pnpmrc
 dist/
 .worktrees/
 .wrangler/
