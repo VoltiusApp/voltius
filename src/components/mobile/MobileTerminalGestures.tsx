@@ -3,9 +3,15 @@ import { getTerminalApi } from "@/hooks/useTerminal";
 import { sendSpecialKey } from "@/services/terminalInput";
 import { isDoubleTap, type TapPoint } from "./doubleTap";
 import {
+  cellFromPoint,
   linesFromPixelDelta,
+  wordRangeAt,
+  isBlankCell,
+  extendSelection,
+  type Cell,
   type CellMetrics,
 } from "./mobileTerminalGestures";
+import { writeClipboard, readClipboard } from "@/utils/clipboard";
 
 const LONG_PRESS_MS = 380;
 const MOVE_THRESHOLD_PX = 10;
@@ -23,6 +29,10 @@ type Phase = "idle" | "pending" | "scrolling" | "selecting";
 export default function MobileTerminalGestures({ sessionId, active }: { sessionId: string; active: boolean }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [hintKey, setHintKey] = useState(0);
+  const [toolbar, setToolbar] = useState<{ x: number; y: number; mode: "select" | "paste" } | null>(null);
+  const toolbarOpen = useRef(false);
+  const anchorStart = useRef<Cell | null>(null);
+  const anchorEnd = useRef<Cell | null>(null);
 
   // Gesture state (refs — never trigger re-render mid-gesture).
   const phase = useRef<Phase>("idle");
@@ -61,8 +71,43 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
       if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
     };
 
-    // Filled in by Task 5/6; no-op here so scroll/tap work standalone.
-    const onLongPress = (_x: number, _y: number) => {};
+    const closeToolbar = () => {
+      setToolbar(null);
+      anchorStart.current = null;
+      anchorEnd.current = null;
+    };
+
+    const showPaste = (x: number, y: number) => {
+      setToolbar({ x, y, mode: "paste" });
+    };
+
+    const showSelectionToolbar = () => {
+      const api = getTerminalApi(sessionId);
+      const m = metrics();
+      const pos = api?.getSelectionPosition();
+      if (!api || !m || !pos) return;
+      const left = m.left + pos.start.x * m.cellWidth;
+      const top = m.top + (pos.start.y - m.viewportTop) * m.cellHeight;
+      setToolbar({ x: left, y: top, mode: "select" });
+    };
+
+    const onLongPress = (x: number, y: number) => {
+      const api = getTerminalApi(sessionId);
+      const m = metrics();
+      if (!api || !m) return;
+      const cell = cellFromPoint(m, x, y);
+      const text = api.lineText(cell.line);
+      if (isBlankCell(text, cell.col)) {
+        showPaste(x, y);
+        return;
+      }
+      const word = wordRangeAt(text, cell.col);
+      if (word.len === 0) { showPaste(x, y); return; }
+      phase.current = "selecting";
+      anchorStart.current = { col: word.startCol, line: cell.line };
+      anchorEnd.current = { col: word.startCol + word.len - 1, line: cell.line };
+      api.select(word.startCol, cell.line, word.len);
+    };
 
     const reset = () => {
       phase.current = "idle";
@@ -73,6 +118,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
     };
 
     const onTouchStart = (e: TouchEvent) => {
+      if (toolbarOpen.current) { getTerminalApi(sessionId)?.clearSelection(); closeToolbar(); }
       if (e.touches.length !== 1) { reset(); return; }
       const t = e.touches[0];
       start.current = { x: t.clientX, y: t.clientY, t: e.timeStamp };
@@ -115,7 +161,16 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
         carry.current = acc.carry;
         if (acc.lines !== 0) getTerminalApi(sessionId)?.scrollLines(-acc.lines);
       }
-      // phase "selecting" handled in Task 5.
+      if (phase.current === "selecting") {
+        e.preventDefault();
+        const m = metrics();
+        const api = getTerminalApi(sessionId);
+        if (!m || !api || !anchorStart.current || !anchorEnd.current) return;
+        const focus = cellFromPoint(m, t.clientX, t.clientY);
+        const sel = extendSelection(anchorStart.current, anchorEnd.current, focus);
+        if (sel.kind === "line") api.select(sel.startCol, sel.line, sel.len);
+        else api.selectLines(sel.start, sel.end);
+      }
     };
 
     const onTouchEnd = (e: TouchEvent) => {
@@ -123,10 +178,9 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
       const wasPhase = phase.current;
 
       if (longPressFired.current) {
-        // A long-press already consumed this gesture (select/paste, Task 5/6):
-        // swallow the synthesized click so the keyboard never pops.
         e.preventDefault();
         e.stopPropagation();
+        if (wasPhase === "selecting") showSelectionToolbar();
         reset();
         return;
       }
@@ -176,6 +230,8 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
     };
   }, [active, sessionId]);
 
+  useEffect(() => { toolbarOpen.current = toolbar !== null; }, [toolbar]);
+
   return (
     <div ref={rootRef} className="absolute inset-0 pointer-events-none flex items-center justify-center z-20">
       {hintKey > 0 && (
@@ -191,6 +247,62 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
         >
           Tab
         </span>
+      )}
+      {toolbar && (
+        <div
+          data-mobile-term-toolbar
+          className="absolute pointer-events-auto flex items-center gap-1 rounded-lg p-1"
+          style={{
+            left: `${Math.max(8, Math.min(toolbar.x, window.innerWidth - 160))}px`,
+            top: `${Math.max(8, toolbar.y - 44)}px`,
+            background: "var(--t-bg-modal)",
+            border: "1px solid var(--t-border-hover)",
+            boxShadow: "var(--t-elev-2)",
+          }}
+          onMouseDown={(e) => e.preventDefault()}
+          onTouchStart={(e) => e.preventDefault()}
+        >
+          {toolbar.mode === "select" && (
+            <>
+              <button
+                data-toolbar-copy
+                className="px-3 py-1.5 rounded-md text-xs font-medium text-(--t-text-primary)"
+                onClick={() => {
+                  const sel = getTerminalApi(sessionId)?.getSelection();
+                  if (sel) void writeClipboard(sel);
+                  getTerminalApi(sessionId)?.clearSelection();
+                  setToolbar(null);
+                  anchorStart.current = null;
+                  anchorEnd.current = null;
+                }}
+              >
+                Copy
+              </button>
+              <button
+                data-toolbar-selectall
+                className="px-3 py-1.5 rounded-md text-xs font-medium text-(--t-text-primary)"
+                onClick={() => getTerminalApi(sessionId)?.selectAll()}
+              >
+                All
+              </button>
+            </>
+          )}
+          <button
+            data-toolbar-paste
+            className="px-3 py-1.5 rounded-md text-xs font-medium text-(--t-text-primary)"
+            onClick={() => {
+              void readClipboard().then((text) => {
+                if (text) getTerminalApi(sessionId)?.paste(text);
+              });
+              getTerminalApi(sessionId)?.clearSelection();
+              setToolbar(null);
+              anchorStart.current = null;
+              anchorEnd.current = null;
+            }}
+          >
+            Paste
+          </button>
+        </div>
       )}
     </div>
   );
