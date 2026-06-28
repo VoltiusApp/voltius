@@ -288,7 +288,7 @@ Build artifacts are automatically handed back to your host user on exit, so noth
 
 The `--no-bundle` flag skips NSIS installer creation (not supported in cross-compilation). The built executable is at:
 ```
-src-tauri/target/aarch64-pc-windows-msvc/release/voltius.exe
+target/aarch64-pc-windows-msvc/release/voltius.exe
 ```
 
 You can replace `aarch64-pc-windows-msvc` with the appropriate target. Here's a quick reference for targets:
@@ -314,7 +314,7 @@ LIBGL_ALWAYS_SOFTWARE=1 && pnpm tauri dev
 pnpm tauri build
 ```
 
-Output installers are placed in `src-tauri/target/release/bundle/`.
+Output installers are placed in `target/release/bundle/`.
 
 ## 🧰 Tech Stack
 
