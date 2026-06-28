@@ -826,6 +826,63 @@ pub async fn connect(
         let _ = writer.write_all(format!("{}\n", cmd).as_bytes()).await;
     }
 
+    let handle = Arc::new(final_handle);
+
+    // Persistent sessions run inside tmux/screen, and neither forwards the
+    // shell's OSC 7 to the outer terminal (screen drops it; tmux keeps it for
+    // itself), so the frontend's OSC 7 handler never sees a cwd. Poll the
+    // multiplexer for the active pane's cwd and push it to the same store the
+    // SFTP panel's "follow cwd" reads. Non-persistent sessions get cwd straight
+    // from OSC 7 and need no polling.
+    if persist {
+        let poll_handle = Arc::clone(&handle);
+        let poll_app = app.clone();
+        let key = crate::shell_integration::tmux_session_key(&session_id);
+        let cwd_cmd = crate::shell_integration::cwd_probe_command(&key);
+        let cwd_event = format!("ssh-cwd-{}", session_id);
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(2));
+            let mut last: Option<String> = None;
+            let mut failures = 0u32;
+            loop {
+                interval.tick().await;
+                // The session handle is explicitly disconnected on teardown, so
+                // a run of failed channel opens means it's gone — stop polling.
+                let channel = match poll_handle.channel_open_session().await {
+                    Ok(c) => c,
+                    Err(_) => {
+                        failures += 1;
+                        if failures >= 3 {
+                            break;
+                        }
+                        continue;
+                    }
+                };
+                failures = 0;
+                if channel.exec(true, cwd_cmd.as_str()).await.is_err() {
+                    continue;
+                }
+                let mut stream = channel.into_stream();
+                let mut out: Vec<u8> = Vec::new();
+                let _ = tokio::time::timeout(std::time::Duration::from_secs(3), async {
+                    let mut buf = [0u8; 512];
+                    loop {
+                        match stream.read(&mut buf).await {
+                            Ok(0) | Err(_) => break,
+                            Ok(n) => out.extend_from_slice(&buf[..n]),
+                        }
+                    }
+                })
+                .await;
+                let path = String::from_utf8_lossy(&out).trim().to_string();
+                if path.starts_with('/') && Some(&path) != last.as_ref() {
+                    let _ = poll_app.emit(&cwd_event, path.clone());
+                    last = Some(path);
+                }
+            }
+        });
+    }
+
     tokio::spawn(async move {
         loop {
             tokio::select! {
@@ -858,7 +915,7 @@ pub async fn connect(
     });
 
     Ok(ConnectedSession {
-        handle: Arc::new(final_handle),
+        handle,
         input_tx,
         shutdown_tx,
         channel_only: false,

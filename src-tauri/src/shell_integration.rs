@@ -408,6 +408,45 @@ true"#,
     )
 }
 
+/// One-shot exec that resolves the current working directory of a persistent
+/// session, used to drive the SFTP panel's "follow cwd" when the multiplexer
+/// swallows the shell's OSC 7: GNU screen never forwards OSC 7 to the outer
+/// terminal, and tmux consumes it for `#{pane_current_path}` rather than
+/// passing it through. tmux is queried directly; screen has no cwd query, so we
+/// descend the session's process tree to the foreground process and read
+/// `/proc/<pid>/cwd` (Linux only — screen+cwd on macOS has no /proc and is
+/// unsupported). Prints the absolute path on success, nothing otherwise.
+pub fn cwd_probe_command(session_key: &str) -> String {
+    let script = format!(
+        r#"if command -v tmux >/dev/null 2>&1 && tmux -L {socket} has-session -t {key} 2>/dev/null; then
+  tmux -L {socket} display-message -p -t {key} '#{{pane_current_path}}'
+elif command -v screen >/dev/null 2>&1; then
+  spid=$(screen -ls 2>/dev/null | grep -F .{key} | head -n1 | awk '{{print $1}}' | cut -d. -f1)
+  if [ -n "$spid" ]; then
+    pid=$spid
+    cwd=""
+    # Descend the tree to the foreground process. The window's wrapper sh pipes
+    # into the real shell, so the interactive shell is a grandchild — the direct
+    # child keeps a stale login cwd. Track the last process with a readable cwd
+    # so transient/dead leaves and cwd-less wrappers are skipped.
+    while :; do
+      c=$(pgrep -P "$pid" 2>/dev/null | tail -n1)
+      [ -n "$c" ] || c=$(ps -o pid= --ppid "$pid" 2>/dev/null | tail -n1 | tr -d ' ')
+      [ -n "$c" ] || break
+      pid=$c
+      cur=$(readlink /proc/$pid/cwd 2>/dev/null)
+      [ -n "$cur" ] && cwd=$cur
+    done
+    [ -n "$cwd" ] && printf '%s\n' "$cwd"
+  fi
+fi
+true"#,
+        socket = TMUX_SOCKET,
+        key = session_key,
+    );
+    encode_wrapper(&script)
+}
+
 /// Conditional kill for a shared session. Kills only when at most
 /// `max_clients` clients are attached (1 when the closer's own channel is
 /// still attached, 0 when it already dropped) — another device's live attach
@@ -714,6 +753,27 @@ mod tests {
         // Missing multiplexer/session must not error the channel.
         assert!(cmd.contains("2>/dev/null"));
         assert!(cmd.trim_end().ends_with("true"));
+    }
+
+    #[test]
+    fn cwd_probe_queries_tmux_and_descends_screen_proc() {
+        let script = decode_bootstrap(&cwd_probe_command("voltius_s1"));
+        // tmux: query pane_current_path on our private socket/session.
+        assert!(script.contains("tmux -L voltius has-session -t voltius_s1"));
+        assert!(script.contains("display-message -p -t voltius_s1 '#{pane_current_path}'"));
+        // screen has no cwd query: find the server pid, descend the process
+        // tree, and read /proc/<pid>/cwd.
+        assert!(script.contains("screen -ls"));
+        assert!(script.contains("grep -F .voltius_s1"));
+        assert!(script.contains("pgrep -P"));
+        assert!(script.contains("ps -o pid= --ppid"));
+        assert!(script.contains("readlink /proc/$pid/cwd"));
+        // Track the last readable cwd so wrapper shells (stale login cwd) and
+        // transient/dead leaves don't win over the real interactive shell.
+        assert!(script.contains("[ -n \"$cur\" ] && cwd=$cur"));
+        // Never errors the channel; ends clean for the caller's read loop.
+        assert!(script.contains("2>/dev/null"));
+        assert!(script.trim_end().ends_with("true"));
     }
 
     #[test]

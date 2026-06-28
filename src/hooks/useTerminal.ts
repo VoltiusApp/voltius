@@ -6,7 +6,7 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SearchAddon, type ISearchOptions } from "@xterm/addon-search";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { sshSendInput, sshResize, onSshOutput, onSshClosed } from "@/services/ssh";
+import { sshSendInput, sshResize, onSshOutput, onSshClosed, onSshCwd } from "@/services/ssh";
 import { localSendInput, localResize, onLocalOutput, onLocalClosed } from "@/services/local";
 import { serialWrite, onSerialOutput, onSerialClosed } from "@/services/serial";
 import { useThemeStore } from "@/stores/themeStore";
@@ -876,6 +876,13 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         unlistenPromises.push(
           onSshClosed(sessionId, () => {
             entry.onClosedRef.current?.();
+          }),
+        );
+        // Persistent sessions (tmux/screen) hide the shell's OSC 7 from the
+        // terminal, so the backend polls the multiplexer for the cwd instead.
+        unlistenPromises.push(
+          onSshCwd(sessionId, (cwd) => {
+            if (cwd) useTerminalCwdStore.getState().setCwd(sessionId, cwd);
           }),
         );
       }

@@ -139,3 +139,14 @@ export async function onSshClosed(
     callback();
   });
 }
+
+// Backend-polled cwd for persistent sessions, where the tmux/screen multiplexer
+// swallows the shell's OSC 7 so the terminal's own OSC 7 handler never sees it.
+export async function onSshCwd(
+  sessionId: string,
+  callback: (cwd: string) => void,
+): Promise<UnlistenFn> {
+  return listen<string>(`ssh-cwd-${sessionId}`, (event) => {
+    callback(event.payload);
+  });
+}
