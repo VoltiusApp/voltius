@@ -118,7 +118,12 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
     };
 
     const onTouchStart = (e: TouchEvent) => {
-      if (toolbarOpen.current) { getTerminalApi(sessionId)?.clearSelection(); closeToolbar(); }
+      if (toolbarOpen.current) {
+        const target = e.target as Element | null;
+        if (target?.closest("[data-mobile-term-toolbar]")) return; // let the toolbar button handle its own tap
+        getTerminalApi(sessionId)?.clearSelection();
+        closeToolbar();
+      }
       if (e.touches.length !== 1) { reset(); return; }
       const t = e.touches[0];
       start.current = { x: t.clientX, y: t.clientY, t: e.timeStamp };
