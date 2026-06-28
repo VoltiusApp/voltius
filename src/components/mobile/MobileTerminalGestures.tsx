@@ -131,6 +131,12 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
         return;
       }
 
+      if (wasPhase === "scrolling") {
+        e.preventDefault();
+        reset();
+        return;
+      }
+
       if (wasPhase === "pending") {
         // No movement, no long-press → a tap. Check double-tap → Tab.
         const t = e.changedTouches[0];
@@ -166,6 +172,7 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
       container.removeEventListener("touchend", onTouchEnd, rm);
       container.removeEventListener("touchcancel", onTouchCancel, rm);
       clearLongPress();
+      lastTap.current = null;
     };
   }, [active, sessionId]);
 
