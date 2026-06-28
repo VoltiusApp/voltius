@@ -1,8 +1,11 @@
+import { useMemo } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { useUIStore } from "@/stores/uiStore";
-import { SETTINGS_NAV } from "@/components/settings/settingsNav";
+import { getSettingsNav } from "@/components/settings/settingsNav";
 import { renderSettingsSection } from "@/components/settings/settingsSections";
 import { mobileSettingsNav, MOBILE_HIDDEN_SECTIONS } from "@/components/settings/settingsMobileCore";
+import { useLocaleStore } from "@/stores/localeStore";
 
 export default function MobileSettings() {
   const setOpen = useUIStore((s) => s.setSettingsOpen);
@@ -10,8 +13,9 @@ export default function MobileSettings() {
   const setSubPage = useUIStore((s) => s.setSettingsSubPage);
   // Hardware back drives this via the store; hidden sections fall back to the list.
   const subPage = rawSubPage && !MOBILE_HIDDEN_SECTIONS.has(rawSubPage) ? rawSubPage : null;
-
-  const nav = mobileSettingsNav(SETTINGS_NAV);
+  const { t } = useTranslation();
+  const locale = useLocaleStore((s) => s.locale);
+  const nav = useMemo(() => mobileSettingsNav(getSettingsNav()), [locale]);
   const current = nav.find((n) => n.id === subPage);
 
   return (
@@ -30,18 +34,18 @@ export default function MobileSettings() {
           <button
             onClick={() => setSubPage(null)}
             className="p-1.5 -ml-1.5 rounded-lg text-(--t-text-muted) active:bg-(--t-bg-card-hover)"
-            aria-label="Back"
+            aria-label={t("settings.chrome.back")}
           >
             <Icon icon="lucide:arrow-left" width={18} />
           </button>
         ) : null}
         <span className="flex-1 text-base font-semibold text-(--t-text-bright)">
-          {current ? current.label : "Settings"}
+          {current ? current.label : t("settings.chrome.title")}
         </span>
         <button
           onClick={() => setOpen(false)}
           className="p-1.5 -mr-1.5 rounded-lg text-(--t-text-muted) active:bg-(--t-bg-card-hover)"
-          aria-label="Close settings"
+          aria-label={t("settings.chrome.close")}
         >
           <Icon icon="lucide:x" width={18} />
         </button>

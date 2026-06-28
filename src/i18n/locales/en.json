@@ -25,6 +25,28 @@
       "editTheme": "Edit theme",
       "deleteTheme": "Delete theme",
       "newCustomTheme": "New Custom Theme"
+    },
+    "nav": {
+      "appearance":     { "label": "Appearance",      "keywords": ["theme", "color", "font", "ui"] },
+      "account":        { "label": "Account",         "keywords": ["profile", "login", "auth"] },
+      "sync":           { "label": "Sync",            "keywords": ["backup", "cloud", "gist", "sync", "pro"] },
+      "vaults":         { "label": "Vaults",          "keywords": ["secret", "password", "storage", "keyring"] },
+      "plugins":        { "label": "Plugins",         "keywords": ["extensions", "addons", "marketplace"] },
+      "sftp":           { "label": "SFTP",            "keywords": ["file", "transfer", "ftp", "files"] },
+      "portForwarding": { "label": "Port Forwarding", "keywords": ["tunnel", "forward", "ports", "ssh", "auto"] },
+      "hosts":          { "label": "Hosts",           "keywords": ["ping", "reachability", "connectivity", "status"] },
+      "shortcuts":      { "label": "Shortcuts",       "keywords": ["keybind", "hotkey", "shortcut", "rebind", "keyboard"] },
+      "about":          { "label": "About",           "keywords": ["version", "update", "release", "changelog"] }
+    },
+    "chrome": {
+      "title": "Settings",
+      "close": "Close settings",
+      "back": "Back"
+    },
+    "shared": {
+      "cancel": "Cancel",
+      "resetToDefault": "Reset to default",
+      "modifiedFromDefault": "Modified from default"
     }
   }
 }

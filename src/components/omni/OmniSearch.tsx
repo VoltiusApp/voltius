@@ -18,7 +18,8 @@ import { broadcastSnippetInject } from "@/services/snippets";
 import type { Connection, TerminalSession, SshKey, Identity, Snippet } from "@/types";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { AvatarTile } from "@/components/shared/AvatarTile";
-import { SETTINGS_NAV } from "@/components/settings/settingsNav";
+import { getSettingsNav } from "@/components/settings/settingsNav";
+import { useLocaleStore } from "@/stores/localeStore";
 import { useShortcutStore, formatShortcut } from "@/stores/shortcutStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
@@ -121,9 +122,11 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const pluginCommands = useMemo(() => [...omniCommandsMap.values()], [omniCommandsMap]);
   const shortcuts = useShortcutStore((s) => s.shortcuts);
   const settingsPagesMap = usePluginStore((s) => s.settingsPages);
+  const locale = useLocaleStore((s) => s.locale);
+  const nav = useMemo(() => getSettingsNav(), [locale]);
 
   const settingsItems = useMemo<OmniItem[]>(() => {
-    const base = SETTINGS_NAV.map((n): OmniItem => ({
+    const base = nav.map((n): OmniItem => ({
       kind: "action",
       id: `open-settings:${n.id}`,
       label: n.label,
@@ -138,7 +141,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       description: "Plugin Settings",
     }));
     return [...base, ...pluginPages];
-  }, [settingsPagesMap]);
+  }, [nav, settingsPagesMap]);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const openSettings = useUIStore((s) => s.openSettings);
@@ -186,7 +189,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         if (!q) return true;
         if (a.kind !== "action") return false;
         if (a.label.toLowerCase().includes(q)) return true;
-        const navEntry = SETTINGS_NAV.find((n) => `open-settings:${n.id}` === a.id);
+        const navEntry = nav.find((n) => `open-settings:${n.id}` === a.id);
         return navEntry?.keywords?.some((k) => k.toLowerCase().includes(q)) ?? false;
       });
       const filteredToggles = toggleItems.filter((t) =>
@@ -325,14 +328,14 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         ...settingsItems.filter((a) => {
           if (a.kind !== "action") return false;
           if (a.label.toLowerCase().includes(q)) return true;
-          const navEntry = SETTINGS_NAV.find((n) => `open-settings:${n.id}` === a.id);
+          const navEntry = nav.find((n) => `open-settings:${n.id}` === a.id);
           return navEntry?.keywords?.some((k) => k.toLowerCase().includes(q)) ?? false;
         }),
       );
     }
 
     return result;
-  }, [category, q, query, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts, teamSessions, myMpSessionIds, toggleItems, shells]);
+  }, [category, q, query, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts, teamSessions, myMpSessionIds, toggleItems, shells, nav]);
 
   const shellNeedsPath = useMemo(() => {
     const shown = items

@@ -1,4 +1,5 @@
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 
 export function ActionItem({ icon, label, sub, danger, disabled, onClick }: {
   icon: string;
@@ -63,10 +64,11 @@ export function SettingsInput({ type = "text", placeholder, value, onChange, aut
 }
 
 export function DirtyDot() {
+  const { t } = useTranslation();
   return (
     <span
       aria-hidden
-      title="Modified from default"
+      title={t("settings.shared.modifiedFromDefault")}
       className="inline-block shrink-0 rounded-full"
       style={{ width: 5, height: 5, background: "var(--t-accent)" }}
     />
@@ -74,13 +76,14 @@ export function DirtyDot() {
 }
 
 export function ResetButton({ onReset }: { onReset: () => void }) {
+  const { t } = useTranslation();
   return (
     <button
       onClick={onReset}
       className="p-1 rounded-sm transition-opacity opacity-0 group-hover:opacity-100 text-(--t-text-muted)"
       onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-bright)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-muted)"; }}
-      title="Reset to default"
+      title={t("settings.shared.resetToDefault")}
     >
       <Icon icon="lucide:rotate-ccw" width={11} />
     </button>
@@ -88,6 +91,7 @@ export function ResetButton({ onReset }: { onReset: () => void }) {
 }
 
 export function FormButtons({ onCancel, submitLabel }: { onCancel: () => void; submitLabel: string }) {
+  const { t } = useTranslation();
   return (
     <div className="flex gap-2 pt-1">
       <button
@@ -95,7 +99,7 @@ export function FormButtons({ onCancel, submitLabel }: { onCancel: () => void; s
         onClick={onCancel}
         className="btn btn-secondary flex-1 py-1.5 rounded-lg text-sm"
       >
-        Cancel
+        {t("settings.shared.cancel")}
       </button>
       <button
         type="submit"

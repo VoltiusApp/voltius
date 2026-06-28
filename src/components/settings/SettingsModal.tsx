@@ -1,9 +1,12 @@
+import { useMemo } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { useUIStore } from "@/stores/uiStore";
 import { Modal } from "@/components/shared/Modal";
-import { SETTINGS_NAV } from "@/components/settings/settingsNav";
+import { getSettingsNav } from "@/components/settings/settingsNav";
 import { renderSettingsSection } from "@/components/settings/settingsSections";
 import { useIsAndroid } from "@/utils/platform";
+import { useLocaleStore } from "@/stores/localeStore";
 import MobileSettings from "@/components/settings/MobileSettings";
 
 export default function SettingsModal() {
@@ -12,6 +15,9 @@ export default function SettingsModal() {
   const section = useUIStore((s) => s.settingsSection);
   const setSection = useUIStore((s) => s.setSettingsSection);
   const isAndroid = useIsAndroid();
+  const { t } = useTranslation();
+  const locale = useLocaleStore((s) => s.locale);
+  const nav = useMemo(() => getSettingsNav(), [locale]);
 
   if (!open) return null;
   if (isAndroid) return <MobileSettings />;
@@ -31,12 +37,12 @@ export default function SettingsModal() {
         >
           <div className="px-5 mb-4">
             <span className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
-              Settings
+              {t("settings.chrome.title")}
             </span>
           </div>
 
           <div className="flex-1 px-2 space-y-0.5">
-            {SETTINGS_NAV.map((item) => {
+            {nav.map((item) => {
               const active = section === item.id;
               return (
                 <button
@@ -68,7 +74,7 @@ export default function SettingsModal() {
             className="flex items-center justify-between px-6 py-4 shrink-0 border-b border-b-(--t-border)"
           >
             <span className="text-sm font-semibold text-(--t-text-bright)">
-              {SETTINGS_NAV.find((n) => n.id === section)?.label}
+              {nav.find((n) => n.id === section)?.label}
             </span>
             <button
               onClick={() => setOpen(false)}

@@ -25,6 +25,28 @@
       "editTheme": "Modifier le thème",
       "deleteTheme": "Supprimer le thème",
       "newCustomTheme": "Nouveau thème personnalisé"
+    },
+    "nav": {
+      "appearance":     { "label": "Apparence",         "keywords": ["thème", "couleur", "police", "interface"] },
+      "account":        { "label": "Compte",             "keywords": ["profil", "connexion", "authentification"] },
+      "sync":           { "label": "Synchronisation",    "keywords": ["sauvegarde", "nuage", "gist", "synchronisation", "pro"] },
+      "vaults":         { "label": "Coffres-forts",      "keywords": ["secret", "mot de passe", "stockage", "trousseau"] },
+      "plugins":        { "label": "Extensions",         "keywords": ["extensions", "modules", "boutique"] },
+      "sftp":           { "label": "SFTP",               "keywords": ["fichier", "transfert", "ftp", "fichiers"] },
+      "portForwarding": { "label": "Transfert de ports", "keywords": ["tunnel", "redirection", "ports", "ssh", "auto"] },
+      "hosts":          { "label": "Hôtes",              "keywords": ["ping", "accessibilité", "connectivité", "statut"] },
+      "shortcuts":      { "label": "Raccourcis",         "keywords": ["raccourci", "touche", "clavier", "rebind", "keyboard"] },
+      "about":          { "label": "À propos",           "keywords": ["version", "mise à jour", "publication", "changelog"] }
+    },
+    "chrome": {
+      "title": "Paramètres",
+      "close": "Fermer les paramètres",
+      "back": "Retour"
+    },
+    "shared": {
+      "cancel": "Annuler",
+      "resetToDefault": "Réinitialiser par défaut",
+      "modifiedFromDefault": "Modifié par rapport à la valeur par défaut"
     }
   }
 }
