@@ -402,7 +402,7 @@ function RoleCard({
                 style={{ color: "var(--t-text-dim)" }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-primary)"; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
-                title={t("settings.vaults.rolesPanel.editRoleTitle")}
+                title={t("settings.vaults.rolesPanel.editRole")}
               >
                 <Icon icon="lucide:pencil" width={13} />
               </button>

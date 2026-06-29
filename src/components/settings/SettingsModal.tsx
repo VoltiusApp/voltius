@@ -65,7 +65,7 @@ export default function SettingsModal() {
           </div>
 
           <div className="px-4 pt-3 border-t border-t-(--t-border)">
-            <span className="text-xs text-(--t-text-dim)">Ctrl+, to open</span>
+            <span className="text-xs text-(--t-text-dim)">{t("settings.chrome.openHint")}</span>
           </div>
         </nav>
 

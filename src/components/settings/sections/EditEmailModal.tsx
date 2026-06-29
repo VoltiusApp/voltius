@@ -76,7 +76,9 @@ export default function EditEmailModal({ currentEmail, onClose }: Props) {
         {done ? (
           <div className="space-y-3">
             <p className="text-xs text-(--t-text-muted)">
-              {t("settings.account.editEmail.updated", { email: newEmail })}
+              {t("settings.account.editEmail.updatedPrefix")}
+              <strong className="text-(--t-text-primary)">{newEmail}</strong>
+              {t("settings.account.editEmail.updatedSuffix")}
             </p>
             <p className="text-xs text-(--t-text-dim)">
               {t("settings.account.editEmail.pausedNote")}

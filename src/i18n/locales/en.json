@@ -24,7 +24,16 @@
       "exportTheme": "Export theme",
       "editTheme": "Edit theme",
       "deleteTheme": "Delete theme",
-      "newCustomTheme": "New Custom Theme"
+      "newCustomTheme": "New Custom Theme",
+      "uiScale": {
+        "title": "UI Scale",
+        "desc": "Zoom or dezoom the entire interface.",
+        "clickHint": "Click to enter a value",
+        "zoomOut": "Zoom out",
+        "zoomIn": "Zoom in",
+        "resetTitle": "Reset scale",
+        "reset": "Reset"
+      }
     },
     "nav": {
       "appearance":     { "label": "Appearance",      "keywords": ["theme", "color", "font", "ui"] },
@@ -41,7 +50,8 @@
     "chrome": {
       "title": "Settings",
       "close": "Close settings",
-      "back": "Back"
+      "back": "Back",
+      "openHint": "Ctrl+, to open"
     },
     "shared": {
       "cancel": "Cancel",
@@ -80,7 +90,8 @@
         "errorInvalidEmail": "Invalid email address",
         "errorSameEmail": "New email must differ from the current one",
         "errorPasswordRequired": "Password is required to confirm the change",
-        "updated": "Email updated to {{email}}. Check your inbox for a verification link.",
+        "updatedPrefix": "Email updated to ",
+        "updatedSuffix": ". Check your inbox for a verification link.",
         "pausedNote": "Until verified, paid features will be paused.",
         "done": "Done",
         "saving": "Saving…",
@@ -395,7 +406,6 @@
         },
         "builtinBadge": "Built-in",
         "dragToReorder": "Drag to reorder",
-        "editRoleTitle": "Edit role",
         "deleteRoleTitle": "Delete role",
         "clickToConfirm": "Click again to confirm",
         "failedToDelete": "Failed to delete",

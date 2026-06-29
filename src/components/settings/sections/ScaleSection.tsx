@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import {
   clampUiScale,
   MAX_UI_SCALE,
@@ -8,6 +9,7 @@ import {
 } from "@/stores/uiStore";
 
 export default function ScaleSection() {
+  const { t } = useTranslation();
   const uiScale = useUIStore((s) => s.uiScale);
   const setUiScale = useUIStore((s) => s.setUiScale);
   const [editing, setEditing] = useState(false);
@@ -44,9 +46,9 @@ export default function ScaleSection() {
     >
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-(--t-text-primary)">UI Scale</p>
+          <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.appearance.uiScale.title")}</p>
           <p className="text-xs mt-0.5 text-(--t-text-dim)">
-            Zoom or dezoom the entire interface.
+            {t("settings.appearance.uiScale.desc")}
           </p>
         </div>
         {editing ? (
@@ -65,7 +67,7 @@ export default function ScaleSection() {
           <button
             onClick={startEditing}
             className="text-xs font-semibold px-2 py-1 rounded-md bg-(--t-bg-elevated) text-(--t-text-secondary) border border-(--t-border)"
-            title="Click to enter a value"
+            title={t("settings.appearance.uiScale.clickHint")}
             style={{ cursor: "text" }}
           >
             {uiScalePercent}%
@@ -77,7 +79,7 @@ export default function ScaleSection() {
         <button
           onClick={() => adjustScale(-0.05)}
           className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors bg-(--t-bg-elevated) text-(--t-text-muted) border border-(--t-border)"
-          title="Zoom out"
+          title={t("settings.appearance.uiScale.zoomOut")}
         >
           <Icon icon="lucide:minus" width={14} />
         </button>
@@ -96,7 +98,7 @@ export default function ScaleSection() {
         <button
           onClick={() => adjustScale(0.05)}
           className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors bg-(--t-bg-elevated) text-(--t-text-muted) border border-(--t-border)"
-          title="Zoom in"
+          title={t("settings.appearance.uiScale.zoomIn")}
         >
           <Icon icon="lucide:plus" width={14} />
         </button>
@@ -104,9 +106,9 @@ export default function ScaleSection() {
         <button
           onClick={() => setUiScale(1)}
           className="px-2.5 h-8 rounded-lg text-xs transition-colors bg-(--t-bg-elevated) text-(--t-text-muted) border border-(--t-border)"
-          title="Reset scale"
+          title={t("settings.appearance.uiScale.resetTitle")}
         >
-          Reset
+          {t("settings.appearance.uiScale.reset")}
         </button>
       </div>
     </div>

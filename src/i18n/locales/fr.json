@@ -1,4 +1,5 @@
 {
+  "_meta": { "status": "machine-drafted, needs native-speaker review", "issue": "https://github.com/VoltiusApp/voltius/issues/14" },
   "settings": {
     "appearance": {
       "interface": "Interface",
@@ -24,7 +25,16 @@
       "exportTheme": "Exporter le thème",
       "editTheme": "Modifier le thème",
       "deleteTheme": "Supprimer le thème",
-      "newCustomTheme": "Nouveau thème personnalisé"
+      "newCustomTheme": "Nouveau thème personnalisé",
+      "uiScale": {
+        "title": "Échelle de l'interface",
+        "desc": "Agrandir ou réduire l'interface entière.",
+        "clickHint": "Cliquer pour saisir une valeur",
+        "zoomOut": "Dézoomer",
+        "zoomIn": "Zoomer",
+        "resetTitle": "Réinitialiser l'échelle",
+        "reset": "Réinitialiser"
+      }
     },
     "nav": {
       "appearance":     { "label": "Apparence",         "keywords": ["thème", "couleur", "police", "interface"] },
@@ -41,7 +51,8 @@
     "chrome": {
       "title": "Paramètres",
       "close": "Fermer les paramètres",
-      "back": "Retour"
+      "back": "Retour",
+      "openHint": "Ctrl+, pour ouvrir"
     },
     "shared": {
       "cancel": "Annuler",
@@ -80,7 +91,8 @@
         "errorInvalidEmail": "Adresse e-mail invalide",
         "errorSameEmail": "Le nouvel e-mail doit être différent de l'actuel",
         "errorPasswordRequired": "Le mot de passe est requis pour confirmer la modification",
-        "updated": "E-mail mis à jour vers {{email}}. Vérifiez votre boîte de réception pour un lien de vérification.",
+        "updatedPrefix": "E-mail mis à jour vers ",
+        "updatedSuffix": ". Vérifiez votre boîte de réception pour un lien de vérification.",
         "pausedNote": "Jusqu'à la vérification, les fonctionnalités payantes seront suspendues.",
         "done": "Terminé",
         "saving": "Enregistrement…",
@@ -145,7 +157,7 @@
       "success": {
         "passwordSet": "Mot de passe maître défini. Votre coffre-fort est maintenant protégé par mot de passe."
       },
-      "loading": "Traitement...",
+      "loading": "Traitement…",
       "plan": {
         "title": "Abonnement",
         "badge": {
@@ -395,7 +407,6 @@
         },
         "builtinBadge": "Intégré",
         "dragToReorder": "Glisser pour réordonner",
-        "editRoleTitle": "Modifier le rôle",
         "deleteRoleTitle": "Supprimer le rôle",
         "clickToConfirm": "Cliquer à nouveau pour confirmer",
         "failedToDelete": "Échec de la suppression",
