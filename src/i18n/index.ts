@@ -4,6 +4,11 @@ import en from "./locales/en.json";
 import fr from "./locales/fr.json";
 import { useLocaleStore } from "@/stores/localeStore";
 
+// Resources are bundled (no async backend), so i18n.changeLanguage() mutates
+// i18n.language synchronously. Non-component callers like getSettingsNav() rely
+// on that: consumers memoize translated values on the zustand `locale` and read
+// i18n.t() at call time. Adding an async/HTTP backend here would break that
+// assumption (those consumers would read stale translations on switch).
 i18n.use(initReactI18next).init({
   resources: {
     en: { translation: en },

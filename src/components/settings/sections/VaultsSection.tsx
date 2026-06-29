@@ -781,7 +781,7 @@ function TeamMembersSummary({ teamId }: { teamId: string }) {
                   className="text-[11px] font-medium px-2 py-0.5 rounded-full capitalize"
                   style={{ color, background: `${color}1a` }}
                 >
-                  {count}× {meta?.label ?? r.name}
+                  {count}× {meta ? t(`settings.vaults.roles.${r.name.replace(/-/g, "_")}`) : r.name}
                 </span>
               );
             })}
