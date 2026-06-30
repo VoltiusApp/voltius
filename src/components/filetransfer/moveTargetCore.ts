@@ -32,6 +32,8 @@ function norm(path: string): string {
 export function isValidMoveTarget(files: FileEntry[], targetDir: string): boolean {
   if (files.length === 0) return false;
   const target = norm(targetDir);
+  // A pane's selection always comes from one directory listing, so files[0]'s
+  // parent represents the source directory of the whole selection.
   const srcParent = norm(parentDir(files[0].path));
   if (target === srcParent) return false; // already in this directory
   for (const file of files) {
