@@ -18,7 +18,6 @@ import {
 import { FilePane } from "@/components/filetransfer/FilePane";
 import { TransferQueue } from "@/components/filetransfer/TransferQueue";
 import { runIntraPaneMove } from "@/components/filetransfer/moveService";
-import { InternalDragGhost } from "@/components/filetransfer/InternalDragGhost";
 import { triggerOsDrop, triggerUpload } from "@/components/filetransfer/osDropPipeline";
 import { hitTestDropTarget, setExternalDragHover, clearExternalDragHover } from "@/components/filetransfer/internalDrag";
 import type { FileEntry, VisibleCols } from "@/components/filetransfer/SFTPTypes";
@@ -322,7 +321,6 @@ export default function PanelSftpSection() {
           <TransferQueue transfers={transfers} onClear={clearCompleted} onCancel={cancelTransfer} onCancelAll={cancelAll} collapsible />
         </div>
       )}
-      <InternalDragGhost />
     </div>
   );
 }
