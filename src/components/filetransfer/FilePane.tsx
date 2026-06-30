@@ -60,7 +60,7 @@ const DEFAULT_VISIBLE_COLS: VisibleCols = { size: true, modified: true, permissi
 
 export function FilePane({
   sftpId, isLocal, cwd, homeCwd, hostLabel = "remote",
-  onNavigate, onSelect, onRefresh, refreshTick, side, onDropFiles,
+  onNavigate, onSelect, onRefresh, refreshTick, side, onDropFiles, onMoveWithin,
   onTransferToTarget, canTransferToTarget, onChangeHost,
   filter = "", onRegisterMenuOpener, onRegisterViewMenuOpener, onOpenInTerminal,
   initialVisibleCols, onPanelDownload, onPanelUpload, onEdit,
@@ -77,6 +77,7 @@ export function FilePane({
   refreshTick: number;
   side: "left" | "right" | "panel";
   onDropFiles: (files: FileEntry[], fromSide: "left" | "right" | "panel", targetFolder?: string) => void;
+  onMoveWithin?: (files: FileEntry[], targetFolder: string) => void;
   onTransferToTarget?: (files: FileEntry[]) => void;
   canTransferToTarget?: boolean;
   onChangeHost?: () => void;
@@ -138,8 +139,11 @@ export function FilePane({
   // Drag-drop state from the pointer-driven drag controller. The pane shows
   // its overlay when a drag from the OTHER side is currently hovering over us.
   const dragSemantic = useSemanticDragState();
-  const isDropTarget = !!dragSemantic && dragSemantic.hoverSide === side && dragSemantic.side !== side;
-  const dropFolderPath = isDropTarget ? dragSemantic.hoverFolder : null;
+  const hoveringThisPane = !!dragSemantic && dragSemantic.hoverSide === side;
+  // Full-pane "Drop to transfer" overlay is cross-pane only; the per-folder
+  // highlight also fires for same-pane move targets.
+  const isCrossPaneDrop = hoveringThisPane && dragSemantic!.side !== side;
+  const dropFolderPath = hoveringThisPane ? dragSemantic!.hoverFolder : null;
 
   useEffect(() => {
     if (!autoRefreshEnabled) return;
@@ -188,23 +192,22 @@ export function FilePane({
       .catch((e) => { if (isPrimaryLoad) { setError(String(e)); setLoading(false); } });
   }, [isLocal, sftpId, cwd, refreshTick, autoTick]);
 
-  const goUp = () => {
+  // Parent directory of cwd, or null at a filesystem/UNC root. Shared by the
+  // up-button navigation and its drop-target marker.
+  const computeParentDir = (): string | null => {
     const isUnc = cwd.startsWith("\\\\") || cwd.startsWith("//");
     const normalized = cwd.replace(/\\/g, "/");
     const parts = normalized.split("/").filter(Boolean);
-    if (parts.length === 0) return;
-    if (isUnc && parts.length <= 1) return; // already at the UNC server root
+    if (parts.length === 0) return null;
+    if (isUnc && parts.length <= 1) return null;
     const parentParts = parts.slice(0, -1);
-    let parent: string;
-    if (isUnc) {
-      parent = "\\\\" + parentParts.join("\\");
-    } else if (normalized.startsWith("/")) {
-      parent = "/" + parentParts.join("/");
-    } else {
-      parent = parentParts.length > 0 ? parentParts.join("/") : parts[0] + "/";
-    }
-    onNavigate(parent || "/");
+    if (isUnc) return "\\\\" + parentParts.join("\\");
+    if (normalized.startsWith("/")) return "/" + parentParts.join("/") || "/";
+    return parentParts.length > 0 ? parentParts.join("/") : parts[0] + "/";
   };
+
+  const parentPath = computeParentDir();
+  const goUp = () => { if (parentPath) onNavigate(parentPath || "/"); };
 
   const handleMkdir = () => { setNewItemName(""); setCreatingFolder(true); setCreatingFile(false); };
   const handleNewFile = () => { setNewItemName(""); setCreatingFile(true); setCreatingFolder(false); };
@@ -355,7 +358,7 @@ export function FilePane({
       tabIndex={-1}
       data-drop-side={side}
     >
-      {isDropTarget && (
+      {isCrossPaneDrop && (
         <div
           className="absolute inset-0 z-20 flex items-center justify-center rounded-sm pointer-events-none"
           style={{ background: "color-mix(in srgb, var(--t-accent) 12%, transparent)", border: "2px solid var(--t-accent)" }}
@@ -369,10 +372,18 @@ export function FilePane({
 
       {/* Path bar */}
       <div className="flex items-center gap-1.5 px-2 py-2 shrink-0 border-b border-b-(--t-border) bg-(--t-bg-elevated)">
-        <IconBtn icon="lucide:arrow-up" title="Parent directory" onClick={goUp} />
+        <span
+          {...(parentPath ? { "data-drop-folder": parentPath } : {})}
+          className="rounded-md"
+          style={dropFolderPath != null && parentPath != null && dropFolderPath === parentPath
+            ? { background: "color-mix(in srgb, var(--t-accent) 35%, transparent)", boxShadow: "0 0 0 1px color-mix(in srgb, var(--t-accent) 70%, transparent)" }
+            : undefined}
+        >
+          <IconBtn icon="lucide:arrow-up" title="Parent directory" onClick={goUp} />
+        </span>
         <IconBtn icon="lucide:house" title="Home directory" onClick={handleGoHome} />
         <div className="flex-1 flex items-center min-w-0 px-1.5 rounded-md">
-          <PathBreadcrumb cwd={cwd} isLocal={isLocal} onNavigate={onNavigate} />
+          <PathBreadcrumb cwd={cwd} isLocal={isLocal} onNavigate={onNavigate} dropFolderPath={dropFolderPath} />
           {isLocal && <IconBtn icon="lucide:folder-open" title="Browse…" onClick={handlePickLocal} />}
         </div>
         <IconBtn icon="lucide:folder-plus" title="New folder" onClick={handleMkdir} />
@@ -404,6 +415,7 @@ export function FilePane({
           onItemSelect={handleItemSelect}
           onNavigate={onNavigate} onSetSelection={setSelection}
           onInternalDrop={handleInternalDrop}
+          onMoveWithin={onMoveWithin}
           selectionActionsCtx={selectionActionsCtx}
         />
       </DragSelectSurface>
@@ -612,7 +624,7 @@ function buildPaneMenuItems(ctx: {
 
 // ── PathBreadcrumb ────────────────────────────────────────────────────────────
 
-function PathBreadcrumb({ cwd, onNavigate }: { cwd: string; isLocal?: boolean; onNavigate: (p: string) => void }) {
+function PathBreadcrumb({ cwd, onNavigate, dropFolderPath }: { cwd: string; isLocal?: boolean; onNavigate: (p: string) => void; dropFolderPath?: string | null }) {
   const [editing, setEditing] = useState(false);
   const [editVal, setEditVal] = useState(cwd);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -670,6 +682,8 @@ function PathBreadcrumb({ cwd, onNavigate }: { cwd: string; isLocal?: boolean; o
             <CrumbSegment
               label={isRoot ? "/" : crumb.label}
               isLast={isLast}
+              isDropTarget={dropFolderPath != null && dropFolderPath === crumb.path}
+              dropPath={crumb.path}
               onClick={(e) => { e.stopPropagation(); if (!isLast) onNavigate(crumb.path); else { setEditVal(cwd); setEditing(true); } }}
             />
           </Fragment>
@@ -679,10 +693,11 @@ function PathBreadcrumb({ cwd, onNavigate }: { cwd: string; isLocal?: boolean; o
   );
 }
 
-function CrumbSegment({ label, isLast, onClick }: { label: string; isLast: boolean; onClick: (e: React.MouseEvent) => void }) {
+function CrumbSegment({ label, isLast, isDropTarget, dropPath, onClick }: { label: string; isLast: boolean; isDropTarget?: boolean; dropPath?: string; onClick: (e: React.MouseEvent) => void }) {
   const [hovered, setHovered] = useState(false);
   return (
     <button
+      data-drop-folder={dropPath}
       className="shrink-0 rounded-sm px-1 py-0.5 font-mono whitespace-nowrap"
       style={{
         fontSize: "0.8125rem",
@@ -690,11 +705,14 @@ function CrumbSegment({ label, isLast, onClick }: { label: string; isLast: boole
         color: isLast
           ? "var(--t-text-primary)"
           : hovered ? "var(--t-accent)" : "var(--t-text-dim)",
-        background: hovered
-          ? isLast
-            ? "color-mix(in srgb, var(--t-text-primary) 6%, transparent)"
-            : "color-mix(in srgb, var(--t-accent) 15%, transparent)"
-          : "transparent",
+        background: isDropTarget
+          ? "color-mix(in srgb, var(--t-accent) 35%, transparent)"
+          : hovered
+            ? isLast
+              ? "color-mix(in srgb, var(--t-text-primary) 6%, transparent)"
+              : "color-mix(in srgb, var(--t-accent) 15%, transparent)"
+            : "transparent",
+        boxShadow: isDropTarget ? "0 0 0 1px color-mix(in srgb, var(--t-accent) 70%, transparent)" : undefined,
         cursor: isLast ? "text" : "pointer",
         transition: "color 0.1s, background 0.1s",
         textDecoration: !isLast && hovered ? "underline" : "none",
@@ -850,6 +868,7 @@ function VirtualFileList({
   onCommitRename, onCancelRename,
   onItemSelect, onNavigate, onSetSelection,
   onInternalDrop,
+  onMoveWithin,
   selectionActionsCtx,
 }: {
   entries: FileEntry[]; loading: boolean; error: string | null;
@@ -864,6 +883,7 @@ function VirtualFileList({
   onItemSelect: (id: string, event: React.MouseEvent<HTMLDivElement>) => void;
   onNavigate: (p: string) => void; onSetSelection: (ids: string[]) => void;
   onInternalDrop: (files: FileEntry[], fromSide: "left" | "right" | "panel", targetFolder?: string) => void;
+  onMoveWithin?: (files: FileEntry[], targetFolder: string) => void;
   selectionActionsCtx: SelectionActionsCtx;
 }) {
   const rowVirtualizer = useVirtualizer({
@@ -970,8 +990,6 @@ function VirtualFileList({
                   if (e.button !== 0) return;
                   // Don't initiate a drag on modifier-clicks (which extend/toggle selection).
                   if (e.shiftKey || e.ctrlKey || e.metaKey) return;
-                  // Panel embedding has no cross-pane drop target, so suppress drag-out.
-                  if (side === "panel") return;
                   const filesToDrag = isSelected && selectedEntries.length > 0 ? selectedEntries : [file];
                   startInternalDragGesture({
                     side,
@@ -982,6 +1000,7 @@ function VirtualFileList({
                       if (!isSelected) { onSetSelection([file.path]); focusIndex.current = virtualItem.index; }
                     },
                     onDrop: onInternalDrop,
+                    onMoveWithin,
                   });
                 }}
               />
