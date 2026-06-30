@@ -11,6 +11,7 @@
 
 import { useSyncExternalStore } from "react";
 import type { FileEntry } from "./SFTPTypes";
+import { isValidMoveTarget } from "./moveTargetCore";
 
 export type DragSide = "left" | "right" | "panel";
 
@@ -80,6 +81,8 @@ type StartOpts = {
   startX: number;
   startY: number;
   onDrop: (files: FileEntry[], fromSide: DragSide, targetFolder?: string) => void;
+  /** Same-pane drop onto a directory target → move the files into it. */
+  onMoveWithin?: (files: FileEntry[], targetDir: string) => void;
   /** Called when the drag actually starts (threshold met). Used by the source
    *  pane to select the row if it wasn't already selected. */
   onActivate?: () => void;
@@ -118,6 +121,19 @@ export function startInternalDragGesture(opts: StartOpts) {
   let active = false;          // true once we've activated and emitted semantic state
   let movedFar = false;        // tracks if drag actually occurred — used to suppress click
 
+  // Same-pane hovers are valid only over a directory target that passes the
+  // move guards; cross-pane hovers keep their existing transfer semantics.
+  const resolveHover = (hit: { side: DragSide | null; folder: string | null }) => {
+    if (hit.side === opts.side) {
+      if (hit.folder && isValidMoveTarget(opts.files, hit.folder)) {
+        return { hoverSide: hit.side, hoverFolder: hit.folder };
+      }
+      return { hoverSide: null, hoverFolder: null };
+    }
+    if (hit.side) return { hoverSide: hit.side, hoverFolder: hit.folder };
+    return { hoverSide: null, hoverFolder: null };
+  };
+
   const onMove = (ev: PointerEvent) => {
     if (armed) {
       const dx = ev.clientX - opts.startX;
@@ -128,22 +144,27 @@ export function startInternalDragGesture(opts: StartOpts) {
       movedFar = true;
       opts.onActivate?.();
       setMove(ev.clientX, ev.clientY);
-      const hit = hitTestDropTarget(ev.clientX, ev.clientY, opts.side);
-      setSemantic({ side: opts.side, files: opts.files, hoverSide: hit.side, hoverFolder: hit.folder });
+      const hover = resolveHover(hitTestDropTarget(ev.clientX, ev.clientY, null));
+      setSemantic({ side: opts.side, files: opts.files, ...hover });
       return;
     }
     if (!active) return;
     setMove(ev.clientX, ev.clientY);
-    const hit = hitTestDropTarget(ev.clientX, ev.clientY, opts.side);
-    setSemantic({ side: opts.side, files: opts.files, hoverSide: hit.side, hoverFolder: hit.folder });
+    const hover = resolveHover(hitTestDropTarget(ev.clientX, ev.clientY, null));
+    setSemantic({ side: opts.side, files: opts.files, ...hover });
   };
 
   const onUp = (ev: PointerEvent) => {
     cleanup();
     if (!active) return;
-    const hit = hitTestDropTarget(ev.clientX, ev.clientY, opts.side);
+    const hit = hitTestDropTarget(ev.clientX, ev.clientY, null);
     setSemantic(null);
-    if (hit.side && hit.side !== opts.side) {
+    if (!hit.side) return;
+    if (hit.side === opts.side) {
+      if (hit.folder && isValidMoveTarget(opts.files, hit.folder)) {
+        opts.onMoveWithin?.(opts.files, hit.folder);
+      }
+    } else {
       opts.onDrop(opts.files, opts.side, hit.folder ?? undefined);
     }
   };
