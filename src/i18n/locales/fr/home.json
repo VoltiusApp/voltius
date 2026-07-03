@@ -9,6 +9,8 @@
       "placeholder": "Rechercher des hôtes, sessions, extraits…"
     },
     "stat": {
+      "vaults": "vaults",
+      "hosts": "hôtes",
       "activeSessions": "sessions actives",
       "portForwards": "redirections de port"
     },

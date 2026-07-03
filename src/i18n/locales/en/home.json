@@ -9,6 +9,8 @@
       "placeholder": "Search hosts, sessions, snippets…"
     },
     "stat": {
+      "vaults": "vaults",
+      "hosts": "hosts",
       "activeSessions": "active sessions",
       "portForwards": "port forwards"
     },
