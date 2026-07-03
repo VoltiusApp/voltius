@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useRipple } from "@/hooks/useRipple";
 import { useConnectionStore } from "@/stores/connectionStore";
@@ -48,6 +49,7 @@ fi;
 printf "%s\n%s\n" "$3" "$4" >> "$1/$2";`;
 
 export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: () => void }) {
+  const { t } = useTranslation();
   const { connections, loadConnections } = useConnectionStore();
   const [selectedHostId, setSelectedHostId] = useState("");
   const [location, setLocation] = useState(".ssh");
@@ -69,7 +71,7 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
     setExportError("");
     try {
       const pubKey = await getSecret(`key:${sshKey.id}:public`);
-      if (!pubKey) throw new Error("Public key not found");
+      if (!pubKey) throw new Error(t("keychain.exportPanel.publicKeyNotFoundError"));
 
       const { username, password, privateKey, passphrase } = await resolveConnectionCredentials(selectedHost);
 
@@ -95,17 +97,17 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
   return (
     <div className="relative h-full overflow-hidden">
       <PanelShell>
-        <PanelHeader icon="lucide:square-arrow-right" title="Add to host" onClose={onClose} />
+        <PanelHeader icon="lucide:square-arrow-right" title={t("keychain.common.addToHost")} onClose={onClose} />
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
 
           <BaseCard isList={false} className="cursor-default">
             <KeyCardContent sshKey={sshKey} avatarSize={48} iconSize={24} />
           </BaseCard>
 
-          <FormSection label="Export">
+          <FormSection label={t("keychain.exportPanel.exportSectionLabel")}>
             <div className="space-y-3 p-1">
               <div>
-                <label className={formLabelClass} style={formLabelStyle}>Destination host</label>
+                <label className={formLabelClass} style={formLabelStyle}>{t("keychain.exportPanel.destinationHost")}</label>
                 <button
                   onClick={() => setShowHostSelect(true)}
                   className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm outline-hidden transition-colors bg-(--t-bg-base) border border-(--t-border)"
@@ -126,32 +128,32 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
                       />
                       );
                     })()}
-                    <span className="truncate">{selectedHost ? (selectedHost.name ?? `${selectedHost.username}@${selectedHost.host}`) : "Select a host…"}</span>
+                    <span className="truncate">{selectedHost ? (selectedHost.name ?? `${selectedHost.username}@${selectedHost.host}`) : t("keychain.exportPanel.selectHostPlaceholder")}</span>
                   </div>
                   <Icon icon="lucide:chevron-right" width={14} className="text-(--t-text-muted) shrink-0" />
                 </button>
               </div>
               <div>
-                <label className={formLabelClass} style={formLabelStyle}>Location</label>
+                <label className={formLabelClass} style={formLabelStyle}>{t("keychain.exportPanel.location")}</label>
                 <input value={location} onChange={(e) => setLocation(e.target.value)} className={`${formInputClass} font-mono`} style={formInputStyle} />
               </div>
               <div>
-                <label className={formLabelClass} style={formLabelStyle}>Filename</label>
+                <label className={formLabelClass} style={formLabelStyle}>{t("keychain.exportPanel.filename")}</label>
                 <input value={filename} onChange={(e) => setFilename(e.target.value)} className={`${formInputClass} font-mono`} style={formInputStyle} />
               </div>
               <div className="flex gap-2 p-3 rounded-lg bg-(--t-bg-card-hover)">
                 <Icon icon="lucide:info" width={14} className="text-(--t-text-notice) shrink-0" style={{ marginTop: 1 }} />
                 <p className="text-xs leading-relaxed text-(--t-text-notice)">
-                  Key export currently supports only UNIX systems. Use Advanced section to customize the export script.
+                  {t("keychain.exportPanel.unixOnlyNotice")}
                 </p>
               </div>
             </div>
           </FormSection>
 
-          <FormSection label="Advanced">
+          <FormSection label={t("keychain.exportPanel.advanced")}>
             <div className="p-1">
               <button onClick={() => setAdvancedOpen((o) => !o)} className="flex items-center gap-2 w-full mb-2">
-                <span className="flex-1 text-left text-xs text-(--t-text-muted)">Export script</span>
+                <span className="flex-1 text-left text-xs text-(--t-text-muted)">{t("keychain.exportPanel.exportScriptLabel")}</span>
                 <Icon icon="lucide:chevron-down" width={14} className="text-(--t-text-muted)" style={{ transform: advancedOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 150ms" }} />
               </button>
               {advancedOpen && (
@@ -169,7 +171,7 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
           {exportStatus === "success" && (
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg mx-1" style={{ background: "color-mix(in srgb, var(--t-accent) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--t-accent) 30%, transparent)" }}>
               <Icon icon="lucide:circle-check-big" width={14} className="text-(--t-accent) shrink-0" />
-              <span className="text-xs text-(--t-accent)">Key exported successfully</span>
+              <span className="text-xs text-(--t-accent)">{t("keychain.exportPanel.successMessage")}</span>
             </div>
           )}
           {exportStatus === "error" && (
@@ -194,8 +196,8 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
           >
             {ripplesExport}
             {exportStatus === "loading"
-              ? <><Icon icon="lucide:loader" width={14} className="animate-spin" />Exporting…</>
-              : <><Icon icon="lucide:square-arrow-right" width={14} />Add to host</>
+              ? <><Icon icon="lucide:loader" width={14} className="animate-spin" />{t("keychain.exportPanel.exportingLabel")}</>
+              : <><Icon icon="lucide:square-arrow-right" width={14} />{t("keychain.common.addToHost")}</>
             }
           </button>
         </div>

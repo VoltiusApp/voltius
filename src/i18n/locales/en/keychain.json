@@ -1,0 +1,144 @@
+{
+  "keychain": {
+    "common": {
+      "general": "General",
+      "label": "Label",
+      "tags": "Tags",
+      "folder": "Folder",
+      "optional": "(optional)",
+      "username": "Username",
+      "password": "Password",
+      "privateKey": "Private Key",
+      "publicKey": "Public Key",
+      "passphrase": "Passphrase",
+      "addToHost": "Add to host",
+      "disableCloudSync": "Disable cloud sync",
+      "enableCloudSync": "Enable cloud sync",
+      "cloudSyncDisabledTitle": "Cloud sync disabled"
+    },
+    "toolbar": {
+      "filterPlaceholder": "Filter...",
+      "newKey": "New Key",
+      "newKeyOptionsAriaLabel": "New key options",
+      "generateKeyPair": "Generate Key Pair",
+      "newIdentity": "New Identity"
+    },
+    "page": {
+      "all": "All",
+      "folders": "Folders",
+      "new": "New",
+      "pinned": "Pinned",
+      "ejectMoveTo": "Move to {{name}}",
+      "ejectRemoveFromFolder": "Remove from folder",
+      "bulk": {
+        "moveItemsTo_one": "Move {{count}} item to",
+        "moveItemsTo_other": "Move {{count}} items to",
+        "copyItemsTo_one": "Copy {{count}} item to",
+        "copyItemsTo_other": "Copy {{count}} items to",
+        "enableCloudSync": "Enable cloud sync ({{count}})",
+        "disableCloudSync": "Disable cloud sync ({{count}})",
+        "exportPublicKeys_one": "Export {{count}} public key",
+        "exportPublicKeys_other": "Export {{count}} public keys",
+        "deleteItems_one": "Delete {{count}} item",
+        "deleteItems_other": "Delete {{count}} items"
+      },
+      "confirmDeleteFolder": {
+        "title": "Delete folder",
+        "message": "This will delete the folder. Items inside won't be deleted — they'll return to the top level."
+      },
+      "confirmDelete": {
+        "title_one": "Delete {{count}} item",
+        "title_other": "Delete {{count}} items",
+        "message_one": "Are you sure you want to delete {{count}} item? This cannot be undone.",
+        "message_other": "Are you sure you want to delete {{count}} items? This cannot be undone."
+      },
+      "vaultCascade": {
+        "moveDescription": "Moving \"{{folderName}}\" will also move the following items to {{targetVaultName}}:",
+        "copyDescription": "Copying \"{{folderName}}\" will also copy the following items to {{targetVaultName}}:"
+      }
+    },
+    "cards": {
+      "addedOn": "added {{date}}",
+      "passwordBadge": "Password",
+      "sshKeysLabel": "SSH Keys",
+      "identitiesLabel": "Identities",
+      "keySection": {
+        "emptyTitle": "No SSH keys yet",
+        "emptyDescription": "Store reusable SSH key pairs",
+        "addButton": "Add Key"
+      },
+      "identitySection": {
+        "emptyTitle": "No identities yet",
+        "emptyDescription": "Combine a username with credentials for reuse across hosts",
+        "addButton": "Add Identity"
+      },
+      "pin": {
+        "unpinForMe": "Unpin for me",
+        "showInMyView": "Show in my view",
+        "hideForMe": "Hide for me",
+        "pinForMe": "Pin for me",
+        "unpin": "Unpin",
+        "pin": "Pin",
+        "unpinForTeam": "Unpin for team",
+        "pinForTeam": "Pin for team"
+      }
+    },
+    "keyForm": {
+      "titleEdit": "Edit Key",
+      "modeImport": "Import",
+      "modeGenerate": "Generate",
+      "sectionKeyMaterial": "Key Material",
+      "sectionImportFromFile": "Import from File",
+      "sectionKeyExport": "Key Export",
+      "unknownType": "Unknown type",
+      "invalidKey": "Invalid key",
+      "keyPassphrasePlaceholder": "Key passphrase"
+    },
+    "identityForm": {
+      "titleEdit": "Edit Identity",
+      "sectionCredentials": "Credentials",
+      "sectionNewKeyMaterial": "New Key Material",
+      "sectionLinkedTo": "Linked to",
+      "sshKeyLabel": "SSH Key",
+      "noKey": "No key",
+      "newKeyInline": "New key (inline)...",
+      "unnamedKey": "Unnamed Key",
+      "namePlaceholder": "My Identity (optional)",
+      "keyLabel": "Key Label",
+      "keyLabelPlaceholder": "My SSH Key (optional)",
+      "editHostTitle": "Edit host",
+      "unlinkTitle": "Unlink — copy credentials inline to host"
+    },
+    "exportPanel": {
+      "exportSectionLabel": "Export",
+      "destinationHost": "Destination host",
+      "selectHostPlaceholder": "Select a host…",
+      "location": "Location",
+      "filename": "Filename",
+      "unixOnlyNotice": "Key export currently supports only UNIX systems. Use Advanced section to customize the export script.",
+      "advanced": "Advanced",
+      "exportScriptLabel": "Export script",
+      "successMessage": "Key exported successfully",
+      "exportingLabel": "Exporting…",
+      "publicKeyNotFoundError": "Public key not found"
+    },
+    "dropZone": {
+      "loaded": "Key file loaded",
+      "error": "Could not read file",
+      "dropToLoad": "Drop to load key file",
+      "dropHere": "Drop a key file here",
+      "hint": ".pem, .key, .pub or any SSH key file"
+    },
+    "genFields": {
+      "sectionKeyType": "Key Type",
+      "ellipticCurve": "Elliptic curve",
+      "keySizeBits": "Key size (bits)",
+      "passphrasePlaceholder": "Optional passphrase",
+      "savePassphrase": "Save passphrase",
+      "cipher": "Cipher",
+      "rounds": "Rounds",
+      "roundsTooltip": "Number of bcrypt-pbkdf iterations used to derive the encryption key from your passphrase. Higher values slow down brute-force attacks at the cost of slightly slower key loading. OpenSSH default is 16; 100 is a good balance.",
+      "generating": "Generating…"
+    }
+  }
+}

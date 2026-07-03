@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { generateSshKeypair } from "@/services/keys";
 import { FormSection, formInputClass, formInputStyle, formLabelClass, formLabelStyle } from "@/components/shared/Panel";
@@ -51,6 +52,7 @@ export function KeyGenFields({
 }: {
   onGenerated: (privateKey: string, publicKey: string, passphrase: string) => void;
 }) {
+  const { t } = useTranslation();
   const [keyType, setKeyType] = useState<KeyType>("ed25519");
   const [curve, setCurve] = useState<EcdsaCurve>("256");
   const [rsaBits, setRsaBits] = useState<RsaBits>("4096");
@@ -85,25 +87,25 @@ export function KeyGenFields({
 
   return (
     <>
-      <FormSection label="Key Type">
+      <FormSection label={t("keychain.genFields.sectionKeyType")}>
         <Pills<KeyType> options={KEY_TYPE_OPTIONS} value={keyType} onChange={setKeyType} />
 
         {keyType === "ecdsa" && (
           <div>
-            <label className={formLabelClass} style={formLabelStyle}>Elliptic curve</label>
+            <label className={formLabelClass} style={formLabelStyle}>{t("keychain.genFields.ellipticCurve")}</label>
             <Pills<EcdsaCurve> options={ECDSA_CURVES} value={curve} onChange={setCurve} />
           </div>
         )}
 
         {keyType === "rsa" && (
           <div>
-            <label className={formLabelClass} style={formLabelStyle}>Key size (bits)</label>
+            <label className={formLabelClass} style={formLabelStyle}>{t("keychain.genFields.keySizeBits")}</label>
             <Pills<RsaBits> options={RSA_BITS} value={rsaBits} onChange={setRsaBits} />
           </div>
         )}
       </FormSection>
 
-      <FormSection label="Passphrase">
+      <FormSection label={t("keychain.common.passphrase")}>
         <div className="relative">
           <input
             type={showPassphrase ? "text" : "password"}
@@ -111,7 +113,7 @@ export function KeyGenFields({
             style={formInputStyle}
             value={passphrase}
             onChange={(e) => setPassphrase(e.target.value)}
-            placeholder="Optional passphrase"
+            placeholder={t("keychain.genFields.passphrasePlaceholder")}
             autoComplete="new-password"
           />
           <button
@@ -127,21 +129,21 @@ export function KeyGenFields({
         </div>
 
         <div className="flex items-center justify-between py-1">
-          <span className="text-xs text-(--t-text-dim)">Save passphrase</span>
+          <span className="text-xs text-(--t-text-dim)">{t("keychain.genFields.savePassphrase")}</span>
           <Toggle checked={savePassphrase} onChange={setSavePassphrase} />
         </div>
 
         {passphrase && (
           <>
             <div>
-              <label className={formLabelClass} style={formLabelStyle}>Cipher</label>
+              <label className={formLabelClass} style={formLabelStyle}>{t("keychain.genFields.cipher")}</label>
               <Pills<CipherOption> options={CIPHER_OPTIONS} value={cipher} onChange={setCipher} />
             </div>
 
             <div>
               <div className="flex items-center gap-1.5 mb-1.5">
-                <label className={formLabelClass} style={{ ...formLabelStyle, marginBottom: 0 }}>Rounds</label>
-                <InfoTooltip text="Number of bcrypt-pbkdf iterations used to derive the encryption key from your passphrase. Higher values slow down brute-force attacks at the cost of slightly slower key loading. OpenSSH default is 16; 100 is a good balance." width={18} />
+                <label className={formLabelClass} style={{ ...formLabelStyle, marginBottom: 0 }}>{t("keychain.genFields.rounds")}</label>
+                <InfoTooltip text={t("keychain.genFields.roundsTooltip")} width={18} />
               </div>
               <input
                 type="number"
@@ -179,12 +181,12 @@ export function KeyGenFields({
         {generating ? (
           <>
             <Icon icon="lucide:loader-circle" width={15} className="animate-spin" />
-            Generating…
+            {t("keychain.genFields.generating")}
           </>
         ) : (
           <>
             <Icon icon="lucide:sparkles" width={15} />
-            Generate
+            {t("keychain.keyForm.modeGenerate")}
           </>
         )}
       </button>

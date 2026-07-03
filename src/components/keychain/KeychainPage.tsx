@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ErrorBanner } from "@/components/shared/ErrorBanner";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
@@ -42,6 +43,7 @@ import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/t
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 
 export default function KeychainPage() {
+  const { t } = useTranslation();
   const { loadIdentities, saveIdentity, updateIdentity, deleteIdentity } =
     useIdentityStore();
   const identities = useAllIdentities();
@@ -321,17 +323,19 @@ export default function KeychainPage() {
     const copyChildren = bulkVaultChildren("copy");
     const items: ContextMenuItem[] = [
       ...(moveChildren.length > 0 ? [{
-        label: `Move ${allIds.length} item${allIds.length === 1 ? "" : "s"} to`,
+        label: t("keychain.page.bulk.moveItemsTo", { count: allIds.length }),
         icon: "lucide:vault",
         children: moveChildren,
       }] : []),
       ...(copyChildren.length > 0 ? [{
-        label: `Copy ${allIds.length} item${allIds.length === 1 ? "" : "s"} to`,
+        label: t("keychain.page.bulk.copyItemsTo", { count: allIds.length }),
         icon: "lucide:copy-plus",
         children: copyChildren,
       }] : []),
       {
-        label: allSynced ? `Disable cloud sync (${allIds.length})` : `Enable cloud sync (${allIds.length})`,
+        label: allSynced
+          ? t("keychain.page.bulk.disableCloudSync", { count: allIds.length })
+          : t("keychain.page.bulk.enableCloudSync", { count: allIds.length }),
         icon: allSynced ? "lucide:cloud-off" : "lucide:cloud",
         onClick: () => {
           const store = useSyncPrefsStore.getState();
@@ -346,13 +350,13 @@ export default function KeychainPage() {
     ];
     if (selectedKeyIds.length > 0) {
       items.push({
-        label: `Export ${selectedKeyIds.length} public key${selectedKeyIds.length === 1 ? "" : "s"}`,
+        label: t("keychain.page.bulk.exportPublicKeys", { count: selectedKeyIds.length }),
         icon: "lucide:upload",
         onClick: () => useUIStore.getState().openImportExport("export", { bulk: { keys: selectedKeyIds, identities: selectedIdentityIds } }),
       });
     }
     items.push({
-      label: `Delete ${allIds.length} item${allIds.length === 1 ? "" : "s"}`,
+      label: t("keychain.page.bulk.deleteItems", { count: allIds.length }),
       icon: "lucide:trash-2",
       onClick: () => setConfirmDeleteIds(allIds),
       danger: true,
@@ -360,7 +364,7 @@ export default function KeychainPage() {
     });
     return items;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIdSet, filteredKeys, filteredIdentities, selectedKeyIds, selectedIdentityIds, selectedFolders, excludedIds, syncTypes, vaultOptions, can, identities, keys, scopedFolders]);
+  }, [selectedIdSet, filteredKeys, filteredIdentities, selectedKeyIds, selectedIdentityIds, selectedFolders, excludedIds, syncTypes, vaultOptions, can, identities, keys, scopedFolders, t]);
 
   useEffect(() => {
     void loadKeys();
@@ -583,6 +587,7 @@ export default function KeychainPage() {
     requestCascade({
       operation: "move",
       targetVaultName,
+      // "Unnamed key" default name kept in English until all creation sites are localized together (see i18n issue #14)
       items: keyNeedsMove ? [{ type: "key" as const, label: key.name ?? "Unnamed key" }] : [],
       execute: async () => {
         try {
@@ -604,6 +609,7 @@ export default function KeychainPage() {
     requestCascade({
       operation: "copy",
       targetVaultName,
+      // "Unnamed key" default name kept in English until all creation sites are localized together (see i18n issue #14)
       items: keyNeedsCopy ? [{ type: "key" as const, label: key.name ?? "Unnamed key" }] : [],
       execute: async () => {
         try {
@@ -652,7 +658,8 @@ export default function KeychainPage() {
     requestCascade({
       operation: "move",
       targetVaultName,
-      description: `Moving "${folder.name}" will also move the following items to ${targetVaultName}:`,
+      description: t("keychain.page.vaultCascade.moveDescription", { folderName: folder.name, targetVaultName }),
+      // "Unnamed key" default name kept in English until all creation sites are localized together (see i18n issue #14)
       items: [
         ...treeKeys.map((k) => ({ type: "key" as const, label: k.name ?? "Unnamed key" })),
         ...treeIdentities.map((i) => ({ type: "identity" as const, label: i.name || i.username })),
@@ -684,7 +691,8 @@ export default function KeychainPage() {
     requestCascade({
       operation: "copy",
       targetVaultName,
-      description: `Copying "${folder.name}" will also copy the following items to ${targetVaultName}:`,
+      description: t("keychain.page.vaultCascade.copyDescription", { folderName: folder.name, targetVaultName }),
+      // "Unnamed key" default name kept in English until all creation sites are localized together (see i18n issue #14)
       items: [
         ...treeKeys.map((k) => ({ type: "key" as const, label: k.name ?? "Unnamed key" })),
         ...treeIdentities.map((i) => ({ type: "identity" as const, label: i.name || i.username })),
@@ -814,6 +822,7 @@ export default function KeychainPage() {
           onImportKey={canEditKeys ? () => openKeyForm(null) : undefined}
           onGenerateKey={canEditKeys ? openKeyGenForm : undefined}
           onNewIdentity={canEditIdentities ? () => openIdentityForm(null) : undefined}
+          // "New Folder" default name kept in English until all creation sites are localized together (see i18n issue #14)
           onNewFolder={() => void saveFolder({ name: "New Folder", object_type: "keychain", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId })}
           availableTags={availableTags}
           tagFilter={tagFilter}
@@ -850,7 +859,7 @@ export default function KeychainPage() {
                   onClick={navigateToRoot}
                 >
                   <Icon icon="lucide:chevron-left" width={13} />
-                  All
+                  {t("keychain.page.all")}
                 </button>
                 {folderPath.map((folder, i) => (
                   <span key={folder.id} className="flex items-center gap-2">
@@ -877,7 +886,7 @@ export default function KeychainPage() {
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
-                    Folders
+                    {t("keychain.page.folders")}
                   </p>
                   <button
                     className="flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg text-(--t-text-dim)"
@@ -889,10 +898,11 @@ export default function KeychainPage() {
                       e.currentTarget.style.color = "var(--t-text-dim)";
                       e.currentTarget.style.background = "transparent";
                     }}
+                    // "New Folder" default name kept in English until all creation sites are localized together (see i18n issue #14)
                     onClick={() => void saveFolder({ name: "New Folder", object_type: "keychain", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId })}
                   >
                     <Icon icon="lucide:plus" width={12} />
-                    New
+                    {t("keychain.page.new")}
                   </button>
                 </div>
                 <div
@@ -948,18 +958,20 @@ export default function KeychainPage() {
               >
                 <Icon icon="lucide:folder-minus" width={16} />
                 <span className="text-sm font-medium">
-                  {ejectTargetFolderId ? `Move to ${folderPath[folderPath.length - 2].name}` : "Remove from folder"}
+                  {ejectTargetFolderId
+                    ? t("keychain.page.ejectMoveTo", { name: folderPath[folderPath.length - 2].name })
+                    : t("keychain.page.ejectRemoveFromFolder")}
                 </span>
               </div>
             )}
 
             {(pinnedKeys.length > 0 || pinnedIdentities.length > 0) && (
               <div className="mb-4">
-                <p className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">Pinned</p>
+                <p className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">{t("keychain.page.pinned")}</p>
                 {pinnedKeys.length > 0 && (
                   <KeySection
                     keys={pinnedKeys}
-                    label="SSH Keys"
+                    label={t("keychain.cards.sshKeysLabel")}
                     showDraft={false}
                     editingId={editingKey?.id ?? null}
                     selectedIdSet={selectedIdSet}
@@ -980,7 +992,7 @@ export default function KeychainPage() {
                   <IdentitySection
                     identities={pinnedIdentities}
                     keys={keys}
-                    label="Identities"
+                    label={t("keychain.cards.identitiesLabel")}
                     layoutMode={layoutMode}
                     showDraft={false}
                     editingId={editingIdentity?.id ?? null}
@@ -1045,12 +1057,13 @@ export default function KeychainPage() {
           onClose={closeBgMenu}
           items={[
             ...(canEditKeys ? [
-              { label: "New Key", icon: "lucide:key-round", onClick: () => openKeyForm(null) },
-              { label: "Generate Key Pair", icon: "lucide:sparkles", onClick: openKeyGenForm },
+              { label: t("keychain.toolbar.newKey"), icon: "lucide:key-round", onClick: () => openKeyForm(null) },
+              { label: t("keychain.toolbar.generateKeyPair"), icon: "lucide:sparkles", onClick: openKeyGenForm },
             ] : []),
             ...(canEditIdentities ? [
-              { label: "New Identity", icon: "lucide:user-plus", onClick: () => openIdentityForm(null) },
+              { label: t("keychain.toolbar.newIdentity"), icon: "lucide:user-plus", onClick: () => openIdentityForm(null) },
             ] : []),
+            // "New Folder" default name kept in English until all creation sites are localized together (see i18n issue #14)
             { label: "New Folder", icon: "lucide:folder-plus", onClick: () => void saveFolder({ name: "New Folder", object_type: "keychain", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }) },
             ...bgContributions,
           ]}
@@ -1059,9 +1072,9 @@ export default function KeychainPage() {
 
       {confirmDeleteFolderId && (
         <ConfirmModal
-          title="Delete folder"
-          message="This will delete the folder. Items inside won't be deleted — they'll return to the top level."
-          confirmLabel="Delete"
+          title={t("keychain.page.confirmDeleteFolder.title")}
+          message={t("keychain.page.confirmDeleteFolder.message")}
+          confirmLabel={t("common.action.delete")}
           onConfirm={() => {
             void deleteFolder(confirmDeleteFolderId);
             onFolderDeleted(confirmDeleteFolderId);
@@ -1074,9 +1087,9 @@ export default function KeychainPage() {
 
       {confirmDeleteIds && (
         <ConfirmModal
-          title={`Delete ${confirmDeleteIds.length} item${confirmDeleteIds.length === 1 ? "" : "s"}`}
-          message={`Are you sure you want to delete ${confirmDeleteIds.length} item${confirmDeleteIds.length === 1 ? "" : "s"}? This cannot be undone.`}
-          confirmLabel="Delete"
+          title={t("keychain.page.confirmDelete.title", { count: confirmDeleteIds.length })}
+          message={t("keychain.page.confirmDelete.message", { count: confirmDeleteIds.length })}
+          confirmLabel={t("common.action.delete")}
           onConfirm={async () => {
             for (const id of confirmDeleteIds) {
               if (selectedKeyIds.includes(id)) await handleDeleteKey(id);

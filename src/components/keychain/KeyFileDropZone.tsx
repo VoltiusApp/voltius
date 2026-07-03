@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 
 // ─────────────────────────────────────────────────────────────────
@@ -12,6 +13,7 @@ export function KeyFileDropZone({
   onPrivateKey: (v: string) => void;
   onPublicKey: (v: string) => void;
 }) {
+  const { t } = useTranslation();
   const [dragging, setDragging] = useState(false);
   const [status, setStatus] = useState<"idle" | "ok" | "err">("idle");
   const counterRef = useRef(0);
@@ -114,16 +116,16 @@ export function KeyFileDropZone({
       />
       <p className="text-xs text-center" style={{ color: iconColor, transition: "color 0.15s" }}>
         {status === "ok"
-          ? "Key file loaded"
+          ? t("keychain.dropZone.loaded")
           : status === "err"
-          ? "Could not read file"
+          ? t("keychain.dropZone.error")
           : dragging
-          ? "Drop to load key file"
-          : "Drop a key file here"}
+          ? t("keychain.dropZone.dropToLoad")
+          : t("keychain.dropZone.dropHere")}
       </p>
       {status === "idle" && (
         <p className="text-xs text-(--t-text-muted)">
-          .pem, .key, .pub or any SSH key file
+          {t("keychain.dropZone.hint")}
         </p>
       )}
     </div>

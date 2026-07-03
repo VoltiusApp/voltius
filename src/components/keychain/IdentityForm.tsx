@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAutosave } from "@/hooks/useAutosave";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
@@ -71,6 +72,7 @@ function KeySelector({
   onChange: (id: string | null) => void;
   vaultId: string;
 }) {
+  const { t } = useTranslation();
   const { keys: personalKeys, teamKeys } = useKeyStore();
   const teams = useTeamStore((s) => s.teams);
   const teamVaultIds = useMemo(() => new Set(teams.map((team) => team.id)), [teams]);
@@ -123,7 +125,7 @@ function KeySelector({
       >
         <Icon icon={isInline ? "lucide:file-key" : selected ? "lucide:key-round" : "lucide:minus"} width={13} className="shrink-0" />
         <span className="flex-1 text-left truncate text-xs">
-          {isInline ? "New key (inline)..." : selected ? (selected.name ?? "Unnamed Key") : "No key"}
+          {isInline ? t("keychain.identityForm.newKeyInline") : selected ? (selected.name ?? t("keychain.identityForm.unnamedKey")) : t("keychain.identityForm.noKey")}
         </span>
         <Icon
           icon="lucide:chevron-down"
@@ -148,13 +150,13 @@ function KeySelector({
         >
           <DropdownItem
             icon="lucide:minus"
-            label="No key"
+            label={t("keychain.identityForm.noKey")}
             active={value === null}
             onClick={() => { onChange(null); setOpen(false); }}
           />
           <DropdownItem
             icon="lucide:file-key"
-            label="New key (inline)..."
+            label={t("keychain.identityForm.newKeyInline")}
             active={value === "__inline__"}
             onClick={() => { onChange("__inline__"); setOpen(false); }}
           />
@@ -196,6 +198,7 @@ export interface IdentityFormProps {
 }
 
 export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, isDirtyRef, vaults, canEdit, onMoveToVault, onCopyToVault }: IdentityFormProps) {
+  const { t } = useTranslation();
   const { loadKeys } = useKeyStore();
   const { connections, loadConnections, updateConnection } = useConnectionStore();
   const { setActiveNav, setHomePendingAction } = useUIStore();
@@ -312,7 +315,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
     <PanelShell>
       <PanelHeader
         icon={initial ? "lucide:pencil" : "lucide:plus"}
-        title={initial ? "Edit Identity" : "New Identity"}
+        title={initial ? t("keychain.identityForm.titleEdit") : t("keychain.toolbar.newIdentity")}
         subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => { vaultPickerTouched.current = true; setVaultId(id); markDirty(); }} />}
         onClose={handleClose}
         saveState={saveState}
@@ -321,12 +324,12 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
             ...contributions.map((a) => ({ ...a, icon: a.icon ?? "lucide:chevron-right" })),
             ...vaultMenuItems(vaults, canEdit, onMoveToVault, onCopyToVault),
             {
-              label: isSynced ? "Disable cloud sync" : "Enable cloud sync",
+              label: isSynced ? t("keychain.common.disableCloudSync") : t("keychain.common.enableCloudSync"),
               icon: isSynced ? "lucide:cloud-off" : "lucide:cloud",
               onClick: () => toggleExcluded(initial.id),
               divider: true,
             },
-            ...(onDelete ? [{ label: "Delete", icon: "lucide:trash-2", onClick: () => { onDelete(initial.id); onClose(); }, danger: true, divider: false, shortcut: getShortcutHint("delete") }] : []),
+            ...(onDelete ? [{ label: t("common.action.delete"), icon: "lucide:trash-2", onClick: () => { onDelete(initial.id); onClose(); }, danger: true, divider: false, shortcut: getShortcutHint("delete") }] : []),
           ];
           return (
             <>
@@ -343,19 +346,19 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
         })() : undefined}
       />
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        <FormSection label="General">
+        <FormSection label={t("keychain.common.general")}>
           <div>
-            <label className={formLabelClass} style={formLabelStyle}>Label</label>
+            <label className={formLabelClass} style={formLabelStyle}>{t("keychain.common.label")}</label>
             <input
               className={formInputClass}
               style={formInputStyle}
               value={name}
               onChange={(e) => { markDirty(); setName(e.target.value); }}
-              placeholder="My Identity (optional)"
+              placeholder={t("keychain.identityForm.namePlaceholder")}
             />
           </div>
           <div>
-            <label className={formLabelClass} style={formLabelStyle}>Tags</label>
+            <label className={formLabelClass} style={formLabelStyle}>{t("keychain.common.tags")}</label>
             <TagSelector
               value={tags}
               vaultId={vaultId}
@@ -363,7 +366,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
             />
           </div>
           <div>
-            <label className={formLabelClass} style={formLabelStyle}>Folder</label>
+            <label className={formLabelClass} style={formLabelStyle}>{t("keychain.common.folder")}</label>
             <FolderSelector
               value={folderId}
               folders={folders}
@@ -378,10 +381,10 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
           </div>
         </FormSection>
 
-        <FormSection label="Credentials">
+        <FormSection label={t("keychain.identityForm.sectionCredentials")}>
           <div>
             <label className={formLabelClass} style={formLabelStyle}>
-              Username <span className="text-(--t-accent)">*</span>
+              {t("keychain.common.username")} <span className="text-(--t-accent)">*</span>
             </label>
             <input
               className={formInputClass}
@@ -393,7 +396,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
           </div>
 
           <div>
-            <label className={formLabelClass} style={formLabelStyle}>Password</label>
+            <label className={formLabelClass} style={formLabelStyle}>{t("keychain.common.password")}</label>
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
@@ -417,7 +420,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
           </div>
 
           <div>
-            <label className={formLabelClass} style={formLabelStyle}>SSH Key</label>
+            <label className={formLabelClass} style={formLabelStyle}>{t("keychain.identityForm.sshKeyLabel")}</label>
             <KeySelector
               value={keyId}
               onChange={(v) => { markDirty(); setKeyId(v); setInlinePrivKey(""); setInlinePublicKey(""); setInlineKeyLabel(""); }}
@@ -427,20 +430,20 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
         </FormSection>
 
         {isInline && (
-          <FormSection label="New Key Material">
+          <FormSection label={t("keychain.identityForm.sectionNewKeyMaterial")}>
             <div>
-              <label className={formLabelClass} style={formLabelStyle}>Key Label</label>
+              <label className={formLabelClass} style={formLabelStyle}>{t("keychain.identityForm.keyLabel")}</label>
               <input
                 className={formInputClass}
                 style={formInputStyle}
                 value={inlineKeyLabel}
                 onChange={(e) => { markDirty(); setInlineKeyLabel(e.target.value); }}
-                placeholder="My SSH Key (optional)"
+                placeholder={t("keychain.identityForm.keyLabelPlaceholder")}
               />
             </div>
             <div>
               <label className={formLabelClass} style={formLabelStyle}>
-                Private Key <span className="text-(--t-accent)">*</span>
+                {t("keychain.common.privateKey")} <span className="text-(--t-accent)">*</span>
               </label>
               <textarea
                 className={`${formInputClass} font-mono text-xs h-28 resize-none`}
@@ -452,7 +455,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
             </div>
             <div>
               <label className={formLabelClass} style={formLabelStyle}>
-                Public Key <span className="text-(--t-text-dim) font-normal">(optional)</span>
+                {t("keychain.common.publicKey")} <span className="text-(--t-text-dim) font-normal">{t("keychain.common.optional")}</span>
               </label>
               <textarea
                 className={`${formInputClass} font-mono text-xs h-16 resize-none`}
@@ -470,7 +473,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
         )}
 
         {initial && linkedHosts.length > 0 && (
-          <FormSection label="Linked to">
+          <FormSection label={t("keychain.identityForm.sectionLinkedTo")}>
             <div className="space-y-1 p-1">
               {linkedHosts.map((c) => {
                 const displayIcon = c.icon || c.distro;
@@ -498,7 +501,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
                     </div>
                     <button
                       onClick={() => { setActiveNav("hosts"); setHomePendingAction({ action: "edit", id: c.id }); onClose(); }}
-                      title="Edit host"
+                      title={t("keychain.identityForm.editHostTitle")}
                       className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
                       onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-bright)"; e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; e.currentTarget.style.background = "transparent"; }}
@@ -507,7 +510,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
                     </button>
                     <button
                       onClick={() => { void handleUnlink(c); }}
-                      title="Unlink — copy credentials inline to host"
+                      title={t("keychain.identityForm.unlinkTitle")}
                       className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
                       onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-status-error, #ef4444)"; e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; e.currentTarget.style.background = "transparent"; }}

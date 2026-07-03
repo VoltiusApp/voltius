@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAutosave } from "@/hooks/useAutosave";
 import { getSecret } from "@/services/vault";
@@ -36,9 +37,10 @@ export { detectKeyInfo, PUB_TYPE_MAP } from "./keyDetection";
 type KeyFormMode = "import" | "generate";
 
 function ModeToggle({ mode, onChange }: { mode: KeyFormMode; onChange: (m: KeyFormMode) => void }) {
+  const { t } = useTranslation();
   const opts: { value: KeyFormMode; label: string; icon: string }[] = [
-    { value: "import", label: "Import", icon: "lucide:import" },
-    { value: "generate", label: "Generate", icon: "lucide:sparkles" },
+    { value: "import", label: t("keychain.keyForm.modeImport"), icon: "lucide:import" },
+    { value: "generate", label: t("keychain.keyForm.modeGenerate"), icon: "lucide:sparkles" },
   ];
   return (
     <div className="relative grid grid-cols-2 gap-0.5 p-0.5 rounded-lg bg-(--t-bg-base) border border-(--t-border)">
@@ -84,6 +86,7 @@ export interface KeyFormProps {
 }
 
 export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onDelete, flushRef, isDirtyRef, vaults, canEdit, onMoveToVault, onCopyToVault }: KeyFormProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState(initial?.name ?? "");
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
   const [privateKey, setPrivateKey] = useState("");
@@ -133,6 +136,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
 
   const { schedule, markDirty: _markDirty, flushAndClose, flush, saveState } = useAutosave({
     onSave: () => onSubmit(
+      // Default name kept in English — it can be persisted as the key's name (see i18n issue #14).
       { name: name.trim() || `${keyInfo.type ?? "SSH Key"} · ${new Date().toLocaleDateString()}`, key_type: keyInfo.type ?? undefined, tags, folder_id: folderId ?? undefined, vault_id: resolveVaultIdForSave(vaultId) },
       privateKeyDirty.current ? privateKey : null,
       publicKeyDirty.current ? publicKey : null,
@@ -169,22 +173,22 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
     <PanelShell>
       <PanelHeader
         icon={initial ? "lucide:pencil" : "lucide:plus"}
-        title={initial ? "Edit Key" : "New Key"}
+        title={initial ? t("keychain.keyForm.titleEdit") : t("keychain.toolbar.newKey")}
         subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => { vaultPickerTouched.current = true; setVaultId(id); markDirty(); }} />}
         onClose={handleClose}
         saveState={saveState}
         actions={initial ? (() => {
           const items = [
-            ...(onExport ? [{ label: "Add to host", icon: "lucide:square-arrow-right", onClick: () => onExport(initial) }] : []),
+            ...(onExport ? [{ label: t("keychain.common.addToHost"), icon: "lucide:square-arrow-right", onClick: () => onExport(initial) }] : []),
             ...contributions.map((a, i) => ({ ...a, icon: a.icon ?? "lucide:chevron-right", divider: i === 0 && !!onExport })),
             ...vaultMenuItems(vaults, canEdit, onMoveToVault, onCopyToVault),
             {
-              label: isSynced ? "Disable cloud sync" : "Enable cloud sync",
+              label: isSynced ? t("keychain.common.disableCloudSync") : t("keychain.common.enableCloudSync"),
               icon: isSynced ? "lucide:cloud-off" : "lucide:cloud",
               onClick: () => toggleExcluded(initial.id),
               divider: true,
             },
-            ...(onDelete ? [{ label: "Delete", icon: "lucide:trash-2", onClick: () => { onDelete(initial.id); onClose(); }, danger: true, divider: false, shortcut: getShortcutHint("delete") }] : []),
+            ...(onDelete ? [{ label: t("common.action.delete"), icon: "lucide:trash-2", onClick: () => { onDelete(initial.id); onClose(); }, danger: true, divider: false, shortcut: getShortcutHint("delete") }] : []),
           ];
           return (
             <>
@@ -201,21 +205,22 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
         })() : undefined}
       />
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        <FormSection label="General">
+        <FormSection label={t("keychain.common.general")}>
           <div>
             <label className={formLabelClass} style={formLabelStyle}>
-              Label
+              {t("keychain.common.label")}
             </label>
             <input
               className={formInputClass}
               style={formInputStyle}
               value={name}
               onChange={(e) => { markDirty(); setName(e.target.value); }}
+              // Matches the persisted default name fallback above — kept in English (see i18n issue #14).
               placeholder={`${keyInfo.type ?? "SSH Key"} · ${new Date().toLocaleDateString()}`}
             />
           </div>
           <div>
-            <label className={formLabelClass} style={formLabelStyle}>Tags</label>
+            <label className={formLabelClass} style={formLabelStyle}>{t("keychain.common.tags")}</label>
             <TagSelector
               value={tags}
               vaultId={vaultId}
@@ -223,7 +228,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
             />
           </div>
           <div>
-            <label className={formLabelClass} style={formLabelStyle}>Folder</label>
+            <label className={formLabelClass} style={formLabelStyle}>{t("keychain.common.folder")}</label>
             <FolderSelector
               value={folderId}
               folders={folders}
@@ -243,10 +248,10 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
         {mode === "generate" ? (
           <KeyGenFields onGenerated={handleGenerated} />
         ) : (<>
-          <FormSection label="Key Material">
+          <FormSection label={t("keychain.keyForm.sectionKeyMaterial")}>
             <div>
               <label className={formLabelClass} style={formLabelStyle}>
-                Private Key <span className="text-(--t-accent)">*</span>
+                {t("keychain.common.privateKey")} <span className="text-(--t-accent)">*</span>
               </label>
               <textarea
                 className={`${formInputClass} font-mono text-xs h-32 resize-none`}
@@ -267,13 +272,13 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
                   ) : keyInfo.valid ? (
                     <>
                       <Icon icon="lucide:circle-question-mark" width={12} className="text-(--t-text-dim)" />
-                      <span className="text-xs text-(--t-text-dim)">Unknown type</span>
+                      <span className="text-xs text-(--t-text-dim)">{t("keychain.keyForm.unknownType")}</span>
                     </>
                   ) : (
                     <>
                       <Icon icon="lucide:circle-x" width={12} className="text-(--t-status-error)" />
                       <span className="text-xs text-(--t-status-error)">
-                        {keyInfo.error ?? "Invalid key"}
+                        {keyInfo.error ?? t("keychain.keyForm.invalidKey")}
                       </span>
                     </>
                   )}
@@ -282,7 +287,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
             </div>
             <div>
               <label className={formLabelClass} style={formLabelStyle}>
-                Passphrase <span className="text-(--t-text-dim) font-normal">(optional)</span>
+                {t("keychain.common.passphrase")} <span className="text-(--t-text-dim) font-normal">{t("keychain.common.optional")}</span>
               </label>
               <div className="relative">
                 <input
@@ -291,7 +296,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
                   style={formInputStyle}
                   value={passphrase}
                   onChange={(e) => { markDirty(); passphraseDirty.current = true; setPassphrase(e.target.value); }}
-                  placeholder="Key passphrase"
+                  placeholder={t("keychain.keyForm.keyPassphrasePlaceholder")}
                   autoComplete="new-password"
                 />
                 <button
@@ -308,7 +313,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
             </div>
             <div>
               <label className={formLabelClass} style={formLabelStyle}>
-                Public Key <span className="text-(--t-text-dim) font-normal">(optional)</span>
+                {t("keychain.common.publicKey")} <span className="text-(--t-text-dim) font-normal">{t("keychain.common.optional")}</span>
               </label>
               <textarea
                 className={`${formInputClass} font-mono text-xs h-20 resize-none`}
@@ -320,7 +325,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
             </div>
           </FormSection>
 
-          <FormSection label="Import from File">
+          <FormSection label={t("keychain.keyForm.sectionImportFromFile")}>
             <KeyFileDropZone
               onPrivateKey={(v) => { markDirty(); privateKeyDirty.current = true; setPrivateKey(v); }}
               onPublicKey={(v) => { markDirty(); publicKeyDirty.current = true; setPublicKey(v); }}
@@ -336,7 +341,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
               className="px-4 py-2 flex items-center gap-2 border-b border-b-(--t-bg-card-hover)"
             >
               <span className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
-                Key Export
+                {t("keychain.keyForm.sectionKeyExport")}
               </span>
             </div>
             <div className="px-4 py-3">
@@ -345,7 +350,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
                 className="btn btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium relative overflow-hidden"
               >
                 <Icon icon="lucide:square-arrow-right" width={20} />
-                Add to host
+                {t("keychain.common.addToHost")}
               </button>
             </div>
           </div>

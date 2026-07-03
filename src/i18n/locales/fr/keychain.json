@@ -1,0 +1,144 @@
+{
+  "keychain": {
+    "common": {
+      "general": "Général",
+      "label": "Libellé",
+      "tags": "Étiquettes",
+      "folder": "Dossier",
+      "optional": "(facultatif)",
+      "username": "Nom d'utilisateur",
+      "password": "Mot de passe",
+      "privateKey": "Clé privée",
+      "publicKey": "Clé publique",
+      "passphrase": "Phrase secrète",
+      "addToHost": "Ajouter à un hôte",
+      "disableCloudSync": "Désactiver la synchronisation cloud",
+      "enableCloudSync": "Activer la synchronisation cloud",
+      "cloudSyncDisabledTitle": "Synchronisation cloud désactivée"
+    },
+    "toolbar": {
+      "filterPlaceholder": "Filtrer...",
+      "newKey": "Nouvelle clé",
+      "newKeyOptionsAriaLabel": "Options de nouvelle clé",
+      "generateKeyPair": "Générer une paire de clés",
+      "newIdentity": "Nouvelle identité"
+    },
+    "page": {
+      "all": "Tous",
+      "folders": "Dossiers",
+      "new": "Nouveau",
+      "pinned": "Épinglés",
+      "ejectMoveTo": "Déplacer vers {{name}}",
+      "ejectRemoveFromFolder": "Retirer du dossier",
+      "bulk": {
+        "moveItemsTo_one": "Déplacer {{count}} élément vers",
+        "moveItemsTo_other": "Déplacer {{count}} éléments vers",
+        "copyItemsTo_one": "Copier {{count}} élément vers",
+        "copyItemsTo_other": "Copier {{count}} éléments vers",
+        "enableCloudSync": "Activer la synchronisation cloud ({{count}})",
+        "disableCloudSync": "Désactiver la synchronisation cloud ({{count}})",
+        "exportPublicKeys_one": "Exporter {{count}} clé publique",
+        "exportPublicKeys_other": "Exporter {{count}} clés publiques",
+        "deleteItems_one": "Supprimer {{count}} élément",
+        "deleteItems_other": "Supprimer {{count}} éléments"
+      },
+      "confirmDeleteFolder": {
+        "title": "Supprimer le dossier",
+        "message": "Cela supprimera le dossier. Les éléments qu'il contient ne seront pas supprimés — ils reviendront au niveau supérieur."
+      },
+      "confirmDelete": {
+        "title_one": "Supprimer {{count}} élément",
+        "title_other": "Supprimer {{count}} éléments",
+        "message_one": "Voulez-vous vraiment supprimer {{count}} élément ? Cette action est irréversible.",
+        "message_other": "Voulez-vous vraiment supprimer {{count}} éléments ? Cette action est irréversible."
+      },
+      "vaultCascade": {
+        "moveDescription": "Déplacer \"{{folderName}}\" déplacera aussi les éléments suivants vers {{targetVaultName}} :",
+        "copyDescription": "Copier \"{{folderName}}\" copiera aussi les éléments suivants vers {{targetVaultName}} :"
+      }
+    },
+    "cards": {
+      "addedOn": "ajouté le {{date}}",
+      "passwordBadge": "Mot de passe",
+      "sshKeysLabel": "Clés SSH",
+      "identitiesLabel": "Identités",
+      "keySection": {
+        "emptyTitle": "Aucune clé SSH pour l'instant",
+        "emptyDescription": "Stockez des paires de clés SSH réutilisables",
+        "addButton": "Ajouter une clé"
+      },
+      "identitySection": {
+        "emptyTitle": "Aucune identité pour l'instant",
+        "emptyDescription": "Associez un nom d'utilisateur à des identifiants pour les réutiliser sur plusieurs hôtes",
+        "addButton": "Ajouter une identité"
+      },
+      "pin": {
+        "unpinForMe": "Détacher pour moi",
+        "showInMyView": "Afficher dans ma vue",
+        "hideForMe": "Masquer pour moi",
+        "pinForMe": "Épingler pour moi",
+        "unpin": "Détacher",
+        "pin": "Épingler",
+        "unpinForTeam": "Détacher pour l'équipe",
+        "pinForTeam": "Épingler pour l'équipe"
+      }
+    },
+    "keyForm": {
+      "titleEdit": "Modifier la clé",
+      "modeImport": "Importer",
+      "modeGenerate": "Générer",
+      "sectionKeyMaterial": "Matériel de clé",
+      "sectionImportFromFile": "Importer depuis un fichier",
+      "sectionKeyExport": "Export de clé",
+      "unknownType": "Type inconnu",
+      "invalidKey": "Clé invalide",
+      "keyPassphrasePlaceholder": "Phrase secrète de la clé"
+    },
+    "identityForm": {
+      "titleEdit": "Modifier l'identité",
+      "sectionCredentials": "Identifiants",
+      "sectionNewKeyMaterial": "Nouveau matériel de clé",
+      "sectionLinkedTo": "Lié à",
+      "sshKeyLabel": "Clé SSH",
+      "noKey": "Aucune clé",
+      "newKeyInline": "Nouvelle clé (en ligne)...",
+      "unnamedKey": "Clé sans nom",
+      "namePlaceholder": "Mon identité (facultatif)",
+      "keyLabel": "Libellé de la clé",
+      "keyLabelPlaceholder": "Ma clé SSH (facultatif)",
+      "editHostTitle": "Modifier l'hôte",
+      "unlinkTitle": "Dissocier — copier les identifiants en ligne vers l'hôte"
+    },
+    "exportPanel": {
+      "exportSectionLabel": "Export",
+      "destinationHost": "Hôte de destination",
+      "selectHostPlaceholder": "Sélectionner un hôte…",
+      "location": "Emplacement",
+      "filename": "Nom du fichier",
+      "unixOnlyNotice": "L'export de clé ne prend actuellement en charge que les systèmes UNIX. Utilisez la section Avancé pour personnaliser le script d'export.",
+      "advanced": "Avancé",
+      "exportScriptLabel": "Script d'export",
+      "successMessage": "Clé exportée avec succès",
+      "exportingLabel": "Export en cours…",
+      "publicKeyNotFoundError": "Clé publique introuvable"
+    },
+    "dropZone": {
+      "loaded": "Fichier de clé chargé",
+      "error": "Impossible de lire le fichier",
+      "dropToLoad": "Déposer pour charger le fichier de clé",
+      "dropHere": "Déposez un fichier de clé ici",
+      "hint": ".pem, .key, .pub ou tout fichier de clé SSH"
+    },
+    "genFields": {
+      "sectionKeyType": "Type de clé",
+      "ellipticCurve": "Courbe elliptique",
+      "keySizeBits": "Taille de clé (bits)",
+      "passphrasePlaceholder": "Phrase secrète facultative",
+      "savePassphrase": "Enregistrer la phrase secrète",
+      "cipher": "Chiffrement",
+      "rounds": "Itérations",
+      "roundsTooltip": "Nombre d'itérations bcrypt-pbkdf utilisées pour dériver la clé de chiffrement à partir de votre phrase secrète. Des valeurs plus élevées ralentissent les attaques par force brute au prix d'un chargement de clé légèrement plus lent. La valeur par défaut d'OpenSSH est 16 ; 100 offre un bon compromis.",
+      "generating": "Génération…"
+    }
+  }
+}
