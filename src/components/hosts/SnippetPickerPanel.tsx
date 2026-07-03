@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAllSnippets } from "@/hooks/useAllSnippets";
 import { useSnippetStore } from "@/stores/snippetStore";
@@ -35,6 +36,7 @@ interface Props {
 }
 
 export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
+  const { t } = useTranslation();
   const snippets = useAllSnippets();
   const { loadSnippets, recentSnippetIds, trackUsed, createSnippet, updateSnippet } = useSnippetStore();
   const { sessions, connectMany, setActive } = useSessionStore();
@@ -163,12 +165,12 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
         <PanelShell>
           <PanelHeader
             icon="lucide:braces"
-            title="Execute Snippet"
+            title={t("hosts.snippetPicker.title")}
             onClose={onClose}
             actions={
               <PanelHeaderIconButton
                 icon="lucide:external-link"
-                title="Go to Snippets"
+                title={t("hosts.snippetPicker.goToSnippets")}
                 onClick={() => { setActiveNav("snippets"); onClose(); }}
               />
             }
@@ -186,12 +188,12 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
                 ref={searchRef}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Filter snippets..."
+                placeholder={t("hosts.snippetPicker.filterPlaceholder")}
                 className="form-input w-full pl-8 pr-2 h-8 rounded-lg text-xs outline-hidden bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary)"
               />
             </div>
             <button
-              title="New snippet"
+              title={t("hosts.snippetPicker.newSnippetTitle")}
               onClick={() => setIsCreating(true)}
               className="flex items-center gap-1 shrink-0 px-2.5 h-8 rounded-lg text-xs font-medium transition-colors whitespace-nowrap"
               style={{ background: "var(--t-bg-input)", color: "var(--t-text-primary)" }}
@@ -199,7 +201,7 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
               onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-input)")}
             >
               <Icon icon="lucide:plus" width={13} />
-              New
+              {t("hosts.snippetPicker.new")}
             </button>
           </div>
 
@@ -208,24 +210,24 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
             {snippets.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3 px-4 text-center">
                 <Icon icon="lucide:braces" width={28} className="text-(--t-text-dim)" />
-                <p className="text-xs text-(--t-text-dim)">No snippets yet</p>
+                <p className="text-xs text-(--t-text-dim)">{t("hosts.snippetPicker.noSnippetsYet")}</p>
                 <button
                   onClick={() => setIsCreating(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors text-(--t-accent) border border-(--t-border-hover)"
                   style={{ background: "var(--t-bg-elevated)" }}
                 >
                   <Icon icon="lucide:plus" width={12} />
-                  Create snippet
+                  {t("hosts.snippetPicker.createSnippet")}
                 </button>
               </div>
             ) : filtered.length === 0 ? (
-              <p className="px-4 py-6 text-xs text-center text-(--t-text-dim)">No snippets match</p>
+              <p className="px-4 py-6 text-xs text-center text-(--t-text-dim)">{t("hosts.snippetPicker.noSnippetsMatch")}</p>
             ) : (
               <>
                 {recentSnippets.length > 0 && !searchQuery && (
                   <div className="mb-0.5">
                     <p className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-(--t-text-dim)">
-                      Recent
+                      {t("hosts.snippetPicker.recent")}
                     </p>
                     {recentSnippets.map((s) => (
                       <SnippetRow key={s.id} snippet={s} onTrigger={handleTrigger} />
@@ -234,7 +236,7 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
                 )}
                 {!searchQuery && recentSnippets.length > 0 && (
                   <p className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-(--t-text-dim)">
-                    All Snippets
+                    {t("hosts.snippetPicker.allSnippets")}
                   </p>
                 )}
                 {filtered.map((s) => (
@@ -254,7 +256,7 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
             <div className="flex items-center gap-2 px-4 py-2.5">
               <Icon icon="lucide:server" width={12} className="text-(--t-text-dim) shrink-0" />
               <p className="text-xs text-(--t-text-dim)">
-                {connectionIds.length === 1 ? "1 host selected" : `${connectionIds.length} hosts selected`}
+                {t("hosts.snippetPicker.hostsSelected", { count: connectionIds.length })}
               </p>
             </div>
           </div>
@@ -282,6 +284,7 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
 // ─── Snippet row ──────────────────────────────────────────────────────────────
 
 function SnippetRow({ snippet, onTrigger }: { snippet: Snippet; onTrigger: (s: Snippet, execute: boolean) => void }) {
+  const { t } = useTranslation();
   return (
     <div className="group flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-(--t-bg-elevated)">
       <div
@@ -298,7 +301,7 @@ function SnippetRow({ snippet, onTrigger }: { snippet: Snippet; onTrigger: (s: S
       </div>
       <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
         <button
-          title="Insert"
+          title={t("hosts.snippetPicker.insert")}
           onClick={() => onTrigger(snippet, false)}
           className="w-6 h-6 flex items-center justify-center rounded-sm transition-colors text-(--t-text-dim)"
           onMouseEnter={(e) => {
@@ -313,7 +316,7 @@ function SnippetRow({ snippet, onTrigger }: { snippet: Snippet; onTrigger: (s: S
           <Icon icon="lucide:arrow-down-to-line" width={12} />
         </button>
         <button
-          title="Execute"
+          title={t("hosts.snippetPicker.execute")}
           onClick={() => onTrigger(snippet, true)}
           className="w-6 h-6 flex items-center justify-center rounded-sm transition-colors"
           style={{ color: "var(--t-accent)" }}

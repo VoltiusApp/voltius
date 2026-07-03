@@ -1,0 +1,129 @@
+{
+  "hosts": {
+    "toolbar": {
+      "filterPlaceholder": "Filter hosts...",
+      "openSerialConsole": "Open serial console",
+      "serial": "Serial",
+      "terminal": "Terminal",
+      "importExport": "Import/Export",
+      "import": "Import…",
+      "export": "Export…",
+      "fromImporter": "From {{label}}",
+      "newHost": "New Host",
+      "newSerialHost": "New Serial Host",
+      "newFolder": "New Folder"
+    },
+    "card": {
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "pinned": "Pinned",
+      "pinnedByTeam": "Pinned by {{name}} for the team",
+      "pinnedByTeamAndPersonal": "Pinned by {{name}} for the team · you also pinned this",
+      "hiddenPinnedByTeam": "Hidden from your view · pinned by {{name}} for the team",
+      "teamMemberFallback": "a team member",
+      "unpinForMe": "Unpin for me",
+      "showInMyView": "Show in my view",
+      "hideForMe": "Hide for me",
+      "pinForMe": "Pin for me",
+      "unpinForTeam": "Unpin for team",
+      "pinForTeam": "Pin for team",
+      "openInSftp": "Open in SFTP",
+      "copyHostnameIp": "Copy Hostname/IP",
+      "copiedHost": "Copied {{host}}",
+      "executeSnippet": "Execute Snippet",
+      "cloudSyncDisabled": "Cloud sync disabled",
+      "connectTitle": "Connect (or double-click)",
+      "openFilesTitle": "Open files (or double-click)",
+      "inUseBy": "In use by {{name}}",
+      "inUseByOverflow_one": "In use by {{name}} + {{count}} other",
+      "inUseByOverflow_other": "In use by {{name}} + {{count}} others"
+    },
+    "page": {
+      "all": "All",
+      "folders": "Folders",
+      "new": "New",
+      "pinned": "Pinned",
+      "folderEmpty": "This folder is empty",
+      "addHost": "Add Host",
+      "noSearchResults": "No hosts match \"{{search}}\"",
+      "ejectMoveTo": "Move to {{name}}",
+      "ejectRemoveFromFolder": "Remove from folder",
+      "unnamedKey": "Unnamed key",
+      "copyOf": "{{name}} (copy)",
+      "emptyState": {
+        "title": "No hosts yet",
+        "subtitle": "Add your first SSH host to get started"
+      },
+      "draft": {
+        "unsaved": "Unsaved"
+      },
+      "vaultCascade": {
+        "moveDescription": "Moving \"{{folderName}}\" will also move the following items to {{targetVaultName}}:",
+        "copyDescription": "Copying \"{{folderName}}\" will also copy the following items to {{targetVaultName}}:"
+      },
+      "bulk": {
+        "executeSnippetOn_one": "Execute Snippet on {{count}} host",
+        "executeSnippetOn_other": "Execute Snippet on {{count}} hosts",
+        "connectHosts": "Connect {{count}} hosts",
+        "duplicateHosts": "Duplicate {{count}} hosts",
+        "moveItemsTo_one": "Move {{count}} item to",
+        "moveItemsTo_other": "Move {{count}} items to",
+        "copyItemsTo_one": "Copy {{count}} item to",
+        "copyItemsTo_other": "Copy {{count}} items to",
+        "enableCloudSync": "Enable cloud sync ({{count}})",
+        "disableCloudSync": "Disable cloud sync ({{count}})",
+        "enableReachability": "Enable reachability check ({{count}})",
+        "disableReachability": "Disable reachability check ({{count}})",
+        "exportHosts": "Export {{count}} hosts",
+        "deleteItems_one": "Delete {{count}} item",
+        "deleteItems_other": "Delete {{count}} items"
+      },
+      "confirmDelete": {
+        "title_one": "Delete {{count}} item",
+        "title_other": "Delete {{count}} items",
+        "message_one": "Are you sure you want to delete {{count}} item? This cannot be undone.",
+        "message_other": "Are you sure you want to delete {{count}} items? This cannot be undone."
+      },
+      "confirmDeleteFolder": {
+        "title": "Delete folder",
+        "message": "This will delete the folder. Items inside won't be deleted — they'll return to the top level."
+      }
+    },
+    "remoteSessions": {
+      "title": "Live on other devices",
+      "justNow": "just now",
+      "minutesAgo": "{{count}}m ago",
+      "hoursAgo": "{{count}}h ago",
+      "daysAgo": "{{count}}d ago"
+    },
+    "teamSessions": {
+      "title": "Team Sessions",
+      "joinByCode": "Join by code",
+      "live": "LIVE",
+      "pasteInviteCode": "Paste an invite code to join a private session:",
+      "inviteCodePlaceholder": "sessionId:token",
+      "join": "Join",
+      "resume": "Resume",
+      "invalidCodeFormat": "Invalid code — expected format: sessionId:token",
+      "failedToJoinSession": "Failed to join session",
+      "sharedTerminalFallback": "Shared Terminal",
+      "meFallback": "Me"
+    },
+    "snippetPicker": {
+      "title": "Execute Snippet",
+      "goToSnippets": "Go to Snippets",
+      "filterPlaceholder": "Filter snippets...",
+      "newSnippetTitle": "New snippet",
+      "new": "New",
+      "noSnippetsYet": "No snippets yet",
+      "createSnippet": "Create snippet",
+      "noSnippetsMatch": "No snippets match",
+      "recent": "Recent",
+      "allSnippets": "All Snippets",
+      "hostsSelected_one": "{{count}} host selected",
+      "hostsSelected_other": "{{count}} hosts selected",
+      "insert": "Insert",
+      "execute": "Execute"
+    }
+  }
+}

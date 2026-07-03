@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useConnectionStore } from "@/stores/connectionStore";
@@ -9,14 +11,15 @@ import { BaseCard } from "@/components/shared/BaseCard";
 
 function relativeAge(iso: string): string {
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return i18n.t("hosts.remoteSessions.justNow");
+  if (mins < 60) return i18n.t("hosts.remoteSessions.minutesAgo", { count: mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  if (hours < 24) return i18n.t("hosts.remoteSessions.hoursAgo", { count: hours });
+  return i18n.t("hosts.remoteSessions.daysAgo", { count: Math.floor(hours / 24) });
 }
 
 export function RemoteDeviceSessions() {
+  const { t } = useTranslation();
   const [enabled] = useToggle("cross-device-sessions");
   // Subscribed so the derived list recomputes when its inputs change.
   useCrossDeviceSessionsStore((s) => s.manifests);
@@ -31,7 +34,7 @@ export function RemoteDeviceSessions() {
     <div className="mb-6">
       <div className="flex items-center gap-2 mb-3">
         <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
-          Live on other devices
+          {t("hosts.remoteSessions.title")}
         </p>
       </div>
 

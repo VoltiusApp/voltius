@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { matchesSearch, compareConnections } from "@/utils/connectionFilter";
 import { ErrorBanner } from "@/components/shared/ErrorBanner";
 import { Icon } from "@iconify/react";
@@ -52,6 +53,7 @@ import { saveHostFromForm } from "@/services/hostForm";
 
 
 export default function HostsPage() {
+  const { t } = useTranslation();
   const { loadConnections, saveConnection, updateConnection, deleteConnection, renameTag, deleteTag } =
     useConnectionStore();
   const connections = useAllConnections();
@@ -322,7 +324,7 @@ export default function HostsPage() {
   const handleDuplicate = async (conn: Connection) => {
     try {
       const newConn = await saveConnection({
-        name: conn.name ? `${conn.name} (copy)` : undefined,
+        name: conn.name ? t("hosts.page.copyOf", { name: conn.name }) : undefined,
         connection_type: conn.connection_type,
         host: conn.host,
         port: conn.port,
@@ -448,35 +450,35 @@ export default function HostsPage() {
     const copyChildren = bulkVaultChildren("copy");
     return [
       {
-        label: `Execute Snippet on ${ids.length} host${ids.length === 1 ? "" : "s"}`,
+        label: t("hosts.page.bulk.executeSnippetOn", { count: ids.length }),
         icon: "lucide:braces",
         onClick: () => openSnippetPicker(ids),
         divider: true,
       },
       ...(selectedConns.length > 1 ? [{
-        label: `Connect ${selectedConns.length} hosts`,
+        label: t("hosts.page.bulk.connectHosts", { count: selectedConns.length }),
         icon: "lucide:terminal",
         onClick: () => { void handleBulkConnect(selectedConns); },
         divider: true,
       }] : []),
       ...(allCanEdit ? [{
-        label: `Duplicate ${ids.length} hosts`,
+        label: t("hosts.page.bulk.duplicateHosts", { count: ids.length }),
         icon: "lucide:copy",
         onClick: () => { void Promise.all(selectedConns.map((c) => handleDuplicate(c))); },
       }] : []),
       ...(moveChildren.length > 0 ? [{
-        label: `Move ${totalSelected} item${totalSelected === 1 ? "" : "s"} to`,
+        label: t("hosts.page.bulk.moveItemsTo", { count: totalSelected }),
         icon: "lucide:vault",
         children: moveChildren,
         divider: true,
       }] : []),
       ...(copyChildren.length > 0 ? [{
-        label: `Copy ${totalSelected} item${totalSelected === 1 ? "" : "s"} to`,
+        label: t("hosts.page.bulk.copyItemsTo", { count: totalSelected }),
         icon: "lucide:copy-plus",
         children: copyChildren,
       }] : []),
       {
-        label: allSynced ? `Disable cloud sync (${ids.length})` : `Enable cloud sync (${ids.length})`,
+        label: allSynced ? t("hosts.page.bulk.disableCloudSync", { count: ids.length }) : t("hosts.page.bulk.enableCloudSync", { count: ids.length }),
         icon: allSynced ? "lucide:cloud-off" : "lucide:cloud",
         onClick: () => {
           const store = useSyncPrefsStore.getState();
@@ -489,7 +491,7 @@ export default function HostsPage() {
         divider: true,
       },
       {
-        label: selectedConns.every((c) => c.ping_disabled) ? `Enable reachability check (${ids.length})` : `Disable reachability check (${ids.length})`,
+        label: selectedConns.every((c) => c.ping_disabled) ? t("hosts.page.bulk.enableReachability", { count: ids.length }) : t("hosts.page.bulk.disableReachability", { count: ids.length }),
         icon: selectedConns.every((c) => c.ping_disabled) ? "lucide:wifi" : "lucide:wifi-off",
         onClick: () => {
           const allDisabled = selectedConns.every((c) => c.ping_disabled);
@@ -497,19 +499,19 @@ export default function HostsPage() {
         },
       },
       {
-        label: `Export ${ids.length} hosts`,
+        label: t("hosts.page.bulk.exportHosts", { count: ids.length }),
         icon: "lucide:upload",
         onClick: () => useUIStore.getState().openImportExport("export", { bulk: { connections: ids } }),
       },
       {
-        label: `Delete ${totalSelected} item${totalSelected === 1 ? "" : "s"}`,
+        label: t("hosts.page.bulk.deleteItems", { count: totalSelected }),
         icon: "lucide:trash-2",
         onClick: () => setConfirmDeleteIds([...ids, ...folderIds]),
         danger: true,
         divider: true,
       },
     ];
-  }, [selectedIdSet, selectedConnections, selectedFolders, excludedIds, syncTypes, handleDuplicate, can, updateConnection, handleBulkConnect, openSnippetPicker, vaultOptions, connections, identities, keys, scopedFolders]);
+  }, [t, selectedIdSet, selectedConnections, selectedFolders, excludedIds, syncTypes, handleDuplicate, can, updateConnection, handleBulkConnect, openSnippetPicker, vaultOptions, connections, identities, keys, scopedFolders]);
 
   const handleSubmit = async (data: ConnectionFormData, password: string | null, privateKey: string | null, passphrase: string | null) => {
     try {
@@ -531,7 +533,7 @@ export default function HostsPage() {
       operation: "move",
       targetVaultName,
       items: [
-        ...(keyNeedsMove ? [{ type: "key" as const, label: key.name ?? "Unnamed key" }] : []),
+        ...(keyNeedsMove ? [{ type: "key" as const, label: key.name ?? t("hosts.page.unnamedKey") }] : []),
         ...(identityNeedsMove ? [{ type: "identity" as const, label: identity.name || identity.username }] : []),
       ],
       execute: async () => {
@@ -568,7 +570,7 @@ export default function HostsPage() {
       operation: "copy",
       targetVaultName,
       items: [
-        ...(keyNeedsCopy ? [{ type: "key" as const, label: key.name ?? "Unnamed key" }] : []),
+        ...(keyNeedsCopy ? [{ type: "key" as const, label: key.name ?? t("hosts.page.unnamedKey") }] : []),
         ...(identityNeedsCopy ? [{ type: "identity" as const, label: identity.name || identity.username }] : []),
       ],
       execute: async () => {
@@ -596,7 +598,7 @@ export default function HostsPage() {
 
           const destHasConnName = conn.name && connections.some((c) => (c.vault_id ?? "personal") === vaultId && c.name === conn.name);
           const newConn = await saveConnection({
-            name: conn.name ? (destHasConnName ? `${conn.name} (copy)` : conn.name) : undefined,
+            name: conn.name ? (destHasConnName ? t("hosts.page.copyOf", { name: conn.name }) : conn.name) : undefined,
             host: conn.host, port: conn.port, username: conn.username,
             auth_type: conn.auth_type, tags: [...conn.tags],
             identity_id: newIdentityId, key_id: conn.key_id, folder_id: conn.folder_id,
@@ -659,14 +661,14 @@ export default function HostsPage() {
 
     const cascadeItems = [
       ...allConns.map((c) => ({ type: "connection" as const, label: c.name ?? c.host })),
-      ...[...keyMap.values()].map((k) => ({ type: "key" as const, label: k.name ?? "Unnamed key" })),
+      ...[...keyMap.values()].map((k) => ({ type: "key" as const, label: k.name ?? t("hosts.page.unnamedKey") })),
       ...[...identityMap.values()].map((i) => ({ type: "identity" as const, label: i.name || i.username })),
     ];
 
     requestCascade({
       operation: "move",
       targetVaultName,
-      description: `Moving "${folder.name}" will also move the following items to ${targetVaultName}:`,
+      description: t("hosts.page.vaultCascade.moveDescription", { folderName: folder.name, targetVaultName }),
       items: cascadeItems,
       execute: async () => {
         try {
@@ -705,21 +707,21 @@ export default function HostsPage() {
 
     const cascadeItems = [
       ...allConns.map((c) => ({ type: "connection" as const, label: c.name ?? c.host })),
-      ...[...keyMap.values()].map((k) => ({ type: "key" as const, label: k.name ?? "Unnamed key" })),
+      ...[...keyMap.values()].map((k) => ({ type: "key" as const, label: k.name ?? t("hosts.page.unnamedKey") })),
       ...[...identityMap.values()].map((i) => ({ type: "identity" as const, label: i.name || i.username })),
     ];
 
     requestCascade({
       operation: "copy",
       targetVaultName,
-      description: `Copying "${folder.name}" will also copy the following items to ${targetVaultName}:`,
+      description: t("hosts.page.vaultCascade.copyDescription", { folderName: folder.name, targetVaultName }),
       items: cascadeItems,
       execute: async () => {
         try {
           // Create root folder + sub-folders (BFS order ensures parent exists before child)
           const folderIdMap = new Map<string, string>();
           const destHasFolderName = folders.some((f) => (f.vault_id ?? "personal") === vaultId && f.object_type === folder.object_type && f.name === folder.name);
-          const newFolder = await saveFolder({ name: destHasFolderName ? `${folder.name} (copy)` : folder.name, object_type: folder.object_type, parent_folder_id: folder.parent_folder_id, vault_id: vaultId });
+          const newFolder = await saveFolder({ name: destHasFolderName ? t("hosts.page.copyOf", { name: folder.name }) : folder.name, object_type: folder.object_type, parent_folder_id: folder.parent_folder_id, vault_id: vaultId });
           folderIdMap.set(folder.id, newFolder.id);
           for (const sf of subFolders) {
             const newParentId = sf.parent_folder_id ? (folderIdMap.get(sf.parent_folder_id) ?? newFolder.id) : newFolder.id;
@@ -872,7 +874,7 @@ export default function HostsPage() {
             }}
             canCreate={canCreate}
             canCreateFolder={canCreateFolder}
-            onCreateFolder={() => void saveFolder({ name: "New Folder", object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { setShowForm(false); setShowSerialForm(false); setEditingId(null); setEditingFolderId(f.id); })}
+            onCreateFolder={() => void saveFolder({ name: t("hosts.toolbar.newFolder"), object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { setShowForm(false); setShowSerialForm(false); setEditingId(null); setEditingFolderId(f.id); })}
             onCreateSerial={canCreate ? () => {
               hostFormSessionKeyRef.current = `new-${Date.now()}`;
               setEditingId(null);
@@ -939,7 +941,7 @@ export default function HostsPage() {
                     onClick={navigateToRoot}
                   >
                     <Icon icon="lucide:chevron-left" width={13} />
-                    All
+                    {t("hosts.page.all")}
                   </button>
                   {folderPath.map((folder, i) => (
                     <span key={folder.id} className="flex items-center gap-2">
@@ -966,7 +968,7 @@ export default function HostsPage() {
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
-                      Folders
+                      {t("hosts.page.folders")}
                     </p>
                     {canCreateFolder && <button
                       className="flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg text-(--t-text-dim)"
@@ -979,13 +981,13 @@ export default function HostsPage() {
                         e.currentTarget.style.background = "transparent";
                       }}
                       onClick={() =>
-                        saveFolder({ name: "New Folder", object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => {
+                        saveFolder({ name: t("hosts.toolbar.newFolder"), object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => {
                           setShowForm(false); setEditingId(null); setEditingFolderId(f.id);
                         })
                       }
                     >
                       <Icon icon="lucide:plus" width={12} />
-                      New
+                      {t("hosts.page.new")}
                     </button>}
                   </div>
                   <div
@@ -1045,7 +1047,7 @@ export default function HostsPage() {
                 >
                   <Icon icon="lucide:folder-minus" width={16} />
                   <span className="text-sm font-medium">
-                    {ejectTargetFolderId ? `Move to ${folderPath[folderPath.length - 2].name}` : "Remove from folder"}
+                    {ejectTargetFolderId ? t("hosts.page.ejectMoveTo", { name: folderPath[folderPath.length - 2].name }) : t("hosts.page.ejectRemoveFromFolder")}
                   </span>
                 </div>
               )}
@@ -1053,7 +1055,7 @@ export default function HostsPage() {
               {/* ── Pinned section ── */}
               {pinnedHosts.length > 0 && (
                 <div className="mb-6">
-                  <p className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">Pinned</p>
+                  <p className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">{t("hosts.page.pinned")}</p>
                   <div
                     className={layoutMode === "grid" ? "grid gap-4" : "flex flex-col gap-1"}
                     style={layoutMode === "grid" ? { gridTemplateColumns: HOST_GRID_COLS } : undefined}
@@ -1101,7 +1103,7 @@ export default function HostsPage() {
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
-                      Hosts
+                      {t("common.entity.hosts")}
                     </p>
                     {activeFolderId && (
                       <button
@@ -1119,7 +1121,7 @@ export default function HostsPage() {
                         style={{ opacity: !canCreate ? 0.35 : undefined }}
                       >
                         <Icon icon="lucide:plus" width={12} />
-                        New
+                        {t("hosts.page.new")}
                       </button>
                     )}
                   </div>
@@ -1171,13 +1173,13 @@ export default function HostsPage() {
               {activeFolderId && filtered.length === 0 && !showForm && !showSerialForm && (
                 <div className="flex flex-col items-center justify-center py-12 gap-3">
                   <Icon icon="lucide:folder-open" width={32} className="text-(--t-text-dim)" />
-                  <p className="text-sm text-(--t-text-dim)">This folder is empty</p>
+                  <p className="text-sm text-(--t-text-dim)">{t("hosts.page.folderEmpty")}</p>
                   <button
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-(--t-bg-elevated) text-(--t-accent) border border-(--t-border-hover)"
                     onClick={() => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); }}
                   >
                     <Icon icon="lucide:plus" width={12} />
-                    Add Host
+                    {t("hosts.page.addHost")}
                   </button>
                 </div>
               )}
@@ -1185,7 +1187,7 @@ export default function HostsPage() {
               {/* No search results */}
               {filtered.length === 0 && !showForm && !showSerialForm && connections.length > 0 && searchQuery && (
                 <p className="text-sm mt-4 text-(--t-text-dim)">
-                  No hosts match "{search}"
+                  {t("hosts.page.noSearchResults", { search })}
                 </p>
               )}
             </div>
@@ -1197,9 +1199,9 @@ export default function HostsPage() {
           pos={bgMenuPos}
           onClose={closeBgMenu}
           items={[
-            ...(canCreate ? [{ label: "New Host", icon: "lucide:server", onClick: () => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); } } as const] : []),
-            ...(canCreate ? [{ label: "New Serial Host", icon: "lucide:ethernet-port", onClick: () => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowSerialForm(true); setShowForm(false); setEditingFolderId(null); } } as const] : []),
-            ...(canCreateFolder ? [{ label: "New Folder", icon: "lucide:folder-plus", onClick: () => void saveFolder({ name: "New Folder", object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { setShowForm(false); setEditingId(null); setEditingFolderId(f.id); }) } as const] : []),
+            ...(canCreate ? [{ label: t("hosts.toolbar.newHost"), icon: "lucide:server", onClick: () => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); } } as const] : []),
+            ...(canCreate ? [{ label: t("hosts.toolbar.newSerialHost"), icon: "lucide:ethernet-port", onClick: () => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowSerialForm(true); setShowForm(false); setEditingFolderId(null); } } as const] : []),
+            ...(canCreateFolder ? [{ label: t("hosts.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: () => void saveFolder({ name: t("hosts.toolbar.newFolder"), object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { setShowForm(false); setEditingId(null); setEditingFolderId(f.id); }) } as const] : []),
             ...bgContributions,
           ]}
         />
@@ -1208,9 +1210,9 @@ export default function HostsPage() {
 
       {confirmDeleteIds && (
         <ConfirmModal
-          title={`Delete ${confirmDeleteIds.length} item${confirmDeleteIds.length === 1 ? "" : "s"}`}
-          message={`Are you sure you want to delete ${confirmDeleteIds.length} item${confirmDeleteIds.length === 1 ? "" : "s"}? This cannot be undone.`}
-          confirmLabel="Delete"
+          title={t("hosts.page.confirmDelete.title", { count: confirmDeleteIds.length })}
+          message={t("hosts.page.confirmDelete.message", { count: confirmDeleteIds.length })}
+          confirmLabel={t("common.action.delete")}
           onConfirm={() => {
             for (const id of confirmDeleteIds) {
               if (scopedFolders.some((f) => f.id === id)) void deleteFolder(id);
@@ -1225,9 +1227,9 @@ export default function HostsPage() {
 
       {confirmDeleteFolderId && (
         <ConfirmModal
-          title="Delete folder"
-          message="This will delete the folder. Items inside won't be deleted — they'll return to the top level."
-          confirmLabel="Delete"
+          title={t("hosts.page.confirmDeleteFolder.title")}
+          message={t("hosts.page.confirmDeleteFolder.message")}
+          confirmLabel={t("common.action.delete")}
           onConfirm={() => {
             void deleteFolder(confirmDeleteFolderId);
             onFolderDeleted(confirmDeleteFolderId);
@@ -1250,8 +1252,9 @@ export default function HostsPage() {
 }
 
 function DraftHostCard({ layout, serial = false }: { layout: "grid" | "list"; serial?: boolean }) {
+  const { t } = useTranslation();
   const icon = serial ? "lucide:ethernet-port" : "lucide:server";
-  const label = serial ? "New Serial Host" : "New Host";
+  const label = serial ? t("hosts.toolbar.newSerialHost") : t("hosts.toolbar.newHost");
   if (layout === "list") {
     return (
       <div
@@ -1271,13 +1274,14 @@ function DraftHostCard({ layout, serial = false }: { layout: "grid" | "list"; se
       <AvatarTile icon={icon} iconSize={22} className="rounded-lg w-[3.2rem] h-[3.2rem]" iconClassName="text-(--t-text-dim)" />
       <div>
         <p className="text-base font-medium-bold text-(--t-text-dim)">{label}</p>
-        <p className="text-xs mt-0.5 text-(--t-text-dim)">Unsaved</p>
+        <p className="text-xs mt-0.5 text-(--t-text-dim)">{t("hosts.page.draft.unsaved")}</p>
       </div>
     </div>
   );
 }
 
 function EmptyState({ onAdd }: { onAdd?: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[320px] gap-5">
       <div
@@ -1286,8 +1290,8 @@ function EmptyState({ onAdd }: { onAdd?: () => void }) {
         <Icon icon="lucide:monitor" width={28} className="text-(--t-text-dim)" />
       </div>
       <div className="text-center">
-        <p className="text-sm font-medium mb-1 text-(--t-text-primary)">No hosts yet</p>
-        <p className="text-xs text-(--t-text-dim)">Add your first SSH host to get started</p>
+        <p className="text-sm font-medium mb-1 text-(--t-text-primary)">{t("hosts.page.emptyState.title")}</p>
+        <p className="text-xs text-(--t-text-dim)">{t("hosts.page.emptyState.subtitle")}</p>
       </div>
       {onAdd && <button
         onClick={onAdd}
@@ -1296,7 +1300,7 @@ function EmptyState({ onAdd }: { onAdd?: () => void }) {
         onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-elevated)")}
       >
         <Icon icon="lucide:plus" width={14} />
-        Add Host
+        {t("hosts.page.addHost")}
       </button>}
     </div>
   );

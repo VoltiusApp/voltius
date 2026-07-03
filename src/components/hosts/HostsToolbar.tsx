@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { invoke } from "@tauri-apps/api/core";
 import { ToolbarViewControls, type LayoutMode, type SortMode } from "@/components/shared/ToolbarViewControls";
@@ -60,13 +61,14 @@ export function HomeToolbar({
   onRenameTag,
   onDeleteTag,
 }: HomeToolbarProps) {
+  const { t } = useTranslation();
   const { compact, rowRef, leftRef, rightRef } = useToolbarResize();
   const { createRipple: rippleSerial, rippleEls: ripplesSerial } = useRipple();
   const pluginHostMenuItems = useUIContributions("home.toolbar.hostMenu");
 
   const newHostItems = [
-    ...(canCreate && onCreateSerial ? [{ label: "New Serial Host", icon: "lucide:ethernet-port", onClick: onCreateSerial }] : []),
-    ...(canCreateFolder ? [{ label: "New Folder", icon: "lucide:folder-plus", onClick: onCreateFolder }] : []),
+    ...(canCreate && onCreateSerial ? [{ label: t("hosts.toolbar.newSerialHost"), icon: "lucide:ethernet-port", onClick: onCreateSerial }] : []),
+    ...(canCreateFolder ? [{ label: t("hosts.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: onCreateFolder }] : []),
     ...pluginHostMenuItems,
   ];
 
@@ -86,7 +88,7 @@ export function HomeToolbar({
           <ToolbarViewControls
             search={search}
             onSearchChange={onSearchChange}
-            filterPlaceholder="Filter hosts..."
+            filterPlaceholder={t("hosts.toolbar.filterPlaceholder")}
             filterShortcutId="filter"
             filterWidth={176}
             layoutMode={layoutMode}
@@ -111,19 +113,19 @@ export function HomeToolbar({
               onMouseLeave={(e) => (e.currentTarget.style.background = "var(--t-bg-input)")}
               onMouseDown={rippleSerial}
               onClick={onOpenSerial}
-              title="Open serial console"
+              title={t("hosts.toolbar.openSerialConsole")}
               type="button"
             >
               {ripplesSerial}
               <Icon icon="lucide:ethernet-port" width={20} />
-              {!compact && "Serial"}
+              {!compact && t("hosts.toolbar.serial")}
             </button>
           )}
 
           {!isAndroid && (
             <ToolbarDropdown
               icon="lucide:terminal"
-              label={compact ? undefined : "Terminal"}
+              label={compact ? undefined : t("hosts.toolbar.terminal")}
               value={preferredShell ?? shells[0]?.path ?? ""}
               options={shells.map((s) => ({ value: s.path, label: s.name }))}
               menuWidth={200}
@@ -137,14 +139,14 @@ export function HomeToolbar({
 
           <ToolbarDropdown
             icon="lucide:arrow-up-down"
-            label={compact ? undefined : "Import/Export"}
+            label={compact ? undefined : t("hosts.toolbar.importExport")}
             onAction={() => onOpenImportExport("import")}
             items={[
-              { label: "Import…", icon: "lucide:download", onClick: () => onOpenImportExport("import") },
-              { label: "Export…", icon: "lucide:upload", onClick: () => onOpenImportExport("export") },
+              { label: t("hosts.toolbar.import"), icon: "lucide:download", onClick: () => onOpenImportExport("import") },
+              { label: t("hosts.toolbar.export"), icon: "lucide:upload", onClick: () => onOpenImportExport("export") },
               { separator: true },
               ...IMPORTERS.map(imp => ({
-                label: `From ${imp.label}`,
+                label: t("hosts.toolbar.fromImporter", { label: imp.label }),
                 icon: imp.icon,
                 onClick: () => onOpenImportExport("import", { source: imp.key, autoTrigger: !!imp.autoExtract }),
               })),
@@ -155,7 +157,7 @@ export function HomeToolbar({
 
           <ToolbarDropdown
             icon="lucide:plus"
-            label={compact ? undefined : "New Host"}
+            label={compact ? undefined : t("hosts.toolbar.newHost")}
             onAction={onCreateHost}
             items={newHostItems}
             align="right"

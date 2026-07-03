@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import type { Connection, VaultOption } from "@/types";
 import { BaseCard } from "@/components/shared/BaseCard";
@@ -58,6 +59,7 @@ export default function HostCard({
   onMoveToVault, onCopyToVault,
   bulkContextMenuItems, onPointerDown,
 }: Props) {
+  const { t } = useTranslation();
   const isList = layout === "list";
   const isSerial = connection.connection_type === "serial";
   const isFtp = connection.connection_type === "ftp";
@@ -75,7 +77,7 @@ export default function HostCard({
     if (!isTeamVault || pinSource === "none" || pinSource === "personal") return undefined;
     const updatedBy = (connection as { updated_by?: string }).updated_by;
     const member = updatedBy ? teamMembers.find((m) => m.user_id === updatedBy) : undefined;
-    return member?.display_name ?? "a team member";
+    return member?.display_name ?? t("hosts.card.teamMemberFallback");
   })();
   const handlePinClick = () => {
     if (!isTeamVault) {
@@ -86,18 +88,18 @@ export default function HostCard({
     pinConnection(connection.id, next).catch(() => {});
   };
   const pinTooltip = (() => {
-    if (!isTeamVault) return effectivePinned ? "Unpin" : "Pin";
+    if (!isTeamVault) return effectivePinned ? t("hosts.card.unpin") : t("hosts.card.pin");
     switch (pinSource) {
       case "none":
-        return "Pin";
+        return t("hosts.card.pin");
       case "personal":
-        return "Pinned";
+        return t("hosts.card.pinned");
       case "team":
-        return `Pinned by ${pinnerName} for the team`;
+        return t("hosts.card.pinnedByTeam", { name: pinnerName });
       case "team+personal":
-        return `Pinned by ${pinnerName} for the team · you also pinned this`;
+        return t("hosts.card.pinnedByTeamAndPersonal", { name: pinnerName });
       case "team-hidden":
-        return `Hidden from your view · pinned by ${pinnerName} for the team`;
+        return t("hosts.card.hiddenPinnedByTeam", { name: pinnerName });
     }
   })();
   const pinIcon = pinSource === "team-hidden" ? "lucide:pin-off" : "lucide:pin";
@@ -115,8 +117,8 @@ export default function HostCard({
   const presence = useConnectionPresence(connection);
   const presenceTitle = presence
     ? presence.overflow > 0
-      ? `In use by ${presence.primary.displayName} + ${presence.overflow} other${presence.overflow === 1 ? "" : "s"}`
-      : `In use by ${presence.primary.displayName}`
+      ? t("hosts.card.inUseByOverflow", { name: presence.primary.displayName, count: presence.overflow })
+      : t("hosts.card.inUseBy", { name: presence.primary.displayName })
     : "";
   const presenceAvatar = presence && (
     <span className="flex items-center" title={presenceTitle}>
@@ -130,10 +132,10 @@ export default function HostCard({
   );
 
   const contextMenuItems: ContextMenuItem[] = [
-    ...(canEdit ? [{ label: "Edit", icon: "lucide:square-pen", onClick: () => onEdit(connection), shortcut: "E" }] : []),
-    ...(!isSerial ? [{ label: "Open in SFTP", icon: "lucide:folder-open", onClick: () => useUIStore.getState().openSftpWith(connection.id) }] : []),
+    ...(canEdit ? [{ label: t("common.action.edit"), icon: "lucide:square-pen", onClick: () => onEdit(connection), shortcut: "E" }] : []),
+    ...(!isSerial ? [{ label: t("hosts.card.openInSftp"), icon: "lucide:folder-open", onClick: () => useUIStore.getState().openSftpWith(connection.id) }] : []),
     ...(connection.host ? [{
-      label: "Copy Hostname/IP",
+      label: t("hosts.card.copyHostnameIp"),
       icon: "lucide:clipboard-copy",
       onClick: () => {
         void writeClipboard(connection.host);
@@ -141,13 +143,13 @@ export default function HostCard({
           pluginId: "core",
           pluginName: "Voltius",
           type: "toast",
-          message: `Copied ${connection.host}`,
+          message: t("hosts.card.copiedHost", { host: connection.host }),
           severity: "success",
           duration: 2000,
         });
       },
     }] : []),
-    ...(!isSerial && !isFtp && onExecuteSnippet ? [{ label: "Execute Snippet", icon: "lucide:braces", onClick: () => onExecuteSnippet(connection), divider: true }] : []),
+    ...(!isSerial && !isFtp && onExecuteSnippet ? [{ label: t("hosts.card.executeSnippet"), icon: "lucide:braces", onClick: () => onExecuteSnippet(connection), divider: true }] : []),
     ...buildConnectionMenuItems({
       canEdit,
       contributions,
@@ -167,13 +169,13 @@ export default function HostCard({
         {
           label: isTeamVault
             ? (pinSource === "personal" || pinSource === "team+personal")
-              ? "Unpin for me"
+              ? t("hosts.card.unpinForMe")
               : pinSource === "team-hidden"
-              ? "Show in my view"
+              ? t("hosts.card.showInMyView")
               : pinSource === "team"
-              ? "Hide for me"
-              : "Pin for me"
-            : effectivePinned ? "Unpin" : "Pin",
+              ? t("hosts.card.hideForMe")
+              : t("hosts.card.pinForMe")
+            : effectivePinned ? t("hosts.card.unpin") : t("hosts.card.pin"),
           icon: (pinSource === "personal" || pinSource === "team+personal" || (!isTeamVault && effectivePinned))
             ? "lucide:pin-off"
             : "lucide:pin",
@@ -181,7 +183,7 @@ export default function HostCard({
           divider: true,
         },
         ...(canEdit && isTeamVault ? [{
-          label: (connection.pinned === true) ? "Unpin for team" : "Pin for team",
+          label: (connection.pinned === true) ? t("hosts.card.unpinForTeam") : t("hosts.card.pinForTeam"),
           icon: "lucide:users",
           onClick: () => pinConnectionForTeam(connection.id, !(connection.pinned === true)).catch(() => {}),
         }] : []),
@@ -220,7 +222,7 @@ export default function HostCard({
     : "var(--t-text-dim)";
 
   const syncIcon = !isSynced && (
-    <span title="Cloud sync disabled" className="text-(--t-text-dim) flex items-center">
+    <span title={t("hosts.card.cloudSyncDisabled")} className="text-(--t-text-dim) flex items-center">
       <Icon icon="lucide:cloud-off" width={18} />
     </span>
   );
@@ -267,15 +269,15 @@ export default function HostCard({
           <div className="flex items-center gap-1 shrink-0">
             {presenceAvatar}
             {syncIcon}
-            {canEdit && <CardActionButton icon="lucide:square-pen" title="Edit" onClick={() => onEdit(connection)} />}
-            {canEdit && <CardActionButton icon="lucide:trash-2" title="Delete" onClick={() => onDelete(connection.id)} danger />}
-            {!isSerial && !isFtp && <CardActionButton icon="lucide:folder-open" title="Open in SFTP" onClick={() => useUIStore.getState().openSftpWith(connection.id)} />}
+            {canEdit && <CardActionButton icon="lucide:square-pen" title={t("common.action.edit")} onClick={() => onEdit(connection)} />}
+            {canEdit && <CardActionButton icon="lucide:trash-2" title={t("common.action.delete")} onClick={() => onDelete(connection.id)} danger />}
+            {!isSerial && !isFtp && <CardActionButton icon="lucide:folder-open" title={t("hosts.card.openInSftp")} onClick={() => useUIStore.getState().openSftpWith(connection.id)} />}
             <button
               onClick={(e) => { e.stopPropagation(); onConnect(connection); }}
               className="flex items-center justify-center p-1.5 rounded-lg transition-colors text-(--t-accent)"
               onMouseEnter={(e) => (e.currentTarget.style.background = "color-mix(in srgb, var(--t-accent) 16%, transparent)")}
               onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-              title={isFtp ? "Open files (or double-click)" : "Connect (or double-click)"}
+              title={isFtp ? t("hosts.card.openFilesTitle") : t("hosts.card.connectTitle")}
             >
               <Icon icon={isFtp ? "lucide:folder-open" : "lucide:terminal"} width={18} />
             </button>
@@ -338,13 +340,13 @@ export default function HostCard({
             <div className="flex items-end">
               <div className="flex items-center gap-1 flex-1 -mb-1.5">
                 {canEdit && (
-                  <CardActionButton icon="lucide:trash-2" title="Delete" danger reveal={false} onClick={() => onDelete(connection.id)} />
+                  <CardActionButton icon="lucide:trash-2" title={t("common.action.delete")} danger reveal={false} onClick={() => onDelete(connection.id)} />
                 )}
                 {canEdit && (
-                  <CardActionButton icon="lucide:square-pen" title="Edit" reveal={false} onClick={() => onEdit(connection)} />
+                  <CardActionButton icon="lucide:square-pen" title={t("common.action.edit")} reveal={false} onClick={() => onEdit(connection)} />
                 )}
                 {!isSerial && !isFtp && (
-                  <CardActionButton icon="lucide:folder-open" title="Open in SFTP" reveal={false} onClick={() => useUIStore.getState().openSftpWith(connection.id)} />
+                  <CardActionButton icon="lucide:folder-open" title={t("hosts.card.openInSftp")} reveal={false} onClick={() => useUIStore.getState().openSftpWith(connection.id)} />
                 )}
               </div>
 
@@ -354,7 +356,7 @@ export default function HostCard({
                 onClick={(e) => { e.stopPropagation(); onConnect(connection); }}
                 className="terminal-connect-btn -mt-5 -mr-[calc(0.75rem+2px)] -mb-[calc(0.75rem+2px)] pr-[calc(0.75rem+2px)] pb-3.5 pt-2.5 pl-3 rounded-tl-xl rounded-br-2xl bg-(--t-bg-terminal) text-(--t-terminal-foreground) hover:brightness-150 transition-all text-xs flex flex-col min-w-0 overflow-hidden max-w-[75%]"
                 style={{ fontFamily: "var(--t-terminal-font-family)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.07), inset 1px 0 0 rgba(255,255,255,0.07)" }}
-                title={isFtp ? "Open files (or double-click)" : "Connect (or double-click)"}
+                title={isFtp ? t("hosts.card.openFilesTitle") : t("hosts.card.connectTitle")}
               >
                 <div className="flex gap-1 mb-1.5 shrink-0">
                   <span className="w-2 h-2 rounded-full bg-[#ff5f56]" />

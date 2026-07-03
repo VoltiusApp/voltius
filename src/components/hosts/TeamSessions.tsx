@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -12,6 +13,7 @@ import { AvatarTile } from "@/components/shared/AvatarTile";
 import { BaseCard } from "@/components/shared/BaseCard";
 
 export function TeamSessions() {
+  const { t } = useTranslation();
   const { activeSessions: rawSessions, fetchActiveSessions, joinSession } = useTeamSessionStore();
   const setActive = useSessionStore((s) => s.setActive);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
@@ -64,7 +66,7 @@ export function TeamSessions() {
   );
 
   const doJoinSession = async (sessionId: string, inviteToken?: string) => {
-    const displayName = (await getCurrentUserEmail()) ?? "Me";
+    const displayName = (await getCurrentUserEmail()) ?? t("hosts.teamSessions.meFallback");
     const localSessionId = await joinSession(
       sessionId,
       displayName,
@@ -78,7 +80,7 @@ export function TeamSessions() {
         {
           id: localSessionId,
           connectionId: sessionId,
-          connectionName: activeSessions.find((a) => a.id === sessionId)?.connection_name ?? "Shared Terminal",
+          connectionName: activeSessions.find((a) => a.id === sessionId)?.connection_name ?? t("hosts.teamSessions.sharedTerminalFallback"),
           status: "connected" as const,
           type: "multiplayer" as const,
         },
@@ -110,7 +112,7 @@ export function TeamSessions() {
     // Expected format: sessionId:inviteToken  (both UUIDs / tokens)
     const colonIdx = code.indexOf(":");
     if (colonIdx === -1) {
-      setJoinError("Invalid code — expected format: sessionId:token");
+      setJoinError(t("hosts.teamSessions.invalidCodeFormat"));
       return;
     }
 
@@ -118,7 +120,7 @@ export function TeamSessions() {
     const token = code.slice(colonIdx + 1);
 
     if (!sessionId || !token) {
-      setJoinError("Invalid code — expected format: sessionId:token");
+      setJoinError(t("hosts.teamSessions.invalidCodeFormat"));
       return;
     }
 
@@ -128,7 +130,7 @@ export function TeamSessions() {
       await doJoinSession(sessionId, token);
       setShowJoinModal(false);
     } catch (err) {
-      setJoinError(err instanceof Error ? err.message : "Failed to join session");
+      setJoinError(err instanceof Error ? err.message : t("hosts.teamSessions.failedToJoinSession"));
     } finally {
       setJoinLoading(false);
     }
@@ -140,7 +142,7 @@ export function TeamSessions() {
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-3">
           <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
-            Team Sessions
+            {t("hosts.teamSessions.title")}
           </p>
           <button
             className="flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium transition-colors"
@@ -150,7 +152,7 @@ export function TeamSessions() {
             onClick={() => setShowJoinModal(true)}
           >
             <Icon icon="lucide:link" width={11} />
-            Join by code
+            {t("hosts.teamSessions.joinByCode")}
           </button>
         </div>
         {showJoinModal && <JoinByCodeModal />}
@@ -165,7 +167,7 @@ export function TeamSessions() {
         style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}
       >
         <p className="text-xs font-medium mb-2" style={{ color: "var(--t-text-secondary)" }}>
-          Paste an invite code to join a private session:
+          {t("hosts.teamSessions.pasteInviteCode")}
         </p>
         <div className="flex gap-2">
           <input
@@ -173,7 +175,7 @@ export function TeamSessions() {
             value={inviteCode}
             onChange={(e) => { setInviteCode(e.target.value); setJoinError(null); }}
             onKeyDown={(e) => { if (e.key === "Enter") void handleJoinByCode(); if (e.key === "Escape") setShowJoinModal(false); }}
-            placeholder="sessionId:token"
+            placeholder={t("hosts.teamSessions.inviteCodePlaceholder")}
             className="flex-1 text-xs px-2.5 py-1.5 rounded-lg outline-hidden"
             style={{
               background: "var(--t-bg-elevated)",
@@ -191,7 +193,7 @@ export function TeamSessions() {
             {joinLoading
               ? <Icon icon="lucide:loader-circle" width={12} className="animate-spin" />
               : <Icon icon="lucide:log-in" width={12} />}
-            Join
+            {t("hosts.teamSessions.join")}
           </button>
           <button
             onClick={() => setShowJoinModal(false)}
@@ -212,7 +214,7 @@ export function TeamSessions() {
     <div className="mb-6">
       <div className="flex items-center gap-2 mb-3">
         <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">
-          Team Sessions
+          {t("hosts.teamSessions.title")}
         </p>
         <span
           className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-semibold"
@@ -225,7 +227,7 @@ export function TeamSessions() {
             className="w-1.5 h-1.5 rounded-full animate-pulse"
             style={{ background: "var(--t-accent)" }}
           />
-          LIVE
+          {t("hosts.teamSessions.live")}
         </span>
         <button
           className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium transition-colors"
@@ -235,7 +237,7 @@ export function TeamSessions() {
           onClick={() => setShowJoinModal((v) => !v)}
         >
           <Icon icon="lucide:link" width={11} />
-          Join by code
+          {t("hosts.teamSessions.joinByCode")}
         </button>
       </div>
 
@@ -305,7 +307,7 @@ export function TeamSessions() {
                     }}
                   >
                     <Icon icon={alreadyIn ? "lucide:monitor-play" : "lucide:log-in"} width={12} />
-                    {alreadyIn ? "Resume" : "Join"}
+                    {alreadyIn ? t("hosts.teamSessions.resume") : t("hosts.teamSessions.join")}
                   </button>
                 </div>
 

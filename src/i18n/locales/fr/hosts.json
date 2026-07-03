@@ -1,0 +1,129 @@
+{
+  "hosts": {
+    "toolbar": {
+      "filterPlaceholder": "Filtrer les hôtes...",
+      "openSerialConsole": "Ouvrir la console série",
+      "serial": "Série",
+      "terminal": "Terminal",
+      "importExport": "Import/Export",
+      "import": "Importer…",
+      "export": "Exporter…",
+      "fromImporter": "Depuis {{label}}",
+      "newHost": "Nouvel hôte",
+      "newSerialHost": "Nouvel hôte série",
+      "newFolder": "Nouveau dossier"
+    },
+    "card": {
+      "pin": "Épingler",
+      "unpin": "Détacher",
+      "pinned": "Épinglé",
+      "pinnedByTeam": "Épinglé par {{name}} pour l'équipe",
+      "pinnedByTeamAndPersonal": "Épinglé par {{name}} pour l'équipe · vous l'avez aussi épinglé",
+      "hiddenPinnedByTeam": "Masqué de votre vue · épinglé par {{name}} pour l'équipe",
+      "teamMemberFallback": "un membre de l'équipe",
+      "unpinForMe": "Détacher pour moi",
+      "showInMyView": "Afficher dans ma vue",
+      "hideForMe": "Masquer pour moi",
+      "pinForMe": "Épingler pour moi",
+      "unpinForTeam": "Détacher pour l'équipe",
+      "pinForTeam": "Épingler pour l'équipe",
+      "openInSftp": "Ouvrir en SFTP",
+      "copyHostnameIp": "Copier l'hôte/IP",
+      "copiedHost": "{{host}} copié",
+      "executeSnippet": "Exécuter un snippet",
+      "cloudSyncDisabled": "Synchronisation cloud désactivée",
+      "connectTitle": "Se connecter (ou double-clic)",
+      "openFilesTitle": "Ouvrir les fichiers (ou double-clic)",
+      "inUseBy": "Utilisé par {{name}}",
+      "inUseByOverflow_one": "Utilisé par {{name}} + {{count}} autre",
+      "inUseByOverflow_other": "Utilisé par {{name}} + {{count}} autres"
+    },
+    "page": {
+      "all": "Tous",
+      "folders": "Dossiers",
+      "new": "Nouveau",
+      "pinned": "Épinglés",
+      "folderEmpty": "Ce dossier est vide",
+      "addHost": "Ajouter un hôte",
+      "noSearchResults": "Aucun hôte ne correspond à \"{{search}}\"",
+      "ejectMoveTo": "Déplacer vers {{name}}",
+      "ejectRemoveFromFolder": "Retirer du dossier",
+      "unnamedKey": "Clé sans nom",
+      "copyOf": "{{name}} (copie)",
+      "emptyState": {
+        "title": "Aucun hôte pour l'instant",
+        "subtitle": "Ajoutez votre premier hôte SSH pour commencer"
+      },
+      "draft": {
+        "unsaved": "Non enregistré"
+      },
+      "vaultCascade": {
+        "moveDescription": "Déplacer \"{{folderName}}\" déplacera aussi les éléments suivants vers {{targetVaultName}} :",
+        "copyDescription": "Copier \"{{folderName}}\" copiera aussi les éléments suivants vers {{targetVaultName}} :"
+      },
+      "bulk": {
+        "executeSnippetOn_one": "Exécuter un snippet sur {{count}} hôte",
+        "executeSnippetOn_other": "Exécuter un snippet sur {{count}} hôtes",
+        "connectHosts": "Connecter {{count}} hôtes",
+        "duplicateHosts": "Dupliquer {{count}} hôtes",
+        "moveItemsTo_one": "Déplacer {{count}} élément vers",
+        "moveItemsTo_other": "Déplacer {{count}} éléments vers",
+        "copyItemsTo_one": "Copier {{count}} élément vers",
+        "copyItemsTo_other": "Copier {{count}} éléments vers",
+        "enableCloudSync": "Activer la synchronisation cloud ({{count}})",
+        "disableCloudSync": "Désactiver la synchronisation cloud ({{count}})",
+        "enableReachability": "Activer la vérification d'accessibilité ({{count}})",
+        "disableReachability": "Désactiver la vérification d'accessibilité ({{count}})",
+        "exportHosts": "Exporter {{count}} hôtes",
+        "deleteItems_one": "Supprimer {{count}} élément",
+        "deleteItems_other": "Supprimer {{count}} éléments"
+      },
+      "confirmDelete": {
+        "title_one": "Supprimer {{count}} élément",
+        "title_other": "Supprimer {{count}} éléments",
+        "message_one": "Voulez-vous vraiment supprimer {{count}} élément ? Cette action est irréversible.",
+        "message_other": "Voulez-vous vraiment supprimer {{count}} éléments ? Cette action est irréversible."
+      },
+      "confirmDeleteFolder": {
+        "title": "Supprimer le dossier",
+        "message": "Cela supprimera le dossier. Les éléments qu'il contient ne seront pas supprimés — ils reviendront au niveau supérieur."
+      }
+    },
+    "remoteSessions": {
+      "title": "En direct sur d'autres appareils",
+      "justNow": "à l'instant",
+      "minutesAgo": "il y a {{count}} min",
+      "hoursAgo": "il y a {{count}} h",
+      "daysAgo": "il y a {{count}} j"
+    },
+    "teamSessions": {
+      "title": "Sessions d'équipe",
+      "joinByCode": "Rejoindre avec un code",
+      "live": "EN DIRECT",
+      "pasteInviteCode": "Collez un code d'invitation pour rejoindre une session privée :",
+      "inviteCodePlaceholder": "sessionId:token",
+      "join": "Rejoindre",
+      "resume": "Reprendre",
+      "invalidCodeFormat": "Code invalide — format attendu : sessionId:token",
+      "failedToJoinSession": "Échec de la connexion à la session",
+      "sharedTerminalFallback": "Terminal partagé",
+      "meFallback": "Moi"
+    },
+    "snippetPicker": {
+      "title": "Exécuter un snippet",
+      "goToSnippets": "Aller aux snippets",
+      "filterPlaceholder": "Filtrer les snippets...",
+      "newSnippetTitle": "Nouveau snippet",
+      "new": "Nouveau",
+      "noSnippetsYet": "Aucun snippet pour l'instant",
+      "createSnippet": "Créer un snippet",
+      "noSnippetsMatch": "Aucun snippet ne correspond",
+      "recent": "Récents",
+      "allSnippets": "Tous les snippets",
+      "hostsSelected_one": "{{count}} hôte sélectionné",
+      "hostsSelected_other": "{{count}} hôtes sélectionnés",
+      "insert": "Insérer",
+      "execute": "Exécuter"
+    }
+  }
+}
