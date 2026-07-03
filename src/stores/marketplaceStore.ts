@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import i18n from "@/i18n";
 import { invoke } from "@tauri-apps/api/core";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { loadPlugin, unloadPlugin } from "@/plugins/runtime";
@@ -99,7 +100,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
 
   async addSource(url: string) {
     const res = await appFetch(url);
-    if (!res.ok) throw new Error(`Failed to fetch source: HTTP ${res.status}`);
+    if (!res.ok) throw new Error(i18n.t("common.error.failedToFetchSource", { status: res.status }));
     const data = await res.json() as { id?: string; name?: string };
     const id = data.id ?? url.replace(/[^a-z0-9]/gi, "-").toLowerCase();
     const name = data.name ?? id;

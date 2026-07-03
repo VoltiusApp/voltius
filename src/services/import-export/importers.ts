@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import { fromJSON, detectFormat } from "./formats";
 import type { ConnectionExport, ExportBundle } from "./formats";
 import { connectionsFromCSV } from "./parsers/csv";
@@ -71,5 +72,5 @@ export function parseImport(text: string): ExportBundle | "encrypted" {
   if (detected === "csv") return connectionsOnlyBundle(connectionsFromCSV(text));
   if (detected === "mobaxterm") return connectionsOnlyBundle(connectionsFromMobaXterm(text));
   if (detected === "termius") return bundleFromTermius(text);
-  throw new Error("Could not detect format. Supported: Voltius JSON, CSV, MobaXterm.ini / .mxtsessions, or live Termius extraction.");
+  throw new Error(i18n.t("common.error.couldNotDetectFormat"));
 }

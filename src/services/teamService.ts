@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import i18n from "@/i18n";
 import { appFetch } from "@/services/http";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 
@@ -43,7 +44,7 @@ async function fetchAuth(url: string, init: RequestInit = {}): Promise<Response>
   let jwt = await getJwt();
   if (!jwt || isJwtExpiredOrExpiring(jwt)) {
     jwt = await tryRefreshJwt();
-    if (!jwt) throw new Error("Session expired — please log in again");
+    if (!jwt) throw new Error(i18n.t("common.error.sessionExpired"));
   }
   const makeHeaders = (token: string) => ({
     ...(init.headers as Record<string, string>),
@@ -53,7 +54,7 @@ async function fetchAuth(url: string, init: RequestInit = {}): Promise<Response>
   let res = await appFetch(url, { ...init, headers: makeHeaders(jwt) });
   if (res.status === 401) {
     const newJwt = await tryRefreshJwt();
-    if (!newJwt) throw new Error("Session expired — please log in again");
+    if (!newJwt) throw new Error(i18n.t("common.error.sessionExpired"));
     res = await appFetch(url, { ...init, headers: makeHeaders(newJwt) });
   }
   return res;
@@ -96,12 +97,12 @@ export interface TeamRole {
 
 export async function createTeam(name: string): Promise<Team> {
   const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/teams`, {
     method: "POST",
     body: JSON.stringify({ name }),
   });
-  if (!res.ok) throw new Error(`Failed to create team: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToCreateTeam", { status: res.status }));
   return res.json();
 }
 
@@ -115,9 +116,9 @@ export async function listTeams(): Promise<Team[]> {
 
 export async function listMembers(teamId: string): Promise<TeamMember[]> {
   const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members`);
-  if (!res.ok) throw new Error(`Failed to list members: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToListMembers", { status: res.status }));
   return res.json();
 }
 
@@ -127,14 +128,14 @@ export async function addMember(
   role?: string,
 ): Promise<void> {
   const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members`, {
     method: "POST",
     body: JSON.stringify({ email, role }),
   });
   if (!res.ok) {
-    if (res.status === 404) throw new Error("User not found — they must have a Voltius account");
-    throw new Error(`Failed to add member: ${res.status}`);
+    if (res.status === 404) throw new Error(i18n.t("common.error.userNotFoundVoltiusAccount"));
+    throw new Error(i18n.t("common.error.failedToAddMember", { status: res.status }));
   }
 }
 
@@ -144,27 +145,27 @@ export async function addMemberById(
   role?: string,
 ): Promise<{ status: "pending" | "already_member" }> {
   const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members`, {
     method: "POST",
     body: JSON.stringify({ user_id: userId, role }),
   });
   if (!res.ok) {
-    if (res.status === 404) throw new Error("User not found");
-    if (res.status === 400) throw new Error("Cannot add yourself");
-    if (res.status === 402) throw Object.assign(new Error("Seat limit reached"), { code: 402 });
-    throw new Error(`Failed to add member: ${res.status}`);
+    if (res.status === 404) throw new Error(i18n.t("common.error.userNotFound"));
+    if (res.status === 400) throw new Error(i18n.t("common.error.cannotAddYourself"));
+    if (res.status === 402) throw Object.assign(new Error(i18n.t("common.error.seatLimitReached")), { code: 402 });
+    throw new Error(i18n.t("common.error.failedToAddMember", { status: res.status }));
   }
   return res.json();
 }
 
 export async function removeMember(teamId: string, userId: string): Promise<void> {
   const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members/${userId}`, {
     method: "DELETE",
   });
-  if (!res.ok) throw new Error(`Failed to remove member: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToRemoveMember", { status: res.status }));
 }
 
 // ─── Member role management ───────────────────────────────────────────────────
@@ -183,14 +184,14 @@ export async function assignMemberRole(
   roleId: string,
 ): Promise<void> {
   const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members/${userId}/roles`, {
     method: "POST",
     body: JSON.stringify({ role_id: roleId }),
   });
   if (!res.ok) {
-    if (res.status === 403) throw new Error("Insufficient permission to assign roles");
-    throw new Error(`Failed to assign role: ${res.status}`);
+    if (res.status === 403) throw new Error(i18n.t("common.error.insufficientPermissionAssignRoles"));
+    throw new Error(i18n.t("common.error.failedToAssignRole", { status: res.status }));
   }
 }
 
@@ -200,13 +201,13 @@ export async function removeMemberRole(
   roleId: string,
 ): Promise<void> {
   const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/members/${userId}/roles/${roleId}`, {
     method: "DELETE",
   });
   if (!res.ok) {
-    if (res.status === 403) throw new Error("Cannot remove this role");
-    throw new Error(`Failed to remove role: ${res.status}`);
+    if (res.status === 403) throw new Error(i18n.t("common.error.cannotRemoveThisRole"));
+    throw new Error(i18n.t("common.error.failedToRemoveRole", { status: res.status }));
   }
 }
 
@@ -227,14 +228,14 @@ export async function createRole(
   color?: string,
 ): Promise<TeamRole> {
   const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/roles`, {
     method: "POST",
     body: JSON.stringify({ name, permissions, color }),
   });
   if (!res.ok) {
-    if (res.status === 409) throw new Error("A role with this name already exists");
-    throw new Error(`Failed to create role: ${res.status}`);
+    if (res.status === 409) throw new Error(i18n.t("common.error.roleNameExists"));
+    throw new Error(i18n.t("common.error.failedToCreateRole", { status: res.status }));
   }
   return res.json();
 }
@@ -245,26 +246,26 @@ export async function updateRole(
   updates: { name?: string; permissions?: number; color?: string; position?: number },
 ): Promise<void> {
   const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/roles/${roleId}`, {
     method: "PATCH",
     body: JSON.stringify(updates),
   });
   if (!res.ok) {
-    if (res.status === 403) throw new Error("Cannot modify builtin roles");
-    throw new Error(`Failed to update role: ${res.status}`);
+    if (res.status === 403) throw new Error(i18n.t("common.error.cannotModifyBuiltinRoles"));
+    throw new Error(i18n.t("common.error.failedToUpdateRole", { status: res.status }));
   }
 }
 
 export async function deleteRole(teamId: string, roleId: string): Promise<void> {
   const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/roles/${roleId}`, {
     method: "DELETE",
   });
   if (!res.ok) {
-    if (res.status === 403) throw new Error("Cannot delete builtin roles");
-    throw new Error(`Failed to delete role: ${res.status}`);
+    if (res.status === 403) throw new Error(i18n.t("common.error.cannotDeleteBuiltinRoles"));
+    throw new Error(i18n.t("common.error.failedToDeleteRole", { status: res.status }));
   }
 }
 
@@ -279,12 +280,12 @@ export async function searchUsers(q: string): Promise<{ user_id: string; display
 
 export async function updatePublicKey(publicKey: string): Promise<void> {
   const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/auth/public-key`, {
     method: "PUT",
     body: JSON.stringify({ public_key: publicKey }),
   });
-  if (!res.ok) throw new Error(`Failed to update public key: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToUpdatePublicKey", { status: res.status }));
 }
 
 export async function getJwtToken(): Promise<string | null> {
@@ -327,15 +328,15 @@ export async function inviteByEmail(
   role?: string,
 ): Promise<{ status: "added" | "invited" }> {
   const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/invite`, {
     method: "POST",
     body: JSON.stringify({ email, role }),
   });
   if (!res.ok) {
-    if (res.status === 402) throw Object.assign(new Error("Seat limit reached"), { code: 402 });
-    if (res.status === 403) throw new Error("You don't have permission to invite members");
-    throw new Error(`Failed to invite member: ${res.status}`);
+    if (res.status === 402) throw Object.assign(new Error(i18n.t("common.error.seatLimitReached")), { code: 402 });
+    if (res.status === 403) throw new Error(i18n.t("common.error.noPermissionInviteMembers"));
+    throw new Error(i18n.t("common.error.failedToInviteMember", { status: res.status }));
   }
   if (res.status === 204) return { status: "added" };
   return res.json();
@@ -351,11 +352,11 @@ export async function listPendingInvitations(teamId: string): Promise<PendingInv
 
 export async function revokePendingInvitation(teamId: string, invitationId: string): Promise<void> {
   const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/pending-invitations/${invitationId}`, {
     method: "DELETE",
   });
-  if (!res.ok) throw new Error(`Failed to revoke invitation: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToRevokeInvitation", { status: res.status }));
 }
 
 // ─── My pending invitations (in-app consent flow) ──────────────────────────────
@@ -380,18 +381,18 @@ export async function fetchMyPendingInvitations(): Promise<MyPendingInvitation[]
 
 export async function acceptMyPendingInvitation(invitationId: string): Promise<void> {
   const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/my/pending-invitations/${invitationId}/accept`, {
     method: "POST",
   });
-  if (!res.ok) throw new Error(`Failed to accept invitation: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToAcceptInvitation", { status: res.status }));
 }
 
 export async function declineMyPendingInvitation(invitationId: string): Promise<void> {
   const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const res = await fetchAuth(`${serverUrl}/v1/my/pending-invitations/${invitationId}`, {
     method: "DELETE",
   });
-  if (!res.ok) throw new Error(`Failed to decline invitation: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToDeclineInvitation", { status: res.status }));
 }

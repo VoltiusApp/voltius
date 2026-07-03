@@ -15,6 +15,7 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
+import i18n from "@/i18n";
 import { wrapSessionKeyForUser, unwrapSessionKey, getMyX25519Keypair } from "@/services/multiplayerService";
 import * as teamService from "@/services/teamService";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
@@ -110,7 +111,7 @@ async function fetchWithAuth(url: string, init: RequestInit): Promise<Response> 
   let jwt = await getJwt();
   if (!jwt || isJwtExpiredOrExpiring(jwt)) {
     jwt = await tryRefreshJwt();
-    if (!jwt) throw new Error("Session expired — please log in again");
+    if (!jwt) throw new Error(i18n.t("common.error.sessionExpired"));
   }
   const makeHeaders = (token: string) => ({
     ...(init.headers as Record<string, string>),
@@ -119,12 +120,12 @@ async function fetchWithAuth(url: string, init: RequestInit): Promise<Response> 
   let res = await appFetch(url, { ...init, headers: makeHeaders(jwt) });
   if (res.status === 401) {
     const newJwt = await tryRefreshJwt();
-    if (!newJwt) throw new Error("Session expired — please log in again");
+    if (!newJwt) throw new Error(i18n.t("common.error.sessionExpired"));
     res = await appFetch(url, { ...init, headers: makeHeaders(newJwt) });
   }
   if (res.status === 429) {
     const retryAfter = parseInt(res.headers.get("Retry-After") ?? "60", 10);
-    throw new Error(`Rate limited — retry in ${retryAfter}s`);
+    throw new Error(i18n.t("common.error.rateLimited", { seconds: retryAfter }));
   }
   return res;
 }
@@ -190,14 +191,14 @@ export async function initTeamVaultKey(
   members: TeamMember[],
 ): Promise<void> {
   const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
   let rawKey: Uint8Array;
   try {
     const existingBytes = await getTeamVaultKey(teamId);
     rawKey = new Uint8Array(existingBytes);
   } catch (err) {
-    if (err !== "not_found") throw new Error(`Key fetch failed: ${String(err)}`);
+    if (err !== "not_found") throw new Error(i18n.t("common.error.keyFetchFailed", { error: String(err) }));
     rawKey = crypto.getRandomValues(new Uint8Array(32));
   }
 
@@ -205,7 +206,7 @@ export async function initTeamVaultKey(
   await teamService.updatePublicKey(myPublicKey);
 
   const myUserId = await teamService.getMyUserId();
-  if (!myUserId) throw new Error("Not authenticated");
+  if (!myUserId) throw new Error(i18n.t("common.error.notAuthenticated"));
 
   const myWrappedKey = await wrapSessionKeyForUser(rawKey, myPublicKey);
 
@@ -225,7 +226,7 @@ export async function initTeamVaultKey(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ keys }),
   });
-  if (!res.ok) throw new Error(`Failed to upload vault keys: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToUploadVaultKeys", { status: res.status }));
 
   _teamKeyCache.set(teamId, Array.from(rawKey));
 }
@@ -251,14 +252,14 @@ export async function distributeKeyToNewMember(
   const wrapped = await wrapSessionKeyForUser(rawKeyBytes, memberPublicKey);
 
   const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
   const res = await fetchWithAuth(`${serverUrl}/v1/teams/${teamId}/vault-key`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ keys: [{ user_id: memberUserId, wrapped_key: wrapped }] }),
   });
-  if (!res.ok) throw new Error(`Failed to distribute vault key: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToDistributeVaultKey", { status: res.status }));
 }
 
 // ─── Data fetch / save ────────────────────────────────────────────────────────
@@ -464,7 +465,7 @@ export async function saveTeamData(teamId: string): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ blob: bytesToBase64(encryptedBlob) }),
   });
-  if (!res.ok) throw new Error(`Failed to save team data: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToSaveTeamData", { status: res.status }));
 }
 
 async function _clearTeamStores(teamId: string): Promise<void> {

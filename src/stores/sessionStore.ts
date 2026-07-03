@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import i18n from "@/i18n";
 import type { Connection, TerminalSession, SerialConnectParams } from "@/types";
 
 /**
@@ -467,7 +468,7 @@ async function materializeSavedConnection(
 
 function beginConnection(set: SessionSetter, connectionId: string): string {
   const connection = findConnection(connectionId);
-  if (!connection) throw new Error("Connection not found");
+  if (!connection) throw new Error(i18n.t("common.error.connectionNotFound"));
 
   const sessionId = crypto.randomUUID();
 
@@ -500,7 +501,7 @@ async function connectConnection(
   options: { keepFailedSession?: boolean } = {},
 ): Promise<string> {
   const connection = findConnection(connectionId);
-  if (!connection) throw new Error("Connection not found");
+  if (!connection) throw new Error(i18n.t("common.error.connectionNotFound"));
 
   const sessionId = crypto.randomUUID();
 
@@ -551,7 +552,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   connectMany: async (connectionIds) => {
     const uniqueIds = [...new Set(connectionIds)];
     const sessionIds = uniqueIds.map((id) => beginConnection(set as SessionSetter, id));
-    if (sessionIds.length === 0) throw new Error("No connections selected");
+    if (sessionIds.length === 0) throw new Error(i18n.t("common.error.noConnectionsSelected"));
     return sessionIds;
   },
 
@@ -668,7 +669,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   connectSerial: async (connectionId) => {
     const connection = findConnection(connectionId);
-    if (!connection) throw new Error("Connection not found");
+    if (!connection) throw new Error(i18n.t("common.error.connectionNotFound"));
 
     const sessionId = crypto.randomUUID();
     await startSerialSession(set as SessionSetter, connection, sessionId);
@@ -857,7 +858,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (session.type === "serial") {
       set((s) => ({
         sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: "Serial port configuration not found" } : sess,
+          sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: i18n.t("common.error.serialPortConfigNotFound") } : sess,
         ),
       }));
       return;
@@ -867,7 +868,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (!connection) {
       set((s) => ({
         sessions: s.sessions.map((sess) =>
-          sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: "Connection config not found" } : sess,
+          sess.id === sessionId ? { ...sess, status: "error" as const, errorMessage: i18n.t("common.error.connectionConfigNotFound") } : sess,
         ),
       }));
       return;
@@ -924,13 +925,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (!session) return { ok: false };
     try {
       if (session.type === "serial") {
-        if (!session.serialConfig) return { ok: false, errorMessage: "Serial port configuration not found" };
+        if (!session.serialConfig) return { ok: false, errorMessage: i18n.t("common.error.serialPortConfigNotFound") };
         await serialConnect(session.serialConfig);
         return { ok: true };
       }
       if (session.type !== "ssh") return { ok: false };
       const connection = findConnection(session.connectionId);
-      if (!connection) return { ok: false, errorMessage: "Connection config not found" };
+      if (!connection) return { ok: false, errorMessage: i18n.t("common.error.connectionConfigNotFound") };
       // restore:false — the xterm buffer still holds prior output, so the
       // re-attach redraw repaints the live screen without duplicating scrollback.
       await withSessionConnectLock(sessionId, async () => {

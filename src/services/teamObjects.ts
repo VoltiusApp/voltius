@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import i18n from "@/i18n";
 import { appFetch } from "@/services/http";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 
@@ -82,11 +83,11 @@ async function tryRefreshJwt(): Promise<string | null> {
 
 async function fetchTeamApi(path: string, init: RequestInit): Promise<Response> {
   const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
   let jwt = await getJwt();
   if (!jwt || isJwtExpiredOrExpiring(jwt)) jwt = await tryRefreshJwt();
-  if (!jwt) throw new Error("Session expired — please log in again");
+  if (!jwt) throw new Error(i18n.t("common.error.sessionExpired"));
 
   const makeHeaders = (token: string) => ({
     ...(init.headers as Record<string, string>),
@@ -96,21 +97,21 @@ async function fetchTeamApi(path: string, init: RequestInit): Promise<Response> 
   let res = await appFetch(`${serverUrl}${path}`, { ...init, headers: makeHeaders(jwt) });
   if (res.status === 401) {
     const newJwt = await tryRefreshJwt();
-    if (!newJwt) throw new Error("Session expired — please log in again");
+    if (!newJwt) throw new Error(i18n.t("common.error.sessionExpired"));
     res = await appFetch(`${serverUrl}${path}`, { ...init, headers: makeHeaders(newJwt) });
   }
-  if (res.status === 403) throw new Error("You do not have permission for this team vault operation");
-  if (res.status === 402) throw new Error("Team vault requires an active Teams or Business subscription");
+  if (res.status === 403) throw new Error(i18n.t("common.error.noPermissionTeamVaultOp"));
+  if (res.status === 402) throw new Error(i18n.t("common.error.teamVaultRequiresSubscription"));
   if (res.status === 429) {
     const retryAfter = parseInt(res.headers.get("Retry-After") ?? "60", 10);
-    throw new Error(`Rate limited — retry in ${retryAfter}s`);
+    throw new Error(i18n.t("common.error.rateLimited", { seconds: retryAfter }));
   }
   return res;
 }
 
 export async function listTeamObjects(teamId: string): Promise<TeamObjectRecord[]> {
   const res = await fetchTeamApi(`/v1/teams/${teamId}/objects`, { method: "GET" });
-  if (!res.ok) throw new Error(`Failed to list team objects: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToListTeamObjects", { status: res.status }));
   return res.json();
 }
 
@@ -120,12 +121,12 @@ export async function upsertTeamObject(teamId: string, object: UpsertTeamObject)
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(object),
   });
-  if (!res.ok) throw new Error(`Failed to save team object: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToSaveTeamObject", { status: res.status }));
 }
 
 export async function deleteTeamObject(teamId: string, objectId: string): Promise<void> {
   const res = await fetchTeamApi(`/v1/teams/${teamId}/objects/${objectId}`, { method: "DELETE" });
-  if (!res.ok) throw new Error(`Failed to delete team object: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToDeleteTeamObject", { status: res.status }));
 }
 
 export interface TeamObjectPrefRecord {
@@ -136,7 +137,7 @@ export interface TeamObjectPrefRecord {
 
 export async function listTeamObjectPrefs(teamId: string): Promise<TeamObjectPrefRecord[]> {
   const res = await fetchTeamApi(`/v1/teams/${teamId}/object_prefs`, { method: "GET" });
-  if (!res.ok) throw new Error(`Failed to list team object prefs: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToListTeamObjectPrefs", { status: res.status }));
   return res.json();
 }
 
@@ -150,7 +151,7 @@ export async function upsertTeamObjectPref(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ pinned }),
   });
-  if (!res.ok) throw new Error(`Failed to save team object pref: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToSaveTeamObjectPref", { status: res.status }));
 }
 
 export async function deleteTeamObjectPref(teamId: string, objectId: string): Promise<void> {
@@ -158,13 +159,13 @@ export async function deleteTeamObjectPref(teamId: string, objectId: string): Pr
     method: "DELETE",
   });
   if (!res.ok && res.status !== 404) {
-    throw new Error(`Failed to delete team object pref: ${res.status}`);
+    throw new Error(i18n.t("common.error.failedToDeleteTeamObjectPref", { status: res.status }));
   }
 }
 
 export async function listTeamSecrets(teamId: string): Promise<TeamSecretRecord[]> {
   const res = await fetchTeamApi(`/v1/teams/${teamId}/secrets`, { method: "GET" });
-  if (!res.ok) throw new Error(`Failed to list team secrets: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToListTeamSecrets", { status: res.status }));
   return res.json();
 }
 
@@ -174,5 +175,5 @@ export async function upsertTeamSecret(teamId: string, secret: UpsertTeamSecret)
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(secret),
   });
-  if (!res.ok) throw new Error(`Failed to save team secret: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToSaveTeamSecret", { status: res.status }));
 }

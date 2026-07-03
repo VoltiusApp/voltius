@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import i18n from "@/i18n";
 import { appFetch } from "@/services/http";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -40,7 +41,7 @@ async function getServerUrl(): Promise<string | null> {
 
 async function fetchAuth(url: string, init: RequestInit = {}): Promise<Response> {
   const jwt = await getJwt();
-  if (!jwt) throw new Error("Not authenticated");
+  if (!jwt) throw new Error(i18n.t("common.error.notAuthenticated"));
   return appFetch(url, {
     ...init,
     headers: {
@@ -59,7 +60,7 @@ export async function fetchAuditLogs(
   filters: AuditFilters,
 ): Promise<{ logs: AuditLog[]; total: number }> {
   const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
   const params = new URLSearchParams();
   params.set("page", String(filters.page));
@@ -71,7 +72,7 @@ export async function fetchAuditLogs(
   if (filters.to) params.set("to", filters.to);
 
   const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/audit-logs?${params}`);
-  if (!res.ok) throw new Error(`Failed to fetch audit logs: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToFetchAuditLogs", { status: res.status }));
   return res.json();
 }
 
@@ -82,7 +83,7 @@ export async function exportAuditLogs(
   format: "csv" | "json",
 ): Promise<Blob> {
   const serverUrl = await getServerUrl();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
   const params = new URLSearchParams({ format });
   if (vaultId) params.set("vault_id", vaultId);
@@ -92,7 +93,7 @@ export async function exportAuditLogs(
   if (filters.to) params.set("to", filters.to);
 
   const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/audit-logs/export?${params}`);
-  if (!res.ok) throw new Error(`Failed to export audit logs: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToExportAuditLogs", { status: res.status }));
   return res.blob();
 }
 

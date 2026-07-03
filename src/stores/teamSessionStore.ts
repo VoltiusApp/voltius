@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import i18n from "@/i18n";
 import * as mp from "@/services/multiplayerService";
 import type { ActiveSession, Participant, MultiplayerConnection } from "@/services/multiplayerService";
 import { sshSendInput } from "@/services/ssh";
@@ -120,7 +121,7 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
 
     const serverUrl = await import("@/services/teamService").then((m) => m.getServerUrlValue());
     const jwt = await import("@/services/teamService").then((m) => m.getJwtToken());
-    if (!serverUrl || !jwt) throw new Error("Not connected to server");
+    if (!serverUrl || !jwt) throw new Error(i18n.t("common.error.notConnectedToServer"));
     const displayName = await import("@/services/account").then((m) => m.getCurrentUserEmail()).then((e) => e ?? "Me");
 
     const myUserId = await import("@/services/teamService").then((m) => m.getMyUserId()).then((id) => id ?? "");
@@ -147,7 +148,7 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
 
     const serverUrl = await import("@/services/teamService").then((m) => m.getServerUrlValue());
     const jwt = await import("@/services/teamService").then((m) => m.getJwtToken());
-    if (!serverUrl || !jwt) throw new Error("Not connected to server");
+    if (!serverUrl || !jwt) throw new Error(i18n.t("common.error.notConnectedToServer"));
     const displayName = await import("@/services/account").then((m) => m.getCurrentUserEmail()).then((e) => e ?? "Me");
 
     const myUserId = await import("@/services/teamService").then((m) => m.getMyUserId()).then((id) => id ?? "");
@@ -174,7 +175,7 @@ export const useTeamSessionStore = create<TeamSessionStore>((set, get) => ({
 
     const serverUrl = await import("@/services/teamService").then((m) => m.getServerUrlValue());
     const jwt = await import("@/services/teamService").then((m) => m.getJwtToken());
-    if (!serverUrl || !jwt) throw new Error("Not connected to server");
+    if (!serverUrl || !jwt) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
     const localSessionId = crypto.randomUUID();
     const myUserId = await import("@/services/teamService").then((m) => m.getMyUserId()).then((id) => id ?? "");

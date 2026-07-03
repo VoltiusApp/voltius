@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import i18n from "@/i18n";
 import type {
   ConnectionExport,
   ExportBundle,
@@ -200,14 +201,14 @@ function parseSnapshot(text: string): TermiusSnapshot {
   try {
     raw = JSON.parse(text);
   } catch {
-    throw new Error("Termius dump must be valid JSON");
+    throw new Error(i18n.t("common.error.termiusDumpInvalidJson"));
   }
   if (Array.isArray(raw)) {
-    throw new Error("Legacy Termius dump format is no longer supported; use Auto Extract.");
+    throw new Error(i18n.t("common.error.legacyTermiusUnsupported"));
   }
   const snapshot = raw as Partial<TermiusSnapshot>;
   if (snapshot?.version !== 2 || !Array.isArray(snapshot.records)) {
-    throw new Error("Termius extraction must return { version: 2, records: [...] }");
+    throw new Error(i18n.t("common.error.termiusExtractionFormat"));
   }
   return snapshot as TermiusSnapshot;
 }

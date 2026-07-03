@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import i18n from "@/i18n";
 import { clearPersistedAccountUiState } from "@/stores/persistedAccountUiState";
 
 // Pending key: set at login/setup, used to unlock secrets on first access
@@ -17,7 +18,7 @@ export function setVaultKey(encKey: number[]): void {
 /** Ensure secrets store is unlocked before any operation. */
 async function ensureUnlocked(): Promise<void> {
   if (unlocked) return;
-  if (!pendingKey) throw new Error("Vault is locked");
+  if (!pendingKey) throw new Error(i18n.t("common.error.vaultLocked"));
   try {
     await invoke("secrets_unlock", { encKey: pendingKey });
   } catch (e) {

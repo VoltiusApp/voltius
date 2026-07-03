@@ -1,5 +1,7 @@
 // Pure data types for the user-data bundle. No store imports, no business logic.
 
+import i18n from "@/i18n";
+
 export interface UserDataSection {
   data: unknown;
   updated_at: string;
@@ -21,11 +23,11 @@ export function fromUserDataJSON(text: string): UserDataBundle {
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new Error("Invalid JSON");
+    throw new Error(i18n.t("common.error.invalidJson"));
   }
   const b = parsed as Partial<UserDataBundle>;
-  if (b.type !== "voltius-user-data") throw new Error("Not a Voltius user data file");
-  if (b.version !== 2) throw new Error(`Unsupported user data version: ${b.version}`);
+  if (b.type !== "voltius-user-data") throw new Error(i18n.t("common.error.notVoltiusUserDataFile"));
+  if (b.version !== 2) throw new Error(i18n.t("common.error.unsupportedUserDataVersion", { version: b.version }));
   return {
     type: "voltius-user-data",
     version: 2,

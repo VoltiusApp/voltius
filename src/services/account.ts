@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import i18n from "@/i18n";
 import { setVaultKey, verifyVaultKey, lockVault, getVaultStatus, unlockVaultIfNeeded, wipeLocalConfig } from "./vault";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
@@ -65,12 +66,12 @@ async function fetchWithTimeout(input: string, init?: RequestInit, timeoutMs = 1
     return await appFetch(input, { ...init, signal: controller.signal, connectTimeout: timeoutMs });
   } catch (e) {
     if (isAbortError(e)) {
-      throw new Error("Server unreachable (timeout) — check your internet connection and server URL");
+      throw new Error(i18n.t("common.error.serverUnreachableTimeout"));
     }
 
     // WebView2 / network errors are often opaque objects; normalise them.
     const msg = e instanceof Error ? e.message : String(e);
-    throw new Error(`Network error — ${msg}`);
+    throw new Error(i18n.t("common.error.networkError", { message: msg }));
   } finally {
     clearTimeout(timer);
   }
@@ -174,8 +175,8 @@ export async function createServerAccount(
     }),
   });
 
-  if (res.status === 409) throw new Error("Email already registered");
-  if (!res.ok) throw new Error(`Registration failed: ${res.status}`);
+  if (res.status === 409) throw new Error(i18n.t("common.error.emailAlreadyRegistered"));
+  if (!res.ok) throw new Error(i18n.t("common.error.registrationFailed", { status: res.status }));
 
   const data = await res.json();
 
@@ -200,10 +201,10 @@ export async function login(password: string, email?: string, serverUrl?: string
 
   if (!accountId && email && serverUrl) {
     const res = await fetchWithTimeout(`${serverUrl}/v1/auth/challenge?email=${encodeURIComponent(email)}`);
-    if (!res.ok) throw new Error("Account not found");
+    if (!res.ok) throw new Error(i18n.t("common.error.accountNotFound"));
     accountId = (await res.json()).account_id;
   }
-  if (!accountId) throw new Error("No account found. Please create one first.");
+  if (!accountId) throw new Error(i18n.t("common.error.noAccountFoundCreateOne"));
 
   const mode = await keychainGet("mode");
 
@@ -240,7 +241,7 @@ export async function login(password: string, email?: string, serverUrl?: string
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ account_id: accountId, auth_key }),
     });
-    if (!res.ok) throw new Error("Server login failed");
+    if (!res.ok) throw new Error(i18n.t("common.error.serverLoginFailed"));
     const data = await res.json();
     await keychainSet("jwt", data.jwt_token);
     await keychainSet("refresh_token", data.refresh_token);
@@ -384,15 +385,15 @@ export async function fetchAndCacheDisplayName(): Promise<string | null> {
 
 export async function updateDisplayName(newName: string): Promise<void> {
   const [jwt, serverUrl] = await Promise.all([keychainGet("jwt"), keychainGet("server_url")]);
-  if (!jwt || !serverUrl) throw new Error("Not connected to server");
+  if (!jwt || !serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
   const res = await fetchWithTimeout(`${serverUrl}/v1/auth/display-name`, {
     method: "PUT",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
     body: JSON.stringify({ display_name: newName }),
   });
-  if (res.status === 422) throw new Error("Display name must be 1–50 characters");
-  if (!res.ok) throw new Error(`Failed to update display name: ${res.status}`);
+  if (res.status === 422) throw new Error(i18n.t("common.error.displayNameLength"));
+  if (!res.ok) throw new Error(i18n.t("common.error.updateDisplayNameFailed", { status: res.status }));
 
   await keychainSet("display_name", newName);
 }
@@ -402,14 +403,14 @@ export async function refreshSession(): Promise<void> {
     keychainGet("refresh_token"),
     keychainGet("server_url"),
   ]);
-  if (!refreshToken || !serverUrl) throw new Error("Session expired — please log in again");
+  if (!refreshToken || !serverUrl) throw new Error(i18n.t("common.error.sessionExpired"));
 
   const res = await fetchWithTimeout(`${serverUrl}/v1/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh_token: refreshToken }),
   });
-  if (!res.ok) throw new Error("Session refresh failed");
+  if (!res.ok) throw new Error(i18n.t("common.error.sessionRefreshFailed"));
 
   const { jwt_token } = await res.json();
   await keychainSet("jwt", jwt_token);
@@ -421,13 +422,13 @@ export async function resendVerificationEmail(): Promise<void> {
     keychainGet("jwt"),
     keychainGet("server_url"),
   ]);
-  if (!jwt || !serverUrl) throw new Error("Not connected to server");
+  if (!jwt || !serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
   const res = await fetchWithTimeout(`${serverUrl}/v1/auth/resend-verification-email`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
   });
-  if (!res.ok) throw new Error("Could not resend verification email");
+  if (!res.ok) throw new Error(i18n.t("common.error.resendVerificationFailed"));
 }
 
 export async function isServerMode(): Promise<boolean> {
@@ -440,7 +441,7 @@ export async function setMasterPassword(password: string): Promise<void> {
     keychainGet("account_id"),
     keychainGet("mode"),
   ]);
-  if (!accountId) throw new Error("No account found");
+  if (!accountId) throw new Error(i18n.t("common.error.noAccountFound"));
 
   const { enc_key } = await deriveKeys(password, accountId);
 
@@ -470,7 +471,7 @@ export async function signInToCloud(
 ): Promise<void> {
   serverUrl = normalizeServerUrl(serverUrl);
   const res = await fetchWithTimeout(`${serverUrl}/v1/auth/challenge?email=${encodeURIComponent(email)}`);
-  if (!res.ok) throw new Error("Account not found");
+  if (!res.ok) throw new Error(i18n.t("common.error.accountNotFound"));
   const { account_id: accountId } = await res.json();
 
   const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
@@ -480,7 +481,7 @@ export async function signInToCloud(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ account_id: accountId, auth_key }),
   });
-  if (!loginRes.ok) throw new Error("Invalid email or password");
+  if (!loginRes.ok) throw new Error(i18n.t("common.error.invalidEmailOrPassword"));
   const data = await loginRes.json();
 
   let vaultKey = kek;
@@ -521,9 +522,9 @@ export async function linkToCloud(
   ]);
   const mode = await keychainGet("mode");
 
-  if (!accountId) throw new Error("No account found");
-  if (mode === "local-nopassword") throw new Error("Set a master password before linking to cloud");
-  if (!password) throw new Error("Master password required");
+  if (!accountId) throw new Error(i18n.t("common.error.noAccountFound"));
+  if (mode === "local-nopassword") throw new Error(i18n.t("common.error.setMasterPasswordBeforeLinking"));
+  if (!password) throw new Error(i18n.t("common.error.masterPasswordRequired"));
 
   const { auth_key, enc_key: kek } = await deriveKeys(password, accountId);
   const secrets = await generateUserSecrets();
@@ -543,8 +544,8 @@ export async function linkToCloud(
     }),
   });
 
-  if (res.status === 409) throw new Error("Email already registered");
-  if (!res.ok) throw new Error(`Registration failed: ${res.status}`);
+  if (res.status === 409) throw new Error(i18n.t("common.error.emailAlreadyRegistered"));
+  if (!res.ok) throw new Error(i18n.t("common.error.registrationFailed", { status: res.status }));
 
   const data = await res.json();
 
@@ -570,8 +571,8 @@ export async function changeMasterPassword(
     keychainGet("jwt"),
     keychainGet("server_url"),
   ]);
-  if (!accountId) throw new Error("No account found");
-  if (!jwt || !serverUrl) throw new Error("Not connected to server");
+  if (!accountId) throw new Error(i18n.t("common.error.noAccountFound"));
+  if (!jwt || !serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
   const { auth_key: old_auth_key, enc_key: old_kek } = await deriveKeys(currentPassword, accountId);
 
@@ -582,9 +583,9 @@ export async function changeMasterPassword(
     const meRes = await fetchWithTimeout(`${serverUrl}/v1/auth/me`, {
       headers: { Authorization: `Bearer ${jwt}` },
     });
-    if (!meRes.ok) throw new Error("Failed to fetch account info");
+    if (!meRes.ok) throw new Error(i18n.t("common.error.fetchAccountInfoFailed"));
     const me = await meRes.json();
-    if (!me.wrapped_user_secrets) throw new Error("Account not migrated yet — please log in from the Tauri app first");
+    if (!me.wrapped_user_secrets) throw new Error(i18n.t("common.error.accountNotMigrated"));
     const unwrapped = await unwrapUserSecrets(old_kek, me.wrapped_user_secrets);
     cachedDek = unwrapped.dek;
     cachedX25519 = unwrapped.x25519_private;
@@ -599,8 +600,8 @@ export async function changeMasterPassword(
     body: JSON.stringify({ old_auth_key, new_auth_key, new_wrapped_user_secrets }),
   });
   if (!res.ok) {
-    if (res.status === 401) throw new Error("Current password is incorrect");
-    throw new Error(`Password change failed: ${res.status}`);
+    if (res.status === 401) throw new Error(i18n.t("common.error.currentPasswordIncorrect"));
+    throw new Error(i18n.t("common.error.passwordChangeFailed", { status: res.status }));
   }
 
   const data = await res.json();
@@ -618,8 +619,8 @@ export async function changeEmail(newEmail: string, currentPassword: string): Pr
     keychainGet("jwt"),
     keychainGet("server_url"),
   ]);
-  if (!accountId) throw new Error("No account found");
-  if (!jwt || !serverUrl) throw new Error("Not connected to server");
+  if (!accountId) throw new Error(i18n.t("common.error.noAccountFound"));
+  if (!jwt || !serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
   const { auth_key } = await deriveKeys(currentPassword, accountId);
 
@@ -628,9 +629,9 @@ export async function changeEmail(newEmail: string, currentPassword: string): Pr
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
     body: JSON.stringify({ new_email: newEmail, auth_key }),
   });
-  if (res.status === 409) throw new Error("Email is already in use");
-  if (res.status === 401) throw new Error("Incorrect password");
-  if (!res.ok) throw new Error(`Email update failed: ${res.status}`);
+  if (res.status === 409) throw new Error(i18n.t("common.error.emailInUse"));
+  if (res.status === 401) throw new Error(i18n.t("common.error.incorrectPassword"));
+  if (!res.ok) throw new Error(i18n.t("common.error.emailUpdateFailed", { status: res.status }));
 
   await keychainSet("email", newEmail);
   await refreshSession();

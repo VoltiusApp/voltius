@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import type { ConnectionExport } from "../formats";
 
 const CSV_HEADERS = ["name", "host", "port", "username", "auth_type", "tags"];
@@ -51,7 +52,7 @@ export function connectionsFromCSV(text: string): ConnectionExport[] {
   const hostIdx = col("host") >= 0 ? col("host") : col("hostname");
   const usernameIdx = col("username") >= 0 ? col("username") : col("user");
   if (hostIdx === -1 || usernameIdx === -1) {
-    throw new Error("CSV must have at least 'host' and 'username' columns");
+    throw new Error(i18n.t("common.error.csvMissingColumns"));
   }
 
   const connections: ConnectionExport[] = [];

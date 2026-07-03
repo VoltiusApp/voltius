@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import i18n from "@/i18n";
 import { useNotificationStore } from "@/stores/notificationStore";
 
 export interface HistoryEntry {
@@ -53,7 +54,7 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
         pluginId: "core:history",
         pluginName: "Voltius",
         type: "toast",
-        message: `Undo failed: ${err instanceof Error ? err.message : String(err)}`,
+        message: i18n.t("common.toast.undoFailed", { error: err instanceof Error ? err.message : String(err) }),
         severity: "error",
         duration: 4000,
       });
@@ -84,7 +85,7 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
         pluginId: "core:history",
         pluginName: "Voltius",
         type: "toast",
-        message: `Redo failed: ${err instanceof Error ? err.message : String(err)}`,
+        message: i18n.t("common.toast.redoFailed", { error: err instanceof Error ? err.message : String(err) }),
         severity: "error",
         duration: 4000,
       });

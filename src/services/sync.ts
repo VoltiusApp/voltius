@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import i18n from "@/i18n";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { getVaultKey, unlockVaultIfNeeded } from "@/services/vault";
 import { useThemeStore } from "@/stores/themeStore";
@@ -159,11 +160,11 @@ async function tryRefreshJwt(): Promise<string | null> {
       pluginId: "system",
       pluginName: "Voltius",
       type: "toast",
-      message: "Your Pro subscription has ended — sync has been paused.",
+      message: i18n.t("common.toast.proSubscriptionEnded"),
       severity: "warning",
       duration: 0,
       action: {
-        label: "Manage plan →",
+        label: i18n.t("common.toast.managePlan"),
         onClick: () => useUIStore.getState().openSettings("account"),
       },
     });
@@ -210,7 +211,7 @@ export async function fetchWithAuth(url: string, init: RequestInit): Promise<Res
 
   if (!jwt || isJwtExpiredOrExpiring(jwt)) {
     jwt = await tryRefreshJwt();
-    if (!jwt) throw new Error("Session expired — please log in again");
+    if (!jwt) throw new Error(i18n.t("common.error.sessionExpired"));
   }
 
   const makeHeaders = (token: string) => ({
@@ -223,13 +224,13 @@ export async function fetchWithAuth(url: string, init: RequestInit): Promise<Res
   // Fallback: if server still returns 401, try one more refresh
   if (res.status === 401) {
     const newJwt = await tryRefreshJwt();
-    if (!newJwt) throw new Error("Session expired — please log in again");
+    if (!newJwt) throw new Error(i18n.t("common.error.sessionExpired"));
     res = await appFetch(url, { ...init, headers: makeHeaders(newJwt) });
   }
 
   if (res.status === 429) {
     const retryAfter = parseInt(res.headers.get("Retry-After") ?? "60", 10);
-    throw new Error(`Rate limited — retry in ${retryAfter}s`);
+    throw new Error(i18n.t("common.error.rateLimited", { seconds: retryAfter }));
   }
 
   return res;
@@ -260,7 +261,7 @@ async function getDeviceId(): Promise<string> {
 
 async function getEncKey(): Promise<number[]> {
   const key = getVaultKey();
-  if (!key) throw new Error("Vault is locked");
+  if (!key) throw new Error(i18n.t("common.error.vaultLocked"));
   return key;
 }
 
@@ -334,7 +335,7 @@ export async function push(): Promise<void> {
     invoke<string | null>("keychain_get", { key: "account_id" }),
   ]);
 
-  if (!serverUrl || !accountId) throw new Error("Not connected to server");
+  if (!serverUrl || !accountId) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
   await unlockVaultIfNeeded();
 
@@ -360,7 +361,7 @@ export async function push(): Promise<void> {
     }),
   });
 
-  if (!res.ok) throw new Error(`Server error: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.serverError", { status: res.status }));
 
   _blobSizeBytes = blob.length;
 }
@@ -596,7 +597,7 @@ export async function syncOnLoginReplace(): Promise<void> {
     }
 
     const serverUrl = await getServerUrl();
-    if (!serverUrl) throw new Error("Not connected to server");
+    if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
     const devices = await listDevices();
 

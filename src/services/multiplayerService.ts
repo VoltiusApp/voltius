@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import i18n from "@/i18n";
 import { getVaultKey } from "@/services/vault";
 import * as teamService from "@/services/teamService";
 import { appFetch } from "@/services/http";
@@ -64,7 +65,7 @@ export async function getMyX25519Keypair(): Promise<{ privateKey: string; public
     return { privateKey: _cachedPrivateKey, publicKey: _cachedPublicKey };
   }
   const encKey = getVaultKey();
-  if (!encKey) throw new Error("Vault is locked");
+  if (!encKey) throw new Error(i18n.t("common.error.vaultLocked"));
   const result = await invoke<{ public_key: string; private_key: string }>(
     "derive_x25519_keypair",
     { encKey },
@@ -144,9 +145,9 @@ export async function createVaultSession(
   );
 
   const serverUrl = await teamService.getServerUrlValue();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const jwt = await teamService.getJwtToken();
-  if (!jwt) throw new Error("Not authenticated");
+  if (!jwt) throw new Error(i18n.t("common.error.notAuthenticated"));
 
   const res = await appFetch(`${serverUrl}/v1/terminal-sessions`, {
     method: "POST",
@@ -162,7 +163,7 @@ export async function createVaultSession(
       allowed_roles: allowedRoles,
     }),
   });
-  if (!res.ok) throw new Error(`Failed to create session: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToCreateSession", { status: res.status }));
   const { session_id } = await res.json();
 
   return { sessionId: session_id, sessionKey, sessionKeyBytes };
@@ -176,9 +177,9 @@ export async function createInviteLinkSession(
   connectionName: string,
 ): Promise<{ sessionId: string; sessionKey: SessionKey; inviteToken: string }> {
   const serverUrl = await teamService.getServerUrlValue();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const jwt = await teamService.getJwtToken();
-  if (!jwt) throw new Error("Not authenticated");
+  if (!jwt) throw new Error(i18n.t("common.error.notAuthenticated"));
 
   const sessionKeyBytes = crypto.getRandomValues(new Uint8Array(32));
   const sessionKey = await importSessionKey(sessionKeyBytes);
@@ -196,7 +197,7 @@ export async function createInviteLinkSession(
       session_key_bytes: sessionKeyB64,
     }),
   });
-  if (!res.ok) throw new Error(`Failed to create invite link session: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToCreateInviteLinkSession", { status: res.status }));
   const { session_id, invite_token } = await res.json();
 
   return { sessionId: session_id, sessionKey, inviteToken: invite_token as string };
@@ -207,9 +208,9 @@ export async function getMySessionKey(
   inviteToken?: string,
 ): Promise<{ sessionKey: SessionKey; hostPublicKey: string }> {
   const serverUrl = await teamService.getServerUrlValue();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const jwt = await teamService.getJwtToken();
-  if (!jwt) throw new Error("Not authenticated");
+  if (!jwt) throw new Error(i18n.t("common.error.notAuthenticated"));
 
   const url = inviteToken
     ? `${serverUrl}/v1/terminal-sessions/${sessionId}/my-key?invite_token=${encodeURIComponent(inviteToken)}`
@@ -218,7 +219,7 @@ export async function getMySessionKey(
   const res = await appFetch(url, {
     headers: { Authorization: `Bearer ${jwt}` },
   });
-  if (!res.ok) throw new Error(`Failed to get session key: ${res.status}`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToGetSessionKey", { status: res.status }));
   const { wrapped_key, raw_key, host_public_key } = await res.json();
 
   if (raw_key) {
@@ -237,9 +238,9 @@ export async function getMySessionKey(
 
 export async function endMultiplayerSession(sessionId: string): Promise<void> {
   const serverUrl = await teamService.getServerUrlValue();
-  if (!serverUrl) throw new Error("Not connected to server");
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
   const jwt = await teamService.getJwtToken();
-  if (!jwt) throw new Error("Not authenticated");
+  if (!jwt) throw new Error(i18n.t("common.error.notAuthenticated"));
   await appFetch(`${serverUrl}/v1/terminal-sessions/${sessionId}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${jwt}` },
