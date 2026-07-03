@@ -1,4 +1,5 @@
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export function AllHostsView({ onBack }: Props) {
+  const { t } = useTranslation();
   const connections = useAllConnections();
   const connect = useSessionStore((s) => s.connect);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
@@ -44,7 +46,7 @@ export function AllHostsView({ onBack }: Props) {
             onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-text-primary)")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-dim)")}
             onClick={onBack}
-            aria-label="Back"
+            aria-label={t("home.allHosts.back")}
           >
             <Icon icon="lucide:chevron-left" width={16} />
           </button>
@@ -52,13 +54,13 @@ export function AllHostsView({ onBack }: Props) {
             className="text-sm font-bold uppercase tracking-widest"
             style={{ color: "var(--t-text-dim)" }}
           >
-            All Hosts
+            {t("home.allHosts.title")}
           </h1>
         </div>
 
         {hosts.length === 0 ? (
           <p className="text-sm" style={{ color: "var(--t-text-dim)" }}>
-            No hosts yet.
+            {t("home.allHosts.empty")}
           </p>
         ) : (
           <div

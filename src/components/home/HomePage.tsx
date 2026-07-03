@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { DashboardHero } from "./DashboardHero";
 import { RecentHostsSection } from "./RecentHostsSection";
 import { VaultsOverview } from "./VaultsOverview";
@@ -8,11 +9,12 @@ import { AllHostsView } from "./AllHostsView";
 import { useUIStore } from "@/stores/uiStore";
 
 function QuickActions() {
+  const { t } = useTranslation();
   const openImportExport = useUIStore((s) => s.openImportExport);
 
   const actions = [
-    { icon: "lucide:upload", label: "Export", onClick: () => openImportExport("export") },
-    { icon: "lucide:download", label: "Import", onClick: () => openImportExport("import") },
+    { icon: "lucide:upload", label: t("home.quickActions.export"), onClick: () => openImportExport("export") },
+    { icon: "lucide:download", label: t("home.quickActions.import"), onClick: () => openImportExport("import") },
   ];
 
   return (

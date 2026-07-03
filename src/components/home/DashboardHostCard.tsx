@@ -1,4 +1,6 @@
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import type { Connection } from "@/types";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { useConnectionStore } from "@/stores/connectionStore";
@@ -17,7 +19,7 @@ function isSerialConn(c: Connection): boolean {
 
 function displayName(c: Connection): string {
   if (c.name?.trim()) return c.name.trim();
-  if (isSerialConn(c)) return c.serial_port ?? "Serial";
+  if (isSerialConn(c)) return c.serial_port ?? i18n.t("home.serialFallback");
   return `${c.username}@${c.host}`;
 }
 
@@ -27,6 +29,7 @@ interface Props {
 }
 
 export function DashboardHostCard({ connection, onConnect }: Props) {
+  const { t } = useTranslation();
   const pinConnection = useConnectionStore((s) => s.pinConnection);
   const isPinned = useEffectivePinned(connection, "connection");
   const pinSource = useEffectivePinSource(connection, "connection");
@@ -64,7 +67,7 @@ export function DashboardHostCard({ connection, onConnect }: Props) {
           e.stopPropagation();
           handlePinClick();
         }}
-        title={isPinned ? "Unpin" : "Pin"}
+        title={isPinned ? t("home.hostCard.unpin") : t("home.hostCard.pin")}
       >
         <Icon icon={pinIcon} width={11} />
       </button>
@@ -100,7 +103,7 @@ export function DashboardHostCard({ connection, onConnect }: Props) {
         {displayName(connection)}
       </span>
       <span className="text-[10px]" style={{ color: "var(--t-text-dim)" }}>
-        {isSerial ? (connection.serial_baud ? `${connection.serial_baud} baud` : "") : connection.host}
+        {isSerial ? (connection.serial_baud ? t("home.hostCard.baud", { rate: connection.serial_baud }) : "") : connection.host}
       </span>
     </div>
   );

@@ -1,5 +1,6 @@
 import { Icon } from "@iconify/react";
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -8,11 +9,11 @@ import { useUIStore } from "@/stores/uiStore";
 import { useShortcutStore, formatShortcut } from "@/stores/shortcutStore";
 import { useActiveTunnelCount } from "@/hooks/useActiveTunnelCount";
 
-function greeting(): string {
+function greetingKey(): string {
   const h = new Date().getHours();
-  if (h < 12) return "Good morning";
-  if (h < 18) return "Good afternoon";
-  return "Good evening";
+  if (h < 12) return "home.greeting.morning";
+  if (h < 18) return "home.greeting.afternoon";
+  return "home.greeting.evening";
 }
 
 interface StatChipProps {
@@ -39,6 +40,7 @@ function StatChip({ icon, label, value }: StatChipProps) {
 }
 
 export function DashboardHero() {
+  const { t } = useTranslation();
   const vaultCount = useVaultStore((s) => s.vaults.length);
   const hostCount = useConnectionStore((s) => s.connections.length);
   const activeSessionCount = useSessionStore((s) => s.sessions.filter((sess) => sess.status === "connected").length);
@@ -55,7 +57,7 @@ export function DashboardHero() {
   return (
     <div className="mb-8">
       <h1 className="text-2xl font-semibold mb-3" style={{ color: "var(--t-text-primary)" }}>
-        {greeting()}
+        {t(greetingKey())}
       </h1>
 
       <button
@@ -76,7 +78,7 @@ export function DashboardHero() {
         }}
       >
         <Icon icon="lucide:search" width={15} className="shrink-0" />
-        <span className="text-sm flex-1">Search hosts, sessions, snippets…</span>
+        <span className="text-sm flex-1">{t("home.search.placeholder")}</span>
         {omniShortcut && (
           <kbd
             className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-sm shrink-0"
@@ -88,10 +90,10 @@ export function DashboardHero() {
       </button>
 
       <div className="flex flex-wrap gap-2">
-        <StatChip icon="lucide:vault" label="vaults" value={vaultCount} />
-        <StatChip icon="lucide:server" label="hosts" value={hostCount} />
-        <StatChip icon="lucide:terminal" label="active sessions" value={activeSessionCount} />
-        <StatChip icon="lucide:network" label="port forwards" value={portForwardCount} />
+        <StatChip icon="lucide:vault" label={t("common.entity.vaults")} value={vaultCount} />
+        <StatChip icon="lucide:server" label={t("common.entity.hosts")} value={hostCount} />
+        <StatChip icon="lucide:terminal" label={t("home.stat.activeSessions")} value={activeSessionCount} />
+        <StatChip icon="lucide:network" label={t("home.stat.portForwards")} value={portForwardCount} />
       </div>
     </div>
   );

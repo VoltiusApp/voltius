@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export function RecentHostsSection({ onSeeAll }: Props) {
+  const { t } = useTranslation();
   const connections = useAllConnections();
   const connect = useSessionStore((s) => s.connect);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
@@ -51,7 +53,7 @@ export function RecentHostsSection({ onSeeAll }: Props) {
           className="text-xs font-bold uppercase tracking-widest"
           style={{ color: "var(--t-text-dim)" }}
         >
-          Recent Hosts
+          {t("home.recentHosts.title")}
         </h2>
         <button
           className="text-xs transition-colors"
@@ -60,7 +62,7 @@ export function RecentHostsSection({ onSeeAll }: Props) {
           onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-dim)")}
           onClick={onSeeAll}
         >
-          See all
+          {t("home.recentHosts.seeAll")}
         </button>
       </div>
 
@@ -73,7 +75,7 @@ export function RecentHostsSection({ onSeeAll }: Props) {
             pointerEvents: canPrev ? "auto" : "none",
           }}
           onClick={() => setPage((p) => p - 1)}
-          aria-label="Previous page"
+          aria-label={t("home.recentHosts.prevPage")}
         >
           <Icon icon="lucide:chevron-left" width={16} />
         </button>
@@ -96,7 +98,7 @@ export function RecentHostsSection({ onSeeAll }: Props) {
             pointerEvents: canNext ? "auto" : "none",
           }}
           onClick={() => setPage((p) => p + 1)}
-          aria-label="Next page"
+          aria-label={t("home.recentHosts.nextPage")}
         >
           <Icon icon="lucide:chevron-right" width={16} />
         </button>
@@ -113,7 +115,7 @@ export function RecentHostsSection({ onSeeAll }: Props) {
                 opacity: i === page ? 1 : 0.5,
               }}
               onClick={() => setPage(i)}
-              aria-label={`Page ${i + 1}`}
+              aria-label={t("home.recentHosts.pageNumber", { number: i + 1 })}
             />
           ))}
         </div>

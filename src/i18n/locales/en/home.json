@@ -1,0 +1,44 @@
+{
+  "home": {
+    "greeting": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening"
+    },
+    "search": {
+      "placeholder": "Search hosts, sessions, snippets…"
+    },
+    "stat": {
+      "activeSessions": "active sessions",
+      "portForwards": "port forwards"
+    },
+    "quickActions": {
+      "export": "Export",
+      "import": "Import"
+    },
+    "recentHosts": {
+      "title": "Recent Hosts",
+      "seeAll": "See all",
+      "prevPage": "Previous page",
+      "nextPage": "Next page",
+      "pageNumber": "Page {{number}}"
+    },
+    "allHosts": {
+      "back": "Back",
+      "title": "All Hosts",
+      "empty": "No hosts yet."
+    },
+    "hostCard": {
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "baud": "{{rate}} baud"
+    },
+    "serialFallback": "Serial",
+    "vaultCard": {
+      "hostCount_one": "{{count}} host",
+      "hostCount_other": "{{count}} hosts",
+      "empty": "No hosts yet",
+      "more": "+{{count}} more"
+    }
+  }
+}

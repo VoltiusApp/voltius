@@ -1,4 +1,6 @@
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -11,7 +13,7 @@ const HOSTS_PER_VAULT = 6;
 
 function displayName(c: Connection): string {
   if (c.name?.trim()) return c.name.trim();
-  if (c.connection_type === "serial" || c.serial_port) return c.serial_port ?? "Serial";
+  if (c.connection_type === "serial" || c.serial_port) return c.serial_port ?? i18n.t("home.serialFallback");
   return `${c.username}@${c.host}`;
 }
 
@@ -34,6 +36,7 @@ interface VaultCardProps {
 }
 
 function VaultCard({ name, hosts, totalHosts, onConnect }: VaultCardProps) {
+  const { t } = useTranslation();
   const hidden = totalHosts - hosts.length;
   return (
     <div className="surface-glass flex flex-col rounded-2xl p-4 gap-3">
@@ -43,13 +46,13 @@ function VaultCard({ name, hosts, totalHosts, onConnect }: VaultCardProps) {
           {name}
         </span>
         <span className="ml-auto text-[10px]" style={{ color: "var(--t-text-dim)" }}>
-          {totalHosts} host{totalHosts !== 1 ? "s" : ""}
+          {t("home.vaultCard.hostCount", { count: totalHosts })}
         </span>
       </div>
 
       {hosts.length === 0 ? (
         <p className="text-xs py-4 text-center" style={{ color: "var(--t-text-dim)" }}>
-          No hosts yet
+          {t("home.vaultCard.empty")}
         </p>
       ) : (
         <div className="flex flex-col gap-1">
@@ -78,7 +81,7 @@ function VaultCard({ name, hosts, totalHosts, onConnect }: VaultCardProps) {
           ))}
           {hidden > 0 && (
             <p className="text-[10px] px-2 pt-1" style={{ color: "var(--t-text-dim)" }}>
-              +{hidden} more
+              {t("home.vaultCard.more", { count: hidden })}
             </p>
           )}
         </div>
@@ -88,6 +91,7 @@ function VaultCard({ name, hosts, totalHosts, onConnect }: VaultCardProps) {
 }
 
 export function VaultsOverview() {
+  const { t } = useTranslation();
   const connections = useAllConnections();
   const vaults = useVaultStore((s) => s.vaults);
   const connect = useSessionStore((s) => s.connect);
@@ -118,7 +122,7 @@ export function VaultsOverview() {
         className="text-xs font-bold uppercase tracking-widest mb-4"
         style={{ color: "var(--t-text-dim)" }}
       >
-        Vaults
+        {t("common.entity.vaults")}
       </h2>
       <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(14rem, 1fr))" }}>
         {sections.map(({ vault, hosts, totalHosts }) => (
