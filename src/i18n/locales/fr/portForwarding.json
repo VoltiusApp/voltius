@@ -1,0 +1,146 @@
+{
+  "portForwarding": {
+    "toolbar": {
+      "filterPlaceholder": "Filtrer les règles…",
+      "deleteSelected": "Supprimer la sélection",
+      "deleteButton": "SUPPRIMER",
+      "newRule": "Nouvelle règle"
+    },
+    "page": {
+      "all": "Tout",
+      "folders": "Dossiers",
+      "new": "Nouveau",
+      "noRulesMatchSearch": "Aucune règle ne correspond à votre recherche.",
+      "folderEmpty": "Ce dossier est vide.",
+      "noRulesYet": "Aucune règle pour l'instant. Créez-en une pour commencer.",
+      "addRule": "Ajouter une règle",
+      "ejectMoveTo": "Déplacer vers {{name}}",
+      "ejectRemoveFromFolder": "Retirer du dossier",
+      "total": "{{count}} au total",
+      "activeCount": "{{count}} active",
+      "errorCount": "{{count}} erreur",
+      "contextMenu": {
+        "newRule": "Nouvelle règle"
+      },
+      "confirmDelete": {
+        "title": "Supprimer la règle",
+        "message": "Cette règle sera définitivement supprimée."
+      },
+      "confirmDeleteBulk": {
+        "title_one": "Supprimer {{count}} règle",
+        "title_other": "Supprimer {{count}} règles",
+        "message_one": "Voulez-vous vraiment supprimer {{count}} règle ? Cette action est irréversible.",
+        "message_other": "Voulez-vous vraiment supprimer {{count}} règles ? Cette action est irréversible."
+      },
+      "confirmDeleteFolder": {
+        "title": "Supprimer le dossier",
+        "message": "Cela supprimera le dossier. Les règles à l'intérieur ne seront pas supprimées — elles reviendront au niveau supérieur."
+      },
+      "vaultCascade": {
+        "moveDescription": "Déplacer « {{folderName}} » déplacera aussi les règles suivantes vers {{targetVaultName}} :",
+        "copyDescription": "Copier « {{folderName}} » copiera aussi les règles suivantes vers {{targetVaultName}} :"
+      },
+      "bulk": {
+        "duplicateRules": "Dupliquer {{count}} règles",
+        "exportRules": "Exporter {{count}} règles",
+        "deleteRules": "Supprimer {{count}} règles"
+      }
+    },
+    "ruleCard": {
+      "pause": "Suspendre",
+      "resume": "Reprendre",
+      "openWebLink": "Ouvrir le lien web",
+      "activateInSession": "Activer dans la session",
+      "duplicate": "Dupliquer",
+      "enableCloudSync": "Activer la synchronisation cloud",
+      "disableCloudSync": "Désactiver la synchronisation cloud",
+      "pauseForwarding": "Suspendre la redirection",
+      "resumeForwarding": "Reprendre la redirection",
+      "active": "Active",
+      "error": "Erreur",
+      "stopped": "Arrêtée",
+      "openUrl": "Ouvrir {{url}}",
+      "scopedToConnections_one": "Limité à {{count}} connexion",
+      "scopedToConnections_other": "Limité à {{count}} connexions",
+      "connectionsCount_one": "{{count}} connexion",
+      "connectionsCount_other": "{{count}} connexions"
+    },
+    "activeTunnels": {
+      "sectionTitle": "Redirections actives de session",
+      "hostCount_one": "{{count}} hôte",
+      "hostCount_other": "{{count}} hôtes",
+      "tunnelCount_one": "{{count}} tunnel",
+      "tunnelCount_other": "{{count}} tunnels",
+      "forwardCount_one": "{{count}} redirection",
+      "forwardCount_other": "{{count}} redirections",
+      "errorCount": "{{count}} erreur",
+      "activeCountLabel": "{{count}} active",
+      "connected": "Connecté",
+      "local": "Local",
+      "remote": "Distant",
+      "socks5": "SOCKS5",
+      "auto": "Auto",
+      "adHoc": "Ponctuel",
+      "portLabel": "Port {{port}}",
+      "socksPortLabel": "SOCKS5 :{{port}}",
+      "pauseForwarding": "Suspendre la redirection",
+      "resumeForwarding": "Reprendre la redirection",
+      "openUrl": "Ouvrir {{url}}"
+    },
+    "ruleForm": {
+      "editRule": "Modifier la règle",
+      "newRule": "Nouvelle règle",
+      "general": "Général",
+      "name": "Nom",
+      "namePlaceholder": "Mon tunnel",
+      "description": "Description",
+      "descriptionPlaceholder": "Serveur de dev, proxy de base de données…",
+      "type": "Type",
+      "ports": "Ports",
+      "scope": "Portée",
+      "tunnelTypes": {
+        "local": {
+          "label": "Local",
+          "title": "Tunnel local",
+          "summary": "Accédez à quelque chose du serveur SSH depuis votre propre machine.",
+          "example": "Utilisez localhost:3000 sur votre ordinateur pour atteindre 127.0.0.1:3000 sur le serveur.",
+          "diagram": ["Votre ordinateur", "Serveur SSH", "Service distant"]
+        },
+        "remote": {
+          "label": "Distant",
+          "title": "Tunnel distant",
+          "summary": "Exposez quelque chose de votre machine sur le serveur SSH.",
+          "example": "Le serveur écoute sur un port et redirige le trafic vers votre ordinateur.",
+          "diagram": ["Utilisateurs distants", "Serveur SSH", "Votre ordinateur"]
+        },
+        "dynamic": {
+          "label": "Dynamique",
+          "title": "Proxy SOCKS dynamique",
+          "summary": "Créez un proxy SOCKS5 local qui fait transiter le trafic de l'application via le serveur SSH.",
+          "example": "Configurez un navigateur ou une application sur localhost:1080 pour router le trafic via le serveur.",
+          "diagram": ["Votre application", "Proxy SOCKS", "Serveur SSH"]
+        }
+      },
+      "localPortOnComputer": "Port sur votre ordinateur",
+      "localPortHelp": "Vous vous connectez à ce port localement, généralement via localhost:{{port}}.",
+      "remotePortOnServer": "Port sur le serveur SSH",
+      "remotePortOnServerHelp": "Le port où le service s'exécute, du point de vue du serveur.",
+      "hostOnServer": "Hôte sur le serveur SSH",
+      "hostOnServerHelp": "Utilisez 127.0.0.1 lorsque le service s'exécute sur le serveur SSH lui-même.",
+      "remotePortOpenedOnServer": "Port ouvert sur le serveur SSH",
+      "remotePortOpenedOnServerHelp": "Les personnes ou services côté serveur se connectent à ce port.",
+      "localPortReceivingHelp": "L'application ou le service local qui doit recevoir le trafic redirigé.",
+      "bindAddressOnServer": "Adresse de liaison sur le serveur SSH",
+      "bindAddressOnServerHelp": "127.0.0.1 le garde privé au serveur. 0.0.0.0 peut l'exposer au réseau.",
+      "bindWarning": "0.0.0.0 expose ce port via le serveur distant à toutes ses interfaces réseau.",
+      "hostOnComputer": "Hôte sur votre ordinateur",
+      "hostOnComputerHelp": "Utilisez 127.0.0.1 lorsque l'application cible s'exécute sur cet ordinateur.",
+      "socksProxyPort": "Port du proxy SOCKS sur votre ordinateur",
+      "socksProxyPortHelp": "Configurez les applications pour utiliser localhost:{{port}} comme proxy SOCKS5.",
+      "applyTo": "Appliquer à",
+      "allConnections": "Toutes les connexions",
+      "specificConnections": "Connexions spécifiques",
+      "noSavedConnections": "Aucune connexion enregistrée."
+    }
+  }
+}

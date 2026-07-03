@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import type { PortForwardingRule, VaultOption } from "@/types";
@@ -46,17 +47,18 @@ export function RuleCard({
   onMoveToVault, onCopyToVault,
   bulkContextMenuItems, onPointerDown,
 }: Props) {
+  const { t } = useTranslation();
   const isList = layout === "list";
   const contributions = useUIContributions("portForwardingRule.contextMenu", rule);
   const isSynced = useSyncPrefsStore((s) => s.isObjectSynced(rule.id, "port-forwarding-rule"));
 
   const contextMenuItems: ContextMenuItem[] = [
-    ...(canEdit ? [{ label: "Edit", icon: "lucide:pencil", onClick: () => onEdit(rule), shortcut: "E" }] : []),
-    ...(status === "active" && onStop ? [{ label: "Pause", icon: "lucide:pause", onClick: () => onStop(rule) }] : []),
-    ...(status !== "active" && onStart ? [{ label: "Resume", icon: "lucide:play", onClick: () => onStart(rule) }] : []),
-    ...(webUrl && onOpenWeb ? [{ label: "Open web link", icon: "lucide:globe", onClick: () => onOpenWeb(webUrl) }] : []),
-    ...(onActivate ? [{ label: "Activate in session", icon: "lucide:plug-zap", onClick: () => onActivate(rule) }] : []),
-    ...(canEdit ? [{ label: "Duplicate", icon: "lucide:copy", onClick: () => onDuplicate(rule.id), shortcut: "D" }] : []),
+    ...(canEdit ? [{ label: t("common.action.edit"), icon: "lucide:pencil", onClick: () => onEdit(rule), shortcut: "E" }] : []),
+    ...(status === "active" && onStop ? [{ label: t("portForwarding.ruleCard.pause"), icon: "lucide:pause", onClick: () => onStop(rule) }] : []),
+    ...(status !== "active" && onStart ? [{ label: t("portForwarding.ruleCard.resume"), icon: "lucide:play", onClick: () => onStart(rule) }] : []),
+    ...(webUrl && onOpenWeb ? [{ label: t("portForwarding.ruleCard.openWebLink"), icon: "lucide:globe", onClick: () => onOpenWeb(webUrl) }] : []),
+    ...(onActivate ? [{ label: t("portForwarding.ruleCard.activateInSession"), icon: "lucide:plug-zap", onClick: () => onActivate(rule) }] : []),
+    ...(canEdit ? [{ label: t("portForwarding.ruleCard.duplicate"), icon: "lucide:copy", onClick: () => onDuplicate(rule.id), shortcut: "D" }] : []),
     ...contributions.map((a, i) => ({ ...a, divider: i === 0 })),
     ...vaultMenuItems(
       vaults,
@@ -65,12 +67,12 @@ export function RuleCard({
       (vId) => onCopyToVault?.(rule, vId),
     ),
     {
-      label: isSynced ? "Disable cloud sync" : "Enable cloud sync",
+      label: isSynced ? t("portForwarding.ruleCard.disableCloudSync") : t("portForwarding.ruleCard.enableCloudSync"),
       icon: isSynced ? "lucide:cloud-off" : "lucide:cloud",
       onClick: () => useSyncPrefsStore.getState().toggleExcluded(rule.id),
       divider: true,
     },
-    ...(canEdit ? [{ label: "Delete", icon: "lucide:trash-2", onClick: () => onDelete(rule.id), danger: true, shortcut: getShortcutHint("delete") }] : []),
+    ...(canEdit ? [{ label: t("common.action.delete"), icon: "lucide:trash-2", onClick: () => onDelete(rule.id), danger: true, shortcut: getShortcutHint("delete") }] : []),
   ];
 
   const portLabel = formatRuleLabel(rule);
@@ -80,15 +82,20 @@ export function RuleCard({
     : tunnelType === "dynamic"
     ? "bg-purple-500/20 text-purple-400 border-purple-500/20"
     : "bg-blue-500/15 text-blue-400 border-blue-500/20";
+  const typeBadgeLabel = tunnelType === "dynamic"
+    ? t("portForwarding.activeTunnels.socks5")
+    : tunnelType === "remote"
+    ? t("portForwarding.activeTunnels.remote")
+    : t("portForwarding.activeTunnels.local");
   const typeBadge = (
     <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[11px] font-semibold border ${typeBadgeClass}`}>
-      {tunnelType === "dynamic" ? "SOCKS5" : tunnelType.toUpperCase()}
+      {typeBadgeLabel.toUpperCase()}
     </span>
   );
   const statusColor = status === "active" ? "bg-green-500" : status === "error" ? "bg-red-500" : "bg-(--t-text-dim) opacity-40";
-  const effectiveStatusLabel = statusLabel ?? (status === "active" ? "Active" : status === "error" ? "Error" : "Stopped");
+  const effectiveStatusLabel = statusLabel ?? (status === "active" ? t("portForwarding.ruleCard.active") : status === "error" ? t("portForwarding.ruleCard.error") : t("portForwarding.ruleCard.stopped"));
   const actionIcon = isBusy ? "lucide:loader-circle" : status === "active" ? "lucide:pause" : "lucide:play";
-  const actionTitle = status === "active" ? "Pause forwarding" : "Resume forwarding";
+  const actionTitle = status === "active" ? t("portForwarding.ruleCard.pauseForwarding") : t("portForwarding.ruleCard.resumeForwarding");
   const handleToggle = () => {
     if (status === "active") onStop?.(rule);
     else onStart?.(rule);
@@ -96,8 +103,8 @@ export function RuleCard({
   const actionButtons = (
     <div className="flex items-center gap-1 shrink-0">
       <CardActionButton icon={actionIcon} title={actionTitle} onClick={handleToggle} />
-      {canEdit && <CardActionButton icon="lucide:trash-2" title="Delete" onClick={() => onDelete(rule.id)} danger />}
-      {webUrl && onOpenWeb && <CardActionButton icon="lucide:globe" title={`Open ${webUrl}`} onClick={() => onOpenWeb(webUrl)} />}
+      {canEdit && <CardActionButton icon="lucide:trash-2" title={t("common.action.delete")} onClick={() => onDelete(rule.id)} danger />}
+      {webUrl && onOpenWeb && <CardActionButton icon="lucide:globe" title={t("portForwarding.ruleCard.openUrl", { url: webUrl })} onClick={() => onOpenWeb(webUrl)} />}
     </div>
   );
 
@@ -132,7 +139,7 @@ export function RuleCard({
             <span
               className="text-[10px] px-1 py-0.5 rounded font-medium shrink-0 leading-none
                 bg-amber-500/15 text-amber-400 hidden lg:inline"
-              title={`Scoped to ${rule.connection_ids.length} connection${rule.connection_ids.length > 1 ? "s" : ""}`}
+              title={t("portForwarding.ruleCard.scopedToConnections", { count: rule.connection_ids.length })}
             >
               {rule.connection_ids.length}
             </span>
@@ -168,9 +175,9 @@ export function RuleCard({
             <span
               className="text-[10px] px-1 py-0.5 rounded font-medium w-fit leading-none
                 bg-amber-500/15 text-amber-400"
-              title={`Scoped to ${rule.connection_ids.length} connection${rule.connection_ids.length > 1 ? "s" : ""}`}
+              title={t("portForwarding.ruleCard.scopedToConnections", { count: rule.connection_ids.length })}
             >
-              {rule.connection_ids.length} connection{rule.connection_ids.length > 1 ? "s" : ""}
+              {t("portForwarding.ruleCard.connectionsCount", { count: rule.connection_ids.length })}
             </span>
           )}
           <div className="flex items-center gap-3">
@@ -178,12 +185,12 @@ export function RuleCard({
               <Icon icon={actionIcon} width={18} className={isBusy ? "animate-spin" : undefined} />
             </button>
             {canEdit && (
-              <button onClick={(e) => { e.stopPropagation(); onDelete(rule.id); }} className="text-(--t-text-dim) hover:text-(--t-status-error) transition-colors flex items-center" title="Delete">
+              <button onClick={(e) => { e.stopPropagation(); onDelete(rule.id); }} className="text-(--t-text-dim) hover:text-(--t-status-error) transition-colors flex items-center" title={t("common.action.delete")}>
                 <Icon icon="lucide:trash-2" width={18} />
               </button>
             )}
             {webUrl && onOpenWeb && (
-              <button onClick={(e) => { e.stopPropagation(); onOpenWeb(webUrl); }} className="text-(--t-text-dim) hover:text-(--t-text-bright) transition-colors flex items-center" title={`Open ${webUrl}`}>
+              <button onClick={(e) => { e.stopPropagation(); onOpenWeb(webUrl); }} className="text-(--t-text-dim) hover:text-(--t-text-bright) transition-colors flex items-center" title={t("portForwarding.ruleCard.openUrl", { url: webUrl })}>
                 <Icon icon="lucide:globe" width={18} />
               </button>
             )}

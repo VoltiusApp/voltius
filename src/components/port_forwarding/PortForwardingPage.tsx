@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Icon } from "@iconify/react";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
@@ -46,6 +47,7 @@ function sortRules(rules: PortForwardingRule[], mode: SortMode): PortForwardingR
 }
 
 export function PortForwardingPage() {
+  const { t } = useTranslation();
   const { loadRules, createRule, updateRule, deleteRule, duplicateRule, moveRuleFolder } =
     usePortForwardingStore();
   const rules = useAllPortForwardingRules();
@@ -245,7 +247,7 @@ export function PortForwardingPage() {
     requestCascade({
       operation: "move",
       targetVaultName,
-      description: `Moving "${folder.name}" will also move the following rules to ${targetVaultName}:`,
+      description: t("portForwarding.page.vaultCascade.moveDescription", { folderName: folder.name, targetVaultName }),
       items: treeRules.map((r) => ({ type: "connection" as const, label: r.name })),
       execute: async () => {
         await updateFolder(folder.id, { name: folder.name, object_type: folder.object_type, parent_folder_id: folder.parent_folder_id, vault_id: vaultId });
@@ -267,7 +269,7 @@ export function PortForwardingPage() {
     requestCascade({
       operation: "copy",
       targetVaultName,
-      description: `Copying "${folder.name}" will also copy the following rules to ${targetVaultName}:`,
+      description: t("portForwarding.page.vaultCascade.copyDescription", { folderName: folder.name, targetVaultName }),
       items: treeRules.map((r) => ({ type: "connection" as const, label: r.name })),
       execute: async () => {
         const folderIdMap = new Map<string, string>();
@@ -401,7 +403,7 @@ export function PortForwardingPage() {
     );
     return [
       ...(allCanEdit ? [{
-        label: `Duplicate ${n} rules`,
+        label: t("portForwarding.page.bulk.duplicateRules", { count: n }),
         icon: "lucide:copy",
         onClick: () => { void Promise.all(selectedRules.map((r) => duplicateRule(r.id))); },
       }] : []),
@@ -412,19 +414,19 @@ export function PortForwardingPage() {
         sharedVaults.length > 0 ? (vaultId) => { for (const r of selectedRules) handleCopyRuleToVault(r, vaultId); } : undefined,
       ),
       {
-        label: `Export ${n} rule${n === 1 ? "" : "s"}`,
+        label: t("portForwarding.page.bulk.exportRules", { count: n }),
         icon: "lucide:upload",
         onClick: () => useUIStore.getState().openImportExport("export", { bulk: { portForwardingRules: selectedRules.map((r) => r.id) } }),
       },
       {
-        label: `Delete ${n} rules`,
+        label: t("portForwarding.page.bulk.deleteRules", { count: n }),
         icon: "lucide:trash-2",
         onClick: () => setConfirmDeleteIds(selectedRules.map((r) => r.id)),
         danger: true,
         divider: true,
       },
     ];
-  }, [selectedRules, canEdit, vaultOptions, duplicateRule, handleMoveRuleToVault, handleCopyRuleToVault]);
+  }, [selectedRules, canEdit, vaultOptions, duplicateRule, handleMoveRuleToVault, handleCopyRuleToVault, t]);
 
   return (
     <>
@@ -467,6 +469,7 @@ export function PortForwardingPage() {
           sortMode={sortMode as SortMode}
           onSortModeChange={setSortMode}
           onNewRule={openNew}
+          // default name kept in English until all creation sites are localized together (see i18n issue #14)
           onNewFolder={() => void saveFolder({ name: "New Folder", object_type: "port_forwarding", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { closeForm(); setEditingFolderId(f.id); })}
           selectedCount={[...selectedIdSet].filter((id) => filteredRuleIdSet.has(id)).length}
           onDeleteSelected={[...selectedIdSet].some((id) => filteredRuleIdSet.has(id)) ? () => setConfirmDeleteIds([...selectedIdSet].filter((id) => filteredRuleIdSet.has(id))) : undefined}
@@ -500,7 +503,7 @@ export function PortForwardingPage() {
                   onClick={navigateToRoot}
                 >
                   <Icon icon="lucide:chevron-left" width={13} />
-                  All
+                  {t("portForwarding.page.all")}
                 </button>
                 {folderPath.map((folder, i) => (
                   <span key={folder.id} className="flex items-center gap-2">
@@ -524,15 +527,16 @@ export function PortForwardingPage() {
             {visibleFolders.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">Folders</p>
+                  <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">{t("portForwarding.page.folders")}</p>
                   <button
                     className="flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg text-(--t-text-dim)"
                     onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
                     onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; e.currentTarget.style.background = "transparent"; }}
+                    // default name kept in English until all creation sites are localized together (see i18n issue #14)
                     onClick={() => void saveFolder({ name: "New Folder", object_type: "port_forwarding", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { closeForm(); setEditingFolderId(f.id); })}
                   >
                     <Icon icon="lucide:plus" width={12} />
-                    New
+                    {t("portForwarding.page.new")}
                   </button>
                 </div>
                 <div
@@ -588,7 +592,7 @@ export function PortForwardingPage() {
               >
                 <Icon icon="lucide:folder-minus" width={16} />
                 <span className="text-sm font-medium">
-                  {ejectTargetFolderId ? `Move to ${folderPath[folderPath.length - 2].name}` : "Remove from folder"}
+                  {ejectTargetFolderId ? t("portForwarding.page.ejectMoveTo", { name: folderPath[folderPath.length - 2].name }) : t("portForwarding.page.ejectRemoveFromFolder")}
                 </span>
               </div>
             )}
@@ -597,7 +601,7 @@ export function PortForwardingPage() {
             {filtered.length === 0 && visibleFolders.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3 text-(--t-text-dim)">
                 <span className="text-sm">
-                  {q ? "No rules match your search." : activeFolderId ? "This folder is empty." : "No rules yet. Create one to get started."}
+                  {q ? t("portForwarding.page.noRulesMatchSearch") : activeFolderId ? t("portForwarding.page.folderEmpty") : t("portForwarding.page.noRulesYet")}
                 </span>
                 {activeFolderId && !q && (
                   <button
@@ -605,7 +609,7 @@ export function PortForwardingPage() {
                     onClick={openNew}
                   >
                     <Icon icon="lucide:plus" width={12} />
-                    Add Rule
+                    {t("portForwarding.page.addRule")}
                   </button>
                 )}
               </div>
@@ -613,11 +617,11 @@ export function PortForwardingPage() {
               <div>
                 {(visibleFolders.length > 0 || activeFolderId || filtered.length > 0) && (
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">Rules</p>
+                    <p className="text-xs font-bold uppercase tracking-widest text-(--t-text-dim)">{t("common.entity.rules")}</p>
                     <div className="flex items-center gap-2 text-[10px] text-(--t-text-muted)">
-                      <span className="px-1.5 py-0.5 rounded-full bg-(--t-bg-elevated)">{filtered.length} total</span>
-                      <span className="px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-400">{runningRuleCount.active} active</span>
-                      {runningRuleCount.error > 0 && <span className="px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400">{runningRuleCount.error} error</span>}
+                      <span className="px-1.5 py-0.5 rounded-full bg-(--t-bg-elevated)">{t("portForwarding.page.total", { count: filtered.length })}</span>
+                      <span className="px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-400">{t("portForwarding.page.activeCount", { count: runningRuleCount.active })}</span>
+                      {runningRuleCount.error > 0 && <span className="px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400">{t("portForwarding.page.errorCount", { count: runningRuleCount.error })}</span>}
                     </div>
                   </div>
                 )}
@@ -669,7 +673,8 @@ export function PortForwardingPage() {
           pos={bgMenuPos}
           onClose={closeBgMenu}
           items={[
-            { label: "New Rule", icon: "lucide:network", onClick: openNew },
+            { label: t("portForwarding.page.contextMenu.newRule"), icon: "lucide:network", onClick: openNew },
+            // default name kept in English until all creation sites are localized together (see i18n issue #14)
             { label: "New Folder", icon: "lucide:folder-plus", onClick: () => void saveFolder({ name: "New Folder", object_type: "port_forwarding", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { closeForm(); setEditingFolderId(f.id); }) },
           ]}
         />
@@ -678,9 +683,9 @@ export function PortForwardingPage() {
 
     {confirmDeleteId && (
       <ConfirmModal
-        title="Delete rule"
-        message="This rule will be permanently deleted."
-        confirmLabel="Delete"
+        title={t("portForwarding.page.confirmDelete.title")}
+        message={t("portForwarding.page.confirmDelete.message")}
+        confirmLabel={t("common.action.delete")}
         onConfirm={confirmDelete}
         onCancel={() => setConfirmDeleteId(null)}
       />
@@ -688,9 +693,9 @@ export function PortForwardingPage() {
 
     {confirmDeleteIds && (
       <ConfirmModal
-        title={`Delete ${confirmDeleteIds.length} rule${confirmDeleteIds.length === 1 ? "" : "s"}`}
-        message={`Are you sure you want to delete ${confirmDeleteIds.length} rule${confirmDeleteIds.length === 1 ? "" : "s"}? This cannot be undone.`}
-        confirmLabel="Delete"
+        title={t("portForwarding.page.confirmDeleteBulk.title", { count: confirmDeleteIds.length })}
+        message={t("portForwarding.page.confirmDeleteBulk.message", { count: confirmDeleteIds.length })}
+        confirmLabel={t("common.action.delete")}
         onConfirm={async () => {
           for (const id of confirmDeleteIds) await deleteRule(id);
           setConfirmDeleteIds(null);
@@ -702,9 +707,9 @@ export function PortForwardingPage() {
 
     {confirmDeleteFolderId && (
       <ConfirmModal
-        title="Delete folder"
-        message="This will delete the folder. Rules inside won't be deleted — they'll return to the top level."
-        confirmLabel="Delete"
+        title={t("portForwarding.page.confirmDeleteFolder.title")}
+        message={t("portForwarding.page.confirmDeleteFolder.message")}
+        confirmLabel={t("common.action.delete")}
         onConfirm={() => {
           void deleteFolder(confirmDeleteFolderId);
           onFolderDeleted(confirmDeleteFolderId);

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAutosave } from "@/hooks/useAutosave";
 import {
   PanelShell, PanelHeader, FormSection,
@@ -17,42 +18,46 @@ interface Props {
   isDirtyRef?: React.MutableRefObject<boolean>;
 }
 
-const TUNNEL_TYPES: {
+interface TunnelTypeDef {
   value: TunnelType;
   label: string;
   title: string;
   summary: string;
   example: string;
   diagram: [string, string, string];
-}[] = [
-  {
-    value: "local",
-    label: "Local",
-    title: "Local tunnel",
-    summary: "Open something from the SSH server on your own machine.",
-    example: "Use localhost:3000 on your computer to reach 127.0.0.1:3000 on the server.",
-    diagram: ["Your computer", "SSH server", "Remote service"],
-  },
-  {
-    value: "remote",
-    label: "Remote",
-    title: "Remote tunnel",
-    summary: "Expose something from your machine on the SSH server.",
-    example: "The server listens on a port and forwards traffic back to your computer.",
-    diagram: ["Remote users", "SSH server", "Your computer"],
-  },
-  {
-    value: "dynamic",
-    label: "Dynamic",
-    title: "Dynamic SOCKS proxy",
-    summary: "Create a local SOCKS5 proxy that sends app traffic through the SSH server.",
-    example: "Point a browser or app at localhost:1080 to route traffic through the server.",
-    diagram: ["Your app", "SOCKS proxy", "SSH server"],
-  },
-];
+}
 
-function TunnelTypeExplainer({ type }: { type: TunnelType }) {
-  const details = TUNNEL_TYPES.find((t) => t.value === type) ?? TUNNEL_TYPES[0];
+function buildTunnelTypes(t: (key: string, opts?: Record<string, unknown>) => string): TunnelTypeDef[] {
+  return [
+    {
+      value: "local",
+      label: t("portForwarding.ruleForm.tunnelTypes.local.label"),
+      title: t("portForwarding.ruleForm.tunnelTypes.local.title"),
+      summary: t("portForwarding.ruleForm.tunnelTypes.local.summary"),
+      example: t("portForwarding.ruleForm.tunnelTypes.local.example"),
+      diagram: t("portForwarding.ruleForm.tunnelTypes.local.diagram", { returnObjects: true }) as unknown as [string, string, string],
+    },
+    {
+      value: "remote",
+      label: t("portForwarding.ruleForm.tunnelTypes.remote.label"),
+      title: t("portForwarding.ruleForm.tunnelTypes.remote.title"),
+      summary: t("portForwarding.ruleForm.tunnelTypes.remote.summary"),
+      example: t("portForwarding.ruleForm.tunnelTypes.remote.example"),
+      diagram: t("portForwarding.ruleForm.tunnelTypes.remote.diagram", { returnObjects: true }) as unknown as [string, string, string],
+    },
+    {
+      value: "dynamic",
+      label: t("portForwarding.ruleForm.tunnelTypes.dynamic.label"),
+      title: t("portForwarding.ruleForm.tunnelTypes.dynamic.title"),
+      summary: t("portForwarding.ruleForm.tunnelTypes.dynamic.summary"),
+      example: t("portForwarding.ruleForm.tunnelTypes.dynamic.example"),
+      diagram: t("portForwarding.ruleForm.tunnelTypes.dynamic.diagram", { returnObjects: true }) as unknown as [string, string, string],
+    },
+  ];
+}
+
+function TunnelTypeExplainer({ type, tunnelTypes }: { type: TunnelType; tunnelTypes: TunnelTypeDef[] }) {
+  const details = tunnelTypes.find((t) => t.value === type) ?? tunnelTypes[0];
 
   return (
     <div className="rounded-lg border border-(--t-border) bg-(--t-bg-base) p-3">
@@ -89,6 +94,8 @@ function FieldHelp({ children }: { children: React.ReactNode }) {
 }
 
 export function RuleForm({ rule, onSave, onClose, isDirtyRef }: Props) {
+  const { t } = useTranslation();
+  const TUNNEL_TYPES = useMemo(() => buildTunnelTypes(t), [t]);
   const userEditedRef = useRef(false);
   const defaultVaultId = useDefaultVaultId();
   const vaultPickerTouched = useRef(false);
@@ -196,145 +203,145 @@ export function RuleForm({ rule, onSave, onClose, isDirtyRef }: Props) {
   return (
     <PanelShell>
       <PanelHeader
-        title={rule ? "Edit Rule" : "New Rule"}
+        title={rule ? t("portForwarding.ruleForm.editRule") : t("portForwarding.ruleForm.newRule")}
         icon="lucide:network"
         subtitle={<VaultPicker vaultId={vaultId} onChange={(v) => { vaultPickerTouched.current = true; markDirty(); setVaultId(v); }} />}
         onClose={handleClose}
         saveState={saveState}
       />
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <FormSection label="General">
+        <FormSection label={t("portForwarding.ruleForm.general")}>
           <div>
-            <label className={formLabelClass} style={formLabelStyle}>Name</label>
+            <label className={formLabelClass} style={formLabelStyle}>{t("portForwarding.ruleForm.name")}</label>
             <input
               className={formInputClass}
               style={formInputStyle}
-              placeholder="My tunnel"
+              placeholder={t("portForwarding.ruleForm.namePlaceholder")}
               value={name}
               onChange={(e) => { markDirty(); setName(e.target.value); }}
               required
             />
           </div>
           <div>
-            <label className={formLabelClass} style={formLabelStyle}>Description</label>
+            <label className={formLabelClass} style={formLabelStyle}>{t("portForwarding.ruleForm.description")}</label>
             <input
               className={formInputClass}
               style={formInputStyle}
-              placeholder="Dev server, database proxy…"
+              placeholder={t("portForwarding.ruleForm.descriptionPlaceholder")}
               value={description}
               onChange={(e) => { markDirty(); setDescription(e.target.value); }}
             />
           </div>
         </FormSection>
 
-        <FormSection label="Type">
+        <FormSection label={t("portForwarding.ruleForm.type")}>
           <Pills
             options={TUNNEL_TYPES}
             value={tunnelType}
             onChange={(value) => { markDirty(); setTunnelType(value); }}
           />
-          <TunnelTypeExplainer type={tunnelType} />
+          <TunnelTypeExplainer type={tunnelType} tunnelTypes={TUNNEL_TYPES} />
         </FormSection>
 
         {tunnelType === "local" && (
-          <FormSection label="Ports">
+          <FormSection label={t("portForwarding.ruleForm.ports")}>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={formLabelClass} style={formLabelStyle}>Port on your computer</label>
+                <label className={formLabelClass} style={formLabelStyle}>{t("portForwarding.ruleForm.localPortOnComputer")}</label>
                 <input type="number" min={1} max={65535} className={formInputClass} style={formInputStyle}
                   placeholder="3000" value={localPort}
                   onChange={(e) => { markDirty(); setLocalPort(e.target.value); }} required />
-                <FieldHelp>You connect to this port locally, usually as localhost:{localPort || "3000"}.</FieldHelp>
+                <FieldHelp>{t("portForwarding.ruleForm.localPortHelp", { port: localPort || "3000" })}</FieldHelp>
               </div>
               <div>
-                <label className={formLabelClass} style={formLabelStyle}>Port on SSH server</label>
+                <label className={formLabelClass} style={formLabelStyle}>{t("portForwarding.ruleForm.remotePortOnServer")}</label>
                 <input type="number" min={1} max={65535} className={formInputClass} style={formInputStyle}
                   placeholder="3000" value={remotePort}
                   onChange={(e) => { markDirty(); setRemotePort(e.target.value); }} required />
-                <FieldHelp>The port where the service is running from the server's point of view.</FieldHelp>
+                <FieldHelp>{t("portForwarding.ruleForm.remotePortOnServerHelp")}</FieldHelp>
               </div>
             </div>
             <div className="mt-3">
-              <label className={formLabelClass} style={formLabelStyle}>Host on SSH server</label>
+              <label className={formLabelClass} style={formLabelStyle}>{t("portForwarding.ruleForm.hostOnServer")}</label>
               <input className={formInputClass} style={formInputStyle} placeholder="127.0.0.1"
                 value={remoteHost} onChange={(e) => { markDirty(); setRemoteHost(e.target.value); }} />
-              <FieldHelp>Use 127.0.0.1 when the service runs on the SSH server itself.</FieldHelp>
+              <FieldHelp>{t("portForwarding.ruleForm.hostOnServerHelp")}</FieldHelp>
             </div>
           </FormSection>
         )}
 
         {tunnelType === "remote" && (
-          <FormSection label="Ports">
+          <FormSection label={t("portForwarding.ruleForm.ports")}>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={formLabelClass} style={formLabelStyle}>Port opened on SSH server</label>
+                <label className={formLabelClass} style={formLabelStyle}>{t("portForwarding.ruleForm.remotePortOpenedOnServer")}</label>
                 <input type="number" min={1} max={65535} className={formInputClass} style={formInputStyle}
                   placeholder="3000" value={remotePort}
                   onChange={(e) => { markDirty(); setRemotePort(e.target.value); }} required />
-                <FieldHelp>People or services on the server side connect to this port.</FieldHelp>
+                <FieldHelp>{t("portForwarding.ruleForm.remotePortOpenedOnServerHelp")}</FieldHelp>
               </div>
               <div>
-                <label className={formLabelClass} style={formLabelStyle}>Port on your computer</label>
+                <label className={formLabelClass} style={formLabelStyle}>{t("portForwarding.ruleForm.localPortOnComputer")}</label>
                 <input type="number" min={1} max={65535} className={formInputClass} style={formInputStyle}
                   placeholder="3000" value={localPort}
                   onChange={(e) => { markDirty(); setLocalPort(e.target.value); }} required />
-                <FieldHelp>The local app or service that should receive the forwarded traffic.</FieldHelp>
+                <FieldHelp>{t("portForwarding.ruleForm.localPortReceivingHelp")}</FieldHelp>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 mt-3">
               <div>
-                <label className={formLabelClass} style={formLabelStyle}>Bind address on SSH server</label>
+                <label className={formLabelClass} style={formLabelStyle}>{t("portForwarding.ruleForm.bindAddressOnServer")}</label>
                 <input className={formInputClass} style={formInputStyle} placeholder="127.0.0.1"
                   value={bindHost} onChange={(e) => handleBindHostChange(e.target.value)} />
-                <FieldHelp>127.0.0.1 keeps it private to the server. 0.0.0.0 may expose it to the network.</FieldHelp>
+                <FieldHelp>{t("portForwarding.ruleForm.bindAddressOnServerHelp")}</FieldHelp>
                 {showBindWarning && (
                   <p className="text-[10px] text-amber-400 mt-1">
-                    0.0.0.0 exposes this port through the remote server to all its network interfaces.
+                    {t("portForwarding.ruleForm.bindWarning")}
                   </p>
                 )}
               </div>
               <div>
-                <label className={formLabelClass} style={formLabelStyle}>Host on your computer</label>
+                <label className={formLabelClass} style={formLabelStyle}>{t("portForwarding.ruleForm.hostOnComputer")}</label>
                 <input className={formInputClass} style={formInputStyle} placeholder="127.0.0.1"
                   value={targetHost} onChange={(e) => { markDirty(); setTargetHost(e.target.value); }} />
-                <FieldHelp>Use 127.0.0.1 when the target app runs on this computer.</FieldHelp>
+                <FieldHelp>{t("portForwarding.ruleForm.hostOnComputerHelp")}</FieldHelp>
               </div>
             </div>
           </FormSection>
         )}
 
         {tunnelType === "dynamic" && (
-          <FormSection label="Ports">
-            <label className={formLabelClass} style={formLabelStyle}>SOCKS proxy port on your computer</label>
+          <FormSection label={t("portForwarding.ruleForm.ports")}>
+            <label className={formLabelClass} style={formLabelStyle}>{t("portForwarding.ruleForm.socksProxyPort")}</label>
             <input type="number" min={1} max={65535} className={formInputClass} style={formInputStyle}
               placeholder="1080" value={localPort}
               onChange={(e) => { markDirty(); setLocalPort(e.target.value); }} required />
-            <FieldHelp>Configure apps to use localhost:{localPort || "1080"} as a SOCKS5 proxy.</FieldHelp>
+            <FieldHelp>{t("portForwarding.ruleForm.socksProxyPortHelp", { port: localPort || "1080" })}</FieldHelp>
           </FormSection>
         )}
 
-        <FormSection label="Scope">
-          <label className={formLabelClass} style={formLabelStyle}>Apply to</label>
+        <FormSection label={t("portForwarding.ruleForm.scope")}>
+          <label className={formLabelClass} style={formLabelStyle}>{t("portForwarding.ruleForm.applyTo")}</label>
           <div className="flex gap-2">
             <button type="button" onClick={() => { markDirty(); setIsGlobal(true); }}
               className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 isGlobal ? "bg-(--t-accent) text-white"
                 : "bg-(--t-bg-elevated) text-(--t-text-muted) hover:text-(--t-text-primary)"
               }`}>
-              All connections
+              {t("portForwarding.ruleForm.allConnections")}
             </button>
             <button type="button" onClick={() => { markDirty(); setIsGlobal(false); }}
               className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 !isGlobal ? "bg-(--t-accent) text-white"
                 : "bg-(--t-bg-elevated) text-(--t-text-muted) hover:text-(--t-text-primary)"
               }`}>
-              Specific connections
+              {t("portForwarding.ruleForm.specificConnections")}
             </button>
           </div>
           {!isGlobal && (
             <div className="mt-2 flex flex-col gap-0.5 max-h-40 overflow-y-auto">
               {connections.length === 0 ? (
-                <p className="text-xs text-(--t-text-dim) py-1">No saved connections.</p>
+                <p className="text-xs text-(--t-text-dim) py-1">{t("portForwarding.ruleForm.noSavedConnections")}</p>
               ) : connections.map((conn) => {
                 const checked = connectionIds.includes(conn.id);
                 const label = conn.name?.trim() || `${conn.username}@${conn.host}:${conn.port}`;

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { ToolbarViewControls, type LayoutMode, type SortMode } from "@/components/shared/ToolbarViewControls";
 import { ToolbarDropdown } from "@/components/shared/ToolbarDropdown";
@@ -24,6 +25,7 @@ export function PortForwardingToolbar({
   selectedCount = 0,
   onDeleteSelected,
 }: Props) {
+  const { t } = useTranslation();
   const { compact, rowRef, leftRef, rightRef } = useToolbarResize();
 
   return (
@@ -33,7 +35,7 @@ export function PortForwardingToolbar({
           <ToolbarViewControls
             search={search}
             onSearchChange={onSearchChange}
-            filterPlaceholder="Filter rules…"
+            filterPlaceholder={t("portForwarding.toolbar.filterPlaceholder")}
             filterShortcutId="filter"
             filterWidth={176}
             layoutMode={layoutMode}
@@ -47,14 +49,14 @@ export function PortForwardingToolbar({
           {selectedCount > 0 && onDeleteSelected && (
             <button
               onClick={onDeleteSelected}
-              title="Delete selected"
+              title={t("portForwarding.toolbar.deleteSelected")}
               className="flex items-center gap-2 px-3 h-8 rounded-lg text-sm font-bold tracking-wider transition-colors bg-status-error/10 text-status-error border border-status-error/20 hover:bg-status-error/20"
               type="button"
             >
               <Icon icon="lucide:trash-2" width={15} />
               {!compact && (
                 <span>
-                  DELETE{" "}
+                  {t("portForwarding.toolbar.deleteButton")}{" "}
                   <span className="opacity-70">({selectedCount})</span>
                 </span>
               )}
@@ -62,8 +64,9 @@ export function PortForwardingToolbar({
           )}
           <ToolbarDropdown
             icon="lucide:plus"
-            label={compact ? undefined : "New Rule"}
+            label={compact ? undefined : t("portForwarding.toolbar.newRule")}
             onAction={onNewRule ?? (() => {})}
+            // default name kept in English until all creation sites are localized together (see i18n issue #14)
             items={onNewFolder ? [{ label: "New Folder", icon: "lucide:folder-plus", onClick: onNewFolder }] : []}
             disabled={!onNewRule}
             variant="accent"

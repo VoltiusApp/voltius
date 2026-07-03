@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Icon } from "@iconify/react";
@@ -24,19 +25,21 @@ interface SessionPfState {
 }
 
 function TunnelTypeBadge({ tunnelType }: { tunnelType: ActiveTunnel["tunnel_type"] }) {
+  const { t } = useTranslation();
   if ((tunnelType ?? "local") === "local") {
-    return <span className="text-[10px] px-1 py-0.5 rounded-sm font-medium shrink-0 leading-none bg-blue-500/15 text-blue-400">Local</span>;
+    return <span className="text-[10px] px-1 py-0.5 rounded-sm font-medium shrink-0 leading-none bg-blue-500/15 text-blue-400">{t("portForwarding.activeTunnels.local")}</span>;
   }
   if (tunnelType === "remote") {
-    return <span className="text-[10px] px-1 py-0.5 rounded-sm font-medium shrink-0 leading-none bg-amber-500/15 text-amber-400">Remote</span>;
+    return <span className="text-[10px] px-1 py-0.5 rounded-sm font-medium shrink-0 leading-none bg-amber-500/15 text-amber-400">{t("portForwarding.activeTunnels.remote")}</span>;
   }
   if (tunnelType === "dynamic") {
-    return <span className="text-[10px] px-1 py-0.5 rounded-sm font-medium shrink-0 leading-none bg-purple-500/20 text-purple-400">SOCKS5</span>;
+    return <span className="text-[10px] px-1 py-0.5 rounded-sm font-medium shrink-0 leading-none bg-purple-500/20 text-purple-400">{t("portForwarding.activeTunnels.socks5")}</span>;
   }
   return null;
 }
 
 export function ActiveTunnelsSection() {
+  const { t } = useTranslation();
   const sessions = useSessionStore((s) => s.sessions);
   const connections = useAllConnections();
   const accessibleVaultIds = useAccessibleVaultIds();
@@ -160,11 +163,11 @@ export function ActiveTunnelsSection() {
     <div className="mb-4">
       <div className="flex items-center justify-between px-1 py-2">
         <span className="text-xs font-semibold uppercase tracking-wider text-(--t-text-dim)">
-          Active session forwards
+          {t("portForwarding.activeTunnels.sectionTitle")}
         </span>
         <div className="flex items-center gap-2 text-[10px] text-(--t-text-muted)">
-          <span className="px-1.5 py-0.5 rounded-full bg-(--t-bg-elevated) leading-none">{sessionCards.length} host{sessionCards.length === 1 ? "" : "s"}</span>
-          <span className="px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-400 leading-none">{totalTunnelCount} tunnel{totalTunnelCount === 1 ? "" : "s"}</span>
+          <span className="px-1.5 py-0.5 rounded-full bg-(--t-bg-elevated) leading-none">{t("portForwarding.activeTunnels.hostCount", { count: sessionCards.length })}</span>
+          <span className="px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-400 leading-none">{t("portForwarding.activeTunnels.tunnelCount", { count: totalTunnelCount })}</span>
         </div>
       </div>
 
@@ -193,7 +196,7 @@ export function ActiveTunnelsSection() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 min-w-0">
                     <p className="truncate text-base font-bold text-(--t-text-bright)">{session.connectionName}</p>
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-green-500" title="Connected" />
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-green-500" title={t("portForwarding.activeTunnels.connected")} />
                   </div>
                   <p className="truncate text-xs text-(--t-text-dim)">
                     {connection ? `${connection.username}@${connection.host}:${connection.port}` : session.id}
@@ -201,12 +204,12 @@ export function ActiveTunnelsSection() {
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   <span className="rounded-md bg-(--t-bg-input) text-(--t-text-dim) border border-(--t-border) px-2 py-1 text-[10px] font-semibold uppercase tracking-wider">
-                    {totalForwards} forward{totalForwards === 1 ? "" : "s"}
+                    {t("portForwarding.activeTunnels.forwardCount", { count: totalForwards })}
                   </span>
                   {errorCount > 0 ? (
-                    <span className="text-[10px] font-medium text-red-400">{errorCount} error</span>
+                    <span className="text-[10px] font-medium text-red-400">{t("portForwarding.activeTunnels.errorCount", { count: errorCount })}</span>
                   ) : (
-                    <span className="text-[10px] font-medium text-green-400">{activeCount} active</span>
+                    <span className="text-[10px] font-medium text-green-400">{t("portForwarding.activeTunnels.activeCountLabel", { count: activeCount })}</span>
                   )}
                 </div>
               </div>
@@ -232,10 +235,12 @@ export function ActiveTunnelsSection() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <p className="truncate text-sm font-semibold text-(--t-text-bright)">
-                            {tunnel.tunnel_type === "dynamic" ? `SOCKS5 :${tunnel.local_port}` : `Port ${tunnel.remote_port}`}
+                            {tunnel.tunnel_type === "dynamic"
+                              ? t("portForwarding.activeTunnels.socksPortLabel", { port: tunnel.local_port })
+                              : t("portForwarding.activeTunnels.portLabel", { port: tunnel.remote_port })}
                           </p>
                           <span className={`text-[10px] px-1 py-0.5 rounded-sm font-medium shrink-0 leading-none ${isAuto ? "bg-purple-500/20 text-purple-400" : "bg-(--t-bg-subtle) text-(--t-text-muted)"}`}>
-                            {isAuto ? "Auto" : "Ad-hoc"}
+                            {isAuto ? t("portForwarding.activeTunnels.auto") : t("portForwarding.activeTunnels.adHoc")}
                           </span>
                           <TunnelTypeBadge tunnelType={tunnel.tunnel_type} />
                         </div>
@@ -246,7 +251,7 @@ export function ActiveTunnelsSection() {
                       <button
                         onClick={(e) => { e.stopPropagation(); void handlePause(session.id, tunnel.id); }}
                         disabled={isBusy}
-                        title="Pause forwarding"
+                        title={t("portForwarding.activeTunnels.pauseForwarding")}
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-(--t-text-muted) transition-all hover:bg-amber-500/10 hover:text-amber-400 disabled:opacity-60"
                       >
                         {isBusy
@@ -257,7 +262,7 @@ export function ActiveTunnelsSection() {
                       <button
                         onClick={(e) => { e.stopPropagation(); void handleDeleteActive(session.id, tunnel); }}
                         disabled={isDeleting}
-                        title="Delete"
+                        title={t("common.action.delete")}
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-(--t-text-muted) transition-all hover:bg-red-500/10 hover:text-red-400 disabled:opacity-60"
                       >
                         {isDeleting
@@ -268,7 +273,7 @@ export function ActiveTunnelsSection() {
                       {webUrl && (
                         <button
                           onClick={(e) => { e.stopPropagation(); void openUrl(webUrl); }}
-                          title={`Open ${webUrl}`}
+                          title={t("portForwarding.activeTunnels.openUrl", { url: webUrl })}
                           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-(--t-text-muted) transition-all hover:bg-blue-500/10 hover:text-blue-400"
                         >
                           <Icon icon="lucide:globe" width={13} />
@@ -289,15 +294,15 @@ export function ActiveTunnelsSection() {
                       <div className="h-2 w-2 shrink-0 rounded-full bg-(--t-text-dim) opacity-40" />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <p className="truncate text-sm font-semibold text-(--t-text-bright)">Port {port}</p>
-                          <span className="text-[10px] px-1 py-0.5 rounded-sm font-medium shrink-0 leading-none bg-purple-500/20 text-purple-400">Auto</span>
+                          <p className="truncate text-sm font-semibold text-(--t-text-bright)">{t("portForwarding.activeTunnels.portLabel", { port })}</p>
+                          <span className="text-[10px] px-1 py-0.5 rounded-sm font-medium shrink-0 leading-none bg-purple-500/20 text-purple-400">{t("portForwarding.activeTunnels.auto")}</span>
                         </div>
                         <p className="truncate text-xs font-mono text-(--t-text-secondary)">{port} → 127.0.0.1:{port}</p>
                       </div>
                       <button
                         onClick={(e) => { e.stopPropagation(); void handleResume(session.id, port); }}
                         disabled={isBusy}
-                        title="Resume forwarding"
+                        title={t("portForwarding.activeTunnels.resumeForwarding")}
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-(--t-text-muted) transition-all hover:bg-green-500/10 hover:text-green-400 disabled:opacity-60"
                       >
                         {isBusy
@@ -307,7 +312,7 @@ export function ActiveTunnelsSection() {
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDeletePaused(session.id, port); }}
-                        title="Delete"
+                        title={t("common.action.delete")}
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-(--t-text-muted) transition-all hover:bg-red-500/10 hover:text-red-400"
                       >
                         <Icon icon="lucide:trash-2" width={13} />

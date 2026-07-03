@@ -1,0 +1,146 @@
+{
+  "portForwarding": {
+    "toolbar": {
+      "filterPlaceholder": "Filter rules…",
+      "deleteSelected": "Delete selected",
+      "deleteButton": "DELETE",
+      "newRule": "New Rule"
+    },
+    "page": {
+      "all": "All",
+      "folders": "Folders",
+      "new": "New",
+      "noRulesMatchSearch": "No rules match your search.",
+      "folderEmpty": "This folder is empty.",
+      "noRulesYet": "No rules yet. Create one to get started.",
+      "addRule": "Add Rule",
+      "ejectMoveTo": "Move to {{name}}",
+      "ejectRemoveFromFolder": "Remove from folder",
+      "total": "{{count}} total",
+      "activeCount": "{{count}} active",
+      "errorCount": "{{count}} error",
+      "contextMenu": {
+        "newRule": "New Rule"
+      },
+      "confirmDelete": {
+        "title": "Delete rule",
+        "message": "This rule will be permanently deleted."
+      },
+      "confirmDeleteBulk": {
+        "title_one": "Delete {{count}} rule",
+        "title_other": "Delete {{count}} rules",
+        "message_one": "Are you sure you want to delete {{count}} rule? This cannot be undone.",
+        "message_other": "Are you sure you want to delete {{count}} rules? This cannot be undone."
+      },
+      "confirmDeleteFolder": {
+        "title": "Delete folder",
+        "message": "This will delete the folder. Rules inside won't be deleted — they'll return to the top level."
+      },
+      "vaultCascade": {
+        "moveDescription": "Moving \"{{folderName}}\" will also move the following rules to {{targetVaultName}}:",
+        "copyDescription": "Copying \"{{folderName}}\" will also copy the following rules to {{targetVaultName}}:"
+      },
+      "bulk": {
+        "duplicateRules": "Duplicate {{count}} rules",
+        "exportRules": "Export {{count}} rules",
+        "deleteRules": "Delete {{count}} rules"
+      }
+    },
+    "ruleCard": {
+      "pause": "Pause",
+      "resume": "Resume",
+      "openWebLink": "Open web link",
+      "activateInSession": "Activate in session",
+      "duplicate": "Duplicate",
+      "enableCloudSync": "Enable cloud sync",
+      "disableCloudSync": "Disable cloud sync",
+      "pauseForwarding": "Pause forwarding",
+      "resumeForwarding": "Resume forwarding",
+      "active": "Active",
+      "error": "Error",
+      "stopped": "Stopped",
+      "openUrl": "Open {{url}}",
+      "scopedToConnections_one": "Scoped to {{count}} connection",
+      "scopedToConnections_other": "Scoped to {{count}} connections",
+      "connectionsCount_one": "{{count}} connection",
+      "connectionsCount_other": "{{count}} connections"
+    },
+    "activeTunnels": {
+      "sectionTitle": "Active session forwards",
+      "hostCount_one": "{{count}} host",
+      "hostCount_other": "{{count}} hosts",
+      "tunnelCount_one": "{{count}} tunnel",
+      "tunnelCount_other": "{{count}} tunnels",
+      "forwardCount_one": "{{count}} forward",
+      "forwardCount_other": "{{count}} forwards",
+      "errorCount": "{{count}} error",
+      "activeCountLabel": "{{count}} active",
+      "connected": "Connected",
+      "local": "Local",
+      "remote": "Remote",
+      "socks5": "SOCKS5",
+      "auto": "Auto",
+      "adHoc": "Ad-hoc",
+      "portLabel": "Port {{port}}",
+      "socksPortLabel": "SOCKS5 :{{port}}",
+      "pauseForwarding": "Pause forwarding",
+      "resumeForwarding": "Resume forwarding",
+      "openUrl": "Open {{url}}"
+    },
+    "ruleForm": {
+      "editRule": "Edit Rule",
+      "newRule": "New Rule",
+      "general": "General",
+      "name": "Name",
+      "namePlaceholder": "My tunnel",
+      "description": "Description",
+      "descriptionPlaceholder": "Dev server, database proxy…",
+      "type": "Type",
+      "ports": "Ports",
+      "scope": "Scope",
+      "tunnelTypes": {
+        "local": {
+          "label": "Local",
+          "title": "Local tunnel",
+          "summary": "Open something from the SSH server on your own machine.",
+          "example": "Use localhost:3000 on your computer to reach 127.0.0.1:3000 on the server.",
+          "diagram": ["Your computer", "SSH server", "Remote service"]
+        },
+        "remote": {
+          "label": "Remote",
+          "title": "Remote tunnel",
+          "summary": "Expose something from your machine on the SSH server.",
+          "example": "The server listens on a port and forwards traffic back to your computer.",
+          "diagram": ["Remote users", "SSH server", "Your computer"]
+        },
+        "dynamic": {
+          "label": "Dynamic",
+          "title": "Dynamic SOCKS proxy",
+          "summary": "Create a local SOCKS5 proxy that sends app traffic through the SSH server.",
+          "example": "Point a browser or app at localhost:1080 to route traffic through the server.",
+          "diagram": ["Your app", "SOCKS proxy", "SSH server"]
+        }
+      },
+      "localPortOnComputer": "Port on your computer",
+      "localPortHelp": "You connect to this port locally, usually as localhost:{{port}}.",
+      "remotePortOnServer": "Port on SSH server",
+      "remotePortOnServerHelp": "The port where the service is running from the server's point of view.",
+      "hostOnServer": "Host on SSH server",
+      "hostOnServerHelp": "Use 127.0.0.1 when the service runs on the SSH server itself.",
+      "remotePortOpenedOnServer": "Port opened on SSH server",
+      "remotePortOpenedOnServerHelp": "People or services on the server side connect to this port.",
+      "localPortReceivingHelp": "The local app or service that should receive the forwarded traffic.",
+      "bindAddressOnServer": "Bind address on SSH server",
+      "bindAddressOnServerHelp": "127.0.0.1 keeps it private to the server. 0.0.0.0 may expose it to the network.",
+      "bindWarning": "0.0.0.0 exposes this port through the remote server to all its network interfaces.",
+      "hostOnComputer": "Host on your computer",
+      "hostOnComputerHelp": "Use 127.0.0.1 when the target app runs on this computer.",
+      "socksProxyPort": "SOCKS proxy port on your computer",
+      "socksProxyPortHelp": "Configure apps to use localhost:{{port}} as a SOCKS5 proxy.",
+      "applyTo": "Apply to",
+      "allConnections": "All connections",
+      "specificConnections": "Specific connections",
+      "noSavedConnections": "No saved connections."
+    }
+  }
+}
