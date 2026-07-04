@@ -1,20 +1,30 @@
+import i18n from "@/i18n";
 import type { StepConfig } from "./types";
 
-export const SSH_STEPS: StepConfig[] = [
-  { id: "tcp_connected", label: "TCP connection" },
-  { id: "handshake", label: "SSH handshake" },
-  { id: "authenticating", label: "Authenticating" },
-  { id: "opening_shell", label: "Opening shell" },
-];
+// Labels are resolved at call time (not module load) so they reflect the
+// active language; the `id`s are matched by value elsewhere (hooks.ts,
+// utils.ts) and must stay untranslated.
+export function getSshSteps(): StepConfig[] {
+  return [
+    { id: "tcp_connected", label: i18n.t("terminal.overlay.steps.tcpConnection") },
+    { id: "handshake", label: i18n.t("terminal.overlay.steps.sshHandshake") },
+    { id: "authenticating", label: i18n.t("terminal.overlay.steps.authenticating") },
+    { id: "opening_shell", label: i18n.t("terminal.overlay.steps.openingShell") },
+  ];
+}
 
-export const SFTP_STEPS: StepConfig[] = [
-  { id: "tcp_connected", label: "TCP connection" },
-  { id: "handshake", label: "SSH handshake" },
-  { id: "authenticating", label: "Authenticating" },
-  { id: "sftp_subsystem", label: "SFTP subsystem" },
-];
+export function getSftpSteps(): StepConfig[] {
+  return [
+    { id: "tcp_connected", label: i18n.t("terminal.overlay.steps.tcpConnection") },
+    { id: "handshake", label: i18n.t("terminal.overlay.steps.sshHandshake") },
+    { id: "authenticating", label: i18n.t("terminal.overlay.steps.authenticating") },
+    { id: "sftp_subsystem", label: i18n.t("terminal.overlay.steps.sftpSubsystem") },
+  ];
+}
 
-export const SERIAL_STEPS: StepConfig[] = [
-  { id: "open_port", label: "Opening port" },
-  { id: "ready", label: "Ready" },
-];
+export function getSerialSteps(): StepConfig[] {
+  return [
+    { id: "open_port", label: i18n.t("terminal.overlay.steps.openingPort") },
+    { id: "ready", label: i18n.t("terminal.overlay.steps.ready") },
+  ];
+}

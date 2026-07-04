@@ -167,6 +167,58 @@
       "nextMatch": "Occurrence suivante (Entrée)",
       "closeTitle": "Fermer (Échap)"
     },
+    "overlay": {
+      "continue": "Continuer",
+      "connectAndSave": "Connecter et enregistrer",
+      "continueAndSave": "Continuer et enregistrer",
+      "steps": {
+        "tcpConnection": "Connexion TCP",
+        "sshHandshake": "Négociation SSH",
+        "authenticating": "Authentification",
+        "openingShell": "Ouverture du shell",
+        "sftpSubsystem": "Sous-système SFTP",
+        "openingPort": "Ouverture du port",
+        "ready": "Prêt"
+      },
+      "connectionLost": {
+        "title": "Connexion perdue",
+        "subtitle": "Reconnexion…"
+      },
+      "connectionError": {
+        "title": "Échec de la connexion",
+        "retry": "Réessayer",
+        "dismiss": "Ignorer"
+      },
+      "hostKeyConflict": {
+        "title": "CLÉ D'HÔTE MODIFIÉE",
+        "descriptionPrefix": "L'empreinte de ",
+        "descriptionSuffix": " a changé.",
+        "replace": "Remplacer",
+        "addAsNew": "Ajouter comme nouvelle",
+        "abort": "Abandonner",
+        "stored": "Enregistrée",
+        "received": "Reçue"
+      },
+      "passphrasePrompt": {
+        "title": "PHRASE DE PASSE DE CLÉ REQUISE",
+        "description": "Cette clé est chiffrée. Entrez la phrase de passe pour continuer.",
+        "placeholder": "Phrase de passe"
+      },
+      "usernamePrompt": {
+        "title": "NOM D'UTILISATEUR REQUIS",
+        "description": "Cet hôte n'a pas de nom d'utilisateur défini. Entrez-en un ou choisissez une identité pour continuer.",
+        "placeholder": "root"
+      },
+      "authPrompt": {
+        "title": "AUTHENTIFICATION REQUISE",
+        "description": "Cet hôte n'a pas de méthode d'authentification. Choisissez-en une pour continuer.",
+        "modePassword": "Mot de passe",
+        "modeKey": "Clé",
+        "modeIdentity": "Identité",
+        "passwordPlaceholder": "Mot de passe",
+        "keyPassphrasePlaceholder": "Phrase de passe de la clé (optionnel)"
+      }
+    },
     "statusBar": {
       "badge": {
         "ssh": "SSH",

@@ -8,7 +8,7 @@ import { AvatarTile } from "@/components/shared/AvatarTile";
 import { type HostChoice, type SidePhase, type FileEntry } from "./SFTPTypes";
 import { HostPickerPanel } from "@/components/shared/HostPickerPanel";
 import { FilePane } from "./FilePane";
-import ConnectionOverlay, { SFTP_STEPS } from "@/components/terminal/connection-overlay";
+import ConnectionOverlay, { getSftpSteps } from "@/components/terminal/connection-overlay";
 import { FilterInput } from "@/components/shared/ToolbarViewControls";
 import { useHostPingStore } from "@/stores/hostPingStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
@@ -289,7 +289,7 @@ export function SidePane({
               name={phaseName}
               subtitle={phaseSubtitle}
               icon={phaseIcon}
-              steps={SFTP_STEPS}
+              steps={getSftpSteps()}
               stepEventName={`sftp-step-${phase.connectId}`}
               conflictEventName={`sftp-host-key-conflict-${phase.connectId}`}
               className="flex items-center justify-center h-full bg-(--t-bg-base)"

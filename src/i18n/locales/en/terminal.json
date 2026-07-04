@@ -167,6 +167,58 @@
       "nextMatch": "Next Match (Enter)",
       "closeTitle": "Close (Escape)"
     },
+    "overlay": {
+      "continue": "Continue",
+      "connectAndSave": "Connect & Save",
+      "continueAndSave": "Continue & Save",
+      "steps": {
+        "tcpConnection": "TCP connection",
+        "sshHandshake": "SSH handshake",
+        "authenticating": "Authenticating",
+        "openingShell": "Opening shell",
+        "sftpSubsystem": "SFTP subsystem",
+        "openingPort": "Opening port",
+        "ready": "Ready"
+      },
+      "connectionLost": {
+        "title": "Connection lost",
+        "subtitle": "Reconnecting…"
+      },
+      "connectionError": {
+        "title": "Connection failed",
+        "retry": "Retry",
+        "dismiss": "Dismiss"
+      },
+      "hostKeyConflict": {
+        "title": "HOST KEY CHANGED",
+        "descriptionPrefix": "The fingerprint for ",
+        "descriptionSuffix": " has changed.",
+        "replace": "Replace",
+        "addAsNew": "Add as new",
+        "abort": "Abort",
+        "stored": "Stored",
+        "received": "Received"
+      },
+      "passphrasePrompt": {
+        "title": "KEY PASSPHRASE REQUIRED",
+        "description": "This key is encrypted. Enter the passphrase to continue.",
+        "placeholder": "Passphrase"
+      },
+      "usernamePrompt": {
+        "title": "USERNAME REQUIRED",
+        "description": "This host has no username set. Enter one or pick an identity to continue.",
+        "placeholder": "root"
+      },
+      "authPrompt": {
+        "title": "AUTHENTICATION REQUIRED",
+        "description": "This host has no authentication method. Choose one to continue.",
+        "modePassword": "Password",
+        "modeKey": "Key",
+        "modeIdentity": "Identity",
+        "passwordPlaceholder": "Password",
+        "keyPassphrasePlaceholder": "Key passphrase (optional)"
+      }
+    },
     "statusBar": {
       "badge": {
         "ssh": "SSH",

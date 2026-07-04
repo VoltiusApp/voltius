@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { DecisionPanel } from "./DecisionPanel";
 
 export function PassphrasePromptPanel({
@@ -9,6 +10,7 @@ export function PassphrasePromptPanel({
   onSubmit: (passphrase: string, save: boolean) => void;
   onCancel?: () => void;
 }) {
+  const { t } = useTranslation();
   const [passphrase, setPassphrase] = useState("");
   const [showPassphrase, setShowPassphrase] = useState(false);
 
@@ -16,22 +18,22 @@ export function PassphrasePromptPanel({
     <DecisionPanel
       tone="secure"
       icon={<Icon icon="lucide:lock" width={14} className="text-(--t-text-dim) shrink-0" />}
-      title="KEY PASSPHRASE REQUIRED"
-      description="This key is encrypted. Enter the passphrase to continue."
+      title={t("terminal.overlay.passphrasePrompt.title")}
+      description={t("terminal.overlay.passphrasePrompt.description")}
       actions={[
         {
-          label: "Connect & Save",
+          label: t("terminal.overlay.connectAndSave"),
           disabled: !passphrase,
           onClick: () => onSubmit(passphrase, true),
         },
         {
-          label: "Connect",
+          label: t("common.action.connect"),
           variant: "secondary",
           disabled: !passphrase,
           onClick: () => onSubmit(passphrase, false),
         },
         {
-          label: "Cancel",
+          label: t("common.action.cancel"),
           variant: "ghost",
           onClick: onCancel,
         },
@@ -45,7 +47,7 @@ export function PassphrasePromptPanel({
           onKeyDown={(event) => {
             if (event.key === "Enter" && passphrase) onSubmit(passphrase, true);
           }}
-          placeholder="Passphrase"
+          placeholder={t("terminal.overlay.passphrasePrompt.placeholder")}
           autoFocus
           className="w-full px-3 pr-9 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-base) border border-(--t-border) text-(--t-text-primary) focus:border-(--t-accent)"
         />

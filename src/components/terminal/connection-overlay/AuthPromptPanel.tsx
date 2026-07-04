@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useTeamStore } from "@/stores/teamStore";
@@ -14,11 +16,13 @@ import type { ConnectRetryOverride } from "./types";
 
 type AuthMode = "password" | "key" | "identity";
 
-const AUTH_MODES = [
-  { value: "password" as const, label: "Password" },
-  { value: "key" as const, label: "Key" },
-  { value: "identity" as const, label: "Identity" },
-];
+function getAuthModes(t: TFunction) {
+  return [
+    { value: "password" as const, label: t("terminal.overlay.authPrompt.modePassword") },
+    { value: "key" as const, label: t("terminal.overlay.authPrompt.modeKey") },
+    { value: "identity" as const, label: t("terminal.overlay.authPrompt.modeIdentity") },
+  ];
+}
 
 export function AuthPromptPanel({
   vaultId,
@@ -29,10 +33,12 @@ export function AuthPromptPanel({
   onSubmit: (override: ConnectRetryOverride, save: boolean) => void;
   onCancel?: () => void;
 }) {
+  const { t } = useTranslation();
   const { identities, teamIdentities, loadIdentities } = useIdentityStore();
   const { keys, teamKeys, loadKeys } = useKeyStore();
   const teams = useTeamStore((s) => s.teams);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
+  const authModes = useMemo(() => getAuthModes(t), [t]);
 
   const [mode, setMode] = useState<AuthMode>("password");
   const [identityId, setIdentityId] = useState<string | null>(null);
@@ -95,29 +101,29 @@ export function AuthPromptPanel({
     <DecisionPanel
       tone="secure"
       icon={<Icon icon="lucide:key-round" width={14} className="text-(--t-text-dim) shrink-0" />}
-      title="AUTHENTICATION REQUIRED"
-      description="This host has no authentication method. Choose one to continue."
+      title={t("terminal.overlay.authPrompt.title")}
+      description={t("terminal.overlay.authPrompt.description")}
       actions={[
         {
-          label: "Connect & Save",
+          label: t("terminal.overlay.connectAndSave"),
           disabled: !hasAuth,
           onClick: () => onSubmit(buildOverride(), true),
         },
         {
-          label: "Connect",
+          label: t("common.action.connect"),
           variant: "secondary",
           disabled: !hasAuth,
           onClick: () => onSubmit(buildOverride(), false),
         },
         {
-          label: "Cancel",
+          label: t("common.action.cancel"),
           variant: "ghost",
           onClick: onCancel,
         },
       ]}
     >
       <div className="w-full flex flex-col gap-2.5 text-left">
-        <Pills options={AUTH_MODES} value={mode} onChange={setMode} />
+        <Pills options={authModes} value={mode} onChange={setMode} />
 
         {mode === "password" && (
           <div className="relative">
@@ -125,7 +131,7 @@ export function AuthPromptPanel({
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Password"
+              placeholder={t("terminal.overlay.authPrompt.passwordPlaceholder")}
               autoFocus
               className="w-full px-3 pr-9 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-base) border border-(--t-border) text-(--t-text-primary) focus:border-(--t-accent)"
             />
@@ -163,7 +169,7 @@ export function AuthPromptPanel({
                       type={showPassphrase ? "text" : "password"}
                       value={passphrase}
                       onChange={(event) => setPassphrase(event.target.value)}
-                      placeholder="Key passphrase (optional)"
+                      placeholder={t("terminal.overlay.authPrompt.keyPassphrasePlaceholder")}
                       autoComplete="new-password"
                       className="w-full px-3 pr-9 py-2 rounded-lg text-sm outline-hidden bg-(--t-bg-base) border border-(--t-border) text-(--t-text-primary) focus:border-(--t-accent)"
                     />

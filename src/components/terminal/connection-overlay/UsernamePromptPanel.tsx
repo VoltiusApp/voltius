@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -18,6 +19,7 @@ export function UsernamePromptPanel({
   onSubmit: (override: ConnectRetryOverride, save: boolean) => void;
   onCancel?: () => void;
 }) {
+  const { t } = useTranslation();
   const { identities, teamIdentities, loadIdentities } = useIdentityStore();
   const teams = useTeamStore((s) => s.teams);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
@@ -65,22 +67,22 @@ export function UsernamePromptPanel({
     <DecisionPanel
       tone="secure"
       icon={<Icon icon="lucide:user" width={14} className="text-(--t-text-dim) shrink-0" />}
-      title="USERNAME REQUIRED"
-      description="This host has no username set. Enter one or pick an identity to continue."
+      title={t("terminal.overlay.usernamePrompt.title")}
+      description={t("terminal.overlay.usernamePrompt.description")}
       actions={[
         {
-          label: "Continue & Save",
+          label: t("terminal.overlay.continueAndSave"),
           disabled: !hasValue,
           onClick: () => onSubmit(buildOverride(), true),
         },
         {
-          label: "Continue",
+          label: t("terminal.overlay.continue"),
           variant: "secondary",
           disabled: !hasValue,
           onClick: () => onSubmit(buildOverride(), false),
         },
         {
-          label: "Cancel",
+          label: t("common.action.cancel"),
           variant: "ghost",
           onClick: onCancel,
         },
@@ -99,7 +101,7 @@ export function UsernamePromptPanel({
             type="text"
             value={username}
             onChange={(event) => setUsername(event.target.value)}
-            placeholder="root"
+            placeholder={t("terminal.overlay.usernamePrompt.placeholder")}
             autoFocus
             autoCapitalize="off"
             autoCorrect="off"

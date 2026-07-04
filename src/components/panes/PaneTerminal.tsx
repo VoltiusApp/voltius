@@ -5,7 +5,7 @@ import TerminalView from "@/components/terminal/Terminal";
 import { TerminalSearch } from "@/components/terminal/TerminalSearch";
 import MultiplayerTerminalView from "@/components/terminal/MultiplayerTerminalView";
 import { MultiplayerBar } from "@/components/terminal/MultiplayerBar";
-import ConnectionOverlay, { SSH_STEPS, SERIAL_STEPS } from "@/components/terminal/connection-overlay";
+import ConnectionOverlay, { getSshSteps, getSerialSteps } from "@/components/terminal/connection-overlay";
 import { useMultiplayerHostBroadcast } from "@/hooks/useMultiplayerHostBroadcast";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -57,7 +57,7 @@ function SplitConnectionOverlay({
         name={session.connectionName}
         subtitle={subtitle}
         icon="lucide:ethernet-port"
-        steps={SERIAL_STEPS}
+        steps={getSerialSteps()}
         stepEventName={`serial-step-${session.id}`}
         onDismiss={onDismiss}
         onRetry={isEphemeral ? () => resetSerialEphemeral(session.id) : onRetry}
@@ -77,7 +77,7 @@ function SplitConnectionOverlay({
       subtitle={subtitle}
       icon={icon}
       vaultId={connection?.vault_id}
-      steps={SSH_STEPS}
+      steps={getSshSteps()}
       stepEventName={`ssh-step-${session.id}`}
       conflictEventName={`ssh-host-key-conflict-${session.id}`}
       onDismiss={onDismiss}

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { DecisionPanel } from "./DecisionPanel";
 import type { HostKeyConflictAction, HostKeyConflictEvent } from "./types";
 import { truncateFp } from "./utils";
@@ -11,30 +12,33 @@ export function HostKeyConflictPanel({
   resolving: boolean;
   onResolve: (action: HostKeyConflictAction) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <DecisionPanel
       tone="warning"
       icon={<WarningIcon />}
-      title="HOST KEY CHANGED"
+      title={t("terminal.overlay.hostKeyConflict.title")}
       description={(
         <>
-          The fingerprint for <span className="font-mono text-text-primary">{conflict.host}:{conflict.port}</span> has changed.
+          {t("terminal.overlay.hostKeyConflict.descriptionPrefix")}
+          <span className="font-mono text-text-primary">{conflict.host}:{conflict.port}</span>
+          {t("terminal.overlay.hostKeyConflict.descriptionSuffix")}
         </>
       )}
       actions={[
         {
-          label: "Replace",
+          label: t("terminal.overlay.hostKeyConflict.replace"),
           disabled: resolving,
           onClick: () => onResolve("replace"),
         },
         {
-          label: "Add as new",
+          label: t("terminal.overlay.hostKeyConflict.addAsNew"),
           variant: "secondary",
           disabled: resolving,
           onClick: () => onResolve("add_new"),
         },
         {
-          label: "Abort",
+          label: t("terminal.overlay.hostKeyConflict.abort"),
           variant: "ghost",
           disabled: resolving,
           onClick: () => onResolve("abort"),
@@ -44,12 +48,12 @@ export function HostKeyConflictPanel({
       <div className="w-full space-y-2 text-left">
         {conflict.stored_entries.slice(0, 2).map((entry) => (
           <div key={entry.id} className="p-2 rounded-sm bg-(--t-bg-elevated)">
-            <p className="text-(--t-text-dim) text-xs mb-0.5">Stored</p>
+            <p className="text-(--t-text-dim) text-xs mb-0.5">{t("terminal.overlay.hostKeyConflict.stored")}</p>
             <p className="font-mono text-xs text-text-secondary break-all">{truncateFp(entry.fingerprint)}</p>
           </div>
         ))}
         <div className="p-2 rounded-sm bg-yellow-500/5 border border-yellow-500/20">
-          <p className="text-yellow-400 text-xs mb-0.5">Received</p>
+          <p className="text-yellow-400 text-xs mb-0.5">{t("terminal.overlay.hostKeyConflict.received")}</p>
           <p className="font-mono text-xs text-text-secondary break-all">{truncateFp(conflict.new_fingerprint)}</p>
         </div>
       </div>
