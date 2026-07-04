@@ -45,6 +45,7 @@
       "portForwarding": { "label": "Transfert de ports", "keywords": ["tunnel", "redirection", "ports", "ssh", "auto"] },
       "hosts":          { "label": "Hôtes",              "keywords": ["ping", "accessibilité", "connectivité", "statut"] },
       "shortcuts":      { "label": "Raccourcis",         "keywords": ["raccourci", "touche", "clavier", "rebind", "keyboard"] },
+      "diagnostics":    { "label": "Diagnostics",        "keywords": ["diagnostics", "bug", "rapport", "journal", "débogage", "problème"] },
       "about":          { "label": "À propos",           "keywords": ["version", "mise à jour", "publication", "changelog"] }
     },
     "chrome": {
@@ -209,6 +210,23 @@
         "errorNoSubscription": "Aucun abonnement actif trouvé",
         "errorUpdateSeats": "Échec de la mise à jour des postes : {{status}}"
       }
+    },
+    "diagnostics": {
+      "intro": "Un problème avec Voltius ? Créez un rapport et envoyez-le au développeur — cela aide à traquer les bugs difficiles à reproduire.",
+      "troubleshootingTitle": "Dépannage",
+      "verboseLabel": "Journalisation détaillée (cette session)",
+      "verboseSub": "Enregistre des détails supplémentaires pour aider à diagnostiquer les problèmes. Revient à la normale au redémarrage de Voltius.",
+      "verboseHint": "La journalisation détaillée est activée. Pour capturer le problème :\n1. Reproduisez le problème maintenant\n2. Revenez ici et créez un rapport de bug",
+      "reportTitle": "Rapport de bug",
+      "createButton": "Créer un rapport de bug",
+      "creatingButton": "Collecte des journaux…",
+      "createdButton": "Rapport enregistré",
+      "reportSub": "Inclut les journaux de l'application et les infos système. N'inclut jamais vos mots de passe, clés ou le contenu du terminal.",
+      "whatsIncluded": "Que contient le rapport ?",
+      "includedBody": "Inclus :\n• Journaux de l'application (ce que faisait Voltius, avec les valeurs sensibles retirées)\n• Version de l'application, système d'exploitation et extensions actives\nNON inclus :\n• Mots de passe, contenu du coffre-fort ou clés privées\n• Sortie du terminal ou tout ce que vous avez tapé\nLe rapport est enregistré sur votre ordinateur. Rien n'est envoyé automatiquement — vous choisissez où le partager.",
+      "openLogFolder": "Ouvrir le dossier des journaux",
+      "toastSaved": "Rapport enregistré — {{name}}",
+      "toastError": "Impossible de créer le rapport : {{reason}}"
     },
     "about": {
       "versionTitle": "Version",

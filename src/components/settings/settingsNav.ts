@@ -17,6 +17,7 @@ export function getSettingsNav(): {
     { id: "portForwarding", label: i18n.t("settings.nav.portForwarding.label"), icon: "lucide:arrow-right-left", keywords: i18n.t("settings.nav.portForwarding.keywords", { returnObjects: true }) as string[] },
     { id: "hosts",          label: i18n.t("settings.nav.hosts.label"),          icon: "lucide:server",           keywords: i18n.t("settings.nav.hosts.keywords",          { returnObjects: true }) as string[] },
     { id: "shortcuts",      label: i18n.t("settings.nav.shortcuts.label"),      icon: "lucide:keyboard",         keywords: i18n.t("settings.nav.shortcuts.keywords",      { returnObjects: true }) as string[] },
+    { id: "diagnostics",    label: i18n.t("settings.nav.diagnostics.label"),    icon: "lucide:bug",              keywords: i18n.t("settings.nav.diagnostics.keywords",    { returnObjects: true }) as string[] },
     { id: "about",          label: i18n.t("settings.nav.about.label"),          icon: "lucide:info",             keywords: i18n.t("settings.nav.about.keywords",          { returnObjects: true }) as string[] },
   ];
 }

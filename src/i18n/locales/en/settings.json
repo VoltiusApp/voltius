@@ -45,6 +45,7 @@
       "portForwarding": { "label": "Port Forwarding", "keywords": ["tunnel", "forward", "ports", "ssh", "auto"] },
       "hosts":          { "label": "Hosts",           "keywords": ["ping", "reachability", "connectivity", "status"] },
       "shortcuts":      { "label": "Shortcuts",       "keywords": ["keybind", "hotkey", "shortcut", "rebind", "keyboard"] },
+      "diagnostics":    { "label": "Diagnostics",     "keywords": ["diagnostics", "bug", "report", "log", "debug", "issue"] },
       "about":          { "label": "About",           "keywords": ["version", "update", "release", "changelog"] }
     },
     "chrome": {
@@ -209,6 +210,23 @@
         "errorNoSubscription": "No active subscription found",
         "errorUpdateSeats": "Failed to update seats: {{status}}"
       }
+    },
+    "diagnostics": {
+      "intro": "Trouble with Voltius? Create a report and send it to the developer — it helps track down bugs that are hard to reproduce.",
+      "troubleshootingTitle": "Troubleshooting",
+      "verboseLabel": "Verbose logging (this session)",
+      "verboseSub": "Records extra detail to help diagnose issues. Resets to normal when you restart Voltius.",
+      "verboseHint": "Verbose logging is on. To capture the problem:\n1. Reproduce the issue now\n2. Come back and create a bug report",
+      "reportTitle": "Bug report",
+      "createButton": "Create bug report",
+      "creatingButton": "Collecting logs…",
+      "createdButton": "Report saved",
+      "reportSub": "Includes app logs and system info. Never includes your passwords, keys, or terminal contents.",
+      "whatsIncluded": "What's included?",
+      "includedBody": "Included:\n• App logs (what Voltius was doing, with sensitive values removed)\n• App version, operating system, and active plugins\nNOT included:\n• Passwords, vault contents, or private keys\n• Terminal output or anything you typed\nThe report is saved to your computer. Nothing is sent automatically — you choose where to share it.",
+      "openLogFolder": "Open log folder",
+      "toastSaved": "Report saved — {{name}}",
+      "toastError": "Couldn't create report: {{reason}}"
     },
     "about": {
       "versionTitle": "Version",

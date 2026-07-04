@@ -6,7 +6,7 @@ export type NavItem = "hosts" | "keychain" | "port-forwarding" | "snippets" | "k
 export type BuiltinRightPanelSection = "snippets" | "history" | "themes" | "ports" | "sftp";
 /** Widened to allow plugin-contributed section IDs (prefixed with "plugin:") */
 export type RightPanelSection = BuiltinRightPanelSection | (string & {});
-export type SettingsSection = "appearance" | "account" | "sync" | "vaults" | "plugins" | "sftp" | "portForwarding" | "hosts" | "shortcuts" | "about";
+export type SettingsSection = "appearance" | "account" | "sync" | "vaults" | "plugins" | "sftp" | "portForwarding" | "hosts" | "shortcuts" | "diagnostics" | "about";
 
 export type LayoutMode = "grid" | "list";
 export type SortMode   = "name-asc" | "name-desc" | "newest" | "oldest" | "role-asc";
