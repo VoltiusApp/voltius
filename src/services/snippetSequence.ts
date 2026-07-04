@@ -105,7 +105,10 @@ async function prepareTarget(target: RunTarget, leaf: LeafStep[]): Promise<Prepa
       await runTransferStep(sftpId, step);
     },
     async close() {
-      if (sftpId && target.kind === "connection") await sftpClose(sftpId);
+      // We always own sftpId (sftpOpen/sftpConnect create a fresh resource),
+      // so close it whenever opened. For a live session this only tears down the
+      // sftp channel, not the underlying terminal session.
+      if (sftpId) await sftpClose(sftpId);
     },
   };
   return { label: targetLabel(target), exec };
