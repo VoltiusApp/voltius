@@ -11,6 +11,7 @@ const fsRename = vi.fn(async (..._a: unknown[]) => {});
 const sftpRename = vi.fn(async (..._a: unknown[]) => {});
 const fsDelete = vi.fn(async (..._a: unknown[]) => {});
 const sftpDelete = vi.fn(async (..._a: unknown[]) => {});
+const sftpTransfer = vi.fn(async (..._a: unknown[]) => {});
 vi.mock("@/services/sftp", () => ({
   sftpUpload: (...a: unknown[]) => sftpUpload(...a),
   sftpDownload: (...a: unknown[]) => sftpDownload(...a),
@@ -23,6 +24,7 @@ vi.mock("@/services/sftp", () => ({
   sftpRename: (...a: unknown[]) => sftpRename(...a),
   fsDelete: (...a: unknown[]) => fsDelete(...a),
   sftpDelete: (...a: unknown[]) => sftpDelete(...a),
+  sftpTransfer: (...a: unknown[]) => sftpTransfer(...a),
 }));
 vi.mock("@/components/filetransfer/SFTPTypes", () => ({ genId: () => "tid" }));
 
@@ -58,7 +60,7 @@ beforeEach(() => {
   sftpDownloadDirTar.mockClear(); sftpClose.mockClear(); resolveSftpIdForTarget.mockClear();
   readClipboard.mockClear();
   sftpExists.mockClear(); fsExists.mockClear(); fsRename.mockClear();
-  sftpRename.mockClear(); fsDelete.mockClear(); sftpDelete.mockClear();
+  sftpRename.mockClear(); fsDelete.mockClear(); sftpDelete.mockClear(); sftpTransfer.mockClear();
 });
 
 describe("runTransferStep", () => {
@@ -227,6 +229,30 @@ describe("runSnippetSequence — sftp channel lifecycle", () => {
     expect(res).not.toBe("prompting");
     expect(sftpUpload).toHaveBeenCalledWith({ sftpId: "fake-sftp-id", localPath: "/l", remotePath: "/r", transferId: "tid" });
     expect(sftpClose).toHaveBeenCalledWith("fake-sftp-id");
+  });
+
+  function remoteCopySnippet(): Snippet {
+    return {
+      id: "s2",
+      name: "r2r-copy",
+      steps: [{ kind: "transfer", from: "remote", to: "remote", from_path: "/a", to_path: "/b", is_dir: false, mode: "copy", on_conflict: "overwrite" }],
+      tags: [],
+      favorite: false,
+      only_for_connection_tags: [],
+      only_for_distros: [],
+      created_at: "", updated_at: "", vault_id: "personal", clocks: {},
+    };
+  }
+
+  it("closes both sftp channels after a remote→remote copy run", async () => {
+    const res = await runSnippetSequence(
+      remoteCopySnippet(),
+      [{ kind: "session", sessionId: "sess-1", sessionType: "ssh" }],
+      () => {},
+    );
+    expect(res).not.toBe("prompting");
+    expect(sftpTransfer).toHaveBeenCalledWith(expect.objectContaining({ srcSftpId: "fake-sftp-id", dstSftpId: "fake-sftp-id" }));
+    expect(sftpClose).toHaveBeenCalledTimes(2);
   });
 });
 

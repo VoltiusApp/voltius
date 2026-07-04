@@ -266,7 +266,14 @@ async function prepareTarget(target: RunTarget, steps: LeafStep[]): Promise<Prep
   let remoteSftpId: string | null = null;
   let remoteSftpId2: string | null = null;
   if (needsRemote) remoteSftpId = await resolveSftpIdForTarget(target);
-  if (needsSecond) remoteSftpId2 = await resolveSftpIdForTarget(target);
+  if (needsSecond) {
+    try {
+      remoteSftpId2 = await resolveSftpIdForTarget(target);
+    } catch (e) {
+      if (remoteSftpId) await sftpClose(remoteSftpId).catch(() => {});
+      throw e;
+    }
+  }
 
   const sessionId = target.kind === "session" ? target.sessionId : undefined;
   const sessionType = target.kind === "session" ? target.sessionType : "ssh";
