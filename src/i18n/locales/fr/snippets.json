@@ -1,5 +1,12 @@
 {
   "snippets": {
+    "sequence": {
+      "summary": {
+        "success": "Snippet exécuté sur {{count}} cible(s)",
+        "partial": "{{count}} ok — {{details}}",
+        "failed": "échec"
+      }
+    },
     "toolbar": {
       "filterPlaceholder": "Filtrer les snippets...",
       "gridLabel": "Grille",

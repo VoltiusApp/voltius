@@ -1,5 +1,12 @@
 {
   "snippets": {
+    "sequence": {
+      "summary": {
+        "success": "Snippet ran on {{count}} target(s)",
+        "partial": "{{count}} ok — {{details}}",
+        "failed": "failed"
+      }
+    },
     "toolbar": {
       "filterPlaceholder": "Filter snippets...",
       "gridLabel": "Grid",
