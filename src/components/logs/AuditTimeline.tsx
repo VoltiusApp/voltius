@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import type { AuditLog } from "@/services/auditService";
 import { AuditEventRow } from "./AuditEventRow";
 
@@ -7,8 +9,8 @@ function formatDayLabel(dateStr: string): string {
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
 
-  if (d.toDateString() === now.toDateString()) return "Today";
-  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+  if (d.toDateString() === now.toDateString()) return i18n.t("logs.timeline.today");
+  if (d.toDateString() === yesterday.toDateString()) return i18n.t("logs.timeline.yesterday");
   return d.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 }
 
@@ -32,12 +34,13 @@ interface Props {
 }
 
 export function AuditTimeline({ logs }: Props) {
+  const { t } = useTranslation();
   const groups = groupByDay(logs);
 
   if (groups.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-sm text-(--t-text-dim) py-12">
-        No events match your filters.
+        {t("logs.emptyState")}
       </div>
     );
   }

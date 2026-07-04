@@ -1,4 +1,5 @@
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { usePermissions } from "@/hooks/usePermission";
 import type { AuditContext } from "@/services/auditContext";
 
@@ -9,6 +10,7 @@ interface Props {
 
 export function AuditGate({ context, children }: Props) {
   const can = usePermissions();
+  const { t } = useTranslation();
 
   if (!context) {
     return (
@@ -23,9 +25,9 @@ export function AuditGate({ context, children }: Props) {
           <Icon icon="lucide:scroll-text" width={36} />
         </div>
         <div className="flex flex-col items-center gap-1.5 text-center">
-          <span className="text-base font-semibold text-(--t-text-primary)">No vault selected</span>
+          <span className="text-base font-semibold text-(--t-text-primary)">{t("logs.gate.noVaultSelected.title")}</span>
           <span className="text-sm text-(--t-text-dim) max-w-xs">
-            Select a single vault to view audit logs.
+            {t("logs.gate.noVaultSelected.description")}
           </span>
         </div>
       </div>
@@ -47,9 +49,9 @@ export function AuditGate({ context, children }: Props) {
           <Icon icon="lucide:lock" width={36} />
         </div>
         <div className="flex flex-col items-center gap-1.5 text-center">
-          <span className="text-base font-semibold text-(--t-text-primary)">Access restricted</span>
+          <span className="text-base font-semibold text-(--t-text-primary)">{t("logs.gate.restricted.title")}</span>
           <span className="text-sm text-(--t-text-dim) max-w-xs">
-            You need the View Audit Log permission to access this page.
+            {t("logs.gate.restricted.description")}
           </span>
         </div>
       </div>

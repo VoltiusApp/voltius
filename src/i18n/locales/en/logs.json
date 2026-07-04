@@ -1,0 +1,145 @@
+{
+  "logs": {
+    "gate": {
+      "noVaultSelected": {
+        "title": "No vault selected",
+        "description": "Select a single vault to view audit logs."
+      },
+      "restricted": {
+        "title": "Access restricted",
+        "description": "You need the View Audit Log permission to access this page."
+      }
+    },
+    "filters": {
+      "searchPlaceholder": "Filter logs...",
+      "allActors": "All actors",
+      "fromDate": "From date",
+      "toDate": "To date",
+      "dateRangeSeparator": "to",
+      "reset": "Reset",
+      "actionOptions": {
+        "all": "All actions",
+        "memberInvited": "Member invited",
+        "memberJoined": "Member joined",
+        "memberRemoved": "Member removed",
+        "memberRoleChanged": "Role changed",
+        "connectionCreated": "Host created",
+        "connectionUpdated": "Host updated",
+        "connectionDeleted": "Host deleted",
+        "identityCreated": "Identity created",
+        "identityUpdated": "Identity updated",
+        "identityDeleted": "Identity deleted",
+        "keyCreated": "Key created",
+        "keyUpdated": "Key updated",
+        "keyDeleted": "Key deleted",
+        "snippetCreated": "Snippet created",
+        "snippetUpdated": "Snippet updated",
+        "snippetDeleted": "Snippet deleted",
+        "folderCreated": "Folder created",
+        "folderUpdated": "Folder updated",
+        "folderDeleted": "Folder deleted",
+        "portForwardCreated": "Port forward created",
+        "portForwardUpdated": "Port forward updated",
+        "portForwardDeleted": "Port forward deleted",
+        "vaultRenamed": "Vault renamed",
+        "vaultKeyRotated": "Key rotated",
+        "roleCreated": "Role created",
+        "roleUpdated": "Role updated",
+        "roleDeleted": "Role deleted",
+        "connectionStarted": "Connection started",
+        "connectionEnded": "Connection ended",
+        "secretViewed": "Secret revealed",
+        "sessionStarted": "Session started",
+        "sessionEnded": "Session ended",
+        "sessionJoined": "Session joined"
+      }
+    },
+    "timeRange": {
+      "lastDay": "Last 24 hours",
+      "lastWeek": "Last week",
+      "lastMonth": "Last 30 days",
+      "all": "All time",
+      "custom": "Custom range"
+    },
+    "layout": {
+      "timeline": "Timeline",
+      "horizontal": "Visual",
+      "list": "List"
+    },
+    "export": {
+      "button": "Export",
+      "failed": "Export failed"
+    },
+    "badges": {
+      "client": "client",
+      "clientTooltip": "Reported by the client app — non-authoritative"
+    },
+    "eventLabels": {
+      "memberInvited": "invited {{name}}",
+      "memberJoined": "joined the team as {{role}}",
+      "memberRemoved": "removed {{name}}",
+      "memberRoleChanged": "changed role for {{name}}",
+      "vaultCreated": "created vault \"{{name}}\"",
+      "vaultDeleted": "deleted vault \"{{name}}\"",
+      "vaultRenamed": "renamed vault to \"{{name}}\"",
+      "vaultKeyRotated": "rotated key for vault \"{{name}}\"",
+      "roleCreated": "created role \"{{name}}\"",
+      "roleUpdated": "updated role \"{{name}}\"",
+      "roleDeleted": "deleted role \"{{name}}\"",
+      "permissionGranted": "granted permission on {{name}}",
+      "permissionRevoked": "revoked permission on {{name}}",
+      "connectionCreated": "created host \"{{name}}\"",
+      "connectionUpdated": "updated host \"{{name}}\"",
+      "connectionDeleted": "deleted host \"{{name}}\"",
+      "connectionStarted": "connected to {{name}}",
+      "connectionEnded": "disconnected from {{name}}",
+      "identityCreated": "created identity \"{{name}}\"",
+      "identityUpdated": "updated identity \"{{name}}\"",
+      "identityDeleted": "deleted identity \"{{name}}\"",
+      "keyCreated": "created key \"{{name}}\"",
+      "keyUpdated": "updated key \"{{name}}\"",
+      "keyDeleted": "deleted key \"{{name}}\"",
+      "snippetCreated": "created snippet \"{{name}}\"",
+      "snippetUpdated": "updated snippet \"{{name}}\"",
+      "snippetDeleted": "deleted snippet \"{{name}}\"",
+      "folderCreated": "created folder \"{{name}}\"",
+      "folderUpdated": "updated folder \"{{name}}\"",
+      "folderDeleted": "deleted folder \"{{name}}\"",
+      "portForwardCreated": "created port forward \"{{name}}\"",
+      "portForwardUpdated": "updated port forward \"{{name}}\"",
+      "portForwardDeleted": "deleted port forward \"{{name}}\"",
+      "secretViewed": "revealed secret \"{{name}}\"",
+      "sessionStarted": "started terminal session",
+      "sessionEnded": "ended terminal session",
+      "sessionJoined": "joined terminal session",
+      "sessionLeft": "left terminal session",
+      "fallbackUser": "a user",
+      "fallbackMember": "a member",
+      "fallbackRole": "member",
+      "fallbackResource": "a resource",
+      "fallbackHost": "a host"
+    },
+    "timeline": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "weekOf": "Week {{date}}"
+    },
+    "list": {
+      "columns": {
+        "actor": "Actor",
+        "action": "Action",
+        "target": "Target",
+        "time": "Time"
+      }
+    },
+    "pagination": {
+      "prev": "Prev",
+      "next": "Next",
+      "pageOf": "Page {{page}} / {{totalPages}}"
+    },
+    "emptyState": "No events match your filters.",
+    "error": {
+      "retry": "Retry"
+    }
+  }
+}

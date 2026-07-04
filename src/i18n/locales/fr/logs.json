@@ -1,0 +1,145 @@
+{
+  "logs": {
+    "gate": {
+      "noVaultSelected": {
+        "title": "Aucun coffre sélectionné",
+        "description": "Sélectionnez un seul coffre pour voir les journaux d'audit."
+      },
+      "restricted": {
+        "title": "Accès restreint",
+        "description": "Vous devez disposer de la permission Voir le journal d'audit pour accéder à cette page."
+      }
+    },
+    "filters": {
+      "searchPlaceholder": "Filtrer les journaux...",
+      "allActors": "Tous les acteurs",
+      "fromDate": "Date de début",
+      "toDate": "Date de fin",
+      "dateRangeSeparator": "à",
+      "reset": "Réinitialiser",
+      "actionOptions": {
+        "all": "Toutes les actions",
+        "memberInvited": "Membre invité",
+        "memberJoined": "Membre rejoint",
+        "memberRemoved": "Membre retiré",
+        "memberRoleChanged": "Rôle modifié",
+        "connectionCreated": "Hôte créé",
+        "connectionUpdated": "Hôte modifié",
+        "connectionDeleted": "Hôte supprimé",
+        "identityCreated": "Identité créée",
+        "identityUpdated": "Identité modifiée",
+        "identityDeleted": "Identité supprimée",
+        "keyCreated": "Clé créée",
+        "keyUpdated": "Clé modifiée",
+        "keyDeleted": "Clé supprimée",
+        "snippetCreated": "Snippet créé",
+        "snippetUpdated": "Snippet modifié",
+        "snippetDeleted": "Snippet supprimé",
+        "folderCreated": "Dossier créé",
+        "folderUpdated": "Dossier modifié",
+        "folderDeleted": "Dossier supprimé",
+        "portForwardCreated": "Redirection de port créée",
+        "portForwardUpdated": "Redirection de port modifiée",
+        "portForwardDeleted": "Redirection de port supprimée",
+        "vaultRenamed": "Coffre renommé",
+        "vaultKeyRotated": "Clé changée",
+        "roleCreated": "Rôle créé",
+        "roleUpdated": "Rôle modifié",
+        "roleDeleted": "Rôle supprimé",
+        "connectionStarted": "Connexion démarrée",
+        "connectionEnded": "Connexion terminée",
+        "secretViewed": "Secret révélé",
+        "sessionStarted": "Session démarrée",
+        "sessionEnded": "Session terminée",
+        "sessionJoined": "Session rejointe"
+      }
+    },
+    "timeRange": {
+      "lastDay": "Dernières 24 heures",
+      "lastWeek": "Dernière semaine",
+      "lastMonth": "30 derniers jours",
+      "all": "Tout l'historique",
+      "custom": "Période personnalisée"
+    },
+    "layout": {
+      "timeline": "Chronologie",
+      "horizontal": "Visuel",
+      "list": "Liste"
+    },
+    "export": {
+      "button": "Exporter",
+      "failed": "Échec de l'export"
+    },
+    "badges": {
+      "client": "client",
+      "clientTooltip": "Signalé par l'application cliente — non-officiel"
+    },
+    "eventLabels": {
+      "memberInvited": "a invité {{name}}",
+      "memberJoined": "a rejoint l'équipe en tant que {{role}}",
+      "memberRemoved": "a retiré {{name}}",
+      "memberRoleChanged": "a changé le rôle de {{name}}",
+      "vaultCreated": "a créé le coffre « {{name}} »",
+      "vaultDeleted": "a supprimé le coffre « {{name}} »",
+      "vaultRenamed": "a renommé le coffre en « {{name}} »",
+      "vaultKeyRotated": "a changé la clé du coffre « {{name}} »",
+      "roleCreated": "a créé le rôle « {{name}} »",
+      "roleUpdated": "a modifié le rôle « {{name}} »",
+      "roleDeleted": "a supprimé le rôle « {{name}} »",
+      "permissionGranted": "a accordé une permission sur {{name}}",
+      "permissionRevoked": "a révoqué une permission sur {{name}}",
+      "connectionCreated": "a créé l'hôte « {{name}} »",
+      "connectionUpdated": "a modifié l'hôte « {{name}} »",
+      "connectionDeleted": "a supprimé l'hôte « {{name}} »",
+      "connectionStarted": "s'est connecté à {{name}}",
+      "connectionEnded": "s'est déconnecté de {{name}}",
+      "identityCreated": "a créé l'identité « {{name}} »",
+      "identityUpdated": "a modifié l'identité « {{name}} »",
+      "identityDeleted": "a supprimé l'identité « {{name}} »",
+      "keyCreated": "a créé la clé « {{name}} »",
+      "keyUpdated": "a modifié la clé « {{name}} »",
+      "keyDeleted": "a supprimé la clé « {{name}} »",
+      "snippetCreated": "a créé le snippet « {{name}} »",
+      "snippetUpdated": "a modifié le snippet « {{name}} »",
+      "snippetDeleted": "a supprimé le snippet « {{name}} »",
+      "folderCreated": "a créé le dossier « {{name}} »",
+      "folderUpdated": "a modifié le dossier « {{name}} »",
+      "folderDeleted": "a supprimé le dossier « {{name}} »",
+      "portForwardCreated": "a créé la redirection de port « {{name}} »",
+      "portForwardUpdated": "a modifié la redirection de port « {{name}} »",
+      "portForwardDeleted": "a supprimé la redirection de port « {{name}} »",
+      "secretViewed": "a révélé le secret « {{name}} »",
+      "sessionStarted": "a démarré une session terminal",
+      "sessionEnded": "a terminé une session terminal",
+      "sessionJoined": "a rejoint une session terminal",
+      "sessionLeft": "a quitté une session terminal",
+      "fallbackUser": "un utilisateur",
+      "fallbackMember": "un membre",
+      "fallbackRole": "membre",
+      "fallbackResource": "une ressource",
+      "fallbackHost": "un hôte"
+    },
+    "timeline": {
+      "today": "Aujourd'hui",
+      "yesterday": "Hier",
+      "weekOf": "Semaine du {{date}}"
+    },
+    "list": {
+      "columns": {
+        "actor": "Acteur",
+        "action": "Action",
+        "target": "Cible",
+        "time": "Heure"
+      }
+    },
+    "pagination": {
+      "prev": "Préc.",
+      "next": "Suiv.",
+      "pageOf": "Page {{page}} / {{totalPages}}"
+    },
+    "emptyState": "Aucun événement ne correspond à vos filtres.",
+    "error": {
+      "retry": "Réessayer"
+    }
+  }
+}

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { AuditLog } from "@/services/auditService";
 import { AuditEventRow } from "./AuditEventRow";
 
@@ -6,10 +7,12 @@ interface Props {
 }
 
 export function AuditList({ logs }: Props) {
+  const { t } = useTranslation();
+
   if (logs.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-sm text-(--t-text-dim) py-12">
-        No events match your filters.
+        {t("logs.emptyState")}
       </div>
     );
   }
@@ -21,10 +24,10 @@ export function AuditList({ logs }: Props) {
         className="grid gap-3 px-4 py-2 text-xs font-medium text-(--t-text-dim) uppercase tracking-wide"
         style={{ gridTemplateColumns: "1fr 1fr 1fr auto" }}
       >
-        <span>Actor</span>
-        <span>Action</span>
-        <span>Target</span>
-        <span className="text-right">Time</span>
+        <span>{t("logs.list.columns.actor")}</span>
+        <span>{t("logs.list.columns.action")}</span>
+        <span>{t("logs.list.columns.target")}</span>
+        <span className="text-right">{t("logs.list.columns.time")}</span>
       </div>
 
       {logs.map((log) => (

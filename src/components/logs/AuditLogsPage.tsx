@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { onTeamSseEvent } from "@/services/sync";
 import { Icon } from "@iconify/react";
 import { useAuditStore } from "@/stores/auditStore";
@@ -25,6 +26,7 @@ function Pagination({
   perPage: number;
   onPageChange: (p: number) => void;
 }) {
+  const { t } = useTranslation();
   const totalPages = Math.max(1, Math.ceil(total / perPage));
   if (totalPages <= 1) return null;
 
@@ -37,10 +39,10 @@ function Pagination({
         style={{ background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
       >
         <Icon icon="lucide:chevron-left" width={14} />
-        Prev
+        {t("logs.pagination.prev")}
       </button>
       <span className="text-sm text-(--t-text-dim)">
-        Page {page} / {totalPages}
+        {t("logs.pagination.pageOf", { page, totalPages })}
       </span>
       <button
         onClick={() => onPageChange(page + 1)}
@@ -48,7 +50,7 @@ function Pagination({
         className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg disabled:opacity-40 transition-opacity"
         style={{ background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
       >
-        Next
+        {t("logs.pagination.next")}
         <Icon icon="lucide:chevron-right" width={14} />
       </button>
     </div>
@@ -58,6 +60,7 @@ function Pagination({
 // ─── Main view ────────────────────────────────────────────────────────────────
 
 export default function AuditLogsPage() {
+  const { t } = useTranslation();
   const auditContext = useSelectedAuditContext();
   const can = usePermissions();
   const canFetchAudit = auditContext?.kind === "local" || !!(auditContext && can("VIEW_AUDIT_LOG", auditContext.teamId));
@@ -132,7 +135,7 @@ export default function AuditLogsPage() {
                 className="text-sm px-3 py-1.5 rounded-lg"
                 style={{ background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
               >
-                Retry
+                {t("logs.error.retry")}
               </button>
             </div>
           ) : loading && logs.length === 0 ? (

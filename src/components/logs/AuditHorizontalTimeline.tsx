@@ -1,4 +1,6 @@
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import type { AuditLog } from "@/services/auditService";
 import { ACTION_META, FALLBACK_META, avatarColor } from "./AuditEventRow";
 
@@ -73,7 +75,7 @@ function bucketLabel(ts: number, unit: "hour" | "day" | "week" | "month"): { lab
   }
   if (unit === "week") {
     return {
-      label: `Week ${d.toLocaleDateString([], { month: "short", day: "numeric" })}`,
+      label: i18n.t("logs.timeline.weekOf", { date: d.toLocaleDateString([], { month: "short", day: "numeric" }) }),
       sublabel: d.getFullYear().toString(),
     };
   }
@@ -153,13 +155,14 @@ function buildTimelineEvents(logs: AuditLog[], scale: TimelineScale | null): Tim
 }
 
 export function AuditHorizontalTimeline({ logs }: Props) {
+  const { t } = useTranslation();
   const scale = buildTimelineScale(logs);
   const events = buildTimelineEvents(logs, scale);
 
   if (logs.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-sm text-(--t-text-dim) py-12">
-        No events match your filters.
+        {t("logs.emptyState")}
       </div>
     );
   }
@@ -238,7 +241,7 @@ export function AuditHorizontalTimeline({ logs }: Props) {
                     <div className="text-sm text-(--t-text-secondary) leading-snug">{meta.label(log)}</div>
                     <div className="mt-1 flex items-center gap-2 text-[11px] text-(--t-text-dim)">
                       <span>{formatTime(log.created_at)}</span>
-                      {log.source === "client" && <span className="rounded-full border border-(--t-border) px-1.5 py-0.5">client</span>}
+                      {log.source === "client" && <span className="rounded-full border border-(--t-border) px-1.5 py-0.5">{t("logs.badges.client")}</span>}
                     </div>
                   </div>
                 </div>

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAuditStore } from "@/stores/auditStore";
 import type { AuditContext } from "@/services/auditContext";
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export function AuditExportButton({ context }: Props) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -31,7 +33,7 @@ export function AuditExportButton({ context }: Props) {
       await exportLogs(context, format);
     } catch (e) {
       console.error("Failed to export audit logs", e);
-      setExportError("Export failed");
+      setExportError(t("logs.export.failed"));
     } finally {
       setExporting(false);
     }
@@ -54,7 +56,7 @@ export function AuditExportButton({ context }: Props) {
         ) : (
           <Icon icon="lucide:download" width={14} />
         )}
-        Export
+        {t("logs.export.button")}
         <Icon icon="lucide:chevron-down" width={12} className="text-(--t-text-dim)" />
       </button>
 

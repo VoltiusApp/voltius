@@ -1,5 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useAuditStore } from "@/stores/auditStore";
 import type { LayoutMode } from "@/stores/auditStore";
 import { FilterInput } from "@/components/shared/ToolbarViewControls";
@@ -7,42 +9,44 @@ import { ToolbarDropdown } from "@/components/shared/ToolbarDropdown";
 import { Pills } from "@/components/shared/Pills";
 import { getAuditTimeRange, type AuditTimeRange } from "./auditLogToolbarUtils";
 
-const ACTION_OPTIONS = [
-  { value: "", label: "All actions" },
-  { value: "member.invited",      label: "Member invited" },
-  { value: "member.joined",       label: "Member joined" },
-  { value: "member.removed",      label: "Member removed" },
-  { value: "member.role_changed", label: "Role changed" },
-  { value: "connection.created",  label: "Host created" },
-  { value: "connection.updated",  label: "Host updated" },
-  { value: "connection.deleted",  label: "Host deleted" },
-  { value: "identity.created",    label: "Identity created" },
-  { value: "identity.updated",    label: "Identity updated" },
-  { value: "identity.deleted",    label: "Identity deleted" },
-  { value: "key.created",         label: "Key created" },
-  { value: "key.updated",         label: "Key updated" },
-  { value: "key.deleted",         label: "Key deleted" },
-  { value: "snippet.created",     label: "Snippet created" },
-  { value: "snippet.updated",     label: "Snippet updated" },
-  { value: "snippet.deleted",     label: "Snippet deleted" },
-  { value: "folder.created",      label: "Folder created" },
-  { value: "folder.updated",      label: "Folder updated" },
-  { value: "folder.deleted",      label: "Folder deleted" },
-  { value: "port_forward.created",label: "Port forward created" },
-  { value: "port_forward.updated",label: "Port forward updated" },
-  { value: "port_forward.deleted",label: "Port forward deleted" },
-  { value: "vault.renamed",       label: "Vault renamed" },
-  { value: "vault.key_rotated",   label: "Key rotated" },
-  { value: "role.created",        label: "Role created" },
-  { value: "role.updated",        label: "Role updated" },
-  { value: "role.deleted",        label: "Role deleted" },
-  { value: "connection.started",  label: "Connection started" },
-  { value: "connection.ended",    label: "Connection ended" },
-  { value: "secret.viewed",       label: "Secret revealed" },
-  { value: "session.started",     label: "Session started" },
-  { value: "session.ended",       label: "Session ended" },
-  { value: "session.joined",      label: "Session joined" },
-];
+function getActionOptions(t: TFunction) {
+  return [
+    { value: "", label: t("logs.filters.actionOptions.all") },
+    { value: "member.invited",      label: t("logs.filters.actionOptions.memberInvited") },
+    { value: "member.joined",       label: t("logs.filters.actionOptions.memberJoined") },
+    { value: "member.removed",      label: t("logs.filters.actionOptions.memberRemoved") },
+    { value: "member.role_changed", label: t("logs.filters.actionOptions.memberRoleChanged") },
+    { value: "connection.created",  label: t("logs.filters.actionOptions.connectionCreated") },
+    { value: "connection.updated",  label: t("logs.filters.actionOptions.connectionUpdated") },
+    { value: "connection.deleted",  label: t("logs.filters.actionOptions.connectionDeleted") },
+    { value: "identity.created",    label: t("logs.filters.actionOptions.identityCreated") },
+    { value: "identity.updated",    label: t("logs.filters.actionOptions.identityUpdated") },
+    { value: "identity.deleted",    label: t("logs.filters.actionOptions.identityDeleted") },
+    { value: "key.created",         label: t("logs.filters.actionOptions.keyCreated") },
+    { value: "key.updated",         label: t("logs.filters.actionOptions.keyUpdated") },
+    { value: "key.deleted",         label: t("logs.filters.actionOptions.keyDeleted") },
+    { value: "snippet.created",     label: t("logs.filters.actionOptions.snippetCreated") },
+    { value: "snippet.updated",     label: t("logs.filters.actionOptions.snippetUpdated") },
+    { value: "snippet.deleted",     label: t("logs.filters.actionOptions.snippetDeleted") },
+    { value: "folder.created",      label: t("logs.filters.actionOptions.folderCreated") },
+    { value: "folder.updated",      label: t("logs.filters.actionOptions.folderUpdated") },
+    { value: "folder.deleted",      label: t("logs.filters.actionOptions.folderDeleted") },
+    { value: "port_forward.created",label: t("logs.filters.actionOptions.portForwardCreated") },
+    { value: "port_forward.updated",label: t("logs.filters.actionOptions.portForwardUpdated") },
+    { value: "port_forward.deleted",label: t("logs.filters.actionOptions.portForwardDeleted") },
+    { value: "vault.renamed",       label: t("logs.filters.actionOptions.vaultRenamed") },
+    { value: "vault.key_rotated",   label: t("logs.filters.actionOptions.vaultKeyRotated") },
+    { value: "role.created",        label: t("logs.filters.actionOptions.roleCreated") },
+    { value: "role.updated",        label: t("logs.filters.actionOptions.roleUpdated") },
+    { value: "role.deleted",        label: t("logs.filters.actionOptions.roleDeleted") },
+    { value: "connection.started",  label: t("logs.filters.actionOptions.connectionStarted") },
+    { value: "connection.ended",    label: t("logs.filters.actionOptions.connectionEnded") },
+    { value: "secret.viewed",       label: t("logs.filters.actionOptions.secretViewed") },
+    { value: "session.started",     label: t("logs.filters.actionOptions.sessionStarted") },
+    { value: "session.ended",       label: t("logs.filters.actionOptions.sessionEnded") },
+    { value: "session.joined",      label: t("logs.filters.actionOptions.sessionJoined") },
+  ];
+}
 
 interface Props {
   actors: Array<{ id: string; name: string }>;
@@ -59,30 +63,38 @@ const inputCls = `
   focus:border-(--t-accent)
 `.trim();
 
-const TIME_RANGE_OPTIONS: Array<{ value: AuditTimeRange; label: string; icon: string }> = [
-  { value: "last-day", label: "Last 24 hours", icon: "lucide:clock-3" },
-  { value: "last-week", label: "Last week", icon: "lucide:calendar-days" },
-  { value: "last-month", label: "Last 30 days", icon: "lucide:calendar-range" },
-  { value: "all", label: "All time", icon: "lucide:infinity" },
-  { value: "custom", label: "Custom range", icon: "lucide:calendar-clock" },
-];
+function getTimeRangeOptions(t: TFunction): Array<{ value: AuditTimeRange; label: string; icon: string }> {
+  return [
+    { value: "last-day", label: t("logs.timeRange.lastDay"), icon: "lucide:clock-3" },
+    { value: "last-week", label: t("logs.timeRange.lastWeek"), icon: "lucide:calendar-days" },
+    { value: "last-month", label: t("logs.timeRange.lastMonth"), icon: "lucide:calendar-range" },
+    { value: "all", label: t("logs.timeRange.all"), icon: "lucide:infinity" },
+    { value: "custom", label: t("logs.timeRange.custom"), icon: "lucide:calendar-clock" },
+  ];
+}
 
-const LAYOUT_OPTIONS: Array<{ value: LayoutMode; label: string; icon: string }> = [
-  { value: "timeline", label: "Timeline", icon: "lucide:layout-list" },
-  { value: "horizontal", label: "Visual", icon: "lucide:git-commit-horizontal" },
-  { value: "list", label: "List", icon: "lucide:table" },
-];
+function getLayoutOptions(t: TFunction): Array<{ value: LayoutMode; label: string; icon: string }> {
+  return [
+    { value: "timeline", label: t("logs.layout.timeline"), icon: "lucide:layout-list" },
+    { value: "horizontal", label: t("logs.layout.horizontal"), icon: "lucide:git-commit-horizontal" },
+    { value: "list", label: t("logs.layout.list"), icon: "lucide:table" },
+  ];
+}
 
-
-function timeRangeLabel(range: AuditTimeRange): string {
-  return TIME_RANGE_OPTIONS.find((option) => option.value === range)?.label ?? "Last week";
+function timeRangeLabel(range: AuditTimeRange, options: Array<{ value: AuditTimeRange; label: string }>, t: TFunction): string {
+  return options.find((option) => option.value === range)?.label ?? t("logs.timeRange.lastWeek");
 }
 
 export function AuditFilters({ actors, search, onSearchChange, layout, onLayoutChange, actions }: Props) {
+  const { t } = useTranslation();
   const filters = useAuditStore((s) => s.filters);
   const setFilter = useAuditStore((s) => s.setFilter);
   const resetFilters = useAuditStore((s) => s.resetFilters);
   const [timeRange, setTimeRange] = useState<AuditTimeRange>("last-week");
+
+  const actionOptions = getActionOptions(t);
+  const timeRangeOptions = getTimeRangeOptions(t);
+  const layoutOptions = getLayoutOptions(t);
 
   const hasActiveFilters = !!(search.trim() || filters.actions?.length || filters.actor_id || timeRange !== "last-week");
 
@@ -103,16 +115,16 @@ export function AuditFilters({ actors, search, onSearchChange, layout, onLayoutC
   return (
     <div className="flex items-center gap-2 px-5 py-2.5 shrink-0 chrome-toolbar">
       <div className="flex items-center gap-1.5 min-w-0">
-        <FilterInput value={search} onChange={onSearchChange} placeholder="Filter logs..." width={176} shortcutId="filter" />
+        <FilterInput value={search} onChange={onSearchChange} placeholder={t("logs.filters.searchPlaceholder")} width={176} shortcutId="filter" />
 
-        <Pills options={LAYOUT_OPTIONS} value={layout} onChange={onLayoutChange} />
+        <Pills options={layoutOptions} value={layout} onChange={onLayoutChange} />
 
         <ToolbarDropdown
           icon="lucide:user-round"
           value={filters.actor_id ?? ""}
           menuWidth={220}
           options={[
-            { value: "", label: "All actors", icon: "lucide:users-round" },
+            { value: "", label: t("logs.filters.allActors"), icon: "lucide:users-round" },
             ...actors.map((actor) => ({ value: actor.id, label: actor.name, icon: "lucide:user-round" })),
           ]}
           onChange={(value) => setFilter("actor_id", value || undefined)}
@@ -124,16 +136,16 @@ export function AuditFilters({ actors, search, onSearchChange, layout, onLayoutC
           icon="lucide:activity"
           multiValue={filters.actions ?? []}
           menuWidth={220}
-          options={ACTION_OPTIONS.map((option) => ({ ...option, icon: option.value ? "lucide:activity" : "lucide:list-filter" }))}
+          options={actionOptions.map((option) => ({ ...option, icon: option.value ? "lucide:activity" : "lucide:list-filter" }))}
           onMultiChange={(values) => setFilter("actions", values.length ? values : undefined)}
         />
 
         <ToolbarDropdown
-          icon={TIME_RANGE_OPTIONS.find((o) => o.value === timeRange)?.icon ?? "lucide:calendar-days"}
-          label={timeRangeLabel(timeRange)}
+          icon={timeRangeOptions.find((o) => o.value === timeRange)?.icon ?? "lucide:calendar-days"}
+          label={timeRangeLabel(timeRange, timeRangeOptions, t)}
           value={timeRange}
           menuWidth={190}
-          options={TIME_RANGE_OPTIONS}
+          options={timeRangeOptions}
           onChange={handleTimeRangeChange}
         />
 
@@ -144,15 +156,15 @@ export function AuditFilters({ actors, search, onSearchChange, layout, onLayoutC
               className={inputCls}
               value={filters.from ? filters.from.slice(0, 16) : ""}
               onChange={(e) => setFilter("from", e.target.value ? new Date(e.target.value).toISOString() : undefined)}
-              title="From date"
+              title={t("logs.filters.fromDate")}
             />
-            <span className="text-xs text-(--t-text-dim)">to</span>
+            <span className="text-xs text-(--t-text-dim)">{t("logs.filters.dateRangeSeparator")}</span>
             <input
               type="datetime-local"
               className={inputCls}
               value={filters.to ? filters.to.slice(0, 16) : ""}
               onChange={(e) => setFilter("to", e.target.value ? new Date(e.target.value).toISOString() : undefined)}
-              title="To date"
+              title={t("logs.filters.toDate")}
             />
           </div>
         )}
@@ -163,7 +175,7 @@ export function AuditFilters({ actors, search, onSearchChange, layout, onLayoutC
             className="text-xs px-2.5 h-7 rounded-lg text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors shrink-0"
             type="button"
           >
-            Reset
+            {t("logs.filters.reset")}
           </button>
         )}
       </div>
