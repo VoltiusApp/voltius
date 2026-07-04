@@ -59,6 +59,7 @@
       "active": "Active",
       "error": "Erreur",
       "stopped": "Arrêtée",
+      "noSshSession": "Aucune session SSH",
       "openUrl": "Ouvrir {{url}}",
       "scopedToConnections_one": "Limité à {{count}} connexion",
       "scopedToConnections_other": "Limité à {{count}} connexions",

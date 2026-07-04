@@ -59,6 +59,7 @@
       "active": "Active",
       "error": "Error",
       "stopped": "Stopped",
+      "noSshSession": "No SSH session",
       "openUrl": "Open {{url}}",
       "scopedToConnections_one": "Scoped to {{count}} connection",
       "scopedToConnections_other": "Scoped to {{count}} connections",

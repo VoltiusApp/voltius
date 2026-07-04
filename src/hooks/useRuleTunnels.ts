@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
@@ -36,6 +37,7 @@ export function useRuleTunnels(): {
   startRule: (rule: PortForwardingRule) => Promise<void>;
   stopRule: (rule: PortForwardingRule) => Promise<void>;
 } {
+  const { t } = useTranslation();
   const { sessions, activeSessionId } = useSessionStore();
   const connections = useAllConnections();
   const accessibleVaultIds = useAccessibleVaultIds();
@@ -130,7 +132,7 @@ export function useRuleTunnels(): {
     return {
       status,
       isActive: status === "active",
-      statusLabel: errorLabel ?? (status === "active" ? "Active" : pickSessionForRule(rule) ? "Stopped" : "No SSH session"),
+      statusLabel: errorLabel ?? (status === "active" ? t("portForwarding.ruleCard.active") : pickSessionForRule(rule) ? t("portForwarding.ruleCard.stopped") : t("portForwarding.ruleCard.noSshSession")),
       isBusy: busyRuleIds.has(rule.id),
       webUrl,
     };
