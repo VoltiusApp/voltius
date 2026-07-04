@@ -1,10 +1,12 @@
 import { sftpUpload, sftpDownload, sftpUploadDirTar, sftpDownloadDirTar, sftpClose } from "@/services/sftp";
 import { genId } from "@/components/filetransfer/SFTPTypes";
 import { flattenSnippetSteps, type LeafStep } from "./snippetFlatten";
-import { collectSequenceVars, resolveLeafSteps } from "./snippetSequenceCore";
+import { collectSequenceVars, resolveLeafSteps, leafTemplateText } from "./snippetSequenceCore";
 import { buildDynamicContext } from "./snippetRunCore";
+import { parseVariables } from "./snippetParser";
 import { resolveSftpIdForTarget, type RunTarget } from "./sftpTarget";
 import { snippetInject } from "./snippets";
+import { readClipboard } from "@/utils/clipboard";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useConnectionStore } from "@/stores/connectionStore";
@@ -171,15 +173,16 @@ function surfaceSessions(sessionIds: string[]): void {
 }
 
 /** Build the dynamic-variable context for a single target. Resolved per target
- *  so `{{connection.*}}` vars differ across a fan-out (host, username, name). */
-export function buildTargetContext(target: RunTarget): DynamicContext {
+ *  so `{{connection.*}}` vars differ across a fan-out (host, username, name).
+ *  `clipboard` is shared across targets (read once per run). */
+export function buildTargetContext(target: RunTarget, clipboard = ""): DynamicContext {
   if (target.kind === "connection") {
     const c = target.connection;
-    return { connectionHost: c.host, connectionUsername: c.username, connectionName: c.name ?? c.host };
+    return { connectionHost: c.host, connectionUsername: c.username, connectionName: c.name ?? c.host, clipboard };
   }
   const sess = useSessionStore.getState().sessions.find((s) => s.id === target.sessionId);
   const conns = useConnectionStore.getState().connections;
-  return buildDynamicContext(sess, conns);
+  return buildDynamicContext(sess, conns, clipboard);
 }
 
 async function prepareTarget(target: RunTarget, steps: LeafStep[]): Promise<PreparedTarget> {
@@ -227,10 +230,18 @@ export async function runSnippetSequence(
   // User-variable pass is one-shot (which vars prompt, modal preview): dynamic
   // vars never prompt and user vars are target-independent. Context here is only
   // used for the modal's partial-template preview, so the first target is fine.
+  // Only read the clipboard when the sequence actually uses {{clipboard}} —
+  // otherwise every run would trigger a clipboard-permission prompt (notably on
+  // Android). Read once and share across all targets. Mirrors the legacy path.
+  let clipboard = "";
+  if (parseVariables(leafTemplateText(flat.steps)).some((v) => v.dynamic && v.name === "clipboard")) {
+    try { clipboard = await readClipboard(); } catch { /* permission denied */ }
+  }
+
   const firstTarget = targets[0];
   const previewCtx = firstTarget
-    ? buildTargetContext(firstTarget)
-    : { connectionHost: "", connectionUsername: "", connectionName: "" };
+    ? buildTargetContext(firstTarget, clipboard)
+    : { connectionHost: "", connectionUsername: "", connectionName: "", clipboard };
   const vars = collectSequenceVars(flat.steps, previewCtx);
 
   const runWith = async (userValues: Record<string, string>): Promise<SequenceRunResult> => {
@@ -259,7 +270,7 @@ export async function runSnippetSequence(
     const prepared = await Promise.all(
       effectiveTargets.map(async (t): Promise<PreparedTarget> => {
         // Resolve dynamic vars PER TARGET so {{connection.*}} differs per host.
-        const targetDyn = collectSequenceVars(flat.steps, buildTargetContext(t)).dynValues;
+        const targetDyn = collectSequenceVars(flat.steps, buildTargetContext(t, clipboard)).dynValues;
         const stepsForTarget = resolveLeafSteps(flat.steps, { ...targetDyn, ...userValues });
         try {
           return await prepareTarget(t, stepsForTarget);

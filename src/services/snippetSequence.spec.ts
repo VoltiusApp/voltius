@@ -19,6 +19,9 @@ vi.mock("@/services/sftpTarget", () => ({
   resolveSftpIdForTarget: (...a: unknown[]) => resolveSftpIdForTarget(...a),
 }));
 
+const readClipboard = vi.fn(async (..._a: unknown[]) => "PASTED");
+vi.mock("@/utils/clipboard", () => ({ readClipboard: (...a: unknown[]) => readClipboard(...a) }));
+
 import { runTransferStep, executeSequenceForTargets, runSnippetSequence, buildSummaryMessage, buildTargetContext, resolveTerminalTargets } from "./snippetSequence";
 import type { SequenceRunResult } from "./snippetSequence";
 import type { Connection, TerminalSession } from "@/types";
@@ -40,6 +43,7 @@ const immediateSubscribe = () => () => {};
 beforeEach(() => {
   sftpUpload.mockClear(); sftpDownload.mockClear(); sftpUploadDirTar.mockClear();
   sftpDownloadDirTar.mockClear(); sftpClose.mockClear(); resolveSftpIdForTarget.mockClear();
+  readClipboard.mockClear();
 });
 
 describe("runTransferStep", () => {
@@ -210,6 +214,40 @@ describe("runSnippetSequence — saved-host script target", () => {
     expect(r.targets).toHaveLength(1);
     expect(r.targets[0].ok).toBe(false);
     expect(r.targets[0].label).toBe("web-1");
+  });
+});
+
+describe("runSnippetSequence — clipboard", () => {
+  function clipboardSnippet(): Snippet {
+    return {
+      id: "s1", name: "xfer",
+      steps: [{ kind: "transfer", direction: "upload", local_path: "/tmp/{{clipboard}}", remote_path: "/r", is_dir: false }],
+      tags: [], favorite: false, only_for_connection_tags: [], only_for_distros: [],
+      created_at: "", updated_at: "", vault_id: "personal", clocks: {},
+    };
+  }
+  function plainTransferSnippet(): Snippet {
+    return { ...clipboardSnippet(), steps: [{ kind: "transfer", direction: "upload", local_path: "/l", remote_path: "/r", is_dir: false }] };
+  }
+
+  it("reads {{clipboard}} once and resolves it into a step path", async () => {
+    const res = await runSnippetSequence(
+      clipboardSnippet(),
+      [{ kind: "session", sessionId: "s1", sessionType: "ssh" }],
+      () => {},
+    );
+    expect(res).not.toBe("prompting");
+    expect(readClipboard).toHaveBeenCalledTimes(1);
+    expect(sftpUpload).toHaveBeenCalledWith({ sftpId: "fake-sftp-id", localPath: "/tmp/PASTED", remotePath: "/r", transferId: "tid" });
+  });
+
+  it("does not read the clipboard when no step uses it", async () => {
+    await runSnippetSequence(
+      plainTransferSnippet(),
+      [{ kind: "session", sessionId: "s1", sessionType: "ssh" }],
+      () => {},
+    );
+    expect(readClipboard).not.toHaveBeenCalled();
   });
 });
 
