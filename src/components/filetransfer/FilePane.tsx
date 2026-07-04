@@ -19,6 +19,7 @@ import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { startInternalDragGesture, useSemanticDragState } from "./internalDrag";
+import { resolveTypeAheadIndex, TYPE_AHEAD_RESET_MS } from "./typeAhead";
 
 // ── SelectionActionsCtx ───────────────────────────────────────────────────────
 
@@ -139,6 +140,11 @@ export function FilePane({
   const [autoTick, setAutoTick] = useState(0);
   const focusIndex = useRef<number>(-1);
   const prevLocationRef = useRef({ isLocal, sftpId, cwd });
+  // Type-ahead ("type to select") search state — refs, not state, so keystrokes
+  // don't re-render. The scroll bridge is set by VirtualFileList each render.
+  const typeAheadBufferRef = useRef("");
+  const typeAheadTimeRef = useRef(0);
+  const scrollToIndexRef = useRef<((index: number) => void) | null>(null);
 
   // Drag-drop state from the pointer-driven drag controller. The pane shows
   // its overlay when a drag from the OTHER side is currently hovering over us.
@@ -295,6 +301,7 @@ export function FilePane({
       } else {
         setSelection([entryIds[next]]);
       }
+      scrollToIndexRef.current?.(next);
       return;
     }
     if (e.key === "Enter" && selectedEntries.length === 1 && selectedEntries[0].isDir) {
@@ -302,8 +309,28 @@ export function FilePane({
       return;
     }
     if (selectedEntries.length > 0) {
-      if (e.key === "F2" && selectedEntries.length === 1) startRename(selectedEntries[0]);
-      if (e.key === "Delete" || e.key === "Backspace") void handleDelete(selectedEntries);
+      if (e.key === "F2" && selectedEntries.length === 1) { startRename(selectedEntries[0]); return; }
+      if (e.key === "Delete" || e.key === "Backspace") { void handleDelete(selectedEntries); return; }
+    }
+    // Type-ahead: a single printable char (no modifiers) selects the first entry
+    // whose name starts with the accumulated buffer; the same char repeated
+    // cycles through matches.
+    if (e.key.length === 1) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const now = Date.now();
+      const withinWindow = now - typeAheadTimeRef.current <= TYPE_AHEAD_RESET_MS;
+      typeAheadTimeRef.current = now;
+      const buffer = (withinWindow ? typeAheadBufferRef.current : "") + e.key;
+      typeAheadBufferRef.current = buffer;
+      const lead = buffer[0].toLowerCase();
+      const isRepeat = buffer.length > 1 && [...buffer].every((c) => c.toLowerCase() === lead);
+      const target = resolveTypeAheadIndex(visibleEntries.map((f) => f.name), buffer, focusIndex.current, isRepeat);
+      if (target >= 0) {
+        e.preventDefault();
+        focusIndex.current = target;
+        setSelection([entryIds[target]]);
+        scrollToIndexRef.current?.(target);
+      }
     }
   };
 
@@ -414,7 +441,7 @@ export function FilePane({
           onCommitCreateFile={commitCreateFile}
           onCancelCreate={() => { setCreatingFolder(false); setCreatingFile(false); }}
           selectedIdSet={selectedIdSet} dropFolderPath={dropFolderPath}
-          focusIndex={focusIndex} itemAreaRef={itemAreaRef}
+          focusIndex={focusIndex} itemAreaRef={itemAreaRef} scrollToIndexRef={scrollToIndexRef}
           side={side} isLocal={isLocal} selectedEntries={selectedEntries}
           colWidths={colWidths} visibleCols={visibleCols}
           onCommitRename={commitRename} onCancelRename={() => setRenaming(null)}
@@ -870,7 +897,7 @@ function VirtualFileList({
   creatingFolder, creatingFile, newItemName, onNewItemNameChange,
   onCommitCreateFolder, onCommitCreateFile, onCancelCreate,
   selectedIdSet, dropFolderPath,
-  focusIndex, itemAreaRef,
+  focusIndex, itemAreaRef, scrollToIndexRef,
   side, isLocal, selectedEntries, colWidths, visibleCols,
   onCommitRename, onCancelRename,
   onItemSelect, onNavigate, onSetSelection,
@@ -885,6 +912,7 @@ function VirtualFileList({
   onCommitCreateFolder: () => void; onCommitCreateFile: () => void; onCancelCreate: () => void;
   selectedIdSet: Set<string>; dropFolderPath: string | null;
   focusIndex: React.MutableRefObject<number>; itemAreaRef: React.RefObject<HTMLDivElement | null>;
+  scrollToIndexRef: React.MutableRefObject<((index: number) => void) | null>;
   side: "left" | "right" | "panel"; isLocal: boolean; selectedEntries: FileEntry[]; colWidths: ColumnWidths; visibleCols: VisibleCols;
   onCommitRename: (f: FileEntry) => void; onCancelRename: () => void;
   onItemSelect: (id: string, event: React.MouseEvent<HTMLDivElement>) => void;
@@ -899,6 +927,13 @@ function VirtualFileList({
     getScrollElement: () => itemAreaRef.current,
     estimateSize: () => 34,
     overscan: 15,
+  });
+
+  // Bridge the virtualizer's scroll to the parent's keydown handler so
+  // arrow-key nav and type-ahead can bring the target row into view.
+  useEffect(() => {
+    scrollToIndexRef.current = (index: number) => rowVirtualizer.scrollToIndex(index, { align: "auto" });
+    return () => { scrollToIndexRef.current = null; };
   });
 
   const commitCreate = creatingFolder ? onCommitCreateFolder : onCommitCreateFile;
