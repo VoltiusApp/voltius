@@ -1,4 +1,7 @@
-import { sftpUpload, sftpDownload, sftpUploadDirTar, sftpDownloadDirTar, sftpClose } from "@/services/sftp";
+import {
+  sftpClose, fsExists, sftpExists, fsRename, sftpRename, fsDelete, sftpDelete,
+} from "@/services/sftp";
+import { transferItem } from "@/services/sftpTransferCore";
 import { genId } from "@/components/filetransfer/SFTPTypes";
 import { flattenSnippetSteps, type LeafStep } from "./snippetFlatten";
 import { collectSequenceVars, resolveLeafSteps, leafTemplateText } from "./snippetSequenceCore";
@@ -20,16 +23,89 @@ import type { ParsedVariable, DynamicContext } from "./snippetParser";
 
 type TransferStep = Extract<LeafStep, { kind: "transfer" }>;
 
-export async function runTransferStep(sftpId: string, step: TransferStep): Promise<void> {
+export type TransferOutcome = "done" | "skipped";
+
+export interface TransferChannels {
+  remoteSftpId: string | null;
+  remoteSftpId2: string | null;
+}
+
+export interface TransferOps {
+  fsExists: typeof fsExists;
+  sftpExists: typeof sftpExists;
+  fsRename: typeof fsRename;
+  sftpRename: typeof sftpRename;
+  fsDelete: typeof fsDelete;
+  sftpDelete: typeof sftpDelete;
+  transferItem: typeof transferItem;
+}
+
+export const defaultTransferOps: TransferOps = {
+  fsExists, sftpExists, fsRename, sftpRename, fsDelete, sftpDelete, transferItem,
+};
+
+/** Which SFTP channels a transfer set needs against the target host.
+ *  A second channel is only required for a remote→remote *copy*
+ *  (sftpTransfer needs distinct src/dst); a remote→remote move is a rename
+ *  on one channel. */
+export function transferRemoteNeeds(steps: LeafStep[]): { needsRemote: boolean; needsSecond: boolean } {
+  const ts = steps.filter((s): s is TransferStep => s.kind === "transfer");
+  const needsRemote = ts.some((s) => s.from === "remote" || s.to === "remote");
+  const needsSecond = ts.some((s) => s.from === "remote" && s.to === "remote" && s.mode === "copy");
+  return { needsRemote, needsSecond };
+}
+
+export async function runTransferStep(
+  step: TransferStep,
+  channels: TransferChannels,
+  ops: TransferOps = defaultTransferOps,
+): Promise<TransferOutcome> {
   const transferId = genId();
-  const { local_path: localPath, remote_path: remotePath } = step;
-  if (step.direction === "upload") {
-    if (step.is_dir) await sftpUploadDirTar({ sftpId, localPath, remotePath, transferId });
-    else await sftpUpload({ sftpId, localPath, remotePath, transferId });
-  } else {
-    if (step.is_dir) await sftpDownloadDirTar({ sftpId, localPath, remotePath, transferId });
-    else await sftpDownload({ sftpId, localPath, remotePath, transferId });
+  const srcSftpId = step.from === "remote" ? channels.remoteSftpId ?? undefined : undefined;
+  const dstSftpId = step.to === "remote"
+    ? (step.from === "remote" ? channels.remoteSftpId2 ?? undefined : channels.remoteSftpId ?? undefined)
+    : undefined;
+  const sameSide = step.from === step.to;
+
+  // Probe the destination on the primary channel: the destination always lives on
+  // the target host, and remoteSftpId is always open whenever to === "remote".
+  // (dstSftpId is remoteSftpId2 for a R→R copy — which isn't opened for a move —
+  // so probing dstSftpId would silently no-op the conflict policy for R→R moves.)
+  const dstExists = step.to === "remote"
+    ? (channels.remoteSftpId ? await ops.sftpExists(channels.remoteSftpId, step.to_path) : false)
+    : await ops.fsExists(step.to_path);
+
+  if (dstExists) {
+    if (step.on_conflict === "skip") return "skipped";
+    if (step.on_conflict === "fail") throw new Error(i18n.t("snippets.sequence.error.destExists", { path: step.to_path }));
+    // overwrite: a same-side move is a rename, which won't clobber — clear dest first.
+    if (step.mode === "move" && sameSide) {
+      if (step.to === "remote") { if (srcSftpId) await ops.sftpDelete(srcSftpId, step.to_path); }
+      else await ops.fsDelete(step.to_path);
+    }
   }
+
+  if (step.mode === "move" && sameSide) {
+    if (step.from === "remote") {
+      if (!srcSftpId) throw new Error(i18n.t("snippets.sequence.error.noSftp"));
+      await ops.sftpRename(srcSftpId, step.from_path, step.to_path);
+    } else {
+      await ops.fsRename(step.from_path, step.to_path);
+    }
+    return "done";
+  }
+
+  await ops.transferItem({
+    from: step.from, to: step.to, srcSftpId, dstSftpId,
+    srcPath: step.from_path, dstPath: step.to_path,
+    isDir: step.is_dir, useTar: step.is_dir, transferId,
+  });
+
+  if (step.mode === "move") {
+    if (step.from === "remote") { if (srcSftpId) await ops.sftpDelete(srcSftpId, step.from_path); }
+    else await ops.fsDelete(step.from_path);
+  }
+  return "done";
 }
 
 // ─── Sequence aggregation core ──────────────────────────────────────────────
@@ -186,12 +262,15 @@ export function buildTargetContext(target: RunTarget, clipboard = ""): DynamicCo
 }
 
 async function prepareTarget(target: RunTarget, steps: LeafStep[]): Promise<PreparedTarget> {
-  const hasTransfer = steps.some((s) => s.kind === "transfer");
-  let sftpId: string | null = null;
-  if (hasTransfer) sftpId = await resolveSftpIdForTarget(target);
+  const { needsRemote, needsSecond } = transferRemoteNeeds(steps);
+  let remoteSftpId: string | null = null;
+  let remoteSftpId2: string | null = null;
+  if (needsRemote) remoteSftpId = await resolveSftpIdForTarget(target);
+  if (needsSecond) remoteSftpId2 = await resolveSftpIdForTarget(target);
 
   const sessionId = target.kind === "session" ? target.sessionId : undefined;
   const sessionType = target.kind === "session" ? target.sessionType : "ssh";
+  const channels: TransferChannels = { remoteSftpId, remoteSftpId2 };
 
   const exec: TargetExec = {
     async runScript(content) {
@@ -199,14 +278,13 @@ async function prepareTarget(target: RunTarget, steps: LeafStep[]): Promise<Prep
       await snippetInject(sessionId, sessionType, content, true);
     },
     async runTransfer(step) {
-      if (!sftpId) throw new Error(i18n.t("snippets.sequence.error.noSftp"));
-      await runTransferStep(sftpId, step);
+      await runTransferStep(step, channels);
     },
     async close() {
-      // We always own sftpId (sftpOpen/sftpConnect create a fresh resource),
-      // so close it whenever opened. For a live session this only tears down the
-      // sftp channel, not the underlying terminal session.
-      if (sftpId) await sftpClose(sftpId);
+      // We always own any channel we opened; tear both down. For a live session
+      // this only closes the sftp channel(s), not the terminal session.
+      if (remoteSftpId) await sftpClose(remoteSftpId);
+      if (remoteSftpId2) await sftpClose(remoteSftpId2);
     },
   };
   return { label: targetLabel(target), steps, exec };

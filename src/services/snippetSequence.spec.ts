@@ -5,12 +5,24 @@ const sftpDownload = vi.fn(async (..._a: unknown[]) => {});
 const sftpUploadDirTar = vi.fn(async (..._a: unknown[]) => {});
 const sftpDownloadDirTar = vi.fn(async (..._a: unknown[]) => {});
 const sftpClose = vi.fn(async (..._a: unknown[]) => {});
+const sftpExists = vi.fn(async (..._a: unknown[]) => false);
+const fsExists = vi.fn(async (..._a: unknown[]) => false);
+const fsRename = vi.fn(async (..._a: unknown[]) => {});
+const sftpRename = vi.fn(async (..._a: unknown[]) => {});
+const fsDelete = vi.fn(async (..._a: unknown[]) => {});
+const sftpDelete = vi.fn(async (..._a: unknown[]) => {});
 vi.mock("@/services/sftp", () => ({
   sftpUpload: (...a: unknown[]) => sftpUpload(...a),
   sftpDownload: (...a: unknown[]) => sftpDownload(...a),
   sftpUploadDirTar: (...a: unknown[]) => sftpUploadDirTar(...a),
   sftpDownloadDirTar: (...a: unknown[]) => sftpDownloadDirTar(...a),
   sftpClose: (...a: unknown[]) => sftpClose(...a),
+  sftpExists: (...a: unknown[]) => sftpExists(...a),
+  fsExists: (...a: unknown[]) => fsExists(...a),
+  fsRename: (...a: unknown[]) => fsRename(...a),
+  sftpRename: (...a: unknown[]) => sftpRename(...a),
+  fsDelete: (...a: unknown[]) => fsDelete(...a),
+  sftpDelete: (...a: unknown[]) => sftpDelete(...a),
 }));
 vi.mock("@/components/filetransfer/SFTPTypes", () => ({ genId: () => "tid" }));
 
@@ -22,10 +34,11 @@ vi.mock("@/services/sftpTarget", () => ({
 const readClipboard = vi.fn(async (..._a: unknown[]) => "PASTED");
 vi.mock("@/utils/clipboard", () => ({ readClipboard: (...a: unknown[]) => readClipboard(...a) }));
 
-import { runTransferStep, executeSequenceForTargets, runSnippetSequence, buildSummaryMessage, buildTargetContext, resolveTerminalTargets } from "./snippetSequence";
+import { runTransferStep, defaultTransferOps, transferRemoteNeeds, executeSequenceForTargets, runSnippetSequence, buildSummaryMessage, buildTargetContext, resolveTerminalTargets } from "./snippetSequence";
 import type { SequenceRunResult } from "./snippetSequence";
 import type { Connection, TerminalSession } from "@/types";
 import type { Snippet } from "@/types";
+import type { LeafStep } from "./snippetFlatten";
 
 function mkConn(over: Partial<Connection>): Connection {
   return {
@@ -44,33 +57,114 @@ beforeEach(() => {
   sftpUpload.mockClear(); sftpDownload.mockClear(); sftpUploadDirTar.mockClear();
   sftpDownloadDirTar.mockClear(); sftpClose.mockClear(); resolveSftpIdForTarget.mockClear();
   readClipboard.mockClear();
+  sftpExists.mockClear(); fsExists.mockClear(); fsRename.mockClear();
+  sftpRename.mockClear(); fsDelete.mockClear(); sftpDelete.mockClear();
 });
 
 describe("runTransferStep", () => {
-  it("uploads a file", async () => {
-    await runTransferStep("sid", { kind: "transfer", direction: "upload", local_path: "/l", remote_path: "/r", is_dir: false });
-    expect(sftpUpload).toHaveBeenCalledWith({ sftpId: "sid", localPath: "/l", remotePath: "/r", transferId: "tid" });
+  const CH = { remoteSftpId: "R1", remoteSftpId2: "R2" };
+  function ops(over: Partial<typeof defaultTransferOps> = {}) {
+    return {
+      fsExists: vi.fn(async () => false),
+      sftpExists: vi.fn(async () => false),
+      fsRename: vi.fn(async () => {}),
+      sftpRename: vi.fn(async () => {}),
+      fsDelete: vi.fn(async () => {}),
+      sftpDelete: vi.fn(async () => {}),
+      transferItem: vi.fn(async () => {}),
+      ...over,
+    };
+  }
+  const step = (over: Record<string, unknown>) => ({
+    kind: "transfer" as const, from: "local" as const, to: "remote" as const,
+    from_path: "/s", to_path: "/d", is_dir: false, mode: "copy" as const, on_conflict: "overwrite" as const,
+    ...over,
   });
 
-  it("downloads a directory via tar", async () => {
-    await runTransferStep("sid", { kind: "transfer", direction: "download", local_path: "/l", remote_path: "/r", is_dir: true });
-    expect(sftpDownloadDirTar).toHaveBeenCalledWith({ sftpId: "sid", localPath: "/l", remotePath: "/r", transferId: "tid" });
+  it("copies via transferItem with the right channels (local→remote)", async () => {
+    const o = ops();
+    const outcome = await runTransferStep(step({}), CH, o);
+    expect(outcome).toBe("done");
+    expect(o.transferItem).toHaveBeenCalledWith(expect.objectContaining({
+      from: "local", to: "remote", dstSftpId: "R1", srcSftpId: undefined, srcPath: "/s", dstPath: "/d",
+    }));
   });
 
-  it("uploads a directory via tar and calls no sibling command", async () => {
-    await runTransferStep("sid", { kind: "transfer", direction: "upload", local_path: "/l", remote_path: "/r", is_dir: true });
-    expect(sftpUploadDirTar).toHaveBeenCalledWith({ sftpId: "sid", localPath: "/l", remotePath: "/r", transferId: "tid" });
-    expect(sftpUpload).not.toHaveBeenCalled();
-    expect(sftpDownload).not.toHaveBeenCalled();
-    expect(sftpDownloadDirTar).not.toHaveBeenCalled();
+  it("remote→remote copy uses two distinct channels", async () => {
+    const o = ops();
+    await runTransferStep(step({ from: "remote", to: "remote" }), CH, o);
+    expect(o.transferItem).toHaveBeenCalledWith(expect.objectContaining({ srcSftpId: "R1", dstSftpId: "R2" }));
   });
 
-  it("downloads a file and calls no sibling command", async () => {
-    await runTransferStep("sid", { kind: "transfer", direction: "download", local_path: "/l", remote_path: "/r", is_dir: false });
-    expect(sftpDownload).toHaveBeenCalledWith({ sftpId: "sid", localPath: "/l", remotePath: "/r", transferId: "tid" });
-    expect(sftpUpload).not.toHaveBeenCalled();
-    expect(sftpUploadDirTar).not.toHaveBeenCalled();
-    expect(sftpDownloadDirTar).not.toHaveBeenCalled();
+  it("same-side move renames instead of copying (remote→remote)", async () => {
+    const o = ops();
+    await runTransferStep(step({ from: "remote", to: "remote", mode: "move" }), CH, o);
+    expect(o.sftpRename).toHaveBeenCalledWith("R1", "/s", "/d");
+    expect(o.transferItem).not.toHaveBeenCalled();
+  });
+
+  it("same-side move renames locally (local→local)", async () => {
+    const o = ops();
+    await runTransferStep(step({ from: "local", to: "local", mode: "move" }), CH, o);
+    expect(o.fsRename).toHaveBeenCalledWith("/s", "/d");
+  });
+
+  it("cross-side move copies then deletes the source", async () => {
+    const o = ops();
+    await runTransferStep(step({ from: "remote", to: "local", mode: "move" }), CH, o);
+    expect(o.transferItem).toHaveBeenCalled();
+    expect(o.sftpDelete).toHaveBeenCalledWith("R1", "/s");
+  });
+
+  it("cross-side move does not delete the source when the transfer fails", async () => {
+    const o = ops({ transferItem: vi.fn(async () => { throw new Error("boom"); }) });
+    await expect(runTransferStep(step({ from: "remote", to: "local", mode: "move" }), CH, o)).rejects.toThrow("boom");
+    expect(o.sftpDelete).not.toHaveBeenCalled();
+    expect(o.fsDelete).not.toHaveBeenCalled();
+  });
+
+  it("on_conflict skip returns 'skipped' and does nothing when dest exists", async () => {
+    const o = ops({ sftpExists: vi.fn(async () => true) });
+    const outcome = await runTransferStep(step({ on_conflict: "skip" }), CH, o);
+    expect(outcome).toBe("skipped");
+    expect(o.transferItem).not.toHaveBeenCalled();
+  });
+
+  it("on_conflict fail throws when dest exists", async () => {
+    const o = ops({ sftpExists: vi.fn(async () => true) });
+    await expect(runTransferStep(step({ on_conflict: "fail" }), CH, o)).rejects.toThrow();
+  });
+
+  it("overwrite move-rename deletes the existing destination first", async () => {
+    const o = ops({ sftpExists: vi.fn(async () => true) });
+    await runTransferStep(step({ from: "remote", to: "remote", mode: "move" }), CH, o);
+    expect(o.sftpDelete).toHaveBeenCalledWith("R1", "/d");
+    expect(o.sftpRename).toHaveBeenCalledWith("R1", "/s", "/d");
+    expect(vi.mocked(o.sftpDelete).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(o.sftpRename).mock.invocationCallOrder[0]);
+  });
+
+  it("R→R move honors skip using the primary channel (no second channel)", async () => {
+    const o = ops({ sftpExists: vi.fn(async () => true) });
+    const outcome = await runTransferStep(step({ from: "remote", to: "remote", mode: "move", on_conflict: "skip" }), { remoteSftpId: "R1", remoteSftpId2: null }, o);
+    expect(outcome).toBe("skipped");
+    expect(o.sftpRename).not.toHaveBeenCalled();
+    expect(o.sftpExists).toHaveBeenCalledWith("R1", "/d");
+  });
+
+  it("R→R move honors fail using the primary channel (no second channel)", async () => {
+    const o = ops({ sftpExists: vi.fn(async () => true) });
+    await expect(runTransferStep(step({ from: "remote", to: "remote", mode: "move", on_conflict: "fail" }), { remoteSftpId: "R1", remoteSftpId2: null }, o)).rejects.toThrow();
+  });
+});
+
+describe("transferRemoteNeeds", () => {
+  const t = (over: Record<string, unknown>) => ({ kind: "transfer" as const, from: "local", to: "remote", from_path: "", to_path: "", is_dir: false, mode: "copy", on_conflict: "overwrite", ...over } as LeafStep);
+  it("no remote for local-only steps", () => {
+    expect(transferRemoteNeeds([t({ from: "local", to: "local" })])).toEqual({ needsRemote: false, needsSecond: false });
+  });
+  it("second channel only for remote→remote copy", () => {
+    expect(transferRemoteNeeds([t({ from: "remote", to: "remote", mode: "copy" })])).toEqual({ needsRemote: true, needsSecond: true });
+    expect(transferRemoteNeeds([t({ from: "remote", to: "remote", mode: "move" })])).toEqual({ needsRemote: true, needsSecond: false });
   });
 });
 
@@ -115,7 +209,7 @@ describe("runSnippetSequence — sftp channel lifecycle", () => {
     return {
       id: "s1",
       name: "xfer",
-      steps: [{ kind: "transfer", direction: "upload", local_path: "/l", remote_path: "/r", is_dir: false }],
+      steps: [{ kind: "transfer", from: "local", to: "remote", from_path: "/l", to_path: "/r", is_dir: false, mode: "copy", on_conflict: "overwrite" }],
       tags: [],
       favorite: false,
       only_for_connection_tags: [],
@@ -221,13 +315,13 @@ describe("runSnippetSequence — clipboard", () => {
   function clipboardSnippet(): Snippet {
     return {
       id: "s1", name: "xfer",
-      steps: [{ kind: "transfer", direction: "upload", local_path: "/tmp/{{clipboard}}", remote_path: "/r", is_dir: false }],
+      steps: [{ kind: "transfer", from: "local", to: "remote", from_path: "/tmp/{{clipboard}}", to_path: "/r", is_dir: false, mode: "copy", on_conflict: "overwrite" }],
       tags: [], favorite: false, only_for_connection_tags: [], only_for_distros: [],
       created_at: "", updated_at: "", vault_id: "personal", clocks: {},
     };
   }
   function plainTransferSnippet(): Snippet {
-    return { ...clipboardSnippet(), steps: [{ kind: "transfer", direction: "upload", local_path: "/l", remote_path: "/r", is_dir: false }] };
+    return { ...clipboardSnippet(), steps: [{ kind: "transfer", from: "local", to: "remote", from_path: "/l", to_path: "/r", is_dir: false, mode: "copy", on_conflict: "overwrite" }] };
   }
 
   it("reads {{clipboard}} once and resolves it into a step path", async () => {

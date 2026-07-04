@@ -15,7 +15,8 @@
       },
       "error": {
         "needsTerminal": "Script step requires an open terminal session for this target",
-        "noSftp": "No SFTP connection for transfer step"
+        "noSftp": "No SFTP connection for transfer step",
+        "destExists": "Destination already exists: {{path}}"
       }
     },
     "toolbar": {
