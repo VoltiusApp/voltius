@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { Icon } from "@iconify/react";
 import { useNotificationStore } from "@/stores/notificationStore";
 import type { BannerEntry, HistoryEntry } from "@/stores/notificationStore";
@@ -21,10 +22,10 @@ const SEVERITY_COLORS: Record<string, string> = {
 
 function relativeTime(ms: number): string {
   const diff = Date.now() - ms;
-  if (diff < 60_000) return "just now";
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-  return `${Math.floor(diff / 86_400_000)}d ago`;
+  if (diff < 60_000) return i18n.t("notifications.bell.relativeTime.justNow");
+  if (diff < 3_600_000) return i18n.t("notifications.bell.relativeTime.minutesAgo", { count: Math.floor(diff / 60_000) });
+  if (diff < 86_400_000) return i18n.t("notifications.bell.relativeTime.hoursAgo", { count: Math.floor(diff / 3_600_000) });
+  return i18n.t("notifications.bell.relativeTime.daysAgo", { count: Math.floor(diff / 86_400_000) });
 }
 
 function BannerRow({ banner, onDismiss }: { banner: BannerEntry; onDismiss: () => void }) {
