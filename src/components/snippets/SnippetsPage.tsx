@@ -30,6 +30,7 @@ import {
   parseVariables,
   needsUserInput,
 } from "@/services/snippetParser";
+import { snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
 import { runSnippetIntoSessions } from "@/services/snippetRun";
 import { snippetToForm } from "@/utils/snippetForm";
 import { SnippetVariableModal } from "@/components/terminal/SnippetVariableModal";
@@ -412,7 +413,7 @@ export function SnippetsPage() {
       const q = search.toLowerCase();
       return (
         s.name.toLowerCase().includes(q) ||
-        s.content.toLowerCase().includes(q) ||
+        snippetSearchText(s).toLowerCase().includes(q) ||
         s.tags.some((t) => t.toLowerCase().includes(q))
       );
     }),
@@ -649,7 +650,7 @@ export function SnippetsPage() {
     });
 
     // Record recents only for the direct (no-modal) path; the modal path records on submit.
-    const noUserInputNeeded = parseVariables(snippet.content)
+    const noUserInputNeeded = parseVariables(snippetScriptText(snippet))
       .filter((v) => !v.dynamic)
       .every((v) => !needsUserInput(v));
     if (ran && noUserInputNeeded) {
@@ -677,7 +678,7 @@ export function SnippetsPage() {
   async function handleDuplicate(snippet: Snippet) {
     await createSnippet({
       name: `${snippet.name} (copy)`,
-      content: snippet.content,
+      steps: snippet.steps,
       description: snippet.description,
       tags: [...snippet.tags],
       folder_id: snippet.folder_id,

@@ -1,7 +1,7 @@
 // Pure types, JSON serialization, encryption, and format detection.
 // Format-specific parsers live in parsers/*.ts — one file per format.
 
-import type { ConnectionFormData } from "@/types";
+import type { ConnectionFormData, SnippetStep } from "@/types";
 import i18n from "@/i18n";
 import { decryptXChaCha20Poly1305, encryptXChaCha20Poly1305 } from "../crypto/xchacha.ts";
 
@@ -64,7 +64,9 @@ export interface ConnectionExport extends ConnectionPassthrough {
 export interface SnippetExport {
   _eid?: string;
   name: string;
-  content: string;
+  steps?: SnippetStep[];
+  /** @deprecated legacy single-script bundles; normalized to `steps` on import. */
+  content?: string;
   description?: string;
   tags: string[];
   favorite: boolean;

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Snippet, SnippetFormData } from "@/types";
 import type { SnippetPendingInject } from "@/services/snippetRunCore";
+import { normalizeSnippetSteps } from "@/services/snippetSteps";
 import * as api from "@/services/snippets";
 import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
@@ -69,11 +70,11 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   loadSnippets: async () => {
     set({ loading: true });
     const snippets = await api.listSnippets();
-    set({ snippets, loading: false });
+    set({ snippets: snippets.map(normalizeSnippetSteps), loading: false });
   },
 
   setTeamSnippets: (teamId, items) =>
-    set((s) => ({ teamSnippets: { ...s.teamSnippets, [teamId]: items } })),
+    set((s) => ({ teamSnippets: { ...s.teamSnippets, [teamId]: items.map(normalizeSnippetSteps) } })),
 
   clearTeamSnippets: (teamId) =>
     set((s) => {
@@ -89,7 +90,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
       const snippet: Snippet = {
         id: crypto.randomUUID(),
         name: data.name,
-        content: data.content,
+        steps: data.steps,
         description: data.description,
         tags: data.tags ?? [],
         folder_id: data.folder_id,
@@ -153,7 +154,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
       const updated: Snippet = {
         ...prev,
         name: data.name,
-        content: data.content,
+        steps: data.steps,
         description: data.description,
         tags: data.tags ?? prev.tags,
         folder_id: data.folder_id,
@@ -191,7 +192,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
       });
       reportAuditMutation("snippet", "updated", { id: migrated.id, name: migrated.name, vault_id: migrated.vault_id });
       const prevData: SnippetFormData = {
-        name: prev.name, content: prev.content, description: prev.description,
+        name: prev.name, steps: prev.steps, description: prev.description,
         tags: prev.tags, folder_id: prev.folder_id, favorite: prev.favorite,
         only_for_connection_tags: prev.only_for_connection_tags,
         only_for_distros: prev.only_for_distros, vault_id: prev.vault_id,
@@ -243,7 +244,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     if (prev) reportAuditMutation("snippet", "updated", { id, name: data.name ?? prev.name, vault_id: data.vault_id ?? prev.vault_id });
     if (prev) {
       const prevData: SnippetFormData = {
-        name: prev.name, content: prev.content, description: prev.description,
+        name: prev.name, steps: prev.steps, description: prev.description,
         tags: prev.tags, folder_id: prev.folder_id, favorite: prev.favorite,
         only_for_connection_tags: prev.only_for_connection_tags,
         only_for_distros: prev.only_for_distros, vault_id: prev.vault_id,
@@ -269,7 +270,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
       }));
       reportAuditMutation("snippet", "deleted", { id: prev.id, name: prev.name, vault_id: prev.vault_id });
       const prevData: SnippetFormData = {
-        name: prev.name, content: prev.content, description: prev.description,
+        name: prev.name, steps: prev.steps, description: prev.description,
         tags: prev.tags, folder_id: prev.folder_id, favorite: prev.favorite,
         only_for_connection_tags: prev.only_for_connection_tags,
         only_for_distros: prev.only_for_distros, vault_id: prev.vault_id,
@@ -297,7 +298,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     if (prev) reportAuditMutation("snippet", "deleted", { id: prev.id, name: prev.name, vault_id: prev.vault_id });
     if (prev) {
       const prevData: SnippetFormData = {
-        name: prev.name, content: prev.content, description: prev.description,
+        name: prev.name, steps: prev.steps, description: prev.description,
         tags: prev.tags, folder_id: prev.folder_id, favorite: prev.favorite,
         only_for_connection_tags: prev.only_for_connection_tags,
         only_for_distros: prev.only_for_distros, vault_id: prev.vault_id,
@@ -328,7 +329,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     if (!snippet) return;
     const nextFavorite = pinned ?? false;
     await api.updateSnippet(id, {
-      name: snippet.name, content: snippet.content, description: snippet.description,
+      name: snippet.name, steps: snippet.steps, description: snippet.description,
       tags: snippet.tags, folder_id: snippet.folder_id, favorite: nextFavorite,
       only_for_connection_tags: snippet.only_for_connection_tags,
       only_for_distros: snippet.only_for_distros, vault_id: snippet.vault_id,

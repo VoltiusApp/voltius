@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
+import { snippetScriptText } from "@/services/snippetSteps";
 import type { SnippetFormData } from "@/types";
 
 export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: string }) {
@@ -17,13 +18,13 @@ export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: str
   const editing = snippetId ? snippets.find((s) => s.id === snippetId) ?? null : null;
 
   const [name, setName] = useState(editing?.name ?? "");
-  const [content, setContent] = useState(editing?.content ?? "");
+  const [content, setContent] = useState(editing ? snippetScriptText(editing) : "");
 
   const save = async () => {
     if (!name.trim() || !content.trim()) return;
     if (editing) {
       const data: SnippetFormData = {
-        name: name.trim(), content,
+        name: name.trim(), steps: [{ kind: "script", content }],
         description: editing.description,
         tags: editing.tags, folder_id: editing.folder_id,
         favorite: editing.favorite,
@@ -34,7 +35,7 @@ export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: str
       await updateSnippet(editing.id, data);
     } else {
       const data: SnippetFormData = {
-        name: name.trim(), content,
+        name: name.trim(), steps: [{ kind: "script", content }],
         tags: [], favorite: false,
         only_for_connection_tags: [], only_for_distros: [],
         vault_id: selectedVaultIds[0] ?? "personal",

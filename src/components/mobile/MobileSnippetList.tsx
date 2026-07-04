@@ -15,6 +15,7 @@ import FolderBackTrap from "@/components/mobile/folders/FolderBackTrap";
 import FolderFormSheet from "@/components/mobile/sheets/FolderFormSheet";
 import FolderActionsSheet from "@/components/mobile/sheets/FolderActionsSheet";
 import type { Snippet, Folder } from "@/types";
+import { snippetSearchText } from "@/services/snippetSteps";
 
 export default function MobileSnippetList({
   currentSessionId, addFolderOpen = false, onCloseAddFolder,
@@ -53,7 +54,7 @@ export default function MobileSnippetList({
   const visible = useMemo(() => {
     const scoped = foldersEnabled ? scopeItems(inVault, nav.activeFolderId) : inVault;
     const q = search.trim().toLowerCase();
-    return (q ? scoped.filter((s) => s.name.toLowerCase().includes(q) || s.content.toLowerCase().includes(q)) : scoped)
+    return (q ? scoped.filter((s) => s.name.toLowerCase().includes(q) || snippetSearchText(s).toLowerCase().includes(q)) : scoped)
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [foldersEnabled, inVault, nav.activeFolderId, search]);
 
@@ -107,7 +108,7 @@ export default function MobileSnippetList({
             <button className="flex-1 flex flex-col gap-0.5 px-4 py-3 text-left active:bg-(--t-bg-card) min-w-0"
               onClick={() => openPicker(sn.id, "execute")}>
               <span className="text-sm font-medium text-(--t-text-primary) truncate">{sn.name}</span>
-              <span className="text-xs font-mono text-(--t-text-dim) truncate">{sn.content}</span>
+              <span className="text-xs font-mono text-(--t-text-dim) truncate">{snippetSearchText(sn)}</span>
             </button>
             <button className="p-2.5 text-(--t-text-secondary)" data-mobile-snippet-insert={sn.id} aria-label={t("mobile.snippets.insertAriaLabel")} onClick={() => onInsert(sn)}>
               <Icon icon="lucide:arrow-down-to-line" width={18} />

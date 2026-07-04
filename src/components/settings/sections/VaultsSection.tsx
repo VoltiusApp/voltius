@@ -1131,7 +1131,7 @@ function VaultGeneralTab({
         ...identities.map((i) => identApi.saveIdentity({ name: i.name, username: i.username, key_id: i.key_id, tags: i.tags, folder_id: i.folder_id, vault_id: vaultId })),
         ...keys.map((k) => keyApi.saveKey({ name: k.name, key_type: k.key_type, tags: k.tags, folder_id: k.folder_id, vault_id: vaultId })),
         ...folders.map((f) => folderApi.saveFolder({ name: f.name, object_type: f.object_type, parent_folder_id: f.parent_folder_id, vault_id: vaultId })),
-        ...snippets.map((s) => snippetApi.createSnippet({ name: s.name, content: s.content, description: s.description, tags: s.tags, folder_id: s.folder_id, favorite: s.favorite, only_for_connection_tags: s.only_for_connection_tags, only_for_distros: s.only_for_distros, vault_id: vaultId })),
+        ...snippets.map((s) => snippetApi.createSnippet({ name: s.name, steps: s.steps, description: s.description, tags: s.tags, folder_id: s.folder_id, favorite: s.favorite, only_for_connection_tags: s.only_for_connection_tags, only_for_distros: s.only_for_distros, vault_id: vaultId })),
         ...snippetFolders.map((f) => snippetApi.createSnippetFolder({ name: f.name, object_type: f.object_type, parent_folder_id: f.parent_folder_id, vault_id: vaultId })),
         ...portRules.map((r) => pfApi.createPfRule({ name: r.name, local_port: r.local_port, remote_port: r.remote_port, remote_host: r.remote_host, tunnel_type: r.tunnel_type, bind_host: r.bind_host, target_host: r.target_host, description: r.description, connection_ids: r.connection_ids, folder_id: r.folder_id, vault_id: vaultId })),
       ]);

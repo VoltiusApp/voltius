@@ -16,6 +16,7 @@ import {
   resolveTemplate,
   type ParsedVariable,
 } from "@/services/snippetParser";
+import { snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
 import { SnippetVariableModal } from "@/components/terminal/SnippetVariableModal";
 import { PanelShell, PanelHeader, PanelHeaderIconButton } from "@/components/shared/Panel";
 import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
@@ -87,7 +88,7 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
       if (!searchQuery) return true;
       return (
         s.name.toLowerCase().includes(searchQuery) ||
-        s.content.toLowerCase().includes(searchQuery) ||
+        snippetSearchText(s).toLowerCase().includes(searchQuery) ||
         s.tags.some((t) => t.toLowerCase().includes(searchQuery))
       );
     }),
@@ -97,7 +98,7 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
   const doInjectText = useCallback(async (snippet: Snippet, partiallyResolvedText: string, execute: boolean) => {
     setError(null);
     try {
-      const vars = parseVariables(snippet.content);
+      const vars = parseVariables(snippetScriptText(snippet));
 
       const toConnect: string[] = [];
       const toInject: Array<{ sessionId: string; connId: string }> = [];
@@ -142,14 +143,15 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
   }, [connectionIds, connections, sessions, connectMany, openSessions, setActive, setActiveNav, trackUsed, onClose]);
 
   const handleTrigger = useCallback((snippet: Snippet, execute: boolean) => {
-    const vars = parseVariables(snippet.content);
+    const text = snippetScriptText(snippet);
+    const vars = parseVariables(text);
     const userVars = vars.filter((v) => !v.dynamic);
     const initialValues = buildDefaultValues(userVars);
 
     if (userVars.some(needsUserInput)) {
       setPendingInject({ snippet, userVars, initialValues, execute });
     } else {
-      void doInjectText(snippet, resolveTemplate(snippet.content, initialValues), execute);
+      void doInjectText(snippet, resolveTemplate(text, initialValues), execute);
     }
   }, [doInjectText]);
 
@@ -266,7 +268,7 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
       {pendingInject && (
         <SnippetVariableModal
           snippetName={pendingInject.snippet.name}
-          partialTemplate={pendingInject.snippet.content}
+          partialTemplate={snippetScriptText(pendingInject.snippet)}
           userVars={pendingInject.userVars}
           initialValues={pendingInject.initialValues}
           onInject={(resolvedText, execute) => {
@@ -296,7 +298,7 @@ function SnippetRow({ snippet, onTrigger }: { snippet: Snippet; onTrigger: (s: S
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium truncate text-(--t-text-bright)">{snippet.name}</p>
         <p className="text-[11px] truncate font-mono text-(--t-text-dim)">
-          {snippet.description || snippet.content}
+          {snippet.description || snippetSearchText(snippet)}
         </p>
       </div>
       <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">

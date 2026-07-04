@@ -17,6 +17,7 @@ import {
   type DynamicContext,
 } from "@/services/snippetParser";
 import { buildDynamicContext } from "@/services/snippetRunCore";
+import { snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
 import { SnippetVariableModal } from "@/components/terminal/SnippetVariableModal";
 import { SnippetForm } from "@/components/snippets/SnippetForm";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
@@ -152,7 +153,7 @@ function SnippetRow({
             )}
           </div>
           <p className="text-[11px] font-mono truncate mt-0.5 leading-tight" style={{ color: "var(--t-text-muted)" }}>
-            {snippet.content}
+            {snippetSearchText(snippet)}
           </p>
           {snippet.tags.length > 0 && (
             <div className="flex gap-1 mt-1 flex-wrap">
@@ -380,7 +381,7 @@ export function SnippetsPanel() {
     (s) =>
       !query ||
       s.name.toLowerCase().includes(query.toLowerCase()) ||
-      s.content.toLowerCase().includes(query.toLowerCase()) ||
+      snippetSearchText(s).toLowerCase().includes(query.toLowerCase()) ||
       s.tags.some((t) => t.toLowerCase().includes(query.toLowerCase())),
   );
 
@@ -400,12 +401,13 @@ export function SnippetsPanel() {
     if (!activeSession || activeSession.type === "multiplayer") return;
     trackUsed(snippet.id);
 
-    const allVars = parseVariables(snippet.content);
+    const text = snippetScriptText(snippet);
+    const allVars = parseVariables(text);
     const ctx = await buildContext();
     const dynamicValues = buildDynamicValues(allVars, ctx);
     const userVars = allVars.filter((v) => !v.dynamic);
     const defaultValues = buildDefaultValues(userVars);
-    const partialTemplate = resolveTemplate(snippet.content, dynamicValues);
+    const partialTemplate = resolveTemplate(text, dynamicValues);
 
     if (!userVars.some(needsUserInput)) {
       inject(resolveTemplate(partialTemplate, defaultValues), execute);
@@ -417,7 +419,7 @@ export function SnippetsPanel() {
   async function handleMoveToFolder(snippet: Snippet, folderId: string | null) {
     await updateSnippet(snippet.id, {
       name: snippet.name,
-      content: snippet.content,
+      steps: snippet.steps,
       description: snippet.description,
       tags: snippet.tags,
       folder_id: folderId ?? undefined,
@@ -431,7 +433,7 @@ export function SnippetsPanel() {
   async function handleToggleFavorite(snippet: Snippet) {
     await updateSnippet(snippet.id, {
       name: snippet.name,
-      content: snippet.content,
+      steps: snippet.steps,
       description: snippet.description,
       tags: snippet.tags,
       folder_id: snippet.folder_id,
@@ -445,7 +447,7 @@ export function SnippetsPanel() {
   async function handleDuplicate(snippet: Snippet) {
     await createSnippet({
       name: `${snippet.name} (copy)`,
-      content: snippet.content,
+      steps: snippet.steps,
       description: snippet.description,
       tags: [...snippet.tags],
       folder_id: snippet.folder_id,

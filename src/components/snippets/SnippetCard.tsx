@@ -9,6 +9,7 @@ import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import type { Snippet, Folder, VaultOption } from "@/types";
+import { snippetSearchText } from "@/services/snippetSteps";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -199,14 +200,14 @@ export function SnippetCard({
                 className="px-2.5 pb-2.5 text-[11px] leading-relaxed break-all"
                 style={{
                   fontFamily: "var(--t-terminal-font-family)",
-                  color: snippet.content ? "var(--t-terminal-foreground)" : "var(--t-text-dim)",
+                  color: snippetSearchText(snippet) ? "var(--t-terminal-foreground)" : "var(--t-text-dim)",
                   display: "-webkit-box",
                   WebkitLineClamp: 2,
                   WebkitBoxOrient: "vertical",
                   overflow: "hidden",
                 }}
               >
-                {`> ${snippet.content || t("snippets.card.noContent")}`}
+                {`> ${snippetSearchText(snippet) || t("snippets.card.noContent")}`}
               </p>
             </div>
 
@@ -298,7 +299,7 @@ export function SnippetCard({
           {snippet.description ? (
             <p className="mt-0.5 text-xs text-(--t-text-muted) truncate">{snippet.description}</p>
           ) : (
-            <p className="mt-0.5 text-xs font-mono text-(--t-text-muted) truncate">{snippet.content}</p>
+            <p className="mt-0.5 text-xs font-mono text-(--t-text-muted) truncate">{snippetSearchText(snippet)}</p>
           )}
           {snippet.tags.length > 0 && (
             <div className="flex items-center gap-1 mt-1 flex-wrap">

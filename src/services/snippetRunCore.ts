@@ -4,6 +4,7 @@ import type { ParsedVariable, DynamicContext } from "@/services/snippetParser";
 import {
   parseVariables, needsUserInput, buildDynamicValues, buildDefaultValues, resolveTemplate,
 } from "./snippetParser.ts";
+import { snippetScriptText } from "@/services/snippetSteps";
 
 export interface SnippetPendingInject {
   snippet: Snippet;
@@ -32,9 +33,10 @@ export function resolveSnippetPayload(
   snippet: Snippet,
   ctx: DynamicContext,
 ): ResolvedSnippet {
-  const vars = parseVariables(snippet.content);
+  const text = snippetScriptText(snippet);
+  const vars = parseVariables(text);
   const dynValues = buildDynamicValues(vars, ctx);
-  const partialTemplate = resolveTemplate(snippet.content, dynValues);
+  const partialTemplate = resolveTemplate(text, dynValues);
   const userVars = vars.filter((v) => !v.dynamic);
   const initialValues = buildDefaultValues(userVars);
   const missing = userVars.filter((v) => needsUserInput(v));

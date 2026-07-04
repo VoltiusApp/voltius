@@ -4,6 +4,7 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { broadcastSnippetInject } from "@/services/snippets";
 import { buildDynamicContext, resolveSnippetPayload, type SnippetPendingInject } from "@/services/snippetRunCore";
 import { parseVariables } from "@/services/snippetParser";
+import { snippetScriptText } from "@/services/snippetSteps";
 import { readClipboard } from "@/utils/clipboard";
 import type { Snippet, TerminalSession } from "@/types";
 
@@ -40,7 +41,7 @@ export async function runSnippetIntoSessions(
   // Only read the clipboard when the snippet actually uses {{clipboard}} — otherwise
   // every run would trigger a clipboard-permission prompt (notably on Android).
   let clipboard = "";
-  if (parseVariables(snippet.content).some((v) => v.dynamic && v.name === "clipboard")) {
+  if (parseVariables(snippetScriptText(snippet)).some((v) => v.dynamic && v.name === "clipboard")) {
     try { clipboard = await readClipboard(); } catch { /* permission denied */ }
   }
 

@@ -12,7 +12,7 @@ describe("snippetSteps", () => {
   });
 
   it("normalizeSnippetSteps derives steps from legacy content", () => {
-    const out = normalizeSnippetSteps({ steps: undefined, content: "x" });
+    const out = normalizeSnippetSteps({ content: "x" });
     expect(out.steps).toEqual([{ kind: "script", content: "x" }]);
   });
 

@@ -4,6 +4,7 @@ import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, SnippetExport } from "../formats";
 import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "../context";
 import { handlerActive, selectedIds } from "../context";
+import { normalizeSnippetSteps } from "@/services/snippetSteps";
 
 export const snippetsHandler: DataTypeHandler = {
   key: "snippets",
@@ -39,7 +40,7 @@ export const snippetsHandler: DataTypeHandler = {
     bundle.snippets = (items as Snippet[]).map((s, i): SnippetExport => ({
       _eid: `s${i}`,
       name: s.name,
-      content: s.content,
+      steps: s.steps,
       description: s.description,
       tags: [...s.tags],
       favorite: s.favorite,
@@ -56,12 +57,13 @@ export const snippetsHandler: DataTypeHandler = {
         .filter(s => !s.deleted_at && (s.vault_id ?? "personal") === ctx.vault_id)
         .map(s => s.name),
     );
-    for (const snippet of bundle.snippets) {
+    for (const raw of bundle.snippets) {
+      const snippet = normalizeSnippetSteps(raw);
       if (ctx.skipDupes && existingNames.has(snippet.name)) continue;
       try {
         await ctx.stores.createSnippet({
           name: snippet.name,
-          content: snippet.content,
+          steps: snippet.steps,
           description: snippet.description,
           tags: ctx.tag ? [...snippet.tags, ctx.tag] : snippet.tags,
           favorite: snippet.favorite,

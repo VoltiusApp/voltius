@@ -30,6 +30,7 @@ import {
 import type { Snippet, SnippetFormData } from "@/types";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import { parseVariables } from "@/services/snippetParser";
+import { snippetScriptText } from "@/services/snippetSteps";
 
 const DYNAMIC_VAR_DEF_KEYS: { value: string; descKey: string }[] = [
   { value: "connection.host",     descKey: "snippets.form.dynamicVars.connectionHost" },
@@ -71,7 +72,7 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
   );
 
   const [name, setName]         = useState(initial?.name ?? "");
-  const [content, setContent]   = useState(initial?.content ?? "");
+  const [content, setContent]   = useState(initial ? snippetScriptText(initial) : "");
   const [description, setDesc]  = useState(initial?.description ?? "");
   const [folderId, setFolderId] = useState<string | null>(initial?.folder_id ?? null);
   const [tags, setTags]         = useState<string[]>(initial?.tags ?? []);
@@ -130,7 +131,7 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
   const buildData = (): SnippetFormData => ({
     // "Untitled snippet" is the persisted default name when left blank; kept in English until all creation sites are localized together (see i18n issue #14)
     name: name.trim() || "Untitled snippet",
-    content,
+    steps: [{ kind: "script", content }],
     description: description.trim() || undefined,
     tags,
     folder_id: folderId ?? undefined,

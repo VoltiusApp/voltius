@@ -16,6 +16,7 @@ import {
   resolveTemplate, type DynamicContext,
 } from "@/services/snippetParser";
 import { broadcastSnippetInject } from "@/services/snippets";
+import { snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
 import type { Connection, TerminalSession, SshKey, Identity, Snippet } from "@/types";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { AvatarTile } from "@/components/shared/AvatarTile";
@@ -207,7 +208,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         .filter((s) =>
           !q ||
           s.name.toLowerCase().includes(q) ||
-          s.content.toLowerCase().includes(q) ||
+          snippetSearchText(s).toLowerCase().includes(q) ||
           s.tags.some((t) => t.toLowerCase().includes(q)),
         )
         .map((s): OmniItem => ({ kind: "snippet", snippet: s }));
@@ -287,7 +288,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         ...snippets
           .filter((s) =>
             s.name.toLowerCase().includes(q) ||
-            s.content.toLowerCase().includes(q) ||
+            snippetSearchText(s).toLowerCase().includes(q) ||
             s.tags.some((t) => t.toLowerCase().includes(q)),
           )
           .map((s): OmniItem => ({ kind: "snippet", snippet: s })),
@@ -397,11 +398,12 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           ? { connectionHost: "localhost", connectionUsername: "local", connectionName: "Local Shell" }
           : { connectionHost: conn?.host ?? "", connectionUsername: conn?.username ?? "", connectionName: activeSession.connectionName };
 
-        const allVars = parseVariables(item.snippet.content);
+        const snippetText = snippetScriptText(item.snippet);
+        const allVars = parseVariables(snippetText);
         const dynamicValues = buildDynamicValues(allVars, ctx);
         const userVars = allVars.filter((v) => !v.dynamic);
         const defaultValues = buildDefaultValues(userVars);
-        const partialTemplate = resolveTemplate(item.snippet.content, dynamicValues);
+        const partialTemplate = resolveTemplate(snippetText, dynamicValues);
 
         trackUsed(item.snippet.id);
         onClose();
@@ -755,7 +757,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
               {item.snippet.name}
             </span>
             <p className="text-xs mt-0.5 font-mono truncate text-(--t-text-dim)">
-              {item.snippet.content}
+              {snippetSearchText(item.snippet)}
             </p>
           </div>
           <VaultBadge vaultId={item.snippet.vault_id} vaults={vaults} teams={teams} />

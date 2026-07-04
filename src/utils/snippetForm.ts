@@ -4,7 +4,7 @@ import type { Snippet, SnippetFormData } from "@/types";
 export function snippetToForm(s: Snippet): SnippetFormData {
   return {
     name: s.name,
-    content: s.content,
+    steps: s.steps,
     description: s.description,
     tags: s.tags,
     folder_id: s.folder_id,
