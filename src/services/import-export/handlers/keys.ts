@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import { getSecret, storeSecret } from "@/services/vault";
 import type { SshKey } from "@/types";
 import type { DataTypeHandler } from "../handler";
@@ -17,9 +18,9 @@ export const keysHandler: DataTypeHandler = {
   },
 
   checkboxLabel(s: SelectionProps, count: number) {
-    if (isSingleSelection("keys", s)) return "SSH Key (1)";
+    if (isSingleSelection("keys", s)) return i18n.t("importExport.export.checkboxLabel.keys", { count: 1 });
     const ids = selectedIds("keys", s);
-    return `SSH Keys (${ids ? ids.length : count})`;
+    return i18n.t("importExport.export.checkboxLabel.keys", { count: ids ? ids.length : count });
   },
 
   countAvailable(stores: StoreSlices, vaultIds: string[]) {

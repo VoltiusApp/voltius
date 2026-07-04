@@ -21,7 +21,8 @@
       "newKey": "New Key",
       "newKeyOptionsAriaLabel": "New key options",
       "generateKeyPair": "Generate Key Pair",
-      "newIdentity": "New Identity"
+      "newIdentity": "New Identity",
+      "newFolder": "New Folder"
     },
     "page": {
       "all": "All",

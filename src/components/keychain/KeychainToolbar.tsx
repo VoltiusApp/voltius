@@ -141,8 +141,7 @@ function NewKeyChevron({ onGenerate, onNewIdentity, onNewFolder, accent }: { onI
         >
           {onGenerate && <DropdownMenuItem icon="lucide:key-round" label={t("keychain.toolbar.generateKeyPair")} onClick={() => { setOpen(false); onGenerate(); }} />}
           {onNewIdentity && <DropdownMenuItem icon="lucide:user-plus" label={t("keychain.toolbar.newIdentity")} onClick={() => { setOpen(false); onNewIdentity(); }} />}
-          {/* "New Folder" default name kept in English until all creation sites are localized together (see i18n issue #14) */}
-          <DropdownMenuItem icon="lucide:folder-plus" label="New Folder" onClick={() => { setOpen(false); onNewFolder(); }} />
+          <DropdownMenuItem icon="lucide:folder-plus" label={t("keychain.toolbar.newFolder")} onClick={() => { setOpen(false); onNewFolder(); }} />
         </div>
       )}
     </div>

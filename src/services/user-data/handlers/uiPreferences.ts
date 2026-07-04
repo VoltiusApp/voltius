@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import { useUIStore } from "@/stores/uiStore";
 import type { LayoutMode, SortMode } from "@/stores/uiStore";
 import type { UserDataHandler } from "../handler";
@@ -55,6 +56,6 @@ export const uiPreferencesHandler: UserDataHandler = {
 
   describe(): string {
     const s = useUIStore.getState();
-    return `scale ${s.uiScale}× · ${s.homeLayoutMode} layout`;
+    return i18n.t("importExport.userData.describe.uiPreferences", { scale: s.uiScale, layout: s.homeLayoutMode });
   },
 };

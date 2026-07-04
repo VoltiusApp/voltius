@@ -95,7 +95,7 @@ export function UserDataImportTab({ onClose }: { onClose: () => void }) {
                   {included[h.key] && <Icon icon="lucide:check" width={10} color="white" />}
                 </span>
                 <Icon icon={h.icon} width={13} className="text-(--t-text-muted)" />
-                <span className="text-sm text-(--t-text-primary)">{h.label}</span>
+                <span className="text-sm text-(--t-text-primary)">{t(`importExport.userData.handlers.${h.key}.label`)}</span>
               </label>
             ))}
           </div>

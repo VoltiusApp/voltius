@@ -10,7 +10,8 @@
       "export": "Export…",
       "fromImporter": "From {{label}}",
       "newHost": "New Host",
-      "newSerialHost": "New Serial Host"
+      "newSerialHost": "New Serial Host",
+      "newFolder": "New Folder"
     },
     "card": {
       "pin": "Pin",

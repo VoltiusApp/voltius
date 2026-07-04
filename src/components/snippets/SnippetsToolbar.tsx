@@ -132,10 +132,9 @@ export function SnippetsToolbar({
                 width: "max-content",
               }}
             >
-              {/* "New Folder" default name kept in English until all creation sites are localized together (see i18n issue #14) */}
               <DropdownMenuItem
                 icon="lucide:folder-plus"
-                label="New Folder"
+                label={t("snippets.toolbar.newFolder")}
                 onClick={() => { setMenuOpen(false); onNewFolder(); }}
               />
             </div>

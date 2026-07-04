@@ -818,8 +818,7 @@ export function SnippetsPage() {
   async function handleCreateFolder() {
     ep.closeEdit();
     const folder = await saveFolder({
-      // "New Folder" default name kept in English until all creation sites are localized together (see i18n issue #14)
-      name: "New Folder",
+      name: "New Folder" /* persisted English default; menu label is localized */,
       object_type: "snippet",
       parent_folder_id: activeFolderId ?? undefined,
     });
@@ -1138,8 +1137,7 @@ export function SnippetsPage() {
           onClose={closeBgMenu}
           items={[
             ...(canCreate ? [{ label: t("snippets.toolbar.newSnippet"), icon: "lucide:braces", onClick: () => openSnippet("new") } as const] : []),
-            // "New Folder" default name kept in English until all creation sites are localized together (see i18n issue #14)
-            { label: "New Folder", icon: "lucide:folder-plus", onClick: () => void handleCreateFolder() },
+            { label: t("snippets.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: () => void handleCreateFolder() },
           ]}
         />
       )}

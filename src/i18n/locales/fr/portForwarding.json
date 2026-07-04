@@ -4,7 +4,8 @@
       "filterPlaceholder": "Filtrer les règles…",
       "deleteSelected": "Supprimer la sélection",
       "deleteButton": "SUPPRIMER",
-      "newRule": "Nouvelle règle"
+      "newRule": "Nouvelle règle",
+      "newFolder": "Nouveau dossier"
     },
     "page": {
       "all": "Tout",

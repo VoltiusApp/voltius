@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import type { Snippet } from "@/types";
 import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, SnippetExport } from "../formats";
@@ -15,7 +16,7 @@ export const snippetsHandler: DataTypeHandler = {
 
   checkboxLabel(s: SelectionProps, count: number) {
     const ids = selectedIds("snippets", s);
-    return `Snippets (${ids ? ids.length : count})`;
+    return i18n.t("importExport.export.checkboxLabel.snippets", { count: ids ? ids.length : count });
   },
 
   countAvailable(stores: StoreSlices, vaultIds: string[]) {

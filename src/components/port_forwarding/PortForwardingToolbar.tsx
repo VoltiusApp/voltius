@@ -66,8 +66,7 @@ export function PortForwardingToolbar({
             icon="lucide:plus"
             label={compact ? undefined : t("portForwarding.toolbar.newRule")}
             onAction={onNewRule ?? (() => {})}
-            // default name kept in English until all creation sites are localized together (see i18n issue #14)
-            items={onNewFolder ? [{ label: "New Folder", icon: "lucide:folder-plus", onClick: onNewFolder }] : []}
+            items={onNewFolder ? [{ label: t("portForwarding.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: onNewFolder }] : []}
             disabled={!onNewRule}
             variant="accent"
             align="right"

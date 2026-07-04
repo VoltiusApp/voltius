@@ -25,7 +25,17 @@
       "selectedItem_one": "{{count}} élément sélectionné",
       "selectedItem_other": "{{count}} éléments sélectionnés",
       "autoIncludeIdentity": "{{count}} identité",
-      "autoIncludeKey": "{{count}} clé"
+      "autoIncludeKey": "{{count}} clé",
+      "checkboxLabel": {
+        "connections_one": "Connexion ({{count}})",
+        "connections_other": "Connexions ({{count}})",
+        "identities_one": "Identité ({{count}})",
+        "identities_other": "Identités ({{count}})",
+        "keys_one": "Clé SSH ({{count}})",
+        "keys_other": "Clés SSH ({{count}})",
+        "snippets": "Snippets ({{count}})",
+        "portForwarding": "Redirection de ports ({{count}})"
+      }
     },
     "import": {
       "importFrom": "Importer depuis",
@@ -90,6 +100,22 @@
         "resultApplied_one": "{{count}} paramètre appliqué : {{list}}.",
         "resultApplied_other": "{{count}} paramètres appliqués : {{list}}.",
         "resultError": "Erreur : {{error}}"
+      },
+      "handlers": {
+        "themes": { "label": "Thèmes" },
+        "uiPreferences": { "label": "Préférences d'interface" },
+        "shortcuts": { "label": "Raccourcis" },
+        "appSettings": { "label": "Paramètres de l'application" }
+      },
+      "describe": {
+        "themes_one": "{{count}} thème personnalisé",
+        "themes_other": "{{count}} thèmes personnalisés",
+        "uiPreferences": "échelle {{scale}}× · disposition {{layout}}",
+        "shortcutsOverrides_one": "{{count}} personnalisation",
+        "shortcutsOverrides_other": "{{count}} personnalisations",
+        "shortcutsDefaults": "Par défaut",
+        "appSettingsShell": "shell : {{shell}}",
+        "appSettingsDefault": "Paramètres par défaut"
       }
     }
   }

@@ -35,6 +35,10 @@
       "emptyTitle": "L'espace de travail divisé est vide",
       "emptyHint": "Glissez un onglet de session ici pour commencer à diviser les panneaux.",
       "serialSubtitle": "{{port}} · {{baud}} bauds"
+    },
+    "dragToast": {
+      "alreadyVisible": "Cette session est déjà visible dans l'espace de travail divisé.",
+      "invalidDropTarget": "Déposez sur le terminal actif ou un panneau divisé pour créer une division."
     }
   }
 }

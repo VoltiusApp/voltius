@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import { getSecret, storeSecret } from "@/services/vault";
 import type { Connection, JumpHost } from "@/types";
 import type { DataTypeHandler } from "../handler";
@@ -17,9 +18,9 @@ export const connectionsHandler: DataTypeHandler = {
   },
 
   checkboxLabel(s: SelectionProps, count: number) {
-    if (isSingleSelection("connections", s)) return "Connection (1)";
+    if (isSingleSelection("connections", s)) return i18n.t("importExport.export.checkboxLabel.connections", { count: 1 });
     const ids = selectedIds("connections", s);
-    return `Connections (${ids ? ids.length : count})`;
+    return i18n.t("importExport.export.checkboxLabel.connections", { count: ids ? ids.length : count });
   },
 
   countAvailable(stores: StoreSlices, vaultIds: string[]) {

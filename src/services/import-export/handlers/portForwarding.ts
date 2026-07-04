@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import type { PortForwardingRule } from "@/types";
 import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, PortForwardingRuleExport } from "../formats";
@@ -15,7 +16,7 @@ export const portForwardingHandler: DataTypeHandler = {
 
   checkboxLabel(s: SelectionProps, count: number) {
     const ids = selectedIds("portForwardingRules", s);
-    return `Port Forwarding (${ids ? ids.length : count})`;
+    return i18n.t("importExport.export.checkboxLabel.portForwarding", { count: ids ? ids.length : count });
   },
 
   countAvailable(stores: StoreSlices, vaultIds: string[]) {

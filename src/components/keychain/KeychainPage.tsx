@@ -822,8 +822,7 @@ export default function KeychainPage() {
           onImportKey={canEditKeys ? () => openKeyForm(null) : undefined}
           onGenerateKey={canEditKeys ? openKeyGenForm : undefined}
           onNewIdentity={canEditIdentities ? () => openIdentityForm(null) : undefined}
-          // "New Folder" default name kept in English until all creation sites are localized together (see i18n issue #14)
-          onNewFolder={() => void saveFolder({ name: "New Folder", object_type: "keychain", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId })}
+          onNewFolder={() => void saveFolder({ name: "New Folder" /* persisted English default; menu label is localized */, object_type: "keychain", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId })}
           availableTags={availableTags}
           tagFilter={tagFilter}
           onTagFilterChange={setTagFilter}
@@ -898,8 +897,7 @@ export default function KeychainPage() {
                       e.currentTarget.style.color = "var(--t-text-dim)";
                       e.currentTarget.style.background = "transparent";
                     }}
-                    // "New Folder" default name kept in English until all creation sites are localized together (see i18n issue #14)
-                    onClick={() => void saveFolder({ name: "New Folder", object_type: "keychain", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId })}
+                    onClick={() => void saveFolder({ name: "New Folder" /* persisted English default */, object_type: "keychain", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId })}
                   >
                     <Icon icon="lucide:plus" width={12} />
                     {t("keychain.page.new")}
@@ -1063,8 +1061,7 @@ export default function KeychainPage() {
             ...(canEditIdentities ? [
               { label: t("keychain.toolbar.newIdentity"), icon: "lucide:user-plus", onClick: () => openIdentityForm(null) },
             ] : []),
-            // "New Folder" default name kept in English until all creation sites are localized together (see i18n issue #14)
-            { label: "New Folder", icon: "lucide:folder-plus", onClick: () => void saveFolder({ name: "New Folder", object_type: "keychain", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }) },
+            { label: t("keychain.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: () => void saveFolder({ name: "New Folder" /* persisted English default */, object_type: "keychain", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }) },
             ...bgContributions,
           ]}
         />

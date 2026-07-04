@@ -9,7 +9,8 @@
       "sortNewest": "Plus récents",
       "sortOldest": "Plus anciens",
       "newSnippet": "Nouveau snippet",
-      "newSnippetOptions": "Options du nouveau snippet"
+      "newSnippetOptions": "Options du nouveau snippet",
+      "newFolder": "Nouveau dossier"
     },
     "card": {
       "duplicate": "Dupliquer",

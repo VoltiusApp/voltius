@@ -35,6 +35,10 @@
       "emptyTitle": "Split workspace is empty",
       "emptyHint": "Drag a session tab here to start splitting panes.",
       "serialSubtitle": "{{port}} · {{baud}} baud"
+    },
+    "dragToast": {
+      "alreadyVisible": "That session is already visible in the split workspace.",
+      "invalidDropTarget": "Drop onto the active terminal or a split pane to create a split."
     }
   }
 }

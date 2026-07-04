@@ -10,7 +10,8 @@
       "export": "Exporter…",
       "fromImporter": "Depuis {{label}}",
       "newHost": "Nouvel hôte",
-      "newSerialHost": "Nouvel hôte série"
+      "newSerialHost": "Nouvel hôte série",
+      "newFolder": "Nouveau dossier"
     },
     "card": {
       "pin": "Épingler",

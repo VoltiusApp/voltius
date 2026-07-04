@@ -4,7 +4,8 @@
       "filterPlaceholder": "Filter rules…",
       "deleteSelected": "Delete selected",
       "deleteButton": "DELETE",
-      "newRule": "New Rule"
+      "newRule": "New Rule",
+      "newFolder": "New Folder"
     },
     "page": {
       "all": "All",

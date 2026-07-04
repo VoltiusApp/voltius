@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import i18n from "@/i18n";
 import { useSftpSettingsStore } from "@/stores/sftpSettingsStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
@@ -79,6 +80,8 @@ export const appSettingsHandler: UserDataHandler = {
 
   describe(): string {
     const { preferredShell } = useTerminalSettingsStore.getState();
-    return preferredShell ? `shell: ${preferredShell}` : "default settings";
+    return preferredShell
+      ? i18n.t("importExport.userData.describe.appSettingsShell", { shell: preferredShell })
+      : i18n.t("importExport.userData.describe.appSettingsDefault");
   },
 };

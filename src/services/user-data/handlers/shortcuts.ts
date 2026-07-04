@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import { useShortcutStore } from "@/stores/shortcutStore";
 import type { UserDataHandler } from "../handler";
 
@@ -42,7 +43,7 @@ export const shortcutsHandler: UserDataHandler = {
       (sc) => sc.key !== sc.defaultKey,
     );
     return overrides.length > 0
-      ? `${overrides.length} override${overrides.length !== 1 ? "s" : ""}`
-      : "defaults";
+      ? i18n.t("importExport.userData.describe.shortcutsOverrides", { count: overrides.length })
+      : i18n.t("importExport.userData.describe.shortcutsDefaults");
   },
 };

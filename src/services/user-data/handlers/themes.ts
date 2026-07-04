@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import { useThemeStore } from "@/stores/themeStore";
 import type { AppTheme } from "@/themes/types";
 import type { UserDataHandler } from "../handler";
@@ -39,6 +40,6 @@ export const themesHandler: UserDataHandler = {
 
   describe(): string {
     const { customThemes } = useThemeStore.getState();
-    return `${customThemes.length} custom theme${customThemes.length !== 1 ? "s" : ""}`;
+    return i18n.t("importExport.userData.describe.themes", { count: customThemes.length });
   },
 };

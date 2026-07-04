@@ -21,7 +21,8 @@
       "newKey": "Nouvelle clé",
       "newKeyOptionsAriaLabel": "Options de nouvelle clé",
       "generateKeyPair": "Générer une paire de clés",
-      "newIdentity": "Nouvelle identité"
+      "newIdentity": "Nouvelle identité",
+      "newFolder": "Nouveau dossier"
     },
     "page": {
       "all": "Tous",

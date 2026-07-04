@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
+import i18n from "@/i18n";
 import {
   sftpConnect, ftpConnect, sftpClose, sftpCanonicalize, sftpListDir,
   sftpMkdir, sftpRename, sftpDelete, sftpTouch,
@@ -124,7 +125,7 @@ export function useSftpDir(connection: Connection | undefined) {
     if (phase.tag !== "connected") return;
     const id = phase.sftpId;
     const un = listen(`sftp-closed-${id}`, () =>
-      setPhase((p) => (p.tag === "connected" && p.sftpId === id ? { tag: "error", message: "Connection lost" } : p)));
+      setPhase((p) => (p.tag === "connected" && p.sftpId === id ? { tag: "error", message: i18n.t("fileTransfer.page.connectionLost") } : p)));
     return () => { un.then((fn) => fn()); };
   }, [phase]);
 

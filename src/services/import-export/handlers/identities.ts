@@ -1,3 +1,4 @@
+import i18n from "@/i18n";
 import type { Identity } from "@/types";
 import { getSecret, storeSecret } from "@/services/vault";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
@@ -17,9 +18,9 @@ export const identitiesHandler: DataTypeHandler = {
   },
 
   checkboxLabel(s: SelectionProps, count: number) {
-    if (isSingleSelection("identities", s)) return "Identity (1)";
+    if (isSingleSelection("identities", s)) return i18n.t("importExport.export.checkboxLabel.identities", { count: 1 });
     const ids = selectedIds("identities", s);
-    return `Identities (${ids ? ids.length : count})`;
+    return i18n.t("importExport.export.checkboxLabel.identities", { count: ids ? ids.length : count });
   },
 
   countAvailable(stores: StoreSlices, vaultIds: string[]) {

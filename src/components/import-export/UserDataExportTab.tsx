@@ -51,7 +51,7 @@ export function UserDataExportTab() {
                 {included[h.key] && <Icon icon="lucide:check" width={10} color="white" />}
               </span>
               <Icon icon={h.icon} width={13} className="text-(--t-text-muted) shrink-0" />
-              <span className="text-sm text-(--t-text-primary)">{h.label}</span>
+              <span className="text-sm text-(--t-text-primary)">{t(`importExport.userData.handlers.${h.key}.label`)}</span>
               <span className="text-xs text-(--t-text-dim) ml-auto">{h.describe()}</span>
             </label>
           ))}

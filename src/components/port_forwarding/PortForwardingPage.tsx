@@ -470,8 +470,7 @@ export function PortForwardingPage() {
           sortMode={sortMode as SortMode}
           onSortModeChange={setSortMode}
           onNewRule={openNew}
-          // default name kept in English until all creation sites are localized together (see i18n issue #14)
-          onNewFolder={() => void saveFolder({ name: "New Folder", object_type: "port_forwarding", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { closeForm(); setEditingFolderId(f.id); })}
+          onNewFolder={() => void saveFolder({ name: "New Folder" /* persisted English default; menu label is localized */, object_type: "port_forwarding", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { closeForm(); setEditingFolderId(f.id); })}
           selectedCount={[...selectedIdSet].filter((id) => filteredRuleIdSet.has(id)).length}
           onDeleteSelected={[...selectedIdSet].some((id) => filteredRuleIdSet.has(id)) ? () => setConfirmDeleteIds([...selectedIdSet].filter((id) => filteredRuleIdSet.has(id))) : undefined}
         />
@@ -533,8 +532,7 @@ export function PortForwardingPage() {
                     className="flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded-lg text-(--t-text-dim)"
                     onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; e.currentTarget.style.background = "var(--t-bg-elevated)"; }}
                     onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; e.currentTarget.style.background = "transparent"; }}
-                    // default name kept in English until all creation sites are localized together (see i18n issue #14)
-                    onClick={() => void saveFolder({ name: "New Folder", object_type: "port_forwarding", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { closeForm(); setEditingFolderId(f.id); })}
+                    onClick={() => void saveFolder({ name: "New Folder" /* persisted English default */, object_type: "port_forwarding", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { closeForm(); setEditingFolderId(f.id); })}
                   >
                     <Icon icon="lucide:plus" width={12} />
                     {t("portForwarding.page.new")}
@@ -675,8 +673,7 @@ export function PortForwardingPage() {
           onClose={closeBgMenu}
           items={[
             { label: t("portForwarding.page.contextMenu.newRule"), icon: "lucide:network", onClick: openNew },
-            // default name kept in English until all creation sites are localized together (see i18n issue #14)
-            { label: "New Folder", icon: "lucide:folder-plus", onClick: () => void saveFolder({ name: "New Folder", object_type: "port_forwarding", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { closeForm(); setEditingFolderId(f.id); }) },
+            { label: t("portForwarding.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: () => void saveFolder({ name: "New Folder" /* persisted English default */, object_type: "port_forwarding", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { closeForm(); setEditingFolderId(f.id); }) },
           ]}
         />
       )}

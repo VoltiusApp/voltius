@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import i18n from "@/i18n";
 import { shouldSuppressDragClick, useDragStore } from "@/stores/dragStore";
 import { findLeafBySession, useLayoutStore } from "@/stores/layoutStore";
 import { useNotificationStore } from "@/stores/notificationStore";
@@ -47,7 +48,7 @@ export function usePaneDragController() {
               pluginId: "core",
               pluginName: "Voltius",
               type: "toast",
-              message: "That session is already visible in the split workspace.",
+              message: i18n.t("panes.dragToast.alreadyVisible"),
               severity: "info",
               duration: 2500,
             });
@@ -62,7 +63,7 @@ export function usePaneDragController() {
               pluginId: "core",
               pluginName: "Voltius",
               type: "toast",
-              message: "Drop onto the active terminal or a split pane to create a split.",
+              message: i18n.t("panes.dragToast.invalidDropTarget"),
               severity: "info",
               duration: 2500,
             });

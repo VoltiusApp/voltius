@@ -25,7 +25,17 @@
       "selectedItem_one": "{{count}} selected item",
       "selectedItem_other": "{{count}} selected items",
       "autoIncludeIdentity": "{{count}} identity",
-      "autoIncludeKey": "{{count}} key"
+      "autoIncludeKey": "{{count}} key",
+      "checkboxLabel": {
+        "connections_one": "Connection ({{count}})",
+        "connections_other": "Connections ({{count}})",
+        "identities_one": "Identity ({{count}})",
+        "identities_other": "Identities ({{count}})",
+        "keys_one": "SSH Key ({{count}})",
+        "keys_other": "SSH Keys ({{count}})",
+        "snippets": "Snippets ({{count}})",
+        "portForwarding": "Port Forwarding ({{count}})"
+      }
     },
     "import": {
       "importFrom": "Import from",
@@ -90,6 +100,22 @@
         "resultApplied_one": "Applied {{count}} setting: {{list}}.",
         "resultApplied_other": "Applied {{count}} settings: {{list}}.",
         "resultError": "Error: {{error}}"
+      },
+      "handlers": {
+        "themes": { "label": "Themes" },
+        "uiPreferences": { "label": "UI Preferences" },
+        "shortcuts": { "label": "Shortcuts" },
+        "appSettings": { "label": "App Settings" }
+      },
+      "describe": {
+        "themes_one": "{{count}} custom theme",
+        "themes_other": "{{count}} custom themes",
+        "uiPreferences": "scale {{scale}}× · {{layout}} layout",
+        "shortcutsOverrides_one": "{{count}} override",
+        "shortcutsOverrides_other": "{{count}} overrides",
+        "shortcutsDefaults": "Defaults",
+        "appSettingsShell": "shell: {{shell}}",
+        "appSettingsDefault": "Default settings"
       }
     }
   }

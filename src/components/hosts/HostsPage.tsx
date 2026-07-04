@@ -877,7 +877,7 @@ export default function HostsPage() {
             }}
             canCreate={canCreate}
             canCreateFolder={canCreateFolder}
-            onCreateFolder={() => void saveFolder({ name: "New Folder" /* default name kept in English until all creation sites are localized together (see i18n issue #14) */, object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { setShowForm(false); setShowSerialForm(false); setEditingId(null); setEditingFolderId(f.id); })}
+            onCreateFolder={() => void saveFolder({ name: "New Folder" /* persisted English default; menu label is localized */, object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { setShowForm(false); setShowSerialForm(false); setEditingId(null); setEditingFolderId(f.id); })}
             onCreateSerial={canCreate ? () => {
               hostFormSessionKeyRef.current = `new-${Date.now()}`;
               setEditingId(null);
@@ -984,7 +984,7 @@ export default function HostsPage() {
                         e.currentTarget.style.background = "transparent";
                       }}
                       onClick={() =>
-                        saveFolder({ name: "New Folder" /* default name kept in English until all creation sites are localized together (see i18n issue #14) */, object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => {
+                        saveFolder({ name: "New Folder" /* persisted English default */, object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => {
                           setShowForm(false); setEditingId(null); setEditingFolderId(f.id);
                         })
                       }
@@ -1204,7 +1204,7 @@ export default function HostsPage() {
           items={[
             ...(canCreate ? [{ label: t("hosts.toolbar.newHost"), icon: "lucide:server", onClick: () => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); } } as const] : []),
             ...(canCreate ? [{ label: t("hosts.toolbar.newSerialHost"), icon: "lucide:ethernet-port", onClick: () => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowSerialForm(true); setShowForm(false); setEditingFolderId(null); } } as const] : []),
-            ...(canCreateFolder ? [{ label: "New Folder" /* default name kept in English until all creation sites are localized together (see i18n issue #14) */, icon: "lucide:folder-plus", onClick: () => void saveFolder({ name: "New Folder" /* default name kept in English until all creation sites are localized together (see i18n issue #14) */, object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { setShowForm(false); setEditingId(null); setEditingFolderId(f.id); }) } as const] : []),
+            ...(canCreateFolder ? [{ label: t("hosts.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: () => void saveFolder({ name: "New Folder" /* persisted English default */, object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { setShowForm(false); setEditingId(null); setEditingFolderId(f.id); }) } as const] : []),
             ...bgContributions,
           ]}
         />
