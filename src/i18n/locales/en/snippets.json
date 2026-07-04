@@ -5,7 +5,8 @@
         "success": "Snippet ran on {{count}} target(s)",
         "partial": "{{count}} ok — {{details}}",
         "failed": "failed"
-      }
+      },
+      "connectFailed": "could not open a terminal session"
     },
     "toolbar": {
       "filterPlaceholder": "Filter snippets...",

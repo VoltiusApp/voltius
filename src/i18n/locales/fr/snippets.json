@@ -5,7 +5,8 @@
         "success": "Snippet exécuté sur {{count}} cible(s)",
         "partial": "{{count}} ok — {{details}}",
         "failed": "échec"
-      }
+      },
+      "connectFailed": "impossible d'ouvrir une session terminal"
     },
     "toolbar": {
       "filterPlaceholder": "Filtrer les snippets...",

@@ -19,9 +19,23 @@ vi.mock("@/services/sftpTarget", () => ({
   resolveSftpIdForTarget: (...a: unknown[]) => resolveSftpIdForTarget(...a),
 }));
 
-import { runTransferStep, executeSequenceForTargets, runSnippetSequence, buildSummaryMessage, buildTargetContext } from "./snippetSequence";
-import type { Connection } from "@/types";
+import { runTransferStep, executeSequenceForTargets, runSnippetSequence, buildSummaryMessage, buildTargetContext, resolveTerminalTargets } from "./snippetSequence";
+import type { SequenceRunResult } from "./snippetSequence";
+import type { Connection, TerminalSession } from "@/types";
 import type { Snippet } from "@/types";
+
+function mkConn(over: Partial<Connection>): Connection {
+  return {
+    id: "c", host: "h", port: 22, username: "u", auth_type: "password",
+    tags: [], created_at: "", last_used_at: null, vault_id: "personal", ...over,
+  } as Connection;
+}
+
+function sess(over: Partial<TerminalSession>): TerminalSession {
+  return { id: "s", connectionId: "c", connectionName: "n", status: "connected", type: "ssh", ...over } as TerminalSession;
+}
+
+const immediateSubscribe = () => () => {};
 
 beforeEach(() => {
   sftpUpload.mockClear(); sftpDownload.mockClear(); sftpUploadDirTar.mockClear();
@@ -99,6 +113,87 @@ describe("runSnippetSequence — sftp channel lifecycle", () => {
     expect(res).not.toBe("prompting");
     expect(sftpUpload).toHaveBeenCalledWith({ sftpId: "fake-sftp-id", localPath: "/l", remotePath: "/r", transferId: "tid" });
     expect(sftpClose).toHaveBeenCalledWith("fake-sftp-id");
+  });
+});
+
+describe("resolveTerminalTargets", () => {
+  it("rewrites a connected saved host into a live session target", async () => {
+    const conn = mkConn({ id: "c1", connection_type: "ssh" });
+    const { resolutions, openedSessionIds } = await resolveTerminalTargets(
+      [{ kind: "connection", connection: conn }],
+      {
+        connectMany: async () => ["s1"],
+        getSessions: () => [sess({ id: "s1", status: "connected", type: "ssh" })],
+        subscribe: immediateSubscribe,
+      },
+    );
+    expect(openedSessionIds).toEqual(["s1"]);
+    expect(resolutions[0]).toEqual({ kind: "target", target: { kind: "session", sessionId: "s1", sessionType: "ssh" } });
+  });
+
+  it("marks a saved host that never connects as failed", async () => {
+    const conn = mkConn({ id: "c1", connection_type: "ssh" });
+    const { resolutions, openedSessionIds } = await resolveTerminalTargets(
+      [{ kind: "connection", connection: conn }],
+      {
+        connectMany: async () => ["s1"],
+        getSessions: () => [sess({ id: "s1", status: "error" })],
+        subscribe: immediateSubscribe,
+      },
+    );
+    expect(openedSessionIds).toEqual([]);
+    expect(resolutions[0]).toEqual({ kind: "failed", connection: conn });
+  });
+
+  it("passes existing session targets through and only connects connections", async () => {
+    const conn = mkConn({ id: "c1", connection_type: "ssh" });
+    const connectMany = vi.fn(async () => ["s1"]);
+    const { resolutions } = await resolveTerminalTargets(
+      [
+        { kind: "session", sessionId: "pre", sessionType: "ssh" },
+        { kind: "connection", connection: conn },
+      ],
+      {
+        connectMany,
+        getSessions: () => [sess({ id: "s1", status: "connected", type: "ssh" })],
+        subscribe: immediateSubscribe,
+      },
+    );
+    expect(connectMany).toHaveBeenCalledWith(["c1"]);
+    expect(resolutions[0]).toEqual({ kind: "target", target: { kind: "session", sessionId: "pre", sessionType: "ssh" } });
+    expect(resolutions[1]).toEqual({ kind: "target", target: { kind: "session", sessionId: "s1", sessionType: "ssh" } });
+  });
+
+  it("marks an FTP host as failed without attempting a terminal connect", async () => {
+    const ftp = mkConn({ id: "f1", connection_type: "ftp" });
+    const connectMany = vi.fn(async () => [] as string[]);
+    const { resolutions, openedSessionIds } = await resolveTerminalTargets(
+      [{ kind: "connection", connection: ftp }],
+      { connectMany, getSessions: () => [], subscribe: immediateSubscribe },
+    );
+    expect(connectMany).not.toHaveBeenCalled();
+    expect(openedSessionIds).toEqual([]);
+    expect(resolutions[0]).toEqual({ kind: "failed", connection: ftp });
+  });
+});
+
+describe("runSnippetSequence — saved-host script target", () => {
+  function scriptSnippet(): Snippet {
+    return {
+      id: "s1", name: "run", steps: [{ kind: "script", content: "echo hi" }],
+      tags: [], favorite: false, only_for_connection_tags: [], only_for_distros: [],
+      created_at: "", updated_at: "", vault_id: "personal", clocks: {},
+    };
+  }
+
+  it("reports the target as failed when no terminal can be opened (no error/hang)", async () => {
+    const conn = mkConn({ id: "nope", name: "web-1", connection_type: "ssh" });
+    const res = await runSnippetSequence(scriptSnippet(), [{ kind: "connection", connection: conn }], () => {});
+    expect(res).not.toBe("prompting");
+    const r = res as SequenceRunResult;
+    expect(r.targets).toHaveLength(1);
+    expect(r.targets[0].ok).toBe(false);
+    expect(r.targets[0].label).toBe("web-1");
   });
 });
 
