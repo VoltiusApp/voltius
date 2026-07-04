@@ -2,4 +2,4 @@ mod redact;
 mod report;
 
 pub use redact::redact;
-pub use report::*;
+pub use report::{write_report_zip, ReportEntry};
