@@ -255,6 +255,78 @@
     },
     "folders": {
       "home": "Home"
+    },
+    "sheets": {
+      "shared": {
+        "moveToVault": "Move to vault",
+        "copyToVault": "Copy to vault",
+        "moveToFolder": "Move to folder",
+        "back": "Back",
+        "duplicate": "Duplicate",
+        "pin": "Pin",
+        "unpin": "Unpin",
+        "confirmDeleteBody": "Permanently delete {{name}}? This can't be undone."
+      },
+      "folderActions": {
+        "renameTitle": "Rename folder",
+        "deleteTitle": "Delete folder?",
+        "deleteBody": "Delete {{name}} and everything inside it? This can't be undone."
+      },
+      "hostActions": {
+        "deleteTitle": "Delete host?",
+        "openFiles": "Open files",
+        "copyAddress": "Copy address",
+        "copiedAddress": "Copied {{host}}",
+        "enableCloudSync": "Enable cloud sync",
+        "disableCloudSync": "Disable cloud sync",
+        "enableReachabilityCheck": "Enable reachability check",
+        "disableReachabilityCheck": "Disable reachability check"
+      },
+      "keychainActions": {
+        "unnamedKey": "Unnamed key",
+        "deleteKeyTitle": "Delete key?",
+        "deleteIdentityTitle": "Delete identity?",
+        "copyPublicKey": "Copy public key",
+        "copiedPublicKey": "Copied public key",
+        "noPublicKeyStored": "No public key stored",
+        "copyUsername": "Copy username",
+        "copiedUsername": "Copied username"
+      },
+      "knownHostActions": {
+        "deleteTitle": "Delete known host?",
+        "deleteBody": "This removes the trusted fingerprint. The next connection to this host will be treated as new.",
+        "copyFingerprint": "Copy fingerprint",
+        "copiedFingerprint": "Copied fingerprint"
+      },
+      "logsExport": {
+        "title": "Export logs",
+        "exportCsv": "Export as CSV",
+        "exportJson": "Export as JSON"
+      },
+      "snippetActions": {
+        "deleteTitle": "Delete snippet?"
+      },
+      "snippetTarget": {
+        "executeTitle": "Execute \"{{name}}\"",
+        "insertTitle": "Insert \"{{name}}\"",
+        "confirmExecute_one": "Execute in {{count}} target",
+        "confirmExecute_other": "Execute in {{count}} targets",
+        "confirmInsert_one": "Insert to {{count}} target",
+        "confirmInsert_other": "Insert to {{count}} targets",
+        "activeSessions": "Active Sessions",
+        "openNewConnection": "Open New Connection",
+        "noHosts": "No hosts"
+      },
+      "ruleActions": {
+        "deleteTitle": "Delete rule?"
+      },
+      "sftpHostPicker": {
+        "noSshHosts": "No SSH hosts"
+      },
+      "vaultSwitcher": {
+        "newVault": "New vault",
+        "namePlaceholder": "Vault name"
+      }
     }
   }
 }

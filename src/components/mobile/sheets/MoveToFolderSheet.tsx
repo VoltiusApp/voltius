@@ -1,4 +1,5 @@
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import type { MoveTarget } from "@/components/mobile/folders/mobileFolderCore";
 
@@ -10,8 +11,9 @@ export default function MoveToFolderSheet({
   onPick: (folderId: string | null) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   return (
-    <BottomSheet title="Move to folder" onClose={onClose} registerBack={false}>
+    <BottomSheet title={t("mobile.sheets.shared.moveToFolder")} onClose={onClose} registerBack={false}>
       {targets.map((t) => {
         const selected = (t.id ?? null) === (currentFolderId ?? null);
         return (

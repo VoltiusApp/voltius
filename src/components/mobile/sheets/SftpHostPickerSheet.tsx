@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
@@ -34,6 +35,7 @@ function PickRow({ c, pingEnabled, onPick }: { c: Connection; pingEnabled: boole
 export default function SftpHostPickerSheet({
   excludeId, onPick, onClose,
 }: { excludeId?: string; onPick: (id: string) => void; onClose: () => void }) {
+  const { t } = useTranslation();
   const connections = useAllConnections();
   const [pingEnabled] = useToggle("reachability");
   const [q, setQ] = useState("");
@@ -44,12 +46,12 @@ export default function SftpHostPickerSheet({
   }, [connections, q, excludeId]);
 
   return (
-    <BottomSheet title="Choose a host" onClose={onClose}>
-      <input data-sftp-host-search autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search hosts"
+    <BottomSheet title={t("mobile.sftp.chooseHost")} onClose={onClose}>
+      <input data-sftp-host-search autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("mobile.hostsScreen.searchPlaceholder")}
         className="w-full rounded-xl px-3 h-10 text-sm outline-none text-(--t-text-primary) mb-2"
         style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }} />
       <div className="max-h-[50vh] overflow-y-auto">
-        {hosts.length === 0 && <div className="px-3 py-6 text-center text-sm text-(--t-text-dim)">No SSH hosts</div>}
+        {hosts.length === 0 && <div className="px-3 py-6 text-center text-sm text-(--t-text-dim)">{t("mobile.sheets.sftpHostPicker.noSshHosts")}</div>}
         {hosts.map((c) => <PickRow key={c.id} c={c} pingEnabled={pingEnabled} onPick={onPick} />)}
       </div>
     </BottomSheet>

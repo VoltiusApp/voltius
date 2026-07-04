@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 
 export default function FolderFormSheet({
-  title, initialName = "", submitLabel = "Save", onSubmit, onClose,
+  title, initialName = "", submitLabel, onSubmit, onClose,
 }: {
   title: string;
   initialName?: string;
@@ -10,6 +11,7 @@ export default function FolderFormSheet({
   onSubmit: (name: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(initialName);
   const trimmed = name.trim();
   return (
@@ -20,7 +22,7 @@ export default function FolderFormSheet({
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Folder name"
+          placeholder={t("mobile.sftp.folderNamePlaceholder")}
           className="w-full h-11 px-3 rounded-xl bg-(--t-bg-card) outline-none text-sm text-(--t-text-primary)"
           style={{ border: "1px solid var(--t-border)" }}
         />
@@ -31,7 +33,7 @@ export default function FolderFormSheet({
           className="h-11 rounded-xl text-sm font-medium disabled:opacity-40"
           style={{ background: "var(--t-accent)", color: "var(--t-on-accent, #fff)" }}
         >
-          {submitLabel}
+          {submitLabel ?? t("common.action.save")}
         </button>
       </div>
     </BottomSheet>

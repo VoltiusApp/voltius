@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import { useAuditStore } from "@/stores/auditStore";
 import type { AuditContext } from "@/services/auditContext";
@@ -8,6 +9,7 @@ export default function LogsExportSheet({ context, onClose }: {
   context: AuditContext;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const exportLogs = useAuditStore((s) => s.exportLogs);
   const [exporting, setExporting] = useState(false);
 
@@ -25,7 +27,7 @@ export default function LogsExportSheet({ context, onClose }: {
   }
 
   return (
-    <BottomSheet title="Export logs" onClose={onClose}>
+    <BottomSheet title={t("mobile.sheets.logsExport.title")} onClose={onClose}>
       <button
         data-logs-export="csv"
         className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl text-left active:bg-(--t-bg-card)"
@@ -38,7 +40,7 @@ export default function LogsExportSheet({ context, onClose }: {
         ) : (
           <Icon icon="lucide:file-text" width={18} />
         )}
-        <span className="text-sm font-medium">Export as CSV</span>
+        <span className="text-sm font-medium">{t("mobile.sheets.logsExport.exportCsv")}</span>
       </button>
       <button
         data-logs-export="json"
@@ -52,7 +54,7 @@ export default function LogsExportSheet({ context, onClose }: {
         ) : (
           <Icon icon="lucide:braces" width={18} />
         )}
-        <span className="text-sm font-medium">Export as JSON</span>
+        <span className="text-sm font-medium">{t("mobile.sheets.logsExport.exportJson")}</span>
       </button>
     </BottomSheet>
   );

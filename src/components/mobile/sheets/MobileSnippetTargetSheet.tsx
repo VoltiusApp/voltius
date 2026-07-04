@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSnippetStore } from "@/stores/snippetStore";
@@ -11,6 +12,7 @@ import { connectionDisplayName } from "@/utils/connectionDisplayName";
 export default function MobileSnippetTargetSheet(
   { snippetId, mode, preselectSessionId }: { snippetId: string; mode: "insert" | "execute"; preselectSessionId?: string },
 ) {
+  const { t } = useTranslation();
   const closeSheet = useMobileNavStore((s) => s.closeSheet);
   const setTab = useMobileNavStore((s) => s.setTab);
   const snippet = useSnippetStore((s) => s.snippets.find((x) => x.id === snippetId));
@@ -25,7 +27,7 @@ export default function MobileSnippetTargetSheet(
   if (!snippet) return null;
 
   const execute = mode === "execute";
-  const confirmLabel = `${execute ? "Execute in" : "Insert to"} ${p.totalSelected} target${p.totalSelected !== 1 ? "s" : ""}`;
+  const confirmLabel = t(execute ? "mobile.sheets.snippetTarget.confirmExecute" : "mobile.sheets.snippetTarget.confirmInsert", { count: p.totalSelected });
 
   async function go() {
     const sn = snippet!;
@@ -40,18 +42,18 @@ export default function MobileSnippetTargetSheet(
   }
 
   return (
-    <BottomSheet title={`${execute ? "Execute" : "Insert"} "${snippet.name}"`} onClose={closeSheet} registerBack={false}>
+    <BottomSheet title={t(execute ? "mobile.sheets.snippetTarget.executeTitle" : "mobile.sheets.snippetTarget.insertTitle", { name: snippet.name })} onClose={closeSheet} registerBack={false}>
       <div className="px-3 pb-2">
         <div className="flex items-center gap-2 rounded-xl px-3 h-10" style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}>
           <Icon icon="lucide:search" width={16} className="text-(--t-text-dim)" />
-          <input data-snippet-target-search value={p.search} onChange={(e) => p.setSearch(e.target.value)} placeholder="Filter…"
+          <input data-snippet-target-search value={p.search} onChange={(e) => p.setSearch(e.target.value)} placeholder={t("mobile.filterBar.placeholder")}
             className="flex-1 bg-transparent text-sm outline-none text-(--t-text-primary)" />
         </div>
       </div>
 
       {p.filteredSessions.length > 0 && (
         <>
-          <p className="px-4 py-1 text-[10px] font-bold uppercase tracking-widest text-(--t-text-dim)">Active Sessions</p>
+          <p className="px-4 py-1 text-[10px] font-bold uppercase tracking-widest text-(--t-text-dim)">{t("mobile.sheets.snippetTarget.activeSessions")}</p>
           {p.filteredSessions.map((s) => {
             const sel = p.selectedSessionIds.has(s.id);
             return (
@@ -69,7 +71,7 @@ export default function MobileSnippetTargetSheet(
         </>
       )}
 
-      <p className="px-4 py-1 text-[10px] font-bold uppercase tracking-widest text-(--t-text-dim)">Open New Connection</p>
+      <p className="px-4 py-1 text-[10px] font-bold uppercase tracking-widest text-(--t-text-dim)">{t("mobile.sheets.snippetTarget.openNewConnection")}</p>
       {p.filteredHosts.map((c) => {
         const sel = p.selectedConnectionIds.has(c.id);
         return (
@@ -83,7 +85,7 @@ export default function MobileSnippetTargetSheet(
           </button>
         );
       })}
-      {p.filteredHosts.length === 0 && <p className="px-4 py-3 text-xs text-(--t-text-dim)">No hosts</p>}
+      {p.filteredHosts.length === 0 && <p className="px-4 py-3 text-xs text-(--t-text-dim)">{t("mobile.sheets.snippetTarget.noHosts")}</p>}
 
       {p.totalSelected > 0 && (
         <div className="sticky bottom-0 px-3 pt-2 pb-[env(safe-area-inset-bottom)]" style={{ background: "var(--t-bg-modal)" }}>

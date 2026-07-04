@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 
 export default function VaultSwitcherSheet() {
+  const { t } = useTranslation();
   const vaults = useVaultStore((s) => s.vaults);
   const teams = useTeamStore((s) => s.teams);
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
@@ -31,7 +33,7 @@ export default function VaultSwitcherSheet() {
   };
 
   return (
-    <BottomSheet title="Vaults" onClose={closeSheet} registerBack={false}>
+    <BottomSheet title={t("common.entity.vaults")} onClose={closeSheet} registerBack={false}>
       {entries.map((e) => {
         const active = selectedVaultIds[0] === e.id;
         return (
@@ -59,7 +61,7 @@ export default function VaultSwitcherSheet() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") create(); }}
-            placeholder="Vault name"
+            placeholder={t("mobile.sheets.vaultSwitcher.namePlaceholder")}
             className="flex-1 bg-transparent text-sm outline-none rounded-lg px-3 h-10 text-(--t-text-primary)"
             style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}
           />
@@ -70,7 +72,7 @@ export default function VaultSwitcherSheet() {
             className="px-3 h-10 rounded-lg text-sm font-semibold disabled:opacity-40"
             style={{ background: "var(--t-accent)", color: "#fff" }}
           >
-            Create
+            {t("common.action.create")}
           </button>
         </div>
       ) : (
@@ -80,7 +82,7 @@ export default function VaultSwitcherSheet() {
           onClick={() => setCreating(true)}
         >
           <Icon icon="lucide:plus" width={18} />
-          <span className="text-sm font-medium">New vault</span>
+          <span className="text-sm font-medium">{t("mobile.sheets.vaultSwitcher.newVault")}</span>
         </button>
       )}
     </BottomSheet>

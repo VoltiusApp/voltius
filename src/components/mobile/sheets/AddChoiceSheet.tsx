@@ -1,4 +1,5 @@
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 
 export default function AddChoiceSheet({
@@ -10,6 +11,7 @@ export default function AddChoiceSheet({
   onNewFolder: () => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const Row = ({ icon, label, onTap, slug }: { icon: string; label: string; onTap: () => void; slug: string }) => (
     <button
       data-add-choice={slug}
@@ -21,9 +23,9 @@ export default function AddChoiceSheet({
     </button>
   );
   return (
-    <BottomSheet title="Add" onClose={onClose} registerBack={false}>
+    <BottomSheet title={t("common.action.add")} onClose={onClose} registerBack={false}>
       <Row slug="item" icon={newItemIcon} label={newItemLabel} onTap={onNewItem} />
-      <Row slug="folder" icon="lucide:folder-plus" label="New folder" onTap={onNewFolder} />
+      <Row slug="folder" icon="lucide:folder-plus" label={t("mobile.snippets.newFolderTitle")} onTap={onNewFolder} />
     </BottomSheet>
   );
 }

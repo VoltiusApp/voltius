@@ -255,6 +255,78 @@
     },
     "folders": {
       "home": "Accueil"
+    },
+    "sheets": {
+      "shared": {
+        "moveToVault": "Déplacer vers le coffre",
+        "copyToVault": "Copier vers le coffre",
+        "moveToFolder": "Déplacer vers le dossier",
+        "back": "Retour",
+        "duplicate": "Dupliquer",
+        "pin": "Épingler",
+        "unpin": "Désépingler",
+        "confirmDeleteBody": "Supprimer définitivement {{name}} ? Cette action est irréversible."
+      },
+      "folderActions": {
+        "renameTitle": "Renommer le dossier",
+        "deleteTitle": "Supprimer le dossier ?",
+        "deleteBody": "Supprimer {{name}} et tout son contenu ? Cette action est irréversible."
+      },
+      "hostActions": {
+        "deleteTitle": "Supprimer l'hôte ?",
+        "openFiles": "Ouvrir les fichiers",
+        "copyAddress": "Copier l'adresse",
+        "copiedAddress": "Adresse copiée : {{host}}",
+        "enableCloudSync": "Activer la synchronisation cloud",
+        "disableCloudSync": "Désactiver la synchronisation cloud",
+        "enableReachabilityCheck": "Activer la vérification d'accessibilité",
+        "disableReachabilityCheck": "Désactiver la vérification d'accessibilité"
+      },
+      "keychainActions": {
+        "unnamedKey": "Clé sans nom",
+        "deleteKeyTitle": "Supprimer la clé ?",
+        "deleteIdentityTitle": "Supprimer l'identité ?",
+        "copyPublicKey": "Copier la clé publique",
+        "copiedPublicKey": "Clé publique copiée",
+        "noPublicKeyStored": "Aucune clé publique enregistrée",
+        "copyUsername": "Copier le nom d'utilisateur",
+        "copiedUsername": "Nom d'utilisateur copié"
+      },
+      "knownHostActions": {
+        "deleteTitle": "Supprimer l'hôte connu ?",
+        "deleteBody": "Ceci supprime l'empreinte de confiance. La prochaine connexion à cet hôte sera traitée comme nouvelle.",
+        "copyFingerprint": "Copier l'empreinte",
+        "copiedFingerprint": "Empreinte copiée"
+      },
+      "logsExport": {
+        "title": "Exporter les journaux",
+        "exportCsv": "Exporter en CSV",
+        "exportJson": "Exporter en JSON"
+      },
+      "snippetActions": {
+        "deleteTitle": "Supprimer le snippet ?"
+      },
+      "snippetTarget": {
+        "executeTitle": "Exécuter « {{name}} »",
+        "insertTitle": "Insérer « {{name}} »",
+        "confirmExecute_one": "Exécuter dans {{count}} cible",
+        "confirmExecute_other": "Exécuter dans {{count}} cibles",
+        "confirmInsert_one": "Insérer dans {{count}} cible",
+        "confirmInsert_other": "Insérer dans {{count}} cibles",
+        "activeSessions": "Sessions actives",
+        "openNewConnection": "Ouvrir une nouvelle connexion",
+        "noHosts": "Aucun hôte"
+      },
+      "ruleActions": {
+        "deleteTitle": "Supprimer la règle ?"
+      },
+      "sftpHostPicker": {
+        "noSshHosts": "Aucun hôte SSH"
+      },
+      "vaultSwitcher": {
+        "newVault": "Nouveau coffre",
+        "namePlaceholder": "Nom du coffre"
+      }
     }
   }
 }

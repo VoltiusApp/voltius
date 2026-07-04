@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import MoveToFolderSheet from "./MoveToFolderSheet";
 import { useKeyStore } from "@/stores/keyStore";
@@ -26,13 +27,14 @@ function toast(message: string, severity: "success" | "error") {
 
 export default function KeychainItemActionsSheet(props: Props) {
   const { kind, item, onClose } = props;
+  const { t } = useTranslation();
   const deleteKey = useKeyStore((s) => s.deleteKey);
   const deleteIdentity = useIdentityStore((s) => s.deleteIdentity);
   const moveObjectsToFolder = useFolderStore((s) => s.moveObjectsToFolder);
   const allFolders = useAllFolders();
   const [mode, setMode] = useState<Mode>("menu");
 
-  const name = item.name ?? (kind === "key" ? "Unnamed key" : (item as Identity).username);
+  const name = item.name ?? (kind === "key" ? t("mobile.sheets.keychainActions.unnamedKey") : (item as Identity).username);
 
   const Row = ({ it }: { it: RowItem }) => (
     <button
@@ -59,35 +61,35 @@ export default function KeychainItemActionsSheet(props: Props) {
 
   if (mode === "confirm-delete") {
     return (
-      <BottomSheet title={kind === "key" ? "Delete key?" : "Delete identity?"} onClose={onClose}>
+      <BottomSheet title={kind === "key" ? t("mobile.sheets.keychainActions.deleteKeyTitle") : t("mobile.sheets.keychainActions.deleteIdentityTitle")} onClose={onClose}>
         <div className="px-3 pt-1 pb-2 text-sm text-(--t-text-dim)">
-          Permanently delete <span className="text-(--t-text-primary) font-medium">{name}</span>? This can’t be undone.
+          {t("mobile.sheets.shared.confirmDeleteBody", { name })}
         </div>
-        <Row it={{ icon: "lucide:trash-2", label: "Delete", danger: true, slug: "delete-confirm", onTap: () => {
+        <Row it={{ icon: "lucide:trash-2", label: t("common.action.delete"), danger: true, slug: "delete-confirm", onTap: () => {
           if (kind === "key") void deleteKey(item.id);
           else void deleteIdentity(item.id);
           onClose();
         } }} />
-        <Row it={{ icon: "lucide:x", label: "Cancel", slug: "cancel", onTap: () => setMode("menu") }} />
+        <Row it={{ icon: "lucide:x", label: t("common.action.cancel"), slug: "cancel", onTap: () => setMode("menu") }} />
       </BottomSheet>
     );
   }
 
   const items: RowItem[] = [
     kind === "key"
-      ? { icon: "lucide:clipboard-copy", label: "Copy public key", slug: "copy-public-key", onTap: async () => {
+      ? { icon: "lucide:clipboard-copy", label: t("mobile.sheets.keychainActions.copyPublicKey"), slug: "copy-public-key", onTap: async () => {
           const pub = await getSecret(`key:${item.id}:public`);
-          if (pub) { await writeClipboard(pub); toast("Copied public key", "success"); }
-          else { toast("No public key stored", "error"); }
+          if (pub) { await writeClipboard(pub); toast(t("mobile.sheets.keychainActions.copiedPublicKey"), "success"); }
+          else { toast(t("mobile.sheets.keychainActions.noPublicKeyStored"), "error"); }
           onClose();
         } }
-      : { icon: "lucide:clipboard-copy", label: "Copy username", slug: "copy-username", onTap: async () => {
+      : { icon: "lucide:clipboard-copy", label: t("mobile.sheets.keychainActions.copyUsername"), slug: "copy-username", onTap: async () => {
           await writeClipboard((item as Identity).username);
-          toast("Copied username", "success");
+          toast(t("mobile.sheets.keychainActions.copiedUsername"), "success");
           onClose();
         } },
-    { icon: "lucide:folder-tree", label: "Move to folder", slug: "move-folder", onTap: () => setMode("move-folder") },
-    { icon: "lucide:trash-2", label: "Delete", danger: true, slug: "delete", onTap: () => setMode("confirm-delete") },
+    { icon: "lucide:folder-tree", label: t("mobile.sheets.shared.moveToFolder"), slug: "move-folder", onTap: () => setMode("move-folder") },
+    { icon: "lucide:trash-2", label: t("common.action.delete"), danger: true, slug: "delete", onTap: () => setMode("confirm-delete") },
   ];
 
   return (

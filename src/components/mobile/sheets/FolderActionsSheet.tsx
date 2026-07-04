@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import FolderFormSheet from "./FolderFormSheet";
 import type { Folder } from "@/types";
@@ -14,12 +15,13 @@ export default function FolderActionsSheet({
   onDelete: () => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<Mode>("menu");
 
   if (mode === "rename") {
     return (
       <FolderFormSheet
-        title="Rename folder"
+        title={t("mobile.sheets.folderActions.renameTitle")}
         initialName={folder.name}
         onSubmit={(name) => onRename(name)}
         onClose={onClose}
@@ -41,20 +43,20 @@ export default function FolderActionsSheet({
 
   if (mode === "confirm-delete") {
     return (
-      <BottomSheet title="Delete folder?" onClose={onClose} registerBack={false}>
+      <BottomSheet title={t("mobile.sheets.folderActions.deleteTitle")} onClose={onClose} registerBack={false}>
         <div className="px-3 pt-1 pb-2 text-sm text-(--t-text-dim)">
-          Delete <span className="text-(--t-text-primary) font-medium">{folder.name}</span> and everything inside it? This can&rsquo;t be undone.
+          {t("mobile.sheets.folderActions.deleteBody", { name: folder.name })}
         </div>
-        <Row slug="delete-confirm" icon="lucide:trash-2" label="Delete" danger onTap={() => { onDelete(); onClose(); }} />
-        <Row slug="cancel" icon="lucide:x" label="Cancel" onTap={() => setMode("menu")} />
+        <Row slug="delete-confirm" icon="lucide:trash-2" label={t("common.action.delete")} danger onTap={() => { onDelete(); onClose(); }} />
+        <Row slug="cancel" icon="lucide:x" label={t("common.action.cancel")} onTap={() => setMode("menu")} />
       </BottomSheet>
     );
   }
 
   return (
     <BottomSheet title={folder.name} onClose={onClose} registerBack={false}>
-      <Row slug="rename" icon="lucide:pencil" label="Rename" onTap={() => setMode("rename")} />
-      <Row slug="delete" icon="lucide:trash-2" label="Delete" danger onTap={() => setMode("confirm-delete")} />
+      <Row slug="rename" icon="lucide:pencil" label={t("common.action.rename")} onTap={() => setMode("rename")} />
+      <Row slug="delete" icon="lucide:trash-2" label={t("common.action.delete")} danger onTap={() => setMode("confirm-delete")} />
     </BottomSheet>
   );
 }

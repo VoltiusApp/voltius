@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useVaultStore } from "@/stores/vaultStore";
@@ -33,6 +34,7 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
   onEdit: (rule: PortForwardingRule) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const deleteRule = usePortForwardingStore((s) => s.deleteRule);
   const updateRule = usePortForwardingStore((s) => s.updateRule);
   const createRule = usePortForwardingStore((s) => s.createRule);
@@ -58,12 +60,12 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
 
   if (mode === "confirm-delete") {
     return (
-      <BottomSheet title="Delete rule?" onClose={onClose}>
+      <BottomSheet title={t("mobile.sheets.ruleActions.deleteTitle")} onClose={onClose}>
         <div className="px-3 pt-1 pb-2 text-sm text-(--t-text-dim)">
-          Permanently delete <span className="text-(--t-text-primary) font-medium">{rule.name}</span>? This can&rsquo;t be undone.
+          {t("mobile.sheets.shared.confirmDeleteBody", { name: rule.name })}
         </div>
-        <Row it={{ icon: "lucide:trash-2", label: "Delete", slug: "delete", danger: true, onTap: () => { void deleteRule(rule.id); onClose(); } }} />
-        <Row it={{ icon: "lucide:x", label: "Cancel", slug: "cancel", onTap: () => setMode("menu") }} />
+        <Row it={{ icon: "lucide:trash-2", label: t("common.action.delete"), slug: "delete", danger: true, onTap: () => { void deleteRule(rule.id); onClose(); } }} />
+        <Row it={{ icon: "lucide:x", label: t("common.action.cancel"), slug: "cancel", onTap: () => setMode("menu") }} />
       </BottomSheet>
     );
   }
@@ -81,14 +83,14 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
 
   if (mode === "move") {
     return (
-      <BottomSheet title="Move to vault" onClose={onClose}>
+      <BottomSheet title={t("mobile.sheets.shared.moveToVault")} onClose={onClose}>
         {otherVaults.map((v) => (
           <Row key={v.id} it={{ icon: "lucide:vault", label: v.name, slug: "move-target", onTap: () => {
             void updateRule(rule.id, fields(rule, v.id));
             onClose();
           } }} />
         ))}
-        <Row it={{ icon: "lucide:arrow-left", label: "Back", slug: "back", onTap: () => setMode("menu") }} />
+        <Row it={{ icon: "lucide:arrow-left", label: t("mobile.sheets.shared.back"), slug: "back", onTap: () => setMode("menu") }} />
       </BottomSheet>
     );
   }
@@ -96,7 +98,7 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
   if (mode === "copy") {
     const allKnown = [...allRules, ...Object.values(teamRules).flat()];
     return (
-      <BottomSheet title="Copy to vault" onClose={onClose}>
+      <BottomSheet title={t("mobile.sheets.shared.copyToVault")} onClose={onClose}>
         {otherVaults.map((v) => (
           <Row key={v.id} it={{ icon: "lucide:copy", label: v.name, slug: "copy-target", onTap: () => {
             const dup = allKnown.some((r) => r.vault_id === v.id && r.name === rule.name);
@@ -104,17 +106,17 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
             onClose();
           } }} />
         ))}
-        <Row it={{ icon: "lucide:arrow-left", label: "Back", slug: "back", onTap: () => setMode("menu") }} />
+        <Row it={{ icon: "lucide:arrow-left", label: t("mobile.sheets.shared.back"), slug: "back", onTap: () => setMode("menu") }} />
       </BottomSheet>
     );
   }
 
   const items: Item[] = [
-    { icon: "lucide:pencil", label: "Edit", slug: "edit", onTap: () => { onEdit(rule); onClose(); } },
-    { icon: "lucide:folder-tree", label: "Move to folder", slug: "move-folder", onTap: () => setMode("move-folder") },
-    ...(otherVaults.length > 0 ? [{ icon: "lucide:folder-input", label: "Move to vault", slug: "move", onTap: () => setMode("move") }] : []),
-    ...(otherVaults.length > 0 ? [{ icon: "lucide:copy", label: "Copy to vault", slug: "copy", onTap: () => setMode("copy") }] : []),
-    { icon: "lucide:trash-2", label: "Delete", slug: "delete", danger: true, onTap: () => setMode("confirm-delete") },
+    { icon: "lucide:pencil", label: t("common.action.edit"), slug: "edit", onTap: () => { onEdit(rule); onClose(); } },
+    { icon: "lucide:folder-tree", label: t("mobile.sheets.shared.moveToFolder"), slug: "move-folder", onTap: () => setMode("move-folder") },
+    ...(otherVaults.length > 0 ? [{ icon: "lucide:folder-input", label: t("mobile.sheets.shared.moveToVault"), slug: "move", onTap: () => setMode("move") }] : []),
+    ...(otherVaults.length > 0 ? [{ icon: "lucide:copy", label: t("mobile.sheets.shared.copyToVault"), slug: "copy", onTap: () => setMode("copy") }] : []),
+    { icon: "lucide:trash-2", label: t("common.action.delete"), slug: "delete", danger: true, onTap: () => setMode("confirm-delete") },
   ];
 
   return (
