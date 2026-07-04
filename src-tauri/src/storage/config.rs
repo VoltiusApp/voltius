@@ -663,27 +663,26 @@ fn snippets_file() -> PathBuf {
 }
 
 fn migrate_snippet_steps(s: &mut Snippet) {
+    if s.content.is_none() {
+        return;
+    }
+    // Legacy record carrying `content`: fold it into steps if none exist yet.
+    let content = s.content.take().unwrap_or_default();
     if s.steps.is_empty() {
-        let content = s.content.take().unwrap_or_default();
         s.steps = vec![SnippetStep::Script { content }];
-        if let Some(c) = s.clocks.remove("content") {
-            s.clocks.entry("steps".to_string()).or_insert(c);
-        }
-    } else if s.content.is_some() {
-        s.content = None;
+    }
+    if let Some(c) = s.clocks.remove("content") {
+        s.clocks.entry("steps".to_string()).or_insert(c);
     }
 }
 
 pub fn load_snippets() -> Vec<Snippet> {
     let mut snippets: Vec<Snippet> = load_json_migrated(snippets_file());
-    let before: Vec<bool> = snippets
-        .iter()
-        .map(|s| s.content.is_some() || s.steps.is_empty())
-        .collect();
+    let needs = snippets.iter().any(|s| s.content.is_some());
     for s in snippets.iter_mut() {
         migrate_snippet_steps(s);
     }
-    if before.iter().any(|&needed| needed) {
+    if needs {
         let _ = save_snippets(&snippets);
     }
     snippets
@@ -1055,5 +1054,28 @@ mod snippet_steps_tests {
         let mut s: Snippet = serde_json::from_str(json).unwrap();
         migrate_snippet_steps(&mut s);
         assert_eq!(s.steps.len(), 1);
+    }
+
+    #[test]
+    fn empty_steps_without_content_is_left_empty() {
+        let json = r#"{"id":"a","name":"n","steps":[],"created_at":"t","updated_at":"t","deleted_at":null,"vault_id":"personal","clocks":{"name":"t"}}"#;
+        let mut s: Snippet = serde_json::from_str(json).unwrap();
+        migrate_snippet_steps(&mut s);
+        assert!(s.steps.is_empty());
+        assert!(!s.clocks.contains_key("steps"));
+        assert!(!s.clocks.contains_key("content"));
+    }
+
+    #[test]
+    fn content_dropped_when_steps_already_present() {
+        let json = r#"{"id":"a","name":"n","content":"legacy","steps":[{"kind":"script","content":"real"}],"created_at":"t","updated_at":"t","deleted_at":null,"vault_id":"personal","clocks":{"steps":"t"}}"#;
+        let mut s: Snippet = serde_json::from_str(json).unwrap();
+        migrate_snippet_steps(&mut s);
+        assert!(s.content.is_none());
+        assert_eq!(s.steps.len(), 1);
+        match &s.steps[0] {
+            SnippetStep::Script { content } => assert_eq!(content, "real"),
+            _ => panic!("expected script step"),
+        }
     }
 }
