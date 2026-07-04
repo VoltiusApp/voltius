@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { useAuditStore } from "@/stores/auditStore";
 import { usePermissions } from "@/hooks/usePermission";
 import { useSelectedAuditContext } from "@/hooks/useAuditContext";
@@ -11,6 +12,7 @@ import MobileFilterBar from "@/components/mobile/MobileFilterBar";
 import LogsExportSheet from "@/components/mobile/sheets/LogsExportSheet";
 
 export default function MobileLogsScreen() {
+  const { t } = useTranslation();
   const context = useSelectedAuditContext();
   const can = usePermissions();
   const canFetchAudit = context?.kind === "local" || !!(context && can("VIEW_AUDIT_LOG", context.teamId));
@@ -44,7 +46,7 @@ export default function MobileLogsScreen() {
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
       <MobilePanelHeader
-        title="Logs"
+        title={t("mobile.morePages.logs")}
         right={
           context ? (
             <button
@@ -59,7 +61,7 @@ export default function MobileLogsScreen() {
       />
 
       <AuditGate context={context}>
-        <MobileFilterBar value={search} onChange={setSearch} placeholder="Filter logs…" />
+        <MobileFilterBar value={search} onChange={setSearch} placeholder={t("mobile.logsScreen.filterPlaceholder")} />
 
         <div className="flex-1 overflow-y-auto">
           {error ? (
@@ -71,7 +73,7 @@ export default function MobileLogsScreen() {
                 className="text-sm px-3 py-1.5 rounded-lg"
                 style={{ background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
               >
-                Retry
+                {t("mobile.logsScreen.retry")}
               </button>
             </div>
           ) : loading && logs.length === 0 ? (
@@ -95,10 +97,10 @@ export default function MobileLogsScreen() {
               style={{ background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
             >
               <Icon icon="lucide:chevron-left" width={14} />
-              Prev
+              {t("mobile.logsScreen.prev")}
             </button>
             <span className="text-sm text-(--t-text-dim)">
-              Page {page} / {totalPages}
+              {t("mobile.logsScreen.pageIndicator", { page, total: totalPages })}
             </span>
             <button
               onClick={() => setFilter("page", page + 1)}
@@ -106,7 +108,7 @@ export default function MobileLogsScreen() {
               className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg disabled:opacity-40 transition-opacity"
               style={{ background: "var(--t-bg-elevated)", border: "1px solid var(--t-border)", color: "var(--t-text-primary)" }}
             >
-              Next
+              {t("mobile.logsScreen.next")}
               <Icon icon="lucide:chevron-right" width={14} />
             </button>
           </div>

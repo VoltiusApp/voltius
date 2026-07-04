@@ -58,6 +58,88 @@
       "knownHosts": "Known Hosts",
       "members": "Members",
       "logs": "Logs"
+    },
+    "account": {
+      "title": "Account",
+      "email": "Email",
+      "notSignedIn": "Not signed in",
+      "plan": "Plan",
+      "cloudSync": "Cloud sync",
+      "off": "Off",
+      "proTrial": "Pro Trial — {{days}}d left",
+      "tier": {
+        "free": "Free",
+        "pro": "Pro",
+        "teams": "Teams",
+        "business": "Business"
+      },
+      "cancelsOn": "Cancels on {{date}}. You keep access until then.",
+      "periodEnd": "the period end",
+      "renewsOn": "Renews on {{date}}.",
+      "subscriptionActive": "Your subscription is active.",
+      "seats": "Seats",
+      "seatsUsed": "{{used}} / {{total}} used",
+      "upgradeToPro": "Upgrade to Pro",
+      "upgradeToTeams": "Upgrade to Teams",
+      "manageBilling": "Manage billing",
+      "viewAllPlans": "View all plans",
+      "signInToSync": "Sign in to sync",
+      "signOutConfirm": "Sign out? Your encrypted vault is removed from this device and re-synced when you sign back in.",
+      "signOut": "Sign out"
+    },
+    "more": {
+      "settings": "Settings",
+      "planLabel": "{{tier}} plan"
+    },
+    "host": {
+      "newTitle": "New host",
+      "editTitle": "Edit host"
+    },
+    "hostsScreen": {
+      "searchPlaceholder": "Search hosts",
+      "clearSearchAriaLabel": "Clear search",
+      "emptyNoHosts": "No hosts yet — tap + to add one"
+    },
+    "keychainScreen": {
+      "filterPlaceholder": "Filter keychain…",
+      "sshKeysHeader": "SSH KEYS",
+      "identitiesHeader": "IDENTITIES",
+      "addedOn": "added {{date}}",
+      "noSearchMatches": "Nothing matches your search",
+      "empty": "Keychain is empty"
+    },
+    "knownHostsScreen": {
+      "filterPlaceholder": "Filter hosts…",
+      "noSearchMatches": "No known hosts match your search",
+      "empty": "No known hosts yet — they appear when you connect to a server."
+    },
+    "logsScreen": {
+      "filterPlaceholder": "Filter logs…",
+      "retry": "Retry",
+      "prev": "Prev",
+      "next": "Next",
+      "pageIndicator": "Page {{page}} / {{total}}"
+    },
+    "portForwardingScreen": {
+      "filterPlaceholder": "Filter rules…",
+      "summary": "{{total}} total · {{active}} active",
+      "noSearchMatches": "No rules match your search",
+      "empty": "No port-forwarding rules yet",
+      "newRuleLabel": "New rule"
+    },
+    "snippetEdit": {
+      "editTitle": "Edit snippet",
+      "newTitle": "New snippet",
+      "namePlaceholder": "Snippet name",
+      "contentPlaceholder": "echo hello",
+      "delete": "Delete snippet"
+    },
+    "snippetsScreen": {
+      "newSnippetLabel": "New snippet"
+    },
+    "terminalScreen": {
+      "noActiveSessions": "No active sessions",
+      "pickHost": "Pick a host"
     }
   }
 }

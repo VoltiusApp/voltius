@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import type { SnippetFormData } from "@/types";
 
 export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: string }) {
+  const { t } = useTranslation();
   const pop = useMobileNavStore((s) => s.pop);
   const snippets = useSnippetStore((s) => s.snippets);
   const createSnippet = useSnippetStore((s) => s.createSnippet);
@@ -52,7 +54,7 @@ export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: str
           <Icon icon="lucide:arrow-left" width={22} />
         </button>
         <span className="flex-1 text-base font-semibold text-(--t-text-primary)">
-          {editing ? "Edit snippet" : "New snippet"}
+          {editing ? t("mobile.snippetEdit.editTitle") : t("mobile.snippetEdit.newTitle")}
         </span>
         <button
           data-mobile-snippet-save
@@ -61,7 +63,7 @@ export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: str
           className="px-3 py-1.5 rounded-lg text-sm font-medium"
           style={{ background: "var(--t-accent)", color: "#fff", opacity: !name.trim() || !content.trim() ? 0.5 : 1 }}
         >
-          Save
+          {t("common.action.save")}
         </button>
       </header>
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
@@ -69,7 +71,7 @@ export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: str
           data-mobile-snippet-name
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Snippet name"
+          placeholder={t("mobile.snippetEdit.namePlaceholder")}
           className="shrink-0 rounded-xl px-3 h-10 text-sm outline-none text-(--t-text-primary)"
           style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}
         />
@@ -77,7 +79,7 @@ export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: str
           data-mobile-snippet-content
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="echo hello"
+          placeholder={t("mobile.snippetEdit.contentPlaceholder")}
           className="flex-1 min-h-40 rounded-xl px-3 py-2 text-sm font-mono outline-none resize-none text-(--t-text-primary)"
           style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}
         />
@@ -88,7 +90,7 @@ export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: str
             className="shrink-0 flex items-center justify-center gap-2 rounded-xl h-10 text-sm font-medium"
             style={{ color: "var(--t-danger, #e5484d)", border: "1px solid var(--t-border)" }}
           >
-            <Icon icon="lucide:trash-2" width={16} /> Delete snippet
+            <Icon icon="lucide:trash-2" width={16} /> {t("mobile.snippetEdit.delete")}
           </button>
         )}
       </div>

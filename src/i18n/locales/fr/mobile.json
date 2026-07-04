@@ -58,6 +58,88 @@
       "knownHosts": "Hôtes connus",
       "members": "Membres",
       "logs": "Journaux"
+    },
+    "account": {
+      "title": "Compte",
+      "email": "E-mail",
+      "notSignedIn": "Non connecté",
+      "plan": "Forfait",
+      "cloudSync": "Synchronisation cloud",
+      "off": "Désactivée",
+      "proTrial": "Essai Pro — {{days}} j restants",
+      "tier": {
+        "free": "Gratuit",
+        "pro": "Pro",
+        "teams": "Teams",
+        "business": "Business"
+      },
+      "cancelsOn": "Résiliation le {{date}}. Vous conservez l'accès jusqu'à cette date.",
+      "periodEnd": "la fin de la période",
+      "renewsOn": "Renouvellement le {{date}}.",
+      "subscriptionActive": "Votre abonnement est actif.",
+      "seats": "Sièges",
+      "seatsUsed": "{{used}} / {{total}} utilisés",
+      "upgradeToPro": "Passer à Pro",
+      "upgradeToTeams": "Passer à Teams",
+      "manageBilling": "Gérer la facturation",
+      "viewAllPlans": "Voir tous les forfaits",
+      "signInToSync": "Se connecter pour synchroniser",
+      "signOutConfirm": "Se déconnecter ? Votre coffre chiffré est supprimé de cet appareil et resynchronisé lors de votre prochaine connexion.",
+      "signOut": "Se déconnecter"
+    },
+    "more": {
+      "settings": "Paramètres",
+      "planLabel": "Forfait {{tier}}"
+    },
+    "host": {
+      "newTitle": "Nouvel hôte",
+      "editTitle": "Modifier l'hôte"
+    },
+    "hostsScreen": {
+      "searchPlaceholder": "Rechercher des hôtes",
+      "clearSearchAriaLabel": "Effacer la recherche",
+      "emptyNoHosts": "Aucun hôte pour l'instant — appuyez sur + pour en ajouter un"
+    },
+    "keychainScreen": {
+      "filterPlaceholder": "Filtrer le trousseau…",
+      "sshKeysHeader": "CLÉS SSH",
+      "identitiesHeader": "IDENTITÉS",
+      "addedOn": "ajouté le {{date}}",
+      "noSearchMatches": "Aucun résultat pour votre recherche",
+      "empty": "Le trousseau est vide"
+    },
+    "knownHostsScreen": {
+      "filterPlaceholder": "Filtrer les hôtes…",
+      "noSearchMatches": "Aucun hôte connu ne correspond à votre recherche",
+      "empty": "Aucun hôte connu pour l'instant — ils apparaissent lorsque vous vous connectez à un serveur."
+    },
+    "logsScreen": {
+      "filterPlaceholder": "Filtrer les journaux…",
+      "retry": "Réessayer",
+      "prev": "Préc.",
+      "next": "Suivant",
+      "pageIndicator": "Page {{page}} / {{total}}"
+    },
+    "portForwardingScreen": {
+      "filterPlaceholder": "Filtrer les règles…",
+      "summary": "{{total}} au total · {{active}} active(s)",
+      "noSearchMatches": "Aucune règle ne correspond à votre recherche",
+      "empty": "Aucune règle de redirection de ports pour l'instant",
+      "newRuleLabel": "Nouvelle règle"
+    },
+    "snippetEdit": {
+      "editTitle": "Modifier le snippet",
+      "newTitle": "Nouveau snippet",
+      "namePlaceholder": "Nom du snippet",
+      "contentPlaceholder": "echo hello",
+      "delete": "Supprimer le snippet"
+    },
+    "snippetsScreen": {
+      "newSnippetLabel": "Nouveau snippet"
+    },
+    "terminalScreen": {
+      "noActiveSessions": "Aucune session active",
+      "pickHost": "Choisir un hôte"
     }
   }
 }

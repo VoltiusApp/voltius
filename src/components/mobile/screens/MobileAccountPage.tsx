@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import MobilePanelHeader from "../panels/MobilePanelHeader";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -10,14 +11,19 @@ import { getCurrentUserEmail, logout } from "@/services/account";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { openPortal } from "@/utils/billing";
 
-const TIER_LABEL: Record<string, string> = { free: "Free", pro: "Pro", teams: "Teams", business: "Business" };
-
 function formatPlanDate(date: Date | null): string | null {
   if (!date) return null;
   return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(date);
 }
 
 export default function MobileAccountPage() {
+  const { t } = useTranslation();
+  const TIER_LABEL: Record<string, string> = {
+    free: t("mobile.account.tier.free"),
+    pro: t("mobile.account.tier.pro"),
+    teams: t("mobile.account.tier.teams"),
+    business: t("mobile.account.tier.business"),
+  };
   const pop = useMobileNavStore((s) => s.pop);
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
   const tier = useSubscriptionStore((s) => s.tier);
@@ -42,7 +48,7 @@ export default function MobileAccountPage() {
   const signedIn = accountMode === "server";
   const isPaidPro = isPro && !isTrialActive;
   const daysLeft = trialEndsAt ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / 86_400_000)) : 0;
-  const planValue = isTrialActive ? `Pro Trial — ${daysLeft}d left` : (TIER_LABEL[tier] ?? tier);
+  const planValue = isTrialActive ? t("mobile.account.proTrial", { days: daysLeft }) : (TIER_LABEL[tier] ?? tier);
   const renewalDate = formatPlanDate(renewsAt);
   const cancellationDate = formatPlanDate(endsAt ?? renewsAt);
 
@@ -62,14 +68,14 @@ export default function MobileAccountPage() {
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
-      <MobilePanelHeader title="Account" />
+      <MobilePanelHeader title={t("mobile.account.title")} />
       <div className="flex-1 overflow-y-auto">
-        <Row icon="lucide:mail" label="Email" value={email ?? (signedIn ? "—" : "Not signed in")} />
-        <Row icon="lucide:badge-check" label="Plan" value={planValue} valueColor={isPro ? "#f59e0b" : undefined} />
+        <Row icon="lucide:mail" label={t("mobile.account.email")} value={email ?? (signedIn ? "—" : t("mobile.account.notSignedIn"))} />
+        <Row icon="lucide:badge-check" label={t("mobile.account.plan")} value={planValue} valueColor={isPro ? "#f59e0b" : undefined} />
         <Row
           icon={syncStatusIcon(sync.status)}
-          label="Cloud sync"
-          value={sync.configured ? sync.status : "Off"}
+          label={t("mobile.account.cloudSync")}
+          value={sync.configured ? t(`mobile.header.syncStatus.${sync.status}`) : t("mobile.account.off")}
           valueColor={sync.configured ? syncStatusColor(sync.status) : undefined}
         />
 
@@ -78,20 +84,20 @@ export default function MobileAccountPage() {
             {isPaidPro && (
               <div className="rounded-xl px-3 py-2.5 text-xs text-(--t-text-muted)" style={{ background: "var(--t-bg-input)" }}>
                 {subscriptionCancelled ? (
-                  <span>Cancels on {cancellationDate ?? "the period end"}. You keep access until then.</span>
+                  <span>{t("mobile.account.cancelsOn", { date: cancellationDate ?? t("mobile.account.periodEnd") })}</span>
                 ) : subscriptionStatus === "active" && renewalDate ? (
-                  <span>Renews on {renewalDate}.</span>
+                  <span>{t("mobile.account.renewsOn", { date: renewalDate })}</span>
                 ) : (
-                  <span>Your subscription is active.</span>
+                  <span>{t("mobile.account.subscriptionActive")}</span>
                 )}
               </div>
             )}
 
             {isTeams && totalSeats != null && (
               <div className="flex items-center justify-between text-xs px-1">
-                <span className="text-(--t-text-secondary)">Seats</span>
+                <span className="text-(--t-text-secondary)">{t("mobile.account.seats")}</span>
                 <span className="text-(--t-text-primary)" style={{ fontVariantNumeric: "tabular-nums" }}>
-                  {usedSeats ?? "…"} / {totalSeats} used
+                  {t("mobile.account.seatsUsed", { used: usedSeats ?? "…", total: totalSeats })}
                 </span>
               </div>
             )}
@@ -104,7 +110,7 @@ export default function MobileAccountPage() {
                 className="w-full h-11 rounded-xl text-sm font-semibold disabled:opacity-60"
                 style={{ background: "var(--t-accent)", color: "#fff" }}
               >
-                Upgrade to Pro
+                {t("mobile.account.upgradeToPro")}
               </button>
             )}
 
@@ -116,7 +122,7 @@ export default function MobileAccountPage() {
                 className="w-full h-11 rounded-xl text-sm font-semibold text-(--t-text-primary) disabled:opacity-60"
                 style={{ border: "1px solid var(--t-border)" }}
               >
-                Upgrade to Teams
+                {t("mobile.account.upgradeToTeams")}
               </button>
             )}
 
@@ -127,7 +133,7 @@ export default function MobileAccountPage() {
               style={{ border: "1px solid var(--t-border)" }}
             >
               <Icon icon="lucide:external-link" width={16} />
-              {isPro ? "Manage billing" : "View all plans"}
+              {isPro ? t("mobile.account.manageBilling") : t("mobile.account.viewAllPlans")}
             </button>
           </div>
         )}
@@ -140,21 +146,21 @@ export default function MobileAccountPage() {
               className="w-full h-11 rounded-xl text-sm font-semibold"
               style={{ background: "var(--t-accent)", color: "#fff" }}
             >
-              Sign in to sync
+              {t("mobile.account.signInToSync")}
             </button>
           ) : confirming ? (
             <div className="flex flex-col gap-2">
-              <p className="text-sm text-(--t-text-dim)">Sign out? Your encrypted vault is removed from this device and re-synced when you sign back in.</p>
+              <p className="text-sm text-(--t-text-dim)">{t("mobile.account.signOutConfirm")}</p>
               <button
                 data-account-signout-confirm
                 onClick={() => { void logout(); pop(); }}
                 className="w-full h-11 rounded-xl text-sm font-semibold"
                 style={{ background: "var(--t-danger, #e5484d)", color: "#fff" }}
               >
-                Sign out
+                {t("mobile.account.signOut")}
               </button>
               <button onClick={() => setConfirming(false)} className="w-full h-11 rounded-xl text-sm font-medium text-(--t-text-primary)" style={{ border: "1px solid var(--t-border)" }}>
-                Cancel
+                {t("common.action.cancel")}
               </button>
             </div>
           ) : (
@@ -165,7 +171,7 @@ export default function MobileAccountPage() {
               style={{ border: "1px solid var(--t-border)" }}
             >
               <Icon icon="lucide:log-out" width={16} />
-              Sign out
+              {t("mobile.account.signOut")}
             </button>
           )}
         </div>

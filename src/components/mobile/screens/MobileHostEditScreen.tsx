@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import ConnectionForm, { type ConnectionFormHandle } from "@/components/connections/ConnectionForm";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useVaultStore } from "@/stores/vaultStore";
@@ -7,6 +8,7 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { saveHostFromForm } from "@/services/hostForm";
 
 export default function MobileHostEditScreen({ hostId }: { hostId?: string }) {
+  const { t } = useTranslation();
   const pop = useMobileNavStore((s) => s.pop);
   const connections = useAllConnections();
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
@@ -38,7 +40,7 @@ export default function MobileHostEditScreen({ hostId }: { hostId?: string }) {
           <Icon icon="lucide:arrow-left" width={22} />
         </button>
         <span className="flex-1 text-base font-semibold text-(--t-text-primary)">
-          {editing ? "Edit host" : "New host"}
+          {editing ? t("mobile.host.editTitle") : t("mobile.host.newTitle")}
         </span>
         <button
           data-mobile-host-save
@@ -46,7 +48,7 @@ export default function MobileHostEditScreen({ hostId }: { hostId?: string }) {
           className="px-3 py-1.5 rounded-lg text-sm font-semibold"
           style={{ background: "var(--t-accent)", color: "#fff" }}
         >
-          Save
+          {t("common.action.save")}
         </button>
       </header>
       <div className="flex-1 overflow-y-auto relative">

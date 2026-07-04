@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useAllFolders } from "@/hooks/useAllFolders";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
@@ -89,6 +90,7 @@ function MobileHostRow({
 type AddMode = null | "menu" | "new-folder";
 
 export default function MobileHostsScreen() {
+  const { t } = useTranslation();
   const connections = useAllConnections();
   const allFolders = useAllFolders();
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
@@ -163,10 +165,10 @@ export default function MobileHostsScreen() {
           style={{ background: "var(--t-bg-card)", border: "1px solid var(--t-border)" }}>
           <Icon icon="lucide:search" width={16} className="text-(--t-text-dim)" />
           <input data-mobile-host-search value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search hosts" className="flex-1 bg-transparent text-sm outline-none text-(--t-text-primary)" />
+            placeholder={t("mobile.hostsScreen.searchPlaceholder")} className="flex-1 bg-transparent text-sm outline-none text-(--t-text-primary)" />
           {search && (
             <button data-mobile-host-search-clear onClick={() => setSearch("")}
-              className="p-0.5 -mr-1 text-(--t-text-dim) active:text-(--t-text-primary)" aria-label="Clear search">
+              className="p-0.5 -mr-1 text-(--t-text-dim) active:text-(--t-text-primary)" aria-label={t("mobile.hostsScreen.clearSearchAriaLabel")}>
               <Icon icon="lucide:x" width={16} />
             </button>
           )}
@@ -187,7 +189,7 @@ export default function MobileHostsScreen() {
         {visible.length === 0 && subFolders.length === 0 && (
           <div className="flex flex-col items-center gap-2 pt-16 text-(--t-text-dim)">
             <Icon icon="lucide:server-off" width={28} />
-            <span className="text-sm">{search ? "No matches" : "No hosts yet — tap + to add one"}</span>
+            <span className="text-sm">{search ? t("mobile.snippets.noMatches") : t("mobile.hostsScreen.emptyNoHosts")}</span>
           </div>
         )}
         {visible.map((c) => (
@@ -204,7 +206,7 @@ export default function MobileHostsScreen() {
 
       {addMode === "menu" && (
         <AddChoiceSheet
-          newItemLabel="New host"
+          newItemLabel={t("mobile.host.newTitle")}
           newItemIcon="lucide:server"
           onNewItem={() => { setAddMode(null); push({ kind: "host-edit" }); }}
           onNewFolder={() => setAddMode("new-folder")}
@@ -212,7 +214,7 @@ export default function MobileHostsScreen() {
         />
       )}
       {addMode === "new-folder" && (
-        <FolderFormSheet title="New folder" submitLabel="Create" onSubmit={createFolder} onClose={() => setAddMode(null)} />
+        <FolderFormSheet title={t("mobile.snippets.newFolderTitle")} submitLabel={t("common.action.create")} onSubmit={createFolder} onClose={() => setAddMode(null)} />
       )}
       {folderSheet && (
         <FolderActionsSheet

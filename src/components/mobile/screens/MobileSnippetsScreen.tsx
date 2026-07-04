@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import MobileHeader from "../MobileHeader";
 import MobileSnippetList from "../MobileSnippetList";
 import AddChoiceSheet from "../sheets/AddChoiceSheet";
 
 export default function MobileSnippetsScreen() {
+  const { t } = useTranslation();
   const push = useMobileNavStore((s) => s.push);
   const [addMenu, setAddMenu] = useState(false);
   const [addFolderOpen, setAddFolderOpen] = useState(false);
@@ -14,7 +16,7 @@ export default function MobileSnippetsScreen() {
       <MobileSnippetList addFolderOpen={addFolderOpen} onCloseAddFolder={() => setAddFolderOpen(false)} />
       {addMenu && (
         <AddChoiceSheet
-          newItemLabel="New snippet"
+          newItemLabel={t("mobile.snippetsScreen.newSnippetLabel")}
           newItemIcon="lucide:braces"
           onNewItem={() => { setAddMenu(false); push({ kind: "snippet-edit" }); }}
           onNewFolder={() => { setAddMenu(false); setAddFolderOpen(true); }}

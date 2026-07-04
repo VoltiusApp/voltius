@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import MobilePanelHeader from "../panels/MobilePanelHeader";
 import MobileFilterBar from "../MobileFilterBar";
 import KeychainItemActionsSheet from "../sheets/KeychainItemActionsSheet";
@@ -43,6 +44,7 @@ function SectionHeader({ label, count }: { label: string; count: number }) {
 }
 
 export default function MobileKeychainScreen() {
+  const { t } = useTranslation();
   const keys = useAllKeys();
   const identities = useAllIdentities();
   const allFolders = useAllFolders();
@@ -89,14 +91,14 @@ export default function MobileKeychainScreen() {
     <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
       {nav.folderPath.map((f) => <FolderBackTrap key={f.id} onBack={() => nav.setFolderPath((p) => p.slice(0, -1))} />)}
       <MobilePanelHeader
-        title="Keychain"
+        title={t("mobile.morePages.keychain")}
         right={
           <button data-keychain-add-folder onClick={() => setAddFolderOpen(true)} className="p-2 text-(--t-text-primary)">
             <Icon icon="lucide:folder-plus" width={20} />
           </button>
         }
       />
-      <MobileFilterBar value={search} onChange={setSearch} placeholder="Filter keychain…" />
+      <MobileFilterBar value={search} onChange={setSearch} placeholder={t("mobile.keychainScreen.filterPlaceholder")} />
       <MobileFolderBreadcrumb path={nav.folderPath} onNavigate={(i) => (i < 0 ? nav.navigateToRoot() : nav.navigateTo(i))} />
 
       <div className="flex-1 overflow-y-auto pb-4">
@@ -110,13 +112,13 @@ export default function MobileKeychainScreen() {
 
         {scopedKeys.length > 0 && (
           <div className="px-2">
-            <SectionHeader label="SSH KEYS" count={scopedKeys.length} />
+            <SectionHeader label={t("mobile.keychainScreen.sshKeysHeader")} count={scopedKeys.length} />
             {scopedKeys.map((k) => (
               <button key={k.id} data-keychain-key className="w-full flex items-center gap-3 px-2 py-3 rounded-xl text-left active:bg-(--t-bg-card)" onClick={() => setSheet({ kind: "key", item: k })}>
                 <AvatarTile icon="lucide:key-round" className="w-9 h-9 rounded-lg" iconSize={18} />
                 <span className="flex-1 min-w-0 flex flex-col gap-0.5">
                   <span className="text-sm font-medium text-(--t-text-primary) truncate">{k.name ?? "Unnamed key"}</span>
-                  <span className="text-[11px] text-(--t-text-dim) truncate">{k.key_type ? `${k.key_type} · ` : ""}added {shortDate(k.created_at)}</span>
+                  <span className="text-[11px] text-(--t-text-dim) truncate">{k.key_type ? `${k.key_type} · ` : ""}{t("mobile.keychainScreen.addedOn", { date: shortDate(k.created_at) })}</span>
                   <TagChips tags={k.tags} />
                 </span>
               </button>
@@ -126,7 +128,7 @@ export default function MobileKeychainScreen() {
 
         {scopedIdentities.length > 0 && (
           <div className="px-2">
-            <SectionHeader label="IDENTITIES" count={scopedIdentities.length} />
+            <SectionHeader label={t("mobile.keychainScreen.identitiesHeader")} count={scopedIdentities.length} />
             {scopedIdentities.map((i) => (
               <button key={i.id} data-keychain-identity className="w-full flex items-center gap-3 px-2 py-3 rounded-xl text-left active:bg-(--t-bg-card)" onClick={() => setSheet({ kind: "identity", item: i })}>
                 <AvatarTile icon="lucide:user" className="w-9 h-9 rounded-lg" iconSize={18} />
@@ -143,7 +145,7 @@ export default function MobileKeychainScreen() {
         {isEmpty && (
           <div className="flex flex-col items-center justify-center text-center px-8 pt-20 gap-1">
             <Icon icon="lucide:key-round" width={28} className="text-(--t-text-dim)" />
-            <span className="text-sm text-(--t-text-dim)">{q ? "Nothing matches your search" : "Keychain is empty"}</span>
+            <span className="text-sm text-(--t-text-dim)">{q ? t("mobile.keychainScreen.noSearchMatches") : t("mobile.keychainScreen.empty")}</span>
           </div>
         )}
       </div>
@@ -152,7 +154,7 @@ export default function MobileKeychainScreen() {
         ? <KeychainItemActionsSheet kind="key" item={sheet.item} onClose={() => setSheet(null)} />
         : <KeychainItemActionsSheet kind="identity" item={sheet.item} onClose={() => setSheet(null)} />)}
 
-      {addFolderOpen && <FolderFormSheet title="New folder" submitLabel="Create" onSubmit={createFolder} onClose={() => setAddFolderOpen(false)} />}
+      {addFolderOpen && <FolderFormSheet title={t("mobile.snippets.newFolderTitle")} submitLabel={t("common.action.create")} onSubmit={createFolder} onClose={() => setAddFolderOpen(false)} />}
       {folderSheet && (
         <FolderActionsSheet
           folder={folderSheet}

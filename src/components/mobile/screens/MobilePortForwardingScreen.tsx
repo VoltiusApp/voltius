@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { useAllPortForwardingRules } from "@/hooks/useAllPortForwardingRules";
 import { useAllFolders } from "@/hooks/useAllFolders";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
@@ -25,6 +26,7 @@ type FormRule = PortForwardingRule | null | "new" | undefined;
 type AddMode = null | "menu" | "new-folder";
 
 export default function MobilePortForwardingScreen() {
+  const { t } = useTranslation();
   const allRules = useAllPortForwardingRules();
   const allFolders = useAllFolders();
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
@@ -65,16 +67,16 @@ export default function MobilePortForwardingScreen() {
     <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
       {nav.folderPath.map((f) => <FolderBackTrap key={f.id} onBack={() => nav.setFolderPath((p) => p.slice(0, -1))} />)}
       <MobilePanelHeader
-        title="Port Forwarding"
+        title={t("mobile.morePages.portForwarding")}
         right={
           <button data-pf-add onClick={() => setAddMode("menu")} className="p-2 text-(--t-text-primary)">
             <Icon icon="lucide:plus" width={22} />
           </button>
         }
       />
-      <MobileFilterBar value={search} onChange={setSearch} placeholder="Filter rules…" />
+      <MobileFilterBar value={search} onChange={setSearch} placeholder={t("mobile.portForwardingScreen.filterPlaceholder")} />
       <MobileFolderBreadcrumb path={nav.folderPath} onNavigate={(i) => (i < 0 ? nav.navigateToRoot() : nav.navigateTo(i))} />
-      <div className="px-4 py-1 text-xs text-(--t-text-dim)">{allRules.length} total &middot; {runningRuleCount.active} active</div>
+      <div className="px-4 py-1 text-xs text-(--t-text-dim)">{t("mobile.portForwardingScreen.summary", { total: allRules.length, active: runningRuleCount.active })}</div>
 
       <div className="flex-1 overflow-y-auto pb-4">
         {!search && subfolders.map((f) => (
@@ -104,7 +106,7 @@ export default function MobilePortForwardingScreen() {
         {subfolders.length === 0 && rules.length === 0 && (
           <div className="flex flex-col items-center justify-center px-8 py-16 text-center text-(--t-text-dim)">
             <Icon icon="lucide:arrow-left-right" width={28} className="mb-2 opacity-60" />
-            <p className="text-sm">{search.trim() ? "No rules match your search" : "No port-forwarding rules yet"}</p>
+            <p className="text-sm">{search.trim() ? t("mobile.portForwardingScreen.noSearchMatches") : t("mobile.portForwardingScreen.empty")}</p>
           </div>
         )}
       </div>
@@ -124,7 +126,7 @@ export default function MobilePortForwardingScreen() {
 
       {addMode === "menu" && (
         <AddChoiceSheet
-          newItemLabel="New rule"
+          newItemLabel={t("mobile.portForwardingScreen.newRuleLabel")}
           newItemIcon="lucide:arrow-left-right"
           onNewItem={() => { setAddMode(null); setFormRule("new"); }}
           onNewFolder={() => setAddMode("new-folder")}
@@ -132,7 +134,7 @@ export default function MobilePortForwardingScreen() {
         />
       )}
       {addMode === "new-folder" && (
-        <FolderFormSheet title="New folder" submitLabel="Create" onSubmit={createFolder} onClose={() => setAddMode(null)} />
+        <FolderFormSheet title={t("mobile.snippets.newFolderTitle")} submitLabel={t("common.action.create")} onSubmit={createFolder} onClose={() => setAddMode(null)} />
       )}
       {folderSheet && (
         <FolderActionsSheet

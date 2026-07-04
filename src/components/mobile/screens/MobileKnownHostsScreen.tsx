@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import MobilePanelHeader from "../panels/MobilePanelHeader";
 import MobileFilterBar from "../MobileFilterBar";
 import KnownHostActionsSheet from "../sheets/KnownHostActionsSheet";
@@ -13,6 +14,7 @@ function truncateFp(fp: string): string {
 }
 
 export default function MobileKnownHostsScreen() {
+  const { t } = useTranslation();
   const knownHosts = useKnownHostStore((s) => s.knownHosts);
   const [search, setSearch] = useState("");
   const [sheetHost, setSheetHost] = useState<KnownHost | null>(null);
@@ -26,12 +28,12 @@ export default function MobileKnownHostsScreen() {
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-(--t-bg-base)">
-      <MobilePanelHeader title="Known Hosts" />
-      <MobileFilterBar value={search} onChange={setSearch} placeholder="Filter hosts…" />
+      <MobilePanelHeader title={t("mobile.morePages.knownHosts")} />
+      <MobileFilterBar value={search} onChange={setSearch} placeholder={t("mobile.knownHostsScreen.filterPlaceholder")} />
       <div className="flex-1 overflow-y-auto pb-4">
         {filtered.length === 0 ? (
           <p className="text-center text-sm text-(--t-text-dim) px-6 py-16">
-            {q ? "No known hosts match your search" : "No known hosts yet — they appear when you connect to a server."}
+            {q ? t("mobile.knownHostsScreen.noSearchMatches") : t("mobile.knownHostsScreen.empty")}
           </p>
         ) : filtered.map((h) => (
           <button key={h.id} data-knownhost-row className="w-full flex items-center gap-3 px-4 py-3 text-left active:bg-(--t-bg-card)"
