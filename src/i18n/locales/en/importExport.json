@@ -68,7 +68,8 @@
       "resultImportedWithErrors": "Imported {{count}} items{{vaultNote}}, {{errors}} failed.",
       "resultImportedSuccess_one": "Successfully imported {{count}} item{{vaultNote}}.",
       "resultImportedSuccess_other": "Successfully imported {{count}} items{{vaultNote}}.",
-      "resultVaultNote": " across {{count}} vaults"
+      "resultVaultNote": " across {{count}} vaults",
+      "resultError": "Error: {{error}}"
     },
     "fileInput": {
       "openFileDefault": "Open file…",
@@ -87,7 +88,8 @@
         "applyButton_other": "Apply {{count}} sections",
         "applyDefault": "Apply",
         "resultApplied_one": "Applied {{count}} setting: {{list}}.",
-        "resultApplied_other": "Applied {{count}} settings: {{list}}."
+        "resultApplied_other": "Applied {{count}} settings: {{list}}.",
+        "resultError": "Error: {{error}}"
       }
     }
   }

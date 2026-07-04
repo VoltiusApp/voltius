@@ -179,7 +179,7 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
   const [status, setStatus] = useState<ImportStatus>({ type: "idle" });
   const [decryptPassword, setDecryptPassword] = useState("");
   const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<string | null>(null);
+  const [importResult, setImportResult] = useState<{ text: string; isError: boolean } | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -406,15 +406,16 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
       }
       await reloadAll(reloaders);
       const vaultNote = targetVaultIds.length > 1 ? t("importExport.import.resultVaultNote", { count: targetVaultIds.length }) : "";
-      setImportResult(errors > 0
-        ? t("importExport.import.resultImportedWithErrors", { count: imported, vaultNote, errors })
-        : t("importExport.import.resultImportedSuccess", { count: imported, vaultNote })
-      );
+      setImportResult({
+        text: errors > 0
+          ? t("importExport.import.resultImportedWithErrors", { count: imported, vaultNote, errors })
+          : t("importExport.import.resultImportedSuccess", { count: imported, vaultNote }),
+        isError: false,
+      });
       setText("");
       setStep(1);
     } catch (err) {
-      // Not translated: importResult is matched via .includes("Error") below to color the banner.
-      setImportResult(`Error: ${String(err)}`);
+      setImportResult({ text: t("importExport.import.resultError", { error: String(err) }), isError: true });
     } finally {
       setImporting(false);
     }
@@ -621,13 +622,13 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
         {importResult && (
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm"
             style={{
-              background: importResult.includes("Error") ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.1)",
-              color: importResult.includes("Error") ? "var(--t-status-error)" : "var(--t-status-ok)",
-              border: `1px solid ${importResult.includes("Error") ? "rgba(239,68,68,0.25)" : "rgba(34,197,94,0.2)"}`,
+              background: importResult.isError ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.1)",
+              color: importResult.isError ? "var(--t-status-error)" : "var(--t-status-ok)",
+              border: `1px solid ${importResult.isError ? "rgba(239,68,68,0.25)" : "rgba(34,197,94,0.2)"}`,
             }}
           >
-            <Icon icon={importResult.includes("Error") ? "lucide:circle-alert" : "lucide:circle-check-big"} width={14} />
-            {importResult}
+            <Icon icon={importResult.isError ? "lucide:circle-alert" : "lucide:circle-check-big"} width={14} />
+            {importResult.text}
           </div>
         )}
 
@@ -804,13 +805,13 @@ export function ImportTab({ defaultSource, autoTrigger }: { defaultSource?: stri
       {importResult && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm"
           style={{
-            background: importResult.includes("Error") ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.1)",
-            color: importResult.includes("Error") ? "var(--t-status-error)" : "var(--t-status-ok)",
-            border: `1px solid ${importResult.includes("Error") ? "rgba(239,68,68,0.25)" : "rgba(34,197,94,0.2)"}`,
+            background: importResult.isError ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.1)",
+            color: importResult.isError ? "var(--t-status-error)" : "var(--t-status-ok)",
+            border: `1px solid ${importResult.isError ? "rgba(239,68,68,0.25)" : "rgba(34,197,94,0.2)"}`,
           }}
         >
-          <Icon icon={importResult.includes("Error") ? "lucide:circle-alert" : "lucide:circle-check-big"} width={14} />
-          {importResult}
+          <Icon icon={importResult.isError ? "lucide:circle-alert" : "lucide:circle-check-big"} width={14} />
+          {importResult.text}
         </div>
       )}
 

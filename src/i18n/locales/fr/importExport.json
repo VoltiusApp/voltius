@@ -68,7 +68,8 @@
       "resultImportedWithErrors": "{{count}} éléments importés{{vaultNote}}, {{errors}} échec(s).",
       "resultImportedSuccess_one": "{{count}} élément importé avec succès{{vaultNote}}.",
       "resultImportedSuccess_other": "{{count}} éléments importés avec succès{{vaultNote}}.",
-      "resultVaultNote": " sur {{count}} coffres"
+      "resultVaultNote": " sur {{count}} coffres",
+      "resultError": "Erreur : {{error}}"
     },
     "fileInput": {
       "openFileDefault": "Ouvrir un fichier…",
@@ -87,7 +88,8 @@
         "applyButton_other": "Appliquer {{count}} sections",
         "applyDefault": "Appliquer",
         "resultApplied_one": "{{count}} paramètre appliqué : {{list}}.",
-        "resultApplied_other": "{{count}} paramètres appliqués : {{list}}."
+        "resultApplied_other": "{{count}} paramètres appliqués : {{list}}.",
+        "resultError": "Erreur : {{error}}"
       }
     }
   }
