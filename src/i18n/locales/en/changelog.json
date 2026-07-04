@@ -1,0 +1,21 @@
+{
+  "changelog": {
+    "title": "What's new",
+    "quickLinks": {
+      "documentation": "Documentation"
+    },
+    "loading": "Loading changelog…",
+    "unavailable": "Changelog unavailable offline. Reconnect to see what's new.",
+    "hidePreviousReleases": "Hide previous releases",
+    "previousReleases": "Previous releases ({{count}})",
+    "newBadge": "New",
+    "updateBanner": {
+      "checking": "Checking for updates…",
+      "downloading": "Downloading v{{version}}… {{progress}}%",
+      "ready": "v{{version}} is ready to install",
+      "restartToUpdate": "Restart to update",
+      "available": "v{{version}} is available",
+      "download": "Download"
+    }
+  }
+}

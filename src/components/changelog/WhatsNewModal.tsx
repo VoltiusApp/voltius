@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Icon } from "@iconify/react";
 import { getVersion } from "@tauri-apps/api/app";
 import { Modal, ModalCard } from "@/components/shared/Modal";
@@ -18,12 +20,14 @@ import {
   type ChangelogEntry,
 } from "@/services/changelog";
 
-const QUICK_LINKS = [
-  { icon: "simple-icons:github", title: "GitHub", href: "https://github.com/VoltiusApp/voltius" },
-  { icon: "lucide:book-open", title: "Documentation", href: "https://docs.voltius.app" },
-  { icon: "simple-icons:x", title: "@VoltiusApp", href: "https://x.com/VoltiusApp" },
-  { icon: "simple-icons:kofi", title: "Ko-Fi", href: "https://ko-fi.com/kipavy" },
-];
+function getQuickLinks(t: TFunction) {
+  return [
+    { icon: "simple-icons:github", title: "GitHub", href: "https://github.com/VoltiusApp/voltius" },
+    { icon: "lucide:book-open", title: t("changelog.quickLinks.documentation"), href: "https://docs.voltius.app" },
+    { icon: "simple-icons:x", title: "@VoltiusApp", href: "https://x.com/VoltiusApp" },
+    { icon: "simple-icons:kofi", title: "Ko-Fi", href: "https://ko-fi.com/kipavy" },
+  ];
+}
 
 export default function WhatsNewModal() {
   const open = useUIStore((s) => s.whatsNewOpen);
@@ -32,6 +36,7 @@ export default function WhatsNewModal() {
 }
 
 function WhatsNewInner() {
+  const { t } = useTranslation();
   const closeWhatsNew = useUIStore((s) => s.closeWhatsNew);
   const markChangelogSeen = useUIStore((s) => s.markChangelogSeen);
 
@@ -70,9 +75,9 @@ function WhatsNewInner() {
         {/* Header */}
         <div className="flex items-center gap-2.5 px-5 py-4 border-b border-(--t-border) shrink-0">
           <Icon icon="lucide:megaphone" width={18} className="text-(--t-accent)" />
-          <h2 className="text-sm font-semibold text-(--t-text-primary)">What's new</h2>
+          <h2 className="text-sm font-semibold text-(--t-text-primary)">{t("changelog.title")}</h2>
           <div className="ml-auto flex items-center gap-1">
-            {QUICK_LINKS.map(({ icon, href, title }) => (
+            {getQuickLinks(t).map(({ icon, href, title }) => (
               <a
                 key={href}
                 href={href}
@@ -86,7 +91,7 @@ function WhatsNewInner() {
             ))}
             <button
               onClick={handleClose}
-              title="Close"
+              title={t("common.action.close")}
               className="flex items-center justify-center w-7 h-7 rounded-lg text-(--t-text-dim) transition-colors hover:bg-(--t-bg-elevated) hover:text-(--t-text-primary)"
             >
               <Icon icon="lucide:x" width={16} />
@@ -101,13 +106,13 @@ function WhatsNewInner() {
           {loading && (
             <div className="flex items-center gap-2 text-sm text-(--t-text-dim) py-6 justify-center">
               <Icon icon="lucide:loader-circle" width={16} className="animate-spin" />
-              Loading changelog…
+              {t("changelog.loading")}
             </div>
           )}
 
           {!loading && !entries && (
             <p className="text-sm text-(--t-text-dim) py-6 text-center">
-              Changelog unavailable offline. Reconnect to see what's new.
+              {t("changelog.unavailable")}
             </p>
           )}
 
@@ -122,7 +127,7 @@ function WhatsNewInner() {
                 className="flex items-center gap-1.5 text-xs font-medium text-(--t-text-dim) transition-colors hover:text-(--t-text-primary)"
               >
                 <Icon icon={showOlder ? "lucide:chevron-down" : "lucide:chevron-right"} width={14} />
-                {showOlder ? "Hide previous releases" : `Previous releases (${older.length})`}
+                {showOlder ? t("changelog.hidePreviousReleases") : t("changelog.previousReleases", { count: older.length })}
               </button>
               {showOlder && older.map((e) => (
                 <EntryBlock key={e.version} entry={e} installed={installed} />
@@ -136,12 +141,14 @@ function WhatsNewInner() {
 }
 
 function UpdateBanner({ state }: { state: UpdaterStatus }) {
+  const { t } = useTranslation();
+
   if (state.status === "downloading") {
     return (
       <div className="px-5 py-3 border-b border-(--t-border) bg-(--t-bg-elevated) shrink-0 space-y-2">
         <div className="flex items-center gap-2 text-sm text-(--t-text-primary)">
           <Icon icon="lucide:download" width={15} className="text-(--t-accent) animate-bounce" />
-          Downloading v{state.version}… {state.progress}%
+          {t("changelog.updateBanner.downloading", { version: state.version, progress: state.progress })}
         </div>
         <div className="h-1 rounded-full overflow-hidden bg-(--t-bg-input)">
           <div className="h-full rounded-full transition-all bg-(--t-accent)" style={{ width: `${state.progress}%` }} />
@@ -155,14 +162,14 @@ function UpdateBanner({ state }: { state: UpdaterStatus }) {
       <div className="flex items-center gap-3 px-5 py-3 border-b border-(--t-border) bg-(--t-bg-elevated) shrink-0">
         <Icon icon="lucide:sparkles" width={15} className="text-(--t-accent) shrink-0" />
         <span className="text-sm text-(--t-text-primary) min-w-0">
-          v{state.version} is ready to install
+          {t("changelog.updateBanner.ready", { version: state.version })}
         </span>
         <button
           onClick={() => installUpdate().catch(() => {})}
           className="btn btn-primary ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0"
         >
           <Icon icon="lucide:refresh-cw" width={13} />
-          Restart to update
+          {t("changelog.updateBanner.restartToUpdate")}
         </button>
       </div>
     );
@@ -173,14 +180,14 @@ function UpdateBanner({ state }: { state: UpdaterStatus }) {
       <div className="flex items-center gap-3 px-5 py-3 border-b border-(--t-border) bg-(--t-bg-elevated) shrink-0">
         <Icon icon="lucide:sparkles" width={15} className="text-(--t-accent) shrink-0" />
         <span className="text-sm text-(--t-text-primary) min-w-0">
-          v{state.version} is available
+          {t("changelog.updateBanner.available", { version: state.version })}
         </span>
         <button
           onClick={() => openDownloadPage().catch(() => {})}
           className="btn btn-primary ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0"
         >
           <Icon icon="lucide:download" width={13} />
-          Download
+          {t("changelog.updateBanner.download")}
         </button>
       </div>
     );
@@ -190,7 +197,7 @@ function UpdateBanner({ state }: { state: UpdaterStatus }) {
     return (
       <div className="flex items-center gap-2 px-5 py-2.5 border-b border-(--t-border) text-xs text-(--t-text-dim) shrink-0">
         <Icon icon="lucide:loader-circle" width={13} className="animate-spin" />
-        Checking for updates…
+        {t("changelog.updateBanner.checking")}
       </div>
     );
   }
@@ -199,6 +206,7 @@ function UpdateBanner({ state }: { state: UpdaterStatus }) {
 }
 
 function EntryBlock({ entry, installed }: { entry: ChangelogEntry; installed: string | null }) {
+  const { t } = useTranslation();
   const isNew = installed != null && cmpSemver(entry.version, installed) > 0;
   return (
     <div className="space-y-3">
@@ -212,7 +220,7 @@ function EntryBlock({ entry, installed }: { entry: ChangelogEntry; installed: st
               background: "color-mix(in srgb, var(--t-accent) 15%, transparent)",
             }}
           >
-            New
+            {t("changelog.newBadge")}
           </span>
         )}
         <span className="text-xs text-(--t-text-dim) ml-auto">{entry.date}</span>
