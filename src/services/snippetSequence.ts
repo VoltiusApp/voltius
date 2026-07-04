@@ -11,7 +11,7 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import i18n from "@/i18n";
 import type { Snippet } from "@/types";
-import type { ParsedVariable } from "./snippetParser";
+import type { ParsedVariable, DynamicContext } from "./snippetParser";
 
 type TransferStep = Extract<LeafStep, { kind: "transfer" }>;
 
@@ -38,11 +38,11 @@ export interface TargetExec {
   close(): Promise<void>;
 }
 
-export interface PreparedTarget { label: string; exec: TargetExec }
+export interface PreparedTarget { label: string; steps: LeafStep[]; exec: TargetExec }
 
-async function runOneTarget(leaf: LeafStep[], exec: TargetExec): Promise<void> {
+async function runOneTarget(steps: LeafStep[], exec: TargetExec): Promise<void> {
   try {
-    for (const step of leaf) {
+    for (const step of steps) {
       if (step.kind === "script") await exec.runScript(step.content);
       else await exec.runTransfer(step);
     }
@@ -52,14 +52,13 @@ async function runOneTarget(leaf: LeafStep[], exec: TargetExec): Promise<void> {
 }
 
 export async function executeSequenceForTargets(
-  leaf: LeafStep[],
   targets: PreparedTarget[],
   flattenErrors: string[] = [],
 ): Promise<SequenceRunResult> {
   const results = await Promise.all(
     targets.map(async (t): Promise<TargetRunResult> => {
       try {
-        await runOneTarget(leaf, t.exec);
+        await runOneTarget(t.steps, t.exec);
         return { label: t.label, ok: true };
       } catch (e) {
         return { label: t.label, ok: false, error: e instanceof Error ? e.message : String(e) };
@@ -89,8 +88,20 @@ export function needsTerminal(leaf: LeafStep[]): boolean {
   return leaf.some((s) => s.kind === "script");
 }
 
-async function prepareTarget(target: RunTarget, leaf: LeafStep[]): Promise<PreparedTarget> {
-  const hasTransfer = leaf.some((s) => s.kind === "transfer");
+/** Build the dynamic-variable context for a single target. Resolved per target
+ *  so `{{connection.*}}` vars differ across a fan-out (host, username, name). */
+export function buildTargetContext(target: RunTarget): DynamicContext {
+  if (target.kind === "connection") {
+    const c = target.connection;
+    return { connectionHost: c.host, connectionUsername: c.username, connectionName: c.name ?? c.host };
+  }
+  const sess = useSessionStore.getState().sessions.find((s) => s.id === target.sessionId);
+  const conns = useConnectionStore.getState().connections;
+  return buildDynamicContext(sess, conns);
+}
+
+async function prepareTarget(target: RunTarget, steps: LeafStep[]): Promise<PreparedTarget> {
+  const hasTransfer = steps.some((s) => s.kind === "transfer");
   let sftpId: string | null = null;
   if (hasTransfer) sftpId = await resolveSftpIdForTarget(target);
 
@@ -113,7 +124,7 @@ async function prepareTarget(target: RunTarget, leaf: LeafStep[]): Promise<Prepa
       if (sftpId) await sftpClose(sftpId);
     },
   };
-  return { label: targetLabel(target), exec };
+  return { label: targetLabel(target), steps, exec };
 }
 
 /**
@@ -131,26 +142,37 @@ export async function runSnippetSequence(
   const byId = new Map(all.map((s) => [s.id, s]));
   const flat = flattenSnippetSteps(snippet, byId);
 
-  const firstSession = targets.find((t) => t.kind === "session") as Extract<RunTarget, { kind: "session" }> | undefined;
-  const sess = firstSession ? useSessionStore.getState().sessions.find((s) => s.id === firstSession.sessionId) : undefined;
-  const conns = useConnectionStore.getState().connections;
-  const ctx = buildDynamicContext(sess, conns);
-
-  const vars = collectSequenceVars(flat.steps, ctx);
+  // User-variable pass is one-shot (which vars prompt, modal preview): dynamic
+  // vars never prompt and user vars are target-independent. Context here is only
+  // used for the modal's partial-template preview, so the first target is fine.
+  const firstTarget = targets[0];
+  const previewCtx = firstTarget
+    ? buildTargetContext(firstTarget)
+    : { connectionHost: "", connectionUsername: "", connectionName: "" };
+  const vars = collectSequenceVars(flat.steps, previewCtx);
 
   const runWith = async (userValues: Record<string, string>): Promise<SequenceRunResult> => {
-    const resolved = resolveLeafSteps(flat.steps, { ...vars.dynValues, ...userValues });
     const prepared = await Promise.all(
-      targets.map((t) => prepareTarget(t, resolved).catch((e): PreparedTarget => ({
-        label: targetLabel(t),
-        exec: {
-          runScript: async () => { throw e; },
-          runTransfer: async () => { throw e; },
-          close: async () => {},
-        },
-      }))),
+      targets.map(async (t): Promise<PreparedTarget> => {
+        // Resolve dynamic vars PER TARGET so {{connection.*}} differs per host.
+        const targetDyn = collectSequenceVars(flat.steps, buildTargetContext(t)).dynValues;
+        const stepsForTarget = resolveLeafSteps(flat.steps, { ...targetDyn, ...userValues });
+        try {
+          return await prepareTarget(t, stepsForTarget);
+        } catch (e) {
+          return {
+            label: targetLabel(t),
+            steps: stepsForTarget,
+            exec: {
+              runScript: async () => { throw e; },
+              runTransfer: async () => { throw e; },
+              close: async () => {},
+            },
+          };
+        }
+      }),
     );
-    return executeSequenceForTargets(resolved, prepared, flat.errors);
+    return executeSequenceForTargets(prepared, flat.errors);
   };
 
   if (vars.missing.length > 0) {

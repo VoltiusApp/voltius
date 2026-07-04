@@ -42,4 +42,20 @@ describe("flattenSnippetSteps", () => {
     expect(r.steps.map((s) => s.kind === "script" && s.content)).toEqual(["a1"]);
     expect(r.errors.some((e) => /missing/i.test(e))).toBe(true);
   });
+
+  it("caps combinatorial diamond-DAG expansion instead of blowing up", () => {
+    // Each level fans out to the next twice → 2^depth leaves without a cap.
+    const depth = 12;
+    const map = new Map<string, Snippet>();
+    for (let i = 0; i < depth; i++) {
+      map.set(`n${i}`, snip(`n${i}`, [
+        { kind: "snippet", snippet_id: `n${i + 1}` },
+        { kind: "snippet", snippet_id: `n${i + 1}` },
+      ]));
+    }
+    map.set(`n${depth}`, snip(`n${depth}`, [{ kind: "script", content: "leaf" }]));
+    const r = flattenSnippetSteps(map.get("n0")!, map);
+    expect(r.steps.length).toBeLessThanOrEqual(1000);
+    expect(r.errors.some((e) => /too many steps/i.test(e))).toBe(true);
+  });
 });

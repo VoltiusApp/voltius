@@ -8,10 +8,12 @@ export interface FlattenResult {
 }
 
 const MAX_DEPTH = 50;
+const MAX_STEPS = 1000;
 
 export function flattenSnippetSteps(root: Snippet, byId: Map<string, Snippet>): FlattenResult {
   const steps: LeafStep[] = [];
   const errors: string[] = [];
+  let capped = false;
 
   function walk(snippet: Snippet, stack: string[], depth: number) {
     if (depth > MAX_DEPTH) {
@@ -19,7 +21,13 @@ export function flattenSnippetSteps(root: Snippet, byId: Map<string, Snippet>): 
       return;
     }
     for (const step of snippet.steps) {
+      if (capped) return;
       if (step.kind === "script" || step.kind === "transfer") {
+        if (steps.length >= MAX_STEPS) {
+          errors.push("Snippet expanded too many steps");
+          capped = true;
+          return;
+        }
         steps.push(step);
         continue;
       }

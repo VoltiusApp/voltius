@@ -19,7 +19,8 @@ vi.mock("@/services/sftpTarget", () => ({
   resolveSftpIdForTarget: (...a: unknown[]) => resolveSftpIdForTarget(...a),
 }));
 
-import { runTransferStep, executeSequenceForTargets, runSnippetSequence, buildSummaryMessage } from "./snippetSequence";
+import { runTransferStep, executeSequenceForTargets, runSnippetSequence, buildSummaryMessage, buildTargetContext } from "./snippetSequence";
+import type { Connection } from "@/types";
 import type { Snippet } from "@/types";
 
 beforeEach(() => {
@@ -45,15 +46,33 @@ describe("executeSequenceForTargets", () => {
     const bad = { runScript: vi.fn(async () => { throw new Error("perm denied"); }), runTransfer: vi.fn(async () => {}), close: vi.fn(async () => {}) };
     const leaf = [{ kind: "script", content: "x" }] as const;
     const res = await executeSequenceForTargets(
-      leaf as never,
       [
-        { label: "web-1", exec: good },
-        { label: "web-2", exec: bad },
+        { label: "web-1", steps: leaf as never, exec: good },
+        { label: "web-2", steps: leaf as never, exec: bad },
       ],
     );
     expect(res.targets.find((t) => t.label === "web-1")?.ok).toBe(true);
     expect(res.targets.find((t) => t.label === "web-2")?.ok).toBe(false);
     expect(res.targets.find((t) => t.label === "web-2")?.error).toMatch(/perm denied/);
+    expect(good.runScript).toHaveBeenCalledWith("x");
+  });
+});
+
+describe("buildTargetContext — per-target dynamic resolution", () => {
+  const conn = (over: Partial<Connection>): Connection => ({
+    id: "c", host: "h", port: 22, username: "u", auth_type: "password",
+    tags: [], created_at: "", last_used_at: null, vault_id: "personal", ...over,
+  } as Connection);
+
+  it("resolves connection host/username/name per target", () => {
+    const t2 = buildTargetContext({ kind: "connection", connection: conn({ host: "h2", username: "u2", name: "n2" }) });
+    const t3 = buildTargetContext({ kind: "connection", connection: conn({ host: "h3", username: "u3" }) });
+    expect(t2.connectionHost).toBe("h2");
+    expect(t2.connectionUsername).toBe("u2");
+    expect(t2.connectionName).toBe("n2");
+    // A second fan-out target resolves {{connection.host}} to ITS own host, not h2.
+    expect(t3.connectionHost).toBe("h3");
+    expect(t3.connectionName).toBe("h3"); // falls back to host when name unset
   });
 });
 
