@@ -1,4 +1,5 @@
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { useUIStore, type NavItem } from "@/stores/uiStore";
 import { useRipple } from "@/hooks/useRipple";
 
@@ -8,20 +9,26 @@ interface NavEntry {
   icon: string;
 }
 
-const NAV_ITEMS: NavEntry[] = [
-  { id: "hosts",           label: "Hosts",           icon: "lucide:server" },
-  { id: "keychain",        label: "Keychain",        icon: "lucide:key-round" },
-  { id: "port-forwarding", label: "Port Forwarding", icon: "lucide:arrow-left-right" },
-  { id: "snippets",        label: "Snippets",        icon: "lucide:braces" },
-  { id: "known-hosts",     label: "Known Hosts",     icon: "lucide:fingerprint-pattern" },
-  { id: "members",         label: "Members",         icon: "lucide:users-round" },
-  { id: "logs",            label: "Logs",            icon: "lucide:scroll-text" },
+const NAV_ITEM_DEFS: { id: NavItem; icon: string }[] = [
+  { id: "hosts",           icon: "lucide:server" },
+  { id: "keychain",        icon: "lucide:key-round" },
+  { id: "port-forwarding", icon: "lucide:arrow-left-right" },
+  { id: "snippets",        icon: "lucide:braces" },
+  { id: "known-hosts",     icon: "lucide:fingerprint-pattern" },
+  { id: "members",         icon: "lucide:users-round" },
+  { id: "logs",            icon: "lucide:scroll-text" },
 ];
 
 export default function NavBar() {
+  const { t } = useTranslation();
   const activeNav = useUIStore((s) => s.activeNav);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
   const setSftpPanelOpen = useUIStore((s) => s.setSftpPanelOpen);
+
+  const NAV_ITEMS: NavEntry[] = NAV_ITEM_DEFS.map((d) => ({
+    ...d,
+    label: t(`layout.nav.${d.id}`),
+  }));
 
   const handleNav = (id: NavItem) => {
     setSftpPanelOpen(false);

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { getVaultStatus } from "@/services/vault";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
@@ -25,14 +26,13 @@ type StepStatus = "pending" | "running" | "done" | "error";
 interface Step { id: string; label: string; status: StepStatus; }
 interface Props { onReady: () => void; }
 
-const INITIAL_STEPS: Step[] = [
-  { id: "init",        label: "Initializing app",    status: "pending" },
-  { id: "vault",       label: "Checking vault",      status: "pending" },
-  { id: "connections", label: "Loading connections",  status: "pending" },
-];
+const STEP_IDS = ["init", "vault", "connections"] as const;
 
 export default function SplashScreen({ onReady }: Props) {
-  const [steps, setSteps] = useState<Step[]>(INITIAL_STEPS);
+  const { t } = useTranslation();
+  const [steps, setSteps] = useState<Step[]>(() =>
+    STEP_IDS.map((id) => ({ id, label: t(`layout.splash.steps.${id}`), status: "pending" as StepStatus })),
+  );
   const [phase, setPhase] = useState<Phase>("loading");
   const [exiting, setExiting] = useState(false);
 
@@ -51,10 +51,10 @@ export default function SplashScreen({ onReady }: Props) {
       if (consumeForceLockFlag()) {
         try {
           const { exists } = await getVaultStatus();
-          setStep("vault", "done", exists ? "Vault locked" : "First launch");
+          setStep("vault", "done", exists ? t("layout.splash.vaultLocked") : t("layout.splash.firstLaunch"));
           setPhase(exists ? "auth-locked" : "auth-first-launch");
         } catch {
-          setStep("vault", "error", "Vault check failed");
+          setStep("vault", "error", t("layout.splash.vaultCheckFailed"));
           setPhase("auth-first-launch");
         }
         return;
@@ -62,7 +62,7 @@ export default function SplashScreen({ onReady }: Props) {
 
       const autoOk = await autoLogin();
       if (autoOk) {
-        setStep("vault", "done", "Session restored");
+        setStep("vault", "done", t("layout.splash.sessionRestored"));
         setPhase("finishing");
         saveCurrentAccount().catch(() => {}); // keep saved accounts list fresh
         await finishLoading();
@@ -72,18 +72,19 @@ export default function SplashScreen({ onReady }: Props) {
       // autoLogin failed — check if a vault already exists (locked) or first launch
       try {
         const { exists } = await getVaultStatus();
-        setStep("vault", "done", exists ? "Vault found" : "First launch");
+        setStep("vault", "done", exists ? t("layout.splash.vaultFound") : t("layout.splash.firstLaunch"));
         setPhase(exists ? "auth-locked" : "auth-first-launch");
       } catch {
-        setStep("vault", "error", "Vault check failed");
+        setStep("vault", "error", t("layout.splash.vaultCheckFailed"));
         setPhase("auth-first-launch");
       }
     }
     init().catch(() => {
       // Last-resort guard: never let an unexpected rejection freeze the splash.
-      setStep("vault", "error", "Vault check failed");
+      setStep("vault", "error", t("layout.splash.vaultCheckFailed"));
       setPhase("auth-first-launch");
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
   const finishLoading = async () => {
@@ -102,7 +103,7 @@ export default function SplashScreen({ onReady }: Props) {
       ]);
       setStep("connections", "done");
     } catch {
-      setStep("connections", "error", "Connections unavailable");
+      setStep("connections", "error", t("layout.splash.connectionsUnavailable"));
     }
     useSubscriptionStore.getState().load().catch(() => {});
     isServerMode().then((server) => {
@@ -155,7 +156,7 @@ export default function SplashScreen({ onReady }: Props) {
       <div className="mb-10 text-center">
         <LogoBadge size={14} className="mb-4" />
         <h1 className="text-xl font-bold tracking-wide text-(--t-text-bright)">Voltius</h1>
-        <p className="text-xs mt-1 text-(--t-text-muted)">SSH Client</p>
+        <p className="text-xs mt-1 text-(--t-text-muted)">{t("layout.splash.sshClient")}</p>
       </div>
 
       <div className="w-64 space-y-2.5">

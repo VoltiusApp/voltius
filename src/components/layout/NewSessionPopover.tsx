@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -52,6 +53,7 @@ function VaultBadge({ vaultId }: { vaultId: string | undefined }) {
 }
 
 export function NewSessionPopover({ anchorRef, onClose }: NewSessionPopoverProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -187,7 +189,7 @@ export function NewSessionPopover({ anchorRef, onClose }: NewSessionPopoverProps
 
   const shellRow = (shell: ShellOption | null, rowIdx: number) => {
     const isSel = selected === rowIdx;
-    const label = shell ? shellLabel(shell.name) : "Local shell";
+    const label = shell ? shellLabel(shell.name) : t("layout.newSession.localShellFallback");
     const showPath = !!shell && shellNeedsPath.has(label);
     return (
       <button
@@ -217,8 +219,8 @@ export function NewSessionPopover({ anchorRef, onClose }: NewSessionPopoverProps
 
   const quickLabel = quickIntent && (
     quickIntent.kind === "ssh"
-      ? { t: `Connect to ${quickIntent.user}@${quickIntent.host}`, s: `Port ${quickIntent.port} · SSH`, i: "lucide:arrow-right" }
-      : { t: "Serial connection", s: quickIntent.port ?? "Configure port & baud", i: "lucide:ethernet-port" }
+      ? { t: t("layout.newSession.connectTo", { user: quickIntent.user, host: quickIntent.host }), s: t("layout.newSession.portSsh", { port: quickIntent.port }), i: "lucide:arrow-right" }
+      : { t: t("layout.newSession.serialConnection"), s: quickIntent.port ?? t("layout.newSession.configurePortBaud"), i: "lucide:ethernet-port" }
   );
 
   return createPortal(
@@ -233,7 +235,7 @@ export function NewSessionPopover({ anchorRef, onClose }: NewSessionPopoverProps
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="ssh user@host · serial · local …"
+          placeholder={t("layout.newSession.searchPlaceholder")}
           className="flex-1 bg-transparent text-sm outline-hidden text-(--t-text-primary)"
         />
       </div>
@@ -241,7 +243,7 @@ export function NewSessionPopover({ anchorRef, onClose }: NewSessionPopoverProps
       <div className="overflow-y-auto py-1.5" style={{ maxHeight: "360px" }}>
         {quickIntent && quickLabel && (
           <>
-            {sectionHeader("Quick Connect", false)}
+            {sectionHeader(t("layout.newSession.sectionQuickConnect"), false)}
             <button
               data-idx={quickIdx}
               onClick={() => activate({ kind: "quick-connect", intent: quickIntent })}
@@ -262,27 +264,27 @@ export function NewSessionPopover({ anchorRef, onClose }: NewSessionPopoverProps
 
         {recent.length > 0 && (
           <>
-            {sectionHeader("Recent", !!quickIntent)}
+            {sectionHeader(t("layout.newSession.sectionRecent"), !!quickIntent)}
             {recent.map((c, i) => hostRow(c, recentStart + i))}
           </>
         )}
 
         {hosts.length > 0 && (
           <>
-            {sectionHeader("Hosts", !!quickIntent || recent.length > 0)}
+            {sectionHeader(t("common.entity.hosts"), !!quickIntent || recent.length > 0)}
             {hosts.map((c, i) => hostRow(c, hostsStart + i))}
           </>
         )}
 
         {recent.length === 0 && hosts.length === 0 && !quickIntent && (
           <p className="px-3 py-5 text-sm text-center text-(--t-text-dim)">
-            {query.trim() ? `No hosts match "${query.trim()}"` : "No hosts yet"}
+            {query.trim() ? t("layout.newSession.noHostsMatch", { query: query.trim() }) : t("layout.newSession.noHostsYet")}
           </p>
         )}
 
         {!isAndroid && (
           <>
-            {sectionHeader("Local", !!quickIntent || recent.length > 0 || hosts.length > 0)}
+            {sectionHeader(t("layout.newSession.sectionLocal"), !!quickIntent || recent.length > 0 || hosts.length > 0)}
             {localShells.map((shell, i) => shellRow(shell, localStart + i))}
           </>
         )}

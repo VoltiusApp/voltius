@@ -1,5 +1,6 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -30,6 +31,7 @@ type TitlebarItem =
   | { key: string; type: "session"; session: ReturnType<typeof useSessionStore.getState>["sessions"][number] };
 
 export default function TitleBar() {
+  const { t } = useTranslation();
   const setActiveNav = useUIStore((s) => s.setActiveNav);
   const activeNav = useUIStore((s) => s.activeNav);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
@@ -235,7 +237,7 @@ export default function TitleBar() {
           }}
         >
           <Icon icon="lucide:vault" width={20} />
-          {!isVaultCompact && <span>Vaults</span>}
+          {!isVaultCompact && <span>{t("common.entity.vaults")}</span>}
         </button>
 
         {/* SFTP button */}
@@ -252,7 +254,7 @@ export default function TitleBar() {
             borderRadius: "0.667rem",
             padding: isSftpCompact ? "0 0.667rem" : "0 1.067rem",
           }}
-          title="File Transfer (SFTP)"
+          title={t("layout.titleBar.sftpTitle")}
           onMouseEnter={(e) => {
             if (!sftpPanelOpen) {
               (e.currentTarget as HTMLButtonElement).style.background = "var(--t-vault-tab-active-bg)";
@@ -266,7 +268,7 @@ export default function TitleBar() {
           }}
         >
           <Icon icon="lucide:folder-closed" width={20} />
-          {!isSftpCompact && <span>SFTP</span>}
+          {!isSftpCompact && <span>{t("layout.titleBar.sftp")}</span>}
         </button>
 
         {/* Separator */}
@@ -307,7 +309,7 @@ export default function TitleBar() {
                     if (e.button === 1) { e.preventDefault(); handleUnifiedTabClose(e, tab.id); }
                   }}
                   className="group relative flex items-center gap-2 h-9 px-2 rounded-xl text-base font-medium-bold shrink-0 transition-all"
-                  title="Unified split tab"
+                  title={t("layout.titleBar.unifiedSplitTab")}
                   style={{
                     background: isActiveSplitTab ? "var(--t-tab-active-bg)" : "var(--t-tab-bg)",
                     color: isActiveSplitTab ? "var(--t-tab-active-text)" : "var(--t-text-secondary)",
@@ -316,7 +318,7 @@ export default function TitleBar() {
                 >
                   <Icon icon="lucide:layout-dashboard" width={18} />
                   <span className="max-w-[140px] truncate">
-                    {tabActiveSession?.connectionName ?? "Split"}{tabSessionIds.length > 1 ? ` + ${tabSessionIds.length - 1}` : ""}
+                    {tabActiveSession?.connectionName ?? t("layout.titleBar.splitFallback")}{tabSessionIds.length > 1 ? t("layout.titleBar.splitCountSuffix", { count: tabSessionIds.length - 1 }) : ""}
                   </span>
                   <span
                     onClick={(e) => handleUnifiedTabClose(e, tab.id)}
@@ -454,7 +456,7 @@ export default function TitleBar() {
               }}
             >
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--t-status-error)" }} />
-              Ended
+              {t("layout.titleBar.ended")}
             </span>
           ) : (
             <span
@@ -466,7 +468,7 @@ export default function TitleBar() {
               }}
             >
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "var(--t-accent)" }} />
-              Watching
+              {t("layout.titleBar.watching")}
             </span>
           )}
         </div>
@@ -489,10 +491,10 @@ export default function TitleBar() {
                 : "1px solid transparent",
             }}
             title={
-              isActiveSessionSharing        ? "Currently sharing" :
-              accountMode !== "server"      ? "Sign in to share your terminal" :
-              tier === "free"               ? "Terminal sharing requires Pro — click to upgrade" :
-                                              "Share terminal"
+              isActiveSessionSharing        ? t("layout.titleBar.sharingCurrently") :
+              accountMode !== "server"      ? t("layout.titleBar.signInToShare") :
+              tier === "free"               ? t("layout.titleBar.sharingRequiresPro") :
+                                              t("layout.titleBar.shareTerminal")
             }
             onMouseEnter={(e) => {
               if (!isActiveSessionSharing && !shareDropdownOpen) {
@@ -508,7 +510,7 @@ export default function TitleBar() {
             }}
           >
             <Icon icon="lucide:radio" width={13} />
-            {isActiveSessionSharing ? "Sharing" : "Share"}
+            {isActiveSessionSharing ? t("layout.titleBar.sharing") : t("layout.titleBar.share")}
           </button>
           {activeSessionId && (
             <ShareMenu
@@ -516,7 +518,7 @@ export default function TitleBar() {
               open={shareDropdownOpen}
               onClose={() => setShareDropdownOpen(false)}
               activeSessionId={activeSessionId}
-              connectionName={activeSession?.connectionName ?? "Terminal"}
+              connectionName={activeSession?.connectionName ?? t("layout.titleBar.terminalFallback")}
               connectionVaultId={connections.find((c) => c.id === activeSession?.connectionId)?.vault_id}
               isLoggedIn={accountMode === "server"}
               tier={tier}
@@ -538,7 +540,7 @@ export default function TitleBar() {
               color: rightPanelOpen ? "var(--t-tab-active-text)" : "var(--t-text-secondary)",
               border: rightPanelOpen ? "1px solid var(--t-tab-active-border)" : "1px solid transparent",
             }}
-            title={`Themes & tools · ${activeThemeName}`}
+            title={t("layout.titleBar.themesTools", { theme: activeThemeName })}
             onMouseEnter={(e) => { if (!rightPanelOpen) { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-bright)"; (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)"; } }}
             onMouseLeave={(e) => { if (!rightPanelOpen) { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-secondary)"; (e.currentTarget as HTMLButtonElement).style.background = "transparent"; } }}
           >
@@ -551,13 +553,13 @@ export default function TitleBar() {
 
       {/* Window controls */}
       <div className="flex items-center gap-0.5 px-2 shrink-0">
-        <TitleBarBtn onClick={() => appWindow.minimize()} title="Minimize">
+        <TitleBarBtn onClick={() => appWindow.minimize()} title={t("layout.titleBar.minimize")}>
           <Icon icon="lucide:minus" width={20} />
         </TitleBarBtn>
-        <TitleBarBtn onClick={() => appWindow.toggleMaximize()} title="Maximize">
+        <TitleBarBtn onClick={() => appWindow.toggleMaximize()} title={t("layout.titleBar.maximize")}>
           <Icon icon="lucide:square" width={15} />
         </TitleBarBtn>
-        <TitleBarBtn onClick={() => appWindow.close()} title="Close">
+        <TitleBarBtn onClick={() => appWindow.close()} title={t("layout.titleBar.close")}>
           <Icon icon="lucide:x" width={20} />
         </TitleBarBtn>
       </div>
@@ -566,6 +568,7 @@ export default function TitleBar() {
 }
 
 function NewTabButton() {
+  const { t } = useTranslation();
   const { createRipple, rippleEls } = useRipple();
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -592,7 +595,7 @@ function NewTabButton() {
             (e.currentTarget as HTMLButtonElement).style.background = "transparent";
           }
         }}
-        title="New session"
+        title={t("layout.titleBar.newSession")}
       >
         {rippleEls}
         <Icon icon="lucide:plus" width={22} />
@@ -674,6 +677,7 @@ function TitleBarBtn({ onClick, title, children }: {
 
 
 function SubscriptionBadge() {
+  const { t } = useTranslation();
   const openSettings = useUIStore((s) => s.openSettings);
   const { tier, trialEndsAt, trialUsed, trialKnown, isTrialActive } = useSubscriptionStore();
   const [hovered, setHovered] = useState(false);
@@ -685,12 +689,12 @@ function SubscriptionBadge() {
     : 0;
 
   const hoverLabel = isTrialActive
-    ? `Pro Trial — ${daysLeft}d left`
-    : tier === "teams" ? "Teams"
-    : tier === "business" ? "Business"
-    : tier === "pro" ? "Pro"
-    : trialKnown && !trialUsed ? "Upgrade · 14d Free Trial"
-    : "Upgrade";
+    ? t("layout.titleBar.plan.proTrial", { daysLeft })
+    : tier === "teams" ? t("layout.titleBar.plan.teams")
+    : tier === "business" ? t("layout.titleBar.plan.business")
+    : tier === "pro" ? t("layout.titleBar.plan.pro")
+    : trialKnown && !trialUsed ? t("layout.titleBar.plan.upgradeTrial")
+    : t("layout.titleBar.plan.upgrade");
 
   return (
     <div className="flex items-center px-1 shrink-0">
@@ -741,6 +745,7 @@ function SyncIndicator({
   configured: boolean;
   onClick: () => void;
 }) {
+  const { t } = useTranslation();
   const { createRipple, rippleEls } = useRipple();
   const icon = !configured ? "lucide:cloud-off" :
     status === "syncing" ? "lucide:refresh-cw" :
@@ -756,12 +761,12 @@ function SyncIndicator({
     status === "offline" ? "var(--t-text-dim)" :
                            "var(--t-text-muted)";
 
-  const title = !configured ? "Sync not configured" :
-    status === "syncing" ? "Syncing…" :
-    status === "success" ? `Synced${lastSync ? ` · ${lastSync.toLocaleTimeString()}` : ""}` :
-    status === "error"   ? `Sync error: ${error ?? "unknown"}` :
-    status === "offline" ? "Offline" :
-                           "Sync";
+  const title = !configured ? t("layout.sync.status.notConfigured") :
+    status === "syncing" ? t("layout.sync.status.syncing") :
+    status === "success" ? (lastSync ? t("layout.sync.status.syncedAt", { time: lastSync.toLocaleTimeString() }) : t("layout.sync.status.synced")) :
+    status === "error"   ? t("layout.sync.status.errorDetail", { error: error ?? t("layout.sync.status.unknown") }) :
+    status === "offline" ? t("layout.sync.status.offline") :
+                           t("layout.sync.status.default");
 
   return (
     <div className="flex items-center px-1 shrink-0">

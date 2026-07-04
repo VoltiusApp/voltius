@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { Modal } from "@/components/shared/Modal";
 import { useUIStore, type CloudAuthMode } from "@/stores/uiStore";
@@ -9,6 +10,7 @@ import { startRealtimeSync, syncOnLogin, syncOnLoginReplace } from "@/services/s
 const DEFAULT_SERVER = "https://api.voltius.app";
 
 export default function CloudAuthModal() {
+  const { t } = useTranslation();
   const open = useUIStore((s) => s.cloudAuthOpen);
   const mode = useUIStore((s) => s.cloudAuthMode);
   const setMode = useUIStore((s) => s.setCloudAuthMode);
@@ -44,13 +46,13 @@ export default function CloudAuthModal() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!email.includes("@")) { setError("Invalid email"); return; }
+    if (!email.includes("@")) { setError(t("layout.auth.errorInvalidEmail")); return; }
     const normalizedUrl = serverUrl.replace(/\/+$/, "");
 
-    if (!isRegister && password.length < 1) { setError("Password required"); return; }
+    if (!isRegister && password.length < 1) { setError(t("layout.cloudAuthModal.errorPasswordRequired")); return; }
     if (isRegister && isLocalNoPassword) {
-      if (password.length < 4) { setError("At least 4 characters"); return; }
-      if (password !== confirm) { setError("Passwords don't match"); return; }
+      if (password.length < 4) { setError(t("layout.cloudAuthModal.errorMinLength4")); return; }
+      if (password !== confirm) { setError(t("layout.auth.errorPasswordMismatch")); return; }
     }
 
     setLoading(true);
@@ -92,12 +94,12 @@ export default function CloudAuthModal() {
           </div>
           <div>
             <p className="text-base font-semibold text-(--t-text-primary) mb-1">
-              {isRegister ? "Create cloud account" : "Sign in to cloud account"}
+              {isRegister ? t("layout.cloudAuthModal.registerTitle") : t("layout.cloudAuthModal.signinTitle")}
             </p>
             <p className="text-sm text-(--t-text-muted) leading-relaxed">
               {isRegister
-                ? "Create an account to sync this vault and unlock cloud features. Your data stays end-to-end encrypted."
-                : "Sign in to enable sync, subscriptions, team features, and shared vaults."
+                ? t("layout.cloudAuthModal.registerDesc")
+                : t("layout.cloudAuthModal.signinDesc")
               }
             </p>
           </div>
@@ -114,21 +116,21 @@ export default function CloudAuthModal() {
                 className="flex-1 py-1.5 text-xs font-medium transition-colors"
                 style={{ background: active ? "var(--t-accent)" : "var(--t-bg-elevated)", color: active ? "#fff" : "var(--t-text-muted)" }}
               >
-                {next === "signin" ? "Sign in" : "Create account"}
+                {next === "signin" ? t("layout.auth.signIn") : t("layout.auth.createAccount")}
               </button>
             );
           })}
         </div>
 
         <form onSubmit={submit} className="space-y-2">
-          <AuthInput type="email" placeholder="Email" value={email} onChange={setEmail} autoFocus />
+          <AuthInput type="email" placeholder={t("layout.auth.emailPlaceholder")} value={email} onChange={setEmail} autoFocus />
           {!isRegister && (
-            <AuthInput type="password" placeholder="Master password" value={password} onChange={setPassword} />
+            <AuthInput type="password" placeholder={t("layout.auth.masterPasswordPlaceholder")} value={password} onChange={setPassword} />
           )}
           {isRegister && isLocalNoPassword && (
             <>
-              <AuthInput type="password" placeholder="Create master password" value={password} onChange={setPassword} />
-              <AuthInput type="password" placeholder="Confirm master password" value={confirm} onChange={setConfirm} />
+              <AuthInput type="password" placeholder={t("layout.cloudAuthModal.createMasterPasswordPlaceholder")} value={password} onChange={setPassword} />
+              <AuthInput type="password" placeholder={t("layout.cloudAuthModal.confirmMasterPasswordPlaceholder")} value={confirm} onChange={setConfirm} />
             </>
           )}
 
@@ -137,7 +139,7 @@ export default function CloudAuthModal() {
             onClick={() => setShowServerUrl((v) => !v)}
             className="text-xs w-full text-left transition-colors text-(--t-text-dim)"
           >
-            {showServerUrl ? "▾" : "▸"} Custom server URL
+            {showServerUrl ? "▾" : "▸"} {t("layout.auth.customServerUrl")}
           </button>
           {showServerUrl && (
             <AuthInput type="url" placeholder="https://api.voltius.app" value={serverUrl} onChange={setServerUrl} />
@@ -150,14 +152,14 @@ export default function CloudAuthModal() {
             disabled={loading}
             className="btn btn-primary w-full py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
           >
-            {loading ? "Please wait…" : isRegister ? "Create account" : "Sign in"}
+            {loading ? t("layout.cloudAuthModal.pleaseWait") : isRegister ? t("layout.auth.createAccount") : t("layout.auth.signIn")}
           </button>
           <button
             type="button"
             onClick={onClose}
             className="btn btn-ghost w-full py-2.5 rounded-lg text-sm"
           >
-            Cancel
+            {t("common.action.cancel")}
           </button>
         </form>
       </div>

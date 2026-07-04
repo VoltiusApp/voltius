@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
+import i18n from "@/i18n";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useVaultContents } from "@/hooks/useVaultContents";
@@ -24,6 +26,7 @@ const BUILTIN_ROLE_COLORS: Record<string, string> = {
 const MAX_STACK = 3;
 
 function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMember[]; roles: TeamRole[]; onInviteClick: () => void }) {
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const [invHovered, setInvHovered] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -85,7 +88,7 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
             >
               <div className="px-3 py-2" style={{ borderBottom: "1px solid var(--t-border)" }}>
                 <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--t-text-dim)" }}>
-                  {onlineCount > 0 ? `${onlineCount} online` : "no one online"}
+                  {onlineCount > 0 ? t("layout.vaultHeader.onlineCount", { count: onlineCount }) : t("layout.vaultHeader.noOneOnline")}
                 </span>
               </div>
               {members.map((m) => {
@@ -130,7 +133,7 @@ function OnlineMembersStack({ members, roles, onInviteClick }: { members: TeamMe
         onClick={onInviteClick}
         onMouseEnter={() => setInvHovered(true)}
         onMouseLeave={() => setInvHovered(false)}
-        title="Invite member"
+        title={t("layout.vaultHeader.inviteMember")}
         className="rounded-full flex items-center justify-center transition-all shrink-0"
         style={{
           width: 26,
@@ -152,14 +155,15 @@ function relativeTime(date: Date | null): string | null {
   if (!date) return null;
   const diffMs = Date.now() - date.getTime();
   const diffMin = Math.floor(diffMs / 60_000);
-  if (diffMin < 1) return "just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffMin < 1) return i18n.t("layout.vaultHeader.relativeTime.justNow");
+  if (diffMin < 60) return i18n.t("layout.vaultHeader.relativeTime.minutesAgo", { count: diffMin });
   const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  return `${Math.floor(diffHr / 24)}d ago`;
+  if (diffHr < 24) return i18n.t("layout.vaultHeader.relativeTime.hoursAgo", { count: diffHr });
+  return i18n.t("layout.vaultHeader.relativeTime.daysAgo", { count: Math.floor(diffHr / 24) });
 }
 
 export default function VaultHeader() {
+  const { t } = useTranslation();
   const vaults = useVaultStore((s) => s.vaults);
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
@@ -230,19 +234,19 @@ export default function VaultHeader() {
             <span className="text-base font-semibold truncate" style={{ color: "var(--t-text-primary)" }}>
               {displayName}
             </span>
-            {team && <Badge label="team" />}
+            {team && <Badge label={t("layout.vaultHeader.teamBadge")} />}
             {members !== null && (
-              <Badge label={`${members.length} member${members.length !== 1 ? "s" : ""}`} accent />
+              <Badge label={t("layout.vaultHeader.memberCount", { count: members.length })} accent />
             )}
             {showSync && (
-              <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>Last sync {lastSync}</span>
+              <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>{t("layout.vaultHeader.lastSync", { time: lastSync })}</span>
             )}
           </div>
           <div className="flex items-center gap-3 text-xs mt-0.5 flex-wrap" style={{ color: "var(--t-text-dim)" }}>
             {isE2EE && (
               <span className="flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--t-status-connected)" }} />
-                E2EE
+                {t("layout.vaultHeader.e2ee")}
               </span>
             )}
             <ContentCounts counts={counts} />
@@ -280,7 +284,7 @@ export default function VaultHeader() {
         }}
       >
         <Icon icon="lucide:search" width={14} className="shrink-0" />
-        <span className="text-sm flex-1 text-left">Jump to...</span>
+        <span className="text-sm flex-1 text-left">{t("layout.vaultHeader.jumpTo")}</span>
         <kbd
           className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-md"
           style={{

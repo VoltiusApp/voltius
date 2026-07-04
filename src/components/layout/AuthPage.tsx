@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import LogoBadge from "./LogoBadge";
 import {
@@ -20,6 +21,7 @@ interface Props {
 const DEFAULT_SERVER = "https://api.voltius.app";
 
 export default function AuthPage({ isLocked, onReady }: Props) {
+  const { t } = useTranslation();
   const [view, setView] = useState<View>("home");
   const [cloudMode, setCloudMode] = useState<CloudMode>("signup");
   const [loading, setLoading] = useState(false);
@@ -63,13 +65,13 @@ export default function AuthPage({ isLocked, onReady }: Props) {
     return (
       <Layout>
         <p className="text-xs mb-4 text-center text-(--t-text-muted)">
-          Enter your master password to unlock
+          {t("layout.auth.unlockPrompt")}
         </p>
         <form onSubmit={submit} className="w-full space-y-2">
-          <Input type="password" placeholder="Master password" value={password}
+          <Input type="password" placeholder={t("layout.auth.masterPasswordPlaceholder")} value={password}
             onChange={setPassword} autoFocus />
           <ErrorMsg msg={error} />
-          <SubmitBtn loading={loading} label="Unlock" />
+          <SubmitBtn loading={loading} label={t("layout.auth.unlock")} />
         </form>
         <button
           type="button"
@@ -80,7 +82,7 @@ export default function AuthPage({ isLocked, onReady }: Props) {
           }}
           className="mt-1 text-xs w-full text-center transition-colors text-(--t-text-dim) hover:text-(--t-status-error)"
         >
-          Reset vault (deletes all local data)
+          {t("layout.auth.resetVault")}
         </button>
       </Layout>
     );
@@ -92,13 +94,13 @@ export default function AuthPage({ isLocked, onReady }: Props) {
     return (
       <Layout>
         <p className="text-xs mb-6 text-center text-(--t-text-muted)">
-          Choose how you want to use Voltius
+          {t("layout.auth.chooseHowToUse")}
         </p>
 
         <ActionButton
           icon="lucide:zap"
-          label="Get started"
-          sub="Secured by OS keychain — no password needed"
+          label={t("layout.auth.getStarted")}
+          sub={t("layout.auth.getStartedSub")}
           primary
           loading={loading}
           onClick={() => wrap(createLocalAccountNoPassword)}
@@ -106,14 +108,14 @@ export default function AuthPage({ isLocked, onReady }: Props) {
 
         <div className="flex items-center gap-2 my-4">
           <div className="flex-1 h-px bg-(--t-border)" />
-          <span className="text-xs text-(--t-text-dim)">or</span>
+          <span className="text-xs text-(--t-text-dim)">{t("layout.auth.or")}</span>
           <div className="flex-1 h-px bg-(--t-border)" />
         </div>
 
         <ActionButton
           icon="lucide:cloud"
-          label="Cloud account"
-          sub="Sync across devices — sign in or create one"
+          label={t("layout.auth.cloudAccount")}
+          sub={t("layout.auth.cloudAccountSub")}
           onClick={() => reset("cloud", "signup")}
         />
       </Layout>
@@ -127,18 +129,18 @@ export default function AuthPage({ isLocked, onReady }: Props) {
 
     const submit = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!email.includes("@")) { setError("Invalid email"); return; }
+      if (!email.includes("@")) { setError(t("layout.auth.errorInvalidEmail")); return; }
       const normalizedUrl = serverUrl.replace(/\/+$/, "");
       if (isSignup) {
-        if (password.length < 8) { setError("At least 8 characters"); return; }
-        if (password !== confirm) { setError("Passwords don't match"); return; }
+        if (password.length < 8) { setError(t("layout.auth.errorMinLength8")); return; }
+        if (password !== confirm) { setError(t("layout.auth.errorPasswordMismatch")); return; }
         await wrap(async () => {
           await createServerAccount(email, password, normalizedUrl);
           addToast({
             pluginId: "system",
             pluginName: "Voltius",
             type: "toast",
-            message: "Account created! Check your email to verify.",
+            message: t("layout.auth.accountCreatedToast"),
             severity: "info",
             duration: 5000,
           });
@@ -151,51 +153,51 @@ export default function AuthPage({ isLocked, onReady }: Props) {
     return (
       <Layout onBack={() => reset("home")}>
         <p className="text-xs mb-4 text-center text-(--t-text-muted)">
-          {isSignup ? "Create an account to sync across devices" : "Sign in to restore your synced data"}
+          {isSignup ? t("layout.auth.signupPrompt") : t("layout.auth.signinPrompt")}
         </p>
         <form onSubmit={submit} className="w-full space-y-2">
-          <Input type="email" placeholder="Email" value={email} onChange={setEmail} autoFocus />
-          <Input type="password" placeholder={isSignup ? "Master password (min 8 chars)" : "Master password"}
+          <Input type="email" placeholder={t("layout.auth.emailPlaceholder")} value={email} onChange={setEmail} autoFocus />
+          <Input type="password" placeholder={isSignup ? t("layout.auth.masterPasswordMinPlaceholder") : t("layout.auth.masterPasswordPlaceholder")}
             value={password} onChange={setPassword} />
           {isSignup && (
-            <Input type="password" placeholder="Confirm password" value={confirm} onChange={setConfirm} />
+            <Input type="password" placeholder={t("layout.auth.confirmPasswordPlaceholder")} value={confirm} onChange={setConfirm} />
           )}
           <button
             type="button"
             onClick={() => setShowServerUrl((v) => !v)}
             className="text-xs w-full text-left transition-colors text-(--t-text-dim)"
           >
-            {showServerUrl ? "▾" : "▸"} Custom server URL
+            {showServerUrl ? "▾" : "▸"} {t("layout.auth.customServerUrl")}
           </button>
           {showServerUrl && (
             <Input type="url" placeholder="https://api.voltius.app"
               value={serverUrl} onChange={setServerUrl} />
           )}
           <ErrorMsg msg={error} />
-          <SubmitBtn loading={loading} label={isSignup ? "Create account" : "Sign in"} />
+          <SubmitBtn loading={loading} label={isSignup ? t("layout.auth.createAccount") : t("layout.auth.signIn")} />
         </form>
 
         <div className="mt-3 text-center">
           {isSignup ? (
             <>
-              <span className="text-xs text-(--t-text-dim)">Already have an account? </span>
+              <span className="text-xs text-(--t-text-dim)">{t("layout.auth.alreadyHaveAccount")}</span>
               <button
                 type="button"
                 onClick={() => { setCloudMode("signin"); setError(""); setConfirm(""); }}
                 className="text-xs text-(--t-accent) hover:underline"
               >
-                Sign in
+                {t("layout.auth.signIn")}
               </button>
             </>
           ) : (
             <>
-              <span className="text-xs text-(--t-text-dim)">New here? </span>
+              <span className="text-xs text-(--t-text-dim)">{t("layout.auth.newHere")}</span>
               <button
                 type="button"
                 onClick={() => { setCloudMode("signup"); setError(""); }}
                 className="text-xs text-(--t-accent) hover:underline"
               >
-                Create account
+                {t("layout.auth.createAccount")}
               </button>
             </>
           )}
@@ -203,21 +205,21 @@ export default function AuthPage({ isLocked, onReady }: Props) {
 
         {isSignup && (
           <p className="mt-2 text-xs text-center text-(--t-text-dim) leading-relaxed">
-            Your data is E2E encrypted — the server cannot read it.{" "}
+            {t("layout.auth.e2eeNotice")}{" "}
             <a href="https://github.com/VoltiusApp/voltius" target="_blank" rel="noreferrer"
               className="text-(--t-accent) hover:underline">
-              Open source.
+              {t("layout.auth.openSource")}
             </a>
             <br />
-            By creating an account you agree to our{" "}
+            {t("layout.auth.agreeToTerms")}{" "}
             <a href="https://voltius.app/terms" target="_blank" rel="noreferrer"
               className="text-(--t-accent) hover:underline">
-              Terms of Service
+              {t("layout.auth.termsOfService")}
             </a>{" "}
-            and{" "}
+            {t("layout.auth.and")}{" "}
             <a href="https://voltius.app/privacy" target="_blank" rel="noreferrer"
               className="text-(--t-accent) hover:underline">
-              Privacy Policy
+              {t("layout.auth.privacyPolicy")}
             </a>
             .
           </p>
@@ -232,13 +234,14 @@ export default function AuthPage({ isLocked, onReady }: Props) {
 // ── Shared sub-components ────────────────────────────────────────────────────
 
 function Layout({ children, onBack }: { children: React.ReactNode; onBack?: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="h-full w-full flex flex-col items-center justify-center bg-(--t-bg-terminal)">
       {onBack && (
         <button onClick={onBack}
           className="absolute top-6 left-6 flex items-center gap-1.5 text-xs transition-colors text-(--t-text-muted) hover:text-(--t-text-primary)"
         >
-          <Icon icon="lucide:arrow-left" width={13} /> Back
+          <Icon icon="lucide:arrow-left" width={13} /> {t("layout.auth.back")}
         </button>
       )}
 

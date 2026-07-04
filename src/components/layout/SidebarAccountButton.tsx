@@ -1,6 +1,7 @@
 import { Icon } from "@iconify/react";
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { useUIStore } from "@/stores/uiStore";
 import { useRipple } from "@/hooks/useRipple";
 import { getAccountMode, lockVaultSession, logout } from "@/services/account";
@@ -8,6 +9,7 @@ import { getSavedAccounts, saveCurrentAccount, switchToAccount, removeSavedAccou
 import { DropdownMenuItem } from "@/components/shared/DropdownMenuItem";
 
 export function SidebarAccountButton() {
+  const { t } = useTranslation();
   const { createRipple, rippleEls } = useRipple();
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
   const uiScale = useUIStore((s) => s.uiScale);
@@ -86,7 +88,7 @@ export function SidebarAccountButton() {
         ref={buttonRef}
         onClick={() => void openDropdown()}
         onMouseDown={createRipple}
-        title="Account"
+        title={t("layout.sidebarAccount.accountTitle")}
         className="flex items-center justify-center relative overflow-hidden transition-all shrink-0"
         style={{
           width: 44,
@@ -131,12 +133,12 @@ export function SidebarAccountButton() {
                 <div className="flex items-center gap-2">
                   <Icon icon="lucide:circle-user" width={16} style={{ color: "var(--t-text-dim)" }} />
                   <span className="text-sm font-medium truncate" style={{ color: "var(--t-text-primary)" }}>
-                    {accountEmail ?? "Local Account"}
+                    {accountEmail ?? t("layout.sidebarAccount.localAccountFallback")}
                   </span>
                 </div>
                 {accountMode && (
                   <span className="text-xs mt-0.5 block" style={{ color: "var(--t-text-dim)" }}>
-                    {accountMode === "server" ? "Cloud account" : accountMode === "local" ? "Local · password protected" : "Local account"}
+                    {accountMode === "server" ? t("layout.sidebarAccount.modeCloud") : accountMode === "local" ? t("layout.sidebarAccount.modeLocalPassword") : t("layout.sidebarAccount.modeLocal")}
                   </span>
                 )}
               </div>
@@ -144,18 +146,18 @@ export function SidebarAccountButton() {
             </>
           )}
 
-          <DropdownMenuItem icon="lucide:lock" label="Lock vault" onClick={() => void handleLockVault()} />
+          <DropdownMenuItem icon="lucide:lock" label={t("layout.sidebarAccount.lockVault")} onClick={() => void handleLockVault()} />
 
           {accountMode !== "server" && (
             <DropdownMenuItem
               icon="lucide:log-in"
-              label="Sign in / Sign up"
+              label={t("layout.sidebarAccount.signInSignUp")}
               onClick={() => { openCloudAuth("signin"); setOpen(false); }}
             />
           )}
 
           {accountMode === "server" && (
-            <DropdownMenuItem icon="lucide:log-out" label="Disconnect" onClick={() => void handleDisconnect()} />
+            <DropdownMenuItem icon="lucide:log-out" label={t("common.action.disconnect")} onClick={() => void handleDisconnect()} />
           )}
 
           {savedAccounts.length > 1 && (
@@ -163,7 +165,7 @@ export function SidebarAccountButton() {
               <div className="h-px bg-(--t-bg-input) -mx-1.5 my-0.5" />
               <div className="px-3 pt-2 pb-1">
                 <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--t-text-dim)" }}>
-                  Switch account
+                  {t("layout.sidebarAccount.switchAccount")}
                 </span>
               </div>
               {savedAccounts
@@ -180,11 +182,11 @@ export function SidebarAccountButton() {
                     <Icon icon="lucide:circle-user" width={16} style={{ color: "var(--t-text-dim)" }} className="shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="truncate font-medium" style={{ color: "var(--t-text-primary)" }}>{account.display}</div>
-                      <div className="text-[10px]" style={{ color: "var(--t-text-dim)" }}>{account.mode === "server" ? "Cloud" : "Local"}</div>
+                      <div className="text-[10px]" style={{ color: "var(--t-text-dim)" }}>{account.mode === "server" ? t("layout.sidebarAccount.savedAccountCloud") : t("layout.sidebarAccount.savedAccountLocal")}</div>
                     </div>
                     <button
                       type="button"
-                      title="Remove saved account"
+                      title={t("layout.sidebarAccount.removeSavedAccount")}
                       className="opacity-0 group-hover:opacity-100 p-0.5 rounded-sm transition-opacity"
                       style={{ color: "var(--t-text-dim)" }}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)"; }}

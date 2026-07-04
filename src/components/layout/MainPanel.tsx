@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useSessionStore } from "@/stores/sessionStore";
 import { reconnectWithBackoff } from "@/stores/reconnectBackoff";
 import { handleSessionClosed } from "@/stores/reconnectBackoffCore";
@@ -29,6 +30,7 @@ import { DragGhost } from "@/components/panes/DragGhost";
 import { getPaneSessionIds, useLayoutStore } from "@/stores/layoutStore";
 
 function NoVaultSelected() {
+  const { t } = useTranslation();
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-(--t-bg-base)">
       <div
@@ -42,10 +44,10 @@ function NoVaultSelected() {
       </div>
       <div className="flex flex-col items-center gap-1.5 text-center">
         <span className="text-base font-semibold text-(--t-text-primary)">
-          No vaults selected
+          {t("layout.mainPanel.noVaultSelectedTitle")}
         </span>
         <span className="text-sm text-(--t-text-dim) max-w-[18.667rem]">
-          Please select at least one vault in the vault picker.
+          {t("layout.mainPanel.noVaultSelectedBody")}
         </span>
       </div>
     </div>
@@ -59,6 +61,7 @@ function TeamVaultState({
   status: string;
   teamId: string;
 }) {
+  const { t } = useTranslation();
   const team = useTeamStore((s) => s.teams.find((t) => t.id === teamId));
   const rolesByTeam = useTeamStore((s) => s.rolesByTeam);
   const myRoleIds = team?.role_ids ?? [];
@@ -71,25 +74,25 @@ function TeamVaultState({
   const configs: Record<string, { icon: string; title: string; body: string }> = {
     offline: {
       icon: "lucide:cloud-off",
-      title: "Team vault offline",
-      body: "Team vaults require an internet connection. Your personal vault is available offline.",
+      title: t("layout.mainPanel.teamVault.offlineTitle"),
+      body: t("layout.mainPanel.teamVault.offlineBody"),
     },
     forbidden: {
       icon: "lucide:shield-off",
-      title: "Access revoked",
-      body: "You no longer have access to this team vault. Contact the team owner.",
+      title: t("layout.mainPanel.teamVault.forbiddenTitle"),
+      body: t("layout.mainPanel.teamVault.forbiddenBody"),
     },
     payment_required: {
       icon: "lucide:credit-card",
-      title: "Team vault unavailable",
+      title: t("layout.mainPanel.teamVault.paymentRequiredTitle"),
       body: isOwner
-        ? "Your subscription has ended. Team vaults require an active plan."
-        : "The owner's subscription has ended. Team vaults require an active plan.",
+        ? t("layout.mainPanel.teamVault.paymentRequiredBodyOwner")
+        : t("layout.mainPanel.teamVault.paymentRequiredBodyMember"),
     },
     error: {
       icon: "lucide:triangle-alert",
-      title: "Couldn't load team vault",
-      body: "Something went wrong. Try again.",
+      title: t("layout.mainPanel.teamVault.errorTitle"),
+      body: t("layout.mainPanel.teamVault.errorBody"),
     },
   };
 
@@ -119,7 +122,7 @@ function TeamVaultState({
             className="mt-2 text-sm px-3 py-1.5 rounded-lg"
             style={{ background: "var(--t-accent)", color: "#fff" }}
           >
-            Manage subscription →
+            {t("layout.mainPanel.manageSubscription")}
           </button>
         )}
         {(!status || status === "error" || status === "not_found") && (
@@ -128,7 +131,7 @@ function TeamVaultState({
             className="mt-2 text-sm px-3 py-1.5 rounded-lg"
             style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-primary)", border: "1px solid var(--t-border)" }}
           >
-            Try again
+            {t("layout.mainPanel.tryAgain")}
           </button>
         )}
       </div>

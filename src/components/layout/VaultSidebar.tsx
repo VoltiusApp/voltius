@@ -1,5 +1,6 @@
 import { Icon } from "@iconify/react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
@@ -24,6 +25,7 @@ function getInitials(name: string) {
 }
 
 export default function VaultSidebar() {
+  const { t } = useTranslation();
   const vaults = useVaultStore((s) => s.vaults);
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const selectVaultOnly = useVaultStore((s) => s.selectVaultOnly);
@@ -93,7 +95,7 @@ export default function VaultSidebar() {
             <div key={vault.id} className="relative flex items-center justify-center w-full shrink-0">
               <VaultButton
                 initial={getInitials(vault.name)}
-                label={vault.teamId ? `${vault.name} (Cloud vault)` : vault.name}
+                label={vault.teamId ? t("layout.vaultSidebar.cloudVaultLabel", { name: vault.name }) : vault.name}
                 isActive={isActive}
                 onClick={() => {
                   selectVaultOnly(vault.id);
@@ -120,7 +122,7 @@ export default function VaultSidebar() {
             <div key={team.id} className="relative flex items-center justify-center w-full shrink-0">
               <VaultButton
                 initial={getInitials(team.name)}
-                label={`${team.name} (Cloud vault)`}
+                label={t("layout.vaultSidebar.cloudVaultLabel", { name: team.name })}
                 isActive={isActive}
                 onClick={() => {
                   selectVaultOnly(team.id);
@@ -199,6 +201,7 @@ export default function VaultSidebar() {
 }
 
 function PendingInviteButton({ invite, onClick }: { invite: MyPendingInvitation; onClick: () => void }) {
+  const { t } = useTranslation();
   const { createRipple, rippleEls } = useRipple();
   const [hovered, setHovered] = useState(false);
   const initial = invite.team_name.trim().charAt(0).toUpperCase();
@@ -212,7 +215,7 @@ function PendingInviteButton({ invite, onClick }: { invite: MyPendingInvitation;
       <button
         onClick={onClick}
         onMouseDown={createRipple}
-        title={`Vault invite: ${invite.team_name}`}
+        title={t("layout.vaultSidebar.vaultInviteTitle", { name: invite.team_name })}
         className="flex items-center justify-center text-base font-bold relative overflow-hidden transition-all"
         style={{
           width: 44,
@@ -249,6 +252,7 @@ function PendingInviteModal({
   onDecline: () => Promise<void>;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState<"accept" | "decline" | null>(null);
   const [error, setError] = useState("");
 
@@ -259,7 +263,7 @@ function PendingInviteModal({
       if (action === "accept") await onAccept();
       else await onDecline();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
+      setError(e instanceof Error ? e.message : t("common.state.error"));
       setLoading(null);
     }
   };
@@ -278,12 +282,12 @@ function PendingInviteModal({
             <Icon icon="lucide:vault" width={20} style={{ color: "#f59e0b" }} />
           </div>
           <div className="min-w-0">
-            <p className="text-base font-semibold text-(--t-text-primary) mb-0.5">Vault invitation</p>
+            <p className="text-base font-semibold text-(--t-text-primary) mb-0.5">{t("layout.vaultSidebar.vaultInvitation")}</p>
             <p className="text-sm text-(--t-text-muted) leading-relaxed">
-              <span className="text-(--t-text-primary) font-medium">{invite.inviter_display_name ?? "Someone"}</span>
-              {" "}invited you to{" "}
+              <span className="text-(--t-text-primary) font-medium">{invite.inviter_display_name ?? t("layout.vaultSidebar.inviterFallback")}</span>
+              {" "}{t("layout.vaultSidebar.invitedYouTo")}{" "}
               <span className="text-(--t-text-primary) font-medium">{invite.team_name}</span>
-              {" "}as <span className="capitalize font-medium" style={{ color: "var(--t-accent)" }}>{invite.role}</span>.
+              {" "}{t("layout.vaultSidebar.asRole")} <span className="capitalize font-medium" style={{ color: "var(--t-accent)" }}>{invite.role}</span>.
             </p>
           </div>
         </div>
@@ -301,7 +305,7 @@ function PendingInviteModal({
             className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-opacity"
             style={{ background: "var(--t-accent)", color: "#fff", opacity: loading ? 0.6 : 1 }}
           >
-            {loading === "accept" ? "Accepting…" : "Accept"}
+            {loading === "accept" ? t("layout.vaultSidebar.accepting") : t("layout.vaultSidebar.accept")}
           </button>
           <button
             onClick={() => void handle("decline")}
@@ -309,7 +313,7 @@ function PendingInviteModal({
             className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors"
             style={{ background: "var(--t-bg-elevated)", color: "var(--t-text-muted)", opacity: loading ? 0.6 : 1 }}
           >
-            {loading === "decline" ? "Declining…" : "Decline"}
+            {loading === "decline" ? t("layout.vaultSidebar.declining") : t("layout.vaultSidebar.decline")}
           </button>
         </div>
       </div>
@@ -328,6 +332,7 @@ function VaultLimitModal({
   onSignIn: () => void;
   onUpgrade: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <Modal onClose={onClose} blur>
       <div
@@ -343,10 +348,10 @@ function VaultLimitModal({
           </div>
           <div>
             <p className="text-base font-semibold text-(--t-text-primary) mb-1">
-              Multiple vaults require Pro
+              {t("layout.vaultSidebar.multipleVaultsTitle")}
             </p>
             <p className="text-sm text-(--t-text-muted) leading-relaxed">
-              Free accounts can create one vault. Upgrade to Pro to organize your credentials across multiple vaults.
+              {t("layout.vaultSidebar.multipleVaultsBody")}
             </p>
           </div>
         </div>
@@ -356,13 +361,13 @@ function VaultLimitModal({
             onClick={isCloudAccount ? onUpgrade : onSignIn}
             className="w-full py-2.5 rounded-lg text-sm font-semibold bg-(--t-accent) text-white hover:opacity-90 transition-opacity"
           >
-            {isCloudAccount ? "Upgrade to Pro" : "Sign in or create cloud account"}
+            {isCloudAccount ? t("layout.vaultSidebar.upgradeToPro") : t("layout.vaultSidebar.signInOrCreate")}
           </button>
           <button
             onClick={onClose}
             className="w-full py-2.5 rounded-lg text-sm text-(--t-text-muted) hover:text-(--t-text-primary) transition-colors"
           >
-            Maybe later
+            {t("layout.vaultSidebar.maybeLater")}
           </button>
         </div>
       </div>
@@ -426,6 +431,7 @@ function ActivePip({ active }: { active: boolean }) {
 }
 
 function AppIconButton({ isActive, onClick }: { isActive: boolean; onClick: () => void }) {
+  const { t } = useTranslation();
   const { createRipple, rippleEls } = useRipple();
   const [hovered, setHovered] = useState(false);
   const borderRadius = isActive || hovered ? "0.75rem" : "1.375rem";
@@ -439,7 +445,7 @@ function AppIconButton({ isActive, onClick }: { isActive: boolean; onClick: () =
       <button
         onClick={onClick}
         onMouseDown={createRipple}
-        title="Home"
+        title={t("layout.vaultSidebar.home")}
         className="relative overflow-hidden"
         style={{ background: "none", border: "none", padding: 0 }}
       >
@@ -511,26 +517,27 @@ function VaultButton({
 }
 
 function WhatsNewButton({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation();
   const { createRipple, rippleEls } = useRipple();
   const [updater, setUpdater] = useState<UpdaterStatus>(getUpdaterState);
   useEffect(() => onUpdaterStateChange(() => setUpdater(getUpdaterState())), []);
 
   let icon = "lucide:megaphone";
-  let title = "What's new";
+  let title = t("layout.vaultSidebar.whatsNew");
   let iconClass = "";
   let iconStyle: React.CSSProperties | undefined;
   const ready = updater.status === "ready";
   if (updater.status === "checking") {
     icon = "lucide:loader-circle";
-    title = "Checking for updates…";
+    title = t("layout.vaultSidebar.checkingForUpdates");
     iconClass = "animate-spin";
   } else if (updater.status === "downloading") {
     icon = "lucide:download";
-    title = `Downloading update v${updater.version}…`;
+    title = t("layout.vaultSidebar.downloadingUpdate", { version: updater.version });
     iconClass = "animate-bounce";
   } else if (ready) {
     icon = "lucide:download";
-    title = `Update v${updater.version} ready — click to view & restart`;
+    title = t("layout.vaultSidebar.updateReady", { version: updater.version });
     iconStyle = { color: "var(--t-accent)" };
   }
 
@@ -572,12 +579,13 @@ function WhatsNewButton({ onClick }: { onClick: () => void }) {
 }
 
 function SettingsButton({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation();
   const { createRipple, rippleEls } = useRipple();
   return (
     <button
       onClick={onClick}
       onMouseDown={createRipple}
-      title="Settings"
+      title={t("layout.vaultSidebar.settings")}
       className="flex items-center justify-center mb-3 relative overflow-hidden transition-all shrink-0"
       style={{
         width: 44,
@@ -605,12 +613,13 @@ function SettingsButton({ onClick }: { onClick: () => void }) {
 }
 
 function AddVaultButton({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation();
   const { createRipple, rippleEls } = useRipple();
   return (
     <button
       onClick={onClick}
       onMouseDown={createRipple}
-      title="Add vault"
+      title={t("layout.vaultSidebar.addVault")}
       className="flex items-center justify-center relative overflow-hidden transition-all shrink-0"
       style={{
         width: 44,

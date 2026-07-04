@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
+import i18n from "@/i18n";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { getSyncState, onSyncStateChange, syncNow, type SyncStatus } from "@/services/sync";
 import {
@@ -43,11 +45,11 @@ function statusIcon(status: SyncStatus): string {
 }
 
 function statusLabel(status: SyncStatus, lastSync: Date | null): string {
-  if (status === "syncing") return "Syncing…";
-  if (status === "success") return lastSync ? `Synced · ${formatTime(lastSync)}` : "Synced";
-  if (status === "error")   return "Sync error";
-  if (status === "offline") return "Offline";
-  return "Idle";
+  if (status === "syncing") return i18n.t("layout.sync.status.syncing");
+  if (status === "success") return lastSync ? i18n.t("layout.sync.status.syncedAt", { time: formatTime(lastSync) }) : i18n.t("layout.sync.status.synced");
+  if (status === "error")   return i18n.t("layout.sync.status.error");
+  if (status === "offline") return i18n.t("layout.sync.status.offline");
+  return i18n.t("layout.sync.status.idle");
 }
 
 // ─── Section ──────────────────────────────────────────────────────────────────
@@ -70,6 +72,7 @@ function SyncSection({
   variant: SectionVariant;
   onSyncNow: () => void;
 }) {
+  const { t } = useTranslation();
   const isActive = variant.kind === "active";
   const isSyncing = isActive && variant.status === "syncing";
   const [spinning, setSpinning] = useState(isSyncing);
@@ -111,10 +114,10 @@ function SyncSection({
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLButtonElement).style.color = canSync ? "var(--t-text-secondary)" : "var(--t-text-dim)";
           }}
-          title="Sync now"
+          title={t("layout.sync.syncNow")}
         >
           <Icon icon="lucide:refresh-cw" width={10} className={spinning ? "animate-spin" : ""} />
-          Sync now
+          {t("layout.sync.syncNow")}
         </button>
       </div>
 
@@ -128,14 +131,14 @@ function SyncSection({
           onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = "1")}
         >
           <Icon icon="lucide:log-in" width={11} />
-          <span className="text-xs">Sign in for cloud sync</span>
+          <span className="text-xs">{t("layout.sync.signInForSync")}</span>
           <Icon icon="lucide:arrow-right" width={10} className="ml-auto" />
         </button>
       )}
 
       {variant.kind === "needs_upgrade" && (
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>Requires Pro</span>
+          <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>{t("layout.sync.requiresPro")}</span>
           <button
             onClick={variant.onUpgrade}
             className="text-[10px] font-medium transition-opacity"
@@ -143,7 +146,7 @@ function SyncSection({
             onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = "0.75")}
             onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = "1")}
           >
-            Upgrade →
+            {t("layout.sync.upgradeArrow")}
           </button>
         </div>
       )}
@@ -152,7 +155,7 @@ function SyncSection({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5" style={{ color: "var(--t-text-dim)" }}>
             <Icon icon="lucide:puzzle" width={11} />
-            <span className="text-xs">Plugin disabled</span>
+            <span className="text-xs">{t("layout.sync.pluginDisabled")}</span>
           </div>
           <button
             onClick={variant.onEnable}
@@ -161,7 +164,7 @@ function SyncSection({
             onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = "0.75")}
             onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = "1")}
           >
-            Enable →
+            {t("layout.sync.enableArrow")}
           </button>
         </div>
       )}
@@ -170,7 +173,7 @@ function SyncSection({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5" style={{ color: "var(--t-status-warning, var(--t-text-dim))" }}>
             <Icon icon="lucide:triangle-alert" width={11} style={{ color: "var(--t-status-error)" }} />
-            <span className="text-xs" style={{ color: "var(--t-status-error)" }}>Not configured</span>
+            <span className="text-xs" style={{ color: "var(--t-status-error)" }}>{t("layout.sync.notConfigured")}</span>
           </div>
           <button
             onClick={variant.onConfigure}
@@ -179,7 +182,7 @@ function SyncSection({
             onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = "0.75")}
             onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = "1")}
           >
-            Configure →
+            {t("layout.sync.configureArrow")}
           </button>
         </div>
       )}
@@ -208,7 +211,7 @@ function SyncSection({
             {blobSizeBytes !== null && (
               <div className="flex items-center gap-1" style={{ color: "var(--t-text-muted)" }}>
                 <Icon icon="lucide:lock" width={10} />
-                <span className="text-[10px]">Encrypted blob · {formatBytes(blobSizeBytes)}</span>
+                <span className="text-[10px]">{t("layout.sync.encryptedBlob", { size: formatBytes(blobSizeBytes) })}</span>
               </div>
             )}
           </>
@@ -244,6 +247,7 @@ interface SyncDropdownProps {
 }
 
 export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, accountMode }: SyncDropdownProps) {
+  const { t } = useTranslation();
   const openSettings = useUIStore((s) => s.openSettings);
   const openCloudAuth = useUIStore((s) => s.openCloudAuth);
   const isPro = useSubscriptionStore((s) => s.isPro);
@@ -292,7 +296,7 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
         style={{ borderBottom: "1px solid var(--t-border)" }}
       >
         <span className="text-xs font-semibold" style={{ color: "var(--t-text-primary)" }}>
-          Sync
+          {t("layout.sync.title")}
         </span>
         <button
           onClick={onClose}
@@ -307,7 +311,7 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
 
       {/* Voltius Sync section */}
       <SyncSection
-        label="Voltius Sync"
+        label={t("layout.sync.voltiusSync")}
         methodIcon="lucide:cloud"
         variant={voltiusVariant}
         onSyncNow={() => syncNow(true).catch(() => {})}
@@ -317,7 +321,7 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
 
       {/* Gist E2EE section */}
       <SyncSection
-        label="Gist E2EE"
+        label={t("layout.sync.gistE2ee")}
         methodIcon="mdi:github"
         variant={gistVariant}
         onSyncNow={() => gistSyncNow({ showProgress: false }).catch(() => {})}
