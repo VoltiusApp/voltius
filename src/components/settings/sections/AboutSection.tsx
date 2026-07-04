@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
 import { useIsAndroid } from "@/utils/platform";
+import { useUIStore } from "@/stores/uiStore";
 
 const LINKS = [
   { icon: "simple-icons:github", key: "github",        sub: "VoltiusApp/voltius",   href: "https://github.com/VoltiusApp/voltius" },
@@ -192,6 +193,14 @@ export default function AboutSection() {
               <Icon icon="lucide:external-link" width={20} className="ml-auto text-(--t-text-dim)" />
             </a>
           ))}
+          <button
+            type="button"
+            onClick={() => useUIStore.getState().openSettings("diagnostics")}
+            className="w-full text-left rounded-lg px-4 py-3 flex items-center gap-3 bg-(--t-bg-elevated) border border-(--t-border) transition-colors hover:border-(--t-border-hover)"
+          >
+            <Icon icon="lucide:bug" width={20} className="text-(--t-text-primary) shrink-0" />
+            <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.about.reportBug")}</p>
+          </button>
         </div>
       </div>
     </div>

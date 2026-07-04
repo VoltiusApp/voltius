@@ -148,6 +148,12 @@ export function SidebarAccountButton() {
 
           <DropdownMenuItem icon="lucide:lock" label={t("layout.sidebarAccount.lockVault")} onClick={() => void handleLockVault()} />
 
+          <DropdownMenuItem
+            icon="lucide:bug"
+            label={t("layout.sidebarAccount.reportBug")}
+            onClick={() => { setOpen(false); useUIStore.getState().openSettings("diagnostics"); }}
+          />
+
           {accountMode !== "server" && (
             <DropdownMenuItem
               icon="lucide:log-in"

@@ -226,7 +226,8 @@
       "includedBody": "Inclus :\n• Journaux de l'application (ce que faisait Voltius, avec les valeurs sensibles retirées)\n• Version de l'application, système d'exploitation et extensions actives\nNON inclus :\n• Mots de passe, contenu du coffre-fort ou clés privées\n• Sortie du terminal ou tout ce que vous avez tapé\nLe rapport est enregistré sur votre ordinateur. Rien n'est envoyé automatiquement — vous choisissez où le partager.",
       "openLogFolder": "Ouvrir le dossier des journaux",
       "toastSaved": "Rapport enregistré — {{name}}",
-      "toastError": "Impossible de créer le rapport : {{reason}}"
+      "toastError": "Impossible de créer le rapport : {{reason}}",
+      "toastGenericError": "Une erreur s'est produite."
     },
     "about": {
       "versionTitle": "Version",
@@ -256,7 +257,8 @@
         "x": "X",
         "kofi": "Ko-Fi",
         "contact": "Contact"
-      }
+      },
+      "reportBug": "Signaler un bug"
     },
     "sync": {
       "voltiusCloud": "Voltius Cloud",

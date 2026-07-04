@@ -8,6 +8,16 @@ vi.mock("@tauri-apps/plugin-log", () => ({
   debug: (...a: unknown[]) => pluginLog.debug(...a),
 }));
 
+const addToast = vi.fn();
+const openSettings = vi.fn();
+vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
+vi.mock("@/stores/notificationStore", () => ({
+  useNotificationStore: { getState: () => ({ addToast }) },
+}));
+vi.mock("@/stores/uiStore", () => ({
+  useUIStore: { getState: () => ({ openSettings }) },
+}));
+
 import { log, installGlobalErrorLogging, setLoggerVerbose } from "./logger";
 
 beforeEach(() => {
@@ -15,6 +25,8 @@ beforeEach(() => {
   pluginLog.warn.mockClear();
   pluginLog.error.mockClear();
   pluginLog.debug.mockClear();
+  addToast.mockClear();
+  openSettings.mockClear();
   setLoggerVerbose(false);
 });
 
@@ -48,5 +60,15 @@ describe("installGlobalErrorLogging", () => {
     window.dispatchEvent(new ErrorEvent("error", { message: "boom" }));
     expect(pluginLog.error).toHaveBeenCalled();
     expect(pluginLog.error.mock.calls[0][0]).toContain("boom");
+  });
+
+  it("raises a toast with a create-report action on uncaught errors", () => {
+    installGlobalErrorLogging();
+    window.dispatchEvent(new ErrorEvent("error", { message: "boom" }));
+    expect(addToast).toHaveBeenCalled();
+    const toast = addToast.mock.calls[0][0];
+    expect(toast.action).toBeDefined();
+    toast.action.onClick();
+    expect(openSettings).toHaveBeenCalledWith("diagnostics");
   });
 });

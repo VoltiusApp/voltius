@@ -226,7 +226,8 @@
       "includedBody": "Included:\n• App logs (what Voltius was doing, with sensitive values removed)\n• App version, operating system, and active plugins\nNOT included:\n• Passwords, vault contents, or private keys\n• Terminal output or anything you typed\nThe report is saved to your computer. Nothing is sent automatically — you choose where to share it.",
       "openLogFolder": "Open log folder",
       "toastSaved": "Report saved — {{name}}",
-      "toastError": "Couldn't create report: {{reason}}"
+      "toastError": "Couldn't create report: {{reason}}",
+      "toastGenericError": "Something went wrong."
     },
     "about": {
       "versionTitle": "Version",
@@ -256,7 +257,8 @@
         "x": "X",
         "kofi": "Ko-Fi",
         "contact": "Contact"
-      }
+      },
+      "reportBug": "Report a bug"
     },
     "sync": {
       "voltiusCloud": "Voltius Cloud",

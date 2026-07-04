@@ -1,4 +1,7 @@
 import { info, warn, error, debug } from "@tauri-apps/plugin-log";
+import i18n from "@/i18n";
+import { useNotificationStore } from "@/stores/notificationStore";
+import { useUIStore } from "@/stores/uiStore";
 
 type Fwd = (message: string) => Promise<void>;
 
@@ -47,6 +50,18 @@ export function installGlobalErrorLogging(): void {
   installed = true;
   window.addEventListener("error", (e) => {
     log.error(`uncaught error: ${e.message}`, e.filename ? `at ${e.filename}:${e.lineno}` : "");
+    useNotificationStore.getState().addToast({
+      pluginId: "core",
+      pluginName: "Voltius",
+      type: "toast",
+      message: i18n.t("settings.diagnostics.toastGenericError"),
+      severity: "error",
+      duration: 8000,
+      action: {
+        label: i18n.t("settings.diagnostics.createButton"),
+        onClick: () => useUIStore.getState().openSettings("diagnostics"),
+      },
+    });
   });
   window.addEventListener("unhandledrejection", (e) => {
     log.error("unhandled promise rejection", safeJson(e.reason));
