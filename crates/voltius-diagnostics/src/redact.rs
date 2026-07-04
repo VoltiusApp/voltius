@@ -11,7 +11,7 @@ static PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
         )
         .unwrap(),
         // key=value / key: value for common secret-bearing keys
-        Regex::new(r#"(?i)\b(password|passwd|pwd|secret|token|api[_-]?key)\b\s*[=:]\s*\S+"#)
+        Regex::new(r#"(?i)\b(authorization|bearer|password|passwd|pwd|secret|token|api[_-]?key)\b\s*[=:]\s*\S+(?:\s+\S+)?"#)
             .unwrap(),
     ]
 });
@@ -48,5 +48,12 @@ mod tests {
     fn leaves_ordinary_lines_untouched() {
         let line = "connecting to host example.com:22 as alice";
         assert_eq!(redact(line), line);
+    }
+
+    #[test]
+    fn redacts_authorization_header_variants() {
+        assert!(!redact("Authorization: Basic dXNlcjpwYXNz").contains("dXNlcjpwYXNz"));
+        assert!(!redact("Authorization: rawtoken123").contains("rawtoken123"));
+        assert!(!redact("bearer=abc123").contains("abc123"));
     }
 }
