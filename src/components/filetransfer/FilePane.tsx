@@ -139,6 +139,7 @@ export function FilePane({
   const [newItemName, setNewItemName] = useState("");
   const [autoTick, setAutoTick] = useState(0);
   const focusIndex = useRef<number>(-1);
+  const paneRef = useRef<HTMLDivElement>(null);
   const prevLocationRef = useRef({ isLocal, sftpId, cwd });
   // Type-ahead ("type to select") search state — refs, not state, so keystrokes
   // don't re-render. The scroll bridge is set by VirtualFileList each render.
@@ -386,8 +387,17 @@ export function FilePane({
 
   return (
     <div
+      ref={paneRef}
       className="flex flex-col h-full min-w-0 relative"
       onKeyDown={handleKeyDown}
+      // Empty-area mousedown calls preventDefault() (drag-select), which
+      // suppresses the browser's default focus, so keyboard nav wouldn't fire
+      // until a row was clicked. Focus the pane explicitly to restore it.
+      onMouseDown={(e) => {
+        const target = e.target as HTMLElement;
+        if (target.closest("input, textarea, [contenteditable='true']")) return;
+        paneRef.current?.focus();
+      }}
       tabIndex={-1}
       data-drop-side={side}
     >
