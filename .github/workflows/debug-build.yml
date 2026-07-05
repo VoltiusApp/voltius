@@ -87,6 +87,7 @@ jobs:
           name: voltius-windows-x64-instrumented
           if-no-files-found: error
           retention-days: 14
+          # Cargo workspace: target/ is at the repo root, not under src-tauri/.
           path: |
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+            target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
+            target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
