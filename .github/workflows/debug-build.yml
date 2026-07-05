@@ -70,6 +70,12 @@ jobs:
       - name: Build Tauri app (Windows x64)
         uses: tauri-apps/tauri-action@v0
         env:
+          # Updater signing key (same secrets release.yml uses) — the app config
+          # carries an updater pubkey, so `tauri build` signs the updater artifact
+          # and fails without it. We don't publish that artifact; this just lets
+          # the bundling step finish so the installers upload.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           SCCACHE_GHA_ENABLED: "true"
           RUSTC_WRAPPER: "sccache"
         with:
