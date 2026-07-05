@@ -47,6 +47,50 @@ export const log = {
   debug: make("debug", debug, true),
 };
 
+let invokeTimingInstalled = false;
+
+/**
+ * DIAGNOSTIC: wrap Tauri's internal invoke so any command slower than
+ * `thresholdMs` is logged by name. Catches a single command that stalls the
+ * IPC/main thread (which otherwise only shows up as an unrelated queued call).
+ */
+export function installInvokeTiming(thresholdMs = 1000): void {
+  if (invokeTimingInstalled) return;
+  const w = window as unknown as {
+    __TAURI_INTERNALS__?: { invoke?: (...a: unknown[]) => unknown; __voltiusTimed?: boolean };
+  };
+  const internals = w.__TAURI_INTERNALS__;
+  if (!internals || typeof internals.invoke !== "function") {
+    // Injected before app scripts normally, but retry a few times just in case.
+    if (installInvokeTimingRetries++ < 20) setTimeout(() => installInvokeTiming(thresholdMs), 50);
+    return;
+  }
+  if (internals.__voltiusTimed) return;
+  internals.__voltiusTimed = true;
+  invokeTimingInstalled = true;
+  const orig = internals.invoke.bind(internals);
+  internals.invoke = (cmd: unknown, ...rest: unknown[]) => {
+    const t0 = performance.now();
+    const done = () => {
+      const dt = performance.now() - t0;
+      if (dt >= thresholdMs) log.info(`[perf] slow-invoke cmd=${String(cmd)} ${dt.toFixed(0)}ms`);
+    };
+    let result: unknown;
+    try {
+      result = orig(cmd, ...rest);
+    } catch (e) {
+      done();
+      throw e;
+    }
+    if (result && typeof (result as Promise<unknown>).then === "function") {
+      return (result as Promise<unknown>).finally(done);
+    }
+    done();
+    return result;
+  };
+}
+let installInvokeTimingRetries = 0;
+
 let installed = false;
 
 export function installGlobalErrorLogging(): void {
