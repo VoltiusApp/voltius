@@ -6,7 +6,12 @@ name: debug-build
 # The installer is uploaded as a private Actions artifact, downloadable only by
 # repo collaborators from the workflow run page.
 
+# Push-triggered on debug/** so it runs from the branch's own workflow file
+# (workflow_dispatch would require this file to live on the default branch).
 on:
+  push:
+    branches:
+      - 'debug/**'
   workflow_dispatch:
     inputs:
       ref:
@@ -25,7 +30,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
