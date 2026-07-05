@@ -4,6 +4,7 @@ import type { PendingTransferAction } from "@/stores/transferQueueStore";
 import { type TransferTarget, transferItem } from "@/services/sftpTransferCore";
 import { classifyPaste } from "./pasteClassify";
 import { copyNameCandidate } from "./copyNameCandidate";
+import { sameHost } from "@/stores/fileClipboardStore";
 import { runIntraPaneMove } from "./moveService";
 import {
   fsExists, sftpExists, fsRename, sftpRename, fsDelete, sftpDelete,
@@ -42,15 +43,14 @@ export async function executePaste(clip: NonNullable<FileClipboard>, dest: FileE
 
   if (kind === "move-same") {
     await deps.moveSameHost(clip.items, dest.cwd);
-    deps.clearClipboard();
     return;
   }
 
   if (kind === "copy") {
-    const startN = clip.source.cwd === dest.cwd ? 1 : 0;
+    const startN = sameHost(clip.source, dest) && clip.source.cwd === dest.cwd ? 1 : 0;
     for (const item of clip.items) {
       const target = await uniqueTarget(item, dest.cwd, startN, deps.existsInDest);
-      await deps.copyTarget(target);
+      try { await deps.copyTarget(target); } catch { /* copy failed; source intact, continue */ }
     }
     deps.refresh();
     return; // copy persists the clipboard
@@ -64,7 +64,11 @@ export async function executePaste(clip: NonNullable<FileClipboard>, dest: FileE
   const run = async (chosen: FileEntry[]) => {
     for (const item of chosen) {
       const target: TransferTarget = { srcPath: item.path, dstPath: joinDir(dest.cwd, item.name), isDir: item.isDir, name: item.name };
-      await deps.copyTarget(target);
+      try {
+        await deps.copyTarget(target);
+      } catch {
+        continue; // copy failed → keep the source, skip delete
+      }
       await deps.deleteSource(item.path);
     }
     deps.refresh();
@@ -97,22 +101,28 @@ export function buildPasteDeps(
 
   return {
     existsInDest: (name) => existsAt(dest, joinDir(dest.cwd, name)),
-    copyTarget: (target) =>
-      wiring.runTransfer(target.name, "→", (tid) =>
-        transferItem({
+    copyTarget: async (target) => {
+      let ok = false;
+      await wiring.runTransfer(
+        target.name, "→",
+        (tid) => transferItem({
           from, to,
           srcSftpId: src.sftpId ?? undefined,
           dstSftpId: dest.sftpId ?? undefined,
           srcPath: target.srcPath, dstPath: target.dstPath,
           isDir: target.isDir, useTar: false, transferId: tid,
-        }), wiring.refresh),
+        }),
+        () => { ok = true; },
+      );
+      if (!ok) throw new Error(`paste: copy failed for ${target.name}`);
+    },
     moveSameHost: (items, destDir) =>
       runIntraPaneMove(items, destDir, {
         exists: (p) => existsAt(dest, p),
         del: (p) => (dest.isLocal ? fsDelete(p) : sftpDelete(dest.sftpId!, p)),
         rename: (a, b) => (dest.isLocal ? fsRename(a, b) : sftpRename(dest.sftpId!, a, b)),
         setPending: wiring.setPending,
-        onRefresh: wiring.refresh,
+        onRefresh: () => { wiring.refresh(); wiring.clearClipboard(); },
       }),
     deleteSource: (p) => (src.isLocal ? fsDelete(p) : sftpDelete(src.sftpId!, p)),
     setPending: wiring.setPending,

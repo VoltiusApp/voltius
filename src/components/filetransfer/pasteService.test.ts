@@ -38,12 +38,13 @@ describe("executePaste", () => {
     expect(deps.copyTarget).toHaveBeenCalledWith(expect.objectContaining({ dstPath: "/a/x - Copy.txt" }));
   });
 
-  it("same-host cut delegates to moveSameHost and clears the clipboard", async () => {
+  it("same-host cut delegates to moveSameHost and does not clear the clipboard itself", async () => {
     const clip: FileClipboard = { items: [file("/a/x.txt")], source: local("/a"), mode: "cut" };
     const deps = mkDeps();
     await executePaste(clip!, local("/b"), deps);
     expect(deps.moveSameHost).toHaveBeenCalledWith(clip!.items, "/b");
-    expect(deps.clearClipboard).toHaveBeenCalled();
+    // clearing is deferred to moveSameHost's own completion (real dep clears on refresh)
+    expect(deps.clearClipboard).not.toHaveBeenCalled();
   });
 
   it("cross-host cut copies then deletes source then clears", async () => {
@@ -52,6 +53,14 @@ describe("executePaste", () => {
     await executePaste(clip!, local("/b"), deps);
     expect(deps.copyTarget).toHaveBeenCalledWith(expect.objectContaining({ dstPath: "/b/x.txt" }));
     expect(deps.deleteSource).toHaveBeenCalledWith("/a/x.txt");
+    expect(deps.clearClipboard).toHaveBeenCalled();
+  });
+
+  it("cross-host cut: a failed copy keeps the source (no delete)", async () => {
+    const clip: FileClipboard = { items: [file("/a/x.txt")], source: remote("s1", "/a"), mode: "cut" };
+    const deps = mkDeps({ copyTarget: vi.fn(async () => { throw new Error("boom"); }) });
+    await executePaste(clip!, local("/b"), deps);
+    expect(deps.deleteSource).not.toHaveBeenCalled();
     expect(deps.clearClipboard).toHaveBeenCalled();
   });
 
