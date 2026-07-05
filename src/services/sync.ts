@@ -26,6 +26,7 @@ import { appFetch } from "@/services/http";
 import { SseDataLineParser } from "@/services/realtimeSseEvents";
 import { connectNativeSse } from "@/services/nativeSseStream";
 import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
+import { log } from "@/lib/logger";
 
 export interface BlobPayload {
   files: Record<string, string>;
@@ -290,10 +291,15 @@ class BlobDecryptError extends Error {
 async function decryptBlobWithFallback(blobBytes: number[]): Promise<BlobPayload> {
   const { kek, dek } = useVaultKeysStore.getState();
   const candidates = buildDecryptKeyCandidates(getVaultKey(), kek, dek);
-  for (const encKey of candidates) {
+  for (let i = 0; i < candidates.length; i++) {
+    const encKey = candidates[i];
+    const t = performance.now();
     try {
-      return await invoke<BlobPayload>("backup_decrypt", { encKey, blob: blobBytes });
+      const r = await invoke<BlobPayload>("backup_decrypt", { encKey, blob: blobBytes });
+      log.info(`[perf] backup_decrypt attempt=${i + 1}/${candidates.length} bytes=${blobBytes.length} ok ${(performance.now() - t).toFixed(0)}ms`);
+      return r;
     } catch (e) {
+      log.info(`[perf] backup_decrypt attempt=${i + 1}/${candidates.length} bytes=${blobBytes.length} fail ${(performance.now() - t).toFixed(0)}ms`);
       // Wrong key for this blob — try the next candidate. Any other failure is
       // structural corruption; re-throw so it isn't silently swallowed.
       if (String(e).includes("Decryption failed")) continue;
@@ -345,18 +351,22 @@ export async function push(): Promise<void> {
     await invoke("settings_save", { state: JSON.stringify(bundle) });
   } catch {}
 
+  const tExport = performance.now();
   const blob: number[] = await invoke("backup_export", {
     encKey,
     accountId,
     deviceId,
   });
+  const tEncode = performance.now();
+  const blobB64 = bytesToBase64(blob);
+  log.info(`[perf] push backup_export bytes=${blob.length} ${(tEncode - tExport).toFixed(0)}ms bytesToBase64 ${(performance.now() - tEncode).toFixed(0)}ms`);
 
   const res = await fetchWithAuth(`${serverUrl}/v1/sync/blob`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       device_id: deviceId,
-      blob: bytesToBase64(blob),
+      blob: blobB64,
       metadata: { device_id: deviceId, synced_at: new Date().toISOString() },
     }),
   });
@@ -449,7 +459,9 @@ async function pullAndMerge(remoteDeviceId: string): Promise<boolean> {
   if (!res.ok) return false; // skip unreachable devices
 
   const { blob: blobB64 } = await res.json();
+  const tDecode = performance.now();
   const blobBytes = base64ToBytes(blobB64);
+  log.info(`[perf] pullAndMerge base64ToBytes b64=${blobB64.length} bytes=${blobBytes.length} ${(performance.now() - tDecode).toFixed(0)}ms`);
 
   const remotePayload = await decryptBlobWithFallback(blobBytes);
 
@@ -493,7 +505,9 @@ async function pullAndMerge(remoteDeviceId: string): Promise<boolean> {
 
   if (!anyChange) return false; // remote had nothing new — skip write
 
+  const tImport = performance.now();
   await invoke("state_import", { files: mergedFiles, secrets: mergedSecrets });
+  log.info(`[perf] pullAndMerge state_import secretCount=${Object.keys(mergedSecrets).length} ${(performance.now() - tImport).toFixed(0)}ms`);
   return true;
 }
 
@@ -514,7 +528,9 @@ export async function syncNow(forcePush = false): Promise<void> {
   setState("syncing");
 
   const start = Date.now();
+  const perfStart = performance.now();
   const minDisplay = 600;
+  log.info(`[perf] syncNow start forcePush=${forcePush}`);
 
   try {
     await unlockVaultIfNeeded();
@@ -524,6 +540,7 @@ export async function syncNow(forcePush = false): Promise<void> {
     await loadTeamsForCurrentUser();
 
     const [devices, localDeviceId] = await Promise.all([listDevices(), getDeviceId()]);
+    log.info(`[perf] syncNow devices=${devices.length}`);
 
     // Pull and merge each remote device sequentially (each merge feeds the next).
     // Per-device errors are non-fatal: skip corrupted/mismatched blobs rather than
@@ -559,6 +576,7 @@ export async function syncNow(forcePush = false): Promise<void> {
       await push();
     }
 
+    log.info(`[perf] syncNow done total=${(performance.now() - perfStart).toFixed(0)}ms`);
     const elapsed = Date.now() - start;
     if (elapsed < minDisplay) await new Promise((r) => setTimeout(r, minDisplay - elapsed));
     setState("success");
@@ -587,11 +605,14 @@ export async function syncNow(forcePush = false): Promise<void> {
  * For new cloud accounts (linkToCloud), use syncOnLogin instead.
  */
 export async function syncOnLoginReplace(): Promise<void> {
+  const t0 = performance.now();
+  log.info("[perf] syncOnLoginReplace start");
   try {
     await unlockVaultIfNeeded();
 
     if (!useSubscriptionStore.getState().isPro && await loadTeamsForCurrentUser()) {
       await completeTeamLoginSetup();
+      log.info(`[perf] syncOnLoginReplace done (team-only) total=${(performance.now() - t0).toFixed(0)}ms`);
       setState("success");
       return;
     }
@@ -600,6 +621,7 @@ export async function syncOnLoginReplace(): Promise<void> {
     if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
     const devices = await listDevices();
+    log.info(`[perf] syncOnLoginReplace devices=${devices.length}`);
 
     // Accumulate remote state starting from empty — local disk never touched
     let mergedFiles: Record<string, string> = Object.fromEntries(
@@ -617,7 +639,9 @@ export async function syncOnLoginReplace(): Promise<void> {
         if (res.status === 404 || !res.ok) continue;
 
         const { blob: blobB64 } = await res.json();
+        const tDecode = performance.now();
         const blobBytes = base64ToBytes(blobB64);
+        log.info(`[perf] syncOnLoginReplace base64ToBytes b64=${blobB64.length} bytes=${blobBytes.length} ${(performance.now() - tDecode).toFixed(0)}ms`);
         const remotePayload = await decryptBlobWithFallback(blobBytes);
 
         await applyRemoteTheme(remotePayload);
@@ -647,10 +671,15 @@ export async function syncOnLoginReplace(): Promise<void> {
       console.debug(`[sync] login pull: ${decryptFailures} device blob(s) could not be decrypted with any key`);
     }
 
+    const tImport = performance.now();
     await invoke("state_import", { files: mergedFiles, secrets: mergedSecrets });
+    log.info(`[perf] syncOnLoginReplace state_import ${(performance.now() - tImport).toFixed(0)}ms`);
     await reloadAllStores();
+    const tPush = performance.now();
     await push();
+    const tTeam = performance.now();
     await completeTeamLoginSetup();
+    log.info(`[perf] syncOnLoginReplace push ${(tTeam - tPush).toFixed(0)}ms completeTeamLoginSetup ${(performance.now() - tTeam).toFixed(0)}ms total=${(performance.now() - t0).toFixed(0)}ms`);
 
     setState("success");
   } catch (e) {
@@ -666,11 +695,14 @@ export async function syncOnLoginReplace(): Promise<void> {
 
 /** Pull on login to restore data from server, then push local state. */
 export async function syncOnLogin(): Promise<void> {
+  const t0 = performance.now();
+  log.info("[perf] syncOnLogin start");
   try {
     await unlockVaultIfNeeded();
 
     if (!useSubscriptionStore.getState().isPro && await loadTeamsForCurrentUser()) {
       await completeTeamLoginSetup();
+      log.info(`[perf] syncOnLogin done (team-only) total=${(performance.now() - t0).toFixed(0)}ms`);
       setState("success");
       return;
     }
@@ -679,7 +711,9 @@ export async function syncOnLogin(): Promise<void> {
     // after a local wipe (single-user: own blob is the only source of truth).
     // CRDT merge is idempotent so pulling own blob on normal login is safe.
     const devices = await listDevices();
+    log.info(`[perf] syncOnLogin devices=${devices.length}`);
 
+    const tPull = performance.now();
     for (const device of devices) {
       try {
         await pullAndMerge(device.device_id);
@@ -687,10 +721,17 @@ export async function syncOnLogin(): Promise<void> {
         // Skip unreadable blobs (corrupted, wrong key, etc.) — don't abort login sync.
       }
     }
+    log.info(`[perf] syncOnLogin pull-loop ${(performance.now() - tPull).toFixed(0)}ms`);
 
+    const tReload = performance.now();
     await reloadAllStores();
+    log.info(`[perf] syncOnLogin reloadAllStores ${(performance.now() - tReload).toFixed(0)}ms`);
+    const tPush = performance.now();
     await push();
+    log.info(`[perf] syncOnLogin push ${(performance.now() - tPush).toFixed(0)}ms`);
+    const tTeam = performance.now();
     await completeTeamLoginSetup();
+    log.info(`[perf] syncOnLogin completeTeamLoginSetup ${(performance.now() - tTeam).toFixed(0)}ms total=${(performance.now() - t0).toFixed(0)}ms`);
 
     setState("success");
   } catch (e) {

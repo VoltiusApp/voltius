@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { log } from "@/lib/logger";
 import { getSecret, storeSecret } from "@/services/vault";
 import { getTeamVaultKey } from "@/services/teamVaultSync";
 import { listTeamSecrets, upsertTeamSecret } from "@/services/teamObjects";
@@ -73,6 +74,8 @@ export async function saveTeamVaultSecretForVault(
 export async function hydrateTeamVaultSecrets(teamId: string): Promise<void> {
   const [encKey, records] = await Promise.all([getTeamVaultKey(teamId), listTeamSecrets(teamId)]);
 
+  const t0 = performance.now();
+  const totalBytes = records.reduce((n, r) => n + (r.ciphertext?.length ?? 0), 0);
   await Promise.allSettled(records.map(async (record) => {
     const localKey = localSecretKeyFromTeamSecret(record.object_id, record.secret_type);
     if (!localKey) return;
@@ -81,6 +84,7 @@ export async function hydrateTeamVaultSecrets(teamId: string): Promise<void> {
     const value = payload.secrets?.[localKey];
     if (value) await storeSecret(localKey, value);
   }));
+  log.info(`[perf] hydrateTeamVaultSecrets items=${records.length} b64Bytes=${totalBytes} ${(performance.now() - t0).toFixed(0)}ms`);
 }
 
 export async function backfillExistingTeamVaultSecrets(teamId: string): Promise<void> {
@@ -92,6 +96,9 @@ export async function backfillExistingTeamVaultSecrets(teamId: string): Promise<
   const identities = useIdentityStore.getState().teamIdentities[teamId] ?? [];
   const keys = useKeyStore.getState().teamKeys[teamId] ?? [];
 
+  const t0 = performance.now();
+  const opCount = conns.length * 3 + identities.length + keys.length * 3;
+  log.info(`[perf] backfillExistingTeamVaultSecrets start conns=${conns.length} identities=${identities.length} keys=${keys.length} ops=${opCount}`);
   await Promise.allSettled([
     ...conns.flatMap((conn) => [
       saveExistingTeamVaultSecret(teamId, `password:${conn.id}`),
@@ -105,4 +112,5 @@ export async function backfillExistingTeamVaultSecrets(teamId: string): Promise<
       saveExistingTeamVaultSecret(teamId, `key:${key.id}:passphrase`),
     ]),
   ]);
+  log.info(`[perf] backfillExistingTeamVaultSecrets done ops=${opCount} ${(performance.now() - t0).toFixed(0)}ms`);
 }

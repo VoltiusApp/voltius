@@ -1,0 +1,81 @@
+name: debug-build
+
+# Manual, build-only workflow for producing a one-off instrumented installer to
+# hand to a specific user for diagnostics. It does NOT create a GitHub release,
+# does NOT touch the updater (latest.json), and does NOT notify existing users.
+# The installer is uploaded as a private Actions artifact, downloadable only by
+# repo collaborators from the workflow run page.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch or SHA to build'
+        required: true
+        default: 'dev'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: 'pnpm'
+
+      - name: Read toolchain channel from rust-toolchain.toml
+        id: rust
+        shell: bash
+        run: echo "channel=$(sed -nE 's/^channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust.outputs.channel }}
+          targets: 'x86_64-pc-windows-msvc'
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          key: 'x86_64-pc-windows-msvc'
+          workspaces: 'src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Install sccache
+        uses: mozilla/sccache-action@v0.0.10
+
+      # No tagName -> tauri-action only builds the app; it creates no release.
+      - name: Build Tauri app (Windows x64)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
+        with:
+          args: '--target x86_64-pc-windows-msvc'
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: voltius-windows-x64-instrumented
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi

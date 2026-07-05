@@ -23,6 +23,7 @@ import { getSecret, storeSecret, deleteSecret } from "@/services/vault";
 import type { Connection, Identity, SshKey, Folder, Snippet, PortForwardingRule } from "@/types";
 import type { TeamMember } from "@/services/teamService";
 import { appFetch } from "@/services/http";
+import { log } from "@/lib/logger";
 import { listTeamObjects, type TeamObjectRecord } from "@/services/teamObjects";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import {
@@ -286,6 +287,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
     return;
   }
 
+  const tFetch = performance.now();
   try {
     const objects = await listTeamObjects(teamId);
     if (objects.length > 0) {
@@ -293,6 +295,7 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
       const { backfillExistingTeamVaultSecrets, hydrateTeamVaultSecrets } = await import("@/services/teamVaultSecrets");
       await hydrateTeamVaultSecrets(teamId).catch(() => {});
       if (!options.background) await backfillExistingTeamVaultSecrets(teamId).catch(() => {});
+      log.info(`[perf] fetchTeamData objects=${objects.length} background=${!!options.background} ${(performance.now() - tFetch).toFixed(0)}ms`);
       stateStore.setStatus(teamId, "loaded");
       return;
     }
