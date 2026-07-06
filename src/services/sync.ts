@@ -134,11 +134,11 @@ function applyRemoteLiveSessions(remoteDeviceId: string, remotePayload: BlobPayl
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function getJwt(): Promise<string | null> {
-  return invoke<string | null>("keychain_get", { key: "jwt" });
+  return timed("keychain_get:jwt", () => invoke<string | null>("keychain_get", { key: "jwt" }));
 }
 
 export async function getServerUrl(): Promise<string | null> {
-  return invoke<string | null>("keychain_get", { key: "server_url" });
+  return timed("keychain_get:server_url", () => invoke<string | null>("keychain_get", { key: "server_url" }));
 }
 
 /** Try to refresh the access token using the stored refresh_token. Returns new JWT or null. */

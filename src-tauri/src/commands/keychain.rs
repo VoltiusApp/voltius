@@ -14,29 +14,55 @@ fn entry(key: &str) -> Result<Entry, String> {
     Entry::new(&service(), key).map_err(|e| format!("Keyring error: {e}"))
 }
 
-#[tauri::command]
-pub fn keychain_get(key: String) -> Result<Option<String>, String> {
-    let e = entry(&key)?;
-    match e.get_password() {
-        Ok(val) => Ok(Some(val)),
-        Err(keyring_core::Error::NoEntry) => Ok(None),
-        Err(err) => Err(format!("Keychain read error: {err}")),
-    }
+// The OS credential store (Windows Credential Manager, macOS Keychain, libsecret)
+// is blocking I/O and can stall for a long time — e.g. Windows "Enterprise"
+// persistence may do a domain/roaming lookup that hangs for over a minute. These
+// commands are therefore `async` and run the blocking call on the blocking pool,
+// so a slow credential store never freezes the UI thread (a sync `#[tauri::command]`
+// runs on the main thread and would).
+
+async fn run_blocking<T, F>(f: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, String> + Send + 'static,
+{
+    tokio::task::spawn_blocking(f)
+        .await
+        .map_err(|e| format!("Keychain task error: {e}"))?
 }
 
 #[tauri::command]
-pub fn keychain_set(key: String, value: String) -> Result<(), String> {
-    entry(&key)?
-        .set_password(&value)
-        .map_err(|e| format!("Keychain write error: {e}"))
+pub async fn keychain_get(key: String) -> Result<Option<String>, String> {
+    run_blocking(move || {
+        let e = entry(&key)?;
+        match e.get_password() {
+            Ok(val) => Ok(Some(val)),
+            Err(keyring_core::Error::NoEntry) => Ok(None),
+            Err(err) => Err(format!("Keychain read error: {err}")),
+        }
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn keychain_delete(key: String) -> Result<(), String> {
-    let e = entry(&key)?;
-    match e.delete_credential() {
-        Ok(()) => Ok(()),
-        Err(keyring_core::Error::NoEntry) => Ok(()), // already gone
-        Err(err) => Err(format!("Keychain delete error: {err}")),
-    }
+pub async fn keychain_set(key: String, value: String) -> Result<(), String> {
+    run_blocking(move || {
+        entry(&key)?
+            .set_password(&value)
+            .map_err(|e| format!("Keychain write error: {e}"))
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn keychain_delete(key: String) -> Result<(), String> {
+    run_blocking(move || {
+        let e = entry(&key)?;
+        match e.delete_credential() {
+            Ok(()) => Ok(()),
+            Err(keyring_core::Error::NoEntry) => Ok(()), // already gone
+            Err(err) => Err(format!("Keychain delete error: {err}")),
+        }
+    })
+    .await
 }
