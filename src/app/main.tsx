@@ -4,8 +4,9 @@ import App from "./App";
 import "@/styles/globals.css";
 import "@/i18n";
 import { preloadIcons } from "@/utils/icons";
-import { installGlobalErrorLogging } from "@/lib/logger";
+import { installGlobalErrorLogging, installMainThreadHeartbeat } from "@/lib/logger";
 
+installMainThreadHeartbeat();
 preloadIcons();
 
 installGlobalErrorLogging();

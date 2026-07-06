@@ -347,6 +347,13 @@ fn init_keychain_store() -> keyring_core::Result<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // DIAGNOSTIC (Windows): disable WebView2 GPU acceleration to test whether a
+    // GPU/virtual-display compositor stall is the cause of the reported startup
+    // freeze. Read by WebView2 when it creates its environment; must be set before
+    // the webview is built.
+    #[cfg(target_os = "windows")]
+    std::env::set_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--disable-gpu");
+
     // Tauri's default async runtime uses tokio's default worker-thread stack,
     // which on Windows is too small for process_kill's call chain (sysinfo
     // refresh / russh channel I/O) and overflows the stack
