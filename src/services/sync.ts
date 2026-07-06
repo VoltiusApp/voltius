@@ -77,19 +77,30 @@ function setState(status: SyncStatus, error?: string) {
   _listeners.forEach((fn) => fn());
 }
 
+/** DIAGNOSTIC: log any awaited op slower than the threshold, to name a main-thread stall. */
+async function timed<T>(label: string, fn: () => Promise<T>, thresholdMs = 1000): Promise<T> {
+  const t = performance.now();
+  try {
+    return await fn();
+  } finally {
+    const dt = performance.now() - t;
+    if (dt >= thresholdMs) log.info(`[perf] ${label} ${dt.toFixed(0)}ms`);
+  }
+}
+
 async function applyRemoteTheme(remotePayload: BlobPayload): Promise<void> {
   try {
     const remoteRaw = remotePayload.files["theme.json"];
     if (!remoteRaw) return;
     const remote = JSON.parse(remoteRaw) as { updatedAt?: string };
     if (!remote.updatedAt) return;
-    const localRaw = await invoke<string | null>("theme_load");
+    const localRaw = await timed("theme_load", () => invoke<string | null>("theme_load"));
     if (localRaw) {
       const local = JSON.parse(localRaw) as { updatedAt?: string };
       if (local.updatedAt && local.updatedAt >= remote.updatedAt) return;
     }
-    await invoke("theme_save", { state: remoteRaw });
-    await useThemeStore.getState().loadFromDisk();
+    await timed("theme_save", () => invoke("theme_save", { state: remoteRaw }));
+    await timed("theme.loadFromDisk", () => useThemeStore.getState().loadFromDisk());
   } catch {}
 }
 
@@ -99,12 +110,12 @@ async function applyRemoteSettings(remotePayload: BlobPayload): Promise<void> {
     if (!remoteRaw) return;
     const remote = JSON.parse(remoteRaw) as UserDataBundle;
     if (remote.type !== "voltius-user-data") return;
-    const localRaw = await invoke<string | null>("settings_load");
+    const localRaw = await timed("settings_load", () => invoke<string | null>("settings_load"));
     const local = localRaw ? (JSON.parse(localRaw) as UserDataBundle) : null;
     const { merged, updatedKeys } = mergeUserDataBundle(local, remote);
     if (updatedKeys.length === 0) return;
-    await invoke("settings_save", { state: JSON.stringify(merged) });
-    await applyUserDataBundle(merged, updatedKeys);
+    await timed("settings_save", () => invoke("settings_save", { state: JSON.stringify(merged) }));
+    await timed("applyUserDataBundle", () => applyUserDataBundle(merged, updatedKeys));
   } catch {}
 }
 
@@ -451,10 +462,10 @@ async function pullAndMerge(remoteDeviceId: string): Promise<boolean> {
   const serverUrl = await getServerUrl();
   if (!serverUrl) return false;
 
-  const res = await fetchWithAuth(
+  const res = await timed("pullAndMerge fetchBlob", () => fetchWithAuth(
     `${serverUrl}/v1/sync/blob?device_id=${encodeURIComponent(remoteDeviceId)}`,
     { method: "GET" },
-  );
+  ));
   if (res.status === 404) return false; // remote device has no blob yet
   if (!res.ok) return false; // skip unreachable devices
 
@@ -465,11 +476,11 @@ async function pullAndMerge(remoteDeviceId: string): Promise<boolean> {
 
   const remotePayload = await decryptBlobWithFallback(blobBytes);
 
-  await applyRemoteTheme(remotePayload);
-  await applyRemoteSettings(remotePayload);
+  await timed("applyRemoteTheme", () => applyRemoteTheme(remotePayload));
+  await timed("applyRemoteSettings", () => applyRemoteSettings(remotePayload));
   applyRemoteLiveSessions(remoteDeviceId, remotePayload);
 
-  const localPayload = await invoke<BlobPayload>("state_export_raw");
+  const localPayload = await timed("state_export_raw", () => invoke<BlobPayload>("state_export_raw"));
 
   const parse = (payload: BlobPayload, file: string): TimestampedEntity[] => {
     try { return JSON.parse(payload.files[file] ?? "[]"); }
