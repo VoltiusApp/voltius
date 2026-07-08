@@ -1,0 +1,107 @@
+[package]
+name = "gtk-sys"
+version = "0.18.2"
+links = "gtk-3"
+build = "build.rs"
+authors = ["The gtk-rs Project Developers"]
+description = "UNMAINTAINED FFI bindings to libgtk-3 (use gtk4-sys instead)"
+homepage = "https://gtk-rs.org/"
+keywords = ["gtk", "ffi", "gtk-rs", "gnome"]
+license = "MIT"
+repository = "https://github.com/gtk-rs/gtk3-rs"
+edition = "2021"
+rust-version = "1.70"
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]
+features = []
+rustc-args = ["--cfg", "docsrs"]
+
+[package.metadata.system-deps."gtk+_3_0"]
+name = "gtk+-3.0"
+version = "3.22"
+
+[package.metadata.system-deps."gtk+_3_0".v3_24]
+version = "3.24"
+
+[package.metadata.system-deps."gtk+_3_0".v3_24_1]
+version = "3.24.1"
+
+[package.metadata.system-deps."gtk+_3_0".v3_24_8]
+version = "3.24.8"
+
+[package.metadata.system-deps."gtk+_3_0".v3_24_9]
+version = "3.24.9"
+
+[package.metadata.system-deps."gtk+_3_0".v3_24_11]
+version = "3.24.11"
+
+[package.metadata.system-deps."gtk+_3_0".v3_24_30]
+version = "3.24.30"
+
+[lib]
+name = "gtk_sys"
+
+[dependencies]
+libc = "0.2"
+
+[dependencies.glib]
+package = "glib-sys"
+version = "0.18"
+branch = "0.18"
+git = "https://github.com/gtk-rs/gtk-rs-core"
+
+[dependencies.gobject]
+package = "gobject-sys"
+version = "0.18"
+branch = "0.18"
+git = "https://github.com/gtk-rs/gtk-rs-core"
+
+[dependencies.gio]
+package = "gio-sys"
+version = "0.18"
+branch = "0.18"
+git = "https://github.com/gtk-rs/gtk-rs-core"
+
+[dependencies.atk]
+package = "atk-sys"
+version = "0.18"
+path = "../../atk/sys"
+
+[dependencies.gdk_pixbuf]
+package = "gdk-pixbuf-sys"
+version = "0.18"
+branch = "0.18"
+git = "https://github.com/gtk-rs/gtk-rs-core"
+
+[dependencies.gdk]
+package = "gdk-sys"
+version = "0.18"
+path = "../../gdk/sys"
+
+[dependencies.pango]
+package = "pango-sys"
+version = "0.18"
+branch = "0.18"
+git = "https://github.com/gtk-rs/gtk-rs-core"
+
+[dependencies.cairo]
+package = "cairo-sys-rs"
+version = "0.18"
+branch = "0.18"
+git = "https://github.com/gtk-rs/gtk-rs-core"
+
+[build-dependencies]
+system-deps = "6"
+
+[dev-dependencies]
+shell-words = "1.0.0"
+tempfile = "3"
+
+[features]
+v3_24 = []
+v3_24_8 = ["v3_24_1"]
+v3_24_9 = ["v3_24_8"]
+v3_24_11 = ["v3_24_9"]
+v3_24_30 = ["v3_24_11"]
+v3_24_1 = ["v3_24"]

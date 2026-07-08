@@ -1,0 +1,142 @@
+[package]
+name = "webkit2gtk-sys"
+build = "build.rs"
+categories = [ "api-bindings", "gui" ]
+description = "Rust binding for webkit-gtk library"
+keywords = [ "webkit", "gtk-rs", "gnome", "GUI" ]
+license = "MIT"
+links = "web_kit2"
+repository = "https://github.com/tauri-apps/webkit2gtk-rs"
+version = "2.0.2"
+edition = "2018"
+include = ["README.md", "LICENSE", "src/**/*.rs", "build.rs", "CHANGELOG.md"]
+
+[package.metadata.docs.rs]
+rustc-args = [ "--cfg", "docsrs" ]
+rustdoc-args = [ "--cfg", "docsrs", "--generate-link-to-definition" ]
+all-features = true
+
+[package.metadata.system-deps.webkit2gtk_4_1]
+name = "webkit2gtk-4.1"
+version = "2.4"
+
+  [package.metadata.system-deps.webkit2gtk_4_1.v2_6]
+  version = "2.6"
+
+  [package.metadata.system-deps.webkit2gtk_4_1.v2_8]
+  version = "2.8"
+
+  [package.metadata.system-deps.webkit2gtk_4_1.v2_10]
+  version = "2.10"
+
+  [package.metadata.system-deps.webkit2gtk_4_1.v2_12]
+  version = "2.12"
+
+  [package.metadata.system-deps.webkit2gtk_4_1.v2_14]
+  version = "2.14"
+
+  [package.metadata.system-deps.webkit2gtk_4_1.v2_16]
+  version = "2.16"
+
+  [package.metadata.system-deps.webkit2gtk_4_1.v2_18]
+  version = "2.18"
+
+  [package.metadata.system-deps.webkit2gtk_4_1.v2_20]
+  version = "2.20"
+
+  [package.metadata.system-deps.webkit2gtk_4_1.v2_22]
+  version = "2.22"
+
+  [package.metadata.system-deps.webkit2gtk_4_1.v2_24]
+  version = "2.24"
+
+  [package.metadata.system-deps.webkit2gtk_4_1.v2_26]
+  version = "2.26"
+
+  [package.metadata.system-deps.webkit2gtk_4_1.v2_28]
+  version = "2.28"
+
+  [package.metadata.system-deps.webkit2gtk_4_1.v2_30]
+  version = "2.30"
+
+  [package.metadata.system-deps.webkit2gtk_4_1.v2_32]
+  version = "2.32"
+
+  [package.metadata.system-deps.webkit2gtk_4_1.v2_34]
+  version = "2.34"
+
+  [package.metadata.system-deps.webkit2gtk_4_1.v2_36]
+  version = "2.36"
+
+  [package.metadata.system-deps.webkit2gtk_4_1.v2_38]
+  version = "2.38"
+
+  [package.metadata.system-deps.webkit2gtk_4_1.v2_40]
+  version = "2.40"
+
+[lib]
+name = "webkit2gtk_sys"
+
+[build-dependencies]
+pkg-config = "0.3.7"
+system-deps = "6"
+
+[dependencies]
+bitflags = "^1.0"
+libc = "0.2"
+
+  [dependencies.gtk]
+  package = "gtk-sys"
+  version = "0.18"
+
+  [dependencies.gdk]
+  package = "gdk-sys"
+  version = "0.18"
+
+  [dependencies.gio]
+  package = "gio-sys"
+  version = "0.18"
+
+  [dependencies.glib]
+  package = "glib-sys"
+  version = "0.18"
+
+  [dependencies.gobject]
+  package = "gobject-sys"
+  version = "0.18"
+
+  [dependencies.cairo]
+  package = "cairo-sys-rs"
+  version = "0.18"
+
+  [dependencies.java_script_core]
+  package = "javascriptcore-rs-sys"
+  version = "=1.1"
+
+  [dependencies.soup]
+  package = "soup3-sys"
+  version = "0.5"
+
+[dev-dependencies]
+shell-words = "1.0.0"
+tempfile = "3"
+
+[features]
+v2_6 = [ ]
+v2_8 = [ "v2_6" ]
+v2_10 = [ "v2_8" ]
+v2_12 = [ "v2_10" ]
+v2_14 = [ "v2_12" ]
+v2_16 = [ "v2_14" ]
+v2_18 = [ "v2_16" ]
+v2_20 = [ "v2_18" ]
+v2_22 = [ "v2_20" ]
+v2_24 = [ "v2_22" ]
+v2_26 = [ "v2_24" ]
+v2_28 = [ "v2_26" ]
+v2_30 = [ "v2_28" ]
+v2_32 = [ "v2_30" ]
+v2_34 = [ "v2_32" ]
+v2_36 = [ "v2_34" ]
+v2_38 = [ "v2_36" ]
+v2_40 = [ "v2_38" ]

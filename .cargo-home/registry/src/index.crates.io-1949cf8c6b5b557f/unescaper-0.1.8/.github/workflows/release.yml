@@ -1,0 +1,34 @@
+name: Release
+
+env:
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+  CARGO_TERM_COLOR: always
+
+  RUST_BACKTRACE: full
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          discussion_category_name: Announcements
+          generate_release_notes: true
+
+  publish-on-crates-io:
+    name: Publish on crates.io
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch latest code
+        uses: actions/checkout@v4
+      - name: Login
+        run: cargo login ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Publish
+        run: cargo publish --locked

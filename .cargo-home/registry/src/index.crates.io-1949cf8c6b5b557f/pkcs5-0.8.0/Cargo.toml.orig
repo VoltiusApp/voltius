@@ -1,0 +1,50 @@
+[package]
+name = "pkcs5"
+version = "0.8.0"
+description = """
+Pure Rust implementation of Public-Key Cryptography Standards (PKCS) #5:
+Password-Based Cryptography Specification Version 2.1 (RFC 8018)
+"""
+authors = ["RustCrypto Developers"]
+license = "Apache-2.0 OR MIT"
+homepage = "https://github.com/RustCrypto/formats/tree/master/pkcs5"
+repository = "https://github.com/RustCrypto/formats"
+categories = ["cryptography", "data-structures", "encoding", "no-std"]
+keywords = ["crypto", "key", "pkcs", "password"]
+readme = "README.md"
+edition = "2024"
+rust-version = "1.85"
+
+[dependencies]
+der = { version = "0.8", features = ["oid"] }
+spki = "0.8"
+
+# optional dependencies
+aes = { version = "0.9", optional = true, default-features = false }
+cbc = { version = "0.2", optional = true }
+des = { version = "0.9", optional = true, default-features = false }
+pbkdf2 = { version = "0.13", optional = true, default-features = false, features = ["hmac"] }
+getrandom = { version = "0.4", optional = true, features = ["sys_rng"] }
+rand_core = { version = "0.10", optional = true, default-features = false }
+scrypt = { version = "0.12", optional = true, default-features = false }
+sha1 = { version = "0.11", optional = true, default-features = false }
+sha2 = { version = "0.11", optional = true, default-features = false }
+
+[dev-dependencies]
+hex-literal = "1"
+
+[features]
+alloc = []
+
+3des = ["dep:des", "pbes2"]
+des-insecure = ["dep:des", "pbes2"]
+getrandom = ["dep:getrandom", "rand_core"]
+pbes2 = ["dep:aes", "dep:cbc", "dep:pbkdf2", "dep:scrypt", "dep:sha2"]
+rand_core = ["dep:rand_core"]
+sha1-insecure = ["dep:sha1", "pbes2"]
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]

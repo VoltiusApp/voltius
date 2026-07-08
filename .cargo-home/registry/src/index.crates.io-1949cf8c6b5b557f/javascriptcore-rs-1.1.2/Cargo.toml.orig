@@ -1,0 +1,30 @@
+[package]
+description = "Rust bindings for the javacriptcore library"
+edition = "2021"
+keywords = [ "javascript", "gtk-rs", "gnome" ]
+license = "MIT"
+name = "javascriptcore-rs"
+repository = "https://github.com/tauri-apps/javascriptcore-rs"
+version = "1.1.2"
+
+[package.metadata.docs.rs]
+all-features = true
+rustc-args = [ "--cfg", "docsrs" ]
+rustdoc-args = [ "--cfg", "docsrs" ]
+
+[lib]
+name = "javascriptcore"
+
+[dependencies]
+bitflags = "^1.0"
+glib = "^0.18.0"
+
+  [dependencies.ffi]
+  package = "javascriptcore-rs-sys"
+  path = "./sys"
+  version = "1.1"
+
+[features]
+default = [ "v2_38" ]
+v2_28 = [ "ffi/v2_28" ]
+v2_38 = [ "ffi/v2_38", "v2_28" ]

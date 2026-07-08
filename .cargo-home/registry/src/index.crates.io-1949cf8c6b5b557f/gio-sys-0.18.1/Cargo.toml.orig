@@ -1,0 +1,95 @@
+[build-dependencies]
+system-deps = "6"
+
+[dependencies]
+libc = "0.2"
+
+[dependencies.glib]
+package = "glib-sys"
+path = "../../glib/sys"
+version = "0.18"
+
+[dependencies.gobject]
+package = "gobject-sys"
+path = "../../glib/gobject-sys"
+version = "0.18"
+
+[target."cfg(windows)".dependencies.winapi]
+version = "0.3.9"
+features = ["ws2def", "winsock2"]
+
+[dev-dependencies]
+shell-words = "1.0.0"
+tempfile = "3"
+
+[features]
+v2_58 = []
+v2_60 = ["v2_58"]
+v2_62 = ["v2_60"]
+v2_64 = ["v2_62"]
+v2_66 = ["v2_64"]
+v2_68 = ["v2_66"]
+v2_70 = ["v2_68"]
+v2_72 = ["v2_70"]
+v2_74 = ["v2_72"]
+v2_76 = ["v2_74"]
+v2_78 = ["v2_76"]
+
+[lib]
+name = "gio_sys"
+
+[package]
+authors = ["The gtk-rs Project Developers"]
+build = "build.rs"
+description = "FFI bindings to libgio-2.0"
+homepage = "https://gtk-rs.org/"
+keywords = ["gio", "ffi", "gtk-rs", "gnome"]
+license = "MIT"
+name = "gio-sys"
+repository = "https://github.com/gtk-rs/gtk-rs-core"
+version = "0.18.1"
+edition = "2021"
+rust-version = "1.70"
+
+[package.metadata.docs.rs]
+all-features = true
+rustc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docsrs"]
+features = []
+
+[package.metadata.system-deps.gio_2_0]
+name = "gio-2.0"
+version = "2.56"
+
+[package.metadata.system-deps.gio_2_0.v2_58]
+version = "2.58"
+
+[package.metadata.system-deps.gio_2_0.v2_60]
+version = "2.60"
+
+[package.metadata.system-deps.gio_2_0.v2_62]
+version = "2.62"
+
+[package.metadata.system-deps.gio_2_0.v2_64]
+version = "2.64"
+
+[package.metadata.system-deps.gio_2_0.v2_66]
+version = "2.66"
+
+[package.metadata.system-deps.gio_2_0.v2_68]
+version = "2.68"
+
+[package.metadata.system-deps.gio_2_0.v2_70]
+version = "2.70"
+
+[package.metadata.system-deps.gio_2_0.v2_72]
+version = "2.72"
+
+[package.metadata.system-deps.gio_2_0.v2_74]
+version = "2.74"
+
+[package.metadata.system-deps.gio_2_0.v2_76]
+version = "2.76"
+
+[package.metadata.system-deps.gio_2_0.v2_78]
+version = "2.77"

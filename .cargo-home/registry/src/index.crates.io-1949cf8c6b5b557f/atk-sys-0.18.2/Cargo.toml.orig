@@ -1,0 +1,73 @@
+[build-dependencies]
+system-deps = "6"
+
+[dependencies]
+libc = "0.2"
+
+[dependencies.glib]
+package = "glib-sys"
+version = "0.18"
+branch = "0.18"
+git = "https://github.com/gtk-rs/gtk-rs-core"
+
+[dependencies.gobject]
+package = "gobject-sys"
+version = "0.18"
+branch = "0.18"
+git = "https://github.com/gtk-rs/gtk-rs-core"
+
+[dev-dependencies]
+shell-words = "1.0.0"
+tempfile = "3"
+
+[features]
+v2_30 = []
+v2_32 = ["v2_30"]
+v2_34 = ["v2_32"]
+v2_38 = ["v2_34"]
+v2_46 = ["v2_38"]
+v2_50 = ["v2_46"]
+
+[lib]
+name = "atk_sys"
+
+[package]
+authors = ["The gtk-rs Project Developers"]
+build = "build.rs"
+description = "UNMAINTAINED FFI bindings to libatk-1"
+homepage = "https://gtk-rs.org/"
+keywords = ["atk", "ffi", "gtk-rs", "gnome"]
+license = "MIT"
+links = "atk-1.0"
+name = "atk-sys"
+repository = "https://github.com/gtk-rs/gtk3-rs"
+version = "0.18.2"
+edition = "2021"
+rust-version = "1.70"
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]
+features = []
+rustc-args = ["--cfg", "docsrs"]
+
+[package.metadata.system-deps.atk]
+name = "atk"
+version = "2.28"
+
+[package.metadata.system-deps.atk.v2_30]
+version = "2.30"
+
+[package.metadata.system-deps.atk.v2_32]
+version = "2.32"
+
+[package.metadata.system-deps.atk.v2_34]
+version = "2.34"
+
+[package.metadata.system-deps.atk.v2_38]
+version = "2.38"
+
+[package.metadata.system-deps.atk.v2_46]
+version = "2.46"
+
+[package.metadata.system-deps.atk.v2_50]
+version = "2.50"

@@ -1,0 +1,2973 @@
+[external_libraries]
+Gio = {min_version = "2.56"}
+
+[options]
+girs_directories = ["../gir-files"]
+library = "Gtk"
+version = "3.0"
+min_cfg_version = "3.22.30"
+target_path = "."
+work_mode = "normal"
+generate_safety_asserts = true
+deprecate_by_min_version = true
+single_version_file = true
+
+generate = [
+    "Gtk.AccelFlags",
+    "Gtk.Align",
+    "Gtk.ApplicationInhibitFlags",
+    "Gtk.ArrowType",
+    "Gtk.AssistantPageType",
+    "Gtk.BaselinePosition",
+    "Gtk.Bin",
+    "Gtk.BorderStyle",
+    "Gtk.BuilderError",
+    "Gtk.ButtonBoxStyle",
+    "Gtk.ButtonRole",
+    "Gtk.ButtonsType",
+    "Gtk.CalendarDisplayOptions",
+    "Gtk.CellAreaContext",
+    "Gtk.CellLayout",
+    "Gtk.CellRendererAccelMode",
+    "Gtk.CellRendererMode",
+    "Gtk.CellRendererState",
+    "Gtk.CornerType",
+    "Gtk.CssProvider",
+    "Gtk.CssProviderError",
+    "Gtk.CssSection",
+    "Gtk.CssSectionType",
+    "Gtk.DeleteType",
+    "Gtk.DestDefaults",
+    "Gtk.DialogFlags",
+    "Gtk.DirectionType",
+    "Gtk.DragResult",
+    "Gtk.EntryIconPosition",
+    "Gtk.EventController",
+    "Gtk.EventSequenceState",
+    "Gtk.FileChooserAction",
+    "Gtk.FileChooserConfirmation",
+    "Gtk.FileChooserError",
+    "Gtk.FileFilter",
+    "Gtk.FileFilterFlags",
+    "Gtk.GestureSingle",
+    "Gtk.IconInfo",
+    "Gtk.IconLookupFlags",
+    "Gtk.IconSize",
+    "Gtk.IconThemeError",
+    "Gtk.IconViewDropPosition",
+    "Gtk.ImageType",
+    "Gtk.InputHints",
+    "Gtk.InputPurpose",
+    "Gtk.JunctionSides",
+    "Gtk.Justification",
+    "Gtk.LevelBarMode",
+    "Gtk.License",
+    "Gtk.MenuDirectionType",
+    "Gtk.MessageType",
+    "Gtk.Misc",
+    "Gtk.MovementStep",
+    "Gtk.NotebookTab",
+    "Gtk.NumberUpLayout",
+    "Gtk.Orientable",
+    "Gtk.Orientation",
+    "Gtk.PackDirection",
+    "Gtk.PackType",
+    "Gtk.PadActionType",
+    "Gtk.PageOrientation",
+    "Gtk.PageSet",
+    "Gtk.PanDirection",
+    "Gtk.PlacesOpenFlags",
+    "Gtk.PolicyType",
+    "Gtk.PopoverConstraint",
+    "Gtk.PositionType",
+    "Gtk.PrintDuplex",
+    "Gtk.PrintError",
+    "Gtk.PrintOperationAction",
+    "Gtk.PrintOperationPreview",
+    "Gtk.PrintOperationResult",
+    "Gtk.PrintPages",
+    "Gtk.PrintQuality",
+    "Gtk.PrintStatus",
+    "Gtk.PropagationPhase",
+    "Gtk.RecentChooser",
+    "Gtk.RecentChooserError",
+    "Gtk.RecentFilterFlags",
+    "Gtk.RecentInfo",
+    "Gtk.RecentManagerError",
+    "Gtk.RecentSortType",
+    "Gtk.RegionFlags",
+    "Gtk.ReliefStyle",
+    "Gtk.ResizeMode",
+    "Gtk.RevealerTransitionType",
+    "Gtk.Scrollable",
+    "Gtk.ScrollablePolicy",
+    "Gtk.ScrollStep",
+    "Gtk.ScrollType",
+    "Gtk.SelectionMode",
+    "Gtk.SensitivityType",
+    "Gtk.ShadowType",
+    "Gtk.ShortcutLabel",
+    "Gtk.ShortcutType",
+    "Gtk.SizeGroupMode",
+    "Gtk.SizeRequestMode",
+    "Gtk.SortType",
+    "Gtk.SpinButtonUpdatePolicy",
+    "Gtk.SpinType",
+    "Gtk.StackTransitionType",
+    "Gtk.StateFlags",
+    "Gtk.StyleContextPrintFlags",
+    "Gtk.StyleProperties",
+    "Gtk.StyleProvider",
+    "Gtk.TargetFlags",
+    "Gtk.TextAttributes",
+    "Gtk.TextChildAnchor",
+    "Gtk.TextDirection",
+    "Gtk.TextExtendSelection",
+    "Gtk.TextSearchFlags",
+    "Gtk.TextTagTable",
+    "Gtk.TextViewLayer",
+    "Gtk.TextWindowType",
+    "Gtk.ToolbarStyle",
+    "Gtk.ToolPaletteDragTargets",
+    "Gtk.ToolShell",
+    "Gtk.Tooltip",
+    "Gtk.TreeDragDest",
+    "Gtk.TreeDragSource",
+    "Gtk.TreeModelFlags",
+    "Gtk.TreeViewColumnSizing",
+    "Gtk.TreeViewDropPosition",
+    "Gtk.TreeViewGridLines",
+    "Gtk.Unit",
+    "Gtk.WidgetHelpType",
+    "Gtk.WidgetPath",
+    "Gtk.WindowGroup",
+    "Gtk.WindowPosition",
+    "Gtk.WindowType",
+    "Gtk.WrapMode",
+]
+
+ignore = [
+    "Gtk.Activatable",
+    #deprecated since 3.14
+    "Gtk.Alignment",
+    #deprecated since 3.14
+    "Gtk.Arrow",
+    #deprecated since 3.10
+    "Gtk.IconFactory",
+    #deprecated since 3.10
+    "Gtk.IconSet",
+    #deprecated since 3.10
+    "Gtk.IconSource",
+    #deprecated since 3.10
+    "Gtk.ImageMenuItem",
+    #deprecated since 3.10
+    "Gtk.IMPreeditStyle",
+    #deprecated since 3.10
+    "Gtk.IMStatusStyle",
+    #deprecated since 3.14
+    "Gtk.StateType",
+    #deprecated since 3.14
+    "Gtk.StatusIcon",
+    #deprecated since 3.8
+    "Gtk.SymbolicColor",
+]
+
+manual = [
+    "Atk.Object",
+    "Atk.Role",
+    "cairo.Context",
+    "cairo.FontOptions",
+    "cairo.RectangleInt",
+    "cairo.Region",
+    "cairo.Surface",
+    "Gdk.AnchorHints",
+    "Gdk.Atom",
+    "Gdk.AxisUse",
+    "Gdk.Device",
+    "Gdk.DeviceTool",
+    "Gdk.Display",
+    "Gdk.DragAction",
+    "Gdk.DragContext",
+    "Gdk.DragProtocol",
+    "Gdk.Event",
+    "Gdk.EventButton",
+    "Gdk.EventConfigure",
+    "Gdk.EventCrossing",
+    "Gdk.EventExpose",
+    "Gdk.EventFocus",
+    "Gdk.EventGrabBroken",
+    "Gdk.EventKey",
+    "Gdk.EventMask",
+    "Gdk.EventMotion",
+    "Gdk.EventProperty",
+    "Gdk.EventProximity",
+    "Gdk.EventScroll",
+    "Gdk.EventSelection",
+    "Gdk.EventSequence",
+    "Gdk.EventVisibility",
+    "Gdk.EventWindowState",
+    "Gdk.FrameClock",
+    "Gdk.Geometry",
+    "Gdk.GLContext",
+    "Gdk.Gravity",
+    "Gdk.ModifierIntent",
+    "Gdk.ModifierType",
+    "Gdk.Monitor",
+    "Gdk.Rectangle",
+    "Gdk.RGBA",
+    "Gdk.Screen",
+    "Gdk.Visual",
+    "Gdk.Window",
+    "Gdk.WindowEdge",
+    "Gdk.WindowHints",
+    "Gdk.WindowTypeHint",
+    "GdkPixbuf.Pixbuf",
+    "GdkPixbuf.PixbufAnimation",
+    "Gio.ActionGroup",
+    "Gio.ActionMap",
+    "Gio.AppInfo",
+    "Gio.Application",
+    "Gio.ApplicationFlags",
+    "Gio.Cancellable",
+    "Gio.File",
+    "Gio.Icon",
+    "Gio.ListModel",
+    "Gio.Menu",
+    "Gio.MenuModel",
+    "Gio.MountOperation",
+    "Gio.PasswordSave",
+    "Gio.Permission",
+    "GLib.Error",
+    "GLib.KeyFile",
+    "GLib.Quark",
+    "GLib.Variant",
+    "GLib.VariantType",
+    "GObject.Closure",
+    "GObject.Object",
+    "GObject.Value",
+    "Gtk.Allocation",
+    "Gtk.AppChooser",
+    "Gtk.Border",
+    "Gtk.FileFilterInfo",
+    "Gtk.PadActionEntry",
+    "Gtk.RecentData",
+    "Gtk.Requisition",
+    "Gtk.ResponseType",
+    "Gtk.TargetEntry",
+    "Pango.Alignment",
+    "Pango.AttrList",
+    "Pango.Context",
+    "Pango.Direction",
+    "Pango.EllipsizeMode",
+    "Pango.FontDescription",
+    "Pango.FontFace",
+    "Pango.FontFamily",
+    "Pango.FontMap",
+    "Pango.Language",
+    "Pango.Layout",
+    "Pango.Stretch",
+    "Pango.Style",
+    "Pango.TabArray",
+    "Pango.Underline",
+    "Pango.Variant",
+    "Pango.WrapMode",
+    "xlib.Window",
+]
+
+[[object]]
+name = "GObject.ParamSpec"
+status = "manual"
+final_type = true
+
+[[object]]
+name = "Gtk.*"
+status = "generate"
+    [[object.function]]
+    pattern = ".+"
+        [[object.function.parameter]]
+        name = "cr"
+        const = true
+        [[object.function.parameter]]
+        name = "surface"
+        const = true
+    [[object.function]]
+    pattern = "tree_[gs]et_row_drag_data"
+        [[object.function.parameter]]
+        name = "selection_data"
+        const = true
+    [[object.function]]
+    name = "selection_add_targets"
+    #array as pointer
+    ignore = true
+    [[object.function]]
+    name = "target_table_free"
+    #array as pointer
+    ignore = true
+    [[object.function]]
+    name = "target_table_new_from_list"
+    #array as pointer
+    ignore = true
+    [[object.function]]
+    name = "init"
+    #manual
+    ignore = true
+    [[object.function]]
+    name = "main_quit"
+    #manual
+    ignore = true
+    [[object.function]]
+    pattern = "get_(major|minor|micro)_version"
+    assertion = "skip"
+    [[object.function]]
+    pattern = "get_(binary|interface)_age"
+    assertion = "skip"
+    [[object.function]]
+    name = "check_version"
+    assertion = "skip"
+    [[object.function]]
+    pattern = "drag_.+"
+    #manual trait
+    ignore = true
+    [[object.function]]
+    name = "disable_setlocale"
+    assertion = "not-initialized"
+    [[object.function]]
+    name = "test_init"
+    ignore = true # TODO: manually implement
+    [[object.function]]
+    name = "parse_args"
+    ignore = true # TODO: manually implement
+    [[object.function]]
+    name = "init_with_args"
+    ignore = true # TODO: manually implement
+    [[object.function]]
+    name = "init_check"
+    ignore = true # TODO: manually implement
+    [[object.function]]
+    name = "accelerator_parse_with_keycode"
+    manual = true
+
+[[object]]
+name = "Gtk.AboutDialog"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "set_website_label"
+        [[object.function.parameter]]
+        name = "website_label"
+        # Passing `NULL` here seems to influence the rendering code
+        nullable = true
+    [[object.signal]]
+    name = "activate-link"
+    inhibit = true
+
+[[object]]
+name = "Gtk.AccelGroup"
+status = "generate"
+manual_traits = ["AccelGroupExtManual"]
+    [[object.function]]
+    name = "query"
+    # It's not a part of public API
+    # See https://mail.gnome.org/archives/commits-list/2012-May/msg07052.html
+    ignore = true
+    [[object.function]]
+    name = "connect"
+    # More convenient implementation
+    manual = true
+    rename = "connect_accel_group"
+    [[object.function]]
+    name = "connect_by_path"
+    # More convenient implementation
+    manual = true
+    rename = "connect_accel_group_by_path"
+
+[[object]]
+name = "Gtk.AccelLabel"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.Actionable"
+status = "generate"
+    [[object.property]]
+    name = "action-target"
+    #has get/set function
+    generate = ["notify"]
+
+[[object]]
+name = "Gtk.ActionBar"
+status = "generate"
+generate_builder = true
+    [[object.child_prop]]
+    name = "pack-type"
+    type = "Gtk.PackType"
+    [[object.child_prop]]
+    name = "position"
+    type = "gint"
+
+[[object]]
+name = "Gtk.Adjustment"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.AppChooserButton"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.AppChooserDialog"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "get_widget"
+        [object.function.return]
+        nullable = false
+
+[[object]]
+name = "Gtk.AppChooserWidget"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.Application"
+status = "generate"
+generate_builder = true
+builder_postprocess = "Application::register_startup_hook(&ret);"
+trait_name = "GtkApplicationExt"
+manual_traits = ["gio::ApplicationExtManual"]
+    [[object.function]]
+    name = "new"
+    ignore = true
+
+[[object]]
+name = "Gtk.ApplicationWindow"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "new"
+    ignore = true
+
+[[object]]
+name = "Gtk.AspectFrame"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.Assistant"
+status = "generate"
+generate_builder = true
+    [[object.child_prop]]
+    name = "complete"
+    type = "gboolean"
+    [[object.child_prop]]
+    name = "has-padding"
+    type = "gboolean"
+    [[object.child_prop]]
+    name = "page-type"
+    type = "Gtk.AssistantPageType"
+    [[object.child_prop]]
+    name = "title"
+    type = "utf8"
+    [[object.function]]
+    name = "get_page_has_padding"
+    rename = "page_has_padding"
+    [[object.function]]
+    name = "get_page_complete"
+    rename = "page_is_complete"
+
+[[object]]
+name = "Gtk.Box"
+status = "generate"
+generate_builder = true
+    [[object.child_prop]]
+    name = "expand"
+    type = "gboolean"
+    [[object.child_prop]]
+    name = "fill"
+    type = "gboolean"
+    [[object.child_prop]]
+    name = "pack-type"
+    type = "Gtk.PackType"
+    [[object.child_prop]]
+    name = "padding"
+    type = "guint"
+    [[object.child_prop]]
+    name = "position"
+    type = "gint"
+    [[object.function]]
+    name = "get_child_non_homogeneous"
+    rename = "child_is_non_homogeneous"
+    [[object.function]]
+    name = "get_child_secondary"
+    rename = "child_is_secondary"
+
+[[object]]
+name = "Gtk.Buildable"
+status = "generate"
+manual_traits = ["BuildableExtManual"]
+    [[object.function]]
+    pattern = "[gs]et_name"
+    ignore = true
+    doc_trait_name = "BuildableExtManual"
+
+[[object]]
+name = "Gtk.Builder"
+status = "generate"
+manual_traits = ["BuilderExtManual"]
+    [[object.function]]
+    pattern = ".+_from_file"
+    #path
+    ignore = true
+    doc_trait_name = "BuilderExtManual"
+    [[object.function]]
+    name = "connect_signals_full"
+    # Connect object and swapped signal not supported
+    manual = true
+    [[object.function]]
+    name = "get_object"
+    #downcast
+    ignore = true
+    doc_trait_name = "BuilderExtManual"
+    [[object.function]]
+    pattern = "add_from_.+"
+    #non-boolean return code
+    manual = true
+    doc_trait_name = "BuilderExtManual"
+    [[object.function]]
+    pattern = "add_objects_from_.+"
+    #non-boolean return code
+    manual = true
+    doc_trait_name = "BuilderExtManual"
+    [[object.function]]
+    pattern = "extend_with_template"
+    #non-boolean return code
+    manual = true
+    doc_trait_name = "BuilderExtManual"
+
+[[object]]
+name = "Gtk.Button"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.ButtonBox"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "get_child_non_homogeneous"
+    rename = "child_is_non_homogeneous"
+    [[object.function]]
+    name = "get_child_secondary"
+    rename = "child_is_secondary"
+
+[[object]]
+name = "Gtk.Calendar"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "get_day_is_marked"
+    rename = "day_is_marked"
+
+[[object]]
+name = "Gtk.CellArea"
+status = "generate"
+    [[object.function]]
+    name = "render"
+        [[object.function.parameter]]
+        name = "cr"
+        # cairo::Context is reference-counted
+        const = true
+    [[object.function]]
+    name = "apply_attributes"
+        [[object.function.parameter]]
+        name = "iter"
+        const = true
+    [[object.function]]
+    name = "activate_cell"
+        [[object.function.parameter]]
+        name = "event"
+        const = true
+    [[object.function]]
+    name = "event"
+        [[object.function.parameter]]
+        name = "event"
+        const = true
+    [[object.signal]]
+    name = "add-editable"
+        [[object.signal.parameter]]
+        name = "path"
+        transformation = "treepath"
+    [[object.signal]]
+    name = "apply-attributes"
+        [[object.signal.parameter]]
+        name = "iter"
+        transformation = "borrow"
+    [[object.signal]]
+    name = "focus-changed"
+        [[object.signal.parameter]]
+        name = "path"
+        transformation = "treepath"
+
+[[object]]
+name = "Gtk.CellAreaBox"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.CellEditable"
+status = "generate"
+    [[object.function]]
+    name = "start_editing"
+        [[object.function.parameter]]
+        name = "event"
+        const = true
+
+[[object]]
+name = "Gtk.CellRenderer"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "render"
+        [[object.function.parameter]]
+        name = "cr"
+        # cairo::Context is reference-counted
+        const = true
+    [[object.function]]
+    name = "activate"
+        [[object.function.parameter]]
+        name = "event"
+        const = true
+    [[object.function]]
+    name = "start_editing"
+        [[object.function.parameter]]
+        name = "event"
+        const = true
+    [[object.signal]]
+    name = "editing-started"
+        [[object.signal.parameter]]
+        name = "path"
+        transformation = "treepath"
+
+[[object]]
+name = "Gtk.CellRendererAccel"
+status = "generate"
+generate_builder = true
+    [[object.signal]]
+    name = "accel-cleared"
+        [[object.signal.parameter]]
+        name = "path_string"
+        transformation = "treepath"
+        new_name = "path"
+    [[object.signal]]
+    name = "accel-edited"
+        [[object.signal.parameter]]
+        name = "path_string"
+        transformation = "treepath"
+        new_name = "path"
+
+[[object]]
+name = "Gtk.CellRendererCombo"
+status = "generate"
+generate_builder = true
+    [[object.signal]]
+    name = "changed"
+        [[object.signal.parameter]]
+        name = "new_iter"
+        transformation = "borrow"
+        [[object.signal.parameter]]
+        name = "path_string"
+        transformation = "treepath"
+        new_name = "path"
+
+[[object]]
+name = "Gtk.CellRendererPixbuf"
+status = "generate"
+generate_builder = true
+manual_traits = ["CellRendererPixbufExtManual"]
+    [[object.property]]
+    name = "surface"
+    [[object.property]]
+    name = "stock-size"
+    #value ImageSize
+    generate = ["notify"]
+    doc_trait_name = "CellRendererPixbufExtManual"
+
+[[object]]
+name = "Gtk.CellRendererProgress"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.CellRendererSpin"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.CellRendererSpinner"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.CellRendererText"
+status = "generate"
+generate_builder = true
+    [[object.signal]]
+    name = "edited"
+        [[object.signal.parameter]]
+        name = "path"
+        transformation = "treepath"
+
+[[object]]
+name = "Gtk.CellRendererToggle"
+status = "generate"
+generate_builder = true
+    [[object.signal]]
+    name = "toggled"
+        [[object.signal.parameter]]
+        name = "path"
+        transformation = "treepath"
+
+[[object]]
+name = "Gtk.CellView"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "set_displayed_row"
+    [[object.function.parameter]]
+        name = "path"
+        nullable = false
+
+[[object]]
+name = "Gtk.CheckButton"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.CheckMenuItem"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.Clipboard"
+status = "generate"
+    [[object.function]]
+    name = "get"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_for_display"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "set_can_store"
+    #array with size
+    ignore = true
+    [[object.function]]
+    name = "request_targets"
+    #array with size
+    ignore = true
+    [[object.function]]
+    name = "request_uris"
+    #array with size
+    ignore = true
+    [[object.function]]
+    name = "set_with_data"
+    #array with size
+    ignore = true
+    [[object.function]]
+    name = "set_with_owner"
+    #array with size
+    ignore = true
+    [[object.function]]
+    name = "request_image"
+        [[object.function.parameter]]
+        name = "callback"
+            [[object.function.parameter.callback_parameter]]
+            name = "pixbuf"
+            nullable = true
+
+[[object]]
+name = "Gtk.ColorButton"
+status = "generate"
+generate_builder = true
+manual_traits = ["ColorButtonExtManual"]
+    [[object.function]]
+    name = "new_with_color"
+    #totally
+    doc_trait_name = "ColorButtonExtManual"
+    [[object.function]]
+    name = "get_color"
+    manual = true
+    doc_trait_name = "ColorButtonExtManual"
+    [[object.function]]
+    name = "set_color"
+    manual = true
+    doc_trait_name = "ColorButtonExtManual"
+
+[[object]]
+name = "Gtk.ColorChooser"
+status = "generate"
+manual_traits = ["ColorChooserExtManual"]
+    [[object.function]]
+    name = "add_palette"
+    #array with size
+    manual = true
+    doc_trait_name = "ColorChooserExtManual"
+
+[[object]]
+name = "Gtk.ColorChooserDialog"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.ColorChooserWidget"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.ComboBox"
+status = "generate"
+generate_builder = true
+manual_traits = ["ComboBoxExtManual"]
+    [[object.function]]
+    name = "set_active_iter"
+        [[object.function.parameter]]
+        name = "iter"
+        const = true
+    [[object.function]]
+    name = "set_active"
+    manual = true
+    doc_trait_name = "ComboBoxExtManual"
+    [[object.function]]
+    name = "get_active"
+    manual = true
+    doc_trait_name = "ComboBoxExtManual"
+    [[object.property]]
+    name = "active"
+    #manual Option
+    generate = ["notify"]
+
+[[object]]
+name = "Gtk.ComboBoxText"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.Container"
+status = "generate"
+manual_traits = ["ContainerExtManual"]
+    [[object.function]]
+    pattern = "child_[gs]et_property"
+    manual = true
+    [[object.function]]
+    name = "propagate_draw"
+        [[object.function.parameter]]
+        name = "cr"
+        # cairo::Context is reference-counted
+        const = true
+
+[[object]]
+name = "Gtk.Dialog"
+status = "generate"
+generate_builder = true
+manual_traits = ["DialogExtManual"]
+    [[object.function]]
+    name = "add_buttons"
+    manual = true
+    [[object.function]]
+    name = "add_button"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_action_area"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_content_area"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "run"
+        [object.function.return]
+        type = "Gtk.ResponseType"
+    [[object.function]]
+    name = "get_response_for_widget"
+        [object.function.return]
+        type = "Gtk.ResponseType"
+
+[[object]]
+name = "Gtk.DrawingArea"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.Editable"
+status = "generate"
+manual_traits = ["EditableSignals"]
+    [[object.signal]]
+    pattern = ".+"
+    ignore = true #out #manual
+    doc_trait_name = "EditableSignals"
+
+[[object]]
+name = "Gtk.Entry"
+status = "generate"
+generate_builder = true
+manual_traits = ["EntryExtManual"]
+    [[object.function]]
+    name = "get_buffer"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_icon_activatable"
+    rename = "icon_is_activatable"
+    [[object.function]]
+    name = "get_icon_sensitive"
+    rename = "icon_is_sensitive"
+    [[object.function]]
+    name = "get_invisible_char"
+    manual = true
+    doc_trait_name = "EntryExtManual"
+    [[object.function]]
+    name = "get_text"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "set_invisible_char"
+        [[object.function.parameter]]
+        name = "ch"
+        nullable = true
+    [[object.function]]
+    name = "set_placeholder_text"
+        [[object.function.parameter]]
+        name = "text"
+        nullable = true
+    [[object.function]]
+    name = "im_context_filter_keypress"
+        [[object.function.parameter]]
+        name = "event"
+        const = true
+    [[object.function]]
+    name = "set_tabs"
+        [[object.function.parameter]]
+        name = "tabs"
+        const = true
+
+[[object]]
+name = "Gtk.EntryBuffer"
+status = "manual"
+generate_builder = true
+
+[[object]]
+name = "Gtk.EntryCompletion"
+status = "generate"
+generate_builder = true
+manual_traits = ["EntryCompletionExtManual"]
+    [[object.signal]]
+    name = "insert-prefix"
+    inhibit = true
+    [[object.signal]]
+    name = "match-selected"
+    inhibit = true
+    [[object.signal]]
+    name = "cursor-on-match"
+    inhibit = true
+    [[object.function]]
+    name = "get_entry"
+    manual = true
+    doc_trait_name = "EntryCompletionExtManual"
+
+[[object]]
+name = "Gtk.EventBox"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.EventControllerKey"
+status = "generate"
+version = "3.24"
+
+[[object]]
+name = "Gtk.EventControllerMotion"
+status = "generate"
+version = "3.24"
+
+[[object]]
+name = "Gtk.EventControllerScroll"
+status = "generate"
+version = "3.24"
+
+[[object]]
+name = "Gtk.EventControllerScrollFlags"
+status = "generate"
+version = "3.24"
+
+[[object]]
+name = "Gtk.Expander"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "new"
+        [[object.function.parameter]]
+        name = "label"
+        nullable = true
+    [[object.function]]
+    name = "new_with_mnemonic"
+        [[object.function.parameter]]
+        name = "label"
+        nullable = false
+
+[[object]]
+name = "Gtk.FileChooser"
+status = "generate"
+manual_traits = ["FileChooserExtManual"]
+    [[object.function]]
+    name = "add_choice"
+    manual = true # rust-ify the options param
+
+[[object]]
+name = "Gtk.FileChooserButton"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.FileChooserDialog"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.FileChooserNative"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.FileChooserWidget"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.FileChooserWidgetAccessible"
+status = "generate"
+
+[[object]]
+name = "Gtk.Fixed"
+status = "generate"
+generate_builder = true
+manual_traits = ["FixedExtManual"]
+
+[[object]]
+name = "Gtk.FlowBox"
+status = "generate"
+generate_builder = true
+manual_traits = ["FlowBoxExtManual"]
+    [[object.function]]
+    name = "bind_model"
+        [[object.function.parameter]]
+        name = "create_widget_func"
+        # we add a manual unbind() function instead
+        nullable = false
+
+[[object]]
+name = "Gtk.FlowBoxChild"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.FontButton"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.FontChooser"
+status = "generate"
+    [[object.property]]
+    name = "level"
+    version = "3.24"
+    [[object.property]]
+    name = "font-features"
+    version = "3.24"
+    [[object.property]]
+    name = "language"
+    version = "3.24"
+
+[[object]]
+name = "Gtk.FontChooserDialog"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.FontChooserLevel"
+status = "generate"
+version = "3.24"
+
+[[object]]
+name = "Gtk.FontChooserWidget"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.Frame"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.Gesture"
+status = "generate"
+    [[object.function]]
+    pattern = ".+"
+        [[object.function.parameter]]
+        name = "sequence"
+        const = true
+    [[object.function]]
+    name = "group"
+    # Precise the purpose and avoid clash with `get_group`.
+    rename = "group_with"
+
+    [[object.signal]]
+    name = "begin"
+        [[object.signal.parameter]]
+        name = "sequence"
+        nullable = true
+    [[object.signal]]
+    name = "end"
+        [[object.signal.parameter]]
+        name = "sequence"
+        nullable = true
+    [[object.signal]]
+    name = "update"
+        [[object.signal.parameter]]
+        name = "sequence"
+        nullable = true
+    [[object.signal]]
+    name = "cancel"
+        [[object.signal.parameter]]
+        name = "sequence"
+        nullable = true
+    [[object.signal]]
+    name = "sequence-state-changed"
+        [[object.signal.parameter]]
+        name = "sequence"
+        nullable = true
+
+[[object]]
+name = "Gtk.GestureDrag"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.GestureLongPress"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.GestureMultiPress"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.GesturePan"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.GestureRotate"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.GestureStylus"
+status = "generate"
+version = "3.24"
+manual_traits = ["GestureStylusExtManual"]
+    [[object.function]]
+    name = "get_axes"
+    manual = true
+
+[[object]]
+name = "Gtk.GestureSwipe"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.GestureZoom"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.GLArea"
+status = "generate"
+generate_builder = true
+module_name = "gl_area"
+    [[object.signal]]
+    pattern = "render"
+    inhibit = true
+    [[object.signal]]
+    name = "create-context"
+        [object.signal.return]
+        nullable = true
+
+[[object]]
+name = "Gtk.Grid"
+status = "generate"
+generate_builder = true
+child_name = "cell"
+    [[object.child_prop]]
+    name = "height"
+    type = "gint"
+    [[object.child_prop]]
+    name = "width"
+    type = "gint"
+    [[object.child_prop]]
+    name = "left-attach"
+    type = "gint"
+    [[object.child_prop]]
+    name = "top-attach"
+    type = "gint"
+
+[[object]]
+name = "Gtk.HeaderBar"
+status = "generate"
+generate_builder = true
+    [[object.child_prop]]
+    name = "pack-type"
+    type = "Gtk.PackType"
+    [[object.child_prop]]
+    name = "position"
+    type = "gint"
+
+[[object]]
+name = "Gtk.HeaderBarAccessible"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.IconTheme"
+status = "generate"
+    [[object.function]]
+    name = "set_search_path"
+    ignore = true
+    [[object.function]]
+    name = "choose_icon"
+    ignore = true
+    [[object.function]]
+    name = "choose_icon_for_scale"
+    ignore = true
+    [[object.function]]
+    name = "get_icon_sizes"
+    #array
+    ignore = true
+    [[object.function]]
+    name = "get_search_path"
+    #array
+    ignore = true
+
+[[object]]
+name = "Gtk.IconView"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "enable_model_drag_dest"
+    #array with size
+    ignore = true
+    [[object.function]]
+    name = "enable_model_drag_source"
+    #array with size
+    ignore = true
+    [[object.function]]
+    pattern = ".+"
+        [[object.function.parameter]]
+        name = "path"
+        const = true
+
+[[object]]
+name = "Gtk.Image"
+status = "generate"
+generate_builder = false # "icon-size" field should be gint
+manual_traits = ["ImageExtManual"]
+    [[object.function]]
+    name = "new_from_surface"
+        [[object.function.parameter]]
+        name = "surface"
+        # cairo::Surface is reference-counted
+        const = true
+    [[object.function]]
+    name = "set_from_surface"
+        [[object.function.parameter]]
+        name = "surface"
+        # cairo::Surface is reference-counted
+        const = true
+    [[object.function]]
+    name = "get_icon_name"
+    #can return NULL string
+    ignore = true
+    [[object.property]]
+    name = "icon-size"
+    ignore = true # Has to call conversions to int
+    [[object.property]]
+    name = "surface"
+    [[object.property]]
+    name = "icon-set"
+    #value IconSet
+    ignore = true
+    [[object.function]]
+    name = "get_stock"
+    # wrong out parameter mutability and deprecated anyway
+    ignore = true
+
+[[object]]
+name = "Gtk.IMContext"
+status = "generate"
+    [[object.function]]
+    name = "filter_keypress"
+        [[object.function.parameter]]
+        name = "event"
+        const = true
+
+[[object]]
+name = "Gtk.IMContextSimple"
+status = "generate"
+generate_builder = true
+manual_traits = ["IMContextSimpleExtManual"]
+    [[object.function]]
+    name = "add_compose_file"
+    manual = true
+    doc_trait_name = "IMContextSimpleExtManual"
+    [[object.function]]
+    name = "add_table"
+    ignore = true # We don't understand API
+
+[[object]]
+name = "Gtk.IMMulticontext"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.InfoBar"
+status = "generate"
+generate_builder = true
+    [[object.property]]
+    name = "revealed"
+    [[object.function]]
+    name = "get_content_area"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_action_area"
+
+[[object]]
+name = "Gtk.Invisible"
+status = "generate"
+generate_builder = true
+manual_traits = ["InvisibleExtManual"]
+    [[object.function]]
+    name = "get_screen"
+    manual = true
+    doc_trait_name = "InvisibleExtManual"
+
+[[object]]
+name = "Gtk.Label"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "new_with_mnemonic"
+        [[object.function.parameter]]
+        name = "str"
+        nullable = false
+    [[object.function]]
+    name = "get_label"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_text"
+        [object.function.return]
+        nullable = false
+    [[object.signal]]
+    name = "activate-link"
+    inhibit = true
+
+[[object]]
+name = "Gtk.Layout"
+status = "generate"
+generate_builder = true
+    [[object.child_prop]]
+    name = "x"
+    type = "gint"
+    [[object.child_prop]]
+    name = "y"
+    type = "gint"
+
+[[object]]
+name = "Gtk.LevelBar"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.LinkButton"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "new_with_label"
+        [[object.function.parameter]]
+        name = "label"
+        nullable = false
+    [[object.signal]]
+    name = "activate-link"
+    inhibit = true
+
+[[object]]
+name = "Gtk.ListBox"
+status = "generate"
+generate_builder = true
+manual_traits = ["ListBoxExtManual"]
+    [[object.function]]
+    name = "bind_model"
+        [[object.function.parameter]]
+        name = "create_widget_func"
+        # we add a manual unbind() function instead
+        nullable = false
+
+[[object]]
+name = "Gtk.ListBoxRow"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.ListStore"
+status = "generate"
+trait_name = "GtkListStoreExt"
+manual_traits = ["GtkListStoreExtManual"]
+    [[object.function]]
+    pattern = ".+"
+        [[object.function.parameter]]
+        name = "iter"
+        const = true
+        [[object.function.parameter]]
+        name = "sibling"
+        const = true
+        [[object.function.parameter]]
+        name = "position"
+        const = true
+    [[object.function]]
+    name = "swap"
+        [[object.function.parameter]]
+        name = "a"
+        const = true
+        [[object.function.parameter]]
+        name = "b"
+        const = true
+    [[object.function]]
+    name = "reorder"
+    manual = true
+    doc_trait_name = "GtkListStoreExtManual"
+    [[object.function]]
+    name = "set"
+    manual = true
+    doc_trait_name = "GtkListStoreExtManual"
+    [[object.function]]
+    name = "set_value"
+    manual = true
+    doc_trait_name = "GtkListStoreExtManual"
+
+[[object]]
+name = "Gtk.LockButton"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.Menu"
+status = "generate"
+generate_builder = true
+child_type = "Gtk.MenuItem"
+child_name = "item"
+trait_name = "GtkMenuExt"
+manual_traits = ["GtkMenuExtManual"]
+    [[object.child_prop]]
+    name = "bottom-attach"
+    type = "gint"
+    [[object.child_prop]]
+    name = "left-attach"
+    type = "gint"
+    [[object.child_prop]]
+    name = "right-attach"
+    type = "gint"
+    [[object.child_prop]]
+    name = "top-attach"
+    type = "gint"
+    [[object.function]]
+    name = "attach_to_widget"
+    ignore = true # TODO: figure out
+
+[[object]]
+name = "Gtk.MenuBar"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.MenuButton"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.MenuItem"
+status = "generate"
+generate_builder = true
+trait_name = "GtkMenuItemExt"
+    [[object.function]]
+    name = "activate"
+    ignore = true
+
+[[object]]
+name = "Gtk.MenuShell"
+status = "generate"
+    [[object.signal]]
+    name = "move-selected"
+    inhibit = true
+
+[[object]]
+name = "Gtk.MenuToolButton"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.MessageDialog"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "get_message_area"
+        [object.function.return]
+        nullable = false
+
+[[object]]
+name = "Gtk.ModelButton"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.MountOperation"
+status = "generate"
+trait_name = "GtkMountOperationExt"
+generate_builder = true
+
+[[object]]
+name = "Gtk.NativeDialog"
+status = "generate"
+manual_traits = ["NativeDialogExtManual"]
+    [[object.function]]
+    name = "run"
+        [object.function.return]
+        type = "Gtk.ResponseType"
+
+[[object]]
+name = "Gtk.Notebook"
+status = "generate"
+generate_builder = true
+manual_traits = ["NotebookExtManual"]
+    # The following functions need integer type adjustments
+    [[object.function]]
+    name = "append_page"
+    manual = true
+    doc_trait_name = "NotebookExtManual"
+    [[object.function]]
+    name = "append_page_menu"
+    manual = true
+    doc_trait_name = "NotebookExtManual"
+    [[object.function]]
+    name = "get_current_page"
+    manual = true
+    doc_trait_name = "NotebookExtManual"
+    [[object.function]]
+    name = "get_n_pages"
+    manual = true
+    doc_trait_name = "NotebookExtManual"
+    [[object.function]]
+    name = "get_nth_page"
+    manual = true
+    doc_trait_name = "NotebookExtManual"
+    [[object.function]]
+    name = "get_tab_detachable"
+    rename = "tab_is_detachable"
+    [[object.function]]
+    name = "get_tab_reorderable"
+    rename = "tab_is_reorderable"
+    [[object.function]]
+    name = "insert_page"
+    manual = true
+    doc_trait_name = "NotebookExtManual"
+    [[object.function]]
+    name = "insert_page_menu"
+    manual = true
+    doc_trait_name = "NotebookExtManual"
+    [[object.function]]
+    name = "page_num"
+    manual = true
+    doc_trait_name = "NotebookExtManual"
+    [[object.function]]
+    name = "prepend_page"
+    manual = true
+    doc_trait_name = "NotebookExtManual"
+    [[object.function]]
+    name = "prepend_page_menu"
+    manual = true
+    doc_trait_name = "NotebookExtManual"
+    [[object.function]]
+    name = "remove_page"
+    manual = true
+    doc_trait_name = "NotebookExtManual"
+    [[object.function]]
+    name = "reorder_child"
+    manual = true
+    doc_trait_name = "NotebookExtManual"
+    [[object.function]]
+    name = "set_current_page"
+    manual = true
+    doc_trait_name = "NotebookExtManual"
+    [[object.child_prop]]
+    name = "detachable"
+    type = "gboolean"
+    [[object.child_prop]]
+    name = "menu-label"
+    type = "utf8"
+    [[object.child_prop]]
+    name = "position"
+    type = "gint"
+    [[object.child_prop]]
+    name = "reorderable"
+    type = "gboolean"
+    [[object.child_prop]]
+    name = "tab-expand"
+    rename_getter = "tab_expands"
+    type = "gboolean"
+    [[object.child_prop]]
+    name = "tab-fill"
+    rename_getter = "tab_fills"
+    type = "gboolean"
+    [[object.child_prop]]
+    name = "tab-label"
+    type = "utf8"
+
+[[object]]
+name = "Gtk.OffscreenWindow"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.Overlay"
+status = "generate"
+generate_builder = true
+manual_traits = ["OverlaySignals"]
+    [[object.child_prop]]
+    name = "index"
+    type = "gint"
+
+[[object]]
+name = "Gtk.PadController"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "set_action_entries"
+    manual = true
+
+[[object]]
+name = "Gtk.PageRange"
+status = "manual"
+boxed_inline = true
+
+[[object]]
+name = "Gtk.PageSetup"
+status = "generate"
+    [[object.function]]
+    name = "get_paper_size"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    pattern = "set_paper_size.*"
+        [[object.function.parameter]]
+        name = "size"
+        const = true
+
+[[object]]
+name = "Gtk.Paned"
+status = "generate"
+generate_builder = true
+    [[object.child_prop]]
+    name = "resize"
+    type = "gboolean"
+    [[object.child_prop]]
+    name = "shrink"
+    type = "gboolean"
+
+[[object]]
+name = "Gtk.PaperSize"
+status = "generate"
+    [[object.function]]
+    pattern = "(get|is)_.*"
+        [[object.function.parameter]]
+        name = "size"
+        const = true
+    [[object.function]]
+    name = "is_equal"
+        [[object.function.parameter]]
+        name = "size1"
+        const = true
+        [[object.function.parameter]]
+        name = "size2"
+        const = true
+
+[[object]]
+name = "Gtk.PlacesSidebar"
+status = "generate"
+generate_builder = true
+    [[object.signal]]
+    name = "drag-action-requested"
+    #[gio::File]
+    ignore = true
+    [[object.signal]]
+    name = "drag-perform-drop"
+    #[gio::File]
+    ignore = true
+
+[[object]]
+name = "Gtk.Plug"
+status = "generate"
+generate_builder = true
+cfg_condition = "gdk_backend = \"x11\""
+
+[[object]]
+name = "Gtk.PlugAccessible"
+status = "generate"
+generate_builder = true
+cfg_condition = "gdk_backend = \"x11\""
+
+[[object]]
+name = "Gtk.Popover"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.PopoverMenu"
+status = "generate"
+generate_builder = true
+    [[object.child_prop]]
+    name = "position"
+    type = "gint"
+    [[object.child_prop]]
+    name = "submenu"
+    type = "utf8"
+
+[[object]]
+name = "Gtk.PrintContext"
+status = "generate"
+    [[object.function]]
+    name = "set_cairo_context"
+        [[object.function.parameter]]
+        name = "cr"
+        # cairo::Context is reference-counted
+        const = true
+
+[[object]]
+name = "Gtk.PrintOperation"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "get_error"
+    # It quacks like a fallible function, but it isn't.
+    ignore = true
+
+[[object]]
+name = "Gtk.PrintSettings"
+status = "generate"
+    [[object.function]]
+    name = "get_bool"
+    # Retrieves the bool value of a setting
+    rename = "bool"
+    [[object.function]]
+    name = "get_paper_size"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "set_page_ranges"
+    manual = true
+    [[object.function]]
+    name = "set_paper_size"
+        [[object.function.parameter]]
+        name = "paper_size"
+        const = true
+
+[[object]]
+name = "Gtk.ProgressBar"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.RadioButton"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    pattern = ".+_from_widget"
+        [[object.function.parameter]]
+        name = "radio_group_member"
+        nullable = false
+    [[object.function]]
+    name = "new"
+    manual = true
+    [[object.function]]
+    name = "new_with_label"
+    manual = true
+    [[object.function]]
+    name = "new_with_mnemonic"
+    manual = true
+    [[object.function]]
+    name = "set_group"
+    ignore = true
+    [[object.property]]
+    name = "group"
+    ignore = true
+
+[[object]]
+name = "Gtk.RadioMenuItem"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    pattern = ".+_from_widget"
+        [[object.function.parameter]]
+        name = "group"
+        nullable = false
+    [[object.function]]
+    name = "new"
+    manual = true
+    [[object.function]]
+    name = "new_with_label"
+    manual = true
+    [[object.function]]
+    name = "new_with_mnemonic"
+    manual = true
+    [[object.function]]
+    name = "set_group"
+    ignore = true
+    [[object.property]]
+    name = "group"
+    ignore = true
+
+[[object]]
+name = "Gtk.RadioToolButton"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    pattern = ".+_from_widget"
+        [[object.function.parameter]]
+        name = "group"
+        nullable = false
+    [[object.function]]
+    name = "new"
+    manual = true
+    [[object.function]]
+    name = "new_from_stock"
+    manual = true
+    [[object.function]]
+    name = "set_group"
+    ignore = true
+    [[object.property]]
+    name = "group"
+    ignore = true
+
+[[object]]
+name = "Gtk.Range"
+status = "generate"
+    [[object.function]]
+    name = "get_adjustment"
+        [object.function.return]
+        nullable = false
+    [[object.signal]]
+    name = "change-value"
+    inhibit = true
+
+[[object]]
+name = "Gtk.RecentChooserDialog"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.RecentChooserMenu"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.RecentChooserWidget"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.RecentFilter"
+status = "generate"
+    [[object.function]]
+    name = "filter"
+    ignore = true # TODO: renable once RecentFilterInfo is implemented
+
+[[object]]
+name = "Gtk.RecentManager"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.Revealer"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.Scale"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.ScaleButton"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "get_adjustment"
+        [object.function.return]
+        nullable = false
+
+[[object]]
+name = "Gtk.Scrollbar"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.ScrolledWindow"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "get_hadjustment"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_vadjustment"
+        [object.function.return]
+        nullable = false
+
+[[object]]
+name = "Gtk.SearchBar"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "handle_event"
+        [[object.function.parameter]]
+        name = "event"
+        const = true
+
+[[object]]
+name = "Gtk.SearchEntry"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "handle_event"
+        [[object.function.parameter]]
+        name = "event"
+        const = true
+
+[[object]]
+name = "Gtk.SelectionData"
+status = "generate"
+    [[object.function]]
+    name = "get_data_type"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_selection"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_target"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "set_pixbuf"
+        [[object.function.parameter]]
+        name = "selection_data"
+        const = true
+    [[object.function]]
+    name = "set_text"
+        [[object.function.parameter]]
+        name = "selection_data"
+        const = true
+    [[object.function]]
+    name = "set"
+        [[object.function.parameter]]
+        name = "selection_data"
+        const = true
+    [[object.function]]
+    name = "set_uris"
+        [[object.function.parameter]]
+        name = "selection_data"
+        const = true
+    [[object.function]]
+    name = "get_data"
+    #array without length
+    manual = true
+    [[object.function]]
+    name = "get_data_with_length"
+    ignore = true
+
+[[object]]
+name = "Gtk.Separator"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.SeparatorMenuItem"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.SeparatorToolItem"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.Settings"
+status = "generate"
+trait_name = "GtkSettingsExt"
+    [[object.function]]
+    pattern = "install_property.*"
+    #deprecated in 3.16
+    ignore = true
+    [[object.property]]
+    name = "gtk-cursor-aspect-ratio"
+    version = "3.24"
+
+[[object]]
+name = "Gtk.ShortcutsGroup"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.ShortcutsSection"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.ShortcutsShortcut"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.ShortcutsWindow"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.SizeGroup"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.Socket"
+status = "generate"
+generate_builder = true
+cfg_condition = "gdk_backend = \"x11\""
+trait_name = "GtkSocketExt"
+
+[[object]]
+name = "Gtk.SocketAccessible"
+status = "generate"
+generate_builder = true
+cfg_condition = "gdk_backend = \"x11\""
+
+[[object]]
+name = "Gtk.SpinButton"
+status = "generate"
+generate_builder = true
+manual_traits = ["SpinButtonSignals"]
+    [[object.function]]
+    name = "get_adjustment"
+        [object.function.return]
+        nullable = false
+    [[object.signal]]
+    pattern = ".+" #manual #out #not_standard_return
+    ignore = true
+
+[[object]]
+name = "Gtk.Spinner"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.Stack"
+status = "generate"
+generate_builder = true
+    [[object.child_prop]]
+    name = "icon-name"
+    type = "utf8"
+    [[object.child_prop]]
+    name = "name"
+    type = "utf8"
+    [[object.child_prop]]
+    name = "needs-attention"
+    type = "gboolean"
+    [[object.child_prop]]
+    name = "position"
+    type = "gint"
+    [[object.child_prop]]
+    name = "title"
+    type = "utf8"
+    [[object.function]]
+    name = "get_interpolate_size"
+    rename = "interpolates_size"
+
+[[object]]
+name = "Gtk.StackSidebar"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.StackSwitcher"
+status = "generate"
+generate_builder = false # "icon-size" property needs to be int internally
+manual_traits = ["StackSwitcherExtManual"]
+    [[object.property]]
+    name = "icon-size"
+    ignore = true # "icon-size" needs conversion between IconSize and integer
+
+[[object]]
+name = "Gtk.Statusbar"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.StyleContext"
+status = "generate"
+generate_builder = true
+manual_traits = ["StyleContextExtManual"]
+    [[object.function]]
+    name = "get_property"
+    rename = "style_property_for_state" # avoid collision with ObjectExt::property
+    [[object.function]]
+    name = "get"
+    ignore = true # TODO: manually implement
+
+[[object]]
+name = "Gtk.Switch"
+status = "generate"
+generate_builder = true
+manual_traits = ["SwitchExtManual"]
+    [[object.signal]]
+    name = "state-set"
+    inhibit = true
+
+[[object]]
+name = "Gtk.TargetList"
+status = "generate"
+    [[object.function]]
+    name = "add_table"
+    #array with size
+    ignore = true
+    [[object.function]]
+    name = "new"
+    #array with size
+    manual = true
+
+[[object]]
+name = "Gtk.TextBuffer"
+status = "generate"
+generate_builder = true
+manual_traits = ["TextBufferExtManual"]
+    [[object.function]]
+    name = "get_insert"
+    # Avoid clash with the `insert` operation.
+    # This one retrieves the insert mark.
+    bypass_auto_rename = true
+    [[object.function]]
+    name = "register_deserialize_tagset"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "register_serialize_tagset"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "paste_clipboard"
+        [[object.function.parameter]]
+        name = "override_location"
+        const = true
+    [[object.function]]
+    name = "register_serialize_format"
+    # actually returns an array of bytes, not a single byte
+    ignore = true
+    [[object.signal]]
+    name = "apply-tag"
+    # needs mutable TextIters
+    ignore = true
+    doc_trait_name = "TextBufferExtManual"
+    [[object.signal]]
+    name = "delete-range"
+    # needs mutable TextIters
+    ignore = true
+    doc_trait_name = "TextBufferExtManual"
+    [[object.signal]]
+    name = "insert-child-anchor"
+    # needs mutable TextIters
+    ignore = true
+    doc_trait_name = "TextBufferExtManual"
+    [[object.signal]]
+    name = "insert-pixbuf"
+    # needs mutable TextIters
+    ignore = true
+    doc_trait_name = "TextBufferExtManual"
+    [[object.signal]]
+    name = "insert-text"
+    # needs mutable TextIters
+    ignore = true
+    doc_trait_name = "TextBufferExtManual"
+    [[object.signal]]
+    name = "remove-tag"
+    # needs mutable TextIters
+    ignore = true
+    doc_trait_name = "TextBufferExtManual"
+    [[object.function]]
+    name = "create_tag"
+    ignore = true # TODO: figure out once we have varargs
+    [[object.function]]
+    name = "insert_with_tags"
+    ignore = true # TODO: figure out once we have varargs
+    [[object.function]]
+    name = "register_deserialize_format"
+    ignore = true # TODO: manually implement
+
+[[object]]
+name = "Gtk.TextIter"
+status = "generate"
+boxed_inline = true
+    [[object.derive]]
+    name = "Debug"
+    [[object.function]]
+    name = "get_attributes"
+    manual = true
+    rename = "is_attributes"
+    [[object.function]]
+    name = "get_char"
+    manual = true
+
+[[object]]
+name = "Gtk.TextMark"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.TextTag"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "event"
+        [[object.function.parameter]]
+        name = "event"
+        const = true
+    [[object.signal]]
+    name = "event"
+    inhibit = true
+
+[[object]]
+name = "Gtk.TextView"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "get_default_attributes"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "im_context_filter_keypress"
+        [[object.function.parameter]]
+        name = "event"
+        const = true
+    [[object.function]]
+    name = "set_tabs"
+        [[object.function.parameter]]
+        name = "tabs"
+        const = true
+    [[object.signal]]
+    name = "extend-selection"
+    inhibit = true
+
+[[object]]
+name = "Gtk.ToggleButton"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.ToggleToolButton"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.Toolbar"
+status = "generate"
+generate_builder = true
+child_name = "item"
+    [[object.signal]]
+    name = "popup-context-menu"
+    inhibit = true
+    [[object.child_prop]]
+    name = "expand"
+    type = "gboolean"
+    [[object.child_prop]]
+    name = "homogeneous"
+    type = "gboolean"
+
+[[object]]
+name = "Gtk.ToolButton"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.ToolItem"
+status = "generate"
+generate_builder = true
+    [[object.signal]]
+    name = "create-menu-proxy"
+    inhibit = true
+
+[[object]]
+name = "Gtk.ToolItemGroup"
+status = "generate"
+generate_builder = true
+child_type = "Gtk.ToolItem"
+child_name = "item"
+    [[object.child_prop]]
+    name = "expand"
+    type = "gboolean"
+    [[object.child_prop]]
+    name = "fill"
+    type = "gboolean"
+    [[object.child_prop]]
+    name = "homogeneous"
+    type = "gboolean"
+    [[object.child_prop]]
+    name = "new-row"
+    type = "gboolean"
+
+[[object]]
+name = "Gtk.ToolPalette"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.TreeIter"
+status = "generate"
+boxed_inline = true
+    [[object.derive]]
+    name = "Debug"
+
+[[object]]
+name = "Gtk.TreeModel"
+status = "generate"
+    [[object.function]]
+    pattern = ".+"
+        [[object.function.parameter]]
+        name = "path"
+        const = true
+        [[object.function.parameter]]
+        name = "iter"
+        const = true
+    [[object.function]]
+    name = "filter_new"
+    # Replaced by TreeModelFilter::new
+    ignore = true
+    [[object.function]]
+    name = " sort_new_with_model"
+    # Replaced by TreeModelSort::new
+    ignore = true
+    [[object.function]]
+    name = "iter_children"
+        [[object.function.parameter]]
+        name = "parent"
+        const = true
+    [[object.function]]
+    name = "iter_nth_child"
+        [[object.function.parameter]]
+        name = "parent"
+        const = true
+    [[object.function]]
+    name = "iter_parent"
+        [[object.function.parameter]]
+        name = "child"
+        const = true
+    [[object.function]]
+    name = 'ref_node'
+    ignore = true
+    [[object.function]]
+    name = "rows_reordered"
+    ignore = true
+    [[object.function]]
+    name = 'unref_node'
+    ignore = true
+
+[[object]]
+name = "Gtk.TreeModelFilter"
+status = "generate"
+    [[object.function]]
+    name = "convert_child_path_to_path"
+        [[object.function.parameter]]
+        name = "child_path"
+        const = true
+    [[object.function]]
+    name = "convert_path_to_child_path"
+        [[object.function.parameter]]
+        name = "filter_path"
+        const = true
+    [[object.function]]
+    name = "convert_iter_to_child_iter"
+        [[object.function.parameter]]
+        name = "filter_iter"
+        const = true
+    [[object.function]]
+    name = "convert_child_iter_to_iter"
+        [[object.function.parameter]]
+        name = "child_iter"
+        const = true
+    [[object.property]]
+    name = "virtual-root"
+    #value recordboxed
+    ignore = true
+
+[[object]]
+name = "Gtk.TreeModelSort"
+status = "generate"
+    [[object.function]]
+    name = "convert_child_path_to_path"
+        [[object.function.parameter]]
+        name = "child_path"
+        const = true
+    [[object.function]]
+    name = "convert_path_to_child_path"
+        [[object.function.parameter]]
+        name = "sorted_path"
+        const = true
+    [[object.function]]
+    name = "convert_iter_to_child_iter"
+        [[object.function.parameter]]
+        name = "sorted_iter"
+        const = true
+    [[object.function]]
+    name = "convert_child_iter_to_iter"
+        [[object.function.parameter]]
+        name = "child_iter"
+        const = true
+    [[object.function]]
+    name = "iter_is_valid"
+    # Bypass auto-rename so as to avoid automatic is prefixing
+    bypass_auto_rename = true
+        [[object.function.parameter]]
+        name = "iter"
+        const = true
+    [[object.function]]
+    name = "get_model"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "new_with_model"
+    rename = "new"
+
+[[object]]
+name = "Gtk.TreePath"
+status = "generate"
+    [[object.function]]
+    name = "get_depth"
+        [[object.function.parameter]]
+        name = "path"
+        const = true
+    [[object.function]]
+    name = "is_ancestor"
+        [[object.function.parameter]]
+        name = "path"
+        const = true
+        [[object.function.parameter]]
+        name = "descendant"
+        const = true
+    [[object.function]]
+    name = "is_descendant"
+        [[object.function.parameter]]
+        name = "path"
+        const = true
+        [[object.function.parameter]]
+        name = "ancestor"
+        const = true
+    [[object.function]]
+    name = "get_indices"
+    manual = true
+    [[object.function]]
+    name = "to_string"
+        [[object.function.parameter]]
+        name = "path"
+        const = true
+
+[[object]]
+name = "Gtk.TreeRowReference"
+status = "generate"
+    [[object.function]]
+    name = "new"
+        [[object.function.parameter]]
+        name = "path"
+        const = true
+        [object.function.return]
+        nullable = true
+    [[object.function]]
+    name = "new_proxy"
+        [[object.function.parameter]]
+        name = "path"
+        const = true
+        [object.function.return]
+        nullable = true
+    [[object.function]]
+    name = "get_model"
+        [[object.function.parameter]]
+        name = "reference"
+        const = true
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_path"
+        [[object.function.parameter]]
+        name = "reference"
+        const = true
+    [[object.function]]
+    name = "valid"
+        [[object.function.parameter]]
+        name = "reference"
+        const = true
+    [[object.function]]
+    name = "inserted"
+        [[object.function.parameter]]
+        name = "path"
+        const = true
+    [[object.function]]
+    name = "deleted"
+        [[object.function.parameter]]
+        name = "path"
+        const = true
+
+[[object]]
+name = "Gtk.TreeSelection"
+status = "generate"
+    [[object.function]]
+    pattern = ".+"
+        [[object.function.parameter]]
+        name = "iter"
+        const = true
+        [[object.function.parameter]]
+        name = "path"
+        const = true
+    [[object.function]]
+    pattern = "(un)?select_range"
+        [[object.function.parameter]]
+        name = "start_path"
+        const = true
+        [[object.function.parameter]]
+        name = "end_path"
+        const = true
+
+[[object]]
+name = "Gtk.TreeSortable"
+status = "generate"
+manual_traits = ["TreeSortableExtManual"]
+    [[object.function]]
+    pattern = "[gs]et_sort_column_id"
+    manual = true
+    doc_trait_name = "TreeSortableExtManual"
+    [[object.function]]
+    pattern = "set_sort_func"
+    # return type u32 -> Ordering
+    manual = true
+    doc_trait_name = "TreeSortableExtManual"
+    [[object.function]]
+    pattern = "set_default_sort_func"
+    # return type u32 -> Ordering
+    manual = true
+    doc_trait_name = "TreeSortableExtManual"
+
+[[object]]
+name = "Gtk.TreeStore"
+status = "generate"
+manual_traits = ["TreeStoreExtManual"]
+    [[object.function]]
+    pattern = ".+"
+        [[object.function.parameter]]
+        name = "iter"
+        const = true
+        [[object.function.parameter]]
+        name = "parent"
+        const = true
+        [[object.function.parameter]]
+        name = "sibling"
+        const = true
+    [[object.function]]
+    name = "is_ancestor"
+        [[object.function.parameter]]
+        name = "descendant"
+        const = true
+    [[object.function]]
+    name = "move_after"
+        [[object.function.parameter]]
+        name = "position"
+        const = true
+    [[object.function]]
+    name = "move_before"
+        [[object.function.parameter]]
+        name = "position"
+        const = true
+    [[object.function]]
+    name = "reorder"
+    manual = true
+    doc_trait_name = "TreeStoreExtManual"
+    [[object.function]]
+    name = "set"
+    manual = true
+    doc_trait_name = "TreeStoreExtManual"
+    [[object.function]]
+    name = "set_value"
+    manual = true
+    doc_trait_name = "TreeStoreExtManual"
+    [[object.function]]
+    name = "swap"
+        [[object.function.parameter]]
+        name = "a"
+        const = true
+        [[object.function.parameter]]
+        name = "b"
+        const = true
+
+[[object]]
+name = "Gtk.TreeView"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "enable_model_drag_dest"
+    #array with size
+    ignore = true
+    [[object.function]]
+    name = "enable_model_drag_source"
+    #array with size
+    ignore = true
+    [[object.function]]
+    pattern = ".+"
+        [[object.function.parameter]]
+        name = "path"
+        const = true
+    [[object.function]]
+    name = "get_selection"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_hover_expand"
+    rename = "hover_expands"
+    [[object.signal]]
+    pattern = ".+"
+        [[object.signal.parameter]]
+        name = "iter"
+        transformation = "borrow"
+        [[object.signal.parameter]]
+        name = "path"
+        transformation = "borrow"
+    [[object.signal]]
+    pattern = "test-.+"
+    inhibit = true
+
+[[object]]
+name = "Gtk.TreeViewColumn"
+status = "generate"
+generate_builder = true
+    [[object.function]]
+    name = "cell_set_cell_data"
+        [[object.function.parameter]]
+        name = "iter"
+        const = true
+    [[object.function]]
+    name = "new_with_attributes"
+    manual = true # va_args
+    rename = "with_attributes"
+
+[[object]]
+name = "Gtk.Viewport"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.VolumeButton"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "Gtk.Widget"
+status = "generate"
+manual_traits = ["WidgetExtManual"]
+    [[object.function]]
+    name = "drag_dest_set"
+    #array with size
+    manual = true
+    doc_trait_name = "WidgetExtManual"
+    [[object.function]]
+    name = "drag_source_set"
+    #array with size
+    manual = true
+    doc_trait_name = "WidgetExtManual"
+    [[object.function]]
+    name = "enable_model_drag_source"
+    #array with size
+    ignore = true
+    [[object.function]]
+    name = "draw"
+        [[object.function.parameter]]
+        name = "cr"
+        # cairo::Context is reference-counted
+        const = true
+    [[object.function]]
+    name = "get_clipboard"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_device_enabled"
+    rename = "device_is_enabled"
+    [[object.function]]
+    name = "intersect"
+    manual = true
+    doc_trait_name = "WidgetExtManual"
+    [[object.function]]
+    name = "override_font"
+        [[object.function.parameter]]
+        name = "font_desc"
+        nullable = false
+    [[object.function]]
+    pattern = ".+"
+        [[object.function.parameter]]
+        name = "event"
+        const = true
+    [[object.function]]
+    name = "get_path"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "add_tick_callback"
+    manual = true
+    doc_trait_name = "WidgetExtManual"
+    [[object.function]]
+    name = "remove_tick_callback"
+    ignore = true
+    [[object.function]]
+    name = "add_events"
+    manual = true
+    doc_trait_name = "WidgetExtManual"
+    [[object.function]]
+    name = "get_events"
+    manual = true
+    doc_trait_name = "WidgetExtManual"
+    [[object.function]]
+    name = "set_events"
+    manual = true
+    doc_trait_name = "WidgetExtManual"
+    [[object.function]]
+    name = "get_sensitive"
+    # Avoid clash with `is_sensitive`. Differences:
+    # - `get_sensitive`: returns the widget `sensitive` property.
+    # - `is_sensitive`: returns whether the widget’s is effectively sensitivity.
+    #   meaning that the widget and all its parents are `sensitive`.
+    bypass_auto_rename = true
+    [[object.function]]
+    name = "get_visible"
+    # Avoid clash with `is_visible`. Differences:
+    # - `get_visible`: returns the widget `visible` property.
+    # - `is_visible`: returns whether the widget’s is effectively visibility.
+    #   meaning that the widget and all its parents are `visible`.
+    bypass_auto_rename = true
+    [[object.function]]
+    name = "get_hexpand"
+    rename = "hexpands"
+    [[object.function]]
+    name = "get_style_context"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_vexpand"
+    rename = "vexpands"
+    [[object.function]]
+    name = "size_allocate"
+        [[object.function.parameter]]
+        name = "allocation"
+        const = true
+    [[object.function]]
+    name = "hide_on_delete"
+    # return Inhibit instead of bool
+    manual = true
+    doc_trait_name = "WidgetExtManual"
+    [[object.signal]]
+    name = "button-press-event"
+    inhibit = true
+    [[object.signal]]
+    name = "button-release-event"
+    inhibit = true
+    [[object.signal]]
+    name = "delete-event"
+    inhibit = true
+    [[object.signal]]
+    name = "destroy-event"
+    inhibit = true
+    [[object.signal]]
+    name = "drag-data-get"
+        [[object.signal.parameter]]
+        name = "data"
+        transformation = "borrow"
+    [[object.signal]]
+    name = "drag-failed"
+    inhibit = true
+    [[object.signal]]
+    name = "draw"
+    inhibit = true
+    [[object.signal]]
+    name = "enter-notify-event"
+    inhibit = true
+    [[object.signal]]
+    name = "event"
+    inhibit = true
+    [[object.signal]]
+    name = "focus"
+    inhibit = true
+    [[object.signal]]
+    name = "focus-in-event"
+    inhibit = true
+    [[object.signal]]
+    name = "focus-out-event"
+    inhibit = true
+    [[object.signal]]
+    name = "grab-broken-event"
+    inhibit = true
+    [[object.signal]]
+    name = "key-press-event"
+    inhibit = true
+    [[object.signal]]
+    name = "key-release-event"
+    inhibit = true
+    [[object.signal]]
+    name = "keynav-failed"
+    inhibit = true
+    [[object.signal]]
+    name = "leave-notify-event"
+    inhibit = true
+    [[object.signal]]
+    name = "map-event"
+    inhibit = true
+    ignore = true #manual EventAny
+    doc_trait_name = "WidgetExtManual"
+    [[object.signal]]
+    name = "mnemonic-activate"
+    inhibit = true
+    [[object.signal]]
+    name = "motion-notify-event"
+    inhibit = true
+    [[object.signal]]
+    name = "property-notify-event"
+    inhibit = true
+    [[object.signal]]
+    name = "proximity-in-event"
+    inhibit = true
+    [[object.signal]]
+    name = "proximity-out-event"
+    inhibit = true
+    [[object.signal]]
+    name = "scroll-event"
+    inhibit = true
+    [[object.signal]]
+    name = "selection-clear-event"
+    inhibit = true
+    [[object.signal]]
+    name = "selection-notify-event"
+    inhibit = true
+    [[object.signal]]
+    name = "selection-request-event"
+    inhibit = true
+    [[object.signal]]
+    name = "touch-event"
+    inhibit = true
+    [[object.signal]]
+    name = "unmap-event"
+    inhibit = true
+    ignore = true #manual EventAny
+    doc_trait_name = "WidgetExtManual"
+    [[object.signal]]
+    name = "visibility-notify-event"
+    inhibit = true
+    [[object.signal]]
+    name = "window-state-event"
+    inhibit = true
+    [[object.property]]
+    name = "style"
+    #deprecated
+    ignore = true
+    [[object.property]]
+    name = "events"
+    generate = ["notify"]
+    [[object.function]]
+    name = "input_shape_combine_region"
+        [[object.function.parameter]]
+        name = "region"
+        const = true
+    [[object.function]]
+    name = "shape_combine_region"
+        [[object.function.parameter]]
+        name = "region"
+        const = true
+    [[object.function]]
+    name = "set_name"
+    rename = "set_widget_name"
+    [[object.function]]
+    name = "get_name"
+    rename = "widget_name"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "destroy"
+    # needs to be marked as unsafe
+    manual = true
+    [[object.function]]
+    name = "create_pango_context"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "create_pango_layout"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_display"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_pango_context"
+        [object.function.return]
+        nullable = false
+
+[[object]]
+name = "Gtk.Window"
+status = "generate"
+generate_builder = true
+trait_name = "GtkWindowExt"
+manual_traits = ["GtkWindowExtManual"]
+    [[object.function]]
+    name = "activate_key"
+        [[object.function.parameter]]
+        name = "event"
+        const = true
+    [[object.function]]
+    name = "propagate_key_event"
+        [[object.function.parameter]]
+        name = "event"
+        const = true
+    [[object.function]]
+    name = "set_geometry_hints"
+        [[object.function.parameter]]
+        name = "geometry"
+        const = true
+    [[object.function]]
+    name = "get_focus"
+    rename = "focused_widget"
+    [[object.signal]] # workaround for https://github.com/gtk-rs/gtk/issues/985
+    name = "set-focus"
+        [[object.signal.parameter]]
+        name = "object"
+        nullable = true

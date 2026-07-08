@@ -1,0 +1,31 @@
+[package]
+authors = ["Daniel Brotsky <dev@brotsky.com>"]
+description = "DBus Secret Service credential store for keyring"
+homepage = "https://github.com/open-source-cooperative/keyring-rs/wiki/Keyring"
+keywords = ["dbus", "secret-service", "credential-store", "keyring"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/open-source-cooperative/dbus-secret-service-keyring-store.git"
+rust-version = "1.88"
+exclude = [".github/"]
+readme = "README.md"
+name = "dbus-secret-service-keyring-store"
+version = "1.0.0"
+edition = "2024"
+
+[features]
+crypto-rust = ["dbus-secret-service/crypto-rust"]
+crypto-openssl = ["dbus-secret-service/crypto-openssl"]
+vendored = ["dbus-secret-service/vendored"]
+
+[dependencies]
+dbus-secret-service = { version = "4.1" }
+keyring-core = { version = "1" }
+
+[dev-dependencies]
+fastrand = "2.4"
+regex = "1.12"
+sscanf = "0.5"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+features = ["crypto-rust"]

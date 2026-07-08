@@ -1,0 +1,38 @@
+[package]
+name = "gdk-pixbuf"
+license = "MIT"
+homepage = "https://gtk-rs.org/"
+authors = ["The gtk-rs Project Developers"]
+keywords = ["gdk-pixbuf", "gtk-rs", "gnome"]
+readme = "README.md"
+documentation = "https://gtk-rs.org/gtk-rs-core/stable/latest/docs/gdk_pixbuf/"
+version = "0.18.5"
+description = "Rust bindings for the GdkPixbuf library"
+repository = "https://github.com/gtk-rs/gtk-rs-core"
+exclude = [
+    "gir-files/*",
+]
+edition = "2021"
+rust-version = "1.70"
+
+[lib]
+name = "gdk_pixbuf"
+
+[features]
+v2_40 = ["ffi/v2_40"]
+v2_42 = ["v2_40", "ffi/v2_42"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docsrs", "--generate-link-to-definition"]
+
+[dependencies]
+libc = "0.2"
+ffi = { package = "gdk-pixbuf-sys", version = "0.18", path = "sys" }
+glib = { path = "../glib", version = "0.18" }
+gio = { path = "../gio", version = "0.18" }
+once_cell = "1"
+
+[dev-dependencies]
+gir-format-check = "^0.1"

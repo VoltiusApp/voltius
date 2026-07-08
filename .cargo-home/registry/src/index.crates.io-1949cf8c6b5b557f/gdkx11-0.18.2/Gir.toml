@@ -1,0 +1,124 @@
+[external_libraries]
+Gdk = {min_version = "3.22"}
+
+[options]
+girs_directories = ["../gir-files"]
+library = "GdkX11"
+version = "3.0"
+min_cfg_version = "3.22"
+target_path = "."
+work_mode = "normal"
+single_version_file = true
+generate_safety_asserts = true
+deprecate_by_min_version = true
+
+generate = [
+    "GdkX11.X11AppLaunchContext",
+    "GdkX11.X11DeviceCore",
+    "GdkX11.X11DeviceManagerCore",
+    "GdkX11.X11DisplayManager",
+    "GdkX11.X11DragContext",
+    "GdkX11.X11GLContext",
+    "GdkX11.X11Keymap",
+    "GdkX11.X11Monitor",
+    "GdkX11.X11Window"
+]
+
+ignore = [
+]
+
+manual = [
+    "Gdk.AppLaunchContext",
+    "Gdk.Atom",
+    "Gdk.Cursor",
+    "Gdk.Device",
+    "Gdk.DeviceManager",
+    "Gdk.DeviceType",
+    "Gdk.Display",
+    "Gdk.DisplayManager",
+    "Gdk.DragContext",
+    "Gdk.GLContext",
+    "Gdk.InputMode",
+    "Gdk.InputSource",
+    "Gdk.Keymap",
+    "Gdk.Monitor",
+    "Gdk.Screen",
+    "Gdk.Seat",
+    "Gdk.Visual",
+    "Gdk.Window",
+    "Gio.AppLaunchContext",
+    "xlib.Atom",
+    "xlib.Cursor",
+    "xlib.Display",
+    "xlib.Screen",
+    "xlib.Visual",
+    "xlib.VisualID",
+    "xlib.Window",
+    "xlib.XID",
+]
+
+[[object]]
+name = "GdkX11.*"
+status = "generate"
+    [[object.function]]
+    name = "x11_free_compound_text"
+    # manual, wrong annotations
+    ignore = true
+    [[object.function]]
+    name = "x11_free_text_list"
+    # manual, wrong annotations
+    ignore = true
+    [[object.function]]
+    name = "x11_get_default_xdisplay"
+    # manual, as xlib::Display doesn't implement glib traits
+    ignore = true
+    [[object.function]]
+    name = "x11_lookup_xdisplay"
+    # manual, as xlib::Display doesn't implement glib traits
+    ignore = true
+
+[[object]]
+name = "GdkX11.X11Cursor"
+status = "generate"
+    [[object.function]]
+    name = "get_xdisplay"
+    # manual, as xlib::Display doesn't implement glib traits
+    ignore = true
+
+[[object]]
+name = "GdkX11.X11DeviceXI2"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "GdkX11.X11DeviceManagerXI2"
+status = "generate"
+generate_builder = true
+
+[[object]]
+name = "GdkX11.X11Display"
+status = "generate"
+    [[object.function]]
+    name = "get_xdisplay"
+    # manual, as xlib::Display doesn't implement glib traits
+    ignore = true
+    [[object.function]]
+    name = "text_property_to_text_list"
+    # manual, the annotations are wrong
+    ignore = true
+
+[[object]]
+name = "GdkX11.X11Screen"
+status = "generate"
+    [[object.function]]
+    name = "get_xscreen"
+    # manual, as xlib::Screen doesn't implement glib traits
+    ignore = true
+
+[[object]]
+name = "GdkX11.X11Visual"
+status = "generate"
+    [[object.function]]
+    name = "get_xvisual"
+    # manual, as xlib::Visual doesn't implement glib traits
+    ignore = true

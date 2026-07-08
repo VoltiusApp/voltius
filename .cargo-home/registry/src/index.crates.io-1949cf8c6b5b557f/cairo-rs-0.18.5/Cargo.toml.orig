@@ -1,0 +1,53 @@
+[package]
+name = "cairo-rs"
+license = "MIT"
+homepage = "https://gtk-rs.org/"
+authors = ["The gtk-rs Project Developers"]
+keywords = ["cairo", "gtk-rs", "gnome", "GUI"]
+readme = "README.md"
+documentation = "https://gtk-rs.org/gtk-rs-core/stable/latest/docs/cairo/"
+version = "0.18.5"
+description = "Rust bindings for the Cairo library"
+repository = "https://github.com/gtk-rs/gtk-rs-core"
+edition = "2021"
+rust-version = "1.70"
+
+[lib]
+name = "cairo"
+
+[features]
+png = ["ffi/png"]
+pdf = ["ffi/pdf"]
+svg = ["ffi/svg"]
+ps = ["ffi/ps"]
+use_glib = ["glib", "ffi/use_glib"]
+v1_16 = ["ffi/v1_16"]
+v1_18 = ["v1_16", "ffi/v1_18"]
+default = ["use_glib"]
+freetype = ["ffi/freetype", "freetype-rs"]
+script = ["ffi/script"]
+xcb = ["ffi/xcb"]
+xlib = ["ffi/xlib"]
+win32-surface = ["ffi/win32-surface"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docsrs", "--generate-link-to-definition"]
+
+[dependencies.glib]
+optional = true
+path = "../glib"
+version = "0.18"
+
+[dependencies]
+ffi = { package = "cairo-sys-rs", version = "0.18", path = "sys" }
+libc = "0.2"
+bitflags = "2.3"
+thiserror = "1.0.10"
+once_cell = "1"
+freetype-rs = { version = "0.32", optional = true }
+
+[dev-dependencies]
+tempfile = "3.0"
+float_eq = "1"

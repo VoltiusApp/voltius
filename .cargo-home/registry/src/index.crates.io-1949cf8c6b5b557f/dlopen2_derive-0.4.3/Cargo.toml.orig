@@ -1,0 +1,19 @@
+[package]
+name = "dlopen2_derive"
+version = "0.4.3"
+rust-version = "1.85"
+authors = ["Szymon Wieloch <szymon.wieloch@gmail.com>",
+           "OpenByte <development.openbyte@gmail.com>"]
+description = "Derive macros for the dlopen2 crate."
+license = "MIT"
+repository = "https://github.com/OpenByteDev/dlopen2"
+edition = "2024"
+readme = "../README.md"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "2.0", features = ["extra-traits"] }
+quote = "1.0"
+proc-macro2 = "1.0"

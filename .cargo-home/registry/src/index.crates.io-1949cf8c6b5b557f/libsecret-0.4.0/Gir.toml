@@ -1,0 +1,238 @@
+[external_libraries]
+Gio = { min_version = "2.48"}
+
+[options]
+girs_directories = ["../gir-files", "../"]
+library = "Secret"
+version = "1"
+min_cfg_version = "0.1"
+target_path = "."
+work_mode = "normal"
+single_version_file = true
+deprecate_by_min_version = true
+use_gi_docgen = true
+trust_return_value_nullability = true
+
+external_libraries = [
+   "GLib",
+   "GObject",
+]
+
+ignore = [
+   # Github CI don't have its
+]
+
+generate = [
+    "Secret.Backend",
+    "Secret.BackendFlags",
+    "Secret.CollectionCreateFlags",
+    "Secret.CollectionFlags",
+    "Secret.ItemCreateFlags",
+    "Secret.ItemFlags",
+    "Secret.SchemaAttribute",
+    "Secret.SchemaAttributeType",
+    "Secret.SchemaFlags",
+    "Secret.SearchFlags",
+    "Secret.ServiceFlags",
+    "Secret.SchemaType"
+]
+
+manual = [
+    "GLib.Variant",
+    "GLib.VariantType",
+    "GLib.Error",
+    "GLib.List",
+    "GLib.HashTable",
+    "Gio.Cancellable",
+    "Gio.AsyncResult",
+    "Gio.Initable",
+    "Gio.DBusInterface",
+    "Gio.DBusProxy",
+    "GLib.Quark",
+]
+
+[[object]]
+name = "Secret.*"
+status = "generate"
+    [[object.function]]
+    pattern = "(attributes_build|attributes_buildv)"
+    ignore = true # va args
+    [[object.function]]
+    pattern = "password_(clear|clear_sync|lookup|lookup_binary_sync|lookup_nonpageable_sync|lookup_sync|search|search_sync|store|store_sync|store_binary|store_binary_sync)"
+    ignore = true # va args
+    [[object.function]]
+    name = "password_clearv_sync"
+    rename = "password_clear_sync"
+    manual = true
+    [[object.function]]
+    name = "password_clearv"
+    rename = "password_clear"
+    manual = true
+    [[object.function]]
+    name = "password_storev_sync"
+    rename = "password_store_sync"
+    manual = true
+    [[object.function]]
+    name = "password_storev"
+    rename = "password_store"
+    manual = true
+    [[object.function]]
+    name = "password_lookupv_binary_sync"
+    rename = "password_lookup_binary_sync"
+    manual = true
+    [[object.function]]
+    name = "password_lookupv_sync"
+    rename = "password_lookup_sync"
+    manual = true
+    [[object.function]]
+    name = "password_lookupv"
+    rename = "password_lookup"
+    manual = true
+    [[object.function]]
+    name = "password_lookupv_nonpageable_sync"
+    rename = "password_lookup_nonpageable_sync"
+    manual = true
+    [[object.function]]
+    name = "password_storev_binary_sync"
+    rename = "password_store_binary_sync"
+    manual = true
+    [[object.function]]
+    name = "password_storev_binary"
+    rename = "password_store_binary"
+    manual = true
+    [[object.function]]
+    name = "password_searchv_sync"
+    rename = "password_search_sync"
+    manual = true
+    [[object.function]]
+    name = "password_searchv"
+    rename = "password_search"
+    manual = true
+
+
+[[object]]
+name = "Secret.Collection"
+status = "generate"
+manual_traits = ["CollectionExtManual"]
+    [[object.function]]
+    name = "search"
+    manual = true
+    [[object.function]]
+    name = "search_sync"
+    manual = true
+    [[object.function]]
+    name = "search_for_dbus_paths_sync"
+    manual = true
+    [[object.function]]
+    name = "search_for_dbus_paths"
+    manual = true
+
+[[object]]
+name = "Secret.Error"
+status = "generate"
+    [[object.function]]
+    name = "get_quark"
+    ignore = true # we implement ErrorDomain instead
+
+[[object]]
+name = "Secret.Item"
+status = "generate"
+    [[object.function]]
+    name = "load_secrets_sync"
+    manual = true
+    [[object.function]]
+    name = "load_secrets"
+    manual = true
+    [[object.function]]
+    name = "create"
+    manual = true
+    [[object.function]]
+    name = "create_sync"
+    manual = true
+    [[object.function]]
+    name = "set_attributes"
+    manual = true
+    [[object.function]]
+    name = "set_attributes_sync"
+    manual = true
+
+[[object]]
+name = "Secret.Prompt"
+status = "generate"
+manual_traits = ["PromptExtManual"]
+    [[object.function]]
+    name = "perform"
+    manual = true
+
+[[object]]
+name = "Secret.Retrievable"
+status = "generate"
+manual_traits = ["RetrievableExtManual"]
+    [[object.function]]
+    name = "get_attributes"
+    manual = true
+
+[[object]]
+name = "Secret.Schema"
+status = "generate"
+    [[object.function]]
+    name = "new"
+    ignore = true
+    [[object.function]]
+    name = "newv"
+    rename = "new"
+    manual = true
+
+[[object]]
+name = "Secret.Service"
+status = "generate"
+manual_traits = ["ServiceExtManual"]
+    [[object.function]]
+    name = "lock_dbus_paths_sync"
+    manual = true
+    [[object.function]]
+    name = "lock"
+    manual = true
+    [[object.function]]
+    name = "lock_future"
+    manual = true
+    [[object.function]]
+    name = "unlock_dbus_paths"
+    manual = true
+    [[object.function]]
+    name = "unlock"
+    manual = true
+    [[object.function]]
+    name = "lock_dbus_paths"
+    manual = true
+    [[object.function]]
+    name = "store"
+    manual = true
+    [[object.function]]
+    name = "search"
+    manual = true
+    [[object.function]]
+    name = "lookup"
+    manual = true
+    [[object.function]]
+    name = "clear"
+    manual = true
+    [[object.function]]
+    name = "create_item_dbus_path"
+    manual = true
+    [[object.function]]
+    name = "create_collection_dbus_path"
+    manual = true
+    [[object.function]]
+    name = "get_secrets_for_dbus_paths"
+    manual = true
+    [[object.function]]
+    name = "search_for_dbus_paths"
+    manual = true
+
+[[object]]
+name = "Secret.Value"
+status = "manual"
+    [[object.function]]
+    name = "new_full"
+    ignore = true

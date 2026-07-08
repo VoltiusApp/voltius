@@ -1,0 +1,185 @@
+[options]
+girs_directories = ["../gir-files"]
+library = "Atk"
+version = "1.0"
+min_cfg_version = "2.28"
+target_path = "."
+work_mode = "normal"
+generate_safety_asserts = true
+deprecate_by_min_version = true
+single_version_file = true
+
+generate = [
+    "Atk.Component",
+    "Atk.CoordType",
+    "Atk.EventListener",
+    "Atk.EventListenerInit",
+    "Atk.FocusHandler",
+    "Atk.GObjectAccessible",
+    "Atk.Hyperlink",
+    "Atk.HyperlinkImpl",
+    "Atk.HyperlinkStateFlags",
+    "Atk.Hypertext",
+    # "Atk.Implementor",
+    # "Atk.KeyEventStruct",
+    "Atk.Layer",
+    "Atk.NoOpObject",
+    "Atk.NoOpObjectFactory",
+    "Atk.ObjectFactory",
+    "Atk.PropertyChangeHandler",
+    # "Atk.PropertyValues",
+    "Atk.Rectangle",
+    "Atk.Registry",
+    "Atk.Relation",
+    "Atk.RelationSet",
+    "Atk.ScrollType",
+    "Atk.Selection",
+    "Atk.State",
+    "Atk.StateSet",
+    "Atk.StreamableContent",
+    "Atk.TableCell",
+    "Atk.TextBoundary",
+    "Atk.TextClipType",
+    "Atk.TextGranularity",
+    "Atk.TextRange",
+    "Atk.Util",
+    "Atk.Value",
+    "Atk.ValueType",
+]
+
+ignore = [
+]
+
+manual = [
+    "Atk.Attribute",
+    "Atk.AttributeSet",
+    "Atk.TextRectangle",
+    # "GLib.SList",
+    # "GLib.IOChannel",
+    "GObject.Object",
+    "GObject.Value",
+    "GObject.ValueArray",
+]
+
+[[object]]
+name = "Atk.Action"
+status = "generate"
+trait_name = "AtkActionExt" # duplicate with gio
+
+[[object]]
+name = "Atk.Document"
+status = "generate"
+    [[object.function]]
+    name = "get_attributes"
+    ignore = true # TODO: re-enable once AttributeSet is properly handled
+
+[[object]]
+name = "Atk.EditableText"
+status = "generate"
+manual_traits = ["EditableTextExtManual"]
+    [[object.function]]
+    name = "insert_text"
+    # Expected pointer, received integer
+    manual = true
+
+[[object]]
+name = "Atk.Image"
+status = "generate"
+trait_name = "AtkImageExt" # duplicate with gtk
+
+[[object]]
+name = "Atk.Live"
+status = "generate"
+version = "2.50"
+
+[[object]]
+name = "Atk.Misc"
+status = "generate"
+trait_name = "AtkMiscExt" # duplicate with gtk
+
+[[object]]
+name = "Atk.Object"
+status = "generate"
+trait_name = "AtkObjectExt"
+    [[object.function]]
+    name = "get_attributes"
+    ignore = true # TODO: re-enable once AttributeSet is properly handled
+
+[[object]]
+name = "Atk.Range"
+status = "generate"
+trait_name = "AtkRangeExt" # duplicate with gtk
+
+[[object]]
+name = "Atk.Table"
+status = "generate"
+manual_traits = ["TableExtManual"]
+    [[object.function]]
+    name = "get_selected_columns"
+    manual = true
+    [[object.function]]
+    name = "get_selected_rows"
+    manual = true
+    [[object.function]]
+    name = "get_default_attributes"
+    ignore = true # TODO: re-enable once AttributeSet is properly handled
+
+[[object]]
+name = "Atk.Text"
+status = "generate"
+    [[object.function]]
+    name = "free_ranges"
+    ignore = true # don't know yet how to give back memory...
+
+[[object]]
+name = "Atk.Window"
+status = "generate"
+trait_name = "AtkWindowExt" # duplicate with gtk
+
+[[object]]
+name = "Atk.Plug"
+status = "generate"
+trait_name = "AtkPlugExt"
+
+[[object]]
+name = "Atk.Socket"
+status = "generate"
+trait_name = "AtkSocketExt"
+
+[[object]]
+name = "Atk.RelationType"
+status = "generate"
+    [[object.function]]
+    name = "register"
+    # Problematic function needs manual implementation
+    ignore = true
+
+[[object]]
+name = "Atk.Role"
+status = "generate"
+    [[object.function]]
+    name = "register"
+    # Problematic function needs manual implementation
+    ignore = true
+
+[[object]]
+name = "Atk.StateType"
+status = "generate"
+    [[object.member]]
+    name = "collapsed"
+    version = "2.38"
+    [[object.member]]
+    name = "last_defined"
+    alias = true # not useful
+    [[object.function]]
+    name = "register"
+    # Problematic function needs manual implementation
+    ignore = true
+
+[[object]]
+name = "Atk.TextAttribute"
+status = "generate"
+    [[object.function]]
+    name = "register"
+    # Problematic function needs manual implementation
+    ignore = true

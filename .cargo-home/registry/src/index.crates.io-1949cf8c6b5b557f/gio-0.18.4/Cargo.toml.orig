@@ -1,0 +1,57 @@
+[package]
+name = "gio"
+license = "MIT"
+homepage = "https://gtk-rs.org/"
+authors = ["The gtk-rs Project Developers"]
+keywords = ["glib", "gio", "gtk-rs", "gnome"]
+readme = "README.md"
+documentation = "https://gtk-rs.org/gtk-rs-core/stable/latest/docs/gio/"
+version = "0.18.4"
+description = "Rust bindings for the Gio library"
+repository = "https://github.com/gtk-rs/gtk-rs-core"
+exclude = [
+    "gir-files/*",
+]
+edition = "2021"
+rust-version = "1.70"
+build = "build.rs"
+
+[lib]
+name = "gio"
+
+[features]
+v2_58 = ["ffi/v2_58", "glib/v2_58"]
+v2_60 = ["v2_58", "ffi/v2_60", "glib/v2_60"]
+v2_62 = ["v2_60", "ffi/v2_62", "glib/v2_62"]
+v2_64 = ["v2_62", "ffi/v2_64", "glib/v2_64"]
+v2_66 = ["v2_64", "ffi/v2_66", "glib/v2_66"]
+v2_68 = ["v2_66", "ffi/v2_68", "glib/v2_68"]
+v2_70 = ["v2_68", "ffi/v2_70", "glib/v2_70"]
+v2_72 = ["v2_70", "ffi/v2_72", "glib/v2_72"]
+v2_74 = ["v2_72", "ffi/v2_74", "glib/v2_74"]
+v2_76 = ["v2_74", "ffi/v2_76", "glib/v2_76"]
+v2_78 = ["v2_76", "ffi/v2_78", "glib/v2_78"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docsrs", "--generate-link-to-definition"]
+
+[dependencies]
+libc = "0.2"
+once_cell = "1.0"
+futures-core = { version = "0.3", default-features = false }
+futures-channel = "0.3"
+futures-io = "0.3"
+futures-util = { version = "0.3", default-features = false }
+ffi = { package = "gio-sys", version = "0.18", path = "sys" }
+glib = { path = "../glib", version = "0.18" }
+thiserror = "1"
+pin-project-lite = "0.2"
+smallvec = "1"
+
+[dev-dependencies]
+futures = "0.3"
+futures-util = { version = "0.3", features = ["io"] }
+gir-format-check = "^0.1"
+serial_test = "2"

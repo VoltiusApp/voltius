@@ -1,0 +1,73 @@
+[package]
+
+name = "generic-array"
+version = "1.4.1"
+authors = ["Bartłomiej Kamiński <fizyk20@gmail.com>", "Aaron Trent <novacrazy@gmail.com>"]
+edition = "2021"
+rust-version = "1.65"
+
+description = "Generic types implementing functionality of arrays"
+readme = "README.md"
+
+license = "MIT"
+
+documentation = "https://fizyk20.github.io/generic-array/generic_array/"
+repository = "https://github.com/fizyk20/generic-array.git"
+
+keywords = ["generic", "array"]
+categories = ["data-structures", "no-std"]
+include = ["src/**/*", "LICENSE", "README.md", "CHANGELOG.md"]
+
+[lib]
+name = "generic_array"
+
+[features]
+alloc = []
+internals = []
+serde = ["dep:serde_core"]
+compat-0_14 = ["dep:generic_array-0_14"]
+as_slice = ["dep:as-slice"]
+bitvec = ["dep:bitvec", "const-default"]
+
+[dependencies]
+typenum = { version = "1.19", features = ["const-generics"] }
+rustversion = "1"
+
+const-default = { version = "1", optional = true, default-features = false }
+serde_core = { version = "1.0", optional = true, default-features = false }
+zeroize = { version = "1", optional = true, default-features = false }
+faster-hex = { version = "0.10", optional = true, default-features = false }
+subtle = { version = "2", optional = true, default-features = false }
+arbitrary = { version = "1", optional = true, default-features = false }
+bytemuck = { version = "1", optional = true, default-features = false }
+as-slice = { version = "0.2", optional = true, default-features = false }
+bitvec = { version = "1", optional = true, default-features = false }
+
+generic_array-0_14 = { package = "generic-array", version = "0.14", optional = true, default-features = false }
+hybrid-array-0_4 = { package = "hybrid-array", version = "0.4", optional = true, default-features = false }
+
+[dev-dependencies]
+# this can't yet be made optional, see https://github.com/rust-lang/cargo/issues/1596
+serde_json = "1.0"
+bincode = "1.0"
+criterion = { version = "0.5", features = ["html_reports"] }
+rand = "0.9"
+aes = { version = "0.8.4", default-features = false }
+
+[[bench]]
+name = "hex"
+path = "benches/hex.rs"
+harness = false
+
+[profile.bench]
+opt-level = 3
+lto = 'fat'
+codegen-units = 1
+
+[package.metadata.docs.rs]
+# all but "internals", don't show those on docs.rs
+features = ["serde", "zeroize", "const-default", "alloc", "hybrid-array-0_4", "subtle", "arbitrary", "bytemuck", "bitvec", "as_slice"]
+rustdoc-args = ["--cfg", "docsrs"]
+
+[package.metadata.playground]
+all-features = true

@@ -1,0 +1,26 @@
+[package]
+name = "infer"
+version = "0.19.0"
+authors = ["Bojan <dbojan@gmail.com>"]
+edition = "2018"
+description = "Small crate to infer file type based on magic number signatures"
+license = "MIT"
+keywords = ["magic-number", "filetype", "mime", "mime-types", "no_std"]
+readme = "README.md"
+homepage = "https://github.com/bojand/infer"
+repository = "https://github.com/bojand/infer"
+documentation = "https://docs.rs/infer"
+exclude = ["/testdata", "/tests"]
+
+[features]
+default = ["std"]
+std = ["alloc", "cfb"]
+alloc = []
+
+[[example]]
+name = "file"
+path = "examples/file.rs"
+required-features = ["std"]
+
+[dependencies]
+cfb = { version = "0.7.0", optional = true }

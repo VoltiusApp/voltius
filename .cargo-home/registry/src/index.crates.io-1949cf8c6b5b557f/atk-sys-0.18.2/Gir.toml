@@ -1,0 +1,40 @@
+[options]
+work_mode = "sys"
+library = "Atk"
+version = "1.0"
+min_cfg_version = "2.28"
+single_version_file = "."
+girs_directories = ["../../gir-files"]
+
+external_libraries = [
+    "GLib",
+    "GObject",
+]
+
+ignore = [
+    "Atk.BINARY_AGE",
+    "Atk.INTERFACE_AGE",
+    "Atk.MAJOR_VERSION",
+    "Atk.MICRO_VERSION",
+    "Atk.MINOR_VERSION",
+    "Atk.VERSION_MIN_REQUIRED",
+]
+
+extra_versions = [
+    "2.38"
+]
+
+[[object]]
+name = "Atk.Live"
+status = "generate"
+version = "2.50"
+
+[[object]]
+name = "Atk.StateType"
+status = "generate"
+    [[object.member]]
+    name = "collapsed"
+    version = "2.38"
+    [[object.member]]
+    name = "last_defined"
+    alias = true # not useful and should fix -sys tests

@@ -1,0 +1,55 @@
+[options]
+work_mode = "sys"
+library = "Gtk"
+version = "3.0"
+min_cfg_version = "3.22.30"
+single_version_file = "."
+girs_directories = ["../../gir-files"]
+
+external_libraries = [
+    "GLib",
+    "GObject",
+    "Gio",
+    "Atk",
+    "GdkPixbuf",
+    "Gdk",
+    "Pango",
+    "Cairo",
+]
+
+manual = [
+    "xlib.Window",
+]
+
+ignore = [
+    "Gtk.BINARY_AGE",
+    "Gtk.INTERFACE_AGE",
+    "Gtk.MAJOR_VERSION",
+    "Gtk.MICRO_VERSION",
+    "Gtk.MINOR_VERSION",
+]
+
+[[object]]
+name = "Gtk.EventControllerKey"
+status = "generate"
+version = "3.24"
+
+[[object]]
+name = "Gtk.EventControllerMotion"
+status = "generate"
+version = "3.24"
+
+[[object]]
+name = "Gtk.EventControllerScroll"
+status = "generate"
+version = "3.24"
+
+[[object]]
+name = "Gtk.FontChooserLevel"
+status = "generate"
+version = "3.24"
+
+[[object]]
+name = "Gtk.GestureStyle"
+status = "generate"
+version = "3.24"

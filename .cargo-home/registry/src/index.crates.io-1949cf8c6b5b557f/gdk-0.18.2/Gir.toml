@@ -1,0 +1,504 @@
+[options]
+girs_directories = ["../gir-files"]
+library = "Gdk"
+version = "3.0"
+min_cfg_version = "3.22"
+target_path = "."
+work_mode = "normal"
+generate_safety_asserts = true
+single_version_file = true
+deprecate_by_min_version = true
+
+generate = [
+    "Gdk.AnchorHints",
+    "Gdk.AppLaunchContext",
+    "Gdk.AxisFlags",
+    "Gdk.AxisUse",
+    "Gdk.ByteOrder",
+    "Gdk.CrossingMode",
+    "Gdk.CursorType",
+    "Gdk.DeviceManager",
+    "Gdk.DevicePad",
+    "Gdk.DevicePadFeature",
+    "Gdk.DeviceTool",
+    "Gdk.DeviceToolType",
+    "Gdk.DeviceType",
+    "Gdk.DragAction",
+    "Gdk.DragCancelReason",
+    "Gdk.DragProtocol",
+    "Gdk.DrawingContext",
+    "Gdk.EventMask",
+    "Gdk.EventSequence",
+    "Gdk.FrameClockPhase",
+    "Gdk.FullscreenMode",
+    "Gdk.GLContext",
+    "Gdk.GLError",
+    "Gdk.GrabOwnership",
+    "Gdk.GrabStatus",
+    "Gdk.Gravity",
+    "Gdk.InputMode",
+    "Gdk.InputSource",
+    "Gdk.ModifierIntent",
+    "Gdk.ModifierType",
+    "Gdk.NotifyType",
+    "Gdk.OwnerChange",
+    "Gdk.PropertyState",
+    "Gdk.PropMode",
+    "Gdk.ScrollDirection",
+    "Gdk.SeatCapabilities",
+    "Gdk.SettingAction",
+    "Gdk.SubpixelLayout",
+    "Gdk.VisibilityState",
+    "Gdk.VisualType",
+    "Gdk.WindowEdge",
+    "Gdk.WindowHints",
+    "Gdk.WindowState",
+    "Gdk.WindowType",
+    "Gdk.WindowTypeHint",
+    "Gdk.WindowWindowClass",
+    "Gdk.WMDecoration",
+    "Gdk.WMFunction",
+]
+
+manual = [
+    "cairo.Content",
+    "cairo.Context",
+    "cairo.FontOptions",
+    "cairo.Pattern",
+    "cairo.Region",
+    "cairo.Surface",
+    "Gdk.Atom",
+    "Gdk.Event",
+    "Gdk.EventAny",
+    "Gdk.EventButton",
+    "Gdk.EventConfigure",
+    "Gdk.EventCrossing",
+    "Gdk.EventDND",
+    "Gdk.EventExpose",
+    "Gdk.EventFocus",
+    "Gdk.EventGrabBroken",
+    "Gdk.EventKey",
+    "Gdk.EventMotion",
+    "Gdk.EventOwnerChange",
+    "Gdk.EventPadAxis",
+    "Gdk.EventPadButton",
+    "Gdk.EventPadGroupMode",
+    "Gdk.EventProperty",
+    "Gdk.EventProximity",
+    "Gdk.EventScroll",
+    "Gdk.EventSelection",
+    "Gdk.EventSetting",
+    "Gdk.EventTouch",
+    "Gdk.EventTouchpadPinch",
+    "Gdk.EventTouchpadSwipe",
+    "Gdk.EventVisibility",
+    "Gdk.EventWindowState",
+    "Gdk.Geometry",
+    "Gdk.KeymapKey",
+    "Gdk.TimeCoord",
+    "GdkPixbuf.Pixbuf",
+    "Gio.AppLaunchContext",
+    "Gio.Icon",
+    "GLib.Error",
+    "GObject.Value",
+    "Pango.Context",
+    "Pango.Direction",
+    "Pango.Layout",
+    "Pango.LayoutLine",
+]
+
+[[object]]
+name = "Gdk.*"
+status = "generate"
+    [[object.function]]
+    pattern = ".+"
+        [[object.function.parameter]]
+        name = "cr"
+        const = true
+        [[object.function.parameter]]
+        name = "surface"
+        const = true
+    [[object.function]]
+    name = "setting_get"
+    # GValue initialized inside the function instead of passed as argument
+    ignore = true
+    [[object.function]]
+    name = "property_change"
+    # data parameter needed to be more
+    ignore = true
+    [[object.function]]
+    name = "pango_layout_get_clip_region"
+    ignore = true
+    [[object.function]]
+    name = "selection_property_get"
+    #data
+    ignore = true
+    [[object.function]]
+    name = "cairo_create"
+    #manual trait
+    ignore = true
+    [[object.function]]
+    pattern = "cairo_.+"
+    #manual trait
+    ignore = true
+    [[object.function]]
+    name = "disable_multidevice"
+    #manual trait
+    ignore = true
+    [[object.function]]
+    pattern = "drag_.+"
+    #manual trait
+    ignore = true
+    [[object.function]]
+    name = "drop_reply"
+    #manual trait
+    ignore = true
+    [[object.function]]
+    name = "drop_finish"
+    #manual trait
+    ignore = true
+    [[object.function]]
+    name = "get_default_root_window"
+    #manual trait
+    ignore = true
+    [[object.function]]
+    pattern = "offscreen_window_[gs]et_embedder"
+    #manual trait
+    ignore = true
+    [[object.function]]
+    name = "offscreen_window_get_surface"
+    #manual trait
+    ignore = true
+    [[object.function]]
+    name = "pixbuf_get_from_window"
+    #manual trait
+    ignore = true
+    [[object.function]]
+    name = "keyval_name"
+    manual = true
+    [[object.function]]
+    name = "keyval_to_unicode"
+    manual = true
+    [[object.function]]
+    name = "unicode_to_keyval"
+    manual = true
+    [[object.function]]
+    name = "keyval_from_name"
+    manual = true
+    [[object.function]]
+    name = "keyval_convert_case"
+    manual = true
+    [[object.function]]
+    name = "keyval_is_lower"
+    manual = true
+    [[object.function]]
+    name = "keyval_is_upper"
+    manual = true
+    [[object.function]]
+    name = "keyval_to_lower"
+    manual = true
+    [[object.function]]
+    name = "keyval_to_upper"
+    manual = true
+    [[object.function]]
+    name = "init"
+    #manual
+    ignore = true
+    [[object.function]]
+    pattern = "threads_add_idle.*"
+    #use glib::source::idle_add() instead
+    ignore = true
+    [[object.function]]
+    pattern = "threads_add_timeout.*"
+    #use glib::source::timeout_add() instead
+    ignore = true
+    [[object.function]]
+    name = "parse_args"
+    ignore = true # TODO: manually implement
+    [[object.function]]
+    name = "init_check"
+    ignore = true # TODO: manually implement
+    [[object.function]]
+    name = "set_allowed_backends"
+    assertion = "skip"
+
+[[object]]
+name = "Gdk.Cursor"
+status = "generate"
+    [[object.function]]
+    name = "get_display"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "new_from_surface"
+        [[object.function.parameter]]
+        name = "surface"
+        const = true
+
+[[object]]
+name = "Gdk.Device"
+status = "generate"
+final_type = false
+manual_traits = ["DeviceExtManual"]
+    [[object.function]]
+    name = "get_display"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "free_history"
+    ignore = true # cannot be used as is
+    [[object.function]]
+    name = "get_history"
+    manual = true # need to call "free_history" function by hand
+    [[object.property]]
+    name = "type"
+    generate = ["get", "notify"]
+
+[[object]]
+name = "Gdk.Display"
+status = "generate"
+manual_traits = ["DisplayExtManual"]
+    [[object.function]]
+    name = "get_default_group"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_default_screen"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_name"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_screen"
+        [object.function.return]
+        nullable = false
+
+[[object]]
+name = "Gdk.DisplayManager"
+status = "generate"
+    [[object.function]]
+    name = "get"
+        [object.function.return]
+        nullable = false
+
+[[object]]
+name = "Gdk.DragContext"
+status = "generate"
+    [[object.function]]
+    name = "get_device"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_dest_window"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_source_window"
+        [object.function.return]
+        nullable = false
+
+[[object]]
+name = "Gdk.EventType"
+status = "generate"
+    [[object.member]]
+    name = "2button_press"
+    alias = true
+    [[object.member]]
+    name = "3button_press"
+    alias = true
+    [[object.member]]
+    name = "event_last"
+    alias = true
+
+[[object]]
+name = "Gdk.FrameClock"
+status = "generate"
+    [[object.function]]
+    name = "get_refresh_info"
+    #wrong gir: no out parameters
+    manual = true
+
+[[object]]
+name = "Gdk.FrameTimings"
+status = "generate"
+    [[object.function]]
+    name = "get_predicted_presentation_time"
+    # Use an `Option` for the return value
+    manual = true
+    [[object.function]]
+    name = "get_presentation_time"
+    # Use an `Option` for the return value
+    manual = true
+    [[object.function]]
+    name = "get_refresh_interval"
+    # Use an `Option` for the return value
+    manual = true
+
+[[object]]
+name = "Gdk.Keymap"
+status = "generate"
+    [[object.function]]
+    name = "get_caps_lock_state"
+    rename = "is_caps_locked"
+    [[object.function]]
+    name = "get_num_lock_state"
+    rename = "is_num_locked"
+    [[object.function]]
+    name = "get_scroll_lock_state"
+    rename = "is_scroll_locked"
+    [[object.function]]
+    name = "get_entries_for_keycode"
+    # Invalid generation of Vec<KeymapKey>
+    manual = true
+    [[object.function]]
+    name = "get_entries_for_keyval"
+    # Invalid generation of Vec<KeymapKey>
+    manual = true
+    [[object.function]]
+    name = "add_virtual_modifiers"
+    # Invalid usage of "&mut ModifierType"
+    manual = true
+    [[object.function]]
+    name = "map_virtual_modifiers"
+    # Invalid usage of "&mut ModifierType"
+    manual = true
+    [[object.function]]
+    name = "lookup_key"
+    manual = true
+
+[[object]]
+name = "Gdk.Monitor"
+status = "generate"
+final_type = false
+
+[[object]]
+name = "Gdk.Rectangle"
+status = "generate"
+boxed_inline = true
+
+[[object]]
+name = "Gdk.RGBA"
+status = "generate"
+boxed_inline = true
+    [[object.function]]
+    name = "parse"
+    # This is a constructor
+    manual = true
+
+[[object]]
+name = "Gdk.Screen"
+status = "generate"
+    [[object.function]]
+    name = "get_display"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "make_display_name"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_font_options"
+    manual = true
+    [[object.function]]
+    name = "get_setting"
+    # bool return value signals success
+    manual = true
+    [[object.function]]
+    name = "height"
+    # This is an associated function which clashes with
+    # the actual method getter after auto-renaming.
+    rename = "screen_height"
+    [[object.function]]
+    name = "height_mm"
+    # This is an associated function which clashes with
+    # the actual method getter after auto-renaming.
+    rename = "screen_height_mm"
+    [[object.function]]
+    name = "width"
+    # This is an associated function which clashes with
+    # the actual method getter after auto-renaming.
+    rename = "screen_width"
+    [[object.function]]
+    name = "width_mm"
+    # This is an associated function which clashes with
+    # the actual method getter after auto-renaming.
+    rename = "screen_width_mm"
+
+[[object]]
+name = "Gdk.Seat"
+status = "generate"
+final_type = false
+
+[[object]]
+name = "Gdk.Visual"
+status = "generate"
+    [[object.function]]
+    name = "get_system"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_best"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_screen"
+        [object.function.return]
+        nullable = false
+
+[[object]]
+name = "Gdk.Window"
+status = "generate"
+manual_traits = ["WindowExtManual"]
+    [[object.function]]
+    name = "new"
+    manual = true
+    [[object.function]]
+    pattern = "[gs]et_background_pattern"
+    manual = true
+    doc_trait_name = "WindowExtManual"
+    [[object.function]]
+    pattern = "[gs]et_user_data"
+    manual = true
+    doc_trait_name = "WindowExtManual"
+    [[object.function]]
+    name = "get_effective_toplevel"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_event_compression"
+    rename = "does_event_compression"
+    [[object.function]]
+    name = "get_display"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_screen"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_toplevel"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "get_visual"
+        [object.function.return]
+        nullable = false
+    [[object.function]]
+    name = "mark_paint_from_clip"
+        [[object.function.parameter]]
+        name = "cr"
+        const = true
+    [[object.function]]
+    name = "create_similar_surface"
+    manual = true
+    # See https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/3228
+    [[object.function]]
+    name = "create_similar_image_surface"
+    manual = true
+    [[object.function]]
+    name = "set_opaque_region"
+        [[object.function.parameter]]
+        name = "region"
+        const = true

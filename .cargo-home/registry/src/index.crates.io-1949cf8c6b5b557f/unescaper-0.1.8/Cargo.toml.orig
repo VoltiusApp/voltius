@@ -1,0 +1,29 @@
+[package]
+authors = ["Hack Ink <hi@hack.ink>", "Xavier Lau <x@acg.box>"]
+description = "Unescape strings with escape sequences written out as literal characters."
+edition = "2021"
+homepage = "https://hack.ink/unescaper"
+keywords = [
+	"escape",
+	"string",
+	"unescape",
+]
+license = "GPL-3.0/MIT"
+name = "unescaper"
+readme = "README.md"
+repository = "https://github.com/hack-ink/unescaper"
+version = "0.1.8"
+
+[package.metadata.docs.rs]
+all-features = true
+
+[profile.ci-dev]
+incremental = false
+inherits    = "dev"
+
+[profile.ci-release]
+inherits = "release"
+lto      = true
+
+[dependencies]
+thiserror = { version = "2.0" }

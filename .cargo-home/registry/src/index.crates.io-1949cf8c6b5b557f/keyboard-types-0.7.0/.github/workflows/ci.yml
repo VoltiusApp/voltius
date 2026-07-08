@@ -1,0 +1,35 @@
+on: [push, pull_request]
+
+name: Continuous integration
+
+jobs:
+  check-test:
+    name: Check and test crate
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain:
+          - stable
+          - "1.60"
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+      # Default features
+      - run: cargo check --all-targets
+      - run: cargo test
+      # No default features
+      - run: cargo check --all-targets --no-default-features
+      - run: cargo test --no-default-features
+
+  clippy-fmt:
+    name: Run Clippy and format code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo fmt --check

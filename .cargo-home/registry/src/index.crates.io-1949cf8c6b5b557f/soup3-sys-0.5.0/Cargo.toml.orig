@@ -1,0 +1,59 @@
+[package]
+name = "soup3-sys"
+version = "0.5.0"
+edition = "2021"
+rust-version = "1.70"
+authors = ["The Gtk-rs Project Developers"]
+description = "Sys functions for the Rust bindings of the javacriptcore library"
+repository = "https://gitlab.gnome.org/World/Rust/soup3-rs"
+license = "MIT"
+homepage = "https://gtk-rs.org"
+keywords = ["soup", "gtk-rs", "gnome"]
+build = "build.rs"
+
+[package.metadata.system-deps.libsoup_3_0]
+name = "libsoup-3.0"
+version = "3.0"
+
+[package.metadata.system-deps.libsoup_3_0.v3_2]
+version = "3.2"
+
+[package.metadata.system-deps.libsoup_3_0.v3_4]
+version = "3.4"
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]
+features = []
+
+[dependencies]
+libc = "0.2"
+
+[dependencies.glib]
+package = "glib-sys"
+git = "https://github.com/gtk-rs/gtk-rs-core"
+branch = "0.18"
+version = "0.18"
+
+[dependencies.gio]
+package = "gio-sys"
+git = "https://github.com/gtk-rs/gtk-rs-core"
+branch = "0.18"
+version = "0.18"
+
+[dependencies.gobject]
+package = "gobject-sys"
+git = "https://github.com/gtk-rs/gtk-rs-core"
+branch = "0.18"
+version = "0.18"
+
+[build-dependencies]
+system-deps = "6"
+
+[dev-dependencies]
+shell-words = "1.0.0"
+tempfile = "3"
+
+[features]
+v3_0 = []
+v3_2 = []
+v3_4 = ["v3_2"]

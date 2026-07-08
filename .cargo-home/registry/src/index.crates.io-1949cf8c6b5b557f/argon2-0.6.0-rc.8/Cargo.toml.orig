@@ -1,0 +1,51 @@
+[package]
+name = "argon2"
+version = "0.6.0-rc.8"
+description = """
+Pure Rust implementation of the Argon2 password hashing function with support
+for the Argon2d, Argon2i, and Argon2id algorithmic variants
+"""
+authors = ["RustCrypto Developers"]
+license = "MIT OR Apache-2.0"
+documentation = "https://docs.rs/argon2"
+homepage = "https://github.com/RustCrypto/password-hashes/tree/master/argon2"
+repository = "https://github.com/RustCrypto/password-hashes"
+keywords = ["crypto", "hashing", "password", "phf"]
+categories = ["authentication", "cryptography", "no-std"]
+readme = "README.md"
+edition = "2024"
+rust-version = "1.85"
+
+[dependencies]
+base64ct = "1.7"
+blake2 = { version = "0.11.0-rc.5", default-features = false }
+
+# optional dependencies
+kdf = { version = "0.1", optional = true }
+rayon = { version = "1.7", optional = true }
+password-hash = { version = "0.6", optional = true, features = ["phc"] }
+zeroize = { version = "1", default-features = false, optional = true }
+
+[target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]
+cpufeatures = "0.3"
+
+[dev-dependencies]
+hex-literal = "1"
+
+[features]
+default = ["alloc", "getrandom", "password-hash"]
+alloc = ["password-hash?/alloc"]
+
+kdf = ["alloc", "dep:kdf"]
+getrandom = ["password-hash/getrandom"]
+parallel = ["dep:rayon"]
+password-hash = ["dep:password-hash"]
+rand_core = ["password-hash/rand_core"]
+zeroize = ["dep:zeroize"]
+
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = ['cfg(test_large_ram)']
+
+[package.metadata.docs.rs]
+all-features = true

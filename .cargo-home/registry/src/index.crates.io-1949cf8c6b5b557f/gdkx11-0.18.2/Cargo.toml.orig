@@ -1,0 +1,34 @@
+[package]
+name = "gdkx11"
+license = "MIT"
+homepage = "https://gtk-rs.org/"
+authors = ["The gtk-rs Project Developers"]
+keywords = ["gdkx11", "gdk", "gtk-rs", "gnome", "GUI"]
+readme = "README.md"
+documentation = "https://gtk-rs.org/gtk3-rs/stable/latest/docs/gdkx11/"
+version = "0.18.2"
+description = "UNMAINTAINED Rust bindings for the GDK X11 library (use gdk4-x11 instead)"
+repository = "https://github.com/gtk-rs/gtk3-rs"
+exclude = ["gir-files/*"]
+edition = "2021"
+rust-version = "1.70"
+
+[lib]
+name = "gdkx11"
+
+[features]
+v3_24 = ["ffi/v3_24_2"]
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs", "--generate-link-to-definition"]
+
+[dependencies]
+libc = "0.2"
+x11 = "2.18"
+ffi = { package = "gdkx11-sys", version = "0.18", path = "sys" }
+glib = { branch = "0.18", version = "0.18", git = "https://github.com/gtk-rs/gtk-rs-core" }
+gdk = { version = "0.18", path = "../gdk" }
+gio = { branch = "0.18", version = "0.18", git = "https://github.com/gtk-rs/gtk-rs-core" }
+
+[dev-dependencies]
+gir-format-check = "^0.1"

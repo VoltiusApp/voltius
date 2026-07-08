@@ -1,0 +1,68 @@
+[package]
+name = "webkit2gtk"
+version = "2.0.2"
+edition = "2021"
+categories = [ "api-bindings", "gui" ]
+description = "Rust bindings for webkit-gtk library"
+repository = "https://github.com/tauri-apps/webkit2gtk-rs"
+license = "MIT"
+keywords = [ "webkit", "gtk-rs", "gnome", "GUI" ]
+include = ["README.md", "LICENSE", "src/**/*.rs", "CHANGELOG.md"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustc-args = [ "--cfg", "docsrs" ]
+rustdoc-args = [ "--cfg", "docsrs" ]
+
+[lib]
+name = "webkit2gtk"
+
+[features]
+v2_2 = [ ]
+v2_4 = [ "v2_2" ]
+v2_6 = [ "v2_4", "ffi/v2_6" ]
+v2_8 = [ "v2_6", "ffi/v2_8" ]
+v2_10 = [ "v2_8", "ffi/v2_10" ]
+v2_12 = [ "v2_10", "ffi/v2_12" ]
+v2_14 = [ "v2_12", "ffi/v2_14" ]
+v2_16 = [ "v2_14", "ffi/v2_16" ]
+v2_18 = [ "v2_16", "ffi/v2_18" ]
+v2_20 = [ "v2_18", "ffi/v2_20" ]
+v2_22 = [ "v2_20", "ffi/v2_22" ]
+v2_24 = [ "v2_22", "ffi/v2_24" ]
+v2_26 = [ "v2_24", "ffi/v2_26" ]
+v2_28 = [ "v2_26", "ffi/v2_28" ]
+v2_30 = [ "v2_28", "ffi/v2_30" ]
+v2_32 = [ "v2_30", "ffi/v2_32" ]
+v2_34 = [ "v2_32", "ffi/v2_34" ]
+v2_36 = [ "v2_34", "ffi/v2_36" ]
+v2_38 = [ "v2_36", "ffi/v2_38" ]
+v2_40 = [ "v2_38", "ffi/v2_40" ]
+
+[dependencies]
+bitflags = "^1.0"
+once_cell = "1.8"
+libc = "^0.2"
+cairo-rs = "^0.18.0"
+gdk = "^0.18.0"
+gdk-sys = "^0.18.0"
+gio = "^0.18.0"
+gio-sys = "^0.18.0"
+glib = "^0.18.0"
+glib-sys = "^0.18.0"
+gobject-sys = "^0.18.0"
+gtk = "^0.18.0"
+gtk-sys = "^0.18.0"
+
+  [dependencies.java_script_core]
+  package = "javascriptcore-rs"
+  version = "=1.1"
+
+  [dependencies.soup]
+  package = "soup3"
+  version = "0.5"
+
+  [dependencies.ffi]
+  package = "webkit2gtk-sys"
+  path = "sys"
+  version = "2.0.1"

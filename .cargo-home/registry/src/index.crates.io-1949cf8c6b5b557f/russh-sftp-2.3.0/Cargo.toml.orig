@@ -1,0 +1,50 @@
+[package]
+name = "russh-sftp"
+version = "2.3.0"
+edition = "2021"
+description = "SFTP subsystem supported server and client for Russh"
+readme = "README.md"
+repository = "https://github.com/AspectUnk/russh-sftp"
+license = "Apache-2.0"
+keywords = ["russh", "sftp", "ssh2", "server", "client"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1", default-features = false, features = [
+    "io-util",
+    "rt",
+    "sync",
+    "time",
+    "macros",
+] }
+tokio-util = { version = "0.7.18", default-features = false, features = ["rt"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_bytes = "0.11.19"
+bitflags = { version = "2.11.1", features = ["serde"] }
+async-trait = { version = "0.1.89", optional = true }
+
+thiserror = "2.0.18"
+chrono = "0.4.44"
+bytes = "1.11.1"
+log = "0.4.29"
+dashmap = "6.1.0"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4.71"
+gloo-timers = { version = "0.4.0", features = ["futures"] }
+
+[dev-dependencies]
+russh = "0.61.0"
+env_logger = "0.11.10"
+anyhow = "1.0.102"
+criterion = { version = "0.8.2", features = ["async_tokio"] }
+futures = "0.3.32"
+rand = "0.10.1"
+
+[features]
+async-trait = ["dep:async-trait"]
+
+[[bench]]
+name = "upload_benchmark"
+harness = false

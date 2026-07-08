@@ -1,0 +1,17 @@
+[options]
+work_mode = "sys"
+library = "Secret"
+version = "1"
+girs_directories = ["../../gir-files", "../../"]
+min_cfg_version = "0.1"
+external_libraries = [
+   "GLib",
+   "GObject",
+   "Gio",
+]
+
+ignore = [
+   "Secret.MAJOR_VERSION",
+   "Secret.MICRO_VERSION",
+   "Secret.MINOR_VERSION",
+]

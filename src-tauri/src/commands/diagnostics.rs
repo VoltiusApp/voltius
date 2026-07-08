@@ -69,6 +69,16 @@ pub fn create_bug_report(app: tauri::AppHandle) -> Result<String, String> {
         warnings.push("could not list log dir".into());
     }
 
+    // startup-trace.log — flushed native startup milestones (survives force-quit
+    // mid-hang, unlike the buffered main log). Diagnostic for the startup freeze.
+    match crate::startup_trace::read_all() {
+        Ok(bytes) => entries.push(ReportEntry {
+            name: "startup-trace.log".into(),
+            bytes,
+        }),
+        Err(e) => warnings.push(format!("startup-trace: {e}")),
+    }
+
     // system.json — best-effort collectors; failures recorded inline.
     let version = app.package_info().version.to_string();
     let sysinfo = crate::commands::sysinfo::get_system_info();

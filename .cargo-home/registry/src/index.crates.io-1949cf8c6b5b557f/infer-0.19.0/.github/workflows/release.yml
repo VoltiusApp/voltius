@@ -1,0 +1,72 @@
+name: release
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  
+  github_build:
+    name: GitHub Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Install rustfmt
+        run: rustup component add rustfmt
+      - name: Install clippy
+        run: rustup component add clippy
+      - name: Check format
+        run: cargo fmt --all -- --check
+      - name: Lint (all features)
+        run: cargo clippy --all-targets --all-features -- -D clippy::all
+      - name: Lint (no_std)
+        run: cargo clippy --all-targets --no-default-features --features alloc -- -D clippy::all
+      - name: Lint (no_alloc)
+        run: cargo clippy --all-targets --no-default-features -- -D clippy::all
+      - name: Test (default)
+        run: cargo test --verbose
+      - name: Test (no_std)
+        run: cargo test --no-default-features --features alloc --verbose
+      - name: Test (no_alloc)
+        run: cargo test --no-default-features --verbose
+
+  github_release:
+    name: Create GitHub Release
+    needs: github_build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Generate release notes
+        run: |
+          export PATH=$PATH:$(go env GOPATH)/bin
+          go install github.com/git-chglog/git-chglog/cmd/git-chglog@latest
+          git-chglog -c .chglog/config.yml $(git describe --tags) > RELEASE.md
+      - name: Create GitHub release ${{ matrix.target }}
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: RELEASE.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Publish to Crates.io
+  cargo_publish:
+    name: Publish Cargo Package
+    needs: github_build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout  
+        uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - run: cargo login $CRATES_IO_TOKEN
+      - run: cargo publish
+    env:
+      CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}

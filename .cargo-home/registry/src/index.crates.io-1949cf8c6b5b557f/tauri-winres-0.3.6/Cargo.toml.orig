@@ -1,0 +1,18 @@
+[package]
+name = "tauri-winres"
+description = "Create and set windows icons and metadata for executables"
+version = "0.3.6"
+authors = [
+  "Tauri Programme within The Commons Conservancy",
+  "Max Resch <resch.max@gmail.com>"
+]
+license = "MIT"
+repository = "https://github.com/tauri-apps/winres"
+documentation = "https://docs.rs/tauri-winres/"
+rust-version = "1.76"
+edition = "2021"
+
+[dependencies]
+toml = "1.0"
+embed-resource = "3"
+dunce = "1"

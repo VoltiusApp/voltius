@@ -1,0 +1,151 @@
+name: Continuous Integration
+
+on:
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+  push:
+    branches:
+      - master
+      - "dependabot/**"
+    paths-ignore:
+      - "**/*.md"
+  schedule:
+    - cron: "0 0 * * 0"
+  merge_group:
+    types: [checks_requested]
+
+# If new code is pushed to a PR branch, then cancel in progress workflows for that PR. Ensures that
+# we don't waste CI time, and returns results quicker https://github.com/jonhoo/rust-ci-conf/pull/5
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+
+jobs:
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt
+      - name: Run Cargo Fmt
+        run: cargo fmt --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Get early warning of new lints which are regularly introduced in beta channels.
+        toolchain: [stable, beta]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust ${{ matrix.toolchain }}
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { toolchain: stable, os: ubuntu-latest }
+          - { toolchain: stable, os: macos-latest }
+          - { toolchain: stable, os: windows-latest }
+          - { toolchain: beta, os: ubuntu-latest }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust ${{ matrix.toolchain }}
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Run Cargo Test
+        run: cargo test -r --tests --all-features
+      - name: Build examples
+        run: cargo build --examples --all-features
+
+  docs:
+    name: Build docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: cargo doc
+        run: cargo doc --no-deps --all-features
+
+  powerset:
+    # cargo-hack checks combinations of feature flags to ensure that features are all additive
+    # which is required for feature unification
+    runs-on: ubuntu-latest
+    name: ubuntu / stable / features
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@cargo-hack
+      # intentionally no target specifier; see https://github.com/jonhoo/rust-ci-conf/pull/4
+      # --feature-powerset runs for every combination of features
+      - name: cargo hack
+        run: cargo hack --feature-powerset check
+
+  wasm:
+    name: Build (wasm32)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo check (wasm32)
+        run: cargo check --target wasm32-unknown-unknown --all-features
+
+  result:
+    name: Result (CI)
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - fmt
+      - clippy
+      - test
+      - docs
+      - powerset
+      - wasm
+    steps:
+      - name: Mark the job as successful
+        run: exit 0
+        if: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+      - name: Mark the job as unsuccessful
+        run: exit 1
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}

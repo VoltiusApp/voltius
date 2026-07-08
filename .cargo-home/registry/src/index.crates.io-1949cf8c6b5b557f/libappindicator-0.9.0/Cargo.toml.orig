@@ -1,0 +1,18 @@
+[package]
+name = "libappindicator"
+version = "0.9.0"
+description = "Rust safe bindings for libappindicator"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+keywords = [ "linux", "gui", "gtk" ]
+
+[dependencies]
+log = "0.4"
+glib = "0.18"
+gtk = "0.18"
+gtk-sys = "0.18"
+libappindicator-sys = { version = "0.9", path = "sys/" }
+
+[features]
+default = [ "backcompat" ]
+backcompat = [ "libappindicator-sys/backcompat" ]

@@ -1,0 +1,41 @@
+[package]
+name = "integer-encoding"
+version = "3.0.4"
+authors = ["Lewin Bormann <lbo@spheniscida.de>"]
+description = "varint+zigzag and fixedint integer encoding/decoding (https://developers.google.com/protocol-buffers/docs/encoding)"
+repository = "https://github.com/dermesser/integer-encoding-rs"
+documentation = "https://docs.rs/integer-encoding/"
+license = "MIT"
+keywords = ["integer", "varint", "zigzag", "protobuf", "serialize"]
+edition = "2018"
+
+[dependencies]
+async-trait = { version = "0.1", optional = true }
+tokio = { version = "1.0", features = ["io-util"], optional = true }
+futures-util = { version = "0.3", optional = true, features = ["io"] }
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["fs", "rt-multi-thread", "macros"] }
+bencher = "~0.1"
+
+[[example]]
+name = "encode_varint_from_stdin"
+required-features = ["tokio_async"]
+
+[[example]]
+name = "read_write_file"
+required-features = ["tokio_async"]
+
+[[bench]]
+name = "main"
+harness = false
+
+[features]
+# Enable one of these features if you want to use the AsyncRead/AsyncWrite traits from
+# the futures crate instead of those from tokio.
+tokio_async = ["tokio", "async-trait"]
+futures_async = ["futures-util", "async-trait"]
+
+[package.metadata.docs.rs]
+features = ["tokio_async"]
+

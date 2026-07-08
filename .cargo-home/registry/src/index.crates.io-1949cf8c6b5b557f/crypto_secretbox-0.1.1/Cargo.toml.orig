@@ -1,0 +1,46 @@
+[package]
+name = "crypto_secretbox"
+version = "0.1.1"
+description = """
+Pure Rust implementation of the XSalsa20Poly1305 (a.k.a. NaCl crypto_secretbox)
+authenticated encryption cipher as well as the libsodium variant of
+XChaCha20Poly1305
+"""
+authors = ["RustCrypto Developers"]
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+readme = "README.md"
+documentation = "https://docs.rs/crypto_secretbox"
+repository = "https://github.com/RustCrypto/nacl-compat/tree/master/crypto_secretbox"
+keywords = ["aead", "nacl", "poly1305", "salsa20", "xsalsa20"]
+categories = ["cryptography", "no-std"]
+rust-version = "1.60"
+
+[dependencies]
+aead = { version = "0.5", default-features = false }
+cipher = { version = "0.4", default-features = false }
+generic-array = { version = "0.14.7", default-features = false, features = ["zeroize"] }
+poly1305 = "0.8"
+subtle = { version = "2", default-features = false }
+zeroize = { version = "1", default-features = false }
+
+# optional dependencies
+chacha20 = { version = "0.9", optional = true, features = ["zeroize"] }
+salsa20 = { version = "0.10", optional = true, features = ["zeroize"] }
+
+[dev-dependencies]
+hex-literal = "0.4"
+
+[features]
+default = ["alloc", "getrandom", "salsa20"]
+alloc = ["aead/alloc"]
+std = ["aead/std", "alloc"]
+
+getrandom  = ["aead/getrandom", "rand_core"]
+heapless = ["aead/heapless"]
+rand_core = ["aead/rand_core"]
+stream = ["aead/stream"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

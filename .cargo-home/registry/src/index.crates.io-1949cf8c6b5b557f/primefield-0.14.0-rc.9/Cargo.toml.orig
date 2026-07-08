@@ -1,0 +1,25 @@
+[package]
+name = "primefield"
+version = "0.14.0-rc.9"
+description = """
+Generic implementation of prime fields built on `crypto-bigint`, along with macros for writing
+field element newtypes including ones with formally verified arithmetic using `fiat-crypto`
+"""
+authors = ["RustCrypto Developers"]
+license = "Apache-2.0 OR MIT"
+documentation = "https://docs.rs/primefield"
+homepage = "https://github.com/RustCrypto/elliptic-curves/tree/master/primefield"
+repository = "https://github.com/RustCrypto/elliptic-curves"
+readme = "README.md"
+categories = ["cryptography", "no-std"]
+keywords = ["crypto", "ecc", "field", "prime"]
+edition = "2024"
+rust-version = "1.85"
+
+[dependencies]
+bigint = { version = "0.7.1", package = "crypto-bigint", default-features = false, features = ["rand_core", "hybrid-array", "subtle"] }
+common = { package = "crypto-common", version = "0.2", features = ["rand_core"] }
+ff = { version = "0.14.0-rc.1", package = "rustcrypto-ff", default-features = false }
+subtle = { version = "2.6", default-features = false, features = ["const-generics"] }
+rand_core = { version = "0.10", default-features = false }
+zeroize = { version = "1.7", default-features = false }

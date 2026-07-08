@@ -1,0 +1,17 @@
+*
+!.gitignore
+!.travis.yml
+!gh_rsa.enc
+!appveyor.yml
+!LICENSE
+!Cargo.toml
+!Cargo.lock
+!rustfmt.toml
+!build.rs
+!*.rc
+!*.sublime-project
+!*.md
+!.github
+!.github/**
+!src
+!src/**

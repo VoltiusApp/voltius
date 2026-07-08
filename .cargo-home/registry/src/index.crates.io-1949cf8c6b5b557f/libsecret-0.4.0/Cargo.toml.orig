@@ -1,0 +1,51 @@
+[package]
+name = "libsecret"
+version = "0.4.0"
+authors = [
+  "Bilal Elmoussaoui <bil.elmoussaoui@gmail.com>",
+  "Maximiliano Sandoval <msandova@gnome.org>",
+  "Sophie Herold <sophie@hemio.de>",
+]
+edition = "2021"
+exclude = [
+    'gir-files/*',
+    'gir/',
+]
+readme = "../README.md"
+license = 'MIT'
+repository = 'https://gitlab.gnome.org/World/Rust/libsecret-rs'
+documentation = "https://world.pages.gitlab.gnome.org/Rust/libsecret-rs/stable/latest/docs/libsecret"
+categories = ["api-bindings"]
+description = "Rust bindings of libsecret"
+homepage = "https://world.pages.gitlab.gnome.org/Rust/libsecret-rs"
+keywords = ["libsecret", "dbus", "secret", "bindings", "freedesktop"]
+
+[dependencies]
+libc = "0.2"
+
+[dependencies.glib]
+git = "https://github.com/gtk-rs/gtk-rs-core"
+version = "0.18"
+branch = "0.18"
+
+[dependencies.gio]
+git = "https://github.com/gtk-rs/gtk-rs-core"
+version = "0.18"
+branch = "0.18"
+
+[dependencies.ffi]
+package = "libsecret-sys"
+path = './sys'
+version = "0.4"
+
+[features]
+default = [ "v0_18" ]
+v0_18 = [ "ffi/v0_18"]
+v0_18_6 = [ "v0_18", "ffi/v0_18_6"]
+v0_19 = ["v0_18_6", "ffi/v0_19"]
+v0_20 = [ "v0_19", "ffi/v0_20" ]
+
+[package.metadata.docs.rs]
+all-features = true
+rustc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docsrs"]

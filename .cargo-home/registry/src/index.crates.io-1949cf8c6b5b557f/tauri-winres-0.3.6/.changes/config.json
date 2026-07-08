@@ -1,0 +1,64 @@
+{
+    "gitSiteUrl": "https://github.com/tauri-apps/winres/",
+    "pkgManagers": {
+        "rust": {
+            "version": true,
+            "postversion": ["cargo update tauri-winres"],
+            "getPublishedVersion": "cargo search ${ pkgFile.pkg.package.name } --limit 1 | sed -nE 's/^[^\"]*\"//; s/\".*//1p' -",
+            "prepublish": [
+                "cargo install cargo-audit --features=fix",
+                {
+                    "command": "echo '<details>\n<summary><em><h4>Cargo Audit</h4></em></summary>\n\n```'",
+                    "dryRunCommand": true,
+                    "pipe": true
+                },
+                {
+                    "command": "cargo audit ${ process.env.CARGO_AUDIT_OPTIONS || '' }",
+                    "dryRunCommand": true,
+                    "runFromRoot": true,
+                    "pipe": true
+                },
+                {
+                    "command": "echo '```\n\n</details>\n'",
+                    "dryRunCommand": true,
+                    "pipe": true
+                }
+            ],
+            "publish": [
+                "sleep 15s",
+                {
+                    "command": "cargo package --no-verify",
+                    "dryRunCommand": true
+                },
+                {
+                    "command": "echo '<details>\n<summary><em><h4>Cargo Publish</h4></em></summary>\n\n```'",
+                    "dryRunCommand": true,
+                    "pipe": true
+                },
+                {
+                    "command": "cargo publish",
+                    "dryRunCommand": "cargo publish --dry-run",
+                    "pipe": true
+                },
+                {
+                    "command": "echo '```\n\n</details>\n'",
+                    "dryRunCommand": true,
+                    "pipe": true
+                }
+            ],
+            "postpublish": ["git tag ${ pkg.pkg }-v${ pkgFile.versionMajor } -f", "git tag ${ pkg.pkg }-v${ pkgFile.versionMajor }.${ pkgFile.versionMinor } -f", "git push --tags -f"],
+            "assets": [
+                {
+                    "path": "${ pkg.path }/target/package/${ pkg.pkg }-${ pkgFile.version }.crate",
+                    "name": "${ pkg.pkg }-${ pkgFile.version }.crate"
+                }
+            ]
+        }
+    },
+    "packages": {
+        "winres": {
+            "path": ".",
+            "manager": "rust"
+        }
+    }
+}

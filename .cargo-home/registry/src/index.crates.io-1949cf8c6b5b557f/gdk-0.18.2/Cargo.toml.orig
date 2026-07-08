@@ -1,0 +1,38 @@
+[package]
+name = "gdk"
+license = "MIT"
+homepage = "https://gtk-rs.org/"
+authors = ["The gtk-rs Project Developers"]
+keywords = ["gdk", "gtk", "gtk-rs", "gnome", "GUI"]
+readme = "README.md"
+documentation = "https://gtk-rs.org/gtk3-rs/stable/latest/docs/gdk/"
+version = "0.18.2"
+description = "UNMAINTAINED Rust bindings for the GDK 3 library (use gdk4 instead)"
+repository = "https://github.com/gtk-rs/gtk3-rs"
+exclude = [
+    "gir-files/*",
+]
+edition = "2021"
+rust-version = "1.70"
+
+[lib]
+name = "gdk"
+
+[features]
+v3_24 = ["ffi/v3_24"]
+unsafe-assume-initialized = []
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs", "--generate-link-to-definition"]
+
+[dependencies]
+libc = "0.2"
+ffi = { package = "gdk-sys", version = "0.18", path = "sys" }
+cairo-rs = { branch = "0.18", version = "0.18", git = "https://github.com/gtk-rs/gtk-rs-core" }
+gdk-pixbuf = { branch = "0.18", version = "0.18", git = "https://github.com/gtk-rs/gtk-rs-core" }
+gio = { branch = "0.18", version = "0.18", git = "https://github.com/gtk-rs/gtk-rs-core" }
+glib = { branch = "0.18", version = "0.18", git = "https://github.com/gtk-rs/gtk-rs-core" }
+pango = { branch = "0.18", version = "0.18", git = "https://github.com/gtk-rs/gtk-rs-core" }
+
+[dev-dependencies]
+gir-format-check = "^0.1"

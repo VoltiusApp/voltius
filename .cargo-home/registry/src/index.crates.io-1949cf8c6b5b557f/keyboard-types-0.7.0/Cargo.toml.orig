@@ -1,0 +1,21 @@
+[package]
+name = "keyboard-types"
+version = "0.7.0"
+authors = ["Pyfisch <pyfisch@posteo.org>"]
+description = "Contains types to define keyboard related events."
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/pyfisch/keyboard-types"
+keywords = ["keyboard", "input", "event", "webdriver"]
+edition = "2021"
+rust-version = "1.60"
+
+[features]
+default = ["serde", "webdriver"]
+serde = ["dep:serde", "bitflags/serde"]
+webdriver = ["unicode-segmentation"]
+
+[dependencies]
+bitflags = "2"
+serde = { version = "1.0.0", optional = true, features = ["derive"] }
+unicode-segmentation = { version = "1.2.0", optional = true }

@@ -1,0 +1,195 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 0.5.2 (2026-05-19)
+### Added
+- Re-export of `SetIvState` ([#2422])
+
+[#2422]: https://github.com/RustCrypto/traits/pull/2422
+
+## 0.5.1 (2026-02-25)
+### Changed
+- Block sizes no longer bounded by `crypto_common::BlockSizes` ([#2309])
+- `StreamCipherCoreWrapper` is now bounded by `block_buffer::BlockSizes`
+  instead of `crypto_common::BlockSizes` ([#2309])
+- Bump `block-buffer` dependency to v0.12 ([#2309])
+
+### Fixed
+- `Key:` option in the `stream_cipher_bench` macro ([#2290])
+
+[#2290]: https://github.com/RustCrypto/traits/pull/2290
+[#2309]: https://github.com/RustCrypto/traits/pull/2309
+
+## 0.5.0 (2026-02-04) [YANKED]
+Note: this version was yanked because v0.5.1 introduces breaking changes.
+Users should migrate to `cipher` v0.5.1 and `crypto-common` v0.2.1 using `cargo update`.
+
+### Added
+- Traits for tweakable block ciphers ([#1721])
+- Methods for writing keystream ([#1907])
+
+### Changed
+- Replaced `generic-array` with `hybrid-array` ([#1358])
+- Rename `BlockCipher*`/`BlockMode*` ([#1482])
+  - `BlockEncrypt` => `BlockCipherEncrypt`
+  - `BlockDecrypt` => `BlockCipherDecrypt`
+  - `BlockEncryptMut` => `BlockModeEncrypt`
+  - `BlockDecryptMut` => `BlockModeDecrypt`
+- Split `BlockBackend` traits into 4 specific traits: ([#1636])
+  - `BlockCipherEncBackend`
+  - `BlockCipherDecBackend`
+  - `BlockModeEncBackend`
+  - `BlockModeDecBackend`
+- Edition changed to 2024 and MSRV bumped to 1.85 ([#1759])
+- Use `block_buffer::ReadBuffer` in `StreamCipherCoreWrapper` ([#1959])
+- Re-export of `crypto-common` moved to `cipher::common` ([#2237], [#2260])
+- `crypto-common` dependency bumped to v0.2 ([#2276])
+- `blobby` requirement bumped to v0.4 ([#2147])
+- `inout` dependency bumped to v0.2.2 ([#2149])
+
+### Fixed
+- Bugs in `StreamCipherCoreWrapper` trait implementations ([#1421])
+- Seeking implementation in the stream cipher wrapper ([#2052])
+
+### Removed
+- `std` feature ([#1691])
+- `BlockCipherEncrypt::encrypt_padded*` and `BlockCipherDecrypt::decrypt_padded*` methods.
+  Users of the ECB mode should use the `ecb-mode` crate instead. ([#2245])
+- `AsyncStreamCipher` trait ([#2280])
+
+[#1358]: https://github.com/RustCrypto/traits/pull/1358
+[#1421]: https://github.com/RustCrypto/traits/pull/1421
+[#1482]: https://github.com/RustCrypto/traits/pull/1482
+[#1636]: https://github.com/RustCrypto/traits/pull/1636
+[#1691]: https://github.com/RustCrypto/traits/pull/1691
+[#1721]: https://github.com/RustCrypto/traits/pull/1721
+[#1759]: https://github.com/RustCrypto/traits/pull/1759
+[#1907]: https://github.com/RustCrypto/traits/pull/1907
+[#1959]: https://github.com/RustCrypto/traits/pull/1959
+[#2052]: https://github.com/RustCrypto/traits/pull/2052
+[#2147]: https://github.com/RustCrypto/traits/pull/2147
+[#2149]: https://github.com/RustCrypto/traits/pull/2149
+[#2237]: https://github.com/RustCrypto/traits/pull/2237
+[#2245]: https://github.com/RustCrypto/traits/pull/2245
+[#2260]: https://github.com/RustCrypto/traits/pull/2260
+[#2276]: https://github.com/RustCrypto/traits/pull/2276
+[#2280]: https://github.com/RustCrypto/traits/pull/2280
+
+## 0.4.4 (2022-03-09)
+### Changed
+- Move `ParBlocks`/`ParBlocksSizeUser` to the `crypto-common` crate ([#1052])
+
+### Fixed
+-  Unsoundness triggered by zero block size ([#1277])
+
+[#1052]: https://github.com/RustCrypto/traits/pull/1052
+[#1277]: https://github.com/RustCrypto/traits/pull/1277
+
+## 0.4.3 (2022-02-22)
+### Fixed
+- Do not enable the `alloc` feature by default ([#953])
+
+[#953]: https://github.com/RustCrypto/traits/pull/953
+
+## 0.4.2 (2022-02-16) [YANKED]
+### Fixed
+- Rename `BlockDecryptMut::decrypt_padded_vec` to `decrypt_padded_vec_mut` for consistency with other methods ([#941])
+
+[#941]: https://github.com/RustCrypto/traits/pull/941
+
+## 0.4.1 (2022-02-16) [YANKED]
+### Added
+- Allocating padded encrypt/decrypt ([#936])
+
+### Fixed
+- Minimal versions build ([#940])
+
+[#940]: https://github.com/RustCrypto/traits/pull/940
+[#936]: https://github.com/RustCrypto/traits/pull/936
+
+## 0.4.0 (2022-02-10)
+### Changed
+- Major rework of traits. Core functionality of block and stream ciphers
+is defined using rank-2 closures with convenience methods built on top of
+it. Expose block-level trait for stream ciphers and add generic wrapper
+around it. The async stream cipher trait is defined as sub-trait of
+mutable block cipher traits. ([#849])
+
+### Added
+- Re-export `rand_core` ([#683])
+
+[#683]: https://github.com/RustCrypto/traits/pull/683
+[#849]: https://github.com/RustCrypto/traits/pull/849
+
+## 0.3.0 (2021-04-28)
+### Added
+- Encrypt/decrypt-only block cipher traits ([#352])
+- Re-export `blobby` from root ([#435])
+- Block cipher trait blanket impls for refs ([#441])
+- `generate_key` method to `New*` trait ([#513])
+
+### Changed
+- Consolidate error types ([#373])
+- Change `SeekNum` impls to fit with the new `BlockBuffer` ([#435])
+- Reorganize modules ([#435])
+- Renamed `new_var` to `new_from_slice(s)` ([#442])
+
+[#352]: https://github.com/RustCrypto/traits/pull/352
+[#373]: https://github.com/RustCrypto/traits/pull/373
+[#435]: https://github.com/RustCrypto/traits/pull/435
+[#441]: https://github.com/RustCrypto/traits/pull/441
+[#442]: https://github.com/RustCrypto/traits/pull/442
+[#513]: https://github.com/RustCrypto/traits/pull/513
+
+## 0.2.5 (2020-11-01)
+### Fixed
+- Nested macros used old deprecated names ([#360])
+
+[#360]: https://github.com/RustCrypto/traits/pull/360
+
+## 0.2.4 (2020-11-01)
+### Fixed
+- Macro expansion error ([#358])
+
+[#358]: https://github.com/RustCrypto/traits/pull/358
+
+## 0.2.3 (2020-11-01) [YANKED]
+### Fixed
+- Legacy macro wrappers ([#356])
+
+[#356]: https://github.com/RustCrypto/traits/pull/356
+
+## 0.2.2 (2020-11-01) [YANKED]
+### Added
+- `BlockCipher::{encrypt_slice, decrypt_slice}` methods ([#351])
+
+### Changed
+- Revamp macro names ([#350])
+
+[#351]: https://github.com/RustCrypto/traits/pull/351
+[#350]: https://github.com/RustCrypto/traits/pull/350
+
+## 0.2.1 (2020-10-16)
+### Added
+- Re-export `generic_array` from toplevel ([#343])
+
+### Fixed
+- `dev` macro imports ([#345])
+
+[#343]: https://github.com/RustCrypto/traits/pull/343
+[#345]: https://github.com/RustCrypto/traits/pull/345
+
+## 0.2.0 (2020-10-15) [YANKED]
+### Changed
+- Unify `block-cipher` and `stream-cipher` into `cipher` ([#337])
+
+[#337]: https://github.com/RustCrypto/traits/pull/337
+
+## 0.1.1 (2015-06-25)
+
+## 0.1.0 (2015-06-24)
+- Initial release

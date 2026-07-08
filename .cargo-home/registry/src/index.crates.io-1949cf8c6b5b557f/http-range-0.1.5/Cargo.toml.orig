@@ -1,0 +1,17 @@
+[package]
+edition = "2018"
+name = "http-range"
+version = "0.1.5"
+authors = ["Luka Zakrajšek <luka@bancek.net>"]
+repository = "https://github.com/bancek/rust-http-range.git"
+documentation = "https://docs.rs/http-range/0.1.5/http_range/"
+description = "HTTP Range header parser"
+readme = "README.md"
+license = "MIT"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "benchmark"
+harness = false

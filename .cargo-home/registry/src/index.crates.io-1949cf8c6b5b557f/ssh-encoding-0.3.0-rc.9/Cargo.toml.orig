@@ -1,0 +1,41 @@
+[package]
+name = "ssh-encoding"
+version = "0.3.0-rc.9"
+description = "Pure Rust implementation of SSH data type decoders/encoders as described in RFC4251"
+authors = ["RustCrypto Developers"]
+license = "Apache-2.0 OR MIT"
+homepage = "https://github.com/RustCrypto/SSH/tree/master/ssh-encoding"
+repository = "https://github.com/RustCrypto/SSH"
+categories = ["authentication", "cryptography", "encoding", "no-std", "parser-implementations"]
+keywords = ["crypto", "certificate", "key", "openssh", "ssh"]
+readme = "README.md"
+edition = "2024"
+rust-version = "1.85"
+
+[dependencies]
+base64ct = { version = "1.8", optional = true }
+bigint = { package = "crypto-bigint", version = "0.7", optional = true, default-features = false, features = ["alloc"] }
+bytes = { version = "1.11", optional = true, default-features = false }
+ctutils = { version = "0.4", optional = true, default-features = false }
+digest = { version = "0.11", optional = true, default-features = false }
+pem-rfc7468 = { version = "1", optional = true }
+ssh-derive = { version = "0.3", optional = true }
+zeroize = { version = "1", optional = true, default-features = false }
+
+[dev-dependencies]
+hex-literal = "1"
+
+[features]
+alloc = ["base64ct?/alloc", "pem-rfc7468?/alloc", "zeroize?/alloc"]
+
+base64 = ["dep:base64ct"]
+bigint = ["alloc", "zeroize", "dep:bigint"]
+bytes = ["alloc", "dep:bytes"]
+derive = ["ssh-derive"]
+pem = ["base64", "dep:pem-rfc7468"]
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+all-features = true

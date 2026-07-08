@@ -1,0 +1,288 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "json-patch",
+    "description": "RFC 6902, JavaScript Object Notation (JSON) Patch",
+    "contact": {
+      "name": "Ivan Dubrov",
+      "email": "dubrov.ivan@gmail.com"
+    },
+    "license": {
+      "name": "MIT/Apache-2.0"
+    },
+    "version": "0.0.0"
+  },
+  "paths": {
+    "foo": {
+      "get": {
+        "tags": [
+          "crate"
+        ],
+        "operationId": "get_foo",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Patch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Patch completed"
+          },
+          "406": {
+            "description": "Not accepted"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AddOperation": {
+        "type": "object",
+        "description": "JSON Patch 'add' operation representation",
+        "required": [
+          "path",
+          "value"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "JSON-Pointer value [RFC6901](https://tools.ietf.org/html/rfc6901) that references a location\nwithin the target document where the operation is performed."
+          },
+          "value": {
+            "description": "Value to add to the target location."
+          }
+        }
+      },
+      "CopyOperation": {
+        "type": "object",
+        "description": "JSON Patch 'copy' operation representation",
+        "required": [
+          "from",
+          "path"
+        ],
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "JSON-Pointer value [RFC6901](https://tools.ietf.org/html/rfc6901) that references a location\nto copy value from."
+          },
+          "path": {
+            "type": "string",
+            "description": "JSON-Pointer value [RFC6901](https://tools.ietf.org/html/rfc6901) that references a location\nwithin the target document where the operation is performed."
+          }
+        }
+      },
+      "MoveOperation": {
+        "type": "object",
+        "description": "JSON Patch 'move' operation representation",
+        "required": [
+          "from",
+          "path"
+        ],
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "JSON-Pointer value [RFC6901](https://tools.ietf.org/html/rfc6901) that references a location\nto move value from."
+          },
+          "path": {
+            "type": "string",
+            "description": "JSON-Pointer value [RFC6901](https://tools.ietf.org/html/rfc6901) that references a location\nwithin the target document where the operation is performed."
+          }
+        }
+      },
+      "Patch": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/PatchOperation"
+        },
+        "description": "Representation of JSON Patch (list of patch operations)"
+      },
+      "PatchOperation": {
+        "oneOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AddOperation"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "op"
+                ],
+                "properties": {
+                  "op": {
+                    "type": "string",
+                    "enum": [
+                      "add"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RemoveOperation"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "op"
+                ],
+                "properties": {
+                  "op": {
+                    "type": "string",
+                    "enum": [
+                      "remove"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReplaceOperation"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "op"
+                ],
+                "properties": {
+                  "op": {
+                    "type": "string",
+                    "enum": [
+                      "replace"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MoveOperation"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "op"
+                ],
+                "properties": {
+                  "op": {
+                    "type": "string",
+                    "enum": [
+                      "move"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CopyOperation"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "op"
+                ],
+                "properties": {
+                  "op": {
+                    "type": "string",
+                    "enum": [
+                      "copy"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TestOperation"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "op"
+                ],
+                "properties": {
+                  "op": {
+                    "type": "string",
+                    "enum": [
+                      "test"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "description": "JSON Patch single patch operation",
+        "discriminator": {
+          "propertyName": "op"
+        }
+      },
+      "RemoveOperation": {
+        "type": "object",
+        "description": "JSON Patch 'remove' operation representation",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "JSON-Pointer value [RFC6901](https://tools.ietf.org/html/rfc6901) that references a location\nwithin the target document where the operation is performed."
+          }
+        }
+      },
+      "ReplaceOperation": {
+        "type": "object",
+        "description": "JSON Patch 'replace' operation representation",
+        "required": [
+          "path",
+          "value"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "JSON-Pointer value [RFC6901](https://tools.ietf.org/html/rfc6901) that references a location\nwithin the target document where the operation is performed."
+          },
+          "value": {
+            "description": "Value to replace with."
+          }
+        }
+      },
+      "TestOperation": {
+        "type": "object",
+        "description": "JSON Patch 'test' operation representation",
+        "required": [
+          "path",
+          "value"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "JSON-Pointer value [RFC6901](https://tools.ietf.org/html/rfc6901) that references a location\nwithin the target document where the operation is performed."
+          },
+          "value": {
+            "description": "Value to test against."
+          }
+        }
+      }
+    }
+  }
+}

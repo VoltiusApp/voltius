@@ -1,0 +1,5 @@
+[alias]
+cov = "llvm-cov --lcov --output-path lcov.info"
+
+[build]
+rustdocflags = ["--cfg", "docsrs"]

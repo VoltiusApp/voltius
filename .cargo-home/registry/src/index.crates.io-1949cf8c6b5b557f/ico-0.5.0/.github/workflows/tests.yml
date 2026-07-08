@@ -1,0 +1,61 @@
+name: tests
+
+on:
+  push:
+    paths-ignore:
+      - 'LICENSE'
+      - '**.md'
+  pull_request:
+    paths-ignore:
+      - 'LICENSE'
+      - '**.md'
+
+jobs:
+  linters:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Install rustfmt and clippy
+        run: rustup component add rustfmt clippy
+      - name: Cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: -- --check
+      - name: Cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings
+
+  tests:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        rust: [ stable ]
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          toolchain: ${{ matrix.rust }}
+          args: --verbose

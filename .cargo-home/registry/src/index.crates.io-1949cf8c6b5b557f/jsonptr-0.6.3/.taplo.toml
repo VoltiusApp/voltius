@@ -1,0 +1,24 @@
+include = ["**/*.toml", "**/Cargo.toml", "Cargo.toml"]
+[formatting]
+  align_comments      = true
+  align_entries       = true
+  allowed_blank_lines = 1
+  indent_entries      = false
+  reorder_arrays      = false
+  reorder_keys        = true
+  trailing_newline    = true
+
+[[rule]]
+  formatting.align_entries = true
+  formatting.array_auto_expand = false
+  formatting.reorder_arrays = true
+  formatting.reorder_keys = true
+  include = ["Cargo.toml", "**/Cargo.toml"]
+  keys = [
+    "dependencies",
+    "dev-dependencies",
+    "build-dependencies",
+    "workspace.dependencies",
+    "workspace.dev-dependencies",
+    "workspace.build-dependencies",
+  ]

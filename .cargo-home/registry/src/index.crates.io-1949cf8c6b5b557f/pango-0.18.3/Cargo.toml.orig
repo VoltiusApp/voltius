@@ -1,0 +1,39 @@
+[package]
+name = "pango"
+documentation = "https://gtk-rs.org/gtk-rs-core/stable/latest/docs/pango/"
+homepage = "https://gtk-rs.org/"
+authors = ["The gtk-rs Project Developers"]
+keywords = ["pango", "gtk-rs", "gnome"]
+readme = "README.md"
+version = "0.18.3"
+description = "Rust bindings for the Pango library"
+repository = "https://github.com/gtk-rs/gtk-rs-core"
+license = "MIT"
+exclude = [
+    "gir-files/*",
+]
+edition = "2021"
+rust-version = "1.70"
+
+[features]
+v1_42 = ["ffi/v1_42"]
+v1_44 = ["v1_42", "ffi/v1_44"]
+v1_46 = ["v1_44", "ffi/v1_46"]
+v1_48 = ["v1_46", "ffi/v1_48"]
+v1_50 = ["v1_48", "ffi/v1_50"]
+v1_52 = ["v1_50", "ffi/v1_52"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docsrs", "--generate-link-to-definition"]
+
+[dependencies]
+libc = "0.2"
+once_cell = "1.0"
+ffi = { package = "pango-sys", version = "0.18", path = "sys" }
+glib = { path = "../glib", version = "0.18" }
+gio = { path = "../gio", version = "0.18" }
+
+[dev-dependencies]
+gir-format-check = "^0.1"

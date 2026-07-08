@@ -1,0 +1,37 @@
+[package]
+documentation = "https://gtk-rs.org/gtk3-rs/stable/latest/docs/atk/"
+categories = ["api-bindings", "gui"]
+license = "MIT"
+description = "UNMAINTAINED Rust bindings for the ATK library"
+name = "atk"
+homepage = "https://gtk-rs.org/"
+authors = ["The gtk-rs Project Developers"]
+readme = "README.md"
+version = "0.18.2"
+keywords = ["atk", "gtk-rs", "gnome", "accessibility"]
+repository = "https://github.com/gtk-rs/gtk3-rs"
+exclude = ["gir-files/*"]
+edition = "2021"
+rust-version = "1.70"
+
+[lib]
+name = "atk"
+
+[features]
+v2_30 = ["ffi/v2_30"]
+v2_32 = ["v2_30", "ffi/v2_32"]
+v2_34 = ["v2_32", "ffi/v2_34"]
+v2_38 = ["v2_34", "ffi/v2_38"]
+v2_46 = ["v2_38", "ffi/v2_46"]
+v2_50 = ["v2_46", "ffi/v2_50"]
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs", "--generate-link-to-definition"]
+
+[dependencies]
+libc = "0.2"
+ffi = { package = "atk-sys", version = "0.18", path = "sys" }
+glib = { branch = "0.18", version = "0.18", git = "https://github.com/gtk-rs/gtk-rs-core" }
+
+[dev-dependencies]
+gir-format-check = "^0.1"

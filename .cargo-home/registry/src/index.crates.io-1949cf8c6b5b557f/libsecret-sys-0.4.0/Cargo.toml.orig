@@ -1,0 +1,69 @@
+[package]
+name = "libsecret-sys"
+version = "0.4.0"
+links = "secret"
+build = "build.rs"
+edition = "2021"
+readme = "../../README.md"
+license = "MIT"
+repository = "https://gitlab.gnome.org/World/Rust/libsecret-rs"
+documentation = "https://world.pages.gitlab.gnome.org/Rust/libsecret-rs/stable/latest/docs/libsecret_sys"
+categories = ["api-bindings"]
+description = "ffi bindings of libsecret"
+homepage = "https://world.pages.gitlab.gnome.org/Rust/libsecret-rs"
+keywords = ["libsecret", "dbus", "secret", "bindings", "freedesktop"]
+
+[package.metadata.docs.rs]
+features = []
+
+[package.metadata.system-deps.libsecret_1]
+name = "libsecret-1"
+version = "0.0"
+
+[package.metadata.system-deps.libsecret_1.v0_18]
+version = "0.18"
+
+[package.metadata.system-deps.libsecret_1.v0_19]
+version = "0.19"
+
+[package.metadata.system-deps.libsecret_1.v0_20]
+version = "0.20"
+
+[package.metadata.system-deps.libsecret_1.v0_18_6]
+version = "0.18.6"
+
+[dependencies]
+libc = "0.2"
+
+[dependencies.gio]
+package = "gio-sys"
+git = "https://github.com/gtk-rs/gtk-rs-core"
+version = "0.18"
+branch = "0.18"
+
+[dependencies.glib]
+package = "glib-sys"
+git = "https://github.com/gtk-rs/gtk-rs-core"
+version = "0.18"
+branch = "0.18"
+
+[dependencies.gobject]
+package = "gobject-sys"
+git = "https://github.com/gtk-rs/gtk-rs-core"
+version = "0.18"
+branch = "0.18"
+
+[build-dependencies]
+pkg-config = "0.3.7"
+system-deps = "6"
+
+[dev-dependencies]
+shell-words = "1.0.0"
+tempfile = "3"
+
+[features]
+default = ["v0_18"]
+v0_18 = []
+v0_19 = ["v0_18_6"]
+v0_20 = ["v0_19"]
+v0_18_6 = []

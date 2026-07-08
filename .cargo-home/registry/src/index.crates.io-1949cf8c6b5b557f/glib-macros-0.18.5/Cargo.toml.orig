@@ -1,0 +1,28 @@
+[package]
+name = "glib-macros"
+documentation = "https://gtk-rs.org/gtk-rs-core/stable/latest/docs/glib_macros/"
+homepage = "https://gtk-rs.org/"
+authors = ["The gtk-rs Project Developers"]
+description = "Rust bindings for the GLib library, proc macros crate"
+version = "0.18.5"
+keywords = ["glib", "gtk-rs", "gnome", "GUI"]
+repository = "https://github.com/gtk-rs/gtk-rs-core"
+license = "MIT"
+edition = "2021"
+rust-version = "1.70"
+
+[dependencies]
+heck = "0.4"
+proc-macro-error = "1.0"
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "2.0", features = ["full"] }
+proc-macro-crate = "2.0"
+
+[lib]
+proc-macro = true
+
+[dev-dependencies]
+glib = { path = "../glib", version = "0.18" }
+trybuild2 = "1.1"
+once_cell = "1.9.0"

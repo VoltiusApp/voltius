@@ -17,6 +17,7 @@ import { loadInstalledPlugins } from "@/stores/marketplaceStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { startupPing } from "@/services/diagnostics";
 import AuthPage from "./AuthPage";
 import LogoBadge from "./LogoBadge";
 
@@ -41,6 +42,7 @@ export default function SplashScreen({ onReady }: Props) {
 
   useEffect(() => {
     async function init() {
+      startupPing("SplashScreen init START");
       setStep("init", "running");
       await delay(300);
       setStep("init", "done");
@@ -60,7 +62,9 @@ export default function SplashScreen({ onReady }: Props) {
         return;
       }
 
+      startupPing("autoLogin START (vault unlock)");
       const autoOk = await autoLogin();
+      startupPing(`autoLogin END (ok=${autoOk})`);
       if (autoOk) {
         setStep("vault", "done", t("layout.splash.sessionRestored"));
         setPhase("finishing");
@@ -88,9 +92,11 @@ export default function SplashScreen({ onReady }: Props) {
   }, []);
 
   const finishLoading = async () => {
+    startupPing("finishLoading START");
     setStep("connections", "running");
     await delay(150);
     try {
+      startupPing("store loads START (connection_list, identity_list, ...)");
       await Promise.all([
         // Populate stores from local cache so tabs paint at boot, before sync lands.
         useConnectionStore.getState().loadConnections(),
@@ -101,6 +107,7 @@ export default function SplashScreen({ onReady }: Props) {
         useSnippetFolderStore.getState().loadFolders(),
         usePortForwardingStore.getState().loadRules(),
       ]);
+      startupPing("store loads END");
       setStep("connections", "done");
     } catch {
       setStep("connections", "error", t("layout.splash.connectionsUnavailable"));
@@ -119,11 +126,13 @@ export default function SplashScreen({ onReady }: Props) {
         .finally(() => resolveLoginSync());
       startRealtimeSync();
     });
+    startupPing("theme loadFromDisk dispatched");
     useThemeStore.getState().loadFromDisk().catch(() => {});
     // Plugin loading must never freeze startup: a single rejected invoke here
     // (e.g. a storage command failing on a locked-down platform) would leave the
     // splash spinning forever. Swallow and continue to the main UI.
     try {
+      startupPing("plugin loading START");
       await usePluginRegistryStore.getState().load();
       const { isEnabled } = usePluginRegistryStore.getState();
       for (const plugin of BUNDLED_PLUGINS) {
@@ -131,9 +140,11 @@ export default function SplashScreen({ onReady }: Props) {
         loadPlugin(plugin.manifest, plugin.register, active);
       }
       await loadInstalledPlugins();
+      startupPing("plugin loading END");
     } catch (e) {
       console.warn("[splash] plugin loading failed, continuing to app:", e);
     }
+    startupPing("finishLoading END (exiting splash)");
     await delay(400);
     setExiting(true);
     await delay(400);

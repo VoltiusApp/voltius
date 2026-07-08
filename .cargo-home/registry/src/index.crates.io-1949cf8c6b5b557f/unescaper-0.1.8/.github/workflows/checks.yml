@@ -1,0 +1,61 @@
+name: Checks
+
+env:
+  CACHE_VERSION: 0
+
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+  CARGO_TERM_COLOR: always
+
+  RUST_BACKTRACE: full
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  merge_group:
+
+jobs:
+  cargo-checks:
+    name: Task cargo ${{ matrix.action }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        action: [clippy, fmt, nextest]
+    steps:
+      - name: Fetch latest code
+        uses: actions/checkout@v4
+      - name: Setup build environment
+        if: matrix.action != 'fmt'
+        run: rustup show
+      - uses: Swatinem/rust-cache@v2
+        if: matrix.action != 'fmt'
+        with:
+          prefix-key: ${{ env.CACHE_VERSION }}
+          key: ${{ matrix.action }}
+      - name: Cargo clippy
+        if: matrix.action == 'clippy'
+        uses: giraffate/clippy-action@v1
+        with:
+          clippy_flags: --workspace --all-features --all-targets --locked
+      - name: Cargo fmt
+        if: matrix.action == 'fmt'
+        run: |
+          rustup toolchain install nightly
+          rustup component add rustfmt --toolchain nightly
+          cargo +nightly fmt --all -- --check
+      - name: Install cargo-nextest
+        if: matrix.action == 'nextest'
+        uses: taiki-e/install-action@nextest
+      - name: Cargo nextest
+        if: matrix.action == 'nextest'
+        run: cargo nextest run --cargo-profile ci-dev --workspace --all-features --all-targets --locked
+      - name: Fast fail
+        uses: vishnudxb/cancel-workflow@v1.2
+        if: failure()
+        with:
+          repo: hack-ink/unescaper
+          workflow_id: ${{ github.run_id }}
+          access_token: ${{ github.token }}

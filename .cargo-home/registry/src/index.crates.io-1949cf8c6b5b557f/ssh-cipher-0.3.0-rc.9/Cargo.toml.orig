@@ -1,0 +1,59 @@
+[package]
+name = "ssh-cipher"
+version = "0.3.0-rc.9"
+description = """
+Pure Rust implementation of SSH symmetric encryption including support for the
+modern aes128-gcm@openssh.com/aes256-gcm@openssh.com and
+chacha20-poly1305@openssh.com algorithms as well as legacy support for older
+ciphers. Built on the pure Rust cryptography implementations maintained by the
+RustCrypto organization.
+"""
+authors = ["RustCrypto Developers"]
+license = "Apache-2.0 OR MIT"
+homepage = "https://github.com/RustCrypto/SSH/tree/master/ssh-cipher"
+repository = "https://github.com/RustCrypto/SSH"
+categories = ["cryptography", "no-std"]
+keywords = ["crypto", "encryption", "openssh", "ssh"]
+readme = "README.md"
+edition = "2024"
+rust-version = "1.85"
+
+[dependencies]
+cipher = "0.5"
+encoding = { package = "ssh-encoding", version = "0.3.0-rc.9" }
+
+# optional dependencies
+aead = { version = "0.6.0-rc.10", optional = true, default-features = false }
+aes = { version = "0.9", optional = true, default-features = false }
+aes-gcm = { version = "0.11.0-rc.3", optional = true, default-features = false, features = ["aes"] }
+cbc = { version = "0.2", optional = true }
+ctr = { version = "0.10", optional = true, default-features = false }
+ctutils = { version = "0.4", optional = true, default-features = false }
+chacha20 = { version = "0.10", optional = true, default-features = false, features = ["cipher", "legacy"] }
+des = { version = "0.9", optional = true, default-features = false }
+poly1305 = { version = "0.9", optional = true, default-features = false }
+zeroize = { version = "1", optional = true, default-features = false }
+
+[dev-dependencies]
+hex-literal = "1"
+
+[features]
+aes-cbc = ["dep:aes", "dep:cbc"]
+aes-ctr = ["dep:aes", "dep:ctr"]
+aes-gcm = ["dep:aead", "dep:aes", "dep:aes-gcm"]
+chacha20poly1305 = ["dep:aead", "dep:chacha20", "dep:poly1305", "dep:ctutils"]
+tdes = ["dep:des", "dep:cbc"]
+zeroize = [
+    "dep:zeroize",
+    "aes?/zeroize",
+    "aes-gcm?/zeroize",
+    "chacha20?/zeroize",
+    "des?/zeroize",
+    "poly1305?/zeroize"
+]
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+all-features = true

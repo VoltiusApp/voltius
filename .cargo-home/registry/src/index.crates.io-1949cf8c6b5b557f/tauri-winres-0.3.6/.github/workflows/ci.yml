@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+
+jobs:
+  rust:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@1.76
+
+      - name: Build
+        run: cargo build
+
+      - name: Build example
+        run: |
+          cd example
+          cargo build
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Lints
+        run: cargo clippy

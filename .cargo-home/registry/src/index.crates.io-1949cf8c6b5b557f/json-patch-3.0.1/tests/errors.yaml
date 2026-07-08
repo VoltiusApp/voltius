@@ -1,0 +1,126 @@
+- doc: &1
+    first: "Hello"
+    second: "Bye"
+    third:
+      - "first"
+      - "second"
+  patch:
+    - op: add
+      path: "/first"
+      value: "Hello!!!"
+    - op: add
+      path: "/third/00"
+      value: "value"
+  error: "operation '/1' failed at path '/third/00': path is invalid"
+- doc: *1
+  patch:
+    - op: add
+      path: "/third/01"
+      value: "value"
+  error: "operation '/0' failed at path '/third/01': path is invalid"
+- doc: *1
+  patch:
+    - op: add
+      path: "/third/1~1"
+      value: "value"
+  error: "operation '/0' failed at path '/third/1~1': path is invalid"
+- doc: *1
+  patch:
+    - op: add
+      path: "/third/1.0"
+      value: "value"
+  error: "operation '/0' failed at path '/third/1.0': path is invalid"
+- doc: *1
+  patch:
+    - op: add
+      path: "/third/1e2"
+      value: "value"
+  error: "operation '/0' failed at path '/third/1e2': path is invalid"
+- doc: *1
+  patch:
+    - op: add
+      path: "/third/+1"
+      value: "value"
+  error: "operation '/0' failed at path '/third/+1': path is invalid"
+- doc: *1
+  patch:
+    - op: copy
+      from: "/third/1~1"
+      path: "/fourth"
+  error: "operation '/0' failed at path '/fourth': \"from\" path is invalid"
+- doc: *1
+  patch:
+    - op: move
+      from: "/third/1~1"
+      path: "/fourth"
+  error: "operation '/0' failed at path '/fourth': \"from\" path is invalid"
+- doc: *1
+  patch:
+    - op: move
+      from: "/third"
+      path: "/third/0"
+  error: "operation '/0' failed at path '/third/0': cannot move the value inside itself"
+- doc: *1
+  patch:
+    - op: add
+      path: "/invalid/add/path"
+      value: true
+  error: "operation '/0' failed at path '/invalid/add/path': path is invalid"
+- doc: *1
+  patch:
+    - op: remove
+      path: "/invalid/remove/path"
+      value: true
+  error: "operation '/0' failed at path '/invalid/remove/path': path is invalid"
+- doc: *1
+  patch:
+    - op: replace
+      path: "/invalid/replace/path"
+      value: true
+  error: "operation '/0' failed at path '/invalid/replace/path': path is invalid"
+- doc: *1
+  patch:
+    - op: test
+      path: "/invalid/test/path"
+      value: true
+  error: "operation '/0' failed at path '/invalid/test/path': path is invalid"
+- doc: *1
+  patch:
+    - op: add
+      path: "first"
+      value: true
+  error: "json pointer is malformed as it does not start with a backslash ('/')"
+- doc: *1
+  patch:
+    - op: replace
+      path: "first"
+      value: true
+  error: "json pointer is malformed as it does not start with a backslash ('/')"
+- doc: *1
+  patch:
+    - op: remove
+      path: "first"
+      value: true
+  error: "json pointer is malformed as it does not start with a backslash ('/')"
+- doc: *1
+  patch:
+    - op: add
+      path: "/first/add_to_primitive"
+      value: true
+  error: "operation '/0' failed at path '/first/add_to_primitive': path is invalid"
+- doc: *1
+  patch:
+    - op: remove
+      path: "/remove_non_existent"
+  error: "operation '/0' failed at path '/remove_non_existent': path is invalid"
+- doc: *1
+  patch:
+    - op: remove
+      path: "/first/remove_from_primitive"
+  error: "operation '/0' failed at path '/first/remove_from_primitive': path is invalid"
+- doc: *1
+  patch:
+    - op: test
+      path: "/first"
+      value: "Other"
+  error: "operation '/0' failed at path '/first': value did not match"

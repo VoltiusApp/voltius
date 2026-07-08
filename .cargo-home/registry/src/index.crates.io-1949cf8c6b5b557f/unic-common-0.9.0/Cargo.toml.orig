@@ -1,0 +1,24 @@
+[package]
+name = "unic-common"
+version = "0.9.0"
+edition = "2018"
+authors = ["The UNIC Project Developers"]
+repository = "https://github.com/open-i18n/rust-unic/"
+license = "MIT/Apache-2.0"
+description = "UNIC — Common Utilities"
+keywords = ["unicode", "version"]
+categories = ["internationalization", "text-processing"]
+
+# No tests/benches that depends on /data/
+exclude = []
+
+[features]
+default = []
+unstable = []  # Rust nightly features
+
+[badges]
+maintenance = { status = "actively-developed" }
+is-it-maintained-issue-resolution = { repository = "open-i18n/rust-unic" }
+is-it-maintained-open-issues = { repository = "open-i18n/rust-unic" }
+appveyor = { repository = "open-i18n/rust-unic", branch = "master", service = "github" }
+travis-ci = { repository = "open-i18n/rust-unic", branch = "master" }

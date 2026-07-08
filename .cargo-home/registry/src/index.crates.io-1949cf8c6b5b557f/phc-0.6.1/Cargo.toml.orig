@@ -1,0 +1,32 @@
+[package]
+name = "phc"
+version = "0.6.1"
+authors = ["RustCrypto Developers"]
+edition = "2024"
+rust-version = "1.85"
+readme = "README.md"
+repository = "https://github.com/RustCrypto/formats"
+license = "Apache-2.0 OR MIT"
+keywords = ["crypt", "crypto", "password-hash", "password-hashing"]
+categories = ["cryptography", "authentication", "encoding", "no-std", "parser-implementations"]
+description = """
+Pure Rust implementation of the Password Hashing Competition (PHC) string format which is used for
+storing password hashes
+"""
+
+[dependencies]
+base64ct = "1.7"
+ctutils = "0.4"
+
+# optional dependencies
+getrandom = { version = "0.4", optional = true, default-features = false }
+rand_core = { version = "0.10", optional = true, default-features = false }
+
+[features]
+default = ["rand_core"]
+alloc = ["base64ct/alloc"]
+getrandom = ["dep:getrandom"]
+rand_core = ["dep:rand_core"]
+
+[package.metadata.docs.rs]
+all-features = true

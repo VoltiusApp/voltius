@@ -1,0 +1,1 @@
+pre-release-hook = "./update-readme.sh"

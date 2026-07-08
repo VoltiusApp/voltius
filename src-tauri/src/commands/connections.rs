@@ -137,7 +137,7 @@ fn initial_clocks(now: &str) -> HashMap<String, String> {
 
 #[tauri::command]
 pub fn connection_list() -> Result<Vec<Connection>, String> {
-    let connections = load_connections();
+    let connections = crate::startup_trace::step("cmd connection_list", load_connections);
     Ok(connections
         .into_iter()
         .filter(|c| is_alive(&c.deleted_at, &c.updated_at))

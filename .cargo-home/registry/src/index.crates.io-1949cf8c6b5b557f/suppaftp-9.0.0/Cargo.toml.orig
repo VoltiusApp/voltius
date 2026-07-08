@@ -1,0 +1,139 @@
+[package]
+name = "suppaftp"
+version = { workspace = true }
+authors = { workspace = true }
+categories = { workspace = true }
+documentation = "https://docs.rs/suppaftp/"
+edition = { workspace = true }
+include = [
+  "examples/**/*",
+  "src/**/*",
+  "../../LICENSE-APACHE",
+  "../../LICENSE-MIT",
+  "../../README.md",
+  "../../CHANGELOG.md",
+]
+keywords = { workspace = true }
+license = { workspace = true }
+readme = "../../README.md"
+repository = { workspace = true }
+rust-version = { workspace = true }
+description = "A super FTP/FTPS client library for Rust"
+
+[lib]
+name = "suppaftp"
+path = "src/lib.rs"
+
+[dependencies]
+async-native-tls-crate = { workspace = true, optional = true }
+async-trait = { workspace = true, optional = true }
+chrono = { workspace = true, features = ["clock"] }
+futures-rustls = { workspace = true, features = ["tls12", "logging"], optional = true }
+lazy-regex = { workspace = true }
+log = { workspace = true }
+native-tls-crate = { workspace = true, optional = true }
+pin-project = { workspace = true, optional = true }
+rustls-crate = { workspace = true, features = ["logging", "std", "tls12"], optional = true }
+rustls-pki-types = { workspace = true, features = ["alloc"], optional = true }
+smol = { workspace = true, optional = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "net", "rt", "time"], optional = true }
+tokio-rustls-crate = { workspace = true, features = ["logging", "tls12"], optional = true }
+
+[dev-dependencies]
+env_logger = { workspace = true }
+pretty_assertions = { workspace = true }
+rand = { workspace = true }
+testcontainers = { workspace = true, features = ["blocking"] }
+webpki-roots = { workspace = true }
+
+[features]
+default = []
+
+# Sync features
+native-tls = ["native-tls-crate", "secure"]
+native-tls-vendored = ["native-tls", "native-tls-crate/vendored"]
+rustls-aws-lc-rs = ["rustls-crate", "rustls-crate/aws-lc-rs", "secure"]
+rustls-ring = ["rustls-crate", "rustls-crate/ring", "secure"]
+secure = []
+
+# Async features
+async-secure = []
+
+# Smol features
+smol = ["dep:async-trait", "dep:pin-project", "dep:smol"]
+smol-async-native-tls = [
+  "async-native-tls-crate/futures-util",
+  "async-native-tls-crate/runtime-smol",
+  "async-secure",
+  "dep:async-native-tls-crate",
+  "smol",
+]
+smol-async-native-tls-vendored = [
+  "async-native-tls-crate/vendored",
+  "smol-async-native-tls",
+]
+smol-rustls-aws-lc-rs = [
+  "async-secure",
+  "dep:futures-rustls",
+  "dep:rustls-pki-types",
+  "futures-rustls/aws-lc-rs",
+  "smol",
+]
+smol-rustls-ring = [
+  "async-secure",
+  "dep:futures-rustls",
+  "dep:rustls-pki-types",
+  "futures-rustls/ring",
+  "smol",
+]
+
+# Tokio
+tokio = ["dep:tokio", "dep:async-trait", "dep:pin-project"]
+tokio-rustls-aws-lc-rs = [
+  "dep:tokio-rustls-crate",
+  "dep:rustls-pki-types",
+  "async-secure",
+  "tokio",
+  "tokio-rustls-crate/aws-lc-rs",
+]
+tokio-rustls-ring = [
+  "dep:tokio-rustls-crate",
+  "dep:rustls-pki-types",
+  "async-secure",
+  "tokio",
+  "tokio-rustls-crate/ring",
+]
+tokio-async-native-tls = [
+  "tokio",
+  "dep:async-native-tls-crate",
+  "async-native-tls-crate/runtime-tokio",
+  "async-secure",
+]
+tokio-async-native-tls-vendored = [
+  "tokio-async-native-tls",
+  "async-native-tls-crate/vendored",
+]
+
+# Misc features
+
+# Enable deprecated FTP/FTPS methods
+deprecated = []
+# Disable logging
+no-log = ["log/max_level_off"]
+
+[package.metadata.docs.rs]
+features = [
+  "native-tls",
+  "rustls-aws-lc-rs",
+  "smol",
+  "tokio",
+  "tokio-async-native-tls",
+  "smol-rustls-aws-lc-rs",
+  "tokio-rustls-aws-lc-rs",
+]
+rustdoc-args = ["--cfg", "docsrs"]
+
+[[example]]
+name = "rustls"
+required-features = ["rustls-aws-lc-rs"]

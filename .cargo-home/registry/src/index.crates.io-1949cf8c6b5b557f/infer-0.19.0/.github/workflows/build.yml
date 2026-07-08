@@ -1,0 +1,43 @@
+name: build
+
+on:
+  push:
+    branches:
+    - master
+    paths:
+    - 'Cargo*'
+    - 'src/**'
+    - 'tests/**'
+    - 'testdata/**'
+  pull_request:
+    branches:
+    - master
+    paths:
+    - 'Cargo*'
+    - 'src/**'
+    - 'tests/**'
+    - 'testdata/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install rustfmt
+      run: rustup component add rustfmt
+    - name: Install clippy
+      run: rustup component add clippy
+    - name: Check format
+      run: cargo fmt --all -- --check
+    - name: Lint (all features)
+      run: cargo clippy --all-targets --all-features --examples -- -D clippy::all
+    - name: Lint (no_std)
+      run: cargo clippy --all-targets --no-default-features --features alloc -- -D clippy::all
+    - name: Lint (no_alloc)
+      run: cargo clippy --all-targets --no-default-features -- -D clippy::all
+    - name: Test (default)
+      run: cargo test --verbose
+    - name: Test (no_std)
+      run: cargo test --no-default-features --features alloc --verbose
+    - name: Test (no_alloc)
+      run: cargo test --no-default-features --verbose

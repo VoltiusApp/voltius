@@ -1,0 +1,40 @@
+[package]
+name = "cipher"
+version = "0.5.2"
+authors = ["RustCrypto Developers"]
+edition = "2024"
+rust-version = "1.85"
+documentation = "https://docs.rs/cipher"
+readme = "README.md"
+repository = "https://github.com/RustCrypto/traits"
+license = "MIT OR Apache-2.0"
+keywords = ["crypto", "block-cipher", "stream-cipher", "trait"]
+categories = ["cryptography", "no-std"]
+description = "Traits for describing block ciphers and stream ciphers"
+
+[dependencies]
+common = { version = "0.2.2", package = "crypto-common" }
+inout = "0.2.2"
+
+# optional dependencies
+blobby = { version = "0.4", optional = true }
+block-buffer = { version = "0.12", optional = true }
+zeroize = { version = "1.8", optional = true, default-features = false }
+
+[dev-dependencies]
+hex-literal = "1"
+
+[features]
+alloc = []
+block-padding = ["inout/block-padding"]
+stream-wrapper = ["block-buffer"]
+getrandom = ["common/getrandom"]
+rand_core = ["common/rand_core"]
+dev = ["blobby"]
+zeroize = ["dep:zeroize", "common/zeroize", "block-buffer?/zeroize"]
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+all-features = true

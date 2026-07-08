@@ -1,0 +1,70 @@
+name: Security audit
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+  schedule:
+    # Runs at 00:00 UTC everyday
+    - cron: "0 0 * * *"
+  push:
+    paths:
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - ".github/workflows/audit.yml"
+      - "deny.toml"
+  merge_group:
+    types: [checks_requested]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: rustsec advisories
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Generate Cargo.lock
+        run: cargo generate-lockfile
+
+      - uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # see deny.toml
+          ignore: RUSTSEC-2023-0071
+
+  cargo-deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories bans sources
+
+  result:
+    name: Result (Audit)
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - audit
+      - cargo-deny
+    steps:
+      - name: Mark the job as successful
+        run: exit 0
+        if: ${{ !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+      - name: Mark the job as unsuccessful
+        run: exit 1
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}

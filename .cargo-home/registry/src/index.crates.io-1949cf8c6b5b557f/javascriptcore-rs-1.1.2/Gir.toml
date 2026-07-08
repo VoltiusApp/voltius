@@ -1,0 +1,68 @@
+[options]
+deprecate_by_min_version = true
+girs_directories = ["gir-files/"]
+library = "JavaScriptCore"
+min_cfg_version = "2.24"
+single_version_file = true
+target_path = "."
+version = "4.1"
+work_mode = "normal"
+
+external_libraries = ["GLib", "GObject"]
+
+generate = [
+  "JavaScriptCore.CheckSyntaxMode",
+  "JavaScriptCore.CheckSyntaxResult",
+  "JavaScriptCore.Class",
+  "JavaScriptCore.ClassDeletePropertyFunction",
+  "JavaScriptCore.ClassEnumeratePropertiesFunction",
+  "JavaScriptCore.ClassGetPropertyFunction",
+  "JavaScriptCore.ClassHasPropertyFunction",
+  "JavaScriptCore.ClassSetPropertyFunction",
+  # "JavaScriptCore.ClassVTable",
+  "JavaScriptCore.Exception",
+  "JavaScriptCore.ExceptionHandler",
+  "JavaScriptCore.OptionsFunc",
+  "JavaScriptCore.OptionType",
+  "JavaScriptCore.TypedArrayType",
+  "JavaScriptCore.ValuePropertyFlags",
+  "JavaScriptCore.VirtualMachine",
+]
+
+manual = [
+  "GLib.Bytes",
+  "GLib.DestroyNotify",
+  "GLib.OptionGroup",
+  "GObject.Callback",
+]
+
+[[object]]
+generate_builder = true
+name = "JavaScriptCore.Context"
+status = "generate"
+
+[[object]]
+generate_builder = true
+name = "JavaScriptCore.Value"
+status = "generate"
+    [[object.function]]
+    name = "new_array"
+    ignore = true
+    [[object.function]]
+    name = "new_array_buffer"
+    manual = true
+    [[object.function]]
+    name = "array_buffer_get_data"
+    manual = true
+    [[object.function]]
+    name = "typed_array_get_data"
+    manual = true
+
+# [[object.function]]
+# ignore = true
+# name = "object_define_property_accessor"
+
+[[object]]
+generate_builder = true
+name = "JavaScriptCore.WeakValue"
+status = "generate"

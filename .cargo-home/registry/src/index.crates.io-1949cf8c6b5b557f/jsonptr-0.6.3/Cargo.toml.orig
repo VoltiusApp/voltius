@@ -1,0 +1,35 @@
+[package]
+authors       = ["chance dinkins", "André Sá de Mello <codasm@pm.me>"]
+description   = "Data structures and logic for resolving, assigning, and deleting by JSON Pointers (RFC 6901)"
+documentation = "https://docs.rs/jsonptr"
+edition       = "2021"
+homepage      = "https://github.com/chanced/jsonptr"
+keywords      = ["json-pointer", "rfc-6901", "6901"]
+license       = "MIT OR Apache-2.0"
+name          = "jsonptr"
+repository    = "https://github.com/chanced/jsonptr"
+rust-version  = "1.76.0"
+version       = "0.6.3"
+
+[dependencies]
+serde      = { version = "1.0.203", optional = true, features = ["alloc"] }
+serde_json = { version = "1.0.119", optional = true, features = ["alloc"] }
+toml       = { version = "0.8", optional = true }
+
+[dev-dependencies]
+quickcheck        = "1.0.3"
+quickcheck_macros = "1.0.0"
+
+# quickcheck-macros requires a later version than it declares
+# so we use this hack to make `-Zminimal-versions` work
+[target.'cfg(any())'.dependencies]
+syn = { version = "1.0.109", optional = true }
+
+[features]
+assign  = []
+default = ["std", "serde", "json", "resolve", "assign", "delete"]
+delete  = ["resolve"]
+json    = ["dep:serde_json", "serde"]
+resolve = []
+std     = ["serde/std", "serde_json?/std"]
+toml    = ["dep:toml", "serde", "std"]

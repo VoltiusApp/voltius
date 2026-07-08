@@ -1,0 +1,86 @@
+#![no_std]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![doc(
+    html_logo_url = "https://raw.githubusercontent.com/RustCrypto/meta/master/logo.svg",
+    html_favicon_url = "https://raw.githubusercontent.com/RustCrypto/meta/master/logo.svg"
+)]
+#![forbid(unsafe_code)]
+#![warn(missing_docs, rust_2018_idioms, unused_qualifications)]
+#![doc = include_str!("../README.md")]
+
+#[cfg(feature = "alloc")]
+#[macro_use]
+extern crate alloc;
+
+#[cfg(feature = "hash2curve")]
+pub mod osswu;
+pub mod point_arithmetic;
+
+mod affine;
+#[cfg(feature = "dev")]
+mod dev;
+mod projective;
+
+pub use crate::{affine::AffinePoint, projective::ProjectivePoint};
+pub use elliptic_curve::{
+    self, Field, FieldBytes, PrimeCurve, PrimeField, Scalar, array, bigint::modular::Retrieve,
+    point::Double,
+};
+
+use elliptic_curve::{
+    CurveArithmetic, Generate,
+    ops::{Invert, MulVartime},
+    subtle::CtOption,
+};
+
+#[cfg(all(feature = "alloc", feature = "basepoint-table"))]
+use elliptic_curve::point::BasepointTableVartime;
+
+/// Parameters for elliptic curves of prime order which can be described by the
+/// short Weierstrass equation.
+pub trait PrimeCurveParams:
+    PrimeCurve
+    + CurveArithmetic<AffinePoint = AffinePoint<Self>, ProjectivePoint = ProjectivePoint<Self>>
+{
+    /// Base field element type.
+    type FieldElement: Generate
+        + Invert<Output = CtOption<Self::FieldElement>>
+        + PrimeField<Repr = FieldBytes<Self>>
+        + Retrieve<Output = Self::Uint>;
+
+    /// [Point arithmetic](point_arithmetic) implementation, might be optimized for this specific curve
+    type PointArithmetic: point_arithmetic::PointArithmetic<Self>;
+
+    /// Coefficient `a` in the curve equation.
+    const EQUATION_A: Self::FieldElement;
+
+    /// Coefficient `b` in the curve equation.
+    const EQUATION_B: Self::FieldElement;
+
+    /// Generator point's affine coordinates: (x, y).
+    const GENERATOR: (Self::FieldElement, Self::FieldElement);
+
+    /// Multiplication by the generator.
+    ///
+    /// This is overridable to make it possible to plug in a basepoint table.
+    fn mul_by_generator(k: &Scalar<Self>) -> ProjectivePoint<Self> {
+        ProjectivePoint::GENERATOR * k
+    }
+
+    /// Variable-time multiplication by the generator.
+    ///
+    /// This is overridable to make it possible to plug in a basepoint table.
+    fn mul_by_generator_vartime(k: &Scalar<Self>) -> ProjectivePoint<Self> {
+        ProjectivePoint::GENERATOR.mul_vartime(k)
+    }
+}
+
+/// Trait which allows curves to specify a variable-time basepoint table.
+#[cfg(all(feature = "alloc", feature = "basepoint-table"))]
+pub trait PrimeCurveWithBasepointTableVartime<const WINDOW_SIZE: usize>: PrimeCurveParams {
+    /// Basepoint table for this curve.
+    const BASEPOINT_TABLE_VARTIME: &'static BasepointTableVartime<
+        ProjectivePoint<Self>,
+        WINDOW_SIZE,
+    >;
+}

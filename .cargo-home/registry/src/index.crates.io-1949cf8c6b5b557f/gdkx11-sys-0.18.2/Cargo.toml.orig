@@ -1,0 +1,63 @@
+[package]
+authors = ["The gtk-rs Project Developers"]
+description = "UNMAINTAINED FFI binding for libgdkx11 (use gdk4-x11-sys instead)"
+homepage = "https://gtk-rs.org/"
+keywords = ["gdkx11", "ffi", "gtk-rs", "gnome"]
+license = "MIT"
+repository = "https://github.com/gtk-rs/gtk3-rs"
+name = "gdkx11-sys"
+version = "0.18.2"
+build = "build.rs"
+edition = "2021"
+rust-version = "1.70"
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]
+features = []
+rustc-args = ["--cfg", "docsrs"]
+
+[package.metadata.system-deps.gdk_x11_3_0]
+name = "gdk-x11-3.0"
+version = "3.22"
+
+[package.metadata.system-deps.gdk_x11_3_0.v3_24]
+version = "3.24"
+
+[package.metadata.system-deps.gdk_x11_3_0.v3_24_2]
+version = "3.24.2"
+
+[lib]
+name = "gdk_x11_sys"
+
+[dependencies]
+libc = "0.2"
+x11 = "2.18"
+
+[dependencies.gdk]
+package = "gdk-sys"
+version = "0.18"
+path = "../../gdk/sys"
+
+[dependencies.glib]
+package = "glib-sys"
+version = "0.18"
+branch = "0.18"
+git = "https://github.com/gtk-rs/gtk-rs-core"
+
+[dependencies.cairo]
+package = "cairo-sys-rs"
+version = "0.18"
+branch = "0.18"
+git = "https://github.com/gtk-rs/gtk-rs-core"
+optional = true
+
+[build-dependencies]
+system-deps = "6"
+
+[dev-dependencies]
+shell-words = "1.0.0"
+tempfile = "3"
+
+[features]
+v3_24 = []
+v3_24_2 = ["v3_24", "cairo"]

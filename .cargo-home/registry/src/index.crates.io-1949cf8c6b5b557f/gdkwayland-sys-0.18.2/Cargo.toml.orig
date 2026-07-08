@@ -1,0 +1,45 @@
+[package]
+authors = ["The gtk-rs Project Developers"]
+description = "UNMAINTAINED FFI bindings to libgdk-3-wayland (use gdk4-wayland-sys instead)"
+homepage = "https://gtk-rs.org/"
+keywords = ["gdk", "ffi", "gtk-rs", "gnome"]
+license = "MIT"
+name = "gdkwayland-sys"
+repository = "https://github.com/gtk-rs/gtk3-rs"
+version = "0.18.2"
+edition = "2021"
+rust-version = "1.70"
+
+[lib]
+name = "gdk_wayland_sys"
+
+[features]
+v3_24 = ["gdk/v3_24"]
+v3_24_22 = ["v3_24"]
+
+[dependencies]
+libc = "0.2"
+
+[dependencies.glib]
+package = "glib-sys"
+version = "0.18"
+branch = "0.18"
+git = "https://github.com/gtk-rs/gtk-rs-core"
+
+[dependencies.gobject]
+package = "gobject-sys"
+version = "0.18"
+branch = "0.18"
+git = "https://github.com/gtk-rs/gtk-rs-core"
+
+[dependencies.gdk]
+package = "gdk-sys"
+version = "0.18"
+path = "../../gdk/sys"
+
+[build-dependencies]
+pkg-config = "0.3.7"
+system-deps = "6"
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]

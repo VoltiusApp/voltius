@@ -1,0 +1,50 @@
+[package]
+authors = [ "The Gtk-rs Project Developers" ]
+build = "build.rs"
+description = "Sys functions for the Rust bindings of the javacriptcore library"
+edition = "2021"
+keywords = [ "javascript", "gtk-rs", "gnome" ]
+license = "MIT"
+name = "javascriptcore-rs-sys"
+repository = "https://github.com/tauri-apps/javascriptcore-rs"
+version = "1.1.1"
+
+[package.metadata.system-deps.javascriptcoregtk_4_1]
+name = "javascriptcoregtk-4.1"
+version = "2.24"
+
+  [package.metadata.system-deps.javascriptcoregtk_4_1.v2_28]
+  version = "2.28"
+
+  [package.metadata.system-deps.javascriptcoregtk_4_1.v2_38]
+  version = "2.38"
+
+[package.metadata.docs.rs]
+rustc-args = [ "--cfg", "docsrs" ]
+rustdoc-args = [ "--cfg", "docsrs", "--generate-link-to-definition" ]
+all-features = true
+
+[lib]
+name = "javascriptcore_rs_sys"
+
+[dependencies]
+libc = "0.2"
+
+  [dependencies.glib]
+  package = "glib-sys"
+  version = "^0.18"
+
+  [dependencies.gobject]
+  package = "gobject-sys"
+  version = "^0.18"
+
+[build-dependencies]
+system-deps = "6"
+
+[dev-dependencies]
+shell-words = "1.0.0"
+tempfile = "3"
+
+[features]
+v2_28 = [ ]
+v2_38 = [ "v2_28" ]

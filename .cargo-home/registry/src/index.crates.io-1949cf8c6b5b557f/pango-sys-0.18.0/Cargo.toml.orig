@@ -1,0 +1,71 @@
+[build-dependencies]
+system-deps = "6"
+
+[dependencies]
+libc = "0.2"
+
+[dependencies.glib]
+package = "glib-sys"
+path = "../../glib/sys"
+version = "0.18"
+
+[dependencies.gobject]
+package = "gobject-sys"
+path = "../../glib/gobject-sys"
+version = "0.18"
+
+[dev-dependencies]
+shell-words = "1.0.0"
+tempfile = "3"
+
+[features]
+v1_42 = []
+v1_44 = ["v1_42"]
+v1_46 = ["v1_44"]
+v1_48 = ["v1_46"]
+v1_50 = ["v1_48"]
+v1_52 = ["v1_50"]
+
+[lib]
+name = "pango_sys"
+
+[package]
+authors = ["The gtk-rs Project Developers"]
+build = "build.rs"
+description = "FFI bindings to libpango-1.0"
+homepage = "https://gtk-rs.org/"
+keywords = ["pango", "ffi", "gtk-rs", "gnome"]
+license = "MIT"
+name = "pango-sys"
+repository = "https://github.com/gtk-rs/gtk-rs-core"
+version = "0.18.0"
+edition = "2021"
+rust-version = "1.70"
+
+[package.metadata.docs.rs]
+all-features = true
+rustc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docsrs"]
+features = []
+
+[package.metadata.system-deps.pango]
+name = "pango"
+version = "1.40"
+
+[package.metadata.system-deps.pango.v1_42]
+version = "1.42"
+
+[package.metadata.system-deps.pango.v1_44]
+version = "1.44"
+
+[package.metadata.system-deps.pango.v1_46]
+version = "1.46"
+
+[package.metadata.system-deps.pango.v1_48]
+version = "1.48"
+
+[package.metadata.system-deps.pango.v1_50]
+version = "1.49.2"
+
+[package.metadata.system-deps.pango.v1_52]
+version = "1.51"

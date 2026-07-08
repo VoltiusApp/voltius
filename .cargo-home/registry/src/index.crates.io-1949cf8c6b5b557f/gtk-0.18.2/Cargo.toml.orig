@@ -1,0 +1,52 @@
+[package]
+documentation = "https://gtk-rs.org/gtk3-rs/stable/latest/docs/gtk/"
+categories = ["api-bindings", "gui"]
+license = "MIT"
+description = "UNMAINTAINED Rust bindings for the GTK+ 3 library (use gtk4 instead)"
+name = "gtk"
+homepage = "https://gtk-rs.org/"
+authors = ["The gtk-rs Project Developers"]
+readme = "README.md"
+version = "0.18.2"
+keywords = ["gtk", "gtk-rs", "gnome", "GUI"]
+repository = "https://github.com/gtk-rs/gtk3-rs"
+build = "build.rs"
+exclude = ["gir-files/*"]
+edition = "2021"
+rust-version = "1.70"
+
+[lib]
+name = "gtk"
+
+[features]
+v3_24 = ["ffi/v3_24"]
+v3_24_1 = ["v3_24", "ffi/v3_24_1"]
+v3_24_8 = ["v3_24_1", "ffi/v3_24_8"]
+v3_24_9 = ["v3_24_8", "ffi/v3_24_9"]
+v3_24_11 = ["v3_24_9", "ffi/v3_24_11"]
+v3_24_30 = ["v3_24_11", "ffi/v3_24_30"]
+gio_v2_58 = ["gio/v2_58"]
+unsafe-assume-initialized = []
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs", "--generate-link-to-definition"]
+
+[build-dependencies]
+pkg-config = "0.3.7"
+
+[dependencies]
+libc = "0.2"
+field-offset = "0.3"
+futures-channel = "0.3"
+atk = { version = "0.18", path = "../atk" }
+ffi = { package = "gtk-sys", version = "0.18", path = "sys" }
+gtk3-macros = { version = "0.18", path = "../gtk3-macros" }
+cairo-rs = { branch = "0.18", version = "0.18", git = "https://github.com/gtk-rs/gtk-rs-core" }
+gio = { branch = "0.18", version = "0.18", git = "https://github.com/gtk-rs/gtk-rs-core" }
+glib = { branch = "0.18", version = "0.18", git = "https://github.com/gtk-rs/gtk-rs-core" }
+gdk = { version = "0.18", path = "../gdk" }
+gdk-pixbuf = { branch = "0.18", version = "0.18", git = "https://github.com/gtk-rs/gtk-rs-core" }
+pango = { branch = "0.18", version = "0.18", git = "https://github.com/gtk-rs/gtk-rs-core" }
+
+[dev-dependencies]
+gir-format-check = "^0.1"

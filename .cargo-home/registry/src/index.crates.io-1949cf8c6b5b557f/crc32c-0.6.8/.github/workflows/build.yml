@@ -1,0 +1,93 @@
+name: build
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  build:
+    runs-on: ${{matrix.os}}
+    strategy:
+      matrix:
+        include:
+        - build: linux
+          os: ubuntu-latest
+          rust: stable
+          target: x86_64-unknown-linux-musl
+          cross: false
+        - build: linux
+          os: ubuntu-latest
+          rust: nightly
+          target: x86_64-unknown-linux-musl
+          cross: false
+        - build: aarch64
+          os: ubuntu-latest
+          rust: stable
+          target: aarch64-unknown-linux-gnu
+          linker: gcc-aarch64-linux-gnu
+          cross: true
+        - build: aarch64
+          os: ubuntu-latest
+          rust: nightly
+          target: aarch64-unknown-linux-gnu
+          linker: gcc-aarch64-linux-gnu
+          cross: true
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
+    - name: Cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          ~/.rustup
+          target
+        key: ${{ runner.os }}-${{ matrix.rust }}
+    - name: Install Linker
+      if: matrix.cross
+      run: |
+        sudo apt update
+        sudo apt install ${{ matrix.linker }}
+    - name: Install Rust
+      run: |
+        rustup install ${{ matrix.rust }}
+        rustup target add ${{ matrix.target }}
+        rustup show
+    - name: Build
+      run: cargo build --verbose --target ${{ matrix.target }}
+    - name: Run tests
+      run: cargo test --verbose
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - run: rustup component add rustfmt
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+          override: true
+      - uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
+          name: Clippy Output

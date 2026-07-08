@@ -1,0 +1,18 @@
+[package]
+name = "ico"
+version = "0.5.0"
+edition = "2021"
+authors = ["Matthew D. Steele <mdsteele@alum.mit.edu>"]
+description = "A library for encoding/decoding ICO image files"
+repository = "https://github.com/mdsteele/rust-ico"
+keywords = ["ico", "icon", "image"]
+license = "MIT"
+readme = "README.md"
+
+[dependencies]
+byteorder = "1"
+png = "0.17"
+serde = { version = "1.0", optional = true, default-features = false }
+
+[dev-dependencies]
+clap = "2.30"

@@ -1,0 +1,49 @@
+[package]
+name = "pbkdf2"
+version = "0.13.0"
+authors = ["RustCrypto Developers"]
+license = "MIT OR Apache-2.0"
+description = "Generic implementation of PBKDF2"
+documentation = "https://docs.rs/pbkdf2"
+homepage = "https://github.com/RustCrypto/password-hashes/tree/master/pbkdf2"
+repository = "https://github.com/RustCrypto/password-hashes"
+keywords = ["crypto", "hashing", "password", "phf"]
+categories = ["authentication", "cryptography", "no-std"]
+readme = "README.md"
+edition = "2024"
+rust-version = "1.85"
+
+[dependencies]
+digest = { version = "0.11", features = ["mac"] }
+
+# optional dependencies
+hmac = { version = "0.13", optional = true, default-features = false }
+kdf = { version = "0.1", optional = true }
+mcf = { version = "0.6", optional = true, default-features = false, features = ["base64"] }
+password-hash = { version = "0.6", default-features = false, optional = true }
+sha2 = { version = "0.11", default-features = false, optional = true }
+
+[dev-dependencies]
+belt-hash = "0.2"
+hmac = "0.13"
+hex-literal = "1"
+sha1 = "0.11"
+sha2 = "0.11"
+streebog = "0.11"
+
+[features]
+default = ["hmac"]
+alloc = ["mcf?/alloc", "password-hash?/alloc"]
+
+kdf = ["sha2", "dep:kdf"]
+getrandom = ["password-hash/getrandom"]
+mcf = ["sha2", "password-hash", "dep:mcf"]
+phc = ["password-hash/phc", "sha2"]
+rand_core = ["password-hash/rand_core"]
+sha2 = ["hmac", "dep:sha2"]
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+all-features = true

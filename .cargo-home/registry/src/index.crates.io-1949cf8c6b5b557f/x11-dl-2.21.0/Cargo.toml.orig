@@ -1,0 +1,22 @@
+[package]
+name = "x11-dl"
+version = "2.21.0"
+authors = [
+    "daggerbot <daggerbot@gmail.com>",
+    "Erle Pereira <erle@erlepereira.com>",
+    "AltF02 <contact@altf2.dev>",
+]
+description = "X11 library bindings for Rust"
+license = "MIT"
+repository = "https://github.com/AltF02/x11-rs.git"
+build = "build.rs"
+documentation = "https://docs.rs/x11-dl"
+workspace = ".."
+edition = "2021"
+
+[dependencies]
+libc = "0.2"
+once_cell = "1.17.0"
+
+[build-dependencies]
+pkg-config = "0.3.24"
