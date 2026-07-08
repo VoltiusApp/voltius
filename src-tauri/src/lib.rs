@@ -23,6 +23,7 @@ mod serial;
 mod sftp;
 mod shell_integration;
 mod ssh;
+mod startup_trace;
 mod storage;
 mod vault_auth;
 
@@ -276,6 +277,13 @@ fn force_quit(app: tauri::AppHandle) {
     app.exit(0);
 }
 
+/// DIAGNOSTIC: frontend records a startup milestone into the flushed trace file,
+/// so we can see exactly how far the UI gets before a hang (survives force-quit).
+#[tauri::command]
+fn startup_ping(stage: String) {
+    crate::startup_trace::trace(&format!("FE: {stage}"));
+}
+
 #[tauri::command]
 fn updater_restart(app: tauri::AppHandle) {
     #[cfg(desktop)]
@@ -347,12 +355,7 @@ fn init_keychain_store() -> keyring_core::Result<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // DIAGNOSTIC (Windows): disable WebView2 GPU acceleration to test whether a
-    // GPU/virtual-display compositor stall is the cause of the reported startup
-    // freeze. Read by WebView2 when it creates its environment; must be set before
-    // the webview is built.
-    #[cfg(target_os = "windows")]
-    std::env::set_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--disable-gpu");
+    crate::startup_trace::trace("run() start");
 
     // Tauri's default async runtime uses tokio's default worker-thread stack,
     // which on Windows is too small for process_kill's call chain (sysinfo
@@ -367,6 +370,7 @@ pub fn run() {
         .expect("failed to build tokio runtime");
     tauri::async_runtime::set(runtime.handle().clone());
     std::mem::forget(runtime); // runtime must outlive the app
+    crate::startup_trace::trace("tokio runtime ready");
 
     // keyring-core requires registering a platform credential store before any
     // `Entry` use. We register only the native store per-OS (keyutils on Linux,
@@ -375,6 +379,7 @@ pub fn run() {
     if let Err(e) = init_keychain_store() {
         log::error!("Failed to initialize OS keychain store: {e}");
     }
+    crate::startup_trace::trace("keychain store registered; building tauri app");
 
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
@@ -418,6 +423,7 @@ pub fn run() {
     builder
         .setup(|app| {
             use tauri::Manager;
+            crate::startup_trace::trace("tauri setup() START");
 
             // Verbose logging auto-reverts on every launch: always start at Info.
             log::set_max_level(log::LevelFilter::Info);
@@ -462,6 +468,7 @@ pub fn run() {
                 });
             }
 
+            crate::startup_trace::trace("tauri setup() END (handing off to event loop)");
             Ok(())
         })
         .manage(DockerLogStreamManager::new())
@@ -475,6 +482,7 @@ pub fn run() {
         .manage(SerialSessionManager::new())
         .invoke_handler(tauri::generate_handler![
             force_quit,
+            startup_ping,
             updater_restart,
             updater_check,
             commands::greet,

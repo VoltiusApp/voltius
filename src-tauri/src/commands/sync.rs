@@ -276,7 +276,9 @@ pub fn state_import(
 
 #[tauri::command]
 pub fn theme_load() -> Option<String> {
-    std::fs::read_to_string(config_dir().join("theme.json")).ok()
+    crate::startup_trace::step("cmd theme_load", || {
+        std::fs::read_to_string(config_dir().join("theme.json")).ok()
+    })
 }
 
 #[tauri::command]

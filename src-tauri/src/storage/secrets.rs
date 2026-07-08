@@ -137,7 +137,7 @@ pub fn secrets_unlock(
 ) -> Result<(), AppError> {
     let key: [u8; 32] = enc_key.try_into().map_err(|_| "enc_key must be 32 bytes")?;
     let path = secrets_path(&app);
-    state.unlock(path, key)
+    crate::startup_trace::step("cmd secrets_unlock", || state.unlock(path, key))
 }
 
 #[tauri::command]
