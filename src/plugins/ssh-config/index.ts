@@ -504,6 +504,21 @@ function createSettingsComponent(api: PluginAPI): React.FC {
 // ─── Register ─────────────────────────────────────────────────────────────────
 
 export const register: PluginRegisterFn = (api) => {
+  // Settings page is registered regardless of active state so a disabled
+  // plugin can still be reviewed/configured before re-enabling. Kept out of the
+  // active cleanup below so disabling never removes it (matches gist-sync).
+  api.ui.registerSettingsPage({
+    id: `${manifest.id}:settings`,
+    label: "SSH Config Sync",
+    icon: "lucide:file-code",
+    component: createSettingsComponent(api),
+  });
+
+  // Everything below is active-only work. A disabled plugin must stay fully
+  // inert — no file watcher, no auto-sync — until it is re-enabled, at which
+  // point setPluginActive re-runs register() with isActive() === true.
+  if (!api.isActive()) return () => {};
+
   let stopWatch: (() => void) | null = null;
 
   const startWatcher = (intervalMs: number) => {
@@ -541,17 +556,9 @@ export const register: PluginRegisterFn = (api) => {
     sync(api).catch((e) => api.log.error("ssh-config manual sync failed", e));
   });
 
-  const unregisterSettings = api.ui.registerSettingsPage({
-    id: `${manifest.id}:settings`,
-    label: "SSH Config Sync",
-    icon: "lucide:file-code",
-    component: createSettingsComponent(api),
-  });
-
   return () => {
     stopWatch?.();
     offEvent();
     offSyncNow();
-    unregisterSettings();
   };
 };

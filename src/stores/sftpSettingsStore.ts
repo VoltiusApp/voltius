@@ -12,6 +12,10 @@ interface SftpSettingsStore {
   setEditorAutoSave: (v: boolean) => void;
   editorMaxBytes: number;
   setEditorMaxBytes: (n: number) => void;
+  /** Show dotfiles in file panes. Persisted so the choice sticks across panes,
+   *  sessions, and relaunches (as mainstream SFTP clients do). */
+  showHidden: boolean;
+  setShowHidden: (v: boolean) => void;
 }
 
 export const useSftpSettingsStore = create<SftpSettingsStore>()(
@@ -23,6 +27,8 @@ export const useSftpSettingsStore = create<SftpSettingsStore>()(
       setEditorAutoSave: (v) => { set({ editorAutoSave: v }); useAppSettingsTimestampStore.getState().touch(); },
       editorMaxBytes: DEFAULT_EDITOR_MAX_BYTES,
       setEditorMaxBytes: (n) => { set({ editorMaxBytes: n }); useAppSettingsTimestampStore.getState().touch(); },
+      showHidden: false,
+      setShowHidden: (v) => { set({ showHidden: v }); useAppSettingsTimestampStore.getState().touch(); },
     }),
     { name: "voltius-sftp-settings" },
   ),

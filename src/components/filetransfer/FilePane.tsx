@@ -116,7 +116,11 @@ export function FilePane({
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [colWidths, setColWidths] = useState<ColumnWidths>(DEFAULT_COLUMN_WIDTHS);
   const [visibleCols, setVisibleCols] = useState<VisibleCols>(initialVisibleCols ?? DEFAULT_VISIBLE_COLS);
-  const [showHidden, setShowHidden] = useState(false);
+  // Persisted + shared across every pane so enabling it once sticks (matches
+  // mainstream SFTP clients). Lives in the store, not local state, so it no
+  // longer resets on remount/navigation.
+  const showHidden = useSftpSettingsStore((s) => s.showHidden);
+  const setShowHidden = useSftpSettingsStore((s) => s.setShowHidden);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [viewMenuPos, setViewMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; resolve: (ok: boolean) => void } | null>(null);
