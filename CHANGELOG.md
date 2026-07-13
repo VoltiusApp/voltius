@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-07-13
+
+### Fixed
+
+- SSH Config Sync and GitHub Gist Sync no longer keep syncing after the plugin
+  is disabled — a disabled plugin now stays fully inert (no file watcher, no
+  background sync, no push on quit)
+- SFTP file panes now remember the "show hidden files" setting across panes,
+  sessions, and relaunches, so dotfiles stay visible once you enable them
+
 ## [0.9.1] - 2026-07-13
 
 ### Fixed
