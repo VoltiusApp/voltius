@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-07-13
+
+### Fixed
+
+- macOS: the app bundle is now ad-hoc signed, so a directly downloaded `.dmg`
+  no longer fails on Apple Silicon with "Voltius.app is damaged and cannot be
+  opened"; the standard Gatekeeper prompt appears instead
+
 ## [0.9.0] - 2026-07-05
 
 ### Added
