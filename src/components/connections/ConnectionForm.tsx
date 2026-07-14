@@ -778,9 +778,9 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
           <FormSection label={t("connections.form.sectionNotes")}>
             <textarea
-              className={`${formInputClass} min-h-20 resize-y leading-relaxed`}
+              className={`${formInputClass} min-h-20 resize-none leading-relaxed`}
               style={formInputStyle}
-              rows={3}
+              rows={4}
               value={notes}
               onChange={(e) => { markDirty(); setNotes(e.target.value); }}
               placeholder={t("connections.form.notesPlaceholder")}
