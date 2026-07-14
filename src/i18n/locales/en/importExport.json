@@ -15,6 +15,7 @@
       "formatCsvDescription": "Connections only — spreadsheet-friendly",
       "formatJsonDescription": "Full data including key content",
       "encryptBackup": "Encrypt backup",
+      "plaintextSecretsWarning": "This export contains passwords, keys or host notes in plain text. Keep encryption on unless you deliberately need an unencrypted file.",
       "confirmPasswordPlaceholder": "Confirm password",
       "passwordsDontMatch": "Passwords don't match",
       "building": "Building…",

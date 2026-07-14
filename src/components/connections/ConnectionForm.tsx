@@ -113,6 +113,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   );
   const [distro, setDistro] = useState(initial?.distro ?? "");
   const [icon, setIcon] = useState(initial?.icon ?? "");
+  const [notes, setNotes] = useState(initial?.notes ?? "");
   const [showDistroPicker, setShowDistroPicker] = useState(false);
   const [detectingDistro, setDetectingDistro] = useState(false);
   const [distroError, setDistroError] = useState("");
@@ -216,6 +217,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
           icon: icon || undefined,
           connection_type: "ftp",
           ftp_secure: ftpSecure,
+          notes: notes.trim() ? notes : undefined,
         } as ConnectionFormData,
         password: passwordDirty.current ? password : null,
         privateKey: null,
@@ -253,6 +255,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         shell_integration_disabled: shellIntegrationDisabled,
         keepalive_preset: keepalivePreset || undefined,
         persist_session: persistSession === "" ? undefined : persistSession === "on",
+        notes: notes.trim() ? notes : undefined,
       } as ConnectionFormData,
       password: passwordDirty.current ? password : null,
       privateKey: (!identityId && !keyId && privateKeyDirty.current) ? privateKey : null,
@@ -268,7 +271,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, host, port, username, protocol, ftpSecure, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, legacyAlgorithms, preCommand, postCommand, terminalEncoding, distro, icon, pingDisabled, shellIntegrationDisabled, keepalivePreset, persistSession]);
+  useEffect(() => schedule(), [name, host, port, username, protocol, ftpSecure, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, legacyAlgorithms, preCommand, postCommand, terminalEncoding, distro, icon, pingDisabled, shellIntegrationDisabled, keepalivePreset, persistSession, notes]);
 
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
@@ -771,6 +774,17 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                 </div>
               </div>
             )}
+          </FormSection>
+
+          <FormSection label={t("connections.form.sectionNotes")}>
+            <textarea
+              className={`${formInputClass} min-h-20 resize-y leading-relaxed`}
+              style={formInputStyle}
+              rows={3}
+              value={notes}
+              onChange={(e) => { markDirty(); setNotes(e.target.value); }}
+              placeholder={t("connections.form.notesPlaceholder")}
+            />
           </FormSection>
         </div>
       </div>

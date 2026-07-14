@@ -127,6 +127,7 @@ export interface Connection {
   persist_session?: boolean;
   connection_type?: "ssh" | "serial" | "ftp";
   ftp_secure?: boolean;
+  notes?: string;
   serial_port?: string;
   serial_baud?: number;
   serial_data_bits?: number;
@@ -165,6 +166,7 @@ export interface ConnectionFormData {
   persist_session?: boolean;
   connection_type?: "ssh" | "serial" | "ftp";
   ftp_secure?: boolean;
+  notes?: string;
   serial_port?: string;
   serial_baud?: number;
   serial_data_bits?: number;
