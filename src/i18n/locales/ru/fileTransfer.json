@@ -1,0 +1,182 @@
+{
+  "fileTransfer": {
+    "common": {
+      "localMachine": "Локальная машина",
+      "remoteFallback": "удалённый",
+      "itemsCount_one": "{{count}} элемент",
+      "itemsCount_few": "{{count}} элемента",
+      "itemsCount_many": "{{count}} элементов",
+      "itemsCount_other": "{{count}} элементов"
+    },
+    "acceleratedBadge": {
+      "title": "Ускорение через Tar",
+      "description": "Объединяется в один архив и распаковывается на другой стороне — значительно меньше обращений, чем при постатейной передаче.",
+      "howItWorks": "Как это работает"
+    },
+    "conflict": {
+      "title": "Файл уже существует",
+      "conflictOf": "Конфликт {{number}} из {{total}}",
+      "description": "Элемент с таким именем уже существует в месте назначения. Что вы хотите сделать?",
+      "skip": "Пропустить",
+      "skipAll": "Пропустить все",
+      "overwrite": "Перезаписать",
+      "overwriteAll": "Перезаписать все"
+    },
+    "pane": {
+      "toolbar": {
+        "parentDirectory": "Родительский каталог",
+        "homeDirectory": "Домашний каталог",
+        "browse": "Обзор…",
+        "selectFolder": "Выбрать папку",
+        "newFolder": "Новая папка",
+        "newFile": "Новый файл",
+        "refresh": "Обновить"
+      },
+      "dropToTransfer": "Перетащите для передачи",
+      "placeholder": {
+        "folderName": "Название папки",
+        "fileName": "Имя файла"
+      },
+      "emptyDirectory": "Пустой каталог",
+      "selection": {
+        "selected": "Выбрано: {{count}}",
+        "clear": "Очистить"
+      },
+      "confirmDelete": {
+        "title": "Подтвердите удаление",
+        "messageSingle": "Удалить \"{{name}}\"?",
+        "messageMulti_one": "Удалить {{count}} элемент?",
+        "messageMulti_few": "Удалить {{count}} элемента?",
+        "messageMulti_many": "Удалить {{count}} элементов?",
+        "messageMulti_other": "Удалить {{count}} элементов?"
+      },
+      "menu": {
+        "download_one": "Скачать",
+        "download_few": "Скачать {{count}} файла",
+        "download_many": "Скачать {{count}} файлов",
+        "download_other": "Скачать {{count}} файлов",
+        "copyToTarget_one": "Копировать в назначение",
+        "copyToTarget_few": "Копировать {{count}} элемента в назначение",
+        "copyToTarget_many": "Копировать {{count}} элементов в назначение",
+        "copyToTarget_other": "Копировать {{count}} элементов в назначение",
+        "moveToTarget_one": "Переместить в назначение",
+        "moveToTarget_few": "Переместить {{count}} элемента в назначение",
+        "moveToTarget_many": "Переместить {{count}} элементов в назначение",
+        "moveToTarget_other": "Переместить {{count}} элементов в назначение",
+        "delete_one": "Удалить",
+        "delete_few": "Удалить {{count}} элемента",
+        "delete_many": "Удалить {{count}} элементов",
+        "delete_other": "Удалить {{count}} элементов",
+        "compress": "Сжать в .tar.gz",
+        "extractHere": "Извлечь сюда",
+        "openInTerminal": "Открыть в терминале",
+        "uploadFiles": "Загрузить файлы",
+        "selectAll": "Выбрать все",
+        "deselect": "Снять выделение",
+        "disconnect": "Отключиться",
+        "hideHiddenFiles": "Скрыть скрытые файлы",
+        "showHiddenFiles": "Показать скрытые файлы",
+        "sizeColumn": "Столбец размера",
+        "dateColumn": "Столбец даты",
+        "permissionsColumn": "Столбец прав доступа"
+      },
+      "columns": {
+        "name": "Имя",
+        "size": "Размер",
+        "modified": "Изменён",
+        "permissions": "Права"
+      }
+    },
+    "side": {
+      "chooseHost": "Выберите хост…",
+      "back": "Назад",
+      "forward": "Вперёд",
+      "filterPlaceholder": "Фильтр…",
+      "uploadHere": "Загрузить файлы сюда",
+      "selectFilesToDownload": "Выберите файлы для скачивания",
+      "download_one": "Скачать \"{{name}}\"",
+      "download_few": "Скачать {{count}} элемента",
+      "download_many": "Скачать {{count}} элементов",
+      "download_other": "Скачать {{count}} элементов",
+      "viewOptions": "Параметры отображения",
+      "moreOptions": "Дополнительные параметры",
+      "tryAgain": "Повторить попытку",
+      "sparkline": {
+        "min": "мин {{value}} мс",
+        "avg": "сред {{value}} мс",
+        "max": "макс {{value}} мс"
+      }
+    },
+    "page": {
+      "transferLeftToRight_one": "Передать \"{{name}}\" →",
+      "transferLeftToRight_few": "Передать {{count}} элемента →",
+      "transferLeftToRight_many": "Передать {{count}} элементов →",
+      "transferLeftToRight_other": "Передать {{count}} элементов →",
+      "transferRightToLeft_one": "Передать \"{{name}}\" ←",
+      "transferRightToLeft_few": "Передать {{count}} элемента ←",
+      "transferRightToLeft_many": "Передать {{count}} элементов ←",
+      "transferRightToLeft_other": "Передать {{count}} элементов ←",
+      "selectFileLeft": "Выберите файл слева",
+      "selectFileRight": "Выберите файл справа",
+      "compareTitle": "Сравнить \"{{leftName}}\" ↔ \"{{rightName}}\"",
+      "compareHint": "Выберите по одному файлу с каждой стороны для сравнения",
+      "selectFilesToUpload": "Выберите файлы для загрузки",
+      "downloadToFolder": "Скачать в папку",
+      "connectionLost": "Подключение потеряно"
+    },
+    "queue": {
+      "title": "Передачи",
+      "transferCount_one": "{{count}} передача",
+      "transferCount_few": "{{count}} передачи",
+      "transferCount_many": "{{count}} передач",
+      "transferCount_other": "{{count}} передач",
+      "activeSuffix_one": " · {{count}} активна",
+      "activeSuffix_few": " · {{count}} активны",
+      "activeSuffix_many": " · {{count}} активны",
+      "activeSuffix_other": " · {{count}} активны",
+      "combinedThroughput": "Суммарная скорость",
+      "cancelAll": "Отменить все передачи",
+      "clearFinished": "Очистить завершённые передачи",
+      "cancelTransfer": "Отменить передачу",
+      "status": {
+        "done": "Готово",
+        "error": "Ошибка",
+        "cancelled": "Отменено"
+      }
+    },
+    "editor": {
+      "common": {
+        "saveCtrlS": "Сохранить (Ctrl+S)",
+        "saveFailed": "Не удалось сохранить",
+        "retrySave": "Повторить сохранение",
+        "retry": "Повторить",
+        "dismiss": "Скрыть"
+      },
+      "diff": {
+        "loadError": "Не удалось загрузить один или оба файла для сравнения.",
+        "loading": "Загрузка сравнения…",
+        "previousChange": "Предыдущее изменение",
+        "nextChange": "Следующее изменение",
+        "saveErrorLine": "{{label}}: {{msg}}"
+      },
+      "tab": {
+        "autoSave": "Автосохранение",
+        "saveFailedReason": "Не удалось сохранить: {{error}}",
+        "error": {
+          "default": "Не удалось открыть файл.",
+          "tooLarge": "Файл слишком большой ({{size}} байт, лимит {{limit}}). Скачайте его вместо этого.",
+          "binary": "Двоичный файл — редактирование невозможно. Скачайте его вместо этого."
+        }
+      },
+      "tabStrip": {
+        "filesTab": "Файлы",
+        "pendingNameFallback": "этот файл",
+        "pendingNameDiffFallback": "это сравнение",
+        "diffTitlePrefix": "сравнение: {{name}}",
+        "discardTitle": "Отменить несохранённые изменения?",
+        "discardMessage": "\"{{name}}\" содержит несохранённые изменения. Закрытие вкладки приведёт к их потере.",
+        "discard": "Отменить"
+      }
+    }
+  }
+}

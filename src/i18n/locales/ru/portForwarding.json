@@ -1,0 +1,171 @@
+{
+  "portForwarding": {
+    "toolbar": {
+      "filterPlaceholder": "Фильтр правил…",
+      "deleteSelected": "Удалить выбранные",
+      "deleteButton": "УДАЛИТЬ",
+      "newRule": "Новое правило",
+      "newFolder": "Новая папка"
+    },
+    "page": {
+      "all": "Все",
+      "folders": "Папки",
+      "new": "Новые",
+      "noRulesMatchSearch": "Нет правил, соответствующих поиску.",
+      "folderEmpty": "Эта папка пуста.",
+      "noRulesYet": "Правил пока нет. Создайте одно, чтобы начать.",
+      "addRule": "Добавить правило",
+      "ejectMoveTo": "Переместить в {{name}}",
+      "ejectRemoveFromFolder": "Убрать из папки",
+      "total": "Всего: {{count}}",
+      "activeCount": "{{count}} активно",
+      "errorCount": "{{count}} с ошибкой",
+      "contextMenu": {
+        "newRule": "Новое правило"
+      },
+      "confirmDelete": {
+        "title": "Удалить правило",
+        "message": "Правило будет удалено безвозвратно."
+      },
+      "confirmDeleteBulk": {
+        "title_one": "Удалить {{count}} правило",
+        "title_few": "Удалить {{count}} правила",
+        "title_many": "Удалить {{count}} правил",
+        "title_other": "Удалить {{count}} правил",
+        "message_one": "Вы уверены, что хотите удалить {{count}} правило? Это действие нельзя отменить.",
+        "message_few": "Вы уверены, что хотите удалить {{count}} правила? Это действие нельзя отменить.",
+        "message_many": "Вы уверены, что хотите удалить {{count}} правил? Это действие нельзя отменить.",
+        "message_other": "Вы уверены, что хотите удалить {{count}} правил? Это действие нельзя отменить."
+      },
+      "confirmDeleteFolder": {
+        "title": "Удалить папку",
+        "message": "Папка будет удалена. Правила внутри не будут удалены — они переместятся на верхний уровень."
+      },
+      "vaultCascade": {
+        "moveDescription": "При перемещении \"{{folderName}}\" также будут перемещены следующие правила в {{targetVaultName}}:",
+        "copyDescription": "При копировании \"{{folderName}}\" также будут скопированы следующие правила в {{targetVaultName}}:"
+      },
+      "bulk": {
+        "duplicateRules_one": "Дублировать {{count}} правило",
+        "duplicateRules_few": "Дублировать {{count}} правила",
+        "duplicateRules_many": "Дублировать {{count}} правил",
+        "duplicateRules_other": "Дублировать {{count}} правил",
+        "exportRules_one": "Экспортировать {{count}} правило",
+        "exportRules_few": "Экспортировать {{count}} правила",
+        "exportRules_many": "Экспортировать {{count}} правил",
+        "exportRules_other": "Экспортировать {{count}} правил",
+        "deleteRules_one": "Удалить {{count}} правило",
+        "deleteRules_few": "Удалить {{count}} правила",
+        "deleteRules_many": "Удалить {{count}} правил",
+        "deleteRules_other": "Удалить {{count}} правил"
+      }
+    },
+    "ruleCard": {
+      "pause": "Пауза",
+      "resume": "Возобновить",
+      "openWebLink": "Открыть веб-ссылку",
+      "activateInSession": "Активировать в сессии",
+      "duplicate": "Дублировать",
+      "enableCloudSync": "Включить облачную синхронизацию",
+      "disableCloudSync": "Отключить облачную синхронизацию",
+      "pauseForwarding": "Приостановить проброс",
+      "resumeForwarding": "Возобновить проброс",
+      "active": "Активно",
+      "error": "Ошибка",
+      "stopped": "Остановлено",
+      "noSshSession": "Нет SSH-сессии",
+      "openUrl": "Открыть {{url}}",
+      "scopedToConnections_one": "Ограничено {{count}} подключением",
+      "scopedToConnections_few": "Ограничено {{count}} подключениями",
+      "scopedToConnections_many": "Ограничено {{count}} подключениями",
+      "scopedToConnections_other": "Ограничено {{count}} подключениями",
+      "connectionsCount_one": "{{count}} подключение",
+      "connectionsCount_few": "{{count}} подключения",
+      "connectionsCount_many": "{{count}} подключений",
+      "connectionsCount_other": "{{count}} подключений"
+    },
+    "activeTunnels": {
+      "sectionTitle": "Активные проброски сессии",
+      "hostCount_one": "{{count}} хост",
+      "hostCount_few": "{{count}} хоста",
+      "hostCount_many": "{{count}} хостов",
+      "hostCount_other": "{{count}} хостов",
+      "tunnelCount_one": "{{count}} туннель",
+      "tunnelCount_few": "{{count}} туннеля",
+      "tunnelCount_many": "{{count}} туннелей",
+      "tunnelCount_other": "{{count}} туннелей",
+      "forwardCount_one": "{{count}} проброс",
+      "forwardCount_few": "{{count}} проброса",
+      "forwardCount_many": "{{count}} пробросов",
+      "forwardCount_other": "{{count}} пробросов",
+      "errorCount": "{{count}} с ошибкой",
+      "activeCountLabel": "{{count}} активно",
+      "connected": "Подключено",
+      "local": "Локальный",
+      "remote": "Удалённый",
+      "socks5": "SOCKS5",
+      "auto": "Авто",
+      "adHoc": "Разовый",
+      "portLabel": "Порт {{port}}",
+      "socksPortLabel": "SOCKS5 :{{port}}",
+      "pauseForwarding": "Приостановить проброс",
+      "resumeForwarding": "Возобновить проброс",
+      "openUrl": "Открыть {{url}}"
+    },
+    "ruleForm": {
+      "editRule": "Изменить правило",
+      "newRule": "Новое правило",
+      "general": "Общие",
+      "name": "Название",
+      "namePlaceholder": "Мой туннель",
+      "description": "Описание",
+      "descriptionPlaceholder": "Dev-сервер, прокси базы данных…",
+      "type": "Тип",
+      "ports": "Порты",
+      "scope": "Область",
+      "tunnelTypes": {
+        "local": {
+          "label": "Локальный",
+          "title": "Локальный туннель",
+          "summary": "Откройте что-то с SSH-сервера на своём компьютере.",
+          "example": "Используйте localhost:3000 на своём компьютере, чтобы обратиться к 127.0.0.1:3000 на сервере.",
+          "diagram": ["Ваш компьютер", "SSH-сервер", "Удалённый сервис"]
+        },
+        "remote": {
+          "label": "Удалённый",
+          "title": "Удалённый туннель",
+          "summary": "Откройте доступ к чему-то со своего компьютера на SSH-сервере.",
+          "example": "Сервер слушает порт и перенаправляет трафик обратно на ваш компьютер.",
+          "diagram": ["Удалённые пользователи", "SSH-сервер", "Ваш компьютер"]
+        },
+        "dynamic": {
+          "label": "Динамический",
+          "title": "Динамический SOCKS-прокси",
+          "summary": "Создайте локальный SOCKS5-прокси, который отправляет трафик приложений через SSH-сервер.",
+          "example": "Настройте браузер или приложение на localhost:1080, чтобы направлять трафик через сервер.",
+          "diagram": ["Ваше приложение", "SOCKS-прокси", "SSH-сервер"]
+        }
+      },
+      "localPortOnComputer": "Порт на вашем компьютере",
+      "localPortHelp": "Вы подключаетесь к этому порту локально, обычно как localhost:{{port}}.",
+      "remotePortOnServer": "Порт на SSH-сервере",
+      "remotePortOnServerHelp": "Порт, на котором служба работает с точки зрения сервера.",
+      "hostOnServer": "Хост на SSH-сервере",
+      "hostOnServerHelp": "Используйте 127.0.0.1, если служба работает на самом SSH-сервере.",
+      "remotePortOpenedOnServer": "Порт, открытый на SSH-сервере",
+      "remotePortOpenedOnServerHelp": "Люди или службы на стороне сервера подключаются к этому порту.",
+      "localPortReceivingHelp": "Локальное приложение или служба, которые должны получать перенаправленный трафик.",
+      "bindAddressOnServer": "Адрес привязки на SSH-сервере",
+      "bindAddressOnServerHelp": "127.0.0.1 делает порт доступным только на сервере. 0.0.0.0 может открыть его для сети.",
+      "bindWarning": "0.0.0.0 открывает этот порт через удалённый сервер для всех его сетевых интерфейсов.",
+      "hostOnComputer": "Хост на вашем компьютере",
+      "hostOnComputerHelp": "Используйте 127.0.0.1, если целевое приложение работает на этом компьютере.",
+      "socksProxyPort": "Порт SOCKS-прокси на вашем компьютере",
+      "socksProxyPortHelp": "Настройте приложения на использование localhost:{{port}} в качестве SOCKS5-прокси.",
+      "applyTo": "Применить к",
+      "allConnections": "Все подключения",
+      "specificConnections": "Отдельные подключения",
+      "noSavedConnections": "Нет сохранённых подключений."
+    }
+  }
+}

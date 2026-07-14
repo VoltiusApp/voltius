@@ -1,0 +1,199 @@
+{
+  "snippets": {
+    "sequence": {
+      "summary": {
+        "success_one": "Сниппет выполнен на {{count}} цели",
+        "success_few": "Сниппет выполнен на {{count}} целях",
+        "success_many": "Сниппет выполнен на {{count}} целях",
+        "success_other": "Сниппет выполнен на {{count}} целях",
+        "partial": "{{count}} успешно — {{details}}",
+        "failed": "ошибка"
+      },
+      "connectFailed": "не удалось открыть сессию терминала",
+      "flatten": {
+        "tooDeep": "Слишком глубокая вложенность сниппетов в \"{{name}}\"",
+        "tooManySteps": "Сниппет развернулся в слишком много шагов",
+        "cycle": "Обнаружен цикл сниппетов в \"{{name}}\"",
+        "missingRef": "Шаг сниппета ссылается на отсутствующий сниппет ({{id}})"
+      },
+      "error": {
+        "needsTerminal": "Для шага скрипта требуется открытая сессия терминала для этой цели",
+        "noSftp": "Нет SFTP-подключения для шага передачи",
+        "destExists": "Назначение уже существует: {{path}}"
+      }
+    },
+    "toolbar": {
+      "filterPlaceholder": "Фильтр сниппетов...",
+      "gridLabel": "Сетка",
+      "listLabel": "Список",
+      "sortNameAsc": "А → Я",
+      "sortNameDesc": "Я → А",
+      "sortNewest": "Сначала новые",
+      "sortOldest": "Сначала старые",
+      "newSnippet": "Новый сниппет",
+      "newSnippetOptions": "Параметры нового сниппета",
+      "newFolder": "Новая папка"
+    },
+    "card": {
+      "duplicate": "Дублировать",
+      "unpin": "Открепить",
+      "pin": "Закрепить",
+      "unpinForMe": "Открепить для себя",
+      "showInMyView": "Показывать у себя",
+      "hideForMe": "Скрыть у себя",
+      "pinForMe": "Закрепить для себя",
+      "unpinForTeam": "Открепить для команды",
+      "pinForTeam": "Закрепить для команды",
+      "enableCloudSync": "Включить облачную синхронизацию",
+      "disableCloudSync": "Отключить облачную синхронизацию",
+      "export": "Экспорт",
+      "star": "В избранное",
+      "unstar": "Убрать из избранного",
+      "insert": "Вставить",
+      "execute": "Выполнить",
+      "noContent": "Нет содержимого"
+    },
+    "form": {
+      "nameLabel": "Название",
+      "namePlaceholder": "Мой сниппет",
+      "contentLabel": "Содержимое",
+      "variablesLabel": "Переменные:",
+      "autoBadge": "авто",
+      "syntaxHintType": "Введите",
+      "syntaxHintForAutocomplete": "для автодополнения.",
+      "syntaxHintCustomPrompts": "Пользовательские подсказки:",
+      "syntaxHintTypesList": "— текст · число · пароль · логическое ·",
+      "descriptionLabel": "Описание (необязательно)",
+      "descriptionPlaceholder": "Что делает этот сниппет?",
+      "tagsLabel": "Теги",
+      "folderLabel": "Папка",
+      "starred": "В избранном",
+      "starThisSnippet": "Добавить сниппет в избранное",
+      "generalSection": "Общее",
+      "contextualFiltersSection": "Контекстные фильтры",
+      "contextualFiltersHint": "Оставьте пустым, чтобы показывать для всех подключений. Несоответствующие сниппеты становятся серыми, а не скрываются.",
+      "onlyForConnectionTags": "Только для тегов подключения",
+      "connectionTagsPlaceholder": "например, production",
+      "onlyForDistros": "Только для дистрибутивов",
+      "distrosPlaceholder": "например, ubuntu, debian",
+      "removeTagAriaLabel": "Удалить тег {{tag}}",
+      "dynamicVars": {
+        "connectionHost": "Имя хоста / IP активного SSH-подключения",
+        "connectionUsername": "Имя пользователя активного SSH-подключения",
+        "connectionName": "Название активного подключения",
+        "date": "Сегодня — ГГГГ-ММ-ДД",
+        "datetime": "Дата и время — ГГГГ-ММ-ДД ЧЧ:ММ:СС",
+        "timestamp": "Метка времени Unix",
+        "clipboard": "Текущее содержимое буфера обмена"
+      }
+    },
+    "step": {
+      "kind": {
+        "script": "Скрипт",
+        "transfer": "Передача",
+        "snippet": "Вызвать сниппет"
+      },
+      "endpoint": { "local": "Локально", "remote": "Удалённо" },
+      "from": "Из",
+      "to": "В",
+      "mode": { "copy": "Копировать", "move": "Переместить" },
+      "conflict": { "label": "Если существует", "overwrite": "Перезаписать", "skip": "Пропустить", "fail": "Ошибка" },
+      "remotePicker": {
+        "title": "Обзор удалённого пути",
+        "pickHost": "Выберите хост для обзора",
+        "connecting": "Подключение…",
+        "select": "Выбрать",
+        "selectFolder": "Использовать эту папку"
+      },
+      "file": "Файл",
+      "folder": "Папка",
+      "localPath": "Локальный путь",
+      "remotePath": "Удалённый путь",
+      "browse": "Обзор",
+      "selectSnippet": "Выберите сниппет...",
+      "addScript": "+ Скрипт",
+      "addTransfer": "+ Передача",
+      "addSnippet": "+ Вызвать сниппет",
+      "addStep": "Добавить шаг",
+      "moveUp": "Переместить шаг вверх",
+      "moveDown": "Переместить шаг вниз",
+      "remove": "Удалить шаг"
+    },
+    "page": {
+      "emptyState": {
+        "title": "Пока нет сниппетов",
+        "subtitle": "Сохраняйте повторно используемые команды терминала с динамическими переменными.",
+        "cta": "Создать первый сниппет"
+      },
+      "pinned": "Закреплённые",
+      "folders": "Папки",
+      "snippetsSection": "Сниппеты",
+      "other": "Другое",
+      "allSnippets": "Все сниппеты",
+      "folderEmpty": "Эта папка пуста",
+      "addSnippet": "Добавить сниппет",
+      "noSearchResults": "Нет сниппетов, соответствующих \"{{search}}\"",
+      "clearSearch": "Очистить поиск",
+      "ejectMoveTo": "Переместить в {{name}}",
+      "ejectRemoveFromFolder": "Убрать из папки",
+      "recent": {
+        "title": "Недавние",
+        "clear": "Очистить",
+        "showLess": "Показать меньше",
+        "showMore": "Показать ещё {{count}}",
+        "deletedSnippet": "Удалённый сниппет",
+        "unknownTarget": "Неизвестно",
+        "targetMore": "{{name}} +{{count}} ещё",
+        "modeRun": "запуск",
+        "modeInsert": "вставка",
+        "replay": "Повторить"
+      },
+      "bulk": {
+        "duplicateSnippets_one": "Дублировать {{count}} сниппет",
+        "duplicateSnippets_few": "Дублировать {{count}} сниппета",
+        "duplicateSnippets_many": "Дублировать {{count}} сниппетов",
+        "duplicateSnippets_other": "Дублировать {{count}} сниппетов",
+        "moveItemsTo_one": "Переместить {{count}} элемент в",
+        "moveItemsTo_few": "Переместить {{count}} элемента в",
+        "moveItemsTo_many": "Переместить {{count}} элементов в",
+        "moveItemsTo_other": "Переместить {{count}} элементов в",
+        "copyItemsTo_one": "Копировать {{count}} элемент в",
+        "copyItemsTo_few": "Копировать {{count}} элемента в",
+        "copyItemsTo_many": "Копировать {{count}} элементов в",
+        "copyItemsTo_other": "Копировать {{count}} элементов в",
+        "enableCloudSync": "Включить облачную синхронизацию ({{count}})",
+        "disableCloudSync": "Отключить облачную синхронизацию ({{count}})",
+        "exportSnippets_one": "Экспортировать {{count}} сниппет",
+        "exportSnippets_few": "Экспортировать {{count}} сниппета",
+        "exportSnippets_many": "Экспортировать {{count}} сниппетов",
+        "exportSnippets_other": "Экспортировать {{count}} сниппетов",
+        "deleteSnippets_one": "Удалить {{count}} сниппет",
+        "deleteSnippets_few": "Удалить {{count}} сниппета",
+        "deleteSnippets_many": "Удалить {{count}} сниппетов",
+        "deleteSnippets_other": "Удалить {{count}} сниппетов"
+      },
+      "confirmDelete": {
+        "title_one": "Удалить {{count}} элемент",
+        "title_few": "Удалить {{count}} элемента",
+        "title_many": "Удалить {{count}} элементов",
+        "title_other": "Удалить {{count}} элементов",
+        "message_one": "Вы уверены, что хотите удалить {{count}} элемент? Это действие нельзя отменить.",
+        "message_few": "Вы уверены, что хотите удалить {{count}} элемента? Это действие нельзя отменить.",
+        "message_many": "Вы уверены, что хотите удалить {{count}} элементов? Это действие нельзя отменить.",
+        "message_other": "Вы уверены, что хотите удалить {{count}} элементов? Это действие нельзя отменить."
+      },
+      "confirmDeleteFolder": {
+        "title": "Удалить \"{{name}}\"?",
+        "message": "Сниппеты внутри будут перемещены в корень. Это действие нельзя отменить.",
+        "confirmLabel": "Удалить папку"
+      },
+      "relativeTime": {
+        "justNow": "только что",
+        "secondsAgo": "{{count}} с назад",
+        "minutesAgo": "{{count}} мин назад",
+        "hoursAgo": "{{count}} ч назад",
+        "daysAgo": "{{count}} дн назад"
+      }
+    }
+  }
+}

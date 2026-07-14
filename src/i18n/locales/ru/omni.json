@@ -1,0 +1,60 @@
+{
+  "omni": {
+    "searchPlaceholder": "Поиск хостов, ключей, личностей и команд...",
+    "categoryBadges": {
+      "all": "Все",
+      "join": "join> Сессии",
+      "snippets": "> Сниппеты",
+      "marketplace": "m> Маркетплейс",
+      "settings": "@ Настройки"
+    },
+    "sections": {
+      "quickConnect": "Быстрое подключение",
+      "activeConnections": "Активные подключения",
+      "teamSessions": "Командные сессии",
+      "recent": "Недавние",
+      "hosts": "Хосты",
+      "local": "Локальные",
+      "keychain": "Связка ключей",
+      "snippets": "Сниппеты",
+      "actions": "Действия",
+      "quickSettings": "Быстрые настройки",
+      "settings": "Настройки",
+      "joinByInviteCode": "Присоединиться по коду приглашения"
+    },
+    "settingsDescription": "Настройки",
+    "pluginSettingsDescription": "Настройки плагина",
+    "editHost": "Изменить хост",
+    "deleteHost": "Удалить хост",
+    "resume": "Возобновить",
+    "join": "Присоединиться",
+    "participantCount_one": "{{count}} человек",
+    "participantCount_few": "{{count}} человека",
+    "participantCount_many": "{{count}} человек",
+    "participantCount_other": "{{count}} человек",
+    "joinCodePrompt": {
+      "title": "Присоединиться по коду приглашения...",
+      "subtitle": "Вставьте сюда код приглашения, чтобы присоединиться к приватной сессии"
+    },
+    "joinCodeEntered": {
+      "title": "Присоединиться по коду приглашения"
+    },
+    "quickConnect": {
+      "connectTo": "Подключиться к {{user}}@{{host}}",
+      "portSsh": "Порт {{port}} — SSH",
+      "serialConnection": "Последовательное подключение",
+      "configurePortAndBaud": "Настроить порт и скорость",
+      "localShellNamed": "Локальная оболочка ({{shell}})",
+      "localShell": "Локальная оболочка",
+      "openLocalTerminal": "Открыть локальный терминал"
+    },
+    "localShellDefault": "Локальная оболочка",
+    "emptyState": {
+      "noSnippets": "Пока нет сниппетов",
+      "marketplaceComingSoon": "Маркетплейс скоро появится",
+      "noSessionsMatch": "Нет сессий, соответствующих \"{{query}}\"",
+      "noActiveTeamSessions": "Нет активных командных сессий",
+      "noResultsFor": "Нет результатов для \"{{query}}\""
+    }
+  }
+}

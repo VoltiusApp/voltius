@@ -1,0 +1,338 @@
+{
+  "mobile": {
+    "tabBar": {
+      "terminal": "Терминал",
+      "sftp": "SFTP",
+      "more": "Ещё"
+    },
+    "filterBar": {
+      "placeholder": "Фильтр…"
+    },
+    "header": {
+      "syncTooltip": "Синхронизация: {{status}}",
+      "syncStatus": {
+        "idle": "Ожидание",
+        "syncing": "Синхронизация",
+        "success": "Синхронизировано",
+        "error": "Ошибка",
+        "offline": "Не в сети"
+      }
+    },
+    "remoteSessions": {
+      "title": "Активны на других устройствах",
+      "relativeTime": {
+        "justNow": "только что",
+        "minutesAgo": "{{count}} мин назад",
+        "hoursAgo": "{{count}} ч назад",
+        "daysAgo": "{{count}} дн назад"
+      }
+    },
+    "snippets": {
+      "searchPlaceholder": "Поиск сниппетов",
+      "noMatches": "Нет совпадений",
+      "empty": "Пока нет сниппетов",
+      "insertAriaLabel": "Вставить",
+      "executeAriaLabel": "Выполнить",
+      "moreAriaLabel": "Ещё",
+      "newFolderTitle": "Новая папка"
+    },
+    "terminalGestures": {
+      "selectAll": "Все",
+      "paste": "Вставить"
+    },
+    "terminalTopBar": {
+      "exitAriaLabel": "Выйти из терминала",
+      "newSessionAriaLabel": "Новая сессия",
+      "panelsAriaLabel": "Панели"
+    },
+    "panelItems": {
+      "sftp": "SFTP",
+      "docker": "Docker",
+      "metrics": "Метрики",
+      "processes": "Процессы",
+      "proxmox": "Proxmox"
+    },
+    "morePages": {
+      "keychain": "Связка ключей",
+      "portForwarding": "Проброс портов",
+      "knownHosts": "Известные хосты",
+      "members": "Участники",
+      "logs": "Журналы"
+    },
+    "account": {
+      "title": "Аккаунт",
+      "email": "Email",
+      "notSignedIn": "Не выполнен вход",
+      "plan": "Тариф",
+      "cloudSync": "Облачная синхронизация",
+      "off": "Выкл.",
+      "proTrial": "Pro пробный период — осталось {{days}} дн.",
+      "tier": {
+        "free": "Бесплатный",
+        "pro": "Pro",
+        "teams": "Teams",
+        "business": "Business"
+      },
+      "cancelsOn": "Отменяется {{date}}. До этого момента доступ сохраняется.",
+      "periodEnd": "конец периода",
+      "renewsOn": "Продление {{date}}.",
+      "subscriptionActive": "Ваша подписка активна.",
+      "seats": "Места",
+      "seatsUsed": "Использовано {{used}} / {{total}}",
+      "upgradeToPro": "Перейти на Pro",
+      "upgradeToTeams": "Перейти на Teams",
+      "manageBilling": "Управление оплатой",
+      "viewAllPlans": "Посмотреть все тарифы",
+      "signInToSync": "Войти для синхронизации",
+      "signOutConfirm": "Выйти из аккаунта? Зашифрованное хранилище будет удалено с этого устройства и повторно синхронизировано при следующем входе.",
+      "signOut": "Выйти"
+    },
+    "more": {
+      "settings": "Настройки",
+      "planLabel": "Тариф {{tier}}"
+    },
+    "host": {
+      "newTitle": "Новый хост",
+      "editTitle": "Изменить хост"
+    },
+    "hostsScreen": {
+      "searchPlaceholder": "Поиск хостов",
+      "clearSearchAriaLabel": "Очистить поиск",
+      "emptyNoHosts": "Пока нет хостов — нажмите +, чтобы добавить"
+    },
+    "keychainScreen": {
+      "filterPlaceholder": "Фильтр связки ключей…",
+      "sshKeysHeader": "SSH-КЛЮЧИ",
+      "identitiesHeader": "ЛИЧНОСТИ",
+      "addedOn": "добавлено {{date}}",
+      "noSearchMatches": "Ничего не найдено по вашему запросу",
+      "empty": "Связка ключей пуста"
+    },
+    "knownHostsScreen": {
+      "filterPlaceholder": "Фильтр хостов…",
+      "noSearchMatches": "Нет известных хостов, соответствующих запросу",
+      "empty": "Пока нет известных хостов — они появятся при подключении к серверу."
+    },
+    "logsScreen": {
+      "filterPlaceholder": "Фильтр журнала…",
+      "retry": "Повторить",
+      "prev": "Назад",
+      "next": "Далее",
+      "pageIndicator": "Страница {{page}} / {{total}}"
+    },
+    "portForwardingScreen": {
+      "filterPlaceholder": "Фильтр правил…",
+      "summary": "Всего: {{total}} · активно: {{active}}",
+      "noSearchMatches": "Нет правил, соответствующих запросу",
+      "empty": "Пока нет правил проброса портов",
+      "newRuleLabel": "Новое правило"
+    },
+    "snippetEdit": {
+      "editTitle": "Изменить сниппет",
+      "newTitle": "Новый сниппет",
+      "namePlaceholder": "Название сниппета",
+      "contentPlaceholder": "echo hello",
+      "delete": "Удалить сниппет"
+    },
+    "snippetsScreen": {
+      "newSnippetLabel": "Новый сниппет"
+    },
+    "terminalScreen": {
+      "noActiveSessions": "Нет активных сессий",
+      "pickHost": "Выберите хост"
+    },
+    "panelCommon": {
+      "sessionNotConnected": "Сессия не подключена",
+      "noContainers": "Нет контейнеров"
+    },
+    "hostActions": {
+      "stop": "Остановить",
+      "restart": "Перезапустить",
+      "start": "Запустить",
+      "pause": "Приостановить",
+      "resume": "Возобновить"
+    },
+    "docker": {
+      "filterAll": "Все",
+      "filterRunning": "Запущенные",
+      "needsSshTitle": "Docker требует SSH-сессию",
+      "needsSshSub": "Откройте Docker с хоста, подключённого по SSH.",
+      "sessionNotConnectedSub": "Переподключитесь, чтобы управлять Docker на этом хосте.",
+      "unreachableTitle": "Docker недоступен",
+      "unreachableSub": "Запустите Docker на хосте и обновите страницу.",
+      "refresh": "Обновить",
+      "noRunningContainers": "Нет запущенных контейнеров",
+      "tapRunningToShowAll": "Нажмите «Запущенные», чтобы показать все.",
+      "logs": "Логи",
+      "execShell": "Открыть shell",
+      "removeConfirmTitle": "Удалить контейнер?",
+      "removeConfirmBody": "{{name}} будет удалён. Это действие нельзя отменить."
+    },
+    "dockerLogs": {
+      "waitingForLogs": "Ожидание логов…",
+      "sessionNotConnected": "Сессия не подключена."
+    },
+    "metrics": {
+      "sshOnly": "Метрики в реальном времени доступны только для SSH-сессий. Подключитесь к хосту по SSH, чтобы увидеть его метрики.",
+      "cpu": "CPU",
+      "memory": "Память",
+      "netRx": "Сеть RX",
+      "netTx": "Сеть TX"
+    },
+    "processes": {
+      "sshOnly": "Список процессов доступен только для SSH-сессий. Подключитесь к хосту по SSH, чтобы увидеть его процессы.",
+      "filterPlaceholder": "Фильтр процессов…",
+      "sortCpu": "CPU%",
+      "sortMem": "MEM",
+      "sortPid": "PID",
+      "sortName": "Имя",
+      "noProcessesFound": "Процессы не найдены",
+      "loadingProcesses": "Загрузка процессов…",
+      "sheetKillTerm": "Завершить (SIGTERM)",
+      "sheetForceKill": "Принудительно завершить (SIGKILL)",
+      "killConfirmTitle": "Завершить процесс?",
+      "forceKillConfirmTitle": "Принудительно завершить процесс?",
+      "killConfirmBody": "{{signal}} будет отправлен {{name}} (pid {{pid}}).",
+      "confirmKill": "Завершить",
+      "confirmForceKill": "Завершить принудительно"
+    },
+    "proxmox": {
+      "needsSshTitle": "Proxmox требует SSH-сессию",
+      "needsSshSub": "Откройте Proxmox с хоста, подключённого по SSH.",
+      "sessionNotConnectedSub": "Переподключитесь, чтобы управлять этим хостом.",
+      "notDetectedTitle": "Proxmox VE не обнаружен",
+      "notDetectedSub": "Эта панель требует SSH-подключения к хосту Proxmox VE.",
+      "snapshotsTitle": "Снимки · {{name}}",
+      "newSnapshotPlaceholder": "Название нового снимка",
+      "descriptionPlaceholder": "Описание (необязательно)",
+      "createSnapshot": "Создать снимок",
+      "noSnapshots": "Нет снимков",
+      "current": "(текущий)",
+      "rollbackConfirmTitle": "Откатить?",
+      "deleteSnapshotConfirmTitle": "Удалить снимок?",
+      "rollbackConfirmBody": "Восстановить {{name}} до снимка «{{snap}}»? Текущее состояние будет потеряно.",
+      "deleteSnapshotConfirmBody": "Удалить снимок «{{snap}}»? Это действие нельзя отменить.",
+      "rollbackButton": "Откатить",
+      "snapshotsAction": "Снимки",
+      "openShell": "Открыть оболочку",
+      "ctSummary": "CT {{vmid}} · {{status}}",
+      "sheetTitleWithId": "{{name}} (CT {{vmid}})"
+    },
+    "sftp": {
+      "chooseHost": "Выберите хост",
+      "hidden": "Скрытые",
+      "visible": "Видимые",
+      "connecting": "Подключение…",
+      "reconnecting": "Переподключение…",
+      "reconnectNow": "Переподключиться сейчас",
+      "permissionDenied": "Доступ запрещён",
+      "goUp": "Вверх",
+      "emptyFolder": "Пустая папка",
+      "selectedCount": "Выбрано: {{count}}",
+      "downloadSelectedAriaLabel": "Скачать выбранное",
+      "deleteSelectedAriaLabel": "Удалить выбранное",
+      "clearSelectionAriaLabel": "Очистить выбор",
+      "copyToOtherPane": "Копировать в другую панель",
+      "download": "Скачать",
+      "details": "Подробности",
+      "copyPath": "Копировать путь",
+      "renameTitle": "Переименовать {{name}}",
+      "deleteConfirmTitle": "Удалить {{name}}?",
+      "detail": {
+        "path": "Путь",
+        "type": "Тип",
+        "size": "Размер",
+        "permissions": "Права доступа",
+        "modified": "Изменён"
+      },
+      "typeSymlink": "Симлинк",
+      "typeFile": "Файл",
+      "batchDeleteTitle_one": "Удалить {{count}} элемент?",
+      "batchDeleteTitle_few": "Удалить {{count}} элемента?",
+      "batchDeleteTitle_many": "Удалить {{count}} элементов?",
+      "batchDeleteTitle_other": "Удалить {{count}} элементов?",
+      "newFileOption": "Новый файл",
+      "folderNamePlaceholder": "Название папки",
+      "fileNamePlaceholder": "Название файла"
+    },
+    "folders": {
+      "home": "Домой"
+    },
+    "sheets": {
+      "shared": {
+        "moveToVault": "Переместить в хранилище",
+        "copyToVault": "Копировать в хранилище",
+        "moveToFolder": "Переместить в папку",
+        "back": "Назад",
+        "duplicate": "Дублировать",
+        "pin": "Закрепить",
+        "unpin": "Открепить",
+        "confirmDeleteBody": "Безвозвратно удалить {{name}}? Это действие нельзя отменить."
+      },
+      "folderActions": {
+        "renameTitle": "Переименовать папку",
+        "deleteTitle": "Удалить папку?",
+        "deleteBody": "Удалить {{name}} и всё её содержимое? Это действие нельзя отменить."
+      },
+      "hostActions": {
+        "deleteTitle": "Удалить хост?",
+        "openFiles": "Открыть файлы",
+        "copyAddress": "Копировать адрес",
+        "copiedAddress": "Скопировано: {{host}}",
+        "enableCloudSync": "Включить облачную синхронизацию",
+        "disableCloudSync": "Отключить облачную синхронизацию",
+        "enableReachabilityCheck": "Включить проверку доступности",
+        "disableReachabilityCheck": "Отключить проверку доступности"
+      },
+      "keychainActions": {
+        "unnamedKey": "Ключ без названия",
+        "deleteKeyTitle": "Удалить ключ?",
+        "deleteIdentityTitle": "Удалить личность?",
+        "copyPublicKey": "Копировать публичный ключ",
+        "copiedPublicKey": "Публичный ключ скопирован",
+        "noPublicKeyStored": "Публичный ключ не сохранён",
+        "copyUsername": "Копировать имя пользователя",
+        "copiedUsername": "Имя пользователя скопировано"
+      },
+      "knownHostActions": {
+        "deleteTitle": "Удалить известный хост?",
+        "deleteBody": "Это удалит доверенный отпечаток. Следующее подключение к этому хосту будет считаться новым.",
+        "copyFingerprint": "Копировать отпечаток",
+        "copiedFingerprint": "Отпечаток скопирован"
+      },
+      "logsExport": {
+        "title": "Экспорт журнала",
+        "exportCsv": "Экспортировать в CSV",
+        "exportJson": "Экспортировать в JSON"
+      },
+      "snippetActions": {
+        "deleteTitle": "Удалить сниппет?"
+      },
+      "snippetTarget": {
+        "executeTitle": "Выполнить «{{name}}»",
+        "insertTitle": "Вставить «{{name}}»",
+        "confirmExecute_one": "Выполнить в {{count}} цели",
+        "confirmExecute_few": "Выполнить в {{count}} целях",
+        "confirmExecute_many": "Выполнить в {{count}} целях",
+        "confirmExecute_other": "Выполнить в {{count}} целях",
+        "confirmInsert_one": "Вставить в {{count}} цель",
+        "confirmInsert_few": "Вставить в {{count}} цели",
+        "confirmInsert_many": "Вставить в {{count}} целей",
+        "confirmInsert_other": "Вставить в {{count}} целей",
+        "activeSessions": "Активные сессии",
+        "openNewConnection": "Открыть новое подключение",
+        "noHosts": "Нет хостов"
+      },
+      "ruleActions": {
+        "deleteTitle": "Удалить правило?"
+      },
+      "sftpHostPicker": {
+        "noSshHosts": "Нет SSH-хостов"
+      },
+      "vaultSwitcher": {
+        "newVault": "Новое хранилище",
+        "namePlaceholder": "Название хранилища"
+      }
+    }
+  }
+}

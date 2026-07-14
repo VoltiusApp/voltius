@@ -1,0 +1,157 @@
+{
+  "keychain": {
+    "common": {
+      "general": "Общие",
+      "label": "Метка",
+      "tags": "Теги",
+      "folder": "Папка",
+      "optional": "(необязательно)",
+      "username": "Имя пользователя",
+      "password": "Пароль",
+      "privateKey": "Приватный ключ",
+      "publicKey": "Публичный ключ",
+      "passphrase": "Кодовая фраза",
+      "addToHost": "Добавить к хосту",
+      "disableCloudSync": "Отключить облачную синхронизацию",
+      "enableCloudSync": "Включить облачную синхронизацию",
+      "cloudSyncDisabledTitle": "Облачная синхронизация отключена"
+    },
+    "toolbar": {
+      "filterPlaceholder": "Фильтр...",
+      "newKey": "Новый ключ",
+      "newKeyOptionsAriaLabel": "Параметры нового ключа",
+      "generateKeyPair": "Сгенерировать пару ключей",
+      "newIdentity": "Новая личность",
+      "newFolder": "Новая папка"
+    },
+    "page": {
+      "all": "Все",
+      "folders": "Папки",
+      "new": "Новые",
+      "pinned": "Закреплённые",
+      "ejectMoveTo": "Переместить в {{name}}",
+      "ejectRemoveFromFolder": "Убрать из папки",
+      "bulk": {
+        "moveItemsTo_one": "Переместить {{count}} элемент в",
+        "moveItemsTo_few": "Переместить {{count}} элемента в",
+        "moveItemsTo_many": "Переместить {{count}} элементов в",
+        "moveItemsTo_other": "Переместить {{count}} элементов в",
+        "copyItemsTo_one": "Копировать {{count}} элемент в",
+        "copyItemsTo_few": "Копировать {{count}} элемента в",
+        "copyItemsTo_many": "Копировать {{count}} элементов в",
+        "copyItemsTo_other": "Копировать {{count}} элементов в",
+        "enableCloudSync": "Включить облачную синхронизацию ({{count}})",
+        "disableCloudSync": "Отключить облачную синхронизацию ({{count}})",
+        "exportPublicKeys_one": "Экспортировать {{count}} публичный ключ",
+        "exportPublicKeys_few": "Экспортировать {{count}} публичных ключа",
+        "exportPublicKeys_many": "Экспортировать {{count}} публичных ключей",
+        "exportPublicKeys_other": "Экспортировать {{count}} публичных ключей",
+        "deleteItems_one": "Удалить {{count}} элемент",
+        "deleteItems_few": "Удалить {{count}} элемента",
+        "deleteItems_many": "Удалить {{count}} элементов",
+        "deleteItems_other": "Удалить {{count}} элементов"
+      },
+      "confirmDeleteFolder": {
+        "title": "Удалить папку",
+        "message": "Папка будет удалена. Элементы внутри не будут удалены — они переместятся на верхний уровень."
+      },
+      "confirmDelete": {
+        "title_one": "Удалить {{count}} элемент",
+        "title_few": "Удалить {{count}} элемента",
+        "title_many": "Удалить {{count}} элементов",
+        "title_other": "Удалить {{count}} элементов",
+        "message_one": "Вы уверены, что хотите удалить {{count}} элемент? Это действие нельзя отменить.",
+        "message_few": "Вы уверены, что хотите удалить {{count}} элемента? Это действие нельзя отменить.",
+        "message_many": "Вы уверены, что хотите удалить {{count}} элементов? Это действие нельзя отменить.",
+        "message_other": "Вы уверены, что хотите удалить {{count}} элементов? Это действие нельзя отменить."
+      },
+      "vaultCascade": {
+        "moveDescription": "При перемещении \"{{folderName}}\" также будут перемещены следующие элементы в {{targetVaultName}}:",
+        "copyDescription": "При копировании \"{{folderName}}\" также будут скопированы следующие элементы в {{targetVaultName}}:"
+      }
+    },
+    "cards": {
+      "addedOn": "добавлено {{date}}",
+      "passwordBadge": "Пароль",
+      "sshKeysLabel": "SSH-ключи",
+      "identitiesLabel": "Личности",
+      "keySection": {
+        "emptyTitle": "Пока нет SSH-ключей",
+        "emptyDescription": "Храните многоразовые пары SSH-ключей",
+        "addButton": "Добавить ключ"
+      },
+      "identitySection": {
+        "emptyTitle": "Пока нет личностей",
+        "emptyDescription": "Объедините имя пользователя с учётными данными для повторного использования на разных хостах",
+        "addButton": "Добавить личность"
+      },
+      "pin": {
+        "unpinForMe": "Открепить для себя",
+        "showInMyView": "Показать в моём представлении",
+        "hideForMe": "Скрыть для себя",
+        "pinForMe": "Закрепить для себя",
+        "unpin": "Открепить",
+        "pin": "Закрепить",
+        "unpinForTeam": "Открепить для команды",
+        "pinForTeam": "Закрепить для команды"
+      }
+    },
+    "keyForm": {
+      "titleEdit": "Изменить ключ",
+      "modeImport": "Импорт",
+      "modeGenerate": "Генерация",
+      "sectionKeyMaterial": "Материал ключа",
+      "sectionImportFromFile": "Импорт из файла",
+      "sectionKeyExport": "Экспорт ключа",
+      "unknownType": "Неизвестный тип",
+      "invalidKey": "Недействительный ключ",
+      "keyPassphrasePlaceholder": "Кодовая фраза ключа"
+    },
+    "identityForm": {
+      "titleEdit": "Изменить личность",
+      "sectionCredentials": "Учётные данные",
+      "sectionNewKeyMaterial": "Материал нового ключа",
+      "sectionLinkedTo": "Связано с",
+      "sshKeyLabel": "SSH-ключ",
+      "noKey": "Без ключа",
+      "newKeyInline": "Новый ключ (встроенный)...",
+      "unnamedKey": "Ключ без названия",
+      "namePlaceholder": "Моя личность (необязательно)",
+      "keyLabel": "Метка ключа",
+      "keyLabelPlaceholder": "Мой SSH-ключ (необязательно)",
+      "editHostTitle": "Изменить хост",
+      "unlinkTitle": "Отвязать — скопировать учётные данные напрямую в хост"
+    },
+    "exportPanel": {
+      "exportSectionLabel": "Экспорт",
+      "destinationHost": "Хост назначения",
+      "selectHostPlaceholder": "Выберите хост…",
+      "location": "Расположение",
+      "filename": "Имя файла",
+      "unixOnlyNotice": "Экспорт ключа в настоящее время поддерживается только для систем UNIX. Используйте раздел \"Дополнительно\", чтобы настроить скрипт экспорта.",
+      "advanced": "Дополнительно",
+      "exportScriptLabel": "Скрипт экспорта",
+      "successMessage": "Ключ успешно экспортирован",
+      "exportingLabel": "Экспорт…",
+      "publicKeyNotFoundError": "Публичный ключ не найден"
+    },
+    "dropZone": {
+      "loaded": "Файл ключа загружен",
+      "error": "Не удалось прочитать файл",
+      "dropToLoad": "Перетащите, чтобы загрузить файл ключа",
+      "dropHere": "Перетащите сюда файл ключа",
+      "hint": ".pem, .key, .pub или любой файл SSH-ключа"
+    },
+    "genFields": {
+      "sectionKeyType": "Тип ключа",
+      "ellipticCurve": "Эллиптическая кривая",
+      "keySizeBits": "Размер ключа (бит)",
+      "passphrasePlaceholder": "Необязательная кодовая фраза",
+      "savePassphrase": "Сохранить кодовую фразу",
+      "cipher": "Шифр",
+      "rounds": "Раунды",
+      "roundsTooltip": "Количество итераций bcrypt-pbkdf, используемых для получения ключа шифрования из вашей кодовой фразы. Более высокие значения замедляют подбор методом перебора ценой немного более медленной загрузки ключа. Значение по умолчанию в OpenSSH — 16; 100 — хороший баланс.",
+      "generating": "Генерация…"
+    }
+  }
+}
