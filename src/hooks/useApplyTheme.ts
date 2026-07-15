@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useThemeStore } from "@/stores/themeStore";
 import type { AppTheme } from "@/themes/types";
+import { withFlagEmojiFallback } from "@/utils/emojiFont";
 
 export function applyThemeToDom(theme: AppTheme) {
   const root = document.documentElement;
@@ -36,13 +37,13 @@ export function applyThemeToDom(theme: AppTheme) {
   root.style.setProperty("--t-status-connecting", ui.statusConnecting);
   root.style.setProperty("--t-status-warning", ui.statusWarning);
   root.style.setProperty("--t-text-notice", ui.textNotice);
-  root.style.setProperty("--t-font-family", theme.uiFontFamily);
+  root.style.setProperty("--t-font-family", withFlagEmojiFallback(theme.uiFontFamily));
   root.style.setProperty("--t-font-size", `${theme.uiFontSize}px`);
   root.style.setProperty("--t-terminal-foreground", theme.terminal.foreground);
   root.style.setProperty("--t-terminal-green", theme.terminal.green);
   root.style.setProperty("--t-terminal-cyan", theme.terminal.cyan);
   root.style.setProperty("--t-terminal-yellow", theme.terminal.yellow);
-  root.style.setProperty("--t-terminal-font-family", theme.terminalFontFamily);
+  root.style.setProperty("--t-terminal-font-family", withFlagEmojiFallback(theme.terminalFontFamily));
   root.style.setProperty("--t-terminal-font-size", `${theme.terminalFontSize}px`);
   window.dispatchEvent(new CustomEvent("theme-preview", { detail: theme }));
 }
