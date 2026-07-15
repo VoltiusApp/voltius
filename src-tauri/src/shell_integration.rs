@@ -170,17 +170,26 @@ function global:prompt {\n\
 /// safe to send regardless of the remote login shell's syntax (fish/csh
 /// would otherwise choke on POSIX case/heredoc).
 ///
-/// The `</dev/tty` on every exec is load-bearing: when run via
+/// The `<&2` on every exec is load-bearing: when run via
 /// `echo b64 | base64 -d | sh`, the inner sh's stdin is the pipe from
-/// base64. After exec, the new shell inherits that already-closed pipe and
-/// would immediately exit on EOF (printing "exit" and looping reconnect).
-/// Reopening stdin from /dev/tty restores the real PTY.
+/// base64. After exec, the new shell would inherit that already-closed pipe
+/// and immediately exit on EOF (printing "exit" and looping reconnect).
+/// Duplicating stderr — which still holds the pty file description sshd
+/// created — restores the real PTY.
+///
+/// Do NOT reopen by path (`</dev/tty`): that creates a *different* file
+/// description of the tty, and sudo's `use_pty` mode (default on modern
+/// Ubuntu/Debian) then fails to recognize the shell's stdin as the user's
+/// terminal. Input handling splits between sudo's pty relay and the command,
+/// and most keystrokes are silently lost inside `sudo -i` (a key had to be
+/// pressed several times for one to register). Same reasoning as the
+/// persistent wrapper's `<&2` (see `persistent_exec_command`).
 ///
 /// The temp file leaks intentionally — /tmp is cleared on reboot, and trying
 /// to rm it from inside the rcfile races with bash/zsh reading it.
 const SSH_WRAPPER: &str = r#"case "$(basename "${SHELL:-/bin/sh}")" in
 zsh)
-  ZDOTDIR_TMP=$(mktemp -d 2>/dev/null) || exec zsh -l -i </dev/tty
+  ZDOTDIR_TMP=$(mktemp -d 2>/dev/null) || exec zsh -l -i <&2
   export ZDOTDIR_ORIG="${ZDOTDIR:-$HOME}"
   cat > "$ZDOTDIR_TMP/.zshenv" <<'EOF'
 if [ -n "${ZDOTDIR_ORIG-}" ]; then ZDOTDIR="$ZDOTDIR_ORIG"; else unset ZDOTDIR; fi
@@ -191,14 +200,14 @@ typeset -ag precmd_functions
 (($precmd_functions[(I)__voltius_pwd])) || precmd_functions+=(__voltius_pwd)
 __voltius_pwd 2>/dev/null
 EOF
-  ZDOTDIR="$ZDOTDIR_TMP" exec zsh -l -i </dev/tty
+  ZDOTDIR="$ZDOTDIR_TMP" exec zsh -l -i <&2
   ;;
 fish)
-  exec fish -l -i </dev/tty
+  exec fish -l -i <&2
   ;;
 *)
   if command -v bash >/dev/null 2>&1; then
-  RCFILE_TMP=$(mktemp 2>/dev/null) || exec bash -l -i </dev/tty
+  RCFILE_TMP=$(mktemp 2>/dev/null) || exec bash -l -i <&2
   cat > "$RCFILE_TMP" <<'EOF'
 # Replicate bash's own startup so the session matches a normal interactive
 # login: --rcfile otherwise skips /etc/profile, /etc/bash.bashrc and the
@@ -218,18 +227,18 @@ case ";${PROMPT_COMMAND-};" in
 esac
 __voltius_pwd 2>/dev/null
 EOF
-  exec bash --rcfile "$RCFILE_TMP" -i </dev/tty
+  exec bash --rcfile "$RCFILE_TMP" -i <&2
   else
   # No bash on the remote (busybox/dash-only host). Hooking OSC 7 into a POSIX
   # sh via an $ENV file keeps integration working; without this branch the
   # `exec bash` above would fail with 127, the sh would exit, and the session
   # would loop disconnect/reconnect.
-  ENVF=$(mktemp 2>/dev/null) || exec sh -i </dev/tty
+  ENVF=$(mktemp 2>/dev/null) || exec sh -i <&2
   cat > "$ENVF" <<'EOF'
 __voltius_pwd() { printf '\033]7;file://%s%s\007' "${HOSTNAME:-}" "$PWD"; }
 PS1='$(__voltius_pwd)'"${PS1:-$ }"
 EOF
-  ENV="$ENVF" exec sh -i </dev/tty
+  ENV="$ENVF" exec sh -i <&2
   fi
   ;;
 esac
@@ -545,7 +554,7 @@ const WSL_WRAPPER: &str = r#"WSL_DISTRO_NAME="${WSL_DISTRO_NAME:-Linux}"
 export WSL_DISTRO_NAME
 case "$(basename "${SHELL:-/bin/sh}")" in
 zsh)
-  ZDOTDIR_TMP=$(mktemp -d 2>/dev/null) || exec zsh -i </dev/tty
+  ZDOTDIR_TMP=$(mktemp -d 2>/dev/null) || exec zsh -i <&2
   export ZDOTDIR_ORIG="${ZDOTDIR:-$HOME}"
   cat > "$ZDOTDIR_TMP/.zshenv" <<'EOF'
 if [ -n "${ZDOTDIR_ORIG-}" ]; then ZDOTDIR="$ZDOTDIR_ORIG"; else unset ZDOTDIR; fi
@@ -556,13 +565,13 @@ typeset -ag precmd_functions
 (($precmd_functions[(I)__voltius_pwd])) || precmd_functions+=(__voltius_pwd)
 __voltius_pwd 2>/dev/null
 EOF
-  ZDOTDIR="$ZDOTDIR_TMP" exec zsh -i </dev/tty
+  ZDOTDIR="$ZDOTDIR_TMP" exec zsh -i <&2
   ;;
 fish)
-  exec fish -i -C 'function __voltius_wsl_pwd --on-event fish_prompt; printf "\e]7;file://wsl.localhost/%s%s\a" "$WSL_DISTRO_NAME" "$PWD"; end' </dev/tty
+  exec fish -i -C 'function __voltius_wsl_pwd --on-event fish_prompt; printf "\e]7;file://wsl.localhost/%s%s\a" "$WSL_DISTRO_NAME" "$PWD"; end' <&2
   ;;
 *)
-  RCFILE_TMP=$(mktemp 2>/dev/null) || exec bash -i </dev/tty
+  RCFILE_TMP=$(mktemp 2>/dev/null) || exec bash -i <&2
   cat > "$RCFILE_TMP" <<'EOF'
 [ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc"
 __voltius_pwd() { printf '\e]7;file://wsl.localhost/%s%s\a' "$WSL_DISTRO_NAME" "$PWD"; }
@@ -572,7 +581,7 @@ case ";${PROMPT_COMMAND-};" in
 esac
 __voltius_pwd 2>/dev/null
 EOF
-  exec bash --rcfile "$RCFILE_TMP" -i </dev/tty
+  exec bash --rcfile "$RCFILE_TMP" -i <&2
   ;;
 esac
 "#;
