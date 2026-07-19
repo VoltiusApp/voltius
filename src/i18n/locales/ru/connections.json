@@ -38,6 +38,8 @@
       "sectionConnection": "Подключение",
       "sectionCredentials": "Учётные данные",
       "sectionIdentity": "Личность",
+      "sectionNotes": "Заметки",
+      "notesPlaceholder": "Напоминания, окна обслуживания, контекст команды… (синхронизируется с хостом)",
       "protocol": "Протокол",
       "protocolSsh": "SSH / SFTP",
       "protocolFtp": "FTP",
