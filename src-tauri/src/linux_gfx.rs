@@ -64,7 +64,7 @@ pub fn apply_startup_workarounds() {
     if appimage
         && env::var_os("WAYLAND_DISPLAY").is_some()
         && env::var_os(PRELOAD_GUARD).is_none()
-        && env::var_os("LD_PRELOAD").map_or(true, |v| v.is_empty())
+        && env::var_os("LD_PRELOAD").is_none_or(|v| v.is_empty())
     {
         if let Some(lib) = first_matching_lib(WAYLAND_CLIENT_CANDIDATES) {
             reexec_with_preload(&lib);
