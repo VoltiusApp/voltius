@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-07-19
+
+### Fixed
+
+- Auto port-forwarding no longer hijacks a local port that another process
+  already uses. On Windows, connecting to a Docker-published service on
+  `127.0.0.1` (e.g. MongoDB on `27017`) could reach Voltius's tunnel instead of
+  the real service; Voltius now detects the in-use port and falls back to the
+  next free one (#33)
+
 ## [0.9.2] - 2026-07-13
 
 ### Fixed
