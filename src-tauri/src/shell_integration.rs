@@ -864,4 +864,22 @@ mod tests {
 
         cleanup(&integration.tempfiles);
     }
+
+    #[test]
+    fn wrappers_reattach_pty_via_stderr_not_dev_tty() {
+        // Reopening the tty by path (`</dev/tty`) yields a *different* file
+        // description that sudo's `use_pty` relay fails to recognize, silently
+        // losing most keystrokes inside `sudo -i`. Duplicating stderr (`<&2`)
+        // keeps sshd's original pty fd. Mirrors `persistent_exec_command`.
+        for (name, wrapper) in [("SSH_WRAPPER", SSH_WRAPPER), ("WSL_WRAPPER", WSL_WRAPPER)] {
+            assert!(
+                wrapper.contains("<&2"),
+                "{name} must re-attach the pty via `<&2`"
+            );
+            assert!(
+                !wrapper.contains("</dev/tty"),
+                "{name} must not reopen the tty by path (`</dev/tty`) — it breaks sudo -i"
+            );
+        }
+    }
 }
