@@ -16,6 +16,10 @@
         "title": "Sélectionner pour copier",
         "desc": "Afficher un bouton de copie lorsqu'on sélectionne du texte dans un terminal."
       },
+      "ignoreBracketedPaste": {
+        "title": "Collage simple (sans collage entre crochets)",
+        "desc": "Coller en texte brut sans les marqueurs \\x1b[200~ / \\x1b[201~. Corrige un affichage corrompu (ex. « 200~ ») lors d'un collage dans un prompt sudo ou une application CLI qui ne prend pas en charge le collage entre crochets."
+      },
       "colorTheme": "Thème de couleurs",
       "import": "Importer",
       "importTitle": "Importer un ou plusieurs thèmes",
@@ -582,6 +586,7 @@
     "toggleDefs": {
       "scrollMinimap": { "label": "Minimap de défilement" },
       "selectToCopy": { "label": "Sélectionner pour copier" },
+      "ignoreBracketedPaste": { "label": "Collage simple (sans crochets)" },
       "autoForward": { "label": "Transfert de ports automatique" },
       "forwardingNotifications": { "label": "Notifications de transfert de ports" },
       "sftpTar": { "label": "Accélération Tar SFTP" },

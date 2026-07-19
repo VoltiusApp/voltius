@@ -12,6 +12,7 @@ import { serialWrite, onSerialOutput, onSerialClosed } from "@/services/serial";
 import { useThemeStore } from "@/stores/themeStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { getToggle, useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { matchShortcut } from "@/stores/shortcutStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
@@ -663,6 +664,10 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         theme: activeTheme.terminal,
         overviewRuler: { width: 4 },
         allowProposedApi: true,
+        // Some remote prompts/programs (e.g. sudo password entry) don't
+        // support bracketed paste and echo the \x1b[200~/201~ markers back
+        // literally, corrupting the buffer. Let users opt out entirely.
+        ignoreBracketedPasteMode: getToggle("ignore-bracketed-paste"),
       });
 
       const fitAddon = new FitAddon();
@@ -985,6 +990,15 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [sessionId, sessionType, encoding],
   );
+
+  // Live bracketed-paste toggle updates
+  useEffect(() => {
+    return useToggleSettingsStore.subscribe(() => {
+      const entry = terminalCache.get(sessionId);
+      if (!entry) return;
+      entry.terminal.options.ignoreBracketedPasteMode = getToggle("ignore-bracketed-paste");
+    });
+  }, [sessionId]);
 
   // Live theme updates
   useEffect(() => {
