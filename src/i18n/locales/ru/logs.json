@@ -1,0 +1,145 @@
+{
+  "logs": {
+    "gate": {
+      "noVaultSelected": {
+        "title": "Хранилище не выбрано",
+        "description": "Выберите одно хранилище для просмотра журнала аудита."
+      },
+      "restricted": {
+        "title": "Доступ ограничен",
+        "description": "Для доступа к этой странице требуется разрешение \"Просмотр журнала аудита\"."
+      }
+    },
+    "filters": {
+      "searchPlaceholder": "Фильтр журнала...",
+      "allActors": "Все участники",
+      "fromDate": "С даты",
+      "toDate": "По дату",
+      "dateRangeSeparator": "по",
+      "reset": "Сбросить",
+      "actionOptions": {
+        "all": "Все действия",
+        "memberInvited": "Участник приглашён",
+        "memberJoined": "Участник присоединился",
+        "memberRemoved": "Участник удалён",
+        "memberRoleChanged": "Роль изменена",
+        "connectionCreated": "Хост создан",
+        "connectionUpdated": "Хост обновлён",
+        "connectionDeleted": "Хост удалён",
+        "identityCreated": "Личность создана",
+        "identityUpdated": "Личность обновлена",
+        "identityDeleted": "Личность удалена",
+        "keyCreated": "Ключ создан",
+        "keyUpdated": "Ключ обновлён",
+        "keyDeleted": "Ключ удалён",
+        "snippetCreated": "Сниппет создан",
+        "snippetUpdated": "Сниппет обновлён",
+        "snippetDeleted": "Сниппет удалён",
+        "folderCreated": "Папка создана",
+        "folderUpdated": "Папка обновлена",
+        "folderDeleted": "Папка удалена",
+        "portForwardCreated": "Проброс портов создан",
+        "portForwardUpdated": "Проброс портов обновлён",
+        "portForwardDeleted": "Проброс портов удалён",
+        "vaultRenamed": "Хранилище переименовано",
+        "vaultKeyRotated": "Ротация ключа хранилища",
+        "roleCreated": "Роль создана",
+        "roleUpdated": "Роль обновлена",
+        "roleDeleted": "Роль удалена",
+        "connectionStarted": "Подключение начато",
+        "connectionEnded": "Подключение завершено",
+        "secretViewed": "Секрет раскрыт",
+        "sessionStarted": "Сессия начата",
+        "sessionEnded": "Сессия завершена",
+        "sessionJoined": "Присоединение к сессии"
+      }
+    },
+    "timeRange": {
+      "lastDay": "Последние 24 часа",
+      "lastWeek": "Последняя неделя",
+      "lastMonth": "Последние 30 дней",
+      "all": "Всё время",
+      "custom": "Произвольный период"
+    },
+    "layout": {
+      "timeline": "Хронология",
+      "horizontal": "Визуально",
+      "list": "Список"
+    },
+    "export": {
+      "button": "Экспорт",
+      "failed": "Ошибка экспорта"
+    },
+    "badges": {
+      "client": "клиент",
+      "clientTooltip": "Сообщено клиентским приложением — не является авторитетным источником"
+    },
+    "eventLabels": {
+      "memberInvited": "пригласил(а) {{name}}",
+      "memberJoined": "присоединился(лась) к команде как {{role}}",
+      "memberRemoved": "удалил(а) {{name}}",
+      "memberRoleChanged": "изменил(а) роль для {{name}}",
+      "vaultCreated": "создал(а) хранилище \"{{name}}\"",
+      "vaultDeleted": "удалил(а) хранилище \"{{name}}\"",
+      "vaultRenamed": "переименовал(а) хранилище в \"{{name}}\"",
+      "vaultKeyRotated": "выполнил(а) ротацию ключа хранилища \"{{name}}\"",
+      "roleCreated": "создал(а) роль \"{{name}}\"",
+      "roleUpdated": "обновил(а) роль \"{{name}}\"",
+      "roleDeleted": "удалил(а) роль \"{{name}}\"",
+      "permissionGranted": "предоставил(а) разрешение на {{name}}",
+      "permissionRevoked": "отозвал(а) разрешение на {{name}}",
+      "connectionCreated": "создал(а) хост \"{{name}}\"",
+      "connectionUpdated": "обновил(а) хост \"{{name}}\"",
+      "connectionDeleted": "удалил(а) хост \"{{name}}\"",
+      "connectionStarted": "подключился(лась) к {{name}}",
+      "connectionEnded": "отключился(лась) от {{name}}",
+      "identityCreated": "создал(а) личность \"{{name}}\"",
+      "identityUpdated": "обновил(а) личность \"{{name}}\"",
+      "identityDeleted": "удалил(а) личность \"{{name}}\"",
+      "keyCreated": "создал(а) ключ \"{{name}}\"",
+      "keyUpdated": "обновил(а) ключ \"{{name}}\"",
+      "keyDeleted": "удалил(а) ключ \"{{name}}\"",
+      "snippetCreated": "создал(а) сниппет \"{{name}}\"",
+      "snippetUpdated": "обновил(а) сниппет \"{{name}}\"",
+      "snippetDeleted": "удалил(а) сниппет \"{{name}}\"",
+      "folderCreated": "создал(а) папку \"{{name}}\"",
+      "folderUpdated": "обновил(а) папку \"{{name}}\"",
+      "folderDeleted": "удалил(а) папку \"{{name}}\"",
+      "portForwardCreated": "создал(а) правило проброса портов \"{{name}}\"",
+      "portForwardUpdated": "обновил(а) правило проброса портов \"{{name}}\"",
+      "portForwardDeleted": "удалил(а) правило проброса портов \"{{name}}\"",
+      "secretViewed": "раскрыл(а) секрет \"{{name}}\"",
+      "sessionStarted": "начал(а) сессию терминала",
+      "sessionEnded": "завершил(а) сессию терминала",
+      "sessionJoined": "присоединился(лась) к сессии терминала",
+      "sessionLeft": "покинул(а) сессию терминала",
+      "fallbackUser": "пользователь",
+      "fallbackMember": "участник",
+      "fallbackRole": "участник",
+      "fallbackResource": "ресурс",
+      "fallbackHost": "хост"
+    },
+    "timeline": {
+      "today": "Сегодня",
+      "yesterday": "Вчера",
+      "weekOf": "Неделя {{date}}"
+    },
+    "list": {
+      "columns": {
+        "actor": "Участник",
+        "action": "Действие",
+        "target": "Объект",
+        "time": "Время"
+      }
+    },
+    "pagination": {
+      "prev": "Назад",
+      "next": "Далее",
+      "pageOf": "Страница {{page}} / {{totalPages}}"
+    },
+    "emptyState": "Нет событий, соответствующих вашим фильтрам.",
+    "error": {
+      "retry": "Повторить"
+    }
+  }
+}

@@ -1,3 +1,4 @@
+mod bind;
 pub mod poller;
 pub mod socks;
 pub mod tunnel;

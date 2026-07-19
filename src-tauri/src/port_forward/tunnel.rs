@@ -3,7 +3,7 @@ use russh::ChannelMsg;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::TcpStream;
 use tokio_util::sync::CancellationToken;
 
 /// Bind a local TCP listener and spawn an accept loop.
@@ -21,7 +21,7 @@ pub async fn create_tunnel(
 
     for offset in 0..5u16 {
         let try_port = local_port.saturating_add(offset);
-        if let Ok(l) = TcpListener::bind(format!("127.0.0.1:{try_port}")).await {
+        if let Ok(l) = crate::port_forward::bind::bind_loopback(try_port).await {
             bound_port = try_port;
             listener = Some(l);
             break;

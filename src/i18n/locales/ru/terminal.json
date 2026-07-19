@@ -1,0 +1,264 @@
+{
+  "terminal": {
+    "shared": {
+      "copied": "Скопировано",
+      "insert": "Вставить",
+      "insertAndExecute": "Вставить и выполнить",
+      "noActiveSession": "Нет активной сессии"
+    },
+    "historyPanel": {
+      "relativeTime": {
+        "justNow": "только что",
+        "secondsAgo": "{{count}} сек назад",
+        "minutesAgo": "{{count}} мин назад",
+        "hoursAgo": "{{count}} ч назад",
+        "daysAgo": "{{count}} дн назад"
+      },
+      "removeFromHistory": "Удалить из истории",
+      "searchPlaceholder": "Поиск в истории…",
+      "showCurrentOnly": "Показано только текущее подключение",
+      "showAllConnections": "Показать все подключения",
+      "clearAllTitle": "Очистить всю историю",
+      "noCommandsMatch": "Нет подходящих команд",
+      "noHistoryForConnection": "Для этого подключения пока нет истории",
+      "noHistoryYet": "История команд пока пуста.\nВведённые команды будут отображаться здесь."
+    },
+    "multiplayerBar": {
+      "ended": "Завершено",
+      "sharing": "Совместный доступ",
+      "watching": "Просмотр",
+      "requestControl": "Запросить управление",
+      "youHaveControl": "Управление у вас",
+      "controlRequested": "Запрошено управление",
+      "grant": "Разрешить",
+      "deny": "Отклонить",
+      "revoke": "Отозвать",
+      "stopSharingTitle": "Остановить совместный доступ",
+      "leaveSessionTitle": "Покинуть сессию",
+      "stop": "Остановить",
+      "leave": "Покинуть"
+    },
+    "sftp": {
+      "hostLabel": {
+        "remote": "удалённый",
+        "localMachine": "Локальная машина"
+      },
+      "uploadDialogTitle": "Выберите файлы для загрузки",
+      "downloadDialogTitle": "Скачать в папку",
+      "waitingForSession": "Ожидание сессии",
+      "connecting": "Подключение…",
+      "notSupportedForSessionType": "SFTP не поддерживается для этого типа сессии",
+      "followPinned": "Следует за рабочей директорией терминала · нажмите, чтобы открепить",
+      "followWaiting": "Следует за рабочей директорией терминала · ожидание данных от оболочки (требуется интеграция с оболочкой)",
+      "followTitle": "Следовать за рабочей директорией терминала",
+      "uploadFiles": "Загрузить файлы",
+      "downloadTitle_one": "Скачать «{{name}}»",
+      "downloadTitle_few": "Скачать {{count}} элемента",
+      "downloadTitle_many": "Скачать {{count}} элементов",
+      "downloadTitle_other": "Скачать {{count}} элементов",
+      "selectFilesToDownload": "Выберите файлы для скачивания",
+      "viewOptions": "Параметры отображения",
+      "moreOptions": "Дополнительные параметры"
+    },
+    "ports": {
+      "badge": {
+        "auto": "Авто",
+        "adHoc": "Разовый"
+      },
+      "pauseForwarding": "Приостановить проброс",
+      "resumeForwarding": "Возобновить проброс",
+      "saveAsRule": "Сохранить как правило",
+      "copyAddress": "Копировать localhost:{{port}}",
+      "openUrl": "Открыть {{url}}",
+      "sshRequired": "Проброс портов требует SSH-сессию.",
+      "empty": "Нет проброшенных портов. Порты, обнаруженные на удалённом хосте, появятся здесь автоматически.",
+      "sectionSaved": "СОХРАНЁННЫЕ",
+      "sectionActive": "АКТИВНЫЕ",
+      "sectionSuppressed": "СКРЫТЫЕ",
+      "header": {
+        "title": "Порты",
+        "activeCount": "{{count}} активно",
+        "addTitle": "Пробросить порт"
+      },
+      "quickForwardPlaceholder": "Пробросить порт (например, 3000 или 3000:8080)",
+      "quickForwardErrors": {
+        "emptyInput": "Введите порт",
+        "tooManyParts": "Используйте формат «порт» или «удалённый:локальный»",
+        "invalidRemotePort": "Порт должен быть от 1 до 65535",
+        "invalidLocalPort": "Локальный порт должен быть от 1 до 65535"
+      }
+    },
+    "rightPanel": {
+      "font": "Шрифт",
+      "themes": "Темы",
+      "themeActive": "∞ активна",
+      "themeBuiltin": "встроенная",
+      "themeCustom": "пользовательская",
+      "createNewTheme": "Создать новую тему",
+      "closePanelTitle": "Закрыть панель",
+      "sections": {
+        "history": "История",
+        "sftp": "SFTP"
+      }
+    },
+    "share": {
+      "signInToShare": "Войти, чтобы поделиться",
+      "signInDescription": "Подключите серверную учётную запись, чтобы делиться терминалом с командой.",
+      "signInButton": "Войти / Зарегистрироваться",
+      "proRequired": "Требуется Pro",
+      "proRequiredDescription": "Совместный доступ к терминалу доступен начиная с тарифа Pro.",
+      "features": [
+        "1 сессия по ссылке-приглашению · 1 участник",
+        "Синхронизация в реальном времени",
+        "Teams: 5 сессий · 10 участников + общие хранилища"
+      ],
+      "upgradeToPro": "Перейти на Pro",
+      "shareTerminal": "Поделиться терминалом",
+      "sessionNamePlaceholder": "Название сессии…",
+      "tabTeam": "Команда",
+      "tabInviteLink": "Ссылка-приглашение",
+      "sessionLimitReached": "Достигнут лимит сессий для вашего тарифа.",
+      "failedToShare": "Не удалось предоставить доступ",
+      "failedToGenerateLink": "Не удалось создать ссылку",
+      "noVaultsCreateTeamFirst": "Нет хранилищ — сначала создайте команду",
+      "allRoles": "все роли",
+      "startSharingWithVault_one": "Начать доступ с {{count}} хранилищем",
+      "startSharingWithVault_few": "Начать доступ с {{count}} хранилищами",
+      "startSharingWithVault_many": "Начать доступ с {{count}} хранилищами",
+      "startSharingWithVault_other": "Начать доступ с {{count}} хранилищами",
+      "selectVaultToShare": "Выберите хранилище для доступа",
+      "shareCodeDescription": "Поделитесь этим кодом — любой, у кого он есть, сможет присоединиться:",
+      "generateLinkDescription": "Создайте одноразовую ссылку. Присоединиться сможет любой пользователь с аккаунтом Voltius.",
+      "generateInviteLink": "Создать ссылку-приглашение",
+      "upToParticipants_one": "Максимум {{count}} участник",
+      "upToParticipants_few": "Максимум {{count}} участника",
+      "upToParticipants_many": "Максимум {{count}} участников",
+      "upToParticipants_other": "Максимум {{count}} участников",
+      "upgradeToTeamsForParticipants": "Перейти на Teams — 10 участников + общие хранилища",
+      "live": "В эфире",
+      "participantsRatio_one": "{{participantCount}} / {{guestCap}} участник",
+      "participantsRatio_few": "{{participantCount}} / {{guestCap}} участника",
+      "participantsRatio_many": "{{participantCount}} / {{guestCap}} участников",
+      "participantsRatio_other": "{{participantCount}} / {{guestCap}} участников",
+      "upgradeToTeams": "Перейти на Teams",
+      "upgradeToBusiness": "Перейти на Business",
+      "hasControl": "Управляет",
+      "stopSharing": "Остановить совместный доступ"
+    },
+    "snippetVariableModal": {
+      "on": "Вкл",
+      "off": "Выкл",
+      "masked": "скрыто",
+      "preview": "Просмотр",
+      "execute": "Выполнить"
+    },
+    "snippets": {
+      "renameFolder": "Переименовать папку",
+      "newFolder": "Новая папка",
+      "folderNamePlaceholder": "Название папки",
+      "notRelevantForConnection": "Не относится к текущему подключению",
+      "removeFromFavorites": "Убрать из избранного",
+      "addToFavorites": "Добавить в избранное",
+      "duplicate": "Дублировать",
+      "moveToFolder": "Переместить в папку",
+      "back": "Назад",
+      "unfiled": "Без папки",
+      "searchPlaceholder": "Поиск сниппетов…",
+      "newSnippetTitle": "Новый сниппет",
+      "favorites": "Избранное",
+      "recent": "Недавние",
+      "noSnippetsMatch": "Нет подходящих сниппетов",
+      "noSnippetsYet": "Пока нет сниппетов.\nНажмите +, чтобы создать."
+    },
+    "search": {
+      "placeholder": "Найти",
+      "invalid": "Некорректно",
+      "noResults": "Нет результатов",
+      "resultCounter": "{{index}} из {{count}}",
+      "matchCase": "Учитывать регистр (Alt+C)",
+      "matchWholeWord": "Слово целиком (Alt+W)",
+      "useRegex": "Регулярное выражение (Alt+R)",
+      "previousMatch": "Предыдущее совпадение (Shift+Enter)",
+      "nextMatch": "Следующее совпадение (Enter)",
+      "closeTitle": "Закрыть (Escape)"
+    },
+    "overlay": {
+      "continue": "Продолжить",
+      "connectAndSave": "Подключиться и сохранить",
+      "continueAndSave": "Продолжить и сохранить",
+      "steps": {
+        "tcpConnection": "TCP-подключение",
+        "sshHandshake": "SSH-рукопожатие",
+        "authenticating": "Аутентификация",
+        "openingShell": "Открытие оболочки",
+        "sftpSubsystem": "Подсистема SFTP",
+        "openingPort": "Открытие порта",
+        "ready": "Готово"
+      },
+      "connectionLost": {
+        "title": "Соединение потеряно",
+        "subtitle": "Переподключение…"
+      },
+      "connectionError": {
+        "title": "Ошибка подключения",
+        "retry": "Повторить",
+        "dismiss": "Закрыть"
+      },
+      "hostKeyConflict": {
+        "title": "КЛЮЧ ХОСТА ИЗМЕНЁН",
+        "descriptionPrefix": "Отпечаток ",
+        "descriptionSuffix": " изменился.",
+        "replace": "Заменить",
+        "addAsNew": "Добавить как новый",
+        "abort": "Прервать",
+        "stored": "Сохранённый",
+        "received": "Полученный"
+      },
+      "passphrasePrompt": {
+        "title": "ТРЕБУЕТСЯ КОДОВАЯ ФРАЗА КЛЮЧА",
+        "description": "Этот ключ зашифрован. Введите кодовую фразу, чтобы продолжить.",
+        "placeholder": "Кодовая фраза"
+      },
+      "usernamePrompt": {
+        "title": "ТРЕБУЕТСЯ ИМЯ ПОЛЬЗОВАТЕЛЯ",
+        "description": "Для этого хоста не задано имя пользователя. Введите его или выберите личность, чтобы продолжить.",
+        "placeholder": "root"
+      },
+      "authPrompt": {
+        "title": "ТРЕБУЕТСЯ АУТЕНТИФИКАЦИЯ",
+        "description": "Для этого хоста не задан метод аутентификации. Выберите один, чтобы продолжить.",
+        "modePassword": "Пароль",
+        "modeKey": "Ключ",
+        "modeIdentity": "Личность",
+        "passwordPlaceholder": "Пароль",
+        "keyPassphrasePlaceholder": "Кодовая фраза ключа (необязательно)"
+      }
+    },
+    "statusBar": {
+      "badge": {
+        "ssh": "SSH",
+        "serial": "SERIAL",
+        "local": "LOCAL"
+      },
+      "localSystemFallback": "Локальная система",
+      "serialFallback": "последовательный",
+      "pingUp": "Работает · {{ms}}мс",
+      "pingDown": "Недоступно",
+      "pingUnknown": "Неизвестно",
+      "copyLabel": "Копировать {{text}}",
+      "openPortsPanel": "Открыть панель портов",
+      "reconnectTitle": "Переподключиться",
+      "systemMetricsTitle": "Системные метрики",
+      "activeTunnels_one": "{{count}} активный туннель",
+      "activeTunnels_few": "{{count}} активных туннеля",
+      "activeTunnels_many": "{{count}} активных туннелей",
+      "activeTunnels_other": "{{count}} активных туннелей",
+      "cpu": "CPU {{pct}}%",
+      "copiedBang": "Скопировано!",
+      "loadingEllipsis": "загрузка…",
+      "sparklineMin": "мин {{value}}мс",
+      "sparklineAvg": "сред {{value}}мс",
+      "sparklineMax": "макс {{value}}мс"
+    }
+  }
+}
