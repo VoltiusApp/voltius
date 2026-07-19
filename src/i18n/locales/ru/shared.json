@@ -1,0 +1,115 @@
+{
+  "shared": {
+    "errorBanner": {
+      "dismiss": "скрыть"
+    },
+    "trialExpiredModal": {
+      "title": "Пробный период Pro закончился",
+      "body": "У вас было 14 дней, чтобы попробовать Pro — надеемся, это было полезно. Перейдите на Pro, чтобы сохранить синхронизацию в реальном времени и облачные функции.",
+      "upgradeButton": "Перейти на Pro",
+      "laterButton": "Может быть позже"
+    },
+    "createVaultModal": {
+      "title": "Новое хранилище",
+      "subtitle": "Хранилища помогают упорядочить ваши учётные данные",
+      "nameLabel": "Название хранилища",
+      "namePlaceholder": "например, Работа, Личное, Staging…",
+      "createButton": "Создать хранилище"
+    },
+    "vaultCascadeModal": {
+      "headingMove": "Переместить связанные элементы в",
+      "headingCopy": "Скопировать связанные элементы в",
+      "fallbackDescriptionMoved": "Следующие связанные элементы находятся в другом хранилище и также будут перемещены:",
+      "fallbackDescriptionCopied": "Следующие связанные элементы находятся в другом хранилище и также будут скопированы:",
+      "confirmMove": "Переместить все",
+      "confirmCopy": "Копировать все",
+      "typeLabel": {
+        "identity": "Личность",
+        "key": "SSH-ключ"
+      }
+    },
+    "formSelect": {
+      "title": "Выбрать"
+    },
+    "folderSelector": {
+      "noFolder": "Без папки",
+      "namePlaceholder": "Название папки",
+      "newFolder": "Новая папка"
+    },
+    "tagSelector": {
+      "placeholder": "Добавить теги…",
+      "removeTag": "Удалить тег {{tag}}"
+    },
+    "portInput": {
+      "placeholder": "/dev/ttyUSB0 или COM3"
+    },
+    "avatarStack": {
+      "participantCount_one": "{{count}} участник",
+      "participantCount_few": "{{count}} участника",
+      "participantCount_many": "{{count}} участников",
+      "participantCount_other": "{{count}} участников"
+    },
+    "panel": {
+      "saveState": {
+        "dirty": "Редактирование...",
+        "saving": "Сохранение...",
+        "saved": "Сохранено"
+      }
+    },
+    "vaultPicker": {
+      "memberBadge": "участник"
+    },
+    "pickers": {
+      "thisComputer": "Этот компьютер"
+    },
+    "sessionPicker": {
+      "insertTitle": "Вставить в...",
+      "executeTitle": "Выполнить в...",
+      "insertConfirm_one": "Вставить в {{count}} цель",
+      "insertConfirm_few": "Вставить в {{count}} цели",
+      "insertConfirm_many": "Вставить в {{count}} целей",
+      "insertConfirm_other": "Вставить в {{count}} целей",
+      "executeConfirm_one": "Выполнить в {{count}} цели",
+      "executeConfirm_few": "Выполнить в {{count}} целях",
+      "executeConfirm_many": "Выполнить в {{count}} целях",
+      "executeConfirm_other": "Выполнить в {{count}} целях",
+      "noActiveSessions": "Нет активных сессий",
+      "activeSessionsHeader": "Активные сессии",
+      "openNewConnectionHeader": "Открыть новое подключение",
+      "localShellFallbackName": "Локальная оболочка",
+      "sshSessionSub": "SSH-сессия",
+      "noRemoteHostsFound": "Удалённые хосты не найдены",
+      "noHostsFound": "Хосты не найдены"
+    },
+    "hostPicker": {
+      "selectHostTitle": "Выбрать хост",
+      "newHostButton": "НОВЫЙ ХОСТ",
+      "filterPlaceholder": "Фильтр хостов...",
+      "localMachineName": "Локальная машина",
+      "wslSub": "WSL",
+      "noHostsConfigured": "Нет настроенных хостов",
+      "noHostsMatch": "Нет подходящих хостов"
+    },
+    "sort": {
+      "nameAsc": "А → Я",
+      "nameDesc": "Я → А",
+      "newest": "Сначала новые",
+      "oldest": "Сначала старые"
+    },
+    "tagFilter": {
+      "filterByTag": "Фильтр по тегу",
+      "emptyTitle": "Добавьте теги",
+      "emptyDescription": "Теги помогают фильтровать хосты. Тег можно добавить при редактировании хоста.",
+      "searchPlaceholder": "Фильтр тегов...",
+      "clearSelection": "Очистить выбор ({{count}})",
+      "noTagsMatch": "Нет тегов, соответствующих \"{{search}}\"",
+      "deleteTagTitle": "Удалить тег \"{{tag}}\"?",
+      "deleteTagBody_one": "Тег будет удалён у {{count}} хоста. Сами хосты удалены не будут.",
+      "deleteTagBody_few": "Тег будет удалён у {{count}} хостов. Сами хосты удалены не будут.",
+      "deleteTagBody_many": "Тег будет удалён у {{count}} хостов. Сами хосты удалены не будут.",
+      "deleteTagBody_other": "Тег будет удалён у {{count}} хостов. Сами хосты удалены не будут.",
+      "renameTagTitle": "Переименовать тег",
+      "deleteTagButtonTitle": "Удалить тег"
+    }
+  }
+}

@@ -7,6 +7,17 @@
 name: publish-installers
 
 on:
+  # Called by tag-release.yml after a release is built and published. The
+  # `release: published` event does NOT fire here on its own, because that
+  # release is created by the default GITHUB_TOKEN and GitHub suppresses
+  # workflow triggers from token-authored events (anti-recursion). This
+  # workflow_call path is how new releases actually reach Homebrew/winget.
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Release tag to publish (e.g. v0.4.0)'
+        required: true
+        type: string
   release:
     types: [published]
   workflow_dispatch:
@@ -43,6 +54,11 @@ jobs:
           cat out/Casks/voltius.rb
 
       - name: Audit cask
+        # brew audit --online calls the GitHub API; without a token it uses the
+        # unauthenticated 60 req/hr limit and flakes ("API rate limit exceeded")
+        # on back-to-back runs. The default token lifts this to 5000/hr.
+        env:
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           brew style out/Casks/voltius.rb
           brew tap-new voltiusapp/voltius --no-git
@@ -85,3 +101,8 @@ jobs:
           release-tag: ${{ steps.tag.outputs.tag }}
           installers-regex: '_(x64|arm64)-setup\.exe$'
           token: ${{ secrets.WINGET_PKGS_TOKEN }}
+          # The winget-pkgs fork lives under the token account (kipavy), not
+          # the org that owns this repo. Without this, komac defaults
+          # KOMAC_FORK_OWNER to github.repository_owner (VoltiusApp) and fails
+          # with "Could not resolve to a Repository VoltiusApp/winget-pkgs".
+          fork-user: kipavy

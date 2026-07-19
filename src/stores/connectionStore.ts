@@ -57,6 +57,7 @@ export function connectionToFormData(c: Connection): ConnectionFormData {
     connection_type: c.connection_type, serial_port: c.serial_port, serial_baud: c.serial_baud,
     serial_data_bits: c.serial_data_bits, serial_parity: c.serial_parity, serial_stop_bits: c.serial_stop_bits,
     serial_flow_control: c.serial_flow_control, ftp_secure: c.ftp_secure,
+    notes: c.notes,
   };
 }
 
@@ -138,6 +139,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         serial_stop_bits: data.serial_stop_bits,
         serial_flow_control: data.serial_flow_control,
         ftp_secure: data.ftp_secure,
+        notes: data.notes,
         created_at: now,
         updated_at: now,
         last_used_at: null,
@@ -223,6 +225,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         serial_stop_bits: data.serial_stop_bits ?? prev.serial_stop_bits,
         serial_flow_control: data.serial_flow_control ?? prev.serial_flow_control,
         ftp_secure: data.ftp_secure ?? prev.ftp_secure,
+        notes: data.notes,
         ping_disabled: data.ping_disabled,
         shell_integration_disabled: data.shell_integration_disabled,
         keepalive_preset: data.keepalive_preset,
@@ -298,6 +301,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
           serial_stop_bits: data.serial_stop_bits ?? prev.serial_stop_bits,
           serial_flow_control: data.serial_flow_control ?? prev.serial_flow_control,
         ftp_secure: data.ftp_secure ?? prev.ftp_secure,
+          notes: data.notes,
           ping_disabled: data.ping_disabled,
           shell_integration_disabled: data.shell_integration_disabled,
           keepalive_preset: data.keepalive_preset,

@@ -69,3 +69,14 @@ jobs:
     with:
       tag: ${{ needs.tag.outputs.tag }}
     secrets: inherit
+
+  # Publish Homebrew cask + winget manifest once the release and its assets
+  # exist. Called explicitly here rather than via `release: published`, which
+  # never fires for a GITHUB_TOKEN-authored release (see publish-installers.yml).
+  publish-installers:
+    needs: [tag, release]
+    if: needs.tag.outputs.created == 'true'
+    uses: ./.github/workflows/publish-installers.yml
+    with:
+      tag: ${{ needs.tag.outputs.tag }}
+    secrets: inherit

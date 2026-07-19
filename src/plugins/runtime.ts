@@ -411,6 +411,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           tags: data.tags ?? conn.tags,
           identity_id: data.identity_id ?? conn.identity_id,
           jump_hosts: data.jump_hosts !== undefined ? data.jump_hosts : conn.jump_hosts,
+          notes: conn.notes, // plugins can't set notes; never wipe the user's
         });
         await useConnectionStore.getState().loadConnections();
       },

@@ -1,0 +1,100 @@
+{
+  "themeCreator": {
+    "header": {
+      "editTheme": "Изменить тему",
+      "newTheme": "Новая тема",
+      "pickTooltip": "Выберите элемент, чтобы посмотреть его CSS-переменные"
+    },
+    "font": {
+      "customLabel": "Свой шрифт…",
+      "customPlaceholder": "'My Font', monospace",
+      "customHint": "Нажмите Enter, чтобы применить"
+    },
+    "varSearch": {
+      "usage_one": "{{count}} элемент использует",
+      "usage_few": "{{count}} элемента используют",
+      "usage_many": "{{count}} элементов используют",
+      "usage_other": "{{count}} элементов используют",
+      "suffix": "или нажмите, чтобы закрыть"
+    },
+    "pickOverlay": {
+      "prefix": "Нажмите на любой элемент —",
+      "suffix": "чтобы отменить"
+    },
+    "escKey": "Esc",
+    "editor": {
+      "general": "Общие",
+      "name": "Название",
+      "appFont": "Шрифт приложения",
+      "family": "Семейство",
+      "sizePx": "Размер (px)",
+      "terminalFont": "Шрифт терминала",
+      "highlightUsing": "Подсветить элементы, использующие {{varName}}"
+    },
+    "groups": {
+      "backgrounds": "Фоны",
+      "borders": "Границы",
+      "text": "Текст",
+      "accentAndTabs": "Акцент и вкладки",
+      "vaultTabs": "Вкладки хранилищ",
+      "status": "Статус",
+      "other": "Прочее",
+      "terminalBase": "Базовые цвета терминала",
+      "ansiColors": "Цвета ANSI",
+      "brightAnsiColors": "Яркие цвета ANSI"
+    },
+    "fields": {
+      "bgTerminal": "Терминал / Заголовок окна",
+      "bgStatusBar": "Строка состояния",
+      "bgBase": "Базовый фон",
+      "bgToolbar": "Панель инструментов",
+      "bgCard": "Карточки",
+      "bgCardHover": "Карточки (наведение)",
+      "bgCardAvatar": "Аватар карточки",
+      "bgInput": "Поля ввода",
+      "bgInputHover": "Поля ввода (наведение)",
+      "bgElevated": "Приподнятое / Наведение",
+      "bgModal": "Модальное окно / Панель",
+      "border": "Граница",
+      "borderHover": "Граница (наведение)",
+      "textDim": "Текст приглушённый",
+      "textMuted": "Текст неактивный",
+      "textSecondary": "Текст вторичный",
+      "textPrimary": "Текст основной",
+      "textBright": "Текст яркий",
+      "accent": "Акцент",
+      "accentHover": "Акцент (наведение)",
+      "tabBg": "Фон вкладки",
+      "tabActiveBg": "Фон активной вкладки",
+      "tabActiveText": "Текст активной вкладки",
+      "tabActiveBorder": "Граница активной вкладки",
+      "vaultTabBg": "Фон вкладки хранилища",
+      "vaultTabActiveBg": "Фон активной вкладки хранилища",
+      "statusConnected": "Подключено",
+      "statusError": "Ошибка",
+      "statusConnecting": "Подключение",
+      "statusWarning": "Предупреждение",
+      "textNotice": "Текст уведомления",
+      "background": "Фон",
+      "foreground": "Передний план",
+      "cursor": "Курсор",
+      "selectionBackground": "Выделение",
+      "black": "Чёрный",
+      "red": "Красный",
+      "green": "Зелёный",
+      "yellow": "Жёлтый",
+      "blue": "Синий",
+      "magenta": "Пурпурный",
+      "cyan": "Голубой",
+      "white": "Белый",
+      "brightBlack": "Ярко-чёрный",
+      "brightRed": "Ярко-красный",
+      "brightGreen": "Ярко-зелёный",
+      "brightYellow": "Ярко-жёлтый",
+      "brightBlue": "Ярко-синий",
+      "brightMagenta": "Ярко-пурпурный",
+      "brightCyan": "Ярко-голубой",
+      "brightWhite": "Ярко-белый"
+    }
+  }
+}

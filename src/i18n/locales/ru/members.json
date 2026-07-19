@@ -1,0 +1,127 @@
+{
+  "members": {
+    "roles": "Роли",
+    "info": "Информация",
+    "memberSince": "Участник с",
+    "invitedBy": "Кем приглашён",
+    "dangerZone": "Опасная зона",
+    "confirmRemoval": "Нажмите ещё раз для подтверждения удаления",
+    "removeFromTeam": "Удалить из команды",
+    "newRole": "Новая роль",
+    "you": "Вы",
+    "youBadge": "вы",
+    "kick": "Исключить",
+    "morePermissions": "+{{count}} ещё",
+    "noRole": "Без роли",
+    "noRoleAddPrompt": "Без роли · Добавить →",
+    "ownerRoleLabel": "владелец",
+    "count_one": "{{count}} участник",
+    "count_few": "{{count}} участника",
+    "count_many": "{{count}} участников",
+    "count_other": "{{count}} участников",
+    "loading": "Загрузка участников…",
+    "noMatch": "Нет участников, соответствующих \"{{search}}\"",
+    "revokeInvitationTitle": "Отозвать приглашение",
+    "pendingBadge": "Ожидает",
+    "openInSettingsVaults": "Открыть в Настройки › Хранилища",
+    "toolbar": {
+      "filterPlaceholder": "Фильтр участников…",
+      "sortByRole": "По роли",
+      "selectedCount": "Выбрано: {{count}}",
+      "inviteBtn": "Пригласить",
+      "clear": "Очистить"
+    },
+    "heading": {
+      "members": "Участники",
+      "pendingInvitations": "Ожидающие приглашения"
+    },
+    "permission": {
+      "VIEW_SECRETS": "Просмотр секретов",
+      "COPY_SECRETS": "Копирование секретов",
+      "CONNECT": "Подключение",
+      "EDIT_CONNECTIONS": "Редактирование подключений",
+      "EDIT_IDENTITIES": "Редактирование личностей",
+      "EDIT_KEYS": "Редактирование ключей",
+      "EDIT_SNIPPETS": "Редактирование сниппетов",
+      "EDIT_FOLDERS": "Редактирование папок",
+      "VIEW_AUDIT_LOG": "Просмотр журнала аудита",
+      "INVITE_MEMBERS": "Приглашение участников",
+      "MANAGE_MEMBERS": "Управление участниками",
+      "CREATE_CUSTOM_ROLES": "Управление ролями (устаревшее)",
+      "MANAGE_ROLES": "Управление ролями",
+      "MANAGE_VAULT": "Управление хранилищем",
+      "START_TERMINAL_SESSION": "Запуск сессий",
+      "JOIN_TERMINAL_SESSION": "Присоединение к сессиям",
+      "VIEW_TERMINAL_SESSIONS": "Просмотр сессий"
+    },
+    "invite": {
+      "title": "Пригласить участника",
+      "seatsLabel": "Места",
+      "seatsSummary": "{{used}} использовано · {{available}} доступно · {{total}} всего",
+      "buySeats": "Купить места",
+      "initialRoles": "Начальные роли",
+      "initialRole": "Начальная роль",
+      "searchOrEmailLabel": "Поиск или ввод email",
+      "searchByEmailLabel": "Поиск по email",
+      "searchByEmailPlaceholder": "Поиск по email…",
+      "addWithRole": "Добавить ({{role}})",
+      "addAsRole": "Добавить как {{role}}",
+      "noRoleFallback": "без роли",
+      "sendInviteLabel": "Отправить приглашение",
+      "inviteArrow": "Пригласить →"
+    },
+    "toast": {
+      "removingRoleFrom": "Удаление роли {{role}} у {{name}}...",
+      "roleRemovedFrom": "Роль {{role}} удалена у {{name}}",
+      "assigningRoleTo": "Назначение роли {{role}} пользователю {{name}}...",
+      "roleAssignedTo": "Роль {{role}} назначена пользователю {{name}}",
+      "removingMember": "Удаление {{name}}...",
+      "memberRemoved": "{{name}} удалён",
+      "revokingInvitation": "Отзыв приглашения для {{name}}...",
+      "invitationRevoked": "Приглашение для {{name}} отозвано",
+      "invitingUser": "Приглашение {{name}}...",
+      "invitationSentToUser": "Приглашение отправлено {{name}}",
+      "userAdded": "{{name}} добавлен",
+      "invitingEmail": "Приглашение {{email}}...",
+      "invitationSentToEmail": "Приглашение отправлено на {{email}}"
+    },
+    "error": {
+      "cannotRemoveOwnerRole": "Нельзя удалить роль владельца у владельца команды",
+      "failedToUpdateRole": "Не удалось обновить роль",
+      "failedToRemoveMember": "Не удалось удалить участника",
+      "failedToAddMember": "Не удалось добавить участника"
+    },
+    "history": {
+      "removeRole": "Удалить роль: {{name}}",
+      "assignRole": "Назначить роль: {{name}}",
+      "remove": "Удалить: {{name}}",
+      "assignRoleBulk": "Назначить роль ×{{count}}",
+      "removeRoleBulk": "Удалить роль ×{{count}}",
+      "removeBulk": "Удалить ×{{count}}"
+    },
+    "contextMenu": {
+      "inviteToSession": "Пригласить в сессию",
+      "noActiveSessions": "Нет активных сессий",
+      "assignRoleBulk": "Назначить роль ({{count}})",
+      "removeRoleBulk": "Удалить роль ({{count}})",
+      "kickBulk_one": "Исключить {{count}} участника",
+      "kickBulk_few": "Исключить {{count}} участника",
+      "kickBulk_many": "Исключить {{count}} участников",
+      "kickBulk_other": "Исключить {{count}} участников"
+    },
+    "empty": {
+      "noVaultTitle": "Хранилище не выбрано",
+      "noVaultDesc": "Выберите хранилище на боковой панели, чтобы управлять его участниками.",
+      "signInToInvite": "Войдите, чтобы приглашать участников команды в это хранилище.",
+      "vaultNotFound": "Хранилище не найдено."
+    },
+    "cta": {
+      "signInTitle": "Войдите, чтобы использовать командные функции",
+      "signInDesc": "Для работы с участниками, приглашениями и общим доступом к хранилищу требуется облачная учётная запись, прежде чем вы сможете улучшить план или управлять командой.",
+      "signInBtn": "Войти или создать облачную учётную запись →",
+      "upgradeTitle": "Командные хранилища требуют тариф Teams",
+      "upgradeDesc": "Приглашайте участников, назначайте роли и безопасно делитесь учётными данными с командой.",
+      "upgradeBtn": "Перейти на тариф Teams →"
+    }
+  }
+}

@@ -64,6 +64,7 @@ fn merge_form_into_connection(existing: &Connection, data: ConnectionFormData) -
         serial_stop_bits: data.serial_stop_bits,
         serial_flow_control: data.serial_flow_control,
         ftp_secure: data.ftp_secure,
+        notes: data.notes,
         created_at: existing.created_at.clone(),
         last_used_at: existing.last_used_at.clone(),
         updated_at: existing.updated_at.clone(), // caller sets this after clock bumps
@@ -122,6 +123,7 @@ connection_clocks! {
         terminal_encoding, distro, icon, ping_disabled,
         shell_integration_disabled, keepalive_preset, persist_session, connection_type, serial_port, serial_baud,
         serial_data_bits, serial_parity, serial_stop_bits, serial_flow_control, ftp_secure,
+        notes,
     ],
     by_id: [jump_hosts, env_vars],
 }
@@ -189,6 +191,7 @@ pub fn connection_save(data: ConnectionFormData) -> Result<Connection, String> {
         serial_stop_bits: data.serial_stop_bits,
         serial_flow_control: data.serial_flow_control,
         ftp_secure: data.ftp_secure,
+        notes: data.notes,
         clocks,
     };
     connections.push(conn.clone());
@@ -326,6 +329,7 @@ mod tests {
             serial_stop_bits: Some(1),
             serial_flow_control: Some("none".into()),
             ftp_secure: false,
+            notes: Some("orig note".into()),
             updated_at: "2026-01-01T00:00:00Z".into(),
             deleted_at: None,
             clocks: HashMap::new(),
@@ -378,6 +382,7 @@ mod tests {
             serial_stop_bits: Some(2),
             serial_flow_control: Some("rtscts".into()),
             ftp_secure: true,
+            notes: Some("new note".into()),
         }
     }
 
@@ -436,6 +441,7 @@ mod tests {
         assert_eq!(merged.connection_type, ConnectionType::Serial);
         assert!(merged.agent_forwarding);
         assert!(merged.pinned);
+        assert_eq!(merged.notes, Some("new note".to_string()));
     }
 
     #[test]
@@ -588,6 +594,7 @@ mod tests {
             "key_id",
             "legacy_algorithms",
             "name",
+            "notes",
             "persist_session",
             "ping_disabled",
             "port",
@@ -607,7 +614,7 @@ mod tests {
         ];
         expected.sort();
         assert_eq!(keys, expected);
-        assert_eq!(keys.len(), 31);
+        assert_eq!(keys.len(), 32);
     }
 
     /// Phase 1 reconciliation: the clocks seeded for a brand-new connection
@@ -627,6 +634,6 @@ mod tests {
         let bumpable: HashSet<String> = new.clocks.into_keys().collect();
 
         assert_eq!(seeded, bumpable);
-        assert_eq!(seeded.len(), 31);
+        assert_eq!(seeded.len(), 32);
     }
 }

@@ -129,6 +129,9 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
         pre_command: preCommand.trim() || undefined,
         post_command: postCommand.trim() || undefined,
         terminal_encoding: terminalEncoding || undefined,
+        // Serial has no notes UI; pass through any existing note so saving
+        // (e.g. after a note synced in from another device) never wipes it.
+        notes: initial?.notes,
         // Serial connections don't use these SSH fields; provide empty defaults
         host: "",
         port: 0,

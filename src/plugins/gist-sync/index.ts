@@ -45,6 +45,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   });
 
   // Functional hooks only when the plugin is enabled
+  let offBeforeQuit: (() => void) | null = null;
   if (api.isActive()) {
     (async () => {
       if (!(await isConfigured())) return;
@@ -53,12 +54,15 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
       startPoll(interval);
     })();
 
-    api.lifecycle.onBeforeQuit(async () => {
+    offBeforeQuit = api.lifecycle.onBeforeQuit(async () => {
       if (await isConfigured()) await push().catch(() => {});
     });
   }
 
   return () => {
     stopPoll();
+    // Drop the quit-time push handler too, otherwise a disabled plugin would
+    // still sync on app exit.
+    offBeforeQuit?.();
   };
 };

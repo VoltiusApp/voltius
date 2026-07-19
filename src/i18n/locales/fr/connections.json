@@ -38,6 +38,8 @@
       "sectionConnection": "Connexion",
       "sectionCredentials": "Identifiants",
       "sectionIdentity": "Identité",
+      "sectionNotes": "Notes",
+      "notesPlaceholder": "Rappels, fenêtres de maintenance, contexte d'équipe… (synchronisé avec l'hôte)",
       "protocol": "Protocole",
       "protocolSsh": "SSH / SFTP",
       "protocolFtp": "FTP",

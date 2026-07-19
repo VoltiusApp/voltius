@@ -1,0 +1,32 @@
+{
+  "folders": {
+    "card": {
+      "pin": "Закрепить",
+      "unpin": "Открепить",
+      "openFolder": "Открыть папку",
+      "cloudSyncDisabled": "Облачная синхронизация отключена",
+      "unpinForMe": "Открепить для себя",
+      "showInMyView": "Показать в моём представлении",
+      "hideForMe": "Скрыть для себя",
+      "pinForMe": "Закрепить для себя",
+      "unpinForTeam": "Открепить для команды",
+      "pinForTeam": "Закрепить для команды",
+      "exportFolder": "Экспортировать папку",
+      "disableCloudSync": "Отключить облачную синхронизацию",
+      "enableCloudSync": "Включить облачную синхронизацию",
+      "deleteFolder": "Удалить папку",
+      "itemCount_one": "{{count}} элемент",
+      "itemCount_few": "{{count}} элемента",
+      "itemCount_many": "{{count}} элементов",
+      "itemCount_other": "{{count}} элементов"
+    },
+    "editPanel": {
+      "nameLabel": "Название",
+      "cloudSyncLabel": "Облачная синхронизация",
+      "syncedToCloud": "Синхронизировано с облаком",
+      "notSynced": "Не синхронизировано",
+      "syncDisabledGlobally": "Синхронизация папок отключена глобально в Настройки → Облачная синхронизация.",
+      "createdLabel": "Создано"
+    }
+  }
+}
