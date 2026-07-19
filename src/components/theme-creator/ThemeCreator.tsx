@@ -622,7 +622,12 @@ export default function ThemeCreator() {
       <div
         ref={panelRef}
         className="fixed right-0 top-0 bottom-0 z-200 flex flex-col border-l border-(--t-border) bg-(--t-bg-modal)"
-        style={{ width: 320 }}
+        style={{
+          width: 320,
+          paddingTop: "env(safe-area-inset-top)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+          paddingRight: "env(safe-area-inset-right)",
+        }}
       >
         {/* Panel header */}
         <div className="flex items-center gap-2 px-4 py-3 shrink-0 border-b border-(--t-border)">
