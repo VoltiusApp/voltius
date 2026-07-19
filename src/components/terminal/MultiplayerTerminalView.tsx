@@ -6,6 +6,7 @@ import { attachTerminalClipboard } from "@/components/terminal/terminalClipboard
 import { useThemeStore } from "@/stores/themeStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { withFlagEmojiFallback } from "@/utils/emojiFont";
 import "@xterm/xterm/css/xterm.css";
 
 interface Props {
@@ -31,7 +32,7 @@ export default function MultiplayerTerminalView({ localSessionId, active }: Prop
         cursorBlink: true,
         cursorStyle: "bar",
         fontSize: activeTheme.terminalFontSize,
-        fontFamily: activeTheme.terminalFontFamily,
+        fontFamily: withFlagEmojiFallback(activeTheme.terminalFontFamily),
         scrollback,
         theme: activeTheme.terminal,
         allowProposedApi: true,
@@ -135,7 +136,7 @@ export default function MultiplayerTerminalView({ localSessionId, active }: Prop
       if (!term) return;
       const theme = state.getActiveTheme();
       term.options.theme = theme.terminal;
-      term.options.fontFamily = theme.terminalFontFamily;
+      term.options.fontFamily = withFlagEmojiFallback(theme.terminalFontFamily);
       if (term.options.fontSize !== theme.terminalFontSize) {
         term.options.fontSize = theme.terminalFontSize;
         fit?.fit();

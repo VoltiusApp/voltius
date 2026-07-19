@@ -50,6 +50,10 @@ export function ExportTab({ selection, preselectedTypes }: {
   const [encrypt, setEncrypt] = useState(false);
   const [encryptPassword, setEncryptPassword] = useState("");
   const [encryptConfirm, setEncryptConfirm] = useState("");
+  /** Bundle carries plaintext secrets (passwords, keys, host notes) → encrypt by default. */
+  const [bundleHasSecrets, setBundleHasSecrets] = useState(false);
+  /** Once the user touches the toggle, stop overriding their choice. */
+  const encryptTouched = useRef(false);
 
   const [exportVaultIds, setExportVaultIds] = useState<string[]>(
     accessibleVaultIds.length > 0 ? accessibleVaultIds : ["personal"]
@@ -73,6 +77,12 @@ export function ExportTab({ selection, preselectedTypes }: {
       const counts: Record<string, number> = { folders: bundle.folders.length };
       for (const h of HANDLERS) counts[h.key] = (bundle[h.key as keyof ExportBundle] as unknown[])?.length ?? 0;
       setBundleCounts(counts);
+      const hasSecrets =
+        bundle.connections.some(c => c.password || c.private_key || c.passphrase || c.notes) ||
+        bundle.identities.some(i => i.password) ||
+        bundle.keys.some(k => k.private_key || k.passphrase);
+      setBundleHasSecrets(hasSecrets);
+      if (hasSecrets && !encryptTouched.current) setEncrypt(true);
       setPreview(isCsvOnly ? connectionsToCSV(bundle.connections) : toJSON(bundle));
       setBuilding(false);
     }).catch(() => { if (!cancelled) setBuilding(false); });
@@ -180,9 +190,15 @@ export function ExportTab({ selection, preselectedTypes }: {
             {format === "json" && (
               <div className="flex flex-col gap-2 mt-1">
                 <div className="flex items-center gap-2.5">
-                  <Toggle checked={encrypt} onChange={v => { setEncrypt(v); if (!v) { setEncryptPassword(""); setEncryptConfirm(""); } }} />
+                  <Toggle checked={encrypt} onChange={v => { encryptTouched.current = true; setEncrypt(v); if (!v) { setEncryptPassword(""); setEncryptConfirm(""); } }} />
                   <span className="text-sm text-(--t-text-primary)">{t("importExport.export.encryptBackup")}</span>
                 </div>
+                {bundleHasSecrets && !encrypt && (
+                  <p className="text-xs flex items-start gap-1.5" style={{ color: "var(--t-status-error)" }}>
+                    <Icon icon="lucide:shield-alert" width={12} className="mt-0.5 shrink-0" />
+                    {t("importExport.export.plaintextSecretsWarning")}
+                  </p>
+                )}
                 {encrypt && (
                   <div className="flex flex-col gap-2 ml-6">
                     <div className="flex flex-col gap-1.5">

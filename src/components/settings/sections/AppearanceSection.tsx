@@ -37,6 +37,7 @@ export default function AppearanceSection() {
   const pluginThemeMap = usePluginStore((s) => s.pluginThemes);
   const [scrollMinimapEnabled, setScrollMinimapEnabled] = useToggle("scroll-minimap");
   const [selectToCopy, setSelectToCopy] = useToggle("select-to-copy");
+  const [ignoreBracketedPaste, setIgnoreBracketedPaste] = useToggle("ignore-bracketed-paste");
   const scrollbackLines = useTerminalSettingsStore((s) => s.scrollbackLines);
   const setScrollbackLines = useTerminalSettingsStore((s) => s.setScrollbackLines);
 
@@ -123,6 +124,21 @@ export default function AppearanceSection() {
             )}
             {selectToCopy !== TOGGLE_DEFS["select-to-copy"].default && <DirtyDot />}
             <Toggle checked={selectToCopy} onChange={setSelectToCopy} />
+          </div>
+        </div>
+        <div className="group mt-4 rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4 flex items-center justify-between gap-4">
+          <div>
+            <div className="text-sm font-medium text-(--t-text-primary)">{t("settings.appearance.ignoreBracketedPaste.title")}</div>
+            <div className="text-xs mt-1 text-(--t-text-dim)">
+              {t("settings.appearance.ignoreBracketedPaste.desc")}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {ignoreBracketedPaste !== TOGGLE_DEFS["ignore-bracketed-paste"].default && (
+              <ResetButton onReset={() => setIgnoreBracketedPaste(TOGGLE_DEFS["ignore-bracketed-paste"].default)} />
+            )}
+            {ignoreBracketedPaste !== TOGGLE_DEFS["ignore-bracketed-paste"].default && <DirtyDot />}
+            <Toggle checked={ignoreBracketedPaste} onChange={setIgnoreBracketedPaste} />
           </div>
         </div>
       </div>

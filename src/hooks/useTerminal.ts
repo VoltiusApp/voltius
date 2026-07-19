@@ -12,6 +12,7 @@ import { serialWrite, onSerialOutput, onSerialClosed } from "@/services/serial";
 import { useThemeStore } from "@/stores/themeStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useTerminalSettingsStore } from "@/stores/terminalSettingsStore";
+import { getToggle, useToggleSettingsStore } from "@/stores/toggleSettingsStore";
 import { matchShortcut } from "@/stores/shortcutStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTerminalCwdStore } from "@/stores/terminalCwdStore";
@@ -22,6 +23,7 @@ import { consumeLatchForChar } from "@/stores/modifierLatchStore";
 import { sampleLineDensities, scrollDeltaForRatio, type TerminalMinimapCell, type TerminalMinimapSample } from "@/components/terminal/minimapMath";
 import type { TerminalTheme } from "@/themes/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
+import { withFlagEmojiFallback } from "@/utils/emojiFont";
 
 interface UseTerminalOptions {
   sessionId: string;
@@ -657,11 +659,15 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         cursorBlink: true,
         cursorStyle: "bar",
         fontSize: activeTheme.terminalFontSize,
-        fontFamily: activeTheme.terminalFontFamily,
+        fontFamily: withFlagEmojiFallback(activeTheme.terminalFontFamily),
         scrollback,
         theme: activeTheme.terminal,
         overviewRuler: { width: 4 },
         allowProposedApi: true,
+        // Some remote prompts/programs (e.g. sudo password entry) don't
+        // support bracketed paste and echo the \x1b[200~/201~ markers back
+        // literally, corrupting the buffer. Let users opt out entirely.
+        ignoreBracketedPasteMode: getToggle("ignore-bracketed-paste"),
       });
 
       const fitAddon = new FitAddon();
@@ -689,7 +695,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
             background: "var(--t-bg-card)",
             border: "1px solid var(--t-border)",
             color: "var(--t-text)",
-            fontFamily: activeTheme.terminalFontFamily,
+            fontFamily: withFlagEmojiFallback(activeTheme.terminalFontFamily),
             fontSize: "12px",
             boxShadow: "0 8px 24px rgba(0, 0, 0, 0.28)",
             opacity: "0",
@@ -985,6 +991,15 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
     [sessionId, sessionType, encoding],
   );
 
+  // Live bracketed-paste toggle updates
+  useEffect(() => {
+    return useToggleSettingsStore.subscribe(() => {
+      const entry = terminalCache.get(sessionId);
+      if (!entry) return;
+      entry.terminal.options.ignoreBracketedPasteMode = getToggle("ignore-bracketed-paste");
+    });
+  }, [sessionId]);
+
   // Live theme updates
   useEffect(() => {
     return useThemeStore.subscribe((state) => {
@@ -993,7 +1008,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       const { terminal: term, fitAddon } = entry;
       const theme = state.getActiveTheme();
       term.options.theme = theme.terminal;
-      term.options.fontFamily = theme.terminalFontFamily;
+      term.options.fontFamily = withFlagEmojiFallback(theme.terminalFontFamily);
       if (term.options.fontSize !== theme.terminalFontSize) {
         term.options.fontSize = theme.terminalFontSize;
         fitAddon.fit();
@@ -1009,7 +1024,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       const { terminal: term, fitAddon } = entry;
       const theme = (e as CustomEvent).detail;
       term.options.theme = theme.terminal;
-      term.options.fontFamily = theme.terminalFontFamily;
+      term.options.fontFamily = withFlagEmojiFallback(theme.terminalFontFamily);
       if (term.options.fontSize !== theme.terminalFontSize) {
         term.options.fontSize = theme.terminalFontSize;
         fitAddon.fit();

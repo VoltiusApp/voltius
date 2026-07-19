@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-07-19
+
+### Added
+
+- Per-host notes — attach freeform notes to any host, kept in sync with the
+  host's data
+- Plain-paste toggle for the terminal — bypass bracketed paste when a remote
+  program mishandles it
+- Russian language support, selectable from the language picker in Appearance
+  settings (#26)
+
+### Fixed
+
+- Country flag emoji now render as actual flags on Windows instead of
+  two-letter codes (#31)
+- Linux: worked around a WebKitGTK white-screen on AppImage under Wayland
+- SSH: shell-integration wrappers now inherit the pty, so commands like
+  `sudo -i` behave correctly
+
 ## [0.9.3] - 2026-07-19
 
 ### Fixed

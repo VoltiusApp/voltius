@@ -172,6 +172,9 @@ pub struct Connection {
     /// FTP only: use explicit FTPS (AUTH TLS) instead of plain FTP.
     #[serde(default)]
     pub ftp_secure: bool,
+    /// Free-form user notes for this host (reminders, maintenance windows, …).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
     pub updated_at: String,
     pub deleted_at: Option<String>,
     pub clocks: HashMap<String, String>,
@@ -244,6 +247,8 @@ pub struct ConnectionFormData {
     pub serial_flow_control: Option<String>,
     #[serde(default)]
     pub ftp_secure: bool,
+    #[serde(default)]
+    pub notes: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -807,6 +812,7 @@ mod tests {
             serial_stop_bits: Some(1),
             serial_flow_control: Some("none".into()),
             ftp_secure: false,
+            notes: Some("maintenance window: Sat".into()),
             updated_at: "2026-01-02T00:00:00Z".into(),
             deleted_at: None,
             clocks: clocks(),

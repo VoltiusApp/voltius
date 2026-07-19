@@ -14,6 +14,8 @@ mod ftp;
 #[cfg(target_os = "android")]
 mod keychain_android;
 mod known_hosts;
+#[cfg(target_os = "linux")]
+mod linux_gfx;
 mod local;
 mod metrics;
 mod port_forward;
@@ -347,6 +349,12 @@ fn init_keychain_store() -> keyring_core::Result<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // WebKitGTK white-window workarounds (AppImage/Wayland/NVIDIA). Must be
+    // the very first thing: env vars have to land before WebKit initializes,
+    // and its re-exec path must run before any threads exist.
+    #[cfg(target_os = "linux")]
+    linux_gfx::apply_startup_workarounds();
+
     // Tauri's default async runtime uses tokio's default worker-thread stack,
     // which on Windows is too small for process_kill's call chain (sysinfo
     // refresh / russh channel I/O) and overflows the stack

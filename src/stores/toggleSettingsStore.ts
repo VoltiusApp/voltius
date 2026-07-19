@@ -38,6 +38,13 @@ export const TOGGLE_DEFS = {
     keywords: ["copy", "select", "clipboard", "terminal", "auto"],
     default: true,
   },
+  "ignore-bracketed-paste": {
+    labelKey: "settings.toggleDefs.ignoreBracketedPaste.label",
+    icon: "lucide:clipboard-x",
+    descriptionKey: "settings.toggleDefs.category.appearance",
+    keywords: ["paste", "bracketed", "clipboard", "terminal", "sudo", "garbage", "200~"],
+    default: false,
+  },
   "auto-forward": {
     labelKey: "settings.toggleDefs.autoForward.label",
     icon: "lucide:arrow-left-right",

@@ -15,6 +15,7 @@
       "formatCsvDescription": "Connexions uniquement — adapté aux tableurs",
       "formatJsonDescription": "Données complètes, y compris le contenu des clés",
       "encryptBackup": "Chiffrer la sauvegarde",
+      "plaintextSecretsWarning": "Cet export contient des mots de passe, des clés ou des notes d'hôtes en clair. Laissez le chiffrement activé, sauf si vous avez délibérément besoin d'un fichier non chiffré.",
       "confirmPasswordPlaceholder": "Confirmer le mot de passe",
       "passwordsDontMatch": "Les mots de passe ne correspondent pas",
       "building": "Génération…",
