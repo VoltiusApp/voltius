@@ -90,10 +90,10 @@ export function DashboardHero() {
       </button>
 
       <div className="flex flex-wrap gap-2">
-        <StatChip icon="lucide:vault" label={t("home.stat.vaults")} value={vaultCount} />
-        <StatChip icon="lucide:server" label={t("home.stat.hosts")} value={hostCount} />
-        <StatChip icon="lucide:terminal" label={t("home.stat.activeSessions")} value={activeSessionCount} />
-        <StatChip icon="lucide:network" label={t("home.stat.portForwards")} value={portForwardCount} />
+        <StatChip icon="lucide:vault" label={t("home.stat.vaults", { count: vaultCount })} value={vaultCount} />
+        <StatChip icon="lucide:server" label={t("home.stat.hosts", { count: hostCount })} value={hostCount} />
+        <StatChip icon="lucide:terminal" label={t("home.stat.activeSessions", { count: activeSessionCount })} value={activeSessionCount} />
+        <StatChip icon="lucide:network" label={t("home.stat.portForwards", { count: portForwardCount })} value={portForwardCount} />
       </div>
     </div>
   );

@@ -1,0 +1,21 @@
+{
+  "changelog": {
+    "title": "Что нового",
+    "quickLinks": {
+      "documentation": "Документация"
+    },
+    "loading": "Загрузка списка изменений…",
+    "unavailable": "Список изменений недоступен в офлайн-режиме. Подключитесь к интернету, чтобы увидеть, что нового.",
+    "hidePreviousReleases": "Скрыть предыдущие релизы",
+    "previousReleases": "Предыдущие релизы ({{count}})",
+    "newBadge": "Новое",
+    "updateBanner": {
+      "checking": "Проверка обновлений…",
+      "downloading": "Загрузка v{{version}}… {{progress}}%",
+      "ready": "v{{version}} готова к установке",
+      "restartToUpdate": "Перезапустить для обновления",
+      "available": "Доступна версия v{{version}}",
+      "download": "Скачать"
+    }
+  }
+}

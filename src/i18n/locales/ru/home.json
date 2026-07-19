@@ -1,0 +1,60 @@
+{
+  "home": {
+    "greeting": {
+      "morning": "Доброе утро",
+      "afternoon": "Добрый день",
+      "evening": "Добрый вечер"
+    },
+    "search": {
+      "placeholder": "Поиск хостов, сессий, сниппетов…"
+    },
+    "stat": {
+      "vaults_one": "хранилище",
+      "vaults_few": "хранилища",
+      "vaults_many": "хранилищ",
+      "vaults_other": "хранилищ",
+      "hosts_one": "хост",
+      "hosts_few": "хоста",
+      "hosts_many": "хостов",
+      "hosts_other": "хостов",
+      "activeSessions_one": "активная сессия",
+      "activeSessions_few": "активные сессии",
+      "activeSessions_many": "активных сессий",
+      "activeSessions_other": "активных сессий",
+      "portForwards_one": "проброс портов",
+      "portForwards_few": "проброса портов",
+      "portForwards_many": "пробросов портов",
+      "portForwards_other": "пробросов портов"
+    },
+    "quickActions": {
+      "export": "Экспорт",
+      "import": "Импорт"
+    },
+    "recentHosts": {
+      "title": "Недавние хосты",
+      "seeAll": "Смотреть все",
+      "prevPage": "Предыдущая страница",
+      "nextPage": "Следующая страница",
+      "pageNumber": "Страница {{number}}"
+    },
+    "allHosts": {
+      "back": "Назад",
+      "title": "Все хосты",
+      "empty": "Пока нет хостов."
+    },
+    "hostCard": {
+      "pin": "Закрепить",
+      "unpin": "Открепить",
+      "baud": "{{rate}} бод"
+    },
+    "serialFallback": "Последовательный",
+    "vaultCard": {
+      "hostCount_one": "{{count}} хост",
+      "hostCount_few": "{{count}} хоста",
+      "hostCount_many": "{{count}} хостов",
+      "hostCount_other": "{{count}} хостов",
+      "empty": "Пока нет хостов",
+      "more": "+{{count}} ещё"
+    }
+  }
+}

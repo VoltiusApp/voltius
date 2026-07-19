@@ -1,0 +1,44 @@
+{
+  "panes": {
+    "badge": {
+      "ssh": "SSH",
+      "serial": "SERIAL",
+      "multiplayer": "MPX",
+      "local": "LOCAL"
+    },
+    "header": {
+      "copied": "Скопировано!",
+      "loading": "загрузка…",
+      "localSystem": "Локальная система",
+      "excludedFromBroadcast": "Исключено из трансляции",
+      "disableBroadcast": "Отключить трансляцию",
+      "broadcastInput": "Транслировать ввод",
+      "detachPane": "Отсоединить панель",
+      "restorePane": "Восстановить панель",
+      "maximizePane": "Развернуть панель",
+      "closePane": "Закрыть панель",
+      "latencyTooltip": "{{ms}}мс — нажмите, чтобы скопировать",
+      "reconnect": "Переподключиться",
+      "split": "Разделить",
+      "splitLeft": "Разделить влево",
+      "splitRight": "Разделить вправо",
+      "splitTop": "Разделить вверх",
+      "splitBottom": "Разделить вниз",
+      "noSessionToSplit": "Откройте другую сессию или перетащите существующую вкладку на панель, чтобы разделить.",
+      "sparkline": {
+        "min": "мин {{ms}}мс",
+        "avg": "сред {{ms}}мс",
+        "max": "макс {{ms}}мс"
+      }
+    },
+    "terminal": {
+      "emptyTitle": "Рабочая область разделения пуста",
+      "emptyHint": "Перетащите вкладку сессии сюда, чтобы начать разделение панелей.",
+      "serialSubtitle": "{{port}} · {{baud}} бод"
+    },
+    "dragToast": {
+      "alreadyVisible": "Эта сессия уже отображается в рабочей области разделения.",
+      "invalidDropTarget": "Перетащите на активный терминал или панель разделения, чтобы создать разделение."
+    }
+  }
+}
