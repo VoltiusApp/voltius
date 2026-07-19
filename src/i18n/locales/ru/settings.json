@@ -56,7 +56,7 @@
     },
     "shared": {
       "cancel": "Отмена",
-      "resetToDefault": "Сбросить по умолчанию",
+      "resetToDefault": "Сбросить до значений по умолчанию",
       "modifiedFromDefault": "Отличается от значения по умолчанию"
     },
     "account": {

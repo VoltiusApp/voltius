@@ -3,7 +3,7 @@
     "roles": "Роли",
     "info": "Информация",
     "memberSince": "Участник с",
-    "invitedBy": "Приглашён",
+    "invitedBy": "Кем приглашён",
     "dangerZone": "Опасная зона",
     "confirmRemoval": "Нажмите ещё раз для подтверждения удаления",
     "removeFromTeam": "Удалить из команды",
@@ -105,7 +105,7 @@
       "assignRoleBulk": "Назначить роль ({{count}})",
       "removeRoleBulk": "Удалить роль ({{count}})",
       "kickBulk_one": "Исключить {{count}} участника",
-      "kickBulk_few": "Исключить {{count}} участников",
+      "kickBulk_few": "Исключить {{count}} участника",
       "kickBulk_many": "Исключить {{count}} участников",
       "kickBulk_other": "Исключить {{count}} участников"
     },
