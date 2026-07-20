@@ -253,6 +253,9 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
     if (!isAndroid) return;
     if (active) setAndroidKeyboardTarget(sessionId);
     else hideAndroidKeyboard();
+    // Unmount (e.g. session disconnects while keyboard up) must dismiss too, else hide() never
+    // runs and the WebView stays non-focusable app-wide (#34).
+    return () => { hideAndroidKeyboard(); };
   }, [active, sessionId, isAndroid]);
 
   useEffect(() => { toolbarOpen.current = toolbar !== null; }, [toolbar]);
