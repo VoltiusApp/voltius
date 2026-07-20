@@ -19,7 +19,7 @@ RUN dpkg --add-architecture amd64 \
 # Node & PNPM (same as Dockerfile.cross-compile)
 RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
-    && corepack enable && corepack prepare pnpm --activate \
+    && corepack enable && corepack prepare pnpm@10.33.0 --activate \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Android SDK command-line tools
