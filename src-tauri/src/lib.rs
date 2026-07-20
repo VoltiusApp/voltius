@@ -26,6 +26,7 @@ mod sftp;
 mod shell_integration;
 mod ssh;
 mod storage;
+mod terminal_kbd;
 mod vault_auth;
 
 use commands::http::HttpSseStreamManager;
@@ -480,6 +481,8 @@ pub fn run() {
             updater_check,
             commands::greet,
             commands::get_platform,
+            terminal_kbd::terminal_show_keyboard,
+            terminal_kbd::terminal_hide_keyboard,
             commands::diagnostics::set_verbose_logging,
             commands::diagnostics::create_bug_report,
             commands::ping::ping_host,

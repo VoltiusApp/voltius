@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getTerminalApi } from "@/hooks/useTerminal";
 import { sendSpecialKey } from "@/services/terminalInput";
+import { showAndroidKeyboard, hideAndroidKeyboard, setAndroidKeyboardTarget } from "@/services/androidKeyboard";
+import { useIsAndroid } from "@/utils/platform";
 import { isDoubleTap, type TapPoint } from "./doubleTap";
 import {
   cellFromPoint,
@@ -29,6 +31,7 @@ type Phase = "idle" | "pending" | "scrolling" | "selecting";
  */
 export default function MobileTerminalGestures({ sessionId, active }: { sessionId: string; active: boolean }) {
   const { t } = useTranslation();
+  const isAndroid = useIsAndroid();
   const rootRef = useRef<HTMLDivElement>(null);
   const [hintKey, setHintKey] = useState(0);
   const [toolbar, setToolbar] = useState<{ x: number; y: number; mode: "select" | "paste" } | null>(null);
@@ -217,6 +220,9 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
           }
           lastTap.current = now;
         }
+        // Plain tap: xterm's textarea has inputmode=none on Android, so raise the native
+        // keyboard overlay ourselves (idempotent; see services/androidKeyboard.ts).
+        if (isAndroid) showAndroidKeyboard(sessionId);
       }
       reset();
     };
@@ -239,7 +245,15 @@ export default function MobileTerminalGestures({ sessionId, active }: { sessionI
       getTerminalApi(sessionId)?.clearSelection();
       closeToolbar();
     };
-  }, [active, sessionId]);
+  }, [active, sessionId, isAndroid]);
+
+  // Route native IME input to the active session; dismiss the keyboard when this terminal is
+  // no longer the active one.
+  useEffect(() => {
+    if (!isAndroid) return;
+    if (active) setAndroidKeyboardTarget(sessionId);
+    else hideAndroidKeyboard();
+  }, [active, sessionId, isAndroid]);
 
   useEffect(() => { toolbarOpen.current = toolbar !== null; }, [toolbar]);
 

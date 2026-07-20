@@ -3,6 +3,7 @@ package com.voltius.app
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.webkit.WebView
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,6 +37,12 @@ class MainActivity : TauriActivity() {
       VoltiusDownloads.nativeDirPicked(uri?.toString())
     }
     instance = this
+  }
+
+  // Wry has just built the RustWebView: install the native terminal-keyboard overlay (#34).
+  override fun onWebViewCreate(webView: WebView) {
+    super.onWebViewCreate(webView)
+    TerminalKeyboard.install(this, webView)
   }
 
   override fun onDestroy() {
