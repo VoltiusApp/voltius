@@ -24,6 +24,7 @@ import { sampleLineDensities, scrollDeltaForRatio, type TerminalMinimapCell, typ
 import type { TerminalTheme } from "@/themes/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { withFlagEmojiFallback } from "@/utils/emojiFont";
+import { getPlatform } from "@/utils/platform";
 
 interface UseTerminalOptions {
   sessionId: string;
@@ -821,6 +822,24 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
       });
 
       term.open(container);
+
+      // Android: stop xterm's hidden textarea from summoning the WebView's own (broken) IME —
+      // a native overlay owns the soft keyboard instead (see services/androidKeyboard.ts, #34).
+      void getPlatform().then((os) => {
+        if (os !== "android") return;
+        const ta = term.element?.querySelector<HTMLTextAreaElement>(".xterm-helper-textarea");
+        if (!ta) return;
+        // Keep xterm's textarea from ever becoming a live IME target: inputmode=none stops it
+        // summoning the WebView's own (broken) keyboard, readOnly stops Chromium binding an
+        // editable InputConnection to it. The native overlay is the sole editor; input is fed
+        // back via window.__voltiusTermInput (see services/androidKeyboard.ts, #34).
+        ta.readOnly = true;
+        ta.setAttribute("inputmode", "none");
+        ta.setAttribute("autocorrect", "off");
+        ta.setAttribute("autocapitalize", "off");
+        ta.setAttribute("autocomplete", "off");
+        ta.spellcheck = false;
+      });
 
       try {
         term.loadAddon(new WebglAddon());
