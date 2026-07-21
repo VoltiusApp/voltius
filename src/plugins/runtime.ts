@@ -824,8 +824,9 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
 
       async importStates(encKey, blobs) {
         requirePerm(manifest, "sync:write");
-        let { files: mergedFiles, secrets: mergedSecrets } =
+        let { files: mergedFiles, secrets: mergedSecrets, secret_clocks: mergedSecretClocks } =
           await invoke<BlobPayload>("state_export_raw");
+        mergedSecretClocks ??= {};
 
         const parse = (s: string) => {
           try { return JSON.parse(s ?? "[]"); } catch { return []; }
@@ -849,8 +850,16 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
               mergeEntities(parse(mergedFiles[file]), parse(remote.files[file] ?? "[]")),
             );
           }
+          // Per-secret LWW merge: freshest write across devices wins (issue #35).
+          const secretMerge = mergeSecrets(
+            mergedSecrets,
+            mergedSecretClocks,
+            remote.secrets,
+            remote.secret_clocks ?? {},
+          );
+          mergedSecrets = secretMerge.secrets;
+          mergedSecretClocks = secretMerge.clocks;
           mergedFiles = newFiles;
-          mergedSecrets = mergeSecrets(mergedSecrets, remote.secrets);
 
           const themeRaw = remote.files["theme.json"];
           if (themeRaw) {
@@ -879,7 +888,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           } catch {}
         }
 
-        await invoke("state_import", { files: mergedFiles, secrets: mergedSecrets });
+        await invoke("state_import", { files: mergedFiles, secrets: mergedSecrets, secretClocks: mergedSecretClocks });
         for (const reload of Object.values(RELOADABLE_STORES)) {
           await reload();
         }

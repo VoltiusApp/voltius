@@ -82,12 +82,94 @@ export function mergeEntities<T extends TimestampedEntity>(local: T[], remote: T
  * Filter out tombstones for UI display.
  * An entity is alive if never deleted, or revived (updated_at > deleted_at).
  */
+export interface SecretMergeResult {
+  /** Live secrets, keyed as before (`password:<id>`, `key:<id>:private`, …). */
+  secrets: Record<string, string>;
+  /**
+   * Per-secret last-write timestamps (RFC3339). A key present here but absent
+   * from `secrets` is a tombstone — a deletion that must keep propagating.
+   */
+  clocks: Record<string, string>;
+}
+
 /**
- * Union merge for secrets: combine both maps, remote values take precedence.
+ * Per-secret last-writer-wins merge (issue #35).
+ *
+ * Each secret carries its own last-write timestamp (`clocks`), so the freshest
+ * write wins regardless of which side it came from — fixing both the reported
+ * case (a stale remote blob overwriting a just-changed local password) and its
+ * mirror (a remote change failing to reach the local device). Deletions are
+ * tombstones: a key present in `clocks` but absent from `secrets`. A newer
+ * tombstone removes the value; a newer value revives it.
+ *
+ * A missing clock means "no known write time" (legacy secret written before
+ * this mechanism) and sorts oldest, so any genuine timestamped write wins over
+ * it. Tie-breaks (equal timestamps) are resolved symmetrically — independent of
+ * which argument is "local" — so both devices converge on the same result.
  */
 export function mergeSecrets(
-  local: Record<string, string>,
-  remote: Record<string, string>,
-): Record<string, string> {
-  return { ...local, ...remote };
+  localSecrets: Record<string, string>,
+  localClocks: Record<string, string>,
+  remoteSecrets: Record<string, string>,
+  remoteClocks: Record<string, string>,
+): SecretMergeResult {
+  const secrets: Record<string, string> = {};
+  const clocks: Record<string, string> = {};
+  const keys = new Set([
+    ...Object.keys(localSecrets),
+    ...Object.keys(localClocks),
+    ...Object.keys(remoteSecrets),
+    ...Object.keys(remoteClocks),
+  ]);
+
+  for (const key of keys) {
+    const lts = localClocks[key] ?? "";
+    const rts = remoteClocks[key] ?? "";
+    const lHas = key in localSecrets;
+    const rHas = key in remoteSecrets;
+
+    let winTs: string;
+    let winHas: boolean;
+    let winVal: string | undefined;
+
+    if (lts > rts) {
+      winTs = lts; winHas = lHas; winVal = localSecrets[key];
+    } else if (rts > lts) {
+      winTs = rts; winHas = rHas; winVal = remoteSecrets[key];
+    } else {
+      // Equal timestamps (including two legacy "" secrets): resolve without
+      // reference to argument order so both devices agree.
+      winTs = lts;
+      if (lHas && rHas) {
+        // Both present — pick the lexically greater value deterministically.
+        winHas = true;
+        winVal = localSecrets[key] >= remoteSecrets[key] ? localSecrets[key] : remoteSecrets[key];
+      } else if (lHas || rHas) {
+        // One present, one tombstone at the same instant → keep the value.
+        winHas = true;
+        winVal = lHas ? localSecrets[key] : remoteSecrets[key];
+      } else {
+        winHas = false;
+      }
+    }
+
+    if (winTs) clocks[key] = winTs; // retain clock for live secrets and tombstones
+    if (winHas && winVal !== undefined) secrets[key] = winVal;
+  }
+
+  return { secrets, clocks };
+}
+
+/** True if two secret maps differ in keys or values (used to detect sync changes). */
+export function secretsDiffer(
+  a: Record<string, string>,
+  b: Record<string, string>,
+): boolean {
+  const ak = Object.keys(a);
+  const bk = Object.keys(b);
+  if (ak.length !== bk.length) return true;
+  for (const k of ak) {
+    if (!(k in b) || a[k] !== b[k]) return true;
+  }
+  return false;
 }

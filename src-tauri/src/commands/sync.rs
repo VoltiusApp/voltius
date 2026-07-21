@@ -31,7 +31,13 @@ pub fn encrypt_payload(
     let header = serde_json::json!({ "version": BLOB_VERSION });
     let header_json = serde_json::to_vec(&header).map_err(|e| e.to_string())?;
 
-    let payload = BlobPayload { files, secrets };
+    // Team-vault blobs are server-authoritative per record and don't participate
+    // in the per-secret clock merge, so no clocks are attached here.
+    let payload = BlobPayload {
+        files,
+        secrets,
+        secret_clocks: HashMap::new(),
+    };
     let payload_json = serde_json::to_vec(&payload).map_err(|e| e.to_string())?;
 
     let key = Key::from_slice(&enc_key);
@@ -67,6 +73,11 @@ pub struct BlobPayload {
     /// All JSON files from config_dir(), keyed by filename (e.g. "connections.json")
     files: HashMap<String, String>,
     secrets: HashMap<String, String>,
+    /// Per-secret last-write timestamps (RFC3339). A key present here but absent
+    /// from `secrets` is a tombstone (deletion) that must keep propagating.
+    /// `#[serde(default)]` keeps older blobs (which lack this field) readable.
+    #[serde(default)]
+    secret_clocks: HashMap<String, String>,
 }
 
 fn decrypt_blob(enc_key: &[u8], blob: &[u8]) -> Result<BlobPayload, String> {
@@ -147,8 +158,12 @@ pub fn backup_export(
             }
         }
     }
-    let secrets = state.export_all()?;
-    let payload = BlobPayload { files, secrets };
+    let data = state.export_all()?;
+    let payload = BlobPayload {
+        files,
+        secrets: data.secrets,
+        secret_clocks: data.clocks,
+    };
     let payload_json = serde_json::to_vec(&payload).map_err(|e| e.to_string())?;
 
     let key = Key::from_slice(&enc_key);
@@ -207,7 +222,7 @@ pub fn backup_import(
         };
         std::fs::write(&dest, content).map_err(|e| format!("Failed to restore {filename}: {e}"))?;
     }
-    state.import_all(payload.secrets)?;
+    state.replace_all(payload.secrets, payload.secret_clocks)?;
 
     Ok(ImportResult {
         account_id: header.account_id,
@@ -245,19 +260,26 @@ pub fn state_export_raw(state: tauri::State<SecretsStore>) -> Result<BlobPayload
         let content = fs::read_to_string(dir.join(name)).unwrap_or_else(|_| "[]".to_string());
         files.insert(name.to_string(), content);
     }
-    let secrets = state.export_all()?;
-    Ok(BlobPayload { files, secrets })
+    let data = state.export_all()?;
+    Ok(BlobPayload {
+        files,
+        secrets: data.secrets,
+        secret_clocks: data.clocks,
+    })
 }
 
 /// Write CRDT-merged entity arrays to disk.
 /// `files` maps filename → merged JSON array string (including tombstones).
 /// Only filenames listed in ENTITY_FILES are written; others are ignored.
-/// `secrets` is a union-merged key-value map.
+/// `secrets`/`secret_clocks` are the fully-merged authoritative secret set and
+/// their per-secret clocks; the store is replaced with them so deletions
+/// (tombstones present in `secret_clocks` but absent from `secrets`) take effect.
 #[tauri::command]
 pub fn state_import(
     state: tauri::State<SecretsStore>,
     files: HashMap<String, String>,
     secrets: HashMap<String, String>,
+    secret_clocks: Option<HashMap<String, String>>,
 ) -> Result<(), String> {
     let dir = config_dir();
     for (filename, content) in &files {
@@ -266,9 +288,7 @@ pub fn state_import(
                 .map_err(|e| format!("Failed to write {filename}: {e}"))?;
         }
     }
-    if !secrets.is_empty() {
-        state.import_all(secrets)?;
-    }
+    state.replace_all(secrets, secret_clocks.unwrap_or_default())?;
     Ok(())
 }
 

@@ -14,7 +14,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
-import { mergeEntities, mergeSecrets, type TimestampedEntity } from "@/services/crdt";
+import { mergeEntities, mergeSecrets, secretsDiffer, type TimestampedEntity } from "@/services/crdt";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { buildDecryptKeyCandidates } from "@/services/vaultKeyCandidates";
 import { getMyX25519Keypair } from "@/services/multiplayerService";
@@ -30,6 +30,8 @@ import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
 export interface BlobPayload {
   files: Record<string, string>;
   secrets: Record<string, string>;
+  /** Per-secret last-write timestamps; a key here but not in `secrets` is a deletion tombstone. */
+  secret_clocks?: Record<string, string>;
 }
 
 interface DeviceInfo {
@@ -484,16 +486,21 @@ async function pullAndMerge(remoteDeviceId: string): Promise<boolean> {
   }
 
   const localSecrets = localPayload.secrets ?? {};
-  const mergedSecrets = mergeSecrets(localSecrets, remotePayload.secrets ?? {});
-  if (!anyChange) {
-    for (const k of Object.keys(mergedSecrets)) {
-      if (mergedSecrets[k] !== localSecrets[k]) { anyChange = true; break; }
-    }
-  }
+  const secretMerge = mergeSecrets(
+    localSecrets,
+    localPayload.secret_clocks ?? {},
+    remotePayload.secrets ?? {},
+    remotePayload.secret_clocks ?? {},
+  );
+  if (!anyChange && secretsDiffer(localSecrets, secretMerge.secrets)) anyChange = true;
 
   if (!anyChange) return false; // remote had nothing new — skip write
 
-  await invoke("state_import", { files: mergedFiles, secrets: mergedSecrets });
+  await invoke("state_import", {
+    files: mergedFiles,
+    secrets: secretMerge.secrets,
+    secretClocks: secretMerge.clocks,
+  });
   return true;
 }
 
@@ -606,6 +613,7 @@ export async function syncOnLoginReplace(): Promise<void> {
       ENTITY_FILES.map((f) => [f, "[]"]),
     );
     let mergedSecrets: Record<string, string> = {};
+    let mergedSecretClocks: Record<string, string> = {};
 
     let decryptFailures = 0;
     for (const device of devices) {
@@ -631,8 +639,16 @@ export async function syncOnLoginReplace(): Promise<void> {
             mergeEntities(parse(mergedFiles[file]), parse(remotePayload.files[file] ?? "[]")),
           );
         }
+        // Per-secret LWW merge: freshest write across devices wins (issue #35).
+        const secretMerge = mergeSecrets(
+          mergedSecrets,
+          mergedSecretClocks,
+          remotePayload.secrets ?? {},
+          remotePayload.secret_clocks ?? {},
+        );
+        mergedSecrets = secretMerge.secrets;
+        mergedSecretClocks = secretMerge.clocks;
         mergedFiles = newFiles;
-        mergedSecrets = mergeSecrets(mergedSecrets, remotePayload.secrets ?? {});
       } catch (e) {
         if (e instanceof BlobDecryptError) {
           decryptFailures++;
@@ -647,7 +663,7 @@ export async function syncOnLoginReplace(): Promise<void> {
       console.debug(`[sync] login pull: ${decryptFailures} device blob(s) could not be decrypted with any key`);
     }
 
-    await invoke("state_import", { files: mergedFiles, secrets: mergedSecrets });
+    await invoke("state_import", { files: mergedFiles, secrets: mergedSecrets, secretClocks: mergedSecretClocks });
     await reloadAllStores();
     await push();
     await completeTeamLoginSetup();
