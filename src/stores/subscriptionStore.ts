@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { appFetch } from "@/services/http";
 import { parseJwtPayload } from "@/utils/emailVerification";
+import { deriveTierFlags } from "@/stores/subscriptionTier";
 
 export type Tier = "free" | "pro" | "teams" | "business";
 
@@ -73,16 +74,9 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
       return;
     }
 
-    const tier = (payload.tier as Tier) ?? "free";
-    const trialEndsAt = payload.trial_ends_at ? new Date(payload.trial_ends_at * 1000) : null;
-    const trialKnown = "trial_used" in payload || "trial_ends_at" in payload;
-    const trialUsed = payload.trial_used ?? false;
     const now = new Date();
-    const isTrialActive = tier === "pro" && trialEndsAt != null && trialEndsAt > now;
-    const isPro = tier !== "free";
-    const isTeams = tier === "teams" || tier === "business";
-    const isBusiness = tier === "business";
-    const emailVerified = payload.email_verified !== false;
+    const { tier, trialEndsAt, trialKnown, trialUsed, isTrialActive, isPro, isTeams, isBusiness, emailVerified } =
+      deriveTierFlags(payload, now);
 
     set({ tier, trialEndsAt, trialUsed, trialKnown, isTrialActive, isPro, isTeams, isBusiness, accountMode: mode, usedSeats: null, totalSeats: null, subscriptionStatus: null, subscriptionCancelled: false, renewsAt: null, endsAt: null, emailVerified });
 
