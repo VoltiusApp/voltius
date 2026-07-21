@@ -10,6 +10,7 @@ import { searchUsers, getMyUserId, inviteByEmail, listPendingInvitations, revoke
 import type { PendingInvitation } from "@/services/teamService";
 import { effectivePermissions, hasBuiltinRole, PERM_BITS } from "@/hooks/usePermission";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { seatAvailability } from "@/services/seatMath";
 import { useUIStore } from "@/stores/uiStore";
 import { TeamRolesPanel } from "./RolesSection";
 import BuySeatsModal from "@/components/settings/BuySeatsModal";
@@ -211,7 +212,7 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const isAtSeatLimit = totalSeats != null && usedSeats != null && usedSeats >= totalSeats;
+  const isAtSeatLimit = seatAvailability(usedSeats, totalSeats).atLimit;
 
   const inviteRoles = useMemo(
     () => roles.filter((r) => !(r.is_builtin && r.name === "owner")).sort((a, b) => a.position - b.position),
