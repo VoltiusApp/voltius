@@ -229,6 +229,12 @@ export function DockerPanel() {
     if (state.searchOpen) searchInputRef.current?.focus();
   }, [state.searchOpen]);
 
+  useEffect(() => {
+    const open = () => { dispatch({ type: "OPEN_SEARCH" }); searchInputRef.current?.focus(); searchInputRef.current?.select(); };
+    window.addEventListener("voltius:focus-panel-search", open);
+    return () => window.removeEventListener("voltius:focus-panel-search", open);
+  }, []);
+
   if (!activeSession || activeSession.status !== "connected") {
     return (
       <div className="flex items-center justify-center h-full opacity-40">
