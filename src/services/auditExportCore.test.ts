@@ -26,9 +26,9 @@ test("actor_id filter is exact match", () => {
     .toEqual(["2026-07-10T00:00:00Z", "2026-07-20T00:00:00Z"]);
 });
 
-test("date range is inclusive of from, exclusive of to (matches created > to)", () => {
+test("date range keeps both boundaries; only created < from or created > to are excluded", () => {
   const out = applyAuditFilters(rows, { from: "2026-07-15T00:00:00Z", to: "2026-07-20T00:00:00Z" });
-  // from inclusive (created < from excluded), to exclusive (created > to excluded); the 07-20 row is kept
+  // from boundary kept (created < from excluded), to boundary kept (created > to excluded); the 07-20 row equals `to` and stays
   expect(out.map((r) => r.created_at)).toEqual(["2026-07-15T00:00:00Z", "2026-07-20T00:00:00Z"]);
 });
 
