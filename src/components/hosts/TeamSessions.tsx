@@ -11,6 +11,7 @@ import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { AvatarStack } from "@/components/shared/AvatarStack";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import { BaseCard } from "@/components/shared/BaseCard";
+import { parseInviteCode } from "@/services/inviteCode";
 
 export function TeamSessions() {
   const { t } = useTranslation();
@@ -109,20 +110,12 @@ export function TeamSessions() {
     const code = inviteCode.trim();
     if (!code) return;
 
-    // Expected format: sessionId:inviteToken  (both UUIDs / tokens)
-    const colonIdx = code.indexOf(":");
-    if (colonIdx === -1) {
+    const parsed = parseInviteCode(code);
+    if (!parsed) {
       setJoinError(t("hosts.teamSessions.invalidCodeFormat"));
       return;
     }
-
-    const sessionId = code.slice(0, colonIdx);
-    const token = code.slice(colonIdx + 1);
-
-    if (!sessionId || !token) {
-      setJoinError(t("hosts.teamSessions.invalidCodeFormat"));
-      return;
-    }
+    const { sessionId, token } = parsed;
 
     setJoinLoading(true);
     setJoinError(null);
