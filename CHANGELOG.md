@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-07-21
+
+### Added
+
+- Search within the Docker panel — a per-sub-tab find-bar filters resources live
+  as you type, and Ctrl+F focuses it
+- Redesigned snippet step editor — drag to reorder step cards with a clearer
+  visual hierarchy, plus a slide-over picker for choosing remote paths
+
+### Fixed
+
+- Sync: a secret you changed locally is no longer overwritten by a stale copy
+  from the server (#35)
+
 ## [0.10.1] - 2026-07-20
 
 ### Fixed
