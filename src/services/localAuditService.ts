@@ -1,5 +1,6 @@
 import type { AuditFilters, AuditLog } from "@/services/auditService";
 import type { AuditTarget } from "@/services/auditContext";
+import { applyAuditFilters, csvEscape } from "@/services/auditExportCore";
 
 const LOCAL_AUDIT_KEY = "voltius-local-audit-logs";
 
@@ -91,28 +92,6 @@ function writeDb(db: LocalAuditDb): void {
   }
 }
 
-function applyFilters(logs: LocalAuditLog[], filters: AuditFilters): LocalAuditLog[] {
-  const from = filters.from ? Date.parse(filters.from) : null;
-  const to = filters.to ? Date.parse(filters.to) : null;
-
-  return logs.filter((log) => {
-    if (filters.actions?.length && !filters.actions.includes(log.action)) return false;
-    if (filters.actor_id && log.actor_id !== filters.actor_id) return false;
-    const created = Date.parse(log.created_at);
-    if (from !== null && Number.isFinite(from) && created < from) return false;
-    if (to !== null && Number.isFinite(to) && created > to) return false;
-    return true;
-  });
-}
-
-function csvEscape(value: unknown): string {
-  const s = value == null ? "" : String(value);
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
-
 export async function fetchLocalAuditLogs(
   vaultId: string,
   filters: AuditFilters,
@@ -121,7 +100,7 @@ export async function fetchLocalAuditLogs(
   const all = [...(db.logsByVault[vaultId] ?? [])].sort(
     (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at),
   );
-  const filtered = applyFilters(all, filters);
+  const filtered = applyAuditFilters(all, filters);
   const page = Math.max(1, filters.page);
   const perPage = Math.min(100, Math.max(1, filters.per_page));
   const start = (page - 1) * perPage;
@@ -137,7 +116,7 @@ export async function exportLocalAuditLogs(
   const all = [...(db.logsByVault[vaultId] ?? [])].sort(
     (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at),
   );
-  const filtered = applyFilters(all, { ...filters, page: 1, per_page: Number.MAX_SAFE_INTEGER });
+  const filtered = applyAuditFilters(all, filters);
 
   if (format === "csv") {
     const header = [
