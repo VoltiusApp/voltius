@@ -98,6 +98,8 @@
       "remotePicker": {
         "title": "Browse remote path",
         "pickHost": "Choose a host to browse",
+        "selectHostTitle": "Select a host",
+        "back": "Back",
         "connecting": "Connecting…",
         "select": "Select",
         "selectFolder": "Use this folder"
@@ -107,6 +109,7 @@
       "localPath": "Local path",
       "remotePath": "Remote path",
       "browse": "Browse",
+      "dragToReorder": "Drag to reorder",
       "selectSnippet": "Select a snippet...",
       "addScript": "+ Script",
       "addTransfer": "+ Transfer",
