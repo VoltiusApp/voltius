@@ -80,3 +80,13 @@ jobs:
     with:
       tag: ${{ needs.tag.outputs.tag }}
     secrets: inherit
+
+  # Publish the apt/yum package repos to R2 once the release exists. Same
+  # `release: published` gotcha as publish-installers — the token-authored
+  # release never fires that event, so it's called explicitly here. The script
+  # rebuilds statelessly from the last 5 releases, so it self-heals.
+  publish-repo:
+    needs: [tag, release]
+    if: needs.tag.outputs.created == 'true'
+    uses: ./.github/workflows/publish-repo.yml
+    secrets: inherit

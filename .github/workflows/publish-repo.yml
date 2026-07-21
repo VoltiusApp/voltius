@@ -8,6 +8,12 @@
 name: publish-repo
 
 on:
+  # Called by tag-release.yml after a release is built and published. The
+  # `release: published` event does NOT fire here on its own, because that
+  # release is created by the default GITHUB_TOKEN and GitHub suppresses
+  # workflow triggers from token-authored events (anti-recursion). This
+  # workflow_call path is how new releases actually reach the apt/yum repos.
+  workflow_call: {}
   release:
     types: [published]
   workflow_dispatch: {}
