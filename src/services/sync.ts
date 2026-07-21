@@ -26,6 +26,7 @@ import { appFetch } from "@/services/http";
 import { SseDataLineParser } from "@/services/realtimeSseEvents";
 import { connectNativeSse } from "@/services/nativeSseStream";
 import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
+import { parseUsingEvent } from "@/services/presenceEvent";
 
 export interface BlobPayload {
   files: Record<string, string>;
@@ -864,17 +865,12 @@ async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promi
     const online = parts[2] === "online";
     useTeamStore.getState().setMemberOnline(userId, online);
   } else if (eventData.startsWith("using:")) {
-    // Format: using:<subject_user_id>:<connection_id>:<0|1>
-    const rest = eventData.slice("using:".length);
-    const firstColon = rest.indexOf(":");
-    const lastColon = rest.lastIndexOf(":");
-    if (firstColon > 0 && lastColon > firstColon) {
-      const userId = rest.slice(0, firstColon);
-      const connectionId = rest.slice(firstColon + 1, lastColon);
-      const inUse = rest.slice(lastColon + 1) === "1";
+    const parsed = parseUsingEvent(eventData);
+    if (parsed) {
       const { useConnectionPresenceStore } = await import("@/stores/connectionPresenceStore");
-      if (inUse) useConnectionPresenceStore.getState().addUser(connectionId, userId);
-      else useConnectionPresenceStore.getState().removeUser(connectionId, userId);
+      const store = useConnectionPresenceStore.getState();
+      if (parsed.inUse) store.addUser(parsed.connectionId, parsed.userId);
+      else store.removeUser(parsed.connectionId, parsed.userId);
     }
   } else if (eventData === "token_invalidated") {
     tryRefreshJwt().catch(() => {});
