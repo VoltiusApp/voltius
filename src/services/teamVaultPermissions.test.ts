@@ -96,11 +96,12 @@ test("deniedReasons populated and allowed=false when can() rejects a needed perm
   expect(plan.deniedReasons.length).toBeGreaterThan(0);
 });
 
-test("permission lists are sorted and de-duplicated", () => {
+test("destination permissions are returned in sorted (not insertion) order", () => {
   const plan = buildTeamVaultTransferPlan(base({
-    selected: { connectionIds: ["c1", "c2"] },
-    connections: [conn({ id: "c1", vault_id: "team-b" }), conn({ id: "c2", vault_id: "team-b" })],
+    selected: { identityIds: ["i1"], folderIds: ["fo1"] },
+    identities: [idn({ id: "i1" })],
+    folders: [fld({ id: "fo1" })],
   }));
-  const sorted = [...plan.destinationPermissions].sort();
-  expect(plan.destinationPermissions).toEqual(sorted);
+  // EDIT_IDENTITIES is inserted before EDIT_FOLDERS, but output must be alphabetical.
+  expect(plan.destinationPermissions).toEqual(["EDIT_FOLDERS", "EDIT_IDENTITIES"]);
 });
