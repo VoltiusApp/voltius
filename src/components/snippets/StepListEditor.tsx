@@ -1,20 +1,19 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { pickLocalPath } from "@/services/sftp";
 import { formInputClass, formInputStyle } from "@/components/shared/Panel";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { VariableTextarea } from "@/components/snippets/VariableTextarea";
-import { RemotePathPickerModal } from "@/components/snippets/RemotePathPickerModal";
 import type { SnippetStep, Snippet } from "@/types";
 
 interface Props {
   value: SnippetStep[];
   onChange: (steps: SnippetStep[]) => void;
   snippets: Snippet[];
+  onBrowseRemote: (index: number, field: "from_path" | "to_path", isDir: boolean) => void;
 }
 
-export function StepListEditor({ value, onChange, snippets }: Props) {
+export function StepListEditor({ value, onChange, snippets, onBrowseRemote }: Props) {
   const { t } = useTranslation();
   const update = (i: number, step: SnippetStep) => onChange(value.map((s, j) => (j === i ? step : s)));
   const remove = (i: number) => onChange(value.filter((_, j) => j !== i));
@@ -26,7 +25,6 @@ export function StepListEditor({ value, onChange, snippets }: Props) {
     onChange(next);
   };
   const add = (step: SnippetStep) => onChange([...value, step]);
-  const [remotePick, setRemotePick] = useState<{ index: number; field: "from_path" | "to_path"; isDir: boolean } | null>(null);
 
   return (
     <div className="flex flex-col gap-2">
@@ -86,7 +84,7 @@ export function StepListEditor({ value, onChange, snippets }: Props) {
                           const p = await pickLocalPath({ directory: step.is_dir });
                           if (p) update(i, { ...step, [pathKey]: p });
                         } else {
-                          setRemotePick({ index: i, field: pathKey, isDir: step.is_dir });
+                          onBrowseRemote(i, pathKey, step.is_dir);
                         }
                       }}
                       className="text-xs px-2 rounded-md border shrink-0"
@@ -150,18 +148,6 @@ export function StepListEditor({ value, onChange, snippets }: Props) {
         <button type="button" onClick={() => add({ kind: "transfer", from: "local", to: "remote", from_path: "", to_path: "", is_dir: false, mode: "copy", on_conflict: "overwrite" })} className="text-xs px-2 py-1 rounded-md border" style={{ borderColor: "var(--t-border)" }}>{t("snippets.step.addTransfer")}</button>
         <button type="button" onClick={() => add({ kind: "snippet", snippet_id: "" })} className="text-xs px-2 py-1 rounded-md border" style={{ borderColor: "var(--t-border)" }}>{t("snippets.step.addSnippet")}</button>
       </div>
-
-      {remotePick && (
-        <RemotePathPickerModal
-          isDir={remotePick.isDir}
-          onClose={() => setRemotePick(null)}
-          onPick={(p) => {
-            const s = value[remotePick.index];
-            if (s.kind === "transfer") update(remotePick.index, { ...s, [remotePick.field]: p });
-            setRemotePick(null);
-          }}
-        />
-      )}
     </div>
   );
 }

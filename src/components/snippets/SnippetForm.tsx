@@ -32,6 +32,7 @@ import { getShortcutHint } from "@/stores/shortcutStore";
 import { parseVariables } from "@/services/snippetParser";
 import { snippetScriptText } from "@/services/snippetSteps";
 import { StepListEditor } from "@/components/snippets/StepListEditor";
+import { RemotePathPickerPanel } from "@/components/snippets/RemotePathPickerPanel";
 import { VariableTextarea } from "@/components/snippets/VariableTextarea";
 
 interface Props {
@@ -70,6 +71,7 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
   const [distroInput, setDistroInput] = useState("");
   const [favorite, setFavorite] = useState(initial?.favorite ?? false);
   const [vaultId, setVaultId]   = useState(initial?.vault_id ?? defaultVaultId);
+  const [remotePick, setRemotePick] = useState<{ index: number; field: "from_path" | "to_path"; isDir: boolean } | null>(null);
   const vaultTouched = useRef(false);
 
   // Single-script fast path: keep the plain textarea when the snippet is just one script step.
@@ -135,6 +137,7 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
   ] : [];
 
   return (
+    <div className="relative h-full overflow-hidden">
     <PanelShell>
       <PanelHeader
         icon="lucide:braces"
@@ -191,6 +194,7 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
                 value={steps}
                 onChange={(next) => { markDirty(); setSteps(next); }}
                 snippets={useSnippetStore.getState().snippets.filter((s) => s.id !== initial?.id)}
+                onBrowseRemote={(index, field, isDir) => setRemotePick({ index, field, isDir })}
               />
             ) : (
               <VariableTextarea
@@ -312,6 +316,27 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
         </FormSection>
       </div>
     </PanelShell>
+
+      <div
+        className="absolute inset-0 transition-transform duration-200 ease-out border-l border-l-(--t-bg-terminal)"
+        style={{ transform: remotePick ? "translateX(0)" : "translateX(100%)" }}
+      >
+        {remotePick && (
+          <RemotePathPickerPanel
+            isDir={remotePick.isDir}
+            onBack={() => setRemotePick(null)}
+            onPick={(p) => {
+              setSteps((prev) => prev.map((s, j) =>
+                j === remotePick.index && s.kind === "transfer"
+                  ? { ...s, [remotePick.field]: p }
+                  : s));
+              markDirty();
+              setRemotePick(null);
+            }}
+          />
+        )}
+      </div>
+    </div>
   );
 }
 
