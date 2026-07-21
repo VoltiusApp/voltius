@@ -22,6 +22,7 @@ import { NetworkList } from "./NetworkList";
 import { StackList } from "./StackList";
 import { VolumeList } from "./VolumeList";
 import type { DockerContainer } from "../types";
+import { matchContainer, matchImage, matchVolume, matchNetwork, matchStack } from "../filter";
 
 type Action =
   | { type: "SET_VIEW"; view: DockerView }
@@ -38,7 +39,20 @@ type Action =
   | { type: "OPEN_STACK_LOGS"; stackName: string }
   | { type: "CLOSE_LOGS" }
   | { type: "TOGGLE_STOPPED" }
+  | { type: "SET_FILTER"; view: ListView; query: string }
+  | { type: "OPEN_SEARCH" }
+  | { type: "CLOSE_SEARCH" }
   | { type: "RESET" };
+
+type ListView = Exclude<DockerView, "logs">;
+
+const EMPTY_FILTERS: Record<ListView, string> = {
+  containers: "",
+  images: "",
+  volumes: "",
+  networks: "",
+  stacks: "",
+};
 
 const initial: DockerState = {
   view: "containers",
@@ -56,12 +70,19 @@ const initial: DockerState = {
   loading: false,
   error: null,
   showStopped: false,
+  filters: { ...EMPTY_FILTERS },
+  searchOpen: false,
 };
 
 function reducer(state: DockerState, action: Action): DockerState {
   switch (action.type) {
-    case "SET_VIEW":
-      return { ...state, view: action.view, error: null };
+    case "SET_VIEW": {
+      const nextOpen =
+        action.view === "logs"
+          ? state.searchOpen
+          : state.searchOpen || state.filters[action.view].length > 0;
+      return { ...state, view: action.view, error: null, searchOpen: nextOpen };
+    }
     case "SET_CONTAINERS":
       return { ...state, containers: action.containers, loading: false, error: null };
     case "SET_IMAGES":
@@ -88,6 +109,14 @@ function reducer(state: DockerState, action: Action): DockerState {
       return { ...state, view: state.logsReturnView, logsContainerId: null, logsStackName: null, logLines: [] };
     case "TOGGLE_STOPPED":
       return { ...state, showStopped: !state.showStopped };
+    case "SET_FILTER":
+      return { ...state, filters: { ...state.filters, [action.view]: action.query } };
+    case "OPEN_SEARCH":
+      return { ...state, searchOpen: true };
+    case "CLOSE_SEARCH": {
+      if (state.view === "logs") return { ...state, searchOpen: false };
+      return { ...state, searchOpen: false, filters: { ...state.filters, [state.view]: "" } };
+    }
     case "RESET":
       return { ...initial };
     default:
@@ -111,6 +140,7 @@ export function DockerPanel() {
   const [sysPruneMsg, setSysPruneMsg] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const logsContainerNameRef = useRef<string>("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   // fetchForView is memoized without selectedStackName in its deps, so the
   // polling interval's closure would otherwise read a stale value and never
   // refetch the expanded stack's services. A ref keeps it current.
@@ -194,6 +224,10 @@ export function DockerPanel() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.view, activeSessionId, activeSession?.status]);
+
+  useEffect(() => {
+    if (state.searchOpen) searchInputRef.current?.focus();
+  }, [state.searchOpen]);
 
   if (!activeSession || activeSession.status !== "connected") {
     return (
@@ -283,6 +317,21 @@ export function DockerPanel() {
     }
   };
 
+  const activeQuery = state.view === "logs" ? "" : state.filters[state.view];
+  const filteredContainers = state.containers.filter((c) => matchContainer(c, activeQuery));
+  const filteredImages = state.images.filter((i) => matchImage(i, activeQuery));
+  const filteredVolumes = state.volumes.filter((v) => matchVolume(v, activeQuery));
+  const filteredNetworks = state.networks.filter((n) => matchNetwork(n, activeQuery));
+  const filteredStacks = state.stacks.filter((s) => matchStack(s, activeQuery));
+
+  const filterCounts: Record<ListView, { shown: number; total: number }> = {
+    containers: { shown: filteredContainers.length, total: state.containers.length },
+    images: { shown: filteredImages.length, total: state.images.length },
+    volumes: { shown: filteredVolumes.length, total: state.volumes.length },
+    networks: { shown: filteredNetworks.length, total: state.networks.length },
+    stacks: { shown: filteredStacks.length, total: state.stacks.length },
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Tab bar + actions */}
@@ -302,6 +351,17 @@ export function DockerPanel() {
           </button>
         ))}
         <div className="flex items-center gap-0.5 px-1.5 border-l border-(--t-border)">
+          <button
+            onClick={() => dispatch({ type: state.searchOpen ? "CLOSE_SEARCH" : "OPEN_SEARCH" })}
+            title="Search"
+            className="relative p-1 text-(--t-text-muted) hover:text-(--t-text)"
+            style={{ color: state.searchOpen ? "var(--t-accent)" : undefined }}
+          >
+            <Icon icon="lucide:search" width={11} />
+            {state.view !== "logs" && state.filters[state.view].length > 0 && (
+              <span className="absolute top-0.5 right-0.5 w-1 h-1 rounded-full bg-(--t-accent)" />
+            )}
+          </button>
           <button
             onClick={() => fetchForView(state.view)}
             disabled={state.loading}
@@ -333,6 +393,30 @@ export function DockerPanel() {
         </div>
       </div>
 
+      {state.searchOpen && state.view !== "logs" && (
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-(--t-border) shrink-0">
+          <Icon icon="lucide:search" width={12} className="text-(--t-text-muted) shrink-0" />
+          <input
+            ref={searchInputRef}
+            value={state.filters[state.view]}
+            onChange={(e) => dispatch({ type: "SET_FILTER", view: state.view as ListView, query: e.target.value })}
+            onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); dispatch({ type: "CLOSE_SEARCH" }); } }}
+            placeholder="Filter…"
+            className="flex-1 bg-transparent text-[11px] text-(--t-text-primary) placeholder:text-(--t-text-dim) outline-hidden"
+          />
+          <span className="text-[10px] text-(--t-text-dim) shrink-0 tabular-nums">
+            {filterCounts[state.view as ListView].shown}/{filterCounts[state.view as ListView].total}
+          </span>
+          <button
+            onClick={() => dispatch({ type: "CLOSE_SEARCH" })}
+            title="Close search"
+            className="p-0.5 text-(--t-text-muted) hover:text-(--t-text)"
+          >
+            <Icon icon="lucide:x" width={11} />
+          </button>
+        </div>
+      )}
+
       {sysPruneMsg && (
         <p className="px-3 py-1 text-[10px] text-(--t-text-muted) border-b border-(--t-border) shrink-0">
           {sysPruneMsg}
@@ -351,7 +435,7 @@ export function DockerPanel() {
         <div className="flex-1 overflow-hidden flex flex-col min-h-0">
           {state.view === "containers" && (
             <ContainerList
-              containers={state.containers}
+              containers={filteredContainers}
               showStopped={state.showStopped}
               sessionId={sessionId}
               isRemote={isRemote}
@@ -367,7 +451,7 @@ export function DockerPanel() {
           )}
           {state.view === "images" && (
             <ImageList
-              images={state.images}
+              images={filteredImages}
               sessionId={sessionId}
               isRemote={isRemote}
               localShell={localShell}
@@ -376,7 +460,7 @@ export function DockerPanel() {
           )}
           {state.view === "volumes" && (
             <VolumeList
-              volumes={state.volumes}
+              volumes={filteredVolumes}
               sessionId={sessionId}
               isRemote={isRemote}
               localShell={localShell}
@@ -385,7 +469,7 @@ export function DockerPanel() {
           )}
           {state.view === "networks" && (
             <NetworkList
-              networks={state.networks}
+              networks={filteredNetworks}
               sessionId={sessionId}
               isRemote={isRemote}
               localShell={localShell}
@@ -394,7 +478,7 @@ export function DockerPanel() {
           )}
           {state.view === "stacks" && (
             <StackList
-              stacks={state.stacks}
+              stacks={filteredStacks}
               services={state.stackServices}
               selectedStackName={state.selectedStackName}
               sessionId={sessionId}

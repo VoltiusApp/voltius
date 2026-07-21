@@ -105,4 +105,6 @@ export interface DockerState {
   loading: boolean;
   error: string | null;
   showStopped: boolean;
+  filters: Record<"containers" | "images" | "volumes" | "networks" | "stacks", string>;
+  searchOpen: boolean;
 }
