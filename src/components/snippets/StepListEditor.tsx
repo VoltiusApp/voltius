@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { pickLocalPath } from "@/services/sftp";
 import { formInputClass, formInputStyle } from "@/components/shared/Panel";
+import { FormSelect } from "@/components/shared/FormSelect";
 import { VariableTextarea } from "@/components/snippets/VariableTextarea";
 import { RemotePathPickerModal } from "@/components/snippets/RemotePathPickerModal";
 import type { SnippetStep, Snippet } from "@/types";
@@ -61,15 +62,16 @@ export function StepListEditor({ value, onChange, snippets }: Props) {
                     <span className="text-xs w-9 shrink-0" style={{ color: "var(--t-text-dim)" }}>
                       {t(`snippets.step.${side}`)}
                     </span>
-                    <select
-                      value={endpoint}
-                      onChange={(e) => update(i, { ...step, [side]: e.target.value as "local" | "remote" })}
-                      className="text-xs px-1 py-1 rounded-md border shrink-0"
-                      style={{ borderColor: "var(--t-border)" }}
-                    >
-                      <option value="local">{t("snippets.step.endpoint.local")}</option>
-                      <option value="remote">{t("snippets.step.endpoint.remote")}</option>
-                    </select>
+                    <div className="w-28 shrink-0">
+                      <FormSelect
+                        value={endpoint}
+                        onChange={(v) => update(i, { ...step, [side]: v as "local" | "remote" })}
+                        options={[
+                          { value: "local", label: t("snippets.step.endpoint.local") },
+                          { value: "remote", label: t("snippets.step.endpoint.remote") },
+                        ]}
+                      />
+                    </div>
                     <input
                       value={pathVal}
                       onChange={(e) => update(i, { ...step, [pathKey]: e.target.value })}
@@ -112,35 +114,33 @@ export function StepListEditor({ value, onChange, snippets }: Props) {
                 >
                   {t(`snippets.step.mode.${step.mode}`)}
                 </button>
-                <label className="text-xs flex items-center gap-1" style={{ color: "var(--t-text-dim)" }}>
-                  {t("snippets.step.conflict.label")}
-                  <select
-                    value={step.on_conflict}
-                    onChange={(e) => update(i, { ...step, on_conflict: e.target.value as typeof step.on_conflict })}
-                    className="text-xs px-1 py-1 rounded-md border"
-                    style={{ borderColor: "var(--t-border)" }}
-                  >
-                    <option value="overwrite">{t("snippets.step.conflict.overwrite")}</option>
-                    <option value="skip">{t("snippets.step.conflict.skip")}</option>
-                    <option value="fail">{t("snippets.step.conflict.fail")}</option>
-                  </select>
-                </label>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs" style={{ color: "var(--t-text-dim)" }}>{t("snippets.step.conflict.label")}</span>
+                  <div className="w-32">
+                    <FormSelect
+                      value={step.on_conflict}
+                      onChange={(v) => update(i, { ...step, on_conflict: v as typeof step.on_conflict })}
+                      options={[
+                        { value: "overwrite", label: t("snippets.step.conflict.overwrite") },
+                        { value: "skip", label: t("snippets.step.conflict.skip") },
+                        { value: "fail", label: t("snippets.step.conflict.fail") },
+                      ]}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
           {step.kind === "snippet" && (
-            <select
+            <FormSelect
               value={step.snippet_id}
-              onChange={(e) => update(i, { ...step, snippet_id: e.target.value })}
-              className={formInputClass}
-              style={formInputStyle}
-            >
-              <option value="">{t("snippets.step.selectSnippet")}</option>
-              {snippets.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
+              onChange={(v) => update(i, { ...step, snippet_id: v })}
+              options={[
+                { value: "", label: t("snippets.step.selectSnippet") },
+                ...snippets.map((s) => ({ value: s.id, label: s.name })),
+              ]}
+            />
           )}
         </div>
       ))}
