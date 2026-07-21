@@ -132,3 +132,27 @@ pub fn x25519_unwrap_key(
 
     cipher.decrypt(nonce, ciphertext).map_err(|e| e.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn keypair(seed: &[u8]) -> (String, String) {
+        let kp = derive_x25519_keypair(seed.to_vec()).unwrap();
+        (kp.private_key, kp.public_key)
+    }
+
+    #[test]
+    fn wrap_then_unwrap_round_trips() {
+        let (a_priv, a_pub) = keypair(b"alice-enc-key");
+        let (b_priv, b_pub) = keypair(b"bob-enc-key");
+        let session_key = vec![7u8; 32];
+
+        // Alice wraps for Bob.
+        let wrapped = x25519_wrap_key(a_priv, b_pub, session_key.clone()).unwrap();
+        // Bob unwraps from Alice.
+        let unwrapped = x25519_unwrap_key(b_priv, a_pub, wrapped).unwrap();
+
+        assert_eq!(unwrapped, session_key);
+    }
+}
