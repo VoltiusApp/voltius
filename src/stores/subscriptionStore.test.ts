@@ -52,14 +52,18 @@ test("server mode with unparseable jwt resets to free", async () => {
 });
 
 test("pro jwt derives flags and enriches seats from billing endpoint", async () => {
-  keychain({ mode: "server", jwt: makeJwt({ tier: "teams" }), server_url: "https://api.example" });
+  const jwt = makeJwt({ tier: "teams" });
+  keychain({ mode: "server", jwt, server_url: "https://api.example" });
   h.appFetch.mockResolvedValue({
     ok: true,
     json: async () => ({ used_seats: 2, seats: 5, status: "active", cancelled: false }),
   });
   await get().load();
   expect(get()).toMatchObject({ tier: "teams", isPro: true, isTeams: true, accountMode: "server", usedSeats: 2, totalSeats: 5, subscriptionStatus: "active" });
-  expect(h.appFetch).toHaveBeenCalledWith("https://api.example/v1/billing/subscription", expect.objectContaining({ headers: expect.any(Object) }));
+  expect(h.appFetch).toHaveBeenCalledWith(
+    "https://api.example/v1/billing/subscription",
+    expect.objectContaining({ headers: { Authorization: `Bearer ${jwt}` } }),
+  );
 });
 
 test("billing enrichment failure is non-fatal; tier flags still set", async () => {

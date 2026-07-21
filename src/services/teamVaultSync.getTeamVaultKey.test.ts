@@ -28,12 +28,14 @@ beforeEach(() => {
   h.invoke.mockReset(); h.appFetch.mockReset(); h.listMembers.mockReset(); h.unwrap.mockReset();
   clearTeamKeyCache();
 });
-afterEach(() => { clearTeamKeyCache(); });
+afterEach(() => {
+  clearTeamKeyCache();
+  Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
+});
 
 test("offline (navigator.onLine false) throws 'offline'", async () => {
   Object.defineProperty(navigator, "onLine", { value: false, configurable: true });
   await expect(getTeamVaultKey("t1")).rejects.toBe("offline");
-  Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
 });
 
 test("403 → forbidden, 402 → payment_required, 404 → not_found", async () => {

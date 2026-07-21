@@ -49,10 +49,11 @@ test("loadTeams keeps the same array reference when data is unchanged (cache ide
 });
 
 test("loadTeams failure clears loading and leaves teams intact", async () => {
+  useTeamStore.setState({ teams: [team("t1")] });
   api.listTeams.mockRejectedValue(new Error("offline"));
   await get().loadTeams();
   expect(get().loading).toBe(false);
-  expect(get().teams).toEqual([]);
+  expect(get().teams.map((t) => t.id)).toEqual(["t1"]); // pre-existing teams preserved on error
 });
 
 test("loadMembers / loadRoles store by team id", async () => {
