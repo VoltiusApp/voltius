@@ -60,6 +60,12 @@ export async function decryptData(key: SessionKey, b64: string): Promise<Uint8Ar
 let _cachedPrivateKey: string | null = null;
 let _cachedPublicKey: string | null = null;
 
+/** Test-only: reset the derived-keypair cache (mirrors teamVaultSync.clearTeamKeyCache). */
+export function clearKeypairCache(): void {
+  _cachedPrivateKey = null;
+  _cachedPublicKey = null;
+}
+
 export async function getMyX25519Keypair(): Promise<{ privateKey: string; publicKey: string }> {
   if (_cachedPrivateKey && _cachedPublicKey) {
     return { privateKey: _cachedPrivateKey, publicKey: _cachedPublicKey };
