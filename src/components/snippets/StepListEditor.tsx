@@ -57,10 +57,10 @@ export function StepListEditor({ value, onChange, snippets, onBrowseRemote }: Pr
             style={{
               borderColor: "var(--t-border)",
               opacity: isDragging ? 0.4 : 1,
-              borderTopColor: isOver && pos === "before" ? "var(--t-accent)" : undefined,
-              borderBottomColor: isOver && pos === "after" ? "var(--t-accent)" : undefined,
               cursor: dnd.dragging ? "grabbing" : undefined,
               userSelect: "none",
+              ...(isOver && pos === "before" ? { borderTopColor: "var(--t-accent)" } : {}),
+              ...(isOver && pos === "after" ? { borderBottomColor: "var(--t-accent)" } : {}),
             }}
           >
             {/* Header */}

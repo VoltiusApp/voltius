@@ -85,10 +85,10 @@ export default function JumpHostsPanel({ jumpHosts, onChange, onBack }: Props) {
                 {...dnd.rowProps(jh.id)}
                 style={{
                   opacity: isDragging ? 0.4 : 1,
-                  borderTopColor: isOver && pos === "before" ? "var(--t-accent)" : undefined,
-                  borderBottomColor: isOver && pos === "after" ? "var(--t-accent)" : undefined,
                   cursor: dnd.dragging ? "grabbing" : undefined,
                   userSelect: "none",
+                  ...(isOver && pos === "before" ? { borderTopColor: "var(--t-accent)" } : {}),
+                  ...(isOver && pos === "after" ? { borderBottomColor: "var(--t-accent)" } : {}),
                 }}
                 className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-(--t-bg-elevated) border border-(--t-border) transition-colors"
               >
