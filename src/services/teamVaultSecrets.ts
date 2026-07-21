@@ -4,6 +4,7 @@ import { getTeamVaultKey } from "@/services/teamVaultSync";
 import { listTeamSecrets, upsertTeamSecret } from "@/services/teamObjects";
 import { useTeamStore } from "@/stores/teamStore";
 import { useVaultStore } from "@/stores/vaultStore";
+import { resolveTeamIdFromCollections } from "@/services/resolveTeamId";
 import {
   localSecretKeyFromTeamSecret,
   teamSecretFromLocalKey,
@@ -55,9 +56,11 @@ export async function saveExistingTeamVaultSecret(teamId: string, localKey: stri
 }
 
 export function resolveTeamIdForVaultId(vaultId: string | null | undefined): string | null {
-  if (!vaultId) return null;
-  if (useTeamStore.getState().teams.some((team) => team.id === vaultId)) return vaultId;
-  return useVaultStore.getState().vaults.find((vault) => vault.id === vaultId)?.teamId ?? null;
+  return resolveTeamIdFromCollections(
+    vaultId,
+    useTeamStore.getState().teams,
+    useVaultStore.getState().vaults,
+  );
 }
 
 export async function saveTeamVaultSecretForVault(
