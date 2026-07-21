@@ -31,6 +31,12 @@ import {
   type TeamVaultRefreshOptions,
 } from "@/services/teamVaultRefresh";
 import { classifyTeamObjectListError } from "@/services/teamVaultLoadErrors";
+import {
+  bytesToBase64,
+  base64ToBytes,
+  buildTeamVaultFiles,
+  parseTeamVaultBlobFiles,
+} from "@/services/teamVaultSyncCore";
 
 export type { TeamMember };
 
@@ -55,22 +61,6 @@ export function deleteTeamKey(teamId: string): void {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function bytesToBase64(bytes: number[]): string {
-  const CHUNK = 8192;
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    binary += String.fromCharCode(...bytes.slice(i, i + CHUNK));
-  }
-  return btoa(binary);
-}
-
-function base64ToBytes(b64: string): number[] {
-  const binary = atob(b64);
-  const out = new Array<number>(binary.length);
-  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
-  return out;
-}
 
 async function getServerUrl(): Promise<string | null> {
   return invoke<string | null>("keychain_get", { key: "server_url" });
@@ -350,10 +340,6 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
     return;
   }
 
-  const parse = <T>(json: string | undefined): T[] => {
-    try { return JSON.parse(json ?? "[]"); } catch { return []; }
-  };
-
   const { useConnectionStore } = await import("@/stores/connectionStore");
   const { useIdentityStore } = await import("@/stores/identityStore");
   const { useKeyStore } = await import("@/stores/keyStore");
@@ -362,13 +348,14 @@ async function _fetchTeamData(teamId: string, options: TeamVaultRefreshOptions):
   const { useSnippetFolderStore } = await import("@/stores/snippetFolderStore");
   const { usePortForwardingStore } = await import("@/stores/portForwardingStore");
 
-  useConnectionStore.getState().setTeamConnections(teamId, parse<Connection>(blobPayload.files["connections.json"]));
-  useIdentityStore.getState().setTeamIdentities(teamId, parse<Identity>(blobPayload.files["identities.json"]));
-  useKeyStore.getState().setTeamKeys(teamId, parse<SshKey>(blobPayload.files["ssh_keys.json"]));
-  useFolderStore.getState().setTeamFolders(teamId, parse<Folder>(blobPayload.files["folders.json"]));
-  useSnippetStore.getState().setTeamSnippets(teamId, parse<Snippet>(blobPayload.files["snippets.json"]));
-  useSnippetFolderStore.getState().setTeamSnippetFolders(teamId, parse<Folder>(blobPayload.files["snippet_folders.json"]));
-  usePortForwardingStore.getState().setTeamRules(teamId, parse<PortForwardingRule>(blobPayload.files["port_forwarding_rules.json"]));
+  const slices = parseTeamVaultBlobFiles(blobPayload.files);
+  useConnectionStore.getState().setTeamConnections(teamId, slices.connections as Connection[]);
+  useIdentityStore.getState().setTeamIdentities(teamId, slices.identities as Identity[]);
+  useKeyStore.getState().setTeamKeys(teamId, slices.keys as SshKey[]);
+  useFolderStore.getState().setTeamFolders(teamId, slices.folders as Folder[]);
+  useSnippetStore.getState().setTeamSnippets(teamId, slices.snippets as Snippet[]);
+  useSnippetFolderStore.getState().setTeamSnippetFolders(teamId, slices.snippetFolders as Folder[]);
+  usePortForwardingStore.getState().setTeamRules(teamId, slices.portForwardingRules as PortForwardingRule[]);
 
   for (const [k, v] of Object.entries(blobPayload.secrets ?? {})) {
     await storeSecret(k, v).catch(() => {});
@@ -426,15 +413,15 @@ export async function saveTeamData(teamId: string): Promise<void> {
   const teamKeys = useKeyStore.getState().teamKeys[teamId] ?? [];
   const teamIdentities = useIdentityStore.getState().teamIdentities[teamId] ?? [];
 
-  const files: Record<string, string> = {
-    "connections.json": JSON.stringify(teamConns),
-    "identities.json": JSON.stringify(teamIdentities),
-    "ssh_keys.json": JSON.stringify(teamKeys),
-    "folders.json": JSON.stringify(useFolderStore.getState().teamFolders[teamId] ?? []),
-    "snippets.json": JSON.stringify(useSnippetStore.getState().teamSnippets[teamId] ?? []),
-    "snippet_folders.json": JSON.stringify(useSnippetFolderStore.getState().teamSnippetFolders[teamId] ?? []),
-    "port_forwarding_rules.json": JSON.stringify(usePortForwardingStore.getState().teamRules[teamId] ?? []),
-  };
+  const files = buildTeamVaultFiles({
+    connections: teamConns,
+    identities: teamIdentities,
+    keys: teamKeys,
+    folders: useFolderStore.getState().teamFolders[teamId] ?? [],
+    snippets: useSnippetStore.getState().teamSnippets[teamId] ?? [],
+    snippetFolders: useSnippetFolderStore.getState().teamSnippetFolders[teamId] ?? [],
+    portForwardingRules: usePortForwardingStore.getState().teamRules[teamId] ?? [],
+  });
 
   const secretEntries = await Promise.all([
     ...teamConns.flatMap((c) => [
