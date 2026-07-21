@@ -16,10 +16,25 @@ pub struct SecretsStore {
 struct StoreInner {
     enc_key: [u8; 32],
     secrets: HashMap<String, String>,
+    /// Per-secret last-write timestamps (RFC3339). A key present here but absent
+    /// from `secrets` is a tombstone: a deletion that must still propagate on sync.
+    clocks: HashMap<String, String>,
     path: PathBuf,
 }
 
 const NONCE_LEN: usize = 24;
+
+/// On-disk / in-blob representation of the secrets store.
+#[derive(serde::Serialize, serde::Deserialize, Default)]
+pub struct SecretsData {
+    pub secrets: HashMap<String, String>,
+    #[serde(default)]
+    pub clocks: HashMap<String, String>,
+}
+
+fn now_ts() -> String {
+    chrono::Utc::now().to_rfc3339()
+}
 
 fn secrets_path(app: &AppHandle) -> PathBuf {
     let dir = app
@@ -38,15 +53,16 @@ impl SecretsStore {
     }
 
     pub fn unlock(&self, path: PathBuf, enc_key: [u8; 32]) -> Result<(), AppError> {
-        let secrets = if path.exists() {
-            let data = std::fs::read(&path).map_err(|e| format!("Read failed: {e}"))?;
-            decrypt(&enc_key, &data)?
+        let data = if path.exists() {
+            let bytes = std::fs::read(&path).map_err(|e| format!("Read failed: {e}"))?;
+            decrypt(&enc_key, &bytes)?
         } else {
-            HashMap::new()
+            SecretsData::default()
         };
         *self.inner.lock().unwrap() = Some(StoreInner {
             enc_key,
-            secrets,
+            secrets: data.secrets,
+            clocks: data.clocks,
             path,
         });
         Ok(())
@@ -65,6 +81,7 @@ impl SecretsStore {
     pub fn set(&self, key: String, value: String) -> Result<(), AppError> {
         let mut guard = self.inner.lock().unwrap();
         let inner = guard.as_mut().ok_or("Secrets store is locked")?;
+        inner.clocks.insert(key.clone(), now_ts());
         inner.secrets.insert(key, value);
         save(inner)
     }
@@ -73,6 +90,8 @@ impl SecretsStore {
         let mut guard = self.inner.lock().unwrap();
         let inner = guard.as_mut().ok_or("Secrets store is locked")?;
         inner.secrets.remove(key);
+        // Leave a tombstone (clock without value) so the deletion propagates on sync.
+        inner.clocks.insert(key.to_string(), now_ts());
         save(inner)
     }
 
@@ -81,24 +100,38 @@ impl SecretsStore {
         self.inner.lock().unwrap().is_some()
     }
 
-    /// Export all secrets (for backup_export).
-    pub fn export_all(&self) -> Result<HashMap<String, String>, AppError> {
+    /// Export all secrets plus their per-secret clocks (for backup/sync export).
+    pub fn export_all(&self) -> Result<SecretsData, AppError> {
         let guard = self.inner.lock().unwrap();
         let inner = guard.as_ref().ok_or("Secrets store is locked")?;
-        Ok(inner.secrets.clone())
+        Ok(SecretsData {
+            secrets: inner.secrets.clone(),
+            clocks: inner.clocks.clone(),
+        })
     }
 
-    /// Import secrets from backup (bulk insert, no save — caller must call save explicitly).
-    pub fn import_all(&self, secrets: HashMap<String, String>) -> Result<(), AppError> {
+    /// Replace the store with a merged secrets+clocks set (from a sync merge or a
+    /// full backup restore). Replacing rather than extending lets deletions apply:
+    /// a key merged away (tombstoned) is removed from the live secret map.
+    pub fn replace_all(
+        &self,
+        secrets: HashMap<String, String>,
+        clocks: HashMap<String, String>,
+    ) -> Result<(), AppError> {
         let mut guard = self.inner.lock().unwrap();
         let inner = guard.as_mut().ok_or("Secrets store is locked")?;
-        inner.secrets.extend(secrets);
+        inner.secrets = secrets;
+        inner.clocks = clocks;
         save(inner)
     }
 }
 
 fn save(inner: &StoreInner) -> Result<(), AppError> {
-    let json = serde_json::to_vec(&inner.secrets)?;
+    let data = SecretsData {
+        secrets: inner.secrets.clone(),
+        clocks: inner.clocks.clone(),
+    };
+    let json = serde_json::to_vec(&data)?;
     let encrypted = encrypt(&inner.enc_key, &json)?;
     std::fs::write(&inner.path, encrypted).map_err(|e| AppError::Msg(format!("Write failed: {e}")))
 }
@@ -115,7 +148,7 @@ fn encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>, AppError> {
     Ok(out)
 }
 
-fn decrypt(key: &[u8; 32], data: &[u8]) -> Result<HashMap<String, String>, AppError> {
+fn decrypt(key: &[u8; 32], data: &[u8]) -> Result<SecretsData, AppError> {
     if data.len() < NONCE_LEN {
         return Err("Secrets file too short".into());
     }
@@ -124,7 +157,23 @@ fn decrypt(key: &[u8; 32], data: &[u8]) -> Result<HashMap<String, String>, AppEr
     let plaintext = cipher
         .decrypt(nonce, &data[NONCE_LEN..])
         .map_err(|_| "Decryption failed — wrong key or corrupted file".to_string())?;
-    Ok(serde_json::from_slice(&plaintext)?)
+    parse_secrets(&plaintext)
+}
+
+/// Parse decrypted bytes as a [`SecretsData`] envelope, tolerating the legacy
+/// format (a bare `{key: value}` map written before per-secret clocks existed).
+fn parse_secrets(plaintext: &[u8]) -> Result<SecretsData, AppError> {
+    let value: serde_json::Value = serde_json::from_slice(plaintext)?;
+    // Envelope form: an object with a `secrets` object field.
+    if value.get("secrets").map(|s| s.is_object()).unwrap_or(false) {
+        return Ok(serde_json::from_value(value)?);
+    }
+    // Legacy form: the whole object is the secrets map (clocks unknown → empty).
+    let secrets: HashMap<String, String> = serde_json::from_value(value)?;
+    Ok(SecretsData {
+        secrets,
+        clocks: HashMap::new(),
+    })
 }
 
 // ─── Tauri commands ───────────────────────────────────────────────────────────
@@ -199,16 +248,17 @@ pub fn secrets_rekey(
         .map_err(|_| "new_enc_key must be 32 bytes")?;
 
     let path = secrets_path(&app);
-    let secrets = if path.exists() {
-        let data = std::fs::read(&path).map_err(|e| format!("Read failed: {e}"))?;
-        decrypt(&old_key, &data)?
+    let data = if path.exists() {
+        let bytes = std::fs::read(&path).map_err(|e| format!("Read failed: {e}"))?;
+        decrypt(&old_key, &bytes)?
     } else {
-        std::collections::HashMap::new()
+        SecretsData::default()
     };
 
     let mut guard = state.inner.lock().unwrap();
     let inner = guard.as_mut().ok_or("Secrets store is locked")?;
-    inner.secrets = secrets;
+    inner.secrets = data.secrets;
+    inner.clocks = data.clocks;
     inner.enc_key = new_key;
     save(inner)
 }
@@ -245,4 +295,59 @@ pub fn secrets_wipe(app: AppHandle, state: tauri::State<SecretsStore>) -> Result
         std::fs::remove_file(&path).map_err(|e| format!("Wipe failed: {e}"))?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_legacy_bare_map_with_empty_clocks() {
+        // Secrets written before per-secret clocks existed: a bare {key: value} map.
+        let legacy = br#"{"password:c1":"secret","key:k1:private":"pem"}"#;
+        let data = parse_secrets(legacy).expect("legacy parse");
+        assert_eq!(data.secrets.get("password:c1").unwrap(), "secret");
+        assert_eq!(data.secrets.get("key:k1:private").unwrap(), "pem");
+        assert!(data.clocks.is_empty(), "legacy secrets have no clocks");
+    }
+
+    #[test]
+    fn parses_envelope_with_clocks() {
+        let envelope = br#"{"secrets":{"password:c1":"v"},"clocks":{"password:c1":"2026-07-21T00:00:00Z","password:c2":"2026-07-20T00:00:00Z"}}"#;
+        let data = parse_secrets(envelope).expect("envelope parse");
+        assert_eq!(data.secrets.get("password:c1").unwrap(), "v");
+        // A clock with no matching live secret is a tombstone (deleted secret).
+        assert_eq!(
+            data.clocks.get("password:c2").unwrap(),
+            "2026-07-20T00:00:00Z"
+        );
+        assert!(!data.secrets.contains_key("password:c2"));
+    }
+
+    #[test]
+    fn parses_envelope_without_clocks_field() {
+        let envelope = br#"{"secrets":{"password:c1":"v"}}"#;
+        let data = parse_secrets(envelope).expect("envelope parse");
+        assert_eq!(data.secrets.get("password:c1").unwrap(), "v");
+        assert!(data.clocks.is_empty());
+    }
+
+    #[test]
+    fn envelope_round_trips_through_serde() {
+        let mut secrets = HashMap::new();
+        secrets.insert("password:c1".to_string(), "v".to_string());
+        let mut clocks = HashMap::new();
+        clocks.insert(
+            "password:c1".to_string(),
+            "2026-07-21T00:00:00Z".to_string(),
+        );
+        let json = serde_json::to_vec(&SecretsData {
+            secrets: secrets.clone(),
+            clocks: clocks.clone(),
+        })
+        .unwrap();
+        let back = parse_secrets(&json).unwrap();
+        assert_eq!(back.secrets, secrets);
+        assert_eq!(back.clocks, clocks);
+    }
 }

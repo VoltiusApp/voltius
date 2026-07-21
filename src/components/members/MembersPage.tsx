@@ -33,6 +33,7 @@ import { markTeamVaultLoadedAfterLocalActivation } from "@/services/teamVaultAct
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { RoleModal, PERM_META, TeamRolesPanel } from "@/components/settings/sections/RolesSection";
+import { seatAvailability } from "@/services/seatMath";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -720,7 +721,7 @@ function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }:
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const isAtSeatLimit = totalSeats != null && usedSeats != null && usedSeats >= totalSeats;
+  const { atLimit: isAtSeatLimit, available: availableSeats } = seatAvailability(usedSeats, totalSeats);
 
   const builtinRoles = useMemo(
     () => teamRoles.filter((r) => !(r.is_builtin && r.name === "owner")).sort((a, b) => a.position - b.position),
@@ -877,7 +878,7 @@ function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }:
                 <p className="text-[11px] tabular-nums" style={{ color: isAtSeatLimit ? "var(--t-status-error)" : "var(--t-text-dim)" }}>
                   {t("members.invite.seatsSummary", {
                     used: usedSeats ?? 0,
-                    available: totalSeats != null ? Math.max(0, totalSeats - (usedSeats ?? 0)) : "?",
+                    available: availableSeats ?? "?",
                     total: totalSeats ?? "?",
                   })}
                 </p>
@@ -1038,7 +1039,7 @@ function PrivateVaultInvitePanel({
   const { t } = useTranslation();
   const { usedSeats, totalSeats, load: reloadSubscription } = useSubscriptionStore();
   const [selectedRole, setSelectedRole] = useState("member");
-  const isAtSeatLimit = totalSeats != null && usedSeats != null && usedSeats >= totalSeats;
+  const { atLimit: isAtSeatLimit, available: availableSeats } = seatAvailability(usedSeats, totalSeats);
 
   useEffect(() => { void reloadSubscription(); }, []);
   useEffect(() => { inputRef.current?.focus(); }, []);
@@ -1064,7 +1065,7 @@ function PrivateVaultInvitePanel({
               <p className="text-[11px] tabular-nums" style={{ color: isAtSeatLimit ? "var(--t-status-error)" : "var(--t-text-dim)" }}>
                 {t("members.invite.seatsSummary", {
                   used: usedSeats ?? 0,
-                  available: totalSeats != null ? Math.max(0, totalSeats - (usedSeats ?? 0)) : "?",
+                  available: availableSeats ?? "?",
                   total: totalSeats ?? "?",
                 })}
               </p>

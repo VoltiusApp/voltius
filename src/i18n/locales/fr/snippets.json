@@ -98,6 +98,8 @@
       "remotePicker": {
         "title": "Parcourir un chemin distant",
         "pickHost": "Choisissez un hôte à parcourir",
+        "selectHostTitle": "Sélectionner un hôte",
+        "back": "Retour",
         "connecting": "Connexion…",
         "select": "Sélectionner",
         "selectFolder": "Utiliser ce dossier"
@@ -107,6 +109,7 @@
       "localPath": "Chemin local",
       "remotePath": "Chemin distant",
       "browse": "Parcourir",
+      "dragToReorder": "Glisser pour réordonner",
       "selectSnippet": "Sélectionner un snippet...",
       "addScript": "+ Script",
       "addTransfer": "+ Transfert",

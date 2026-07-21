@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { appFetch } from "@/services/http";
+import { seatCost } from "@/services/seatMath";
 
 const SEAT_PRICE_MONTHLY = 15;
 
@@ -25,8 +26,7 @@ export default function BuySeatsModal({ teamId, pendingUser, pendingRole, onClos
   const [error, setError] = useState("");
 
   const currentTotal = totalSeats ?? 3;
-  const newTotal = currentTotal + additionalSeats;
-  const monthlyCost = newTotal * SEAT_PRICE_MONTHLY;
+  const { newTotal, monthlyCost } = seatCost(totalSeats, additionalSeats, SEAT_PRICE_MONTHLY);
 
   const handleConfirm = async () => {
     setLoading(true);

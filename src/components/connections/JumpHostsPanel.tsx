@@ -1,10 +1,11 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { JumpHost } from "@/types";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 import { HostPickerPanel, type HostChoice } from "@/components/shared/HostPickerPanel";
+import { useListReorder } from "@/hooks/useListReorder";
 
 interface Props {
   jumpHosts: JumpHost[];
@@ -16,10 +17,7 @@ export default function JumpHostsPanel({ jumpHosts, onChange, onBack }: Props) {
   const { t } = useTranslation();
   const { connections } = useConnectionStore();
   const [showPicker, setShowPicker] = useState(false);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const [dragOverPos, setDragOverPos] = useState<"before" | "after">("after");
-  const dragRef = useRef<{ id: string } | null>(null);
+  const dnd = useListReorder(jumpHosts, onChange);
 
   const handlePick = (choice: HostChoice) => {
     if (choice.kind !== "remote") return;
@@ -41,47 +39,9 @@ export default function JumpHostsPanel({ jumpHosts, onChange, onBack }: Props) {
     onChange(jumpHosts.filter((j) => j.id !== id));
   };
 
-  const handleDragStart = (id: string) => {
-    dragRef.current = { id };
-    setDraggingId(id);
-  };
-
-  const handleDragOver = (id: string, e: React.MouseEvent<HTMLDivElement>) => {
-    if (!dragRef.current || dragRef.current.id === id) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const mid = rect.top + rect.height / 2;
-    setDragOverId(id);
-    setDragOverPos(e.clientY < mid ? "before" : "after");
-  };
-
-  const handleDrop = () => {
-    if (!dragRef.current || !dragOverId || dragRef.current.id === dragOverId) {
-      cancelDrag();
-      return;
-    }
-    const fromId = dragRef.current.id;
-    const toId = dragOverId;
-    const pos = dragOverPos;
-
-    const list = [...jumpHosts];
-    const fromIdx = list.findIndex((j) => j.id === fromId);
-    const toIdx = list.findIndex((j) => j.id === toId);
-    const [item] = list.splice(fromIdx, 1);
-    const insertAt = pos === "before" ? (fromIdx < toIdx ? toIdx - 1 : toIdx) : (fromIdx < toIdx ? toIdx : toIdx + 1);
-    list.splice(Math.max(0, insertAt), 0, item);
-    onChange(list);
-    cancelDrag();
-  };
-
-  const cancelDrag = () => {
-    dragRef.current = null;
-    setDraggingId(null);
-    setDragOverId(null);
-  };
-
   return (
     <div className="relative flex flex-col h-full overflow-hidden bg-(--t-bg-card)">
-      <div className="flex flex-col h-full" onMouseUp={handleDrop} onMouseLeave={cancelDrag}>
+      <div className="flex flex-col h-full" {...dnd.containerProps}>
         {/* Header */}
         <div className="flex items-center gap-2 px-3 py-3 shrink-0 border-b border-b-(--t-bg-terminal)">
           <button
@@ -118,24 +78,23 @@ export default function JumpHostsPanel({ jumpHosts, onChange, onBack }: Props) {
             const host = conn?.host ?? jh.host ?? "?";
             const port = conn?.port ?? jh.port ?? 22;
             const username = conn?.username ?? jh.username ?? "?";
-            const isDragging = draggingId === jh.id;
-            const isOver = dragOverId === jh.id && draggingId !== jh.id;
+            const { isDragging, isOver, pos } = dnd.rowState(jh.id);
             return (
               <div
                 key={jh.id}
-                onMouseMove={(e) => handleDragOver(jh.id, e)}
+                {...dnd.rowProps(jh.id)}
                 style={{
                   opacity: isDragging ? 0.4 : 1,
-                  borderTopColor: isOver && dragOverPos === "before" ? "var(--t-accent)" : undefined,
-                  borderBottomColor: isOver && dragOverPos === "after" ? "var(--t-accent)" : undefined,
-                  cursor: draggingId ? "grabbing" : undefined,
+                  cursor: dnd.dragging ? "grabbing" : undefined,
                   userSelect: "none",
+                  ...(isOver && pos === "before" ? { borderTopColor: "var(--t-accent)" } : {}),
+                  ...(isOver && pos === "after" ? { borderBottomColor: "var(--t-accent)" } : {}),
                 }}
                 className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-(--t-bg-elevated) border border-(--t-border) transition-colors"
               >
                 {/* Drag handle */}
                 <div
-                  onMouseDown={() => handleDragStart(jh.id)}
+                  {...dnd.handleProps(jh.id)}
                   className="text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors shrink-0 cursor-grab active:cursor-grabbing"
                   aria-label={t("connections.jumpHostsPanel.dragToReorderAriaLabel")}
                 >

@@ -5,6 +5,7 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { StepListEditor } from "@/components/snippets/StepListEditor";
+import { RemotePathPickerPanel } from "@/components/snippets/RemotePathPickerPanel";
 import type { SnippetFormData, SnippetStep } from "@/types";
 
 export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: string }) {
@@ -19,6 +20,7 @@ export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: str
 
   const [name, setName] = useState(editing?.name ?? "");
   const [steps, setSteps] = useState<SnippetStep[]>(editing?.steps ?? [{ kind: "script", content: "" }]);
+  const [remotePick, setRemotePick] = useState<{ index: number; field: "from_path" | "to_path"; isDir: boolean } | null>(null);
 
   // Single-script fast path: keep the plain textarea when the snippet is just one script step.
   const [forceSequence, setForceSequence] = useState(false);
@@ -89,6 +91,7 @@ export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: str
             value={steps}
             onChange={setSteps}
             snippets={snippets.filter((s) => s.id !== editing?.id)}
+            onBrowseRemote={(index, field, isDir) => setRemotePick({ index, field, isDir })}
           />
         ) : (
           <div className="flex-1 flex flex-col gap-1.5">
@@ -121,6 +124,22 @@ export default function MobileSnippetEditScreen({ snippetId }: { snippetId?: str
           </button>
         )}
       </div>
+
+      {remotePick && (
+        <div className="absolute inset-0 z-40 bg-(--t-bg-base)">
+          <RemotePathPickerPanel
+            isDir={remotePick.isDir}
+            onBack={() => setRemotePick(null)}
+            onPick={(p) => {
+              setSteps((prev) => prev.map((s, j) =>
+                j === remotePick.index && s.kind === "transfer"
+                  ? { ...s, [remotePick.field]: p }
+                  : s));
+              setRemotePick(null);
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

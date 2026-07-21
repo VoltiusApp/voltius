@@ -45,7 +45,7 @@ export function useKeyboard() {
       if (matchShortcut("terminal-search", e)) {
         e.preventDefault();
         const { rightPanelOpen, rightPanelSection, activeNav } = useUIStore.getState();
-        const SEARCHABLE_SECTIONS = ["snippets", "history"];
+        const SEARCHABLE_SECTIONS = ["snippets", "history", "plugin:docker"];
         if (rightPanelOpen && SEARCHABLE_SECTIONS.includes(rightPanelSection)) {
           window.dispatchEvent(new CustomEvent("voltius:focus-panel-search"));
         } else if (activeNav === "terminal") {

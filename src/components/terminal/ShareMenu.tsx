@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
+import { buildInviteCode } from "@/services/inviteCode";
 
 const ROLES = ["owner", "manager", "editor", "member"] as const;
 
@@ -165,7 +166,7 @@ export function ShareMenu({ anchorRef, open, onClose, activeSessionId, connectio
   const handleCopyInviteLink = async () => {
     if (!inviteLinkToken) return;
     const sessionId = activeMp?.multiplayerSessionId ?? "";
-    await writeClipboard(`${sessionId}:${inviteLinkToken}`);
+    await writeClipboard(buildInviteCode(sessionId, inviteLinkToken));
     setInviteLinkCopied(true);
     setTimeout(() => setInviteLinkCopied(false), 2000);
   };
@@ -375,7 +376,7 @@ function ActiveSharingView({
 
   const handleCopy = async () => {
     if (!inviteLinkToken) return;
-    await writeClipboard(`${activeMp.multiplayerSessionId}:${inviteLinkToken}`);
+    await writeClipboard(buildInviteCode(activeMp.multiplayerSessionId, inviteLinkToken));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

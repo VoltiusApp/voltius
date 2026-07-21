@@ -101,6 +101,8 @@
       "remotePicker": {
         "title": "Обзор удалённого пути",
         "pickHost": "Выберите хост для обзора",
+        "selectHostTitle": "Выберите хост",
+        "back": "Назад",
         "connecting": "Подключение…",
         "select": "Выбрать",
         "selectFolder": "Использовать эту папку"
@@ -110,6 +112,7 @@
       "localPath": "Локальный путь",
       "remotePath": "Удалённый путь",
       "browse": "Обзор",
+      "dragToReorder": "Перетащите для изменения порядка",
       "selectSnippet": "Выберите сниппет...",
       "addScript": "+ Скрипт",
       "addTransfer": "+ Передача",

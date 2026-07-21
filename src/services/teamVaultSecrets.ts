@@ -4,30 +4,16 @@ import { getTeamVaultKey } from "@/services/teamVaultSync";
 import { listTeamSecrets, upsertTeamSecret } from "@/services/teamObjects";
 import { useTeamStore } from "@/stores/teamStore";
 import { useVaultStore } from "@/stores/vaultStore";
+import { resolveTeamIdFromCollections } from "@/services/resolveTeamId";
 import {
   localSecretKeyFromTeamSecret,
   teamSecretFromLocalKey,
 } from "@/services/teamVaultSecretKeys";
+import { bytesToBase64, base64ToBytes } from "@/services/teamVaultSyncCore";
 
 interface BlobPayload {
   files: Record<string, string>;
   secrets: Record<string, string>;
-}
-
-function bytesToBase64(bytes: number[]): string {
-  const CHUNK = 8192;
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    binary += String.fromCharCode(...bytes.slice(i, i + CHUNK));
-  }
-  return btoa(binary);
-}
-
-function base64ToBytes(b64: string): number[] {
-  const binary = atob(b64);
-  const out = new Array<number>(binary.length);
-  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
-  return out;
 }
 
 export async function saveTeamVaultSecret(teamId: string, localKey: string, value: string): Promise<void> {
@@ -55,9 +41,11 @@ export async function saveExistingTeamVaultSecret(teamId: string, localKey: stri
 }
 
 export function resolveTeamIdForVaultId(vaultId: string | null | undefined): string | null {
-  if (!vaultId) return null;
-  if (useTeamStore.getState().teams.some((team) => team.id === vaultId)) return vaultId;
-  return useVaultStore.getState().vaults.find((vault) => vault.id === vaultId)?.teamId ?? null;
+  return resolveTeamIdFromCollections(
+    vaultId,
+    useTeamStore.getState().teams,
+    useVaultStore.getState().vaults,
+  );
 }
 
 export async function saveTeamVaultSecretForVault(
