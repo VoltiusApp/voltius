@@ -49,3 +49,10 @@ test("emailVerified is true unless explicitly false", () => {
   expect(deriveTierFlags({ tier: "pro", email_verified: false }, NOW).emailVerified).toBe(false);
   expect(deriveTierFlags({ tier: "pro", email_verified: true }, NOW).emailVerified).toBe(true);
 });
+
+test("expired pro-trial still reads as pro (locks current 'trust server tier' behavior)", () => {
+  // Live bug: the client mirrors the JWT tier; an expired pro-trial does NOT downgrade isPro.
+  const f = deriveTierFlags({ tier: "pro", trial_ends_at: past, trial_used: true }, NOW);
+  expect(f.isPro).toBe(true);
+  expect(f.isTrialActive).toBe(false);
+});
