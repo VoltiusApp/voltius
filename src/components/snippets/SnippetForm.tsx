@@ -181,9 +181,10 @@ export function SnippetForm({ initial, onSubmit, onClose, onDuplicate, onDelete,
                 <button
                   type="button"
                   onClick={() => { markDirty(); setForceSequence(true); }}
-                  className="text-xs transition-colors"
+                  className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-md transition-colors hover:bg-(--t-bg-elevated)"
                   style={{ color: "var(--t-text-dim)" }}
                 >
+                  <Icon icon="lucide:list-plus" width={13} />
                   {t("snippets.step.addStep")}
                 </button>
               )}
