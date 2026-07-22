@@ -188,6 +188,7 @@ export async function sync(api: PluginAPI): Promise<void> {
   const keyMap: KeyMap = (await api.storage.get<KeyMap>(KEY_MAP_KEY)) ?? {};
   const identityMap: IdentityMap = (await api.storage.get<IdentityMap>(IDENTITY_MAP_KEY)) ?? {};
   const notifyEnabled = (await api.storage.get<boolean>(NOTIFICATIONS_ENABLED_KEY)) ?? DEFAULT_NOTIFICATIONS_ENABLED;
+  const adoptEnabled = (await api.storage.get<boolean>(ADOPT_UNTAGGED_ENABLED_KEY)) ?? DEFAULT_ADOPT_UNTAGGED_ENABLED;
 
   // Hosts present in the config file (keyed by alias)
   const configAliases = new Set(hosts.map((h) => h.alias));
@@ -213,6 +214,58 @@ export async function sync(api: PluginAPI): Promise<void> {
 
   // ── Add/update connections for each host in the config ──────────────────
   for (const host of hosts) {
+    // Resolve the existing connection first — an adopted (untagged) match skips
+    // key/identity work and preserves the user's fields, so the decision comes
+    // before any key/identity creation.
+    const existingId = aliasMap[host.alias];
+    // aliasMap is authoritative: search ALL connections by id so a previously
+    // adopted (untagged) connection is always re-found. The content fallback
+    // stays scoped to tagged connections unless adoption is enabled.
+    let existing =
+      (existingId ? allConnections.find((c) => c.id === existingId) : undefined) ??
+      taggedConnections.find(
+        (c) =>
+          c.host === host.hostname &&
+          c.port === host.port &&
+          c.username === host.user,
+      );
+
+    // Adoption: reuse an untagged user connection that matches by host/port/user
+    // instead of creating a duplicate. First match wins.
+    if (!existing && adoptEnabled) {
+      existing = allConnections.find(
+        (c) =>
+          !c.tags.includes(SSH_CONFIG_TAG) &&
+          c.host === host.hostname &&
+          c.port === host.port &&
+          c.username === host.user,
+      );
+    }
+
+    // A managed connection that is untagged can only be an adopted one.
+    const adopted = !!existing && !existing.tags.includes(SSH_CONFIG_TAG);
+
+    if (existing) {
+      aliasMap[host.alias] = existing.id;
+    }
+
+    // Adopted: preserve the user's fields; only propagate host/port/user changes.
+    if (adopted && existing) {
+      const changed =
+        existing.host !== host.hostname ||
+        existing.port !== host.port ||
+        existing.username !== host.user;
+      if (changed) {
+        await api.connections.update(existing.id, {
+          host: host.hostname,
+          port: host.port,
+          username: host.user,
+        });
+      }
+      continue;
+    }
+
+    // Plugin-managed: ensure key/identity, then create or fully update.
     let identityId: string | undefined;
     if (host.identityFile) {
       const keyId = await ensureKey(api, host.identityFile, keyMap, allKeys, notifyEnabled);
@@ -226,7 +279,6 @@ export async function sync(api: PluginAPI): Promise<void> {
           }
         }
         if (!identityId) {
-          // Fallback: reuse existing identity if the map was lost/stale
           const existingIdentity = allIdentities.find(
             (i) => i.name === host.alias && i.username === host.user && i.key_id === keyId,
           );
@@ -246,23 +298,6 @@ export async function sync(api: PluginAPI): Promise<void> {
           }
         }
       }
-    }
-
-    const existingId = aliasMap[host.alias];
-    // Always try both the stored ID and the content-based fallback so that a
-    // stale/cleared map never bypasses dedup.
-    const existing =
-      (existingId ? taggedConnections.find((c) => c.id === existingId) : undefined) ??
-      taggedConnections.find(
-        (c) =>
-          c.host === host.hostname &&
-          c.port === host.port &&
-          c.username === host.user,
-      );
-
-    // Keep aliasMap in sync with the actual connection id
-    if (existing) {
-      aliasMap[host.alias] = existing.id;
     }
 
     const data: PluginConnectionInput = {
@@ -348,6 +383,8 @@ const POLL_INTERVAL_KEY = "poll_interval_ms";
 const DEFAULT_POLL_INTERVAL = 5000;
 const NOTIFICATIONS_ENABLED_KEY = "notifications_enabled";
 const DEFAULT_NOTIFICATIONS_ENABLED = true;
+const ADOPT_UNTAGGED_ENABLED_KEY = "adopt_untagged_enabled";
+const DEFAULT_ADOPT_UNTAGGED_ENABLED = true;
 const RESTART_EVENT = "ssh-config:restart-watcher";
 const SYNC_NOW_EVENT = "ssh-config:sync-now";
 

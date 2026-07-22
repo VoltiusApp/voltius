@@ -113,3 +113,70 @@ describe("ssh-config sync — baseline behavior (characterization)", () => {
     expect(h.connections).toHaveLength(1);
   });
 });
+
+describe("ssh-config sync — adoption", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  test("adopts an untagged match instead of creating a duplicate", async () => {
+    const h = makeSyncApi({
+      config: cfg("Oracle", "1.2.3.4", "ubuntu"),
+      connections: [
+        conn({ id: "user-1", name: "Serv Oracle", host: "1.2.3.4", port: 22, username: "ubuntu", tags: [] }),
+      ],
+    });
+    await sync(h.api);
+    expect(h.create).not.toHaveBeenCalled();
+    expect(h.connections).toHaveLength(1);
+    expect(h.store.get("alias_map")).toEqual({ Oracle: "user-1" });
+  });
+
+  test("preserves the user's label, auth, identity and tags; creates no key/identity", async () => {
+    const h = makeSyncApi({
+      config: cfg("Oracle", "1.2.3.4", "ubuntu"),
+      connections: [
+        conn({
+          id: "user-1", name: "Serv Oracle", host: "1.2.3.4", port: 22, username: "ubuntu",
+          auth_type: "key", identity_id: "id-9", tags: [],
+        }),
+      ],
+    });
+    await sync(h.api);
+    const c = h.connections[0];
+    expect(c.name).toBe("Serv Oracle");
+    expect(c.auth_type).toBe("key");
+    expect(c.identity_id).toBe("id-9");
+    expect(c.tags).toEqual([]);
+    expect(h.api.keys.create).not.toHaveBeenCalled();
+    expect(h.api.identities.create).not.toHaveBeenCalled();
+    expect(h.update).not.toHaveBeenCalled(); // host/port/user already match → no-op
+  });
+
+  test("first untagged match wins; the rest are left untouched", async () => {
+    const h = makeSyncApi({
+      config: cfg("Oracle", "1.2.3.4", "ubuntu"),
+      connections: [
+        conn({ id: "user-1", name: "First", host: "1.2.3.4", port: 22, username: "ubuntu", tags: [] }),
+        conn({ id: "user-2", name: "Second", host: "1.2.3.4", port: 22, username: "ubuntu", tags: [] }),
+      ],
+    });
+    await sync(h.api);
+    expect(h.create).not.toHaveBeenCalled();
+    expect(h.connections).toHaveLength(2);
+    expect(h.store.get("alias_map")).toEqual({ Oracle: "user-1" });
+  });
+
+  test("setting OFF ignores the untagged connection and creates a tagged duplicate", async () => {
+    const h = makeSyncApi({
+      config: cfg("Oracle", "1.2.3.4", "ubuntu"),
+      connections: [
+        conn({ id: "user-1", name: "Serv Oracle", host: "1.2.3.4", port: 22, username: "ubuntu", tags: [] }),
+      ],
+      storage: { adopt_untagged_enabled: false },
+    });
+    await sync(h.api);
+    expect(h.create).toHaveBeenCalledTimes(1);
+    expect(h.connections).toHaveLength(2);
+    const created = h.connections.find((c) => c.id.startsWith("gen-"))!;
+    expect(created.tags).toContain(TAG);
+  });
+});
