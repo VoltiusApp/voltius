@@ -10,6 +10,7 @@ import { useKeyboard } from "@/hooks/useKeyboard";
 import { useInputUndo } from "@/hooks/useInputUndo";
 import { useSessionExpiration } from "@/hooks/useSessionExpiration";
 import { useApplyTheme } from "@/hooks/useApplyTheme";
+import { useThemeAutomation } from "@/hooks/useThemeAutomation";
 import { useApplyUiScale } from "@/hooks/useApplyUiScale";
 import { useCoreOmniCommands } from "@/hooks/useCoreOmniCommands";
 import { useImportExportContributions } from "@/hooks/useImportExportContributions";
@@ -39,6 +40,7 @@ function App() {
   useInputUndo();
   useSessionExpiration();
   useApplyTheme();
+  useThemeAutomation();
   useApplyUiScale();
   useCoreOmniCommands();
   useImportExportContributions();
