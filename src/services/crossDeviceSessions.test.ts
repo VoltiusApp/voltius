@@ -66,6 +66,7 @@ test("getJoinableSessions filters joinable to connections that exist (personal +
 test("runClosedCheck is a no-op when toggle off", () => {
   h.getToggle.mockReturnValue(false);
   runClosedCheck();
+  expect(h.resolveRemoteSessions).not.toHaveBeenCalled();
   expect(h.removeSession).not.toHaveBeenCalled();
 });
 
