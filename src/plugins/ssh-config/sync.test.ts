@@ -205,3 +205,26 @@ describe("ssh-config sync — ProxyJump + adoption", () => {
     expect(jumpWrites).toHaveLength(0);
   });
 });
+
+describe("ssh-config sync — adopted connections are never deleted", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  test("removing the alias from config keeps the adopted connection, clears alias_map", async () => {
+    const h = makeSyncApi({
+      config: cfg("Oracle", "1.2.3.4", "ubuntu"),
+      connections: [
+        conn({ id: "user-1", name: "Serv Oracle", host: "1.2.3.4", port: 22, username: "ubuntu", tags: [] }),
+      ],
+    });
+    await sync(h.api);
+    expect(h.store.get("alias_map")).toEqual({ Oracle: "user-1" });
+
+    vi.clearAllMocks();
+    h.setConfig(""); // alias removed from config
+    await sync(h.api);
+
+    expect(h.del).not.toHaveBeenCalled();
+    expect(h.connections.some((c) => c.id === "user-1")).toBe(true);
+    expect(h.store.get("alias_map")).toEqual({});
+  });
+});
