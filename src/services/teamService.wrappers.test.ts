@@ -7,7 +7,7 @@ vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/stores/subscriptionStore", () => ({ useSubscriptionStore: { getState: () => ({ load: h.load }) } }));
 
 import {
-  listTeams, listRoles, listPendingInvitations, fetchMyPendingInvitations, searchUsers,
+  listTeams, listRoles, listPendingInvitations, fetchMyPendingInvitations, searchUsers, listMemberRoles,
   createTeam, addMember, addMemberById, removeMember,
   assignMemberRole, removeMemberRole, createRole, updateRole, deleteRole,
   inviteByEmail, getMyUserId,
@@ -42,6 +42,8 @@ describe("no-server split", () => {
     expect(await listRoles("t1")).toEqual([]);
     expect(await listPendingInvitations("t1")).toEqual([]);
     expect(await fetchMyPendingInvitations()).toEqual([]);
+    expect(await listMemberRoles("t1", "u1")).toEqual([]);
+    expect(await searchUsers("ab")).toEqual([]);
     expect(h.appFetch).not.toHaveBeenCalled();
   });
   test("mutating calls throw notConnectedToServer when no server url", async () => {
@@ -69,6 +71,7 @@ describe("request shaping", () => {
     await assignMemberRole("t1", "u2", "r5");
     const [url, init] = h.appFetch.mock.calls[0];
     expect(url).toBe("https://s/v1/teams/t1/members/u2/roles");
+    expect(init.method).toBe("POST");
     expect(JSON.parse(init.body)).toEqual({ role_id: "r5" });
   });
   test("updateRole PATCHes the partial updates object", async () => {
