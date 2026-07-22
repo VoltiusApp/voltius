@@ -29,6 +29,8 @@ export default function OmniThemeAutomation({ onBack, onClose: _onClose }: { onB
   const sun = location ? sunTimes(new Date(), location.lat, location.lng) : null;
   const fmt = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
+  const num = (s: string) => { const n = Number(s); return s.trim() !== "" && Number.isFinite(n) ? n : NaN; };
+
   const inputCls = "w-24 px-2 py-1 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) outline-none";
 
   return (
@@ -77,8 +79,16 @@ export default function OmniThemeAutomation({ onBack, onClose: _onClose }: { onB
                   <button onClick={useMyLocation} disabled={geoBusy} className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-(--t-bg-input) hover:bg-(--t-bg-input-hover) text-(--t-text-primary)">
                     <Icon icon="lucide:map-pin" width={12} /> {t("omni.theme.useMyLocation")}
                   </button>
-                  <input type="number" step="0.0001" placeholder={t("omni.theme.latitude")} value={location?.lat ?? ""} onChange={(e) => setLocation({ lat: Number(e.target.value), lng: location?.lng ?? 0, label: t("omni.theme.latitude"), source: "manual" })} className={inputCls} />
-                  <input type="number" step="0.0001" placeholder={t("omni.theme.longitude")} value={location?.lng ?? ""} onChange={(e) => setLocation({ lat: location?.lat ?? 0, lng: Number(e.target.value), label: t("omni.theme.longitude"), source: "manual" })} className={inputCls} />
+                  <input type="number" step="0.0001" placeholder={t("omni.theme.latitude")} value={location?.lat ?? ""} onChange={(e) => {
+                    const lat = num(e.target.value);
+                    const lng = location?.lng ?? NaN;
+                    if (Number.isFinite(lat) && Number.isFinite(lng)) setLocation({ lat, lng, label: t("omni.theme.latitude"), source: "manual" });
+                  }} className={inputCls} />
+                  <input type="number" step="0.0001" placeholder={t("omni.theme.longitude")} value={location?.lng ?? ""} onChange={(e) => {
+                    const lng = num(e.target.value);
+                    const lat = location?.lat ?? NaN;
+                    if (Number.isFinite(lat) && Number.isFinite(lng)) setLocation({ lat, lng, label: t("omni.theme.longitude"), source: "manual" });
+                  }} className={inputCls} />
                 </div>
                 {sun ? (
                   <span>{t("omni.theme.sunToday", { sunrise: fmt(sun.sunrise), sunset: fmt(sun.sunset) })}</span>

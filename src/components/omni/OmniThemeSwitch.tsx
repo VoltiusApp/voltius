@@ -58,9 +58,11 @@ export default function OmniThemeSwitch({ query, onBack, onClose }: { query: str
         e.preventDefault();
         if (sel === 0) { committedFlag.current = true; toggleLightDark(); onClose(); }
         else { const th = themes[sel - 1]; if (th) commit(th); }
-      } else if ((e.key === "l" || e.key === "L") && sel > 0) {
+      } else if (e.altKey && (e.key === "l" || e.key === "L") && sel > 0) {
+        e.preventDefault();
         const th = themes[sel - 1]; if (th) setLightThemeId(th.id);
-      } else if ((e.key === "d" || e.key === "D") && sel > 0) {
+      } else if (e.altKey && (e.key === "d" || e.key === "D") && sel > 0) {
+        e.preventDefault();
         const th = themes[sel - 1]; if (th) setDarkThemeId(th.id);
       }
     };

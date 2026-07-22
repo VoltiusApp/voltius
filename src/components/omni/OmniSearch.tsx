@@ -1045,7 +1045,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={t("omni.searchPlaceholder")}
+            placeholder={omniView === "theme-switch" ? t("omni.theme.searchThemes") : t("omni.searchPlaceholder")}
             className="flex-1 bg-transparent text-sm outline-hidden placeholder-opacity-40 text-(--t-text-primary)"
           />
           <span className="text-xs px-1.5 py-0.5 rounded-lg font-mono bg-(--t-bg-base) text-(--t-text-muted) border border-(--t-border-hover)">
