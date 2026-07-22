@@ -628,7 +628,7 @@ function MemberDetailPanel({
 
 // ─── Pending invite card ──────────────────────────────────────────────────────
 
-function PendingInviteCard({
+export function PendingInviteCard({
   inv, teamId, roles, onRevoked,
 }: {
   inv: PendingInvitation;
