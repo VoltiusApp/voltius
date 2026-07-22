@@ -341,6 +341,10 @@ export async function sync(api: PluginAPI): Promise<void> {
     const connId = aliasMap[host.alias];
     if (!connId) continue;
 
+    // Never overwrite jump_hosts on an adopted (untagged) user connection.
+    const targetConn = allConnectionsNow.find((c) => c.id === connId);
+    if (targetConn && !targetConn.tags.includes(SSH_CONFIG_TAG)) continue;
+
     const hops = host.proxyJump.split(",").map((h) => h.trim()).filter(Boolean);
     const jumpHosts: JumpHost[] = [];
 

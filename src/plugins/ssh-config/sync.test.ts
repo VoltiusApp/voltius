@@ -182,3 +182,26 @@ describe("ssh-config sync — adoption", () => {
     expect(created.tags).toContain(TAG);
   });
 });
+
+describe("ssh-config sync — ProxyJump + adoption", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  test("does not write jump_hosts onto an adopted connection", async () => {
+    const h = makeSyncApi({
+      config:
+        cfg("bastion", "bastion.com", "root") +
+        cfg("app", "app.com", "ubuntu", 22, "  ProxyJump bastion\n"),
+      connections: [
+        conn({ id: "user-b", name: "Bastion", host: "bastion.com", port: 22, username: "root", tags: [] }),
+        conn({ id: "user-a", name: "App", host: "app.com", port: 22, username: "ubuntu", tags: [] }),
+      ],
+    });
+    await sync(h.api);
+    // Both hosts adopted; the plugin must not write jump_hosts onto the adopted connection,
+    // even though ProxyJump resolves to another adopted host.
+    const app = h.connections.find((c) => c.id === "user-a")!;
+    expect(app.jump_hosts).toBeUndefined();
+    const jumpWrites = h.update.mock.calls.filter(([, data]) => "jump_hosts" in (data as object));
+    expect(jumpWrites).toHaveLength(0);
+  });
+});
