@@ -158,6 +158,7 @@ export default function AppearanceSection() {
         ];
         const sun = location ? sunTimes(new Date(), location.lat, location.lng) : null;
         const fmt = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        const num = (s: string) => { const n = Number(s); return s.trim() !== "" && Number.isFinite(n) ? n : NaN; };
         const useMyLocation = () => {
           if (typeof navigator === "undefined" || !navigator.geolocation) return;
           navigator.geolocation.getCurrentPosition(
@@ -209,8 +210,16 @@ export default function AppearanceSection() {
                     <button onClick={useMyLocation} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-(--t-bg-elevated) hover:bg-(--t-bg-input-hover) text-(--t-text-primary)">
                       <Icon icon="lucide:map-pin" width={12} /> {t("settings.appearance.automation.useMyLocation")}
                     </button>
-                    <input type="number" step="0.0001" placeholder={t("settings.appearance.automation.latitude")} value={location?.lat ?? ""} onChange={(e) => setLocation({ lat: Number(e.target.value), lng: location?.lng ?? 0, label: "manual", source: "manual" })} className="w-28 px-2 py-1 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) outline-none" />
-                    <input type="number" step="0.0001" placeholder={t("settings.appearance.automation.longitude")} value={location?.lng ?? ""} onChange={(e) => setLocation({ lat: location?.lat ?? 0, lng: Number(e.target.value), label: "manual", source: "manual" })} className="w-28 px-2 py-1 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) outline-none" />
+                    <input type="number" step="0.0001" placeholder={t("settings.appearance.automation.latitude")} value={location?.lat ?? ""} onChange={(e) => {
+                      const lat = num(e.target.value);
+                      const lng = location?.lng ?? NaN;
+                      if (Number.isFinite(lat) && Number.isFinite(lng)) setLocation({ lat, lng, label: "manual", source: "manual" });
+                    }} className="w-28 px-2 py-1 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) outline-none" />
+                    <input type="number" step="0.0001" placeholder={t("settings.appearance.automation.longitude")} value={location?.lng ?? ""} onChange={(e) => {
+                      const lng = num(e.target.value);
+                      const lat = location?.lat ?? NaN;
+                      if (Number.isFinite(lat) && Number.isFinite(lng)) setLocation({ lat, lng, label: "manual", source: "manual" });
+                    }} className="w-28 px-2 py-1 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) outline-none" />
                   </div>
                   <span className="text-xs text-(--t-text-dim)">
                     {sun ? t("settings.appearance.automation.sunToday", { sunrise: fmt(sun.sunrise), sunset: fmt(sun.sunset) }) : t("settings.appearance.automation.locationNeeded")}

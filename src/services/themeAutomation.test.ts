@@ -72,6 +72,18 @@ test("nextTransition: manual and system return null (no clock boundary)", () => 
   expect(nextTransition(base({ mode: "system" }), new Date(), false)).toBe(null);
 });
 
+test("sunset mode: polar night at high latitude near December solstice stays dark", () => {
+  const cfg = base({ mode: "sunset", location: { lat: 78, lng: 15, label: "", source: "manual" } });
+  const noon = new Date(Date.UTC(2024, 11, 21, 12));
+  expect(resolveThemePhase(cfg, noon, false)).toBe("dark");
+});
+
+test("sunset mode: polar day at high latitude near June solstice stays light", () => {
+  const cfg = base({ mode: "sunset", location: { lat: 78, lng: 15, label: "", source: "manual" } });
+  const noon = new Date(Date.UTC(2024, 5, 21, 12));
+  expect(resolveThemePhase(cfg, noon, false)).toBe("light");
+});
+
 test("nextTransition: schedule returns the upcoming boundary in the future", () => {
   const cfg = base({ mode: "schedule", scheduleLightStart: "07:00", scheduleDarkStart: "19:00" });
   const now = new Date(2024, 0, 15, 12, 0);
