@@ -38,7 +38,7 @@ export function RemoteDeviceSessions() {
         </p>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+      <div className="flex gap-3 overflow-x-auto p-8 -m-8" style={{ scrollbarWidth: "none" }}>
         {joinable.map((a) => (
           <BaseCard
             key={a.sessionId}
