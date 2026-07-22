@@ -1,10 +1,10 @@
 import { test, expect, vi, beforeEach } from "vitest";
 import type { TeamObjectApiError } from "./teamObjects";
 
-const h = vi.hoisted(() => ({ invoke: vi.fn(), appFetch: vi.fn(), load: vi.fn(async () => undefined) }));
+const h = vi.hoisted(() => ({ invoke: vi.fn(), appFetch: vi.fn(), load: vi.fn(async () => undefined), t: vi.fn((k: string) => k) }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
-vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
+vi.mock("@/i18n", () => ({ default: { t: h.t } }));
 vi.mock("@/stores/subscriptionStore", () => ({ useSubscriptionStore: { getState: () => ({ load: h.load }) } }));
 
 import {
@@ -24,7 +24,11 @@ function connected() {
     cmd === "keychain_get" ? ({ jwt: jwt(), server_url: "https://s", refresh_token: "rt1" }[args.key] ?? null) : null);
 }
 
-beforeEach(() => { Object.values(h).forEach((m) => m.mockReset?.()); h.load.mockResolvedValue(undefined); });
+beforeEach(() => {
+  Object.values(h).forEach((m) => m.mockReset?.());
+  h.load.mockResolvedValue(undefined);
+  h.t.mockImplementation((k: string) => k);
+});
 
 test("no server url → offline TeamObjectApiError, before any jwt read", async () => {
   h.invoke.mockResolvedValue(null); // server_url null
@@ -64,20 +68,27 @@ test("429 parses Retry-After header, falls back to 60 when absent", async () => 
   const e1 = (await listTeamSecrets("t1").catch((x) => x)) as TeamObjectApiError;
   expect(e1.status).toBe(429);
   expect(e1.message).toBe("common.error.rateLimited"); // key; interpolated {seconds:30} in real i18n
+  expect(h.t).toHaveBeenCalledWith("common.error.rateLimited", { seconds: 30 });
   h.appFetch.mockResolvedValueOnce(status(429, { headers: { get: () => null } }));
   const e2 = (await listTeamSecrets("t1").catch((x) => x)) as TeamObjectApiError;
   expect(e2.status).toBe(429);
+  expect(h.t).toHaveBeenCalledWith("common.error.rateLimited", { seconds: 60 });
 });
 
 test("401 → refresh once then retry with new token", async () => {
   connected();
+  // Suffix guarantees this differs from the stale jwt() the connected() mock hands out on
+  // every keychain_get call — both are Date.now()-second-based and would otherwise risk
+  // colliding within the same test tick, silently defeating the assertion below.
+  const newJwt = jwt() + ".refreshed";
   h.appFetch
     .mockResolvedValueOnce(status(401))
-    .mockResolvedValueOnce(okJson({ jwt_token: jwt() })) // refresh
+    .mockResolvedValueOnce(okJson({ jwt_token: newJwt })) // refresh
     .mockResolvedValueOnce(okJson([{ object_id: "o1" }]));
   const out = await listTeamObjects("t1");
   expect(out).toEqual([{ object_id: "o1" }]);
   expect(h.appFetch.mock.calls[1][0]).toBe("https://s/v1/auth/refresh");
+  expect(h.appFetch.mock.calls[2][1].headers.Authorization).toBe("Bearer " + newJwt);
 });
 
 test("upsertTeamObject shapes PUT with Content-Type + body", async () => {
@@ -95,7 +106,11 @@ test("upsertTeamSecret shapes PUT to /secrets", async () => {
   connected();
   h.appFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
   await upsertTeamSecret("t1", { secret_id: "s1", object_id: "o1", secret_type: "connection_password", ciphertext: "cc" });
-  expect(h.appFetch.mock.calls[0][0]).toBe("https://s/v1/teams/t1/secrets");
+  const [url, init] = h.appFetch.mock.calls[0];
+  expect(url).toBe("https://s/v1/teams/t1/secrets");
+  expect(init.method).toBe("PUT");
+  expect(init.headers["Content-Type"]).toBe("application/json");
+  expect(JSON.parse(init.body)).toEqual({ secret_id: "s1", object_id: "o1", secret_type: "connection_password", ciphertext: "cc" });
 });
 
 test("deleteTeamObjectPref tolerates 404 (no throw) but throws on other non-ok", async () => {
