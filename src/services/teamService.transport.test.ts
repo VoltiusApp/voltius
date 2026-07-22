@@ -114,7 +114,7 @@ test("401 on first call → refresh once + retry with new token", async () => {
   expect(h.appFetch).toHaveBeenCalledTimes(3);
   // retry used the refreshed token:
   const retryInit = h.appFetch.mock.calls[2][1];
-  expect(retryInit.headers.Authorization).toContain("fresh".length ? "Bearer " : "");
+  expect(retryInit.headers.Authorization).toBe("Bearer " + jwt(3600, "fresh"));
 });
 
 test("401 then refresh returns null → sessionExpired", async () => {
