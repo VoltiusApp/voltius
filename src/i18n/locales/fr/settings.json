@@ -40,6 +40,24 @@
         "zoomIn": "Zoomer",
         "resetTitle": "Réinitialiser l'échelle",
         "reset": "Réinitialiser"
+      },
+      "automation": {
+        "title": "Thème automatique",
+        "desc": "Basculer automatiquement entre un thème clair et sombre",
+        "lightTheme": "Thème clair",
+        "darkTheme": "Thème sombre",
+        "mode": "Mode",
+        "modeManual": "Manuel",
+        "modeSystem": "Suivre le système",
+        "modeSchedule": "Horaire",
+        "modeSunset": "Lever / coucher du soleil",
+        "lightStarts": "Début clair",
+        "darkStarts": "Début sombre",
+        "useMyLocation": "Utiliser ma position",
+        "latitude": "Latitude",
+        "longitude": "Longitude",
+        "sunToday": "Aujourd'hui : lever {{sunrise}}, coucher {{sunset}}",
+        "locationNeeded": "Définissez une position pour le mode soleil"
       }
     },
     "nav": {

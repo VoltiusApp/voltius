@@ -91,6 +91,8 @@
       "modeLocal": "Compte local",
       "lockVault": "Verrouiller le coffre",
       "reportBug": "Signaler un bug…",
+      "appearance": "Apparence",
+      "toggleTheme": "Basculer clair / sombre",
       "signInSignUp": "Se connecter / S'inscrire",
       "switchAccount": "Changer de compte",
       "removeSavedAccount": "Supprimer le compte enregistré",

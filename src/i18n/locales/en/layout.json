@@ -91,6 +91,8 @@
       "modeLocal": "Local account",
       "lockVault": "Lock vault",
       "reportBug": "Report a bug…",
+      "appearance": "Appearance",
+      "toggleTheme": "Toggle light / dark",
       "signInSignUp": "Sign in / Sign up",
       "switchAccount": "Switch account",
       "removeSavedAccount": "Remove saved account",

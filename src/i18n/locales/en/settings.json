@@ -40,6 +40,24 @@
         "zoomIn": "Zoom in",
         "resetTitle": "Reset scale",
         "reset": "Reset"
+      },
+      "automation": {
+        "title": "Automatic theme",
+        "desc": "Switch between a light and dark theme automatically",
+        "lightTheme": "Light theme",
+        "darkTheme": "Dark theme",
+        "mode": "Mode",
+        "modeManual": "Manual",
+        "modeSystem": "Follow system",
+        "modeSchedule": "Schedule",
+        "modeSunset": "Sunrise / sunset",
+        "lightStarts": "Light starts",
+        "darkStarts": "Dark starts",
+        "useMyLocation": "Use my location",
+        "latitude": "Latitude",
+        "longitude": "Longitude",
+        "sunToday": "Today: sunrise {{sunrise}}, sunset {{sunset}}",
+        "locationNeeded": "Set a location to use sunrise/sunset"
       }
     },
     "nav": {
