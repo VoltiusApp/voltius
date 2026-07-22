@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useThemeStore } from "@/stores/themeStore";
@@ -38,6 +39,8 @@ export default function AppearanceSection() {
     mode, setMode, lightThemeId, setLightThemeId, darkThemeId, setDarkThemeId,
     scheduleLightStart, scheduleDarkStart, setSchedule, location, setLocation,
   } = useThemeStore();
+  const [latText, setLatText] = useState(location ? String(location.lat) : "");
+  const [lngText, setLngText] = useState(location ? String(location.lng) : "");
   const { openThemeCreator, openThemeImportExport } = useUIStore();
   const pluginThemeMap = usePluginStore((s) => s.pluginThemes);
   const [scrollMinimapEnabled, setScrollMinimapEnabled] = useToggle("scroll-minimap");
@@ -158,11 +161,15 @@ export default function AppearanceSection() {
         ];
         const sun = location ? sunTimes(new Date(), location.lat, location.lng) : null;
         const fmt = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-        const num = (s: string) => { const n = Number(s); return s.trim() !== "" && Number.isFinite(n) ? n : NaN; };
+        const parse = (s: string) => (s.trim() === "" ? NaN : Number(s));
         const useMyLocation = () => {
           if (typeof navigator === "undefined" || !navigator.geolocation) return;
           navigator.geolocation.getCurrentPosition(
-            (pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, label: t("settings.appearance.automation.useMyLocation"), source: "geo" }),
+            (pos) => {
+              setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, label: t("settings.appearance.automation.useMyLocation"), source: "geo" });
+              setLatText(String(pos.coords.latitude));
+              setLngText(String(pos.coords.longitude));
+            },
             () => {},
             { enableHighAccuracy: false, timeout: 10000 },
           );
@@ -210,14 +217,16 @@ export default function AppearanceSection() {
                     <button onClick={useMyLocation} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-(--t-bg-elevated) hover:bg-(--t-bg-input-hover) text-(--t-text-primary)">
                       <Icon icon="lucide:map-pin" width={12} /> {t("settings.appearance.automation.useMyLocation")}
                     </button>
-                    <input type="number" step="0.0001" placeholder={t("settings.appearance.automation.latitude")} value={location?.lat ?? ""} onChange={(e) => {
-                      const lat = num(e.target.value);
-                      const lng = location?.lng ?? NaN;
+                    <input type="number" step="0.0001" placeholder={t("settings.appearance.automation.latitude")} value={latText} onChange={(e) => {
+                      setLatText(e.target.value);
+                      const lat = parse(e.target.value);
+                      const lng = parse(lngText);
                       if (Number.isFinite(lat) && Number.isFinite(lng)) setLocation({ lat, lng, label: "manual", source: "manual" });
                     }} className="w-28 px-2 py-1 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) outline-none" />
-                    <input type="number" step="0.0001" placeholder={t("settings.appearance.automation.longitude")} value={location?.lng ?? ""} onChange={(e) => {
-                      const lng = num(e.target.value);
-                      const lat = location?.lat ?? NaN;
+                    <input type="number" step="0.0001" placeholder={t("settings.appearance.automation.longitude")} value={lngText} onChange={(e) => {
+                      setLngText(e.target.value);
+                      const lng = parse(e.target.value);
+                      const lat = parse(latText);
                       if (Number.isFinite(lat) && Number.isFinite(lng)) setLocation({ lat, lng, label: "manual", source: "manual" });
                     }} className="w-28 px-2 py-1 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) outline-none" />
                   </div>
