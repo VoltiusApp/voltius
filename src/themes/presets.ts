@@ -1,6 +1,7 @@
 import type { AppTheme } from "./types";
 
 export const DEFAULT_THEME_ID = "voltius";
+export const DEFAULT_LIGHT_THEME_ID = "voltius-light";
 
 export const BUILT_IN_THEMES: AppTheme[] = [
   {
@@ -66,6 +67,70 @@ export const BUILT_IN_THEMES: AppTheme[] = [
       brightCyan: "#22d3ee",
       brightWhite: "#f8fafc"
     }
+  },
+  {
+    id: "voltius-light",
+    name: "Voltius Light",
+    builtIn: true,
+    uiFontFamily: "'Inter Variable', system-ui, sans-serif",
+    uiFontSize: 14,
+    terminalFontFamily: "'Source Code Pro', monospace",
+    terminalFontSize: 14,
+    ui: {
+      bgTerminal: "#ffffff",
+      bgStatusBar: "#eef2f7",
+      bgBase: "#f6f8fb",
+      bgToolbar: "#eaeef4",
+      bgCard: "#ffffff",
+      bgCardHover: "#e6eefb",
+      bgCardAvatar: "#cdeef4",
+      bgInput: "#eef2f7",
+      bgInputHover: "#e0e7f0",
+      bgElevated: "#e9eef5",
+      bgModal: "#ffffff",
+      border: "#d7dee8",
+      borderHover: "#00000000",
+      textDim: "#6b7c8f",
+      textMuted: "#7a8ba0",
+      textSecondary: "#4a5b70",
+      textPrimary: "#1f2b3a",
+      textBright: "#0d1826",
+      accent: "#0e8fa8",
+      accentHover: "#0aa8c4",
+      tabBg: "#e6ebf2",
+      tabActiveBg: "#0e8fa81f",
+      tabActiveText: "#0b6f83",
+      tabActiveBorder: "#0e8fa855",
+      vaultTabBg: "#eef2f7",
+      vaultTabActiveBg: "#e2e9f2",
+      statusConnected: "#16a34a",
+      statusError: "#dc2626",
+      statusConnecting: "#d97706",
+      statusWarning: "#d97706",
+      textNotice: "#4a5b70",
+    },
+    terminal: {
+      background: "#ffffff",
+      foreground: "#1f2b3a",
+      cursor: "#0e8fa8",
+      selectionBackground: "#0e8fa833",
+      black: "#1f2b3a",
+      red: "#dc2626",
+      green: "#16a34a",
+      yellow: "#ca8a04",
+      blue: "#2563eb",
+      magenta: "#9333ea",
+      cyan: "#0891b2",
+      white: "#e2e8f0",
+      brightBlack: "#64748b",
+      brightRed: "#ef4444",
+      brightGreen: "#22c55e",
+      brightYellow: "#eab308",
+      brightBlue: "#3b82f6",
+      brightMagenta: "#a855f7",
+      brightCyan: "#06b6d4",
+      brightWhite: "#f8fafc",
+    },
   },
   {
     id: "dracula",
