@@ -136,6 +136,37 @@
 }
 
 /*
+  Light appearance overrides. The elevation system in :root is tuned for dark
+  surfaces — near-black drop shadows, a white hairline ring, and white/black
+  highlight insets. On a light base those read as harsh smudges, invisible
+  edges, and a stray dark line. Re-tune only the appearance-dependent tokens:
+  slate-tinted low-alpha shadows, a faint dark hairline ring, and a neutralized
+  (top-gloss-only) highlight. The data-appearance attribute is stamped by
+  applyThemeToDom from the luminance of bgBase, so every light theme (built-in
+  or custom) gets this for free. Plain box-shadow values only (no color-mix in
+  var), matching :root — safe on WebKitGTK.
+
+  NOTE: first-pass values, tuned live via per-theme screenshots.
+*/
+:root[data-appearance="light"] {
+  --t-chrome-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.7);
+  --t-chrome-shadow: 0 6px 18px -12px rgba(15, 23, 42, 0.22);
+  --t-card-shadow: 0 6px 16px -10px rgba(15, 23, 42, 0.22);
+
+  --t-ring: 0 0 0 1px rgba(15, 23, 42, 0.08);
+  --t-ring-strong: 0 0 0 1px rgba(15, 23, 42, 0.13);
+  --t-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  --t-highlight-strong: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --t-elev-1: 0 6px 20px -8px rgba(15, 23, 42, 0.16);
+  --t-elev-1-hover: 0 10px 28px -8px rgba(15, 23, 42, 0.22);
+  --t-elev-2: 0 12px 32px -10px rgba(15, 23, 42, 0.18);
+  --t-elev-3: 0 24px 64px -16px rgba(15, 23, 42, 0.22);
+
+  --t-slab-highlight: inset 1px 1px 0 0 rgba(255, 255, 255, 0.6);
+  --t-slab-shadow: -12px 0 32px -22px rgba(15, 23, 42, 0.16), 0 -10px 28px -24px rgba(15, 23, 42, 0.12);
+}
+
+/*
   The default border color has changed to `currentcolor` in Tailwind CSS v4,
   so we've added these compatibility styles to make sure everything still
   looks the same as it did with Tailwind CSS v3.
