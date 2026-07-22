@@ -228,3 +228,43 @@ describe("ssh-config sync — adopted connections are never deleted", () => {
     expect(h.store.get("alias_map")).toEqual({});
   });
 });
+
+describe("ssh-config sync — adopted connection lifecycle", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  test("re-finds the adopted connection on a second sync (no duplicate)", async () => {
+    const h = makeSyncApi({
+      config: cfg("Oracle", "1.2.3.4", "ubuntu"),
+      connections: [
+        conn({ id: "user-1", name: "Serv Oracle", host: "1.2.3.4", port: 22, username: "ubuntu", tags: [] }),
+      ],
+    });
+    await sync(h.api);
+    vi.clearAllMocks();
+    await sync(h.api);
+    expect(h.create).not.toHaveBeenCalled();
+    expect(h.connections).toHaveLength(1);
+  });
+
+  test("propagates host/port config edits to the adopted connection, nothing else", async () => {
+    const h = makeSyncApi({
+      config: cfg("Oracle", "1.2.3.4", "ubuntu"),
+      connections: [
+        conn({ id: "user-1", name: "Serv Oracle", host: "1.2.3.4", port: 22, username: "ubuntu", tags: [] }),
+      ],
+    });
+    await sync(h.api);
+    vi.clearAllMocks();
+    h.setConfig(cfg("Oracle", "5.6.7.8", "ubuntu", 2222));
+    await sync(h.api);
+
+    const c = h.connections.find((x) => x.id === "user-1")!;
+    expect(c.host).toBe("5.6.7.8");
+    expect(c.port).toBe(2222);
+    expect(c.name).toBe("Serv Oracle"); // untouched
+    expect(c.tags).toEqual([]);         // still untagged
+    // The only write is the host/port/user update.
+    expect(h.update).toHaveBeenCalledTimes(1);
+    expect(h.update.mock.calls[0][1]).toEqual({ host: "5.6.7.8", port: 2222, username: "ubuntu" });
+  });
+});
