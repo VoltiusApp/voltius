@@ -57,13 +57,22 @@ test("member with EDIT_CONNECTIONS on a team vault → returns team id", async (
 test("member WITHOUT EDIT_CONNECTIONS → skips team vault, falls to personal", async () => {
   useVaultStore.setState({ selectedVaultIds: ["team-1"], vaults: [] } as never);
   useTeamStore.setState({
-    teams: [{ id: "team-1", role_ids: ["r1"] }],
-    membersByTeam: { "team-1": [member("me", ["r1"])] },
-    rolesByTeam: { "team-1": [role("r1", PERM_BITS.VIEW_SECRETS)] }, // no EDIT_CONNECTIONS
+    // Cached team.role_ids claims a privileged builtin role, so the optimistic
+    // pre-load pass (myUserId === "") returns "team-1". Once getMyUserId resolves
+    // and the loaded member (who only has the viewer role) is checked, the
+    // EDIT_CONNECTIONS gate must flip the result to "personal".
+    teams: [{ id: "team-1", role_ids: ["owner-r"] }],
+    membersByTeam: { "team-1": [member("me", ["viewer-r"])] },
+    rolesByTeam: {
+      "team-1": [
+        role("owner-r", 0, "owner", true),
+        role("viewer-r", PERM_BITS.VIEW_SECRETS, "viewer", false),
+      ],
+    },
   } as never);
   const { result } = renderHook(() => useDefaultVaultId());
-  await waitFor(() => expect(h.getMyUserId).toHaveBeenCalled());
-  expect(result.current).toBe("personal");
+  await waitFor(() => expect(result.current).toBe("team-1")); // optimistic pre-load
+  await waitFor(() => expect(result.current).toBe("personal")); // loaded-permission branch
 });
 
 test("optimistic while members not loaded: privileged builtin role in team.role_ids → team id", async () => {
