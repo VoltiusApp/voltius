@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useUIStore } from "@/stores/uiStore";
+import { useThemeStore } from "@/stores/themeStore";
 import { useRipple } from "@/hooks/useRipple";
 import { getAccountMode, lockVaultSession, logout } from "@/services/account";
 import { getSavedAccounts, saveCurrentAccount, switchToAccount, removeSavedAccount, type SavedAccount } from "@/services/savedAccounts";
@@ -152,6 +153,17 @@ export function SidebarAccountButton() {
             icon="lucide:bug"
             label={t("layout.sidebarAccount.reportBug")}
             onClick={() => { setOpen(false); useUIStore.getState().openSettings("diagnostics"); }}
+          />
+
+          <DropdownMenuItem
+            icon="lucide:palette"
+            label={t("layout.sidebarAccount.appearance")}
+            onClick={() => { setOpen(false); useUIStore.getState().openSettings("appearance"); }}
+          />
+          <DropdownMenuItem
+            icon="lucide:sun-moon"
+            label={t("layout.sidebarAccount.toggleTheme")}
+            onClick={() => { setOpen(false); useThemeStore.getState().toggleLightDark(); }}
           />
 
           {accountMode !== "server" && (

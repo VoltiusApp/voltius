@@ -13,6 +13,7 @@ export function getSettingsNav(): {
     { id: "sync",           label: i18n.t("settings.nav.sync.label"),           icon: "lucide:cloud",            keywords: i18n.t("settings.nav.sync.keywords",           { returnObjects: true }) as string[] },
     { id: "vaults",         label: i18n.t("settings.nav.vaults.label"),         icon: "lucide:vault",            keywords: i18n.t("settings.nav.vaults.keywords",         { returnObjects: true }) as string[] },
     { id: "plugins",        label: i18n.t("settings.nav.plugins.label"),        icon: "lucide:puzzle",           keywords: i18n.t("settings.nav.plugins.keywords",        { returnObjects: true }) as string[] },
+    { id: "terminal",       label: i18n.t("settings.nav.terminal.label"),       icon: "lucide:square-terminal",  keywords: i18n.t("settings.nav.terminal.keywords",       { returnObjects: true }) as string[] },
     { id: "sftp",           label: i18n.t("settings.nav.sftp.label"),           icon: "lucide:folder-closed",    keywords: i18n.t("settings.nav.sftp.keywords",           { returnObjects: true }) as string[] },
     { id: "portForwarding", label: i18n.t("settings.nav.portForwarding.label"), icon: "lucide:arrow-right-left", keywords: i18n.t("settings.nav.portForwarding.keywords", { returnObjects: true }) as string[] },
     { id: "hosts",          label: i18n.t("settings.nav.hosts.label"),          icon: "lucide:server",           keywords: i18n.t("settings.nav.hosts.keywords",          { returnObjects: true }) as string[] },

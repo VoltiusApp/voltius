@@ -1,8 +1,7 @@
 {
   "settings": {
-    "appearance": {
-      "interface": "Interface",
-      "language": { "title": "Langue" },
+    "terminal": {
+      "heading": "Comportement du terminal",
       "scrollback": {
         "title": "Historique du terminal",
         "desc": "Lignes conservées par session de terminal. S'applique aux nouveaux terminaux.",
@@ -19,7 +18,11 @@
       "ignoreBracketedPaste": {
         "title": "Collage simple (sans collage entre crochets)",
         "desc": "Coller en texte brut sans les marqueurs \\x1b[200~ / \\x1b[201~. Corrige un affichage corrompu (ex. « 200~ ») lors d'un collage dans un prompt sudo ou une application CLI qui ne prend pas en charge le collage entre crochets."
-      },
+      }
+    },
+    "appearance": {
+      "interface": "Interface",
+      "language": { "title": "Langue" },
       "colorTheme": "Thème de couleurs",
       "import": "Importer",
       "importTitle": "Importer un ou plusieurs thèmes",
@@ -37,6 +40,24 @@
         "zoomIn": "Zoomer",
         "resetTitle": "Réinitialiser l'échelle",
         "reset": "Réinitialiser"
+      },
+      "automation": {
+        "title": "Thème automatique",
+        "desc": "Basculer automatiquement entre un thème clair et sombre",
+        "lightTheme": "Thème clair",
+        "darkTheme": "Thème sombre",
+        "mode": "Mode",
+        "modeManual": "Manuel",
+        "modeSystem": "Suivre le système",
+        "modeSchedule": "Horaire",
+        "modeSunset": "Lever / coucher du soleil",
+        "lightStarts": "Début clair",
+        "darkStarts": "Début sombre",
+        "useMyLocation": "Utiliser ma position",
+        "latitude": "Latitude",
+        "longitude": "Longitude",
+        "sunToday": "Aujourd'hui : lever {{sunrise}}, coucher {{sunset}}",
+        "locationNeeded": "Définissez une position pour le mode soleil"
       }
     },
     "nav": {
@@ -45,6 +66,7 @@
       "sync":           { "label": "Synchronisation",    "keywords": ["sauvegarde", "nuage", "gist", "synchronisation", "pro"] },
       "vaults":         { "label": "Coffres-forts",      "keywords": ["secret", "mot de passe", "stockage", "trousseau"] },
       "plugins":        { "label": "Extensions",         "keywords": ["extensions", "modules", "boutique"] },
+      "terminal":       { "label": "Terminal",           "keywords": ["historique", "collage", "crochets", "copier", "mini-carte", "tampon"] },
       "sftp":           { "label": "SFTP",               "keywords": ["fichier", "transfert", "ftp", "fichiers"] },
       "portForwarding": { "label": "Transfert de ports", "keywords": ["tunnel", "redirection", "ports", "ssh", "auto"] },
       "hosts":          { "label": "Hôtes",              "keywords": ["ping", "accessibilité", "connectivité", "statut"] },

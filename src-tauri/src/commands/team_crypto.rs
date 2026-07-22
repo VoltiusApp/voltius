@@ -132,3 +132,71 @@ pub fn x25519_unwrap_key(
 
     cipher.decrypt(nonce, ciphertext).map_err(|e| e.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn keypair(seed: &[u8]) -> (String, String) {
+        let kp = derive_x25519_keypair(seed.to_vec()).unwrap();
+        (kp.private_key, kp.public_key)
+    }
+
+    #[test]
+    fn wrap_then_unwrap_round_trips() {
+        let (a_priv, a_pub) = keypair(b"alice-enc-key");
+        let (b_priv, b_pub) = keypair(b"bob-enc-key");
+        let session_key = vec![7u8; 32];
+
+        // Alice wraps for Bob.
+        let wrapped = x25519_wrap_key(a_priv, b_pub, session_key.clone()).unwrap();
+        // Bob unwraps from Alice.
+        let unwrapped = x25519_unwrap_key(b_priv, a_pub, wrapped).unwrap();
+
+        assert_eq!(unwrapped, session_key);
+    }
+
+    #[test]
+    fn derive_is_deterministic_and_key_separated() {
+        let a1 = derive_x25519_keypair(b"same".to_vec()).unwrap();
+        let a2 = derive_x25519_keypair(b"same".to_vec()).unwrap();
+        let b = derive_x25519_keypair(b"different".to_vec()).unwrap();
+        assert_eq!(a1.private_key, a2.private_key);
+        assert_eq!(a1.public_key, a2.public_key);
+        assert_ne!(a1.private_key, b.private_key);
+    }
+
+    #[test]
+    fn unwrap_with_wrong_sender_key_fails() {
+        let (a_priv, _a_pub) = keypair(b"alice");
+        let (b_priv, b_pub) = keypair(b"bob");
+        let (_c_priv, c_pub) = keypair(b"carol");
+        let wrapped = x25519_wrap_key(a_priv, b_pub, vec![1u8; 32]).unwrap();
+        // Bob tries to unwrap but names Carol (not Alice) as sender.
+        assert!(x25519_unwrap_key(b_priv, c_pub, wrapped).is_err());
+    }
+
+    #[test]
+    fn unwrap_rejects_truncated_blob() {
+        let (b_priv, a_pub) = keypair(b"bob");
+        let too_short = STANDARD.encode([0u8; NONCE_LEN - 1]);
+        let err = x25519_unwrap_key(b_priv, a_pub, too_short).unwrap_err();
+        assert!(err.contains("too short"));
+    }
+
+    #[test]
+    fn wrap_rejects_bad_key_encoding() {
+        assert!(x25519_wrap_key("!!not-base64!!".into(), "AAAA".into(), vec![0u8; 32]).is_err());
+        // valid base64 but wrong length decodes then fails the try_into length check
+        let short = STANDARD.encode([0u8; 16]);
+        assert!(x25519_wrap_key(short.clone(), short, vec![0u8; 32]).is_err());
+    }
+
+    #[test]
+    fn generate_session_key_is_32_bytes_and_nonconstant() {
+        let k1 = generate_session_key();
+        let k2 = generate_session_key();
+        assert_eq!(k1.len(), 32);
+        assert_ne!(k1, k2);
+    }
+}

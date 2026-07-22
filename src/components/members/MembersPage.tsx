@@ -391,7 +391,7 @@ interface MemberDetailPanelProps {
   onUpdated: () => void;
 }
 
-function MemberDetailPanel({
+export function MemberDetailPanel({
   member, isMe, teamId, teamRoles, canManageMembers, isTargetOwner, onClose, onUpdated,
 }: MemberDetailPanelProps) {
   const { t } = useTranslation();
@@ -628,7 +628,7 @@ function MemberDetailPanel({
 
 // ─── Pending invite card ──────────────────────────────────────────────────────
 
-function PendingInviteCard({
+export function PendingInviteCard({
   inv, teamId, roles, onRevoked,
 }: {
   inv: PendingInvitation;
@@ -703,7 +703,7 @@ interface InvitePanelProps {
   onMemberAdded: () => void;
 }
 
-function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }: InvitePanelProps) {
+export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberAdded }: InvitePanelProps) {
   const { t } = useTranslation();
   const addMemberById = useTeamStore((s) => s.addMemberById);
   const assignMemberRole = useTeamStore((s) => s.assignMemberRole);

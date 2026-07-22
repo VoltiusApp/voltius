@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useThemeStore } from "@/stores/themeStore";
 import type { AppTheme } from "@/themes/types";
 import { withFlagEmojiFallback } from "@/utils/emojiFont";
+import { appearanceFromColor } from "@/utils/appearance";
 
 export function applyThemeToDom(theme: AppTheme) {
   const root = document.documentElement;
@@ -45,6 +46,9 @@ export function applyThemeToDom(theme: AppTheme) {
   root.style.setProperty("--t-terminal-yellow", theme.terminal.yellow);
   root.style.setProperty("--t-terminal-font-family", withFlagEmojiFallback(theme.terminalFontFamily));
   root.style.setProperty("--t-terminal-font-size", `${theme.terminalFontSize}px`);
+  // Derive light/dark from the base bg so globals.css can override the
+  // dark-baked shadow/ring/highlight tokens under :root[data-appearance="light"].
+  root.setAttribute("data-appearance", appearanceFromColor(ui.bgBase));
   window.dispatchEvent(new CustomEvent("theme-preview", { detail: theme }));
 }
 
@@ -52,8 +56,12 @@ export function useApplyTheme() {
   const getActiveTheme = useThemeStore((s) => s.getActiveTheme);
   const activeThemeId = useThemeStore((s) => s.activeThemeId);
   const customThemes = useThemeStore((s) => s.customThemes);
+  const mode = useThemeStore((s) => s.mode);
+  const lightThemeId = useThemeStore((s) => s.lightThemeId);
+  const darkThemeId = useThemeStore((s) => s.darkThemeId);
+  const resolvedPhase = useThemeStore((s) => s.resolvedPhase);
 
   useEffect(() => {
     applyThemeToDom(getActiveTheme());
-  }, [activeThemeId, customThemes, getActiveTheme]);
+  }, [activeThemeId, customThemes, mode, lightThemeId, darkThemeId, resolvedPhase, getActiveTheme]);
 }

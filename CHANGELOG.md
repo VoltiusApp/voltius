@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-07-22
+
+### Added
+
+- Light/dark theme switching — switch manually from the Command Palette, the
+  sidebar account menu, or Appearance settings, with live preview as you browse
+- Automatic theme switching — follow the system appearance, a fixed schedule, or
+  local sunrise/sunset
+- New built-in "Voltius Light" theme
+- Importing an SSH config now adopts existing matching connections instead of
+  creating duplicates (#39)
+
+### Changed
+
+- Terminal behavior toggles (scrollback, minimap, select-to-copy, plain paste)
+  now live in their own dedicated Terminal settings section (#37)
+
+### Fixed
+
+- Session cards no longer clip their shadows at the scroll edge (team and
+  cross-device sessions)
+
 ## [0.11.0] - 2026-07-21
 
 ### Added
