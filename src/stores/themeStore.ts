@@ -122,8 +122,9 @@ export const useThemeStore = create<ThemeStore>()(
       },
       setResolvedPhase: (phase) => set({ resolvedPhase: phase }), // device-local, no persist/sync
       toggleLightDark: () => {
-        const { activeThemeId, lightThemeId, darkThemeId } = get();
-        const next = activeThemeId === lightThemeId ? darkThemeId : lightThemeId;
+        const { lightThemeId, darkThemeId } = get();
+        const currentId = get().getEffectiveThemeId();
+        const next = currentId === lightThemeId ? darkThemeId : lightThemeId;
         set({ activeThemeId: next, mode: "manual" });
         get().persist();
       },

@@ -51,6 +51,18 @@ test("toggleLightDark flips active between the pair and forces manual", () => {
   expect(useThemeStore.getState().activeThemeId).toBe("voltius");
 });
 
+test("toggleLightDark flips based on the displayed effective theme when automation is active", () => {
+  const s = useThemeStore.getState();
+  s.setLightThemeId("voltius-light");
+  s.setDarkThemeId("voltius");
+  // Automation showing LIGHT (system mode, resolvedPhase light) but activeThemeId still the dark pick:
+  useThemeStore.setState({ activeThemeId: "voltius", mode: "system", resolvedPhase: "light" });
+  useThemeStore.getState().toggleLightDark();
+  const st = useThemeStore.getState();
+  expect(st.mode).toBe("manual");
+  expect(st.activeThemeId).toBe("voltius"); // displayed light → toggles to the DARK theme
+});
+
 test("getAutomationConfig returns the current config shape", () => {
   const s = useThemeStore.getState();
   s.setMode("schedule");
