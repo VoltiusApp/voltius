@@ -396,15 +396,18 @@ function createSettingsComponent(api: PluginAPI): React.FC {
   return function SshConfigSettings() {
     const [intervalMs, setIntervalMs] = useState<number>(DEFAULT_POLL_INTERVAL);
     const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(DEFAULT_NOTIFICATIONS_ENABLED);
+    const [adoptEnabled, setAdoptEnabled] = useState<boolean>(DEFAULT_ADOPT_UNTAGGED_ENABLED);
     const [syncing, setSyncing] = useState(false);
 
     useEffect(() => {
       void Promise.all([
         api.storage.get<number>(POLL_INTERVAL_KEY),
         api.storage.get<boolean>(NOTIFICATIONS_ENABLED_KEY),
-      ]).then(([interval, notify]) => {
+        api.storage.get<boolean>(ADOPT_UNTAGGED_ENABLED_KEY),
+      ]).then(([interval, notify, adopt]) => {
         if (interval != null) setIntervalMs(interval);
         if (notify != null) setNotificationsEnabled(notify);
+        if (adopt != null) setAdoptEnabled(adopt);
       });
     }, []);
 
@@ -419,6 +422,12 @@ function createSettingsComponent(api: PluginAPI): React.FC {
       const next = !notificationsEnabled;
       setNotificationsEnabled(next);
       void api.storage.set(NOTIFICATIONS_ENABLED_KEY, next);
+    };
+
+    const handleAdoptToggle = () => {
+      const next = !adoptEnabled;
+      setAdoptEnabled(next);
+      void api.storage.set(ADOPT_UNTAGGED_ENABLED_KEY, next);
     };
 
     const handleSyncNow = () => {
@@ -440,26 +449,26 @@ function createSettingsComponent(api: PluginAPI): React.FC {
       color: "var(--t-text-primary)",
       outline: "none",
     };
-    const toggleTrackStyle = {
+    const toggleTrack = (on: boolean) => ({
       width: 36,
       height: 20,
       borderRadius: 10,
-      background: notificationsEnabled ? "var(--t-accent)" : "var(--t-border)",
+      background: on ? "var(--t-accent)" : "var(--t-border)",
       position: "relative" as const,
       cursor: "pointer",
       transition: "background 0.15s",
       flexShrink: 0,
-    };
-    const toggleThumbStyle = {
+    });
+    const toggleThumb = (on: boolean) => ({
       position: "absolute" as const,
       top: 2,
-      left: notificationsEnabled ? 18 : 2,
+      left: on ? 18 : 2,
       width: 16,
       height: 16,
       borderRadius: "50%",
       background: "white",
       transition: "left 0.15s",
-    };
+    });
     const syncBtnStyle = {
       ...inputStyle,
       padding: "4px 12px",
@@ -532,8 +541,28 @@ function createSettingsComponent(api: PluginAPI): React.FC {
             ),
             React.createElement(
               "div",
-              { style: toggleTrackStyle, onClick: handleNotificationsToggle },
-              React.createElement("div", { style: toggleThumbStyle })
+              { style: toggleTrack(notificationsEnabled), onClick: handleNotificationsToggle },
+              React.createElement("div", { style: toggleThumb(notificationsEnabled) })
+            )
+          ),
+          divider,
+          React.createElement(
+            "div",
+            { className: "flex items-center justify-between" },
+            React.createElement(
+              "div",
+              null,
+              React.createElement("p", { className: "text-sm font-medium", style: labelStyle }, "Adopt matching connections"),
+              React.createElement(
+                "p",
+                { className: "text-xs mt-0.5", style: dimStyle },
+                "Reuse an existing connection (same host, port, and user) instead of creating a duplicate. Your label and auth stay untouched, and adopted connections are never auto-deleted."
+              )
+            ),
+            React.createElement(
+              "div",
+              { style: toggleTrack(adoptEnabled), onClick: handleAdoptToggle },
+              React.createElement("div", { style: toggleThumb(adoptEnabled) })
             )
           )
         )
