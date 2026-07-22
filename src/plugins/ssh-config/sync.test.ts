@@ -149,6 +149,8 @@ describe("ssh-config sync — adoption", () => {
     expect(h.api.keys.create).not.toHaveBeenCalled();
     expect(h.api.identities.create).not.toHaveBeenCalled();
     expect(h.update).not.toHaveBeenCalled(); // host/port/user already match → no-op
+    expect(h.create).not.toHaveBeenCalled();
+    expect(h.connections).toHaveLength(1);
   });
 
   test("first untagged match wins; the rest are left untouched", async () => {
