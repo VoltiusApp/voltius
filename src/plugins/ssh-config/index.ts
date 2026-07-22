@@ -168,7 +168,7 @@ async function ensureKey(
   return key.id;
 }
 
-async function sync(api: PluginAPI): Promise<void> {
+export async function sync(api: PluginAPI): Promise<void> {
   const exists = await api.fs.exists(SSH_CONFIG_PATH);
   if (!exists) return;
 
@@ -188,6 +188,7 @@ async function sync(api: PluginAPI): Promise<void> {
   const keyMap: KeyMap = (await api.storage.get<KeyMap>(KEY_MAP_KEY)) ?? {};
   const identityMap: IdentityMap = (await api.storage.get<IdentityMap>(IDENTITY_MAP_KEY)) ?? {};
   const notifyEnabled = (await api.storage.get<boolean>(NOTIFICATIONS_ENABLED_KEY)) ?? DEFAULT_NOTIFICATIONS_ENABLED;
+  const adoptEnabled = (await api.storage.get<boolean>(ADOPT_UNTAGGED_ENABLED_KEY)) ?? DEFAULT_ADOPT_UNTAGGED_ENABLED;
 
   // Hosts present in the config file (keyed by alias)
   const configAliases = new Set(hosts.map((h) => h.alias));
@@ -213,6 +214,58 @@ async function sync(api: PluginAPI): Promise<void> {
 
   // ── Add/update connections for each host in the config ──────────────────
   for (const host of hosts) {
+    // Resolve the existing connection first — an adopted (untagged) match skips
+    // key/identity work and preserves the user's fields, so the decision comes
+    // before any key/identity creation.
+    const existingId = aliasMap[host.alias];
+    // aliasMap is authoritative: search ALL connections by id so a previously
+    // adopted (untagged) connection is always re-found. The content fallback
+    // stays scoped to tagged connections unless adoption is enabled.
+    let existing =
+      (existingId ? allConnections.find((c) => c.id === existingId) : undefined) ??
+      taggedConnections.find(
+        (c) =>
+          c.host === host.hostname &&
+          c.port === host.port &&
+          c.username === host.user,
+      );
+
+    // Adoption: reuse an untagged user connection that matches by host/port/user
+    // instead of creating a duplicate. First match wins.
+    if (!existing && adoptEnabled) {
+      existing = allConnections.find(
+        (c) =>
+          !c.tags.includes(SSH_CONFIG_TAG) &&
+          c.host === host.hostname &&
+          c.port === host.port &&
+          c.username === host.user,
+      );
+    }
+
+    // A managed connection that is untagged can only be an adopted one.
+    const adopted = !!existing && !existing.tags.includes(SSH_CONFIG_TAG);
+
+    if (existing) {
+      aliasMap[host.alias] = existing.id;
+    }
+
+    // Adopted: preserve the user's fields; only propagate host/port/user changes.
+    if (adopted && existing) {
+      const changed =
+        existing.host !== host.hostname ||
+        existing.port !== host.port ||
+        existing.username !== host.user;
+      if (changed) {
+        await api.connections.update(existing.id, {
+          host: host.hostname,
+          port: host.port,
+          username: host.user,
+        });
+      }
+      continue;
+    }
+
+    // Plugin-managed: ensure key/identity, then create or fully update.
     let identityId: string | undefined;
     if (host.identityFile) {
       const keyId = await ensureKey(api, host.identityFile, keyMap, allKeys, notifyEnabled);
@@ -226,7 +279,6 @@ async function sync(api: PluginAPI): Promise<void> {
           }
         }
         if (!identityId) {
-          // Fallback: reuse existing identity if the map was lost/stale
           const existingIdentity = allIdentities.find(
             (i) => i.name === host.alias && i.username === host.user && i.key_id === keyId,
           );
@@ -246,23 +298,6 @@ async function sync(api: PluginAPI): Promise<void> {
           }
         }
       }
-    }
-
-    const existingId = aliasMap[host.alias];
-    // Always try both the stored ID and the content-based fallback so that a
-    // stale/cleared map never bypasses dedup.
-    const existing =
-      (existingId ? taggedConnections.find((c) => c.id === existingId) : undefined) ??
-      taggedConnections.find(
-        (c) =>
-          c.host === host.hostname &&
-          c.port === host.port &&
-          c.username === host.user,
-      );
-
-    // Keep aliasMap in sync with the actual connection id
-    if (existing) {
-      aliasMap[host.alias] = existing.id;
     }
 
     const data: PluginConnectionInput = {
@@ -306,6 +341,10 @@ async function sync(api: PluginAPI): Promise<void> {
     const connId = aliasMap[host.alias];
     if (!connId) continue;
 
+    // Never overwrite jump_hosts on an adopted (untagged) user connection.
+    const targetConn = allConnectionsNow.find((c) => c.id === connId);
+    if (targetConn && !targetConn.tags.includes(SSH_CONFIG_TAG)) continue;
+
     const hops = host.proxyJump.split(",").map((h) => h.trim()).filter(Boolean);
     const jumpHosts: JumpHost[] = [];
 
@@ -348,6 +387,8 @@ const POLL_INTERVAL_KEY = "poll_interval_ms";
 const DEFAULT_POLL_INTERVAL = 5000;
 const NOTIFICATIONS_ENABLED_KEY = "notifications_enabled";
 const DEFAULT_NOTIFICATIONS_ENABLED = true;
+const ADOPT_UNTAGGED_ENABLED_KEY = "adopt_untagged_enabled";
+const DEFAULT_ADOPT_UNTAGGED_ENABLED = true;
 const RESTART_EVENT = "ssh-config:restart-watcher";
 const SYNC_NOW_EVENT = "ssh-config:sync-now";
 
@@ -355,15 +396,18 @@ function createSettingsComponent(api: PluginAPI): React.FC {
   return function SshConfigSettings() {
     const [intervalMs, setIntervalMs] = useState<number>(DEFAULT_POLL_INTERVAL);
     const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(DEFAULT_NOTIFICATIONS_ENABLED);
+    const [adoptEnabled, setAdoptEnabled] = useState<boolean>(DEFAULT_ADOPT_UNTAGGED_ENABLED);
     const [syncing, setSyncing] = useState(false);
 
     useEffect(() => {
       void Promise.all([
         api.storage.get<number>(POLL_INTERVAL_KEY),
         api.storage.get<boolean>(NOTIFICATIONS_ENABLED_KEY),
-      ]).then(([interval, notify]) => {
+        api.storage.get<boolean>(ADOPT_UNTAGGED_ENABLED_KEY),
+      ]).then(([interval, notify, adopt]) => {
         if (interval != null) setIntervalMs(interval);
         if (notify != null) setNotificationsEnabled(notify);
+        if (adopt != null) setAdoptEnabled(adopt);
       });
     }, []);
 
@@ -378,6 +422,12 @@ function createSettingsComponent(api: PluginAPI): React.FC {
       const next = !notificationsEnabled;
       setNotificationsEnabled(next);
       void api.storage.set(NOTIFICATIONS_ENABLED_KEY, next);
+    };
+
+    const handleAdoptToggle = () => {
+      const next = !adoptEnabled;
+      setAdoptEnabled(next);
+      void api.storage.set(ADOPT_UNTAGGED_ENABLED_KEY, next);
     };
 
     const handleSyncNow = () => {
@@ -399,26 +449,26 @@ function createSettingsComponent(api: PluginAPI): React.FC {
       color: "var(--t-text-primary)",
       outline: "none",
     };
-    const toggleTrackStyle = {
+    const toggleTrack = (on: boolean) => ({
       width: 36,
       height: 20,
       borderRadius: 10,
-      background: notificationsEnabled ? "var(--t-accent)" : "var(--t-border)",
+      background: on ? "var(--t-accent)" : "var(--t-border)",
       position: "relative" as const,
       cursor: "pointer",
       transition: "background 0.15s",
       flexShrink: 0,
-    };
-    const toggleThumbStyle = {
+    });
+    const toggleThumb = (on: boolean) => ({
       position: "absolute" as const,
       top: 2,
-      left: notificationsEnabled ? 18 : 2,
+      left: on ? 18 : 2,
       width: 16,
       height: 16,
       borderRadius: "50%",
       background: "white",
       transition: "left 0.15s",
-    };
+    });
     const syncBtnStyle = {
       ...inputStyle,
       padding: "4px 12px",
@@ -491,8 +541,28 @@ function createSettingsComponent(api: PluginAPI): React.FC {
             ),
             React.createElement(
               "div",
-              { style: toggleTrackStyle, onClick: handleNotificationsToggle },
-              React.createElement("div", { style: toggleThumbStyle })
+              { style: toggleTrack(notificationsEnabled), onClick: handleNotificationsToggle },
+              React.createElement("div", { style: toggleThumb(notificationsEnabled) })
+            )
+          ),
+          divider,
+          React.createElement(
+            "div",
+            { className: "flex items-center justify-between" },
+            React.createElement(
+              "div",
+              null,
+              React.createElement("p", { className: "text-sm font-medium", style: labelStyle }, "Adopt matching connections"),
+              React.createElement(
+                "p",
+                { className: "text-xs mt-0.5", style: dimStyle },
+                "Reuse an existing connection (same host, port, and user) instead of creating a duplicate. Your label and auth stay untouched, and adopted connections are never auto-deleted."
+              )
+            ),
+            React.createElement(
+              "div",
+              { style: toggleTrack(adoptEnabled), onClick: handleAdoptToggle },
+              React.createElement("div", { style: toggleThumb(adoptEnabled) })
             )
           )
         )
