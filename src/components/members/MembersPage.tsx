@@ -391,7 +391,7 @@ interface MemberDetailPanelProps {
   onUpdated: () => void;
 }
 
-function MemberDetailPanel({
+export function MemberDetailPanel({
   member, isMe, teamId, teamRoles, canManageMembers, isTargetOwner, onClose, onUpdated,
 }: MemberDetailPanelProps) {
   const { t } = useTranslation();
