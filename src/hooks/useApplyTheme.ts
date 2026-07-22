@@ -52,8 +52,12 @@ export function useApplyTheme() {
   const getActiveTheme = useThemeStore((s) => s.getActiveTheme);
   const activeThemeId = useThemeStore((s) => s.activeThemeId);
   const customThemes = useThemeStore((s) => s.customThemes);
+  const mode = useThemeStore((s) => s.mode);
+  const lightThemeId = useThemeStore((s) => s.lightThemeId);
+  const darkThemeId = useThemeStore((s) => s.darkThemeId);
+  const resolvedPhase = useThemeStore((s) => s.resolvedPhase);
 
   useEffect(() => {
     applyThemeToDom(getActiveTheme());
-  }, [activeThemeId, customThemes, getActiveTheme]);
+  }, [activeThemeId, customThemes, mode, lightThemeId, darkThemeId, resolvedPhase, getActiveTheme]);
 }
