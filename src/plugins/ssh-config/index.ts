@@ -168,7 +168,7 @@ async function ensureKey(
   return key.id;
 }
 
-async function sync(api: PluginAPI): Promise<void> {
+export async function sync(api: PluginAPI): Promise<void> {
   const exists = await api.fs.exists(SSH_CONFIG_PATH);
   if (!exists) return;
 
