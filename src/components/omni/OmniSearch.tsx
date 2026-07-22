@@ -41,10 +41,15 @@ import {
   type ShellOption,
 } from "@/components/layout/newSessionItems";
 import { useLocalShells } from "@/hooks/useLocalShells";
+import { useThemeStore } from "@/stores/themeStore";
+import OmniThemeSwitch from "@/components/omni/OmniThemeSwitch";
+import OmniThemeAutomation from "@/components/omni/OmniThemeAutomation";
 
 interface OmniSearchProps {
   onClose: () => void;
 }
+
+type OmniView = "root" | "theme-switch" | "theme-automation";
 
 type OmniItem =
   | { kind: "host"; connection: Connection }
@@ -105,6 +110,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
+  const [omniView, setOmniView] = useState<OmniView>("root");
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -320,6 +326,16 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
       }),
     );
 
+    const themeActions: OmniItem[] = [
+      { kind: "action", id: "theme:toggle", label: t("omni.theme.toggle"), icon: "lucide:sun-moon", description: t("omni.theme.toggleDesc") },
+      { kind: "action", id: "theme:switch", label: t("omni.theme.switch"), icon: "lucide:palette", description: t("omni.theme.switchDesc") },
+      { kind: "action", id: "theme:automation", label: t("omni.theme.automation"), icon: "lucide:clock", description: t("omni.theme.automationDesc") },
+    ];
+    const filteredThemeActions = themeActions.filter(
+      (a) => a.kind === "action" && (!q || a.label.toLowerCase().includes(q) || a.description?.toLowerCase().includes(q)),
+    );
+    result.push(...filteredThemeActions);
+
     // Toggle settings (only when query matches — avoids flooding the empty state)
     if (q) {
       result.push(
@@ -342,7 +358,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     }
 
     return result;
-  }, [category, q, query, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts, teamSessions, myMpSessionIds, toggleItems, shells, nav]);
+  }, [category, q, query, activeSessions, recentConnections, connections, activeConnectionIds, keys, identities, connectionById, pluginCommands, settingsItems, snippets, shortcuts, teamSessions, myMpSessionIds, toggleItems, shells, nav, t]);
 
   const shellNeedsPath = useMemo(() => {
     const shown = items
@@ -376,6 +392,9 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         setActiveNav("keychain");
         onClose();
       } else if (item.kind === "action") {
+        if (item.id === "theme:toggle") { useThemeStore.getState().toggleLightDark(); onClose(); return; }
+        if (item.id === "theme:switch") { setOmniView("theme-switch"); setQuery(""); return; }
+        if (item.id === "theme:automation") { setOmniView("theme-automation"); setQuery(""); return; }
         if (item.id.startsWith("plugin:")) {
           const cmdId = item.id.slice("plugin:".length);
           pluginCommands.find((c) => c.id === cmdId)?.execute();
@@ -521,7 +540,12 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { onClose(); return; }
+      if (e.key === "Escape") {
+        if (omniView !== "root") { setOmniView("root"); setQuery(""); return; }
+        onClose();
+        return;
+      }
+      if (omniView !== "root") return; // sub-views manage their own keys (except Esc handled above)
       if (e.key === "ArrowDown") { e.preventDefault(); setSelected((s) => clamp(s + 1)); }
       if (e.key === "ArrowUp") { e.preventDefault(); setSelected((s) => clamp(s - 1)); }
       if (e.key === "Enter") {
@@ -532,7 +556,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [items, selected, clamp, selectItem, onClose]);
+  }, [items, selected, clamp, selectItem, onClose, omniView]);
 
   useEffect(() => {
     const el = listRef.current?.querySelector(`[data-idx="${selected}"]`) as HTMLElement | null;
@@ -1030,30 +1054,37 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
         </div>
 
         {/* Category badges */}
-        <div className="flex items-center gap-1.5 px-4 py-2 border-b border-b-(--t-border)">
-          {categoryBadges.map((badge) => {
-            const isActive = category === badge.category;
-            return (
-              <button
-                key={badge.category}
-                onClick={() => {
-                  setQuery(badge.prefix);
-                  inputRef.current?.focus();
-                }}
-                className="px-2 py-0.5 rounded-sm text-xs font-mono transition-colors"
-                style={{
-                  background: isActive ? "var(--t-accent)" : "var(--t-bg-base)",
-                  color: isActive ? "var(--t-bg-terminal)" : "var(--t-text-muted)",
-                  border: `1px solid ${isActive ? "var(--t-accent)" : "var(--t-border)"}`,
-                }}
-              >
-                {badge.label}
-              </button>
-            );
-          })}
-        </div>
+        {omniView === "root" && (
+          <div className="flex items-center gap-1.5 px-4 py-2 border-b border-b-(--t-border)">
+            {categoryBadges.map((badge) => {
+              const isActive = category === badge.category;
+              return (
+                <button
+                  key={badge.category}
+                  onClick={() => {
+                    setQuery(badge.prefix);
+                    inputRef.current?.focus();
+                  }}
+                  className="px-2 py-0.5 rounded-sm text-xs font-mono transition-colors"
+                  style={{
+                    background: isActive ? "var(--t-accent)" : "var(--t-bg-base)",
+                    color: isActive ? "var(--t-bg-terminal)" : "var(--t-text-muted)",
+                    border: `1px solid ${isActive ? "var(--t-accent)" : "var(--t-border)"}`,
+                  }}
+                >
+                  {badge.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Results */}
+        {omniView === "theme-switch" ? (
+          <OmniThemeSwitch query={q} onBack={() => { setOmniView("root"); setQuery(""); }} onClose={onClose} />
+        ) : omniView === "theme-automation" ? (
+          <OmniThemeAutomation onBack={() => { setOmniView("root"); setQuery(""); }} onClose={onClose} />
+        ) : (
         <div ref={listRef} className="overflow-y-auto py-2" style={{ maxHeight: "420px" }}>
           {category === "all" && sectionBoundaries ? (
             <>
@@ -1165,6 +1196,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
             </p>
           )}
         </div>
+        )}
       </div>
     </div>,
     document.body,
