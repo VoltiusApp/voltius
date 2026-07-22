@@ -241,6 +241,7 @@ describe("ssh-config sync — adopted connection lifecycle", () => {
     });
     await sync(h.api);
     vi.clearAllMocks();
+    h.store.set("adopt_untagged_enabled", false); // isolate the alias_map id-based re-find from the content fallback
     await sync(h.api);
     expect(h.create).not.toHaveBeenCalled();
     expect(h.connections).toHaveLength(1);
