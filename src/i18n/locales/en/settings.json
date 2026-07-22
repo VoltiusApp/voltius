@@ -1,8 +1,7 @@
 {
   "settings": {
-    "appearance": {
-      "interface": "Interface",
-      "language": { "title": "Language" },
+    "terminal": {
+      "heading": "Terminal behavior",
       "scrollback": {
         "title": "Terminal scrollback",
         "desc": "Retained lines per terminal session. Applies to new terminals.",
@@ -19,7 +18,11 @@
       "ignoreBracketedPaste": {
         "title": "Plain paste (no bracketed paste)",
         "desc": "Paste as plain text without the \\x1b[200~ / \\x1b[201~ markers. Fixes garbled input (e.g. \"200~\") when pasting into sudo prompts or CLI apps that don't support bracketed paste."
-      },
+      }
+    },
+    "appearance": {
+      "interface": "Interface",
+      "language": { "title": "Language" },
       "colorTheme": "Color Theme",
       "import": "Import",
       "importTitle": "Import theme(s)",
@@ -45,6 +48,7 @@
       "sync":           { "label": "Sync",            "keywords": ["backup", "cloud", "gist", "sync", "pro"] },
       "vaults":         { "label": "Vaults",          "keywords": ["secret", "password", "storage", "keyring"] },
       "plugins":        { "label": "Plugins",         "keywords": ["extensions", "addons", "marketplace"] },
+      "terminal":       { "label": "Terminal",        "keywords": ["scrollback", "paste", "bracketed", "copy", "minimap", "buffer"] },
       "sftp":           { "label": "SFTP",            "keywords": ["file", "transfer", "ftp", "files"] },
       "portForwarding": { "label": "Port Forwarding", "keywords": ["tunnel", "forward", "ports", "ssh", "auto"] },
       "hosts":          { "label": "Hosts",           "keywords": ["ping", "reachability", "connectivity", "status"] },
