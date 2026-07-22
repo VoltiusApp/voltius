@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useThemeStore } from "@/stores/themeStore";
@@ -37,6 +37,14 @@ export default function OmniThemeAutomation({ onBack, onClose: _onClose }: { onB
   const fmt = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   const parse = (s: string) => (s.trim() === "" ? NaN : Number(s));
+
+  useEffect(() => {
+    if (!location) return;
+    if (parse(latText) !== location.lat || parse(lngText) !== location.lng) {
+      setLatText(String(location.lat));
+      setLngText(String(location.lng));
+    }
+  }, [location?.lat, location?.lng]);
 
   const inputCls = "w-24 px-2 py-1 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) outline-none";
 
