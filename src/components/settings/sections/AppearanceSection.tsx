@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useThemeStore } from "@/stores/themeStore";
@@ -33,6 +33,8 @@ function exportTheme(theme: AppTheme) {
   );
 }
 
+const parse = (s: string) => (s.trim() === "" ? NaN : Number(s));
+
 export default function AppearanceSection() {
   const {
     activeThemeId, customThemes, setTheme, deleteCustomTheme,
@@ -41,6 +43,13 @@ export default function AppearanceSection() {
   } = useThemeStore();
   const [latText, setLatText] = useState(location ? String(location.lat) : "");
   const [lngText, setLngText] = useState(location ? String(location.lng) : "");
+  useEffect(() => {
+    if (!location) return;
+    if (parse(latText) !== location.lat || parse(lngText) !== location.lng) {
+      setLatText(String(location.lat));
+      setLngText(String(location.lng));
+    }
+  }, [location?.lat, location?.lng]);
   const { openThemeCreator, openThemeImportExport } = useUIStore();
   const pluginThemeMap = usePluginStore((s) => s.pluginThemes);
   const [scrollMinimapEnabled, setScrollMinimapEnabled] = useToggle("scroll-minimap");
@@ -161,7 +170,6 @@ export default function AppearanceSection() {
         ];
         const sun = location ? sunTimes(new Date(), location.lat, location.lng) : null;
         const fmt = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-        const parse = (s: string) => (s.trim() === "" ? NaN : Number(s));
         const useMyLocation = () => {
           if (typeof navigator === "undefined" || !navigator.geolocation) return;
           navigator.geolocation.getCurrentPosition(
