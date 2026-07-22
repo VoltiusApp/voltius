@@ -236,7 +236,7 @@ export function TeamSessions() {
 
       {showJoinModal && <JoinByCodeModal />}
 
-      <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+      <div className="flex gap-3 overflow-x-auto p-8 -m-8" style={{ scrollbarWidth: "none" }}>
         {activeSessions.map((session) => {
           const alreadyIn = myMpSessionIds.has(session.id);
 
