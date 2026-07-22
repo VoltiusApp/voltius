@@ -9,6 +9,7 @@ import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { DEFAULT_SCROLLBACK_LINES, MAX_SCROLLBACK_LINES, MIN_SCROLLBACK_LINES } from "@/stores/terminalSettingsUtils";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { Toggle } from "@/components/shared/Toggle";
+import { sunTimes, type ThemeMode } from "@/services/themeAutomation";
 import type { AppTheme } from "@/themes/types";
 import ScaleSection from "./ScaleSection";
 import { DirtyDot, ResetButton } from "./shared";
@@ -32,7 +33,11 @@ function exportTheme(theme: AppTheme) {
 }
 
 export default function AppearanceSection() {
-  const { activeThemeId, customThemes, setTheme, deleteCustomTheme } = useThemeStore();
+  const {
+    activeThemeId, customThemes, setTheme, deleteCustomTheme,
+    mode, setMode, lightThemeId, setLightThemeId, darkThemeId, setDarkThemeId,
+    scheduleLightStart, scheduleDarkStart, setSchedule, location, setLocation,
+  } = useThemeStore();
   const { openThemeCreator, openThemeImportExport } = useUIStore();
   const pluginThemeMap = usePluginStore((s) => s.pluginThemes);
   const [scrollMinimapEnabled, setScrollMinimapEnabled] = useToggle("scroll-minimap");
@@ -142,6 +147,80 @@ export default function AppearanceSection() {
           </div>
         </div>
       </div>
+
+      {(() => {
+        const themeOptions = allThemes.map((th) => ({ value: th.id, label: th.name }));
+        const modeOptions: { value: ThemeMode; label: string }[] = [
+          { value: "manual", label: t("settings.appearance.automation.modeManual") },
+          { value: "system", label: t("settings.appearance.automation.modeSystem") },
+          { value: "schedule", label: t("settings.appearance.automation.modeSchedule") },
+          { value: "sunset", label: t("settings.appearance.automation.modeSunset") },
+        ];
+        const sun = location ? sunTimes(new Date(), location.lat, location.lng) : null;
+        const fmt = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        const useMyLocation = () => {
+          if (typeof navigator === "undefined" || !navigator.geolocation) return;
+          navigator.geolocation.getCurrentPosition(
+            (pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, label: t("settings.appearance.automation.useMyLocation"), source: "geo" }),
+            () => {},
+            { enableHighAccuracy: false, timeout: 10000 },
+          );
+        };
+        return (
+          <div className="mb-6">
+            <h3 className="text-xs font-bold uppercase tracking-widest mb-4 text-(--t-text-dim)">
+              {t("settings.appearance.automation.title")}
+            </h3>
+            <div className="rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4 space-y-4">
+              <p className="text-xs text-(--t-text-dim)">{t("settings.appearance.automation.desc")}</p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1 text-xs text-(--t-text-dim)">
+                  {t("settings.appearance.automation.lightTheme")}
+                  <FormSelect value={lightThemeId} options={themeOptions} onChange={setLightThemeId} />
+                </label>
+                <label className="flex flex-col gap-1 text-xs text-(--t-text-dim)">
+                  {t("settings.appearance.automation.darkTheme")}
+                  <FormSelect value={darkThemeId} options={themeOptions} onChange={setDarkThemeId} />
+                </label>
+              </div>
+
+              <label className="flex flex-col gap-1 text-xs text-(--t-text-dim)">
+                {t("settings.appearance.automation.mode")}
+                <FormSelect value={mode} options={modeOptions} onChange={(v) => setMode(v as ThemeMode)} />
+              </label>
+
+              {mode === "schedule" && (
+                <div className="flex items-center gap-4">
+                  <label className="flex flex-col gap-1 text-xs text-(--t-text-dim)">
+                    {t("settings.appearance.automation.lightStarts")}
+                    <input type="time" value={scheduleLightStart} onChange={(e) => setSchedule(e.target.value, scheduleDarkStart)} className="px-2 py-1 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) outline-none" />
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs text-(--t-text-dim)">
+                    {t("settings.appearance.automation.darkStarts")}
+                    <input type="time" value={scheduleDarkStart} onChange={(e) => setSchedule(scheduleLightStart, e.target.value)} className="px-2 py-1 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) outline-none" />
+                  </label>
+                </div>
+              )}
+
+              {mode === "sunset" && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button onClick={useMyLocation} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-(--t-bg-elevated) hover:bg-(--t-bg-input-hover) text-(--t-text-primary)">
+                      <Icon icon="lucide:map-pin" width={12} /> {t("settings.appearance.automation.useMyLocation")}
+                    </button>
+                    <input type="number" step="0.0001" placeholder={t("settings.appearance.automation.latitude")} value={location?.lat ?? ""} onChange={(e) => setLocation({ lat: Number(e.target.value), lng: location?.lng ?? 0, label: "manual", source: "manual" })} className="w-28 px-2 py-1 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) outline-none" />
+                    <input type="number" step="0.0001" placeholder={t("settings.appearance.automation.longitude")} value={location?.lng ?? ""} onChange={(e) => setLocation({ lat: location?.lat ?? 0, lng: Number(e.target.value), label: "manual", source: "manual" })} className="w-28 px-2 py-1 rounded-md text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) outline-none" />
+                  </div>
+                  <span className="text-xs text-(--t-text-dim)">
+                    {sun ? t("settings.appearance.automation.sunToday", { sunrise: fmt(sun.sunrise), sunset: fmt(sun.sunset) }) : t("settings.appearance.automation.locationNeeded")}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       <div>
         <div className="flex items-center justify-between mb-4">
