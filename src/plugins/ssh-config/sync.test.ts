@@ -181,6 +181,23 @@ describe("ssh-config sync — adoption", () => {
     const created = h.connections.find((c) => c.id.startsWith("gen-"))!;
     expect(created.tags).toContain(TAG);
   });
+
+  test("an adopted match with an IdentityFile still skips key/identity creation", async () => {
+    const h = makeSyncApi({
+      config: cfg("Oracle", "1.2.3.4", "ubuntu", 22, "  IdentityFile ~/.ssh/id_ed25519\n"),
+      connections: [
+        conn({ id: "user-1", name: "Serv Oracle", host: "1.2.3.4", port: 22, username: "ubuntu", auth_type: "password", tags: [] }),
+      ],
+    });
+    await sync(h.api);
+    expect(h.api.keys.create).not.toHaveBeenCalled();
+    expect(h.api.identities.create).not.toHaveBeenCalled();
+    expect(h.create).not.toHaveBeenCalled();
+    const c = h.connections.find((x) => x.id === "user-1")!;
+    expect(c.tags).toEqual([]);
+    expect(c.auth_type).toBe("password");
+    expect(c.identity_id).toBeUndefined();
+  });
 });
 
 describe("ssh-config sync — ProxyJump + adoption", () => {
@@ -203,6 +220,27 @@ describe("ssh-config sync — ProxyJump + adoption", () => {
     expect(app.jump_hosts).toBeUndefined();
     const jumpWrites = h.update.mock.calls.filter(([, data]) => "jump_hosts" in (data as object));
     expect(jumpWrites).toHaveLength(0);
+  });
+
+  test("writes jump_hosts onto a plugin-created (tagged) connection", async () => {
+    const h = makeSyncApi({
+      config:
+        cfg("bastion", "bastion.com", "root") +
+        cfg("app", "app.com", "ubuntu", 22, "  ProxyJump bastion\n"),
+      connections: [],
+    });
+    await sync(h.api);
+
+    const bastion = h.connections.find((c) => c.name === "bastion")!;
+    const app = h.connections.find((c) => c.name === "app")!;
+    expect(bastion.tags).toContain(TAG);
+    expect(app.tags).toContain(TAG);
+
+    const jumpWrites = h.update.mock.calls.filter(
+      ([id, data]) => id === app.id && "jump_hosts" in (data as object),
+    );
+    expect(jumpWrites).toHaveLength(1);
+    expect(app.jump_hosts?.[0]?.connection_id).toBe(bastion.id);
   });
 });
 
