@@ -12,7 +12,7 @@ import { useNotificationStore } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useFolderStore } from "@/stores/folderStore";
-import { getSyncState, onSyncStateChange, ENTITY_FILES, type BlobPayload } from "@/services/sync";
+import { getSyncState, onSyncStateChange, ENTITY_FILES, getExcludedObjectIds, type BlobPayload } from "@/services/sync";
 import { useThemeStore } from "@/stores/themeStore";
 import { mergeEntities, mergeSecrets } from "@/services/crdt";
 import type {
@@ -900,6 +900,9 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           encKey: encKeyBytes,
           accountId: "gist-sync",
           deviceId,
+          // Strip cloud-off objects (and their secrets) from third-party sync
+          // destinations too, mirroring the built-in server push (issue #47).
+          excludedIds: getExcludedObjectIds(),
         });
         const CHUNK = 8192;
         let binary = "";

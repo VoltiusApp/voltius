@@ -335,8 +335,11 @@ function base64ToBytes(b64: string): number[] {
  * Ids of every entity object that must not participate in sync — individually
  * excluded, or belonging to a sync-disabled type. Used to filter both the
  * outbound blob (`backup_export`) and inbound remote payloads (pull merge).
+ *
+ * Exported so non-server sync destinations (e.g. the gist-sync plugin export
+ * path, issue #47) apply the same exclusion filter as the built-in server sync.
  */
-function getExcludedObjectIds(): string[] {
+export function getExcludedObjectIds(): string[] {
   const prefs = useSyncPrefsStore.getState();
   return collectExcludedIds(
     [
