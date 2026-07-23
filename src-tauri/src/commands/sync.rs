@@ -3,7 +3,7 @@ use chacha20poly1305::{
     Key, XChaCha20Poly1305, XNonce,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 
 use crate::storage::config::config_dir;
@@ -106,12 +106,59 @@ fn decrypt_blob(enc_key: &[u8], blob: &[u8]) -> Result<BlobPayload, String> {
     serde_json::from_slice(&plaintext).map_err(|e| e.to_string())
 }
 
+/// Remove sync-excluded objects from an outbound blob payload, in place.
+///
+/// For each `ENTITY_FILES` entry, drops array elements whose `"id"` is in
+/// `excluded`. For secrets, drops every key whose object-id segment (the 2nd
+/// `:`-delimited token) is excluded — from BOTH `secrets` and `clocks`, so the
+/// omission is never mistaken for a deletion tombstone by `mergeSecrets`.
+/// Non-entity files and non-excluded ids are left untouched.
+fn strip_excluded(
+    files: &mut HashMap<String, String>,
+    secrets: &mut HashMap<String, String>,
+    clocks: &mut HashMap<String, String>,
+    excluded: &HashSet<String>,
+) {
+    if excluded.is_empty() {
+        return;
+    }
+
+    for name in ENTITY_FILES {
+        let Some(content) = files.get(*name) else { continue };
+        let Ok(serde_json::Value::Array(items)) =
+            serde_json::from_str::<serde_json::Value>(content)
+        else {
+            continue; // not a JSON array — leave as-is (defensive)
+        };
+        let kept: Vec<serde_json::Value> = items
+            .into_iter()
+            .filter(|it| {
+                let id = it.get("id").and_then(|v| v.as_str());
+                !matches!(id, Some(id) if excluded.contains(id))
+            })
+            .collect();
+        if let Ok(s) = serde_json::to_string(&serde_json::Value::Array(kept)) {
+            files.insert((*name).to_string(), s);
+        }
+    }
+
+    let is_excluded_secret = |key: &str| {
+        key.split(':')
+            .nth(1)
+            .map(|id| excluded.contains(id))
+            .unwrap_or(false)
+    };
+    secrets.retain(|k, _| !is_excluded_secret(k));
+    clocks.retain(|k, _| !is_excluded_secret(k));
+}
+
 #[tauri::command]
 pub fn backup_export(
     state: tauri::State<SecretsStore>,
     enc_key: Vec<u8>,
     account_id: String,
     device_id: String,
+    excluded_ids: Option<Vec<String>>,
 ) -> Result<Vec<u8>, String> {
     if enc_key.len() != 32 {
         return Err("enc_key must be 32 bytes".to_string());
@@ -159,10 +206,15 @@ pub fn backup_export(
         }
     }
     let data = state.export_all()?;
+    let mut files = files;
+    let mut secrets = data.secrets;
+    let mut clocks = data.clocks;
+    let excluded: HashSet<String> = excluded_ids.unwrap_or_default().into_iter().collect();
+    strip_excluded(&mut files, &mut secrets, &mut clocks, &excluded);
     let payload = BlobPayload {
         files,
-        secrets: data.secrets,
-        secret_clocks: data.clocks,
+        secrets,
+        secret_clocks: clocks,
     };
     let payload_json = serde_json::to_vec(&payload).map_err(|e| e.to_string())?;
 
@@ -407,4 +459,54 @@ pub fn updater_set_auto(enabled: bool) -> Result<(), String> {
     let body = serde_json::to_string(&UpdaterPrefs { auto: enabled }).map_err(|e| e.to_string())?;
     fs::write(config_dir().join("updater.json"), body)
         .map_err(|e| format!("updater_set_auto failed: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn strip_excluded_removes_entity_and_its_secrets_from_both_maps() {
+        let mut files = HashMap::new();
+        files.insert(
+            "connections.json".to_string(),
+            r#"[{"id":"a"},{"id":"b"}]"#.to_string(),
+        );
+        // Non-entity file must be left completely untouched.
+        files.insert("settings.json".to_string(), r#"{"theme":"dark"}"#.to_string());
+
+        let mut secrets = HashMap::new();
+        secrets.insert("password:a".to_string(), "pw".to_string());
+        secrets.insert("key:a:private".to_string(), "kp".to_string());
+        secrets.insert("key:shared:private".to_string(), "sk".to_string());
+
+        let mut clocks = HashMap::new();
+        clocks.insert("password:a".to_string(), "t".to_string());
+        clocks.insert("key:shared:private".to_string(), "t".to_string());
+
+        let excluded: HashSet<String> = ["a".to_string()].into_iter().collect();
+        strip_excluded(&mut files, &mut secrets, &mut clocks, &excluded);
+
+        // Entity "a" removed, sibling "b" kept.
+        assert_eq!(files["connections.json"], r#"[{"id":"b"}]"#);
+        // Non-entity file untouched.
+        assert_eq!(files["settings.json"], r#"{"theme":"dark"}"#);
+        // Excluded object's secrets gone from BOTH maps (no tombstone).
+        assert!(!secrets.contains_key("password:a"));
+        assert!(!secrets.contains_key("key:a:private"));
+        assert!(!clocks.contains_key("password:a"));
+        // A secret belonging to a NON-excluded id survives.
+        assert!(secrets.contains_key("key:shared:private"));
+        assert!(clocks.contains_key("key:shared:private"));
+    }
+
+    #[test]
+    fn strip_excluded_empty_set_is_noop() {
+        let mut files = HashMap::new();
+        files.insert("connections.json".to_string(), r#"[{"id":"a"}]"#.to_string());
+        let mut secrets = HashMap::new();
+        let mut clocks = HashMap::new();
+        strip_excluded(&mut files, &mut secrets, &mut clocks, &HashSet::new());
+        assert_eq!(files["connections.json"], r#"[{"id":"a"}]"#);
+    }
 }
