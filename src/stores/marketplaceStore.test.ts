@@ -2,7 +2,7 @@ import { test, expect, vi, beforeEach } from "vitest";
 
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
-  convertFileSrc: vi.fn(() => "data:text/javascript,export default () => {}"),
+  convertFileSrc: vi.fn(() => "data:text/javascript,export default () => {}//"),
   loadPlugin: vi.fn(),
   unloadPlugin: vi.fn(),
 }));

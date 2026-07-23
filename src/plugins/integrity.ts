@@ -22,10 +22,11 @@ export async function resolveVerifiedHash(
   jsText: string,
   expected: string | undefined | null,
 ): Promise<string | null> {
-  if (!expected) return null;
+  const want = expected?.trim().toLowerCase();
+  if (!want) return null;
   const actual = await sha256Hex(jsText);
-  if (actual !== expected.toLowerCase()) {
-    throw new PluginHashMismatchError(expected.toLowerCase(), actual);
+  if (actual !== want) {
+    throw new PluginHashMismatchError(want, actual);
   }
   return actual;
 }

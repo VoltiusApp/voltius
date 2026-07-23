@@ -184,7 +184,9 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       await invoke("plugin_write_file", { id: plugin.id, filename: "index.js", content: jsText });
 
       const jsPath = await invoke<string>("plugin_resolve_path", { id: plugin.id, filename: "index.js" });
-      const url = convertFileSrc(jsPath);
+      // Cache-bust so a same-session re-install imports the freshly-verified bytes,
+      // not a stale cached module (keyed by verified hash; identical bytes reuse the cache).
+      const url = convertFileSrc(jsPath) + `?v=${verifiedHash ?? Date.now()}`;
       const mod = await import(/* @vite-ignore */ url) as { default: PluginRegisterFn };
       loadPlugin(manifest, mod.default);
 
@@ -255,6 +257,10 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
 // ─── Startup loader ───────────────────────────────────────────────────────
 
 export async function loadInstalledPlugins(): Promise<void> {
+  // Note: the recorded meta.hash is used only for the UI "unverified" signal, not re-checked
+  // here. Load-time re-hashing is intentionally out of scope — under the Path B trust model a
+  // local attacker who can rewrite the plugin dir already has full renderer privileges, so it
+  // would add no real boundary. The integrity check binds reviewed→executed at INSTALL time.
   const store = useMarketplaceStore.getState();
   await store.loadInstalledMeta();
 
