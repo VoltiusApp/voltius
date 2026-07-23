@@ -15,6 +15,8 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { mergeEntities, mergeSecrets, secretsDiffer, type TimestampedEntity } from "@/services/crdt";
+import { filterRemoteExcluded, collectExcludedIds } from "./syncExclusion";
+import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { buildDecryptKeyCandidates } from "@/services/vaultKeyCandidates";
 import { getMyX25519Keypair } from "@/services/multiplayerService";
@@ -329,6 +331,26 @@ function base64ToBytes(b64: string): number[] {
 
 // ─── Core sync operations ────────────────────────────────────────────────────
 
+/**
+ * Ids of every entity object that must not participate in sync — individually
+ * excluded, or belonging to a sync-disabled type. Used to filter both the
+ * outbound blob (`backup_export`) and inbound remote payloads (pull merge).
+ */
+function getExcludedObjectIds(): string[] {
+  const prefs = useSyncPrefsStore.getState();
+  return collectExcludedIds(
+    [
+      { type: "connection", ids: useConnectionStore.getState().connections.map((c) => c.id) },
+      { type: "identity", ids: useIdentityStore.getState().identities.map((i) => i.id) },
+      { type: "key", ids: useKeyStore.getState().keys.map((k) => k.id) },
+      { type: "folder", ids: useFolderStore.getState().folders.map((f) => f.id) },
+      { type: "port-forwarding-rule", ids: usePortForwardingStore.getState().rules.map((r) => r.id) },
+    ],
+    prefs.isObjectSynced,
+    prefs.excludedIds,
+  );
+}
+
 /** Export local data and upload to server. */
 export async function push(): Promise<void> {
   const encKey = await getEncKey();
@@ -352,6 +374,7 @@ export async function push(): Promise<void> {
     encKey,
     accountId,
     deviceId,
+    excludedIds: getExcludedObjectIds(),
   });
 
   const res = await fetchWithAuth(`${serverUrl}/v1/sync/blob`, {
@@ -454,7 +477,12 @@ async function pullAndMerge(remoteDeviceId: string): Promise<boolean> {
   const { blob: blobB64 } = await res.json();
   const blobBytes = base64ToBytes(blobB64);
 
-  const remotePayload = await decryptBlobWithFallback(blobBytes);
+  const rawRemotePayload = await decryptBlobWithFallback(blobBytes);
+  const remotePayload = filterRemoteExcluded(
+    rawRemotePayload,
+    getExcludedObjectIds(),
+    ENTITY_FILES,
+  );
 
   await applyRemoteTheme(remotePayload);
   await applyRemoteSettings(remotePayload);
@@ -608,6 +636,7 @@ export async function syncOnLoginReplace(): Promise<void> {
     if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
     const devices = await listDevices();
+    const excludedIds = getExcludedObjectIds();
 
     // Accumulate remote state starting from empty — local disk never touched
     let mergedFiles: Record<string, string> = Object.fromEntries(
@@ -627,7 +656,11 @@ export async function syncOnLoginReplace(): Promise<void> {
 
         const { blob: blobB64 } = await res.json();
         const blobBytes = base64ToBytes(blobB64);
-        const remotePayload = await decryptBlobWithFallback(blobBytes);
+        const remotePayload = filterRemoteExcluded(
+          await decryptBlobWithFallback(blobBytes),
+          excludedIds,
+          ENTITY_FILES,
+        );
 
         await applyRemoteTheme(remotePayload);
         await applyRemoteSettings(remotePayload);
