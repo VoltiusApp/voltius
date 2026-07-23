@@ -85,17 +85,33 @@ describe("filterRemoteExcluded + mergeEntities — bidirectional guarantees", ()
     expect(merged.find((e) => e.id === "X")).toBeUndefined();
   });
 
-  it("keeps a locally-present excluded object even if remote lacks it (no loss)", () => {
-    const localWithX = [ent("X")];
+  it("keeps the local copy of an excluded object and ignores a newer remote copy (no loss / no remote override)", () => {
+    type Conn = TimestampedEntity & { name: string };
+    const localX: Conn = {
+      id: "X",
+      name: "local",
+      updated_at: "2026-07-20T00:00:00Z",
+      clocks: { name: "2026-07-20T00:00:00Z" },
+    };
+    // Remote holds a NEWER copy of X that WOULD win LWW and overwrite `name` if not filtered out.
+    const remoteX: Conn = {
+      id: "X",
+      name: "remote",
+      updated_at: "2026-07-25T00:00:00Z",
+      clocks: { name: "2026-07-25T00:00:00Z" },
+    };
     const remotePayload = {
-      files: { "connections.json": `[]` },
+      files: { "connections.json": JSON.stringify([remoteX]) },
       secrets: {},
       secret_clocks: {},
     };
     const filtered = filterRemoteExcluded(remotePayload, ["X"], ["connections.json"]);
-    const remote: TimestampedEntity[] = JSON.parse(filtered.files["connections.json"]);
-    const merged = mergeEntities(localWithX, remote);
-    expect(merged.find((e) => e.id === "X")).toBeDefined();
+    const remote = JSON.parse(filtered.files["connections.json"]) as Conn[];
+    expect(remote).toHaveLength(0); // matching remote copy was actually removed by the filter
+    const merged = mergeEntities([localX], remote);
+    const mergedX = merged.find((e) => e.id === "X");
+    expect(mergedX).toBeDefined();
+    expect(mergedX!.name).toBe("local"); // local value preserved; newer remote did NOT override
   });
 });
 
