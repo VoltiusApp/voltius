@@ -124,7 +124,9 @@ fn strip_excluded(
     }
 
     for name in ENTITY_FILES {
-        let Some(content) = files.get(*name) else { continue };
+        let Some(content) = files.get(*name) else {
+            continue;
+        };
         let Ok(serde_json::Value::Array(items)) =
             serde_json::from_str::<serde_json::Value>(content)
         else {
@@ -473,7 +475,10 @@ mod tests {
             r#"[{"id":"a"},{"id":"b"}]"#.to_string(),
         );
         // Non-entity file must be left completely untouched.
-        files.insert("settings.json".to_string(), r#"{"theme":"dark"}"#.to_string());
+        files.insert(
+            "settings.json".to_string(),
+            r#"{"theme":"dark"}"#.to_string(),
+        );
 
         let mut secrets = HashMap::new();
         secrets.insert("password:a".to_string(), "pw".to_string());
@@ -503,7 +508,10 @@ mod tests {
     #[test]
     fn strip_excluded_empty_set_is_noop() {
         let mut files = HashMap::new();
-        files.insert("connections.json".to_string(), r#"[{"id":"a"}]"#.to_string());
+        files.insert(
+            "connections.json".to_string(),
+            r#"[{"id":"a"}]"#.to_string(),
+        );
         let mut secrets = HashMap::new();
         let mut clocks = HashMap::new();
         strip_excluded(&mut files, &mut secrets, &mut clocks, &HashSet::new());
