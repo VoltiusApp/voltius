@@ -73,10 +73,8 @@
       "noConnectionsSelected": "Aucune connexion sélectionnée",
       "serialPortConfigNotFound": "Configuration du port série introuvable",
       "connectionConfigNotFound": "Configuration de connexion introuvable",
-
       "failedToFetchAuditLogs": "Échec de la récupération des journaux d'audit : {{status}}",
       "failedToExportAuditLogs": "Échec de l'exportation des journaux d'audit : {{status}}",
-
       "serverUnreachableTimeout": "Serveur injoignable (délai dépassé) — vérifiez votre connexion internet et l'URL du serveur",
       "networkError": "Erreur réseau — {{message}}",
       "emailAlreadyRegistered": "Cet e-mail est déjà enregistré",
@@ -99,7 +97,6 @@
       "emailInUse": "Cet e-mail est déjà utilisé",
       "incorrectPassword": "Mot de passe incorrect",
       "emailUpdateFailed": "Échec de la mise à jour de l'e-mail : {{status}}",
-
       "userNotFoundVoltiusAccount": "Utilisateur introuvable — il doit posséder un compte Voltius",
       "userNotFound": "Utilisateur introuvable",
       "cannotAddYourself": "Impossible de s'ajouter soi-même",
@@ -112,6 +109,7 @@
       "noPermissionInviteMembers": "Vous n'avez pas la permission d'inviter des membres",
       "failedToCreateTeam": "Échec de la création de l'équipe : {{status}}",
       "failedToListMembers": "Échec du chargement des membres : {{status}}",
+      "failedToListVaultKeyHolders": "Échec du chargement des détenteurs de clé de coffre : {{status}}",
       "failedToAddMember": "Échec de l'ajout du membre : {{status}}",
       "failedToRemoveMember": "Échec de la suppression du membre : {{status}}",
       "failedToAssignRole": "Échec de l'attribution du rôle : {{status}}",
@@ -124,7 +122,6 @@
       "failedToRevokeInvitation": "Échec de la révocation de l'invitation : {{status}}",
       "failedToAcceptInvitation": "Échec de l'acceptation de l'invitation : {{status}}",
       "failedToDeclineInvitation": "Échec du refus de l'invitation : {{status}}",
-
       "noPermissionTeamVaultOp": "Vous n'avez pas la permission d'effectuer cette opération sur le coffre d'équipe",
       "teamVaultRequiresSubscription": "Le coffre d'équipe nécessite un abonnement Teams ou Business actif",
       "failedToListTeamObjects": "Échec du chargement des objets d'équipe : {{status}}",
@@ -135,16 +132,13 @@
       "failedToDeleteTeamObjectPref": "Échec de la suppression de la préférence d'objet d'équipe : {{status}}",
       "failedToListTeamSecrets": "Échec du chargement des secrets d'équipe : {{status}}",
       "failedToSaveTeamSecret": "Échec de l'enregistrement du secret d'équipe : {{status}}",
-
       "keyFetchFailed": "Échec de la récupération de la clé : {{error}}",
       "failedToUploadVaultKeys": "Échec de l'envoi des clés de coffre : {{status}}",
       "failedToDistributeVaultKey": "Échec de la distribution de la clé de coffre : {{status}}",
       "failedToSaveTeamData": "Échec de l'enregistrement des données d'équipe : {{status}}",
-
       "failedToCreateSession": "Échec de la création de la session : {{status}}",
       "failedToCreateInviteLinkSession": "Échec de la création du lien d'invitation de session : {{status}}",
       "failedToGetSessionKey": "Échec de la récupération de la clé de session : {{status}}",
-
       "invalidJson": "JSON invalide",
       "notVoltiusExportBundle": "Ce n'est pas un fichier d'export Voltius (attendu : { version: 1, ... })",
       "invalidEncryptedFile": "Fichier chiffré invalide",

@@ -61,6 +61,8 @@
         "offlineBody": "Les coffres d'équipe nécessitent une connexion internet. Votre coffre personnel reste disponible hors ligne.",
         "forbiddenTitle": "Accès révoqué",
         "forbiddenBody": "Vous n'avez plus accès à ce coffre d'équipe. Contactez le propriétaire de l'équipe.",
+        "waitingForAccessTitle": "En attente d'accès",
+        "waitingForAccessBody": "Un propriétaire du coffre d'équipe doit vous accorder l'accès. Cela se fait automatiquement à la prochaine connexion d'un propriétaire.",
         "paymentRequiredTitle": "Coffre d'équipe indisponible",
         "paymentRequiredBodyOwner": "Votre abonnement a expiré. Les coffres d'équipe nécessitent un abonnement actif.",
         "paymentRequiredBodyMember": "L'abonnement du propriétaire a expiré. Les coffres d'équipe nécessitent un abonnement actif.",

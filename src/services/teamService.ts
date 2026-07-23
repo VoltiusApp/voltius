@@ -122,6 +122,19 @@ export async function listMembers(teamId: string): Promise<TeamMember[]> {
   return res.json();
 }
 
+/**
+ * User ids that already hold a wrapped copy of the team vault key. A key-holder
+ * uses this to reconcile distribution: members present in `listMembers` but
+ * absent here are missing their key (issue #41).
+ */
+export async function getVaultKeyHolders(teamId: string): Promise<string[]> {
+  const serverUrl = await getServerUrl();
+  if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
+  const res = await fetchAuth(`${serverUrl}/v1/teams/${teamId}/vault-key/holders`);
+  if (!res.ok) throw new Error(i18n.t("common.error.failedToListVaultKeyHolders", { status: res.status }));
+  return res.json();
+}
+
 export async function addMember(
   teamId: string,
   email: string,
