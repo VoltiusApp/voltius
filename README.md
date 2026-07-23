@@ -41,7 +41,7 @@ No account required. Everything below is free, forever.
 
 <table>
   <tr>
-    <td width="50%"><img src=".github/media/dashboard-home.png" alt="Dashboard and command palette" /><br/><sub><b>Command palette</b> — jump to any host, session, or snippet</sub></td>
+    <td width="50%"><img src=".github/media/command-palette.png" alt="Command palette open over the workspace" /><br/><sub><b>Command palette</b> — jump to any host, session, or snippet</sub></td>
     <td width="50%"><img src=".github/media/folders-tags.png" alt="Hosts organized into folders with tags" /><br/><sub><b>Folders &amp; tags</b> — organize your fleet at scale</sub></td>
   </tr>
   <tr>
