@@ -499,7 +499,8 @@
         "noneInstalled": "No plugins installed.",
         "sourceLocal": "Local",
         "sourceUrl": "URL",
-        "sourceInstalled": "Installed"
+        "sourceInstalled": "Installed",
+        "unverified": "Unverified"
       },
       "browse": {
         "searchPlaceholder": "Search plugins…",
@@ -517,6 +518,10 @@
         "uninstall": "Uninstall",
         "installing": "Installing…",
         "install": "Install"
+      },
+      "install": {
+        "integrityFailed": "Plugin bundle failed its integrity check — install blocked.",
+        "failed": "Failed to install plugin."
       }
     },
     "sftp": {

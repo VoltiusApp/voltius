@@ -4,8 +4,10 @@ import { Toggle } from "@/components/shared/Toggle";
 import { Icon } from "@iconify/react";
 import { usePluginStore } from "@/stores/pluginStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
-import { useMarketplaceStore } from "@/stores/marketplaceStore";
+import { useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useNotificationStore } from "@/stores/notificationStore";
+import { PluginHashMismatchError } from "@/plugins/integrity";
 import { BUNDLED_PLUGINS } from "@/plugins/bundled";
 import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
 import { setPluginActive, getLoadedPlugins, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
@@ -390,6 +392,15 @@ function InstalledTab() {
                     <span className="text-xs px-1.5 py-0.5 rounded-sm shrink-0 bg-(--t-bg-base) text-(--t-text-dim)">
                       v{meta.version}
                     </span>
+                    {meta.hash === null && meta.sourceId !== "local" && (
+                      <span
+                        className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-sm shrink-0 bg-(--t-bg-base) text-(--t-text-dim)"
+                        title={t("settings.plugins.installed.unverified")}
+                      >
+                        <Icon icon="lucide:shield-off" width={11} />
+                        {t("settings.plugins.installed.unverified")}
+                      </span>
+                    )}
                   </div>
                   {manifest && (
                     <p className="text-xs mt-0.5 truncate text-(--t-text-dim)">{manifest.description}</p>
@@ -461,6 +472,23 @@ function BrowseTab() {
     setUninstalling((s) => new Set([...s, id]));
     try { await uninstallPlugin(id); } finally {
       setUninstalling((s) => { const n = new Set(s); n.delete(id); return n; });
+    }
+  };
+
+  const handleInstall = async (plugin: MarketplacePlugin) => {
+    try {
+      await installPlugin(plugin);
+    } catch (e) {
+      useNotificationStore.getState().addToast({
+        pluginId: "system",
+        pluginName: "Voltius",
+        type: "toast",
+        severity: "error",
+        message: e instanceof PluginHashMismatchError
+          ? t("settings.plugins.install.integrityFailed")
+          : t("settings.plugins.install.failed"),
+        duration: 0,
+      });
     }
   };
   const [newSourceUrl, setNewSourceUrl] = useState("");
@@ -685,7 +713,7 @@ function BrowseTab() {
                     </button>
                   ) : (
                     <button
-                      onClick={() => void installPlugin(plugin)}
+                      onClick={() => void handleInstall(plugin)}
                       disabled={isInstalling}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
                       style={{ background: "var(--t-accent)", color: "var(--t-bg-base)", opacity: isInstalling ? 0.7 : 1 }}

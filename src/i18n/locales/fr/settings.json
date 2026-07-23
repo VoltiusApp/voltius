@@ -499,7 +499,8 @@
         "noneInstalled": "Aucune extension installée.",
         "sourceLocal": "Locale",
         "sourceUrl": "URL",
-        "sourceInstalled": "Installée"
+        "sourceInstalled": "Installée",
+        "unverified": "Non vérifié"
       },
       "browse": {
         "searchPlaceholder": "Rechercher des extensions…",
@@ -517,6 +518,10 @@
         "uninstall": "Désinstaller",
         "installing": "Installation…",
         "install": "Installer"
+      },
+      "install": {
+        "integrityFailed": "L'intégrité du module a échoué — installation bloquée.",
+        "failed": "Échec de l'installation du module."
       }
     },
     "sftp": {
