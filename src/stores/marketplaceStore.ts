@@ -6,6 +6,7 @@ import { loadPlugin, unloadPlugin } from "@/plugins/runtime";
 import type { PluginManifest, PluginRegisterFn } from "@/plugins/api";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { appFetch } from "@/services/http";
+import { resolveVerifiedHash } from "@/plugins/integrity";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -28,12 +29,14 @@ export interface MarketplacePlugin {
   tags: string[];
   theme: boolean;
   sourceId: string;
+  hash?: string;
 }
 
 export interface InstalledPluginMeta {
   id: string;
   version: string;
   sourceId: string | "local" | "url";
+  hash: string | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -51,7 +54,8 @@ const FIRST_PARTY_SOURCE: MarketplaceSource = {
 async function readInstalledMeta(): Promise<InstalledPluginMeta[]> {
   try {
     const raw = await invoke<string>("plugin_read_file", { id: "__meta__", filename: INSTALLED_META_KEY + ".json" });
-    return JSON.parse(raw) as InstalledPluginMeta[];
+    const list = JSON.parse(raw) as InstalledPluginMeta[];
+    return list.map((m) => ({ ...m, hash: m.hash ?? null }));
   } catch {
     return [];
   }
@@ -173,6 +177,9 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
 
       const manifest = JSON.parse(manifestText) as PluginManifest;
 
+      // Integrity: refuse to execute a bundle that doesn't match its reviewed hash.
+      const verifiedHash = await resolveVerifiedHash(jsText, plugin.hash);
+
       await invoke("plugin_write_file", { id: plugin.id, filename: "manifest.json", content: manifestText });
       await invoke("plugin_write_file", { id: plugin.id, filename: "index.js", content: jsText });
 
@@ -183,7 +190,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
 
       const newMeta: InstalledPluginMeta[] = [
         ...installedMeta.filter((m) => m.id !== plugin.id),
-        { id: plugin.id, version: plugin.version, sourceId: plugin.sourceId },
+        { id: plugin.id, version: plugin.version, sourceId: plugin.sourceId, hash: verifiedHash },
       ];
       await writeInstalledMeta(newMeta);
       set({ installedMeta: newMeta });
@@ -234,7 +241,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
         loadPlugin(manifest, mod.default);
         const newMeta: InstalledPluginMeta[] = [
           ...installedMeta,
-          { id, version: manifest.version, sourceId: "local" },
+          { id, version: manifest.version, sourceId: "local", hash: null },
         ];
         await writeInstalledMeta(newMeta);
         set({ installedMeta: newMeta });
