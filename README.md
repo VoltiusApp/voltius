@@ -37,6 +37,23 @@ No account required. Everything below is free, forever.
 
 > Full feature list at [docs.voltius.app](https://docs.voltius.app) *(coming soon)* · **Pro · Teams · Business** — see [voltius.app/#pricing](https://voltius.app/#pricing) for paid plans.
 
+## 📸 Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src=".github/media/dashboard-home.png" alt="Dashboard and command palette" /><br/><sub><b>Command palette</b> — jump to any host, session, or snippet</sub></td>
+    <td width="50%"><img src=".github/media/folders-tags.png" alt="Hosts organized into folders with tags" /><br/><sub><b>Folders &amp; tags</b> — organize your fleet at scale</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src=".github/media/panes-grid.png" alt="Split terminal panes in a grid" /><br/><sub><b>Split panes</b> — multiplex terminals, broadcast input to all</sub></td>
+    <td width="50%"><img src=".github/media/sftp-dual-pane.png" alt="Dual-pane SFTP file manager" /><br/><sub><b>Dual-pane SFTP</b> — drag &amp; drop, local ↔ remote ↔ host</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src=".github/media/teams-roles.png" alt="Team vault members and role permissions" /><br/><sub><b>Team vaults &amp; roles</b> — share access, control permissions</sub></td>
+    <td width="50%"><img src=".github/media/themes-creator.png" alt="Theme editor with color groups and terminal palette" /><br/><sub><b>Theme editor</b> — window colors and the full terminal palette</sub></td>
+  </tr>
+</table>
+
 ## 📦 Install
 
 ### Linux — apt & dnf/yum
