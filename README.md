@@ -11,6 +11,7 @@
     <img src="https://img.shields.io/badge/built_with-Rust-dea584?logo=rust" alt="Rust" />
     <img src="https://img.shields.io/badge/UI-Tauri-24c8db?logo=tauri" alt="Tauri" />
     <img src="https://img.shields.io/badge/Security-E2EE-green" alt="E2EE" />
+    <a href="https://docs.voltius.app"><img src="https://img.shields.io/badge/docs-docs.voltius.app-3b82f6" alt="Docs" /></a>
     <img src="https://img.shields.io/github/license/VoltiusApp/voltius" alt="License" />
   </p>
 
