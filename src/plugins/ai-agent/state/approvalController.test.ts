@@ -181,8 +181,7 @@ describe("ApprovalController", () => {
         deriveHost: async () => "h",
       });
       void c.approve({ tool: "run_command", args: { command: "df --output=source" } }, 0);
-      await Promise.resolve();
-      expect(addPending).toHaveBeenCalledTimes(1); // a card, not an auto-approval
+      await vi.waitFor(() => expect(addPending).toHaveBeenCalledTimes(1)); // a card, not an auto-approval
     });
 
     it("an exact grant authorizes the identical command with no card", async () => {
@@ -211,9 +210,7 @@ describe("ApprovalController", () => {
         deriveHost: async () => null,
       });
       void c.approve({ tool: "run_command", args: { command: "df -h" } }, 0);
-      await Promise.resolve();
-      await Promise.resolve();
-      expect(addPending).toHaveBeenCalledTimes(1);
+      await vi.waitFor(() => expect(addPending).toHaveBeenCalledTimes(1));
       expect(addPending.mock.calls[0][0].host).toBe(UNKNOWN_HOST);
       expect(addPending.mock.calls[0][0].grants).toEqual([]);
     });

@@ -325,7 +325,7 @@ export async function initAgent(api: PluginAPI): Promise<void> {
     mode: mode ?? "ask",
     // Legacy 3a entries were {host, key} first-token prefixes; reading them
     // forward would resurrect the over-broad grant this slice removes.
-    allowlist: (allowlist ?? []).filter(isWellFormedEntry),
+    allowlist: Array.isArray(allowlist) ? allowlist.filter(isWellFormedEntry) : [],
     runStatus: "idle",
     errorText: null,
   });

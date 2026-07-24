@@ -814,7 +814,19 @@ describe("allowlist migration + management", () => {
     expect(useAgentStore.getState().allowlist).toEqual([wellFormed]);
   });
 
-  it("revokeAllAllowlist clears every host and persists", () => {
+  it("hydrates a non-array persisted allowlist (corrupt/hand-edited storage) to [] and still resets runStatus to idle", async () => {
+    // A stale "streaming" status left un-reset here would trip sendMessage's
+    // single-flight guard and permanently brick the composer — see the
+    // comment above the setState call in initAgent this guards.
+    useAgentStore.setState({ runStatus: "streaming" });
+    await initAgent(fakeApi({ allowlist: "df" }));
+    expect(useAgentStore.getState().allowlist).toEqual([]);
+    expect(useAgentStore.getState().runStatus).toBe("idle");
+  });
+
+  it("revokeAllAllowlist clears every host and persists", async () => {
+    const persisted: Record<string, unknown> = {};
+    await initAgent(fakeApi(persisted));
     useAgentStore.setState({
       allowlist: [
         { host: "a", tool: "run_command", grain: "exact", key: "df -h" },
@@ -823,6 +835,7 @@ describe("allowlist migration + management", () => {
     });
     useAgentStore.getState().revokeAllAllowlist();
     expect(useAgentStore.getState().allowlist).toEqual([]);
+    await vi.waitFor(() => expect(persisted.allowlist).toEqual([]));
   });
 
   it("addAllowlist refuses a malformed entry", () => {
