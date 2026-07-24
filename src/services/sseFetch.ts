@@ -74,10 +74,19 @@ export async function sseFetch(url: string, init?: RequestInit): Promise<Respons
           reject(new Error(closedError ?? "stream closed before response"));
           return;
         }
-        // Non-2xx path: no data was streamed; surface the error body so the
-        // caller sees res.ok === false with a readable body.
-        if (closedError && !sawData) controller?.enqueue(encoder.encode(closedError));
-        try { controller?.close(); } catch { /* noop */ }
+        if (closedError && !sawData) {
+          // Non-2xx path: no data was streamed; surface the error body so the
+          // caller sees res.ok === false with a readable body.
+          controller?.enqueue(encoder.encode(closedError));
+          try { controller?.close(); } catch { /* noop */ }
+        } else if (closedError) {
+          // Mid-stream transport error (e.g. connection reset) after data
+          // already streamed: error the stream rather than closing it, so a
+          // dropped connection isn't mistaken for a clean, complete response.
+          try { controller?.error(new Error(closedError)); } catch { /* noop */ }
+        } else {
+          try { controller?.close(); } catch { /* noop */ }
+        }
         cleanup();
       }),
     ])

@@ -82,4 +82,15 @@ describe("sseFetch", () => {
     expect(invoke).toHaveBeenCalledWith("http_sse_stop", expect.any(Object));
     await expect(bodyPromise).rejects.toThrow(/Aborted/);
   });
+
+  test("a mid-stream transport error errors the body instead of closing it cleanly", async () => {
+    const p = sseFetch("https://api.test/v1", {});
+    await Promise.resolve(); await Promise.resolve();
+    emit("open", { status: 200, headers: [] });
+    const res = await p;
+    const bodyPromise = readAll(res);
+    emit("data", "partial");
+    emit("closed", { error: "connection reset" });
+    await expect(bodyPromise).rejects.toThrow(/connection reset/);
+  });
 });
