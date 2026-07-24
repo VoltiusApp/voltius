@@ -66,11 +66,9 @@ export function Composer() {
           fontSize: 13,
         }}
       />
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-          <ModeChip />
-          <ProfileSwitcher />
-        </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <ModeChip />
+        <ProfileSwitcher />
         <button
           type="button"
           onClick={streaming ? stop : send}
@@ -79,6 +77,7 @@ export function Composer() {
             display: "inline-flex",
             alignItems: "center",
             gap: 4,
+            flexShrink: 0,
             background: streaming ? "var(--t-status-error)" : "var(--t-accent)",
             color: "var(--t-on-accent, #fff)",
             border: "none",

@@ -14,6 +14,8 @@ export function ModeChip() {
         display: "inline-flex",
         alignItems: "center",
         gap: 4,
+        flexShrink: 0,
+        whiteSpace: "nowrap",
         background: "transparent",
         border: "1px solid var(--t-border)",
         borderRadius: 999,
@@ -23,7 +25,7 @@ export function ModeChip() {
         cursor: "pointer",
       }}
     >
-      {LABEL[mode]} <span style={{ opacity: 0.6 }}>· shift+tab</span>
+      {LABEL[mode]}
     </button>
   );
 }

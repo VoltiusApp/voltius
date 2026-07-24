@@ -61,7 +61,7 @@ export function ProfileSwitcher() {
   };
 
   return (
-    <div ref={rootRef} style={{ position: "relative" }}>
+    <div ref={rootRef} style={{ position: "relative", flex: 1, minWidth: 0 }}>
       <button
         type="button"
         onClick={() => setMenuOpen((v) => !v)}
@@ -70,7 +70,9 @@ export function ProfileSwitcher() {
           display: "inline-flex",
           alignItems: "center",
           gap: 4,
-          maxWidth: 180,
+          width: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
           background: "transparent",
           border: "1px solid var(--t-border)",
           borderRadius: 999,
@@ -80,11 +82,14 @@ export function ProfileSwitcher() {
           cursor: "pointer",
         }}
       >
-        <Icon icon="lucide:cpu" width={12} />
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <Icon icon="lucide:cpu" width={12} style={{ flexShrink: 0 }} />
+        <span
+          title={active ? `${active.label} · ${active.model}` : undefined}
+          style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+        >
           {active ? `${active.label} · ${active.model}` : "No provider"}
         </span>
-        <Icon icon="lucide:chevron-down" width={11} />
+        <Icon icon="lucide:chevron-down" width={11} style={{ flexShrink: 0 }} />
       </button>
 
       {menuOpen && (
