@@ -9,6 +9,7 @@ export interface RunAgentOptions {
   ctx: AgentContext;
   messages: ModelMessage[];
   maxSteps?: number;
+  abortSignal?: AbortSignal;
 }
 
 /**
@@ -38,5 +39,6 @@ export function runAgent(opts: RunAgentOptions) {
     messages: opts.messages,
     tools: toolSet,
     stopWhen: stepCountIs(opts.maxSteps ?? 12),
+    abortSignal: opts.abortSignal,
   });
 }

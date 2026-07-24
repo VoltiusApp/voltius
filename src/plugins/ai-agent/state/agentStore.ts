@@ -5,6 +5,10 @@ import type { ToolDecision } from "../types";
 import { createProfilesStore, type ProfilesStore } from "../provider/profilesStore";
 import { createApprovalController } from "./approvalController";
 import { deriveHost, allowlistKey } from "./hostDerivation";
+import { runAgent } from "../agent/loop";
+import { createProvider } from "../provider/factory";
+import { makeStreamFetch } from "../provider/fetchAdapter";
+import { consumeStream } from "./conversation";
 
 export type Mode = "plan" | "ask" | "auto";
 export interface AllowlistEntry { host: string; key: string }
@@ -47,11 +51,15 @@ interface AgentState {
   revokeAllowlist(e: AllowlistEntry): void;
   hasAllowlist(e: AllowlistEntry): boolean;
   resolveApproval(id: string, d: ToolDecision): void;
+  sendMessage(text: string): Promise<void>;
+  stop(): void;
   _addPending(p: PendingApproval): void;
   _persistAllowlist(): void;
 }
 
 const MODE_ORDER: Mode[] = ["plan", "ask", "auto"];
+
+let abortController: AbortController | null = null;
 
 export const useAgentStore = create<AgentState>((set, get) => ({
   mode: "ask",
@@ -84,6 +92,71 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     set((s) => ({ pendingApprovals: s.pendingApprovals.filter((x) => x.id !== id) }));
   },
   _addPending: (p) => set((s) => ({ pendingApprovals: [...s.pendingApprovals, p] })),
+
+  stop: () => { abortController?.abort(); },
+
+  sendMessage: async (text) => {
+    const d = deps;
+    if (!d) return;
+    const activeId = await d.profiles.getActiveId();
+    const profile = (await d.profiles.list()).find((p) => p.id === activeId);
+    if (!profile) {
+      set({ runStatus: "error", errorText: "No provider profile configured." });
+      return;
+    }
+
+    set((s) => ({
+      runStatus: "streaming",
+      errorText: null,
+      transcript: [...s.transcript, { kind: "user", text }],
+      messages: [...s.messages, { role: "user", content: text }],
+    }));
+
+    try {
+      const apiKey = (await d.profiles.getKey(profile.id)) ?? undefined;
+      const model = await createProvider(profile, { apiKey, fetch: makeStreamFetch(d.api) });
+      abortController = new AbortController();
+      const result = runAgent({
+        model,
+        ctx: { api: d.api, approve: d.controller.approve },
+        messages: get().messages,
+        abortSignal: abortController.signal,
+      });
+
+      // Accumulates the *current* contiguous run of text deltas; reset on each
+      // tool event so a multi-step reply (text -> tool call -> tool result ->
+      // more text) starts a fresh assistant transcript entry per text run
+      // instead of re-concatenating earlier text into the later entry.
+      let assistant = "";
+      await consumeStream(result.fullStream as never, {
+        onText: (delta) => {
+          assistant += delta;
+          set((s) => {
+            const t = [...s.transcript];
+            const last = t[t.length - 1];
+            if (last && last.kind === "assistant") t[t.length - 1] = { kind: "assistant", text: assistant };
+            else t.push({ kind: "assistant", text: assistant });
+            return { transcript: t };
+          });
+        },
+        onTool: (tool, state, detail) => {
+          assistant = "";
+          set((s) => ({ transcript: [...s.transcript, { kind: "tool", tool, state, detail }] }));
+        },
+        onError: (message) => set({ runStatus: "error", errorText: message }),
+      });
+
+      const responseMessages = await result.responseMessages;
+      set((s) => ({
+        messages: [...s.messages, ...responseMessages],
+        runStatus: s.runStatus === "error" ? "error" : "idle",
+      }));
+    } catch (err) {
+      set({ runStatus: "error", errorText: err instanceof Error ? err.message : String(err) });
+    } finally {
+      abortController = null;
+    }
+  },
 }));
 
 export async function initAgent(api: PluginAPI): Promise<void> {
