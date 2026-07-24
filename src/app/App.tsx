@@ -33,9 +33,11 @@ import CloudAuthModal from "@/components/layout/CloudAuthModal";
 import WhatsNewModal from "@/components/changelog/WhatsNewModal";
 import { EmailVerificationRequiredModal } from "@/components/notifications/EmailVerificationRequiredModal";
 import { GlobalTransferQueue } from "@/components/filetransfer/GlobalTransferQueue";
+import { useUIStore } from "@/stores/uiStore";
 
 function App() {
   const [ready, setReady] = useState(false);
+  const dockedPanelWidth = useUIStore((s) => s.dockedPanelWidth);
   useKeyboard();
   useInputUndo();
   useSessionExpiration();
@@ -69,7 +71,10 @@ function App() {
   const isMobileShell = platform === "android";
 
   return (
-    <div className="chrome-frame h-full w-full flex flex-col overflow-hidden animate-fadeIn">
+    <div
+      className="chrome-frame h-full w-full flex flex-col overflow-hidden animate-fadeIn"
+      style={{ paddingRight: dockedPanelWidth || undefined }}
+    >
       {isMobileShell ? <MobileShell /> : <DesktopShell />}
       <SettingsModal />
       <ImportExportModal />

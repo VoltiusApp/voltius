@@ -68,6 +68,9 @@ interface UIStore {
   globalPanelOpen: Record<string, boolean>;
   setGlobalPanelOpen: (id: string, open: boolean) => void;
   toggleGlobalPanel: (id: string) => void;
+  /** Width (px) reserved for a docked global panel; 0 = none docked. Generic — not tied to any single plugin. */
+  dockedPanelWidth: number;
+  setDockedPanelWidth: (width: number) => void;
   settingsOpen: boolean;
   cloudAuthOpen: boolean;
   cloudAuthMode: CloudAuthMode;
@@ -155,6 +158,7 @@ export const useUIStore = create<UIStore>()(
       activeNav: "hosts" as NavItem,
       omniOpen: false,
       globalPanelOpen: {},
+      dockedPanelWidth: 0,
       settingsOpen: false,
       cloudAuthOpen: false,
       cloudAuthMode: "signin" as CloudAuthMode,
@@ -199,6 +203,7 @@ export const useUIStore = create<UIStore>()(
       setOmniOpen: (open) => set({ omniOpen: open }),
       setGlobalPanelOpen: (id, open) => set((s) => ({ globalPanelOpen: { ...s.globalPanelOpen, [id]: open } })),
       toggleGlobalPanel: (id) => set((s) => ({ globalPanelOpen: { ...s.globalPanelOpen, [id]: !s.globalPanelOpen[id] } })),
+      setDockedPanelWidth: (width) => set({ dockedPanelWidth: width }),
       setSettingsOpen: (open) => set((s) => ({ settingsOpen: open, settingsSubPage: open ? s.settingsSubPage : null })),
       openCloudAuth: (mode) => set({ cloudAuthOpen: true, cloudAuthMode: mode ?? "signin" }),
       closeCloudAuth: () => set({ cloudAuthOpen: false }),

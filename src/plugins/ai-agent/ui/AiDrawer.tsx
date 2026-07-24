@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useAgentStore, getAgentDeps } from "../state/agentStore";
+import { useUIStore } from "@/stores/uiStore";
 import { Transcript } from "./Transcript";
 import { Composer } from "./Composer";
 import { FirstRunCard } from "./FirstRunCard";
@@ -73,6 +74,7 @@ export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void
   const runStatus = useAgentStore((s) => s.runStatus);
   const [hasProfile, refreshHasProfile] = useHasProfile(open);
   const { pinned, width, setPinned } = usePinnedWidth();
+  const setDockedPanelWidth = useUIStore((s) => s.setDockedPanelWidth);
 
   useEffect(() => {
     if (!open) return;
@@ -82,6 +84,13 @@ export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
+
+  // Pinned + open docks the drawer: reserve width on the app shell so it's pushed
+  // aside instead of covered. Any other state (closed, unpinned, unmounted) frees it.
+  useEffect(() => {
+    setDockedPanelWidth(open && pinned ? width : 0);
+    return () => setDockedPanelWidth(0);
+  }, [open, pinned, width, setDockedPanelWidth]);
 
   if (!open) return null;
 
