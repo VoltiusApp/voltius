@@ -1,6 +1,6 @@
 import type { PluginAPI, PluginManifest, PluginRegisterFn } from "@/plugins/api";
 import { useUIStore } from "@/stores/uiStore";
-import { initAgent } from "./state/agentStore";
+import { initAgent, shutdownAgent } from "./state/agentStore";
 import { AiDrawer } from "./ui/AiDrawer";
 import { AiTitleBarButton } from "./ui/AiTitleBarButton";
 
@@ -36,5 +36,13 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   });
   const offTitlebar = api.ui.registerStatusBarItem("titlebar.right", () => <AiTitleBarButton />);
 
-  return () => { offPanel(); offOmni(); offTitlebar(); };
+  return () => {
+    offPanel(); offOmni(); offTitlebar();
+    // Agent-owned SSH sessions are intentionally left open here — closing
+    // them is out of scope until the runtime's session-ownership story is
+    // settled, and closing on teardown could race a session the user is
+    // still looking at. Everything else (in-flight run, pending approvals,
+    // deps) is torn down so a disabled plugin can't keep executing tools.
+    shutdownAgent();
+  };
 };

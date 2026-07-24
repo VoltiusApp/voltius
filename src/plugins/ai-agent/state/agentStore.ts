@@ -68,6 +68,7 @@ interface AgentState {
   stop(): void;
   _addPending(p: PendingApproval): void;
   _persistAllowlist(): void;
+  _rejectAllPending(reason: string): void;
 }
 
 const MODE_ORDER: Mode[] = ["plan", "ask", "auto"];
@@ -114,8 +115,18 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     set((s) => ({ pendingApprovals: s.pendingApprovals.filter((x) => x.id !== id) }));
   },
   _addPending: (p) => set((s) => ({ pendingApprovals: [...s.pendingApprovals, p] })),
+  _rejectAllPending: (reason) => {
+    for (const p of get().pendingApprovals) p.resolve({ approve: false, reason });
+    set({ pendingApprovals: [] });
+  },
 
-  stop: () => { abortController?.abort(); },
+  stop: () => {
+    abortController?.abort();
+    // A parked approval card belongs to the run that just got cancelled —
+    // clicking Approve on it after Stop would run a command the user just
+    // said no to, and leaving it unresolved leaks the promise forever.
+    get()._rejectAllPending("aborted");
+  },
 
   sendMessage: async (text) => {
     if (get().runStatus === "streaming") return;
@@ -209,5 +220,28 @@ export async function initAgent(api: PluginAPI): Promise<void> {
     api.storage.get<Mode>("agentMode"),
     api.storage.get<AllowlistEntry[]>("allowlist"),
   ]);
-  useAgentStore.setState({ mode: mode ?? "ask", allowlist: allowlist ?? [] });
+  // runStatus/errorText are reset here too (not just in shutdownAgent) so a
+  // re-enable is always clean even if teardown was skipped — otherwise a
+  // stale "streaming" status left over from a prior activation would trip
+  // sendMessage's single-flight guard and permanently brick the composer.
+  useAgentStore.setState({ mode: mode ?? "ask", allowlist: allowlist ?? [], runStatus: "idle", errorText: null });
+}
+
+/**
+ * Tear down the running agent: abort any in-flight run, reject and clear
+ * every pending approval (so a stale card can't be approved into executing
+ * after the plugin is gone), reset run state to idle, and invalidate deps so
+ * a disabled plugin instance can't keep driving tools through a stale
+ * `PluginAPI`. Order matters — deps must be the last thing cleared so the
+ * abort and pending-rejection above can still see a live store.
+ *
+ * Closing agent-owned SSH sessions here is deliberately out of scope: the
+ * runtime's session-ownership story isn't settled, and closing on teardown
+ * could race a session the user is still looking at.
+ */
+export function shutdownAgent(): void {
+  abortController?.abort();
+  useAgentStore.getState()._rejectAllPending("aborted");
+  useAgentStore.setState({ runStatus: "idle", errorText: null });
+  _setDeps(null);
 }

@@ -68,6 +68,20 @@ describe("cleanCapturedOutput", () => {
     expect(cleanCapturedOutput(raw, nonce)).toBe("real output line");
   });
 
+  test("survives the PTY hard-wrapping the marker FORMAT TOKEN ITSELF mid-token across a line boundary", () => {
+    // Unlike the "survives the tty hard-wrapping the echoed command" case
+    // above (where the wrap lands before the marker token, which stays
+    // intact on one line), here the wrap lands INSIDE the marker format
+    // string — echo width + the ~35-char marker suffix exceeded the
+    // terminal's column width, so the token itself got split.
+    const echoFormat = `${MARKER_PREFIX}${nonce}__:%s`;
+    const splitAt = 20; // lands inside the nonce, well before the trailing "%s"
+    const part1 = echoFormat.slice(0, splitAt);
+    const part2 = echoFormat.slice(splitAt);
+    const raw = `some long command line ${part1}\n${part2}\nreal output line\n`;
+    expect(cleanCapturedOutput(raw, nonce)).toBe("real output line");
+  });
+
   test("does not treat the marker result line (digit, no %s) as an echo", () => {
     const raw = `some output\n${MARKER_PREFIX}${nonce}__:0\n`;
     // the marker-result line itself is stripped elsewhere (captureCommand slices

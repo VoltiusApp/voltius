@@ -106,7 +106,18 @@ describe("deriveHost", () => {
   it("run_command: sessionId → connectionId → host", async () => {
     expect(await deriveHost(api(), "run_command", { sessionId: "s1", command: "ls" })).toBe("web-01");
   });
-  it("falls back to 'local' when unresolved", async () => {
-    expect(await deriveHost(api(), "run_command", { sessionId: "nope", command: "ls" })).toBe("local");
+  it("returns null (not 'local') when the session can't be found — fail closed, not open", async () => {
+    expect(await deriveHost(api(), "run_command", { sessionId: "nope", command: "ls" })).toBeNull();
+  });
+  it("returns null (not 'local') when the connectionId doesn't match any known connection", async () => {
+    const a = api({ sessions: { list: vi.fn(() => [{ id: "s1", connectionId: "deleted-conn" }]) } });
+    expect(await deriveHost(a, "run_command", { sessionId: "s1", command: "ls" })).toBeNull();
+  });
+  it("returns null (not 'local') for open_session with no connectionId", async () => {
+    expect(await deriveHost(api(), "open_session", {})).toBeNull();
+  });
+  it("still resolves 'local' for a genuine local-shell session (connectionId literally \"local\")", async () => {
+    const a = api({ sessions: { list: vi.fn(() => [{ id: "s1", connectionId: "local" }]) } });
+    expect(await deriveHost(a, "run_command", { sessionId: "s1", command: "ls" })).toBe("local");
   });
 });

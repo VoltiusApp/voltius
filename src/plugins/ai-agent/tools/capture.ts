@@ -25,19 +25,47 @@ function stripAnsi(s: string): string {
 }
 
 /**
+ * Find `needle` as a literal substring of `s`, ignoring any newlines the PTY
+ * may have inserted into the middle of it (a hard line-wrap can split the
+ * echoed marker token itself, not just the text before it). Returns the
+ * index in `s` of the LAST character of the match, or -1 if `needle` isn't
+ * present even after stripping newlines.
+ */
+function findIgnoringNewlines(s: string, needle: string): number {
+  const map: number[] = [];
+  let projected = "";
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] !== "\n") {
+      map.push(i);
+      projected += s[i];
+    }
+  }
+  const idx = projected.indexOf(needle);
+  if (idx === -1) return -1;
+  return map[idx + needle.length - 1];
+}
+
+/**
  * Clean raw captured terminal text before handing it to the model: strip ANSI
  * escapes, normalize line endings, and drop the echoed command line (which
  * carries our printf marker wrapper as literal text the model was never meant
  * to see). The marker *result* line is handled separately by the caller (it's
  * sliced off before this runs, or absent on the timeout/quiet-period paths).
+ *
+ * The echoed line can be hard-wrapped by the PTY at terminal width, splitting
+ * the marker format token itself across a newline, so the match is located on
+ * a newline-stripped projection of the buffer and mapped back to a real
+ * offset — everything through the end of the line containing the END of that
+ * match is dropped. Matched on the literal `%s` form, which can never collide
+ * with the marker RESULT line (`__:<digits>`), so real output is never eaten.
  */
 export function cleanCapturedOutput(raw: string, nonce: string): string {
   let s = stripAnsi(raw);
   s = s.replace(/\r\n/g, "\n").replace(/\r/g, "");
   const echoFormat = `${MARKER_PREFIX}${nonce}__:%s`;
-  const idx = s.indexOf(echoFormat);
-  if (idx !== -1) {
-    const nl = s.indexOf("\n", idx);
+  const endIdx = findIgnoringNewlines(s, echoFormat);
+  if (endIdx !== -1) {
+    const nl = s.indexOf("\n", endIdx);
     s = nl === -1 ? "" : s.slice(nl + 1);
   }
   return s.replace(/\n$/, "");

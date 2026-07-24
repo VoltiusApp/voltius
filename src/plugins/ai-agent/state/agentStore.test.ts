@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MockLanguageModelV4, simulateReadableStream } from "ai/test";
-import { useAgentStore, initAgent, _setDeps, isAbortError } from "./agentStore";
+import { useAgentStore, initAgent, _setDeps, isAbortError, shutdownAgent, getAgentDeps } from "./agentStore";
+import { buildTools } from "../tools/registry";
 
 // Structured usage/finishReason shape (LanguageModelV4Usage / V4FinishReason,
 // confirmed in node_modules/@ai-sdk/provider/dist/index.d.ts) — mirrors
@@ -337,6 +338,93 @@ describe("agentStore", () => {
     const thirdCalls = (runAgent as unknown as ReturnType<typeof vi.fn>).mock.calls;
     const thirdOwned = (thirdCalls[thirdCalls.length - 1][0] as { ctx: { owned: Set<string> } }).ctx.owned;
     expect(thirdOwned).not.toBe(firstOwned);
+  });
+
+  it("shutdownAgent aborts an in-flight run, rejects+clears pending approvals, resets runStatus, and clears deps — and a subsequent initAgent + sendMessage isn't bricked", async () => {
+    mockModel.current = new MockLanguageModelV4({
+      doStream: async () => ({
+        stream: simulateReadableStream({
+          chunkDelayInMs: 20,
+          chunks: [
+            { type: "text-start", id: "0" },
+            { type: "text-delta", id: "0", delta: "Hi" },
+            { type: "text-end", id: "0" },
+            FINISH_CHUNK,
+          ],
+        }),
+      }),
+    });
+    _setDeps({
+      api: fakeApi(),
+      profiles: {
+        list: async () => [{ id: "p1", providerKind: "anthropic", label: "A", model: "claude-x" }],
+        getActiveId: async () => "p1",
+        getKey: async () => "sk-test",
+      } as never,
+      controller: { approve: async () => ({ approve: true }) },
+    } as never);
+
+    const pendingResolve = vi.fn();
+    useAgentStore.setState({
+      pendingApprovals: [{ id: "p1", tool: "run_command", args: {}, host: "h", allowlistKey: "ls", resolve: pendingResolve }],
+    });
+
+    const sendPromise = useAgentStore.getState().sendMessage("hello");
+    await vi.waitFor(() => expect(useAgentStore.getState().runStatus).toBe("streaming"));
+
+    shutdownAgent();
+
+    // Reset is synchronous — doesn't wait on the aborted run's own promise.
+    expect(useAgentStore.getState().runStatus).toBe("idle");
+    expect(useAgentStore.getState().errorText).toBeNull();
+    expect(useAgentStore.getState().pendingApprovals).toHaveLength(0);
+    expect(pendingResolve).toHaveBeenCalledWith({ approve: false, reason: "aborted" });
+    expect(getAgentDeps()).toBeNull();
+
+    await sendPromise; // let the aborted run's own catch/finally settle before reusing the store
+
+    // Re-enable: without initAgent resetting runStatus, the single-flight
+    // guard (`if (get().runStatus === "streaming") return;`) would brick the
+    // composer forever, since teardown alone can't guarantee the previous
+    // run's own catch handler already reset it.
+    await initAgent(fakeApi());
+    _setDeps({
+      api: fakeApi(),
+      profiles: {
+        list: async () => [{ id: "p1", providerKind: "anthropic", label: "A", model: "claude-x" }],
+        getActiveId: async () => "p1",
+        getKey: async () => "sk-test",
+      } as never,
+      controller: { approve: async () => ({ approve: true }) },
+    } as never);
+
+    await useAgentStore.getState().sendMessage("hello again");
+    expect(useAgentStore.getState().runStatus).toBe("idle");
+    expect(useAgentStore.getState().transcript.some((e) => e.kind === "assistant" && e.text.includes("Hi"))).toBe(true);
+  });
+
+  it("stop() rejects a pending approval so the parked tool sees the rejection and never executes", async () => {
+    const openSpy = vi.fn(async () => "sess-1");
+    const api = {
+      ...(fakeApi() as object),
+      sessions: { list: () => [], open: openSpy },
+      connections: { list: async () => [{ id: "c1", name: "srv", host: "web-01" }] },
+    };
+    await initAgent(api as never);
+
+    const ctx = { api: api as never, approve: getAgentDeps()!.controller.approve, owned: new Set<string>() };
+    const tools = buildTools(ctx);
+    const openSession = tools.find((t) => t.name === "open_session")!;
+
+    const execPromise = openSession.execute({ connectionId: "c1" });
+    await vi.waitFor(() => expect(useAgentStore.getState().pendingApprovals).toHaveLength(1));
+
+    useAgentStore.getState().stop();
+
+    const res = await execPromise;
+    expect(res).toEqual({ error: "rejected by user", reason: "aborted" });
+    expect(useAgentStore.getState().pendingApprovals).toHaveLength(0);
+    expect(openSpy).not.toHaveBeenCalled();
   });
 });
 

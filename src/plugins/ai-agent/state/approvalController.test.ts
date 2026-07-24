@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createApprovalController } from "./approvalController";
-import { isAllowlistable } from "./hostDerivation";
+import { isAllowlistable, UNKNOWN_HOST } from "./hostDerivation";
 import type { Mode, PendingApproval } from "./agentStore";
 
 function ctl(mode: Mode, opts: { allowed?: boolean } = {}) {
@@ -52,5 +52,24 @@ describe("ApprovalController", () => {
     expect(pending[0]).toMatchObject({ tool: "run_command", host: "web-01", allowlistKey: "apt" });
     pending[0].resolve({ approve: true, args: { command: "apt upgrade" } });
     expect(await p).toEqual({ approve: true, args: { command: "apt upgrade" } });
+  });
+  it("an unresolved host (deriveHost -> null) always raises a card, even when hasAllowlist would return true (fail closed, not open)", async () => {
+    const pending: PendingApproval[] = [];
+    const c = createApprovalController({
+      getMode: () => "ask",
+      hasAllowlist: () => true, // would take the shortcut below if the host were treated as resolved
+      addPending: (p) => pending.push(p),
+      deriveHost: async () => null,
+      allowlistKey: () => "apt",
+      isAllowlistable,
+    });
+    let settled = false;
+    const p = c.approve({ tool: "run_command", args: { command: "apt update" } });
+    void p.then(() => { settled = true; });
+    await vi.waitFor(() => expect(pending).toHaveLength(1));
+    expect(settled).toBe(false);
+    expect(pending[0].host).toBe(UNKNOWN_HOST);
+    pending[0].resolve({ approve: true });
+    expect(await p).toEqual({ approve: true });
   });
 });

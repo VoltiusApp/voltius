@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useAgentStore, type PendingApproval } from "../state/agentStore";
-import { isAllowlistable } from "../state/hostDerivation";
+import { isAllowlistable, UNKNOWN_HOST } from "../state/hostDerivation";
 
 function summarizeArgs(pending: PendingApproval): string {
   if (pending.tool === "run_command" && typeof pending.args.command === "string") return pending.args.command;
@@ -19,7 +19,10 @@ export function ApprovalCard({ pending }: { pending: PendingApproval }) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
 
-  const canAlwaysAllow = isAllowlistable(pending.tool, pending.args);
+  // Same composition the approval gate uses (isAllowlistable AND a resolved
+  // host) so the button's visibility can never drift from what the gate
+  // would actually let through.
+  const canAlwaysAllow = pending.host !== UNKNOWN_HOST && isAllowlistable(pending.tool, pending.args);
 
   const alwaysLabel =
     pending.tool === "run_command"
