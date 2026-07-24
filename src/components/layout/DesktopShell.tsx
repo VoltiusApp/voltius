@@ -30,7 +30,6 @@ export default function DesktopShell() {
         {showFrame && <VaultSidebar />}
         <div
           className={`flex flex-col flex-1 overflow-hidden bg-(--t-bg-terminal) relative z-10 ${showFrame ? "chrome-slab" : ""}`}
-          style={{ paddingRight: dockedPanelWidth || undefined }}
         >
           {showVaultChrome && (
             <div className="shrink-0 relative z-10" style={{ background: "var(--t-bg-chrome)" }}>
@@ -38,7 +37,7 @@ export default function DesktopShell() {
               <NavBar />
             </div>
           )}
-          <div className="flex flex-1 overflow-hidden">
+          <div className="flex flex-1 overflow-hidden" data-shell-content style={{ paddingRight: dockedPanelWidth || undefined }}>
             <MainPanel />
             <RightPanel />
           </div>

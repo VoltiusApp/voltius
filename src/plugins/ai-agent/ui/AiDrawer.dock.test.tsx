@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { AiDrawer } from "./AiDrawer";
 import * as storeMod from "../state/agentStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -20,13 +21,14 @@ function mockDeps(pinned: boolean) {
   } as never);
 }
 
-/** Stubs `[data-shell-body]` in the DOM with a fixed measured top, mimicking
- * the row below TitleBar (+ optional EmailVerificationBanner) in DesktopShell. */
-function stubShellBody(top: number): HTMLElement {
+/** Stubs `[data-shell-content]` in the DOM with a fixed measured rect, mimicking
+ * the MainPanel/RightPanel row in DesktopShell (below TitleBar/VaultHeader/NavBar,
+ * beside the sidebar). */
+function stubShellContent(top: number, height = 500): HTMLElement {
   const el = document.createElement("div");
-  el.setAttribute("data-shell-body", "");
+  el.setAttribute("data-shell-content", "");
   el.getBoundingClientRect = () =>
-    ({ top, left: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: top, toJSON: () => {} }) as DOMRect;
+    ({ top, left: 0, right: 0, bottom: top + height, width: 0, height, x: 0, y: top, toJSON: () => {} }) as DOMRect;
   document.body.appendChild(el);
   return el;
 }
@@ -34,7 +36,7 @@ function stubShellBody(top: number): HTMLElement {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
-  document.querySelectorAll("[data-shell-body]").forEach((el) => el.remove());
+  document.querySelectorAll("[data-shell-content]").forEach((el) => el.remove());
 });
 
 describe("AiDrawer docking", () => {
@@ -78,21 +80,48 @@ describe("AiDrawer docking", () => {
     expect(useUIStore.getState().dockedPanelWidth).toBe(0);
   });
 
-  it("docks below the measured shell-body top when pinned", async () => {
-    stubShellBody(62);
+  it("docks to the measured shell-content row's top + height when pinned", async () => {
+    stubShellContent(62, 500);
     mockDeps(true);
     render(<AiDrawer open={true} onClose={vi.fn()} />);
 
     await waitFor(() => expect(screen.getByRole("dialog").style.top).toBe("62px"));
+    expect(screen.getByRole("dialog").style.height).toBe("500px");
+    expect(screen.getByRole("dialog").style.bottom).toBe("");
   });
 
-  it("stays full-height (top: 0) as an overlay when not pinned", async () => {
-    stubShellBody(62);
+  it("stays full-height (top: 0, bottom: 0) as an overlay when not pinned", async () => {
+    stubShellContent(62, 500);
     mockDeps(false);
     render(<AiDrawer open={true} onClose={vi.fn()} />);
 
-    // Give the async pin-load a tick; overlay mode must never adopt the shell-body top.
+    // Give the async pin-load a tick; overlay mode must never adopt the shell-content rect.
     await new Promise((r) => setTimeout(r, 0));
     expect(screen.getByRole("dialog").style.top).toBe("0px");
+    expect(screen.getByRole("dialog").style.bottom).toBe("0px");
+    expect(screen.getByRole("dialog").style.height).toBe("");
+  });
+
+  // Regression test for a runtime-only bug: unit tests previously only ever rendered
+  // the drawer already-pinned (mocked storage resolving `true` from t=0), which never
+  // exercised a genuine post-mount pinned:false -> true transition. Render unpinned
+  // first, then flip pinned via the Pin button (mirroring a live user click) and assert
+  // BOTH the docked width (global store) and the drawer's own top/height (local
+  // measurement) pick up the change — not just one or the other.
+  it("picks up both dockedPanelWidth and dock geometry when pinned flips true after mount", async () => {
+    stubShellContent(62, 500);
+    mockDeps(false);
+    render(<AiDrawer open={true} onClose={vi.fn()} />);
+
+    const pinButton = await screen.findByTitle("Pin");
+    expect(useUIStore.getState().dockedPanelWidth).toBe(0);
+    expect(screen.getByRole("dialog").style.top).toBe("0px");
+
+    await userEvent.click(pinButton);
+
+    await waitFor(() => expect(screen.getByTitle("Unpin")).toBeTruthy());
+    await waitFor(() => expect(useUIStore.getState().dockedPanelWidth).toBe(380));
+    await waitFor(() => expect(screen.getByRole("dialog").style.top).toBe("62px"));
+    expect(screen.getByRole("dialog").style.height).toBe("500px");
   });
 });

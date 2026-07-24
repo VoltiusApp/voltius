@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useAgentStore, getAgentDeps } from "../state/agentStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -70,29 +70,46 @@ function usePinnedWidth() {
   return { pinned, width, setPinned };
 }
 
-/**
- * Measures the top edge of `[data-shell-body]` (the row below TitleBar +
- * any EmailVerificationBanner) so a docked drawer can sit below the
- * titlebar instead of covering it. Falls back to 0 if the node isn't
- * found. Re-measures on window resize and whenever the shell body's own
- * size changes (a ResizeObserver on it catches the banner appearing or
- * disappearing, which resizes the flex-1 row).
- */
-function useDockTop(active: boolean): number {
-  const [top, setTop] = useState(0);
+interface DockRect {
+  top: number;
+  height: number;
+}
 
-  useEffect(() => {
+/**
+ * Measures `[data-shell-content]` — the row holding MainPanel + RightPanel,
+ * below TitleBar/VaultHeader/NavBar and beside the sidebar — so a pinned
+ * drawer can occupy exactly that band instead of the full window (which
+ * would cover the titlebar and the terminal status bar). Returns `null`
+ * when inactive or the node isn't found, so callers can fall back to the
+ * full-height overlay behavior.
+ *
+ * Uses `useLayoutEffect` (not `useEffect`) so the measurement happens
+ * synchronously after DOM mutations, before the drawer paints at a stale
+ * position. Re-measures on window resize and via a ResizeObserver on the
+ * row itself (its own height shifts whenever the banner/navbar above it
+ * appears, disappears, or changes size — that's what actually moves its
+ * top edge, since it's a `flex-1` row sharing the column with them).
+ */
+function useDockRect(active: boolean): DockRect | null {
+  const [rect, setRect] = useState<DockRect | null>(null);
+
+  useLayoutEffect(() => {
     if (!active) {
-      setTop(0);
+      setRect(null);
       return;
     }
     const measure = () => {
-      const el = document.querySelector<HTMLElement>("[data-shell-body]");
-      setTop(el ? el.getBoundingClientRect().top : 0);
+      const el = document.querySelector<HTMLElement>("[data-shell-content]");
+      if (!el) {
+        setRect(null);
+        return;
+      }
+      const r = el.getBoundingClientRect();
+      setRect({ top: r.top, height: r.height });
     };
     measure();
     window.addEventListener("resize", measure);
-    const el = document.querySelector<HTMLElement>("[data-shell-body]");
+    const el = document.querySelector<HTMLElement>("[data-shell-content]");
     let observer: ResizeObserver | undefined;
     if (el && typeof ResizeObserver !== "undefined") {
       observer = new ResizeObserver(measure);
@@ -104,7 +121,7 @@ function useDockTop(active: boolean): number {
     };
   }, [active]);
 
-  return top;
+  return rect;
 }
 
 export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -112,7 +129,9 @@ export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void
   const [hasProfile, refreshHasProfile] = useHasProfile(open);
   const { pinned, width, setPinned } = usePinnedWidth();
   const setDockedPanelWidth = useUIStore((s) => s.setDockedPanelWidth);
-  const dockTop = useDockTop(open && pinned);
+  const active = open && pinned;
+  const measuredRect = useDockRect(active);
+  const dockRect = pinned ? measuredRect : null;
 
   useEffect(() => {
     if (!open) return;
@@ -125,10 +144,12 @@ export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void
 
   // Pinned + open docks the drawer: reserve width on the app shell so it's pushed
   // aside instead of covered. Any other state (closed, unpinned, unmounted) frees it.
-  useEffect(() => {
-    setDockedPanelWidth(open && pinned ? width : 0);
+  // useLayoutEffect so the store write (and the resulting shell reflow) lands in the
+  // same paint as this render, instead of visibly flashing the old layout for a frame.
+  useLayoutEffect(() => {
+    setDockedPanelWidth(active ? width : 0);
     return () => setDockedPanelWidth(0);
-  }, [open, pinned, width, setDockedPanelWidth]);
+  }, [active, width, setDockedPanelWidth]);
 
   if (!open) return null;
 
@@ -145,9 +166,10 @@ export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void
       aria-label="AI Agent"
       style={{
         position: "fixed",
-        top: pinned ? dockTop : 0,
+        top: dockRect ? dockRect.top : 0,
         right: 0,
-        bottom: 0,
+        bottom: dockRect ? undefined : 0,
+        height: dockRect ? dockRect.height : undefined,
         width,
         maxWidth: "100%",
         display: "flex",

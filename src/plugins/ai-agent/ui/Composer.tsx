@@ -2,6 +2,7 @@ import { useState, type KeyboardEvent } from "react";
 import { Icon } from "@iconify/react";
 import { useAgentStore, type Mode } from "../state/agentStore";
 import { ModeChip } from "./ModeChip";
+import { ProfileSwitcher } from "./ProfileSwitcher";
 
 const MODE_TINT: Record<Mode, string> = {
   plan: "var(--t-status-connecting)",
@@ -65,8 +66,11 @@ export function Composer() {
           fontSize: 13,
         }}
       />
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <ModeChip />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+          <ModeChip />
+          <ProfileSwitcher />
+        </div>
         <button
           type="button"
           onClick={streaming ? stop : send}
