@@ -14,6 +14,7 @@ import { manifest as monitoringManifest, register as monitoringRegister } from "
 import { manifest as dockerManifest, register as dockerRegister } from "./docker";
 import { manifest as processManagerManifest, register as processManagerRegister } from "./process-manager";
 import { manifest as proxmoxManifest, register as proxmoxRegister } from "./proxmox";
+import { manifest as aiAgentManifest, register as aiAgentRegister } from "./ai-agent";
 
 export interface BundledPlugin {
   manifest: PluginManifest;
@@ -27,4 +28,5 @@ export const BUNDLED_PLUGINS: BundledPlugin[] = [
   { manifest: dockerManifest, register: dockerRegister },
   { manifest: proxmoxManifest, register: proxmoxRegister },
   { manifest: processManagerManifest, register: processManagerRegister },
+  { manifest: aiAgentManifest, register: aiAgentRegister },
 ];
