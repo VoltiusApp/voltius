@@ -208,7 +208,6 @@ pub fn backup_export(
         }
     }
     let data = state.export_all()?;
-    let mut files = files;
     let mut secrets = data.secrets;
     let mut clocks = data.clocks;
     let excluded: HashSet<String> = excluded_ids.unwrap_or_default().into_iter().collect();
