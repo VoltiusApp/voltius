@@ -4,7 +4,7 @@ import type { PluginAPI } from "@/plugins/api";
 import type { ToolDecision } from "../types";
 import { createProfilesStore, type ProfilesStore } from "../provider/profilesStore";
 import { createApprovalController } from "./approvalController";
-import { deriveHost, allowlistKey, isAllowlistable } from "./hostDerivation";
+import { deriveHost, allowlistKey, isAllowlistable, hasShellMetacharacter } from "./hostDerivation";
 import { runAgent } from "../agent/loop";
 import { createProvider } from "../provider/factory";
 import { makeStreamFetch } from "../provider/fetchAdapter";
@@ -91,6 +91,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   hasAllowlist: (e) => get().allowlist.some((a) => a.host === e.host && a.key === e.key),
   addAllowlist: (e) => {
+    // Defense in depth: the store only sees {host, key}, not the originating
+    // tool+args, so it can't call isAllowlistable directly — but a key that
+    // itself contains a shell metacharacter could never have come from a
+    // command isAllowlistable would approve, so refuse to persist it (an
+    // unenforceable entry the controller would then always refuse anyway).
+    if (hasShellMetacharacter(e.key)) return;
     if (get().hasAllowlist(e)) return;
     set((s) => ({ allowlist: [...s.allowlist, e] }));
     get()._persistAllowlist();

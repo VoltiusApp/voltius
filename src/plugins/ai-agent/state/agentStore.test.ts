@@ -72,6 +72,15 @@ describe("agentStore", () => {
     await vi.waitFor(() => expect(persisted.allowlist).toEqual([{ host: "web-01", key: "apt" }]));
   });
 
+  it("addAllowlist refuses to persist a key containing a shell metacharacter (defense in depth)", async () => {
+    const persisted: Record<string, unknown> = {};
+    await initAgent(fakeApi(persisted));
+    useAgentStore.getState().addAllowlist({ host: "web-01", key: "df -h !sudo" });
+    expect(useAgentStore.getState().hasAllowlist({ host: "web-01", key: "df -h !sudo" })).toBe(false);
+    expect(useAgentStore.getState().allowlist).toEqual([]);
+    expect(persisted.allowlist).toBeUndefined();
+  });
+
   it("resolveApproval calls the stored resolver and removes the record", () => {
     const resolve = vi.fn();
     useAgentStore.setState({

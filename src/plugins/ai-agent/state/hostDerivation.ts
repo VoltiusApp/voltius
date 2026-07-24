@@ -8,12 +8,30 @@ export function allowlistKey(tool: string, args: Record<string, unknown>): strin
   return tool;
 }
 
-const SHELL_METACHARACTERS = /[;&|`$()<>\\\r\n]/;
+// `!` is included because interactive bash/zsh perform history expansion on
+// it (e.g. `df -h !sudo`, `df !!`, `df !-1` expand to prior history entries
+// before the shell ever consults the tool's own argument list) — a command
+// that reads as an innocuous allowlisted invocation can execute something
+// else entirely once the interactive PTY expands it.
+const SHELL_METACHARACTERS = /[;&|`$()<>\\!\r\n]/;
+
+/** Any tool whose arguments include a shell command string. Any new tool
+ * that takes a shell command MUST be added here, or `isAllowlistable` will
+ * default to treating it as safe to allowlist regardless of its content. */
+export const COMMAND_CARRYING_TOOLS = new Set(["run_command"]);
+
+/** True if `s` contains a shell metacharacter that could change how a
+ * command behaves outside of the exact approved invocation. Shared by
+ * `isAllowlistable` and the allowlist store's own write-time guard so the
+ * two checks can't drift apart. */
+export function hasShellMetacharacter(s: string): boolean {
+  return SHELL_METACHARACTERS.test(s);
+}
 
 export function isAllowlistable(tool: string, args: Record<string, unknown>): boolean {
-  if (tool !== "run_command") return true;
+  if (!COMMAND_CARRYING_TOOLS.has(tool)) return true;
   const cmd = String(args.command ?? "");
-  return !SHELL_METACHARACTERS.test(cmd);
+  return !hasShellMetacharacter(cmd);
 }
 
 export async function deriveHost(

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { deriveHost, allowlistKey, isAllowlistable } from "./hostDerivation";
+import { deriveHost, allowlistKey, isAllowlistable, hasShellMetacharacter, COMMAND_CARRYING_TOOLS } from "./hostDerivation";
 
 function api(overrides: Record<string, unknown> = {}) {
   return {
@@ -49,6 +49,53 @@ describe("isAllowlistable", () => {
   });
   it("non-run_command tools are always allowlistable", () => {
     expect(isAllowlistable("open_session", { connectionId: "c1" })).toBe(true);
+  });
+
+  // `!` triggers bash/zsh interactive history expansion, letting a grant for
+  // e.g. `df` silently re-run an unrelated prior command (see hostDerivation.ts
+  // comment on SHELL_METACHARACTERS).
+  it("rejects run_command with a history-expansion bang-arg (df -h !sudo)", () => {
+    expect(isAllowlistable("run_command", { command: "df -h !sudo" })).toBe(false);
+  });
+  it("rejects run_command with bang-bang history expansion (df !!)", () => {
+    expect(isAllowlistable("run_command", { command: "df !!" })).toBe(false);
+  });
+  it("rejects run_command with a relative history-expansion arg (df !-1)", () => {
+    expect(isAllowlistable("run_command", { command: "df !-1" })).toBe(false);
+  });
+
+  describe("edge-case args.command shapes", () => {
+    it("args.command absent entirely is allowlistable (coerces to empty string, no metacharacter)", () => {
+      expect(isAllowlistable("run_command", {})).toBe(true);
+    });
+    it("command present but not a string is allowlistable (String() coercion finds no metacharacter)", () => {
+      expect(isAllowlistable("run_command", { command: 42 as unknown as string })).toBe(true);
+    });
+    it("empty string command is allowlistable", () => {
+      expect(isAllowlistable("run_command", { command: "" })).toBe(true);
+    });
+    it("whitespace-only command is allowlistable", () => {
+      expect(isAllowlistable("run_command", { command: "   " })).toBe(true);
+    });
+  });
+});
+
+describe("hasShellMetacharacter", () => {
+  it("matches the same metacharacters isAllowlistable rejects", () => {
+    expect(hasShellMetacharacter("rm -rf ; echo hi")).toBe(true);
+    expect(hasShellMetacharacter("df -h !sudo")).toBe(true);
+  });
+  it("is false for a plain token", () => {
+    expect(hasShellMetacharacter("apt-get")).toBe(false);
+  });
+});
+
+describe("COMMAND_CARRYING_TOOLS", () => {
+  it("contains run_command", () => {
+    expect(COMMAND_CARRYING_TOOLS.has("run_command")).toBe(true);
+  });
+  it("does not contain unrelated tools", () => {
+    expect(COMMAND_CARRYING_TOOLS.has("open_session")).toBe(false);
   });
 });
 
