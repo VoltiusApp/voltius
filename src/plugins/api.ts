@@ -302,6 +302,10 @@ export interface PluginAPI {
     onActivated(cb: (session: PluginSession) => void): () => void;
     /** Send a command to a session. Runtime appends \n. Requires sessions:write. */
     sendCommand(sessionId: string, cmd: string): Promise<void>;
+    /** Open (connect) a saved connection by id. Requires sessions:write. */
+    open(connectionId: string): Promise<void>;
+    /** Close (disconnect) a session by id. Requires sessions:write. */
+    close(sessionId: string): Promise<void>;
   };
 
   // Terminal output — GATED (first-party only). Requires terminal:read / terminal:stream.

@@ -731,6 +731,14 @@ function createPluginAPI(manifest: PluginManifest, trusted: boolean): PluginAPI 
           await sshSendInput(sessionId, encoded);
         }
       },
+      async open(connectionId) {
+        requirePerm(manifest, "sessions:write");
+        await useSessionStore.getState().connect(connectionId);
+      },
+      async close(sessionId) {
+        requirePerm(manifest, "sessions:write");
+        await useSessionStore.getState().disconnect(sessionId);
+      },
     },
 
     terminal: {
