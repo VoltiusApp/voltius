@@ -2,7 +2,7 @@ import { describe, test, expect, vi, beforeEach } from "vitest";
 import { buildTools, type AgentContext, type AgentTool } from "./registry";
 
 vi.mock("./capture", () => ({
-  captureCommand: vi.fn(async () => ({ output: "ok", exitCode: 0, timedOut: false, truncated: false })),
+  captureCommand: vi.fn(async () => ({ output: "ok", exitCode: 0, timedOut: false, truncated: false, incomplete: false })),
 }));
 import { captureCommand } from "./capture";
 

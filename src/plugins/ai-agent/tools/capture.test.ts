@@ -132,7 +132,7 @@ describe("captureCommand", () => {
     vi.useRealTimers();
   });
 
-  test("quiet-period floor: no marker, output goes quiet → exitCode null, timedOut false (non-POSIX degrade)", async () => {
+  test("quiet-period floor: no marker, output goes quiet → exitCode null, timedOut false (non-POSIX degrade), incomplete true", async () => {
     vi.useFakeTimers();
     const { api, unsub } = fakeApi(() => {});
     const p = captureCommand(api, "s1", "top", { quietPeriodMs: 50, timeoutMs: 5_000 });
@@ -142,8 +142,77 @@ describe("captureCommand", () => {
     const res = await p;
     expect(res.exitCode).toBeNull();
     expect(res.timedOut).toBe(false);
+    expect(res.incomplete).toBe(true);
     expect(res.output).toBe("interactive output...");
     expect(unsub).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  test("marker path sets incomplete: false", async () => {
+    const { api } = fakeApi((emit) => emit("total 0\n"));
+    const p = captureCommand(api, "s1", "ls", { timeoutMs: 1000 });
+    await Promise.resolve();
+    await Promise.resolve();
+    const nonce = (api.sessions.sendCommand.mock.calls[0][1] as string).match(/__VLT_END_(\w+)__/)![1];
+    const cb = api.terminal.onOutput.mock.calls[0][1] as (t: string) => void;
+    cb(`__VLT_END_${nonce}__:0\n`);
+    const res = await p;
+    expect(res.incomplete).toBe(false);
+  });
+
+  test("hard timeout sets incomplete: true", async () => {
+    vi.useFakeTimers();
+    const { api } = fakeApi(() => {});
+    const p = captureCommand(api, "s1", "top", { timeoutMs: 50 });
+    const cb = api.terminal.onOutput.mock.calls[0][1] as (t: string) => void;
+    cb("interactive output...");
+    await vi.advanceTimersByTimeAsync(60);
+    const res = await p;
+    expect(res.timedOut).toBe(true);
+    expect(res.incomplete).toBe(true);
+    vi.useRealTimers();
+  });
+
+  test("a gap shorter than the quiet period does not truncate: output continues past the gap and the marker still resolves it cleanly", async () => {
+    vi.useFakeTimers();
+    const { api } = fakeApi(() => {});
+    const p = captureCommand(api, "s1", "sh -c 'echo start; sleep 1; echo end'", { quietPeriodMs: 2_000, timeoutMs: 10_000 });
+    await Promise.resolve();
+    await Promise.resolve();
+    const cb = api.terminal.onOutput.mock.calls[0][1] as (t: string) => void;
+    const nonce = (api.sessions.sendCommand.mock.calls[0][1] as string).match(/__VLT_END_(\w+)__/)![1];
+
+    cb("start\n");
+    await vi.advanceTimersByTimeAsync(1_000); // gap shorter than quietPeriodMs
+    cb("end\n");
+    cb(`__VLT_END_${nonce}__:0\n`);
+
+    const res = await p;
+    expect(res.output).toBe("start\nend");
+    expect(res.exitCode).toBe(0);
+    expect(res.incomplete).toBe(false);
+    expect(res.timedOut).toBe(false);
+    vi.useRealTimers();
+  });
+
+  test("default quietPeriodMs is 10_000: a command that pauses 9s mid-output is NOT truncated by the floor", async () => {
+    vi.useFakeTimers();
+    const { api } = fakeApi(() => {});
+    const p = captureCommand(api, "s1", "echo start; sleep 9; echo end", { timeoutMs: 30_000 });
+    await Promise.resolve();
+    await Promise.resolve();
+    const cb = api.terminal.onOutput.mock.calls[0][1] as (t: string) => void;
+    const nonce = (api.sessions.sendCommand.mock.calls[0][1] as string).match(/__VLT_END_(\w+)__/)![1];
+
+    cb("start\n");
+    await vi.advanceTimersByTimeAsync(9_000); // less than the 10s default floor
+    cb("end\n");
+    cb(`__VLT_END_${nonce}__:0\n`);
+
+    const res = await p;
+    expect(res.output).toBe("start\nend");
+    expect(res.exitCode).toBe(0);
+    expect(res.incomplete).toBe(false);
     vi.useRealTimers();
   });
 

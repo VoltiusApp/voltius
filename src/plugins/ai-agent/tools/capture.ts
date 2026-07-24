@@ -8,7 +8,7 @@ export function buildMarkerCommand(command: string, nonce: string): string {
   return `${command}; printf '${MARKER_PREFIX}${nonce}__:%s\\n' "$?"`;
 }
 
-const DEFAULTS = { timeoutMs: 30_000, quietPeriodMs: 1_500, maxChars: 16_000 };
+const DEFAULTS = { timeoutMs: 30_000, quietPeriodMs: 10_000, maxChars: 16_000 };
 
 // OSC: ESC ] ... terminated by BEL or ST (ESC \).
 const OSC_RE = /\x1b\][\s\S]*?(?:\x07|\x1b\\)/g;
@@ -48,11 +48,19 @@ export function cleanCapturedOutput(raw: string, nonce: string): string {
  * code via a sentinel marker. The agent owns the session (no user keystrokes
  * race), so completion is detected deterministically.
  *
- * - marker arrives → parse exitCode, strip the marker line.
- * - timeoutMs elapses with no marker → { exitCode: null, timedOut: true }.
+ * Three resolution paths, all setting `incomplete` explicitly:
+ * - marker arrives → parse exitCode, strip the marker line, `incomplete: false`.
  * - quiet-period floor: after the first output, if no new output for
- *   quietPeriodMs AND no marker, resolve early (non-POSIX shells that can't run
- *   the printf form) with exitCode null.
+ *   quietPeriodMs AND no marker, resolve early with exitCode null and
+ *   `incomplete: true`. This exists only for non-POSIX shells that can't run
+ *   the printf marker form; quietPeriodMs defaults high (10s) so it rarely
+ *   fires for ordinary commands that merely pause mid-output.
+ * - timeoutMs elapses with no marker → { exitCode: null, timedOut: true,
+ *   incomplete: true }.
+ *
+ * `incomplete: true` tells the caller `output` may be partial and `exitCode`
+ * is not to be trusted — distinct from `timedOut`, which only says *why* the
+ * capture ended early.
  */
 export async function captureCommand(
   api: Pick<PluginAPI, "sessions" | "terminal">,
@@ -86,7 +94,7 @@ export async function captureCommand(
       if (quietTimer) clearTimeout(quietTimer);
       quietTimer = setTimeout(() => {
         // no marker, output went quiet: degrade (non-POSIX floor)
-        finish({ output: cleanCapturedOutput(buffer, nonce), exitCode: null, timedOut: false, truncated: false });
+        finish({ output: cleanCapturedOutput(buffer, nonce), exitCode: null, timedOut: false, truncated: false, incomplete: true });
       }, quietPeriodMs);
     };
 
@@ -96,14 +104,14 @@ export async function captureCommand(
       if (m) {
         const exitCode = Number(m[1]);
         const output = cleanCapturedOutput(buffer.slice(0, buffer.indexOf(m[0])), nonce);
-        finish({ output, exitCode, timedOut: false, truncated: false });
+        finish({ output, exitCode, timedOut: false, truncated: false, incomplete: false });
         return;
       }
       armQuiet();
     };
 
     hardTimer = setTimeout(() => {
-      finish({ output: cleanCapturedOutput(buffer, nonce), exitCode: null, timedOut: true, truncated: false });
+      finish({ output: cleanCapturedOutput(buffer, nonce), exitCode: null, timedOut: true, truncated: false, incomplete: true });
     }, timeoutMs);
 
     void api.terminal
@@ -113,6 +121,6 @@ export async function captureCommand(
         if (resolved) { u(); return; }
         return api.sessions.sendCommand(sessionId, buildMarkerCommand(command, nonce));
       })
-      .catch((err) => finish({ output: `capture error: ${err instanceof Error ? err.message : String(err)}`, exitCode: null, timedOut: false, truncated: false }));
+      .catch((err) => finish({ output: `capture error: ${err instanceof Error ? err.message : String(err)}`, exitCode: null, timedOut: false, truncated: false, incomplete: true }));
   });
 }

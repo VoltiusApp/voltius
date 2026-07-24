@@ -21,6 +21,8 @@ export interface RunCommandResult {
   exitCode: number | null;
   timedOut: boolean;
   truncated: boolean;
+  /** True when the capture ended without the exit-code marker, so `output` may be partial and `exitCode` is unknown. */
+  incomplete: boolean;
 }
 
 export interface CaptureOptions {
