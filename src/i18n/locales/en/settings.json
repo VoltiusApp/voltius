@@ -13,7 +13,7 @@
       },
       "selectToCopy": {
         "title": "Select to copy",
-        "desc": "Show a copy button when text is selected in a terminal."
+        "desc": "Copy text to the clipboard as soon as you select it in a terminal."
       },
       "ignoreBracketedPaste": {
         "title": "Plain paste (no bracketed paste)",

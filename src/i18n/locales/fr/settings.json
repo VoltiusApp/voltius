@@ -13,7 +13,7 @@
       },
       "selectToCopy": {
         "title": "Sélectionner pour copier",
-        "desc": "Afficher un bouton de copie lorsqu'on sélectionne du texte dans un terminal."
+        "desc": "Copier le texte dans le presse-papiers dès qu'on le sélectionne dans un terminal."
       },
       "ignoreBracketedPaste": {
         "title": "Collage simple (sans collage entre crochets)",
