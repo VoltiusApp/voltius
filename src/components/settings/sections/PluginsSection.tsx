@@ -9,6 +9,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { PluginHashMismatchError } from "@/plugins/integrity";
 import { availableUpdate, addedPermissions } from "@/plugins/updates";
+import { visiblePermissions } from "@/plugins/gatedPermissions";
 import { getToggle, useToggle } from "@/stores/toggleSettingsStore";
 import { PluginPermissionModal } from "./PluginPermissionModal";
 import { BUNDLED_PLUGINS } from "@/plugins/bundled";
@@ -204,7 +205,7 @@ function usePluginInstaller() {
     void withPreparing(plugin.id, async () => {
       try {
         const { manifest, manifestText } = await fetchManifest(plugin);
-        setPending({ mode: "install", plugin, permissions: manifest.permissions ?? [], addedPermissions: [], manifestText });
+        setPending({ mode: "install", plugin, permissions: visiblePermissions(manifest.permissions ?? []), addedPermissions: [], manifestText });
       } catch (e) { notifyError(e); }
     });
   };
@@ -213,7 +214,7 @@ function usePluginInstaller() {
     void withPreparing(plugin.id, async () => {
       try {
         const { manifest, manifestText } = await fetchManifest(plugin);
-        const next = manifest.permissions ?? [];
+        const next = visiblePermissions(manifest.permissions ?? []);
         const added = addedPermissions(currentPermissions, next);
         if (added.length === 0) { await runInstall(plugin, manifestText); return; }
         setPending({ mode: "update", plugin, permissions: next, addedPermissions: added, manifestText });
