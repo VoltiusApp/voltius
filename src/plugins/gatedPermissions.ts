@@ -8,6 +8,8 @@
 export const GATED_PERMISSIONS = new Set<string>([
   "terminal:read",
   "terminal:stream",
+  "keychain:read",
+  "keychain:write",
 ]);
 
 export function isGatedPermission(perm: string): boolean {

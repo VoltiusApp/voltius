@@ -324,6 +324,17 @@ export interface PluginAPI {
     onOutput(sessionId: string, cb: (text: string) => void): Promise<() => void>;
   };
 
+  // Keychain — GATED (first-party only). OS-local, never synced.
+  // Requires keychain:read / keychain:write.
+  keychain: {
+    /** Read a value from the OS keychain. Returns null if unset. */
+    get(key: string): Promise<string | null>;
+    /** Write a value to the OS keychain. */
+    set(key: string, value: string): Promise<void>;
+    /** Delete a value from the OS keychain (no-op if absent). */
+    delete(key: string): Promise<void>;
+  };
+
   // Lifecycle hooks (always available)
   lifecycle: {
     /** Fires when an SSH/local session transitions to "connected". */

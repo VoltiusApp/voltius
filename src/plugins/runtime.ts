@@ -765,6 +765,22 @@ function createPluginAPI(manifest: PluginManifest, trusted: boolean): PluginAPI 
       },
     },
 
+    // Keychain — GATED (first-party only). OS-local, unsynced.
+    keychain: {
+      async get(key) {
+        requireGated("keychain:read");
+        return invoke<string | null>("keychain_get", { key });
+      },
+      async set(key, value) {
+        requireGated("keychain:write");
+        await invoke("keychain_set", { key, value });
+      },
+      async delete(key) {
+        requireGated("keychain:write");
+        await invoke("keychain_delete", { key });
+      },
+    },
+
     lifecycle: {
       onConnectionEstablished(cb) {
         ensureLifecycleSetup();
