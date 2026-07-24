@@ -16,16 +16,22 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("createProvider", () => {
   test("anthropic: builds provider with apiKey+fetch and selects the model", async () => {
+    const selectModel = vi.fn(() => anthropicModel);
+    createAnthropic.mockReturnValueOnce(selectModel);
     const profile: ProviderProfile = { id: "p1", providerKind: "anthropic", label: "A", model: "claude-x" };
     const model = await createProvider(profile, { apiKey: "sk-1", fetch: fetchStub });
     expect(createAnthropic).toHaveBeenCalledWith({ apiKey: "sk-1", fetch: fetchStub });
+    expect(selectModel).toHaveBeenCalledWith("claude-x");
     expect(model).toBe(anthropicModel);
   });
 
   test("ollama: baseUrl gets /api appended for the provider", async () => {
+    const selectModel = vi.fn(() => ollamaModel);
+    createOllama.mockReturnValueOnce(selectModel);
     const profile: ProviderProfile = { id: "p2", providerKind: "ollama", label: "O", baseUrl: "http://localhost:11434", model: "llama3" };
     await createProvider(profile, { fetch: fetchStub });
     expect(createOllama).toHaveBeenCalledWith({ baseURL: "http://localhost:11434/api", fetch: fetchStub });
+    expect(selectModel).toHaveBeenCalledWith("llama3");
   });
 
   test("unknown kind throws", async () => {

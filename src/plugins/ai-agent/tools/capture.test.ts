@@ -87,6 +87,21 @@ describe("captureCommand", () => {
     vi.useRealTimers();
   });
 
+  test("quiet-period floor: no marker, output goes quiet → exitCode null, timedOut false (non-POSIX degrade)", async () => {
+    vi.useFakeTimers();
+    const { api, unsub } = fakeApi(() => {});
+    const p = captureCommand(api, "s1", "top", { quietPeriodMs: 50, timeoutMs: 5_000 });
+    const cb = api.terminal.onOutput.mock.calls[0][1] as (t: string) => void;
+    cb("interactive output...");
+    await vi.advanceTimersByTimeAsync(60);
+    const res = await p;
+    expect(res.exitCode).toBeNull();
+    expect(res.timedOut).toBe(false);
+    expect(res.output).toBe("interactive output...");
+    expect(unsub).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
   test("output over maxChars is truncated + flagged", async () => {
     const { api } = fakeApi(() => {});
     const p = captureCommand(api, "s1", "cat big", { timeoutMs: 1000, maxChars: 10 });
