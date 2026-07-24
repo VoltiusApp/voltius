@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useAgentStore, type PendingApproval } from "../state/agentStore";
+import { isAllowlistable } from "../state/hostDerivation";
 
 function summarizeArgs(pending: PendingApproval): string {
   if (pending.tool === "run_command" && typeof pending.args.command === "string") return pending.args.command;
@@ -17,6 +18,8 @@ export function ApprovalCard({ pending }: { pending: PendingApproval }) {
 
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
+
+  const canAlwaysAllow = isAllowlistable(pending.tool, pending.args);
 
   const alwaysLabel =
     pending.tool === "run_command"
@@ -118,7 +121,9 @@ export function ApprovalCard({ pending }: { pending: PendingApproval }) {
         ) : (
           <>
             <button type="button" onClick={onApprove} style={{ color: "var(--t-status-connected)" }}>Approve</button>
-            <button type="button" onClick={onAlways} style={{ color: "var(--t-accent)" }}>{alwaysLabel} ▾</button>
+            {canAlwaysAllow && (
+              <button type="button" onClick={onAlways} style={{ color: "var(--t-accent)" }}>{alwaysLabel} ▾</button>
+            )}
             <button type="button" onClick={() => setEditing(true)} style={{ color: "var(--t-text-secondary)" }}>Edit</button>
             <button type="button" onClick={() => setRejecting(true)} style={{ color: "var(--t-status-error)" }}>Reject</button>
           </>

@@ -7,6 +7,7 @@ export interface ApprovalControllerDeps {
   addPending(p: PendingApproval): void;
   deriveHost(tool: string, args: Record<string, unknown>): Promise<string>;
   allowlistKey(tool: string, args: Record<string, unknown>): string;
+  isAllowlistable(tool: string, args: Record<string, unknown>): boolean;
 }
 
 let counter = 0;
@@ -22,7 +23,7 @@ export function createApprovalController(deps: ApprovalControllerDeps) {
       if (mode === "auto") return { approve: true };
       const host = await deps.deriveHost(call.tool, call.args);
       const key = deps.allowlistKey(call.tool, call.args);
-      if (deps.hasAllowlist({ host, key })) return { approve: true };
+      if (deps.isAllowlistable(call.tool, call.args) && deps.hasAllowlist({ host, key })) return { approve: true };
       return new Promise<ToolDecision>((resolve) => {
         deps.addPending({
           id: nextId(),

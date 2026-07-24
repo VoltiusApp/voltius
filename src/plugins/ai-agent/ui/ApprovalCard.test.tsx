@@ -21,4 +21,22 @@ describe("ApprovalCard", () => {
     expect(useAgentStore.getState().hasAllowlist({ host: "web-01", key: "apt" })).toBe(true);
     expect(pending.resolve).toHaveBeenCalledWith({ approve: true });
   });
+  it("omits the Always allow button for a command containing a shell metacharacter", () => {
+    const pipedPending = {
+      id: "a2",
+      tool: "run_command",
+      args: { command: "df -h | grep x" },
+      host: "web-01",
+      allowlistKey: "df",
+      resolve: vi.fn(),
+    };
+    useAgentStore.setState({ pendingApprovals: [pipedPending], allowlist: [] });
+    render(<ApprovalCard pending={pipedPending} />);
+    expect(screen.queryByText(/Always allow/)).toBeNull();
+    expect(screen.getByText("Approve")).not.toBeNull();
+  });
+  it("shows the Always allow button for a plain command", () => {
+    render(<ApprovalCard pending={pending} />);
+    expect(screen.queryByText(/Always allow/)).not.toBeNull();
+  });
 });

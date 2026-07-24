@@ -4,7 +4,7 @@ import type { PluginAPI } from "@/plugins/api";
 import type { ToolDecision } from "../types";
 import { createProfilesStore, type ProfilesStore } from "../provider/profilesStore";
 import { createApprovalController } from "./approvalController";
-import { deriveHost, allowlistKey } from "./hostDerivation";
+import { deriveHost, allowlistKey, isAllowlistable } from "./hostDerivation";
 import { runAgent } from "../agent/loop";
 import { createProvider } from "../provider/factory";
 import { makeStreamFetch } from "../provider/fetchAdapter";
@@ -196,6 +196,7 @@ export async function initAgent(api: PluginAPI): Promise<void> {
     addPending: (p) => useAgentStore.getState()._addPending(p),
     deriveHost: (tool, args) => deriveHost(api, tool, args),
     allowlistKey,
+    isAllowlistable,
   });
   deps = { api, profiles, controller };
   const [mode, allowlist] = await Promise.all([

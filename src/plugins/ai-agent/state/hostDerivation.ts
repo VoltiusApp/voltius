@@ -8,6 +8,14 @@ export function allowlistKey(tool: string, args: Record<string, unknown>): strin
   return tool;
 }
 
+const SHELL_METACHARACTERS = /[;&|`$()<>\\\r\n]/;
+
+export function isAllowlistable(tool: string, args: Record<string, unknown>): boolean {
+  if (tool !== "run_command") return true;
+  const cmd = String(args.command ?? "");
+  return !SHELL_METACHARACTERS.test(cmd);
+}
+
 export async function deriveHost(
   api: Pick<PluginAPI, "sessions" | "connections">,
   tool: string,

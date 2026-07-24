@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { deriveHost, allowlistKey } from "./hostDerivation";
+import { deriveHost, allowlistKey, isAllowlistable } from "./hostDerivation";
 
 function api(overrides: Record<string, unknown> = {}) {
   return {
@@ -15,6 +15,40 @@ describe("allowlistKey", () => {
   });
   it("uses tool name otherwise", () => {
     expect(allowlistKey("open_session", { connectionId: "c1" })).toBe("open_session");
+  });
+});
+
+describe("isAllowlistable", () => {
+  const metacharacters = [";", "&", "|", "`", "$", "(", ")", "<", ">", "\\", "\n", "\r"];
+  for (const ch of metacharacters) {
+    it(`rejects run_command containing ${JSON.stringify(ch)}`, () => {
+      expect(isAllowlistable("run_command", { command: `df -h ${ch} rm -rf ~` })).toBe(false);
+    });
+  }
+
+  it("allows a plain command with flags", () => {
+    expect(isAllowlistable("run_command", { command: "df -h" })).toBe(true);
+  });
+  it("allows a command with a path", () => {
+    expect(isAllowlistable("run_command", { command: "cat /var/log/syslog" })).toBe(true);
+  });
+  it("allows a command with a glob", () => {
+    expect(isAllowlistable("run_command", { command: "ls *.txt" })).toBe(true);
+  });
+  it("allows a command with a question-mark glob", () => {
+    expect(isAllowlistable("run_command", { command: "ls file?.txt" })).toBe(true);
+  });
+  it("allows a command with quotes", () => {
+    expect(isAllowlistable("run_command", { command: `echo "hello world"` })).toBe(true);
+  });
+  it("allows a command with a tilde", () => {
+    expect(isAllowlistable("run_command", { command: "ls ~/projects" })).toBe(true);
+  });
+  it("allows a command with an equals sign", () => {
+    expect(isAllowlistable("run_command", { command: "FOO=bar env" })).toBe(true);
+  });
+  it("non-run_command tools are always allowlistable", () => {
+    expect(isAllowlistable("open_session", { connectionId: "c1" })).toBe(true);
   });
 });
 
