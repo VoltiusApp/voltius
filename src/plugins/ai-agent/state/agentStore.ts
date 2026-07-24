@@ -184,6 +184,10 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 }));
 
 export async function initAgent(api: PluginAPI): Promise<void> {
+  // Owned sessions are scoped to a conversation; today a conversation lasts
+  // exactly one activation, so resetting here is sufficient. Whenever a
+  // "new conversation" action is added, it must reset this too, or session
+  // ids from the previous conversation stay agent-owned.
   ownedSessions = new Set();
   const profiles = createProfilesStore(api);
   const controller = createApprovalController({
