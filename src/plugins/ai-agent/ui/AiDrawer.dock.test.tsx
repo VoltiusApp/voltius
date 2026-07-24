@@ -5,6 +5,13 @@ import { AiDrawer } from "./AiDrawer";
 import * as storeMod from "../state/agentStore";
 import { useUIStore } from "@/stores/uiStore";
 
+// @iconify/react schedules an async icon-data-load timer that can fire after
+// this file's jsdom environment is torn down, touching `window` and surfacing
+// as an unhandled error unrelated to any assertion here. Stub it out.
+vi.mock("@iconify/react", () => ({
+  Icon: ({ icon }: { icon: string }) => <span data-icon={icon} />,
+}));
+
 function mockDeps(pinned: boolean) {
   vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({
     api: {

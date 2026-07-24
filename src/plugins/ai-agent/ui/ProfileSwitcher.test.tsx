@@ -5,6 +5,13 @@ import { ProfileSwitcher } from "./ProfileSwitcher";
 import * as storeMod from "../state/agentStore";
 import type { ProviderProfile } from "../types";
 
+// @iconify/react schedules an async icon-data-load timer that can fire after
+// this file's jsdom environment is torn down, touching `window` and surfacing
+// as an unhandled error unrelated to any assertion here. Stub it out.
+vi.mock("@iconify/react", () => ({
+  Icon: ({ icon }: { icon: string }) => <span data-icon={icon} />,
+}));
+
 const gpt: ProviderProfile = {
   id: "p-openai",
   providerKind: "openai-compatible",

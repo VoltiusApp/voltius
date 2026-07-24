@@ -3,6 +3,13 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { useAgentStore } from "../state/agentStore";
 import { ApprovalCard } from "./ApprovalCard";
 
+// @iconify/react schedules an async icon-data-load timer that can fire after
+// this file's jsdom environment is torn down, touching `window` and surfacing
+// as an unhandled error unrelated to any assertion here. Stub it out.
+vi.mock("@iconify/react", () => ({
+  Icon: ({ icon }: { icon: string }) => <span data-icon={icon} />,
+}));
+
 const pending = { id: "a1", tool: "run_command", args: { command: "apt update" }, host: "web-01", allowlistKey: "apt", resolve: vi.fn() };
 
 afterEach(cleanup);
