@@ -304,6 +304,14 @@ export interface PluginAPI {
     sendCommand(sessionId: string, cmd: string): Promise<void>;
   };
 
+  // Terminal output — GATED (first-party only). Requires terminal:read / terminal:stream.
+  terminal: {
+    /** Last `maxLines` lines of a session's buffer as text (default 200). */
+    readSnapshot(sessionId: string, maxLines?: number): string;
+    /** Subscribe to live decoded output for a session. Resolves to an unsubscribe fn. */
+    onOutput(sessionId: string, cb: (text: string) => void): Promise<() => void>;
+  };
+
   // Lifecycle hooks (always available)
   lifecycle: {
     /** Fires when an SSH/local session transitions to "connected". */

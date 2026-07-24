@@ -505,6 +505,33 @@ export function getTerminalApi(sessionId: string): TerminalApi | null {
   };
 }
 
+/**
+ * Snapshot of the last `maxLines` buffer lines of a session as text (trailing
+ * blank lines trimmed). "" when no terminal is cached. Backs the gated
+ * `terminal:read` plugin verb. Reads the xterm buffer directly — no Rust.
+ */
+export function readTerminalSnapshot(sessionId: string, maxLines = 200): string {
+  const entry = terminalCache.get(sessionId);
+  if (!entry) return "";
+  const buffer = entry.terminal.buffer.active;
+  let end = buffer.length;
+  while (end > 0 && !buffer.getLine(end - 1)?.translateToString(true)) {
+    end -= 1;
+  }
+  const start = Math.max(0, end - maxLines);
+  const lines: string[] = [];
+  for (let i = start; i < end; i += 1) {
+    lines.push(buffer.getLine(i)?.translateToString(true) ?? "");
+  }
+  return lines.join("\n");
+}
+
+/** Test seam: replace the module-private terminal cache. Do not use in app code. */
+export function __setTerminalCacheForTest(next: typeof terminalCache): void {
+  terminalCache.clear();
+  for (const [k, v] of next) terminalCache.set(k, v);
+}
+
 export function getTerminalSearchController(sessionId: string): TerminalSearchController | null {
   const entry = terminalCache.get(sessionId);
   if (!entry) return null;

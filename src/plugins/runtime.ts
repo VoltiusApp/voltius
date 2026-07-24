@@ -2,7 +2,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
-import { sshSendInput } from "@/services/ssh";
+import { sshSendInput, onSshOutput } from "@/services/ssh";
+import { onLocalOutput } from "@/services/local";
+import { onSerialOutput } from "@/services/serial";
+import { readTerminalSnapshot } from "@/hooks/useTerminal";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIContributionStore } from "@/stores/uiContributionStore";
 import { useNotificationStore } from "@/stores/notificationStore";
@@ -329,9 +332,16 @@ function requirePerm(manifest: PluginManifest, perm: string): void {
 
 // ─── Scoped plugin API ────────────────────────────────────────────────────
 
-function createPluginAPI(manifest: PluginManifest): PluginAPI {
+function createPluginAPI(manifest: PluginManifest, trusted: boolean): PluginAPI {
   const id = manifest.id;
   const store = usePluginStore.getState;
+
+  const requireGated = (perm: string): void => {
+    requirePerm(manifest, perm);
+    if (!trusted) {
+      throw new Error(`Permission "${perm}" is first-party-only and not available to plugin "${id}"`);
+    }
+  };
 
   const api: PluginAPI = {
     pluginId: id,
@@ -723,6 +733,23 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
     },
 
+    terminal: {
+      readSnapshot(sessionId, maxLines = 200) {
+        requireGated("terminal:read");
+        return readTerminalSnapshot(sessionId, maxLines);
+      },
+      async onOutput(sessionId, cb) {
+        requireGated("terminal:stream");
+        const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
+        if (!session) throw new Error(`Session "${sessionId}" not found`);
+        const decoder = new TextDecoder();
+        const handler = (data: Uint8Array) => cb(decoder.decode(data));
+        if (session.type === "local") return onLocalOutput(sessionId, handler);
+        if (session.type === "serial") return onSerialOutput(sessionId, handler);
+        return onSshOutput(sessionId, handler);
+      },
+    },
+
     lifecycle: {
       onConnectionEstablished(cb) {
         ensureLifecycleSetup();
@@ -915,24 +942,25 @@ interface PluginEntry {
   register: PluginRegisterFn;
   cleanup: (() => void) | void;
   active: boolean;
+  trusted: boolean;
   api: ReturnType<typeof createPluginAPI>;
 }
 
 const _registry = new Map<string, PluginEntry>();
 
-export function loadPlugin(manifest: PluginManifest, register: PluginRegisterFn, active = true): void {
+export function loadPlugin(manifest: PluginManifest, register: PluginRegisterFn, active = true, trusted = false): void {
   if (_registry.has(manifest.id)) {
     console.warn(`[plugin-runtime] Plugin "${manifest.id}" already loaded — skipping`);
     return;
   }
-  const api = createPluginAPI(manifest);
+  const api = createPluginAPI(manifest, trusted);
   if (manifest.contributes?.configuration) {
     void populateDefaults(manifest.id, manifest.contributes.configuration);
   }
-  const entry: PluginEntry = { manifest, register, cleanup: undefined, active, api };
+  const entry: PluginEntry = { manifest, register, cleanup: undefined, active, trusted, api };
   _registry.set(manifest.id, entry);
   entry.cleanup = register(api);
-  console.info(`[plugin-runtime] Loaded plugin "${manifest.id}" v${manifest.version} (active=${active})`);
+  console.info(`[plugin-runtime] Loaded plugin "${manifest.id}" v${manifest.version} (active=${active}, trusted=${trusted})`);
 }
 
 /**

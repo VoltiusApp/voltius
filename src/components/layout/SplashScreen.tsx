@@ -128,7 +128,7 @@ export default function SplashScreen({ onReady }: Props) {
       const { isEnabled } = usePluginRegistryStore.getState();
       for (const plugin of BUNDLED_PLUGINS) {
         const active = isEnabled(plugin.manifest.id, plugin.manifest.defaultEnabled ?? true);
-        loadPlugin(plugin.manifest, plugin.register, active);
+        loadPlugin(plugin.manifest, plugin.register, active, true);
       }
       await loadInstalledPlugins();
     } catch (e) {
