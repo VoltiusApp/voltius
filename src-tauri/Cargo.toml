@@ -27,7 +27,7 @@ uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 dirs = "6"
 # `des` enables the 3des-cbc cipher for the optional legacy-algorithms toggle.
-russh = { version = "0.61", features = ["des"] }
+russh = { version = "0.62", features = ["des"] }
 russh-sftp = "2.3"
 tokio-util = { version = "0.7", default-features = false }
 tauri-plugin-dialog = "2"
