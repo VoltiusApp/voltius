@@ -3,7 +3,12 @@ import { createApprovalController } from "./approvalController";
 import { isAllowlistable, UNKNOWN_HOST } from "./hostDerivation";
 import type { Mode, PendingApproval } from "./agentStore";
 
-function ctl(mode: Mode, opts: { allowed?: boolean; isAborted?: () => boolean } = {}) {
+// Every approve() call is issued under a generation, exactly as sendMessage
+// binds it in production. GEN is the "live" one for these controller-level
+// tests; the store-level generation semantics are covered in agentStore.test.ts.
+const GEN = 7;
+
+function ctl(mode: Mode, opts: { allowed?: boolean; isAborted?: (g: number) => boolean } = {}) {
   const pending: PendingApproval[] = [];
   const c = createApprovalController({
     getMode: () => mode,
@@ -20,24 +25,24 @@ function ctl(mode: Mode, opts: { allowed?: boolean; isAborted?: () => boolean } 
 describe("ApprovalController", () => {
   it("plan mode rejects with a reason and does not card", async () => {
     const { c, pending } = ctl("plan");
-    const d = await c.approve({ tool: "run_command", args: { command: "apt update" } });
+    const d = await c.approve({ tool: "run_command", args: { command: "apt update" } }, GEN);
     expect(d).toEqual({ approve: false, reason: expect.stringContaining("plan mode") });
     expect(pending).toHaveLength(0);
   });
   it("auto mode approves without a card", async () => {
     const { c, pending } = ctl("auto");
-    expect(await c.approve({ tool: "run_command", args: { command: "apt update" } })).toEqual({ approve: true });
+    expect(await c.approve({ tool: "run_command", args: { command: "apt update" } }, GEN)).toEqual({ approve: true });
     expect(pending).toHaveLength(0);
   });
   it("ask + allowlist hit approves without a card", async () => {
     const { c, pending } = ctl("ask", { allowed: true });
-    expect(await c.approve({ tool: "run_command", args: { command: "apt update" } })).toEqual({ approve: true });
+    expect(await c.approve({ tool: "run_command", args: { command: "apt update" } }, GEN)).toEqual({ approve: true });
     expect(pending).toHaveLength(0);
   });
   it("ask + allowlist hit does NOT auto-approve a piped command (metacharacter escalation)", async () => {
     const { c, pending } = ctl("ask", { allowed: true });
     let settled = false;
-    const p = c.approve({ tool: "run_command", args: { command: "df -h | grep x" } });
+    const p = c.approve({ tool: "run_command", args: { command: "df -h | grep x" } }, GEN);
     void p.then(() => {
       settled = true;
     });
@@ -48,7 +53,7 @@ describe("ApprovalController", () => {
   });
   it("ask + miss creates a pending card and resolves via it", async () => {
     const { c, pending } = ctl("ask");
-    const p = c.approve({ tool: "run_command", args: { command: "apt update" } });
+    const p = c.approve({ tool: "run_command", args: { command: "apt update" } }, GEN);
     await vi.waitFor(() => expect(pending).toHaveLength(1));
     expect(pending[0]).toMatchObject({ tool: "run_command", host: "web-01", allowlistKey: "apt" });
     pending[0].resolve({ approve: true, args: { command: "apt upgrade" } });
@@ -66,7 +71,7 @@ describe("ApprovalController", () => {
       isAborted: () => false,
     });
     let settled = false;
-    const p = c.approve({ tool: "run_command", args: { command: "apt update" } });
+    const p = c.approve({ tool: "run_command", args: { command: "apt update" } }, GEN);
     void p.then(() => { settled = true; });
     await vi.waitFor(() => expect(pending).toHaveLength(1));
     expect(settled).toBe(false);
@@ -87,7 +92,7 @@ describe("ApprovalController", () => {
       isAllowlistable,
       isAborted: () => true,
     });
-    const decision = await c.approve({ tool: "run_command", args: { command: "apt update" } });
+    const decision = await c.approve({ tool: "run_command", args: { command: "apt update" } }, GEN);
     expect(decision).toEqual({ approve: false, reason: "aborted" });
     expect(pending).toHaveLength(0);
     expect(deriveHostCalled).toBe(false);
@@ -115,7 +120,7 @@ describe("ApprovalController", () => {
       isAborted: () => aborted,
     });
 
-    const p = c.approve({ tool: "run_command", args: { command: "apt update" } });
+    const p = c.approve({ tool: "run_command", args: { command: "apt update" } }, GEN);
     // Simulate `stop()` firing while this call is still parked in the
     // deriveHost await, then let the await resolve afterward.
     aborted = true;
@@ -124,5 +129,27 @@ describe("ApprovalController", () => {
     const decision = await p;
     expect(decision).toEqual({ approve: false, reason: "aborted" });
     expect(pending).toHaveLength(0);
+  }, 2000);
+
+  // The controller must ask about *this call's* generation at both check
+  // points, never about "whatever generation is current now" — that is the
+  // whole point of taking it as a parameter rather than reading module state.
+  it("asks the store about the call's own generation at both check points", async () => {
+    const seen: number[] = [];
+    const pending: PendingApproval[] = [];
+    const c = createApprovalController({
+      getMode: () => "ask",
+      hasAllowlist: () => false,
+      addPending: (p) => pending.push(p),
+      deriveHost: async () => "web-01",
+      allowlistKey: () => "apt",
+      isAllowlistable,
+      isAborted: (g) => { seen.push(g); return false; },
+    });
+    const p = c.approve({ tool: "run_command", args: { command: "apt update" } }, 42);
+    await vi.waitFor(() => expect(pending).toHaveLength(1));
+    expect(seen).toEqual([42, 42]);
+    pending[0].resolve({ approve: true });
+    await p;
   }, 2000);
 });

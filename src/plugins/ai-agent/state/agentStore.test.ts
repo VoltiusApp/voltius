@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MockLanguageModelV4, simulateReadableStream } from "ai/test";
-import { useAgentStore, initAgent, _setDeps, isAbortError, shutdownAgent, getAgentDeps } from "./agentStore";
+import {
+  useAgentStore, initAgent, _setDeps, isAbortError, shutdownAgent, getAgentDeps, _currentRunGeneration,
+} from "./agentStore";
 import { buildTools } from "../tools/registry";
+import type { AgentContext } from "../tools/registry";
 
 // Structured usage/finishReason shape (LanguageModelV4Usage / V4FinishReason,
 // confirmed in node_modules/@ai-sdk/provider/dist/index.d.ts) — mirrors
@@ -418,9 +421,16 @@ describe("agentStore", () => {
     };
     await initAgent(api as never);
     useAgentStore.getState().setMode("auto");
+    // Bind the approval port to the current generation exactly as sendMessage
+    // does for a real run, then cancel that generation.
+    const gen = _currentRunGeneration();
     useAgentStore.getState().stop(); // marks the current run generation aborted, nothing else in flight
 
-    const ctx = { api: api as never, approve: getAgentDeps()!.controller.approve, owned: new Set<string>() };
+    const ctx = {
+      api: api as never,
+      approve: (c: { tool: string; args: Record<string, unknown> }) => getAgentDeps()!.controller.approve(c, gen),
+      owned: new Set<string>(),
+    };
     const tools = buildTools(ctx);
     const openSession = tools.find((t) => t.name === "open_session")!;
 
@@ -456,7 +466,12 @@ describe("agentStore", () => {
     };
     await initAgent(api as never);
 
-    const ctx = { api: api as never, approve: getAgentDeps()!.controller.approve, owned: new Set<string>() };
+    const gen = _currentRunGeneration();
+    const ctx = {
+      api: api as never,
+      approve: (c: { tool: string; args: Record<string, unknown> }) => getAgentDeps()!.controller.approve(c, gen),
+      owned: new Set<string>(),
+    };
     const tools = buildTools(ctx);
     const openSession = tools.find((t) => t.name === "open_session")!;
 
@@ -469,6 +484,262 @@ describe("agentStore", () => {
     expect(res).toEqual({ error: "rejected by user", reason: "aborted" });
     expect(useAgentStore.getState().pendingApprovals).toHaveLength(0);
     expect(openSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ── Approval generation binding ──────────────────────────────────────────────
+//
+// The abort latch is only sound if every approval is bound to the *run that
+// dispatched it*. These tests drive the REAL store, the REAL controller (via
+// initAgent), the REAL deriveHost, and the REAL tool registry across run and
+// activation boundaries — nothing here hand-rolls `isAborted`, because a
+// hand-rolled latch is exactly what let the hole survive the previous wave.
+describe("approval generation binding", () => {
+  const PROFILE = { id: "p1", providerKind: "anthropic", label: "A", model: "claude-x" };
+
+  function deferred<T>() {
+    let resolve!: (v: T) => void;
+    const promise = new Promise<T>((r) => { resolve = r; });
+    return { promise, resolve };
+  }
+
+  /**
+   * Resolve `p`, or yield a sentinel if it is still parked. Turns "the
+   * approval promise never came back" (the pre-fix failure mode: a card is
+   * registered that nothing will ever resolve) into a readable assertion
+   * diff instead of a whole-file test timeout.
+   */
+  function settledOr<T>(p: Promise<T>): Promise<T | string> {
+    return Promise.race([p, new Promise<string>((r) => setTimeout(() => r("STILL PENDING"), 50))]);
+  }
+
+  /** A plugin API whose `connections.list` (the one real await inside
+   *  deriveHost) is held open until the test lets it go. */
+  function harness(store: Record<string, unknown>) {
+    const openSpy = vi.fn(async () => "sess-1");
+    const conns = deferred<Array<{ id: string; name: string; host: string }>>();
+    let requested = 0;
+    const api = {
+      storage: {
+        get: vi.fn(async (k: string) => (k in store ? store[k] : null)),
+        set: vi.fn(async (k: string, v: unknown) => { store[k] = v; }),
+        delete: vi.fn(),
+      },
+      keychain: { get: vi.fn(async () => "sk-test"), set: vi.fn(), delete: vi.fn() },
+      sessions: { list: () => [], open: openSpy },
+      connections: { list: vi.fn(() => { requested += 1; return conns.promise; }) },
+    };
+    return { api, openSpy, conns, requested: () => requested };
+  }
+
+  function textModel(text: string) {
+    return new MockLanguageModelV4({
+      doStream: async () => ({
+        stream: simulateReadableStream({
+          chunks: [
+            { type: "text-start", id: "0" },
+            { type: "text-delta", id: "0", delta: text },
+            { type: "text-end", id: "0" },
+            FINISH_CHUNK,
+          ],
+        }),
+      }),
+    });
+  }
+
+  const spy = () => runAgent as unknown as ReturnType<typeof vi.fn>;
+  const lastCtx = () => {
+    const calls = spy().mock.calls;
+    return (calls[calls.length - 1][0] as { ctx: AgentContext }).ctx;
+  };
+
+  /** Run one real turn and hand back its ctx — whose `approve` is bound to
+   *  that run's generation exactly as production binds it. */
+  async function runTurn(text: string): Promise<AgentContext> {
+    mockModel.current = textModel("ok");
+    await useAgentStore.getState().sendMessage(text);
+    return lastCtx();
+  }
+
+  const openSessionOf = (ctx: AgentContext) => buildTools(ctx).find((t) => t.name === "open_session")!;
+  const CONN = { id: "c1", name: "srv", host: "web-01" };
+
+  beforeEach(() => {
+    spy().mockClear();
+    useAgentStore.setState({
+      mode: "ask", allowlist: [], pendingApprovals: [], runStatus: "idle",
+      errorText: null, transcript: [], messages: [],
+    });
+  });
+
+  // Test 1 — Path 1. Teardown stamps the latch for run N; re-enabling the
+  // plugin must NOT bring run N's parked approval back to life. (Pre-fix,
+  // initAgent cleared `abortedGeneration`, so the parked call resumed with
+  // the latch off and registered a card in the freshly re-enabled drawer.)
+  it("Path 1: an approval parked in deriveHost stays refused across shutdownAgent + a re-enabling initAgent", async () => {
+    const h = harness({ providerProfiles: [PROFILE], activeProfileId: "p1" });
+    await initAgent(h.api as never);
+    const ctx = await runTurn("hello");
+
+    const exec = openSessionOf(ctx).execute({ connectionId: "c1" });
+    await vi.waitFor(() => expect(h.requested()).toBe(1)); // parked inside deriveHost
+
+    shutdownAgent();
+    await initAgent(h.api as never); // user re-enables the plugin
+
+    h.conns.resolve([CONN]);
+
+    expect(await settledOr(exec)).toEqual({ error: "rejected by user", reason: "aborted" });
+    expect(useAgentStore.getState().pendingApprovals).toHaveLength(0);
+    expect(h.openSpy).not.toHaveBeenCalled();
+  });
+
+  // Test 2 — Path 1 through the allowlist shortcut, which returns
+  // {approve:true} with no card at all, so a hole here is completely silent.
+  it("Path 1 via the allowlist shortcut: a parked approval is still refused after shutdownAgent + initAgent, and never returns approve:true", async () => {
+    const h = harness({
+      providerProfiles: [PROFILE],
+      activeProfileId: "p1",
+      allowlist: [{ host: "web-01", key: "open_session" }],
+    });
+    await initAgent(h.api as never);
+    expect(useAgentStore.getState().hasAllowlist({ host: "web-01", key: "open_session" })).toBe(true);
+    const ctx = await runTurn("hello");
+
+    const exec = openSessionOf(ctx).execute({ connectionId: "c1" });
+    await vi.waitFor(() => expect(h.requested()).toBe(1));
+
+    shutdownAgent();
+    await initAgent(h.api as never);
+    // The re-enabled activation reloads the same allowlist, so the shortcut
+    // WOULD fire if the generation check didn't refuse first.
+    expect(useAgentStore.getState().hasAllowlist({ host: "web-01", key: "open_session" })).toBe(true);
+
+    h.conns.resolve([CONN]);
+
+    expect(await settledOr(exec)).toEqual({ error: "rejected by user", reason: "aborted" });
+    expect(h.openSpy).not.toHaveBeenCalled();
+    expect(useAgentStore.getState().pendingApprovals).toHaveLength(0);
+  });
+
+  // Test 3 — Path 2. `consumeStream`'s error part flips runStatus out of
+  // "streaming" while this run's tools can still be in flight, which re-opens
+  // sendMessage's single-flight guard. A new run then bumps the generation —
+  // with nothing ever aborted — and the old run's parked call must still die.
+  it("Path 2: an approval parked during run N is refused once run N+1 has started, even though nothing was ever aborted", async () => {
+    const h = harness({ providerProfiles: [PROFILE], activeProfileId: "p1" });
+    await initAgent(h.api as never);
+
+    mockModel.current = new MockLanguageModelV4({
+      doStream: async () => ({
+        stream: simulateReadableStream({ chunks: [{ type: "error", error: new Error("provider exploded") }] }),
+      }),
+    });
+    await useAgentStore.getState().sendMessage("first");
+    expect(useAgentStore.getState().runStatus).toBe("error"); // guard is open again
+    const ctx = lastCtx();
+
+    const exec = openSessionOf(ctx).execute({ connectionId: "c1" });
+    await vi.waitFor(() => expect(h.requested()).toBe(1));
+
+    await runTurn("second"); // the user retypes: generation N -> N+1
+
+    h.conns.resolve([CONN]);
+
+    expect(await settledOr(exec)).toEqual({ error: "rejected by user", reason: "aborted" });
+    expect(useAgentStore.getState().pendingApprovals).toHaveLength(0);
+    expect(h.openSpy).not.toHaveBeenCalled();
+  });
+
+  // Test 4 — the top-of-call gate must be generation-bound, not merely
+  // latch-bound. In `auto` mode there is no await before it, so this can only
+  // pass if the generation is bound at run dispatch: a call that captured
+  // "whatever generation is current" on entry would read the LIVE one and be
+  // auto-approved with no card and no trace.
+  it("auto mode: a tool call carrying a superseded run's generation is refused before deriveHost is ever consulted", async () => {
+    const h = harness({ providerProfiles: [PROFILE], activeProfileId: "p1" });
+    await initAgent(h.api as never);
+    useAgentStore.getState().setMode("auto");
+
+    const ctx = await runTurn("first"); // run N
+    await runTurn("second"); // run N+1 supersedes it
+
+    const res = await settledOr(openSessionOf(ctx).execute({ connectionId: "c1" }));
+    expect(res).toEqual({ error: "rejected by user", reason: "aborted" });
+    expect(h.openSpy).not.toHaveBeenCalled();
+    expect(h.requested()).toBe(0); // refused above the mode gate, never reached deriveHost
+  });
+
+  // Test 5 — the Important. `sendMessage` captures `deps` and then awaits two
+  // profile lookups; a teardown landing there must not be followed by a
+  // generation bump and a whole approvable run driven through the dead API.
+  it("sendMessage abandons the send when the plugin is torn down during the profile lookups", async () => {
+    const activeId = deferred<string | null>();
+    _setDeps({
+      api: fakeApi(),
+      profiles: {
+        list: async () => [PROFILE],
+        getActiveId: () => activeId.promise,
+        getKey: async () => "sk-test",
+      } as never,
+      controller: { approve: async () => ({ approve: true }) },
+    } as never);
+    mockModel.current = textModel("should not run");
+
+    const p = useAgentStore.getState().sendMessage("hello");
+    shutdownAgent(); // lands inside the getActiveId await
+    activeId.resolve("p1");
+    await p;
+
+    expect(spy()).not.toHaveBeenCalled();
+    expect(useAgentStore.getState().runStatus).toBe("idle");
+    expect(useAgentStore.getState().transcript).toEqual([]);
+    expect(useAgentStore.getState().messages).toEqual([]);
+  });
+
+  it("sendMessage abandons the send when deps are REPLACED (disable + re-enable) during the profile lookups", async () => {
+    const activeId = deferred<string | null>();
+    const profiles = {
+      list: async () => [PROFILE],
+      getActiveId: () => activeId.promise,
+      getKey: async () => "sk-test",
+    } as never;
+    _setDeps({ api: fakeApi(), profiles, controller: { approve: async () => ({ approve: true }) } } as never);
+    mockModel.current = textModel("should not run");
+
+    const p = useAgentStore.getState().sendMessage("hello");
+    // A fresh activation swaps in a different deps object under the same key.
+    _setDeps({ api: fakeApi(), profiles, controller: { approve: async () => ({ approve: true }) } } as never);
+    activeId.resolve("p1");
+    await p;
+
+    expect(spy()).not.toHaveBeenCalled();
+    expect(useAgentStore.getState().runStatus).toBe("idle");
+    expect(useAgentStore.getState().transcript).toEqual([]);
+  });
+
+  // Test 6 — the happy path must be untouched: a live generation still raises
+  // a card, still executes on approval, and still takes the allowlist
+  // shortcut on the next identical call.
+  it("a normal, non-aborted run still approves: card path executes, then the allowlist shortcut does", async () => {
+    const h = harness({ providerProfiles: [PROFILE], activeProfileId: "p1" });
+    await initAgent(h.api as never);
+    const ctx = await runTurn("hello");
+    h.conns.resolve([CONN]);
+
+    const openSession = openSessionOf(ctx);
+    const exec = openSession.execute({ connectionId: "c1" });
+    await vi.waitFor(() => expect(useAgentStore.getState().pendingApprovals).toHaveLength(1));
+    const card = useAgentStore.getState().pendingApprovals[0];
+    expect(card).toMatchObject({ tool: "open_session", host: "web-01", allowlistKey: "open_session" });
+
+    useAgentStore.getState().resolveApproval(card.id, { approve: true });
+    expect(await exec).toEqual({ sessionId: "sess-1" });
+    expect(h.openSpy).toHaveBeenCalledWith("c1");
+
+    useAgentStore.getState().addAllowlist({ host: "web-01", key: "open_session" });
+    expect(await settledOr(openSession.execute({ connectionId: "c1" }))).toEqual({ sessionId: "sess-1" });
+    expect(useAgentStore.getState().pendingApprovals).toHaveLength(0);
   });
 });
 

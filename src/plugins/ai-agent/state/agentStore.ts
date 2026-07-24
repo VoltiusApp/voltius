@@ -30,7 +30,9 @@ export type TranscriptEntry =
 export interface AgentDeps {
   api: PluginAPI;
   profiles: ProfilesStore;
-  controller: { approve(c: { tool: string; args: Record<string, unknown> }): Promise<ToolDecision> };
+  controller: {
+    approve(c: { tool: string; args: Record<string, unknown> }, generation: number): Promise<ToolDecision>;
+  };
 }
 
 let deps: AgentDeps | null = null;
@@ -79,23 +81,44 @@ let ownedSessions = new Set<string>();
 export const _resetOwnedSessions = () => { ownedSessions = new Set(); };
 
 /**
- * Abort latch for the approval port. `runGeneration` bumps once, at the very
- * start of each `sendMessage` run; `abortedGeneration` is stamped with
- * whatever `runGeneration` currently is when `stop()`/`shutdownAgent()` fire.
- * `isCurrentRunAborted()` is just an equality check between the two.
+ * Generation-bound abort latch for the approval port.
  *
- * This is deliberately a generation pair rather than a plain boolean: a
- * boolean would need an explicit "un-abort" on the next run, which is itself
- * a race if anything can observe the gap between clearing the flag and the
- * new run's first `approve()` call. Bumping `runGeneration` *is* the reset —
- * there is no separate step that could be skipped or reordered, and a stale
- * call that captured the old generation number can never match the new one.
+ * `runGeneration` is strictly monotonic: `sendMessage` bumps it once per run
+ * and `initAgent` bumps it once per activation. It is never reset, cleared or
+ * decremented. `abortedGeneration` is stamped with whatever `runGeneration`
+ * currently is when `stop()`/`shutdownAgent()` fire.
+ *
+ * Every `approve()` call carries the generation of the run that dispatched it
+ * — bound in `sendMessage` (see the `ctx.approve` wrapper) *before* the run
+ * can reach the approval port, not read from module state inside the
+ * controller. `isGenerationDead` refuses it when either
+ *
+ *   - that run was cancelled: `abortedGeneration === gen`, or
+ *   - the store has moved past it: `runGeneration !== gen` — a newer run, or
+ *     a fresh activation, supersedes the old one outright, whatever the
+ *     latch happens to say.
+ *
+ * The second clause is what makes this windowless, and why the latch is a
+ * generation pair rather than a boolean:
+ *
+ *   - `runGeneration` only ever grows, so once it has left `gen` it can never
+ *     come back to it. A call that is dead at one suspension point is dead at
+ *     every later one — there is no "un-abort".
+ *   - If a later `stop()` re-stamps `abortedGeneration` away from `gen`, that
+ *     can only happen once `runGeneration` has already moved past `gen`, so
+ *     the second clause is already refusing the call.
+ *   - Binding the generation at run dispatch (rather than capturing it inside
+ *     `approve()`) also covers a tool from a superseded run whose *first*
+ *     approval request happens after the bump: it still carries the dead
+ *     run's generation, so it cannot inherit the live run's authority.
  */
 let runGeneration = 0;
 let abortedGeneration = -1;
-function isCurrentRunAborted(): boolean {
-  return abortedGeneration === runGeneration;
+function isGenerationDead(generation: number): boolean {
+  return abortedGeneration === generation || runGeneration !== generation;
 }
+/** Test seam: the generation a run dispatched right now would carry. */
+export const _currentRunGeneration = (): number => runGeneration;
 
 export const useAgentStore = create<AgentState>((set, get) => ({
   mode: "ask",
@@ -144,7 +167,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     // Marks the run currently in flight (or about to start) as aborted, for
     // any `approve()` call that is mid-flight right now — parked in
     // `deriveHost`, or about to be dispatched in `auto` mode — not just the
-    // pending cards that already exist. See isCurrentRunAborted above.
+    // pending cards that already exist. See isGenerationDead above.
     abortedGeneration = runGeneration;
     // A parked approval card belongs to the run that just got cancelled —
     // clicking Approve on it after Stop would run a command the user just
@@ -157,16 +180,25 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     const d = deps;
     if (!d) return;
     const activeId = await d.profiles.getActiveId();
-    const profile = (await d.profiles.list()).find((p) => p.id === activeId);
+    const profiles = await d.profiles.list();
+    // A teardown (or a re-activation) can land in either await above. Going
+    // on would bump the generation — which is this run's abort-latch reset —
+    // and drive an entire approvable run through the torn-down PluginAPI
+    // captured in `d`. Bail before anything is mutated: no generation bump,
+    // no "streaming" status to get stuck in, no run.
+    if (deps !== d) return;
+    const profile = profiles.find((p) => p.id === activeId);
     if (!profile) {
       set({ runStatus: "error", errorText: "No provider profile configured." });
       return;
     }
 
     // Bumping the generation IS the abort-latch reset for this new run — see
-    // isCurrentRunAborted above. Must happen before any tool call in this run
+    // isGenerationDead above. Must happen before any tool call in this run
     // can reach the approval port.
     runGeneration += 1;
+    // Bound once, here, for every approval this run will ever request.
+    const generation = runGeneration;
     set((s) => ({
       runStatus: "streaming",
       errorText: null,
@@ -182,7 +214,13 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       runController = abortController;
       const result = runAgent({
         model,
-        ctx: { api: d.api, approve: d.controller.approve, owned: ownedSessions },
+        ctx: {
+          api: d.api,
+          // Every tool call this run makes is stamped with this run's
+          // generation, whenever it happens to reach the port.
+          approve: (call) => d.controller.approve(call, generation),
+          owned: ownedSessions,
+        },
         messages: get().messages,
         abortSignal: abortController.signal,
       });
@@ -240,11 +278,16 @@ export async function initAgent(api: PluginAPI): Promise<void> {
   // closure holding the stale PluginAPI that _setDeps(null) exists to guard
   // against.
   useAgentStore.getState()._rejectAllPending("aborted");
-  // A fresh activation must not inherit a stale abort latch from whatever
-  // stop()/shutdownAgent() call preceded it — otherwise the very first
-  // approve() of the new activation could be refused before any run of its
-  // own ever set (or needed) the latch.
-  abortedGeneration = -1;
+  // A fresh activation supersedes everything the previous one had in flight.
+  // Bumping the generation (rather than clearing `abortedGeneration`) is what
+  // makes that true: it kills every outstanding approval from the previous
+  // activation — including one parked in `deriveHost`, which a latch *reset*
+  // would instead have brought back to life inside the re-enabled drawer,
+  // still holding the stale PluginAPI `_setDeps(null)` exists to guard
+  // against. It also gives this activation a clean latch for free, since
+  // `abortedGeneration` can only ever have been stamped with an older
+  // generation number.
+  runGeneration += 1;
   const profiles = createProfilesStore(api);
   const controller = createApprovalController({
     getMode: () => useAgentStore.getState().mode,
@@ -253,7 +296,7 @@ export async function initAgent(api: PluginAPI): Promise<void> {
     deriveHost: (tool, args) => deriveHost(api, tool, args),
     allowlistKey,
     isAllowlistable,
-    isAborted: isCurrentRunAborted,
+    isAborted: isGenerationDead,
   });
   deps = { api, profiles, controller };
   const [mode, allowlist] = await Promise.all([
@@ -276,8 +319,9 @@ export async function initAgent(api: PluginAPI): Promise<void> {
  * abort and pending-rejection above can still see a live store.
  *
  * Reset: `runStatus`, `errorText`, `pendingApprovals` (rejected, not just
- * cleared), the abort latch (`abortedGeneration`, via the same generation
- * bump `stop()` uses), and `deps` (invalidated, not merely reset).
+ * cleared), the abort latch (`abortedGeneration` stamped with the current
+ * generation, exactly as `stop()` does — killing every approval the current
+ * run could still request), and `deps` (invalidated, not merely reset).
  *
  * Deliberately preserved: `transcript` and `messages` survive teardown, so
  * the conversation is still there if the agent is re-enabled. This can leave

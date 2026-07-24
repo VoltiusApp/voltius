@@ -10,12 +10,14 @@ export interface ApprovalControllerDeps {
   deriveHost(tool: string, args: Record<string, unknown>): Promise<string | null>;
   allowlistKey(tool: string, args: Record<string, unknown>): string;
   isAllowlistable(tool: string, args: Record<string, unknown>): boolean;
-  /** True once the run this call belongs to has been cancelled (Stop /
-   * teardown). Consulted at the very top of `approve()`, before the mode
+  /** True when an approval issued under `generation` must be refused —
+   * either that run was cancelled (Stop / teardown), or the store has moved
+   * on to a later generation (a new run, or a fresh activation) that
+   * supersedes it. Consulted at the very top of `approve()`, before the mode
    * gate, and again after the `deriveHost` await — the two points where a
    * call could otherwise slip past a cancellation that happened while it was
    * suspended. */
-  isAborted(): boolean;
+  isAborted(generation: number): boolean;
 }
 
 let counter = 0;
@@ -23,11 +25,23 @@ const nextId = () => `appr-${++counter}`;
 
 export function createApprovalController(deps: ApprovalControllerDeps) {
   return {
-    async approve(call: { tool: string; args: Record<string, unknown> }): Promise<ToolDecision> {
+    /**
+     * `generation` identifies the run that dispatched this call. It is bound
+     * once, by `sendMessage`, before the run can reach this port, and is
+     * never re-read from module state here — so a call cannot be
+     * re-attributed to a later run (or to a fresh activation) while it is
+     * suspended in the `deriveHost` await below. Every gate consults the
+     * same immutable value.
+     */
+    async approve(
+      call: { tool: string; args: Record<string, unknown> },
+      generation: number,
+    ): Promise<ToolDecision> {
       // Checked before anything else — including the mode gate — so `auto`
       // cannot bypass it: without this, a tool dispatched at the moment of
-      // Stop would return {approve:true} with no card and no trace.
-      if (deps.isAborted()) return { approve: false, reason: "aborted" };
+      // Stop, or a straggler from an already-superseded run, would return
+      // {approve:true} with no card and no trace.
+      if (deps.isAborted(generation)) return { approve: false, reason: "aborted" };
       const mode = deps.getMode();
       if (mode === "plan") {
         return { approve: false, reason: "plan mode — propose this as a step; do not execute" };
@@ -38,7 +52,7 @@ export function createApprovalController(deps: ApprovalControllerDeps) {
       // be parked in the await above at the instant the user hits Stop. Both
       // paths below it — the allowlist shortcut and registering a card — run
       // *after* this await, so both must be gated, not just the card path.
-      if (deps.isAborted()) return { approve: false, reason: "aborted" };
+      if (deps.isAborted(generation)) return { approve: false, reason: "aborted" };
       const key = deps.allowlistKey(call.tool, call.args);
       // An unresolved host can never take the allowlist shortcut — compose
       // directly with isAllowlistable rather than a parallel check, so this
