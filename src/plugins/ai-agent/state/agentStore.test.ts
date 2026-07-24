@@ -367,13 +367,18 @@ describe("agentStore", () => {
       controller: { approve: async () => ({ approve: true }) },
     } as never);
 
+    const sendPromise = useAgentStore.getState().sendMessage("hello");
+    await vi.waitFor(() => expect(useAgentStore.getState().runStatus).toBe("streaming"));
+
+    // A card that arose *during* this in-flight run (e.g. a tool awaiting
+    // approval mid-turn) — not a stale leftover from before sendMessage was
+    // called, which sendMessage's own supersession reap would now claim
+    // first with reason "superseded" rather than exercising shutdownAgent's
+    // independent rejection.
     const pendingResolve = vi.fn();
     useAgentStore.setState({
       pendingApprovals: [{ id: "p1", tool: "run_command", args: {}, host: "h", allowlistKey: "ls", resolve: pendingResolve }],
     });
-
-    const sendPromise = useAgentStore.getState().sendMessage("hello");
-    await vi.waitFor(() => expect(useAgentStore.getState().runStatus).toBe("streaming"));
 
     shutdownAgent();
 
@@ -647,6 +652,28 @@ describe("approval generation binding", () => {
     h.conns.resolve([CONN]);
 
     expect(await settledOr(exec)).toEqual({ error: "rejected by user", reason: "aborted" });
+    expect(useAgentStore.getState().pendingApprovals).toHaveLength(0);
+    expect(h.openSpy).not.toHaveBeenCalled();
+  });
+
+  // Test 3b — a card that already made it into `pendingApprovals` (not just
+  // parked in deriveHost) from run N must be rejected+cleared the moment run
+  // N+1 supersedes it. Unlike Path 2 above, `deps.deriveHost` has already
+  // resolved and `addPending` has already run by the time run N+1 starts, so
+  // isGenerationDead's re-check inside `approve()` can no longer catch this —
+  // only an explicit reap of `pendingApprovals` at run dispatch does.
+  it("a pending approval CARD from run N is rejected and cleared once run N+1 starts, and its tool never executes", async () => {
+    const h = harness({ providerProfiles: [PROFILE], activeProfileId: "p1" });
+    await initAgent(h.api as never);
+    const ctx = await runTurn("first"); // run N
+
+    const exec = openSessionOf(ctx).execute({ connectionId: "c1" });
+    h.conns.resolve([CONN]); // let deriveHost resolve so the card is registered
+    await vi.waitFor(() => expect(useAgentStore.getState().pendingApprovals).toHaveLength(1));
+
+    await runTurn("second"); // run N+1 supersedes it
+
+    expect(await settledOr(exec)).toEqual({ error: "rejected by user", reason: "superseded" });
     expect(useAgentStore.getState().pendingApprovals).toHaveLength(0);
     expect(h.openSpy).not.toHaveBeenCalled();
   });

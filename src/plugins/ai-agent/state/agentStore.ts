@@ -117,7 +117,10 @@ let abortedGeneration = -1;
 function isGenerationDead(generation: number): boolean {
   return abortedGeneration === generation || runGeneration !== generation;
 }
-/** Test seam: the generation a run dispatched right now would carry. */
+/**
+ * Test seam: the generation a run dispatched right now would carry.
+ * @internal Exists for tests only — production code must never call this.
+ */
 export const _currentRunGeneration = (): number => runGeneration;
 
 export const useAgentStore = create<AgentState>((set, get) => ({
@@ -199,6 +202,14 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     runGeneration += 1;
     // Bound once, here, for every approval this run will ever request.
     const generation = runGeneration;
+    // A card already registered by the superseded run is generation-blind at
+    // resolveApproval — clicking Approve on it would execute a tool for a run
+    // the user just replaced. isGenerationDead alone doesn't catch this case:
+    // it only re-gates approve() at suspension points *before* a card exists
+    // (see approvalController's two isAborted checks); once addPending has
+    // run, nothing re-checks the generation. Reap explicitly, right beside the
+    // bump, so no card from run N survives into run N+1.
+    get()._rejectAllPending("superseded");
     set((s) => ({
       runStatus: "streaming",
       errorText: null,
