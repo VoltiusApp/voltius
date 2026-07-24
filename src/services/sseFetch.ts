@@ -46,12 +46,7 @@ export async function sseFetch(url: string, init?: RequestInit): Promise<Respons
 
     const onAbort = () => {
       cleanup();
-      // Close (not error) the body: erroring would reject any in-flight
-      // `reader.read()` with no guarantee a caller is still awaiting/catching
-      // it (the AI SDK checks `signal.aborted` separately). The outer
-      // sseFetch() promise still rejects with AbortError when abort happens
-      // before the response has opened (handled below).
-      try { controller?.close(); } catch { /* noop */ }
+      try { controller?.error(new DOMException("Aborted", "AbortError")); } catch { /* noop */ }
     };
     signal?.addEventListener("abort", onAbort, { once: true });
 

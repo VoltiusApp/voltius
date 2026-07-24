@@ -76,9 +76,10 @@ describe("sseFetch", () => {
     await Promise.resolve(); await Promise.resolve();
     emit("open", { status: 200, headers: [] });
     const res = await p;
-    void readAll(res);
+    const bodyPromise = readAll(res);
     ctrl.abort();
     await Promise.resolve();
     expect(invoke).toHaveBeenCalledWith("http_sse_stop", expect.any(Object));
+    await expect(bodyPromise).rejects.toThrow(/Aborted/);
   });
 });
