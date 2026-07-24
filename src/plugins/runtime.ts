@@ -758,7 +758,7 @@ function createPluginAPI(manifest: PluginManifest, trusted: boolean): PluginAPI 
         const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
         if (!session) throw new Error(`Session "${sessionId}" not found`);
         const decoder = new TextDecoder();
-        const handler = (data: Uint8Array) => cb(decoder.decode(data));
+        const handler = (data: Uint8Array) => cb(decoder.decode(data, { stream: true }));
         if (session.type === "local") return onLocalOutput(sessionId, handler);
         if (session.type === "serial") return onSerialOutput(sessionId, handler);
         return onSshOutput(sessionId, handler);

@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, afterEach } from "vitest";
+import { describe, test, expect, vi, afterEach, beforeEach } from "vitest";
 
 vi.mock("@/hooks/useTerminal", () => ({
   readTerminalSnapshot: vi.fn(() => "snap-text"),
@@ -14,7 +14,15 @@ vi.mock("@/services/ssh", () => ({ onSshOutput, sshSendInput: vi.fn() }));
 vi.mock("@/services/local", () => ({ onLocalOutput }));
 vi.mock("@/services/serial", () => ({ onSerialOutput }));
 vi.mock("@/stores/sessionStore", () => ({
-  useSessionStore: { getState: () => ({ sessions: [{ id: "s1", type: "ssh" }] }) },
+  useSessionStore: {
+    getState: () => ({
+      sessions: [
+        { id: "s1", type: "ssh" },
+        { id: "s2", type: "local" },
+        { id: "s3", type: "serial" },
+      ],
+    }),
+  },
 }));
 
 import { loadPlugin, unloadPlugin } from "./runtime";
@@ -27,6 +35,7 @@ function manifest(perms: string[]): PluginManifest {
 let captured: import("./api").PluginAPI;
 const register: PluginRegisterFn = (api) => { captured = api; };
 
+beforeEach(() => { vi.clearAllMocks(); });
 afterEach(() => { try { unloadPlugin("t"); } catch { /* noop */ } });
 
 describe("gated terminal verbs", () => {
@@ -49,5 +58,28 @@ describe("gated terminal verbs", () => {
     loadPlugin(manifest(["terminal:stream"]), register, true, true);
     await captured.terminal.onOutput("s1", () => {});
     expect(onSshOutput).toHaveBeenCalledWith("s1", expect.any(Function));
+  });
+
+  test("onOutput on a local session calls onLocalOutput, not onSshOutput", async () => {
+    loadPlugin(manifest(["terminal:stream"]), register, true, true);
+    await captured.terminal.onOutput("s2", () => {});
+    expect(onLocalOutput).toHaveBeenCalledWith("s2", expect.any(Function));
+    expect(onSshOutput).not.toHaveBeenCalled();
+  });
+
+  test("onOutput on a serial session calls onSerialOutput", async () => {
+    loadPlugin(manifest(["terminal:stream"]), register, true, true);
+    await captured.terminal.onOutput("s3", () => {});
+    expect(onSerialOutput).toHaveBeenCalledWith("s3", expect.any(Function));
+  });
+
+  test("onOutput on an unknown sessionId rejects with a not-found error", async () => {
+    loadPlugin(manifest(["terminal:stream"]), register, true, true);
+    await expect(captured.terminal.onOutput("nope", () => {})).rejects.toThrow(/not found/);
+  });
+
+  test("untrusted plugin missing the permission fails on the permission check first", () => {
+    loadPlugin(manifest([]), register, true, false);
+    expect(() => captured.terminal.readSnapshot("s1")).toThrow(/requires permission/);
   });
 });
