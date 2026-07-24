@@ -15,7 +15,7 @@ describe("FirstRunCard", () => {
     const save = vi.fn(async (_profile: ProviderProfile) => {});
     const setKey = vi.fn(async (_id: string, _key: string) => {});
     const setActive = vi.fn(async (_id: string) => {});
-    vi.spyOn(storeMod, "_getDeps").mockReturnValue({ profiles: { save, setKey, setActive } } as never);
+    vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({ profiles: { save, setKey, setActive } } as never);
     const onDone = vi.fn();
     render(<FirstRunCard onDone={onDone} />);
     fireEvent.change(screen.getByLabelText(/API key/i), { target: { value: "sk-1" } });
@@ -38,7 +38,7 @@ describe("FirstRunCard", () => {
     const save = vi.fn(async (_profile: ProviderProfile) => {});
     const setKey = vi.fn(async (_id: string, _key: string) => {});
     const setActive = vi.fn(async (_id: string) => {});
-    vi.spyOn(storeMod, "_getDeps").mockReturnValue({ profiles: { save, setKey, setActive } } as never);
+    vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({ profiles: { save, setKey, setActive } } as never);
     const onDone = vi.fn();
     render(<FirstRunCard onDone={onDone} />);
     fireEvent.change(screen.getByLabelText(/Provider/i), { target: { value: "ollama" } });
@@ -53,7 +53,7 @@ describe("FirstRunCard", () => {
   });
 
   it("hides Base URL for anthropic/google, shows it for openai-compatible/ollama", () => {
-    vi.spyOn(storeMod, "_getDeps").mockReturnValue({ profiles: {} } as never);
+    vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({ profiles: {} } as never);
     render(<FirstRunCard onDone={vi.fn()} />);
     expect(screen.queryByLabelText(/Base URL/i)).toBeNull();
 
@@ -65,7 +65,7 @@ describe("FirstRunCard", () => {
   });
 
   it("Load models calls loadModels with the drafted profile + api key and populates options", async () => {
-    vi.spyOn(storeMod, "_getDeps").mockReturnValue({
+    vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({
       api: { http: {} },
       profiles: {},
     } as never);

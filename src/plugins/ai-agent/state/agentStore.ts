@@ -34,8 +34,21 @@ export interface AgentDeps {
 }
 
 let deps: AgentDeps | null = null;
-export const _getDeps = () => deps; // test seam
+/** Current plugin-instance deps; set by initAgent. */
+export const getAgentDeps = () => deps;
 export const _setDeps = (d: AgentDeps | null) => { deps = d; };
+
+/**
+ * True when `err` is the AbortError produced by aborting `signal` (or any
+ * AbortError-shaped error, in case the signal ref isn't available). Used to
+ * distinguish a deliberate Stop from a genuine run failure.
+ */
+export function isAbortError(err: unknown, signal?: AbortSignal): boolean {
+  if (signal?.aborted) return true;
+  if (typeof DOMException !== "undefined" && err instanceof DOMException && err.name === "AbortError") return true;
+  if (err instanceof Error && err.name === "AbortError") return true;
+  return false;
+}
 
 interface AgentState {
   mode: Mode;
@@ -113,10 +126,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       messages: [...s.messages, { role: "user", content: text }],
     }));
 
+    let runController: AbortController | undefined;
     try {
       const apiKey = (await d.profiles.getKey(profile.id)) ?? undefined;
       const model = await createProvider(profile, { apiKey, fetch: makeStreamFetch(d.api) });
       abortController = new AbortController();
+      runController = abortController;
       const result = runAgent({
         model,
         ctx: { api: d.api, approve: d.controller.approve },
@@ -153,7 +168,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         runStatus: s.runStatus === "error" ? "error" : "idle",
       }));
     } catch (err) {
-      set({ runStatus: "error", errorText: err instanceof Error ? err.message : String(err) });
+      if (isAbortError(err, runController?.signal)) {
+        // A deliberate Stop, not a failure — don't surface it as an error.
+        set({ runStatus: "idle", errorText: null });
+      } else {
+        set({ runStatus: "error", errorText: err instanceof Error ? err.message : String(err) });
+      }
     } finally {
       abortController = null;
     }

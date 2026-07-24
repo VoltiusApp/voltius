@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
-import { useAgentStore, _getDeps } from "../state/agentStore";
+import { useAgentStore, getAgentDeps } from "../state/agentStore";
 import { Transcript } from "./Transcript";
 import { Composer } from "./Composer";
 import { FirstRunCard } from "./FirstRunCard";
@@ -20,7 +20,7 @@ function useHasProfile(open: boolean): [boolean | null, () => void] {
 
   useEffect(() => {
     if (!open) return;
-    const deps = _getDeps();
+    const deps = getAgentDeps();
     if (!deps) {
       setHasProfile(false);
       return;
@@ -48,7 +48,7 @@ function usePinnedWidth() {
   const [width, setWidthState] = useState(DEFAULT_WIDTH);
 
   useEffect(() => {
-    const api = _getDeps()?.api;
+    const api = getAgentDeps()?.api;
     if (!api) return;
     let cancelled = false;
     Promise.all([api.storage.get<boolean>(PIN_KEY), api.storage.get<number>(WIDTH_KEY)]).then(([p, w]) => {
@@ -63,7 +63,7 @@ function usePinnedWidth() {
 
   const setPinned = (v: boolean) => {
     setPinnedState(v);
-    void _getDeps()?.api.storage.set(PIN_KEY, v);
+    void getAgentDeps()?.api.storage.set(PIN_KEY, v);
   };
 
   return { pinned, width, setPinned };

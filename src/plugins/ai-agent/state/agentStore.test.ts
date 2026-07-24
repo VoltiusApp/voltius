@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MockLanguageModelV4, simulateReadableStream } from "ai/test";
-import { useAgentStore, initAgent, _setDeps } from "./agentStore";
+import { useAgentStore, initAgent, _setDeps, isAbortError } from "./agentStore";
 
 // Structured usage/finishReason shape (LanguageModelV4Usage / V4FinishReason,
 // confirmed in node_modules/@ai-sdk/provider/dist/index.d.ts) — mirrors
@@ -215,5 +215,90 @@ describe("agentStore", () => {
 
     expect(useAgentStore.getState().runStatus).toBe("error");
     expect(useAgentStore.getState().errorText).toBe("provider exploded");
+  });
+
+  it("sendMessage's catch branch still yields runStatus 'error' for a genuine (non-abort) failure", async () => {
+    // Drives the *catch* block directly (createProvider rejects before any
+    // abortController exists) so this exercises the same code path the
+    // abort-detection branch lives in, not the separate onError-chunk path
+    // covered above.
+    const { createProvider } = await import("../provider/factory");
+    (createProvider as unknown as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("boom"));
+    _setDeps({
+      api: fakeApi(),
+      profiles: {
+        list: async () => [{ id: "p1", providerKind: "anthropic", label: "A", model: "claude-x" }],
+        getActiveId: async () => "p1",
+        getKey: async () => "sk-test",
+      } as never,
+      controller: { approve: async () => ({ approve: true }) },
+    } as never);
+
+    await useAgentStore.getState().sendMessage("hello");
+
+    expect(useAgentStore.getState().runStatus).toBe("error");
+    expect(useAgentStore.getState().errorText).toBe("boom");
+  });
+
+  it("stop() during a run resolves to idle, not error (a deliberate Stop is not a failure)", async () => {
+    // Regression test for the Stop-renders-as-error bug: without the
+    // isAbortError branch in sendMessage's catch, this assertion fails
+    // because runStatus lands on "error" with errorText "This operation
+    // was aborted" (the DOMException message the AI SDK's streamText
+    // rejects `responseMessages` with once abortSignal fires).
+    mockModel.current = new MockLanguageModelV4({
+      doStream: async () => ({
+        stream: simulateReadableStream({
+          chunkDelayInMs: 20,
+          chunks: [
+            { type: "text-start", id: "0" },
+            { type: "text-delta", id: "0", delta: "Hi" },
+            { type: "text-end", id: "0" },
+            FINISH_CHUNK,
+          ],
+        }),
+      }),
+    });
+    _setDeps({
+      api: fakeApi(),
+      profiles: {
+        list: async () => [{ id: "p1", providerKind: "anthropic", label: "A", model: "claude-x" }],
+        getActiveId: async () => "p1",
+        getKey: async () => "sk-test",
+      } as never,
+      controller: { approve: async () => ({ approve: true }) },
+    } as never);
+
+    const sendPromise = useAgentStore.getState().sendMessage("hello");
+    await vi.waitFor(() => expect(useAgentStore.getState().runStatus).toBe("streaming"));
+    useAgentStore.getState().stop();
+    await sendPromise;
+
+    expect(useAgentStore.getState().runStatus).toBe("idle");
+    expect(useAgentStore.getState().errorText).toBeNull();
+  });
+});
+
+describe("isAbortError", () => {
+  it("is true for a DOMException named AbortError", () => {
+    expect(isAbortError(new DOMException("This operation was aborted", "AbortError"))).toBe(true);
+  });
+
+  it("is true for a plain Error named AbortError", () => {
+    const err = new Error("aborted");
+    err.name = "AbortError";
+    expect(isAbortError(err)).toBe(true);
+  });
+
+  it("is true when the run's AbortSignal is aborted, regardless of the error's shape", () => {
+    const ac = new AbortController();
+    ac.abort();
+    expect(isAbortError(new Error("some unrelated network error"), ac.signal)).toBe(true);
+  });
+
+  it("is false for a genuine error with a non-aborted (or absent) signal", () => {
+    const ac = new AbortController();
+    expect(isAbortError(new Error("provider exploded"), ac.signal)).toBe(false);
+    expect(isAbortError(new Error("provider exploded"))).toBe(false);
   });
 });

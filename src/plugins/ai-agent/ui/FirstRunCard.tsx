@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from "react";
 import { Icon } from "@iconify/react";
-import { _getDeps } from "../state/agentStore";
+import { getAgentDeps } from "../state/agentStore";
 import { fieldVisibility, loadModels } from "../provider/models";
 import type { ProviderKind, ProviderProfile } from "../types";
 
@@ -60,7 +60,7 @@ export function FirstRunCard({ onDone }: { onDone: () => void }) {
   });
 
   const onLoadModels = async () => {
-    const deps = _getDeps();
+    const deps = getAgentDeps();
     if (!deps) return;
     setLoadingModels(true);
     setTestError(null);
@@ -80,7 +80,7 @@ export function FirstRunCard({ onDone }: { onDone: () => void }) {
     (!visibility.baseUrl || baseUrl.trim().length > 0);
 
   const onStart = async () => {
-    const deps = _getDeps();
+    const deps = getAgentDeps();
     if (!deps || !canStart) return;
     setStarting(true);
     setStartError(null);
