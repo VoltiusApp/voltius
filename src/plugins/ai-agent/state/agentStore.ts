@@ -78,6 +78,25 @@ let ownedSessions = new Set<string>();
 /** Test seam: reset the conversation-lifetime owned-session registry. */
 export const _resetOwnedSessions = () => { ownedSessions = new Set(); };
 
+/**
+ * Abort latch for the approval port. `runGeneration` bumps once, at the very
+ * start of each `sendMessage` run; `abortedGeneration` is stamped with
+ * whatever `runGeneration` currently is when `stop()`/`shutdownAgent()` fire.
+ * `isCurrentRunAborted()` is just an equality check between the two.
+ *
+ * This is deliberately a generation pair rather than a plain boolean: a
+ * boolean would need an explicit "un-abort" on the next run, which is itself
+ * a race if anything can observe the gap between clearing the flag and the
+ * new run's first `approve()` call. Bumping `runGeneration` *is* the reset —
+ * there is no separate step that could be skipped or reordered, and a stale
+ * call that captured the old generation number can never match the new one.
+ */
+let runGeneration = 0;
+let abortedGeneration = -1;
+function isCurrentRunAborted(): boolean {
+  return abortedGeneration === runGeneration;
+}
+
 export const useAgentStore = create<AgentState>((set, get) => ({
   mode: "ask",
   allowlist: [],
@@ -122,6 +141,11 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   stop: () => {
     abortController?.abort();
+    // Marks the run currently in flight (or about to start) as aborted, for
+    // any `approve()` call that is mid-flight right now — parked in
+    // `deriveHost`, or about to be dispatched in `auto` mode — not just the
+    // pending cards that already exist. See isCurrentRunAborted above.
+    abortedGeneration = runGeneration;
     // A parked approval card belongs to the run that just got cancelled —
     // clicking Approve on it after Stop would run a command the user just
     // said no to, and leaving it unresolved leaks the promise forever.
@@ -139,6 +163,10 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       return;
     }
 
+    // Bumping the generation IS the abort-latch reset for this new run — see
+    // isCurrentRunAborted above. Must happen before any tool call in this run
+    // can reach the approval port.
+    runGeneration += 1;
     set((s) => ({
       runStatus: "streaming",
       errorText: null,
@@ -206,6 +234,17 @@ export async function initAgent(api: PluginAPI): Promise<void> {
   // "new conversation" action is added, it must reset this too, or session
   // ids from the previous conversation stay agent-owned.
   ownedSessions = new Set();
+  // Symmetric with shutdownAgent: an orphan card from a dead activation
+  // (e.g. teardown was skipped, or I1's abort races before this fix) must
+  // not survive into a re-enabled drawer — approving it would resolve a tool
+  // closure holding the stale PluginAPI that _setDeps(null) exists to guard
+  // against.
+  useAgentStore.getState()._rejectAllPending("aborted");
+  // A fresh activation must not inherit a stale abort latch from whatever
+  // stop()/shutdownAgent() call preceded it — otherwise the very first
+  // approve() of the new activation could be refused before any run of its
+  // own ever set (or needed) the latch.
+  abortedGeneration = -1;
   const profiles = createProfilesStore(api);
   const controller = createApprovalController({
     getMode: () => useAgentStore.getState().mode,
@@ -214,6 +253,7 @@ export async function initAgent(api: PluginAPI): Promise<void> {
     deriveHost: (tool, args) => deriveHost(api, tool, args),
     allowlistKey,
     isAllowlistable,
+    isAborted: isCurrentRunAborted,
   });
   deps = { api, profiles, controller };
   const [mode, allowlist] = await Promise.all([
@@ -235,12 +275,26 @@ export async function initAgent(api: PluginAPI): Promise<void> {
  * `PluginAPI`. Order matters — deps must be the last thing cleared so the
  * abort and pending-rejection above can still see a live store.
  *
+ * Reset: `runStatus`, `errorText`, `pendingApprovals` (rejected, not just
+ * cleared), the abort latch (`abortedGeneration`, via the same generation
+ * bump `stop()` uses), and `deps` (invalidated, not merely reset).
+ *
+ * Deliberately preserved: `transcript` and `messages` survive teardown, so
+ * the conversation is still there if the agent is re-enabled. This can leave
+ * `messages` referencing session ids the torn-down activation owned — that's
+ * safe, not a bug: `initAgent` always starts the next activation with a
+ * fresh, empty `ownedSessions`, so if the model later recalls one of those
+ * ids, `run_command`'s `ctx.owned.has(sessionId)` check fails closed with
+ * "session not owned by agent" instead of resuming a session this activation
+ * never opened.
+ *
  * Closing agent-owned SSH sessions here is deliberately out of scope: the
  * runtime's session-ownership story isn't settled, and closing on teardown
  * could race a session the user is still looking at.
  */
 export function shutdownAgent(): void {
   abortController?.abort();
+  abortedGeneration = runGeneration;
   useAgentStore.getState()._rejectAllPending("aborted");
   useAgentStore.setState({ runStatus: "idle", errorText: null });
   _setDeps(null);

@@ -120,4 +120,13 @@ describe("deriveHost", () => {
     const a = api({ sessions: { list: vi.fn(() => [{ id: "s1", connectionId: "local" }]) } });
     expect(await deriveHost(a, "run_command", { sessionId: "s1", command: "ls" })).toBe("local");
   });
+  // Minor A: serial connections are created with `host: ""`. `?? null` only
+  // falls back on null/undefined, so an empty string used to sail through as
+  // a "resolved" host, collapsing every serial connection into one shared
+  // allowlist bucket `{ host: "", key }`. Must fail closed like any other
+  // unresolvable host.
+  it("returns null (not '') for a connection with an empty-string host — fail closed, not a shared bucket", async () => {
+    const a = api({ connections: { list: vi.fn(async () => [{ id: "c1", name: "Serial", host: "" }]) } });
+    expect(await deriveHost(a, "open_session", { connectionId: "c1" })).toBeNull();
+  });
 });

@@ -403,6 +403,50 @@ describe("agentStore", () => {
     expect(useAgentStore.getState().transcript.some((e) => e.kind === "assistant" && e.text.includes("Hi"))).toBe(true);
   });
 
+  // Regression test 1 (brief item I1, "the auto-mode race"): in `auto` mode,
+  // approve() used to return {approve:true} unconditionally with no abort
+  // check at all — a tool dispatched at the moment of Stop just ran, with no
+  // card and no trace. Drives a REAL tool from buildTools through the REAL
+  // controller (not a stub) so this proves the underlying api call is never
+  // reached, not just that approve() returns the right shape.
+  it("mode=auto: a tool call in flight after stop() is refused by the real controller and the underlying api call never fires", async () => {
+    const openSpy = vi.fn(async () => "sess-1");
+    const api = {
+      ...(fakeApi() as object),
+      sessions: { list: () => [], open: openSpy },
+      connections: { list: async () => [{ id: "c1", name: "srv", host: "web-01" }] },
+    };
+    await initAgent(api as never);
+    useAgentStore.getState().setMode("auto");
+    useAgentStore.getState().stop(); // marks the current run generation aborted, nothing else in flight
+
+    const ctx = { api: api as never, approve: getAgentDeps()!.controller.approve, owned: new Set<string>() };
+    const tools = buildTools(ctx);
+    const openSession = tools.find((t) => t.name === "open_session")!;
+
+    const res = await openSession.execute({ connectionId: "c1" });
+    expect(res).toEqual({ error: "rejected by user", reason: "aborted" });
+    expect(openSpy).not.toHaveBeenCalled();
+  });
+
+  // Regression test 3 (brief item I2): an orphan card from a dead activation
+  // must not survive into a re-enabled drawer, where approving it would
+  // resolve a tool closure holding the stale PluginAPI that _setDeps(null)
+  // was added to prevent. initAgent must reject+clear pendingApprovals for
+  // symmetry with shutdownAgent, regardless of how teardown was (or wasn't)
+  // run beforehand.
+  it("initAgent rejects and clears pending approvals left over from a previous activation", async () => {
+    const resolve = vi.fn();
+    useAgentStore.setState({
+      pendingApprovals: [{ id: "stale-1", tool: "run_command", args: {}, host: "h", allowlistKey: "ls", resolve }],
+    });
+
+    await initAgent(fakeApi());
+
+    expect(resolve).toHaveBeenCalledWith({ approve: false, reason: "aborted" });
+    expect(useAgentStore.getState().pendingApprovals).toHaveLength(0);
+  });
+
   it("stop() rejects a pending approval so the parked tool sees the rejection and never executes", async () => {
     const openSpy = vi.fn(async () => "sess-1");
     const api = {

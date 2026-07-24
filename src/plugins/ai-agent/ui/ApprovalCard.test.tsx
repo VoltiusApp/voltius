@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { useAgentStore } from "../state/agentStore";
+import { UNKNOWN_HOST } from "../state/hostDerivation";
 import { ApprovalCard } from "./ApprovalCard";
 
 // @iconify/react schedules an async icon-data-load timer that can fire after
@@ -45,5 +46,24 @@ describe("ApprovalCard", () => {
   it("shows the Always allow button for a plain command", () => {
     render(<ApprovalCard pending={pending} />);
     expect(screen.queryByText(/Always allow/)).not.toBeNull();
+  });
+  // Minor B: the gate fails closed on an unresolved host (deriveHost -> null,
+  // rendered as UNKNOWN_HOST), and the card's "Always allow" visibility must
+  // never drift from that — otherwise the UI could offer a shortcut the gate
+  // itself would never actually grant.
+  it("omits Always allow and shows the honest unknown-host label when the host could not be resolved", () => {
+    const unknownHostPending = {
+      id: "a3",
+      tool: "run_command",
+      args: { command: "apt update" },
+      host: UNKNOWN_HOST,
+      allowlistKey: "apt",
+      resolve: vi.fn(),
+    };
+    useAgentStore.setState({ pendingApprovals: [unknownHostPending], allowlist: [] });
+    render(<ApprovalCard pending={unknownHostPending} />);
+    expect(screen.queryByText(/Always allow/)).toBeNull();
+    expect(screen.getByText(`on ${UNKNOWN_HOST}`)).not.toBeNull();
+    expect(screen.getByText("Approve")).not.toBeNull();
   });
 });

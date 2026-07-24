@@ -65,7 +65,12 @@ export async function deriveHost(
     if (!connectionId) return null;
     if (connectionId === "local") return "local"; // a genuine local-shell session
     const conn = (await api.connections.list()).find((c) => c.id === connectionId);
-    return conn?.host ?? null; // connection not found — could not determine, do not fail open to "local"
+    // `||`, not `??`: serial connections are created with `host: ""`, and an
+    // empty string must be treated the same as "connection not found" — an
+    // unresolved host, not a legitimate (if blank) one. `??` would let it
+    // through, collapsing every serial connection into one shared allowlist
+    // bucket `{ host: "", key }`.
+    return conn?.host || null;
   } catch {
     return null;
   }
