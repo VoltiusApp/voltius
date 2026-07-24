@@ -3,14 +3,20 @@ import { Icon } from "@iconify/react";
 import { useAgentStore, _getDeps } from "../state/agentStore";
 import { Transcript } from "./Transcript";
 import { Composer } from "./Composer";
+import { FirstRunCard } from "./FirstRunCard";
 
 const PIN_KEY = "drawerPinned";
 const WIDTH_KEY = "drawerWidth";
 const DEFAULT_WIDTH = 380;
 
-/** Whether an active provider profile is configured. null while the check is in flight. */
-function useHasProfile(open: boolean): boolean | null {
+/**
+ * Whether an active provider profile is configured. null while the check is
+ * in flight. `refresh()` re-runs the check on demand (e.g. after FirstRunCard
+ * creates + activates profile #1) without needing `open` to re-toggle.
+ */
+function useHasProfile(open: boolean): [boolean | null, () => void] {
   const [hasProfile, setHasProfile] = useState<boolean | null>(null);
+  const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
     if (!open) return;
@@ -31,9 +37,9 @@ function useHasProfile(open: boolean): boolean | null {
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, nonce]);
 
-  return hasProfile;
+  return [hasProfile, () => setNonce((n) => n + 1)];
 }
 
 /** Persists the drawer's pin state + width via plugin storage. */
@@ -65,7 +71,7 @@ function usePinnedWidth() {
 
 export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const runStatus = useAgentStore((s) => s.runStatus);
-  const hasProfile = useHasProfile(open);
+  const [hasProfile, refreshHasProfile] = useHasProfile(open);
   const { pinned, width, setPinned } = usePinnedWidth();
 
   useEffect(() => {
@@ -132,9 +138,7 @@ export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void
       </div>
 
       {hasProfile === false ? (
-        <div data-testid="ai-first-run-placeholder" style={{ padding: 16, color: "var(--t-text-secondary)", fontSize: 13 }}>
-          Configure a provider to start.
-        </div>
+        <FirstRunCard onDone={refreshHasProfile} />
       ) : hasProfile === true ? (
         <>
           <Transcript />
