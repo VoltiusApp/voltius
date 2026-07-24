@@ -5,7 +5,7 @@ use tauri::{AppHandle, Emitter, State};
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct HttpRequestHeader {
     name: String,
     value: String,
@@ -28,6 +28,12 @@ pub struct HttpResponse {
 #[derive(Clone, Serialize)]
 pub struct HttpSseClosedPayload {
     error: Option<String>,
+}
+
+#[derive(Clone, serde::Serialize)]
+pub struct HttpSseOpenPayload {
+    pub status: u16,
+    pub headers: Vec<HttpRequestHeader>,
 }
 
 pub struct HttpSseStreamManager {
@@ -148,7 +154,9 @@ pub async fn http_sse_start(
     stream_manager: State<'_, HttpSseStreamManager>,
     stream_id: String,
     url: String,
+    method: String,
     headers: Vec<HttpRequestHeader>,
+    body: Option<String>,
 ) -> Result<(), String> {
     let url = reqwest::Url::parse(&url).map_err(|_| "invalid URL".to_string())?;
     if url.scheme() != "http" && url.scheme() != "https" {
@@ -171,9 +179,18 @@ pub async fn http_sse_start(
             }
         };
 
-        let mut request = client.get(url);
+        let mut request = match method.to_ascii_uppercase().as_str() {
+            "POST" => client.post(url),
+            "PUT" => client.put(url),
+            "DELETE" => client.delete(url),
+            "PATCH" => client.patch(url),
+            _ => client.get(url),
+        };
         for header in headers {
             request = request.header(header.name, header.value);
+        }
+        if let Some(body) = body {
+            request = request.body(body);
         }
 
         let mut response = match request.send().await {
@@ -184,11 +201,26 @@ pub async fn http_sse_start(
             }
         };
 
-        if !response.status().is_success() {
-            close(
-                &app,
-                Some(format!("Server error: {}", response.status().as_u16())),
-            );
+        let status = response.status();
+        let open_headers: Vec<HttpRequestHeader> = response
+            .headers()
+            .iter()
+            .filter_map(|(name, value)| {
+                value.to_str().ok().map(|v| HttpRequestHeader {
+                    name: name.as_str().to_string(),
+                    value: v.to_string(),
+                })
+            })
+            .collect();
+        let _ = app.emit(
+            &format!("http:sse:open:{task_stream_id}"),
+            HttpSseOpenPayload { status: status.as_u16(), headers: open_headers },
+        );
+
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            let snippet: String = body.chars().take(2048).collect();
+            close(&app, Some(format!("HTTP {}: {}", status.as_u16(), snippet)));
             return;
         }
 

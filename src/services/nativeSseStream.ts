@@ -64,7 +64,9 @@ export async function connectNativeSse(
         void invoke("http_sse_start", {
           streamId,
           url,
+          method: "GET",
           headers: Object.entries(headers).map(([name, value]) => ({ name, value })),
+          body: null,
         }).catch((err) => {
           signal.removeEventListener("abort", abort);
           finish(err instanceof Error ? err : new Error(String(err)));
