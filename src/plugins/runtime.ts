@@ -519,6 +519,12 @@ function createPluginAPI(manifest: PluginManifest, trusted: boolean): PluginAPI 
         store().registerRightPanelSection(section);
         return () => store().unregisterRightPanelSection(section.id);
       },
+      registerGlobalPanel(panel) {
+        requirePerm(manifest, "global-panel");
+        const prefixed = { ...panel, id: panel.id.startsWith(id) ? panel.id : `${id}:${panel.id}` };
+        store().registerGlobalPanel(prefixed);
+        return () => store().unregisterGlobalPanel(prefixed.id);
+      },
       registerContextMenuItem(item) {
         requirePerm(manifest, "context-menu");
         store().registerContextMenuItem(item);
@@ -539,6 +545,7 @@ function createPluginAPI(manifest: PluginManifest, trusted: boolean): PluginAPI 
         s.unregisterSettingsPage(itemId);
         s.unregisterSidebarItem(itemId);
         s.unregisterRightPanelSection(itemId);
+        s.unregisterGlobalPanel(itemId);
         s.unregisterContextMenuItem(itemId);
       },
     },

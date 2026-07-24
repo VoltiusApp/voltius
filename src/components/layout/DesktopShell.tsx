@@ -4,6 +4,7 @@ import VaultHeader from "@/components/layout/VaultHeader";
 import NavBar from "@/components/layout/NavBar";
 import MainPanel from "@/components/layout/MainPanel";
 import OmniSearch from "@/components/omni/OmniSearch";
+import GlobalPanelHost from "@/components/layout/GlobalPanelHost";
 import RightPanel from "@/components/terminal/RightPanel";
 import { EmailVerificationBanner } from "@/components/notifications/EmailVerificationBanner";
 import { useUIStore } from "@/stores/uiStore";
@@ -42,6 +43,7 @@ export default function DesktopShell() {
         </div>
       </div>
       {omniOpen && <OmniSearch onClose={() => setOmniOpen(false)} />}
+      <GlobalPanelHost />
     </>
   );
 }

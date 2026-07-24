@@ -65,6 +65,9 @@ interface UIStore {
   homeView: boolean;
   activeNav: NavItem;
   omniOpen: boolean;
+  globalPanelOpen: Record<string, boolean>;
+  setGlobalPanelOpen: (id: string, open: boolean) => void;
+  toggleGlobalPanel: (id: string) => void;
   settingsOpen: boolean;
   cloudAuthOpen: boolean;
   cloudAuthMode: CloudAuthMode;
@@ -151,6 +154,7 @@ export const useUIStore = create<UIStore>()(
       homeView: true,
       activeNav: "hosts" as NavItem,
       omniOpen: false,
+      globalPanelOpen: {},
       settingsOpen: false,
       cloudAuthOpen: false,
       cloudAuthMode: "signin" as CloudAuthMode,
@@ -193,6 +197,8 @@ export const useUIStore = create<UIStore>()(
       setHomeView: (v) => set({ homeView: v }),
       setActiveNav: (nav) => set({ activeNav: nav }),
       setOmniOpen: (open) => set({ omniOpen: open }),
+      setGlobalPanelOpen: (id, open) => set((s) => ({ globalPanelOpen: { ...s.globalPanelOpen, [id]: open } })),
+      toggleGlobalPanel: (id) => set((s) => ({ globalPanelOpen: { ...s.globalPanelOpen, [id]: !s.globalPanelOpen[id] } })),
       setSettingsOpen: (open) => set((s) => ({ settingsOpen: open, settingsSubPage: open ? s.settingsSubPage : null })),
       openCloudAuth: (mode) => set({ cloudAuthOpen: true, cloudAuthMode: mode ?? "signin" }),
       closeCloudAuth: () => set({ cloudAuthOpen: false }),

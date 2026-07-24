@@ -77,6 +77,12 @@ export interface RightPanelSection {
   component: React.FC;
 }
 
+export interface GlobalPanel {
+  id: string;
+  /** Rendered at shell level (not session-scoped). Host drives open/close. */
+  component: React.FC<{ open: boolean; onClose: () => void }>;
+}
+
 export interface PluginSession {
   id: string;
   connectionId: string;
@@ -240,6 +246,8 @@ export interface PluginAPI {
     registerSettingsPage(page: SettingsPage): () => void;
     registerSidebarItem(item: SidebarItem): () => void;
     registerRightPanelSection(section: RightPanelSection): () => void;
+    /** Mount a global, shell-level panel (not session-scoped). Returns cleanup. */
+    registerGlobalPanel(panel: GlobalPanel): () => void;
     registerContextMenuItem(item: ContextMenuItem): () => void;
     /** Inject action items into a named UI slot. Returns a cleanup function. */
     registerContribution<C = unknown>(slot: UISlot, fn: (ctx: C) => ContributedAction[]): () => void;
