@@ -22,7 +22,9 @@
     },
     "appearance": {
       "interface": "Interface",
-      "language": { "title": "Langue" },
+      "language": {
+        "title": "Langue"
+      },
       "colorTheme": "Thème de couleurs",
       "import": "Importer",
       "importTitle": "Importer un ou plusieurs thèmes",
@@ -61,18 +63,119 @@
       }
     },
     "nav": {
-      "appearance":     { "label": "Apparence",         "keywords": ["thème", "couleur", "police", "interface"] },
-      "account":        { "label": "Compte",             "keywords": ["profil", "connexion", "authentification"] },
-      "sync":           { "label": "Synchronisation",    "keywords": ["sauvegarde", "nuage", "gist", "synchronisation", "pro"] },
-      "vaults":         { "label": "Coffres-forts",      "keywords": ["secret", "mot de passe", "stockage", "trousseau"] },
-      "plugins":        { "label": "Extensions",         "keywords": ["extensions", "modules", "boutique"] },
-      "terminal":       { "label": "Terminal",           "keywords": ["historique", "collage", "crochets", "copier", "mini-carte", "tampon"] },
-      "sftp":           { "label": "SFTP",               "keywords": ["fichier", "transfert", "ftp", "fichiers"] },
-      "portForwarding": { "label": "Transfert de ports", "keywords": ["tunnel", "redirection", "ports", "ssh", "auto"] },
-      "hosts":          { "label": "Hôtes",              "keywords": ["ping", "accessibilité", "connectivité", "statut"] },
-      "shortcuts":      { "label": "Raccourcis",         "keywords": ["raccourci", "touche", "clavier", "rebind", "keyboard"] },
-      "diagnostics":    { "label": "Diagnostics",        "keywords": ["diagnostics", "bug", "rapport", "journal", "débogage", "problème"] },
-      "about":          { "label": "À propos",           "keywords": ["version", "mise à jour", "publication", "changelog"] }
+      "appearance": {
+        "label": "Apparence",
+        "keywords": [
+          "thème",
+          "couleur",
+          "police",
+          "interface"
+        ]
+      },
+      "account": {
+        "label": "Compte",
+        "keywords": [
+          "profil",
+          "connexion",
+          "authentification"
+        ]
+      },
+      "sync": {
+        "label": "Synchronisation",
+        "keywords": [
+          "sauvegarde",
+          "nuage",
+          "gist",
+          "synchronisation",
+          "pro"
+        ]
+      },
+      "vaults": {
+        "label": "Coffres-forts",
+        "keywords": [
+          "secret",
+          "mot de passe",
+          "stockage",
+          "trousseau"
+        ]
+      },
+      "plugins": {
+        "label": "Extensions",
+        "keywords": [
+          "extensions",
+          "modules",
+          "boutique"
+        ]
+      },
+      "terminal": {
+        "label": "Terminal",
+        "keywords": [
+          "historique",
+          "collage",
+          "crochets",
+          "copier",
+          "mini-carte",
+          "tampon"
+        ]
+      },
+      "sftp": {
+        "label": "SFTP",
+        "keywords": [
+          "fichier",
+          "transfert",
+          "ftp",
+          "fichiers"
+        ]
+      },
+      "portForwarding": {
+        "label": "Transfert de ports",
+        "keywords": [
+          "tunnel",
+          "redirection",
+          "ports",
+          "ssh",
+          "auto"
+        ]
+      },
+      "hosts": {
+        "label": "Hôtes",
+        "keywords": [
+          "ping",
+          "accessibilité",
+          "connectivité",
+          "statut"
+        ]
+      },
+      "shortcuts": {
+        "label": "Raccourcis",
+        "keywords": [
+          "raccourci",
+          "touche",
+          "clavier",
+          "rebind",
+          "keyboard"
+        ]
+      },
+      "diagnostics": {
+        "label": "Diagnostics",
+        "keywords": [
+          "diagnostics",
+          "bug",
+          "rapport",
+          "journal",
+          "débogage",
+          "problème"
+        ]
+      },
+      "about": {
+        "label": "À propos",
+        "keywords": [
+          "version",
+          "mise à jour",
+          "publication",
+          "changelog"
+        ]
+      }
     },
     "chrome": {
       "title": "Paramètres",
@@ -316,11 +419,26 @@
       "prefsFooter": "Les types désactivés ne déclenchent pas de synchronisation automatique lors de modifications. Les objets individuels peuvent également être exclus via leur panneau d'édition.",
       "quickToggleLabel": "Synchroniser {{label}}",
       "objectType": {
-        "connection": { "label": "Hôtes", "sub": "Connexions SSH" },
-        "identity": { "label": "Identités", "sub": "Noms d'utilisateur et informations d'identification" },
-        "key": { "label": "Clés SSH", "sub": "Paires de clés stockées dans le trousseau" },
-        "folder": { "label": "Dossiers", "sub": "Structure de dossiers pour organiser les objets" },
-        "port-forwarding-rule": { "label": "Transfert de ports", "sub": "Règles de tunnel enregistrées" }
+        "connection": {
+          "label": "Hôtes",
+          "sub": "Connexions SSH"
+        },
+        "identity": {
+          "label": "Identités",
+          "sub": "Noms d'utilisateur et informations d'identification"
+        },
+        "key": {
+          "label": "Clés SSH",
+          "sub": "Paires de clés stockées dans le trousseau"
+        },
+        "folder": {
+          "label": "Dossiers",
+          "sub": "Structure de dossiers pour organiser les objets"
+        },
+        "port-forwarding-rule": {
+          "label": "Transfert de ports",
+          "sub": "Règles de tunnel enregistrées"
+        }
       }
     },
     "vaults": {
@@ -432,23 +550,74 @@
           "terminalSessions": "Sessions de terminal"
         },
         "perm": {
-          "VIEW_SECRETS":           { "label": "Voir les secrets",           "desc": "Voir les mots de passe et clés privées en clair" },
-          "COPY_SECRETS":           { "label": "Copier les secrets",          "desc": "Copier les mots de passe et clés dans le presse-papiers" },
-          "CONNECT":                { "label": "Se connecter",                "desc": "Lancer des connexions SSH" },
-          "EDIT_CONNECTIONS":       { "label": "Modifier les connexions",     "desc": "Créer, modifier et supprimer des connexions" },
-          "EDIT_IDENTITIES":        { "label": "Modifier les identités",      "desc": "Créer, modifier et supprimer des identités SSH" },
-          "EDIT_KEYS":              { "label": "Modifier les clés",           "desc": "Créer, modifier et supprimer des clés SSH" },
-          "EDIT_SNIPPETS":          { "label": "Modifier les snippets",       "desc": "Créer, modifier et supprimer des extraits de commandes" },
-          "EDIT_FOLDERS":           { "label": "Modifier les dossiers",       "desc": "Gérer la structure des dossiers" },
-          "VIEW_AUDIT_LOG":         { "label": "Voir le journal d'audit",     "desc": "Lire le journal d'activité" },
-          "INVITE_MEMBERS":         { "label": "Inviter des membres",         "desc": "Inviter de nouveaux membres dans le coffre-fort" },
-          "MANAGE_MEMBERS":         { "label": "Gérer les membres",           "desc": "Attribuer des rôles et retirer des membres" },
-          "CREATE_CUSTOM_ROLES":    { "label": "Gérer les rôles (hérité)",    "desc": "Permission retirée — conservée pour compatibilité" },
-          "MANAGE_ROLES":           { "label": "Gérer les rôles",             "desc": "Créer, modifier et supprimer des rôles" },
-          "MANAGE_VAULT":           { "label": "Gérer le coffre-fort",        "desc": "Renommer le coffre-fort et gérer ses paramètres" },
-          "START_TERMINAL_SESSION": { "label": "Démarrer des sessions",       "desc": "Démarrer des sessions de terminal multijoueur" },
-          "JOIN_TERMINAL_SESSION":  { "label": "Rejoindre des sessions",      "desc": "Rejoindre des sessions de terminal existantes" },
-          "VIEW_TERMINAL_SESSIONS": { "label": "Voir les sessions",           "desc": "Voir les sessions de terminal actives" }
+          "VIEW_SECRETS": {
+            "label": "Voir les secrets",
+            "desc": "Voir les mots de passe et clés privées en clair"
+          },
+          "COPY_SECRETS": {
+            "label": "Copier les secrets",
+            "desc": "Copier les mots de passe et clés dans le presse-papiers"
+          },
+          "CONNECT": {
+            "label": "Se connecter",
+            "desc": "Lancer des connexions SSH"
+          },
+          "EDIT_CONNECTIONS": {
+            "label": "Modifier les connexions",
+            "desc": "Créer, modifier et supprimer des connexions"
+          },
+          "EDIT_IDENTITIES": {
+            "label": "Modifier les identités",
+            "desc": "Créer, modifier et supprimer des identités SSH"
+          },
+          "EDIT_KEYS": {
+            "label": "Modifier les clés",
+            "desc": "Créer, modifier et supprimer des clés SSH"
+          },
+          "EDIT_SNIPPETS": {
+            "label": "Modifier les snippets",
+            "desc": "Créer, modifier et supprimer des extraits de commandes"
+          },
+          "EDIT_FOLDERS": {
+            "label": "Modifier les dossiers",
+            "desc": "Gérer la structure des dossiers"
+          },
+          "VIEW_AUDIT_LOG": {
+            "label": "Voir le journal d'audit",
+            "desc": "Lire le journal d'activité"
+          },
+          "INVITE_MEMBERS": {
+            "label": "Inviter des membres",
+            "desc": "Inviter de nouveaux membres dans le coffre-fort"
+          },
+          "MANAGE_MEMBERS": {
+            "label": "Gérer les membres",
+            "desc": "Attribuer des rôles et retirer des membres"
+          },
+          "CREATE_CUSTOM_ROLES": {
+            "label": "Gérer les rôles (hérité)",
+            "desc": "Permission retirée — conservée pour compatibilité"
+          },
+          "MANAGE_ROLES": {
+            "label": "Gérer les rôles",
+            "desc": "Créer, modifier et supprimer des rôles"
+          },
+          "MANAGE_VAULT": {
+            "label": "Gérer le coffre-fort",
+            "desc": "Renommer le coffre-fort et gérer ses paramètres"
+          },
+          "START_TERMINAL_SESSION": {
+            "label": "Démarrer des sessions",
+            "desc": "Démarrer des sessions de terminal multijoueur"
+          },
+          "JOIN_TERMINAL_SESSION": {
+            "label": "Rejoindre des sessions",
+            "desc": "Rejoindre des sessions de terminal existantes"
+          },
+          "VIEW_TERMINAL_SESSIONS": {
+            "label": "Voir les sessions",
+            "desc": "Voir les sessions de terminal actives"
+          }
         },
         "builtinBadge": "Intégré",
         "dragToReorder": "Glisser pour réordonner",
@@ -483,7 +652,9 @@
       "categoryLabel": "Extension",
       "tabs": {
         "installed": "Installées ({{count}})",
-        "browse": "Parcourir"
+        "browse": "Parcourir",
+        "updateCount_one": "• {{count}} mise à jour",
+        "updateCount_other": "• {{count}} mises à jour"
       },
       "installed": {
         "filterPlaceholder": "Filtrer les extensions…",
@@ -500,7 +671,10 @@
         "sourceLocal": "Locale",
         "sourceUrl": "URL",
         "sourceInstalled": "Installée",
-        "unverified": "Non vérifié"
+        "unverified": "Non vérifié",
+        "update": "Mettre à jour",
+        "updating": "Mise à jour…",
+        "updateTitle": "Mettre à jour vers la v{{version}}"
       },
       "browse": {
         "searchPlaceholder": "Rechercher des extensions…",
@@ -517,11 +691,22 @@
         "removing": "Suppression…",
         "uninstall": "Désinstaller",
         "installing": "Installation…",
-        "install": "Installer"
+        "install": "Installer",
+        "updateBadge": "mise à jour disponible"
       },
       "install": {
         "integrityFailed": "L'intégrité du module a échoué — installation bloquée.",
         "failed": "Échec de l'installation du module."
+      },
+      "permissionModal": {
+        "installTitle": "Installer {{name}} ?",
+        "installBody": "Ce plugin s'exécute avec tous les privilèges de l'application. Il demande ces autorisations :",
+        "updateTitle": "Mettre à jour {{name}} ?",
+        "updateBody": "Cette mise à jour demande de nouvelles autorisations. Vérifiez-les avant de continuer :",
+        "newPermissions": "Nouvelles autorisations",
+        "noPermissions": "Ce plugin ne demande aucune autorisation particulière.",
+        "installConfirm": "Installer",
+        "updateConfirm": "Mettre à jour"
       }
     },
     "sftp": {
@@ -590,10 +775,22 @@
         "desc": "Délai avant qu'une session soit considérée comme perdue lorsque le serveur cesse de répondre. {{detail}}. Peut être remplacé par hôte."
       },
       "keepalivePresets": {
-        "fast": { "label": "Rapide", "detail": "Détecte une connexion perdue en ~4s" },
-        "balanced": { "label": "Équilibré", "detail": "~9s ; tolère une brève coupure réseau" },
-        "tolerant": { "label": "Tolérant", "detail": "~20s ; pour les réseaux instables" },
-        "off": { "label": "Désactivé", "detail": "Aucune sonde de keepalive" }
+        "fast": {
+          "label": "Rapide",
+          "detail": "Détecte une connexion perdue en ~4s"
+        },
+        "balanced": {
+          "label": "Équilibré",
+          "detail": "~9s ; tolère une brève coupure réseau"
+        },
+        "tolerant": {
+          "label": "Tolérant",
+          "detail": "~20s ; pour les réseaux instables"
+        },
+        "off": {
+          "label": "Désactivé",
+          "detail": "Aucune sonde de keepalive"
+        }
       },
       "persistentSessions": {
         "title": "Sessions persistantes",
@@ -611,26 +808,58 @@
       }
     },
     "toggleDefs": {
-      "scrollMinimap": { "label": "Minimap de défilement" },
-      "selectToCopy": { "label": "Sélectionner pour copier" },
-      "ignoreBracketedPaste": { "label": "Collage simple (sans crochets)" },
-      "autoForward": { "label": "Transfert de ports automatique" },
-      "forwardingNotifications": { "label": "Notifications de transfert de ports" },
-      "sftpTar": { "label": "Accélération Tar SFTP" },
-      "sftpAutoRefresh": { "label": "Actualisation automatique SFTP" },
-      "reachability": { "label": "Vérification d'accessibilité" },
-      "teamPresence": { "label": "Présence d'équipe" },
-      "shellIntegration": { "label": "Intégration du shell" },
-      "persistentSessions": { "label": "Sessions persistantes" },
-      "restoreWorkspace": { "label": "Restaurer l'espace de travail au lancement" },
-      "crossDeviceSessions": { "label": "Sessions multi-appareils" },
-      "changelogPopup": { "label": "Afficher les nouveautés après les mises à jour" },
+      "scrollMinimap": {
+        "label": "Minimap de défilement"
+      },
+      "selectToCopy": {
+        "label": "Sélectionner pour copier"
+      },
+      "ignoreBracketedPaste": {
+        "label": "Collage simple (sans crochets)"
+      },
+      "autoForward": {
+        "label": "Transfert de ports automatique"
+      },
+      "forwardingNotifications": {
+        "label": "Notifications de transfert de ports"
+      },
+      "sftpTar": {
+        "label": "Accélération Tar SFTP"
+      },
+      "sftpAutoRefresh": {
+        "label": "Actualisation automatique SFTP"
+      },
+      "reachability": {
+        "label": "Vérification d'accessibilité"
+      },
+      "teamPresence": {
+        "label": "Présence d'équipe"
+      },
+      "shellIntegration": {
+        "label": "Intégration du shell"
+      },
+      "persistentSessions": {
+        "label": "Sessions persistantes"
+      },
+      "restoreWorkspace": {
+        "label": "Restaurer l'espace de travail au lancement"
+      },
+      "crossDeviceSessions": {
+        "label": "Sessions multi-appareils"
+      },
+      "changelogPopup": {
+        "label": "Afficher les nouveautés après les mises à jour"
+      },
       "category": {
         "appearance": "Apparence",
         "portForwarding": "Transfert de ports",
         "sftp": "SFTP",
         "hosts": "Hôtes",
-        "updates": "Mises à jour"
+        "updates": "Mises à jour",
+        "plugins": "Plugins"
+      },
+      "pluginInstallReview": {
+        "label": "Vérifier les autorisations avant d'installer des plugins"
       }
     },
     "shortcuts": {
@@ -656,22 +885,70 @@
         "other": "Autre"
       },
       "items": {
-        "omni":           { "label": "Recherche universelle", "desc": "Accéder à tout depuis un seul endroit" },
-        "shortcuts":      { "label": "Raccourcis clavier",    "desc": "Ouvrir les paramètres des raccourcis" },
-        "themes":         { "label": "Paramètres",            "desc": "Ouvrir les paramètres" },
-        "newTab":         { "label": "Nouvel onglet",         "desc": "Aller à la vue des hôtes" },
-        "closeTab":       { "label": "Fermer l'onglet",       "desc": "Fermer la session active" },
-        "nextTab":        { "label": "Onglet suivant",        "desc": "Passer à l'onglet suivant" },
-        "prevTab":        { "label": "Onglet précédent",      "desc": "Passer à l'onglet précédent" },
-        "sidebar":        { "label": "Basculer la barre latérale", "desc": "Afficher/masquer la barre latérale" },
-        "delete":         { "label": "Supprimer la sélection", "desc": "Supprimer les éléments sélectionnés" },
-        "undo":           { "label": "Annuler",               "desc": "Annuler la dernière action" },
-        "redo":           { "label": "Rétablir",              "desc": "Rétablir la dernière action annulée" },
-        "filter":         { "label": "Focus sur le filtre",   "desc": "Mettre le focus sur le filtre de recherche" },
-        "terminalSearch": { "label": "Rechercher dans le terminal", "desc": "Rechercher dans l'historique du terminal" },
-        "history":        { "label": "Panneau d'historique",  "desc": "Ouvrir l'historique des commandes dans le panneau latéral" },
-        "snippets":       { "label": "Panneau des extraits",  "desc": "Ouvrir les extraits dans le panneau latéral" },
-        "panelThemes":    { "label": "Panneau des thèmes",    "desc": "Ouvrir les thèmes dans le panneau latéral" }
+        "omni": {
+          "label": "Recherche universelle",
+          "desc": "Accéder à tout depuis un seul endroit"
+        },
+        "shortcuts": {
+          "label": "Raccourcis clavier",
+          "desc": "Ouvrir les paramètres des raccourcis"
+        },
+        "themes": {
+          "label": "Paramètres",
+          "desc": "Ouvrir les paramètres"
+        },
+        "newTab": {
+          "label": "Nouvel onglet",
+          "desc": "Aller à la vue des hôtes"
+        },
+        "closeTab": {
+          "label": "Fermer l'onglet",
+          "desc": "Fermer la session active"
+        },
+        "nextTab": {
+          "label": "Onglet suivant",
+          "desc": "Passer à l'onglet suivant"
+        },
+        "prevTab": {
+          "label": "Onglet précédent",
+          "desc": "Passer à l'onglet précédent"
+        },
+        "sidebar": {
+          "label": "Basculer la barre latérale",
+          "desc": "Afficher/masquer la barre latérale"
+        },
+        "delete": {
+          "label": "Supprimer la sélection",
+          "desc": "Supprimer les éléments sélectionnés"
+        },
+        "undo": {
+          "label": "Annuler",
+          "desc": "Annuler la dernière action"
+        },
+        "redo": {
+          "label": "Rétablir",
+          "desc": "Rétablir la dernière action annulée"
+        },
+        "filter": {
+          "label": "Focus sur le filtre",
+          "desc": "Mettre le focus sur le filtre de recherche"
+        },
+        "terminalSearch": {
+          "label": "Rechercher dans le terminal",
+          "desc": "Rechercher dans l'historique du terminal"
+        },
+        "history": {
+          "label": "Panneau d'historique",
+          "desc": "Ouvrir l'historique des commandes dans le panneau latéral"
+        },
+        "snippets": {
+          "label": "Panneau des extraits",
+          "desc": "Ouvrir les extraits dans le panneau latéral"
+        },
+        "panelThemes": {
+          "label": "Panneau des thèmes",
+          "desc": "Ouvrir les thèmes dans le panneau latéral"
+        }
       }
     }
   }

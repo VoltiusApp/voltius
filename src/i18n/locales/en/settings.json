@@ -22,7 +22,9 @@
     },
     "appearance": {
       "interface": "Interface",
-      "language": { "title": "Language" },
+      "language": {
+        "title": "Language"
+      },
       "colorTheme": "Color Theme",
       "import": "Import",
       "importTitle": "Import theme(s)",
@@ -61,18 +63,119 @@
       }
     },
     "nav": {
-      "appearance":     { "label": "Appearance",      "keywords": ["theme", "color", "font", "ui"] },
-      "account":        { "label": "Account",         "keywords": ["profile", "login", "auth"] },
-      "sync":           { "label": "Sync",            "keywords": ["backup", "cloud", "gist", "sync", "pro"] },
-      "vaults":         { "label": "Vaults",          "keywords": ["secret", "password", "storage", "keyring"] },
-      "plugins":        { "label": "Plugins",         "keywords": ["extensions", "addons", "marketplace"] },
-      "terminal":       { "label": "Terminal",        "keywords": ["scrollback", "paste", "bracketed", "copy", "minimap", "buffer"] },
-      "sftp":           { "label": "SFTP",            "keywords": ["file", "transfer", "ftp", "files"] },
-      "portForwarding": { "label": "Port Forwarding", "keywords": ["tunnel", "forward", "ports", "ssh", "auto"] },
-      "hosts":          { "label": "Hosts",           "keywords": ["ping", "reachability", "connectivity", "status"] },
-      "shortcuts":      { "label": "Shortcuts",       "keywords": ["keybind", "hotkey", "shortcut", "rebind", "keyboard"] },
-      "diagnostics":    { "label": "Diagnostics",     "keywords": ["diagnostics", "bug", "report", "log", "debug", "issue"] },
-      "about":          { "label": "About",           "keywords": ["version", "update", "release", "changelog"] }
+      "appearance": {
+        "label": "Appearance",
+        "keywords": [
+          "theme",
+          "color",
+          "font",
+          "ui"
+        ]
+      },
+      "account": {
+        "label": "Account",
+        "keywords": [
+          "profile",
+          "login",
+          "auth"
+        ]
+      },
+      "sync": {
+        "label": "Sync",
+        "keywords": [
+          "backup",
+          "cloud",
+          "gist",
+          "sync",
+          "pro"
+        ]
+      },
+      "vaults": {
+        "label": "Vaults",
+        "keywords": [
+          "secret",
+          "password",
+          "storage",
+          "keyring"
+        ]
+      },
+      "plugins": {
+        "label": "Plugins",
+        "keywords": [
+          "extensions",
+          "addons",
+          "marketplace"
+        ]
+      },
+      "terminal": {
+        "label": "Terminal",
+        "keywords": [
+          "scrollback",
+          "paste",
+          "bracketed",
+          "copy",
+          "minimap",
+          "buffer"
+        ]
+      },
+      "sftp": {
+        "label": "SFTP",
+        "keywords": [
+          "file",
+          "transfer",
+          "ftp",
+          "files"
+        ]
+      },
+      "portForwarding": {
+        "label": "Port Forwarding",
+        "keywords": [
+          "tunnel",
+          "forward",
+          "ports",
+          "ssh",
+          "auto"
+        ]
+      },
+      "hosts": {
+        "label": "Hosts",
+        "keywords": [
+          "ping",
+          "reachability",
+          "connectivity",
+          "status"
+        ]
+      },
+      "shortcuts": {
+        "label": "Shortcuts",
+        "keywords": [
+          "keybind",
+          "hotkey",
+          "shortcut",
+          "rebind",
+          "keyboard"
+        ]
+      },
+      "diagnostics": {
+        "label": "Diagnostics",
+        "keywords": [
+          "diagnostics",
+          "bug",
+          "report",
+          "log",
+          "debug",
+          "issue"
+        ]
+      },
+      "about": {
+        "label": "About",
+        "keywords": [
+          "version",
+          "update",
+          "release",
+          "changelog"
+        ]
+      }
     },
     "chrome": {
       "title": "Settings",
@@ -316,11 +419,26 @@
       "prefsFooter": "Disabled types won't trigger automatic syncs when changed. Individual objects can also be excluded via their edit panel.",
       "quickToggleLabel": "Sync {{label}}",
       "objectType": {
-        "connection": { "label": "Hosts", "sub": "SSH connections" },
-        "identity": { "label": "Identities", "sub": "Usernames and credentials" },
-        "key": { "label": "SSH Keys", "sub": "Key pairs stored in keychain" },
-        "folder": { "label": "Folders", "sub": "Folder structure for organizing objects" },
-        "port-forwarding-rule": { "label": "Port Forwarding", "sub": "Saved tunnel rules" }
+        "connection": {
+          "label": "Hosts",
+          "sub": "SSH connections"
+        },
+        "identity": {
+          "label": "Identities",
+          "sub": "Usernames and credentials"
+        },
+        "key": {
+          "label": "SSH Keys",
+          "sub": "Key pairs stored in keychain"
+        },
+        "folder": {
+          "label": "Folders",
+          "sub": "Folder structure for organizing objects"
+        },
+        "port-forwarding-rule": {
+          "label": "Port Forwarding",
+          "sub": "Saved tunnel rules"
+        }
       }
     },
     "vaults": {
@@ -432,23 +550,74 @@
           "terminalSessions": "Terminal Sessions"
         },
         "perm": {
-          "VIEW_SECRETS":           { "label": "View secrets",          "desc": "See passwords and private keys in plain text" },
-          "COPY_SECRETS":           { "label": "Copy secrets",          "desc": "Copy passwords and keys to clipboard" },
-          "CONNECT":                { "label": "Connect",               "desc": "Launch SSH connections" },
-          "EDIT_CONNECTIONS":       { "label": "Edit connections",      "desc": "Create, modify, and delete connections" },
-          "EDIT_IDENTITIES":        { "label": "Edit identities",       "desc": "Create, modify, and delete SSH identities" },
-          "EDIT_KEYS":              { "label": "Edit keys",             "desc": "Create, modify, and delete SSH keys" },
-          "EDIT_SNIPPETS":          { "label": "Edit snippets",         "desc": "Create, modify, and delete command snippets" },
-          "EDIT_FOLDERS":           { "label": "Edit folders",          "desc": "Manage folder structure" },
-          "VIEW_AUDIT_LOG":         { "label": "View audit log",        "desc": "Read the activity audit log" },
-          "INVITE_MEMBERS":         { "label": "Invite members",        "desc": "Invite new members to the vault" },
-          "MANAGE_MEMBERS":         { "label": "Manage members",        "desc": "Assign roles and remove members" },
-          "CREATE_CUSTOM_ROLES":    { "label": "Manage roles (legacy)", "desc": "Retired permission — kept for compatibility" },
-          "MANAGE_ROLES":           { "label": "Manage roles",          "desc": "Create, edit, and delete roles" },
-          "MANAGE_VAULT":           { "label": "Manage vault",          "desc": "Rename vault and manage vault settings" },
-          "START_TERMINAL_SESSION": { "label": "Start sessions",        "desc": "Start multiplayer terminal sessions" },
-          "JOIN_TERMINAL_SESSION":  { "label": "Join sessions",         "desc": "Join existing terminal sessions" },
-          "VIEW_TERMINAL_SESSIONS": { "label": "View sessions",         "desc": "See active terminal sessions" }
+          "VIEW_SECRETS": {
+            "label": "View secrets",
+            "desc": "See passwords and private keys in plain text"
+          },
+          "COPY_SECRETS": {
+            "label": "Copy secrets",
+            "desc": "Copy passwords and keys to clipboard"
+          },
+          "CONNECT": {
+            "label": "Connect",
+            "desc": "Launch SSH connections"
+          },
+          "EDIT_CONNECTIONS": {
+            "label": "Edit connections",
+            "desc": "Create, modify, and delete connections"
+          },
+          "EDIT_IDENTITIES": {
+            "label": "Edit identities",
+            "desc": "Create, modify, and delete SSH identities"
+          },
+          "EDIT_KEYS": {
+            "label": "Edit keys",
+            "desc": "Create, modify, and delete SSH keys"
+          },
+          "EDIT_SNIPPETS": {
+            "label": "Edit snippets",
+            "desc": "Create, modify, and delete command snippets"
+          },
+          "EDIT_FOLDERS": {
+            "label": "Edit folders",
+            "desc": "Manage folder structure"
+          },
+          "VIEW_AUDIT_LOG": {
+            "label": "View audit log",
+            "desc": "Read the activity audit log"
+          },
+          "INVITE_MEMBERS": {
+            "label": "Invite members",
+            "desc": "Invite new members to the vault"
+          },
+          "MANAGE_MEMBERS": {
+            "label": "Manage members",
+            "desc": "Assign roles and remove members"
+          },
+          "CREATE_CUSTOM_ROLES": {
+            "label": "Manage roles (legacy)",
+            "desc": "Retired permission — kept for compatibility"
+          },
+          "MANAGE_ROLES": {
+            "label": "Manage roles",
+            "desc": "Create, edit, and delete roles"
+          },
+          "MANAGE_VAULT": {
+            "label": "Manage vault",
+            "desc": "Rename vault and manage vault settings"
+          },
+          "START_TERMINAL_SESSION": {
+            "label": "Start sessions",
+            "desc": "Start multiplayer terminal sessions"
+          },
+          "JOIN_TERMINAL_SESSION": {
+            "label": "Join sessions",
+            "desc": "Join existing terminal sessions"
+          },
+          "VIEW_TERMINAL_SESSIONS": {
+            "label": "View sessions",
+            "desc": "See active terminal sessions"
+          }
         },
         "builtinBadge": "Built-in",
         "dragToReorder": "Drag to reorder",
@@ -483,7 +652,9 @@
       "categoryLabel": "Plugin",
       "tabs": {
         "installed": "Installed ({{count}})",
-        "browse": "Browse"
+        "browse": "Browse",
+        "updateCount_one": "• {{count}} update",
+        "updateCount_other": "• {{count}} updates"
       },
       "installed": {
         "filterPlaceholder": "Filter plugins…",
@@ -500,7 +671,10 @@
         "sourceLocal": "Local",
         "sourceUrl": "URL",
         "sourceInstalled": "Installed",
-        "unverified": "Unverified"
+        "unverified": "Unverified",
+        "update": "Update",
+        "updating": "Updating…",
+        "updateTitle": "Update to v{{version}}"
       },
       "browse": {
         "searchPlaceholder": "Search plugins…",
@@ -517,11 +691,22 @@
         "removing": "Removing…",
         "uninstall": "Uninstall",
         "installing": "Installing…",
-        "install": "Install"
+        "install": "Install",
+        "updateBadge": "update available"
       },
       "install": {
         "integrityFailed": "Plugin bundle failed its integrity check — install blocked.",
         "failed": "Failed to install plugin."
+      },
+      "permissionModal": {
+        "installTitle": "Install {{name}}?",
+        "installBody": "This plugin runs with the app's full privileges. It requests these permissions:",
+        "updateTitle": "Update {{name}}?",
+        "updateBody": "This update requests new permissions. Review them before continuing:",
+        "newPermissions": "New permissions",
+        "noPermissions": "This plugin requests no special permissions.",
+        "installConfirm": "Install",
+        "updateConfirm": "Update"
       }
     },
     "sftp": {
@@ -590,10 +775,22 @@
         "desc": "How quickly a session is declared lost when the server stops responding. {{detail}}. Can be overridden per host."
       },
       "keepalivePresets": {
-        "fast": { "label": "Fast", "detail": "Detects a dropped connection in ~4s" },
-        "balanced": { "label": "Balanced", "detail": "~9s; tolerates a brief network blip" },
-        "tolerant": { "label": "Tolerant", "detail": "~20s; for flaky networks" },
-        "off": { "label": "Off", "detail": "No keepalive probes" }
+        "fast": {
+          "label": "Fast",
+          "detail": "Detects a dropped connection in ~4s"
+        },
+        "balanced": {
+          "label": "Balanced",
+          "detail": "~9s; tolerates a brief network blip"
+        },
+        "tolerant": {
+          "label": "Tolerant",
+          "detail": "~20s; for flaky networks"
+        },
+        "off": {
+          "label": "Off",
+          "detail": "No keepalive probes"
+        }
       },
       "persistentSessions": {
         "title": "Persistent sessions",
@@ -611,26 +808,58 @@
       }
     },
     "toggleDefs": {
-      "scrollMinimap": { "label": "Scroll Minimap" },
-      "selectToCopy": { "label": "Select to Copy" },
-      "ignoreBracketedPaste": { "label": "Plain Paste (No Bracketed Paste)" },
-      "autoForward": { "label": "Automatic Port Forwarding" },
-      "forwardingNotifications": { "label": "Port Forwarding Notifications" },
-      "sftpTar": { "label": "SFTP Tar Acceleration" },
-      "sftpAutoRefresh": { "label": "SFTP Auto-Refresh" },
-      "reachability": { "label": "Reachability Check" },
-      "teamPresence": { "label": "Team Presence" },
-      "shellIntegration": { "label": "Shell Integration" },
-      "persistentSessions": { "label": "Persistent Sessions" },
-      "restoreWorkspace": { "label": "Restore Workspace on Launch" },
-      "crossDeviceSessions": { "label": "Cross-Device Sessions" },
-      "changelogPopup": { "label": "Show What's New After Updates" },
+      "scrollMinimap": {
+        "label": "Scroll Minimap"
+      },
+      "selectToCopy": {
+        "label": "Select to Copy"
+      },
+      "ignoreBracketedPaste": {
+        "label": "Plain Paste (No Bracketed Paste)"
+      },
+      "autoForward": {
+        "label": "Automatic Port Forwarding"
+      },
+      "forwardingNotifications": {
+        "label": "Port Forwarding Notifications"
+      },
+      "sftpTar": {
+        "label": "SFTP Tar Acceleration"
+      },
+      "sftpAutoRefresh": {
+        "label": "SFTP Auto-Refresh"
+      },
+      "reachability": {
+        "label": "Reachability Check"
+      },
+      "teamPresence": {
+        "label": "Team Presence"
+      },
+      "shellIntegration": {
+        "label": "Shell Integration"
+      },
+      "persistentSessions": {
+        "label": "Persistent Sessions"
+      },
+      "restoreWorkspace": {
+        "label": "Restore Workspace on Launch"
+      },
+      "crossDeviceSessions": {
+        "label": "Cross-Device Sessions"
+      },
+      "changelogPopup": {
+        "label": "Show What's New After Updates"
+      },
       "category": {
         "appearance": "Appearance",
         "portForwarding": "Port Forwarding",
         "sftp": "SFTP",
         "hosts": "Hosts",
-        "updates": "Updates"
+        "updates": "Updates",
+        "plugins": "Plugins"
+      },
+      "pluginInstallReview": {
+        "label": "Review permissions before installing plugins"
       }
     },
     "shortcuts": {
@@ -656,22 +885,70 @@
         "other": "Other"
       },
       "items": {
-        "omni":           { "label": "Omni Search",      "desc": "Access everything from one place" },
-        "shortcuts":      { "label": "Keyboard Shortcuts", "desc": "Open shortcut settings" },
-        "themes":         { "label": "Settings",         "desc": "Open settings" },
-        "newTab":         { "label": "New Tab",          "desc": "Go to hosts view" },
-        "closeTab":       { "label": "Close Tab",        "desc": "Close active session" },
-        "nextTab":        { "label": "Next Tab",         "desc": "Switch to next tab" },
-        "prevTab":        { "label": "Previous Tab",     "desc": "Switch to prev tab" },
-        "sidebar":        { "label": "Toggle Sidebar",   "desc": "Show/hide sidebar" },
-        "delete":         { "label": "Delete Selected",  "desc": "Delete selected items" },
-        "undo":           { "label": "Undo",             "desc": "Undo last action" },
-        "redo":           { "label": "Redo",             "desc": "Redo last undone action" },
-        "filter":         { "label": "Focus Filter",     "desc": "Focus the search filter" },
-        "terminalSearch": { "label": "Find in Terminal", "desc": "Search the terminal scrollback" },
-        "history":        { "label": "History Panel",    "desc": "Open command history in right panel" },
-        "snippets":       { "label": "Snippets Panel",   "desc": "Open snippets in right panel" },
-        "panelThemes":    { "label": "Themes Panel",     "desc": "Open themes in right panel" }
+        "omni": {
+          "label": "Omni Search",
+          "desc": "Access everything from one place"
+        },
+        "shortcuts": {
+          "label": "Keyboard Shortcuts",
+          "desc": "Open shortcut settings"
+        },
+        "themes": {
+          "label": "Settings",
+          "desc": "Open settings"
+        },
+        "newTab": {
+          "label": "New Tab",
+          "desc": "Go to hosts view"
+        },
+        "closeTab": {
+          "label": "Close Tab",
+          "desc": "Close active session"
+        },
+        "nextTab": {
+          "label": "Next Tab",
+          "desc": "Switch to next tab"
+        },
+        "prevTab": {
+          "label": "Previous Tab",
+          "desc": "Switch to prev tab"
+        },
+        "sidebar": {
+          "label": "Toggle Sidebar",
+          "desc": "Show/hide sidebar"
+        },
+        "delete": {
+          "label": "Delete Selected",
+          "desc": "Delete selected items"
+        },
+        "undo": {
+          "label": "Undo",
+          "desc": "Undo last action"
+        },
+        "redo": {
+          "label": "Redo",
+          "desc": "Redo last undone action"
+        },
+        "filter": {
+          "label": "Focus Filter",
+          "desc": "Focus the search filter"
+        },
+        "terminalSearch": {
+          "label": "Find in Terminal",
+          "desc": "Search the terminal scrollback"
+        },
+        "history": {
+          "label": "History Panel",
+          "desc": "Open command history in right panel"
+        },
+        "snippets": {
+          "label": "Snippets Panel",
+          "desc": "Open snippets in right panel"
+        },
+        "panelThemes": {
+          "label": "Themes Panel",
+          "desc": "Open themes in right panel"
+        }
       }
     }
   }

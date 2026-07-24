@@ -122,6 +122,13 @@ export const TOGGLE_DEFS = {
     keywords: ["changelog", "popup", "release", "notes", "whats new", "update", "version"],
     default: true,
   },
+  "plugin-install-review": {
+    labelKey: "settings.toggleDefs.pluginInstallReview.label",
+    icon: "lucide:shield-check",
+    descriptionKey: "settings.toggleDefs.category.plugins",
+    keywords: ["plugin", "permission", "install", "review", "consent", "disclosure", "security"],
+    default: true,
+  },
 } as const satisfies Record<string, ToggleDef>;
 
 export type ToggleId = keyof typeof TOGGLE_DEFS;
