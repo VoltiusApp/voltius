@@ -8,10 +8,10 @@ export interface StatusBarContributionNode {
   node: ReactNode;
 }
 
-/** Returns React nodes contributed by plugins to a terminal status bar slot. */
+/** Returns React nodes contributed by plugins to a status bar slot (terminal or titlebar). */
 export function useStatusBarContributions(
   slot: UIStatusBarSlot,
-  ctx: TerminalStatusBarContributionContext,
+  ctx?: TerminalStatusBarContributionContext,
 ): StatusBarContributionNode[] {
   const contributions = useUIContributionStore((s) => s.statusBarContributions);
   return useMemo(() => {
@@ -20,7 +20,7 @@ export function useStatusBarContributions(
     for (const [key, fn] of contributions) {
       if (!key.endsWith(suffix)) continue;
       try {
-        const node = fn(ctx);
+        const node = fn(ctx ?? ({} as TerminalStatusBarContributionContext));
         if (node !== null && node !== undefined && node !== false) result.push({ key, node });
       } catch {
         continue;

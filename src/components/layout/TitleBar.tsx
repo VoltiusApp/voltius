@@ -23,6 +23,7 @@ import { findLeaf, firstLeaf, getPaneSessionIds, useLayoutStore } from "@/stores
 import { shouldSuppressDragClick } from "@/components/panes/usePaneDragController";
 import { mergeTitlebarItems } from "@/utils/titlebarOrder";
 import { useAllConnections } from "@/hooks/useAllConnections";
+import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
 
 const appWindow = getCurrentWindow();
 
@@ -55,6 +56,7 @@ export default function TitleBar() {
   const draggedSessionId = useDragStore((s) => s.sessionId);
   const dropTarget = useDragStore((s) => s.dropTarget);
   const titlebarDropActive = isDraggingPane && dropTarget?.type === "titlebar";
+  const titleBarItems = useStatusBarContributions("titlebar.right");
 
   usePfToastBridge();
 
@@ -548,6 +550,10 @@ export default function TitleBar() {
           </button>
         </div>
       )}
+
+      {titleBarItems.map(({ key, node }) => (
+        <span key={key} className="flex items-center shrink-0">{node}</span>
+      ))}
 
       <NotificationBell />
 

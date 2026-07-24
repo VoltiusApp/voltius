@@ -174,7 +174,7 @@ export type UISlot =
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type UIContributionFactory = (ctx: any) => ContributedAction[];
 
-export type UIStatusBarSlot = "terminal.statusBar.right";
+export type UIStatusBarSlot = "terminal.statusBar.right" | "titlebar.right";
 
 export interface TerminalStatusBarContributionContext {
   sessionId: string;
