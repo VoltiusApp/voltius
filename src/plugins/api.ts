@@ -267,6 +267,8 @@ export interface PluginAPI {
   http: {
     get<T>(url: string, opts?: RequestInit): Promise<T>;
     post<T>(url: string, body: unknown, opts?: RequestInit): Promise<T>;
+    /** Streaming request. Returns a Response with a ReadableStream body (for SSE/LLM streaming). */
+    stream(url: string, init?: RequestInit): Promise<Response>;
   };
 
   // Filesystem restricted to home (requires "fs")

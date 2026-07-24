@@ -26,6 +26,7 @@ import * as keyService from "@/services/keys";
 import * as identityService from "@/services/identities";
 import { storePluginSecret, getPluginSecret, deletePluginSecret, storeSecret, deleteSecret } from "@/services/vault";
 import { appFetch } from "@/services/http";
+import { sseFetch } from "@/services/sseFetch";
 import type {
   PluginAPI,
   PluginManifest,
@@ -578,6 +579,10 @@ function createPluginAPI(manifest: PluginManifest, trusted: boolean): PluginAPI 
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${url}`);
         return res.json() as Promise<T>;
+      },
+      async stream(url, init) {
+        requirePerm(manifest, "http");
+        return sseFetch(url, init);
       },
     },
 
