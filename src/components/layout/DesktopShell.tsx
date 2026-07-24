@@ -15,6 +15,7 @@ export default function DesktopShell() {
   const homeView = useUIStore((s) => s.homeView);
   const activeNav = useUIStore((s) => s.activeNav);
   const sftpPanelOpen = useUIStore((s) => s.sftpPanelOpen);
+  const dockedPanelWidth = useUIStore((s) => s.dockedPanelWidth);
   const inVault = !homeView;
   const inTerminal = activeNav === "terminal";
   const showVaultChrome = inVault && !inTerminal && !sftpPanelOpen;
@@ -25,10 +26,11 @@ export default function DesktopShell() {
     <>
       <TitleBar />
       <EmailVerificationBanner />
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden" data-shell-body>
         {showFrame && <VaultSidebar />}
         <div
           className={`flex flex-col flex-1 overflow-hidden bg-(--t-bg-terminal) relative z-10 ${showFrame ? "chrome-slab" : ""}`}
+          style={{ paddingRight: dockedPanelWidth || undefined }}
         >
           {showVaultChrome && (
             <div className="shrink-0 relative z-10" style={{ background: "var(--t-bg-chrome)" }}>

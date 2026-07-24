@@ -70,11 +70,49 @@ function usePinnedWidth() {
   return { pinned, width, setPinned };
 }
 
+/**
+ * Measures the top edge of `[data-shell-body]` (the row below TitleBar +
+ * any EmailVerificationBanner) so a docked drawer can sit below the
+ * titlebar instead of covering it. Falls back to 0 if the node isn't
+ * found. Re-measures on window resize and whenever the shell body's own
+ * size changes (a ResizeObserver on it catches the banner appearing or
+ * disappearing, which resizes the flex-1 row).
+ */
+function useDockTop(active: boolean): number {
+  const [top, setTop] = useState(0);
+
+  useEffect(() => {
+    if (!active) {
+      setTop(0);
+      return;
+    }
+    const measure = () => {
+      const el = document.querySelector<HTMLElement>("[data-shell-body]");
+      setTop(el ? el.getBoundingClientRect().top : 0);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    const el = document.querySelector<HTMLElement>("[data-shell-body]");
+    let observer: ResizeObserver | undefined;
+    if (el && typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(measure);
+      observer.observe(el);
+    }
+    return () => {
+      window.removeEventListener("resize", measure);
+      observer?.disconnect();
+    };
+  }, [active]);
+
+  return top;
+}
+
 export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const runStatus = useAgentStore((s) => s.runStatus);
   const [hasProfile, refreshHasProfile] = useHasProfile(open);
   const { pinned, width, setPinned } = usePinnedWidth();
   const setDockedPanelWidth = useUIStore((s) => s.setDockedPanelWidth);
+  const dockTop = useDockTop(open && pinned);
 
   useEffect(() => {
     if (!open) return;
@@ -107,7 +145,7 @@ export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void
       aria-label="AI Agent"
       style={{
         position: "fixed",
-        top: 0,
+        top: pinned ? dockTop : 0,
         right: 0,
         bottom: 0,
         width,
