@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
-import { buildTools, type AgentContext } from "./registry";
+import { buildTools, type AgentContext, type AgentTool } from "./registry";
 
 vi.mock("./capture", () => ({
   captureCommand: vi.fn(async () => ({ output: "ok", exitCode: 0, timedOut: false, truncated: false })),
@@ -15,7 +15,15 @@ function ctx(over: Partial<AgentContext> = {}): { ctx: AgentContext; approve: an
   } as any;
   return { ctx: { api, approve, ...over }, approve };
 }
-const tool = (ctx: AgentContext, name: string) => buildTools(ctx).find((t) => t.name === name)!;
+const toolsFor = new WeakMap<AgentContext, AgentTool[]>();
+const tool = (c: AgentContext, name: string) => {
+  let ts = toolsFor.get(c);
+  if (!ts) {
+    ts = buildTools(c);
+    toolsFor.set(c, ts);
+  }
+  return ts.find((t) => t.name === name)!;
+};
 beforeEach(() => vi.clearAllMocks());
 
 describe("tool registry", () => {
@@ -60,6 +68,26 @@ describe("tool registry", () => {
     expect(res.error).toMatch(/rejected/i);
     expect(res.reason).toBe("no");
     expect(c.api.sessions.open).not.toHaveBeenCalled();
+  });
+
+  test("a rejected approval on run_command returns an error result and does not execute", async () => {
+    const { ctx: c, approve } = ctx();
+    await tool(c, "open_session").execute({ connectionId: "c1" }); // own sess-1 first
+    approve.mockImplementation(async () => ({ approve: false, reason: "no" }));
+    const res: any = await tool(c, "run_command").execute({ sessionId: "sess-1", command: "rm -rf /" });
+    expect(res.error).toMatch(/rejected/i);
+    expect(res.reason).toBe("no");
+    expect(captureCommand).not.toHaveBeenCalled();
+  });
+
+  test("a rejected approval on close_session returns an error result and does not execute", async () => {
+    const { ctx: c, approve } = ctx();
+    await tool(c, "open_session").execute({ connectionId: "c1" }); // own sess-1 first
+    approve.mockImplementation(async () => ({ approve: false, reason: "no" }));
+    const res: any = await tool(c, "close_session").execute({ sessionId: "sess-1" });
+    expect(res.error).toMatch(/rejected/i);
+    expect(res.reason).toBe("no");
+    expect(c.api.sessions.close).not.toHaveBeenCalled();
   });
 
   test("approve-with-edited-args runs the edited command", async () => {

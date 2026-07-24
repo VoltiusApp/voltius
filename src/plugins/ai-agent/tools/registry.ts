@@ -16,22 +16,9 @@ export interface AgentTool {
   execute(args: Record<string, unknown>): Promise<unknown>;
 }
 
-// Owned-session sets are keyed by AgentContext identity so repeated
-// buildTools(ctx) calls for the same context share ownership state.
-const ownedByContext = new WeakMap<AgentContext, Set<string>>();
-
-function ownedSessionsFor(ctx: AgentContext): Set<string> {
-  let owned = ownedByContext.get(ctx);
-  if (!owned) {
-    owned = new Set<string>();
-    ownedByContext.set(ctx, owned);
-  }
-  return owned;
-}
-
 /** Build the v1 Terminal Doctor tool set bound to one agent context. */
 export function buildTools(ctx: AgentContext): AgentTool[] {
-  const owned = ownedSessionsFor(ctx);
+  const owned = new Set<string>();
 
   /** Run the approval port for a prompt-risk tool; returns final args or a rejection. */
   const gate = async (
