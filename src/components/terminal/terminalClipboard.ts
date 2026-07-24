@@ -88,6 +88,10 @@ export function attachTerminalClipboard(
   };
 
   const handleMouseUp = (e: MouseEvent) => {
+    // Copy-on-select is opt-out: when the "Select to Copy" toggle is off, a
+    // selection must NOT touch the clipboard (#50). Explicit Ctrl+Shift+C still
+    // copies regardless.
+    if (!getToggle("select-to-copy")) return;
     setTimeout(() => {
       const sel = term.getSelection();
       if (sel) {
