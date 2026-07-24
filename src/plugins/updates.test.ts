@@ -86,13 +86,29 @@ test("availableUpdate: no matching catalog entry -> null", () => {
   expect(availableUpdate(meta({ id: "p" }), [plugin({ id: "other", version: "9.0.0" })])).toBeNull();
 });
 
-test("availableUpdate: prefers the entry matching sourceId", () => {
+test("availableUpdate: matches the entry with the same sourceId, ignoring others", () => {
   const got = availableUpdate(meta({ sourceId: "voltius", version: "1.0.0" }), [
     plugin({ sourceId: "other", version: "5.0.0" }),
     plugin({ sourceId: "voltius", version: "1.1.0" }),
   ]);
   expect(got?.sourceId).toBe("voltius");
   expect(got?.version).toBe("1.1.0");
+});
+
+test("availableUpdate: a local plugin is never updated from an id-colliding catalog entry", () => {
+  const got = availableUpdate(
+    meta({ id: "p", sourceId: "local", version: "1.0.0", hash: null }),
+    [plugin({ id: "p", sourceId: "voltius", version: "9.0.0" })],
+  );
+  expect(got).toBeNull();
+});
+
+test("availableUpdate: no entry from the installed source -> null (no cross-source fallback)", () => {
+  const got = availableUpdate(
+    meta({ sourceId: "voltius", version: "1.0.0" }),
+    [plugin({ sourceId: "other", version: "9.0.0" })],
+  );
+  expect(got).toBeNull();
 });
 
 // ─── addedPermissions ──────────────────────────────────────────────────────

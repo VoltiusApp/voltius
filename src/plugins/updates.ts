@@ -32,9 +32,11 @@ export function availableUpdate(
   meta: InstalledPluginMeta,
   catalog: MarketplacePlugin[],
 ): MarketplacePlugin | null {
-  const candidates = catalog.filter((p) => p.id === meta.id);
-  if (candidates.length === 0) return null;
-  const entry = candidates.find((p) => p.sourceId === meta.sourceId) ?? candidates[0];
+  // Require an exact source match: never treat an arbitrary catalog entry that merely shares an id
+  // as an update for a plugin installed from a different (or "local"/"url") source — updating from
+  // it would overwrite the installed bundle from an unrelated repo.
+  const entry = catalog.find((p) => p.id === meta.id && p.sourceId === meta.sourceId);
+  if (!entry) return null;
 
   if (compareSemver(entry.version, meta.version) > 0) return entry;
   if (meta.hash && entry.hash && entry.hash.toLowerCase() !== meta.hash.toLowerCase()) return entry;

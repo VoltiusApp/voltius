@@ -155,6 +155,8 @@ interface PendingReview {
   plugin: MarketplacePlugin;
   permissions: string[];
   addedPermissions: string[];
+  /** The exact reviewed manifest text, passed to installPlugin so the loaded perms == consented. */
+  manifestText: string;
 }
 
 /**
@@ -186,8 +188,8 @@ function usePluginInstaller() {
     });
   };
 
-  const runInstall = async (plugin: MarketplacePlugin) => {
-    try { await installPlugin(plugin); } catch (e) { notifyError(e); }
+  const runInstall = async (plugin: MarketplacePlugin, reviewedManifestText?: string) => {
+    try { await installPlugin(plugin, reviewedManifestText); } catch (e) { notifyError(e); }
   };
 
   const withPreparing = async (id: string, fn: () => Promise<void>) => {
@@ -201,8 +203,8 @@ function usePluginInstaller() {
     if (!getToggle("plugin-install-review")) { void runInstall(plugin); return; }
     void withPreparing(plugin.id, async () => {
       try {
-        const manifest = await fetchManifest(plugin);
-        setPending({ mode: "install", plugin, permissions: manifest.permissions ?? [], addedPermissions: [] });
+        const { manifest, manifestText } = await fetchManifest(plugin);
+        setPending({ mode: "install", plugin, permissions: manifest.permissions ?? [], addedPermissions: [], manifestText });
       } catch (e) { notifyError(e); }
     });
   };
@@ -210,20 +212,20 @@ function usePluginInstaller() {
   const startUpdate = (plugin: MarketplacePlugin, currentPermissions: string[]) => {
     void withPreparing(plugin.id, async () => {
       try {
-        const manifest = await fetchManifest(plugin);
+        const { manifest, manifestText } = await fetchManifest(plugin);
         const next = manifest.permissions ?? [];
         const added = addedPermissions(currentPermissions, next);
-        if (added.length === 0) { await runInstall(plugin); return; }
-        setPending({ mode: "update", plugin, permissions: next, addedPermissions: added });
+        if (added.length === 0) { await runInstall(plugin, manifestText); return; }
+        setPending({ mode: "update", plugin, permissions: next, addedPermissions: added, manifestText });
       } catch (e) { notifyError(e); }
     });
   };
 
   const confirm = () => {
     if (!pending) return;
-    const { plugin } = pending;
+    const { plugin, manifestText } = pending;
     setPending(null);
-    void runInstall(plugin);
+    void runInstall(plugin, manifestText);
   };
   const cancel = () => setPending(null);
 
@@ -507,7 +509,7 @@ function InstalledTab() {
                 </div>
                 {update && (
                   <button
-                    onClick={() => startUpdate(update, manifest?.permissions ?? [])}
+                    onClick={() => startUpdate(update, getLoadedPlugins().find((m) => m.id === meta.id)?.permissions ?? [])}
                     disabled={isUpdating}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
                     style={{ background: "var(--t-accent)", color: "var(--t-bg-base)", opacity: isUpdating ? 0.7 : 1 }}

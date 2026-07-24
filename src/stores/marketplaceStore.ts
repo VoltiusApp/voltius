@@ -90,8 +90,8 @@ interface MarketplaceState {
 
   // Install / uninstall
   installing: Set<string>;
-  fetchManifest: (plugin: MarketplacePlugin) => Promise<PluginManifest>;
-  installPlugin: (plugin: MarketplacePlugin) => Promise<void>;
+  fetchManifest: (plugin: MarketplacePlugin) => Promise<{ manifest: PluginManifest; manifestText: string }>;
+  installPlugin: (plugin: MarketplacePlugin, reviewedManifestText?: string) => Promise<void>;
   uninstallPlugin: (id: string) => Promise<void>;
   reloadPlugin: (id: string) => Promise<void>;
 
@@ -168,10 +168,10 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       ? plugin.repo
       : `https://github.com/${plugin.repo}/releases/latest/download`;
     const manifestText = await invoke<string>("plugin_fetch_url", { url: `${base}/manifest.json` });
-    return JSON.parse(manifestText) as PluginManifest;
+    return { manifest: JSON.parse(manifestText) as PluginManifest, manifestText };
   },
 
-  async installPlugin(plugin: MarketplacePlugin) {
+  async installPlugin(plugin: MarketplacePlugin, reviewedManifestText?: string) {
     const { installing, installedMeta } = get();
     if (installing.has(plugin.id)) return;
 
@@ -181,10 +181,17 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
         ? plugin.repo
         : `https://github.com/${plugin.repo}/releases/latest/download`;
 
-      const [manifestText, jsText] = await Promise.all([
-        invoke<string>("plugin_fetch_url", { url: `${base}/manifest.json` }),
+      // When the caller previewed the manifest for consent, reuse that exact text so the executed
+      // permission set is precisely the one shown — closing the fetch→consent→load TOCTOU
+      // (manifest.json is not hash-pinned; index.js still is). Only fetch the manifest fresh when
+      // no reviewed copy was supplied (e.g. the review-disclosure setting is off).
+      const [fetchedManifestText, jsText] = await Promise.all([
+        reviewedManifestText !== undefined
+          ? Promise.resolve(reviewedManifestText)
+          : invoke<string>("plugin_fetch_url", { url: `${base}/manifest.json` }),
         invoke<string>("plugin_fetch_url", { url: `${base}/index.js` }),
       ]);
+      const manifestText = fetchedManifestText;
 
       const manifest = JSON.parse(manifestText) as PluginManifest;
 

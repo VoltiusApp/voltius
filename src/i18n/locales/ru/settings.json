@@ -687,7 +687,8 @@
         "sourceInstalled": "Установлен",
         "update": "Обновить",
         "updating": "Обновление…",
-        "updateTitle": "Обновить до v{{version}}"
+        "updateTitle": "Обновить до v{{version}}",
+        "unverified": "Непроверено"
       },
       "browse": {
         "searchPlaceholder": "Поиск плагинов…",
@@ -716,6 +717,10 @@
         "noPermissions": "Этот плагин не запрашивает особых разрешений.",
         "installConfirm": "Установить",
         "updateConfirm": "Обновить"
+      },
+      "install": {
+        "integrityFailed": "Пакет плагина не прошёл проверку целостности — установка заблокирована.",
+        "failed": "Не удалось установить плагин."
       }
     },
     "sftp": {
