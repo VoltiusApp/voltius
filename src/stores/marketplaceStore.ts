@@ -90,6 +90,7 @@ interface MarketplaceState {
 
   // Install / uninstall
   installing: Set<string>;
+  fetchManifest: (plugin: MarketplacePlugin) => Promise<PluginManifest>;
   installPlugin: (plugin: MarketplacePlugin) => Promise<void>;
   uninstallPlugin: (id: string) => Promise<void>;
   reloadPlugin: (id: string) => Promise<void>;
@@ -159,6 +160,16 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
 
   // ── Install ───────────────────────────────────────────────────────────
   installing: new Set(),
+
+  // Fetch just the manifest (no side effects) to preview declared permissions before
+  // installing/updating. The executed index.js is still hash-verified in installPlugin.
+  async fetchManifest(plugin: MarketplacePlugin) {
+    const base = plugin.repo.startsWith("http")
+      ? plugin.repo
+      : `https://github.com/${plugin.repo}/releases/latest/download`;
+    const manifestText = await invoke<string>("plugin_fetch_url", { url: `${base}/manifest.json` });
+    return JSON.parse(manifestText) as PluginManifest;
+  },
 
   async installPlugin(plugin: MarketplacePlugin) {
     const { installing, installedMeta } = get();
