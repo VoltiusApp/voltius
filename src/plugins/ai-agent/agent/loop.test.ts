@@ -39,6 +39,7 @@ function ctx(): AgentContext {
       sessions: { open: vi.fn(async () => "s1"), close: vi.fn() },
       terminal: { readSnapshot: vi.fn(() => "") },
     } as any,
+    owned: new Set<string>(),
   };
 }
 

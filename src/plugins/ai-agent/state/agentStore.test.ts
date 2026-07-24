@@ -20,6 +20,15 @@ vi.mock("../provider/factory", () => ({
   createProvider: vi.fn(async () => mockModel.current),
 }));
 
+// Spied, not stubbed: wraps the real runAgent so the actual streamText loop
+// still drives the transcript (other tests depend on that), while letting us
+// assert on the ctx it was called with.
+vi.mock("../agent/loop", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../agent/loop")>();
+  return { ...actual, runAgent: vi.fn(actual.runAgent) };
+});
+import { runAgent } from "../agent/loop";
+
 function fakeApi(store: Record<string, unknown> = {}) {
   return {
     storage: {
@@ -276,6 +285,49 @@ describe("agentStore", () => {
 
     expect(useAgentStore.getState().runStatus).toBe("idle");
     expect(useAgentStore.getState().errorText).toBeNull();
+  });
+
+  it("hands runAgent the SAME owned-session Set across two turns, and initAgent resets it to a fresh one", async () => {
+    (runAgent as unknown as ReturnType<typeof vi.fn>).mockClear();
+    mockModel.current = new MockLanguageModelV4({
+      doStream: async () => ({
+        stream: simulateReadableStream({
+          chunks: [
+            { type: "text-start", id: "0" },
+            { type: "text-delta", id: "0", delta: "ok" },
+            { type: "text-end", id: "0" },
+            FINISH_CHUNK,
+          ],
+        }),
+      }),
+    });
+    const fakeDeps = {
+      api: fakeApi(),
+      profiles: {
+        list: async () => [{ id: "p1", providerKind: "anthropic", label: "A", model: "claude-x" }],
+        getActiveId: async () => "p1",
+        getKey: async () => "sk-test",
+      } as never,
+      controller: { approve: async () => ({ approve: true }) },
+    } as never;
+    _setDeps(fakeDeps);
+
+    await useAgentStore.getState().sendMessage("turn one");
+    await useAgentStore.getState().sendMessage("turn two");
+
+    const calls = (runAgent as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls).toHaveLength(2);
+    const firstOwned = (calls[0][0] as { ctx: { owned: Set<string> } }).ctx.owned;
+    const secondOwned = (calls[1][0] as { ctx: { owned: Set<string> } }).ctx.owned;
+    expect(secondOwned).toBe(firstOwned);
+
+    // A fresh activation must not carry over the previous conversation's set.
+    await initAgent(fakeApi());
+    _setDeps(fakeDeps);
+    await useAgentStore.getState().sendMessage("turn three, new conversation");
+    const thirdCalls = (runAgent as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    const thirdOwned = (thirdCalls[thirdCalls.length - 1][0] as { ctx: { owned: Set<string> } }).ctx.owned;
+    expect(thirdOwned).not.toBe(firstOwned);
   });
 });
 

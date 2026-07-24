@@ -6,6 +6,7 @@ import { captureCommand } from "./capture";
 export interface AgentContext {
   api: PluginAPI;
   approve(call: { tool: string; args: Record<string, unknown> }): Promise<ToolDecision>;
+  owned: Set<string>;
 }
 
 export interface AgentTool {
@@ -18,8 +19,6 @@ export interface AgentTool {
 
 /** Build the v1 Terminal Doctor tool set bound to one agent context. */
 export function buildTools(ctx: AgentContext): AgentTool[] {
-  const owned = new Set<string>();
-
   /** Run the approval port for a prompt-risk tool; returns final args or a rejection. */
   const gate = async (
     tool: string,
@@ -51,7 +50,7 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
         if (!g.ok) return g.result;
         const connectionId = String(g.args.connectionId);
         const sessionId = await ctx.api.sessions.open(connectionId);
-        owned.add(sessionId);
+        ctx.owned.add(sessionId);
         return { sessionId };
       },
     },
@@ -62,14 +61,14 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
       risk: "prompt",
       schema: z.object({ sessionId: z.string(), command: z.string() }),
       execute: async (raw) => {
-        if (!owned.has(String(raw.sessionId))) {
+        if (!ctx.owned.has(String(raw.sessionId))) {
           return { error: "session not owned by agent; call open_session first" };
         }
         const g = await gate("run_command", raw);
         if (!g.ok) return g.result;
         const sessionId = String(g.args.sessionId);
         const command = String(g.args.command);
-        if (!owned.has(sessionId)) return { error: "session not owned by agent; call open_session first" };
+        if (!ctx.owned.has(sessionId)) return { error: "session not owned by agent; call open_session first" };
         return captureCommand(ctx.api, sessionId, command, {});
       },
     },
@@ -90,7 +89,7 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
         if (!g.ok) return g.result;
         const sessionId = String(g.args.sessionId);
         await ctx.api.sessions.close(sessionId);
-        owned.delete(sessionId);
+        ctx.owned.delete(sessionId);
         return { closed: sessionId };
       },
     },

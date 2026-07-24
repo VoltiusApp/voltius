@@ -13,7 +13,7 @@ function ctx(over: Partial<AgentContext> = {}): { ctx: AgentContext; approve: an
     sessions: { open: vi.fn(async () => "sess-1"), close: vi.fn(async () => {}) },
     terminal: { readSnapshot: vi.fn(() => "last lines") },
   } as any;
-  return { ctx: { api, approve, ...over }, approve };
+  return { ctx: { api, approve, owned: new Set<string>(), ...over }, approve };
 }
 const toolsFor = new WeakMap<AgentContext, AgentTool[]>();
 const tool = (c: AgentContext, name: string) => {
@@ -105,6 +105,20 @@ describe("tool registry", () => {
     const res: any = await tool(c, "run_command").execute({ sessionId: "sess-1", command: "ls" });
     expect(res.error).toMatch(/not owned|open_session/i);
     expect(captureCommand).not.toHaveBeenCalled();
+  });
+
+  test("a session owned via one buildTools() call stays owned by a second, separately built tool set sharing ctx.owned (conversation lifetime across turns)", async () => {
+    const { ctx: c } = ctx();
+    const turn1 = buildTools(c);
+    const openSession = turn1.find((t) => t.name === "open_session")!;
+    const opened: any = await openSession.execute({ connectionId: "c1" });
+    expect(opened.sessionId).toBe("sess-1");
+
+    const turn2 = buildTools(c);
+    const runCommand = turn2.find((t) => t.name === "run_command")!;
+    const res: any = await runCommand.execute({ sessionId: "sess-1", command: "ls" });
+    expect(res.exitCode).toBe(0);
+    expect(captureCommand).toHaveBeenCalled();
   });
 
   test("close_session prompts, closes, and un-owns", async () => {

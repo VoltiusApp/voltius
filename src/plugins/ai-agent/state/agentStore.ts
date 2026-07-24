@@ -73,6 +73,9 @@ interface AgentState {
 const MODE_ORDER: Mode[] = ["plan", "ask", "auto"];
 
 let abortController: AbortController | null = null;
+let ownedSessions = new Set<string>();
+/** Test seam: reset the conversation-lifetime owned-session registry. */
+export const _resetOwnedSessions = () => { ownedSessions = new Set(); };
 
 export const useAgentStore = create<AgentState>((set, get) => ({
   mode: "ask",
@@ -134,7 +137,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       runController = abortController;
       const result = runAgent({
         model,
-        ctx: { api: d.api, approve: d.controller.approve },
+        ctx: { api: d.api, approve: d.controller.approve, owned: ownedSessions },
         messages: get().messages,
         abortSignal: abortController.signal,
       });
@@ -181,6 +184,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 }));
 
 export async function initAgent(api: PluginAPI): Promise<void> {
+  ownedSessions = new Set();
   const profiles = createProfilesStore(api);
   const controller = createApprovalController({
     getMode: () => useAgentStore.getState().mode,
