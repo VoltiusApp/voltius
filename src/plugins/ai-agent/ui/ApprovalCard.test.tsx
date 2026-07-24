@@ -11,7 +11,14 @@ vi.mock("@iconify/react", () => ({
   Icon: ({ icon }: { icon: string }) => <span data-icon={icon} />,
 }));
 
-const pending = { id: "a1", tool: "run_command", args: { command: "apt update" }, host: "web-01", allowlistKey: "apt", resolve: vi.fn() };
+const pending = {
+  id: "a1",
+  tool: "run_command",
+  args: { command: "apt update" },
+  host: "web-01",
+  grants: [{ host: "web-01", tool: "run_command", grain: "exact" as const, key: "apt update" }],
+  resolve: vi.fn(),
+};
 
 afterEach(cleanup);
 
@@ -26,7 +33,7 @@ describe("ApprovalCard", () => {
   it("Always adds an allowlist entry then approves", () => {
     render(<ApprovalCard pending={pending} />);
     fireEvent.click(screen.getByText(/Always allow/));
-    expect(useAgentStore.getState().hasAllowlist({ host: "web-01", key: "apt" })).toBe(true);
+    expect(useAgentStore.getState().hasAllowlist(pending.grants[0])).toBe(true);
     expect(pending.resolve).toHaveBeenCalledWith({ approve: true });
   });
   it("omits the Always allow button for a command containing a shell metacharacter", () => {
@@ -35,7 +42,10 @@ describe("ApprovalCard", () => {
       tool: "run_command",
       args: { command: "df -h | grep x" },
       host: "web-01",
-      allowlistKey: "df",
+      // The gate never offers a grant for a command carrying a shell
+      // metacharacter — see allowlistCandidates — so a faithful fixture for
+      // this call has no grants at all.
+      grants: [],
       resolve: vi.fn(),
     };
     useAgentStore.setState({ pendingApprovals: [pipedPending], allowlist: [] });
@@ -57,7 +67,9 @@ describe("ApprovalCard", () => {
       tool: "run_command",
       args: { command: "apt update" },
       host: UNKNOWN_HOST,
-      allowlistKey: "apt",
+      // The gate offers no grants when the host is unresolved — see
+      // approvalController.approve's `host === null` short-circuit.
+      grants: [],
       resolve: vi.fn(),
     };
     useAgentStore.setState({ pendingApprovals: [unknownHostPending], allowlist: [] });

@@ -4,21 +4,23 @@ import type { PluginAPI } from "@/plugins/api";
 import type { ToolDecision } from "../types";
 import { createProfilesStore, type ProfilesStore } from "../provider/profilesStore";
 import { createApprovalController } from "./approvalController";
-import { deriveHost, allowlistKey, isAllowlistable, hasShellMetacharacter } from "./hostDerivation";
+import { deriveHost } from "./hostDerivation";
+import { allowlistCandidates, entriesEqual, isWellFormedEntry, type AllowlistEntry } from "./allowlist";
 import { runAgent } from "../agent/loop";
 import { createProvider } from "../provider/factory";
 import { makeStreamFetch } from "../provider/fetchAdapter";
 import { consumeStream } from "./conversation";
 
 export type Mode = "plan" | "ask" | "auto";
-export interface AllowlistEntry { host: string; key: string }
+export type { AllowlistEntry } from "./allowlist";
 
 export interface PendingApproval {
   id: string;
   tool: string;
   args: Record<string, unknown>;
   host: string;
-  allowlistKey: string;
+  /** Every grant the card may offer for this call; `[]` hides the control. */
+  grants: AllowlistEntry[];
   resolve: (d: ToolDecision) => void;
 }
 
@@ -64,6 +66,7 @@ interface AgentState {
   cycleMode(): void;
   addAllowlist(e: AllowlistEntry): void;
   revokeAllowlist(e: AllowlistEntry): void;
+  revokeAllAllowlist(): void;
   hasAllowlist(e: AllowlistEntry): boolean;
   resolveApproval(id: string, d: ToolDecision): void;
   sendMessage(text: string): Promise<void>;
@@ -135,20 +138,21 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   setMode: (mode) => set({ mode }),
   cycleMode: () => set((s) => ({ mode: MODE_ORDER[(MODE_ORDER.indexOf(s.mode) + 1) % 3] })),
 
-  hasAllowlist: (e) => get().allowlist.some((a) => a.host === e.host && a.key === e.key),
+  hasAllowlist: (e) => get().allowlist.some((a) => entriesEqual(a, e)),
   addAllowlist: (e) => {
-    // Defense in depth: the store only sees {host, key}, not the originating
-    // tool+args, so it can't call isAllowlistable directly — but a key that
-    // itself contains a shell metacharacter could never have come from a
-    // command isAllowlistable would approve, so refuse to persist it (an
-    // unenforceable entry the controller would then always refuse anyway).
-    if (hasShellMetacharacter(e.key)) return;
+    // Same predicate the hydrate filter uses, so a grant the store accepts is
+    // always one the gate can actually enforce.
+    if (!isWellFormedEntry(e)) return;
     if (get().hasAllowlist(e)) return;
     set((s) => ({ allowlist: [...s.allowlist, e] }));
     get()._persistAllowlist();
   },
   revokeAllowlist: (e) => {
-    set((s) => ({ allowlist: s.allowlist.filter((a) => !(a.host === e.host && a.key === e.key)) }));
+    set((s) => ({ allowlist: s.allowlist.filter((a) => !entriesEqual(a, e)) }));
+    get()._persistAllowlist();
+  },
+  revokeAllAllowlist: () => {
+    set({ allowlist: [] });
     get()._persistAllowlist();
   },
   _persistAllowlist: () => { void deps?.api.storage.set("allowlist", get().allowlist); },
@@ -305,8 +309,7 @@ export async function initAgent(api: PluginAPI): Promise<void> {
     hasAllowlist: (e) => useAgentStore.getState().hasAllowlist(e),
     addPending: (p) => useAgentStore.getState()._addPending(p),
     deriveHost: (tool, args) => deriveHost(api, tool, args),
-    allowlistKey,
-    isAllowlistable,
+    allowlistCandidates,
     isAborted: isGenerationDead,
   });
   deps = { api, profiles, controller };
@@ -318,7 +321,14 @@ export async function initAgent(api: PluginAPI): Promise<void> {
   // re-enable is always clean even if teardown was skipped — otherwise a
   // stale "streaming" status left over from a prior activation would trip
   // sendMessage's single-flight guard and permanently brick the composer.
-  useAgentStore.setState({ mode: mode ?? "ask", allowlist: allowlist ?? [], runStatus: "idle", errorText: null });
+  useAgentStore.setState({
+    mode: mode ?? "ask",
+    // Legacy 3a entries were {host, key} first-token prefixes; reading them
+    // forward would resurrect the over-broad grant this slice removes.
+    allowlist: (allowlist ?? []).filter(isWellFormedEntry),
+    runStatus: "idle",
+    errorText: null,
+  });
 }
 
 /**

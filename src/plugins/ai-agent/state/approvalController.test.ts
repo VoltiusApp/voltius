@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { createApprovalController } from "./approvalController";
-import { isAllowlistable, UNKNOWN_HOST } from "./hostDerivation";
+import { createApprovalController, type ApprovalControllerDeps } from "./approvalController";
+import { UNKNOWN_HOST } from "./hostDerivation";
+import { allowlistCandidates, entriesEqual, type AllowlistEntry } from "./allowlist";
 import type { Mode, PendingApproval } from "./agentStore";
 
 // Every approve() call is issued under a generation, exactly as sendMessage
@@ -15,11 +16,24 @@ function ctl(mode: Mode, opts: { allowed?: boolean; isAborted?: (g: number) => b
     hasAllowlist: () => opts.allowed ?? false,
     addPending: (p) => pending.push(p),
     deriveHost: async () => "web-01",
-    allowlistKey: () => "apt",
-    isAllowlistable,
+    allowlistCandidates,
     isAborted: opts.isAborted ?? (() => false),
   });
   return { c, pending };
+}
+
+/** Builds a controller from sensible defaults, overridable per test — used by
+ *  the "grant grain" tests below, which only care about a few of the deps. */
+function makeController(overrides: Partial<ApprovalControllerDeps> = {}) {
+  return createApprovalController({
+    getMode: () => "ask",
+    hasAllowlist: () => false,
+    addPending: () => {},
+    deriveHost: async () => "h",
+    allowlistCandidates,
+    isAborted: () => false,
+    ...overrides,
+  });
 }
 
 describe("ApprovalController", () => {
@@ -55,7 +69,11 @@ describe("ApprovalController", () => {
     const { c, pending } = ctl("ask");
     const p = c.approve({ tool: "run_command", args: { command: "apt update" } }, GEN);
     await vi.waitFor(() => expect(pending).toHaveLength(1));
-    expect(pending[0]).toMatchObject({ tool: "run_command", host: "web-01", allowlistKey: "apt" });
+    expect(pending[0]).toMatchObject({
+      tool: "run_command",
+      host: "web-01",
+      grants: [{ host: "web-01", tool: "run_command", grain: "exact", key: "apt update" }],
+    });
     pending[0].resolve({ approve: true, args: { command: "apt upgrade" } });
     expect(await p).toEqual({ approve: true, args: { command: "apt upgrade" } });
   });
@@ -66,8 +84,7 @@ describe("ApprovalController", () => {
       hasAllowlist: () => true, // would take the shortcut below if the host were treated as resolved
       addPending: (p) => pending.push(p),
       deriveHost: async () => null,
-      allowlistKey: () => "apt",
-      isAllowlistable,
+      allowlistCandidates,
       isAborted: () => false,
     });
     let settled = false;
@@ -76,6 +93,7 @@ describe("ApprovalController", () => {
     await vi.waitFor(() => expect(pending).toHaveLength(1));
     expect(settled).toBe(false);
     expect(pending[0].host).toBe(UNKNOWN_HOST);
+    expect(pending[0].grants).toEqual([]);
     pending[0].resolve({ approve: true });
     expect(await p).toEqual({ approve: true });
   });
@@ -88,8 +106,7 @@ describe("ApprovalController", () => {
       hasAllowlist: () => false,
       addPending: (p) => pending.push(p),
       deriveHost: async () => { deriveHostCalled = true; return "web-01"; },
-      allowlistKey: () => "apt",
-      isAllowlistable,
+      allowlistCandidates,
       isAborted: () => true,
     });
     const decision = await c.approve({ tool: "run_command", args: { command: "apt update" } }, GEN);
@@ -115,8 +132,7 @@ describe("ApprovalController", () => {
       hasAllowlist: () => false,
       addPending: (p) => pending.push(p),
       deriveHost: async () => hostPromise,
-      allowlistKey: () => "apt",
-      isAllowlistable,
+      allowlistCandidates,
       isAborted: () => aborted,
     });
 
@@ -142,8 +158,7 @@ describe("ApprovalController", () => {
       hasAllowlist: () => false,
       addPending: (p) => pending.push(p),
       deriveHost: async () => "web-01",
-      allowlistKey: () => "apt",
-      isAllowlistable,
+      allowlistCandidates,
       isAborted: (g) => { seen.push(g); return false; },
     });
     const p = c.approve({ tool: "run_command", args: { command: "apt update" } }, 42);
@@ -152,4 +167,55 @@ describe("ApprovalController", () => {
     pending[0].resolve({ approve: true });
     await p;
   }, 2000);
+
+  describe("grant grain", () => {
+    it("an exact grant does not authorize a different argv", async () => {
+      const stored: AllowlistEntry[] = [
+        { host: "h", tool: "run_command", grain: "exact", key: "df -h" },
+      ];
+      const addPending = vi.fn();
+      const c = makeController({
+        getMode: () => "ask",
+        hasAllowlist: (e) => stored.some((s) => entriesEqual(s, e)),
+        addPending,
+        deriveHost: async () => "h",
+      });
+      void c.approve({ tool: "run_command", args: { command: "df --output=source" } }, 0);
+      await Promise.resolve();
+      expect(addPending).toHaveBeenCalledTimes(1); // a card, not an auto-approval
+    });
+
+    it("an exact grant authorizes the identical command with no card", async () => {
+      const stored: AllowlistEntry[] = [
+        { host: "h", tool: "run_command", grain: "exact", key: "df -h" },
+      ];
+      const addPending = vi.fn();
+      const c = makeController({
+        getMode: () => "ask",
+        hasAllowlist: (e) => stored.some((s) => entriesEqual(s, e)),
+        addPending,
+        deriveHost: async () => "h",
+      });
+      await expect(
+        c.approve({ tool: "run_command", args: { command: " df -h " } }, 0),
+      ).resolves.toEqual({ approve: true });
+      expect(addPending).not.toHaveBeenCalled();
+    });
+
+    it("offers no grants at all when the host is unresolved", async () => {
+      const addPending = vi.fn();
+      const c = makeController({
+        getMode: () => "ask",
+        hasAllowlist: () => true, // even a permissive store must not help
+        addPending,
+        deriveHost: async () => null,
+      });
+      void c.approve({ tool: "run_command", args: { command: "df -h" } }, 0);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(addPending).toHaveBeenCalledTimes(1);
+      expect(addPending.mock.calls[0][0].host).toBe(UNKNOWN_HOST);
+      expect(addPending.mock.calls[0][0].grants).toEqual([]);
+    });
+  });
 });

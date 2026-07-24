@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { deriveHost, allowlistKey, isAllowlistable, hasShellMetacharacter, COMMAND_CARRYING_TOOLS } from "./hostDerivation";
+import { deriveHost, isAllowlistable, hasShellMetacharacter, COMMAND_CARRYING_TOOLS } from "./hostDerivation";
 
 function api(overrides: Record<string, unknown> = {}) {
   return {
@@ -8,15 +8,6 @@ function api(overrides: Record<string, unknown> = {}) {
     ...overrides,
   } as never;
 }
-
-describe("allowlistKey", () => {
-  it("uses first command token for run_command", () => {
-    expect(allowlistKey("run_command", { command: "apt-get update" })).toBe("apt-get");
-  });
-  it("uses tool name otherwise", () => {
-    expect(allowlistKey("open_session", { connectionId: "c1" })).toBe("open_session");
-  });
-});
 
 describe("isAllowlistable", () => {
   const metacharacters = [";", "&", "|", "`", "$", "(", ")", "<", ">", "\\", "\n", "\r"];

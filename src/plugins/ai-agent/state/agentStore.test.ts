@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MockLanguageModelV4, simulateReadableStream } from "ai/test";
 import {
   useAgentStore, initAgent, _setDeps, isAbortError, shutdownAgent, getAgentDeps, _currentRunGeneration,
+  type AllowlistEntry,
 } from "./agentStore";
 import { buildTools } from "../tools/registry";
 import type { AgentContext } from "../tools/registry";
@@ -55,9 +56,10 @@ describe("agentStore", () => {
   });
 
   it("initAgent loads persisted mode + allowlist", async () => {
-    await initAgent(fakeApi({ agentMode: "auto", allowlist: [{ host: "h", key: "ls" }] }));
+    const entry: AllowlistEntry = { host: "h", tool: "run_command", grain: "exact", key: "ls -la" };
+    await initAgent(fakeApi({ agentMode: "auto", allowlist: [entry] }));
     expect(useAgentStore.getState().mode).toBe("auto");
-    expect(useAgentStore.getState().allowlist).toEqual([{ host: "h", key: "ls" }]);
+    expect(useAgentStore.getState().allowlist).toEqual([entry]);
   });
 
   it("cycleMode goes plan → ask → auto → plan", () => {
@@ -71,16 +73,18 @@ describe("agentStore", () => {
   it("addAllowlist persists and hasAllowlist matches", async () => {
     const persisted: Record<string, unknown> = {};
     await initAgent(fakeApi(persisted));
-    useAgentStore.getState().addAllowlist({ host: "web-01", key: "apt" });
-    expect(useAgentStore.getState().hasAllowlist({ host: "web-01", key: "apt" })).toBe(true);
-    await vi.waitFor(() => expect(persisted.allowlist).toEqual([{ host: "web-01", key: "apt" }]));
+    const entry: AllowlistEntry = { host: "web-01", tool: "run_command", grain: "exact", key: "apt update" };
+    useAgentStore.getState().addAllowlist(entry);
+    expect(useAgentStore.getState().hasAllowlist(entry)).toBe(true);
+    await vi.waitFor(() => expect(persisted.allowlist).toEqual([entry]));
   });
 
   it("addAllowlist refuses to persist a key containing a shell metacharacter (defense in depth)", async () => {
     const persisted: Record<string, unknown> = {};
     await initAgent(fakeApi(persisted));
-    useAgentStore.getState().addAllowlist({ host: "web-01", key: "df -h !sudo" });
-    expect(useAgentStore.getState().hasAllowlist({ host: "web-01", key: "df -h !sudo" })).toBe(false);
+    const entry: AllowlistEntry = { host: "web-01", tool: "run_command", grain: "exact", key: "df -h !sudo" };
+    useAgentStore.getState().addAllowlist(entry);
+    expect(useAgentStore.getState().hasAllowlist(entry)).toBe(false);
     expect(useAgentStore.getState().allowlist).toEqual([]);
     expect(persisted.allowlist).toBeUndefined();
   });
@@ -88,7 +92,7 @@ describe("agentStore", () => {
   it("resolveApproval calls the stored resolver and removes the record", () => {
     const resolve = vi.fn();
     useAgentStore.setState({
-      pendingApprovals: [{ id: "a1", tool: "run_command", args: {}, host: "h", allowlistKey: "ls", resolve }],
+      pendingApprovals: [{ id: "a1", tool: "run_command", args: {}, host: "h", grants: [], resolve }],
     });
     useAgentStore.getState().resolveApproval("a1", { approve: true });
     expect(resolve).toHaveBeenCalledWith({ approve: true });
@@ -377,7 +381,7 @@ describe("agentStore", () => {
     // independent rejection.
     const pendingResolve = vi.fn();
     useAgentStore.setState({
-      pendingApprovals: [{ id: "p1", tool: "run_command", args: {}, host: "h", allowlistKey: "ls", resolve: pendingResolve }],
+      pendingApprovals: [{ id: "p1", tool: "run_command", args: {}, host: "h", grants: [], resolve: pendingResolve }],
     });
 
     shutdownAgent();
@@ -453,7 +457,7 @@ describe("agentStore", () => {
   it("initAgent rejects and clears pending approvals left over from a previous activation", async () => {
     const resolve = vi.fn();
     useAgentStore.setState({
-      pendingApprovals: [{ id: "stale-1", tool: "run_command", args: {}, host: "h", allowlistKey: "ls", resolve }],
+      pendingApprovals: [{ id: "stale-1", tool: "run_command", args: {}, host: "h", grants: [], resolve }],
     });
 
     await initAgent(fakeApi());
@@ -602,13 +606,14 @@ describe("approval generation binding", () => {
   // Test 2 — Path 1 through the allowlist shortcut, which returns
   // {approve:true} with no card at all, so a hole here is completely silent.
   it("Path 1 via the allowlist shortcut: a parked approval is still refused after shutdownAgent + initAgent, and never returns approve:true", async () => {
+    const GRANT: AllowlistEntry = { host: "web-01", tool: "open_session", grain: "tool", key: "open_session" };
     const h = harness({
       providerProfiles: [PROFILE],
       activeProfileId: "p1",
-      allowlist: [{ host: "web-01", key: "open_session" }],
+      allowlist: [GRANT],
     });
     await initAgent(h.api as never);
-    expect(useAgentStore.getState().hasAllowlist({ host: "web-01", key: "open_session" })).toBe(true);
+    expect(useAgentStore.getState().hasAllowlist(GRANT)).toBe(true);
     const ctx = await runTurn("hello");
 
     const exec = openSessionOf(ctx).execute({ connectionId: "c1" });
@@ -618,7 +623,7 @@ describe("approval generation binding", () => {
     await initAgent(h.api as never);
     // The re-enabled activation reloads the same allowlist, so the shortcut
     // WOULD fire if the generation check didn't refuse first.
-    expect(useAgentStore.getState().hasAllowlist({ host: "web-01", key: "open_session" })).toBe(true);
+    expect(useAgentStore.getState().hasAllowlist(GRANT)).toBe(true);
 
     h.conns.resolve([CONN]);
 
@@ -758,13 +763,17 @@ describe("approval generation binding", () => {
     const exec = openSession.execute({ connectionId: "c1" });
     await vi.waitFor(() => expect(useAgentStore.getState().pendingApprovals).toHaveLength(1));
     const card = useAgentStore.getState().pendingApprovals[0];
-    expect(card).toMatchObject({ tool: "open_session", host: "web-01", allowlistKey: "open_session" });
+    expect(card).toMatchObject({
+      tool: "open_session",
+      host: "web-01",
+      grants: [{ host: "web-01", tool: "open_session", grain: "tool", key: "open_session" }],
+    });
 
     useAgentStore.getState().resolveApproval(card.id, { approve: true });
     expect(await exec).toEqual({ sessionId: "sess-1" });
     expect(h.openSpy).toHaveBeenCalledWith("c1");
 
-    useAgentStore.getState().addAllowlist({ host: "web-01", key: "open_session" });
+    useAgentStore.getState().addAllowlist({ host: "web-01", tool: "open_session", grain: "tool", key: "open_session" });
     expect(await settledOr(openSession.execute({ connectionId: "c1" }))).toEqual({ sessionId: "sess-1" });
     expect(useAgentStore.getState().pendingApprovals).toHaveLength(0);
   });
@@ -791,5 +800,35 @@ describe("isAbortError", () => {
     const ac = new AbortController();
     expect(isAbortError(new Error("provider exploded"), ac.signal)).toBe(false);
     expect(isAbortError(new Error("provider exploded"))).toBe(false);
+  });
+});
+
+describe("allowlist migration + management", () => {
+  it("drops legacy {host, key} entries on hydrate", async () => {
+    // Legacy 3a shape (first-token prefix) alongside a well-formed entry —
+    // only the well-formed one may survive hydrate.
+    const legacy = { host: "h", key: "df" };
+    const wellFormed: AllowlistEntry = { host: "h", tool: "run_command", grain: "exact", key: "df -h" };
+    const api = fakeApi({ allowlist: [legacy, wellFormed] });
+    await initAgent(api);
+    expect(useAgentStore.getState().allowlist).toEqual([wellFormed]);
+  });
+
+  it("revokeAllAllowlist clears every host and persists", () => {
+    useAgentStore.setState({
+      allowlist: [
+        { host: "a", tool: "run_command", grain: "exact", key: "df -h" },
+        { host: "b", tool: "open_session", grain: "tool", key: "open_session" },
+      ],
+    });
+    useAgentStore.getState().revokeAllAllowlist();
+    expect(useAgentStore.getState().allowlist).toEqual([]);
+  });
+
+  it("addAllowlist refuses a malformed entry", () => {
+    useAgentStore.setState({ allowlist: [] });
+    // grain disagrees with the tool kind — a shape allowlistCandidates never emits
+    useAgentStore.getState().addAllowlist({ host: "h", tool: "run_command", grain: "tool", key: "run_command" });
+    expect(useAgentStore.getState().allowlist).toEqual([]);
   });
 });

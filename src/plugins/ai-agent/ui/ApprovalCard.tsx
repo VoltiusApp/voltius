@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useAgentStore, type PendingApproval } from "../state/agentStore";
-import { isAllowlistable, UNKNOWN_HOST } from "../state/hostDerivation";
 
 function summarizeArgs(pending: PendingApproval): string {
   if (pending.tool === "run_command" && typeof pending.args.command === "string") return pending.args.command;
@@ -19,20 +18,20 @@ export function ApprovalCard({ pending }: { pending: PendingApproval }) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
 
-  // Same composition the approval gate uses (isAllowlistable AND a resolved
-  // host) so the button's visibility can never drift from what the gate
-  // would actually let through.
-  const canAlwaysAllow = pending.host !== UNKNOWN_HOST && isAllowlistable(pending.tool, pending.args);
+  // The gate populates `grants` with exactly what it would accept — an empty
+  // array means it has nothing to offer, so the button's visibility can never
+  // drift from what the gate would actually let through.
+  const canAlwaysAllow = pending.grants.length > 0;
 
   const alwaysLabel =
     pending.tool === "run_command"
-      ? `Always allow \`${pending.allowlistKey}\` on ${pending.host}`
+      ? `Always allow \`${pending.grants[0]?.key}\` on ${pending.host}`
       : `Always allow ${pending.tool} on ${pending.host}`;
 
   const onApprove = () => resolveApproval(pending.id, { approve: true });
 
   const onAlways = () => {
-    addAllowlist({ host: pending.host, key: pending.allowlistKey });
+    addAllowlist(pending.grants[0]);
     resolveApproval(pending.id, { approve: true });
   };
 

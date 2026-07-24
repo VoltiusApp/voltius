@@ -1,15 +1,16 @@
 import type { ToolDecision } from "../types";
 import type { Mode, PendingApproval } from "./agentStore";
 import { UNKNOWN_HOST } from "./hostDerivation";
+import type { AllowlistEntry } from "./allowlist";
 
 export interface ApprovalControllerDeps {
   getMode(): Mode;
-  hasAllowlist(e: { host: string; key: string }): boolean;
+  hasAllowlist(e: AllowlistEntry): boolean;
   addPending(p: PendingApproval): void;
   /** `null` means the host could not be determined — must never be treated as allowlistable. */
   deriveHost(tool: string, args: Record<string, unknown>): Promise<string | null>;
-  allowlistKey(tool: string, args: Record<string, unknown>): string;
-  isAllowlistable(tool: string, args: Record<string, unknown>): boolean;
+  /** Every entry that would authorize this call; `[]` when nothing may be granted. */
+  allowlistCandidates(tool: string, args: Record<string, unknown>, host: string): AllowlistEntry[];
   /** True when an approval issued under `generation` must be refused —
    * either that run was cancelled (Stop / teardown), or the store has moved
    * on to a later generation (a new run, or a fresh activation) that
@@ -53,11 +54,11 @@ export function createApprovalController(deps: ApprovalControllerDeps) {
       // paths below it — the allowlist shortcut and registering a card — run
       // *after* this await, so both must be gated, not just the card path.
       if (deps.isAborted(generation)) return { approve: false, reason: "aborted" };
-      const key = deps.allowlistKey(call.tool, call.args);
-      // An unresolved host can never take the allowlist shortcut — compose
-      // directly with isAllowlistable rather than a parallel check, so this
-      // gate and the card's "Always allow" visibility can't drift apart.
-      if (host !== null && deps.isAllowlistable(call.tool, call.args) && deps.hasAllowlist({ host, key })) {
+      // An unresolved host yields no candidates at all, so it can neither
+      // auto-approve nor offer a grant — the fail-closed behaviour 3a
+      // established, now expressed in one place instead of three.
+      const grants = host === null ? [] : deps.allowlistCandidates(call.tool, call.args, host);
+      if (grants.some((g) => deps.hasAllowlist(g))) {
         return { approve: true };
       }
       return new Promise<ToolDecision>((resolve) => {
@@ -66,7 +67,7 @@ export function createApprovalController(deps: ApprovalControllerDeps) {
           tool: call.tool,
           args: call.args,
           host: host ?? UNKNOWN_HOST,
-          allowlistKey: key,
+          grants,
           resolve,
         });
       });

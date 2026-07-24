@@ -1,13 +1,5 @@
 import type { PluginAPI } from "@/plugins/api";
 
-export function allowlistKey(tool: string, args: Record<string, unknown>): string {
-  if (tool === "run_command") {
-    const cmd = String(args.command ?? "").trim();
-    return cmd.split(/\s+/)[0] || "run_command";
-  }
-  return tool;
-}
-
 // `!` is included because interactive bash/zsh perform history expansion on
 // it (e.g. `df -h !sudo`, `df !!`, `df !-1` expand to prior history entries
 // before the shell ever consults the tool's own argument list) — a command
