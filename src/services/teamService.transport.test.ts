@@ -12,7 +12,7 @@ vi.mock("@/stores/subscriptionStore", () => ({
   useSubscriptionStore: { getState: () => ({ load: h.load }) },
 }));
 
-import { listMembers, createTeam } from "./teamService";
+import { listMembers, createTeam, getVaultKeyHolders } from "./teamService";
 
 // base64url JWT with a controllable exp (seconds since epoch)
 function jwt(expOffsetSec: number, sub = "user-1"): string {
@@ -132,4 +132,13 @@ test("createTeam POST is re-shaped correctly after a valid-jwt path", async () =
   expect(url).toBe("https://s/v1/teams");
   expect(init.method).toBe("POST");
   expect(JSON.parse(init.body)).toEqual({ name: "Ops" });
+});
+
+test("getVaultKeyHolders GETs the holders route and returns the id list", async () => {
+  keychain({ jwt: jwt(3600), server_url: "https://s" });
+  h.appFetch.mockResolvedValue(okJson(["u1", "u2"]));
+  const holders = await getVaultKeyHolders("t1");
+  expect(holders).toEqual(["u1", "u2"]);
+  const [url] = h.appFetch.mock.calls[0];
+  expect(url).toBe("https://s/v1/teams/t1/vault-key/holders");
 });

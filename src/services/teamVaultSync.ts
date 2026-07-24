@@ -252,6 +252,53 @@ export async function distributeKeyToNewMember(
   if (!res.ok) throw new Error(i18n.t("common.error.failedToDistributeVaultKey", { status: res.status }));
 }
 
+/**
+ * Reconcile vault-key distribution for a team (issue #41).
+ *
+ * Distribution is otherwise purely event-driven (team creation + the live
+ * `team_members` SSE diff), so a member who joins while the only key-holder is
+ * offline — or the very first invitee, whom the adder's own event never counts
+ * as "new" — is left with no key and silently locked out. This closes that gap:
+ * whenever a key-holder loads a team (login) or sees a membership change, it
+ * compares `team_members` against the server's key-holder list and wraps the key
+ * for anyone missing it.
+ *
+ * Safe to call on any team: if this client can't unwrap the key itself it isn't
+ * a key-holder and returns immediately. Only genuinely keyless members trigger a
+ * PUT, so repeated calls don't churn or re-notify existing holders.
+ */
+export async function reconcileTeamVaultKeys(teamId: string): Promise<void> {
+  // Only a key-holder can distribute. Bail before touching the network for
+  // anything else if we can't obtain the raw key ourselves.
+  try {
+    await getTeamVaultKey(teamId);
+  } catch {
+    return;
+  }
+
+  let members: TeamMember[];
+  let holders: Set<string>;
+  let myUserId: string | null;
+  try {
+    [members, holders, myUserId] = await Promise.all([
+      teamService.listMembers(teamId),
+      teamService.getVaultKeyHolders(teamId).then((ids) => new Set(ids)),
+      teamService.getMyUserId(),
+    ]);
+  } catch {
+    return;
+  }
+
+  const missing = members.filter(
+    (m) => m.public_key && m.user_id !== myUserId && !holders.has(m.user_id),
+  );
+  if (missing.length === 0) return;
+
+  await Promise.allSettled(
+    missing.map((m) => distributeKeyToNewMember(teamId, m.user_id, m.public_key)),
+  );
+}
+
 // ─── Data fetch / save ────────────────────────────────────────────────────────
 
 /**
