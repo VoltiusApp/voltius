@@ -23,7 +23,11 @@ export async function consumeStream(
         hooks.onTool(String(part.toolName), "call", JSON.stringify(part.input ?? {}));
         break;
       case "tool-result":
-        hooks.onTool(String(part.toolName), "result", String(part.output ?? ""));
+        hooks.onTool(
+          String(part.toolName),
+          "result",
+          typeof part.output === "string" ? part.output : JSON.stringify(part.output ?? ""),
+        );
         break;
       case "error": {
         const e = part.error;

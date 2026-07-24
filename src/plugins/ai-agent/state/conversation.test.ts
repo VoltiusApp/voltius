@@ -30,4 +30,36 @@ describe("consumeStream", () => {
     await consumeStream(errStream() as never, hooks);
     expect(hooks.onError).toHaveBeenCalledWith("boom");
   });
+
+  it("serializes object/array tool-result output as JSON, not [object Object]", async () => {
+    async function* objectResultStream() {
+      yield {
+        type: "tool-result",
+        toolCallId: "c1",
+        toolName: "list_connections",
+        output: [{ id: "1", name: "web-01", host: "10.0.0.1" }],
+      };
+      yield {
+        type: "tool-result",
+        toolCallId: "c2",
+        toolName: "run_command",
+        output: { output: "ok\n", exitCode: 0, timedOut: false, truncated: false },
+      };
+    }
+    const hooks = { onText: vi.fn(), onTool: vi.fn(), onError: vi.fn() };
+    await consumeStream(objectResultStream() as never, hooks);
+    expect(hooks.onTool).toHaveBeenCalledWith(
+      "list_connections",
+      "result",
+      JSON.stringify([{ id: "1", name: "web-01", host: "10.0.0.1" }]),
+    );
+    expect(hooks.onTool).toHaveBeenCalledWith(
+      "run_command",
+      "result",
+      JSON.stringify({ output: "ok\n", exitCode: 0, timedOut: false, truncated: false }),
+    );
+    for (const call of hooks.onTool.mock.calls) {
+      expect(call[2]).not.toBe("[object Object]");
+    }
+  });
 });

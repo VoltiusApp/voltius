@@ -153,4 +153,67 @@ describe("agentStore", () => {
     expect(t.filter((e) => e.kind === "tool")).toHaveLength(2);
     expect(useAgentStore.getState().runStatus).toBe("idle");
   });
+
+  it("sendMessage is a no-op while a run is already streaming (single-flight guard)", async () => {
+    // Wire real deps + a model that WOULD stream text if the guard didn't
+    // block it, so this test actually proves the guard prevents a second
+    // run from starting (rather than passing vacuously because deps/model
+    // are unset).
+    mockModel.current = new MockLanguageModelV4({
+      doStream: async () => ({
+        stream: simulateReadableStream({
+          chunks: [
+            { type: "text-start", id: "0" },
+            { type: "text-delta", id: "0", delta: "should not run" },
+            { type: "text-end", id: "0" },
+            FINISH_CHUNK,
+          ],
+        }),
+      }),
+    });
+    _setDeps({
+      api: fakeApi(),
+      profiles: {
+        list: async () => [{ id: "p1", providerKind: "anthropic", label: "A", model: "claude-x" }],
+        getActiveId: async () => "p1",
+        getKey: async () => "sk-test",
+      } as never,
+      controller: { approve: async () => ({ approve: true }) },
+    } as never);
+    useAgentStore.setState({
+      runStatus: "streaming",
+      transcript: [{ kind: "user", text: "first" }],
+      messages: [{ role: "user", content: "first" }],
+    });
+
+    await useAgentStore.getState().sendMessage("second");
+
+    expect(useAgentStore.getState().transcript).toEqual([{ kind: "user", text: "first" }]);
+    expect(useAgentStore.getState().messages).toEqual([{ role: "user", content: "first" }]);
+    expect(useAgentStore.getState().runStatus).toBe("streaming");
+  });
+
+  it("sendMessage ends in error state with a message when the model stream errors", async () => {
+    mockModel.current = new MockLanguageModelV4({
+      doStream: async () => ({
+        stream: simulateReadableStream({
+          chunks: [{ type: "error", error: new Error("provider exploded") }],
+        }),
+      }),
+    });
+    _setDeps({
+      api: fakeApi(),
+      profiles: {
+        list: async () => [{ id: "p1", providerKind: "anthropic", label: "A", model: "claude-x" }],
+        getActiveId: async () => "p1",
+        getKey: async () => "sk-test",
+      } as never,
+      controller: { approve: async () => ({ approve: true }) },
+    } as never);
+
+    await useAgentStore.getState().sendMessage("hello");
+
+    expect(useAgentStore.getState().runStatus).toBe("error");
+    expect(useAgentStore.getState().errorText).toBe("provider exploded");
+  });
 });

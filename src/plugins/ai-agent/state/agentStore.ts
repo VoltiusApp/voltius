@@ -96,6 +96,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   stop: () => { abortController?.abort(); },
 
   sendMessage: async (text) => {
+    if (get().runStatus === "streaming") return;
     const d = deps;
     if (!d) return;
     const activeId = await d.profiles.getActiveId();
