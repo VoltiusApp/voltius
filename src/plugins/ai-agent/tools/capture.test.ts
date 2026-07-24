@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from "vitest";
-import { captureCommand, buildMarkerCommand } from "./capture";
+import { captureCommand, buildMarkerCommand, cleanCapturedOutput, MARKER_PREFIX } from "./capture";
 
 /**
  * Fake terminal: captures the onOutput callback so the test can feed decoded
@@ -29,6 +29,51 @@ describe("buildMarkerCommand", () => {
   test("wraps with printf $? and a nonce", () => {
     const c = buildMarkerCommand("ls -la", "N1");
     expect(c).toBe("ls -la; printf '__VLT_END_N1__:%s\\n' \"$?\"");
+  });
+});
+
+describe("cleanCapturedOutput", () => {
+  const nonce = "a1b2c3d4e5f6";
+  const echoedCommand = `df -h; printf '${MARKER_PREFIX}${nonce}__:%s\\n' "$?"`;
+
+  test("removes the echoed command line and preserves real output verbatim, including indentation", () => {
+    const raw = `${echoedCommand}\nFilesystem      Size  Used Avail Use% Mounted on\n  /dev/root        97G   28G   70G  29% /\n`;
+    expect(cleanCapturedOutput(raw, nonce)).toBe(
+      "Filesystem      Size  Used Avail Use% Mounted on\n  /dev/root        97G   28G   70G  29% /",
+    );
+  });
+
+  test("strips bracketed-paste and color CSI sequences, keeping visible text", () => {
+    const raw = "\x1b[?2004lFilesystem\n\x1b[0;32mOK\x1b[0m done\n";
+    expect(cleanCapturedOutput(raw, nonce)).toBe("Filesystem\nOK done");
+  });
+
+  test("strips OSC sequences (e.g. a title set)", () => {
+    const raw = "\x1b]0;title\x07hello\n";
+    expect(cleanCapturedOutput(raw, nonce)).toBe("hello");
+  });
+
+  test("normalizes \\r\\n to \\n", () => {
+    const raw = "line1\r\nline2\r\n";
+    expect(cleanCapturedOutput(raw, nonce)).toBe("line1\nline2");
+  });
+
+  test("no-echo case: buffer without the marker-format substring passes through unchanged (minus ANSI)", () => {
+    const raw = "plain output\nno marker here\n";
+    expect(cleanCapturedOutput(raw, nonce)).toBe("plain output\nno marker here");
+  });
+
+  test("survives the tty hard-wrapping the echoed command across several lines before the marker format", () => {
+    const raw = `df -h --a --b --c\nprintf '${MARKER_PREFIX}${nonce}__:%s\\n' "$?"\nreal output line\n`;
+    expect(cleanCapturedOutput(raw, nonce)).toBe("real output line");
+  });
+
+  test("does not treat the marker result line (digit, no %s) as an echo", () => {
+    const raw = `some output\n${MARKER_PREFIX}${nonce}__:0\n`;
+    // the marker-result line itself is stripped elsewhere (captureCommand slices
+    // it off before calling clean); here we just confirm clean doesn't mistake
+    // a digit-suffixed marker line for the %s-suffixed echo format.
+    expect(cleanCapturedOutput(raw, nonce)).toBe(raw.replace(/\n$/, ""));
   });
 });
 
@@ -100,6 +145,25 @@ describe("captureCommand", () => {
     expect(res.output).toBe("interactive output...");
     expect(unsub).toHaveBeenCalled();
     vi.useRealTimers();
+  });
+
+  test("end-to-end: strips echoed command + ANSI noise from a realistic live capture", async () => {
+    const { api } = fakeApi((emit, sent) => {
+      // simulate the tty echoing back what was "typed", plus bracketed-paste
+      // off, plus the real command output, before the marker line.
+      emit(`${sent}\n`);
+      emit("\x1b[?2004lFilesystem      Size  Used Avail Use% Mounted on\n");
+      emit("/dev/root        97G   28G   70G  29% /\n");
+    });
+    const p = captureCommand(api, "s1", "df -h", { timeoutMs: 1000 });
+    await Promise.resolve();
+    await Promise.resolve();
+    const nonce = (api.sessions.sendCommand.mock.calls[0][1] as string).match(/__VLT_END_(\w+)__/)![1];
+    const cb = api.terminal.onOutput.mock.calls[0][1] as (t: string) => void;
+    cb(`__VLT_END_${nonce}__:0\n`);
+    const res = await p;
+    expect(res.exitCode).toBe(0);
+    expect(res.output).toBe("Filesystem      Size  Used Avail Use% Mounted on\n/dev/root        97G   28G   70G  29% /");
   });
 
   test("output over maxChars is truncated + flagged", async () => {

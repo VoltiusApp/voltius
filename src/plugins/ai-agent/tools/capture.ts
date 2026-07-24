@@ -10,6 +10,39 @@ export function buildMarkerCommand(command: string, nonce: string): string {
 
 const DEFAULTS = { timeoutMs: 30_000, quietPeriodMs: 1_500, maxChars: 16_000 };
 
+// OSC: ESC ] ... terminated by BEL or ST (ESC \).
+const OSC_RE = /\x1b\][\s\S]*?(?:\x07|\x1b\\)/g;
+// CSI: ESC [ + parameter bytes (0x30-0x3F, incl. private markers like `?`) +
+// intermediate bytes (0x20-0x2F) + a final byte (0x40-0x7E, `@`-`~`).
+const CSI_RE = /\x1b\[[0-?]*[ -\/]*[@-~]/g;
+// Charset designations, e.g. `\x1b(B`.
+const CHARSET_RE = /\x1b[()#][0-9A-Za-z]/g;
+// Other single-char Fe/Fp escapes, e.g. `\x1bM`, `\x1b7`, `\x1b=`.
+const SIMPLE_ESC_RE = /\x1b[0-9A-Za-z=>]/g;
+
+function stripAnsi(s: string): string {
+  return s.replace(OSC_RE, "").replace(CSI_RE, "").replace(CHARSET_RE, "").replace(SIMPLE_ESC_RE, "");
+}
+
+/**
+ * Clean raw captured terminal text before handing it to the model: strip ANSI
+ * escapes, normalize line endings, and drop the echoed command line (which
+ * carries our printf marker wrapper as literal text the model was never meant
+ * to see). The marker *result* line is handled separately by the caller (it's
+ * sliced off before this runs, or absent on the timeout/quiet-period paths).
+ */
+export function cleanCapturedOutput(raw: string, nonce: string): string {
+  let s = stripAnsi(raw);
+  s = s.replace(/\r\n/g, "\n").replace(/\r/g, "");
+  const echoFormat = `${MARKER_PREFIX}${nonce}__:%s`;
+  const idx = s.indexOf(echoFormat);
+  if (idx !== -1) {
+    const nl = s.indexOf("\n", idx);
+    s = nl === -1 ? "" : s.slice(nl + 1);
+  }
+  return s.replace(/\n$/, "");
+}
+
 /**
  * Run `command` in an agent-owned session and capture its output + real exit
  * code via a sentinel marker. The agent owns the session (no user keystrokes
@@ -53,7 +86,7 @@ export async function captureCommand(
       if (quietTimer) clearTimeout(quietTimer);
       quietTimer = setTimeout(() => {
         // no marker, output went quiet: degrade (non-POSIX floor)
-        finish({ output: buffer.replace(/\n$/, ""), exitCode: null, timedOut: false, truncated: false });
+        finish({ output: cleanCapturedOutput(buffer, nonce), exitCode: null, timedOut: false, truncated: false });
       }, quietPeriodMs);
     };
 
@@ -62,7 +95,7 @@ export async function captureCommand(
       const m = buffer.match(markerRe);
       if (m) {
         const exitCode = Number(m[1]);
-        const output = buffer.slice(0, buffer.indexOf(m[0])).replace(/\n$/, "");
+        const output = cleanCapturedOutput(buffer.slice(0, buffer.indexOf(m[0])), nonce);
         finish({ output, exitCode, timedOut: false, truncated: false });
         return;
       }
@@ -70,7 +103,7 @@ export async function captureCommand(
     };
 
     hardTimer = setTimeout(() => {
-      finish({ output: buffer.replace(/\n$/, ""), exitCode: null, timedOut: true, truncated: false });
+      finish({ output: cleanCapturedOutput(buffer, nonce), exitCode: null, timedOut: true, truncated: false });
     }, timeoutMs);
 
     void api.terminal
