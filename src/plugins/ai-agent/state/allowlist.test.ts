@@ -105,7 +105,15 @@ describe("isWellFormedEntry", () => {
 
 describe("PREFIX_GRANTABLE_BINARIES", () => {
   it("contains only non-exec-capable introspection binaries", () => {
-    for (const banned of ["sudo", "ssh", "find", "env", "xargs", "docker", "kubectl", "systemctl", "journalctl", "git", "awk", "python", "perl", "make", "nc", "tar", "rsync", "vim", "cat", "ls", "grep", "head", "tail", "stat", "file"]) {
+    for (const banned of [
+      "sudo", "ssh", "find", "env", "xargs", "docker", "kubectl", "systemctl",
+      "journalctl", "git", "awk", "python", "perl", "make", "nc", "tar",
+      "rsync", "vim", "cat", "ls", "grep", "head", "tail", "stat", "file",
+      // exec-capable via subcommand: `ip netns exec <ns> <cmd>` runs anything.
+      "ip",
+      // mutate live state rather than merely inspecting it.
+      "ifconfig", "route", "arp", "date", "hostname",
+    ]) {
       expect(PREFIX_GRANTABLE_BINARIES.has(banned)).toBe(false);
     }
   });
@@ -114,5 +122,15 @@ describe("PREFIX_GRANTABLE_BINARIES", () => {
     for (const ok of ["df", "free", "uptime", "ps", "uname", "vmstat", "ss"]) {
       expect(PREFIX_GRANTABLE_BINARIES.has(ok)).toBe(true);
     }
+  });
+
+  // Pins exact membership so any future addition or removal is a deliberate,
+  // visible edit rather than silent drift.
+  it("has exactly the reviewed set of 24 binaries", () => {
+    expect([...PREFIX_GRANTABLE_BINARIES].sort()).toEqual([
+      "arch", "df", "dmesg", "du", "free", "id", "iostat", "lsblk", "lscpu",
+      "lsmem", "lspci", "lsusb", "mpstat", "netstat", "nproc", "ps", "pstree",
+      "ss", "uname", "uptime", "vmstat", "w", "who", "whoami",
+    ]);
   });
 });

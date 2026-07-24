@@ -28,16 +28,19 @@ export interface AllowlistEntry {
  *
  * Membership rule: not exec-capable, not primarily a reader of arbitrary file
  * CONTENTS (which would be an exfiltration path to the model provider), and a
- * genuine system-state diagnostic. That excludes `cat`/`ls`/`grep`/`head`/
- * `tail`/`find`/`stat`/`file` on the contents rule, and `sudo`/`ssh`/`env`/
+ * genuine READ-ONLY system-state diagnostic. That excludes `cat`/`ls`/`grep`/
+ * `head`/`tail`/`find`/`stat`/`file` on the contents rule; `sudo`/`ssh`/`env`/
  * `xargs`/`docker`/`kubectl`/`systemctl`/`journalctl`/`git`/`awk`/`python`/
- * `make`/`nc`/`tar`/`rsync`/`vim` on the exec rule.
+ * `make`/`nc`/`tar`/`rsync`/`vim`/`ip` (its `netns exec <ns> <cmd>` subcommand
+ * runs arbitrary commands) on the exec rule; and `ifconfig`/`route`/`arp`
+ * (mutate live network state — can sever connectivity or redirect traffic),
+ * `date` (`-s` sets the clock, `-f FILE` reads an arbitrary file), and
+ * `hostname` (renames the host) on the state-mutation rule.
  */
 export const PREFIX_GRANTABLE_BINARIES: ReadonlySet<string> = new Set([
-  "arch", "arp", "date", "df", "dmesg", "du", "free", "hostname", "id",
-  "ifconfig", "ip", "iostat", "lsblk", "lscpu", "lsmem", "lspci", "lsusb",
-  "mpstat", "netstat", "nproc", "ps", "pstree", "route", "ss", "uname",
-  "uptime", "vmstat", "w", "who", "whoami",
+  "arch", "df", "dmesg", "du", "free", "id", "iostat", "lsblk", "lscpu",
+  "lsmem", "lspci", "lsusb", "mpstat", "netstat", "nproc", "ps", "pstree",
+  "ss", "uname", "uptime", "vmstat", "w", "who", "whoami",
 ]);
 
 /**
