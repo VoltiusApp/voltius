@@ -54,6 +54,8 @@
         "moveToTarget_other": "Move {{count}} items to target",
         "delete_one": "Delete",
         "delete_other": "Delete {{count}} items",
+        "copyPath_one": "Copy path",
+        "copyPath_other": "Copy {{count}} paths",
         "compress": "Compress to .tar.gz",
         "extractHere": "Extract here",
         "openInTerminal": "Open in terminal",
