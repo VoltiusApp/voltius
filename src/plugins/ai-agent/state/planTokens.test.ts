@@ -67,6 +67,15 @@ describe("stepEntry", () => {
     expect(consumeToken(batchA, { ...entry, scope: "conn-A" }).consumed).toBe(true);
   });
 
+  it("returns null for a step with an empty connectionId", () => {
+    // An empty connectionId would key the entry on scope: "", which the
+    // execution-time deriveScope can never produce — the token would be
+    // permanently unconsumable, but minting it anyway would still violate the
+    // non-empty-scope invariant plan tokens otherwise bypass entirely.
+    expect(stepEntry(cmd("df -h", ""))).toBeNull();
+    expect(canPreAuthorize(cmd("df -h", ""))).toBe(false);
+  });
+
   it("returns null for a run_command step whose command exceeds MAX_PLAN_COMMAND_CHARS, but mints at exactly the cap", () => {
     const atCap = "a".repeat(MAX_PLAN_COMMAND_CHARS);
     const overCap = "a".repeat(MAX_PLAN_COMMAND_CHARS + 1);
@@ -92,6 +101,13 @@ describe("mintTokens", () => {
     expect(batch.tokens.map((t) => t.entry.key)).toEqual(["df -h", "du -sh /var/*", "open_session"]);
     expect(batch.tokens.map((t) => t.stepId)).toEqual(["s1", "s2", "s4"]);
     expect(batch.tokens.every((t) => !t.used)).toBe(true);
+  });
+
+  it("skips a step with an empty connectionId and mints for the rest", () => {
+    const a = cmd("df -h", "conn-A", "s1");
+    const b = cmd("uptime", "", "s2");
+    const batch = mintTokens([a, b], 1, "plan-1");
+    expect(batch.tokens.map((t) => t.stepId)).toEqual(["s1"]);
   });
 
   it("mints a separate token for each occurrence of a repeated command", () => {

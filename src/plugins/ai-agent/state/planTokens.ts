@@ -105,6 +105,15 @@ export function stepEntry(step: PlanStep): AllowlistEntry | null {
   if (step.tool === "run_command" && (step.command?.length ?? 0) > MAX_PLAN_COMMAND_CHARS) {
     return null;
   }
+  // A step with no connectionId must never mint a token: the entry would carry
+  // scope: "", which execution-time `deriveScope` can never produce, so the
+  // token could never be consumed anyway — but minting it regardless would
+  // silently violate the non-empty-scope invariant `isWellFormedEntry` enforces
+  // for stored allowlist grants. Plan tokens skip that validator entirely, so
+  // this is the only place left to hold the line.
+  if (!step.connectionId) {
+    return null;
+  }
   return allowlistCandidates(step.tool, stepArgs(step), step.connectionId)[0] ?? null;
 }
 
