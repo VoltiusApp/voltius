@@ -6,6 +6,11 @@ import { allowlistCandidates, entriesEqual, type AllowlistEntry } from "./allowl
 export const MAX_PLAN_STEPS = 20;
 export const MAX_PLAN_COMMAND_CHARS = 500;
 export const MAX_PLAN_RATIONALE_CHARS = 200;
+/** A connection id is a UUID and a planId/step id is `plan-N`/`step-N` — 64 is
+ *  already generous for either. `connectionId` is model-supplied (see below),
+ *  so this is the one identity cap that bounds attacker-controlled input, not
+ *  just a hand-edited file. */
+export const MAX_PLAN_ID_CHARS = 64;
 
 export type PlanStepTool = "open_session" | "run_command" | "close_session";
 

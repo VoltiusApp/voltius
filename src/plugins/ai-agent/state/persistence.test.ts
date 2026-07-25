@@ -6,7 +6,7 @@ import {
   MAX_TRANSCRIPT_ENTRIES, MAX_TOOL_RESULT_BYTES, MAX_MESSAGES_BYTES, TRUNCATION_MARKER,
   MAX_TRANSCRIPT_DETAIL_CHARS, MAX_TRANSCRIPT_BYTES,
 } from "./persistence";
-import { MAX_PLAN_STEPS } from "./planTokens";
+import { MAX_PLAN_ID_CHARS, MAX_PLAN_STEPS } from "./planTokens";
 
 const userMsg = (t: string): ModelMessage => ({ role: "user", content: t });
 const assistantText = (t: string): ModelMessage => ({ role: "assistant", content: [{ type: "text", text: t }] });
@@ -303,6 +303,30 @@ describe("plan transcript entries", () => {
         outcome: "approved_run",
         steps: [{ id: "s1", tool: "rm", connectionId: "conn-A", command: "rm -rf /", rationale: "r", status: "pending" }],
       }, // unknown step tool, otherwise well-formed
+      {
+        kind: "plan",
+        planId: "p",
+        outcome: "approved_run",
+        steps: [{ id: "", tool: "run_command", connectionId: "conn-A", command: "df -h", rationale: "r", status: "dispatched" }],
+      }, // empty step id, otherwise well-formed
+      {
+        kind: "plan",
+        planId: "p",
+        outcome: "approved_run",
+        steps: [{ id: "s1", tool: "run_command", connectionId: "", command: "df -h", rationale: "r", status: "dispatched" }],
+      }, // empty step connectionId, otherwise well-formed
+      {
+        kind: "plan",
+        planId: "p",
+        outcome: "approved_run",
+        steps: [{ id: "s1", tool: "run_command", connectionId: "conn-A", command: 7, rationale: "r", status: "dispatched" }],
+      }, // non-string command, otherwise well-formed
+      {
+        kind: "plan",
+        planId: "p",
+        outcome: "approved_run",
+        steps: [{ id: "s1", tool: "run_command", connectionId: "conn-A", command: "df -h", rationale: "r", status: "queued" }],
+      }, // unknown step status, otherwise well-formed
     ]) {
       let out: unknown;
       expect(() => { out = deserializeConversation({ v: 1, transcript: [bad], messages: [] }); }).not.toThrow();
@@ -323,5 +347,31 @@ describe("plan transcript entries", () => {
     // Measured, not asserted by construction — 3d's cap was byte-blind
     // precisely because nobody measured it.
     expect(JSON.stringify(out.transcript).length).toBeLessThanOrEqual(MAX_TRANSCRIPT_BYTES);
+  });
+
+  it("bounds a plan whose identity fields (planId, step id, step connectionId) are hostile-sized", () => {
+    // Regression: before MAX_PLAN_ID_CHARS, a single plan entry with 20 steps
+    // of 50_000-char connectionId serialized to 1_002_215 bytes on its own —
+    // and connectionId is model-supplied, not just hand-edit-only.
+    const steps = Array.from({ length: MAX_PLAN_STEPS }, () => ({
+      id: "i".repeat(50_000), tool: "run_command", connectionId: "c".repeat(50_000),
+      command: "df -h", rationale: "check disk", status: "dispatched",
+    }));
+    const hostile = planEntry({ steps }) as never as { planId: string };
+    (hostile as { planId: string }).planId = "p".repeat(50_000);
+    const legit: TranscriptEntry[] = Array.from({ length: 199 }, (_, i) => ({ kind: "user" as const, text: `m${i}` }));
+
+    const out = serializeConversation([...legit, hostile as never], []);
+    const bytes = JSON.stringify(out.transcript).length;
+
+    expect(bytes).toBeLessThanOrEqual(MAX_TRANSCRIPT_BYTES);
+    const entry = out.transcript.find((e) => e.kind === "plan") as { planId: string; steps: { id: string; connectionId: string }[] } | undefined;
+    expect(entry?.planId.length).toBeLessThanOrEqual(MAX_PLAN_ID_CHARS + TRUNCATION_MARKER.length);
+    expect(entry?.steps[0].id.length).toBeLessThanOrEqual(MAX_PLAN_ID_CHARS + TRUNCATION_MARKER.length);
+    expect(entry?.steps[0].connectionId.length).toBeLessThanOrEqual(MAX_PLAN_ID_CHARS + TRUNCATION_MARKER.length);
+    // The eviction check: with every field bounded, the whole-transcript
+    // backstop no longer has to sacrifice the 199 legitimate entries to fit
+    // the one hostile plan entry.
+    expect(out.transcript.filter((e) => e.kind === "user")).toHaveLength(199);
   });
 });
