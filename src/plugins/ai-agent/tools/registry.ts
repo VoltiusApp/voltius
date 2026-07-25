@@ -85,9 +85,13 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
       risk: "prompt",
       schema: z.object({ sessionId: z.string() }),
       execute: async (raw) => {
+        if (!ctx.owned.has(String(raw.sessionId))) {
+          return { error: "session not owned by agent; call open_session first" };
+        }
         const g = await gate("close_session", raw);
         if (!g.ok) return g.result;
         const sessionId = String(g.args.sessionId);
+        if (!ctx.owned.has(sessionId)) return { error: "session not owned by agent; call open_session first" };
         await ctx.api.sessions.close(sessionId);
         ctx.owned.delete(sessionId);
         return { closed: sessionId };

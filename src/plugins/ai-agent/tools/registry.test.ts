@@ -129,4 +129,21 @@ describe("tool registry", () => {
     const res: any = await tool(c, "run_command").execute({ sessionId: "sess-1", command: "ls" });
     expect(res.error).toMatch(/not owned|open_session/i);
   });
+
+  test("close_session hard-rejects a non-owned session (never closes, never prompts)", async () => {
+    const { ctx: c, approve } = ctx();
+    const res: any = await tool(c, "close_session").execute({ sessionId: "not-owned" });
+    expect(res.error).toMatch(/not owned|open_session/i);
+    expect(c.api.sessions.close).not.toHaveBeenCalled();
+    expect(approve).not.toHaveBeenCalled();
+  });
+
+  test("approve-with-edited-args swapping in a non-owned sessionId is rejected post-approval on close_session (never closes)", async () => {
+    const approve = vi.fn(async () => ({ approve: true, args: { sessionId: "not-owned" } }));
+    const { ctx: c } = ctx({ approve: approve as any });
+    await tool(c, "open_session").execute({ connectionId: "c1" }); // own sess-1, not "not-owned"
+    const res: any = await tool(c, "close_session").execute({ sessionId: "sess-1" });
+    expect(res.error).toMatch(/not owned|open_session/i);
+    expect(c.api.sessions.close).not.toHaveBeenCalled();
+  });
 });
