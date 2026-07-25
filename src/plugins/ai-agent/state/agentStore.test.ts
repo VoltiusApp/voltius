@@ -1008,7 +1008,7 @@ describe("agentStore", () => {
     expect(useAgentStore.getState().pendingContext).toBeNull();
   });
 
-  it("newConversation leaves the transcript and mode fully untouched while its mode read is still in flight, then applies both together", async () => {
+  it("newConversation clears synchronously — transcript, messages, and mode all move before the mode read settles", async () => {
     let resolveGet!: (v: Mode | null) => void;
     const pendingGet = new Promise<Mode | null>((r) => { resolveGet = r; });
     const api = {
@@ -1029,17 +1029,115 @@ describe("agentStore", () => {
     });
 
     const p = useAgentStore.getState().newConversation();
-    // Nothing has moved yet: no half-migrated state (cleared transcript, stale
-    // mode) is ever observable, unlike before the fix.
-    expect(useAgentStore.getState().mode).toBe("auto");
-    expect(useAgentStore.getState().transcript).toEqual([{ kind: "user", text: "old" }]);
-
-    resolveGet("plan");
-    await p;
-
+    // Everything but the mode read has already moved by the time
+    // newConversation returns — a concurrent sendMessage cannot see, or
+    // produce, a half-migrated state. The mode sits at the safe interim
+    // value (never "auto", the mode that was just abandoned) until the read
+    // resolves.
     expect(useAgentStore.getState().mode).toBe("plan");
     expect(useAgentStore.getState().transcript).toEqual([]);
     expect(useAgentStore.getState().messages).toEqual([]);
+
+    resolveGet("ask");
+    await p;
+
+    expect(useAgentStore.getState().mode).toBe("ask");
+  });
+
+  it("newConversation completes the synchronous clear even when the mode read rejects", async () => {
+    const storageDelete = vi.fn();
+    const api = {
+      storage: {
+        get: vi.fn(() => Promise.reject(new Error("storage unavailable"))),
+        set: vi.fn(),
+        delete: storageDelete,
+      },
+      keychain: { get: vi.fn(), set: vi.fn(), delete: vi.fn() },
+      sessions: { list: () => [] },
+      connections: { list: async () => [] },
+    } as never;
+    _setDeps({ api, profiles: {} as never, controller: {} as never });
+    useAgentStore.setState({
+      mode: "auto",
+      transcript: [{ kind: "user", text: "old" }],
+      messages: [{ role: "user", content: "old" }],
+      pendingContext: { sessionId: "s1", connectionName: "Prod", source: "snapshot", text: "x", lineCount: 1, truncated: false },
+      runStatus: "streaming",
+      errorText: "boom",
+    });
+
+    // Called the way production code calls it — `void newConversation()` —
+    // so a throw escaping the action would surface as an unhandled
+    // rejection, not a failed await here.
+    await useAgentStore.getState().newConversation();
+
+    expect(useAgentStore.getState().transcript).toEqual([]);
+    expect(useAgentStore.getState().messages).toEqual([]);
+    expect(useAgentStore.getState().pendingContext).toBeNull();
+    expect(useAgentStore.getState().runStatus).toBe("idle");
+    expect(useAgentStore.getState().errorText).toBeNull();
+    expect(storageDelete).toHaveBeenCalledWith("conversation");
+    // The rejection left the mode at the safe interim value rather than
+    // propagating out or leaving the old "auto" in place.
+    expect(useAgentStore.getState().mode).toBe("plan");
+  });
+
+  it("a newConversation superseded by a later action before its mode read resolves does not write the mode", async () => {
+    let resolveFirst!: (v: Mode | null) => void;
+    const pendingFirst = new Promise<Mode | null>((r) => { resolveFirst = r; });
+    let firstCall = true;
+    const api = {
+      storage: {
+        get: vi.fn(() => {
+          if (firstCall) { firstCall = false; return pendingFirst; }
+          return Promise.resolve("auto" as Mode);
+        }),
+        set: vi.fn(),
+        delete: vi.fn(),
+      },
+      keychain: { get: vi.fn(), set: vi.fn(), delete: vi.fn() },
+      sessions: { list: () => [] },
+      connections: { list: async () => [] },
+    } as never;
+    _setDeps({ api, profiles: {} as never, controller: {} as never });
+
+    const first = useAgentStore.getState().newConversation();
+    // The second call bumps runGeneration again before the first call's
+    // mode read has a chance to resolve, so it supersedes the first.
+    const second = useAgentStore.getState().newConversation();
+    await second;
+    expect(useAgentStore.getState().mode).toBe("auto");
+
+    resolveFirst("ask");
+    await first;
+    // The superseded first call must not clobber the second (newer) call's
+    // resolved mode with its own stale read.
+    expect(useAgentStore.getState().mode).toBe("auto");
+  });
+
+  it("newConversation's interim mode is never more permissive than a stricter stored default", async () => {
+    // "plan" is the strictest mode (executes nothing), so it can never be
+    // *more* permissive than whatever the stored default turns out to be —
+    // unlike "ask" (prompts on risky actions, but still auto-runs the rest)
+    // or "auto" (auto-approves everything), either of which could be more
+    // permissive than a "plan" default while the read is still in flight.
+    let resolveGet!: (v: Mode | null) => void;
+    const pendingGet = new Promise<Mode | null>((r) => { resolveGet = r; });
+    const api = {
+      storage: { get: vi.fn(() => pendingGet), set: vi.fn(), delete: vi.fn() },
+      keychain: { get: vi.fn(), set: vi.fn(), delete: vi.fn() },
+      sessions: { list: () => [] },
+      connections: { list: async () => [] },
+    } as never;
+    _setDeps({ api, profiles: {} as never, controller: {} as never });
+    useAgentStore.setState({ mode: "auto" });
+
+    const p = useAgentStore.getState().newConversation();
+    expect(useAgentStore.getState().mode).toBe("plan");
+
+    resolveGet("plan");
+    await p;
+    expect(useAgentStore.getState().mode).toBe("plan");
   });
 });
 

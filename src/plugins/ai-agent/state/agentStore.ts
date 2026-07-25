@@ -221,21 +221,50 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     // …and the bump is what kills an approval parked in deriveScope: it can
     // never come back to this generation. See isGenerationDead above.
     runGeneration += 1;
+    // Bound right after the bump, mirroring sendMessage's generation capture
+    // — this is what lets the mode write below tell "still this action" from
+    // "superseded by a newer newConversation/initAgent/run" once its own
+    // read resolves.
+    const generation = runGeneration;
     // Ownership drops, but agent-owned SSH sessions are left open — closing
     // them here could race a session the user is still reading, the same
     // reasoning shutdownAgent's comment records.
     resetOwnedSessions();
-    const api = deps?.api;
-    // Read before clearing state, and applied together with the clear in one
-    // set() below: a sendMessage firing during this await now sees the fully
-    // old state (old transcript, old mode) instead of a half-migrated one
-    // (cleared transcript, still-stale mode) it would otherwise run under.
-    const stored = await api?.storage.get<Mode>("agentMode");
+    // Everything above and this set() are synchronous — no await before them
+    // — so this action cannot be partially applied: not by a rejecting
+    // storage.get below (caught, never left to abort the function), and not
+    // by a sendMessage racing in behind it (nothing here yields, so there is
+    // no tick for one to interleave on).
     set({
       transcript: [], messages: [], runStatus: "idle", errorText: null, pendingContext: null,
-      mode: stored ?? "ask",
+      // "plan" (executes nothing) is the strictest mode, so it can never be
+      // *more* permissive than whatever the stored default turns out to be —
+      // unlike "ask" or "auto", either of which could be. Corrected below
+      // once the read resolves, if this action is still current.
+      mode: "plan",
     });
+    const api = deps?.api;
     void api?.storage.delete(CONVERSATION_KEY);
+    // Awaited after the synchronous clear, and never allowed to reject out
+    // of this function — same reasoning as initAgent's own storage.get
+    // wrapping: a rejection here must not strand runStatus/transcript
+    // half-migrated (see initAgent). This reopens the original one-tick
+    // window where a sendMessage fired during this await runs under the
+    // interim "plan" mode instead of the real stored default. That is the
+    // correct trade: a stale *mode* for one tick is cosmetic, whereas
+    // resolving it before the clear (the previous wave's approach) let a
+    // user-turn-less, assistant-only conversation get persisted and the
+    // composer get stranded on a rejection. Do not move the read back above
+    // the clear.
+    try {
+      const stored = await api?.storage.get<Mode>("agentMode");
+      // A newer newConversation/initAgent/run has already superseded this
+      // one — its mode is no longer ours to set.
+      if (runGeneration !== generation) return;
+      set({ mode: stored ?? "ask" });
+    } catch {
+      // Leave the mode at the safe interim value set above.
+    }
   },
 
   sendMessage: async (text) => {
