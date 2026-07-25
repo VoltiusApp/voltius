@@ -4,7 +4,7 @@ import type { TranscriptEntry } from "./agentStore";
 import {
   serializeConversation, deserializeConversation,
   MAX_TRANSCRIPT_ENTRIES, MAX_TOOL_RESULT_BYTES, MAX_MESSAGES_BYTES, TRUNCATION_MARKER,
-  MAX_TRANSCRIPT_DETAIL_CHARS, MAX_TRANSCRIPT_BYTES,
+  MAX_TRANSCRIPT_TEXT_CHARS, MAX_TRANSCRIPT_BYTES,
 } from "./persistence";
 
 const userMsg = (t: string): ModelMessage => ({ role: "user", content: t });
@@ -77,11 +77,43 @@ describe("serializeConversation", () => {
     expect(part.output.value.endsWith(TRUNCATION_MARKER)).toBe(true);
   });
 
-  it("clamps a transcript tool detail to MAX_TRANSCRIPT_DETAIL_CHARS, not MAX_TOOL_RESULT_BYTES", () => {
+  it("clamps a transcript tool detail to MAX_TRANSCRIPT_TEXT_CHARS, not MAX_TOOL_RESULT_BYTES", () => {
     const transcript: TranscriptEntry[] = [{ kind: "tool", tool: "run_command", state: "result", detail: "x".repeat(MAX_TOOL_RESULT_BYTES) }];
     const detail = (serializeConversation(transcript, []).transcript[0] as { detail: string }).detail;
-    expect(detail.length).toBeLessThanOrEqual(MAX_TRANSCRIPT_DETAIL_CHARS + TRUNCATION_MARKER.length);
+    expect(detail.length).toBeLessThanOrEqual(MAX_TRANSCRIPT_TEXT_CHARS + TRUNCATION_MARKER.length);
     expect(detail.endsWith(TRUNCATION_MARKER)).toBe(true);
+  });
+
+  it("clamps an oversized user entry's text, bounding the whole transcript", () => {
+    const transcript: TranscriptEntry[] = [{ kind: "user", text: "u".repeat(500_000) }];
+    const out = serializeConversation(transcript, []);
+    expect(JSON.stringify(out.transcript).length).toBeLessThanOrEqual(MAX_TRANSCRIPT_BYTES);
+    const text = (out.transcript[0] as { text: string }).text;
+    expect(text.length).toBeLessThanOrEqual(MAX_TRANSCRIPT_TEXT_CHARS + TRUNCATION_MARKER.length);
+    expect(text.endsWith(TRUNCATION_MARKER)).toBe(true);
+  });
+
+  it("clamps five oversized assistant entries, bounding the whole transcript", () => {
+    const transcript: TranscriptEntry[] = Array.from({ length: 5 }, () => ({
+      kind: "assistant" as const, text: "a".repeat(200_000),
+    }));
+    const out = serializeConversation(transcript, []);
+    expect(JSON.stringify(out.transcript).length).toBeLessThanOrEqual(MAX_TRANSCRIPT_BYTES);
+    expect(out.transcript).toHaveLength(5);
+    for (const e of out.transcript) {
+      expect((e as { text: string }).text.length).toBeLessThanOrEqual(MAX_TRANSCRIPT_TEXT_CHARS + TRUNCATION_MARKER.length);
+    }
+  });
+
+  it("bounds a mixed-kind transcript well over budget", () => {
+    const transcript: TranscriptEntry[] = [
+      { kind: "user", text: "u".repeat(500_000) },
+      { kind: "assistant", text: "a".repeat(300_000) },
+      { kind: "tool", tool: "run_command", state: "result", detail: "d".repeat(300_000) },
+      { kind: "user", text: "small" },
+    ];
+    const out = serializeConversation(transcript, []);
+    expect(JSON.stringify(out.transcript).length).toBeLessThanOrEqual(MAX_TRANSCRIPT_BYTES);
   });
 
   it("drops oldest transcript entries until the byte budget fits, keeping the newest", () => {
@@ -124,6 +156,29 @@ describe("deserializeConversation", () => {
   it("keeps everything when the last tool call was resolved", () => {
     const messages = [userMsg("hi"), toolCall("c1"), toolResult("c1", { type: "text", value: "ok" })];
     expect(deserializeConversation({ v: 1, transcript: [], messages })?.messages).toHaveLength(3);
+  });
+
+  it("does not silently empty the history when a leading tool-call part has a missing toolCallId", () => {
+    // A bad id in the very first assistant message is the case that zeroes out
+    // `lastResolvedEnd` entirely if the id ever lands in `pending`: nothing
+    // after it can ever clear a non-string id, so `end` never advances past 0.
+    const messages = [
+      { role: "assistant", content: [{ type: "tool-call", toolName: "run_command", input: {} }] },
+      userMsg("hi"),
+      assistantText("ok"),
+    ];
+    const out = deserializeConversation({ v: 1, transcript: [], messages });
+    expect(out?.messages.length).toBeGreaterThan(0);
+  });
+
+  it("does not silently empty the history when a leading tool-call part has a non-string toolCallId", () => {
+    const messages = [
+      { role: "assistant", content: [{ type: "tool-call", toolCallId: 42, toolName: "run_command", input: {} }] },
+      userMsg("hi"),
+      assistantText("ok"),
+    ];
+    const out = deserializeConversation({ v: 1, transcript: [], messages });
+    expect(out?.messages.length).toBeGreaterThan(0);
   });
 
   it("filters transcript entries of an unknown kind", () => {
