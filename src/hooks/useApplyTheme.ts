@@ -26,6 +26,10 @@ export function applyThemeToDom(theme: AppTheme) {
   root.style.setProperty("--t-text-primary", ui.textPrimary);
   root.style.setProperty("--t-text-bright", ui.textBright);
   root.style.setProperty("--t-accent", ui.accent);
+  // Foreground for text/icons sitting ON the accent. Reuses the same WCAG
+  // luminance helper the light-appearance stamp uses, so a light accent no
+  // longer renders white-on-light wherever `--t-on-accent` is consumed.
+  root.style.setProperty("--t-on-accent", appearanceFromColor(ui.accent) === "light" ? "#000000" : "#ffffff");
   root.style.setProperty("--t-accent-hover", ui.accentHover);
   root.style.setProperty("--t-tab-bg", ui.tabBg);
   root.style.setProperty("--t-tab-active-bg", ui.tabActiveBg);

@@ -48,9 +48,12 @@ export const _setDeps = (d: AgentDeps | null) => { deps = d; };
  * distinguish a deliberate Stop from a genuine run failure.
  */
 export function isAbortError(err: unknown, signal?: AbortSignal): boolean {
-  if (signal?.aborted) return true;
   if (typeof DOMException !== "undefined" && err instanceof DOMException && err.name === "AbortError") return true;
   if (err instanceof Error && err.name === "AbortError") return true;
+  // An aborted signal alone is not proof: a genuine provider failure can land
+  // in the same tick as a Stop, and reporting it as a clean cancel hides a
+  // real error. Only treat a non-Error throw as an abort when the signal says so.
+  if (signal?.aborted && !(err instanceof Error)) return true;
   return false;
 }
 
@@ -281,7 +284,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         set({ runStatus: "error", errorText: err instanceof Error ? err.message : String(err) });
       }
     } finally {
-      abortController = null;
+      // Only the run that installed this controller may clear it — a slower
+      // run finishing must not null the controller a newer run is using.
+      if (abortController === runController) abortController = null;
     }
   },
 }));

@@ -304,6 +304,107 @@ describe("agentStore", () => {
     expect(useAgentStore.getState().errorText).toBeNull();
   });
 
+  it("a finishing run does not null a newer run's controller (stop() during run 2 still aborts run 2)", async () => {
+    // The single-flight guard only checks runStatus at the very top of
+    // sendMessage, before any await — so firing two calls back-to-back
+    // (neither awaited) lets both pass the guard in the same tick, before
+    // either has set runStatus to "streaming". That's the only way two
+    // *overlapping* runs reach this module's shared `abortController` at
+    // once through the public API. Run 1 is wired to finish fast; run 2 is
+    // wired to still be streaming when run 1's `finally` fires — the exact
+    // window where the old unconditional `abortController = null` would null
+    // run 2's controller out from under it.
+    (runAgent as unknown as ReturnType<typeof vi.fn>).mockClear();
+    let doStreamCalls = 0;
+    mockModel.current = new MockLanguageModelV4({
+      doStream: async () => {
+        doStreamCalls += 1;
+        if (doStreamCalls === 1) {
+          // Run 1: finishes immediately.
+          return {
+            stream: simulateReadableStream({
+              chunks: [
+                { type: "text-start", id: "0" },
+                { type: "text-delta", id: "0", delta: "fast" },
+                { type: "text-end", id: "0" },
+                FINISH_CHUNK,
+              ],
+            }),
+          };
+        }
+        // Run 2: still streaming well after run 1 has settled.
+        return {
+          stream: simulateReadableStream({
+            chunkDelayInMs: 30,
+            chunks: [
+              { type: "text-start", id: "1" },
+              { type: "text-delta", id: "1", delta: "slow" },
+              { type: "text-end", id: "1" },
+              FINISH_CHUNK,
+            ],
+          }),
+        };
+      },
+    });
+    _setDeps({
+      api: fakeApi(),
+      profiles: {
+        list: async () => [{ id: "p1", providerKind: "anthropic", label: "A", model: "claude-x" }],
+        getActiveId: async () => "p1",
+        getKey: async () => "sk-test",
+      } as never,
+      controller: { approve: async () => ({ approve: true }) },
+    } as never);
+
+    const firstPromise = useAgentStore.getState().sendMessage("first");
+    const secondPromise = useAgentStore.getState().sendMessage("second");
+
+    await firstPromise; // run 1 settles while run 2 is still mid-stream
+    await vi.waitFor(() => expect(runAgent).toHaveBeenCalledTimes(2));
+
+    useAgentStore.getState().stop();
+
+    const calls = (runAgent as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    const run2Signal = (calls[1][0] as { abortSignal?: AbortSignal }).abortSignal;
+    expect(run2Signal?.aborted).toBe(true); // run 1's finally must not have nulled run 2's controller
+
+    await secondPromise;
+  });
+
+  it("surfaces a provider failure that races a Stop, instead of swallowing it as a clean cancel", async () => {
+    // signal.aborted becomes true (via stop()) in the same tick a genuine,
+    // non-AbortError-shaped provider failure is thrown — isAbortError must
+    // not treat the aborted signal alone as proof of a deliberate Stop.
+    (runAgent as unknown as ReturnType<typeof vi.fn>).mockClear();
+    mockModel.current = new MockLanguageModelV4({
+      doStream: async ({ abortSignal }: { abortSignal?: AbortSignal }) => {
+        await new Promise<void>((resolve) => {
+          if (abortSignal?.aborted) resolve();
+          else abortSignal?.addEventListener("abort", () => resolve());
+        });
+        throw new TypeError("fetch failed");
+      },
+    });
+    _setDeps({
+      api: fakeApi(),
+      profiles: {
+        list: async () => [{ id: "p1", providerKind: "anthropic", label: "A", model: "claude-x" }],
+        getActiveId: async () => "p1",
+        getKey: async () => "sk-test",
+      } as never,
+      controller: { approve: async () => ({ approve: true }) },
+    } as never);
+
+    const sendPromise = useAgentStore.getState().sendMessage("hello");
+    await vi.waitFor(() => expect(runAgent).toHaveBeenCalledTimes(1));
+    useAgentStore.getState().stop();
+    await sendPromise;
+
+    expect(useAgentStore.getState().runStatus).toBe("error");
+    expect(useAgentStore.getState().errorText).not.toBeNull();
+    expect(useAgentStore.getState().errorText).not.toMatch(/aborted/i);
+  });
+
   it("hands runAgent the SAME owned-session Set across two turns, and initAgent resets it to a fresh one", async () => {
     (runAgent as unknown as ReturnType<typeof vi.fn>).mockClear();
     mockModel.current = new MockLanguageModelV4({
@@ -790,10 +891,19 @@ describe("isAbortError", () => {
     expect(isAbortError(err)).toBe(true);
   });
 
-  it("is true when the run's AbortSignal is aborted, regardless of the error's shape", () => {
+  it("is true when the signal is aborted and the thrown value isn't Error-shaped (no name to check)", () => {
     const ac = new AbortController();
     ac.abort();
-    expect(isAbortError(new Error("some unrelated network error"), ac.signal)).toBe(true);
+    expect(isAbortError("some unrelated string throw", ac.signal)).toBe(true);
+  });
+
+  // 10c: an aborted signal alone is not proof of a deliberate Stop — a real
+  // provider Error can land in the same tick a user presses Stop, and it must
+  // still be surfaced as a failure, not swallowed as a clean cancel.
+  it("is false when the signal is aborted but the error is a genuine (non-AbortError-named) Error — a real failure racing a Stop", () => {
+    const ac = new AbortController();
+    ac.abort();
+    expect(isAbortError(new Error("some unrelated network error"), ac.signal)).toBe(false);
   });
 
   it("is false for a genuine error with a non-aborted (or absent) signal", () => {
