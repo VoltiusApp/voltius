@@ -17,7 +17,7 @@ export const manifest: PluginManifest = {
   name: "AI Agent",
   version: "1.0.0",
   description:
-    "Bring-your-own-key AI assistant (Terminal Doctor). Reads terminal output and runs approved commands to help diagnose issues. Disableable; API keys stored locally in your OS keychain.",
+    "Bring-your-own-key AI assistant (Terminal Doctor). Reads terminal output and runs approved commands to help diagnose issues. Disableable; API keys stored locally in your OS keychain. The conversation, including any captured terminal output, is stored unencrypted on this device.",
   permissions: [
     "terminal:read", "terminal:stream", "keychain:read", "keychain:write",
     "sessions:write", "sessions:read", "connections:read", "http",
@@ -49,7 +49,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
     execute: () => {
       const active = api.sessions.getActive();
       if (active) {
-        const ctx = buildTerminalContext(api, active.id, active.connectionName);
+        const ctx = buildTerminalContext(api, active.id, active.connectionName ?? active.connectionId);
         if (ctx) useAgentStore.getState().attachContext(ctx);
       }
       useUIStore.getState().setGlobalPanelOpen(DRAWER_PANEL_ID, true);
