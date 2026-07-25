@@ -1,7 +1,8 @@
-import { useState, type CSSProperties } from "react";
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { getAgentDeps } from "../state/agentStore";
-import { fieldVisibility, loadModels } from "../provider/models";
+import { fieldVisibility } from "../provider/models";
+import { ProviderFields, providerFieldsComplete, type ProviderFieldsValue } from "./ProviderFields";
 import type { ProviderKind, ProviderProfile } from "../types";
 
 const PROVIDER_LABEL: Record<ProviderKind, string> = {
@@ -11,73 +12,34 @@ const PROVIDER_LABEL: Record<ProviderKind, string> = {
   google: "Google",
 };
 
-const BASE_URL_PLACEHOLDER: Record<ProviderKind, string> = {
-  anthropic: "",
-  "openai-compatible": "https://api.example.com",
-  ollama: "http://localhost:11434",
-  google: "",
-};
-
-const inputStyle: CSSProperties = {
-  background: "var(--t-bg-input)",
-  color: "var(--t-text-bright)",
-  border: "1px solid var(--t-border)",
-  borderRadius: 6,
-  padding: "6px 8px",
-  fontSize: 13,
-};
-
-const labelStyle: CSSProperties = {
-  color: "var(--t-text-secondary)",
-  fontSize: 12,
-};
-
 export function FirstRunCard({ onDone }: { onDone: () => void }) {
-  const [providerKind, setProviderKind] = useState<ProviderKind>("anthropic");
-  const [apiKey, setApiKey] = useState("");
-  const [baseUrl, setBaseUrl] = useState("");
-  const [model, setModel] = useState("");
-  const [modelOptions, setModelOptions] = useState<string[]>([]);
-  const [loadingModels, setLoadingModels] = useState(false);
-  const [testError, setTestError] = useState<string | null>(null);
+  const [fields, setFields] = useState<ProviderFieldsValue>({
+    providerKind: "anthropic",
+    label: PROVIDER_LABEL.anthropic,
+    apiKey: "",
+    baseUrl: "",
+    model: "",
+  });
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
 
-  const visibility = fieldVisibility(providerKind);
-
-  const onProviderChange = (kind: ProviderKind) => {
-    setProviderKind(kind);
-    setModelOptions([]);
-    setTestError(null);
-  };
+  // ProviderFields doesn't render a label editor, so keep `label` in sync
+  // with the selected provider here (Task 8's editor is where it becomes
+  // user-editable).
+  const onFieldsChange = (next: ProviderFieldsValue) =>
+    setFields(
+      next.providerKind === fields.providerKind ? next : { ...next, label: PROVIDER_LABEL[next.providerKind] },
+    );
 
   const draftProfile = (id: string): ProviderProfile => ({
     id,
-    providerKind,
-    label: PROVIDER_LABEL[providerKind],
-    baseUrl: visibility.baseUrl ? baseUrl.trim() : undefined,
-    model: model.trim(),
+    providerKind: fields.providerKind,
+    label: fields.label,
+    baseUrl: fieldVisibility(fields.providerKind).baseUrl ? fields.baseUrl.trim() : undefined,
+    model: fields.model.trim(),
   });
 
-  const onLoadModels = async () => {
-    const deps = getAgentDeps();
-    if (!deps) return;
-    setLoadingModels(true);
-    setTestError(null);
-    try {
-      const res = await loadModels(deps.api, draftProfile("draft"), apiKey.trim() || undefined);
-      setModelOptions(res.models);
-      if (res.error) setTestError(res.error);
-      else if (res.models.length && !model) setModel(res.models[0]);
-    } finally {
-      setLoadingModels(false);
-    }
-  };
-
-  const canStart =
-    model.trim().length > 0 &&
-    (!visibility.apiKeyRequired || apiKey.trim().length > 0) &&
-    (!visibility.baseUrl || baseUrl.trim().length > 0);
+  const canStart = providerFieldsComplete(fields);
 
   const onStart = async () => {
     const deps = getAgentDeps();
@@ -87,7 +49,7 @@ export function FirstRunCard({ onDone }: { onDone: () => void }) {
     try {
       const profile = draftProfile(crypto.randomUUID());
       await deps.profiles.save(profile);
-      if (apiKey.trim()) await deps.profiles.setKey(profile.id, apiKey.trim());
+      if (fields.apiKey.trim()) await deps.profiles.setKey(profile.id, fields.apiKey.trim());
       await deps.profiles.setActive(profile.id);
       onDone();
     } catch (err) {
@@ -106,91 +68,7 @@ export function FirstRunCard({ onDone }: { onDone: () => void }) {
         </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <label htmlFor="fr-provider" style={labelStyle}>Provider</label>
-        <select
-          id="fr-provider"
-          value={providerKind}
-          onChange={(e) => onProviderChange(e.target.value as ProviderKind)}
-          style={inputStyle}
-        >
-          <option value="anthropic">Anthropic</option>
-          <option value="openai-compatible">OpenAI-compatible</option>
-          <option value="ollama">Ollama</option>
-          <option value="google">Google</option>
-        </select>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <label htmlFor="fr-apikey" style={labelStyle}>
-          API key{visibility.apiKeyRequired ? "" : " (optional)"}
-        </label>
-        <input
-          id="fr-apikey"
-          type="password"
-          autoComplete="off"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-          placeholder={visibility.apiKeyRequired ? "sk-…" : "leave blank if unused"}
-          style={inputStyle}
-        />
-      </div>
-
-      {visibility.baseUrl && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <label htmlFor="fr-baseurl" style={labelStyle}>Base URL</label>
-          <input
-            id="fr-baseurl"
-            type="text"
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder={BASE_URL_PLACEHOLDER[providerKind]}
-            style={inputStyle}
-          />
-        </div>
-      )}
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <label htmlFor="fr-model" style={labelStyle}>Model</label>
-        <div style={{ display: "flex", gap: 6 }}>
-          <input
-            id="fr-model"
-            type="text"
-            list="fr-model-options"
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            placeholder="model id"
-            style={{ ...inputStyle, flex: 1 }}
-          />
-          <datalist id="fr-model-options">
-            {modelOptions.map((m) => (
-              <option key={m} value={m} />
-            ))}
-          </datalist>
-          <button
-            type="button"
-            onClick={() => void onLoadModels()}
-            disabled={loadingModels}
-            title="Fetch available models (also tests the connection)"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              background: "transparent",
-              color: "var(--t-text-secondary)",
-              border: "1px solid var(--t-border)",
-              borderRadius: 6,
-              padding: "4px 8px",
-              fontSize: 12,
-              opacity: loadingModels ? 0.6 : 1,
-            }}
-          >
-            <Icon icon="lucide:refresh-cw" width={13} />
-            Load models
-          </button>
-        </div>
-        {testError && <div style={{ color: "var(--t-status-error)", fontSize: 11 }}>{testError}</div>}
-      </div>
+      <ProviderFields idPrefix="fr" value={fields} onChange={onFieldsChange} />
 
       {startError && <div style={{ color: "var(--t-status-error)", fontSize: 12 }}>{startError}</div>}
 
