@@ -1,5 +1,5 @@
 import { test, expect, beforeEach } from "vitest";
-import { reportLocalClientEvent, fetchLocalAuditLogs } from "./localAuditService.ts";
+import { reportLocalClientEvent, fetchLocalAuditLogs, MAX_LOCAL_LOGS_PER_VAULT } from "./localAuditService.ts";
 
 const KEY = "voltius-local-audit-logs";
 const filters = { page: 1, per_page: 100 } as never;
@@ -44,4 +44,55 @@ test("nextId never regresses below the highest persisted log id", async () => {
   const { logs } = await fetchLocalAuditLogs("v1", filters);
   const newId = logs.find((l) => l.action === "connection.started")!.id;
   expect(newId).toBeGreaterThan(9); // did not reuse id and collide with the seeded log
+});
+
+function seedLogs(vaultId: string, count: number) {
+  // Seeded directly rather than via 5000 reportLocalClientEvent calls: each
+  // call re-serializes the whole db, so the loop would be O(n^2) on JSON.
+  const logs = Array.from({ length: count }, (_, i) => ({
+    id: count - i, team_id: "local", vault_id: vaultId, actor_id: "local-user",
+    actor_name: "You", action: "secret.viewed", source: "client",
+    target_type: null, target_id: String(count - i), target_name: null,
+    metadata: null, ip_address: null,
+    created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, count - i)).toISOString(),
+  }));
+  localStorage.setItem(KEY, JSON.stringify({ nextId: count + 1, logsByVault: { [vaultId]: logs } }));
+}
+
+test("caps a vault at MAX_LOCAL_LOGS_PER_VAULT, keeping the newest", async () => {
+  seedLogs("v1", MAX_LOCAL_LOGS_PER_VAULT);
+  await reportLocalClientEvent("v1", {
+    action: "agent.command_run", occurred_at: "2026-06-01T00:00:00Z", target_id: "newest",
+  } as never);
+
+  const { total, logs } = await fetchLocalAuditLogs("v1", filters);
+  expect(total).toBe(MAX_LOCAL_LOGS_PER_VAULT);
+  expect(logs[0].target_id).toBe("newest");
+});
+
+test("trimming drops the OLDEST entry, not an arbitrary one", async () => {
+  seedLogs("v1", MAX_LOCAL_LOGS_PER_VAULT);
+  const before = await fetchLocalAuditLogs("v1", filters);
+  const oldestId = before.logs[before.logs.length - 1].id;
+
+  await reportLocalClientEvent("v1", {
+    action: "agent.command_run", occurred_at: "2026-06-01T00:00:00Z",
+  } as never);
+
+  const after = await fetchLocalAuditLogs("v1", filters);
+  expect(after.logs.some((l) => l.id === oldestId)).toBe(false);
+});
+
+test("trimming one vault leaves other vaults untouched", async () => {
+  seedLogs("v1", MAX_LOCAL_LOGS_PER_VAULT);
+  await reportLocalClientEvent("v2", { action: "secret.viewed", occurred_at: "2026-06-01T00:00:00Z" } as never);
+  await reportLocalClientEvent("v1", { action: "agent.command_run", occurred_at: "2026-06-01T00:01:00Z" } as never);
+
+  expect((await fetchLocalAuditLogs("v2", filters)).total).toBe(1);
+});
+
+test("a vault under the cap is not trimmed", async () => {
+  await reportLocalClientEvent("v1", { action: "secret.viewed", occurred_at: "2026-06-01T00:00:00Z" } as never);
+  await reportLocalClientEvent("v1", { action: "secret.viewed", occurred_at: "2026-06-01T00:01:00Z" } as never);
+  expect((await fetchLocalAuditLogs("v1", filters)).total).toBe(2);
 });

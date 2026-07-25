@@ -4,6 +4,16 @@ import { applyAuditFilters, csvEscape } from "@/services/auditExportCore";
 
 const LOCAL_AUDIT_KEY = "voltius-local-audit-logs";
 
+/**
+ * Ring-buffer bound for the per-vault local log.
+ *
+ * `writeDb` swallows QuotaExceededError, so an unbounded log does not fail
+ * loudly — it silently stops recording. Dropping the oldest history is the
+ * better of the two failures: a log that stops recording TODAY's activity is
+ * worse than one missing last year's.
+ */
+export const MAX_LOCAL_LOGS_PER_VAULT = 5000;
+
 interface LocalAuditLog extends AuditLog {
   team_id: "local";
 }
@@ -176,6 +186,8 @@ export async function reportLocalClientEvent(
   };
 
   db.nextId += 1;
-  db.logsByVault[vaultId] = [log, ...logs];
+  // Only the vault being written is trimmed — the others are not growing, and
+  // sweeping them would turn every append into a whole-database rewrite.
+  db.logsByVault[vaultId] = [log, ...logs].slice(0, MAX_LOCAL_LOGS_PER_VAULT);
   writeDb(db);
 }
