@@ -36,9 +36,18 @@ export function auditAgentAction(
   metadata?: Record<string, unknown>,
   localMetadata?: Record<string, unknown>,
 ): void {
+  // Team-vault connections live only in `teamConnections` (by team id), never
+  // in `connections` (personal-only). Merge both, as `findConnection` in
+  // `@/plugins/runtime.ts` does — that is the canonical lookup pattern.
   const conn = scope === "local" || scope === UNKNOWN_SCOPE
     ? undefined
-    : useConnectionStore.getState().connections.find((c) => c.id === scope);
+    : (() => {
+        const { connections, teamConnections } = useConnectionStore.getState();
+        return (
+          connections.find((c) => c.id === scope) ??
+          Object.values(teamConnections).flat().find((c) => c.id === scope)
+        );
+      })();
 
   const context = conn ? auditContextForVaultId(conn.vault_id) : LOCAL_CONTEXT;
   const targetName = conn

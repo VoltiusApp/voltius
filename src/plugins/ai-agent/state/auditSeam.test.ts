@@ -4,12 +4,13 @@ const reportAgentAuditEvent = vi.fn(
   (_context: Record<string, unknown>, _action: string, _opts: Record<string, unknown>) => {},
 );
 const connections: Array<Record<string, unknown>> = [];
+const teamConnections: Record<string, Array<Record<string, unknown>>> = {};
 const teams: Array<{ id: string }> = [];
 const vaults: Array<{ id: string; teamId?: string }> = [];
 
 vi.mock("@/services/auditReporter", () => ({ reportAgentAuditEvent }));
 vi.mock("@/stores/connectionStore", () => ({
-  useConnectionStore: { getState: () => ({ connections }) },
+  useConnectionStore: { getState: () => ({ connections, teamConnections }) },
 }));
 vi.mock("@/stores/teamStore", () => ({ useTeamStore: { getState: () => ({ teams }) } }));
 vi.mock("@/stores/vaultStore", () => ({ useVaultStore: { getState: () => ({ vaults }) } }));
@@ -19,19 +20,35 @@ const { auditAgentAction } = await import("./auditSeam");
 beforeEach(() => {
   reportAgentAuditEvent.mockClear();
   connections.length = 0;
+  for (const key of Object.keys(teamConnections)) delete teamConnections[key];
   teams.length = 0;
   vaults.length = 0;
 });
 
 describe("auditAgentAction", () => {
   it("resolves a team context for a connection in a team vault", () => {
+    // Team connections live ONLY in `teamConnections`, keyed by team id —
+    // never in `connections` (personal-only). This is the real store shape.
     vaults.push({ id: "tv1", teamId: "t1" });
-    connections.push({ id: "c1", name: "prod-db-1", username: "root", host: "h", port: 22, vault_id: "tv1" });
+    teamConnections.t1 = [
+      { id: "c1", name: "prod-db-1", username: "root", host: "h", port: 22, vault_id: "tv1" },
+    ];
 
     auditAgentAction("c1", "agent.command_run", { tool: "run_command" });
 
     const [context] = reportAgentAuditEvent.mock.calls[0];
     expect(context).toEqual({ kind: "team", teamId: "t1", vaultId: "tv1" });
+  });
+
+  it("resolves target_name for a connection found only in teamConnections", () => {
+    vaults.push({ id: "tv1", teamId: "t1" });
+    teamConnections.t1 = [
+      { id: "c1", name: "prod-db-1", username: "root", host: "h", port: 22, vault_id: "tv1" },
+    ];
+
+    auditAgentAction("c1", "agent.command_run", { tool: "run_command" });
+
+    expect(reportAgentAuditEvent.mock.calls[0][2].target_name).toBe("prod-db-1");
   });
 
   it("PRIVACY: a personal connection resolves local, so nothing is POSTed", () => {
