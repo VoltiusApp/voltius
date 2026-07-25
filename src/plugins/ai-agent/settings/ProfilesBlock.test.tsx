@@ -29,6 +29,13 @@ afterEach(() => {
 const profiles = [
   { id: "1", providerKind: "anthropic" as const, label: "Work", model: "claude-sonnet-5" },
   { id: "2", providerKind: "ollama" as const, label: "Local", model: "llama3.2", baseUrl: "http://x" },
+  {
+    id: "3",
+    providerKind: "openai-compatible" as const,
+    label: "Custom",
+    model: "gpt-4",
+    baseUrl: "https://api.example.com/v1",
+  },
 ];
 
 function mockStore(over: Record<string, unknown> = {}) {
@@ -218,5 +225,116 @@ describe("ProfilesBlock", () => {
     await waitFor(() => expect(store.remove).toHaveBeenCalledWith("1"));
     expect(await screen.findByText(/delete boom/)).toBeTruthy();
     expect(useAgentStore.getState().profilesVersion).toBe(before);
+  });
+
+  // --- I1: a typed key must never be silently dropped -----------------------
+
+  it("writes a newly typed key for an existing profile that has no key on disk", async () => {
+    const store = mockStore({ hasKey: vi.fn(async () => false) });
+    mockDeps({ profiles: store });
+    render(<ProfilesBlock />);
+    // profile "2" (ollama, Local) — key is optional there and absent on disk.
+    fireEvent.click((await screen.findAllByRole("button", { name: /edit/i }))[1]);
+    // No stored key exists, so the real input renders immediately (never masked).
+    await waitFor(() => expect(screen.queryByText(/•••• set/)).toBeNull());
+    const apiKeyInput = document.getElementById("edit-apikey") as HTMLInputElement;
+    expect(apiKeyInput).toBeTruthy();
+
+    fireEvent.change(apiKeyInput, { target: { value: "sk-newly-typed" } });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(store.save).toHaveBeenCalledWith(expect.objectContaining({ id: "2" })));
+    expect(store.setKey).toHaveBeenCalledWith("2", "sk-newly-typed");
+  });
+
+  // --- I2: the request destination (baseUrl), not just providerKind, gates a stored key ---
+
+  it("changing baseUrl to a different origin forces Replace and clears any typed key", async () => {
+    const store = mockStore();
+    mockDeps({ profiles: store });
+    render(<ProfilesBlock />);
+    // profile "3" (openai-compatible, Custom) starts with a stored key.
+    fireEvent.click((await screen.findAllByRole("button", { name: /edit/i }))[2]);
+    await screen.findByText(/•••• set/);
+
+    fireEvent.click(screen.getByRole("button", { name: /replace/i }));
+    fireEvent.change(document.getElementById("edit-apikey")!, {
+      target: { value: "sk-typed-for-old-host" },
+    });
+
+    fireEvent.change(document.getElementById("edit-baseurl")!, {
+      target: { value: "https://evil.example/v1/models" },
+    });
+
+    expect(screen.queryByText(/•••• set/)).toBeNull();
+    const apiKeyInput = document.getElementById("edit-apikey") as HTMLInputElement;
+    expect(apiKeyInput).toBeTruthy();
+    expect(apiKeyInput.value).toBe("");
+  });
+
+  it("does not let Load models use the stored key once the baseUrl origin has changed", async () => {
+    const store = mockStore();
+    mockDeps({ profiles: store });
+    render(<ProfilesBlock />);
+    fireEvent.click((await screen.findAllByRole("button", { name: /edit/i }))[2]);
+    await screen.findByText(/•••• set/);
+
+    fireEvent.change(document.getElementById("edit-baseurl")!, {
+      target: { value: "https://evil.example/v1/models" },
+    });
+
+    const loadBtn = screen.getByRole("button", { name: /loadModels/i }) as HTMLButtonElement;
+    fireEvent.click(loadBtn);
+    await waitFor(() => expect(loadBtn.disabled).toBe(false));
+    expect(store.getKey).not.toHaveBeenCalled();
+  });
+
+  it("does not force Replace when only the path changes on the same origin", async () => {
+    const store = mockStore();
+    mockDeps({ profiles: store });
+    render(<ProfilesBlock />);
+    fireEvent.click((await screen.findAllByRole("button", { name: /edit/i }))[2]);
+    await screen.findByText(/•••• set/);
+
+    fireEvent.change(document.getElementById("edit-baseurl")!, {
+      target: { value: "https://api.example.com/v2" },
+    });
+
+    expect(screen.getByText(/•••• set/)).toBeTruthy();
+    expect(document.getElementById("edit-apikey")).toBeNull();
+  });
+
+  it("saving a destination change (same providerKind, different baseUrl origin) drops the stale key", async () => {
+    const store = mockStore();
+    mockDeps({ profiles: store });
+    render(<ProfilesBlock />);
+    fireEvent.click((await screen.findAllByRole("button", { name: /edit/i }))[2]);
+    await screen.findByText(/•••• set/);
+
+    fireEvent.change(document.getElementById("edit-baseurl")!, {
+      target: { value: "https://evil.example/v1" },
+    });
+    // Key is required for openai-compatible and now cleared -> retype it.
+    fireEvent.change(document.getElementById("edit-apikey")!, { target: { value: "sk-for-new-host" } });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(store.save).toHaveBeenCalledWith(expect.objectContaining({ id: "3" })));
+    expect(store.deleteKey).toHaveBeenCalledWith("3");
+    expect(store.setKey).toHaveBeenCalledWith("3", "sk-for-new-host");
+  });
+
+  // --- MINOR 1: the hasKey probe must not surface an unhandled rejection ---
+
+  it("treats a failing hasKey probe as no stored key, without throwing", async () => {
+    const store = mockStore({
+      hasKey: vi.fn(async () => {
+        throw new Error("probe boom");
+      }),
+    });
+    mockDeps({ profiles: store });
+    render(<ProfilesBlock />);
+    fireEvent.click((await screen.findAllByRole("button", { name: /edit/i }))[0]);
+    await waitFor(() => expect(screen.queryByText(/•••• set/)).toBeNull());
+    expect(document.getElementById("edit-apikey")).toBeTruthy();
   });
 });

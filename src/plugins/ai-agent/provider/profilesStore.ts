@@ -52,6 +52,6 @@ export function createProfilesStore(
     // check, only get/set/delete. This still returns a fact rather than an
     // assumption — it reads through to decide presence, then discards the
     // value; only the boolean ever leaves this function.
-    hasKey: async (id) => (await api.keychain.get(keychainKey(id))) !== null,
+    hasKey: async (id) => !!(await api.keychain.get(keychainKey(id))),
   };
 }

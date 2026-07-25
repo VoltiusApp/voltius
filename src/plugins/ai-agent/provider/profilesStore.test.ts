@@ -83,4 +83,11 @@ describe("profilesStore", () => {
     await s.deleteKey("a");
     expect(await s.hasKey("a")).toBe(false);
   });
+
+  test("hasKey treats an empty stored value as no key", async () => {
+    const { api, keys } = fakeApi();
+    const s = createProfilesStore(api);
+    keys.set("ai-agent:provider:a:apiKey", "");
+    expect(await s.hasKey("a")).toBe(false);
+  });
 });
