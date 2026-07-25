@@ -175,3 +175,16 @@ test("a deep-link opens straight onto the plugin page", () => {
   render(<SettingsModal />);
   expect(screen.getByTestId("ssh-page")).toBeTruthy();
 });
+
+test("uninstalling the owner clears a still-registered page", () => {
+  useUIStore.setState({ settingsPluginPageId: AI_PAGE.id, settingsSection: "plugins" });
+  loaded.list = [manifest("plugin-ssh-config")]; // page stays in settingsPages
+  render(<SettingsModal />);
+  expect(useUIStore.getState().settingsPluginPageId).toBeNull();
+});
+
+test("an attributable but unregistered page clears", () => {
+  useUIStore.setState({ settingsPluginPageId: "plugin-ai-agent:gone", settingsSection: "plugins" });
+  render(<SettingsModal />);
+  expect(useUIStore.getState().settingsPluginPageId).toBeNull();
+});

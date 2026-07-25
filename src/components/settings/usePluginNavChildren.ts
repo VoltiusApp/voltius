@@ -36,7 +36,7 @@ export function useResolvedPluginPage(): SettingsPage | undefined {
   const pageId = useUIStore((s) => s.settingsPluginPageId);
   const setPageId = useUIStore((s) => s.setSettingsPluginPageId);
   const pages = usePluginStore((s) => s.settingsPages);
-  const pluginIds = useMemo(() => getLoadedPlugins().map((m) => m.id), [pages]);
+  const pluginIds = getLoadedPlugins().map((m) => m.id);
   const eligible = pageId !== null && pages.has(pageId) && attributePage(pageId, pluginIds) !== null;
 
   useEffect(() => {
