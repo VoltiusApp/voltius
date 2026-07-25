@@ -246,7 +246,7 @@ function usePluginInstaller() {
 
 // ─── Installed tab ─────────────────────────────────────────────────────────
 
-function InstalledTab() {
+export function InstalledTab() {
   const { t } = useTranslation();
   const settingsPages = usePluginStore((s) => s.settingsPages);
   const { setEnabled, isEnabled } = usePluginRegistryStore();
@@ -255,16 +255,7 @@ function InstalledTab() {
   const [loadedIds, setLoadedIds] = useState<Set<string>>(
     () => new Set(getLoadedPlugins().map((m) => m.id)),
   );
-  const [activePageId, setActivePageId] = useState<string | null>(null);
-  const pendingPageId = useUIStore((s) => s.settingsPluginPageId);
-  const setSettingsPluginPageId = useUIStore((s) => s.setSettingsPluginPageId);
-
-  useEffect(() => {
-    if (pendingPageId) {
-      setActivePageId(pendingPageId);
-      setSettingsPluginPageId(null);
-    }
-  }, [pendingPageId, setSettingsPluginPageId]);
+  const selectPluginPage = useUIStore((s) => s.selectPluginPage);
   const [autoConfigManifest, setAutoConfigManifest] = useState<PluginManifest | null>(null);
   const [reloading, setReloading] = useState<Set<string>>(new Set());
   const [uninstalling, setUninstalling] = useState<Set<string>>(new Set());
@@ -328,32 +319,6 @@ function InstalledTab() {
         </div>
         <div className="flex-1 overflow-y-auto p-6">
           <PluginConfigForm manifest={autoConfigManifest} />
-        </div>
-      </div>
-    );
-  }
-
-  if (activePageId) {
-    const page = settingsPages.get(activePageId);
-    return (
-      <div className="flex flex-col h-full">
-        <div className="flex items-center gap-2 px-6 py-3 shrink-0 border-b border-b-(--t-border)">
-          <button
-            onClick={() => setActivePageId(null)}
-            className="p-1 rounded-lg transition-colors text-(--t-text-muted)"
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-bright)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
-          >
-            <Icon icon="lucide:arrow-left" width={15} />
-          </button>
-          <span className="text-sm font-medium text-(--t-text-primary)">
-            {page?.label ?? activePageId}
-          </span>
-        </div>
-        <div className="flex-1 overflow-y-auto p-6">
-          {page ? <page.component /> : (
-            <p className="text-sm text-(--t-text-dim)">{t("settings.plugins.installed.pageNotFound")}</p>
-          )}
         </div>
       </div>
     );
@@ -436,7 +401,7 @@ function InstalledTab() {
                 {showSettingsBtn && (
                   <button
                     onClick={() => {
-                      if (pluginPages.length > 0) setActivePageId(pluginPages[0].id);
+                      if (pluginPages.length > 0) selectPluginPage(pluginPages[0].id);
                       else setAutoConfigManifest(manifest);
                     }}
                     className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
