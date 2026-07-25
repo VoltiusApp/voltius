@@ -526,6 +526,16 @@ export function readTerminalSnapshot(sessionId: string, maxLines = 200): string 
   return lines.join("\n");
 }
 
+/**
+ * The session's current selection as text, or "" when nothing is selected or
+ * no terminal is cached. Backs the gated `terminal:read` plugin verb.
+ */
+export function readTerminalSelection(sessionId: string): string {
+  const entry = terminalCache.get(sessionId);
+  if (!entry) return "";
+  return entry.terminal.getSelection();
+}
+
 /** Test seam: replace the module-private terminal cache. Do not use in app code. */
 export function __setTerminalCacheForTest(next: typeof terminalCache): void {
   terminalCache.clear();

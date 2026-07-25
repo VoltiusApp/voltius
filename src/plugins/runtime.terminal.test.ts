@@ -2,6 +2,7 @@ import { describe, test, expect, vi, afterEach, beforeEach } from "vitest";
 
 vi.mock("@/hooks/useTerminal", () => ({
   readTerminalSnapshot: vi.fn(() => "snap-text"),
+  readTerminalSelection: vi.fn(() => "sel-text"),
 }));
 // vi.mock factories are hoisted above top-level consts; vi.hoisted() hoists
 // these mock fns alongside them so the factories below can reference them.
@@ -81,5 +82,20 @@ describe("gated terminal verbs", () => {
   test("untrusted plugin missing the permission fails on the permission check first", () => {
     loadPlugin(manifest([]), register, true, false);
     expect(() => captured.terminal.readSnapshot("s1")).toThrow(/requires permission/);
+  });
+
+  test("trusted plugin with terminal:read gets the selection", () => {
+    loadPlugin(manifest(["terminal:read"]), register, true, true);
+    expect(captured.terminal.readSelection("s1")).toBe("sel-text");
+  });
+
+  test("untrusted plugin is denied readSelection even if it declares terminal:read", () => {
+    loadPlugin(manifest(["terminal:read"]), register, true, false);
+    expect(() => captured.terminal.readSelection("s1")).toThrow(/first-party-only/);
+  });
+
+  test("trusted plugin missing the permission is denied readSelection", () => {
+    loadPlugin(manifest([]), register, true, true);
+    expect(() => captured.terminal.readSelection("s1")).toThrow(/requires permission/);
   });
 });

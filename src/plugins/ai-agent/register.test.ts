@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-vi.mock("@/hooks/useTerminal", () => ({ readTerminalSnapshot: vi.fn(() => "") }));
+vi.mock("@/hooks/useTerminal", () => ({
+  readTerminalSnapshot: vi.fn(() => ""),
+  readTerminalSelection: vi.fn(() => ""),
+}));
 import { manifest, register } from "./index";
 
 function fakeApi(isActive: () => boolean = () => true) {

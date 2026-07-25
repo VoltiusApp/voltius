@@ -8,7 +8,10 @@ vi.mock("@/stores/sessionStore", () => ({
 vi.mock("@/services/ssh", () => ({ sshSendInput: vi.fn(), onSshOutput: vi.fn(async () => () => {}) }));
 vi.mock("@/services/local", () => ({ onLocalOutput: vi.fn(async () => () => {}) }));
 vi.mock("@/services/serial", () => ({ onSerialOutput: vi.fn(async () => () => {}) }));
-vi.mock("@/hooks/useTerminal", () => ({ readTerminalSnapshot: vi.fn(() => "") }));
+vi.mock("@/hooks/useTerminal", () => ({
+  readTerminalSnapshot: vi.fn(() => ""),
+  readTerminalSelection: vi.fn(() => ""),
+}));
 
 import { loadPlugin, unloadPlugin } from "./runtime";
 import type { PluginManifest, PluginRegisterFn } from "./api";

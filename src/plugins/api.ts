@@ -304,6 +304,8 @@ export interface PluginAPI {
   sessions: {
     /** Returns current sessions snapshot. */
     list(): PluginSession[];
+    /** The session backing the active terminal tab, or null if there is none. */
+    getActive(): PluginSession | null;
     /** Fires when a session becomes connected. */
     onConnected(cb: (session: PluginSession) => void): () => void;
     /** Fires when a connected session is removed or disconnected. */
@@ -322,6 +324,8 @@ export interface PluginAPI {
   terminal: {
     /** Last `maxLines` lines of a session's buffer as text (default 200). */
     readSnapshot(sessionId: string, maxLines?: number): string;
+    /** The session's current selection as text, or "" if nothing is selected. */
+    readSelection(sessionId: string): string;
     /** Subscribe to live decoded output for a session. Resolves to an unsubscribe fn. */
     onOutput(sessionId: string, cb: (text: string) => void): Promise<() => void>;
   };

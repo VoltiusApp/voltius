@@ -5,7 +5,7 @@ import { useKeyStore } from "@/stores/keyStore";
 import { sshSendInput, onSshOutput } from "@/services/ssh";
 import { onLocalOutput } from "@/services/local";
 import { onSerialOutput } from "@/services/serial";
-import { readTerminalSnapshot } from "@/hooks/useTerminal";
+import { readTerminalSnapshot, readTerminalSelection } from "@/hooks/useTerminal";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIContributionStore } from "@/stores/uiContributionStore";
 import { useNotificationStore } from "@/stores/notificationStore";
@@ -712,6 +712,20 @@ function createPluginAPI(manifest: PluginManifest, trusted: boolean): PluginAPI 
           type: s.type,
         }));
       },
+      getActive() {
+        requirePerm(manifest, "sessions:read");
+        const { sessions, activeSessionId } = useSessionStore.getState();
+        if (!activeSessionId) return null;
+        const s = sessions.find((x) => x.id === activeSessionId);
+        if (!s) return null;
+        return {
+          id: s.id,
+          connectionId: s.connectionId,
+          connectionName: s.connectionName,
+          status: s.status,
+          type: s.type,
+        };
+      },
       onConnected(cb) {
         requirePerm(manifest, "sessions:read");
         ensureLifecycleSetup();
@@ -757,6 +771,10 @@ function createPluginAPI(manifest: PluginManifest, trusted: boolean): PluginAPI 
       readSnapshot(sessionId, maxLines = 200) {
         requireGated("terminal:read");
         return readTerminalSnapshot(sessionId, maxLines);
+      },
+      readSelection(sessionId) {
+        requireGated("terminal:read");
+        return readTerminalSelection(sessionId);
       },
       async onOutput(sessionId, cb) {
         requireGated("terminal:stream");

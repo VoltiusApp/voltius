@@ -4,7 +4,10 @@ const connect = vi.fn();
 vi.mock("@/stores/sessionStore", () => ({
   useSessionStore: { getState: () => ({ connect, disconnect: vi.fn() }) },
 }));
-vi.mock("@/hooks/useTerminal", () => ({ readTerminalSnapshot: vi.fn(() => "") }));
+vi.mock("@/hooks/useTerminal", () => ({
+  readTerminalSnapshot: vi.fn(() => ""),
+  readTerminalSelection: vi.fn(() => ""),
+}));
 
 import { loadPlugin, unloadPlugin } from "./runtime";
 import type { PluginManifest, PluginRegisterFn, PluginAPI } from "./api";
