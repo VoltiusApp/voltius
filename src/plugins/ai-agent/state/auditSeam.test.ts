@@ -122,4 +122,25 @@ describe("auditAgentAction", () => {
     const opts = reportAgentAuditEvent.mock.calls[0][2];
     expect(opts.localMetadata).toEqual({ command: exact });
   });
+
+  it("leaves a short reason in localMetadata untouched and unflagged", () => {
+    auditAgentAction("c1", "agent.action_denied", { tool: "run_command" }, { reason: "not safe" });
+    expect(reportAgentAuditEvent.mock.calls[0][2].localMetadata).toEqual({ reason: "not safe" });
+  });
+
+  it("truncates a >2000-char reason in localMetadata and flags it, leaving metadata (wire) untouched", () => {
+    const long = "y".repeat(2500);
+    auditAgentAction("c1", "agent.action_denied", { tool: "run_command" }, { reason: long });
+
+    const opts = reportAgentAuditEvent.mock.calls[0][2];
+    expect((opts.localMetadata as { reason: string }).reason).toBe(long.slice(0, 2000));
+    expect((opts.localMetadata as { reason: string }).reason.length).toBe(2000);
+    expect((opts.localMetadata as { reason_truncated: boolean }).reason_truncated).toBe(true);
+    expect(opts.metadata).toEqual({ tool: "run_command" });
+  });
+
+  it("passes a non-string localMetadata value through unchanged", () => {
+    auditAgentAction("c1", "agent.command_run", { tool: "run_command" }, { attempt: 3 });
+    expect(reportAgentAuditEvent.mock.calls[0][2].localMetadata).toEqual({ attempt: 3 });
+  });
 });

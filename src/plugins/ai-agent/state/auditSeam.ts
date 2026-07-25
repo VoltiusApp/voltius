@@ -19,34 +19,41 @@ import { UNKNOWN_SCOPE } from "./scopeDerivation";
 const LOCAL_CONTEXT: AuditContext = { kind: "local", vaultId: "personal" };
 
 /**
- * Cap on `localMetadata.command` characters.
+ * Cap on any `localMetadata` string field's characters.
  *
- * `run_command`'s schema is a bare `z.string()` with no max, which makes it
- * this log's first unbounded free-form field. Left unbounded, a handful of
- * huge commands can blow the per-vault byte budget (see
- * `MAX_LOCAL_LOG_CHARS_PER_VAULT` in `localAuditService.ts`) long before the
- * entry-count cap ever trips.
+ * `run_command`'s schema is a bare `z.string()` with no max, which makes
+ * `command` this log's first unbounded free-form field, and `resolveApproval`
+ * later added `reason`, sourced from a free-text `<input>` with no
+ * `maxLength`. Left unbounded, a single huge value can blow the per-vault
+ * byte budget (see `MAX_LOCAL_LOG_CHARS_PER_VAULT` in `localAuditService.ts`)
+ * long before the entry-count cap ever trips — and the trim's never-empty
+ * guard would then keep only that one oversized row, wiping the rest of the
+ * vault's local history in a single write.
  */
-const MAX_LOCAL_COMMAND_CHARS = 2000;
+const MAX_LOCAL_STRING_CHARS = 2000;
 
 /**
- * Truncate `localMetadata.command`, if present and over budget, and flag it
- * as truncated so a reader is never misled into thinking they see the whole
- * command. Applies to `localMetadata` only — never to what actually runs or
- * to anything shown to the user elsewhere, and never to the `metadata` that
- * can reach the wire.
+ * Truncate every string value in `localMetadata` that is over budget, and
+ * flag each one as truncated (`<field>_truncated: true`) so a reader is never
+ * misled into thinking they see the whole value. Non-string values pass
+ * through untouched. Applies to `localMetadata` only — never to what actually
+ * runs or to anything shown to the user elsewhere, and never to the
+ * `metadata` that can reach the wire.
  */
 function boundLocalMetadata(
   localMetadata: Record<string, unknown> | undefined,
 ): Record<string, unknown> | undefined {
   if (!localMetadata) return localMetadata;
-  const command = localMetadata.command;
-  if (typeof command !== "string" || command.length <= MAX_LOCAL_COMMAND_CHARS) return localMetadata;
-  return {
-    ...localMetadata,
-    command: command.slice(0, MAX_LOCAL_COMMAND_CHARS),
-    command_truncated: true,
-  };
+
+  let changed = false;
+  const bounded: Record<string, unknown> = { ...localMetadata };
+  for (const [key, value] of Object.entries(localMetadata)) {
+    if (typeof value !== "string" || value.length <= MAX_LOCAL_STRING_CHARS) continue;
+    bounded[key] = value.slice(0, MAX_LOCAL_STRING_CHARS);
+    bounded[`${key}_truncated`] = true;
+    changed = true;
+  }
+  return changed ? bounded : localMetadata;
 }
 
 /**
