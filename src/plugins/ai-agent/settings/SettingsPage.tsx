@@ -17,7 +17,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
         <h2 className="text-base font-semibold text-(--t-text-primary)">
           {t("aiAgent.settings.title")}
         </h2>
-        <ProfilesBlock api={api} />
+        <ProfilesBlock />
         <PermissionsBlock api={api} />
         <AllowlistBlock />
       </div>

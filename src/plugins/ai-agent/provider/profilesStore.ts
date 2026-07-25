@@ -14,6 +14,8 @@ export interface ProfilesStore {
   getKey(id: string): Promise<string | null>;
   setKey(id: string, key: string): Promise<void>;
   deleteKey(id: string): Promise<void>;
+  /** Existence check only — never resolves with, or otherwise exposes, the key itself. */
+  hasKey(id: string): Promise<boolean>;
 }
 
 export function createProfilesStore(
@@ -46,5 +48,10 @@ export function createProfilesStore(
     getKey: (id) => api.keychain.get(keychainKey(id)),
     setKey: (id, key) => api.keychain.set(keychainKey(id), key),
     deleteKey: (id) => api.keychain.delete(keychainKey(id)),
+    // The keychain surface (src/plugins/api.ts) has no dedicated existence
+    // check, only get/set/delete. This still returns a fact rather than an
+    // assumption — it reads through to decide presence, then discards the
+    // value; only the boolean ever leaves this function.
+    hasKey: async (id) => (await api.keychain.get(keychainKey(id))) !== null,
   };
 }

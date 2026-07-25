@@ -6,6 +6,18 @@
         "exact": "Всегда разрешать `{{command}}` на {{host}}"
       }
     },
+    "fields": {
+      "provider": "Провайдер",
+      "apiKey": "API-ключ",
+      "apiKeyOptional": "API-ключ (необязательно)",
+      "apiKeyPlaceholder": "sk-…",
+      "apiKeyPlaceholderOptional": "оставьте пустым, если не используется",
+      "baseUrl": "Базовый URL",
+      "model": "Модель",
+      "modelPlaceholder": "идентификатор модели",
+      "loadModels": "Загрузить модели",
+      "loadModelsTitle": "Получить доступные модели (также проверяет соединение)"
+    },
     "settings": {
       "title": "ИИ-агент",
       "permissions": {
@@ -24,7 +36,6 @@
         "edit": "Изменить",
         "delete": "Удалить",
         "empty": "Провайдеры ещё не настроены.",
-        "activate": "Использовать {{label}}",
         "keySet": "•••• задан",
         "replaceKey": "Заменить",
         "name": "Имя",

@@ -67,9 +67,10 @@ export function allowlistCandidates(
  * `{host, key}` entries (which were first-token PREFIXES) are discarded rather
  * than read forward as grants — that would resurrect exactly the hole this
  * slice closes. Also rejects any shape {@link allowlistCandidates} could never
- * emit — `grain` must agree with whether `tool` is command-carrying — so a
- * stale or hand-edited entry from the removed `prefix` tier does not sit
- * inert on disk instead of being cleaned up.
+ * emit — `grain` must agree with whether `tool` is command-carrying, and a
+ * `tool`-grain entry's `key` must equal its `tool` — so a stale or
+ * hand-edited entry from the removed `prefix` tier gets cleaned up here
+ * rather than surviving inert on disk.
  */
 export function isWellFormedEntry(value: unknown): value is AllowlistEntry {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
@@ -82,6 +83,7 @@ export function isWellFormedEntry(value: unknown): value is AllowlistEntry {
   const commandCarrying = COMMAND_CARRYING_TOOLS.has(e.tool);
   if (e.grain === "exact" && !commandCarrying) return false;
   if (e.grain === "tool" && commandCarrying) return false;
+  if (e.grain === "tool" && e.key !== e.tool) return false;
   return true;
 }
 

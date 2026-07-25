@@ -6,6 +6,18 @@
         "exact": "Always allow `{{command}}` on {{host}}"
       }
     },
+    "fields": {
+      "provider": "Provider",
+      "apiKey": "API key",
+      "apiKeyOptional": "API key (optional)",
+      "apiKeyPlaceholder": "sk-…",
+      "apiKeyPlaceholderOptional": "leave blank if unused",
+      "baseUrl": "Base URL",
+      "model": "Model",
+      "modelPlaceholder": "model id",
+      "loadModels": "Load models",
+      "loadModelsTitle": "Fetch available models (also tests the connection)"
+    },
     "settings": {
       "title": "AI Agent",
       "permissions": {
@@ -24,7 +36,6 @@
         "edit": "Edit",
         "delete": "Delete",
         "empty": "No providers configured yet.",
-        "activate": "Use {{label}}",
         "keySet": "•••• set",
         "replaceKey": "Replace",
         "name": "Name",

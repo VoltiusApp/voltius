@@ -73,4 +73,14 @@ describe("profilesStore", () => {
     expect(api.keychain.set).toHaveBeenCalledWith("ai-agent:provider:a:apiKey", "sk-1");
     expect(await s.getKey("a")).toBe("sk-1");
   });
+
+  test("hasKey reports existence as a fact, without exposing the value", async () => {
+    const { api } = fakeApi();
+    const s = createProfilesStore(api);
+    expect(await s.hasKey("a")).toBe(false);
+    await s.setKey("a", "sk-1");
+    expect(await s.hasKey("a")).toBe(true);
+    await s.deleteKey("a");
+    expect(await s.hasKey("a")).toBe(false);
+  });
 });

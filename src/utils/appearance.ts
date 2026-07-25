@@ -18,7 +18,7 @@ function parseHex(color: string): [number, number, number] | null {
 }
 
 /** WCAG relative luminance in 0..1 for an sRGB color (0..255 channels). */
-export function relativeLuminance(r: number, g: number, b: number): number {
+function relativeLuminance(r: number, g: number, b: number): number {
   const lin = (c: number) => {
     const s = c / 255;
     return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;

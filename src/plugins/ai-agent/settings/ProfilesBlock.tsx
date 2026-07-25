@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
-import type { PluginAPI } from "@/plugins/api";
 import { getAgentDeps, useAgentStore } from "../state/agentStore";
 import { ProviderLogo } from "../ui/ProviderLogo";
 import { ProfileEditor } from "./ProfileEditor";
@@ -15,11 +14,8 @@ import type { ProviderProfile } from "../types";
  * mount and whenever `profilesVersion` bumps, and bumps it itself after every
  * mutation so an already-open drawer picks the change up too.
  */
-export function ProfilesBlock({ api }: { api: PluginAPI }) {
+export function ProfilesBlock() {
   const { t } = useTranslation();
-  // Profiles are reached through getAgentDeps().profiles (the drawer's own
-  // store), not a fresh createProfilesStore(api) — see the module doc above.
-  void api;
   const [profiles, setProfiles] = useState<ProviderProfile[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | "new" | null>(null);

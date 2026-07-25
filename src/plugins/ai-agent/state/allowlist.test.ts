@@ -100,4 +100,14 @@ describe("isWellFormedEntry", () => {
   it("rejects any key carrying a shell metacharacter", () => {
     expect(isWellFormedEntry({ ...ok, key: "df -h | sh" })).toBe(false);
   });
+
+  // A tool-grain grant must authorize the whole tool, keyed by its own name —
+  // allowlistCandidates never emits key !== tool for grain "tool". A
+  // hand-edited entry with a mismatched key must not survive hydrate either,
+  // or it would render as a revocable row for a grant that was never issued.
+  it("rejects a tool-grain entry whose key does not match its tool", () => {
+    expect(
+      isWellFormedEntry({ host: H, tool: "open_session", grain: "tool", key: "anything" }),
+    ).toBe(false);
+  });
 });

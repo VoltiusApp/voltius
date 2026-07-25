@@ -6,6 +6,18 @@
         "exact": "Toujours autoriser `{{command}}` sur {{host}}"
       }
     },
+    "fields": {
+      "provider": "Fournisseur",
+      "apiKey": "Clé API",
+      "apiKeyOptional": "Clé API (facultative)",
+      "apiKeyPlaceholder": "sk-…",
+      "apiKeyPlaceholderOptional": "laisser vide si non utilisée",
+      "baseUrl": "URL de base",
+      "model": "Modèle",
+      "modelPlaceholder": "identifiant du modèle",
+      "loadModels": "Charger les modèles",
+      "loadModelsTitle": "Récupérer les modèles disponibles (teste aussi la connexion)"
+    },
     "settings": {
       "title": "Agent IA",
       "permissions": {
@@ -24,7 +36,6 @@
         "edit": "Modifier",
         "delete": "Supprimer",
         "empty": "Aucun fournisseur configuré pour l'instant.",
-        "activate": "Utiliser {{label}}",
         "keySet": "•••• défini",
         "replaceKey": "Remplacer",
         "name": "Nom",

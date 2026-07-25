@@ -50,6 +50,7 @@ export function ProviderFields({
   onChange,
   hasStoredKey,
   onReplaceKey,
+  getApiKey,
 }: {
   idPrefix: string;
   value: ProviderFieldsValue;
@@ -57,6 +58,13 @@ export function ProviderFields({
   /** Renders `•••• set` + Replace instead of a key input until Replace is clicked. */
   hasStoredKey?: boolean;
   onReplaceKey?: () => void;
+  /**
+   * Falls back to a stored key for the "Load models" connection test only,
+   * when the typed key field is empty. Read for use in that one request —
+   * never put into component state that renders, and never written into an
+   * input.
+   */
+  getApiKey?: () => Promise<string | undefined>;
 }) {
   const { t } = useTranslation();
   const [modelOptions, setModelOptions] = useState<string[]>([]);
@@ -87,7 +95,9 @@ export function ProviderFields({
     setLoadingModels(true);
     setTestError(null);
     try {
-      const res = await loadModels(deps.api, draftProfile("draft"), value.apiKey.trim() || undefined);
+      const typedKey = value.apiKey.trim();
+      const apiKeyForRequest = typedKey || (getApiKey ? await getApiKey() : undefined);
+      const res = await loadModels(deps.api, draftProfile("draft"), apiKeyForRequest);
       setModelOptions(res.models);
       if (res.error) setTestError(res.error);
       else if (res.models.length && !value.model) onChange({ ...value, model: res.models[0] });
@@ -99,7 +109,7 @@ export function ProviderFields({
   return (
     <>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <label htmlFor={`${idPrefix}-provider`} style={labelStyle}>Provider</label>
+        <label htmlFor={`${idPrefix}-provider`} style={labelStyle}>{t("aiAgent.fields.provider")}</label>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <ProviderLogo kind={value.providerKind} size={16} />
           <select
@@ -118,7 +128,7 @@ export function ProviderFields({
 
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <label htmlFor={`${idPrefix}-apikey`} style={labelStyle}>
-          API key{visibility.apiKeyRequired ? "" : " (optional)"}
+          {visibility.apiKeyRequired ? t("aiAgent.fields.apiKey") : t("aiAgent.fields.apiKeyOptional")}
         </label>
         {hasStoredKey ? (
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -136,7 +146,11 @@ export function ProviderFields({
             autoComplete="off"
             value={value.apiKey}
             onChange={(e) => onChange({ ...value, apiKey: e.target.value })}
-            placeholder={visibility.apiKeyRequired ? "sk-…" : "leave blank if unused"}
+            placeholder={
+              visibility.apiKeyRequired
+                ? t("aiAgent.fields.apiKeyPlaceholder")
+                : t("aiAgent.fields.apiKeyPlaceholderOptional")
+            }
             style={inputStyle}
           />
         )}
@@ -144,7 +158,7 @@ export function ProviderFields({
 
       {visibility.baseUrl && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <label htmlFor={`${idPrefix}-baseurl`} style={labelStyle}>Base URL</label>
+          <label htmlFor={`${idPrefix}-baseurl`} style={labelStyle}>{t("aiAgent.fields.baseUrl")}</label>
           <input
             id={`${idPrefix}-baseurl`}
             type="text"
@@ -157,7 +171,7 @@ export function ProviderFields({
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <label htmlFor={`${idPrefix}-model`} style={labelStyle}>Model</label>
+        <label htmlFor={`${idPrefix}-model`} style={labelStyle}>{t("aiAgent.fields.model")}</label>
         <div style={{ display: "flex", gap: 6 }}>
           <input
             id={`${idPrefix}-model`}
@@ -165,7 +179,7 @@ export function ProviderFields({
             list={`${idPrefix}-model-options`}
             value={value.model}
             onChange={(e) => onChange({ ...value, model: e.target.value })}
-            placeholder="model id"
+            placeholder={t("aiAgent.fields.modelPlaceholder")}
             style={{ ...inputStyle, flex: 1 }}
           />
           <datalist id={`${idPrefix}-model-options`}>
@@ -177,7 +191,7 @@ export function ProviderFields({
             type="button"
             onClick={() => void onLoadModels()}
             disabled={loadingModels}
-            title="Fetch available models (also tests the connection)"
+            title={t("aiAgent.fields.loadModelsTitle")}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -192,7 +206,7 @@ export function ProviderFields({
             }}
           >
             <Icon icon="lucide:refresh-cw" width={13} />
-            Load models
+            {t("aiAgent.fields.loadModels")}
           </button>
         </div>
         {testError && <div style={{ color: "var(--t-status-error)", fontSize: 11 }}>{testError}</div>}

@@ -41,6 +41,7 @@ function mockStore(over: Record<string, unknown> = {}) {
     getKey: vi.fn(async () => "sk-stored"),
     setKey: vi.fn(async () => {}),
     deleteKey: vi.fn(async () => {}),
+    hasKey: vi.fn(async () => true),
     ...over,
   };
   return store;
@@ -57,7 +58,7 @@ function mockDeps(over: { profiles: ReturnType<typeof mockStore> }) {
 describe("ProfilesBlock", () => {
   it("lists every profile with its model", async () => {
     mockDeps({ profiles: mockStore() });
-    render(<ProfilesBlock api={{} as never} />);
+    render(<ProfilesBlock />);
     expect(await screen.findByText("Work")).toBeTruthy();
     expect(screen.getByText(/claude-sonnet-5/)).toBeTruthy();
     expect(screen.getByText("Local")).toBeTruthy();
@@ -67,7 +68,7 @@ describe("ProfilesBlock", () => {
     const store = mockStore();
     mockDeps({ profiles: store });
     const before = useAgentStore.getState().profilesVersion;
-    render(<ProfilesBlock api={{} as never} />);
+    render(<ProfilesBlock />);
     fireEvent.click(await screen.findByRole("radio", { name: /Local/ }));
     await waitFor(() => expect(store.setActive).toHaveBeenCalledWith("2"));
     expect(useAgentStore.getState().profilesVersion).toBeGreaterThan(before);
@@ -76,7 +77,7 @@ describe("ProfilesBlock", () => {
   it("deletes only after confirmation", async () => {
     const store = mockStore();
     mockDeps({ profiles: store });
-    render(<ProfilesBlock api={{} as never} />);
+    render(<ProfilesBlock />);
     fireEvent.click((await screen.findAllByRole("button", { name: /delete/i }))[0]);
     expect(store.remove).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: /confirm/i }));
@@ -86,7 +87,7 @@ describe("ProfilesBlock", () => {
   it("never renders a stored key, only the masked state", async () => {
     const store = mockStore();
     mockDeps({ profiles: store });
-    render(<ProfilesBlock api={{} as never} />);
+    render(<ProfilesBlock />);
     fireEvent.click((await screen.findAllByRole("button", { name: /edit/i }))[0]);
     expect(await screen.findByText(/•••• set/)).toBeTruthy();
     expect(screen.queryByDisplayValue("sk-stored")).toBeNull();
@@ -96,8 +97,9 @@ describe("ProfilesBlock", () => {
   it("saves an edited profile and writes a replaced key", async () => {
     const store = mockStore();
     mockDeps({ profiles: store });
-    render(<ProfilesBlock api={{} as never} />);
+    render(<ProfilesBlock />);
     fireEvent.click((await screen.findAllByRole("button", { name: /edit/i }))[0]);
+    await screen.findByText(/•••• set/); // wait for the async hasKey fact to resolve
     fireEvent.change(document.getElementById("edit-label")!, { target: { value: "Renamed" } });
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
     await waitFor(() =>
@@ -109,7 +111,7 @@ describe("ProfilesBlock", () => {
   it("does not rename an existing profile when only the provider is switched", async () => {
     const store = mockStore();
     mockDeps({ profiles: store });
-    render(<ProfilesBlock api={{} as never} />);
+    render(<ProfilesBlock />);
     // profile "1" is Work / anthropic — open its editor without touching the name field.
     fireEvent.click((await screen.findAllByRole("button", { name: /edit/i }))[0]);
     const labelInput = document.getElementById("edit-label") as HTMLInputElement;
@@ -118,6 +120,9 @@ describe("ProfilesBlock", () => {
     fireEvent.change(document.getElementById("edit-provider")!, { target: { value: "google" } });
     expect(labelInput.value).toBe("Work"); // provider switch alone must never rewrite a saved name
 
+    // A provider switch forces Replace mode (see the dedicated I2 tests
+    // below), so a key for the new provider must be typed before saving.
+    fireEvent.change(document.getElementById("edit-apikey")!, { target: { value: "goog-key" } });
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
     await waitFor(() =>
       expect(store.save).toHaveBeenCalledWith(
@@ -126,9 +131,52 @@ describe("ProfilesBlock", () => {
     );
   });
 
+  it("switching provider kind on an existing profile clears the masked-key state and requires a new key before save", async () => {
+    const store = mockStore();
+    mockDeps({ profiles: store });
+    render(<ProfilesBlock />);
+    fireEvent.click((await screen.findAllByRole("button", { name: /edit/i }))[0]);
+    await screen.findByText(/•••• set/); // profile "1" (anthropic) starts with a stored key
+
+    const saveButton = screen.getByRole("button", { name: /save/i }) as HTMLButtonElement;
+    expect(saveButton.disabled).toBe(false); // stored key + model already satisfy anthropic
+
+    // Switch to a different provider that also requires a key (google).
+    fireEvent.change(document.getElementById("edit-provider")!, { target: { value: "google" } });
+
+    // The masked "•••• set" state must be gone — the old key belongs to
+    // anthropic, not google — and a real key input must render instead.
+    expect(screen.queryByText(/•••• set/)).toBeNull();
+    expect(document.getElementById("edit-apikey")).toBeTruthy();
+    expect(saveButton.disabled).toBe(true); // no key typed yet for the new provider
+
+    fireEvent.change(document.getElementById("edit-apikey")!, { target: { value: "goog-key" } });
+    expect(saveButton.disabled).toBe(false);
+  });
+
+  it("saving after a provider-kind switch does not leave the old provider's key associated with the profile", async () => {
+    const store = mockStore();
+    mockDeps({ profiles: store });
+    render(<ProfilesBlock />);
+    fireEvent.click((await screen.findAllByRole("button", { name: /edit/i }))[0]);
+    await screen.findByText(/•••• set/);
+
+    // Switch to ollama, whose key is optional — leave it blank and save.
+    fireEvent.change(document.getElementById("edit-provider")!, { target: { value: "ollama" } });
+    fireEvent.change(document.getElementById("edit-baseurl")!, { target: { value: "http://localhost:11434" } });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() =>
+      expect(store.save).toHaveBeenCalledWith(expect.objectContaining({ id: "1", providerKind: "ollama" })),
+    );
+    // The stale anthropic key must be purged, not left sitting under this id.
+    expect(store.deleteKey).toHaveBeenCalledWith("1");
+    expect(store.setKey).not.toHaveBeenCalled();
+  });
+
   it("auto-derives the profile name from the provider until the user types, when creating a profile", async () => {
     mockDeps({ profiles: mockStore() });
-    render(<ProfilesBlock api={{} as never} />);
+    render(<ProfilesBlock />);
     fireEvent.click(await screen.findByRole("button", { name: /add/i }));
     const labelInput = document.getElementById("edit-label") as HTMLInputElement;
     expect(labelInput.value).toBe("Anthropic");
@@ -149,7 +197,7 @@ describe("ProfilesBlock", () => {
     });
     mockDeps({ profiles: store });
     const before = useAgentStore.getState().profilesVersion;
-    render(<ProfilesBlock api={{} as never} />);
+    render(<ProfilesBlock />);
     fireEvent.click(await screen.findByRole("radio", { name: /Local/ }));
     await waitFor(() => expect(store.setActive).toHaveBeenCalledWith("2"));
     expect(await screen.findByText(/activation boom/)).toBeTruthy();
@@ -164,7 +212,7 @@ describe("ProfilesBlock", () => {
     });
     mockDeps({ profiles: store });
     const before = useAgentStore.getState().profilesVersion;
-    render(<ProfilesBlock api={{} as never} />);
+    render(<ProfilesBlock />);
     fireEvent.click((await screen.findAllByRole("button", { name: /delete/i }))[0]);
     fireEvent.click(screen.getByRole("button", { name: /confirm/i }));
     await waitFor(() => expect(store.remove).toHaveBeenCalledWith("1"));

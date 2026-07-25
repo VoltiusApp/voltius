@@ -56,6 +56,9 @@ export function ProfileSwitcher() {
     if (!deps) return;
     await deps.profiles.setActive(id);
     setActiveId(id);
+    // Every other profile mutation bumps this so a settings page open behind
+    // the drawer re-reads (see ProfileEditor/ProfilesBlock/FirstRunCard).
+    useAgentStore.getState().bumpProfilesVersion();
     setMenuOpen(false);
   };
 

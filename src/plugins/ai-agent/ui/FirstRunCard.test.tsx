@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import "@/i18n";
 import { FirstRunCard } from "./FirstRunCard";
 import * as storeMod from "../state/agentStore";
 import * as modelsMod from "../provider/models";

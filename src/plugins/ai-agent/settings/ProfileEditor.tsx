@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getAgentDeps, useAgentStore } from "../state/agentStore";
 import { ProviderFields, providerFieldsComplete, type ProviderFieldsValue } from "../ui/ProviderFields";
@@ -37,16 +37,47 @@ export function ProfileEditor({
   const [replacingKey, setReplacingKey] = useState(profile === null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Whether a key actually exists for `profile.id`, as a fact from the
+  // keychain rather than an assumption — see ProfilesStore.hasKey. Defaults
+  // closed (false) until the check resolves, so an unresolved fetch never
+  // renders a false "•••• set".
+  const [hasKeyFact, setHasKeyFact] = useState(false);
 
-  const hasStoredKey = profile !== null && !replacingKey;
+  useEffect(() => {
+    if (!profile) {
+      setHasKeyFact(false);
+      return;
+    }
+    let cancelled = false;
+    const deps = getAgentDeps();
+    if (deps) {
+      void deps.profiles.hasKey(profile.id).then((v) => {
+        if (!cancelled) setHasKeyFact(v);
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.id]);
+
+  const hasStoredKey = profile !== null && !replacingKey && hasKeyFact;
   const canSave = providerFieldsComplete(fields, hasStoredKey);
 
-  const onFieldsChange = (next: ProviderFieldsValue) =>
+  // A key never carries across a provider switch: the stored key belongs to
+  // the provider the profile was saved under, and reusing it (or offering it
+  // as "already set") against a different provider/endpoint would leak it —
+  // see I2. Forcing Replace mode clears the masked badge and requires a
+  // fresh key (or a deliberate blank, for a provider where it's optional).
+  const onFieldsChange = (next: ProviderFieldsValue) => {
+    const providerChanged = next.providerKind !== fields.providerKind;
+    if (providerChanged) setReplacingKey(true);
+    const withKeyCleared = providerChanged ? { ...next, apiKey: "" } : next;
     setFields(
-      !labelEdited && next.providerKind !== fields.providerKind
-        ? { ...next, label: PROVIDER_LABEL[next.providerKind] }
-        : next,
+      !labelEdited && providerChanged
+        ? { ...withKeyCleared, label: PROVIDER_LABEL[next.providerKind] }
+        : withKeyCleared,
     );
+  };
 
   const onLabelChange = (value: string) => {
     setLabelEdited(true);
@@ -67,7 +98,14 @@ export function ProfileEditor({
         model: fields.model.trim(),
       };
       await deps.profiles.save(saved);
-      if (replacingKey && fields.apiKey.trim()) await deps.profiles.setKey(saved.id, fields.apiKey.trim());
+      if (replacingKey && fields.apiKey.trim()) {
+        await deps.profiles.setKey(saved.id, fields.apiKey.trim());
+      } else if (profile !== null && profile.providerKind !== fields.providerKind) {
+        // Switched provider and left the key blank (only reachable when the
+        // new provider makes it optional) — the old provider's key must not
+        // survive under this id, since it would be sent to the new endpoint.
+        await deps.profiles.deleteKey(saved.id);
+      }
       useAgentStore.getState().bumpProfilesVersion();
       onSaved();
     } catch (err) {
@@ -96,6 +134,19 @@ export function ProfileEditor({
         onChange={onFieldsChange}
         hasStoredKey={hasStoredKey}
         onReplaceKey={() => setReplacingKey(true)}
+        // Only offered while `hasStoredKey` holds — i.e. never after a
+        // provider switch forced Replace mode, since the stored key belongs
+        // to the *previous* provider (see I2) and must not authenticate a
+        // request to the new one either. Read for use in the request only,
+        // never rendered or put into field state.
+        getApiKey={
+          hasStoredKey && profile
+            ? async () => {
+                const d = getAgentDeps();
+                return d ? ((await d.profiles.getKey(profile.id)) ?? undefined) : undefined;
+              }
+            : undefined
+        }
       />
       {error && <div className="text-xs text-(--t-status-error)">{error}</div>}
       <div className="flex gap-2 justify-end">

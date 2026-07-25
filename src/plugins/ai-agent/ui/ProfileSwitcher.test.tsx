@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import "@/i18n";
 import { ProfileSwitcher } from "./ProfileSwitcher";
 import * as storeMod from "../state/agentStore";
 import { useAgentStore } from "../state/agentStore";
@@ -34,11 +35,14 @@ function mockDeps(opts: {
   setActive?: ReturnType<typeof vi.fn>;
   list?: ReturnType<typeof vi.fn>;
 }) {
-  const setActive = opts.setActive ?? vi.fn(async () => {});
+  // Tracks the id a real ProfilesStore would persist, so getActiveId reflects
+  // a prior setActive call instead of a fixed snapshot from render time.
+  let currentActiveId = opts.activeId;
+  const setActive = opts.setActive ?? vi.fn(async (id: string) => { currentActiveId = id; });
   const list = opts.list ?? vi.fn().mockResolvedValue(opts.profiles);
   vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({
     profiles: {
-      getActiveId: vi.fn().mockResolvedValue(opts.activeId),
+      getActiveId: vi.fn(async () => currentActiveId),
       list,
       setActive,
     },
@@ -88,6 +92,18 @@ describe("ProfileSwitcher", () => {
     expect(screen.getByTitle("Switch AI provider").textContent).toContain("Anthropic");
     // Selecting closes the popover.
     expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("selecting a different profile bumps profilesVersion, so a settings page open behind the drawer re-reads", async () => {
+    mockDeps({ activeId: gpt.id, profiles: [gpt, claude] });
+    render(<ProfileSwitcher />);
+    await waitFor(() => expect(screen.getByTitle("Switch AI provider").textContent).toContain("gpt-4o-mini"));
+
+    const before = useAgentStore.getState().profilesVersion;
+    await userEvent.click(screen.getByTitle("Switch AI provider"));
+    await userEvent.click(screen.getByText("claude-opus-4-8"));
+
+    await waitFor(() => expect(useAgentStore.getState().profilesVersion).toBeGreaterThan(before));
   });
 
   it("'Add provider…' renders the FirstRunCard inline instead of the profile list", async () => {
