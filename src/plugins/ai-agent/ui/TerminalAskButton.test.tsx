@@ -9,11 +9,8 @@ import { TerminalAskButton } from "./TerminalAskButton";
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
+  initReactI18next: { type: "3rdParty", init: () => {} },
 }));
-// agentStore now imports auditSeam, whose real chain reaches @/i18n's
-// `i18n.use(initReactI18next)` — incompatible with this file's partial
-// react-i18next mock. This test exercises rendering only, not auditing.
-vi.mock("../state/auditSeam", () => ({ auditAgentAction: vi.fn() }));
 
 afterEach(() => {
   cleanup();

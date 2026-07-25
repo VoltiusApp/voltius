@@ -5,10 +5,6 @@ import * as storeMod from "../state/agentStore";
 import { useAgentStore } from "../state/agentStore";
 
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
-// agentStore now imports auditSeam, whose real chain reaches @/i18n's
-// `i18n.use(initReactI18next)` — incompatible with this file's partial
-// react-i18next mock. This test exercises rendering only, not auditing.
-vi.mock("../state/auditSeam", () => ({ auditAgentAction: vi.fn() }));
 // A blanket identity `t` (key in, key out) keeps most assertions robust to
 // copy changes — dotted keys like "...profiles.edit"/"...deleteConfirm.confirm"
 // still contain the words the tests look for. The one string that can't
@@ -24,6 +20,7 @@ vi.mock("react-i18next", () => ({
       return k;
     },
   }),
+  initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 afterEach(() => {
   cleanup();

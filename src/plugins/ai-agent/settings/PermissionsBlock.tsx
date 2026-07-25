@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { PluginAPI } from "@/plugins/api";
 import type { Mode } from "../state/agentStore";
+import { auditAgentAction } from "../state/auditSeam";
 
 /**
  * The GLOBAL default mode for new conversations.
@@ -20,8 +21,11 @@ export function PermissionsBlock({ api }: { api: PluginAPI }) {
   }, [api]);
 
   const onChange = (next: Mode) => {
+    const from = mode ?? "ask";
+    if (next === from) return;
     setMode(next);
     void api.storage.set("agentMode", next);
+    auditAgentAction("local", "agent.mode_changed", { from, to: next, target: "default" });
   };
 
   return (

@@ -63,7 +63,9 @@ describe("grant auditing", () => {
 describe("mode auditing", () => {
   it("records a mode change", () => {
     useAgentStore.getState().setMode("auto");
-    expect(auditAgentAction).toHaveBeenCalledWith("local", "agent.mode_changed", { from: "ask", to: "auto" });
+    expect(auditAgentAction).toHaveBeenCalledWith(
+      "local", "agent.mode_changed", { from: "ask", to: "auto", target: "conversation" },
+    );
   });
 
   it("does NOT record a no-op mode set", () => {
@@ -74,7 +76,9 @@ describe("mode auditing", () => {
   it("records exactly one event for a cycle", () => {
     useAgentStore.getState().cycleMode();
     expect(auditAgentAction).toHaveBeenCalledTimes(1);
-    expect(auditAgentAction).toHaveBeenCalledWith("local", "agent.mode_changed", { from: "ask", to: "auto" });
+    expect(auditAgentAction).toHaveBeenCalledWith(
+      "local", "agent.mode_changed", { from: "ask", to: "auto", target: "conversation" },
+    );
   });
 });
 

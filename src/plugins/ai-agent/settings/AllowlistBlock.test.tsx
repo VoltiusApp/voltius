@@ -9,10 +9,6 @@ const CONNS = [
 ];
 
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
-// agentStore now imports auditSeam, whose real chain reaches @/i18n's
-// `i18n.use(initReactI18next)` — incompatible with this file's partial
-// react-i18next mock. This test exercises rendering only, not auditing.
-vi.mock("../state/auditSeam", () => ({ auditAgentAction: vi.fn() }));
 // Identity `t` (key in, key out) keeps most assertions robust to copy changes,
 // same convention as ProfilesBlock.test.tsx. The one key whose literal
 // rendered text an assertion depends on — the "local" group's translated
@@ -25,6 +21,7 @@ vi.mock("react-i18next", () => ({
       return k;
     },
   }),
+  initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 afterEach(() => {
   cleanup();

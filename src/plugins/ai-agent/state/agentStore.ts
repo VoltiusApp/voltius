@@ -165,7 +165,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     const from = get().mode;
     if (from === mode) return;
     set({ mode });
-    auditAgentAction("local", "agent.mode_changed", { from, to: mode });
+    auditAgentAction("local", "agent.mode_changed", { from, to: mode, target: "conversation" });
   },
   // Delegates so a cycle produces exactly one audit event, not two.
   cycleMode: () => get().setMode(MODE_ORDER[(MODE_ORDER.indexOf(get().mode) + 1) % 3]),
