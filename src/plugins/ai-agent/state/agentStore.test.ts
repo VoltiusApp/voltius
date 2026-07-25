@@ -92,6 +92,9 @@ describe("agentStore", () => {
   });
 
   it("initAgent still hydrates mode and allowlist when the conversation read throws", async () => {
+    // Pre-existing state, so a broken intermediate value (partially applied,
+    // or wiped) would be visible instead of masked by the empty default.
+    useAgentStore.setState({ transcript: [{ kind: "user", text: "kept" }], messages: [{ role: "user", content: "kept" }] });
     const api = {
       storage: {
         get: vi.fn(async (k: string) => {
@@ -109,6 +112,11 @@ describe("agentStore", () => {
     await initAgent(api);
     expect(useAgentStore.getState().mode).toBe("auto");
     expect(useAgentStore.getState().allowlist).toEqual([]);
+    // A throw in readConversation must be treated exactly like "no persisted
+    // data" — the live transcript/messages are left untouched, not reset to
+    // some broken intermediate value.
+    expect(useAgentStore.getState().transcript).toEqual([{ kind: "user", text: "kept" }]);
+    expect(useAgentStore.getState().messages).toEqual([{ role: "user", content: "kept" }]);
   });
 
   it("cycleMode goes plan → ask → auto → plan", () => {
@@ -418,6 +426,104 @@ describe("agentStore", () => {
     expect(run2Signal?.aborted).toBe(true); // run 1's finally must not have nulled run 2's controller
 
     await secondPromise;
+  });
+
+  it("a run superseded by a newer run does not durably persist its stale responseMessages", async () => {
+    // Same overlapping-runs setup as the controller-nulling test above: two
+    // sendMessage calls fired back-to-back (neither awaited) so both bump
+    // their own generation before either's model finishes streaming. Run 1
+    // is wired to finish fast — by the time its success block reaches
+    // _persistConversation, run 2 has already bumped runGeneration past it.
+    (runAgent as unknown as ReturnType<typeof vi.fn>).mockClear();
+    const store: Record<string, unknown> = {};
+    let doStreamCalls = 0;
+    mockModel.current = new MockLanguageModelV4({
+      doStream: async () => {
+        doStreamCalls += 1;
+        if (doStreamCalls === 1) {
+          return {
+            stream: simulateReadableStream({
+              chunks: [
+                { type: "text-start", id: "0" },
+                { type: "text-delta", id: "0", delta: "fast" },
+                { type: "text-end", id: "0" },
+                FINISH_CHUNK,
+              ],
+            }),
+          };
+        }
+        return {
+          stream: simulateReadableStream({
+            chunkDelayInMs: 30,
+            chunks: [
+              { type: "text-start", id: "1" },
+              { type: "text-delta", id: "1", delta: "slow" },
+              { type: "text-end", id: "1" },
+              FINISH_CHUNK,
+            ],
+          }),
+        };
+      },
+    });
+    _setDeps({
+      api: fakeApi(store),
+      profiles: {
+        list: async () => [{ id: "p1", providerKind: "anthropic", label: "A", model: "claude-x" }],
+        getActiveId: async () => "p1",
+        getKey: async () => "sk-test",
+      } as never,
+      controller: { approve: async () => ({ approve: true }) },
+    } as never);
+
+    const firstPromise = useAgentStore.getState().sendMessage("first");
+    const secondPromise = useAgentStore.getState().sendMessage("second");
+
+    await firstPromise; // run 1 (now superseded by run 2) settles first
+    expect(store.conversation).toBeUndefined();
+
+    await secondPromise; // run 2 is still the current generation and persists normally
+    expect(store.conversation).toBeDefined();
+  });
+
+  it("an aborted run — still the current generation — persists the conversation (unlike a superseded one)", async () => {
+    // Pins the distinction the fix relies on: gating on isGenerationDead
+    // instead of runGeneration === generation would wrongly skip this write,
+    // since abortedGeneration === generation is exactly what isGenerationDead
+    // checks for a Stop.
+    const store: Record<string, unknown> = {};
+    mockModel.current = new MockLanguageModelV4({
+      doStream: async () => ({
+        stream: simulateReadableStream({
+          chunkDelayInMs: 20,
+          chunks: [
+            { type: "text-start", id: "0" },
+            { type: "text-delta", id: "0", delta: "Hi" },
+            { type: "text-end", id: "0" },
+            FINISH_CHUNK,
+          ],
+        }),
+      }),
+    });
+    _setDeps({
+      api: fakeApi(store),
+      profiles: {
+        list: async () => [{ id: "p1", providerKind: "anthropic", label: "A", model: "claude-x" }],
+        getActiveId: async () => "p1",
+        getKey: async () => "sk-test",
+      } as never,
+      controller: { approve: async () => ({ approve: true }) },
+    } as never);
+
+    const sendPromise = useAgentStore.getState().sendMessage("hello");
+    await vi.waitFor(() => expect(useAgentStore.getState().runStatus).toBe("streaming"));
+    useAgentStore.getState().stop();
+    await sendPromise;
+
+    expect(useAgentStore.getState().runStatus).toBe("idle");
+    expect(store.conversation).toBeDefined();
+    expect((store.conversation as { messages: Array<{ content: string }> }).messages).toEqual(
+      expect.arrayContaining([{ role: "user", content: "hello" }]),
+    );
   });
 
   it("surfaces a provider failure that races a Stop, instead of swallowing it as a clean cancel", async () => {

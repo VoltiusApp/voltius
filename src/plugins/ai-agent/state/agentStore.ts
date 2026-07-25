@@ -283,7 +283,11 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         messages: [...s.messages, ...responseMessages],
         runStatus: s.runStatus === "error" ? "error" : "idle",
       }));
-      get()._persistConversation();
+      // Gate on superseded-ness, not isGenerationDead: an aborted run is still
+      // this run (runGeneration === generation) and must persist below, but a
+      // run a newer sendMessage/initAgent has moved past must not durably
+      // write its stale responseMessages over the current activation's state.
+      if (runGeneration === generation) get()._persistConversation();
     } catch (err) {
       if (isAbortError(err, runController?.signal)) {
         // A deliberate Stop, not a failure — don't surface it as an error.
@@ -295,7 +299,10 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       // this is the single write for the error/abort path — never per delta.
       // plugin_storage_set rewrites the whole per-plugin file (which also
       // holds the allowlist), so writes are batched to turn boundaries only.
-      get()._persistConversation();
+      // Same superseded-only gate as above: isGenerationDead would be true
+      // for an aborted-but-current run and wrongly skip persisting the user
+      // message that abort path exists to keep.
+      if (runGeneration === generation) get()._persistConversation();
     } finally {
       // Only the run that installed this controller may clear it — a slower
       // run finishing must not null the controller a newer run is using.
