@@ -3,7 +3,7 @@ import { COMMAND_CARRYING_TOOLS, hasShellMetacharacter, isAllowlistable } from "
 /**
  * How broadly a remembered approval applies.
  *
- * - `tool`  — the whole tool on a host (`open_session` on `ssh-host-1`).
+ * - `tool`  — the whole tool on a connection (`open_session` on connection `c1`).
  * - `exact` — one exact command line, and nothing else.
  *
  * There is deliberately no coarser "binary plus any arguments" grade. An

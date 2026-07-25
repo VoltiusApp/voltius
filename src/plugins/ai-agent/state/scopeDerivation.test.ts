@@ -114,6 +114,13 @@ describe("deriveScope", () => {
     expect(await deriveScope(api(), "open_session", { connectionId: "forged" })).toBeNull();
   });
 
+  it("returns null when run_command's session names a connection that no longer exists", async () => {
+    const a = api({
+      sessions: { list: () => [{ id: "s1", connectionId: "deleted", connectionName: "Gone", status: "connected", type: "ssh" }] },
+    });
+    expect(await deriveScope(a, "run_command", { sessionId: "s1", command: "ls" })).toBeNull();
+  });
+
   it("returns null when connectionId is missing", async () => {
     expect(await deriveScope(api(), "open_session", {})).toBeNull();
   });

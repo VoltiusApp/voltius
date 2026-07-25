@@ -27,9 +27,9 @@ export function isAllowlistable(tool: string, args: Record<string, unknown>): bo
 }
 
 /** Display sentinel used on a `PendingApproval` when `deriveScope` could not
- * resolve a connection. Contains a space, so it can never collide with a real
- * connection id — both the approval gate and the card test for it directly
- * instead of drifting apart. */
+ * resolve a connection. A collision with a real connection id could only
+ * mislabel a card, never authorize anything: `approvalController.ts` never
+ * lets this value reach `allowlistCandidates`. */
 export const UNKNOWN_SCOPE = "unknown connection";
 
 /**

@@ -201,6 +201,21 @@ describe("ApprovalController", () => {
       expect(addPending).not.toHaveBeenCalled();
     });
 
+    it("a grant stored for one connection does not authorize the same command on a different connection", async () => {
+      const stored: AllowlistEntry[] = [
+        { scope: "c1", tool: "run_command", grain: "exact", key: "df -h" },
+      ];
+      const addPending = vi.fn();
+      const c = makeController({
+        getMode: () => "ask",
+        hasAllowlist: (e) => stored.some((s) => entriesEqual(s, e)),
+        addPending,
+        deriveScope: async () => "c2",
+      });
+      void c.approve({ tool: "run_command", args: { command: "df -h" } }, 0);
+      await vi.waitFor(() => expect(addPending).toHaveBeenCalledTimes(1)); // a card, not an auto-approval
+    });
+
     it("offers no grants at all when the scope is unresolved", async () => {
       const addPending = vi.fn();
       const c = makeController({
