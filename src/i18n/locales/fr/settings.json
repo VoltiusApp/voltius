@@ -181,7 +181,9 @@
       "title": "Paramètres",
       "close": "Fermer les paramètres",
       "back": "Retour",
-      "openHint": "Ctrl+, pour ouvrir"
+      "openHint": "Ctrl+, pour ouvrir",
+      "expandPluginGroup": "Développer les extensions",
+      "collapsePluginGroup": "Réduire les extensions"
     },
     "shared": {
       "cancel": "Annuler",

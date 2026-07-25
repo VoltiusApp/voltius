@@ -181,7 +181,9 @@
       "title": "Settings",
       "close": "Close settings",
       "back": "Back",
-      "openHint": "Ctrl+, to open"
+      "openHint": "Ctrl+, to open",
+      "expandPluginGroup": "Expand plugin settings",
+      "collapsePluginGroup": "Collapse plugin settings"
     },
     "shared": {
       "cancel": "Cancel",

@@ -181,7 +181,9 @@
       "title": "Настройки",
       "close": "Закрыть настройки",
       "back": "Назад",
-      "openHint": "Ctrl+, чтобы открыть"
+      "openHint": "Ctrl+, чтобы открыть",
+      "expandPluginGroup": "Развернуть настройки плагинов",
+      "collapsePluginGroup": "Свернуть настройки плагинов"
     },
     "shared": {
       "cancel": "Отмена",
