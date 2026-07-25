@@ -24,6 +24,7 @@ export function ProfilesBlock({ api }: { api: PluginAPI }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | "new" | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const profilesVersion = useAgentStore((s) => s.profilesVersion);
 
   const refresh = async () => {
@@ -41,19 +42,30 @@ export function ProfilesBlock({ api }: { api: PluginAPI }) {
   const onActivate = async (id: string) => {
     const deps = getAgentDeps();
     if (!deps) return;
-    await deps.profiles.setActive(id);
-    setActiveId(id);
-    useAgentStore.getState().bumpProfilesVersion();
+    setError(null);
+    try {
+      await deps.profiles.setActive(id);
+      setActiveId(id);
+      useAgentStore.getState().bumpProfilesVersion();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   const onConfirmDelete = async () => {
     const deps = getAgentDeps();
     if (!deps || !deletingId) return;
-    await deps.profiles.remove(deletingId);
-    if (editingId === deletingId) setEditingId(null);
-    setDeletingId(null);
-    useAgentStore.getState().bumpProfilesVersion();
-    await refresh();
+    setError(null);
+    try {
+      await deps.profiles.remove(deletingId);
+      if (editingId === deletingId) setEditingId(null);
+      setDeletingId(null);
+      useAgentStore.getState().bumpProfilesVersion();
+      await refresh();
+    } catch (err) {
+      setDeletingId(null);
+      setError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   const onSaved = () => {
@@ -68,6 +80,8 @@ export function ProfilesBlock({ api }: { api: PluginAPI }) {
       <h3 className="text-xs font-bold uppercase tracking-widest mb-4 text-(--t-text-dim)">
         {t("aiAgent.settings.profiles.heading")}
       </h3>
+
+      {error && <div className="text-xs mb-3 text-(--t-status-error)">{error}</div>}
 
       {profiles.length === 0 && editingId !== "new" && (
         <p className="text-sm mb-3 text-(--t-text-dim)">{t("aiAgent.settings.profiles.empty")}</p>

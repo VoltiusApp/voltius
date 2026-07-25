@@ -16,7 +16,9 @@ const PROVIDER_LABEL: Record<ProviderKind, string> = {
  * create. Unlike FirstRunCard, this editor exposes its own Name field:
  * `labelEdited` tracks whether the user has typed into it directly, and the
  * default (provider-derived) label only keeps re-deriving on a provider
- * change while it's still false — once edited, the user's name sticks.
+ * change while it's still false — once edited, the user's name sticks. It
+ * starts true when editing an existing profile: a saved name is a fact the
+ * user chose, and a provider switch must never silently overwrite it.
  */
 export function ProfileEditor({
   profile, onSaved, onCancel,
@@ -29,7 +31,7 @@ export function ProfileEditor({
     baseUrl: profile?.baseUrl ?? "",
     model: profile?.model ?? "",
   });
-  const [labelEdited, setLabelEdited] = useState(false);
+  const [labelEdited, setLabelEdited] = useState(profile !== null);
   // An existing profile has a key on disk we never read back; until Replace is
   // clicked there is nothing to write, so save must not clear it.
   const [replacingKey, setReplacingKey] = useState(profile === null);

@@ -105,4 +105,70 @@ describe("ProfilesBlock", () => {
     );
     expect(store.setKey).not.toHaveBeenCalled(); // key untouched -> not rewritten
   });
+
+  it("does not rename an existing profile when only the provider is switched", async () => {
+    const store = mockStore();
+    mockDeps({ profiles: store });
+    render(<ProfilesBlock api={{} as never} />);
+    // profile "1" is Work / anthropic — open its editor without touching the name field.
+    fireEvent.click((await screen.findAllByRole("button", { name: /edit/i }))[0]);
+    const labelInput = document.getElementById("edit-label") as HTMLInputElement;
+    expect(labelInput.value).toBe("Work");
+
+    fireEvent.change(document.getElementById("edit-provider")!, { target: { value: "google" } });
+    expect(labelInput.value).toBe("Work"); // provider switch alone must never rewrite a saved name
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    await waitFor(() =>
+      expect(store.save).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "1", label: "Work", providerKind: "google" }),
+      ),
+    );
+  });
+
+  it("auto-derives the profile name from the provider until the user types, when creating a profile", async () => {
+    mockDeps({ profiles: mockStore() });
+    render(<ProfilesBlock api={{} as never} />);
+    fireEvent.click(await screen.findByRole("button", { name: /add/i }));
+    const labelInput = document.getElementById("edit-label") as HTMLInputElement;
+    expect(labelInput.value).toBe("Anthropic");
+
+    fireEvent.change(document.getElementById("edit-provider")!, { target: { value: "ollama" } });
+    expect(labelInput.value).toBe("Ollama"); // still untouched -> keeps following the provider
+
+    fireEvent.change(labelInput, { target: { value: "My Custom Name" } });
+    fireEvent.change(document.getElementById("edit-provider")!, { target: { value: "google" } });
+    expect(labelInput.value).toBe("My Custom Name"); // user typed -> provider switch no longer overrides it
+  });
+
+  it("surfaces an error and does not bump profilesVersion when activation fails", async () => {
+    const store = mockStore({
+      setActive: vi.fn(async () => {
+        throw new Error("activation boom");
+      }),
+    });
+    mockDeps({ profiles: store });
+    const before = useAgentStore.getState().profilesVersion;
+    render(<ProfilesBlock api={{} as never} />);
+    fireEvent.click(await screen.findByRole("radio", { name: /Local/ }));
+    await waitFor(() => expect(store.setActive).toHaveBeenCalledWith("2"));
+    expect(await screen.findByText(/activation boom/)).toBeTruthy();
+    expect(useAgentStore.getState().profilesVersion).toBe(before);
+  });
+
+  it("surfaces an error and does not bump profilesVersion when delete fails", async () => {
+    const store = mockStore({
+      remove: vi.fn(async () => {
+        throw new Error("delete boom");
+      }),
+    });
+    mockDeps({ profiles: store });
+    const before = useAgentStore.getState().profilesVersion;
+    render(<ProfilesBlock api={{} as never} />);
+    fireEvent.click((await screen.findAllByRole("button", { name: /delete/i }))[0]);
+    fireEvent.click(screen.getByRole("button", { name: /confirm/i }));
+    await waitFor(() => expect(store.remove).toHaveBeenCalledWith("1"));
+    expect(await screen.findByText(/delete boom/)).toBeTruthy();
+    expect(useAgentStore.getState().profilesVersion).toBe(before);
+  });
 });
