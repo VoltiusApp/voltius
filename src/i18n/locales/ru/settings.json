@@ -676,7 +676,6 @@
         "filterPlaceholder": "Фильтр плагинов…",
         "scanTitle": "Сканировать локальные плагины",
         "pluginSettingsTitle": "Настройки {{name}}",
-        "pageNotFound": "Страница не найдена.",
         "noConfig": "Нет настраиваемых параметров.",
         "bundledBadge": "Встроен",
         "settingsTitle": "Настройки плагина",

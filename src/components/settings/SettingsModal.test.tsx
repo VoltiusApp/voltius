@@ -149,13 +149,24 @@ test("an unresolvable plugin target falls back to the plugins section", () => {
   expect(screen.getByTestId("builtin-section").textContent).toBe("plugins");
 });
 
-test("disabling a plugin while its page is open clears the pane", () => {
+test("a disabled plugin's page still renders when reached directly", () => {
   useUIStore.setState({ settingsPluginPageId: AI_PAGE.id, settingsSection: "plugins" });
   usePluginRegistryStore.setState({ overrides: { "plugin-ai-agent": false } });
   render(<SettingsModal />);
-  expect(screen.queryByTestId("ai-page")).toBeNull();
-  expect(useUIStore.getState().settingsPluginPageId).toBeNull();
-  expect(screen.getByTestId("builtin-section").textContent).toBe("plugins");
+  expect(screen.getByTestId("ai-page")).toBeTruthy();
+  expect(useUIStore.getState().settingsPluginPageId).toBe(AI_PAGE.id);
+});
+
+// Fresh-install path: gist-sync and ssh-config register their settings page before
+// their isActive() gate, so a disabled plugin's page must still open via a
+// non-nav-gated entry point (a gear icon, a "Configure" button).
+test("a disabled plugin's page opened via openSettings is retained, not wiped", () => {
+  useUIStore.setState({ settingsOpen: false });
+  usePluginRegistryStore.setState({ overrides: { "plugin-ai-agent": false } });
+  useUIStore.getState().openSettings("plugins", AI_PAGE.id);
+  render(<SettingsModal />);
+  expect(screen.getByTestId("ai-page")).toBeTruthy();
+  expect(useUIStore.getState().settingsPluginPageId).toBe(AI_PAGE.id);
 });
 
 test("a deep-link opens straight onto the plugin page", () => {

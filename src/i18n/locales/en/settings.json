@@ -662,7 +662,6 @@
         "filterPlaceholder": "Filter plugins…",
         "scanTitle": "Scan for local plugins",
         "pluginSettingsTitle": "{{name}} Settings",
-        "pageNotFound": "Page not found.",
         "noConfig": "No configurable settings.",
         "bundledBadge": "Bundled",
         "settingsTitle": "Plugin settings",

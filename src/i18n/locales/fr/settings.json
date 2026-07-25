@@ -662,7 +662,6 @@
         "filterPlaceholder": "Filtrer les extensions…",
         "scanTitle": "Rechercher les extensions locales",
         "pluginSettingsTitle": "Paramètres de {{name}}",
-        "pageNotFound": "Page introuvable.",
         "noConfig": "Aucun paramètre configurable.",
         "bundledBadge": "Intégrée",
         "settingsTitle": "Paramètres de l'extension",

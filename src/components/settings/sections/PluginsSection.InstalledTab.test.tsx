@@ -78,6 +78,7 @@ test("the gear on a page-registering plugin selects the nav child", () => {
   fireEvent.click(gear());
   expect(useUIStore.getState().settingsPluginPageId).toBe("plugin-ai-agent:settings");
   expect(useUIStore.getState().settingsSection).toBe("plugins");
+  expect(useUIStore.getState().settingsSubPage).toBe("plugins");
 });
 
 test("the gear renders no inner drill-in for a registered page", () => {
