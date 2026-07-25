@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { PluginAPI } from "@/plugins/api";
 import type { ApprovalVia, ToolDecision, ToolRisk } from "../types";
+import { auditAgentAction } from "../state/auditSeam";
 import { captureCommand } from "./capture";
 
 export interface AgentContext {
@@ -54,6 +55,9 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
         const connectionId = String(g.args.connectionId);
         const sessionId = await ctx.api.sessions.open(connectionId);
         ctx.owned.add(sessionId);
+        // After the open succeeds: a failed open produced no session, so there
+        // is nothing to record.
+        auditAgentAction(g.scope, "agent.session_opened", { tool: "open_session" });
         return { sessionId };
       },
     },
@@ -72,6 +76,10 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
         const sessionId = String(g.args.sessionId);
         const command = String(g.args.command);
         if (!ctx.owned.has(sessionId)) return { error: "session not owned by agent; call open_session first" };
+        // Recorded BEFORE dispatch, deliberately: the command reaches the
+        // shell whether or not the capture comes back, and a crash mid-capture
+        // must not erase the record of something that actually ran.
+        auditAgentAction(g.scope, "agent.command_run", { tool: "run_command", approval: g.via }, { command });
         return captureCommand(ctx.api, sessionId, command, {});
       },
     },
@@ -97,6 +105,7 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
         if (!ctx.owned.has(sessionId)) return { error: "session not owned by agent; call open_session first" };
         await ctx.api.sessions.close(sessionId);
         ctx.owned.delete(sessionId);
+        auditAgentAction(g.scope, "agent.session_closed", { tool: "close_session" });
         return { closed: sessionId };
       },
     },

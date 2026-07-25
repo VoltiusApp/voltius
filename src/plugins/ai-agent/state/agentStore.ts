@@ -6,6 +6,7 @@ import { createProfilesStore, type ProfilesStore } from "../provider/profilesSto
 import { createApprovalController } from "./approvalController";
 import { deriveScope } from "./scopeDerivation";
 import { allowlistCandidates, entriesEqual, isWellFormedEntry, type AllowlistEntry } from "./allowlist";
+import { auditAgentAction } from "./auditSeam";
 import { runAgent } from "../agent/loop";
 import { createProvider } from "../provider/factory";
 import { makeStreamFetch } from "../provider/fetchAdapter";
@@ -160,8 +161,14 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   attachContext: (pendingContext) => set({ pendingContext }),
   clearContext: () => set({ pendingContext: null }),
 
-  setMode: (mode) => set({ mode }),
-  cycleMode: () => set((s) => ({ mode: MODE_ORDER[(MODE_ORDER.indexOf(s.mode) + 1) % 3] })),
+  setMode: (mode) => {
+    const from = get().mode;
+    if (from === mode) return;
+    set({ mode });
+    auditAgentAction("local", "agent.mode_changed", { from, to: mode });
+  },
+  // Delegates so a cycle produces exactly one audit event, not two.
+  cycleMode: () => get().setMode(MODE_ORDER[(MODE_ORDER.indexOf(get().mode) + 1) % 3]),
   bumpProfilesVersion: () => set((s) => ({ profilesVersion: s.profilesVersion + 1 })),
 
   hasAllowlist: (e) => get().allowlist.some((a) => entriesEqual(a, e)),
@@ -172,14 +179,23 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     if (get().hasAllowlist(e)) return;
     set((s) => ({ allowlist: [...s.allowlist, e] }));
     get()._persistAllowlist();
+    // After the write, so a rejected or duplicate grant is never recorded as
+    // authority the user did not actually hand over.
+    auditAgentAction(e.scope, "agent.grant_created", { tool: e.tool, grain: e.grain }, { command: e.key });
   },
   revokeAllowlist: (e) => {
+    const existed = get().hasAllowlist(e);
     set((s) => ({ allowlist: s.allowlist.filter((a) => !entriesEqual(a, e)) }));
     get()._persistAllowlist();
+    if (existed) {
+      auditAgentAction(e.scope, "agent.grant_revoked", { tool: e.tool, grain: e.grain }, { command: e.key });
+    }
   },
   revokeAllAllowlist: () => {
+    const count = get().allowlist.length;
     set({ allowlist: [] });
     get()._persistAllowlist();
+    if (count > 0) auditAgentAction("local", "agent.grant_revoked", { bulk: true, count });
   },
   _persistAllowlist: () => { void deps?.api.storage.set("allowlist", get().allowlist); },
   _persistConversation: () => {
@@ -192,6 +208,15 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     if (!p) return;
     p.resolve(d);
     set((s) => ({ pendingApprovals: s.pendingApprovals.filter((x) => x.id !== id) }));
+    // Only user-originated denials. `_rejectAllPending` resolves its cards
+    // directly and never reaches here, which is exactly what keeps aborts and
+    // supersessions out of the trail — a cancel is not a refusal.
+    if (!d.approve) {
+      auditAgentAction(p.scope, "agent.action_denied", { tool: p.tool }, {
+        command: typeof p.args.command === "string" ? p.args.command : undefined,
+        reason: d.reason,
+      });
+    }
   },
   _addPending: (p) => set((s) => ({ pendingApprovals: [...s.pendingApprovals, p] })),
   _rejectAllPending: (reason) => {
