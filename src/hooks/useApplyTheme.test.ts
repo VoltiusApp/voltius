@@ -18,4 +18,9 @@ describe("--t-on-accent", () => {
     applyThemeToDom(themeWith("#4338ca"));
     expect(document.documentElement.style.getPropertyValue("--t-on-accent")).toBe("#ffffff");
   });
+
+  it("is black on the default voltius accent (luminance 0.478 — below appearanceFromColor's 0.5 threshold but above the 0.179 black/white crossover)", () => {
+    applyThemeToDom(BUILT_IN_THEMES[0]);
+    expect(document.documentElement.style.getPropertyValue("--t-on-accent")).toBe("#000000");
+  });
 });
