@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { useAgentStore, type PendingApproval } from "../state/agentStore";
+import type { AllowlistEntry } from "../state/allowlist";
 
 function summarizeArgs(pending: PendingApproval): string {
   if (pending.tool === "run_command" && typeof pending.args.command === "string") return pending.args.command;
@@ -8,6 +10,7 @@ function summarizeArgs(pending: PendingApproval): string {
 }
 
 export function ApprovalCard({ pending }: { pending: PendingApproval }) {
+  const { t } = useTranslation();
   const resolveApproval = useAgentStore((s) => s.resolveApproval);
   const addAllowlist = useAgentStore((s) => s.addAllowlist);
 
@@ -18,20 +21,15 @@ export function ApprovalCard({ pending }: { pending: PendingApproval }) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
 
-  // The gate populates `grants` with exactly what it would accept — an empty
-  // array means it has nothing to offer, so the button's visibility can never
-  // drift from what the gate would actually let through.
-  const canAlwaysAllow = pending.grants.length > 0;
-
-  const alwaysLabel =
-    pending.tool === "run_command"
-      ? `Always allow \`${pending.grants[0]?.key}\` on ${pending.host}`
-      : `Always allow ${pending.tool} on ${pending.host}`;
+  const grantLabel = (g: AllowlistEntry) =>
+    g.grain === "exact"
+      ? t("aiAgent.approval.always.exact", { command: g.key, host: g.host })
+      : t("aiAgent.approval.always.tool", { tool: g.tool, host: g.host });
 
   const onApprove = () => resolveApproval(pending.id, { approve: true });
 
-  const onAlways = () => {
-    addAllowlist(pending.grants[0]);
+  const onAlways = (g: AllowlistEntry) => {
+    addAllowlist(g);
     resolveApproval(pending.id, { approve: true });
   };
 
@@ -123,9 +121,16 @@ export function ApprovalCard({ pending }: { pending: PendingApproval }) {
         ) : (
           <>
             <button type="button" onClick={onApprove} style={{ color: "var(--t-status-connected)" }}>Approve</button>
-            {canAlwaysAllow && (
-              <button type="button" onClick={onAlways} style={{ color: "var(--t-accent)" }}>{alwaysLabel} ▾</button>
-            )}
+            {pending.grants.map((g) => (
+              <button
+                key={`${g.grain}:${g.key}`}
+                type="button"
+                onClick={() => onAlways(g)}
+                style={{ color: "var(--t-accent)" }}
+              >
+                {grantLabel(g)}
+              </button>
+            ))}
             <button type="button" onClick={() => setEditing(true)} style={{ color: "var(--t-text-secondary)" }}>Edit</button>
             <button type="button" onClick={() => setRejecting(true)} style={{ color: "var(--t-status-error)" }}>Reject</button>
           </>

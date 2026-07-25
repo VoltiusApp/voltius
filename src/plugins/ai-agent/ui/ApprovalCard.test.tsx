@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import { useAgentStore } from "../state/agentStore";
+import "@/i18n";
+import { useAgentStore, type PendingApproval } from "../state/agentStore";
 import { UNKNOWN_HOST } from "../state/hostDerivation";
+import { allowlistCandidates } from "../state/allowlist";
 import { ApprovalCard } from "./ApprovalCard";
 
 // @iconify/react schedules an async icon-data-load timer that can fire after
@@ -11,12 +13,25 @@ vi.mock("@iconify/react", () => ({
   Icon: ({ icon }: { icon: string }) => <span data-icon={icon} />,
 }));
 
+/** Builds a `PendingApproval` fixture, filling in the parts every card needs
+ * (`id`, `resolve`) that individual tests don't care about. */
+function makePending(p: {
+  tool: string;
+  args: Record<string, unknown>;
+  host: string;
+  grants: PendingApproval["grants"];
+}): PendingApproval {
+  return { id: "test-id", resolve: vi.fn(), ...p };
+}
+
 const pending = {
   id: "a1",
   tool: "run_command",
   args: { command: "apt update" },
   host: "web-01",
-  grants: [{ host: "web-01", tool: "run_command", grain: "exact" as const, key: "apt update" }],
+  // A realistic call: derive the grant the real gate would offer rather than
+  // hand-writing it, so this fixture can't drift from allowlistCandidates.
+  grants: allowlistCandidates("run_command", { command: "apt update" }, "web-01"),
   resolve: vi.fn(),
 };
 
@@ -44,8 +59,9 @@ describe("ApprovalCard", () => {
       host: "web-01",
       // The gate never offers a grant for a command carrying a shell
       // metacharacter — see allowlistCandidates — so a faithful fixture for
-      // this call has no grants at all.
-      grants: [],
+      // this call derives its grants from that same function rather than
+      // hand-writing the empty array.
+      grants: allowlistCandidates("run_command", { command: "df -h | grep x" }, "web-01"),
       resolve: vi.fn(),
     };
     useAgentStore.setState({ pendingApprovals: [pipedPending], allowlist: [] });
@@ -67,8 +83,14 @@ describe("ApprovalCard", () => {
       tool: "run_command",
       args: { command: "apt update" },
       host: UNKNOWN_HOST,
-      // The gate offers no grants when the host is unresolved — see
-      // approvalController.approve's `host === null` short-circuit.
+      // Deliberately NOT derived from allowlistCandidates(tool, args,
+      // UNKNOWN_HOST): in production this empty array comes from
+      // approvalController's `host === null` short-circuit, which never
+      // calls allowlistCandidates at all — UNKNOWN_HOST is a display-only
+      // substitution applied afterwards (see approvalController.approve).
+      // Feeding UNKNOWN_HOST into allowlistCandidates as a real host would
+      // actually yield a (bogus) grant, so a literal is the honest fixture
+      // here, not a derivation gap.
       grants: [],
       resolve: vi.fn(),
     };
@@ -77,5 +99,52 @@ describe("ApprovalCard", () => {
     expect(screen.queryByText(/Always allow/)).toBeNull();
     expect(screen.getByText(`on ${UNKNOWN_HOST}`)).not.toBeNull();
     expect(screen.getByText("Approve")).not.toBeNull();
+  });
+
+  it("labels the grant with the exact command, not the binary", () => {
+    render(<ApprovalCard pending={makePending({
+      tool: "run_command",
+      args: { command: "df -h" },
+      host: "ssh-host-1",
+      grants: [{ host: "ssh-host-1", tool: "run_command", grain: "exact", key: "df -h" }],
+    })} />);
+    expect(screen.getByRole("button", { name: /`df -h`/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /`df` on/ })).toBeNull();
+  });
+
+  it("labels a non-command tool grant with the tool name", () => {
+    render(<ApprovalCard pending={makePending({
+      tool: "open_session",
+      args: { connectionId: "c1" },
+      host: "ssh-host-1",
+      grants: [{ host: "ssh-host-1", tool: "open_session", grain: "tool", key: "open_session" }],
+    })} />);
+    expect(screen.getByRole("button", { name: /open_session/ })).toBeTruthy();
+  });
+
+  it("hides the control entirely when there are no grants", () => {
+    render(<ApprovalCard pending={makePending({
+      tool: "run_command",
+      args: { command: "df -h | sh" },
+      host: "ssh-host-1",
+      // Derived, not hand-written: the shell-metacharacter guard in
+      // allowlistCandidates is what actually makes this [], so let the real
+      // function prove it rather than asserting a literal that could drift.
+      grants: allowlistCandidates("run_command", { command: "df -h | sh" }, "ssh-host-1"),
+    })} />);
+    expect(screen.queryByRole("button", { name: /always/i })).toBeNull();
+  });
+
+  it("stores exactly the candidate grant", () => {
+    const add = vi.fn();
+    useAgentStore.setState({ addAllowlist: add } as never);
+    render(<ApprovalCard pending={makePending({
+      tool: "run_command",
+      args: { command: "df -h" },
+      host: "ssh-host-1",
+      grants: [{ host: "ssh-host-1", tool: "run_command", grain: "exact", key: "df -h" }],
+    })} />);
+    fireEvent.click(screen.getByRole("button", { name: /`df -h`/ }));
+    expect(add).toHaveBeenCalledWith({ host: "ssh-host-1", tool: "run_command", grain: "exact", key: "df -h" });
   });
 });

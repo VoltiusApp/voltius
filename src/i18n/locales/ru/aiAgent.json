@@ -1,0 +1,10 @@
+{
+  "aiAgent": {
+    "approval": {
+      "always": {
+        "tool": "Всегда разрешать {{tool}} на {{host}}",
+        "exact": "Всегда разрешать `{{command}}` на {{host}}"
+      }
+    }
+  }
+}
