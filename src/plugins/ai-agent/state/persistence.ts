@@ -9,6 +9,14 @@ export const CONVERSATION_VERSION = 1;
 export const MAX_MESSAGES_BYTES = 256_000;
 export const MAX_TRANSCRIPT_ENTRIES = 200;
 export const MAX_TOOL_RESULT_BYTES = 8_000;
+/** The transcript's tool `detail` only ever renders as a one-line chip in the
+ * drawer, so it doesn't need the fidelity `messages` needs for the model's
+ * context — capped far below MAX_TOOL_RESULT_BYTES. */
+export const MAX_TRANSCRIPT_DETAIL_CHARS = 1_000;
+/** Backstop on `JSON.stringify(transcript).length` after the count and detail
+ * caps, since a whole-file rewrite that also carries the allowlist must stay
+ * small regardless of how many entries or how wide the count cap is. */
+export const MAX_TRANSCRIPT_BYTES = 64_000;
 export const TRUNCATION_MARKER = "\n…truncated";
 
 export interface PersistedConversation {
@@ -17,10 +25,12 @@ export interface PersistedConversation {
   messages: ModelMessage[];
 }
 
+function clampToLimit(value: string, limit: number): string {
+  return value.length <= limit ? value : value.slice(0, limit) + TRUNCATION_MARKER;
+}
+
 function clamp(value: string): string {
-  return value.length <= MAX_TOOL_RESULT_BYTES
-    ? value
-    : value.slice(0, MAX_TOOL_RESULT_BYTES) + TRUNCATION_MARKER;
+  return clampToLimit(value, MAX_TOOL_RESULT_BYTES);
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -32,14 +42,16 @@ function isRecord(v: unknown): v is Record<string, unknown> {
  * arbitrary JSON would produce something no longer parseable. */
 function clampToolOutputs(messages: ModelMessage[]): ModelMessage[] {
   return messages.map((m) => {
-    if (m.role !== "tool") return m;
+    if (m.role !== "tool" || !Array.isArray(m.content)) return m;
     return {
       ...m,
       content: m.content.map((part) => {
-        if (part.type !== "tool-result") return part;
-        const output = part.output;
+        if (!isRecord(part as unknown) || part.type !== "tool-result") return part;
+        const output: unknown = part.output;
+        if (!isRecord(output)) return part;
         if (output.type === "text" || output.type === "error-text") {
-          return output.value.length <= MAX_TOOL_RESULT_BYTES ? part : { ...part, output: { ...output, value: clamp(output.value) } };
+          const value = String(output.value ?? "");
+          return value.length <= MAX_TOOL_RESULT_BYTES ? part : { ...part, output: { ...output, value: clamp(value) } };
         }
         if (output.type === "json") {
           const encoded = JSON.stringify(output.value ?? null);
@@ -48,7 +60,7 @@ function clampToolOutputs(messages: ModelMessage[]): ModelMessage[] {
         }
         return part;
       }),
-    };
+    } as ModelMessage;
   });
 }
 
@@ -72,9 +84,18 @@ function capMessages(messages: ModelMessage[]): ModelMessage[] {
   return current;
 }
 
+/** Entries are independent (unlike `messages`, there's no turn structure to
+ * preserve), so once the count and detail caps still leave the payload over
+ * budget, oldest entries are dropped one at a time until it fits. */
 function clampTranscript(transcript: TranscriptEntry[]): TranscriptEntry[] {
-  const clamped = transcript.map((e) => (e.kind === "tool" ? { ...e, detail: clamp(e.detail) } : e));
-  return clamped.slice(-MAX_TRANSCRIPT_ENTRIES);
+  const clamped = transcript
+    .map((e) => (e.kind === "tool" ? { ...e, detail: clampToLimit(e.detail, MAX_TRANSCRIPT_DETAIL_CHARS) } : e))
+    .slice(-MAX_TRANSCRIPT_ENTRIES);
+  let current = clamped;
+  while (JSON.stringify(current).length > MAX_TRANSCRIPT_BYTES && current.length > 1) {
+    current = current.slice(1);
+  }
+  return current;
 }
 
 export function serializeConversation(
@@ -100,12 +121,16 @@ function lastResolvedEnd(messages: ModelMessage[]): number {
   messages.forEach((m, i) => {
     if (m.role === "assistant" && Array.isArray(m.content)) {
       for (const part of m.content) {
-        if (part.type === "tool-call") pending.add(part.toolCallId);
+        if (isRecord(part as unknown) && part.type === "tool-call" && typeof part.toolCallId === "string") {
+          pending.add(part.toolCallId);
+        }
       }
     }
-    if (m.role === "tool") {
+    if (m.role === "tool" && Array.isArray(m.content)) {
       for (const part of m.content) {
-        if (part.type === "tool-result") pending.delete(part.toolCallId);
+        if (isRecord(part as unknown) && part.type === "tool-result" && typeof part.toolCallId === "string") {
+          pending.delete(part.toolCallId);
+        }
       }
     }
     if (pending.size === 0) end = i + 1;

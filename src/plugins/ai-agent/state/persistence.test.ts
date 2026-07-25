@@ -4,6 +4,7 @@ import type { TranscriptEntry } from "./agentStore";
 import {
   serializeConversation, deserializeConversation,
   MAX_TRANSCRIPT_ENTRIES, MAX_TOOL_RESULT_BYTES, MAX_MESSAGES_BYTES, TRUNCATION_MARKER,
+  MAX_TRANSCRIPT_DETAIL_CHARS, MAX_TRANSCRIPT_BYTES,
 } from "./persistence";
 
 const userMsg = (t: string): ModelMessage => ({ role: "user", content: t });
@@ -67,6 +68,31 @@ describe("serializeConversation", () => {
     const messages = [userMsg("only turn"), assistantText("w".repeat(MAX_MESSAGES_BYTES + 1000))];
     expect(serializeConversation([], messages).messages).toHaveLength(2);
   });
+
+  it("truncates an oversized error-text tool output in messages", () => {
+    const messages = [userMsg("go"), toolCall("c1"), toolResult("c1", { type: "error-text", value: "e".repeat(MAX_TOOL_RESULT_BYTES + 500) })];
+    const out = serializeConversation([], messages);
+    const part = (out.messages[2] as { content: Array<{ output: { type: string; value: string } }> }).content[0];
+    expect(part.output.type).toBe("error-text");
+    expect(part.output.value.endsWith(TRUNCATION_MARKER)).toBe(true);
+  });
+
+  it("clamps a transcript tool detail to MAX_TRANSCRIPT_DETAIL_CHARS, not MAX_TOOL_RESULT_BYTES", () => {
+    const transcript: TranscriptEntry[] = [{ kind: "tool", tool: "run_command", state: "result", detail: "x".repeat(MAX_TOOL_RESULT_BYTES) }];
+    const detail = (serializeConversation(transcript, []).transcript[0] as { detail: string }).detail;
+    expect(detail.length).toBeLessThanOrEqual(MAX_TRANSCRIPT_DETAIL_CHARS + TRUNCATION_MARKER.length);
+    expect(detail.endsWith(TRUNCATION_MARKER)).toBe(true);
+  });
+
+  it("drops oldest transcript entries until the byte budget fits, keeping the newest", () => {
+    const transcript: TranscriptEntry[] = Array.from({ length: 150 }, (_, i) => ({
+      kind: "tool" as const, tool: "run_command", state: "result" as const, detail: `entry-${i}-`.padEnd(900, "x"),
+    }));
+    const out = serializeConversation(transcript, []);
+    expect(JSON.stringify(out.transcript).length).toBeLessThanOrEqual(MAX_TRANSCRIPT_BYTES);
+    const last = out.transcript[out.transcript.length - 1] as { detail: string };
+    expect(last.detail.startsWith("entry-149-")).toBe(true);
+  });
 });
 
 describe("deserializeConversation", () => {
@@ -107,5 +133,32 @@ describe("deserializeConversation", () => {
       messages: [],
     });
     expect(out?.transcript).toEqual([{ kind: "user", text: "keep" }]);
+  });
+
+  describe("malformed messages never throw — returns null or a sanitized result instead", () => {
+    const malformed: Array<[string, unknown]> = [
+      ["tool message with no content", { role: "tool" }],
+      ["tool message with non-array content", { role: "tool", content: "oops" }],
+      ["assistant content array with a null part", { role: "assistant", content: [null] }],
+      ["tool content array with a null part", { role: "tool", content: [null] }],
+      [
+        "tool-result part with output: null",
+        { role: "tool", content: [{ type: "tool-result", toolCallId: "c1", toolName: "x", output: null }] },
+      ],
+      [
+        "text output with no value",
+        { role: "tool", content: [{ type: "tool-result", toolCallId: "c1", toolName: "x", output: { type: "text" } }] },
+      ],
+      [
+        "text output with a non-string value",
+        { role: "tool", content: [{ type: "tool-result", toolCallId: "c1", toolName: "x", output: { type: "text", value: 42 } }] },
+      ],
+    ];
+
+    for (const [label, message] of malformed) {
+      it(label, () => {
+        expect(() => deserializeConversation({ v: 1, transcript: [], messages: [message] })).not.toThrow();
+      });
+    }
   });
 });
