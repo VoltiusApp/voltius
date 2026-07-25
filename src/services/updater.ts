@@ -1,6 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-shell";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 export type UpdaterStatus =
   | { status: "idle" }
@@ -41,7 +41,7 @@ export async function checkForUpdate() {
 
 /** Open the Voltius download page (used when this install can't self-update). */
 export async function openDownloadPage() {
-  await open("https://voltius.app/download");
+  await openUrl("https://voltius.app/download");
 }
 
 /** Whether the background updater loop is allowed to run. */

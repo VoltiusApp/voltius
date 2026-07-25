@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useIsAndroid } from "@/utils/platform";
 import { useUIStore } from "@/stores/uiStore";
 
@@ -178,12 +179,11 @@ export default function AboutSection() {
         </h3>
         <div className="space-y-2">
           {LINKS.map(({ icon, key, sub, href }) => (
-            <a
+            <button
               key={href}
-              href={href}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-lg px-4 py-3 flex items-center gap-3 bg-(--t-bg-elevated) border border-(--t-border) transition-colors hover:border-(--t-border-hover)"
+              type="button"
+              onClick={() => void openUrl(href)}
+              className="w-full text-left rounded-lg px-4 py-3 flex items-center gap-3 bg-(--t-bg-elevated) border border-(--t-border) transition-colors hover:border-(--t-border-hover)"
             >
               <Icon icon={icon} width={20} className="text-(--t-text-primary) shrink-0" />
               <div>
@@ -191,7 +191,7 @@ export default function AboutSection() {
                 <p className="text-xs mt-0.5 text-(--t-text-dim)">{sub}</p>
               </div>
               <Icon icon="lucide:external-link" width={20} className="ml-auto text-(--t-text-dim)" />
-            </a>
+            </button>
           ))}
           <button
             type="button"
