@@ -6,21 +6,27 @@ vi.mock("@/hooks/useTerminal", () => ({
 import { useUIStore } from "@/stores/uiStore";
 import { manifest, register } from "./index";
 import { useAgentStore } from "./state/agentStore";
+import { DRAWER_PANEL_ID } from "./panelId";
+import { TerminalAskButton } from "./ui/TerminalAskButton";
 
 function fakeApi(isActive: () => boolean = () => true) {
   const calls: string[] = [];
+  const statusBarFactories: Record<string, (ctx: unknown) => unknown> = {};
   return {
     calls,
+    statusBarFactories,
     api: {
       isActive,
       storage: { get: vi.fn(async () => null), set: vi.fn() },
       keychain: { get: vi.fn(), set: vi.fn(), delete: vi.fn() },
       sessions: { list: () => [], getActive: vi.fn(() => null) },
       connections: { list: async () => [] },
+      terminal: { readSelection: vi.fn(() => ""), readSnapshot: vi.fn(() => "") },
       notifications: { toast: vi.fn() },
       ui: {
         registerGlobalPanel: vi.fn(() => { calls.push("panel"); return () => calls.push("panel:off"); }),
-        registerStatusBarItem: vi.fn((slot: string) => {
+        registerStatusBarItem: vi.fn((slot: string, factory: (ctx: unknown) => unknown) => {
+          statusBarFactories[slot] = factory;
           calls.push(slot === "titlebar.right" ? "titlebar" : "terminalButton");
           return () => calls.push(slot === "titlebar.right" ? "titlebar:off" : "terminalButton:off");
         }),
@@ -97,5 +103,57 @@ describe("ai-agent register", () => {
     // Still 1, not 2: proves the subscription installed by register was
     // actually torn down, not merely that a fresh one wasn't installed.
     expect(toast).toHaveBeenCalledTimes(1);
+  });
+
+  it("ask-ai-terminal execute() attaches terminal context from the active session and opens the drawer", () => {
+    const { api } = fakeApi();
+    (api as unknown as { sessions: { getActive: unknown } }).sessions.getActive = vi.fn(() => ({
+      id: "s1", connectionId: "c1", connectionName: "Prod DB", status: "connected", type: "ssh",
+    }));
+    (api as unknown as { terminal: { readSelection: unknown; readSnapshot: unknown } }).terminal = {
+      readSelection: vi.fn(() => ""),
+      readSnapshot: vi.fn(() => "line one\nline two"),
+    };
+    useUIStore.setState({ globalPanelOpen: {} } as never);
+    useAgentStore.setState({ pendingContext: null });
+
+    register(api);
+    const omniRegister = (api as unknown as { omni: { register: ReturnType<typeof vi.fn> } }).omni.register;
+    const call = omniRegister.mock.calls.find((c: unknown[]) => (c[0] as { id: string }).id === "ask-ai-terminal")!;
+    (call[0] as { execute: () => void }).execute();
+
+    expect(useAgentStore.getState().pendingContext).toMatchObject({ sessionId: "s1", connectionName: "Prod DB" });
+    expect(useUIStore.getState().globalPanelOpen[DRAWER_PANEL_ID]).toBe(true);
+  });
+
+  it("ask-ai-terminal execute() still opens the drawer with no context attached when there is no active session", () => {
+    const { api } = fakeApi(); // default sessions.getActive() returns null
+    useUIStore.setState({ globalPanelOpen: {} } as never);
+    useAgentStore.setState({ pendingContext: null });
+
+    register(api);
+    const omniRegister = (api as unknown as { omni: { register: ReturnType<typeof vi.fn> } }).omni.register;
+    const call = omniRegister.mock.calls.find((c: unknown[]) => (c[0] as { id: string }).id === "ask-ai-terminal")!;
+    (call[0] as { execute: () => void }).execute();
+
+    expect(useAgentStore.getState().pendingContext).toBeNull();
+    expect(useUIStore.getState().globalPanelOpen[DRAWER_PANEL_ID]).toBe(true);
+  });
+
+  it("the terminal status-bar factory forwards sessionId and connectionName (falling back to connectionId) into TerminalAskButton", () => {
+    const { api, statusBarFactories } = fakeApi();
+    register(api);
+    const factory = statusBarFactories["terminal.statusBar.right"];
+
+    const withName = factory({ sessionId: "s1", connectionId: "c1", connectionName: "Prod DB" }) as {
+      type: unknown; props: { sessionId: string; connectionName: string };
+    };
+    expect(withName.type).toBe(TerminalAskButton);
+    expect(withName.props).toEqual({ sessionId: "s1", connectionName: "Prod DB" });
+
+    const withoutName = factory({ sessionId: "s2", connectionId: "c2", connectionName: undefined }) as {
+      props: { sessionId: string; connectionName: string };
+    };
+    expect(withoutName.props).toEqual({ sessionId: "s2", connectionName: "c2" });
   });
 });
