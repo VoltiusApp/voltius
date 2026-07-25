@@ -5,6 +5,26 @@
         "tool": "Toujours autoriser {{tool}} sur {{host}}",
         "exact": "Toujours autoriser `{{command}}` sur {{host}}"
       }
+    },
+    "settings": {
+      "profiles": {
+        "heading": "Profils de fournisseur",
+        "add": "Ajouter un profil",
+        "edit": "Modifier",
+        "delete": "Supprimer",
+        "empty": "Aucun fournisseur configuré pour l'instant.",
+        "activate": "Utiliser {{label}}",
+        "keySet": "•••• défini",
+        "replaceKey": "Remplacer",
+        "name": "Nom",
+        "save": "Enregistrer",
+        "cancel": "Annuler",
+        "deleteConfirm": {
+          "title": "Supprimer ce fournisseur ?",
+          "message": "Le profil et sa clé API enregistrée sont supprimés de cet appareil.",
+          "confirm": "Supprimer"
+        }
+      }
     }
   }
 }

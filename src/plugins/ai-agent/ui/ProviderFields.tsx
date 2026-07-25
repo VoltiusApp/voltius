@@ -1,5 +1,6 @@
 import { useState, type CSSProperties } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { getAgentDeps } from "../state/agentStore";
 import { fieldVisibility, loadModels } from "../provider/models";
 import { ProviderLogo } from "./ProviderLogo";
@@ -57,6 +58,7 @@ export function ProviderFields({
   hasStoredKey?: boolean;
   onReplaceKey?: () => void;
 }) {
+  const { t } = useTranslation();
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [testError, setTestError] = useState<string | null>(null);
@@ -120,9 +122,11 @@ export function ProviderFields({
         </label>
         {hasStoredKey ? (
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ color: "var(--t-text-secondary)", fontSize: 12 }}>•••• set</span>
+            <span style={{ color: "var(--t-text-secondary)", fontSize: 12 }}>
+              {t("aiAgent.settings.profiles.keySet")}
+            </span>
             <button type="button" onClick={onReplaceKey} style={{ color: "var(--t-accent)", fontSize: 12 }}>
-              Replace
+              {t("aiAgent.settings.profiles.replaceKey")}
             </button>
           </div>
         ) : (

@@ -5,6 +5,26 @@
         "tool": "Always allow {{tool}} on {{host}}",
         "exact": "Always allow `{{command}}` on {{host}}"
       }
+    },
+    "settings": {
+      "profiles": {
+        "heading": "Provider profiles",
+        "add": "Add profile",
+        "edit": "Edit",
+        "delete": "Delete",
+        "empty": "No providers configured yet.",
+        "activate": "Use {{label}}",
+        "keySet": "•••• set",
+        "replaceKey": "Replace",
+        "name": "Name",
+        "save": "Save",
+        "cancel": "Cancel",
+        "deleteConfirm": {
+          "title": "Delete this provider?",
+          "message": "The profile and its stored API key are removed from this device.",
+          "confirm": "Delete"
+        }
+      }
     }
   }
 }

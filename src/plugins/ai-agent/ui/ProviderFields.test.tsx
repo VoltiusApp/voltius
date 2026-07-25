@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import "@/i18n";
 import { ProviderFields, providerFieldsComplete, type ProviderFieldsValue } from "./ProviderFields";
 
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
