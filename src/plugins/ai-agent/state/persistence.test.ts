@@ -297,7 +297,12 @@ describe("plan transcript entries", () => {
       { kind: "plan", planId: "p", outcome: "approved_run", steps: "nope" },     // steps not an array
       { kind: "plan", planId: "p", outcome: "bogus", steps: [] },                // unknown outcome
       { kind: "plan", planId: 7, outcome: "approved_run", steps: [] },           // planId not a string
-      { kind: "plan", planId: "p", outcome: "approved_run", steps: [{ tool: "rm" }] }, // unknown step tool
+      {
+        kind: "plan",
+        planId: "p",
+        outcome: "approved_run",
+        steps: [{ id: "s1", tool: "rm", connectionId: "conn-A", command: "rm -rf /", rationale: "r", status: "pending" }],
+      }, // unknown step tool, otherwise well-formed
     ]) {
       let out: unknown;
       expect(() => { out = deserializeConversation({ v: 1, transcript: [bad], messages: [] }); }).not.toThrow();

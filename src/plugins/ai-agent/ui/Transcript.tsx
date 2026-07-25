@@ -21,6 +21,9 @@ export function Transcript() {
       }}
     >
       {transcript.map((entry, i) => {
+        // Rendered by PlanCard in a later task; returning null here keeps the
+        // union exhaustive so `entry.text` below stays narrowed.
+        if (entry.kind === "plan") return null;
         if (entry.kind === "tool") {
           return (
             <div
