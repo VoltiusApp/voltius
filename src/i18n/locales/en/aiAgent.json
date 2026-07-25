@@ -54,6 +54,7 @@
         "localScope": "Local (no connection)",
         "unknownScope": "Unresolved target",
         "deletedConnection": "Deleted connection",
+        "resolvingScope": "Resolving…",
         "revoke": "Revoke",
         "revokeAll": "Revoke all remembered approvals",
         "revokeAllConfirm": {

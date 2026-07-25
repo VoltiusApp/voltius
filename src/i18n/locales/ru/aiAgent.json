@@ -54,6 +54,7 @@
         "localScope": "Локально (без подключения)",
         "unknownScope": "Цель не определена",
         "deletedConnection": "Удалённое подключение",
+        "resolvingScope": "Определение…",
         "revoke": "Отозвать",
         "revokeAll": "Отозвать все сохранённые разрешения",
         "revokeAllConfirm": {

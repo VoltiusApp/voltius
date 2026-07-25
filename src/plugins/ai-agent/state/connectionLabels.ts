@@ -2,10 +2,13 @@ import type { PluginConnection } from "@/plugins/api";
 import { UNKNOWN_SCOPE } from "./scopeDerivation";
 
 export interface ScopeLabel {
+  /** `pending`: the connection list hasn't loaded yet (see useConnectionLabels)
+   * — a connection-id scope resolves here instead of `deleted` so a valid
+   * grant never flashes as removed while the load is in flight. */
   kind: "local" | "unknown" | "deleted" | "connection" | "pending";
-  /** Primary display string. For `local`/`unknown`/`deleted` the caller
-   * substitutes a translated label; `name` still carries the raw scope so a
-   * grant can never render as an empty row. */
+  /** Primary display string. For `local`/`unknown`/`deleted`/`pending` the
+   * caller substitutes a translated label; `name` still carries the raw scope
+   * so a grant can never render as an empty row. */
   name: string;
   /** Secondary line, or null when it would just repeat `name`. */
   detail: string | null;
@@ -35,5 +38,6 @@ export function scopeLabelText(label: ScopeLabel, t: (key: string) => string): s
   if (label.kind === "local") return t("aiAgent.settings.allowlist.localScope");
   if (label.kind === "unknown") return t("aiAgent.settings.allowlist.unknownScope");
   if (label.kind === "deleted") return t("aiAgent.settings.allowlist.deletedConnection");
+  if (label.kind === "pending") return t("aiAgent.settings.allowlist.resolvingScope");
   return label.name;
 }

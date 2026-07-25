@@ -36,10 +36,11 @@ describe("resolveScopeLabel", () => {
 
 describe("scopeLabelText", () => {
   const t = (k: string) => k;
-  it("translates the three non-connection kinds and passes through a real name", () => {
+  it("translates the four non-connection kinds and passes through a real name", () => {
     expect(scopeLabelText({ kind: "local", name: "local", detail: null }, t)).toBe("aiAgent.settings.allowlist.localScope");
     expect(scopeLabelText({ kind: "unknown", name: "x", detail: null }, t)).toBe("aiAgent.settings.allowlist.unknownScope");
     expect(scopeLabelText({ kind: "deleted", name: "gone", detail: "gone" }, t)).toBe("aiAgent.settings.allowlist.deletedConnection");
+    expect(scopeLabelText({ kind: "pending", name: "c1", detail: null }, t)).toBe("aiAgent.settings.allowlist.resolvingScope");
     expect(scopeLabelText({ kind: "connection", name: "Prod DB", detail: "deploy@web-01:22" }, t)).toBe("Prod DB");
   });
 });

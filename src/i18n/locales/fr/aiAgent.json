@@ -54,6 +54,7 @@
         "localScope": "Local (aucune connexion)",
         "unknownScope": "Cible non résolue",
         "deletedConnection": "Connexion supprimée",
+        "resolvingScope": "Résolution…",
         "revoke": "Révoquer",
         "revokeAll": "Révoquer toutes les approbations mémorisées",
         "revokeAllConfirm": {
