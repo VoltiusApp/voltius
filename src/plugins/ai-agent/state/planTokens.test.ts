@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   canPreAuthorize,
   consumeToken,
+  MAX_PLAN_COMMAND_CHARS,
   mintTokens,
   stepEntry,
   type PlanStep,
@@ -47,6 +48,33 @@ describe("stepEntry", () => {
 
   it("returns null for an empty command", () => {
     expect(stepEntry(cmd("   "))).toBeNull();
+  });
+
+  it("keys the entry's scope on the step's own connectionId, not a fixed one", () => {
+    // Every other fixture in this file mints on "conn-A", which cannot
+    // distinguish "reads step.connectionId" from "always scopes to conn-A" (or
+    // to any other hardcoded/fallback value). Mint from two different
+    // connections and assert the two entries carry those distinct scopes.
+    const onA = stepEntry(cmd("df -h", "conn-A"));
+    const onB = stepEntry(cmd("df -h", "conn-B"));
+    expect(onA?.scope).toBe("conn-A");
+    expect(onB?.scope).toBe("conn-B");
+
+    const batchA = mintTokens([cmd("df -h", "conn-A", "s1")], 1, "plan-1");
+    const entry = { scope: "conn-A", tool: "run_command", grain: "exact", key: "df -h" } as const;
+    // A token minted on conn-A must not be redeemable by a call scoped conn-B.
+    expect(consumeToken(batchA, { ...entry, scope: "conn-B" }).consumed).toBe(false);
+    expect(consumeToken(batchA, { ...entry, scope: "conn-A" }).consumed).toBe(true);
+  });
+
+  it("returns null for a run_command step whose command exceeds MAX_PLAN_COMMAND_CHARS, but mints at exactly the cap", () => {
+    const atCap = "a".repeat(MAX_PLAN_COMMAND_CHARS);
+    const overCap = "a".repeat(MAX_PLAN_COMMAND_CHARS + 1);
+    expect(stepEntry(cmd(atCap))).toEqual({
+      scope: "conn-A", tool: "run_command", grain: "exact", key: atCap,
+    });
+    expect(stepEntry(cmd(overCap))).toBeNull();
+    expect(canPreAuthorize(cmd(overCap))).toBe(false);
   });
 });
 

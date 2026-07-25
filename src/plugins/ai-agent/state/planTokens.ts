@@ -95,6 +95,16 @@ export function stepArgs(step: PlanStep): Record<string, unknown> {
  * and the shell-metacharacter refusal (`isAllowlistable`).
  */
 export function stepEntry(step: PlanStep): AllowlistEntry | null {
+  // Fail closed on an over-cap command rather than mint a token keyed on text
+  // the user cannot have meaningfully reviewed: the plan card renders a
+  // checklist of up to MAX_PLAN_STEPS commands in one screen, so anything
+  // beyond MAX_PLAN_COMMAND_CHARS risks being displayed clamped/truncated —
+  // and a token must never key text the user did not actually see. The step
+  // still runs; it just falls back to a normal approval card at execution
+  // time, which is the conservative outcome.
+  if (step.tool === "run_command" && (step.command?.length ?? 0) > MAX_PLAN_COMMAND_CHARS) {
+    return null;
+  }
   return allowlistCandidates(step.tool, stepArgs(step), step.connectionId)[0] ?? null;
 }
 
