@@ -3,6 +3,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { initAgent, shutdownAgent } from "./state/agentStore";
 import { AiDrawer } from "./ui/AiDrawer";
 import { AiTitleBarButton } from "./ui/AiTitleBarButton";
+import { createSettingsPage } from "./settings/SettingsPage";
 
 const PANEL_ID = "drawer"; // prefixed → "plugin-ai-agent:drawer"
 
@@ -35,9 +36,20 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
     execute: () => useUIStore.getState().setGlobalPanelOpen("plugin-ai-agent:drawer", true),
   });
   const offTitlebar = api.ui.registerStatusBarItem("titlebar.right", () => <AiTitleBarButton />);
+  // Registered INSIDE the isActive() guard, departing from the runtime's house
+  // convention (settings pages normally register outside it so disabled
+  // plugins stay configurable): this plugin's rule is "agent disabled → zero
+  // extra UI anywhere", and the page's data access runs through
+  // getAgentDeps(), which is non-null exactly while the plugin is active.
+  const offSettings = api.ui.registerSettingsPage({
+    id: "settings", // runtime prefixes → "plugin-ai-agent:settings"
+    label: "AI Agent",
+    icon: "lucide:sparkles",
+    component: createSettingsPage(api),
+  });
 
   return () => {
-    offPanel(); offOmni(); offTitlebar();
+    offPanel(); offOmni(); offTitlebar(); offSettings();
     // Agent-owned SSH sessions are intentionally left open here — closing
     // them is out of scope until the runtime's session-ownership story is
     // settled, and closing on teardown could race a session the user is

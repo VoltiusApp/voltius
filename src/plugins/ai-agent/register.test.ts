@@ -2,12 +2,12 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("@/hooks/useTerminal", () => ({ readTerminalSnapshot: vi.fn(() => "") }));
 import { manifest, register } from "./index";
 
-function fakeApi() {
+function fakeApi(isActive: () => boolean = () => true) {
   const calls: string[] = [];
   return {
     calls,
     api: {
-      isActive: () => true,
+      isActive,
       storage: { get: vi.fn(async () => null), set: vi.fn() },
       keychain: { get: vi.fn(), set: vi.fn(), delete: vi.fn() },
       sessions: { list: () => [] },
@@ -15,6 +15,7 @@ function fakeApi() {
       ui: {
         registerGlobalPanel: vi.fn(() => { calls.push("panel"); return () => calls.push("panel:off"); }),
         registerStatusBarItem: vi.fn(() => { calls.push("titlebar"); return () => calls.push("titlebar:off"); }),
+        registerSettingsPage: vi.fn(() => { calls.push("settings"); return () => calls.push("settings:off"); }),
       },
       omni: { register: vi.fn(() => { calls.push("omni"); return () => calls.push("omni:off"); }) },
     } as never,
@@ -36,5 +37,26 @@ describe("ai-agent register", () => {
     expect(calls).toEqual(expect.arrayContaining(["panel", "omni", "titlebar"]));
     cleanup?.();
     expect(calls).toEqual(expect.arrayContaining(["panel:off", "omni:off", "titlebar:off"]));
+  });
+
+  it("registers a settings page only while active", () => {
+    const { api } = fakeApi(() => true);
+    register(api);
+    expect((api as unknown as { ui: { registerSettingsPage: ReturnType<typeof vi.fn> } }).ui.registerSettingsPage)
+      .toHaveBeenCalledWith(expect.objectContaining({ id: "settings", label: "AI Agent" }));
+  });
+
+  it("registers no settings page when inactive", () => {
+    const { api } = fakeApi(() => false);
+    register(api);
+    expect((api as unknown as { ui: { registerSettingsPage: ReturnType<typeof vi.fn> } }).ui.registerSettingsPage)
+      .not.toHaveBeenCalled();
+  });
+
+  it("unregisters the settings page on teardown", () => {
+    const { api, calls } = fakeApi(() => true);
+    const cleanup = register(api);
+    cleanup?.();
+    expect(calls).toContain("settings:off");
   });
 });

@@ -7,6 +7,17 @@
       }
     },
     "settings": {
+      "title": "AI Agent",
+      "permissions": {
+        "heading": "Permissions & safety",
+        "defaultMode": {
+          "title": "Start new chats in",
+          "desc": "The mode every new conversation begins in. The drawer can still switch mode live for the current conversation.",
+          "plan": "Plan — proposes steps, executes nothing",
+          "ask": "Ask on risky actions",
+          "auto": "Auto-accept — runs approved tools without asking"
+        }
+      },
       "profiles": {
         "heading": "Provider profiles",
         "add": "Add profile",

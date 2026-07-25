@@ -7,6 +7,17 @@
       }
     },
     "settings": {
+      "title": "Agent IA",
+      "permissions": {
+        "heading": "Autorisations et sécurité",
+        "defaultMode": {
+          "title": "Démarrer les nouvelles discussions en",
+          "desc": "Le mode dans lequel chaque nouvelle conversation démarre. Le panneau peut toujours changer de mode en direct pour la conversation en cours.",
+          "plan": "Plan — propose des étapes, n'exécute rien",
+          "ask": "Demander pour les actions risquées",
+          "auto": "Acceptation automatique — exécute les outils sans demander"
+        }
+      },
       "profiles": {
         "heading": "Profils de fournisseur",
         "add": "Ajouter un profil",
