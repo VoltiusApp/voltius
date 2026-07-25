@@ -6,6 +6,7 @@ import {
   MAX_TRANSCRIPT_ENTRIES, MAX_TOOL_RESULT_BYTES, MAX_MESSAGES_BYTES, TRUNCATION_MARKER,
   MAX_TRANSCRIPT_DETAIL_CHARS, MAX_TRANSCRIPT_BYTES,
 } from "./persistence";
+import { MAX_PLAN_STEPS } from "./planTokens";
 
 const userMsg = (t: string): ModelMessage => ({ role: "user", content: t });
 const assistantText = (t: string): ModelMessage => ({ role: "assistant", content: [{ type: "text", text: t }] });
@@ -241,5 +242,81 @@ describe("deserializeConversation", () => {
         expect(() => deserializeConversation({ v: 1, transcript: [], messages: [message] })).not.toThrow();
       });
     }
+  });
+});
+
+describe("plan transcript entries", () => {
+  const planEntry = (over: Partial<{ outcome: string; steps: unknown[] }> = {}) => ({
+    kind: "plan" as const,
+    planId: "plan-1",
+    outcome: "approved_run",
+    steps: [
+      { id: "s1", tool: "run_command", connectionId: "conn-A", command: "df -h", rationale: "check disk", status: "dispatched" },
+    ],
+    ...over,
+  });
+
+  it("serializes a plan entry without throwing", () => {
+    // Regression: clampTranscript's else-branch reads e.text, which a plan
+    // entry does not have, so this threw TypeError before the fix.
+    expect(() => serializeConversation([planEntry()] as never, [])).not.toThrow();
+  });
+
+  it("round-trips a plan entry", () => {
+    const out = deserializeConversation(serializeConversation([planEntry()] as never, []));
+    expect(out?.transcript[0]).toMatchObject({ kind: "plan", planId: "plan-1", outcome: "approved_run" });
+  });
+
+  it("revives a persisted pending plan as abandoned", () => {
+    // A pending plan's authority is a live promise held by propose_plan's
+    // execute. That promise cannot survive a reload, so a restored "pending"
+    // must never render as awaiting approval.
+    const out = deserializeConversation(
+      serializeConversation([planEntry({ outcome: "pending" })] as never, []),
+    );
+    expect((out?.transcript[0] as { outcome: string }).outcome).toBe("abandoned");
+  });
+
+  it("revives an undispatched step as skipped, and leaves a dispatched one alone", () => {
+    const entry = planEntry({
+      outcome: "approved_run",
+      steps: [
+        { id: "s1", tool: "run_command", connectionId: "conn-A", command: "df -h", rationale: "r", status: "dispatched" },
+        { id: "s2", tool: "run_command", connectionId: "conn-A", command: "uptime", rationale: "r", status: "pending" },
+      ],
+    });
+    const out = deserializeConversation(serializeConversation([entry] as never, []));
+    const steps = (out?.transcript[0] as { steps: { status: string }[] }).steps;
+    // Non-vacuity: if revive rewrote everything, the first would change too.
+    expect(steps.map((x) => x.status)).toEqual(["dispatched", "skipped"]);
+  });
+
+  it("drops a malformed plan entry instead of throwing", () => {
+    for (const bad of [
+      { kind: "plan", planId: "p", outcome: "approved_run" },                    // no steps
+      { kind: "plan", planId: "p", outcome: "approved_run", steps: "nope" },     // steps not an array
+      { kind: "plan", planId: "p", outcome: "bogus", steps: [] },                // unknown outcome
+      { kind: "plan", planId: 7, outcome: "approved_run", steps: [] },           // planId not a string
+      { kind: "plan", planId: "p", outcome: "approved_run", steps: [{ tool: "rm" }] }, // unknown step tool
+    ]) {
+      let out: unknown;
+      expect(() => { out = deserializeConversation({ v: 1, transcript: [bad], messages: [] }); }).not.toThrow();
+      expect((out as { transcript: unknown[] }).transcript).toEqual([]);
+    }
+  });
+
+  it("bounds a maximal plan inside the transcript budget", () => {
+    const steps = Array.from({ length: MAX_PLAN_STEPS + 5 }, (_, i) => ({
+      id: `s${i}`, tool: "run_command", connectionId: "conn-A",
+      command: "x".repeat(2000), rationale: "y".repeat(1000), status: "dispatched",
+    }));
+    const out = serializeConversation([planEntry({ steps })] as never, []);
+    const entry = out.transcript[0] as { steps: { command: string; rationale: string }[] };
+    expect(entry.steps).toHaveLength(MAX_PLAN_STEPS);
+    expect(entry.steps[0].command.length).toBeLessThanOrEqual(600);
+    expect(entry.steps[0].rationale.length).toBeLessThanOrEqual(300);
+    // Measured, not asserted by construction — 3d's cap was byte-blind
+    // precisely because nobody measured it.
+    expect(JSON.stringify(out.transcript).length).toBeLessThanOrEqual(MAX_TRANSCRIPT_BYTES);
   });
 });

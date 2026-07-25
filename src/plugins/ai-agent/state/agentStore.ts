@@ -13,6 +13,7 @@ import { makeStreamFetch } from "../provider/fetchAdapter";
 import { consumeStream } from "./conversation";
 import { CONVERSATION_KEY, deserializeConversation, serializeConversation, type PersistedConversation } from "./persistence";
 import { type AttachedContext, type ContextAttachment, formatContextBlock } from "./touchpoint";
+import type { PlanEntryStep, PlanOutcome } from "./planTokens";
 
 export type Mode = "plan" | "ask" | "auto";
 export type { AllowlistEntry } from "./allowlist";
@@ -31,7 +32,8 @@ export interface PendingApproval {
 export type TranscriptEntry =
   | { kind: "user"; text: string; attachment?: ContextAttachment }
   | { kind: "assistant"; text: string }
-  | { kind: "tool"; tool: string; state: "call" | "result"; detail: string };
+  | { kind: "tool"; tool: string; state: "call" | "result"; detail: string }
+  | { kind: "plan"; planId: string; steps: PlanEntryStep[]; outcome: PlanOutcome };
 
 export interface AgentDeps {
   api: PluginAPI;

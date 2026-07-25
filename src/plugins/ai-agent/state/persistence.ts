@@ -1,5 +1,14 @@
 import type { ModelMessage } from "ai";
 import type { TranscriptEntry } from "./agentStore";
+import {
+  MAX_PLAN_COMMAND_CHARS,
+  MAX_PLAN_RATIONALE_CHARS,
+  MAX_PLAN_STEPS,
+  type PlanEntryStep,
+  type PlanOutcome,
+  type PlanStepStatus,
+  type PlanStepTool,
+} from "./planTokens";
 
 export const CONVERSATION_KEY = "conversation";
 export const CONVERSATION_VERSION = 1;
@@ -40,6 +49,18 @@ function clamp(value: string): string {
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+const PLAN_TOOLS: PlanStepTool[] = ["open_session", "run_command", "close_session"];
+const PLAN_STATUSES: PlanStepStatus[] = ["pending", "dispatched", "skipped"];
+const PLAN_OUTCOMES: PlanOutcome[] = ["pending", "approved_run", "approved_ask", "rejected", "abandoned"];
+
+function clampPlanStep(s: PlanEntryStep): PlanEntryStep {
+  return {
+    ...s,
+    command: s.command === undefined ? undefined : clampToLimit(s.command, MAX_PLAN_COMMAND_CHARS),
+    rationale: clampToLimit(s.rationale, MAX_PLAN_RATIONALE_CHARS),
+  };
 }
 
 /** Cap oversized tool outputs. A `json` output over budget becomes a truncated
@@ -94,9 +115,13 @@ function capMessages(messages: ModelMessage[]): ModelMessage[] {
  * payload over budget, oldest entries are dropped one at a time until it fits. */
 function clampTranscript(transcript: TranscriptEntry[]): TranscriptEntry[] {
   const clamped = transcript
-    .map((e) => (e.kind === "tool"
-      ? { ...e, detail: clampToLimit(e.detail, MAX_TRANSCRIPT_DETAIL_CHARS) }
-      : { ...e, text: clampToLimit(e.text, MAX_TOOL_RESULT_BYTES) }))
+    .map((e) => {
+      if (e.kind === "tool") return { ...e, detail: clampToLimit(e.detail, MAX_TRANSCRIPT_DETAIL_CHARS) };
+      // A plan entry has no `text`, so it must be handled BEFORE the fallback
+      // below — clampToLimit reads `.length` and would throw on undefined.
+      if (e.kind === "plan") return { ...e, steps: e.steps.slice(0, MAX_PLAN_STEPS).map(clampPlanStep) };
+      return { ...e, text: clampToLimit(e.text, MAX_TOOL_RESULT_BYTES) };
+    })
     .slice(-MAX_TRANSCRIPT_ENTRIES);
   let current = clamped;
   while (JSON.stringify(current).length > MAX_TRANSCRIPT_BYTES && current.length > 1) {
@@ -153,6 +178,16 @@ function isValidAttachment(v: unknown): boolean {
     && typeof v.truncated === "boolean";
 }
 
+function isPlanStep(v: unknown): v is PlanEntryStep {
+  if (!isRecord(v)) return false;
+  if (typeof v.id !== "string" || v.id.length === 0) return false;
+  if (!PLAN_TOOLS.includes(v.tool as PlanStepTool)) return false;
+  if (typeof v.connectionId !== "string" || v.connectionId.length === 0) return false;
+  if (v.command !== undefined && typeof v.command !== "string") return false;
+  if (typeof v.rationale !== "string") return false;
+  return PLAN_STATUSES.includes(v.status as PlanStepStatus);
+}
+
 function isTranscriptEntry(v: unknown): v is TranscriptEntry {
   if (!isRecord(v)) return false;
   if (v.kind === "user") {
@@ -163,12 +198,35 @@ function isTranscriptEntry(v: unknown): v is TranscriptEntry {
   if (v.kind === "tool") {
     return typeof v.tool === "string" && typeof v.detail === "string" && (v.state === "call" || v.state === "result");
   }
+  if (v.kind === "plan") {
+    if (typeof v.planId !== "string" || v.planId.length === 0) return false;
+    if (!PLAN_OUTCOMES.includes(v.outcome as PlanOutcome)) return false;
+    return Array.isArray(v.steps) && v.steps.every(isPlanStep);
+  }
   return false;
 }
 
 function isModelMessage(v: unknown): v is ModelMessage {
   if (!isRecord(v)) return false;
   return v.role === "system" || v.role === "user" || v.role === "assistant" || v.role === "tool";
+}
+
+/**
+ * A restored plan can never be live. Its authority was a promise held by
+ * `propose_plan`'s `execute`, and its tokens lived in memory — neither
+ * survives a reload. So a persisted `pending` outcome must not render as
+ * awaiting approval, and any step still `pending` will now never be
+ * dispatched, which is exactly what `skipped` means.
+ *
+ * This is the SECOND of two independent reasons a restored plan cannot be
+ * approved (the first is that `PlanCard` renders read-only unless the entry is
+ * the live `pendingPlan`). Both are tested separately so neither rests on the
+ * other.
+ */
+function revivePlan(e: TranscriptEntry): TranscriptEntry {
+  if (e.kind !== "plan") return e;
+  const steps = e.steps.map((s) => (s.status === "pending" ? { ...s, status: "skipped" as const } : s));
+  return e.outcome === "pending" ? { ...e, outcome: "abandoned", steps } : { ...e, steps };
 }
 
 /** Validate, sanitize, and re-cap persisted data. Returns null for anything it
@@ -180,5 +238,5 @@ export function deserializeConversation(raw: unknown): PersistedConversation | n
   if (!Array.isArray(raw.transcript) || !Array.isArray(raw.messages)) return null;
   const messages = raw.messages.filter(isModelMessage);
   const resolved = messages.slice(0, lastResolvedEnd(messages));
-  return serializeConversation(raw.transcript.filter(isTranscriptEntry), resolved);
+  return serializeConversation(raw.transcript.filter(isTranscriptEntry).map(revivePlan), resolved);
 }
