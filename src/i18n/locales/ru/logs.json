@@ -51,7 +51,14 @@
         "secretViewed": "Секрет раскрыт",
         "sessionStarted": "Сессия начата",
         "sessionEnded": "Сессия завершена",
-        "sessionJoined": "Присоединение к сессии"
+        "sessionJoined": "Присоединение к сессии",
+        "agentGrantCreated": "Разрешение ИИ выдано",
+        "agentGrantRevoked": "Разрешение ИИ отозвано",
+        "agentModeChanged": "Режим ИИ изменён",
+        "agentSessionOpened": "Сессия ИИ открыта",
+        "agentSessionClosed": "Сессия ИИ закрыта",
+        "agentCommandRun": "Команда ИИ выполнена",
+        "agentActionDenied": "Действие ИИ отклонено"
       }
     },
     "timeRange": {
@@ -117,7 +124,14 @@
       "fallbackMember": "участник",
       "fallbackRole": "участник",
       "fallbackResource": "ресурс",
-      "fallbackHost": "хост"
+      "fallbackHost": "хост",
+      "agentGrantCreated": "выдал ИИ-агенту постоянное разрешение на {{name}}",
+      "agentGrantRevoked": "отозвал разрешение ИИ-агента на {{name}}",
+      "agentModeChanged": "изменил режим ИИ-агента на {{mode}}",
+      "agentSessionOpened": "ИИ-агент открыл сессию на {{name}}",
+      "agentSessionClosed": "ИИ-агент закрыл сессию на {{name}}",
+      "agentCommandRun": "ИИ-агент выполнил команду на {{name}}",
+      "agentActionDenied": "отклонил действие ИИ-агента на {{name}}"
     },
     "timeline": {
       "today": "Сегодня",
