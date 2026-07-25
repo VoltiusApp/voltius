@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
 import { appFetch } from "@/services/http";
+import type { AnyAuditAction } from "@/services/auditContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -100,14 +101,7 @@ export async function exportAuditLogs(
 export async function reportClientEvent(
   teamId: string,
   event: {
-    action:
-      | "connection.started" | "connection.ended" | "secret.viewed"
-      | "connection.created" | "connection.updated" | "connection.deleted"
-      | "identity.created" | "identity.updated" | "identity.deleted"
-      | "key.created" | "key.updated" | "key.deleted"
-      | "snippet.created" | "snippet.updated" | "snippet.deleted"
-      | "folder.created" | "folder.updated" | "folder.deleted"
-      | "port_forward.created" | "port_forward.updated" | "port_forward.deleted";
+    action: AnyAuditAction;
     vault_id?: string;
     target_type?: string;
     target_id?: string;

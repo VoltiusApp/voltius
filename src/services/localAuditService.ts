@@ -1,17 +1,8 @@
 import type { AuditFilters, AuditLog } from "@/services/auditService";
-import type { AuditTarget } from "@/services/auditContext";
+import type { AnyAuditAction, AuditTarget } from "@/services/auditContext";
 import { applyAuditFilters, csvEscape } from "@/services/auditExportCore";
 
 const LOCAL_AUDIT_KEY = "voltius-local-audit-logs";
-
-type ClientAction =
-  | "connection.started" | "connection.ended" | "secret.viewed"
-  | "connection.created" | "connection.updated" | "connection.deleted"
-  | "identity.created" | "identity.updated" | "identity.deleted"
-  | "key.created" | "key.updated" | "key.deleted"
-  | "snippet.created" | "snippet.updated" | "snippet.deleted"
-  | "folder.created" | "folder.updated" | "folder.deleted"
-  | "port_forward.created" | "port_forward.updated" | "port_forward.deleted";
 
 interface LocalAuditLog extends AuditLog {
   team_id: "local";
@@ -164,7 +155,7 @@ export async function exportLocalAuditLogs(
 
 export async function reportLocalClientEvent(
   vaultId: string,
-  event: AuditTarget & { action: ClientAction; occurred_at: string },
+  event: AuditTarget & { action: AnyAuditAction; occurred_at: string },
 ): Promise<void> {
   const db = readDb();
   const logs = db.logsByVault[vaultId] ?? [];
