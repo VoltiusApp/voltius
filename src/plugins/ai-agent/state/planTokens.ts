@@ -106,20 +106,10 @@ export function canPreAuthorize(step: PlanStep): boolean {
 
 /** One unused token per pre-authorizable step. A step that cannot mint one is
  *  silently skipped here — the UI is responsible for having told the user, via
- *  `canPreAuthorize`, that it will still ask.
- *
- *  At most one token per `stepId`: a later step sharing an id with an
- *  already-processed one is skipped outright, never re-evaluated. Since a
- *  consumed token's `stepId` is used to tick a checklist row without
- *  threading step identity through the tool registry, a colliding id minting
- *  a second token would make that tick ambiguous — so the id, not just the
- *  entry, is the unit of "one token". */
+ *  `canPreAuthorize`, that it will still ask. */
 export function mintTokens(steps: PlanStep[], generation: number, planId: string): PlanBatch {
   const tokens: PlanToken[] = [];
-  const seen = new Set<string>();
   for (const step of steps) {
-    if (seen.has(step.id)) continue;
-    seen.add(step.id);
     const entry = stepEntry(step);
     if (entry) tokens.push({ stepId: step.id, entry, used: false });
   }

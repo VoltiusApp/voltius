@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   canPreAuthorize,
   consumeToken,
@@ -7,11 +7,20 @@ import {
   type PlanStep,
 } from "./planTokens";
 
-const cmd = (command: string, connectionId = "conn-A"): PlanStep => ({
-  id: "s1", tool: "run_command", connectionId, command, rationale: "why",
+let seq = 0;
+// Reset per test: vitest isolates modules per FILE not per test (see
+// vitest.config.ts), so an un-reset counter would carry over between tests
+// and make an auto-id assertion depend on execution order. Production never
+// has this problem — ids are assigned fresh per plan by array index — so
+// resetting per test is the fixture staying faithful to that, not a fudge.
+beforeEach(() => { seq = 0; });
+// Distinct ids per call: production assigns `step-1..step-N` by index, so a
+// fixture that reuses one id would not represent any real plan.
+const cmd = (command: string, connectionId = "conn-A", id = `s${++seq}`): PlanStep => ({
+  id, tool: "run_command", connectionId, command, rationale: "why",
 });
-const open = (connectionId = "conn-A"): PlanStep => ({
-  id: "s0", tool: "open_session", connectionId, rationale: "why",
+const open = (connectionId = "conn-A", id = `s${++seq}`): PlanStep => ({
+  id, tool: "open_session", connectionId, rationale: "why",
 });
 
 describe("stepEntry", () => {
@@ -43,12 +52,27 @@ describe("stepEntry", () => {
 
 describe("mintTokens", () => {
   it("mints one unused token per pre-authorizable step and skips the rest", () => {
-    const batch = mintTokens([cmd("df -h"), cmd("du -sh /var/*"), open()], 7, "plan-1");
+    // `*` is NOT in SHELL_METACHARACTERS (scopeDerivation.ts:8), so a glob IS
+    // allowlistable and mints a token. A pipe is not — that is the skipped case.
+    const a = cmd("df -h", "conn-A", "s1");
+    const b = cmd("du -sh /var/*", "conn-A", "s2");
+    const c = cmd("tail -f x | grep y", "conn-A", "s3");
+    const d = open("conn-A", "s4");
+    const batch = mintTokens([a, b, c, d], 7, "plan-1");
     expect(batch.generation).toBe(7);
     expect(batch.planId).toBe("plan-1");
-    expect(batch.tokens.map((t) => t.entry.key)).toEqual(["df -h", "open_session"]);
-    expect(batch.tokens.map((t) => t.stepId)).toEqual(["s1", "s0"]);
+    expect(batch.tokens.map((t) => t.entry.key)).toEqual(["df -h", "du -sh /var/*", "open_session"]);
+    expect(batch.tokens.map((t) => t.stepId)).toEqual(["s1", "s2", "s4"]);
     expect(batch.tokens.every((t) => !t.used)).toBe(true);
+  });
+
+  it("mints a separate token for each occurrence of a repeated command", () => {
+    // A plan may legitimately probe the same thing twice (before and after a
+    // change). Two approved occurrences must authorize two executions.
+    const batch = mintTokens(
+      [cmd("df -h", "conn-A", "s1"), cmd("df -h", "conn-A", "s2")], 1, "plan-1",
+    );
+    expect(batch.tokens.map((t) => t.stepId)).toEqual(["s1", "s2"]);
   });
 });
 
