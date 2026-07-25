@@ -59,6 +59,20 @@ export function createApprovalController(deps: ApprovalControllerDeps) {
       // existing allowlist entry), and the card path (`addPending` below) —
       // all see that re-check first. `mode` itself was read above, before
       // this await, and is not re-read after it.
+      //
+      // That non-re-read is a real tradeoff, not a free lunch, and it cuts
+      // both ways:
+      //   - loosening (`ask` -> `auto` during this await): re-reading would
+      //     auto-approve with no card ever having been shown for this call.
+      //   - tightening (`auto` -> `ask` during this await): NOT re-reading
+      //     means a call the user has just switched to reviewing still
+      //     auto-approves below and gets stamped `via: "auto_mode"` — a call
+      //     they'd expect a card for goes through unseen.
+      // The decision stands anyway: both windows are exactly one IPC round
+      // trip wide (this `deriveScope` await), and re-reading here would just
+      // trade a fail-closed miss (a card shown when `auto` no longer applies)
+      // for a fail-open one (no card when `auto` no longer applies) — not
+      // remove the race, only flip which side of it is silent.
       const scope = await deps.deriveScope(call.tool, call.args);
       // Re-checked here — the abort latch only, not `mode`: `deriveScope` is
       // a real IPC round trip, so a call can be parked in the await above at
