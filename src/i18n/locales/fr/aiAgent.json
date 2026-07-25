@@ -82,6 +82,10 @@
       },
       "attached_one": "{{count}} ligne jointe",
       "attached_other": "{{count}} lignes jointes"
+    },
+    "toast": {
+      "pending": "L'agent a besoin d'une approbation pour exécuter {{tool}}",
+      "openToReview": "Ouvrir pour examiner"
     }
   }
 }

@@ -3,7 +3,9 @@ vi.mock("@/hooks/useTerminal", () => ({
   readTerminalSnapshot: vi.fn(() => ""),
   readTerminalSelection: vi.fn(() => ""),
 }));
+import { useUIStore } from "@/stores/uiStore";
 import { manifest, register } from "./index";
+import { useAgentStore } from "./state/agentStore";
 
 function fakeApi(isActive: () => boolean = () => true) {
   const calls: string[] = [];
@@ -15,6 +17,7 @@ function fakeApi(isActive: () => boolean = () => true) {
       keychain: { get: vi.fn(), set: vi.fn(), delete: vi.fn() },
       sessions: { list: () => [], getActive: vi.fn(() => null) },
       connections: { list: async () => [] },
+      notifications: { toast: vi.fn() },
       ui: {
         registerGlobalPanel: vi.fn(() => { calls.push("panel"); return () => calls.push("panel:off"); }),
         registerStatusBarItem: vi.fn((slot: string) => {
@@ -76,5 +79,23 @@ describe("ai-agent register", () => {
     const cleanup = register(api);
     cleanup?.();
     expect(calls).toContain("settings:off");
+  });
+
+  it("wires approval toasts while active and disposes them on teardown", () => {
+    const { api } = fakeApi(() => true);
+    const toast = (api as unknown as { notifications: { toast: ReturnType<typeof vi.fn> } }).notifications.toast;
+    useUIStore.setState({ globalPanelOpen: {} } as never);
+    useAgentStore.setState({ pendingApprovals: [] });
+    const cleanup = register(api);
+    const pending = (id: string) => ({ id, tool: "run_command", args: {}, scope: "local", grants: [], resolve: vi.fn() });
+
+    useAgentStore.getState()._addPending(pending("p1"));
+    expect(toast).toHaveBeenCalledTimes(1);
+
+    cleanup?.();
+    useAgentStore.getState()._addPending(pending("p2"));
+    // Still 1, not 2: proves the subscription installed by register was
+    // actually torn down, not merely that a fresh one wasn't installed.
+    expect(toast).toHaveBeenCalledTimes(1);
   });
 });

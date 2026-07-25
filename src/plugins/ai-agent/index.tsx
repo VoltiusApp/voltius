@@ -2,6 +2,7 @@ import i18n from "@/i18n";
 import type { PluginAPI, PluginManifest, PluginRegisterFn } from "@/plugins/api";
 import { useUIStore } from "@/stores/uiStore";
 import { initAgent, shutdownAgent, useAgentStore } from "./state/agentStore";
+import { installApprovalToasts } from "./state/approvalToasts";
 import { buildTerminalContext } from "./state/touchpoint";
 import { AiDrawer } from "./ui/AiDrawer";
 import { AiTitleBarButton } from "./ui/AiTitleBarButton";
@@ -69,9 +70,10 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
     icon: "lucide:sparkles",
     component: createSettingsPage(api),
   });
+  const offToasts = installApprovalToasts(api);
 
   return () => {
-    offPanel(); offOmni(); offAskTerminal(); offTerminalButton(); offTitlebar(); offSettings();
+    offPanel(); offOmni(); offAskTerminal(); offTerminalButton(); offTitlebar(); offSettings(); offToasts();
     // Agent-owned SSH sessions are intentionally left open here — closing
     // them is out of scope until the runtime's session-ownership story is
     // settled, and closing on teardown could race a session the user is

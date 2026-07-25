@@ -86,6 +86,10 @@
       "attached_few": "{{count}} строки вложены",
       "attached_many": "{{count}} строк вложено",
       "attached_other": "{{count}} строки вложены"
+    },
+    "toast": {
+      "pending": "Агенту требуется разрешение для выполнения {{tool}}",
+      "openToReview": "Открыть для проверки"
     }
   }
 }

@@ -82,6 +82,10 @@
       },
       "attached_one": "{{count}} line attached",
       "attached_other": "{{count}} lines attached"
+    },
+    "toast": {
+      "pending": "The agent needs approval to run {{tool}}",
+      "openToReview": "Open to review"
     }
   }
 }
