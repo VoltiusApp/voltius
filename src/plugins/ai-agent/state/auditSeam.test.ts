@@ -99,4 +99,27 @@ describe("auditAgentAction", () => {
       localMetadata: { command: "uptime" },
     });
   });
+
+  it("leaves a short command in localMetadata untouched and unflagged", () => {
+    auditAgentAction("c1", "agent.command_run", { tool: "run_command" }, { command: "uptime" });
+    expect(reportAgentAuditEvent.mock.calls[0][2].localMetadata).toEqual({ command: "uptime" });
+  });
+
+  it("truncates a >2000-char command in localMetadata and flags it, leaving metadata (wire) untouched", () => {
+    const long = "x".repeat(2500);
+    auditAgentAction("c1", "agent.command_run", { tool: "run_command" }, { command: long });
+
+    const opts = reportAgentAuditEvent.mock.calls[0][2];
+    expect((opts.localMetadata as { command: string }).command).toBe(long.slice(0, 2000));
+    expect((opts.localMetadata as { command: string }).command.length).toBe(2000);
+    expect((opts.localMetadata as { command_truncated: boolean }).command_truncated).toBe(true);
+    expect(opts.metadata).toEqual({ tool: "run_command" });
+  });
+
+  it("does not flag a command at exactly the truncation limit", () => {
+    const exact = "x".repeat(2000);
+    auditAgentAction("c1", "agent.command_run", { tool: "run_command" }, { command: exact });
+    const opts = reportAgentAuditEvent.mock.calls[0][2];
+    expect(opts.localMetadata).toEqual({ command: exact });
+  });
 });

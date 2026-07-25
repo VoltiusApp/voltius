@@ -14,6 +14,20 @@ const LOCAL_AUDIT_KEY = "voltius-local-audit-logs";
  */
 export const MAX_LOCAL_LOGS_PER_VAULT = 5000;
 
+/**
+ * Serialized-size ring-buffer bound for the per-vault local log, in UTF-16
+ * characters (~1 MB) — a second, independent bound alongside
+ * `MAX_LOCAL_LOGS_PER_VAULT`.
+ *
+ * The entry cap alone assumed a roughly-fixed row size. That assumption broke
+ * once `localMetadata.command` (an agent-run shell command, bounded but up to
+ * 2000 chars — see `auditSeam.ts`) became part of the log: a vault of
+ * oversized rows can blow the origin's ~5 MB localStorage quota at a small
+ * fraction of the entry cap, and `writeDb` swallows `QuotaExceededError`, so
+ * that failure is silent — the trail just stops growing.
+ */
+export const MAX_LOCAL_LOG_CHARS_PER_VAULT = 512_000;
+
 interface LocalAuditLog extends AuditLog {
   team_id: "local";
 }
@@ -83,6 +97,31 @@ function readDb(): LocalAuditDb {
   } catch {
     return emptyDb();
   }
+}
+
+/**
+ * Trim a newest-first log list to both the entry-count cap and the
+ * serialized-char budget, dropping from the OLDEST end (ring-buffer
+ * semantics: newest kept).
+ *
+ * Walks newest -> oldest, accumulating each entry's own `JSON.stringify`
+ * length exactly once — never the whole array's, and never inside a loop —
+ * so this is one stringify per entry, not one per entry per entry.
+ *
+ * The newest entry is always kept, even alone over budget: a log that keeps
+ * nothing is worse than one that keeps one oversized row.
+ */
+export function trimToBudget(logs: LocalAuditLog[]): LocalAuditLog[] {
+  const capped = logs.length > MAX_LOCAL_LOGS_PER_VAULT ? logs.slice(0, MAX_LOCAL_LOGS_PER_VAULT) : logs;
+  let totalChars = 0;
+  for (let i = 0; i < capped.length; i++) {
+    const entryChars = JSON.stringify(capped[i]).length;
+    if (i > 0 && totalChars + entryChars > MAX_LOCAL_LOG_CHARS_PER_VAULT) {
+      return capped.slice(0, i);
+    }
+    totalChars += entryChars;
+  }
+  return capped;
 }
 
 function writeDb(db: LocalAuditDb): void {
@@ -188,6 +227,6 @@ export async function reportLocalClientEvent(
   db.nextId += 1;
   // Only the vault being written is trimmed — the others are not growing, and
   // sweeping them would turn every append into a whole-database rewrite.
-  db.logsByVault[vaultId] = [log, ...logs].slice(0, MAX_LOCAL_LOGS_PER_VAULT);
+  db.logsByVault[vaultId] = trimToBudget([log, ...logs]);
   writeDb(db);
 }

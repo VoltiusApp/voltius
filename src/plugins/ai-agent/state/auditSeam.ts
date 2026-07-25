@@ -19,6 +19,37 @@ import { UNKNOWN_SCOPE } from "./scopeDerivation";
 const LOCAL_CONTEXT: AuditContext = { kind: "local", vaultId: "personal" };
 
 /**
+ * Cap on `localMetadata.command` characters.
+ *
+ * `run_command`'s schema is a bare `z.string()` with no max, which makes it
+ * this log's first unbounded free-form field. Left unbounded, a handful of
+ * huge commands can blow the per-vault byte budget (see
+ * `MAX_LOCAL_LOG_CHARS_PER_VAULT` in `localAuditService.ts`) long before the
+ * entry-count cap ever trips.
+ */
+const MAX_LOCAL_COMMAND_CHARS = 2000;
+
+/**
+ * Truncate `localMetadata.command`, if present and over budget, and flag it
+ * as truncated so a reader is never misled into thinking they see the whole
+ * command. Applies to `localMetadata` only — never to what actually runs or
+ * to anything shown to the user elsewhere, and never to the `metadata` that
+ * can reach the wire.
+ */
+function boundLocalMetadata(
+  localMetadata: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!localMetadata) return localMetadata;
+  const command = localMetadata.command;
+  if (typeof command !== "string" || command.length <= MAX_LOCAL_COMMAND_CHARS) return localMetadata;
+  return {
+    ...localMetadata,
+    command: command.slice(0, MAX_LOCAL_COMMAND_CHARS),
+    command_truncated: true,
+  };
+}
+
+/**
  * Record an agent action against the connection a tool call targets.
  *
  * The audit context is resolved from THAT connection's vault, which is what
@@ -59,6 +90,6 @@ export function auditAgentAction(
     target_id: scope,
     target_name: targetName,
     metadata,
-    localMetadata,
+    localMetadata: boundLocalMetadata(localMetadata),
   });
 }
