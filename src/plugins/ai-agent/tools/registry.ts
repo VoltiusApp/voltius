@@ -79,6 +79,15 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
         // Recorded BEFORE dispatch, deliberately: the command reaches the
         // shell whether or not the capture comes back, and a crash mid-capture
         // must not erase the record of something that actually ran.
+        //
+        // `g.scope` is derived from `raw.sessionId` (the ORIGINAL args passed
+        // to `gate`), not from `g.args.sessionId` (what actually executes,
+        // below). Those are the same value today only because nothing lets a
+        // decision rewrite `sessionId`: the approval card's edit form offers
+        // inputs for `command` and `connectionId` only. If `sessionId` ever
+        // becomes editable, this line must re-derive scope from the executed
+        // session, or the audit record could name a different connection than
+        // the one the command actually ran on.
         auditAgentAction(g.scope, "agent.command_run", { tool: "run_command", approval: g.via }, { command });
         return captureCommand(ctx.api, sessionId, command, {});
       },
