@@ -1,9 +1,13 @@
+import i18n from "@/i18n";
 import type { PluginAPI, PluginManifest, PluginRegisterFn } from "@/plugins/api";
 import { useUIStore } from "@/stores/uiStore";
-import { initAgent, shutdownAgent } from "./state/agentStore";
+import { initAgent, shutdownAgent, useAgentStore } from "./state/agentStore";
+import { buildTerminalContext } from "./state/touchpoint";
 import { AiDrawer } from "./ui/AiDrawer";
 import { AiTitleBarButton } from "./ui/AiTitleBarButton";
+import { TerminalAskButton } from "./ui/TerminalAskButton";
 import { createSettingsPage } from "./settings/SettingsPage";
+import { DRAWER_PANEL_ID } from "./panelId";
 
 const PANEL_ID = "drawer"; // prefixed → "plugin-ai-agent:drawer"
 
@@ -33,8 +37,26 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
     icon: "lucide:sparkles",
     keywords: ["ai", "assistant", "chat", "doctor"],
     keybinding: "ctrl+j",
-    execute: () => useUIStore.getState().setGlobalPanelOpen("plugin-ai-agent:drawer", true),
+    execute: () => useUIStore.getState().setGlobalPanelOpen(DRAWER_PANEL_ID, true),
   });
+  const offAskTerminal = api.omni.register({
+    id: "ask-ai-terminal",
+    label: i18n.t("aiAgent.touchpoint.command"),
+    icon: "lucide:sparkles",
+    keywords: ["ai", "terminal", "explain", "diagnose"],
+    keybinding: "ctrl+shift+j",
+    execute: () => {
+      const active = api.sessions.getActive();
+      if (active) {
+        const ctx = buildTerminalContext(api, active.id, active.connectionName);
+        if (ctx) useAgentStore.getState().attachContext(ctx);
+      }
+      useUIStore.getState().setGlobalPanelOpen(DRAWER_PANEL_ID, true);
+    },
+  });
+  const offTerminalButton = api.ui.registerStatusBarItem("terminal.statusBar.right", (ctx) => (
+    <TerminalAskButton sessionId={ctx.sessionId} connectionName={ctx.connectionName ?? ctx.connectionId} />
+  ));
   const offTitlebar = api.ui.registerStatusBarItem("titlebar.right", () => <AiTitleBarButton />);
   // Registered INSIDE the isActive() guard, departing from the runtime's house
   // convention (settings pages normally register outside it so disabled
@@ -49,7 +71,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   });
 
   return () => {
-    offPanel(); offOmni(); offTitlebar(); offSettings();
+    offPanel(); offOmni(); offAskTerminal(); offTerminalButton(); offTitlebar(); offSettings();
     // Agent-owned SSH sessions are intentionally left open here — closing
     // them is out of scope until the runtime's session-ownership story is
     // settled, and closing on teardown could race a session the user is

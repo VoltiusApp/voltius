@@ -13,11 +13,14 @@ function fakeApi(isActive: () => boolean = () => true) {
       isActive,
       storage: { get: vi.fn(async () => null), set: vi.fn() },
       keychain: { get: vi.fn(), set: vi.fn(), delete: vi.fn() },
-      sessions: { list: () => [] },
+      sessions: { list: () => [], getActive: vi.fn(() => null) },
       connections: { list: async () => [] },
       ui: {
         registerGlobalPanel: vi.fn(() => { calls.push("panel"); return () => calls.push("panel:off"); }),
-        registerStatusBarItem: vi.fn(() => { calls.push("titlebar"); return () => calls.push("titlebar:off"); }),
+        registerStatusBarItem: vi.fn((slot: string) => {
+          calls.push(slot === "titlebar.right" ? "titlebar" : "terminalButton");
+          return () => calls.push(slot === "titlebar.right" ? "titlebar:off" : "terminalButton:off");
+        }),
         registerSettingsPage: vi.fn(() => { calls.push("settings"); return () => calls.push("settings:off"); }),
       },
       omni: { register: vi.fn(() => { calls.push("omni"); return () => calls.push("omni:off"); }) },
@@ -40,6 +43,16 @@ describe("ai-agent register", () => {
     expect(calls).toEqual(expect.arrayContaining(["panel", "omni", "titlebar"]));
     cleanup?.();
     expect(calls).toEqual(expect.arrayContaining(["panel:off", "omni:off", "titlebar:off"]));
+  });
+
+  it("registers the terminal touchpoint (omni command + status-bar button), and teardown unregisters both", () => {
+    const { api, calls } = fakeApi();
+    const cleanup = register(api);
+    expect((api as unknown as { omni: { register: ReturnType<typeof vi.fn> } }).omni.register)
+      .toHaveBeenCalledWith(expect.objectContaining({ id: "ask-ai-terminal", keybinding: "ctrl+shift+j" }));
+    expect(calls).toContain("terminalButton");
+    cleanup?.();
+    expect(calls).toContain("terminalButton:off");
   });
 
   it("registers a settings page only while active", () => {

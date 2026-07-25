@@ -68,6 +68,20 @@
       "pin": "Pin",
       "unpin": "Unpin",
       "close": "Close"
+    },
+    "touchpoint": {
+      "command": "Ask AI about this terminal",
+      "button": "Ask AI",
+      "chip": {
+        "selection": "selection",
+        "snapshot": "buffer snapshot",
+        "lines_one": "{{count}} line",
+        "lines_other": "{{count}} lines",
+        "truncated": "truncated",
+        "remove": "Remove attached context"
+      },
+      "attached_one": "{{count}} line attached",
+      "attached_other": "{{count}} lines attached"
     }
   }
 }

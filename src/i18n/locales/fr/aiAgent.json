@@ -68,6 +68,20 @@
       "pin": "Épingler",
       "unpin": "Détacher",
       "close": "Fermer"
+    },
+    "touchpoint": {
+      "command": "Demander à l'IA à propos de ce terminal",
+      "button": "Demander à l'IA",
+      "chip": {
+        "selection": "sélection",
+        "snapshot": "capture du tampon",
+        "lines_one": "{{count}} ligne",
+        "lines_other": "{{count}} lignes",
+        "truncated": "tronqué",
+        "remove": "Retirer le contexte joint"
+      },
+      "attached_one": "{{count}} ligne jointe",
+      "attached_other": "{{count}} lignes jointes"
     }
   }
 }

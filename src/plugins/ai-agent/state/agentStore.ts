@@ -11,6 +11,7 @@ import { createProvider } from "../provider/factory";
 import { makeStreamFetch } from "../provider/fetchAdapter";
 import { consumeStream } from "./conversation";
 import { CONVERSATION_KEY, deserializeConversation, serializeConversation, type PersistedConversation } from "./persistence";
+import { type AttachedContext, type ContextAttachment, formatContextBlock } from "./touchpoint";
 
 export type Mode = "plan" | "ask" | "auto";
 export type { AllowlistEntry } from "./allowlist";
@@ -27,7 +28,7 @@ export interface PendingApproval {
 }
 
 export type TranscriptEntry =
-  | { kind: "user"; text: string }
+  | { kind: "user"; text: string; attachment?: ContextAttachment }
   | { kind: "assistant"; text: string }
   | { kind: "tool"; tool: string; state: "call" | "result"; detail: string };
 
@@ -80,6 +81,10 @@ interface AgentState {
   sendMessage(text: string): Promise<void>;
   stop(): void;
   newConversation(): Promise<void>;
+  /** Terminal context staged by the touchpoint, consumed by the next send. */
+  pendingContext: AttachedContext | null;
+  attachContext(c: AttachedContext): void;
+  clearContext(): void;
   _addPending(p: PendingApproval): void;
   _persistAllowlist(): void;
   _persistConversation(): void;
@@ -150,6 +155,10 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   transcript: [],
   messages: [],
   profilesVersion: 0,
+  pendingContext: null,
+
+  attachContext: (pendingContext) => set({ pendingContext }),
+  clearContext: () => set({ pendingContext: null }),
 
   setMode: (mode) => set({ mode }),
   cycleMode: () => set((s) => ({ mode: MODE_ORDER[(MODE_ORDER.indexOf(s.mode) + 1) % 3] })),
@@ -216,7 +225,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     // them here could race a session the user is still reading, the same
     // reasoning shutdownAgent's comment records.
     resetOwnedSessions();
-    set({ transcript: [], messages: [], runStatus: "idle", errorText: null });
+    set({ transcript: [], messages: [], runStatus: "idle", errorText: null, pendingContext: null });
     const api = deps?.api;
     void api?.storage.delete(CONVERSATION_KEY);
     const stored = await api?.storage.get<Mode>("agentMode");
@@ -255,11 +264,32 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     // run, nothing re-checks the generation. Reap explicitly, right beside the
     // bump, so no card from run N survives into run N+1.
     get()._rejectAllPending("superseded");
+    // Read at send time, not before the awaits above: the user may have
+    // removed the chip while the profile lookups were in flight.
+    const attached = get().pendingContext;
     set((s) => ({
       runStatus: "streaming",
       errorText: null,
-      transcript: [...s.transcript, { kind: "user", text }],
-      messages: [...s.messages, { role: "user", content: text }],
+      pendingContext: null,
+      transcript: [
+        ...s.transcript,
+        attached
+          ? {
+              kind: "user" as const,
+              text,
+              attachment: {
+                source: attached.source,
+                lineCount: attached.lineCount,
+                connectionName: attached.connectionName,
+                truncated: attached.truncated,
+              },
+            }
+          : { kind: "user" as const, text },
+      ],
+      messages: [
+        ...s.messages,
+        { role: "user", content: attached ? `${text}\n\n${formatContextBlock(attached)}` : text },
+      ],
     }));
 
     let runController: AbortController | undefined;

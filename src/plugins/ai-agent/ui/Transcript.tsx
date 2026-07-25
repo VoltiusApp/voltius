@@ -1,8 +1,10 @@
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { useAgentStore } from "../state/agentStore";
 import { ApprovalCard } from "./ApprovalCard";
 
 export function Transcript() {
+  const { t } = useTranslation();
   const transcript = useAgentStore((s) => s.transcript);
   const pendingApprovals = useAgentStore((s) => s.pendingApprovals);
   const errorText = useAgentStore((s) => s.errorText);
@@ -60,6 +62,12 @@ export function Transcript() {
             }}
           >
             {entry.text}
+            {/* The attached text itself is deliberately not rendered — it's already on screen in the terminal. */}
+            {entry.kind === "user" && entry.attachment && (
+              <div style={{ marginTop: 4, fontSize: 11, opacity: 0.75 }}>
+                {t("aiAgent.touchpoint.attached", { count: entry.attachment.lineCount })}
+              </div>
+            )}
           </div>
         );
       })}

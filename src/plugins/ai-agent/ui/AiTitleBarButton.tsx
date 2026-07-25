@@ -1,8 +1,7 @@
 import { Icon } from "@iconify/react";
 import { useAgentStore } from "../state/agentStore";
 import { useUIStore } from "@/stores/uiStore";
-
-const PANEL_ID = "plugin-ai-agent:drawer";
+import { DRAWER_PANEL_ID } from "../panelId";
 
 export function AiTitleBarButton() {
   const runStatus = useAgentStore((s) => s.runStatus);
@@ -12,7 +11,7 @@ export function AiTitleBarButton() {
   return (
     <button
       type="button"
-      onClick={() => useUIStore.getState().toggleGlobalPanel(PANEL_ID)}
+      onClick={() => useUIStore.getState().toggleGlobalPanel(DRAWER_PANEL_ID)}
       title="AI Agent"
       style={{
         position: "relative",

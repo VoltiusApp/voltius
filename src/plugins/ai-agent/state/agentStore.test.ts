@@ -830,6 +830,76 @@ describe("agentStore", () => {
       error: expect.stringContaining("not owned by agent"),
     });
   });
+
+  it("sendMessage folds the attached context into the message and clears the chip", async () => {
+    // Uses the existing mockModel harness in this file.
+    mockModel.current = new MockLanguageModelV4({
+      doStream: async () => ({
+        stream: simulateReadableStream({
+          chunks: [
+            { type: "text-start", id: "0" },
+            { type: "text-delta", id: "0", delta: "ok" },
+            { type: "text-end", id: "0" },
+            FINISH_CHUNK,
+          ],
+        }),
+      }),
+    });
+    _setDeps({ api: fakeApi({}), profiles: profilesStub(), controller: approveAllController() });
+    useAgentStore.getState().attachContext({
+      sessionId: "s1", connectionName: "Prod DB", source: "selection", text: "boom", lineCount: 1, truncated: false,
+    });
+    await useAgentStore.getState().sendMessage("why did this fail?");
+    const first = useAgentStore.getState().messages[0] as { content: string };
+    expect(first.content).toContain("why did this fail?");
+    expect(first.content).toContain("Attached from Prod DB");
+    expect(useAgentStore.getState().pendingContext).toBeNull();
+    expect(useAgentStore.getState().transcript[0]).toEqual({
+      kind: "user",
+      text: "why did this fail?",
+      attachment: { source: "selection", lineCount: 1, connectionName: "Prod DB", truncated: false },
+    });
+  });
+
+  it("a second message does not re-attach the consumed context", async () => {
+    mockModel.current = new MockLanguageModelV4({
+      doStream: async () => ({
+        stream: simulateReadableStream({
+          chunks: [
+            { type: "text-start", id: "0" },
+            { type: "text-delta", id: "0", delta: "ok" },
+            { type: "text-end", id: "0" },
+            FINISH_CHUNK,
+          ],
+        }),
+      }),
+    });
+    _setDeps({ api: fakeApi({}), profiles: profilesStub(), controller: approveAllController() });
+    useAgentStore.getState().attachContext({
+      sessionId: "s1", connectionName: "Prod DB", source: "snapshot", text: "log", lineCount: 1, truncated: false,
+    });
+    await useAgentStore.getState().sendMessage("first");
+    await useAgentStore.getState().sendMessage("second");
+    const second = useAgentStore.getState().messages.find((m) => m.role === "user" && String(m.content).startsWith("second"));
+    expect(String(second?.content)).not.toContain("Attached from");
+  });
+
+  it("clearContext drops the chip", () => {
+    useAgentStore.getState().attachContext({
+      sessionId: "s1", connectionName: "Prod DB", source: "snapshot", text: "log", lineCount: 1, truncated: false,
+    });
+    useAgentStore.getState().clearContext();
+    expect(useAgentStore.getState().pendingContext).toBeNull();
+  });
+
+  it("newConversation clears a pending context chip", async () => {
+    _setDeps({ api: fakeApi({}), profiles: {} as never, controller: {} as never });
+    useAgentStore.getState().attachContext({
+      sessionId: "s1", connectionName: "Prod DB", source: "snapshot", text: "log", lineCount: 1, truncated: false,
+    });
+    await useAgentStore.getState().newConversation();
+    expect(useAgentStore.getState().pendingContext).toBeNull();
+  });
 });
 
 // ── Approval generation binding ──────────────────────────────────────────────

@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { useAgentStore, type Mode } from "../state/agentStore";
 import { ModeChip } from "./ModeChip";
 import { ProfileSwitcher } from "./ProfileSwitcher";
+import { ContextChip } from "./ContextChip";
 
 const MODE_TINT: Record<Mode, string> = {
   plan: "var(--t-status-connecting)",
@@ -50,6 +51,7 @@ export function Composer() {
         background: "var(--t-bg-modal)",
       }}
     >
+      <ContextChip />
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}

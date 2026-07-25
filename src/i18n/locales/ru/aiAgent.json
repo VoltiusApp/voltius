@@ -68,6 +68,24 @@
       "pin": "Закрепить",
       "unpin": "Открепить",
       "close": "Закрыть"
+    },
+    "touchpoint": {
+      "command": "Спросить ИИ об этом терминале",
+      "button": "Спросить ИИ",
+      "chip": {
+        "selection": "выделение",
+        "snapshot": "снимок буфера",
+        "lines_one": "{{count}} строка",
+        "lines_few": "{{count}} строки",
+        "lines_many": "{{count}} строк",
+        "lines_other": "{{count}} строки",
+        "truncated": "усечено",
+        "remove": "Убрать вложенный контекст"
+      },
+      "attached_one": "{{count}} строка вложена",
+      "attached_few": "{{count}} строки вложены",
+      "attached_many": "{{count}} строк вложено",
+      "attached_other": "{{count}} строки вложены"
     }
   }
 }
