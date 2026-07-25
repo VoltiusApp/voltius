@@ -94,6 +94,16 @@ interface AgentState {
 
 const MODE_ORDER: Mode[] = ["plan", "ask", "auto"];
 
+/**
+ * `localMetadata` for a grant/revoke event: `command` only for `grain ===
+ * "exact"`. For `grain === "tool"`, `entry.key` is always just `entry.tool`
+ * (e.g. `"open_session"`) — recording it as `command` would claim a command
+ * was run when none exists.
+ */
+function commandMetadata(e: AllowlistEntry): Record<string, unknown> | undefined {
+  return e.grain === "exact" ? { command: e.key } : undefined;
+}
+
 let abortController: AbortController | null = null;
 let ownedSessions = new Set<string>();
 /**
@@ -181,21 +191,30 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     get()._persistAllowlist();
     // After the write, so a rejected or duplicate grant is never recorded as
     // authority the user did not actually hand over.
-    auditAgentAction(e.scope, "agent.grant_created", { tool: e.tool, grain: e.grain }, { command: e.key });
+    auditAgentAction(e.scope, "agent.grant_created", { tool: e.tool, grain: e.grain }, commandMetadata(e));
   },
   revokeAllowlist: (e) => {
     const existed = get().hasAllowlist(e);
     set((s) => ({ allowlist: s.allowlist.filter((a) => !entriesEqual(a, e)) }));
     get()._persistAllowlist();
     if (existed) {
-      auditAgentAction(e.scope, "agent.grant_revoked", { tool: e.tool, grain: e.grain }, { command: e.key });
+      auditAgentAction(e.scope, "agent.grant_revoked", { tool: e.tool, grain: e.grain }, commandMetadata(e));
     }
   },
   revokeAllAllowlist: () => {
-    const count = get().allowlist.length;
+    const entries = get().allowlist;
     set({ allowlist: [] });
     get()._persistAllowlist();
-    if (count > 0) auditAgentAction("local", "agent.grant_revoked", { bulk: true, count });
+    // One `agent.grant_revoked` per entry — matching individual revokeAllowlist
+    // exactly, scope-for-scope — rather than a single "local" bulk event.
+    // Scope "local" never POSTs, so the old single-event shape made a bulk
+    // revoke of team-scoped grants invisible on the team trail: an admin would
+    // see `agent.grant_created` with no matching revocation. Emitting one per
+    // entry, with its own scope, keeps "outstanding = created - revoked"
+    // correct on both the local and team trails.
+    for (const e of entries) {
+      auditAgentAction(e.scope, "agent.grant_revoked", { tool: e.tool, grain: e.grain }, commandMetadata(e));
+    }
   },
   _persistAllowlist: () => { void deps?.api.storage.set("allowlist", get().allowlist); },
   _persistConversation: () => {

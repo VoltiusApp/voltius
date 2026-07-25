@@ -46,12 +46,45 @@ describe("grant auditing", () => {
     expect(auditAgentAction).not.toHaveBeenCalled();
   });
 
-  it("records a bulk revoke with a count and no command", () => {
+  const toolEntry = { scope: "c1", tool: "open_session", grain: "tool", key: "open_session" } as const;
+
+  it("does NOT record a false command for a grain:tool grant on creation", () => {
+    useAgentStore.getState().addAllowlist({ ...toolEntry });
+    // entry.key === entry.tool ("open_session") for a tool-grain grant — no
+    // such command exists, so `command` must be omitted, not recorded as if
+    // "open_session" were something that ran.
+    expect(auditAgentAction).toHaveBeenCalledWith(
+      "c1", "agent.grant_created", { tool: "open_session", grain: "tool" }, undefined,
+    );
+  });
+
+  it("does NOT record a false command for a grain:tool grant on revoke", () => {
+    useAgentStore.getState().addAllowlist({ ...toolEntry });
+    auditAgentAction.mockClear();
+    useAgentStore.getState().revokeAllowlist({ ...toolEntry });
+    expect(auditAgentAction).toHaveBeenCalledWith(
+      "c1", "agent.grant_revoked", { tool: "open_session", grain: "tool" }, undefined,
+    );
+  });
+
+  it("records one grant_revoked per entry, each with its own scope — not a single bulk event", () => {
     useAgentStore.getState().addAllowlist({ ...entry });
-    useAgentStore.getState().addAllowlist({ ...entry, key: "whoami" });
+    useAgentStore.getState().addAllowlist({ scope: "team-host", tool: "open_session", grain: "tool", key: "open_session" });
     auditAgentAction.mockClear();
     useAgentStore.getState().revokeAllAllowlist();
-    expect(auditAgentAction).toHaveBeenCalledWith("local", "agent.grant_revoked", { bulk: true, count: 2 });
+
+    // Scope "local" never POSTs to the team server, so a single bulk event
+    // under "local" made a bulk revoke of team-scoped grants invisible on the
+    // team trail. One event per entry, with the entry's real scope, is what
+    // keeps the trail arithmetically correct (created - revoked = outstanding)
+    // and indistinguishable from individually revoking the same grants.
+    expect(auditAgentAction).toHaveBeenCalledTimes(2);
+    expect(auditAgentAction).toHaveBeenCalledWith(
+      "c1", "agent.grant_revoked", { tool: "run_command", grain: "exact" }, { command: "uptime" },
+    );
+    expect(auditAgentAction).toHaveBeenCalledWith(
+      "team-host", "agent.grant_revoked", { tool: "open_session", grain: "tool" }, undefined,
+    );
   });
 
   it("does NOT record a bulk revoke of an empty allowlist", () => {
