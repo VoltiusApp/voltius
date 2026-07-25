@@ -34,10 +34,13 @@ const entries = [
 ];
 
 describe("AllowlistBlock", () => {
-  it("groups grants by scope", () => {
+  it("groups grants by scope", async () => {
+    vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({
+      api: { connections: { list: async () => CONNS } },
+    } as never);
     useAgentStore.setState({ allowlist: entries });
     render(<AllowlistBlock />);
-    expect(screen.getByText("c1")).toBeTruthy();
+    expect(await screen.findByText("Prod DB")).toBeTruthy();
     expect(screen.getByText("local")).toBeTruthy();
   });
 

@@ -2,7 +2,7 @@ import type { PluginConnection } from "@/plugins/api";
 import { UNKNOWN_SCOPE } from "./scopeDerivation";
 
 export interface ScopeLabel {
-  kind: "local" | "unknown" | "deleted" | "connection";
+  kind: "local" | "unknown" | "deleted" | "connection" | "pending";
   /** Primary display string. For `local`/`unknown`/`deleted` the caller
    * substitutes a translated label; `name` still carries the raw scope so a
    * grant can never render as an empty row. */
