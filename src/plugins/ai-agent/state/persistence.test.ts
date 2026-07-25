@@ -190,6 +190,22 @@ describe("deserializeConversation", () => {
     expect(out?.transcript).toEqual([{ kind: "user", text: "keep" }]);
   });
 
+  it("filters a user entry with a malformed attachment", () => {
+    const out = deserializeConversation({
+      v: 1,
+      transcript: [{ kind: "user", text: "keep", attachment: {} }],
+      messages: [],
+    });
+    expect(out?.transcript).toEqual([]);
+  });
+
+  it("round-trips a user entry with a well-formed attachment", () => {
+    const attachment = { source: "selection" as const, lineCount: 3, connectionName: "host", truncated: false };
+    const stored = serializeConversation([{ kind: "user", text: "hi", attachment }], []);
+    const out = deserializeConversation(JSON.parse(JSON.stringify(stored)));
+    expect(out?.transcript).toEqual([{ kind: "user", text: "hi", attachment }]);
+  });
+
   describe("malformed messages never throw — returns null or a sanitized result instead", () => {
     const malformed: Array<[string, unknown]> = [
       ["tool message with no content", { role: "tool" }],

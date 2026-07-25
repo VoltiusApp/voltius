@@ -23,7 +23,7 @@ function fakeApi(isActive: () => boolean = () => true) {
         }),
         registerSettingsPage: vi.fn(() => { calls.push("settings"); return () => calls.push("settings:off"); }),
       },
-      omni: { register: vi.fn(() => { calls.push("omni"); return () => calls.push("omni:off"); }) },
+      omni: { register: vi.fn((c: { id: string }) => { calls.push(`omni:${c.id}`); return () => calls.push(`omni:${c.id}:off`); }) },
     } as never,
   };
 }
@@ -40,9 +40,9 @@ describe("ai-agent register", () => {
   it("registers drawer + omni + titlebar, and teardown unregisters all", () => {
     const { api, calls } = fakeApi();
     const cleanup = register(api);
-    expect(calls).toEqual(expect.arrayContaining(["panel", "omni", "titlebar"]));
+    expect(calls).toEqual(expect.arrayContaining(["panel", "omni:ask-ai", "omni:ask-ai-terminal", "titlebar"]));
     cleanup?.();
-    expect(calls).toEqual(expect.arrayContaining(["panel:off", "omni:off", "titlebar:off"]));
+    expect(calls).toEqual(expect.arrayContaining(["panel:off", "omni:ask-ai:off", "omni:ask-ai-terminal:off", "titlebar:off"]));
   });
 
   it("registers the terminal touchpoint (omni command + status-bar button), and teardown unregisters both", () => {
@@ -50,8 +50,10 @@ describe("ai-agent register", () => {
     const cleanup = register(api);
     expect((api as unknown as { omni: { register: ReturnType<typeof vi.fn> } }).omni.register)
       .toHaveBeenCalledWith(expect.objectContaining({ id: "ask-ai-terminal", keybinding: "ctrl+shift+j" }));
+    expect(calls).toContain("omni:ask-ai-terminal");
     expect(calls).toContain("terminalButton");
     cleanup?.();
+    expect(calls).toContain("omni:ask-ai-terminal:off");
     expect(calls).toContain("terminalButton:off");
   });
 

@@ -143,9 +143,21 @@ function lastResolvedEnd(messages: ModelMessage[]): number {
   return end;
 }
 
+function isValidAttachment(v: unknown): boolean {
+  return isRecord(v)
+    && typeof v.lineCount === "number"
+    && (v.source === "selection" || v.source === "snapshot")
+    && typeof v.connectionName === "string"
+    && typeof v.truncated === "boolean";
+}
+
 function isTranscriptEntry(v: unknown): v is TranscriptEntry {
   if (!isRecord(v)) return false;
-  if (v.kind === "user" || v.kind === "assistant") return typeof v.text === "string";
+  if (v.kind === "user") {
+    if (typeof v.text !== "string") return false;
+    return v.attachment === undefined || isValidAttachment(v.attachment);
+  }
+  if (v.kind === "assistant") return typeof v.text === "string";
   if (v.kind === "tool") {
     return typeof v.tool === "string" && typeof v.detail === "string" && (v.state === "call" || v.state === "result");
   }
