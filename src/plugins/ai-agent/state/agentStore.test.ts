@@ -62,6 +62,55 @@ describe("agentStore", () => {
     expect(useAgentStore.getState().allowlist).toEqual([entry]);
   });
 
+  it("initAgent restores a persisted conversation", async () => {
+    const stored = {
+      v: 1,
+      transcript: [{ kind: "user", text: "earlier" }],
+      messages: [{ role: "user", content: "earlier" }],
+    };
+    await initAgent(fakeApi({ conversation: stored }));
+    expect(useAgentStore.getState().transcript).toEqual([{ kind: "user", text: "earlier" }]);
+    expect(useAgentStore.getState().messages).toEqual([{ role: "user", content: "earlier" }]);
+  });
+
+  it("initAgent starts empty on malformed persisted data without wiping a live transcript", async () => {
+    useAgentStore.setState({ transcript: [{ kind: "user", text: "kept" }], messages: [{ role: "user", content: "kept" }] });
+    await initAgent(fakeApi({ conversation: { v: 99, transcript: [], messages: [] } }));
+    expect(useAgentStore.getState().transcript).toEqual([{ kind: "user", text: "kept" }]);
+  });
+
+  it("_persistConversation writes the versioned payload through storage", () => {
+    const store: Record<string, unknown> = {};
+    _setDeps({ api: fakeApi(store), profiles: {} as never, controller: {} as never });
+    useAgentStore.setState({ transcript: [{ kind: "user", text: "a" }], messages: [{ role: "user", content: "a" }] });
+    useAgentStore.getState()._persistConversation();
+    expect(store.conversation).toEqual({
+      v: 1,
+      transcript: [{ kind: "user", text: "a" }],
+      messages: [{ role: "user", content: "a" }],
+    });
+  });
+
+  it("initAgent still hydrates mode and allowlist when the conversation read throws", async () => {
+    const api = {
+      storage: {
+        get: vi.fn(async (k: string) => {
+          if (k === "conversation") throw new Error("disk read failed");
+          if (k === "agentMode") return "auto";
+          return null;
+        }),
+        set: vi.fn(),
+        delete: vi.fn(),
+      },
+      keychain: { get: vi.fn(), set: vi.fn(), delete: vi.fn() },
+      sessions: { list: () => [] },
+      connections: { list: async () => [] },
+    } as never;
+    await initAgent(api);
+    expect(useAgentStore.getState().mode).toBe("auto");
+    expect(useAgentStore.getState().allowlist).toEqual([]);
+  });
+
   it("cycleMode goes plan → ask → auto → plan", () => {
     const { setMode, cycleMode } = useAgentStore.getState();
     setMode("plan"); cycleMode();

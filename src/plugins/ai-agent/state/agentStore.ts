@@ -10,6 +10,7 @@ import { runAgent } from "../agent/loop";
 import { createProvider } from "../provider/factory";
 import { makeStreamFetch } from "../provider/fetchAdapter";
 import { consumeStream } from "./conversation";
+import { CONVERSATION_KEY, deserializeConversation, serializeConversation, type PersistedConversation } from "./persistence";
 
 export type Mode = "plan" | "ask" | "auto";
 export type { AllowlistEntry } from "./allowlist";
@@ -80,6 +81,7 @@ interface AgentState {
   stop(): void;
   _addPending(p: PendingApproval): void;
   _persistAllowlist(): void;
+  _persistConversation(): void;
   _rejectAllPending(reason: string): void;
 }
 
@@ -165,6 +167,10 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     get()._persistAllowlist();
   },
   _persistAllowlist: () => { void deps?.api.storage.set("allowlist", get().allowlist); },
+  _persistConversation: () => {
+    const { transcript, messages } = get();
+    void deps?.api.storage.set(CONVERSATION_KEY, serializeConversation(transcript, messages));
+  },
 
   resolveApproval: (id, d) => {
     const p = get().pendingApprovals.find((x) => x.id === id);
@@ -277,6 +283,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         messages: [...s.messages, ...responseMessages],
         runStatus: s.runStatus === "error" ? "error" : "idle",
       }));
+      get()._persistConversation();
     } catch (err) {
       if (isAbortError(err, runController?.signal)) {
         // A deliberate Stop, not a failure — don't surface it as an error.
@@ -284,6 +291,11 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       } else {
         set({ runStatus: "error", errorText: err instanceof Error ? err.message : String(err) });
       }
+      // Exactly one of the try branch above or this catch runs per turn, so
+      // this is the single write for the error/abort path — never per delta.
+      // plugin_storage_set rewrites the whole per-plugin file (which also
+      // holds the allowlist), so writes are batched to turn boundaries only.
+      get()._persistConversation();
     } finally {
       // Only the run that installed this controller may clear it — a slower
       // run finishing must not null the controller a newer run is using.
@@ -324,9 +336,21 @@ export async function initAgent(api: PluginAPI): Promise<void> {
     isAborted: isGenerationDead,
   });
   deps = { api, profiles, controller };
-  const [mode, allowlist] = await Promise.all([
+  // Wrapped so a throw here — storage.get rejecting, or deserializeConversation
+  // meeting a shape its checks miss on a hand-edited file — can never abort
+  // this function, since that would also take down the mode/allowlist hydrate
+  // below. Any failure is treated exactly like "no persisted data".
+  const readConversation = async (): Promise<PersistedConversation | null> => {
+    try {
+      return deserializeConversation(await api.storage.get<unknown>(CONVERSATION_KEY));
+    } catch {
+      return null;
+    }
+  };
+  const [mode, allowlist, restored] = await Promise.all([
     api.storage.get<Mode>("agentMode"),
     api.storage.get<AllowlistEntry[]>("allowlist"),
+    readConversation(),
   ]);
   // runStatus/errorText are reset here too (not just in shutdownAgent) so a
   // re-enable is always clean even if teardown was skipped — otherwise a
@@ -339,6 +363,11 @@ export async function initAgent(api: PluginAPI): Promise<void> {
     allowlist: Array.isArray(allowlist) ? allowlist.filter(isWellFormedEntry) : [],
     runStatus: "idle",
     errorText: null,
+    // Spread-conditional, not an unconditional assignment: teardown
+    // deliberately preserves the conversation, so a re-activation with no (or
+    // unreadable) persisted data must leave what is already in the store
+    // alone rather than wiping it.
+    ...(restored ? { transcript: restored.transcript, messages: restored.messages } : {}),
   });
 }
 
@@ -362,7 +391,9 @@ export async function initAgent(api: PluginAPI): Promise<void> {
  * fresh, empty `ownedSessions`, so if the model later recalls one of those
  * ids, `run_command`'s `ctx.owned.has(sessionId)` check fails closed with
  * "session not owned by agent" instead of resuming a session this activation
- * never opened.
+ * never opened. The same reasoning covers restore across app restarts:
+ * `ownedSessions` is never persisted, so a conversation restored from disk
+ * naming a session id from a previous run fails closed the same way.
  *
  * Closing agent-owned SSH sessions here is deliberately out of scope: the
  * runtime's session-ownership story isn't settled, and closing on teardown
