@@ -214,7 +214,10 @@ pub async fn http_sse_start(
             .collect();
         let _ = app.emit(
             &format!("http:sse:open:{task_stream_id}"),
-            HttpSseOpenPayload { status: status.as_u16(), headers: open_headers },
+            HttpSseOpenPayload {
+                status: status.as_u16(),
+                headers: open_headers,
+            },
         );
 
         if !status.is_success() {
