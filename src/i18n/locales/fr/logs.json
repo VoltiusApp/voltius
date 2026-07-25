@@ -129,9 +129,9 @@
       "agentGrantRevoked": "a révoqué une autorisation de l'agent IA sur {{name}}",
       "agentModeChanged": "a changé le mode de l'agent IA en {{mode}} pour cette conversation",
       "agentDefaultModeChanged": "a changé le mode par défaut de l'agent IA en {{mode}}",
-      "agentSessionOpened": "l'agent IA a ouvert une session sur {{name}}",
-      "agentSessionClosed": "l'agent IA a fermé une session sur {{name}}",
-      "agentCommandRun": "l'agent IA a exécuté une commande sur {{name}}",
+      "agentSessionOpened": "a ouvert une session de l'agent IA sur {{name}}",
+      "agentSessionClosed": "a fermé une session de l'agent IA sur {{name}}",
+      "agentCommandRun": "a exécuté une commande via l'agent IA sur {{name}}",
       "agentActionDenied": "a refusé une action de l'agent IA sur {{name}}"
     },
     "timeline": {
