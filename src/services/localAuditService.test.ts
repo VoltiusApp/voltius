@@ -65,7 +65,7 @@ function seedLogs(vaultId: string, count: number) {
   localStorage.setItem(KEY, JSON.stringify({ nextId: count + 1, logsByVault: { [vaultId]: logs } }));
 }
 
-test("caps a vault at MAX_LOCAL_LOGS_PER_VAULT, keeping the newest", async () => {
+test("the byte budget binds before MAX_LOCAL_LOGS_PER_VAULT for realistically-sized rows, keeping the newest", async () => {
   seedLogs("v1", MAX_LOCAL_LOGS_PER_VAULT);
   await reportLocalClientEvent("v1", {
     action: "agent.command_run", occurred_at: "2026-06-01T00:00:00Z", target_id: "newest",
@@ -80,6 +80,20 @@ test("caps a vault at MAX_LOCAL_LOGS_PER_VAULT, keeping the newest", async () =>
   // synthetic entries, below.
   expect(total).toBeLessThan(MAX_LOCAL_LOGS_PER_VAULT);
   expect(logs[0].target_id).toBe("newest");
+
+  // Read the full persisted vault (fetchLocalAuditLogs paginates at 100) and
+  // confirm what was actually retained respects the byte budget — not merely
+  // that its count is below 5000, which `toBeLessThan(MAX_LOCAL_LOGS_PER_VAULT)`
+  // alone would also accept even at total === 1. The lower bound rules out a
+  // trim that over-deletes (stops far short of the budget it is allowed to
+  // fill): each seeded row here serializes to ~260 chars, so stopping more
+  // than one row's worth (500 chars) short of the budget would mean the trim
+  // gave up too early.
+  const raw = JSON.parse(localStorage.getItem(KEY)!) as { logsByVault: Record<string, unknown[]> };
+  const stored = raw.logsByVault.v1;
+  const serialized = stored.reduce((sum: number, l) => sum + JSON.stringify(l).length, 0);
+  expect(serialized).toBeLessThanOrEqual(MAX_LOCAL_LOG_CHARS_PER_VAULT);
+  expect(serialized).toBeGreaterThan(MAX_LOCAL_LOG_CHARS_PER_VAULT - 500);
 });
 
 test("MAX_LOCAL_LOGS_PER_VAULT still bounds the entry count when the byte budget is not the binding constraint", () => {
