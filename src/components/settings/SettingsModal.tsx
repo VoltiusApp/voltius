@@ -25,7 +25,7 @@ export default function SettingsModal() {
   const selectPluginPage = useUIStore((s) => s.selectPluginPage);
   const navExpanded = useUIStore((s) => s.pluginsNavExpanded);
   const setNavExpanded = useUIStore((s) => s.setPluginsNavExpanded);
-  // D8: a selected child force-expands, or the highlighted row would be invisible.
+  // A selected child force-expands, or the highlighted row would be invisible.
   const showChildren = pluginChildren.length > 0 && (navExpanded || pluginPageId !== null);
 
   if (!open) return null;

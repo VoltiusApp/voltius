@@ -24,18 +24,19 @@ export function usePluginNavChildren(): NavChild[] {
 /**
  * The currently selected plugin page, if any.
  *
- * Also clears a target that no longer resolves — a plugin can unregister its page
- * (disable, reload, uninstall) while it is selected, which would otherwise leave the
- * pane blank with no way back.
+ * Clears the target once it is no longer an eligible nav child — covering both a page
+ * that unregistered and a plugin that was disabled (including by a cloud-sync pull).
  */
 export function useResolvedPluginPage(): SettingsPage | undefined {
   const pageId = useUIStore((s) => s.settingsPluginPageId);
   const setPageId = useUIStore((s) => s.setSettingsPluginPageId);
   const pages = usePluginStore((s) => s.settingsPages);
+  const children = usePluginNavChildren();
+  const eligible = pageId !== null && children.some((c) => c.pageId === pageId);
 
   useEffect(() => {
-    if (pageId && !pages.has(pageId)) setPageId(null);
-  }, [pageId, pages, setPageId]);
+    if (pageId && !eligible) setPageId(null);
+  }, [pageId, eligible, setPageId]);
 
-  return pageId ? pages.get(pageId) : undefined;
+  return eligible && pageId ? pages.get(pageId) : undefined;
 }

@@ -149,6 +149,15 @@ test("an unresolvable plugin target falls back to the plugins section", () => {
   expect(screen.getByTestId("builtin-section").textContent).toBe("plugins");
 });
 
+test("disabling a plugin while its page is open clears the pane", () => {
+  useUIStore.setState({ settingsPluginPageId: AI_PAGE.id, settingsSection: "plugins" });
+  usePluginRegistryStore.setState({ overrides: { "plugin-ai-agent": false } });
+  render(<SettingsModal />);
+  expect(screen.queryByTestId("ai-page")).toBeNull();
+  expect(useUIStore.getState().settingsPluginPageId).toBeNull();
+  expect(screen.getByTestId("builtin-section").textContent).toBe("plugins");
+});
+
 test("a deep-link opens straight onto the plugin page", () => {
   useUIStore.setState({ settingsOpen: false });
   useUIStore.getState().openSettings("plugins", SSH_PAGE.id);
