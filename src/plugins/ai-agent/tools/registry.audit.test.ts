@@ -48,6 +48,14 @@ describe("execution auditing", () => {
     expect(auditAgentAction.mock.calls[0][2]).toEqual({ tool: "run_command", approval: "auto_mode" });
   });
 
+  it("carries via=prompted through to the approval classifier", async () => {
+    const approve = vi.fn(async () => ({ approve: true, scope: "c1", via: "prompted" }));
+    const { list, owned } = tools(approve);
+    owned.add("s1");
+    await byName(list, "run_command").execute({ sessionId: "s1", command: "uptime" });
+    expect(auditAgentAction.mock.calls[0][2]).toEqual({ tool: "run_command", approval: "prompted" });
+  });
+
   it("records a closed session", async () => {
     const approve = vi.fn(async () => ({ approve: true, scope: "c1", via: "prompted" }));
     const { list, owned } = tools(approve);
