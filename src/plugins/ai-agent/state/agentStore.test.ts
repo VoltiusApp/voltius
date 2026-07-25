@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MockLanguageModelV4, simulateReadableStream } from "ai/test";
 import {
   useAgentStore, initAgent, _setDeps, isAbortError, shutdownAgent, getAgentDeps, _currentRunGeneration,
-  type AllowlistEntry,
+  type AllowlistEntry, type Mode,
 } from "./agentStore";
 import { buildTools } from "../tools/registry";
 import type { AgentContext } from "../tools/registry";
@@ -497,6 +497,104 @@ describe("agentStore", () => {
     expect(store.conversation).toBeDefined();
   });
 
+  it("a superseded run's onText/onTool/success-set do not mutate messages or transcript either — not just the durable write", async () => {
+    // Same overlapping-runs setup as above, but this pins the actual finding:
+    // before the fix, only _persistConversation was gated, so run 1's stale
+    // text delta, tool call/result, and responseMessages append all landed in
+    // the live store even though the durable write was correctly skipped.
+    (runAgent as unknown as ReturnType<typeof vi.fn>).mockClear();
+    let doStreamCalls = 0;
+    mockModel.current = new MockLanguageModelV4({
+      doStream: async () => {
+        doStreamCalls += 1;
+        if (doStreamCalls === 1) {
+          return {
+            stream: simulateReadableStream({
+              chunks: [
+                { type: "text-start", id: "0" },
+                { type: "text-delta", id: "0", delta: "STALE TEXT" },
+                { type: "text-end", id: "0" },
+                { type: "tool-call", toolCallId: "c1", toolName: "read_terminal", input: JSON.stringify({ sessionId: "s1" }) },
+                FINISH_CHUNK,
+              ],
+            }),
+          };
+        }
+        return {
+          stream: simulateReadableStream({
+            chunkDelayInMs: 30,
+            chunks: [
+              { type: "text-start", id: "1" },
+              { type: "text-delta", id: "1", delta: "fresh" },
+              { type: "text-end", id: "1" },
+              FINISH_CHUNK,
+            ],
+          }),
+        };
+      },
+    });
+    _setDeps({
+      api: { ...(fakeApi() as Record<string, unknown>), terminal: { readSnapshot: vi.fn(() => "buffer") } },
+      profiles: {
+        list: async () => [{ id: "p1", providerKind: "anthropic", label: "A", model: "claude-x" }],
+        getActiveId: async () => "p1",
+        getKey: async () => "sk-test",
+      } as never,
+      controller: { approve: async () => ({ approve: true }) },
+    } as never);
+
+    const firstPromise = useAgentStore.getState().sendMessage("first");
+    const secondPromise = useAgentStore.getState().sendMessage("second");
+
+    await firstPromise;
+    await secondPromise;
+
+    const { transcript, messages } = useAgentStore.getState();
+    expect(transcript.some((e) => e.kind === "assistant" && e.text.includes("STALE"))).toBe(false);
+    expect(transcript.some((e) => e.kind === "tool" && e.tool === "read_terminal")).toBe(false);
+    expect(JSON.stringify(messages)).not.toContain("STALE TEXT");
+    // Run 2 is still the live generation: its own text must land normally.
+    expect(transcript.some((e) => e.kind === "assistant" && e.text === "fresh")).toBe(true);
+  });
+
+  it("an aborted run — still the current generation — still applies its onText delta to the transcript (unlike a superseded run)", async () => {
+    // Pins that the gate is superseded-ness (runGeneration !== generation),
+    // not isGenerationDead: a Stop only stamps abortedGeneration, it never
+    // moves runGeneration, so this run's already-landed delta must survive.
+    mockModel.current = new MockLanguageModelV4({
+      doStream: async () => ({
+        stream: simulateReadableStream({
+          chunkDelayInMs: 20,
+          chunks: [
+            { type: "text-start", id: "0" },
+            { type: "text-delta", id: "0", delta: "Hi" },
+            { type: "text-end", id: "0" },
+            FINISH_CHUNK,
+          ],
+        }),
+      }),
+    });
+    _setDeps({
+      api: fakeApi(),
+      profiles: {
+        list: async () => [{ id: "p1", providerKind: "anthropic", label: "A", model: "claude-x" }],
+        getActiveId: async () => "p1",
+        getKey: async () => "sk-test",
+      } as never,
+      controller: { approve: async () => ({ approve: true }) },
+    } as never);
+
+    const sendPromise = useAgentStore.getState().sendMessage("hello");
+    await vi.waitFor(() =>
+      expect(useAgentStore.getState().transcript.some((e) => e.kind === "assistant" && e.text === "Hi")).toBe(true),
+    );
+    useAgentStore.getState().stop();
+    await sendPromise;
+
+    expect(useAgentStore.getState().runStatus).toBe("idle");
+    expect(useAgentStore.getState().transcript.some((e) => e.kind === "assistant" && e.text === "Hi")).toBe(true);
+  });
+
   it("an aborted run — still the current generation — persists the conversation (unlike a superseded one)", async () => {
     // Pins the distinction the fix relies on: gating on isGenerationDead
     // instead of runGeneration === generation would wrongly skip this write,
@@ -899,6 +997,49 @@ describe("agentStore", () => {
     });
     await useAgentStore.getState().newConversation();
     expect(useAgentStore.getState().pendingContext).toBeNull();
+  });
+
+  it("shutdownAgent clears a pending context chip so it doesn't survive a disable/enable", async () => {
+    _setDeps({ api: fakeApi({}), profiles: {} as never, controller: {} as never });
+    useAgentStore.getState().attachContext({
+      sessionId: "s1", connectionName: "Prod DB", source: "snapshot", text: "log", lineCount: 1, truncated: false,
+    });
+    shutdownAgent();
+    expect(useAgentStore.getState().pendingContext).toBeNull();
+  });
+
+  it("newConversation leaves the transcript and mode fully untouched while its mode read is still in flight, then applies both together", async () => {
+    let resolveGet!: (v: Mode | null) => void;
+    const pendingGet = new Promise<Mode | null>((r) => { resolveGet = r; });
+    const api = {
+      storage: {
+        get: vi.fn(() => pendingGet),
+        set: vi.fn(),
+        delete: vi.fn(),
+      },
+      keychain: { get: vi.fn(), set: vi.fn(), delete: vi.fn() },
+      sessions: { list: () => [] },
+      connections: { list: async () => [] },
+    } as never;
+    _setDeps({ api, profiles: {} as never, controller: {} as never });
+    useAgentStore.setState({
+      mode: "auto",
+      transcript: [{ kind: "user", text: "old" }],
+      messages: [{ role: "user", content: "old" }],
+    });
+
+    const p = useAgentStore.getState().newConversation();
+    // Nothing has moved yet: no half-migrated state (cleared transcript, stale
+    // mode) is ever observable, unlike before the fix.
+    expect(useAgentStore.getState().mode).toBe("auto");
+    expect(useAgentStore.getState().transcript).toEqual([{ kind: "user", text: "old" }]);
+
+    resolveGet("plan");
+    await p;
+
+    expect(useAgentStore.getState().mode).toBe("plan");
+    expect(useAgentStore.getState().transcript).toEqual([]);
+    expect(useAgentStore.getState().messages).toEqual([]);
   });
 });
 

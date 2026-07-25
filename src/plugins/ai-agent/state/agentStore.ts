@@ -225,11 +225,17 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     // them here could race a session the user is still reading, the same
     // reasoning shutdownAgent's comment records.
     resetOwnedSessions();
-    set({ transcript: [], messages: [], runStatus: "idle", errorText: null, pendingContext: null });
     const api = deps?.api;
-    void api?.storage.delete(CONVERSATION_KEY);
+    // Read before clearing state, and applied together with the clear in one
+    // set() below: a sendMessage firing during this await now sees the fully
+    // old state (old transcript, old mode) instead of a half-migrated one
+    // (cleared transcript, still-stale mode) it would otherwise run under.
     const stored = await api?.storage.get<Mode>("agentMode");
-    set({ mode: stored ?? "ask" });
+    set({
+      transcript: [], messages: [], runStatus: "idle", errorText: null, pendingContext: null,
+      mode: stored ?? "ask",
+    });
+    void api?.storage.delete(CONVERSATION_KEY);
   },
 
   sendMessage: async (text) => {
@@ -318,6 +324,10 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       let assistant = "";
       await consumeStream(result.fullStream as never, {
         onText: (delta) => {
+          // Same superseded-only gate as the durable write below: a run a
+          // newer sendMessage/initAgent has moved past must not mutate the
+          // conversation that replaced it, even transiently.
+          if (runGeneration !== generation) return;
           assistant += delta;
           set((s) => {
             const t = [...s.transcript];
@@ -328,37 +338,50 @@ export const useAgentStore = create<AgentState>((set, get) => ({
           });
         },
         onTool: (tool, state, detail) => {
+          if (runGeneration !== generation) return;
           assistant = "";
           set((s) => ({ transcript: [...s.transcript, { kind: "tool", tool, state, detail }] }));
         },
-        onError: (message) => set({ runStatus: "error", errorText: message }),
+        onError: (message) => {
+          if (runGeneration !== generation) return;
+          set({ runStatus: "error", errorText: message });
+        },
       });
 
+      // Awaited unconditionally (not just when live) so a rejection here —
+      // e.g. the DOMException streamText rejects responseMessages with on
+      // abort — is still caught by the catch block below rather than
+      // becoming an unhandled rejection from a superseded run.
       const responseMessages = await result.responseMessages;
-      set((s) => ({
-        messages: [...s.messages, ...responseMessages],
-        runStatus: s.runStatus === "error" ? "error" : "idle",
-      }));
       // Gate on superseded-ness, not isGenerationDead: an aborted run is still
-      // this run (runGeneration === generation) and must persist below, but a
-      // run a newer sendMessage/initAgent has moved past must not durably
-      // write its stale responseMessages over the current activation's state.
-      if (runGeneration === generation) get()._persistConversation();
-    } catch (err) {
-      if (isAbortError(err, runController?.signal)) {
-        // A deliberate Stop, not a failure — don't surface it as an error.
-        set({ runStatus: "idle", errorText: null });
-      } else {
-        set({ runStatus: "error", errorText: err instanceof Error ? err.message : String(err) });
+      // this run (runGeneration === generation) and must still write below,
+      // but a run a newer sendMessage/initAgent has moved past must not
+      // mutate the conversation that replaced it — durably or in memory.
+      if (runGeneration === generation) {
+        set((s) => ({
+          messages: [...s.messages, ...responseMessages],
+          runStatus: s.runStatus === "error" ? "error" : "idle",
+        }));
+        get()._persistConversation();
       }
-      // Exactly one of the try branch above or this catch runs per turn, so
-      // this is the single write for the error/abort path — never per delta.
-      // plugin_storage_set rewrites the whole per-plugin file (which also
-      // holds the allowlist), so writes are batched to turn boundaries only.
-      // Same superseded-only gate as above: isGenerationDead would be true
-      // for an aborted-but-current run and wrongly skip persisting the user
-      // message that abort path exists to keep.
-      if (runGeneration === generation) get()._persistConversation();
+    } catch (err) {
+      // Same superseded-only gate as the try branch: an aborted-but-current
+      // run (runGeneration === generation) still needs runStatus/errorText
+      // set below, but a run a newer sendMessage/initAgent has moved past
+      // must not write into the conversation that replaced it.
+      if (runGeneration === generation) {
+        if (isAbortError(err, runController?.signal)) {
+          // A deliberate Stop, not a failure — don't surface it as an error.
+          set({ runStatus: "idle", errorText: null });
+        } else {
+          set({ runStatus: "error", errorText: err instanceof Error ? err.message : String(err) });
+        }
+        // Exactly one of the try branch above or this catch runs per turn, so
+        // this is the single write for the error/abort path — never per delta.
+        // plugin_storage_set rewrites the whole per-plugin file (which also
+        // holds the allowlist), so writes are batched to turn boundaries only.
+        get()._persistConversation();
+      }
     } finally {
       // Only the run that installed this controller may clear it — a slower
       // run finishing must not null the controller a newer run is using.
@@ -440,10 +463,12 @@ export async function initAgent(api: PluginAPI): Promise<void> {
  * `PluginAPI`. Order matters — deps must be the last thing cleared so the
  * abort and pending-rejection above can still see a live store.
  *
- * Reset: `runStatus`, `errorText`, `pendingApprovals` (rejected, not just
- * cleared), the abort latch (`abortedGeneration` stamped with the current
- * generation, exactly as `stop()` does — killing every approval the current
- * run could still request), and `deps` (invalidated, not merely reset).
+ * Reset: `runStatus`, `errorText`, `pendingContext` (terminal text captured by
+ * this activation must not survive to attach to the next one's first send),
+ * `pendingApprovals` (rejected, not just cleared), the abort latch
+ * (`abortedGeneration` stamped with the current generation, exactly as
+ * `stop()` does — killing every approval the current run could still
+ * request), and `deps` (invalidated, not merely reset).
  *
  * Deliberately preserved: `transcript` and `messages` survive teardown, so
  * the conversation is still there if the agent is re-enabled. This can leave
@@ -464,6 +489,6 @@ export function shutdownAgent(): void {
   abortController?.abort();
   abortedGeneration = runGeneration;
   useAgentStore.getState()._rejectAllPending("aborted");
-  useAgentStore.setState({ runStatus: "idle", errorText: null });
+  useAgentStore.setState({ runStatus: "idle", errorText: null, pendingContext: null });
   _setDeps(null);
 }
