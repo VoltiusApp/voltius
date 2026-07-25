@@ -62,6 +62,9 @@ interface AgentState {
   errorText: string | null;
   transcript: TranscriptEntry[];
   messages: ModelMessage[];
+  /** Bumped on every profile mutation so mounted consumers re-read. */
+  profilesVersion: number;
+  bumpProfilesVersion(): void;
   setMode(m: Mode): void;
   cycleMode(): void;
   addAllowlist(e: AllowlistEntry): void;
@@ -134,9 +137,11 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   errorText: null,
   transcript: [],
   messages: [],
+  profilesVersion: 0,
 
   setMode: (mode) => set({ mode }),
   cycleMode: () => set((s) => ({ mode: MODE_ORDER[(MODE_ORDER.indexOf(s.mode) + 1) % 3] })),
+  bumpProfilesVersion: () => set((s) => ({ profilesVersion: s.profilesVersion + 1 })),
 
   hasAllowlist: (e) => get().allowlist.some((a) => entriesEqual(a, e)),
   addAllowlist: (e) => {

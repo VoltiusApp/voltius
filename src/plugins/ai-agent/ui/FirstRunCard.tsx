@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
-import { getAgentDeps } from "../state/agentStore";
+import { getAgentDeps, useAgentStore } from "../state/agentStore";
 import { fieldVisibility } from "../provider/models";
 import { ProviderFields, providerFieldsComplete, type ProviderFieldsValue } from "./ProviderFields";
 import type { ProviderKind, ProviderProfile } from "../types";
@@ -51,6 +51,7 @@ export function FirstRunCard({ onDone }: { onDone: () => void }) {
       await deps.profiles.save(profile);
       if (fields.apiKey.trim()) await deps.profiles.setKey(profile.id, fields.apiKey.trim());
       await deps.profiles.setActive(profile.id);
+      useAgentStore.getState().bumpProfilesVersion();
       onDone();
     } catch (err) {
       setStartError(err instanceof Error ? err.message : String(err));

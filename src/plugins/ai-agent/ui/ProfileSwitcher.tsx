@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
-import { getAgentDeps } from "../state/agentStore";
+import { getAgentDeps, useAgentStore } from "../state/agentStore";
 import { FirstRunCard } from "./FirstRunCard";
+import { ProviderLogo } from "./ProviderLogo";
 import type { ProviderProfile } from "../types";
 
 /**
@@ -19,6 +20,7 @@ export function ProfileSwitcher() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const profilesVersion = useAgentStore((s) => s.profilesVersion);
 
   const refresh = async () => {
     const deps = getAgentDeps();
@@ -28,9 +30,12 @@ export function ProfileSwitcher() {
     setProfiles(list);
   };
 
+  // Re-reads on every profile mutation (create/edit/delete elsewhere, e.g. the
+  // settings page), not just on mount — an already-open drawer would
+  // otherwise keep showing the snapshot it seeded on first render.
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [profilesVersion]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -82,7 +87,11 @@ export function ProfileSwitcher() {
           cursor: "pointer",
         }}
       >
-        <Icon icon="lucide:cpu" width={12} style={{ flexShrink: 0 }} />
+        {active ? (
+          <ProviderLogo kind={active.providerKind} size={12} />
+        ) : (
+          <Icon icon="lucide:cpu" width={12} style={{ flexShrink: 0 }} />
+        )}
         <span
           title={active ? `${active.label} · ${active.model}` : undefined}
           style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
@@ -122,9 +131,9 @@ export function ProfileSwitcher() {
                   onClick={() => void onSelect(p.id)}
                   style={{
                     display: "flex",
-                    flexDirection: "column",
-                    alignItems: "flex-start",
-                    gap: 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
                     background: p.id === activeId ? "var(--t-bg-hover, rgba(128,128,128,0.12))" : "transparent",
                     border: "none",
                     borderRadius: 6,
@@ -133,8 +142,11 @@ export function ProfileSwitcher() {
                     cursor: "pointer",
                   }}
                 >
-                  <span style={{ color: "var(--t-text-bright)", fontSize: 12, fontWeight: 500 }}>{p.label}</span>
-                  <span style={{ color: "var(--t-text-secondary)", fontSize: 11 }}>{p.model}</span>
+                  <ProviderLogo kind={p.providerKind} size={16} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
+                    <span style={{ color: "var(--t-text-bright)", fontSize: 12, fontWeight: 500 }}>{p.label}</span>
+                    <span style={{ color: "var(--t-text-secondary)", fontSize: 11 }}>{p.model}</span>
+                  </div>
                 </button>
               ))}
               <button

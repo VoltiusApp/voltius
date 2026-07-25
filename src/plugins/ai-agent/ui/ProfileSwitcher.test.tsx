@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup, waitFor } from "@testing-library/react";
+import { render, screen, cleanup, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ProfileSwitcher } from "./ProfileSwitcher";
 import * as storeMod from "../state/agentStore";
+import { useAgentStore } from "../state/agentStore";
 import type { ProviderProfile } from "../types";
 
 // @iconify/react schedules an async icon-data-load timer that can fire after
@@ -27,12 +28,18 @@ const claude: ProviderProfile = {
   model: "claude-opus-4-8",
 };
 
-function mockDeps(opts: { activeId: string | null; profiles: ProviderProfile[]; setActive?: ReturnType<typeof vi.fn> }) {
+function mockDeps(opts: {
+  activeId: string | null;
+  profiles: ProviderProfile[];
+  setActive?: ReturnType<typeof vi.fn>;
+  list?: ReturnType<typeof vi.fn>;
+}) {
   const setActive = opts.setActive ?? vi.fn(async () => {});
+  const list = opts.list ?? vi.fn().mockResolvedValue(opts.profiles);
   vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({
     profiles: {
       getActiveId: vi.fn().mockResolvedValue(opts.activeId),
-      list: vi.fn().mockResolvedValue(opts.profiles),
+      list,
       setActive,
     },
   } as never);
@@ -101,5 +108,19 @@ describe("ProfileSwitcher", () => {
     mockDeps({ activeId: null, profiles: [] });
     render(<ProfileSwitcher />);
     await waitFor(() => expect(screen.getByTitle("Switch AI provider").textContent).toContain("No provider"));
+  });
+
+  it("re-reads profiles when profilesVersion changes", async () => {
+    const list = vi
+      .fn()
+      .mockResolvedValueOnce([{ id: "1", providerKind: "anthropic", label: "First", model: "m1" }])
+      .mockResolvedValueOnce([{ id: "1", providerKind: "anthropic", label: "Renamed", model: "m1" }]);
+    mockDeps({ activeId: "1", profiles: [], list });
+
+    render(<ProfileSwitcher />);
+    expect(await screen.findByText(/First/)).toBeTruthy();
+
+    act(() => useAgentStore.getState().bumpProfilesVersion());
+    expect(await screen.findByText(/Renamed/)).toBeTruthy();
   });
 });
