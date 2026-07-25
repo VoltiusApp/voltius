@@ -30,7 +30,7 @@ export function PermissionsBlock({ api }: { api: PluginAPI }) {
         {t("aiAgent.settings.permissions.heading")}
       </h3>
       <div className="group rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4 flex items-center justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <div className="text-sm font-medium text-(--t-text-primary)">
             {t("aiAgent.settings.permissions.defaultMode.title")}
           </div>
@@ -42,7 +42,7 @@ export function PermissionsBlock({ api }: { api: PluginAPI }) {
           aria-label={t("aiAgent.settings.permissions.defaultMode.title")}
           value={mode ?? "ask"}
           onChange={(e) => onChange(e.target.value as Mode)}
-          className="form-input px-3 py-2 rounded-lg text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) shrink-0"
+          className="form-input px-3 py-2 rounded-lg text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) max-w-[14rem] w-full shrink-0"
         >
           <option value="plan">{t("aiAgent.settings.permissions.defaultMode.plan")}</option>
           <option value="ask">{t("aiAgent.settings.permissions.defaultMode.ask")}</option>
