@@ -1,6 +1,7 @@
 {
   "aiAgent": {
     "approval": {
+      "onScope": "on {{connection}}",
       "always": {
         "tool": "Always allow {{tool}} on {{connection}}",
         "exact": "Always allow `{{command}}` on {{connection}}"
@@ -50,12 +51,14 @@
       "allowlist": {
         "heading": "Always-allowed actions",
         "empty": "No approvals are remembered.",
-        "localScope": "Local / no host",
+        "localScope": "Local (no connection)",
+        "unknownScope": "Unresolved target",
+        "deletedConnection": "Deleted connection",
         "revoke": "Revoke",
         "revokeAll": "Revoke all remembered approvals",
         "revokeAllConfirm": {
           "title": "Revoke all remembered approvals?",
-          "message": "Every remembered approval on every host is removed. The agent will ask again next time.",
+          "message": "Every remembered approval on every connection is removed. The agent will ask again next time.",
           "confirm": "Revoke all"
         }
       }

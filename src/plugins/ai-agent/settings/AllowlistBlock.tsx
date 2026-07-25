@@ -4,6 +4,8 @@ import { Icon } from "@iconify/react";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { useAgentStore } from "../state/agentStore";
 import type { AllowlistEntry } from "../state/allowlist";
+import { scopeLabelText } from "../state/connectionLabels";
+import { useConnectionLabels } from "../ui/useConnectionLabels";
 
 /**
  * Allowlist-management block of the settings page: every remembered
@@ -17,6 +19,7 @@ export function AllowlistBlock() {
   const allowlist = useAgentStore((s) => s.allowlist);
   const revokeAllowlist = useAgentStore((s) => s.revokeAllowlist);
   const revokeAllAllowlist = useAgentStore((s) => s.revokeAllAllowlist);
+  const labelFor = useConnectionLabels();
   const [confirmingRevokeAll, setConfirmingRevokeAll] = useState(false);
 
   const groups = new Map<string, AllowlistEntry[]>();
@@ -36,14 +39,19 @@ export function AllowlistBlock() {
         <p className="text-sm mb-3 text-(--t-text-dim)">{t("aiAgent.settings.allowlist.empty")}</p>
       ) : (
         <div className="flex flex-col gap-3">
-          {[...groups.entries()].map(([scope, entries]) => (
+          {[...groups.entries()].map(([scope, entries]) => {
+            const label = labelFor(scope);
+            return (
             <details
               key={scope}
               open
               className="rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4"
             >
               <summary className="cursor-pointer text-sm font-medium text-(--t-text-primary) flex items-center gap-2">
-                <span>{scope === "local" ? t("aiAgent.settings.allowlist.localScope") : scope}</span>
+                <span>{scopeLabelText(label, t)}</span>
+                {label.detail && (
+                  <span className="text-xs text-(--t-text-dim) truncate">{label.detail}</span>
+                )}
                 <span className="text-xs text-(--t-text-dim)">({entries.length})</span>
               </summary>
               <ul className="mt-3 flex flex-col gap-2">
@@ -68,7 +76,7 @@ export function AllowlistBlock() {
                 ))}
               </ul>
             </details>
-          ))}
+          );})}
         </div>
       )}
 

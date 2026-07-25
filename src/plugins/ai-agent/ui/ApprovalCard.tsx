@@ -3,6 +3,8 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useAgentStore, type PendingApproval } from "../state/agentStore";
 import type { AllowlistEntry } from "../state/allowlist";
+import { scopeLabelText } from "../state/connectionLabels";
+import { useConnectionLabels } from "./useConnectionLabels";
 
 function summarizeArgs(pending: PendingApproval): string {
   if (pending.tool === "run_command" && typeof pending.args.command === "string") return pending.args.command;
@@ -13,6 +15,7 @@ export function ApprovalCard({ pending }: { pending: PendingApproval }) {
   const { t } = useTranslation();
   const resolveApproval = useAgentStore((s) => s.resolveApproval);
   const addAllowlist = useAgentStore((s) => s.addAllowlist);
+  const labelFor = useConnectionLabels();
 
   const [editing, setEditing] = useState(false);
   const [command, setCommand] = useState(String(pending.args.command ?? ""));
@@ -21,10 +24,13 @@ export function ApprovalCard({ pending }: { pending: PendingApproval }) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
 
+  const scopeLabel = labelFor(pending.scope);
+  const scopeText = scopeLabelText(scopeLabel, t);
+
   const grantLabel = (g: AllowlistEntry) =>
     g.grain === "exact"
-      ? t("aiAgent.approval.always.exact", { command: g.key, connection: g.scope })
-      : t("aiAgent.approval.always.tool", { tool: g.tool, connection: g.scope });
+      ? t("aiAgent.approval.always.exact", { command: g.key, connection: scopeText })
+      : t("aiAgent.approval.always.tool", { tool: g.tool, connection: scopeText });
 
   const onApprove = () => resolveApproval(pending.id, { approve: true });
 
@@ -60,7 +66,9 @@ export function ApprovalCard({ pending }: { pending: PendingApproval }) {
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <Icon icon="lucide:shield-alert" width={14} style={{ color: "var(--t-status-warning)" }} />
         <span style={{ color: "var(--t-text-bright)", fontWeight: 600 }}>{pending.tool}</span>
-        <span style={{ color: "var(--t-text-secondary)" }}>on {pending.scope}</span>
+        <span style={{ color: "var(--t-text-secondary)" }} title={scopeLabel.detail ?? undefined}>
+          {t("aiAgent.approval.onScope", { connection: scopeText })}
+        </span>
         <span
           style={{
             marginLeft: "auto",

@@ -2,9 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import "@/i18n";
 import { useAgentStore, type PendingApproval } from "../state/agentStore";
+import * as storeMod from "../state/agentStore";
 import { UNKNOWN_SCOPE } from "../state/scopeDerivation";
 import { allowlistCandidates } from "../state/allowlist";
 import { ApprovalCard } from "./ApprovalCard";
+
+const CONNS = [
+  { id: "c1", name: "Prod DB", host: "web-01", port: 22, username: "deploy", auth_type: "key", tags: [] },
+];
 
 // @iconify/react schedules an async icon-data-load timer that can fire after
 // this file's jsdom environment is torn down, touching `window` and surfacing
@@ -35,7 +40,10 @@ const pending = {
   resolve: vi.fn(),
 };
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe("ApprovalCard", () => {
   beforeEach(() => useAgentStore.setState({ pendingApprovals: [pending], allowlist: [] }));
@@ -97,7 +105,9 @@ describe("ApprovalCard", () => {
     useAgentStore.setState({ pendingApprovals: [unknownScopePending], allowlist: [] });
     render(<ApprovalCard pending={unknownScopePending} />);
     expect(screen.queryByText(/Always allow/)).toBeNull();
-    expect(screen.getByText(`on ${UNKNOWN_SCOPE}`)).not.toBeNull();
+    // UNKNOWN_SCOPE is now resolved to its human label rather than rendered
+    // verbatim; "on Unresolved target" is that label's real English string.
+    expect(screen.getByText("on Unresolved target")).not.toBeNull();
     expect(screen.getByText("Approve")).not.toBeNull();
   });
 
@@ -146,5 +156,24 @@ describe("ApprovalCard", () => {
     })} />);
     fireEvent.click(screen.getByRole("button", { name: /`df -h`/ }));
     expect(add).toHaveBeenCalledWith({ scope: "c1", tool: "run_command", grain: "exact", key: "df -h" });
+  });
+
+  it("names the connection, not the raw scope id", async () => {
+    vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({
+      api: { connections: { list: async () => CONNS } },
+    } as never);
+    render(<ApprovalCard pending={{ id: "p1", tool: "run_command", args: { command: "df -h" }, scope: "c1", grants: [], resolve: vi.fn() }} />);
+    expect(await screen.findByText(/Prod DB/)).toBeTruthy();
+    expect(screen.queryByText(/\bc1\b/)).toBeNull();
+  });
+
+  it("labels an unresolvable scope instead of rendering a blank", async () => {
+    vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({
+      api: { connections: { list: async () => CONNS } },
+    } as never);
+    render(<ApprovalCard pending={{ id: "p1", tool: "run_command", args: { command: "df -h" }, scope: "gone", grants: [], resolve: vi.fn() }} />);
+    // Real i18n is in effect here (not a passthrough mock), so the rendered
+    // text is the translated English copy, not the dotted key.
+    expect(await screen.findByText(/Deleted connection/)).toBeTruthy();
   });
 });

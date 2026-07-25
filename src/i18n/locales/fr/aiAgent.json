@@ -1,6 +1,7 @@
 {
   "aiAgent": {
     "approval": {
+      "onScope": "sur {{connection}}",
       "always": {
         "tool": "Toujours autoriser {{tool}} sur {{connection}}",
         "exact": "Toujours autoriser `{{command}}` sur {{connection}}"
@@ -50,12 +51,14 @@
       "allowlist": {
         "heading": "Actions toujours autorisées",
         "empty": "Aucune approbation n'est mémorisée.",
-        "localScope": "Local / aucun hôte",
+        "localScope": "Local (aucune connexion)",
+        "unknownScope": "Cible non résolue",
+        "deletedConnection": "Connexion supprimée",
         "revoke": "Révoquer",
         "revokeAll": "Révoquer toutes les approbations mémorisées",
         "revokeAllConfirm": {
           "title": "Révoquer toutes les approbations mémorisées ?",
-          "message": "Chaque approbation mémorisée, sur chaque hôte, est supprimée. L'agent redemandera la prochaine fois.",
+          "message": "Toutes les approbations mémorisées, sur toutes les connexions, sont supprimées. L'agent redemandera la prochaine fois.",
           "confirm": "Tout révoquer"
         }
       }
