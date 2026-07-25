@@ -337,4 +337,41 @@ describe("ProfilesBlock", () => {
     await waitFor(() => expect(screen.queryByText(/•••• set/)).toBeNull());
     expect(document.getElementById("edit-apikey")).toBeTruthy();
   });
+
+  // --- MINOR 2: a key typed during the hasKey probe window must not be dropped silently ---
+
+  it("clears a key typed while the hasKey probe is still in flight once it resolves true, instead of dropping it on Save", async () => {
+    let resolveHasKey!: (v: boolean) => void;
+    const hasKeyPromise = new Promise<boolean>((res) => {
+      resolveHasKey = res;
+    });
+    const store = mockStore({ hasKey: vi.fn(() => hasKeyPromise) });
+    mockDeps({ profiles: store });
+    render(<ProfilesBlock />);
+    // profile "1" (anthropic, Work) — hasKey probe is unresolved on mount.
+    fireEvent.click((await screen.findAllByRole("button", { name: /edit/i }))[0]);
+
+    // Probe still pending: hasKeyFact defaults false, so the real input renders.
+    expect(screen.queryByText(/•••• set/)).toBeNull();
+    const apiKeyInput = document.getElementById("edit-apikey") as HTMLInputElement;
+    expect(apiKeyInput).toBeTruthy();
+    fireEvent.change(apiKeyInput, { target: { value: "sk-typed-during-probe" } });
+    expect(apiKeyInput.value).toBe("sk-typed-during-probe");
+
+    // Probe resolves true: the masked badge takes over the field. Masking
+    // alone isn't proof of a fix — hasStoredKey is driven by hasKeyFact,
+    // independent of whatever is still sitting in fields.apiKey.
+    resolveHasKey(true);
+    await screen.findByText(/•••• set/);
+
+    // Clicking Replace re-shows the key input. Pre-fix, fields.apiKey still
+    // holds the pre-probe-resolution text, so the old value silently
+    // resurfaces here — looking like a saved draft the user never confirmed
+    // as a replacement. Post-fix the transition cleared it, so Replace
+    // always starts from a blank input.
+    fireEvent.click(screen.getByRole("button", { name: /replace/i }));
+    const replacedInput = document.getElementById("edit-apikey") as HTMLInputElement;
+    expect(replacedInput).toBeTruthy();
+    expect(replacedInput.value).toBe("");
+  });
 });

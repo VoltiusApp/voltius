@@ -22,6 +22,12 @@ export async function createProvider(
     case "openai-compatible": {
       const { createOpenAICompatible } = await import("@ai-sdk/openai-compatible");
       if (!profile.baseUrl) throw new Error("openai-compatible provider requires a base URL");
+      // Reject a protocol-relative or non-http(s) base URL here too: it would
+      // otherwise reach the SDK's fetch (and the stored Authorization header)
+      // unvalidated — same egress hole as loadModels, see models.ts.
+      if (!/^https?:\/\//i.test(profile.baseUrl)) {
+        throw new Error("openai-compatible provider requires an absolute http:// or https:// base URL");
+      }
       return createOpenAICompatible({
         name: profile.label || "openai-compatible",
         baseURL: `${profile.baseUrl.replace(/\/$/, "")}/v1`,

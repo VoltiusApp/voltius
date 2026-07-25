@@ -8,6 +8,10 @@ const ollamaModel = { id: "ollama-model" };
 const createOllama = vi.fn(() => vi.fn(() => ollamaModel));
 vi.mock("ollama-ai-provider-v2", () => ({ createOllama }));
 
+const compatModel = { id: "compat-model" };
+const createOpenAICompatible = vi.fn(() => vi.fn(() => compatModel));
+vi.mock("@ai-sdk/openai-compatible", () => ({ createOpenAICompatible }));
+
 import { createProvider } from "./factory";
 import type { ProviderProfile } from "../types";
 
@@ -32,6 +36,57 @@ describe("createProvider", () => {
     await createProvider(profile, { fetch: fetchStub });
     expect(createOllama).toHaveBeenCalledWith({ baseURL: "http://localhost:11434/api", fetch: fetchStub });
     expect(selectModel).toHaveBeenCalledWith("llama3");
+  });
+
+  test("openai-compatible: builds baseURL+/v1 and passes apiKey+fetch", async () => {
+    const selectModel = vi.fn(() => compatModel);
+    createOpenAICompatible.mockReturnValueOnce(selectModel);
+    const profile: ProviderProfile = {
+      id: "p4",
+      providerKind: "openai-compatible",
+      label: "C",
+      baseUrl: "https://api.example.com",
+      model: "gpt-x",
+    };
+    await createProvider(profile, { apiKey: "sk-1", fetch: fetchStub });
+    expect(createOpenAICompatible).toHaveBeenCalledWith({
+      name: "C",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "sk-1",
+      fetch: fetchStub,
+    });
+    expect(selectModel).toHaveBeenCalledWith("gpt-x");
+  });
+
+  // A protocol-relative or non-http(s) base URL must never reach the SDK's
+  // fetch: it would carry the stored Authorization header to whatever origin
+  // the webview resolves it against (see models.ts's matching guard).
+  test("openai-compatible: rejects a protocol-relative base URL without touching the SDK", async () => {
+    const profile: ProviderProfile = {
+      id: "p5",
+      providerKind: "openai-compatible",
+      label: "C",
+      baseUrl: "//evil.com",
+      model: "gpt-x",
+    };
+    await expect(createProvider(profile, { apiKey: "sk-1", fetch: fetchStub })).rejects.toThrow(
+      /http:\/\/ or https:\/\//,
+    );
+    expect(createOpenAICompatible).not.toHaveBeenCalled();
+  });
+
+  test("openai-compatible: rejects a non-http(s) scheme base URL without touching the SDK", async () => {
+    const profile: ProviderProfile = {
+      id: "p6",
+      providerKind: "openai-compatible",
+      label: "C",
+      baseUrl: "ftp://x",
+      model: "gpt-x",
+    };
+    await expect(createProvider(profile, { apiKey: "sk-1", fetch: fetchStub })).rejects.toThrow(
+      /http:\/\/ or https:\/\//,
+    );
+    expect(createOpenAICompatible).not.toHaveBeenCalled();
   });
 
   test("unknown kind throws", async () => {

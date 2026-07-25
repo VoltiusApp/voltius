@@ -48,4 +48,33 @@ describe("loadModels", () => {
     expect(res.models).toEqual([]);
     expect(res.error).toMatch(/401/);
   });
+
+  // A protocol-relative base URL bypasses ProfileEditor's origin-change check
+  // (new URL("//evil.com") throws there too, so it never forces re-entry) but
+  // must still never reach api.http.get carrying a stored Authorization header.
+  test("protocol-relative base URL is rejected without issuing a request", async () => {
+    const get = vi.fn();
+    const api = { http: { get } } as any;
+    const res = await loadModels(api, P({ providerKind: "openai-compatible", baseUrl: "//evil.com/v1" }), "sk-secret");
+    expect(get).not.toHaveBeenCalled();
+    expect(res.models).toEqual([]);
+    expect(res.error).toMatch(/http:\/\/ or https:\/\//);
+  });
+
+  test("non-http(s) scheme base URL is rejected without issuing a request", async () => {
+    const get = vi.fn();
+    const api = { http: { get } } as any;
+    const res = await loadModels(api, P({ providerKind: "openai-compatible", baseUrl: "ftp://x" }), "sk-secret");
+    expect(get).not.toHaveBeenCalled();
+    expect(res.models).toEqual([]);
+    expect(res.error).toMatch(/http:\/\/ or https:\/\//);
+  });
+
+  test("ollama with a protocol-relative base URL is also rejected", async () => {
+    const get = vi.fn();
+    const api = { http: { get } } as any;
+    const res = await loadModels(api, P({ providerKind: "ollama", baseUrl: "//evil.com" }));
+    expect(get).not.toHaveBeenCalled();
+    expect(res.models).toEqual([]);
+  });
 });

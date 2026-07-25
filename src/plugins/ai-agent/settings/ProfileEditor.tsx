@@ -74,7 +74,14 @@ export function ProfileEditor({
       void deps.profiles
         .hasKey(profile.id)
         .then((v) => {
-          if (!cancelled) setHasKeyFact(v);
+          if (cancelled) return;
+          setHasKeyFact(v);
+          // hasKeyFact starts false, so the real key input can render while
+          // this probe is in flight. If it resolves true after the user
+          // typed a key, the masked badge is about to replace that input —
+          // clear the typed value in the same tick so it can never sit in
+          // state past the point Save would silently stop writing it (see M-fix2).
+          if (v) setFields((f) => ({ ...f, apiKey: "" }));
         })
         .catch(() => {
           if (!cancelled) setHasKeyFact(false);

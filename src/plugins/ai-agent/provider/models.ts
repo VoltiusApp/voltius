@@ -42,6 +42,12 @@ export async function loadModels(
 
     const base = (profile.baseUrl ?? "").replace(/\/$/, "");
     if (!base) return { models: [], error: "base URL required" };
+    // A protocol-relative or non-http(s) base URL (e.g. "//evil.com", "ftp://x")
+    // must never reach api.http.get: appFetch resolves it via `new Request(input)`,
+    // which on some webview origins (Windows/Android release, dev) resolves a
+    // protocol-relative URL against the app's own origin instead of throwing —
+    // and this path can carry a stored Authorization: Bearer header.
+    if (!/^https?:\/\//i.test(base)) return { models: [], error: "base URL must start with http:// or https://" };
 
     if (profile.providerKind === "ollama") {
       const res = await api.http.get<{ models?: Array<{ name: string }> }>(`${base}/api/tags`, {});
