@@ -1,13 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
-import { deriveHost, isAllowlistable, hasShellMetacharacter, COMMAND_CARRYING_TOOLS } from "./hostDerivation";
-
-function api(overrides: Record<string, unknown> = {}) {
-  return {
-    connections: { list: vi.fn(async () => [{ id: "c1", name: "Web", host: "web-01" }]) },
-    sessions: { list: vi.fn(() => [{ id: "s1", connectionId: "c1" }]) },
-    ...overrides,
-  } as never;
-}
+import { describe, it, expect } from "vitest";
+import { deriveScope, isAllowlistable, hasShellMetacharacter, COMMAND_CARRYING_TOOLS } from "./scopeDerivation";
 
 describe("isAllowlistable", () => {
   const metacharacters = [";", "&", "|", "`", "$", "(", ")", "<", ">", "\\", "\n", "\r"];
@@ -43,7 +35,7 @@ describe("isAllowlistable", () => {
   });
 
   // `!` triggers bash/zsh interactive history expansion, letting a grant for
-  // e.g. `df` silently re-run an unrelated prior command (see hostDerivation.ts
+  // e.g. `df` silently re-run an unrelated prior command (see scopeDerivation.ts
   // comment on SHELL_METACHARACTERS).
   it("rejects run_command with a history-expansion bang-arg (df -h !sudo)", () => {
     expect(isAllowlistable("run_command", { command: "df -h !sudo" })).toBe(false);
@@ -90,34 +82,49 @@ describe("COMMAND_CARRYING_TOOLS", () => {
   });
 });
 
-describe("deriveHost", () => {
-  it("open_session: connectionId → host", async () => {
-    expect(await deriveHost(api(), "open_session", { connectionId: "c1" })).toBe("web-01");
+describe("deriveScope", () => {
+  const CONNS = [
+    { id: "c1", name: "Prod DB", host: "web-01", port: 22, username: "deploy", auth_type: "key", tags: [] },
+    { id: "c2", name: "Prod root", host: "web-01", port: 22, username: "root", auth_type: "key", tags: [] },
+  ];
+  const api = (over: Partial<{ sessions: unknown; connections: unknown }> = {}) => ({
+    sessions: { list: () => [{ id: "s1", connectionId: "c1", connectionName: "Prod DB", status: "connected", type: "ssh" }] },
+    connections: { list: async () => CONNS },
+    ...over,
+  }) as never;
+
+  it("open_session resolves to the connection id", async () => {
+    expect(await deriveScope(api(), "open_session", { connectionId: "c1" })).toBe("c1");
   });
-  it("run_command: sessionId → connectionId → host", async () => {
-    expect(await deriveHost(api(), "run_command", { sessionId: "s1", command: "ls" })).toBe("web-01");
+
+  it("run_command resolves via the session's connectionId", async () => {
+    expect(await deriveScope(api(), "run_command", { sessionId: "s1", command: "ls" })).toBe("c1");
   });
-  it("returns null (not 'local') when the session can't be found — fail closed, not open", async () => {
-    expect(await deriveHost(api(), "run_command", { sessionId: "nope", command: "ls" })).toBeNull();
+
+  it("two connections to the same host get DIFFERENT scopes", async () => {
+    expect(await deriveScope(api(), "open_session", { connectionId: "c1" })).toBe("c1");
+    expect(await deriveScope(api(), "open_session", { connectionId: "c2" })).toBe("c2");
   });
-  it("returns null (not 'local') when the connectionId doesn't match any known connection", async () => {
-    const a = api({ sessions: { list: vi.fn(() => [{ id: "s1", connectionId: "deleted-conn" }]) } });
-    expect(await deriveHost(a, "run_command", { sessionId: "s1", command: "ls" })).toBeNull();
+
+  it("returns null for an unknown session", async () => {
+    expect(await deriveScope(api(), "run_command", { sessionId: "nope", command: "ls" })).toBeNull();
   });
-  it("returns null (not 'local') for open_session with no connectionId", async () => {
-    expect(await deriveHost(api(), "open_session", {})).toBeNull();
+
+  it("returns null when open_session carries a connectionId that does not exist", async () => {
+    expect(await deriveScope(api(), "open_session", { connectionId: "forged" })).toBeNull();
   });
-  it("still resolves 'local' for a genuine local-shell session (connectionId literally \"local\")", async () => {
-    const a = api({ sessions: { list: vi.fn(() => [{ id: "s1", connectionId: "local" }]) } });
-    expect(await deriveHost(a, "run_command", { sessionId: "s1", command: "ls" })).toBe("local");
+
+  it("returns null when connectionId is missing", async () => {
+    expect(await deriveScope(api(), "open_session", {})).toBeNull();
   });
-  // Minor A: serial connections are created with `host: ""`. `?? null` only
-  // falls back on null/undefined, so an empty string used to sail through as
-  // a "resolved" host, collapsing every serial connection into one shared
-  // allowlist bucket `{ host: "", key }`. Must fail closed like any other
-  // unresolvable host.
-  it("returns null (not '') for a connection with an empty-string host — fail closed, not a shared bucket", async () => {
-    const a = api({ connections: { list: vi.fn(async () => [{ id: "c1", name: "Serial", host: "" }]) } });
-    expect(await deriveHost(a, "open_session", { connectionId: "c1" })).toBeNull();
+
+  it("returns 'local' for a genuine local session", async () => {
+    const a = api({ sessions: { list: () => [{ id: "s1", connectionId: "local", connectionName: "Local", status: "connected", type: "local" }] } });
+    expect(await deriveScope(a, "run_command", { sessionId: "s1", command: "ls" })).toBe("local");
+  });
+
+  it("returns null when the connections lookup throws", async () => {
+    const a = api({ connections: { list: async () => { throw new Error("boom"); } } });
+    expect(await deriveScope(a, "open_session", { connectionId: "c1" })).toBeNull();
   });
 });

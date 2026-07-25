@@ -23,8 +23,8 @@ export function ApprovalCard({ pending }: { pending: PendingApproval }) {
 
   const grantLabel = (g: AllowlistEntry) =>
     g.grain === "exact"
-      ? t("aiAgent.approval.always.exact", { command: g.key, host: g.host })
-      : t("aiAgent.approval.always.tool", { tool: g.tool, host: g.host });
+      ? t("aiAgent.approval.always.exact", { command: g.key, connection: g.scope })
+      : t("aiAgent.approval.always.tool", { tool: g.tool, connection: g.scope });
 
   const onApprove = () => resolveApproval(pending.id, { approve: true });
 
@@ -60,7 +60,7 @@ export function ApprovalCard({ pending }: { pending: PendingApproval }) {
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <Icon icon="lucide:shield-alert" width={14} style={{ color: "var(--t-status-warning)" }} />
         <span style={{ color: "var(--t-text-bright)", fontWeight: 600 }}>{pending.tool}</span>
-        <span style={{ color: "var(--t-text-secondary)" }}>on {pending.host}</span>
+        <span style={{ color: "var(--t-text-secondary)" }}>on {pending.scope}</span>
         <span
           style={{
             marginLeft: "auto",

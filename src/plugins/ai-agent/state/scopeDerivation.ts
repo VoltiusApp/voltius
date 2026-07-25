@@ -26,20 +26,27 @@ export function isAllowlistable(tool: string, args: Record<string, unknown>): bo
   return !hasShellMetacharacter(cmd);
 }
 
-/** Display sentinel used on a `PendingApproval` when `deriveHost` could not
- * resolve a host. Never a legitimate host string, so both the approval gate
- * and the card can test for it directly instead of drifting apart. */
-export const UNKNOWN_HOST = "unknown host";
+/** Display sentinel used on a `PendingApproval` when `deriveScope` could not
+ * resolve a connection. Contains a space, so it can never collide with a real
+ * connection id — both the approval gate and the card test for it directly
+ * instead of drifting apart. */
+export const UNKNOWN_SCOPE = "unknown connection";
 
 /**
- * Resolve the host a tool call would act on, or `null` if it cannot be
- * determined (unknown session, deleted connection, a lookup throwing, …).
- * `null` must never be treated as a real host by the caller — the allowlist
- * has to fail closed, not open, when the host is uncertain. A genuine local
- * session (real sessions carry the literal `connectionId: "local"`) is the
- * only case that legitimately returns `"local"`.
+ * Resolve the connection a tool call would act on, as an allowlist scope:
+ * a connection id, the literal `"local"`, or `null` when it cannot be
+ * determined (unknown session, deleted or forged connection id, a lookup
+ * throwing). `null` must never be treated as a real scope by the caller — the
+ * allowlist has to fail closed, not open, when the target is uncertain.
+ *
+ * Scoping on the connection id rather than `conn.host` is deliberate: two
+ * saved connections to one host under different users must not share an
+ * allowlist bucket. Keying on the connection's *username* instead would fail
+ * open, because an identity (or a per-session overlay) replaces the effective
+ * user at connect time (`sessionStore.ts:369-377`), so a session authenticated
+ * as root can carry a low-privilege connection's username.
  */
-export async function deriveHost(
+export async function deriveScope(
   api: Pick<PluginAPI, "sessions" | "connections">,
   tool: string,
   args: Record<string, unknown>,
@@ -51,18 +58,15 @@ export async function deriveHost(
     } else {
       const sessionId = args.sessionId as string | undefined;
       const session = api.sessions.list().find((s) => s.id === sessionId);
-      if (!session) return null; // unknown session — could not determine, do not fail open to "local"
+      if (!session) return null;
       connectionId = session.connectionId;
     }
     if (!connectionId) return null;
-    if (connectionId === "local") return "local"; // a genuine local-shell session
+    if (connectionId === "local") return "local";
+    // Existence check, not decoration: for `open_session` the id is
+    // model-supplied, so without this a forged id would become a real scope.
     const conn = (await api.connections.list()).find((c) => c.id === connectionId);
-    // `||`, not `??`: serial connections are created with `host: ""`, and an
-    // empty string must be treated the same as "connection not found" — an
-    // unresolved host, not a legitimate (if blank) one. `??` would let it
-    // through, collapsing every serial connection into one shared allowlist
-    // bucket `{ host: "", key }`.
-    return conn?.host || null;
+    return conn?.id ?? null;
   } catch {
     return null;
   }

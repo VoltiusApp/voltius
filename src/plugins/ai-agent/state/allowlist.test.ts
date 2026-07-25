@@ -24,7 +24,7 @@ describe("normalizeCommand", () => {
 describe("allowlistCandidates — non-command tools", () => {
   it("yields a single tool-grain candidate", () => {
     expect(allowlistCandidates("open_session", { connectionId: "c1" }, H)).toEqual([
-      { host: H, tool: "open_session", grain: "tool", key: "open_session" },
+      { scope: H, tool: "open_session", grain: "tool", key: "open_session" },
     ]);
   });
 });
@@ -45,7 +45,7 @@ describe("allowlistCandidates — run_command", () => {
     "journalctl -u ssh",
   ])("yields exactly one exact-grain candidate for %s, never a broader one", (command) => {
     expect(allowlistCandidates("run_command", { command }, H)).toEqual([
-      { host: H, tool: "run_command", grain: "exact", key: command },
+      { scope: H, tool: "run_command", grain: "exact", key: command },
     ]);
   });
 
@@ -67,7 +67,7 @@ describe("allowlistCandidates — run_command", () => {
 });
 
 describe("isWellFormedEntry", () => {
-  const ok: AllowlistEntry = { host: H, tool: "run_command", grain: "exact", key: "df -h" };
+  const ok: AllowlistEntry = { scope: H, tool: "run_command", grain: "exact", key: "df -h" };
 
   it("accepts a well-formed entry", () => {
     expect(isWellFormedEntry(ok)).toBe(true);
@@ -79,7 +79,15 @@ describe("isWellFormedEntry", () => {
     expect(isWellFormedEntry({ host: H, key: "df" })).toBe(false);
   });
 
-  it.each([null, undefined, 42, "df", [], { ...ok, grain: "wat" }, { ...ok, host: "" }, { ...ok, key: "" }, { ...ok, tool: "" }])(
+  it("rejects 3b-era host-keyed entries so they are dropped on hydrate", () => {
+    expect(isWellFormedEntry({ host: "ssh-host-1", tool: "run_command", grain: "exact", key: "df -h" })).toBe(false);
+  });
+
+  it("accepts a connection-scoped entry", () => {
+    expect(isWellFormedEntry({ scope: "c1", tool: "run_command", grain: "exact", key: "df -h" })).toBe(true);
+  });
+
+  it.each([null, undefined, 42, "df", [], { ...ok, grain: "wat" }, { ...ok, scope: "" }, { ...ok, key: "" }, { ...ok, tool: "" }])(
     "rejects malformed %s",
     (value) => {
       expect(isWellFormedEntry(value)).toBe(false);
@@ -90,11 +98,11 @@ describe("isWellFormedEntry", () => {
   // These are shapes allowlistCandidates could never produce, so they must not
   // survive hydrate either.
   it("rejects a tool-grain entry for a command-carrying tool", () => {
-    expect(isWellFormedEntry({ host: H, tool: "run_command", grain: "tool", key: "run_command" })).toBe(false);
+    expect(isWellFormedEntry({ scope: H, tool: "run_command", grain: "tool", key: "run_command" })).toBe(false);
   });
 
   it("rejects an exact-grain entry for a non-command-carrying tool", () => {
-    expect(isWellFormedEntry({ host: H, tool: "open_session", grain: "exact", key: "open_session" })).toBe(false);
+    expect(isWellFormedEntry({ scope: H, tool: "open_session", grain: "exact", key: "open_session" })).toBe(false);
   });
 
   it("rejects any key carrying a shell metacharacter", () => {
@@ -107,7 +115,7 @@ describe("isWellFormedEntry", () => {
   // or it would render as a revocable row for a grant that was never issued.
   it("rejects a tool-grain entry whose key does not match its tool", () => {
     expect(
-      isWellFormedEntry({ host: H, tool: "open_session", grain: "tool", key: "anything" }),
+      isWellFormedEntry({ scope: H, tool: "open_session", grain: "tool", key: "anything" }),
     ).toBe(false);
   });
 });

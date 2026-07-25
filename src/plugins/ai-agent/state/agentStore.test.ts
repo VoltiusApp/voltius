@@ -56,7 +56,7 @@ describe("agentStore", () => {
   });
 
   it("initAgent loads persisted mode + allowlist", async () => {
-    const entry: AllowlistEntry = { host: "h", tool: "run_command", grain: "exact", key: "ls -la" };
+    const entry: AllowlistEntry = { scope: "h", tool: "run_command", grain: "exact", key: "ls -la" };
     await initAgent(fakeApi({ agentMode: "auto", allowlist: [entry] }));
     expect(useAgentStore.getState().mode).toBe("auto");
     expect(useAgentStore.getState().allowlist).toEqual([entry]);
@@ -73,7 +73,7 @@ describe("agentStore", () => {
   it("addAllowlist persists and hasAllowlist matches", async () => {
     const persisted: Record<string, unknown> = {};
     await initAgent(fakeApi(persisted));
-    const entry: AllowlistEntry = { host: "web-01", tool: "run_command", grain: "exact", key: "apt update" };
+    const entry: AllowlistEntry = { scope: "web-01", tool: "run_command", grain: "exact", key: "apt update" };
     useAgentStore.getState().addAllowlist(entry);
     expect(useAgentStore.getState().hasAllowlist(entry)).toBe(true);
     await vi.waitFor(() => expect(persisted.allowlist).toEqual([entry]));
@@ -82,7 +82,7 @@ describe("agentStore", () => {
   it("addAllowlist refuses to persist a key containing a shell metacharacter (defense in depth)", async () => {
     const persisted: Record<string, unknown> = {};
     await initAgent(fakeApi(persisted));
-    const entry: AllowlistEntry = { host: "web-01", tool: "run_command", grain: "exact", key: "df -h !sudo" };
+    const entry: AllowlistEntry = { scope: "web-01", tool: "run_command", grain: "exact", key: "df -h !sudo" };
     useAgentStore.getState().addAllowlist(entry);
     expect(useAgentStore.getState().hasAllowlist(entry)).toBe(false);
     expect(useAgentStore.getState().allowlist).toEqual([]);
@@ -92,7 +92,7 @@ describe("agentStore", () => {
   it("resolveApproval calls the stored resolver and removes the record", () => {
     const resolve = vi.fn();
     useAgentStore.setState({
-      pendingApprovals: [{ id: "a1", tool: "run_command", args: {}, host: "h", grants: [], resolve }],
+      pendingApprovals: [{ id: "a1", tool: "run_command", args: {}, scope: "h", grants: [], resolve }],
     });
     useAgentStore.getState().resolveApproval("a1", { approve: true });
     expect(resolve).toHaveBeenCalledWith({ approve: true });
@@ -482,7 +482,7 @@ describe("agentStore", () => {
     // independent rejection.
     const pendingResolve = vi.fn();
     useAgentStore.setState({
-      pendingApprovals: [{ id: "p1", tool: "run_command", args: {}, host: "h", grants: [], resolve: pendingResolve }],
+      pendingApprovals: [{ id: "p1", tool: "run_command", args: {}, scope: "h", grants: [], resolve: pendingResolve }],
     });
 
     shutdownAgent();
@@ -558,7 +558,7 @@ describe("agentStore", () => {
   it("initAgent rejects and clears pending approvals left over from a previous activation", async () => {
     const resolve = vi.fn();
     useAgentStore.setState({
-      pendingApprovals: [{ id: "stale-1", tool: "run_command", args: {}, host: "h", grants: [], resolve }],
+      pendingApprovals: [{ id: "stale-1", tool: "run_command", args: {}, scope: "h", grants: [], resolve }],
     });
 
     await initAgent(fakeApi());
@@ -601,7 +601,7 @@ describe("agentStore", () => {
 //
 // The abort latch is only sound if every approval is bound to the *run that
 // dispatched it*. These tests drive the REAL store, the REAL controller (via
-// initAgent), the REAL deriveHost, and the REAL tool registry across run and
+// initAgent), the REAL deriveScope, and the REAL tool registry across run and
 // activation boundaries — nothing here hand-rolls `isAborted`, because a
 // hand-rolled latch is exactly what let the hole survive the previous wave.
 describe("approval generation binding", () => {
@@ -624,7 +624,7 @@ describe("approval generation binding", () => {
   }
 
   /** A plugin API whose `connections.list` (the one real await inside
-   *  deriveHost) is held open until the test lets it go. */
+   *  deriveScope) is held open until the test lets it go. */
   function harness(store: Record<string, unknown>) {
     const openSpy = vi.fn(async () => "sess-1");
     const conns = deferred<Array<{ id: string; name: string; host: string }>>();
@@ -686,13 +686,13 @@ describe("approval generation binding", () => {
   // plugin must NOT bring run N's parked approval back to life. (Pre-fix,
   // initAgent cleared `abortedGeneration`, so the parked call resumed with
   // the latch off and registered a card in the freshly re-enabled drawer.)
-  it("Path 1: an approval parked in deriveHost stays refused across shutdownAgent + a re-enabling initAgent", async () => {
+  it("Path 1: an approval parked in deriveScope stays refused across shutdownAgent + a re-enabling initAgent", async () => {
     const h = harness({ providerProfiles: [PROFILE], activeProfileId: "p1" });
     await initAgent(h.api as never);
     const ctx = await runTurn("hello");
 
     const exec = openSessionOf(ctx).execute({ connectionId: "c1" });
-    await vi.waitFor(() => expect(h.requested()).toBe(1)); // parked inside deriveHost
+    await vi.waitFor(() => expect(h.requested()).toBe(1)); // parked inside deriveScope
 
     shutdownAgent();
     await initAgent(h.api as never); // user re-enables the plugin
@@ -707,7 +707,7 @@ describe("approval generation binding", () => {
   // Test 2 — Path 1 through the allowlist shortcut, which returns
   // {approve:true} with no card at all, so a hole here is completely silent.
   it("Path 1 via the allowlist shortcut: a parked approval is still refused after shutdownAgent + initAgent, and never returns approve:true", async () => {
-    const GRANT: AllowlistEntry = { host: "web-01", tool: "open_session", grain: "tool", key: "open_session" };
+    const GRANT: AllowlistEntry = { scope: "c1", tool: "open_session", grain: "tool", key: "open_session" };
     const h = harness({
       providerProfiles: [PROFILE],
       activeProfileId: "p1",
@@ -763,8 +763,8 @@ describe("approval generation binding", () => {
   });
 
   // Test 3b — a card that already made it into `pendingApprovals` (not just
-  // parked in deriveHost) from run N must be rejected+cleared the moment run
-  // N+1 supersedes it. Unlike Path 2 above, `deps.deriveHost` has already
+  // parked in deriveScope) from run N must be rejected+cleared the moment run
+  // N+1 supersedes it. Unlike Path 2 above, `deps.deriveScope` has already
   // resolved and `addPending` has already run by the time run N+1 starts, so
   // isGenerationDead's re-check inside `approve()` can no longer catch this —
   // only an explicit reap of `pendingApprovals` at run dispatch does.
@@ -774,7 +774,7 @@ describe("approval generation binding", () => {
     const ctx = await runTurn("first"); // run N
 
     const exec = openSessionOf(ctx).execute({ connectionId: "c1" });
-    h.conns.resolve([CONN]); // let deriveHost resolve so the card is registered
+    h.conns.resolve([CONN]); // let deriveScope resolve so the card is registered
     await vi.waitFor(() => expect(useAgentStore.getState().pendingApprovals).toHaveLength(1));
 
     await runTurn("second"); // run N+1 supersedes it
@@ -789,7 +789,7 @@ describe("approval generation binding", () => {
   // pass if the generation is bound at run dispatch: a call that captured
   // "whatever generation is current" on entry would read the LIVE one and be
   // auto-approved with no card and no trace.
-  it("auto mode: a tool call carrying a superseded run's generation is refused before deriveHost is ever consulted", async () => {
+  it("auto mode: a tool call carrying a superseded run's generation is refused before deriveScope is ever consulted", async () => {
     const h = harness({ providerProfiles: [PROFILE], activeProfileId: "p1" });
     await initAgent(h.api as never);
     useAgentStore.getState().setMode("auto");
@@ -800,7 +800,7 @@ describe("approval generation binding", () => {
     const res = await settledOr(openSessionOf(ctx).execute({ connectionId: "c1" }));
     expect(res).toEqual({ error: "rejected by user", reason: "aborted" });
     expect(h.openSpy).not.toHaveBeenCalled();
-    expect(h.requested()).toBe(0); // refused above the mode gate, never reached deriveHost
+    expect(h.requested()).toBe(0); // refused above the mode gate, never reached deriveScope
   });
 
   // Test 5 — the Important. `sendMessage` captures `deps` and then awaits two
@@ -866,15 +866,15 @@ describe("approval generation binding", () => {
     const card = useAgentStore.getState().pendingApprovals[0];
     expect(card).toMatchObject({
       tool: "open_session",
-      host: "web-01",
-      grants: [{ host: "web-01", tool: "open_session", grain: "tool", key: "open_session" }],
+      scope: "c1",
+      grants: [{ scope: "c1", tool: "open_session", grain: "tool", key: "open_session" }],
     });
 
     useAgentStore.getState().resolveApproval(card.id, { approve: true });
     expect(await exec).toEqual({ sessionId: "sess-1" });
     expect(h.openSpy).toHaveBeenCalledWith("c1");
 
-    useAgentStore.getState().addAllowlist({ host: "web-01", tool: "open_session", grain: "tool", key: "open_session" });
+    useAgentStore.getState().addAllowlist({ scope: "c1", tool: "open_session", grain: "tool", key: "open_session" });
     expect(await settledOr(openSession.execute({ connectionId: "c1" }))).toEqual({ sessionId: "sess-1" });
     expect(useAgentStore.getState().pendingApprovals).toHaveLength(0);
   });
@@ -918,7 +918,7 @@ describe("allowlist migration + management", () => {
     // Legacy 3a shape (first-token prefix) alongside a well-formed entry —
     // only the well-formed one may survive hydrate.
     const legacy = { host: "h", key: "df" };
-    const wellFormed: AllowlistEntry = { host: "h", tool: "run_command", grain: "exact", key: "df -h" };
+    const wellFormed: AllowlistEntry = { scope: "h", tool: "run_command", grain: "exact", key: "df -h" };
     const api = fakeApi({ allowlist: [legacy, wellFormed] });
     await initAgent(api);
     expect(useAgentStore.getState().allowlist).toEqual([wellFormed]);
@@ -934,13 +934,13 @@ describe("allowlist migration + management", () => {
     expect(useAgentStore.getState().runStatus).toBe("idle");
   });
 
-  it("revokeAllAllowlist clears every host and persists", async () => {
+  it("revokeAllAllowlist clears every scope and persists", async () => {
     const persisted: Record<string, unknown> = {};
     await initAgent(fakeApi(persisted));
     useAgentStore.setState({
       allowlist: [
-        { host: "a", tool: "run_command", grain: "exact", key: "df -h" },
-        { host: "b", tool: "open_session", grain: "tool", key: "open_session" },
+        { scope: "a", tool: "run_command", grain: "exact", key: "df -h" },
+        { scope: "b", tool: "open_session", grain: "tool", key: "open_session" },
       ],
     });
     useAgentStore.getState().revokeAllAllowlist();
@@ -951,7 +951,7 @@ describe("allowlist migration + management", () => {
   it("addAllowlist refuses a malformed entry", () => {
     useAgentStore.setState({ allowlist: [] });
     // grain disagrees with the tool kind — a shape allowlistCandidates never emits
-    useAgentStore.getState().addAllowlist({ host: "h", tool: "run_command", grain: "tool", key: "run_command" });
+    useAgentStore.getState().addAllowlist({ scope: "h", tool: "run_command", grain: "tool", key: "run_command" });
     expect(useAgentStore.getState().allowlist).toEqual([]);
   });
 });

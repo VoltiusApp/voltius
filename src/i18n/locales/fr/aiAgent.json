@@ -2,8 +2,8 @@
   "aiAgent": {
     "approval": {
       "always": {
-        "tool": "Toujours autoriser {{tool}} sur {{host}}",
-        "exact": "Toujours autoriser `{{command}}` sur {{host}}"
+        "tool": "Toujours autoriser {{tool}} sur {{connection}}",
+        "exact": "Toujours autoriser `{{command}}` sur {{connection}}"
       }
     },
     "fields": {
@@ -50,7 +50,7 @@
       "allowlist": {
         "heading": "Actions toujours autorisées",
         "empty": "Aucune approbation n'est mémorisée.",
-        "localHost": "Local / aucun hôte",
+        "localScope": "Local / aucun hôte",
         "revoke": "Révoquer",
         "revokeAll": "Révoquer toutes les approbations mémorisées",
         "revokeAllConfirm": {

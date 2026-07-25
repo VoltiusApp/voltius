@@ -7,7 +7,7 @@ import type { AllowlistEntry } from "../state/allowlist";
 
 /**
  * Allowlist-management block of the settings page: every remembered
- * always-allow grant, grouped by host, with a per-row revoke and a confirmed
+ * always-allow grant, grouped by scope, with a per-row revoke and a confirmed
  * revoke-all. Reads `allowlist` straight from `useAgentStore` (no local
  * copy, no refresh hook) so a grant made from an approval card while Settings
  * is open shows up here without any extra wiring.
@@ -21,9 +21,9 @@ export function AllowlistBlock() {
 
   const groups = new Map<string, AllowlistEntry[]>();
   for (const entry of allowlist) {
-    const bucket = groups.get(entry.host);
+    const bucket = groups.get(entry.scope);
     if (bucket) bucket.push(entry);
-    else groups.set(entry.host, [entry]);
+    else groups.set(entry.scope, [entry]);
   }
 
   return (
@@ -36,14 +36,14 @@ export function AllowlistBlock() {
         <p className="text-sm mb-3 text-(--t-text-dim)">{t("aiAgent.settings.allowlist.empty")}</p>
       ) : (
         <div className="flex flex-col gap-3">
-          {[...groups.entries()].map(([host, entries]) => (
+          {[...groups.entries()].map(([scope, entries]) => (
             <details
-              key={host}
+              key={scope}
               open
               className="rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4"
             >
               <summary className="cursor-pointer text-sm font-medium text-(--t-text-primary) flex items-center gap-2">
-                <span>{host === "local" ? t("aiAgent.settings.allowlist.localHost") : host}</span>
+                <span>{scope === "local" ? t("aiAgent.settings.allowlist.localScope") : scope}</span>
                 <span className="text-xs text-(--t-text-dim)">({entries.length})</span>
               </summary>
               <ul className="mt-3 flex flex-col gap-2">

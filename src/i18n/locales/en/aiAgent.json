@@ -2,8 +2,8 @@
   "aiAgent": {
     "approval": {
       "always": {
-        "tool": "Always allow {{tool}} on {{host}}",
-        "exact": "Always allow `{{command}}` on {{host}}"
+        "tool": "Always allow {{tool}} on {{connection}}",
+        "exact": "Always allow `{{command}}` on {{connection}}"
       }
     },
     "fields": {
@@ -50,7 +50,7 @@
       "allowlist": {
         "heading": "Always-allowed actions",
         "empty": "No approvals are remembered.",
-        "localHost": "Local / no host",
+        "localScope": "Local / no host",
         "revoke": "Revoke",
         "revokeAll": "Revoke all remembered approvals",
         "revokeAllConfirm": {

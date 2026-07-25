@@ -1,4 +1,4 @@
-import { COMMAND_CARRYING_TOOLS, hasShellMetacharacter, isAllowlistable } from "./hostDerivation";
+import { COMMAND_CARRYING_TOOLS, hasShellMetacharacter, isAllowlistable } from "./scopeDerivation";
 
 /**
  * How broadly a remembered approval applies.
@@ -18,7 +18,8 @@ import { COMMAND_CARRYING_TOOLS, hasShellMetacharacter, isAllowlistable } from "
 export type AllowlistGrain = "tool" | "exact";
 
 export interface AllowlistEntry {
-  host: string;
+  /** Connection id, or the literal "local". Never a hostname — see deriveScope. */
+  scope: string;
   tool: string;
   grain: AllowlistGrain;
   /** Tool name (`tool`) or full trimmed command (`exact`). */
@@ -51,31 +52,34 @@ export function normalizeCommand(cmd: string): string {
 export function allowlistCandidates(
   tool: string,
   args: Record<string, unknown>,
-  host: string,
+  scope: string,
 ): AllowlistEntry[] {
   if (!isAllowlistable(tool, args)) return [];
   if (!COMMAND_CARRYING_TOOLS.has(tool)) {
-    return [{ host, tool, grain: "tool", key: tool }];
+    return [{ scope, tool, grain: "tool", key: tool }];
   }
   const command = normalizeCommand(String(args.command ?? ""));
   if (!command) return [];
-  return [{ host, tool, grain: "exact", key: command }];
+  return [{ scope, tool, grain: "exact", key: command }];
 }
 
 /**
  * Validates a persisted entry. Applied on hydrate, so 3a's legacy
  * `{host, key}` entries (which were first-token PREFIXES) are discarded rather
  * than read forward as grants — that would resurrect exactly the hole this
- * slice closes. Also rejects any shape {@link allowlistCandidates} could never
- * emit — `grain` must agree with whether `tool` is command-carrying, and a
- * `tool`-grain entry's `key` must equal its `tool` — so a stale or
+ * slice closes. The same field check also drops 3b's `{host,…}` entries now
+ * that the field is `scope`: a grant keyed on a shared hostname, made under
+ * one connection, must not survive to auto-approve a different connection to
+ * that same host. Also rejects any shape {@link allowlistCandidates} could
+ * never emit — `grain` must agree with whether `tool` is command-carrying,
+ * and a `tool`-grain entry's `key` must equal its `tool` — so a stale or
  * hand-edited entry from the removed `prefix` tier gets cleaned up here
  * rather than surviving inert on disk.
  */
 export function isWellFormedEntry(value: unknown): value is AllowlistEntry {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const e = value as Record<string, unknown>;
-  if (typeof e.host !== "string" || e.host.length === 0) return false;
+  if (typeof e.scope !== "string" || e.scope.length === 0) return false;
   if (typeof e.tool !== "string" || e.tool.length === 0) return false;
   if (typeof e.key !== "string" || e.key.length === 0) return false;
   if (e.grain !== "tool" && e.grain !== "exact") return false;
@@ -88,5 +92,5 @@ export function isWellFormedEntry(value: unknown): value is AllowlistEntry {
 }
 
 export function entriesEqual(a: AllowlistEntry, b: AllowlistEntry): boolean {
-  return a.host === b.host && a.tool === b.tool && a.grain === b.grain && a.key === b.key;
+  return a.scope === b.scope && a.tool === b.tool && a.grain === b.grain && a.key === b.key;
 }

@@ -8,11 +8,11 @@ vi.mock("@iconify/react", () => ({ Icon: () => null }));
 // same convention as ProfilesBlock.test.tsx. The one key whose literal
 // rendered text an assertion depends on — the "local" group's translated
 // heading — is special-cased to a stand-in real value; no dotted key can
-// ever equal the raw host string "local" it's being compared against.
+// ever equal the raw scope string "local" it's being compared against.
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (k: string) => {
-      if (k === "aiAgent.settings.allowlist.localHost") return "local";
+      if (k === "aiAgent.settings.allowlist.localScope") return "local";
       return k;
     },
   }),
@@ -20,16 +20,16 @@ vi.mock("react-i18next", () => ({
 afterEach(cleanup);
 
 const entries = [
-  { host: "ssh-host-1", tool: "run_command", grain: "exact" as const, key: "df -h" },
-  { host: "ssh-host-1", tool: "run_command", grain: "exact" as const, key: "uptime" },
-  { host: "local", tool: "open_session", grain: "tool" as const, key: "open_session" },
+  { scope: "c1", tool: "run_command", grain: "exact" as const, key: "df -h" },
+  { scope: "c1", tool: "run_command", grain: "exact" as const, key: "uptime" },
+  { scope: "local", tool: "open_session", grain: "tool" as const, key: "open_session" },
 ];
 
 describe("AllowlistBlock", () => {
-  it("groups grants by host", () => {
+  it("groups grants by scope", () => {
     useAgentStore.setState({ allowlist: entries });
     render(<AllowlistBlock />);
-    expect(screen.getByText("ssh-host-1")).toBeTruthy();
+    expect(screen.getByText("c1")).toBeTruthy();
     expect(screen.getByText("local")).toBeTruthy();
   });
 
@@ -42,7 +42,7 @@ describe("AllowlistBlock", () => {
     expect(left.some((e) => e.grain === "exact" && e.key === "df -h")).toBe(false);
   });
 
-  it("revoke-all clears every host after confirmation", () => {
+  it("revoke-all clears every scope after confirmation", () => {
     useAgentStore.setState({ allowlist: entries });
     render(<AllowlistBlock />);
     fireEvent.click(screen.getByRole("button", { name: /revokeAll/i }));

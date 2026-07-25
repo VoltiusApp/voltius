@@ -2,8 +2,8 @@
   "aiAgent": {
     "approval": {
       "always": {
-        "tool": "Всегда разрешать {{tool}} на {{host}}",
-        "exact": "Всегда разрешать `{{command}}` на {{host}}"
+        "tool": "Всегда разрешать {{tool}} на {{connection}}",
+        "exact": "Всегда разрешать `{{command}}` на {{connection}}"
       }
     },
     "fields": {
@@ -50,7 +50,7 @@
       "allowlist": {
         "heading": "Всегда разрешённые действия",
         "empty": "Нет сохранённых разрешений.",
-        "localHost": "Локально / без хоста",
+        "localScope": "Локально / без хоста",
         "revoke": "Отозвать",
         "revokeAll": "Отозвать все сохранённые разрешения",
         "revokeAllConfirm": {

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import "@/i18n";
 import { useAgentStore, type PendingApproval } from "../state/agentStore";
-import { UNKNOWN_HOST } from "../state/hostDerivation";
+import { UNKNOWN_SCOPE } from "../state/scopeDerivation";
 import { allowlistCandidates } from "../state/allowlist";
 import { ApprovalCard } from "./ApprovalCard";
 
@@ -18,7 +18,7 @@ vi.mock("@iconify/react", () => ({
 function makePending(p: {
   tool: string;
   args: Record<string, unknown>;
-  host: string;
+  scope: string;
   grants: PendingApproval["grants"];
 }): PendingApproval {
   return { id: "test-id", resolve: vi.fn(), ...p };
@@ -28,10 +28,10 @@ const pending = {
   id: "a1",
   tool: "run_command",
   args: { command: "apt update" },
-  host: "web-01",
+  scope: "c1",
   // A realistic call: derive the grant the real gate would offer rather than
   // hand-writing it, so this fixture can't drift from allowlistCandidates.
-  grants: allowlistCandidates("run_command", { command: "apt update" }, "web-01"),
+  grants: allowlistCandidates("run_command", { command: "apt update" }, "c1"),
   resolve: vi.fn(),
 };
 
@@ -56,12 +56,12 @@ describe("ApprovalCard", () => {
       id: "a2",
       tool: "run_command",
       args: { command: "df -h | grep x" },
-      host: "web-01",
+      scope: "c1",
       // The gate never offers a grant for a command carrying a shell
       // metacharacter — see allowlistCandidates — so a faithful fixture for
       // this call derives its grants from that same function rather than
       // hand-writing the empty array.
-      grants: allowlistCandidates("run_command", { command: "df -h | grep x" }, "web-01"),
+      grants: allowlistCandidates("run_command", { command: "df -h | grep x" }, "c1"),
       resolve: vi.fn(),
     };
     useAgentStore.setState({ pendingApprovals: [pipedPending], allowlist: [] });
@@ -73,31 +73,31 @@ describe("ApprovalCard", () => {
     render(<ApprovalCard pending={pending} />);
     expect(screen.queryByText(/Always allow/)).not.toBeNull();
   });
-  // Minor B: the gate fails closed on an unresolved host (deriveHost -> null,
-  // rendered as UNKNOWN_HOST), and the card's "Always allow" visibility must
+  // Minor B: the gate fails closed on an unresolved scope (deriveScope -> null,
+  // rendered as UNKNOWN_SCOPE), and the card's "Always allow" visibility must
   // never drift from that — otherwise the UI could offer a shortcut the gate
   // itself would never actually grant.
-  it("omits Always allow and shows the honest unknown-host label when the host could not be resolved", () => {
-    const unknownHostPending = {
+  it("omits Always allow and shows the honest unknown-connection label when the scope could not be resolved", () => {
+    const unknownScopePending = {
       id: "a3",
       tool: "run_command",
       args: { command: "apt update" },
-      host: UNKNOWN_HOST,
+      scope: UNKNOWN_SCOPE,
       // Deliberately NOT derived from allowlistCandidates(tool, args,
-      // UNKNOWN_HOST): in production this empty array comes from
-      // approvalController's `host === null` short-circuit, which never
-      // calls allowlistCandidates at all — UNKNOWN_HOST is a display-only
+      // UNKNOWN_SCOPE): in production this empty array comes from
+      // approvalController's `scope === null` short-circuit, which never
+      // calls allowlistCandidates at all — UNKNOWN_SCOPE is a display-only
       // substitution applied afterwards (see approvalController.approve).
-      // Feeding UNKNOWN_HOST into allowlistCandidates as a real host would
+      // Feeding UNKNOWN_SCOPE into allowlistCandidates as a real scope would
       // actually yield a (bogus) grant, so a literal is the honest fixture
       // here, not a derivation gap.
       grants: [],
       resolve: vi.fn(),
     };
-    useAgentStore.setState({ pendingApprovals: [unknownHostPending], allowlist: [] });
-    render(<ApprovalCard pending={unknownHostPending} />);
+    useAgentStore.setState({ pendingApprovals: [unknownScopePending], allowlist: [] });
+    render(<ApprovalCard pending={unknownScopePending} />);
     expect(screen.queryByText(/Always allow/)).toBeNull();
-    expect(screen.getByText(`on ${UNKNOWN_HOST}`)).not.toBeNull();
+    expect(screen.getByText(`on ${UNKNOWN_SCOPE}`)).not.toBeNull();
     expect(screen.getByText("Approve")).not.toBeNull();
   });
 
@@ -105,8 +105,8 @@ describe("ApprovalCard", () => {
     render(<ApprovalCard pending={makePending({
       tool: "run_command",
       args: { command: "df -h" },
-      host: "ssh-host-1",
-      grants: [{ host: "ssh-host-1", tool: "run_command", grain: "exact", key: "df -h" }],
+      scope: "c1",
+      grants: [{ scope: "c1", tool: "run_command", grain: "exact", key: "df -h" }],
     })} />);
     expect(screen.getByRole("button", { name: /`df -h`/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /`df` on/ })).toBeNull();
@@ -116,8 +116,8 @@ describe("ApprovalCard", () => {
     render(<ApprovalCard pending={makePending({
       tool: "open_session",
       args: { connectionId: "c1" },
-      host: "ssh-host-1",
-      grants: [{ host: "ssh-host-1", tool: "open_session", grain: "tool", key: "open_session" }],
+      scope: "c1",
+      grants: [{ scope: "c1", tool: "open_session", grain: "tool", key: "open_session" }],
     })} />);
     expect(screen.getByRole("button", { name: /open_session/ })).toBeTruthy();
   });
@@ -126,11 +126,11 @@ describe("ApprovalCard", () => {
     render(<ApprovalCard pending={makePending({
       tool: "run_command",
       args: { command: "df -h | sh" },
-      host: "ssh-host-1",
+      scope: "c1",
       // Derived, not hand-written: the shell-metacharacter guard in
       // allowlistCandidates is what actually makes this [], so let the real
       // function prove it rather than asserting a literal that could drift.
-      grants: allowlistCandidates("run_command", { command: "df -h | sh" }, "ssh-host-1"),
+      grants: allowlistCandidates("run_command", { command: "df -h | sh" }, "c1"),
     })} />);
     expect(screen.queryByRole("button", { name: /always/i })).toBeNull();
   });
@@ -141,10 +141,10 @@ describe("ApprovalCard", () => {
     render(<ApprovalCard pending={makePending({
       tool: "run_command",
       args: { command: "df -h" },
-      host: "ssh-host-1",
-      grants: [{ host: "ssh-host-1", tool: "run_command", grain: "exact", key: "df -h" }],
+      scope: "c1",
+      grants: [{ scope: "c1", tool: "run_command", grain: "exact", key: "df -h" }],
     })} />);
     fireEvent.click(screen.getByRole("button", { name: /`df -h`/ }));
-    expect(add).toHaveBeenCalledWith({ host: "ssh-host-1", tool: "run_command", grain: "exact", key: "df -h" });
+    expect(add).toHaveBeenCalledWith({ scope: "c1", tool: "run_command", grain: "exact", key: "df -h" });
   });
 });

@@ -4,7 +4,7 @@ import type { PluginAPI } from "@/plugins/api";
 import type { ToolDecision } from "../types";
 import { createProfilesStore, type ProfilesStore } from "../provider/profilesStore";
 import { createApprovalController } from "./approvalController";
-import { deriveHost } from "./hostDerivation";
+import { deriveScope } from "./scopeDerivation";
 import { allowlistCandidates, entriesEqual, isWellFormedEntry, type AllowlistEntry } from "./allowlist";
 import { runAgent } from "../agent/loop";
 import { createProvider } from "../provider/factory";
@@ -18,7 +18,8 @@ export interface PendingApproval {
   id: string;
   tool: string;
   args: Record<string, unknown>;
-  host: string;
+  /** Connection id, `"local"`, or `UNKNOWN_SCOPE` when it couldn't be resolved. */
+  scope: string;
   /** Every grant the card may offer for this call; `[]` hides the control. */
   grants: AllowlistEntry[];
   resolve: (d: ToolDecision) => void;
@@ -181,7 +182,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     abortController?.abort();
     // Marks the run currently in flight (or about to start) as aborted, for
     // any `approve()` call that is mid-flight right now — parked in
-    // `deriveHost`, or about to be dispatched in `auto` mode — not just the
+    // `deriveScope`, or about to be dispatched in `auto` mode — not just the
     // pending cards that already exist. See isGenerationDead above.
     abortedGeneration = runGeneration;
     // A parked approval card belongs to the run that just got cancelled —
@@ -306,7 +307,7 @@ export async function initAgent(api: PluginAPI): Promise<void> {
   // A fresh activation supersedes everything the previous one had in flight.
   // Bumping the generation (rather than clearing `abortedGeneration`) is what
   // makes that true: it kills every outstanding approval from the previous
-  // activation — including one parked in `deriveHost`, which a latch *reset*
+  // activation — including one parked in `deriveScope`, which a latch *reset*
   // would instead have brought back to life inside the re-enabled drawer,
   // still holding the stale PluginAPI `_setDeps(null)` exists to guard
   // against. It also gives this activation a clean latch for free, since
@@ -318,7 +319,7 @@ export async function initAgent(api: PluginAPI): Promise<void> {
     getMode: () => useAgentStore.getState().mode,
     hasAllowlist: (e) => useAgentStore.getState().hasAllowlist(e),
     addPending: (p) => useAgentStore.getState()._addPending(p),
-    deriveHost: (tool, args) => deriveHost(api, tool, args),
+    deriveScope: (tool, args) => deriveScope(api, tool, args),
     allowlistCandidates,
     isAborted: isGenerationDead,
   });

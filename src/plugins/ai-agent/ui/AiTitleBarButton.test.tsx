@@ -24,7 +24,7 @@ describe("AiTitleBarButton", () => {
     expect(useUIStore.getState().globalPanelOpen["plugin-ai-agent:drawer"]).toBe(true);
   });
   it("shows a pending badge when approvals are queued", () => {
-    useAgentStore.setState({ pendingApprovals: [{ id: "a", tool: "run_command", args: {}, host: "h", grants: [], resolve: () => {} }] });
+    useAgentStore.setState({ pendingApprovals: [{ id: "a", tool: "run_command", args: {}, scope: "h", grants: [], resolve: () => {} }] });
     render(<AiTitleBarButton />);
     expect(screen.getByTestId("ai-pending-badge")).toBeTruthy();
   });
