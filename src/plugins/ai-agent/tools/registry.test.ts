@@ -7,7 +7,7 @@ vi.mock("./capture", () => ({
 import { captureCommand } from "./capture";
 
 function ctx(over: Partial<AgentContext> = {}): { ctx: AgentContext; approve: any } {
-  const approve = vi.fn(async () => ({ approve: true }));
+  const approve = vi.fn(async () => ({ approve: true as const, scope: "c1", via: "granted" as const }));
   const api = {
     connections: { list: vi.fn(async () => [{ id: "c1", name: "srv", host: "h1" }]) },
     sessions: { open: vi.fn(async () => "sess-1"), close: vi.fn(async () => {}) },
@@ -91,7 +91,7 @@ describe("tool registry", () => {
   });
 
   test("approve-with-edited-args runs the edited command", async () => {
-    const approve = vi.fn(async () => ({ approve: true, args: { sessionId: "sess-1", command: "ls -a" } }));
+    const approve = vi.fn(async () => ({ approve: true, scope: "c1", via: "prompted", args: { sessionId: "sess-1", command: "ls -a" } }));
     const { ctx: c } = ctx({ approve: approve as any });
     await tool(c, "open_session").execute({ connectionId: "c1" }); // own sess-1 first
     await tool(c, "run_command").execute({ sessionId: "sess-1", command: "ls" });
@@ -99,7 +99,7 @@ describe("tool registry", () => {
   });
 
   test("approve-with-edited-args swapping in a non-owned sessionId is rejected post-approval (never runs)", async () => {
-    const approve = vi.fn(async () => ({ approve: true, args: { sessionId: "not-owned", command: "ls" } }));
+    const approve = vi.fn(async () => ({ approve: true, scope: "c1", via: "prompted", args: { sessionId: "not-owned", command: "ls" } }));
     const { ctx: c } = ctx({ approve: approve as any });
     await tool(c, "open_session").execute({ connectionId: "c1" }); // own sess-1, not "not-owned"
     const res: any = await tool(c, "run_command").execute({ sessionId: "sess-1", command: "ls" });
@@ -139,7 +139,7 @@ describe("tool registry", () => {
   });
 
   test("approve-with-edited-args swapping in a non-owned sessionId is rejected post-approval on close_session (never closes)", async () => {
-    const approve = vi.fn(async () => ({ approve: true, args: { sessionId: "not-owned" } }));
+    const approve = vi.fn(async () => ({ approve: true, scope: "c1", via: "prompted", args: { sessionId: "not-owned" } }));
     const { ctx: c } = ctx({ approve: approve as any });
     await tool(c, "open_session").execute({ connectionId: "c1" }); // own sess-1, not "not-owned"
     const res: any = await tool(c, "close_session").execute({ sessionId: "sess-1" });

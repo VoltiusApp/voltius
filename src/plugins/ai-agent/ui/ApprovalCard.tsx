@@ -32,18 +32,18 @@ export function ApprovalCard({ pending }: { pending: PendingApproval }) {
       ? t("aiAgent.approval.always.exact", { command: g.key, connection: scopeText })
       : t("aiAgent.approval.always.tool", { tool: g.tool, connection: scopeText });
 
-  const onApprove = () => resolveApproval(pending.id, { approve: true });
+  const onApprove = () => resolveApproval(pending.id, { approve: true, scope: pending.scope, via: "prompted" });
 
   const onAlways = (g: AllowlistEntry) => {
     addAllowlist(g);
-    resolveApproval(pending.id, { approve: true });
+    resolveApproval(pending.id, { approve: true, scope: pending.scope, via: "prompted" });
   };
 
   const onSaveEdit = () => {
     const args = { ...pending.args };
     if ("command" in pending.args) args.command = command;
     if ("connectionId" in pending.args) args.connectionId = connectionId;
-    resolveApproval(pending.id, { approve: true, args });
+    resolveApproval(pending.id, { approve: true, scope: pending.scope, via: "prompted", args });
   };
 
   const onConfirmReject = () => {

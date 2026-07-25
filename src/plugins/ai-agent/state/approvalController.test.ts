@@ -45,12 +45,16 @@ describe("ApprovalController", () => {
   });
   it("auto mode approves without a card", async () => {
     const { c, pending } = ctl("auto");
-    expect(await c.approve({ tool: "run_command", args: { command: "apt update" } }, GEN)).toEqual({ approve: true });
+    expect(await c.approve({ tool: "run_command", args: { command: "apt update" } }, GEN)).toEqual({
+      approve: true, scope: "c1", via: "auto_mode",
+    });
     expect(pending).toHaveLength(0);
   });
   it("ask + allowlist hit approves without a card", async () => {
     const { c, pending } = ctl("ask", { allowed: true });
-    expect(await c.approve({ tool: "run_command", args: { command: "apt update" } }, GEN)).toEqual({ approve: true });
+    expect(await c.approve({ tool: "run_command", args: { command: "apt update" } }, GEN)).toEqual({
+      approve: true, scope: "c1", via: "granted",
+    });
     expect(pending).toHaveLength(0);
   });
   it("ask + allowlist hit does NOT auto-approve a piped command (metacharacter escalation)", async () => {
@@ -62,8 +66,8 @@ describe("ApprovalController", () => {
     });
     await vi.waitFor(() => expect(pending).toHaveLength(1));
     expect(settled).toBe(false);
-    pending[0].resolve({ approve: true });
-    expect(await p).toEqual({ approve: true });
+    pending[0].resolve({ approve: true, scope: "c1", via: "prompted" });
+    expect(await p).toEqual({ approve: true, scope: "c1", via: "prompted" });
   });
   it("ask + miss creates a pending card and resolves via it", async () => {
     const { c, pending } = ctl("ask");
@@ -74,8 +78,8 @@ describe("ApprovalController", () => {
       scope: "c1",
       grants: [{ scope: "c1", tool: "run_command", grain: "exact", key: "apt update" }],
     });
-    pending[0].resolve({ approve: true, args: { command: "apt upgrade" } });
-    expect(await p).toEqual({ approve: true, args: { command: "apt upgrade" } });
+    pending[0].resolve({ approve: true, scope: "c1", via: "prompted", args: { command: "apt upgrade" } });
+    expect(await p).toEqual({ approve: true, scope: "c1", via: "prompted", args: { command: "apt upgrade" } });
   });
   it("an unresolved scope (deriveScope -> null) always raises a card, even when hasAllowlist would return true (fail closed, not open)", async () => {
     const pending: PendingApproval[] = [];
@@ -94,8 +98,8 @@ describe("ApprovalController", () => {
     expect(settled).toBe(false);
     expect(pending[0].scope).toBe(UNKNOWN_SCOPE);
     expect(pending[0].grants).toEqual([]);
-    pending[0].resolve({ approve: true });
-    expect(await p).toEqual({ approve: true });
+    pending[0].resolve({ approve: true, scope: UNKNOWN_SCOPE, via: "prompted" });
+    expect(await p).toEqual({ approve: true, scope: UNKNOWN_SCOPE, via: "prompted" });
   });
 
   it("a top-of-call abort refuses in 'ask' mode before deriveScope is ever consulted", async () => {
@@ -164,7 +168,7 @@ describe("ApprovalController", () => {
     const p = c.approve({ tool: "run_command", args: { command: "apt update" } }, 42);
     await vi.waitFor(() => expect(pending).toHaveLength(1));
     expect(seen).toEqual([42, 42]);
-    pending[0].resolve({ approve: true });
+    pending[0].resolve({ approve: true, scope: "c1", via: "prompted" });
     await p;
   }, 2000);
 
@@ -197,7 +201,7 @@ describe("ApprovalController", () => {
       });
       await expect(
         c.approve({ tool: "run_command", args: { command: " df -h " } }, 0),
-      ).resolves.toEqual({ approve: true });
+      ).resolves.toEqual({ approve: true, scope: "c1", via: "granted" });
       expect(addPending).not.toHaveBeenCalled();
     });
 
@@ -229,5 +233,43 @@ describe("ApprovalController", () => {
       expect(addPending.mock.calls[0][0].scope).toBe(UNKNOWN_SCOPE);
       expect(addPending.mock.calls[0][0].grants).toEqual([]);
     });
+  });
+
+  it("auto mode reports the derived scope and via=auto_mode", async () => {
+    const { c } = ctl("auto");
+    const d = await c.approve({ tool: "run_command", args: { command: "uptime" } }, GEN);
+    expect(d).toEqual({ approve: true, scope: "c1", via: "auto_mode" });
+  });
+
+  it("an allowlist hit reports via=granted", async () => {
+    const { c } = ctl("ask", { allowed: true });
+    const d = await c.approve({ tool: "run_command", args: { command: "uptime" } }, GEN);
+    expect(d).toEqual({ approve: true, scope: "c1", via: "granted" });
+  });
+
+  it("auto mode is refused when the run aborts DURING deriveScope", async () => {
+    // Fails against the pre-reorder ordering, where auto returned {approve:true}
+    // before deriveScope was ever awaited. That is the point of this test.
+    let aborted = false;
+    const c = makeController({
+      getMode: () => "auto",
+      deriveScope: async () => { aborted = true; return "c1"; },
+      isAborted: () => aborted,
+    });
+    const d = await c.approve({ tool: "run_command", args: { command: "uptime" } }, GEN);
+    expect(d).toEqual({ approve: false, reason: "aborted" });
+  });
+
+  it("plan mode still short-circuits without paying for deriveScope", async () => {
+    const deriveScope = vi.fn(async () => "c1");
+    const c = makeController({ getMode: () => "plan", deriveScope });
+    await c.approve({ tool: "run_command", args: { command: "uptime" } }, GEN);
+    expect(deriveScope).not.toHaveBeenCalled();
+  });
+
+  it("auto mode reports UNKNOWN_SCOPE when the scope cannot be derived", async () => {
+    const c = makeController({ getMode: () => "auto", deriveScope: async () => null });
+    const d = await c.approve({ tool: "run_command", args: { command: "uptime" } }, GEN);
+    expect(d).toEqual({ approve: true, scope: UNKNOWN_SCOPE, via: "auto_mode" });
   });
 });

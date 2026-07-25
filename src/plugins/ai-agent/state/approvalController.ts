@@ -47,19 +47,26 @@ export function createApprovalController(deps: ApprovalControllerDeps) {
       if (mode === "plan") {
         return { approve: false, reason: "plan mode — propose this as a step; do not execute" };
       }
-      if (mode === "auto") return { approve: true };
+      // Derived BEFORE the auto shortcut so every approved path carries a
+      // connection target to audit against. This does not change any
+      // authorization outcome — `scope` feeds only allowlistCandidates, and
+      // `auto` approves regardless — but it does mean `auto` now passes
+      // through the post-await abort re-check below, which it previously
+      // skipped entirely. That is strictly safer. `plan` still returns above
+      // without paying for the IPC.
       const scope = await deps.deriveScope(call.tool, call.args);
       // Re-checked here: `deriveScope` is a real IPC round trip, so a call can
-      // be parked in the await above at the instant the user hits Stop. Both
-      // paths below it — the allowlist shortcut and registering a card — run
-      // *after* this await, so both must be gated, not just the card path.
+      // be parked in the await above at the instant the user hits Stop.
       if (deps.isAborted(generation)) return { approve: false, reason: "aborted" };
+      if (mode === "auto") {
+        return { approve: true, scope: scope ?? UNKNOWN_SCOPE, via: "auto_mode" };
+      }
       // An unresolved scope yields no candidates at all, so it can neither
       // auto-approve nor offer a grant — the fail-closed behaviour 3a
       // established, now expressed in one place instead of three.
       const grants = scope === null ? [] : deps.allowlistCandidates(call.tool, call.args, scope);
-      if (grants.some((g) => deps.hasAllowlist(g))) {
-        return { approve: true };
+      if (scope !== null && grants.some((g) => deps.hasAllowlist(g))) {
+        return { approve: true, scope, via: "granted" };
       }
       return new Promise<ToolDecision>((resolve) => {
         deps.addPending({

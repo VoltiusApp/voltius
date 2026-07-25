@@ -11,9 +11,18 @@ export interface ProviderProfile {
 
 export type ToolRisk = "auto" | "prompt";
 
-/** Result of an approval request for a prompt-risk tool call. */
+/** Why a call was allowed. Recorded as `metadata.approval` on agent.command_run. */
+export type ApprovalVia = "prompted" | "granted" | "auto_mode";
+
+/**
+ * Result of an approval request for a prompt-risk tool call.
+ *
+ * `scope` and `via` are REQUIRED on the approve branch, deliberately: making
+ * them optional would let a construction site omit them and produce untargeted
+ * audit records that every existing test would still pass.
+ */
 export type ToolDecision =
-  | { approve: true; args?: Record<string, unknown> }
+  | { approve: true; scope: string; via: ApprovalVia; args?: Record<string, unknown> }
   | { approve: false; reason?: string };
 
 export interface RunCommandResult {

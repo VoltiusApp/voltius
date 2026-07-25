@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { PluginAPI } from "@/plugins/api";
-import type { ToolDecision, ToolRisk } from "../types";
+import type { ApprovalVia, ToolDecision, ToolRisk } from "../types";
 import { captureCommand } from "./capture";
 
 export interface AgentContext {
@@ -23,10 +23,13 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
   const gate = async (
     tool: string,
     args: Record<string, unknown>,
-  ): Promise<{ ok: true; args: Record<string, unknown> } | { ok: false; result: unknown }> => {
+  ): Promise<
+    | { ok: true; args: Record<string, unknown>; scope: string; via: ApprovalVia }
+    | { ok: false; result: unknown }
+  > => {
     const decision = await ctx.approve({ tool, args });
     if (!decision.approve) return { ok: false, result: { error: "rejected by user", reason: decision.reason } };
-    return { ok: true, args: decision.args ?? args };
+    return { ok: true, args: decision.args ?? args, scope: decision.scope, via: decision.via };
   };
 
   return [

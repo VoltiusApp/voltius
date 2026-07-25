@@ -50,14 +50,14 @@ describe("ApprovalCard", () => {
   it("Approve resolves true and clears the card", () => {
     render(<ApprovalCard pending={pending} />);
     fireEvent.click(screen.getByText("Approve"));
-    expect(pending.resolve).toHaveBeenCalledWith({ approve: true });
+    expect(pending.resolve).toHaveBeenCalledWith({ approve: true, scope: "c1", via: "prompted" });
     expect(useAgentStore.getState().pendingApprovals).toHaveLength(0);
   });
   it("Always adds an allowlist entry then approves", () => {
     render(<ApprovalCard pending={pending} />);
     fireEvent.click(screen.getByText(/Always allow/));
     expect(useAgentStore.getState().hasAllowlist(pending.grants[0])).toBe(true);
-    expect(pending.resolve).toHaveBeenCalledWith({ approve: true });
+    expect(pending.resolve).toHaveBeenCalledWith({ approve: true, scope: "c1", via: "prompted" });
   });
   it("omits the Always allow button for a command containing a shell metacharacter", () => {
     const pipedPending = {

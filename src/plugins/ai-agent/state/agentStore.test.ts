@@ -56,7 +56,7 @@ function profilesStub() {
 }
 
 function approveAllController() {
-  return { approve: async () => ({ approve: true }) };
+  return { approve: async () => ({ approve: true as const, scope: "c1", via: "granted" as const }) };
 }
 
 describe("agentStore", () => {
@@ -163,8 +163,8 @@ describe("agentStore", () => {
     useAgentStore.setState({
       pendingApprovals: [{ id: "a1", tool: "run_command", args: {}, scope: "h", grants: [], resolve }],
     });
-    useAgentStore.getState().resolveApproval("a1", { approve: true });
-    expect(resolve).toHaveBeenCalledWith({ approve: true });
+    useAgentStore.getState().resolveApproval("a1", { approve: true, scope: "h", via: "prompted" });
+    expect(resolve).toHaveBeenCalledWith({ approve: true, scope: "h", via: "prompted" });
     expect(useAgentStore.getState().pendingApprovals).toHaveLength(0);
   });
 
@@ -189,7 +189,7 @@ describe("agentStore", () => {
         getActiveId: async () => "p1",
         getKey: async () => "sk-test",
       } as never,
-      controller: { approve: async () => ({ approve: true }) },
+      controller: { approve: async () => ({ approve: true, scope: "c1", via: "granted" }) },
     } as never);
 
     await useAgentStore.getState().sendMessage("hello");
@@ -237,7 +237,7 @@ describe("agentStore", () => {
         getActiveId: async () => "p1",
         getKey: async () => "sk-test",
       } as never,
-      controller: { approve: async () => ({ approve: true }) },
+      controller: { approve: async () => ({ approve: true, scope: "c1", via: "granted" }) },
     } as never);
 
     await useAgentStore.getState().sendMessage("hello");
@@ -273,7 +273,7 @@ describe("agentStore", () => {
         getActiveId: async () => "p1",
         getKey: async () => "sk-test",
       } as never,
-      controller: { approve: async () => ({ approve: true }) },
+      controller: { approve: async () => ({ approve: true, scope: "c1", via: "granted" }) },
     } as never);
     useAgentStore.setState({
       runStatus: "streaming",
@@ -303,7 +303,7 @@ describe("agentStore", () => {
         getActiveId: async () => "p1",
         getKey: async () => "sk-test",
       } as never,
-      controller: { approve: async () => ({ approve: true }) },
+      controller: { approve: async () => ({ approve: true, scope: "c1", via: "granted" }) },
     } as never);
 
     await useAgentStore.getState().sendMessage("hello");
@@ -326,7 +326,7 @@ describe("agentStore", () => {
         getActiveId: async () => "p1",
         getKey: async () => "sk-test",
       } as never,
-      controller: { approve: async () => ({ approve: true }) },
+      controller: { approve: async () => ({ approve: true, scope: "c1", via: "granted" }) },
     } as never);
 
     await useAgentStore.getState().sendMessage("hello");
@@ -361,7 +361,7 @@ describe("agentStore", () => {
         getActiveId: async () => "p1",
         getKey: async () => "sk-test",
       } as never,
-      controller: { approve: async () => ({ approve: true }) },
+      controller: { approve: async () => ({ approve: true, scope: "c1", via: "granted" }) },
     } as never);
 
     const sendPromise = useAgentStore.getState().sendMessage("hello");
@@ -422,7 +422,7 @@ describe("agentStore", () => {
         getActiveId: async () => "p1",
         getKey: async () => "sk-test",
       } as never,
-      controller: { approve: async () => ({ approve: true }) },
+      controller: { approve: async () => ({ approve: true, scope: "c1", via: "granted" }) },
     } as never);
 
     const firstPromise = useAgentStore.getState().sendMessage("first");
@@ -484,7 +484,7 @@ describe("agentStore", () => {
         getActiveId: async () => "p1",
         getKey: async () => "sk-test",
       } as never,
-      controller: { approve: async () => ({ approve: true }) },
+      controller: { approve: async () => ({ approve: true, scope: "c1", via: "granted" }) },
     } as never);
 
     const firstPromise = useAgentStore.getState().sendMessage("first");
@@ -540,7 +540,7 @@ describe("agentStore", () => {
         getActiveId: async () => "p1",
         getKey: async () => "sk-test",
       } as never,
-      controller: { approve: async () => ({ approve: true }) },
+      controller: { approve: async () => ({ approve: true, scope: "c1", via: "granted" }) },
     } as never);
 
     const firstPromise = useAgentStore.getState().sendMessage("first");
@@ -581,7 +581,7 @@ describe("agentStore", () => {
         getActiveId: async () => "p1",
         getKey: async () => "sk-test",
       } as never,
-      controller: { approve: async () => ({ approve: true }) },
+      controller: { approve: async () => ({ approve: true, scope: "c1", via: "granted" }) },
     } as never);
 
     const sendPromise = useAgentStore.getState().sendMessage("hello");
@@ -621,7 +621,7 @@ describe("agentStore", () => {
         getActiveId: async () => "p1",
         getKey: async () => "sk-test",
       } as never,
-      controller: { approve: async () => ({ approve: true }) },
+      controller: { approve: async () => ({ approve: true, scope: "c1", via: "granted" }) },
     } as never);
 
     const sendPromise = useAgentStore.getState().sendMessage("hello");
@@ -657,7 +657,7 @@ describe("agentStore", () => {
         getActiveId: async () => "p1",
         getKey: async () => "sk-test",
       } as never,
-      controller: { approve: async () => ({ approve: true }) },
+      controller: { approve: async () => ({ approve: true, scope: "c1", via: "granted" }) },
     } as never);
 
     const sendPromise = useAgentStore.getState().sendMessage("hello");
@@ -691,7 +691,7 @@ describe("agentStore", () => {
         getActiveId: async () => "p1",
         getKey: async () => "sk-test",
       } as never,
-      controller: { approve: async () => ({ approve: true }) },
+      controller: { approve: async () => ({ approve: true, scope: "c1", via: "granted" }) },
     } as never;
     _setDeps(fakeDeps);
 
@@ -734,7 +734,7 @@ describe("agentStore", () => {
         getActiveId: async () => "p1",
         getKey: async () => "sk-test",
       } as never,
-      controller: { approve: async () => ({ approve: true }) },
+      controller: { approve: async () => ({ approve: true, scope: "c1", via: "granted" }) },
     } as never);
 
     const sendPromise = useAgentStore.getState().sendMessage("hello");
@@ -773,7 +773,7 @@ describe("agentStore", () => {
         getActiveId: async () => "p1",
         getKey: async () => "sk-test",
       } as never,
-      controller: { approve: async () => ({ approve: true }) },
+      controller: { approve: async () => ({ approve: true, scope: "c1", via: "granted" }) },
     } as never);
 
     await useAgentStore.getState().sendMessage("hello again");
@@ -921,7 +921,7 @@ describe("agentStore", () => {
     // And the refusal is real, not merely an empty set.
     const run = buildTools({
       api: fakeApi({}) as never,
-      approve: async () => ({ approve: true }),
+      approve: async () => ({ approve: true, scope: "c1", via: "granted" }),
       owned: ownedAfter,
     } as AgentContext).find((t) => t.name === "run_command")!;
     await expect(run.execute({ sessionId: "sess-old", command: "ls" })).resolves.toMatchObject({
@@ -1359,7 +1359,7 @@ describe("approval generation binding", () => {
         getActiveId: () => activeId.promise,
         getKey: async () => "sk-test",
       } as never,
-      controller: { approve: async () => ({ approve: true }) },
+      controller: { approve: async () => ({ approve: true, scope: "c1", via: "granted" }) },
     } as never);
     mockModel.current = textModel("should not run");
 
@@ -1381,12 +1381,12 @@ describe("approval generation binding", () => {
       getActiveId: () => activeId.promise,
       getKey: async () => "sk-test",
     } as never;
-    _setDeps({ api: fakeApi(), profiles, controller: { approve: async () => ({ approve: true }) } } as never);
+    _setDeps({ api: fakeApi(), profiles, controller: { approve: async () => ({ approve: true, scope: "c1", via: "granted" }) } } as never);
     mockModel.current = textModel("should not run");
 
     const p = useAgentStore.getState().sendMessage("hello");
     // A fresh activation swaps in a different deps object under the same key.
-    _setDeps({ api: fakeApi(), profiles, controller: { approve: async () => ({ approve: true }) } } as never);
+    _setDeps({ api: fakeApi(), profiles, controller: { approve: async () => ({ approve: true, scope: "c1", via: "granted" }) } } as never);
     activeId.resolve("p1");
     await p;
 
@@ -1414,7 +1414,7 @@ describe("approval generation binding", () => {
       grants: [{ scope: "c1", tool: "open_session", grain: "tool", key: "open_session" }],
     });
 
-    useAgentStore.getState().resolveApproval(card.id, { approve: true });
+    useAgentStore.getState().resolveApproval(card.id, { approve: true, scope: "c1", via: "prompted" });
     expect(await exec).toEqual({ sessionId: "sess-1" });
     expect(h.openSpy).toHaveBeenCalledWith("c1");
 
