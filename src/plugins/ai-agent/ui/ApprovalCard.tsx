@@ -42,8 +42,17 @@ export function ApprovalCard({ pending }: { pending: PendingApproval }) {
   const onSaveEdit = () => {
     const args = { ...pending.args };
     if ("command" in pending.args) args.command = command;
-    if ("connectionId" in pending.args) args.connectionId = connectionId;
-    resolveApproval(pending.id, { approve: true, scope: pending.scope, via: "prompted", args });
+    // For an open_session-shaped call the scope IS the connection id, so an
+    // edit to connectionId here must carry through to the resolved scope —
+    // otherwise a later audit record would attribute the call to the
+    // connection it was originally proposed against, not the one it actually
+    // ran on.
+    let scope = pending.scope;
+    if ("connectionId" in pending.args) {
+      args.connectionId = connectionId;
+      scope = connectionId;
+    }
+    resolveApproval(pending.id, { approve: true, scope, via: "prompted", args });
   };
 
   const onConfirmReject = () => {

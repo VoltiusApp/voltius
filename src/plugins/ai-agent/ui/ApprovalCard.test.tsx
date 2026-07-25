@@ -167,6 +167,32 @@ describe("ApprovalCard", () => {
     expect(screen.queryByText(/\bc1\b/)).toBeNull();
   });
 
+  // Important 1: editing connectionId on an open_session-shaped call must
+  // resolve with the EDITED id as scope, not the original — otherwise a
+  // later audit record would claim the call targeted the connection it was
+  // first proposed against, while open_session actually opened the edited
+  // one.
+  it("resolves with the edited connectionId as scope when saved from the edit form", () => {
+    const openSessionPending = makePending({
+      tool: "open_session",
+      args: { connectionId: "c1" },
+      scope: "c1",
+      grants: [],
+    });
+    useAgentStore.setState({ pendingApprovals: [openSessionPending], allowlist: [] });
+    render(<ApprovalCard pending={openSessionPending} />);
+    fireEvent.click(screen.getByText("Edit"));
+    const input = screen.getByPlaceholderText("connectionId");
+    fireEvent.change(input, { target: { value: "c2" } });
+    fireEvent.click(screen.getByText("Save & Approve"));
+    expect(openSessionPending.resolve).toHaveBeenCalledWith({
+      approve: true,
+      scope: "c2",
+      via: "prompted",
+      args: { connectionId: "c2" },
+    });
+  });
+
   it("labels an unresolvable scope instead of rendering a blank", async () => {
     vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({
       api: { connections: { list: async () => CONNS } },

@@ -48,15 +48,21 @@ export function createApprovalController(deps: ApprovalControllerDeps) {
         return { approve: false, reason: "plan mode — propose this as a step; do not execute" };
       }
       // Derived BEFORE the auto shortcut so every approved path carries a
-      // connection target to audit against. This does not change any
-      // authorization outcome — `scope` feeds only allowlistCandidates, and
-      // `auto` approves regardless — but it does mean `auto` now passes
-      // through the post-await abort re-check below, which it previously
-      // skipped entirely. That is strictly safer. `plan` still returns above
-      // without paying for the IPC.
+      // connection target to audit against. `scope` feeds only
+      // allowlistCandidates; `plan` still returns above without paying for
+      // the IPC. No input becomes more permissive because of that move.
+      // Exactly one becomes stricter: previously `auto` returned immediately
+      // after the mode gate, with no abort check on its path at all; now it
+      // runs the re-check below first, so a Stop/supersede landing during
+      // this await flips an auto-mode call from approved to denied. The
+      // three paths that run after this await — `auto_mode`, `granted` (an
+      // existing allowlist entry), and the card path (`addPending` below) —
+      // all see that re-check first. `mode` itself was read above, before
+      // this await, and is not re-read after it.
       const scope = await deps.deriveScope(call.tool, call.args);
-      // Re-checked here: `deriveScope` is a real IPC round trip, so a call can
-      // be parked in the await above at the instant the user hits Stop.
+      // Re-checked here — the abort latch only, not `mode`: `deriveScope` is
+      // a real IPC round trip, so a call can be parked in the await above at
+      // the instant the user hits Stop.
       if (deps.isAborted(generation)) return { approve: false, reason: "aborted" };
       if (mode === "auto") {
         return { approve: true, scope: scope ?? UNKNOWN_SCOPE, via: "auto_mode" };
@@ -65,6 +71,9 @@ export function createApprovalController(deps: ApprovalControllerDeps) {
       // auto-approve nor offer a grant — the fail-closed behaviour 3a
       // established, now expressed in one place instead of three.
       const grants = scope === null ? [] : deps.allowlistCandidates(call.tool, call.args, scope);
+      // `scope !== null` here is only type-narrowing for TS — the ternary
+      // above already collapses `grants` to `[]` whenever scope is null, so
+      // this is not the fail-closed gate; that gate is the line above.
       if (scope !== null && grants.some((g) => deps.hasAllowlist(g))) {
         return { approve: true, scope, via: "granted" };
       }
