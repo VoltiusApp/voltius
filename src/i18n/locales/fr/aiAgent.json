@@ -62,6 +62,12 @@
           "confirm": "Tout révoquer"
         }
       }
+    },
+    "drawer": {
+      "newConversation": "Nouvelle conversation",
+      "pin": "Épingler",
+      "unpin": "Détacher",
+      "close": "Fermer"
     }
   }
 }

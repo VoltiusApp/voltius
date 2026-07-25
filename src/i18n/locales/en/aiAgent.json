@@ -62,6 +62,12 @@
           "confirm": "Revoke all"
         }
       }
+    },
+    "drawer": {
+      "newConversation": "New conversation",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "close": "Close"
     }
   }
 }

@@ -79,6 +79,7 @@ interface AgentState {
   resolveApproval(id: string, d: ToolDecision): void;
   sendMessage(text: string): Promise<void>;
   stop(): void;
+  newConversation(): Promise<void>;
   _addPending(p: PendingApproval): void;
   _persistAllowlist(): void;
   _persistConversation(): void;
@@ -89,8 +90,13 @@ const MODE_ORDER: Mode[] = ["plan", "ask", "auto"];
 
 let abortController: AbortController | null = null;
 let ownedSessions = new Set<string>();
-/** Test seam: reset the conversation-lifetime owned-session registry. */
-export const _resetOwnedSessions = () => { ownedSessions = new Set(); };
+/**
+ * Clear the conversation-lifetime owned-session registry. Called from exactly
+ * two places, and both are required: `initAgent` (a fresh activation owns
+ * nothing) and `newConversation` (session ids must not stay agent-owned across
+ * conversations). Anything else that ends a conversation must call this too.
+ */
+export const resetOwnedSessions = () => { ownedSessions = new Set(); };
 
 /**
  * Generation-bound abort latch for the approval port.
@@ -195,6 +201,26 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     // clicking Approve on it after Stop would run a command the user just
     // said no to, and leaving it unresolved leaks the promise forever.
     get()._rejectAllPending("aborted");
+  },
+
+  newConversation: async () => {
+    // Same cancellation sequence as stop(), because a new conversation must
+    // not leave the old one's run or cards alive…
+    abortController?.abort();
+    abortedGeneration = runGeneration;
+    get()._rejectAllPending("superseded");
+    // …and the bump is what kills an approval parked in deriveScope: it can
+    // never come back to this generation. See isGenerationDead above.
+    runGeneration += 1;
+    // Ownership drops, but agent-owned SSH sessions are left open — closing
+    // them here could race a session the user is still reading, the same
+    // reasoning shutdownAgent's comment records.
+    resetOwnedSessions();
+    set({ transcript: [], messages: [], runStatus: "idle", errorText: null });
+    const api = deps?.api;
+    void api?.storage.delete(CONVERSATION_KEY);
+    const stored = await api?.storage.get<Mode>("agentMode");
+    set({ mode: stored ?? "ask" });
   },
 
   sendMessage: async (text) => {
@@ -312,11 +338,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 }));
 
 export async function initAgent(api: PluginAPI): Promise<void> {
-  // Owned sessions are scoped to a conversation; today a conversation lasts
-  // exactly one activation, so resetting here is sufficient. Whenever a
-  // "new conversation" action is added, it must reset this too, or session
-  // ids from the previous conversation stay agent-owned.
-  ownedSessions = new Set();
+  // A fresh activation owns nothing yet. See resetOwnedSessions above for the
+  // invariant this shares with newConversation.
+  resetOwnedSessions();
   // Symmetric with shutdownAgent: an orphan card from a dead activation
   // (e.g. teardown was skipped, or I1's abort races before this fix) must
   // not survive into a re-enabled drawer — approving it would resolve a tool

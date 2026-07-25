@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { useAgentStore, getAgentDeps } from "../state/agentStore";
 import { useUIStore } from "@/stores/uiStore";
 import { Transcript } from "./Transcript";
@@ -125,7 +126,9 @@ function useDockRect(active: boolean): DockRect | null {
 }
 
 export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useTranslation();
   const runStatus = useAgentStore((s) => s.runStatus);
+  const newConversation = useAgentStore((s) => s.newConversation);
   const [hasProfile, refreshHasProfile] = useHasProfile(open);
   const { pinned, width, setPinned } = usePinnedWidth();
   const setDockedPanelWidth = useUIStore((s) => s.setDockedPanelWidth);
@@ -194,14 +197,28 @@ export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void
         <div style={{ flex: 1 }} />
         <button
           type="button"
+          onClick={() => void newConversation()}
+          title={t("aiAgent.drawer.newConversation")}
+          aria-label={t("aiAgent.drawer.newConversation")}
+          style={{ background: "transparent", color: "var(--t-text-secondary)" }}
+        >
+          <Icon icon="lucide:message-square-plus" width={15} />
+        </button>
+        <button
+          type="button"
           onClick={() => setPinned(!pinned)}
-          title={pinned ? "Unpin" : "Pin"}
+          title={pinned ? t("aiAgent.drawer.unpin") : t("aiAgent.drawer.pin")}
           aria-pressed={pinned}
           style={{ background: "transparent", color: pinned ? "var(--t-accent)" : "var(--t-text-secondary)" }}
         >
           <Icon icon="lucide:pin" width={15} />
         </button>
-        <button type="button" onClick={onClose} title="Close" style={{ background: "transparent", color: "var(--t-text-secondary)" }}>
+        <button
+          type="button"
+          onClick={onClose}
+          title={t("aiAgent.drawer.close")}
+          style={{ background: "transparent", color: "var(--t-text-secondary)" }}
+        >
           <Icon icon="lucide:x" width={16} />
         </button>
       </div>

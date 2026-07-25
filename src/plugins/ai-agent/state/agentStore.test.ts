@@ -47,6 +47,18 @@ function fakeApi(store: Record<string, unknown> = {}) {
   } as never;
 }
 
+function profilesStub() {
+  return {
+    list: async () => [{ id: "p1", providerKind: "anthropic", label: "A", model: "claude-x" }],
+    getActiveId: async () => "p1",
+    getKey: async () => "sk-test",
+  } as never;
+}
+
+function approveAllController() {
+  return { approve: async () => ({ approve: true }) };
+}
+
 describe("agentStore", () => {
   beforeEach(() => {
     useAgentStore.setState({
@@ -749,6 +761,74 @@ describe("agentStore", () => {
     expect(res).toEqual({ error: "rejected by user", reason: "aborted" });
     expect(useAgentStore.getState().pendingApprovals).toHaveLength(0);
     expect(openSpy).not.toHaveBeenCalled();
+  });
+
+  it("newConversation clears the transcript, messages, and the persisted key", async () => {
+    const store: Record<string, unknown> = { conversation: { v: 1, transcript: [], messages: [] } };
+    const api = fakeApi(store);
+    _setDeps({ api, profiles: {} as never, controller: {} as never });
+    useAgentStore.setState({ transcript: [{ kind: "user", text: "old" }], messages: [{ role: "user", content: "old" }] });
+    await useAgentStore.getState().newConversation();
+    expect(useAgentStore.getState().transcript).toEqual([]);
+    expect(useAgentStore.getState().messages).toEqual([]);
+    expect((api as unknown as { storage: { delete: ReturnType<typeof vi.fn> } }).storage.delete).toHaveBeenCalledWith("conversation");
+  });
+
+  it("newConversation resets the mode to the stored global default", async () => {
+    _setDeps({ api: fakeApi({ agentMode: "plan" }), profiles: {} as never, controller: {} as never });
+    useAgentStore.setState({ mode: "auto" });
+    await useAgentStore.getState().newConversation();
+    expect(useAgentStore.getState().mode).toBe("plan");
+  });
+
+  it("newConversation falls back to ask when no global default is stored", async () => {
+    _setDeps({ api: fakeApi({}), profiles: {} as never, controller: {} as never });
+    useAgentStore.setState({ mode: "auto" });
+    await useAgentStore.getState().newConversation();
+    expect(useAgentStore.getState().mode).toBe("ask");
+  });
+
+  it("newConversation rejects pending approvals and bumps the generation", async () => {
+    _setDeps({ api: fakeApi({}), profiles: {} as never, controller: {} as never });
+    const resolve = vi.fn();
+    useAgentStore.getState()._addPending({
+      id: "p1", tool: "run_command", args: { command: "df" }, scope: "c1", grants: [], resolve,
+    });
+    const before = _currentRunGeneration();
+    await useAgentStore.getState().newConversation();
+    expect(resolve).toHaveBeenCalledWith({ approve: false, reason: "superseded" });
+    expect(useAgentStore.getState().pendingApprovals).toEqual([]);
+    expect(_currentRunGeneration()).toBeGreaterThan(before);
+  });
+
+  it("newConversation drops owned sessions so a recalled id is refused", async () => {
+    // MUST observe the store's own module-private ownedSessions, not a local
+    // Set: a test that builds its own Set passes even if newConversation resets
+    // nothing. The store hands the live Set to every tool context as `ctx.owned`
+    // (agentStore.ts:245), so capture it from the spied runAgent call.
+    // Cleared first so calls[0]/calls[1] below are this test's own two
+    // dispatches, not leftover history from earlier tests in this file.
+    vi.mocked(runAgent).mockClear();
+    _setDeps({ api: fakeApi({}), profiles: profilesStub(), controller: approveAllController() });
+    await useAgentStore.getState().sendMessage("open a session");
+    const owned = vi.mocked(runAgent).mock.calls[0][0].ctx.owned;
+    owned.add("sess-old"); // stand in for a completed open_session
+
+    await useAgentStore.getState().newConversation();
+
+    await useAgentStore.getState().sendMessage("reuse that session");
+    const ownedAfter = vi.mocked(runAgent).mock.calls[1][0].ctx.owned;
+    expect(ownedAfter.has("sess-old")).toBe(false);
+
+    // And the refusal is real, not merely an empty set.
+    const run = buildTools({
+      api: fakeApi({}) as never,
+      approve: async () => ({ approve: true }),
+      owned: ownedAfter,
+    } as AgentContext).find((t) => t.name === "run_command")!;
+    await expect(run.execute({ sessionId: "sess-old", command: "ls" })).resolves.toMatchObject({
+      error: expect.stringContaining("not owned by agent"),
+    });
   });
 });
 
