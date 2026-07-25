@@ -9,16 +9,18 @@ export const CONVERSATION_VERSION = 1;
 export const MAX_MESSAGES_BYTES = 256_000;
 export const MAX_TRANSCRIPT_ENTRIES = 200;
 export const MAX_TOOL_RESULT_BYTES = 8_000;
-/** The transcript is display-only — `user`/`assistant` `text` and `tool`
- * `detail` only ever render in the drawer, so none of them need the fidelity
- * `messages` needs for the model's context — each is capped far below
- * MAX_TOOL_RESULT_BYTES. */
-export const MAX_TRANSCRIPT_TEXT_CHARS = 1_000;
+/** `tool` `detail` renders as a single-line chip in the drawer, so it's capped
+ * far tighter than prose — well below MAX_TOOL_RESULT_BYTES. `user`/`assistant`
+ * `text` is full prose and is instead clamped at MAX_TOOL_RESULT_BYTES (see
+ * clampTranscript), so a normal reply survives persist uncut and MAX_TRANSCRIPT_BYTES
+ * does the real bounding. */
+export const MAX_TRANSCRIPT_DETAIL_CHARS = 1_000;
 /** Backstop on `JSON.stringify(transcript).length` after the count and
- * per-field text caps, since a whole-file rewrite that also carries the
- * allowlist must stay small regardless of how many entries or how wide the
- * count cap is. With every field already bounded by MAX_TRANSCRIPT_TEXT_CHARS,
- * this loop can always reach the budget without dropping the last entry. */
+ * per-field caps, since a whole-file rewrite that also carries the allowlist
+ * must stay small regardless of how many entries there are or how wide any
+ * single field is allowed to be. With every field already bounded (detail by
+ * MAX_TRANSCRIPT_DETAIL_CHARS, text by MAX_TOOL_RESULT_BYTES), this loop can
+ * always reach the budget without dropping the last entry. */
 export const MAX_TRANSCRIPT_BYTES = 64_000;
 export const TRUNCATION_MARKER = "\n…truncated";
 
@@ -93,8 +95,8 @@ function capMessages(messages: ModelMessage[]): ModelMessage[] {
 function clampTranscript(transcript: TranscriptEntry[]): TranscriptEntry[] {
   const clamped = transcript
     .map((e) => (e.kind === "tool"
-      ? { ...e, detail: clampToLimit(e.detail, MAX_TRANSCRIPT_TEXT_CHARS) }
-      : { ...e, text: clampToLimit(e.text, MAX_TRANSCRIPT_TEXT_CHARS) }))
+      ? { ...e, detail: clampToLimit(e.detail, MAX_TRANSCRIPT_DETAIL_CHARS) }
+      : { ...e, text: clampToLimit(e.text, MAX_TOOL_RESULT_BYTES) }))
     .slice(-MAX_TRANSCRIPT_ENTRIES);
   let current = clamped;
   while (JSON.stringify(current).length > MAX_TRANSCRIPT_BYTES && current.length > 1) {

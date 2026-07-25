@@ -4,7 +4,7 @@ import type { TranscriptEntry } from "./agentStore";
 import {
   serializeConversation, deserializeConversation,
   MAX_TRANSCRIPT_ENTRIES, MAX_TOOL_RESULT_BYTES, MAX_MESSAGES_BYTES, TRUNCATION_MARKER,
-  MAX_TRANSCRIPT_TEXT_CHARS, MAX_TRANSCRIPT_BYTES,
+  MAX_TRANSCRIPT_DETAIL_CHARS, MAX_TRANSCRIPT_BYTES,
 } from "./persistence";
 
 const userMsg = (t: string): ModelMessage => ({ role: "user", content: t });
@@ -77,23 +77,23 @@ describe("serializeConversation", () => {
     expect(part.output.value.endsWith(TRUNCATION_MARKER)).toBe(true);
   });
 
-  it("clamps a transcript tool detail to MAX_TRANSCRIPT_TEXT_CHARS, not MAX_TOOL_RESULT_BYTES", () => {
+  it("clamps a transcript tool detail to MAX_TRANSCRIPT_DETAIL_CHARS, not MAX_TOOL_RESULT_BYTES", () => {
     const transcript: TranscriptEntry[] = [{ kind: "tool", tool: "run_command", state: "result", detail: "x".repeat(MAX_TOOL_RESULT_BYTES) }];
     const detail = (serializeConversation(transcript, []).transcript[0] as { detail: string }).detail;
-    expect(detail.length).toBeLessThanOrEqual(MAX_TRANSCRIPT_TEXT_CHARS + TRUNCATION_MARKER.length);
+    expect(detail.length).toBeLessThanOrEqual(MAX_TRANSCRIPT_DETAIL_CHARS + TRUNCATION_MARKER.length);
     expect(detail.endsWith(TRUNCATION_MARKER)).toBe(true);
   });
 
-  it("clamps an oversized user entry's text, bounding the whole transcript", () => {
+  it("clamps an oversized user entry's text at MAX_TOOL_RESULT_BYTES, bounding the whole transcript", () => {
     const transcript: TranscriptEntry[] = [{ kind: "user", text: "u".repeat(500_000) }];
     const out = serializeConversation(transcript, []);
     expect(JSON.stringify(out.transcript).length).toBeLessThanOrEqual(MAX_TRANSCRIPT_BYTES);
     const text = (out.transcript[0] as { text: string }).text;
-    expect(text.length).toBeLessThanOrEqual(MAX_TRANSCRIPT_TEXT_CHARS + TRUNCATION_MARKER.length);
+    expect(text.length).toBeLessThanOrEqual(MAX_TOOL_RESULT_BYTES + TRUNCATION_MARKER.length);
     expect(text.endsWith(TRUNCATION_MARKER)).toBe(true);
   });
 
-  it("clamps five oversized assistant entries, bounding the whole transcript", () => {
+  it("clamps five oversized assistant entries at MAX_TOOL_RESULT_BYTES, bounding the whole transcript", () => {
     const transcript: TranscriptEntry[] = Array.from({ length: 5 }, () => ({
       kind: "assistant" as const, text: "a".repeat(200_000),
     }));
@@ -101,8 +101,18 @@ describe("serializeConversation", () => {
     expect(JSON.stringify(out.transcript).length).toBeLessThanOrEqual(MAX_TRANSCRIPT_BYTES);
     expect(out.transcript).toHaveLength(5);
     for (const e of out.transcript) {
-      expect((e as { text: string }).text.length).toBeLessThanOrEqual(MAX_TRANSCRIPT_TEXT_CHARS + TRUNCATION_MARKER.length);
+      expect((e as { text: string }).text.length).toBeLessThanOrEqual(MAX_TOOL_RESULT_BYTES + TRUNCATION_MARKER.length);
     }
+  });
+
+  it("a long assistant reply survives persistence uncut at the new (MAX_TOOL_RESULT_BYTES) limit", () => {
+    // Regression for the too-tight cap: ~150 words (well over the old 1_000-char
+    // prose limit) must round-trip whole, not show up truncated in the drawer
+    // while `messages` still holds it in full.
+    const reply = "word ".repeat(700).trim(); // ~3_500 chars, under MAX_TOOL_RESULT_BYTES
+    const transcript: TranscriptEntry[] = [{ kind: "assistant", text: reply }];
+    const out = serializeConversation(transcript, []);
+    expect((out.transcript[0] as { text: string }).text).toBe(reply);
   });
 
   it("bounds a mixed-kind transcript well over budget", () => {
