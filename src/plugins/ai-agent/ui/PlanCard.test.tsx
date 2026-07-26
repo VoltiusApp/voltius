@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Module-level pending load callback — afterEach(cleanup) is NOT enough.
@@ -9,15 +9,28 @@ vi.mock("react-i18next", () => ({
 }));
 
 import { useAgentStore } from "../state/agentStore";
+import * as storeMod from "../state/agentStore";
 import { PlanCard } from "./PlanCard";
 
-const step = (over: Partial<{ id: string; command: string; status: string }> = {}) => ({
+const step = (over: Partial<{ id: string; command: string; status: string; connectionId: string }> = {}) => ({
   id: "step-1", tool: "run_command" as const, connectionId: "conn-A",
   command: "df -h", rationale: "check disk", status: "pending" as const, ...over,
 });
 
-afterEach(cleanup);
-beforeEach(() => useAgentStore.setState({ pendingPlan: null, transcript: [], planBatch: null }));
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+beforeEach(() => {
+  useAgentStore.setState({ pendingPlan: null, transcript: [], planBatch: null });
+  // Default: connections never resolve, so every step's connection label
+  // stays `pending` and the badge tracks `canPreAuthorize` alone — the
+  // pre-existing behaviour every test below except the I1 tests relies on.
+  // The two I1 tests override this per-case with a settled connections list.
+  vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({
+    api: { connections: { list: () => new Promise(() => {}) } },
+  } as never);
+});
 
 describe("PlanCard", () => {
   const live = (steps = [step()]) => {
@@ -75,6 +88,38 @@ describe("PlanCard", () => {
 
   it("does NOT badge a plain command", () => {
     live();
+    expect(screen.queryByText("aiAgent.plan.willStillAsk")).toBeNull();
+  });
+
+  // I1: a step naming a connection that doesn't resolve must badge even
+  // though `canPreAuthorize` alone would say the step is fine — the token
+  // `mintTokens` produces for it is inert (`deriveScope` returns null at
+  // execution), so the card the badge warns about really does happen.
+  it("badges a step whose connection does not resolve to a real connection", async () => {
+    vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({
+      api: { connections: { list: () => Promise.resolve([]) } },
+    } as never);
+    live([step({ connectionId: "conn-HALLUCINATED" })]);
+    await waitFor(() => expect(screen.getByText("aiAgent.plan.willStillAsk")).toBeTruthy());
+  });
+
+  // Non-vacuity partner: once the SAME kind of lookup resolves to a real
+  // connection, the badge must not fire on that account alone.
+  it("does NOT badge a step whose connection resolves to a real connection", async () => {
+    vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({
+      api: {
+        connections: {
+          list: () => Promise.resolve([
+            { id: "conn-A", name: "Test Conn", host: "h1", port: 22, username: "u", auth_type: "key", tags: [] },
+          ]),
+        },
+      },
+    } as never);
+    live([step({ connectionId: "conn-A" })]);
+    // Wait for the resolved connection's own name to render, proving the
+    // lookup actually settled to `connection` rather than asserting absence
+    // while it is still merely `pending`.
+    await waitFor(() => expect(screen.getByText(/Test Conn/)).toBeTruthy());
     expect(screen.queryByText("aiAgent.plan.willStillAsk")).toBeNull();
   });
 

@@ -65,7 +65,20 @@ export function PlanCard({ entry }: { entry: PlanEntry }) {
       </div>
 
       {rows.map((s, i) => {
-        const badge = live && !canPreAuthorize(stripStatus(s));
+        // A step can be pre-authorizable in principle (`canPreAuthorize`) yet
+        // name a connection that doesn't exist — a hallucinated or stale id.
+        // `mintTokens` still mints a token for it, but `deriveScope` returns
+        // null at execution, so the token can never match: the step WILL
+        // raise a card. The badge must say so.
+        //
+        // `pending` (the connection list hasn't loaded yet) is deliberately
+        // treated as resolved-for-now, not unresolvable: flashing the badge
+        // on for every step on first render and then clearing it a moment
+        // later would be a louder lie than the badge simply arriving a beat
+        // late for the rare hallucinated-id case.
+        const connKind = labelFor(s.connectionId).kind;
+        const unresolvedConnection = connKind !== "connection" && connKind !== "pending";
+        const badge = live && (!canPreAuthorize(stripStatus(s)) || unresolvedConnection);
         return (
           <div key={s.id} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>

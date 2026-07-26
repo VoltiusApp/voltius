@@ -4,6 +4,7 @@ import type { ApprovalVia, ToolDecision, ToolRisk } from "../types";
 import { auditAgentAction } from "../state/auditSeam";
 import {
   MAX_PLAN_COMMAND_CHARS,
+  MAX_PLAN_ID_CHARS,
   MAX_PLAN_RATIONALE_CHARS,
   MAX_PLAN_STEPS,
   type PlanStep,
@@ -57,7 +58,7 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
           .array(
             z.object({
               tool: z.enum(["open_session", "run_command", "close_session"]),
-              connectionId: z.string().min(1),
+              connectionId: z.string().min(1).max(MAX_PLAN_ID_CHARS),
               command: z.string().max(MAX_PLAN_COMMAND_CHARS).optional(),
               rationale: z.string().max(MAX_PLAN_RATIONALE_CHARS),
             }),

@@ -2,6 +2,7 @@ import { describe, test, it, expect, vi, beforeEach } from "vitest";
 import { buildTools, type AgentContext, type AgentTool } from "./registry";
 import {
   MAX_PLAN_COMMAND_CHARS,
+  MAX_PLAN_ID_CHARS,
   MAX_PLAN_RATIONALE_CHARS,
   MAX_PLAN_STEPS,
   type PlanStep,
@@ -209,6 +210,22 @@ describe("propose_plan", () => {
     expect((result as { steps: { command: string }[] }).steps[0].command).toBe("df -h /");
   });
 
+  // Non-vacuity partner for the "run" case above: "ask" must report
+  // `preAuthorized: false`, or the model would narrate steps as pre-approved
+  // when the user will in fact be asked before every single one.
+  it("reports preAuthorized: false for an 'ask' verdict", async () => {
+    const ctx = makeCtx({
+      proposePlan: vi.fn(async (_steps: PlanStep[]) => ({
+        approve: "ask" as const,
+        steps: [{ id: "step-1", tool: "run_command" as const, connectionId: "conn-A", command: "df -h", rationale: "r" }],
+      })),
+    });
+    const result = await toolNamed(ctx, "propose_plan").execute({
+      steps: [{ tool: "run_command", connectionId: "conn-A", command: "df -h", rationale: "r" }],
+    });
+    expect(result).toMatchObject({ approved: true, preAuthorized: false });
+  });
+
   it("reports a rejection without throwing", async () => {
     const ctx = makeCtx({ proposePlan: vi.fn(async () => ({ approve: false as const, reason: "nope" })) });
     await expect(toolNamed(ctx, "propose_plan").execute({
@@ -343,6 +360,21 @@ describe("propose_plan schema", () => {
     const result = schemaOf(ctx).safeParse({ steps });
     expect(result.success).toBe(false);
     expect(proposePlan).not.toHaveBeenCalled();
+  });
+
+  it("rejects a connectionId of MAX_PLAN_ID_CHARS + 1 without reaching proposePlan", () => {
+    const proposePlan = vi.fn(async () => ({ approve: false as const }));
+    const ctx = makeCtx({ proposePlan });
+    const steps = [validStep({ connectionId: "x".repeat(MAX_PLAN_ID_CHARS + 1) })];
+    const result = schemaOf(ctx).safeParse({ steps });
+    expect(result.success).toBe(false);
+    expect(proposePlan).not.toHaveBeenCalled();
+  });
+
+  it("accepts a connectionId of exactly MAX_PLAN_ID_CHARS (non-vacuity partner)", () => {
+    const ctx = makeCtx();
+    const steps = [validStep({ connectionId: "x".repeat(MAX_PLAN_ID_CHARS) })];
+    expect(schemaOf(ctx).safeParse({ steps }).success).toBe(true);
   });
 
   it("rejects zero steps without reaching proposePlan", () => {

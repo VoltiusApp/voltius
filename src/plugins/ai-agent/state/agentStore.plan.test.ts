@@ -106,6 +106,12 @@ describe("resolvePlan", () => {
     await promise;
     expect(consumePlanToken(entryFor("df -h"))).toBe(false);
     expect(consumePlanToken(entryFor("df -h /"))).toBe(true);
+    // The persisted transcript entry — the card's own source of truth on
+    // rerender, and the only local record of what was pre-authorized — must
+    // also reflect the EDITED text, not the originally proposed command.
+    // Without this, the mint and the record could silently diverge.
+    const entry = last(useAgentStore.getState().transcript) as { steps: { command?: string }[] };
+    expect(entry.steps.map((s) => s.command)).toEqual(["df -h /"]);
   });
 
   it("mints nothing for a removed step", async () => {
