@@ -1,6 +1,11 @@
 import { describe, test, it, expect, vi, beforeEach } from "vitest";
 import { buildTools, type AgentContext, type AgentTool } from "./registry";
-import type { PlanStep } from "../state/planTokens";
+import {
+  MAX_PLAN_COMMAND_CHARS,
+  MAX_PLAN_RATIONALE_CHARS,
+  MAX_PLAN_STEPS,
+  type PlanStep,
+} from "../state/planTokens";
 
 vi.mock("./capture", () => ({
   captureCommand: vi.fn(async () => ({ output: "ok", exitCode: 0, timedOut: false, truncated: false, incomplete: false })),
@@ -270,5 +275,90 @@ describe("ownership is checked upstream of any authorization", () => {
       buildTools(ctx).find((x) => x.name === "close_session")!.execute({ sessionId: "sess-ghost" }),
     ).resolves.toMatchObject({ error: expect.stringContaining("not owned") });
     expect(approve).not.toHaveBeenCalled();
+  });
+});
+
+// `execute` does not itself run `propose_plan`'s zod schema — it trusts its
+// `raw` argument. The schema is only enforced by the AI SDK adapter, which
+// parses model input against `tool.schema` and calls `execute` with the
+// parsed value ONLY on success (verified end-to-end in the task-5 review).
+// So these tests pin the schema directly via `tool.schema.safeParse`, and
+// express "never reaches ctx.proposePlan" the same way the SDK does: a
+// failed parse means `execute` (and therefore `proposePlan`) is never
+// invoked at all.
+describe("propose_plan schema", () => {
+  const schemaOf = (c: AgentContext) => buildTools(c).find((x) => x.name === "propose_plan")!.schema;
+
+  const validStep = (over: Record<string, unknown> = {}) => ({
+    tool: "run_command",
+    connectionId: "conn-A",
+    command: "df -h",
+    rationale: "r",
+    ...over,
+  });
+
+  it("rejects 21 steps (over MAX_PLAN_STEPS) without reaching proposePlan", () => {
+    const proposePlan = vi.fn(async () => ({ approve: false as const }));
+    const ctx = makeCtx({ proposePlan });
+    const steps = Array.from({ length: MAX_PLAN_STEPS + 1 }, () => validStep());
+    const result = schemaOf(ctx).safeParse({ steps });
+    expect(result.success).toBe(false);
+    expect(proposePlan).not.toHaveBeenCalled();
+  });
+
+  it("accepts exactly MAX_PLAN_STEPS steps (non-vacuity partner)", () => {
+    const ctx = makeCtx();
+    const steps = Array.from({ length: MAX_PLAN_STEPS }, () => validStep());
+    expect(schemaOf(ctx).safeParse({ steps }).success).toBe(true);
+  });
+
+  it("rejects a command of MAX_PLAN_COMMAND_CHARS + 1 without reaching proposePlan", () => {
+    const proposePlan = vi.fn(async () => ({ approve: false as const }));
+    const ctx = makeCtx({ proposePlan });
+    const steps = [validStep({ command: "x".repeat(MAX_PLAN_COMMAND_CHARS + 1) })];
+    const result = schemaOf(ctx).safeParse({ steps });
+    expect(result.success).toBe(false);
+    expect(proposePlan).not.toHaveBeenCalled();
+  });
+
+  it("accepts a command of exactly MAX_PLAN_COMMAND_CHARS (non-vacuity partner)", () => {
+    const ctx = makeCtx();
+    const steps = [validStep({ command: "x".repeat(MAX_PLAN_COMMAND_CHARS) })];
+    expect(schemaOf(ctx).safeParse({ steps }).success).toBe(true);
+  });
+
+  it("rejects a rationale of MAX_PLAN_RATIONALE_CHARS + 1 without reaching proposePlan", () => {
+    const proposePlan = vi.fn(async () => ({ approve: false as const }));
+    const ctx = makeCtx({ proposePlan });
+    const steps = [validStep({ rationale: "x".repeat(MAX_PLAN_RATIONALE_CHARS + 1) })];
+    const result = schemaOf(ctx).safeParse({ steps });
+    expect(result.success).toBe(false);
+    expect(proposePlan).not.toHaveBeenCalled();
+  });
+
+  it("rejects an empty connectionId without reaching proposePlan", () => {
+    const proposePlan = vi.fn(async () => ({ approve: false as const }));
+    const ctx = makeCtx({ proposePlan });
+    const steps = [validStep({ connectionId: "" })];
+    const result = schemaOf(ctx).safeParse({ steps });
+    expect(result.success).toBe(false);
+    expect(proposePlan).not.toHaveBeenCalled();
+  });
+
+  it("rejects zero steps without reaching proposePlan", () => {
+    const proposePlan = vi.fn(async () => ({ approve: false as const }));
+    const ctx = makeCtx({ proposePlan });
+    const result = schemaOf(ctx).safeParse({ steps: [] });
+    expect(result.success).toBe(false);
+    expect(proposePlan).not.toHaveBeenCalled();
+  });
+
+  it("rejects a tool value outside the enum without reaching proposePlan", () => {
+    const proposePlan = vi.fn(async () => ({ approve: false as const }));
+    const ctx = makeCtx({ proposePlan });
+    const steps = [validStep({ tool: "delete_everything" })];
+    const result = schemaOf(ctx).safeParse({ steps });
+    expect(result.success).toBe(false);
+    expect(proposePlan).not.toHaveBeenCalled();
   });
 });
