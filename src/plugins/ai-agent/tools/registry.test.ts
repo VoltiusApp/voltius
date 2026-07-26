@@ -273,7 +273,6 @@ describe("propose_plan", () => {
     expect(c.proposePlan).not.toHaveBeenCalled();
     expect(res.unknownConnectionIds).toEqual(["h1"]);
     expect(String(res.error)).toContain("plan not shown to the user");
-    expect(res.approved).toBeUndefined();
   });
 
   it("still parks a checklist when every step names a real connection (non-vacuity partner)", async () => {

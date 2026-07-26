@@ -1336,7 +1336,7 @@ describe("approval generation binding", () => {
   // pass if the generation is bound at run dispatch: a call that captured
   // "whatever generation is current" on entry would read the LIVE one and be
   // auto-approved with no card and no trace.
-  it("auto mode: a tool call carrying a superseded run's generation is refused before deriveScope is ever consulted", async () => {
+  it("auto mode: a tool call carrying a superseded run's generation is refused, consulting the connection list exactly once, before the gate", async () => {
     const h = harness({ providerProfiles: [PROFILE], activeProfileId: "p1" });
     await initAgent(h.api as never);
     useAgentStore.getState().setMode("auto");
@@ -1345,16 +1345,12 @@ describe("approval generation binding", () => {
     await runTurn("second"); // run N+1 supersedes it
 
     const exec = openSessionOf(ctx).execute({ connectionId: "c1" });
-    h.conns.resolve([CONN]); // the connection-id guard now looks this up before the gate
-    // The connection-id guard runs before the generation gate and consults
-    // connections.list(), so "never reached deriveScope" (h.requested() === 0)
-    // is no longer the right proxy for "refused above the mode gate" — that
-    // guard now runs unconditionally. What must still hold, and is what this
-    // test pins, is that the generation is bound at run dispatch, not
-    // captured on entry: a superseded call is still refused as aborted and
-    // never opens a session, even after the guard's lookup completes.
+    h.conns.resolve([CONN]); // let the connection-id guard's own lookup complete
+    // A count of 1 means the top-of-approve() abort check caught it before
+    // deriveScope's own lookup; 2 would mean it slipped past that check.
     expect(await settledOr(exec)).toEqual({ error: "rejected by user", reason: "aborted" });
     expect(h.openSpy).not.toHaveBeenCalled();
+    expect(h.requested()).toBe(1);
   });
 
   // Test 5 — the Important. `sendMessage` captures `deps` and then awaits two
