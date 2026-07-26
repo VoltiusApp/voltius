@@ -14,6 +14,14 @@ import { consumeStream } from "./conversation";
 import { CONVERSATION_KEY, deserializeConversation, serializeConversation, type PersistedConversation } from "./persistence";
 import { type AttachedContext, type ContextAttachment, formatContextBlock } from "./touchpoint";
 import type { PlanEntryStep, PlanOutcome } from "./planTokens";
+import {
+  consumeToken,
+  mintTokens,
+  type PlanBatch,
+  type PlanStep,
+  type PlanStepStatus,
+  type PlanVerdict,
+} from "./planTokens";
 
 export type Mode = "plan" | "ask" | "auto";
 export type { AllowlistEntry } from "./allowlist";
@@ -27,6 +35,16 @@ export interface PendingApproval {
   /** Every grant the card may offer for this call; `[]` hides the control. */
   grants: AllowlistEntry[];
   resolve: (d: ToolDecision) => void;
+}
+
+export interface PendingPlan {
+  planId: string;
+  /** The generation of the run that proposed it. The batch minted on approval
+   *  inherits this, which is what makes the authority die on any generation
+   *  bump without an explicit teardown. */
+  generation: number;
+  steps: PlanStep[];
+  resolve: (v: PlanVerdict) => void;
 }
 
 export type TranscriptEntry =
@@ -92,6 +110,13 @@ interface AgentState {
   _persistAllowlist(): void;
   _persistConversation(): void;
   _rejectAllPending(reason: string): void;
+  pendingPlan: PendingPlan | null;
+  planBatch: PlanBatch | null;
+  proposePlan(steps: PlanStep[], generation: number): Promise<PlanVerdict>;
+  resolvePlan(planId: string, verdict: PlanVerdict): void;
+  _setPlanSteps(planId: string, steps: PlanStep[]): void;
+  _setPlanOutcome(planId: string, outcome: PlanOutcome): void;
+  _setPlanStepStatus(planId: string, stepId: string, status: PlanStepStatus): void;
 }
 
 const MODE_ORDER: Mode[] = ["plan", "ask", "auto"];
@@ -159,6 +184,43 @@ function isGenerationDead(generation: number): boolean {
  */
 export const _currentRunGeneration = (): number => runGeneration;
 
+let planCounter = 0;
+const nextPlanId = () => `plan-${++planCounter}`;
+
+/**
+ * True while a plan batch minted by the CURRENT run is live.
+ *
+ * The generation comparison is the load-bearing guard, not the explicit
+ * clears sprinkled through the lifecycle actions: `runGeneration` only ever
+ * grows, so a batch can never come back to life once a newConversation,
+ * initAgent or the next sendMessage has moved past it.
+ */
+export function planActive(): boolean {
+  const b = useAgentStore.getState().planBatch;
+  return b !== null && b.generation === runGeneration;
+}
+
+/**
+ * Consume one token matching `entry`. Synchronous with no `await` between the
+ * match and the write, which is what makes "one token, one execution" exact:
+ * the AI SDK can dispatch several tool calls from a single step.
+ */
+export function consumePlanToken(entry: AllowlistEntry): boolean {
+  const b = useAgentStore.getState().planBatch;
+  if (!b || b.generation !== runGeneration) return false;
+  const { batch, consumed, stepId } = consumeToken(b, entry);
+  if (!consumed) return false;
+  useAgentStore.setState({ planBatch: batch });
+  // Ticks the checklist row. `dispatched` is the strongest claim the store can
+  // honestly make: it authorized and sent the call. Whether the command
+  // succeeded shows up in the ordinary tool transcript entries below the card.
+  if (stepId) useAgentStore.getState()._setPlanStepStatus(batch.planId, stepId, "dispatched");
+  return true;
+}
+
+/** Test seam. @internal — production code must never call this. */
+export const _resetPlanBatch = () => { useAgentStore.setState({ planBatch: null, pendingPlan: null }); };
+
 export const useAgentStore = create<AgentState>((set, get) => ({
   mode: "ask",
   allowlist: [],
@@ -169,6 +231,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   messages: [],
   profilesVersion: 0,
   pendingContext: null,
+  pendingPlan: null,
+  planBatch: null,
 
   attachContext: (pendingContext) => set({ pendingContext }),
   clearContext: () => set({ pendingContext: null }),
@@ -242,8 +306,90 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   _addPending: (p) => set((s) => ({ pendingApprovals: [...s.pendingApprovals, p] })),
   _rejectAllPending: (reason) => {
     for (const p of get().pendingApprovals) p.resolve({ approve: false, reason });
-    set({ pendingApprovals: [] });
+    // A parked plan is reaped by the same call, which is why extending this
+    // ONE function covers all four lifecycle sites: stop, newConversation,
+    // initAgent and shutdownAgent already call it.
+    const plan = get().pendingPlan;
+    set({ pendingApprovals: [], pendingPlan: null });
+    if (plan) {
+      plan.resolve({ approve: false, reason });
+      get()._setPlanOutcome(plan.planId, "abandoned");
+    }
   },
+
+  proposePlan: (steps, generation) =>
+    new Promise<PlanVerdict>((resolve) => {
+      // One plan at a time. A second proposal while one is parked would
+      // orphan the first promise and leave two live checklists competing to
+      // mint the batch.
+      if (get().pendingPlan) {
+        resolve({ approve: false, reason: "a plan is already awaiting review" });
+        return;
+      }
+      const planId = nextPlanId();
+      set((s) => ({
+        transcript: [
+          ...s.transcript,
+          {
+            kind: "plan" as const,
+            planId,
+            steps: steps.map((st) => ({ ...st, status: "pending" as const })),
+            outcome: "pending" as const,
+          },
+        ],
+        pendingPlan: { planId, generation, steps, resolve },
+      }));
+    }),
+
+  resolvePlan: (planId, verdict) => {
+    const p = get().pendingPlan;
+    if (!p || p.planId !== planId) return;
+    set({ pendingPlan: null });
+    if (verdict.approve === false) {
+      get()._setPlanOutcome(planId, "rejected");
+      p.resolve(verdict);
+      return;
+    }
+    // BOTH verdicts create a batch. The batch is what lifts the plan-mode
+    // refusal (see approvalController), so "Approve plan" — which mints no
+    // tokens — would otherwise approve a plan that then refused every step.
+    // Minted against p.generation, not runGeneration: if the proposing run
+    // has already been superseded the batch is born inert rather than
+    // inheriting the live run's authority.
+    set({
+      planBatch: verdict.approve === "run"
+        ? mintTokens(verdict.steps, p.generation, planId)
+        : { generation: p.generation, planId, tokens: [] },
+    });
+    get()._setPlanSteps(planId, verdict.steps);
+    get()._setPlanOutcome(planId, verdict.approve === "run" ? "approved_run" : "approved_ask");
+    p.resolve(verdict);
+  },
+
+  _setPlanSteps: (planId, steps) =>
+    set((s) => ({
+      transcript: s.transcript.map((e) =>
+        e.kind === "plan" && e.planId === planId
+          ? { ...e, steps: steps.map((st) => ({ ...st, status: "pending" as const })) }
+          : e,
+      ),
+    })),
+
+  _setPlanOutcome: (planId, outcome) =>
+    set((s) => ({
+      transcript: s.transcript.map((e) =>
+        e.kind === "plan" && e.planId === planId ? { ...e, outcome } : e,
+      ),
+    })),
+
+  _setPlanStepStatus: (planId, stepId, status) =>
+    set((s) => ({
+      transcript: s.transcript.map((e) =>
+        e.kind === "plan" && e.planId === planId
+          ? { ...e, steps: e.steps.map((st) => (st.id === stepId ? { ...st, status } : st)) }
+          : e,
+      ),
+    })),
 
   stop: () => {
     abortController?.abort();
@@ -252,6 +398,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     // `deriveScope`, or about to be dispatched in `auto` mode — not just the
     // pending cards that already exist. See isGenerationDead above.
     abortedGeneration = runGeneration;
+    // Belt-and-braces beside the generation guard: clearing it lets the UI
+    // render the plan as spent rather than live.
+    set({ planBatch: null });
     // A parked approval card belongs to the run that just got cancelled —
     // clicking Approve on it after Stop would run a command the user just
     // said no to, and leaving it unresolved leaks the promise forever.
@@ -288,6 +437,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       // unlike "ask" or "auto", either of which could be. Corrected below
       // once the read resolves, if this action is still current.
       mode: "plan",
+      planBatch: null,
     });
     const api = deps?.api;
     void api?.storage.delete(CONVERSATION_KEY);
@@ -522,6 +672,7 @@ export async function initAgent(api: PluginAPI): Promise<void> {
     allowlist: Array.isArray(allowlist) ? allowlist.filter(isWellFormedEntry) : [],
     runStatus: "idle",
     errorText: null,
+    planBatch: null,
     // Spread-conditional, not an unconditional assignment: teardown
     // deliberately preserves the conversation, so a re-activation with no (or
     // unreadable) persisted data must leave what is already in the store
@@ -564,6 +715,6 @@ export function shutdownAgent(): void {
   abortController?.abort();
   abortedGeneration = runGeneration;
   useAgentStore.getState()._rejectAllPending("aborted");
-  useAgentStore.setState({ runStatus: "idle", errorText: null, pendingContext: null });
+  useAgentStore.setState({ runStatus: "idle", errorText: null, pendingContext: null, planBatch: null });
   _setDeps(null);
 }
