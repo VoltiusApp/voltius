@@ -3,7 +3,9 @@ import {
   _currentRunGeneration,
   _resetPlanBatch,
   consumePlanToken,
+  initAgent,
   planActive,
+  shutdownAgent,
   useAgentStore,
 } from "./agentStore";
 import type { PlanStep } from "./planTokens";
@@ -15,6 +17,21 @@ const entryFor = (key: string) =>
   ({ scope: "conn-A", tool: "run_command", grain: "exact", key }) as const;
 // tsconfig targets ES2021 (no Array.prototype.at); matches persistence.test.ts's convention.
 const last = <T>(arr: T[]): T => arr[arr.length - 1];
+
+// Same shape as agentStore.test.ts's local fakeApi — kept separate rather than
+// shared, since that file doesn't export it.
+function fakeApi(store: Record<string, unknown> = {}) {
+  return {
+    storage: {
+      get: async (k: string) => (k in store ? store[k] : null),
+      set: async (k: string, v: unknown) => { store[k] = v; },
+      delete: async () => {},
+    },
+    keychain: { get: async () => null, set: async () => {}, delete: async () => {} },
+    sessions: { list: () => [] },
+    connections: { list: async () => [] },
+  } as never;
+}
 
 beforeEach(() => {
   _resetPlanBatch();
@@ -95,6 +112,29 @@ describe("resolvePlan", () => {
     useAgentStore.getState().resolvePlan(planId, { approve: "run", steps: [step("df -h")] });
     expect(planActive()).toBe(false);
   });
+
+  it("mints a batch inert to the live generation when the proposing run was superseded before its plan lands", async () => {
+    // A run dispatches propose_plan, carrying its own generation. Before that
+    // tool call lands, the user sends another message: runGeneration bumps
+    // (nothing was parked yet, so nothing is reaped). The superseded run's
+    // propose_plan then lands anyway and parks a plan under its now-stale
+    // generation — this is proposePlan's own contract (it takes an explicit
+    // `generation` argument rather than reading the live one). If resolvePlan
+    // minted against the live generation instead of the proposing one, the
+    // new run would inherit tokens the user approved for a plan it never
+    // proposed.
+    const staleGen = _currentRunGeneration();
+    await useAgentStore.getState().newConversation();
+    expect(_currentRunGeneration()).not.toBe(staleGen);
+
+    const p = useAgentStore.getState().proposePlan([step("df -h")], staleGen);
+    const planId = useAgentStore.getState().pendingPlan!.planId;
+    useAgentStore.getState().resolvePlan(planId, { approve: "run", steps: [step("df -h")] });
+    await p;
+
+    expect(planActive()).toBe(false);
+    expect(consumePlanToken(entryFor("df -h"))).toBe(false);
+  });
 });
 
 describe("lifecycle", () => {
@@ -153,6 +193,24 @@ describe("lifecycle", () => {
     useAgentStore.getState().stop();
     expect(planActive()).toBe(false);
   });
+
+  // Placed last in this describe: like the stop() test above, shutdownAgent
+  // stamps abortedGeneration without bumping runGeneration, so a later test
+  // that treats "the current generation" as live would be poisoned by it.
+  it("shutdownAgent revokes a live batch via the generation guard, not merely its own clear", () => {
+    // Seeded directly via setState, bypassing shutdownAgent's own
+    // `planBatch: null` write, so this pins isGenerationDead's abort clause
+    // rather than the belt-and-braces clear alongside it. shutdownAgent never
+    // bumps runGeneration, only stamps abortedGeneration, so this is the one
+    // lifecycle site where deleting the explicit clear would otherwise leave
+    // a spendable token behind a torn-down PluginAPI.
+    const gen = _currentRunGeneration();
+    useAgentStore.setState({
+      planBatch: { generation: gen, planId: "plan-live", tokens: [{ stepId: "s1", entry: entryFor("df -h"), used: false }] },
+    });
+    shutdownAgent();
+    expect(consumePlanToken(entryFor("df -h"))).toBe(false);
+  });
 });
 
 describe("_setPlanStepStatus", () => {
@@ -165,5 +223,50 @@ describe("_setPlanStepStatus", () => {
     expect(entry.steps[0].status).toBe("dispatched");
     useAgentStore.getState().resolvePlan(planId, { approve: false });
     await p;
+  });
+});
+
+describe("planCounter — restored transcript", () => {
+  it("advances past a restored plan-N id so a live plan cannot collide with a historical one", async () => {
+    // planCounter is a module global shared by every test in this file, so
+    // pin the exact id the restored entry must carry by probing what
+    // nextPlanId() would hand out right now, rather than a hardcoded
+    // "plan-3" — a hardcoded low number would make this test pass even with
+    // the seeding removed, since earlier tests in this file have already
+    // advanced planCounter well past it. Using probeCounter+1 guarantees a
+    // real collision if planCounter is NOT seeded from the restored entry.
+    const probeGen = _currentRunGeneration();
+    const probeP = useAgentStore.getState().proposePlan([step("probe")], probeGen);
+    const probeId = useAgentStore.getState().pendingPlan!.planId;
+    useAgentStore.getState().resolvePlan(probeId, { approve: false });
+    await probeP;
+    const collidingId = `plan-${Number(probeId.slice("plan-".length)) + 1}`;
+
+    // planCounter is a fresh module global every process; this restored
+    // entry keeps the persisted id it was minted with. Without seeding
+    // planCounter from it, nextPlanId() would hand out `collidingId` again,
+    // and every planId-keyed mutator (_setPlanSteps/_setPlanOutcome/
+    // _setPlanStepStatus) would then rewrite this historical entry in place
+    // of the new plan.
+    const historical = {
+      kind: "plan" as const,
+      planId: collidingId,
+      outcome: "abandoned" as const,
+      steps: [{ id: "old-1", tool: "run_command" as const, connectionId: "conn-A", command: "OLD", rationale: "why", status: "skipped" as const }],
+    };
+    await initAgent(fakeApi({ conversation: { v: 1, transcript: [historical], messages: [] } }));
+
+    const gen = _currentRunGeneration();
+    const p = useAgentStore.getState().proposePlan([step("df -h")], gen);
+    const newPlanId = useAgentStore.getState().pendingPlan!.planId;
+    useAgentStore.getState().resolvePlan(newPlanId, { approve: "run", steps: [step("df -h")] });
+    await p;
+
+    expect(newPlanId).not.toBe(collidingId);
+    const entries = useAgentStore.getState().transcript;
+    const restoredEntry = entries.find((e) => e.kind === "plan" && e.planId === collidingId);
+    expect(restoredEntry).toEqual(historical);
+    const liveEntry = entries.find((e) => e.kind === "plan" && e.planId === newPlanId);
+    expect(liveEntry).toMatchObject({ outcome: "approved_run" });
   });
 });

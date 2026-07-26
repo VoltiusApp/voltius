@@ -188,26 +188,55 @@ let planCounter = 0;
 const nextPlanId = () => `plan-${++planCounter}`;
 
 /**
+ * Advance `planCounter` past the highest `plan-N` id present in a restored
+ * transcript, so the first plan proposed after a restart never collides with
+ * a historical entry. `planCounter` is a fresh module global every process,
+ * while restored entries keep their persisted ids — without this, `_setPlanSteps`
+ * / `_setPlanOutcome` / `_setPlanStepStatus` (which key by `planId` and `.map`
+ * over the whole transcript) would silently rewrite a historical entry to
+ * mirror the new plan. A malformed or non-numeric suffix is simply skipped,
+ * never thrown.
+ */
+function seedPlanCounterFrom(transcript: TranscriptEntry[]): void {
+  for (const e of transcript) {
+    if (e.kind !== "plan") continue;
+    const match = /^plan-(\d+)$/.exec(e.planId);
+    if (!match) continue;
+    const n = Number(match[1]);
+    if (Number.isFinite(n) && n > planCounter) planCounter = n;
+  }
+}
+
+/**
  * True while a plan batch minted by the CURRENT run is live.
  *
- * The generation comparison is the load-bearing guard, not the explicit
- * clears sprinkled through the lifecycle actions: `runGeneration` only ever
- * grows, so a batch can never come back to life once a newConversation,
- * initAgent or the next sendMessage has moved past it.
+ * Gated on `isGenerationDead`, not a bespoke `runGeneration` comparison: the
+ * batch's authority must die on both halves the store already recognizes —
+ * cancellation (`stop`/`shutdownAgent` stamping `abortedGeneration`) and
+ * supersession (`runGeneration` moving past it). The explicit `planBatch:
+ * null` clears sprinkled through the lifecycle actions are then genuinely
+ * belt-and-braces: `isGenerationDead` alone already revokes authority at
+ * every one of those sites, the clears just make the UI render the plan as
+ * visibly spent rather than leaving a dead-but-present object around.
  */
 export function planActive(): boolean {
   const b = useAgentStore.getState().planBatch;
-  return b !== null && b.generation === runGeneration;
+  return b !== null && !isGenerationDead(b.generation);
 }
 
 /**
  * Consume one token matching `entry`. Synchronous with no `await` between the
  * match and the write, which is what makes "one token, one execution" exact:
  * the AI SDK can dispatch several tool calls from a single step.
+ *
+ * Gated on `isGenerationDead` — see `planActive` above for why this covers
+ * both cancellation and supersession, and why the lifecycle sites' explicit
+ * `planBatch: null` clears are belt-and-braces rather than the authority
+ * boundary itself.
  */
 export function consumePlanToken(entry: AllowlistEntry): boolean {
   const b = useAgentStore.getState().planBatch;
-  if (!b || b.generation !== runGeneration) return false;
+  if (!b || isGenerationDead(b.generation)) return false;
   const { batch, consumed, stepId } = consumeToken(b, entry);
   if (!consumed) return false;
   useAgentStore.setState({ planBatch: batch });
@@ -661,6 +690,12 @@ export async function initAgent(api: PluginAPI): Promise<void> {
     api.storage.get<AllowlistEntry[]>("allowlist"),
     readConversation(),
   ]);
+  // Restored entries keep their persisted `plan-N` ids; planCounter starts
+  // at 0 every process. Without this, the first plan proposed this session
+  // would mint an id already present in the restored transcript, and every
+  // planId-keyed mutator would silently rewrite that historical entry. See
+  // seedPlanCounterFrom above.
+  if (restored) seedPlanCounterFrom(restored.transcript);
   // runStatus/errorText are reset here too (not just in shutdownAgent) so a
   // re-enable is always clean even if teardown was skipped — otherwise a
   // stale "streaming" status left over from a prior activation would trip
