@@ -1170,11 +1170,13 @@ describe("approval generation binding", () => {
     return Promise.race([p, new Promise<string>((r) => setTimeout(() => r("STILL PENDING"), 50))]);
   }
 
-  /** A plugin API whose `connections.list` (the one real await inside
-   *  deriveScope) is held open until the test lets it go. */
+  /** A plugin API whose `connections.list` — called once by the guard, then
+   *  again by `deriveScope` — can be held open independently at each call
+   *  site: `guardConns` gates the 1st call, `scopeConns` the 2nd. */
   function harness(store: Record<string, unknown>) {
     const openSpy = vi.fn(async () => "sess-1");
-    const conns = deferred<Array<{ id: string; name: string; host: string }>>();
+    const guardConns = deferred<Array<{ id: string; name: string; host: string }>>();
+    const scopeConns = deferred<Array<{ id: string; name: string; host: string }>>();
     let requested = 0;
     const api = {
       storage: {
@@ -1184,9 +1186,14 @@ describe("approval generation binding", () => {
       },
       keychain: { get: vi.fn(async () => "sk-test"), set: vi.fn(), delete: vi.fn() },
       sessions: { list: () => [], open: openSpy },
-      connections: { list: vi.fn(() => { requested += 1; return conns.promise; }) },
+      connections: {
+        list: vi.fn(() => {
+          requested += 1;
+          return requested === 1 ? guardConns.promise : scopeConns.promise;
+        }),
+      },
     };
-    return { api, openSpy, conns, requested: () => requested };
+    return { api, openSpy, guardConns, scopeConns, requested: () => requested };
   }
 
   function textModel(text: string) {
@@ -1239,12 +1246,14 @@ describe("approval generation binding", () => {
     const ctx = await runTurn("hello");
 
     const exec = openSessionOf(ctx).execute({ connectionId: "c1" });
-    await vi.waitFor(() => expect(h.requested()).toBe(1)); // parked inside deriveScope
+    h.guardConns.resolve([CONN]); // let the guard pass so the call reaches deriveScope
+    // 2 = the guard's own lookup plus deriveScope's; parked on the latter.
+    await vi.waitFor(() => expect(h.requested()).toBe(2));
 
     shutdownAgent();
     await initAgent(h.api as never); // user re-enables the plugin
 
-    h.conns.resolve([CONN]);
+    h.scopeConns.resolve([CONN]);
 
     expect(await settledOr(exec)).toEqual({ error: "rejected by user", reason: "aborted" });
     expect(useAgentStore.getState().pendingApprovals).toHaveLength(0);
@@ -1265,7 +1274,8 @@ describe("approval generation binding", () => {
     const ctx = await runTurn("hello");
 
     const exec = openSessionOf(ctx).execute({ connectionId: "c1" });
-    await vi.waitFor(() => expect(h.requested()).toBe(1));
+    h.guardConns.resolve([CONN]); // let the guard pass so the call reaches deriveScope
+    await vi.waitFor(() => expect(h.requested()).toBe(2)); // guard's call + deriveScope's
 
     shutdownAgent();
     await initAgent(h.api as never);
@@ -1273,7 +1283,7 @@ describe("approval generation binding", () => {
     // WOULD fire if the generation check didn't refuse first.
     expect(useAgentStore.getState().hasAllowlist(GRANT)).toBe(true);
 
-    h.conns.resolve([CONN]);
+    h.scopeConns.resolve([CONN]);
 
     expect(await settledOr(exec)).toEqual({ error: "rejected by user", reason: "aborted" });
     expect(h.openSpy).not.toHaveBeenCalled();
@@ -1298,11 +1308,12 @@ describe("approval generation binding", () => {
     const ctx = lastCtx();
 
     const exec = openSessionOf(ctx).execute({ connectionId: "c1" });
-    await vi.waitFor(() => expect(h.requested()).toBe(1));
+    h.guardConns.resolve([CONN]); // let the guard pass so the call reaches deriveScope
+    await vi.waitFor(() => expect(h.requested()).toBe(2)); // guard's call + deriveScope's
 
     await runTurn("second"); // the user retypes: generation N -> N+1
 
-    h.conns.resolve([CONN]);
+    h.scopeConns.resolve([CONN]);
 
     expect(await settledOr(exec)).toEqual({ error: "rejected by user", reason: "aborted" });
     expect(useAgentStore.getState().pendingApprovals).toHaveLength(0);
@@ -1321,7 +1332,8 @@ describe("approval generation binding", () => {
     const ctx = await runTurn("first"); // run N
 
     const exec = openSessionOf(ctx).execute({ connectionId: "c1" });
-    h.conns.resolve([CONN]); // let deriveScope resolve so the card is registered
+    h.guardConns.resolve([CONN]);
+    h.scopeConns.resolve([CONN]); // let both the guard and deriveScope resolve so the card is registered
     await vi.waitFor(() => expect(useAgentStore.getState().pendingApprovals).toHaveLength(1));
 
     await runTurn("second"); // run N+1 supersedes it
@@ -1345,7 +1357,7 @@ describe("approval generation binding", () => {
     await runTurn("second"); // run N+1 supersedes it
 
     const exec = openSessionOf(ctx).execute({ connectionId: "c1" });
-    h.conns.resolve([CONN]); // let the connection-id guard's own lookup complete
+    h.guardConns.resolve([CONN]); // let the connection-id guard's own lookup complete
     // A count of 1 means the top-of-approve() abort check caught it before
     // deriveScope's own lookup; 2 would mean it slipped past that check.
     expect(await settledOr(exec)).toEqual({ error: "rejected by user", reason: "aborted" });
@@ -1408,7 +1420,8 @@ describe("approval generation binding", () => {
     const h = harness({ providerProfiles: [PROFILE], activeProfileId: "p1" });
     await initAgent(h.api as never);
     const ctx = await runTurn("hello");
-    h.conns.resolve([CONN]);
+    h.guardConns.resolve([CONN]);
+    h.scopeConns.resolve([CONN]);
 
     const openSession = openSessionOf(ctx);
     const exec = openSession.execute({ connectionId: "c1" });
