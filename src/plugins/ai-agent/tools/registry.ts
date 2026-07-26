@@ -12,7 +12,7 @@ import {
   type PlanVerdict,
 } from "../state/planTokens";
 import { captureCommand } from "./capture";
-import { guardConnectionId } from "./connectionGuard";
+import { guardConnectionId, guardPlanConnectionIds } from "./connectionGuard";
 
 export interface AgentContext {
   api: PluginAPI;
@@ -79,6 +79,12 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
         // mapping, and a forged or duplicated id would let one step's
         // execution tick a different step's row.
         const steps: PlanStep[] = proposed.map((s, i) => ({ ...s, id: `step-${i + 1}` }));
+        // The whole plan, not just the bad steps: dropping steps would silently
+        // change the model's plan behind its back, and parking it badged would
+        // leave "Approve & run" authorizing nothing. The model can fix an id;
+        // it cannot fix a shell metacharacter, which is what the badge is for.
+        const guard = await guardPlanConnectionIds(ctx.api, steps.map((s) => s.connectionId));
+        if (!guard.ok) return guard.result;
         const verdict = await ctx.proposePlan(steps);
         if (verdict.approve === false) {
           return { approved: false, reason: verdict.reason ?? "rejected by user" };

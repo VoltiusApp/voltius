@@ -260,6 +260,33 @@ describe("propose_plan", () => {
     });
     expect(approve).not.toHaveBeenCalled();
   });
+
+  it("rejects the whole plan when any step names an unknown connection", async () => {
+    const c = makeCtx();
+    const t = buildTools(c).find((x) => x.name === "propose_plan")!;
+    const res: any = await t.execute({
+      steps: [
+        { tool: "run_command", connectionId: "conn-A", command: "df -h", rationale: "r" },
+        { tool: "run_command", connectionId: "h1", command: "uptime", rationale: "r" },
+      ],
+    });
+    expect(res.unknownConnectionIds).toEqual(["h1"]);
+    expect(String(res.error)).toContain("plan not shown to the user");
+    expect(res.approved).toBeUndefined();
+    expect(c.proposePlan).not.toHaveBeenCalled();
+  });
+
+  it("still parks a checklist when every step names a real connection (non-vacuity partner)", async () => {
+    const proposePlan = vi.fn(async (steps: PlanStep[]) => ({ approve: "run" as const, steps }));
+    const c = makeCtx({ proposePlan });
+    const t = buildTools(c).find((x) => x.name === "propose_plan")!;
+    const res: any = await t.execute({
+      steps: [{ tool: "run_command", connectionId: "conn-A", command: "df -h", rationale: "r" }],
+    });
+    expect(proposePlan).toHaveBeenCalledTimes(1);
+    expect(res.approved).toBe(true);
+    expect(res.preAuthorized).toBe(true);
+  });
 });
 
 describe("session audit carries the approval classifier", () => {
