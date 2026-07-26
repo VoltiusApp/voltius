@@ -11,8 +11,11 @@ export interface ProviderProfile {
 
 export type ToolRisk = "auto" | "prompt";
 
-/** Why a call was allowed. Recorded as `metadata.approval` on agent.command_run. */
-export type ApprovalVia = "prompted" | "granted" | "auto_mode";
+/** Why a call was allowed. Recorded as `metadata.approval` on agent.command_run.
+ *  `plan` = pre-authorized by a one-shot token minted when the user approved a
+ *  plan checklist. Lives in `metadata`, which is free-form, so this needs no
+ *  server-side whitelist change. */
+export type ApprovalVia = "prompted" | "granted" | "auto_mode" | "plan";
 
 /**
  * Result of an approval request for a prompt-risk tool call.

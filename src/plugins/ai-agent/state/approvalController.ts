@@ -19,6 +19,15 @@ export interface ApprovalControllerDeps {
    * call could otherwise slip past a cancellation that happened while it was
    * suspended. */
   isAborted(generation: number): boolean;
+  /** True while a plan batch minted by the CURRENT run is live. While it is,
+   *  the flat plan-mode refusal is lifted so a call can reach either its token
+   *  or an approval card — the "off-plan steps get a card, not a dead end"
+   *  contract. */
+  planActive(): boolean;
+  /** Consume a single-use token matching `entry`. Synchronous: it must not
+   *  introduce an await between matching and marking, or two concurrent
+   *  identical calls could both be authorized by one token. */
+  consumePlanToken(e: AllowlistEntry): boolean;
 }
 
 let counter = 0;
@@ -44,7 +53,12 @@ export function createApprovalController(deps: ApprovalControllerDeps) {
       // {approve:true} with no card and no trace.
       if (deps.isAborted(generation)) return { approve: false, reason: "aborted" };
       const mode = deps.getMode();
-      if (mode === "plan") {
+      // While a plan batch is live the flat refusal is lifted: enumerated
+      // steps reach their token below, and anything off-plan falls through to
+      // an approval card rather than dead-ending the run. `mode` is NOT
+      // mutated to achieve this — there is no stored value to unwind, so an
+      // abnormally terminated run cannot leave the agent permissive.
+      if (mode === "plan" && !deps.planActive()) {
         return { approve: false, reason: "plan mode — propose this as a step; do not execute" };
       }
       // Derived BEFORE the auto shortcut so every approved path carries a
@@ -90,6 +104,17 @@ export function createApprovalController(deps: ApprovalControllerDeps) {
       // this is not the fail-closed gate; that gate is the line above.
       if (scope !== null && grants.some((g) => deps.hasAllowlist(g))) {
         return { approve: true, scope, via: "granted" };
+      }
+      // AFTER the standing-allowlist check: a call a real grant already covers
+      // reports the durable authority (`granted`) and does not spend a token
+      // it never needed. AFTER both isAborted checks and deriveScope, so a
+      // token can never authorize a call from a stopped or superseded run —
+      // putting this in registry.ts's `gate()` instead would sit downstream of
+      // the latch, which is the shape of the bug 3a's third review round fixed.
+      // `grants` is already [] when scope is null, so UNKNOWN_SCOPE cannot
+      // reach token matching.
+      if (scope !== null && grants.some((g) => deps.consumePlanToken(g))) {
+        return { approve: true, scope, via: "plan" };
       }
       return new Promise<ToolDecision>((resolve) => {
         deps.addPending({

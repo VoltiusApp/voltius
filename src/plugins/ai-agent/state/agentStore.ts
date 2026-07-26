@@ -672,6 +672,8 @@ export async function initAgent(api: PluginAPI): Promise<void> {
     deriveScope: (tool, args) => deriveScope(api, tool, args),
     allowlistCandidates,
     isAborted: isGenerationDead,
+    planActive,
+    consumePlanToken,
   });
   deps = { api, profiles, controller };
   // Wrapped so a throw here — storage.get rejecting, or deserializeConversation

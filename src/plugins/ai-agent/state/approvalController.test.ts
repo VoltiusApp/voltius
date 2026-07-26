@@ -18,6 +18,8 @@ function ctl(mode: Mode, opts: { allowed?: boolean; isAborted?: (g: number) => b
     deriveScope: async () => "c1",
     allowlistCandidates,
     isAborted: opts.isAborted ?? (() => false),
+    planActive: () => false,
+    consumePlanToken: () => false,
   });
   return { c, pending };
 }
@@ -32,6 +34,8 @@ function makeController(overrides: Partial<ApprovalControllerDeps> = {}) {
     deriveScope: async () => "c1",
     allowlistCandidates,
     isAborted: () => false,
+    planActive: () => false,
+    consumePlanToken: () => false,
     ...overrides,
   });
 }
@@ -90,6 +94,8 @@ describe("ApprovalController", () => {
       deriveScope: async () => null,
       allowlistCandidates,
       isAborted: () => false,
+      planActive: () => false,
+      consumePlanToken: () => false,
     });
     let settled = false;
     const p = c.approve({ tool: "run_command", args: { command: "apt update" } }, GEN);
@@ -112,6 +118,8 @@ describe("ApprovalController", () => {
       deriveScope: async () => { deriveScopeCalled = true; return "c1"; },
       allowlistCandidates,
       isAborted: () => true,
+      planActive: () => false,
+      consumePlanToken: () => false,
     });
     const decision = await c.approve({ tool: "run_command", args: { command: "apt update" } }, GEN);
     expect(decision).toEqual({ approve: false, reason: "aborted" });
@@ -138,6 +146,8 @@ describe("ApprovalController", () => {
       deriveScope: async () => scopePromise,
       allowlistCandidates,
       isAborted: () => aborted,
+      planActive: () => false,
+      consumePlanToken: () => false,
     });
 
     const p = c.approve({ tool: "run_command", args: { command: "apt update" } }, GEN);
@@ -164,6 +174,8 @@ describe("ApprovalController", () => {
       deriveScope: async () => "c1",
       allowlistCandidates,
       isAborted: (g) => { seen.push(g); return false; },
+      planActive: () => false,
+      consumePlanToken: () => false,
     });
     const p = c.approve({ tool: "run_command", args: { command: "apt update" } }, 42);
     await vi.waitFor(() => expect(pending).toHaveLength(1));
@@ -271,5 +283,126 @@ describe("ApprovalController", () => {
     const c = makeController({ getMode: () => "auto", deriveScope: async () => null });
     const d = await c.approve({ tool: "run_command", args: { command: "uptime" } }, GEN);
     expect(d).toEqual({ approve: true, scope: UNKNOWN_SCOPE, via: "auto_mode" });
+  });
+});
+
+/** Deps-factory for the plan-token gate tests below — this file's other
+ *  helper (`makeController`) returns a built controller, not the deps object,
+ *  so these tests (which assert on `deps.addPending` / an injected
+ *  `consumePlanToken` spy) get their own. `deriveScope` defaults to
+ *  "conn-A" so `allowlistCandidates` mints one real "exact" candidate for
+ *  "df -h", letting the token branch's `grants.some(...)` actually run. */
+function makeDeps(overrides: Partial<ApprovalControllerDeps> = {}): ApprovalControllerDeps {
+  return {
+    getMode: () => "ask",
+    hasAllowlist: () => false,
+    addPending: vi.fn(),
+    deriveScope: async () => "conn-A",
+    allowlistCandidates,
+    isAborted: () => false,
+    planActive: () => false,
+    consumePlanToken: () => false,
+    ...overrides,
+  };
+}
+
+describe("plan pre-authorization", () => {
+  const call = { tool: "run_command", args: { sessionId: "sess-1", command: "df -h" } };
+
+  it("plan mode still refuses outright when no batch is live", async () => {
+    const deps = makeDeps({ getMode: () => "plan", planActive: () => false });
+    const c = createApprovalController(deps);
+    await expect(c.approve(call, 1)).resolves.toMatchObject({ approve: false });
+    expect(deps.addPending).not.toHaveBeenCalled();
+  });
+
+  it("approves a call matching a token, reporting via:plan", async () => {
+    const deps = makeDeps({
+      getMode: () => "plan",
+      planActive: () => true,
+      consumePlanToken: vi.fn(() => true),
+    });
+    await expect(createApprovalController(deps).approve(call, 1))
+      .resolves.toEqual({ approve: true, scope: "conn-A", via: "plan" });
+  });
+
+  it("cards an OFF-PLAN step instead of refusing, while a batch is live", async () => {
+    const deps = makeDeps({
+      getMode: () => "plan",
+      planActive: () => true,
+      consumePlanToken: vi.fn(() => false),
+    });
+    const c = createApprovalController(deps);
+    void c.approve(call, 1);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(deps.addPending).toHaveBeenCalled();
+  });
+
+  it("prefers a standing grant and does NOT spend a token", async () => {
+    const consumePlanToken = vi.fn(() => true);
+    const deps = makeDeps({
+      getMode: () => "ask",
+      hasAllowlist: () => true,
+      planActive: () => true,
+      consumePlanToken,
+    });
+    await expect(createApprovalController(deps).approve(call, 1))
+      .resolves.toMatchObject({ via: "granted" });
+    expect(consumePlanToken).not.toHaveBeenCalled();
+  });
+
+  it("never consults tokens for an unresolved scope", async () => {
+    const consumePlanToken = vi.fn(() => true);
+    const deps = makeDeps({
+      getMode: () => "plan",
+      planActive: () => true,
+      deriveScope: async () => null,
+      consumePlanToken,
+    });
+    const c = createApprovalController(deps);
+    void c.approve(call, 1);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(consumePlanToken).not.toHaveBeenCalled();
+    expect(deps.addPending).toHaveBeenCalled();
+  });
+
+  it("refuses a token for an aborted generation before the mode gate", async () => {
+    const consumePlanToken = vi.fn(() => true);
+    const deps = makeDeps({
+      getMode: () => "plan",
+      planActive: () => true,
+      isAborted: () => true,
+      consumePlanToken,
+    });
+    await expect(createApprovalController(deps).approve(call, 1))
+      .resolves.toEqual({ approve: false, reason: "aborted" });
+    expect(consumePlanToken).not.toHaveBeenCalled();
+  });
+
+  // Carried forward from Task 1's review: a step whose command mints no token
+  // (shell metacharacter, over MAX_PLAN_COMMAND_CHARS, empty scope, ...) must
+  // fall through to a normal approval card — never to silent execution, and
+  // never to a flat refusal just because a batch happens to be live.
+  it("a step outside the token's exact-command shape still cards, never executes silently and never flat-refuses", async () => {
+    const deps = makeDeps({
+      getMode: () => "plan",
+      planActive: () => true,
+      // No entry ever minted for a piped command, so allowlistCandidates
+      // returns [] for it — consumePlanToken has nothing to be asked about.
+      consumePlanToken: vi.fn(() => true),
+    });
+    const c = createApprovalController(deps);
+    const p = c.approve(
+      { tool: "run_command", args: { sessionId: "sess-1", command: "df -h | grep x" } },
+      1,
+    );
+    let settled = false;
+    void p.then(() => { settled = true; });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(settled).toBe(false); // not silently executed, not flat-refused
+    expect(deps.addPending).toHaveBeenCalled();
   });
 });
