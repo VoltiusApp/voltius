@@ -565,6 +565,10 @@ export const useAgentStore = create<AgentState>((set, get) => ({
           // Every tool call this run makes is stamped with this run's
           // generation, whenever it happens to reach the port.
           approve: (call) => d.controller.approve(call, generation),
+          // Bound to THIS run's generation, exactly like `approve` above, so a
+          // plan proposed by a superseded run cannot mint a batch that the
+          // live run would honour.
+          proposePlan: (steps) => get().proposePlan(steps, generation),
           owned: ownedSessions,
         },
         messages: get().messages,

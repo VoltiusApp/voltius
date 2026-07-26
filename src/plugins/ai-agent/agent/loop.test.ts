@@ -34,6 +34,7 @@ function textOnlyModel(text: string) {
 function ctx(): AgentContext {
   return {
     approve: vi.fn(async () => ({ approve: true as const, scope: "c1", via: "granted" as const })),
+    proposePlan: vi.fn(async () => ({ approve: false as const })),
     api: {
       connections: { list: vi.fn(async () => []) },
       sessions: { open: vi.fn(async () => "s1"), close: vi.fn() },

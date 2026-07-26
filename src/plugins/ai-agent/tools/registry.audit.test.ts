@@ -25,7 +25,7 @@ describe("execution auditing", () => {
     const approve = vi.fn(async () => ({ approve: true, scope: "c1", via: "prompted" }));
     const { list } = tools(approve);
     await byName(list, "open_session").execute({ connectionId: "c1" });
-    expect(auditAgentAction).toHaveBeenCalledWith("c1", "agent.session_opened", { tool: "open_session" });
+    expect(auditAgentAction).toHaveBeenCalledWith("c1", "agent.session_opened", { tool: "open_session", approval: "prompted" });
   });
 
   it("records a command with the approval reason on the wire and the text local-only", async () => {
@@ -61,7 +61,7 @@ describe("execution auditing", () => {
     const { list, owned } = tools(approve);
     owned.add("s1");
     await byName(list, "close_session").execute({ sessionId: "s1" });
-    expect(auditAgentAction).toHaveBeenCalledWith("c1", "agent.session_closed", { tool: "close_session" });
+    expect(auditAgentAction).toHaveBeenCalledWith("c1", "agent.session_closed", { tool: "close_session", approval: "prompted" });
   });
 
   it("records NOTHING when the gate rejects — the store logs the denial", async () => {

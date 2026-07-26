@@ -804,6 +804,7 @@ describe("agentStore", () => {
     const ctx = {
       api: api as never,
       approve: (c: { tool: string; args: Record<string, unknown> }) => getAgentDeps()!.controller.approve(c, gen),
+      proposePlan: async () => ({ approve: false as const }),
       owned: new Set<string>(),
     };
     const tools = buildTools(ctx);
@@ -845,6 +846,7 @@ describe("agentStore", () => {
     const ctx = {
       api: api as never,
       approve: (c: { tool: string; args: Record<string, unknown> }) => getAgentDeps()!.controller.approve(c, gen),
+      proposePlan: async () => ({ approve: false as const }),
       owned: new Set<string>(),
     };
     const tools = buildTools(ctx);
@@ -922,6 +924,7 @@ describe("agentStore", () => {
     const run = buildTools({
       api: fakeApi({}) as never,
       approve: async () => ({ approve: true, scope: "c1", via: "granted" }),
+      proposePlan: async () => ({ approve: false as const }),
       owned: ownedAfter,
     } as AgentContext).find((t) => t.name === "run_command")!;
     await expect(run.execute({ sessionId: "sess-old", command: "ls" })).resolves.toMatchObject({
