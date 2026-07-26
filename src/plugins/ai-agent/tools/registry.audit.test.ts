@@ -9,7 +9,7 @@ const { buildTools } = await import("./registry");
 function tools(approve: ReturnType<typeof vi.fn>) {
   const api = {
     sessions: { open: vi.fn(async () => "s1"), close: vi.fn(async () => {}) },
-    connections: { list: vi.fn(async () => []) },
+    connections: { list: vi.fn(async () => [{ id: "c1", name: "srv", host: "h1" }]) },
     terminal: { readSnapshot: vi.fn(async () => "") },
   };
   const owned = new Set<string>();

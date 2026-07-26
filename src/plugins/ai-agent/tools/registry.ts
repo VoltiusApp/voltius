@@ -12,6 +12,7 @@ import {
   type PlanVerdict,
 } from "../state/planTokens";
 import { captureCommand } from "./capture";
+import { guardConnectionId } from "./connectionGuard";
 
 export interface AgentContext {
   api: PluginAPI;
@@ -113,6 +114,11 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
       risk: "prompt",
       schema: z.object({ connectionId: z.string() }),
       execute: async (raw) => {
+        // Before the gate, deliberately: an id that matches no connection can
+        // never be scoped or pre-authorized, so carding it would ask the user
+        // to authorize an action that is already doomed.
+        const guard = await guardConnectionId(ctx.api, String(raw.connectionId));
+        if (!guard.ok) return guard.result;
         const g = await gate("open_session", raw);
         if (!g.ok) return g.result;
         const connectionId = String(g.args.connectionId);

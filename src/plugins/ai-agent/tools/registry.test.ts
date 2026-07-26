@@ -56,6 +56,24 @@ function makeCtx(over: Partial<AgentContext> = {}): AgentContext {
 }
 
 describe("tool registry", () => {
+  test("open_session refuses an unknown connection id without raising a card", async () => {
+    const c = makeCtx();
+    const res: any = await buildTools(c).find((t) => t.name === "open_session")!.execute({ connectionId: "h1" });
+    expect(String(res.error)).toContain("no connection with id");
+    expect(res.connections).toEqual([{ id: "conn-A", name: "srv", host: "h1" }]);
+    expect(c.approve).not.toHaveBeenCalled();
+    expect(c.api.sessions.open).not.toHaveBeenCalled();
+    expect(c.owned.size).toBe(0);
+  });
+
+  test("open_session still opens on a real id (non-vacuity partner)", async () => {
+    const c = makeCtx();
+    const res: any = await buildTools(c).find((t) => t.name === "open_session")!.execute({ connectionId: "conn-A" });
+    expect(res).toEqual({ sessionId: "sess-1" });
+    expect(c.approve).toHaveBeenCalledWith({ tool: "open_session", args: { connectionId: "conn-A" } });
+    expect(c.owned.has("sess-1")).toBe(true);
+  });
+
   test("list_connections is auto-risk and returns connections", async () => {
     const { ctx: c } = ctx();
     const t = tool(c, "list_connections");
