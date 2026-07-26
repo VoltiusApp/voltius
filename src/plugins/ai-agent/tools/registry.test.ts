@@ -270,10 +270,10 @@ describe("propose_plan", () => {
         { tool: "run_command", connectionId: "h1", command: "uptime", rationale: "r" },
       ],
     });
+    expect(c.proposePlan).not.toHaveBeenCalled();
     expect(res.unknownConnectionIds).toEqual(["h1"]);
     expect(String(res.error)).toContain("plan not shown to the user");
     expect(res.approved).toBeUndefined();
-    expect(c.proposePlan).not.toHaveBeenCalled();
   });
 
   it("still parks a checklist when every step names a real connection (non-vacuity partner)", async () => {

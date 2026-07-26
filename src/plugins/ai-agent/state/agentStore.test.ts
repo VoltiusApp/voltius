@@ -1344,10 +1344,17 @@ describe("approval generation binding", () => {
     const ctx = await runTurn("first"); // run N
     await runTurn("second"); // run N+1 supersedes it
 
-    const res = await settledOr(openSessionOf(ctx).execute({ connectionId: "c1" }));
-    expect(res).toEqual({ error: "rejected by user", reason: "aborted" });
+    const exec = openSessionOf(ctx).execute({ connectionId: "c1" });
+    h.conns.resolve([CONN]); // the connection-id guard now looks this up before the gate
+    // The connection-id guard runs before the generation gate and consults
+    // connections.list(), so "never reached deriveScope" (h.requested() === 0)
+    // is no longer the right proxy for "refused above the mode gate" — that
+    // guard now runs unconditionally. What must still hold, and is what this
+    // test pins, is that the generation is bound at run dispatch, not
+    // captured on entry: a superseded call is still refused as aborted and
+    // never opens a session, even after the guard's lookup completes.
+    expect(await settledOr(exec)).toEqual({ error: "rejected by user", reason: "aborted" });
     expect(h.openSpy).not.toHaveBeenCalled();
-    expect(h.requested()).toBe(0); // refused above the mode gate, never reached deriveScope
   });
 
   // Test 5 — the Important. `sendMessage` captures `deps` and then awaits two
