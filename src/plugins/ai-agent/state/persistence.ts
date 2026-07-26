@@ -30,13 +30,16 @@ export const MAX_TRANSCRIPT_DETAIL_CHARS = 1_000;
  * must stay small regardless of how many entries there are or how wide any
  * single field is allowed to be. Bounded ahead of this loop: `user`/`assistant`
  * text (MAX_TOOL_RESULT_BYTES), `tool` detail (MAX_TRANSCRIPT_DETAIL_CHARS),
- * and every plan field — `planId` and each step's `id`/`connectionId`
- * (MAX_PLAN_ID_CHARS), `command`/`rationale` (MAX_PLAN_COMMAND_CHARS /
- * MAX_PLAN_RATIONALE_CHARS), and step count (MAX_PLAN_STEPS). NOT bounded:
- * `tool.tool` and `attachment.connectionName`, plus any unknown extra key on
- * an entry or step — those can still push a single entry over budget, and the
- * loop below only drops OTHER entries, so it cannot recover from one
- * oversized entry on its own. */
+ * and every plan field — `planId`/`outcome`, and each step's `id`/
+ * `connectionId`/`tool`/`status` (MAX_PLAN_ID_CHARS), `command`/`rationale`
+ * (MAX_PLAN_COMMAND_CHARS / MAX_PLAN_RATIONALE_CHARS), and step count
+ * (MAX_PLAN_STEPS). A plan entry and its steps are built from an explicit
+ * field set (see clampPlanStep), so unknown extra keys on either are dropped
+ * entirely rather than left unbounded. NOT bounded: `tool.tool` and
+ * `attachment.connectionName`, plus any unknown extra key on a `tool`/`user`/
+ * `assistant` entry — those still spread and can push a single entry over
+ * budget, and the loop below only drops OTHER entries, so it cannot recover
+ * from one oversized entry on its own. */
 export const MAX_TRANSCRIPT_BYTES = 64_000;
 export const TRUNCATION_MARKER = "\n…truncated";
 
@@ -62,15 +65,26 @@ const PLAN_TOOLS: PlanStepTool[] = ["open_session", "run_command", "close_sessio
 const PLAN_STATUSES: PlanStepStatus[] = ["pending", "dispatched", "skipped"];
 const PLAN_OUTCOMES: PlanOutcome[] = ["pending", "approved_run", "approved_ask", "rejected", "abandoned"];
 
+// Built as an explicit field set, never `{ ...s, ... }`: a spread lets any
+// unknown key on a persisted step ride through completely unbounded, and
+// `tool`/`status` rode through unclamped this way too (validated on the READ
+// path via PLAN_TOOLS/PLAN_STATUSES, never touched on the WRITE path). This
+// file has now had that exact failure shape three times — closing it
+// per-field is how it keeps coming back; only known fields are copied here,
+// each one clamped.
 function clampPlanStep(s: PlanEntryStep): PlanEntryStep {
   return {
-    ...s,
     id: clampToLimit(s.id, MAX_PLAN_ID_CHARS),
     // Model-supplied (see planTokens.ts) — the one identity field that
     // reaches this code without any hand-editing of the plugin-data file.
     connectionId: clampToLimit(s.connectionId, MAX_PLAN_ID_CHARS),
+    // Short enums; MAX_PLAN_ID_CHARS is a backstop against corrupted
+    // in-memory state, not a semantic limit — legitimate values are a few
+    // characters long.
+    tool: clampToLimit(s.tool, MAX_PLAN_ID_CHARS) as PlanStepTool,
     command: s.command === undefined ? undefined : clampToLimit(s.command, MAX_PLAN_COMMAND_CHARS),
     rationale: clampToLimit(s.rationale, MAX_PLAN_RATIONALE_CHARS),
+    status: clampToLimit(s.status, MAX_PLAN_ID_CHARS) as PlanStepStatus,
   };
 }
 
@@ -130,11 +144,16 @@ function clampTranscript(transcript: TranscriptEntry[]): TranscriptEntry[] {
       if (e.kind === "tool") return { ...e, detail: clampToLimit(e.detail, MAX_TRANSCRIPT_DETAIL_CHARS) };
       // A plan entry has no `text`, so it must be handled BEFORE the fallback
       // below — clampToLimit reads `.length` and would throw on undefined.
+      // Built as an explicit field set for the same reason as clampPlanStep
+      // above: a spread (`...e`) would let an unknown key on the entry itself
+      // ride through unbounded.
       if (e.kind === "plan") {
         return {
-          ...e,
+          kind: "plan" as const,
           planId: clampToLimit(e.planId, MAX_PLAN_ID_CHARS),
           steps: e.steps.slice(0, MAX_PLAN_STEPS).map(clampPlanStep),
+          // Short enum; see clampPlanStep's tool/status comment.
+          outcome: clampToLimit(e.outcome, MAX_PLAN_ID_CHARS) as PlanOutcome,
         };
       }
       return { ...e, text: clampToLimit(e.text, MAX_TOOL_RESULT_BYTES) };

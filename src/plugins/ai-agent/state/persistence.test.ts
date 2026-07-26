@@ -327,6 +327,12 @@ describe("plan transcript entries", () => {
         outcome: "approved_run",
         steps: [{ id: "s1", tool: "run_command", connectionId: "conn-A", command: "df -h", rationale: "r", status: "queued" }],
       }, // unknown step status, otherwise well-formed
+      {
+        kind: "plan",
+        planId: "p",
+        outcome: "approved_run",
+        steps: [{ id: "s1", tool: "run_command", connectionId: "conn-A", command: "df -h", rationale: 7, status: "dispatched" }],
+      }, // non-string rationale, otherwise well-formed
     ]) {
       let out: unknown;
       expect(() => { out = deserializeConversation({ v: 1, transcript: [bad], messages: [] }); }).not.toThrow();
@@ -373,5 +379,42 @@ describe("plan transcript entries", () => {
     // backstop no longer has to sacrifice the 199 legitimate entries to fit
     // the one hostile plan entry.
     expect(out.transcript.filter((e) => e.kind === "user")).toHaveLength(199);
+  });
+
+  it("bounds a plan entry carrying every unbounded vector at once: hostile id/connectionId/tool/status/outcome/planId plus unknown extra keys on both the entry and a step", () => {
+    // Regression for the re-review's five remaining reproductions: unknown
+    // keys survived clampPlanStep's/clampTranscript's `{ ...s, ... }` spread
+    // entirely unclamped, and tool/status/outcome were validated on the READ
+    // path (isPlanStep/isTranscriptEntry) but never touched on the WRITE
+    // path. Each alone reproduced the original all-entries-evicted shape.
+    const hostileStep = {
+      id: "i".repeat(50_000),
+      tool: "t".repeat(50_000),
+      connectionId: "c".repeat(50_000),
+      command: "df -h",
+      rationale: "check disk",
+      status: "s".repeat(50_000),
+      unknownStepKey: "k".repeat(50_000),
+    };
+    const hostile = {
+      kind: "plan" as const,
+      planId: "p".repeat(50_000),
+      outcome: "o".repeat(50_000),
+      steps: [hostileStep],
+      unknownEntryKey: "k".repeat(50_000),
+    };
+    const legit: TranscriptEntry[] = Array.from({ length: 199 }, (_, i) => ({ kind: "user" as const, text: `m${i}` }));
+
+    const out = serializeConversation([...legit, hostile as never], []);
+    const bytes = JSON.stringify(out.transcript).length;
+
+    expect(bytes).toBeLessThanOrEqual(MAX_TRANSCRIPT_BYTES);
+    expect(out.transcript.filter((e) => e.kind === "user")).toHaveLength(199);
+    const entry = out.transcript.find((e) => e.kind === "plan") as
+      | { planId: string; outcome: string; steps: { id: string; connectionId: string; tool: string; status: string }[] }
+      | undefined;
+    expect(entry).toBeDefined();
+    expect((entry as { unknownEntryKey?: unknown }).unknownEntryKey).toBeUndefined();
+    expect((entry?.steps[0] as { unknownStepKey?: unknown }).unknownStepKey).toBeUndefined();
   });
 });
