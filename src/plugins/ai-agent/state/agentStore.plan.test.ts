@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   _currentRunGeneration,
   _resetPlanBatch,
+  _setDeps,
   consumePlanToken,
   initAgent,
   planActive,
@@ -9,6 +10,16 @@ import {
   useAgentStore,
 } from "./agentStore";
 import type { PlanStep } from "./planTokens";
+
+// sendMessage calls createProvider only after the planBatch clear this file
+// pins, so a rejecting stub is enough to drive the real function into its
+// catch branch without needing the full model/streaming mocking that
+// agentStore.test.ts sets up — nothing here exercises the model at all.
+vi.mock("../provider/factory", () => ({
+  createProvider: vi.fn(async () => {
+    throw new Error("no model needed — the invariant this pins runs before createProvider is reached");
+  }),
+}));
 
 const step = (command: string, id = "s1"): PlanStep => ({
   id, tool: "run_command", connectionId: "conn-A", command, rationale: "why",
@@ -268,5 +279,73 @@ describe("planCounter — restored transcript", () => {
     expect(restoredEntry).toEqual(historical);
     const liveEntry = entries.find((e) => e.kind === "plan" && e.planId === newPlanId);
     expect(liveEntry).toMatchObject({ outcome: "approved_run" });
+  });
+});
+
+describe("invariant: planBatch !== null agrees with planActive() after every lifecycle transition", () => {
+  // ModeChip trusts `planBatch !== null` as a proxy for planActive() (the
+  // gate's real authority check). isGenerationDead already makes planActive()
+  // false the instant a transition moves the generation/abort latch, with or
+  // without the belt-and-braces `planBatch: null` clear — so a bare
+  // `expect(planActive()).toBe(false)` after a transition would NOT catch a
+  // missing clear (stop() proves this: it never bumps runGeneration, only
+  // stamps abortedGeneration, which alone already kills planActive()). Only
+  // asserting `planBatch` itself is null closes that gap. This is one test,
+  // not five, and the five transitions live in one array: a per-transition
+  // `it()` for each site is exactly the pattern that lets a sixth site added
+  // later (a new lifecycle action that should also clear planBatch) go
+  // untested because nothing forces it into this list.
+  const fakeProfiles = () => ({
+    list: async () => [{ id: "p1", providerKind: "anthropic" as const, label: "A", model: "claude-x" }],
+    getActiveId: async () => "p1",
+    getKey: async () => "sk-test",
+  } as never);
+
+  // Advances to a fresh, unaborted generation first — stop() and
+  // shutdownAgent() (both already-run transitions by the time later
+  // iterations seed) stamp `abortedGeneration` to the CURRENT generation
+  // without bumping it, so minting a new batch against that same current
+  // generation would be born dead before the transition under test even
+  // runs. newConversation() bumps the generation unconditionally, which is
+  // the same "abort latch reset" every real next-turn action performs, so
+  // this mirrors how a live session actually reaches a fresh generation.
+  // Then mints a fresh live batch, so each iteration starts from
+  // "planActive() is true, planBatch matches" before applying the next
+  // transition.
+  const seedLiveBatch = async () => {
+    await useAgentStore.getState().newConversation();
+    const gen = _currentRunGeneration();
+    const p = useAgentStore.getState().proposePlan([step("df -h")], gen);
+    const planId = useAgentStore.getState().pendingPlan!.planId;
+    useAgentStore.getState().resolvePlan(planId, { approve: "run", steps: [step("df -h")] });
+    await p;
+    expect(planActive()).toBe(true);
+    expect(useAgentStore.getState().planBatch).not.toBeNull();
+  };
+
+  // sendMessage needs provider deps to run at all; a rejecting createProvider
+  // stub (mocked at module scope above) is enough to drive the REAL function
+  // through its real planBatch-clearing lines without pulling in the
+  // model/streaming mocks agentStore.test.ts uses — this is real execution of
+  // sendMessage's source, not a construction-only stand-in for it.
+  const transitions: Array<[string, () => void | Promise<unknown>]> = [
+    ["stop", () => useAgentStore.getState().stop()],
+    ["newConversation", () => useAgentStore.getState().newConversation()],
+    ["initAgent", () => initAgent(fakeApi())],
+    ["shutdownAgent", () => shutdownAgent()],
+    ["sendMessage (second, ordinary follow-up turn)", async () => {
+      _setDeps({ api: fakeApi(), profiles: fakeProfiles(), controller: {} as never });
+      await useAgentStore.getState().sendMessage("second turn");
+    }],
+  ];
+
+  it("holds after stop/newConversation/initAgent/shutdownAgent/sendMessage", async () => {
+    for (const [name, run] of transitions) {
+      await seedLiveBatch();
+      await run();
+      expect(planActive(), name).toBe(false);
+      expect(useAgentStore.getState().planBatch, name).toBeNull();
+    }
+    _setDeps(null);
   });
 });

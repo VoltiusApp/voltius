@@ -524,6 +524,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     // run, nothing re-checks the generation. Reap explicitly, right beside the
     // bump, so no card from run N survives into run N+1.
     get()._rejectAllPending("superseded");
+    // A batch minted by the previous run is dead the moment the generation
+    // moves — planActive() already reads it as inert via isGenerationDead,
+    // so leaving the object in the store just makes ModeChip advertise
+    // authority that no longer exists. Belt-and-braces beside the generation
+    // guard, same as stop/newConversation/initAgent/shutdownAgent above.
+    set({ planBatch: null });
     // Read at send time, not before the awaits above: the user may have
     // removed the chip while the profile lookups were in flight.
     const attached = get().pendingContext;
