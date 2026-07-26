@@ -52,7 +52,7 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
     {
       name: "propose_plan",
       description:
-        "Propose a checklist of steps for the user to review and approve before anything runs. Use this when you are in plan mode, or whenever you want several steps authorized together. Each step names a CONNECTION id from list_connections, never a session id — sessions do not exist until the plan is approved and open_session runs. Returns the user's verdict; when approved, execute exactly the steps returned, in order.",
+        "Propose a checklist of steps for the user to review and approve before anything runs. Use this when you are in plan mode, or whenever you want several steps authorized together. Each step names a CONNECTION id from list_connections, copied verbatim — a name or hostname is rejected and the whole plan is refused. Never a session id: sessions do not exist until the plan is approved and open_session runs. Returns the user's verdict; when approved, execute exactly the steps returned, in order.",
       risk: "auto",
       schema: z.object({
         steps: z
@@ -116,7 +116,8 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
     },
     {
       name: "open_session",
-      description: "Open a dedicated agent workbench session on a connection. Prompts the user.",
+      description:
+        'Open a dedicated agent workbench session on a connection. `connectionId` must be an "id" from list_connections, not a name or a hostname. Prompts the user.',
       risk: "prompt",
       schema: z.object({ connectionId: z.string() }),
       execute: async (raw) => {
