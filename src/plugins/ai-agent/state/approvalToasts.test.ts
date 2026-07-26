@@ -19,7 +19,7 @@ const pending = (id: string) => ({
 let dispose: (() => void) | null = null;
 
 beforeEach(() => {
-  useAgentStore.setState({ pendingApprovals: [] });
+  useAgentStore.setState({ pendingApprovals: [], pendingPlan: null });
   useUIStore.setState({ globalPanelOpen: {} } as never);
 });
 afterEach(() => { dispose?.(); dispose = null; });
@@ -75,5 +75,36 @@ describe("installApprovalToasts", () => {
     useAgentStore.getState()._rejectAllPending("aborted");
     useAgentStore.getState()._addPending(pending("p1"));
     expect(a.notifications.toast).toHaveBeenCalledTimes(2);
+  });
+
+  it("toasts a pending plan once, and only while the drawer is closed", () => {
+    const a = api();
+    dispose = installApprovalToasts(a as never);
+    useAgentStore.setState({
+      pendingPlan: {
+        planId: "plan-1",
+        generation: 1,
+        steps: [{ id: "s1", tool: "run_command", connectionId: "c", command: "df -h", rationale: "r" }],
+        resolve: vi.fn(),
+      } as never,
+    });
+    useAgentStore.setState((s) => ({ ...s })); // unrelated re-render, must not re-toast
+    expect(a.notifications.toast).toHaveBeenCalledTimes(1);
+    expect(a.notifications.toast.mock.calls[0][0]).toContain("1-step plan");
+  });
+
+  it("does not toast a pending plan while the drawer is open", () => {
+    const a = api();
+    useUIStore.setState({ globalPanelOpen: { [DRAWER_PANEL_ID]: true } } as never);
+    dispose = installApprovalToasts(a as never);
+    useAgentStore.setState({
+      pendingPlan: {
+        planId: "plan-1",
+        generation: 1,
+        steps: [{ id: "s1", tool: "run_command", connectionId: "c", command: "df -h", rationale: "r" }],
+        resolve: vi.fn(),
+      } as never,
+    });
+    expect(a.notifications.toast).not.toHaveBeenCalled();
   });
 });

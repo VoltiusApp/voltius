@@ -90,9 +90,13 @@
     },
     "toast": {
       "pending": "Агенту требуется разрешение для выполнения {{tool}}",
-      "openToReview": "Открыть для проверки"
+      "openToReview": "Открыть для проверки",
+      "planPending_one": "Агент запрашивает одобрение плана из {{count}} шага",
+      "planPending_few": "Агент запрашивает одобрение плана из {{count}} шагов",
+      "planPending_many": "Агент запрашивает одобрение плана из {{count}} шагов"
     },
     "plan": {
+      "runningChip": "выполняется одобренный план",
       "heading_one": "План — {{count}} шаг",
       "heading_few": "План — {{count}} шага",
       "heading_many": "План — {{count}} шагов",

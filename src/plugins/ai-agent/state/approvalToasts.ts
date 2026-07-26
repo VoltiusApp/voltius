@@ -35,7 +35,28 @@ export function installApprovalToasts(api: PluginAPI): () => void {
         },
       });
     }
+    // Notify-only, exactly like the approval toast: a checklist cannot be
+    // meaningfully reviewed — let alone edited — in a one-line toast, and
+    // approving one grants a whole batch of authority at once.
+    const plan = state.pendingPlan;
+    if (plan && !seen.has(plan.planId)) {
+      seen.add(plan.planId);
+      if (!open) {
+        api.notifications.toast(
+          i18n.t("aiAgent.toast.planPending", { count: plan.steps.length }),
+          {
+            severity: "warning",
+            duration: TOAST_DURATION_MS,
+            action: {
+              label: i18n.t("aiAgent.toast.openToReview"),
+              onClick: () => useUIStore.getState().setGlobalPanelOpen(DRAWER_PANEL_ID, true),
+            },
+          },
+        );
+      }
+    }
     const live = new Set(state.pendingApprovals.map((p) => p.id));
+    if (state.pendingPlan) live.add(state.pendingPlan.planId);
     for (const id of seen) if (!live.has(id)) seen.delete(id);
   });
 }

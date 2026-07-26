@@ -86,9 +86,11 @@
     },
     "toast": {
       "pending": "L'agent a besoin d'une approbation pour exécuter {{tool}}",
-      "openToReview": "Ouvrir pour examiner"
+      "openToReview": "Ouvrir pour examiner",
+      "planPending": "L'agent demande l'approbation d'un plan de {{count}} étapes"
     },
     "plan": {
+      "runningChip": "plan approuvé en cours",
       "heading_one": "Plan — {{count}} étape",
       "heading_other": "Plan — {{count}} étapes",
       "tool": {

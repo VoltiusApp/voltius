@@ -86,9 +86,11 @@
     },
     "toast": {
       "pending": "The agent needs approval to run {{tool}}",
-      "openToReview": "Open to review"
+      "openToReview": "Open to review",
+      "planPending": "The agent wants approval for a {{count}}-step plan"
     },
     "plan": {
+      "runningChip": "running approved plan",
       "heading_one": "Plan — {{count}} step",
       "heading_other": "Plan — {{count}} steps",
       "tool": {
