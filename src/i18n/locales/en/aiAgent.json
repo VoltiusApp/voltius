@@ -87,6 +87,36 @@
     "toast": {
       "pending": "The agent needs approval to run {{tool}}",
       "openToReview": "Open to review"
+    },
+    "plan": {
+      "heading_one": "Plan — {{count}} step",
+      "heading_other": "Plan — {{count}} steps",
+      "tool": {
+        "open_session": "Open a session on {{connection}}",
+        "run_command": "Run",
+        "close_session": "Close the session on {{connection}}"
+      },
+      "onConnection": "on {{connection}}",
+      "willStillAsk": "will still ask",
+      "willStillAskHint": "Contains a shell character, so it cannot be pre-authorized and will raise an approval card.",
+      "edit": "Edit",
+      "remove": "Remove",
+      "approveAndRun": "Approve & run",
+      "approvePlan": "Approve plan",
+      "reject": "Reject",
+      "status": {
+        "pending": "not run",
+        "dispatched": "ran",
+        "skipped": "not run"
+      },
+      "outcome": {
+        "pending": "awaiting your review",
+        "approved_run": "approved — steps pre-authorized",
+        "approved_ask": "approved — each step will ask",
+        "rejected": "rejected",
+        "abandoned": "no longer active"
+      },
+      "expired": "This plan is no longer active."
     }
   }
 }

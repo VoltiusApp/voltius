@@ -91,6 +91,37 @@
     "toast": {
       "pending": "Агенту требуется разрешение для выполнения {{tool}}",
       "openToReview": "Открыть для проверки"
+    },
+    "plan": {
+      "heading_one": "План — {{count}} шаг",
+      "heading_few": "План — {{count}} шага",
+      "heading_many": "План — {{count}} шагов",
+      "tool": {
+        "open_session": "Открыть сессию на {{connection}}",
+        "run_command": "Выполнить",
+        "close_session": "Закрыть сессию на {{connection}}"
+      },
+      "onConnection": "на {{connection}}",
+      "willStillAsk": "всё равно спросит",
+      "willStillAskHint": "Содержит символ оболочки, поэтому шаг нельзя авторизовать заранее — появится запрос на подтверждение.",
+      "edit": "Изменить",
+      "remove": "Убрать",
+      "approveAndRun": "Одобрить и выполнить",
+      "approvePlan": "Одобрить план",
+      "reject": "Отклонить",
+      "status": {
+        "pending": "не выполнен",
+        "dispatched": "выполнен",
+        "skipped": "не выполнен"
+      },
+      "outcome": {
+        "pending": "ожидает вашей проверки",
+        "approved_run": "одобрен — шаги авторизованы заранее",
+        "approved_ask": "одобрен — каждый шаг будет подтверждаться",
+        "rejected": "отклонён",
+        "abandoned": "больше не активен"
+      },
+      "expired": "Этот план больше не активен."
     }
   }
 }

@@ -2,6 +2,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useAgentStore } from "../state/agentStore";
 import { ApprovalCard } from "./ApprovalCard";
+import { PlanCard } from "./PlanCard";
 
 export function Transcript() {
   const { t } = useTranslation();
@@ -21,9 +22,9 @@ export function Transcript() {
       }}
     >
       {transcript.map((entry, i) => {
-        // Rendered by PlanCard in a later task; returning null here keeps the
-        // union exhaustive so `entry.text` below stays narrowed.
-        if (entry.kind === "plan") return null;
+        if (entry.kind === "plan") {
+          return <PlanCard key={entry.planId} entry={entry} />;
+        }
         if (entry.kind === "tool") {
           return (
             <div

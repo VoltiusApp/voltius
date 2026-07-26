@@ -87,6 +87,36 @@
     "toast": {
       "pending": "L'agent a besoin d'une approbation pour exécuter {{tool}}",
       "openToReview": "Ouvrir pour examiner"
+    },
+    "plan": {
+      "heading_one": "Plan — {{count}} étape",
+      "heading_other": "Plan — {{count}} étapes",
+      "tool": {
+        "open_session": "Ouvrir une session sur {{connection}}",
+        "run_command": "Exécuter",
+        "close_session": "Fermer la session sur {{connection}}"
+      },
+      "onConnection": "sur {{connection}}",
+      "willStillAsk": "demandera quand même",
+      "willStillAskHint": "Contient un caractère shell : cette étape ne peut pas être pré-autorisée et déclenchera une demande d'approbation.",
+      "edit": "Modifier",
+      "remove": "Retirer",
+      "approveAndRun": "Approuver et exécuter",
+      "approvePlan": "Approuver le plan",
+      "reject": "Rejeter",
+      "status": {
+        "pending": "non exécutée",
+        "dispatched": "exécutée",
+        "skipped": "non exécutée"
+      },
+      "outcome": {
+        "pending": "en attente de votre validation",
+        "approved_run": "approuvé — étapes pré-autorisées",
+        "approved_ask": "approuvé — chaque étape sera confirmée",
+        "rejected": "rejeté",
+        "abandoned": "n'est plus actif"
+      },
+      "expired": "Ce plan n'est plus actif."
     }
   }
 }
