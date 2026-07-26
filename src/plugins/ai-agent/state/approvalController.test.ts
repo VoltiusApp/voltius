@@ -2,7 +2,9 @@ import { describe, it, expect, vi } from "vitest";
 import { createApprovalController, type ApprovalControllerDeps } from "./approvalController";
 import { UNKNOWN_SCOPE } from "./scopeDerivation";
 import { allowlistCandidates, entriesEqual, type AllowlistEntry } from "./allowlist";
+import { useAgentStore, initAgent, getAgentDeps, _currentRunGeneration } from "./agentStore";
 import type { Mode, PendingApproval } from "./agentStore";
+import type { PlanStep } from "./planTokens";
 
 // Every approve() call is issued under a generation, exactly as sendMessage
 // binds it in production. GEN is the "live" one for these controller-level
@@ -317,13 +319,22 @@ describe("plan pre-authorization", () => {
   });
 
   it("approves a call matching a token, reporting via:plan", async () => {
+    const consumePlanToken = vi.fn(() => true);
     const deps = makeDeps({
       getMode: () => "plan",
       planActive: () => true,
-      consumePlanToken: vi.fn(() => true),
+      consumePlanToken,
     });
     await expect(createApprovalController(deps).approve(call, 1))
       .resolves.toEqual({ approve: true, scope: "conn-A", via: "plan" });
+    // Pins WHICH entry the gate hands to consumePlanToken — a mock that only
+    // returns true/false (as above) cannot tell a fabricated entry, or one
+    // keyed on the model-supplied args.connectionId instead of the derived
+    // scope, from the real candidate. See the real-store integration test
+    // below for the case this alone can't reach: two connections in play.
+    expect(consumePlanToken).toHaveBeenCalledWith({
+      scope: "conn-A", tool: "run_command", grain: "exact", key: "df -h",
+    });
   });
 
   it("cards an OFF-PLAN step instead of refusing, while a batch is live", async () => {
@@ -404,5 +415,91 @@ describe("plan pre-authorization", () => {
     await Promise.resolve();
     expect(settled).toBe(false); // not silently executed, not flat-refused
     expect(deps.addPending).toHaveBeenCalled();
+  });
+});
+
+/**
+ * Real-store integration coverage for the plan-token gate (task-4-review.md
+ * I1). The tests above all inject a `consumePlanToken` mock that ignores its
+ * argument, so nothing pins WHICH `AllowlistEntry` the gate hands it — a gate
+ * that matched the wrong entry (a fabricated one, or one keyed on the
+ * model-supplied `args.connectionId` instead of the derived scope) would
+ * still pass every test above. This drives the REAL `agentStore` — real
+ * `proposePlan`/`resolvePlan`/`mintTokens`, real `consumePlanToken`, real
+ * `deriveScope` over a fake `PluginAPI` with two sessions on two different
+ * connections — through the exact controller `initAgent` wires up.
+ */
+describe("plan token gate — real-store integration", () => {
+  function fakeApiTwoConnections() {
+    return {
+      storage: {
+        get: vi.fn(async () => null),
+        set: vi.fn(async () => {}),
+        delete: vi.fn(async () => {}),
+      },
+      keychain: { get: vi.fn(), set: vi.fn(), delete: vi.fn() },
+      sessions: {
+        list: () => [
+          { id: "sess-1", connectionId: "conn-A", connectionName: "A", status: "connected", type: "ssh" },
+          { id: "sess-2", connectionId: "conn-B", connectionName: "B", status: "connected", type: "ssh" },
+        ],
+      },
+      connections: {
+        list: async () => [
+          { id: "conn-A", host: "a", port: 22, username: "u", auth_type: "password", tags: [] },
+          { id: "conn-B", host: "b", port: 22, username: "u", auth_type: "password", tags: [] },
+        ],
+      },
+    } as never;
+  }
+
+  it("a token minted for conn-A's run_command df -h does not authorize the same call once deriveScope resolves it to conn-B — even with a forged args.connectionId — and still authorizes the real conn-A call afterward", async () => {
+    await initAgent(fakeApiTwoConnections());
+    useAgentStore.getState().setMode("plan");
+    const generation = _currentRunGeneration();
+
+    const step: PlanStep = {
+      id: "step-1",
+      tool: "run_command",
+      connectionId: "conn-A",
+      command: "df -h",
+      rationale: "check disk",
+    };
+    const verdict = useAgentStore.getState().proposePlan([step], generation);
+    const planId = useAgentStore.getState().pendingPlan!.planId;
+    useAgentStore.getState().resolvePlan(planId, { approve: "run", steps: [step] });
+    await verdict;
+    expect(useAgentStore.getState().planBatch!.tokens).toEqual([
+      { stepId: "step-1", entry: { scope: "conn-A", tool: "run_command", grain: "exact", key: "df -h" }, used: false },
+    ]);
+
+    const controller = getAgentDeps()!.controller;
+
+    // The critical case (task-4-review.md I1 / mutation M10): sessionId
+    // resolves to conn-B via deriveScope, but the model also supplies a
+    // forged connectionId matching the token's real connection, conn-A.
+    // Keying the token lookup on the forged arg instead of the derived
+    // scope would authorize a command on conn-B with a token minted for
+    // conn-A. It must not settle {approve: true} — only a card.
+    const forged = controller.approve(
+      { tool: "run_command", args: { sessionId: "sess-2", connectionId: "conn-A", command: "df -h" } },
+      generation,
+    );
+    let forgedSettled = false;
+    void forged.then(() => { forgedSettled = true; });
+    await vi.waitFor(() => expect(useAgentStore.getState().pendingApprovals).toHaveLength(1));
+    expect(forgedSettled).toBe(false);
+    expect(useAgentStore.getState().planBatch!.tokens[0].used).toBe(false);
+    // Clean up the stray card so its promise doesn't leak into later assertions.
+    useAgentStore.getState().pendingApprovals[0].resolve({ approve: false, reason: "test cleanup" });
+
+    // The legitimate call, same still-unspent token: identical command,
+    // this time genuinely dispatched on conn-A.
+    const legit = await controller.approve(
+      { tool: "run_command", args: { sessionId: "sess-1", command: "df -h" } },
+      generation,
+    );
+    expect(legit).toEqual({ approve: true, scope: "conn-A", via: "plan" });
+    expect(useAgentStore.getState().planBatch!.tokens[0].used).toBe(true);
   });
 });
