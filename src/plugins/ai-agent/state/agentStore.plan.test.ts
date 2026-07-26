@@ -112,6 +112,29 @@ describe("lifecycle", () => {
     expect(consumePlanToken(entryFor("df -h"))).toBe(false);
   });
 
+  it("refuses a token from a batch whose generation is not current", () => {
+    // Seeds a stale batch directly via setState, bypassing every lifecycle
+    // clear, to pin the generation comparison itself rather than the
+    // belt-and-braces `planBatch: null` writes that run alongside it.
+    const gen = _currentRunGeneration();
+    useAgentStore.setState({
+      planBatch: { generation: gen - 1, planId: "plan-stale", tokens: [{ stepId: "s1", entry: entryFor("df -h"), used: false }] },
+    });
+    expect(planActive()).toBe(false);
+    expect(consumePlanToken(entryFor("df -h"))).toBe(false);
+  });
+
+  it("honours a token from a batch whose generation IS current", () => {
+    // Non-vacuity partner: without this, the test above would pass even if
+    // consumePlanToken were broken outright.
+    const gen = _currentRunGeneration();
+    useAgentStore.setState({
+      planBatch: { generation: gen, planId: "plan-live", tokens: [{ stepId: "s1", entry: entryFor("df -h"), used: false }] },
+    });
+    expect(planActive()).toBe(true);
+    expect(consumePlanToken(entryFor("df -h"))).toBe(true);
+  });
+
   it("_rejectAllPending resolves a parked plan and marks it abandoned", async () => {
     const gen = _currentRunGeneration();
     const p = useAgentStore.getState().proposePlan([step("df -h")], gen);
