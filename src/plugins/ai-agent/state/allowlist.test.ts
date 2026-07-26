@@ -109,6 +109,32 @@ describe("isWellFormedEntry", () => {
     expect(isWellFormedEntry({ ...ok, key: "df -h | sh" })).toBe(false);
   });
 
+  // agentStore hydrates the persisted allowlist via
+  // `allowlist.filter(isWellFormedEntry)` (agentStore.ts) — a stored grant
+  // that fails this check is silently dropped, not thrown or crashed on. A
+  // grant whose key carries a control or format character (invisible,
+  // reordering, or collapsing when rendered as a revocable row in Settings)
+  // must be dropped the same way a legacy-shaped entry is: fail closed by
+  // disappearing, not by resurrecting as an unreviewable grant.
+  it.each([
+    ["C0 control", "df -h\x1b"],
+    ["DEL", "df -h\x7f"],
+    ["bidi override", "df\u202e -h"],
+    ["zero-width", "df\u200b -h"],
+  ])("rejects a key carrying a %s character, so it is dropped on hydrate", (_label, key) => {
+    expect(isWellFormedEntry({ ...ok, key })).toBe(false);
+  });
+
+  // Demonstrates the actual hydrate outcome, not just the predicate: a mixed
+  // persisted array survives `.filter(isWellFormedEntry)` (agentStore.ts) by
+  // losing exactly the malformed entry — no throw, no crash, the well-formed
+  // neighbors on either side are unaffected.
+  it("a stored array with one control-character entry drops only that entry on hydrate, without throwing", () => {
+    const stored: unknown[] = [ok, { ...ok, key: "df -h\x1b" }, { ...ok, key: "uptime" }];
+    expect(() => stored.filter(isWellFormedEntry)).not.toThrow();
+    expect(stored.filter(isWellFormedEntry)).toEqual([ok, { ...ok, key: "uptime" }]);
+  });
+
   // A tool-grain grant must authorize the whole tool, keyed by its own name —
   // allowlistCandidates never emits key !== tool for grain "tool". A
   // hand-edited entry with a mismatched key must not survive hydrate either,

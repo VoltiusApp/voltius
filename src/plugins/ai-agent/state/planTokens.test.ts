@@ -76,6 +76,24 @@ describe("stepEntry", () => {
     expect(canPreAuthorize(cmd("df -h", ""))).toBe(false);
   });
 
+  // A control or format character makes the checklist's rendered text differ
+  // from what actually executes (permuted by a bidi override, hidden by a
+  // zero-width character, collapsed by a tab) without ever containing a shell
+  // metacharacter — the badge must still fire. One representative codepoint
+  // per class from hasShellMetacharacter's widened predicate.
+  it.each([
+    ["C0 control", "\x1b"],
+    ["tab", "\t"],
+    ["DEL", "\x7f"],
+    ["C1 control", "\x9b"],
+    ["bidi override", "\u202e"],
+    ["bidi isolate", "\u2066"],
+    ["zero-width", "\u200b"],
+  ])("returns null / cannot pre-authorize a command containing a %s character", (_label, ch) => {
+    expect(stepEntry(cmd(`ls ${ch}`))).toBeNull();
+    expect(canPreAuthorize(cmd(`ls ${ch}`))).toBe(false);
+  });
+
   it("returns null for a run_command step whose command exceeds MAX_PLAN_COMMAND_CHARS, but mints at exactly the cap", () => {
     const atCap = "a".repeat(MAX_PLAN_COMMAND_CHARS);
     const overCap = "a".repeat(MAX_PLAN_COMMAND_CHARS + 1);

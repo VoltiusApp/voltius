@@ -115,4 +115,43 @@ describe("PlanCard", () => {
     fireEvent.change(screen.getByDisplayValue("df -h"), { target: { value: "df -h | wc -l" } });
     expect(screen.getByText("aiAgent.plan.willStillAsk")).toBeTruthy();
   });
+
+  // These characters carry no shell metacharacter, so absent the widened
+  // predicate a step containing one would be `canPreAuthorize === true` and
+  // render with no badge — the exact display-vs-authority divergence this
+  // fix closes. One representative codepoint per class.
+  describe("badges a command containing a control or format character", () => {
+    it.each([
+      ["C0 control", "cat /etc/passwd\x1b"],
+      ["tab", "cat\t/etc/passwd"],
+      ["DEL", "cat /etc/passwd\x7f"],
+      ["C1 control", "cat /etc/passwd\x9b"],
+      ["bidi override", "cat \u202e/etc/passwd"],
+      ["zero-width", "cat /etc/pa\u200bsswd"],
+    ])("%s", (_label, command) => {
+      live([step({ command })]);
+      expect(screen.getByText("aiAgent.plan.willStillAsk")).toBeTruthy();
+    });
+  });
+
+  it("renders the command with whitespace preserved and bidi isolated, so it cannot collapse or be reordered", () => {
+    const { container } = render(
+      <PlanCard entry={{ planId: "plan-1", steps: [step({ status: "dispatched" })] as never, outcome: "approved_run" }} />,
+    );
+    const code = container.querySelector("code")!;
+    expect(code.style.whiteSpace).toBe("pre-wrap");
+    expect(code.style.unicodeBidi).toBe("isolate");
+  });
+
+  // A mutant that makes Reject send {approve:"ask", steps:[]} instead of
+  // {approve:false} survives if only "does Reject exist" is asserted: per
+  // approvalController.ts, {approve:"ask"} LIFTS the plan-mode refusal and
+  // sets a planBatch, turning the user's "no" into "yes, ask before each
+  // step" — the opposite of what Reject promises.
+  it("Reject resolves the plan as refused, with no steps and no approval grade", () => {
+    const resolve = live();
+    fireEvent.click(screen.getByText("aiAgent.plan.reject"));
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(resolve.mock.calls[0][0]).toEqual({ approve: false });
+  });
 });

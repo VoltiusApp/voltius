@@ -5,7 +5,21 @@ import type { PluginAPI } from "@/plugins/api";
 // before the shell ever consults the tool's own argument list) — a command
 // that reads as an innocuous allowlisted invocation can execute something
 // else entirely once the interactive PTY expands it.
-const SHELL_METACHARACTERS = /[;&|`$()<>\\!\r\n]/;
+//
+// Also included: C0 controls (\x00-\x1F, which includes CR/LF above but also
+// TAB, ESC, etc.), DEL (\x7F), C1 controls (\x80-\x9F), Unicode bidi marks
+// and embedding overrides (U+200E-U+200F, U+202A-U+202E), bidi isolates
+// (U+2066-U+2069), and zero-width characters (U+200B-U+200D, U+FEFF). None of
+// these are shell syntax, but a pre-authorization is only sound if the text
+// the user reviewed IS the text that executes — a bidi override renders the
+// command as a permutation of the real byte sequence, a zero-width character
+// is invisible in the rendered text while still present in what runs, and a
+// control character can render as nothing (or collapse whitespace) while
+// still reaching the shell. Any of these makes the rendered form diverge from
+// the executed form without ever tripping a shell-syntax character, which is
+// exactly the gap this predicate exists to close.
+const SHELL_METACHARACTERS =
+  /[;&|`$()<>\\!\r\n\x00-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/;
 
 /** Any tool whose arguments include a shell command string. Any new tool
  * that takes a shell command MUST be added here, or `isAllowlistable` will

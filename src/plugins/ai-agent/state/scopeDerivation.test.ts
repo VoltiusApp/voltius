@@ -73,6 +73,39 @@ describe("hasShellMetacharacter", () => {
   });
 });
 
+// A command carrying one of these renders differently (permuted, invisible,
+// or collapsed) from what the shell actually receives, even though it
+// contains none of the shell-syntax characters above — the exact gap
+// Important #1 of the task-6 review closes. One representative codepoint per
+// class, plus tab called out on its own since whitespace collapse is its own
+// failure mode.
+describe("hasShellMetacharacter — control and format characters", () => {
+  const classes: [string, string][] = [
+    ["C0 control (NUL)", "\x00"],
+    ["C0 control (ESC)", "\x1b"],
+    ["tab", "\t"],
+    ["DEL", "\x7f"],
+    ["C1 control", "\x9b"],
+    ["bidi mark (LRM)", "\u200e"],
+    ["bidi mark (RLM)", "\u200f"],
+    ["bidi override (LRO)", "\u202d"],
+    ["bidi override (RLO)", "\u202e"],
+    ["bidi isolate (LRI)", "\u2066"],
+    ["bidi isolate (PDI)", "\u2069"],
+    ["zero-width (ZWSP)", "\u200b"],
+    ["zero-width (ZWJ)", "\u200d"],
+    ["zero-width (BOM)", "\ufeff"],
+  ];
+  for (const [label, ch] of classes) {
+    it(`hasShellMetacharacter is true for a ${label} character`, () => {
+      expect(hasShellMetacharacter(`echo ${ch}hi`)).toBe(true);
+    });
+    it(`isAllowlistable is false for run_command carrying a ${label} character`, () => {
+      expect(isAllowlistable("run_command", { command: `echo ${ch}hi` })).toBe(false);
+    });
+  }
+});
+
 describe("COMMAND_CARRYING_TOOLS", () => {
   it("contains run_command", () => {
     expect(COMMAND_CARRYING_TOOLS.has("run_command")).toBe(true);

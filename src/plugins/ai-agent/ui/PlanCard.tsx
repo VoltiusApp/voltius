@@ -84,7 +84,16 @@ export function PlanCard({ entry }: { entry: PlanEntry }) {
                       }}
                     />
                   ) : (
-                    <code style={{ color: "var(--t-text-bright)", wordBreak: "break-all" }}>{s.command}</code>
+                    <code
+                      style={{
+                        color: "var(--t-text-bright)",
+                        wordBreak: "break-all",
+                        whiteSpace: "pre-wrap",
+                        unicodeBidi: "isolate",
+                      }}
+                    >
+                      {s.command}
+                    </code>
                   )}
                   <span style={{ color: "var(--t-text-secondary)" }}>
                     {t("aiAgent.plan.onConnection", { connection: connText(s.connectionId) })}
