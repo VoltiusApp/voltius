@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- AI agent: commands containing invisible or control characters (C0/C1, DEL,
+  bidi overrides, zero-width) can no longer be pre-authorized — their rendered
+  form can differ from what actually runs, so they now always raise an approval
+  card. Previously only newlines were rejected. Any stored "always allow" grant
+  containing such a character is dropped when the agent loads; re-approve it if
+  you had one. Only affects pre-release builds — the agent has not shipped.
+
 ## [0.12.0] - 2026-07-22
 
 ### Added
