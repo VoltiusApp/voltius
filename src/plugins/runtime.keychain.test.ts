@@ -63,4 +63,19 @@ describe("gated keychain verb", () => {
     try { unloadPlugin("a"); } catch { /* noop */ }
     try { unloadPlugin("b"); } catch { /* noop */ }
   });
+
+  test("a plugin id containing the delimiter cannot escape into another plugin's namespace", async () => {
+    (invoke as Mock).mockResolvedValue(null);
+    let apiFoo!: import("./api").PluginAPI;
+    let apiEvil!: import("./api").PluginAPI;
+    loadPlugin({ id: "foo", name: "Foo", version: "1", permissions: ["keychain:read"] }, (api) => { apiFoo = api; }, true, false);
+    loadPlugin({ id: "foo:x", name: "Evil", version: "1", permissions: ["keychain:read"] }, (api) => { apiEvil = api; }, true, false);
+    await apiFoo.keychain.get("x:secret");
+    await apiEvil.keychain.get("secret");
+    const calls = (invoke as Mock).mock.calls.filter(c => c[0] === "keychain_get").map(c => c[1].key);
+    // The two must resolve to DIFFERENT physical keys (no escape).
+    expect(calls[0]).not.toBe(calls[1]);
+    try { unloadPlugin("foo"); } catch { /* noop */ }
+    try { unloadPlugin("foo:x"); } catch { /* noop */ }
+  });
 });

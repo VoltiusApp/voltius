@@ -345,8 +345,10 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
     requirePerm(manifest, perm);
   };
 
-  // Reserved prefix "plugin:<id>:" namespaces keychain keys per plugin.
-  const kcKey = (key: string): string => `plugin:${id}:${key}`;
+  // Reserved prefix "plugin:<id>:" namespaces keychain keys per plugin. The id
+  // is percent-encoded so a plugin id containing the ":" delimiter (e.g. "foo:x")
+  // cannot forge a prefix that collides with another plugin's namespace.
+  const kcKey = (key: string): string => `plugin:${encodeURIComponent(id)}:${key}`;
 
   const api: PluginAPI = {
     pluginId: id,

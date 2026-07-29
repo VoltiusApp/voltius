@@ -4,7 +4,9 @@
  * install/update dialog), NOT by load provenance — a plugin holds a gated perm
  * when the user knowingly consented to it. The runtime `requireGated` only
  * verifies the manifest declared it. The list names which strings are gated;
- * expected to grow over time.
+ * expected to grow over time. Any perm added here should also get a
+ * PERMISSION_COPY entry below, else it renders danger-styled but as a bare
+ * string with no description.
  */
 export const GATED_PERMISSIONS = new Set<string>([
   "terminal:read",
