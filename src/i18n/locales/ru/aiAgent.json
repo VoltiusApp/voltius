@@ -2,6 +2,16 @@
   "aiAgent": {
     "approval": {
       "onScope": "на {{connection}}",
+      "needsApproval": "требуется подтверждение",
+      "approve": "Подтвердить",
+      "saveApprove": "Сохранить и подтвердить",
+      "cancel": "Отмена",
+      "confirmReject": "Подтвердить отклонение",
+      "edit": "Изменить",
+      "reject": "Отклонить",
+      "commandPlaceholder": "команда",
+      "connectionIdPlaceholder": "id подключения",
+      "reasonPlaceholder": "причина (необязательно)",
       "always": {
         "tool": "Всегда разрешать {{tool}} на {{connection}}",
         "exact": "Всегда разрешать `{{command}}` на {{connection}}"

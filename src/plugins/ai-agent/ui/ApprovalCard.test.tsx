@@ -18,6 +18,13 @@ vi.mock("@iconify/react", () => ({
   Icon: ({ icon }: { icon: string }) => <span data-icon={icon} />,
 }));
 
+// Render with the same store/mocks the file's other tests use. Mock the
+// object card so we assert wiring, not its internals.
+vi.mock("./ObjectRefCard", () => ({ ObjectRefCard: ({ id }: { id: string }) => <div data-testid="ref-card">{id}</div> }));
+vi.mock("./useObjectRefs", () => ({
+  useObjectRefs: () => ({ resolve: () => null, knownIds: new Set<string>(), loading: false }),
+}));
+
 /** Builds a `PendingApproval` fixture, filling in the parts every card needs
  * (`id`, `resolve`) that individual tests don't care about. */
 function makePending(p: {
@@ -182,9 +189,9 @@ describe("ApprovalCard", () => {
     useAgentStore.setState({ pendingApprovals: [openSessionPending], allowlist: [] });
     render(<ApprovalCard pending={openSessionPending} />);
     fireEvent.click(screen.getByText("Edit"));
-    const input = screen.getByPlaceholderText("connectionId");
+    const input = screen.getByPlaceholderText("connection id");
     fireEvent.change(input, { target: { value: "c2" } });
-    fireEvent.click(screen.getByText("Save & Approve"));
+    fireEvent.click(screen.getByText("Save & approve"));
     expect(openSessionPending.resolve).toHaveBeenCalledWith({
       approve: true,
       scope: "c2",
@@ -201,5 +208,16 @@ describe("ApprovalCard", () => {
     // Real i18n is in effect here (not a passthrough mock), so the rendered
     // text is the translated English copy, not the dotted key.
     expect(await screen.findByText(/Deleted connection/)).toBeTruthy();
+  });
+
+  it("renders an ObjectRefCard for the target instead of a raw connectionId", () => {
+    const openSessionPending = {
+      id: "p1", tool: "open_session", args: { connectionId: "conn_42" },
+      scope: "conn_42", grants: [] as never[],
+    };
+    render(<ApprovalCard pending={openSessionPending as never} />);
+    expect(screen.getByTestId("ref-card").textContent).toBe("conn_42");
+    // The raw id must NOT appear as a JSON dump.
+    expect(screen.queryByText(/"connectionId"/)).toBeNull();
   });
 });

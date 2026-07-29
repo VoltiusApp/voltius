@@ -2,6 +2,16 @@
   "aiAgent": {
     "approval": {
       "onScope": "on {{connection}}",
+      "needsApproval": "needs approval",
+      "approve": "Approve",
+      "saveApprove": "Save & approve",
+      "cancel": "Cancel",
+      "confirmReject": "Confirm reject",
+      "edit": "Edit",
+      "reject": "Reject",
+      "commandPlaceholder": "command",
+      "connectionIdPlaceholder": "connection id",
+      "reasonPlaceholder": "reason (optional)",
       "always": {
         "tool": "Always allow {{tool}} on {{connection}}",
         "exact": "Always allow `{{command}}` on {{connection}}"
