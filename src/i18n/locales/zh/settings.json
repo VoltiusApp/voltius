@@ -566,6 +566,10 @@
             "label": "读取系统指标",
             "description": "读取已连接主机的 CPU、内存、磁盘和网络统计信息。"
           },
+          "dockerRead": {
+            "label": "读取 Docker 信息",
+            "description": "列出容器、镜像、卷、网络和堆栈，并读取容器日志。日志中可能包含密码或令牌。"
+          },
           "processesManage": {
             "label": "管理进程",
             "description": "列出并终止已连接主机上正在运行的进程。"

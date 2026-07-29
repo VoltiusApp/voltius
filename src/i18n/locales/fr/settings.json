@@ -717,6 +717,7 @@
           "keychainRead": { "label": "Lire ses propres secrets stockés", "description": "Lire les secrets que ce plugin a précédemment enregistrés dans le trousseau de votre appareil." },
           "keychainWrite": { "label": "Enregistrer des secrets sur votre appareil", "description": "Enregistrer des secrets dans le trousseau de votre système." },
           "metricsRead": { "label": "Lire les métriques système", "description": "Lire les statistiques processeur, mémoire, disque et réseau de vos hôtes connectés." },
+          "dockerRead": { "label": "Lire les informations Docker", "description": "Lister les conteneurs, images, volumes, réseaux et stacks, et lire les journaux des conteneurs. Les journaux peuvent contenir des mots de passe ou des jetons." },
           "processesManage": { "label": "Gérer les processus", "description": "Lister et arrêter les processus en cours sur vos hôtes connectés." },
           "dockerManage": { "label": "Gérer Docker", "description": "Lister, démarrer, arrêter et supprimer conteneurs, images, volumes, réseaux et stacks. Cela peut détruire définitivement des données." },
           "proxmoxManage": { "label": "Gérer Proxmox", "description": "Lister et contrôler les conteneurs LXC, y compris créer, supprimer et restaurer des snapshots. Cela peut détruire définitivement des données." },

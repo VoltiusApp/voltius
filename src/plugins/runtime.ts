@@ -44,8 +44,8 @@ import { createStreamsAPI } from "./domains/streams";
 const STREAM_PERM: Record<StreamKind, string> = {
   metrics: "metrics:read",
   processes: "processes:manage",
-  "docker-logs": "docker:manage",
-  "docker-stack-logs": "docker:manage",
+  "docker-logs": "docker:read",
+  "docker-stack-logs": "docker:read",
 };
 
 // ─── Inter-plugin exposed APIs ────────────────────────────────────────────

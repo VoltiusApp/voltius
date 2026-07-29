@@ -717,6 +717,7 @@
           "keychainRead": { "label": "Read its own stored secrets", "description": "Read secrets this plugin previously stored in your device keychain." },
           "keychainWrite": { "label": "Store secrets on your device", "description": "Save secrets to your device's OS keychain." },
           "metricsRead": { "label": "Read system metrics", "description": "Read CPU, memory, disk and network statistics from your connected hosts." },
+          "dockerRead": { "label": "Read Docker information", "description": "List containers, images, volumes, networks and stacks, and read container logs. Logs can contain passwords or tokens." },
           "processesManage": { "label": "Manage processes", "description": "List and kill running processes on your connected hosts." },
           "dockerManage": { "label": "Manage Docker", "description": "List, start, stop and delete containers, images, volumes, networks and stacks. This can permanently destroy data." },
           "proxmoxManage": { "label": "Manage Proxmox", "description": "List and control LXC containers, including creating, deleting and rolling back snapshots. This can permanently destroy data." },
