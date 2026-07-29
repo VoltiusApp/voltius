@@ -45,9 +45,9 @@ describe("gated terminal verbs", () => {
     expect(captured.terminal.readSnapshot("s1", 50)).toBe("snap-text");
   });
 
-  test("untrusted plugin is denied even if it declares terminal:read", () => {
+  test("untrusted plugin that declares terminal:read is now allowed (consent model)", () => {
     loadPlugin(manifest(["terminal:read"]), register, true, false);
-    expect(() => captured.terminal.readSnapshot("s1")).toThrow(/first-party-only/);
+    expect(captured.terminal.readSnapshot("s1", 50)).toBe("snap-text");
   });
 
   test("trusted plugin missing the permission is denied", () => {
@@ -89,9 +89,9 @@ describe("gated terminal verbs", () => {
     expect(captured.terminal.readSelection("s1")).toBe("sel-text");
   });
 
-  test("untrusted plugin is denied readSelection even if it declares terminal:read", () => {
+  test("untrusted plugin that declares terminal:read is now allowed readSelection", () => {
     loadPlugin(manifest(["terminal:read"]), register, true, false);
-    expect(() => captured.terminal.readSelection("s1")).toThrow(/first-party-only/);
+    expect(captured.terminal.readSelection("s1")).toBe("sel-text");
   });
 
   test("trusted plugin missing the permission is denied readSelection", () => {

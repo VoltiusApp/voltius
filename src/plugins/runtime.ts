@@ -333,15 +333,16 @@ function requirePerm(manifest: PluginManifest, perm: string): void {
 
 // ─── Scoped plugin API ────────────────────────────────────────────────────
 
-function createPluginAPI(manifest: PluginManifest, trusted: boolean): PluginAPI {
+function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const id = manifest.id;
   const store = usePluginStore.getState;
 
+  // Gated permissions are honored for any plugin whose manifest declares the perm.
+  // The consent gate lives upstream at install (describePermissions + the danger
+  // consent dialog); this only verifies the manifest declared it. Kept as a named
+  // seam so a future catastrophic tier can re-add a provenance wall here.
   const requireGated = (perm: string): void => {
     requirePerm(manifest, perm);
-    if (!trusted) {
-      throw new Error(`Permission "${perm}" is first-party-only and not available to plugin "${id}"`);
-    }
   };
 
   const api: PluginAPI = {
@@ -1007,7 +1008,7 @@ export function loadPlugin(manifest: PluginManifest, register: PluginRegisterFn,
     console.warn(`[plugin-runtime] Plugin "${manifest.id}" already loaded — skipping`);
     return;
   }
-  const api = createPluginAPI(manifest, trusted);
+  const api = createPluginAPI(manifest);
   if (manifest.contributes?.configuration) {
     void populateDefaults(manifest.id, manifest.contributes.configuration);
   }

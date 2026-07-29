@@ -1,9 +1,10 @@
 /**
- * Permissions on the gated, first-party-only tier. Never granted to marketplace
- * plugins: denied at runtime (see runtime `requireGated`) and hidden from the
- * install-consent surface. Enforcement is by load provenance, not this list —
- * the list only names which strings are gated. Expected to grow over time
- * (e.g. plugins:install, security settings:set).
+ * Permissions that require explicit, danger-styled user consent at install.
+ * Enforcement is upstream at the consent surface (describePermissions + the
+ * install/update dialog), NOT by load provenance — a plugin holds a gated perm
+ * when the user knowingly consented to it. The runtime `requireGated` only
+ * verifies the manifest declared it. The list names which strings are gated;
+ * expected to grow over time.
  */
 export const GATED_PERMISSIONS = new Set<string>([
   "terminal:read",

@@ -38,10 +38,10 @@ describe("gated keychain verb", () => {
     expect(invoke).toHaveBeenCalledWith("keychain_delete", { key: "ai-agent:k" });
   });
 
-  test("untrusted plugin is denied even when it declares keychain:read", async () => {
+  test("untrusted plugin that declares keychain:read is now allowed (consent model)", async () => {
+    (invoke as Mock).mockResolvedValue("secret-val");
     loadPlugin(manifest(["keychain:read"]), register, true, false);
-    await expect(captured.keychain.get("k")).rejects.toThrow(/first-party-only/);
-    expect(invoke).not.toHaveBeenCalled();
+    await expect(captured.keychain.get("k")).resolves.toBe("secret-val");
   });
 
   test("trusted plugin missing keychain:write is denied on set", async () => {
