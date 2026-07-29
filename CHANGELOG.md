@@ -45,13 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Audit log: the local per-vault log is capped, so a full quota can no longer
   silently stop recording new entries.
 - Settings: the About-page links and the update-download button now open.
-- Settings: a plugin's settings pane resolves by registration rather than
-  enabled state, and a stale plugin nav target is cleared when that plugin
-  stops being an eligible nav child.
 - Themes: on-accent text now picks its colour at the WCAG 0.179 luminance
   crossover, fixing low-contrast label text on some accent colours.
-- Interface languages: corrected the Select-to-Copy setting description, and
-  completed and polished the Simplified Chinese locale.
+- Interface languages: corrected the Select-to-Copy setting description.
 
 ### Security
 

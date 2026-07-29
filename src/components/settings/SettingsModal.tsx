@@ -81,19 +81,19 @@ export default function SettingsModal() {
               return (
                 <div key={item.id}>
                   <div className="flex items-center">
+                    {rowButton}
                     {hasGroup && (
                       <button
                         onClick={() => setNavExpanded(!navExpanded)}
                         aria-expanded={showChildren}
                         aria-label={t(showChildren ? "settings.chrome.collapsePluginGroup" : "settings.chrome.expandPluginGroup")}
-                        className="p-1 rounded-md shrink-0 text-(--t-text-dim) transition-colors"
+                        className="p-1 mr-1 rounded-md shrink-0 text-(--t-text-dim) transition-colors"
                         onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-bright)"; }}
                         onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
                       >
                         <Icon icon={showChildren ? "lucide:chevron-down" : "lucide:chevron-right"} width={13} />
                       </button>
                     )}
-                    {rowButton}
                   </div>
 
                   {hasGroup && showChildren && (
@@ -147,9 +147,13 @@ export default function SettingsModal() {
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
-            {activePluginPage ? <activePluginPage.component /> : renderSettingsSection(section)}
-          </div>
+          {activePluginPage ? (
+            <div className="flex-1 overflow-y-auto p-6">
+              <activePluginPage.component />
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto">{renderSettingsSection(section)}</div>
+          )}
         </div>
       </div>
     </Modal>

@@ -62,7 +62,9 @@ export default function MobileSettings() {
       {/* Body */}
       <div className="flex-1 overflow-y-auto">
         {activePluginPage ? (
-          <activePluginPage.component />
+          <div className="p-6">
+            <activePluginPage.component />
+          </div>
         ) : subPage ? (
           renderSettingsSection(subPage)
         ) : (
