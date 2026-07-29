@@ -56,13 +56,6 @@ export const ACTION_META: Record<string, ActionMeta> = {
   "session.ended":       { icon: "lucide:monitor",     color: "#6b7280", label: () => i18n.t("logs.eventLabels.sessionEnded") },
   "session.joined":      { icon: "lucide:monitor",     color: "#06b6d4", label: () => i18n.t("logs.eventLabels.sessionJoined") },
   "session.left":        { icon: "lucide:monitor",     color: "#6b7280", label: () => i18n.t("logs.eventLabels.sessionLeft") },
-  "agent.grant_created":  { icon: "lucide:shield-check",   color: "#f59e0b", label: (l) => i18n.t("logs.eventLabels.agentGrantCreated", { name: l.target_name ?? l.target_id ?? fallbackHost() }) },
-  "agent.grant_revoked":  { icon: "lucide:shield-x",       color: "#f59e0b", label: (l) => i18n.t("logs.eventLabels.agentGrantRevoked", { name: l.target_name ?? l.target_id ?? fallbackHost() }) },
-  "agent.mode_changed":   { icon: "lucide:toggle-right",   color: "#8b5cf6", label: (l) => i18n.t(l.metadata?.target === "default" ? "logs.eventLabels.agentDefaultModeChanged" : "logs.eventLabels.agentModeChanged", { mode: l.metadata?.to ?? "" }) },
-  "agent.session_opened": { icon: "lucide:square-terminal",color: "#06b6d4", label: (l) => i18n.t("logs.eventLabels.agentSessionOpened", { name: l.target_name ?? l.target_id ?? fallbackHost() }) },
-  "agent.session_closed": { icon: "lucide:square-terminal",color: "#6b7280", label: (l) => i18n.t("logs.eventLabels.agentSessionClosed", { name: l.target_name ?? l.target_id ?? fallbackHost() }) },
-  "agent.command_run":    { icon: "lucide:play",           color: "#10b981", label: (l) => i18n.t("logs.eventLabels.agentCommandRun", { name: l.target_name ?? l.target_id ?? fallbackHost() }) },
-  "agent.action_denied":  { icon: "lucide:ban",            color: "#ef4444", label: (l) => i18n.t("logs.eventLabels.agentActionDenied", { name: l.target_name ?? l.target_id ?? fallbackHost() }) },
 };
 
 export const FALLBACK_META: ActionMeta = {

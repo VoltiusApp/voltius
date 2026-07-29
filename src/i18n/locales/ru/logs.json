@@ -51,14 +51,7 @@
         "secretViewed": "Секрет раскрыт",
         "sessionStarted": "Сессия начата",
         "sessionEnded": "Сессия завершена",
-        "sessionJoined": "Присоединение к сессии",
-        "agentGrantCreated": "Разрешение ИИ выдано",
-        "agentGrantRevoked": "Разрешение ИИ отозвано",
-        "agentModeChanged": "Режим ИИ изменён",
-        "agentSessionOpened": "Сессия ИИ открыта",
-        "agentSessionClosed": "Сессия ИИ закрыта",
-        "agentCommandRun": "Команда ИИ выполнена",
-        "agentActionDenied": "Действие ИИ отклонено"
+        "sessionJoined": "Присоединение к сессии"
       }
     },
     "timeRange": {
@@ -124,15 +117,7 @@
       "fallbackMember": "участник",
       "fallbackRole": "участник",
       "fallbackResource": "ресурс",
-      "fallbackHost": "хост",
-      "agentGrantCreated": "выдал(а) ИИ-агенту постоянное разрешение на {{name}}",
-      "agentGrantRevoked": "отозвал(а) разрешение ИИ-агента на {{name}}",
-      "agentModeChanged": "изменил(а) режим ИИ-агента на {{mode}} для этой беседы",
-      "agentDefaultModeChanged": "изменил(а) режим ИИ-агента по умолчанию на {{mode}}",
-      "agentSessionOpened": "открыл(а) сессию ИИ-агента на {{name}}",
-      "agentSessionClosed": "закрыл(а) сессию ИИ-агента на {{name}}",
-      "agentCommandRun": "выполнил(а) команду через ИИ-агента на {{name}}",
-      "agentActionDenied": "отклонил(а) действие ИИ-агента на {{name}}"
+      "fallbackHost": "хост"
     },
     "timeline": {
       "today": "Сегодня",

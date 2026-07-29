@@ -51,14 +51,7 @@
         "secretViewed": "Secret révélé",
         "sessionStarted": "Session démarrée",
         "sessionEnded": "Session terminée",
-        "sessionJoined": "Session rejointe",
-        "agentGrantCreated": "Autorisation IA accordée",
-        "agentGrantRevoked": "Autorisation IA révoquée",
-        "agentModeChanged": "Mode IA modifié",
-        "agentSessionOpened": "Session IA ouverte",
-        "agentSessionClosed": "Session IA fermée",
-        "agentCommandRun": "Commande IA exécutée",
-        "agentActionDenied": "Action IA refusée"
+        "sessionJoined": "Session rejointe"
       }
     },
     "timeRange": {
@@ -124,15 +117,7 @@
       "fallbackMember": "un membre",
       "fallbackRole": "membre",
       "fallbackResource": "une ressource",
-      "fallbackHost": "un hôte",
-      "agentGrantCreated": "a accordé une autorisation permanente à l'agent IA sur {{name}}",
-      "agentGrantRevoked": "a révoqué une autorisation de l'agent IA sur {{name}}",
-      "agentModeChanged": "a changé le mode de l'agent IA en {{mode}} pour cette conversation",
-      "agentDefaultModeChanged": "a changé le mode par défaut de l'agent IA en {{mode}}",
-      "agentSessionOpened": "a ouvert une session de l'agent IA sur {{name}}",
-      "agentSessionClosed": "a fermé une session de l'agent IA sur {{name}}",
-      "agentCommandRun": "a exécuté une commande via l'agent IA sur {{name}}",
-      "agentActionDenied": "a refusé une action de l'agent IA sur {{name}}"
+      "fallbackHost": "un hôte"
     },
     "timeline": {
       "today": "Aujourd'hui",

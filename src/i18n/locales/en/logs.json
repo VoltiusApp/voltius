@@ -51,14 +51,7 @@
         "secretViewed": "Secret revealed",
         "sessionStarted": "Session started",
         "sessionEnded": "Session ended",
-        "sessionJoined": "Session joined",
-        "agentGrantCreated": "AI approval granted",
-        "agentGrantRevoked": "AI approval revoked",
-        "agentModeChanged": "AI mode changed",
-        "agentSessionOpened": "AI session opened",
-        "agentSessionClosed": "AI session closed",
-        "agentCommandRun": "AI command run",
-        "agentActionDenied": "AI action denied"
+        "sessionJoined": "Session joined"
       }
     },
     "timeRange": {
@@ -124,15 +117,7 @@
       "fallbackMember": "a member",
       "fallbackRole": "member",
       "fallbackResource": "a resource",
-      "fallbackHost": "a host",
-      "agentGrantCreated": "granted the AI agent standing approval on {{name}}",
-      "agentGrantRevoked": "revoked an AI agent approval on {{name}}",
-      "agentModeChanged": "changed the AI agent mode to {{mode}} for this conversation",
-      "agentDefaultModeChanged": "changed the default AI agent mode to {{mode}}",
-      "agentSessionOpened": "opened an AI agent session on {{name}}",
-      "agentSessionClosed": "closed an AI agent session on {{name}}",
-      "agentCommandRun": "ran a command via the AI agent on {{name}}",
-      "agentActionDenied": "denied an AI agent action on {{name}}"
+      "fallbackHost": "a host"
     },
     "timeline": {
       "today": "Today",

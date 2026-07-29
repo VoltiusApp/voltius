@@ -45,13 +45,6 @@ function getActionOptions(t: TFunction) {
     { value: "session.started",     label: t("logs.filters.actionOptions.sessionStarted") },
     { value: "session.ended",       label: t("logs.filters.actionOptions.sessionEnded") },
     { value: "session.joined",      label: t("logs.filters.actionOptions.sessionJoined") },
-    { value: "agent.grant_created", label: t("logs.filters.actionOptions.agentGrantCreated") },
-    { value: "agent.grant_revoked", label: t("logs.filters.actionOptions.agentGrantRevoked") },
-    { value: "agent.mode_changed",  label: t("logs.filters.actionOptions.agentModeChanged") },
-    { value: "agent.session_opened",label: t("logs.filters.actionOptions.agentSessionOpened") },
-    { value: "agent.session_closed",label: t("logs.filters.actionOptions.agentSessionClosed") },
-    { value: "agent.command_run",   label: t("logs.filters.actionOptions.agentCommandRun") },
-    { value: "agent.action_denied", label: t("logs.filters.actionOptions.agentActionDenied") },
   ];
 }
 
