@@ -707,7 +707,36 @@
         "newPermissions": "Nouvelles autorisations",
         "noPermissions": "Ce plugin ne demande aucune autorisation particulière.",
         "installConfirm": "Installer",
-        "updateConfirm": "Mettre à jour"
+        "updateConfirm": "Mettre à jour",
+        "permissions": {
+          "dangerHeading": "Autorisations sensibles",
+          "dangerWarning": "Elles donnent au plugin un accès étendu. Ne les accordez qu'à un plugin de confiance.",
+          "terminalRead": { "label": "Lire la sortie du terminal", "description": "Lire la sortie visible et l'historique de vos sessions de terminal." },
+          "terminalStream": { "label": "Observer la sortie du terminal en direct", "description": "Observer en continu tout ce qui s'affiche dans vos sessions de terminal, en temps réel." },
+          "terminalWrite": { "label": "Écrire dans vos terminaux", "description": "Envoyer des saisies et exécuter des commandes dans vos sessions de terminal — comme si vous les tapiez vous-même." },
+          "keychainRead": { "label": "Lire ses propres secrets stockés", "description": "Lire les secrets que ce plugin a précédemment enregistrés dans le trousseau de votre appareil." },
+          "keychainWrite": { "label": "Enregistrer des secrets sur votre appareil", "description": "Enregistrer des secrets dans le trousseau de votre système." },
+          "sessionsRead": { "label": "Voir vos sessions", "description": "Voir quelles sessions de terminal sont ouvertes et quand elles changent." },
+          "sessionsWrite": { "label": "Ouvrir et fermer des sessions", "description": "Ouvrir de nouvelles sessions de terminal et fermer celles existantes." },
+          "connectionsRead": { "label": "Lire vos connexions", "description": "Lire vos connexions enregistrées et leurs détails." },
+          "connectionsWrite": { "label": "Gérer vos connexions", "description": "Créer, modifier et supprimer vos connexions enregistrées." },
+          "keysRead": { "label": "Lire vos clés SSH", "description": "Lister vos clés SSH enregistrées." },
+          "keysWrite": { "label": "Gérer vos clés SSH", "description": "Créer et supprimer des clés SSH en votre nom." },
+          "identitiesRead": { "label": "Lire vos identités", "description": "Lister vos identités enregistrées." },
+          "identitiesWrite": { "label": "Gérer vos identités", "description": "Créer et supprimer des identités en votre nom." },
+          "vaultRead": { "label": "Lire votre coffre", "description": "Lire les données stockées dans votre coffre." },
+          "vaultWrite": { "label": "Écrire dans votre coffre", "description": "Stocker et modifier des données dans votre coffre." },
+          "syncRead": { "label": "Lire les données de synchronisation", "description": "Lire les données synchronisées entre vos appareils." },
+          "syncWrite": { "label": "Écrire les données de synchronisation", "description": "Stocker et modifier les données synchronisées entre vos appareils." },
+          "storage": { "label": "Stocker les données du plugin", "description": "Enregistrer les réglages et données propres à ce plugin sur votre appareil." },
+          "http": { "label": "Accéder au réseau", "description": "Effectuer des requêtes réseau vers des services externes." },
+          "fs": { "label": "Accéder aux fichiers", "description": "Lire et écrire des fichiers sur votre appareil." },
+          "ui": { "label": "Afficher des éléments d'interface", "description": "Ajouter ses propres panneaux et contrôles à l'application." },
+          "notifications": { "label": "Afficher des notifications", "description": "Vous afficher des notifications et des messages." },
+          "settingsPage": { "label": "Ajouter une page de réglages", "description": "Ajouter sa propre page dans les Réglages." },
+          "rightPanel": { "label": "Ajouter un panneau latéral", "description": "Ajouter un panneau à la zone latérale de session." },
+          "globalPanel": { "label": "Ajouter un panneau global", "description": "Ajouter un panneau disponible dans toute l'application." }
+        }
       }
     },
     "sftp": {

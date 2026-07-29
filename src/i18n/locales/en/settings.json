@@ -707,7 +707,36 @@
         "newPermissions": "New permissions",
         "noPermissions": "This plugin requests no special permissions.",
         "installConfirm": "Install",
-        "updateConfirm": "Update"
+        "updateConfirm": "Update",
+        "permissions": {
+          "dangerHeading": "Powerful permissions",
+          "dangerWarning": "These give the plugin far-reaching access. Grant them only to a plugin you trust.",
+          "terminalRead": { "label": "Read terminal output", "description": "Read the visible output and scrollback of your terminal sessions." },
+          "terminalStream": { "label": "Watch terminal output live", "description": "Continuously watch everything printed in your terminal sessions, as it happens." },
+          "terminalWrite": { "label": "Type into your terminals", "description": "Send input and run commands in your terminal sessions — as if typing them yourself." },
+          "keychainRead": { "label": "Read its own stored secrets", "description": "Read secrets this plugin previously stored in your device keychain." },
+          "keychainWrite": { "label": "Store secrets on your device", "description": "Save secrets to your device's OS keychain." },
+          "sessionsRead": { "label": "See your sessions", "description": "See which terminal sessions are open and when they change." },
+          "sessionsWrite": { "label": "Open and close sessions", "description": "Open new terminal sessions and close existing ones." },
+          "connectionsRead": { "label": "Read your connections", "description": "Read your saved connections and their details." },
+          "connectionsWrite": { "label": "Manage your connections", "description": "Create, edit, and delete your saved connections." },
+          "keysRead": { "label": "Read your SSH keys", "description": "List your saved SSH keys." },
+          "keysWrite": { "label": "Manage your SSH keys", "description": "Create and delete SSH keys on your behalf." },
+          "identitiesRead": { "label": "Read your identities", "description": "List your saved identities." },
+          "identitiesWrite": { "label": "Manage your identities", "description": "Create and delete identities on your behalf." },
+          "vaultRead": { "label": "Read your vault", "description": "Read data stored in your vault." },
+          "vaultWrite": { "label": "Write to your vault", "description": "Store and change data in your vault." },
+          "syncRead": { "label": "Read sync data", "description": "Read data synced across your devices." },
+          "syncWrite": { "label": "Write sync data", "description": "Store and change data synced across your devices." },
+          "storage": { "label": "Store plugin data", "description": "Save this plugin's own settings and data on your device." },
+          "http": { "label": "Access the network", "description": "Make network requests to external services." },
+          "fs": { "label": "Access files", "description": "Read and write files on your device." },
+          "ui": { "label": "Show interface elements", "description": "Add its own panels and controls to the app." },
+          "notifications": { "label": "Show notifications", "description": "Show you notifications and toasts." },
+          "settingsPage": { "label": "Add a settings page", "description": "Add its own page to Settings." },
+          "rightPanel": { "label": "Add a side panel", "description": "Add a panel to the session side area." },
+          "globalPanel": { "label": "Add an app-wide panel", "description": "Add a panel available across the whole app." }
+        }
       }
     },
     "sftp": {
