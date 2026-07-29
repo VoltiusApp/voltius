@@ -52,12 +52,10 @@
     "@xterm/xterm": "^6.0.0",
     "country-flag-emoji-polyfill": "^0.1.8",
     "i18next": "^26.3.3",
-    "ollama-ai-provider-v2": "4.0.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-i18next": "^17.0.8",
     "uplot": "^1.6.32",
-    "zod": "4.4.3",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
