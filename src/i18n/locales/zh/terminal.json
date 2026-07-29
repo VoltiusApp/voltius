@@ -81,7 +81,7 @@
       "quickForwardPlaceholder": "转发端口（例如 3000 或 3000:8080）",
       "quickForwardErrors": {
         "emptyInput": "输入一个端口",
-        "tooManyParts": "使用端口或 远程:本地",
+        "tooManyParts": "使用端口或 远程：本地",
         "invalidRemotePort": "端口必须为 1-65535",
         "invalidLocalPort": "本地端口必须为 1-65535"
       }

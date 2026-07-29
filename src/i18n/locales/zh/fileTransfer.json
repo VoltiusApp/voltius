@@ -54,6 +54,8 @@
         "moveToTarget_other": "移动 {{count}} 个项目到目标",
         "delete_one": "删除",
         "delete_other": "删除 {{count}} 个项目",
+        "copyPath_one": "复制路径",
+        "copyPath_other": "复制 {{count}} 个路径",
         "compress": "压缩为 .tar.gz",
         "extractHere": "解压到此处",
         "openInTerminal": "在终端中打开",
@@ -138,7 +140,7 @@
       },
       "tab": {
         "autoSave": "自动保存",
-        "saveFailedReason": "保存失败: {{error}}",
+        "saveFailedReason": "保存失败：{{error}}",
         "error": {
           "default": "无法打开文件。",
           "tooLarge": "文件太大（{{size}} 字节，限制 {{limit}}）。请改为下载。",
@@ -149,7 +151,7 @@
         "filesTab": "文件",
         "pendingNameFallback": "此文件",
         "pendingNameDiffFallback": "此差异",
-        "diffTitlePrefix": "差异: {{name}}",
+        "diffTitlePrefix": "差异：{{name}}",
         "discardTitle": "放弃未保存的更改？",
         "discardMessage": "\"{{name}}\" 有未保存的更改。关闭此标签页将放弃这些更改。",
         "discard": "放弃"
