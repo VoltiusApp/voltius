@@ -25,6 +25,9 @@ function mockDeps() {
         set: vi.fn(),
         delete: storageDelete,
       },
+      connections: {
+        list: vi.fn().mockResolvedValue([]),
+      },
     },
     profiles: {
       getActiveId: vi.fn().mockResolvedValue("p1"),
