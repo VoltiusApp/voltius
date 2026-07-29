@@ -162,9 +162,10 @@ interface PendingReview {
 
 /**
  * install/update with permission consent. First installs show a disclosure when the
- * `plugin-install-review` setting is on; updates apply silently unless they request NEW
- * permissions, in which case a non-skippable review modal is shown. Both paths run the
- * authoritative, hash-verified `installPlugin`.
+ * `plugin-install-review` setting is on, or whenever the manifest declares a gated
+ * permission (which always forces the dialog, review setting notwithstanding); updates
+ * apply silently unless they request NEW permissions, in which case a non-skippable
+ * review modal is shown. Both paths run the authoritative, hash-verified `installPlugin`.
  */
 function usePluginInstaller() {
   const { t } = useTranslation();
