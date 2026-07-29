@@ -3,10 +3,19 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useSessionStore } from "@/stores/sessionStore";
+import { processesStart, processesStop, processKill, onProcessesSnapshot } from "@/services/processes";
+import type { ProcessesService } from "@/plugins/process-manager/services";
 import { useProcessList } from "@/plugins/process-manager/useProcessList";
 import type { ProcessEntry, SortCol } from "@/plugins/process-manager/types";
 import MobilePanelHeader from "./MobilePanelHeader";
 import BottomSheet from "../sheets/BottomSheet";
+
+const processesService: ProcessesService = {
+  processesStart,
+  processesStop,
+  onProcessesSnapshot,
+  processKill,
+};
 
 function fmtMem(kb: number): string {
   if (kb < 1024) return `${kb}K`;
@@ -29,7 +38,7 @@ export default function MobileProcessesScreen({ sessionId }: { sessionId: string
   const session = useSessionStore((s) => s.sessions.find((x) => x.id === sessionId));
 
   const { snapshot, entries, filter, setFilter, sortCol, sortAsc, setSort, kill, killError, setKillError } =
-    useProcessList(session);
+    useProcessList(processesService, session);
 
   const [expandedPid, setExpandedPid] = useState<number | null>(null);
   const [sheetFor, setSheetFor] = useState<ProcessEntry | null>(null);

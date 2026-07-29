@@ -41,6 +41,7 @@ import type {
 } from "./api";
 import { createStreamsAPI } from "./domains/streams";
 import { createMetricsAPI } from "./domains/metrics";
+import { createProcessesAPI } from "./domains/processes";
 
 const STREAM_PERM: Record<StreamKind, string> = {
   metrics: "metrics:read",
@@ -362,6 +363,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
 
   const streamsApi = createStreamsAPI();
   const metricsApi = createMetricsAPI(streamsApi);
+  const processesApi = createProcessesAPI(streamsApi);
 
   const api: PluginAPI = {
     pluginId: id,
@@ -846,6 +848,22 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       getSystemInfo: (sessionId, sessionType, sessionName) => {
         requireGated("metrics:read");
         return metricsApi.getSystemInfo(sessionId, sessionType, sessionName);
+      },
+    },
+
+    processes: {
+      start: (sessionId, isRemote) => {
+        requireGated("processes:manage");
+        return processesApi.start(sessionId, isRemote);
+      },
+      stop: (streamId) => processesApi.stop(streamId),
+      onSnapshot: (streamId, cb) => {
+        requireGated("processes:manage");
+        return processesApi.onSnapshot(streamId, cb);
+      },
+      kill: (sessionId, pid, isRemote, force) => {
+        requireGated("processes:manage");
+        return processesApi.kill(sessionId, pid, isRemote, force);
       },
     },
 

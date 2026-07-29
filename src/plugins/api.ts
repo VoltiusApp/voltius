@@ -215,6 +215,14 @@ export interface MetricsAPI {
   getSystemInfo(sessionId: string, sessionType: string, sessionName?: string): Promise<unknown>;
 }
 
+/** Process listing/kill — built on top of api.streams' "processes" kind. GATED (processes:manage). */
+export interface ProcessesAPI {
+  start(sessionId: string, isRemote: boolean): Promise<string>;
+  stop(streamId: string): Promise<void>;
+  onSnapshot<T>(streamId: string, cb: (snapshot: T) => void): Promise<() => void>;
+  kill(sessionId: string, pid: number, isRemote: boolean, force: boolean): Promise<void>;
+}
+
 // ─── API principale ────────────────────────────────────────────────────────
 
 export interface PluginAPI {
@@ -372,6 +380,9 @@ export interface PluginAPI {
 
   // Host metrics domain wrapper over streams — GATED (metrics:read).
   metrics: MetricsAPI;
+
+  // Process listing/kill domain wrapper over streams — GATED (processes:manage).
+  processes: ProcessesAPI;
 
   // Lifecycle hooks (always available)
   lifecycle: {
