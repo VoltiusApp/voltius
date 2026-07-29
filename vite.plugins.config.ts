@@ -9,6 +9,15 @@ export default defineConfig({
   plugins: [react()],
   publicDir: false,
   resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
+  // Plugin bundles run in the webview, not Node — there is no `process` global there.
+  // Dependencies (e.g. @tanstack/react-virtual) reference process.env.NODE_ENV for
+  // dev-only branches; without this define the reference survives into the artifact
+  // as a bare `process.env.NODE_ENV` and throws ReferenceError: process is not defined
+  // at module-evaluation time in the real webview (unit tests run under jsdom/Node,
+  // where `process` exists, so this does not surface in the suite).
+  define: {
+    "process.env.NODE_ENV": JSON.stringify("production"),
+  },
   build: {
     outDir: path.resolve(__dirname, `src-tauri/resources/plugins/${id}`),
     emptyOutDir: true,
