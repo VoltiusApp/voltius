@@ -7,6 +7,7 @@ node_modules/
 .pnpm-store/
 .pnpmrc
 dist/
+src-tauri/resources/plugins/
 .worktrees/
 .wrangler/
 

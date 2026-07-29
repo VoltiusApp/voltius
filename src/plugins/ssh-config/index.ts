@@ -1,23 +1,9 @@
 import React, { useEffect, useState } from "react";
 import type { PluginAPI, PluginConnectionInput, PluginManifest, PluginRegisterFn } from "@/plugins/api";
 import type { JumpHost } from "@/types";
+import manifestJson from "./manifest.json";
 
-// ─── Manifest ────────────────────────────────────────────────────────────────
-
-export const manifest: PluginManifest = {
-  id: "plugin-ssh-config",
-  name: "SSH Config Sync",
-  version: "1.0.0",
-  description: "Auto-syncs hosts from ~/.ssh/config. Connections are tagged 'ssh-config'.",
-  permissions: [
-    "connections:read", "connections:write",
-    "keys:read", "keys:write",
-    "identities:read", "identities:write",
-    "fs", "settings-page", "notifications",
-  ],
-  defaultEnabled: true,
-  desktopOnly: true,
-};
+export const manifest = manifestJson as PluginManifest;
 
 // ─── SSH config parser ────────────────────────────────────────────────────────
 
