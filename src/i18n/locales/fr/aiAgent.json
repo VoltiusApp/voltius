@@ -119,6 +119,9 @@
         "abandoned": "n'est plus actif"
       },
       "expired": "Ce plan n'est plus actif."
+    },
+    "objectRef": {
+      "unknown": "connexion inconnue"
     }
   }
 }

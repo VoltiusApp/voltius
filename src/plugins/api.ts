@@ -14,6 +14,13 @@ export interface PluginConnection {
   tags: string[];
   identity_id?: string;
   jump_hosts?: import("@/types").JumpHost[];
+  // Display-only fields — already present at runtime (runtime.ts:389 returns
+  // full Connection records cast to PluginConnection[]); exposed here so the
+  // agent UI can render a real per-host avatar. Optional and additive.
+  connection_type?: "ssh" | "serial" | "ftp";
+  icon?: string;
+  distro?: string;
+  serial_port?: string;
 }
 
 export interface PluginConnectionInput {
