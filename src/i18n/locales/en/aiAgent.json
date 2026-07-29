@@ -99,6 +99,12 @@
       "openToReview": "Open to review",
       "planPending": "The agent wants approval for a {{count}}-step plan"
     },
+    "mode": {
+      "plan": "⏸ plan",
+      "ask": "ask on risky",
+      "auto": "⏵⏵ auto-accept",
+      "cycleHint": "shift+tab to cycle"
+    },
     "plan": {
       "runningChip": "running approved plan",
       "heading_one": "Plan — {{count}} step",

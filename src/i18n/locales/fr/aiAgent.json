@@ -99,6 +99,12 @@
       "openToReview": "Ouvrir pour examiner",
       "planPending": "L'agent demande l'approbation d'un plan de {{count}} étapes"
     },
+    "mode": {
+      "plan": "⏸ plan",
+      "ask": "demander si risqué",
+      "auto": "⏵⏵ acceptation auto",
+      "cycleHint": "shift+tab pour changer"
+    },
     "plan": {
       "runningChip": "plan approuvé en cours",
       "heading_one": "Plan — {{count}} étape",

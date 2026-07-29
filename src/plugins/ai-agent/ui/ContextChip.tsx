@@ -10,23 +10,9 @@ export function ContextChip() {
 
   const source = t(`aiAgent.touchpoint.chip.${ctx.source}`);
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        alignSelf: "flex-start",
-        maxWidth: "100%",
-        background: "var(--t-bg-elevated)",
-        border: "1px solid var(--t-border)",
-        borderRadius: 999,
-        padding: "2px 4px 2px 8px",
-        fontSize: 11,
-        color: "var(--t-text-secondary)",
-      }}
-    >
+    <div className="self-start flex items-center gap-1.5 max-w-full rounded-full py-0.5 pl-2 pr-1 text-[11px] bg-(--t-bg-elevated) border border-(--t-border) text-(--t-text-secondary)">
       <Icon icon="lucide:paperclip" width={11} />
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <span className="overflow-hidden text-ellipsis whitespace-nowrap">
         {ctx.connectionName} · {source} · {t("aiAgent.touchpoint.chip.lines", { count: ctx.lineCount })}
         {ctx.truncated ? ` · ${t("aiAgent.touchpoint.chip.truncated")}` : ""}
       </span>
@@ -35,7 +21,7 @@ export function ContextChip() {
         onClick={clearContext}
         title={t("aiAgent.touchpoint.chip.remove")}
         aria-label={t("aiAgent.touchpoint.chip.remove")}
-        style={{ background: "transparent", color: "var(--t-text-secondary)", flexShrink: 0 }}
+        className="bg-transparent text-(--t-text-secondary) shrink-0"
       >
         <Icon icon="lucide:x" width={11} />
       </button>

@@ -22,6 +22,7 @@ describe("ModeChip", () => {
 
   it("shows the plain plan label with no batch", () => {
     render(<ModeChip />);
+    expect(screen.getByRole("button").textContent).toContain("aiAgent.mode.plan");
     expect(screen.queryByText(/runningChip/)).toBeNull();
   });
 
