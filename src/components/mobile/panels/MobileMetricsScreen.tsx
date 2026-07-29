@@ -1,11 +1,20 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSessionStore } from "@/stores/sessionStore";
+import { metricsStart, metricsStop, onMetricsSnapshot, getSystemInfo } from "@/services/metrics";
+import type { MetricsService } from "@/plugins/monitoring/services";
 import { useHostMetrics } from "@/plugins/monitoring/useHostMetrics";
 import { Sparkline } from "@/plugins/monitoring/components/Sparkline";
 import { DiskSection } from "@/plugins/monitoring/components/DiskSection";
 import { SystemInfoSection } from "@/plugins/monitoring/components/SystemInfoSection";
 import MobilePanelHeader from "./MobilePanelHeader";
+
+const metricsService: MetricsService = {
+  metricsStart,
+  metricsStop,
+  onMetricsSnapshot,
+  getSystemInfo,
+};
 
 function fmtBytes(n: number): string {
   if (n < 1024) return `${n}B/s`;
@@ -50,7 +59,9 @@ export default function MobileMetricsScreen({ sessionId }: { sessionId: string }
     return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
 
-  const { snap, disks, disksLoading, cpuH, memH, rxH, txH } = useHostMetrics(session, { paused });
+  const { snap, disks, disksLoading, cpuH, memH, rxH, txH } = useHostMetrics(metricsService, session, {
+    paused,
+  });
 
   const ssh = session?.type === "ssh";
 
@@ -96,7 +107,7 @@ export default function MobileMetricsScreen({ sessionId }: { sessionId: string }
           {(disksLoading || disks.length > 0) && (
             <DiskSection disks={disks} loading={disksLoading} />
           )}
-          <SystemInfoSection session={session} defaultExpanded />
+          <SystemInfoSection service={metricsService} session={session} defaultExpanded />
         </div>
       )}
     </div>

@@ -207,6 +207,14 @@ export interface StreamsAPI {
   on<T>(streamId: string, cb: (snapshot: T) => void): Promise<() => void>;
 }
 
+/** Host metrics — built on top of api.streams' "metrics" kind. GATED (metrics:read). */
+export interface MetricsAPI {
+  start(sessionId: string, isRemote: boolean): Promise<string>;
+  stop(streamId: string): Promise<void>;
+  onSnapshot<T>(streamId: string, cb: (snapshot: T) => void): Promise<() => void>;
+  getSystemInfo(sessionId: string, sessionType: string, sessionName?: string): Promise<unknown>;
+}
+
 // ─── API principale ────────────────────────────────────────────────────────
 
 export interface PluginAPI {
@@ -361,6 +369,9 @@ export interface PluginAPI {
 
   // Session-scoped streams (metrics, processes, docker logs) — GATED per kind.
   streams: StreamsAPI;
+
+  // Host metrics domain wrapper over streams — GATED (metrics:read).
+  metrics: MetricsAPI;
 
   // Lifecycle hooks (always available)
   lifecycle: {

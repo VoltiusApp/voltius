@@ -40,6 +40,7 @@ import type {
   StreamKind,
 } from "./api";
 import { createStreamsAPI } from "./domains/streams";
+import { createMetricsAPI } from "./domains/metrics";
 
 const STREAM_PERM: Record<StreamKind, string> = {
   metrics: "metrics:read",
@@ -360,6 +361,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const kcKey = (key: string): string => `plugin:${encodeURIComponent(id)}:${key}`;
 
   const streamsApi = createStreamsAPI();
+  const metricsApi = createMetricsAPI(streamsApi);
 
   const api: PluginAPI = {
     pluginId: id,
@@ -829,6 +831,22 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       stop: (streamId) => streamsApi.stop(streamId),
       on: (streamId, cb) => streamsApi.on(streamId, cb),
+    },
+
+    metrics: {
+      start: (sessionId, isRemote) => {
+        requireGated("metrics:read");
+        return metricsApi.start(sessionId, isRemote);
+      },
+      stop: (streamId) => metricsApi.stop(streamId),
+      onSnapshot: (streamId, cb) => {
+        requireGated("metrics:read");
+        return metricsApi.onSnapshot(streamId, cb);
+      },
+      getSystemInfo: (sessionId, sessionType, sessionName) => {
+        requireGated("metrics:read");
+        return metricsApi.getSystemInfo(sessionId, sessionType, sessionName);
+      },
     },
 
     lifecycle: {

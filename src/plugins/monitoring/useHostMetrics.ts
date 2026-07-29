@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { metricsStart, metricsStop, onMetricsSnapshot } from "@/services/metrics";
+import type { PluginSession } from "@/plugins/api";
+import type { MetricsService } from "./services";
 import type { DiskInfo, MetricsSnapshot } from "./types";
-import type { TerminalSession } from "@/types";
 
 const MAX_HISTORY = 60;
 
@@ -16,7 +16,8 @@ function pushHistory(arr: number[], val: number): number[] {
  *  started with `isRemote = session.type === "ssh"` (matching the desktop MetricsPanel).
  *  Shared by desktop MetricsPanel + mobile Metrics screen. */
 export function useHostMetrics(
-  session: TerminalSession | undefined,
+  service: MetricsService,
+  session: PluginSession | undefined,
   opts: { paused?: boolean; localUnsupported?: boolean } = {},
 ) {
   const paused = opts.paused ?? false;
@@ -37,10 +38,10 @@ export function useHostMetrics(
     unlistenRef.current?.();
     unlistenRef.current = null;
     if (streamIdRef.current) {
-      await metricsStop(streamIdRef.current).catch(() => {});
+      await service.metricsStop(streamIdRef.current).catch(() => {});
       streamIdRef.current = null;
     }
-  }, []);
+  }, [service]);
 
   useEffect(() => {
     if (
@@ -77,11 +78,11 @@ export function useHostMetrics(
       if (cancelled) return;
 
       try {
-        const sid = await metricsStart(session.id, session.type === "ssh");
-        if (cancelled) { metricsStop(sid).catch(() => {}); return; }
+        const sid = await service.metricsStart(session.id, session.type === "ssh");
+        if (cancelled) { service.metricsStop(sid).catch(() => {}); return; }
         streamIdRef.current = sid;
 
-        const unlisten = await onMetricsSnapshot(sid, (s) => {
+        const unlisten = await service.onMetricsSnapshot(sid, (s) => {
           if (cancelled) return;
           setSnap(s);
           setCpuH((h) => pushHistory(h, s.cpu_percent));
@@ -94,7 +95,7 @@ export function useHostMetrics(
           }
         });
 
-        if (cancelled) { unlisten(); metricsStop(sid).catch(() => {}); return; }
+        if (cancelled) { unlisten(); service.metricsStop(sid).catch(() => {}); return; }
         unlistenRef.current = unlisten;
       } catch (e) {
         console.error("[monitoring] metrics_start failed:", e);
