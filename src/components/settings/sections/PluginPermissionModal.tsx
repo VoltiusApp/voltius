@@ -101,7 +101,7 @@ export function PluginPermissionModal({
             )}
             {danger.length > 0 && (
               <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-(--t-danger)">
+                <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: "var(--t-error, #ef4444)" }}>
                   <Icon icon="lucide:alert-triangle" width={13} />
                   {t("settings.plugins.permissionModal.permissions.dangerHeading")}
                 </div>
