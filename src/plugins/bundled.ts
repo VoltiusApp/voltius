@@ -8,7 +8,6 @@
  */
 
 import type { PluginManifest, PluginRegisterFn } from "./api";
-import { manifest as sshConfigManifest, register as sshConfigRegister } from "./ssh-config";
 import { manifest as gistSyncManifest, register as gistSyncRegister } from "./gist-sync";
 import { manifest as monitoringManifest, register as monitoringRegister } from "./monitoring";
 import { manifest as dockerManifest, register as dockerRegister } from "./docker";
@@ -21,7 +20,6 @@ export interface BundledPlugin {
 }
 
 export const BUNDLED_PLUGINS: BundledPlugin[] = [
-  { manifest: sshConfigManifest, register: sshConfigRegister },
   { manifest: gistSyncManifest, register: gistSyncRegister },
   { manifest: monitoringManifest, register: monitoringRegister },
   { manifest: dockerManifest, register: dockerRegister },

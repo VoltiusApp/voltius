@@ -1,9 +1,18 @@
 import React, { useEffect, useState } from "react";
 import type { PluginAPI, PluginConnectionInput, PluginManifest, PluginRegisterFn } from "@/plugins/api";
-import type { JumpHost } from "@/types";
 import manifestJson from "./manifest.json";
 
 export const manifest = manifestJson as PluginManifest;
+
+// Inlined from @/types — external bundles cannot import host internals.
+interface JumpHost {
+  id: string;
+  connection_id: string;
+  host?: string;
+  port?: number;
+  username?: string;
+  identity_id?: string;
+}
 
 // ─── SSH config parser ────────────────────────────────────────────────────────
 
