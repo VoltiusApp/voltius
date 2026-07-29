@@ -26,6 +26,12 @@ export function ApprovalCard({ pending }: { pending: PendingApproval }) {
   const hasConnectionId = "connectionId" in pending.args;
   const hasCommand = "command" in pending.args;
   const targetId = String(pending.args.connectionId ?? "");
+  // `close_session` (and any future tool with neither `command` nor
+  // `connectionId` in its args) still gets `pending.scope` set by
+  // `deriveScope` — for close_session that's the connection the target
+  // session belongs to. Resolve it so the fallback branch below can show a
+  // real connection card instead of a raw id or a JSON dump of args.
+  const scopeRef = refs.resolve(pending.scope);
 
   const grantLabel = (g: AllowlistEntry) =>
     g.grain === "exact"
@@ -41,6 +47,9 @@ export function ApprovalCard({ pending }: { pending: PendingApproval }) {
     const args = { ...pending.args };
     if (hasCommand) args.command = command;
     let scope = pending.scope;
+    // An edited connectionId must carry through to scope: otherwise the
+    // audit record would attribute this call to the originally-proposed
+    // connection, not the one it actually ran on.
     if (hasConnectionId) { args.connectionId = connectionId; scope = connectionId; }
     resolveApproval(pending.id, { approve: true, scope, via: "prompted", args });
   };
@@ -86,9 +95,11 @@ export function ApprovalCard({ pending }: { pending: PendingApproval }) {
           )}
           {hasConnectionId && <ObjectRefCard id={targetId} refObj={refs.resolve(targetId)} />}
           {!hasCommand && !hasConnectionId && (
-            <code className="whitespace-pre-wrap break-all text-(--t-text-secondary)">
-              {JSON.stringify(pending.args)}
-            </code>
+            scopeRef ? (
+              <ObjectRefCard id={pending.scope} refObj={scopeRef} />
+            ) : (
+              <span className="text-(--t-text-secondary)">{t("aiAgent.approval.noDetail")}</span>
+            )
           )}
         </div>
       )}

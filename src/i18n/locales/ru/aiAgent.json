@@ -12,6 +12,7 @@
       "commandPlaceholder": "команда",
       "connectionIdPlaceholder": "id подключения",
       "reasonPlaceholder": "причина (необязательно)",
+      "noDetail": "Нет дополнительных сведений",
       "always": {
         "tool": "Всегда разрешать {{tool}} на {{connection}}",
         "exact": "Всегда разрешать `{{command}}` на {{connection}}"

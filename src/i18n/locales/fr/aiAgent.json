@@ -12,6 +12,7 @@
       "commandPlaceholder": "commande",
       "connectionIdPlaceholder": "id de connexion",
       "reasonPlaceholder": "motif (facultatif)",
+      "noDetail": "Aucun détail supplémentaire",
       "always": {
         "tool": "Toujours autoriser {{tool}} sur {{connection}}",
         "exact": "Toujours autoriser `{{command}}` sur {{connection}}"

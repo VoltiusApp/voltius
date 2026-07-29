@@ -12,6 +12,7 @@
       "commandPlaceholder": "command",
       "connectionIdPlaceholder": "connection id",
       "reasonPlaceholder": "reason (optional)",
+      "noDetail": "No further details",
       "always": {
         "tool": "Always allow {{tool}} on {{connection}}",
         "exact": "Always allow `{{command}}` on {{connection}}"

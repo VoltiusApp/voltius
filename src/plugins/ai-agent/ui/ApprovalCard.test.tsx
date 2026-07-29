@@ -220,4 +220,21 @@ describe("ApprovalCard", () => {
     // The raw id must NOT appear as a JSON dump.
     expect(screen.queryByText(/"connectionId"/)).toBeNull();
   });
+
+  // Important: close_session's args are just {sessionId} — neither `command`
+  // nor `connectionId` — so it falls into the branch that used to render
+  // `JSON.stringify(pending.args)`, leaking the raw opaque session id. That
+  // branch must never surface `pending.args` as text; here the file-level
+  // useObjectRefs mock always resolves null, so the branch must fall back to
+  // a clean localized label instead of the id or a JSON dump.
+  it("never leaks the raw sessionId for a close_session approval", () => {
+    const closeSessionPending = {
+      id: "p1", tool: "close_session", args: { sessionId: "sess_abc123" },
+      scope: "c1", grants: [] as never[],
+    };
+    render(<ApprovalCard pending={closeSessionPending as never} />);
+    expect(screen.queryByText(/sess_abc123/)).toBeNull();
+    expect(screen.queryByText(/"sessionId"/)).toBeNull();
+    expect(screen.getByText("No further details")).not.toBeNull();
+  });
 });
