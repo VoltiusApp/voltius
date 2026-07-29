@@ -1,0 +1,98 @@
+{
+  "themeCreator": {
+    "header": {
+      "editTheme": "编辑主题",
+      "newTheme": "新建主题",
+      "pickTooltip": "选择元素以检查其 CSS 变量"
+    },
+    "font": {
+      "customLabel": "自定义字体…",
+      "customPlaceholder": "'我的字体', monospace",
+      "customHint": "按 Enter 应用"
+    },
+    "varSearch": {
+      "usage_one": "{{count}} 个元素使用",
+      "usage_other": "{{count}} 个元素使用",
+      "suffix": "或点击关闭"
+    },
+    "pickOverlay": {
+      "prefix": "点击任意元素——",
+      "suffix": "取消"
+    },
+    "escKey": "Esc",
+    "editor": {
+      "general": "通用",
+      "name": "名称",
+      "appFont": "应用字体",
+      "family": "字体族",
+      "sizePx": "大小（px）",
+      "terminalFont": "终端字体",
+      "highlightUsing": "高亮使用 {{varName}} 的元素"
+    },
+    "groups": {
+      "backgrounds": "背景",
+      "borders": "边框",
+      "text": "文本",
+      "accentAndTabs": "强调色和标签页",
+      "vaultTabs": "保险库标签页",
+      "status": "状态",
+      "other": "其他",
+      "terminalBase": "终端基础",
+      "ansiColors": "ANSI 颜色",
+      "brightAnsiColors": "高亮 ANSI 颜色"
+    },
+    "fields": {
+      "bgTerminal": "终端 / 标题栏",
+      "bgStatusBar": "状态栏",
+      "bgBase": "基础背景",
+      "bgToolbar": "工具栏",
+      "bgCard": "卡片",
+      "bgCardHover": "卡片悬停",
+      "bgCardAvatar": "卡片头像",
+      "bgInput": "输入框",
+      "bgInputHover": "输入框悬停",
+      "bgElevated": "悬浮 / 悬停",
+      "bgModal": "模态框 / 面板",
+      "border": "边框",
+      "borderHover": "边框悬停",
+      "textDim": "文本暗淡",
+      "textMuted": "文本静音",
+      "textSecondary": "文本次要",
+      "textPrimary": "文本主要",
+      "textBright": "文本明亮",
+      "accent": "强调色",
+      "accentHover": "强调色悬停",
+      "tabBg": "标签页背景",
+      "tabActiveBg": "标签页活跃背景",
+      "tabActiveText": "标签页活跃文本",
+      "tabActiveBorder": "标签页活跃边框",
+      "vaultTabBg": "保险库标签页背景",
+      "vaultTabActiveBg": "保险库标签页活跃背景",
+      "statusConnected": "已连接",
+      "statusError": "错误",
+      "statusConnecting": "正在连接",
+      "statusWarning": "警告",
+      "textNotice": "通知文本",
+      "background": "背景",
+      "foreground": "前景",
+      "cursor": "光标",
+      "selectionBackground": "选择",
+      "black": "黑色",
+      "red": "红色",
+      "green": "绿色",
+      "yellow": "黄色",
+      "blue": "蓝色",
+      "magenta": "洋红色",
+      "cyan": "青色",
+      "white": "白色",
+      "brightBlack": "亮黑色",
+      "brightRed": "亮红色",
+      "brightGreen": "亮绿色",
+      "brightYellow": "亮黄色",
+      "brightBlue": "亮蓝色",
+      "brightMagenta": "亮洋红色",
+      "brightCyan": "亮青色",
+      "brightWhite": "亮白色"
+    }
+  }
+}

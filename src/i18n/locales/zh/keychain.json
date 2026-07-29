@@ -1,0 +1,145 @@
+{
+  "keychain": {
+    "common": {
+      "general": "通用",
+      "label": "标签",
+      "tags": "标签",
+      "folder": "文件夹",
+      "optional": "（可选）",
+      "username": "用户名",
+      "password": "密码",
+      "privateKey": "私钥",
+      "publicKey": "公钥",
+      "passphrase": "口令",
+      "addToHost": "添加到主机",
+      "disableCloudSync": "禁用云同步",
+      "enableCloudSync": "启用云同步",
+      "cloudSyncDisabledTitle": "云同步已禁用"
+    },
+    "toolbar": {
+      "filterPlaceholder": "筛选...",
+      "newKey": "新建密钥",
+      "newKeyOptionsAriaLabel": "新建密钥选项",
+      "generateKeyPair": "生成密钥对",
+      "newIdentity": "新建身份",
+      "newFolder": "新建文件夹"
+    },
+    "page": {
+      "all": "全部",
+      "folders": "文件夹",
+      "new": "新建",
+      "pinned": "已置顶",
+      "ejectMoveTo": "移动到 {{name}}",
+      "ejectRemoveFromFolder": "从文件夹中移除",
+      "bulk": {
+        "moveItemsTo_one": "移动 {{count}} 个项目到",
+        "moveItemsTo_other": "移动 {{count}} 个项目到",
+        "copyItemsTo_one": "复制 {{count}} 个项目到",
+        "copyItemsTo_other": "复制 {{count}} 个项目到",
+        "enableCloudSync": "启用云同步 ({{count}})",
+        "disableCloudSync": "禁用云同步 ({{count}})",
+        "exportPublicKeys_one": "导出 {{count}} 个公钥",
+        "exportPublicKeys_other": "导出 {{count}} 个公钥",
+        "deleteItems_one": "删除 {{count}} 个项目",
+        "deleteItems_other": "删除 {{count}} 个项目"
+      },
+      "confirmDeleteFolder": {
+        "title": "删除文件夹",
+        "message": "这将删除文件夹。文件夹内的项目不会被删除——它们将返回到顶层。"
+      },
+      "confirmDelete": {
+        "title_one": "删除 {{count}} 个项目",
+        "title_other": "删除 {{count}} 个项目",
+        "message_one": "确定要删除 {{count}} 个项目吗？此操作无法撤销。",
+        "message_other": "确定要删除 {{count}} 个项目吗？此操作无法撤销。"
+      },
+      "vaultCascade": {
+        "moveDescription": "移动 \"{{folderName}}\" 也会将以下项目移动到 {{targetVaultName}}：",
+        "copyDescription": "复制 \"{{folderName}}\" 也会将以下项目复制到 {{targetVaultName}}："
+      }
+    },
+    "cards": {
+      "addedOn": "添加于 {{date}}",
+      "passwordBadge": "密码",
+      "sshKeysLabel": "SSH 密钥",
+      "identitiesLabel": "身份",
+      "keySection": {
+        "emptyTitle": "暂无 SSH 密钥",
+        "emptyDescription": "存储可复用的 SSH 密钥对",
+        "addButton": "添加密钥"
+      },
+      "identitySection": {
+        "emptyTitle": "暂无身份",
+        "emptyDescription": "将用户名与凭据组合，以便在多台主机间复用",
+        "addButton": "添加身份"
+      },
+      "pin": {
+        "unpinForMe": "为我取消置顶",
+        "showInMyView": "在我的视图中显示",
+        "hideForMe": "为我隐藏",
+        "pinForMe": "为我置顶",
+        "unpin": "取消置顶",
+        "pin": "置顶",
+        "unpinForTeam": "为团队取消置顶",
+        "pinForTeam": "为团队置顶"
+      }
+    },
+    "keyForm": {
+      "titleEdit": "编辑密钥",
+      "modeImport": "导入",
+      "modeGenerate": "生成",
+      "sectionKeyMaterial": "密钥材料",
+      "sectionImportFromFile": "从文件导入",
+      "sectionKeyExport": "密钥导出",
+      "unknownType": "未知类型",
+      "invalidKey": "无效密钥",
+      "keyPassphrasePlaceholder": "密钥口令"
+    },
+    "identityForm": {
+      "titleEdit": "编辑身份",
+      "sectionCredentials": "凭据",
+      "sectionNewKeyMaterial": "新密钥材料",
+      "sectionLinkedTo": "关联到",
+      "sshKeyLabel": "SSH 密钥",
+      "noKey": "无密钥",
+      "newKeyInline": "新建密钥（内联）...",
+      "unnamedKey": "未命名密钥",
+      "namePlaceholder": "我的身份（可选）",
+      "keyLabel": "密钥标签",
+      "keyLabelPlaceholder": "我的 SSH 密钥（可选）",
+      "editHostTitle": "编辑主机",
+      "unlinkTitle": "取消链接——将凭据内联复制到主机"
+    },
+    "exportPanel": {
+      "exportSectionLabel": "导出",
+      "destinationHost": "目标主机",
+      "selectHostPlaceholder": "选择一台主机…",
+      "location": "位置",
+      "filename": "文件名",
+      "unixOnlyNotice": "密钥导出目前仅支持 UNIX 系统。使用高级部分自定义导出脚本。",
+      "advanced": "高级",
+      "exportScriptLabel": "导出脚本",
+      "successMessage": "密钥导出成功",
+      "exportingLabel": "正在导出…",
+      "publicKeyNotFoundError": "未找到公钥"
+    },
+    "dropZone": {
+      "loaded": "密钥文件已加载",
+      "error": "无法读取文件",
+      "dropToLoad": "拖放以加载密钥文件",
+      "dropHere": "将密钥文件拖放到此处",
+      "hint": ".pem、.key、.pub 或任何 SSH 密钥文件"
+    },
+    "genFields": {
+      "sectionKeyType": "密钥类型",
+      "ellipticCurve": "椭圆曲线",
+      "keySizeBits": "密钥大小（位）",
+      "passphrasePlaceholder": "可选口令",
+      "savePassphrase": "保存口令",
+      "cipher": "加密算法",
+      "rounds": "轮数",
+      "roundsTooltip": "用于从口令派生加密密钥的 bcrypt-pbkdf 迭代次数。较高的值会减慢暴力破解速度，但密钥加载会稍慢。OpenSSH 默认值为 16；100 是一个较好的平衡点。",
+      "generating": "正在生成…"
+    }
+  }
+}
