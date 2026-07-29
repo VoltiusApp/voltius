@@ -111,11 +111,12 @@
       "heading_few": "План — {{count}} шага",
       "heading_many": "План — {{count}} шагов",
       "tool": {
-        "open_session": "Открыть сессию на {{connection}}",
+        "open_session": "Открыть сессию на",
         "run_command": "Выполнить",
-        "close_session": "Закрыть сессию на {{connection}}"
+        "close_session": "Закрыть сессию на"
       },
       "onConnection": "на {{connection}}",
+      "onConnectionLabel": "на",
       "willStillAsk": "всё равно спросит",
       "willStillAskHint": "Содержит символ оболочки, поэтому шаг нельзя авторизовать заранее — появится запрос на подтверждение.",
       "edit": "Изменить",

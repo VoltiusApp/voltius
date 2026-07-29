@@ -104,11 +104,12 @@
       "heading_one": "Plan — {{count}} étape",
       "heading_other": "Plan — {{count}} étapes",
       "tool": {
-        "open_session": "Ouvrir une session sur {{connection}}",
+        "open_session": "Ouvrir une session sur",
         "run_command": "Exécuter",
-        "close_session": "Fermer la session sur {{connection}}"
+        "close_session": "Fermer la session sur"
       },
       "onConnection": "sur {{connection}}",
+      "onConnectionLabel": "sur",
       "willStillAsk": "demandera quand même",
       "willStillAskHint": "Contient un caractère shell : cette étape ne peut pas être pré-autorisée et déclenchera une demande d'approbation.",
       "edit": "Modifier",

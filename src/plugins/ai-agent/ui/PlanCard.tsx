@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useAgentStore } from "../state/agentStore";
-import { scopeLabelText } from "../state/connectionLabels";
 import { canPreAuthorize, type PlanEntryStep, type PlanOutcome, type PlanStep } from "../state/planTokens";
+import { ObjectRefChip } from "./ObjectRefChip";
 import { useConnectionLabels } from "./useConnectionLabels";
+import { useObjectRefs } from "./useObjectRefs";
 
 export interface PlanEntry {
   planId: string;
@@ -22,6 +23,8 @@ export function PlanCard({ entry }: { entry: PlanEntry }) {
   const pendingPlan = useAgentStore((s) => s.pendingPlan);
   const resolvePlan = useAgentStore((s) => s.resolvePlan);
   const labelFor = useConnectionLabels();
+  const refs = useObjectRefs();
+  const connChip = (id: string) => <ObjectRefChip id={id} refObj={refs.resolve(id)} />;
 
   // Interactive ONLY while this entry is the live pending plan. A restored
   // entry can never satisfy this: `pendingPlan` is not persisted, and
@@ -33,7 +36,6 @@ export function PlanCard({ entry }: { entry: PlanEntry }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const rows = live ? steps : entry.steps;
 
-  const connText = (id: string) => scopeLabelText(labelFor(id), t);
   const setCommand = (id: string, command: string) =>
     setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, command } : s)));
 
@@ -108,13 +110,13 @@ export function PlanCard({ entry }: { entry: PlanEntry }) {
                       {s.command}
                     </code>
                   )}
-                  <span style={{ color: "var(--t-text-secondary)" }}>
-                    {t("aiAgent.plan.onConnection", { connection: connText(s.connectionId) })}
+                  <span className="text-(--t-text-secondary) inline-flex items-center gap-1">
+                    {t("aiAgent.plan.onConnectionLabel")} {connChip(s.connectionId)}
                   </span>
                 </>
               ) : (
-                <span style={{ color: "var(--t-text-bright)" }}>
-                  {t(`aiAgent.plan.tool.${s.tool}`, { connection: connText(s.connectionId) })}
+                <span className="text-(--t-text-bright) inline-flex items-center gap-1">
+                  {t(`aiAgent.plan.tool.${s.tool}`)} {connChip(s.connectionId)}
                 </span>
               )}
 

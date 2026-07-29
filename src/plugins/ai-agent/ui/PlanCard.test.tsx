@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Module-level pending load callback — afterEach(cleanup) is NOT enough.
@@ -6,6 +6,10 @@ vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string, o?: Record<string, unknown>) => (o?.connection ? `${k}:${o.connection}` : k) }),
   initReactI18next: { type: "3rdParty", init: () => {} },
+}));
+vi.mock("./ObjectRefChip", () => ({ ObjectRefChip: ({ id }: { id: string }) => <b data-testid="plan-chip">{id}</b> }));
+vi.mock("./useObjectRefs", () => ({
+  useObjectRefs: () => ({ resolve: () => null, knownIds: new Set<string>(), loading: false }),
 }));
 
 import { useAgentStore } from "../state/agentStore";
@@ -106,20 +110,22 @@ describe("PlanCard", () => {
   // Non-vacuity partner: once the SAME kind of lookup resolves to a real
   // connection, the badge must not fire on that account alone.
   it("does NOT badge a step whose connection resolves to a real connection", async () => {
+    const connectionsPromise = Promise.resolve([
+      { id: "conn-A", name: "Test Conn", host: "h1", port: 22, username: "u", auth_type: "key", tags: [] },
+    ]);
     vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({
-      api: {
-        connections: {
-          list: () => Promise.resolve([
-            { id: "conn-A", name: "Test Conn", host: "h1", port: 22, username: "u", auth_type: "key", tags: [] },
-          ]),
-        },
-      },
+      api: { connections: { list: () => connectionsPromise } },
     } as never);
     live([step({ connectionId: "conn-A" })]);
-    // Wait for the resolved connection's own name to render, proving the
-    // lookup actually settled to `connection` rather than asserting absence
-    // while it is still merely `pending`.
-    await waitFor(() => expect(screen.getByText(/Test Conn/)).toBeTruthy());
+    // Flush the exact connections lookup the component consumed, so
+    // `labelFor` settles to `connection` (not merely `pending`) before
+    // asserting the badge's absence — proving this isn't vacuously true
+    // while the lookup is still in flight. (The resolved connection's name
+    // is no longer plain text here — it flows through the mocked
+    // ObjectRefChip — so waiting on rendered text is no longer available.)
+    await act(async () => {
+      await connectionsPromise;
+    });
     expect(screen.queryByText("aiAgent.plan.willStillAsk")).toBeNull();
   });
 
@@ -198,5 +204,15 @@ describe("PlanCard", () => {
     fireEvent.click(screen.getByText("aiAgent.plan.reject"));
     expect(resolve).toHaveBeenCalledTimes(1);
     expect(resolve.mock.calls[0][0]).toEqual({ approve: false });
+  });
+
+  it("renders an ObjectRefChip for a step's target connection", () => {
+    const entry = {
+      planId: "pl1", outcome: "pending" as const,
+      steps: [{ id: "s1", tool: "run_command" as const, command: "df -h", connectionId: "conn_7", rationale: "check disk", status: "pending" as const }],
+    };
+    useAgentStore.setState({ pendingPlan: { planId: "pl1" } as never });
+    render(<PlanCard entry={entry as never} />);
+    expect(screen.getByTestId("plan-chip").textContent).toBe("conn_7");
   });
 });

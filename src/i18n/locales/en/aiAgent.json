@@ -104,11 +104,12 @@
       "heading_one": "Plan — {{count}} step",
       "heading_other": "Plan — {{count}} steps",
       "tool": {
-        "open_session": "Open a session on {{connection}}",
+        "open_session": "Open a session on",
         "run_command": "Run",
-        "close_session": "Close the session on {{connection}}"
+        "close_session": "Close the session on"
       },
       "onConnection": "on {{connection}}",
+      "onConnectionLabel": "on",
       "willStillAsk": "will still ask",
       "willStillAskHint": "Contains a shell character, so it cannot be pre-authorized and will raise an approval card.",
       "edit": "Edit",
