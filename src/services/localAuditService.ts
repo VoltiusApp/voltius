@@ -1,17 +1,32 @@
 import type { AuditFilters, AuditLog } from "@/services/auditService";
-import type { AuditTarget } from "@/services/auditContext";
+import type { AuditTarget, ClientAuditAction } from "@/services/auditContext";
 import { applyAuditFilters, csvEscape } from "@/services/auditExportCore";
 
 const LOCAL_AUDIT_KEY = "voltius-local-audit-logs";
 
-type ClientAction =
-  | "connection.started" | "connection.ended" | "secret.viewed"
-  | "connection.created" | "connection.updated" | "connection.deleted"
-  | "identity.created" | "identity.updated" | "identity.deleted"
-  | "key.created" | "key.updated" | "key.deleted"
-  | "snippet.created" | "snippet.updated" | "snippet.deleted"
-  | "folder.created" | "folder.updated" | "folder.deleted"
-  | "port_forward.created" | "port_forward.updated" | "port_forward.deleted";
+/**
+ * Ring-buffer bound for the per-vault local log.
+ *
+ * `writeDb` swallows QuotaExceededError, so an unbounded log does not fail
+ * loudly — it silently stops recording. Dropping the oldest history is the
+ * better of the two failures: a log that stops recording TODAY's activity is
+ * worse than one missing last year's.
+ */
+export const MAX_LOCAL_LOGS_PER_VAULT = 5000;
+
+/**
+ * Serialized-size ring-buffer bound for the per-vault local log, in UTF-16
+ * characters (~1 MB) — a second, independent bound alongside
+ * `MAX_LOCAL_LOGS_PER_VAULT`.
+ *
+ * The entry cap alone assumed a roughly-fixed row size. That assumption broke
+ * once `localMetadata.command` (an agent-run shell command, bounded but up to
+ * 2000 chars — see `auditSeam.ts`) became part of the log: a vault of
+ * oversized rows can blow the origin's ~5 MB localStorage quota at a small
+ * fraction of the entry cap, and `writeDb` swallows `QuotaExceededError`, so
+ * that failure is silent — the trail just stops growing.
+ */
+export const MAX_LOCAL_LOG_CHARS_PER_VAULT = 512_000;
 
 interface LocalAuditLog extends AuditLog {
   team_id: "local";
@@ -82,6 +97,31 @@ function readDb(): LocalAuditDb {
   } catch {
     return emptyDb();
   }
+}
+
+/**
+ * Trim a newest-first log list to both the entry-count cap and the
+ * serialized-char budget, dropping from the OLDEST end (ring-buffer
+ * semantics: newest kept).
+ *
+ * Walks newest -> oldest, accumulating each entry's own `JSON.stringify`
+ * length exactly once — never the whole array's, and never inside a loop —
+ * so this is one stringify per entry, not one per entry per entry.
+ *
+ * The newest entry is always kept, even alone over budget: a log that keeps
+ * nothing is worse than one that keeps one oversized row.
+ */
+export function trimToBudget(logs: LocalAuditLog[]): LocalAuditLog[] {
+  const capped = logs.length > MAX_LOCAL_LOGS_PER_VAULT ? logs.slice(0, MAX_LOCAL_LOGS_PER_VAULT) : logs;
+  let totalChars = 0;
+  for (let i = 0; i < capped.length; i++) {
+    const entryChars = JSON.stringify(capped[i]).length;
+    if (i > 0 && totalChars + entryChars > MAX_LOCAL_LOG_CHARS_PER_VAULT) {
+      return capped.slice(0, i);
+    }
+    totalChars += entryChars;
+  }
+  return capped;
 }
 
 function writeDb(db: LocalAuditDb): void {
@@ -164,7 +204,7 @@ export async function exportLocalAuditLogs(
 
 export async function reportLocalClientEvent(
   vaultId: string,
-  event: AuditTarget & { action: ClientAction; occurred_at: string },
+  event: AuditTarget & { action: ClientAuditAction; occurred_at: string },
 ): Promise<void> {
   const db = readDb();
   const logs = db.logsByVault[vaultId] ?? [];
@@ -185,6 +225,8 @@ export async function reportLocalClientEvent(
   };
 
   db.nextId += 1;
-  db.logsByVault[vaultId] = [log, ...logs];
+  // Only the vault being written is trimmed — the others are not growing, and
+  // sweeping them would turn every append into a whole-database rewrite.
+  db.logsByVault[vaultId] = trimToBudget([log, ...logs]);
   writeDb(db);
 }

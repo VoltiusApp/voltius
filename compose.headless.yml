@@ -29,6 +29,13 @@ services:
     container_name: tauri-headless
     security_opt:
       - seccomp=unconfined
+    environment:
+      # WebKitGTK renders opacity/transform animations on GPU compositor layers that
+      # Xvfb's software path never flushes to the X framebuffer — so screen-grabbed
+      # captures (ffmpeg x11grab / driver screenshots) miss every CSS transition and
+      # animation. Forcing compositing off paints everything into the readable window
+      # buffer, so captured video/screenshots show animations faithfully.
+      - WEBKIT_DISABLE_COMPOSITING_MODE=1
     volumes:
       - .:/app
     networks:

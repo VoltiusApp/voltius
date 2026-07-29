@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useThemeStore } from "@/stores/themeStore";
 import type { AppTheme } from "@/themes/types";
 import { withFlagEmojiFallback } from "@/utils/emojiFont";
-import { appearanceFromColor } from "@/utils/appearance";
+import { appearanceFromColor, luminanceFromHex } from "@/utils/appearance";
 
 export function applyThemeToDom(theme: AppTheme) {
   const root = document.documentElement;
@@ -26,6 +26,16 @@ export function applyThemeToDom(theme: AppTheme) {
   root.style.setProperty("--t-text-primary", ui.textPrimary);
   root.style.setProperty("--t-text-bright", ui.textBright);
   root.style.setProperty("--t-accent", ui.accent);
+  // Foreground for text/icons sitting ON the accent. Uses the WCAG
+  // black-vs-white crossover (luminance >= 0.179 → black beats white), NOT
+  // appearanceFromColor's 0.5 threshold: 0.5 answers "does this theme read
+  // as light or dark overall," a different question from "which text color
+  // has more contrast against this exact background." At 0.5 the default
+  // accent (#57c7d8, luminance 0.478) would get white text at 1.99:1
+  // contrast instead of black at 10.57:1. Unparseable colors fall back to
+  // white, mirroring appearanceFromColor's "dark" fallback.
+  const accentLuminance = luminanceFromHex(ui.accent);
+  root.style.setProperty("--t-on-accent", accentLuminance !== null && accentLuminance >= 0.179 ? "#000000" : "#ffffff");
   root.style.setProperty("--t-accent-hover", ui.accentHover);
   root.style.setProperty("--t-tab-bg", ui.tabBg);
   root.style.setProperty("--t-tab-active-bg", ui.tabActiveBg);

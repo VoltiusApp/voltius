@@ -73,10 +73,8 @@
       "noConnectionsSelected": "Не выбрано ни одного подключения",
       "serialPortConfigNotFound": "Конфигурация последовательного порта не найдена",
       "connectionConfigNotFound": "Конфигурация подключения не найдена",
-
       "failedToFetchAuditLogs": "Не удалось получить журнал аудита: {{status}}",
       "failedToExportAuditLogs": "Не удалось экспортировать журнал аудита: {{status}}",
-
       "serverUnreachableTimeout": "Сервер недоступен (тайм-аут) — проверьте подключение к интернету и адрес сервера",
       "networkError": "Ошибка сети — {{message}}",
       "emailAlreadyRegistered": "Этот email уже зарегистрирован",
@@ -99,7 +97,6 @@
       "emailInUse": "Этот email уже используется",
       "incorrectPassword": "Неверный пароль",
       "emailUpdateFailed": "Не удалось обновить email: {{status}}",
-
       "userNotFoundVoltiusAccount": "Пользователь не найден — у него должна быть учётная запись Voltius",
       "userNotFound": "Пользователь не найден",
       "cannotAddYourself": "Нельзя добавить самого себя",
@@ -112,6 +109,7 @@
       "noPermissionInviteMembers": "У вас нет прав на приглашение участников",
       "failedToCreateTeam": "Не удалось создать команду: {{status}}",
       "failedToListMembers": "Не удалось получить список участников: {{status}}",
+      "failedToListVaultKeyHolders": "Не удалось получить список владельцев ключа хранилища: {{status}}",
       "failedToAddMember": "Не удалось добавить участника: {{status}}",
       "failedToRemoveMember": "Не удалось удалить участника: {{status}}",
       "failedToAssignRole": "Не удалось назначить роль: {{status}}",
@@ -124,7 +122,6 @@
       "failedToRevokeInvitation": "Не удалось отозвать приглашение: {{status}}",
       "failedToAcceptInvitation": "Не удалось принять приглашение: {{status}}",
       "failedToDeclineInvitation": "Не удалось отклонить приглашение: {{status}}",
-
       "noPermissionTeamVaultOp": "У вас нет прав на эту операцию с командным хранилищем",
       "teamVaultRequiresSubscription": "Для командного хранилища требуется активная подписка Teams или Business",
       "failedToListTeamObjects": "Не удалось получить список объектов команды: {{status}}",
@@ -135,16 +132,13 @@
       "failedToDeleteTeamObjectPref": "Не удалось удалить настройку объекта команды: {{status}}",
       "failedToListTeamSecrets": "Не удалось получить список секретов команды: {{status}}",
       "failedToSaveTeamSecret": "Не удалось сохранить секрет команды: {{status}}",
-
       "keyFetchFailed": "Не удалось получить ключ: {{error}}",
       "failedToUploadVaultKeys": "Не удалось загрузить ключи хранилища: {{status}}",
       "failedToDistributeVaultKey": "Не удалось распространить ключ хранилища: {{status}}",
       "failedToSaveTeamData": "Не удалось сохранить данные команды: {{status}}",
-
       "failedToCreateSession": "Не удалось создать сессию: {{status}}",
       "failedToCreateInviteLinkSession": "Не удалось создать сессию по ссылке-приглашению: {{status}}",
       "failedToGetSessionKey": "Не удалось получить ключ сессии: {{status}}",
-
       "invalidJson": "Некорректный JSON",
       "notVoltiusExportBundle": "Это не пакет экспорта Voltius (ожидается { version: 1, ... })",
       "invalidEncryptedFile": "Некорректный зашифрованный файл",

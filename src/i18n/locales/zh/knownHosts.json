@@ -1,0 +1,17 @@
+{
+  "knownHosts": {
+    "toolbar": {
+      "deleteSelected": "删除所选",
+      "deleteButton": "删除"
+    },
+    "page": {
+      "noSearchResults": "没有匹配搜索的已知主机",
+      "emptyState": "暂无已知主机——连接服务器后会自动出现",
+      "confirmDelete": {
+        "title_one": "删除已知主机？",
+        "title_other": "删除 {{count}} 个已知主机？",
+        "message": "这将移除受信任的指纹。下次连接这些主机时将被视为新主机。"
+      }
+    }
+  }
+}

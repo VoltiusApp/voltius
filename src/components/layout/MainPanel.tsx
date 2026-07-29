@@ -82,6 +82,14 @@ function TeamVaultState({
       title: t("layout.mainPanel.teamVault.forbiddenTitle"),
       body: t("layout.mainPanel.teamVault.forbiddenBody"),
     },
+    // Member has joined the team but no vault owner has distributed a key yet
+    // (issue #41). Distinct from a hard error — a key-holder self-heals this on
+    // their next sync, so present it as a benign waiting state, not a failure.
+    not_found: {
+      icon: "lucide:clock",
+      title: t("layout.mainPanel.teamVault.waitingForAccessTitle"),
+      body: t("layout.mainPanel.teamVault.waitingForAccessBody"),
+    },
     payment_required: {
       icon: "lucide:credit-card",
       title: t("layout.mainPanel.teamVault.paymentRequiredTitle"),
@@ -191,6 +199,7 @@ export default function MainPanel() {
     (teamVaultStatus === "offline" ||
       teamVaultStatus === "forbidden" ||
       teamVaultStatus === "payment_required" ||
+      teamVaultStatus === "not_found" ||
       teamVaultStatus === "error") &&
     !homeView;
   const showSplitWorkspace = activeNav === "terminal" && splitTabActive && !sftpPanelOpen;

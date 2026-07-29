@@ -15,6 +15,8 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { mergeEntities, mergeSecrets, secretsDiffer, type TimestampedEntity } from "@/services/crdt";
+import { filterRemoteExcluded, collectExcludedIds } from "./syncExclusion";
+import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useVaultKeysStore } from "@/stores/vaultKeysStore";
 import { buildDecryptKeyCandidates } from "@/services/vaultKeyCandidates";
 import { getMyX25519Keypair } from "@/services/multiplayerService";
@@ -329,6 +331,29 @@ function base64ToBytes(b64: string): number[] {
 
 // ─── Core sync operations ────────────────────────────────────────────────────
 
+/**
+ * Ids of every entity object that must not participate in sync — individually
+ * excluded, or belonging to a sync-disabled type. Used to filter both the
+ * outbound blob (`backup_export`) and inbound remote payloads (pull merge).
+ *
+ * Exported so non-server sync destinations (e.g. the gist-sync plugin export
+ * path, issue #47) apply the same exclusion filter as the built-in server sync.
+ */
+export function getExcludedObjectIds(): string[] {
+  const prefs = useSyncPrefsStore.getState();
+  return collectExcludedIds(
+    [
+      { type: "connection", ids: useConnectionStore.getState().connections.map((c) => c.id) },
+      { type: "identity", ids: useIdentityStore.getState().identities.map((i) => i.id) },
+      { type: "key", ids: useKeyStore.getState().keys.map((k) => k.id) },
+      { type: "folder", ids: useFolderStore.getState().folders.map((f) => f.id) },
+      { type: "port-forwarding-rule", ids: usePortForwardingStore.getState().rules.map((r) => r.id) },
+    ],
+    prefs.isObjectSynced,
+    prefs.excludedIds,
+  );
+}
+
 /** Export local data and upload to server. */
 export async function push(): Promise<void> {
   const encKey = await getEncKey();
@@ -352,6 +377,7 @@ export async function push(): Promise<void> {
     encKey,
     accountId,
     deviceId,
+    excludedIds: getExcludedObjectIds(),
   });
 
   const res = await fetchWithAuth(`${serverUrl}/v1/sync/blob`, {
@@ -454,7 +480,12 @@ async function pullAndMerge(remoteDeviceId: string): Promise<boolean> {
   const { blob: blobB64 } = await res.json();
   const blobBytes = base64ToBytes(blobB64);
 
-  const remotePayload = await decryptBlobWithFallback(blobBytes);
+  const rawRemotePayload = await decryptBlobWithFallback(blobBytes);
+  const remotePayload = filterRemoteExcluded(
+    rawRemotePayload,
+    getExcludedObjectIds(),
+    ENTITY_FILES,
+  );
 
   await applyRemoteTheme(remotePayload);
   await applyRemoteSettings(remotePayload);
@@ -608,6 +639,7 @@ export async function syncOnLoginReplace(): Promise<void> {
     if (!serverUrl) throw new Error(i18n.t("common.error.notConnectedToServer"));
 
     const devices = await listDevices();
+    const excludedIds = getExcludedObjectIds();
 
     // Accumulate remote state starting from empty — local disk never touched
     let mergedFiles: Record<string, string> = Object.fromEntries(
@@ -627,7 +659,11 @@ export async function syncOnLoginReplace(): Promise<void> {
 
         const { blob: blobB64 } = await res.json();
         const blobBytes = base64ToBytes(blobB64);
-        const remotePayload = await decryptBlobWithFallback(blobBytes);
+        const remotePayload = filterRemoteExcluded(
+          await decryptBlobWithFallback(blobBytes),
+          excludedIds,
+          ENTITY_FILES,
+        );
 
         await applyRemoteTheme(remotePayload);
         await applyRemoteSettings(remotePayload);
@@ -784,23 +820,18 @@ async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promi
     fetchTeamData(teamId, { background: true }).catch(() => {});
   } else if (eventData.startsWith("team_members:")) {
     const teamId = eventData.slice("team_members:".length);
-    const prevMemberIds = new Set(
-      (useTeamStore.getState().membersByTeam[teamId] ?? []).map((m) => m.user_id),
-    );
     await Promise.all([
       useTeamStore.getState().loadTeams(),
       useTeamStore.getState().loadMembers(teamId),
       useTeamStore.getState().loadRoles(teamId),
     ]);
-    const newMembers = (useTeamStore.getState().membersByTeam[teamId] ?? []).filter(
-      (m) => !prevMemberIds.has(m.user_id) && m.public_key,
-    );
-    if (newMembers.length > 0) {
-      const { distributeKeyToNewMember } = await import("@/services/teamVaultSync");
-      await Promise.allSettled(
-        newMembers.map((m) => distributeKeyToNewMember(teamId, m.user_id, m.public_key)),
-      );
-    }
+    // Distribute the vault key to any member who lacks one. Reconciliation
+    // against the server's key-holder list (rather than a local membership
+    // diff) also covers the adder-is-only-key-holder case, where the new
+    // member is already in membersByTeam by the time this event fires so the
+    // old diff saw zero newcomers and skipped distribution (issue #41).
+    const { reconcileTeamVaultKeys } = await import("@/services/teamVaultSync");
+    await reconcileTeamVaultKeys(teamId).catch(() => {});
     useTeamStore.getState().loadPendingInvitations(teamId).catch(() => {});
   } else if (eventData.startsWith("pending_invitations_changed:")) {
     useTeamStore.getState().loadMyPendingInvitations().catch(() => {});

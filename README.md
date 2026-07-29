@@ -11,6 +11,7 @@
     <img src="https://img.shields.io/badge/built_with-Rust-dea584?logo=rust" alt="Rust" />
     <img src="https://img.shields.io/badge/UI-Tauri-24c8db?logo=tauri" alt="Tauri" />
     <img src="https://img.shields.io/badge/Security-E2EE-green" alt="E2EE" />
+    <a href="https://docs.voltius.app"><img src="https://img.shields.io/badge/docs-docs.voltius.app-3b82f6" alt="Docs" /></a>
     <img src="https://img.shields.io/github/license/VoltiusApp/voltius" alt="License" />
   </p>
 
@@ -35,6 +36,23 @@ No account required. Everything below is free, forever.
 - **System Monitoring** — Live CPU, memory, and disk stats from connected hosts.
 
 > Full feature list at [docs.voltius.app](https://docs.voltius.app) *(coming soon)* · **Pro · Teams · Business** — see [voltius.app/#pricing](https://voltius.app/#pricing) for paid plans.
+
+## 📸 Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src=".github/media/command-palette.png" alt="Command palette open over the workspace" /><br/><sub><b>Command palette</b> — jump to any host, session, or snippet</sub></td>
+    <td width="50%"><img src=".github/media/folders-tags.png" alt="Hosts organized into folders with tags" /><br/><sub><b>Folders &amp; tags</b> — organize your fleet at scale</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src=".github/media/panes-grid.png" alt="Split terminal panes in a grid" /><br/><sub><b>Split panes</b> — multiplex terminals, broadcast input to all</sub></td>
+    <td width="50%"><img src=".github/media/sftp-dual-pane.png" alt="Dual-pane SFTP file manager" /><br/><sub><b>Dual-pane SFTP</b> — drag &amp; drop, local ↔ remote ↔ host</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src=".github/media/teams-roles.png" alt="Team vault members and role permissions" /><br/><sub><b>Team vaults &amp; roles</b> — share access, control permissions</sub></td>
+    <td width="50%"><img src=".github/media/themes-creator.png" alt="Theme editor with color groups and terminal palette" /><br/><sub><b>Theme editor</b> — window colors and the full terminal palette</sub></td>
+  </tr>
+</table>
 
 ## 📦 Install
 

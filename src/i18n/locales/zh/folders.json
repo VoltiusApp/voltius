@@ -1,0 +1,30 @@
+{
+  "folders": {
+    "card": {
+      "pin": "置顶",
+      "unpin": "取消置顶",
+      "openFolder": "打开文件夹",
+      "cloudSyncDisabled": "云同步已禁用",
+      "unpinForMe": "为我取消置顶",
+      "showInMyView": "在我的视图中显示",
+      "hideForMe": "为我隐藏",
+      "pinForMe": "为我置顶",
+      "unpinForTeam": "为团队取消置顶",
+      "pinForTeam": "为团队置顶",
+      "exportFolder": "导出文件夹",
+      "disableCloudSync": "禁用云同步",
+      "enableCloudSync": "启用云同步",
+      "deleteFolder": "删除文件夹",
+      "itemCount_one": "{{count}} 个项目",
+      "itemCount_other": "{{count}} 个项目"
+    },
+    "editPanel": {
+      "nameLabel": "名称",
+      "cloudSyncLabel": "云同步",
+      "syncedToCloud": "已同步到云端",
+      "notSynced": "未同步",
+      "syncDisabledGlobally": "文件夹同步已在 设置 → 云同步 中全局禁用。",
+      "createdLabel": "创建时间"
+    }
+  }
+}

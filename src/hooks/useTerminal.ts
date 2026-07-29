@@ -21,6 +21,8 @@ import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useCommandHistoryStore } from "@/stores/commandHistoryStore";
 import { consumeLatchForChar } from "@/stores/modifierLatchStore";
 import { sampleLineDensities, scrollDeltaForRatio, type TerminalMinimapCell, type TerminalMinimapSample } from "@/components/terminal/minimapMath";
+import { wheelToRows } from "@/components/terminal/terminalWheelCore";
+import { keyToBytes } from "@/stores/terminalKeyCore";
 import type { TerminalTheme } from "@/themes/types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { withFlagEmojiFallback } from "@/utils/emojiFont";
@@ -503,6 +505,43 @@ export function getTerminalApi(sessionId: string): TerminalApi | null {
   };
 }
 
+/**
+ * Snapshot of the last `maxLines` buffer lines of a session as text (trailing
+ * blank lines trimmed). "" when no terminal is cached. Backs the gated
+ * `terminal:read` plugin verb. Reads the xterm buffer directly — no Rust.
+ */
+export function readTerminalSnapshot(sessionId: string, maxLines = 200): string {
+  const entry = terminalCache.get(sessionId);
+  if (!entry) return "";
+  const buffer = entry.terminal.buffer.active;
+  let end = buffer.length;
+  while (end > 0 && !buffer.getLine(end - 1)?.translateToString(true)) {
+    end -= 1;
+  }
+  const start = Math.max(0, end - maxLines);
+  const lines: string[] = [];
+  for (let i = start; i < end; i += 1) {
+    lines.push(buffer.getLine(i)?.translateToString(true) ?? "");
+  }
+  return lines.join("\n");
+}
+
+/**
+ * The session's current selection as text, or "" when nothing is selected or
+ * no terminal is cached. Backs the gated `terminal:read` plugin verb.
+ */
+export function readTerminalSelection(sessionId: string): string {
+  const entry = terminalCache.get(sessionId);
+  if (!entry) return "";
+  return entry.terminal.getSelection();
+}
+
+/** Test seam: replace the module-private terminal cache. Do not use in app code. */
+export function __setTerminalCacheForTest(next: typeof terminalCache): void {
+  terminalCache.clear();
+  for (const [k, v] of next) terminalCache.set(k, v);
+}
+
 export function getTerminalSearchController(sessionId: string): TerminalSearchController | null {
   const entry = terminalCache.get(sessionId);
   if (!entry) return null;
@@ -821,6 +860,64 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
         return true;
       });
 
+      // Route already-encoded input bytes to the PTY, fanning out to every pane
+      // when split-pane broadcast is active. Shared by typed input (onData) and
+      // synthesized alt-screen scroll arrows so both honor broadcast identically.
+      const routeInputBytes = (bytes: Uint8Array) => {
+        const layout = useLayoutStore.getState();
+        const paneSessionIds = getPaneSessionIds(layout.root);
+        if (layout.broadcastActive && layout.splitTabActive && paneSessionIds.includes(sessionId)) {
+          const sessions = useSessionStore.getState().sessions;
+          const mpConnections = useTeamSessionStore.getState().connections;
+          for (const targetId of paneSessionIds) {
+            const target = sessions.find((s) => s.id === targetId);
+            if (!target || target.status !== "connected" || target.type === "multiplayer") continue;
+            const mpState = mpConnections[target.id];
+            if (mpState && mpState.controlHolder !== "" && mpState.controlHolder !== mpState.myUserId) continue;
+            sendSessionInput(target.id, target.type === "serial" ? "serial" : target.type as "ssh" | "local", bytes);
+          }
+          return;
+        }
+        sendSessionInput(sessionId, sessionType, bytes);
+      };
+
+      // Alternate-screen scroll: full-screen apps (nano/less/vim) run in the
+      // alternate buffer, where xterm has no scrollback to move — so a wheel or
+      // touchpad scroll would otherwise do nothing (#50). Translate it into Up/Down
+      // arrow presses, unless the app is tracking the mouse itself (e.g. vim
+      // `set mouse=a`), in which case xterm forwards the wheel as mouse events.
+      let wheelCarry = 0;
+      term.attachCustomWheelEventHandler((e: WheelEvent) => {
+        if (term.buffer.active.type !== "alternate") return true;
+        if (term.modes.mouseTrackingMode !== "none") return true;
+        // We own this event now: stop the page/ancestor from also scrolling, and
+        // return false so xterm skips its own (sub-pixel-dampened) translation.
+        e.preventDefault();
+        if (inputGate && !inputGate.current?.()) return false;
+        if (!entry.connectedRef.current) return false;
+
+        const screen = term.element?.querySelector<HTMLElement>(".xterm-screen");
+        const cellHeight = screen && term.rows ? screen.clientHeight / term.rows : 0;
+        const { rows, carry } = wheelToRows({
+          deltaY: e.deltaY,
+          deltaMode: e.deltaMode,
+          cellHeight,
+          viewportRows: term.rows,
+          carry: wheelCarry,
+          maxRows: term.rows, // one page per event caps runaway flings
+        });
+        wheelCarry = carry;
+        if (rows !== 0) {
+          const seq = keyToBytes(rows < 0 ? "Up" : "Down", {
+            ctrl: false,
+            alt: false,
+            appCursor: term.modes.applicationCursorKeysMode,
+          }).repeat(Math.abs(rows));
+          routeInputBytes(encoder.encode(seq));
+        }
+        return false;
+      });
+
       term.open(container);
 
       // Android: stop xterm's hidden textarea from summoning the WebView's own (broken) IME —
@@ -893,22 +990,7 @@ export function useTerminal({ sessionId, sessionType, onClosed, inputGate, encod
             .addInput(sessionId, sess.connectionName, sess.connectionId, data);
         }
 
-        const bytes = encoder.encode(data);
-        const layout = useLayoutStore.getState();
-        const paneSessionIds = getPaneSessionIds(layout.root);
-        if (layout.broadcastActive && layout.splitTabActive && paneSessionIds.includes(sessionId)) {
-          const sessions = useSessionStore.getState().sessions;
-          const mpConnections = useTeamSessionStore.getState().connections;
-          for (const targetId of paneSessionIds) {
-            const target = sessions.find((s) => s.id === targetId);
-            if (!target || target.status !== "connected" || target.type === "multiplayer") continue;
-            const mpState = mpConnections[target.id];
-            if (mpState && mpState.controlHolder !== "" && mpState.controlHolder !== mpState.myUserId) continue;
-            sendSessionInput(target.id, target.type === "serial" ? "serial" : target.type as "ssh" | "local", bytes);
-          }
-          return;
-        }
-        sendSessionInput(sessionId, sessionType, bytes);
+        routeInputBytes(encoder.encode(data));
       });
 
       const unlistenPromises: Promise<UnlistenFn>[] = [];

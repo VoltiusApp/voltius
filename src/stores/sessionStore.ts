@@ -41,7 +41,7 @@ import { cancelBackoff } from "./reconnectBackoffCore";
 interface SessionStore {
   sessions: TerminalSession[];
   activeSessionId: string | null;
-  connect: (connectionId: string) => Promise<void>;
+  connect: (connectionId: string) => Promise<string>;
   connectMany: (connectionIds: string[]) => Promise<string[]>;
   connectDirect: (connection: Connection) => Promise<void>;
   connectLocal: () => Promise<void>;
@@ -546,7 +546,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   activeSessionId: null,
 
   connect: async (connectionId) => {
-    await connectConnection(set as SessionSetter, connectionId);
+    return connectConnection(set as SessionSetter, connectionId);
   },
 
   connectMany: async (connectionIds) => {

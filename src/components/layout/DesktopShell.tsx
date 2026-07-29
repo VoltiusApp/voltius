@@ -4,6 +4,7 @@ import VaultHeader from "@/components/layout/VaultHeader";
 import NavBar from "@/components/layout/NavBar";
 import MainPanel from "@/components/layout/MainPanel";
 import OmniSearch from "@/components/omni/OmniSearch";
+import GlobalPanelHost from "@/components/layout/GlobalPanelHost";
 import RightPanel from "@/components/terminal/RightPanel";
 import { EmailVerificationBanner } from "@/components/notifications/EmailVerificationBanner";
 import { useUIStore } from "@/stores/uiStore";
@@ -14,6 +15,7 @@ export default function DesktopShell() {
   const homeView = useUIStore((s) => s.homeView);
   const activeNav = useUIStore((s) => s.activeNav);
   const sftpPanelOpen = useUIStore((s) => s.sftpPanelOpen);
+  const dockedPanelWidth = useUIStore((s) => s.dockedPanelWidth);
   const inVault = !homeView;
   const inTerminal = activeNav === "terminal";
   const showVaultChrome = inVault && !inTerminal && !sftpPanelOpen;
@@ -24,7 +26,7 @@ export default function DesktopShell() {
     <>
       <TitleBar />
       <EmailVerificationBanner />
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden" data-shell-body>
         {showFrame && <VaultSidebar />}
         <div
           className={`flex flex-col flex-1 overflow-hidden bg-(--t-bg-terminal) relative z-10 ${showFrame ? "chrome-slab" : ""}`}
@@ -35,13 +37,14 @@ export default function DesktopShell() {
               <NavBar />
             </div>
           )}
-          <div className="flex flex-1 overflow-hidden">
+          <div className="flex flex-1 overflow-hidden" data-shell-content style={{ paddingRight: dockedPanelWidth || undefined }}>
             <MainPanel />
             <RightPanel />
           </div>
         </div>
       </div>
       {omniOpen && <OmniSearch onClose={() => setOmniOpen(false)} />}
+      <GlobalPanelHost />
     </>
   );
 }

@@ -6,6 +6,7 @@ import { loadPlugin, unloadPlugin } from "@/plugins/runtime";
 import type { PluginManifest, PluginRegisterFn } from "@/plugins/api";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { appFetch } from "@/services/http";
+import { resolveVerifiedHash } from "@/plugins/integrity";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -28,12 +29,14 @@ export interface MarketplacePlugin {
   tags: string[];
   theme: boolean;
   sourceId: string;
+  hash?: string;
 }
 
 export interface InstalledPluginMeta {
   id: string;
   version: string;
   sourceId: string | "local" | "url";
+  hash: string | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -51,7 +54,8 @@ const FIRST_PARTY_SOURCE: MarketplaceSource = {
 async function readInstalledMeta(): Promise<InstalledPluginMeta[]> {
   try {
     const raw = await invoke<string>("plugin_read_file", { id: "__meta__", filename: INSTALLED_META_KEY + ".json" });
-    return JSON.parse(raw) as InstalledPluginMeta[];
+    const list = JSON.parse(raw) as InstalledPluginMeta[];
+    return list.map((m) => ({ ...m, hash: m.hash ?? null }));
   } catch {
     return [];
   }
@@ -86,7 +90,8 @@ interface MarketplaceState {
 
   // Install / uninstall
   installing: Set<string>;
-  installPlugin: (plugin: MarketplacePlugin) => Promise<void>;
+  fetchManifest: (plugin: MarketplacePlugin) => Promise<{ manifest: PluginManifest; manifestText: string }>;
+  installPlugin: (plugin: MarketplacePlugin, reviewedManifestText?: string) => Promise<void>;
   uninstallPlugin: (id: string) => Promise<void>;
   reloadPlugin: (id: string) => Promise<void>;
 
@@ -156,7 +161,17 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
   // ── Install ───────────────────────────────────────────────────────────
   installing: new Set(),
 
-  async installPlugin(plugin: MarketplacePlugin) {
+  // Fetch just the manifest (no side effects) to preview declared permissions before
+  // installing/updating. The executed index.js is still hash-verified in installPlugin.
+  async fetchManifest(plugin: MarketplacePlugin) {
+    const base = plugin.repo.startsWith("http")
+      ? plugin.repo
+      : `https://github.com/${plugin.repo}/releases/latest/download`;
+    const manifestText = await invoke<string>("plugin_fetch_url", { url: `${base}/manifest.json` });
+    return { manifest: JSON.parse(manifestText) as PluginManifest, manifestText };
+  },
+
+  async installPlugin(plugin: MarketplacePlugin, reviewedManifestText?: string) {
     const { installing, installedMeta } = get();
     if (installing.has(plugin.id)) return;
 
@@ -166,24 +181,36 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
         ? plugin.repo
         : `https://github.com/${plugin.repo}/releases/latest/download`;
 
-      const [manifestText, jsText] = await Promise.all([
-        invoke<string>("plugin_fetch_url", { url: `${base}/manifest.json` }),
+      // When the caller previewed the manifest for consent, reuse that exact text so the executed
+      // permission set is precisely the one shown — closing the fetch→consent→load TOCTOU
+      // (manifest.json is not hash-pinned; index.js still is). Only fetch the manifest fresh when
+      // no reviewed copy was supplied (e.g. the review-disclosure setting is off).
+      const [fetchedManifestText, jsText] = await Promise.all([
+        reviewedManifestText !== undefined
+          ? Promise.resolve(reviewedManifestText)
+          : invoke<string>("plugin_fetch_url", { url: `${base}/manifest.json` }),
         invoke<string>("plugin_fetch_url", { url: `${base}/index.js` }),
       ]);
+      const manifestText = fetchedManifestText;
 
       const manifest = JSON.parse(manifestText) as PluginManifest;
+
+      // Integrity: refuse to execute a bundle that doesn't match its reviewed hash.
+      const verifiedHash = await resolveVerifiedHash(jsText, plugin.hash);
 
       await invoke("plugin_write_file", { id: plugin.id, filename: "manifest.json", content: manifestText });
       await invoke("plugin_write_file", { id: plugin.id, filename: "index.js", content: jsText });
 
       const jsPath = await invoke<string>("plugin_resolve_path", { id: plugin.id, filename: "index.js" });
-      const url = convertFileSrc(jsPath);
+      // Cache-bust so a same-session re-install imports the freshly-verified bytes,
+      // not a stale cached module (keyed by verified hash; identical bytes reuse the cache).
+      const url = convertFileSrc(jsPath) + `?v=${verifiedHash ?? Date.now()}`;
       const mod = await import(/* @vite-ignore */ url) as { default: PluginRegisterFn };
       loadPlugin(manifest, mod.default);
 
       const newMeta: InstalledPluginMeta[] = [
         ...installedMeta.filter((m) => m.id !== plugin.id),
-        { id: plugin.id, version: plugin.version, sourceId: plugin.sourceId },
+        { id: plugin.id, version: plugin.version, sourceId: plugin.sourceId, hash: verifiedHash },
       ];
       await writeInstalledMeta(newMeta);
       set({ installedMeta: newMeta });
@@ -234,7 +261,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
         loadPlugin(manifest, mod.default);
         const newMeta: InstalledPluginMeta[] = [
           ...installedMeta,
-          { id, version: manifest.version, sourceId: "local" },
+          { id, version: manifest.version, sourceId: "local", hash: null },
         ];
         await writeInstalledMeta(newMeta);
         set({ installedMeta: newMeta });
@@ -248,6 +275,10 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
 // ─── Startup loader ───────────────────────────────────────────────────────
 
 export async function loadInstalledPlugins(): Promise<void> {
+  // Note: the recorded meta.hash is used only for the UI "unverified" signal, not re-checked
+  // here. Load-time re-hashing is intentionally out of scope — under the Path B trust model a
+  // local attacker who can rewrite the plugin dir already has full renderer privileges, so it
+  // would add no real boundary. The integrity check binds reviewed→executed at INSTALL time.
   const store = useMarketplaceStore.getState();
   await store.loadInstalledMeta();
 

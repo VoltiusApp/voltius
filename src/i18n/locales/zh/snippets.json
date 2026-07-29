@@ -1,0 +1,183 @@
+{
+  "snippets": {
+    "sequence": {
+      "summary": {
+        "success": "代码片段已在 {{count}} 个目标上运行",
+        "partial": "{{count}} 个成功——{{details}}",
+        "failed": "失败"
+      },
+      "connectFailed": "无法打开终端会话",
+      "flatten": {
+        "tooDeep": "代码片段嵌套层级太深 \"{{name}}\"",
+        "tooManySteps": "代码片段展开了太多步骤",
+        "cycle": "在 \"{{name}}\" 中检测到代码片段循环",
+        "missingRef": "代码片段步骤引用了缺失的代码片段（{{id}}）"
+      },
+      "error": {
+        "needsTerminal": "脚本步骤需要为此目标打开终端会话",
+        "noSftp": "传输步骤没有 SFTP 连接",
+        "destExists": "目标已存在：{{path}}"
+      }
+    },
+    "toolbar": {
+      "filterPlaceholder": "筛选代码片段...",
+      "gridLabel": "网格",
+      "listLabel": "列表",
+      "sortNameAsc": "A → Z",
+      "sortNameDesc": "Z → A",
+      "sortNewest": "最新优先",
+      "sortOldest": "最早优先",
+      "newSnippet": "新建代码片段",
+      "newSnippetOptions": "新建代码片段选项",
+      "newFolder": "新建文件夹"
+    },
+    "card": {
+      "duplicate": "复制",
+      "unpin": "取消置顶",
+      "pin": "置顶",
+      "unpinForMe": "为我取消置顶",
+      "showInMyView": "在我的视图中显示",
+      "hideForMe": "为我隐藏",
+      "pinForMe": "为我置顶",
+      "unpinForTeam": "为团队取消置顶",
+      "pinForTeam": "为团队置顶",
+      "enableCloudSync": "启用云同步",
+      "disableCloudSync": "禁用云同步",
+      "export": "导出",
+      "star": "收藏",
+      "unstar": "取消收藏",
+      "insert": "插入",
+      "execute": "执行",
+      "noContent": "无内容"
+    },
+    "form": {
+      "nameLabel": "名称",
+      "namePlaceholder": "我的代码片段",
+      "contentLabel": "内容",
+      "variablesLabel": "变量：",
+      "autoBadge": "自动",
+      "syntaxHintType": "类型",
+      "syntaxHintForAutocomplete": "用于自动补全。",
+      "syntaxHintCustomPrompts": "自定义提示：",
+      "syntaxHintTypesList": "— 文本 · 数字 · 密码 · 布尔值 ·",
+      "descriptionLabel": "描述（可选）",
+      "descriptionPlaceholder": "这个代码片段做什么？",
+      "tagsLabel": "标签",
+      "folderLabel": "文件夹",
+      "starred": "已收藏",
+      "starThisSnippet": "收藏此代码片段",
+      "generalSection": "通用",
+      "contextualFiltersSection": "上下文筛选",
+      "contextualFiltersHint": "留空以显示给所有连接。不匹配的代码片段会变灰显示，而非隐藏。",
+      "onlyForConnectionTags": "仅用于连接标签",
+      "connectionTagsPlaceholder": "例如 production",
+      "onlyForDistros": "仅用于发行版",
+      "distrosPlaceholder": "例如 ubuntu、debian",
+      "removeTagAriaLabel": "移除标签 {{tag}}",
+      "dynamicVars": {
+        "connectionHost": "活跃的 SSH 主机名 / IP",
+        "connectionUsername": "活跃的 SSH 用户名",
+        "connectionName": "活跃的连接名称",
+        "date": "今天 — YYYY-MM-DD",
+        "datetime": "日期 + 时间 — YYYY-MM-DD HH:MM:SS",
+        "timestamp": "Unix 时间戳",
+        "clipboard": "当前剪贴板内容"
+      }
+    },
+    "step": {
+      "kind": {
+        "script": "脚本",
+        "transfer": "传输",
+        "snippet": "调用代码片段"
+      },
+      "endpoint": { "local": "本地", "remote": "远程" },
+      "from": "从",
+      "to": "到",
+      "mode": { "copy": "复制", "move": "移动" },
+      "conflict": { "label": "如果存在", "overwrite": "覆盖", "skip": "跳过", "fail": "失败" },
+      "remotePicker": {
+        "title": "浏览远程路径",
+        "pickHost": "选择一台主机浏览",
+        "selectHostTitle": "选择主机",
+        "back": "返回",
+        "connecting": "正在连接…",
+        "select": "选择",
+        "selectFolder": "用此文件夹"
+      },
+      "file": "文件",
+      "folder": "文件夹",
+      "localPath": "本地路径",
+      "remotePath": "远程路径",
+      "browse": "浏览",
+      "dragToReorder": "拖拽排序",
+      "selectSnippet": "选择一个代码片段...",
+      "addScript": "+ 脚本",
+      "addTransfer": "+ 传输",
+      "addSnippet": "+ 调用代码片段",
+      "addStep": "添加步骤",
+      "moveUp": "上移步骤",
+      "moveDown": "下移步骤",
+      "remove": "移除步骤"
+    },
+    "page": {
+      "emptyState": {
+        "title": "暂无代码片段",
+        "subtitle": "保存可复用的终端命令，支持动态变量。",
+        "cta": "创建您的第一个代码片段"
+      },
+      "pinned": "已置顶",
+      "folders": "文件夹",
+      "snippetsSection": "代码片段",
+      "other": "其他",
+      "allSnippets": "所有代码片段",
+      "folderEmpty": "此文件夹为空",
+      "addSnippet": "添加代码片段",
+      "noSearchResults": "没有匹配 \"{{search}}\" 的代码片段",
+      "clearSearch": "清除搜索",
+      "ejectMoveTo": "移动到 {{name}}",
+      "ejectRemoveFromFolder": "从文件夹中移除",
+      "recent": {
+        "title": "最近",
+        "clear": "清除",
+        "showLess": "显示更少",
+        "showMore": "显示 {{count}} 个更多",
+        "deletedSnippet": "已删除的代码片段",
+        "unknownTarget": "未知",
+        "targetMore": "{{name}} +{{count}} 个更多",
+        "modeRun": "运行",
+        "modeInsert": "插入",
+        "replay": "重放"
+      },
+      "bulk": {
+        "duplicateSnippets": "复制 {{count}} 个代码片段",
+        "moveItemsTo_one": "移动 {{count}} 个项目到",
+        "moveItemsTo_other": "移动 {{count}} 个项目到",
+        "copyItemsTo_one": "复制 {{count}} 个项目到",
+        "copyItemsTo_other": "复制 {{count}} 个项目到",
+        "enableCloudSync": "启用云同步 ({{count}})",
+        "disableCloudSync": "禁用云同步 ({{count}})",
+        "exportSnippets_one": "导出 {{count}} 个代码片段",
+        "exportSnippets_other": "导出 {{count}} 个代码片段",
+        "deleteSnippets": "删除 {{count}} 个代码片段"
+      },
+      "confirmDelete": {
+        "title_one": "删除 {{count}} 个项目",
+        "title_other": "删除 {{count}} 个项目",
+        "message_one": "确定要删除 {{count}} 个项目吗？此操作无法撤销。",
+        "message_other": "确定要删除 {{count}} 个项目吗？此操作无法撤销。"
+      },
+      "confirmDeleteFolder": {
+        "title": "删除 \"{{name}}\"？",
+        "message": "文件夹内的代码片段将被移动到根目录。此操作无法撤销。",
+        "confirmLabel": "删除文件夹"
+      },
+      "relativeTime": {
+        "justNow": "刚刚",
+        "secondsAgo": "{{count}} 秒前",
+        "minutesAgo": "{{count}} 分钟前",
+        "hoursAgo": "{{count}} 小时前",
+        "daysAgo": "{{count}} 天前"
+      }
+    }
+  }
+}

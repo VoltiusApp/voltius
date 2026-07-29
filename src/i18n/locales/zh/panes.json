@@ -1,0 +1,44 @@
+{
+  "panes": {
+    "badge": {
+      "ssh": "SSH",
+      "serial": "串口",
+      "multiplayer": "MPX",
+      "local": "本地"
+    },
+    "header": {
+      "copied": "已复制！",
+      "loading": "加载中…",
+      "localSystem": "本地系统",
+      "excludedFromBroadcast": "已从广播中排除",
+      "disableBroadcast": "禁用广播",
+      "broadcastInput": "广播输入",
+      "detachPane": "分离面板",
+      "restorePane": "恢复面板",
+      "maximizePane": "最大化面板",
+      "closePane": "关闭面板",
+      "latencyTooltip": "{{ms}}ms — 点击复制",
+      "reconnect": "重连",
+      "split": "分屏",
+      "splitLeft": "向左分屏",
+      "splitRight": "向右分屏",
+      "splitTop": "向上分屏",
+      "splitBottom": "向下分屏",
+      "noSessionToSplit": "打开另一个会话或将现有标签页拖到面板上进行分屏。",
+      "sparkline": {
+        "min": "最小 {{ms}}ms",
+        "avg": "平均 {{ms}}ms",
+        "max": "最大 {{ms}}ms"
+      }
+    },
+    "terminal": {
+      "emptyTitle": "分屏工作区为空",
+      "emptyHint": "将会话标签页拖到此处开始分屏。",
+      "serialSubtitle": "{{port}} · {{baud}} 波特"
+    },
+    "dragToast": {
+      "alreadyVisible": "该会话已在分屏工作区中可见。",
+      "invalidDropTarget": "拖到活动终端或分屏面板上以创建分屏。"
+    }
+  }
+}

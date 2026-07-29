@@ -26,6 +26,15 @@ function relativeLuminance(r: number, g: number, b: number): number {
   return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
 }
 
+/** WCAG relative luminance in 0..1 for a `#RRGGBB`/`#RGB` hex color, or null
+ *  when the string isn't a hex color we recognize (see `parseHex`). Lets
+ *  callers that need a contrast decision — not just the light/dark verdict
+ *  `appearanceFromColor` gives — skip re-implementing hex parsing. */
+export function luminanceFromHex(color: string): number | null {
+  const rgb = parseHex(color);
+  return rgb ? relativeLuminance(rgb[0], rgb[1], rgb[2]) : null;
+}
+
 export function appearanceFromColor(color: string): Appearance {
   const rgb = parseHex(color);
   if (!rgb) return "dark";

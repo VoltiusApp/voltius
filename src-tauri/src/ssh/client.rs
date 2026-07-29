@@ -233,6 +233,7 @@ impl client::Handler for SshClient {
         connected_port: u32,
         _originator_address: &str,
         _originator_port: u32,
+        reply: client::ChannelOpenHandle,
         _session: &mut client::Session,
     ) -> Result<(), Self::Error> {
         let route: Option<RemoteRoute> = {
@@ -243,9 +244,10 @@ impl client::Handler for SshClient {
         };
 
         if let Some(route) = route {
+            reply.accept().await;
             tokio::spawn(bridge_remote_channel(channel, route));
         } else {
-            let _ = channel.close().await;
+            reply.reject(russh::ChannelOpenFailure::ConnectFailed).await;
         }
         Ok(())
     }
@@ -253,8 +255,10 @@ impl client::Handler for SshClient {
     async fn server_channel_open_agent_forward(
         &mut self,
         channel: russh::Channel<russh::client::Msg>,
+        reply: client::ChannelOpenHandle,
         _session: &mut russh::client::Session,
     ) -> Result<(), Self::Error> {
+        reply.accept().await;
         #[cfg(unix)]
         {
             let sock_path = match std::env::var("SSH_AUTH_SOCK") {

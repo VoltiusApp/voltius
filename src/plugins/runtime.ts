@@ -2,14 +2,17 @@ import { invoke } from "@tauri-apps/api/core";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
-import { sshSendInput } from "@/services/ssh";
+import { sshSendInput, onSshOutput } from "@/services/ssh";
+import { onLocalOutput } from "@/services/local";
+import { onSerialOutput } from "@/services/serial";
+import { readTerminalSnapshot, readTerminalSelection } from "@/hooks/useTerminal";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIContributionStore } from "@/stores/uiContributionStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useFolderStore } from "@/stores/folderStore";
-import { getSyncState, onSyncStateChange, ENTITY_FILES, type BlobPayload } from "@/services/sync";
+import { getSyncState, onSyncStateChange, ENTITY_FILES, getExcludedObjectIds, type BlobPayload } from "@/services/sync";
 import { useThemeStore } from "@/stores/themeStore";
 import { mergeEntities, mergeSecrets } from "@/services/crdt";
 import type {
@@ -23,6 +26,7 @@ import * as keyService from "@/services/keys";
 import * as identityService from "@/services/identities";
 import { storePluginSecret, getPluginSecret, deletePluginSecret, storeSecret, deleteSecret } from "@/services/vault";
 import { appFetch } from "@/services/http";
+import { sseFetch } from "@/services/sseFetch";
 import type {
   PluginAPI,
   PluginManifest,
@@ -333,6 +337,19 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const id = manifest.id;
   const store = usePluginStore.getState;
 
+  // Gated permissions are honored for any plugin whose manifest declares the perm.
+  // The consent gate lives upstream at install (describePermissions + the danger
+  // consent dialog); this only verifies the manifest declared it. Kept as a named
+  // seam so a future catastrophic tier can re-add a provenance wall here.
+  const requireGated = (perm: string): void => {
+    requirePerm(manifest, perm);
+  };
+
+  // Reserved prefix "plugin:<id>:" namespaces keychain keys per plugin. The id
+  // is percent-encoded so a plugin id containing the ":" delimiter (e.g. "foo:x")
+  // cannot forge a prefix that collides with another plugin's namespace.
+  const kcKey = (key: string): string => `plugin:${encodeURIComponent(id)}:${key}`;
+
   const api: PluginAPI = {
     pluginId: id,
     isActive: () => _registry.get(id)?.active ?? true,
@@ -509,6 +526,12 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         store().registerRightPanelSection(section);
         return () => store().unregisterRightPanelSection(section.id);
       },
+      registerGlobalPanel(panel) {
+        requirePerm(manifest, "global-panel");
+        const prefixed = { ...panel, id: panel.id.startsWith(id) ? panel.id : `${id}:${panel.id}` };
+        store().registerGlobalPanel(prefixed);
+        return () => store().unregisterGlobalPanel(prefixed.id);
+      },
       registerContextMenuItem(item) {
         requirePerm(manifest, "context-menu");
         store().registerContextMenuItem(item);
@@ -529,6 +552,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         s.unregisterSettingsPage(itemId);
         s.unregisterSidebarItem(itemId);
         s.unregisterRightPanelSection(itemId);
+        s.unregisterGlobalPanel(itemId);
         s.unregisterContextMenuItem(itemId);
       },
     },
@@ -561,6 +585,10 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${url}`);
         return res.json() as Promise<T>;
+      },
+      async stream(url, init) {
+        requirePerm(manifest, "http");
+        return sseFetch(url, init);
       },
     },
 
@@ -690,6 +718,20 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           type: s.type,
         }));
       },
+      getActive() {
+        requirePerm(manifest, "sessions:read");
+        const { sessions, activeSessionId } = useSessionStore.getState();
+        if (!activeSessionId) return null;
+        const s = sessions.find((x) => x.id === activeSessionId);
+        if (!s) return null;
+        return {
+          id: s.id,
+          connectionId: s.connectionId,
+          connectionName: s.connectionName,
+          status: s.status,
+          type: s.type,
+        };
+      },
       onConnected(cb) {
         requirePerm(manifest, "sessions:read");
         ensureLifecycleSetup();
@@ -709,7 +751,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         return () => _onSessionTabActivated.delete(cb);
       },
       async sendCommand(sessionId, cmd) {
-        requirePerm(manifest, "sessions:write");
+        requireGated("terminal:write");
         const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
         if (!session) throw new Error(`Session "${sessionId}" not found`);
         if (session.type === "local") {
@@ -720,6 +762,52 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           const encoded = new TextEncoder().encode(cmd + "\n");
           await sshSendInput(sessionId, encoded);
         }
+      },
+      async open(connectionId) {
+        requirePerm(manifest, "sessions:write");
+        return useSessionStore.getState().connect(connectionId);
+      },
+      async close(sessionId) {
+        requirePerm(manifest, "sessions:write");
+        await useSessionStore.getState().disconnect(sessionId);
+      },
+    },
+
+    terminal: {
+      readSnapshot(sessionId, maxLines = 200) {
+        requireGated("terminal:read");
+        return readTerminalSnapshot(sessionId, maxLines);
+      },
+      readSelection(sessionId) {
+        requireGated("terminal:read");
+        return readTerminalSelection(sessionId);
+      },
+      async onOutput(sessionId, cb) {
+        requireGated("terminal:stream");
+        const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
+        if (!session) throw new Error(`Session "${sessionId}" not found`);
+        const decoder = new TextDecoder();
+        const handler = (data: Uint8Array) => cb(decoder.decode(data, { stream: true }));
+        if (session.type === "local") return onLocalOutput(sessionId, handler);
+        if (session.type === "serial") return onSerialOutput(sessionId, handler);
+        return onSshOutput(sessionId, handler);
+      },
+    },
+
+    // Keychain — GATED. OS-local, unsynced. Keys are namespaced per plugin
+    // (prefix "plugin:<id>:") so keychain:read cannot reach another plugin's secrets.
+    keychain: {
+      async get(key) {
+        requireGated("keychain:read");
+        return invoke<string | null>("keychain_get", { key: kcKey(key) });
+      },
+      async set(key, value) {
+        requireGated("keychain:write");
+        await invoke("keychain_set", { key: kcKey(key), value });
+      },
+      async delete(key) {
+        requireGated("keychain:write");
+        await invoke("keychain_delete", { key: kcKey(key) });
       },
     },
 
@@ -812,6 +900,9 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           encKey: encKeyBytes,
           accountId: "gist-sync",
           deviceId,
+          // Strip cloud-off objects (and their secrets) from third-party sync
+          // destinations too, mirroring the built-in server push (issue #47).
+          excludedIds: getExcludedObjectIds(),
         });
         const CHUNK = 8192;
         let binary = "";
@@ -915,12 +1006,13 @@ interface PluginEntry {
   register: PluginRegisterFn;
   cleanup: (() => void) | void;
   active: boolean;
+  trusted: boolean;
   api: ReturnType<typeof createPluginAPI>;
 }
 
 const _registry = new Map<string, PluginEntry>();
 
-export function loadPlugin(manifest: PluginManifest, register: PluginRegisterFn, active = true): void {
+export function loadPlugin(manifest: PluginManifest, register: PluginRegisterFn, active = true, trusted = false): void {
   if (_registry.has(manifest.id)) {
     console.warn(`[plugin-runtime] Plugin "${manifest.id}" already loaded — skipping`);
     return;
@@ -929,10 +1021,10 @@ export function loadPlugin(manifest: PluginManifest, register: PluginRegisterFn,
   if (manifest.contributes?.configuration) {
     void populateDefaults(manifest.id, manifest.contributes.configuration);
   }
-  const entry: PluginEntry = { manifest, register, cleanup: undefined, active, api };
+  const entry: PluginEntry = { manifest, register, cleanup: undefined, active, trusted, api };
   _registry.set(manifest.id, entry);
   entry.cleanup = register(api);
-  console.info(`[plugin-runtime] Loaded plugin "${manifest.id}" v${manifest.version} (active=${active})`);
+  console.info(`[plugin-runtime] Loaded plugin "${manifest.id}" v${manifest.version} (active=${active}, trusted=${trusted})`);
 }
 
 /**

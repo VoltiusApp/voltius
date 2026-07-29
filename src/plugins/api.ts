@@ -14,6 +14,13 @@ export interface PluginConnection {
   tags: string[];
   identity_id?: string;
   jump_hosts?: import("@/types").JumpHost[];
+  // Display-only fields — already present at runtime (runtime.ts:389 returns
+  // full Connection records cast to PluginConnection[]); exposed here so the
+  // agent UI can render a real per-host avatar. Optional and additive.
+  connection_type?: "ssh" | "serial" | "ftp";
+  icon?: string;
+  distro?: string;
+  serial_port?: string;
 }
 
 export interface PluginConnectionInput {
@@ -75,6 +82,12 @@ export interface RightPanelSection {
   label: string;
   icon: string;
   component: React.FC;
+}
+
+export interface GlobalPanel {
+  id: string;
+  /** Rendered at shell level (not session-scoped). Host drives open/close. */
+  component: React.FC<{ open: boolean; onClose: () => void }>;
 }
 
 export interface PluginSession {
@@ -168,7 +181,7 @@ export type UISlot =
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type UIContributionFactory = (ctx: any) => ContributedAction[];
 
-export type UIStatusBarSlot = "terminal.statusBar.right";
+export type UIStatusBarSlot = "terminal.statusBar.right" | "titlebar.right";
 
 export interface TerminalStatusBarContributionContext {
   sessionId: string;
@@ -240,6 +253,8 @@ export interface PluginAPI {
     registerSettingsPage(page: SettingsPage): () => void;
     registerSidebarItem(item: SidebarItem): () => void;
     registerRightPanelSection(section: RightPanelSection): () => void;
+    /** Mount a global, shell-level panel (not session-scoped). Returns cleanup. */
+    registerGlobalPanel(panel: GlobalPanel): () => void;
     registerContextMenuItem(item: ContextMenuItem): () => void;
     /** Inject action items into a named UI slot. Returns a cleanup function. */
     registerContribution<C = unknown>(slot: UISlot, fn: (ctx: C) => ContributedAction[]): () => void;
@@ -259,6 +274,8 @@ export interface PluginAPI {
   http: {
     get<T>(url: string, opts?: RequestInit): Promise<T>;
     post<T>(url: string, body: unknown, opts?: RequestInit): Promise<T>;
+    /** Streaming request. Returns a Response with a ReadableStream body (for SSE/LLM streaming). */
+    stream(url: string, init?: RequestInit): Promise<Response>;
   };
 
   // Filesystem restricted to home (requires "fs")
@@ -294,6 +311,8 @@ export interface PluginAPI {
   sessions: {
     /** Returns current sessions snapshot. */
     list(): PluginSession[];
+    /** The session backing the active terminal tab, or null if there is none. */
+    getActive(): PluginSession | null;
     /** Fires when a session becomes connected. */
     onConnected(cb: (session: PluginSession) => void): () => void;
     /** Fires when a connected session is removed or disconnected. */
@@ -302,6 +321,31 @@ export interface PluginAPI {
     onActivated(cb: (session: PluginSession) => void): () => void;
     /** Send a command to a session. Runtime appends \n. Requires sessions:write. */
     sendCommand(sessionId: string, cmd: string): Promise<void>;
+    /** Open (connect) a saved connection by id. Resolves to the new sessionId. Requires sessions:write. */
+    open(connectionId: string): Promise<string>;
+    /** Close (disconnect) a session by id. Requires sessions:write. */
+    close(sessionId: string): Promise<void>;
+  };
+
+  // Terminal output — GATED (first-party only). Requires terminal:read / terminal:stream.
+  terminal: {
+    /** Last `maxLines` lines of a session's buffer as text (default 200). */
+    readSnapshot(sessionId: string, maxLines?: number): string;
+    /** The session's current selection as text, or "" if nothing is selected. */
+    readSelection(sessionId: string): string;
+    /** Subscribe to live decoded output for a session. Resolves to an unsubscribe fn. */
+    onOutput(sessionId: string, cb: (text: string) => void): Promise<() => void>;
+  };
+
+  // Keychain — GATED (first-party only). OS-local, never synced.
+  // Requires keychain:read / keychain:write.
+  keychain: {
+    /** Read a value from the OS keychain. Returns null if unset. */
+    get(key: string): Promise<string | null>;
+    /** Write a value to the OS keychain. */
+    set(key: string, value: string): Promise<void>;
+    /** Delete a value from the OS keychain (no-op if absent). */
+    delete(key: string): Promise<void>;
   };
 
   // Lifecycle hooks (always available)

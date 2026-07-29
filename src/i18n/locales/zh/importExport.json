@@ -1,0 +1,123 @@
+{
+  "importExport": {
+    "modal": {
+      "title": "导入 / 导出",
+      "sectionUserData": "用户数据",
+      "tabExport": "导出",
+      "tabImport": "导入"
+    },
+    "include": "包含",
+    "copied": "已复制！",
+    "downloadExt": "下载 .{{ext}}",
+    "passwordPlaceholder": "密码",
+    "export": {
+      "format": "格式",
+      "formatCsvDescription": "仅连接——电子表格友好",
+      "formatJsonDescription": "包含密钥内容的完整数据",
+      "encryptBackup": "加密备份",
+      "plaintextSecretsWarning": "此导出包含明文形式的密码、密钥或主机备注。除非您明确需要未加密的文件，否则请保持加密开启。",
+      "confirmPasswordPlaceholder": "确认密码",
+      "passwordsDontMatch": "密码不匹配",
+      "building": "正在构建…",
+      "nothingToExport": "没有可导出的内容",
+      "downloadEncrypted": "下载加密文件",
+      "hidePreview": "隐藏预览",
+      "showPreview": "显示预览",
+      "selectedItem_one": "已选择 {{count}} 个项目",
+      "selectedItem_other": "已选择 {{count}} 个项目",
+      "autoIncludeIdentity": "{{count}} 个身份",
+      "autoIncludeKey": "{{count}} 个密钥",
+      "checkboxLabel": {
+        "connections_one": "连接 ({{count}})",
+        "connections_other": "连接 ({{count}})",
+        "identities_one": "身份 ({{count}})",
+        "identities_other": "身份 ({{count}})",
+        "keys_one": "SSH 密钥 ({{count}})",
+        "keys_other": "SSH 密钥 ({{count}})",
+        "snippets": "代码片段 ({{count}})",
+        "portForwarding": "端口转发 ({{count}})"
+      }
+    },
+    "import": {
+      "importFrom": "导入来源",
+      "importInto": "导入到",
+      "autoExtractTitle": "从 {{label}} 自动提取",
+      "autoExtractDescription": "读取并解密您本地的 {{label}} 数据——无需手动导出",
+      "extracting": "正在提取…",
+      "extractFrom": "从 {{label}} 提取",
+      "orImportFromFile": "或从文件导入",
+      "openFileLabel": "打开 {{sub}} 文件…",
+      "encryptedBackupTitle": "加密备份——请输入密码解锁",
+      "unlock": "解锁",
+      "reviewItems_one": "检查 {{count}} 个项目",
+      "reviewItems_other": "检查 {{count}} 个项目",
+      "back": "返回",
+      "reviewImportTitle": "检查导入内容",
+      "reIncludeDuplicates": "重新包含重复项",
+      "skipAllDuplicates": "跳过所有重复项",
+      "filterItemsPlaceholder": "筛选项目…",
+      "groupConnections": "连接",
+      "groupKeys": "SSH 密钥",
+      "groupIdentities": "身份",
+      "groupPortForwarding": "端口转发",
+      "selectAll": "全选",
+      "deselectAll": "取消全选",
+      "advanced": "高级",
+      "tagLabel": "标签：",
+      "tagPlaceholder": "可选",
+      "importing": "正在导入…",
+      "importButton_one": "导入 {{count}} 个项目",
+      "importButton_other": "导入 {{count}} 个项目",
+      "importButtonMultiVault_one": "导入 {{count}} 个项目 × {{vaultCount}} 个保险库",
+      "importButtonMultiVault_other": "导入 {{count}} 个项目 × {{vaultCount}} 个保险库",
+      "nothingSelected": "未选择任何内容",
+      "unnamedKey": "未命名密钥",
+      "sshKeyFallback": "SSH 密钥",
+      "actionSkip": "跳过",
+      "actionInclude": "导入",
+      "actionOverwrite": "覆盖",
+      "resultImportedWithErrors": "已导入 {{count}} 个项目{{vaultNote}}，{{errors}} 个失败。",
+      "resultImportedSuccess_one": "成功导入 {{count}} 个项目{{vaultNote}}。",
+      "resultImportedSuccess_other": "成功导入 {{count}} 个项目{{vaultNote}}。",
+      "resultVaultNote": "跨 {{count}} 个保险库",
+      "resultError": "错误：{{error}}"
+    },
+    "fileInput": {
+      "openFileDefault": "打开文件…",
+      "pasteFromClipboard": "从剪贴板粘贴",
+      "clear": "清除",
+      "dropToLoad": "拖放以加载"
+    },
+    "userData": {
+      "import": {
+        "openFileLabel": "打开文件…",
+        "placeholder": "在此粘贴 Voltius 设置 JSON，或拖放文件…\n\n{ \"type\": \"voltius-user-data\", \"version\": 2, \"sections\": { … } }",
+        "foundSections_one": "找到 {{count}} 个设置部分",
+        "foundSections_other": "找到 {{count}} 个设置部分",
+        "applying": "正在应用…",
+        "applyButton_one": "应用 {{count}} 个部分",
+        "applyButton_other": "应用 {{count}} 个部分",
+        "applyDefault": "应用",
+        "resultApplied_one": "已应用 {{count}} 个设置：{{list}}。",
+        "resultApplied_other": "已应用 {{count}} 个设置：{{list}}。",
+        "resultError": "错误：{{error}}"
+      },
+      "handlers": {
+        "themes": { "label": "主题" },
+        "uiPreferences": { "label": "UI 偏好" },
+        "shortcuts": { "label": "快捷键" },
+        "appSettings": { "label": "应用设置" }
+      },
+      "describe": {
+        "themes_one": "{{count}} 个自定义主题",
+        "themes_other": "{{count}} 个自定义主题",
+        "uiPreferences": "缩放 {{scale}}× · {{layout}} 布局",
+        "shortcutsOverrides_one": "{{count}} 个覆盖",
+        "shortcutsOverrides_other": "{{count}} 个覆盖",
+        "shortcutsDefaults": "默认值",
+        "appSettingsShell": "shell: {{shell}}",
+        "appSettingsDefault": "默认设置"
+      }
+    }
+  }
+}

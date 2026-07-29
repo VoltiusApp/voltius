@@ -1,0 +1,254 @@
+{
+  "terminal": {
+    "shared": {
+      "copied": "已复制",
+      "insert": "插入",
+      "insertAndExecute": "插入并执行",
+      "noActiveSession": "没有活跃会话"
+    },
+    "historyPanel": {
+      "relativeTime": {
+        "justNow": "刚刚",
+        "secondsAgo": "{{count}} 秒前",
+        "minutesAgo": "{{count}} 分钟前",
+        "hoursAgo": "{{count}} 小时前",
+        "daysAgo": "{{count}} 天前"
+      },
+      "removeFromHistory": "从历史中移除",
+      "searchPlaceholder": "搜索历史…",
+      "showCurrentOnly": "仅显示当前连接",
+      "showAllConnections": "显示所有连接",
+      "clearAllTitle": "清除所有历史",
+      "noCommandsMatch": "没有匹配的命令",
+      "noHistoryForConnection": "此连接暂无历史",
+      "noHistoryYet": "暂无命令历史。\n您输入的命令将显示在此处。"
+    },
+    "multiplayerBar": {
+      "ended": "已结束",
+      "sharing": "正在共享",
+      "watching": "正在观看",
+      "requestControl": "请求控制权",
+      "youHaveControl": "您拥有控制权",
+      "controlRequested": "已请求控制权",
+      "grant": "授予",
+      "deny": "拒绝",
+      "revoke": "撤销",
+      "stopSharingTitle": "停止共享",
+      "leaveSessionTitle": "离开会话",
+      "stop": "停止",
+      "leave": "离开"
+    },
+    "sftp": {
+      "hostLabel": {
+        "remote": "远程",
+        "localMachine": "本地计算机"
+      },
+      "uploadDialogTitle": "选择要上传的文件",
+      "downloadDialogTitle": "下载到文件夹",
+      "waitingForSession": "正在等待会话",
+      "connecting": "正在连接…",
+      "notSupportedForSessionType": "此会话类型不支持 SFTP",
+      "followPinned": "正在跟踪终端 cwd · 点击取消固定",
+      "followWaiting": "正在跟踪终端 cwd · 等待 shell 报告 cwd（需要 shell 集成）",
+      "followTitle": "跟踪终端 cwd",
+      "uploadFiles": "上传文件",
+      "downloadTitle_one": "下载 \"{{name}}\"",
+      "downloadTitle_other": "下载 {{count}} 个项目",
+      "selectFilesToDownload": "选择要下载的文件",
+      "viewOptions": "查看选项",
+      "moreOptions": "更多选项"
+    },
+    "ports": {
+      "badge": {
+        "auto": "自动",
+        "adHoc": "临时"
+      },
+      "pauseForwarding": "暂停转发",
+      "resumeForwarding": "恢复转发",
+      "saveAsRule": "保存为规则",
+      "copyAddress": "复制 localhost:{{port}}",
+      "openUrl": "打开 {{url}}",
+      "sshRequired": "端口转发需要 SSH 会话。",
+      "empty": "没有转发的端口。远程主机上检测到的端口将自动显示在此处。",
+      "sectionSaved": "已保存",
+      "sectionActive": "活跃",
+      "sectionSuppressed": "已抑制",
+      "header": {
+        "title": "端口",
+        "activeCount": "{{count}} 个活跃",
+        "addTitle": "转发一个端口"
+      },
+      "quickForwardPlaceholder": "转发端口（例如 3000 或 3000:8080）",
+      "quickForwardErrors": {
+        "emptyInput": "输入一个端口",
+        "tooManyParts": "使用端口或 远程：本地",
+        "invalidRemotePort": "端口必须为 1-65535",
+        "invalidLocalPort": "本地端口必须为 1-65535"
+      }
+    },
+    "rightPanel": {
+      "font": "字体",
+      "themes": "主题",
+      "themeActive": "∞ 活跃",
+      "themeBuiltin": "内置",
+      "themeCustom": "自定义",
+      "createNewTheme": "新建主题",
+      "closePanelTitle": "关闭面板",
+      "sections": {
+        "history": "历史",
+        "sftp": "SFTP"
+      }
+    },
+    "share": {
+      "signInToShare": "登录以共享",
+      "signInDescription": "连接服务器账户以与队友共享您的终端。",
+      "signInButton": "登录 / 注册",
+      "proRequired": "需要 Pro",
+      "proRequiredDescription": "终端共享在 Pro 及以上版本中可用。",
+      "features": [
+        "1 个邀请链接会话 · 1 名参与者",
+        "实时云同步",
+        "Teams：5 个会话 · 10 名参与者 + 共享保险库"
+      ],
+      "upgradeToPro": "升级到 Pro",
+      "shareTerminal": "共享终端",
+      "sessionNamePlaceholder": "会话名称…",
+      "tabTeam": "团队",
+      "tabInviteLink": "邀请链接",
+      "sessionLimitReached": "已达到套餐的会话限制。",
+      "failedToShare": "共享失败",
+      "failedToGenerateLink": "生成链接失败",
+      "noVaultsCreateTeamFirst": "没有保险库——请先创建团队",
+      "allRoles": "所有角色",
+      "startSharingWithVault_one": "开始与 {{count}} 个保险库共享",
+      "startSharingWithVault_other": "开始与 {{count}} 个保险库共享",
+      "selectVaultToShare": "选择要共享的保险库",
+      "shareCodeDescription": "共享此代码——任何拥有它的人都可以加入：",
+      "generateLinkDescription": "生成一次性链接。任何拥有 Voltius 账户的人都可以加入。",
+      "generateInviteLink": "生成邀请链接",
+      "upToParticipants_one": "最多 {{count}} 名参与者",
+      "upToParticipants_other": "最多 {{count}} 名参与者",
+      "upgradeToTeamsForParticipants": "升级到 Teams 以支持 10 名参与者 + 共享保险库",
+      "live": "实时",
+      "participantsRatio_one": "{{participantCount}} / {{guestCap}} 名参与者",
+      "participantsRatio_other": "{{participantCount}} / {{guestCap}} 名参与者",
+      "upgradeToTeams": "升级到 Teams",
+      "upgradeToBusiness": "升级到 Business",
+      "hasControl": "拥有控制权",
+      "stopSharing": "停止共享"
+    },
+    "snippetVariableModal": {
+      "on": "开",
+      "off": "关",
+      "masked": "已隐藏",
+      "preview": "预览",
+      "execute": "执行"
+    },
+    "snippets": {
+      "renameFolder": "重命名文件夹",
+      "newFolder": "新建文件夹",
+      "folderNamePlaceholder": "文件夹名称",
+      "notRelevantForConnection": "与当前连接无关",
+      "removeFromFavorites": "从收藏中移除",
+      "addToFavorites": "添加到收藏",
+      "duplicate": "复制",
+      "moveToFolder": "移动到文件夹",
+      "back": "返回",
+      "unfiled": "未归档",
+      "searchPlaceholder": "搜索代码片段…",
+      "newSnippetTitle": "新建代码片段",
+      "favorites": "收藏",
+      "recent": "最近",
+      "noSnippetsMatch": "没有匹配的代码片段",
+      "noSnippetsYet": "暂无代码片段。\n点击 + 创建一个。"
+    },
+    "search": {
+      "placeholder": "查找",
+      "invalid": "无效",
+      "noResults": "没有结果",
+      "resultCounter": "{{index}} / {{count}}",
+      "matchCase": "区分大小写 (Alt+C)",
+      "matchWholeWord": "全字匹配 (Alt+W)",
+      "useRegex": "使用正则表达式 (Alt+R)",
+      "previousMatch": "上一个匹配 (Shift+Enter)",
+      "nextMatch": "下一个匹配 (Enter)",
+      "closeTitle": "关闭 (Escape)"
+    },
+    "overlay": {
+      "continue": "继续",
+      "connectAndSave": "连接并保存",
+      "continueAndSave": "继续并保存",
+      "steps": {
+        "tcpConnection": "TCP 连接",
+        "sshHandshake": "SSH 握手",
+        "authenticating": "正在认证",
+        "openingShell": "正在打开 Shell",
+        "sftpSubsystem": "SFTP 子系统",
+        "openingPort": "正在打开端口",
+        "ready": "就绪"
+      },
+      "connectionLost": {
+        "title": "连接已断开",
+        "subtitle": "正在重连…"
+      },
+      "connectionError": {
+        "title": "连接失败",
+        "retry": "重试",
+        "dismiss": "忽略"
+      },
+      "hostKeyConflict": {
+        "title": "主机密钥已更改",
+        "descriptionPrefix": "",
+        "descriptionSuffix": " 的指纹已更改。",
+        "replace": "替换",
+        "addAsNew": "添加为新主机",
+        "abort": "中止",
+        "stored": "已存储",
+        "received": "已收到"
+      },
+      "passphrasePrompt": {
+        "title": "需要密钥口令",
+        "description": "此密钥已加密。请输入口令以继续。",
+        "placeholder": "口令"
+      },
+      "usernamePrompt": {
+        "title": "需要用户名",
+        "description": "此主机未设置用户名。请输入一个或选择一个身份以继续。",
+        "placeholder": "root"
+      },
+      "authPrompt": {
+        "title": "需要认证",
+        "description": "此主机没有认证方式。请选择一个以继续。",
+        "modePassword": "密码",
+        "modeKey": "密钥",
+        "modeIdentity": "身份",
+        "passwordPlaceholder": "密码",
+        "keyPassphrasePlaceholder": "密钥口令（可选）"
+      }
+    },
+    "statusBar": {
+      "badge": {
+        "ssh": "SSH",
+        "serial": "串口",
+        "local": "本地"
+      },
+      "localSystemFallback": "本地系统",
+      "serialFallback": "串口",
+      "pingUp": "上行 · {{ms}}ms",
+      "pingDown": "下行",
+      "pingUnknown": "未知",
+      "copyLabel": "复制 {{text}}",
+      "openPortsPanel": "打开端口面板",
+      "reconnectTitle": "重连",
+      "systemMetricsTitle": "系统指标",
+      "activeTunnels_one": "{{count}} 个活跃隧道",
+      "activeTunnels_other": "{{count}} 个活跃隧道",
+      "cpu": "CPU {{pct}}%",
+      "copiedBang": "已复制！",
+      "loadingEllipsis": "加载中…",
+      "sparklineMin": "最小 {{value}}ms",
+      "sparklineAvg": "平均 {{value}}ms",
+      "sparklineMax": "最大 {{value}}ms"
+    }
+  }
+}

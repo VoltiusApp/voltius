@@ -1,0 +1,161 @@
+{
+  "fileTransfer": {
+    "common": {
+      "localMachine": "本地计算机",
+      "remoteFallback": "远程",
+      "itemsCount_one": "{{count}} 个项目",
+      "itemsCount_other": "{{count}} 个项目"
+    },
+    "acceleratedBadge": {
+      "title": "Tar 加速",
+      "description": "打包为一个归档文件并在另一端解压——比逐个文件传输少得多的往返次数。",
+      "howItWorks": "工作原理"
+    },
+    "conflict": {
+      "title": "文件已存在",
+      "conflictOf": "冲突 {{number}} / {{total}}",
+      "description": "目标位置已存在同名项目。您想怎么做？",
+      "skip": "跳过",
+      "skipAll": "全部跳过",
+      "overwrite": "覆盖",
+      "overwriteAll": "全部覆盖"
+    },
+    "pane": {
+      "toolbar": {
+        "parentDirectory": "上级目录",
+        "homeDirectory": "主目录",
+        "browse": "浏览…",
+        "selectFolder": "选择文件夹",
+        "newFolder": "新建文件夹",
+        "newFile": "新建文件",
+        "refresh": "刷新"
+      },
+      "dropToTransfer": "拖放以传输",
+      "placeholder": {
+        "folderName": "文件夹名称",
+        "fileName": "文件名称"
+      },
+      "emptyDirectory": "空目录",
+      "selection": {
+        "selected": "已选择 {{count}} 项",
+        "clear": "清除"
+      },
+      "confirmDelete": {
+        "title": "确认删除",
+        "messageSingle": "删除 \"{{name}}\"？",
+        "messageMulti": "删除 {{count}} 个项目？"
+      },
+      "menu": {
+        "download_one": "下载",
+        "download_other": "下载 {{count}} 个项目",
+        "copyToTarget_one": "复制到目标",
+        "copyToTarget_other": "复制 {{count}} 个项目到目标",
+        "moveToTarget_one": "移动到目标",
+        "moveToTarget_other": "移动 {{count}} 个项目到目标",
+        "delete_one": "删除",
+        "delete_other": "删除 {{count}} 个项目",
+        "copyPath_one": "复制路径",
+        "copyPath_other": "复制 {{count}} 个路径",
+        "compress": "压缩为 .tar.gz",
+        "extractHere": "解压到此处",
+        "openInTerminal": "在终端中打开",
+        "uploadFiles": "上传文件",
+        "selectAll": "全选",
+        "deselect": "取消选择",
+        "disconnect": "断开连接",
+        "hideHiddenFiles": "隐藏隐藏文件",
+        "showHiddenFiles": "显示隐藏文件",
+        "sizeColumn": "大小列",
+        "dateColumn": "日期列",
+        "permissionsColumn": "权限列"
+      },
+      "columns": {
+        "name": "名称",
+        "size": "大小",
+        "modified": "修改时间",
+        "permissions": "权限"
+      }
+    },
+    "side": {
+      "chooseHost": "选择主机…",
+      "back": "后退",
+      "forward": "前进",
+      "filterPlaceholder": "筛选…",
+      "uploadHere": "在此上传文件",
+      "selectFilesToDownload": "选择要下载的文件",
+      "download_one": "下载 \"{{name}}\"",
+      "download_other": "下载 {{count}} 个项目",
+      "viewOptions": "查看选项",
+      "moreOptions": "更多选项",
+      "tryAgain": "重试",
+      "sparkline": {
+        "min": "最小 {{value}}ms",
+        "avg": "平均 {{value}}ms",
+        "max": "最大 {{value}}ms"
+      }
+    },
+    "page": {
+      "transferLeftToRight_one": "传输 \"{{name}}\" →",
+      "transferLeftToRight_other": "传输 {{count}} 个项目 →",
+      "transferRightToLeft_one": "传输 \"{{name}}\" ←",
+      "transferRightToLeft_other": "传输 {{count}} 个项目 ←",
+      "selectFileLeft": "在左侧选择一个文件",
+      "selectFileRight": "在右侧选择一个文件",
+      "compareTitle": "比较 \"{{leftName}}\" ↔ \"{{rightName}}\"",
+      "compareHint": "在每侧各选择一个文件进行比较",
+      "selectFilesToUpload": "选择要上传的文件",
+      "downloadToFolder": "下载到文件夹",
+      "connectionLost": "连接已断开"
+    },
+    "queue": {
+      "title": "传输",
+      "transferCount_one": "{{count}} 个传输",
+      "transferCount_other": "{{count}} 个传输",
+      "activeSuffix_one": " · {{count}} 个进行中",
+      "activeSuffix_other": " · {{count}} 个进行中",
+      "combinedThroughput": "合计吞吐量",
+      "cancelAll": "取消所有传输",
+      "clearFinished": "清除已完成的传输",
+      "cancelTransfer": "取消传输",
+      "status": {
+        "done": "完成",
+        "error": "错误",
+        "cancelled": "已取消"
+      }
+    },
+    "editor": {
+      "common": {
+        "saveCtrlS": "保存 (Ctrl+S)",
+        "saveFailed": "保存失败",
+        "retrySave": "重试保存",
+        "retry": "重试",
+        "dismiss": "忽略"
+      },
+      "diff": {
+        "loadError": "加载差异比较的一个或两个文件失败。",
+        "loading": "正在加载差异…",
+        "previousChange": "上一个更改",
+        "nextChange": "下一个更改",
+        "saveErrorLine": "{{label}}: {{msg}}"
+      },
+      "tab": {
+        "autoSave": "自动保存",
+        "saveFailedReason": "保存失败：{{error}}",
+        "error": {
+          "default": "无法打开文件。",
+          "tooLarge": "文件太大（{{size}} 字节，限制 {{limit}}）。请改为下载。",
+          "binary": "二进制文件——无法编辑。请改为下载。"
+        }
+      },
+      "tabStrip": {
+        "filesTab": "文件",
+        "pendingNameFallback": "此文件",
+        "pendingNameDiffFallback": "此差异",
+        "diffTitlePrefix": "差异：{{name}}",
+        "discardTitle": "放弃未保存的更改？",
+        "discardMessage": "\"{{name}}\" 有未保存的更改。关闭此标签页将放弃这些更改。",
+        "discard": "放弃"
+      }
+    }
+  }
+}

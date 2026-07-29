@@ -54,6 +54,8 @@
         "moveToTarget_other": "Déplacer {{count}} éléments vers la cible",
         "delete_one": "Supprimer",
         "delete_other": "Supprimer {{count}} éléments",
+        "copyPath_one": "Copier le chemin",
+        "copyPath_other": "Copier {{count}} chemins",
         "compress": "Compresser en .tar.gz",
         "extractHere": "Extraire ici",
         "openInTerminal": "Ouvrir dans un terminal",

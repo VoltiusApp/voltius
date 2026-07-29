@@ -21,6 +21,8 @@ import { useToggle } from "@/stores/toggleSettingsStore";
 import { startInternalDragGesture, useSemanticDragState } from "./internalDrag";
 import { resolveTypeAheadIndex, TYPE_AHEAD_RESET_MS } from "./typeAhead";
 import { useFileClipboardStore, sameHost, type FileEndpoint } from "@/stores/fileClipboardStore";
+import { writeClipboard } from "@/utils/clipboard";
+import { copyPathText } from "./copyPathText";
 
 // ── SelectionActionsCtx ───────────────────────────────────────────────────────
 
@@ -634,6 +636,16 @@ function buildSelectionActions(files: FileEntry[], ctx: SelectionActionsCtx, t: 
       label: t("common.action.edit"),
       icon: "lucide:file-pen",
       onClick: () => { openFileForEdit(single, ctx); },
+    });
+  }
+
+  // Copy path (single or multi — one path per line; local or remote)
+  if (files.length > 0) {
+    items.push({
+      label: t("fileTransfer.pane.menu.copyPath", { count: files.length }),
+      icon: "lucide:clipboard",
+      onClick: () => { void writeClipboard(copyPathText(files)); },
+      divider: true,
     });
   }
 

@@ -1,0 +1,40 @@
+{
+  "notifications": {
+    "bell": {
+      "title": "通知",
+      "clearHistory": "清除历史",
+      "noNotifications": "没有通知",
+      "relativeTime": {
+        "justNow": "刚刚",
+        "minutesAgo": "{{count}} 分钟前",
+        "hoursAgo": "{{count}} 小时前",
+        "daysAgo": "{{count}} 天前"
+      }
+    },
+    "emailVerification": {
+      "banner": {
+        "message": "验证您的邮箱以解锁云功能。我们已发送链接到 {{email}}。",
+        "yourEmail": "您的邮箱",
+        "resend": "重新发送邮件",
+        "resending": "正在发送...",
+        "verified": "我已验证",
+        "checking": "正在检查...",
+        "dismissAriaLabel": "关闭邮箱验证横幅"
+      },
+      "modal": {
+        "title": "请先验证您的邮箱",
+        "body": "云升级需要已验证的邮箱地址。请查收收件箱中的验证链接，或重新发送。",
+        "resend": "重新发送邮件",
+        "resending": "正在发送..."
+      },
+      "toast": {
+        "sent": "验证邮件已发送。",
+        "sendFailed": "无法重新发送验证邮件。",
+        "refreshFailed": "无法刷新会话。"
+      }
+    },
+    "progressToast": {
+      "timedOut": "操作超时"
+    }
+  }
+}

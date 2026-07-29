@@ -65,6 +65,12 @@ interface UIStore {
   homeView: boolean;
   activeNav: NavItem;
   omniOpen: boolean;
+  globalPanelOpen: Record<string, boolean>;
+  setGlobalPanelOpen: (id: string, open: boolean) => void;
+  toggleGlobalPanel: (id: string) => void;
+  /** Width (px) reserved for a docked global panel; 0 = none docked. Generic — not tied to any single plugin. */
+  dockedPanelWidth: number;
+  setDockedPanelWidth: (width: number) => void;
   settingsOpen: boolean;
   cloudAuthOpen: boolean;
   cloudAuthMode: CloudAuthMode;
@@ -72,6 +78,8 @@ interface UIStore {
   /** Mobile drill-down page: null = section list, otherwise the open section. */
   settingsSubPage: SettingsSection | null;
   settingsPluginPageId: string | null;
+  /** Whether the Plugins nav group is expanded. Persisted; a selected child force-expands regardless. */
+  pluginsNavExpanded: boolean;
   rightPanelOpen: boolean;
   rightPanelSection: RightPanelSection;
   sftpPanelOpen: boolean;
@@ -110,6 +118,9 @@ interface UIStore {
   setSettingsSection: (section: SettingsSection) => void;
   setSettingsSubPage: (section: SettingsSection | null) => void;
   setSettingsPluginPageId: (id: string | null) => void;
+  setPluginsNavExpanded: (expanded: boolean) => void;
+  /** Select a plugin settings page as the current settings target (both shells). */
+  selectPluginPage: (pageId: string) => void;
   openSettings: (section?: SettingsSection, pluginPageId?: string) => void;
   setRightPanelOpen: (open: boolean) => void;
   setRightPanelSection: (section: RightPanelSection) => void;
@@ -151,12 +162,15 @@ export const useUIStore = create<UIStore>()(
       homeView: true,
       activeNav: "hosts" as NavItem,
       omniOpen: false,
+      globalPanelOpen: {},
+      dockedPanelWidth: 0,
       settingsOpen: false,
       cloudAuthOpen: false,
       cloudAuthMode: "signin" as CloudAuthMode,
       settingsSection: "appearance" as SettingsSection,
       settingsSubPage: null as SettingsSection | null,
       settingsPluginPageId: null as string | null,
+      pluginsNavExpanded: true,
       rightPanelOpen: false,
       rightPanelSection: "themes" as RightPanelSection,
       sftpPanelOpen: false,
@@ -193,13 +207,21 @@ export const useUIStore = create<UIStore>()(
       setHomeView: (v) => set({ homeView: v }),
       setActiveNav: (nav) => set({ activeNav: nav }),
       setOmniOpen: (open) => set({ omniOpen: open }),
+      setGlobalPanelOpen: (id, open) => set((s) => ({ globalPanelOpen: { ...s.globalPanelOpen, [id]: open } })),
+      toggleGlobalPanel: (id) => set((s) => ({ globalPanelOpen: { ...s.globalPanelOpen, [id]: !s.globalPanelOpen[id] } })),
+      setDockedPanelWidth: (width) => set({ dockedPanelWidth: width }),
       setSettingsOpen: (open) => set((s) => ({ settingsOpen: open, settingsSubPage: open ? s.settingsSubPage : null })),
       openCloudAuth: (mode) => set({ cloudAuthOpen: true, cloudAuthMode: mode ?? "signin" }),
       closeCloudAuth: () => set({ cloudAuthOpen: false }),
       setCloudAuthMode: (mode) => set({ cloudAuthMode: mode }),
-      setSettingsSection: (section) => set({ settingsSection: section }),
-      setSettingsSubPage: (section) => set({ settingsSubPage: section }),
+      // Selecting a builtin section must drop any plugin target, or
+      // `settingsPluginPageId ?? settingsSection` would keep showing the plugin pane.
+      setSettingsSection: (section) => set({ settingsSection: section, settingsPluginPageId: null }),
+      setSettingsSubPage: (section) => set({ settingsSubPage: section, settingsPluginPageId: null }),
       setSettingsPluginPageId: (id) => set({ settingsPluginPageId: id }),
+      setPluginsNavExpanded: (expanded) => set({ pluginsNavExpanded: expanded }),
+      selectPluginPage: (pageId) =>
+        set({ settingsSection: "plugins", settingsSubPage: "plugins", settingsPluginPageId: pageId }),
       // section given = deep-link → mobile drills straight in; no section = plain open → mobile lands on the list.
       openSettings: (section, pluginPageId) => set((s) => ({ settingsOpen: true, settingsSection: section ?? s.settingsSection, settingsSubPage: section ?? null, settingsPluginPageId: pluginPageId ?? null })),
       setRightPanelOpen: (open) => set({ rightPanelOpen: open }),
@@ -238,6 +260,7 @@ export const useUIStore = create<UIStore>()(
       partialize: (state) => ({
         uiScale: state.uiScale,
         settingsSection: state.settingsSection,
+        pluginsNavExpanded: state.pluginsNavExpanded,
         homeLayoutMode: state.homeLayoutMode,
         homeSortMode: state.homeSortMode,
         keychainLayoutMode: state.keychainLayoutMode,

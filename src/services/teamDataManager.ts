@@ -13,7 +13,7 @@ import { useKeyStore } from "@/stores/keyStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
-import { fetchTeamData, clearTeamKeyCache } from "@/services/teamVaultSync";
+import { fetchTeamData, clearTeamKeyCache, reconcileTeamVaultKeys } from "@/services/teamVaultSync";
 
 // Statuses that warrant a retry (transient — key not yet distributed)
 const TRANSIENT_STATUSES = new Set(["not_found", "error"]);
@@ -25,7 +25,15 @@ const TRANSIENT_STATUSES = new Set(["not_found", "error"]);
  */
 export async function onTeamLogin(): Promise<void> {
   const teamIds = useTeamStore.getState().teams.map((t) => t.id);
-  await Promise.allSettled(teamIds.map((teamId) => fetchTeamData(teamId)));
+  await Promise.allSettled(
+    teamIds.map(async (teamId) => {
+      await fetchTeamData(teamId);
+      // A key-holder redistributes to any member who joined while it was
+      // offline — self-heals the async invite-acceptance lockout (issue #41).
+      // No-op for non-holders (they can't unwrap the key to redistribute).
+      await reconcileTeamVaultKeys(teamId);
+    }),
+  );
 }
 
 /**

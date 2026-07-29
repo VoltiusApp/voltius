@@ -3,7 +3,7 @@ import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 
 interface Props {
-  connection: Connection;
+  connection: Pick<Connection, "connection_type" | "serial_port" | "icon" | "distro">;
   size: number;
 }
 

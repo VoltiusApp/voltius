@@ -6,6 +6,7 @@ import type {
   RightPanelSection,
   ContextMenuItem,
   PluginTheme,
+  GlobalPanel,
 } from "@/plugins/api";
 
 interface PluginStore {
@@ -27,6 +28,10 @@ interface PluginStore {
 
   registerRightPanelSection(section: RightPanelSection): void;
   unregisterRightPanelSection(id: string): void;
+
+  globalPanels: Map<string, GlobalPanel>;
+  registerGlobalPanel(panel: GlobalPanel): void;
+  unregisterGlobalPanel(id: string): void;
 
   registerContextMenuItem(item: ContextMenuItem): void;
   unregisterContextMenuItem(id: string): void;
@@ -55,6 +60,7 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
   settingsPages: new Map(),
   sidebarItems: new Map(),
   rightPanelSections: new Map(),
+  globalPanels: new Map(),
   contextMenuItems: new Map(),
   pluginThemes: new Map(),
 
@@ -77,6 +83,11 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     set((s) => ({ rightPanelSections: mapSet(s.rightPanelSections, section.id, section) })),
   unregisterRightPanelSection: (id) =>
     set((s) => ({ rightPanelSections: mapDelete(s.rightPanelSections, id) })),
+
+  registerGlobalPanel: (panel) =>
+    set((s) => ({ globalPanels: mapSet(s.globalPanels, panel.id, panel) })),
+  unregisterGlobalPanel: (id) =>
+    set((s) => ({ globalPanels: mapDelete(s.globalPanels, id) })),
 
   registerContextMenuItem: (item) =>
     set((s) => ({ contextMenuItems: mapSet(s.contextMenuItems, item.id, item) })),
@@ -103,6 +114,7 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
       settingsPages: filterOut(s.settingsPages),
       sidebarItems: filterOut(s.sidebarItems),
       rightPanelSections: filterOut(s.rightPanelSections),
+      globalPanels: filterOut(s.globalPanels),
       contextMenuItems: filterOut(s.contextMenuItems),
       pluginThemes: filterOut(s.pluginThemes),
     });

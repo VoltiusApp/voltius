@@ -4,8 +4,14 @@ import { Toggle } from "@/components/shared/Toggle";
 import { Icon } from "@iconify/react";
 import { usePluginStore } from "@/stores/pluginStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
-import { useMarketplaceStore } from "@/stores/marketplaceStore";
+import { useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplaceStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useNotificationStore } from "@/stores/notificationStore";
+import { PluginHashMismatchError } from "@/plugins/integrity";
+import { availableUpdate, addedPermissions } from "@/plugins/updates";
+import { requiresInstallConsent } from "@/plugins/gatedPermissions";
+import { getToggle, useToggle } from "@/stores/toggleSettingsStore";
+import { PluginPermissionModal } from "./PluginPermissionModal";
 import { BUNDLED_PLUGINS } from "@/plugins/bundled";
 import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
 import { setPluginActive, getLoadedPlugins, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
@@ -143,26 +149,119 @@ function PluginConfigForm({ manifest }: { manifest: PluginManifest }) {
   );
 }
 
+// ─── Shared install/update flow ────────────────────────────────────────────
+
+interface PendingReview {
+  mode: "install" | "update";
+  plugin: MarketplacePlugin;
+  permissions: string[];
+  addedPermissions: string[];
+  /** The exact reviewed manifest text, passed to installPlugin so the loaded perms == consented. */
+  manifestText: string;
+}
+
+/**
+ * install/update with permission consent. First installs show a disclosure when the
+ * `plugin-install-review` setting is on, or whenever the manifest declares a gated
+ * permission (which always forces the dialog, review setting notwithstanding); updates
+ * apply silently unless they request NEW permissions, in which case a non-skippable
+ * review modal is shown. Both paths run the authoritative, hash-verified `installPlugin`.
+ */
+function usePluginInstaller() {
+  const { t } = useTranslation();
+  const installing = useMarketplaceStore((s) => s.installing);
+  const installPlugin = useMarketplaceStore((s) => s.installPlugin);
+  const fetchManifest = useMarketplaceStore((s) => s.fetchManifest);
+  const [preparing, setPreparing] = useState<Set<string>>(new Set());
+  const [pending, setPending] = useState<PendingReview | null>(null);
+
+  const busy = new Set<string>([...installing, ...preparing]);
+
+  const notifyError = (e: unknown) => {
+    useNotificationStore.getState().addToast({
+      pluginId: "system",
+      pluginName: "Voltius",
+      type: "toast",
+      severity: "error",
+      message: e instanceof PluginHashMismatchError
+        ? t("settings.plugins.install.integrityFailed")
+        : t("settings.plugins.install.failed"),
+      duration: 0,
+    });
+  };
+
+  const runInstall = async (plugin: MarketplacePlugin, reviewedManifestText?: string) => {
+    try { await installPlugin(plugin, reviewedManifestText); } catch (e) { notifyError(e); }
+  };
+
+  const withPreparing = async (id: string, fn: () => Promise<void>) => {
+    setPreparing((s) => new Set([...s, id]));
+    try { await fn(); } finally {
+      setPreparing((s) => { const n = new Set(s); n.delete(id); return n; });
+    }
+  };
+
+  const startInstall = (plugin: MarketplacePlugin) => {
+    void withPreparing(plugin.id, async () => {
+      try {
+        const { manifest, manifestText } = await fetchManifest(plugin);
+        const perms = manifest.permissions ?? [];
+        // Gated perms always prompt; the review toggle governs only benign installs.
+        if (!requiresInstallConsent(perms, getToggle("plugin-install-review"))) {
+          await runInstall(plugin, manifestText);
+          return;
+        }
+        setPending({ mode: "install", plugin, permissions: perms, addedPermissions: [], manifestText });
+      } catch (e) { notifyError(e); }
+    });
+  };
+
+  const startUpdate = (plugin: MarketplacePlugin, currentPermissions: string[]) => {
+    void withPreparing(plugin.id, async () => {
+      try {
+        const { manifest, manifestText } = await fetchManifest(plugin);
+        const next = manifest.permissions ?? [];
+        const added = addedPermissions(currentPermissions, next);
+        if (added.length === 0) { await runInstall(plugin, manifestText); return; }
+        setPending({ mode: "update", plugin, permissions: next, addedPermissions: added, manifestText });
+      } catch (e) { notifyError(e); }
+    });
+  };
+
+  const confirm = () => {
+    if (!pending) return;
+    const { plugin, manifestText } = pending;
+    setPending(null);
+    void runInstall(plugin, manifestText);
+  };
+  const cancel = () => setPending(null);
+
+  const modal = pending ? (
+    <PluginPermissionModal
+      mode={pending.mode}
+      pluginName={pending.plugin.name}
+      permissions={pending.permissions}
+      addedPermissions={pending.addedPermissions}
+      onConfirm={confirm}
+      onCancel={cancel}
+    />
+  ) : null;
+
+  return { busy, startInstall, startUpdate, modal };
+}
+
 // ─── Installed tab ─────────────────────────────────────────────────────────
 
-function InstalledTab() {
+export function InstalledTab() {
   const { t } = useTranslation();
   const settingsPages = usePluginStore((s) => s.settingsPages);
   const { setEnabled, isEnabled } = usePluginRegistryStore();
-  const { installedMeta, uninstallPlugin, reloadPlugin, scanLocal } = useMarketplaceStore();
+  const { installedMeta, catalog, uninstallPlugin, reloadPlugin, scanLocal } = useMarketplaceStore();
+  const { busy: updateBusy, startUpdate, modal: updateModal } = usePluginInstaller();
   const [loadedIds, setLoadedIds] = useState<Set<string>>(
     () => new Set(getLoadedPlugins().map((m) => m.id)),
   );
-  const [activePageId, setActivePageId] = useState<string | null>(null);
-  const pendingPageId = useUIStore((s) => s.settingsPluginPageId);
-  const setSettingsPluginPageId = useUIStore((s) => s.setSettingsPluginPageId);
-
-  useEffect(() => {
-    if (pendingPageId) {
-      setActivePageId(pendingPageId);
-      setSettingsPluginPageId(null);
-    }
-  }, [pendingPageId, setSettingsPluginPageId]);
+  const selectPluginPage = useUIStore((s) => s.selectPluginPage);
   const [autoConfigManifest, setAutoConfigManifest] = useState<PluginManifest | null>(null);
   const [reloading, setReloading] = useState<Set<string>>(new Set());
   const [uninstalling, setUninstalling] = useState<Set<string>>(new Set());
@@ -226,32 +325,6 @@ function InstalledTab() {
         </div>
         <div className="flex-1 overflow-y-auto p-6">
           <PluginConfigForm manifest={autoConfigManifest} />
-        </div>
-      </div>
-    );
-  }
-
-  if (activePageId) {
-    const page = settingsPages.get(activePageId);
-    return (
-      <div className="flex flex-col h-full">
-        <div className="flex items-center gap-2 px-6 py-3 shrink-0 border-b border-b-(--t-border)">
-          <button
-            onClick={() => setActivePageId(null)}
-            className="p-1 rounded-lg transition-colors text-(--t-text-muted)"
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-bright)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-muted)"; }}
-          >
-            <Icon icon="lucide:arrow-left" width={15} />
-          </button>
-          <span className="text-sm font-medium text-(--t-text-primary)">
-            {page?.label ?? activePageId}
-          </span>
-        </div>
-        <div className="flex-1 overflow-y-auto p-6">
-          {page ? <page.component /> : (
-            <p className="text-sm text-(--t-text-dim)">{t("settings.plugins.installed.pageNotFound")}</p>
-          )}
         </div>
       </div>
     );
@@ -334,7 +407,7 @@ function InstalledTab() {
                 {showSettingsBtn && (
                   <button
                     onClick={() => {
-                      if (pluginPages.length > 0) setActivePageId(pluginPages[0].id);
+                      if (pluginPages.length > 0) selectPluginPage(pluginPages[0].id);
                       else setAutoConfigManifest(manifest);
                     }}
                     className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
@@ -364,6 +437,8 @@ function InstalledTab() {
           const isLoaded = loadedIds.has(meta.id);
           const isReloading = reloading.has(meta.id);
           const isUninstalling = uninstalling.has(meta.id);
+          const update = availableUpdate(meta, catalog);
+          const isUpdating = updateBusy.has(meta.id);
 
           return (
             <div
@@ -388,13 +463,34 @@ function InstalledTab() {
                           : t("settings.plugins.installed.sourceInstalled")}
                     </span>
                     <span className="text-xs px-1.5 py-0.5 rounded-sm shrink-0 bg-(--t-bg-base) text-(--t-text-dim)">
-                      v{meta.version}
+                      {update ? `v${meta.version} → ${update.version}` : `v${meta.version}`}
                     </span>
+                    {meta.hash === null && meta.sourceId !== "local" && (
+                      <span
+                        className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-sm shrink-0 bg-(--t-bg-base) text-(--t-text-dim)"
+                        title={t("settings.plugins.installed.unverified")}
+                      >
+                        <Icon icon="lucide:shield-off" width={11} />
+                        {t("settings.plugins.installed.unverified")}
+                      </span>
+                    )}
                   </div>
                   {manifest && (
                     <p className="text-xs mt-0.5 truncate text-(--t-text-dim)">{manifest.description}</p>
                   )}
                 </div>
+                {update && (
+                  <button
+                    onClick={() => startUpdate(update, getLoadedPlugins().find((m) => m.id === meta.id)?.permissions ?? [])}
+                    disabled={isUpdating}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
+                    style={{ background: "var(--t-accent)", color: "var(--t-bg-base)", opacity: isUpdating ? 0.7 : 1 }}
+                    title={t("settings.plugins.installed.updateTitle", { version: update.version })}
+                  >
+                    <Icon icon={isUpdating ? "lucide:loader" : "lucide:arrow-up-circle"} width={12} className={isUpdating ? "animate-spin" : ""} />
+                    {isUpdating ? t("settings.plugins.installed.updating") : t("settings.plugins.installed.update")}
+                  </button>
+                )}
                 <button
                   onClick={() => void handleReload(meta.id)}
                   disabled={isReloading}
@@ -436,6 +532,7 @@ function InstalledTab() {
         )}
       </div>
     </div>
+    {updateModal}
     </div>
   );
 }
@@ -447,8 +544,10 @@ function BrowseTab() {
   const {
     catalog, catalogLoading, catalogError, fetchCatalog,
     sources, addSource, removeSource, toggleSource,
-    installedMeta, installing, installPlugin, uninstallPlugin,
+    installedMeta, uninstallPlugin,
   } = useMarketplaceStore();
+  const { busy, startInstall, startUpdate, modal } = usePluginInstaller();
+  const [reviewInstalls, setReviewInstalls] = useToggle("plugin-install-review");
 
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -616,6 +715,10 @@ function BrowseTab() {
             ))}
           </div>
         )}
+        <div className="flex items-center gap-2">
+          <Toggle checked={reviewInstalls} onChange={() => setReviewInstalls(!reviewInstalls)} />
+          <span className="text-xs text-(--t-text-dim)">{t("settings.toggleDefs.pluginInstallReview.label")}</span>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
@@ -638,8 +741,10 @@ function BrowseTab() {
         <div className="space-y-2">
           {filtered.map((plugin) => {
             const isInstalled = installedIds.has(plugin.id);
-            const isInstalling = installing.has(plugin.id);
+            const isBusy = busy.has(plugin.id);
             const isUninstalling = uninstalling.has(plugin.id);
+            const meta = installedMeta.find((m) => m.id === plugin.id);
+            const update = meta ? availableUpdate(meta, catalog) : null;
 
             return (
               <div key={plugin.id} className="rounded-xl bg-(--t-bg-card) border border-(--t-border) px-4 py-3">
@@ -655,7 +760,7 @@ function BrowseTab() {
                       </span>
                       {isInstalled && (
                         <span className="text-xs px-1.5 py-0.5 rounded-sm shrink-0" style={{ background: "color-mix(in srgb, var(--t-accent) 15%, transparent)", color: "var(--t-accent)" }}>
-                          {t("settings.plugins.browse.installedBadge")}
+                          {update ? t("settings.plugins.browse.updateBadge") : t("settings.plugins.browse.installedBadge")}
                         </span>
                       )}
                     </div>
@@ -671,7 +776,32 @@ function BrowseTab() {
                       </div>
                     )}
                   </div>
-                  {isInstalled ? (
+                  {!isInstalled ? (
+                    <button
+                      onClick={() => startInstall(plugin)}
+                      disabled={isBusy}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
+                      style={{ background: "var(--t-accent)", color: "var(--t-bg-base)", opacity: isBusy ? 0.7 : 1 }}
+                    >
+                      {isBusy
+                        ? <><Icon icon="lucide:loader" width={12} className="animate-spin" /> {t("settings.plugins.browse.installing")}</>
+                        : <><Icon icon="lucide:download" width={12} /> {t("settings.plugins.browse.install")}</>
+                      }
+                    </button>
+                  ) : update ? (
+                    <button
+                      onClick={() => startUpdate(update, getLoadedPlugins().find((m) => m.id === plugin.id)?.permissions ?? [])}
+                      disabled={isBusy}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
+                      style={{ background: "var(--t-accent)", color: "var(--t-bg-base)", opacity: isBusy ? 0.7 : 1 }}
+                      title={t("settings.plugins.installed.updateTitle", { version: update.version })}
+                    >
+                      {isBusy
+                        ? <><Icon icon="lucide:loader" width={12} className="animate-spin" /> {t("settings.plugins.installed.updating")}</>
+                        : <><Icon icon="lucide:arrow-up-circle" width={12} /> {t("settings.plugins.installed.update")}</>
+                      }
+                    </button>
+                  ) : (
                     <button
                       onClick={() => void handleUninstall(plugin.id)}
                       disabled={isUninstalling}
@@ -683,18 +813,6 @@ function BrowseTab() {
                         : <><Icon icon="lucide:trash-2" width={12} /> {t("settings.plugins.browse.uninstall")}</>
                       }
                     </button>
-                  ) : (
-                    <button
-                      onClick={() => void installPlugin(plugin)}
-                      disabled={isInstalling}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
-                      style={{ background: "var(--t-accent)", color: "var(--t-bg-base)", opacity: isInstalling ? 0.7 : 1 }}
-                    >
-                      {isInstalling
-                        ? <><Icon icon="lucide:loader" width={12} className="animate-spin" /> {t("settings.plugins.browse.installing")}</>
-                        : <><Icon icon="lucide:download" width={12} /> {t("settings.plugins.browse.install")}</>
-                      }
-                    </button>
                   )}
                 </div>
               </div>
@@ -702,6 +820,7 @@ function BrowseTab() {
           })}
         </div>
       </div>
+      {modal}
     </div>
   );
 }
@@ -714,13 +833,27 @@ export default function PluginsSection() {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>("installed");
   const installedMeta = useMarketplaceStore((s) => s.installedMeta);
+  const catalog = useMarketplaceStore((s) => s.catalog);
+  const catalogLoading = useMarketplaceStore((s) => s.catalogLoading);
+  const fetchCatalog = useMarketplaceStore((s) => s.fetchCatalog);
   const isAndroid = useIsAndroid();
   const totalCount = visiblePlugins(BUNDLED_PLUGINS, isAndroid).length + installedMeta.length;
 
-  const tabLabel = (tabKey: Tab) =>
-    tabKey === "installed"
-      ? t("settings.plugins.tabs.installed", { count: totalCount })
-      : t("settings.plugins.tabs.browse");
+  // Fetch the catalog once on mount so update detection works before visiting Browse.
+  useEffect(() => {
+    if (catalog.length === 0 && !catalogLoading) void fetchCatalog();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const updateCount = installedMeta.filter((m) => availableUpdate(m, catalog)).length;
+
+  const tabLabel = (tabKey: Tab) => {
+    if (tabKey === "browse") return t("settings.plugins.tabs.browse");
+    const base = t("settings.plugins.tabs.installed", { count: totalCount });
+    return updateCount > 0
+      ? `${base} ${t("settings.plugins.tabs.updateCount", { count: updateCount })}`
+      : base;
+  };
 
   return (
     <div className="flex flex-col h-full">
