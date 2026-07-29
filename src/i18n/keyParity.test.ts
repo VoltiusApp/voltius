@@ -29,19 +29,23 @@ function baseKey(key: string): string {
 }
 
 const en = load(import.meta.glob("./locales/en/*.json", { eager: true }) as never);
-const fr = load(import.meta.glob("./locales/fr/*.json", { eager: true }) as never);
-const ru = load(import.meta.glob("./locales/ru/*.json", { eager: true }) as never);
+const translations: Record<string, Record<string, unknown>> = {
+  French: load(import.meta.glob("./locales/fr/*.json", { eager: true }) as never),
+  Russian: load(import.meta.glob("./locales/ru/*.json", { eager: true }) as never),
+  Chinese: load(import.meta.glob("./locales/zh/*.json", { eager: true }) as never),
+};
 
-describe("locale key parity", () => {
-  it("every French key exists in English (no drift)", () => {
-    const enKeys = new Set(flatten(en));
-    const orphaned = flatten(fr).filter((k) => !enKeys.has(k));
+const enBaseKeys = new Set(flatten(en).map(baseKey));
+
+describe.each(Object.entries(translations))("locale key parity — %s", (_name, locale) => {
+  it("has no key missing from English (no drift)", () => {
+    const orphaned = flatten(locale).filter((k) => !enBaseKeys.has(baseKey(k)));
     expect(orphaned).toEqual([]);
   });
 
-  it("every Russian key exists in English (no drift)", () => {
-    const enBaseKeys = new Set(flatten(en).map(baseKey));
-    const orphaned = flatten(ru).filter((k) => !enBaseKeys.has(baseKey(k)));
-    expect(orphaned).toEqual([]);
+  it("covers every English key (no untranslated gaps)", () => {
+    const localeBaseKeys = new Set(flatten(locale).map(baseKey));
+    const missing = flatten(en).filter((k) => !localeBaseKeys.has(baseKey(k)));
+    expect(missing).toEqual([]);
   });
 });

@@ -22,9 +22,16 @@ describe("localeStore", () => {
     expect(useAppSettingsTimestampStore.getState().updatedAt).not.toBe(new Date(0).toISOString());
   });
 
-  it("exposes English and French as supported locales", () => {
+  it("exposes every shipped locale, English first", () => {
     const values = SUPPORTED_LOCALES.map((l) => l.value);
-    expect(values).toContain("en");
-    expect(values).toContain("fr");
+    expect(values).toEqual(["en", "fr", "ru", "zh"]);
+  });
+
+  it("every supported locale is settable and carries a native label", () => {
+    for (const { value, label } of SUPPORTED_LOCALES) {
+      useLocaleStore.getState().setLocale(value);
+      expect(useLocaleStore.getState().locale).toBe(value);
+      expect(label.trim()).not.toBe("");
+    }
   });
 });
