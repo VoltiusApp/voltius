@@ -7,6 +7,7 @@ if (!id) throw new Error("VOLTIUS_PLUGIN_ID is required");
 
 export default defineConfig({
   plugins: [react()],
+  publicDir: false,
   resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
   build: {
     outDir: path.resolve(__dirname, `src-tauri/resources/plugins/${id}`),

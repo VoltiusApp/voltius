@@ -8,7 +8,10 @@ const h = vi.hoisted(() => ({
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/plugins/runtime", () => ({ loadPlugin: h.loadPlugin, unloadPlugin: h.unloadPlugin }));
-vi.mock("@/plugins/importPluginModule", () => ({ importPluginModule: h.importPluginModule }));
+vi.mock("@/plugins/importPluginModule", () => ({
+  importPluginModule: h.importPluginModule,
+  pluginRegisterOf: (mod: { default?: unknown; register?: unknown }) => mod.default ?? mod.register,
+}));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/http", () => ({ appFetch: vi.fn() }));
 vi.mock("@/stores/pluginRegistryStore", () => ({

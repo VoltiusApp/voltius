@@ -2,8 +2,8 @@ import { create } from "zustand";
 import i18n from "@/i18n";
 import { invoke } from "@tauri-apps/api/core";
 import { loadPlugin, unloadPlugin } from "@/plugins/runtime";
-import { importPluginModule } from "@/plugins/importPluginModule";
-import type { PluginManifest, PluginRegisterFn } from "@/plugins/api";
+import { importPluginModule, pluginRegisterOf, type PluginModule } from "@/plugins/importPluginModule";
+import type { PluginManifest } from "@/plugins/api";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { appFetch } from "@/services/http";
 import { resolveVerifiedHash } from "@/plugins/integrity";
@@ -201,8 +201,8 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       await invoke("plugin_write_file", { id: plugin.id, filename: "manifest.json", content: manifestText });
       await invoke("plugin_write_file", { id: plugin.id, filename: "index.js", content: jsText });
 
-      const mod = (await importPluginModule(jsText)) as { default: PluginRegisterFn };
-      loadPlugin(manifest, mod.default);
+      const mod = (await importPluginModule(jsText)) as PluginModule;
+      loadPlugin(manifest, pluginRegisterOf(mod));
 
       const newMeta: InstalledPluginMeta[] = [
         ...installedMeta.filter((m) => m.id !== plugin.id),
@@ -234,8 +234,8 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
     const manifestText = await invoke<string>("plugin_read_file", { id, filename: "manifest.json" });
     const manifest = JSON.parse(manifestText) as PluginManifest;
     const jsText = await invoke<string>("plugin_read_file", { id, filename: "index.js" });
-    const mod = (await importPluginModule(jsText)) as { default: PluginRegisterFn };
-    loadPlugin(manifest, mod.default);
+    const mod = (await importPluginModule(jsText)) as PluginModule;
+    loadPlugin(manifest, pluginRegisterOf(mod));
   },
 
   // ── Scan local ────────────────────────────────────────────────────────
@@ -251,8 +251,8 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
         const manifestText = await invoke<string>("plugin_read_file", { id, filename: "manifest.json" });
         const manifest = JSON.parse(manifestText) as PluginManifest;
         const jsText = await invoke<string>("plugin_read_file", { id, filename: "index.js" });
-        const mod = (await importPluginModule(jsText)) as { default: PluginRegisterFn };
-        loadPlugin(manifest, mod.default);
+        const mod = (await importPluginModule(jsText)) as PluginModule;
+        loadPlugin(manifest, pluginRegisterOf(mod));
         const newMeta: InstalledPluginMeta[] = [
           ...installedMeta,
           { id, version: manifest.version, sourceId: "local", hash: null },
@@ -283,10 +283,10 @@ export async function loadInstalledPlugins(): Promise<void> {
       const manifestText = await invoke<string>("plugin_read_file", { id, filename: "manifest.json" });
       const manifest = JSON.parse(manifestText) as PluginManifest;
       const jsText = await invoke<string>("plugin_read_file", { id, filename: "index.js" });
-      const mod = (await importPluginModule(jsText)) as { default: PluginRegisterFn };
+      const mod = (await importPluginModule(jsText)) as PluginModule;
       const { isEnabled } = usePluginRegistryStore.getState();
       const active = isEnabled(manifest.id, manifest.defaultEnabled ?? true);
-      loadPlugin(manifest, mod.default, active);
+      loadPlugin(manifest, pluginRegisterOf(mod), active);
     } catch (e) {
       console.warn(`[marketplace] Failed to load installed plugin "${id}":`, e);
     }

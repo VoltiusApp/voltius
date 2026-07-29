@@ -1,8 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { loadPlugin } from "./runtime";
-import { importPluginModule } from "./importPluginModule";
+import { importPluginModule, pluginRegisterOf, type PluginModule } from "./importPluginModule";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
-import type { PluginManifest, PluginRegisterFn } from "./api";
+import type { PluginManifest } from "./api";
 
 /**
  * Load plugins shipped inside the app bundle. They run through the same external
@@ -24,11 +24,11 @@ export async function loadSeededPlugins(): Promise<void> {
       });
       const manifest = JSON.parse(manifestText) as PluginManifest;
       const jsText = await invoke<string>("plugin_seeded_read", { id, filename: "index.js" });
-      const mod = (await importPluginModule(jsText)) as { default: PluginRegisterFn };
+      const mod = (await importPluginModule(jsText)) as PluginModule;
       const active = usePluginRegistryStore
         .getState()
         .isEnabled(manifest.id, manifest.defaultEnabled ?? true);
-      loadPlugin(manifest, mod.default, active, true);
+      loadPlugin(manifest, pluginRegisterOf(mod), active, true);
     } catch (e) {
       console.warn(`[seeded] Failed to load seeded plugin "${id}":`, e);
     }

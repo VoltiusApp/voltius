@@ -252,6 +252,16 @@ function usePluginInstaller() {
 
 // ─── Installed tab ─────────────────────────────────────────────────────────
 
+/**
+ * Seeded first-party plugins (loaded from resources, not `BUNDLED_PLUGINS`) have no
+ * static entry anywhere — the runtime registry is the only place that knows they
+ * exist. `excludeIds` strips out bundled and externally-installed ids so a plugin
+ * is never listed twice.
+ */
+function seededPluginManifests(excludeIds: Set<string>): PluginManifest[] {
+  return getLoadedPlugins().filter((m) => !excludeIds.has(m.id));
+}
+
 export function InstalledTab() {
   const { t } = useTranslation();
   const settingsPages = usePluginStore((s) => s.settingsPages);
@@ -333,7 +343,12 @@ export function InstalledTab() {
   const externalPluginIds = new Set(installedMeta.map((m) => m.id));
   const externalManifests = getLoadedPlugins().filter((m) => externalPluginIds.has(m.id));
 
-  const allBundled = visiblePlugins(BUNDLED_PLUGINS, isAndroid);
+  const bundledIds = new Set(BUNDLED_PLUGINS.map((p) => p.manifest.id));
+  const seeded = seededPluginManifests(new Set([...bundledIds, ...externalPluginIds]));
+  const allBundled = visiblePlugins(
+    [...BUNDLED_PLUGINS, ...seeded.map((manifest) => ({ manifest }))],
+    isAndroid,
+  );
   const allExternal = installedMeta;
 
   const matchesSearch = (name: string, description?: string) => {
@@ -837,7 +852,13 @@ export default function PluginsSection() {
   const catalogLoading = useMarketplaceStore((s) => s.catalogLoading);
   const fetchCatalog = useMarketplaceStore((s) => s.fetchCatalog);
   const isAndroid = useIsAndroid();
-  const totalCount = visiblePlugins(BUNDLED_PLUGINS, isAndroid).length + installedMeta.length;
+  const bundledIds = new Set(BUNDLED_PLUGINS.map((p) => p.manifest.id));
+  const externalIds = new Set(installedMeta.map((m) => m.id));
+  const seededCount = visiblePlugins(
+    seededPluginManifests(new Set([...bundledIds, ...externalIds])).map((manifest) => ({ manifest })),
+    isAndroid,
+  ).length;
+  const totalCount = visiblePlugins(BUNDLED_PLUGINS, isAndroid).length + installedMeta.length + seededCount;
 
   // Fetch the catalog once on mount so update detection works before visiting Browse.
   useEffect(() => {
