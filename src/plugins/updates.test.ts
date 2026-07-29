@@ -125,3 +125,7 @@ test("addedPermissions is empty when nothing new", () => {
 test("addedPermissions treats all as new against an empty current set", () => {
   expect(addedPermissions([], ["a", "b"])).toEqual(["a", "b"]);
 });
+
+test("addedPermissions surfaces an added gated perm (anti-escalation pin)", () => {
+  expect(addedPermissions(["storage"], ["storage", "terminal:write"])).toEqual(["terminal:write"]);
+});

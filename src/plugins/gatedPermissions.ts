@@ -18,10 +18,6 @@ export function isGatedPermission(perm: string): boolean {
   return GATED_PERMISSIONS.has(perm);
 }
 
-export function visiblePermissions(perms: string[]): string[] {
-  return perms.filter((p) => !isGatedPermission(p));
-}
-
 export interface PermissionDescriptor {
   perm: string;
   gated: boolean;
