@@ -22,20 +22,3 @@ export type ClientAuditAction =
   | "snippet.created" | "snippet.updated" | "snippet.deleted"
   | "folder.created" | "folder.updated" | "folder.deleted"
   | "port_forward.created" | "port_forward.updated" | "port_forward.deleted";
-
-/**
- * AI agent actions (#56). Separate from ClientAuditAction because these are
- * reported through reportAgentAuditEvent, which has a different sink model:
- * always local, additionally team, with a metadata split. See
- * auditReporter.reportAgentAuditEvent.
- */
-export type AgentAuditAction =
-  | "agent.grant_created"
-  | "agent.grant_revoked"
-  | "agent.mode_changed"
-  | "agent.session_opened"
-  | "agent.session_closed"
-  | "agent.command_run"
-  | "agent.action_denied";
-
-export type AnyAuditAction = ClientAuditAction | AgentAuditAction;

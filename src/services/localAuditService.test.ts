@@ -68,7 +68,7 @@ function seedLogs(vaultId: string, count: number) {
 test("the byte budget binds before MAX_LOCAL_LOGS_PER_VAULT for realistically-sized rows, keeping the newest", async () => {
   seedLogs("v1", MAX_LOCAL_LOGS_PER_VAULT);
   await reportLocalClientEvent("v1", {
-    action: "agent.command_run", occurred_at: "2026-06-01T00:00:00Z", target_id: "newest",
+    action: "connection.started", occurred_at: "2026-06-01T00:00:00Z", target_id: "newest",
   } as never);
 
   const { total, logs } = await fetchLocalAuditLogs("v1", filters);
@@ -117,7 +117,7 @@ test("trimming drops the OLDEST entry, not an arbitrary one", async () => {
   const oldestId = before.logs[before.logs.length - 1].id;
 
   await reportLocalClientEvent("v1", {
-    action: "agent.command_run", occurred_at: "2026-06-01T00:00:00Z",
+    action: "connection.started", occurred_at: "2026-06-01T00:00:00Z",
   } as never);
 
   const after = await fetchLocalAuditLogs("v1", filters);
@@ -127,7 +127,7 @@ test("trimming drops the OLDEST entry, not an arbitrary one", async () => {
 test("trimming one vault leaves other vaults untouched", async () => {
   seedLogs("v1", MAX_LOCAL_LOGS_PER_VAULT);
   await reportLocalClientEvent("v2", { action: "secret.viewed", occurred_at: "2026-06-01T00:00:00Z" } as never);
-  await reportLocalClientEvent("v1", { action: "agent.command_run", occurred_at: "2026-06-01T00:01:00Z" } as never);
+  await reportLocalClientEvent("v1", { action: "connection.started", occurred_at: "2026-06-01T00:01:00Z" } as never);
 
   expect((await fetchLocalAuditLogs("v2", filters)).total).toBe(1);
 });
@@ -153,7 +153,7 @@ test("a single oversized entry is retained, never dropped to an empty log", asyn
   // One entry whose own serialized size alone blows the whole byte budget.
   const huge = "x".repeat(MAX_LOCAL_LOG_CHARS_PER_VAULT * 2);
   await reportLocalClientEvent("v1", {
-    action: "agent.command_run",
+    action: "connection.started",
     occurred_at: "2026-06-01T00:00:00Z",
     metadata: { blob: huge },
   } as never);
@@ -172,7 +172,7 @@ test("a vault of many medium entries is trimmed to the byte budget, keeping the 
   seedLogsWithBlob("v1", count, blobLen);
 
   await reportLocalClientEvent("v1", {
-    action: "agent.command_run",
+    action: "connection.started",
     occurred_at: "2026-06-01T00:00:00Z",
     target_id: "newest",
   } as never);

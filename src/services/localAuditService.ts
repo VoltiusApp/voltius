@@ -1,5 +1,5 @@
 import type { AuditFilters, AuditLog } from "@/services/auditService";
-import type { AnyAuditAction, AuditTarget } from "@/services/auditContext";
+import type { AuditTarget, ClientAuditAction } from "@/services/auditContext";
 import { applyAuditFilters, csvEscape } from "@/services/auditExportCore";
 
 const LOCAL_AUDIT_KEY = "voltius-local-audit-logs";
@@ -204,7 +204,7 @@ export async function exportLocalAuditLogs(
 
 export async function reportLocalClientEvent(
   vaultId: string,
-  event: AuditTarget & { action: AnyAuditAction; occurred_at: string },
+  event: AuditTarget & { action: ClientAuditAction; occurred_at: string },
 ): Promise<void> {
   const db = readDb();
   const logs = db.logsByVault[vaultId] ?? [];
