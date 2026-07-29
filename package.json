@@ -51,6 +51,7 @@
     "@xterm/addon-webgl": "^0.19.0",
     "@xterm/xterm": "^6.0.0",
     "country-flag-emoji-polyfill": "^0.1.8",
+    "es-module-lexer": "^2.3.1",
     "i18next": "^26.3.3",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
