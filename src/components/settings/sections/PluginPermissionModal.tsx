@@ -1,6 +1,7 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { Modal, ModalCard } from "@/components/shared/Modal";
+import { describePermissions, type PermissionDescriptor } from "@/plugins/gatedPermissions";
 
 interface Props {
   mode: "install" | "update";
@@ -15,9 +16,9 @@ interface Props {
 
 /**
  * Review dialog shown before executing a plugin's code:
- *  - install: discloses all declared permissions (gated by the plugin-install-review setting).
- *  - update: a non-skippable gate shown only when a version requests NEW permissions; the added
- *    ones are emphasized, the rest listed for context.
+ *  - install: discloses ALL declared permissions; gated/danger perms are shown in a
+ *    distinct, warning-styled block with plain-language descriptions.
+ *  - update: a non-skippable gate shown when a version requests NEW permissions.
  */
 export function PluginPermissionModal({
   mode,
@@ -30,6 +31,36 @@ export function PluginPermissionModal({
   const { t } = useTranslation();
   const added = new Set(addedPermissions);
   const isUpdate = mode === "update";
+
+  const descriptors = describePermissions(permissions);
+  const ordinary = descriptors.filter((d) => !d.danger);
+  const danger = descriptors.filter((d) => d.danger);
+
+  const renderRow = (d: PermissionDescriptor) => {
+    const isNew = added.has(d.perm);
+    return (
+      <div
+        key={d.perm}
+        className="flex flex-col gap-0.5 px-2.5 py-2 rounded-md"
+        style={
+          d.danger
+            ? { background: "color-mix(in srgb, var(--t-error, #ef4444) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--t-error, #ef4444) 35%, transparent)" }
+            : { background: "var(--t-bg-base)" }
+        }
+      >
+        <div className="flex items-center gap-1.5 text-xs font-medium" style={{ color: d.danger ? "var(--t-error, #ef4444)" : "var(--t-text-bright)" }}>
+          {d.danger && <Icon icon="lucide:alert-triangle" width={12} />}
+          {isNew && <Icon icon="lucide:plus" width={11} />}
+          <span>{d.known ? t(d.labelKey) : d.perm}</span>
+        </div>
+        {d.known && (
+          <p className="text-xs" style={{ color: d.danger ? "color-mix(in srgb, var(--t-error, #ef4444) 85%, var(--t-text-secondary))" : "var(--t-text-dim)" }}>
+            {t(d.descriptionKey)}
+          </p>
+        )}
+      </div>
+    );
+  };
 
   return (
     <Modal onClose={onCancel} onEnter={onConfirm}>
@@ -54,37 +85,33 @@ export function PluginPermissionModal({
             : t("settings.plugins.permissionModal.installBody")}
         </p>
 
-        {permissions.length > 0 ? (
-          <div className="flex flex-col gap-2">
+        {descriptors.length === 0 ? (
+          <p className="text-xs text-(--t-text-dim)">
+            {t("settings.plugins.permissionModal.noPermissions")}
+          </p>
+        ) : (
+          <div className="flex flex-col gap-3 max-h-[22rem] overflow-y-auto">
             {isUpdate && (
               <p className="text-xs font-medium text-(--t-text-dim)">
                 {t("settings.plugins.permissionModal.newPermissions")}
               </p>
             )}
-            <div className="flex flex-wrap gap-1.5">
-              {permissions.map((perm) => {
-                const isNew = added.has(perm);
-                return (
-                  <span
-                    key={perm}
-                    className="text-xs px-2 py-1 rounded-md flex items-center gap-1"
-                    style={
-                      isNew
-                        ? { background: "color-mix(in srgb, var(--t-accent) 18%, transparent)", color: "var(--t-accent)" }
-                        : { background: "var(--t-bg-base)", color: "var(--t-text-dim)" }
-                    }
-                  >
-                    {isNew && <Icon icon="lucide:plus" width={11} />}
-                    {perm}
-                  </span>
-                );
-              })}
-            </div>
+            {ordinary.length > 0 && (
+              <div className="flex flex-col gap-1.5">{ordinary.map(renderRow)}</div>
+            )}
+            {danger.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-(--t-danger)">
+                  <Icon icon="lucide:alert-triangle" width={13} />
+                  {t("settings.plugins.permissionModal.permissions.dangerHeading")}
+                </div>
+                <p className="text-xs text-(--t-text-secondary)">
+                  {t("settings.plugins.permissionModal.permissions.dangerWarning")}
+                </p>
+                {danger.map(renderRow)}
+              </div>
+            )}
           </div>
-        ) : (
-          <p className="text-xs text-(--t-text-dim)">
-            {t("settings.plugins.permissionModal.noPermissions")}
-          </p>
         )}
 
         <div className="flex gap-2 justify-end">
