@@ -746,7 +746,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         return () => _onSessionTabActivated.delete(cb);
       },
       async sendCommand(sessionId, cmd) {
-        requirePerm(manifest, "sessions:write");
+        requireGated("terminal:write");
         const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
         if (!session) throw new Error(`Session "${sessionId}" not found`);
         if (session.type === "local") {

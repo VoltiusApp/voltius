@@ -9,6 +9,7 @@
 export const GATED_PERMISSIONS = new Set<string>([
   "terminal:read",
   "terminal:stream",
+  "terminal:write",
   "keychain:read",
   "keychain:write",
 ]);

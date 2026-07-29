@@ -23,4 +23,9 @@ describe("gatedPermissions", () => {
     expect(visiblePermissions(["http", "keychain:read", "keychain:write", "storage"]))
       .toEqual(["http", "storage"]);
   });
+
+  test("terminal:write is gated", () => {
+    expect(isGatedPermission("terminal:write")).toBe(true);
+    expect(GATED_PERMISSIONS.has("terminal:write")).toBe(true);
+  });
 });
