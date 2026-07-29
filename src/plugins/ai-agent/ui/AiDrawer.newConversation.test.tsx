@@ -14,6 +14,7 @@ import { CONVERSATION_KEY } from "../state/persistence";
 vi.mock("@iconify/react", () => ({
   Icon: ({ icon }: { icon: string }) => <span data-icon={icon} />,
 }));
+vi.mock("@/components/shared/ConnectionAvatar", () => ({ ConnectionAvatar: () => null }));
 
 function mockDeps() {
   const storageDelete = vi.fn();

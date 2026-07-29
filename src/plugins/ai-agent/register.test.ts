@@ -3,6 +3,7 @@ vi.mock("@/hooks/useTerminal", () => ({
   readTerminalSnapshot: vi.fn(() => ""),
   readTerminalSelection: vi.fn(() => ""),
 }));
+vi.mock("@/components/shared/ConnectionAvatar", () => ({ ConnectionAvatar: () => null }));
 import { useUIStore } from "@/stores/uiStore";
 import { manifest, register } from "./index";
 import { useAgentStore } from "./state/agentStore";
