@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- Plugins: the gated capability tier — reading, watching, and typing into your
+  terminal sessions, plus per-plugin keychain storage — is now grantable to
+  third-party marketplace plugins behind explicit, danger-styled install-time
+  consent. It was previously first-party-only. The install and update dialogs
+  now show every declared permission in plain language, with the powerful ones
+  called out in a separate warning block; a plugin that declares one always
+  prompts for consent, even when install review is turned off. Command injection
+  (`sessions.sendCommand`) moved from the public `sessions:write` permission to
+  a new gated `terminal:write`, split from terminal reading. Keychain storage is
+  now isolated per plugin (keys are namespaced `plugin:<id>:`), so one plugin can
+  no longer read or overwrite another's secrets. No installed plugin gains
+  anything without a fresh consent, and no shipped build exposed cross-plugin
+  keychain data. Side-loaded and locally-scanned plugins still load without a
+  consent prompt — writing to the plugins folder already implies full app
+  privileges — so only install a local bundle you trust.
 - AI agent: commands containing invisible or control characters (C0/C1, DEL,
   bidi overrides, zero-width) can no longer be pre-authorized — their rendered
   form can differ from what actually runs, so they now always raise an approval
