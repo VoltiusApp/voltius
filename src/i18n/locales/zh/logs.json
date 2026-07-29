@@ -1,0 +1,145 @@
+{
+  "logs": {
+    "gate": {
+      "noVaultSelected": {
+        "title": "未选择保险库",
+        "description": "请选择单个保险库以查看审计日志。"
+      },
+      "restricted": {
+        "title": "访问受限",
+        "description": "您需要查看审计日志权限才能访问此页面。"
+      }
+    },
+    "filters": {
+      "searchPlaceholder": "筛选日志...",
+      "allActors": "所有操作者",
+      "fromDate": "开始日期",
+      "toDate": "结束日期",
+      "dateRangeSeparator": "至",
+      "reset": "重置",
+      "actionOptions": {
+        "all": "所有操作",
+        "memberInvited": "已邀请成员",
+        "memberJoined": "成员已加入",
+        "memberRemoved": "已移除成员",
+        "memberRoleChanged": "角色已更改",
+        "connectionCreated": "已创建主机",
+        "connectionUpdated": "已更新主机",
+        "connectionDeleted": "已删除主机",
+        "identityCreated": "已创建身份",
+        "identityUpdated": "已更新身份",
+        "identityDeleted": "已删除身份",
+        "keyCreated": "已创建密钥",
+        "keyUpdated": "已更新密钥",
+        "keyDeleted": "已删除密钥",
+        "snippetCreated": "已创建代码片段",
+        "snippetUpdated": "已更新代码片段",
+        "snippetDeleted": "已删除代码片段",
+        "folderCreated": "已创建文件夹",
+        "folderUpdated": "已更新文件夹",
+        "folderDeleted": "已删除文件夹",
+        "portForwardCreated": "已创建端口转发",
+        "portForwardUpdated": "已更新端口转发",
+        "portForwardDeleted": "已删除端口转发",
+        "vaultRenamed": "保险库已重命名",
+        "vaultKeyRotated": "密钥已轮换",
+        "roleCreated": "已创建角色",
+        "roleUpdated": "已更新角色",
+        "roleDeleted": "已删除角色",
+        "connectionStarted": "连接已开始",
+        "connectionEnded": "连接已结束",
+        "secretViewed": "密钥已查看",
+        "sessionStarted": "会话已开始",
+        "sessionEnded": "会话已结束",
+        "sessionJoined": "会话已加入"
+      }
+    },
+    "timeRange": {
+      "lastDay": "最近 24 小时",
+      "lastWeek": "最近一周",
+      "lastMonth": "最近 30 天",
+      "all": "所有时间",
+      "custom": "自定义范围"
+    },
+    "layout": {
+      "timeline": "时间线",
+      "horizontal": "可视化",
+      "list": "列表"
+    },
+    "export": {
+      "button": "导出",
+      "failed": "导出失败"
+    },
+    "badges": {
+      "client": "客户端",
+      "clientTooltip": "由客户端应用报告——非权威"
+    },
+    "eventLabels": {
+      "memberInvited": "邀请了 {{name}}",
+      "memberJoined": "以 {{role}} 身份加入了团队",
+      "memberRemoved": "移除了 {{name}}",
+      "memberRoleChanged": "更改了 {{name}} 的角色",
+      "vaultCreated": "创建了保险库 \"{{name}}\"",
+      "vaultDeleted": "删除了保险库 \"{{name}}\"",
+      "vaultRenamed": "将保险库重命名为 \"{{name}}\"",
+      "vaultKeyRotated": "为保险库 \"{{name}}\" 轮换密钥",
+      "roleCreated": "创建了角色 \"{{name}}\"",
+      "roleUpdated": "更新了角色 \"{{name}}\"",
+      "roleDeleted": "删除了角色 \"{{name}}\"",
+      "permissionGranted": "授予了 {{name}} 的权限",
+      "permissionRevoked": "撤销了 {{name}} 的权限",
+      "connectionCreated": "创建了主机 \"{{name}}\"",
+      "connectionUpdated": "更新了主机 \"{{name}}\"",
+      "connectionDeleted": "删除了主机 \"{{name}}\"",
+      "connectionStarted": "连接到 {{name}}",
+      "connectionEnded": "断开与 {{name}} 的连接",
+      "identityCreated": "创建了身份 \"{{name}}\"",
+      "identityUpdated": "更新了身份 \"{{name}}\"",
+      "identityDeleted": "删除了身份 \"{{name}}\"",
+      "keyCreated": "创建了密钥 \"{{name}}\"",
+      "keyUpdated": "更新了密钥 \"{{name}}\"",
+      "keyDeleted": "删除了密钥 \"{{name}}\"",
+      "snippetCreated": "创建了代码片段 \"{{name}}\"",
+      "snippetUpdated": "更新了代码片段 \"{{name}}\"",
+      "snippetDeleted": "删除了代码片段 \"{{name}}\"",
+      "folderCreated": "创建了文件夹 \"{{name}}\"",
+      "folderUpdated": "更新了文件夹 \"{{name}}\"",
+      "folderDeleted": "删除了文件夹 \"{{name}}\"",
+      "portForwardCreated": "创建了端口转发 \"{{name}}\"",
+      "portForwardUpdated": "更新了端口转发 \"{{name}}\"",
+      "portForwardDeleted": "删除了端口转发 \"{{name}}\"",
+      "secretViewed": "查看了密钥 \"{{name}}\"",
+      "sessionStarted": "开始了终端会话",
+      "sessionEnded": "结束了终端会话",
+      "sessionJoined": "加入了终端会话",
+      "sessionLeft": "离开了终端会话",
+      "fallbackUser": "一名用户",
+      "fallbackMember": "一名成员",
+      "fallbackRole": "成员",
+      "fallbackResource": "一个资源",
+      "fallbackHost": "一台主机"
+    },
+    "timeline": {
+      "today": "今天",
+      "yesterday": "昨天",
+      "weekOf": "周 {{date}}"
+    },
+    "list": {
+      "columns": {
+        "actor": "操作者",
+        "action": "操作",
+        "target": "目标",
+        "time": "时间"
+      }
+    },
+    "pagination": {
+      "prev": "上一页",
+      "next": "下一页",
+      "pageOf": "第 {{page}} / {{totalPages}} 页"
+    },
+    "emptyState": "没有符合筛选条件的事件。",
+    "error": {
+      "retry": "重试"
+    }
+  }
+}

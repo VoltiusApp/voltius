@@ -1,0 +1,123 @@
+{
+  "members": {
+    "roles": "角色",
+    "info": "信息",
+    "memberSince": "加入时间",
+    "invitedBy": "邀请人",
+    "dangerZone": "危险区域",
+    "confirmRemoval": "再次点击确认移除",
+    "removeFromTeam": "从团队中移除",
+    "newRole": "新建角色",
+    "you": "您",
+    "youBadge": "您",
+    "kick": "踢出",
+    "morePermissions": "+{{count}} 个更多",
+    "noRole": "无角色",
+    "noRoleAddPrompt": "无角色 · 添加 →",
+    "ownerRoleLabel": "所有者",
+    "count_one": "{{count}} 名成员",
+    "count_other": "{{count}} 名成员",
+    "loading": "正在加载成员…",
+    "noMatch": "没有匹配 \"{{search}}\" 的成员",
+    "revokeInvitationTitle": "撤销邀请",
+    "pendingBadge": "待处理",
+    "openInSettingsVaults": "在 设置 › 保险库 中打开",
+    "toolbar": {
+      "filterPlaceholder": "筛选成员…",
+      "sortByRole": "按角色",
+      "selectedCount": "已选择 {{count}} 项",
+      "inviteBtn": "邀请",
+      "clear": "清除"
+    },
+    "heading": {
+      "members": "成员",
+      "pendingInvitations": "待处理邀请"
+    },
+    "permission": {
+      "VIEW_SECRETS": "查看密钥",
+      "COPY_SECRETS": "复制密钥",
+      "CONNECT": "连接",
+      "EDIT_CONNECTIONS": "编辑连接",
+      "EDIT_IDENTITIES": "编辑身份",
+      "EDIT_KEYS": "编辑密钥",
+      "EDIT_SNIPPETS": "编辑代码片段",
+      "EDIT_FOLDERS": "编辑文件夹",
+      "VIEW_AUDIT_LOG": "查看审计日志",
+      "INVITE_MEMBERS": "邀请成员",
+      "MANAGE_MEMBERS": "管理成员",
+      "CREATE_CUSTOM_ROLES": "管理角色（旧版）",
+      "MANAGE_ROLES": "管理角色",
+      "MANAGE_VAULT": "管理保险库",
+      "START_TERMINAL_SESSION": "启动会话",
+      "JOIN_TERMINAL_SESSION": "加入会话",
+      "VIEW_TERMINAL_SESSIONS": "查看会话"
+    },
+    "invite": {
+      "title": "邀请成员",
+      "seatsLabel": "座位",
+      "seatsSummary": "已使用 {{used}} · 可用 {{available}} · 总共 {{total}}",
+      "buySeats": "购买座位",
+      "initialRoles": "初始角色",
+      "initialRole": "初始角色",
+      "searchOrEmailLabel": "搜索或输入邮箱",
+      "searchByEmailLabel": "按邮箱搜索",
+      "searchByEmailPlaceholder": "按邮箱搜索…",
+      "addWithRole": "添加（{{role}}）",
+      "addAsRole": "添加为 {{role}}",
+      "noRoleFallback": "无角色",
+      "sendInviteLabel": "发送邀请给",
+      "inviteArrow": "邀请 →"
+    },
+    "toast": {
+      "removingRoleFrom": "正在从 {{name}} 移除 {{role}}…",
+      "roleRemovedFrom": "已从 {{name}} 移除 {{role}}",
+      "assigningRoleTo": "正在为 {{name}} 分配 {{role}}…",
+      "roleAssignedTo": "已为 {{name}} 分配 {{role}}",
+      "removingMember": "正在移除 {{name}}…",
+      "memberRemoved": "已移除 {{name}}",
+      "revokingInvitation": "正在撤销对 {{name}} 的邀请…",
+      "invitationRevoked": "已撤销对 {{name}} 的邀请",
+      "invitingUser": "正在邀请 {{name}}…",
+      "invitationSentToUser": "已发送邀请给 {{name}}",
+      "userAdded": "已添加 {{name}}",
+      "invitingEmail": "正在邀请 {{email}}…",
+      "invitationSentToEmail": "已发送邀请给 {{email}}"
+    },
+    "error": {
+      "cannotRemoveOwnerRole": "无法从团队所有者移除所有者角色",
+      "failedToUpdateRole": "更新角色失败",
+      "failedToRemoveMember": "移除成员失败",
+      "failedToAddMember": "添加成员失败"
+    },
+    "history": {
+      "removeRole": "移除角色：{{name}}",
+      "assignRole": "分配角色：{{name}}",
+      "remove": "移除：{{name}}",
+      "assignRoleBulk": "分配角色 ×{{count}}",
+      "removeRoleBulk": "移除角色 ×{{count}}",
+      "removeBulk": "移除 ×{{count}}"
+    },
+    "contextMenu": {
+      "inviteToSession": "邀请到会话",
+      "noActiveSessions": "没有活跃会话",
+      "assignRoleBulk": "分配角色（{{count}}）",
+      "removeRoleBulk": "移除角色（{{count}}）",
+      "kickBulk_one": "踢出 {{count}} 名成员",
+      "kickBulk_other": "踢出 {{count}} 名成员"
+    },
+    "empty": {
+      "noVaultTitle": "未选择保险库",
+      "noVaultDesc": "请在侧边栏中选择一个保险库以管理其成员。",
+      "signInToInvite": "登录以邀请队友加入此保险库。",
+      "vaultNotFound": "未找到保险库。"
+    },
+    "cta": {
+      "signInTitle": "登录以使用团队功能",
+      "signInDesc": "成员、邀请和共享保险库访问需要云账户才能升级或管理团队。",
+      "signInBtn": "登录或创建云账户 →",
+      "upgradeTitle": "团队保险库需要 Teams",
+      "upgradeDesc": "邀请成员、分配角色并与团队安全共享凭据。",
+      "upgradeBtn": "升级到 Teams →"
+    }
+  }
+}
