@@ -65,6 +65,11 @@ const PERMISSION_COPY: Record<string, string> = {
   "settings-page": "settingsPage",
   "right-panel": "rightPanel",
   "global-panel": "globalPanel",
+  themes: "themes",
+  "omni-commands": "omniCommands",
+  "sidebar-item": "sidebarItem",
+  "context-menu": "contextMenu",
+  "ui-contributions": "uiContributions",
 };
 
 const COPY_ROOT = "settings.plugins.permissionModal.permissions";

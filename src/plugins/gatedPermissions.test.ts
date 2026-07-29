@@ -62,6 +62,12 @@ describe("describePermissions / consent decision", () => {
     expect(d.descriptionKey).toBe("");
   });
 
+  test("UI-contribution perms enforced by the runtime also resolve to known copy", () => {
+    const [d] = describePermissions(["themes"]);
+    expect(d.known).toBe(true);
+    expect(d.labelKey).toBe("settings.plugins.permissionModal.permissions.themes.label");
+  });
+
   test("hasGatedPermission detects a gated perm anywhere in the list", () => {
     expect(hasGatedPermission(["storage", "terminal:read"])).toBe(true);
     expect(hasGatedPermission(["storage", "http"])).toBe(false);

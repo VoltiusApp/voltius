@@ -735,7 +735,12 @@
           "notifications": { "label": "Show notifications", "description": "Show you notifications and toasts." },
           "settingsPage": { "label": "Add a settings page", "description": "Add its own page to Settings." },
           "rightPanel": { "label": "Add a side panel", "description": "Add a panel to the session side area." },
-          "globalPanel": { "label": "Add an app-wide panel", "description": "Add a panel available across the whole app." }
+          "globalPanel": { "label": "Add an app-wide panel", "description": "Add a panel available across the whole app." },
+          "themes": { "label": "Add color themes", "description": "Add its own color themes you can select in the app." },
+          "omniCommands": { "label": "Add command-palette actions", "description": "Add its own actions to the command palette." },
+          "sidebarItem": { "label": "Add a sidebar item", "description": "Add its own item to the sidebar." },
+          "contextMenu": { "label": "Add right-click menu entries", "description": "Add its own entries to right-click menus." },
+          "uiContributions": { "label": "Add interface elements", "description": "Add its own elements to the app's interface." }
         }
       }
     },
