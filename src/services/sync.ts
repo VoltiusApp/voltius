@@ -817,23 +817,18 @@ async function handleRealtimeEvent(eventData: string, myDeviceId: string): Promi
     fetchTeamData(teamId, { background: true }).catch(() => {});
   } else if (eventData.startsWith("team_members:")) {
     const teamId = eventData.slice("team_members:".length);
-    const prevMemberIds = new Set(
-      (useTeamStore.getState().membersByTeam[teamId] ?? []).map((m) => m.user_id),
-    );
     await Promise.all([
       useTeamStore.getState().loadTeams(),
       useTeamStore.getState().loadMembers(teamId),
       useTeamStore.getState().loadRoles(teamId),
     ]);
-    const newMembers = (useTeamStore.getState().membersByTeam[teamId] ?? []).filter(
-      (m) => !prevMemberIds.has(m.user_id) && m.public_key,
-    );
-    if (newMembers.length > 0) {
-      const { distributeKeyToNewMember } = await import("@/services/teamVaultSync");
-      await Promise.allSettled(
-        newMembers.map((m) => distributeKeyToNewMember(teamId, m.user_id, m.public_key)),
-      );
-    }
+    // Distribute the vault key to any member who lacks one. Reconciliation
+    // against the server's key-holder list (rather than a local membership
+    // diff) also covers the adder-is-only-key-holder case, where the new
+    // member is already in membersByTeam by the time this event fires so the
+    // old diff saw zero newcomers and skipped distribution (issue #41).
+    const { reconcileTeamVaultKeys } = await import("@/services/teamVaultSync");
+    await reconcileTeamVaultKeys(teamId).catch(() => {});
     useTeamStore.getState().loadPendingInvitations(teamId).catch(() => {});
   } else if (eventData.startsWith("pending_invitations_changed:")) {
     useTeamStore.getState().loadMyPendingInvitations().catch(() => {});
