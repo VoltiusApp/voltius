@@ -14,6 +14,10 @@ export const GATED_PERMISSIONS = new Set<string>([
   "terminal:write",
   "keychain:read",
   "keychain:write",
+  "metrics:read",
+  "processes:manage",
+  "docker:manage",
+  "proxmox:manage",
 ]);
 
 export function isGatedPermission(perm: string): boolean {
@@ -43,6 +47,10 @@ const PERMISSION_COPY: Record<string, string> = {
   "terminal:write": "terminalWrite",
   "keychain:read": "keychainRead",
   "keychain:write": "keychainWrite",
+  "metrics:read": "metricsRead",
+  "processes:manage": "processesManage",
+  "docker:manage": "dockerManage",
+  "proxmox:manage": "proxmoxManage",
   "sessions:read": "sessionsRead",
   "sessions:write": "sessionsWrite",
   "connections:read": "connectionsRead",

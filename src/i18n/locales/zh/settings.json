@@ -562,6 +562,22 @@
             "label": "在您的设备上存储密钥",
             "description": "将密钥保存到您设备的操作系统密钥链中。"
           },
+          "metricsRead": {
+            "label": "读取系统指标",
+            "description": "读取已连接主机的 CPU、内存、磁盘和网络统计信息。"
+          },
+          "processesManage": {
+            "label": "管理进程",
+            "description": "列出并终止已连接主机上正在运行的进程。"
+          },
+          "dockerManage": {
+            "label": "管理 Docker",
+            "description": "列出、启动、停止和删除容器、镜像、卷、网络和堆栈。这可能会永久销毁数据。"
+          },
+          "proxmoxManage": {
+            "label": "管理 Proxmox",
+            "description": "列出并控制 LXC 容器，包括创建、删除和回滚快照。这可能会永久销毁数据。"
+          },
           "sessionsRead": {
             "label": "查看您的会话",
             "description": "查看哪些终端会话处于打开状态及其变化。"

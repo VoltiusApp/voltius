@@ -196,6 +196,17 @@ export interface TerminalStatusBarContributionContext {
 
 export type UIStatusBarContributionFactory = (ctx: TerminalStatusBarContributionContext) => ReactNode;
 
+export type StreamKind = "metrics" | "processes" | "docker-logs" | "docker-stack-logs";
+
+export interface StreamsAPI {
+  /** Start a session-scoped stream. Returns a streamId. */
+  start(kind: StreamKind, opts: Record<string, unknown>): Promise<string>;
+  /** Stop a stream. No-op for an unknown id. */
+  stop(streamId: string): Promise<void>;
+  /** Subscribe to a started stream's snapshots. Resolves to an unsubscribe fn. */
+  on<T>(streamId: string, cb: (snapshot: T) => void): Promise<() => void>;
+}
+
 // ─── API principale ────────────────────────────────────────────────────────
 
 export interface PluginAPI {
@@ -347,6 +358,9 @@ export interface PluginAPI {
     /** Delete a value from the OS keychain (no-op if absent). */
     delete(key: string): Promise<void>;
   };
+
+  // Session-scoped streams (metrics, processes, docker logs) — GATED per kind.
+  streams: StreamsAPI;
 
   // Lifecycle hooks (always available)
   lifecycle: {

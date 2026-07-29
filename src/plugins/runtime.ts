@@ -37,7 +37,16 @@ import type {
   PluginIdentity,
   PluginSession,
   PluginConfigField,
+  StreamKind,
 } from "./api";
+import { createStreamsAPI } from "./domains/streams";
+
+const STREAM_PERM: Record<StreamKind, string> = {
+  metrics: "metrics:read",
+  processes: "processes:manage",
+  "docker-logs": "docker:manage",
+  "docker-stack-logs": "docker:manage",
+};
 
 // ─── Inter-plugin exposed APIs ────────────────────────────────────────────
 
@@ -349,6 +358,8 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   // is percent-encoded so a plugin id containing the ":" delimiter (e.g. "foo:x")
   // cannot forge a prefix that collides with another plugin's namespace.
   const kcKey = (key: string): string => `plugin:${encodeURIComponent(id)}:${key}`;
+
+  const streamsApi = createStreamsAPI();
 
   const api: PluginAPI = {
     pluginId: id,
@@ -809,6 +820,15 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         requireGated("keychain:write");
         await invoke("keychain_delete", { key: kcKey(key) });
       },
+    },
+
+    streams: {
+      start: (kind, opts) => {
+        requireGated(STREAM_PERM[kind]);
+        return streamsApi.start(kind, opts);
+      },
+      stop: (streamId) => streamsApi.stop(streamId),
+      on: (streamId, cb) => streamsApi.on(streamId, cb),
     },
 
     lifecycle: {
