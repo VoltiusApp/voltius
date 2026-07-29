@@ -7,11 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-07-29
+
 ### Added
 
 - Simplified Chinese (简体中文) interface language, contributed by
   [@CoconutHR](https://github.com/CoconutHR). Pick it under Appearance settings;
   like every language, it syncs across your devices.
+- Plugins: an update flow. Voltius now detects when an installed plugin has a
+  newer version, offers a one-click update, and asks you to re-consent if the
+  update declares permissions you had not already granted (#52).
+- Plugins: bundle integrity. A plugin's bundle hash is verified on install and
+  recorded, plugins that cannot be verified carry an "unverified" badge, and
+  install failures are surfaced instead of failing quietly (#44).
+- Plugins: new capabilities for plugin authors — session open/close lifecycle
+  verbs, a streaming `http.stream` verb backed by server-sent events, terminal
+  reading (snapshot and live stream), selection reading, and OS-keychain storage
+  for plugin secrets.
+- Plugins: two new UI surfaces — a shell-level panel mount and a reusable
+  `titlebar.right` status-bar slot.
+- Settings: plugin pages now appear as expandable children under the Plugins
+  nav entry rather than as flat top-level items, on both desktop and mobile.
+- SFTP: a "Copy path" action in the file-row context menu on desktop (#62).
+- Sync: an exclusion filter, so objects you exclude are stripped from outbound
+  sync on push, on pull merge, and from the gist-sync export path (#43, #47).
+- Themes: Dracula and Monokai reworked with real elevation and text ramps
+  instead of flat approximations (#40, #60).
+
+### Fixed
+
+- Terminal: the wheel and touchpad now scroll full-screen terminal apps (vim,
+  less, htop) instead of doing nothing, and Select-to-Copy is respected there
+  (#50).
+- Team vaults: members who accepted an invitation while the vault owner was
+  offline could be left without a vault key and silently unable to decrypt.
+  Key distribution is now reconciled for those members (#41, #49).
+- Audit log: the local per-vault log is capped, so a full quota can no longer
+  silently stop recording new entries.
+- Settings: the About-page links and the update-download button now open.
+- Settings: a plugin's settings pane resolves by registration rather than
+  enabled state, and a stale plugin nav target is cleared when that plugin
+  stops being an eligible nav child.
+- Themes: on-accent text now picks its colour at the WCAG 0.179 luminance
+  crossover, fixing low-contrast label text on some accent colours.
+- Interface languages: corrected the Select-to-Copy setting description, and
+  completed and polished the Simplified Chinese locale.
 
 ### Security
 
@@ -30,12 +70,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keychain data. Side-loaded and locally-scanned plugins still load without a
   consent prompt — writing to the plugins folder already implies full app
   privileges — so only install a local bundle you trust.
-- AI agent: commands containing invisible or control characters (C0/C1, DEL,
-  bidi overrides, zero-width) can no longer be pre-authorized — their rendered
-  form can differ from what actually runs, so they now always raise an approval
-  card. Previously only newlines were rejected. Any stored "always allow" grant
-  containing such a character is dropped when the agent loads; re-approve it if
-  you had one. Only affects pre-release builds — the agent has not shipped.
+- Updated the bundled `quinn-proto` dependency to 0.11.15, picking up the fix
+  for GHSA-4w2j-m93h-cj5j (#82).
 
 ## [0.12.0] - 2026-07-22
 
