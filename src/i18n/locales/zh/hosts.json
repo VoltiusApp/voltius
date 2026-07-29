@@ -1,0 +1,131 @@
+{
+  "hosts": {
+    "toolbar": {
+      "filterPlaceholder": "筛选主机...",
+      "openSerialConsole": "打开串口控制台",
+      "serial": "串口",
+      "terminal": "终端",
+      "importExport": "导入/导出",
+      "import": "导入…",
+      "export": "导出…",
+      "fromImporter": "从 {{label}}",
+      "newHost": "新建主机",
+      "newSerialHost": "新建串口主机",
+      "newFolder": "新建文件夹"
+    },
+    "card": {
+      "pin": "置顶",
+      "unpin": "取消置顶",
+      "pinned": "已置顶",
+      "pinnedByTeam": "由 {{name}} 为团队置顶",
+      "pinnedByTeamAndPersonal": "由 {{name}} 为团队置顶 · 您也置顶了此主机",
+      "hiddenPinnedByTeam": "从您的视图中隐藏 · 由 {{name}} 为团队置顶",
+      "teamMemberFallback": "团队成员",
+      "unpinForMe": "为我取消置顶",
+      "showInMyView": "在我的视图中显示",
+      "hideForMe": "为我隐藏",
+      "pinForMe": "为我置顶",
+      "unpinForTeam": "为团队取消置顶",
+      "pinForTeam": "为团队置顶",
+      "openInSftp": "在 SFTP 中打开",
+      "copyHostnameIp": "复制主机名/IP",
+      "copiedHost": "已复制 {{host}}",
+      "executeSnippet": "执行代码片段",
+      "cloudSyncDisabled": "云同步已禁用",
+      "enableCloudSync": "启用云同步",
+      "disableCloudSync": "禁用云同步",
+      "enableReachability": "启用可达性检查",
+      "disableReachability": "禁用可达性检查",
+      "connectTitle": "连接（或双击）",
+      "openFilesTitle": "打开文件（或双击）",
+      "inUseBy": "正在被 {{name}} 使用",
+      "inUseByOverflow_one": "正在被 {{name}} + {{count}} 人使用",
+      "inUseByOverflow_other": "正在被 {{name}} + {{count}} 人使用"
+    },
+    "page": {
+      "all": "全部",
+      "folders": "文件夹",
+      "new": "新建",
+      "pinned": "已置顶",
+      "folderEmpty": "此文件夹为空",
+      "addHost": "添加主机",
+      "noSearchResults": "没有匹配 \"{{search}}\" 的主机",
+      "ejectMoveTo": "移动到 {{name}}",
+      "ejectRemoveFromFolder": "从文件夹中移除",
+      "emptyState": {
+        "title": "暂无主机",
+        "subtitle": "添加您的第一台 SSH 主机开始使用"
+      },
+      "draft": {
+        "unsaved": "未保存"
+      },
+      "vaultCascade": {
+        "moveDescription": "移动 \"{{folderName}}\" 也会将以下项目移动到 {{targetVaultName}}：",
+        "copyDescription": "复制 \"{{folderName}}\" 也会将以下项目复制到 {{targetVaultName}}："
+      },
+      "bulk": {
+        "executeSnippetOn_one": "在 {{count}} 台主机上执行代码片段",
+        "executeSnippetOn_other": "在 {{count}} 台主机上执行代码片段",
+        "connectHosts": "连接 {{count}} 台主机",
+        "duplicateHosts": "复制 {{count}} 台主机",
+        "moveItemsTo_one": "移动 {{count}} 个项目到",
+        "moveItemsTo_other": "移动 {{count}} 个项目到",
+        "copyItemsTo_one": "复制 {{count}} 个项目到",
+        "copyItemsTo_other": "复制 {{count}} 个项目到",
+        "enableCloudSync": "启用云同步 ({{count}})",
+        "disableCloudSync": "禁用云同步 ({{count}})",
+        "enableReachability": "启用可达性检查 ({{count}})",
+        "disableReachability": "禁用可达性检查 ({{count}})",
+        "exportHosts": "导出 {{count}} 台主机",
+        "deleteItems_one": "删除 {{count}} 个项目",
+        "deleteItems_other": "删除 {{count}} 个项目"
+      },
+      "confirmDelete": {
+        "title_one": "删除 {{count}} 个项目",
+        "title_other": "删除 {{count}} 个项目",
+        "message_one": "确定要删除 {{count}} 个项目吗？此操作无法撤销。",
+        "message_other": "确定要删除 {{count}} 个项目吗？此操作无法撤销。"
+      },
+      "confirmDeleteFolder": {
+        "title": "删除文件夹",
+        "message": "这将删除文件夹。文件夹内的项目不会被删除——它们将返回到顶层。"
+      }
+    },
+    "remoteSessions": {
+      "title": "其他设备上的实时会话",
+      "justNow": "刚刚",
+      "minutesAgo": "{{count}} 分钟前",
+      "hoursAgo": "{{count}} 小时前",
+      "daysAgo": "{{count}} 天前"
+    },
+    "teamSessions": {
+      "title": "团队会话",
+      "joinByCode": "通过代码加入",
+      "live": "实时",
+      "pasteInviteCode": "粘贴邀请码加入私有会话：",
+      "inviteCodePlaceholder": "sessionId:token",
+      "join": "加入",
+      "resume": "继续",
+      "invalidCodeFormat": "无效代码——格式应为：sessionId:token",
+      "failedToJoinSession": "加入会话失败",
+      "sharedTerminalFallback": "共享终端",
+      "meFallback": "我"
+    },
+    "snippetPicker": {
+      "title": "执行代码片段",
+      "goToSnippets": "前往代码片段",
+      "filterPlaceholder": "筛选代码片段...",
+      "newSnippetTitle": "新建代码片段",
+      "new": "新建",
+      "noSnippetsYet": "暂无代码片段",
+      "createSnippet": "创建代码片段",
+      "noSnippetsMatch": "没有匹配的代码片段",
+      "recent": "最近",
+      "allSnippets": "所有代码片段",
+      "hostsSelected_one": "已选择 {{count}} 台主机",
+      "hostsSelected_other": "已选择 {{count}} 台主机",
+      "insert": "插入",
+      "execute": "执行"
+    }
+  }
+}

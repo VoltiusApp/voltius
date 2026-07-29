@@ -1,0 +1,148 @@
+{
+  "portForwarding": {
+    "toolbar": {
+      "filterPlaceholder": "筛选规则…",
+      "deleteSelected": "删除所选",
+      "deleteButton": "删除",
+      "newRule": "新建规则",
+      "newFolder": "新建文件夹"
+    },
+    "page": {
+      "all": "全部",
+      "folders": "文件夹",
+      "new": "新建",
+      "noRulesMatchSearch": "没有匹配搜索的规则。",
+      "folderEmpty": "此文件夹为空。",
+      "noRulesYet": "暂无规则。创建一个开始使用。",
+      "addRule": "添加规则",
+      "ejectMoveTo": "移动到 {{name}}",
+      "ejectRemoveFromFolder": "从文件夹中移除",
+      "total": "{{count}} 个总计",
+      "activeCount": "{{count}} 个活跃",
+      "errorCount": "{{count}} 个错误",
+      "contextMenu": {
+        "newRule": "新建规则"
+      },
+      "confirmDelete": {
+        "title": "删除规则",
+        "message": "此规则将被永久删除。"
+      },
+      "confirmDeleteBulk": {
+        "title_one": "删除 {{count}} 条规则",
+        "title_other": "删除 {{count}} 条规则",
+        "message_one": "确定要删除 {{count}} 条规则吗？此操作无法撤销。",
+        "message_other": "确定要删除 {{count}} 条规则吗？此操作无法撤销。"
+      },
+      "confirmDeleteFolder": {
+        "title": "删除文件夹",
+        "message": "这将删除文件夹。文件夹内的规则不会被删除——它们将返回到顶层。"
+      },
+      "vaultCascade": {
+        "moveDescription": "移动 \"{{folderName}}\" 也会将以下规则移动到 {{targetVaultName}}：",
+        "copyDescription": "复制 \"{{folderName}}\" 也会将以下规则复制到 {{targetVaultName}}："
+      },
+      "bulk": {
+        "duplicateRules": "复制 {{count}} 条规则",
+        "exportRules": "导出 {{count}} 条规则",
+        "deleteRules": "删除 {{count}} 条规则"
+      }
+    },
+    "ruleCard": {
+      "pause": "暂停",
+      "resume": "恢复",
+      "openWebLink": "打开网页链接",
+      "activateInSession": "在会话中激活",
+      "duplicate": "复制",
+      "enableCloudSync": "启用云同步",
+      "disableCloudSync": "禁用云同步",
+      "pauseForwarding": "暂停转发",
+      "resumeForwarding": "恢复转发",
+      "active": "活跃",
+      "error": "错误",
+      "stopped": "已停止",
+      "noSshSession": "没有 SSH 会话",
+      "openUrl": "打开 {{url}}",
+      "scopedToConnections_one": "作用于 {{count}} 个连接",
+      "scopedToConnections_other": "作用于 {{count}} 个连接",
+      "connectionsCount_one": "{{count}} 个连接",
+      "connectionsCount_other": "{{count}} 个连接"
+    },
+    "activeTunnels": {
+      "sectionTitle": "活跃的会话转发",
+      "hostCount_one": "{{count}} 台主机",
+      "hostCount_other": "{{count}} 台主机",
+      "tunnelCount_one": "{{count}} 个隧道",
+      "tunnelCount_other": "{{count}} 个隧道",
+      "forwardCount_one": "{{count}} 个转发",
+      "forwardCount_other": "{{count}} 个转发",
+      "errorCount": "{{count}} 个错误",
+      "activeCountLabel": "{{count}} 个活跃",
+      "connected": "已连接",
+      "local": "本地",
+      "remote": "远程",
+      "socks5": "SOCKS5",
+      "auto": "自动",
+      "adHoc": "临时",
+      "portLabel": "端口 {{port}}",
+      "socksPortLabel": "SOCKS5 :{{port}}",
+      "pauseForwarding": "暂停转发",
+      "resumeForwarding": "恢复转发",
+      "openUrl": "打开 {{url}}"
+    },
+    "ruleForm": {
+      "editRule": "编辑规则",
+      "newRule": "新建规则",
+      "general": "通用",
+      "name": "名称",
+      "namePlaceholder": "我的隧道",
+      "description": "描述",
+      "descriptionPlaceholder": "开发服务器、数据库代理…",
+      "type": "类型",
+      "ports": "端口",
+      "scope": "范围",
+      "tunnelTypes": {
+        "local": {
+          "label": "本地",
+          "title": "本地隧道",
+          "summary": "从 SSH 服务器打开您自己机器上的服务。",
+          "example": "在您的计算机上使用 localhost:3000 访问服务器上的 127.0.0.1:3000。",
+          "diagram": ["您的计算机", "SSH 服务器", "远程服务"]
+        },
+        "remote": {
+          "label": "远程",
+          "title": "远程隧道",
+          "summary": "在 SSH 服务器上暴露您机器上的服务。",
+          "example": "服务器监听一个端口并将流量转发回您的计算机。",
+          "diagram": ["远程用户", "SSH 服务器", "您的计算机"]
+        },
+        "dynamic": {
+          "label": "动态",
+          "title": "动态 SOCKS 代理",
+          "summary": "创建一个本地 SOCKS5 代理，通过 SSH 服务器发送应用流量。",
+          "example": "将浏览器或应用指向 localhost:1080 以通过服务器路由流量。",
+          "diagram": ["您的应用", "SOCKS 代理", "SSH 服务器"]
+        }
+      },
+      "localPortOnComputer": "您计算机上的端口",
+      "localPortHelp": "您在本地连接此端口，通常为 localhost:{{port}}。",
+      "remotePortOnServer": "SSH 服务器上的端口",
+      "remotePortOnServerHelp": "从服务器的视角看，服务运行的端口。",
+      "hostOnServer": "SSH 服务器上的主机",
+      "hostOnServerHelp": "当服务运行在 SSH 服务器本身时使用 127.0.0.1。",
+      "remotePortOpenedOnServer": "SSH 服务器上打开的端口",
+      "remotePortOpenedOnServerHelp": "服务器端的人或服务连接到此端口。",
+      "localPortReceivingHelp": "应接收转发流量的本地应用或服务。",
+      "bindAddressOnServer": "SSH 服务器上的绑定地址",
+      "bindAddressOnServerHelp": "127.0.0.1 保持服务器私有。0.0.0.0 可能将其暴露到网络。",
+      "bindWarning": "0.0.0.0 会通过远程服务器将此端口暴露到所有网络接口。",
+      "hostOnComputer": "您计算机上的主机",
+      "hostOnComputerHelp": "当目标应用运行在此计算机时使用 127.0.0.1。",
+      "socksProxyPort": "您计算机上的 SOCKS 代理端口",
+      "socksProxyPortHelp": "将应用配置为使用 localhost:{{port}} 作为 SOCKS5 代理。",
+      "applyTo": "应用于",
+      "allConnections": "所有连接",
+      "specificConnections": "特定连接",
+      "noSavedConnections": "没有保存的连接。"
+    }
+  }
+}

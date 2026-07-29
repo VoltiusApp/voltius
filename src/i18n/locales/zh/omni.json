@@ -1,0 +1,92 @@
+{
+  "omni": {
+    "searchPlaceholder": "搜索主机、密钥、身份和命令...",
+    "categoryBadges": {
+      "all": "全部",
+      "join": "join> 会话",
+      "snippets": "> 代码片段",
+      "marketplace": "m> 市场",
+      "settings": "@ 设置"
+    },
+    "sections": {
+      "quickConnect": "快速连接",
+      "activeConnections": "活跃连接",
+      "teamSessions": "团队会话",
+      "recent": "最近",
+      "hosts": "主机",
+      "local": "本地",
+      "keychain": "密钥链",
+      "snippets": "代码片段",
+      "actions": "操作",
+      "quickSettings": "快速设置",
+      "settings": "设置",
+      "joinByInviteCode": "通过邀请码加入"
+    },
+    "settingsDescription": "设置",
+    "pluginSettingsDescription": "插件设置",
+    "editHost": "编辑主机",
+    "deleteHost": "删除主机",
+    "resume": "继续",
+    "join": "加入",
+    "participantCount_one": "{{count}} 人",
+    "participantCount_other": "{{count}} 人",
+    "joinCodePrompt": {
+      "title": "通过邀请码加入...",
+      "subtitle": "在此粘贴邀请码以加入私有会话"
+    },
+    "joinCodeEntered": {
+      "title": "通过邀请码加入"
+    },
+    "quickConnect": {
+      "connectTo": "连接到 {{user}}@{{host}}",
+      "portSsh": "端口 {{port}} — SSH",
+      "serialConnection": "串口连接",
+      "configurePortAndBaud": "配置端口和波特率",
+      "localShellNamed": "本地 Shell ({{shell}})",
+      "localShell": "本地 Shell",
+      "openLocalTerminal": "打开本地终端"
+    },
+    "localShellDefault": "本地 Shell",
+    "emptyState": {
+      "noSnippets": "暂无代码片段",
+      "marketplaceComingSoon": "市场即将上线",
+      "noSessionsMatch": "没有匹配 \"{{query}}\" 的会话",
+      "noActiveTeamSessions": "没有活跃的团队会话",
+      "noResultsFor": "没有 \"{{query}}\" 的结果"
+    },
+    "theme": {
+      "toggle": "切换亮色/暗色主题",
+      "toggleDesc": "在亮色和暗色主题之间切换",
+      "switch": "切换主题…",
+      "switchDesc": "选择主题，实时预览",
+      "automation": "主题自动化…",
+      "automationDesc": "手动、跟随系统、定时或日出/日落",
+      "backSwitch": "切换主题",
+      "backAutomation": "主题自动化",
+      "searchThemes": "搜索主题…",
+      "roleLight": "亮色",
+      "roleDark": "暗色",
+      "setAsLight": "设为亮色",
+      "setAsDark": "设为暗色",
+      "keyHints": "Alt+L 设为亮色 · Alt+D 设为暗色 · Enter 应用",
+      "modeManual": "手动",
+      "modeManualDesc": "使用您选择的主题，无自动化",
+      "modeSystem": "跟随系统",
+      "modeSystemDesc": "匹配操作系统的亮色/暗色设置",
+      "modeSchedule": "定时",
+      "modeScheduleDesc": "在固定时间切换",
+      "modeSunset": "日出/日落",
+      "modeSunsetDesc": "白天亮色，夜晚暗色，根据您的位置",
+      "lightStarts": "亮色开始",
+      "darkStarts": "暗色开始",
+      "useMyLocation": "使用我的位置",
+      "latitude": "纬度",
+      "longitude": "经度",
+      "locationNeeded": "设置位置以使用日出/日落",
+      "sunToday": "今天：日出 {{sunrise}}，日落 {{sunset}}",
+      "statusManual": "手动",
+      "statusSystem": "自动 · 跟随系统",
+      "statusUntil": "自动 · {{phase}} 直到 {{time}}"
+    }
+  }
+}

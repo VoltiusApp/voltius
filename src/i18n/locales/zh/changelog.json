@@ -1,0 +1,21 @@
+{
+  "changelog": {
+    "title": "更新日志",
+    "quickLinks": {
+      "documentation": "文档"
+    },
+    "loading": "正在加载更新日志…",
+    "unavailable": "离线状态下无法查看更新日志。请重新连接以查看更新内容。",
+    "hidePreviousReleases": "隐藏以前的版本",
+    "previousReleases": "以前的版本 ({{count}})",
+    "newBadge": "新",
+    "updateBanner": {
+      "checking": "正在检查更新…",
+      "downloading": "正在下载 v{{version}}… {{progress}}%",
+      "ready": "v{{version}} 已准备好安装",
+      "restartToUpdate": "重启以更新",
+      "available": "v{{version}} 可用",
+      "download": "下载"
+    }
+  }
+}

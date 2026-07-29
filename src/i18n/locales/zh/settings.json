@@ -1,0 +1,673 @@
+{
+  "settings": {
+    "terminal": {
+      "heading": "终端行为",
+      "scrollback": {
+        "title": "终端回滚",
+        "desc": "每个终端会话保留的行数。应用于新终端。",
+        "option": "{{count}} 行"
+      },
+      "minimap": {
+        "title": "滚动小地图",
+        "desc": "在终端旁边显示回滚概览的缩微图。"
+      },
+      "selectToCopy": {
+        "title": "选择即复制",
+        "desc": "在终端中选中文本时显示复制按钮。"
+      },
+      "ignoreBracketedPaste": {
+        "title": "纯文本粘贴（无括号粘贴）",
+        "desc": "不带 \\x1b[200~ / \\x1b[201~ 标记的纯文本粘贴。修复粘贴到 sudo 提示符或不支持括号粘贴的 CLI 应用时的乱码问题。"
+      }
+    },
+    "appearance": {
+      "interface": "界面",
+      "language": { "title": "语言" },
+      "colorTheme": "颜色主题",
+      "import": "导入",
+      "importTitle": "导入主题",
+      "exportAll": "导出全部",
+      "exportAllTitle": "导出所有自定义主题",
+      "exportTheme": "导出主题",
+      "editTheme": "编辑主题",
+      "deleteTheme": "删除主题",
+      "newCustomTheme": "新建自定义主题",
+      "uiScale": {
+        "title": "UI 缩放",
+        "desc": "放大或缩小整个界面。",
+        "clickHint": "点击输入值",
+        "zoomOut": "缩小",
+        "zoomIn": "放大",
+        "resetTitle": "重置缩放",
+        "reset": "重置"
+      },
+      "automation": {
+        "title": "自动主题",
+        "desc": "在亮色和暗色主题之间自动切换",
+        "lightTheme": "亮色主题",
+        "darkTheme": "暗色主题",
+        "mode": "模式",
+        "modeManual": "手动",
+        "modeSystem": "跟随系统",
+        "modeSchedule": "定时",
+        "modeSunset": "日出/日落",
+        "lightStarts": "亮色开始",
+        "darkStarts": "暗色开始",
+        "useMyLocation": "使用我的位置",
+        "latitude": "纬度",
+        "longitude": "经度",
+        "sunToday": "今天：日出 {{sunrise}}，日落 {{sunset}}",
+        "locationNeeded": "设置位置以使用日出/日落"
+      }
+    },
+    "nav": {
+      "appearance":     { "label": "外观",      "keywords": ["主题", "颜色", "字体", "ui"] },
+      "account":        { "label": "账户",         "keywords": ["个人资料", "登录", "认证"] },
+      "sync":           { "label": "同步",            "keywords": ["备份", "云", "gist", "同步", "pro"] },
+      "vaults":         { "label": "保险库",          "keywords": ["密钥", "密码", "存储", "密钥链"] },
+      "plugins":        { "label": "插件",         "keywords": ["扩展", "附加组件", "市场"] },
+      "terminal":       { "label": "终端",        "keywords": ["回滚", "粘贴", "括号", "复制", "小地图", "缓冲区"] },
+      "sftp":           { "label": "SFTP",            "keywords": ["文件", "传输", "ftp", "文件"] },
+      "portForwarding": { "label": "端口转发", "keywords": ["隧道", "转发", "端口", "ssh", "自动"] },
+      "hosts":          { "label": "主机",           "keywords": ["ping", "可达性", "连接性", "状态"] },
+      "shortcuts":      { "label": "快捷键",       "keywords": ["快捷键", "热键", "快捷键", "重绑定", "键盘"] },
+      "diagnostics":    { "label": "诊断",     "keywords": ["诊断", "问题", "报告", "日志", "调试", "问题"] },
+      "about":          { "label": "关于",           "keywords": ["版本", "更新", "发布", "更新日志"] }
+    },
+    "chrome": {
+      "title": "设置",
+      "close": "关闭设置",
+      "back": "返回",
+      "openHint": "Ctrl+, 打开"
+    },
+    "shared": {
+      "cancel": "取消",
+      "resetToDefault": "重置为默认",
+      "modifiedFromDefault": "已从默认值修改"
+    },
+    "account": {
+      "modeTitle": "账户模式",
+      "currentMode": "当前模式",
+      "mode": {
+        "localNoPassword": "本地（OS 密钥链）",
+        "local": "本地（主密码）",
+        "server": "云账户",
+        "unknown": "未知"
+      },
+      "sessionSecurity": {
+        "title": "会话安全",
+        "autoLockLabel": "不活动后自动锁定保险库",
+        "autoLockDesc": "在会话过期时锁定保险库并要求输入主密码。",
+        "noPasswordHint": "启用主密码以使用自动锁定和会话超时。",
+        "timeout": {
+          "never": "从不",
+          "5min": "5 分钟",
+          "15min": "15 分钟",
+          "30min": "30 分钟",
+          "1h": "1 小时",
+          "4h": "4 小时"
+        }
+      },
+      "email": "邮箱",
+      "editEmail": {
+        "title": "更改邮箱",
+        "currentLabel": "当前：",
+        "newPlaceholder": "新邮箱地址",
+        "passwordPlaceholder": "当前主密码",
+        "errorInvalidEmail": "邮箱地址无效",
+        "errorSameEmail": "新邮箱必须与当前邮箱不同",
+        "errorPasswordRequired": "需要密码以确认更改",
+        "updatedPrefix": "邮箱已更新为 ",
+        "updatedSuffix": "。请查收收件箱中的验证链接。",
+        "pausedNote": "在验证之前，付费功能将被暂停。",
+        "done": "完成",
+        "saving": "正在保存…",
+        "save": "保存",
+        "toastVerification": "验证邮件已发送到 {{email}}。"
+      },
+      "displayName": {
+        "title": "显示名称",
+        "cannotBeEmpty": "不能为空",
+        "saving": "正在保存…",
+        "save": "保存"
+      },
+      "changeMasterPassword": {
+        "label": "更改主密码",
+        "sub": "更新密码而无需重新加密保险库",
+        "title": "更改主密码",
+        "currentPlaceholder": "当前密码",
+        "newPlaceholder": "新密码（至少 8 个字符）",
+        "confirmPlaceholder": "确认新密码",
+        "errorCurrentRequired": "需要当前密码",
+        "errorMinLength": "新密码必须至少 8 个字符",
+        "errorSamePassword": "新密码必须与当前密码不同",
+        "successMsg": "密码更改成功。",
+        "successNote": "您仍处于登录状态。保险库条目未改变。",
+        "done": "完成",
+        "changing": "正在更改…",
+        "changeBtn": "更改密码"
+      },
+      "setMasterPassword": {
+        "label": "设置主密码",
+        "sub": "在本地保护保险库，无需云同步"
+      },
+      "lockVault": {
+        "label": "锁定保险库",
+        "sub": "立即锁定并要求输入主密码"
+      },
+      "signOut": {
+        "label": "登出云账户",
+        "sub": "清除缓存的密码和同步令牌"
+      },
+      "wipeData": {
+        "label": "擦除所有本地数据",
+        "sub": "永久删除所有连接、密钥、保险库和密钥链条目"
+      },
+      "confirmWipe": {
+        "descPre": "这将永久删除 ",
+        "descBold": "所有本地数据",
+        "descPost": "：连接、SSH 密钥、身份、保险库密钥和 OS 密钥链条目。此操作无法撤销。",
+        "confirm": "擦除全部"
+      },
+      "setPassword": {
+        "desc": "选择主密码。您现有的数据将被重新加密。",
+        "newPlaceholder": "新主密码",
+        "confirmPlaceholder": "确认密码",
+        "submit": "设置密码"
+      },
+      "error": {
+        "minLength": "至少 4 个字符",
+        "mismatch": "密码不匹配",
+        "updateFailed": "更新失败"
+      },
+      "success": {
+        "passwordSet": "主密码已设置。您的保险库现已受密码保护。"
+      },
+      "loading": "正在处理...",
+      "plan": {
+        "title": "套餐",
+        "badge": {
+          "business": "Business",
+          "teams": "Teams",
+          "proTrial": "Pro 试用——剩余 {{daysLeft}} 天",
+          "pro": "Pro",
+          "free": "免费"
+        },
+        "manageBilling": "管理账单 →",
+        "subscription": {
+          "cancelled": "于 {{date}} 取消。在此之前您仍可访问。",
+          "cancelledNoPeriod": "于本期结束时取消。在此之前您仍可访问。",
+          "renews": "于 {{date}} 续订。",
+          "active": "您的订阅有效。"
+        },
+        "seats": "座位",
+        "seatsUsed": "已使用 {{used}} / {{total}}",
+        "upgradeToPro": "升级到 Pro 解锁云同步和更多功能",
+        "upgrade": "升级",
+        "upgradeToTeams": "升级到 Teams 获取共享保险库和无限访客",
+        "teamsButton": "Teams →",
+        "viewAllPlans": "查看所有套餐 →",
+        "feature": {
+          "localVault": "本地保险库",
+          "auditLogs": "审计日志",
+          "gistSync": "GitHub Gist 同步",
+          "realtimeSync": "实时云同步",
+          "unlimitedVaults": "无限私有保险库",
+          "terminalSharing": "终端共享（1 个会话 · 1 名访客）",
+          "teamVaults": "共享团队保险库",
+          "teamSharing": "团队共享（5 个会话 · 10 名访客）",
+          "customRoles": "自定义角色"
+        }
+      },
+      "buySeats": {
+        "title": "没有可用座位",
+        "seatsUsed": "已使用 {{used}} / {{total}} 个座位",
+        "inviting": "正在邀请",
+        "additionalSeats": "额外座位",
+        "seatsTotal": "{{from}} → {{to}} 个总计",
+        "priceRow_one": "{{count}} 个座位 × ¥{{price}}/月",
+        "priceRow_other": "{{count}} 个座位 × ¥{{price}}/月",
+        "totalPerMonth": "¥{{amount}}/月",
+        "proratedNote": "按比例计费立即应用于当前账单周期。",
+        "processing": "正在处理…",
+        "buyAndInvite_one": "购买 {{count}} 个座位并邀请",
+        "buyAndInvite_other": "购买 {{count}} 个座位并邀请",
+        "errorNotConnected": "未连接到服务器",
+        "errorNoSubscription": "未找到有效订阅",
+        "errorUpdateSeats": "更新座位数失败: {{status}}"
+      }
+    },
+    "diagnostics": {
+      "intro": "Voltius 遇到问题？创建报告并发送给开发者——它有助于追踪难以复现的问题。",
+      "troubleshootingTitle": "故障排除",
+      "verboseLabel": "详细日志（本次会话）",
+      "verboseSub": "记录额外的细节以帮助诊断问题。重启 Voltius 后重置为正常。",
+      "verboseHint": "详细日志已开启。要捕获问题：\n1. 现在复现问题\n2. 回来创建错误报告",
+      "reportTitle": "错误报告",
+      "createButton": "创建错误报告",
+      "creatingButton": "正在收集日志…",
+      "createdButton": "报告已保存",
+      "reportSub": "包含应用日志和系统信息。永远不会包含您的密码、密钥或终端内容。",
+      "whatsIncluded": "包含什么？",
+      "includedBody": "包含：\n• 应用日志（Voltius 在做什么，已删除敏感值）\n• 应用版本、操作系统和活跃插件\n不包含：\n• 密码、保险库内容或私钥\n• 终端输出或您输入的任何内容\n报告保存到您的计算机。不会自动发送——您选择分享位置。",
+      "toastSaved": "报告已保存——{{name}}",
+      "toastError": "无法创建报告：{{reason}}",
+      "toastGenericError": "出错了。"
+    },
+    "about": {
+      "versionTitle": "版本",
+      "loading": "正在加载…",
+      "updatesTitle": "更新",
+      "checkForUpdate": "检查更新",
+      "restartToUpdate": "重启以更新 · v{{version}}",
+      "status": {
+        "idle": "尚未检查",
+        "checking": "正在检查更新…",
+        "upToDate": "已是最新版本",
+        "downloading": "正在下载 v{{version}} — {{progress}}%",
+        "ready": "v{{version}} 已准备好安装"
+      },
+      "autoDownload": {
+        "title": "自动下载更新",
+        "desc": "在后台检查并下载新版本"
+      },
+      "whatsNew": {
+        "title": "更新后显示新内容",
+        "desc": "在新版本发布时自动打开更新日志"
+      },
+      "linksTitle": "链接",
+      "links": {
+        "github": "GitHub",
+        "documentation": "文档",
+        "x": "X",
+        "kofi": "Ko-Fi",
+        "contact": "联系"
+      },
+      "reportBug": "报告问题"
+    },
+    "sync": {
+      "voltiusCloud": "Voltius 云",
+      "active": {
+        "title": "云同步活跃",
+        "syncing": "正在同步…",
+        "error": "错误：{{error}}",
+        "lastSync": "上次同步：{{time}}",
+        "offline": "离线",
+        "idle": "尚未同步",
+        "syncNow": "立即同步"
+      },
+      "requiresPro": {
+        "title": "云同步",
+        "sub": "需要 Pro 订阅",
+        "upgrade": "升级"
+      },
+      "notConnected": {
+        "title": "云账户未连接",
+        "sub": "登录或创建云账户以跨设备同步。",
+        "signIn": "登录"
+      },
+      "gistTitle": "GitHub Gist (E2EE)",
+      "gist": {
+        "title": "Gist 同步插件",
+        "sub": "通过 GitHub Gist 进行端到端加密同步",
+        "configure": "配置 →"
+      },
+      "prefsTitle": "同步偏好",
+      "prefsFooter": "禁用的类型在更改时不会触发自动同步。单个对象也可以通过其编辑面板排除。",
+      "quickToggleLabel": "同步 {{label}}",
+      "objectType": {
+        "connection": { "label": "主机", "sub": "SSH 连接" },
+        "identity": { "label": "身份", "sub": "用户名和凭据" },
+        "key": { "label": "SSH 密钥", "sub": "存储在密钥链中的密钥对" },
+        "folder": { "label": "文件夹", "sub": "用于组织对象的文件夹结构" },
+        "port-forwarding-rule": { "label": "端口转发", "sub": "保存的隧道规则" }
+      }
+    },
+    "vaults": {
+      "title": "保险库",
+      "newVault": "新建保险库",
+      "desc": "组织您的连接、身份和密钥。邀请成员共享保险库。",
+      "vaultNamePlaceholder": "保险库名称…",
+      "create": "创建",
+      "team": "团队",
+      "onlyYou": "仅您",
+      "back": "保险库",
+      "importExport": {
+        "title": "导入 / 导出",
+        "desc": "将您的主机、身份和 SSH 密钥元数据备份或恢复为 JSON 或 CSV。"
+      },
+      "tabs": {
+        "general": "通用",
+        "members": "成员",
+        "roles": "角色"
+      },
+      "roles": {
+        "owner": "所有者",
+        "manager": "管理员",
+        "editor": "编辑者",
+        "member": "成员",
+        "connect_only": "仅连接"
+      },
+      "members": {
+        "memberCount_one": "{{count}} 名成员",
+        "memberCount_other": "{{count}} 名成员",
+        "loading": "正在加载…",
+        "pendingInvitations": "待处理邀请",
+        "pendingBadge": "待处理",
+        "revokeTitle": "撤销邀请",
+        "revokingInvite": "正在撤销对 {{name}} 的邀请…",
+        "inviteRevoked": "已撤销对 {{name}} 的邀请",
+        "inviteMember": "邀请成员",
+        "searchOrEmailPlaceholder": "搜索或输入邮箱…",
+        "addBtn": "添加",
+        "inviteBtn": "邀请 →",
+        "sendInviteLabel": "发送邀请给 ",
+        "noRole": "无角色",
+        "youBadge": "您",
+        "youLabel": "您",
+        "clickToConfirm": "再次点击确认",
+        "removeTitle": "从保险库中移除",
+        "openInMembers": "在成员中打开",
+        "onlineNow": "{{count}} 人在线",
+        "searchByEmailPlaceholder": "按邮箱搜索…",
+        "noUsersFound": "未找到用户",
+        "addAsMember": "添加为成员",
+        "adding": "正在添加 {{name}}…",
+        "added": "已添加 {{name}}",
+        "inviting": "正在邀请 {{email}}…",
+        "invitationSent": "已发送邀请给 {{email}}",
+        "failedToAdd": "添加成员失败",
+        "failed": "失败",
+        "removingRole": "正在从 {{name}} 移除 {{role}}…",
+        "roleRemoved": "已从 {{name}} 移除 {{role}}",
+        "assigningRole": "正在为 {{name}} 分配 {{role}}…",
+        "roleAssigned": "已为 {{name}} 分配 {{role}}",
+        "removingMember": "正在移除 {{name}}…",
+        "memberRemoved": "已移除 {{name}}"
+      },
+      "upgrade": {
+        "requiresTeams": "团队保险库需要 Teams 套餐",
+        "upgradeDesc": "邀请成员、分配角色并与团队安全共享凭据。",
+        "upgradeBtn": "升级到 Teams →",
+        "signInDesc": "登录云账户以邀请队友加入此保险库。",
+        "signInBtn": "登录 / 创建账户"
+      },
+      "general": {
+        "vaultNameLabel": "保险库名称",
+        "save": "保存",
+        "infoLabel": "信息",
+        "teamWithCount_one": "团队 · {{count}} 名成员",
+        "teamWithCount_other": "团队 · {{count}} 名成员",
+        "teamLoading": "团队 · …",
+        "private": "私有",
+        "cloudOnly": "仅云端",
+        "cloudOnlyDesc": "此团队仅存在于云端，未链接到本地保险库。成员和角色仍可从上方标签页全面管理。",
+        "dangerZone": "危险区域",
+        "makePrivate": {
+          "title": "设为私有",
+          "desc": "移除所有成员并将此保险库恢复为个人保险库。",
+          "confirmAll": "移除所有成员并设为私有？",
+          "confirm_one": "移除 {{count}} 名成员并设为私有？",
+          "confirm_other": "移除 {{count}} 名成员并设为私有？",
+          "converting": "正在转换…",
+          "confirmBtn": "确认",
+          "btn": "设为私有"
+        },
+        "deleteVault": {
+          "title": "删除保险库",
+          "desc": "永久移除此保险库及其所有内容。",
+          "confirmDesc": "确定吗？此操作无法撤销。",
+          "confirmBtn": "确认删除",
+          "btn": "删除保险库"
+        },
+        "madePrivateToast_one": "保险库现已私有。{{count}} 名成员失去了访问权限。",
+        "madePrivateToast_other": "保险库现已私有。{{count}} 名成员失去了访问权限。",
+        "madePrivateToastEmpty": "保险库现已私有。"
+      },
+      "rolesPanel": {
+        "permGroup": {
+          "dataAccess": "数据访问",
+          "connectionManagement": "连接管理",
+          "teamAdministration": "团队管理",
+          "terminalSessions": "终端会话"
+        },
+        "perm": {
+          "VIEW_SECRETS":           { "label": "查看密钥",          "desc": "以明文查看密码和私钥" },
+          "COPY_SECRETS":           { "label": "复制密钥",          "desc": "将密码和密钥复制到剪贴板" },
+          "CONNECT":                { "label": "连接",               "desc": "启动 SSH 连接" },
+          "EDIT_CONNECTIONS":       { "label": "编辑连接",      "desc": "创建、修改和删除连接" },
+          "EDIT_IDENTITIES":        { "label": "编辑身份",       "desc": "创建、修改和删除 SSH 身份" },
+          "EDIT_KEYS":              { "label": "编辑密钥",             "desc": "创建、修改和删除 SSH 密钥" },
+          "EDIT_SNIPPETS":          { "label": "编辑代码片段",         "desc": "创建、修改和删除命令代码片段" },
+          "EDIT_FOLDERS":           { "label": "编辑文件夹",          "desc": "管理文件夹结构" },
+          "VIEW_AUDIT_LOG":         { "label": "查看审计日志",        "desc": "读取活动审计日志" },
+          "INVITE_MEMBERS":         { "label": "邀请成员",        "desc": "邀请新成员加入保险库" },
+          "MANAGE_MEMBERS":         { "label": "管理成员",        "desc": "分配角色和移除成员" },
+          "CREATE_CUSTOM_ROLES":    { "label": "管理角色（旧版）", "desc": "已停用权限——保留用于兼容性" },
+          "MANAGE_ROLES":           { "label": "管理角色",          "desc": "创建、编辑和删除角色" },
+          "MANAGE_VAULT":           { "label": "管理保险库",          "desc": "重命名保险库和管理保险库设置" },
+          "START_TERMINAL_SESSION": { "label": "启动会话",        "desc": "启动多人终端会话" },
+          "JOIN_TERMINAL_SESSION":  { "label": "加入会话",         "desc": "加入现有终端会话" },
+          "VIEW_TERMINAL_SESSIONS": { "label": "查看会话",         "desc": "查看活跃终端会话" }
+        },
+        "builtinBadge": "内置",
+        "dragToReorder": "拖拽排序",
+        "deleteRoleTitle": "删除角色",
+        "clickToConfirm": "再次点击确认",
+        "failedToDelete": "删除失败",
+        "editRole": "编辑角色",
+        "newRole": "新建自定义角色",
+        "roleName": "角色名称",
+        "roleNamePlaceholder": "例如：只读、部署、DevOps…",
+        "colorLabel": "颜色",
+        "clearColor": "清除",
+        "preview": "预览",
+        "permissionsLabel": "权限",
+        "saveChanges": "保存更改",
+        "createRole": "创建角色",
+        "errorNameRequired": "名称为必填项",
+        "errorFailedToSave": "保存角色失败",
+        "builtinRoles": "内置角色",
+        "customRoles": "自定义角色",
+        "newRoleBtn": "新建角色",
+        "businessFeature": "Business 套餐功能",
+        "businessFeatureDesc": "具有细粒度权限的自定义角色在 Business 套餐中可用。",
+        "upgradeBtn": "升级到 Business",
+        "noCustomRolesCanEdit": "暂无自定义角色。创建一个以分配特定权限。",
+        "noCustomRoles": "此团队未定义自定义角色。",
+        "noTeams": "暂无团队。创建共享保险库以开始管理角色。",
+        "teamLabel": "团队"
+      }
+    },
+    "plugins": {
+      "categoryLabel": "插件",
+      "tabs": {
+        "installed": "已安装 ({{count}})",
+        "browse": "浏览"
+      },
+      "installed": {
+        "filterPlaceholder": "筛选插件…",
+        "scanTitle": "扫描本地插件",
+        "pluginSettingsTitle": "{{name}} 设置",
+        "pageNotFound": "页面未找到。",
+        "noConfig": "没有可配置的设置。",
+        "bundledBadge": "内置",
+        "settingsTitle": "插件设置",
+        "reloadTitle": "重新加载插件",
+        "uninstallTitle": "卸载插件",
+        "noMatch": "没有匹配搜索的插件。",
+        "noneInstalled": "未安装插件。",
+        "sourceLocal": "本地",
+        "sourceUrl": "URL",
+        "sourceInstalled": "已安装"
+      },
+      "browse": {
+        "searchPlaceholder": "搜索插件…",
+        "refreshTitle": "刷新目录",
+        "manageSourcesTitle": "管理源",
+        "sourcesHeader": "插件源",
+        "addSource": "添加源",
+        "addSourcePlaceholder": "https://example.com/plugins.json",
+        "add": "添加",
+        "installedBadge": "已安装",
+        "byAuthor": "作者 {{author}} · v{{version}}",
+        "noCatalog": "目录中没有插件。",
+        "noResults": "没有结果。",
+        "removing": "正在移除…",
+        "uninstall": "卸载",
+        "installing": "正在安装…",
+        "install": "安装"
+      }
+    },
+    "sftp": {
+      "downloads": {
+        "title": "下载",
+        "folderLabel": "下载文件夹",
+        "notSet": "未设置——首次下载时选择",
+        "changeFolder": "更改文件夹"
+      },
+      "transfers": {
+        "title": "传输",
+        "tarAcceleration": {
+          "title": "Tar 加速",
+          "descPre": "在传输前将目录打包为单个 tar.gz——对于许多小文件要快得多。需要两端都启用 ",
+          "descPost": "。"
+        }
+      },
+      "filePanel": {
+        "title": "文件面板",
+        "autoRefresh": {
+          "title": "自动刷新",
+          "desc": "在后台静默重新获取目录内容"
+        },
+        "refreshInterval": {
+          "title": "刷新间隔",
+          "desc": "最小 0.5 秒",
+          "unit": "秒"
+        }
+      },
+      "editor": {
+        "title": "编辑器",
+        "autoSave": {
+          "title": "自动保存",
+          "desc": "在您键入时自动保存文件更改"
+        }
+      }
+    },
+    "portForwarding": {
+      "automationTitle": "自动化",
+      "autoForward": {
+        "title": "自动端口转发",
+        "desc": "在 SSH 会话期间自动转发检测到的监听端口"
+      },
+      "notifications": {
+        "title": "转发通知",
+        "desc": "每次自动转发端口时显示通知"
+      }
+    },
+    "hosts": {
+      "connectivityTitle": "连接性",
+      "reachability": {
+        "title": "可达性检查",
+        "desc": "探测 SSH 端口并在每台主机卡片上显示状态圆点和延迟。可以在主机的设置中禁用。"
+      },
+      "pollInterval": {
+        "title": "轮询间隔",
+        "desc": "主机页面的后台检查频率。"
+      },
+      "ms": "ms",
+      "activeInterval": {
+        "title": "活跃会话间隔",
+        "desc": "终端状态栏中延迟芯片使用的更快频率。"
+      },
+      "keepalive": {
+        "title": "保持连接",
+        "desc": "当服务器停止响应时，多快声明会话已丢失。{{detail}}。可以在每台主机上覆盖。"
+      },
+      "keepalivePresets": {
+        "fast": { "label": "快速", "detail": "在约 4 秒内检测到断开的连接" },
+        "balanced": { "label": "均衡", "detail": "约 9 秒；容忍短暂的网络波动" },
+        "tolerant": { "label": "宽容", "detail": "约 20 秒；适用于不稳定的网络" },
+        "off": { "label": "关闭", "detail": "不发送保持连接探测" }
+      },
+      "persistentSessions": {
+        "title": "持久会话",
+        "desc": "通过在远程 shell 中包裹 tmux 来保持您的 shell 和运行中的进程在断线后存活（回退到 screen）。需要在主机上安装 tmux 或 screen。可以在每台主机上覆盖。"
+      },
+      "terminalTitle": "终端",
+      "shellIntegration": {
+        "title": "Shell 集成",
+        "desc": "挂钩远程/本地 shell 以报告其工作目录（OSC 7），用于 cwd 感知的文件面板。如果主机的欢迎横幅或提示符看起来不正确，请在那里禁用。可以在主机的设置中禁用。"
+      },
+      "teamPresenceTitle": "团队在线状态",
+      "teamPresence": {
+        "title": "共享您正在使用的团队保险库主机",
+        "desc": "开启后，当您打开到某台主机的终端时，您的头像会出现在该主机卡片上。只有有权访问该主机的队友才能看到。"
+      }
+    },
+    "toggleDefs": {
+      "scrollMinimap": { "label": "滚动小地图" },
+      "selectToCopy": { "label": "选择即复制" },
+      "ignoreBracketedPaste": { "label": "纯文本粘贴（无括号粘贴）" },
+      "autoForward": { "label": "自动端口转发" },
+      "forwardingNotifications": { "label": "端口转发通知" },
+      "sftpTar": { "label": "SFTP Tar 加速" },
+      "sftpAutoRefresh": { "label": "SFTP 自动刷新" },
+      "reachability": { "label": "可达性检查" },
+      "teamPresence": { "label": "团队在线状态" },
+      "shellIntegration": { "label": "Shell 集成" },
+      "persistentSessions": { "label": "持久会话" },
+      "restoreWorkspace": { "label": "启动时恢复工作区" },
+      "crossDeviceSessions": { "label": "跨设备会话" },
+      "changelogPopup": { "label": "更新后显示新内容" },
+      "category": {
+        "appearance": "外观",
+        "portForwarding": "端口转发",
+        "sftp": "SFTP",
+        "hosts": "主机",
+        "updates": "更新"
+      }
+    },
+    "shortcuts": {
+      "searchPlaceholder": "搜索快捷键…",
+      "clearSearch": "清除搜索",
+      "resetAll": "重置全部",
+      "resetAllTitle": "将所有快捷键重置为默认值",
+      "statusRecording": "按下键组合…（Esc 取消）",
+      "statusIdle": "点击快捷键以重新绑定。",
+      "result_one": "{{count}} 个结果",
+      "result_other": "{{count}} 个结果",
+      "noMatch": "没有匹配 \"{{query}}\" 的快捷键",
+      "bindingRecordingTitle": "按组合键或 Esc 取消",
+      "bindingIdleTitle": "点击以重新绑定",
+      "pressKey": "按键…",
+      "conflict": "冲突",
+      "aliasTitle": "固定快捷键——始终活跃",
+      "group": {
+        "global": "全局",
+        "tabs": "标签页",
+        "navigation": "导航",
+        "editing": "编辑",
+        "other": "其他"
+      },
+      "items": {
+        "omni":           { "label": "全局搜索",      "desc": "从一个地方访问所有内容" },
+        "shortcuts":      { "label": "键盘快捷键", "desc": "打开快捷键设置" },
+        "themes":         { "label": "设置",         "desc": "打开设置" },
+        "newTab":         { "label": "新建标签页",          "desc": "前往主机视图" },
+        "closeTab":       { "label": "关闭标签页",        "desc": "关闭活跃会话" },
+        "nextTab":        { "label": "下一个标签页",         "desc": "切换到下一个标签页" },
+        "prevTab":        { "label": "上一个标签页",     "desc": "切换到上一个标签页" },
+        "sidebar":        { "label": "切换侧边栏",   "desc": "显示/隐藏侧边栏" },
+        "delete":         { "label": "删除所选",  "desc": "删除所选项目" },
+        "undo":           { "label": "撤销",             "desc": "撤销上一个操作" },
+        "redo":           { "label": "重做",             "desc": "重做上一个撤销的操作" },
+        "filter":         { "label": "聚焦筛选器",     "desc": "聚焦搜索筛选器" },
+        "terminalSearch": { "label": "在终端中查找", "desc": "搜索终端回滚" },
+        "history":        { "label": "历史面板",    "desc": "在右侧面板打开命令历史" },
+        "snippets":       { "label": "代码片段面板",   "desc": "在右侧面板打开代码片段" },
+        "panelThemes":    { "label": "主题面板",     "desc": "在右侧面板打开主题" }
+      }
+    }
+  }
+}
