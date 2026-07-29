@@ -8,7 +8,7 @@ export const SUPPORTED_LOCALES: { value: Locale; label: string }[] = [
   { value: "en", label: "English" },
   { value: "fr", label: "Français" },
   { value: "ru", label: "Русский" },
-  { value: "zh", label: "中文" },
+  { value: "zh", label: "简体中文" },
 ];
 
 interface LocaleStore {

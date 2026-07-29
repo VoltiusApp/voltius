@@ -78,7 +78,9 @@
       "title": "设置",
       "close": "关闭设置",
       "back": "返回",
-      "openHint": "Ctrl+, 打开"
+      "openHint": "Ctrl+, 打开",
+      "expandPluginGroup": "展开插件设置",
+      "collapsePluginGroup": "折叠插件设置"
     },
     "shared": {
       "cancel": "取消",
@@ -234,7 +236,7 @@
         "buyAndInvite_other": "购买 {{count}} 个座位并邀请",
         "errorNotConnected": "未连接到服务器",
         "errorNoSubscription": "未找到有效订阅",
-        "errorUpdateSeats": "更新座位数失败: {{status}}"
+        "errorUpdateSeats": "更新座位数失败：{{status}}"
       }
     },
     "diagnostics": {
@@ -483,13 +485,14 @@
       "categoryLabel": "插件",
       "tabs": {
         "installed": "已安装 ({{count}})",
-        "browse": "浏览"
+        "browse": "浏览",
+        "updateCount_one": "• {{count}} 个更新",
+        "updateCount_other": "• {{count}} 个更新"
       },
       "installed": {
         "filterPlaceholder": "筛选插件…",
         "scanTitle": "扫描本地插件",
         "pluginSettingsTitle": "{{name}} 设置",
-        "pageNotFound": "页面未找到。",
         "noConfig": "没有可配置的设置。",
         "bundledBadge": "内置",
         "settingsTitle": "插件设置",
@@ -499,7 +502,11 @@
         "noneInstalled": "未安装插件。",
         "sourceLocal": "本地",
         "sourceUrl": "URL",
-        "sourceInstalled": "已安装"
+        "sourceInstalled": "已安装",
+        "unverified": "未验证",
+        "update": "更新",
+        "updating": "正在更新…",
+        "updateTitle": "更新到 v{{version}}"
       },
       "browse": {
         "searchPlaceholder": "搜索插件…",
@@ -516,7 +523,146 @@
         "removing": "正在移除…",
         "uninstall": "卸载",
         "installing": "正在安装…",
-        "install": "安装"
+        "install": "安装",
+        "updateBadge": "有可用更新"
+      },
+      "install": {
+        "integrityFailed": "插件包未通过完整性校验——已阻止安装。",
+        "failed": "安装插件失败。"
+      },
+      "permissionModal": {
+        "installTitle": "安装 {{name}}？",
+        "installBody": "此插件将以应用的完整权限运行。它请求以下权限：",
+        "updateTitle": "更新 {{name}}？",
+        "updateBody": "此更新请求新的权限。请在继续前仔细查看：",
+        "newPermissions": "新增权限",
+        "noPermissions": "此插件不请求任何特殊权限。",
+        "installConfirm": "安装",
+        "updateConfirm": "更新",
+        "permissions": {
+          "dangerHeading": "高风险权限",
+          "dangerWarning": "这些权限会赋予插件影响深远的访问能力。请仅授予您信任的插件。",
+          "terminalRead": {
+            "label": "读取终端输出",
+            "description": "读取您终端会话的可见输出和回滚内容。"
+          },
+          "terminalStream": {
+            "label": "实时监视终端输出",
+            "description": "持续实时监视您终端会话中打印的所有内容。"
+          },
+          "terminalWrite": {
+            "label": "在您的终端中输入",
+            "description": "在您的终端会话中发送输入并执行命令——如同您亲自输入一样。"
+          },
+          "keychainRead": {
+            "label": "读取其自身存储的密钥",
+            "description": "读取此插件先前存储在您设备密钥链中的密钥。"
+          },
+          "keychainWrite": {
+            "label": "在您的设备上存储密钥",
+            "description": "将密钥保存到您设备的操作系统密钥链中。"
+          },
+          "sessionsRead": {
+            "label": "查看您的会话",
+            "description": "查看哪些终端会话处于打开状态及其变化。"
+          },
+          "sessionsWrite": {
+            "label": "打开和关闭会话",
+            "description": "打开新的终端会话并关闭现有会话。"
+          },
+          "connectionsRead": {
+            "label": "读取您的连接",
+            "description": "读取您保存的连接及其详细信息。"
+          },
+          "connectionsWrite": {
+            "label": "管理您的连接",
+            "description": "创建、编辑和删除您保存的连接。"
+          },
+          "keysRead": {
+            "label": "读取您的 SSH 密钥",
+            "description": "列出您保存的 SSH 密钥。"
+          },
+          "keysWrite": {
+            "label": "管理您的 SSH 密钥",
+            "description": "代表您创建和删除 SSH 密钥。"
+          },
+          "identitiesRead": {
+            "label": "读取您的身份",
+            "description": "列出您保存的身份。"
+          },
+          "identitiesWrite": {
+            "label": "管理您的身份",
+            "description": "代表您创建和删除身份。"
+          },
+          "vaultRead": {
+            "label": "读取您的保险库",
+            "description": "读取存储在您保险库中的数据。"
+          },
+          "vaultWrite": {
+            "label": "写入您的保险库",
+            "description": "在您的保险库中存储和修改数据。"
+          },
+          "syncRead": {
+            "label": "读取同步数据",
+            "description": "读取在您各设备间同步的数据。"
+          },
+          "syncWrite": {
+            "label": "写入同步数据",
+            "description": "存储和修改在您各设备间同步的数据。"
+          },
+          "storage": {
+            "label": "存储插件数据",
+            "description": "在您的设备上保存此插件自身的设置和数据。"
+          },
+          "http": {
+            "label": "访问网络",
+            "description": "向外部服务发起网络请求。"
+          },
+          "fs": {
+            "label": "访问文件",
+            "description": "读取和写入您设备上的文件。"
+          },
+          "ui": {
+            "label": "显示界面元素",
+            "description": "向应用中添加其自身的面板和控件。"
+          },
+          "notifications": {
+            "label": "显示通知",
+            "description": "向您显示通知和消息提示。"
+          },
+          "settingsPage": {
+            "label": "添加设置页面",
+            "description": "在设置中添加其自身的页面。"
+          },
+          "rightPanel": {
+            "label": "添加侧边面板",
+            "description": "在会话侧边区域添加一个面板。"
+          },
+          "globalPanel": {
+            "label": "添加全局面板",
+            "description": "添加一个在整个应用中均可使用的面板。"
+          },
+          "themes": {
+            "label": "添加颜色主题",
+            "description": "添加其自身的颜色主题供您在应用中选择。"
+          },
+          "omniCommands": {
+            "label": "添加命令面板操作",
+            "description": "向命令面板添加其自身的操作。"
+          },
+          "sidebarItem": {
+            "label": "添加侧边栏项目",
+            "description": "向侧边栏添加其自身的项目。"
+          },
+          "contextMenu": {
+            "label": "添加右键菜单项",
+            "description": "向右键菜单添加其自身的条目。"
+          },
+          "uiContributions": {
+            "label": "添加界面元素",
+            "description": "向应用界面添加其自身的元素。"
+          }
+        }
       }
     },
     "sftp": {
@@ -625,8 +771,10 @@
         "portForwarding": "端口转发",
         "sftp": "SFTP",
         "hosts": "主机",
-        "updates": "更新"
-      }
+        "updates": "更新",
+        "plugins": "插件"
+      },
+      "pluginInstallReview": { "label": "安装插件前先审查权限" }
     },
     "shortcuts": {
       "searchPlaceholder": "搜索快捷键…",

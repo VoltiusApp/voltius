@@ -91,7 +91,7 @@
     "userData": {
       "import": {
         "openFileLabel": "打开文件…",
-        "placeholder": "在此粘贴 Voltius 设置 JSON，或拖放文件…\n\n{ \"type\": \"voltius-user-data\", \"version\": 2, \"sections\": { ... } }",
+        "placeholder": "在此粘贴 Voltius 设置 JSON，或拖放文件…\n\n{ \"type\": \"voltius-user-data\", \"version\": 2, \"sections\": { … } }",
         "foundSections_one": "找到 {{count}} 个设置部分",
         "foundSections_other": "找到 {{count}} 个设置部分",
         "applying": "正在应用…",

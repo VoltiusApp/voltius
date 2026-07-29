@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Simplified Chinese (简体中文) interface language, contributed by
+  [@CoconutHR](https://github.com/CoconutHR). Pick it under Appearance settings;
+  like every language, it syncs across your devices.
+
 ### Security
 
 - Plugins: the gated capability tier — reading, watching, and typing into your
