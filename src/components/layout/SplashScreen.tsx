@@ -13,6 +13,7 @@ import { saveCurrentAccount } from "@/services/savedAccounts";
 import { syncOnLogin, syncOnLoginReplace, startRealtimeSync } from "@/services/sync";
 import { loadPlugin, setLoginSyncPending, resolveLoginSync } from "@/plugins/runtime";
 import { BUNDLED_PLUGINS } from "@/plugins/bundled";
+import { loadSeededPlugins } from "@/plugins/seeded";
 import { loadInstalledPlugins } from "@/stores/marketplaceStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useThemeStore } from "@/stores/themeStore";
@@ -130,6 +131,7 @@ export default function SplashScreen({ onReady }: Props) {
         const active = isEnabled(plugin.manifest.id, plugin.manifest.defaultEnabled ?? true);
         loadPlugin(plugin.manifest, plugin.register, active, true);
       }
+      await loadSeededPlugins();
       await loadInstalledPlugins();
     } catch (e) {
       console.warn("[splash] plugin loading failed, continuing to app:", e);

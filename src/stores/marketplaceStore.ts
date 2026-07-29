@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import i18n from "@/i18n";
 import { invoke } from "@tauri-apps/api/core";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import { loadPlugin, unloadPlugin } from "@/plugins/runtime";
+import { importPluginModule } from "@/plugins/importPluginModule";
 import type { PluginManifest, PluginRegisterFn } from "@/plugins/api";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { appFetch } from "@/services/http";
@@ -201,11 +201,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       await invoke("plugin_write_file", { id: plugin.id, filename: "manifest.json", content: manifestText });
       await invoke("plugin_write_file", { id: plugin.id, filename: "index.js", content: jsText });
 
-      const jsPath = await invoke<string>("plugin_resolve_path", { id: plugin.id, filename: "index.js" });
-      // Cache-bust so a same-session re-install imports the freshly-verified bytes,
-      // not a stale cached module (keyed by verified hash; identical bytes reuse the cache).
-      const url = convertFileSrc(jsPath) + `?v=${verifiedHash ?? Date.now()}`;
-      const mod = await import(/* @vite-ignore */ url) as { default: PluginRegisterFn };
+      const mod = (await importPluginModule(jsText)) as { default: PluginRegisterFn };
       loadPlugin(manifest, mod.default);
 
       const newMeta: InstalledPluginMeta[] = [
@@ -237,9 +233,8 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
     unloadPlugin(id);
     const manifestText = await invoke<string>("plugin_read_file", { id, filename: "manifest.json" });
     const manifest = JSON.parse(manifestText) as PluginManifest;
-    const jsPath = await invoke<string>("plugin_resolve_path", { id, filename: "index.js" });
-    const url = convertFileSrc(jsPath) + `?t=${Date.now()}`;
-    const mod = await import(/* @vite-ignore */ url) as { default: PluginRegisterFn };
+    const jsText = await invoke<string>("plugin_read_file", { id, filename: "index.js" });
+    const mod = (await importPluginModule(jsText)) as { default: PluginRegisterFn };
     loadPlugin(manifest, mod.default);
   },
 
@@ -255,9 +250,8 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       try {
         const manifestText = await invoke<string>("plugin_read_file", { id, filename: "manifest.json" });
         const manifest = JSON.parse(manifestText) as PluginManifest;
-        const jsPath = await invoke<string>("plugin_resolve_path", { id, filename: "index.js" });
-        const url = convertFileSrc(jsPath);
-        const mod = await import(/* @vite-ignore */ url) as { default: PluginRegisterFn };
+        const jsText = await invoke<string>("plugin_read_file", { id, filename: "index.js" });
+        const mod = (await importPluginModule(jsText)) as { default: PluginRegisterFn };
         loadPlugin(manifest, mod.default);
         const newMeta: InstalledPluginMeta[] = [
           ...installedMeta,
@@ -288,9 +282,8 @@ export async function loadInstalledPlugins(): Promise<void> {
     try {
       const manifestText = await invoke<string>("plugin_read_file", { id, filename: "manifest.json" });
       const manifest = JSON.parse(manifestText) as PluginManifest;
-      const jsPath = await invoke<string>("plugin_resolve_path", { id, filename: "index.js" });
-      const url = convertFileSrc(jsPath);
-      const mod = await import(/* @vite-ignore */ url) as { default: PluginRegisterFn };
+      const jsText = await invoke<string>("plugin_read_file", { id, filename: "index.js" });
+      const mod = (await importPluginModule(jsText)) as { default: PluginRegisterFn };
       const { isEnabled } = usePluginRegistryStore.getState();
       const active = isEnabled(manifest.id, manifest.defaultEnabled ?? true);
       loadPlugin(manifest, mod.default, active);

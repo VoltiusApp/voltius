@@ -2,12 +2,13 @@ import { test, expect, vi, beforeEach } from "vitest";
 
 const h = vi.hoisted(() => ({
   invoke: vi.fn(),
-  convertFileSrc: vi.fn(() => "data:text/javascript,export default () => {}//"),
   loadPlugin: vi.fn(),
   unloadPlugin: vi.fn(),
+  importPluginModule: vi.fn(async () => ({ default: () => {} })),
 }));
-vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke, convertFileSrc: h.convertFileSrc }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/plugins/runtime", () => ({ loadPlugin: h.loadPlugin, unloadPlugin: h.unloadPlugin }));
+vi.mock("@/plugins/importPluginModule", () => ({ importPluginModule: h.importPluginModule }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/http", () => ({ appFetch: vi.fn() }));
 vi.mock("@/stores/pluginRegistryStore", () => ({
