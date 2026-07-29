@@ -61,6 +61,8 @@
         "offlineBody": "团队保险库需要互联网连接。您的个人保险库可离线使用。",
         "forbiddenTitle": "访问被撤销",
         "forbiddenBody": "您不再有权访问此团队保险库。请联系团队所有者。",
+        "waitingForAccessTitle": "等待访问权限",
+        "waitingForAccessBody": "需要团队保险库所有者授予您访问权限。当所有者下次在线时将自动完成。",
         "paymentRequiredTitle": "团队保险库不可用",
         "paymentRequiredBodyOwner": "您的订阅已结束。团队保险库需要有效的套餐。",
         "paymentRequiredBodyMember": "所有者的订阅已结束。团队保险库需要有效的套餐。",
