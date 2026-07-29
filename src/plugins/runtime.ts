@@ -345,6 +345,9 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
     requirePerm(manifest, perm);
   };
 
+  // Reserved prefix "plugin:<id>:" namespaces keychain keys per plugin.
+  const kcKey = (key: string): string => `plugin:${id}:${key}`;
+
   const api: PluginAPI = {
     pluginId: id,
     isActive: () => _registry.get(id)?.active ?? true,
@@ -789,19 +792,20 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
     },
 
-    // Keychain — GATED (first-party only). OS-local, unsynced.
+    // Keychain — GATED. OS-local, unsynced. Keys are namespaced per plugin
+    // (prefix "plugin:<id>:") so keychain:read cannot reach another plugin's secrets.
     keychain: {
       async get(key) {
         requireGated("keychain:read");
-        return invoke<string | null>("keychain_get", { key });
+        return invoke<string | null>("keychain_get", { key: kcKey(key) });
       },
       async set(key, value) {
         requireGated("keychain:write");
-        await invoke("keychain_set", { key, value });
+        await invoke("keychain_set", { key: kcKey(key), value });
       },
       async delete(key) {
         requireGated("keychain:write");
-        await invoke("keychain_delete", { key });
+        await invoke("keychain_delete", { key: kcKey(key) });
       },
     },
 

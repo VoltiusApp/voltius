@@ -21,21 +21,21 @@ describe("gated keychain verb", () => {
     (invoke as Mock).mockResolvedValue("secret-val");
     loadPlugin(manifest(["keychain:read"]), register, true, true);
     await expect(captured.keychain.get("ai-agent:k")).resolves.toBe("secret-val");
-    expect(invoke).toHaveBeenCalledWith("keychain_get", { key: "ai-agent:k" });
+    expect(invoke).toHaveBeenCalledWith("keychain_get", { key: "plugin:t:ai-agent:k" });
   });
 
   test("trusted plugin with keychain:write writes via keychain_set", async () => {
     (invoke as Mock).mockResolvedValue(undefined);
     loadPlugin(manifest(["keychain:write"]), register, true, true);
     await captured.keychain.set("ai-agent:k", "v");
-    expect(invoke).toHaveBeenCalledWith("keychain_set", { key: "ai-agent:k", value: "v" });
+    expect(invoke).toHaveBeenCalledWith("keychain_set", { key: "plugin:t:ai-agent:k", value: "v" });
   });
 
   test("trusted plugin with keychain:write deletes via keychain_delete", async () => {
     (invoke as Mock).mockResolvedValue(undefined);
     loadPlugin(manifest(["keychain:write"]), register, true, true);
     await captured.keychain.delete("ai-agent:k");
-    expect(invoke).toHaveBeenCalledWith("keychain_delete", { key: "ai-agent:k" });
+    expect(invoke).toHaveBeenCalledWith("keychain_delete", { key: "plugin:t:ai-agent:k" });
   });
 
   test("untrusted plugin that declares keychain:read is now allowed (consent model)", async () => {
@@ -48,5 +48,19 @@ describe("gated keychain verb", () => {
     loadPlugin(manifest(["keychain:read"]), register, true, true);
     await expect(captured.keychain.set("k", "v")).rejects.toThrow(/requires permission/);
     expect(invoke).not.toHaveBeenCalled();
+  });
+
+  test("two plugin ids read different namespaced keys (isolation)", async () => {
+    (invoke as Mock).mockResolvedValue(null);
+    let apiA!: import("./api").PluginAPI;
+    let apiB!: import("./api").PluginAPI;
+    loadPlugin({ id: "a", name: "A", version: "1", permissions: ["keychain:read"] }, (api) => { apiA = api; }, true, false);
+    loadPlugin({ id: "b", name: "B", version: "1", permissions: ["keychain:read"] }, (api) => { apiB = api; }, true, false);
+    await apiA.keychain.get("token");
+    await apiB.keychain.get("token");
+    expect(invoke).toHaveBeenCalledWith("keychain_get", { key: "plugin:a:token" });
+    expect(invoke).toHaveBeenCalledWith("keychain_get", { key: "plugin:b:token" });
+    try { unloadPlugin("a"); } catch { /* noop */ }
+    try { unloadPlugin("b"); } catch { /* noop */ }
   });
 });
