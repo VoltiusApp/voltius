@@ -83,6 +83,13 @@ export interface RightPanelSection {
   label: string;
   icon: string;
   component: React.FC;
+  /** Opt-in: this section drives the terminal status bar's high-CPU indicator
+   *  and its metrics stream. Explicit flag rather than an id check, so a plugin
+   *  can't inherit the host integration by squatting another plugin's section id. */
+  providesHostMetrics?: boolean;
+  /** Opt-in: this section owns an in-panel search bar that Ctrl+F should focus
+   *  when the section is open, via the "voltius:focus-panel-search" event. */
+  hasPanelSearch?: boolean;
 }
 
 /** Nav-stack entries a plugin may push via `pushMobileScreen`. Each member's

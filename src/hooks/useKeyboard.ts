@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useUIStore } from "@/stores/uiStore";
+import { usePluginStore } from "@/stores/pluginStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { matchShortcut } from "@/stores/shortcutStore";
@@ -45,8 +46,12 @@ export function useKeyboard() {
       if (matchShortcut("terminal-search", e)) {
         e.preventDefault();
         const { rightPanelOpen, rightPanelSection, activeNav } = useUIStore.getState();
-        const SEARCHABLE_SECTIONS = ["snippets", "history", "plugin:docker"];
-        if (rightPanelOpen && SEARCHABLE_SECTIONS.includes(rightPanelSection)) {
+        const BUILTIN_SEARCHABLE_SECTIONS = ["snippets", "history"];
+        // Not keyed by a literal plugin section id — a plugin opts in via
+        // hasPanelSearch so a squatted id can't inherit the Ctrl+F wiring.
+        const isPluginSectionSearchable = rightPanelSection.startsWith("plugin:") &&
+          usePluginStore.getState().rightPanelSections.get(rightPanelSection.slice("plugin:".length))?.hasPanelSearch === true;
+        if (rightPanelOpen && (BUILTIN_SEARCHABLE_SECTIONS.includes(rightPanelSection) || isPluginSectionSearchable)) {
           window.dispatchEvent(new CustomEvent("voltius:focus-panel-search"));
         } else if (activeNav === "terminal") {
           const activeId = useSessionStore.getState().activeSessionId;

@@ -48,6 +48,22 @@ interface PluginStore {
   unregisterAll(pluginId: string): void;
 }
 
+/**
+ * First-registered section with `flag` set wins. Used by host code (e.g. the
+ * terminal status bar's metrics indicator) that needs to pick a single section
+ * to integrate with — an explicit opt-in flag rather than a literal id check,
+ * so a plugin can't inherit the integration by squatting another plugin's id.
+ */
+export function findRightPanelSectionWithFlag(
+  sections: Map<string, RightPanelSection>,
+  flag: "providesHostMetrics" | "hasPanelSearch",
+): RightPanelSection | null {
+  for (const section of sections.values()) {
+    if (section[flag]) return section;
+  }
+  return null;
+}
+
 function mapSet<V>(m: Map<string, V>, key: string, val: V): Map<string, V> {
   const next = new Map(m);
   next.set(key, val);

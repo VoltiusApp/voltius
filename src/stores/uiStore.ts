@@ -257,6 +257,18 @@ export const useUIStore = create<UIStore>()(
     }),
     {
       name: "voltius-ui",
+      version: 1,
+      // v0 → v1: plugin right-panel section ids became "${pluginId}:${sectionId}"
+      // (namespaced). A persisted "plugin:<oldId>" selection from before that
+      // change no longer matches any registered section — drop it back to the
+      // default rather than leaving the panel blank after upgrade.
+      migrate: (persisted, version) => {
+        const state = persisted as { rightPanelSection?: string } | undefined;
+        if (version < 1 && typeof state?.rightPanelSection === "string" && state.rightPanelSection.startsWith("plugin:")) {
+          state.rightPanelSection = "themes";
+        }
+        return state as unknown as UIStore;
+      },
       partialize: (state) => ({
         uiScale: state.uiScale,
         settingsSection: state.settingsSection,

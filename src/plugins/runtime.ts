@@ -592,8 +592,9 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       registerRightPanelSection(section) {
         requirePerm(manifest, "right-panel");
-        store().registerRightPanelSection(section);
-        return () => store().unregisterRightPanelSection(section.id);
+        const prefixed = { ...section, id: section.id.startsWith(id) ? section.id : `${id}:${section.id}` };
+        store().registerRightPanelSection(prefixed);
+        return () => store().unregisterRightPanelSection(prefixed.id);
       },
       registerGlobalPanel(panel) {
         requirePerm(manifest, "global-panel");

@@ -7,7 +7,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
 import { useHostPingStore } from "@/stores/hostPingStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
-import { usePluginStore } from "@/stores/pluginStore";
+import { usePluginStore, findRightPanelSectionWithFlag } from "@/stores/pluginStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
@@ -130,7 +130,13 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
   const rightPanelSection = useUIStore((s) => s.rightPanelSection);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
-  const monitoringActive = usePluginStore((s) => s.rightPanelSections.has("monitoring"));
+  // Not keyed by a literal section id — any registered section can opt in via
+  // providesHostMetrics, so a squatted id can't inherit this integration.
+  // First-registered flagged section wins if more than one sets the flag.
+  const metricsSectionId = usePluginStore(
+    (s) => findRightPanelSectionWithFlag(s.rightPanelSections, "providesHostMetrics")?.id ?? null,
+  );
+  const monitoringActive = metricsSectionId !== null;
   const reconnect = useSessionStore((s) => s.reconnect);
   const disconnect = useSessionStore((s) => s.disconnect);
 
@@ -426,7 +432,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
 
   const activeTunnelCount = tunnels.filter((t) => t.state === "active").length;
   const portsIsActive = rightPanelOpen && rightPanelSection === "ports";
-  const metricsIsActive = rightPanelOpen && rightPanelSection === "plugin:monitoring";
+  const metricsIsActive = rightPanelOpen && metricsSectionId !== null && rightPanelSection === `plugin:${metricsSectionId}`;
   const isConnected = sessionStatus === "connected";
   const isDisconnectedOrError = sessionStatus === "disconnected" || sessionStatus === "error";
 
@@ -797,7 +803,7 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
           )}
           {metrics && (
             <button
-              onClick={() => toggleRightPanel("plugin:monitoring")}
+              onClick={() => metricsSectionId && toggleRightPanel(`plugin:${metricsSectionId}`)}
               className={`flex items-center gap-1.5 px-1.5 ${statusBarItemClass}`}
               style={{
                 color: "var(--t-text-dim)",
