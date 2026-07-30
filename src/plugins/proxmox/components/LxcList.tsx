@@ -7,7 +7,7 @@ interface Props {
   containers: LxcContainer[];
   onAction: (vmid: number, action: LxcAction) => Promise<void>;
   onSnapshots: (vmid: number, vmName: string) => void;
-  onShell: (vmid: number) => void;
+  onShell: (vmid: number, vmName: string) => void;
 }
 
 function statusDot(status: string) {
@@ -54,7 +54,7 @@ function LxcRow({
   container: LxcContainer;
   onAction: (vmid: number, action: LxcAction) => Promise<void>;
   onSnapshots: (vmid: number, vmName: string) => void;
-  onShell: (vmid: number) => void;
+  onShell: (vmid: number, vmName: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const running = container.status === "running";
@@ -99,7 +99,7 @@ function LxcRow({
             icon="lucide:terminal"
             title="Open shell"
             disabled={busy}
-            onClick={() => onShell(container.vmid)}
+            onClick={() => onShell(container.vmid, container.name)}
             color="text-(--t-accent) opacity-80 hover:opacity-100"
           />
         )}

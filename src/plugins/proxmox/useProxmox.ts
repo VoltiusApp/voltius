@@ -102,7 +102,7 @@ export function useProxmox(
   );
 
   const openShell = useCallback(
-    (vmid: number) => service.openShell(sessionId, vmid),
+    (vmid: number, vmName?: string) => service.openShell(sessionId, vmid, vmName),
     [service, sessionId],
   );
 

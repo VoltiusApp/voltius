@@ -234,8 +234,9 @@ export interface ProxmoxAPI {
   lxc: {
     list(sessionId: string): Promise<unknown[]>;
     action(sessionId: string, vmid: number, action: string): Promise<void>;
-    /** Opens a pct-exec shell into the container and returns the new session's id. */
-    openShell(sessionId: string, vmid: number): Promise<string>;
+    /** Opens a pct-exec shell into the container and returns the new session's id.
+     *  vmName is display-only — used for the resulting terminal tab's label. */
+    openShell(sessionId: string, vmid: number, vmName?: string): Promise<string>;
     snapshots: {
       list(sessionId: string, vmid: number): Promise<unknown[]>;
       create(sessionId: string, vmid: number, name: string, description?: string): Promise<void>;

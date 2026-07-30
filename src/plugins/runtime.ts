@@ -28,6 +28,7 @@ import * as identityService from "@/services/identities";
 import { storePluginSecret, getPluginSecret, deletePluginSecret, storeSecret, deleteSecret } from "@/services/vault";
 import { appFetch } from "@/services/http";
 import { sseFetch } from "@/services/sseFetch";
+import { registerLxcExecSession } from "@/services/proxmox";
 import type {
   PluginAPI,
   PluginManifest,
@@ -897,31 +898,20 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         // store and marks it connected — the same bookkeeping useSessionStore.connect
         // does for a normal SSH connect. A plugin has no store access of its own
         // (sessions:write only covers connecting *saved connections*), so this lives
-        // here rather than in the pure domains/proxmox.ts invoke wrapper.
-        openShell: async (sessionId, vmid) => {
+        // here rather than in the pure domains/proxmox.ts invoke wrapper. Shared with
+        // MobileProxmoxScreen's own call site via registerLxcExecSession so the two
+        // can't drift (they did, once — see @/services/proxmox.ts).
+        openShell: async (sessionId, vmid, vmName) => {
           requireGated("proxmox:manage");
           const execSessionId = await proxmoxApi.lxc.openShell(sessionId, vmid);
           const parent = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
-          useSessionStore.setState((s) => ({
-            sessions: [
-              ...s.sessions,
-              {
-                id: execSessionId,
-                connectionId: parent?.connectionId ?? "",
-                connectionName: `pct: ${vmid}`,
-                status: "connecting" as const,
-                type: "ssh" as const,
-                containerExec: { kind: "lxc" as const, vmid, parentSessionId: sessionId },
-              },
-            ],
-            activeSessionId: execSessionId,
-          }));
-          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-          useSessionStore.setState((s) => ({
-            sessions: s.sessions.map((sess) =>
-              sess.id === execSessionId ? { ...sess, status: "connected" as const } : sess,
-            ),
-          }));
+          await registerLxcExecSession({
+            execSessionId,
+            parentSessionId: sessionId,
+            connectionId: parent?.connectionId ?? "",
+            vmid,
+            vmName,
+          });
           return execSessionId;
         },
         snapshots: {

@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { useSessionStore } from "@/stores/sessionStore";
 import type { LxcAction, LxcContainer, LxcSnapshot } from "@/plugins/proxmox/types";
 
 // Mirrors src/plugins/domains/proxmox.ts. Kept as a separate host-side copy (like
@@ -60,4 +61,42 @@ export function proxmoxLxcSnapshotDelete(sessionId: string, vmid: number, name: 
 
 export function proxmoxLxcOpenShell(sessionId: string, vmid: number): Promise<string> {
   return invoke("proxmox_lxc_open_shell", { sessionId, vmid });
+}
+
+/**
+ * Registers an already-opened LXC exec session (the id `proxmoxLxcOpenShell`
+ * returned) as a real terminal tab and marks it connected — the same
+ * bookkeeping `useSessionStore`'s own connect flows do. Shared by both callers
+ * that need it (the plugin's `api.proxmox.lxc.openShell` wiring in runtime.ts,
+ * and the mobile Proxmox screen) so the tab label and containerExec metadata
+ * can't drift between them the way they did before this was factored out.
+ */
+export async function registerLxcExecSession(opts: {
+  execSessionId: string;
+  parentSessionId: string;
+  connectionId: string;
+  vmid: number;
+  vmName?: string;
+}): Promise<void> {
+  const { execSessionId, parentSessionId, connectionId, vmid, vmName } = opts;
+  useSessionStore.setState((s) => ({
+    sessions: [
+      ...s.sessions,
+      {
+        id: execSessionId,
+        connectionId,
+        connectionName: `pct: ${vmName ?? vmid}`,
+        status: "connecting" as const,
+        type: "ssh" as const,
+        containerExec: { kind: "lxc" as const, vmid, parentSessionId },
+      },
+    ],
+    activeSessionId: execSessionId,
+  }));
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  useSessionStore.setState((s) => ({
+    sessions: s.sessions.map((sess) =>
+      sess.id === execSessionId ? { ...sess, status: "connected" as const } : sess,
+    ),
+  }));
 }

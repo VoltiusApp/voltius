@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { getProxmoxApi } from "../runtime";
 import { createProxmoxService } from "../services";
 import { useActiveSession } from "../useActiveSession";
+import { useIsProxmoxHost } from "../useIsProxmoxHost";
 import { useProxmox } from "../useProxmox";
 import { LxcList } from "./LxcList";
 import { SnapshotList } from "./SnapshotList";
@@ -11,29 +12,26 @@ export function ProxmoxPanel() {
   const api = getProxmoxApi();
   const activeSession = useActiveSession();
   const service = useMemo(() => createProxmoxService(api!.proxmox), [api]);
-  const [isProxmoxHost, setIsProxmoxHost] = useState(false);
+  const isProxmoxHost = useIsProxmoxHost(api, activeSession);
 
-  useEffect(() => {
-    let cancelled = false;
-    if (!activeSession) {
-      setIsProxmoxHost(false);
-      return;
-    }
-    api?.connections.get(activeSession.connectionId).then((c) => {
-      if (!cancelled) setIsProxmoxHost(c?.distro === "proxmox");
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [api, activeSession?.connectionId]);
-
-  const px = useProxmox(service, activeSession ?? undefined, isProxmoxHost);
+  const px = useProxmox(service, activeSession ?? undefined, isProxmoxHost === true);
   const { state } = px;
 
   if (!px.ready) {
     return (
       <div className="flex items-center justify-center h-full opacity-40">
         <p className="text-sm text-(--t-text-muted)">No active session</p>
+      </div>
+    );
+  }
+
+  // Still resolving api.connections.get for this session — a real IPC round
+  // trip, not a microtask. Rendering the "not detected" placeholder here would
+  // flash it on every mount/session-change before flipping to the real panel.
+  if (isProxmoxHost === null) {
+    return (
+      <div className="flex items-center justify-center h-full opacity-40">
+        <Icon icon="lucide:loader-circle" width={16} className="animate-spin text-(--t-text-dim)" />
       </div>
     );
   }
@@ -66,9 +64,9 @@ export function ProxmoxPanel() {
     px.openSnapshots(vmid, vmName);
   };
 
-  const onShell = async (vmid: number) => {
+  const onShell = async (vmid: number, vmName: string) => {
     try {
-      await px.openShell(vmid);
+      await px.openShell(vmid, vmName);
       api?.ui.setActiveNav("terminal");
     } catch (e) {
       console.error("[proxmox] open shell failed:", e);

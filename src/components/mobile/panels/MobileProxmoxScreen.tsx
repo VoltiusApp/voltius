@@ -13,6 +13,7 @@ import {
   proxmoxLxcSnapshotRollback,
   proxmoxLxcSnapshotDelete,
   proxmoxLxcOpenShell,
+  registerLxcExecSession,
 } from "@/services/proxmox";
 import type { ProxmoxService } from "@/plugins/proxmox/services";
 import { useProxmox } from "@/plugins/proxmox/useProxmox";
@@ -65,31 +66,19 @@ export default function MobileProxmoxScreen({ sessionId }: { sessionId: string }
 
   // Session registration (the plugin-side path gets this for free from
   // api.proxmox.lxc.openShell's host-side wiring in runtime.ts — the mobile
-  // screen has direct store access instead, so it does the same bookkeeping here.
+  // screen has direct store access instead, so it calls the same shared
+  // registerLxcExecSession helper to avoid the two copies drifting.
   const onShell = async (c: LxcContainer) => {
     setSheetFor(null);
     try {
-      const execSessionId = await px.openShell(c.vmid);
-      useSessionStore.setState((s) => ({
-        sessions: [
-          ...s.sessions,
-          {
-            id: execSessionId,
-            connectionId: session?.connectionId ?? "",
-            connectionName: `pct: ${c.name}`,
-            status: "connecting" as const,
-            type: "ssh" as const,
-            containerExec: { kind: "lxc" as const, vmid: c.vmid, parentSessionId: sessionId },
-          },
-        ],
-        activeSessionId: execSessionId,
-      }));
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-      useSessionStore.setState((s) => ({
-        sessions: s.sessions.map((sess) =>
-          sess.id === execSessionId ? { ...sess, status: "connected" as const } : sess,
-        ),
-      }));
+      const execSessionId = await px.openShell(c.vmid, c.name);
+      await registerLxcExecSession({
+        execSessionId,
+        parentSessionId: sessionId,
+        connectionId: session?.connectionId ?? "",
+        vmid: c.vmid,
+        vmName: c.name,
+      });
       setTab("terminal");
     } catch (e) {
       console.error("[proxmox] open shell failed:", e);
