@@ -12,7 +12,6 @@ import { availableUpdate, addedPermissions } from "@/plugins/updates";
 import { requiresInstallConsent } from "@/plugins/gatedPermissions";
 import { getToggle, useToggle } from "@/stores/toggleSettingsStore";
 import { PluginPermissionModal } from "./PluginPermissionModal";
-import { BUNDLED_PLUGINS } from "@/plugins/bundled";
 import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
 import { setPluginActive, getLoadedPlugins, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
 import type { PluginManifest, PluginConfigField } from "@/plugins/api";
@@ -253,10 +252,9 @@ function usePluginInstaller() {
 // ─── Installed tab ─────────────────────────────────────────────────────────
 
 /**
- * Seeded first-party plugins (loaded from resources, not `BUNDLED_PLUGINS`) have no
- * static entry anywhere — the runtime registry is the only place that knows they
- * exist. `excludeIds` strips out bundled and externally-installed ids so a plugin
- * is never listed twice.
+ * Seeded first-party plugins have no static entry anywhere — the runtime registry
+ * is the only place that knows they exist. `excludeIds` strips out externally-installed
+ * ids so a plugin is never listed twice.
  */
 function seededPluginManifests(excludeIds: Set<string>): PluginManifest[] {
   return getLoadedPlugins().filter((m) => !excludeIds.has(m.id));
@@ -343,10 +341,9 @@ export function InstalledTab() {
   const externalPluginIds = new Set(installedMeta.map((m) => m.id));
   const externalManifests = getLoadedPlugins().filter((m) => externalPluginIds.has(m.id));
 
-  const bundledIds = new Set(BUNDLED_PLUGINS.map((p) => p.manifest.id));
-  const seeded = seededPluginManifests(new Set([...bundledIds, ...externalPluginIds]));
-  const allBundled = visiblePlugins(
-    [...BUNDLED_PLUGINS, ...seeded.map((manifest) => ({ manifest }))],
+  const seeded = seededPluginManifests(externalPluginIds);
+  const allSeeded = visiblePlugins(
+    seeded.map((manifest) => ({ manifest })),
     isAndroid,
   );
   const allExternal = installedMeta;
@@ -357,7 +354,7 @@ export function InstalledTab() {
     return name.toLowerCase().includes(q) || (description ?? "").toLowerCase().includes(q);
   };
 
-  const filteredBundled = allBundled.filter(({ manifest }) =>
+  const filteredSeeded = allSeeded.filter(({ manifest }) =>
     matchesSearch(manifest.name, manifest.description),
   );
   const filteredExternal = allExternal.filter((meta) => {
@@ -393,8 +390,8 @@ export function InstalledTab() {
     </div>
     <div className="flex-1 overflow-y-auto p-6 space-y-5">
       <div className="space-y-2">
-        {/* Bundled plugins */}
-        {filteredBundled.map(({ manifest }) => {
+        {/* Seeded first-party plugins */}
+        {filteredSeeded.map(({ manifest }) => {
           const enabled = isEnabled(manifest.id, manifest.defaultEnabled ?? true) && loadedIds.has(manifest.id);
           const pluginPages = [...settingsPages.values()].filter((p) => p.id.startsWith(manifest.id));
           const hasAutoConfig = !!manifest.contributes?.configuration && Object.keys(manifest.contributes.configuration).length > 0;
@@ -538,7 +535,7 @@ export function InstalledTab() {
           );
         })}
 
-        {filteredBundled.length === 0 && filteredExternal.length === 0 && (
+        {filteredSeeded.length === 0 && filteredExternal.length === 0 && (
           <p className="text-sm text-center py-8 text-(--t-text-dim)">
             {search
               ? t("settings.plugins.installed.noMatch")
@@ -852,13 +849,12 @@ export default function PluginsSection() {
   const catalogLoading = useMarketplaceStore((s) => s.catalogLoading);
   const fetchCatalog = useMarketplaceStore((s) => s.fetchCatalog);
   const isAndroid = useIsAndroid();
-  const bundledIds = new Set(BUNDLED_PLUGINS.map((p) => p.manifest.id));
   const externalIds = new Set(installedMeta.map((m) => m.id));
   const seededCount = visiblePlugins(
-    seededPluginManifests(new Set([...bundledIds, ...externalIds])).map((manifest) => ({ manifest })),
+    seededPluginManifests(externalIds).map((manifest) => ({ manifest })),
     isAndroid,
   ).length;
-  const totalCount = visiblePlugins(BUNDLED_PLUGINS, isAndroid).length + installedMeta.length + seededCount;
+  const totalCount = installedMeta.length + seededCount;
 
   // Fetch the catalog once on mount so update detection works before visiting Browse.
   useEffect(() => {

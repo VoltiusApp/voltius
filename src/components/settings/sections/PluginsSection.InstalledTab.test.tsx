@@ -17,11 +17,6 @@ vi.mock("@/plugins/runtime", () => ({
   pluginStorageGet: vi.fn(async () => null),
   pluginStorageSet: vi.fn(async () => {}),
 }));
-vi.mock("@/plugins/bundled", () => ({
-  get BUNDLED_PLUGINS() {
-    return loaded.list.map((m) => ({ manifest: m, register: () => () => {} }));
-  },
-}));
 const marketplaceState = {
   installedMeta: [] as unknown[], catalog: [] as unknown[],
   installing: new Set<string>(),

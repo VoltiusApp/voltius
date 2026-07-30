@@ -129,19 +129,3 @@ pub fn plugin_seeded_read(
     let path = seeded_dir(&app)?.join(&id).join(&filename);
     std::fs::read_to_string(path).map_err(|e| e.to_string())
 }
-
-/// Resolve `resources/plugins/<id>/<filename>` to an absolute path.
-#[tauri::command]
-pub fn plugin_seeded_path(
-    app: tauri::AppHandle,
-    id: String,
-    filename: String,
-) -> Result<String, String> {
-    if id.contains("..") || id.contains('/') || filename.contains("..") || filename.contains('/') {
-        return Err("invalid path component".to_string());
-    }
-    let path = seeded_dir(&app)?.join(&id).join(&filename);
-    path.to_str()
-        .map(|s| s.to_string())
-        .ok_or_else(|| "non-UTF-8 path".to_string())
-}
