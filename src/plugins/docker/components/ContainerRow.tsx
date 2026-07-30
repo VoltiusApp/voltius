@@ -1,4 +1,4 @@
-import { writeClipboard } from "../../../utils/clipboard";
+import { writeClipboard } from "../clipboard";
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { dockerContainerAction, dockerContainerRunCommand } from "../services";

@@ -1,4 +1,4 @@
-import { writeClipboard } from "../../utils/clipboard";
+import { writeClipboard } from "./clipboard";
 import React, { useEffect, useRef, useState } from "react";
 import { useAutosave, Icon, InfoTooltip } from "@voltius/ui";
 import type { PluginAPI } from "@/plugins/api";
