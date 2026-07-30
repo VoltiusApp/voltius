@@ -1,5 +1,6 @@
 import type { PluginAPI, PluginManifest, PluginRegisterFn } from "@/plugins/api";
 import type { GistSyncPublicApi } from "@/services/syncStatus";
+import manifestJson from "./manifest.json";
 import { createSettingsPage } from "./SettingsPage";
 import {
   init,
@@ -10,28 +11,7 @@ import {
   push,
 } from "./sync-engine";
 
-// ─── Manifest ─────────────────────────────────────────────────────────────────
-
-export const manifest: PluginManifest = {
-  id: "plugin-gist-sync",
-  name: "GitHub Gist Sync",
-  version: "1.0.0",
-  description:
-    "Sync your data across devices via encrypted GitHub Gist — no Voltius account required.",
-  permissions: [
-    "vault:read",
-    "vault:write",
-    "storage",
-    "http",
-    "crypto:derive",
-    "ui",
-    "sync:read",
-    "sync:write",
-    "notifications",
-    "settings-page",
-  ],
-  defaultEnabled: false,
-};
+export const manifest = manifestJson as PluginManifest;
 
 // ─── Register ─────────────────────────────────────────────────────────────────
 

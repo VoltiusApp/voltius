@@ -12,7 +12,8 @@
     "identities:write",
     "fs",
     "settings-page",
-    "notifications"
+    "notifications",
+    "storage"
   ],
   "defaultEnabled": true,
   "desktopOnly": true
