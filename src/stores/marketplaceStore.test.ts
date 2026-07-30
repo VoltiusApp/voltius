@@ -66,3 +66,112 @@ test("mismatched hash throws and writes nothing", async () => {
   expect(wrote).toBe(false);
   expect(useMarketplaceStore.getState().installedMeta.find((m) => m.id === "p1")).toBeUndefined();
 });
+
+// ─── Source persistence ───────────────────────────────────────────────────
+
+const SOURCES_FILE = "marketplace-sources.json";
+
+function sourceWrites() {
+  return h.invoke.mock.calls
+    .filter(([cmd, args]) => cmd === "plugin_write_file" && (args as { filename: string }).filename === SOURCES_FILE)
+    .map(([, args]) => JSON.parse((args as { content: string }).content));
+}
+
+function resetSources() {
+  useMarketplaceStore.setState({ sources: [FIRST_PARTY_SOURCE_FIXTURE] });
+}
+
+const FIRST_PARTY_SOURCE_FIXTURE = {
+  id: "voltius",
+  name: "Voltius Marketplace",
+  url: "https://raw.githubusercontent.com/voltiusApp/marketplace/main/plugins.json",
+  enabled: true,
+  deletable: false,
+};
+
+test("addSource persists the new source", async () => {
+  resetSources();
+  const { appFetch } = await import("@/services/http");
+  vi.mocked(appFetch).mockResolvedValue({
+    ok: true, json: async () => ({ id: "third", name: "Third Party" }),
+  } as Response);
+
+  await useMarketplaceStore.getState().addSource("https://example.com/plugins.json");
+
+  const writes = sourceWrites();
+  expect(writes.length).toBe(1);
+  expect(writes[0].custom).toEqual([
+    { id: "third", name: "Third Party", url: "https://example.com/plugins.json", enabled: true, deletable: true },
+  ]);
+});
+
+test("removeSource persists the removal", async () => {
+  resetSources();
+  useMarketplaceStore.setState({
+    sources: [FIRST_PARTY_SOURCE_FIXTURE,
+      { id: "third", name: "Third", url: "https://example.com/p.json", enabled: true, deletable: true }],
+  });
+
+  await useMarketplaceStore.getState().removeSource("third");
+
+  const w = sourceWrites();
+  expect(w[w.length - 1].custom).toEqual([]);
+});
+
+test("toggleSource persists the enabled flag, including for the built-in source", async () => {
+  resetSources();
+  await useMarketplaceStore.getState().toggleSource("voltius");
+
+  expect(useMarketplaceStore.getState().sources[0].enabled).toBe(false);
+  const w = sourceWrites();
+  expect(w[w.length - 1].enabled).toEqual({ voltius: false });
+});
+
+test("loadSources restores custom sources and enabled overrides across a restart", async () => {
+  resetSources();
+  h.invoke.mockImplementation(async (cmd: string, args: { filename?: string }) => {
+    if (cmd === "plugin_read_file" && args.filename === SOURCES_FILE) {
+      return JSON.stringify({
+        custom: [{ id: "third", name: "Third", url: "https://example.com/p.json", enabled: true, deletable: true }],
+        enabled: { voltius: false, third: true },
+      });
+    }
+    throw new Error("not found");
+  });
+
+  await useMarketplaceStore.getState().loadSources();
+
+  const sources = useMarketplaceStore.getState().sources;
+  expect(sources.map((s) => s.id)).toEqual(["voltius", "third"]);
+  expect(sources[0].enabled).toBe(false);
+  expect(sources[0].deletable).toBe(false);
+  expect(sources[1].enabled).toBe(true);
+});
+
+test("loadSources on a fresh profile leaves just the built-in source", async () => {
+  resetSources();
+  h.invoke.mockImplementation(async () => { throw new Error("not found"); });
+
+  await useMarketplaceStore.getState().loadSources();
+
+  expect(useMarketplaceStore.getState().sources).toEqual([FIRST_PARTY_SOURCE_FIXTURE]);
+});
+
+test("loadSources never resurrects a custom source as non-deletable", async () => {
+  resetSources();
+  h.invoke.mockImplementation(async (cmd: string, args: { filename?: string }) => {
+    if (cmd === "plugin_read_file" && args.filename === SOURCES_FILE) {
+      return JSON.stringify({
+        custom: [{ id: "voltius", name: "Impostor", url: "https://evil.example/p.json", enabled: true, deletable: false }],
+        enabled: {},
+      });
+    }
+    throw new Error("not found");
+  });
+
+  await useMarketplaceStore.getState().loadSources();
+
+  const sources = useMarketplaceStore.getState().sources;
+  expect(sources.length).toBe(1);
+  expect(sources[0].url).toBe(FIRST_PARTY_SOURCE_FIXTURE.url);
+});

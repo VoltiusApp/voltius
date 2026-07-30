@@ -632,10 +632,10 @@ function BrowseTab() {
                   <p className="text-sm font-medium text-(--t-text-primary) truncate">{source.name}</p>
                   <p className="text-xs text-(--t-text-dim) truncate">{source.url}</p>
                 </div>
-                <Toggle checked={source.enabled} onChange={() => toggleSource(source.id)} />
+                <Toggle checked={source.enabled} onChange={() => { void toggleSource(source.id).catch(console.warn); }} />
                 {source.deletable && (
                   <button
-                    onClick={() => removeSource(source.id)}
+                    onClick={() => { void removeSource(source.id).catch(console.warn); }}
                     className="p-1.5 rounded-lg text-(--t-text-dim) transition-colors"
                     onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)"; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}

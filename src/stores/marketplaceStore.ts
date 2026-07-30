@@ -42,6 +42,7 @@ export interface InstalledPluginMeta {
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
 const INSTALLED_META_KEY = "installed-plugins";
+const SOURCES_META_KEY = "marketplace-sources";
 
 const FIRST_PARTY_SOURCE: MarketplaceSource = {
   id: "voltius",
@@ -69,6 +70,26 @@ async function writeInstalledMeta(list: InstalledPluginMeta[]): Promise<void> {
   });
 }
 
+/** On-disk shape for marketplace sources. Only user-added sources are stored; the
+ *  built-in one is re-created from code each boot so its name/url stay upgradeable,
+ *  with just its enabled flag carried over. */
+interface PersistedSources {
+  custom: MarketplaceSource[];
+  enabled: Record<string, boolean>;
+}
+
+async function writeSources(sources: MarketplaceSource[]): Promise<void> {
+  const payload: PersistedSources = {
+    custom: sources.filter((s) => s.deletable),
+    enabled: Object.fromEntries(sources.map((s) => [s.id, s.enabled])),
+  };
+  await invoke("plugin_write_file", {
+    id: "__meta__",
+    filename: SOURCES_META_KEY + ".json",
+    content: JSON.stringify(payload, null, 2),
+  });
+}
+
 /**
  * Best-effort read of a plugin's stylesheet from its local install directory —
  * mirrors the seeded loader (`seeded.ts`). Unlike `installPlugin`, this never
@@ -89,9 +110,10 @@ async function readLocalCss(id: string): Promise<string | undefined> {
 interface MarketplaceState {
   // Sources
   sources: MarketplaceSource[];
+  loadSources: () => Promise<void>;
   addSource: (url: string) => Promise<void>;
-  removeSource: (id: string) => void;
-  toggleSource: (id: string) => void;
+  removeSource: (id: string) => Promise<void>;
+  toggleSource: (id: string) => Promise<void>;
 
   // Browse
   catalog: MarketplacePlugin[];
@@ -118,6 +140,28 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
   // ── Sources ───────────────────────────────────────────────────────────
   sources: [FIRST_PARTY_SOURCE],
 
+  async loadSources() {
+    let stored: PersistedSources;
+    try {
+      const raw = await invoke<string>("plugin_read_file", { id: "__meta__", filename: SOURCES_META_KEY + ".json" });
+      stored = JSON.parse(raw) as PersistedSources;
+    } catch {
+      return; // fresh profile — keep the built-in source only
+    }
+    const enabled = stored.enabled ?? {};
+    // `deletable: true` is forced so a tampered file can't make a custom source
+    // permanent, and the built-in id is filtered so it can't be shadowed.
+    const custom = (stored.custom ?? [])
+      .filter((s) => s.id !== FIRST_PARTY_SOURCE.id)
+      .map((s) => ({ ...s, deletable: true, enabled: enabled[s.id] ?? s.enabled }));
+    set({
+      sources: [
+        { ...FIRST_PARTY_SOURCE, enabled: enabled[FIRST_PARTY_SOURCE.id] ?? FIRST_PARTY_SOURCE.enabled },
+        ...custom,
+      ],
+    });
+  },
+
   async addSource(url: string) {
     const res = await appFetch(url);
     if (!res.ok) throw new Error(i18n.t("common.error.failedToFetchSource", { status: res.status }));
@@ -129,16 +173,19 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
         ? s.sources
         : [...s.sources, { id, name, url, enabled: true, deletable: true }],
     }));
+    await writeSources(get().sources);
   },
 
-  removeSource(id: string) {
+  async removeSource(id: string) {
     set((s) => ({ sources: s.sources.filter((src) => !src.deletable ? true : src.id !== id) }));
+    await writeSources(get().sources);
   },
 
-  toggleSource(id: string) {
+  async toggleSource(id: string) {
     set((s) => ({
       sources: s.sources.map((src) => src.id === id ? { ...src, enabled: !src.enabled } : src),
     }));
+    await writeSources(get().sources);
   },
 
   // ── Catalog ───────────────────────────────────────────────────────────
@@ -298,6 +345,7 @@ export async function loadInstalledPlugins(): Promise<void> {
   // local attacker who can rewrite the plugin dir already has full renderer privileges, so it
   // would add no real boundary. The integrity check binds reviewed→executed at INSTALL time.
   const store = useMarketplaceStore.getState();
+  await store.loadSources();
   await store.loadInstalledMeta();
 
   const ids = await invoke<string[]>("plugins_list_installed");
