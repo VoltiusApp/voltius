@@ -735,6 +735,7 @@
           "syncWrite": { "label": "Écrire les données de synchronisation", "description": "Stocker et modifier les données synchronisées entre vos appareils." },
           "storage": { "label": "Stocker les données du plugin", "description": "Enregistrer les réglages et données propres à ce plugin sur votre appareil." },
           "http": { "label": "Accéder au réseau", "description": "Effectuer des requêtes réseau vers des services externes." },
+          "cryptoDerive": { "label": "Dériver des clés de chiffrement", "description": "Dériver une clé de chiffrement à partir d'une phrase secrète que vous fournissez. Ne donne pas accès à vos secrets stockés." },
           "fs": { "label": "Accéder aux fichiers", "description": "Lire et écrire des fichiers sur votre appareil." },
           "ui": { "label": "Afficher des éléments d'interface", "description": "Ajouter ses propres panneaux et contrôles à l'application." },
           "notifications": { "label": "Afficher des notifications", "description": "Vous afficher des notifications et des messages." },

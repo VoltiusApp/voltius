@@ -223,6 +223,12 @@ export interface ProcessesAPI {
   kill(sessionId: string, pid: number, isRemote: boolean, force: boolean): Promise<void>;
 }
 
+/** Not gated — a pure KDF over caller-supplied input, grants no access to host secrets. */
+export interface CryptoAPI {
+  /** Derive a 32-byte key from a passphrase and hex salt. Returns hex. */
+  deriveKey(passphrase: string, saltHex: string): Promise<string>;
+}
+
 // ─── API principale ────────────────────────────────────────────────────────
 
 export interface PluginAPI {
@@ -383,6 +389,9 @@ export interface PluginAPI {
 
   // Process listing/kill domain wrapper over streams — GATED (processes:manage).
   processes: ProcessesAPI;
+
+  // Key derivation (requires crypto:derive). Not gated — pure KDF over caller input.
+  crypto: CryptoAPI;
 
   // Lifecycle hooks (always available)
   lifecycle: {

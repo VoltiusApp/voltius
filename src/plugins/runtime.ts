@@ -42,6 +42,7 @@ import type {
 import { createStreamsAPI } from "./domains/streams";
 import { createMetricsAPI } from "./domains/metrics";
 import { createProcessesAPI } from "./domains/processes";
+import { createCryptoAPI } from "./domains/crypto";
 
 const STREAM_PERM: Record<StreamKind, string> = {
   metrics: "metrics:read",
@@ -364,6 +365,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const streamsApi = createStreamsAPI();
   const metricsApi = createMetricsAPI(streamsApi);
   const processesApi = createProcessesAPI(streamsApi);
+  const cryptoApi = createCryptoAPI();
 
   const api: PluginAPI = {
     pluginId: id,
@@ -864,6 +866,13 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       kill: (sessionId, pid, isRemote, force) => {
         requireGated("processes:manage");
         return processesApi.kill(sessionId, pid, isRemote, force);
+      },
+    },
+
+    crypto: {
+      deriveKey: (passphrase, saltHex) => {
+        requirePerm(manifest, "crypto:derive");
+        return cryptoApi.deriveKey(passphrase, saltHex);
       },
     },
 

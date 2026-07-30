@@ -22,6 +22,7 @@ export const manifest: PluginManifest = {
     "vault:write",
     "storage",
     "http",
+    "crypto:derive",
     "ui",
     "sync:read",
     "sync:write",

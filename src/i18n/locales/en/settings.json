@@ -735,6 +735,7 @@
           "syncWrite": { "label": "Write sync data", "description": "Store and change data synced across your devices." },
           "storage": { "label": "Store plugin data", "description": "Save this plugin's own settings and data on your device." },
           "http": { "label": "Access the network", "description": "Make network requests to external services." },
+          "cryptoDerive": { "label": "Derive encryption keys", "description": "Derive an encryption key from a passphrase you provide. Does not grant access to your stored secrets." },
           "fs": { "label": "Access files", "description": "Read and write files on your device." },
           "ui": { "label": "Show interface elements", "description": "Add its own panels and controls to the app." },
           "notifications": { "label": "Show notifications", "description": "Show you notifications and toasts." },

@@ -1,8 +1,6 @@
 import { writeClipboard } from "../../utils/clipboard";
 import React, { useEffect, useRef, useState } from "react";
-import { useAutosave, type SaveState } from "@/hooks/useAutosave";
-import { Icon } from "@iconify/react";
-import { InfoTooltip } from "@/components/shared/InfoTooltip";
+import { useAutosave, Icon, InfoTooltip } from "@voltius/ui";
 import type { PluginAPI } from "@/plugins/api";
 import {
   setupNewGist,
@@ -20,6 +18,9 @@ import {
   type GistRegistration,
 } from "./sync-engine";
 import { getManifest, listVoltiusGists, GistApiError, type GistDevice, type GistManifest } from "./gist-api";
+
+// @voltius/ui exports exactly Icon/InfoTooltip/useAutosave (no SaveState) — derive it.
+type SaveState = ReturnType<typeof useAutosave>["saveState"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -386,7 +387,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
         // Load manifest for import source (for devices list)
         if (importId && storedPat) {
           try {
-            const m = await getManifest(storedPat, importId);
+            const m = await getManifest(api.http, storedPat, importId);
             if (active) setSourceManifest(m);
           } catch (e) {
             if (active && e instanceof GistApiError && e.status === 404)
@@ -413,7 +414,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
 
     const loadManifestForSource = async (gistId: string, pat: string) => {
       try {
-        const m = await getManifest(pat, gistId);
+        const m = await getManifest(api.http, pat, gistId);
         setSourceManifest(m);
       } catch {
         setSourceManifest(null);
@@ -462,7 +463,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
       if (!currentPat) { setError("Enter your GitHub PAT first."); return; }
       setDetecting(true); setError(null); setDetectedGists(null); setShowLinkInput(false);
       try {
-        const found = await listVoltiusGists(currentPat);
+        const found = await listVoltiusGists(api.http, currentPat);
         setDetectedGists(found);
         if (found.length === 0) setError("No Voltius gists found on this account.");
       } catch (e) {
@@ -559,7 +560,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
         if (importSourceId) {
           const currentPat = await api.vault.get("pat");
           if (currentPat) {
-            const m = await getManifest(currentPat, importSourceId).catch(() => null);
+            const m = await getManifest(api.http, currentPat, importSourceId).catch(() => null);
             if (m) setSourceManifest(m);
           }
         }

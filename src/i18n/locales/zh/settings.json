@@ -638,6 +638,10 @@
             "label": "访问网络",
             "description": "向外部服务发起网络请求。"
           },
+          "cryptoDerive": {
+            "label": "派生加密密钥",
+            "description": "根据您提供的密码短语派生加密密钥。不会授予对您已存储机密的访问权限。"
+          },
           "fs": {
             "label": "访问文件",
             "description": "读取和写入您设备上的文件。"

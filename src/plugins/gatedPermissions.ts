@@ -67,6 +67,7 @@ const PERMISSION_COPY: Record<string, string> = {
   "sync:write": "syncWrite",
   storage: "storage",
   http: "http",
+  "crypto:derive": "cryptoDerive",
   fs: "fs",
   ui: "ui",
   notifications: "notifications",
