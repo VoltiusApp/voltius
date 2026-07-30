@@ -1357,7 +1357,23 @@ export function loadPlugin(manifest: PluginManifest, register: PluginRegisterFn,
   }
   const entry: PluginEntry = { manifest, register, cleanup: undefined, active, trusted, api };
   _registry.set(manifest.id, entry);
-  entry.cleanup = register(api);
+  try {
+    entry.cleanup = register(api);
+  } catch (e) {
+    // register() may have registered several contributions before throwing. Roll
+    // every one of them back — same teardown as unloadPlugin — so a plugin that
+    // fails partway through never ends up half-loaded: live contributions with no
+    // registry entry, or a registry entry reported as loaded with cleanup: undefined.
+    entry.cleanup?.();
+    usePluginStore.getState().unregisterAll(manifest.id);
+    useUIContributionStore.getState().unregisterPlugin(manifest.id);
+    useNotificationStore.getState().dismissAllForPlugin(manifest.id);
+    usePluginStateStore.getState().clearPlugin(manifest.id);
+    _exposedApis.delete(manifest.id);
+    _settingsListeners.delete(manifest.id);
+    _registry.delete(manifest.id);
+    throw e;
+  }
   console.info(`[plugin-runtime] Loaded plugin "${manifest.id}" v${manifest.version} (active=${active}, trusted=${trusted})`);
 }
 
