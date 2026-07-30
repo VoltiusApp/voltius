@@ -122,6 +122,26 @@ export async function sshExecCommand(params: {
   });
 }
 
+export async function sshKillPersistent(params: {
+  host: string;
+  port: number;
+  username: string;
+  password?: string;
+  privateKey?: string;
+  passphrase?: string;
+  sessionId: string;
+}): Promise<boolean> {
+  return invoke("ssh_kill_persistent", {
+    host: params.host,
+    port: params.port,
+    username: params.username,
+    password: params.password ?? null,
+    privateKey: params.privateKey ?? null,
+    passphrase: params.passphrase ?? null,
+    sessionId: params.sessionId,
+  });
+}
+
 export async function onSshOutput(
   sessionId: string,
   callback: (data: Uint8Array) => void,
