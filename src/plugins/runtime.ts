@@ -9,6 +9,7 @@ import { readTerminalSnapshot, readTerminalSelection } from "@/hooks/useTerminal
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIStore, type NavItem } from "@/stores/uiStore";
 import { useUIContributionStore } from "@/stores/uiContributionStore";
+import { usePluginStateStore } from "@/stores/pluginStateStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useSnippetStore } from "@/stores/snippetStore";
@@ -583,6 +584,10 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       setActiveNav(id) {
         requirePerm(manifest, "ui");
         useUIStore.getState().setActiveNav(id as NavItem);
+      },
+      publishState(key, value) {
+        requirePerm(manifest, "ui");
+        usePluginStateStore.getState().publish(id, key, value);
       },
     },
 
@@ -1312,6 +1317,7 @@ export function setPluginActive(pluginId: string, active: boolean): void {
     entry.cleanup = entry.register(entry.api);
   } else {
     useNotificationStore.getState().dismissAllForPlugin(pluginId);
+    usePluginStateStore.getState().clearPlugin(pluginId);
   }
   console.info(`[plugin-runtime] Plugin "${pluginId}" set active=${active}`);
 }
@@ -1323,6 +1329,7 @@ export function unloadPlugin(pluginId: string): void {
   usePluginStore.getState().unregisterAll(pluginId);
   useUIContributionStore.getState().unregisterPlugin(pluginId);
   useNotificationStore.getState().dismissAllForPlugin(pluginId);
+  usePluginStateStore.getState().clearPlugin(pluginId);
   _exposedApis.delete(pluginId);
   _settingsListeners.delete(pluginId);
   _registry.delete(pluginId);
@@ -1345,4 +1352,11 @@ export function pluginStorageGet<T>(pluginId: string, key: string): Promise<T | 
 /** Write a plugin's storage value — for use by trusted UI code (e.g. auto-generated settings). */
 export function pluginStorageSet<T>(pluginId: string, key: string, value: T): Promise<void> {
   return storageSet<T>(pluginId, key, value);
+}
+
+/** Read a plugin's exposed public API (via `api.plugins.expose`) — for use by
+ *  trusted host UI that needs to call into a built-in plugin without importing
+ *  its module. Returns null if the plugin hasn't exposed anything. */
+export function getExposedApi(pluginId: string): unknown | null {
+  return _exposedApis.get(pluginId) ?? null;
 }

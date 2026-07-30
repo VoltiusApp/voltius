@@ -9,6 +9,34 @@ interface SyncStateLike {
   error: string | null;
 }
 
+/** Shape the gist-sync plugin publishes via `api.ui.publishState("sync-state", …)`.
+ *  Host-owned: the runtime value lives in the plugin, but the type crosses the
+ *  boundary since types are erased. */
+export interface GistSyncState {
+  status: SyncStatus;
+  lastSync: Date | null;
+  error: string | null;
+  blobSizeBytes: number | null;
+  configured: boolean;
+}
+
+/** Default snapshot when the gist-sync plugin hasn't published state yet
+ *  (disabled, uninstalled, or not-yet-initialised). */
+export const NOT_CONFIGURED_GIST_STATE: GistSyncState = {
+  status: "idle",
+  lastSync: null,
+  error: null,
+  blobSizeBytes: null,
+  configured: false,
+};
+
+/** Shape the gist-sync plugin exposes via `api.plugins.expose(...)`, read back
+ *  through `getExposedApi("plugin-gist-sync")` — lets host UI trigger a sync
+ *  without importing the plugin's module. */
+export interface GistSyncPublicApi {
+  syncNow(opts?: { showProgress?: boolean }): Promise<void>;
+}
+
 export interface EffectiveSync {
   /** Either sync engine is set up. */
   configured: boolean;

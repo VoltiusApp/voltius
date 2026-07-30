@@ -12,6 +12,7 @@ import {
 } from "./gist-api";
 import { generateSaltHex } from "./crypto";
 import type { SyncStatus } from "./types";
+import type { GistSyncState } from "@/services/syncStatus";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -21,13 +22,7 @@ export interface GistRegistration {
   addedAt: string;
 }
 
-export interface GistSyncState {
-  status: SyncStatus;
-  lastSync: Date | null;
-  error: string | null;
-  blobSizeBytes: number | null;
-  configured: boolean;
-}
+export type { GistSyncState };
 
 // ─── Public sync state ────────────────────────────────────────────────────────
 
@@ -53,10 +48,15 @@ export function onGistSyncStateChange(fn: () => void): () => void {
   return () => { _gistListeners.delete(fn); };
 }
 
+function publishGistState() {
+  _api.ui.publishState("sync-state", getGistSyncState());
+}
+
 function setGistState(status: SyncStatus, error?: string) {
   _gistStatus = status;
   _gistError = error ?? null;
   if (status === "success") _gistLastSync = new Date();
+  publishGistState();
   _gistListeners.forEach((fn) => fn());
 }
 
@@ -71,8 +71,10 @@ let _lastSeenPushedAt: Record<string, string> = {};
 
 export function init(api: PluginAPI) {
   _api = api;
+  publishGistState();
   isConfigured().then((c) => {
     _gistConfigured = c;
+    publishGistState();
     _gistListeners.forEach((fn) => fn());
   }).catch(() => {});
 }
@@ -185,6 +187,7 @@ export async function setupNewGist(pat: string): Promise<{ id: string; url: stri
   if (!exportIds.includes(id)) await setExportDestinations([...exportIds, id]);
 
   _gistConfigured = true;
+  publishGistState();
   _gistListeners.forEach((fn) => fn());
 
   return { id, url };
@@ -201,6 +204,7 @@ export async function linkExistingGist(pat: string, gistId: string): Promise<voi
 
   if (!_gistConfigured) {
     _gistConfigured = true;
+    publishGistState();
     _gistListeners.forEach((fn) => fn());
   }
 }
@@ -220,6 +224,7 @@ export async function unlinkGist(gistId: string): Promise<void> {
   const nowConfigured = await isConfigured();
   if (_gistConfigured !== nowConfigured) {
     _gistConfigured = nowConfigured;
+    publishGistState();
     _gistListeners.forEach((fn) => fn());
   }
 }

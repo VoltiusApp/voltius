@@ -1,4 +1,5 @@
 import type { PluginAPI, PluginManifest, PluginRegisterFn } from "@/plugins/api";
+import type { GistSyncPublicApi } from "@/services/syncStatus";
 import { createSettingsPage } from "./SettingsPage";
 import {
   init,
@@ -44,6 +45,12 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
     icon: "mdi:github",
     component: createSettingsPage(api),
   });
+
+  // Public API for the host's SyncDropdown "sync now" button — avoids the host
+  // importing this plugin's module directly. Exposed unconditionally so it
+  // survives disable, same as the settings page above; callers gate on
+  // whether the plugin is enabled before invoking.
+  api.plugins.expose({ syncNow } satisfies GistSyncPublicApi);
 
   // Functional hooks only when the plugin is enabled
   let offBeforeQuit: (() => void) | null = null;

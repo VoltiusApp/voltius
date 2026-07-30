@@ -4,17 +4,16 @@ import { Icon } from "@iconify/react";
 import i18n from "@/i18n";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { getSyncState, onSyncStateChange, syncNow, type SyncStatus } from "@/services/sync";
-import {
-  getGistSyncState,
-  onGistSyncStateChange,
-  syncNow as gistSyncNow,
-  type GistSyncState,
-} from "@/plugins/gist-sync/sync-engine";
+import { getExposedApi } from "@/plugins/runtime";
+import { NOT_CONFIGURED_GIST_STATE, type GistSyncState, type GistSyncPublicApi } from "@/services/syncStatus";
+import { usePluginStateStore } from "@/stores/pluginStateStore";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
 import { useUIStore } from "@/stores/uiStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { openPortal } from "@/utils/billing";
+
+const GIST_SYNC_PLUGIN_ID = "plugin-gist-sync";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -257,8 +256,9 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
   const [voltiusState, setVoltiusState] = useState(getSyncState);
   useEffect(() => onSyncStateChange(() => setVoltiusState(getSyncState())), []);
 
-  const [gistState, setGistState] = useState<GistSyncState>(getGistSyncState);
-  useEffect(() => onGistSyncStateChange(() => setGistState(getGistSyncState())), []);
+  const gistState = usePluginStateStore(
+    (s) => s.read<GistSyncState>(GIST_SYNC_PLUGIN_ID, "sync-state") ?? NOT_CONFIGURED_GIST_STATE,
+  );
 
   if (!open) return null;
 
@@ -324,7 +324,10 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
         label={t("layout.sync.gistE2ee")}
         methodIcon="mdi:github"
         variant={gistVariant}
-        onSyncNow={() => gistSyncNow({ showProgress: false }).catch(() => {})}
+        onSyncNow={() => {
+          const gistApi = getExposedApi(GIST_SYNC_PLUGIN_ID) as GistSyncPublicApi | null;
+          gistApi?.syncNow({ showProgress: false }).catch(() => {});
+        }}
       />
 
       {/* Entity counts */}

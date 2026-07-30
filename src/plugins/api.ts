@@ -379,6 +379,10 @@ export interface PluginAPI {
     unregister(id: string): void;
     /** Switch the app's active navigation section. */
     setActiveNav(id: string): void;
+    /** Publish a plain, serialisable state snapshot for host UI to read, keyed
+     *  by `<pluginId>:<key>`. Host surfaces subscribe to this instead of
+     *  importing the plugin's runtime module. Cleared on unload/disable. */
+    publishState(key: string, value: unknown): void;
   };
 
   // Plugin-scoped key-value storage

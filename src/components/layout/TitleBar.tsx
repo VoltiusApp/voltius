@@ -7,8 +7,12 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { getSyncState, onSyncStateChange, type SyncStatus } from "@/services/sync";
-import { selectEffectiveSyncStatus } from "@/services/syncStatus";
-import { getGistSyncState, onGistSyncStateChange } from "@/plugins/gist-sync/sync-engine";
+import {
+  selectEffectiveSyncStatus,
+  NOT_CONFIGURED_GIST_STATE,
+  type GistSyncState,
+} from "@/services/syncStatus";
+import { usePluginStateStore } from "@/stores/pluginStateStore";
 import { useRipple } from "@/hooks/useRipple";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { ShareMenu } from "@/components/terminal/ShareMenu";
@@ -26,6 +30,7 @@ import { useAllConnections } from "@/hooks/useAllConnections";
 import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
 
 const appWindow = getCurrentWindow();
+const GIST_SYNC_PLUGIN_ID = "plugin-gist-sync";
 
 type TitlebarItem =
   | { key: string; type: "split"; tab: ReturnType<typeof useLayoutStore.getState>["splitTabs"][number] }
@@ -63,8 +68,9 @@ export default function TitleBar() {
   const [syncState, setSyncState] = useState(getSyncState);
   useEffect(() => { return onSyncStateChange(() => setSyncState(getSyncState())); }, []);
 
-  const [gistSyncState, setGistSyncState] = useState(getGistSyncState);
-  useEffect(() => { return onGistSyncStateChange(() => setGistSyncState(getGistSyncState())); }, []);
+  const gistSyncState = usePluginStateStore(
+    (s) => s.read<GistSyncState>(GIST_SYNC_PLUGIN_ID, "sync-state") ?? NOT_CONFIGURED_GIST_STATE,
+  );
 
   const gistPluginEnabled = usePluginRegistryStore((s) => s.isEnabled("plugin-gist-sync", false));
   const accountMode = useSubscriptionStore((s) => s.accountMode);
