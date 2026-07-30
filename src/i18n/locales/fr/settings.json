@@ -693,11 +693,13 @@
         "uninstall": "Désinstaller",
         "installing": "Installation…",
         "install": "Installer",
-        "updateBadge": "mise à jour disponible"
+        "updateBadge": "mise à jour disponible",
+        "requiresVersion": "Nécessite la v{{version}} ou supérieure"
       },
       "install": {
         "integrityFailed": "L'intégrité du module a échoué — installation bloquée.",
-        "failed": "Échec de l'installation du module."
+        "failed": "Échec de l'installation du module.",
+        "versionUnsupported": "Ce module nécessite la version {{version}} ou supérieure de l'application."
       },
       "permissionModal": {
         "installTitle": "Installer {{name}} ?",

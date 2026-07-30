@@ -1,12 +1,14 @@
 import { create } from "zustand";
 import i18n from "@/i18n";
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import { loadPlugin, unloadPlugin } from "@/plugins/runtime";
 import { importPluginModule, pluginRegisterOf, type PluginModule } from "@/plugins/importPluginModule";
 import type { PluginManifest } from "@/plugins/api";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { appFetch } from "@/services/http";
 import { resolveVerifiedHash } from "@/plugins/integrity";
+import { satisfiesMinAppVersion, MinAppVersionError } from "@/plugins/version";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -109,9 +111,28 @@ async function readLocalCss(id: string): Promise<string | undefined> {
   }
 }
 
+let appVersionPromise: Promise<string | null> | null = null;
+
+/** Resolves the running app's version once and caches it for the session. Falls
+ *  open (resolves null) if `getVersion()` itself rejects — an unknown app version
+ *  must never block installs. */
+function resolveAppVersion(): Promise<string | null> {
+  if (appVersionPromise === null) {
+    appVersionPromise = getVersion().catch((e) => {
+      console.warn("[marketplace] Failed to resolve app version:", e);
+      return null;
+    });
+  }
+  return appVersionPromise;
+}
+
 // ─── Store ────────────────────────────────────────────────────────────────
 
 interface MarketplaceState {
+  // App version, for minAppVersion gating (resolved once, cached)
+  appVersion: string | null;
+  loadAppVersion: () => Promise<void>;
+
   // Sources
   sources: MarketplaceSource[];
   loadSources: () => Promise<void>;
@@ -141,6 +162,14 @@ interface MarketplaceState {
 }
 
 export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
+  // ── App version ───────────────────────────────────────────────────────
+  appVersion: null,
+
+  async loadAppVersion() {
+    const version = await resolveAppVersion();
+    set({ appVersion: version });
+  },
+
   // ── Sources ───────────────────────────────────────────────────────────
   sources: [FIRST_PARTY_SOURCE],
 
@@ -243,6 +272,11 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
 
     set((s) => ({ installing: new Set([...s.installing, plugin.id]) }));
     try {
+      const appVersion = await resolveAppVersion();
+      if (appVersion !== null && !satisfiesMinAppVersion(plugin, appVersion)) {
+        throw new MinAppVersionError(plugin.minAppVersion!, appVersion);
+      }
+
       const base = plugin.repo.startsWith("http")
         ? plugin.repo
         : `https://github.com/${plugin.repo}/releases/latest/download`;

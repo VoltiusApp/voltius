@@ -693,11 +693,13 @@
         "uninstall": "Uninstall",
         "installing": "Installing…",
         "install": "Install",
-        "updateBadge": "update available"
+        "updateBadge": "update available",
+        "requiresVersion": "Requires v{{version}} or later"
       },
       "install": {
         "integrityFailed": "Plugin bundle failed its integrity check — install blocked.",
-        "failed": "Failed to install plugin."
+        "failed": "Failed to install plugin.",
+        "versionUnsupported": "This plugin requires app version {{version}} or later."
       },
       "permissionModal": {
         "installTitle": "Install {{name}}?",

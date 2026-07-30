@@ -8,6 +8,7 @@ import { useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplac
 import { useUIStore } from "@/stores/uiStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { PluginHashMismatchError } from "@/plugins/integrity";
+import { satisfiesMinAppVersion, MinAppVersionError } from "@/plugins/version";
 import { availableUpdate, addedPermissions } from "@/plugins/updates";
 import { requiresInstallConsent } from "@/plugins/gatedPermissions";
 import { getToggle, useToggle } from "@/stores/toggleSettingsStore";
@@ -184,6 +185,8 @@ function usePluginInstaller() {
       severity: "error",
       message: e instanceof PluginHashMismatchError
         ? t("settings.plugins.install.integrityFailed")
+        : e instanceof MinAppVersionError
+        ? t("settings.plugins.install.versionUnsupported", { version: e.required })
         : t("settings.plugins.install.failed"),
       duration: 0,
     });
@@ -557,6 +560,7 @@ function BrowseTab() {
     catalog, catalogLoading, catalogError, fetchCatalog,
     sources, addSource, removeSource, toggleSource,
     installedMeta, uninstallPlugin,
+    appVersion, loadAppVersion,
   } = useMarketplaceStore();
   const { busy, startInstall, startUpdate, modal } = usePluginInstaller();
   const [reviewInstalls, setReviewInstalls] = useToggle("plugin-install-review");
@@ -582,6 +586,7 @@ function BrowseTab() {
     if (catalog.length === 0 && !catalogLoading) {
       void fetchCatalog();
     }
+    if (appVersion === null) void loadAppVersion();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -757,6 +762,7 @@ function BrowseTab() {
             const isUninstalling = uninstalling.has(plugin.id);
             const meta = installedMeta.find((m) => m.id === plugin.id);
             const update = meta ? availableUpdate(meta, catalog) : null;
+            const versionUnsatisfied = appVersion !== null && !satisfiesMinAppVersion(plugin, appVersion);
 
             return (
               <div key={plugin.id} className="rounded-xl bg-(--t-bg-card) border border-(--t-border) px-4 py-3">
@@ -791,9 +797,10 @@ function BrowseTab() {
                   {!isInstalled ? (
                     <button
                       onClick={() => startInstall(plugin)}
-                      disabled={isBusy}
+                      disabled={isBusy || versionUnsatisfied}
+                      title={versionUnsatisfied ? t("settings.plugins.browse.requiresVersion", { version: plugin.minAppVersion }) : undefined}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
-                      style={{ background: "var(--t-accent)", color: "var(--t-bg-base)", opacity: isBusy ? 0.7 : 1 }}
+                      style={{ background: "var(--t-accent)", color: "var(--t-bg-base)", opacity: isBusy || versionUnsatisfied ? 0.6 : 1 }}
                     >
                       {isBusy
                         ? <><Icon icon="lucide:loader" width={12} className="animate-spin" /> {t("settings.plugins.browse.installing")}</>

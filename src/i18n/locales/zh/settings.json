@@ -524,11 +524,13 @@
         "uninstall": "卸载",
         "installing": "正在安装…",
         "install": "安装",
-        "updateBadge": "有可用更新"
+        "updateBadge": "有可用更新",
+        "requiresVersion": "需要 v{{version}} 或更高版本"
       },
       "install": {
         "integrityFailed": "插件包未通过完整性校验——已阻止安装。",
-        "failed": "安装插件失败。"
+        "failed": "安装插件失败。",
+        "versionUnsupported": "此插件需要应用版本 {{version}} 或更高版本。"
       },
       "permissionModal": {
         "installTitle": "安装 {{name}}？",

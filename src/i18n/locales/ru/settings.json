@@ -707,7 +707,8 @@
         "uninstall": "Удалить",
         "installing": "Установка…",
         "install": "Установить",
-        "updateBadge": "доступно обновление"
+        "updateBadge": "доступно обновление",
+        "requiresVersion": "Требуется v{{version}} или новее"
       },
       "permissionModal": {
         "installTitle": "Установить {{name}}?",
@@ -761,7 +762,8 @@
       },
       "install": {
         "integrityFailed": "Пакет плагина не прошёл проверку целостности — установка заблокирована.",
-        "failed": "Не удалось установить плагин."
+        "failed": "Не удалось установить плагин.",
+        "versionUnsupported": "Этот плагин требует версию приложения {{version}} или новее."
       }
     },
     "sftp": {
