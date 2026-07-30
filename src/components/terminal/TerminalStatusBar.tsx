@@ -14,11 +14,10 @@ import { useAllConnections } from "@/hooks/useAllConnections";
 import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
 import { getPfState } from "@/services/portForwardingTunnels";
 import { sshGetSystemInfo, type SystemInfo } from "@/services/ssh";
-import { metricsStart, metricsStop, onMetricsSnapshot } from "@/services/metrics";
+import { metricsStart, metricsStop, onMetricsSnapshot, type MetricsSnapshot } from "@/services/metrics";
 import { getDistroIcon, getDistroColor, getDistroLabel } from "@/utils/icons";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
 import type { ActiveTunnel, SerialConnectParams } from "@/types";
-import type { MetricsSnapshot } from "@/plugins/monitoring/types";
 import type { TerminalStatusBarContributionContext } from "@/plugins/api";
 
 interface PfStatePayload {

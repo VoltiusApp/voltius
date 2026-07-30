@@ -16,11 +16,6 @@ import MobileKeychainScreen from "./screens/MobileKeychainScreen";
 import MobilePortForwardingScreen from "./screens/MobilePortForwardingScreen";
 import MobileKnownHostsScreen from "./screens/MobileKnownHostsScreen";
 import MobileLogsScreen from "./screens/MobileLogsScreen";
-import MobileDockerScreen from "./panels/MobileDockerScreen";
-import MobileDockerLogsScreen from "./panels/MobileDockerLogsScreen";
-import MobileMetricsScreen from "./panels/MobileMetricsScreen";
-import MobileProcessesScreen from "./panels/MobileProcessesScreen";
-import MobileProxmoxScreen from "./panels/MobileProxmoxScreen";
 import MobileSftpScreen from "./panels/MobileSftpScreen";
 import MobileAccountPage from "./screens/MobileAccountPage";
 import MobilePanelHeader from "./panels/MobilePanelHeader";
@@ -43,6 +38,7 @@ function getMorePageTitles(t: TFunction): Record<MorePage, string> {
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
+import { usePluginStore } from "@/stores/pluginStore";
 import { useAndroidBack } from "@/hooks/useAndroidBack";
 import { useVisualViewport } from "@/hooks/useVisualViewport";
 import { useHostPingPolling } from "@/hooks/useHostPingPolling";
@@ -60,6 +56,18 @@ export default function MobileShell() {
   const hasSessions = useSessionStore((s) => s.sessions.length > 0);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const panelsRowOpen = useUIStore((s) => s.terminalPanelsRowOpen);
+  const mobileScreens = usePluginStore((s) => s.mobileScreens);
+  const pop = useMobileNavStore((s) => s.pop);
+
+  // Plugin-contributed mobile screens (docker/metrics/processes/proxmox…), looked
+  // up by kind so uninstalling/disabling a plugin removes its screen — mirrors
+  // registerRightPanelSection on desktop. Renders nothing if no plugin owns `kind`.
+  const renderMobileScreen = (kind: string, props: Record<string, unknown>) => {
+    const screen = [...mobileScreens.values()].find((s) => s.kind === kind);
+    if (!screen) return null;
+    const Render = screen.render;
+    return <Render {...props} sessionId={props.sessionId as string} onBack={pop} />;
+  };
 
   // Terminal tab with sessions = immersive: hide the tab bar, give xterm every pixel.
   const immersive = tab === "terminal" && hasSessions && !top;
@@ -128,13 +136,12 @@ export default function MobileShell() {
             <div className="flex-1 overflow-hidden flex flex-col"><MembersPage /></div>
           </div>
         )}
-        {top?.kind === "panel-docker" && <MobileDockerScreen sessionId={top.sessionId} />}
-        {top?.kind === "panel-docker-logs" && (
-          <MobileDockerLogsScreen sessionId={top.sessionId} containerId={top.containerId} containerName={top.containerName} />
-        )}
-        {top?.kind === "panel-metrics" && <MobileMetricsScreen sessionId={top.sessionId} />}
-        {top?.kind === "panel-processes" && <MobileProcessesScreen sessionId={top.sessionId} />}
-        {top?.kind === "panel-proxmox" && <MobileProxmoxScreen sessionId={top.sessionId} />}
+        {top?.kind === "panel-docker" && renderMobileScreen("docker", { sessionId: top.sessionId })}
+        {top?.kind === "panel-docker-logs" &&
+          renderMobileScreen("docker-logs", { sessionId: top.sessionId, containerId: top.containerId, containerName: top.containerName })}
+        {top?.kind === "panel-metrics" && renderMobileScreen("metrics", { sessionId: top.sessionId })}
+        {top?.kind === "panel-processes" && renderMobileScreen("processes", { sessionId: top.sessionId })}
+        {top?.kind === "panel-proxmox" && renderMobileScreen("proxmox", { sessionId: top.sessionId })}
         {top?.kind === "panel-sftp" && <MobileSftpScreen presetConnectionId={top.connectionId} />}
         {top?.kind === "account" && <MobileAccountPage />}
       </div>

@@ -1,10 +1,8 @@
 import type { ProxmoxAPI } from "@/plugins/api";
 import type { LxcAction, LxcContainer, LxcSnapshot } from "./types";
 
-/** Adapts api.proxmox to the same shape useProxmox previously called directly
- *  via invoke, so the desktop panel and the mobile screen (which builds its own
- *  ProxmoxService from @/services/proxmox — no plugin-bundle runtime singleton
- *  available to host code) share the same hook body. */
+/** Adapts api.proxmox to the shape useProxmox expects, shared by the desktop
+ *  panel and the mobile screen (both live in this plugin bundle now). */
 export interface ProxmoxService {
   list(sessionId: string): Promise<LxcContainer[]>;
   action(sessionId: string, vmid: number, action: LxcAction): Promise<void>;

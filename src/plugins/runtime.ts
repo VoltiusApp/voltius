@@ -8,6 +8,7 @@ import { onSerialOutput } from "@/services/serial";
 import { readTerminalSnapshot, readTerminalSelection } from "@/hooks/useTerminal";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIStore, type NavItem } from "@/stores/uiStore";
+import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useUIContributionStore } from "@/stores/uiContributionStore";
 import { usePluginStateStore } from "@/stores/pluginStateStore";
 import { useNotificationStore } from "@/stores/notificationStore";
@@ -558,6 +559,21 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         store().registerGlobalPanel(prefixed);
         return () => store().unregisterGlobalPanel(prefixed.id);
       },
+      registerMobileScreen(screen) {
+        requirePerm(manifest, "right-panel");
+        const prefixed = { ...screen, id: screen.id.startsWith(id) ? screen.id : `${id}:${screen.id}` };
+        store().registerMobileScreen(prefixed);
+        return () => store().unregisterMobileScreen(prefixed.id);
+      },
+      pushMobileScreen(kind, params) {
+        requirePerm(manifest, "ui");
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        useMobileNavStore.getState().push({ kind, ...params } as any);
+      },
+      focusMobileTerminal() {
+        requirePerm(manifest, "ui");
+        useMobileNavStore.getState().setTab("terminal");
+      },
       registerContextMenuItem(item) {
         requirePerm(manifest, "context-menu");
         store().registerContextMenuItem(item);
@@ -579,6 +595,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         s.unregisterSidebarItem(itemId);
         s.unregisterRightPanelSection(itemId);
         s.unregisterGlobalPanel(itemId);
+        s.unregisterMobileScreen(itemId);
         s.unregisterContextMenuItem(itemId);
       },
       setActiveNav(id) {
@@ -909,9 +926,9 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         // store and marks it connected — the same bookkeeping useSessionStore.connect
         // does for a normal SSH connect. A plugin has no store access of its own
         // (sessions:write only covers connecting *saved connections*), so this lives
-        // here rather than in the pure domains/proxmox.ts invoke wrapper. Shared with
-        // MobileProxmoxScreen's own call site via registerLxcExecSession so the two
-        // can't drift (they did, once — see @/services/proxmox.ts).
+        // here rather than in the pure domains/proxmox.ts invoke wrapper. The mobile
+        // Proxmox screen calls this same api.proxmox.lxc.openShell — see
+        // @/services/proxmox.ts's registerLxcExecSession for the shared bookkeeping.
         openShell: async (sessionId, vmid, vmName) => {
           requireGated("proxmox:manage");
           const execSessionId = await proxmoxApi.lxc.openShell(sessionId, vmid);

@@ -126,7 +126,6 @@ export function onDockerLog(streamId: string, cb: (line: DockerLogLine) => void)
   return docker().logs.on(streamId, cb);
 }
 
-/** Plugin-side DockerListService — see @/services/docker.ts for the mobile-host copy. */
 export function createDockerListService(): DockerListService {
   return {
     list: dockerListContainers,
@@ -136,6 +135,21 @@ export function createDockerListService(): DockerListService {
       if (!api) throw new Error("[docker] plugin API not initialized");
       await api.docker.exec.open(target, containerId, containerName);
       api.ui.setActiveNav("terminal");
+    },
+  };
+}
+
+/** Mobile variant of createDockerListService — same transport, but the exec-open
+ *  flow brings the mobile shell's terminal tab forward instead of the desktop nav. */
+export function createMobileDockerListService(): DockerListService {
+  return {
+    list: dockerListContainers,
+    action: dockerContainerAction,
+    openExecTerminal: async (target, containerId, containerName) => {
+      const api = getDockerApi();
+      if (!api) throw new Error("[docker] plugin API not initialized");
+      await api.docker.exec.open(target, containerId, containerName);
+      api.ui.focusMobileTerminal();
     },
   };
 }

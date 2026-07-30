@@ -1,6 +1,18 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { MetricsSnapshot, SystemInfo } from "@/plugins/monitoring/types";
+
+// Mirrors src/plugins/monitoring/types.ts — kept as a separate host-side copy
+// because TerminalStatusBar.tsx lives in the host bundle, not the plugin bundle,
+// and has no access to the plugin's runtime-singleton PluginAPI.
+export interface MetricsSnapshot {
+  ts: number;
+  cpu_percent: number;
+  mem_used_kb: number;
+  mem_total_kb: number;
+  net_rx_bytes_per_sec: number;
+  net_tx_bytes_per_sec: number;
+  disks: { mount: string; used_kb: number; total_kb: number }[] | null;
+}
 
 export async function metricsStart(sessionId: string, isRemote: boolean): Promise<string> {
   return invoke("metrics_start", { sessionId, isRemote });
@@ -15,12 +27,4 @@ export function onMetricsSnapshot(
   cb: (snapshot: MetricsSnapshot) => void,
 ): Promise<UnlistenFn> {
   return listen<MetricsSnapshot>(`metrics:snapshot:${streamId}`, ({ payload }) => cb(payload));
-}
-
-export function getSystemInfo(
-  sessionId: string,
-  sessionType: string,
-  sessionName?: string,
-): Promise<SystemInfo> {
-  return invoke("get_connected_system_info", { sessionId, sessionType, sessionName });
 }

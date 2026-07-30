@@ -84,6 +84,27 @@ export interface RightPanelSection {
   component: React.FC;
 }
 
+/** Props the host passes into a registered mobile screen's `render`. Extra
+ *  navigation params (e.g. docker-logs' containerId/containerName) ride along
+ *  as additional keys — see `pushMobileScreen`. */
+export interface MobileScreenProps {
+  sessionId: string;
+  /** Pop this screen off the mobile nav stack. MobilePanelHeader itself can't
+   *  cross the plugin boundary (it reaches into the host's nav store), so the
+   *  screen must render its own header chrome and wire this to its back button. */
+  onBack: () => void;
+  [key: string]: unknown;
+}
+
+export interface MobileScreen {
+  id: string;
+  /** Screen key MobileShell looks up on navigation, e.g. "docker", "metrics". */
+  kind: string;
+  /** Header title. Plain text — plugin bundles have no i18n access. */
+  title: string;
+  render: React.FC<MobileScreenProps>;
+}
+
 export interface GlobalPanel {
   id: string;
   /** Rendered at shell level (not session-scoped). Host drives open/close. */
@@ -371,6 +392,19 @@ export interface PluginAPI {
     registerRightPanelSection(section: RightPanelSection): () => void;
     /** Mount a global, shell-level panel (not session-scoped). Returns cleanup. */
     registerGlobalPanel(panel: GlobalPanel): () => void;
+    /** Contribute a full-screen mobile view for `screen.kind`. Uninstalling or
+     *  disabling the plugin removes it, same as registerRightPanelSection does
+     *  on desktop. Returns cleanup. */
+    registerMobileScreen(screen: MobileScreen): () => void;
+    /** Push another mobile screen onto the nav stack (e.g. docker's container
+     *  list pushing its logs view). `kind` must match a registered mobile
+     *  screen's kind. Writes to the mobile nav store regardless of platform —
+     *  harmless on desktop, since MobileShell is never mounted there. */
+    pushMobileScreen(kind: string, params?: Record<string, unknown>): void;
+    /** Switch the mobile shell to its terminal tab — e.g. after opening an exec
+     *  shell. Writes to the mobile nav store regardless of platform — harmless
+     *  on desktop, since MobileShell is never mounted there. */
+    focusMobileTerminal(): void;
     registerContextMenuItem(item: ContextMenuItem): () => void;
     /** Inject action items into a named UI slot. Returns a cleanup function. */
     registerContribution<C = unknown>(slot: UISlot, fn: (ctx: C) => ContributedAction[]): () => void;

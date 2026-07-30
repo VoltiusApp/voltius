@@ -1,8 +1,8 @@
 import type { ProcessesAPI } from "@/plugins/api";
 import type { ProcessSnapshot } from "./types";
 
-/** Adapts api.processes to the same shape the components previously imported
- *  from @/services/processes, so component/hook bodies barely change. */
+/** Adapts api.processes to the shape useProcessList expects, shared by the
+ *  desktop panel and the mobile screen (both live in this plugin bundle now). */
 export interface ProcessesService {
   processesStart(sessionId: string, isRemote: boolean): Promise<string>;
   processesStop(streamId: string): Promise<void>;

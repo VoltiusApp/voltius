@@ -9,15 +9,14 @@ export interface DockerListState {
   dockerUnreachable: boolean;
 }
 
-/** Adapts either api.docker (plugin side, via services.ts) or a raw-invoke
- *  transport (mobile host side, via @/services/docker.ts — no plugin-bundle
- *  runtime singleton available to host code) to the shape this hook needs.
- *  Mirrors proxmox/services.ts's ProxmoxService DI split. */
+/** Adapts api.docker to the shape this hook needs — see services.ts's
+ *  createDockerListService (desktop nav) vs createMobileDockerListService
+ *  (mobile nav), the only difference being where openExecTerminal focuses. */
 export interface DockerListService {
   list(target: DockerTarget): Promise<DockerContainer[]>;
   action(target: DockerTarget, containerId: string, action: ContainerAction): Promise<void>;
   /** Opens a docker-exec PTY, registers it as a terminal tab, and switches to
-   *  the terminal nav. Each side's implementation owns its own nav store. */
+   *  the terminal nav. Each side's implementation owns its own nav focus. */
   openExecTerminal(target: DockerTarget, containerId: string, containerName: string): Promise<void>;
 }
 
