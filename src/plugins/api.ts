@@ -84,6 +84,18 @@ export interface RightPanelSection {
   component: React.FC;
 }
 
+/** Nav-stack entries a plugin may push via `pushMobileScreen`. Each member's
+ *  `kind` must exist as a "panel-<kind>" variant of mobileNavCore's MobileScreen
+ *  union — runtime.ts's translator switch is exhaustively checked against that
+ *  union, so adding a member here without a matching host variant is a type
+ *  error, not a silent no-op at runtime. */
+export type PluginMobileNavEntry = {
+  kind: "docker-logs";
+  sessionId: string;
+  containerId: string;
+  containerName: string;
+};
+
 /** Props the host passes into a registered mobile screen's `render`. Extra
  *  navigation params (e.g. docker-logs' containerId/containerName) ride along
  *  as additional keys — see `pushMobileScreen`. */
@@ -397,10 +409,10 @@ export interface PluginAPI {
      *  on desktop. Returns cleanup. */
     registerMobileScreen(screen: MobileScreen): () => void;
     /** Push another mobile screen onto the nav stack (e.g. docker's container
-     *  list pushing its logs view). `kind` must match a registered mobile
-     *  screen's kind. Writes to the mobile nav store regardless of platform —
-     *  harmless on desktop, since MobileShell is never mounted there. */
-    pushMobileScreen(kind: string, params?: Record<string, unknown>): void;
+     *  list pushing its logs view). Writes to the mobile nav store regardless
+     *  of platform — harmless on desktop, since MobileShell is never mounted
+     *  there. */
+    pushMobileScreen(entry: PluginMobileNavEntry): void;
     /** Switch the mobile shell to its terminal tab — e.g. after opening an exec
      *  shell. Writes to the mobile nav store regardless of platform — harmless
      *  on desktop, since MobileShell is never mounted there. */

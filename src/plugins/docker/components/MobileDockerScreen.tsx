@@ -175,7 +175,7 @@ export function createMobileDockerScreen(api: PluginAPI): FC<MobileScreenProps> 
                 onClick={() => {
                   const c = sheetFor;
                   setSheetFor(null);
-                  api.ui.pushMobileScreen("docker-logs", { sessionId, containerId: c.id, containerName: containerName(c) });
+                  api.ui.pushMobileScreen({ kind: "docker-logs", sessionId, containerId: c.id, containerName: containerName(c) });
                 }}
               />
               <SheetRow

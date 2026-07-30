@@ -39,6 +39,7 @@ import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { usePluginStore } from "@/stores/pluginStore";
+import { resolvePanelScreen } from "./mobilePanelDispatch";
 import { useAndroidBack } from "@/hooks/useAndroidBack";
 import { useVisualViewport } from "@/hooks/useVisualViewport";
 import { useHostPingPolling } from "@/hooks/useHostPingPolling";
@@ -68,6 +69,7 @@ export default function MobileShell() {
     const Render = screen.render;
     return <Render {...props} sessionId={props.sessionId as string} onBack={pop} />;
   };
+  const resolvedPanel = resolvePanelScreen(top);
 
   // Terminal tab with sessions = immersive: hide the tab bar, give xterm every pixel.
   const immersive = tab === "terminal" && hasSessions && !top;
@@ -136,12 +138,7 @@ export default function MobileShell() {
             <div className="flex-1 overflow-hidden flex flex-col"><MembersPage /></div>
           </div>
         )}
-        {top?.kind === "panel-docker" && renderMobileScreen("docker", { sessionId: top.sessionId })}
-        {top?.kind === "panel-docker-logs" &&
-          renderMobileScreen("docker-logs", { sessionId: top.sessionId, containerId: top.containerId, containerName: top.containerName })}
-        {top?.kind === "panel-metrics" && renderMobileScreen("metrics", { sessionId: top.sessionId })}
-        {top?.kind === "panel-processes" && renderMobileScreen("processes", { sessionId: top.sessionId })}
-        {top?.kind === "panel-proxmox" && renderMobileScreen("proxmox", { sessionId: top.sessionId })}
+        {resolvedPanel && renderMobileScreen(resolvedPanel.screenKind, resolvedPanel.props)}
         {top?.kind === "panel-sftp" && <MobileSftpScreen presetConnectionId={top.connectionId} />}
         {top?.kind === "account" && <MobileAccountPage />}
       </div>

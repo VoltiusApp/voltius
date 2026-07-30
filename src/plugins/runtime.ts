@@ -9,6 +9,7 @@ import { readTerminalSnapshot, readTerminalSelection } from "@/hooks/useTerminal
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIStore, type NavItem } from "@/stores/uiStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
+import type { MobileScreen as MobileNavScreen } from "@/stores/mobileNavCore";
 import { useUIContributionStore } from "@/stores/uiContributionStore";
 import { usePluginStateStore } from "@/stores/pluginStateStore";
 import { useNotificationStore } from "@/stores/notificationStore";
@@ -42,6 +43,7 @@ import type {
   PluginSession,
   PluginConfigField,
   StreamKind,
+  PluginMobileNavEntry,
 } from "./api";
 import { createStreamsAPI } from "./domains/streams";
 import { createMetricsAPI } from "./domains/metrics";
@@ -343,6 +345,29 @@ async function storageDelete(pluginId: string, key: string): Promise<void> {
   await invoke("plugin_storage_delete", { pluginId, key });
 }
 
+// ─── Mobile nav-stack translation ─────────────────────────────────────────
+// Translates a plugin's PluginMobileNavEntry into mobileNavCore's real stack
+// shape ("panel-<kind>", plus that variant's exact fields). No `default` case
+// and no `any`: tsc statically proves the switch covers every member of
+// PluginMobileNavEntry's kind (it errors "not all code paths return a value"
+// otherwise), and each case's return literal is structurally checked against
+// MobileNavScreen. Growing PluginMobileNavEntry to a second kind without a
+// matching case here, or with a case whose shape doesn't match a real
+// MobileNavScreen variant, fails `tsc` — not silently at runtime the way the
+// previous `as any` cast did.
+
+export function toMobileNavScreen(entry: PluginMobileNavEntry): MobileNavScreen {
+  switch (entry.kind) {
+    case "docker-logs":
+      return {
+        kind: "panel-docker-logs",
+        sessionId: entry.sessionId,
+        containerId: entry.containerId,
+        containerName: entry.containerName,
+      };
+  }
+}
+
 // ─── Permission checks ───────────────────────────────────────────────────
 
 function requirePerm(manifest: PluginManifest, perm: string): void {
@@ -565,10 +590,9 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         store().registerMobileScreen(prefixed);
         return () => store().unregisterMobileScreen(prefixed.id);
       },
-      pushMobileScreen(kind, params) {
+      pushMobileScreen(entry) {
         requirePerm(manifest, "ui");
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        useMobileNavStore.getState().push({ kind, ...params } as any);
+        useMobileNavStore.getState().push(toMobileNavScreen(entry));
       },
       focusMobileTerminal() {
         requirePerm(manifest, "ui");
