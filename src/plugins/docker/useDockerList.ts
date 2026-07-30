@@ -1,17 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { useSessionStore } from "@/stores/sessionStore";
-import { useUIStore } from "@/stores/uiStore";
-import { localConnect, localSendInput } from "@/services/local";
-import { dockerListContainers, dockerContainerAction } from "./services";
+import type { DockerTarget, PluginSession } from "@/plugins/api";
 import type { ContainerAction, DockerContainer } from "./types";
-import type { TerminalSession } from "@/types";
 
 export interface DockerListState {
   containers: DockerContainer[];
   loading: boolean;
   error: string | null;
   dockerUnreachable: boolean;
+}
+
+/** Adapts either api.docker (plugin side, via services.ts) or a raw-invoke
+ *  transport (mobile host side, via @/services/docker.ts — no plugin-bundle
+ *  runtime singleton available to host code) to the shape this hook needs.
+ *  Mirrors proxmox/services.ts's ProxmoxService DI split. */
+export interface DockerListService {
+  list(target: DockerTarget): Promise<DockerContainer[]>;
+  action(target: DockerTarget, containerId: string, action: ContainerAction): Promise<void>;
+  /** Opens a docker-exec PTY, registers it as a terminal tab, and switches to
+   *  the terminal nav. Each side's implementation owns its own nav store. */
+  openExecTerminal(target: DockerTarget, containerId: string, containerName: string): Promise<void>;
 }
 
 export function isDockerUnreachable(err: string): boolean {
@@ -27,9 +34,15 @@ export function isDockerUnreachable(err: string): boolean {
  * Session-scoped Docker container list: polls `docker_list_containers`, exposes
  * per-container actions, and the exec-into-terminal flow. The session is passed
  * explicitly (mobile pins one session, desktop feeds its activeSession) so the
- * hook never reaches into the active-session global itself.
+ * hook never reaches into the active-session global itself. `service` is injected
+ * so each side can back it with its own transport (see services.ts vs
+ * @/services/docker.ts).
  */
-export function useDockerList(session: TerminalSession | undefined, opts: { pollMs?: number; enabled?: boolean } = {}) {
+export function useDockerList(
+  service: DockerListService,
+  session: PluginSession | undefined,
+  opts: { pollMs?: number; enabled?: boolean } = {},
+) {
   const pollMs = opts.pollMs ?? 5000;
   // Desktop DockerPanel keeps its own reducer-driven polling and uses this hook
   // only for `openExecTerminal`, so it disables the list polling to stay byte-identical.
@@ -37,6 +50,7 @@ export function useDockerList(session: TerminalSession | undefined, opts: { poll
   const isRemote = session?.type === "ssh";
   const sessionId = session?.id ?? "";
   const localShell = session?.type === "local" ? (session.localShell ?? null) : null;
+  const target: DockerTarget = { sessionId, isRemote, localShell };
 
   const [state, setState] = useState<DockerListState>({
     containers: [],
@@ -50,14 +64,14 @@ export function useDockerList(session: TerminalSession | undefined, opts: { poll
     if (!session || session.status !== "connected") return;
     setState((s) => ({ ...s, loading: true }));
     try {
-      const containers = await dockerListContainers(sessionId, isRemote, localShell, true);
+      const containers = await service.list(target);
       setState({ containers, loading: false, error: null, dockerUnreachable: false });
     } catch (e) {
       const err = String(e);
       setState((s) => ({ ...s, loading: false, error: err, dockerUnreachable: isDockerUnreachable(err) }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, sessionId, isRemote, localShell]);
+  }, [service, session, sessionId, isRemote, localShell]);
 
   useEffect(() => {
     if (pollRef.current) clearInterval(pollRef.current);
@@ -74,89 +88,24 @@ export function useDockerList(session: TerminalSession | undefined, opts: { poll
   const act = useCallback(
     async (containerId: string, action: ContainerAction) => {
       if (!session) return;
-      await dockerContainerAction(sessionId, isRemote, localShell, containerId, action);
+      await service.action(target, containerId, action);
       await refresh();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [session, sessionId, isRemote, localShell, refresh],
+    [service, session, sessionId, isRemote, localShell, refresh],
   );
 
-  // VERBATIM body of DockerPanel.handleOpenTerminal — opens a docker-exec PTY
-  // (remote: docker_open_exec_session on the existing SSH conn; local: a new
-  // local PTY running `docker exec -it … sh`) and switches to the terminal nav.
   const openExecTerminal = useCallback(
     async (containerId: string, containerName: string) => {
-      const newSessionId = crypto.randomUUID();
-
-      if (isRemote) {
-        // Open a new PTY channel on the existing SSH connection
-        try {
-          const execSessionId = await invoke<string>("docker_open_exec_session", {
-            sourceSessionId: sessionId,
-            containerId,
-          });
-          useSessionStore.setState((s) => ({
-            sessions: [
-              ...s.sessions,
-              {
-                id: execSessionId,
-                connectionId: session!.connectionId,
-                connectionName: `exec: ${containerName}`,
-                status: "connecting" as const,
-                type: "ssh" as const,
-                containerExec: { kind: "docker" as const, containerId, parentSessionId: sessionId },
-              },
-            ],
-            activeSessionId: execSessionId,
-          }));
-          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-          useSessionStore.setState((s) => ({
-            sessions: s.sessions.map((sess) =>
-              sess.id === execSessionId ? { ...sess, status: "connected" as const } : sess,
-            ),
-          }));
-        } catch (e) {
-          console.error("[docker] open exec session failed:", e);
-          return;
-        }
-      } else {
-        // Local: spawn a new local PTY running docker exec
-        useSessionStore.setState((s) => ({
-          sessions: [
-            ...s.sessions,
-            {
-              id: newSessionId,
-              connectionId: "local",
-              connectionName: `exec: ${containerName}`,
-              status: "connecting" as const,
-              type: "local" as const,
-              localShell: localShell ?? undefined,
-            },
-          ],
-          activeSessionId: newSessionId,
-        }));
-        try {
-          await localConnect(newSessionId, 80, 24, localShell ?? undefined);
-          await localSendInput(newSessionId, new TextEncoder().encode(`docker exec -it ${containerId} sh\r`));
-          useSessionStore.setState((s) => ({
-            sessions: s.sessions.map((sess) =>
-              sess.id === newSessionId ? { ...sess, status: "connected" as const } : sess,
-            ),
-          }));
-        } catch (e) {
-          useSessionStore.setState((s) => ({
-            sessions: s.sessions.map((sess) =>
-              sess.id === newSessionId ? { ...sess, status: "error" as const } : sess,
-            ),
-          }));
-          return;
-        }
+      if (!session) return;
+      try {
+        await service.openExecTerminal(target, containerId, containerName);
+      } catch (e) {
+        console.error("[docker] open exec session failed:", e);
       }
-
-      useUIStore.getState().setActiveNav("terminal");
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sessionId, isRemote, session?.connectionId, localShell],
+    [service, session, sessionId, isRemote, localShell],
   );
 
   return { ...state, isRemote, sessionId, localShell, refresh, act, openExecTerminal };

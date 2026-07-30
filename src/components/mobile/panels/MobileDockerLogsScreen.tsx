@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useSessionStore } from "@/stores/sessionStore";
-import { dockerStartLogStream, dockerStopLogStream, onDockerLog } from "@/plugins/docker/services";
+import { dockerStartLogStream, dockerStopLogStream, onDockerLog } from "@/services/docker";
 import type { DockerLogLine } from "@/plugins/docker/types";
 import MobilePanelHeader from "./MobilePanelHeader";
 

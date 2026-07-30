@@ -4,10 +4,17 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
-import { useDockerList } from "@/plugins/docker/useDockerList";
+import { dockerListContainers, dockerContainerAction, dockerOpenExecTerminal } from "@/services/docker";
+import { useDockerList, type DockerListService } from "@/plugins/docker/useDockerList";
 import type { ContainerAction, DockerContainer } from "@/plugins/docker/types";
 import MobilePanelHeader from "./MobilePanelHeader";
 import BottomSheet from "../sheets/BottomSheet";
+
+const dockerListService: DockerListService = {
+  list: dockerListContainers,
+  action: dockerContainerAction,
+  openExecTerminal: dockerOpenExecTerminal,
+};
 
 /** State dot colour: running = green, paused = amber, otherwise dim. */
 function stateColor(state: string): string {
@@ -64,7 +71,10 @@ export default function MobileDockerScreen({ sessionId }: { sessionId: string })
   const session = useSessionStore((s) => s.sessions.find((x) => x.id === sessionId));
   const push = useMobileNavStore((s) => s.push);
 
-  const { containers, loading, error, dockerUnreachable, refresh, act, openExecTerminal } = useDockerList(session);
+  const { containers, loading, error, dockerUnreachable, refresh, act, openExecTerminal } = useDockerList(
+    dockerListService,
+    session,
+  );
 
   const [showAll, setShowAll] = useState(false);
   const [sheetFor, setSheetFor] = useState<DockerContainer | null>(null);

@@ -96,6 +96,8 @@ export interface PluginSession {
   connectionName: string;
   status: string;
   type: string;
+  /** Local sessions only: the shell path/name to use for a spawned exec PTY. */
+  localShell?: string;
 }
 
 export type ContextMenuTarget = "connection" | "session" | "tab";
@@ -243,6 +245,70 @@ export interface ProxmoxAPI {
       rollback(sessionId: string, vmid: number, name: string): Promise<void>;
       remove(sessionId: string, vmid: number, name: string): Promise<void>;
     };
+  };
+}
+
+/** Where a docker command runs. Replaces the repeated (sessionId, isRemote, localShell)
+ *  triple the underlying commands take — a transposed boolean in a positional call is
+ *  silent; this shape makes every call site self-describing and tsc-checked. */
+export interface DockerTarget {
+  sessionId: string;
+  isRemote: boolean;
+  localShell: string | null;
+}
+
+/**
+ * Docker container/image/volume/network/stack management. GATED, split two ways
+ * (kipavy ruling): docker:read covers every list/services/checkUpdate verb and all
+ * of logs.*; docker:manage covers everything that mutates or destroys, including
+ * exec.open (an interactive shell inside a container is full control, not a read).
+ */
+export interface DockerAPI {
+  containers: {
+    list(t: DockerTarget): Promise<unknown[]>;
+    action(t: DockerTarget, containerId: string, action: string): Promise<void>;
+    /** Reconstructs the `docker run` command for the container. `command` is the
+     *  container's image ref, passed through to the backend command as `image`. */
+    runCommand(t: DockerTarget, containerId: string, command: string): Promise<string>;
+  };
+  images: {
+    list(t: DockerTarget): Promise<unknown[]>;
+    remove(t: DockerTarget, imageId: string): Promise<void>;
+    pull(t: DockerTarget, image: string): Promise<void>;
+    checkUpdate(t: DockerTarget, imageId: string): Promise<unknown>;
+    /** Pulls `image` and, when `recreate` is set, recreates the containers using it. */
+    update(t: DockerTarget, imageId: string, recreate: boolean): Promise<unknown>;
+    recreateContainers(t: DockerTarget, imageId: string): Promise<unknown>;
+    prune(t: DockerTarget): Promise<string>;
+  };
+  volumes: {
+    list(t: DockerTarget): Promise<unknown[]>;
+    remove(t: DockerTarget, name: string): Promise<void>;
+    prune(t: DockerTarget): Promise<string>;
+  };
+  networks: {
+    list(t: DockerTarget): Promise<unknown[]>;
+    remove(t: DockerTarget, id: string): Promise<void>;
+    prune(t: DockerTarget): Promise<string>;
+  };
+  stacks: {
+    list(t: DockerTarget): Promise<unknown[]>;
+    services(t: DockerTarget, stack: string): Promise<unknown[]>;
+    action(t: DockerTarget, stack: string, action: string): Promise<void>;
+    update(t: DockerTarget, stack: string): Promise<void>;
+  };
+  logs: {
+    start(t: DockerTarget, containerId: string, tail: number): Promise<string>;
+    startStack(t: DockerTarget, stack: string, tail: number): Promise<string>;
+    stop(streamId: string): Promise<void>;
+    /** Payload is a DockerLogLine ({ line, stream }), not a bare string — kept generic like StreamsAPI.on. */
+    on<T>(streamId: string, cb: (payload: T) => void): Promise<() => void>;
+  };
+  system: { prune(t: DockerTarget): Promise<string> };
+  exec: {
+    /** Opens an interactive shell into the container and returns the new session's id.
+     *  containerName is display-only — used for the resulting terminal tab's label. */
+    open(t: DockerTarget, containerId: string, containerName?: string): Promise<string>;
   };
 }
 
@@ -414,6 +480,10 @@ export interface PluginAPI {
 
   // Proxmox VE LXC management — GATED (proxmox:manage).
   proxmox: ProxmoxAPI;
+
+  // Docker container/image/volume/network/stack management — GATED, split
+  // docker:read (list/services/checkUpdate/logs.*) / docker:manage (everything else).
+  docker: DockerAPI;
 
   // Lifecycle hooks (always available)
   lifecycle: {

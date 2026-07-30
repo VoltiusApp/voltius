@@ -3,7 +3,7 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { sshSendInput, onSshOutput } from "@/services/ssh";
-import { onLocalOutput } from "@/services/local";
+import { onLocalOutput, localConnect, localSendInput } from "@/services/local";
 import { onSerialOutput } from "@/services/serial";
 import { readTerminalSnapshot, readTerminalSelection } from "@/hooks/useTerminal";
 import { usePluginStore } from "@/stores/pluginStore";
@@ -46,6 +46,7 @@ import { createMetricsAPI } from "./domains/metrics";
 import { createProcessesAPI } from "./domains/processes";
 import { createCryptoAPI } from "./domains/crypto";
 import { createProxmoxAPI } from "./domains/proxmox";
+import { createDockerAPI } from "./domains/docker";
 
 const STREAM_PERM: Record<StreamKind, string> = {
   metrics: "metrics:read",
@@ -85,6 +86,7 @@ interface SessionSnapshot {
   connectionId: string;
   connectionName: string;
   type: string;
+  localShell?: string;
 }
 
 function findConnection(connectionId: string) {
@@ -125,6 +127,7 @@ function ensureLifecycleSetup() {
         connectionId: s.connectionId,
         connectionName: s.connectionName,
         type: s.type,
+        localShell: s.localShell,
       }]),
     );
 
@@ -370,6 +373,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const processesApi = createProcessesAPI(streamsApi);
   const cryptoApi = createCryptoAPI();
   const proxmoxApi = createProxmoxAPI();
+  const dockerApi = createDockerAPI(streamsApi);
 
   const api: PluginAPI = {
     pluginId: id,
@@ -741,6 +745,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           connectionName: s.connectionName,
           status: s.status,
           type: s.type,
+          localShell: s.localShell,
         }));
       },
       getActive() {
@@ -755,6 +760,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           connectionName: s.connectionName,
           status: s.status,
           type: s.type,
+          localShell: s.localShell,
         };
       },
       onConnected(cb) {
@@ -931,6 +937,143 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
             requireGated("proxmox:manage");
             return proxmoxApi.lxc.snapshots.remove(sessionId, vmid, name);
           },
+        },
+      },
+    },
+
+    docker: {
+      containers: {
+        list: (target) => { requireGated("docker:read"); return dockerApi.containers.list(target); },
+        action: (target, containerId, action) => {
+          requireGated("docker:manage");
+          return dockerApi.containers.action(target, containerId, action);
+        },
+        runCommand: (target, containerId, command) => {
+          requireGated("docker:manage");
+          return dockerApi.containers.runCommand(target, containerId, command);
+        },
+      },
+      images: {
+        list: (target) => { requireGated("docker:read"); return dockerApi.images.list(target); },
+        remove: (target, imageId) => { requireGated("docker:manage"); return dockerApi.images.remove(target, imageId); },
+        pull: (target, image) => { requireGated("docker:manage"); return dockerApi.images.pull(target, image); },
+        checkUpdate: (target, imageId) => {
+          requireGated("docker:read");
+          return dockerApi.images.checkUpdate(target, imageId);
+        },
+        update: (target, imageId, recreate) => {
+          requireGated("docker:manage");
+          return dockerApi.images.update(target, imageId, recreate);
+        },
+        recreateContainers: (target, imageId) => {
+          requireGated("docker:manage");
+          return dockerApi.images.recreateContainers(target, imageId);
+        },
+        prune: (target) => { requireGated("docker:manage"); return dockerApi.images.prune(target); },
+      },
+      volumes: {
+        list: (target) => { requireGated("docker:read"); return dockerApi.volumes.list(target); },
+        remove: (target, name) => { requireGated("docker:manage"); return dockerApi.volumes.remove(target, name); },
+        prune: (target) => { requireGated("docker:manage"); return dockerApi.volumes.prune(target); },
+      },
+      networks: {
+        list: (target) => { requireGated("docker:read"); return dockerApi.networks.list(target); },
+        remove: (target, id) => { requireGated("docker:manage"); return dockerApi.networks.remove(target, id); },
+        prune: (target) => { requireGated("docker:manage"); return dockerApi.networks.prune(target); },
+      },
+      stacks: {
+        list: (target) => { requireGated("docker:read"); return dockerApi.stacks.list(target); },
+        services: (target, stack) => { requireGated("docker:read"); return dockerApi.stacks.services(target, stack); },
+        action: (target, stack, action) => {
+          requireGated("docker:manage");
+          return dockerApi.stacks.action(target, stack, action);
+        },
+        update: (target, stack) => { requireGated("docker:manage"); return dockerApi.stacks.update(target, stack); },
+      },
+      logs: {
+        start: (target, containerId, tail) => {
+          requireGated("docker:read");
+          return dockerApi.logs.start(target, containerId, tail);
+        },
+        startStack: (target, stack, tail) => {
+          requireGated("docker:read");
+          return dockerApi.logs.startStack(target, stack, tail);
+        },
+        stop: (streamId) => { requireGated("docker:read"); return dockerApi.logs.stop(streamId); },
+        on: (streamId, cb) => { requireGated("docker:read"); return dockerApi.logs.on(streamId, cb); },
+      },
+      system: {
+        prune: (target) => { requireGated("docker:manage"); return dockerApi.system.prune(target); },
+      },
+      // Beyond the invoke (remote) / local PTY spawn (local), this registers the
+      // new exec session in the session store — the same bookkeeping
+      // useSessionStore.connect does for a normal connect. A plugin has no store
+      // access of its own, so this lives here rather than in the pure
+      // domains/docker.ts wrapper. Mirrors proxmox's openShell wiring above; like
+      // openShell, nav-switching is the caller's job, not this primitive's.
+      exec: {
+        open: async (target, containerId, containerName) => {
+          requireGated("docker:manage");
+          const label = containerName ? `exec: ${containerName}` : `exec: ${containerId.slice(0, 12)}`;
+
+          if (target.isRemote) {
+            const execSessionId = await dockerApi.exec.open(target, containerId);
+            const parent = useSessionStore.getState().sessions.find((s) => s.id === target.sessionId);
+            useSessionStore.setState((s) => ({
+              sessions: [
+                ...s.sessions,
+                {
+                  id: execSessionId,
+                  connectionId: parent?.connectionId ?? "",
+                  connectionName: label,
+                  status: "connecting" as const,
+                  type: "ssh" as const,
+                  containerExec: { kind: "docker" as const, containerId, parentSessionId: target.sessionId },
+                },
+              ],
+              activeSessionId: execSessionId,
+            }));
+            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+            useSessionStore.setState((s) => ({
+              sessions: s.sessions.map((sess) =>
+                sess.id === execSessionId ? { ...sess, status: "connected" as const } : sess,
+              ),
+            }));
+            return execSessionId;
+          }
+
+          const newSessionId = crypto.randomUUID();
+          useSessionStore.setState((s) => ({
+            sessions: [
+              ...s.sessions,
+              {
+                id: newSessionId,
+                connectionId: "local",
+                connectionName: label,
+                status: "connecting" as const,
+                type: "local" as const,
+                localShell: target.localShell ?? undefined,
+              },
+            ],
+            activeSessionId: newSessionId,
+          }));
+          try {
+            await localConnect(newSessionId, 80, 24, target.localShell ?? undefined);
+            await localSendInput(newSessionId, new TextEncoder().encode(`docker exec -it ${containerId} sh\r`));
+            useSessionStore.setState((s) => ({
+              sessions: s.sessions.map((sess) =>
+                sess.id === newSessionId ? { ...sess, status: "connected" as const } : sess,
+              ),
+            }));
+          } catch (e) {
+            useSessionStore.setState((s) => ({
+              sessions: s.sessions.map((sess) =>
+                sess.id === newSessionId ? { ...sess, status: "error" as const } : sess,
+              ),
+            }));
+            throw e;
+          }
+          return newSessionId;
         },
       },
     },

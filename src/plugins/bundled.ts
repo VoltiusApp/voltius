@@ -8,13 +8,10 @@
  */
 
 import type { PluginManifest, PluginRegisterFn } from "./api";
-import { manifest as dockerManifest, register as dockerRegister } from "./docker";
 
 export interface BundledPlugin {
   manifest: PluginManifest;
   register: PluginRegisterFn;
 }
 
-export const BUNDLED_PLUGINS: BundledPlugin[] = [
-  { manifest: dockerManifest, register: dockerRegister },
-];
+export const BUNDLED_PLUGINS: BundledPlugin[] = [];

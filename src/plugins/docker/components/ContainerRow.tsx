@@ -72,9 +72,7 @@ export function ContainerRow({
   const copyRunCommand = async () => {
     try {
       const cmd = await dockerContainerRunCommand(
-        sessionId,
-        isRemote,
-        localShell,
+        { sessionId, isRemote, localShell },
         container.id,
         container.image,
       );
@@ -89,7 +87,7 @@ export function ContainerRow({
   const act = async (action: ContainerAction) => {
     setBusy(true);
     try {
-      await dockerContainerAction(sessionId, isRemote, localShell, container.id, action);
+      await dockerContainerAction({ sessionId, isRemote, localShell }, container.id, action);
       onRefresh();
     } catch (e) {
       console.error("[docker] action failed:", e);

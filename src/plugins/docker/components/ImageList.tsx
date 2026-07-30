@@ -51,7 +51,7 @@ export function ImageList({ images, sessionId, isRemote, localShell, onRefresh }
     setPruning(true);
     setPruneMsg(null);
     try {
-      const msg = await dockerPruneImages(sessionId, isRemote, localShell);
+      const msg = await dockerPruneImages({ sessionId, isRemote, localShell });
       setPruneMsg(msg);
       onRefresh();
     } catch (e) {
@@ -162,7 +162,7 @@ function ImageRow({
   const remove = async () => {
     setBusy(true);
     try {
-      await dockerRemoveImage(sessionId, isRemote, localShell, img.id);
+      await dockerRemoveImage({ sessionId, isRemote, localShell }, img.id);
       onRefresh();
     } catch (e) {
       console.error("[docker] remove image failed:", e);
