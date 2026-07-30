@@ -26,6 +26,8 @@ const marketplaceState = {
   scanLocal: vi.fn(async () => {}),
   installPlugin: vi.fn(async () => {}),
   fetchManifest: vi.fn(async () => ({ manifest: { permissions: [] }, manifestText: "" })),
+  appVersion: null as string | null,
+  loadAppVersion: vi.fn(async () => {}),
 };
 vi.mock("@/stores/marketplaceStore", () => ({
   useMarketplaceStore: (selector?: (s: typeof marketplaceState) => unknown) =>

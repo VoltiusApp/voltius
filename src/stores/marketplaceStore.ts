@@ -9,7 +9,7 @@ import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { appFetch } from "@/services/http";
 import { resolveVerifiedHash } from "@/plugins/integrity";
 import { satisfiesMinAppVersion, MinAppVersionError } from "@/plugins/version";
-import { useSeededTombstoneStore } from "@/stores/seededTombstoneStore";
+import { useSeededTombstoneStore, loadSeededEntries } from "@/stores/seededTombstoneStore";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -34,6 +34,10 @@ export interface MarketplacePlugin {
   sourceId: string;
   hash?: string;
   cssHash?: string;
+  /** True for a Browse-tab entry synthesised from an app-bundled seeded manifest (the
+   *  local floor for a tombstoned built-in) rather than fetched from a real catalogue
+   *  source. Routes `installPlugin` through the no-network, no-hash-check floor path. */
+  builtin?: boolean;
 }
 
 export interface InstalledPluginMeta {
@@ -114,6 +118,47 @@ async function readLocalCss(id: string): Promise<string | undefined> {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Installs a built-in straight from its app-bundled seeded files — the local floor
+ * used when the real catalogue can't serve it (offline, fetch failure, no entry, or
+ * an unsatisfied `minAppVersion`). Reads `manifest.json` / `index.js` / `voltius.css`
+ * via `plugin_seeded_read` and loads them directly, exactly like `loadSeededPlugins`.
+ *
+ * No hash check on this path, deliberately: these bytes come from the signed app
+ * bundle read off local disk, not fetched over the network, so there is nothing to
+ * verify them against. Do not add one here, and do not read its absence as an
+ * oversight — the "never execute an unvouched-for bundle" rule is about network
+ * fetches, which this path makes none of.
+ */
+async function installFromSeededFloor(plugin: MarketplacePlugin): Promise<void> {
+  const entry = (await loadSeededEntries()).get(plugin.id);
+  if (!entry) throw new Error(`No seeded artifact found for "${plugin.id}".`);
+  const { folder } = entry;
+
+  const manifestText = await invoke<string>("plugin_seeded_read", { id: folder, filename: "manifest.json" });
+  const manifest = JSON.parse(manifestText) as PluginManifest;
+  const jsText = await invoke<string>("plugin_seeded_read", { id: folder, filename: "index.js" });
+  let cssText: string | undefined;
+  try {
+    cssText = await invoke<string>("plugin_seeded_read", { id: folder, filename: "voltius.css" });
+  } catch {
+    // Most seeded plugins ship no stylesheet — expected, not an error.
+  }
+
+  const mod = (await importPluginModule(jsText, cssText, manifest.id)) as PluginModule;
+  const active = usePluginRegistryStore
+    .getState()
+    .isEnabled(manifest.id, manifest.defaultEnabled ?? true);
+  // trusted=true, matching loadSeededPlugins: a floor reinstall of a built-in must
+  // not silently downgrade its pre-granted gated permissions.
+  loadPlugin(manifest, pluginRegisterOf(mod), active, true, cssText);
+
+  // This id is not written to installedMeta — a floor install puts the plugin back
+  // exactly where it was before uninstall: a seeded plugin with no external shadow,
+  // so `loadSeededPlugins` picks it up again on the next boot.
+  await useSeededTombstoneStore.getState().restore(manifest.id);
 }
 
 let appVersionPromise: Promise<string | null> | null = null;
@@ -265,6 +310,12 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
   // Fetch just the manifest (no side effects) to preview declared permissions before
   // installing/updating. The executed index.js is still hash-verified in installPlugin.
   async fetchManifest(plugin: MarketplacePlugin) {
+    if (plugin.builtin) {
+      const entry = (await loadSeededEntries()).get(plugin.id);
+      if (!entry) throw new Error(`No seeded artifact found for "${plugin.id}".`);
+      const manifestText = await invoke<string>("plugin_seeded_read", { id: entry.folder, filename: "manifest.json" });
+      return { manifest: JSON.parse(manifestText) as PluginManifest, manifestText };
+    }
     const base = plugin.repo.startsWith("http")
       ? plugin.repo
       : `https://github.com/${plugin.repo}/releases/latest/download`;
@@ -278,6 +329,13 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
 
     set((s) => ({ installing: new Set([...s.installing, plugin.id]) }));
     try {
+      // The floor never touches the network or the appVersion gate above it — its
+      // bytes ship in the running app, so they're inherently version-compatible.
+      if (plugin.builtin) {
+        await installFromSeededFloor(plugin);
+        return;
+      }
+
       const appVersion = await resolveAppVersion();
       if (appVersion !== null && !satisfiesMinAppVersion(plugin, appVersion)) {
         throw new MinAppVersionError(plugin.minAppVersion!, appVersion);

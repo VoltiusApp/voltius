@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { useAppSettingsTimestampStore } from "./appSettingsTimestampStore";
+import type { PluginManifest } from "@/plugins/api";
 
 const TOMBSTONE_FILE = "removed-seeded.json";
 
@@ -27,6 +28,14 @@ async function writeTombstones(removed: string[]): Promise<void> {
   });
 }
 
+/** A seeded (app-bundled) plugin's on-disk folder name plus its parsed manifest. The
+ *  folder name is what `plugin_seeded_read` needs to read files; the manifest id
+ *  (e.g. "plugin-docker") is what tombstones, installedMeta and the catalogue key on. */
+export interface SeededEntry {
+  folder: string;
+  manifest: PluginManifest;
+}
+
 /**
  * `plugins_list_seeded` returns folder names, not manifest ids — resolving
  * "does a seeded artifact exist for this manifest id" means reading every
@@ -34,28 +43,38 @@ async function writeTombstones(removed: string[]): Promise<void> {
  * `appVersionPromise` in marketplaceStore) since the seeded set never
  * changes without a new app build.
  */
-let seededManifestIdsPromise: Promise<Set<string>> | null = null;
+let seededEntriesPromise: Promise<Map<string, SeededEntry>> | null = null;
 
-async function loadSeededManifestIds(): Promise<Set<string>> {
+async function loadSeededEntriesUncached(): Promise<Map<string, SeededEntry>> {
   let folders: string[] = [];
   try {
     folders = await invoke<string[]>("plugins_list_seeded");
   } catch {
-    return new Set();
+    return new Map();
   }
-  const ids = new Set<string>();
+  const entries = new Map<string, SeededEntry>();
   await Promise.all(
     folders.map(async (folder) => {
       try {
         const manifestText = await invoke<string>("plugin_seeded_read", { id: folder, filename: "manifest.json" });
-        const manifest = JSON.parse(manifestText) as { id?: string };
-        if (manifest.id) ids.add(manifest.id);
+        const manifest = JSON.parse(manifestText) as PluginManifest;
+        if (manifest.id) entries.set(manifest.id, { folder, manifest });
       } catch {
-        // Unreadable seeded manifest — not eligible for the tombstone rule.
+        // Unreadable seeded manifest — not eligible for the tombstone/floor rules.
       }
     }),
   );
-  return ids;
+  return entries;
+}
+
+/** Folder + parsed manifest for every seeded plugin, keyed by manifest id. Used both
+ *  by the tombstone rule and by the Browse-tab local floor (installing/previewing a
+ *  built-in from its app-bundled files rather than the network). */
+export async function loadSeededEntries(): Promise<Map<string, SeededEntry>> {
+  if (seededEntriesPromise === null) {
+    seededEntriesPromise = loadSeededEntriesUncached();
+  }
+  return seededEntriesPromise;
 }
 
 interface SeededTombstoneStore {
@@ -94,11 +113,5 @@ export const useSeededTombstoneStore = create<SeededTombstoneStore>((set, get) =
     await writeTombstones(removed).catch(() => {});
   },
 
-  hasSeededArtifact: async (id) => {
-    if (seededManifestIdsPromise === null) {
-      seededManifestIdsPromise = loadSeededManifestIds();
-    }
-    const ids = await seededManifestIdsPromise;
-    return ids.has(id);
-  },
+  hasSeededArtifact: async (id) => (await loadSeededEntries()).has(id),
 }));
