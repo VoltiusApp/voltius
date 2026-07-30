@@ -332,6 +332,74 @@ jobs:
           PY
           gh release upload "$TAG" latest.json -R "$REPO" --clobber
 
+  # Publishes the six first-party plugins (src/plugins/*) as their OWN GitHub
+  # Releases, separate from the app release above — this is what lets a plugin fix
+  # ship without cutting a full app release. Each plugin gets its own release
+  # (tag `<manifest-id>-v<version>`) holding three UNPREFIXED assets (index.js,
+  # manifest.json, voltius.css when present): the marketplace client always fetches
+  # `${plugin.repo}/index.js` / `${plugin.repo}/manifest.json` verbatim, and a
+  # single shared release can't serve six different plugins under those fixed
+  # names. See scripts/build-plugins.mjs (releaseRepoFor/stageReleaseAssets) for
+  # the full reasoning.
+  #
+  # The emitted plugins.json fragment is uploaded as a build artifact and attached
+  # to the app release for the record — merging it into voltiusApp/marketplace's
+  # plugins.json is a manual follow-up this workflow cannot do (separate repo).
+  publish-plugins:
+    needs: [changelog, publish-tauri]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build plugin bundles and catalogue fragment
+        run: node scripts/build-plugins.mjs --emit-catalog=dist/plugin-catalog.json --stage-assets=dist/plugin-release-assets
+
+      - name: Upload catalogue fragment as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-catalog
+          path: dist/plugin-catalog.json
+
+      - name: Create a release per plugin and upload its bundle
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          for dir in dist/plugin-release-assets/*/; do
+            tag="$(basename "$dir")"
+            gh release create "$tag" "$dir"* \
+              -R "$REPO" \
+              --title "$tag" \
+              --notes "First-party plugin bundle, built from ${{ inputs.tag }}. See voltius CHANGELOG.md for what changed." \
+              --latest=false
+          done
+
+      - name: Attach the catalogue fragment to the app release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+        run: gh release upload "$TAG" dist/plugin-catalog.json -R "$REPO" --clobber
+
   checksums:
     needs: [publish-tauri, publish-android]
     runs-on: ubuntu-latest
