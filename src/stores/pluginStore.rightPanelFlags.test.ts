@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach } from "vitest";
 import { usePluginStore, findRightPanelSectionWithFlag } from "./pluginStore";
 
-const section = (id: string, extra: Partial<{ providesHostMetrics: boolean; hasPanelSearch: boolean }> = {}) => ({
+const section = (id: string, extra: Partial<{ providesHostMetrics: boolean; providesPanelSearch: boolean }> = {}) => ({
   id, label: id, icon: "lucide:box", component: () => null, ...extra,
 });
 
@@ -25,9 +25,12 @@ describe("findRightPanelSectionWithFlag", () => {
     expect(findRightPanelSectionWithFlag(usePluginStore.getState().rightPanelSections, "providesHostMetrics")?.id).toBe("a:first");
   });
 
-  test("flags are independent per capability", () => {
-    usePluginStore.getState().registerRightPanelSection(section("a:one", { hasPanelSearch: true }));
+  test("a providesPanelSearch section is not picked up as a providesHostMetrics section", () => {
+    // findRightPanelSectionWithFlag is only used (and typed) for providesHostMetrics —
+    // providesPanelSearch is looked up directly by id in useKeyboard.ts, not scanned.
+    // This just confirms the flags don't leak into each other on the same section map.
+    usePluginStore.getState().registerRightPanelSection(section("a:one", { providesPanelSearch: true }));
     expect(findRightPanelSectionWithFlag(usePluginStore.getState().rightPanelSections, "providesHostMetrics")).toBeNull();
-    expect(findRightPanelSectionWithFlag(usePluginStore.getState().rightPanelSections, "hasPanelSearch")?.id).toBe("a:one");
+    expect(usePluginStore.getState().rightPanelSections.get("a:one")?.providesPanelSearch).toBe(true);
   });
 });

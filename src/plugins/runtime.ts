@@ -581,7 +581,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       registerSettingsPage(page) {
         requirePerm(manifest, "settings-page");
         // Ensure page ID is prefixed with plugin ID so unregisterAll and store filters work correctly
-        const prefixed = { ...page, id: page.id.startsWith(id) ? page.id : `${id}:${page.id}` };
+        const prefixed = { ...page, id: page.id.startsWith(`${id}:`) ? page.id : `${id}:${page.id}` };
         store().registerSettingsPage(prefixed);
         return () => store().unregisterSettingsPage(prefixed.id);
       },
@@ -592,19 +592,19 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       registerRightPanelSection(section) {
         requirePerm(manifest, "right-panel");
-        const prefixed = { ...section, id: section.id.startsWith(id) ? section.id : `${id}:${section.id}` };
+        const prefixed = { ...section, id: section.id.startsWith(`${id}:`) ? section.id : `${id}:${section.id}` };
         store().registerRightPanelSection(prefixed);
         return () => store().unregisterRightPanelSection(prefixed.id);
       },
       registerGlobalPanel(panel) {
         requirePerm(manifest, "global-panel");
-        const prefixed = { ...panel, id: panel.id.startsWith(id) ? panel.id : `${id}:${panel.id}` };
+        const prefixed = { ...panel, id: panel.id.startsWith(`${id}:`) ? panel.id : `${id}:${panel.id}` };
         store().registerGlobalPanel(prefixed);
         return () => store().unregisterGlobalPanel(prefixed.id);
       },
       registerMobileScreen(screen) {
         requirePerm(manifest, "right-panel");
-        const prefixed = { ...screen, id: screen.id.startsWith(id) ? screen.id : `${id}:${screen.id}` };
+        const prefixed = { ...screen, id: screen.id.startsWith(`${id}:`) ? screen.id : `${id}:${screen.id}` };
         store().registerMobileScreen(prefixed);
         return () => store().unregisterMobileScreen(prefixed.id);
       },

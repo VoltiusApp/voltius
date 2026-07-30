@@ -89,7 +89,7 @@ export interface RightPanelSection {
   providesHostMetrics?: boolean;
   /** Opt-in: this section owns an in-panel search bar that Ctrl+F should focus
    *  when the section is open, via the "voltius:focus-panel-search" event. */
-  hasPanelSearch?: boolean;
+  providesPanelSearch?: boolean;
 }
 
 /** Nav-stack entries a plugin may push via `pushMobileScreen`. Each member's

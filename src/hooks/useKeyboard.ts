@@ -48,9 +48,9 @@ export function useKeyboard() {
         const { rightPanelOpen, rightPanelSection, activeNav } = useUIStore.getState();
         const BUILTIN_SEARCHABLE_SECTIONS = ["snippets", "history"];
         // Not keyed by a literal plugin section id — a plugin opts in via
-        // hasPanelSearch so a squatted id can't inherit the Ctrl+F wiring.
+        // providesPanelSearch so a squatted id can't inherit the Ctrl+F wiring.
         const isPluginSectionSearchable = rightPanelSection.startsWith("plugin:") &&
-          usePluginStore.getState().rightPanelSections.get(rightPanelSection.slice("plugin:".length))?.hasPanelSearch === true;
+          usePluginStore.getState().rightPanelSections.get(rightPanelSection.slice("plugin:".length))?.providesPanelSearch === true;
         if (rightPanelOpen && (BUILTIN_SEARCHABLE_SECTIONS.includes(rightPanelSection) || isPluginSectionSearchable)) {
           window.dispatchEvent(new CustomEvent("voltius:focus-panel-search"));
         } else if (activeNav === "terminal") {

@@ -49,14 +49,22 @@ interface PluginStore {
 }
 
 /**
- * First-registered section with `flag` set wins. Used by host code (e.g. the
- * terminal status bar's metrics indicator) that needs to pick a single section
- * to integrate with — an explicit opt-in flag rather than a literal id check,
+ * Scans every registered section for one with `flag` set and returns the
+ * first-registered match — used where the host must pick a single section to
+ * integrate with out of however many are currently registered (e.g. the
+ * terminal status bar's metrics indicator picks its `providesHostMetrics`
+ * section this way). An explicit opt-in flag rather than a literal id check,
  * so a plugin can't inherit the integration by squatting another plugin's id.
+ *
+ * Not the right tool for a flag on one specific, already-known section (e.g.
+ * "does the *currently open* section support panel search?") — that's a
+ * direct `sections.get(id)?.flag` lookup, not a first-wins scan, since there
+ * is no ambiguity to resolve. `providesPanelSearch` is checked that way in
+ * useKeyboard.ts, not through this helper.
  */
 export function findRightPanelSectionWithFlag(
   sections: Map<string, RightPanelSection>,
-  flag: "providesHostMetrics" | "hasPanelSearch",
+  flag: "providesHostMetrics",
 ): RightPanelSection | null {
   for (const section of sections.values()) {
     if (section[flag]) return section;

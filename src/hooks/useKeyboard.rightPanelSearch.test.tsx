@@ -27,7 +27,7 @@ afterEach(() => {
 });
 
 describe("useKeyboard Ctrl+F on a plugin right-panel section", () => {
-  test("does not focus panel search for a plugin section without hasPanelSearch", () => {
+  test("does not focus panel search for a plugin section without providesPanelSearch", () => {
     usePluginStore.getState().registerRightPanelSection({
       id: "squatter:docker", label: "Not docker", icon: "x", component: () => null,
     });
@@ -37,9 +37,9 @@ describe("useKeyboard Ctrl+F on a plugin right-panel section", () => {
     unmount();
   });
 
-  test("focuses panel search for a plugin section that sets hasPanelSearch", () => {
+  test("focuses panel search for a plugin section that sets providesPanelSearch", () => {
     usePluginStore.getState().registerRightPanelSection({
-      id: "docker:docker", label: "Docker", icon: "x", component: () => null, hasPanelSearch: true,
+      id: "docker:docker", label: "Docker", icon: "x", component: () => null, providesPanelSearch: true,
     });
     useUIStore.setState({ rightPanelSection: "plugin:docker:docker" });
     const { unmount } = renderHook(() => useKeyboard());

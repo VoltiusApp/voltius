@@ -15,7 +15,7 @@ let captured: import("./api").PluginAPI;
 
 beforeEach(() => usePluginStore.setState({ rightPanelSections: new Map() }));
 afterEach(() => {
-  for (const id of ["a", "b", "throwing"]) {
+  for (const id of ["a", "b", "throwing", "monitor"]) {
     try { unloadPlugin(id); } catch { /* noop */ }
   }
 });
@@ -73,6 +73,22 @@ describe("api.ui.registerRightPanelSection", () => {
   test("unloadPlugin removes the section", () => {
     loadPlugin(manifest("a", ["right-panel"]), (api) => api.ui.registerRightPanelSection(section("dashboard")), true, false);
     unloadPlugin("a");
+    expect(usePluginStore.getState().rightPanelSections.size).toBe(0);
+  });
+
+  test("the prefix guard requires a colon: plugin id 'monitor' registering section id 'monitoring' is still namespaced", () => {
+    // A startsWith(id) guard (missing the trailing ":") would treat "monitoring"
+    // as already-prefixed by plugin id "monitor" and leave the bare, un-namespaced
+    // key "monitoring" in the store — squattable, and invisible to unregisterAll's
+    // `${pluginId}:` filter. The guard must be startsWith(`${id}:`).
+    const register: PluginRegisterFn = (api) => api.ui.registerRightPanelSection(section("monitoring"));
+    loadPlugin(manifest("monitor", ["right-panel"]), register, true, false);
+
+    const sections = usePluginStore.getState().rightPanelSections;
+    expect(sections.has("monitor:monitoring")).toBe(true);
+    expect(sections.has("monitoring")).toBe(false);
+
+    unloadPlugin("monitor");
     expect(usePluginStore.getState().rightPanelSections.size).toBe(0);
   });
 
