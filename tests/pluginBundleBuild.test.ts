@@ -1,10 +1,17 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, beforeAll, afterAll } from "vitest";
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
+import { init, parse } from "es-module-lexer";
 
 const ROOT = path.resolve(__dirname, "..");
 const PLUGINS_DIR = path.join(ROOT, "src/plugins");
+
+// The only specifiers hostModules.ts exposes (src/plugins/hostModules.ts). A plugin
+// bundle may bare-import these; anything else must have been inlined by the bundler —
+// the webview has no module resolver for a bare npm specifier it doesn't recognize.
+const HOST_SPECIFIERS = ["react", "react/jsx-runtime", "react-dom", "@voltius/ui", "@voltius/api"];
 
 // Every plugin id with a manifest.json is migrated to the external-bundle pipeline
 // and gets built by `pnpm build:plugins`. Deriving the list from disk (rather than
@@ -16,63 +23,83 @@ function migratedPluginIds(): string[] {
     .map((e) => e.name);
 }
 
-// Regression coverage for a real webview failure: plugin bundles are loaded via
-// `importPluginModule` in a WebKitGTK webview, which has no Node `process` global.
-// A dependency (@tanstack/react-virtual, used by process-manager) branches on
-// `process.env.NODE_ENV` for dev-only warnings; without a build-time `define`, that
-// reference survives into the artifact verbatim and throws
-// `ReferenceError: Can't find variable: process` at module-evaluation time — the
-// plugin silently fails to load (seeded.ts swallows the throw into console.warn).
-// jsdom/Node test environments have a real `process`, so this defect is invisible
-// to every other test in the suite; only inspecting the actual built artifact catches it.
+// Plugin bundles run in a WebKitGTK webview: no Node globals, no second copy of
+// react/react-dom, and no dev-mode JSX transform (the host only exposes the
+// production react/jsx-runtime exports — jsx/jsxs/Fragment — not jsxDEV). Three real
+// live-gate failures have come from this artifact, one layer behind the next, and
+// none were visible to jsdom/Node unit tests (which have a `process`, run under
+// NODE_ENV=test where ambient env doesn't matter to hand-written code, and don't care
+// which JSX transform produced a tree). Only inspecting the actual built artifact
+// catches this class of defect — so this test builds each migrated plugin for real
+// and asserts on the output.
 describe("plugin bundle build (webview compatibility)", () => {
   const ids = migratedPluginIds();
+
+  // Build into a throwaway directory, never the real src-tauri/resources/plugins/<id>
+  // output — that path is what `pnpm build` and the Tauri bundler ship. A build
+  // spawned from inside a test run must not be able to overwrite release artifacts.
+  let outRoot: string;
+  beforeAll(() => {
+    outRoot = mkdtempSync(path.join(tmpdir(), "voltius-plugin-build-"));
+  });
+  afterAll(() => {
+    rmSync(outRoot, { recursive: true, force: true });
+  });
+
   test("at least one migrated plugin pulls in a process.env-branching dependency", () => {
     // Sanity check that this test still exercises the failure mode it was written for.
     expect(ids).toContain("process-manager");
   });
 
   function buildAndRead(id: string): string {
-    execFileSync("pnpm", ["vite", "build", "--config", "vite.plugins.config.ts"], {
-      cwd: ROOT,
-      stdio: "pipe",
-      env: { ...process.env, VOLTIUS_PLUGIN_ID: id },
-    });
-    return readFileSync(path.join(ROOT, `src-tauri/resources/plugins/${id}/index.js`), "utf8");
+    const outDir = path.join(outRoot, id);
+    execFileSync(
+      "pnpm",
+      ["vite", "build", "--config", "vite.plugins.config.ts", "--outDir", outDir, "--emptyOutDir"],
+      {
+        cwd: ROOT,
+        stdio: "pipe",
+        // Deliberately does NOT force NODE_ENV=production here — the point of this
+        // test is to prove the build pipeline itself pins production mode regardless
+        // of the caller's ambient environment (vite.plugins.config.ts does this).
+        // Leaving the test runner's own NODE_ENV (e.g. "test") in place is what
+        // caught the dev-mode-JSX defect in the first place.
+        env: { ...process.env, VOLTIUS_PLUGIN_ID: id },
+      },
+    );
+    return readFileSync(path.join(outDir, "index.js"), "utf8");
   }
 
-  test.each(ids)("%s bundle contains no bare `process.` reference", (id) => {
-    expect(buildAndRead(id)).not.toMatch(/\bprocess\.\w/);
-  }, 30000);
-
-  // Regression coverage for a second real webview failure found one layer behind the
-  // first: @tanstack/react-virtual imports flushSync from the "react-dom" peer dep.
-  // react-dom was missing from vite.plugins.config.ts's `external` list, so rolldown
-  // inlined a whole second copy of the renderer (its CJS build, verbatim) into
-  // process-manager/index.js. That inlined copy's own `require("react")` then hit
-  // rolldown's external-CJS shim and threw `Calling require for "react" in an
-  // environment that doesn't expose the require function` at module-evaluation time —
-  // same silent-failure shape as the process.env defect: swallowed by seeded.ts's
-  // catch, invisible to jsdom/Node tests, only visible in the real webview.
-  //
-  // A single instance of react-dom (the host's) is also a correctness requirement, not
-  // just a size one — a second renderer copy has separate internal state and a null
-  // hook dispatcher for the host's own component tree.
-  test.each(ids)("%s bundle does not inline a copy of react-dom", (id) => {
+  test.each(ids)("%s bundle is webview-safe", async (id) => {
     const code = buildAndRead(id);
-    // rolldown leaves a `//#region node_modules/.../node_modules/<pkg>/...` marker at
-    // the start of every inlined (non-external) module — this is what an inlined
-    // react-dom copy looks like when the `external` entry is missing or misspelled.
-    // Match the package's own nested `node_modules/react-dom/` segment specifically —
-    // a pnpm store path for an unrelated legitimately-bundled dependency (e.g.
+
+    // No Node globals — the webview has none.
+    expect(code).not.toMatch(/\bprocess\.\w/);
+
+    // Production JSX transform only — a dev-mode build imports jsxDEV from
+    // react/jsx-dev-runtime, which the host does not expose.
+    expect(code).not.toMatch(/\bjsxDEV\b/);
+    expect(code).not.toContain("react/jsx-dev-runtime");
+
+    // No inlined copy of react or react-dom — match the package's own nested
+    // node_modules/<pkg>/ path segment specifically (rolldown's inlining marker),
+    // not any substring: a legitimately-bundled dependency's pnpm store path can
+    // contain "react-dom" in its own peer-dep hash (e.g.
     // `@tanstack+react-virtual@…_react-dom@19.2.7_react@…/node_modules/@tanstack/...`)
-    // encodes react-dom's version in its peer-dep hash and would false-positive on a
-    // looser match.
+    // and would false-positive on a looser match.
+    expect(code).not.toMatch(/node_modules[/\\]react[/\\]/);
     expect(code).not.toMatch(/node_modules[/\\]react-dom[/\\]/);
-    // If this plugin imports react-dom at all, it must survive as the bare external
-    // specifier for resolveHostSpecifiers to rewrite, not get bundled away.
-    if (/[\s"']react-dom['"\s]/.test(code) || code.includes("flushSync")) {
-      expect(code).toMatch(/from\s*["']react-dom["']/);
+
+    // Every bare (non-relative) import specifier surviving in the artifact must be
+    // one the host actually exposes — anything else should have been bundled in,
+    // not left dangling for a browser module resolver that doesn't exist here.
+    await init;
+    const [imports] = parse(code);
+    const bareSpecifiers = imports
+      .map((imp) => imp.n)
+      .filter((n): n is string => !!n && !n.startsWith(".") && !n.startsWith("/"));
+    for (const specifier of bareSpecifiers) {
+      expect(HOST_SPECIFIERS).toContain(specifier);
     }
   }, 30000);
 });

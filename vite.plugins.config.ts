@@ -5,6 +5,15 @@ import path from "path";
 const id = process.env.VOLTIUS_PLUGIN_ID;
 if (!id) throw new Error("VOLTIUS_PLUGIN_ID is required");
 
+// Vite derives `isProduction` (and @vitejs/plugin-react's dev-vs-prod JSX transform
+// choice) directly from `process.env.NODE_ENV` at config-resolution time — not from
+// the `build` command or any `mode` field. Whatever invokes this config (a plain
+// shell, a script, or — as happened — a test runner whose own NODE_ENV=test leaks
+// into a spawned `vite build` subprocess) must not be able to ship a dev-mode bundle
+// that imports `jsxDEV` from a runtime the host doesn't expose. Force it here, once,
+// so the artifact is correct regardless of the caller's ambient environment.
+process.env.NODE_ENV = "production";
+
 export default defineConfig({
   plugins: [react()],
   publicDir: false,
