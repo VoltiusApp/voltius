@@ -3,6 +3,7 @@ import { Icon, BottomSheet } from "@voltius/ui";
 import type { FC } from "react";
 import type { PluginAPI, MobileScreenProps } from "@/plugins/api";
 import { useSessionById } from "../useSessionById";
+import { useT } from "../useT";
 import { createMobileDockerListService } from "../services";
 import { useDockerList } from "../useDockerList";
 import type { ContainerAction, DockerContainer } from "../types";
@@ -34,27 +35,28 @@ interface ActionItem {
   danger?: boolean;
 }
 
-function actionsFor(state: string): ActionItem[] {
+function actionsFor(state: string, t: PluginAPI["i18n"]["t"]): ActionItem[] {
   if (state === "running") {
     return [
-      { action: "stop", label: "Stop", icon: "lucide:square" },
-      { action: "restart", label: "Restart", icon: "lucide:rotate-cw" },
-      { action: "pause", label: "Pause", icon: "lucide:pause" },
+      { action: "stop", label: t("hostStop"), icon: "lucide:square" },
+      { action: "restart", label: t("hostRestart"), icon: "lucide:rotate-cw" },
+      { action: "pause", label: t("hostPause"), icon: "lucide:pause" },
     ];
   }
   if (state === "paused") {
     return [
-      { action: "unpause", label: "Resume", icon: "lucide:play" },
-      { action: "stop", label: "Stop", icon: "lucide:square" },
+      { action: "unpause", label: t("hostResume"), icon: "lucide:play" },
+      { action: "stop", label: t("hostStop"), icon: "lucide:square" },
     ];
   }
-  return [{ action: "start", label: "Start", icon: "lucide:play" }];
+  return [{ action: "start", label: t("hostStart"), icon: "lucide:play" }];
 }
 
 export function createMobileDockerScreen(api: PluginAPI): FC<MobileScreenProps> {
   const dockerListService = createMobileDockerListService();
 
   return function MobileDockerScreen({ sessionId, onBack }) {
+    const t = useT(api);
     const session = useSessionById(api, sessionId);
 
     const { containers, loading, error, dockerUnreachable, refresh, act, openExecTerminal } = useDockerList(
@@ -84,16 +86,16 @@ export function createMobileDockerScreen(api: PluginAPI): FC<MobileScreenProps> 
 
     let body: React.ReactNode;
     if (!session || session.type !== "ssh") {
-      body = <Empty icon="mdi:docker" title="SSH session required" sub="Docker is only available for SSH sessions." />;
+      body = <Empty icon="mdi:docker" title={t("needsSshTitle")} sub={t("needsSshSub")} />;
     } else if (session.status !== "connected") {
-      body = <Empty icon="mdi:docker" title="Session not connected" sub="Reconnect to view containers." />;
+      body = <Empty icon="mdi:docker" title={t("sessionNotConnected")} sub={t("sessionNotConnectedSub")} />;
     } else if (dockerUnreachable) {
       body = (
         <Empty
           icon="mdi:docker"
-          title="Docker unreachable"
-          sub="Couldn't reach the Docker daemon on this host."
-          action={{ label: "Retry", onClick: () => void refresh() }}
+          title={t("unreachableTitle")}
+          sub={t("unreachableSub")}
+          action={{ label: t("refresh"), onClick: () => void refresh() }}
         />
       );
     } else if (error) {
@@ -102,8 +104,8 @@ export function createMobileDockerScreen(api: PluginAPI): FC<MobileScreenProps> 
       body = (
         <Empty
           icon="lucide:box"
-          title={containers.length === 0 ? "No containers" : "No running containers"}
-          sub={containers.length === 0 ? undefined : "Tap to show all containers"}
+          title={containers.length === 0 ? t("noContainers") : t("noRunningContainers")}
+          sub={containers.length === 0 ? undefined : t("tapRunningToShowAll")}
         />
       );
     } else {
@@ -139,7 +141,7 @@ export function createMobileDockerScreen(api: PluginAPI): FC<MobileScreenProps> 
             <Icon icon="lucide:arrow-left" width={22} />
           </button>
           <span className="flex flex-col min-w-0 flex-1">
-            <span className="text-base font-semibold text-(--t-text-primary) leading-tight truncate">Docker</span>
+            <span className="text-base font-semibold text-(--t-text-primary) leading-tight truncate">{t("title")}</span>
             {session?.connectionName && (
               <span className="text-[11px] text-(--t-text-dim) leading-tight truncate">{session.connectionName}</span>
             )}
@@ -153,7 +155,7 @@ export function createMobileDockerScreen(api: PluginAPI): FC<MobileScreenProps> 
                 color: showAll ? "var(--t-text-primary)" : "var(--t-text-dim)",
               }}
             >
-              {showAll ? "All" : "Running"}
+              {showAll ? t("filterAll") : t("filterRunning")}
             </button>
             <button onClick={() => void refresh()} disabled={loading} className="p-2 text-(--t-text-dim) disabled:opacity-40">
               <Icon icon="lucide:refresh-cw" width={18} className={loading ? "animate-spin" : ""} />
@@ -166,12 +168,12 @@ export function createMobileDockerScreen(api: PluginAPI): FC<MobileScreenProps> 
         {sheetFor && (
           <BottomSheet title={containerName(sheetFor)} onClose={() => setSheetFor(null)}>
             <div className="flex flex-col">
-              {actionsFor(sheetFor.state).map((it) => (
+              {actionsFor(sheetFor.state, t).map((it) => (
                 <SheetRow key={it.action} icon={it.icon} label={it.label} onClick={() => void runAction(sheetFor, it.action)} />
               ))}
               <SheetRow
                 icon="lucide:scroll-text"
-                label="Logs"
+                label={t("logs")}
                 onClick={() => {
                   const c = sheetFor;
                   setSheetFor(null);
@@ -180,7 +182,7 @@ export function createMobileDockerScreen(api: PluginAPI): FC<MobileScreenProps> 
               />
               <SheetRow
                 icon="lucide:terminal"
-                label="Open shell"
+                label={t("execShell")}
                 onClick={() => {
                   const c = sheetFor;
                   setSheetFor(null);
@@ -189,7 +191,7 @@ export function createMobileDockerScreen(api: PluginAPI): FC<MobileScreenProps> 
               />
               <SheetRow
                 icon="lucide:trash-2"
-                label="Remove"
+                label={t("remove")}
                 danger
                 onClick={() => {
                   setConfirmRemove(sheetFor);
@@ -201,10 +203,10 @@ export function createMobileDockerScreen(api: PluginAPI): FC<MobileScreenProps> 
         )}
 
         {confirmRemove && (
-          <BottomSheet title="Remove container?" onClose={() => setConfirmRemove(null)}>
+          <BottomSheet title={t("removeConfirmTitle")} onClose={() => setConfirmRemove(null)}>
             <div className="flex flex-col gap-3 px-2 py-1">
               <p className="text-xs text-(--t-text-dim)">
-                This removes {containerName(confirmRemove)}. This cannot be undone.
+                {t("removeConfirmBody", { name: containerName(confirmRemove) })}
               </p>
               <button
                 data-mobile-docker-remove-confirm
@@ -216,14 +218,14 @@ export function createMobileDockerScreen(api: PluginAPI): FC<MobileScreenProps> 
                 className="w-full rounded-xl py-3 text-sm font-medium"
                 style={{ background: "var(--t-status-error)", color: "#fff" }}
               >
-                Remove
+                {t("remove")}
               </button>
               <button
                 onClick={() => setConfirmRemove(null)}
                 className="w-full rounded-xl py-3 text-sm text-(--t-text-primary)"
                 style={{ background: "var(--t-bg-card)" }}
               >
-                Cancel
+                {t("cancel")}
               </button>
             </div>
           </BottomSheet>

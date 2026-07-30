@@ -1,5 +1,6 @@
 import type { PluginAPI, PluginManifest, PluginRegisterFn } from "@/plugins/api";
 import manifestJson from "./manifest.json";
+import { messages } from "./i18n";
 import { ProxmoxPanel } from "./components/ProxmoxPanel";
 import { initProxmoxRuntime } from "./runtime";
 import { createMobileProxmoxScreen } from "./components/MobileProxmoxScreen";
@@ -7,6 +8,7 @@ import { createMobileProxmoxScreen } from "./components/MobileProxmoxScreen";
 export const manifest = manifestJson as PluginManifest;
 
 export const register: PluginRegisterFn = (api: PluginAPI) => {
+  api.i18n.register(messages);
   initProxmoxRuntime(api);
   const offPanel = api.ui.registerRightPanelSection({
     id: "proxmox",
@@ -17,7 +19,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   const offMobile = api.ui.registerMobileScreen({
     id: "proxmox",
     kind: "proxmox",
-    title: "Proxmox",
+    title: api.i18n.t("title"),
     render: createMobileProxmoxScreen(api),
   });
   return () => {

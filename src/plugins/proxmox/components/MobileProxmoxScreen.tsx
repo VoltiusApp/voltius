@@ -4,6 +4,7 @@ import type { FC } from "react";
 import type { PluginAPI, MobileScreenProps } from "@/plugins/api";
 import { useSessionById } from "../useSessionById";
 import { useIsProxmoxHost } from "../useIsProxmoxHost";
+import { useT } from "../useT";
 import { createProxmoxService } from "../services";
 import { useProxmox } from "../useProxmox";
 import type { LxcAction, LxcContainer, LxcSnapshot } from "../types";
@@ -13,19 +14,20 @@ function stateColor(status: string): string {
 }
 
 interface ActionItem { action: LxcAction; label: string; icon: string }
-function actionsFor(status: string): ActionItem[] {
+function actionsFor(status: string, t: PluginAPI["i18n"]["t"]): ActionItem[] {
   return status === "running"
     ? [
-        { action: "stop", label: "Stop", icon: "lucide:square" },
-        { action: "restart", label: "Restart", icon: "lucide:rotate-cw" },
+        { action: "stop", label: t("hostStop"), icon: "lucide:square" },
+        { action: "restart", label: t("hostRestart"), icon: "lucide:rotate-cw" },
       ]
-    : [{ action: "start", label: "Start", icon: "lucide:play" }];
+    : [{ action: "start", label: t("hostStart"), icon: "lucide:play" }];
 }
 
 export function createMobileProxmoxScreen(api: PluginAPI): FC<MobileScreenProps> {
   const proxmoxService = createProxmoxService(api.proxmox);
 
   return function MobileProxmoxScreen({ sessionId, onBack }) {
+    const t = useT(api);
     const session = useSessionById(api, sessionId);
     const isProxmoxHost = useIsProxmoxHost(api, session);
     const px = useProxmox(proxmoxService, session ?? undefined, !!isProxmoxHost);
@@ -59,7 +61,7 @@ export function createMobileProxmoxScreen(api: PluginAPI): FC<MobileScreenProps>
             </button>
             <span className="flex flex-col min-w-0 flex-1">
               <span className="text-base font-semibold text-(--t-text-primary) leading-tight truncate">
-                Snapshots · {state.selectedVmName}
+                {t("snapshotsTitle", { name: state.selectedVmName })}
               </span>
               {session?.connectionName && (
                 <span className="text-[11px] text-(--t-text-dim) leading-tight truncate">{session.connectionName}</span>
@@ -74,13 +76,13 @@ export function createMobileProxmoxScreen(api: PluginAPI): FC<MobileScreenProps>
               data-mobile-proxmox-snap-name
               value={state.snapshotInput}
               onChange={(e) => px.setSnapshotInput(e.target.value)}
-              placeholder="Snapshot name"
+              placeholder={t("newSnapshotPlaceholder")}
               className="rounded-lg px-3 h-10 text-sm bg-(--t-bg-card) border border-(--t-border) outline-none text-(--t-text-primary)"
             />
             <input
               value={state.snapshotInputDesc}
               onChange={(e) => px.setSnapshotDesc(e.target.value)}
-              placeholder="Description (optional)"
+              placeholder={t("descriptionPlaceholder")}
               className="rounded-lg px-3 h-10 text-sm bg-(--t-bg-card) border border-(--t-border) outline-none text-(--t-text-primary)"
             />
             <button
@@ -95,13 +97,13 @@ export function createMobileProxmoxScreen(api: PluginAPI): FC<MobileScreenProps>
               className="rounded-lg py-2.5 text-sm font-medium disabled:opacity-40"
               style={{ background: "var(--t-accent)", color: "#fff" }}
             >
-              Create snapshot
+              {t("createSnapshot")}
             </button>
           </div>
           {state.error ? (
             <div className="px-4 py-4 text-xs text-(--t-text-dim) break-all">{state.error}</div>
           ) : state.snapshots.length === 0 ? (
-            <Empty icon="devicon:proxmox-plain" title="No snapshots" />
+            <Empty icon="devicon:proxmox-plain" title={t("noSnapshots")} />
           ) : (
             <div className="flex-1 overflow-y-auto">
               {state.snapshots.map((snap) => (
@@ -112,7 +114,7 @@ export function createMobileProxmoxScreen(api: PluginAPI): FC<MobileScreenProps>
                 >
                   <Icon icon="lucide:camera" width={16} className="shrink-0 text-(--t-text-dim)" />
                   <span className="flex flex-col min-w-0 flex-1">
-                    <span className="text-sm font-medium text-(--t-text-primary) truncate">{snap.name}{snap.is_current ? " (current)" : ""}</span>
+                    <span className="text-sm font-medium text-(--t-text-primary) truncate">{snap.name}{snap.is_current ? ` ${t("current")}` : ""}</span>
                     {snap.description && <span className="text-xs text-(--t-text-dim) truncate">{snap.description}</span>}
                   </span>
                   {!snap.is_current && (
@@ -131,12 +133,12 @@ export function createMobileProxmoxScreen(api: PluginAPI): FC<MobileScreenProps>
           )}
 
           {confirmSnap && (
-            <BottomSheet title={confirmSnap.mode === "rollback" ? "Roll back to this snapshot?" : "Delete snapshot?"} onClose={() => setConfirmSnap(null)}>
+            <BottomSheet title={confirmSnap.mode === "rollback" ? t("rollbackConfirmTitle") : t("deleteSnapshotConfirmTitle")} onClose={() => setConfirmSnap(null)}>
               <div className="flex flex-col gap-3 px-2 py-1">
                 <p className="text-xs text-(--t-text-dim)">
                   {confirmSnap.mode === "rollback"
-                    ? `Roll back ${state.selectedVmName} to "${confirmSnap.snap.name}"? Current state will be lost.`
-                    : `Delete snapshot "${confirmSnap.snap.name}"?`}
+                    ? t("rollbackConfirmBody", { name: state.selectedVmName, snap: confirmSnap.snap.name })
+                    : t("deleteSnapshotConfirmBody", { snap: confirmSnap.snap.name })}
                 </p>
                 <button
                   data-mobile-proxmox-snap-confirm
@@ -152,10 +154,10 @@ export function createMobileProxmoxScreen(api: PluginAPI): FC<MobileScreenProps>
                   className="w-full rounded-xl py-3 text-sm font-medium"
                   style={{ background: "var(--t-status-error)", color: "#fff" }}
                 >
-                  {confirmSnap.mode === "rollback" ? "Roll back" : "Delete"}
+                  {confirmSnap.mode === "rollback" ? t("rollbackButton") : t("delete")}
                 </button>
                 <button onClick={() => setConfirmSnap(null)} className="w-full rounded-xl py-3 text-sm text-(--t-text-primary)" style={{ background: "var(--t-bg-card)" }}>
-                  Cancel
+                  {t("cancel")}
                 </button>
               </div>
             </BottomSheet>
@@ -166,15 +168,15 @@ export function createMobileProxmoxScreen(api: PluginAPI): FC<MobileScreenProps>
 
     let body: React.ReactNode;
     if (!session || session.type !== "ssh") {
-      body = <Empty icon="devicon:proxmox-plain" title="SSH session required" sub="Proxmox is only available for SSH sessions." />;
+      body = <Empty icon="devicon:proxmox-plain" title={t("needsSshTitle")} sub={t("needsSshSub")} />;
     } else if (session.status !== "connected") {
-      body = <Empty icon="devicon:proxmox-plain" title="Session not connected" sub="Reconnect to view containers." />;
+      body = <Empty icon="devicon:proxmox-plain" title={t("sessionNotConnected")} sub={t("sessionNotConnectedSub")} />;
     } else if (!isProxmoxHost) {
-      body = <Empty icon="devicon:proxmox-plain" title="Not a Proxmox host" sub="This host wasn't detected as Proxmox VE." />;
+      body = <Empty icon="devicon:proxmox-plain" title={t("notDetectedTitle")} sub={t("notDetectedSub")} />;
     } else if (state.error) {
       body = <div className="px-4 py-4 text-xs text-(--t-text-dim) break-all">{state.error}</div>;
     } else if (state.containers.length === 0) {
-      body = <Empty icon="lucide:box" title="No containers" />;
+      body = <Empty icon="lucide:box" title={t("noContainers")} />;
     } else {
       body = (
         <div className="flex-1 overflow-y-auto">
@@ -188,7 +190,7 @@ export function createMobileProxmoxScreen(api: PluginAPI): FC<MobileScreenProps>
               <span className="shrink-0 w-2.5 h-2.5 rounded-full" style={{ background: stateColor(c.status) }} />
               <span className="flex flex-col min-w-0 flex-1">
                 <span className="text-sm font-medium text-(--t-text-primary) truncate">{c.name}</span>
-                <span className="text-xs text-(--t-text-dim) truncate">CT {c.vmid} · {c.status}</span>
+                <span className="text-xs text-(--t-text-dim) truncate">{t("ctSummary", { vmid: c.vmid, status: c.status })}</span>
               </span>
             </button>
           ))}
@@ -203,7 +205,7 @@ export function createMobileProxmoxScreen(api: PluginAPI): FC<MobileScreenProps>
             <Icon icon="lucide:arrow-left" width={22} />
           </button>
           <span className="flex flex-col min-w-0 flex-1">
-            <span className="text-base font-semibold text-(--t-text-primary) leading-tight truncate">Proxmox</span>
+            <span className="text-base font-semibold text-(--t-text-primary) leading-tight truncate">{t("title")}</span>
             {session?.connectionName && (
               <span className="text-[11px] text-(--t-text-dim) leading-tight truncate">{session.connectionName}</span>
             )}
@@ -216,13 +218,13 @@ export function createMobileProxmoxScreen(api: PluginAPI): FC<MobileScreenProps>
         {body}
 
         {sheetFor && (
-          <BottomSheet title={`${sheetFor.name} · CT ${sheetFor.vmid}`} onClose={() => setSheetFor(null)}>
+          <BottomSheet title={t("sheetTitleWithId", { name: sheetFor.name, vmid: sheetFor.vmid })} onClose={() => setSheetFor(null)}>
             <div className="flex flex-col">
-              {actionsFor(sheetFor.status).map((it) => (
+              {actionsFor(sheetFor.status, t).map((it) => (
                 <SheetRow key={it.action} icon={it.icon} label={it.label} onClick={() => void runAction(sheetFor, it.action)} />
               ))}
-              <SheetRow icon="lucide:camera" label="Snapshots" onClick={() => { const c = sheetFor; setSheetFor(null); px.openSnapshots(c.vmid, c.name); }} />
-              <SheetRow icon="lucide:terminal" label="Open shell" onClick={() => void onShell(sheetFor)} />
+              <SheetRow icon="lucide:camera" label={t("snapshotsAction")} onClick={() => { const c = sheetFor; setSheetFor(null); px.openSnapshots(c.vmid, c.name); }} />
+              <SheetRow icon="lucide:terminal" label={t("openShell")} onClick={() => void onShell(sheetFor)} />
             </div>
           </BottomSheet>
         )}

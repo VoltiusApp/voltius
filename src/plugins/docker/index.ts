@@ -1,5 +1,6 @@
 import type { PluginAPI, PluginManifest, PluginRegisterFn } from "@/plugins/api";
 import manifestJson from "./manifest.json";
+import { messages } from "./i18n";
 import { DockerPanel } from "./components/DockerPanel";
 import { initDockerRuntime } from "./runtime";
 import { createMobileDockerScreen } from "./components/MobileDockerScreen";
@@ -8,6 +9,7 @@ import { createMobileDockerLogsScreen } from "./components/MobileDockerLogsScree
 export const manifest = manifestJson as PluginManifest;
 
 export const register: PluginRegisterFn = (api: PluginAPI) => {
+  api.i18n.register(messages);
   initDockerRuntime(api);
   const offPanel = api.ui.registerRightPanelSection({
     id: "docker",
@@ -18,7 +20,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   const offMobile = api.ui.registerMobileScreen({
     id: "docker",
     kind: "docker",
-    title: "Docker",
+    title: api.i18n.t("title"),
     render: createMobileDockerScreen(api),
   });
   const offMobileLogs = api.ui.registerMobileScreen({

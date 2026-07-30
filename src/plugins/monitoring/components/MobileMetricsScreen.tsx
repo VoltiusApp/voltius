@@ -3,6 +3,7 @@ import { Icon } from "@voltius/ui";
 import type { FC } from "react";
 import type { PluginAPI, MobileScreenProps } from "@/plugins/api";
 import { useSessionById } from "../useSessionById";
+import { useT } from "../useT";
 import { createMetricsService } from "../services";
 import { useHostMetrics } from "../useHostMetrics";
 import { Sparkline } from "./Sparkline";
@@ -43,6 +44,7 @@ export function createMobileMetricsScreen(api: PluginAPI): FC<MobileScreenProps>
   const service = createMetricsService(api.metrics);
 
   return function MobileMetricsScreen({ sessionId, onBack }) {
+    const t = useT(api);
     const session = useSessionById(api, sessionId);
 
     // Pause the metrics stream while the app is backgrounded to save the SSH channel.
@@ -66,7 +68,7 @@ export function createMobileMetricsScreen(api: PluginAPI): FC<MobileScreenProps>
             <Icon icon="lucide:arrow-left" width={22} />
           </button>
           <span className="flex flex-col min-w-0 flex-1">
-            <span className="text-base font-semibold text-(--t-text-primary) leading-tight truncate">Metrics</span>
+            <span className="text-base font-semibold text-(--t-text-primary) leading-tight truncate">{t("title")}</span>
             {session?.connectionName && (
               <span className="text-[11px] text-(--t-text-dim) leading-tight truncate">{session.connectionName}</span>
             )}
@@ -76,32 +78,32 @@ export function createMobileMetricsScreen(api: PluginAPI): FC<MobileScreenProps>
         {!ssh || !session ? (
           <div className="flex flex-1 items-center justify-center px-8 text-center">
             <p className="max-w-[260px] text-sm leading-5 text-(--t-text-muted)">
-              Metrics are only available for SSH sessions.
+              {t("sshOnly")}
             </p>
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto">
             <div className="px-3 py-3 space-y-3">
               <MobileMetricCard
-                label="CPU"
+                label={t("cpu")}
                 value={snap ? `${snap.cpu_percent.toFixed(1)}%` : "—"}
                 color="#ef4444"
                 history={cpuH}
               />
               <MobileMetricCard
-                label="Memory"
+                label={t("memory")}
                 value={snap ? `${fmtMem(snap.mem_used_kb)} / ${fmtMem(snap.mem_total_kb)}` : "—"}
                 color="#22c55e"
                 history={memH}
               />
               <MobileMetricCard
-                label="Net RX"
+                label={t("netRx")}
                 value={fmtBytes(snap?.net_rx_bytes_per_sec ?? 0)}
                 color="#3b82f6"
                 history={rxH}
               />
               <MobileMetricCard
-                label="Net TX"
+                label={t("netTx")}
                 value={fmtBytes(snap?.net_tx_bytes_per_sec ?? 0)}
                 color="#f59e0b"
                 history={txH}

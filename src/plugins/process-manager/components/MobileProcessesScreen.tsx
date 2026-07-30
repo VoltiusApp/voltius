@@ -3,6 +3,7 @@ import { Icon, BottomSheet } from "@voltius/ui";
 import type { FC } from "react";
 import type { PluginAPI, MobileScreenProps } from "@/plugins/api";
 import { useSessionById } from "../useSessionById";
+import { useT } from "../useT";
 import { createProcessesService } from "../services";
 import { useProcessList } from "../useProcessList";
 import type { ProcessEntry, SortCol } from "../types";
@@ -13,18 +14,19 @@ function fmtMem(kb: number): string {
   return `${(kb / 1024 / 1024).toFixed(1)}G`;
 }
 
-const SORT_CHIPS: { col: SortCol; label: string }[] = [
-  { col: "cpu", label: "CPU" },
-  { col: "mem", label: "Mem" },
-  { col: "pid", label: "PID" },
-  { col: "name", label: "Name" },
-];
-
 export function createMobileProcessesScreen(api: PluginAPI): FC<MobileScreenProps> {
   const service = createProcessesService(api.processes);
 
   return function MobileProcessesScreen({ sessionId, onBack }) {
+    const t = useT(api);
     const session = useSessionById(api, sessionId);
+
+    const sortChips: { col: SortCol; label: string }[] = [
+      { col: "cpu", label: t("sortCpu") },
+      { col: "mem", label: t("sortMem") },
+      { col: "pid", label: t("sortPid") },
+      { col: "name", label: t("sortName") },
+    ];
 
     const { snapshot, entries, filter, setFilter, sortCol, sortAsc, setSort, kill, killError, setKillError } =
       useProcessList(service, session ?? undefined);
@@ -49,7 +51,7 @@ export function createMobileProcessesScreen(api: PluginAPI): FC<MobileScreenProp
             <Icon icon="lucide:arrow-left" width={22} />
           </button>
           <span className="flex flex-col min-w-0 flex-1">
-            <span className="text-base font-semibold text-(--t-text-primary) leading-tight truncate">Processes</span>
+            <span className="text-base font-semibold text-(--t-text-primary) leading-tight truncate">{t("title")}</span>
             {session?.connectionName && (
               <span className="text-[11px] text-(--t-text-dim) leading-tight truncate">{session.connectionName}</span>
             )}
@@ -59,7 +61,7 @@ export function createMobileProcessesScreen(api: PluginAPI): FC<MobileScreenProp
         {!ssh ? (
           <div className="flex flex-1 items-center justify-center px-8 text-center">
             <p className="max-w-[260px] text-sm leading-5 text-(--t-text-muted)">
-              Processes are only available for SSH sessions.
+              {t("sshOnly")}
             </p>
           </div>
         ) : (
@@ -69,7 +71,7 @@ export function createMobileProcessesScreen(api: PluginAPI): FC<MobileScreenProp
               <input
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                placeholder="Filter processes"
+                placeholder={t("filterPlaceholder")}
                 className="flex-1 bg-transparent text-sm text-(--t-text-primary) placeholder:text-(--t-text-dim) outline-hidden"
               />
               {snapshot && (
@@ -80,7 +82,7 @@ export function createMobileProcessesScreen(api: PluginAPI): FC<MobileScreenProp
             </div>
 
             <div className="flex items-center gap-2 px-3 py-2 border-b border-(--t-border) shrink-0 overflow-x-auto">
-              {SORT_CHIPS.map(({ col, label }) => {
+              {sortChips.map(({ col, label }) => {
                 const active = sortCol === col;
                 return (
                   <button
@@ -114,7 +116,7 @@ export function createMobileProcessesScreen(api: PluginAPI): FC<MobileScreenProp
             <div className="flex-1 overflow-y-auto">
               {entries.length === 0 ? (
                 <div className="flex flex-1 items-center justify-center px-8 py-10 text-center text-(--t-text-dim)">
-                  <p className="text-sm">{snapshot ? "No processes found" : "Loading processes…"}</p>
+                  <p className="text-sm">{snapshot ? t("noProcessesFound") : t("loadingProcesses")}</p>
                 </div>
               ) : (
                 entries.map((e) => {
@@ -173,17 +175,21 @@ export function createMobileProcessesScreen(api: PluginAPI): FC<MobileScreenProp
         {sheetFor && (
           <BottomSheet title={`${sheetFor.name} · ${sheetFor.pid}`} onClose={() => setSheetFor(null)}>
             <div className="flex flex-col">
-              <SheetRow icon="lucide:circle-x" label="Terminate" onClick={() => setConfirm({ entry: sheetFor, force: false })} />
-              <SheetRow icon="lucide:zap" label="Force kill" danger onClick={() => setConfirm({ entry: sheetFor, force: true })} />
+              <SheetRow icon="lucide:circle-x" label={t("sheetKillTerm")} onClick={() => setConfirm({ entry: sheetFor, force: false })} />
+              <SheetRow icon="lucide:zap" label={t("sheetForceKill")} danger onClick={() => setConfirm({ entry: sheetFor, force: true })} />
             </div>
           </BottomSheet>
         )}
 
         {confirm && (
-          <BottomSheet title={confirm.force ? "Force kill process?" : "Terminate process?"} onClose={() => setConfirm(null)}>
+          <BottomSheet title={confirm.force ? t("forceKillConfirmTitle") : t("killConfirmTitle")} onClose={() => setConfirm(null)}>
             <div className="flex flex-col gap-3 px-2 py-1">
               <p className="text-xs text-(--t-text-dim)">
-                Send {confirm.force ? "SIGKILL" : "SIGTERM"} to {confirm.entry.name} (PID {confirm.entry.pid})?
+                {t("killConfirmBody", {
+                  signal: confirm.force ? "SIGKILL" : "SIGTERM",
+                  name: confirm.entry.name,
+                  pid: confirm.entry.pid,
+                })}
               </p>
               <button
                 data-mobile-process-kill-confirm
@@ -191,14 +197,14 @@ export function createMobileProcessesScreen(api: PluginAPI): FC<MobileScreenProp
                 className="w-full rounded-xl py-3 text-sm font-medium"
                 style={{ background: "var(--t-status-error)", color: "#fff" }}
               >
-                {confirm.force ? "Force kill" : "Kill"}
+                {confirm.force ? t("confirmForceKill") : t("confirmKill")}
               </button>
               <button
                 onClick={() => setConfirm(null)}
                 className="w-full rounded-xl py-3 text-sm text-(--t-text-primary)"
                 style={{ background: "var(--t-bg-card)" }}
               >
-                Cancel
+                {t("cancel")}
               </button>
             </div>
           </BottomSheet>

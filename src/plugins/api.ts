@@ -112,7 +112,7 @@ export interface MobileScreen {
   id: string;
   /** Screen key MobileShell looks up on navigation, e.g. "docker", "metrics". */
   kind: string;
-  /** Header title. Plain text — plugin bundles have no i18n access. */
+  /** Header title. Plain text — resolve via `api.i18n.t()` before passing it in. */
   title: string;
   render: React.FC<MobileScreenProps>;
 }
@@ -262,6 +262,35 @@ export interface ProcessesAPI {
 export interface CryptoAPI {
   /** Derive a 32-byte key from a passphrase and hex salt. Returns hex. */
   deriveKey(passphrase: string, saltHex: string): Promise<string>;
+}
+
+/** Locales the host ships. A plugin's catalog may cover any subset — "en" should
+ *  always be present, since it is the fallback when the active locale is missing. */
+export type PluginLocale = "en" | "fr" | "ru" | "zh";
+
+/** A flat key → template map for one locale. Values may contain "{{var}}" placeholders. */
+export type PluginLocaleCatalog = Record<string, string>;
+
+export type PluginI18nCatalog = Partial<Record<PluginLocale, PluginLocaleCatalog>>;
+
+/**
+ * Not gated — reading/resolving UI strings grants no host access. Each plugin owns
+ * its own catalog (registered here, not in the host's locale files) so a third-party
+ * plugin can ship translations exactly the way a first-party one does.
+ */
+export interface I18nAPI {
+  /** Register (or replace) this plugin's translation catalog. Call once at load,
+   *  before rendering anything that resolves keys. */
+  register(catalog: PluginI18nCatalog): void;
+  /** Resolve `key` against the host's active locale. Falls back to the "en" entry,
+   *  then to `key` itself (visible, never blank) if neither has it. */
+  t(key: string, vars?: Record<string, string | number>): string;
+  /** The host's current active locale. */
+  getLocale(): PluginLocale;
+  /** Fires whenever the host's active locale changes. Re-call `t()` and re-render
+   *  on each firing — this does not itself trigger a React re-render. Returns an
+   *  unsubscribe function. */
+  onLocaleChange(cb: (locale: PluginLocale) => void): () => void;
 }
 
 /** Proxmox VE LXC management. GATED (proxmox:manage). Only functions against SSH sessions. */
@@ -527,6 +556,9 @@ export interface PluginAPI {
 
   // Key derivation (requires crypto:derive). Not gated — pure KDF over caller input.
   crypto: CryptoAPI;
+
+  // Plugin-owned UI translation catalog (requires "ui"). Not gated.
+  i18n: I18nAPI;
 
   // Proxmox VE LXC management — GATED (proxmox:manage).
   proxmox: ProxmoxAPI;

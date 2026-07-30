@@ -49,6 +49,7 @@ import { createStreamsAPI } from "./domains/streams";
 import { createMetricsAPI } from "./domains/metrics";
 import { createProcessesAPI } from "./domains/processes";
 import { createCryptoAPI } from "./domains/crypto";
+import { createI18nAPI } from "./domains/i18n";
 import { createProxmoxAPI } from "./domains/proxmox";
 import { createDockerAPI } from "./domains/docker";
 
@@ -399,6 +400,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const metricsApi = createMetricsAPI(streamsApi);
   const processesApi = createProcessesAPI(streamsApi);
   const cryptoApi = createCryptoAPI();
+  const i18nApi = createI18nAPI();
   const proxmoxApi = createProxmoxAPI();
   const dockerApi = createDockerAPI(streamsApi);
 
@@ -933,6 +935,25 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       deriveKey: (passphrase, saltHex) => {
         requirePerm(manifest, "crypto:derive");
         return cryptoApi.deriveKey(passphrase, saltHex);
+      },
+    },
+
+    i18n: {
+      register(catalog) {
+        requirePerm(manifest, "ui");
+        i18nApi.register(catalog);
+      },
+      t(key, vars) {
+        requirePerm(manifest, "ui");
+        return i18nApi.t(key, vars);
+      },
+      getLocale() {
+        requirePerm(manifest, "ui");
+        return i18nApi.getLocale();
+      },
+      onLocaleChange(cb) {
+        requirePerm(manifest, "ui");
+        return i18nApi.onLocaleChange(cb);
       },
     },
 

@@ -3,6 +3,7 @@ import { Icon } from "@voltius/ui";
 import type { FC } from "react";
 import type { DockerTarget, PluginAPI, MobileScreenProps } from "@/plugins/api";
 import { useSessionById } from "../useSessionById";
+import { useT } from "../useT";
 import { dockerStartLogStream, dockerStopLogStream, onDockerLog } from "../services";
 import type { DockerLogLine } from "../types";
 
@@ -15,6 +16,7 @@ export function createMobileDockerLogsScreen(api: PluginAPI): FC<MobileScreenPro
     const containerId = props.containerId as string;
     const containerName = props.containerName as string;
 
+    const t = useT(api);
     const session = useSessionById(api, sessionId);
     const isRemote = session?.type === "ssh";
     const localShell = session?.type === "local" ? (session.localShell ?? null) : null;
@@ -106,7 +108,7 @@ export function createMobileDockerLogsScreen(api: PluginAPI): FC<MobileScreenPro
         <div className="flex-1 overflow-y-auto font-mono text-[11px] leading-4 px-3 py-2 select-text">
           {lines.length === 0 && (
             <p className="text-(--t-text-dim) opacity-60 mt-2">
-              {ready ? "Waiting for logs…" : "Session not connected"}
+              {ready ? t("dockerLogsWaiting") : t("dockerLogsSessionNotConnected")}
             </p>
           )}
           {lines.map((l, i) => (
