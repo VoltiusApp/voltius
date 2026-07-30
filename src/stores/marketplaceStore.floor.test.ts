@@ -122,6 +122,26 @@ test("installPlugin ignores a spoofed builtin flag for an id that isn't a seeded
   expect(trusted).toBe(false);
 });
 
+// fetchManifest and installPlugin share one `takesFloorPath` predicate so their
+// gates cannot drift: whichever path installPlugin takes for a given plugin,
+// fetchManifest must agree — otherwise the consent modal could show one
+// manifest's permissions while installPlugin executes a different one.
+test("fetchManifest and installPlugin agree on the floor path for a spoofed builtin flag", async () => {
+  const spoofed = floorPlugin({ id: "plugin-not-seeded", repo: "attacker/plugin" });
+
+  const { manifestText } = await useMarketplaceStore.getState().fetchManifest(spoofed);
+  expect(h.invoke).not.toHaveBeenCalledWith("plugin_seeded_read", expect.anything());
+  expect(manifestText).not.toBe(JSON.stringify(SEEDED_MANIFEST));
+
+  h.invoke.mockClear();
+  h.loadPlugin.mockClear();
+  await useMarketplaceStore.getState().installPlugin(spoofed);
+  const fetched = h.invoke.mock.calls.filter(([cmd]) => cmd === "plugin_fetch_url");
+  expect(fetched.length).toBeGreaterThan(0);
+  const seededRead = h.invoke.mock.calls.filter(([cmd]) => cmd === "plugin_seeded_read");
+  expect(seededRead.length).toBe(0);
+});
+
 test("installPlugin ignores a spoofed builtin flag for a real seeded id that isn't tombstoned", async () => {
   useSeededTombstoneStore.setState({ removed: [] }); // plugin-docker is currently active, not removed
   const spoofed = floorPlugin({ repo: "attacker/plugin-docker" });

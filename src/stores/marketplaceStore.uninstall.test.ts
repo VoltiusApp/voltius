@@ -85,3 +85,16 @@ test("uninstallSeededPlugin unloads the plugin and tombstones it without deletin
   expect(useSeededTombstoneStore.getState().isRemoved("plugin-docker")).toBe(true);
   expect(h.invoke).not.toHaveBeenCalledWith("plugin_delete", expect.anything());
 });
+
+// An id can render in the "seeded" UI bucket (loaded, no installedMeta entry)
+// without a real seeded artifact on disk — e.g. installedMeta lost its record
+// of an external plugin because the sync came from another device, or the
+// meta file failed to parse. uninstallSeededPlugin must fall through to a real
+// delete in that case, or the plugin comes back on every boot.
+test("uninstallSeededPlugin with no seeded artifact falls through to a real delete", async () => {
+  await useMarketplaceStore.getState().uninstallSeededPlugin("orphan-plugin");
+
+  expect(h.unloadPlugin).toHaveBeenCalledWith("orphan-plugin");
+  expect(h.invoke).toHaveBeenCalledWith("plugin_delete", { id: "orphan-plugin" });
+  expect(useSeededTombstoneStore.getState().isRemoved("orphan-plugin")).toBe(false);
+});

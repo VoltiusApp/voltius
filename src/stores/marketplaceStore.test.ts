@@ -4,10 +4,13 @@ const h = vi.hoisted(() => ({
   invoke: vi.fn(),
   loadPlugin: vi.fn(),
   unloadPlugin: vi.fn(),
+  getLoadedPlugins: vi.fn(() => []),
   importPluginModule: vi.fn(async () => ({ default: () => {} })),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
-vi.mock("@/plugins/runtime", () => ({ loadPlugin: h.loadPlugin, unloadPlugin: h.unloadPlugin }));
+vi.mock("@/plugins/runtime", () => ({
+  loadPlugin: h.loadPlugin, unloadPlugin: h.unloadPlugin, getLoadedPlugins: h.getLoadedPlugins,
+}));
 vi.mock("@/plugins/importPluginModule", () => ({
   importPluginModule: h.importPluginModule,
   pluginRegisterOf: (mod: { default?: unknown; register?: unknown }) => mod.default ?? mod.register,
@@ -265,6 +268,7 @@ function restoreSetup(opts: { onDisk?: string[]; catalog?: Partial<MarketplacePl
   });
   h.invoke.mockImplementation(async (cmd: string, args: { url?: string }) => {
     if (cmd === "plugins_list_installed") return opts.onDisk ?? [];
+    if (cmd === "plugins_list_seeded") return [];
     if (cmd === "plugin_fetch_url") return args.url!.endsWith("manifest.json") ? MANIFEST : JS_TEXT;
     return undefined;
   });

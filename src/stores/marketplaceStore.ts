@@ -2,7 +2,7 @@ import { create } from "zustand";
 import i18n from "@/i18n";
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
-import { loadPlugin, unloadPlugin } from "@/plugins/runtime";
+import { loadPlugin, unloadPlugin, getLoadedPlugins } from "@/plugins/runtime";
 import { importPluginModule, pluginRegisterOf, type PluginModule } from "@/plugins/importPluginModule";
 import type { PluginManifest } from "@/plugins/api";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
@@ -132,9 +132,9 @@ async function readLocalCss(id: string): Promise<string | undefined> {
  * oversight — the "never execute an unvouched-for bundle" rule is about network
  * fetches, which this path makes none of.
  */
-async function installFromSeededFloor(plugin: MarketplacePlugin): Promise<void> {
-  const entry = (await loadSeededEntries()).get(plugin.id);
-  if (!entry) throw new Error(`No seeded artifact found for "${plugin.id}".`);
+async function installFromSeededFloor(id: string): Promise<void> {
+  const entry = (await loadSeededEntries()).get(id);
+  if (!entry) throw new Error(`No seeded artifact found for "${id}".`);
   const { folder } = entry;
 
   const manifestText = await invoke<string>("plugin_seeded_read", { id: folder, filename: "manifest.json" });
@@ -159,6 +159,21 @@ async function installFromSeededFloor(plugin: MarketplacePlugin): Promise<void> 
   // exactly where it was before uninstall: a seeded plugin with no external shadow,
   // so `loadSeededPlugins` picks it up again on the next boot.
   await useSeededTombstoneStore.getState().restore(manifest.id);
+}
+
+/**
+ * `plugin.builtin` alone is not trusted — it's a Browse-tab display flag that could
+ * originate from a remote catalogue entry a hostile source spoofed to steer a click
+ * into the trusted, no-hash-check floor path. Route there only when local state
+ * independently confirms it: the id is a real seeded artifact AND it's currently
+ * tombstoned (a built-in that's still active is already installed and has no
+ * business going through the floor path at all). Shared by fetchManifest and
+ * installPlugin so their gates cannot drift apart.
+ */
+async function takesFloorPath(plugin: MarketplacePlugin): Promise<boolean> {
+  return !!plugin.builtin
+    && (await loadSeededEntries()).has(plugin.id)
+    && useSeededTombstoneStore.getState().isRemoved(plugin.id);
 }
 
 let appVersionPromise: Promise<string | null> | null = null;
@@ -314,7 +329,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
   // Fetch just the manifest (no side effects) to preview declared permissions before
   // installing/updating. The executed index.js is still hash-verified in installPlugin.
   async fetchManifest(plugin: MarketplacePlugin) {
-    if (plugin.builtin) {
+    if (await takesFloorPath(plugin)) {
       const entry = (await loadSeededEntries()).get(plugin.id);
       if (!entry) throw new Error(`No seeded artifact found for "${plugin.id}".`);
       const manifestText = await invoke<string>("plugin_seeded_read", { id: entry.folder, filename: "manifest.json" });
@@ -333,19 +348,10 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
 
     set((s) => ({ installing: new Set([...s.installing, plugin.id]) }));
     try {
-      // `plugin.builtin` alone is not trusted — it's a Browse-tab display flag that
-      // could originate from a remote catalogue entry a hostile source spoofed to
-      // steer a click into the trusted, no-hash-check floor path. Route there only
-      // when local state independently confirms it: the id is a real seeded artifact
-      // AND it's currently tombstoned (a built-in that's still active is already
-      // installed and has no business going through installPlugin at all).
-      const takesFloorPath = plugin.builtin
-        && (await loadSeededEntries()).has(plugin.id)
-        && useSeededTombstoneStore.getState().isRemoved(plugin.id);
-      if (takesFloorPath) {
+      if (await takesFloorPath(plugin)) {
         // The floor never touches the network or the appVersion gate below — its
         // bytes ship in the running app, so they're inherently version-compatible.
-        await installFromSeededFloor(plugin);
+        await installFromSeededFloor(plugin.id);
         return;
       }
 
@@ -440,9 +446,21 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
   // Built-in plugins are read-only app resources — uninstalling one never
   // deletes anything from disk, only tombstones it so it stops loading and
   // stays removed across restarts (until Browse reinstalls it).
+  //
+  // "Seeded" as seen by the UI is "loaded and not in installedMeta" — broader
+  // than "has a seeded artifact". An external plugin can end up in that same
+  // bucket (its meta missing on this device, or installedMeta unreadable), and
+  // tombstoning without deleting would make it reload forever on every boot.
+  // Only a genuine seeded artifact gets the tombstone path; anything else falls
+  // through to the real delete.
   async uninstallSeededPlugin(id: string) {
+    const tombstones = useSeededTombstoneStore.getState();
+    if (!(await tombstones.hasSeededArtifact(id))) {
+      await get().uninstallPlugin(id);
+      return;
+    }
     unloadPlugin(id);
-    await useSeededTombstoneStore.getState().remove(id);
+    await tombstones.remove(id);
   },
 
   // ── Reload (dev) ──────────────────────────────────────────────────────
@@ -533,6 +551,27 @@ export async function restoreMissingPlugins(): Promise<void> {
       });
     } catch (e) {
       console.warn(`[marketplace] Failed to restore "${meta.id}":`, e);
+    }
+  }
+
+  // Anything still missing after the network pass (offline, fetch failure, no
+  // catalogue entry, no verifiable hash) falls back to the seeded floor when one
+  // exists and the id isn't tombstoned — meta.sourceId claiming "external" must
+  // never leave the plugin completely gone on a device that still has the
+  // bundled copy. `installFromSeededFloor` preserves trusted=true exactly like
+  // `loadSeededPlugins`, so gated permissions aren't silently downgraded.
+  const loadedIds = new Set(getLoadedPlugins().map((m) => m.id));
+  const stillMissing = missing.filter((m) => !loadedIds.has(m.id));
+  if (stillMissing.length === 0) return;
+
+  const seededEntries = await loadSeededEntries();
+  const { isRemoved } = useSeededTombstoneStore.getState();
+  for (const meta of stillMissing) {
+    if (!seededEntries.has(meta.id) || isRemoved(meta.id)) continue;
+    try {
+      await installFromSeededFloor(meta.id);
+    } catch (e) {
+      console.warn(`[marketplace] Failed to load seeded floor for "${meta.id}":`, e);
     }
   }
 }

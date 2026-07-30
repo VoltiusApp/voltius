@@ -258,7 +258,8 @@ export interface MetricsAPI {
   getSystemInfo(sessionId: string, sessionType: string, sessionName?: string): Promise<unknown>;
 }
 
-/** Process listing/kill — built on top of api.streams' "processes" kind. GATED (processes:manage). */
+/** Process listing/kill — built on top of api.streams' "processes" kind. GATED, split
+ *  two ways: processes:read covers start/onSnapshot/stop; processes:manage covers kill. */
 export interface ProcessesAPI {
   start(sessionId: string, isRemote: boolean): Promise<string>;
   stop(streamId: string): Promise<void>;
@@ -304,7 +305,9 @@ export interface I18nAPI {
   onLocaleChange(cb: (locale: PluginLocale) => void): () => void;
 }
 
-/** Proxmox VE LXC management. GATED (proxmox:manage). Only functions against SSH sessions. */
+/** Proxmox VE LXC management. GATED, split two ways: proxmox:read covers
+ *  list/snapshots.list; proxmox:manage covers everything else. Only functions
+ *  against SSH sessions. */
 export interface ProxmoxAPI {
   lxc: {
     list(sessionId: string): Promise<unknown[]>;
