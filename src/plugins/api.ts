@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { SerialConnectParams } from "@/types";
 import type { AppTheme } from "@/themes/types";
+import type { Locale } from "@/stores/localeStore";
 
 // ─── Types exposés aux plugins ─────────────────────────────────────────────
 
@@ -265,8 +266,11 @@ export interface CryptoAPI {
 }
 
 /** Locales the host ships. A plugin's catalog may cover any subset — "en" should
- *  always be present, since it is the fallback when the active locale is missing. */
-export type PluginLocale = "en" | "fr" | "ru" | "zh";
+ *  always be present, since it is the fallback when the active locale is missing.
+ *  Re-exports the host's own `Locale` union (type-only, erased at build — this
+ *  doesn't pull `@/stores/localeStore` into the plugin bundle) so a future host
+ *  locale addition flows through here automatically instead of drifting out of sync. */
+export type PluginLocale = Locale;
 
 /** A flat key → template map for one locale. Values may contain "{{var}}" placeholders. */
 export type PluginLocaleCatalog = Record<string, string>;
