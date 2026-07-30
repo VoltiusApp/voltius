@@ -287,7 +287,11 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
         if (!res.ok) continue;
         const data = await res.json();
         const list: MarketplacePlugin[] = Array.isArray(data) ? data : (data.plugins ?? []);
-        const plugins = list.map((p) => ({ ...p, sourceId: source.id }));
+        // `builtin` is never trusted from a remote source — it routes installPlugin
+        // through the no-hash-check local floor, so a source spoofing it could steer
+        // a click into a trusted load. Stripped here alongside the sourceId overwrite,
+        // same as `deletable: true` is forced on custom sources in loadSources.
+        const plugins = list.map((p) => ({ ...p, sourceId: source.id, builtin: undefined }));
         results.push(...plugins);
       } catch (e) {
         console.warn(`[marketplace] Failed to fetch source "${source.id}":`, e);
@@ -329,9 +333,18 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
 
     set((s) => ({ installing: new Set([...s.installing, plugin.id]) }));
     try {
-      // The floor never touches the network or the appVersion gate above it — its
-      // bytes ship in the running app, so they're inherently version-compatible.
-      if (plugin.builtin) {
+      // `plugin.builtin` alone is not trusted — it's a Browse-tab display flag that
+      // could originate from a remote catalogue entry a hostile source spoofed to
+      // steer a click into the trusted, no-hash-check floor path. Route there only
+      // when local state independently confirms it: the id is a real seeded artifact
+      // AND it's currently tombstoned (a built-in that's still active is already
+      // installed and has no business going through installPlugin at all).
+      const takesFloorPath = plugin.builtin
+        && (await loadSeededEntries()).has(plugin.id)
+        && useSeededTombstoneStore.getState().isRemoved(plugin.id);
+      if (takesFloorPath) {
+        // The floor never touches the network or the appVersion gate below — its
+        // bytes ship in the running app, so they're inherently version-compatible.
         await installFromSeededFloor(plugin);
         return;
       }

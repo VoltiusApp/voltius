@@ -58,6 +58,10 @@ export function mergeBrowseCatalog(
   const handled = new Set<string>();
 
   for (const p of catalog) {
+    // Two enabled sources can both list the same tombstoned built-in id — without
+    // this guard, a second unsatisfied entry would push a second floor row for the
+    // same id, producing a duplicate React key in Browse.
+    if (handled.has(p.id)) continue;
     const seeded = seededEntries.get(p.id);
     if (seeded && removed.has(p.id)) {
       const usable = appVersion === null || satisfiesMinAppVersion(p, appVersion);

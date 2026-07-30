@@ -73,6 +73,20 @@ test("mergeBrowseCatalog leaves a non-tombstoned built-in's catalogue row untouc
   expect(merged[0].builtin).toBeUndefined();
 });
 
+test("mergeBrowseCatalog emits at most one row per id when two sources both list the same unsatisfied built-in", () => {
+  const merged = mergeBrowseCatalog(
+    [
+      catalogEntry({ minAppVersion: "9.9.9", sourceId: "voltius" }),
+      catalogEntry({ minAppVersion: "9.9.9", sourceId: "other-source" }),
+    ],
+    seeded(),
+    ["plugin-docker"],
+    "2.0.0",
+  );
+  expect(merged).toHaveLength(1);
+  expect(merged[0].builtin).toBe(true);
+});
+
 test("mergeBrowseCatalog passes through unrelated catalogue entries with no seeded counterpart", () => {
   const merged = mergeBrowseCatalog([catalogEntry({ id: "plugin-other" })], new Map(), [], "2.0.0");
   expect(merged).toHaveLength(1);

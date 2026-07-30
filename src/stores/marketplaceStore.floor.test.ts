@@ -25,6 +25,7 @@ vi.mock("@/stores/pluginRegistryStore", () => ({
 
 import { useMarketplaceStore, type MarketplacePlugin } from "./marketplaceStore";
 import { useSeededTombstoneStore } from "./seededTombstoneStore";
+import { appFetch } from "@/services/http";
 
 const SEEDED_MANIFEST = { id: "plugin-docker", name: "Docker", version: "1.1.0", permissions: ["docker:read"] };
 
@@ -42,6 +43,7 @@ beforeEach(() => {
   h.invoke.mockClear();
   h.loadPlugin.mockClear();
   h.importPluginModule.mockClear();
+  vi.mocked(appFetch).mockClear();
   useMarketplaceStore.setState({ installedMeta: [], installing: new Set() });
   useSeededTombstoneStore.setState({ removed: ["plugin-docker"] });
   h.invoke.mockImplementation(async (cmd: string, args: Record<string, string> = {}) => {
@@ -54,6 +56,11 @@ beforeEach(() => {
     }
     if (cmd === "plugin_seeded_read" && args.id === "docker" && args.filename === "voltius.css") {
       throw new Error("no stylesheet");
+    }
+    if (cmd === "plugin_fetch_url") {
+      return args.url!.endsWith("manifest.json")
+        ? JSON.stringify({ id: "plugin-other", name: "Other", version: "1.0.0", permissions: [] })
+        : "export default () => {}";
     }
     return undefined;
   });
@@ -75,6 +82,7 @@ test("the floor path makes no network call", async () => {
 
   const networked = h.invoke.mock.calls.filter(([cmd]) => cmd === "plugin_fetch_url");
   expect(networked).toEqual([]);
+  expect(appFetch).not.toHaveBeenCalled();
 });
 
 test("the floor path performs no hash check and does not gate on minAppVersion", async () => {
@@ -94,4 +102,35 @@ test("fetchManifest reads a builtin's manifest from the seeded resource, not the
   expect(manifest.id).toBe("plugin-docker");
   expect(h.invoke).toHaveBeenCalledWith("plugin_seeded_read", { id: "docker", filename: "manifest.json" });
   expect(h.invoke).not.toHaveBeenCalledWith("plugin_fetch_url", expect.anything());
+});
+
+// A remote catalogue entry could spoof `builtin: true` to steer a click into the
+// trusted, no-hash-check floor path for a plugin that isn't actually the built-in it
+// claims to be. installPlugin must not take that path on the flag alone — it re-checks
+// local state (a real seeded artifact, and currently tombstoned) before routing there.
+
+test("installPlugin ignores a spoofed builtin flag for an id that isn't a seeded artifact", async () => {
+  const spoofed = floorPlugin({ id: "plugin-not-seeded", repo: "attacker/plugin" });
+
+  await useMarketplaceStore.getState().installPlugin(spoofed);
+
+  // Falls through to the normal network-fetch path instead of the floor.
+  const fetched = h.invoke.mock.calls.filter(([cmd]) => cmd === "plugin_fetch_url");
+  expect(fetched.length).toBeGreaterThan(0);
+  expect(h.loadPlugin).toHaveBeenCalledOnce();
+  const [, , , trusted] = h.loadPlugin.mock.calls[0];
+  expect(trusted).toBe(false);
+});
+
+test("installPlugin ignores a spoofed builtin flag for a real seeded id that isn't tombstoned", async () => {
+  useSeededTombstoneStore.setState({ removed: [] }); // plugin-docker is currently active, not removed
+  const spoofed = floorPlugin({ repo: "attacker/plugin-docker" });
+
+  await useMarketplaceStore.getState().installPlugin(spoofed);
+
+  const fetched = h.invoke.mock.calls.filter(([cmd]) => cmd === "plugin_fetch_url");
+  expect(fetched.length).toBeGreaterThan(0);
+  expect(h.loadPlugin).toHaveBeenCalledOnce();
+  const [, , , trusted] = h.loadPlugin.mock.calls[0];
+  expect(trusted).toBe(false);
 });
