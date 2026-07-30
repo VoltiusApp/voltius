@@ -3,6 +3,7 @@ import { describe, test, expect, vi, beforeEach } from "vitest";
 const invoke = vi.fn();
 const loadPlugin = vi.fn();
 const consentSpy = vi.hoisted(() => vi.fn(() => true));
+const h = vi.hoisted(() => ({ removed: new Set<string>(), installedIds: new Set<string>() }));
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...a: unknown[]) => invoke(...a),
@@ -11,6 +12,14 @@ vi.mock("@tauri-apps/api/core", () => ({
 vi.mock("./runtime", () => ({ loadPlugin: (...a: unknown[]) => loadPlugin(...a) }));
 vi.mock("@/stores/pluginRegistryStore", () => ({
   usePluginRegistryStore: { getState: () => ({ isEnabled: () => true }) },
+}));
+vi.mock("@/stores/seededTombstoneStore", () => ({
+  useSeededTombstoneStore: { getState: () => ({ isRemoved: (id: string) => h.removed.has(id) }) },
+}));
+vi.mock("@/stores/marketplaceStore", () => ({
+  useMarketplaceStore: {
+    getState: () => ({ installedMeta: [...h.installedIds].map((id) => ({ id })) }),
+  },
 }));
 vi.mock("./importPluginModule", () => ({
   importPluginModule: vi.fn(async () => ({ register: () => {} })),
@@ -25,6 +34,8 @@ describe("loadSeededPlugins", () => {
     invoke.mockReset();
     loadPlugin.mockReset();
     consentSpy.mockClear();
+    h.removed.clear();
+    h.installedIds.clear();
   });
 
   test("returns without throwing when there are no seeded plugins", async () => {
@@ -79,5 +90,49 @@ describe("loadSeededPlugins", () => {
       true,
       expect.any(String),
     );
+  });
+
+  test("a tombstoned seeded plugin is not registered", async () => {
+    h.removed.add("plugin-docker");
+    invoke.mockImplementation(async (cmd: string, args: Record<string, string>) => {
+      if (cmd === "plugins_list_seeded") return ["docker"];
+      if (cmd === "plugin_seeded_read" && args.filename === "manifest.json") {
+        return JSON.stringify({ id: "plugin-docker", version: "1.0.0", permissions: [] });
+      }
+      return "export const register = () => {};";
+    });
+
+    await loadSeededPlugins();
+
+    expect(loadPlugin).not.toHaveBeenCalled();
+  });
+
+  test("an externally-installed id is skipped by the seeded loader", async () => {
+    h.installedIds.add("plugin-docker");
+    invoke.mockImplementation(async (cmd: string, args: Record<string, string>) => {
+      if (cmd === "plugins_list_seeded") return ["docker"];
+      if (cmd === "plugin_seeded_read" && args.filename === "manifest.json") {
+        return JSON.stringify({ id: "plugin-docker", version: "1.0.0", permissions: [] });
+      }
+      return "export const register = () => {};";
+    });
+
+    await loadSeededPlugins();
+
+    expect(loadPlugin).not.toHaveBeenCalled();
+  });
+
+  test("a restored (non-tombstoned) seeded plugin is registered normally", async () => {
+    invoke.mockImplementation(async (cmd: string, args: Record<string, string>) => {
+      if (cmd === "plugins_list_seeded") return ["docker"];
+      if (cmd === "plugin_seeded_read" && args.filename === "manifest.json") {
+        return JSON.stringify({ id: "plugin-docker", version: "1.0.0", permissions: [] });
+      }
+      return "export const register = () => {};";
+    });
+
+    await loadSeededPlugins();
+
+    expect(loadPlugin).toHaveBeenCalledOnce();
   });
 });

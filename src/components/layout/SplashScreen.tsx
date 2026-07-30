@@ -13,7 +13,7 @@ import { saveCurrentAccount } from "@/services/savedAccounts";
 import { syncOnLogin, syncOnLoginReplace, startRealtimeSync } from "@/services/sync";
 import { setLoginSyncPending, resolveLoginSync } from "@/plugins/runtime";
 import { loadSeededPlugins } from "@/plugins/seeded";
-import { loadInstalledPlugins } from "@/stores/marketplaceStore";
+import { loadInstalledPlugins, loadPluginMeta } from "@/stores/marketplaceStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
@@ -125,6 +125,7 @@ export default function SplashScreen({ onReady }: Props) {
     // splash spinning forever. Swallow and continue to the main UI.
     try {
       await usePluginRegistryStore.getState().load();
+      await loadPluginMeta();
       await loadSeededPlugins();
       await loadInstalledPlugins();
     } catch (e) {

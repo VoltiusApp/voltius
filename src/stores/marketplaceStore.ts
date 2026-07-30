@@ -9,6 +9,7 @@ import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { appFetch } from "@/services/http";
 import { resolveVerifiedHash } from "@/plugins/integrity";
 import { satisfiesMinAppVersion, MinAppVersionError } from "@/plugins/version";
+import { useSeededTombstoneStore } from "@/stores/seededTombstoneStore";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -444,6 +445,18 @@ export async function restoreMissingPlugins(): Promise<void> {
 }
 
 // ─── Startup loader ───────────────────────────────────────────────────────
+
+/**
+ * Loads the state `loadSeededPlugins` needs to apply the tombstone/precedence
+ * rule — sources, installedMeta, and the seeded-removal list — before the
+ * seeded loader runs. Must complete before `loadSeededPlugins()` at boot.
+ */
+export async function loadPluginMeta(): Promise<void> {
+  const store = useMarketplaceStore.getState();
+  await store.loadSources();
+  await store.loadInstalledMeta();
+  await useSeededTombstoneStore.getState().load();
+}
 
 export async function loadInstalledPlugins(): Promise<void> {
   // Note: the recorded meta.hash is used only for the UI "unverified" signal, not re-checked
