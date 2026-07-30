@@ -9,6 +9,8 @@ import {
   buildCatalogFragment,
   stageReleaseAssets,
   releaseRepoFor,
+  releaseTagFor,
+  isCliEntryPoint,
 } from "../scripts/build-plugins.mjs";
 import { sha256Hex } from "../src/plugins/integrity";
 
@@ -137,6 +139,21 @@ describe("plugin catalogue publish pipeline", () => {
     expect(stageDir.startsWith(outRoot)).toBe(true);
   });
 
+  test("releaseRepoFor and stageReleaseAssets agree on the release tag", () => {
+    // Highest-risk invariant: if these two ever disagree, the catalogue's `repo`
+    // points at a tag that doesn't hold the plugin's actual bundle — a 404 on
+    // install, invisible to any test that checks each side's literal in isolation.
+    const stageDir = path.join(outRoot, "__tag_agreement__");
+    const tags = stageReleaseAssets(FIRST_PARTY_PLUGIN_IDS, outRoot, stageDir, APP_VERSION);
+    const fragment = buildCatalogFragment(FIRST_PARTY_PLUGIN_IDS, { resourcesDir: outRoot, appVersion: APP_VERSION });
+
+    for (const entry of fragment) {
+      const expectedTag = releaseTagFor(entry.id, APP_VERSION);
+      expect(entry.repo.endsWith(`/${expectedTag}`)).toBe(true);
+      expect(tags).toContain(expectedTag);
+    }
+  });
+
   test("releaseRepoFor matches the client's unprefixed fetch pattern", () => {
     const repo = releaseRepoFor("plugin-docker", "9.9.9");
     expect(repo).toBe("https://github.com/VoltiusApp/voltius/releases/download/plugin-docker-v9.9.9");
@@ -145,6 +162,45 @@ describe("plugin catalogue publish pipeline", () => {
     expect(`${repo}/index.js`).toBe(
       "https://github.com/VoltiusApp/voltius/releases/download/plugin-docker-v9.9.9/index.js",
     );
+  });
+});
+
+// Regression coverage for a real bug: the old guard compared the percent-encoded
+// `import.meta.url` against the raw `process.argv[1]`, which breaks for any script
+// path containing a space and never matches at all on Windows (`file:///C:/...`
+// vs `C:\...`). A silent guard-miss means `main()` never runs: `node
+// build-plugins.mjs` exits 0, builds nothing, and a Windows release ships with no
+// seeded plugins — exactly the failure mode this file's ROOT-anchoring comment
+// already warns about, just from a different cause.
+describe("CLI entry-point guard", () => {
+  test("isCliEntryPoint matches when the filename equals argv[1], including a path with a space", () => {
+    const p = "/home/dev/dir with space/build-plugins.mjs";
+    expect(isCliEntryPoint(p, p)).toBe(true);
+  });
+
+  test("isCliEntryPoint does not match when only imported (different entry script)", () => {
+    expect(isCliEntryPoint("/repo/scripts/build-plugins.mjs", "/repo/node_modules/.bin/vitest")).toBe(false);
+  });
+
+  test("end-to-end: the guard fires for a real CLI invocation from a spaced path, without running main()", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "voltius-guard-"));
+    const spacedDir = path.join(dir, "dir with space");
+    mkdirSync(spacedDir, { recursive: true });
+    const probePath = path.join(spacedDir, "probe.mjs");
+    const modulePath = path.join(ROOT, "scripts/build-plugins.mjs");
+    // Importing build-plugins.mjs here must NOT trigger main() (which would build
+    // all six real plugins into src-tauri/resources/plugins/) — only probe.mjs
+    // itself, as the actual CLI entry point, should evaluate as "true".
+    writeFileSync(
+      probePath,
+      [
+        `import { isCliEntryPoint } from ${JSON.stringify(modulePath)};`,
+        `console.log(isCliEntryPoint(import.meta.filename, process.argv[1]));`,
+      ].join("\n"),
+    );
+    const out = execFileSync("node", [probePath], { cwd: spacedDir }).toString().trim();
+    expect(out).toBe("true");
+    rmSync(dir, { recursive: true, force: true });
   });
 });
 

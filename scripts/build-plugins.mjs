@@ -66,18 +66,15 @@ export function buildPlugins(ids) {
   return built;
 }
 
-// The marketplace client always fetches `${plugin.repo}/index.js` and
-// `${plugin.repo}/manifest.json` verbatim (src/stores/marketplaceStore.ts) — there is
-// no per-plugin filename prefix in that fetch. A single shared GitHub Release holding
-// all six bundles under prefixed names (`<id>-index.js`, ...) can't be pointed at by
-// `repo`, because GitHub's release-asset URLs are flat (`/releases/download/<tag>/
-// <asset>`, no subpaths) and only one asset per release may be literally named
-// "index.js". Each plugin instead gets its own release, tagged with its manifest id
-// and the app version, holding three UNPREFIXED assets — that sidesteps the six-way
-// collision while still matching the client's fixed fetch. See task-6-report.md for
-// the full writeup of this tradeoff against the brief's literal prefixed-name text.
+// The marketplace client always fetches `${plugin.repo}/index.js` unprefixed
+// (src/stores/marketplaceStore.ts), so each plugin gets its own release rather than
+// sharing one with prefixed asset names.
+export function releaseTagFor(manifestId, appVersion) {
+  return `${manifestId}-v${appVersion}`;
+}
+
 export function releaseRepoFor(manifestId, appVersion) {
-  return `https://github.com/${GITHUB_REPO}/releases/download/${manifestId}-v${appVersion}`;
+  return `https://github.com/${GITHUB_REPO}/releases/download/${releaseTagFor(manifestId, appVersion)}`;
 }
 
 /**
@@ -127,7 +124,7 @@ export function stageReleaseAssets(ids, resourcesDir, stageDir, appVersion) {
   for (const folder of ids) {
     const srcDir = path.join(resourcesDir, folder);
     const manifest = readManifest(srcDir);
-    const tag = `${manifest.id}-v${appVersion}`;
+    const tag = releaseTagFor(manifest.id, appVersion);
     const destDir = path.join(stageDir, tag);
     mkdirSync(destDir, { recursive: true });
     copyFileSync(path.join(srcDir, "manifest.json"), path.join(destDir, "manifest.json"));
@@ -159,39 +156,56 @@ function parseArgs(argv) {
   return { flags, ids };
 }
 
+/** Resolves a `--flag[=value]` path argument, rejecting an explicit empty value
+ *  (`--flag=`) rather than silently falling back to the default — the default is
+ *  for an omitted flag, not a mistyped one. */
+function resolveFlagPath(flags, name, defaultRelPath) {
+  const raw = flags[name];
+  if (raw === "") {
+    throw new Error(`[build-plugins] --${name}= was given an empty value — omit it to use the default, or pass a path`);
+  }
+  return path.resolve(ROOT, typeof raw === "string" ? raw : defaultRelPath);
+}
+
 function main() {
   const { flags, ids } = parseArgs(process.argv.slice(2));
   const targetIds = ids.length ? ids : FIRST_PARTY_PLUGIN_IDS;
 
   const built = buildPlugins(targetIds);
   console.log(`[build-plugins] built ${built} of ${targetIds.length}`);
+  if (built === 0) {
+    throw new Error("[build-plugins] built 0 plugins — refusing to exit 0 as if this succeeded");
+  }
   if (built !== targetIds.length) {
     throw new Error(`[build-plugins] built ${built} of ${targetIds.length} — expected all of them`);
   }
 
-  if (flags["emit-catalog"]) {
-    const outPath = path.resolve(
-      ROOT,
-      typeof flags["emit-catalog"] === "string" ? flags["emit-catalog"] : "dist/plugin-catalog.json",
-    );
+  if ("emit-catalog" in flags) {
+    const outPath = resolveFlagPath(flags, "emit-catalog", "dist/plugin-catalog.json");
     const fragment = buildCatalogFragment(targetIds, { appVersion: readAppVersion() });
     mkdirSync(path.dirname(outPath), { recursive: true });
     writeFileSync(outPath, JSON.stringify(fragment, null, 2) + "\n");
     console.log(`[build-plugins] wrote catalogue fragment (${fragment.length} entries) to ${outPath}`);
   }
 
-  if (flags["stage-assets"]) {
-    const stageDir = path.resolve(
-      ROOT,
-      typeof flags["stage-assets"] === "string" ? flags["stage-assets"] : "dist/plugin-release-assets",
-    );
+  if ("stage-assets" in flags) {
+    const stageDir = resolveFlagPath(flags, "stage-assets", "dist/plugin-release-assets");
     const tags = stageReleaseAssets(targetIds, RESOURCES_DIR, stageDir, readAppVersion());
     console.log(`[build-plugins] staged release assets under ${stageDir}:\n  ${tags.join("\n  ")}`);
   }
 }
 
-// Guarded so tests can import buildCatalogFragment/stageReleaseAssets without
-// triggering a full six-plugin vite build as an import side effect.
-if (import.meta.url === `file://${process.argv[1]}`) {
+// True when this file is the CLI entry point (`node build-plugins.mjs`), false when
+// it's only imported (e.g. by a test, for buildCatalogFragment/stageReleaseAssets).
+// Node resolves process.argv[1] to an absolute filesystem path — comparing it
+// against the percent-encoded `import.meta.url` (as this used to) breaks on any
+// path containing a space, and never matches at all on Windows (`file:///C:/...`
+// with forward slashes vs argv[1]'s `C:\...`). import.meta.filename is the same
+// absolute-path form process.argv[1] already is, on every platform.
+export function isCliEntryPoint(metaFilename, argv1) {
+  return metaFilename === argv1;
+}
+
+if (isCliEntryPoint(import.meta.filename, process.argv[1])) {
   main();
 }

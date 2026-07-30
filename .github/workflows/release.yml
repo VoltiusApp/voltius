@@ -334,17 +334,11 @@ jobs:
 
   # Publishes the six first-party plugins (src/plugins/*) as their OWN GitHub
   # Releases, separate from the app release above — this is what lets a plugin fix
-  # ship without cutting a full app release. Each plugin gets its own release
-  # (tag `<manifest-id>-v<version>`) holding three UNPREFIXED assets (index.js,
-  # manifest.json, voltius.css when present): the marketplace client always fetches
-  # `${plugin.repo}/index.js` / `${plugin.repo}/manifest.json` verbatim, and a
-  # single shared release can't serve six different plugins under those fixed
-  # names. See scripts/build-plugins.mjs (releaseRepoFor/stageReleaseAssets) for
-  # the full reasoning.
-  #
-  # The emitted plugins.json fragment is uploaded as a build artifact and attached
-  # to the app release for the record — merging it into voltiusApp/marketplace's
-  # plugins.json is a manual follow-up this workflow cannot do (separate repo).
+  # ship without cutting a full app release. See scripts/build-plugins.mjs
+  # (releaseRepoFor) for why each plugin needs its own release. The emitted
+  # plugins.json fragment is uploaded as a build artifact and attached to the app
+  # release for the record — merging it into voltiusApp/marketplace's plugins.json
+  # is a manual follow-up this workflow cannot do (separate repo).
   publish-plugins:
     needs: [changelog, publish-tauri]
     runs-on: ubuntu-latest
@@ -370,6 +364,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Resolve the commit SHA for ${{ inputs.tag }}
+        id: commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Build plugin bundles and catalogue fragment
         run: node scripts/build-plugins.mjs --emit-catalog=dist/plugin-catalog.json --stage-assets=dist/plugin-release-assets
 
@@ -379,18 +377,29 @@ jobs:
           name: plugin-catalog
           path: dist/plugin-catalog.json
 
+      # Idempotent on re-dispatch: a prior run may have already created some of the
+      # six releases before failing partway through. `gh release view` distinguishes
+      # "create fresh" from "re-upload the assets (--clobber) to what's already
+      # there" instead of dying on an existing tag and leaving the rest unbuilt.
       - name: Create a release per plugin and upload its bundle
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
+          APP_TAG: ${{ inputs.tag }}
+          TARGET_SHA: ${{ steps.commit.outputs.sha }}
         run: |
           for dir in dist/plugin-release-assets/*/; do
             tag="$(basename "$dir")"
-            gh release create "$tag" "$dir"* \
-              -R "$REPO" \
-              --title "$tag" \
-              --notes "First-party plugin bundle, built from ${{ inputs.tag }}. See voltius CHANGELOG.md for what changed." \
-              --latest=false
+            if gh release view "$tag" -R "$REPO" >/dev/null 2>&1; then
+              gh release upload "$tag" "$dir"* -R "$REPO" --clobber
+            else
+              gh release create "$tag" "$dir"* \
+                -R "$REPO" \
+                --target "$TARGET_SHA" \
+                --title "$tag" \
+                --notes "First-party plugin bundle, built from $APP_TAG. See voltius CHANGELOG.md for what changed." \
+                --latest=false
+            fi
           done
 
       - name: Attach the catalogue fragment to the app release
