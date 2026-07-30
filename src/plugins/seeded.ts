@@ -24,7 +24,13 @@ export async function loadSeededPlugins(): Promise<void> {
       });
       const manifest = JSON.parse(manifestText) as PluginManifest;
       const jsText = await invoke<string>("plugin_seeded_read", { id, filename: "index.js" });
-      const mod = (await importPluginModule(jsText)) as PluginModule;
+      let css: string | undefined;
+      try {
+        css = await invoke<string>("plugin_seeded_read", { id, filename: "voltius.css" });
+      } catch {
+        // Most plugins ship no stylesheet — that's expected, not an error.
+      }
+      const mod = (await importPluginModule(jsText, css, manifest.id)) as PluginModule;
       const active = usePluginRegistryStore
         .getState()
         .isEnabled(manifest.id, manifest.defaultEnabled ?? true);

@@ -21,8 +21,27 @@ export function pluginRegisterOf(mod: PluginModule): PluginRegisterFn {
   return fn;
 }
 
+/**
+ * Inject a plugin's stylesheet (if it has one) into the document. Idempotent per
+ * plugin id, so a re-load doesn't pile up duplicate <style> tags.
+ */
+export function injectPluginStyle(pluginId: string, css: string): void {
+  const elId = `voltius-plugin-style-${pluginId}`;
+  const existing = document.getElementById(elId);
+  if (existing) existing.remove();
+  const style = document.createElement("style");
+  style.id = elId;
+  style.textContent = css;
+  document.head.appendChild(style);
+}
+
 /** Turn a plugin bundle's source into a live module with its host imports resolved. */
-export async function importPluginModule(jsText: string): Promise<unknown> {
+export async function importPluginModule(
+  jsText: string,
+  css?: string,
+  pluginId?: string,
+): Promise<unknown> {
+  if (css && pluginId) injectPluginStyle(pluginId, css);
   const url = URL.createObjectURL(
     new Blob([await resolveHostSpecifiers(jsText)], { type: "text/javascript" }),
   );

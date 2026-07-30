@@ -35,6 +35,10 @@ export default defineConfig({
       entry: path.resolve(__dirname, `src/plugins/${id}/index.ts`),
       formats: ["es"],
       fileName: () => "index.js",
+      // Pin the CSS output filename explicitly rather than relying on Vite's default
+      // (derived from root package.json's "name" field) — the seeded-plugin loader
+      // (src/plugins/seeded.ts) reads this exact filename to inject a plugin's styles.
+      cssFileName: "voltius",
     },
     rollupOptions: {
       external: [...HOST_SPECIFIERS],
