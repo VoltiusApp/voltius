@@ -96,7 +96,11 @@
       "justNow": "刚刚",
       "minutesAgo": "{{count}} 分钟前",
       "hoursAgo": "{{count}} 小时前",
-      "daysAgo": "{{count}} 天前"
+      "daysAgo": "{{count}} 天前",
+      "kill": "结束会话",
+      "killing": "正在结束会话…",
+      "undo": "撤销",
+      "killFailed": "无法远程结束 — 打开会话以将其关闭"
     },
     "teamSessions": {
       "title": "团队会话",
