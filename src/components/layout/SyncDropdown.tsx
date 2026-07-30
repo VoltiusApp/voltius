@@ -5,8 +5,8 @@ import i18n from "@/i18n";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { getSyncState, onSyncStateChange, syncNow, type SyncStatus } from "@/services/sync";
 import { getExposedApi } from "@/plugins/runtime";
-import { NOT_CONFIGURED_GIST_STATE, type GistSyncState, type GistSyncPublicApi } from "@/services/syncStatus";
-import { usePluginStateStore } from "@/stores/pluginStateStore";
+import type { GistSyncPublicApi } from "@/services/syncStatus";
+import { useGistSyncState } from "@/hooks/useGistSyncState";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
 import { useUIStore } from "@/stores/uiStore";
@@ -256,9 +256,7 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
   const [voltiusState, setVoltiusState] = useState(getSyncState);
   useEffect(() => onSyncStateChange(() => setVoltiusState(getSyncState())), []);
 
-  const gistState = usePluginStateStore(
-    (s) => s.read<GistSyncState>(GIST_SYNC_PLUGIN_ID, "sync-state") ?? NOT_CONFIGURED_GIST_STATE,
-  );
+  const gistState = useGistSyncState();
 
   if (!open) return null;
 

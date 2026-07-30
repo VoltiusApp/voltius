@@ -37,6 +37,84 @@ export interface GistSyncPublicApi {
   syncNow(opts?: { showProgress?: boolean }): Promise<void>;
 }
 
+const SYNC_STATUSES: readonly SyncStatus[] = ["idle", "syncing", "success", "error", "offline"];
+
+/** Coerces an epoch-ms number or ISO-8601 string into a `Date`, returning `null`
+ *  for anything that doesn't produce a valid one (including `NaN` dates). */
+function coerceDate(value: unknown): Date | null {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value === "string" || typeof value === "number") {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
+const warnedKeys = new Set<string>();
+
+function warnOnce(pluginId: string, field: string, message: string) {
+  const dedupeKey = `${pluginId}::${field}`;
+  if (warnedKeys.has(dedupeKey)) return;
+  warnedKeys.add(dedupeKey);
+  console.warn(`[plugin-state] ${pluginId}: ${message}`);
+}
+
+/** Test-only: clears the warn-once dedupe so each test starts fresh. */
+export function __resetGistSyncStateWarnings(): void {
+  warnedKeys.clear();
+}
+
+// Keyed by the raw published object's identity so a React selector calling this on
+// every render gets back the same reference for an unchanged publish — otherwise a
+// fresh object each call defeats store equality checks and loops re-renders forever.
+const sanitizedCache = new WeakMap<object, GistSyncState>();
+
+/** Validates/coerces a plugin-published `sync-state` blob at the point the host
+ *  reads it. `publishState` accepts `unknown`, so a plugin (buggy or malicious)
+ *  can publish anything — this must never throw, and a malformed field degrades
+ *  to the same value `NOT_CONFIGURED_GIST_STATE` uses for that field rather than
+ *  taking down the caller. Logs at most one warning per pluginId+field. */
+export function sanitizeGistSyncState(raw: unknown, pluginId: string): GistSyncState {
+  if (typeof raw !== "object" || raw === null) {
+    warnOnce(pluginId, "sync-state", "published sync-state is not an object; ignoring");
+    return NOT_CONFIGURED_GIST_STATE;
+  }
+  const cached = sanitizedCache.get(raw);
+  if (cached) return cached;
+
+  const r = raw as Record<string, unknown>;
+
+  const status: SyncStatus = SYNC_STATUSES.includes(r.status as SyncStatus)
+    ? (r.status as SyncStatus)
+    : (warnOnce(pluginId, "status", `invalid sync-state.status: ${String(r.status)}`), "idle");
+
+  let lastSync: Date | null;
+  if (r.lastSync === null || r.lastSync === undefined) {
+    lastSync = null;
+  } else {
+    const coerced = coerceDate(r.lastSync);
+    if (coerced === null) warnOnce(pluginId, "lastSync", `invalid sync-state.lastSync: ${String(r.lastSync)}`);
+    lastSync = coerced;
+  }
+
+  const error: string | null = r.error === null || typeof r.error === "string"
+    ? r.error
+    : (warnOnce(pluginId, "error", `invalid sync-state.error: ${String(r.error)}`), null);
+
+  const blobSizeBytes: number | null =
+    r.blobSizeBytes === null || (typeof r.blobSizeBytes === "number" && !Number.isNaN(r.blobSizeBytes))
+      ? r.blobSizeBytes
+      : (warnOnce(pluginId, "blobSizeBytes", `invalid sync-state.blobSizeBytes: ${String(r.blobSizeBytes)}`), null);
+
+  const configured: boolean = typeof r.configured === "boolean"
+    ? r.configured
+    : (warnOnce(pluginId, "configured", `invalid sync-state.configured: ${String(r.configured)}`), false);
+
+  const result = { status, lastSync, error, blobSizeBytes, configured };
+  sanitizedCache.set(raw, result);
+  return result;
+}
+
 export interface EffectiveSync {
   /** Either sync engine is set up. */
   configured: boolean;
