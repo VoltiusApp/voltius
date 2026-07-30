@@ -63,8 +63,8 @@ describe("useGistSyncState", () => {
       blobSizeBytes: null,
       configured: true,
     });
+    expect(() => renderHook(() => useGistSyncState())).not.toThrow();
     const { result } = renderHook(() => useGistSyncState());
-    expect(() => result.current).not.toThrow();
     expect(result.current.lastSync).toBeInstanceOf(Date);
   });
 
@@ -88,8 +88,8 @@ describe("useGistSyncState", () => {
       blobSizeBytes: null,
       configured: true,
     });
+    expect(() => renderHook(() => useGistSyncState())).not.toThrow();
     const { result } = renderHook(() => useGistSyncState());
-    expect(() => result.current).not.toThrow();
     expect(result.current.lastSync).toBeNull();
   });
 
@@ -99,19 +99,29 @@ describe("useGistSyncState", () => {
     expect(result.current.configured).toBe(false);
   });
 
-  test("re-rendering with the same malformed state warns only once", () => {
-    usePluginStateStore.getState().publish(PLUGIN_ID, "sync-state", {
-      status: "success",
-      lastSync: "garbage",
-      error: null,
-      blobSizeBytes: null,
-      configured: true,
-    });
+  test("re-publishing fresh-but-equally-malformed state warns only once, not per render", () => {
+    // Each call below publishes a brand-new object literal (different reference),
+    // so this exercises the module-level warn-once Set, not reference-stability
+    // of a single publish — a cache keyed on object identity alone would let this
+    // pass even with the dedupe removed.
+    const publishMalformed = () =>
+      usePluginStateStore.getState().publish(PLUGIN_ID, "sync-state", {
+        status: "success",
+        lastSync: "garbage",
+        error: null,
+        blobSizeBytes: null,
+        configured: true,
+      });
+
+    publishMalformed();
     const { result, rerender } = renderHook(() => useGistSyncState());
     void result.current;
+
+    publishMalformed();
     rerender();
+    publishMalformed();
     rerender();
-    rerender();
+
     expect(console.warn).toHaveBeenCalledTimes(1);
   });
 });

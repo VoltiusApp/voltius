@@ -1,4 +1,9 @@
-import { selectEffectiveSyncStatus, sanitizeGistSyncState, __resetGistSyncStateWarnings } from "./syncStatus.ts";
+import {
+  selectEffectiveSyncStatus,
+  sanitizeGistSyncState,
+  __resetGistSyncStateWarnings,
+  NOT_CONFIGURED_GIST_STATE,
+} from "./syncStatus.ts";
 import { test, describe, expect, vi, beforeEach, afterEach } from "vitest";
 
 test("syncStatus", async () => {
@@ -110,5 +115,47 @@ describe("sanitizeGistSyncState", () => {
     sanitizeGistSyncState({ ...valid, lastSync: "garbage" }, "plugin-a");
     sanitizeGistSyncState({ ...valid, lastSync: "garbage" }, "plugin-b");
     expect(console.warn).toHaveBeenCalledTimes(2);
+  });
+
+  // A null-prototype lastSync has no Object.prototype.toString to fall back to —
+  // String(x) on it throws TypeError: Cannot convert object to primitive value,
+  // right where the warn message is built. This must not escape as a render-time
+  // crash; only the lastSync field degrades, the rest of the shape survives.
+  test("a null-prototype lastSync never throws (unstringifiable value in the warn message)", () => {
+    const raw = { ...valid, lastSync: Object.create(null) };
+    expect(() => sanitizeGistSyncState(raw, "plugin-gist-sync")).not.toThrow();
+    expect(sanitizeGistSyncState(raw, "plugin-gist-sync")).toEqual({ ...valid, lastSync: null });
+  });
+
+  test("an error field with a throwing toString never throws", () => {
+    const raw = { ...valid, error: { toString() { throw new Error("boom"); } } };
+    expect(() => sanitizeGistSyncState(raw, "plugin-gist-sync")).not.toThrow();
+    expect(sanitizeGistSyncState(raw, "plugin-gist-sync").error).toBeNull();
+  });
+
+  test("a status field with a throwing Symbol.toPrimitive never throws", () => {
+    const raw = { ...valid, status: { [Symbol.toPrimitive]() { throw new Error("boom"); } } };
+    expect(() => sanitizeGistSyncState(raw, "plugin-gist-sync")).not.toThrow();
+    expect(sanitizeGistSyncState(raw, "plugin-gist-sync").status).toBe("idle");
+  });
+
+  test("a blobSizeBytes/configured field that throws when stringified never throws", () => {
+    const rawBlob = { ...valid, blobSizeBytes: { toString() { throw new Error("boom"); } } };
+    expect(() => sanitizeGistSyncState(rawBlob, "plugin-gist-sync")).not.toThrow();
+    expect(sanitizeGistSyncState(rawBlob, "plugin-gist-sync").blobSizeBytes).toBeNull();
+
+    const rawConfigured = { ...valid, configured: { toString() { throw new Error("boom"); } } };
+    expect(() => sanitizeGistSyncState(rawConfigured, "plugin-gist-sync")).not.toThrow();
+    expect(sanitizeGistSyncState(rawConfigured, "plugin-gist-sync").configured).toBe(false);
+  });
+
+  // Unlike the String()-at-the-warn-message vectors above, a throwing getter (or a
+  // Proxy `get` trap) throws the moment the field is READ — before any validation
+  // logic runs — so the whole object degrades to the not-configured default rather
+  // than just that field, same as `raw` not being an object at all.
+  test("a throwing getter (or Proxy get trap) on any field never throws", () => {
+    const raw = { ...valid, get configured() { throw new Error("boom"); } };
+    expect(() => sanitizeGistSyncState(raw, "plugin-gist-sync")).not.toThrow();
+    expect(sanitizeGistSyncState(raw, "plugin-gist-sync")).toEqual(NOT_CONFIGURED_GIST_STATE);
   });
 });
