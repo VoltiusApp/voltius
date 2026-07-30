@@ -16,13 +16,14 @@ describe("hostModules", () => {
     ) as unknown as typeof URL.createObjectURL;
   });
 
-  test("exposes a blob module for each of the four public specifiers", async () => {
+  test("exposes a blob module for each of the five public specifiers", async () => {
     const { hostModuleUrls } = await freshModule();
     const urls = hostModuleUrls();
     expect(Object.keys(urls).sort()).toEqual([
       "@voltius/api",
       "@voltius/ui",
       "react",
+      "react-dom",
       "react/jsx-runtime",
     ]);
     for (const url of Object.values(urls)) expect(url.startsWith("blob:")).toBe(true);
@@ -38,6 +39,13 @@ describe("hostModules", () => {
     const { resolveHostSpecifiers, hostModuleUrls } = await freshModule();
     const out = await resolveHostSpecifiers(`import { jsx } from "react/jsx-runtime";`);
     expect(out).toContain(hostModuleUrls()["react/jsx-runtime"]);
+    expect(out).not.toContain(`"${hostModuleUrls()["react"]}"`);
+  });
+
+  test("rewrites react-dom without the react rule clobbering it", async () => {
+    const { resolveHostSpecifiers, hostModuleUrls } = await freshModule();
+    const out = await resolveHostSpecifiers(`import { flushSync } from "react-dom";`);
+    expect(out).toContain(hostModuleUrls()["react-dom"]);
     expect(out).not.toContain(`"${hostModuleUrls()["react"]}"`);
   });
 

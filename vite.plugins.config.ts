@@ -27,7 +27,7 @@ export default defineConfig({
       fileName: () => "index.js",
     },
     rollupOptions: {
-      external: ["react", "react/jsx-runtime", "@voltius/ui", "@voltius/api"],
+      external: ["react", "react/jsx-runtime", "react-dom", "@voltius/ui", "@voltius/api"],
     },
   },
 });

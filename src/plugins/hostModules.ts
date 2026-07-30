@@ -1,6 +1,7 @@
 import { init, parse } from "es-module-lexer";
 import * as React from "react";
 import * as ReactJsxRuntime from "react/jsx-runtime";
+import * as ReactDOM from "react-dom";
 import * as VoltiusUI from "./ui";
 
 let _urls: Record<string, string> | null = null;
@@ -32,6 +33,7 @@ export function hostModuleUrls(): Record<string, string> {
       "react/jsx-runtime",
       ReactJsxRuntime as unknown as Record<string, unknown>,
     ),
+    "react-dom": moduleUrl("react-dom", ReactDOM as unknown as Record<string, unknown>),
     "@voltius/ui": moduleUrl("@voltius/ui", VoltiusUI as unknown as Record<string, unknown>),
     "@voltius/api": moduleUrl("@voltius/api", {}),
   };
@@ -39,7 +41,7 @@ export function hostModuleUrls(): Record<string, string> {
 }
 
 /**
- * Point a plugin bundle's host imports at the blob modules above. Only the four
+ * Point a plugin bundle's host imports at the blob modules above. Only the five
  * specifiers the host provides are rewritten; anything else the plugin bundled
  * for itself is left alone.
  */
