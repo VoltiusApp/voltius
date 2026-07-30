@@ -1,4 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from "vitest";
+import { HOST_SPECIFIERS } from "./hostSpecifiers";
 
 // The module memoizes its blob URLs in module scope, so each test needs a fresh
 // copy — otherwise the idempotency guard from an earlier test suppresses injection
@@ -27,6 +28,15 @@ describe("hostModules", () => {
       "react/jsx-runtime",
     ]);
     for (const url of Object.values(urls)) expect(url.startsWith("blob:")).toBe(true);
+  });
+
+  // Guards against hostModuleUrls() and HOST_SPECIFIERS (the list vite.plugins.config.ts
+  // externals and the bundle-build test both key off) drifting apart: add a specifier to
+  // one without the other and externals + the bundle build both stay green while every
+  // plugin importing it throws "disallowed specifier" at runtime.
+  test("hostModuleUrls() keys exactly match HOST_SPECIFIERS", async () => {
+    const { hostModuleUrls } = await freshModule();
+    expect(Object.keys(hostModuleUrls()).sort()).toEqual([...HOST_SPECIFIERS].sort());
   });
 
   test("rewrites a bare react import to its blob URL", async () => {
@@ -89,6 +99,24 @@ describe("hostModules", () => {
     const { resolveHostSpecifiers } = await freshModule();
     const src = `import x from "./chunk.js";`;
     expect(await resolveHostSpecifiers(src)).toBe(src);
+  });
+
+  test("still allows a parent-relative specifier left by the bundler", async () => {
+    const { resolveHostSpecifiers } = await freshModule();
+    const src = `import x from "../chunk.js";`;
+    expect(await resolveHostSpecifiers(src)).toBe(src);
+  });
+
+  test("rejects a protocol-relative specifier", async () => {
+    const { resolveHostSpecifiers } = await freshModule();
+    const src = `import x from "//evil.com/x.js";`;
+    await expect(resolveHostSpecifiers(src)).rejects.toThrow(/disallowed specifier/);
+  });
+
+  test("rejects a path-absolute specifier", async () => {
+    const { resolveHostSpecifiers } = await freshModule();
+    const src = `import x from "/x.js";`;
+    await expect(resolveHostSpecifiers(src)).rejects.toThrow(/disallowed specifier/);
   });
 
   test("does not rewrite a string that merely contains a host specifier", async () => {

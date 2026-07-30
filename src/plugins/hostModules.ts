@@ -44,9 +44,10 @@ export function hostModuleUrls(): Record<string, string> {
 
 /**
  * Point a plugin bundle's host imports at the blob modules above. Only the five
- * specifiers the host provides are rewritten. Anything else must be a relative
- * specifier the bundler left in place (e.g. an unresolved chunk split) — any bare
- * specifier the host doesn't recognize, or a dynamic import() whose argument isn't
+ * specifiers the host provides are rewritten. Anything else must be a `./` or `../`
+ * relative specifier the bundler left in place (e.g. an unresolved chunk split) —
+ * any bare specifier the host doesn't recognize, any protocol-relative (`//host/x.js`)
+ * or path-absolute (`/x.js`) specifier, or a dynamic import() whose argument isn't
  * a static string literal, is rejected. A hash-verified bundle must not be able to
  * pull in remote code at runtime and slip outside the integrity boundary the hash
  * check exists to establish.
@@ -71,7 +72,7 @@ export async function resolveHostSpecifiers(source: string): Promise<string> {
       last = imp.e;
       continue;
     }
-    if (!imp.n.startsWith(".") && !imp.n.startsWith("/")) {
+    if (!imp.n.startsWith("./") && !imp.n.startsWith("../")) {
       throw new Error(`Plugin bundle imports disallowed specifier: "${imp.n}"`);
     }
   }
