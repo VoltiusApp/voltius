@@ -52,6 +52,7 @@ describe("killRemoteSession", () => {
     expect(res).toEqual({ ok: false, reason: "unsupported" });
     expect(sshKillPersistent).not.toHaveBeenCalled();
     expect(markClosed).not.toHaveBeenCalled();
+    expect(publishLiveSessionsNow).not.toHaveBeenCalled();
   });
 
   it("returns unsupported when no stored credentials resolve", async () => {
@@ -59,6 +60,8 @@ describe("killRemoteSession", () => {
     const res = await killRemoteSession(remote as never);
     expect(res).toEqual({ ok: false, reason: "unsupported" });
     expect(sshKillPersistent).not.toHaveBeenCalled();
+    expect(markClosed).not.toHaveBeenCalled();
+    expect(publishLiveSessionsNow).not.toHaveBeenCalled();
   });
 
   it("returns error and does not tombstone when the kill throws", async () => {
