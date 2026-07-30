@@ -52,6 +52,7 @@ import { createCryptoAPI } from "./domains/crypto";
 import { createI18nAPI } from "./domains/i18n";
 import { createProxmoxAPI } from "./domains/proxmox";
 import { createDockerAPI } from "./domains/docker";
+import { injectPluginStyle, removePluginStyle } from "./importPluginModule";
 
 const STREAM_PERM: Record<StreamKind, string> = {
   metrics: "metrics:read",
@@ -194,6 +195,7 @@ async function ensureQuitHandler() {
 // ─── Plugin keybinding registry ───────────────────────────────────────────
 
 interface PluginKeybinding {
+  pluginId: string;
   key: string;
   ctrl: boolean;
   shift: boolean;
@@ -202,9 +204,22 @@ interface PluginKeybinding {
 }
 
 const _pluginKeybindings = new Map<string, PluginKeybinding>(); // omni command id → binding
+
+/**
+ * Remove every keybinding a plugin has registered, keyed by pluginId rather than
+ * relying on each command's individual disposer having run. Used by every teardown
+ * path (register()-throw rollback, unloadPlugin, setPluginActive(false)) so a
+ * keybinding can never outlive the plugin that registered it — including when
+ * register() throws partway through and its aggregated cleanup was never produced.
+ */
+function clearPluginKeybindings(pluginId: string): void {
+  for (const [commandId, kb] of _pluginKeybindings) {
+    if (kb.pluginId === pluginId) _pluginKeybindings.delete(commandId);
+  }
+}
 let _keybindHandlerInstalled = false;
 
-function parseKeybinding(raw: string): Omit<PluginKeybinding, "execute"> | null {
+function parseKeybinding(raw: string): Omit<PluginKeybinding, "execute" | "pluginId"> | null {
   const parts = raw.toLowerCase().split("+");
   const key = parts[parts.length - 1];
   if (!key) return null;
@@ -217,7 +232,7 @@ function parseKeybinding(raw: string): Omit<PluginKeybinding, "execute"> | null 
   };
 }
 
-function formatPluginKeybinding(kb: Omit<PluginKeybinding, "execute">): string {
+function formatPluginKeybinding(kb: Omit<PluginKeybinding, "execute" | "pluginId">): string {
   const parts: string[] = [];
   if (kb.ctrl) parts.push("Ctrl");
   if (kb.meta) parts.push("Meta");
@@ -249,7 +264,7 @@ function ensureKeybindHandler() {
   }, true);
 }
 
-function registerKeybinding(commandId: string, raw: string, execute: () => void): string | null {
+function registerKeybinding(pluginId: string, commandId: string, raw: string, execute: () => void): string | null {
   const parsed = parseKeybinding(raw);
   if (!parsed) return null;
 
@@ -261,7 +276,7 @@ function registerKeybinding(commandId: string, raw: string, execute: () => void)
   }
 
   ensureKeybindHandler();
-  _pluginKeybindings.set(commandId, { ...parsed, execute });
+  _pluginKeybindings.set(commandId, { ...parsed, execute, pluginId });
   return formatPluginKeybinding(parsed);
 }
 
@@ -545,7 +560,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         requirePerm(manifest, "omni-commands");
         let formattedKeybinding: string | null = null;
         if (command.keybinding) {
-          formattedKeybinding = registerKeybinding(command.id, command.keybinding, () => {
+          formattedKeybinding = registerKeybinding(id, command.id, command.keybinding, () => {
             void command.execute();
           });
         }
@@ -1342,11 +1357,24 @@ interface PluginEntry {
   active: boolean;
   trusted: boolean;
   api: ReturnType<typeof createPluginAPI>;
+  css?: string;
 }
 
 const _registry = new Map<string, PluginEntry>();
 
-export function loadPlugin(manifest: PluginManifest, register: PluginRegisterFn, active = true, trusted = false): void {
+/**
+ * @param css The plugin's stylesheet, if any. The caller (seeded/marketplace loader)
+ * already injected it via `importPluginModule`/`injectPluginStyle` before calling this —
+ * passing it here only lets the registry re-inject on reactivation and remove it on
+ * every teardown path, so a disabled or unloaded plugin's CSS doesn't outlive it.
+ */
+export function loadPlugin(
+  manifest: PluginManifest,
+  register: PluginRegisterFn,
+  active = true,
+  trusted = false,
+  css?: string,
+): void {
   if (_registry.has(manifest.id)) {
     console.warn(`[plugin-runtime] Plugin "${manifest.id}" already loaded — skipping`);
     return;
@@ -1355,7 +1383,7 @@ export function loadPlugin(manifest: PluginManifest, register: PluginRegisterFn,
   if (manifest.contributes?.configuration) {
     void populateDefaults(manifest.id, manifest.contributes.configuration);
   }
-  const entry: PluginEntry = { manifest, register, cleanup: undefined, active, trusted, api };
+  const entry: PluginEntry = { manifest, register, cleanup: undefined, active, trusted, api, css };
   _registry.set(manifest.id, entry);
   try {
     entry.cleanup = register(api);
@@ -1369,6 +1397,8 @@ export function loadPlugin(manifest: PluginManifest, register: PluginRegisterFn,
     useUIContributionStore.getState().unregisterPlugin(manifest.id);
     useNotificationStore.getState().dismissAllForPlugin(manifest.id);
     usePluginStateStore.getState().clearPlugin(manifest.id);
+    clearPluginKeybindings(manifest.id);
+    removePluginStyle(manifest.id);
     _exposedApis.delete(manifest.id);
     _settingsListeners.delete(manifest.id);
     _registry.delete(manifest.id);
@@ -1390,12 +1420,15 @@ export function setPluginActive(pluginId: string, active: boolean): void {
   if (!entry) return;
   entry.cleanup?.();
   entry.cleanup = undefined;
+  clearPluginKeybindings(pluginId);
   entry.active = active;
   if (active) {
+    if (entry.css) injectPluginStyle(pluginId, entry.css);
     entry.cleanup = entry.register(entry.api);
   } else {
     useNotificationStore.getState().dismissAllForPlugin(pluginId);
     usePluginStateStore.getState().clearPlugin(pluginId);
+    removePluginStyle(pluginId);
     // A disabled plugin's exposed API is a live, side-effecting callable
     // (unlike e.g. a settings page registration) — it must not stay reachable
     // while disabled. register() re-populates it via api.plugins.expose() on
@@ -1413,6 +1446,8 @@ export function unloadPlugin(pluginId: string): void {
   useUIContributionStore.getState().unregisterPlugin(pluginId);
   useNotificationStore.getState().dismissAllForPlugin(pluginId);
   usePluginStateStore.getState().clearPlugin(pluginId);
+  clearPluginKeybindings(pluginId);
+  removePluginStyle(pluginId);
   _exposedApis.delete(pluginId);
   _settingsListeners.delete(pluginId);
   _registry.delete(pluginId);
