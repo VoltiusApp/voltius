@@ -67,6 +67,86 @@ test("mismatched hash throws and writes nothing", async () => {
   expect(useMarketplaceStore.getState().installedMeta.find((m) => m.id === "p1")).toBeUndefined();
 });
 
+// ─── cssHash ────────────────────────────────────────────────────────────────
+
+const CSS_TEXT = ".p1 { color: red; }";
+
+async function cssHashHex(text: string): Promise<string> {
+  const { sha256Hex } = await import("@/plugins/integrity");
+  return sha256Hex(text);
+}
+
+test("absent cssHash never fetches voltius.css", async () => {
+  await useMarketplaceStore.getState().installPlugin(basePlugin({ hash: JS_HASH }));
+  const fetched = h.invoke.mock.calls
+    .filter(([cmd]) => cmd === "plugin_fetch_url")
+    .map(([, args]) => (args as { url: string }).url);
+  expect(fetched.some((u) => u.endsWith("voltius.css"))).toBe(false);
+  const meta = useMarketplaceStore.getState().installedMeta.find((m) => m.id === "p1");
+  expect(meta?.cssHash).toBeNull();
+});
+
+test("matching cssHash fetches and injects the stylesheet, and records the hash", async () => {
+  const cssHash = await cssHashHex(CSS_TEXT);
+  h.invoke.mockImplementation(async (cmd: string, args: { url?: string }) => {
+    if (cmd === "plugin_fetch_url") {
+      if (args.url!.endsWith("manifest.json")) return MANIFEST;
+      if (args.url!.endsWith("voltius.css")) return CSS_TEXT;
+      return JS_TEXT;
+    }
+    return undefined;
+  });
+
+  await useMarketplaceStore.getState().installPlugin(basePlugin({ hash: JS_HASH, cssHash }));
+
+  const meta = useMarketplaceStore.getState().installedMeta.find((m) => m.id === "p1");
+  expect(meta?.cssHash).toBe(cssHash);
+  expect(h.importPluginModule).toHaveBeenCalledWith(JS_TEXT, CSS_TEXT, "p1");
+  const wroteCss = h.invoke.mock.calls.some(
+    ([cmd, args]) => cmd === "plugin_write_file" && (args as { filename: string }).filename === "voltius.css",
+  );
+  expect(wroteCss).toBe(true);
+});
+
+test("mismatched cssHash throws and writes nothing, including index.js/manifest", async () => {
+  h.invoke.mockImplementation(async (cmd: string, args: { url?: string }) => {
+    if (cmd === "plugin_fetch_url") {
+      if (args.url!.endsWith("manifest.json")) return MANIFEST;
+      if (args.url!.endsWith("voltius.css")) return CSS_TEXT;
+      return JS_TEXT;
+    }
+    return undefined;
+  });
+
+  await expect(
+    useMarketplaceStore.getState().installPlugin(basePlugin({ hash: JS_HASH, cssHash: "deadbeef" })),
+  ).rejects.toBeInstanceOf(PluginHashMismatchError);
+
+  expect(h.loadPlugin).not.toHaveBeenCalled();
+  const wrote = h.invoke.mock.calls.some(([cmd]) => cmd === "plugin_write_file");
+  expect(wrote).toBe(false);
+  expect(useMarketplaceStore.getState().installedMeta.find((m) => m.id === "p1")).toBeUndefined();
+});
+
+test("cssHash fetch failure is a hard failure: throws and writes nothing", async () => {
+  h.invoke.mockImplementation(async (cmd: string, args: { url?: string }) => {
+    if (cmd === "plugin_fetch_url") {
+      if (args.url!.endsWith("manifest.json")) return MANIFEST;
+      if (args.url!.endsWith("voltius.css")) throw new Error("404");
+      return JS_TEXT;
+    }
+    return undefined;
+  });
+
+  await expect(
+    useMarketplaceStore.getState().installPlugin(basePlugin({ hash: JS_HASH, cssHash: "aabbcc" })),
+  ).rejects.toThrow();
+
+  expect(h.loadPlugin).not.toHaveBeenCalled();
+  const wrote = h.invoke.mock.calls.some(([cmd]) => cmd === "plugin_write_file");
+  expect(wrote).toBe(false);
+});
+
 // ─── Source persistence ───────────────────────────────────────────────────
 
 const SOURCES_FILE = "marketplace-sources.json";

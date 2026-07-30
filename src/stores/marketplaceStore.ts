@@ -32,6 +32,7 @@ export interface MarketplacePlugin {
   theme: boolean;
   sourceId: string;
   hash?: string;
+  cssHash?: string;
 }
 
 export interface InstalledPluginMeta {
@@ -39,6 +40,9 @@ export interface InstalledPluginMeta {
   version: string;
   sourceId: string | "local" | "url";
   hash: string | null;
+  /** Verified hash of `voltius.css`, or null when the plugin has no stylesheet.
+   *  Undefined on entries written before this field existed. */
+  cssHash?: string | null;
   /** Where the bundle came from, recorded so another device can re-fetch it
    *  without needing the catalogue to still list this plugin. Absent on entries
    *  written before this field existed, and on locally-scanned plugins. */
@@ -285,40 +289,47 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       // permission set is precisely the one shown — closing the fetch→consent→load TOCTOU
       // (manifest.json is not hash-pinned; index.js still is). Only fetch the manifest fresh when
       // no reviewed copy was supplied (e.g. the review-disclosure setting is off).
-      const [fetchedManifestText, jsText] = await Promise.all([
+      const [fetchedManifestText, jsText, cssText] = await Promise.all([
         reviewedManifestText !== undefined
           ? Promise.resolve(reviewedManifestText)
           : invoke<string>("plugin_fetch_url", { url: `${base}/manifest.json` }),
         invoke<string>("plugin_fetch_url", { url: `${base}/index.js` }),
+        // CSS: only fetched when the catalogue hash-pins it. A device must never
+        // execute or inject a network-fetched file nothing can vouch for, so with
+        // no cssHash this makes no request at all — identical to before this hash
+        // existed, and third-party plugins without a pinned stylesheet stay unstyled.
+        plugin.cssHash ? invoke<string>("plugin_fetch_url", { url: `${base}/voltius.css` }) : Promise.resolve(undefined),
       ]);
       const manifestText = fetchedManifestText;
 
       const manifest = JSON.parse(manifestText) as PluginManifest;
 
       // Integrity: refuse to execute a bundle that doesn't match its reviewed hash.
+      // Both hashes must verify before anything is written — a failed check must
+      // leave no partial install on disk.
       const verifiedHash = await resolveVerifiedHash(jsText, plugin.hash);
+      const verifiedCssHash = plugin.cssHash ? await resolveVerifiedHash(cssText!, plugin.cssHash) : null;
 
       await invoke("plugin_write_file", { id: plugin.id, filename: "manifest.json", content: manifestText });
       await invoke("plugin_write_file", { id: plugin.id, filename: "index.js", content: jsText });
+      if (cssText !== undefined) {
+        await invoke("plugin_write_file", { id: plugin.id, filename: "voltius.css", content: cssText });
+      }
 
-      // No CSS: the marketplace catalogue/manifest hash-pins only index.js (see
-      // resolveVerifiedHash above). Fetching a voltius.css alongside it would ship
-      // unreviewed third-party code (CSS can still exfiltrate via url()/@import and
-      // affect layout-based attacks) outside that integrity boundary. Extending the
-      // hash contract to cover a second file needs a marketplace-catalogue format
-      // change (voltiusApp/marketplace) — deliberately out of scope here, so
-      // third-party plugins with a stylesheet remain unstyled until that lands.
-      const mod = (await importPluginModule(jsText)) as PluginModule;
+      const mod = (await importPluginModule(jsText, cssText, plugin.id)) as PluginModule;
       // Honour a stored enable/disable override: reinstalling — or restoring on
       // another device — must not silently re-enable something the user turned off.
       const active = usePluginRegistryStore
         .getState()
         .isEnabled(manifest.id, manifest.defaultEnabled ?? true);
-      loadPlugin(manifest, pluginRegisterOf(mod), active);
+      loadPlugin(manifest, pluginRegisterOf(mod), active, false, cssText);
 
       const newMeta: InstalledPluginMeta[] = [
         ...installedMeta.filter((m) => m.id !== plugin.id),
-        { id: plugin.id, version: plugin.version, sourceId: plugin.sourceId, hash: verifiedHash, repo: plugin.repo },
+        {
+          id: plugin.id, version: plugin.version, sourceId: plugin.sourceId,
+          hash: verifiedHash, cssHash: verifiedCssHash, repo: plugin.repo,
+        },
       ];
       await writeInstalledMeta(newMeta);
       set({ installedMeta: newMeta });
@@ -413,6 +424,7 @@ export async function restoreMissingPlugins(): Promise<void> {
     const listed = catalog.find((p) => p.id === meta.id);
     const repo = listed?.repo ?? meta.repo;
     const hash = listed?.hash ?? meta.hash ?? undefined;
+    const cssHash = listed?.cssHash ?? meta.cssHash ?? undefined;
     if (!repo || !hash) {
       console.warn(
         `[marketplace] Not restoring "${meta.id}": no ${!repo ? "known repo" : "verifiable hash"}.`,
@@ -423,7 +435,7 @@ export async function restoreMissingPlugins(): Promise<void> {
       await useMarketplaceStore.getState().installPlugin({
         id: meta.id, name: meta.id, author: "", description: "", repo,
         version: meta.version, tags: [], theme: false, sourceId: meta.sourceId,
-        ...listed, hash,
+        ...listed, hash, cssHash,
       });
     } catch (e) {
       console.warn(`[marketplace] Failed to restore "${meta.id}":`, e);

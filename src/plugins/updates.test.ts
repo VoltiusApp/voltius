@@ -103,6 +103,32 @@ test("availableUpdate: a local plugin is never updated from an id-colliding cata
   expect(got).toBeNull();
 });
 
+test("availableUpdate: same version but differing cssHashes (both present) -> update", () => {
+  const got = availableUpdate(
+    meta({ version: "1.0.0", hash: "aaa", cssHash: "css-aaa" }),
+    [plugin({ version: "1.0.0", hash: "aaa", cssHash: "css-bbb" })],
+  );
+  expect(got?.cssHash).toBe("css-bbb");
+});
+
+test("availableUpdate: same version, same cssHash -> no update", () => {
+  expect(
+    availableUpdate(
+      meta({ version: "1.0.0", hash: "aaa", cssHash: "css-aaa" }),
+      [plugin({ version: "1.0.0", hash: "aaa", cssHash: "css-aaa" })],
+    ),
+  ).toBeNull();
+});
+
+test("availableUpdate: null installed cssHash ignores the cssHash signal", () => {
+  expect(
+    availableUpdate(
+      meta({ version: "1.0.0", hash: "aaa", cssHash: null }),
+      [plugin({ version: "1.0.0", hash: "aaa", cssHash: "css-bbb" })],
+    ),
+  ).toBeNull();
+});
+
 test("availableUpdate: no entry from the installed source -> null (no cross-source fallback)", () => {
   const got = availableUpdate(
     meta({ sourceId: "voltius", version: "1.0.0" }),
