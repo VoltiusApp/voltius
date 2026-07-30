@@ -577,6 +577,10 @@
             "label": "读取 Docker 信息",
             "description": "列出容器、镜像、卷、网络和堆栈，并读取容器日志。日志中可能包含密码或令牌。"
           },
+          "processesRead": {
+            "label": "读取进程信息",
+            "description": "列出已连接主机上正在运行的进程。"
+          },
           "processesManage": {
             "label": "管理进程",
             "description": "列出并终止已连接主机上正在运行的进程。"
@@ -584,6 +588,10 @@
           "dockerManage": {
             "label": "管理 Docker",
             "description": "列出、启动、停止和删除容器、镜像、卷、网络和堆栈。这可能会永久销毁数据。"
+          },
+          "proxmoxRead": {
+            "label": "读取 Proxmox 信息",
+            "description": "列出 LXC 容器及其快照。"
           },
           "proxmoxManage": {
             "label": "管理 Proxmox",

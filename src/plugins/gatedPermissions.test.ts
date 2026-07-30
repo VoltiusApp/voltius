@@ -24,6 +24,20 @@ describe("gatedPermissions", () => {
     expect(isGatedPermission("terminal:write")).toBe(true);
     expect(GATED_PERMISSIONS.has("terminal:write")).toBe(true);
   });
+
+  test("proxmox:read and processes:read are gated", () => {
+    expect(isGatedPermission("proxmox:read")).toBe(true);
+    expect(isGatedPermission("processes:read")).toBe(true);
+  });
+
+  test("every gated permission has consent copy — none render as a bare string", () => {
+    const [descriptors] = [describePermissions([...GATED_PERMISSIONS])];
+    for (const d of descriptors) {
+      expect(d.known, `${d.perm} has no PERMISSION_COPY entry`).toBe(true);
+      expect(d.labelKey).not.toBe("");
+      expect(d.descriptionKey).not.toBe("");
+    }
+  });
 });
 
 describe("describePermissions / consent decision", () => {

@@ -555,7 +555,8 @@ export interface PluginAPI {
   // Host metrics domain wrapper over streams — GATED (metrics:read).
   metrics: MetricsAPI;
 
-  // Process listing/kill domain wrapper over streams — GATED (processes:manage).
+  // Process listing/kill domain wrapper over streams — GATED, split
+  // processes:read (start/onSnapshot/stop) / processes:manage (kill).
   processes: ProcessesAPI;
 
   // Key derivation (requires crypto:derive). Not gated — pure KDF over caller input.
@@ -564,7 +565,8 @@ export interface PluginAPI {
   // Plugin-owned UI translation catalog (requires "ui"). Not gated.
   i18n: I18nAPI;
 
-  // Proxmox VE LXC management — GATED (proxmox:manage).
+  // Proxmox VE LXC management — GATED, split
+  // proxmox:read (list/snapshots.list) / proxmox:manage (everything else).
   proxmox: ProxmoxAPI;
 
   // Docker container/image/volume/network/stack management — GATED, split

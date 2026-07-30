@@ -56,7 +56,7 @@ import { injectPluginStyle, removePluginStyle } from "./importPluginModule";
 
 const STREAM_PERM: Record<StreamKind, string> = {
   metrics: "metrics:read",
-  processes: "processes:manage",
+  processes: "processes:read",
   "docker-logs": "docker:read",
   "docker-stack-logs": "docker:read",
 };
@@ -932,12 +932,15 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
 
     processes: {
       start: (sessionId, isRemote) => {
-        requireGated("processes:manage");
+        requireGated("processes:read");
         return processesApi.start(sessionId, isRemote);
       },
-      stop: (streamId) => processesApi.stop(streamId),
+      stop: (streamId) => {
+        requireGated("processes:read");
+        return processesApi.stop(streamId);
+      },
       onSnapshot: (streamId, cb) => {
-        requireGated("processes:manage");
+        requireGated("processes:read");
         return processesApi.onSnapshot(streamId, cb);
       },
       kill: (sessionId, pid, isRemote, force) => {
@@ -975,7 +978,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
     proxmox: {
       lxc: {
         list: (sessionId) => {
-          requireGated("proxmox:manage");
+          requireGated("proxmox:read");
           return proxmoxApi.lxc.list(sessionId);
         },
         action: (sessionId, vmid, action) => {
@@ -1004,7 +1007,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         },
         snapshots: {
           list: (sessionId, vmid) => {
-            requireGated("proxmox:manage");
+            requireGated("proxmox:read");
             return proxmoxApi.lxc.snapshots.list(sessionId, vmid);
           },
           create: (sessionId, vmid, name, description) => {
