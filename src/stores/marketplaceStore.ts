@@ -37,6 +37,10 @@ export interface InstalledPluginMeta {
   version: string;
   sourceId: string | "local" | "url";
   hash: string | null;
+  /** Where the bundle came from, recorded so another device can re-fetch it
+   *  without needing the catalogue to still list this plugin. Absent on entries
+   *  written before this field existed, and on locally-scanned plugins. */
+  repo?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -271,11 +275,16 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       // change (voltiusApp/marketplace) — deliberately out of scope here, so
       // third-party plugins with a stylesheet remain unstyled until that lands.
       const mod = (await importPluginModule(jsText)) as PluginModule;
-      loadPlugin(manifest, pluginRegisterOf(mod));
+      // Honour a stored enable/disable override: reinstalling — or restoring on
+      // another device — must not silently re-enable something the user turned off.
+      const active = usePluginRegistryStore
+        .getState()
+        .isEnabled(manifest.id, manifest.defaultEnabled ?? true);
+      loadPlugin(manifest, pluginRegisterOf(mod), active);
 
       const newMeta: InstalledPluginMeta[] = [
         ...installedMeta.filter((m) => m.id !== plugin.id),
-        { id: plugin.id, version: plugin.version, sourceId: plugin.sourceId, hash: verifiedHash },
+        { id: plugin.id, version: plugin.version, sourceId: plugin.sourceId, hash: verifiedHash, repo: plugin.repo },
       ];
       await writeInstalledMeta(newMeta);
       set({ installedMeta: newMeta });
@@ -337,6 +346,57 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
   },
 }));
 
+// ─── Cross-device restore ─────────────────────────────────────────────────
+
+/**
+ * Re-fetch plugins that sync says the user has but this device doesn't. The
+ * installed-plugin list rides in the sync bundle, so a fresh device knows the
+ * set without having the bundles; this pulls them so a restored device comes up
+ * with the same plugins, no manual reinstall.
+ *
+ * Every reinstall goes through `installPlugin`, so it is hash-verified on the
+ * same terms as a fresh install: the current catalogue entry's hash when the
+ * plugin is still listed, otherwise the hash recorded at the original install.
+ * An entry with neither a catalogue entry nor a recorded hash is SKIPPED — a
+ * device must never silently execute a bundle nothing can vouch for.
+ */
+export async function restoreMissingPlugins(): Promise<void> {
+  const store = useMarketplaceStore.getState();
+  const onDisk = new Set(await invoke<string[]>("plugins_list_installed"));
+  const missing = store.installedMeta.filter((m) => m.sourceId !== "local" && !onDisk.has(m.id));
+  if (missing.length === 0) return;
+
+  if (store.catalog.length === 0) {
+    try {
+      await store.fetchCatalog();
+    } catch (e) {
+      console.warn("[marketplace] Catalogue fetch failed during restore:", e);
+    }
+  }
+  const catalog = useMarketplaceStore.getState().catalog;
+
+  for (const meta of missing) {
+    const listed = catalog.find((p) => p.id === meta.id);
+    const repo = listed?.repo ?? meta.repo;
+    const hash = listed?.hash ?? meta.hash ?? undefined;
+    if (!repo || !hash) {
+      console.warn(
+        `[marketplace] Not restoring "${meta.id}": no ${!repo ? "known repo" : "verifiable hash"}.`,
+      );
+      continue;
+    }
+    try {
+      await useMarketplaceStore.getState().installPlugin({
+        id: meta.id, name: meta.id, author: "", description: "", repo,
+        version: meta.version, tags: [], theme: false, sourceId: meta.sourceId,
+        ...listed, hash,
+      });
+    } catch (e) {
+      console.warn(`[marketplace] Failed to restore "${meta.id}":`, e);
+    }
+  }
+}
+
 // ─── Startup loader ───────────────────────────────────────────────────────
 
 export async function loadInstalledPlugins(): Promise<void> {
@@ -364,4 +424,9 @@ export async function loadInstalledPlugins(): Promise<void> {
       console.warn(`[marketplace] Failed to load installed plugin "${id}":`, e);
     }
   }
+
+  // After the on-disk set is loaded, pull anything sync says the user has but
+  // this device is missing. `installPlugin` loads each one as it lands, so this
+  // runs last to avoid double-registering a plugin the loop already handled.
+  await restoreMissingPlugins();
 }

@@ -18,7 +18,7 @@ vi.mock("@/stores/pluginRegistryStore", () => ({
   usePluginRegistryStore: { getState: () => ({ isEnabled: () => true }) },
 }));
 
-import { useMarketplaceStore, type MarketplacePlugin } from "./marketplaceStore";
+import { useMarketplaceStore, restoreMissingPlugins, type MarketplacePlugin } from "./marketplaceStore";
 import { PluginHashMismatchError } from "@/plugins/integrity";
 
 const JS_TEXT = "export default () => {}";
@@ -174,4 +174,96 @@ test("loadSources never resurrects a custom source as non-deletable", async () =
   const sources = useMarketplaceStore.getState().sources;
   expect(sources.length).toBe(1);
   expect(sources[0].url).toBe(FIRST_PARTY_SOURCE_FIXTURE.url);
+});
+
+// ─── Cross-device restore ─────────────────────────────────────────────────
+
+function restoreSetup(opts: { onDisk?: string[]; catalog?: Partial<MarketplacePlugin>[] } = {}) {
+  useMarketplaceStore.setState({
+    installedMeta: [], installing: new Set(),
+    catalog: (opts.catalog ?? []).map((p) => basePlugin(p)),
+  });
+  h.invoke.mockImplementation(async (cmd: string, args: { url?: string }) => {
+    if (cmd === "plugins_list_installed") return opts.onDisk ?? [];
+    if (cmd === "plugin_fetch_url") return args.url!.endsWith("manifest.json") ? MANIFEST : JS_TEXT;
+    return undefined;
+  });
+}
+
+test("restore re-fetches a plugin sync knows about but this device lacks", async () => {
+  restoreSetup();
+  useMarketplaceStore.setState({
+    installedMeta: [{ id: "p1", version: "1.0.0", sourceId: "voltius", hash: JS_HASH, repo: "https://example.com/p1" }],
+  });
+
+  await restoreMissingPlugins();
+
+  expect(h.loadPlugin).toHaveBeenCalledOnce();
+});
+
+test("restore skips a plugin already present on disk", async () => {
+  restoreSetup({ onDisk: ["p1"] });
+  useMarketplaceStore.setState({
+    installedMeta: [{ id: "p1", version: "1.0.0", sourceId: "voltius", hash: JS_HASH, repo: "https://example.com/p1" }],
+  });
+
+  await restoreMissingPlugins();
+
+  expect(h.loadPlugin).not.toHaveBeenCalled();
+});
+
+test("restore skips locally-scanned plugins, which have no remote to fetch from", async () => {
+  restoreSetup();
+  useMarketplaceStore.setState({
+    installedMeta: [{ id: "p1", version: "1.0.0", sourceId: "local", hash: null }],
+  });
+
+  await restoreMissingPlugins();
+
+  expect(h.loadPlugin).not.toHaveBeenCalled();
+});
+
+test("restore refuses an entry with no verifiable hash rather than installing blind", async () => {
+  restoreSetup();
+  useMarketplaceStore.setState({
+    installedMeta: [{ id: "p1", version: "1.0.0", sourceId: "voltius", hash: null, repo: "https://example.com/p1" }],
+  });
+
+  await restoreMissingPlugins();
+
+  expect(h.loadPlugin).not.toHaveBeenCalled();
+});
+
+test("restore refuses an entry with no known repo", async () => {
+  restoreSetup();
+  useMarketplaceStore.setState({
+    installedMeta: [{ id: "p1", version: "1.0.0", sourceId: "voltius", hash: JS_HASH }],
+  });
+
+  await restoreMissingPlugins();
+
+  expect(h.loadPlugin).not.toHaveBeenCalled();
+});
+
+test("restore verifies against the CURRENT catalogue hash, not the stale recorded one", async () => {
+  restoreSetup({ catalog: [{ id: "p1", hash: "0000000000000000000000000000000000000000000000000000000000000000" }] });
+  useMarketplaceStore.setState({
+    installedMeta: [{ id: "p1", version: "1.0.0", sourceId: "voltius", hash: JS_HASH, repo: "https://example.com/p1" }],
+  });
+
+  await restoreMissingPlugins();
+
+  // Catalogue hash wins and does not match the bundle, so nothing is loaded.
+  expect(h.loadPlugin).not.toHaveBeenCalled();
+});
+
+test("restore falls back to the recorded hash when the catalogue no longer lists the plugin", async () => {
+  restoreSetup({ catalog: [{ id: "other" }] });
+  useMarketplaceStore.setState({
+    installedMeta: [{ id: "p1", version: "1.0.0", sourceId: "voltius", hash: JS_HASH, repo: "https://example.com/p1" }],
+  });
+
+  await restoreMissingPlugins();
+
+  expect(h.loadPlugin).toHaveBeenCalledOnce();
 });
