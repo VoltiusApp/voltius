@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import { HOST_SPECIFIERS } from "./src/plugins/hostSpecifiers";
 
 const id = process.env.VOLTIUS_PLUGIN_ID;
 if (!id) throw new Error("VOLTIUS_PLUGIN_ID is required");
@@ -36,7 +37,7 @@ export default defineConfig({
       fileName: () => "index.js",
     },
     rollupOptions: {
-      external: ["react", "react/jsx-runtime", "react-dom", "@voltius/ui", "@voltius/api"],
+      external: [...HOST_SPECIFIERS],
     },
   },
 });

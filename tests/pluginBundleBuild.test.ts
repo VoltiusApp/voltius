@@ -4,14 +4,15 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { init, parse } from "es-module-lexer";
+import { HOST_SPECIFIERS } from "../src/plugins/hostSpecifiers";
 
 const ROOT = path.resolve(__dirname, "..");
 const PLUGINS_DIR = path.join(ROOT, "src/plugins");
 
-// The only specifiers hostModules.ts exposes (src/plugins/hostModules.ts). A plugin
-// bundle may bare-import these; anything else must have been inlined by the bundler —
-// the webview has no module resolver for a bare npm specifier it doesn't recognize.
-const HOST_SPECIFIERS = ["react", "react/jsx-runtime", "react-dom", "@voltius/ui", "@voltius/api"];
+// HOST_SPECIFIERS is the single source of truth (src/plugins/hostSpecifiers.ts, also
+// used by hostModules.ts and vite.plugins.config.ts). A plugin bundle may bare-import
+// these; anything else must have been inlined by the bundler — the webview has no
+// module resolver for a bare npm specifier it doesn't recognize.
 
 // Every plugin id with a manifest.json is migrated to the external-bundle pipeline
 // and gets built by `pnpm build:plugins`. Deriving the list from disk (rather than
@@ -102,4 +103,20 @@ describe("plugin bundle build (webview compatibility)", () => {
       expect(HOST_SPECIFIERS).toContain(specifier);
     }
   }, 30000);
+
+  // Sparkline.tsx imports uplot/dist/uPlot.min.css, which Vite's lib build extracts
+  // to a separate file rather than inlining. If that file isn't emitted under the
+  // exact name the seeded-plugin loader (src/plugins/seeded.ts) reads, sparklines
+  // ship unstyled with no build-time signal. Assert the artifact directly so a
+  // rename of either side (this build config's cssFileName, or the loader's
+  // filename) fails the suite instead of shipping silently.
+  test("monitoring bundle emits its stylesheet as voltius.css", () => {
+    expect(ids).toContain("monitoring");
+    buildAndRead("monitoring");
+    const cssPath = path.join(outRoot, "monitoring", "voltius.css");
+    expect(existsSync(cssPath)).toBe(true);
+    const css = readFileSync(cssPath, "utf8");
+    expect(css.length).toBeGreaterThan(0);
+    expect(css).toContain(".uplot");
+  });
 });

