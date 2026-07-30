@@ -100,7 +100,8 @@
       "kill": "Kill session",
       "killing": "Killing session…",
       "undo": "Undo",
-      "killFailed": "Couldn't kill remotely — open the session to end it"
+      "killFailed": "Couldn't kill remotely — open the session to end it",
+      "dismiss": "Dismiss"
     },
     "teamSessions": {
       "title": "Team Sessions",

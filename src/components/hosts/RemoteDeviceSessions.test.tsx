@@ -30,6 +30,7 @@ vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 // the same reason (see TeamSessions.test.tsx); do the same here so the real
 // BaseCard/ContextMenu (which this test exercises) still run unmocked.
 vi.mock("@/components/shared/AvatarTile", () => ({ AvatarTile: () => null }));
+vi.mock("@iconify/react", () => ({ Icon: () => null }));
 
 import { RemoteDeviceSessions } from "./RemoteDeviceSessions";
 
@@ -63,5 +64,21 @@ describe("RemoteDeviceSessions kill", () => {
     rightClickKill();
     await act(async () => { vi.advanceTimersByTime(5000); });
     expect(killRemoteSession).toHaveBeenCalledWith(expect.objectContaining({ sessionId: "s1" }));
+  });
+
+  it("shows a dismissible failure card with the host name when the kill fails", async () => {
+    killRemoteSession.mockResolvedValue({ ok: false, reason: "unsupported" });
+    render(<RemoteDeviceSessions />);
+    rightClickKill();
+    await act(async () => { vi.advanceTimersByTime(5000); });
+    await act(async () => {});
+
+    expect(screen.getByText("hosts.remoteSessions.killFailed")).toBeTruthy();
+    expect(screen.getByText("web")).toBeTruthy();
+    const dismissButton = screen.getByText("hosts.remoteSessions.dismiss");
+    expect(dismissButton).toBeTruthy();
+
+    fireEvent.click(dismissButton);
+    expect(screen.queryByText("hosts.remoteSessions.killFailed")).toBeNull();
   });
 });

@@ -100,7 +100,8 @@
       "kill": "Terminer la session",
       "killing": "Fermeture de la session…",
       "undo": "Annuler",
-      "killFailed": "Impossible de terminer à distance — ouvrez la session pour la fermer"
+      "killFailed": "Impossible de terminer à distance — ouvrez la session pour la fermer",
+      "dismiss": "Ignorer"
     },
     "teamSessions": {
       "title": "Sessions d'équipe",
