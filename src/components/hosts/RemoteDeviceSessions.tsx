@@ -28,13 +28,13 @@ export function RemoteDeviceSessions() {
   useSessionStore((s) => s.sessions);
   useConnectionStore((s) => s.connections);
   const [joiningId, setJoiningId] = useState<string | null>(null);
-  const [failedId, setFailedId] = useState<string | null>(null);
+  const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
 
   const commitKill = (sessionId: string) => {
     const target = getJoinableSessions().find((s) => s.sessionId === sessionId);
     if (!target) return;
     void killRemoteSession(target).then((res) => {
-      if (!res.ok) setFailedId(sessionId);
+      if (!res.ok) setFailedIds((prev) => new Set(prev).add(sessionId));
     });
   };
   const { pending, start, cancel } = usePendingKills(commitKill, KILL_WINDOW_MS);
@@ -53,7 +53,7 @@ export function RemoteDeviceSessions() {
       <div className="flex gap-3 overflow-x-auto p-8 -m-8" style={{ scrollbarWidth: "none" }}>
         {joinable.map((a) => {
           const isPending = pending.has(a.sessionId);
-          const isFailed = failedId === a.sessionId;
+          const isFailed = failedIds.has(a.sessionId);
           return (
             <BaseCard
               key={a.sessionId}
@@ -75,7 +75,7 @@ export function RemoteDeviceSessions() {
               contextMenuItems={
                 isPending || isFailed
                   ? undefined
-                  : [{ label: t("hosts.remoteSessions.kill"), icon: "lucide:trash-2", danger: true, onClick: () => { setFailedId(null); start(a.sessionId); } }]
+                  : [{ label: t("hosts.remoteSessions.kill"), icon: "lucide:trash-2", danger: true, onClick: () => { setFailedIds((prev) => { const n = new Set(prev); n.delete(a.sessionId); return n; }); start(a.sessionId); } }]
               }
               className="shrink-0"
               style={{ minWidth: 220, maxWidth: 280 }}
@@ -101,7 +101,7 @@ export function RemoteDeviceSessions() {
                 <div className="flex-1 min-w-0 self-stretch flex flex-col gap-2">
                   <p className="text-[11px] text-(--t-status-error)">{t("hosts.remoteSessions.killFailed")}</p>
                   <button
-                    onClick={(e) => { e.stopPropagation(); setFailedId(null); }}
+                    onClick={(e) => { e.stopPropagation(); setFailedIds((prev) => { const n = new Set(prev); n.delete(a.sessionId); return n; }); }}
                     className="self-start text-[11px] font-semibold px-2 py-0.5 rounded-md bg-(--t-bg-elevated) hover:bg-(--t-bg-card-hover) text-(--t-text-bright)"
                   >
                     {t("hosts.remoteSessions.undo")}

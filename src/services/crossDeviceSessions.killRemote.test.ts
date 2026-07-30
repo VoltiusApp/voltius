@@ -72,4 +72,13 @@ describe("killRemoteSession", () => {
     expect(markClosed).not.toHaveBeenCalled();
     expect(publishLiveSessionsNow).not.toHaveBeenCalled();
   });
+
+  it("returns error and does not tombstone when the kill is unconfirmed", async () => {
+    resolveConnectionCredentials.mockResolvedValue({ username: "u", password: "p" });
+    sshKillPersistent.mockResolvedValue(false);
+    const res = await killRemoteSession(remote as never);
+    expect(res).toEqual({ ok: false, reason: "error" });
+    expect(markClosed).not.toHaveBeenCalled();
+    expect(publishLiveSessionsNow).not.toHaveBeenCalled();
+  });
 });

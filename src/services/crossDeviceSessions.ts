@@ -85,8 +85,9 @@ export async function killRemoteSession(
   const creds = await resolveConnectionCredentials(connection);
   if (!creds.password && !creds.privateKey) return { ok: false, reason: "unsupported" };
 
+  let killed: boolean;
   try {
-    await sshKillPersistent({
+    killed = await sshKillPersistent({
       host: connection.host,
       port: connection.port,
       username: creds.username || connection.username,
@@ -98,6 +99,7 @@ export async function killRemoteSession(
   } catch {
     return { ok: false, reason: "error" };
   }
+  if (!killed) return { ok: false, reason: "error" };
 
   useCrossDeviceSessionsStore.getState().markClosed(j.sessionId);
   publishLiveSessionsNow();
