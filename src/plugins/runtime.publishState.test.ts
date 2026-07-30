@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach, beforeEach } from "vitest";
-import { loadPlugin, unloadPlugin, setPluginActive } from "./runtime";
+import { loadPlugin, unloadPlugin, setPluginActive, getExposedApi } from "./runtime";
 import { usePluginStateStore } from "@/stores/pluginStateStore";
 import type { PluginManifest, PluginRegisterFn } from "./api";
 
@@ -37,5 +37,44 @@ describe("api.ui.publishState", () => {
     captured.ui.publishState("sync-state", { status: "idle" });
     setPluginActive("t", false);
     expect(usePluginStateStore.getState().read("t", "sync-state")).toBeUndefined();
+  });
+});
+
+describe("api.plugins.expose / getExposedApi", () => {
+  // Mirrors gist-sync's index.ts: expose() called unconditionally at the top
+  // of register(), so it re-fires on every reactivation.
+  const exposingRegister: PluginRegisterFn = (api) => {
+    captured = api;
+    api.plugins.expose({ ping: () => "pong" });
+  };
+
+  test("getExposedApi returns what the plugin exposed", () => {
+    loadPlugin(manifest([]), exposingRegister, true, false);
+    expect(getExposedApi("t")).toEqual({ ping: expect.any(Function) });
+  });
+
+  test("disabling a plugin makes its exposed API unreachable via getExposedApi", () => {
+    loadPlugin(manifest([]), exposingRegister, true, false);
+    expect(getExposedApi("t")).not.toBeNull();
+
+    setPluginActive("t", false);
+
+    expect(getExposedApi("t")).toBeNull();
+  });
+
+  test("re-enabling a plugin restores its exposed API (disable/enable round trip)", () => {
+    loadPlugin(manifest([]), exposingRegister, true, false);
+    setPluginActive("t", false);
+    expect(getExposedApi("t")).toBeNull();
+
+    setPluginActive("t", true);
+
+    expect(getExposedApi("t")).toEqual({ ping: expect.any(Function) });
+  });
+
+  test("unloadPlugin clears the exposed API", () => {
+    loadPlugin(manifest([]), exposingRegister, true, false);
+    unloadPlugin("t");
+    expect(getExposedApi("t")).toBeNull();
   });
 });

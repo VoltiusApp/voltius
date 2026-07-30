@@ -1318,6 +1318,11 @@ export function setPluginActive(pluginId: string, active: boolean): void {
   } else {
     useNotificationStore.getState().dismissAllForPlugin(pluginId);
     usePluginStateStore.getState().clearPlugin(pluginId);
+    // A disabled plugin's exposed API is a live, side-effecting callable
+    // (unlike e.g. a settings page registration) — it must not stay reachable
+    // while disabled. register() re-populates it via api.plugins.expose() on
+    // reactivation, same as it re-registers other imperative contributions.
+    _exposedApis.delete(pluginId);
   }
   console.info(`[plugin-runtime] Plugin "${pluginId}" set active=${active}`);
 }
