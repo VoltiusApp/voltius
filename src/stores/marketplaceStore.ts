@@ -69,6 +69,21 @@ async function writeInstalledMeta(list: InstalledPluginMeta[]): Promise<void> {
   });
 }
 
+/**
+ * Best-effort read of a plugin's stylesheet from its local install directory —
+ * mirrors the seeded loader (`seeded.ts`). Unlike `installPlugin`, this never
+ * fetches over the network: it only reads a file already on disk (a local dev
+ * plugin folder, or one this session already installed), so it carries no new
+ * integrity-boundary exposure. Most plugins ship no stylesheet — that's expected.
+ */
+async function readLocalCss(id: string): Promise<string | undefined> {
+  try {
+    return await invoke<string>("plugin_read_file", { id, filename: "voltius.css" });
+  } catch {
+    return undefined;
+  }
+}
+
 // ─── Store ────────────────────────────────────────────────────────────────
 
 interface MarketplaceState {
@@ -201,6 +216,13 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       await invoke("plugin_write_file", { id: plugin.id, filename: "manifest.json", content: manifestText });
       await invoke("plugin_write_file", { id: plugin.id, filename: "index.js", content: jsText });
 
+      // No CSS: the marketplace catalogue/manifest hash-pins only index.js (see
+      // resolveVerifiedHash above). Fetching a voltius.css alongside it would ship
+      // unreviewed third-party code (CSS can still exfiltrate via url()/@import and
+      // affect layout-based attacks) outside that integrity boundary. Extending the
+      // hash contract to cover a second file needs a marketplace-catalogue format
+      // change (voltiusApp/marketplace) — deliberately out of scope here, so
+      // third-party plugins with a stylesheet remain unstyled until that lands.
       const mod = (await importPluginModule(jsText)) as PluginModule;
       loadPlugin(manifest, pluginRegisterOf(mod));
 
@@ -234,8 +256,9 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
     const manifestText = await invoke<string>("plugin_read_file", { id, filename: "manifest.json" });
     const manifest = JSON.parse(manifestText) as PluginManifest;
     const jsText = await invoke<string>("plugin_read_file", { id, filename: "index.js" });
-    const mod = (await importPluginModule(jsText)) as PluginModule;
-    loadPlugin(manifest, pluginRegisterOf(mod));
+    const css = await readLocalCss(id);
+    const mod = (await importPluginModule(jsText, css, id)) as PluginModule;
+    loadPlugin(manifest, pluginRegisterOf(mod), true, false, css);
   },
 
   // ── Scan local ────────────────────────────────────────────────────────
@@ -251,8 +274,9 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
         const manifestText = await invoke<string>("plugin_read_file", { id, filename: "manifest.json" });
         const manifest = JSON.parse(manifestText) as PluginManifest;
         const jsText = await invoke<string>("plugin_read_file", { id, filename: "index.js" });
-        const mod = (await importPluginModule(jsText)) as PluginModule;
-        loadPlugin(manifest, pluginRegisterOf(mod));
+        const css = await readLocalCss(id);
+        const mod = (await importPluginModule(jsText, css, id)) as PluginModule;
+        loadPlugin(manifest, pluginRegisterOf(mod), true, false, css);
         const newMeta: InstalledPluginMeta[] = [
           ...installedMeta,
           { id, version: manifest.version, sourceId: "local", hash: null },
@@ -283,10 +307,11 @@ export async function loadInstalledPlugins(): Promise<void> {
       const manifestText = await invoke<string>("plugin_read_file", { id, filename: "manifest.json" });
       const manifest = JSON.parse(manifestText) as PluginManifest;
       const jsText = await invoke<string>("plugin_read_file", { id, filename: "index.js" });
-      const mod = (await importPluginModule(jsText)) as PluginModule;
+      const css = await readLocalCss(id);
+      const mod = (await importPluginModule(jsText, css, id)) as PluginModule;
       const { isEnabled } = usePluginRegistryStore.getState();
       const active = isEnabled(manifest.id, manifest.defaultEnabled ?? true);
-      loadPlugin(manifest, pluginRegisterOf(mod), active);
+      loadPlugin(manifest, pluginRegisterOf(mod), active, false, css);
     } catch (e) {
       console.warn(`[marketplace] Failed to load installed plugin "${id}":`, e);
     }

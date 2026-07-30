@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach } from "vitest";
-import { pluginRegisterOf, injectPluginStyle } from "./importPluginModule";
+import { pluginRegisterOf, injectPluginStyle, removePluginStyle } from "./importPluginModule";
 
 describe("pluginRegisterOf", () => {
   test("accepts a default export", () => {
@@ -40,5 +40,21 @@ describe("injectPluginStyle", () => {
     injectPluginStyle("t", ".t{color:blue}");
     expect(document.querySelectorAll("#voltius-plugin-style-t").length).toBe(1);
     expect(document.getElementById("voltius-plugin-style-t")?.textContent).toBe(".t{color:blue}");
+  });
+});
+
+describe("removePluginStyle", () => {
+  afterEach(() => {
+    document.getElementById("voltius-plugin-style-t")?.remove();
+  });
+
+  test("removes a previously injected stylesheet", () => {
+    injectPluginStyle("t", ".t{color:red}");
+    removePluginStyle("t");
+    expect(document.getElementById("voltius-plugin-style-t")).toBeNull();
+  });
+
+  test("is a no-op when the plugin never injected a stylesheet", () => {
+    expect(() => removePluginStyle("never-injected")).not.toThrow();
   });
 });

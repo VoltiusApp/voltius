@@ -34,7 +34,7 @@ export async function loadSeededPlugins(): Promise<void> {
       const active = usePluginRegistryStore
         .getState()
         .isEnabled(manifest.id, manifest.defaultEnabled ?? true);
-      loadPlugin(manifest, pluginRegisterOf(mod), active, true);
+      loadPlugin(manifest, pluginRegisterOf(mod), active, true, css);
     } catch (e) {
       console.warn(`[seeded] Failed to load seeded plugin "${id}":`, e);
     }

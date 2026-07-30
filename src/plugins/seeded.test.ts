@@ -77,6 +77,7 @@ describe("loadSeededPlugins", () => {
       expect.any(Function),
       expect.any(Boolean),
       true,
+      expect.any(String),
     );
   });
 });

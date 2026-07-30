@@ -26,13 +26,22 @@ export function pluginRegisterOf(mod: PluginModule): PluginRegisterFn {
  * plugin id, so a re-load doesn't pile up duplicate <style> tags.
  */
 export function injectPluginStyle(pluginId: string, css: string): void {
-  const elId = `voltius-plugin-style-${pluginId}`;
+  const elId = pluginStyleElementId(pluginId);
   const existing = document.getElementById(elId);
   if (existing) existing.remove();
   const style = document.createElement("style");
   style.id = elId;
   style.textContent = css;
   document.head.appendChild(style);
+}
+
+/** Remove a plugin's injected stylesheet, if any. No-op if it never injected one. */
+export function removePluginStyle(pluginId: string): void {
+  document.getElementById(pluginStyleElementId(pluginId))?.remove();
+}
+
+function pluginStyleElementId(pluginId: string): string {
+  return `voltius-plugin-style-${pluginId}`;
 }
 
 /** Turn a plugin bundle's source into a live module with its host imports resolved. */
