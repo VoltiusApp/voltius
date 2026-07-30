@@ -3,11 +3,34 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useConnectionStore } from "@/stores/connectionStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
+import {
+  proxmoxLxcList,
+  proxmoxLxcAction,
+  proxmoxLxcListSnapshots,
+  proxmoxLxcSnapshotCreate,
+  proxmoxLxcSnapshotRollback,
+  proxmoxLxcSnapshotDelete,
+  proxmoxLxcOpenShell,
+} from "@/services/proxmox";
+import type { ProxmoxService } from "@/plugins/proxmox/services";
 import { useProxmox } from "@/plugins/proxmox/useProxmox";
 import type { LxcAction, LxcContainer, LxcSnapshot } from "@/plugins/proxmox/types";
 import MobilePanelHeader from "./MobilePanelHeader";
 import BottomSheet from "../sheets/BottomSheet";
+
+const proxmoxService: ProxmoxService = {
+  list: proxmoxLxcList,
+  action: proxmoxLxcAction,
+  openShell: proxmoxLxcOpenShell,
+  snapshots: {
+    list: proxmoxLxcListSnapshots,
+    create: proxmoxLxcSnapshotCreate,
+    rollback: proxmoxLxcSnapshotRollback,
+    remove: proxmoxLxcSnapshotDelete,
+  },
+};
 
 function stateColor(status: string): string {
   return status === "running" ? "var(--t-status-connected)" : "var(--t-text-dim)";
@@ -26,8 +49,10 @@ function actionsFor(status: string, t: TFunction): ActionItem[] {
 export default function MobileProxmoxScreen({ sessionId }: { sessionId: string }) {
   const { t } = useTranslation();
   const session = useSessionStore((s) => s.sessions.find((x) => x.id === sessionId));
+  const connection = useConnectionStore((s) => s.connections.find((c) => c.id === session?.connectionId));
+  const isProxmoxHost = connection?.distro === "proxmox";
   const setTab = useMobileNavStore((s) => s.setTab);
-  const px = useProxmox(session);
+  const px = useProxmox(proxmoxService, session, isProxmoxHost);
   const { state } = px;
 
   const [sheetFor, setSheetFor] = useState<LxcContainer | null>(null);
@@ -38,10 +63,37 @@ export default function MobileProxmoxScreen({ sessionId }: { sessionId: string }
     try { await px.lxcAction(c.vmid, action); } catch (e) { console.error("[proxmox] action failed:", e); }
   };
 
+  // Session registration (the plugin-side path gets this for free from
+  // api.proxmox.lxc.openShell's host-side wiring in runtime.ts — the mobile
+  // screen has direct store access instead, so it does the same bookkeeping here.
   const onShell = async (c: LxcContainer) => {
     setSheetFor(null);
-    await px.openShell(c.vmid, c.name);
-    setTab("terminal");
+    try {
+      const execSessionId = await px.openShell(c.vmid);
+      useSessionStore.setState((s) => ({
+        sessions: [
+          ...s.sessions,
+          {
+            id: execSessionId,
+            connectionId: session?.connectionId ?? "",
+            connectionName: `pct: ${c.name}`,
+            status: "connecting" as const,
+            type: "ssh" as const,
+            containerExec: { kind: "lxc" as const, vmid: c.vmid, parentSessionId: sessionId },
+          },
+        ],
+        activeSessionId: execSessionId,
+      }));
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      useSessionStore.setState((s) => ({
+        sessions: s.sessions.map((sess) =>
+          sess.id === execSessionId ? { ...sess, status: "connected" as const } : sess,
+        ),
+      }));
+      setTab("terminal");
+    } catch (e) {
+      console.error("[proxmox] open shell failed:", e);
+    }
   };
 
   if (state.view === "snapshots" && state.selectedVmid !== null) {
@@ -170,7 +222,7 @@ export default function MobileProxmoxScreen({ sessionId }: { sessionId: string }
     body = <Empty icon="devicon:proxmox-plain" title={t("mobile.proxmox.needsSshTitle")} sub={t("mobile.proxmox.needsSshSub")} />;
   } else if (session.status !== "connected") {
     body = <Empty icon="devicon:proxmox-plain" title={t("mobile.panelCommon.sessionNotConnected")} sub={t("mobile.proxmox.sessionNotConnectedSub")} />;
-  } else if (!px.isProxmox) {
+  } else if (!isProxmoxHost) {
     body = <Empty icon="devicon:proxmox-plain" title={t("mobile.proxmox.notDetectedTitle")} sub={t("mobile.proxmox.notDetectedSub")} />;
   } else if (state.error) {
     body = <div className="px-4 py-4 text-xs text-(--t-text-dim) break-all">{state.error}</div>;

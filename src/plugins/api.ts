@@ -229,6 +229,22 @@ export interface CryptoAPI {
   deriveKey(passphrase: string, saltHex: string): Promise<string>;
 }
 
+/** Proxmox VE LXC management. GATED (proxmox:manage). Only functions against SSH sessions. */
+export interface ProxmoxAPI {
+  lxc: {
+    list(sessionId: string): Promise<unknown[]>;
+    action(sessionId: string, vmid: number, action: string): Promise<void>;
+    /** Opens a pct-exec shell into the container and returns the new session's id. */
+    openShell(sessionId: string, vmid: number): Promise<string>;
+    snapshots: {
+      list(sessionId: string, vmid: number): Promise<unknown[]>;
+      create(sessionId: string, vmid: number, name: string, description?: string): Promise<void>;
+      rollback(sessionId: string, vmid: number, name: string): Promise<void>;
+      remove(sessionId: string, vmid: number, name: string): Promise<void>;
+    };
+  };
+}
+
 // ─── API principale ────────────────────────────────────────────────────────
 
 export interface PluginAPI {
@@ -294,6 +310,8 @@ export interface PluginAPI {
     /** Render a React widget in the terminal status bar's right-side slot. Returns a cleanup function. */
     registerStatusBarItem(slot: UIStatusBarSlot, fn: UIStatusBarContributionFactory): () => void;
     unregister(id: string): void;
+    /** Switch the app's active navigation section. */
+    setActiveNav(id: string): void;
   };
 
   // Plugin-scoped key-value storage
@@ -392,6 +410,9 @@ export interface PluginAPI {
 
   // Key derivation (requires crypto:derive). Not gated — pure KDF over caller input.
   crypto: CryptoAPI;
+
+  // Proxmox VE LXC management — GATED (proxmox:manage).
+  proxmox: ProxmoxAPI;
 
   // Lifecycle hooks (always available)
   lifecycle: {

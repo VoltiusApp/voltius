@@ -1,0 +1,15 @@
+{
+  "id": "plugin-proxmox",
+  "name": "Proxmox LXC",
+  "version": "1.0.0",
+  "description": "Manage Proxmox VE LXC containers and snapshots over SSH.",
+  "permissions": [
+    "sessions:read",
+    "right-panel",
+    "notifications",
+    "proxmox:manage",
+    "connections:read",
+    "ui"
+  ],
+  "defaultEnabled": true
+}

@@ -1,19 +1,13 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
-import {
-  proxmoxLxcAction,
-} from "../services";
 import { getProxmoxApi } from "../runtime";
 import type { LxcAction, LxcContainer } from "../types";
 
 interface Props {
   containers: LxcContainer[];
-  sessionId: string;
-  isRemote: boolean;
-  localShell: string | null;
+  onAction: (vmid: number, action: LxcAction) => Promise<void>;
   onSnapshots: (vmid: number, vmName: string) => void;
-  onShell: (vmid: number, vmName: string) => void;
-  onRefresh: () => void;
+  onShell: (vmid: number) => void;
 }
 
 function statusDot(status: string) {
@@ -22,15 +16,7 @@ function statusDot(status: string) {
     : "bg-(--t-text-muted) opacity-40";
 }
 
-export function LxcList({
-  containers,
-  sessionId,
-  isRemote,
-  localShell,
-  onSnapshots,
-  onShell,
-  onRefresh,
-}: Props) {
+export function LxcList({ containers, onAction, onSnapshots, onShell }: Props) {
   const running = containers.filter((c) => c.status === "running").length;
 
   return (
@@ -48,12 +34,9 @@ export function LxcList({
             <LxcRow
               key={c.vmid}
               container={c}
-              sessionId={sessionId}
-              isRemote={isRemote}
-              localShell={localShell}
+              onAction={onAction}
               onSnapshots={onSnapshots}
               onShell={onShell}
-              onRefresh={onRefresh}
             />
           ))
         )}
@@ -64,20 +47,14 @@ export function LxcList({
 
 function LxcRow({
   container,
-  sessionId,
-  isRemote,
-  localShell,
+  onAction,
   onSnapshots,
   onShell,
-  onRefresh,
 }: {
   container: LxcContainer;
-  sessionId: string;
-  isRemote: boolean;
-  localShell: string | null;
+  onAction: (vmid: number, action: LxcAction) => Promise<void>;
   onSnapshots: (vmid: number, vmName: string) => void;
-  onShell: (vmid: number, vmName: string) => void;
-  onRefresh: () => void;
+  onShell: (vmid: number) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const running = container.status === "running";
@@ -85,8 +62,7 @@ function LxcRow({
   const act = async (action: LxcAction) => {
     setBusy(true);
     try {
-      await proxmoxLxcAction(sessionId, isRemote, localShell, container.vmid, action);
-      onRefresh();
+      await onAction(container.vmid, action);
     } catch (e) {
       getProxmoxApi()?.notifications.toast(`Action failed: ${e}`, { severity: "error" });
     } finally {
@@ -123,7 +99,7 @@ function LxcRow({
             icon="lucide:terminal"
             title="Open shell"
             disabled={busy}
-            onClick={() => onShell(container.vmid, container.name)}
+            onClick={() => onShell(container.vmid)}
             color="text-(--t-accent) opacity-80 hover:opacity-100"
           />
         )}

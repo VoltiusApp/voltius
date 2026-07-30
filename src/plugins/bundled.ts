@@ -9,7 +9,6 @@
 
 import type { PluginManifest, PluginRegisterFn } from "./api";
 import { manifest as dockerManifest, register as dockerRegister } from "./docker";
-import { manifest as proxmoxManifest, register as proxmoxRegister } from "./proxmox";
 
 export interface BundledPlugin {
   manifest: PluginManifest;
@@ -18,5 +17,4 @@ export interface BundledPlugin {
 
 export const BUNDLED_PLUGINS: BundledPlugin[] = [
   { manifest: dockerManifest, register: dockerRegister },
-  { manifest: proxmoxManifest, register: proxmoxRegister },
 ];

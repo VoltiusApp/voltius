@@ -7,6 +7,7 @@ import { onLocalOutput } from "@/services/local";
 import { onSerialOutput } from "@/services/serial";
 import { readTerminalSnapshot, readTerminalSelection } from "@/hooks/useTerminal";
 import { usePluginStore } from "@/stores/pluginStore";
+import { useUIStore, type NavItem } from "@/stores/uiStore";
 import { useUIContributionStore } from "@/stores/uiContributionStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -43,6 +44,7 @@ import { createStreamsAPI } from "./domains/streams";
 import { createMetricsAPI } from "./domains/metrics";
 import { createProcessesAPI } from "./domains/processes";
 import { createCryptoAPI } from "./domains/crypto";
+import { createProxmoxAPI } from "./domains/proxmox";
 
 const STREAM_PERM: Record<StreamKind, string> = {
   metrics: "metrics:read",
@@ -366,6 +368,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const metricsApi = createMetricsAPI(streamsApi);
   const processesApi = createProcessesAPI(streamsApi);
   const cryptoApi = createCryptoAPI();
+  const proxmoxApi = createProxmoxAPI();
 
   const api: PluginAPI = {
     pluginId: id,
@@ -571,6 +574,10 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         s.unregisterRightPanelSection(itemId);
         s.unregisterGlobalPanel(itemId);
         s.unregisterContextMenuItem(itemId);
+      },
+      setActiveNav(id) {
+        requirePerm(manifest, "ui");
+        useUIStore.getState().setActiveNav(id as NavItem);
       },
     },
 
@@ -873,6 +880,68 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       deriveKey: (passphrase, saltHex) => {
         requirePerm(manifest, "crypto:derive");
         return cryptoApi.deriveKey(passphrase, saltHex);
+      },
+    },
+
+    proxmox: {
+      lxc: {
+        list: (sessionId) => {
+          requireGated("proxmox:manage");
+          return proxmoxApi.lxc.list(sessionId);
+        },
+        action: (sessionId, vmid, action) => {
+          requireGated("proxmox:manage");
+          return proxmoxApi.lxc.action(sessionId, vmid, action);
+        },
+        // Beyond the invoke, this registers the new exec session in the session
+        // store and marks it connected — the same bookkeeping useSessionStore.connect
+        // does for a normal SSH connect. A plugin has no store access of its own
+        // (sessions:write only covers connecting *saved connections*), so this lives
+        // here rather than in the pure domains/proxmox.ts invoke wrapper.
+        openShell: async (sessionId, vmid) => {
+          requireGated("proxmox:manage");
+          const execSessionId = await proxmoxApi.lxc.openShell(sessionId, vmid);
+          const parent = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
+          useSessionStore.setState((s) => ({
+            sessions: [
+              ...s.sessions,
+              {
+                id: execSessionId,
+                connectionId: parent?.connectionId ?? "",
+                connectionName: `pct: ${vmid}`,
+                status: "connecting" as const,
+                type: "ssh" as const,
+                containerExec: { kind: "lxc" as const, vmid, parentSessionId: sessionId },
+              },
+            ],
+            activeSessionId: execSessionId,
+          }));
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          useSessionStore.setState((s) => ({
+            sessions: s.sessions.map((sess) =>
+              sess.id === execSessionId ? { ...sess, status: "connected" as const } : sess,
+            ),
+          }));
+          return execSessionId;
+        },
+        snapshots: {
+          list: (sessionId, vmid) => {
+            requireGated("proxmox:manage");
+            return proxmoxApi.lxc.snapshots.list(sessionId, vmid);
+          },
+          create: (sessionId, vmid, name, description) => {
+            requireGated("proxmox:manage");
+            return proxmoxApi.lxc.snapshots.create(sessionId, vmid, name, description);
+          },
+          rollback: (sessionId, vmid, name) => {
+            requireGated("proxmox:manage");
+            return proxmoxApi.lxc.snapshots.rollback(sessionId, vmid, name);
+          },
+          remove: (sessionId, vmid, name) => {
+            requireGated("proxmox:manage");
+            return proxmoxApi.lxc.snapshots.remove(sessionId, vmid, name);
+          },
+        },
       },
     },
 
