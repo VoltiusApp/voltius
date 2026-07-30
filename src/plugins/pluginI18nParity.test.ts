@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { PluginLocale } from "./api";
+import { SUPPORTED_LOCALES, type Locale } from "@/stores/localeStore";
 
 /**
  * Replacement for keyParity.test.ts's coverage over the four mobile screens moved
@@ -18,9 +18,17 @@ import type { PluginLocale } from "./api";
 // The full locale union, not `Object.keys(messages)` — deriving the check from the
 // catalog's own keys means an *entirely absent* locale (no `fr` property at all,
 // as opposed to `fr: {}`) produces zero assertions for it and the suite passes
-// silently. Checking against this fixed list turns "missing a locale" into a loud
+// silently. Checking against this list turns "missing a locale" into a loud
 // failure instead of a hole with no test in it.
-const ALL_LOCALES: PluginLocale[] = ["en", "fr", "ru", "zh"];
+//
+// Derived from the host's own SUPPORTED_LOCALES (not a hand-copied literal union)
+// so this can't drift out of sync the way api.ts's PluginLocale array-literal
+// version could: TS doesn't reject an under-inclusive array against a union type,
+// so a fifth locale added to localeStore.ts and forgotten here would otherwise
+// never get checked. Test files aren't part of the plugin-bundle boundary
+// api.ts has to respect, so importing the real store value (not just its type)
+// is fine here.
+const ALL_LOCALES: Locale[] = SUPPORTED_LOCALES.map((l) => l.value);
 
 const allModules = import.meta.glob("./*/i18n.ts", { eager: true }) as Record<
   string,
