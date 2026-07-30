@@ -582,3 +582,5 @@
   outline: none;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--t-accent) 22%, transparent);
 }
+
+@keyframes voltius-kill-drain { from { width: 100%; } to { width: 0%; } }

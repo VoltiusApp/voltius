@@ -5,7 +5,9 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { getToggle } from "@/stores/toggleSettingsStore";
 import { publishLiveSessionsNow } from "@/services/liveSessionPublisher";
-import type { TerminalSession } from "@/types";
+import { sshKillPersistent } from "@/services/ssh";
+import { resolveConnectionCredentials } from "@/services/credentials";
+import type { TerminalSession, Connection } from "@/types";
 
 function connectionExists(connectionId: string): boolean {
   const { connections, teamConnections } = useConnectionStore.getState();
@@ -61,6 +63,47 @@ export function sessionEnded(sessionId: string): void {
   useSessionStore.getState().removeSession(sessionId);
   useCrossDeviceSessionsStore.getState().markClosed(sessionId);
   publishLiveSessionsNow();
+}
+
+function findConnection(connectionId: string): Connection | undefined {
+  const { connections, teamConnections } = useConnectionStore.getState();
+  return [...connections, ...Object.values(teamConnections).flat()].find((c) => c.id === connectionId);
+}
+
+/** Destroy a persistent session on a host this device is not attached to, then
+ * tombstone it so its card/tab disappears everywhere. Headless (no tab): reuses
+ * the tabless kill command. ProxyJump and interactive-only auth cannot be
+ * reached this way — those return `unsupported` so the UI can tell the user to
+ * open the session and kill it there. */
+export async function killRemoteSession(
+  j: RemoteSession,
+): Promise<{ ok: true } | { ok: false; reason: "unsupported" | "error" }> {
+  const connection = findConnection(j.connectionId);
+  if (!connection) return { ok: false, reason: "unsupported" };
+  if (connection.jump_hosts?.length) return { ok: false, reason: "unsupported" };
+
+  const creds = await resolveConnectionCredentials(connection);
+  if (!creds.password && !creds.privateKey) return { ok: false, reason: "unsupported" };
+
+  let killed: boolean;
+  try {
+    killed = await sshKillPersistent({
+      host: connection.host,
+      port: connection.port,
+      username: creds.username || connection.username,
+      password: creds.password,
+      privateKey: creds.privateKey,
+      passphrase: creds.passphrase,
+      sessionId: j.sessionId,
+    });
+  } catch {
+    return { ok: false, reason: "error" };
+  }
+  if (!killed) return { ok: false, reason: "error" };
+
+  useCrossDeviceSessionsStore.getState().markClosed(j.sessionId);
+  publishLiveSessionsNow();
+  return { ok: true };
 }
 
 /** Tear down tabs whose session another device confirmed killed. The killer

@@ -96,7 +96,12 @@
       "justNow": "just now",
       "minutesAgo": "{{count}}m ago",
       "hoursAgo": "{{count}}h ago",
-      "daysAgo": "{{count}}d ago"
+      "daysAgo": "{{count}}d ago",
+      "kill": "Kill session",
+      "killing": "Killing session…",
+      "undo": "Undo",
+      "killFailed": "Couldn't kill remotely — open the session to end it",
+      "dismiss": "Dismiss"
     },
     "teamSessions": {
       "title": "Team Sessions",
