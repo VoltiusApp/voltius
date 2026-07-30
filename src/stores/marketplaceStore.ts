@@ -160,6 +160,7 @@ interface MarketplaceState {
   fetchManifest: (plugin: MarketplacePlugin) => Promise<{ manifest: PluginManifest; manifestText: string }>;
   installPlugin: (plugin: MarketplacePlugin, reviewedManifestText?: string) => Promise<void>;
   uninstallPlugin: (id: string) => Promise<void>;
+  uninstallSeededPlugin: (id: string) => Promise<void>;
   reloadPlugin: (id: string) => Promise<void>;
 
   // Dev: scan local plugin folders
@@ -334,6 +335,11 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       ];
       await writeInstalledMeta(newMeta);
       set({ installedMeta: newMeta });
+
+      // Reinstalling any id — including one that shadows a seeded plugin —
+      // clears its uninstall tombstone, so a future removal of the external
+      // copy falls back to the bundled one instead of staying gone forever.
+      await useSeededTombstoneStore.getState().restore(plugin.id);
     } finally {
       set((s) => {
         const next = new Set(s.installing);
@@ -350,6 +356,22 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
     const newMeta = get().installedMeta.filter((m) => m.id !== id);
     await writeInstalledMeta(newMeta);
     set({ installedMeta: newMeta });
+
+    // A seeded artifact for this id would otherwise auto-reload on next boot
+    // (loadSeededPlugins falls back to it) — the user asked for the plugin
+    // gone, not for a silent downgrade to the bundled copy.
+    const tombstones = useSeededTombstoneStore.getState();
+    if (await tombstones.hasSeededArtifact(id)) {
+      await tombstones.remove(id);
+    }
+  },
+
+  // Built-in plugins are read-only app resources — uninstalling one never
+  // deletes anything from disk, only tombstones it so it stops loading and
+  // stays removed across restarts (until Browse reinstalls it).
+  async uninstallSeededPlugin(id: string) {
+    unloadPlugin(id);
+    await useSeededTombstoneStore.getState().remove(id);
   },
 
   // ── Reload (dev) ──────────────────────────────────────────────────────

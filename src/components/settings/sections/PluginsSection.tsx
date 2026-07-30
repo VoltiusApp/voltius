@@ -13,6 +13,7 @@ import { availableUpdate, addedPermissions } from "@/plugins/updates";
 import { requiresInstallConsent } from "@/plugins/gatedPermissions";
 import { getToggle, useToggle } from "@/stores/toggleSettingsStore";
 import { PluginPermissionModal } from "./PluginPermissionModal";
+import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
 import { setPluginActive, getLoadedPlugins, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
 import type { PluginManifest, PluginConfigField } from "@/plugins/api";
@@ -267,7 +268,7 @@ export function InstalledTab() {
   const { t } = useTranslation();
   const settingsPages = usePluginStore((s) => s.settingsPages);
   const { setEnabled, isEnabled } = usePluginRegistryStore();
-  const { installedMeta, catalog, uninstallPlugin, reloadPlugin, scanLocal } = useMarketplaceStore();
+  const { installedMeta, catalog, uninstallPlugin, uninstallSeededPlugin, reloadPlugin, scanLocal } = useMarketplaceStore();
   const { busy: updateBusy, startUpdate, modal: updateModal } = usePluginInstaller();
   const [loadedIds, setLoadedIds] = useState<Set<string>>(
     () => new Set(getLoadedPlugins().map((m) => m.id)),
@@ -277,6 +278,7 @@ export function InstalledTab() {
   const [reloading, setReloading] = useState<Set<string>>(new Set());
   const [uninstalling, setUninstalling] = useState<Set<string>>(new Set());
   const [scanning, setScanning] = useState(false);
+  const [confirmUninstallSeeded, setConfirmUninstallSeeded] = useState<PluginManifest | null>(null);
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   useFilterShortcut(searchRef);
@@ -307,6 +309,16 @@ export function InstalledTab() {
     setUninstalling((s) => new Set([...s, id]));
     try {
       await uninstallPlugin(id);
+      refreshLoaded();
+    } finally {
+      setUninstalling((s) => { const n = new Set(s); n.delete(id); return n; });
+    }
+  };
+
+  const handleUninstallSeeded = async (id: string) => {
+    setUninstalling((s) => new Set([...s, id]));
+    try {
+      await uninstallSeededPlugin(id);
       refreshLoaded();
     } finally {
       setUninstalling((s) => { const n = new Set(s); n.delete(id); return n; });
@@ -399,6 +411,7 @@ export function InstalledTab() {
           const pluginPages = [...settingsPages.values()].filter((p) => p.id.startsWith(manifest.id));
           const hasAutoConfig = !!manifest.contributes?.configuration && Object.keys(manifest.contributes.configuration).length > 0;
           const showSettingsBtn = pluginPages.length > 0 || hasAutoConfig;
+          const isUninstalling = uninstalling.has(manifest.id);
 
           return (
             <div
@@ -433,6 +446,16 @@ export function InstalledTab() {
                     <Icon icon="lucide:settings" width={15} />
                   </button>
                 )}
+                <button
+                  onClick={() => setConfirmUninstallSeeded(manifest)}
+                  disabled={isUninstalling}
+                  className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, var(--t-status-error) 15%, transparent)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
+                  title={t("settings.plugins.installed.uninstallTitle")}
+                >
+                  <Icon icon={isUninstalling ? "lucide:loader" : "lucide:trash-2"} width={14} className={isUninstalling ? "animate-spin" : ""} />
+                </button>
                 <Toggle checked={enabled} onChange={() => handleToggle(manifest.id, enabled)} />
               </div>
               {manifest.permissions.length > 0 && (
@@ -548,6 +571,19 @@ export function InstalledTab() {
       </div>
     </div>
     {updateModal}
+    {confirmUninstallSeeded && (
+      <ConfirmModal
+        title={t("settings.plugins.installed.confirmUninstallSeeded.title", { name: confirmUninstallSeeded.name })}
+        message={t("settings.plugins.installed.confirmUninstallSeeded.message", { name: confirmUninstallSeeded.name })}
+        confirmLabel={t("settings.plugins.installed.confirmUninstallSeeded.confirm")}
+        onConfirm={() => {
+          const id = confirmUninstallSeeded.id;
+          setConfirmUninstallSeeded(null);
+          void handleUninstallSeeded(id);
+        }}
+        onCancel={() => setConfirmUninstallSeeded(null)}
+      />
+    )}
     </div>
   );
 }

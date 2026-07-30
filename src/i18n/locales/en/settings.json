@@ -675,7 +675,12 @@
         "unverified": "Unverified",
         "update": "Update",
         "updating": "Updating…",
-        "updateTitle": "Update to v{{version}}"
+        "updateTitle": "Update to v{{version}}",
+        "confirmUninstallSeeded": {
+          "title": "Uninstall {{name}}?",
+          "message": "{{name}} is a built-in plugin. Uninstalling removes it from your list — you can reinstall it any time from the Browse tab.",
+          "confirm": "Uninstall"
+        }
       },
       "browse": {
         "searchPlaceholder": "Search plugins…",

@@ -21,6 +21,7 @@ const marketplaceState = {
   installedMeta: [] as unknown[], catalog: [] as unknown[],
   installing: new Set<string>(),
   uninstallPlugin: vi.fn(async () => {}),
+  uninstallSeededPlugin: vi.fn(async () => {}),
   reloadPlugin: vi.fn(async () => {}),
   scanLocal: vi.fn(async () => {}),
   installPlugin: vi.fn(async () => {}),
@@ -92,4 +93,22 @@ test("a schema-only plugin still opens the auto-config drill-in", () => {
   fireEvent.click(gear());
   expect(screen.getByText("settings.plugins.installed.pluginSettingsTitle")).toBeTruthy();
   expect(useUIStore.getState().settingsPluginPageId).toBeNull();
+});
+
+test("a seeded row renders a trash control", () => {
+  loaded.list = [AI];
+  usePluginStore.setState({ settingsPages: new Map() });
+  render(<InstalledTab />);
+  expect(screen.getAllByTitle("settings.plugins.installed.uninstallTitle").length).toBeGreaterThan(0);
+});
+
+test("uninstalling a seeded plugin requires confirmation before calling the store", () => {
+  loaded.list = [AI];
+  usePluginStore.setState({ settingsPages: new Map() });
+  render(<InstalledTab />);
+  fireEvent.click(screen.getAllByTitle("settings.plugins.installed.uninstallTitle")[0]);
+  expect(marketplaceState.uninstallSeededPlugin).not.toHaveBeenCalled();
+  expect(screen.getByText("settings.plugins.installed.confirmUninstallSeeded.title")).toBeTruthy();
+  fireEvent.click(screen.getByText("settings.plugins.installed.confirmUninstallSeeded.confirm"));
+  expect(marketplaceState.uninstallSeededPlugin).toHaveBeenCalledWith("plugin-ai-agent");
 });

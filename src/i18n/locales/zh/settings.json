@@ -506,7 +506,12 @@
         "unverified": "未验证",
         "update": "更新",
         "updating": "正在更新…",
-        "updateTitle": "更新到 v{{version}}"
+        "updateTitle": "更新到 v{{version}}",
+        "confirmUninstallSeeded": {
+          "title": "卸载 {{name}}？",
+          "message": "{{name}} 是内置插件。卸载后会将其从列表中移除——你可以随时在“浏览”标签页中重新安装。",
+          "confirm": "卸载"
+        }
       },
       "browse": {
         "searchPlaceholder": "搜索插件…",

@@ -675,7 +675,12 @@
         "unverified": "Non vérifié",
         "update": "Mettre à jour",
         "updating": "Mise à jour…",
-        "updateTitle": "Mettre à jour vers la v{{version}}"
+        "updateTitle": "Mettre à jour vers la v{{version}}",
+        "confirmUninstallSeeded": {
+          "title": "Désinstaller {{name}} ?",
+          "message": "{{name}} est un plugin intégré. La désinstallation le retire de votre liste — vous pouvez le réinstaller à tout moment depuis l'onglet Parcourir.",
+          "confirm": "Désinstaller"
+        }
       },
       "browse": {
         "searchPlaceholder": "Rechercher des extensions…",

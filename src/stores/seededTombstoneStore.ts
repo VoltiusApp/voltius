@@ -27,12 +27,45 @@ async function writeTombstones(removed: string[]): Promise<void> {
   });
 }
 
+/**
+ * `plugins_list_seeded` returns folder names, not manifest ids — resolving
+ * "does a seeded artifact exist for this manifest id" means reading every
+ * seeded manifest.json. Cached for the session (module scope, like
+ * `appVersionPromise` in marketplaceStore) since the seeded set never
+ * changes without a new app build.
+ */
+let seededManifestIdsPromise: Promise<Set<string>> | null = null;
+
+async function loadSeededManifestIds(): Promise<Set<string>> {
+  let folders: string[] = [];
+  try {
+    folders = await invoke<string[]>("plugins_list_seeded");
+  } catch {
+    return new Set();
+  }
+  const ids = new Set<string>();
+  await Promise.all(
+    folders.map(async (folder) => {
+      try {
+        const manifestText = await invoke<string>("plugin_seeded_read", { id: folder, filename: "manifest.json" });
+        const manifest = JSON.parse(manifestText) as { id?: string };
+        if (manifest.id) ids.add(manifest.id);
+      } catch {
+        // Unreadable seeded manifest — not eligible for the tombstone rule.
+      }
+    }),
+  );
+  return ids;
+}
+
 interface SeededTombstoneStore {
   removed: string[];
   load(): Promise<void>;
   isRemoved(id: string): boolean;
   remove(id: string): Promise<void>;
   restore(id: string): Promise<void>;
+  /** True when a seeded (app-bundled) artifact exists for this manifest id. */
+  hasSeededArtifact(id: string): Promise<boolean>;
 }
 
 export const useSeededTombstoneStore = create<SeededTombstoneStore>((set, get) => ({
@@ -59,5 +92,13 @@ export const useSeededTombstoneStore = create<SeededTombstoneStore>((set, get) =
     set({ removed });
     useAppSettingsTimestampStore.getState().touch();
     await writeTombstones(removed).catch(() => {});
+  },
+
+  hasSeededArtifact: async (id) => {
+    if (seededManifestIdsPromise === null) {
+      seededManifestIdsPromise = loadSeededManifestIds();
+    }
+    const ids = await seededManifestIdsPromise;
+    return ids.has(id);
   },
 }));
