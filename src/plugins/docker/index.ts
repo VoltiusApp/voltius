@@ -17,6 +17,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
     icon: "mdi:docker",
     component: DockerPanel,
     providesPanelSearch: true,
+    order: 20,
   });
   const offMobile = api.ui.registerMobileScreen({
     id: "docker",

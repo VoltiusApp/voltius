@@ -90,6 +90,11 @@ export interface RightPanelSection {
   /** Opt-in: this section owns an in-panel search bar that Ctrl+F should focus
    *  when the section is open, via the "voltius:focus-panel-search" event. */
   providesPanelSearch?: boolean;
+  /** Rail position, ascending. Sections without one sort last; ties break on `id`.
+   *  Registration order is NOT stable — it follows the on-disk read order of the
+   *  seeded plugin directory and changes after any uninstall/reinstall — so a
+   *  section that wants a fixed rail slot must declare it here. */
+  order?: number;
 }
 
 /** Nav-stack entries a plugin may push via `pushMobileScreen`. Each member's

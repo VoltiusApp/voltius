@@ -15,6 +15,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
     label: "Proxmox LXC",
     icon: "devicon:proxmox-plain",
     component: ProxmoxPanel,
+    order: 30,
   });
   const offMobile = api.ui.registerMobileScreen({
     id: "proxmox",

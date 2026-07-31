@@ -13,6 +13,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
     label: "Processes",
     icon: "lucide:cpu",
     component: createProcessPanel(api),
+    order: 40,
   });
   const offMobile = api.ui.registerMobileScreen({
     id: "processes",

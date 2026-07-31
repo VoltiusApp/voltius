@@ -21,6 +21,10 @@ pub fn plugins_list_installed() -> Result<Vec<String>, String> {
             }
         }
     }
+    // read_dir order is filesystem-dependent (ext4 hashes it) and changes after any
+    // uninstall/reinstall. Callers load plugins in this order, so leaving it unsorted
+    // makes every order-sensitive downstream surface non-deterministic.
+    ids.sort();
     Ok(ids)
 }
 
@@ -113,6 +117,10 @@ pub fn plugins_list_seeded(app: tauri::AppHandle) -> Result<Vec<String>, String>
             }
         }
     }
+    // read_dir order is filesystem-dependent (ext4 hashes it) and changes after any
+    // uninstall/reinstall. Callers load plugins in this order, so leaving it unsorted
+    // makes every order-sensitive downstream surface non-deterministic.
+    ids.sort();
     Ok(ids)
 }
 

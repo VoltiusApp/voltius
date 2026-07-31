@@ -14,6 +14,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
     icon: "lucide:activity",
     component: createMetricsPanel(api),
     providesHostMetrics: true,
+    order: 10,
   });
   const offMobile = api.ui.registerMobileScreen({
     id: "monitoring",
