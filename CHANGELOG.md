@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-07-31
+
+### Added
+
+- Plugins: the six built-in plugins — SSH Config Sync, GitHub Gist Sync, Metrics,
+  Docker, Proxmox LXC and Process Manager — now run as ordinary plugins on the
+  public plugin API. You can disable, uninstall and reinstall any of them, and
+  they can receive fixes without waiting for a full app release.
+- Plugins: your installed-plugin list now syncs, and a new device restores it
+  automatically.
+- Plugins: finer-grained permissions. Docker, Proxmox and Processes now separate
+  read-only access from management, and read-only permissions appear as their own
+  tier in the install dialog instead of being flagged as destructive.
+- Plugins: `api.i18n`, so plugin authors can translate their interface.
+- Plugins: installs are checked against the plugin's minimum app version, and a
+  plugin's stylesheet is verified against a published hash before it is applied.
+- Sessions: right-click a remote session to kill it, with an undo window before
+  it takes effect.
+
+### Fixed
+
+- Proxmox: snapshot names were read with a leading tree character, which broke
+  rolling back and deleting snapshots (#83).
+- Plugins: plugin ids are now validated consistently at install and load (#79).
+
+### Security
+
+- Docker: container and stack identifiers are now shell-quoted when building
+  remote commands, so a name containing shell metacharacters cannot alter the
+  command that runs on the host.
+
 ## [0.13.0] - 2026-07-29
 
 ### Added
