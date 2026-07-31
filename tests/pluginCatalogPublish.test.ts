@@ -110,18 +110,47 @@ describe("plugin catalogue publish pipeline", () => {
     }
   });
 
-  test("theme is false; version and minAppVersion come from package.json", () => {
+  test("theme is false; minAppVersion falls back to the app version when the manifest omits it", () => {
     const fragment = buildCatalogFragment(FIRST_PARTY_PLUGIN_IDS, { resourcesDir: outRoot, appVersion: APP_VERSION });
     for (const entry of fragment) {
       expect(entry.theme).toBe(false);
-      expect(entry.version).toBe(APP_VERSION);
       expect(entry.minAppVersion).toBe(APP_VERSION);
     }
   });
 
+  // Fails under the old behaviour, which stamped `version` from the app version
+  // regardless of the plugin's own manifest — plugin-docker is 1.1.0, the app is
+  // 0.13.0, so the old code would have emitted "0.13.0" here instead.
+  test("fragment version tracks each plugin's own manifest version, not the app version", () => {
+    const fragment = buildCatalogFragment(FIRST_PARTY_PLUGIN_IDS, { resourcesDir: outRoot, appVersion: APP_VERSION });
+    const docker = fragment.find((p: { id: string }) => p.id === "plugin-docker");
+    const monitoring = fragment.find((p: { id: string }) => p.id === "plugin-monitoring");
+
+    expect(APP_VERSION).toBe("0.13.0");
+    expect(docker.version).toBe("1.1.0");
+    expect(docker.version).not.toBe(APP_VERSION);
+    expect(monitoring.version).toBe("1.0.0");
+  });
+
+  test("minAppVersion honours an explicit manifest field over the app-version fallback", () => {
+    const folder = "__with-min-app-version__";
+    const dir = path.join(outRoot, folder);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      path.join(dir, "manifest.json"),
+      JSON.stringify({ id: "plugin-fixture", name: "Fixture", version: "2.0.0", minAppVersion: "0.10.0" }),
+    );
+    writeFileSync(path.join(dir, "index.js"), "// fixture\n");
+
+    const fragment = buildCatalogFragment([folder], { resourcesDir: outRoot, appVersion: APP_VERSION });
+    expect(fragment[0].minAppVersion).toBe("0.10.0");
+    expect(fragment[0].minAppVersion).not.toBe(APP_VERSION);
+    expect(fragment[0].version).toBe("2.0.0");
+  });
+
   test("stageReleaseAssets writes unprefixed filenames per plugin, under a tmp dir", () => {
     const stageDir = path.join(outRoot, "__staged__");
-    const tags = stageReleaseAssets(FIRST_PARTY_PLUGIN_IDS, outRoot, stageDir, APP_VERSION);
+    const tags = stageReleaseAssets(FIRST_PARTY_PLUGIN_IDS, outRoot, stageDir);
     expect(tags).toHaveLength(FIRST_PARTY_PLUGIN_IDS.length);
     expect(new Set(tags).size).toBe(tags.length);
 
@@ -136,6 +165,11 @@ describe("plugin catalogue publish pipeline", () => {
     const dockerTag = tags.find((t: string) => t.startsWith("plugin-docker-"));
     expect(existsSync(path.join(stageDir, dockerTag, "voltius.css"))).toBe(false);
 
+    // The tag embeds the PLUGIN's own version, not the app version — docker is
+    // 1.1.0 while the app is 0.13.0.
+    expect(dockerTag).toBe("plugin-docker-v1.1.0");
+    expect(monitoringTag).toBe("plugin-monitoring-v1.0.0");
+
     expect(stageDir.startsWith(outRoot)).toBe(true);
   });
 
@@ -144,11 +178,11 @@ describe("plugin catalogue publish pipeline", () => {
     // points at a tag that doesn't hold the plugin's actual bundle — a 404 on
     // install, invisible to any test that checks each side's literal in isolation.
     const stageDir = path.join(outRoot, "__tag_agreement__");
-    const tags = stageReleaseAssets(FIRST_PARTY_PLUGIN_IDS, outRoot, stageDir, APP_VERSION);
+    const tags = stageReleaseAssets(FIRST_PARTY_PLUGIN_IDS, outRoot, stageDir);
     const fragment = buildCatalogFragment(FIRST_PARTY_PLUGIN_IDS, { resourcesDir: outRoot, appVersion: APP_VERSION });
 
     for (const entry of fragment) {
-      const expectedTag = releaseTagFor(entry.id, APP_VERSION);
+      const expectedTag = releaseTagFor(entry.id, entry.version);
       expect(entry.repo.endsWith(`/${expectedTag}`)).toBe(true);
       expect(tags).toContain(expectedTag);
     }

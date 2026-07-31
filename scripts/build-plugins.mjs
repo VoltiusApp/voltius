@@ -69,12 +69,12 @@ export function buildPlugins(ids) {
 // The marketplace client always fetches `${plugin.repo}/index.js` unprefixed
 // (src/stores/marketplaceStore.ts), so each plugin gets its own release rather than
 // sharing one with prefixed asset names.
-export function releaseTagFor(manifestId, appVersion) {
-  return `${manifestId}-v${appVersion}`;
+export function releaseTagFor(manifestId, pluginVersion) {
+  return `${manifestId}-v${pluginVersion}`;
 }
 
-export function releaseRepoFor(manifestId, appVersion) {
-  return `https://github.com/${GITHUB_REPO}/releases/download/${releaseTagFor(manifestId, appVersion)}`;
+export function releaseRepoFor(manifestId, pluginVersion) {
+  return `https://github.com/${GITHUB_REPO}/releases/download/${releaseTagFor(manifestId, pluginVersion)}`;
 }
 
 /**
@@ -99,9 +99,9 @@ export function buildCatalogFragment(ids, { resourcesDir = RESOURCES_DIR, appVer
       name: manifest.name,
       author: "Voltius",
       description: manifest.description ?? "",
-      repo: releaseRepoFor(manifest.id, appVersion),
-      version: appVersion,
-      minAppVersion: appVersion,
+      repo: releaseRepoFor(manifest.id, manifest.version),
+      version: manifest.version,
+      minAppVersion: manifest.minAppVersion ?? appVersion,
       tags: PLUGIN_TAGS[folder] ?? [],
       theme: false,
       hash: sha256(jsText),
@@ -114,17 +114,19 @@ export function buildCatalogFragment(ids, { resourcesDir = RESOURCES_DIR, appVer
 }
 
 /**
- * Stage each plugin's built bundle into its own `<manifest-id>-v<appVersion>/`
+ * Stage each plugin's built bundle into its own `<manifest-id>-v<pluginVersion>/`
  * subdirectory under `stageDir`, using UNPREFIXED filenames (index.js,
  * manifest.json, voltius.css) — see releaseRepoFor for why. CI uploads each
- * subdirectory as the asset set of its own like-named GitHub Release.
+ * subdirectory as the asset set of its own like-named GitHub Release. The tag is
+ * keyed on each plugin's OWN manifest version, not the app version, so a plugin
+ * fix republishes under its own tag without a full app release.
  */
-export function stageReleaseAssets(ids, resourcesDir, stageDir, appVersion) {
+export function stageReleaseAssets(ids, resourcesDir, stageDir) {
   const tags = [];
   for (const folder of ids) {
     const srcDir = path.join(resourcesDir, folder);
     const manifest = readManifest(srcDir);
-    const tag = releaseTagFor(manifest.id, appVersion);
+    const tag = releaseTagFor(manifest.id, manifest.version);
     const destDir = path.join(stageDir, tag);
     mkdirSync(destDir, { recursive: true });
     copyFileSync(path.join(srcDir, "manifest.json"), path.join(destDir, "manifest.json"));
@@ -190,7 +192,7 @@ function main() {
 
   if ("stage-assets" in flags) {
     const stageDir = resolveFlagPath(flags, "stage-assets", "dist/plugin-release-assets");
-    const tags = stageReleaseAssets(targetIds, RESOURCES_DIR, stageDir, readAppVersion());
+    const tags = stageReleaseAssets(targetIds, RESOURCES_DIR, stageDir);
     console.log(`[build-plugins] staged release assets under ${stageDir}:\n  ${tags.join("\n  ")}`);
   }
 }

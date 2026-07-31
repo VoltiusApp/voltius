@@ -656,6 +656,9 @@ export interface PluginManifest {
   id: string;
   name: string;
   version: string;
+  /** Minimum app version required to run this plugin. Falls back to the app version
+   *  at build time when the manifest omits it. */
+  minAppVersion?: string;
   description?: string;
   permissions: string[];
   defaultEnabled?: boolean;
