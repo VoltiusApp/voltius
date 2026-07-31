@@ -50,3 +50,16 @@ describe("loadPlugin: a throwing register()", () => {
     expect(getLoadedPlugins().some((m) => m.id === "t")).toBe(true);
   });
 });
+
+test("a plugin is not reported as loaded while its register() is still running", () => {
+  let seenDuringRegister: string[] = [];
+  loadPlugin(
+    { id: "t-loading", name: "T", version: "1.0.0", permissions: [] } as PluginManifest,
+    () => { seenDuringRegister = getLoadedPlugins().map((m) => m.id); },
+    true,
+  );
+
+  expect(seenDuringRegister).not.toContain("t-loading");
+  expect(getLoadedPlugins().some((m) => m.id === "t-loading")).toBe(true);
+  unloadPlugin("t-loading");
+});

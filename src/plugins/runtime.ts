@@ -1412,6 +1412,10 @@ interface PluginEntry {
 
 const _registry = new Map<string, PluginEntry>();
 
+/** Ids whose register() is currently running — present in _registry but not yet
+ *  loaded. See loadPlugin for why the entry has to exist that early. */
+const _loading = new Set<string>();
+
 /**
  * @param css The plugin's stylesheet, if any. The caller (seeded/marketplace loader)
  * already injected it via `importPluginModule`/`injectPluginStyle` before calling this —
@@ -1438,7 +1442,13 @@ export function loadPlugin(
     void populateDefaults(manifest.id, manifest.contributes.configuration);
   }
   const entry: PluginEntry = { manifest, register, cleanup: undefined, active, trusted, api, css };
+  // The entry has to exist before register() runs — re-entrant API calls resolve
+  // through it (api.plugins.isActive() is _registry.get(id).active). But "has an
+  // entry" is not "is loaded": until register() returns, the plugin has no cleanup
+  // and may still throw and be rolled back. _loading keeps it out of introspection
+  // for exactly that window, so nothing can observe it as a loaded plugin.
   _registry.set(manifest.id, entry);
+  _loading.add(manifest.id);
   try {
     entry.cleanup = register(api);
   } catch (e) {
@@ -1458,6 +1468,8 @@ export function loadPlugin(
     _settingsListeners.delete(manifest.id);
     _registry.delete(manifest.id);
     throw e;
+  } finally {
+    _loading.delete(manifest.id);
   }
   console.info(`[plugin-runtime] Loaded plugin "${manifest.id}" v${manifest.version} (active=${active}, trusted=${trusted})`);
   // register() has to run even when the plugin is disabled — that is how imperative
@@ -1525,7 +1537,9 @@ export function unloadAll(): void {
 }
 
 export function getLoadedPlugins(): PluginManifest[] {
-  return [..._registry.values()].map((e) => e.manifest);
+  return [..._registry.values()]
+    .filter((e) => !_loading.has(e.manifest.id))
+    .map((e) => e.manifest);
 }
 
 /** Read a plugin's storage value — for use by trusted UI code (e.g. auto-generated settings). */
