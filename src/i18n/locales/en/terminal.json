@@ -97,7 +97,9 @@
       "sections": {
         "history": "History",
         "sftp": "SFTP"
-      }
+      },
+      "pluginUnavailable": "This panel is no longer available. The plugin that provided it was removed or turned off.",
+      "pluginUnavailableAction": "Back to Themes"
     },
     "share": {
       "signInToShare": "Sign in to share",
