@@ -14,15 +14,49 @@ export const GATED_PERMISSIONS = new Set<string>([
   "terminal:write",
   "keychain:read",
   "keychain:write",
+  "metrics:read",
+  "processes:read",
+  "processes:manage",
+  "docker:read",
+  "docker:manage",
+  "proxmox:read",
+  "proxmox:manage",
+]);
+
+/**
+ * Gated permissions that are NOT danger-styled. Every one of these still requires
+ * explicit install consent — they are gated — but they only expose infrastructure
+ * inventory and telemetry, and cannot change or destroy anything.
+ *
+ * The line is what the grant exposes, not whether the verb is a read: `terminal:read`
+ * and `keychain:read` stay danger because they read the user's own secrets and
+ * content, while these read a container list or a CPU number. Without this split the
+ * read tiers were indistinguishable from their `:manage` counterparts in the consent
+ * dialog, which defeats the point of offering a lower-risk tier at all.
+ *
+ * Must stay a subset of GATED_PERMISSIONS (asserted in gatedPermissions.test.ts).
+ */
+export const NON_DANGER_GATED_PERMISSIONS = new Set<string>([
+  "metrics:read",
+  "processes:read",
+  "docker:read",
+  "proxmox:read",
 ]);
 
 export function isGatedPermission(perm: string): boolean {
   return GATED_PERMISSIONS.has(perm);
 }
 
+/** True for a gated permission that is read-only and non-destructive. */
+export function isNonDangerGatedPermission(perm: string): boolean {
+  return NON_DANGER_GATED_PERMISSIONS.has(perm);
+}
+
 export interface PermissionDescriptor {
   perm: string;
+  /** Requires explicit install consent. */
   gated: boolean;
+  /** Gated AND destructive/secret-exposing. `gated && !danger` is the read-only tier. */
   danger: boolean;
   /** Whether a plain-language copy entry exists (else render the bare perm string). */
   known: boolean;
@@ -43,6 +77,13 @@ const PERMISSION_COPY: Record<string, string> = {
   "terminal:write": "terminalWrite",
   "keychain:read": "keychainRead",
   "keychain:write": "keychainWrite",
+  "metrics:read": "metricsRead",
+  "processes:read": "processesRead",
+  "processes:manage": "processesManage",
+  "docker:read": "dockerRead",
+  "docker:manage": "dockerManage",
+  "proxmox:read": "proxmoxRead",
+  "proxmox:manage": "proxmoxManage",
   "sessions:read": "sessionsRead",
   "sessions:write": "sessionsWrite",
   "connections:read": "connectionsRead",
@@ -57,6 +98,7 @@ const PERMISSION_COPY: Record<string, string> = {
   "sync:write": "syncWrite",
   storage: "storage",
   http: "http",
+  "crypto:derive": "cryptoDerive",
   fs: "fs",
   ui: "ui",
   notifications: "notifications",
@@ -80,7 +122,7 @@ export function describePermissions(perms: string[]): PermissionDescriptor[] {
     return {
       perm,
       gated,
-      danger: gated,
+      danger: gated && !isNonDangerGatedPermission(perm),
       known: stem !== undefined,
       labelKey: stem ? `${COPY_ROOT}.${stem}.label` : "",
       descriptionKey: stem ? `${COPY_ROOT}.${stem}.description` : "",

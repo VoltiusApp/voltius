@@ -1,6 +1,7 @@
 import { test, expect } from "vitest";
-import { compareSemver, availableUpdate, addedPermissions } from "./updates";
+import { compareSemver, availableUpdate, availableSeededUpdate, addedPermissions } from "./updates";
 import type { InstalledPluginMeta, MarketplacePlugin } from "@/stores/marketplaceStore";
+import type { PluginManifest } from "@/plugins/api";
 
 // ─── compareSemver ─────────────────────────────────────────────────────────
 
@@ -103,12 +104,142 @@ test("availableUpdate: a local plugin is never updated from an id-colliding cata
   expect(got).toBeNull();
 });
 
+test("availableUpdate: same version but differing cssHashes (both present) -> update", () => {
+  const got = availableUpdate(
+    meta({ version: "1.0.0", hash: "aaa", cssHash: "css-aaa" }),
+    [plugin({ version: "1.0.0", hash: "aaa", cssHash: "css-bbb" })],
+  );
+  expect(got?.cssHash).toBe("css-bbb");
+});
+
+test("availableUpdate: same version, same cssHash -> no update", () => {
+  expect(
+    availableUpdate(
+      meta({ version: "1.0.0", hash: "aaa", cssHash: "css-aaa" }),
+      [plugin({ version: "1.0.0", hash: "aaa", cssHash: "css-aaa" })],
+    ),
+  ).toBeNull();
+});
+
+test("availableUpdate: null installed cssHash ignores the cssHash signal", () => {
+  expect(
+    availableUpdate(
+      meta({ version: "1.0.0", hash: "aaa", cssHash: null }),
+      [plugin({ version: "1.0.0", hash: "aaa", cssHash: "css-bbb" })],
+    ),
+  ).toBeNull();
+});
+
 test("availableUpdate: no entry from the installed source -> null (no cross-source fallback)", () => {
   const got = availableUpdate(
     meta({ sourceId: "voltius", version: "1.0.0" }),
     [plugin({ sourceId: "other", version: "9.0.0" })],
   );
   expect(got).toBeNull();
+});
+
+// ─── availableSeededUpdate ─────────────────────────────────────────────────
+
+const seededManifest = (over: Partial<PluginManifest> = {}): PluginManifest => ({
+  id: "plugin-docker", name: "Docker", version: "1.1.0", description: "Manage containers", permissions: [],
+  ...over,
+});
+
+test("availableSeededUpdate: newer first-party catalog version offers an update", () => {
+  const got = availableSeededUpdate(
+    seededManifest({ version: "1.1.0" }),
+    [plugin({ id: "plugin-docker", sourceId: "voltius", version: "1.2.0" })],
+    "2.0.0",
+  );
+  expect(got?.version).toBe("1.2.0");
+});
+
+test("availableSeededUpdate: equal catalog version offers no update", () => {
+  const got = availableSeededUpdate(
+    seededManifest({ version: "1.1.0" }),
+    [plugin({ id: "plugin-docker", sourceId: "voltius", version: "1.1.0" })],
+    "2.0.0",
+  );
+  expect(got).toBeNull();
+});
+
+test("availableSeededUpdate: older catalog version offers no update", () => {
+  const got = availableSeededUpdate(
+    seededManifest({ version: "1.1.0" }),
+    [plugin({ id: "plugin-docker", sourceId: "voltius", version: "1.0.0" })],
+    "2.0.0",
+  );
+  expect(got).toBeNull();
+});
+
+test("availableSeededUpdate: an unsatisfied minAppVersion offers no update", () => {
+  const got = availableSeededUpdate(
+    seededManifest({ version: "1.1.0" }),
+    [plugin({ id: "plugin-docker", sourceId: "voltius", version: "1.2.0", minAppVersion: "9.9.9" })],
+    "2.0.0",
+  );
+  expect(got).toBeNull();
+});
+
+test("availableSeededUpdate: a non-first-party source can never offer an update for a built-in", () => {
+  const got = availableSeededUpdate(
+    seededManifest({ version: "1.1.0" }),
+    [plugin({ id: "plugin-docker", sourceId: "some-other-source", version: "9.0.0" })],
+    "2.0.0",
+  );
+  expect(got).toBeNull();
+});
+
+test("availableSeededUpdate: no matching catalog entry -> null", () => {
+  const got = availableSeededUpdate(
+    seededManifest({ id: "plugin-docker" }),
+    [plugin({ id: "plugin-other", sourceId: "voltius", version: "9.0.0" })],
+    "2.0.0",
+  );
+  expect(got).toBeNull();
+});
+
+test("availableSeededUpdate: a null appVersion never blocks an otherwise-valid update", () => {
+  const got = availableSeededUpdate(
+    seededManifest({ version: "1.1.0" }),
+    [plugin({ id: "plugin-docker", sourceId: "voltius", version: "1.2.0", minAppVersion: "9.9.9" })],
+    null,
+  );
+  expect(got?.version).toBe("1.2.0");
+});
+
+// These two cases actually discriminate beatsSeededVersion from compareSemver — a
+// same-release-prerelease-vs-release pair (e.g. "1.2.0-beta.1" vs "1.2.0") is NOT
+// enough on its own: compareSemver strips the suffix and also returns "not newer" for
+// that pair, so a test using only that shape would pass under either comparator.
+
+test("availableSeededUpdate: refuses to offer an update when the seeded manifest's version is malformed (downgrade-guard inversion)", () => {
+  // compareSemver coerces missing/non-numeric segments to 0 per-segment rather than
+  // failing the whole parse, so a much higher catalogue version ("9.0.0" vs "1.x", i.e.
+  // [1,0]) would compare as strictly newer under it — exactly the inversion
+  // beatsSeededVersion's doc comment exists to prevent (fail closed on unparseable
+  // input instead of treating it as 0.0.0-and-thus-always-beatable). Swapping in
+  // compareSemver(entry.version, seededManifest.version) > 0 here would return the
+  // catalogue entry instead of null.
+  const got = availableSeededUpdate(
+    seededManifest({ version: "1.x" }),
+    [plugin({ id: "plugin-docker", sourceId: "voltius", version: "9.0.0" })],
+    "2.0.0",
+  );
+  expect(got).toBeNull();
+});
+
+test("availableSeededUpdate: offers a real release over a seeded prerelease of the same release line", () => {
+  // compareSemver strips prerelease suffixes from BOTH sides before comparing, so
+  // "1.2.0-beta.1" (seeded) and "1.2.0" (catalogue) parse as equal under it and no
+  // update would be offered. beatsSeededVersion is prerelease-aware and correctly
+  // treats the real release as newer than the seeded prerelease.
+  const got = availableSeededUpdate(
+    seededManifest({ version: "1.2.0-beta.1" }),
+    [plugin({ id: "plugin-docker", sourceId: "voltius", version: "1.2.0" })],
+    "2.0.0",
+  );
+  expect(got?.version).toBe("1.2.0");
 });
 
 // ─── addedPermissions ──────────────────────────────────────────────────────

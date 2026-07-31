@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { SerialConnectParams } from "@/types";
 import type { AppTheme } from "@/themes/types";
+import type { Locale } from "@/stores/localeStore";
 
 // ─── Types exposés aux plugins ─────────────────────────────────────────────
 
@@ -82,6 +83,51 @@ export interface RightPanelSection {
   label: string;
   icon: string;
   component: React.FC;
+  /** Opt-in: this section drives the terminal status bar's high-CPU indicator
+   *  and its metrics stream. Explicit flag rather than an id check, so a plugin
+   *  can't inherit the host integration by squatting another plugin's section id. */
+  providesHostMetrics?: boolean;
+  /** Opt-in: this section owns an in-panel search bar that Ctrl+F should focus
+   *  when the section is open, via the "voltius:focus-panel-search" event. */
+  providesPanelSearch?: boolean;
+  /** Rail position, ascending. Sections without one sort last; ties break on `id`.
+   *  Registration order is NOT stable — it follows the on-disk read order of the
+   *  seeded plugin directory and changes after any uninstall/reinstall — so a
+   *  section that wants a fixed rail slot must declare it here. */
+  order?: number;
+}
+
+/** Nav-stack entries a plugin may push via `pushMobileScreen`. Each member's
+ *  `kind` must exist as a "panel-<kind>" variant of mobileNavCore's MobileScreen
+ *  union — runtime.ts's translator switch is exhaustively checked against that
+ *  union, so adding a member here without a matching host variant is a type
+ *  error, not a silent no-op at runtime. */
+export type PluginMobileNavEntry = {
+  kind: "docker-logs";
+  sessionId: string;
+  containerId: string;
+  containerName: string;
+};
+
+/** Props the host passes into a registered mobile screen's `render`. Extra
+ *  navigation params (e.g. docker-logs' containerId/containerName) ride along
+ *  as additional keys — see `pushMobileScreen`. */
+export interface MobileScreenProps {
+  sessionId: string;
+  /** Pop this screen off the mobile nav stack. MobilePanelHeader itself can't
+   *  cross the plugin boundary (it reaches into the host's nav store), so the
+   *  screen must render its own header chrome and wire this to its back button. */
+  onBack: () => void;
+  [key: string]: unknown;
+}
+
+export interface MobileScreen {
+  id: string;
+  /** Screen key MobileShell looks up on navigation, e.g. "docker", "metrics". */
+  kind: string;
+  /** Header title. Plain text — resolve via `api.i18n.t()` before passing it in. */
+  title: string;
+  render: React.FC<MobileScreenProps>;
 }
 
 export interface GlobalPanel {
@@ -96,6 +142,8 @@ export interface PluginSession {
   connectionName: string;
   status: string;
   type: string;
+  /** Local sessions only: the shell path/name to use for a spawned exec PTY. */
+  localShell?: string;
 }
 
 export type ContextMenuTarget = "connection" | "session" | "tab";
@@ -196,6 +244,155 @@ export interface TerminalStatusBarContributionContext {
 
 export type UIStatusBarContributionFactory = (ctx: TerminalStatusBarContributionContext) => ReactNode;
 
+export type StreamKind = "metrics" | "processes" | "docker-logs" | "docker-stack-logs";
+
+export interface StreamsAPI {
+  /** Start a session-scoped stream. Returns a streamId. */
+  start(kind: StreamKind, opts: Record<string, unknown>): Promise<string>;
+  /** Stop a stream. No-op for an unknown id. */
+  stop(streamId: string): Promise<void>;
+  /** Subscribe to a started stream's snapshots. Resolves to an unsubscribe fn. */
+  on<T>(streamId: string, cb: (snapshot: T) => void): Promise<() => void>;
+}
+
+/** Host metrics — built on top of api.streams' "metrics" kind. GATED (metrics:read). */
+export interface MetricsAPI {
+  start(sessionId: string, isRemote: boolean): Promise<string>;
+  stop(streamId: string): Promise<void>;
+  onSnapshot<T>(streamId: string, cb: (snapshot: T) => void): Promise<() => void>;
+  getSystemInfo(sessionId: string, sessionType: string, sessionName?: string): Promise<unknown>;
+}
+
+/** Process listing/kill — built on top of api.streams' "processes" kind. GATED, split
+ *  two ways: processes:read covers start/onSnapshot/stop; processes:manage covers kill. */
+export interface ProcessesAPI {
+  start(sessionId: string, isRemote: boolean): Promise<string>;
+  stop(streamId: string): Promise<void>;
+  onSnapshot<T>(streamId: string, cb: (snapshot: T) => void): Promise<() => void>;
+  kill(sessionId: string, pid: number, isRemote: boolean, force: boolean): Promise<void>;
+}
+
+/** Not gated — a pure KDF over caller-supplied input, grants no access to host secrets. */
+export interface CryptoAPI {
+  /** Derive a 32-byte key from a passphrase and hex salt. Returns hex. */
+  deriveKey(passphrase: string, saltHex: string): Promise<string>;
+}
+
+/** Locales the host ships. A plugin's catalog may cover any subset — "en" should
+ *  always be present, since it is the fallback when the active locale is missing.
+ *  Re-exports the host's own `Locale` union (type-only, erased at build — this
+ *  doesn't pull `@/stores/localeStore` into the plugin bundle) so a future host
+ *  locale addition flows through here automatically instead of drifting out of sync. */
+export type PluginLocale = Locale;
+
+/** A flat key → template map for one locale. Values may contain "{{var}}" placeholders. */
+export type PluginLocaleCatalog = Record<string, string>;
+
+export type PluginI18nCatalog = Partial<Record<PluginLocale, PluginLocaleCatalog>>;
+
+/**
+ * Not gated — reading/resolving UI strings grants no host access. Each plugin owns
+ * its own catalog (registered here, not in the host's locale files) so a third-party
+ * plugin can ship translations exactly the way a first-party one does.
+ */
+export interface I18nAPI {
+  /** Register (or replace) this plugin's translation catalog. Call once at load,
+   *  before rendering anything that resolves keys. */
+  register(catalog: PluginI18nCatalog): void;
+  /** Resolve `key` against the host's active locale. Falls back to the "en" entry,
+   *  then to `key` itself (visible, never blank) if neither has it. */
+  t(key: string, vars?: Record<string, string | number>): string;
+  /** The host's current active locale. */
+  getLocale(): PluginLocale;
+  /** Fires whenever the host's active locale changes. Re-call `t()` and re-render
+   *  on each firing — this does not itself trigger a React re-render. Returns an
+   *  unsubscribe function. */
+  onLocaleChange(cb: (locale: PluginLocale) => void): () => void;
+}
+
+/** Proxmox VE LXC management. GATED, split two ways: proxmox:read covers
+ *  list/snapshots.list; proxmox:manage covers everything else. Only functions
+ *  against SSH sessions. */
+export interface ProxmoxAPI {
+  lxc: {
+    list(sessionId: string): Promise<unknown[]>;
+    action(sessionId: string, vmid: number, action: string): Promise<void>;
+    /** Opens a pct-exec shell into the container and returns the new session's id.
+     *  vmName is display-only — used for the resulting terminal tab's label. */
+    openShell(sessionId: string, vmid: number, vmName?: string): Promise<string>;
+    snapshots: {
+      list(sessionId: string, vmid: number): Promise<unknown[]>;
+      create(sessionId: string, vmid: number, name: string, description?: string): Promise<void>;
+      rollback(sessionId: string, vmid: number, name: string): Promise<void>;
+      remove(sessionId: string, vmid: number, name: string): Promise<void>;
+    };
+  };
+}
+
+/** Where a docker command runs. Replaces the repeated (sessionId, isRemote, localShell)
+ *  triple the underlying commands take — a transposed boolean in a positional call is
+ *  silent; this shape makes every call site self-describing and tsc-checked. */
+export interface DockerTarget {
+  sessionId: string;
+  isRemote: boolean;
+  localShell: string | null;
+}
+
+/**
+ * Docker container/image/volume/network/stack management. GATED, split two ways
+ * (kipavy ruling): docker:read covers every list/services/checkUpdate verb and all
+ * of logs.*; docker:manage covers everything that mutates or destroys, including
+ * exec.open (an interactive shell inside a container is full control, not a read).
+ */
+export interface DockerAPI {
+  containers: {
+    list(t: DockerTarget): Promise<unknown[]>;
+    action(t: DockerTarget, containerId: string, action: string): Promise<void>;
+    /** Reconstructs the `docker run` command for the container. `command` is the
+     *  container's image ref, passed through to the backend command as `image`. */
+    runCommand(t: DockerTarget, containerId: string, command: string): Promise<string>;
+  };
+  images: {
+    list(t: DockerTarget): Promise<unknown[]>;
+    remove(t: DockerTarget, imageId: string): Promise<void>;
+    pull(t: DockerTarget, image: string): Promise<void>;
+    checkUpdate(t: DockerTarget, imageId: string): Promise<unknown>;
+    /** Pulls `image` and, when `recreate` is set, recreates the containers using it. */
+    update(t: DockerTarget, imageId: string, recreate: boolean): Promise<unknown>;
+    recreateContainers(t: DockerTarget, imageId: string): Promise<unknown>;
+    prune(t: DockerTarget): Promise<string>;
+  };
+  volumes: {
+    list(t: DockerTarget): Promise<unknown[]>;
+    remove(t: DockerTarget, name: string): Promise<void>;
+    prune(t: DockerTarget): Promise<string>;
+  };
+  networks: {
+    list(t: DockerTarget): Promise<unknown[]>;
+    remove(t: DockerTarget, id: string): Promise<void>;
+    prune(t: DockerTarget): Promise<string>;
+  };
+  stacks: {
+    list(t: DockerTarget): Promise<unknown[]>;
+    services(t: DockerTarget, stack: string): Promise<unknown[]>;
+    action(t: DockerTarget, stack: string, action: string): Promise<void>;
+    update(t: DockerTarget, stack: string): Promise<void>;
+  };
+  logs: {
+    start(t: DockerTarget, containerId: string, tail: number): Promise<string>;
+    startStack(t: DockerTarget, stack: string, tail: number): Promise<string>;
+    stop(streamId: string): Promise<void>;
+    /** Payload is a DockerLogLine ({ line, stream }), not a bare string — kept generic like StreamsAPI.on. */
+    on<T>(streamId: string, cb: (payload: T) => void): Promise<() => void>;
+  };
+  system: { prune(t: DockerTarget): Promise<string> };
+  exec: {
+    /** Opens an interactive shell into the container and returns the new session's id.
+     *  containerName is display-only — used for the resulting terminal tab's label. */
+    open(t: DockerTarget, containerId: string, containerName?: string): Promise<string>;
+  };
+}
+
 // ─── API principale ────────────────────────────────────────────────────────
 
 export interface PluginAPI {
@@ -255,12 +452,31 @@ export interface PluginAPI {
     registerRightPanelSection(section: RightPanelSection): () => void;
     /** Mount a global, shell-level panel (not session-scoped). Returns cleanup. */
     registerGlobalPanel(panel: GlobalPanel): () => void;
+    /** Contribute a full-screen mobile view for `screen.kind`. Uninstalling or
+     *  disabling the plugin removes it, same as registerRightPanelSection does
+     *  on desktop. Returns cleanup. */
+    registerMobileScreen(screen: MobileScreen): () => void;
+    /** Push another mobile screen onto the nav stack (e.g. docker's container
+     *  list pushing its logs view). Writes to the mobile nav store regardless
+     *  of platform — harmless on desktop, since MobileShell is never mounted
+     *  there. */
+    pushMobileScreen(entry: PluginMobileNavEntry): void;
+    /** Switch the mobile shell to its terminal tab — e.g. after opening an exec
+     *  shell. Writes to the mobile nav store regardless of platform — harmless
+     *  on desktop, since MobileShell is never mounted there. */
+    focusMobileTerminal(): void;
     registerContextMenuItem(item: ContextMenuItem): () => void;
     /** Inject action items into a named UI slot. Returns a cleanup function. */
     registerContribution<C = unknown>(slot: UISlot, fn: (ctx: C) => ContributedAction[]): () => void;
     /** Render a React widget in the terminal status bar's right-side slot. Returns a cleanup function. */
     registerStatusBarItem(slot: UIStatusBarSlot, fn: UIStatusBarContributionFactory): () => void;
     unregister(id: string): void;
+    /** Switch the app's active navigation section. */
+    setActiveNav(id: string): void;
+    /** Publish a plain, serialisable state snapshot for host UI to read, keyed
+     *  by `<pluginId>::<key>`. Host surfaces subscribe to this instead of
+     *  importing the plugin's runtime module. Cleared on unload/disable. */
+    publishState(key: string, value: unknown): void;
   };
 
   // Plugin-scoped key-value storage
@@ -348,6 +564,30 @@ export interface PluginAPI {
     delete(key: string): Promise<void>;
   };
 
+  // Session-scoped streams (metrics, processes, docker logs) — GATED per kind.
+  streams: StreamsAPI;
+
+  // Host metrics domain wrapper over streams — GATED (metrics:read).
+  metrics: MetricsAPI;
+
+  // Process listing/kill domain wrapper over streams — GATED, split
+  // processes:read (start/onSnapshot/stop) / processes:manage (kill).
+  processes: ProcessesAPI;
+
+  // Key derivation (requires crypto:derive). Not gated — pure KDF over caller input.
+  crypto: CryptoAPI;
+
+  // Plugin-owned UI translation catalog (requires "ui"). Not gated.
+  i18n: I18nAPI;
+
+  // Proxmox VE LXC management — GATED, split
+  // proxmox:read (list/snapshots.list) / proxmox:manage (everything else).
+  proxmox: ProxmoxAPI;
+
+  // Docker container/image/volume/network/stack management — GATED, split
+  // docker:read (list/services/checkUpdate/logs.*) / docker:manage (everything else).
+  docker: DockerAPI;
+
   // Lifecycle hooks (always available)
   lifecycle: {
     /** Fires when an SSH/local session transitions to "connected". */
@@ -421,6 +661,9 @@ export interface PluginManifest {
   id: string;
   name: string;
   version: string;
+  /** Minimum app version required to run this plugin. Falls back to the app version
+   *  at build time when the manifest omits it. */
+  minAppVersion?: string;
   description?: string;
   permissions: string[];
   defaultEnabled?: boolean;

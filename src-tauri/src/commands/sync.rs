@@ -106,6 +106,38 @@ fn decrypt_blob(enc_key: &[u8], blob: &[u8]) -> Result<BlobPayload, String> {
     serde_json::from_slice(&plaintext).map_err(|e| e.to_string())
 }
 
+/// Directory id the plugin layer reserves for its own bookkeeping files.
+const PLUGIN_META_ID: &str = "__meta__";
+const PLUGIN_META_PREFIX: &str = "plugins/__meta__/";
+const PLUGIN_DATA_PREFIX: &str = "plugin-data/";
+
+/// Map a bundle filename to the path it restores to, or `None` when the name is
+/// not one of the shapes the bundle produces. A blob is decrypted with the user's
+/// own key, but it still arrives over the network, so the leaf name is required to
+/// be a plain file — no separators, no `..` — and everything else is refused.
+fn restore_dest(dir: &std::path::Path, filename: &str) -> Option<std::path::PathBuf> {
+    fn plain_leaf(name: &str) -> Option<&str> {
+        let ok = !name.is_empty()
+            && name != "."
+            && name != ".."
+            && !name.contains('/')
+            && !name.contains('\\');
+        ok.then_some(name)
+    }
+
+    if let Some(sub) = filename.strip_prefix(PLUGIN_META_PREFIX) {
+        return Some(
+            dir.join("plugins")
+                .join(PLUGIN_META_ID)
+                .join(plain_leaf(sub)?),
+        );
+    }
+    if let Some(sub) = filename.strip_prefix(PLUGIN_DATA_PREFIX) {
+        return Some(dir.join("plugin-data").join(plain_leaf(sub)?));
+    }
+    Some(dir.join(plain_leaf(filename)?))
+}
+
 /// Remove sync-excluded objects from an outbound blob payload, in place.
 ///
 /// For each `ENTITY_FILES` entry, drops array elements whose `"id"` is in
@@ -207,6 +239,24 @@ pub fn backup_export(
             }
         }
     }
+
+    // plugins/__meta__/*.json — the installed-plugin list and marketplace sources.
+    // Carrying these is what lets a fresh device restore the user's plugin set;
+    // the reinstall itself happens client-side and stays hash-verified.
+    let plugin_meta_dir = dir.join("plugins").join(PLUGIN_META_ID);
+    if let Ok(entries) = std::fs::read_dir(&plugin_meta_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() && path.extension().and_then(|e| e.to_str()) == Some("json") {
+                if let (Some(name), Ok(content)) = (
+                    path.file_name().and_then(|n| n.to_str()).map(String::from),
+                    std::fs::read_to_string(&path),
+                ) {
+                    files.insert(format!("{PLUGIN_META_PREFIX}{name}"), content);
+                }
+            }
+        }
+    }
     let data = state.export_all()?;
     let mut secrets = data.secrets;
     let mut clocks = data.clocks;
@@ -265,14 +315,15 @@ pub fn backup_import(
 
     let dir = config_dir();
     for (filename, content) in payload.files {
-        let dest = if let Some(sub) = filename.strip_prefix("plugin-data/") {
-            let sub_dir = dir.join("plugin-data");
-            std::fs::create_dir_all(&sub_dir)
-                .map_err(|e| format!("Cannot create plugin-data dir: {e}"))?;
-            sub_dir.join(sub)
-        } else {
-            dir.join(&filename)
+        let Some(dest) = restore_dest(&dir, &filename) else {
+            // Not a shape we write back (unknown subdirectory, or a name that
+            // would escape config_dir) — skip rather than fail the whole import.
+            continue;
         };
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("Cannot create {}: {e}", parent.display()))?;
+        }
         std::fs::write(&dest, content).map_err(|e| format!("Failed to restore {filename}: {e}"))?;
     }
     state.replace_all(payload.secrets, payload.secret_clocks)?;
@@ -515,5 +566,47 @@ mod tests {
         let mut clocks = HashMap::new();
         strip_excluded(&mut files, &mut secrets, &mut clocks, &HashSet::new());
         assert_eq!(files["connections.json"], r#"[{"id":"a"}]"#);
+    }
+
+    #[test]
+    fn restore_dest_maps_each_bundle_shape_to_its_directory() {
+        let dir = std::path::Path::new("/cfg");
+        assert_eq!(
+            restore_dest(dir, "connections.json"),
+            Some(dir.join("connections.json"))
+        );
+        assert_eq!(
+            restore_dest(dir, "plugin-data/plugin-docker.json"),
+            Some(dir.join("plugin-data").join("plugin-docker.json"))
+        );
+        assert_eq!(
+            restore_dest(dir, "plugins/__meta__/installed-plugins.json"),
+            Some(
+                dir.join("plugins")
+                    .join("__meta__")
+                    .join("installed-plugins.json")
+            )
+        );
+    }
+
+    #[test]
+    fn restore_dest_refuses_names_that_escape_config_dir() {
+        let dir = std::path::Path::new("/cfg");
+        for name in [
+            "../evil.json",
+            "plugin-data/../../evil.json",
+            "plugins/__meta__/../../evil.json",
+            "plugins/__meta__/nested/evil.json",
+            "plugin-data/",
+            "plugins/__meta__/",
+        ] {
+            assert_eq!(restore_dest(dir, name), None, "should refuse {name}");
+        }
+    }
+
+    #[test]
+    fn restore_dest_ignores_unknown_subdirectories() {
+        let dir = std::path::Path::new("/cfg");
+        assert_eq!(restore_dest(dir, "plugins/plugin-docker/index.js"), None);
     }
 }

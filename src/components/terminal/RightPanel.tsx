@@ -12,6 +12,7 @@ import { useThemeStore } from "@/stores/themeStore";
 import { BUILT_IN_THEMES } from "@/themes/presets";
 import type { AppTheme } from "@/themes/types";
 import { useCurrentSessionTunnelCount } from "@/hooks/useCurrentSessionTunnelCount";
+import { orderPluginSections } from "./rightPanelOrder";
 
 const PANEL_WIDTH = 300;
 const TRANSITION = "width 180ms cubic-bezier(0.4, 0, 0.2, 1)";
@@ -152,6 +153,27 @@ function ThemesSection() {
   );
 }
 
+/** Shown when a persisted `plugin:*` selection no longer resolves to a registered
+ *  section — the plugin was uninstalled or disabled while it was the open tab. */
+function UnavailablePluginSection() {
+  const { t } = useTranslation();
+  const setRightPanelSection = useUIStore((s) => s.setRightPanelSection);
+  return (
+    <div className="h-full flex flex-col items-center justify-center gap-3 px-6 text-center">
+      <Icon icon="lucide:puzzle" width={22} className="text-(--t-text-muted)" />
+      <p className="text-xs text-(--t-text-secondary)">
+        {t("terminal.rightPanel.pluginUnavailable")}
+      </p>
+      <button
+        onClick={() => setRightPanelSection("themes")}
+        className="btn btn-secondary px-3 py-1.5 rounded-lg text-xs font-medium"
+      >
+        {t("terminal.rightPanel.pluginUnavailableAction")}
+      </button>
+    </div>
+  );
+}
+
 // ─── Main RightPanel ──────────────────────────────────────────────────────────
 
 function PanelContent() {
@@ -163,7 +185,7 @@ function PanelContent() {
 
   const allSections = useMemo(() => [
     ...getBuiltinSections(t),
-    ...[...pluginSections.values()].map((s) => ({
+    ...orderPluginSections([...pluginSections.values()]).map((s) => ({
       id: `plugin:${s.id}` as RightPanelSection,
       icon: s.icon ?? "lucide:puzzle",
       title: s.label,
@@ -225,7 +247,12 @@ function PanelContent() {
         {rightPanelSection?.startsWith("plugin:") && (() => {
           const pluginId = rightPanelSection.slice("plugin:".length);
           const section = pluginSections.get(pluginId);
-          if (!section) return null;
+          // The selection is persisted, so it outlives the plugin that registered
+          // it: uninstalling or disabling one leaves this pointing at a section
+          // that no longer exists, and its rail tab is gone too. Returning null
+          // there left an open, empty panel with no tab highlighted and no way to
+          // tell whether it was broken or just empty.
+          if (!section) return <UnavailablePluginSection />;
           const Component = section.component;
           return <Component />;
         })()}

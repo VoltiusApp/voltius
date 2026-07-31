@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  processesStart,
-  processesStop,
-  processKill,
-  onProcessesSnapshot,
-} from "@/services/processes";
+import type { PluginSession } from "@/plugins/api";
+import type { ProcessesService } from "./services";
 import type { ProcessSnapshot, SortCol } from "./types";
-import type { TerminalSession } from "@/types";
 
 /**
  * Shared process-list lifecycle: stream subscribe/teardown, filter+sort
@@ -18,7 +13,8 @@ import type { TerminalSession } from "@/types";
  * unsupported local sessions while keeping the stream lifecycle here.
  */
 export function useProcessList(
-  session: TerminalSession | undefined,
+  service: ProcessesService,
+  session: PluginSession | undefined,
   localUnsupported = false,
 ) {
   const streamIdRef = useRef<string | null>(null);
@@ -34,10 +30,10 @@ export function useProcessList(
     unlistenRef.current?.();
     unlistenRef.current = null;
     if (streamIdRef.current) {
-      await processesStop(streamIdRef.current).catch(() => {});
+      await service.processesStop(streamIdRef.current).catch(() => {});
       streamIdRef.current = null;
     }
-  }, []);
+  }, [service]);
 
   useEffect(() => {
     if (
@@ -59,15 +55,15 @@ export function useProcessList(
 
       try {
         const isRemote = session.type === "ssh";
-        const sid = await processesStart(session.id, isRemote);
-        if (cancelled) { processesStop(sid).catch(() => {}); return; }
+        const sid = await service.processesStart(session.id, isRemote);
+        if (cancelled) { service.processesStop(sid).catch(() => {}); return; }
         streamIdRef.current = sid;
 
-        const unlisten = await onProcessesSnapshot(sid, (snap) => {
+        const unlisten = await service.onProcessesSnapshot(sid, (snap) => {
           if (cancelled) return;
           setSnapshot(snap);
         });
-        if (cancelled) { unlisten(); processesStop(sid).catch(() => {}); return; }
+        if (cancelled) { unlisten(); service.processesStop(sid).catch(() => {}); return; }
         unlistenRef.current = unlisten;
       } catch {
         // session not ready yet, will retry on next session change
@@ -79,7 +75,7 @@ export function useProcessList(
       stopStream();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.id, session?.status, localUnsupported]);
+  }, [session?.id, session?.status, localUnsupported, service]);
 
   const setSort = useCallback((col: SortCol) => {
     setSortCol((prev) => {
@@ -118,12 +114,12 @@ export function useProcessList(
       if (!session) return;
       setKillError(null);
       try {
-        await processKill(session.id, pid, session.type === "ssh", force);
+        await service.processKill(session.id, pid, session.type === "ssh", force);
       } catch (e) {
         setKillError(String(e));
       }
     },
-    [session],
+    [session, service],
   );
 
   return {

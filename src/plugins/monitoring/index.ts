@@ -1,20 +1,29 @@
 import type { PluginAPI, PluginManifest, PluginRegisterFn } from "@/plugins/api";
-import { MetricsPanel } from "./components/MetricsPanel";
+import manifestJson from "./manifest.json";
+import { messages } from "./i18n";
+import { createMetricsPanel } from "./components/MetricsPanel";
+import { createMobileMetricsScreen } from "./components/MobileMetricsScreen";
 
-export const manifest: PluginManifest = {
-  id: "plugin-monitoring",
-  name: "System Metrics",
-  version: "1.0.0",
-  description: "Real-time CPU, RAM, network, and disk metrics for local and SSH sessions.",
-  permissions: ["sessions:read", "right-panel"],
-  defaultEnabled: true,
-};
+export const manifest = manifestJson as PluginManifest;
 
 export const register: PluginRegisterFn = (api: PluginAPI) => {
-  return api.ui.registerRightPanelSection({
+  api.i18n.register(messages);
+  const offPanel = api.ui.registerRightPanelSection({
     id: "monitoring",
     label: "Metrics",
     icon: "lucide:activity",
-    component: MetricsPanel,
+    component: createMetricsPanel(api),
+    providesHostMetrics: true,
+    order: 10,
   });
+  const offMobile = api.ui.registerMobileScreen({
+    id: "monitoring",
+    kind: "metrics",
+    title: api.i18n.t("title"),
+    render: createMobileMetricsScreen(api),
+  });
+  return () => {
+    offPanel();
+    offMobile();
+  };
 };

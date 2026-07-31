@@ -66,7 +66,7 @@ export function StackList({
     const key = `${stackName}:update`;
     setBusyAction(key);
     try {
-      await dockerStackUpdate(sessionId, isRemote, localShell, stackName);
+      await dockerStackUpdate({ sessionId, isRemote, localShell }, stackName);
       getDockerApi()?.notifications.toast(`Updated stack ${stackName}`, { severity: "success" });
       onRefresh();
       checkAll();
@@ -91,7 +91,7 @@ export function StackList({
     const key = `${stackName}:${action}`;
     setBusyAction(key);
     try {
-      await dockerStackAction(sessionId, isRemote, localShell, stackName, action);
+      await dockerStackAction({ sessionId, isRemote, localShell }, stackName, action);
       onRefresh();
     } catch (e) {
       console.error(`[docker] stack ${action} failed:`, e);
@@ -276,7 +276,7 @@ function ServiceRow({
     if (!service.id) return;
     setBusyAction(action);
     try {
-      await dockerContainerAction(sessionId, isRemote, localShell, service.id, action);
+      await dockerContainerAction({ sessionId, isRemote, localShell }, service.id, action);
       onRefresh();
     } catch (e) {
       console.error(`[docker] container ${action} failed:`, e);

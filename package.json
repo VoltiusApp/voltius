@@ -1,13 +1,14 @@
 {
   "name": "voltius",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "type": "module",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
     "dev": "vite",
     "dev:2": "tauri dev & XDG_DATA_HOME=/tmp/voltius-user2/data XDG_CONFIG_HOME=/tmp/voltius-user2/config VOLTIUS_KEYCHAIN_NS=2 tauri dev --config '{\"build\":{\"devUrl\":\"http://localhost:1421\",\"beforeDevCommand\":\"VITE_PORT=1421 vite\"}}'",
     "test": "vitest run",
-    "build": "tsc && vite build",
+    "build:plugins": "node scripts/build-plugins.mjs",
+    "build": "tsc && node scripts/build-plugins.mjs && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
     "version:bump": "node -e \"const v=process.argv[1],fs=require('fs');const pj=JSON.parse(fs.readFileSync('package.json'));pj.version=v;fs.writeFileSync('package.json',JSON.stringify(pj,null,2)+'\\n');const tj=JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json'));tj.version=v;fs.writeFileSync('src-tauri/tauri.conf.json',JSON.stringify(tj,null,2)+'\\n');let ct=fs.readFileSync('src-tauri/Cargo.toml','utf8');ct=ct.replace(/^version = \\\".*\\\"/m,'version = \\\"'+v+'\\\"');fs.writeFileSync('src-tauri/Cargo.toml',ct);let cl=fs.readFileSync('Cargo.lock','utf8');cl=cl.replace(/(name = \\\"voltius\\\"\\nversion = \\\")[^\\\"]*\\\"/,(_,p)=>p+v+'\\\"');fs.writeFileSync('Cargo.lock',cl);console.log('Bumped to',v);\""
@@ -51,6 +52,7 @@
     "@xterm/addon-webgl": "^0.19.0",
     "@xterm/xterm": "^6.0.0",
     "country-flag-emoji-polyfill": "^0.1.8",
+    "es-module-lexer": "^2.3.1",
     "i18next": "^26.3.3",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

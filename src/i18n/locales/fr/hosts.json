@@ -96,7 +96,12 @@
       "justNow": "à l'instant",
       "minutesAgo": "il y a {{count}} min",
       "hoursAgo": "il y a {{count}} h",
-      "daysAgo": "il y a {{count}} j"
+      "daysAgo": "il y a {{count}} j",
+      "kill": "Terminer la session",
+      "killing": "Fermeture de la session…",
+      "undo": "Annuler",
+      "killFailed": "Impossible de terminer à distance — ouvrez la session pour la fermer",
+      "dismiss": "Ignorer"
     },
     "teamSessions": {
       "title": "Sessions d'équipe",

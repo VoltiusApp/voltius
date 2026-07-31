@@ -97,7 +97,9 @@
       "sections": {
         "history": "Historique",
         "sftp": "SFTP"
-      }
+      },
+      "pluginUnavailable": "Ce panneau n’est plus disponible. Le plugin qui le fournissait a été supprimé ou désactivé.",
+      "pluginUnavailableAction": "Retour aux thèmes"
     },
     "share": {
       "signInToShare": "Connectez-vous pour partager",

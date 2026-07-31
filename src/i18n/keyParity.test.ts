@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
 
+// Covers only host-owned locale files (src/i18n/locales/*). Plugin-owned strings
+// (registered via api.i18n.register — see the four moved mobile screens under
+// src/plugins/{docker,monitoring,process-manager,proxmox}/i18n.ts) live outside this
+// tree entirely; their fr/ru/zh coverage is enforced separately by
+// src/plugins/pluginI18nParity.test.ts.
+
 function flatten(obj: Record<string, unknown>, prefix = ""): string[] {
   return Object.entries(obj).flatMap(([k, v]) => {
     if (k === "_meta") return [];

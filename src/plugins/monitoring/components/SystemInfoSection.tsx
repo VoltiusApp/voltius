@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
+import type { PluginSession } from "@/plugins/api";
+import type { MetricsService } from "../services";
 import type { SystemInfo } from "../types";
-import type { TerminalSession } from "@/types";
 
 function fmtMem(kb: number): string {
   if (kb >= 1024 * 1024) return `${(kb / 1024 / 1024).toFixed(0)} GB`;
@@ -24,10 +24,12 @@ function Row({ icon, label, value }: { icon: string; label: string; value: strin
 }
 
 export function SystemInfoSection({
+  service,
   session,
   defaultExpanded = false,
 }: {
-  session: TerminalSession;
+  service: MetricsService;
+  session: PluginSession;
   defaultExpanded?: boolean;
 }) {
   const [info, setInfo] = useState<SystemInfo | null>(null);
@@ -36,11 +38,8 @@ export function SystemInfoSection({
   useEffect(() => {
     let cancelled = false;
     setInfo(null);
-    invoke<SystemInfo>("get_connected_system_info", {
-      sessionId: session.id,
-      sessionType: session.type,
-      sessionName: session.connectionName,
-    })
+    service
+      .getSystemInfo(session.id, session.type, session.connectionName)
       .then((nextInfo) => {
         if (!cancelled) setInfo(nextInfo);
       })
@@ -51,7 +50,7 @@ export function SystemInfoSection({
     return () => {
       cancelled = true;
     };
-  }, [session.id, session.type, session.connectionName]);
+  }, [service, session.id, session.type, session.connectionName]);
 
   return (
     <div className="border-t border-(--t-border) shrink-0">

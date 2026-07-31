@@ -11,6 +11,15 @@ export default defineConfig(async () => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Not part of the host's production import graph (plugin bundles resolve this
+      // specifier at runtime via hostModules.ts, and vite.plugins.config.ts's
+      // `external` keeps it out of built bundles) — but the dev server transforms any
+      // file under root on direct request, independent of the module graph, and a
+      // first-party plugin's TS source (e.g. src/plugins/gist-sync/SettingsPage.tsx)
+      // is reachable that way. Without this, such a request 500s with an unresolved
+      // "@voltius/ui" specifier and the client shows a full-screen error overlay.
+      // Same target as tsconfig.json's `paths` and vitest.config.ts's alias.
+      "@voltius/ui": path.resolve(__dirname, "./src/plugins/ui.ts"),
     },
   },
   build: {

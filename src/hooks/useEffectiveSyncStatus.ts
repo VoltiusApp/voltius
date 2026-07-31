@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getSyncState, onSyncStateChange } from "@/services/sync";
-import { getGistSyncState, onGistSyncStateChange } from "@/plugins/gist-sync/sync-engine";
+import { useGistSyncState } from "@/hooks/useGistSyncState";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import { selectEffectiveSyncStatus, type EffectiveSync } from "@/services/syncStatus";
@@ -10,8 +10,7 @@ import { selectEffectiveSyncStatus, type EffectiveSync } from "@/services/syncSt
 export function useEffectiveSyncStatus(): EffectiveSync {
   const [syncState, setSyncState] = useState(getSyncState);
   useEffect(() => onSyncStateChange(() => setSyncState(getSyncState())), []);
-  const [gistSyncState, setGistSyncState] = useState(getGistSyncState);
-  useEffect(() => onGistSyncStateChange(() => setGistSyncState(getGistSyncState())), []);
+  const gistSyncState = useGistSyncState();
 
   const gistPluginEnabled = usePluginRegistryStore((s) => s.isEnabled("plugin-gist-sync", false));
   const accountMode = useSubscriptionStore((s) => s.accountMode);

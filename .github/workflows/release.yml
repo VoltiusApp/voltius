@@ -332,6 +332,45 @@ jobs:
           PY
           gh release upload "$TAG" latest.json -R "$REPO" --clobber
 
+  # Publishes the six first-party plugins (src/plugins/*) as their OWN GitHub
+  # Releases, separate from the app release above — this is what lets a plugin fix
+  # ship without cutting a full app release. The actual build/stage/hash-guard/
+  # publish logic lives in publish-plugins.yml (also directly workflow_dispatch-able
+  # for a plugin-only fix that doesn't need a full app release) so the two paths
+  # can't drift apart. An app release always publishes all six, built from the app
+  # tag, with each manifest's own minAppVersion (or a failure — see Task 3).
+  publish-plugins:
+    needs: [changelog, publish-tauri]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/publish-plugins.yml
+    with:
+      ref: ${{ inputs.tag }}
+      app_release: true
+    secrets: inherit
+
+  # The emitted plugins.json fragment is attached to the app release for the
+  # record — merging it into voltiusApp/marketplace's plugins.json is a manual
+  # follow-up this workflow cannot do (separate repo).
+  attach-plugin-catalog:
+    needs: publish-plugins
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download the catalogue fragment
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.publish-plugins.outputs.catalog-artifact }}
+          path: dist
+
+      - name: Attach the catalogue fragment to the app release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+        run: gh release upload "$TAG" dist/plugin-catalog.json -R "$REPO" --clobber
+
   checksums:
     needs: [publish-tauri, publish-android]
     runs-on: ubuntu-latest

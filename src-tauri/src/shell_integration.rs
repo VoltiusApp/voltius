@@ -487,6 +487,17 @@ true"#,
     encode_wrapper(&script)
 }
 
+/// Client count no real session reaches; keeps the `-le` guard in
+/// `persistent_kill_command` always true so a manual kill destroys the
+/// multiplexer regardless of who is attached. Stays under 2^63 for POSIX `[ ]`.
+const FORCE_KILL_CLIENTS: usize = 1_000_000;
+
+/// Unconditional variant of `persistent_kill_command` for an explicit,
+/// user-initiated destroy of a session this device is not attached to.
+pub fn force_kill_command(session_id: &str) -> String {
+    persistent_kill_command(&tmux_session_key(session_id), FORCE_KILL_CLIENTS)
+}
+
 /// Same shape as `ssh_exec_command` but encodes the WSL-flavored wrapper,
 /// which emits OSC 7 with the distro name so the frontend can route the
 /// panel to a `\\wsl.localhost\<distro>\` UNC path.
@@ -679,6 +690,16 @@ mod tests {
         // Confirmed kill (or already gone) prints the sentinel for the tombstone.
         assert!(attached.contains("VOLTIUS_KILLED"));
         assert!(attached.trim_end().ends_with("true"));
+    }
+
+    #[test]
+    fn force_kill_command_ignores_attached_clients() {
+        let decoded = decode_bootstrap(&force_kill_command("s1"));
+        // Unconditional: the client-count guard uses the force threshold.
+        assert!(decoded.contains("-le 1000000"));
+        assert!(decoded.contains("tmux -L voltius kill-session -t voltius_s1"));
+        assert!(decoded.contains("screen -S voltius_s1 -X quit"));
+        assert!(decoded.contains("VOLTIUS_KILLED"));
     }
 
     #[test]

@@ -62,11 +62,25 @@ pub fn parse_lxc_list(output: &str) -> Vec<LxcContainer> {
     result
 }
 
+/// Strip `pct listsnapshot`'s tree decoration from the start of a line.
+///
+/// PVE has emitted two shapes; both must land on the bare name, because the parsed
+/// name is what rollback/delete send back to the host:
+///   `-snap1                                   (older)
+///   `-> snap1                                 (PVE 9.x)
+/// Snapshot names are `[A-Za-z][A-Za-z0-9_-]*`, so no real name can begin with any
+/// of these characters and over-stripping is not a risk.
+fn strip_tree_prefix(line: &str) -> &str {
+    line.trim_start_matches(|c: char| {
+        c.is_whitespace() || c == '`' || c == '-' || c == '\'' || c == '>'
+    })
+}
+
 /// Parse the output of `pct listsnapshot <vmid>`.
-/// Output is a tree with leading backtick/dash/space decoration:
-///   `-current                             You are here!
-///   `-snap1      2024-01-01 00:00:00  A description
-///     `-child    2024-01-02 00:00:00  Child snapshot
+/// Output is a tree with leading backtick/dash/arrow/space decoration:
+///   `-> current                           You are here!
+///   `-> snap1    2024-01-01 00:00:00  A description
+///     `-> child  2024-01-02 00:00:00  Child snapshot
 pub fn parse_lxc_snapshots(output: &str) -> Vec<LxcSnapshot> {
     let mut result = Vec::new();
     for line in output.lines() {
@@ -74,9 +88,7 @@ pub fn parse_lxc_snapshots(output: &str) -> Vec<LxcSnapshot> {
             continue;
         }
         if line.contains("You are here!") {
-            let stripped = line.trim_start_matches(|c: char| {
-                c.is_whitespace() || c == '`' || c == '-' || c == '\''
-            });
+            let stripped = strip_tree_prefix(line);
             let name = stripped
                 .split_whitespace()
                 .next()
@@ -90,8 +102,7 @@ pub fn parse_lxc_snapshots(output: &str) -> Vec<LxcSnapshot> {
             });
             continue;
         }
-        let stripped = line
-            .trim_start_matches(|c: char| c.is_whitespace() || c == '`' || c == '-' || c == '\'');
+        let stripped = strip_tree_prefix(line);
         let tokens: Vec<&str> = stripped.split_whitespace().collect();
         if tokens.is_empty() {
             continue;
@@ -177,6 +188,35 @@ mod tests {
         assert_eq!(snaps[2].name, "snap1-child");
         assert_eq!(snaps[2].timestamp.as_deref(), Some("2024-01-02 12:30:00"));
         assert_eq!(snaps[2].description, "Child snapshot");
+    }
+
+    // Real `pct listsnapshot` output from PVE 9.0.9 — the arrow form. Getting the
+    // name wrong here is silent: rollback/delete send a name that matches nothing
+    // and the host reports no error (VoltiusApp/voltius#83).
+    #[test]
+    fn parses_pct_listsnapshot_arrow_tree_form() {
+        let output = "`-> gatetest                    2026-07-30 19:37:22     voltius live gate\n \
+                      `-> current                                             You are here!\n";
+        let snaps = parse_lxc_snapshots(output);
+        assert_eq!(snaps.len(), 2);
+        assert_eq!(snaps[0].name, "gatetest");
+        assert_eq!(snaps[0].timestamp.as_deref(), Some("2026-07-30 19:37:22"));
+        assert_eq!(snaps[0].description, "voltius live gate");
+        assert!(!snaps[0].is_current);
+        assert!(snaps[1].is_current);
+        assert_eq!(snaps[1].name, "current");
+    }
+
+    #[test]
+    fn snapshot_name_never_keeps_tree_decoration() {
+        let output = "`-> snap1  2024-01-01 00:00:00  d\n  `-> nested  2024-01-02 00:00:00  d\n";
+        for snap in parse_lxc_snapshots(output) {
+            assert!(
+                !snap.name.contains('>') && !snap.name.contains('`') && !snap.name.is_empty(),
+                "tree decoration leaked into snapshot name: {:?}",
+                snap.name,
+            );
+        }
     }
 
     #[test]

@@ -3,7 +3,13 @@ import path from "path";
 
 export default defineConfig({
   resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+      // First-party plugin source imports this as a bare specifier (resolved to a
+      // host module at runtime via hostModules.ts); map it to the real module here
+      // so first-party plugin unit tests can import it directly, same shared React.
+      "@voltius/ui": path.resolve(__dirname, "./src/plugins/ui.ts"),
+    },
   },
   test: {
     // Per-file isolation (vitest default `isolate: true`) is load-bearing: several team

@@ -17,7 +17,8 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@voltius/ui": ["src/plugins/ui.ts"]
     }
   },
   "include": ["src"]

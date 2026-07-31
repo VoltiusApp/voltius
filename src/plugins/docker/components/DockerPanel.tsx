@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
-import { useSessionStore } from "@/stores/sessionStore";
-import { useIsAndroid } from "@/utils/platform";
+import { useActiveSession } from "../useActiveSession";
 import { useDockerList } from "../useDockerList";
 import {
+  createDockerListService,
   dockerListContainers,
   dockerListImages,
   dockerListNetworks,
@@ -23,6 +23,14 @@ import { StackList } from "./StackList";
 import { VolumeList } from "./VolumeList";
 import type { DockerContainer } from "../types";
 import { matchContainer, matchImage, matchVolume, matchNetwork, matchStack } from "../filter";
+import type { DockerTarget } from "@/plugins/api";
+
+/** Android restricts /proc and can't exec a local docker CLI — only remote (SSH)
+ *  docker works. No host platform primitive is exposed to plugins, so this checks
+ *  the WebView UA directly; it is UX gating only, same as the host's own useIsAndroid. */
+function isAndroidPlatform(): boolean {
+  return typeof navigator !== "undefined" && /android/i.test(navigator.userAgent);
+}
 
 type Action =
   | { type: "SET_VIEW"; view: DockerView }
@@ -124,6 +132,9 @@ function reducer(state: DockerState, action: Action): DockerState {
   }
 }
 
+// Module-level: stateless, so a single instance is fine to share across renders.
+const dockerListService = createDockerListService();
+
 const TABS: { id: DockerView; label: string; icon: string }[] = [
   { id: "containers", label: "Containers", icon: "lucide:box" },
   { id: "images", label: "Images", icon: "lucide:layers" },
@@ -133,8 +144,7 @@ const TABS: { id: DockerView; label: string; icon: string }[] = [
 ];
 
 export function DockerPanel() {
-  const { sessions, activeSessionId } = useSessionStore();
-  const activeSession = sessions.find((s) => s.id === activeSessionId);
+  const activeSession = useActiveSession();
   const [state, dispatch] = useReducer(reducer, initial);
   const [sysPruning, setSysPruning] = useState(false);
   const [sysPruneMsg, setSysPruneMsg] = useState<string | null>(null);
@@ -150,12 +160,13 @@ export function DockerPanel() {
   const isRemote = activeSession?.type === "ssh";
   const sessionId = activeSession?.id ?? "";
   const localShell = activeSession?.type === "local" ? (activeSession.localShell ?? null) : null;
+  const target: DockerTarget = { sessionId, isRemote, localShell };
   // Android can't exec a local docker CLI — only remote (SSH) docker is supported.
-  const isAndroid = useIsAndroid();
+  const isAndroid = isAndroidPlatform();
 
   // The exec-into-terminal flow lives in the shared hook; the list polling stays
   // reducer-driven here (enabled: false) so desktop behavior is byte-identical.
-  const { openExecTerminal: handleOpenTerminal } = useDockerList(activeSession, { enabled: false });
+  const { openExecTerminal: handleOpenTerminal } = useDockerList(dockerListService, activeSession ?? undefined, { enabled: false });
 
   const fetchForView = useCallback(
     async (view: DockerView) => {
@@ -165,31 +176,31 @@ export function DockerPanel() {
       try {
         switch (view) {
           case "containers": {
-            const containers = await dockerListContainers(sessionId, isRemote, localShell, true);
+            const containers = await dockerListContainers(target);
             dispatch({ type: "SET_CONTAINERS", containers });
             break;
           }
           case "images": {
-            const images = await dockerListImages(sessionId, isRemote, localShell);
+            const images = await dockerListImages(target);
             dispatch({ type: "SET_IMAGES", images });
             break;
           }
           case "volumes": {
-            const volumes = await dockerListVolumes(sessionId, isRemote, localShell);
+            const volumes = await dockerListVolumes(target);
             dispatch({ type: "SET_VOLUMES", volumes });
             break;
           }
           case "networks": {
-            const networks = await dockerListNetworks(sessionId, isRemote, localShell);
+            const networks = await dockerListNetworks(target);
             dispatch({ type: "SET_NETWORKS", networks });
             break;
           }
           case "stacks": {
-            const stacks = await dockerListStacks(sessionId, isRemote, localShell);
+            const stacks = await dockerListStacks(target);
             dispatch({ type: "SET_STACKS", stacks });
             const selectedStackName = selectedStackNameRef.current;
             if (selectedStackName) {
-              const services = await dockerListStackServices(sessionId, isRemote, localShell, selectedStackName);
+              const services = await dockerListStackServices(target, selectedStackName);
               dispatch({ type: "SET_STACK_SERVICES", services });
             }
             break;
@@ -202,7 +213,7 @@ export function DockerPanel() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeSessionId, activeSession?.status],
+    [activeSession?.id, activeSession?.status],
   );
 
   // Fetch + start polling when view changes (not logs)
@@ -223,7 +234,7 @@ export function DockerPanel() {
       if (pollRef.current) clearInterval(pollRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.view, activeSessionId, activeSession?.status]);
+  }, [state.view, activeSession?.id, activeSession?.status]);
 
   useEffect(() => {
     if (state.searchOpen) searchInputRef.current?.focus();
@@ -267,8 +278,8 @@ export function DockerPanel() {
     const streamKey = isStackLogs ? state.logsStackName! : state.logsContainerId!;
     const displayName = isStackLogs ? state.logsStackName! : logsContainerNameRef.current;
     const startStream = isStackLogs
-      ? (tail: number) => dockerStartStackLogStream(sessionId, isRemote, localShell, state.logsStackName!, tail)
-      : (tail: number) => dockerStartLogStream(sessionId, isRemote, localShell, state.logsContainerId!, tail);
+      ? (tail: number) => dockerStartStackLogStream(target, state.logsStackName!, tail)
+      : (tail: number) => dockerStartLogStream(target, state.logsContainerId!, tail);
     return (
       <LogsView
         streamKey={streamKey}
@@ -316,7 +327,7 @@ export function DockerPanel() {
     dispatch({ type: "SELECT_STACK", stackName });
     dispatch({ type: "SET_LOADING", loading: true });
     try {
-      const services = await dockerListStackServices(sessionId, isRemote, localShell, stackName);
+      const services = await dockerListStackServices(target, stackName);
       dispatch({ type: "SET_STACK_SERVICES", services });
     } catch (e) {
       dispatch({ type: "SET_ERROR", error: String(e) });
@@ -381,7 +392,7 @@ export function DockerPanel() {
               setSysPruning(true);
               setSysPruneMsg(null);
               try {
-                const msg = await dockerSystemPrune(sessionId, isRemote, localShell);
+                const msg = await dockerSystemPrune(target);
                 setSysPruneMsg(msg);
                 fetchForView(state.view);
               } catch (e) {

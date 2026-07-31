@@ -506,7 +506,12 @@
         "unverified": "未验证",
         "update": "更新",
         "updating": "正在更新…",
-        "updateTitle": "更新到 v{{version}}"
+        "updateTitle": "更新到 v{{version}}",
+        "confirmUninstallSeeded": {
+          "title": "卸载 {{name}}？",
+          "message": "{{name}} 是内置插件。卸载后会将其从列表中移除——你可以随时在“浏览”标签页中重新安装。",
+          "confirm": "卸载"
+        }
       },
       "browse": {
         "searchPlaceholder": "搜索插件…",
@@ -524,11 +529,13 @@
         "uninstall": "卸载",
         "installing": "正在安装…",
         "install": "安装",
-        "updateBadge": "有可用更新"
+        "updateBadge": "有可用更新",
+        "requiresVersion": "需要 v{{version}} 或更高版本"
       },
       "install": {
         "integrityFailed": "插件包未通过完整性校验——已阻止安装。",
-        "failed": "安装插件失败。"
+        "failed": "安装插件失败。",
+        "versionUnsupported": "此插件需要应用版本 {{version}} 或更高版本。"
       },
       "permissionModal": {
         "installTitle": "安装 {{name}}？",
@@ -540,6 +547,8 @@
         "installConfirm": "安装",
         "updateConfirm": "更新",
         "permissions": {
+          "readOnlyHeading": "只读访问",
+          "readOnlyWarning": "插件可以查看这些内容，但无法据此修改或删除任何数据。",
           "dangerHeading": "高风险权限",
           "dangerWarning": "这些权限会赋予插件影响深远的访问能力。请仅授予您信任的插件。",
           "terminalRead": {
@@ -561,6 +570,34 @@
           "keychainWrite": {
             "label": "在您的设备上存储密钥",
             "description": "将密钥保存到您设备的操作系统密钥链中。"
+          },
+          "metricsRead": {
+            "label": "读取系统指标",
+            "description": "读取已连接主机的 CPU、内存、磁盘和网络统计信息。"
+          },
+          "dockerRead": {
+            "label": "读取 Docker 信息",
+            "description": "列出容器、镜像、卷、网络和堆栈，并读取容器日志。日志中可能包含密码或令牌。"
+          },
+          "processesRead": {
+            "label": "读取进程信息",
+            "description": "列出已连接主机上正在运行的进程。"
+          },
+          "processesManage": {
+            "label": "管理进程",
+            "description": "列出并终止已连接主机上正在运行的进程。"
+          },
+          "dockerManage": {
+            "label": "管理 Docker",
+            "description": "列出、启动、停止和删除容器、镜像、卷、网络和堆栈。这可能会永久销毁数据。"
+          },
+          "proxmoxRead": {
+            "label": "读取 Proxmox 信息",
+            "description": "列出 LXC 容器及其快照。"
+          },
+          "proxmoxManage": {
+            "label": "管理 Proxmox",
+            "description": "列出并控制 LXC 容器，包括创建、删除和回滚快照。这可能会永久销毁数据。"
           },
           "sessionsRead": {
             "label": "查看您的会话",
@@ -617,6 +654,10 @@
           "http": {
             "label": "访问网络",
             "description": "向外部服务发起网络请求。"
+          },
+          "cryptoDerive": {
+            "label": "派生加密密钥",
+            "description": "根据您提供的密码短语派生加密密钥。不会授予对您已存储机密的访问权限。"
           },
           "fs": {
             "label": "访问文件",

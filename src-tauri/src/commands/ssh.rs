@@ -244,3 +244,87 @@ pub async fn ssh_exec_command(
 
     Ok(String::from_utf8_lossy(&output).to_string())
 }
+
+#[tauri::command]
+pub async fn ssh_kill_persistent(
+    known_hosts: tauri::State<'_, Arc<KnownHostsStore>>,
+    host: String,
+    port: u16,
+    username: String,
+    password: Option<String>,
+    private_key: Option<String>,
+    passphrase: Option<String>,
+    session_id: String,
+) -> Result<bool, String> {
+    use russh::client as russh_client;
+    use tokio::io::AsyncReadExt;
+    use tokio::time::{timeout, Duration};
+
+    let config = russh_client::Config {
+        ..Default::default()
+    };
+    let (ssh_client, rejection_reason) =
+        client::SshClient::new(host.clone(), port, Arc::clone(&*known_hosts));
+    let mut handle =
+        match russh_client::connect(Arc::new(config), (host.as_str(), port), ssh_client).await {
+            Ok(h) => h,
+            Err(e) => {
+                let reason = rejection_reason.lock().await.take();
+                return Err(reason.unwrap_or_else(|| format!("Connection failed: {}", e)));
+            }
+        };
+
+    let authenticated = if let Some(key_str) = private_key {
+        let key_pair = russh::keys::decode_secret_key(&key_str, passphrase.as_deref())
+            .map_err(|e| format!("Invalid private key: {}", e))?;
+        let key = russh::keys::PrivateKeyWithHashAlg::new(
+            Arc::new(key_pair),
+            Some(russh::keys::ssh_key::HashAlg::Sha256),
+        );
+        handle
+            .authenticate_publickey(&username, key)
+            .await
+            .map_err(|e| format!("Auth failed: {}", e))?
+    } else if let Some(pwd) = password {
+        handle
+            .authenticate_password(&username, &pwd)
+            .await
+            .map_err(|e| format!("Auth failed: {}", e))?
+    } else {
+        return Err("No authentication method provided".into());
+    };
+
+    if !authenticated.success() {
+        return Err("Authentication failed".into());
+    }
+
+    let command = crate::shell_integration::force_kill_command(&session_id);
+
+    let channel = handle
+        .channel_open_session()
+        .await
+        .map_err(|e| format!("Channel error: {}", e))?;
+    channel
+        .exec(true, command.as_str())
+        .await
+        .map_err(|e| format!("Exec error: {}", e))?;
+
+    let mut stream = channel.into_stream();
+    let mut output = Vec::new();
+    let _ = timeout(Duration::from_secs(15), async {
+        let mut buf = [0u8; 256];
+        loop {
+            match stream.read(&mut buf).await {
+                Ok(0) | Err(_) => break,
+                Ok(n) => output.extend_from_slice(&buf[..n]),
+            }
+        }
+    })
+    .await;
+
+    let _ = handle
+        .disconnect(russh::Disconnect::ByApplication, "Done", "en")
+        .await;
+
+    Ok(String::from_utf8_lossy(&output).contains("VOLTIUS_KILLED"))
+}

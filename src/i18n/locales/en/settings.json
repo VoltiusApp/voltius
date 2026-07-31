@@ -675,7 +675,12 @@
         "unverified": "Unverified",
         "update": "Update",
         "updating": "Updating…",
-        "updateTitle": "Update to v{{version}}"
+        "updateTitle": "Update to v{{version}}",
+        "confirmUninstallSeeded": {
+          "title": "Uninstall {{name}}?",
+          "message": "{{name}} is a built-in plugin. Uninstalling removes it from your list — you can reinstall it any time from the Browse tab.",
+          "confirm": "Uninstall"
+        }
       },
       "browse": {
         "searchPlaceholder": "Search plugins…",
@@ -693,11 +698,13 @@
         "uninstall": "Uninstall",
         "installing": "Installing…",
         "install": "Install",
-        "updateBadge": "update available"
+        "updateBadge": "update available",
+        "requiresVersion": "Requires v{{version}} or later"
       },
       "install": {
         "integrityFailed": "Plugin bundle failed its integrity check — install blocked.",
-        "failed": "Failed to install plugin."
+        "failed": "Failed to install plugin.",
+        "versionUnsupported": "This plugin requires app version {{version}} or later."
       },
       "permissionModal": {
         "installTitle": "Install {{name}}?",
@@ -709,6 +716,8 @@
         "installConfirm": "Install",
         "updateConfirm": "Update",
         "permissions": {
+          "readOnlyHeading": "Read-only access",
+          "readOnlyWarning": "The plugin can see this, but cannot change or delete anything with it.",
           "dangerHeading": "Powerful permissions",
           "dangerWarning": "These give the plugin far-reaching access. Grant them only to a plugin you trust.",
           "terminalRead": { "label": "Read terminal output", "description": "Read the visible output and scrollback of your terminal sessions." },
@@ -716,6 +725,13 @@
           "terminalWrite": { "label": "Type into your terminals", "description": "Send input and run commands in your terminal sessions — as if typing them yourself." },
           "keychainRead": { "label": "Read its own stored secrets", "description": "Read secrets this plugin previously stored in your device keychain." },
           "keychainWrite": { "label": "Store secrets on your device", "description": "Save secrets to your device's OS keychain." },
+          "metricsRead": { "label": "Read system metrics", "description": "Read CPU, memory, disk and network statistics from your connected hosts." },
+          "dockerRead": { "label": "Read Docker information", "description": "List containers, images, volumes, networks and stacks, and read container logs. Logs can contain passwords or tokens." },
+          "processesRead": { "label": "Read process information", "description": "List running processes on your connected hosts." },
+          "processesManage": { "label": "Manage processes", "description": "List and kill running processes on your connected hosts." },
+          "dockerManage": { "label": "Manage Docker", "description": "List, start, stop and delete containers, images, volumes, networks and stacks. This can permanently destroy data." },
+          "proxmoxRead": { "label": "Read Proxmox information", "description": "List LXC containers and their snapshots." },
+          "proxmoxManage": { "label": "Manage Proxmox", "description": "List and control LXC containers, including creating, deleting and rolling back snapshots. This can permanently destroy data." },
           "sessionsRead": { "label": "See your sessions", "description": "See which terminal sessions are open and when they change." },
           "sessionsWrite": { "label": "Open and close sessions", "description": "Open new terminal sessions and close existing ones." },
           "connectionsRead": { "label": "Read your connections", "description": "Read your saved connections and their details." },
@@ -730,6 +746,7 @@
           "syncWrite": { "label": "Write sync data", "description": "Store and change data synced across your devices." },
           "storage": { "label": "Store plugin data", "description": "Save this plugin's own settings and data on your device." },
           "http": { "label": "Access the network", "description": "Make network requests to external services." },
+          "cryptoDerive": { "label": "Derive encryption keys", "description": "Derive an encryption key from a passphrase you provide. Does not grant access to your stored secrets." },
           "fs": { "label": "Access files", "description": "Read and write files on your device." },
           "ui": { "label": "Show interface elements", "description": "Add its own panels and controls to the app." },
           "notifications": { "label": "Show notifications", "description": "Show you notifications and toasts." },

@@ -1,13 +1,20 @@
+import { useMemo } from "react";
 import { Icon } from "@iconify/react";
-import { useSessionStore } from "@/stores/sessionStore";
+import { getProxmoxApi } from "../runtime";
+import { createProxmoxService } from "../services";
+import { useActiveSession } from "../useActiveSession";
+import { useIsProxmoxHost } from "../useIsProxmoxHost";
 import { useProxmox } from "../useProxmox";
 import { LxcList } from "./LxcList";
 import { SnapshotList } from "./SnapshotList";
 
 export function ProxmoxPanel() {
-  const { sessions, activeSessionId } = useSessionStore();
-  const activeSession = sessions.find((s) => s.id === activeSessionId);
-  const px = useProxmox(activeSession);
+  const api = getProxmoxApi();
+  const activeSession = useActiveSession();
+  const service = useMemo(() => createProxmoxService(api!.proxmox), [api]);
+  const isProxmoxHost = useIsProxmoxHost(api, activeSession);
+
+  const px = useProxmox(service, activeSession ?? undefined, isProxmoxHost === true);
   const { state } = px;
 
   if (!px.ready) {
@@ -18,7 +25,18 @@ export function ProxmoxPanel() {
     );
   }
 
-  if (!px.isProxmox) {
+  // Still resolving api.connections.get for this session — a real IPC round
+  // trip, not a microtask. Rendering the "not detected" placeholder here would
+  // flash it on every mount/session-change before flipping to the real panel.
+  if (isProxmoxHost === null) {
+    return (
+      <div className="flex items-center justify-center h-full opacity-40">
+        <Icon icon="lucide:loader-circle" width={16} className="animate-spin text-(--t-text-dim)" />
+      </div>
+    );
+  }
+
+  if (!isProxmoxHost) {
     return (
       <div
         className="flex h-full items-center justify-center px-6 text-center"
@@ -44,6 +62,16 @@ export function ProxmoxPanel() {
 
   const openSnapshots = (vmid: number, vmName: string) => {
     px.openSnapshots(vmid, vmName);
+  };
+
+  const onShell = async (vmid: number, vmName: string) => {
+    try {
+      await px.openShell(vmid, vmName);
+      api?.ui.setActiveNav("terminal");
+    } catch (e) {
+      console.error("[proxmox] open shell failed:", e);
+      api?.notifications.toast(`Shell failed: ${e}`, { severity: "error" });
+    }
   };
 
   return (
@@ -74,12 +102,9 @@ export function ProxmoxPanel() {
         {state.view === "containers" && !state.error && (
           <LxcList
             containers={state.containers}
-            sessionId={px.sessionId}
-            isRemote={px.isRemote}
-            localShell={px.localShell}
+            onAction={px.lxcAction}
             onSnapshots={openSnapshots}
-            onShell={px.openShell}
-            onRefresh={px.fetchContainers}
+            onShell={onShell}
           />
         )}
         {state.view === "snapshots" && state.selectedVmid !== null && (
@@ -87,15 +112,14 @@ export function ProxmoxPanel() {
             vmid={state.selectedVmid}
             vmName={state.selectedVmName}
             snapshots={state.snapshots}
-            sessionId={px.sessionId}
-            isRemote={px.isRemote}
-            localShell={px.localShell}
             snapshotInput={state.snapshotInput}
             snapshotInputDesc={state.snapshotInputDesc}
             onSnapshotInputChange={(v) => px.setSnapshotInput(v)}
             onSnapshotDescChange={(v) => px.setSnapshotDesc(v)}
+            onCreate={px.createSnapshot}
+            onRollback={px.rollbackSnapshot}
+            onDelete={px.deleteSnapshot}
             onBack={() => px.closeSnapshots()}
-            onRefresh={() => state.selectedVmid !== null && px.fetchSnapshots(state.selectedVmid)}
           />
         )}
       </div>

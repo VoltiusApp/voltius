@@ -19,7 +19,7 @@ export function NetworkList({ networks, sessionId, isRemote, localShell, onRefre
     setPruning(true);
     setPruneMsg(null);
     try {
-      const msg = await dockerPruneNetworks(sessionId, isRemote, localShell);
+      const msg = await dockerPruneNetworks({ sessionId, isRemote, localShell });
       setPruneMsg(msg);
       onRefresh();
     } catch (e) {
@@ -89,7 +89,7 @@ function NetworkRow({
   const remove = async () => {
     setBusy(true);
     try {
-      await dockerRemoveNetwork(sessionId, isRemote, localShell, network.id);
+      await dockerRemoveNetwork({ sessionId, isRemote, localShell }, network.id);
       onRefresh();
     } catch (e) {
       console.error("[docker] remove network failed:", e);

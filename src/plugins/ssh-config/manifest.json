@@ -1,0 +1,21 @@
+{
+  "id": "plugin-ssh-config",
+  "name": "SSH Config Sync",
+  "version": "1.0.0",
+  "minAppVersion": "0.14.0",
+  "description": "Auto-syncs hosts from ~/.ssh/config. Connections are tagged 'ssh-config'.",
+  "permissions": [
+    "connections:read",
+    "connections:write",
+    "keys:read",
+    "keys:write",
+    "identities:read",
+    "identities:write",
+    "fs",
+    "settings-page",
+    "notifications",
+    "storage"
+  ],
+  "defaultEnabled": true,
+  "desktopOnly": true
+}

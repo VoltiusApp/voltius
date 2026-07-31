@@ -29,7 +29,7 @@ export async function pullAndMaybeRecreate(opts: {
   recreate: boolean;
 }): Promise<void> {
   const { sessionId, isRemote, localShell, image, recreate } = opts;
-  const result = await dockerUpdateImage(sessionId, isRemote, localShell, image, recreate);
+  const result = await dockerUpdateImage({ sessionId, isRemote, localShell }, image, recreate);
   const api = getDockerApi();
 
   if (!recreate) {
