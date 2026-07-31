@@ -126,7 +126,11 @@ fn restore_dest(dir: &std::path::Path, filename: &str) -> Option<std::path::Path
     }
 
     if let Some(sub) = filename.strip_prefix(PLUGIN_META_PREFIX) {
-        return Some(dir.join("plugins").join(PLUGIN_META_ID).join(plain_leaf(sub)?));
+        return Some(
+            dir.join("plugins")
+                .join(PLUGIN_META_ID)
+                .join(plain_leaf(sub)?),
+        );
     }
     if let Some(sub) = filename.strip_prefix(PLUGIN_DATA_PREFIX) {
         return Some(dir.join("plugin-data").join(plain_leaf(sub)?));
