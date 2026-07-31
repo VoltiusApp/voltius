@@ -2,6 +2,37 @@ use crate::storage::config::config_dir;
 use reqwest;
 use std::path::PathBuf;
 
+/// Charset guard for a `<id>` path component under `plugins/`.
+///
+/// Deliberately WIDER than the manifest-id rule the TS layer enforces
+/// (`src/plugins/pluginId.ts`): this one also has to admit the reserved `__meta__`
+/// directory — the installed-plugin list, marketplace sources and seeded tombstones
+/// all reach these commands with `id: "__meta__"` — which the TS rule rejects
+/// precisely so no plugin can claim it. Both layers reject separators and traversal.
+///
+/// `\` matters here even though the old guard omitted it: it is a path separator on
+/// Windows, so `a\..\..\evil` escaped the plugins directory there.
+fn validate_id(id: &str) -> Result<(), String> {
+    let ok = !id.is_empty()
+        && id.len() <= 64
+        && id != "."
+        && id != ".."
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '-');
+    if ok {
+        Ok(())
+    } else {
+        Err("invalid path component".to_string())
+    }
+}
+
+/// Same rule for the `<filename>` component. Every caller passes a static name
+/// (`manifest.json`, `index.js`, `voltius.css`, the `__meta__` json files).
+fn validate_filename(filename: &str) -> Result<(), String> {
+    validate_id(filename)
+}
+
 fn plugins_dir() -> PathBuf {
     let dir = config_dir().join("plugins");
     std::fs::create_dir_all(&dir).ok();
@@ -32,9 +63,8 @@ pub fn plugins_list_installed() -> Result<Vec<String>, String> {
 #[tauri::command]
 pub fn plugin_read_file(id: String, filename: String) -> Result<String, String> {
     // Prevent path traversal
-    if id.contains("..") || id.contains('/') || filename.contains("..") || filename.contains('/') {
-        return Err("invalid path component".to_string());
-    }
+    validate_id(&id)?;
+    validate_filename(&filename)?;
     let path = plugins_dir().join(&id).join(&filename);
     std::fs::read_to_string(path).map_err(|e| e.to_string())
 }
@@ -42,9 +72,8 @@ pub fn plugin_read_file(id: String, filename: String) -> Result<String, String> 
 /// Write a file into `$APP_DATA/plugins/<id>/<filename>`
 #[tauri::command]
 pub fn plugin_write_file(id: String, filename: String, content: String) -> Result<(), String> {
-    if id.contains("..") || id.contains('/') || filename.contains("..") || filename.contains('/') {
-        return Err("invalid path component".to_string());
-    }
+    validate_id(&id)?;
+    validate_filename(&filename)?;
     let dir = plugins_dir().join(&id);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     std::fs::write(dir.join(&filename), content).map_err(|e| e.to_string())
@@ -53,9 +82,7 @@ pub fn plugin_write_file(id: String, filename: String, content: String) -> Resul
 /// Delete `$APP_DATA/plugins/<id>/` and all contents
 #[tauri::command]
 pub fn plugin_delete(id: String) -> Result<(), String> {
-    if id.contains("..") || id.contains('/') {
-        return Err("invalid path component".to_string());
-    }
+    validate_id(&id)?;
     let path = plugins_dir().join(&id);
     if path.exists() {
         std::fs::remove_dir_all(path).map_err(|e| e.to_string())?;
@@ -81,9 +108,8 @@ pub async fn plugin_fetch_url(url: String) -> Result<String, String> {
 /// (used by the frontend to build a `convertFileSrc` URL)
 #[tauri::command]
 pub fn plugin_resolve_path(id: String, filename: String) -> Result<String, String> {
-    if id.contains("..") || id.contains('/') || filename.contains("..") || filename.contains('/') {
-        return Err("invalid path component".to_string());
-    }
+    validate_id(&id)?;
+    validate_filename(&filename)?;
     let path = plugins_dir().join(&id).join(&filename);
     path.to_str()
         .map(|s| s.to_string())
@@ -131,9 +157,68 @@ pub fn plugin_seeded_read(
     id: String,
     filename: String,
 ) -> Result<String, String> {
-    if id.contains("..") || id.contains('/') || filename.contains("..") || filename.contains('/') {
-        return Err("invalid path component".to_string());
-    }
+    validate_id(&id)?;
+    validate_filename(&filename)?;
     let path = seeded_dir(&app)?.join(&id).join(&filename);
     std::fs::read_to_string(path).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepts_real_plugin_ids_and_the_reserved_meta_dir() {
+        for id in [
+            "plugin-docker",
+            "plugin-ssh-config",
+            "acme.theme",
+            "my_plugin",
+            // The installed-plugin list, marketplace sources and seeded tombstones all
+            // arrive here under this id. Rejecting it would break sync and the
+            // installed-plugin list, not just a hostile plugin.
+            "__meta__",
+        ] {
+            assert!(validate_id(id).is_ok(), "should accept {id:?}");
+        }
+    }
+
+    #[test]
+    fn accepts_the_filenames_callers_actually_use() {
+        for name in [
+            "manifest.json",
+            "index.js",
+            "voltius.css",
+            "installed-plugins.json",
+            "removed-seeded.json",
+        ] {
+            assert!(validate_filename(name).is_ok(), "should accept {name:?}");
+        }
+    }
+
+    #[test]
+    fn rejects_traversal_and_separators() {
+        for id in [
+            "..",
+            ".",
+            "",
+            "../evil",
+            "a/b",
+            // Windows separator — the previous guard checked only '/', so this escaped
+            // the plugins directory there.
+            "a\\..\\..\\evil",
+            "a\\b",
+            "foo:x",
+            "a b",
+            "nul\0byte",
+        ] {
+            assert!(validate_id(id).is_err(), "should reject {id:?}");
+        }
+    }
+
+    #[test]
+    fn rejects_an_over_long_id() {
+        assert!(validate_id(&"a".repeat(64)).is_ok());
+        assert!(validate_id(&"a".repeat(65)).is_err());
+    }
 }

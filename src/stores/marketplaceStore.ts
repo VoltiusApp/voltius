@@ -8,6 +8,7 @@ import type { PluginManifest } from "@/plugins/api";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { appFetch } from "@/services/http";
 import { resolveVerifiedHash } from "@/plugins/integrity";
+import { assertValidPluginId } from "@/plugins/pluginId";
 import { satisfiesMinAppVersion, MinAppVersionError, beatsSeededVersion, isParsableVersion } from "@/plugins/version";
 import { useSeededTombstoneStore, loadSeededEntries } from "@/stores/seededTombstoneStore";
 
@@ -343,6 +344,10 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
   },
 
   async installPlugin(plugin: MarketplacePlugin, reviewedManifestText?: string) {
+    // The catalogue id is attacker-controlled and becomes the on-disk directory
+    // name, so it is checked before any path is built from it. The manifest id is
+    // checked separately by loadPlugin, since the two are not required to match.
+    assertValidPluginId(plugin.id);
     const { installing, installedMeta } = get();
     if (installing.has(plugin.id)) return;
 

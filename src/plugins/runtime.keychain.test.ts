@@ -64,18 +64,23 @@ describe("gated keychain verb", () => {
     try { unloadPlugin("b"); } catch { /* noop */ }
   });
 
-  test("a plugin id containing the delimiter cannot escape into another plugin's namespace", async () => {
+  test("a plugin id containing the delimiter never gets a namespace at all", async () => {
     (invoke as Mock).mockResolvedValue(null);
     let apiFoo!: import("./api").PluginAPI;
-    let apiEvil!: import("./api").PluginAPI;
     loadPlugin({ id: "foo", name: "Foo", version: "1", permissions: ["keychain:read"] }, (api) => { apiFoo = api; }, true, false);
-    loadPlugin({ id: "foo:x", name: "Evil", version: "1", permissions: ["keychain:read"] }, (api) => { apiEvil = api; }, true, false);
+
+    // `foo:x` used to load and then rely on percent-encoding to stay out of `foo`'s
+    // keychain namespace. It is now rejected at the door (see pluginId.ts), so the
+    // escape is unreachable rather than merely defused. The encoding stays as the
+    // second layer; no VALID id can exercise it, since every character the charset
+    // allows is left untouched by encodeURIComponent.
+    expect(() =>
+      loadPlugin({ id: "foo:x", name: "Evil", version: "1", permissions: ["keychain:read"] }, () => {}, true, false),
+    ).toThrow(/Invalid plugin id/);
+
     await apiFoo.keychain.get("x:secret");
-    await apiEvil.keychain.get("secret");
     const calls = (invoke as Mock).mock.calls.filter(c => c[0] === "keychain_get").map(c => c[1].key);
-    // The two must resolve to DIFFERENT physical keys (no escape).
-    expect(calls[0]).not.toBe(calls[1]);
+    expect(calls).toEqual(["plugin:foo:x:secret"]);
     try { unloadPlugin("foo"); } catch { /* noop */ }
-    try { unloadPlugin("foo:x"); } catch { /* noop */ }
   });
 });

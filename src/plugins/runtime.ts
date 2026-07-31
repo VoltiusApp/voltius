@@ -53,6 +53,7 @@ import { createI18nAPI } from "./domains/i18n";
 import { createProxmoxAPI } from "./domains/proxmox";
 import { createDockerAPI } from "./domains/docker";
 import { injectPluginStyle, removePluginStyle } from "./importPluginModule";
+import { assertValidPluginId } from "./pluginId";
 
 const STREAM_PERM: Record<StreamKind, string> = {
   metrics: "metrics:read",
@@ -1379,6 +1380,10 @@ export function loadPlugin(
   trusted = false,
   css?: string,
 ): void {
+  // Before anything is keyed by this id — registry entry, storage namespace,
+  // keychain prefix, contributed-id prefixes. Every loader wraps this in a
+  // try/catch that warns and skips, so a malformed id costs that one plugin.
+  assertValidPluginId(manifest.id);
   if (_registry.has(manifest.id)) {
     console.warn(`[plugin-runtime] Plugin "${manifest.id}" already loaded — skipping`);
     return;
