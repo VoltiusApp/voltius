@@ -1409,6 +1409,13 @@ export function loadPlugin(
     throw e;
   }
   console.info(`[plugin-runtime] Loaded plugin "${manifest.id}" v${manifest.version} (active=${active}, trusted=${trusted})`);
+  // register() has to run even when the plugin is disabled — that is how imperative
+  // contributions meant to outlive a disable (e.g. a settings page) get registered.
+  // Everything else it published is exactly what a disable toggle tears down, so
+  // apply that same teardown here: without it a disabled plugin re-leaks its exposed
+  // API, stylesheet, right-panel section, published state and keybindings on every
+  // boot, since all loaders pass the user's override straight through as `active`.
+  if (!active) setPluginActive(manifest.id, false);
 }
 
 /**

@@ -2,7 +2,7 @@ import { create } from "zustand";
 import i18n from "@/i18n";
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
-import { loadPlugin, unloadPlugin, getLoadedPlugins, setPluginActive } from "@/plugins/runtime";
+import { loadPlugin, unloadPlugin, getLoadedPlugins } from "@/plugins/runtime";
 import { importPluginModule, pluginRegisterOf, injectPluginStyle, type PluginModule } from "@/plugins/importPluginModule";
 import type { PluginManifest } from "@/plugins/api";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
@@ -412,7 +412,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       const wasLoaded = getLoadedPlugins().some((m) => m.id === plugin.id);
       if (wasLoaded) unloadPlugin(plugin.id);
       loadPlugin(manifest, pluginRegisterOf(mod), active, false, cssText);
-      if (wasLoaded) {
+      if (wasLoaded && active) {
         // importPluginModule (above) already injected the NEW stylesheet, but the
         // unloadPlugin above removed it again (it clears whatever is currently
         // injected under this id, which by now is the new one, not the old one).
@@ -420,15 +420,9 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
         // here so an update doesn't leave the plugin with no stylesheet at all
         // until a reload. Only needed on this branch: a fresh install (wasLoaded
         // false) never had its injection torn down, so it's already correct.
+        // Skipped when inactive: loadPlugin's own disabled-load teardown has
+        // already removed the stylesheet, and re-injecting would put it back.
         if (cssText !== undefined) injectPluginStyle(plugin.id, cssText);
-        // loadPlugin runs register() unconditionally regardless of `active` (some
-        // plugins intentionally register contributions, e.g. settings pages, that
-        // survive being inactive — see setPluginActive's doc comment). Harmless on
-        // a first load, but reloading an already-registered id re-exposes its API
-        // (api.plugins.expose) even though the user has it disabled — apply the
-        // same inactive-state teardown a disable toggle would, so an update never
-        // resurrects state a disabled plugin isn't supposed to have.
-        if (!active) setPluginActive(plugin.id, false);
       }
 
       const newMeta: InstalledPluginMeta[] = [
