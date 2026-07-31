@@ -73,6 +73,13 @@ test("uninstalling an external id with no seeded counterpart does not tombstone 
 
 test("installing a plugin clears any tombstone recorded for its id", async () => {
   useSeededTombstoneStore.setState({ removed: ["plugin-docker"] });
+  // installPlugin requires the fetched manifest's id to equal the catalogue id.
+  const base = h.invoke.getMockImplementation()!;
+  h.invoke.mockImplementation(async (cmd: string, args: Record<string, string> = {}) => (
+    cmd === "plugin_fetch_url" && args.url!.endsWith("manifest.json")
+      ? JSON.stringify({ id: "plugin-docker", name: "Docker", version: "1.0.0", permissions: [] })
+      : base(cmd, args)
+  ));
 
   await useMarketplaceStore.getState().installPlugin(basePlugin({ id: "plugin-docker" }));
 

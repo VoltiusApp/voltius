@@ -351,3 +351,24 @@ test("restore falls back to the recorded hash when the catalogue no longer lists
 
   expect(h.loadPlugin).toHaveBeenCalledOnce();
 });
+
+test("a manifest id that differs from the catalogue id aborts before anything is written", async () => {
+  h.invoke.mockImplementation(async (cmd: string, args: { url?: string }) => {
+    if (cmd === "plugin_fetch_url") {
+      return args.url!.endsWith("manifest.json")
+        ? JSON.stringify({ id: "not-p1", name: "P1", version: "1.0.0", permissions: [] })
+        : JS_TEXT;
+    }
+    return undefined;
+  });
+
+  await expect(
+    useMarketplaceStore.getState().installPlugin(basePlugin({ hash: JS_HASH })),
+  ).rejects.toThrow(/does not match/);
+
+  // On-disk state is keyed by the catalogue id and the registry by the manifest id,
+  // so a half-completed install here would split the plugin across two ids.
+  expect(h.invoke).not.toHaveBeenCalledWith("plugin_write_file", expect.anything());
+  expect(h.loadPlugin).not.toHaveBeenCalled();
+  expect(useMarketplaceStore.getState().installedMeta).toEqual([]);
+});
