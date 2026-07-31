@@ -26,17 +26,13 @@
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "$CONFIG/voltius/plugins/**",
-          "$RESOURCE/resources/plugins/**"
+          "$CONFIG/voltius/plugins/**"
         ]
       }
     }
   },
   "bundle": {
     "active": true,
-    "resources": [
-      "resources/plugins/**/*"
-    ],
     "createUpdaterArtifacts": true,
     "targets": [
       "nsis",
