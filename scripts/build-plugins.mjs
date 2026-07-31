@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { copyFileSync, mkdirSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -47,6 +47,9 @@ function sha256(text) {
 
 /** Builds each folder id in `ids` via vite, into src-tauri/resources/plugins/<id>. */
 export function buildPlugins(ids) {
+  // Nothing else prunes this dir (it's gitignored), so a folder from a stale branch
+  // survives across checkouts and trips build.rs's "exactly six ids" assertion.
+  rmSync(RESOURCES_DIR, { recursive: true, force: true });
   let built = 0;
   for (const id of ids) {
     const manifestPath = path.join(ROOT, "src/plugins", id, "manifest.json");
