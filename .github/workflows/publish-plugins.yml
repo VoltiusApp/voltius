@@ -79,10 +79,15 @@ jobs:
         with:
           version: 10
 
+      # Pinned, not lts/*: the hash guard below compares this job's freshly built
+      # bytes against what an existing release tag already carries. An unrelated
+      # Node LTS bump changing the bundler's output months from now would turn a
+      # previously-safe re-run of an already-released tag into a hard failure that
+      # has nothing to do with the plugin's actual source.
       - name: Setup node
         uses: actions/setup-node@v6
         with:
-          node-version: lts/*
+          node-version: '24'
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -141,6 +146,15 @@ jobs:
       # carries first: identical bytes make the clobber a harmless no-op (keeps this
       # job re-runnable after a partial failure); different bytes fail the job loudly
       # and name the plugin, instead of shipping a hash the catalogue can't verify.
+      #
+      # All three asset filenames are compared, not just index.js/voltius.css:
+      # manifest.json carries `permissions`, which drives the consent modal and is
+      # NOT hash-pinned — a changed manifest.json must fail this guard too, or a
+      # permission change could reach users with no signal at all. The comparison
+      # is symmetric per file (staged-has vs existing-has, not just "staged has"):
+      # a build that DROPS a file the existing release carries (e.g. a plugin that
+      # removes its stylesheet) is a divergence too — otherwise the release would
+      # end up with a stale leftover asset --clobber never had a reason to touch.
       - name: Create a release per plugin and upload its bundle
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -153,17 +167,23 @@ jobs:
             if gh release view "$tag" -R "$REPO" >/dev/null 2>&1; then
               tmp="$(mktemp -d)"
               mismatched=""
-              for f in index.js voltius.css; do
-                if [ -f "${dir}${f}" ]; then
-                  if gh release download "$tag" -R "$REPO" -p "$f" -D "$tmp" >/dev/null 2>&1; then
-                    cmp -s "${dir}${f}" "$tmp/$f" || mismatched="$mismatched $f"
-                  fi
+              for f in manifest.json index.js voltius.css; do
+                staged="${dir}${f}"
+                existing="$tmp/$f"
+                have_existing=false
+                if gh release download "$tag" -R "$REPO" -p "$f" -D "$tmp" >/dev/null 2>&1; then
+                  have_existing=true
+                fi
+                if [ -f "$staged" ] && [ "$have_existing" = true ]; then
+                  cmp -s "$staged" "$existing" || mismatched="$mismatched $f"
+                elif [ ! -f "$staged" ] && [ "$have_existing" = true ]; then
+                  mismatched="$mismatched $f(dropped)"
                 fi
               done
               rm -rf "$tmp"
               if [ -n "$mismatched" ]; then
                 plugin_id="${tag%-v*}"
-                echo "::error::Release '$tag' already exists, but its$mismatched differ from the freshly built bytes. $plugin_id's source changed without bumping its manifest version, so this run would silently overwrite a release the live marketplace catalogue still points a stale hash at. Bump the 'version' field in $plugin_id's manifest.json and re-run this workflow."
+                echo "::error::Release '$tag' already exists, but its$mismatched differ from the freshly built bytes. $plugin_id's source changed without bumping its manifest version, so this run would silently overwrite a release the live marketplace catalogue still points a stale hash (and, for manifest.json, a stale permissions set) at. Bump the 'version' field in $plugin_id's manifest.json and re-run this workflow."
                 exit 1
               fi
               gh release upload "$tag" "$dir"* -R "$REPO" --clobber

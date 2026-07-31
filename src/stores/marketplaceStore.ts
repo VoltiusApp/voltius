@@ -2,8 +2,8 @@ import { create } from "zustand";
 import i18n from "@/i18n";
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
-import { loadPlugin, unloadPlugin, getLoadedPlugins } from "@/plugins/runtime";
-import { importPluginModule, pluginRegisterOf, type PluginModule } from "@/plugins/importPluginModule";
+import { loadPlugin, unloadPlugin, getLoadedPlugins, setPluginActive } from "@/plugins/runtime";
+import { importPluginModule, pluginRegisterOf, injectPluginStyle, type PluginModule } from "@/plugins/importPluginModule";
 import type { PluginManifest } from "@/plugins/api";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { appFetch } from "@/services/http";
@@ -409,10 +409,27 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       // never reaches this point and the running plugin is left untouched.
       // unloadPlugin also clears the old stylesheet, so an update with no cssHash
       // doesn't leave the previous one injected.
-      if (getLoadedPlugins().some((m) => m.id === plugin.id)) {
-        unloadPlugin(plugin.id);
-      }
+      const wasLoaded = getLoadedPlugins().some((m) => m.id === plugin.id);
+      if (wasLoaded) unloadPlugin(plugin.id);
       loadPlugin(manifest, pluginRegisterOf(mod), active, false, cssText);
+      if (wasLoaded) {
+        // importPluginModule (above) already injected the NEW stylesheet, but the
+        // unloadPlugin above removed it again (it clears whatever is currently
+        // injected under this id, which by now is the new one, not the old one).
+        // loadPlugin itself never injects (see its own doc comment) — re-inject
+        // here so an update doesn't leave the plugin with no stylesheet at all
+        // until a reload. Only needed on this branch: a fresh install (wasLoaded
+        // false) never had its injection torn down, so it's already correct.
+        if (cssText !== undefined) injectPluginStyle(plugin.id, cssText);
+        // loadPlugin runs register() unconditionally regardless of `active` (some
+        // plugins intentionally register contributions, e.g. settings pages, that
+        // survive being inactive — see setPluginActive's doc comment). Harmless on
+        // a first load, but reloading an already-registered id re-exposes its API
+        // (api.plugins.expose) even though the user has it disabled — apply the
+        // same inactive-state teardown a disable toggle would, so an update never
+        // resurrects state a disabled plugin isn't supposed to have.
+        if (!active) setPluginActive(plugin.id, false);
+      }
 
       const newMeta: InstalledPluginMeta[] = [
         ...installedMeta.filter((m) => m.id !== plugin.id),

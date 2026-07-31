@@ -19,14 +19,19 @@ vi.mock("@/plugins/importPluginModule", async (importOriginal) => {
 });
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 vi.mock("@/services/http", () => ({ appFetch: vi.fn() }));
+// Controllable per test — installPlugin reads this to compute `active`, mirroring
+// a persisted enable/disable override. Defaults to enabled.
+const registryState = vi.hoisted(() => ({ enabled: true }));
 vi.mock("@/stores/pluginRegistryStore", () => ({
-  usePluginRegistryStore: { getState: () => ({ isEnabled: () => true }) },
+  usePluginRegistryStore: { getState: () => ({ isEnabled: () => registryState.enabled }) },
 }));
 
 import { useMarketplaceStore, type MarketplacePlugin } from "./marketplaceStore";
 import { getExposedApi, getLoadedPlugins, unloadPlugin } from "@/plugins/runtime";
+import * as runtimeModule from "@/plugins/runtime";
 import { injectPluginStyle } from "@/plugins/importPluginModule";
 import { PluginHashMismatchError } from "@/plugins/integrity";
+import { sha256Hex } from "@/plugins/integrity";
 import type { PluginRegisterFn } from "@/plugins/api";
 
 function basePlugin(over: Partial<MarketplacePlugin> = {}): MarketplacePlugin {
@@ -66,6 +71,7 @@ function styleTextFor(id: string): string | null {
 beforeEach(() => {
   h.invoke.mockClear();
   h.importPluginModule.mockClear();
+  registryState.enabled = true;
   useMarketplaceStore.setState({ installedMeta: [], installing: new Set() });
 });
 
@@ -97,7 +103,6 @@ test("installing a second version over an already-loaded plugin unloads the old 
 });
 
 test("an update whose new entry ships no cssHash removes the old injected stylesheet", async () => {
-  const { sha256Hex } = await import("@/plugins/integrity");
   const cssHash = await sha256Hex(".old{color:red}");
 
   mockBundle("v1");
@@ -121,6 +126,78 @@ test("an update whose new entry ships no cssHash removes the old injected styles
 
   expect(styleTextFor("p1")).toBeNull();
   expect(getExposedApi("p1")).toBe("v2");
+});
+
+// Regression (caught in review): the unload-before-load fix removed the NEW
+// stylesheet importPluginModule had just injected (unloadPlugin clears whatever
+// is currently injected under the id, which by the time it runs is the new one),
+// and loadPlugin itself never (re-)injects — see its doc comment. Net effect
+// before this test existed: updating a plugin that ships CSS left it with NO
+// stylesheet at all until a manual disable/enable or restart.
+test("updating a plugin that ships CSS keeps the new stylesheet injected, not left blank", async () => {
+  mockBundle("v1");
+  const oldCssHash = await sha256Hex(".old{color:red}");
+  h.invoke.mockImplementation(async (cmd: string, args: { url?: string }) => {
+    if (cmd === "plugin_fetch_url") {
+      if (args.url!.endsWith("manifest.json")) return manifestFor("1.0.0");
+      if (args.url!.endsWith("voltius.css")) return ".old{color:red}";
+      return "v1-js";
+    }
+    return undefined;
+  });
+  await useMarketplaceStore.getState().installPlugin(basePlugin({ cssHash: oldCssHash }));
+  expect(styleTextFor("p1")).toBe(".old{color:red}");
+
+  mockBundle("v2");
+  const newCssHash = await sha256Hex(".new{color:blue}");
+  h.invoke.mockImplementation(async (cmd: string, args: { url?: string }) => {
+    if (cmd === "plugin_fetch_url") {
+      if (args.url!.endsWith("manifest.json")) return manifestFor("1.1.0");
+      if (args.url!.endsWith("voltius.css")) return ".new{color:blue}";
+      return "v2-js";
+    }
+    return undefined;
+  });
+  await useMarketplaceStore.getState().installPlugin(basePlugin({ version: "1.1.0", cssHash: newCssHash }));
+
+  expect(styleTextFor("p1")).toBe(".new{color:blue}");
+});
+
+// Regression (caught in review): loadPlugin always runs register() regardless of
+// `active` (some plugins intentionally register contributions, e.g. settings
+// pages, that survive being inactive). Before Fix 4, an update over an
+// already-loaded id hit loadPlugin's "already loaded — skipping" guard and never
+// ran register() again, so a disabled plugin's cleared exposed API stayed cleared.
+// After Fix 4 started unloading first, register() runs again unconditionally —
+// resurrecting the exposed API of a plugin the user has disabled.
+test("updating a disabled plugin does not resurrect its exposed API", async () => {
+  mockBundle("v1");
+  h.invoke.mockImplementation(async (cmd: string, args: { url?: string }) => {
+    if (cmd === "plugin_fetch_url") return args.url!.endsWith("manifest.json") ? manifestFor("1.0.0") : "v1-js";
+    return undefined;
+  });
+  await useMarketplaceStore.getState().installPlugin(basePlugin());
+  expect(getExposedApi("p1")).toBe("v1");
+
+  // The user disables it: the running registry entry goes inactive (clearing the
+  // exposed API — setPluginActive's own contract), and the persisted override
+  // installPlugin's `active` computation reads goes false too.
+  runtimeModule.setPluginActive("p1", false);
+  registryState.enabled = false;
+  expect(getExposedApi("p1")).toBeNull();
+
+  mockBundle("v2");
+  h.invoke.mockClear();
+  h.invoke.mockImplementation(async (cmd: string, args: { url?: string }) => {
+    if (cmd === "plugin_fetch_url") return args.url!.endsWith("manifest.json") ? manifestFor("1.1.0") : "v2-js";
+    return undefined;
+  });
+  await useMarketplaceStore.getState().installPlugin(basePlugin({ version: "1.1.0" }));
+
+  // The new code is loaded (version bumps)...
+  expect(getLoadedPlugins().find((m) => m.id === "p1")?.version).toBe("1.1.0");
+  // ...but the plugin is still disabled, so its exposed API must stay cleared.
+  expect(getExposedApi("p1")).toBeNull();
 });
 
 test("a failed update (hash mismatch) leaves the old plugin loaded and working", async () => {
@@ -152,14 +229,20 @@ test("a failed update (hash mismatch) leaves the old plugin loaded and working",
 });
 
 test("installing a plugin that was never loaded does not call unloadPlugin", async () => {
-  mockBundle("v1");
-  h.invoke.mockImplementation(async (cmd: string, args: { url?: string }) => {
-    if (cmd === "plugin_fetch_url") return args.url!.endsWith("manifest.json") ? manifestFor("1.0.0") : "v1-js";
-    return undefined;
-  });
-  expect(getLoadedPlugins().find((m) => m.id === "p1")).toBeUndefined();
+  const spy = vi.spyOn(runtimeModule, "unloadPlugin");
+  try {
+    mockBundle("v1");
+    h.invoke.mockImplementation(async (cmd: string, args: { url?: string }) => {
+      if (cmd === "plugin_fetch_url") return args.url!.endsWith("manifest.json") ? manifestFor("1.0.0") : "v1-js";
+      return undefined;
+    });
+    expect(getLoadedPlugins().find((m) => m.id === "p1")).toBeUndefined();
 
-  await useMarketplaceStore.getState().installPlugin(basePlugin());
+    await useMarketplaceStore.getState().installPlugin(basePlugin());
 
-  expect(getExposedApi("p1")).toBe("v1");
+    expect(getExposedApi("p1")).toBe("v1");
+    expect(spy).not.toHaveBeenCalled();
+  } finally {
+    spy.mockRestore();
+  }
 });
