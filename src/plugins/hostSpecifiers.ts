@@ -7,6 +7,12 @@ export const HOST_SPECIFIERS = [
   "react",
   "react/jsx-runtime",
   "react-dom",
+  // Shared so a plugin resolves icons against the host's own Iconify storage. The
+  // host registers hand-written collections (src/utils/icons.ts addCollection —
+  // "devicon", "simple-icons", "custom") that do not exist on the public Iconify
+  // API, so a bundle with its own inlined copy renders them as an empty <span>
+  // with no error and no network fallback.
+  "@iconify/react",
   "@voltius/ui",
   "@voltius/api",
 ] as const;

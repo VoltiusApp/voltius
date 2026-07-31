@@ -2,6 +2,7 @@ import { init, parse } from "es-module-lexer";
 import * as React from "react";
 import * as ReactJsxRuntime from "react/jsx-runtime";
 import * as ReactDOM from "react-dom";
+import * as IconifyReact from "@iconify/react";
 import * as VoltiusUI from "./ui";
 
 export { HOST_SPECIFIERS } from "./hostSpecifiers";
@@ -36,6 +37,10 @@ export function hostModuleUrls(): Record<string, string> {
       ReactJsxRuntime as unknown as Record<string, unknown>,
     ),
     "react-dom": moduleUrl("react-dom", ReactDOM as unknown as Record<string, unknown>),
+    "@iconify/react": moduleUrl(
+      "@iconify/react",
+      IconifyReact as unknown as Record<string, unknown>,
+    ),
     "@voltius/ui": moduleUrl("@voltius/ui", VoltiusUI as unknown as Record<string, unknown>),
     "@voltius/api": moduleUrl("@voltius/api", {}),
   };
@@ -43,8 +48,8 @@ export function hostModuleUrls(): Record<string, string> {
 }
 
 /**
- * Point a plugin bundle's host imports at the blob modules above. Only the five
- * specifiers the host provides are rewritten. Anything else must be a `./` or `../`
+ * Point a plugin bundle's host imports at the blob modules above. Only the
+ * specifiers in HOST_SPECIFIERS are rewritten. Anything else must be a `./` or `../`
  * relative specifier the bundler left in place (e.g. an unresolved chunk split) —
  * any bare specifier the host doesn't recognize, any protocol-relative (`//host/x.js`)
  * or path-absolute (`/x.js`) specifier, or a dynamic import() whose argument isn't

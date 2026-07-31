@@ -17,10 +17,11 @@ describe("hostModules", () => {
     ) as unknown as typeof URL.createObjectURL;
   });
 
-  test("exposes a blob module for each of the five public specifiers", async () => {
+  test("exposes a blob module for each public specifier", async () => {
     const { hostModuleUrls } = await freshModule();
     const urls = hostModuleUrls();
     expect(Object.keys(urls).sort()).toEqual([
+      "@iconify/react",
       "@voltius/api",
       "@voltius/ui",
       "react",
@@ -37,6 +38,26 @@ describe("hostModules", () => {
   test("hostModuleUrls() keys exactly match HOST_SPECIFIERS", async () => {
     const { hostModuleUrls } = await freshModule();
     expect(Object.keys(hostModuleUrls()).sort()).toEqual([...HOST_SPECIFIERS].sort());
+  });
+
+  // The reason @iconify/react is a host specifier at all: the host registers
+  // hand-written collections (src/utils/icons.ts) that don't exist on the public
+  // Iconify API, so a bundle carrying its own inlined copy renders them as an
+  // empty <span> — no error, no network fallback. Asserting through the global
+  // registry is what a plugin's blob module actually reads.
+  test("plugin blob module shares the host's Iconify icon storage", async () => {
+    const { hostModuleUrls } = await freshModule();
+    hostModuleUrls();
+    const hostIconify = await import("@iconify/react");
+    hostIconify.addCollection({
+      prefix: "hostonly",
+      icons: { probe: { body: "<path d='M0 0h24v24H0z'/>" } },
+      width: 24,
+      height: 24,
+    });
+    const registry = (globalThis as unknown as Record<string, Record<string, typeof hostIconify>>)
+      .__voltiusHostModules;
+    expect(registry["@iconify/react"].getIcon("hostonly:probe")).toBeTruthy();
   });
 
   test("rewrites a bare react import to its blob URL", async () => {
