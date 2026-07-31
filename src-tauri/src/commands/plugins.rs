@@ -2,6 +2,8 @@ use crate::storage::config::config_dir;
 use reqwest;
 use std::path::PathBuf;
 
+include!(concat!(env!("OUT_DIR"), "/seeded_plugins.rs"));
+
 /// Charset guard for a `<id>` path component under `plugins/`.
 ///
 /// Deliberately WIDER than the manifest-id rule the TS layer enforces
@@ -220,5 +222,22 @@ mod tests {
     fn rejects_an_over_long_id() {
         assert!(validate_id(&"a".repeat(64)).is_ok());
         assert!(validate_id(&"a".repeat(65)).is_err());
+    }
+
+    #[test]
+    fn embeds_exactly_the_six_first_party_plugin_folders() {
+        let mut ids: Vec<&str> = SEEDED_PLUGINS.iter().map(|(id, _)| *id).collect();
+        ids.sort();
+        assert_eq!(
+            ids,
+            vec![
+                "docker",
+                "gist-sync",
+                "monitoring",
+                "process-manager",
+                "proxmox",
+                "ssh-config"
+            ]
+        );
     }
 }
