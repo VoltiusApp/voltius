@@ -65,6 +65,17 @@ export function beatsSeededVersion(candidateVersion: unknown, seededVersion: unk
   return compareVersions(candidateVersion, seededVersion) > 0;
 }
 
+/**
+ * True when `version` is a string `beatsSeededVersion` can actually compare.
+ * `beatsSeededVersion` returns `false` both for a real tie and for malformed input,
+ * so a caller that reads `false` as "the other side wins" needs this to tell those
+ * two cases apart first — checking it before comparing, not after, so a malformed
+ * version is never silently treated as a legitimate loss.
+ */
+export function isParsableVersion(version: unknown): boolean {
+  return typeof version === "string" && parseVersion(version) !== null;
+}
+
 /** True when `plugin.minAppVersion` is absent, unparseable (fail-open — a malformed
  *  catalogue field must never block an install), or satisfied by `appVersion`. */
 export function satisfiesMinAppVersion(plugin: { minAppVersion?: string }, appVersion: string): boolean {

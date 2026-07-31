@@ -8,7 +8,7 @@ import type { PluginManifest } from "@/plugins/api";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { appFetch } from "@/services/http";
 import { resolveVerifiedHash } from "@/plugins/integrity";
-import { satisfiesMinAppVersion, MinAppVersionError } from "@/plugins/version";
+import { satisfiesMinAppVersion, MinAppVersionError, beatsSeededVersion, isParsableVersion } from "@/plugins/version";
 import { useSeededTombstoneStore, loadSeededEntries } from "@/stores/seededTombstoneStore";
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -574,6 +574,67 @@ export async function restoreMissingPlugins(): Promise<void> {
       console.warn(`[marketplace] Failed to load seeded floor for "${meta.id}":`, e);
     }
   }
+}
+
+/**
+ * Task 3 makes an external install win over a seeded id unconditionally (no version
+ * check) — so once a user takes an out-of-band update, a LATER app release shipping a
+ * newer built-in would stay shadowed by the older external copy forever. This closes
+ * that trap: when a seeded artifact's version is >= a first-party-sourced external
+ * install's version, the external copy is stale and gets removed so the seeded
+ * loader picks the built-in back up (with `trusted = true`, unchanged).
+ *
+ * Must run after `loadPluginMeta()` (needs installedMeta + tombstones loaded) and
+ * before `loadSeededPlugins()` (must see the cleaned-up installedMeta, or it will
+ * keep skipping the id in favour of the now-deleted external copy).
+ *
+ * Eligibility, deliberately conservative — every "leave it alone" branch is not an
+ * edge case, it's the point:
+ *  - Only a FIRST_PARTY_SOURCE-sourced install is ever superseded. A third-party
+ *    plugin that happens to share an id is never touched by an app upgrade.
+ *  - A tombstoned id is skipped — this path must never resurrect a built-in the
+ *    user explicitly removed.
+ *  - `beatsSeededVersion` returns `false` for both a real tie AND malformed input,
+ *    and "seeded wins" (supersede) is exactly what a `false` here would trigger —
+ *    so an unparseable version on either side is checked for and bailed out of
+ *    explicitly, rather than letting that default silently delete a user's files
+ *    over a version string it couldn't actually compare.
+ */
+export async function supersedeStaleFirstPartyShadows(): Promise<void> {
+  const { installedMeta } = useMarketplaceStore.getState();
+  const { isRemoved } = useSeededTombstoneStore.getState();
+  const seededEntries = await loadSeededEntries();
+
+  const survivors: InstalledPluginMeta[] = [];
+  let changed = false;
+
+  for (const meta of installedMeta) {
+    const entry = seededEntries.get(meta.id);
+    const stale = meta.sourceId === FIRST_PARTY_SOURCE.id
+      && !isRemoved(meta.id)
+      && entry !== undefined
+      && isParsableVersion(meta.version)
+      && isParsableVersion(entry.manifest.version)
+      // false here means "seeded >= external" (Ruling 4: tie -> seeded wins).
+      && !beatsSeededVersion(meta.version, entry.manifest.version);
+
+    if (!stale) {
+      survivors.push(meta);
+      continue;
+    }
+
+    try {
+      await invoke("plugin_delete", { id: meta.id });
+      changed = true;
+    } catch (e) {
+      console.warn(`[marketplace] Failed to delete stale external copy of "${meta.id}", leaving it in place:`, e);
+      survivors.push(meta);
+    }
+  }
+
+  if (!changed) return;
+  await writeInstalledMeta(survivors);
+  useMarketplaceStore.setState({ installedMeta: survivors });
 }
 
 // ─── Startup loader ───────────────────────────────────────────────────────
