@@ -633,8 +633,17 @@ export async function supersedeStaleFirstPartyShadows(): Promise<void> {
   }
 
   if (!changed) return;
-  await writeInstalledMeta(survivors);
-  useMarketplaceStore.setState({ installedMeta: survivors });
+  // Guarded: this runs inside SplashScreen's shared plugin-boot try/catch, ahead of
+  // loadSeededPlugins()/loadInstalledPlugins() — an unguarded throw here (after files
+  // are already deleted) would abort both loaders and boot zero plugins. A failed
+  // write self-heals next boot via restoreMissingPlugins, so losing it is not fatal;
+  // losing the rest of plugin boot over it would be.
+  try {
+    await writeInstalledMeta(survivors);
+    useMarketplaceStore.setState({ installedMeta: survivors });
+  } catch (e) {
+    console.warn("[marketplace] Failed to persist installedMeta after superseding stale shadows:", e);
+  }
 }
 
 // ─── Startup loader ───────────────────────────────────────────────────────

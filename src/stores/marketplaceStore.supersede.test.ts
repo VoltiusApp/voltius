@@ -29,18 +29,27 @@ vi.mock("@/stores/pluginRegistryStore", () => ({
   usePluginRegistryStore: { getState: () => ({ isEnabled: () => true }) },
 }));
 
-import { useMarketplaceStore, FIRST_PARTY_SOURCE, supersedeStaleFirstPartyShadows } from "./marketplaceStore";
+import {
+  useMarketplaceStore, FIRST_PARTY_SOURCE, supersedeStaleFirstPartyShadows,
+  type InstalledPluginMeta,
+} from "./marketplaceStore";
 import { useSeededTombstoneStore } from "./seededTombstoneStore";
 import { loadSeededPlugins } from "@/plugins/seeded";
 
-// Seeded artifact ships at 2.0.0 in this "app release".
+// Seeded artifacts ship at 2.0.0 in this "app release". Two entries from the start
+// (not added later) — the seeded-manifest cache is primed on the file's first call
+// and never changes afterwards, so any id a later test needs must be here already.
 const SEEDED_MANIFEST = { id: "plugin-docker", name: "Docker", version: "2.0.0", permissions: ["docker:read"] };
+const SEEDED_MANIFEST_2 = { id: "plugin-docker-2", name: "Docker 2", version: "2.0.0", permissions: [] };
 
 function seedInvokeMock() {
   h.invoke.mockImplementation(async (cmd: string, args: Record<string, string> = {}) => {
-    if (cmd === "plugins_list_seeded") return ["docker"];
+    if (cmd === "plugins_list_seeded") return ["docker", "docker2"];
     if (cmd === "plugin_seeded_read" && args.id === "docker" && args.filename === "manifest.json") {
       return JSON.stringify(SEEDED_MANIFEST);
+    }
+    if (cmd === "plugin_seeded_read" && args.id === "docker2" && args.filename === "manifest.json") {
+      return JSON.stringify(SEEDED_MANIFEST_2);
     }
     if (cmd === "plugin_seeded_read" && args.id === "docker" && args.filename === "index.js") {
       return "export default () => {}";
@@ -75,8 +84,10 @@ test("seeded newer than a first-party external: external removed, seeded loads w
 
   h.loadPlugin.mockClear();
   await loadSeededPlugins();
-  expect(h.loadPlugin).toHaveBeenCalledOnce();
-  const [, , , trusted] = h.loadPlugin.mock.calls[0];
+  // "docker2"'s always-seeded id also loads in this fixture — filter to the id under test.
+  const call = h.loadPlugin.mock.calls.find(([manifest]) => manifest.id === "plugin-docker");
+  expect(call).toBeDefined();
+  const [, , , trusted] = call!;
   expect(trusted).toBe(true);
 });
 
@@ -104,8 +115,9 @@ test("seeded older than a first-party external: external kept, seeded stays skip
 
   h.loadPlugin.mockClear();
   await loadSeededPlugins();
-  // seeded.ts still defers to the (still present, still newer) external copy.
-  expect(h.loadPlugin).not.toHaveBeenCalled();
+  // seeded.ts still defers to the (still present, still newer) external copy for
+  // this id specifically ("docker2" also loads in this fixture, unrelated to it).
+  expect(h.loadPlugin.mock.calls.some(([manifest]) => manifest.id === "plugin-docker")).toBe(false);
 });
 
 test("third-party-sourced install sharing the id is never superseded, regardless of version", async () => {
@@ -141,5 +153,92 @@ test("malformed external version: left alone rather than defaulting to supersede
 
   expect(h.invoke).not.toHaveBeenCalledWith("plugin_delete", { id: "plugin-docker" });
   expect(useMarketplaceStore.getState().installedMeta.find((m) => m.id === "plugin-docker")).toBeDefined();
+});
+
+test("missing external version (undefined): left alone", async () => {
+  useMarketplaceStore.setState({
+    installedMeta: [
+      { id: "plugin-docker", version: undefined, sourceId: FIRST_PARTY_SOURCE.id, hash: "abc" } as unknown as InstalledPluginMeta,
+    ],
+  });
+
+  await supersedeStaleFirstPartyShadows();
+
+  expect(h.invoke).not.toHaveBeenCalledWith("plugin_delete", { id: "plugin-docker" });
+  expect(useMarketplaceStore.getState().installedMeta.find((m) => m.id === "plugin-docker")).toBeDefined();
+});
+
+test("non-string external version (number): left alone", async () => {
+  useMarketplaceStore.setState({
+    installedMeta: [
+      { id: "plugin-docker", version: 3, sourceId: FIRST_PARTY_SOURCE.id, hash: "abc" } as unknown as InstalledPluginMeta,
+    ],
+  });
+
+  await supersedeStaleFirstPartyShadows();
+
+  expect(h.invoke).not.toHaveBeenCalledWith("plugin_delete", { id: "plugin-docker" });
+  expect(useMarketplaceStore.getState().installedMeta.find((m) => m.id === "plugin-docker")).toBeDefined();
+});
+
+test("missing sourceId: left alone (a legacy entry is never treated as first-party)", async () => {
+  useMarketplaceStore.setState({
+    installedMeta: [
+      { id: "plugin-docker", version: "1.0.0", hash: "abc" } as unknown as InstalledPluginMeta,
+    ],
+  });
+
+  await supersedeStaleFirstPartyShadows();
+
+  expect(h.invoke).not.toHaveBeenCalledWith("plugin_delete", { id: "plugin-docker" });
+  expect(useMarketplaceStore.getState().installedMeta.find((m) => m.id === "plugin-docker")).toBeDefined();
+});
+
+test("partial failure: the second of two qualifying entries fails to delete, only it survives", async () => {
+  h.invoke.mockImplementation(async (cmd: string, args: Record<string, string> = {}) => {
+    if (cmd === "plugins_list_seeded") return ["docker", "docker2"];
+    if (cmd === "plugin_seeded_read" && args.id === "docker" && args.filename === "manifest.json") {
+      return JSON.stringify(SEEDED_MANIFEST);
+    }
+    if (cmd === "plugin_seeded_read" && args.id === "docker2" && args.filename === "manifest.json") {
+      return JSON.stringify(SEEDED_MANIFEST_2);
+    }
+    if (cmd === "plugin_delete" && args.id === "plugin-docker") return undefined;
+    if (cmd === "plugin_delete" && args.id === "plugin-docker-2") throw new Error("locked file");
+    if (cmd === "plugin_write_file") return undefined;
+    return undefined;
+  });
+  useMarketplaceStore.setState({
+    installedMeta: [
+      { id: "plugin-docker", version: "1.0.0", sourceId: FIRST_PARTY_SOURCE.id, hash: "abc" },
+      { id: "plugin-docker-2", version: "1.0.0", sourceId: FIRST_PARTY_SOURCE.id, hash: "def" },
+    ],
+  });
+
+  await supersedeStaleFirstPartyShadows();
+
+  expect(h.invoke).toHaveBeenCalledWith("plugin_delete", { id: "plugin-docker" });
+  expect(h.invoke).toHaveBeenCalledWith("plugin_delete", { id: "plugin-docker-2" });
+  const ids = useMarketplaceStore.getState().installedMeta.map((m) => m.id);
+  expect(ids).toEqual(["plugin-docker-2"]);
+});
+
+test("a failed installedMeta write does not throw, so plugin boot can still proceed", async () => {
+  h.invoke.mockImplementation(async (cmd: string, args: Record<string, string> = {}) => {
+    if (cmd === "plugins_list_seeded") return ["docker", "docker2"];
+    if (cmd === "plugin_seeded_read" && args.id === "docker" && args.filename === "manifest.json") {
+      return JSON.stringify(SEEDED_MANIFEST);
+    }
+    if (cmd === "plugin_delete") return undefined;
+    if (cmd === "plugin_write_file") throw new Error("disk full");
+    return undefined;
+  });
+  useMarketplaceStore.setState({
+    installedMeta: [{ id: "plugin-docker", version: "1.0.0", sourceId: FIRST_PARTY_SOURCE.id, hash: "abc" }],
+  });
+
+  await expect(supersedeStaleFirstPartyShadows()).resolves.toBeUndefined();
+  // Files were deleted (best effort) even though the meta write failed.
+  expect(h.invoke).toHaveBeenCalledWith("plugin_delete", { id: "plugin-docker" });
 });
 
