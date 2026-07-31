@@ -47,15 +47,22 @@ export function compareVersions(a: string, b: string): -1 | 0 | 1 {
 }
 
 /**
- * True when a catalogue version should replace a seeded (app-bundled) version. Newer
- * wins; on a tie — including when either side is unparseable, since `compareVersions`
- * treats those as equal `0.0.0` — the seeded artifact wins, because it makes no
- * network call and its bytes sit inside the app's own signature. Same rule used by
- * `mergeBrowseCatalog` (Browse-tab row selection) and the boot-time floor check, so
- * the two can never disagree about which bytes are trusted.
+ * True when `candidateVersion` should replace `seededVersion` (an app-bundled,
+ * inherently-trusted artifact). Newer wins; on a tie, or when either input is
+ * missing/non-string/unparseable, the seeded artifact wins — it makes no network
+ * call and its bytes sit inside the app's own signature, so any doubt resolves in
+ * its favour. This is a stricter check than plugging both into `compareVersions`:
+ * that function coerces an unparseable string to `0.0.0`, so a malformed
+ * `seededVersion` alone would make almost any parseable `candidateVersion` look
+ * "newer" — exactly backwards for a downgrade guard. Both sides are validated
+ * before comparing so that can't happen. Same rule used by `mergeBrowseCatalog`
+ * (Browse-tab row selection) and the boot-time floor check, so the two can never
+ * disagree about which bytes are trusted.
  */
-export function isCatalogVersionNewer(catalogVersion: string, seededVersion: string): boolean {
-  return compareVersions(catalogVersion, seededVersion) > 0;
+export function beatsSeededVersion(candidateVersion: unknown, seededVersion: unknown): boolean {
+  if (typeof candidateVersion !== "string" || typeof seededVersion !== "string") return false;
+  if (parseVersion(candidateVersion) === null || parseVersion(seededVersion) === null) return false;
+  return compareVersions(candidateVersion, seededVersion) > 0;
 }
 
 /** True when `plugin.minAppVersion` is absent, unparseable (fail-open — a malformed

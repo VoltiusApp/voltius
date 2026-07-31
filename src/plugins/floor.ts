@@ -1,6 +1,6 @@
 import type { MarketplacePlugin } from "@/stores/marketplaceStore";
 import type { SeededEntry } from "@/stores/seededTombstoneStore";
-import { satisfiesMinAppVersion, isCatalogVersionNewer } from "@/plugins/version";
+import { satisfiesMinAppVersion, beatsSeededVersion } from "@/plugins/version";
 
 /**
  * Synthesises a Browse-tab entry from a seeded (app-bundled) manifest — the local
@@ -67,7 +67,7 @@ export function mergeBrowseCatalog(
     const seeded = seededEntries.get(p.id);
     if (seeded && removed.has(p.id)) {
       const versionSatisfied = appVersion === null || satisfiesMinAppVersion(p, appVersion);
-      const newer = isCatalogVersionNewer(p.version, seeded.manifest.version);
+      const newer = beatsSeededVersion(p.version, seeded.manifest.version);
       result.push(versionSatisfied && newer ? p : floorPluginFrom(seeded));
       handled.add(p.id);
     } else {

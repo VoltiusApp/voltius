@@ -107,6 +107,38 @@ test("mergeBrowseCatalog falls back to the floor when the catalogue version is u
   expect(merged[0].builtin).toBe(true);
 });
 
+test("mergeBrowseCatalog does not throw and falls back to the floor for a catalogue entry with a missing version", () => {
+  const entry = catalogEntry() as Partial<MarketplacePlugin>;
+  delete entry.version;
+  const merged = mergeBrowseCatalog([entry as MarketplacePlugin], seeded(), ["plugin-docker"], "2.0.0");
+  expect(merged).toHaveLength(1);
+  expect(merged[0].builtin).toBe(true);
+});
+
+test("mergeBrowseCatalog does not throw and falls back to the floor for a non-string catalogue version", () => {
+  for (const badVersion of [null, 3, {}, []] as unknown[]) {
+    const merged = mergeBrowseCatalog(
+      [catalogEntry({ version: badVersion as unknown as string })],
+      seeded(),
+      ["plugin-docker"],
+      "2.0.0",
+    );
+    expect(merged).toHaveLength(1);
+    expect(merged[0].builtin).toBe(true);
+  }
+});
+
+test("mergeBrowseCatalog falls back to the floor when the seeded manifest's version is unparseable, even against a valid newer catalogue version", () => {
+  const merged = mergeBrowseCatalog(
+    [catalogEntry({ version: "1.0.0" })],
+    seeded({ version: "garbage" }),
+    ["plugin-docker"],
+    "2.0.0",
+  );
+  expect(merged).toHaveLength(1);
+  expect(merged[0].builtin).toBe(true);
+});
+
 test("mergeBrowseCatalog falls back to the floor for a newer catalogue version whose minAppVersion is unsatisfied", () => {
   const merged = mergeBrowseCatalog(
     [catalogEntry({ version: "1.2.0", minAppVersion: "9.9.9" })],
