@@ -60,15 +60,19 @@ export function mergeBrowseCatalog(
   const handled = new Set<string>();
 
   for (const p of catalog) {
-    // Two enabled sources can both list the same tombstoned built-in id — without
-    // this guard, a second unsatisfied entry would push a second floor row for the
-    // same id, producing a duplicate React key in Browse.
+    // Two enabled sources can both list the same built-in id — tombstoned or still
+    // active — without this guard a second entry would push a second row for the same
+    // id: a duplicate React key in Browse, and (for an active built-in) a second row
+    // that could carry an Update button under a non-first-party source badge.
     if (handled.has(p.id)) continue;
     const seeded = seededEntries.get(p.id);
     if (seeded && removed.has(p.id)) {
       const versionSatisfied = appVersion === null || satisfiesMinAppVersion(p, appVersion);
       const newer = beatsSeededVersion(p.version, seeded.manifest.version);
       result.push(versionSatisfied && newer ? p : floorPluginFrom(seeded));
+      handled.add(p.id);
+    } else if (seeded) {
+      result.push(p);
       handled.add(p.id);
     } else {
       result.push(p);

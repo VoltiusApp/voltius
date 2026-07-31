@@ -940,12 +940,14 @@ export default function PluginsSection() {
   const appVersion = useMarketplaceStore((s) => s.appVersion);
   const isAndroid = useIsAndroid();
   const externalIds = new Set(installedMeta.map((m) => m.id));
-  const seededManifests = seededPluginManifests(externalIds);
-  const seededCount = visiblePlugins(
-    seededManifests.map((manifest) => ({ manifest })),
+  // Filtered through visiblePlugins before anything counts against it — a desktopOnly
+  // seeded plugin (e.g. ssh-config) is still loaded on Android but renders no row and
+  // no button there, so an update for it must never be counted either.
+  const visibleSeededManifests = visiblePlugins(
+    seededPluginManifests(externalIds).map((manifest) => ({ manifest })),
     isAndroid,
-  ).length;
-  const totalCount = installedMeta.length + seededCount;
+  ).map(({ manifest }) => manifest);
+  const totalCount = installedMeta.length + visibleSeededManifests.length;
 
   // Fetch the catalog once on mount so update detection works before visiting Browse.
   useEffect(() => {
@@ -954,7 +956,7 @@ export default function PluginsSection() {
   }, []);
 
   const updateCount = installedMeta.filter((m) => availableUpdate(m, catalog)).length
-    + seededManifests.filter((m) => availableSeededUpdate(m, catalog, appVersion)).length;
+    + visibleSeededManifests.filter((m) => availableSeededUpdate(m, catalog, appVersion)).length;
 
   const tabLabel = (tabKey: Tab) => {
     if (tabKey === "browse") return t("settings.plugins.tabs.browse");

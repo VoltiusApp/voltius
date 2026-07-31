@@ -87,6 +87,20 @@ test("mergeBrowseCatalog emits at most one row per id when two sources both list
   expect(merged[0].builtin).toBe(true);
 });
 
+test("mergeBrowseCatalog emits at most one row per id when two sources both list the same ACTIVE (non-tombstoned) built-in", () => {
+  const merged = mergeBrowseCatalog(
+    [
+      catalogEntry({ sourceId: "voltius" }),
+      catalogEntry({ sourceId: "other-source" }),
+    ],
+    seeded(),
+    [], // not tombstoned — plugin-docker is active
+    "2.0.0",
+  );
+  expect(merged).toHaveLength(1);
+  expect(merged[0].sourceId).toBe("voltius");
+});
+
 test("mergeBrowseCatalog falls back to the floor when the catalogue version is older than the seeded manifest", () => {
   const merged = mergeBrowseCatalog([catalogEntry({ version: "1.0.0" })], seeded(), ["plugin-docker"], "2.0.0");
   expect(merged).toHaveLength(1);

@@ -57,15 +57,8 @@ export function availableUpdate(
  *
  * Compared against `seededManifest`, not any `installedMeta` entry — a seeded plugin
  * never has one, and the seeded manifest is what's actually running. Version
- * precedence uses `beatsSeededVersion` rather than `availableUpdate`'s `compareSemver`:
- * this is the same prerelease-aware, malformed-input-guarded rule the Browse-tab floor
- * (`mergeBrowseCatalog`) already applies when deciding whether a catalogue entry may
- * replace a seeded one. Using `compareSemver` here instead would let a same-release
- * prerelease (e.g. catalogue "1.2.0-beta.1" vs seeded "1.2.0") be offered as an update
- * even though the floor correctly refuses to let that same catalogue entry replace the
- * seeded artifact — `availableUpdate`'s looser rule is left as-is for externally
- * installed plugins (a narrower behavior change than this task's scope), but a built-in
- * must not disagree with the floor about which bytes are newer.
+ * precedence uses `beatsSeededVersion`, the same rule `mergeBrowseCatalog` applies when
+ * deciding whether a catalogue entry may replace a seeded one — see its doc comment.
  */
 export function availableSeededUpdate(
   seededManifest: PluginManifest,

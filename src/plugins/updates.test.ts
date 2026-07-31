@@ -208,13 +208,38 @@ test("availableSeededUpdate: a null appVersion never blocks an otherwise-valid u
   expect(got?.version).toBe("1.2.0");
 });
 
-test("availableSeededUpdate: a same-release prerelease is not offered as an update (prerelease-aware, unlike compareSemver)", () => {
+// These two cases actually discriminate beatsSeededVersion from compareSemver — a
+// same-release-prerelease-vs-release pair (e.g. "1.2.0-beta.1" vs "1.2.0") is NOT
+// enough on its own: compareSemver strips the suffix and also returns "not newer" for
+// that pair, so a test using only that shape would pass under either comparator.
+
+test("availableSeededUpdate: refuses to offer an update when the seeded manifest's version is malformed (downgrade-guard inversion)", () => {
+  // compareSemver coerces missing/non-numeric segments to 0 per-segment rather than
+  // failing the whole parse, so a much higher catalogue version ("9.0.0" vs "1.x", i.e.
+  // [1,0]) would compare as strictly newer under it — exactly the inversion
+  // beatsSeededVersion's doc comment exists to prevent (fail closed on unparseable
+  // input instead of treating it as 0.0.0-and-thus-always-beatable). Swapping in
+  // compareSemver(entry.version, seededManifest.version) > 0 here would return the
+  // catalogue entry instead of null.
   const got = availableSeededUpdate(
-    seededManifest({ version: "1.2.0" }),
-    [plugin({ id: "plugin-docker", sourceId: "voltius", version: "1.2.0-beta.1" })],
+    seededManifest({ version: "1.x" }),
+    [plugin({ id: "plugin-docker", sourceId: "voltius", version: "9.0.0" })],
     "2.0.0",
   );
   expect(got).toBeNull();
+});
+
+test("availableSeededUpdate: offers a real release over a seeded prerelease of the same release line", () => {
+  // compareSemver strips prerelease suffixes from BOTH sides before comparing, so
+  // "1.2.0-beta.1" (seeded) and "1.2.0" (catalogue) parse as equal under it and no
+  // update would be offered. beatsSeededVersion is prerelease-aware and correctly
+  // treats the real release as newer than the seeded prerelease.
+  const got = availableSeededUpdate(
+    seededManifest({ version: "1.2.0-beta.1" }),
+    [plugin({ id: "plugin-docker", sourceId: "voltius", version: "1.2.0" })],
+    "2.0.0",
+  );
+  expect(got?.version).toBe("1.2.0");
 });
 
 // ─── addedPermissions ──────────────────────────────────────────────────────
