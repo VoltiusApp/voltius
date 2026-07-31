@@ -110,26 +110,66 @@ describe("plugin catalogue publish pipeline", () => {
     }
   });
 
-  test("theme is false; minAppVersion falls back to the app version when the manifest omits it", () => {
+  test("theme is false on every entry", () => {
     const fragment = buildCatalogFragment(FIRST_PARTY_PLUGIN_IDS, { resourcesDir: outRoot, appVersion: APP_VERSION });
     for (const entry of fragment) {
       expect(entry.theme).toBe(false);
-      expect(entry.minAppVersion).toBe(APP_VERSION);
     }
   });
 
+  // All six manifests declare minAppVersion, so the app-version fallback is no
+  // longer reachable through them. Asserting `minAppVersion === APP_VERSION` over
+  // the real manifests (as this used to) only passed while the two happened to be
+  // the same string, and silently stopped testing the fallback at all — it broke
+  // the moment the manifests were stamped, and would have broken again on the next
+  // app bump. Each case now gets its own manifest.
+  test("minAppVersion comes from the manifest when it declares one", () => {
+    const fragment = buildCatalogFragment(FIRST_PARTY_PLUGIN_IDS, { resourcesDir: outRoot, appVersion: "9.9.9" });
+    for (const folder of FIRST_PARTY_PLUGIN_IDS) {
+      const manifest = JSON.parse(readFileSync(path.join(outRoot, folder, "manifest.json"), "utf8"));
+      const entry = fragment.find((p: { id: string }) => p.id === manifest.id);
+      expect(manifest.minAppVersion, `${folder} declares no minAppVersion`).toBeTruthy();
+      expect(entry.minAppVersion).toBe(manifest.minAppVersion);
+      expect(entry.minAppVersion).not.toBe("9.9.9");
+    }
+  });
+
+  test("minAppVersion falls back to the app version when the manifest omits it", () => {
+    const bare = mkdtempSync(path.join(tmpdir(), "voltius-plugin-catalog-bare-"));
+    try {
+      const dir = path.join(bare, "docker");
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(path.join(dir, "index.js"), "// stub\n");
+      const manifest = JSON.parse(
+        readFileSync(path.join(outRoot, "docker", "manifest.json"), "utf8"),
+      );
+      delete manifest.minAppVersion;
+      writeFileSync(path.join(dir, "manifest.json"), JSON.stringify(manifest));
+
+      const [entry] = buildCatalogFragment(["docker"], { resourcesDir: bare, appVersion: "9.9.9" });
+      expect(entry.minAppVersion).toBe("9.9.9");
+    } finally {
+      rmSync(bare, { recursive: true, force: true });
+    }
+  });
+
+
   // Fails under the old behaviour, which stamped `version` from the app version
-  // regardless of the plugin's own manifest — plugin-docker is 1.1.0, the app is
-  // 0.13.0, so the old code would have emitted "0.13.0" here instead.
+  // regardless of the plugin's own manifest. The app version is supplied here as a
+  // literal that no manifest carries, rather than read from package.json and pinned
+  // to the release of the day — pinning it (`expect(APP_VERSION).toBe("0.13.0")`)
+  // made this test fail on every version bump, which is exactly what it did on 0.14.0.
   test("fragment version tracks each plugin's own manifest version, not the app version", () => {
-    const fragment = buildCatalogFragment(FIRST_PARTY_PLUGIN_IDS, { resourcesDir: outRoot, appVersion: APP_VERSION });
+    const appVersion = "9.9.9";
+    const fragment = buildCatalogFragment(FIRST_PARTY_PLUGIN_IDS, { resourcesDir: outRoot, appVersion });
     const docker = fragment.find((p: { id: string }) => p.id === "plugin-docker");
     const monitoring = fragment.find((p: { id: string }) => p.id === "plugin-monitoring");
 
-    expect(APP_VERSION).toBe("0.13.0");
     expect(docker.version).toBe("1.1.0");
-    expect(docker.version).not.toBe(APP_VERSION);
     expect(monitoring.version).toBe("1.0.0");
+    for (const entry of fragment) {
+      expect(entry.version).not.toBe(appVersion);
+    }
   });
 
   // Fix 3 (publish pipeline): the plugin-only publish path passes no `appVersion`
