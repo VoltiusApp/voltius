@@ -132,6 +132,38 @@ describe("plugin catalogue publish pipeline", () => {
     expect(monitoring.version).toBe("1.0.0");
   });
 
+  // Fix 3 (publish pipeline): the plugin-only publish path passes no `appVersion`
+  // fallback at all, so a manifest that omits minAppVersion must fail loudly rather
+  // than silently resolve to `undefined` — a bad catalogue entry would otherwise
+  // exclude every user until someone notices.
+  test("throws naming the plugin when appVersion is omitted and the manifest has no minAppVersion", () => {
+    const folder = "__no-min-app-version__";
+    const dir = path.join(outRoot, folder);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      path.join(dir, "manifest.json"),
+      JSON.stringify({ id: "plugin-no-floor", name: "NoFloor", version: "3.0.0" }),
+    );
+    writeFileSync(path.join(dir, "index.js"), "// fixture\n");
+
+    expect(() => buildCatalogFragment([folder], { resourcesDir: outRoot, appVersion: undefined }))
+      .toThrow(/plugin-no-floor/);
+  });
+
+  test("succeeds with no appVersion fallback when the manifest supplies its own minAppVersion", () => {
+    const folder = "__self-sufficient-min-app-version__";
+    const dir = path.join(outRoot, folder);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      path.join(dir, "manifest.json"),
+      JSON.stringify({ id: "plugin-self-sufficient", name: "SelfSufficient", version: "3.0.0", minAppVersion: "0.14.0" }),
+    );
+    writeFileSync(path.join(dir, "index.js"), "// fixture\n");
+
+    const fragment = buildCatalogFragment([folder], { resourcesDir: outRoot, appVersion: undefined });
+    expect(fragment[0].minAppVersion).toBe("0.14.0");
+  });
+
   test("minAppVersion honours an explicit manifest field over the app-version fallback", () => {
     const folder = "__with-min-app-version__";
     const dir = path.join(outRoot, folder);

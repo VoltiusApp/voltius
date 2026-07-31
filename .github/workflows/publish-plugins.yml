@@ -1,0 +1,178 @@
+name: publish-plugins
+
+# Publishes first-party plugins (src/plugins/*) as their own GitHub Releases,
+# separate from the app release — this is what lets a plugin fix ship without
+# cutting a full app release. See scripts/build-plugins.mjs (releaseRepoFor) for
+# why each plugin needs its own release, and marketplaceStore.ts (resolveVerifiedHash)
+# for why a stale hash blocks every reinstall of a tombstoned built-in until it's
+# fixed.
+#
+# Called two ways:
+#   - workflow_call from release.yml, as part of a full app release (all six plugins,
+#     built from the app tag's ref).
+#   - workflow_dispatch directly, to ship a plugin-only fix with no app release: pick
+#     the ref your fix lives on and, optionally, which plugin ids to publish.
+#
+# The emitted plugins.json fragment is uploaded as a build artifact. Merging it into
+# voltiusApp/marketplace's plugins.json is a manual follow-up this workflow cannot do
+# (separate repo).
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Git ref (branch/tag/sha) to build the plugin bundles from'
+        required: true
+        type: string
+      plugin_ids:
+        description: 'Space-separated plugin folder ids to publish (default: all six)'
+        required: false
+        type: string
+        default: ''
+      min_app_version:
+        description: 'minAppVersion fallback for a plugin whose manifest omits it. Leave empty to require every published plugin to carry its own manifest minAppVersion.'
+        required: false
+        type: string
+        default: ''
+      app_release:
+        description: 'True only for the full-app-release caller (release.yml): falls back to this refs package.json version, matching the app-release behaviour that existed before plugin-only publishing did. Never set this true from workflow_dispatch — a plugin-only fix must not silently inherit the working trees app version (Task 3).'
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      catalog-artifact:
+        description: 'Name of the uploaded plugin-catalog build artifact'
+        value: ${{ jobs.publish.outputs.catalog-artifact }}
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref (branch/tag/sha) to build the plugin bundles from'
+        required: true
+        type: string
+      plugin_ids:
+        description: 'Space-separated plugin folder ids to publish, e.g. "docker monitoring" (default: all six)'
+        required: false
+        type: string
+      min_app_version:
+        description: 'minAppVersion fallback for a plugin whose manifest omits it. Leave empty to require every published plugin to carry its own manifest minAppVersion — recommended: bump the plugin manifest instead of guessing here.'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      catalog-artifact: plugin-catalog-${{ github.run_id }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Resolve the commit SHA for ${{ inputs.ref }}
+        id: commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # Task 3 explicit-minAppVersion guard, plugin-only path only: `app_release`
+      # (set true only by release.yml's workflow_call) keeps the original app-release
+      # behaviour — build-plugins.mjs falls back to THIS ref's package.json version,
+      # unchanged from before plugin-only publishing existed. Every other caller
+      # (workflow_dispatch) gets no implicit fallback: every published plugin's
+      # manifest must carry its own minAppVersion, or min_app_version must be passed
+      # explicitly — build-plugins.mjs fails loudly rather than guess (an implicit
+      # fallback to the working tree's app version could stamp an entry with a
+      # minAppVersion higher than the users a plugin-only fix targets are running,
+      # excluding exactly them).
+      - name: Build plugin bundles and catalogue fragment
+        env:
+          PLUGIN_IDS: ${{ inputs.plugin_ids }}
+          MIN_APP_VERSION: ${{ inputs.min_app_version }}
+          APP_RELEASE: ${{ inputs.app_release }}
+        run: |
+          catalog_flag="--emit-catalog=dist/plugin-catalog.json"
+          if [ "$APP_RELEASE" = "true" ]; then
+            : # no extra flag — build-plugins.mjs's own default (readAppVersion()) applies
+          elif [ -n "$MIN_APP_VERSION" ]; then
+            catalog_flag="$catalog_flag --min-app-version=$MIN_APP_VERSION"
+          else
+            catalog_flag="$catalog_flag --no-app-version-fallback"
+          fi
+          # shellcheck disable=SC2086
+          node scripts/build-plugins.mjs $PLUGIN_IDS $catalog_flag --stage-assets=dist/plugin-release-assets
+
+      - name: Upload catalogue fragment as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-catalog-${{ github.run_id }}
+          path: dist/plugin-catalog.json
+
+      # Idempotent on re-dispatch: a prior run may have already created some of the
+      # six releases before failing partway through. `gh release view` distinguishes
+      # "create fresh" from "re-upload the assets (--clobber) to what's already
+      # there" instead of dying on an existing tag and leaving the rest unbuilt.
+      #
+      # Task 1 hash guard: a release tag is keyed on the PLUGIN's own manifest
+      # version, not the app version, so it stays live across many app releases —
+      # unlike the old app-version tag, a plugin fix that changes source without
+      # bumping that plugin's manifest version can hit an EXISTING tag here. The
+      # live marketplace catalogue still carries the OLD hash for that tag (merging
+      # this run's fragment is a manual, separate-repo step), so silently clobbering
+      # would break every reinstall/restore of that plugin until a human notices and
+      # merges. Compare staged bytes against what the existing release already
+      # carries first: identical bytes make the clobber a harmless no-op (keeps this
+      # job re-runnable after a partial failure); different bytes fail the job loudly
+      # and name the plugin, instead of shipping a hash the catalogue can't verify.
+      - name: Create a release per plugin and upload its bundle
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SOURCE_REF: ${{ inputs.ref }}
+          TARGET_SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          for dir in dist/plugin-release-assets/*/; do
+            tag="$(basename "$dir")"
+            if gh release view "$tag" -R "$REPO" >/dev/null 2>&1; then
+              tmp="$(mktemp -d)"
+              mismatched=""
+              for f in index.js voltius.css; do
+                if [ -f "${dir}${f}" ]; then
+                  if gh release download "$tag" -R "$REPO" -p "$f" -D "$tmp" >/dev/null 2>&1; then
+                    cmp -s "${dir}${f}" "$tmp/$f" || mismatched="$mismatched $f"
+                  fi
+                fi
+              done
+              rm -rf "$tmp"
+              if [ -n "$mismatched" ]; then
+                plugin_id="${tag%-v*}"
+                echo "::error::Release '$tag' already exists, but its$mismatched differ from the freshly built bytes. $plugin_id's source changed without bumping its manifest version, so this run would silently overwrite a release the live marketplace catalogue still points a stale hash at. Bump the 'version' field in $plugin_id's manifest.json and re-run this workflow."
+                exit 1
+              fi
+              gh release upload "$tag" "$dir"* -R "$REPO" --clobber
+            else
+              gh release create "$tag" "$dir"* \
+                -R "$REPO" \
+                --target "$TARGET_SHA" \
+                --title "$tag" \
+                --notes "First-party plugin bundle, built from $SOURCE_REF. See voltius CHANGELOG.md for what changed." \
+                --latest=false
+            fi
+          done

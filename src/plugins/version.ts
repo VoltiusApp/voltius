@@ -56,8 +56,18 @@ export function compareVersions(a: string, b: string): -1 | 0 | 1 {
  * `seededVersion` alone would make almost any parseable `candidateVersion` look
  * "newer" — exactly backwards for a downgrade guard. Both sides are validated
  * before comparing so that can't happen. Same rule used by `mergeBrowseCatalog`
- * (Browse-tab row selection) and the boot-time floor check, so the two can never
- * disagree about which bytes are trusted.
+ * (Browse-tab row selection) and `supersedeStaleFirstPartyShadows` (boot-time
+ * floor check), so the two can never disagree about which bytes are trusted.
+ *
+ * Both call sites read a `false` return the same way — "seeded wins, don't touch
+ * the external copy" — but that means the SAME malformed-input fallback resolves
+ * to opposite actions in each domain, and deliberately so: `mergeBrowseCatalog`
+ * falls back to offering the seeded floor entry instead of a possibly-bogus
+ * catalogue row (no network fetch of unvetted bytes); `supersedeStaleFirstPartyShadows`
+ * falls back to leaving the external install in place instead of deleting it (no
+ * destructive action on a version string it couldn't actually compare). Both are
+ * the fail-safe direction for their own domain — do not "fix" one to match the
+ * other's mechanics.
  */
 export function beatsSeededVersion(candidateVersion: unknown, seededVersion: unknown): boolean {
   if (typeof candidateVersion !== "string" || typeof seededVersion !== "string") return false;

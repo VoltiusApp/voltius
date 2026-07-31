@@ -290,6 +290,11 @@ export function InstalledTab() {
   const searchRef = useRef<HTMLInputElement>(null);
   useFilterShortcut(searchRef);
   const isAndroid = useIsAndroid();
+  const [seededEntries, setSeededEntries] = useState<Map<string, SeededEntry>>(new Map());
+
+  useEffect(() => {
+    void loadSeededEntries().then(setSeededEntries);
+  }, []);
 
   const refreshLoaded = () =>
     setLoadedIds(new Set(getLoadedPlugins().map((m) => m.id)));
@@ -419,7 +424,13 @@ export function InstalledTab() {
           const hasAutoConfig = !!manifest.contributes?.configuration && Object.keys(manifest.contributes.configuration).length > 0;
           const showSettingsBtn = pluginPages.length > 0 || hasAutoConfig;
           const isUninstalling = uninstalling.has(manifest.id);
-          const seededUpdate = availableSeededUpdate(manifest, catalog, appVersion);
+          // Mirrors uninstallSeededPlugin's hasSeededArtifact guard: a loaded plugin
+          // whose id has no real seeded artifact (missing meta, or an id collision)
+          // must never offer an Update that installs the genuine first-party bundle
+          // over it.
+          const seededUpdate = seededEntries.has(manifest.id)
+            ? availableSeededUpdate(manifest, catalog, appVersion)
+            : null;
           const isUpdating = updateBusy.has(manifest.id);
 
           return (
@@ -948,15 +959,20 @@ export default function PluginsSection() {
     isAndroid,
   ).map(({ manifest }) => manifest);
   const totalCount = installedMeta.length + visibleSeededManifests.length;
+  const [seededEntries, setSeededEntries] = useState<Map<string, SeededEntry>>(new Map());
 
   // Fetch the catalog once on mount so update detection works before visiting Browse.
   useEffect(() => {
     if (catalog.length === 0 && !catalogLoading) void fetchCatalog();
+    void loadSeededEntries().then(setSeededEntries);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Same hasSeededArtifact guard as the Update button itself (InstalledTab) — a
+  // manifest with no real seeded artifact must never count toward "N updates"
+  // either, or the badge promises an update the UI has nowhere to act on.
   const updateCount = installedMeta.filter((m) => availableUpdate(m, catalog)).length
-    + visibleSeededManifests.filter((m) => availableSeededUpdate(m, catalog, appVersion)).length;
+    + visibleSeededManifests.filter((m) => seededEntries.has(m.id) && availableSeededUpdate(m, catalog, appVersion)).length;
 
   const tabLabel = (tabKey: Tab) => {
     if (tabKey === "browse") return t("settings.plugins.tabs.browse");

@@ -334,73 +334,35 @@ jobs:
 
   # Publishes the six first-party plugins (src/plugins/*) as their OWN GitHub
   # Releases, separate from the app release above — this is what lets a plugin fix
-  # ship without cutting a full app release. See scripts/build-plugins.mjs
-  # (releaseRepoFor) for why each plugin needs its own release. The emitted
-  # plugins.json fragment is uploaded as a build artifact and attached to the app
-  # release for the record — merging it into voltiusApp/marketplace's plugins.json
-  # is a manual follow-up this workflow cannot do (separate repo).
+  # ship without cutting a full app release. The actual build/stage/hash-guard/
+  # publish logic lives in publish-plugins.yml (also directly workflow_dispatch-able
+  # for a plugin-only fix that doesn't need a full app release) so the two paths
+  # can't drift apart. An app release always publishes all six, built from the app
+  # tag, with each manifest's own minAppVersion (or a failure — see Task 3).
   publish-plugins:
     needs: [changelog, publish-tauri]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/publish-plugins.yml
+    with:
+      ref: ${{ inputs.tag }}
+      app_release: true
+    secrets: inherit
+
+  # The emitted plugins.json fragment is attached to the app release for the
+  # record — merging it into voltiusApp/marketplace's plugins.json is a manual
+  # follow-up this workflow cannot do (separate repo).
+  attach-plugin-catalog:
+    needs: publish-plugins
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
+      - name: Download the catalogue fragment
+        uses: actions/download-artifact@v4
         with:
-          ref: ${{ inputs.tag }}
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 10
-
-      - name: Setup node
-        uses: actions/setup-node@v6
-        with:
-          node-version: lts/*
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Resolve the commit SHA for ${{ inputs.tag }}
-        id: commit
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
-      - name: Build plugin bundles and catalogue fragment
-        run: node scripts/build-plugins.mjs --emit-catalog=dist/plugin-catalog.json --stage-assets=dist/plugin-release-assets
-
-      - name: Upload catalogue fragment as a build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: plugin-catalog
-          path: dist/plugin-catalog.json
-
-      # Idempotent on re-dispatch: a prior run may have already created some of the
-      # six releases before failing partway through. `gh release view` distinguishes
-      # "create fresh" from "re-upload the assets (--clobber) to what's already
-      # there" instead of dying on an existing tag and leaving the rest unbuilt.
-      - name: Create a release per plugin and upload its bundle
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          APP_TAG: ${{ inputs.tag }}
-          TARGET_SHA: ${{ steps.commit.outputs.sha }}
-        run: |
-          for dir in dist/plugin-release-assets/*/; do
-            tag="$(basename "$dir")"
-            if gh release view "$tag" -R "$REPO" >/dev/null 2>&1; then
-              gh release upload "$tag" "$dir"* -R "$REPO" --clobber
-            else
-              gh release create "$tag" "$dir"* \
-                -R "$REPO" \
-                --target "$TARGET_SHA" \
-                --title "$tag" \
-                --notes "First-party plugin bundle, built from $APP_TAG. See voltius CHANGELOG.md for what changed." \
-                --latest=false
-            fi
-          done
+          name: ${{ needs.publish-plugins.outputs.catalog-artifact }}
+          path: dist
 
       - name: Attach the catalogue fragment to the app release
         env:

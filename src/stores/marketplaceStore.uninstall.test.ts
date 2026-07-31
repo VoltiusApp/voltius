@@ -8,10 +8,11 @@ const h = vi.hoisted(() => ({
   invoke: vi.fn(),
   loadPlugin: vi.fn(),
   unloadPlugin: vi.fn(),
+  getLoadedPlugins: vi.fn(() => []),
   importPluginModule: vi.fn(async () => ({ default: () => {} })),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
-vi.mock("@/plugins/runtime", () => ({ loadPlugin: h.loadPlugin, unloadPlugin: h.unloadPlugin }));
+vi.mock("@/plugins/runtime", () => ({ loadPlugin: h.loadPlugin, unloadPlugin: h.unloadPlugin, getLoadedPlugins: h.getLoadedPlugins }));
 vi.mock("@/plugins/importPluginModule", () => ({
   importPluginModule: h.importPluginModule,
   pluginRegisterOf: (mod: { default?: unknown; register?: unknown }) => mod.default ?? mod.register,

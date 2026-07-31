@@ -1,5 +1,5 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor, act } from "@testing-library/react";
 import type { PluginManifest } from "@/plugins/api";
 
 const manifest = (id: string, extra: Partial<PluginManifest> = {}): PluginManifest =>
@@ -29,9 +29,11 @@ const marketplaceState = {
   appVersion: null as string | null,
   loadAppVersion: vi.fn(async () => {}),
 };
+const FIRST_PARTY_SOURCE = vi.hoisted(() => ({ id: "voltius", name: "Voltius Marketplace", url: "", enabled: true, deletable: false }));
 vi.mock("@/stores/marketplaceStore", () => ({
   useMarketplaceStore: (selector?: (s: typeof marketplaceState) => unknown) =>
     selector ? selector(marketplaceState) : marketplaceState,
+  FIRST_PARTY_SOURCE,
 }));
 vi.mock("@/stores/notificationStore", () => ({
   useNotificationStore: Object.assign(() => ({ push: vi.fn() }), { getState: () => ({ push: vi.fn() }) }),
@@ -47,6 +49,16 @@ vi.mock("react-i18next", () => ({
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => {}) }));
+
+// Controllable per-test: which ids have a real seeded (app-bundled) artifact.
+// Empty by default — most tests here aren't exercising the seeded-update guard.
+const seeded = vi.hoisted(() => ({ entries: new Map<string, unknown>() }));
+vi.mock("@/stores/seededTombstoneStore", () => ({
+  useSeededTombstoneStore: Object.assign((sel?: (s: { removed: string[] }) => unknown) => sel ? sel({ removed: [] }) : { removed: [] }, {
+    getState: () => ({ removed: [], isRemoved: () => false }),
+  }),
+  loadSeededEntries: vi.fn(async () => seeded.entries),
+}));
 
 import { InstalledTab } from "@/components/settings/sections/PluginsSection";
 import { useUIStore } from "@/stores/uiStore";
@@ -64,6 +76,9 @@ beforeEach(() => {
   localStorage.clear();
   usePluginRegistryStore.setState({ overrides: {} });
   useUIStore.setState({ settingsSection: "plugins", settingsPluginPageId: null, settingsSubPage: null });
+  seeded.entries = new Map();
+  marketplaceState.catalog = [];
+  marketplaceState.appVersion = null;
 });
 afterEach(cleanup);
 
@@ -113,4 +128,38 @@ test("uninstalling a seeded plugin requires confirmation before calling the stor
   expect(screen.getByText("settings.plugins.installed.confirmUninstallSeeded.title")).toBeTruthy();
   fireEvent.click(screen.getByText("settings.plugins.installed.confirmUninstallSeeded.confirm"));
   expect(marketplaceState.uninstallSeededPlugin).toHaveBeenCalledWith("plugin-ai-agent");
+});
+
+// ─── Fix 5: the seeded Update button must mirror uninstallSeededPlugin's ────────
+// hasSeededArtifact guard — a loaded id with no real seeded artifact (missing meta,
+// or an id collision) must never offer an Update that installs the genuine
+// first-party bundle over it.
+
+test("a genuine seeded artifact with a newer catalogue entry shows the Update button", async () => {
+  loaded.list = [AI];
+  usePluginStore.setState({ settingsPages: new Map() });
+  seeded.entries = new Map([["plugin-ai-agent", { folder: "ai-agent", manifest: AI }]]);
+  marketplaceState.catalog = [
+    { id: "plugin-ai-agent", name: "AI Agent", author: "Voltius", description: "", repo: "", version: "2.0.0", tags: [], theme: false, sourceId: "voltius" },
+  ];
+  render(<InstalledTab />);
+  await waitFor(() => {
+    expect(screen.getByTitle("settings.plugins.installed.updateTitle")).toBeTruthy();
+  });
+});
+
+test("a loaded id with NO real seeded artifact never shows the seeded Update button, even with a matching newer catalogue entry", async () => {
+  loaded.list = [AI];
+  usePluginStore.setState({ settingsPages: new Map() });
+  // No entry for "plugin-ai-agent" — this id is loaded (e.g. installedMeta went
+  // missing on this device) but has no genuine app-bundled artifact behind it.
+  seeded.entries = new Map();
+  marketplaceState.catalog = [
+    { id: "plugin-ai-agent", name: "AI Agent", author: "Voltius", description: "", repo: "", version: "2.0.0", tags: [], theme: false, sourceId: "voltius" },
+  ];
+  render(<InstalledTab />);
+  // Let the async loadSeededEntries effect (and its state update) settle before
+  // asserting the button's absence — there's no positive change to poll for here.
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  expect(screen.queryByTitle("settings.plugins.installed.updateTitle")).toBeNull();
 });

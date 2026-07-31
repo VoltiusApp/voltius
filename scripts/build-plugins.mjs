@@ -94,6 +94,21 @@ export function buildCatalogFragment(ids, { resourcesDir = RESOURCES_DIR, appVer
     const jsText = readFileSync(path.join(dir, "index.js"), "utf8");
     const cssPath = path.join(dir, "voltius.css");
 
+    // No implicit fallback here beyond what the caller passed as `appVersion` — the
+    // app-release CLI path passes the working-tree package.json version (see main()),
+    // but the plugin-only publish path deliberately omits it: reading the working
+    // tree's app version there is a footgun (a branch already bumped past the version
+    // still running for the users a plugin fix targets would stamp minAppVersion too
+    // high and exclude exactly them). Fail loudly rather than guess.
+    const minAppVersion = manifest.minAppVersion ?? appVersion;
+    if (!minAppVersion) {
+      throw new Error(
+        `[build-plugins] "${manifest.id}" (${folder}) has no "minAppVersion" in its manifest.json, `
+        + `and no app-version fallback was supplied. Add "minAppVersion" to `
+        + `src/plugins/${folder}/manifest.json, or pass --min-app-version=X.Y.Z explicitly.`,
+      );
+    }
+
     const entry = {
       id: manifest.id,
       name: manifest.name,
@@ -101,7 +116,7 @@ export function buildCatalogFragment(ids, { resourcesDir = RESOURCES_DIR, appVer
       description: manifest.description ?? "",
       repo: releaseRepoFor(manifest.id, manifest.version),
       version: manifest.version,
-      minAppVersion: manifest.minAppVersion ?? appVersion,
+      minAppVersion,
       tags: PLUGIN_TAGS[folder] ?? [],
       theme: false,
       hash: sha256(jsText),
@@ -184,7 +199,22 @@ function main() {
 
   if ("emit-catalog" in flags) {
     const outPath = resolveFlagPath(flags, "emit-catalog", "dist/plugin-catalog.json");
-    const fragment = buildCatalogFragment(targetIds, { appVersion: readAppVersion() });
+    // --min-app-version=X.Y.Z: explicit fallback for a plugin whose manifest omits
+    // minAppVersion (used by the plugin-only publish path, see publish-plugins.yml).
+    // --no-app-version-fallback: no fallback at all — every plugin here must carry
+    // its own manifest minAppVersion, or buildCatalogFragment throws naming it.
+    // Neither flag (the app-release path, unchanged): falls back to the working
+    // tree's package.json version, exactly as before this fix.
+    let appVersion;
+    if ("min-app-version" in flags) {
+      if (typeof flags["min-app-version"] !== "string" || !flags["min-app-version"]) {
+        throw new Error("[build-plugins] --min-app-version requires a value, e.g. --min-app-version=0.13.0");
+      }
+      appVersion = flags["min-app-version"];
+    } else if (!("no-app-version-fallback" in flags)) {
+      appVersion = readAppVersion();
+    }
+    const fragment = buildCatalogFragment(targetIds, { appVersion });
     mkdirSync(path.dirname(outPath), { recursive: true });
     writeFileSync(outPath, JSON.stringify(fragment, null, 2) + "\n");
     console.log(`[build-plugins] wrote catalogue fragment (${fragment.length} entries) to ${outPath}`);

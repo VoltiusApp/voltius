@@ -1,5 +1,5 @@
 import { test, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, act } from "@testing-library/react";
 import type { PluginManifest } from "@/plugins/api";
 
 // Reproduces the Task 3 fix: a desktopOnly seeded plugin (e.g. plugin-ssh-config) is
@@ -47,11 +47,15 @@ vi.mock("@/components/shared/ToolbarViewControls", () => ({ useFilterShortcut: (
 vi.mock("@/components/shared/Toggle", () => ({ Toggle: () => null }));
 vi.mock("@/components/settings/sections/PluginPermissionModal", () => ({ PluginPermissionModal: () => null }));
 vi.mock("@/components/shared/ConfirmModal", () => ({ ConfirmModal: () => null }));
+// Controllable per-test: which loaded ids have a real seeded (app-bundled)
+// artifact behind them — Fix 5's hasSeededArtifact-style guard on the update
+// counter reads this before counting a seeded id's update.
+const seeded = vi.hoisted(() => ({ entries: new Map<string, unknown>() }));
 vi.mock("@/stores/seededTombstoneStore", () => ({
   useSeededTombstoneStore: Object.assign((sel?: (s: { removed: string[] }) => unknown) => sel ? sel({ removed: [] }) : { removed: [] }, {
     getState: () => ({ removed: [], isRemoved: () => false }),
   }),
-  loadSeededEntries: vi.fn(async () => new Map()),
+  loadSeededEntries: vi.fn(async () => seeded.entries),
 }));
 const androidFlag = vi.hoisted(() => ({ value: false }));
 vi.mock("@/utils/platform", () => ({ useIsAndroid: () => androidFlag.value }));
@@ -72,36 +76,55 @@ afterEach(() => {
   marketplaceState.installedMeta = [];
   marketplaceState.catalog = [];
   loaded.list = [];
+  seeded.entries = new Map();
   usePluginRegistryStore.setState({ overrides: {} });
   useUIStore.setState({ settingsSection: "plugins", settingsPluginPageId: null, settingsSubPage: null });
 });
 
-test("a desktopOnly seeded plugin's update is counted and shown on desktop", () => {
+test("a desktopOnly seeded plugin's update is counted and shown on desktop", async () => {
   androidFlag.value = false;
   loaded.list = [manifest("plugin-ssh-config", { version: "1.0.0", desktopOnly: true })];
+  seeded.entries = new Map([["plugin-ssh-config", { folder: "ssh-config", manifest: loaded.list[0] }]]);
   marketplaceState.catalog = [
     { id: "plugin-ssh-config", name: "SSH Config", author: "Voltius", description: "", repo: "", version: "2.0.0", tags: [], theme: false, sourceId: "voltius" },
   ];
   render(<PluginsSection />);
-  expect(screen.getByText(/updateCount/)).toBeTruthy();
+  expect(await screen.findByText(/updateCount/)).toBeTruthy();
 });
 
-test("a desktopOnly seeded plugin's update is NOT counted or shown on Android (no row exists to act on it)", () => {
+test("a desktopOnly seeded plugin's update is NOT counted or shown on Android (no row exists to act on it)", async () => {
   androidFlag.value = true;
   loaded.list = [manifest("plugin-ssh-config", { version: "1.0.0", desktopOnly: true })];
+  seeded.entries = new Map([["plugin-ssh-config", { folder: "ssh-config", manifest: loaded.list[0] }]]);
   marketplaceState.catalog = [
     { id: "plugin-ssh-config", name: "SSH Config", author: "Voltius", description: "", repo: "", version: "2.0.0", tags: [], theme: false, sourceId: "voltius" },
   ];
   render(<PluginsSection />);
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
   expect(screen.queryByText(/updateCount/)).toBeNull();
 });
 
-test("a non-desktopOnly seeded plugin's update is still counted on Android", () => {
-  androidFlag.value = true;
+// A loaded id with no real seeded artifact must never count toward "N updates" —
+// same guard as the Update button itself (PluginsSection.InstalledTab.test.tsx).
+test("a loaded id with no real seeded artifact is never counted, even with a matching newer catalogue entry", async () => {
+  androidFlag.value = false;
   loaded.list = [manifest("plugin-docker", { version: "1.0.0" })];
+  seeded.entries = new Map(); // no artifact behind this id
   marketplaceState.catalog = [
     { id: "plugin-docker", name: "Docker", author: "Voltius", description: "", repo: "", version: "2.0.0", tags: [], theme: false, sourceId: "voltius" },
   ];
   render(<PluginsSection />);
-  expect(screen.getByText(/updateCount/)).toBeTruthy();
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  expect(screen.queryByText(/updateCount/)).toBeNull();
+});
+
+test("a non-desktopOnly seeded plugin's update is still counted on Android", async () => {
+  androidFlag.value = true;
+  loaded.list = [manifest("plugin-docker", { version: "1.0.0" })];
+  seeded.entries = new Map([["plugin-docker", { folder: "docker", manifest: loaded.list[0] }]]);
+  marketplaceState.catalog = [
+    { id: "plugin-docker", name: "Docker", author: "Voltius", description: "", repo: "", version: "2.0.0", tags: [], theme: false, sourceId: "voltius" },
+  ];
+  render(<PluginsSection />);
+  expect(await screen.findByText(/updateCount/)).toBeTruthy();
 });

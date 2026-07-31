@@ -401,6 +401,17 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       const active = usePluginRegistryStore
         .getState()
         .isEnabled(manifest.id, manifest.defaultEnabled ?? true);
+      // An update over an id that's still registered must tear down the OLD code
+      // first — loadPlugin silently no-ops on an id it already has, which would
+      // leave the previous version running for the rest of the session while the
+      // UI reports the new one installed. Only done here, this late: both hashes
+      // are verified and the new files are on disk, so a failed install above
+      // never reaches this point and the running plugin is left untouched.
+      // unloadPlugin also clears the old stylesheet, so an update with no cssHash
+      // doesn't leave the previous one injected.
+      if (getLoadedPlugins().some((m) => m.id === plugin.id)) {
+        unloadPlugin(plugin.id);
+      }
       loadPlugin(manifest, pluginRegisterOf(mod), active, false, cssText);
 
       const newMeta: InstalledPluginMeta[] = [
