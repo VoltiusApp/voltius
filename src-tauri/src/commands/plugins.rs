@@ -118,51 +118,30 @@ pub fn plugin_resolve_path(id: String, filename: String) -> Result<String, Strin
         .ok_or_else(|| "non-UTF-8 path".to_string())
 }
 
-use tauri::Manager;
-
-fn seeded_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .resolve("resources/plugins", tauri::path::BaseDirectory::Resource)
-        .map_err(|e| e.to_string())
-}
-
 /// List seeded (shipped-with-the-app) plugin IDs.
 #[tauri::command]
-pub fn plugins_list_seeded(app: tauri::AppHandle) -> Result<Vec<String>, String> {
-    let dir = match seeded_dir(&app) {
-        Ok(d) => d,
-        Err(_) => return Ok(Vec::new()),
-    };
-    let entries = match std::fs::read_dir(&dir) {
-        Ok(e) => e,
-        Err(_) => return Ok(Vec::new()),
-    };
-    let mut ids = Vec::new();
-    for entry in entries.flatten() {
-        if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
-            if let Some(name) = entry.file_name().to_str() {
-                ids.push(name.to_string());
-            }
-        }
-    }
-    // read_dir order is filesystem-dependent (ext4 hashes it) and changes after any
-    // uninstall/reinstall. Callers load plugins in this order, so leaving it unsorted
-    // makes every order-sensitive downstream surface non-deterministic.
+pub fn plugins_list_seeded() -> Result<Vec<String>, String> {
+    // Callers load plugins in this order, so it must not depend on table layout.
+    let mut ids: Vec<String> = SEEDED_PLUGINS
+        .iter()
+        .map(|(id, _)| id.to_string())
+        .collect();
     ids.sort();
     Ok(ids)
 }
 
-/// Read `resources/plugins/<id>/<filename>` as text.
+/// Read an embedded seeded artifact. No path is constructed, so the id guards are
+/// belt-and-braces here; they are kept so a bad id reports the same error as before.
 #[tauri::command]
-pub fn plugin_seeded_read(
-    app: tauri::AppHandle,
-    id: String,
-    filename: String,
-) -> Result<String, String> {
+pub fn plugin_seeded_read(id: String, filename: String) -> Result<String, String> {
     validate_id(&id)?;
     validate_filename(&filename)?;
-    let path = seeded_dir(&app)?.join(&id).join(&filename);
-    std::fs::read_to_string(path).map_err(|e| e.to_string())
+    SEEDED_PLUGINS
+        .iter()
+        .find(|(plugin_id, _)| *plugin_id == id)
+        .and_then(|(_, files)| files.iter().find(|(name, _)| *name == filename))
+        .map(|(_, contents)| contents.to_string())
+        .ok_or_else(|| format!("seeded plugin file not found: {id}/{filename}"))
 }
 
 #[cfg(test)]
@@ -239,5 +218,57 @@ mod tests {
                 "ssh-config"
             ]
         );
+    }
+
+    #[test]
+    fn lists_the_seeded_ids_sorted() {
+        assert_eq!(
+            plugins_list_seeded().unwrap(),
+            vec![
+                "docker",
+                "gist-sync",
+                "monitoring",
+                "process-manager",
+                "proxmox",
+                "ssh-config"
+            ]
+        );
+    }
+
+    #[test]
+    fn every_seeded_plugin_has_a_non_empty_manifest_and_bundle() {
+        for id in plugins_list_seeded().unwrap() {
+            for filename in ["manifest.json", "index.js"] {
+                let text = plugin_seeded_read(id.clone(), filename.to_string())
+                    .unwrap_or_else(|e| panic!("{id}/{filename}: {e}"));
+                assert!(!text.trim().is_empty(), "{id}/{filename} is empty");
+            }
+        }
+    }
+
+    #[test]
+    fn every_seeded_manifest_parses_and_declares_an_id() {
+        for id in plugins_list_seeded().unwrap() {
+            let text = plugin_seeded_read(id.clone(), "manifest.json".to_string()).unwrap();
+            let value: serde_json::Value =
+                serde_json::from_str(&text).unwrap_or_else(|e| panic!("{id}: {e}"));
+            assert!(
+                value.get("id").and_then(|v| v.as_str()).is_some(),
+                "{id}: manifest has no string id"
+            );
+        }
+    }
+
+    #[test]
+    fn only_monitoring_ships_a_stylesheet() {
+        assert!(plugin_seeded_read("monitoring".to_string(), "voltius.css".to_string()).is_ok());
+        assert!(plugin_seeded_read("proxmox".to_string(), "voltius.css".to_string()).is_err());
+    }
+
+    #[test]
+    fn rejects_unknown_and_hostile_lookups() {
+        assert!(plugin_seeded_read("nope".to_string(), "index.js".to_string()).is_err());
+        assert!(plugin_seeded_read("docker".to_string(), "nope.js".to_string()).is_err());
+        assert!(plugin_seeded_read("../evil".to_string(), "index.js".to_string()).is_err());
     }
 }
