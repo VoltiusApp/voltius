@@ -3,11 +3,15 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { sshSendInput, onSshOutput } from "@/services/ssh";
-import { onLocalOutput } from "@/services/local";
+import { onLocalOutput, localConnect, localSendInput } from "@/services/local";
 import { onSerialOutput } from "@/services/serial";
 import { readTerminalSnapshot, readTerminalSelection } from "@/hooks/useTerminal";
 import { usePluginStore } from "@/stores/pluginStore";
+import { useUIStore, type NavItem } from "@/stores/uiStore";
+import { useMobileNavStore } from "@/stores/mobileNavStore";
+import type { MobileScreen as MobileNavScreen } from "@/stores/mobileNavCore";
 import { useUIContributionStore } from "@/stores/uiContributionStore";
+import { usePluginStateStore } from "@/stores/pluginStateStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useSnippetStore } from "@/stores/snippetStore";
@@ -27,6 +31,7 @@ import * as identityService from "@/services/identities";
 import { storePluginSecret, getPluginSecret, deletePluginSecret, storeSecret, deleteSecret } from "@/services/vault";
 import { appFetch } from "@/services/http";
 import { sseFetch } from "@/services/sseFetch";
+import { registerLxcExecSession } from "@/services/proxmox";
 import type {
   PluginAPI,
   PluginManifest,
@@ -37,7 +42,24 @@ import type {
   PluginIdentity,
   PluginSession,
   PluginConfigField,
+  StreamKind,
+  PluginMobileNavEntry,
 } from "./api";
+import { createStreamsAPI } from "./domains/streams";
+import { createMetricsAPI } from "./domains/metrics";
+import { createProcessesAPI } from "./domains/processes";
+import { createCryptoAPI } from "./domains/crypto";
+import { createI18nAPI } from "./domains/i18n";
+import { createProxmoxAPI } from "./domains/proxmox";
+import { createDockerAPI } from "./domains/docker";
+import { injectPluginStyle, removePluginStyle } from "./importPluginModule";
+
+const STREAM_PERM: Record<StreamKind, string> = {
+  metrics: "metrics:read",
+  processes: "processes:read",
+  "docker-logs": "docker:read",
+  "docker-stack-logs": "docker:read",
+};
 
 // ─── Inter-plugin exposed APIs ────────────────────────────────────────────
 
@@ -70,6 +92,7 @@ interface SessionSnapshot {
   connectionId: string;
   connectionName: string;
   type: string;
+  localShell?: string;
 }
 
 function findConnection(connectionId: string) {
@@ -110,6 +133,7 @@ function ensureLifecycleSetup() {
         connectionId: s.connectionId,
         connectionName: s.connectionName,
         type: s.type,
+        localShell: s.localShell,
       }]),
     );
 
@@ -171,6 +195,7 @@ async function ensureQuitHandler() {
 // ─── Plugin keybinding registry ───────────────────────────────────────────
 
 interface PluginKeybinding {
+  pluginId: string;
   key: string;
   ctrl: boolean;
   shift: boolean;
@@ -179,9 +204,22 @@ interface PluginKeybinding {
 }
 
 const _pluginKeybindings = new Map<string, PluginKeybinding>(); // omni command id → binding
+
+/**
+ * Remove every keybinding a plugin has registered, keyed by pluginId rather than
+ * relying on each command's individual disposer having run. Used by every teardown
+ * path (register()-throw rollback, unloadPlugin, setPluginActive(false)) so a
+ * keybinding can never outlive the plugin that registered it — including when
+ * register() throws partway through and its aggregated cleanup was never produced.
+ */
+function clearPluginKeybindings(pluginId: string): void {
+  for (const [commandId, kb] of _pluginKeybindings) {
+    if (kb.pluginId === pluginId) _pluginKeybindings.delete(commandId);
+  }
+}
 let _keybindHandlerInstalled = false;
 
-function parseKeybinding(raw: string): Omit<PluginKeybinding, "execute"> | null {
+function parseKeybinding(raw: string): Omit<PluginKeybinding, "execute" | "pluginId"> | null {
   const parts = raw.toLowerCase().split("+");
   const key = parts[parts.length - 1];
   if (!key) return null;
@@ -194,7 +232,7 @@ function parseKeybinding(raw: string): Omit<PluginKeybinding, "execute"> | null 
   };
 }
 
-function formatPluginKeybinding(kb: Omit<PluginKeybinding, "execute">): string {
+function formatPluginKeybinding(kb: Omit<PluginKeybinding, "execute" | "pluginId">): string {
   const parts: string[] = [];
   if (kb.ctrl) parts.push("Ctrl");
   if (kb.meta) parts.push("Meta");
@@ -226,7 +264,7 @@ function ensureKeybindHandler() {
   }, true);
 }
 
-function registerKeybinding(commandId: string, raw: string, execute: () => void): string | null {
+function registerKeybinding(pluginId: string, commandId: string, raw: string, execute: () => void): string | null {
   const parsed = parseKeybinding(raw);
   if (!parsed) return null;
 
@@ -238,7 +276,7 @@ function registerKeybinding(commandId: string, raw: string, execute: () => void)
   }
 
   ensureKeybindHandler();
-  _pluginKeybindings.set(commandId, { ...parsed, execute });
+  _pluginKeybindings.set(commandId, { ...parsed, execute, pluginId });
   return formatPluginKeybinding(parsed);
 }
 
@@ -323,6 +361,29 @@ async function storageDelete(pluginId: string, key: string): Promise<void> {
   await invoke("plugin_storage_delete", { pluginId, key });
 }
 
+// ─── Mobile nav-stack translation ─────────────────────────────────────────
+// Translates a plugin's PluginMobileNavEntry into mobileNavCore's real stack
+// shape ("panel-<kind>", plus that variant's exact fields). No `default` case
+// and no `any`: tsc statically proves the switch covers every member of
+// PluginMobileNavEntry's kind (it errors "not all code paths return a value"
+// otherwise), and each case's return literal is structurally checked against
+// MobileNavScreen. Growing PluginMobileNavEntry to a second kind without a
+// matching case here, or with a case whose shape doesn't match a real
+// MobileNavScreen variant, fails `tsc` — not silently at runtime the way the
+// previous `as any` cast did.
+
+export function toMobileNavScreen(entry: PluginMobileNavEntry): MobileNavScreen {
+  switch (entry.kind) {
+    case "docker-logs":
+      return {
+        kind: "panel-docker-logs",
+        sessionId: entry.sessionId,
+        containerId: entry.containerId,
+        containerName: entry.containerName,
+      };
+  }
+}
+
 // ─── Permission checks ───────────────────────────────────────────────────
 
 function requirePerm(manifest: PluginManifest, perm: string): void {
@@ -349,6 +410,14 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   // is percent-encoded so a plugin id containing the ":" delimiter (e.g. "foo:x")
   // cannot forge a prefix that collides with another plugin's namespace.
   const kcKey = (key: string): string => `plugin:${encodeURIComponent(id)}:${key}`;
+
+  const streamsApi = createStreamsAPI();
+  const metricsApi = createMetricsAPI(streamsApi);
+  const processesApi = createProcessesAPI(streamsApi);
+  const cryptoApi = createCryptoAPI();
+  const i18nApi = createI18nAPI();
+  const proxmoxApi = createProxmoxAPI();
+  const dockerApi = createDockerAPI(streamsApi);
 
   const api: PluginAPI = {
     pluginId: id,
@@ -491,7 +560,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         requirePerm(manifest, "omni-commands");
         let formattedKeybinding: string | null = null;
         if (command.keybinding) {
-          formattedKeybinding = registerKeybinding(command.id, command.keybinding, () => {
+          formattedKeybinding = registerKeybinding(id, command.id, command.keybinding, () => {
             void command.execute();
           });
         }
@@ -512,7 +581,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       registerSettingsPage(page) {
         requirePerm(manifest, "settings-page");
         // Ensure page ID is prefixed with plugin ID so unregisterAll and store filters work correctly
-        const prefixed = { ...page, id: page.id.startsWith(id) ? page.id : `${id}:${page.id}` };
+        const prefixed = { ...page, id: page.id.startsWith(`${id}:`) ? page.id : `${id}:${page.id}` };
         store().registerSettingsPage(prefixed);
         return () => store().unregisterSettingsPage(prefixed.id);
       },
@@ -523,14 +592,29 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       registerRightPanelSection(section) {
         requirePerm(manifest, "right-panel");
-        store().registerRightPanelSection(section);
-        return () => store().unregisterRightPanelSection(section.id);
+        const prefixed = { ...section, id: section.id.startsWith(`${id}:`) ? section.id : `${id}:${section.id}` };
+        store().registerRightPanelSection(prefixed);
+        return () => store().unregisterRightPanelSection(prefixed.id);
       },
       registerGlobalPanel(panel) {
         requirePerm(manifest, "global-panel");
-        const prefixed = { ...panel, id: panel.id.startsWith(id) ? panel.id : `${id}:${panel.id}` };
+        const prefixed = { ...panel, id: panel.id.startsWith(`${id}:`) ? panel.id : `${id}:${panel.id}` };
         store().registerGlobalPanel(prefixed);
         return () => store().unregisterGlobalPanel(prefixed.id);
+      },
+      registerMobileScreen(screen) {
+        requirePerm(manifest, "right-panel");
+        const prefixed = { ...screen, id: screen.id.startsWith(`${id}:`) ? screen.id : `${id}:${screen.id}` };
+        store().registerMobileScreen(prefixed);
+        return () => store().unregisterMobileScreen(prefixed.id);
+      },
+      pushMobileScreen(entry) {
+        requirePerm(manifest, "ui");
+        useMobileNavStore.getState().push(toMobileNavScreen(entry));
+      },
+      focusMobileTerminal() {
+        requirePerm(manifest, "ui");
+        useMobileNavStore.getState().setTab("terminal");
       },
       registerContextMenuItem(item) {
         requirePerm(manifest, "context-menu");
@@ -553,7 +637,16 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         s.unregisterSidebarItem(itemId);
         s.unregisterRightPanelSection(itemId);
         s.unregisterGlobalPanel(itemId);
+        s.unregisterMobileScreen(itemId);
         s.unregisterContextMenuItem(itemId);
+      },
+      setActiveNav(id) {
+        requirePerm(manifest, "ui");
+        useUIStore.getState().setActiveNav(id as NavItem);
+      },
+      publishState(key, value) {
+        requirePerm(manifest, "ui");
+        usePluginStateStore.getState().publish(id, key, value);
       },
     },
 
@@ -716,6 +809,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           connectionName: s.connectionName,
           status: s.status,
           type: s.type,
+          localShell: s.localShell,
         }));
       },
       getActive() {
@@ -730,6 +824,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           connectionName: s.connectionName,
           status: s.status,
           type: s.type,
+          localShell: s.localShell,
         };
       },
       onConnected(cb) {
@@ -808,6 +903,264 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       async delete(key) {
         requireGated("keychain:write");
         await invoke("keychain_delete", { key: kcKey(key) });
+      },
+    },
+
+    streams: {
+      start: (kind, opts) => {
+        requireGated(STREAM_PERM[kind]);
+        return streamsApi.start(kind, opts);
+      },
+      stop: (streamId) => streamsApi.stop(streamId),
+      on: (streamId, cb) => streamsApi.on(streamId, cb),
+    },
+
+    metrics: {
+      start: (sessionId, isRemote) => {
+        requireGated("metrics:read");
+        return metricsApi.start(sessionId, isRemote);
+      },
+      stop: (streamId) => metricsApi.stop(streamId),
+      onSnapshot: (streamId, cb) => {
+        requireGated("metrics:read");
+        return metricsApi.onSnapshot(streamId, cb);
+      },
+      getSystemInfo: (sessionId, sessionType, sessionName) => {
+        requireGated("metrics:read");
+        return metricsApi.getSystemInfo(sessionId, sessionType, sessionName);
+      },
+    },
+
+    processes: {
+      start: (sessionId, isRemote) => {
+        requireGated("processes:read");
+        return processesApi.start(sessionId, isRemote);
+      },
+      stop: (streamId) => {
+        requireGated("processes:read");
+        return processesApi.stop(streamId);
+      },
+      onSnapshot: (streamId, cb) => {
+        requireGated("processes:read");
+        return processesApi.onSnapshot(streamId, cb);
+      },
+      kill: (sessionId, pid, isRemote, force) => {
+        requireGated("processes:manage");
+        return processesApi.kill(sessionId, pid, isRemote, force);
+      },
+    },
+
+    crypto: {
+      deriveKey: (passphrase, saltHex) => {
+        requirePerm(manifest, "crypto:derive");
+        return cryptoApi.deriveKey(passphrase, saltHex);
+      },
+    },
+
+    i18n: {
+      register(catalog) {
+        requirePerm(manifest, "ui");
+        i18nApi.register(catalog);
+      },
+      t(key, vars) {
+        requirePerm(manifest, "ui");
+        return i18nApi.t(key, vars);
+      },
+      getLocale() {
+        requirePerm(manifest, "ui");
+        return i18nApi.getLocale();
+      },
+      onLocaleChange(cb) {
+        requirePerm(manifest, "ui");
+        return i18nApi.onLocaleChange(cb);
+      },
+    },
+
+    proxmox: {
+      lxc: {
+        list: (sessionId) => {
+          requireGated("proxmox:read");
+          return proxmoxApi.lxc.list(sessionId);
+        },
+        action: (sessionId, vmid, action) => {
+          requireGated("proxmox:manage");
+          return proxmoxApi.lxc.action(sessionId, vmid, action);
+        },
+        // Beyond the invoke, this registers the new exec session in the session
+        // store and marks it connected — the same bookkeeping useSessionStore.connect
+        // does for a normal SSH connect. A plugin has no store access of its own
+        // (sessions:write only covers connecting *saved connections*), so this lives
+        // here rather than in the pure domains/proxmox.ts invoke wrapper. The mobile
+        // Proxmox screen calls this same api.proxmox.lxc.openShell — see
+        // @/services/proxmox.ts's registerLxcExecSession for the shared bookkeeping.
+        openShell: async (sessionId, vmid, vmName) => {
+          requireGated("proxmox:manage");
+          const execSessionId = await proxmoxApi.lxc.openShell(sessionId, vmid);
+          const parent = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
+          await registerLxcExecSession({
+            execSessionId,
+            parentSessionId: sessionId,
+            connectionId: parent?.connectionId ?? "",
+            vmid,
+            vmName,
+          });
+          return execSessionId;
+        },
+        snapshots: {
+          list: (sessionId, vmid) => {
+            requireGated("proxmox:read");
+            return proxmoxApi.lxc.snapshots.list(sessionId, vmid);
+          },
+          create: (sessionId, vmid, name, description) => {
+            requireGated("proxmox:manage");
+            return proxmoxApi.lxc.snapshots.create(sessionId, vmid, name, description);
+          },
+          rollback: (sessionId, vmid, name) => {
+            requireGated("proxmox:manage");
+            return proxmoxApi.lxc.snapshots.rollback(sessionId, vmid, name);
+          },
+          remove: (sessionId, vmid, name) => {
+            requireGated("proxmox:manage");
+            return proxmoxApi.lxc.snapshots.remove(sessionId, vmid, name);
+          },
+        },
+      },
+    },
+
+    docker: {
+      containers: {
+        list: (target) => { requireGated("docker:read"); return dockerApi.containers.list(target); },
+        action: (target, containerId, action) => {
+          requireGated("docker:manage");
+          return dockerApi.containers.action(target, containerId, action);
+        },
+        runCommand: (target, containerId, command) => {
+          requireGated("docker:manage");
+          return dockerApi.containers.runCommand(target, containerId, command);
+        },
+      },
+      images: {
+        list: (target) => { requireGated("docker:read"); return dockerApi.images.list(target); },
+        remove: (target, imageId) => { requireGated("docker:manage"); return dockerApi.images.remove(target, imageId); },
+        pull: (target, image) => { requireGated("docker:manage"); return dockerApi.images.pull(target, image); },
+        checkUpdate: (target, imageId) => {
+          requireGated("docker:read");
+          return dockerApi.images.checkUpdate(target, imageId);
+        },
+        update: (target, imageId, recreate) => {
+          requireGated("docker:manage");
+          return dockerApi.images.update(target, imageId, recreate);
+        },
+        recreateContainers: (target, imageId) => {
+          requireGated("docker:manage");
+          return dockerApi.images.recreateContainers(target, imageId);
+        },
+        prune: (target) => { requireGated("docker:manage"); return dockerApi.images.prune(target); },
+      },
+      volumes: {
+        list: (target) => { requireGated("docker:read"); return dockerApi.volumes.list(target); },
+        remove: (target, name) => { requireGated("docker:manage"); return dockerApi.volumes.remove(target, name); },
+        prune: (target) => { requireGated("docker:manage"); return dockerApi.volumes.prune(target); },
+      },
+      networks: {
+        list: (target) => { requireGated("docker:read"); return dockerApi.networks.list(target); },
+        remove: (target, id) => { requireGated("docker:manage"); return dockerApi.networks.remove(target, id); },
+        prune: (target) => { requireGated("docker:manage"); return dockerApi.networks.prune(target); },
+      },
+      stacks: {
+        list: (target) => { requireGated("docker:read"); return dockerApi.stacks.list(target); },
+        services: (target, stack) => { requireGated("docker:read"); return dockerApi.stacks.services(target, stack); },
+        action: (target, stack, action) => {
+          requireGated("docker:manage");
+          return dockerApi.stacks.action(target, stack, action);
+        },
+        update: (target, stack) => { requireGated("docker:manage"); return dockerApi.stacks.update(target, stack); },
+      },
+      logs: {
+        start: (target, containerId, tail) => {
+          requireGated("docker:read");
+          return dockerApi.logs.start(target, containerId, tail);
+        },
+        startStack: (target, stack, tail) => {
+          requireGated("docker:read");
+          return dockerApi.logs.startStack(target, stack, tail);
+        },
+        stop: (streamId) => { requireGated("docker:read"); return dockerApi.logs.stop(streamId); },
+        on: (streamId, cb) => { requireGated("docker:read"); return dockerApi.logs.on(streamId, cb); },
+      },
+      system: {
+        prune: (target) => { requireGated("docker:manage"); return dockerApi.system.prune(target); },
+      },
+      // Beyond the invoke (remote) / local PTY spawn (local), this registers the
+      // new exec session in the session store — the same bookkeeping
+      // useSessionStore.connect does for a normal connect. A plugin has no store
+      // access of its own, so this lives here rather than in the pure
+      // domains/docker.ts wrapper. Mirrors proxmox's openShell wiring above; like
+      // openShell, nav-switching is the caller's job, not this primitive's.
+      exec: {
+        open: async (target, containerId, containerName) => {
+          requireGated("docker:manage");
+          const label = containerName ? `exec: ${containerName}` : `exec: ${containerId.slice(0, 12)}`;
+
+          if (target.isRemote) {
+            const execSessionId = await dockerApi.exec.open(target, containerId);
+            const parent = useSessionStore.getState().sessions.find((s) => s.id === target.sessionId);
+            useSessionStore.setState((s) => ({
+              sessions: [
+                ...s.sessions,
+                {
+                  id: execSessionId,
+                  connectionId: parent?.connectionId ?? "",
+                  connectionName: label,
+                  status: "connecting" as const,
+                  type: "ssh" as const,
+                  containerExec: { kind: "docker" as const, containerId, parentSessionId: target.sessionId },
+                },
+              ],
+              activeSessionId: execSessionId,
+            }));
+            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+            useSessionStore.setState((s) => ({
+              sessions: s.sessions.map((sess) =>
+                sess.id === execSessionId ? { ...sess, status: "connected" as const } : sess,
+              ),
+            }));
+            return execSessionId;
+          }
+
+          const newSessionId = crypto.randomUUID();
+          useSessionStore.setState((s) => ({
+            sessions: [
+              ...s.sessions,
+              {
+                id: newSessionId,
+                connectionId: "local",
+                connectionName: label,
+                status: "connecting" as const,
+                type: "local" as const,
+                localShell: target.localShell ?? undefined,
+              },
+            ],
+            activeSessionId: newSessionId,
+          }));
+          try {
+            await localConnect(newSessionId, 80, 24, target.localShell ?? undefined);
+            await localSendInput(newSessionId, new TextEncoder().encode(`docker exec -it ${containerId} sh\r`));
+            useSessionStore.setState((s) => ({
+              sessions: s.sessions.map((sess) =>
+                sess.id === newSessionId ? { ...sess, status: "connected" as const } : sess,
+              ),
+            }));
+          } catch (e) {
+            useSessionStore.setState((s) => ({
+              sessions: s.sessions.map((sess) =>
+                sess.id === newSessionId ? { ...sess, status: "error" as const } : sess,
+              ),
+            }));
+            throw e;
+          }
+          return newSessionId;
+        },
       },
     },
 
@@ -1008,11 +1361,24 @@ interface PluginEntry {
   active: boolean;
   trusted: boolean;
   api: ReturnType<typeof createPluginAPI>;
+  css?: string;
 }
 
 const _registry = new Map<string, PluginEntry>();
 
-export function loadPlugin(manifest: PluginManifest, register: PluginRegisterFn, active = true, trusted = false): void {
+/**
+ * @param css The plugin's stylesheet, if any. The caller (seeded/marketplace loader)
+ * already injected it via `importPluginModule`/`injectPluginStyle` before calling this —
+ * passing it here only lets the registry re-inject on reactivation and remove it on
+ * every teardown path, so a disabled or unloaded plugin's CSS doesn't outlive it.
+ */
+export function loadPlugin(
+  manifest: PluginManifest,
+  register: PluginRegisterFn,
+  active = true,
+  trusted = false,
+  css?: string,
+): void {
   if (_registry.has(manifest.id)) {
     console.warn(`[plugin-runtime] Plugin "${manifest.id}" already loaded — skipping`);
     return;
@@ -1021,9 +1387,27 @@ export function loadPlugin(manifest: PluginManifest, register: PluginRegisterFn,
   if (manifest.contributes?.configuration) {
     void populateDefaults(manifest.id, manifest.contributes.configuration);
   }
-  const entry: PluginEntry = { manifest, register, cleanup: undefined, active, trusted, api };
+  const entry: PluginEntry = { manifest, register, cleanup: undefined, active, trusted, api, css };
   _registry.set(manifest.id, entry);
-  entry.cleanup = register(api);
+  try {
+    entry.cleanup = register(api);
+  } catch (e) {
+    // register() may have registered several contributions before throwing. Roll
+    // every one of them back — same teardown as unloadPlugin — so a plugin that
+    // fails partway through never ends up half-loaded: live contributions with no
+    // registry entry, or a registry entry reported as loaded with cleanup: undefined.
+    entry.cleanup?.();
+    usePluginStore.getState().unregisterAll(manifest.id);
+    useUIContributionStore.getState().unregisterPlugin(manifest.id);
+    useNotificationStore.getState().dismissAllForPlugin(manifest.id);
+    usePluginStateStore.getState().clearPlugin(manifest.id);
+    clearPluginKeybindings(manifest.id);
+    removePluginStyle(manifest.id);
+    _exposedApis.delete(manifest.id);
+    _settingsListeners.delete(manifest.id);
+    _registry.delete(manifest.id);
+    throw e;
+  }
   console.info(`[plugin-runtime] Loaded plugin "${manifest.id}" v${manifest.version} (active=${active}, trusted=${trusted})`);
 }
 
@@ -1040,11 +1424,20 @@ export function setPluginActive(pluginId: string, active: boolean): void {
   if (!entry) return;
   entry.cleanup?.();
   entry.cleanup = undefined;
+  clearPluginKeybindings(pluginId);
   entry.active = active;
   if (active) {
+    if (entry.css) injectPluginStyle(pluginId, entry.css);
     entry.cleanup = entry.register(entry.api);
   } else {
     useNotificationStore.getState().dismissAllForPlugin(pluginId);
+    usePluginStateStore.getState().clearPlugin(pluginId);
+    removePluginStyle(pluginId);
+    // A disabled plugin's exposed API is a live, side-effecting callable
+    // (unlike e.g. a settings page registration) — it must not stay reachable
+    // while disabled. register() re-populates it via api.plugins.expose() on
+    // reactivation, same as it re-registers other imperative contributions.
+    _exposedApis.delete(pluginId);
   }
   console.info(`[plugin-runtime] Plugin "${pluginId}" set active=${active}`);
 }
@@ -1056,6 +1449,9 @@ export function unloadPlugin(pluginId: string): void {
   usePluginStore.getState().unregisterAll(pluginId);
   useUIContributionStore.getState().unregisterPlugin(pluginId);
   useNotificationStore.getState().dismissAllForPlugin(pluginId);
+  usePluginStateStore.getState().clearPlugin(pluginId);
+  clearPluginKeybindings(pluginId);
+  removePluginStyle(pluginId);
   _exposedApis.delete(pluginId);
   _settingsListeners.delete(pluginId);
   _registry.delete(pluginId);
@@ -1078,4 +1474,11 @@ export function pluginStorageGet<T>(pluginId: string, key: string): Promise<T | 
 /** Write a plugin's storage value — for use by trusted UI code (e.g. auto-generated settings). */
 export function pluginStorageSet<T>(pluginId: string, key: string, value: T): Promise<void> {
   return storageSet<T>(pluginId, key, value);
+}
+
+/** Read a plugin's exposed public API (via `api.plugins.expose`) — for use by
+ *  trusted host UI that needs to call into a built-in plugin without importing
+ *  its module. Returns null if the plugin hasn't exposed anything. */
+export function getExposedApi(pluginId: string): unknown | null {
+  return _exposedApis.get(pluginId) ?? null;
 }

@@ -55,6 +55,20 @@ fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
 
+fn build_stack_logs_cmd(stack_name: &str, tail: u32) -> String {
+    format!(
+        "docker compose -p {} logs --follow --tail {tail}",
+        shell_quote(stack_name)
+    )
+}
+
+fn build_container_logs_cmd(container_id: &str, tail: u32) -> String {
+    format!(
+        "docker logs --follow --tail {tail} {}",
+        shell_quote(container_id)
+    )
+}
+
 pub async fn list_containers(
     handle: &SshHandle,
     all: bool,
@@ -149,13 +163,14 @@ pub async fn container_action(
     container_id: &str,
     action: &ContainerAction,
 ) -> Result<(), String> {
+    let id_q = shell_quote(container_id);
     let cmd = match action {
-        ContainerAction::Start => format!("docker start {container_id}"),
-        ContainerAction::Stop => format!("docker stop {container_id}"),
-        ContainerAction::Restart => format!("docker restart {container_id}"),
-        ContainerAction::Remove => format!("docker rm -f {container_id}"),
-        ContainerAction::Pause => format!("docker pause {container_id}"),
-        ContainerAction::Unpause => format!("docker unpause {container_id}"),
+        ContainerAction::Start => format!("docker start {id_q}"),
+        ContainerAction::Stop => format!("docker stop {id_q}"),
+        ContainerAction::Restart => format!("docker restart {id_q}"),
+        ContainerAction::Remove => format!("docker rm -f {id_q}"),
+        ContainerAction::Pause => format!("docker pause {id_q}"),
+        ContainerAction::Unpause => format!("docker unpause {id_q}"),
     };
     // stop/restart honor docker's ~10s graceful-shutdown window, so don't cap at 10s.
     exec_command_timeout(handle, &cmd, LONG_EXEC_TIMEOUT).await?;
@@ -212,7 +227,7 @@ pub async fn stack_update(handle: &SshHandle, stack_name: &str) -> Result<(), St
 }
 
 pub async fn remove_image(handle: &SshHandle, image_id: &str) -> Result<(), String> {
-    exec_command(handle, &format!("docker rmi -f {image_id}")).await?;
+    exec_command(handle, &format!("docker rmi -f {}", shell_quote(image_id))).await?;
     Ok(())
 }
 
@@ -456,12 +471,12 @@ pub async fn pull_and_recreate(
 }
 
 pub async fn remove_volume(handle: &SshHandle, name: &str) -> Result<(), String> {
-    exec_command(handle, &format!("docker volume rm {name}")).await?;
+    exec_command(handle, &format!("docker volume rm {}", shell_quote(name))).await?;
     Ok(())
 }
 
 pub async fn remove_network(handle: &SshHandle, id: &str) -> Result<(), String> {
-    exec_command(handle, &format!("docker network rm {id}")).await?;
+    exec_command(handle, &format!("docker network rm {}", shell_quote(id))).await?;
     Ok(())
 }
 
@@ -526,7 +541,7 @@ pub async fn stream_stack_logs(
         }
     };
 
-    let cmd = format!("docker compose -p {stack_name} logs --follow --tail {tail}");
+    let cmd = build_stack_logs_cmd(&stack_name, tail);
     if let Err(e) = channel.exec(true, cmd.as_str()).await {
         let _ = app.emit(
             &event,
@@ -589,7 +604,7 @@ pub async fn stream_logs(
         }
     };
 
-    let cmd = format!("docker logs --follow --tail {tail} {container_id}");
+    let cmd = build_container_logs_cmd(&container_id, tail);
     if let Err(e) = channel.exec(true, cmd.as_str()).await {
         let _ = app.emit(
             &event,
@@ -625,5 +640,38 @@ pub async fn stream_logs(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const INJECTION: &str = "abc; rm -rf / #";
+
+    #[test]
+    fn shell_quote_neutralizes_command_separators() {
+        let quoted = shell_quote(INJECTION);
+        assert_eq!(quoted, "'abc; rm -rf / #'");
+    }
+
+    #[test]
+    fn shell_quote_escapes_embedded_single_quotes() {
+        assert_eq!(shell_quote("a'b"), "'a'\\''b'");
+    }
+
+    #[test]
+    fn container_logs_cmd_quotes_container_id() {
+        let cmd = build_container_logs_cmd(INJECTION, 100);
+        assert_eq!(cmd, "docker logs --follow --tail 100 'abc; rm -rf / #'");
+    }
+
+    #[test]
+    fn stack_logs_cmd_quotes_stack_name() {
+        let cmd = build_stack_logs_cmd(INJECTION, 100);
+        assert_eq!(
+            cmd,
+            "docker compose -p 'abc; rm -rf / #' logs --follow --tail 100"
+        );
     }
 }

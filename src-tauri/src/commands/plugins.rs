@@ -21,6 +21,10 @@ pub fn plugins_list_installed() -> Result<Vec<String>, String> {
             }
         }
     }
+    // read_dir order is filesystem-dependent (ext4 hashes it) and changes after any
+    // uninstall/reinstall. Callers load plugins in this order, so leaving it unsorted
+    // makes every order-sensitive downstream surface non-deterministic.
+    ids.sort();
     Ok(ids)
 }
 
@@ -84,4 +88,52 @@ pub fn plugin_resolve_path(id: String, filename: String) -> Result<String, Strin
     path.to_str()
         .map(|s| s.to_string())
         .ok_or_else(|| "non-UTF-8 path".to_string())
+}
+
+use tauri::Manager;
+
+fn seeded_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .resolve("resources/plugins", tauri::path::BaseDirectory::Resource)
+        .map_err(|e| e.to_string())
+}
+
+/// List seeded (shipped-with-the-app) plugin IDs.
+#[tauri::command]
+pub fn plugins_list_seeded(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    let dir = match seeded_dir(&app) {
+        Ok(d) => d,
+        Err(_) => return Ok(Vec::new()),
+    };
+    let entries = match std::fs::read_dir(&dir) {
+        Ok(e) => e,
+        Err(_) => return Ok(Vec::new()),
+    };
+    let mut ids = Vec::new();
+    for entry in entries.flatten() {
+        if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+            if let Some(name) = entry.file_name().to_str() {
+                ids.push(name.to_string());
+            }
+        }
+    }
+    // read_dir order is filesystem-dependent (ext4 hashes it) and changes after any
+    // uninstall/reinstall. Callers load plugins in this order, so leaving it unsorted
+    // makes every order-sensitive downstream surface non-deterministic.
+    ids.sort();
+    Ok(ids)
+}
+
+/// Read `resources/plugins/<id>/<filename>` as text.
+#[tauri::command]
+pub fn plugin_seeded_read(
+    app: tauri::AppHandle,
+    id: String,
+    filename: String,
+) -> Result<String, String> {
+    if id.contains("..") || id.contains('/') || filename.contains("..") || filename.contains('/') {
+        return Err("invalid path component".to_string());
+    }
+    let path = seeded_dir(&app)?.join(&id).join(&filename);
+    std::fs::read_to_string(path).map_err(|e| e.to_string())
 }

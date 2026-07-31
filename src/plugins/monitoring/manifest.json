@@ -1,0 +1,8 @@
+{
+  "id": "plugin-monitoring",
+  "name": "System Metrics",
+  "version": "1.0.0",
+  "description": "Real-time CPU, RAM, network, and disk metrics for local and SSH sessions.",
+  "permissions": ["metrics:read", "sessions:read", "right-panel", "ui"],
+  "defaultEnabled": true
+}

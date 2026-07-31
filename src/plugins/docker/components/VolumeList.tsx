@@ -19,7 +19,7 @@ export function VolumeList({ volumes, sessionId, isRemote, localShell, onRefresh
     setPruning(true);
     setPruneMsg(null);
     try {
-      const msg = await dockerPruneVolumes(sessionId, isRemote, localShell);
+      const msg = await dockerPruneVolumes({ sessionId, isRemote, localShell });
       setPruneMsg(msg);
       onRefresh();
     } catch (e) {
@@ -89,7 +89,7 @@ function VolumeRow({
   const remove = async () => {
     setBusy(true);
     try {
-      await dockerRemoveVolume(sessionId, isRemote, localShell, volume.name);
+      await dockerRemoveVolume({ sessionId, isRemote, localShell }, volume.name);
       onRefresh();
     } catch (e) {
       console.error("[docker] remove volume failed:", e);

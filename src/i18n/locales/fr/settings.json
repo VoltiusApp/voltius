@@ -675,7 +675,12 @@
         "unverified": "Non vérifié",
         "update": "Mettre à jour",
         "updating": "Mise à jour…",
-        "updateTitle": "Mettre à jour vers la v{{version}}"
+        "updateTitle": "Mettre à jour vers la v{{version}}",
+        "confirmUninstallSeeded": {
+          "title": "Désinstaller {{name}} ?",
+          "message": "{{name}} est un plugin intégré. La désinstallation le retire de votre liste — vous pouvez le réinstaller à tout moment depuis l'onglet Parcourir.",
+          "confirm": "Désinstaller"
+        }
       },
       "browse": {
         "searchPlaceholder": "Rechercher des extensions…",
@@ -693,11 +698,13 @@
         "uninstall": "Désinstaller",
         "installing": "Installation…",
         "install": "Installer",
-        "updateBadge": "mise à jour disponible"
+        "updateBadge": "mise à jour disponible",
+        "requiresVersion": "Nécessite la v{{version}} ou supérieure"
       },
       "install": {
         "integrityFailed": "L'intégrité du module a échoué — installation bloquée.",
-        "failed": "Échec de l'installation du module."
+        "failed": "Échec de l'installation du module.",
+        "versionUnsupported": "Ce module nécessite la version {{version}} ou supérieure de l'application."
       },
       "permissionModal": {
         "installTitle": "Installer {{name}} ?",
@@ -716,6 +723,13 @@
           "terminalWrite": { "label": "Écrire dans vos terminaux", "description": "Envoyer des saisies et exécuter des commandes dans vos sessions de terminal — comme si vous les tapiez vous-même." },
           "keychainRead": { "label": "Lire ses propres secrets stockés", "description": "Lire les secrets que ce plugin a précédemment enregistrés dans le trousseau de votre appareil." },
           "keychainWrite": { "label": "Enregistrer des secrets sur votre appareil", "description": "Enregistrer des secrets dans le trousseau de votre système." },
+          "metricsRead": { "label": "Lire les métriques système", "description": "Lire les statistiques processeur, mémoire, disque et réseau de vos hôtes connectés." },
+          "dockerRead": { "label": "Lire les informations Docker", "description": "Lister les conteneurs, images, volumes, réseaux et stacks, et lire les journaux des conteneurs. Les journaux peuvent contenir des mots de passe ou des jetons." },
+          "processesRead": { "label": "Lire les informations sur les processus", "description": "Lister les processus en cours sur vos hôtes connectés." },
+          "processesManage": { "label": "Gérer les processus", "description": "Lister et arrêter les processus en cours sur vos hôtes connectés." },
+          "dockerManage": { "label": "Gérer Docker", "description": "Lister, démarrer, arrêter et supprimer conteneurs, images, volumes, réseaux et stacks. Cela peut détruire définitivement des données." },
+          "proxmoxRead": { "label": "Lire les informations Proxmox", "description": "Lister les conteneurs LXC et leurs snapshots." },
+          "proxmoxManage": { "label": "Gérer Proxmox", "description": "Lister et contrôler les conteneurs LXC, y compris créer, supprimer et restaurer des snapshots. Cela peut détruire définitivement des données." },
           "sessionsRead": { "label": "Voir vos sessions", "description": "Voir quelles sessions de terminal sont ouvertes et quand elles changent." },
           "sessionsWrite": { "label": "Ouvrir et fermer des sessions", "description": "Ouvrir de nouvelles sessions de terminal et fermer celles existantes." },
           "connectionsRead": { "label": "Lire vos connexions", "description": "Lire vos connexions enregistrées et leurs détails." },
@@ -730,6 +744,7 @@
           "syncWrite": { "label": "Écrire les données de synchronisation", "description": "Stocker et modifier les données synchronisées entre vos appareils." },
           "storage": { "label": "Stocker les données du plugin", "description": "Enregistrer les réglages et données propres à ce plugin sur votre appareil." },
           "http": { "label": "Accéder au réseau", "description": "Effectuer des requêtes réseau vers des services externes." },
+          "cryptoDerive": { "label": "Dériver des clés de chiffrement", "description": "Dériver une clé de chiffrement à partir d'une phrase secrète que vous fournissez. Ne donne pas accès à vos secrets stockés." },
           "fs": { "label": "Accéder aux fichiers", "description": "Lire et écrire des fichiers sur votre appareil." },
           "ui": { "label": "Afficher des éléments d'interface", "description": "Ajouter ses propres panneaux et contrôles à l'application." },
           "notifications": { "label": "Afficher des notifications", "description": "Vous afficher des notifications et des messages." },

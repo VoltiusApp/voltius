@@ -12,6 +12,7 @@ import { useThemeStore } from "@/stores/themeStore";
 import { BUILT_IN_THEMES } from "@/themes/presets";
 import type { AppTheme } from "@/themes/types";
 import { useCurrentSessionTunnelCount } from "@/hooks/useCurrentSessionTunnelCount";
+import { orderPluginSections } from "./rightPanelOrder";
 
 const PANEL_WIDTH = 300;
 const TRANSITION = "width 180ms cubic-bezier(0.4, 0, 0.2, 1)";
@@ -163,7 +164,7 @@ function PanelContent() {
 
   const allSections = useMemo(() => [
     ...getBuiltinSections(t),
-    ...[...pluginSections.values()].map((s) => ({
+    ...orderPluginSections([...pluginSections.values()]).map((s) => ({
       id: `plugin:${s.id}` as RightPanelSection,
       icon: s.icon ?? "lucide:puzzle",
       title: s.label,

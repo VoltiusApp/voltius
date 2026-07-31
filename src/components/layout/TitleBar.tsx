@@ -8,7 +8,7 @@ import { useThemeStore } from "@/stores/themeStore";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { getSyncState, onSyncStateChange, type SyncStatus } from "@/services/sync";
 import { selectEffectiveSyncStatus } from "@/services/syncStatus";
-import { getGistSyncState, onGistSyncStateChange } from "@/plugins/gist-sync/sync-engine";
+import { useGistSyncState } from "@/hooks/useGistSyncState";
 import { useRipple } from "@/hooks/useRipple";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { ShareMenu } from "@/components/terminal/ShareMenu";
@@ -63,8 +63,7 @@ export default function TitleBar() {
   const [syncState, setSyncState] = useState(getSyncState);
   useEffect(() => { return onSyncStateChange(() => setSyncState(getSyncState())); }, []);
 
-  const [gistSyncState, setGistSyncState] = useState(getGistSyncState);
-  useEffect(() => { return onGistSyncStateChange(() => setGistSyncState(getGistSyncState())); }, []);
+  const gistSyncState = useGistSyncState();
 
   const gistPluginEnabled = usePluginRegistryStore((s) => s.isEnabled("plugin-gist-sync", false));
   const accountMode = useSubscriptionStore((s) => s.accountMode);

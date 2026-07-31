@@ -636,6 +636,8 @@ pub fn run() {
             commands::plugins::plugin_write_file,
             commands::plugins::plugin_delete,
             commands::plugins::plugin_resolve_path,
+            commands::plugins::plugins_list_seeded,
+            commands::plugins::plugin_seeded_read,
             commands::plugins::plugin_fetch_url,
             commands::snippets::snippet_list,
             commands::snippets::snippet_create,

@@ -11,8 +11,8 @@ import {
   type GistDevice,
 } from "./gist-api";
 import { generateSaltHex } from "./crypto";
-import { invoke } from "@tauri-apps/api/core";
-import type { SyncStatus } from "@/services/sync";
+import type { SyncStatus } from "./types";
+import type { GistSyncState } from "@/services/syncStatus";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,13 +22,7 @@ export interface GistRegistration {
   addedAt: string;
 }
 
-export interface GistSyncState {
-  status: SyncStatus;
-  lastSync: Date | null;
-  error: string | null;
-  blobSizeBytes: number | null;
-  configured: boolean;
-}
+export type { GistSyncState };
 
 // ─── Public sync state ────────────────────────────────────────────────────────
 
@@ -54,10 +48,15 @@ export function onGistSyncStateChange(fn: () => void): () => void {
   return () => { _gistListeners.delete(fn); };
 }
 
+function publishGistState() {
+  _api.ui.publishState("sync-state", getGistSyncState());
+}
+
 function setGistState(status: SyncStatus, error?: string) {
   _gistStatus = status;
   _gistError = error ?? null;
   if (status === "success") _gistLastSync = new Date();
+  publishGistState();
   _gistListeners.forEach((fn) => fn());
 }
 
@@ -72,8 +71,10 @@ let _lastSeenPushedAt: Record<string, string> = {};
 
 export function init(api: PluginAPI) {
   _api = api;
+  publishGistState();
   isConfigured().then((c) => {
     _gistConfigured = c;
+    publishGistState();
     _gistListeners.forEach((fn) => fn());
   }).catch(() => {});
 }
@@ -153,7 +154,7 @@ export async function isConfigured(): Promise<boolean> {
 async function getEncKey(salt: string): Promise<string> {
   const [passphrase, pat] = await Promise.all([getPassphrase(), getPat()]);
   const secret = passphrase ?? pat!;
-  return invoke<string>("derive_gist_key", { passphrase: secret, saltHex: salt });
+  return _api.crypto.deriveKey(secret, salt);
 }
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
@@ -169,12 +170,12 @@ export async function setupNewGist(pat: string): Promise<{ id: string; url: stri
     devices: [{ id: deviceId, label: deviceLabel, pushedAt: new Date().toISOString() }],
   };
 
-  const { id, url } = await createGist(pat, manifest);
+  const { id, url } = await createGist(_api.http, pat, manifest);
 
   // Push initial state
   const encKey = await getEncKey(salt);
   const blob = await _api.sync.exportState(encKey, deviceId);
-  await patchFiles(pat, id, {
+  await patchFiles(_api.http, pat, id, {
     [`device-${deviceId}.b64`]: { filename: `device-${deviceId}.b64`, content: blob },
   });
 
@@ -186,13 +187,14 @@ export async function setupNewGist(pat: string): Promise<{ id: string; url: stri
   if (!exportIds.includes(id)) await setExportDestinations([...exportIds, id]);
 
   _gistConfigured = true;
+  publishGistState();
   _gistListeners.forEach((fn) => fn());
 
   return { id, url };
 }
 
 export async function linkExistingGist(pat: string, gistId: string): Promise<void> {
-  await getManifest(pat, gistId); // validate accessible
+  await getManifest(_api.http, pat, gistId); // validate accessible
   const existing = await getRegisteredGists();
   if (existing.find((g) => g.id === gistId)) return; // already registered
   await saveRegisteredGists([...existing, { id: gistId, addedAt: new Date().toISOString() }]);
@@ -202,6 +204,7 @@ export async function linkExistingGist(pat: string, gistId: string): Promise<voi
 
   if (!_gistConfigured) {
     _gistConfigured = true;
+    publishGistState();
     _gistListeners.forEach((fn) => fn());
   }
 }
@@ -221,23 +224,24 @@ export async function unlinkGist(gistId: string): Promise<void> {
   const nowConfigured = await isConfigured();
   if (_gistConfigured !== nowConfigured) {
     _gistConfigured = nowConfigured;
+    publishGistState();
     _gistListeners.forEach((fn) => fn());
   }
 }
 
 export async function deleteGist(pat: string, gistId: string): Promise<void> {
-  await deleteGistById(pat, gistId);
+  await deleteGistById(_api.http, pat, gistId);
   await unlinkGist(gistId);
 }
 
 export async function removeDevice(pat: string, gistId: string, deviceId: string): Promise<void> {
-  await deleteDeviceFile(pat, gistId, deviceId);
-  const manifest = await getManifest(pat, gistId);
+  await deleteDeviceFile(_api.http, pat, gistId, deviceId);
+  const manifest = await getManifest(_api.http, pat, gistId);
   const updated: GistManifest = {
     ...manifest,
     devices: manifest.devices.filter((d) => d.id !== deviceId),
   };
-  await patchFiles(pat, gistId, {
+  await patchFiles(_api.http, pat, gistId, {
     "manifest.json": { filename: "manifest.json", content: JSON.stringify(updated, null, 2) },
   });
 }
@@ -256,7 +260,7 @@ export async function push(): Promise<void> {
 
   await Promise.all(
     exportIds.map(async (gistId) => {
-      const manifest = await getManifest(pat, gistId);
+      const manifest = await getManifest(_api.http, pat, gistId);
       const encKey = await getEncKey(manifest.salt);
       const blob = await _api.sync.exportState(encKey, deviceId);
 
@@ -268,7 +272,7 @@ export async function push(): Promise<void> {
         ? manifest.devices.map((d) => (d.id === deviceId ? { ...d, pushedAt: now } : d))
         : [...manifest.devices, { id: deviceId, label: deviceLabel, pushedAt: now }];
 
-      await patchFiles(pat, gistId, {
+      await patchFiles(_api.http, pat, gistId, {
         [`device-${deviceId}.b64`]: { filename: `device-${deviceId}.b64`, content: blob },
         "manifest.json": {
           filename: "manifest.json",
@@ -289,7 +293,7 @@ export async function pull(): Promise<boolean> {
   if (!pat || !importSourceId) return false;
 
   const deviceId = await getDeviceId();
-  const manifest = await getManifest(pat, importSourceId);
+  const manifest = await getManifest(_api.http, pat, importSourceId);
   const encKey = await getEncKey(manifest.salt);
 
   const remoteDevices = manifest.devices.filter((d) => d.id !== deviceId);
@@ -298,7 +302,7 @@ export async function pull(): Promise<boolean> {
   const changedDevices = remoteDevices.filter((d) => d.pushedAt !== _lastSeenPushedAt[d.id]);
   if (changedDevices.length === 0) return false;
 
-  const blobs = await getDeviceBlobs(pat, importSourceId, changedDevices.map((d) => d.id));
+  const blobs = await getDeviceBlobs(_api.http, pat, importSourceId, changedDevices.map((d) => d.id));
   if (blobs.length === 0) return false;
 
   await _api.sync.importStates(encKey, blobs);

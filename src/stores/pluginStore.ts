@@ -7,6 +7,7 @@ import type {
   ContextMenuItem,
   PluginTheme,
   GlobalPanel,
+  MobileScreen,
 } from "@/plugins/api";
 
 interface PluginStore {
@@ -33,6 +34,10 @@ interface PluginStore {
   registerGlobalPanel(panel: GlobalPanel): void;
   unregisterGlobalPanel(id: string): void;
 
+  mobileScreens: Map<string, MobileScreen>;
+  registerMobileScreen(screen: MobileScreen): void;
+  unregisterMobileScreen(id: string): void;
+
   registerContextMenuItem(item: ContextMenuItem): void;
   unregisterContextMenuItem(id: string): void;
 
@@ -41,6 +46,30 @@ interface PluginStore {
 
   /** Désenregistre tout ce qui appartient à un pluginId donné (cleanup au teardown) */
   unregisterAll(pluginId: string): void;
+}
+
+/**
+ * Scans every registered section for one with `flag` set and returns the
+ * first-registered match — used where the host must pick a single section to
+ * integrate with out of however many are currently registered (e.g. the
+ * terminal status bar's metrics indicator picks its `providesHostMetrics`
+ * section this way). An explicit opt-in flag rather than a literal id check,
+ * so a plugin can't inherit the integration by squatting another plugin's id.
+ *
+ * Not the right tool for a flag on one specific, already-known section (e.g.
+ * "does the *currently open* section support panel search?") — that's a
+ * direct `sections.get(id)?.flag` lookup, not a first-wins scan, since there
+ * is no ambiguity to resolve. `providesPanelSearch` is checked that way in
+ * useKeyboard.ts, not through this helper.
+ */
+export function findRightPanelSectionWithFlag(
+  sections: Map<string, RightPanelSection>,
+  flag: "providesHostMetrics",
+): RightPanelSection | null {
+  for (const section of sections.values()) {
+    if (section[flag]) return section;
+  }
+  return null;
 }
 
 function mapSet<V>(m: Map<string, V>, key: string, val: V): Map<string, V> {
@@ -61,6 +90,7 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
   sidebarItems: new Map(),
   rightPanelSections: new Map(),
   globalPanels: new Map(),
+  mobileScreens: new Map(),
   contextMenuItems: new Map(),
   pluginThemes: new Map(),
 
@@ -89,6 +119,11 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
   unregisterGlobalPanel: (id) =>
     set((s) => ({ globalPanels: mapDelete(s.globalPanels, id) })),
 
+  registerMobileScreen: (screen) =>
+    set((s) => ({ mobileScreens: mapSet(s.mobileScreens, screen.id, screen) })),
+  unregisterMobileScreen: (id) =>
+    set((s) => ({ mobileScreens: mapDelete(s.mobileScreens, id) })),
+
   registerContextMenuItem: (item) =>
     set((s) => ({ contextMenuItems: mapSet(s.contextMenuItems, item.id, item) })),
   unregisterContextMenuItem: (id) =>
@@ -115,6 +150,7 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
       sidebarItems: filterOut(s.sidebarItems),
       rightPanelSections: filterOut(s.rightPanelSections),
       globalPanels: filterOut(s.globalPanels),
+      mobileScreens: filterOut(s.mobileScreens),
       contextMenuItems: filterOut(s.contextMenuItems),
       pluginThemes: filterOut(s.pluginThemes),
     });

@@ -8,11 +8,14 @@ import { useMarketplaceStore, type MarketplacePlugin } from "@/stores/marketplac
 import { useUIStore } from "@/stores/uiStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { PluginHashMismatchError } from "@/plugins/integrity";
-import { availableUpdate, addedPermissions } from "@/plugins/updates";
+import { satisfiesMinAppVersion, MinAppVersionError } from "@/plugins/version";
+import { availableUpdate, availableSeededUpdate, addedPermissions } from "@/plugins/updates";
+import { mergeBrowseCatalog, seededActiveIds as computeSeededActiveIds } from "@/plugins/floor";
+import { useSeededTombstoneStore, loadSeededEntries, type SeededEntry } from "@/stores/seededTombstoneStore";
 import { requiresInstallConsent } from "@/plugins/gatedPermissions";
 import { getToggle, useToggle } from "@/stores/toggleSettingsStore";
 import { PluginPermissionModal } from "./PluginPermissionModal";
-import { BUNDLED_PLUGINS } from "@/plugins/bundled";
+import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
 import { setPluginActive, getLoadedPlugins, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
 import type { PluginManifest, PluginConfigField } from "@/plugins/api";
@@ -185,6 +188,8 @@ function usePluginInstaller() {
       severity: "error",
       message: e instanceof PluginHashMismatchError
         ? t("settings.plugins.install.integrityFailed")
+        : e instanceof MinAppVersionError
+        ? t("settings.plugins.install.versionUnsupported", { version: e.required })
         : t("settings.plugins.install.failed"),
       duration: 0,
     });
@@ -252,12 +257,26 @@ function usePluginInstaller() {
 
 // ─── Installed tab ─────────────────────────────────────────────────────────
 
+/**
+ * Seeded first-party plugins have no static entry anywhere — the runtime registry
+ * is the only place that knows they exist. `excludeIds` strips out externally-installed
+ * ids so a plugin is never listed twice.
+ */
+function seededPluginManifests(excludeIds: Set<string>): PluginManifest[] {
+  return getLoadedPlugins().filter((m) => !excludeIds.has(m.id));
+}
+
 export function InstalledTab() {
   const { t } = useTranslation();
   const settingsPages = usePluginStore((s) => s.settingsPages);
   const { setEnabled, isEnabled } = usePluginRegistryStore();
-  const { installedMeta, catalog, uninstallPlugin, reloadPlugin, scanLocal } = useMarketplaceStore();
+  const { installedMeta, catalog, uninstallPlugin, uninstallSeededPlugin, reloadPlugin, scanLocal, appVersion, loadAppVersion } = useMarketplaceStore();
   const { busy: updateBusy, startUpdate, modal: updateModal } = usePluginInstaller();
+
+  useEffect(() => {
+    if (appVersion === null) void loadAppVersion();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [loadedIds, setLoadedIds] = useState<Set<string>>(
     () => new Set(getLoadedPlugins().map((m) => m.id)),
   );
@@ -266,10 +285,16 @@ export function InstalledTab() {
   const [reloading, setReloading] = useState<Set<string>>(new Set());
   const [uninstalling, setUninstalling] = useState<Set<string>>(new Set());
   const [scanning, setScanning] = useState(false);
+  const [confirmUninstallSeeded, setConfirmUninstallSeeded] = useState<PluginManifest | null>(null);
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   useFilterShortcut(searchRef);
   const isAndroid = useIsAndroid();
+  const [seededEntries, setSeededEntries] = useState<Map<string, SeededEntry>>(new Map());
+
+  useEffect(() => {
+    void loadSeededEntries().then(setSeededEntries);
+  }, []);
 
   const refreshLoaded = () =>
     setLoadedIds(new Set(getLoadedPlugins().map((m) => m.id)));
@@ -296,6 +321,16 @@ export function InstalledTab() {
     setUninstalling((s) => new Set([...s, id]));
     try {
       await uninstallPlugin(id);
+      refreshLoaded();
+    } finally {
+      setUninstalling((s) => { const n = new Set(s); n.delete(id); return n; });
+    }
+  };
+
+  const handleUninstallSeeded = async (id: string) => {
+    setUninstalling((s) => new Set([...s, id]));
+    try {
+      await uninstallSeededPlugin(id);
       refreshLoaded();
     } finally {
       setUninstalling((s) => { const n = new Set(s); n.delete(id); return n; });
@@ -333,7 +368,11 @@ export function InstalledTab() {
   const externalPluginIds = new Set(installedMeta.map((m) => m.id));
   const externalManifests = getLoadedPlugins().filter((m) => externalPluginIds.has(m.id));
 
-  const allBundled = visiblePlugins(BUNDLED_PLUGINS, isAndroid);
+  const seeded = seededPluginManifests(externalPluginIds);
+  const allSeeded = visiblePlugins(
+    seeded.map((manifest) => ({ manifest })),
+    isAndroid,
+  );
   const allExternal = installedMeta;
 
   const matchesSearch = (name: string, description?: string) => {
@@ -342,7 +381,7 @@ export function InstalledTab() {
     return name.toLowerCase().includes(q) || (description ?? "").toLowerCase().includes(q);
   };
 
-  const filteredBundled = allBundled.filter(({ manifest }) =>
+  const filteredSeeded = allSeeded.filter(({ manifest }) =>
     matchesSearch(manifest.name, manifest.description),
   );
   const filteredExternal = allExternal.filter((meta) => {
@@ -378,12 +417,21 @@ export function InstalledTab() {
     </div>
     <div className="flex-1 overflow-y-auto p-6 space-y-5">
       <div className="space-y-2">
-        {/* Bundled plugins */}
-        {filteredBundled.map(({ manifest }) => {
+        {/* Seeded first-party plugins */}
+        {filteredSeeded.map(({ manifest }) => {
           const enabled = isEnabled(manifest.id, manifest.defaultEnabled ?? true) && loadedIds.has(manifest.id);
           const pluginPages = [...settingsPages.values()].filter((p) => p.id.startsWith(manifest.id));
           const hasAutoConfig = !!manifest.contributes?.configuration && Object.keys(manifest.contributes.configuration).length > 0;
           const showSettingsBtn = pluginPages.length > 0 || hasAutoConfig;
+          const isUninstalling = uninstalling.has(manifest.id);
+          // Mirrors uninstallSeededPlugin's hasSeededArtifact guard: a loaded plugin
+          // whose id has no real seeded artifact (missing meta, or an id collision)
+          // must never offer an Update that installs the genuine first-party bundle
+          // over it.
+          const seededUpdate = seededEntries.has(manifest.id)
+            ? availableSeededUpdate(manifest, catalog, appVersion)
+            : null;
+          const isUpdating = updateBusy.has(manifest.id);
 
           return (
             <div
@@ -402,8 +450,22 @@ export function InstalledTab() {
                       {t("settings.plugins.installed.bundledBadge")}
                     </span>
                   </div>
-                  <p className="text-xs mt-0.5 truncate text-(--t-text-dim)">v{manifest.version} · {manifest.description}</p>
+                  <p className="text-xs mt-0.5 truncate text-(--t-text-dim)">
+                    {seededUpdate ? `v${manifest.version} → ${seededUpdate.version}` : `v${manifest.version}`} · {manifest.description}
+                  </p>
                 </div>
+                {seededUpdate && (
+                  <button
+                    onClick={() => startUpdate(seededUpdate, manifest.permissions)}
+                    disabled={isUpdating}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
+                    style={{ background: "var(--t-accent)", color: "var(--t-bg-base)", opacity: isUpdating ? 0.6 : 1 }}
+                    title={t("settings.plugins.installed.updateTitle", { version: seededUpdate.version })}
+                  >
+                    <Icon icon={isUpdating ? "lucide:loader" : "lucide:arrow-up-circle"} width={12} className={isUpdating ? "animate-spin" : ""} />
+                    {isUpdating ? t("settings.plugins.installed.updating") : t("settings.plugins.installed.update")}
+                  </button>
+                )}
                 {showSettingsBtn && (
                   <button
                     onClick={() => {
@@ -418,6 +480,16 @@ export function InstalledTab() {
                     <Icon icon="lucide:settings" width={15} />
                   </button>
                 )}
+                <button
+                  onClick={() => setConfirmUninstallSeeded(manifest)}
+                  disabled={isUninstalling}
+                  className="p-1.5 rounded-lg transition-colors shrink-0 text-(--t-text-dim)"
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, var(--t-status-error) 15%, transparent)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
+                  title={t("settings.plugins.installed.uninstallTitle")}
+                >
+                  <Icon icon={isUninstalling ? "lucide:loader" : "lucide:trash-2"} width={14} className={isUninstalling ? "animate-spin" : ""} />
+                </button>
                 <Toggle checked={enabled} onChange={() => handleToggle(manifest.id, enabled)} />
               </div>
               {manifest.permissions.length > 0 && (
@@ -439,6 +511,7 @@ export function InstalledTab() {
           const isUninstalling = uninstalling.has(meta.id);
           const update = availableUpdate(meta, catalog);
           const isUpdating = updateBusy.has(meta.id);
+          const updateVersionUnsatisfied = !!update && appVersion !== null && !satisfiesMinAppVersion(update, appVersion);
 
           return (
             <div
@@ -482,10 +555,12 @@ export function InstalledTab() {
                 {update && (
                   <button
                     onClick={() => startUpdate(update, getLoadedPlugins().find((m) => m.id === meta.id)?.permissions ?? [])}
-                    disabled={isUpdating}
+                    disabled={isUpdating || updateVersionUnsatisfied}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
-                    style={{ background: "var(--t-accent)", color: "var(--t-bg-base)", opacity: isUpdating ? 0.7 : 1 }}
-                    title={t("settings.plugins.installed.updateTitle", { version: update.version })}
+                    style={{ background: "var(--t-accent)", color: "var(--t-bg-base)", opacity: isUpdating || updateVersionUnsatisfied ? 0.6 : 1 }}
+                    title={updateVersionUnsatisfied
+                      ? t("settings.plugins.browse.requiresVersion", { version: update.minAppVersion })
+                      : t("settings.plugins.installed.updateTitle", { version: update.version })}
                   >
                     <Icon icon={isUpdating ? "lucide:loader" : "lucide:arrow-up-circle"} width={12} className={isUpdating ? "animate-spin" : ""} />
                     {isUpdating ? t("settings.plugins.installed.updating") : t("settings.plugins.installed.update")}
@@ -523,7 +598,7 @@ export function InstalledTab() {
           );
         })}
 
-        {filteredBundled.length === 0 && filteredExternal.length === 0 && (
+        {filteredSeeded.length === 0 && filteredExternal.length === 0 && (
           <p className="text-sm text-center py-8 text-(--t-text-dim)">
             {search
               ? t("settings.plugins.installed.noMatch")
@@ -533,6 +608,19 @@ export function InstalledTab() {
       </div>
     </div>
     {updateModal}
+    {confirmUninstallSeeded && (
+      <ConfirmModal
+        title={t("settings.plugins.installed.confirmUninstallSeeded.title", { name: confirmUninstallSeeded.name })}
+        message={t("settings.plugins.installed.confirmUninstallSeeded.message", { name: confirmUninstallSeeded.name })}
+        confirmLabel={t("settings.plugins.installed.confirmUninstallSeeded.confirm")}
+        onConfirm={() => {
+          const id = confirmUninstallSeeded.id;
+          setConfirmUninstallSeeded(null);
+          void handleUninstallSeeded(id);
+        }}
+        onCancel={() => setConfirmUninstallSeeded(null)}
+      />
+    )}
     </div>
   );
 }
@@ -545,14 +633,17 @@ function BrowseTab() {
     catalog, catalogLoading, catalogError, fetchCatalog,
     sources, addSource, removeSource, toggleSource,
     installedMeta, uninstallPlugin,
+    appVersion, loadAppVersion,
   } = useMarketplaceStore();
   const { busy, startInstall, startUpdate, modal } = usePluginInstaller();
   const [reviewInstalls, setReviewInstalls] = useToggle("plugin-install-review");
+  const removedIds = useSeededTombstoneStore((s) => s.removed);
 
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [showSources, setShowSources] = useState(false);
   const [uninstalling, setUninstalling] = useState<Set<string>>(new Set());
+  const [seededEntries, setSeededEntries] = useState<Map<string, SeededEntry>>(new Map());
   const searchRef = useRef<HTMLInputElement>(null);
   useFilterShortcut(searchRef);
 
@@ -570,14 +661,21 @@ function BrowseTab() {
     if (catalog.length === 0 && !catalogLoading) {
       void fetchCatalog();
     }
+    if (appVersion === null) void loadAppVersion();
+    void loadSeededEntries().then(setSeededEntries);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const installedIds = new Set(installedMeta.map((m) => m.id));
+  // Built-ins still active (not tombstoned) are already installed — Browse must
+  // never offer them for install again, even once the catalogue lists them.
+  const seededActive = computeSeededActiveIds(seededEntries, removedIds);
+  const installedIds = new Set([...installedMeta.map((m) => m.id), ...seededActive]);
 
-  const allTags = [...new Set(catalog.flatMap((p) => p.tags))].sort();
+  const merged = mergeBrowseCatalog(catalog, seededEntries, removedIds, appVersion);
 
-  const filtered = catalog.filter((p) => {
+  const allTags = [...new Set(merged.flatMap((p) => p.tags))].sort();
+
+  const filtered = merged.filter((p) => {
     const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.description.toLowerCase().includes(search.toLowerCase());
     const matchTag = !activeTag || p.tags.includes(activeTag);
     return matchSearch && matchTag;
@@ -620,10 +718,10 @@ function BrowseTab() {
                   <p className="text-sm font-medium text-(--t-text-primary) truncate">{source.name}</p>
                   <p className="text-xs text-(--t-text-dim) truncate">{source.url}</p>
                 </div>
-                <Toggle checked={source.enabled} onChange={() => toggleSource(source.id)} />
+                <Toggle checked={source.enabled} onChange={() => { void toggleSource(source.id).catch(console.warn); }} />
                 {source.deletable && (
                   <button
-                    onClick={() => removeSource(source.id)}
+                    onClick={() => { void removeSource(source.id).catch(console.warn); }}
                     className="p-1.5 rounded-lg text-(--t-text-dim) transition-colors"
                     onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-status-error)"; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)"; }}
@@ -744,7 +842,18 @@ function BrowseTab() {
             const isBusy = busy.has(plugin.id);
             const isUninstalling = uninstalling.has(plugin.id);
             const meta = installedMeta.find((m) => m.id === plugin.id);
-            const update = meta ? availableUpdate(meta, catalog) : null;
+            // A seeded plugin that's still active has no installedMeta entry — it's
+            // already installed (hence no Install button below) but has no external
+            // record to drive an Uninstall button either; that lives in the Installed tab.
+            const isPureSeededActive = !meta && seededActive.has(plugin.id);
+            const seededManifest = isPureSeededActive ? seededEntries.get(plugin.id)?.manifest : undefined;
+            const update = meta
+              ? availableUpdate(meta, catalog)
+              : seededManifest
+                ? availableSeededUpdate(seededManifest, catalog, appVersion)
+                : null;
+            const versionUnsatisfied = appVersion !== null && !satisfiesMinAppVersion(plugin, appVersion);
+            const updateVersionUnsatisfied = !!update && appVersion !== null && !satisfiesMinAppVersion(update, appVersion);
 
             return (
               <div key={plugin.id} className="rounded-xl bg-(--t-bg-card) border border-(--t-border) px-4 py-3">
@@ -756,7 +865,9 @@ function BrowseTab() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-medium text-(--t-text-primary)">{plugin.name}</p>
                       <span className="text-xs px-1.5 py-0.5 rounded-sm bg-(--t-bg-elevated) text-(--t-text-dim) border border-(--t-border)">
-                        {plugin.sourceId}
+                        {plugin.builtin || isPureSeededActive
+                          ? t("settings.plugins.installed.bundledBadge")
+                          : plugin.sourceId}
                       </span>
                       {isInstalled && (
                         <span className="text-xs px-1.5 py-0.5 rounded-sm shrink-0" style={{ background: "color-mix(in srgb, var(--t-accent) 15%, transparent)", color: "var(--t-accent)" }}>
@@ -779,9 +890,10 @@ function BrowseTab() {
                   {!isInstalled ? (
                     <button
                       onClick={() => startInstall(plugin)}
-                      disabled={isBusy}
+                      disabled={isBusy || versionUnsatisfied}
+                      title={versionUnsatisfied ? t("settings.plugins.browse.requiresVersion", { version: plugin.minAppVersion }) : undefined}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
-                      style={{ background: "var(--t-accent)", color: "var(--t-bg-base)", opacity: isBusy ? 0.7 : 1 }}
+                      style={{ background: "var(--t-accent)", color: "var(--t-bg-base)", opacity: isBusy || versionUnsatisfied ? 0.6 : 1 }}
                     >
                       {isBusy
                         ? <><Icon icon="lucide:loader" width={12} className="animate-spin" /> {t("settings.plugins.browse.installing")}</>
@@ -791,17 +903,17 @@ function BrowseTab() {
                   ) : update ? (
                     <button
                       onClick={() => startUpdate(update, getLoadedPlugins().find((m) => m.id === plugin.id)?.permissions ?? [])}
-                      disabled={isBusy}
+                      disabled={isBusy || updateVersionUnsatisfied}
+                      title={updateVersionUnsatisfied ? t("settings.plugins.browse.requiresVersion", { version: update.minAppVersion }) : t("settings.plugins.installed.updateTitle", { version: update.version })}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors"
-                      style={{ background: "var(--t-accent)", color: "var(--t-bg-base)", opacity: isBusy ? 0.7 : 1 }}
-                      title={t("settings.plugins.installed.updateTitle", { version: update.version })}
+                      style={{ background: "var(--t-accent)", color: "var(--t-bg-base)", opacity: isBusy || updateVersionUnsatisfied ? 0.6 : 1 }}
                     >
                       {isBusy
                         ? <><Icon icon="lucide:loader" width={12} className="animate-spin" /> {t("settings.plugins.installed.updating")}</>
                         : <><Icon icon="lucide:arrow-up-circle" width={12} /> {t("settings.plugins.installed.update")}</>
                       }
                     </button>
-                  ) : (
+                  ) : isPureSeededActive ? null : (
                     <button
                       onClick={() => void handleUninstall(plugin.id)}
                       disabled={isUninstalling}
@@ -836,16 +948,31 @@ export default function PluginsSection() {
   const catalog = useMarketplaceStore((s) => s.catalog);
   const catalogLoading = useMarketplaceStore((s) => s.catalogLoading);
   const fetchCatalog = useMarketplaceStore((s) => s.fetchCatalog);
+  const appVersion = useMarketplaceStore((s) => s.appVersion);
   const isAndroid = useIsAndroid();
-  const totalCount = visiblePlugins(BUNDLED_PLUGINS, isAndroid).length + installedMeta.length;
+  const externalIds = new Set(installedMeta.map((m) => m.id));
+  // Filtered through visiblePlugins before anything counts against it — a desktopOnly
+  // seeded plugin (e.g. ssh-config) is still loaded on Android but renders no row and
+  // no button there, so an update for it must never be counted either.
+  const visibleSeededManifests = visiblePlugins(
+    seededPluginManifests(externalIds).map((manifest) => ({ manifest })),
+    isAndroid,
+  ).map(({ manifest }) => manifest);
+  const totalCount = installedMeta.length + visibleSeededManifests.length;
+  const [seededEntries, setSeededEntries] = useState<Map<string, SeededEntry>>(new Map());
 
   // Fetch the catalog once on mount so update detection works before visiting Browse.
   useEffect(() => {
     if (catalog.length === 0 && !catalogLoading) void fetchCatalog();
+    void loadSeededEntries().then(setSeededEntries);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const updateCount = installedMeta.filter((m) => availableUpdate(m, catalog)).length;
+  // Same hasSeededArtifact guard as the Update button itself (InstalledTab) — a
+  // manifest with no real seeded artifact must never count toward "N updates"
+  // either, or the badge promises an update the UI has nowhere to act on.
+  const updateCount = installedMeta.filter((m) => availableUpdate(m, catalog)).length
+    + visibleSeededManifests.filter((m) => seededEntries.has(m.id) && availableSeededUpdate(m, catalog, appVersion)).length;
 
   const tabLabel = (tabKey: Tab) => {
     if (tabKey === "browse") return t("settings.plugins.tabs.browse");

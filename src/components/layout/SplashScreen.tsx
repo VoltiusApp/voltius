@@ -11,9 +11,9 @@ import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { autoLogin, consumeForceLockFlag, isServerMode } from "@/services/account";
 import { saveCurrentAccount } from "@/services/savedAccounts";
 import { syncOnLogin, syncOnLoginReplace, startRealtimeSync } from "@/services/sync";
-import { loadPlugin, setLoginSyncPending, resolveLoginSync } from "@/plugins/runtime";
-import { BUNDLED_PLUGINS } from "@/plugins/bundled";
-import { loadInstalledPlugins } from "@/stores/marketplaceStore";
+import { setLoginSyncPending, resolveLoginSync } from "@/plugins/runtime";
+import { loadSeededPlugins } from "@/plugins/seeded";
+import { loadInstalledPlugins, loadPluginMeta, supersedeStaleFirstPartyShadows } from "@/stores/marketplaceStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
@@ -125,11 +125,9 @@ export default function SplashScreen({ onReady }: Props) {
     // splash spinning forever. Swallow and continue to the main UI.
     try {
       await usePluginRegistryStore.getState().load();
-      const { isEnabled } = usePluginRegistryStore.getState();
-      for (const plugin of BUNDLED_PLUGINS) {
-        const active = isEnabled(plugin.manifest.id, plugin.manifest.defaultEnabled ?? true);
-        loadPlugin(plugin.manifest, plugin.register, active, true);
-      }
+      await loadPluginMeta();
+      await supersedeStaleFirstPartyShadows();
+      await loadSeededPlugins();
       await loadInstalledPlugins();
     } catch (e) {
       console.warn("[splash] plugin loading failed, continuing to app:", e);

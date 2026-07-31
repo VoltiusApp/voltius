@@ -55,7 +55,7 @@ export function useImageUpdates(opts: {
           try {
             let status = force ? null : await getCachedStatus(scope, tag, ttlMs);
             if (!status) {
-              status = await dockerCheckImageUpdate(sessionId, isRemote, localShell, tag);
+              status = await dockerCheckImageUpdate({ sessionId, isRemote, localShell }, tag);
               await setCachedStatus(scope, tag, status);
             }
             setStatuses((prev) => ({ ...prev, [tag]: status! }));

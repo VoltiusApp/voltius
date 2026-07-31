@@ -1,10 +1,5 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
-import {
-  proxmoxLxcSnapshotCreate,
-  proxmoxLxcSnapshotDelete,
-  proxmoxLxcSnapshotRollback,
-} from "../services";
 import { getProxmoxApi } from "../runtime";
 import type { LxcSnapshot } from "../types";
 
@@ -12,30 +7,28 @@ interface Props {
   vmid: number;
   vmName: string;
   snapshots: LxcSnapshot[];
-  sessionId: string;
-  isRemote: boolean;
-  localShell: string | null;
   snapshotInput: string;
   snapshotInputDesc: string;
   onSnapshotInputChange: (v: string) => void;
   onSnapshotDescChange: (v: string) => void;
+  onCreate: (vmid: number, name: string, desc: string) => Promise<void>;
+  onRollback: (vmid: number, name: string) => Promise<void>;
+  onDelete: (vmid: number, name: string) => Promise<void>;
   onBack: () => void;
-  onRefresh: () => void;
 }
 
 export function SnapshotList({
   vmid,
   vmName,
   snapshots,
-  sessionId,
-  isRemote,
-  localShell,
   snapshotInput,
   snapshotInputDesc,
   onSnapshotInputChange,
   onSnapshotDescChange,
+  onCreate,
+  onRollback,
+  onDelete,
   onBack,
-  onRefresh,
 }: Props) {
   const [creating, setCreating] = useState(false);
   const [busySnap, setBusySnap] = useState<string | null>(null);
@@ -45,17 +38,9 @@ export function SnapshotList({
     if (!name) return;
     setCreating(true);
     try {
-      await proxmoxLxcSnapshotCreate(
-        sessionId,
-        isRemote,
-        localShell,
-        vmid,
-        name,
-        snapshotInputDesc.trim() || null,
-      );
+      await onCreate(vmid, name, snapshotInputDesc.trim());
       onSnapshotInputChange("");
       onSnapshotDescChange("");
-      onRefresh();
     } catch (e) {
       getProxmoxApi()?.notifications.toast(`Snapshot failed: ${e}`, { severity: "error" });
     } finally {
@@ -66,8 +51,7 @@ export function SnapshotList({
   const rollback = async (snapname: string) => {
     setBusySnap(snapname);
     try {
-      await proxmoxLxcSnapshotRollback(sessionId, isRemote, localShell, vmid, snapname);
-      onRefresh();
+      await onRollback(vmid, snapname);
     } catch (e) {
       getProxmoxApi()?.notifications.toast(`Rollback failed: ${e}`, { severity: "error" });
     } finally {
@@ -78,8 +62,7 @@ export function SnapshotList({
   const del = async (snapname: string) => {
     setBusySnap(snapname);
     try {
-      await proxmoxLxcSnapshotDelete(sessionId, isRemote, localShell, vmid, snapname);
-      onRefresh();
+      await onDelete(vmid, snapname);
     } catch (e) {
       getProxmoxApi()?.notifications.toast(`Delete failed: ${e}`, { severity: "error" });
     } finally {
