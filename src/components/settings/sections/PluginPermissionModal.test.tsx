@@ -43,6 +43,39 @@ describe("PluginPermissionModal", () => {
     expect(screen.queryByText("settings.plugins.permissionModal.permissions.dangerHeading")).toBeNull();
   });
 
+  test("a read-tier perm gets the read-only heading, not the danger heading", () => {
+    render(
+      <PluginPermissionModal
+        mode="install" pluginName="Test" permissions={["storage", "docker:read"]}
+        onConfirm={() => {}} onCancel={() => {}}
+      />,
+    );
+    expect(screen.getByText("settings.plugins.permissionModal.permissions.readOnlyHeading")).toBeTruthy();
+    expect(screen.queryByText("settings.plugins.permissionModal.permissions.dangerHeading")).toBeNull();
+    expect(screen.getByText("settings.plugins.permissionModal.permissions.dockerRead.label")).toBeTruthy();
+  });
+
+  test("read and manage tiers land in separate blocks when both are declared", () => {
+    render(
+      <PluginPermissionModal
+        mode="install" pluginName="Test" permissions={["docker:read", "docker:manage"]}
+        onConfirm={() => {}} onCancel={() => {}}
+      />,
+    );
+    expect(screen.getByText("settings.plugins.permissionModal.permissions.readOnlyHeading")).toBeTruthy();
+    expect(screen.getByText("settings.plugins.permissionModal.permissions.dangerHeading")).toBeTruthy();
+  });
+
+  test("no read-only heading when nothing is on the read tier", () => {
+    render(
+      <PluginPermissionModal
+        mode="install" pluginName="Test" permissions={["storage", "terminal:write"]}
+        onConfirm={() => {}} onCancel={() => {}}
+      />,
+    );
+    expect(screen.queryByText("settings.plugins.permissionModal.permissions.readOnlyHeading")).toBeNull();
+  });
+
   test("an unknown perm renders its bare string", () => {
     render(
       <PluginPermissionModal

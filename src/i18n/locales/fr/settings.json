@@ -716,6 +716,8 @@
         "installConfirm": "Installer",
         "updateConfirm": "Mettre à jour",
         "permissions": {
+          "readOnlyHeading": "Accès en lecture seule",
+          "readOnlyWarning": "Le plugin peut consulter ces informations, mais ne peut rien modifier ni supprimer avec.",
           "dangerHeading": "Autorisations sensibles",
           "dangerWarning": "Elles donnent au plugin un accès étendu. Ne les accordez qu'à un plugin de confiance.",
           "terminalRead": { "label": "Lire la sortie du terminal", "description": "Lire la sortie visible et l'historique de vos sessions de terminal." },
