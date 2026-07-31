@@ -1,6 +1,6 @@
 import type { MarketplacePlugin } from "@/stores/marketplaceStore";
 import type { SeededEntry } from "@/stores/seededTombstoneStore";
-import { satisfiesMinAppVersion } from "@/plugins/version";
+import { satisfiesMinAppVersion, isCatalogVersionNewer } from "@/plugins/version";
 
 /**
  * Synthesises a Browse-tab entry from a seeded (app-bundled) manifest — the local
@@ -40,12 +40,14 @@ export function seededActiveIds(seededEntries: Map<string, SeededEntry>, removed
 /**
  * Builds the Browse-tab list: the fetched catalogue plus, for each tombstoned
  * built-in the catalogue can't currently serve — no entry for its id, or one whose
- * `minAppVersion` this app doesn't satisfy — a local floor entry synthesised from
- * its seeded manifest. The catalogue entry wins whenever it is present and
- * version-satisfied, so at most one row is ever shown per id. A built-in that is
- * NOT tombstoned (still active) keeps its plain catalogue row and never gets a
- * floor entry — it's already installed, so `installedIds` in the caller is what
- * keeps it from being offered for install again.
+ * `minAppVersion` this app doesn't satisfy, or whose `version` isn't strictly newer
+ * than the seeded manifest it would replace — a local floor entry synthesised from
+ * its seeded manifest. The catalogue entry wins only when it is present,
+ * version-satisfied, AND strictly newer (a tie goes to the seeded artifact — no
+ * network, no hash check, ships inside the app's own signature), so at most one row
+ * is ever shown per id. A built-in that is NOT tombstoned (still active) keeps its
+ * plain catalogue row and never gets a floor entry — it's already installed, so
+ * `installedIds` in the caller is what keeps it from being offered for install again.
  */
 export function mergeBrowseCatalog(
   catalog: MarketplacePlugin[],
@@ -64,8 +66,9 @@ export function mergeBrowseCatalog(
     if (handled.has(p.id)) continue;
     const seeded = seededEntries.get(p.id);
     if (seeded && removed.has(p.id)) {
-      const usable = appVersion === null || satisfiesMinAppVersion(p, appVersion);
-      result.push(usable ? p : floorPluginFrom(seeded));
+      const versionSatisfied = appVersion === null || satisfiesMinAppVersion(p, appVersion);
+      const newer = isCatalogVersionNewer(p.version, seeded.manifest.version);
+      result.push(versionSatisfied && newer ? p : floorPluginFrom(seeded));
       handled.add(p.id);
     } else {
       result.push(p);

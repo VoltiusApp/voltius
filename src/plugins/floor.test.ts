@@ -87,6 +87,37 @@ test("mergeBrowseCatalog emits at most one row per id when two sources both list
   expect(merged[0].builtin).toBe(true);
 });
 
+test("mergeBrowseCatalog falls back to the floor when the catalogue version is older than the seeded manifest", () => {
+  const merged = mergeBrowseCatalog([catalogEntry({ version: "1.0.0" })], seeded(), ["plugin-docker"], "2.0.0");
+  expect(merged).toHaveLength(1);
+  expect(merged[0].builtin).toBe(true);
+  expect(merged[0].version).toBe("1.1.0");
+});
+
+test("mergeBrowseCatalog falls back to the floor when the catalogue version ties the seeded manifest", () => {
+  const merged = mergeBrowseCatalog([catalogEntry({ version: "1.1.0" })], seeded(), ["plugin-docker"], "2.0.0");
+  expect(merged).toHaveLength(1);
+  expect(merged[0].builtin).toBe(true);
+  expect(merged[0].version).toBe("1.1.0");
+});
+
+test("mergeBrowseCatalog falls back to the floor when the catalogue version is unparseable", () => {
+  const merged = mergeBrowseCatalog([catalogEntry({ version: "not-a-version" })], seeded(), ["plugin-docker"], "2.0.0");
+  expect(merged).toHaveLength(1);
+  expect(merged[0].builtin).toBe(true);
+});
+
+test("mergeBrowseCatalog falls back to the floor for a newer catalogue version whose minAppVersion is unsatisfied", () => {
+  const merged = mergeBrowseCatalog(
+    [catalogEntry({ version: "1.2.0", minAppVersion: "9.9.9" })],
+    seeded(),
+    ["plugin-docker"],
+    "2.0.0",
+  );
+  expect(merged).toHaveLength(1);
+  expect(merged[0].builtin).toBe(true);
+});
+
 test("mergeBrowseCatalog passes through unrelated catalogue entries with no seeded counterpart", () => {
   const merged = mergeBrowseCatalog([catalogEntry({ id: "plugin-other" })], new Map(), [], "2.0.0");
   expect(merged).toHaveLength(1);

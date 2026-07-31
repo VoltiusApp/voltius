@@ -26,6 +26,8 @@ vi.mock("@/stores/pluginRegistryStore", () => ({
 import { useMarketplaceStore, type MarketplacePlugin } from "./marketplaceStore";
 import { useSeededTombstoneStore } from "./seededTombstoneStore";
 import { appFetch } from "@/services/http";
+import { mergeBrowseCatalog } from "@/plugins/floor";
+import type { SeededEntry } from "./seededTombstoneStore";
 
 const SEEDED_MANIFEST = { id: "plugin-docker", name: "Docker", version: "1.1.0", permissions: ["docker:read"] };
 
@@ -140,6 +142,58 @@ test("fetchManifest and installPlugin agree on the floor path for a spoofed buil
   expect(fetched.length).toBeGreaterThan(0);
   const seededRead = h.invoke.mock.calls.filter(([cmd]) => cmd === "plugin_seeded_read");
   expect(seededRead.length).toBe(0);
+});
+
+// The Browse row mergeBrowseCatalog picks is the exact object installPlugin (and
+// fetchManifest) receive — this proves the version-precedence decision in
+// mergeBrowseCatalog actually controls which path installPlugin takes, not just
+// which row gets displayed.
+
+function seededMap(): Map<string, SeededEntry> {
+  return new Map([["plugin-docker", { folder: "docker", manifest: SEEDED_MANIFEST }]]);
+}
+
+function catalogEntry(over: Partial<MarketplacePlugin> = {}): MarketplacePlugin {
+  return {
+    id: "plugin-docker", name: "Docker", author: "Voltius", description: "d",
+    repo: "voltiusApp/plugin-docker", version: "1.2.0", tags: [], theme: false, sourceId: "voltius",
+    ...over,
+  };
+}
+
+test("a catalogue row older than the seeded manifest routes through the floor, not the network", async () => {
+  const row = mergeBrowseCatalog([catalogEntry({ version: "1.0.0" })], seededMap(), ["plugin-docker"], "2.5.0")[0];
+  expect(row.builtin).toBe(true);
+
+  await useMarketplaceStore.getState().installPlugin(row);
+
+  expect(h.invoke).not.toHaveBeenCalledWith("plugin_fetch_url", expect.anything());
+  expect(h.loadPlugin).toHaveBeenCalledOnce();
+  expect(h.loadPlugin.mock.calls[0][3]).toBe(true); // trusted
+});
+
+test("a catalogue row tying the seeded manifest's version routes through the floor, not the network", async () => {
+  const row = mergeBrowseCatalog([catalogEntry({ version: "1.1.0" })], seededMap(), ["plugin-docker"], "2.5.0")[0];
+  expect(row.builtin).toBe(true);
+
+  await useMarketplaceStore.getState().installPlugin(row);
+
+  expect(h.invoke).not.toHaveBeenCalledWith("plugin_fetch_url", expect.anything());
+  expect(h.loadPlugin).toHaveBeenCalledOnce();
+  expect(h.loadPlugin.mock.calls[0][3]).toBe(true); // trusted
+});
+
+test("a catalogue row strictly newer than the seeded manifest routes through the network, not the floor", async () => {
+  const row = mergeBrowseCatalog([catalogEntry({ version: "1.2.0" })], seededMap(), ["plugin-docker"], "2.5.0")[0];
+  expect(row.builtin).toBeUndefined();
+
+  await useMarketplaceStore.getState().installPlugin(row);
+
+  const fetched = h.invoke.mock.calls.filter(([cmd]) => cmd === "plugin_fetch_url");
+  expect(fetched.length).toBeGreaterThan(0);
+  expect(h.invoke).not.toHaveBeenCalledWith("plugin_seeded_read", expect.anything());
+  expect(h.loadPlugin).toHaveBeenCalledOnce();
+  expect(h.loadPlugin.mock.calls[0][3]).toBe(false); // trusted
 });
 
 test("installPlugin ignores a spoofed builtin flag for a real seeded id that isn't tombstoned", async () => {

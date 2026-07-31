@@ -46,6 +46,18 @@ export function compareVersions(a: string, b: string): -1 | 0 | 1 {
   return pa.prerelease < pb.prerelease ? -1 : pa.prerelease > pb.prerelease ? 1 : 0;
 }
 
+/**
+ * True when a catalogue version should replace a seeded (app-bundled) version. Newer
+ * wins; on a tie — including when either side is unparseable, since `compareVersions`
+ * treats those as equal `0.0.0` — the seeded artifact wins, because it makes no
+ * network call and its bytes sit inside the app's own signature. Same rule used by
+ * `mergeBrowseCatalog` (Browse-tab row selection) and the boot-time floor check, so
+ * the two can never disagree about which bytes are trusted.
+ */
+export function isCatalogVersionNewer(catalogVersion: string, seededVersion: string): boolean {
+  return compareVersions(catalogVersion, seededVersion) > 0;
+}
+
 /** True when `plugin.minAppVersion` is absent, unparseable (fail-open — a malformed
  *  catalogue field must never block an install), or satisfied by `appVersion`. */
 export function satisfiesMinAppVersion(plugin: { minAppVersion?: string }, appVersion: string): boolean {
