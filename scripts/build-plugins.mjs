@@ -56,10 +56,18 @@ export function buildPlugins(ids) {
     if (!existsSync(manifestPath)) {
       throw new Error(`[build-plugins] "${id}" has no manifest.json at ${manifestPath}`);
     }
+    // shell:true on Windows ONLY. There `pnpm` is `pnpm.cmd`, and execFileSync
+    // resolves a literal executable — it cannot run a .cmd shim, so this threw
+    // "spawnSync pnpm ENOENT", failed `pnpm build` (which runs this script), and
+    // took the whole `tauri build` down with it. v0.14.0 shipped with NO Windows
+    // installers because of it: nothing else in CI runs `pnpm build` on Windows,
+    // so only the release job ever executed this line on that platform.
+    // POSIX keeps the shell-free path exactly as it was.
     execFileSync("pnpm", ["vite", "build", "--config", "vite.plugins.config.ts"], {
       cwd: ROOT,
       stdio: "inherit",
       env: { ...process.env, VOLTIUS_PLUGIN_ID: id },
+      shell: process.platform === "win32",
     });
     const dir = path.join(ROOT, "src-tauri/resources/plugins", id);
     mkdirSync(dir, { recursive: true });

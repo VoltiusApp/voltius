@@ -7,6 +7,45 @@ on:
     branches: [main, dev]
 
 jobs:
+  # `pnpm build` runs scripts/build-plugins.mjs, which spawns a child process per
+  # plugin. That spawn is platform-sensitive — on Windows `pnpm` is a .cmd shim —
+  # and until v0.14.0 nothing here ever ran the frontend build on Windows. The
+  # release job was the only place it executed on that platform, so a Windows-only
+  # break stayed invisible until release time and shipped v0.14.0 with NO Windows
+  # installers at all. Frontend-only and no Rust, so it stays cheap.
+  frontend-build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: 'pnpm'
+
+      - run: pnpm install
+
+      - run: pnpm build
+
+      # `pnpm build` exits 0 having built nothing if the plugin loop silently
+      # skips, so assert the artifacts actually landed rather than trusting it.
+      - name: Assert all six plugin bundles were produced
+        shell: pwsh
+        run: |
+          $ids = @('ssh-config','gist-sync','monitoring','docker','process-manager','proxmox')
+          foreach ($id in $ids) {
+            foreach ($f in @('index.js','manifest.json')) {
+              $p = "src-tauri/resources/plugins/$id/$f"
+              if (!(Test-Path $p)) { throw "missing $p" }
+              if ((Get-Item $p).Length -eq 0) { throw "empty $p" }
+            }
+          }
+          Write-Host "all six plugin bundles present"
+
   build:
     runs-on: ubuntu-24.04
     steps:
