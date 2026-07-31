@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-07-31
+
+### Fixed
+
+- Windows: the app could not be packaged at all, so 0.14.0 produced no Windows
+  installers. Everything in 0.14.0 reaches Windows users with this release.
+
 ## [0.14.0] - 2026-07-31
 
 ### Added
