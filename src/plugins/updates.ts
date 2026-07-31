@@ -1,4 +1,6 @@
-import type { InstalledPluginMeta, MarketplacePlugin } from "@/stores/marketplaceStore";
+import { FIRST_PARTY_SOURCE, type InstalledPluginMeta, type MarketplacePlugin } from "@/stores/marketplaceStore";
+import type { PluginManifest } from "@/plugins/api";
+import { beatsSeededVersion, satisfiesMinAppVersion } from "@/plugins/version";
 
 /**
  * Loose numeric-dotted semver compare (no dependency). Pre-release/build suffixes are ignored,
@@ -42,6 +44,38 @@ export function availableUpdate(
   if (meta.hash && entry.hash && entry.hash.toLowerCase() !== meta.hash.toLowerCase()) return entry;
   if (meta.cssHash && entry.cssHash && entry.cssHash.toLowerCase() !== meta.cssHash.toLowerCase()) return entry;
   return null;
+}
+
+/**
+ * The catalogue entry that represents an update for an ACTIVE built-in — a seeded
+ * (app-bundled) artifact that is not tombstoned and has no external install — or null.
+ *
+ * Only the first-party source may offer this: the search is scoped to `sourceId ===
+ * FIRST_PARTY_SOURCE.id`, mirroring `availableUpdate`'s exact-sourceId guard so a
+ * third-party source listing the same manifest id (e.g. a rogue "plugin-docker") can
+ * never push code into a built-in's slot.
+ *
+ * Compared against `seededManifest`, not any `installedMeta` entry — a seeded plugin
+ * never has one, and the seeded manifest is what's actually running. Version
+ * precedence uses `beatsSeededVersion` rather than `availableUpdate`'s `compareSemver`:
+ * this is the same prerelease-aware, malformed-input-guarded rule the Browse-tab floor
+ * (`mergeBrowseCatalog`) already applies when deciding whether a catalogue entry may
+ * replace a seeded one. Using `compareSemver` here instead would let a same-release
+ * prerelease (e.g. catalogue "1.2.0-beta.1" vs seeded "1.2.0") be offered as an update
+ * even though the floor correctly refuses to let that same catalogue entry replace the
+ * seeded artifact — `availableUpdate`'s looser rule is left as-is for externally
+ * installed plugins (a narrower behavior change than this task's scope), but a built-in
+ * must not disagree with the floor about which bytes are newer.
+ */
+export function availableSeededUpdate(
+  seededManifest: PluginManifest,
+  catalog: MarketplacePlugin[],
+  appVersion: string | null,
+): MarketplacePlugin | null {
+  const entry = catalog.find((p) => p.id === seededManifest.id && p.sourceId === FIRST_PARTY_SOURCE.id);
+  if (!entry) return null;
+  if (appVersion !== null && !satisfiesMinAppVersion(entry, appVersion)) return null;
+  return beatsSeededVersion(entry.version, seededManifest.version) ? entry : null;
 }
 
 /** Permissions declared in `next` that are not in `current`. */

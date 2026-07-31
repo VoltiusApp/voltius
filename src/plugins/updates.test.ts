@@ -1,6 +1,7 @@
 import { test, expect } from "vitest";
-import { compareSemver, availableUpdate, addedPermissions } from "./updates";
+import { compareSemver, availableUpdate, availableSeededUpdate, addedPermissions } from "./updates";
 import type { InstalledPluginMeta, MarketplacePlugin } from "@/stores/marketplaceStore";
+import type { PluginManifest } from "@/plugins/api";
 
 // ─── compareSemver ─────────────────────────────────────────────────────────
 
@@ -133,6 +134,85 @@ test("availableUpdate: no entry from the installed source -> null (no cross-sour
   const got = availableUpdate(
     meta({ sourceId: "voltius", version: "1.0.0" }),
     [plugin({ sourceId: "other", version: "9.0.0" })],
+  );
+  expect(got).toBeNull();
+});
+
+// ─── availableSeededUpdate ─────────────────────────────────────────────────
+
+const seededManifest = (over: Partial<PluginManifest> = {}): PluginManifest => ({
+  id: "plugin-docker", name: "Docker", version: "1.1.0", description: "Manage containers", permissions: [],
+  ...over,
+});
+
+test("availableSeededUpdate: newer first-party catalog version offers an update", () => {
+  const got = availableSeededUpdate(
+    seededManifest({ version: "1.1.0" }),
+    [plugin({ id: "plugin-docker", sourceId: "voltius", version: "1.2.0" })],
+    "2.0.0",
+  );
+  expect(got?.version).toBe("1.2.0");
+});
+
+test("availableSeededUpdate: equal catalog version offers no update", () => {
+  const got = availableSeededUpdate(
+    seededManifest({ version: "1.1.0" }),
+    [plugin({ id: "plugin-docker", sourceId: "voltius", version: "1.1.0" })],
+    "2.0.0",
+  );
+  expect(got).toBeNull();
+});
+
+test("availableSeededUpdate: older catalog version offers no update", () => {
+  const got = availableSeededUpdate(
+    seededManifest({ version: "1.1.0" }),
+    [plugin({ id: "plugin-docker", sourceId: "voltius", version: "1.0.0" })],
+    "2.0.0",
+  );
+  expect(got).toBeNull();
+});
+
+test("availableSeededUpdate: an unsatisfied minAppVersion offers no update", () => {
+  const got = availableSeededUpdate(
+    seededManifest({ version: "1.1.0" }),
+    [plugin({ id: "plugin-docker", sourceId: "voltius", version: "1.2.0", minAppVersion: "9.9.9" })],
+    "2.0.0",
+  );
+  expect(got).toBeNull();
+});
+
+test("availableSeededUpdate: a non-first-party source can never offer an update for a built-in", () => {
+  const got = availableSeededUpdate(
+    seededManifest({ version: "1.1.0" }),
+    [plugin({ id: "plugin-docker", sourceId: "some-other-source", version: "9.0.0" })],
+    "2.0.0",
+  );
+  expect(got).toBeNull();
+});
+
+test("availableSeededUpdate: no matching catalog entry -> null", () => {
+  const got = availableSeededUpdate(
+    seededManifest({ id: "plugin-docker" }),
+    [plugin({ id: "plugin-other", sourceId: "voltius", version: "9.0.0" })],
+    "2.0.0",
+  );
+  expect(got).toBeNull();
+});
+
+test("availableSeededUpdate: a null appVersion never blocks an otherwise-valid update", () => {
+  const got = availableSeededUpdate(
+    seededManifest({ version: "1.1.0" }),
+    [plugin({ id: "plugin-docker", sourceId: "voltius", version: "1.2.0", minAppVersion: "9.9.9" })],
+    null,
+  );
+  expect(got?.version).toBe("1.2.0");
+});
+
+test("availableSeededUpdate: a same-release prerelease is not offered as an update (prerelease-aware, unlike compareSemver)", () => {
+  const got = availableSeededUpdate(
+    seededManifest({ version: "1.2.0" }),
+    [plugin({ id: "plugin-docker", sourceId: "voltius", version: "1.2.0-beta.1" })],
+    "2.0.0",
   );
   expect(got).toBeNull();
 });

@@ -59,7 +59,7 @@ export interface InstalledPluginMeta {
 const INSTALLED_META_KEY = "installed-plugins";
 const SOURCES_META_KEY = "marketplace-sources";
 
-const FIRST_PARTY_SOURCE: MarketplaceSource = {
+export const FIRST_PARTY_SOURCE: MarketplaceSource = {
   id: "voltius",
   name: "Voltius Marketplace",
   url: "https://raw.githubusercontent.com/voltiusApp/marketplace/main/plugins.json",
