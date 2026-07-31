@@ -388,6 +388,19 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
 
       const manifest = JSON.parse(manifestText) as PluginManifest;
 
+      // The two ids must be the same id. Everything on disk and in installedMeta is
+      // keyed by the CATALOGUE id (plugins/<plugin.id>/…), while the runtime registry,
+      // the enable/disable override and the tombstone store are all keyed by the
+      // MANIFEST id. Let them differ and the install silently splits in half: the
+      // plugin runs under one id and uninstall/update/disable act on the other.
+      // Checked before the hash verification and before anything is written, so a
+      // mismatched bundle leaves nothing behind.
+      if (manifest.id !== plugin.id) {
+        throw new Error(
+          `Catalogue id "${plugin.id}" does not match the bundle's manifest id "${manifest.id}".`,
+        );
+      }
+
       // Integrity: refuse to execute a bundle that doesn't match its reviewed hash.
       // Both hashes must verify before anything is written — a failed check must
       // leave no partial install on disk.

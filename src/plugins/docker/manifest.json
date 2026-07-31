@@ -2,6 +2,7 @@
   "id": "plugin-docker",
   "name": "Docker",
   "version": "1.1.0",
+  "minAppVersion": "0.14.0",
   "description": "Manage Docker containers, images, volumes, and networks for local and SSH sessions.",
   "permissions": ["sessions:read", "right-panel", "storage", "notifications", "docker:read", "docker:manage", "ui"],
   "defaultEnabled": true,

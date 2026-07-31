@@ -716,6 +716,8 @@
         "installConfirm": "Install",
         "updateConfirm": "Update",
         "permissions": {
+          "readOnlyHeading": "Read-only access",
+          "readOnlyWarning": "The plugin can see this, but cannot change or delete anything with it.",
           "dangerHeading": "Powerful permissions",
           "dangerWarning": "These give the plugin far-reaching access. Grant them only to a plugin you trust.",
           "terminalRead": { "label": "Read terminal output", "description": "Read the visible output and scrollback of your terminal sessions." },

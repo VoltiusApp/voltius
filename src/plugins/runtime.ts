@@ -207,6 +207,32 @@ interface PluginKeybinding {
 const _pluginKeybindings = new Map<string, PluginKeybinding>(); // omni command id → binding
 
 /**
+ * pluginId → every contribution id that plugin has registered. This is the
+ * authorization record for the id-taking unregister verbs (`api.ui.unregister`,
+ * `api.commands.unregister`), which are otherwise unscoped: they take a bare id and
+ * the store maps are a single global namespace, so any plugin could remove any
+ * other plugin's sidebar item, omni command or right-panel section.
+ *
+ * A ledger rather than an id-prefix test because only four of the seven register
+ * verbs prefix the id they store (settings pages, right-panel sections, global
+ * panels, mobile screens do; sidebar items, context-menu items and omni commands
+ * do not), so `startsWith(pluginId + ":")` — the rule pluginStore.unregisterAll
+ * uses — would reject a plugin's own sidebar item.
+ */
+const _contributedIds = new Map<string, Set<string>>();
+
+function trackContribution(pluginId: string, itemId: string): void {
+  let ids = _contributedIds.get(pluginId);
+  if (!ids) _contributedIds.set(pluginId, (ids = new Set()));
+  ids.add(itemId);
+}
+
+/** Whether `itemId` was registered by `pluginId`. */
+function ownsContribution(pluginId: string, itemId: string): boolean {
+  return _contributedIds.get(pluginId)?.has(itemId) ?? false;
+}
+
+/**
  * Remove every keybinding a plugin has registered, keyed by pluginId rather than
  * relying on each command's individual disposer having run. Used by every teardown
  * path (register()-throw rollback, unloadPlugin, setPluginActive(false)) so a
@@ -566,6 +592,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           });
         }
         store().registerOmniCommand({ ...command, keybinding: formattedKeybinding ?? command.keybinding });
+        trackContribution(id, command.id);
         return () => {
           store().unregisterOmniCommand(command.id);
           _pluginKeybindings.delete(command.id);
@@ -573,6 +600,10 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       unregister(cmdId) {
         requirePerm(manifest, "omni-commands");
+        if (!ownsContribution(id, cmdId)) {
+          console.warn(`[plugin-runtime] "${id}" tried to unregister command "${cmdId}", which it did not register — ignoring`);
+          return;
+        }
         store().unregisterOmniCommand(cmdId);
         _pluginKeybindings.delete(cmdId);
       },
@@ -584,29 +615,34 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         // Ensure page ID is prefixed with plugin ID so unregisterAll and store filters work correctly
         const prefixed = { ...page, id: page.id.startsWith(`${id}:`) ? page.id : `${id}:${page.id}` };
         store().registerSettingsPage(prefixed);
+        trackContribution(id, prefixed.id);
         return () => store().unregisterSettingsPage(prefixed.id);
       },
       registerSidebarItem(item) {
         requirePerm(manifest, "sidebar-item");
         store().registerSidebarItem(item);
+        trackContribution(id, item.id);
         return () => store().unregisterSidebarItem(item.id);
       },
       registerRightPanelSection(section) {
         requirePerm(manifest, "right-panel");
         const prefixed = { ...section, id: section.id.startsWith(`${id}:`) ? section.id : `${id}:${section.id}` };
         store().registerRightPanelSection(prefixed);
+        trackContribution(id, prefixed.id);
         return () => store().unregisterRightPanelSection(prefixed.id);
       },
       registerGlobalPanel(panel) {
         requirePerm(manifest, "global-panel");
         const prefixed = { ...panel, id: panel.id.startsWith(`${id}:`) ? panel.id : `${id}:${panel.id}` };
         store().registerGlobalPanel(prefixed);
+        trackContribution(id, prefixed.id);
         return () => store().unregisterGlobalPanel(prefixed.id);
       },
       registerMobileScreen(screen) {
         requirePerm(manifest, "right-panel");
         const prefixed = { ...screen, id: screen.id.startsWith(`${id}:`) ? screen.id : `${id}:${screen.id}` };
         store().registerMobileScreen(prefixed);
+        trackContribution(id, prefixed.id);
         return () => store().unregisterMobileScreen(prefixed.id);
       },
       pushMobileScreen(entry) {
@@ -620,6 +656,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       registerContextMenuItem(item) {
         requirePerm(manifest, "context-menu");
         store().registerContextMenuItem(item);
+        trackContribution(id, item.id);
         return () => store().unregisterContextMenuItem(item.id);
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -632,6 +669,14 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         return useUIContributionStore.getState().registerStatusBarContribution(id, slot, fn);
       },
       unregister(itemId) {
+        // Scoped to this plugin's own contributions: the store maps are one global
+        // namespace, so without this a zero-permission plugin could remove another
+        // plugin's UI by guessing an id. No permission check beyond that — an id can
+        // only be in the ledger because a permitted register verb put it there.
+        if (!ownsContribution(id, itemId)) {
+          console.warn(`[plugin-runtime] "${id}" tried to unregister "${itemId}", which it did not register — ignoring`);
+          return;
+        }
         const s = store();
         s.unregisterOmniCommand(itemId);
         s.unregisterSettingsPage(itemId);
@@ -1367,6 +1412,10 @@ interface PluginEntry {
 
 const _registry = new Map<string, PluginEntry>();
 
+/** Ids whose register() is currently running — present in _registry but not yet
+ *  loaded. See loadPlugin for why the entry has to exist that early. */
+const _loading = new Set<string>();
+
 /**
  * @param css The plugin's stylesheet, if any. The caller (seeded/marketplace loader)
  * already injected it via `importPluginModule`/`injectPluginStyle` before calling this —
@@ -1393,7 +1442,13 @@ export function loadPlugin(
     void populateDefaults(manifest.id, manifest.contributes.configuration);
   }
   const entry: PluginEntry = { manifest, register, cleanup: undefined, active, trusted, api, css };
+  // The entry has to exist before register() runs — re-entrant API calls resolve
+  // through it (api.plugins.isActive() is _registry.get(id).active). But "has an
+  // entry" is not "is loaded": until register() returns, the plugin has no cleanup
+  // and may still throw and be rolled back. _loading keeps it out of introspection
+  // for exactly that window, so nothing can observe it as a loaded plugin.
   _registry.set(manifest.id, entry);
+  _loading.add(manifest.id);
   try {
     entry.cleanup = register(api);
   } catch (e) {
@@ -1409,9 +1464,12 @@ export function loadPlugin(
     clearPluginKeybindings(manifest.id);
     removePluginStyle(manifest.id);
     _exposedApis.delete(manifest.id);
+    _contributedIds.delete(manifest.id);
     _settingsListeners.delete(manifest.id);
     _registry.delete(manifest.id);
     throw e;
+  } finally {
+    _loading.delete(manifest.id);
   }
   console.info(`[plugin-runtime] Loaded plugin "${manifest.id}" v${manifest.version} (active=${active}, trusted=${trusted})`);
   // register() has to run even when the plugin is disabled — that is how imperative
@@ -1450,6 +1508,9 @@ export function setPluginActive(pluginId: string, active: boolean): void {
     // while disabled. register() re-populates it via api.plugins.expose() on
     // reactivation, same as it re-registers other imperative contributions.
     _exposedApis.delete(pluginId);
+    // The contribution ledger deliberately survives a disable: contributions meant
+    // to outlive it (a settings page registered imperatively and left out of
+    // cleanup) are still live, and the plugin must stay able to unregister them.
   }
   console.info(`[plugin-runtime] Plugin "${pluginId}" set active=${active}`);
 }
@@ -1465,6 +1526,7 @@ export function unloadPlugin(pluginId: string): void {
   clearPluginKeybindings(pluginId);
   removePluginStyle(pluginId);
   _exposedApis.delete(pluginId);
+  _contributedIds.delete(pluginId);
   _settingsListeners.delete(pluginId);
   _registry.delete(pluginId);
   console.info(`[plugin-runtime] Unloaded plugin "${pluginId}"`);
@@ -1475,7 +1537,9 @@ export function unloadAll(): void {
 }
 
 export function getLoadedPlugins(): PluginManifest[] {
-  return [..._registry.values()].map((e) => e.manifest);
+  return [..._registry.values()]
+    .filter((e) => !_loading.has(e.manifest.id))
+    .map((e) => e.manifest);
 }
 
 /** Read a plugin's storage value — for use by trusted UI code (e.g. auto-generated settings). */

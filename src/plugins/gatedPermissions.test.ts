@@ -1,6 +1,7 @@
 import { describe, test, expect } from "vitest";
 import {
-  GATED_PERMISSIONS, isGatedPermission,
+  GATED_PERMISSIONS, NON_DANGER_GATED_PERMISSIONS, isGatedPermission,
+  isNonDangerGatedPermission,
   describePermissions, hasGatedPermission, requiresInstallConsent,
 } from "./gatedPermissions";
 
@@ -28,6 +29,42 @@ describe("gatedPermissions", () => {
   test("proxmox:read and processes:read are gated", () => {
     expect(isGatedPermission("proxmox:read")).toBe(true);
     expect(isGatedPermission("processes:read")).toBe(true);
+  });
+
+  test("every non-danger gated perm is itself gated — the subset invariant", () => {
+    for (const perm of NON_DANGER_GATED_PERMISSIONS) {
+      expect(GATED_PERMISSIONS.has(perm), `${perm} is non-danger but not gated`).toBe(true);
+    }
+  });
+
+  test("the read tiers are gated but NOT danger", () => {
+    for (const perm of ["docker:read", "proxmox:read", "processes:read", "metrics:read"]) {
+      const [d] = describePermissions([perm]);
+      expect(d.gated, perm).toBe(true);
+      expect(d.danger, perm).toBe(false);
+      expect(isNonDangerGatedPermission(perm)).toBe(true);
+    }
+  });
+
+  test("their :manage counterparts stay danger", () => {
+    for (const perm of ["docker:manage", "proxmox:manage", "processes:manage"]) {
+      const [d] = describePermissions([perm]);
+      expect(d.gated, perm).toBe(true);
+      expect(d.danger, perm).toBe(true);
+    }
+  });
+
+  test("secret-exposing reads stay danger even though they are reads", () => {
+    for (const perm of ["terminal:read", "terminal:stream", "keychain:read"]) {
+      const [d] = describePermissions([perm]);
+      expect(d.danger, perm).toBe(true);
+      expect(isNonDangerGatedPermission(perm)).toBe(false);
+    }
+  });
+
+  test("a non-danger gated perm still forces install consent", () => {
+    expect(requiresInstallConsent(["docker:read"], false)).toBe(true);
+    expect(hasGatedPermission(["docker:read"])).toBe(true);
   });
 
   test("every gated permission has consent copy — none render as a bare string", () => {

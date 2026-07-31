@@ -99,7 +99,9 @@
       "sections": {
         "history": "История",
         "sftp": "SFTP"
-      }
+      },
+      "pluginUnavailable": "Эта панель больше недоступна. Плагин, который её добавлял, удалён или отключён.",
+      "pluginUnavailableAction": "Вернуться к темам"
     },
     "share": {
       "signInToShare": "Войти, чтобы поделиться",

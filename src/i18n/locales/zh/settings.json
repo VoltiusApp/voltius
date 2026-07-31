@@ -547,6 +547,8 @@
         "installConfirm": "安装",
         "updateConfirm": "更新",
         "permissions": {
+          "readOnlyHeading": "只读访问",
+          "readOnlyWarning": "插件可以查看这些内容，但无法据此修改或删除任何数据。",
           "dangerHeading": "高风险权限",
           "dangerWarning": "这些权限会赋予插件影响深远的访问能力。请仅授予您信任的插件。",
           "terminalRead": {

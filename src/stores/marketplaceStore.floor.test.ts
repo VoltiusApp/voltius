@@ -32,6 +32,12 @@ import type { SeededEntry } from "./seededTombstoneStore";
 
 const SEEDED_MANIFEST = { id: "plugin-docker", name: "Docker", version: "1.1.0", permissions: ["docker:read"] };
 
+// The id the mocked NETWORK manifest carries. installPlugin requires it to equal the
+// catalogue id it was called with, so any test that installs over the network sets
+// this to the catalogue id under test; the default is a third id, used by the tests
+// that only assert which path was taken before the manifest is ever parsed.
+let networkManifestId = "plugin-other";
+
 function floorPlugin(over: Partial<MarketplacePlugin> = {}): MarketplacePlugin {
   return {
     id: "plugin-docker", name: "Docker", author: "Voltius", description: "d",
@@ -49,6 +55,7 @@ beforeEach(() => {
   vi.mocked(appFetch).mockClear();
   useMarketplaceStore.setState({ installedMeta: [], installing: new Set() });
   useSeededTombstoneStore.setState({ removed: ["plugin-docker"] });
+  networkManifestId = "plugin-other";
   h.invoke.mockImplementation(async (cmd: string, args: Record<string, string> = {}) => {
     if (cmd === "plugins_list_seeded") return ["docker"];
     if (cmd === "plugin_seeded_read" && args.id === "docker" && args.filename === "manifest.json") {
@@ -62,7 +69,7 @@ beforeEach(() => {
     }
     if (cmd === "plugin_fetch_url") {
       return args.url!.endsWith("manifest.json")
-        ? JSON.stringify({ id: "plugin-other", name: "Other", version: "1.0.0", permissions: [] })
+        ? JSON.stringify({ id: networkManifestId, name: "Other", version: "1.0.0", permissions: [] })
         : "export default () => {}";
     }
     return undefined;
@@ -114,6 +121,7 @@ test("fetchManifest reads a builtin's manifest from the seeded resource, not the
 
 test("installPlugin ignores a spoofed builtin flag for an id that isn't a seeded artifact", async () => {
   const spoofed = floorPlugin({ id: "plugin-not-seeded", repo: "attacker/plugin" });
+  networkManifestId = "plugin-not-seeded";
 
   await useMarketplaceStore.getState().installPlugin(spoofed);
 
@@ -131,6 +139,7 @@ test("installPlugin ignores a spoofed builtin flag for an id that isn't a seeded
 // manifest's permissions while installPlugin executes a different one.
 test("fetchManifest and installPlugin agree on the floor path for a spoofed builtin flag", async () => {
   const spoofed = floorPlugin({ id: "plugin-not-seeded", repo: "attacker/plugin" });
+  networkManifestId = "plugin-not-seeded";
 
   const { manifestText } = await useMarketplaceStore.getState().fetchManifest(spoofed);
   expect(h.invoke).not.toHaveBeenCalledWith("plugin_seeded_read", expect.anything());
@@ -187,6 +196,7 @@ test("a catalogue row tying the seeded manifest's version routes through the flo
 test("a catalogue row strictly newer than the seeded manifest routes through the network, not the floor", async () => {
   const row = mergeBrowseCatalog([catalogEntry({ version: "1.2.0" })], seededMap(), ["plugin-docker"], "2.5.0")[0];
   expect(row.builtin).toBeUndefined();
+  networkManifestId = "plugin-docker";
 
   await useMarketplaceStore.getState().installPlugin(row);
 
@@ -200,6 +210,7 @@ test("a catalogue row strictly newer than the seeded manifest routes through the
 test("installPlugin ignores a spoofed builtin flag for a real seeded id that isn't tombstoned", async () => {
   useSeededTombstoneStore.setState({ removed: [] }); // plugin-docker is currently active, not removed
   const spoofed = floorPlugin({ repo: "attacker/plugin-docker" });
+  networkManifestId = "plugin-docker";
 
   await useMarketplaceStore.getState().installPlugin(spoofed);
 
