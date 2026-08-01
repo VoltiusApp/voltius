@@ -207,17 +207,11 @@ interface PluginKeybinding {
 const _pluginKeybindings = new Map<string, PluginKeybinding>(); // omni command id → binding
 
 /**
- * pluginId → every contribution id that plugin has registered. This is the
- * authorization record for the id-taking unregister verbs (`api.ui.unregister`,
- * `api.commands.unregister`), which are otherwise unscoped: they take a bare id and
- * the store maps are a single global namespace, so any plugin could remove any
- * other plugin's sidebar item, omni command or right-panel section.
- *
- * A ledger rather than an id-prefix test because only four of the seven register
- * verbs prefix the id they store (settings pages, right-panel sections, global
- * panels, mobile screens do; sidebar items, context-menu items and omni commands
- * do not), so `startsWith(pluginId + ":")` — the rule pluginStore.unregisterAll
- * uses — would reject a plugin's own sidebar item.
+ * pluginId → every contribution id that plugin has registered — the authorization
+ * record for the id-taking unregister verbs, which otherwise take a bare id into a
+ * single global namespace. A ledger rather than an id-prefix test because omni
+ * commands are stored unprefixed, so `startsWith(pluginId + ":")` would reject a
+ * plugin's own command.
  */
 const _contributedIds = new Map<string, Set<string>>();
 
@@ -627,12 +621,6 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         trackContribution(id, prefixed.id);
         return () => store().unregisterSettingsPage(prefixed.id);
       },
-      registerSidebarItem(item) {
-        requirePerm(manifest, "sidebar-item");
-        store().registerSidebarItem(item);
-        trackContribution(id, item.id);
-        return () => store().unregisterSidebarItem(item.id);
-      },
       registerRightPanelSection(section) {
         requirePerm(manifest, "right-panel");
         const prefixed = { ...section, id: section.id.startsWith(`${id}:`) ? section.id : `${id}:${section.id}` };
@@ -662,12 +650,6 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         requirePerm(manifest, "ui");
         useMobileNavStore.getState().setTab("terminal");
       },
-      registerContextMenuItem(item) {
-        requirePerm(manifest, "context-menu");
-        store().registerContextMenuItem(item);
-        trackContribution(id, item.id);
-        return () => store().unregisterContextMenuItem(item.id);
-      },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       registerContribution(slot: UISlot, fn: (ctx: any) => ContributedAction[]) {
         requirePerm(manifest, "ui-contributions");
@@ -689,11 +671,9 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         const s = store();
         s.unregisterOmniCommand(itemId);
         s.unregisterSettingsPage(itemId);
-        s.unregisterSidebarItem(itemId);
         s.unregisterRightPanelSection(itemId);
         s.unregisterGlobalPanel(itemId);
         s.unregisterMobileScreen(itemId);
-        s.unregisterContextMenuItem(itemId);
       },
       setActiveNav(id) {
         requirePerm(manifest, "ui");

@@ -691,14 +691,6 @@
             "label": "添加命令面板操作",
             "description": "向命令面板添加其自身的操作。"
           },
-          "sidebarItem": {
-            "label": "添加侧边栏项目",
-            "description": "向侧边栏添加其自身的项目。"
-          },
-          "contextMenu": {
-            "label": "添加右键菜单项",
-            "description": "向右键菜单添加其自身的条目。"
-          },
           "uiContributions": {
             "label": "添加界面元素",
             "description": "向应用界面添加其自身的元素。"

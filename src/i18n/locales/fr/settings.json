@@ -755,8 +755,6 @@
           "globalPanel": { "label": "Ajouter un panneau global", "description": "Ajouter un panneau disponible dans toute l'application." },
           "themes": { "label": "Ajouter des thèmes de couleurs", "description": "Ajouter ses propres thèmes de couleurs sélectionnables dans l'application." },
           "omniCommands": { "label": "Ajouter des actions à la palette de commandes", "description": "Ajouter ses propres actions à la palette de commandes." },
-          "sidebarItem": { "label": "Ajouter un élément à la barre latérale", "description": "Ajouter son propre élément à la barre latérale." },
-          "contextMenu": { "label": "Ajouter des entrées au menu contextuel", "description": "Ajouter ses propres entrées aux menus contextuels (clic droit)." },
           "uiContributions": { "label": "Ajouter des éléments d'interface", "description": "Ajouter ses propres éléments à l'interface de l'application." }
         }
       }
