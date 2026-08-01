@@ -14,7 +14,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   const offPanel = api.ui.registerRightPanelSection({
     id: "docker",
     label: "Docker",
-    icon: "mdi:docker",
+    icon: "custom:docker",
     component: DockerPanel,
     providesPanelSearch: true,
     order: 20,

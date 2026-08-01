@@ -22,7 +22,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   api.ui.registerSettingsPage({
     id: "gist-sync-settings",
     label: "GitHub Gist Sync",
-    icon: "mdi:github",
+    icon: "custom:github",
     component: createSettingsPage(api),
   });
 
