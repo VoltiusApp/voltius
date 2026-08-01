@@ -438,6 +438,14 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   // cannot forge a prefix that collides with another plugin's namespace.
   const kcKey = (key: string): string => `plugin:${encodeURIComponent(id)}:${key}`;
 
+  // Teardown is one-shot, so an async continuation would re-publish after it. Not
+  // applied to ui.register* — those are meant to outlive a disable.
+  const whileActive = (verb: string): boolean => {
+    if (_registry.get(id)?.active ?? true) return true;
+    console.warn(`[plugin-runtime] "${id}" called ${verb} while disabled — ignoring`);
+    return false;
+  };
+
   const streamsApi = createStreamsAPI();
   const metricsApi = createMetricsAPI(streamsApi);
   const processesApi = createProcessesAPI(streamsApi);
@@ -586,7 +594,8 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       register(command) {
         requirePerm(manifest, "omni-commands");
         let formattedKeybinding: string | null = null;
-        if (command.keybinding) {
+        // Keybinding only: a disable clears those but leaves store contributions.
+        if (command.keybinding && whileActive("omni.register keybinding")) {
           formattedKeybinding = registerKeybinding(id, command.id, command.keybinding, () => {
             void command.execute();
           });
@@ -692,6 +701,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       publishState(key, value) {
         requirePerm(manifest, "ui");
+        if (!whileActive("ui.publishState")) return;
         usePluginStateStore.getState().publish(id, key, value);
       },
     },
@@ -772,6 +782,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
     notifications: {
       toast(message, opts = {}) {
         requirePerm(manifest, "notifications");
+        if (!whileActive("notifications.toast")) return;
         const { severity = "info", duration = 2500, action } = opts;
         const pluginName = manifest.name.slice(0, 20);
         useNotificationStore.getState().addToast({
@@ -782,6 +793,9 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
 
       progress(title, opts = {}) {
         requirePerm(manifest, "notifications");
+        if (!whileActive("notifications.progress")) {
+          return { update() {}, finish() {}, error() {}, cancel() {} };
+        }
         const { indeterminate = true, cancellable = false } = opts;
         const pluginName = manifest.name.slice(0, 20);
         let onCancel: (() => void) | undefined;
@@ -821,6 +835,9 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
 
       banner(message, opts = {}) {
         requirePerm(manifest, "notifications");
+        if (!whileActive("notifications.banner")) {
+          return { dismiss() {}, update() {} };
+        }
         const { severity = "info", actions = [], dismissable = true, flashToast = true } = opts;
         const pluginName = manifest.name.slice(0, 20);
         const notifStore = useNotificationStore.getState();
@@ -1387,6 +1404,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
 
     plugins: {
       expose(publicApi) {
+        if (!whileActive("plugins.expose")) return;
         _exposedApis.set(id, publicApi);
       },
       getApi(pluginId) {
