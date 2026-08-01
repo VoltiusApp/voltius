@@ -13,7 +13,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   initDockerRuntime(api);
   const offPanel = api.ui.registerRightPanelSection({
     id: "docker",
-    label: "Docker",
+    label: () => api.i18n.t("title"),
     icon: "custom:docker",
     component: DockerPanel,
     providesPanelSearch: true,
@@ -22,13 +22,11 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   const offMobile = api.ui.registerMobileScreen({
     id: "docker",
     kind: "docker",
-    title: api.i18n.t("title"),
     render: createMobileDockerScreen(api),
   });
   const offMobileLogs = api.ui.registerMobileScreen({
     id: "docker-logs",
     kind: "docker-logs",
-    title: "Docker logs",
     render: createMobileDockerLogsScreen(api),
   });
   return () => {

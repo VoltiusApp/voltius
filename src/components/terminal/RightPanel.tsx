@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useUIStore, type RightPanelSection } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { resolveLabel } from "@/plugins/resolveLabel";
+import { useLocaleStore } from "@/stores/localeStore";
 import { usePluginStore } from "@/stores/pluginStore";
 import { SnippetsPanel } from "@/components/terminal/SnippetsPanel";
 import { PortsPanel } from "@/components/terminal/PortsPanel";
@@ -181,6 +183,7 @@ function PanelContent() {
   const rightPanelSection = useUIStore((s) => s.rightPanelSection);
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
   const pluginSections = usePluginStore((s) => s.rightPanelSections);
+  const locale = useLocaleStore((s) => s.locale);
   const tunnelCount = useCurrentSessionTunnelCount();
 
   const allSections = useMemo(() => [
@@ -188,9 +191,9 @@ function PanelContent() {
     ...orderPluginSections([...pluginSections.values()]).map((s) => ({
       id: `plugin:${s.id}` as RightPanelSection,
       icon: s.icon ?? "lucide:puzzle",
-      title: s.label,
+      title: resolveLabel(s.label),
     })),
-  ], [pluginSections, t]);
+  ], [pluginSections, t, locale]);
 
   return (
     <div className="flex flex-row h-full">

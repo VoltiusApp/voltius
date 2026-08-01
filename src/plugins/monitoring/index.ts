@@ -10,7 +10,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   api.i18n.register(messages);
   const offPanel = api.ui.registerRightPanelSection({
     id: "monitoring",
-    label: "Metrics",
+    label: () => api.i18n.t("title"),
     icon: "lucide:activity",
     component: createMetricsPanel(api),
     providesHostMetrics: true,
@@ -19,7 +19,6 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   const offMobile = api.ui.registerMobileScreen({
     id: "monitoring",
     kind: "metrics",
-    title: api.i18n.t("title"),
     render: createMobileMetricsScreen(api),
   });
   return () => {

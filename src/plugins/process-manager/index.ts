@@ -10,7 +10,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   api.i18n.register(messages);
   const offPanel = api.ui.registerRightPanelSection({
     id: "processes",
-    label: "Processes",
+    label: () => api.i18n.t("title"),
     icon: "lucide:cpu",
     component: createProcessPanel(api),
     order: 40,
@@ -18,7 +18,6 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   const offMobile = api.ui.registerMobileScreen({
     id: "processes",
     kind: "processes",
-    title: api.i18n.t("title"),
     render: createMobileProcessesScreen(api),
   });
   return () => {

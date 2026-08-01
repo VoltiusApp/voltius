@@ -54,7 +54,7 @@ describe("prefix guard requires a colon (plugin id 'monitor', contributed id 'mo
 
   test("registerMobileScreen namespaces the id and unloadPlugin removes it", () => {
     const register: PluginRegisterFn = (api) =>
-      api.ui.registerMobileScreen({ id: "monitoring", kind: "metrics", title: "Monitoring", render: () => null });
+      api.ui.registerMobileScreen({ id: "monitoring", kind: "metrics", render: () => null });
     loadPlugin(manifest("monitor", ["right-panel"]), register, true, false);
 
     const screens = usePluginStore.getState().mobileScreens;

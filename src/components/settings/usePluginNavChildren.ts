@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import type { SettingsPage } from "@/plugins/api";
 import { getLoadedPlugins } from "@/plugins/runtime";
+import { useLocaleStore } from "@/stores/localeStore";
 import { usePluginStore } from "@/stores/pluginStore";
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useUIStore } from "@/stores/uiStore";
@@ -11,6 +12,8 @@ export function usePluginNavChildren(): NavChild[] {
   const pages = usePluginStore((s) => s.settingsPages);
   // Subscribe to `overrides` rather than calling isEnabled(), so a toggle re-renders.
   const overrides = usePluginRegistryStore((s) => s.overrides);
+  // A function label resolves against the live locale, so the list must rebuild on switch.
+  const locale = useLocaleStore((s) => s.locale);
 
   return useMemo(() => {
     const plugins = getLoadedPlugins().map((m) => ({
@@ -18,7 +21,7 @@ export function usePluginNavChildren(): NavChild[] {
       defaultEnabled: m.defaultEnabled ?? true,
     }));
     return pluginNavChildren([...pages.values()], plugins, (id, def) => overrides[id] ?? def);
-  }, [pages, overrides]);
+  }, [pages, overrides, locale]);
 }
 
 /**
