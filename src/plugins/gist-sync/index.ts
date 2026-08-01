@@ -27,9 +27,8 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   });
 
   // Public API for the host's SyncDropdown "sync now" button — avoids the host
-  // importing this plugin's module directly. Exposed unconditionally so it
-  // survives disable, same as the settings page above; callers gate on
-  // whether the plugin is enabled before invoking.
+  // importing this plugin's module directly. Dropped on disable and re-exposed on
+  // reactivation; host callers null-check.
   api.plugins.expose({ syncNow } satisfies GistSyncPublicApi);
 
   // Functional hooks only when the plugin is enabled
