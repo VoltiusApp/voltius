@@ -154,6 +154,24 @@ describe("hostModules", () => {
     expect(out).toContain(hostModuleUrls()["@voltius/api"]);
   });
 
+  // The specifier is read from the source offsets, not es-module-lexer's `n`: it
+  // decodes `n` with an indirect eval that a CSP without 'unsafe-eval' blocks,
+  // yielding undefined for every import. Verified live 2026-08-01 — that skipped
+  // every rewrite, so no plugin could resolve "react", and the allowlist below
+  // silently stopped running.
+  test("leaves import.meta alone rather than treating it as a specifier", async () => {
+    const { resolveHostSpecifiers } = await freshModule();
+    const src = `const u = import.meta.url; export const x = u;`;
+    expect(await resolveHostSpecifiers(src)).toBe(src);
+  });
+
+  test("rejects an escaped host specifier instead of resolving it", async () => {
+    const { resolveHostSpecifiers } = await freshModule();
+    // Reading raw source means "react" is not the string "react"; fail closed.
+    const src = `import React from "re\\u0061ct";`;
+    await expect(resolveHostSpecifiers(src)).rejects.toThrow(/disallowed specifier/);
+  });
+
   test("rejects a bare specifier the host does not provide", async () => {
     const { resolveHostSpecifiers } = await freshModule();
     const src = `import uPlot from "uplot";`;

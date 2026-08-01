@@ -84,6 +84,24 @@ export function hostModuleUrls(): Record<string, string> {
  * pull in remote code at runtime and slip outside the integrity boundary the hash
  * check exists to establish.
  */
+/**
+ * The specifier, read from the source rather than `imp.n`. es-module-lexer decodes
+ * `n` with an indirect `eval` and swallows the failure, so under a CSP without
+ * 'unsafe-eval' every `n` is undefined while the offsets stay correct — which made
+ * the old `n === undefined` branch skip every import, both breaking plugin loading
+ * and silently disabling the allowlist below. Returns null for a non-literal.
+ */
+function specifierOf(source: string, imp: { s: number; e: number; d: number }): string | null {
+  const raw = source.slice(imp.s, imp.e);
+  // Static specifier offsets exclude the quotes; dynamic import() offsets include them.
+  if (imp.d === -1) return raw;
+  const q = raw[0];
+  if ((q === '"' || q === "'") && raw.length >= 2 && raw[raw.length - 1] === q) {
+    return raw.slice(1, -1);
+  }
+  return null;
+}
+
 export async function resolveHostSpecifiers(source: string): Promise<string> {
   await init;
   const urls = hostModuleUrls();
@@ -91,21 +109,19 @@ export async function resolveHostSpecifiers(source: string): Promise<string> {
   let out = "";
   let last = 0;
   for (const imp of imports) {
-    if (imp.n === undefined) {
-      if (imp.d > -1) {
-        throw new Error("Plugin bundle contains a dynamic import() with a non-literal specifier");
-      }
-      continue;
+    if (imp.d === -2) continue; // import.meta — carries no specifier
+    const spec = specifierOf(source, imp);
+    if (spec === null) {
+      throw new Error("Plugin bundle contains a dynamic import() with a non-literal specifier");
     }
-    const url = urls[imp.n];
+    const url = urls[spec];
     if (url) {
-      // Static specifier offsets exclude the quotes; dynamic import() offsets include them.
       out += source.slice(last, imp.s) + (imp.d > -1 ? JSON.stringify(url) : url);
       last = imp.e;
       continue;
     }
-    if (!imp.n.startsWith("./") && !imp.n.startsWith("../")) {
-      throw new Error(`Plugin bundle imports disallowed specifier: "${imp.n}"`);
+    if (!spec.startsWith("./") && !spec.startsWith("../")) {
+      throw new Error(`Plugin bundle imports disallowed specifier: "${spec}"`);
     }
   }
   return out + source.slice(last);
