@@ -70,14 +70,6 @@ export interface SettingsPage {
   component: React.FC;
 }
 
-export interface SidebarItem {
-  id: string;
-  label: string;
-  icon: string;
-  component: React.FC;
-  position?: "top" | "bottom";
-}
-
 export interface RightPanelSection {
   id: string;
   label: string;
@@ -144,21 +136,6 @@ export interface PluginSession {
   type: string;
   /** Local sessions only: the shell path/name to use for a spawned exec PTY. */
   localShell?: string;
-}
-
-export type ContextMenuTarget = "connection" | "session" | "tab";
-
-export interface ContextMenuContext {
-  connection?: PluginConnection;
-  sessionId?: string;
-}
-
-export interface ContextMenuItem {
-  id: string;
-  label: string;
-  icon?: string;
-  target: ContextMenuTarget | ContextMenuTarget[];
-  action: (ctx: ContextMenuContext) => void | Promise<void>;
 }
 
 export type PluginTheme = AppTheme;
@@ -448,7 +425,6 @@ export interface PluginAPI {
   // UI — extension points
   ui: {
     registerSettingsPage(page: SettingsPage): () => void;
-    registerSidebarItem(item: SidebarItem): () => void;
     registerRightPanelSection(section: RightPanelSection): () => void;
     /** Mount a global, shell-level panel (not session-scoped). Returns cleanup. */
     registerGlobalPanel(panel: GlobalPanel): () => void;
@@ -465,7 +441,6 @@ export interface PluginAPI {
      *  shell. Writes to the mobile nav store regardless of platform — harmless
      *  on desktop, since MobileShell is never mounted there. */
     focusMobileTerminal(): void;
-    registerContextMenuItem(item: ContextMenuItem): () => void;
     /** Inject action items into a named UI slot. Returns a cleanup function. */
     registerContribution<C = unknown>(slot: UISlot, fn: (ctx: C) => ContributedAction[]): () => void;
     /** Render a React widget in the terminal status bar's right-side slot. Returns a cleanup function. */
