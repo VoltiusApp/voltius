@@ -4,6 +4,7 @@ import * as ReactJsxRuntime from "react/jsx-runtime";
 import * as ReactDOM from "react-dom";
 import * as IconifyReact from "@iconify/react";
 import * as VoltiusUI from "./ui";
+import { isHostIconPrefix } from "@/utils/hostIconPrefixes";
 
 export { HOST_SPECIFIERS } from "./hostSpecifiers";
 
@@ -29,6 +30,35 @@ function moduleUrl(key: string, mod: Record<string, unknown>): string {
   return URL.createObjectURL(new Blob([src], { type: "text/javascript" }));
 }
 
+/**
+ * Plugins share the host's Iconify storage — that is the point of the specifier —
+ * but writes into a host-owned prefix would let any plugin repaint host chrome.
+ * Reads and rendering are untouched.
+ */
+function guardedIconify(): Record<string, unknown> {
+  const refuse = (prefix: string, verb: string): void => {
+    console.warn(`[plugin-runtime] refused ${verb} for host-owned icon prefix "${prefix}"`);
+  };
+  return {
+    ...IconifyReact,
+    addCollection(data: { prefix?: string }, provider?: string) {
+      if (typeof data?.prefix === "string" && isHostIconPrefix(data.prefix)) {
+        refuse(data.prefix, "addCollection");
+        return false;
+      }
+      return IconifyReact.addCollection(data as never, provider);
+    },
+    addIcon(name: string, data: unknown) {
+      const prefix = typeof name === "string" && name.includes(":") ? name.split(":")[0] : "";
+      if (prefix && isHostIconPrefix(prefix)) {
+        refuse(prefix, "addIcon");
+        return false;
+      }
+      return IconifyReact.addIcon(name, data as never);
+    },
+  };
+}
+
 export function hostModuleUrls(): Record<string, string> {
   _urls ??= {
     react: moduleUrl("react", React as unknown as Record<string, unknown>),
@@ -37,10 +67,7 @@ export function hostModuleUrls(): Record<string, string> {
       ReactJsxRuntime as unknown as Record<string, unknown>,
     ),
     "react-dom": moduleUrl("react-dom", ReactDOM as unknown as Record<string, unknown>),
-    "@iconify/react": moduleUrl(
-      "@iconify/react",
-      IconifyReact as unknown as Record<string, unknown>,
-    ),
+    "@iconify/react": moduleUrl("@iconify/react", guardedIconify()),
     "@voltius/ui": moduleUrl("@voltius/ui", VoltiusUI as unknown as Record<string, unknown>),
     "@voltius/api": moduleUrl("@voltius/api", {}),
   };

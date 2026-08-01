@@ -60,6 +60,68 @@ describe("hostModules", () => {
     expect(registry["@iconify/react"].getIcon("hostonly:probe")).toBeTruthy();
   });
 
+  // Sharing the host's Iconify storage (above) also means a plugin's addCollection
+  // writes into it. Probed live 2026-07-31: re-registering devicon:proxmox-plain cut
+  // the host entry to 35 bytes of path data — any plugin could repaint host chrome.
+  async function freshWithHostPrefix(prefix: string) {
+    vi.resetModules();
+    const prefixes = await import("@/utils/hostIconPrefixes");
+    prefixes.recordHostIconPrefix(prefix);
+    const mod = await import("./hostModules");
+    mod.hostModuleUrls();
+    const registry = (globalThis as unknown as Record<string, Record<string, typeof import("@iconify/react")>>)
+      .__voltiusHostModules;
+    return registry["@iconify/react"];
+  }
+
+  test("a plugin cannot overwrite a host-owned icon collection", async () => {
+    const pluginIconify = await freshWithHostPrefix("hostowned");
+    const hostIconify = await import("@iconify/react");
+    hostIconify.addCollection({
+      prefix: "hostowned",
+      icons: { logo: { body: "<path d='M0 0h24v24H0z'/>" } },
+      width: 24, height: 24,
+    });
+
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const accepted = pluginIconify.addCollection({
+      prefix: "hostowned",
+      icons: { logo: { body: "<path d='M1 1'/>" } },
+      width: 24, height: 24,
+    });
+
+    expect(accepted).toBe(false);
+    expect(pluginIconify.getIcon("hostowned:logo")?.body).toBe("<path d='M0 0h24v24H0z'/>");
+  });
+
+  test("a plugin cannot overwrite a single host icon via addIcon", async () => {
+    const pluginIconify = await freshWithHostPrefix("hostowned2");
+    const hostIconify = await import("@iconify/react");
+    hostIconify.addCollection({
+      prefix: "hostowned2",
+      icons: { logo: { body: "<path d='M0 0h24v24H0z'/>" } },
+      width: 24, height: 24,
+    });
+
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const accepted = pluginIconify.addIcon("hostowned2:logo", { body: "<path d='M1 1'/>" });
+
+    expect(accepted).toBe(false);
+    expect(pluginIconify.getIcon("hostowned2:logo")?.body).toBe("<path d='M0 0h24v24H0z'/>");
+  });
+
+  test("a plugin can still register its own icons under its own prefix", async () => {
+    const pluginIconify = await freshWithHostPrefix("hostowned3");
+    const accepted = pluginIconify.addCollection({
+      prefix: "acme-plugin",
+      icons: { logo: { body: "<path d='M2 2'/>" } },
+      width: 24, height: 24,
+    });
+
+    expect(accepted).toBe(true);
+    expect(pluginIconify.getIcon("acme-plugin:logo")).toBeTruthy();
+  });
+
   test("rewrites a bare react import to its blob URL", async () => {
     const { resolveHostSpecifiers, hostModuleUrls } = await freshModule();
     const out = await resolveHostSpecifiers(`import React from "react";`);

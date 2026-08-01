@@ -3,11 +3,17 @@
  * Both @iconify-json/lucide and @iconify-json/devicon-plain are bundled in the app.
  */
 import type { CSSProperties } from "react";
-import { addCollection } from "@iconify/react";
+import { addCollection as addIconifyCollection } from "@iconify/react";
+import { recordHostIconPrefix } from "./hostIconPrefixes";
 import lucideSubset from "virtual:lucide-subset";
 import { icons as deviconPlainIcons } from "@iconify-json/devicon-plain";
 
 let loaded = false;
+
+function addCollection(collection: { prefix: string; [k: string]: unknown }) {
+  recordHostIconPrefix(collection.prefix);
+  return addIconifyCollection(collection as never);
+}
 
 export function preloadIcons() {
   if (loaded) return;
