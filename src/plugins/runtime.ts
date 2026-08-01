@@ -1403,6 +1403,8 @@ interface PluginEntry {
   register: PluginRegisterFn;
   cleanup: (() => void) | void;
   active: boolean;
+  /** Load provenance, NOT an authorization input — permissions gate on the manifest
+   *  plus install-time consent. See requireGated for where a wall would go. */
   trusted: boolean;
   api: ReturnType<typeof createPluginAPI>;
   css?: string;
