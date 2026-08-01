@@ -186,7 +186,16 @@ jobs:
                 echo "::error::Release '$tag' already exists, but its$mismatched differ from the freshly built bytes. $plugin_id's source changed without bumping its manifest version, so this run would silently overwrite a release the live marketplace catalogue still points a stale hash (and, for manifest.json, a stale permissions set) at. Bump the 'version' field in $plugin_id's manifest.json and re-run this workflow."
                 exit 1
               fi
-              gh release upload "$tag" "$dir"* -R "$REPO" --clobber
+              # Reaching here means every file matched, so the upload could only ever
+              # rewrite identical bytes — and GitHub marks releases IMMUTABLE, which
+              # makes that re-upload fail with "HTTP 422: Validation Failed" instead
+              # of being the harmless no-op it was written to be. That is exactly what
+              # broke the v0.14.1 release: ssh-config had been published by an earlier
+              # manual dispatch, this job tried to clobber it, and the 422 took
+              # attach-plugin-catalog, publish-installers and publish-repo down with it.
+              # Skipping keeps the re-runnability this branch exists for, without
+              # touching a release that is already correct.
+              echo "$tag already published with identical bytes — nothing to upload."
             else
               gh release create "$tag" "$dir"* \
                 -R "$REPO" \
