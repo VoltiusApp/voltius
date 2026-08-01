@@ -320,7 +320,7 @@ export function SyncDropdown({ anchorRef, open, onClose, gistPluginEnabled, acco
       {/* Gist E2EE section */}
       <SyncSection
         label={t("layout.sync.gistE2ee")}
-        methodIcon="mdi:github"
+        methodIcon="custom:github"
         variant={gistVariant}
         onSyncNow={() => {
           const gistApi = getExposedApi(GIST_SYNC_PLUGIN_ID) as GistSyncPublicApi | null;

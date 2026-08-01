@@ -234,7 +234,7 @@ function GistRow({
     <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-(--t-border) bg-(--t-bg-base) hover:border-(--t-border-hover) group transition-colors">
       {/* Gist ID + link */}
       <div className="flex items-center gap-1.5 flex-1 min-w-0">
-        <Icon icon="mdi:github" width={13} className="shrink-0 text-(--t-text-dim)" />
+        <Icon icon="custom:github" width={13} className="shrink-0 text-(--t-text-dim)" />
         <span className="text-sm font-mono text-(--t-text-primary)">{shortId}</span>
         <a
           href={url}
@@ -603,7 +603,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
       <div className="flex flex-col gap-6 max-w-lg">
         {/* Header */}
         <div className="flex items-center gap-2">
-          <Icon icon="mdi:github" width={20} className="text-(--t-text-primary)" />
+          <Icon icon="custom:github" width={20} className="text-(--t-text-primary)" />
           <h2 className="text-base font-semibold text-(--t-text-primary)">GitHub Gist Sync</h2>
           {configured && <StatusDot ok={!syncError} />}
         </div>
@@ -695,7 +695,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2 py-4 text-center">
-              <Icon icon="mdi:github" width={28} className="text-(--t-text-dim) opacity-40" />
+              <Icon icon="custom:github" width={28} className="text-(--t-text-dim) opacity-40" />
               <p className="text-sm text-(--t-text-dim)">No gists registered yet.</p>
               <p className="text-xs text-(--t-text-dim) opacity-70">Create a new gist or link an existing one below.</p>
             </div>
@@ -751,7 +751,7 @@ export function createSettingsPage(api: PluginAPI): React.FC {
                     className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-(--t-border) bg-(--t-bg-base)"
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <Icon icon="mdi:github" width={13} className="shrink-0 text-(--t-text-dim)" />
+                      <Icon icon="custom:github" width={13} className="shrink-0 text-(--t-text-dim)" />
                       <span className="text-sm font-mono text-(--t-text-primary)">{g.id.slice(0, 8)}…</span>
                       <a
                         href={g.url}
