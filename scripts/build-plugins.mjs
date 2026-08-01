@@ -45,11 +45,28 @@ function sha256(text) {
   return createHash("sha256").update(text, "utf8").digest("hex");
 }
 
+/**
+ * What to delete before building `ids`.
+ *
+ * A FULL build prunes the whole resources dir: nothing else prunes it (it's
+ * gitignored), so a folder from a stale branch survives across checkouts and trips
+ * build.rs's "exactly six ids" assertion.
+ *
+ * A PARTIAL build must prune only its own targets. Wiping the parent would delete the
+ * plugins it isn't rebuilding, leaving fewer than six on disk — which breaks
+ * `cargo test --lib` (its embedding tests assert the six unconditionally) and, in a
+ * release build, fails build.rs outright.
+ */
+export function pruneTargets(ids, resourcesDir = RESOURCES_DIR) {
+  const full = FIRST_PARTY_PLUGIN_IDS.every((id) => ids.includes(id));
+  return full ? [resourcesDir] : ids.map((id) => path.join(resourcesDir, id));
+}
+
 /** Builds each folder id in `ids` via vite, into src-tauri/resources/plugins/<id>. */
 export function buildPlugins(ids) {
-  // Nothing else prunes this dir (it's gitignored), so a folder from a stale branch
-  // survives across checkouts and trips build.rs's "exactly six ids" assertion.
-  rmSync(RESOURCES_DIR, { recursive: true, force: true });
+  for (const target of pruneTargets(ids)) {
+    rmSync(target, { recursive: true, force: true });
+  }
   let built = 0;
   for (const id of ids) {
     const manifestPath = path.join(ROOT, "src/plugins", id, "manifest.json");

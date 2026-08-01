@@ -19,6 +19,9 @@ const EMBEDDED_FILES: [&str; 3] = ["manifest.json", "index.js", "voltius.css"];
 /// Present in every plugin, and non-empty, or the release build fails.
 const REQUIRED_FILES: [&str; 2] = ["manifest.json", "index.js"];
 
+/// folder id -> [(filename, absolute path)].
+type Discovered = BTreeMap<String, Vec<(String, String)>>;
+
 fn main() {
     tauri_build::build();
     embed_seeded_plugins();
@@ -28,11 +31,14 @@ fn embed_seeded_plugins() {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR");
     let root = Path::new(&manifest_dir).join("resources").join("plugins");
     println!("cargo:rerun-if-changed=resources/plugins");
+    println!("cargo:rerun-if-env-changed=VOLTIUS_REQUIRE_SEEDED_PLUGINS");
 
-    let found = discover(&root);
+    let (found, mut problems) = discover(&root);
+    problems.extend(check(&found));
 
-    if let Err(problems) = check(&found) {
-        if std::env::var("PROFILE").as_deref() == Ok("release") {
+    if !problems.is_empty() {
+        let problems = problems.join("\n");
+        if must_be_shippable() {
             panic!(
                 "seeded plugin artifacts are not shippable:\n{problems}\n\
                  Run `pnpm build:plugins` before a release build."
@@ -49,35 +55,111 @@ fn embed_seeded_plugins() {
     fs::write(&dest, out).expect("write seeded_plugins.rs");
 }
 
-/// folder id -> [(filename, absolute path)], one level deep only.
-fn discover(root: &Path) -> BTreeMap<String, Vec<(String, String)>> {
-    let mut found: BTreeMap<String, Vec<(String, String)>> = BTreeMap::new();
+/// Whether an incomplete artifact set must fail the build rather than warn.
+///
+/// `PROFILE=release` covers a normal release build. The env var exists because
+/// `tauri build --debug` bundles a real, distributable installer under the DEBUG
+/// profile, where the assertion would otherwise be disabled — set it for any build
+/// whose output ships. The debug default stays permissive so `cargo test`/`cargo
+/// check` still work on a fresh clone, where the gitignored artifacts do not exist
+/// until `pnpm build:plugins` has run.
+fn must_be_shippable() -> bool {
+    std::env::var("PROFILE").as_deref() == Ok("release")
+        || matches!(
+            std::env::var("VOLTIUS_REQUIRE_SEEDED_PLUGINS").as_deref(),
+            Ok(v) if !v.is_empty() && v != "0"
+        )
+}
+
+/// Mirrors `validate_id` in `src/commands/plugins.rs`. An id embedded here that
+/// `validate_id` rejects would be listed by `plugins_list_seeded` and then refused by
+/// `plugin_seeded_read` — listable but unreadable.
+fn is_valid_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 64
+        && id != "."
+        && id != ".."
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '-')
+}
+
+/// folder id -> [(filename, absolute path)], one level deep only, plus anything found
+/// that cannot be embedded. Rejected entries are reported rather than dropped silently:
+/// every one of them would otherwise resurface later as a confusing "missing" error or
+/// an rustc error against generated code.
+fn discover(root: &Path) -> (Discovered, Vec<String>) {
+    let mut found: Discovered = BTreeMap::new();
+    let mut problems = Vec::new();
     let Ok(entries) = fs::read_dir(root) else {
-        return found;
+        return (found, problems);
     };
     for entry in entries.flatten() {
-        if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+        // `DirEntry::file_type` has lstat semantics, so a SYMLINKED plugin folder reads
+        // as a symlink rather than a directory and vanishes from the build while sitting
+        // in plain sight. `Path::is_dir` follows the link.
+        if !entry.path().is_dir() {
             continue;
         }
         let Some(id) = entry.file_name().to_str().map(str::to_string) else {
+            problems.push(format!(
+                "non-UTF-8 plugin folder name: {:?}",
+                entry.file_name()
+            ));
             continue;
         };
+        if !is_valid_id(&id) {
+            problems.push(format!("invalid plugin folder name: {id}"));
+            continue;
+        }
         let mut files = Vec::new();
         for name in EMBEDDED_FILES {
             let path = entry.path().join(name);
-            if path.is_file() {
-                // Directory mtime alone does not change when a file inside it is
-                // rewritten in place, so each artifact is tracked individually.
-                println!("cargo:rerun-if-changed={}", path.display());
-                files.push((name.to_string(), path.to_string_lossy().replace('\\', "/")));
+            if !path.is_file() {
+                continue;
             }
+            // Directory mtime alone does not change when a file inside it is
+            // rewritten in place, so each artifact is tracked individually.
+            println!("cargo:rerun-if-changed={}", path.display());
+            // `include_str!` requires UTF-8. Validated here so the failure reads as a
+            // build-script problem naming the file, not as a rustc error pointing into
+            // generated code.
+            match fs::read(&path) {
+                Err(e) => {
+                    problems.push(format!("{id}: cannot read {name} ({e})"));
+                    continue;
+                }
+                Ok(bytes) if std::str::from_utf8(&bytes).is_err() => {
+                    problems.push(format!("{id}: {name} is not valid UTF-8"));
+                    continue;
+                }
+                Ok(_) => {}
+            }
+            // No lossy conversion: a path that is not UTF-8 cannot be written into the
+            // generated source at all, and silently mangling it would embed the wrong
+            // file or fail obscurely.
+            let Some(path_str) = path.to_str() else {
+                problems.push(format!("{id}: non-UTF-8 path for {name}"));
+                continue;
+            };
+            // `\` is a path SEPARATOR on Windows but a legal FILENAME character
+            // everywhere else, so this rewrite is only ever correct on Windows. Applied
+            // unconditionally it silently repointed `include_str!` at a different path
+            // for any repo checked out under a directory containing a backslash.
+            // `cfg!` here is the HOST, which is what a build-script path belongs to.
+            let path_str = if cfg!(windows) {
+                path_str.replace('\\', "/")
+            } else {
+                path_str.to_string()
+            };
+            files.push((name.to_string(), path_str));
         }
         found.insert(id, files);
     }
-    found
+    (found, problems)
 }
 
-fn check(found: &BTreeMap<String, Vec<(String, String)>>) -> Result<(), String> {
+fn check(found: &Discovered) -> Vec<String> {
     let mut problems = Vec::new();
 
     for id in SEEDED_IDS {
@@ -104,14 +186,10 @@ fn check(found: &BTreeMap<String, Vec<(String, String)>>) -> Result<(), String> 
         }
     }
 
-    if problems.is_empty() {
-        Ok(())
-    } else {
-        Err(problems.join("\n"))
-    }
+    problems
 }
 
-fn render(found: &BTreeMap<String, Vec<(String, String)>>) -> String {
+fn render(found: &Discovered) -> String {
     let mut out = String::from("pub static SEEDED_PLUGINS: &[(&str, &[(&str, &str)])] = &[\n");
     for (id, files) in found {
         out.push_str(&format!("    ({id:?}, &[\n"));

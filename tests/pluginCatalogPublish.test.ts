@@ -11,6 +11,7 @@ import {
   releaseRepoFor,
   releaseTagFor,
   isCliEntryPoint,
+  pruneTargets,
 } from "../scripts/build-plugins.mjs";
 import { sha256Hex } from "../src/plugins/integrity";
 
@@ -320,5 +321,38 @@ describe("hash algorithm parity", () => {
     for (const text of samples) {
       expect(sha256(text)).toBe(await sha256Hex(text));
     }
+  });
+});
+
+// A partial build used to rmSync the whole resources dir before building only its
+// targets, so `node scripts/build-plugins.mjs docker` wiped the other five plugins —
+// which breaks `cargo test --lib` (the embedding tests assert the six unconditionally)
+// and fails a release build outright.
+describe("pruneTargets", () => {
+  const RES = "/res";
+
+  test("a full build prunes the whole resources dir", () => {
+    expect(pruneTargets(FIRST_PARTY_PLUGIN_IDS, RES)).toEqual([RES]);
+  });
+
+  test("a full build in a different order still prunes the whole dir", () => {
+    expect(pruneTargets([...FIRST_PARTY_PLUGIN_IDS].reverse(), RES)).toEqual([RES]);
+  });
+
+  test("a single-plugin build prunes only that plugin, never the parent", () => {
+    const targets = pruneTargets(["docker"], RES);
+    expect(targets).toEqual([path.join(RES, "docker")]);
+    expect(targets).not.toContain(RES);
+  });
+
+  test("a partial build prunes each of its targets and nothing else", () => {
+    expect(pruneTargets(["docker", "proxmox"], RES)).toEqual([
+      path.join(RES, "docker"),
+      path.join(RES, "proxmox"),
+    ]);
+  });
+
+  test("an unknown id does not make the build look full", () => {
+    expect(pruneTargets(["not-a-plugin"], RES)).toEqual([path.join(RES, "not-a-plugin")]);
   });
 });
