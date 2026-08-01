@@ -12,7 +12,6 @@ function manifest(perms: string[]): PluginManifest {
 const screen: MobileScreen = {
   id: "metrics",
   kind: "metrics",
-  title: "Metrics",
   render: () => null,
 };
 
@@ -29,7 +28,7 @@ describe("api.ui.registerMobileScreen", () => {
   test("registers under a plugin-prefixed id", () => {
     loadPlugin(manifest(["right-panel"]), register, true, false);
     expect(usePluginStore.getState().mobileScreens.has("t:metrics")).toBe(true);
-    expect(usePluginStore.getState().mobileScreens.get("t:metrics")).toMatchObject({ kind: "metrics", title: "Metrics" });
+    expect(usePluginStore.getState().mobileScreens.get("t:metrics")).toMatchObject({ kind: "metrics" });
   });
 
   test("requires the right-panel permission", () => {

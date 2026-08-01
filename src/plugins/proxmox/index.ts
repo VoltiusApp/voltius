@@ -12,7 +12,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   initProxmoxRuntime(api);
   const offPanel = api.ui.registerRightPanelSection({
     id: "proxmox",
-    label: "Proxmox LXC",
+    label: () => api.i18n.t("title"),
     icon: "devicon:proxmox-plain",
     component: ProxmoxPanel,
     order: 30,
@@ -20,7 +20,6 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   const offMobile = api.ui.registerMobileScreen({
     id: "proxmox",
     kind: "proxmox",
-    title: api.i18n.t("title"),
     render: createMobileProxmoxScreen(api),
   });
   return () => {

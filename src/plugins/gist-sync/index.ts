@@ -1,6 +1,7 @@
 import type { PluginAPI, PluginManifest, PluginRegisterFn } from "@/plugins/api";
 import type { GistSyncPublicApi } from "@/services/syncStatus";
 import manifestJson from "./manifest.json";
+import { messages } from "./i18n";
 import { createSettingsPage } from "./SettingsPage";
 import {
   init,
@@ -16,12 +17,13 @@ export const manifest = manifestJson as PluginManifest;
 // ─── Register ─────────────────────────────────────────────────────────────────
 
 export const register: PluginRegisterFn = (api: PluginAPI) => {
+  api.i18n.register(messages);
   init(api);
 
   // Settings page always registered regardless of active state
   api.ui.registerSettingsPage({
     id: "gist-sync-settings",
-    label: "GitHub Gist Sync",
+    label: () => api.i18n.t("settingsLabel"),
     icon: "custom:github",
     component: createSettingsPage(api),
   });

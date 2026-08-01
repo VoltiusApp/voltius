@@ -11,6 +11,7 @@ function makeApi(active: boolean) {
   const onBeforeQuit = vi.fn(() => offBeforeQuit);
 
   const api = {
+    i18n: { register: vi.fn(), t: (k: string) => k, getLocale: () => "en", onLocaleChange: () => () => {} },
     isActive: () => active,
     vault: { get: vi.fn(async () => null), set: vi.fn(), delete: vi.fn() },
     storage: { get: vi.fn(async () => null), set: vi.fn(async () => {}), delete: vi.fn(async () => {}) },

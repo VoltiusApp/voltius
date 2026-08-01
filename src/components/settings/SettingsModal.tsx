@@ -1,3 +1,4 @@
+import { resolveLabel } from "@/plugins/resolveLabel";
 import { useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
@@ -135,7 +136,7 @@ export default function SettingsModal() {
             className="flex items-center justify-between px-6 py-4 shrink-0 border-b border-b-(--t-border)"
           >
             <span className="text-sm font-semibold text-(--t-text-bright)">
-              {activePluginPage ? activePluginPage.label : nav.find((n) => n.id === section)?.label}
+              {activePluginPage ? resolveLabel(activePluginPage.label) : nav.find((n) => n.id === section)?.label}
             </span>
             <button
               onClick={() => setOpen(false)}

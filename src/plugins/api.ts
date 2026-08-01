@@ -63,16 +63,20 @@ export interface OmniCommand {
   execute: () => void | Promise<void>;
 }
 
+/** A label that may be a function, re-resolved by the host on locale change.
+ *  A plain string is frozen at registration time. */
+export type PluginLabel = string | (() => string);
+
 export interface SettingsPage {
   id: string;
-  label: string;
+  label: PluginLabel;
   icon: string;
   component: React.FC;
 }
 
 export interface RightPanelSection {
   id: string;
-  label: string;
+  label: PluginLabel;
   icon: string;
   component: React.FC;
   /** Opt-in: this section drives the terminal status bar's high-CPU indicator
@@ -117,8 +121,6 @@ export interface MobileScreen {
   id: string;
   /** Screen key MobileShell looks up on navigation, e.g. "docker", "metrics". */
   kind: string;
-  /** Header title. Plain text — resolve via `api.i18n.t()` before passing it in. */
-  title: string;
   render: React.FC<MobileScreenProps>;
 }
 

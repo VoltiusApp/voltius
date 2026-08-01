@@ -1,3 +1,4 @@
+import { resolveLabel } from "@/plugins/resolveLabel";
 import { useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
@@ -48,7 +49,7 @@ export default function MobileSettings() {
           </button>
         ) : null}
         <span className="flex-1 text-base font-semibold text-(--t-text-bright)">
-          {activePluginPage ? activePluginPage.label : current ? current.label : t("settings.chrome.title")}
+          {activePluginPage ? resolveLabel(activePluginPage.label) : current ? current.label : t("settings.chrome.title")}
         </span>
         <button
           onClick={() => setOpen(false)}

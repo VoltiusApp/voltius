@@ -88,11 +88,12 @@ describe("first-party rail order", () => {
       sectionOf(registerMonitoring, "monitoring"),
       sectionOf(registerDocker, "docker"),
     ];
-    expect(orderPluginSections(sections).map((s) => s.label)).toEqual([
-      "Metrics",
-      "Docker",
-      "Proxmox LXC",
-      "Processes",
+    // Asserted on id, not label: labels are locale-resolved now, ids are not.
+    expect(orderPluginSections(sections).map((s) => s.id)).toEqual([
+      "monitoring",
+      "docker",
+      "proxmox",
+      "processes",
     ]);
     const orders = sections.map((s) => s.order);
     expect(orders.every((o) => typeof o === "number")).toBe(true);
