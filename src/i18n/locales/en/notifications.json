@@ -35,6 +35,10 @@
     },
     "progressToast": {
       "timedOut": "Operation timed out"
+    },
+    "seededPluginsFailed": {
+      "message": "Built-in plugins failed to load, so the app is running without them. This is a bug — please report it.",
+      "action": "Diagnostics"
     }
   }
 }

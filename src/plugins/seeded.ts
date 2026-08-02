@@ -4,6 +4,10 @@ import { importPluginModule, pluginRegisterOf, type PluginModule } from "./impor
 import { usePluginRegistryStore } from "@/stores/pluginRegistryStore";
 import { useSeededTombstoneStore } from "@/stores/seededTombstoneStore";
 import { useMarketplaceStore } from "@/stores/marketplaceStore";
+import { useNotificationStore } from "@/stores/notificationStore";
+import { useUIStore } from "@/stores/uiStore";
+import { log } from "@/lib/logger";
+import i18n from "@/i18n";
 import type { PluginManifest } from "./api";
 
 /**
@@ -23,6 +27,9 @@ export async function loadSeededPlugins(): Promise<void> {
   }
   const { isRemoved } = useSeededTombstoneStore.getState();
   const installedIds = new Set(useMarketplaceStore.getState().installedMeta.map((m) => m.id));
+  let loaded = 0;
+  let firstError: unknown;
+  let failed = 0;
   for (const id of ids) {
     try {
       const manifestText = await invoke<string>("plugin_seeded_read", {
@@ -45,8 +52,32 @@ export async function loadSeededPlugins(): Promise<void> {
         .getState()
         .isEnabled(manifest.id, manifest.defaultEnabled ?? true);
       loadPlugin(manifest, pluginRegisterOf(mod), active, true, css);
+      loaded += 1;
     } catch (e) {
+      failed += 1;
+      firstError ??= e;
       console.warn(`[seeded] Failed to load seeded plugin "${id}":`, e);
     }
+  }
+  // Losing every built-in at once is otherwise invisible: the app boots, hosts and
+  // vaults still arrive over IPC, and only the plugin surfaces are missing. That is
+  // how a webview-level breakage (a CSP directive an engine doesn't support, say)
+  // would reach users silently. Individual failures stay a console warning; total
+  // failure is worth interrupting for. Everything tombstoned is not a failure.
+  if (loaded === 0 && failed > 0) {
+    log.error(`[seeded] no built-in plugin loaded (${failed} failed)`, String(firstError));
+    useNotificationStore.getState().addBanner({
+      pluginId: "core",
+      pluginName: "Voltius",
+      message: i18n.t("notifications.seededPluginsFailed.message"),
+      severity: "error",
+      dismissable: true,
+      actions: [
+        {
+          label: i18n.t("notifications.seededPluginsFailed.action"),
+          onClick: () => useUIStore.getState().openSettings("diagnostics"),
+        },
+      ],
+    });
   }
 }
