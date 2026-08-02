@@ -1,4 +1,7 @@
-import { init, parse } from "es-module-lexer";
+// The asm.js build, not the default wasm one: wasm needs 'wasm-unsafe-eval' in the
+// CSP, and an engine that doesn't know that token blocks it and silently loads no
+// plugins at all. Synchronous, so there is no init to await.
+import { parse } from "es-module-lexer/js";
 import * as React from "react";
 import * as ReactJsxRuntime from "react/jsx-runtime";
 import * as ReactDOM from "react-dom";
@@ -75,16 +78,6 @@ export function hostModuleUrls(): Record<string, string> {
 }
 
 /**
- * Point a plugin bundle's host imports at the blob modules above. Only the
- * specifiers in HOST_SPECIFIERS are rewritten. Anything else must be a `./` or `../`
- * relative specifier the bundler left in place (e.g. an unresolved chunk split) —
- * any bare specifier the host doesn't recognize, any protocol-relative (`//host/x.js`)
- * or path-absolute (`/x.js`) specifier, or a dynamic import() whose argument isn't
- * a static string literal, is rejected. A hash-verified bundle must not be able to
- * pull in remote code at runtime and slip outside the integrity boundary the hash
- * check exists to establish.
- */
-/**
  * The specifier, read from the source rather than `imp.n`. es-module-lexer decodes
  * `n` with an indirect `eval` and swallows the failure, so under a CSP without
  * 'unsafe-eval' every `n` is undefined while the offsets stay correct — which made
@@ -102,8 +95,17 @@ function specifierOf(source: string, imp: { s: number; e: number; d: number }): 
   return null;
 }
 
+/**
+ * Point a plugin bundle's host imports at the blob modules above. Only the
+ * specifiers in HOST_SPECIFIERS are rewritten. Anything else must be a `./` or `../`
+ * relative specifier the bundler left in place (e.g. an unresolved chunk split) —
+ * any bare specifier the host doesn't recognize, any protocol-relative (`//host/x.js`)
+ * or path-absolute (`/x.js`) specifier, or a dynamic import() whose argument isn't
+ * a static string literal, is rejected. A hash-verified bundle must not be able to
+ * pull in remote code at runtime and slip outside the integrity boundary the hash
+ * check exists to establish.
+ */
 export async function resolveHostSpecifiers(source: string): Promise<string> {
-  await init;
   const urls = hostModuleUrls();
   const [imports] = parse(source);
   let out = "";
