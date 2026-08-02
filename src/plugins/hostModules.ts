@@ -1,4 +1,7 @@
-import { init, parse } from "es-module-lexer";
+// The asm.js build, not the default wasm one: wasm needs 'wasm-unsafe-eval' in the
+// CSP, and an engine that doesn't know that token blocks it and silently loads no
+// plugins at all. Synchronous, so there is no init to await.
+import { parse } from "es-module-lexer/js";
 import * as React from "react";
 import * as ReactJsxRuntime from "react/jsx-runtime";
 import * as ReactDOM from "react-dom";
@@ -75,6 +78,24 @@ export function hostModuleUrls(): Record<string, string> {
 }
 
 /**
+ * The specifier, read from the source rather than `imp.n`. es-module-lexer decodes
+ * `n` with an indirect `eval` and swallows the failure, so under a CSP without
+ * 'unsafe-eval' every `n` is undefined while the offsets stay correct — which made
+ * the old `n === undefined` branch skip every import, both breaking plugin loading
+ * and silently disabling the allowlist below. Returns null for a non-literal.
+ */
+function specifierOf(source: string, imp: { s: number; e: number; d: number }): string | null {
+  const raw = source.slice(imp.s, imp.e);
+  // Static specifier offsets exclude the quotes; dynamic import() offsets include them.
+  if (imp.d === -1) return raw;
+  const q = raw[0];
+  if ((q === '"' || q === "'") && raw.length >= 2 && raw[raw.length - 1] === q) {
+    return raw.slice(1, -1);
+  }
+  return null;
+}
+
+/**
  * Point a plugin bundle's host imports at the blob modules above. Only the
  * specifiers in HOST_SPECIFIERS are rewritten. Anything else must be a `./` or `../`
  * relative specifier the bundler left in place (e.g. an unresolved chunk split) —
@@ -85,27 +106,24 @@ export function hostModuleUrls(): Record<string, string> {
  * check exists to establish.
  */
 export async function resolveHostSpecifiers(source: string): Promise<string> {
-  await init;
   const urls = hostModuleUrls();
   const [imports] = parse(source);
   let out = "";
   let last = 0;
   for (const imp of imports) {
-    if (imp.n === undefined) {
-      if (imp.d > -1) {
-        throw new Error("Plugin bundle contains a dynamic import() with a non-literal specifier");
-      }
-      continue;
+    if (imp.d === -2) continue; // import.meta — carries no specifier
+    const spec = specifierOf(source, imp);
+    if (spec === null) {
+      throw new Error("Plugin bundle contains a dynamic import() with a non-literal specifier");
     }
-    const url = urls[imp.n];
+    const url = urls[spec];
     if (url) {
-      // Static specifier offsets exclude the quotes; dynamic import() offsets include them.
       out += source.slice(last, imp.s) + (imp.d > -1 ? JSON.stringify(url) : url);
       last = imp.e;
       continue;
     }
-    if (!imp.n.startsWith("./") && !imp.n.startsWith("../")) {
-      throw new Error(`Plugin bundle imports disallowed specifier: "${imp.n}"`);
+    if (!spec.startsWith("./") && !spec.startsWith("../")) {
+      throw new Error(`Plugin bundle imports disallowed specifier: "${spec}"`);
     }
   }
   return out + source.slice(last);
