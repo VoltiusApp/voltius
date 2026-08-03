@@ -157,6 +157,10 @@ export interface SequencePrompt {
   partialTemplate: string;
   initialValues: Record<string, string>;
   resume: (values: Record<string, string>) => Promise<SequenceRunResult>;
+  /** Shown under the snippet name, e.g. "web-01 — Pre-command". */
+  contextLabel?: string;
+  /** Called when the modal is closed without submitting. */
+  onDismissed?: () => void;
 }
 
 function targetLabel(target: RunTarget): string {

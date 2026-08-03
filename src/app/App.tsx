@@ -58,8 +58,8 @@ function App() {
   const platform = usePlatform();
   const globalPendingInject = useSnippetStore((s) => s.globalPendingInject);
   const setGlobalPendingInject = useSnippetStore((s) => s.setGlobalPendingInject);
-  const globalPendingSequence = useSnippetStore((s) => s.globalPendingSequence);
-  const setGlobalPendingSequence = useSnippetStore((s) => s.setGlobalPendingSequence);
+  const pendingSequence = useSnippetStore((s) => s.pendingSequences[0] ?? null);
+  const shiftPendingSequence = useSnippetStore((s) => s.shiftPendingSequence);
 
   if (!ready) {
     return <SplashScreen onReady={() => setReady(true)} />;
@@ -105,19 +105,24 @@ function App() {
       )}
 
       {/* Global snippet sequence variable modal */}
-      {globalPendingSequence && (
+      {pendingSequence && (
         <SnippetVariableModal
-          snippetName={globalPendingSequence.snippet.name}
-          partialTemplate={globalPendingSequence.partialTemplate}
-          userVars={globalPendingSequence.userVars}
-          initialValues={globalPendingSequence.initialValues}
+          snippetName={pendingSequence.snippet.name}
+          contextLabel={pendingSequence.contextLabel}
+          partialTemplate={pendingSequence.partialTemplate}
+          userVars={pendingSequence.userVars}
+          initialValues={pendingSequence.initialValues}
           onInject={() => {}}
           onSubmitValues={(values) => {
-            const resume = globalPendingSequence.resume;
-            setGlobalPendingSequence(null);
+            const resume = pendingSequence.resume;
+            shiftPendingSequence();
             resume(values).then(reportSequenceResult);
           }}
-          onClose={() => setGlobalPendingSequence(null)}
+          onClose={() => {
+            const dismissed = pendingSequence.onDismissed;
+            shiftPendingSequence();
+            dismissed?.();
+          }}
         />
       )}
     </div>

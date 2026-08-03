@@ -46,7 +46,7 @@ export default function MobileSnippetTargetSheet(
       const targets = [...sessionTargets, ...connTargets];
       if (targets.length === 0) return;
       useSnippetStore.getState().trackUsed(sn.id);
-      runSnippetSequence(sn, targets, useSnippetStore.getState().setGlobalPendingSequence).then((r) => {
+      runSnippetSequence(sn, targets, useSnippetStore.getState().enqueuePendingSequence).then((r) => {
         if (r !== "prompting") reportSequenceResult(r);
       }).catch((e) => console.error(e));
       setTab("terminal");

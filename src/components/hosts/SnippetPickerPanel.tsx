@@ -157,7 +157,7 @@ export function SnippetPickerPanel({ connectionIds, onClose }: Props) {
       if (targets.length === 0) return;
       trackUsed(snippet.id);
       onClose();
-      runSnippetSequence(snippet, targets, useSnippetStore.getState().setGlobalPendingSequence).then((r) => {
+      runSnippetSequence(snippet, targets, useSnippetStore.getState().enqueuePendingSequence).then((r) => {
         if (r !== "prompting") reportSequenceResult(r);
       }).catch((e) => console.error(e));
       return;

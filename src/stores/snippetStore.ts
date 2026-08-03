@@ -47,7 +47,7 @@ interface SnippetStore {
   loading: boolean;
   recentSnippetIds: string[];
   globalPendingInject: GlobalPendingInject | null;
-  globalPendingSequence: import("@/services/snippetSequence").SequencePrompt | null;
+  pendingSequences: import("@/services/snippetSequence").SequencePrompt[];
   teamSnippets: Record<string, Snippet[]>;
   loadSnippets: () => Promise<void>;
   setTeamSnippets: (teamId: string, items: Snippet[]) => void;
@@ -59,7 +59,8 @@ interface SnippetStore {
   pinSnippetForTeam: (id: string, pinned: boolean) => Promise<void>;
   trackUsed: (id: string) => void;
   setGlobalPendingInject: (v: GlobalPendingInject | null) => void;
-  setGlobalPendingSequence: (v: SnippetStore["globalPendingSequence"]) => void;
+  enqueuePendingSequence: (p: SnippetStore["pendingSequences"][number]) => void;
+  shiftPendingSequence: () => void;
 }
 
 export const useSnippetStore = create<SnippetStore>((set, get) => ({
@@ -67,7 +68,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   loading: false,
   recentSnippetIds: [],
   globalPendingInject: null,
-  globalPendingSequence: null,
+  pendingSequences: [],
   teamSnippets: {},
 
   loadSnippets: async () => {
@@ -363,5 +364,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
 
   setGlobalPendingInject: (v) => set({ globalPendingInject: v }),
 
-  setGlobalPendingSequence: (v) => set({ globalPendingSequence: v }),
+  enqueuePendingSequence: (p) => set((s) => ({ pendingSequences: [...s.pendingSequences, p] })),
+
+  shiftPendingSequence: () => set((s) => ({ pendingSequences: s.pendingSequences.slice(1) })),
 }));
