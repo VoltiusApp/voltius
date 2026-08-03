@@ -131,6 +131,12 @@
       "hostsSelected_other": "{{count}} hosts selected",
       "insert": "Insert",
       "execute": "Execute"
+    },
+    "hostCommand": {
+      "labelPre": "{{host}} — Pre-command",
+      "labelPost": "{{host}} — Post-command",
+      "failed": "Host command failed for {{host}}: {{error}}",
+      "missingSnippet": "Host command snippet is missing for {{host}}"
     }
   }
 }
