@@ -26,7 +26,13 @@
       "hostsChaining": "Hosts Chaining",
       "environmentVariables": "Environment Variables",
       "preCommandPlaceholder": "Pre Command",
-      "postCommandPlaceholder": "Post Command"
+      "postCommandPlaceholder": "Post Command",
+      "hostCommand": {
+        "useSnippet": "Use a snippet",
+        "useInline": "Use inline command",
+        "missingSnippet": "Snippet not found",
+        "askEachTime": "Ask for variables each time"
+      }
     },
     "form": {
       "titleEdit": "Edit Host",

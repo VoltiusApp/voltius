@@ -32,6 +32,8 @@ import { FormSelect } from "@/components/shared/FormSelect";
 import { PortInput } from "@/components/shared/PortInput";
 import EncodingSelector from "./EncodingSelector";
 import type { ConnectionFormHandle } from "./ConnectionForm";
+import { HostCommandField } from "./HostCommandField";
+import { clearRememberedVars } from "@/stores/hostCommandVarsStore";
 
 const BAUD_RATES = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
 
@@ -69,11 +71,16 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
   const [flowControl, setFlowControl] = useState(initial?.serial_flow_control ?? "none");
   const [preCommand, setPreCommand] = useState(initial?.pre_command ?? "");
   const [postCommand, setPostCommand] = useState(initial?.post_command ?? "");
+  const [preSnippetId, setPreSnippetId] = useState(initial?.pre_snippet_id);
+  const [postSnippetId, setPostSnippetId] = useState(initial?.post_snippet_id);
+  const [askVarsEachTime, setAskVarsEachTime] = useState(initial?.ask_vars_each_time ?? false);
   const [terminalEncoding, setTerminalEncoding] = useState(initial?.terminal_encoding ?? "");
   const [showAdvanced, setShowAdvanced] = useState(
     !!(
       initial?.pre_command ||
       initial?.post_command ||
+      initial?.pre_snippet_id ||
+      initial?.post_snippet_id ||
       initial?.terminal_encoding ||
       (initial?.serial_data_bits !== undefined && initial.serial_data_bits !== 8) ||
       (initial?.serial_parity !== undefined && initial.serial_parity !== "none") ||
@@ -128,6 +135,9 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
         vault_id: resolveVaultIdForSave(vaultId),
         pre_command: preCommand.trim() || undefined,
         post_command: postCommand.trim() || undefined,
+        pre_snippet_id: preSnippetId,
+        post_snippet_id: postSnippetId,
+        ask_vars_each_time: askVarsEachTime,
         terminal_encoding: terminalEncoding || undefined,
         // Serial has no notes UI; pass through any existing note so saving
         // (e.g. after a note synced in from another device) never wipes it.
@@ -156,7 +166,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
   }, [_markDirty]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, serialPort, baud, customBaud, useCustomBaud, dataBits, parity, stopBits, flowControl, preCommand, postCommand, terminalEncoding, tags, folderId, vaultId]);
+  useEffect(() => schedule(), [name, serialPort, baud, customBaud, useCustomBaud, dataBits, parity, stopBits, flowControl, preCommand, postCommand, preSnippetId, postSnippetId, askVarsEachTime, terminalEncoding, tags, folderId, vaultId]);
 
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
@@ -286,7 +296,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
               className="flex items-center gap-1.5 text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors w-full pt-1"
             >
               <span>{t("connections.common.advanced")}</span>
-              {!showAdvanced && (preCommand || postCommand || terminalEncoding || dataBits !== 8 || parity !== "none" || stopBits !== 1 || flowControl !== "none") && (
+              {!showAdvanced && (preCommand || postCommand || preSnippetId || postSnippetId || terminalEncoding || dataBits !== 8 || parity !== "none" || stopBits !== 1 || flowControl !== "none") && (
                 <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-(--t-accent)" />
               )}
               <Icon icon={showAdvanced ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} className="ml-auto" />
@@ -349,26 +359,34 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
                     />
                   </div>
 
-                  <div className="relative">
-                    <Icon icon="lucide:play" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-(--t-text-dim) pointer-events-none" />
-                    <input
-                      className={`${formInputClass} text-xs pl-7`}
-                      style={formInputStyle}
-                      value={preCommand}
-                      onChange={(e) => { markDirty(); setPreCommand(e.target.value); }}
-                      placeholder={t("connections.common.preCommandPlaceholder")}
-                    />
-                  </div>
-                  <div className="relative">
-                    <Icon icon="lucide:square" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-(--t-text-dim) pointer-events-none" />
-                    <input
-                      className={`${formInputClass} text-xs pl-7`}
-                      style={formInputStyle}
-                      value={postCommand}
-                      onChange={(e) => { markDirty(); setPostCommand(e.target.value); }}
-                      placeholder={t("connections.common.postCommandPlaceholder")}
-                    />
-                  </div>
+                  <HostCommandField
+                    slot="pre"
+                    text={preCommand}
+                    snippetId={preSnippetId}
+                    onChangeText={(v) => { markDirty(); setPreCommand(v); }}
+                    onChangeSnippetId={(v) => { markDirty(); setPreSnippetId(v); }}
+                  />
+                  <HostCommandField
+                    slot="post"
+                    text={postCommand}
+                    snippetId={postSnippetId}
+                    onChangeText={(v) => { markDirty(); setPostCommand(v); }}
+                    onChangeSnippetId={(v) => { markDirty(); setPostSnippetId(v); }}
+                  />
+                  {(preSnippetId || postSnippetId) && (
+                    <label className="flex items-center gap-2 text-xs text-(--t-text-dim)">
+                      <input
+                        type="checkbox"
+                        checked={askVarsEachTime}
+                        onChange={(e) => {
+                          markDirty();
+                          setAskVarsEachTime(e.target.checked);
+                          if (e.target.checked && initial?.id) clearRememberedVars(initial.id);
+                        }}
+                      />
+                      {t("connections.common.hostCommand.askEachTime")}
+                    </label>
+                  )}
                   <EncodingSelector
                     value={terminalEncoding}
                     onChange={(v) => { markDirty(); setTerminalEncoding(v); }}
