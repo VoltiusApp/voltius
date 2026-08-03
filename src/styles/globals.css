@@ -96,7 +96,7 @@
   --t-chrome-field-border: color-mix(in srgb, #ffffff 12%, transparent);
   /* thin top hairline + gentle drop shadow under the block */
   --t-chrome-highlight: inset 0 1px 0 0 color-mix(in srgb, #ffffff 5%, transparent);
-  --t-chrome-shadow: 0 6px 18px -12px rgba(0, 0, 0, 0.5);
+  --t-chrome-shadow: 0 10px 22px -16px rgba(0, 0, 0, 0.7);
   --t-card-ring: color-mix(in srgb, var(--t-accent) 22%, transparent);
   --t-card-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.55);
 
@@ -150,7 +150,7 @@
 */
 :root[data-appearance="light"] {
   --t-chrome-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.7);
-  --t-chrome-shadow: 0 6px 18px -12px rgba(15, 23, 42, 0.22);
+  --t-chrome-shadow: 0 10px 24px -18px rgba(15, 23, 42, 0.15);
   --t-card-shadow: 0 6px 16px -10px rgba(15, 23, 42, 0.22);
 
   --t-ring: 0 0 0 1px rgba(15, 23, 42, 0.08);
@@ -354,7 +354,7 @@
        soft ambient shadow instead of being the darkest band on screen. */
     background: var(--t-bg-terminal);
     border-bottom: 1px solid var(--t-border);
-    box-shadow: 0 10px 22px -16px rgba(0, 0, 0, 0.7);
+    box-shadow: var(--t-chrome-shadow);
   }
 
   .chrome-canvas {
