@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-08-03
+
+### Fixed
+
+- SSH: connecting with an RSA key to an older server — notably OpenWrt routers
+  running dropbear before 2020.79 — was rejected even though the server accepts
+  the key. The signature algorithm is now taken from what the server says it
+  supports (#85).
+- SSH: a server that accepted the connection but never answered the
+  authentication request left the app on "Authenticating" forever. It now stops
+  with an explanation instead of waiting indefinitely.
+- Plugins: the built-in plugins reported an update was available when their code
+  was already identical to the published one.
+
 ## [0.15.0] - 2026-08-03
 
 ### Added
