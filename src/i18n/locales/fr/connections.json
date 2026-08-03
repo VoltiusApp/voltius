@@ -31,7 +31,9 @@
         "useSnippet": "Utiliser un snippet",
         "useInline": "Utiliser une commande en ligne",
         "missingSnippet": "Snippet introuvable",
-        "askEachTime": "Demander les variables à chaque fois"
+        "askEachTime": "Demander les variables à chaque fois",
+        "pickerTitle": "Choisir un snippet",
+        "searchPlaceholder": "Rechercher un snippet…"
       }
     },
     "form": {

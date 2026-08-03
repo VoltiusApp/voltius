@@ -31,7 +31,9 @@
         "useSnippet": "使用代码片段",
         "useInline": "使用内联命令",
         "missingSnippet": "未找到代码片段",
-        "askEachTime": "每次都询问变量"
+        "askEachTime": "每次都询问变量",
+        "pickerTitle": "选择代码片段",
+        "searchPlaceholder": "搜索代码片段…"
       }
     },
     "form": {

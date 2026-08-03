@@ -31,7 +31,9 @@
         "useSnippet": "Use a snippet",
         "useInline": "Use inline command",
         "missingSnippet": "Snippet not found",
-        "askEachTime": "Ask for variables each time"
+        "askEachTime": "Ask for variables each time",
+        "pickerTitle": "Choose a snippet",
+        "searchPlaceholder": "Search snippets…"
       }
     },
     "form": {
