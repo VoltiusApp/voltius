@@ -204,6 +204,24 @@ describe("buildTargetContext — per-target dynamic resolution", () => {
     expect(t3.connectionHost).toBe("h3");
     expect(t3.connectionName).toBe("h3"); // falls back to host when name unset
   });
+
+  it("prefers a session target's captured context over the store lookup", () => {
+    // A post-command's session row is already gone; without the capture the store
+    // lookup falls back to the local-shell context.
+    const gone = buildTargetContext({ kind: "session", sessionId: "dead", sessionType: "ssh" }, "cb");
+    expect(gone.connectionHost).toBe("localhost");
+
+    const captured = buildTargetContext(
+      {
+        kind: "session", sessionId: "dead", sessionType: "ssh",
+        context: { connectionHost: "h9", connectionUsername: "u9", connectionName: "web-09" },
+      },
+      "cb",
+    );
+    expect(captured).toEqual({
+      connectionHost: "h9", connectionUsername: "u9", connectionName: "web-09", clipboard: "cb",
+    });
+  });
 });
 
 describe("runSnippetSequence — sftp channel lifecycle", () => {
@@ -253,6 +271,16 @@ describe("runSnippetSequence — sftp channel lifecycle", () => {
     expect(res).not.toBe("prompting");
     expect(sftpTransfer).toHaveBeenCalledWith(expect.objectContaining({ srcSftpId: "fake-sftp-id", dstSftpId: "fake-sftp-id" }));
     expect(sftpClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("labels a result with the target's captured label instead of the session id", async () => {
+    const res = await runSnippetSequence(
+      transferSnippet(),
+      [{ kind: "session", sessionId: "sess-1", sessionType: "ssh", label: "web-09" }],
+      () => {},
+    );
+    expect(res).not.toBe("prompting");
+    expect((res as SequenceRunResult).targets[0].label).toBe("web-09");
   });
 });
 

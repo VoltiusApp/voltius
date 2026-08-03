@@ -100,7 +100,19 @@ export async function runHostCommand(
       return;
     }
 
-    const targets: RunTarget[] = [{ kind: "session", sessionId, sessionType }];
+    // Capture the host context up front: a post-command outlives its session row,
+    // so resolving {{connection.*}} from the store later would yield the local shell.
+    const targets: RunTarget[] = [{
+      kind: "session",
+      sessionId,
+      sessionType,
+      context: {
+        connectionHost: conn.host,
+        connectionUsername: conn.username,
+        connectionName: conn.name ?? conn.host,
+      },
+      label: hostLabel,
+    }];
     const contextLabel = i18n.t(
       slot === "pre" ? "hosts.hostCommand.labelPre" : "hosts.hostCommand.labelPost",
       { host: hostLabel },
@@ -123,7 +135,11 @@ export async function runHostCommand(
           resume: async (values) => {
             try {
               const r = await p.resume(values);
-              if (!conn.ask_vars_each_time) rememberVars(conn.id, snippet.id, values, p.userVars);
+              // runWith never throws on a per-target failure; only remember values
+              // that actually worked somewhere.
+              if (!conn.ask_vars_each_time && r.targets.some((t) => t.ok)) {
+                rememberVars(conn.id, snippet.id, values, p.userVars);
+              }
               return r;
             } finally {
               settle();

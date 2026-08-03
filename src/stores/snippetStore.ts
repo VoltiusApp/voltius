@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Snippet, SnippetFormData } from "@/types";
 import type { SnippetPendingInject } from "@/services/snippetRunCore";
+import type { SequencePrompt } from "@/services/snippetSequence";
 import { normalizeSnippetSteps } from "@/services/snippetSteps";
 import * as api from "@/services/snippets";
 import { scheduleSync } from "@/services/sync";
@@ -38,6 +39,12 @@ function findTeamEntry(
 
 export type GlobalPendingInject = SnippetPendingInject;
 
+/** Queue-unique identity for a prompt: the same snippet can be queued once per
+ *  host, and the modal must remount (re-seed its values) for each one. */
+export type QueuedSequencePrompt = SequencePrompt & { queueId: number };
+
+let _nextQueueId = 1;
+
 // In-memory recent injection tracking (not persisted — cosmetic only)
 const MAX_RECENT = 5;
 let _recentIds: string[] = [];
@@ -47,7 +54,7 @@ interface SnippetStore {
   loading: boolean;
   recentSnippetIds: string[];
   globalPendingInject: GlobalPendingInject | null;
-  pendingSequences: import("@/services/snippetSequence").SequencePrompt[];
+  pendingSequences: QueuedSequencePrompt[];
   teamSnippets: Record<string, Snippet[]>;
   loadSnippets: () => Promise<void>;
   setTeamSnippets: (teamId: string, items: Snippet[]) => void;
@@ -59,7 +66,7 @@ interface SnippetStore {
   pinSnippetForTeam: (id: string, pinned: boolean) => Promise<void>;
   trackUsed: (id: string) => void;
   setGlobalPendingInject: (v: GlobalPendingInject | null) => void;
-  enqueuePendingSequence: (p: SnippetStore["pendingSequences"][number]) => void;
+  enqueuePendingSequence: (p: SequencePrompt) => void;
   shiftPendingSequence: () => void;
 }
 
@@ -364,7 +371,8 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
 
   setGlobalPendingInject: (v) => set({ globalPendingInject: v }),
 
-  enqueuePendingSequence: (p) => set((s) => ({ pendingSequences: [...s.pendingSequences, p] })),
+  enqueuePendingSequence: (p) =>
+    set((s) => ({ pendingSequences: [...s.pendingSequences, { ...p, queueId: _nextQueueId++ }] })),
 
   shiftPendingSequence: () => set((s) => ({ pendingSequences: s.pendingSequences.slice(1) })),
 }));

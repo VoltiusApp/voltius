@@ -735,11 +735,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   disconnect: async (sessionId) => {
     cancelBackoff(sessionId);
     const session = get().sessions.find((s) => s.id === sessionId);
+    // Awaited below, after the session row is removed: the tab closes immediately
+    // but disconnect() still resolves only once the port is genuinely released.
+    let serialTeardown: Promise<void> | null = null;
     if (session?.type === "local") {
       await localDisconnect(sessionId);
     } else if (session?.type === "serial") {
       const conn = session.connectionId ? findConnection(session.connectionId) : undefined;
-      void (async () => {
+      serialTeardown = (async () => {
         try {
           if (conn) await runHostCommand(conn, "post", sessionId, "serial");
         } finally {
@@ -802,6 +805,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     useLayoutStore.getState().removeSession(sessionId);
     useTerminalCwdStore.getState().clear(sessionId);
     usePanelSftpStore.getState().closeSession(sessionId);
+    if (serialTeardown) await serialTeardown;
   },
 
   setActive: (sessionId) => set({ activeSessionId: sessionId }),

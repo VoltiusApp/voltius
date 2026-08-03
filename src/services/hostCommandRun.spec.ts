@@ -39,13 +39,13 @@ function mkDeps(over: Partial<HostCommandDeps> = {}): HostCommandDeps {
   };
 }
 
-function promptingDeps(over: Partial<HostCommandDeps> = {}) {
+function promptingDeps(over: Partial<HostCommandDeps> = {}, resumeResult: SequenceRunResult = OK) {
   let captured: SequencePrompt | undefined;
   const deps = mkDeps({
     runSequence: vi.fn(async (_s, _t, onPrompt) => {
       onPrompt({
         snippet, userVars, partialTemplate: "", initialValues: { envName: "default" },
-        resume: async () => OK,
+        resume: async () => resumeResult,
       });
       return "prompting" as const;
     }),
@@ -90,8 +90,20 @@ describe("runHostCommand", () => {
     expect(deps.runSequence).toHaveBeenCalledTimes(1);
     const [passedSnippet, targets] = (deps.runSequence as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(passedSnippet.id).toBe("s1");
-    expect(targets).toEqual([{ kind: "session", sessionId: "sess1", sessionType: "ssh" }]);
+    expect(targets).toEqual([expect.objectContaining({ kind: "session", sessionId: "sess1", sessionType: "ssh" })]);
     expect(deps.report).toHaveBeenCalledWith(OK);
+  });
+
+  it("captures the host context on the target so a post-command does not resolve to the local shell", async () => {
+    const deps = mkDeps();
+    const conn = mkConn({ post_snippet_id: "s1", host: "10.0.0.9", username: "root", name: "web-09" });
+    await runHostCommand(conn, "post", "sess1", "ssh", deps);
+
+    const [, targets] = (deps.runSequence as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(targets[0].context).toEqual({
+      connectionHost: "10.0.0.9", connectionUsername: "root", connectionName: "web-09",
+    });
+    expect(targets[0].label).toBe("web-09");
   });
 
   it("reports an error and resolves when the snippet id is dangling", async () => {
@@ -185,6 +197,31 @@ describe("runHostCommand", () => {
 
     it("remembers values after a successful resume", async () => {
       const { deps, getCaptured } = promptingDeps();
+
+      const promise = runHostCommand(mkConn({ pre_snippet_id: "s1" }), "pre", "sess1", "ssh", deps);
+      await getCaptured().resume({ envName: "prod" });
+      await promise;
+
+      expect(rememberVars).toHaveBeenCalledWith("c1", "s1", { envName: "prod" }, userVars);
+    });
+
+    it("does not remember values when every target failed", async () => {
+      const failed: SequenceRunResult = { targets: [{ label: "h", ok: false, error: "nope" }], flattenErrors: [] };
+      const { deps, getCaptured } = promptingDeps({}, failed);
+
+      const promise = runHostCommand(mkConn({ pre_snippet_id: "s1" }), "pre", "sess1", "ssh", deps);
+      await getCaptured().resume({ envName: "typo" });
+      await promise;
+
+      expect(rememberVars).not.toHaveBeenCalled();
+    });
+
+    it("remembers values when at least one target succeeded", async () => {
+      const partial: SequenceRunResult = {
+        targets: [{ label: "a", ok: false, error: "nope" }, { label: "b", ok: true }],
+        flattenErrors: [],
+      };
+      const { deps, getCaptured } = promptingDeps({}, partial);
 
       const promise = runHostCommand(mkConn({ pre_snippet_id: "s1" }), "pre", "sess1", "ssh", deps);
       await getCaptured().resume({ envName: "prod" });

@@ -165,6 +165,7 @@ export interface SequencePrompt {
 
 function targetLabel(target: RunTarget): string {
   if (target.kind === "connection") return target.connection.name ?? target.connection.host;
+  if (target.label) return target.label;
   const s = useSessionStore.getState().sessions.find((x) => x.id === target.sessionId);
   return s?.connectionName ?? target.sessionId;
 }
@@ -260,6 +261,7 @@ export function buildTargetContext(target: RunTarget, clipboard = ""): DynamicCo
     const c = target.connection;
     return { connectionHost: c.host, connectionUsername: c.username, connectionName: c.name ?? c.host, clipboard };
   }
+  if (target.context) return { ...target.context, clipboard };
   const sess = useSessionStore.getState().sessions.find((s) => s.id === target.sessionId);
   const conns = useConnectionStore.getState().connections;
   return buildDynamicContext(sess, conns, clipboard);
