@@ -932,6 +932,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       if (session.type === "serial") {
         if (!session.serialConfig) return { ok: false, errorMessage: i18n.t("common.error.serialPortConfigNotFound") };
         await serialConnect(session.serialConfig);
+        const conn = findConnection(session.connectionId);
+        if (conn) void runHostCommand(conn, "pre", sessionId, "serial");
         return { ok: true };
       }
       if (session.type !== "ssh") return { ok: false };
@@ -957,6 +959,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           ...opts,
         });
       });
+      void runHostCommand(connection, "pre", sessionId, "ssh");
       return { ok: true };
     } catch (err) {
       return { ok: false, errorMessage: err instanceof Error ? err.message : String(err) };
