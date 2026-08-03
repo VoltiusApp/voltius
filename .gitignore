@@ -32,3 +32,6 @@ disco.mjs
 wd.mjs
 dist-plugin-types/
 packages/plugin-types/index.d.ts
+
+# This project uses pnpm; an npm lockfile would silently diverge from CI.
+package-lock.json
