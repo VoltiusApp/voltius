@@ -63,24 +63,20 @@ export interface OmniCommand {
   execute: () => void | Promise<void>;
 }
 
+/** A label that may be a function, re-resolved by the host on locale change.
+ *  A plain string is frozen at registration time. */
+export type PluginLabel = string | (() => string);
+
 export interface SettingsPage {
   id: string;
-  label: string;
+  label: PluginLabel;
   icon: string;
   component: React.FC;
-}
-
-export interface SidebarItem {
-  id: string;
-  label: string;
-  icon: string;
-  component: React.FC;
-  position?: "top" | "bottom";
 }
 
 export interface RightPanelSection {
   id: string;
-  label: string;
+  label: PluginLabel;
   icon: string;
   component: React.FC;
   /** Opt-in: this section drives the terminal status bar's high-CPU indicator
@@ -125,8 +121,6 @@ export interface MobileScreen {
   id: string;
   /** Screen key MobileShell looks up on navigation, e.g. "docker", "metrics". */
   kind: string;
-  /** Header title. Plain text — resolve via `api.i18n.t()` before passing it in. */
-  title: string;
   render: React.FC<MobileScreenProps>;
 }
 
@@ -144,21 +138,6 @@ export interface PluginSession {
   type: string;
   /** Local sessions only: the shell path/name to use for a spawned exec PTY. */
   localShell?: string;
-}
-
-export type ContextMenuTarget = "connection" | "session" | "tab";
-
-export interface ContextMenuContext {
-  connection?: PluginConnection;
-  sessionId?: string;
-}
-
-export interface ContextMenuItem {
-  id: string;
-  label: string;
-  icon?: string;
-  target: ContextMenuTarget | ContextMenuTarget[];
-  action: (ctx: ContextMenuContext) => void | Promise<void>;
 }
 
 export type PluginTheme = AppTheme;
@@ -448,7 +427,6 @@ export interface PluginAPI {
   // UI — extension points
   ui: {
     registerSettingsPage(page: SettingsPage): () => void;
-    registerSidebarItem(item: SidebarItem): () => void;
     registerRightPanelSection(section: RightPanelSection): () => void;
     /** Mount a global, shell-level panel (not session-scoped). Returns cleanup. */
     registerGlobalPanel(panel: GlobalPanel): () => void;
@@ -465,7 +443,6 @@ export interface PluginAPI {
      *  shell. Writes to the mobile nav store regardless of platform — harmless
      *  on desktop, since MobileShell is never mounted there. */
     focusMobileTerminal(): void;
-    registerContextMenuItem(item: ContextMenuItem): () => void;
     /** Inject action items into a named UI slot. Returns a cleanup function. */
     registerContribution<C = unknown>(slot: UISlot, fn: (ctx: C) => ContributedAction[]): () => void;
     /** Render a React widget in the terminal status bar's right-side slot. Returns a cleanup function. */

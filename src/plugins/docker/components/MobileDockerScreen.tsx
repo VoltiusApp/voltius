@@ -86,13 +86,13 @@ export function createMobileDockerScreen(api: PluginAPI): FC<MobileScreenProps> 
 
     let body: React.ReactNode;
     if (!session || session.type !== "ssh") {
-      body = <Empty icon="mdi:docker" title={t("needsSshTitle")} sub={t("needsSshSub")} />;
+      body = <Empty icon="custom:docker" title={t("needsSshTitle")} sub={t("needsSshSub")} />;
     } else if (session.status !== "connected") {
-      body = <Empty icon="mdi:docker" title={t("sessionNotConnected")} sub={t("sessionNotConnectedSub")} />;
+      body = <Empty icon="custom:docker" title={t("sessionNotConnected")} sub={t("sessionNotConnectedSub")} />;
     } else if (dockerUnreachable) {
       body = (
         <Empty
-          icon="mdi:docker"
+          icon="custom:docker"
           title={t("unreachableTitle")}
           sub={t("unreachableSub")}
           action={{ label: t("refresh"), onClick: () => void refresh() }}

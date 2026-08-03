@@ -5,6 +5,7 @@ import { Icon } from "@iconify/react";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useSessionStore } from "@/stores/sessionStore";
+import { resolveLabel } from "@/plugins/resolveLabel";
 import { useUIStore } from "@/stores/uiStore";
 import type { SettingsSection } from "@/stores/uiStore";
 import { useIdentityStore } from "@/stores/identityStore";
@@ -149,7 +150,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
     const pluginPages = [...settingsPagesMap.values()].map((p): OmniItem => ({
       kind: "action",
       id: `open-settings:plugin:${p.id}`,
-      label: p.label,
+      label: resolveLabel(p.label),
       icon: p.icon,
       description: t("omni.pluginSettingsDescription"),
     }));

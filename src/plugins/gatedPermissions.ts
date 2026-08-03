@@ -107,8 +107,6 @@ const PERMISSION_COPY: Record<string, string> = {
   "global-panel": "globalPanel",
   themes: "themes",
   "omni-commands": "omniCommands",
-  "sidebar-item": "sidebarItem",
-  "context-menu": "contextMenu",
   "ui-contributions": "uiContributions",
 };
 

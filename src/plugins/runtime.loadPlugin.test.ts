@@ -10,7 +10,6 @@ function manifest(perms: string[]): PluginManifest {
 const screen: MobileScreen = {
   id: "metrics",
   kind: "metrics",
-  title: "Metrics",
   render: () => null,
 };
 

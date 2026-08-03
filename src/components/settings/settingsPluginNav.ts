@@ -1,3 +1,4 @@
+import { resolveLabel } from "@/plugins/resolveLabel";
 import type { SettingsPage } from "@/plugins/api";
 
 export interface NavChild {
@@ -42,7 +43,7 @@ export function pluginNavChildren(
     if (ownerId === null) continue; // fail closed: unattributable grants no surface
     const owner = byId.get(ownerId);
     if (!owner || !isEnabled(owner.id, owner.defaultEnabled)) continue;
-    out.push({ pageId: page.id, label: page.label, icon: page.icon });
+    out.push({ pageId: page.id, label: resolveLabel(page.label), icon: page.icon });
   }
 
   return out.sort((a, b) => a.label.localeCompare(b.label));

@@ -4,6 +4,7 @@ const invoke = vi.fn();
 const loadPlugin = vi.fn();
 const consentSpy = vi.hoisted(() => vi.fn(() => true));
 const h = vi.hoisted(() => ({ removed: new Set<string>(), installedIds: new Set<string>() }));
+const addBanner = vi.hoisted(() => vi.fn());
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...a: unknown[]) => invoke(...a),
@@ -26,6 +27,12 @@ vi.mock("./importPluginModule", () => ({
   pluginRegisterOf: (_mod: unknown) => () => {},
 }));
 vi.mock("./gatedPermissions", () => ({ requiresInstallConsent: consentSpy }));
+vi.mock("@/stores/notificationStore", () => ({
+  useNotificationStore: { getState: () => ({ addBanner }) },
+}));
+vi.mock("@/stores/uiStore", () => ({ useUIStore: { getState: () => ({ openSettings: () => {} }) } }));
+vi.mock("@/lib/logger", () => ({ log: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
+vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
 
 import { loadSeededPlugins } from "./seeded";
 
@@ -36,6 +43,7 @@ describe("loadSeededPlugins", () => {
     consentSpy.mockClear();
     h.removed.clear();
     h.installedIds.clear();
+    addBanner.mockClear();
   });
 
   test("returns without throwing when there are no seeded plugins", async () => {
@@ -134,5 +142,65 @@ describe("loadSeededPlugins", () => {
     await loadSeededPlugins();
 
     expect(loadPlugin).toHaveBeenCalledOnce();
+  });
+
+  // A webview-level breakage (an unsupported CSP directive, say) takes out every
+  // built-in at once while the app still boots and looks healthy — the failure this
+  // banner exists to make visible.
+  describe("total-failure banner", () => {
+    function seeded(ids: string[], readFails: boolean) {
+      invoke.mockImplementation(async (cmd: string, args: Record<string, string>) => {
+        if (cmd === "plugins_list_seeded") return ids;
+        if (cmd === "plugin_seeded_read" && args.filename === "manifest.json") {
+          if (readFails) throw new Error("blocked");
+          return JSON.stringify({ id: `plugin-${args.id}`, version: "1.0.0", permissions: [] });
+        }
+        return "export const register = () => {};";
+      });
+    }
+
+    test("raises a banner when every seeded plugin fails", async () => {
+      seeded(["docker", "monitoring"], true);
+      await loadSeededPlugins();
+      expect(addBanner).toHaveBeenCalledOnce();
+      expect(addBanner.mock.calls[0][0]).toMatchObject({ severity: "error", pluginId: "core" });
+    });
+
+    test("stays quiet when at least one loads", async () => {
+      invoke.mockImplementation(async (cmd: string, args: Record<string, string>) => {
+        if (cmd === "plugins_list_seeded") return ["broken", "ok"];
+        if (cmd === "plugin_seeded_read" && args.filename === "manifest.json") {
+          if (args.id === "broken") throw new Error("blocked");
+          return JSON.stringify({ id: "plugin-ok", version: "1.0.0", permissions: [] });
+        }
+        return "export const register = () => {};";
+      });
+      await loadSeededPlugins();
+      expect(loadPlugin).toHaveBeenCalledOnce();
+      expect(addBanner).not.toHaveBeenCalled();
+    });
+
+    // The false positive that would cry wolf on a legitimate setup.
+    test("stays quiet when the user has uninstalled every built-in", async () => {
+      h.removed.add("plugin-docker");
+      h.removed.add("plugin-monitoring");
+      seeded(["docker", "monitoring"], false);
+      await loadSeededPlugins();
+      expect(loadPlugin).not.toHaveBeenCalled();
+      expect(addBanner).not.toHaveBeenCalled();
+    });
+
+    test("stays quiet when every built-in is superseded by an external install", async () => {
+      h.installedIds.add("plugin-docker");
+      seeded(["docker"], false);
+      await loadSeededPlugins();
+      expect(addBanner).not.toHaveBeenCalled();
+    });
+
+    test("stays quiet when there are no seeded plugins at all", async () => {
+      seeded([], false);
+      await loadSeededPlugins();
+      expect(addBanner).not.toHaveBeenCalled();
+    });
   });
 });

@@ -260,7 +260,7 @@ export function DockerPanel() {
       <div className="flex h-full items-center justify-center px-6 text-center">
         <div className="max-w-[260px] space-y-2">
           <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-(--t-bg-card) text-(--t-text-muted) border border-(--t-border)">
-            <Icon icon="mdi:docker" width={22} />
+            <Icon icon="custom:docker" width={22} />
           </div>
           <div>
             <h3 className="text-sm font-medium text-(--t-text)">Local Docker isn't available on Android</h3>
@@ -302,7 +302,7 @@ export function DockerPanel() {
       <div className="flex h-full items-center justify-center px-6 text-center">
         <div className="max-w-[260px] space-y-2">
           <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-(--t-bg-card) text-(--t-text-muted) border border-(--t-border)">
-            <Icon icon="mdi:docker" width={22} />
+            <Icon icon="custom:docker" width={22} />
           </div>
           <div>
             <h3 className="text-sm font-medium text-(--t-text)">Docker is not reachable</h3>

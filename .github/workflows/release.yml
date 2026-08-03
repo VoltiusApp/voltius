@@ -149,6 +149,11 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           SCCACHE_GHA_ENABLED: "true"
           RUSTC_WRAPPER: "sccache"
+          # Fail the build rather than ship a binary with missing built-in plugins.
+          # PROFILE=release already forces this; set explicitly so the guard survives
+          # a switch to `tauri build --debug`, which bundles a real installer under
+          # the debug profile where the assertion would otherwise be disabled.
+          VOLTIUS_REQUIRE_SEEDED_PLUGINS: "1"
         with:
           tagName: ${{ inputs.tag }}
           releaseName: 'Voltius ${{ inputs.tag }}'
@@ -243,6 +248,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          VOLTIUS_REQUIRE_SEEDED_PLUGINS: "1"
         run: pnpm tauri android build --apk --target aarch64
 
       - name: Upload APK to draft release
@@ -370,6 +376,17 @@ jobs:
           TAG: ${{ inputs.tag }}
           REPO: ${{ github.repository }}
         run: gh release upload "$TAG" dist/plugin-catalog.json -R "$REPO" --clobber
+
+  # Types third-party plugin authors compile against. Deliberately has no needs:
+  # the tag defines the API surface, so a failing installer job must not also
+  # withhold the types package. Publish logic lives in publish-plugin-types.yml
+  # (also directly workflow_dispatch-able, to publish without cutting a release).
+  publish-plugin-types:
+    uses: ./.github/workflows/publish-plugin-types.yml
+    with:
+      ref: ${{ inputs.tag }}
+      version: ${{ inputs.tag }}
+    secrets: inherit
 
   checksums:
     needs: [publish-tauri, publish-android]

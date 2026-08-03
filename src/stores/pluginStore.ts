@@ -2,9 +2,7 @@ import { create } from "zustand";
 import type {
   OmniCommand,
   SettingsPage,
-  SidebarItem,
   RightPanelSection,
-  ContextMenuItem,
   PluginTheme,
   GlobalPanel,
   MobileScreen,
@@ -13,9 +11,7 @@ import type {
 interface PluginStore {
   omniCommands: Map<string, OmniCommand>;
   settingsPages: Map<string, SettingsPage>;
-  sidebarItems: Map<string, SidebarItem>;
   rightPanelSections: Map<string, RightPanelSection>;
-  contextMenuItems: Map<string, ContextMenuItem>;
   pluginThemes: Map<string, PluginTheme>;
 
   registerOmniCommand(cmd: OmniCommand): void;
@@ -23,9 +19,6 @@ interface PluginStore {
 
   registerSettingsPage(page: SettingsPage): void;
   unregisterSettingsPage(id: string): void;
-
-  registerSidebarItem(item: SidebarItem): void;
-  unregisterSidebarItem(id: string): void;
 
   registerRightPanelSection(section: RightPanelSection): void;
   unregisterRightPanelSection(id: string): void;
@@ -37,9 +30,6 @@ interface PluginStore {
   mobileScreens: Map<string, MobileScreen>;
   registerMobileScreen(screen: MobileScreen): void;
   unregisterMobileScreen(id: string): void;
-
-  registerContextMenuItem(item: ContextMenuItem): void;
-  unregisterContextMenuItem(id: string): void;
 
   registerPluginTheme(theme: PluginTheme): void;
   unregisterPluginTheme(id: string): void;
@@ -87,11 +77,9 @@ function mapDelete<V>(m: Map<string, V>, key: string): Map<string, V> {
 export const usePluginStore = create<PluginStore>((set, get) => ({
   omniCommands: new Map(),
   settingsPages: new Map(),
-  sidebarItems: new Map(),
   rightPanelSections: new Map(),
   globalPanels: new Map(),
   mobileScreens: new Map(),
-  contextMenuItems: new Map(),
   pluginThemes: new Map(),
 
   registerOmniCommand: (cmd) =>
@@ -103,11 +91,6 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     set((s) => ({ settingsPages: mapSet(s.settingsPages, page.id, page) })),
   unregisterSettingsPage: (id) =>
     set((s) => ({ settingsPages: mapDelete(s.settingsPages, id) })),
-
-  registerSidebarItem: (item) =>
-    set((s) => ({ sidebarItems: mapSet(s.sidebarItems, item.id, item) })),
-  unregisterSidebarItem: (id) =>
-    set((s) => ({ sidebarItems: mapDelete(s.sidebarItems, id) })),
 
   registerRightPanelSection: (section) =>
     set((s) => ({ rightPanelSections: mapSet(s.rightPanelSections, section.id, section) })),
@@ -123,11 +106,6 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     set((s) => ({ mobileScreens: mapSet(s.mobileScreens, screen.id, screen) })),
   unregisterMobileScreen: (id) =>
     set((s) => ({ mobileScreens: mapDelete(s.mobileScreens, id) })),
-
-  registerContextMenuItem: (item) =>
-    set((s) => ({ contextMenuItems: mapSet(s.contextMenuItems, item.id, item) })),
-  unregisterContextMenuItem: (id) =>
-    set((s) => ({ contextMenuItems: mapDelete(s.contextMenuItems, id) })),
 
   registerPluginTheme: (theme) =>
     set((s) => ({ pluginThemes: mapSet(s.pluginThemes, theme.id, theme) })),
@@ -147,11 +125,9 @@ export const usePluginStore = create<PluginStore>((set, get) => ({
     set({
       omniCommands: filterOut(s.omniCommands),
       settingsPages: filterOut(s.settingsPages),
-      sidebarItems: filterOut(s.sidebarItems),
       rightPanelSections: filterOut(s.rightPanelSections),
       globalPanels: filterOut(s.globalPanels),
       mobileScreens: filterOut(s.mobileScreens),
-      contextMenuItems: filterOut(s.contextMenuItems),
       pluginThemes: filterOut(s.pluginThemes),
     });
   },

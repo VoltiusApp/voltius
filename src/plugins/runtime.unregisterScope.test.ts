@@ -8,7 +8,7 @@ function manifestFor(id: string): PluginManifest {
     id,
     name: id,
     version: "1.0.0",
-    permissions: ["sidebar-item", "right-panel", "omni-commands", "settings-page"],
+    permissions: ["right-panel", "omni-commands", "settings-page"],
   } as PluginManifest;
 }
 
@@ -40,28 +40,28 @@ describe("api.ui.unregister / api.omni.unregister are scoped to the caller", () 
     expect(warn).toHaveBeenCalled();
   });
 
-  test("a plugin cannot unregister another plugin's sidebar item (unprefixed id)", () => {
+  test("a plugin cannot unregister another plugin's omni command (unprefixed id)", () => {
     const victim = load("plugin-victim");
     const attacker = load("plugin-attacker");
-    victim.ui.registerSidebarItem({ id: "hosts", label: "Hosts", icon: "x", component: () => null });
+    victim.omni.register({ id: "hosts", label: "Hosts", icon: "x", execute: () => {} });
 
-    expect(usePluginStore.getState().sidebarItems.has("hosts")).toBe(true);
+    expect(usePluginStore.getState().omniCommands.has("hosts")).toBe(true);
 
     vi.spyOn(console, "warn").mockImplementation(() => {});
     attacker.ui.unregister("hosts");
 
-    expect(usePluginStore.getState().sidebarItems.has("hosts")).toBe(true);
+    expect(usePluginStore.getState().omniCommands.has("hosts")).toBe(true);
   });
 
   test("a plugin CAN still unregister its own contributions, prefixed or not", () => {
     const owner = load("plugin-owner");
-    owner.ui.registerSidebarItem({ id: "hosts", label: "Hosts", icon: "x", component: () => null });
+    owner.omni.register({ id: "hosts", label: "Hosts", icon: "x", execute: () => {} });
     owner.ui.registerRightPanelSection({ id: "panel", label: "Panel", icon: "x", component: () => null });
 
     owner.ui.unregister("hosts");
     owner.ui.unregister("plugin-owner:panel");
 
-    expect(usePluginStore.getState().sidebarItems.has("hosts")).toBe(false);
+    expect(usePluginStore.getState().omniCommands.has("hosts")).toBe(false);
     expect(usePluginStore.getState().rightPanelSections.has("plugin-owner:panel")).toBe(false);
   });
 
@@ -83,16 +83,16 @@ describe("api.ui.unregister / api.omni.unregister are scoped to the caller", () 
 
   test("the ledger does not survive an unload — a reloaded plugin starts empty", () => {
     const owner = load("plugin-owner");
-    owner.ui.registerSidebarItem({ id: "hosts", label: "Hosts", icon: "x", component: () => null });
+    owner.omni.register({ id: "hosts", label: "Hosts", icon: "x", execute: () => {} });
     unloadAll();
 
     const reloaded = load("plugin-owner");
     const other = load("plugin-other");
-    other.ui.registerSidebarItem({ id: "hosts", label: "Hosts", icon: "x", component: () => null });
+    other.omni.register({ id: "hosts", label: "Hosts", icon: "x", execute: () => {} });
 
     vi.spyOn(console, "warn").mockImplementation(() => {});
     reloaded.ui.unregister("hosts");
 
-    expect(usePluginStore.getState().sidebarItems.has("hosts")).toBe(true);
+    expect(usePluginStore.getState().omniCommands.has("hosts")).toBe(true);
   });
 });

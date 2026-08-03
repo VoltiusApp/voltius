@@ -24,3 +24,11 @@ docs/superpowers/
 
 # on-device / emulator screenshots captured while iterating
 screenshots/
+
+# local dev scratch: the docker cargo registry cache and the WebDriver harnesses.
+# Untracked but previously unignored, so a `git add -A` swept 58k files into a commit.
+.cargo-home/
+disco.mjs
+wd.mjs
+dist-plugin-types/
+packages/plugin-types/index.d.ts
