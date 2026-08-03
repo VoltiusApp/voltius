@@ -377,6 +377,46 @@ jobs:
           REPO: ${{ github.repository }}
         run: gh release upload "$TAG" dist/plugin-catalog.json -R "$REPO" --clobber
 
+  # Types third-party plugin authors compile against. Inert until NPM_TOKEN is
+  # set — the step is skipped, the release is unaffected. Re-runnable: a version
+  # already on npm is skipped rather than failing the release.
+  publish-plugin-types:
+    needs: publish-tauri
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Generate the declaration from src/plugins/api.ts
+        run: node scripts/gen-plugin-types.mjs
+
+      - name: Set the package version from the tag
+        working-directory: packages/plugin-types
+        env:
+          TAG: ${{ inputs.tag }}
+        run: npm version "${TAG#v}" --no-git-tag-version --allow-same-version
+
+      - name: Publish
+        working-directory: packages/plugin-types
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "NPM_TOKEN not set — skipping publish."; exit 0
+          fi
+          VERSION="${TAG#v}"
+          if npm view "@voltius/plugin-types@$VERSION" version >/dev/null 2>&1; then
+            echo "@voltius/plugin-types@$VERSION is already published — nothing to do."; exit 0
+          fi
+          npm publish --access public
+
   checksums:
     needs: [publish-tauri, publish-android]
     runs-on: ubuntu-latest

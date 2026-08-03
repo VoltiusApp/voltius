@@ -1,0 +1,18 @@
+{
+  "name": "@voltius/plugin-types",
+  "version": "0.0.0",
+  "description": "TypeScript definitions for the Voltius plugin API",
+  "types": "index.d.ts",
+  "files": ["index.d.ts", "ui.d.ts", "README.md", "LICENSE"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VoltiusApp/voltius.git",
+    "directory": "packages/plugin-types"
+  },
+  "homepage": "https://docs.voltius.app/plugins/developing",
+  "keywords": ["voltius", "plugin", "types", "ssh", "sftp"],
+  "publishConfig": { "access": "public" },
+  "peerDependencies": { "@types/react": ">=18" },
+  "peerDependenciesMeta": { "@types/react": { "optional": true } }
+}
