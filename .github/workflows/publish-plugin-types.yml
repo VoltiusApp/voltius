@@ -1,0 +1,92 @@
+name: publish-plugin-types
+
+# Publishes @voltius/plugin-types — the declaration third-party plugin authors
+# compile against — independently of the app's installer matrix.
+#
+# Called two ways:
+#   - workflow_call from release.yml, as part of a full app release. It is NOT
+#     gated on publish-tauri: a failing platform job must not also withhold the
+#     types package, which is what a full-release gate did before.
+#   - workflow_dispatch directly, to get types onto npm without cutting a release.
+#
+# Versions track the app (@voltius/plugin-types@0.14.1 ⇄ Voltius 0.14.1), so a
+# dispatch from a non-tag ref should use a prerelease version (e.g. 0.15.0-dev.1).
+# Those publish under the `next` dist-tag so `latest` keeps pointing at a version
+# of the API that a shipped app actually exposes.
+#
+# Inert without NPM_TOKEN, and a version already on npm is skipped rather than
+# failing, so re-runs are safe.
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Git ref (branch/tag/sha) to generate the declaration from'
+        required: true
+        type: string
+      version:
+        description: 'npm version to publish; a leading v is stripped, so a release tag works as-is'
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref (branch/tag/sha) to generate the declaration from'
+        required: true
+        type: string
+        default: 'dev'
+      version:
+        description: 'npm version to publish. Use a prerelease (0.15.0-dev.1) for anything but a release tag — it publishes under the `next` dist-tag.'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+
+      - name: Generate the declaration from src/plugins/api.ts
+        run: node scripts/gen-plugin-types.mjs
+
+      # Accepts a release tag verbatim, so release.yml can forward inputs.tag —
+      # GitHub expressions have no way to strip the leading v.
+      - name: Resolve the version
+        id: v
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: echo "version=${INPUT_VERSION#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set the package version
+        working-directory: packages/plugin-types
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+      - name: Publish
+        working-directory: packages/plugin-types
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "NPM_TOKEN not set — skipping publish."; exit 0
+          fi
+          if npm view "@voltius/plugin-types@$VERSION" version >/dev/null 2>&1; then
+            echo "@voltius/plugin-types@$VERSION is already published — nothing to do."; exit 0
+          fi
+          case "$VERSION" in
+            *-*) DIST_TAG=next ;;
+            *)   DIST_TAG=latest ;;
+          esac
+          npm publish --access public --tag "$DIST_TAG"
