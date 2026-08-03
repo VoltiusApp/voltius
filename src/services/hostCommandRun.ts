@@ -36,6 +36,34 @@ export function defaultHostCommandDeps(): HostCommandDeps {
   };
 }
 
+/** Only post-command prompts are bounded: an unanswered pre-command prompt is
+ *  fine (nothing to tear down yet), but an unanswered post-command prompt would
+ *  strand the session's teardown forever. */
+const POST_PROMPT_TIMEOUT_MS = 60_000;
+
+async function waitForSettled(
+  settled: Promise<void>,
+  slot: HostCommandSlot,
+  hostLabel: string,
+  deps: HostCommandDeps,
+): Promise<void> {
+  if (slot !== "post") {
+    await settled;
+    return;
+  }
+
+  let timer: ReturnType<typeof setTimeout>;
+  const timedOut = new Promise<true>((resolve) => {
+    timer = setTimeout(() => resolve(true), POST_PROMPT_TIMEOUT_MS);
+  });
+  const raceResult = await Promise.race([settled.then(() => false as const), timedOut]);
+  clearTimeout(timer!);
+
+  if (raceResult) {
+    deps.notifyError(i18n.t("hosts.hostCommand.postPromptTimedOut", { host: hostLabel }));
+  }
+}
+
 /**
  * Run a host's pre/post command against an established session. Never rejects:
  * a failing host command must not fail the connection or block teardown.
@@ -47,70 +75,74 @@ export async function runHostCommand(
   sessionType: string,
   deps: HostCommandDeps = defaultHostCommandDeps(),
 ): Promise<void> {
-  const cmd = resolveHostCommand(conn, slot);
-  if (!cmd) return;
+  try {
+    const cmd = resolveHostCommand(conn, slot);
+    if (!cmd) return;
 
-  const hostLabel = conn.name ?? conn.host;
+    const hostLabel = conn.name || conn.host;
 
-  if (cmd.kind === "inline") {
-    // SSH inline commands are written by Rust; serial has no Rust path.
-    if (sessionType !== "serial") return;
+    if (cmd.kind === "inline") {
+      // SSH inline commands are written by Rust; serial has no Rust path.
+      if (sessionType !== "serial") return;
+      try {
+        await deps.inject(sessionId, sessionType, cmd.text, true);
+      } catch (e) {
+        deps.notifyError(i18n.t("hosts.hostCommand.failed", {
+          host: hostLabel, error: e instanceof Error ? e.message : String(e),
+        }));
+      }
+      return;
+    }
+
+    const snippet = deps.findSnippet(cmd.id);
+    if (!snippet) {
+      deps.notifyError(i18n.t("hosts.hostCommand.missingSnippet", { host: hostLabel }));
+      return;
+    }
+
+    const targets: RunTarget[] = [{ kind: "session", sessionId, sessionType }];
+    const contextLabel = i18n.t(
+      slot === "pre" ? "hosts.hostCommand.labelPre" : "hosts.hostCommand.labelPost",
+      { host: hostLabel },
+    );
+
+    let settle: () => void = () => {};
+    const settled = new Promise<void>((resolve) => { settle = resolve; });
+
     try {
-      await deps.inject(sessionId, sessionType, cmd.text, true);
+      const result = await deps.runSequence(snippet, targets, (p) => {
+        const seeded = conn.ask_vars_each_time
+          ? p.initialValues
+          : { ...p.initialValues, ...rememberedVars(conn.id, snippet.id) };
+
+        deps.enqueue({
+          ...p,
+          initialValues: seeded,
+          contextLabel,
+          onDismissed: settle,
+          resume: async (values) => {
+            try {
+              const r = await p.resume(values);
+              if (!conn.ask_vars_each_time) rememberVars(conn.id, snippet.id, values, p.userVars);
+              return r;
+            } finally {
+              settle();
+            }
+          },
+        });
+      });
+
+      if (result === "prompting") {
+        await waitForSettled(settled, slot, hostLabel, deps);
+        return;
+      }
+      deps.report(result);
     } catch (e) {
       deps.notifyError(i18n.t("hosts.hostCommand.failed", {
         host: hostLabel, error: e instanceof Error ? e.message : String(e),
       }));
     }
-    return;
-  }
-
-  const snippet = deps.findSnippet(cmd.id);
-  if (!snippet) {
-    deps.notifyError(i18n.t("hosts.hostCommand.missingSnippet", { host: hostLabel }));
-    return;
-  }
-
-  const targets: RunTarget[] = [{ kind: "session", sessionId, sessionType }];
-  const contextLabel = i18n.t(
-    slot === "pre" ? "hosts.hostCommand.labelPre" : "hosts.hostCommand.labelPost",
-    { host: hostLabel },
-  );
-
-  let settle: () => void = () => {};
-  const settled = new Promise<void>((resolve) => { settle = resolve; });
-
-  try {
-    const result = await deps.runSequence(snippet, targets, (p) => {
-      const seeded = conn.ask_vars_each_time
-        ? p.initialValues
-        : { ...p.initialValues, ...rememberedVars(conn.id, snippet.id) };
-
-      deps.enqueue({
-        ...p,
-        initialValues: seeded,
-        contextLabel,
-        onDismissed: settle,
-        resume: async (values) => {
-          try {
-            const r = await p.resume(values);
-            if (!conn.ask_vars_each_time) rememberVars(conn.id, snippet.id, values, p.userVars);
-            return r;
-          } finally {
-            settle();
-          }
-        },
-      });
-    });
-
-    if (result === "prompting") {
-      await settled;
-      return;
-    }
-    deps.report(result);
-  } catch (e) {
-    deps.notifyError(i18n.t("hosts.hostCommand.failed", {
-      host: hostLabel, error: e instanceof Error ? e.message : String(e),
-    }));
+  } catch {
+    // runHostCommand must never reject, even if a dep (e.g. notifyError) throws.
   }
 }

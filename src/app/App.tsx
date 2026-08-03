@@ -21,6 +21,8 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { broadcastSnippetInject } from "@/services/snippets";
 import { isRunnableSession } from "@/services/snippetRun";
 import { reportSequenceResult } from "@/services/snippetSequence";
+import { useNotificationStore } from "@/stores/notificationStore";
+import i18n from "@/i18n";
 import { initUpdaterListener } from "@/services/updater";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
 import { restoreWorkspaceOnLaunch } from "@/stores/workspaceRestore";
@@ -116,7 +118,15 @@ function App() {
           onSubmitValues={(values) => {
             const resume = pendingSequence.resume;
             shiftPendingSequence();
-            resume(values).then(reportSequenceResult);
+            resume(values).then(reportSequenceResult).catch((e: unknown) => {
+              useNotificationStore.getState().addToast({
+                pluginId: "snippets", pluginName: "Snippets", type: "toast",
+                message: i18n.t("snippets.sequence.resumeFailed", {
+                  error: e instanceof Error ? e.message : String(e),
+                }),
+                severity: "error", duration: 8000,
+              });
+            });
           }}
           onClose={() => {
             const dismissed = pendingSequence.onDismissed;

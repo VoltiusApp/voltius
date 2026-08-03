@@ -136,7 +136,8 @@
       "labelPre": "{{host}} — Pre-command",
       "labelPost": "{{host}} — Post-command",
       "failed": "Host command failed for {{host}}: {{error}}",
-      "missingSnippet": "Host command snippet is missing for {{host}}"
+      "missingSnippet": "Host command snippet is missing for {{host}}",
+      "postPromptTimedOut": "Post-command for {{host}} was skipped: no response within 60s"
     }
   }
 }

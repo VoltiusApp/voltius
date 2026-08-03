@@ -17,7 +17,8 @@
         "needsTerminal": "Script step requires an open terminal session for this target",
         "noSftp": "No SFTP connection for transfer step",
         "destExists": "Destination already exists: {{path}}"
-      }
+      },
+      "resumeFailed": "Snippet failed: {{error}}"
     },
     "toolbar": {
       "filterPlaceholder": "Filter snippets...",
@@ -90,11 +91,22 @@
         "transfer": "Transfer",
         "snippet": "Call snippet"
       },
-      "endpoint": { "local": "Local", "remote": "Remote" },
+      "endpoint": {
+        "local": "Local",
+        "remote": "Remote"
+      },
       "from": "From",
       "to": "To",
-      "mode": { "copy": "Copy", "move": "Move" },
-      "conflict": { "label": "If exists", "overwrite": "Overwrite", "skip": "Skip", "fail": "Fail" },
+      "mode": {
+        "copy": "Copy",
+        "move": "Move"
+      },
+      "conflict": {
+        "label": "If exists",
+        "overwrite": "Overwrite",
+        "skip": "Skip",
+        "fail": "Fail"
+      },
       "remotePicker": {
         "title": "Browse remote path",
         "pickHost": "Choose a host to browse",
