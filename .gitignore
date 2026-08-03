@@ -31,3 +31,4 @@ screenshots/
 disco.mjs
 wd.mjs
 dist-plugin-types/
+packages/plugin-types/index.d.ts
