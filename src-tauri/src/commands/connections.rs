@@ -48,6 +48,9 @@ fn merge_form_into_connection(existing: &Connection, data: ConnectionFormData) -
         legacy_algorithms: data.legacy_algorithms,
         pre_command: data.pre_command,
         post_command: data.post_command,
+        pre_snippet_id: data.pre_snippet_id,
+        post_snippet_id: data.post_snippet_id,
+        ask_vars_each_time: data.ask_vars_each_time,
         terminal_encoding: data.terminal_encoding,
         distro: data.distro.or_else(|| existing.distro.clone()),
         icon: data.icon.or_else(|| existing.icon.clone()),
@@ -120,6 +123,7 @@ connection_clocks! {
     simple: [
         name, host, port, username, auth_type, tags, identity_id, key_id,
         folder_id, vault_id, agent_forwarding, legacy_algorithms, pre_command, post_command,
+        pre_snippet_id, post_snippet_id, ask_vars_each_time,
         terminal_encoding, distro, icon, ping_disabled,
         shell_integration_disabled, keepalive_preset, persist_session, connection_type, serial_port, serial_baud,
         serial_data_bits, serial_parity, serial_stop_bits, serial_flow_control, ftp_secure,
@@ -175,6 +179,9 @@ pub fn connection_save(data: ConnectionFormData) -> Result<Connection, String> {
         legacy_algorithms: data.legacy_algorithms,
         pre_command: data.pre_command,
         post_command: data.post_command,
+        pre_snippet_id: data.pre_snippet_id,
+        post_snippet_id: data.post_snippet_id,
+        ask_vars_each_time: data.ask_vars_each_time,
         terminal_encoding: data.terminal_encoding,
         updated_at: now,
         deleted_at: None,
@@ -315,6 +322,9 @@ mod tests {
             legacy_algorithms: false,
             pre_command: Some("pre".into()),
             post_command: Some("post".into()),
+            pre_snippet_id: None,
+            post_snippet_id: None,
+            ask_vars_each_time: false,
             terminal_encoding: Some("utf-8".into()),
             pinned: false,
             ping_disabled: false,
@@ -366,6 +376,9 @@ mod tests {
             legacy_algorithms: true,
             pre_command: Some("pre2".into()),
             post_command: Some("post2".into()),
+            pre_snippet_id: Some("snip-pre".into()),
+            post_snippet_id: Some("snip-post".into()),
+            ask_vars_each_time: true,
             terminal_encoding: Some("latin-1".into()),
             distro: Some("debian".into()),
             icon: Some("laptop".into()),
@@ -580,6 +593,7 @@ mod tests {
         keys.sort();
         let mut expected = vec![
             "agent_forwarding",
+            "ask_vars_each_time",
             "auth_type",
             "connection_type",
             "distro",
@@ -599,7 +613,9 @@ mod tests {
             "ping_disabled",
             "port",
             "post_command",
+            "post_snippet_id",
             "pre_command",
+            "pre_snippet_id",
             "serial_baud",
             "serial_data_bits",
             "serial_flow_control",
@@ -614,7 +630,7 @@ mod tests {
         ];
         expected.sort();
         assert_eq!(keys, expected);
-        assert_eq!(keys.len(), 32);
+        assert_eq!(keys.len(), 35);
     }
 
     /// Phase 1 reconciliation: the clocks seeded for a brand-new connection
@@ -634,6 +650,6 @@ mod tests {
         let bumpable: HashSet<String> = new.clocks.into_keys().collect();
 
         assert_eq!(seeded, bumpable);
-        assert_eq!(seeded.len(), 32);
+        assert_eq!(seeded.len(), 35);
     }
 }

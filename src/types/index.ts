@@ -119,6 +119,9 @@ export interface Connection {
   legacy_algorithms?: boolean;
   pre_command?: string;
   post_command?: string;
+  pre_snippet_id?: string;
+  post_snippet_id?: string;
+  ask_vars_each_time?: boolean;
   terminal_encoding?: string;
   pinned?: boolean;
   ping_disabled?: boolean;
@@ -156,6 +159,9 @@ export interface ConnectionFormData {
   legacy_algorithms?: boolean;
   pre_command?: string;
   post_command?: string;
+  pre_snippet_id?: string;
+  post_snippet_id?: string;
+  ask_vars_each_time?: boolean;
   terminal_encoding?: string;
   distro?: string;
   icon?: string;
