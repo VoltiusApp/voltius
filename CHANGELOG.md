@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Hosts: a Pre/Post command can now be a saved snippet instead of a single
+  inline command, and runs its whole sequence — multi-step, snippet calls and
+  file transfers included. Pick one with the `{}` button beside either field.
+  Snippet variables are prompted for on connect (and on disconnect for a
+  post-command) and remembered per host; `password` variables are never
+  remembered, and "Ask for variables each time" turns remembering off for a
+  host. Inline commands are unchanged (#63).
+
+### Fixed
+
+- Serial: the Pre/Post command fields on a serial connection were saved but
+  never actually run.
+- Themes: the drop shadow under page toolbars was a near-black smudge on light
+  themes; it now follows the light-appearance shadow tokens.
+
 ## [0.15.1] - 2026-08-03
 
 ### Fixed
