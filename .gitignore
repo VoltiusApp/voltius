@@ -30,3 +30,4 @@ screenshots/
 .cargo-home/
 disco.mjs
 wd.mjs
+dist-plugin-types/
