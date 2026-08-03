@@ -26,7 +26,13 @@
       "hostsChaining": "Цепочка хостов",
       "environmentVariables": "Переменные окружения",
       "preCommandPlaceholder": "Предварительная команда",
-      "postCommandPlaceholder": "Завершающая команда"
+      "postCommandPlaceholder": "Завершающая команда",
+      "hostCommand": {
+        "useSnippet": "Использовать сниппет",
+        "useInline": "Использовать встроенную команду",
+        "missingSnippet": "Сниппет не найден",
+        "askEachTime": "Запрашивать переменные каждый раз"
+      }
     },
     "form": {
       "titleEdit": "Изменить хост",

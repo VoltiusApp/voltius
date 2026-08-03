@@ -131,6 +131,13 @@
       "hostsSelected_other": "{{count}} hôtes sélectionnés",
       "insert": "Insérer",
       "execute": "Exécuter"
+    },
+    "hostCommand": {
+      "labelPre": "{{host}} — Commande préalable",
+      "labelPost": "{{host}} — Commande finale",
+      "failed": "Échec de la commande pour {{host}} : {{error}}",
+      "missingSnippet": "Le snippet de commande est introuvable pour {{host}}",
+      "postPromptTimedOut": "La commande finale pour {{host}} a été ignorée : aucune réponse dans les 60 s"
     }
   }
 }

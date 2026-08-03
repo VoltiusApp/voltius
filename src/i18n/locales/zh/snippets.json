@@ -17,7 +17,8 @@
         "needsTerminal": "脚本步骤需要为此目标打开终端会话",
         "noSftp": "传输步骤没有 SFTP 连接",
         "destExists": "目标已存在：{{path}}"
-      }
+      },
+      "resumeFailed": "代码片段执行失败：{{error}}"
     },
     "toolbar": {
       "filterPlaceholder": "筛选代码片段...",

@@ -131,6 +131,13 @@
       "hostsSelected_other": "已选择 {{count}} 台主机",
       "insert": "插入",
       "execute": "执行"
+    },
+    "hostCommand": {
+      "labelPre": "{{host}} — 前置命令",
+      "labelPost": "{{host}} — 后置命令",
+      "failed": "{{host}} 的主机命令执行失败：{{error}}",
+      "missingSnippet": "{{host}} 的主机命令代码片段缺失",
+      "postPromptTimedOut": "{{host}} 的后置命令已跳过：60 秒内无响应"
     }
   }
 }

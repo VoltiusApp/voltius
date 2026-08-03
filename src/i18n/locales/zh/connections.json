@@ -26,7 +26,13 @@
       "hostsChaining": "主机链",
       "environmentVariables": "环境变量",
       "preCommandPlaceholder": "前置命令",
-      "postCommandPlaceholder": "后置命令"
+      "postCommandPlaceholder": "后置命令",
+      "hostCommand": {
+        "useSnippet": "使用代码片段",
+        "useInline": "使用内联命令",
+        "missingSnippet": "未找到代码片段",
+        "askEachTime": "每次都询问变量"
+      }
     },
     "form": {
       "titleEdit": "编辑主机",
