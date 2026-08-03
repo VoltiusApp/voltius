@@ -37,7 +37,7 @@ import { useTerminalCwdStore } from "./terminalCwdStore";
 import { usePanelSftpStore } from "./panelSftpStore";
 import { formatLocalShellTitle } from "@/utils/localShellTitle";
 import { cancelBackoff } from "./reconnectBackoffCore";
-import { inlineCommandForBackend } from "@/services/hostCommand";
+import { inlineCommandForBackend, resolveHostCommand } from "@/services/hostCommand";
 import { runHostCommand } from "@/services/hostCommandRun";
 
 interface SessionStore {
@@ -738,7 +738,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (session?.type === "local") {
       await localDisconnect(sessionId);
     } else if (session?.type === "serial") {
-      await serialDisconnect(sessionId).catch(() => {});
+      const conn = session.connectionId ? findConnection(session.connectionId) : undefined;
+      void (async () => {
+        try {
+          if (conn) await runHostCommand(conn, "post", sessionId, "serial");
+        } finally {
+          await serialDisconnect(sessionId).catch(() => {});
+        }
+      })();
     } else {
       const connection = session?.connectionId ? findConnection(session.connectionId) : undefined;
       const persist = !!session?.persist;
@@ -750,15 +757,27 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       // confirmed kill publishes the tombstone.
       void (async () => {
         let killed = false;
+        const postCmd = connection ? resolveHostCommand(connection, "post") : null;
         try {
-          let kill = true;
-          if (persist) {
-            const { otherDeviceListsSession } = await import("./crossDeviceSessionsStore");
-            kill = !otherDeviceListsSession(sessionId);
+          if (connection && postCmd?.kind === "snippet") {
+            await runHostCommand(connection, "post", sessionId, session?.type ?? "ssh");
           }
-          killed = await sshDisconnect(sessionId, connection?.post_command, kill, wasAttached);
-        } catch {
-          // best effort; an unreachable host means nothing was killed
+        } finally {
+          try {
+            let kill = true;
+            if (persist) {
+              const { otherDeviceListsSession } = await import("./crossDeviceSessionsStore");
+              kill = !otherDeviceListsSession(sessionId);
+            }
+            killed = await sshDisconnect(
+              sessionId,
+              postCmd?.kind === "inline" ? postCmd.text : undefined,
+              kill,
+              wasAttached,
+            );
+          } catch {
+            // best effort; an unreachable host means nothing was killed
+          }
         }
         if (persist && killed) {
           const [{ useCrossDeviceSessionsStore }, { publishLiveSessionsNow }] = await Promise.all([
