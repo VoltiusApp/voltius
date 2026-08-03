@@ -11,9 +11,12 @@ export interface SnippetChooserListProps {
   onPick: (snippet: Snippet) => void;
   renderActions?: (snippet: Snippet) => React.ReactNode;
   emptyAction?: React.ReactNode;
+  /** Recents duplicate rows already in the list below; drop them where vertical
+   *  space is tight (the host-command picker float). */
+  showRecents?: boolean;
 }
 
-export function SnippetChooserList({ search, onPick, renderActions, emptyAction }: SnippetChooserListProps) {
+export function SnippetChooserList({ search, onPick, renderActions, emptyAction, showRecents = true }: SnippetChooserListProps) {
   const { t } = useTranslation();
   const snippets = useAllSnippets();
   const recentSnippetIds = useSnippetStore((s) => s.recentSnippetIds);
@@ -53,7 +56,7 @@ export function SnippetChooserList({ search, onPick, renderActions, emptyAction 
 
   return (
     <>
-      {recents.length > 0 && !q && (
+      {showRecents && recents.length > 0 && !q && (
         <div className="mb-0.5">
           <p className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-(--t-text-dim)">
             {t("hosts.snippetPicker.recent")}

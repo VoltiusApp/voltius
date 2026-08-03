@@ -90,6 +90,7 @@ export function HostCommandField({ slot, text, snippetId, onChangeText, onChange
           <div className="max-h-52 overflow-y-auto -mx-1.5">
             <SnippetChooserList
               search={search}
+              showRecents={false}
               onPick={(s) => {
                 onChangeText("");
                 onChangeSnippetId(s.id);
