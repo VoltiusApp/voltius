@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-08-03
+
+### Added
+
+- Plugins: if none of the built-in plugins can load, the app now says so instead
+  of quietly showing an empty plugin list.
+
+### Fixed
+
+- Plugins: plugin names in the right-hand rail and in Settings now follow the
+  language you pick, instead of staying in whichever language the app started in.
+- Plugins: a plugin that was disabled could still briefly publish its state after
+  being switched off.
+- Icons: the Docker and GitHub icons were fetched over the network, so they were
+  blank on a first launch without internet. Every icon now ships with the app.
+
+### Removed
+
+- Plugins: the unimplemented `sidebarItems` and `contextMenuItems` plugin APIs,
+  along with their permissions. Use `ui.registerContribution` instead.
+
+### Security
+
+- The app window now runs under a content security policy, so a plugin can no
+  longer load remote code or reach an arbitrary host directly (#84).
+- Plugins: a plugin can no longer replace the app's own icons.
+
 ## [0.14.1] - 2026-07-31
 
 ### Fixed
