@@ -42,4 +42,9 @@ describe("host command variable memory", () => {
     expect(rememberedVars("c1", "s2")).toEqual({});
     expect(rememberedVars("c2", "s1")).toEqual({ env: "dev" });
   });
+
+  it("does not store values for unknown variable names", () => {
+    rememberVars("c1", "s1", { env: "prod", unknown: "value" }, [textVar("env")]);
+    expect(rememberedVars("c1", "s1")).toEqual({ env: "prod" });
+  });
 });

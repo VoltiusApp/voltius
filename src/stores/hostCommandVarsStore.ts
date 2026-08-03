@@ -41,15 +41,15 @@ export function rememberedVars(connectionId: string, snippetId: string): Record<
   return useHostCommandVarsStore.getState().values[key(connectionId, snippetId)] ?? {};
 }
 
-/** Password-typed variables are never persisted, regardless of settings. */
+/** Fail-closed: only known non-password variables are persisted. */
 export function rememberVars(
   connectionId: string,
   snippetId: string,
   values: Record<string, string>,
   vars: ParsedVariable[],
 ): void {
-  const secret = new Set(vars.filter((v) => v.type === "password").map((v) => v.name));
-  const safe = Object.fromEntries(Object.entries(values).filter(([name]) => !secret.has(name)));
+  const allowed = new Set(vars.filter((v) => v.type !== "password").map((v) => v.name));
+  const safe = Object.fromEntries(Object.entries(values).filter(([name]) => allowed.has(name)));
   useHostCommandVarsStore.getState().setEntry(key(connectionId, snippetId), safe);
 }
 
