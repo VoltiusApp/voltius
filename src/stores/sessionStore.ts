@@ -37,6 +37,8 @@ import { useTerminalCwdStore } from "./terminalCwdStore";
 import { usePanelSftpStore } from "./panelSftpStore";
 import { formatLocalShellTitle } from "@/utils/localShellTitle";
 import { cancelBackoff } from "./reconnectBackoffCore";
+import { inlineCommandForBackend } from "@/services/hostCommand";
+import { runHostCommand } from "@/services/hostCommandRun";
 
 interface SessionStore {
   sessions: TerminalSession[];
@@ -128,7 +130,7 @@ async function buildSshConnectOptions(
     envVars: envVars.length > 0 ? envVars : undefined,
     agentForwarding: connection.agent_forwarding ?? false,
     legacyAlgorithms: connection.legacy_algorithms ?? false,
-    preCommand: connection.pre_command ?? undefined,
+    preCommand: inlineCommandForBackend(connection, "pre"),
     autoForward: getToggle("auto-forward"),
     shellIntegration: resolveDisableOverride(connection.shell_integration_disabled, getToggle("shell-integration")),
     keepaliveIntervalSecs: intervalSecs,
@@ -255,6 +257,7 @@ async function connectSshSession(
 
     useConnectionStore.getState().setLastUsed(connection.id).catch(() => {});
     reportConnectionAudit(connection, "connection.started");
+    void runHostCommand(connection, "pre", sessionId, "ssh");
 
     if (!connection.distro) {
       sshDetectDistro(sessionId)
@@ -325,6 +328,7 @@ async function connectSerialSession(
       ),
     }));
     useConnectionStore.getState().setLastUsed(connection.id).catch(() => {});
+    void runHostCommand(connection, "pre", sessionId, "serial");
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     set((s) => ({
@@ -905,6 +909,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         ),
       }));
       reportConnectionAudit(connection, "connection.started");
+      void runHostCommand(connection, "pre", sessionId, "ssh");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("SESSION_ENDED")) {
@@ -1009,6 +1014,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         ),
       }));
       reportConnectionAudit(connection, "connection.started");
+      void runHostCommand(connection, "pre", sessionId, "ssh");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       set((s) => ({
@@ -1105,6 +1111,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       }));
       useConnectionStore.getState().setLastUsed(conn.id).catch(() => {});
       reportConnectionAudit(conn, "connection.started");
+      void runHostCommand(conn, "pre", sessionId, "ssh");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       set((s) => ({
