@@ -22,6 +22,12 @@ function sha256(text: string): string {
   return createHash("sha256").update(text, "utf8").digest("hex");
 }
 
+// Read rather than pin: a plugin's version bumps whenever its source changes, and
+// pinned literals here have gone red on a release twice.
+function manifestVersion(id: string): string {
+  return JSON.parse(readFileSync(path.join(ROOT, "src/plugins", id, "manifest.json"), "utf8")).version;
+}
+
 // Only these two are built for real (one with a stylesheet, one without) — enough
 // to prove hashes match real bundler output. The rest get a cheap stand-in index.js
 // so buildCatalogFragment can still produce a full six-entry fragment for the
@@ -166,8 +172,8 @@ describe("plugin catalogue publish pipeline", () => {
     const docker = fragment.find((p: { id: string }) => p.id === "plugin-docker");
     const monitoring = fragment.find((p: { id: string }) => p.id === "plugin-monitoring");
 
-    expect(docker.version).toBe("1.1.0");
-    expect(monitoring.version).toBe("1.0.0");
+    expect(docker.version).toBe(manifestVersion("docker"));
+    expect(monitoring.version).toBe(manifestVersion("monitoring"));
     for (const entry of fragment) {
       expect(entry.version).not.toBe(appVersion);
     }
@@ -238,10 +244,9 @@ describe("plugin catalogue publish pipeline", () => {
     const dockerTag = tags.find((t: string) => t.startsWith("plugin-docker-"));
     expect(existsSync(path.join(stageDir, dockerTag, "voltius.css"))).toBe(false);
 
-    // The tag embeds the PLUGIN's own version, not the app version — docker is
-    // 1.1.0 while the app is 0.13.0.
-    expect(dockerTag).toBe("plugin-docker-v1.1.0");
-    expect(monitoringTag).toBe("plugin-monitoring-v1.0.0");
+    // The tag embeds the PLUGIN's own version, not the app version.
+    expect(dockerTag).toBe(`plugin-docker-v${manifestVersion("docker")}`);
+    expect(monitoringTag).toBe(`plugin-monitoring-v${manifestVersion("monitoring")}`);
 
     expect(stageDir.startsWith(outRoot)).toBe(true);
   });

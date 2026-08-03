@@ -415,7 +415,20 @@ fn emit_step(app: &AppHandle, session_id: &str, step: SshStep, detail: impl Into
     );
 }
 
-pub async fn authenticate_handle(
+/// A server that never answers a userauth request would otherwise leave the UI on
+/// "Authenticating" forever — every other blocking step here is already bounded.
+const AUTH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// Pick the RSA signature hash from what the server advertised in `server-sig-algs`
+/// (RFC 8308). `Some(inner)` means the server listed its algorithms and `inner` is
+/// authoritative — including `None`, which is an explicit "ssh-rsa only", not a guess.
+/// The outer `None` means the server said nothing at all, so we try the modern hash
+/// and let the caller retry ssh-rsa if it's refused.
+fn choose_rsa_hash(reported: Option<Option<HashAlg>>) -> Option<HashAlg> {
+    reported.unwrap_or(Some(HashAlg::Sha256))
+}
+
+async fn authenticate_handle_inner(
     handle: &mut client::Handle<SshClient>,
     username: &str,
     password: Option<&str>,
@@ -423,13 +436,36 @@ pub async fn authenticate_handle(
     passphrase: Option<&str>,
 ) -> Result<(), String> {
     let authenticated = if let Some(key_str) = private_key {
-        let key_pair = russh::keys::decode_secret_key(key_str, passphrase)
-            .map_err(|e| format!("Invalid private key: {}", e))?;
-        let key = PrivateKeyWithHashAlg::new(Arc::new(key_pair), Some(HashAlg::Sha256));
-        handle
-            .authenticate_publickey(username, key)
+        let key_pair = Arc::new(
+            russh::keys::decode_secret_key(key_str, passphrase)
+                .map_err(|e| format!("Invalid private key: {}", e))?,
+        );
+        let is_rsa = matches!(key_pair.algorithm(), russh::keys::Algorithm::Rsa { .. });
+
+        // Only RSA has a choice of signature hash. Ask the server which it accepts
+        // (`server-sig-algs`, RFC 8308) instead of assuming: dropbear before
+        // 2020.79 — still shipping on plenty of OpenWrt routers — only supports
+        // ssh-rsa, and rejects the rsa-sha2-256 we used to send unconditionally.
+        let hash = if is_rsa {
+            choose_rsa_hash(handle.best_supported_rsa_hash().await.ok().flatten())
+        } else {
+            None
+        };
+
+        let mut res = handle
+            .authenticate_publickey(username, PrivateKeyWithHashAlg::new(key_pair.clone(), hash))
             .await
-            .map_err(|e| format!("Auth failed: {}", e))?
+            .map_err(|e| format!("Auth failed: {}", e))?;
+
+        // A server too old to advertise `server-sig-algs` is also too old to accept
+        // rsa-sha2-*. Retrying costs one round trip and only on an already-failed auth.
+        if !res.success() && is_rsa && hash.is_some() {
+            res = handle
+                .authenticate_publickey(username, PrivateKeyWithHashAlg::new(key_pair, None))
+                .await
+                .map_err(|e| format!("Auth failed: {}", e))?;
+        }
+        res
     } else if let Some(pwd) = password {
         handle
             .authenticate_password(username, pwd)
@@ -443,6 +479,28 @@ pub async fn authenticate_handle(
         return Err("Authentication failed".into());
     }
     Ok(())
+}
+
+pub async fn authenticate_handle(
+    handle: &mut client::Handle<SshClient>,
+    username: &str,
+    password: Option<&str>,
+    private_key: Option<&str>,
+    passphrase: Option<&str>,
+) -> Result<(), String> {
+    tokio::time::timeout(
+        AUTH_TIMEOUT,
+        authenticate_handle_inner(handle, username, password, private_key, passphrase),
+    )
+    .await
+    .map_err(|_| {
+        format!(
+            "Authentication timed out after {}s — the server accepted the connection but never \
+             answered the authentication request. Some older SSH servers stall here; try the \
+             host's \"Legacy algorithms\" option, or another authentication method.",
+            AUTH_TIMEOUT.as_secs()
+        )
+    })?
 }
 
 // Retry transient connect failures: busy/throttling sshd often RSTs new connections.
@@ -1037,7 +1095,39 @@ fn legacy_preferred() -> russh::Preferred {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_windows_sshid, legacy_preferred};
+    use super::{choose_rsa_hash, is_windows_sshid, legacy_preferred, AUTH_TIMEOUT};
+    use russh::keys::ssh_key::HashAlg;
+
+    #[test]
+    fn server_advertised_rsa_hash_is_honoured() {
+        assert_eq!(
+            choose_rsa_hash(Some(Some(HashAlg::Sha512))),
+            Some(HashAlg::Sha512)
+        );
+        assert_eq!(
+            choose_rsa_hash(Some(Some(HashAlg::Sha256))),
+            Some(HashAlg::Sha256)
+        );
+    }
+
+    #[test]
+    fn server_without_rsa_sha2_gets_ssh_rsa() {
+        // dropbear < 2020.79 lists its algorithms without any rsa-sha2-*. Sending
+        // rsa-sha2-256 there rejects a key the server would otherwise accept.
+        assert_eq!(choose_rsa_hash(Some(None)), None);
+    }
+
+    #[test]
+    fn silent_server_gets_sha256_then_falls_back() {
+        // No server-sig-algs at all: optimistic, with the caller's ssh-rsa retry behind it.
+        assert_eq!(choose_rsa_hash(None), Some(HashAlg::Sha256));
+    }
+
+    #[test]
+    fn auth_timeout_is_bounded() {
+        // The bug this guards: an unanswered userauth left the UI spinning forever.
+        assert!(AUTH_TIMEOUT.as_secs() > 0 && AUTH_TIMEOUT.as_secs() <= 60);
+    }
 
     #[test]
     fn windows_openssh_banner_is_detected() {
