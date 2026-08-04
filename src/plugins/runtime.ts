@@ -44,6 +44,7 @@ import type {
   PluginConfigField,
   StreamKind,
   PluginMobileNavEntry,
+  GlobalPanelHandle,
 } from "./api";
 import { createStreamsAPI } from "./domains/streams";
 import { createMetricsAPI } from "./domains/metrics";
@@ -435,7 +436,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   // Teardown is one-shot, so an async continuation would re-publish after it. Not
   // applied to ui.register* — those are meant to outlive a disable.
   const whileActive = (verb: string): boolean => {
-    if (_registry.get(id)?.active ?? true) return true;
+    if (_registry.get(id)?.active) return true;
     console.warn(`[plugin-runtime] "${id}" called ${verb} while disabled — ignoring`);
     return false;
   };
@@ -633,7 +634,30 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         const prefixed = { ...panel, id: panel.id.startsWith(`${id}:`) ? panel.id : `${id}:${panel.id}` };
         store().registerGlobalPanel(prefixed);
         trackContribution(id, prefixed.id);
-        return () => store().unregisterGlobalPanel(prefixed.id);
+
+        // Tracks the width THIS handle last reserved, so disposing releases only
+        // its own reservation — dockedPanelWidth is one global slot, not per-panel.
+        let ownWidth = 0;
+        const ui = () => useUIStore.getState();
+
+        const handle = (() => {
+          store().unregisterGlobalPanel(prefixed.id);
+          if (ownWidth !== 0 && ui().dockedPanelWidth === ownWidth) ui().setDockedPanelWidth(0);
+          ownWidth = 0;
+        }) as GlobalPanelHandle;
+
+        return Object.assign(handle, {
+          id: prefixed.id,
+          open: () => { if (whileActive("ui.globalPanel.open")) ui().setGlobalPanelOpen(prefixed.id, true); },
+          close: () => { if (whileActive("ui.globalPanel.close")) ui().setGlobalPanelOpen(prefixed.id, false); },
+          toggle: () => { if (whileActive("ui.globalPanel.toggle")) ui().toggleGlobalPanel(prefixed.id); },
+          isOpen: () => Boolean(ui().globalPanelOpen[prefixed.id]),
+          setDockedWidth: (width: number) => {
+            if (!whileActive("ui.globalPanel.setDockedWidth")) return;
+            ownWidth = width;
+            ui().setDockedPanelWidth(width);
+          },
+        });
       },
       registerMobileScreen(screen) {
         requirePerm(manifest, "right-panel");

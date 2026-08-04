@@ -130,6 +130,19 @@ export interface GlobalPanel {
   component: React.FC<{ open: boolean; onClose: () => void }>;
 }
 
+/** Controls the panel it was returned from. Calling it disposes, as before. */
+export interface GlobalPanelHandle {
+  (): void;
+  /** Host-prefixed id, e.g. "ai-agent:drawer". */
+  readonly id: string;
+  open(): void;
+  close(): void;
+  toggle(): void;
+  isOpen(): boolean;
+  /** Width (px) the app shell reserves while this panel is docked. */
+  setDockedWidth(width: number): void;
+}
+
 export interface PluginSession {
   id: string;
   connectionId: string;
@@ -429,7 +442,7 @@ export interface PluginAPI {
     registerSettingsPage(page: SettingsPage): () => void;
     registerRightPanelSection(section: RightPanelSection): () => void;
     /** Mount a global, shell-level panel (not session-scoped). Returns cleanup. */
-    registerGlobalPanel(panel: GlobalPanel): () => void;
+    registerGlobalPanel(panel: GlobalPanel): GlobalPanelHandle;
     /** Contribute a full-screen mobile view for `screen.kind`. Uninstalling or
      *  disabling the plugin removes it, same as registerRightPanelSection does
      *  on desktop. Returns cleanup. */
