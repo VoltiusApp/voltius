@@ -49,6 +49,22 @@ impl SessionManager {
             .map_err(|e| format!("Failed to resize: {}", e))
     }
 
+    /// Latency of an SSH global-request round-trip on an existing session.
+    /// None when the session is unknown, the peer never replies, or the
+    /// connection is gone — callers treat that as "not measurable here".
+    pub async fn ping(&self, id: &str) -> Option<u32> {
+        let handle = {
+            let sessions = self.sessions.lock().await;
+            Arc::clone(&sessions.get(id)?.handle)
+        };
+        let start = std::time::Instant::now();
+        timeout(Duration::from_secs(5), handle.send_ping())
+            .await
+            .ok()?
+            .ok()?;
+        Some(start.elapsed().as_millis() as u32)
+    }
+
     pub async fn detect_distro(&self, id: &str) -> Result<String, String> {
         let handle = {
             let sessions = self.sessions.lock().await;
@@ -296,4 +312,15 @@ fn normalize_distro(id: &str) -> String {
         _ => "linux",
     }
     .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SessionManager;
+
+    #[tokio::test]
+    async fn ping_unknown_session_returns_none() {
+        let mgr = SessionManager::new();
+        assert_eq!(mgr.ping("no-such-session").await, None);
+    }
 }
