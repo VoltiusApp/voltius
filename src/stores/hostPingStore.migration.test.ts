@@ -2,8 +2,10 @@ import { describe, expect, test } from "vitest";
 import {
   DEFAULT_ACTIVE_POLL_INTERVAL_MS,
   DEFAULT_POLL_INTERVAL_MS,
+  MIN_ACTIVE_POLL_INTERVAL_MS,
   MIN_POLL_INTERVAL_MS,
   migrateHostPing,
+  useHostPingStore,
 } from "./hostPingStore";
 
 describe("hostPingStore defaults", () => {
@@ -41,5 +43,47 @@ describe("migrateHostPing", () => {
 
   test("the idle minimum is above ufw limit's 6-per-30s threshold", () => {
     expect(MIN_POLL_INTERVAL_MS).toBeGreaterThanOrEqual(10_000);
+  });
+
+  test("keeps a deliberate idle interval set above the old default", () => {
+    const out = migrateHostPing({ pollIntervalMs: 15_000, activePollIntervalMs: 2_000 }, 0);
+    expect(out.pollIntervalMs).toBe(15_000);
+  });
+
+  test("keeps a deliberate active interval set above the old default", () => {
+    const out = migrateHostPing({ pollIntervalMs: 10_000, activePollIntervalMs: 3_000 }, 0);
+    expect(out.activePollIntervalMs).toBe(3_000);
+  });
+
+  test("raises an at-old-default idle interval", () => {
+    const out = migrateHostPing({ pollIntervalMs: 10_000, activePollIntervalMs: 30_000 }, 0);
+    expect(out.pollIntervalMs).toBe(DEFAULT_POLL_INTERVAL_MS);
+  });
+
+  test("raises an at-old-default active interval", () => {
+    const out = migrateHostPing({ pollIntervalMs: 300_000, activePollIntervalMs: 2_000 }, 0);
+    expect(out.activePollIntervalMs).toBe(DEFAULT_ACTIVE_POLL_INTERVAL_MS);
+  });
+});
+
+describe("store setter clamping", () => {
+  test("setPollIntervalMs floors a sub-minimum value", () => {
+    useHostPingStore.getState().setPollIntervalMs(500);
+    expect(useHostPingStore.getState().pollIntervalMs).toBe(MIN_POLL_INTERVAL_MS);
+  });
+
+  test("setPollIntervalMs floors zero", () => {
+    useHostPingStore.getState().setPollIntervalMs(0);
+    expect(useHostPingStore.getState().pollIntervalMs).toBe(MIN_POLL_INTERVAL_MS);
+  });
+
+  test("setActivePollIntervalMs floors a sub-minimum value", () => {
+    useHostPingStore.getState().setActivePollIntervalMs(500);
+    expect(useHostPingStore.getState().activePollIntervalMs).toBe(MIN_ACTIVE_POLL_INTERVAL_MS);
+  });
+
+  test("setActivePollIntervalMs floors zero", () => {
+    useHostPingStore.getState().setActivePollIntervalMs(0);
+    expect(useHostPingStore.getState().activePollIntervalMs).toBe(MIN_ACTIVE_POLL_INTERVAL_MS);
   });
 });
