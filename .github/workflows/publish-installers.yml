@@ -94,6 +94,24 @@ jobs:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: echo "tag=${DISPATCH_TAG:-$RELEASE_TAG}" >> "$GITHUB_OUTPUT"
 
+      # komac branches the fork from upstream, and once kipavy/winget-pkgs falls
+      # behind microsoft/winget-pkgs it fails with "kipavy does not have the
+      # correct permissions to execute `CreateRef`" — a misleading message that
+      # has nothing to do with permissions. Upstream moves thousands of commits a
+      # day, so the fork goes stale within about a day of not releasing; this is
+      # what blocked v0.16.0 for four consecutive runs.
+      #
+      # merge-upstream is a plain fast-forward and, unlike `komac sync`, is
+      # satisfied by the token's public_repo scope. Non-fatal: if it fails, komac
+      # may still succeed, and its error is the more useful one to surface.
+      - name: Fast-forward the winget-pkgs fork
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_PKGS_TOKEN }}
+        run: |
+          gh api -X POST repos/kipavy/winget-pkgs/merge-upstream \
+            -f branch=master --jq '.message' || \
+            echo "::warning::Could not fast-forward the fork; continuing."
+
       - name: Submit/update winget manifest
         uses: vedantmgoyal9/winget-releaser@v2
         with:
