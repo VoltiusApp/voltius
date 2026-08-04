@@ -25,7 +25,6 @@ import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { BaseCard } from "@/components/shared/BaseCard";
 import { waitForConnectedSessionIds } from "@/components/shared/sessionPickerTargets";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
-import { broadcastSnippetInject } from "@/services/snippets";
 import {
   parseVariables,
   needsUserInput,
@@ -33,7 +32,6 @@ import {
 import { snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
 import { runSnippetIntoSessions } from "@/services/snippetRun";
 import { snippetToForm } from "@/utils/snippetForm";
-import { SnippetVariableModal } from "@/components/terminal/SnippetVariableModal";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { useEditPanel } from "@/hooks/useEditPanel";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
@@ -368,16 +366,6 @@ export function SnippetsPage() {
   // Background context menu
   const { pos: bgMenuPos, open: openBgMenu, close: closeBgMenu } = useContextMenu();
 
-  // Inject modal
-  const [pendingInject, setPendingInject] = useState<{
-    snippet: Snippet;
-    partialTemplate: string;
-    userVars: ReturnType<typeof parseVariables>;
-    initialValues: Record<string, string>;
-    execute: boolean;
-    sessionIds: string[];
-  } | null>(null);
-
 
   const scopedFolders = useMemo(
     () => folders.filter((f) => {
@@ -647,11 +635,10 @@ export function SnippetsPage() {
       .filter((s) => s && s.type !== "multiplayer") as typeof allSessions;
     if (targetSessions.length === 0) return;
 
+    // The prompt goes to the global modal: the session picker navigates to the
+    // terminal, which unmounts this page before a local modal could be seen.
     const ran = await runSnippetIntoSessions(snippet, targetSessions.map((s) => s.id), execute, {
-      onNeedVars: (p) => setPendingInject({
-        snippet: p.snippet, partialTemplate: p.partialTemplate, userVars: p.userVars,
-        initialValues: p.initialValues, execute: p.execute, sessionIds: p.sessionIds,
-      }),
+      onNeedVars: (p) => useSnippetStore.getState().setGlobalPendingInject(p),
     });
 
     // Record recents only for the direct (no-modal) path; the modal path records on submit.
@@ -1197,35 +1184,6 @@ export function SnippetsPage() {
           setConfirmDeleteIds(null);
         }}
         onCancel={() => setConfirmDeleteIds(null)}
-      />
-    )}
-
-    {/* ── Variable modal ── */}
-    {pendingInject && (
-      <SnippetVariableModal
-        snippetName={pendingInject.snippet.name}
-        partialTemplate={pendingInject.partialTemplate}
-        userVars={pendingInject.userVars}
-        initialValues={pendingInject.initialValues}
-        onInject={async (resolvedText, execute) => {
-          const allSessions = useSessionStore.getState().sessions;
-          const targetSessions = pendingInject.sessionIds
-            .map((id) => allSessions.find((s) => s.id === id))
-            .filter(Boolean) as typeof allSessions;
-          if (targetSessions.length === 0) return;
-          await Promise.all(
-            targetSessions.map((s) => broadcastSnippetInject(s.id, s.type, resolvedText, execute).catch(console.error)),
-          );
-          const targets: RecentTarget[] = targetSessions.map((s) => ({
-            connectionId: s.connectionId,
-            connectionName: s.connectionName,
-            sessionType: s.type as "ssh" | "local" | "serial",
-            localShell: s.localShell,
-          }));
-          recordExecution(pendingInject.snippet, execute, targets);
-          setPendingInject(null);
-        }}
-        onClose={() => setPendingInject(null)}
       />
     )}
     </>

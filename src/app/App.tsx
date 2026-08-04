@@ -18,9 +18,7 @@ import { useImportExportContributions } from "@/hooks/useImportExportContributio
 import { useConnectionPresenceBroadcast } from "@/hooks/useConnectionPresenceBroadcast";
 import { useChangelogAutoOpen } from "@/hooks/useChangelogAutoOpen";
 import { useSnippetStore } from "@/stores/snippetStore";
-import { useSessionStore } from "@/stores/sessionStore";
-import { broadcastSnippetInject } from "@/services/snippets";
-import { isRunnableSession } from "@/services/snippetRun";
+import { injectPendingSnippet } from "@/services/snippetPendingInject";
 import { initUpdaterListener } from "@/services/updater";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
 import { restoreWorkspaceOnLaunch } from "@/stores/workspaceRestore";
@@ -80,7 +78,8 @@ function App() {
       <EmailVerificationRequiredModal />
       <GlobalTransferQueue />
 
-      {/* Global snippet variable modal — triggered from OmniSearch */}
+      {/* Global snippet variable modal — triggered from OmniSearch, the
+          snippets page and the mobile snippet list */}
       {globalPendingInject && (
         <SnippetVariableModal
           snippetName={globalPendingInject.snippet.name}
@@ -88,14 +87,7 @@ function App() {
           userVars={globalPendingInject.userVars}
           initialValues={globalPendingInject.initialValues}
           onInject={(resolvedText, execute) => {
-            const all = useSessionStore.getState().sessions;
-            const ids = globalPendingInject.sessionIds.length > 0
-              ? globalPendingInject.sessionIds
-              : all.filter(isRunnableSession).slice(0, 1).map((s) => s.id);
-            for (const id of ids) {
-              const s = all.find((x) => x.id === id);
-              if (s) broadcastSnippetInject(s.id, s.type, resolvedText, execute).catch(console.error);
-            }
+            void injectPendingSnippet(globalPendingInject, resolvedText, execute);
             setGlobalPendingInject(null);
           }}
           onClose={() => setGlobalPendingInject(null)}
