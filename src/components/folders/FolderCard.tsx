@@ -31,6 +31,7 @@ interface FolderCardProps {
   onSelect?: (id: string, e: React.MouseEvent<HTMLDivElement>) => void;
   onEdit?: () => void;
   onExport?: () => void;
+  onShare?: () => void;
   onPointerDown?: (e: React.PointerEvent) => void;
   vaults?: VaultOption[];
   canEdit?: boolean;
@@ -53,6 +54,7 @@ export function FolderCard({
   onSelect,
   onEdit,
   onExport,
+  onShare,
   onPointerDown,
   vaults,
   canEdit,
@@ -281,6 +283,7 @@ export function FolderCard({
               onClick: () => pinTeam(!folder.pinned),
             }] : []),
             { label: t("folders.card.exportFolder"), icon: "lucide:upload", onClick: () => onExport?.() },
+            ...(onShare ? [{ label: t("snippets.community.shareTitle"), icon: "lucide:globe", onClick: onShare }] : []),
             ...vaultMenuItems(vaults, canEdit, onMoveToVault, onCopyToVault, t),
             ...(canEdit ? [
               { label: isSynced ? t("folders.card.disableCloudSync") : t("folders.card.enableCloudSync"), icon: isSynced ? "lucide:cloud-off" : "lucide:cloud", onClick: () => toggleSync(folder.id) },

@@ -1,6 +1,22 @@
 {
   "snippets": {
     "community": {
+      "shareTitle": "Поделиться с сообществом",
+      "shareIntro": "Вот что будет отправлено. Ничего не загружается — вы открываете pull request, а мейнтейнер его проверяет.",
+      "shareCopy": "Копировать JSON",
+      "shareCopied": "Скопировано",
+      "shareOpenGithub": "Открыть GitHub",
+      "shareGuidelines": "Правила участия",
+      "shareAuthor": "Ваше имя или ник",
+      "shareDescription": "Краткое описание",
+      "secretsTitle": "Проверьте перед публикацией",
+      "secretsIntro": "Похоже, это ваше, а не общее:",
+      "secretKind_privateKey": "Приватный ключ",
+      "secretKind_credential": "Пароль или ключ",
+      "secretKind_token": "Токен",
+      "secretKind_host": "Хост или адрес",
+      "secretsNone": "Ничего похожего на секреты.",
+      "shareFailed": "Не удалось поделиться: {{error}}",
       "tabMine": "Мои сниппеты",
       "tabCommunity": "Сообщество",
       "packs": "Наборы",

@@ -39,6 +39,7 @@ import { useEditPanel } from "@/hooks/useEditPanel";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { SnippetsToolbar } from "./SnippetsToolbar";
 import { CommunityBrowser } from "./community/CommunityBrowser";
+import { ShareSnippetModal } from "./community/ShareSnippetModal";
 import { SnippetCard } from "./SnippetCard";
 import { SnippetForm } from "./SnippetForm";
 import { FolderCard } from "@/components/folders/FolderCard";
@@ -330,6 +331,7 @@ export function SnippetsPage() {
   const [tab, setTab] = useState<"mine" | "community">("mine");
   const [search, setSearch] = useState("");
   const [communitySearch, setCommunitySearch] = useState("");
+  const [sharing, setSharing] = useState<{ snippets: Snippet[]; packName?: string } | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("name-asc");
   const [showAllRecent, setShowAllRecent] = useState(false);
 
@@ -847,6 +849,7 @@ export function SnippetsPage() {
       <SnippetCard
         key={s.id}
         snippet={s}
+        onShare={() => setSharing({ snippets: [s] })}
         folders={folders}
         isEditing={ep.isEditing(s)}
         isSelected={selectedIdSet.has(s.id)}
@@ -1066,6 +1069,7 @@ export function SnippetsPage() {
                         onMoveToVault={(vaultId) => void handleMoveFolderToVault(folder, vaultId)}
                         onCopyToVault={(vaultId) => void handleCopyFolderToVault(folder, vaultId)}
                         onExport={() => useUIStore.getState().openImportExport("export", { bulk: { snippets: snippets.filter((s) => s.folder_id === folder.id).map((s) => s.id) } })}
+                        onShare={() => setSharing({ snippets: snippets.filter((s) => s.folder_id === folder.id && !s.deleted_at), packName: folder.name })}
                         bulkContextMenuItems={selectedIdSet.size > 1 ? bulkContextMenuItems : undefined}
                       />
                     ))}
@@ -1159,6 +1163,14 @@ export function SnippetsPage() {
     </SidePanelLayout>
 
     {/* ── Confirm folder delete ── */}
+    {sharing && (
+      <ShareSnippetModal
+        snippets={sharing.snippets}
+        packName={sharing.packName}
+        onClose={() => setSharing(null)}
+      />
+    )}
+
     {confirmDeleteFolder && (
       <ConfirmModal
         title={t("snippets.page.confirmDeleteFolder.title", { name: confirmDeleteFolder.name })}

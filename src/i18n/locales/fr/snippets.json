@@ -1,6 +1,22 @@
 {
   "snippets": {
     "community": {
+      "shareTitle": "Partager à la communauté",
+      "shareIntro": "Voici ce qui serait soumis. Rien n’est envoyé — vous ouvrez une pull request et un mainteneur la relit.",
+      "shareCopy": "Copier le JSON",
+      "shareCopied": "Copié",
+      "shareOpenGithub": "Ouvrir GitHub",
+      "shareGuidelines": "Lire les règles de contribution",
+      "shareAuthor": "Votre nom ou pseudo",
+      "shareDescription": "Brève description",
+      "secretsTitle": "À vérifier avant de partager",
+      "secretsIntro": "Ceci semble vous appartenir, et non à tout le monde :",
+      "secretKind_privateKey": "Clé privée",
+      "secretKind_credential": "Mot de passe ou clé",
+      "secretKind_token": "Jeton",
+      "secretKind_host": "Hôte ou adresse",
+      "secretsNone": "Rien qui ressemble à un secret.",
+      "shareFailed": "Partage impossible : {{error}}",
       "tabMine": "Mes snippets",
       "tabCommunity": "Communauté",
       "packs": "Packs",

@@ -21,6 +21,7 @@ import {
 
 interface Props {
   snippet: Snippet;
+  onShare?: () => void;
   folders: Folder[];
   isEditing?: boolean;
   isSelected?: boolean;
@@ -46,6 +47,7 @@ interface Props {
 
 export function SnippetCard({
   snippet,
+  onShare,
   folders,
   isEditing,
   isSelected,
@@ -127,6 +129,11 @@ export function SnippetCard({
       onClick: () => useUIStore.getState().openImportExport("export", { single: { key: "snippets", id: snippet.id } }),
       divider: true as const,
     },
+    ...(onShare ? [{
+      label: t("snippets.community.shareTitle"),
+      icon: "lucide:globe",
+      onClick: onShare,
+    }] : []),
     ...vaultMenuItems(vaults, canEdit, onMoveToVault, onCopyToVault, t),
     { label: t("common.action.delete"), icon: "lucide:trash-2", onClick: onDelete, danger: true as const, divider: true as const, shortcut: getShortcutHint("delete") },
   ];
