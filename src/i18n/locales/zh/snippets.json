@@ -1,6 +1,35 @@
 {
   "snippets": {
     "community": {
+      "tabMine": "我的片段",
+      "tabCommunity": "社区",
+      "packs": "合集",
+      "snippets": "片段",
+      "searchPlaceholder": "搜索社区",
+      "snippetCount_one": "{{count}} 个片段",
+      "snippetCount_other": "{{count}} 个片段",
+      "by": "作者：{{author}}",
+      "updated": "更新于 {{date}}",
+      "back": "社区",
+      "loading": "正在加载目录…",
+      "offline": "离线 — 显示上次保存的副本",
+      "empty": "目前还没有社区片段。",
+      "noResults": "没有匹配“{{search}}”的结果。",
+      "retry": "重试",
+      "loadFailed": "无法加载社区目录。",
+      "install_one": "将 {{count}} 个片段安装到 {{vault}}",
+      "install_other": "将 {{count}} 个片段安装到 {{vault}}",
+      "installing": "正在安装…",
+      "installed_one": "已安装 {{count}} 个片段",
+      "installed_other": "已安装 {{count}} 个片段",
+      "installFailed": "安装失败：{{error}}",
+      "autoIncluded": "因为“{{name}}”调用了它而一并包含",
+      "steps": "步骤",
+      "stepScript": "脚本",
+      "stepTransfer": "传输",
+      "stepSnippet": "运行片段",
+      "selectAll": "全选",
+      "selectNone": "清除",
       "error": {
         "unsupportedCatalog": "此片段目录的格式不受当前版本的 Voltius 支持。请尝试更新应用。"
       }

@@ -1,6 +1,35 @@
 {
   "snippets": {
     "community": {
+      "tabMine": "Мои сниппеты",
+      "tabCommunity": "Сообщество",
+      "packs": "Наборы",
+      "snippets": "Сниппеты",
+      "searchPlaceholder": "Поиск по сообществу",
+      "snippetCount_one": "{{count}} сниппет",
+      "snippetCount_other": "{{count}} сниппетов",
+      "by": "автор: {{author}}",
+      "updated": "Обновлено {{date}}",
+      "back": "Сообщество",
+      "loading": "Загрузка каталога…",
+      "offline": "Нет сети — показана последняя сохранённая копия",
+      "empty": "Пока нет сниппетов сообщества.",
+      "noResults": "Ничего не найдено по запросу «{{search}}».",
+      "retry": "Повторить",
+      "loadFailed": "Не удалось загрузить каталог сообщества.",
+      "install_one": "Установить {{count}} сниппет в {{vault}}",
+      "install_other": "Установить {{count}} сниппетов в {{vault}}",
+      "installing": "Установка…",
+      "installed_one": "Установлен {{count}} сниппет",
+      "installed_other": "Установлено {{count}} сниппетов",
+      "installFailed": "Ошибка установки: {{error}}",
+      "autoIncluded": "Добавлен, потому что его вызывает «{{name}}»",
+      "steps": "Шаги",
+      "stepScript": "Скрипт",
+      "stepTransfer": "Передача",
+      "stepSnippet": "Запускает сниппет",
+      "selectAll": "Выбрать все",
+      "selectNone": "Очистить",
       "error": {
         "unsupportedCatalog": "Этот каталог сниппетов имеет формат, который эта версия Voltius не понимает. Попробуйте обновить приложение."
       }

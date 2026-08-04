@@ -38,6 +38,7 @@ import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { useEditPanel } from "@/hooks/useEditPanel";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { SnippetsToolbar } from "./SnippetsToolbar";
+import { CommunityBrowser } from "./community/CommunityBrowser";
 import { SnippetCard } from "./SnippetCard";
 import { SnippetForm } from "./SnippetForm";
 import { FolderCard } from "@/components/folders/FolderCard";
@@ -326,6 +327,7 @@ export function SnippetsPage() {
   const activeSession = sessions.find((s) => s.id === activeSessionId);
   const activeConn = connections.find((c) => c.id === activeSession?.connectionId);
 
+  const [tab, setTab] = useState<"mine" | "community">("mine");
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("name-asc");
   const [showAllRecent, setShowAllRecent] = useState(false);
@@ -905,6 +907,28 @@ export function SnippetsPage() {
         ) : null
       }
     >
+      {/* ── Tabs ── */}
+      <div className="flex items-center gap-1 px-9 pt-4">
+        {(["mine", "community"] as const).map((key) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+            style={tab === key
+              ? { background: "var(--t-bg-elevated)", color: "var(--t-text-bright)", border: "1px solid var(--t-border)" }
+              : { color: "var(--t-text-dim)", border: "1px solid transparent" }}
+          >
+            {t(key === "mine" ? "snippets.community.tabMine" : "snippets.community.tabCommunity")}
+          </button>
+        ))}
+      </div>
+
+      {tab === "community" ? (
+        <div className="flex-1 min-h-0 px-9 pt-5 pb-9 flex flex-col">
+          <CommunityBrowser layout={layoutMode} onLayoutChange={setLayoutMode} onInstalled={() => setTab("mine")} />
+        </div>
+      ) : (
+      <>
       {/* ── Toolbar ── */}
       <SnippetsToolbar
         search={search}
@@ -1141,6 +1165,8 @@ export function SnippetsPage() {
             { label: t("snippets.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: () => void handleCreateFolder() },
           ]}
         />
+      )}
+      </>
       )}
     </SidePanelLayout>
 
