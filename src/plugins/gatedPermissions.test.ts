@@ -123,3 +123,13 @@ describe("describePermissions / consent decision", () => {
     expect(requiresInstallConsent(["terminal:read"], false)).toBe(true);
   });
 });
+
+describe("audit permission", () => {
+  test("is gated and danger-styled with known copy", () => {
+    const [d] = describePermissions(["audit"]);
+    expect(d.gated).toBe(true);
+    expect(d.danger).toBe(true);
+    expect(d.known).toBe(true);
+    expect(d.labelKey).toBe("settings.plugins.permissionModal.permissions.audit.label");
+  });
+});

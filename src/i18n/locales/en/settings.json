@@ -732,6 +732,7 @@
           "dockerManage": { "label": "Manage Docker", "description": "List, start, stop and delete containers, images, volumes, networks and stacks. This can permanently destroy data." },
           "proxmoxRead": { "label": "Read Proxmox information", "description": "List LXC containers and their snapshots." },
           "proxmoxManage": { "label": "Manage Proxmox", "description": "List and control LXC containers, including creating, deleting and rolling back snapshots. This can permanently destroy data." },
+          "audit": { "label": "Record audit events", "description": "Add entries to your audit log describing what it did. For a host in a team vault, these entries are also sent to that team's server." },
           "sessionsRead": { "label": "See your sessions", "description": "See which terminal sessions are open and when they change." },
           "sessionsWrite": { "label": "Open and close sessions", "description": "Open new terminal sessions and close existing ones." },
           "connectionsRead": { "label": "Read your connections", "description": "Read your saved connections and their details." },
