@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-08-04
+
 ### Added
 
 - Hosts: a Pre/Post command can now be a saved snippet instead of a single
@@ -16,11 +18,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   post-command) and remembered per host; `password` variables are never
   remembered, and "Ask for variables each time" turns remembering off for a
   host. Inline commands are unchanged (#63).
+- Snippets: a Community tab for browsing and installing snippets and packs from
+  the public catalogue. Every step is shown exactly as it will run before you
+  install, a snippet that calls another pulls its target in and says so, and
+  what lands in your vault is a plain owned snippet.
+- Snippets: "Share to community" on a snippet's or folder's menu turns it into a
+  catalogue entry. Nothing is uploaded — you get the JSON to submit and a
+  prefilled GitHub link. Before that it scans the steps for private keys,
+  passwords, API tokens and routable hosts, and warns if it finds any.
+- Hosts: the latency shown for a connected host is now measured over the SSH
+  session itself instead of a separate connection.
 
 ### Fixed
 
+- Hosts: connection status probing hammered hosts often enough that rate-limit
+  firewalls (ufw `limit`, fail2ban) would lock users out of their own servers.
+  Probes now run from a single scheduler with jitter, deduplicated per
+  host:port, at much longer intervals (#90).
+- Hosts: the status dot could flicker, and a stalled jump-host lookup could
+  freeze a host's status indefinitely.
+- Snippets: a snippet that calls another one imported as a dangling reference,
+  because export carried a machine-local id. Nested calls now survive
+  export/import, and an export that would produce a broken reference fails
+  visibly instead of silently.
+- Hosts: a post-command snippet resolved `{{connection.*}}` against the local
+  shell instead of the host it just disconnected from.
+- Hosts: when several snippet variables were prompted in a row, each prompt
+  inherited the previous one's typed values, passwords included.
 - Serial: the Pre/Post command fields on a serial connection were saved but
-  never actually run.
+  never actually run, and closing a tab no longer waits for the port to be
+  released.
+- Links: external links on the signup screen, the changelog popup, the roles
+  section and in Gist Sync did nothing when clicked. They now open in your
+  browser.
 - Themes: the drop shadow under page toolbars was a near-black smudge on light
   themes; it now follows the light-appearance shadow tokens.
 
