@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import LogoBadge from "./LogoBadge";
 import {
   createLocalAccountNoPassword,
@@ -206,21 +207,21 @@ export default function AuthPage({ isLocked, onReady }: Props) {
         {isSignup && (
           <p className="mt-2 text-xs text-center text-(--t-text-dim) leading-relaxed">
             {t("layout.auth.e2eeNotice")}{" "}
-            <a href="https://github.com/VoltiusApp/voltius" target="_blank" rel="noreferrer"
+            <button type="button" onClick={() => void openUrl("https://github.com/VoltiusApp/voltius")}
               className="text-(--t-accent) hover:underline">
               {t("layout.auth.openSource")}
-            </a>
+            </button>
             <br />
             {t("layout.auth.agreeToTerms")}{" "}
-            <a href="https://voltius.app/terms" target="_blank" rel="noreferrer"
+            <button type="button" onClick={() => void openUrl("https://voltius.app/terms")}
               className="text-(--t-accent) hover:underline">
               {t("layout.auth.termsOfService")}
-            </a>{" "}
+            </button>{" "}
             {t("layout.auth.and")}{" "}
-            <a href="https://voltius.app/privacy" target="_blank" rel="noreferrer"
+            <button type="button" onClick={() => void openUrl("https://voltius.app/privacy")}
               className="text-(--t-accent) hover:underline">
               {t("layout.auth.privacyPolicy")}
-            </a>
+            </button>
             .
           </p>
         )}

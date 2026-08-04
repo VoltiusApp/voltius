@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamRole } from "@/stores/teamStore";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
@@ -551,15 +552,14 @@ export function TeamRolesPanel({ teamId, myUserId }: { teamId: string; myUserId:
                 {t("settings.vaults.rolesPanel.businessFeatureDesc")}
               </p>
             </div>
-            <a
-              href="https://voltius.app/#pricing"
-              target="_blank"
-              rel="noreferrer"
+            <button
+              type="button"
+              onClick={() => void openUrl("https://voltius.app/#pricing")}
               className="text-xs px-3 py-1.5 rounded-lg font-medium"
               style={{ background: "var(--t-accent)", color: "#fff" }}
             >
               {t("settings.vaults.rolesPanel.upgradeBtn")}
-            </a>
+            </button>
           </div>
         ) : customRoles.length === 0 ? (
           <div

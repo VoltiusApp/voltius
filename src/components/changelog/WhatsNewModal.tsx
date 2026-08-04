@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Icon } from "@iconify/react";
 import { getVersion } from "@tauri-apps/api/app";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { Modal, ModalCard } from "@/components/shared/Modal";
 import { useUIStore } from "@/stores/uiStore";
 import {
@@ -78,16 +79,15 @@ function WhatsNewInner() {
           <h2 className="text-sm font-semibold text-(--t-text-primary)">{t("changelog.title")}</h2>
           <div className="ml-auto flex items-center gap-1">
             {getQuickLinks(t).map(({ icon, href, title }) => (
-              <a
+              <button
                 key={href}
-                href={href}
-                target="_blank"
-                rel="noreferrer"
+                type="button"
+                onClick={() => void openUrl(href)}
                 title={title}
                 className="flex items-center justify-center w-7 h-7 rounded-lg text-(--t-text-dim) transition-colors hover:bg-(--t-bg-elevated) hover:text-(--t-text-primary)"
               >
                 <Icon icon={icon} width={15} />
-              </a>
+              </button>
             ))}
             <button
               onClick={handleClose}

@@ -1,4 +1,5 @@
 import { writeClipboard } from "./clipboard";
+import { openExternal } from "./openExternal";
 import React, { useEffect, useRef, useState } from "react";
 import { useAutosave, Icon, InfoTooltip } from "@voltius/ui";
 import type { PluginAPI } from "@/plugins/api";
@@ -236,15 +237,14 @@ function GistRow({
       <div className="flex items-center gap-1.5 flex-1 min-w-0">
         <Icon icon="custom:github" width={13} className="shrink-0 text-(--t-text-dim)" />
         <span className="text-sm font-mono text-(--t-text-primary)">{shortId}</span>
-        <a
-          href={url}
-          target="_blank"
-          rel="noreferrer"
+        <button
+          type="button"
+          onClick={() => openExternal(url)}
           className="text-(--t-text-dim) hover:text-(--t-accent) transition-colors"
           title="Open on GitHub"
         >
           <Icon icon="lucide:external-link" width={11} />
-        </a>
+        </button>
       </div>
 
       {/* Role pills */}
@@ -633,14 +633,13 @@ export function createSettingsPage(api: PluginAPI): React.FC {
             hint={
               <>
                 Needs <code className="text-(--t-accent)">gist</code> scope.{" "}
-                <a
-                  href="https://github.com/settings/tokens"
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
+                  onClick={() => openExternal("https://github.com/settings/tokens")}
                   className="text-(--t-accent) hover:underline"
                 >
                   github.com/settings/tokens
-                </a>
+                </button>
               </>
             }
           />
@@ -753,15 +752,14 @@ export function createSettingsPage(api: PluginAPI): React.FC {
                     <div className="flex items-center gap-1.5 min-w-0">
                       <Icon icon="custom:github" width={13} className="shrink-0 text-(--t-text-dim)" />
                       <span className="text-sm font-mono text-(--t-text-primary)">{g.id.slice(0, 8)}…</span>
-                      <a
-                        href={g.url}
-                        target="_blank"
-                        rel="noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => openExternal(g.url)}
                         className="text-(--t-text-dim) hover:text-(--t-accent) transition-colors"
                         title="Open on GitHub"
                       >
                         <Icon icon="lucide:external-link" width={11} />
-                      </a>
+                      </button>
                     </div>
                     {alreadyLinked ? (
                       <span className="text-xs text-(--t-text-dim) opacity-60">linked</span>
