@@ -7,6 +7,27 @@ on:
     branches: [main, dev]
 
 jobs:
+  # Pre-flight for the hash guard in publish-plugins.yml, which is the last line
+  # of defence and stays where it is. That guard compares built bytes against
+  # published bytes, so it needs a build and only runs deep inside a release —
+  # after `tag` has already made the version tag immutable (issue #92). This job
+  # answers the cheap proxy question instead (plugin source changed since its
+  # published tag + manifest version unchanged) in seconds, on the PR.
+  plugin-versions:
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth: 0 — the check reads the plugin-*-v* release tags, and a
+      # shallow checkout has none of them.
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - run: node scripts/check-plugin-versions.mjs
+
   # `pnpm build` runs scripts/build-plugins.mjs, which spawns a child process per
   # plugin. That spawn is platform-sensitive — on Windows `pnpm` is a .cmd shim —
   # and until v0.14.0 nothing here ever ran the frontend build on Windows. The
