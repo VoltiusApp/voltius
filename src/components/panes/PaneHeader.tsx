@@ -98,8 +98,6 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
   const latencyMs = useHostPingStore((s) => s.latencies[session.connectionId]);
   const pingStatus = useHostPingStore((s) => s.statuses[session.connectionId]);
   const [pingEnabled] = useToggle("reachability");
-  const activePollIntervalMs = useHostPingStore((s) => s.activePollIntervalMs);
-  const setStatus = useHostPingStore((s) => s.setStatus);
   const splitPane = useLayoutStore((s) => s.splitPane);
   const detachPane = useLayoutStore((s) => s.detachPane);
   const maximizedPaneId = useLayoutStore((s) => s.maximizedPaneId);
@@ -175,30 +173,6 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
     }).catch(() => {});
     return () => { cancelled = true; };
   }, [session.id, session.type, session.status, session.connectionName]);
-
-  // ── Fast ping for active pane ─────────────────────────────────────────────
-
-  useEffect(() => {
-    if (!active || !pingEnabled || session.type !== "ssh" || session.status !== "connected" || !connection) return;
-    if (connection.jump_hosts?.length) return;
-
-    let cancelled = false;
-    const ping = async () => {
-      try {
-        const ms = await invoke<number | null>("ping_host", { host: connection.host, port: connection.port });
-        if (!cancelled) {
-          if (ms !== null && ms !== undefined) setStatus(session.connectionId, "up", ms);
-          else setStatus(session.connectionId, "down");
-        }
-      } catch {
-        if (!cancelled) setStatus(session.connectionId, "unknown");
-      }
-    };
-
-    ping();
-    const interval = setInterval(ping, activePollIntervalMs);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [active, pingEnabled, session.type, session.status, session.connectionId, connection, activePollIntervalMs, setStatus]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -367,7 +341,7 @@ export function PaneHeader({ paneId, session, active }: { paneId: string; sessio
           {sessionBadge(session, t)}
         </span>
         <span className="size-1.5 rounded-full" style={{ background: statusColor(session.status) }} />
-        {session.type === "ssh" && pingStatus === "up" && latencyMs !== undefined && (
+        {pingEnabled && session.type === "ssh" && pingStatus === "up" && latencyMs !== undefined && (
           <div
             ref={latencyTriggerRef}
             className="flex items-center self-stretch px-1 hover:bg-(--t-bg-card-hover) transition-colors cursor-pointer"

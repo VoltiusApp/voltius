@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
@@ -12,7 +11,6 @@ import ConnectionOverlay, { getSftpSteps } from "@/components/terminal/connectio
 import { FilterInput } from "@/components/shared/ToolbarViewControls";
 import { useHostPingStore } from "@/stores/hostPingStore";
 import { useToggle } from "@/stores/toggleSettingsStore";
-import { useAllConnections } from "@/hooks/useAllConnections";
 
 function latencyColor(ms: number): string {
   if (ms < 50) return "var(--t-status-connected)";
@@ -90,11 +88,7 @@ export function SidePane({
 
   // ── Latency / ping ──────────────────────────────────────────────────────────
   const connectionId = host?.kind === "remote" ? host.connection.id : undefined;
-  const connections = useAllConnections();
-  const connection = connectionId ? connections.find((c) => c.id === connectionId) : undefined;
   const [pingEnabled] = useToggle("reachability");
-  const activePollIntervalMs = useHostPingStore((s) => s.activePollIntervalMs);
-  const setStatus = useHostPingStore((s) => s.setStatus);
   const pingStatus = useHostPingStore((s) => connectionId ? s.statuses[connectionId] : undefined);
   const latencyMs = useHostPingStore((s) => connectionId ? s.latencies[connectionId] : undefined);
 
@@ -115,28 +109,6 @@ export function SidePane({
   useEffect(() => {
     if (showSparkline) setSparklineSnapshot([...latencyHistoryRef.current]);
   }, [showSparkline]);
-
-  useEffect(() => {
-    if (!pingEnabled || !connectionId || !connection) return;
-    if (connection.jump_hosts?.length) return;
-
-    let cancelled = false;
-    const ping = async () => {
-      try {
-        const ms = await invoke<number | null>("ping_host", { host: connection.host, port: connection.port });
-        if (!cancelled) {
-          if (ms !== null && ms !== undefined) setStatus(connectionId, "up", ms);
-          else setStatus(connectionId, "down");
-        }
-      } catch {
-        if (!cancelled) setStatus(connectionId, "unknown");
-      }
-    };
-
-    ping();
-    const interval = setInterval(ping, activePollIntervalMs);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [pingEnabled, connectionId, connection, activePollIntervalMs, setStatus]);
 
   // ── Navigation history ──────────────────────────────────────────────────────
   const historyRef = useRef<string[]>([]);
@@ -213,7 +185,7 @@ export function SidePane({
           </span>
         </button>
 
-        {phase.tag === "connected" && pingStatus === "up" && latencyMs !== undefined && (
+        {pingEnabled && phase.tag === "connected" && pingStatus === "up" && latencyMs !== undefined && (
           <div
             ref={latencyTriggerRef}
             className="flex items-center gap-1 px-1 cursor-default"
