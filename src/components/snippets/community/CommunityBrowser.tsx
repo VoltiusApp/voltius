@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
-import { FilterInput } from "@/components/shared/ToolbarViewControls";
-import { Pills } from "@/components/shared/Pills";
 import { fetchCatalog } from "@/services/snippetCatalogFetch";
 import type { CatalogEntry } from "@/services/snippetCatalog";
 import { EntryCard } from "./EntryCard";
@@ -23,16 +21,15 @@ function Section({ label, count, children }: { label: string; count: number; chi
   );
 }
 
-export function CommunityBrowser({ layout, onLayoutChange, onInstalled }: {
+export function CommunityBrowser({ search, layout, onInstalled }: {
+  search: string;
   layout: "grid" | "list";
-  onLayoutChange: (v: "grid" | "list") => void;
   onInstalled: (count: number) => void;
 }) {
   const { t } = useTranslation();
   const [entries, setEntries] = useState<CatalogEntry[] | null>(null);
   const [fromCache, setFromCache] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -91,23 +88,12 @@ export function CommunityBrowser({ layout, onLayoutChange, onInstalled }: {
 
   return (
     <div className="flex flex-col gap-4 h-full min-h-0">
-      <div className="flex items-center gap-3">
-        <FilterInput value={search} onChange={setSearch} placeholder={t("snippets.community.searchPlaceholder")} width={200} />
-        <Pills
-          options={[
-            { value: "grid" as const, label: t("common.viewMode.grid"), icon: "lucide:layout-grid" },
-            { value: "list" as const, label: t("common.viewMode.list"), icon: "lucide:layout-list" },
-          ]}
-          value={layout}
-          onChange={onLayoutChange}
-        />
-        {fromCache && (
-          <span className="text-xs flex items-center gap-1.5 text-(--t-text-dim)">
-            <Icon icon="lucide:cloud-off" width={12} />
-            {t("snippets.community.offline")}
-          </span>
-        )}
-      </div>
+      {fromCache && (
+        <span className="text-xs flex items-center gap-1.5 text-(--t-text-dim)">
+          <Icon icon="lucide:cloud-off" width={12} />
+          {t("snippets.community.offline")}
+        </span>
+      )}
 
       <div className="flex-1 min-h-0 overflow-y-auto pr-1">
         {filtered.length === 0 ? (
