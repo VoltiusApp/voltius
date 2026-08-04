@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import {
   DEFAULT_ACTIVE_POLL_INTERVAL_MS,
   DEFAULT_POLL_INTERVAL_MS,
+  MIN_ACTIVE_POLL_INTERVAL_MS,
+  MIN_POLL_INTERVAL_MS,
   useHostPingStore,
 } from "@/stores/hostPingStore";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
@@ -38,13 +40,13 @@ export default function HostsSection() {
 
   const commit = (value: string) => {
     const n = parseInt(value, 10);
-    if (!isNaN(n) && n >= 1) setPollIntervalMs(n);
+    if (!isNaN(n) && n >= MIN_POLL_INTERVAL_MS) setPollIntervalMs(n);
     else setRaw(String(pollIntervalMs));
   };
 
   const commitActive = (value: string) => {
     const n = parseInt(value, 10);
-    if (!isNaN(n) && n >= 1) setActivePollIntervalMs(n);
+    if (!isNaN(n) && n >= MIN_ACTIVE_POLL_INTERVAL_MS) setActivePollIntervalMs(n);
     else setRawActive(String(activePollIntervalMs));
   };
 

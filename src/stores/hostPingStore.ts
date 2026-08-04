@@ -3,8 +3,37 @@ import { persist } from "zustand/middleware";
 
 export type PingStatus = "up" | "down" | "unknown";
 
-export const DEFAULT_POLL_INTERVAL_MS = 10_000;
-export const DEFAULT_ACTIVE_POLL_INTERVAL_MS = 2_000;
+export const DEFAULT_POLL_INTERVAL_MS = 60_000;
+export const DEFAULT_ACTIVE_POLL_INTERVAL_MS = 5_000;
+
+/// Idle probes open real TCP connections; keep them clear of `ufw limit`,
+/// which blocks after 6 new connections in 30s.
+export const MIN_POLL_INTERVAL_MS = 10_000;
+export const MIN_ACTIVE_POLL_INTERVAL_MS = 1_000;
+
+interface PersistedHostPing {
+  pollIntervalMs?: number;
+  activePollIntervalMs?: number;
+}
+
+/// Pre-v1 defaults (10s idle, 2s active) opened enough connections to trip
+/// host firewalls. Raise anything still at or below them; leave deliberate
+/// slower choices untouched.
+export function migrateHostPing(
+  state: PersistedHostPing,
+  version: number,
+): { pollIntervalMs: number; activePollIntervalMs: number } {
+  const pollIntervalMs = state.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
+  const activePollIntervalMs = state.activePollIntervalMs ?? DEFAULT_ACTIVE_POLL_INTERVAL_MS;
+  if (version >= 1) return { pollIntervalMs, activePollIntervalMs };
+  return {
+    pollIntervalMs: pollIntervalMs < MIN_POLL_INTERVAL_MS + 1 ? DEFAULT_POLL_INTERVAL_MS : pollIntervalMs,
+    activePollIntervalMs:
+      activePollIntervalMs < DEFAULT_ACTIVE_POLL_INTERVAL_MS
+        ? DEFAULT_ACTIVE_POLL_INTERVAL_MS
+        : activePollIntervalMs,
+  };
+}
 
 interface HostPingStore {
   pollIntervalMs: number;
@@ -45,6 +74,9 @@ export const useHostPingStore = create<HostPingStore>()(
     }),
     {
       name: "voltius-host-ping",
+      version: 1,
+      migrate: (persisted, version) =>
+        migrateHostPing((persisted ?? {}) as PersistedHostPing, version) as never,
       partialize: (s) => ({ pollIntervalMs: s.pollIntervalMs, activePollIntervalMs: s.activePollIntervalMs }),
     },
   ),
