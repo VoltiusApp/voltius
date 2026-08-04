@@ -1,7 +1,7 @@
 {
   "id": "plugin-gist-sync",
   "name": "GitHub Gist Sync",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "minAppVersion": "0.15.0",
   "description": "Sync your data across devices via encrypted GitHub Gist — no Voltius account required.",
   "permissions": [
