@@ -240,8 +240,6 @@ export default function HostCard({
       isActive={isActive}
       isFocused={isFocused}
       onPointerDown={onPointerDown}
-      onMouseEnter={showPingDot ? () => useHostPingStore.getState().addPriorityConnection(connection.id) : undefined}
-      onMouseLeave={showPingDot ? () => useHostPingStore.getState().removePriorityConnection(connection.id) : undefined}
       onClick={(e) => onSelect?.(connection.id, e)}
       onDoubleClick={() => onConnect(connection)}
       bulkContextMenuItems={bulkContextMenuItems}

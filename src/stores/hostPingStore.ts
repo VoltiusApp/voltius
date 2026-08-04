@@ -60,9 +60,6 @@ interface HostPingStore {
   latencies: Record<string, number>;
   setStatus: (id: string, status: PingStatus, latencyMs?: number) => void;
   clearStatuses: () => void;
-  priorityConnectionIds: string[];
-  addPriorityConnection: (id: string) => void;
-  removePriorityConnection: (id: string) => void;
 }
 
 export const useHostPingStore = create<HostPingStore>()(
@@ -82,11 +79,6 @@ export const useHostPingStore = create<HostPingStore>()(
             : s.latencies,
         })),
       clearStatuses: () => set({ statuses: {}, latencies: {} }),
-      priorityConnectionIds: [],
-      addPriorityConnection: (id) =>
-        set((s) => ({ priorityConnectionIds: s.priorityConnectionIds.includes(id) ? s.priorityConnectionIds : [...s.priorityConnectionIds, id] })),
-      removePriorityConnection: (id) =>
-        set((s) => ({ priorityConnectionIds: s.priorityConnectionIds.filter((x) => x !== id) })),
     }),
     {
       name: "voltius-host-ping",

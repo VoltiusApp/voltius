@@ -40,11 +40,17 @@ describe("intervalFor", () => {
 });
 
 describe("selectDue", () => {
-  test("does not probe a target on first appearance, but schedules it soon", () => {
+  test("does not probe a sessionless target on first appearance, but schedules it soon", () => {
     const r = selectDue([target()], {}, 1_000, SESSION_MS, IDLE_MS);
     expect(r.due).toHaveLength(0);
     expect(r.dueAt["h1:22"]).toBeGreaterThanOrEqual(1_000);
     expect(r.dueAt["h1:22"]).toBeLessThan(1_000 + STARTUP_SPREAD_MS);
+  });
+
+  test("probes a session-backed target immediately on first appearance", () => {
+    const r = selectDue([target({ sessionId: "s1" })], {}, 1_000, SESSION_MS, IDLE_MS);
+    expect(r.due.map((t) => t.key)).toEqual(["h1:22"]);
+    expect(r.dueAt["h1:22"]).toBeGreaterThanOrEqual(1_000 + SESSION_MS);
   });
 
   test("probes once the due time is reached", () => {

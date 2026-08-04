@@ -1,10 +1,10 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const invoke = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invoke(...a) }));
 vi.mock("@/services/credentials", () => ({ resolveJumpHosts: async () => [{ host: "j" }] }));
 
-const { probeTarget } = await import("./probe");
+const { probeTarget, PROBE_TIMEOUT_MS } = await import("./probe");
 import type { PingTarget } from "./pingTargets";
 
 function target(over: Partial<PingTarget> = {}): PingTarget {
@@ -58,13 +58,30 @@ describe("probeTarget", () => {
     expect(invoke).toHaveBeenCalledWith("ping_session", { sessionId: "s2" });
   });
 
-  test("null means down", async () => {
+  test("null means down on the tcp path", async () => {
     invoke.mockResolvedValue(null);
     expect(await probeTarget(target())).toEqual({ status: "down" });
+  });
+
+  test("null means unknown on the session path", async () => {
+    invoke.mockResolvedValue(null);
+    expect(await probeTarget(target({ sessionId: "s1" }))).toEqual({ status: "unknown" });
   });
 
   test("a throwing probe means unknown", async () => {
     invoke.mockRejectedValue(new Error("boom"));
     expect(await probeTarget(target())).toEqual({ status: "unknown" });
+  });
+
+  describe("timeout", () => {
+    beforeEach(() => { vi.useFakeTimers(); });
+    afterEach(() => { vi.useRealTimers(); });
+
+    test("a probe that never settles resolves to unknown after the timeout", async () => {
+      invoke.mockReturnValue(new Promise(() => {}));
+      const result = probeTarget(target());
+      await vi.advanceTimersByTimeAsync(PROBE_TIMEOUT_MS);
+      expect(await result).toEqual({ status: "unknown" });
+    });
   });
 });

@@ -33,7 +33,13 @@ export function selectDue(
     const scheduled = dueAt[target.key];
 
     if (scheduled === undefined) {
-      next[target.key] = now + jitterFor(target.key, STARTUP_SPREAD_MS);
+      if (target.sessionId) {
+        due.push(target);
+        const interval = intervalFor(target, sessionMs, idleMs);
+        next[target.key] = now + interval + jitterFor(target.key, Math.floor(interval / 4));
+      } else {
+        next[target.key] = now + jitterFor(target.key, STARTUP_SPREAD_MS);
+      }
       continue;
     }
 
