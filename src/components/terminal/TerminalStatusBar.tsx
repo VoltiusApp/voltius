@@ -6,7 +6,6 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
 import { useHostPingStore } from "@/stores/hostPingStore";
-import { useToggle } from "@/stores/toggleSettingsStore";
 import { usePluginStore, findRightPanelSectionWithFlag } from "@/stores/pluginStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useSessionStore } from "@/stores/sessionStore";
@@ -322,34 +321,6 @@ export function TerminalStatusBar({ sessionId, sessionType, connectionId, connec
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, sessionType, sessionStatus, monitoringActive]);
-
-  // ── Fast ping for active session ──────────────────────────────────────────
-
-  const [pingEnabled] = useToggle("reachability");
-  const activePollIntervalMs = useHostPingStore((s) => s.activePollIntervalMs);
-  const setStatus = useHostPingStore((s) => s.setStatus);
-
-  useEffect(() => {
-    if (!pingEnabled || sessionType !== "ssh" || sessionStatus !== "connected" || !connection) return;
-    if (connection.jump_hosts?.length) return;
-
-    let cancelled = false;
-    const ping = async () => {
-      try {
-        const ms = await invoke<number | null>("ping_host", { host: connection.host, port: connection.port });
-        if (!cancelled) {
-          if (ms !== null && ms !== undefined) setStatus(connectionId, "up", ms);
-          else setStatus(connectionId, "down");
-        }
-      } catch {
-        if (!cancelled) setStatus(connectionId, "unknown");
-      }
-    };
-
-    ping();
-    const interval = setInterval(ping, activePollIntervalMs);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [pingEnabled, sessionType, sessionStatus, connectionId, connection, activePollIntervalMs, setStatus]);
 
   // ── Context menu items ────────────────────────────────────────────────────
 

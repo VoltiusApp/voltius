@@ -487,6 +487,7 @@ pub fn run() {
             commands::diagnostics::create_bug_report,
             commands::ping::ping_host,
             commands::ping::ping_host_via_jumps,
+            commands::ping::ping_session,
             commands::connections::connection_list,
             commands::connections::connection_save,
             commands::connections::connection_update,

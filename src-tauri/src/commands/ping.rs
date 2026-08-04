@@ -1,5 +1,6 @@
 use crate::known_hosts::KnownHostsStore;
 use crate::ssh::client::{authenticate_handle, JumpHostConnect, SshClient};
+use crate::ssh::session::SessionManager;
 use russh::client;
 use std::sync::Arc;
 use std::time::Duration;
@@ -115,4 +116,12 @@ async fn ping_via_chain(
         .channel_open_direct_tcpip(host.as_str(), port as u32, "127.0.0.1", 0)
         .await
         .is_ok()
+}
+
+#[tauri::command]
+pub async fn ping_session(
+    session_id: String,
+    sessions: tauri::State<'_, SessionManager>,
+) -> Result<Option<u32>, ()> {
+    Ok(sessions.ping(&session_id).await)
 }
