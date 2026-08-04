@@ -17,7 +17,27 @@ permissions:
   contents: write
 
 jobs:
+  # ci runs this same check, but it triggers on the SAME push to main and nothing
+  # makes tagging wait for it. A release cut by pushing straight to main could
+  # therefore tag while the check is still running or already red — and the tag is
+  # immutable, which is the whole problem #92 is about. Gating `tag` on it here is
+  # what actually holds the "fail before the tag exists" property.
+  plugin-versions:
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth: 0 — the check reads the plugin-*-v* release tags.
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - run: node scripts/check-plugin-versions.mjs
+
   tag:
+    needs: plugin-versions
     runs-on: ubuntu-latest
     permissions:
       contents: write
