@@ -32,6 +32,9 @@ import { storePluginSecret, getPluginSecret, deletePluginSecret, storeSecret, de
 import { appFetch } from "@/services/http";
 import { sseFetch } from "@/services/sseFetch";
 import { registerLxcExecSession } from "@/services/proxmox";
+import { PLUGIN_AUDIT_ACTIONS } from "@/services/auditContext";
+import { auditContextForVaultId } from "@/services/auditContextResolver";
+import { reportPluginAuditEvent } from "@/services/auditReporter";
 import type {
   PluginAPI,
   PluginManifest,
@@ -103,6 +106,31 @@ function findConnection(connectionId: string) {
     connections.find((c) => c.id === connectionId) ??
     Object.values(teamConnections).flat().find((c) => c.id === connectionId)
   );
+}
+
+const MAX_LOCAL_STRING_CHARS = 2000;
+
+/**
+ * Truncate every over-budget string in localMetadata and flag it, so a reader is
+ * never misled into thinking they see the whole value. Without this one huge
+ * value blows MAX_LOCAL_LOG_CHARS_PER_VAULT long before the entry-count cap, and
+ * the trim's never-empty guard then keeps only that row, wiping the vault's
+ * local history.
+ */
+function boundLocalMetadata(
+  localMetadata: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!localMetadata) return localMetadata;
+
+  let changed = false;
+  const bounded: Record<string, unknown> = { ...localMetadata };
+  for (const [key, value] of Object.entries(localMetadata)) {
+    if (typeof value !== "string" || value.length <= MAX_LOCAL_STRING_CHARS) continue;
+    bounded[key] = value.slice(0, MAX_LOCAL_STRING_CHARS);
+    bounded[`${key}_truncated`] = true;
+    changed = true;
+  }
+  return changed ? bounded : localMetadata;
 }
 
 const _onConnectionEstablished = new Set<(conn: PluginConnection) => void>();
@@ -719,6 +747,31 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         _settingsListeners.get(id)?.forEach((cb) => { try { cb(key, value); } catch {} });
       },
       delete: (key) => storageDelete(id, key),
+    },
+
+    audit: {
+      record(connectionId, action, metadata, localMetadata) {
+        requirePerm(manifest, "audit");
+        if (!PLUGIN_AUDIT_ACTIONS.includes(action)) {
+          throw new Error(`Plugin "${id}" used an unsupported audit action "${action}"`);
+        }
+        if (!whileActive("audit.record")) return;
+
+        const conn = connectionId ? findConnection(connectionId) : undefined;
+        const context = conn ? auditContextForVaultId(conn.vault_id) : { kind: "local" as const, vaultId: "personal" };
+        const targetName = conn
+          ? conn.name?.trim() || `${conn.username}@${conn.host}:${conn.port}`
+          : (connectionId ?? "local");
+
+        reportPluginAuditEvent(context, action, {
+          target_type: "plugin",
+          target_id: connectionId ?? "local",
+          target_name: targetName,
+          // Stamped last so a plugin cannot claim to be another one.
+          metadata: { ...metadata, plugin_id: id },
+          localMetadata: boundLocalMetadata(localMetadata),
+        });
+      },
     },
 
     http: {

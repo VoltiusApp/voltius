@@ -2,6 +2,9 @@ import type { ReactNode } from "react";
 import type { SerialConnectParams } from "@/types";
 import type { AppTheme } from "@/themes/types";
 import type { Locale } from "@/stores/localeStore";
+import type { PluginAuditAction } from "@/services/auditContext";
+
+export type { PluginAuditAction } from "@/services/auditContext";
 
 // ─── Types exposés aux plugins ─────────────────────────────────────────────
 
@@ -423,6 +426,24 @@ export interface PluginAPI {
     get(key: string): Promise<string | null>;
     set(key: string, value: string): Promise<void>;
     delete(key: string): Promise<void>;
+  };
+
+  // Audit — record what this plugin did (requires "audit")
+  audit: {
+    /**
+     * Record an action against the connection it targets. A team-vault
+     * connection additionally posts to that team's server; "local", unknown
+     * and deleted ids fail closed to the on-device sink.
+     *
+     * `localMetadata` never leaves the device. Never pass captured terminal
+     * output to either channel.
+     */
+    record(
+      connectionId: string | null,
+      action: PluginAuditAction,
+      metadata?: Record<string, unknown>,
+      localMetadata?: Record<string, unknown>,
+    ): void;
   };
 
   // Themes (requires "themes")
