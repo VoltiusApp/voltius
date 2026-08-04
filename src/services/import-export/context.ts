@@ -30,6 +30,7 @@ export interface ImportStores {
   saveConnection(data: ConnectionFormData): Promise<Connection>;
   updateConnection(id: string, data: ConnectionFormData): Promise<void>;
   createSnippet(data: SnippetFormData): Promise<Snippet>;
+  updateSnippet(id: string, data: SnippetFormData): Promise<void>;
   createPfRule(data: PortForwardingRuleFormData): Promise<PortForwardingRule>;
 }
 

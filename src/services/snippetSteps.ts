@@ -23,13 +23,17 @@ export function migrateTransferStep(step: unknown): SnippetStep {
   };
 }
 
-export function normalizeSnippetSteps<T extends { steps?: SnippetStep[]; content?: string }>(
+/** Steps carry a local `snippet_id` in the vault and an `_eid` in a bundle, so
+ *  normalization stays generic over the step shape rather than assuming either. */
+type StepsOf<T> = T extends { steps?: (infer S)[] } ? S : never;
+
+export function normalizeSnippetSteps<T extends { steps?: unknown[]; content?: string }>(
   raw: T,
-): T & { steps: SnippetStep[] } {
+): T & { steps: StepsOf<T>[] } {
   if (raw.steps && raw.steps.length > 0) {
-    return { ...raw, steps: (raw.steps as unknown[]).map(migrateTransferStep) };
+    return { ...raw, steps: raw.steps.map(migrateTransferStep) as StepsOf<T>[] };
   }
-  return { ...raw, steps: stepsFromLegacy(raw.content ?? "") };
+  return { ...raw, steps: stepsFromLegacy(raw.content ?? "") as StepsOf<T>[] };
 }
 
 export function snippetScriptText(snippet: Pick<Snippet, "steps">): string {

@@ -34,9 +34,9 @@ export function useImportStores(): ImportStores {
   const { saveKey } = useKeyStore();
   const { saveIdentity } = useIdentityStore();
   const { saveConnection, updateConnection } = useConnectionStore();
-  const { createSnippet } = useSnippetStore();
+  const { createSnippet, updateSnippet } = useSnippetStore();
   const { createRule: createPfRule } = usePortForwardingStore();
-  return { saveFolder, saveSnippetFolder, saveKey, saveIdentity, saveConnection, updateConnection, createSnippet, createPfRule };
+  return { saveFolder, saveSnippetFolder, saveKey, saveIdentity, saveConnection, updateConnection, createSnippet, updateSnippet, createPfRule };
 }
 
 export function useDeleteStores() {
