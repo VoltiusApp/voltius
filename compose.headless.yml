@@ -56,6 +56,15 @@ services:
     networks:
       - voltius-test
 
+  # Debian/glibc/apt shape for catalogue snippet testing. No sshd — it is driven
+  # with `docker exec`, because the scripts under test are shell, not SSH.
+  deb-host:
+    image: debian:bookworm-slim
+    container_name: deb-host
+    command: sleep infinity
+    networks:
+      - voltius-test
+
 networks:
   voltius-test:
     driver: bridge
