@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
 import { appFetch } from "@/services/http";
-import type { ClientAuditAction } from "@/services/auditContext";
+import type { AnyAuditAction } from "@/services/auditContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -101,7 +101,7 @@ export async function exportAuditLogs(
 export async function reportClientEvent(
   teamId: string,
   event: {
-    action: ClientAuditAction;
+    action: AnyAuditAction;
     vault_id?: string;
     target_type?: string;
     target_id?: string;
