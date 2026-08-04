@@ -9,6 +9,8 @@ import { useToolbarResize } from "@/hooks/useToolbarResize";
 import { useRipple } from "@/hooks/useRipple";
 
 interface Props {
+  tab: "mine" | "community";
+  onTabChange: (v: "mine" | "community") => void;
   search: string;
   onSearchChange: (v: string) => void;
   sortMode: SortMode;
@@ -20,6 +22,8 @@ interface Props {
 }
 
 export function SnippetsToolbar({
+  tab,
+  onTabChange,
   search,
   onSearchChange,
   sortMode,
@@ -61,10 +65,18 @@ export function SnippetsToolbar({
         className="flex items-center gap-2 px-5 py-2.5 chrome-toolbar"
       >
         <div ref={leftRef} className="flex items-center gap-1.5">
+          <Pills
+            options={[
+              { value: "mine", label: t("snippets.community.tabMine") },
+              { value: "community", label: t("snippets.community.tabCommunity") },
+            ]}
+            value={tab}
+            onChange={onTabChange}
+          />
           <FilterInput
             value={search}
             onChange={onSearchChange}
-            placeholder={t("snippets.toolbar.filterPlaceholder")}
+            placeholder={t(tab === "community" ? "snippets.community.searchPlaceholder" : "snippets.toolbar.filterPlaceholder")}
             width={176}
             shortcutId="filter"
           />
@@ -76,6 +88,7 @@ export function SnippetsToolbar({
             value={layoutMode}
             onChange={onLayoutModeChange}
           />
+          {tab === "mine" && (
           <ToolbarDropdown
             icon={SORT_MODE_ICONS[sortMode]}
             value={sortMode}
@@ -88,9 +101,11 @@ export function SnippetsToolbar({
             ]}
             onChange={onSortModeChange}
           />
+          )}
         </div>
 
         <div ref={rightRef} className="ml-auto shrink-0">
+        {tab === "mine" && (
         <div className="relative flex items-center gap-px" ref={wrapperRef}>
           <button
             onClick={onNewSnippet}
@@ -140,6 +155,7 @@ export function SnippetsToolbar({
             </div>
           )}
         </div>
+        )}
         </div>
       </div>
     </>

@@ -16,6 +16,7 @@
       "formatJsonDescription": "包含密钥内容的完整数据",
       "encryptBackup": "加密备份",
       "plaintextSecretsWarning": "此导出包含明文形式的密码、密钥或主机备注。除非您明确需要未加密的文件，否则请保持加密开启。",
+      "snippetRefMissing": "“{{name}}” 调用了另一个不在本次导出范围内的片段（{{target}}）。请将其加入选择，或删除该步骤。",
       "confirmPasswordPlaceholder": "确认密码",
       "passwordsDontMatch": "密码不匹配",
       "building": "正在构建…",

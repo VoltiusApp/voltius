@@ -16,6 +16,7 @@
       "formatJsonDescription": "Full data including key content",
       "encryptBackup": "Encrypt backup",
       "plaintextSecretsWarning": "This export contains passwords, keys or host notes in plain text. Keep encryption on unless you deliberately need an unencrypted file.",
+      "snippetRefMissing": "“{{name}}” runs another snippet ({{target}}) that isn’t part of this export. Include it in the selection, or remove that step.",
       "confirmPasswordPlaceholder": "Confirm password",
       "passwordsDontMatch": "Passwords don't match",
       "building": "Building…",

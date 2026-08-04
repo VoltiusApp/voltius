@@ -38,6 +38,8 @@ import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { useEditPanel } from "@/hooks/useEditPanel";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { SnippetsToolbar } from "./SnippetsToolbar";
+import { CommunityBrowser } from "./community/CommunityBrowser";
+import { ShareSnippetModal } from "./community/ShareSnippetModal";
 import { SnippetCard } from "./SnippetCard";
 import { SnippetForm } from "./SnippetForm";
 import { FolderCard } from "@/components/folders/FolderCard";
@@ -326,7 +328,10 @@ export function SnippetsPage() {
   const activeSession = sessions.find((s) => s.id === activeSessionId);
   const activeConn = connections.find((c) => c.id === activeSession?.connectionId);
 
+  const [tab, setTab] = useState<"mine" | "community">("mine");
   const [search, setSearch] = useState("");
+  const [communitySearch, setCommunitySearch] = useState("");
+  const [sharing, setSharing] = useState<{ snippets: Snippet[]; packName?: string } | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("name-asc");
   const [showAllRecent, setShowAllRecent] = useState(false);
 
@@ -844,6 +849,7 @@ export function SnippetsPage() {
       <SnippetCard
         key={s.id}
         snippet={s}
+        onShare={() => setSharing({ snippets: [s] })}
         folders={folders}
         isEditing={ep.isEditing(s)}
         isSelected={selectedIdSet.has(s.id)}
@@ -907,8 +913,10 @@ export function SnippetsPage() {
     >
       {/* ── Toolbar ── */}
       <SnippetsToolbar
-        search={search}
-        onSearchChange={setSearch}
+        tab={tab}
+        onTabChange={setTab}
+        search={tab === "community" ? communitySearch : search}
+        onSearchChange={tab === "community" ? setCommunitySearch : setSearch}
         sortMode={sortMode}
         onSortModeChange={setSortMode}
         layoutMode={layoutMode}
@@ -916,6 +924,13 @@ export function SnippetsPage() {
         onNewSnippet={() => openSnippet("new")}
         onNewFolder={() => void handleCreateFolder()}
       />
+
+      {tab === "community" ? (
+        <div className="flex-1 min-h-0 px-9 pt-5 pb-9 flex flex-col">
+          <CommunityBrowser search={communitySearch} layout={layoutMode} onInstalled={() => setTab("mine")} />
+        </div>
+      ) : (
+      <>
 
       {/* ── Main content ── */}
       <DragSelectSurface
@@ -1054,6 +1069,7 @@ export function SnippetsPage() {
                         onMoveToVault={(vaultId) => void handleMoveFolderToVault(folder, vaultId)}
                         onCopyToVault={(vaultId) => void handleCopyFolderToVault(folder, vaultId)}
                         onExport={() => useUIStore.getState().openImportExport("export", { bulk: { snippets: snippets.filter((s) => s.folder_id === folder.id).map((s) => s.id) } })}
+                        onShare={() => setSharing({ snippets: snippets.filter((s) => s.folder_id === folder.id && !s.deleted_at), packName: folder.name })}
                         bulkContextMenuItems={selectedIdSet.size > 1 ? bulkContextMenuItems : undefined}
                       />
                     ))}
@@ -1142,9 +1158,19 @@ export function SnippetsPage() {
           ]}
         />
       )}
+      </>
+      )}
     </SidePanelLayout>
 
     {/* ── Confirm folder delete ── */}
+    {sharing && (
+      <ShareSnippetModal
+        snippets={sharing.snippets}
+        packName={sharing.packName}
+        onClose={() => setSharing(null)}
+      />
+    )}
+
     {confirmDeleteFolder && (
       <ConfirmModal
         title={t("snippets.page.confirmDeleteFolder.title", { name: confirmDeleteFolder.name })}

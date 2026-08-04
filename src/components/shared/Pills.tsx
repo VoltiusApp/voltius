@@ -65,7 +65,7 @@ export function Pills<T extends string>({
           type="button"
           disabled={opt.disabled}
           onClick={() => !opt.disabled && onChange(opt.value)}
-          className="relative z-10 flex flex-1 items-center justify-center px-2.5 py-1 rounded-md text-xs font-medium transition-colors"
+          className="relative z-10 flex flex-1 items-center justify-center whitespace-nowrap px-2.5 py-1 rounded-md text-xs font-medium transition-colors"
           style={{
             color: value === opt.value
               ? "var(--t-accent)"

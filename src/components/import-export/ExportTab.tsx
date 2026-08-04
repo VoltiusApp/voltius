@@ -12,6 +12,7 @@ import { HANDLERS, buildBundle } from "@/services/import-export/registry";
 import { useStoreSlices } from "./useStores";
 import type { SelectionProps } from "@/services/import-export/context";
 import { hasSelection, isSingleSelection } from "@/services/import-export/context";
+import { SnippetRefError } from "@/services/import-export/snippetRefs";
 import { ActionBtn, Checkbox, VaultChipSelect } from "./shared";
 import { Toggle } from "@/components/shared/Toggle";
 
@@ -44,6 +45,7 @@ export function ExportTab({ selection, preselectedTypes }: {
 
   const [preview, setPreview] = useState("");
   const [building, setBuilding] = useState(false);
+  const [buildError, setBuildError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [bundleCounts, setBundleCounts] = useState<Record<string, number>>({});
   const [showPreview, setShowPreview] = useState(false);
@@ -69,6 +71,7 @@ export function ExportTab({ selection, preselectedTypes }: {
   useEffect(() => {
     let cancelled = false;
     setBuilding(true);
+    setBuildError(null);
     const enabled: Record<string, boolean> = Object.fromEntries(
       HANDLERS.map(h => [h.key, included[h.key] && (!h.jsonOnly || !isCsvOnly)])
     );
@@ -85,7 +88,15 @@ export function ExportTab({ selection, preselectedTypes }: {
       if (hasSecrets && !encryptTouched.current) setEncrypt(true);
       setPreview(isCsvOnly ? connectionsToCSV(bundle.connections) : toJSON(bundle));
       setBuilding(false);
-    }).catch(() => { if (!cancelled) setBuilding(false); });
+    }).catch((e: unknown) => {
+      if (cancelled) return;
+      setBuildError(e instanceof SnippetRefError
+        ? t("importExport.export.snippetRefMissing", { name: e.snippetName, target: e.target })
+        : String((e as Error)?.message ?? e));
+      setPreview("");
+      setBundleCounts({}); // keeps Copy/Download disabled rather than acting on a stale count
+      setBuilding(false);
+    });
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [included, format, exportVaultIds, stores.connections, stores.identities, stores.keys, stores.snippets, stores.pfRules]);
@@ -131,6 +142,13 @@ export function ExportTab({ selection, preselectedTypes }: {
   return (
     <div className="flex flex-col gap-5 h-full">
       <VaultChipSelect selectedIds={exportVaultIds} onChange={setExportVaultIds} />
+
+      {buildError && (
+        <p className="text-xs flex items-start gap-1.5" style={{ color: "var(--t-status-error)" }}>
+          <Icon icon="lucide:circle-alert" width={12} className="mt-0.5 shrink-0" />
+          {buildError}
+        </p>
+      )}
 
       <div className="flex gap-6">
         <div className="flex-1">
