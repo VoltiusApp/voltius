@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-08-04
+
+### Fixed
+
+- Snippets: a snippet's variable prompt was dismissed when the picker navigated
+  away from the Snippets page, so the snippet ran with empty variables or did
+  not run at all.
+
 ## [0.16.0] - 2026-08-04
 
 ### Added
