@@ -17,7 +17,27 @@ permissions:
   contents: write
 
 jobs:
+  # ci runs this same check, but it triggers on the SAME push to main and nothing
+  # makes tagging wait for it. A release cut by pushing straight to main could
+  # therefore tag while the check is still running or already red — and the tag is
+  # immutable, which is the whole problem #92 is about. Gating `tag` on it here is
+  # what actually holds the "fail before the tag exists" property.
+  plugin-versions:
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth: 0 — the check reads the plugin-*-v* release tags.
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - run: node scripts/check-plugin-versions.mjs
+
   tag:
+    needs: plugin-versions
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -70,12 +90,45 @@ jobs:
       tag: ${{ needs.tag.outputs.tag }}
     secrets: inherit
 
+  # The distribution channels below consume ONLY the published GitHub release and
+  # its assets, but used to be `needs: [tag, release]` — so any failure anywhere in
+  # release.yml skipped them. A plugin-manifest guard failing after the release was
+  # already published took Homebrew, winget and the apt/yum repos out for v0.16.0
+  # with no retry and no fallback trigger (issue #92). Gate them on the release
+  # being published instead of on the whole workflow succeeding.
+  #
+  # `release-published` reads publish-release's output, falling back to the release
+  # state on GitHub: a reusable workflow whose overall conclusion is failure is the
+  # exact case that matters here, and it must not be able to leave this gate blank.
+  release-published:
+    needs: [tag, release]
+    if: ${{ !cancelled() && needs.tag.outputs.created == 'true' }}
+    runs-on: ubuntu-latest
+    outputs:
+      ok: ${{ steps.check.outputs.ok }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.tag.outputs.tag }}
+          REPO: ${{ github.repository }}
+          REPORTED: ${{ needs.release.outputs.published }}
+        run: |
+          draft=$(gh release view "$TAG" -R "$REPO" --json isDraft -q .isDraft 2>/dev/null || echo missing)
+          if [ "$REPORTED" = "true" ] || [ "$draft" = "false" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+            echo "Release $TAG is published (publish-release said '$REPORTED', isDraft=$draft)."
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Release $TAG is not published (publish-release said '$REPORTED', isDraft=$draft) — skipping the distribution channels."
+          fi
+
   # Publish Homebrew cask + winget manifest once the release and its assets
   # exist. Called explicitly here rather than via `release: published`, which
   # never fires for a GITHUB_TOKEN-authored release (see publish-installers.yml).
   publish-installers:
-    needs: [tag, release]
-    if: needs.tag.outputs.created == 'true'
+    needs: [tag, release-published]
+    if: ${{ !cancelled() && needs.release-published.outputs.ok == 'true' }}
     uses: ./.github/workflows/publish-installers.yml
     with:
       tag: ${{ needs.tag.outputs.tag }}
@@ -86,7 +139,7 @@ jobs:
   # release never fires that event, so it's called explicitly here. The script
   # rebuilds statelessly from the last 5 releases, so it self-heals.
   publish-repo:
-    needs: [tag, release]
-    if: needs.tag.outputs.created == 'true'
+    needs: [tag, release-published]
+    if: ${{ !cancelled() && needs.release-published.outputs.ok == 'true' }}
     uses: ./.github/workflows/publish-repo.yml
     secrets: inherit

@@ -7,6 +7,10 @@ on:
         description: 'Release tag to build (e.g. v0.1.51)'
         required: true
         type: string
+    outputs:
+      published:
+        description: '"true" once the GitHub release itself is out of draft. Lets a caller run the distribution channels that only consume the published release even when an unrelated job here (e.g. publish-plugins) failed.'
+        value: ${{ jobs.publish-release.outputs.published }}
   workflow_dispatch:
     inputs:
       tag:
@@ -416,8 +420,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      published: ${{ steps.publish.outputs.published }}
     steps:
       - name: Publish the release
+        id: publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit "${{ inputs.tag }}" --draft=false --latest -R "${{ github.repository }}"
+        run: |
+          gh release edit "${{ inputs.tag }}" --draft=false --latest -R "${{ github.repository }}"
+          echo "published=true" >> "$GITHUB_OUTPUT"
