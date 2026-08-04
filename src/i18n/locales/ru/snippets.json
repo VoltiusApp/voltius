@@ -1,5 +1,10 @@
 {
   "snippets": {
+    "community": {
+      "error": {
+        "unsupportedCatalog": "Этот каталог сниппетов имеет формат, который эта версия Voltius не понимает. Попробуйте обновить приложение."
+      }
+    },
     "sequence": {
       "summary": {
         "success_one": "Сниппет выполнен на {{count}} цели",

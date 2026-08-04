@@ -1,5 +1,10 @@
 {
   "snippets": {
+    "community": {
+      "error": {
+        "unsupportedCatalog": "Ce catalogue de snippets est dans un format que cette version de Voltius ne comprend pas. Essayez de mettre à jour l’application."
+      }
+    },
     "sequence": {
       "summary": {
         "success": "Snippet exécuté sur {{count}} cible(s)",

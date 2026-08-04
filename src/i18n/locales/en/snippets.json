@@ -190,6 +190,11 @@
         "hoursAgo": "{{count}}h ago",
         "daysAgo": "{{count}}d ago"
       }
+    },
+    "community": {
+      "error": {
+        "unsupportedCatalog": "This snippet catalogue is in a format this version of Voltius doesn’t understand. Try updating the app."
+      }
     }
   }
 }

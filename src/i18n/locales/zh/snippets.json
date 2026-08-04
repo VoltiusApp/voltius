@@ -1,5 +1,10 @@
 {
   "snippets": {
+    "community": {
+      "error": {
+        "unsupportedCatalog": "此片段目录的格式不受当前版本的 Voltius 支持。请尝试更新应用。"
+      }
+    },
     "sequence": {
       "summary": {
         "success": "代码片段已在 {{count}} 个目标上运行",
