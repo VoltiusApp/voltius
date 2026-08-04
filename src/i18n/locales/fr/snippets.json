@@ -17,7 +17,8 @@
         "needsTerminal": "Une étape de script nécessite une session terminal ouverte pour cette cible",
         "noSftp": "Aucune connexion SFTP pour l'étape de transfert",
         "destExists": "La destination existe déjà : {{path}}"
-      }
+      },
+      "resumeFailed": "Échec du snippet : {{error}}"
     },
     "toolbar": {
       "filterPlaceholder": "Filtrer les snippets...",

@@ -156,6 +156,13 @@
       "hostsSelected_other": "Выбрано {{count}} хостов",
       "insert": "Вставить",
       "execute": "Выполнить"
+    },
+    "hostCommand": {
+      "labelPre": "{{host}} — предварительная команда",
+      "labelPost": "{{host}} — завершающая команда",
+      "failed": "Не удалось выполнить команду для {{host}}: {{error}}",
+      "missingSnippet": "Сниппет команды не найден для {{host}}",
+      "postPromptTimedOut": "Завершающая команда для {{host}} была пропущена: нет ответа в течение 60 с"
     }
   }
 }

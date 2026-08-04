@@ -104,6 +104,7 @@ function VarInput({ variable, value, onChange }: VarInputProps) {
 
 interface Props {
   snippetName: string;
+  contextLabel?: string;
   /** Template with dynamic vars already resolved. User vars still as {{…}}. */
   partialTemplate: string;
   /** Only user-facing vars (not dynamic). */
@@ -118,6 +119,7 @@ interface Props {
 
 export function SnippetVariableModal({
   snippetName,
+  contextLabel,
   partialTemplate,
   userVars,
   initialValues,
@@ -166,9 +168,14 @@ export function SnippetVariableModal({
         >
           <div className="flex items-center gap-2">
             <Icon icon="lucide:braces" width={14} style={{ color: "var(--t-accent)" }} />
-            <h2 className="text-sm font-semibold" style={{ color: "var(--t-text-primary)" }}>
-              {snippetName}
-            </h2>
+            <div>
+              <h2 className="text-sm font-semibold" style={{ color: "var(--t-text-primary)" }}>
+                {snippetName}
+              </h2>
+              {contextLabel && (
+                <p className="text-[11px] text-(--t-text-dim)">{contextLabel}</p>
+              )}
+            </div>
           </div>
           <button
             onClick={onClose}

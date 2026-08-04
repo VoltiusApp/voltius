@@ -140,6 +140,12 @@ pub struct Connection {
     #[serde(default)]
     pub post_command: Option<String>,
     #[serde(default)]
+    pub pre_snippet_id: Option<String>,
+    #[serde(default)]
+    pub post_snippet_id: Option<String>,
+    #[serde(default)]
+    pub ask_vars_each_time: bool,
+    #[serde(default)]
     pub terminal_encoding: Option<String>,
     #[serde(default)]
     pub pinned: bool,
@@ -215,6 +221,12 @@ pub struct ConnectionFormData {
     pub pre_command: Option<String>,
     #[serde(default)]
     pub post_command: Option<String>,
+    #[serde(default)]
+    pub pre_snippet_id: Option<String>,
+    #[serde(default)]
+    pub post_snippet_id: Option<String>,
+    #[serde(default)]
+    pub ask_vars_each_time: bool,
     #[serde(default)]
     pub terminal_encoding: Option<String>,
     #[serde(default)]
@@ -798,6 +810,9 @@ mod tests {
             legacy_algorithms: false,
             pre_command: Some("echo hi".into()),
             post_command: Some("echo bye".into()),
+            pre_snippet_id: None,
+            post_snippet_id: None,
+            ask_vars_each_time: false,
             terminal_encoding: Some("utf-8".into()),
             pinned: true,
             ping_disabled: false,

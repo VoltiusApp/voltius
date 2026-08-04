@@ -420,7 +420,7 @@ export default function OmniSearch({ onClose }: OmniSearchProps) {
           runSnippetSequence(
             item.snippet,
             [{ kind: "session", sessionId: activeSession.id, sessionType: activeSession.type }],
-            useSnippetStore.getState().setGlobalPendingSequence,
+            useSnippetStore.getState().enqueuePendingSequence,
           ).then((r) => {
             if (r !== "prompting") reportSequenceResult(r);
           }).catch((e) => console.error(e));

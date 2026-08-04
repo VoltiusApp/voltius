@@ -26,7 +26,15 @@
       "hostsChaining": "Chaînage d'hôtes",
       "environmentVariables": "Variables d'environnement",
       "preCommandPlaceholder": "Commande préalable",
-      "postCommandPlaceholder": "Commande finale"
+      "postCommandPlaceholder": "Commande finale",
+      "hostCommand": {
+        "useSnippet": "Utiliser un snippet",
+        "useInline": "Utiliser une commande en ligne",
+        "missingSnippet": "Snippet introuvable",
+        "askEachTime": "Demander les variables à chaque fois",
+        "pickerTitle": "Choisir un snippet",
+        "searchPlaceholder": "Rechercher un snippet…"
+      }
     },
     "form": {
       "titleEdit": "Modifier l'hôte",

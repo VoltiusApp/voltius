@@ -6,6 +6,7 @@ import SplashScreen from "@/components/layout/SplashScreen";
 import SettingsModal from "@/components/settings/SettingsModal";
 import { ImportExportModal } from "@/components/import-export/ImportExportModal";
 import { SnippetVariableModal } from "@/components/terminal/SnippetVariableModal";
+import { PendingSequenceModal } from "@/components/terminal/PendingSequenceModal";
 import { useKeyboard } from "@/hooks/useKeyboard";
 import { useInputUndo } from "@/hooks/useInputUndo";
 import { useSessionExpiration } from "@/hooks/useSessionExpiration";
@@ -20,7 +21,6 @@ import { useSnippetStore } from "@/stores/snippetStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { broadcastSnippetInject } from "@/services/snippets";
 import { isRunnableSession } from "@/services/snippetRun";
-import { reportSequenceResult } from "@/services/snippetSequence";
 import { initUpdaterListener } from "@/services/updater";
 import { useUpdaterPrefStore } from "@/stores/updaterPrefStore";
 import { restoreWorkspaceOnLaunch } from "@/stores/workspaceRestore";
@@ -58,8 +58,6 @@ function App() {
   const platform = usePlatform();
   const globalPendingInject = useSnippetStore((s) => s.globalPendingInject);
   const setGlobalPendingInject = useSnippetStore((s) => s.setGlobalPendingInject);
-  const globalPendingSequence = useSnippetStore((s) => s.globalPendingSequence);
-  const setGlobalPendingSequence = useSnippetStore((s) => s.setGlobalPendingSequence);
 
   if (!ready) {
     return <SplashScreen onReady={() => setReady(true)} />;
@@ -105,21 +103,7 @@ function App() {
       )}
 
       {/* Global snippet sequence variable modal */}
-      {globalPendingSequence && (
-        <SnippetVariableModal
-          snippetName={globalPendingSequence.snippet.name}
-          partialTemplate={globalPendingSequence.partialTemplate}
-          userVars={globalPendingSequence.userVars}
-          initialValues={globalPendingSequence.initialValues}
-          onInject={() => {}}
-          onSubmitValues={(values) => {
-            const resume = globalPendingSequence.resume;
-            setGlobalPendingSequence(null);
-            resume(values).then(reportSequenceResult);
-          }}
-          onClose={() => setGlobalPendingSequence(null)}
-        />
-      )}
+      <PendingSequenceModal />
     </div>
   );
 }

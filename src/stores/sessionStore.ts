@@ -37,6 +37,8 @@ import { useTerminalCwdStore } from "./terminalCwdStore";
 import { usePanelSftpStore } from "./panelSftpStore";
 import { formatLocalShellTitle } from "@/utils/localShellTitle";
 import { cancelBackoff } from "./reconnectBackoffCore";
+import { inlineCommandForBackend, resolveHostCommand } from "@/services/hostCommand";
+import { runHostCommand } from "@/services/hostCommandRun";
 
 interface SessionStore {
   sessions: TerminalSession[];
@@ -128,7 +130,7 @@ async function buildSshConnectOptions(
     envVars: envVars.length > 0 ? envVars : undefined,
     agentForwarding: connection.agent_forwarding ?? false,
     legacyAlgorithms: connection.legacy_algorithms ?? false,
-    preCommand: connection.pre_command ?? undefined,
+    preCommand: inlineCommandForBackend(connection, "pre"),
     autoForward: getToggle("auto-forward"),
     shellIntegration: resolveDisableOverride(connection.shell_integration_disabled, getToggle("shell-integration")),
     keepaliveIntervalSecs: intervalSecs,
@@ -255,6 +257,7 @@ async function connectSshSession(
 
     useConnectionStore.getState().setLastUsed(connection.id).catch(() => {});
     reportConnectionAudit(connection, "connection.started");
+    void runHostCommand(connection, "pre", sessionId, "ssh");
 
     if (!connection.distro) {
       sshDetectDistro(sessionId)
@@ -325,6 +328,7 @@ async function connectSerialSession(
       ),
     }));
     useConnectionStore.getState().setLastUsed(connection.id).catch(() => {});
+    void runHostCommand(connection, "pre", sessionId, "serial");
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     set((s) => ({
@@ -731,10 +735,20 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   disconnect: async (sessionId) => {
     cancelBackoff(sessionId);
     const session = get().sessions.find((s) => s.id === sessionId);
+    // Awaited below, after the session row is removed: the tab closes immediately
+    // but disconnect() still resolves only once the port is genuinely released.
+    let serialTeardown: Promise<void> | null = null;
     if (session?.type === "local") {
       await localDisconnect(sessionId);
     } else if (session?.type === "serial") {
-      await serialDisconnect(sessionId).catch(() => {});
+      const conn = session.connectionId ? findConnection(session.connectionId) : undefined;
+      serialTeardown = (async () => {
+        try {
+          if (conn) await runHostCommand(conn, "post", sessionId, "serial");
+        } finally {
+          await serialDisconnect(sessionId).catch(() => {});
+        }
+      })();
     } else {
       const connection = session?.connectionId ? findConnection(session.connectionId) : undefined;
       const persist = !!session?.persist;
@@ -746,15 +760,27 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       // confirmed kill publishes the tombstone.
       void (async () => {
         let killed = false;
+        const postCmd = connection ? resolveHostCommand(connection, "post") : null;
         try {
-          let kill = true;
-          if (persist) {
-            const { otherDeviceListsSession } = await import("./crossDeviceSessionsStore");
-            kill = !otherDeviceListsSession(sessionId);
+          if (connection && postCmd?.kind === "snippet") {
+            await runHostCommand(connection, "post", sessionId, session?.type ?? "ssh");
           }
-          killed = await sshDisconnect(sessionId, connection?.post_command, kill, wasAttached);
-        } catch {
-          // best effort; an unreachable host means nothing was killed
+        } finally {
+          try {
+            let kill = true;
+            if (persist) {
+              const { otherDeviceListsSession } = await import("./crossDeviceSessionsStore");
+              kill = !otherDeviceListsSession(sessionId);
+            }
+            killed = await sshDisconnect(
+              sessionId,
+              postCmd?.kind === "inline" ? postCmd.text : undefined,
+              kill,
+              wasAttached,
+            );
+          } catch {
+            // best effort; an unreachable host means nothing was killed
+          }
         }
         if (persist && killed) {
           const [{ useCrossDeviceSessionsStore }, { publishLiveSessionsNow }] = await Promise.all([
@@ -779,6 +805,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     useLayoutStore.getState().removeSession(sessionId);
     useTerminalCwdStore.getState().clear(sessionId);
     usePanelSftpStore.getState().closeSession(sessionId);
+    if (serialTeardown) await serialTeardown;
   },
 
   setActive: (sessionId) => set({ activeSessionId: sessionId }),
@@ -905,6 +932,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         ),
       }));
       reportConnectionAudit(connection, "connection.started");
+      void runHostCommand(connection, "pre", sessionId, "ssh");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("SESSION_ENDED")) {
@@ -927,6 +955,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       if (session.type === "serial") {
         if (!session.serialConfig) return { ok: false, errorMessage: i18n.t("common.error.serialPortConfigNotFound") };
         await serialConnect(session.serialConfig);
+        const conn = findConnection(session.connectionId);
+        if (conn) void runHostCommand(conn, "pre", sessionId, "serial");
         return { ok: true };
       }
       if (session.type !== "ssh") return { ok: false };
@@ -952,6 +982,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           ...opts,
         });
       });
+      void runHostCommand(connection, "pre", sessionId, "ssh");
       return { ok: true };
     } catch (err) {
       return { ok: false, errorMessage: err instanceof Error ? err.message : String(err) };
@@ -1009,6 +1040,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         ),
       }));
       reportConnectionAudit(connection, "connection.started");
+      void runHostCommand(connection, "pre", sessionId, "ssh");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       set((s) => ({
@@ -1105,6 +1137,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       }));
       useConnectionStore.getState().setLastUsed(conn.id).catch(() => {});
       reportConnectionAudit(conn, "connection.started");
+      void runHostCommand(conn, "pre", sessionId, "ssh");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       set((s) => ({

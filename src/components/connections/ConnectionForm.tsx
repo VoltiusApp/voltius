@@ -13,6 +13,8 @@ import {
 } from "@/hooks/useEffectivePinned";
 import JumpHostsPanel from "./JumpHostsPanel";
 import EnvVarsPanel from "./EnvVarsPanel";
+import { HostCommandField } from "./HostCommandField";
+import { clearRememberedVars } from "@/stores/hostCommandVarsStore";
 import { useUIStore } from "@/stores/uiStore";
 import { getSecret } from "@/services/vault";
 import { sshExecCommand } from "@/services/ssh";
@@ -106,6 +108,9 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [globalPersist] = useToggle("persistent-sessions");
   const [preCommand, setPreCommand] = useState(initial?.pre_command ?? "");
   const [postCommand, setPostCommand] = useState(initial?.post_command ?? "");
+  const [preSnippetId, setPreSnippetId] = useState(initial?.pre_snippet_id);
+  const [postSnippetId, setPostSnippetId] = useState(initial?.post_snippet_id);
+  const [askVarsEachTime, setAskVarsEachTime] = useState(initial?.ask_vars_each_time ?? false);
   const [terminalEncoding, setTerminalEncoding] = useState(initial?.terminal_encoding ?? "");
   const [keepalivePreset, setKeepalivePreset] = useState<KeepalivePreset | "">(initial?.keepalive_preset ?? "");
   const [persistSession, setPersistSession] = useState<"" | "on" | "off">(
@@ -117,7 +122,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [showDistroPicker, setShowDistroPicker] = useState(false);
   const [detectingDistro, setDetectingDistro] = useState(false);
   const [distroError, setDistroError] = useState("");
-  const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.terminal_encoding || initial?.agent_forwarding || initial?.legacy_algorithms || initial?.ping_disabled || initial?.shell_integration_disabled !== undefined || initial?.keepalive_preset);
+  const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.pre_snippet_id || initial?.post_snippet_id || initial?.terminal_encoding || initial?.agent_forwarding || initial?.legacy_algorithms || initial?.ping_disabled || initial?.shell_integration_disabled !== undefined || initial?.keepalive_preset);
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
   const defaultVaultId = useDefaultVaultId();
   const [vaultId, setVaultId] = useState<string>(() => initial?.vault_id ?? defaultVaultId);
@@ -248,6 +253,9 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         legacy_algorithms: legacyAlgorithms,
         pre_command: preCommand.trim() || undefined,
         post_command: postCommand.trim() || undefined,
+        pre_snippet_id: preSnippetId,
+        post_snippet_id: postSnippetId,
+        ask_vars_each_time: askVarsEachTime,
         terminal_encoding: terminalEncoding || undefined,
         distro: distro || undefined,
         icon: icon || undefined,
@@ -271,7 +279,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, host, port, username, protocol, ftpSecure, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, legacyAlgorithms, preCommand, postCommand, terminalEncoding, distro, icon, pingDisabled, shellIntegrationDisabled, keepalivePreset, persistSession, notes]);
+  useEffect(() => schedule(), [name, host, port, username, protocol, ftpSecure, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, legacyAlgorithms, preCommand, postCommand, preSnippetId, postSnippetId, askVarsEachTime, terminalEncoding, distro, icon, pingDisabled, shellIntegrationDisabled, keepalivePreset, persistSession, notes]);
 
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
@@ -523,7 +531,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
               className="flex items-center gap-1.5 text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors w-full pt-1"
             >
               <span>{t("connections.common.advanced")}</span>
-              {!showAdvanced && (jumpHosts.length > 0 || envVars.length > 0 || preCommand || postCommand || terminalEncoding || agentForwarding || legacyAlgorithms || pingDisabled || shellIntegrationDisabled !== undefined || keepalivePreset) && (
+              {!showAdvanced && (jumpHosts.length > 0 || envVars.length > 0 || preCommand || postCommand || preSnippetId || postSnippetId || terminalEncoding || agentForwarding || legacyAlgorithms || pingDisabled || shellIntegrationDisabled !== undefined || keepalivePreset) && (
                 <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-(--t-accent)" />
               )}
               <Icon icon={showAdvanced ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} className="ml-auto" />
@@ -562,26 +570,34 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                   )}
                   <Icon icon="lucide:chevron-right" width={12} className="ml-auto" />
                 </button>
-                <div className="relative">
-                  <Icon icon="lucide:play" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-(--t-text-dim) pointer-events-none" />
-                  <input
-                    className={`${formInputClass} text-xs pl-7`}
-                    style={formInputStyle}
-                    value={preCommand}
-                    onChange={(e) => { markDirty(); setPreCommand(e.target.value); }}
-                    placeholder={t("connections.common.preCommandPlaceholder")}
-                  />
-                </div>
-                <div className="relative">
-                  <Icon icon="lucide:square" width={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-(--t-text-dim) pointer-events-none" />
-                  <input
-                    className={`${formInputClass} text-xs pl-7`}
-                    style={formInputStyle}
-                    value={postCommand}
-                    onChange={(e) => { markDirty(); setPostCommand(e.target.value); }}
-                    placeholder={t("connections.common.postCommandPlaceholder")}
-                  />
-                </div>
+                <HostCommandField
+                  slot="pre"
+                  text={preCommand}
+                  snippetId={preSnippetId}
+                  onChangeText={(v) => { markDirty(); setPreCommand(v); }}
+                  onChangeSnippetId={(v) => { markDirty(); setPreSnippetId(v); }}
+                />
+                <HostCommandField
+                  slot="post"
+                  text={postCommand}
+                  snippetId={postSnippetId}
+                  onChangeText={(v) => { markDirty(); setPostCommand(v); }}
+                  onChangeSnippetId={(v) => { markDirty(); setPostSnippetId(v); }}
+                />
+                {(preSnippetId || postSnippetId) && (
+                  <label className="flex items-center gap-2 text-xs text-(--t-text-dim)">
+                    <input
+                      type="checkbox"
+                      checked={askVarsEachTime}
+                      onChange={(e) => {
+                        markDirty();
+                        setAskVarsEachTime(e.target.checked);
+                        if (e.target.checked && initial?.id) clearRememberedVars(initial.id);
+                      }}
+                    />
+                    {t("connections.common.hostCommand.askEachTime")}
+                  </label>
+                )}
                 <EncodingSelector
                   value={terminalEncoding}
                   onChange={(v) => { markDirty(); setTerminalEncoding(v); }}

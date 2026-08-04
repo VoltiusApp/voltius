@@ -4,9 +4,19 @@ import { resolveKeepalive } from "@/utils/keepalive";
 import { getGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
 import { genId } from "@/components/filetransfer/SFTPTypes";
 import type { Connection } from "@/types";
+import type { DynamicContext } from "@/services/snippetParser";
 
 export type RunTarget =
-  | { kind: "session"; sessionId: string; sessionType: string }
+  | {
+      kind: "session";
+      sessionId: string;
+      sessionType: string;
+      /** Pre-captured `{{connection.*}}` values, for callers whose session row may
+       *  be gone by the time the sequence resolves them (e.g. post-commands). */
+      context?: Omit<DynamicContext, "clipboard">;
+      /** Pre-captured display label, for the same reason. */
+      label?: string;
+    }
   | { kind: "connection"; connection: Connection };
 
 export async function resolveSftpIdForTarget(target: RunTarget): Promise<string> {

@@ -406,7 +406,7 @@ export function SnippetsPanel() {
       runSnippetSequence(
         snippet,
         [{ kind: "session", sessionId: activeSession.id, sessionType: activeSession.type }],
-        useSnippetStore.getState().setGlobalPendingSequence,
+        useSnippetStore.getState().enqueuePendingSequence,
       ).then((r) => {
         if (r !== "prompting") reportSequenceResult(r);
       }).catch((e) => console.error(e));
