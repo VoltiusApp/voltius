@@ -33,7 +33,7 @@ import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { usePageClipboard } from "@/hooks/usePageClipboard";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
-import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
+import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import { FolderCard } from "@/components/folders/FolderCard";
 
@@ -330,8 +330,28 @@ export default function HostsPage() {
       connections.find((c) => c.id === id)?.folder_id
       ?? scopedFolders.find((f) => f.id === id)?.parent_folder_id
       ?? null,
-    folderContentKinds: (folderId) =>
-      getConnectionsInFolderTree(folderId).length > 0 ? ["connection"] : [],
+    folderContentKinds: (folderId) => {
+      const nested = getConnectionsInFolderTree(folderId);
+      if (nested.length === 0) return [];
+      const kinds: VaultClipboardKind[] = ["connection"];
+      const destination = vaultForFolder(activeFolderId);
+      if (destination === null) return kinds;
+      // A migrated connection keeps pointing at its identity and key, which this
+      // path does not move — only the vault move/copy menu cascades those, behind
+      // VaultCascadeModal. Reporting them makes the pre-flight refuse the paste
+      // rather than complete it with references dangling outside the destination.
+      const linkedIdentities = nested
+        .map((c) => c.identity_id && identities.find((i) => i.id === c.identity_id))
+        .filter((i) => !!i);
+      if (linkedIdentities.some((i) => (i.vault_id ?? "personal") !== destination)) {
+        kinds.push("identity");
+      }
+      const linkedKeys = [...nested.map((c) => c.key_id), ...linkedIdentities.map((i) => i.key_id)]
+        .map((keyId) => keyId && keys.find((k) => k.id === keyId))
+        .filter((k) => !!k);
+      if (linkedKeys.some((k) => (k.vault_id ?? "personal") !== destination)) kinds.push("key");
+      return kinds;
+    },
     canMoveFolder: (id, parentFolderId) =>
       parentFolderId !== id
       && !(parentFolderId !== null && getAllSubFolders(id).some((f) => f.id === parentFolderId)),
@@ -339,31 +359,29 @@ export default function HostsPage() {
     // A same-vault move only rewrites folder_id; a cross-vault one has to go through
     // updateConnection so the object actually changes vault, otherwise it would keep
     // a stale vault_id alongside its new folder's.
-    moveItems: async (ids, folderId) => {
-      const targetVault = vaultForFolder(folderId);
+    moveItems: async (ids, folderId, vaultId) => {
       const sameVault: string[] = [];
       for (const id of ids) {
         const conn = connections.find((c) => c.id === id);
         if (!conn) continue;
-        if (targetVault === null || (conn.vault_id ?? "personal") === targetVault) {
+        if (vaultId === null || (conn.vault_id ?? "personal") === vaultId) {
           sameVault.push(id);
           continue;
         }
         await updateConnection(id, {
           ...connectionToFormData(conn),
           folder_id: folderId ?? undefined,
-          vault_id: targetVault,
+          vault_id: vaultId,
         });
-        await publishConnectionSecrets(id, targetVault);
+        await publishConnectionSecrets(id, vaultId);
       }
       if (sameVault.length > 0) await moveObjectsToFolder(sameVault, "connection", folderId);
     },
-    moveFolder: async (id, parentFolderId) => {
+    moveFolder: async (id, parentFolderId, vaultId) => {
       const folder = scopedFolders.find((f) => f.id === id);
       if (!folder) return;
-      const targetVault = vaultForFolder(parentFolderId);
-      if (targetVault !== null && (folder.vault_id ?? "personal") !== targetVault) {
-        await migrateFolderTreeToVault(folder, parentFolderId, targetVault);
+      if (vaultId !== null && (folder.vault_id ?? "personal") !== vaultId) {
+        await migrateFolderTreeToVault(folder, parentFolderId, vaultId);
         return;
       }
       await moveFolder(id, parentFolderId);

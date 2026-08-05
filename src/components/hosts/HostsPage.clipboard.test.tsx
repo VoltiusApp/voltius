@@ -12,6 +12,8 @@ function conn(id: string, over: Partial<Connection> = {}): Connection {
 const h = vi.hoisted(() => ({
   connections: [] as unknown[],
   folders: [] as unknown[],
+  identities: [] as unknown[],
+  keys: [] as unknown[],
   selected: [] as string[],
   activeFolderId: null as string | null,
   saveConnection: vi.fn(),
@@ -147,8 +149,12 @@ vi.mock("@/stores/folderStore", () => ({
     moveFolder: h.moveFolder,
   }),
 }));
-vi.mock("@/stores/identityStore", () => ({ useIdentityStore: selectorStore({ identities: [] }) }));
-vi.mock("@/stores/keyStore", () => ({ useKeyStore: selectorStore({ keys: [], updateKey: vi.fn() }) }));
+vi.mock("@/stores/identityStore", () => ({
+  useIdentityStore: selectorStore({ get identities() { return h.identities; } }),
+}));
+vi.mock("@/stores/keyStore", () => ({
+  useKeyStore: selectorStore({ get keys() { return h.keys; }, updateKey: vi.fn() }),
+}));
 vi.mock("@/stores/sessionStore", () => ({
   useSessionStore: selectorStore({
     connect: vi.fn(), connectMany: vi.fn(), connectLocal: vi.fn(), connectSerialEphemeral: vi.fn(), sessions: [],
@@ -185,6 +191,7 @@ vi.mock("@/services/hostForm", () => ({ saveHostFromForm: vi.fn() }));
 
 import HostsPage from "./HostsPage";
 import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
+import { useHistoryStore } from "@/stores/historyStore";
 
 const dispatch = async (name: string) => {
   await act(async () => {
@@ -199,11 +206,14 @@ beforeEach(() => {
   h.saveFolder.mockImplementation(async (d: { name: string }) => folder("new-folder", d as Partial<Folder>));
   h.connections = [];
   h.folders = [];
+  h.identities = [];
+  h.keys = [];
   h.selected = [];
   h.activeFolderId = null;
   h.can.mockReturnValue(true);
   h.getSecret.mockResolvedValue(null);
   useVaultClipboardStore.getState().clear();
+  useHistoryStore.setState({ past: [], future: [], bypassing: false, suppressing: false, canUndo: false, canRedo: false });
 });
 afterEach(cleanup);
 
@@ -406,4 +416,81 @@ test("cloning a folder suffixes the root only, not the hosts inside it", async (
 
   expect(h.saveFolder).toHaveBeenCalledWith(expect.objectContaining({ name: "Prod (copy)" }));
   expect(h.saveConnection).toHaveBeenCalledWith(expect.objectContaining({ name: "web-1" }));
+});
+
+test("undoing a cross-vault cut that started at the root restores the original vault", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.connections = [conn("c1", { vault_id: "personal" })];
+  h.selected = ["c1"];
+  h.activeFolderId = "tf";
+  const { rerender } = render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+  expect(h.updateConnection).toHaveBeenCalledWith(
+    "c1",
+    expect.objectContaining({ vault_id: "team-1", folder_id: "tf" }),
+  );
+
+  // The store now holds the migrated object; re-render so the page sees it, as it
+  // would after the real store update.
+  h.connections = [conn("c1", { vault_id: "team-1", folder_id: "tf" })];
+  rerender(<HostsPage />);
+  h.updateConnection.mockClear();
+
+  await act(async () => { await useHistoryStore.getState().undo(); });
+
+  expect(h.updateConnection).toHaveBeenCalledWith(
+    "c1",
+    expect.objectContaining({ vault_id: "personal", folder_id: undefined }),
+  );
+});
+
+test("a folder cut is blocked when a nested connection references an identity outside the destination vault", async () => {
+  h.folders = [folder("f1"), folder("tf", { vault_id: "team-1" })];
+  h.connections = [conn("c1", { folder_id: "f1", identity_id: "i1" })];
+  h.identities = [{ id: "i1", name: "root", username: "root", vault_id: "personal" }];
+  h.selected = ["f1"];
+  h.activeFolderId = "tf";
+  // Full rights over folders and connections in the destination; only the identity
+  // the subtree depends on is out of reach there.
+  h.can.mockImplementation((p: string, v: string) => !(p === "EDIT_IDENTITIES" && v === "team-1"));
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.moveFolder).not.toHaveBeenCalled();
+  expect(h.updateFolder).not.toHaveBeenCalled();
+  expect(h.updateConnection).not.toHaveBeenCalled();
+});
+
+test("a folder cut is blocked when a nested connection references a key outside the destination vault", async () => {
+  h.folders = [folder("f1"), folder("tf", { vault_id: "team-1" })];
+  h.connections = [conn("c1", { folder_id: "f1", key_id: "k1" })];
+  h.keys = [{ id: "k1", name: "id_ed25519", vault_id: "personal" }];
+  h.selected = ["f1"];
+  h.activeFolderId = "tf";
+  h.can.mockImplementation((p: string, v: string) => !(p === "EDIT_KEYS" && v === "team-1"));
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.updateFolder).not.toHaveBeenCalled();
+});
+
+test("a folder cut whose references already live in the destination vault is not blocked", async () => {
+  h.folders = [folder("f1"), folder("tf", { vault_id: "team-1" })];
+  h.connections = [conn("c1", { folder_id: "f1", identity_id: "i1" })];
+  h.identities = [{ id: "i1", name: "root", username: "root", vault_id: "team-1" }];
+  h.selected = ["f1"];
+  h.activeFolderId = "tf";
+  h.can.mockImplementation((p: string, v: string) => !(p === "EDIT_IDENTITIES" && v === "team-1"));
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.updateFolder).toHaveBeenCalled();
 });

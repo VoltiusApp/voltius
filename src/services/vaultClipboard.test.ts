@@ -32,7 +32,7 @@ const cut: VaultClipboard = {
 test("cut paste moves items into the target folder", async () => {
   const a = adapter();
   const r = await pasteFromClipboard(cut, a);
-  expect(a.moveItems).toHaveBeenCalledWith(["c1"], "dest");
+  expect(a.moveItems).toHaveBeenCalledWith(["c1"], "dest", "personal");
   expect(r).toMatchObject({ moved: 1, created: 0, skipped: 0 });
 });
 
@@ -50,7 +50,7 @@ test("stale ids are skipped, the rest still land", async () => {
     { ...cut, items: [{ id: "c1", kind: "connection" }, { id: "gone", kind: "connection" }] },
     a,
   );
-  expect(a.moveItems).toHaveBeenCalledWith(["c1"], "dest");
+  expect(a.moveItems).toHaveBeenCalledWith(["c1"], "dest", "personal");
   expect(r.skipped).toBe(1);
 });
 
@@ -155,8 +155,8 @@ test("undoing a cut paste returns every item to its original folder", async () =
     a,
   );
   await useHistoryStore.getState().undo();
-  expect(a.moveItems).toHaveBeenCalledWith(["c1"], "f1");
-  expect(a.moveItems).toHaveBeenCalledWith(["c2"], null);
+  expect(a.moveItems).toHaveBeenCalledWith(["c1"], "f1", "personal");
+  expect(a.moveItems).toHaveBeenCalledWith(["c2"], null, "personal");
 });
 
 test("undoing a copy paste deletes exactly what it created", async () => {
@@ -169,6 +169,38 @@ test("undoing a copy paste deletes exactly what it created", async () => {
   await useHistoryStore.getState().undo();
   expect(a.deleteItems).toHaveBeenCalledWith(["c1-copy"]);
   expect(a.deleteFolder).toHaveBeenCalledWith("f1-copy");
+});
+
+test("undoing a cross-vault cut restores the vault each item came from", async () => {
+  useHistoryStore.setState({ past: [], future: [], canUndo: false, canRedo: false });
+  // Origin is the vault root, so no origin folder carries the original vault.
+  const a = adapter({ targetVaultId: () => "team-1", vaultIdOf: () => "personal" });
+  await pasteFromClipboard(cut, a);
+  expect(a.moveItems).toHaveBeenCalledWith(["c1"], "dest", "team-1");
+
+  await useHistoryStore.getState().undo();
+  expect(a.moveItems).toHaveBeenCalledWith(["c1"], null, "personal");
+});
+
+test("undoing a folder cut restores its parent and its vault", async () => {
+  useHistoryStore.setState({ past: [], future: [], canUndo: false, canRedo: false });
+  const a = adapter({
+    targetVaultId: () => "team-1",
+    vaultIdOf: () => "personal",
+    folderIdOf: () => "parent",
+  });
+  await pasteFromClipboard(
+    { tab: "hosts", mode: "cut", items: [], folderIds: ["f1"], sourceVaultIds: ["personal"] },
+    a,
+  );
+  await useHistoryStore.getState().undo();
+  expect(a.moveFolder).toHaveBeenCalledWith("f1", "parent", "personal");
+});
+
+test("a paste at the root passes a null vault so nothing migrates", async () => {
+  const a = adapter({ targetVaultId: () => null, folderIdOf: () => "old" });
+  await pasteFromClipboard(cut, a);
+  expect(a.moveItems).toHaveBeenCalledWith(["c1"], "dest", null);
 });
 
 test("a no-op paste pushes no history entry", async () => {

@@ -28,8 +28,14 @@ export interface ClipboardAdapter {
    * refused folder is not counted as moved.
    */
   canMoveFolder: (id: string, parentFolderId: string | null) => boolean;
-  moveItems: (ids: string[], folderId: string | null) => Promise<void>;
-  moveFolder: (id: string, parentFolderId: string | null) => Promise<void>;
+  /**
+   * `vaultId` is the vault the objects must end up in, or null to leave each one in
+   * the vault it already has. It is passed explicitly rather than derived from
+   * `folderId` so an undo can restore an object that came from a vault root, where
+   * there is no folder to read the original vault back from.
+   */
+  moveItems: (ids: string[], folderId: string | null, vaultId: string | null) => Promise<void>;
+  moveFolder: (id: string, parentFolderId: string | null, vaultId: string | null) => Promise<void>;
   /** Returns the ids of the created duplicates, in the same order. */
   duplicateItems: (ids: string[], folderId: string | null) => Promise<string[]>;
   duplicateFolder: (id: string, parentFolderId: string | null) => Promise<string>;
@@ -123,15 +129,21 @@ export async function pasteFromClipboard(
     const folderIds = liveFolders.filter(
       (id) => adapter.folderIdOf(id) !== target && adapter.canMoveFolder(id, target),
     );
-    const origins = new Map<string, string | null>();
-    for (const id of [...itemIds, ...folderIds]) origins.set(id, adapter.folderIdOf(id));
+    const targetVault = adapter.targetVaultId();
+    // The origin vault is recorded alongside the origin folder: an object cut from
+    // a vault root has no origin folder to read its vault back from at undo time.
+    const origins = new Map<string, { folderId: string | null; vaultId: string }>();
+    for (const id of [...itemIds, ...folderIds]) {
+      origins.set(id, { folderId: adapter.folderIdOf(id), vaultId: adapter.vaultIdOf(id) });
+    }
+    const originOf = (id: string) => origins.get(id) ?? { folderId: null, vaultId: null };
 
     // Suppressed: each store method records its own entry, and undoing those
     // stale entries after the composite undo has already run throws on team
     // vaults, which wedges the history stack.
     await useHistoryStore.getState().withoutHistory(async () => {
-      if (itemIds.length > 0) await adapter.moveItems(itemIds, target);
-      for (const id of folderIds) await adapter.moveFolder(id, target);
+      if (itemIds.length > 0) await adapter.moveItems(itemIds, target, targetVault);
+      for (const id of folderIds) await adapter.moveFolder(id, target, targetVault);
     });
     const moved = itemIds.length + folderIds.length;
     if (moved === 0) return { moved: 0, created: 0, skipped };
@@ -140,13 +152,19 @@ export async function pasteFromClipboard(
     useHistoryStore.getState().push({
       label: `Moved ${moved} item${moved === 1 ? "" : "s"}`,
       undo: async () => {
-        // One call per origin folder: moveItems takes a single destination.
-        for (const id of itemIds) await adapter.moveItems([id], origins.get(id) ?? null);
-        for (const id of folderIds) await adapter.moveFolder(id, origins.get(id) ?? null);
+        // One call per origin: moveItems takes a single destination folder+vault.
+        for (const id of itemIds) {
+          const origin = originOf(id);
+          await adapter.moveItems([id], origin.folderId, origin.vaultId);
+        }
+        for (const id of folderIds) {
+          const origin = originOf(id);
+          await adapter.moveFolder(id, origin.folderId, origin.vaultId);
+        }
       },
       redo: async () => {
-        if (itemIds.length > 0) await adapter.moveItems(itemIds, target);
-        for (const id of folderIds) await adapter.moveFolder(id, target);
+        if (itemIds.length > 0) await adapter.moveItems(itemIds, target, targetVault);
+        for (const id of folderIds) await adapter.moveFolder(id, target, targetVault);
       },
     });
     return { moved, created: 0, skipped };

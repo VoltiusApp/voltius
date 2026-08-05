@@ -20,6 +20,29 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
   useEffect(() => {
     const isActive = () => useUIStore.getState().activeNav === navItem;
 
+    // pasteFromClipboard registers undo/redo entries that outlive the paste, so it
+    // is handed a live view of the adapter instead of the render-time object. An
+    // undo running against that snapshot would decide from pre-paste data — it
+    // would see a moved object still in its old vault and skip restoring it.
+    const live: ClipboardAdapter = {
+      navItem,
+      exists: (id) => ref.current.exists(id),
+      vaultIdOf: (id) => ref.current.vaultIdOf(id),
+      targetFolderId: () => ref.current.targetFolderId(),
+      targetVaultId: () => ref.current.targetVaultId(),
+      folderIdOf: (id) => ref.current.folderIdOf(id),
+      folderContentKinds: (id) => ref.current.folderContentKinds(id),
+      canMoveFolder: (id, parentFolderId) => ref.current.canMoveFolder(id, parentFolderId),
+      moveItems: (ids, folderId, vaultId) => ref.current.moveItems(ids, folderId, vaultId),
+      moveFolder: (id, parentFolderId, vaultId) => ref.current.moveFolder(id, parentFolderId, vaultId),
+      duplicateItems: (ids, folderId) => ref.current.duplicateItems(ids, folderId),
+      duplicateFolder: (id, parentFolderId) => ref.current.duplicateFolder(id, parentFolderId),
+      deleteItems: (ids) => ref.current.deleteItems(ids),
+      deleteFolder: (id) => ref.current.deleteFolder(id),
+      setSelection: (ids) => ref.current.setSelection(ids),
+      can: (permission, vaultId) => ref.current.can(permission, vaultId),
+    };
+
     const fill = (mode: "copy" | "cut") => () => {
       if (!isActive()) return;
       const a = ref.current;
@@ -50,7 +73,7 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
       pasteChain.current = pasteChain.current.then(async () => {
         const clipboard = useVaultClipboardStore.getState().clipboard;
         try {
-          const result = await pasteFromClipboard(clipboard, ref.current);
+          const result = await pasteFromClipboard(clipboard, live);
           if (clipboard?.mode === "cut" && result.moved > 0) {
             useVaultClipboardStore.getState().clear();
           }
