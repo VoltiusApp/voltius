@@ -36,18 +36,22 @@ interface TeamStore {
 }
 
 /**
- * Mirrors {teamId -> the user's role names} into the keychain for the Rust
- * vault-write check. Names, not ids: Rust matches them against owner/manager/editor.
- * A team whose roles can't be resolved is left out of the map rather than written
- * as "no roles" — the server stays authoritative, and guessing would lock the user
- * out of a vault they can write to.
+ * Mirrors {teamId -> the union of the user's role permission bits} into the
+ * keychain for the Rust vault-write check. Bits, not role names: a team using a
+ * custom-named role with write permissions would be denied locally by a name
+ * match even though the server allows it. The union mirrors the server's
+ * `bit_or` over every assigned role.
+ *
+ * A team whose roles can't be resolved is left out of the map rather than
+ * written as "no permissions" — the server stays authoritative, and guessing
+ * would lock the user out of a vault they can write to.
  */
 async function cacheVaultRoles(
   teams: Team[],
   rolesByTeam: Record<string, TeamRole[]>,
   onRolesLoaded: (teamId: string, roles: TeamRole[]) => void,
 ): Promise<void> {
-  const names: Record<string, string[]> = {};
+  const bits: Record<string, number> = {};
   await Promise.all(
     teams.map(async (t) => {
       let roles: TeamRole[] | undefined = rolesByTeam[t.id];
@@ -60,15 +64,15 @@ async function cacheVaultRoles(
       }
       if (!roles) return;
       const resolved = t.role_ids
-        .map((rid) => roles!.find((r) => r.id === rid)?.name)
-        .filter((n): n is string => !!n);
+        .map((rid) => roles!.find((r) => r.id === rid)?.permissions)
+        .filter((p): p is number => typeof p === "number");
       if (resolved.length < t.role_ids.length) return;
-      names[t.id] = resolved;
+      bits[t.id] = resolved.reduce((acc, p) => acc | p, 0);
     }),
   );
   await invoke("keychain_set", {
     key: "team_vault_roles",
-    value: JSON.stringify(names),
+    value: JSON.stringify(bits),
   }).catch(() => {});
 }
 

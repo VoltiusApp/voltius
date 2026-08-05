@@ -6,6 +6,16 @@ use std::time::{SystemTime, UNIX_EPOCH};
 const WRITE_ROLES: &[&str] = &["owner", "manager", "editor"];
 const PERSONAL_VAULT_ID: &str = "personal";
 
+/// Any one of the server's EDIT_* bits (server/src/permissions.rs). This gate is
+/// deliberately coarse — it catches a member who can write nothing at all, and
+/// leaves per-object-type authorization to the server, which is the only place
+/// that knows what kind of object a write touches.
+const WRITE_PERMISSIONS: i64 = (1 << 3)   // EDIT_CONNECTIONS
+    | (1 << 4)                            // EDIT_IDENTITIES
+    | (1 << 5)                            // EDIT_KEYS
+    | (1 << 6)                            // EDIT_FOLDERS
+    | (1 << 16); // EDIT_SNIPPETS
+
 fn service() -> String {
     match std::env::var("VOLTIUS_KEYCHAIN_NS") {
         Ok(ns) if !ns.is_empty() => format!("voltius-{ns}"),
@@ -78,11 +88,41 @@ fn looks_like_uuid(s: &str) -> bool {
         })
 }
 
+/// One team's cached entry. Current builds write the union of the member's role
+/// permission bits; older ones wrote role names (and older still, role UUIDs).
+enum VaultRoleEntry {
+    Permissions(i64),
+    Names(Vec<String>),
+    /// Undecidable here — leave it to the server rather than lock the user out.
+    Unknown,
+}
+
+fn parse_entry(value: &serde_json::Value) -> VaultRoleEntry {
+    if let Some(bits) = value.as_i64() {
+        return VaultRoleEntry::Permissions(bits);
+    }
+    let Some(items) = value.as_array() else {
+        return VaultRoleEntry::Unknown;
+    };
+    let names: Vec<String> = items
+        .iter()
+        .filter_map(|v| v.as_str().map(str::to_string))
+        .collect();
+    // Pre-name cache holding role UUIDs: no name to match, so undecidable.
+    if !names.is_empty() && names.iter().all(|n| looks_like_uuid(n)) {
+        return VaultRoleEntry::Unknown;
+    }
+    if names.len() < items.len() {
+        return VaultRoleEntry::Unknown;
+    }
+    VaultRoleEntry::Names(names)
+}
+
 /// The server unions the permissions of every role a member holds, so any one
-/// write role is enough here too.
+/// write permission is enough here too.
 fn check_roles(
     vault_ids: &[String],
-    roles: &HashMap<String, Vec<String>>,
+    roles: &HashMap<String, serde_json::Value>,
     jwt_valid: bool,
 ) -> Result<(), String> {
     let team_ids: Vec<&String> = vault_ids
@@ -101,22 +141,31 @@ fn check_roles(
     }
 
     for vault_id in team_ids {
-        let names = roles.get(vault_id).map(Vec::as_slice).unwrap_or(&[]);
-        // Stale pre-name cache: undecidable here, so leave it to the server and
-        // let the next sign-in refresh it instead of locking the user out.
-        if !names.is_empty() && names.iter().all(|n| looks_like_uuid(n)) {
+        let Some(value) = roles.get(vault_id) else {
             continue;
-        }
-        if !names.iter().any(|n| WRITE_ROLES.contains(&n.as_str())) {
-            let held = if names.is_empty() {
-                "none".to_string()
-            } else {
-                names.join(", ")
-            };
-            return Err(format!(
-                "You don't have write access to this vault (your role: {held}). \
-                 Only owners, managers, and editors can make changes."
-            ));
+        };
+        match parse_entry(value) {
+            VaultRoleEntry::Unknown => continue,
+            VaultRoleEntry::Permissions(bits) => {
+                if bits & WRITE_PERMISSIONS == 0 {
+                    return Err("You don't have write access to this vault. Ask a vault \
+                         manager for a role that can make changes."
+                        .to_string());
+                }
+            }
+            VaultRoleEntry::Names(names) => {
+                if !names.iter().any(|n| WRITE_ROLES.contains(&n.as_str())) {
+                    let held = if names.is_empty() {
+                        "none".to_string()
+                    } else {
+                        names.join(", ")
+                    };
+                    return Err(format!(
+                        "You don't have write access to this vault (your role: {held}). \
+                         Only owners, managers, and editors can make changes."
+                    ));
+                }
+            }
         }
     }
 
@@ -152,7 +201,7 @@ pub fn check_vault_write(vault_ids: &[String]) -> Result<(), String> {
     }
 
     // A corrupted roles cache must fail closed rather than be read as an empty map.
-    let roles: HashMap<String, Vec<String>> = match serde_json::from_str(&roles_json) {
+    let roles: HashMap<String, serde_json::Value> = match serde_json::from_str(&roles_json) {
         Ok(m) => m,
         Err(_) => {
             return Err("Vault permission data is corrupted. \
@@ -174,10 +223,19 @@ mod tests {
         v.to_string()
     }
 
-    fn roles(pairs: &[(&str, &[&str])]) -> HashMap<String, Vec<String>> {
+    /// Legacy cache shape: role names.
+    fn roles(pairs: &[(&str, &[&str])]) -> HashMap<String, serde_json::Value> {
         pairs
             .iter()
-            .map(|(k, v)| (k.to_string(), v.iter().map(|n| n.to_string()).collect()))
+            .map(|(k, v)| (k.to_string(), serde_json::json!(v)))
+            .collect()
+    }
+
+    /// Current cache shape: the union of the member's role permission bits.
+    fn perms(pairs: &[(&str, i64)]) -> HashMap<String, serde_json::Value> {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), serde_json::json!(v)))
             .collect()
     }
 
@@ -273,6 +331,52 @@ mod tests {
             &["3f2504e0-4f89-11d3-9a0c-0305e82c3301", "viewer"],
         )]);
         assert!(check_roles(&[s("team-a")], &r, true).is_err());
+    }
+
+    // ── permission-bit cache (current shape) ────────────────────────────────
+
+    /// The bug this replaced: a custom role with write permissions was denied
+    /// locally because its name was not owner/manager/editor.
+    #[test]
+    fn check_roles_custom_named_write_role_allowed_by_bits() {
+        let r = perms(&[("team-a", 1 << 3)]); // EDIT_CONNECTIONS only
+        assert!(check_roles(&[s("team-a")], &r, true).is_ok());
+    }
+
+    #[test]
+    fn check_roles_bits_without_any_edit_permission_rejected() {
+        // connect-only: CONNECT + terminal-session bits, no EDIT_*.
+        let r = perms(&[("team-a", 28676)]);
+        let err = check_roles(&[s("team-a")], &r, true).unwrap_err();
+        assert!(err.contains("write access"));
+    }
+
+    #[test]
+    fn check_roles_zero_bits_rejected() {
+        let r = perms(&[("team-a", 0)]);
+        assert!(check_roles(&[s("team-a")], &r, true).is_err());
+    }
+
+    #[test]
+    fn check_roles_snippet_only_write_allowed() {
+        // "member" holds EDIT_SNIPPETS and nothing else editable; the server
+        // lets it write snippets, so the coarse local gate must not refuse it.
+        let r = perms(&[("team-a", 28679 | (1 << 16))]);
+        assert!(check_roles(&[s("team-a")], &r, true).is_ok());
+    }
+
+    #[test]
+    fn check_roles_bits_still_require_valid_jwt() {
+        let r = perms(&[("team-a", 1 << 3)]);
+        let err = check_roles(&[s("team-a")], &r, false).unwrap_err();
+        assert!(err.contains("active server connection"));
+    }
+
+    #[test]
+    fn check_roles_unparseable_entry_is_unknown_not_denied() {
+        let mut r = HashMap::new();
+        r.insert(s("team-a"), serde_json::json!({ "role": "editor" }));
+        assert!(check_roles(&[s("team-a")], &r, true).is_ok());
     }
 
     #[test]

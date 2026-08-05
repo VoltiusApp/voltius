@@ -117,23 +117,20 @@ const cachedRoles = () => {
   return call ? JSON.parse(call[1].value) : null;
 };
 
-// Rust checks the cached value against the names owner/manager/editor, so ids are
-// unreadable there — the check has to be fed names.
-test("loadTeams caches role NAMES per team, not role ids", async () => {
+// Rust checks the cached value's permission BITS, not role names: a custom-named
+// role with write permissions would be denied by a name match.
+test("loadTeams caches permission BITS per team, not role ids or names", async () => {
   api.listTeams.mockResolvedValue([team("t1", ["r-uuid-1"])]);
-  api.listRoles.mockResolvedValue([{ ...role("r-uuid-1"), name: "editor" }]);
+  api.listRoles.mockResolvedValue([{ ...role("r-uuid-1", 8), name: "custom-writer" }]);
   await get().loadTeams();
-  expect(cachedRoles()).toEqual({ t1: ["editor"] });
+  expect(cachedRoles()).toEqual({ t1: 8 });
 });
 
-test("loadTeams caches every role a member holds", async () => {
+test("loadTeams unions the bits of every role a member holds", async () => {
   api.listTeams.mockResolvedValue([team("t1", ["r1", "r2"])]);
-  api.listRoles.mockResolvedValue([
-    { ...role("r1"), name: "connect-only" },
-    { ...role("r2"), name: "editor" },
-  ]);
+  api.listRoles.mockResolvedValue([role("r1", 4), role("r2", 8)]);
   await get().loadTeams();
-  expect(cachedRoles()).toEqual({ t1: ["connect-only", "editor"] });
+  expect(cachedRoles()).toEqual({ t1: 12 });
 });
 
 test("loadTeams omits a team whose roles cannot be resolved", async () => {
