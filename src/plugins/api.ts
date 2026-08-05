@@ -156,6 +156,50 @@ export interface PluginSession {
   localShell?: string;
 }
 
+// ─── Files (SFTP / FTP / local) ────────────────────────────────────────────
+
+/**
+ * What a file operation acts on: a saved connection's id, or the literal
+ * "local" for this machine. SFTP and FTP connections are both addressed this
+ * way — the host opens whichever transport the connection declares.
+ */
+export type FileTarget = string;
+
+export interface FileEndpoint {
+  target: FileTarget;
+  path: string;
+}
+
+export interface PluginFile {
+  name: string;
+  path: string;
+  size: number;
+  isDir: boolean;
+  isSymlink: boolean;
+  /** Unix seconds, or null when the transport does not report one. */
+  modified: number | null;
+}
+
+/**
+ * Remote and local file access. Reads are gated on "sftp:read", everything that
+ * writes, moves or removes on "sftp:write".
+ */
+export interface SftpAPI {
+  list(target: FileTarget, path: string): Promise<PluginFile[]>;
+  /** Null when the path does not exist — not an error. */
+  stat(target: FileTarget, path: string): Promise<PluginFile | null>;
+  readText(target: FileTarget, path: string, maxBytes?: number): Promise<string>;
+  writeText(target: FileTarget, path: string, content: string): Promise<void>;
+  mkdir(target: FileTarget, path: string): Promise<void>;
+  rename(target: FileTarget, from: string, to: string): Promise<void>;
+  delete(target: FileTarget, path: string): Promise<void>;
+  /** Copy one path between any two targets, in any direction, files or
+   *  directories. Host→host streams directly and never lands on this machine. */
+  transfer(src: FileEndpoint, dst: FileEndpoint): Promise<void>;
+  /** Release the handle held for `target`, if any. */
+  disconnect(target: FileTarget): Promise<void>;
+}
+
 export type PluginTheme = AppTheme;
 
 // ─── Notification types ────────────────────────────────────────────────────
@@ -593,6 +637,10 @@ export interface PluginAPI {
 
   // Proxmox VE LXC management — GATED, split
   // proxmox:read (list/snapshots.list) / proxmox:manage (everything else).
+  // Files over SFTP/FTP and the local disk — GATED, split
+  // sftp:read (list/stat/readText) / sftp:write (everything that mutates).
+  sftp: SftpAPI;
+
   proxmox: ProxmoxAPI;
 
   // Docker container/image/volume/network/stack management — GATED, split

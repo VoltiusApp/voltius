@@ -55,6 +55,7 @@ import { createProcessesAPI } from "./domains/processes";
 import { createCryptoAPI } from "./domains/crypto";
 import { createI18nAPI } from "./domains/i18n";
 import { createProxmoxAPI } from "./domains/proxmox";
+import { createSftpAPI } from "./domains/sftp";
 import { createDockerAPI } from "./domains/docker";
 import { injectPluginStyle, removePluginStyle } from "./importPluginModule";
 import { assertValidPluginId } from "./pluginId";
@@ -69,6 +70,10 @@ const STREAM_PERM: Record<StreamKind, string> = {
 // ─── Inter-plugin exposed APIs ────────────────────────────────────────────
 
 const _exposedApis = new Map<string, unknown>();
+
+// Per-plugin SFTP/FTP handles, so unloading a plugin closes the connections it
+// opened. Without this a disabled plugin's sockets outlive it silently.
+const _sftpDisposers = new Map<string, () => void>();
 
 // ─── Login-sync readiness gate ────────────────────────────────────────────
 // Resolves immediately for local/offline users; SplashScreen holds it pending
@@ -479,6 +484,8 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const cryptoApi = createCryptoAPI();
   const i18nApi = createI18nAPI();
   const proxmoxApi = createProxmoxAPI();
+  const sftpApi = createSftpAPI(findConnection);
+  _sftpDisposers.set(id, () => sftpApi.dispose());
   const dockerApi = createDockerAPI(streamsApi);
 
   const api: PluginAPI = {
@@ -1152,6 +1159,29 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
     },
 
+    // Every verb is wrapped individually rather than handing the domain over
+    // wholesale: without a per-verb requireGated the read tier would grant the
+    // write tier too, which is exactly the hole the metrics domain shipped with.
+    sftp: {
+      list: (target, path) => { requireGated("sftp:read"); return sftpApi.list(target, path); },
+      stat: (target, path) => { requireGated("sftp:read"); return sftpApi.stat(target, path); },
+      readText: (target, path, maxBytes) => {
+        requireGated("sftp:read");
+        return sftpApi.readText(target, path, maxBytes);
+      },
+      writeText: (target, path, content) => {
+        requireGated("sftp:write");
+        return sftpApi.writeText(target, path, content);
+      },
+      mkdir: (target, path) => { requireGated("sftp:write"); return sftpApi.mkdir(target, path); },
+      rename: (target, from, to) => { requireGated("sftp:write"); return sftpApi.rename(target, from, to); },
+      delete: (target, path) => { requireGated("sftp:write"); return sftpApi.delete(target, path); },
+      transfer: (src, dst) => { requireGated("sftp:write"); return sftpApi.transfer(src, dst); },
+      // Ungated: releasing a handle this plugin opened cannot expose or change
+      // anything, and a plugin must always be able to let go of its own resources.
+      disconnect: (target) => sftpApi.disconnect(target),
+    },
+
     docker: {
       containers: {
         list: (target) => { requireGated("docker:read"); return dockerApi.containers.list(target); },
@@ -1610,6 +1640,8 @@ export function unloadPlugin(pluginId: string): void {
   clearPluginDockedWidths(pluginId);
   removePluginStyle(pluginId);
   _exposedApis.delete(pluginId);
+  _sftpDisposers.get(pluginId)?.();
+  _sftpDisposers.delete(pluginId);
   _contributedIds.delete(pluginId);
   _settingsListeners.delete(pluginId);
   _registry.delete(pluginId);

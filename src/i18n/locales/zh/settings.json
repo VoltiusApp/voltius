@@ -599,6 +599,8 @@
             "label": "管理 Proxmox",
             "description": "列出并控制 LXC 容器，包括创建、删除和回滚快照。这可能会永久销毁数据。"
           },
+          "sftpRead": { "label": "读取文件", "description": "浏览并读取已保存的 SSH/FTP 主机以及本机上的文件。" },
+          "sftpWrite": { "label": "写入和移动文件", "description": "在已保存的 SSH/FTP 主机和本机上创建、重命名、覆盖和删除文件，并在它们之间复制文件。这可能会永久销毁数据。" },
           "audit": {
             "label": "记录审计事件",
             "description": "在您的审计日志中添加描述其操作的条目。对于团队保险库中的主机，这些条目也会发送到该团队的服务器。"

@@ -732,6 +732,8 @@
           "dockerManage": { "label": "Gérer Docker", "description": "Lister, démarrer, arrêter et supprimer conteneurs, images, volumes, réseaux et stacks. Cela peut détruire définitivement des données." },
           "proxmoxRead": { "label": "Lire les informations Proxmox", "description": "Lister les conteneurs LXC et leurs snapshots." },
           "proxmoxManage": { "label": "Gérer Proxmox", "description": "Lister et contrôler les conteneurs LXC, y compris créer, supprimer et restaurer des snapshots. Cela peut détruire définitivement des données." },
+          "sftpRead": { "label": "Lire les fichiers", "description": "Parcourir et lire les fichiers de vos hôtes SSH/FTP enregistrés et de cet ordinateur." },
+          "sftpWrite": { "label": "Écrire et déplacer des fichiers", "description": "Créer, renommer, écraser et supprimer des fichiers sur vos hôtes SSH/FTP enregistrés et sur cet ordinateur, et les copier entre eux. Cela peut détruire définitivement des données." },
           "audit": { "label": "Enregistrer des événements d'audit", "description": "Ajouter à votre journal d'audit des entrées décrivant ses actions. Pour un hôte d'un coffre d'équipe, ces entrées sont également envoyées au serveur de cette équipe." },
           "sessionsRead": { "label": "Voir vos sessions", "description": "Voir quelles sessions de terminal sont ouvertes et quand elles changent." },
           "sessionsWrite": { "label": "Ouvrir et fermer des sessions", "description": "Ouvrir de nouvelles sessions de terminal et fermer celles existantes." },
