@@ -1,6 +1,7 @@
 import type { NavItem } from "@/stores/uiStore";
 import type { VaultClipboard, VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import { useHistoryStore } from "@/stores/historyStore";
+import i18n from "@/i18n";
 
 export interface ClipboardAdapter {
   navItem: NavItem;
@@ -62,47 +63,97 @@ const EDIT_PERMISSION: Record<string, string> = {
   snippet: "EDIT_SNIPPETS",
 };
 
+interface VaultMove {
+  /** Every permission the object carries across the boundary. */
+  permissions: string[];
+  sourceVaultId: string | null;
+  destinationVaultId: string | null;
+  /** A move also deletes from the source, so the source must authorize too. */
+  removesFromSource: boolean;
+}
+
+const itemPermissions = (kind: string): string[] => [EDIT_PERMISSION[kind] ?? "EDIT_CONNECTIONS"];
+
+// The folder's contents cross the vault boundary with it.
+const folderPermissions = (adapter: ClipboardAdapter, id: string): string[] => [
+  "EDIT_FOLDERS",
+  ...adapter.folderContentKinds(id).map((kind) => EDIT_PERMISSION[kind] ?? "EDIT_CONNECTIONS"),
+];
+
 /**
  * A cross-vault move is two authorizations — a write on the destination and a
  * delete on the source — issued as separate calls. Both are checked here so a
  * permitted write cannot be followed by a refused delete, which would leave a
  * duplicate where the user asked for a move. The server remains the boundary;
- * this only stops a paste that is already known to fail.
+ * this only stops a move that is already known to fail. Undo and redo are each a
+ * cross-vault move of their own, with their own source and destination, so they
+ * go through the same check before mutating anything.
  */
-function blockedPermissions(
+function blockedForMoves(adapter: ClipboardAdapter, moves: VaultMove[]): string[] {
+  const blocked = new Set<string>();
+  for (const move of moves) {
+    const { sourceVaultId: source, destinationVaultId: destination } = move;
+    // A null destination leaves every object in the vault it has.
+    if (destination === null || source === destination) continue;
+    for (const permission of move.permissions) {
+      if (!adapter.can(permission, destination)) blocked.add(permission);
+      if (move.removesFromSource && source !== null && !adapter.can(permission, source)) {
+        blocked.add(permission);
+      }
+    }
+  }
+  return [...blocked];
+}
+
+/** Permissions needed to delete objects from the vaults they currently sit in. */
+function blockedForDeletes(
+  adapter: ClipboardAdapter,
+  targets: { id: string; permissions: string[] }[],
+): string[] {
+  const blocked = new Set<string>();
+  for (const target of targets) {
+    if (!adapter.exists(target.id)) continue;
+    const vaultId = adapter.vaultIdOf(target.id);
+    for (const permission of target.permissions) {
+      if (!adapter.can(permission, vaultId)) blocked.add(permission);
+    }
+  }
+  return [...blocked];
+}
+
+/**
+ * Undo and redo have no result to report a refusal through, so a refused one
+ * throws: historyStore restores the entry and raises its failure toast, leaving
+ * the action retriable once the permission comes back.
+ */
+function refuse(blocked: string[]): void {
+  if (blocked.length === 0) return;
+  const permissions = blocked.map((p) => i18n.t(`members.permission.${p}`)).join(", ");
+  throw new Error(i18n.t("common.clipboard.permissionsMissing", { permissions }));
+}
+
+function pasteMoves(
   clipboard: NonNullable<VaultClipboard>,
   adapter: ClipboardAdapter,
   liveItems: { id: string; kind: string }[],
   liveFolders: string[],
-): string[] {
-  const target = adapter.targetVaultId();
-  // No destination folder means no vault change, so nothing new to authorize.
-  if (target === null) return [];
-  const blocked = new Set<string>();
-
-  const require = (permission: string, vaultId: string) => {
-    if (!adapter.can(permission, vaultId)) blocked.add(permission);
-  };
-  const requireBoth = (permission: string, source: string) => {
-    require(permission, target);
-    if (clipboard.mode === "cut") require(permission, source);
-  };
-
-  for (const item of liveItems) {
-    const source = adapter.vaultIdOf(item.id);
-    if (source === target) continue;
-    requireBoth(EDIT_PERMISSION[item.kind] ?? "EDIT_CONNECTIONS", source);
-  }
-  for (const id of liveFolders) {
-    const source = adapter.vaultIdOf(id);
-    if (source === target) continue;
-    requireBoth("EDIT_FOLDERS", source);
-    // The folder's contents cross the vault boundary with it.
-    for (const kind of adapter.folderContentKinds(id)) {
-      requireBoth(EDIT_PERMISSION[kind] ?? "EDIT_CONNECTIONS", source);
-    }
-  }
-  return [...blocked];
+  destinationVaultId: string | null,
+): VaultMove[] {
+  const removesFromSource = clipboard.mode === "cut";
+  return [
+    ...liveItems.map((item) => ({
+      permissions: itemPermissions(item.kind),
+      sourceVaultId: adapter.vaultIdOf(item.id),
+      destinationVaultId,
+      removesFromSource,
+    })),
+    ...liveFolders.map((id) => ({
+      permissions: folderPermissions(adapter, id),
+      sourceVaultId: adapter.vaultIdOf(id),
+      destinationVaultId,
+      removesFromSource,
+    })),
+  ];
 }
 
 export async function pasteFromClipboard(
@@ -112,6 +163,7 @@ export async function pasteFromClipboard(
   if (!clipboard || clipboard.tab !== adapter.navItem) return EMPTY;
 
   const target = adapter.targetFolderId();
+  const targetVault = adapter.targetVaultId();
   const liveItems = clipboard.items.filter((i) => adapter.exists(i.id));
   const liveFolders = clipboard.folderIds.filter((id) => adapter.exists(id));
   const skipped =
@@ -121,7 +173,10 @@ export async function pasteFromClipboard(
     return { ...EMPTY, skipped };
   }
 
-  const blocked = blockedPermissions(clipboard, adapter, liveItems, liveFolders);
+  const blocked = blockedForMoves(
+    adapter,
+    pasteMoves(clipboard, adapter, liveItems, liveFolders, targetVault),
+  );
   if (blocked.length > 0) return { ...EMPTY, skipped, blocked };
 
   if (clipboard.mode === "cut") {
@@ -129,7 +184,6 @@ export async function pasteFromClipboard(
     const folderIds = liveFolders.filter(
       (id) => adapter.folderIdOf(id) !== target && adapter.canMoveFolder(id, target),
     );
-    const targetVault = adapter.targetVaultId();
     // The origin vault is recorded alongside the origin folder: an object cut from
     // a vault root has no origin folder to read its vault back from at undo time.
     const origins = new Map<string, { folderId: string | null; vaultId: string }>();
@@ -137,6 +191,23 @@ export async function pasteFromClipboard(
       origins.set(id, { folderId: adapter.folderIdOf(id), vaultId: adapter.vaultIdOf(id) });
     }
     const originOf = (id: string) => origins.get(id) ?? { folderId: null, vaultId: null };
+    const kindOf = new Map(liveItems.map((i) => [i.id, i.kind]));
+    // Read at undo/redo time, not paste time: the source is wherever the object
+    // sits now, and the permission may have been revoked since.
+    const movesTo = (destination: (id: string) => string | null): VaultMove[] => [
+      ...itemIds.map((id) => ({
+        permissions: itemPermissions(kindOf.get(id) ?? "connection"),
+        sourceVaultId: adapter.vaultIdOf(id),
+        destinationVaultId: destination(id),
+        removesFromSource: true,
+      })),
+      ...folderIds.map((id) => ({
+        permissions: folderPermissions(adapter, id),
+        sourceVaultId: adapter.vaultIdOf(id),
+        destinationVaultId: destination(id),
+        removesFromSource: true,
+      })),
+    ];
 
     // Suppressed: each store method records its own entry, and undoing those
     // stale entries after the composite undo has already run throws on team
@@ -152,6 +223,7 @@ export async function pasteFromClipboard(
     useHistoryStore.getState().push({
       label: `Moved ${moved} item${moved === 1 ? "" : "s"}`,
       undo: async () => {
+        refuse(blockedForMoves(adapter, movesTo((id) => originOf(id).vaultId)));
         // One call per origin: moveItems takes a single destination folder+vault.
         for (const id of itemIds) {
           const origin = originOf(id);
@@ -163,6 +235,7 @@ export async function pasteFromClipboard(
         }
       },
       redo: async () => {
+        refuse(blockedForMoves(adapter, movesTo(() => targetVault)));
         if (itemIds.length > 0) await adapter.moveItems(itemIds, target, targetVault);
         for (const id of folderIds) await adapter.moveFolder(id, target, targetVault);
       },
@@ -190,12 +263,27 @@ export async function pasteFromClipboard(
   useHistoryStore.getState().push({
     label: `Pasted ${created} item${created === 1 ? "" : "s"}`,
     undo: async () => {
+      refuse(
+        blockedForDeletes(adapter, [
+          ...createdItemIds.map((id, i) => ({
+            id,
+            permissions: itemPermissions(liveItems[i]?.kind ?? "connection"),
+          })),
+          ...createdFolderIds.map((id) => ({ id, permissions: folderPermissions(adapter, id) })),
+        ]),
+      );
       if (createdItemIds.length > 0) await adapter.deleteItems(createdItemIds);
       for (const id of createdFolderIds) await adapter.deleteFolder(id);
     },
     // Redo re-creates under fresh ids, so the holders must be refreshed for the
     // next undo to delete the right objects.
     redo: async () => {
+      refuse(
+        blockedForMoves(
+          adapter,
+          pasteMoves(clipboard, adapter, liveItems, liveFolders, targetVault),
+        ),
+      );
       const again = await duplicateAll();
       createdItemIds = again.items;
       createdFolderIds = again.folders;

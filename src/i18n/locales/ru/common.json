@@ -180,6 +180,7 @@
       "crossVaultCopyDescription_many": "{{count}} элементов будут скопированы в {{targetVaultName}}.",
       "crossVaultCopyDescription_other": "{{count}} элементов будут скопированы в {{targetVaultName}}.",
       "pasteBlocked": "Ничего не вставлено: у вас нет прав «{{permissions}}» в одном из задействованных хранилищ.",
+      "permissionsMissing": "у вас нет прав «{{permissions}}» в одном из задействованных хранилищ",
       "pasteSkipped_one": "{{count}} элемент больше не существует и был пропущен.",
       "pasteSkipped_few": "{{count}} элемента больше не существуют и были пропущены.",
       "pasteSkipped_many": "{{count}} элементов больше не существуют и были пропущены.",

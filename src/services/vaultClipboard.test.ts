@@ -267,6 +267,93 @@ test("a cross-vault cut without source edit permission mutates nothing", async (
   expect(r.blocked).toContain(EDIT);
 });
 
+function resetHistory() {
+  useHistoryStore.setState({
+    past: [], future: [], bypassing: false, suppressing: false, suppressDepth: 0,
+    canUndo: false, canRedo: false,
+  });
+}
+
+// A cut from team-1 into team-2, undone once the permission on one side is gone.
+// The undo is its own cross-vault move: team-2 is now the source, team-1 the
+// destination, and half-applying it leaves the object in both vaults.
+async function crossVaultCut() {
+  resetHistory();
+  const vaults: Record<string, string> = { c1: "team-1" };
+  // Revoked after the paste, the way an owner revokes a permission after the fact.
+  const revoked = { vaultId: null as string | null };
+  const a = adapter({
+    targetVaultId: () => "team-2",
+    vaultIdOf: (id) => vaults[id] ?? "team-1",
+    moveItems: vi.fn(async (ids: string[], _folderId, vaultId) => {
+      for (const id of ids) if (vaultId) vaults[id] = vaultId;
+    }),
+    can: (_p, vaultId) => vaultId !== revoked.vaultId,
+  });
+  await pasteFromClipboard(cut, a);
+  (a.moveItems as ReturnType<typeof vi.fn>).mockClear();
+  return { a, revoked };
+}
+
+test("undo of a cross-vault cut is refused when the undo's source permission is gone", async () => {
+  // team-2 holds the item after the paste, so it is the source of the undo.
+  const { a, revoked } = await crossVaultCut();
+  revoked.vaultId = "team-2";
+  await useHistoryStore.getState().undo();
+  expect(a.moveItems).not.toHaveBeenCalled();
+});
+
+test("undo of a cross-vault cut is refused when the undo's destination permission is gone", async () => {
+  const { a, revoked } = await crossVaultCut();
+  revoked.vaultId = "team-1";
+  await useHistoryStore.getState().undo();
+  expect(a.moveItems).not.toHaveBeenCalled();
+});
+
+test("a refused undo throws, so the entry is restored and stays retriable", async () => {
+  const { revoked } = await crossVaultCut();
+  revoked.vaultId = "team-2";
+  await useHistoryStore.getState().undo();
+  const { past, future, canUndo } = useHistoryStore.getState();
+  expect(past).toHaveLength(1);
+  expect(future).toHaveLength(0);
+  expect(canUndo).toBe(true);
+});
+
+test("redo of a cross-vault cut is refused when a permission is gone", async () => {
+  const { a, revoked } = await crossVaultCut();
+  await useHistoryStore.getState().undo();
+  expect(a.moveItems).toHaveBeenCalledWith(["c1"], null, "team-1");
+  (a.moveItems as ReturnType<typeof vi.fn>).mockClear();
+
+  revoked.vaultId = "team-2";
+  await useHistoryStore.getState().redo();
+  expect(a.moveItems).not.toHaveBeenCalled();
+  expect(useHistoryStore.getState().canRedo).toBe(true);
+});
+
+test("a cross-vault undo with full permissions still moves everything back", async () => {
+  const { a } = await crossVaultCut();
+  await useHistoryStore.getState().undo();
+  expect(a.moveItems).toHaveBeenCalledWith(["c1"], null, "team-1");
+  expect(useHistoryStore.getState().canRedo).toBe(true);
+});
+
+test("undo of a copy paste is refused when the destination vault permission is gone", async () => {
+  resetHistory();
+  const revoked = { vaultId: null as string | null };
+  const a = adapter({
+    targetVaultId: () => "team-2",
+    vaultIdOf: (id) => (id.endsWith("-copy") ? "team-2" : "team-1"),
+    can: (_p, vaultId) => vaultId !== revoked.vaultId,
+  });
+  await pasteFromClipboard({ ...cut, mode: "copy" }, a);
+  revoked.vaultId = "team-2";
+  await useHistoryStore.getState().undo();
+  expect(a.deleteItems).not.toHaveBeenCalled();
+  expect(useHistoryStore.getState().canUndo).toBe(true);
+});
+
 test("a same-vault paste needs no cross-vault permission check", async () => {
   const can = vi.fn(() => true);
   const a = adapter({ can, folderIdOf: () => "old" });
