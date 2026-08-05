@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-08-05
+
+### Added
+
+- Plugins can record audit events through `api.audit.record`, behind a new
+  danger-gated `audit` permission that has to be granted explicitly. The action
+  set is closed, so a plugin cannot invent event types.
+- `registerGlobalPanel` returns a control handle, letting a plugin open, close
+  and resize its own panel.
+- `ConnectionAvatar` and `ConfirmModal` are available to plugins from
+  `@voltius/ui`.
+
+### Fixed
+
+- Pasting into another vault put the object back in the vault it came from.
+  A vault's root now names that vault as the destination, so a paste there
+  changes vault and asks for confirmation first. Cutting between two vault
+  roots was also silently discarded as a no-op.
+
 ## [0.17.0] - 2026-08-05
 
 ### Added
