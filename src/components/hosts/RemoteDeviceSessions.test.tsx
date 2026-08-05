@@ -22,13 +22,10 @@ vi.mock("@/stores/connectionStore", () => ({
 }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock("@/i18n", () => ({ default: { t: (k: string) => k } }));
-// AvatarTile pulls in @/utils/icons, which imports the vite-only
-// `virtual:lucide-subset` module. That plugin is registered in vite.config.ts
-// (the app build) but not in vitest.config.ts (test runner), so any real,
-// unmocked import of AvatarTile fails module resolution under vitest. Every
-// existing test that touches BaseCard/AvatarTile mocks one of them away for
-// the same reason (see TeamSessions.test.tsx); do the same here so the real
-// BaseCard/ContextMenu (which this test exercises) still run unmocked.
+// AvatarTile is mocked to keep this test on the real BaseCard/ContextMenu
+// (what it exercises) without dragging in the icon pipeline it pulls via
+// @/utils/icons, same as the other BaseCard/AvatarTile tests (see
+// TeamSessions.test.tsx).
 vi.mock("@/components/shared/AvatarTile", () => ({ AvatarTile: () => null }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 
