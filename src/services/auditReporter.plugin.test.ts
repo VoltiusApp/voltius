@@ -55,6 +55,16 @@ describe("reportPluginAuditEvent", () => {
     expect(team.metadata).toEqual({ shared: 1 });
   });
 
+  test("a caller-supplied localMetadata.plugin_id does not override the stamped one", () => {
+    reportPluginAuditEvent(
+      { kind: "local", vaultId: "personal" },
+      "agent.command_run",
+      { metadata: { plugin_id: "agent" }, localMetadata: { plugin_id: "other-plugin" } },
+    );
+    const local = reportLocalClientEvent.mock.calls[0][1] as { metadata: Record<string, unknown> };
+    expect(local.metadata.plugin_id).toBe("agent");
+  });
+
   test("a team POST failure does not reject", () => {
     reportClientEvent.mockReturnValueOnce(Promise.reject(new Error("400")));
     expect(() =>

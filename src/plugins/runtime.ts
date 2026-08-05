@@ -109,6 +109,7 @@ function findConnection(connectionId: string) {
 }
 
 const MAX_LOCAL_STRING_CHARS = 2000;
+const MAX_LOCAL_METADATA_CHARS = 8000;
 
 /**
  * Truncate every over-budget string in localMetadata and flag it, so a reader is
@@ -116,6 +117,11 @@ const MAX_LOCAL_STRING_CHARS = 2000;
  * value blows MAX_LOCAL_LOG_CHARS_PER_VAULT long before the entry-count cap, and
  * the trim's never-empty guard then keeps only that row, wiping the vault's
  * local history.
+ *
+ * Per-field truncation alone misses nested and array structures, so the
+ * serialized whole is also bounded: over budget (or unserializable, e.g.
+ * circular) is dropped entirely rather than left partially truncated and
+ * misleading.
  */
 function boundLocalMetadata(
   localMetadata: Record<string, unknown> | undefined,
@@ -130,6 +136,15 @@ function boundLocalMetadata(
     bounded[`${key}_truncated`] = true;
     changed = true;
   }
+
+  let serializedLength: number;
+  try {
+    serializedLength = JSON.stringify(bounded).length;
+  } catch {
+    return { localMetadata_dropped: true };
+  }
+  if (serializedLength > MAX_LOCAL_METADATA_CHARS) return { localMetadata_dropped: true };
+
   return changed ? bounded : localMetadata;
 }
 

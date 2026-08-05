@@ -55,7 +55,14 @@ export function reportPluginAuditEvent(
   const { localMetadata, ...target } = opts;
   const occurred_at = new Date().toISOString();
 
-  const localMerged = { ...target.metadata, ...localMetadata };
+  // Re-stamp after the merge so a plugin-supplied localMetadata.plugin_id can't
+  // override the host-stamped one — the two stamps can never diverge.
+  const stampedPluginId = target.metadata?.plugin_id;
+  const localMerged = {
+    ...target.metadata,
+    ...localMetadata,
+    ...(stampedPluginId !== undefined ? { plugin_id: stampedPluginId } : {}),
+  };
   reportLocalClientEvent(localSinkVaultId(context), {
     ...target,
     action,

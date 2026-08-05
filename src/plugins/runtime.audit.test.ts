@@ -93,4 +93,48 @@ describe("api.audit.record", () => {
     expect(local.command).toBe("ls");
     expect(local.command_truncated).toBeUndefined();
   });
+
+  test("leaves an exactly-2000-char string alone and unflagged", () => {
+    const exact = "x".repeat(2000);
+    load("agent", ["audit"]).audit.record("c1", "agent.command_run", undefined, { command: exact });
+    const local = reportPluginAuditEvent.mock.calls[0][2].localMetadata;
+    expect(local.command).toBe(exact);
+    expect(local.command_truncated).toBeUndefined();
+  });
+
+  test("passes a non-string value through untouched", () => {
+    load("agent", ["audit"]).audit.record("c1", "agent.command_run", undefined, { count: 42 });
+    const local = reportPluginAuditEvent.mock.calls[0][2].localMetadata;
+    expect(local.count).toBe(42);
+  });
+
+  test("drops a nested oversize value entirely", () => {
+    load("agent", ["audit"]).audit.record("c1", "agent.command_run", undefined, { blob: { a: "x".repeat(600_000) } });
+    const local = reportPluginAuditEvent.mock.calls[0][2].localMetadata;
+    expect(local).toEqual({ localMetadata_dropped: true });
+  });
+
+  test("drops an array of many medium strings that exceeds the budget", () => {
+    const many = Array.from({ length: 400 }, () => "x".repeat(1999));
+    load("agent", ["audit"]).audit.record("c1", "agent.command_run", undefined, { items: many });
+    const local = reportPluginAuditEvent.mock.calls[0][2].localMetadata;
+    expect(local).toEqual({ localMetadata_dropped: true });
+  });
+
+  test("leaves an ordinary small localMetadata unchanged and unmarked", () => {
+    load("agent", ["audit"]).audit.record("c1", "agent.command_run", undefined, { command: "ls", count: 1 });
+    const local = reportPluginAuditEvent.mock.calls[0][2].localMetadata;
+    expect(local).toEqual({ command: "ls", count: 1 });
+    expect(local.localMetadata_dropped).toBeUndefined();
+  });
+
+  test("drops a circular-reference localMetadata rather than throwing", () => {
+    const circular: Record<string, unknown> = { command: "ls" };
+    circular.self = circular;
+    expect(() =>
+      load("agent", ["audit"]).audit.record("c1", "agent.command_run", undefined, circular),
+    ).not.toThrow();
+    const local = reportPluginAuditEvent.mock.calls[0][2].localMetadata;
+    expect(local).toEqual({ localMetadata_dropped: true });
+  });
 });
