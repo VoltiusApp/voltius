@@ -58,6 +58,9 @@ const DEFAULTS: Omit<Shortcut, "key">[] = [
   { id: "history",         labelKey: "settings.shortcuts.items.history.label",         descriptionKey: "settings.shortcuts.items.history.desc",         defaultKey: "h",      ctrl: true,  shift: true,  alt: false },
   { id: "snippets",        labelKey: "settings.shortcuts.items.snippets.label",        descriptionKey: "settings.shortcuts.items.snippets.desc",        defaultKey: "s",      ctrl: true,  shift: true,  alt: false },
   { id: "panel-themes",    labelKey: "settings.shortcuts.items.panelThemes.label",     descriptionKey: "settings.shortcuts.items.panelThemes.desc",     defaultKey: "t",      ctrl: true,  shift: true,  alt: false },
+  { id: "copy",  labelKey: "settings.shortcuts.items.copy.label",  descriptionKey: "settings.shortcuts.items.copy.desc",  defaultKey: "c", ctrl: true, shift: false, alt: false },
+  { id: "cut",   labelKey: "settings.shortcuts.items.cut.label",   descriptionKey: "settings.shortcuts.items.cut.desc",   defaultKey: "x", ctrl: true, shift: false, alt: false },
+  { id: "paste", labelKey: "settings.shortcuts.items.paste.label", descriptionKey: "settings.shortcuts.items.paste.desc", defaultKey: "v", ctrl: true, shift: false, alt: false },
 ];
 
 function toShortcut(s: Omit<Shortcut, "key">): Shortcut {
@@ -102,7 +105,7 @@ export const useShortcutStore = create<ShortcutStore>()(
     }),
     {
       name: "voltius-shortcuts",
-      version: 5,
+      version: 6,
       // v5: label/description (literal English strings) → labelKey/descriptionKey
       // (i18n keys resolved at render time). Re-derive keys from `id`; drop the
       // stale literal fields so old English text can't linger in persisted state.
@@ -114,6 +117,14 @@ export const useShortcutStore = create<ShortcutStore>()(
             const def = DEFAULTS.find((d) => d.id === sc.id);
             return { ...rest, labelKey: def?.labelKey ?? "", descriptionKey: def?.descriptionKey ?? "" };
           });
+        }
+        // Shortcuts added after a user first persisted their set would otherwise
+        // never appear, because persist replaces the array rather than merging it.
+        if (state?.shortcuts) {
+          const present = new Set(state.shortcuts.map((sc) => sc.id as string));
+          for (const def of DEFAULTS) {
+            if (!present.has(def.id)) state.shortcuts.push({ ...def, key: def.defaultKey });
+          }
         }
         return state as unknown as ShortcutStore;
       },

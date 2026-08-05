@@ -13,7 +13,7 @@ import { VaultCascadeModal } from "@/components/shared/VaultCascadeModal";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { useVaultCascade } from "@/hooks/useVaultCascade";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
-import { usePermissions } from "@/hooks/usePermission";
+import { usePermissions, type Permission } from "@/hooks/usePermission";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
@@ -41,6 +41,11 @@ import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
+import { usePageClipboard } from "@/hooks/usePageClipboard";
+import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
+import { ClipboardPill } from "@/components/shared/ClipboardPill";
+import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
+import { getShortcutHint } from "@/stores/shortcutStore";
 
 export default function KeychainPage() {
   const { t } = useTranslation();
@@ -50,6 +55,7 @@ export default function KeychainPage() {
   const { loadKeys, saveKey, updateKey, deleteKey } = useKeyStore();
   const keys = useAllKeys();
   const { pending: cascadePending, request: requestCascade, confirm: confirmCascade, cancel: cancelCascade } = useVaultCascade();
+  const crossVaultPaste = useCrossVaultPasteConfirm();
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
   const bgContributions = useUIContributions("keychain.bgContextMenu");
   const keychainPendingAction = useUIStore((s) => s.keychainPendingAction);
@@ -355,6 +361,21 @@ export default function KeychainPage() {
         onClick: () => useUIStore.getState().openImportExport("export", { bulk: { keys: selectedKeyIds, identities: selectedIdentityIds } }),
       });
     }
+    items.push(
+      {
+        label: t("common.action.cut"),
+        icon: "lucide:scissors",
+        shortcut: getShortcutHint("cut"),
+        onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-cut")),
+        divider: true,
+      },
+      {
+        label: t("common.action.copy"),
+        icon: "lucide:copy",
+        shortcut: getShortcutHint("copy"),
+        onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-copy")),
+      },
+    );
     items.push({
       label: t("keychain.page.bulk.deleteItems", { count: allIds.length }),
       icon: "lucide:trash-2",
@@ -378,6 +399,176 @@ export default function KeychainPage() {
     selectedIdSet,
     setSelection,
     onDelete: (ids) => setConfirmDeleteIds(ids),
+  });
+
+  // ── Cut / copy / paste ────────────────────────────────────────────────────
+
+  const clipboard = useVaultClipboardStore((s) => s.clipboard);
+  const cutIds = useMemo(
+    () =>
+      new Set(
+        clipboard?.tab === "keychain" && clipboard.mode === "cut"
+          ? [...clipboard.items.map((i) => i.id), ...clipboard.folderIds]
+          : [],
+      ),
+    [clipboard],
+  );
+
+  /**
+   * The destination folder is the only unambiguous carrier of a destination vault.
+   * At the root there is none, so nothing migrates and every object keeps its own
+   * vault — matching the drag-to-root path, and avoiding a "move to top level"
+   * gesture silently pulling a subtree out of a team vault. Derived from the folder
+   * argument rather than activeFolderId so an undo, which passes the origin folder
+   * back in, migrates back to the vault it came from.
+   */
+  const vaultForFolder = (folderId: string | null): string | null =>
+    folderId ? (scopedFolders.find((f) => f.id === folderId)?.vault_id ?? null) : null;
+
+  // Every mutation below goes through a store method so vault permission checks apply.
+  usePageClipboard({
+    navItem: "keychain",
+    getSelection: () => [...selectedIdSet],
+    getFocusedId: () => focusedId,
+    classify: (id) =>
+      scopedFolders.some((f) => f.id === id)
+        ? "folder"
+        : keys.some((k) => k.id === id)
+        ? "key"
+        : identities.some((i) => i.id === id)
+        ? "identity"
+        : null,
+    exists: (id) =>
+      keys.some((k) => k.id === id)
+      || identities.some((i) => i.id === id)
+      || scopedFolders.some((f) => f.id === id),
+    vaultIdOf: (id) =>
+      keys.find((k) => k.id === id)?.vault_id
+      ?? identities.find((i) => i.id === id)?.vault_id
+      ?? scopedFolders.find((f) => f.id === id)?.vault_id
+      ?? "personal",
+    targetFolderId: () => activeFolderId,
+    rootVaultIds: () => accessibleVaultIds,
+    targetVaultId: () => vaultForFolder(activeFolderId),
+    targetVaultName: () =>
+      vaultOptions.find((v) => v.id === vaultForFolder(activeFolderId))?.name ?? "",
+    confirmCrossVault: crossVaultPaste.confirmCrossVault,
+    folderIdOf: (id) =>
+      keys.find((k) => k.id === id)?.folder_id
+      ?? identities.find((i) => i.id === id)?.folder_id
+      ?? scopedFolders.find((f) => f.id === id)?.parent_folder_id
+      ?? null,
+    folderContentKinds: (folderId) => {
+      const treeKeys = keysInFolderTree(folderId);
+      const treeIdentities = identitiesInFolderTree(folderId);
+      const kinds: VaultClipboardKind[] = [];
+      if (treeKeys.length > 0) kinds.push("key");
+      if (treeIdentities.length > 0) kinds.push("identity");
+      const destination = vaultForFolder(activeFolderId);
+      if (destination === null || kinds.includes("key")) return kinds;
+      // A migrated identity keeps pointing at its key, which this path does not
+      // move — only the vault move/copy menu cascades that, behind VaultCascadeModal.
+      // Reporting the key makes the pre-flight refuse the paste rather than complete
+      // it with the reference dangling outside the destination.
+      const linkedKeys = treeIdentities
+        .map((i) => i.key_id && keys.find((k) => k.id === i.key_id))
+        .filter((k) => !!k);
+      if (linkedKeys.some((k) => (k.vault_id ?? "personal") !== destination)) kinds.push("key");
+      return kinds;
+    },
+    canMoveFolder: (id, parentFolderId) =>
+      parentFolderId !== id
+      && !(parentFolderId !== null && getAllSubFolders(id).some((f) => f.id === parentFolderId)),
+    can: (permission, vaultId) => can(permission as Permission, vaultId),
+    // moveObjectsToFolder takes a single object_type, so the ids are partitioned by
+    // kind. A same-vault move only rewrites folder_id; a cross-vault one has to go
+    // through updateKey/updateIdentity so the object actually changes vault, otherwise
+    // it would keep a stale vault_id alongside its new folder's.
+    moveItems: async (ids, folderId, vaultId) => {
+      const sameVaultKeys: string[] = [];
+      const sameVaultIdentities: string[] = [];
+      for (const id of ids) {
+        const key = keys.find((k) => k.id === id);
+        if (key) {
+          if (vaultId === null || (key.vault_id ?? "personal") === vaultId) {
+            sameVaultKeys.push(id);
+            continue;
+          }
+          await updateKey(id, {
+            name: key.name, key_type: key.key_type, tags: key.tags,
+            folder_id: folderId ?? undefined, vault_id: vaultId,
+          });
+          await publishKeySecrets(id, vaultId);
+          continue;
+        }
+        const identity = identities.find((i) => i.id === id);
+        if (!identity) continue;
+        if (vaultId === null || (identity.vault_id ?? "personal") === vaultId) {
+          sameVaultIdentities.push(id);
+          continue;
+        }
+        await updateIdentity(id, {
+          name: identity.name, username: identity.username, key_id: identity.key_id,
+          tags: identity.tags, folder_id: folderId ?? undefined, vault_id: vaultId,
+        });
+        await publishIdentitySecrets(id, vaultId);
+      }
+      // moveObjectsToFolder writes through to the DB without touching the key/identity
+      // stores, so each touched store is reloaded — as in `dropHandler`.
+      if (sameVaultKeys.length > 0) {
+        await moveObjectsToFolder(sameVaultKeys, "key", folderId);
+        await loadKeys();
+      }
+      if (sameVaultIdentities.length > 0) {
+        await moveObjectsToFolder(sameVaultIdentities, "identity", folderId);
+        await loadIdentities();
+      }
+    },
+    moveFolder: async (id, parentFolderId, vaultId) => {
+      const folder = scopedFolders.find((f) => f.id === id);
+      if (!folder) return;
+      if (vaultId !== null && (folder.vault_id ?? "personal") !== vaultId) {
+        await migrateFolderTreeToVault(folder, parentFolderId, vaultId);
+        return;
+      }
+      await moveFolder(id, parentFolderId);
+    },
+    duplicateItems: async (ids, folderId) => {
+      const targetVault = vaultForFolder(folderId) ?? undefined;
+      const created = new Map<string, string>();
+      // Keys first, as in copyFolderInto: an identity cloned alongside its key must
+      // point at the clone, not back at the original in the source vault.
+      const keyIdMap = new Map<string, string>();
+      for (const id of ids) {
+        const key = keys.find((k) => k.id === id);
+        if (!key) continue;
+        const dup = await duplicateKeyInto(key, folderId, { vaultId: targetVault });
+        keyIdMap.set(key.id, dup.id);
+        created.set(id, dup.id);
+      }
+      for (const id of ids) {
+        const identity = identities.find((i) => i.id === id);
+        if (!identity) continue;
+        const dup = await duplicateIdentityInto(identity, folderId, {
+          vaultId: targetVault,
+          keyId: identity.key_id ? (keyIdMap.get(identity.key_id) ?? identity.key_id) : undefined,
+        });
+        created.set(id, dup.id);
+      }
+      return ids.map((id) => created.get(id)).filter((id): id is string => !!id);
+    },
+    duplicateFolder: async (id, parentFolderId) =>
+      (await copyFolderInto(id, parentFolderId, vaultForFolder(parentFolderId) ?? undefined)).id,
+    // The store methods directly, not handleDeleteKey/handleDeleteIdentity: those
+    // swallow the error into the banner, which would let a failed undo report success.
+    deleteItems: async (ids) => {
+      for (const id of ids) {
+        if (keys.some((k) => k.id === id)) await deleteKey(id);
+        else if (identities.some((i) => i.id === id)) await deleteIdentity(id);
+      }
+    },
+    deleteFolder: async (id) => { await deleteFolder(id); },
+    setSelection,
   });
 
   useEffect(() => {
@@ -636,25 +827,42 @@ export default function KeychainPage() {
 
   // ── Folder vault move / copy ──────────────────────────────────────────────
 
+  /** All folders in the subtree rooted at folderId (BFS-ordered, parents before children). */
   const getAllSubFolders = (folderId: string): Folder[] => {
     const queue = [folderId];
     const result: Folder[] = [];
+    // A parent cycle in the data would otherwise spin forever and lock the renderer.
+    const seen = new Set<string>([folderId]);
     while (queue.length) {
       const cur = queue.shift()!;
-      const children = scopedFolders.filter((f) => f.parent_folder_id === cur);
+      const children = scopedFolders.filter((f) => f.parent_folder_id === cur && !seen.has(f.id));
+      for (const child of children) seen.add(child.id);
       result.push(...children);
       queue.push(...children.map((f) => f.id));
     }
     return result;
   };
 
-  /** Keys and identities nested anywhere under folderId. */
-  const getItemsInFolderTree = (folderId: string): string[] => {
-    const ids = new Set([folderId, ...getAllSubFolders(folderId).map((f) => f.id)]);
-    const inTree = <T extends { id: string; folder_id?: string | null }>(items: T[]) =>
-      items.filter((x) => x.folder_id != null && ids.has(x.folder_id)).map((x) => x.id);
-    return [...inTree(keys), ...inTree(identities)];
+  const folderTreeIds = (folderId: string): Set<string> =>
+    new Set([folderId, ...getAllSubFolders(folderId).map((f) => f.id)]);
+
+  /** Keys nested anywhere under folderId. */
+  const keysInFolderTree = (folderId: string): SshKey[] => {
+    const ids = folderTreeIds(folderId);
+    return keys.filter((k) => k.folder_id != null && ids.has(k.folder_id));
   };
+
+  /** Identities nested anywhere under folderId. */
+  const identitiesInFolderTree = (folderId: string): Identity[] => {
+    const ids = folderTreeIds(folderId);
+    return identities.filter((i) => i.folder_id != null && ids.has(i.folder_id));
+  };
+
+  /** Keys and identities nested anywhere under folderId. */
+  const getItemsInFolderTree = (folderId: string): string[] => [
+    ...keysInFolderTree(folderId).map((k) => k.id),
+    ...identitiesInFolderTree(folderId).map((i) => i.id),
+  ];
 
   /** Warns about the cascade: subfolders and every key/identity under them go too. */
   const folderDeleteMessage = (folderId: string): string => {
@@ -678,9 +886,8 @@ export default function KeychainPage() {
 
   const handleMoveFolderToVault = (folder: Folder, vaultId: string) => {
     const subFolders = getAllSubFolders(folder.id);
-    const folderIds = new Set([folder.id, ...subFolders.map((f) => f.id)]);
-    const treeKeys = keys.filter((k) => k.folder_id != null && folderIds.has(k.folder_id));
-    const treeIdentities = identities.filter((i) => i.folder_id != null && folderIds.has(i.folder_id));
+    const treeKeys = keysInFolderTree(folder.id);
+    const treeIdentities = identitiesInFolderTree(folder.id);
     const targetVaultName = vaultOptions.find((v) => v.id === vaultId)?.name ?? vaultId;
 
     requestCascade({
@@ -711,9 +918,8 @@ export default function KeychainPage() {
 
   const handleCopyFolderToVault = (folder: Folder, vaultId: string) => {
     const subFolders = getAllSubFolders(folder.id);
-    const folderIds = new Set([folder.id, ...subFolders.map((f) => f.id)]);
-    const treeKeys = keys.filter((k) => k.folder_id != null && folderIds.has(k.folder_id));
-    const treeIdentities = identities.filter((i) => i.folder_id != null && folderIds.has(i.folder_id));
+    const treeKeys = keysInFolderTree(folder.id);
+    const treeIdentities = identitiesInFolderTree(folder.id);
     const targetVaultName = vaultOptions.find((v) => v.id === vaultId)?.name ?? vaultId;
 
     requestCascade({
@@ -756,6 +962,160 @@ export default function KeychainPage() {
         } catch (err) { setError(String(err)); }
       },
     });
+  };
+
+  // ── Clipboard paste helpers ───────────────────────────────────────────────
+
+  /**
+   * Re-publishes a key's material for the vault it now lives in. Without this a key
+   * pasted into a team vault reaches every teammate as an object with no private key
+   * behind it, and nothing reports why. `saveTeamVaultSecretForVault` no-ops for a
+   * personal vault, which is the correct behaviour on the way back out.
+   */
+  const publishKeySecrets = async (keyId: string, vaultId: string) => {
+    for (const part of ["private", "public", "passphrase"]) {
+      const localKey = `key:${keyId}:${part}`;
+      const value = await getSecret(localKey).catch(() => null);
+      if (value) await saveTeamVaultSecretForVault(vaultId, localKey, value).catch(() => {});
+    }
+  };
+
+  const publishIdentitySecrets = async (identityId: string, vaultId: string) => {
+    const localKey = `identity:${identityId}:password`;
+    const value = await getSecret(localKey).catch(() => null);
+    if (value) await saveTeamVaultSecretForVault(vaultId, localKey, value).catch(() => {});
+  };
+
+  /**
+   * Duplicates `key` into `folderId`, optionally into another vault. `keepName` is
+   * for members of a subtree being cloned wholesale — only the root of such a clone
+   * carries the "(copy)" suffix. Throws; callers surface the error.
+   */
+  const duplicateKeyInto = async (
+    key: SshKey,
+    folderId: string | null,
+    opts: { vaultId?: string; keepName?: boolean } = {},
+  ) => {
+    const vaultId = opts.vaultId ?? key.vault_id ?? "personal";
+    const newKey = await saveKey({
+      // default name kept in English until all creation sites are localized together (see i18n issue #14)
+      name: key.name ? (opts.keepName ? key.name : `${key.name} (copy)`) : undefined,
+      key_type: key.key_type,
+      tags: [...key.tags],
+      folder_id: folderId ?? undefined,
+      vault_id: vaultId,
+    });
+    for (const part of ["private", "public", "passphrase"]) {
+      const value = await getSecret(`key:${key.id}:${part}`).catch(() => null);
+      if (!value) continue;
+      const localKey = `key:${newKey.id}:${part}`;
+      await storeSecret(localKey, value);
+      await saveTeamVaultSecretForVault(vaultId, localKey, value).catch(() => {});
+    }
+    return newKey;
+  };
+
+  /** `keyId` overrides the link when the referenced key was cloned alongside it. */
+  const duplicateIdentityInto = async (
+    identity: Identity,
+    folderId: string | null,
+    opts: { vaultId?: string; keepName?: boolean; keyId?: string } = {},
+  ) => {
+    const vaultId = opts.vaultId ?? identity.vault_id ?? "personal";
+    const newIdentity = await saveIdentity({
+      // default name kept in English until all creation sites are localized together (see i18n issue #14)
+      name: identity.name ? (opts.keepName ? identity.name : `${identity.name} (copy)`) : undefined,
+      username: identity.username,
+      key_id: opts.keyId ?? identity.key_id,
+      tags: [...identity.tags],
+      folder_id: folderId ?? undefined,
+      vault_id: vaultId,
+    });
+    const pwd = await getSecret(`identity:${identity.id}:password`).catch(() => null);
+    if (pwd) {
+      const localKey = `identity:${newIdentity.id}:password`;
+      await storeSecret(localKey, pwd);
+      await saveTeamVaultSecretForVault(vaultId, localKey, pwd).catch(() => {});
+    }
+    return newIdentity;
+  };
+
+  /** Deep-clones a folder subtree under `parentFolderId`, into `vaultId` when given. */
+  const copyFolderInto = async (
+    folderId: string,
+    parentFolderId: string | null,
+    vaultId?: string,
+  ) => {
+    const folder = scopedFolders.find((f) => f.id === folderId);
+    if (!folder) throw new Error(`Unknown folder ${folderId}`);
+    const targetVaultId = vaultId ?? folder.vault_id;
+    // Only the root of the clone is renamed; renaming every descendant would
+    // compound to "Prod (copy) (copy)" on a second paste.
+    // default name kept in English until all creation sites are localized together (see i18n issue #14)
+    const root = await saveFolder({
+      name: `${folder.name} (copy)`,
+      object_type: folder.object_type,
+      parent_folder_id: parentFolderId ?? undefined,
+      vault_id: targetVaultId,
+    });
+    // BFS order guarantees a parent is created before its children.
+    const folderIdMap = new Map<string, string>([[folder.id, root.id]]);
+    for (const sf of getAllSubFolders(folder.id)) {
+      const created = await saveFolder({
+        name: sf.name,
+        object_type: sf.object_type,
+        parent_folder_id: folderIdMap.get(sf.parent_folder_id ?? "") ?? root.id,
+        vault_id: targetVaultId,
+      });
+      folderIdMap.set(sf.id, created.id);
+    }
+    // Keys first: an identity cloned from the same subtree must point at the clone
+    // of its key, not at the original.
+    const keyIdMap = new Map<string, string>();
+    for (const key of keysInFolderTree(folder.id)) {
+      const created = await duplicateKeyInto(key, folderIdMap.get(key.folder_id ?? "") ?? root.id, {
+        vaultId: targetVaultId,
+        keepName: true,
+      });
+      keyIdMap.set(key.id, created.id);
+    }
+    for (const identity of identitiesInFolderTree(folder.id)) {
+      await duplicateIdentityInto(identity, folderIdMap.get(identity.folder_id ?? "") ?? root.id, {
+        vaultId: targetVaultId,
+        keepName: true,
+        keyId: identity.key_id ? (keyIdMap.get(identity.key_id) ?? identity.key_id) : undefined,
+      });
+    }
+    return root;
+  };
+
+  /**
+   * Moves a folder subtree into `vaultId`, reparenting the root at the same time.
+   * Same updateFolder/updateKey/updateIdentity path handleMoveFolderToVault uses, so
+   * the team-vault migration logic in the stores applies.
+   */
+  const migrateFolderTreeToVault = async (
+    folder: Folder,
+    parentFolderId: string | null,
+    vaultId: string,
+  ) => {
+    await updateFolder(folder.id, {
+      name: folder.name,
+      object_type: folder.object_type,
+      parent_folder_id: parentFolderId ?? undefined,
+      vault_id: vaultId,
+    });
+    for (const sf of getAllSubFolders(folder.id)) {
+      await updateFolder(sf.id, { name: sf.name, object_type: sf.object_type, parent_folder_id: sf.parent_folder_id, vault_id: vaultId });
+    }
+    for (const key of keysInFolderTree(folder.id)) {
+      await updateKey(key.id, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId });
+      await publishKeySecrets(key.id, vaultId);
+    }
+    for (const identity of identitiesInFolderTree(folder.id)) {
+      await updateIdentity(identity.id, { name: identity.name, username: identity.username, key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId });
+      await publishIdentitySecrets(identity.id, vaultId);
+    }
   };
 
   const openKeyFormRef = useRef(openKeyForm);
@@ -944,6 +1304,7 @@ export default function KeychainPage() {
                       isSelected={editingFolderId === folder.id || selectedIdSet.has(folder.id)}
                       isFocused={focusedId === folder.id}
                       isDragOver={dragOverFolderId === folder.id}
+                      dimmed={cutIds.has(folder.id)}
                       onClick={() => navigateInto(folder)}
                       onRename={(f, newName) => void updateFolder(f.id, { name: newName, object_type: f.object_type, parent_folder_id: f.parent_folder_id })}
                       onDelete={(f) => setConfirmDeleteFolderId(f.id)}
@@ -1003,6 +1364,7 @@ export default function KeychainPage() {
                     selectedIdSet={selectedIdSet}
                     layoutMode={layoutMode}
                     focusedId={focusedId}
+                    dimmedIds={cutIds}
                     onEdit={openKeyForm}
                     onDelete={handleDeleteKey}
                     onSelect={handleKeySelect}
@@ -1024,6 +1386,7 @@ export default function KeychainPage() {
                     editingId={editingIdentity?.id ?? null}
                     selectedIdSet={selectedIdSet}
                     focusedId={focusedId}
+                    dimmedIds={cutIds}
                     onEdit={openIdentityForm}
                     onDelete={handleDeleteIdentity}
                     onSelect={handleIdentitySelect}
@@ -1044,6 +1407,7 @@ export default function KeychainPage() {
               selectedIdSet={selectedIdSet}
               layoutMode={layoutMode}
               focusedId={focusedId}
+              dimmedIds={cutIds}
               onAdd={canEditKeys ? () => openKeyForm(null) : undefined}
               onEdit={openKeyForm}
               onDelete={handleDeleteKey}
@@ -1064,6 +1428,7 @@ export default function KeychainPage() {
               editingId={editingIdentity?.id ?? null}
               selectedIdSet={selectedIdSet}
               focusedId={focusedId}
+              dimmedIds={cutIds}
               onAdd={canEditIdentities ? () => openIdentityForm(null) : undefined}
               onEdit={openIdentityForm}
               onDelete={handleDeleteIdentity}
@@ -1090,6 +1455,9 @@ export default function KeychainPage() {
               { label: t("keychain.toolbar.newIdentity"), icon: "lucide:user-plus", onClick: () => openIdentityForm(null) },
             ] : []),
             { label: t("keychain.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: () => void saveFolder({ name: "New Folder" /* persisted English default */, object_type: "keychain", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }) },
+            ...(useVaultClipboardStore.getState().clipboard?.tab === "keychain"
+              ? [{ label: t("common.action.paste"), icon: "lucide:clipboard", shortcut: getShortcutHint("paste"), onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-paste")) } as const]
+              : []),
             ...bgContributions,
           ]}
         />
@@ -1130,6 +1498,14 @@ export default function KeychainPage() {
 
     </SidePanelLayout>
 
+      {crossVaultPaste.pending && (
+        <VaultCascadeModal
+          cascade={crossVaultPaste.pending}
+          onConfirm={crossVaultPaste.accept}
+          onCancel={crossVaultPaste.cancel}
+        />
+      )}
+
       {cascadePending && (
         <VaultCascadeModal
           cascade={cascadePending}
@@ -1137,6 +1513,8 @@ export default function KeychainPage() {
           onCancel={cancelCascade}
         />
       )}
+
+      <ClipboardPill navItem="keychain" />
     </>
   );
 }

@@ -82,6 +82,8 @@ test("migrates team objects between teams without local writes", async () => {
   expect(calls).toEqual(["save-team:team-2:item-1", "remove-team:team-1:item-1"]);
 });
 
+// team-to-local adopts rather than updates: the object has no local row to update,
+// and the adopt keeps its id so secrets and cross-references still resolve.
 test("migrates team objects to local before removing from team", async () => {
   const calls: string[] = [];
   const item = { id: "item-1", vault_id: "personal" };
@@ -92,11 +94,12 @@ test("migrates team objects to local before removing from team", async () => {
     isTeamVaultId,
     item,
     updateLocal: async () => { calls.push("update-local"); return item; },
+    adoptLocal: async () => { calls.push("adopt-local"); return item; },
     saveTeam: async (teamId, savedItem) => { calls.push(`save-team:${teamId}:${savedItem.id}`); },
     removeTeam: async (teamId, id) => { calls.push(`remove-team:${teamId}:${id}`); },
   });
 
-  expect(calls).toEqual(["update-local", "remove-team:team-1:item-1"]);
+  expect(calls).toEqual(["adopt-local", "remove-team:team-1:item-1"]);
 });
 
 test("same-scope helper updates local only for local objects", async () => {

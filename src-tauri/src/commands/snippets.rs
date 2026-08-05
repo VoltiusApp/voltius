@@ -39,10 +39,13 @@ pub fn snippet_list() -> Result<Vec<Snippet>, String> {
         .collect())
 }
 
-#[tauri::command]
-pub fn snippet_create(data: SnippetFormData) -> Result<Snippet, String> {
-    let mut snippets = load_snippets();
-    let now = Utc::now().to_rfc3339();
+fn build_snippet(
+    id: String,
+    data: SnippetFormData,
+    now: &str,
+    created_at: Option<String>,
+) -> Snippet {
+    let now = now.to_string();
     let mut clocks = HashMap::new();
     for field in &[
         "name",
@@ -57,10 +60,8 @@ pub fn snippet_create(data: SnippetFormData) -> Result<Snippet, String> {
     ] {
         clocks.insert(field.to_string(), now.clone());
     }
-    let vault_id = data.vault_id.unwrap_or_else(|| "personal".to_string());
-    check_vault_write(std::slice::from_ref(&vault_id))?;
-    let snippet = Snippet {
-        id: Uuid::new_v4().to_string(),
+    Snippet {
+        id,
         name: data.name,
         content: None,
         steps: data.steps,
@@ -70,15 +71,52 @@ pub fn snippet_create(data: SnippetFormData) -> Result<Snippet, String> {
         favorite: data.favorite,
         only_for_connection_tags: data.only_for_connection_tags,
         only_for_distros: data.only_for_distros,
-        created_at: now.clone(),
+        created_at: created_at.unwrap_or_else(|| now.clone()),
         updated_at: now,
         deleted_at: None,
-        vault_id,
+        vault_id: data.vault_id.unwrap_or_else(|| "personal".to_string()),
         clocks,
-    };
+    }
+}
+
+#[tauri::command]
+pub fn snippet_create(data: SnippetFormData) -> Result<Snippet, String> {
+    let mut snippets = load_snippets();
+    let now = Utc::now().to_rfc3339();
+    let vault_id = data
+        .vault_id
+        .clone()
+        .unwrap_or_else(|| "personal".to_string());
+    check_vault_write(std::slice::from_ref(&vault_id))?;
+    let snippet = build_snippet(Uuid::new_v4().to_string(), data, &now, None);
     snippets.push(snippet.clone());
     save_snippets(&snippets)?;
     Ok(snippet)
+}
+
+/// Inserts a snippet under a caller-supplied `id`, replacing any local row with
+/// that id. Migration-only: see `connection_adopt`. The id must survive because
+/// connections reference snippets by `pre_snippet_id` / `post_snippet_id`.
+#[tauri::command]
+pub fn snippet_adopt(id: String, data: SnippetFormData) -> Result<Snippet, String> {
+    let mut snippets = load_snippets();
+    let now = Utc::now().to_rfc3339();
+    let vault_id = data
+        .vault_id
+        .clone()
+        .unwrap_or_else(|| "personal".to_string());
+    check_vault_write(std::slice::from_ref(&vault_id))?;
+    let created_at = snippets
+        .iter()
+        .find(|s| s.id == id)
+        .map(|s| s.created_at.clone());
+    let adopted = build_snippet(id.clone(), data, &now, created_at);
+    match snippets.iter_mut().find(|s| s.id == id) {
+        Some(slot) => *slot = adopted.clone(),
+        None => snippets.push(adopted.clone()),
+    }
+    save_snippets(&snippets)?;
+    Ok(adopted)
 }
 
 #[tauri::command]
@@ -201,31 +239,72 @@ pub fn snippet_folder_list() -> Result<Vec<SnippetFolder>, String> {
         .collect())
 }
 
-#[tauri::command]
-pub fn snippet_folder_create(data: SnippetFolderFormData) -> Result<SnippetFolder, String> {
-    let mut folders = load_snippet_folders();
-    let now = Utc::now().to_rfc3339();
+fn build_snippet_folder(
+    id: String,
+    data: SnippetFolderFormData,
+    now: &str,
+    created_at: Option<String>,
+) -> SnippetFolder {
+    let now = now.to_string();
     let mut clocks = HashMap::new();
     for field in &["name", "parent_id", "color", "icon", "vault_id"] {
         clocks.insert(field.to_string(), now.clone());
     }
-    let vault_id = data.vault_id.unwrap_or_else(|| "personal".to_string());
-    check_vault_write(std::slice::from_ref(&vault_id))?;
-    let folder = SnippetFolder {
-        id: Uuid::new_v4().to_string(),
+    SnippetFolder {
+        id,
         name: data.name,
         parent_id: data.parent_id,
         color: data.color,
         icon: data.icon,
-        created_at: now.clone(),
+        created_at: created_at.unwrap_or_else(|| now.clone()),
         updated_at: now,
         deleted_at: None,
-        vault_id,
+        vault_id: data.vault_id.unwrap_or_else(|| "personal".to_string()),
         clocks,
-    };
+    }
+}
+
+#[tauri::command]
+pub fn snippet_folder_create(data: SnippetFolderFormData) -> Result<SnippetFolder, String> {
+    let mut folders = load_snippet_folders();
+    let now = Utc::now().to_rfc3339();
+    let vault_id = data
+        .vault_id
+        .clone()
+        .unwrap_or_else(|| "personal".to_string());
+    check_vault_write(std::slice::from_ref(&vault_id))?;
+    let folder = build_snippet_folder(Uuid::new_v4().to_string(), data, &now, None);
     folders.push(folder.clone());
     save_snippet_folders(&folders)?;
     Ok(folder)
+}
+
+/// Inserts a snippet folder under a caller-supplied `id`, replacing any local row
+/// with that id. Migration-only: see `connection_adopt`. The id must survive
+/// because snippets reference their folder by `folder_id`.
+#[tauri::command]
+pub fn snippet_folder_adopt(
+    id: String,
+    data: SnippetFolderFormData,
+) -> Result<SnippetFolder, String> {
+    let mut folders = load_snippet_folders();
+    let now = Utc::now().to_rfc3339();
+    let vault_id = data
+        .vault_id
+        .clone()
+        .unwrap_or_else(|| "personal".to_string());
+    check_vault_write(std::slice::from_ref(&vault_id))?;
+    let created_at = folders
+        .iter()
+        .find(|f| f.id == id)
+        .map(|f| f.created_at.clone());
+    let adopted = build_snippet_folder(id.clone(), data, &now, created_at);
+    match folders.iter_mut().find(|f| f.id == id) {
+        Some(slot) => *slot = adopted.clone(),
+        None => folders.push(adopted.clone()),
+    }
+    save_snippet_folders(&folders)?;
+    Ok(adopted)
 }
 
 #[tauri::command]

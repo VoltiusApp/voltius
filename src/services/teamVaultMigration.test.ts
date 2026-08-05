@@ -46,6 +46,7 @@ test("migrateVaultObject: local→team updates local then saves to team", async 
   const result = await migrateVaultObject({
     previousVaultId: "personal", nextVaultId: "team-a", isTeamVaultId: isTeam, item,
     updateLocal: async () => { calls.push("updateLocal"); return updated; },
+    adoptLocal: async () => { calls.push("adoptLocal"); return updated; },
     saveTeam: async (teamId) => { calls.push(`saveTeam:${teamId}`); },
     removeTeam: async () => { calls.push("removeTeam"); },
   });
@@ -59,6 +60,7 @@ test("migrateVaultObject: team→team saves to dest then removes from source", a
   const result = await migrateVaultObject({
     previousVaultId: "team-a", nextVaultId: "team-b", isTeamVaultId: isTeam, item,
     updateLocal: async () => { calls.push("updateLocal"); return item; },
+    adoptLocal: async () => { calls.push("adoptLocal"); return item; },
     saveTeam: async (teamId) => { calls.push(`saveTeam:${teamId}`); },
     removeTeam: async (teamId, id) => { calls.push(`removeTeam:${teamId}:${id}`); },
   });
@@ -73,11 +75,14 @@ test("migrateVaultObject: team→local updates local then removes from source", 
   const result = await migrateVaultObject({
     previousVaultId: "team-a", nextVaultId: "personal", isTeamVaultId: isTeam, item,
     updateLocal: async () => { calls.push("updateLocal"); return updated; },
+    adoptLocal: async () => { calls.push("adoptLocal"); return updated; },
     saveTeam: async () => { calls.push("saveTeam"); },
     removeTeam: async (teamId, id) => { calls.push(`removeTeam:${teamId}:${id}`); },
   });
   expect(result).toEqual(updated);
-  expect(calls).toEqual(["updateLocal", "removeTeam:team-a:x1"]);
+  // adopt, never update: the object lives server-side, so an update would fail
+  // "not found" and any fresh id would orphan its secrets.
+  expect(calls).toEqual(["adoptLocal", "removeTeam:team-a:x1"]);
 });
 
 test("migrateVaultObject: same-scope into a team vault still saves to team", async () => {
@@ -86,6 +91,7 @@ test("migrateVaultObject: same-scope into a team vault still saves to team", asy
   const result = await migrateVaultObject({
     previousVaultId: "team-a", nextVaultId: "team-a", isTeamVaultId: isTeam, item,
     updateLocal: async () => { calls.push("updateLocal"); return item; },
+    adoptLocal: async () => { calls.push("adoptLocal"); return item; },
     saveTeam: async (teamId) => { calls.push(`saveTeam:${teamId}`); },
     removeTeam: async () => { calls.push("removeTeam"); },
   });
@@ -99,8 +105,23 @@ test("migrateVaultObject: same-scope local just updates local", async () => {
   await migrateVaultObject({
     previousVaultId: "personal", nextVaultId: "personal", isTeamVaultId: isTeam, item,
     updateLocal: async () => { calls.push("updateLocal"); return item; },
+    adoptLocal: async () => { calls.push("adoptLocal"); return item; },
     saveTeam: async () => { calls.push("saveTeam"); },
     removeTeam: async () => { calls.push("removeTeam"); },
   });
   expect(calls).toEqual(["updateLocal"]);
+});
+
+test("migrateVaultObject: team→local preserves the object id it adopts", async () => {
+  const item = { id: "x1", vault_id: "team-a" };
+  let adoptedId: string | null = null;
+  const result = await migrateVaultObject({
+    previousVaultId: "team-a", nextVaultId: "personal", isTeamVaultId: isTeam, item,
+    updateLocal: async () => { throw new Error("Connection x1 not found"); },
+    adoptLocal: async () => { adoptedId = item.id; return { id: item.id, vault_id: "personal" }; },
+    saveTeam: async () => {},
+    removeTeam: async () => {},
+  });
+  expect(adoptedId).toBe("x1");
+  expect(result.id).toBe("x1");
 });

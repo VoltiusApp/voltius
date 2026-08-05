@@ -13,6 +13,11 @@ export async function updateConnection(id: string, data: ConnectionFormData): Pr
   return invoke("connection_update", { id, data });
 }
 
+/** Migration-only: re-creates a team-vault connection locally under its own id. */
+export async function adoptConnection(id: string, data: ConnectionFormData): Promise<Connection> {
+  return invoke("connection_adopt", { id, data });
+}
+
 export async function deleteConnection(id: string): Promise<void> {
   return invoke("connection_delete", { id });
 }

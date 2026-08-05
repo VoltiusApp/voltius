@@ -9,6 +9,8 @@
       "edit": "Edit",
       "create": "Create",
       "copy": "Copy",
+      "cut": "Cut",
+      "paste": "Paste",
       "rename": "Rename",
       "remove": "Remove",
       "add": "Add",
@@ -154,6 +156,27 @@
       "legacyTermiusUnsupported": "Legacy Termius dump format is no longer supported; use Auto Extract.",
       "termiusExtractionFormat": "Termius extraction must return { version: 2, records: [...] }",
       "failedToFetchSource": "Failed to fetch source: HTTP {{status}}"
+    },
+    "clipboard": {
+      "cut_one": "{{count}} item cut",
+      "cut_other": "{{count}} items cut",
+      "copied_one": "{{count}} item copied",
+      "copied_other": "{{count}} items copied",
+      "toMove": "{{shortcut}} to move",
+      "toPaste": "{{shortcut}} to paste",
+      "clear": "Clear clipboard",
+      "crossVaultMoveHeading": "Move items to",
+      "crossVaultCopyHeading": "Copy items to",
+      "crossVaultMoveDescription_one": "{{count}} item will leave its current vault and move into {{targetVaultName}}.",
+      "crossVaultMoveDescription_other": "{{count}} items will leave their current vault and move into {{targetVaultName}}.",
+      "crossVaultCopyDescription_one": "{{count}} item will be copied into {{targetVaultName}}.",
+      "crossVaultCopyDescription_other": "{{count}} items will be copied into {{targetVaultName}}.",
+      "pasteRootCrossVault": "Pasting at the top level can't move items between vaults — open a folder in the destination vault.",
+      "pasteFailed": "Paste failed: {{error}}",
+      "pasteBlocked": "Nothing was pasted: you are missing {{permissions}} in one of the vaults involved.",
+      "permissionsMissing": "you are missing {{permissions}} in one of the vaults involved",
+      "pasteSkipped_one": "{{count}} item no longer exists and was skipped.",
+      "pasteSkipped_other": "{{count}} items no longer exist and were skipped."
     }
   }
 }

@@ -32,6 +32,26 @@ pub fn folder_list() -> Result<Vec<Folder>, String> {
         .collect())
 }
 
+fn build_folder(id: String, data: FolderFormData, now: &str, created_at: Option<String>) -> Folder {
+    let now = now.to_string();
+    let mut clocks = HashMap::new();
+    for field in &["name", "parent_folder_id", "object_type", "vault_id"] {
+        clocks.insert((*field).to_string(), now.clone());
+    }
+    Folder {
+        id,
+        name: data.name,
+        parent_folder_id: data.parent_folder_id,
+        object_type: data.object_type,
+        vault_id: data.vault_id.unwrap_or_else(|| "personal".to_string()),
+        pinned: data.pinned,
+        created_at: created_at.unwrap_or_else(|| now.clone()),
+        updated_at: now,
+        deleted_at: None,
+        clocks,
+    }
+}
+
 #[tauri::command]
 pub fn folder_save(data: FolderFormData) -> Result<Folder, String> {
     let vault_id = data
@@ -41,26 +61,35 @@ pub fn folder_save(data: FolderFormData) -> Result<Folder, String> {
     check_vault_write(&[vault_id])?;
     let mut folders = load_folders();
     let now = Utc::now().to_rfc3339();
-    let mut clocks = HashMap::new();
-    clocks.insert("name".to_string(), now.clone());
-    clocks.insert("parent_folder_id".to_string(), now.clone());
-    clocks.insert("object_type".to_string(), now.clone());
-    clocks.insert("vault_id".to_string(), now.clone());
-    let folder = Folder {
-        id: Uuid::new_v4().to_string(),
-        name: data.name,
-        parent_folder_id: data.parent_folder_id,
-        object_type: data.object_type,
-        vault_id: data.vault_id.unwrap_or_else(|| "personal".to_string()),
-        pinned: data.pinned,
-        created_at: now.clone(),
-        updated_at: now,
-        deleted_at: None,
-        clocks,
-    };
+    let folder = build_folder(Uuid::new_v4().to_string(), data, &now, None);
     folders.push(folder.clone());
     save_folders(&folders)?;
     Ok(folder)
+}
+
+/// Inserts a folder under a caller-supplied `id`, replacing any local row with
+/// that id. Migration-only: see `connection_adopt`. The id must survive because
+/// every object filed in the folder references it by `folder_id`.
+#[tauri::command]
+pub fn folder_adopt(id: String, data: FolderFormData) -> Result<Folder, String> {
+    let vault_id = data
+        .vault_id
+        .clone()
+        .unwrap_or_else(|| "personal".to_string());
+    check_vault_write(&[vault_id])?;
+    let mut folders = load_folders();
+    let now = Utc::now().to_rfc3339();
+    let created_at = folders
+        .iter()
+        .find(|f| f.id == id)
+        .map(|f| f.created_at.clone());
+    let adopted = build_folder(id.clone(), data, &now, created_at);
+    match folders.iter_mut().find(|f| f.id == id) {
+        Some(slot) => *slot = adopted.clone(),
+        None => folders.push(adopted.clone()),
+    }
+    save_folders(&folders)?;
+    Ok(adopted)
 }
 
 #[tauri::command]

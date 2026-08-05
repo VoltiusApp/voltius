@@ -59,7 +59,8 @@ interface PortForwardingStore {
   loadRules: () => Promise<void>;
   setTeamRules: (teamId: string, items: PortForwardingRule[]) => void;
   clearTeamRules: (teamId?: string) => void;
-  createRule: (data: PortForwardingRuleFormData) => Promise<PortForwardingRule>;
+  /** `id` is migration-only: it keeps a rule's id when it moves into a team vault. */
+  createRule: (data: PortForwardingRuleFormData, id?: string) => Promise<PortForwardingRule>;
   updateRule: (id: string, data: PortForwardingRuleFormData) => Promise<void>;
   deleteRule: (id: string) => Promise<void>;
   duplicateRule: (id: string) => Promise<PortForwardingRule>;
@@ -88,11 +89,11 @@ export const usePortForwardingStore = create<PortForwardingStore>((set, get) => 
       return { teamRules: next };
     }),
 
-  createRule: async (data) => {
+  createRule: async (data, id) => {
     if (isTeamVaultId(data.vault_id)) {
       const now = new Date().toISOString();
       const rule: PortForwardingRule = {
-        id: crypto.randomUUID(),
+        id: id ?? crypto.randomUUID(),
         name: data.name,
         local_port: data.local_port,
         remote_port: data.remote_port,
@@ -140,7 +141,9 @@ export const usePortForwardingStore = create<PortForwardingStore>((set, get) => 
     if (teamEntry) {
       const { teamId, rule: prev } = teamEntry;
       if (!isTeamVaultId(data.vault_id)) {
-        await api.createPfRule(data);
+        // Adopt, not create: the rule only exists server-side and its id is
+        // referenced by sync prefs and undo entries.
+        await api.adoptPfRule(id, data);
         await removeTeamVaultObject(teamId, id);
         set((s) => ({ teamRules: { ...s.teamRules, [teamId]: (s.teamRules[teamId] ?? []).filter((r) => r.id !== id) } }));
         const rules = await api.listPfRules();
@@ -185,7 +188,8 @@ export const usePortForwardingStore = create<PortForwardingStore>((set, get) => 
 
     if (isTeamVaultId(data.vault_id)) {
       await api.deletePfRule(id);
-      const rule = await get().createRule(data);
+      // Keep the id: sync prefs and undo entries reference it.
+      const rule = await get().createRule(data, id);
       set((s) => ({ rules: s.rules.filter((r) => r.id !== id) }));
       void rule;
       isServerMode().then((s) => { if (s && useSyncPrefsStore.getState().isObjectSynced(id, "port-forwarding-rule")) scheduleSync(); });

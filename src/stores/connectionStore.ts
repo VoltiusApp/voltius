@@ -246,6 +246,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         isTeamVaultId,
         item: updated,
         updateLocal: () => api.updateConnection(id, data),
+        adoptLocal: () => api.adoptConnection(id, data),
         saveTeam: (teamId, item) => saveTeamVaultObject(teamId, "connection", item),
         removeTeam: removeTeamVaultObject,
       });
@@ -325,6 +326,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       isTeamVaultId,
       item,
       updateLocal: () => api.updateConnection(id, data),
+      adoptLocal: () => api.adoptConnection(id, data),
       saveTeam: (teamId, item) => saveTeamVaultObject(teamId, "connection", item),
       removeTeam: removeTeamVaultObject,
     });

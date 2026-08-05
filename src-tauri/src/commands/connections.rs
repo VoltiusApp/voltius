@@ -150,23 +150,28 @@ pub fn connection_list() -> Result<Vec<Connection>, String> {
         .collect())
 }
 
-#[tauri::command]
-pub fn connection_save(data: ConnectionFormData) -> Result<Connection, String> {
-    let mut connections = load_connections();
-    let now = Utc::now().to_rfc3339();
+/// Builds a fresh `Connection` from form data under an explicit `id`.
+/// Shared by `connection_save` (random id) and `connection_adopt` (migrated id).
+fn build_connection(
+    id: String,
+    data: ConnectionFormData,
+    now: &str,
+    created_at: Option<String>,
+    last_used_at: Option<String>,
+) -> Connection {
+    let now = now.to_string();
     let clocks = initial_clocks(&now);
     let vault_id = data.vault_id.unwrap_or_else(|| "personal".to_string());
-    check_vault_write(std::slice::from_ref(&vault_id))?;
-    let conn = Connection {
-        id: Uuid::new_v4().to_string(),
+    Connection {
+        id,
         name: data.name,
         host: data.host,
         port: data.port,
         username: data.username,
         auth_type: data.auth_type,
         tags: data.tags,
-        created_at: now.clone(),
-        last_used_at: None,
+        created_at: created_at.unwrap_or_else(|| now.clone()),
+        last_used_at,
         distro: data.distro,
         icon: data.icon,
         identity_id: data.identity_id,
@@ -200,10 +205,54 @@ pub fn connection_save(data: ConnectionFormData) -> Result<Connection, String> {
         ftp_secure: data.ftp_secure,
         notes: data.notes,
         clocks,
-    };
+    }
+}
+
+#[tauri::command]
+pub fn connection_save(data: ConnectionFormData) -> Result<Connection, String> {
+    let mut connections = load_connections();
+    let now = Utc::now().to_rfc3339();
+    let vault_id = data
+        .vault_id
+        .clone()
+        .unwrap_or_else(|| "personal".to_string());
+    check_vault_write(std::slice::from_ref(&vault_id))?;
+    let conn = build_connection(Uuid::new_v4().to_string(), data, &now, None, None);
     connections.push(conn.clone());
     save_connections(&connections)?;
     Ok(conn)
+}
+
+/// Inserts a connection under a caller-supplied `id`, replacing any local row
+/// that already carries it.
+///
+/// Only the team→local vault migration may call this: the object it moves lives
+/// server-side, so `connection_update` cannot find it, and minting a new id would
+/// orphan its secrets (`password:<id>`, `key:<id>`) and every reference to it.
+/// Kept separate from `connection_update` so a genuinely stale id there still errors.
+/// Replacing rather than rejecting an existing id keeps a retry after a half-done
+/// migration idempotent.
+#[tauri::command]
+pub fn connection_adopt(id: String, data: ConnectionFormData) -> Result<Connection, String> {
+    let mut connections = load_connections();
+    let now = Utc::now().to_rfc3339();
+    let vault_id = data
+        .vault_id
+        .clone()
+        .unwrap_or_else(|| "personal".to_string());
+    check_vault_write(std::slice::from_ref(&vault_id))?;
+
+    let existing = connections.iter().find(|c| c.id == id);
+    let created_at = existing.map(|c| c.created_at.clone());
+    let last_used_at = existing.and_then(|c| c.last_used_at.clone());
+    let adopted = build_connection(id.clone(), data, &now, created_at, last_used_at);
+
+    match connections.iter_mut().find(|c| c.id == id) {
+        Some(slot) => *slot = adopted.clone(),
+        None => connections.push(adopted.clone()),
+    }
+    save_connections(&connections)?;
+    Ok(adopted)
 }
 
 #[tauri::command]

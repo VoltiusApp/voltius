@@ -12,9 +12,20 @@ interface HistoryStore {
   past: HistoryEntry[];
   future: HistoryEntry[];
   bypassing: boolean;
+  suppressing: boolean;
+  /** Open `withoutHistory` windows; `suppressing` is derived from it. */
+  suppressDepth: number;
   canUndo: boolean;
   canRedo: boolean;
   push: (entry: HistoryEntry) => void;
+  /**
+   * Runs `fn` with `push` disabled, so a composite action (e.g. a paste) can call
+   * several store methods that each record their own entry and still leave a single
+   * entry of its own. Depth-counted, so nested and interleaved windows each close
+   * only their own. Covers the do-direction only; `bypassing` already suppresses
+   * pushes during undo/redo.
+   */
+  withoutHistory: <T>(fn: () => Promise<T>) => Promise<T>;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
 }
@@ -25,15 +36,29 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
   past: [],
   future: [],
   bypassing: false,
+  suppressing: false,
+  suppressDepth: 0,
   canUndo: false,
   canRedo: false,
 
   push: (entry) => {
-    if (get().bypassing) return;
+    if (get().bypassing || get().suppressing) return;
     set((s) => {
       const past = [...s.past, entry].slice(-MAX_HISTORY);
       return { past, future: [], canUndo: true, canRedo: false };
     });
+  },
+
+  withoutHistory: async (fn) => {
+    set((s) => ({ suppressDepth: s.suppressDepth + 1, suppressing: true }));
+    try {
+      return await fn();
+    } finally {
+      set((s) => {
+        const suppressDepth = Math.max(0, s.suppressDepth - 1);
+        return { suppressDepth, suppressing: suppressDepth > 0 };
+      });
+    }
   },
 
   undo: async () => {

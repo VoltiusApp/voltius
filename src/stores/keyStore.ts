@@ -150,6 +150,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
         isTeamVaultId,
         item: updated,
         updateLocal: () => api.updateKey(id, data),
+        adoptLocal: () => api.adoptKey(id, data),
         saveTeam: (tid, item) => saveTeamVaultObject(tid, "key", item),
         removeTeam: removeTeamVaultObject,
       });
@@ -193,6 +194,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
         isTeamVaultId,
         item: { ...prev, ...data, vault_id: nextVaultId },
         updateLocal: () => api.updateKey(id, data),
+        adoptLocal: () => api.adoptKey(id, data),
         saveTeam: (teamId, item) => saveTeamVaultObject(teamId, "key", item),
         removeTeam: removeTeamVaultObject,
       });

@@ -13,6 +13,11 @@ export function updatePfRule(id: string, data: PortForwardingRuleFormData): Prom
   return invoke("pf_rule_update", { id, data });
 }
 
+/** Migration-only: re-creates a team-vault rule locally under its own id. */
+export function adoptPfRule(id: string, data: PortForwardingRuleFormData): Promise<PortForwardingRule> {
+  return invoke("pf_rule_adopt", { id, data });
+}
+
 export function deletePfRule(id: string): Promise<void> {
   return invoke("pf_rule_delete", { id });
 }

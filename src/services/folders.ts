@@ -13,6 +13,11 @@ export async function updateFolder(id: string, data: FolderFormData): Promise<Fo
   return invoke("folder_update", { id, data });
 }
 
+/** Migration-only: re-creates a team-vault folder locally under its own id. */
+export async function adoptFolder(id: string, data: FolderFormData): Promise<Folder> {
+  return invoke("folder_adopt", { id, data });
+}
+
 /** Cascades to subfolders and their items unless `cascade` is false. */
 export async function deleteFolder(id: string, cascade = true): Promise<void> {
   return invoke("folder_delete", { id, cascade });

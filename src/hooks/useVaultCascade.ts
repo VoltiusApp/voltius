@@ -8,6 +8,8 @@ export type PendingCascade = {
   items: CascadeItem[];
   /** Override the default "linked items in a different vault" description */
   description?: string;
+  /** Override the default "Move/Copy linked items to" heading, which precedes the vault name. */
+  heading?: string;
   execute: () => Promise<void>;
 };
 

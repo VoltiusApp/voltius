@@ -28,34 +28,65 @@ pub fn key_list() -> Result<Vec<SshKey>, String> {
         .collect())
 }
 
-#[tauri::command]
-pub fn key_save(data: SshKeyFormData) -> Result<SshKey, String> {
-    let mut keys = load_keys();
-    let now = Utc::now().to_rfc3339();
+fn build_key(id: String, data: SshKeyFormData, now: &str, created_at: Option<String>) -> SshKey {
+    let now = now.to_string();
     let mut clocks = HashMap::new();
-    clocks.insert("name".to_string(), now.clone());
-    clocks.insert("key_type".to_string(), now.clone());
-    clocks.insert("tags".to_string(), now.clone());
-    clocks.insert("folder_id".to_string(), now.clone());
-    clocks.insert("vault_id".to_string(), now.clone());
-    let vault_id = data.vault_id.unwrap_or_else(|| "personal".to_string());
-    check_vault_write(std::slice::from_ref(&vault_id))?;
-    let key = SshKey {
-        id: Uuid::new_v4().to_string(),
+    for field in &["name", "key_type", "tags", "folder_id", "vault_id"] {
+        clocks.insert((*field).to_string(), now.clone());
+    }
+    SshKey {
+        id,
         name: data.name,
         key_type: data.key_type,
         tags: data.tags,
-        created_at: now.clone(),
+        created_at: created_at.unwrap_or_else(|| now.clone()),
         folder_id: data.folder_id,
-        vault_id,
+        vault_id: data.vault_id.unwrap_or_else(|| "personal".to_string()),
         updated_at: now,
         deleted_at: None,
         pinned: data.pinned,
         clocks,
-    };
+    }
+}
+
+#[tauri::command]
+pub fn key_save(data: SshKeyFormData) -> Result<SshKey, String> {
+    let mut keys = load_keys();
+    let now = Utc::now().to_rfc3339();
+    let vault_id = data
+        .vault_id
+        .clone()
+        .unwrap_or_else(|| "personal".to_string());
+    check_vault_write(std::slice::from_ref(&vault_id))?;
+    let key = build_key(Uuid::new_v4().to_string(), data, &now, None);
     keys.push(key.clone());
     save_keys(&keys)?;
     Ok(key)
+}
+
+/// Inserts a key under a caller-supplied `id`, replacing any local row with that
+/// id. Migration-only: see `connection_adopt`. The id must survive because the
+/// private material is stored in the keychain under `key:<id>`.
+#[tauri::command]
+pub fn key_adopt(id: String, data: SshKeyFormData) -> Result<SshKey, String> {
+    let mut keys = load_keys();
+    let now = Utc::now().to_rfc3339();
+    let vault_id = data
+        .vault_id
+        .clone()
+        .unwrap_or_else(|| "personal".to_string());
+    check_vault_write(std::slice::from_ref(&vault_id))?;
+    let created_at = keys
+        .iter()
+        .find(|k| k.id == id)
+        .map(|k| k.created_at.clone());
+    let adopted = build_key(id.clone(), data, &now, created_at);
+    match keys.iter_mut().find(|k| k.id == id) {
+        Some(slot) => *slot = adopted.clone(),
+        None => keys.push(adopted.clone()),
+    }
+    save_keys(&keys)?;
+    Ok(adopted)
 }
 
 #[tauri::command]

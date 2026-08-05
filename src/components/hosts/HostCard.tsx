@@ -36,6 +36,8 @@ interface Props {
   isSelected?: boolean;
   isEditing?: boolean;
   isFocused?: boolean;
+  /** Faded while the card sits on the clipboard as a pending cut. */
+  dimmed?: boolean;
   canEdit?: boolean;
   /** Other vaults this item can be moved/copied to (omit current vault) */
   vaults?: VaultOption[];
@@ -53,7 +55,7 @@ interface Props {
 }
 
 export default function HostCard({
-  connection, isActive, isSelected, isEditing, isFocused, canEdit = true,
+  connection, isActive, isSelected, isEditing, isFocused, dimmed, canEdit = true,
   vaults = [], layout = "grid",
   onSelect, onConnect, onEdit, onDuplicate, onExecuteSnippet, onDelete,
   onMoveToVault, onCopyToVault,
@@ -239,6 +241,7 @@ export default function HostCard({
       isEditing={isEditing}
       isActive={isActive}
       isFocused={isFocused}
+      className={dimmed ? "opacity-50" : ""}
       onPointerDown={onPointerDown}
       onClick={(e) => onSelect?.(connection.id, e)}
       onDoubleClick={() => onConnect(connection)}

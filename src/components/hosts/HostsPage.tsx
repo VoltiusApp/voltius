@@ -28,9 +28,14 @@ import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { useTeamStore } from "@/stores/teamStore";
-import { usePermissions } from "@/hooks/usePermission";
+import { usePermissions, type Permission } from "@/hooks/usePermission";
 import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
+import { usePageClipboard } from "@/hooks/usePageClipboard";
+import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
+import { ClipboardPill } from "@/components/shared/ClipboardPill";
+import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
+import { getShortcutHint } from "@/stores/shortcutStore";
 import { FolderCard } from "@/components/folders/FolderCard";
 
 const HOST_GRID_COLS = "repeat(auto-fill, minmax(18rem, 1fr))";
@@ -60,6 +65,7 @@ export default function HostsPage() {
   const { identities } = useIdentityStore();
   const { keys, updateKey } = useKeyStore();
   const { pending: cascadePending, request: requestCascade, confirm: confirmCascade, cancel: cancelCascade } = useVaultCascade();
+  const crossVaultPaste = useCrossVaultPasteConfirm();
   const { connect, connectMany, connectLocal, connectSerialEphemeral, sessions } = useSessionStore();
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
   const bgContributions = useUIContributions("home.bgContextMenu");
@@ -280,6 +286,135 @@ export default function HostsPage() {
     onDelete: (ids) => setConfirmDeleteIds(ids),
   });
 
+  // ── Cut / copy / paste ────────────────────────────────────────────────────
+
+  const clipboard = useVaultClipboardStore((s) => s.clipboard);
+  const cutIds = useMemo(
+    () =>
+      new Set(
+        clipboard?.tab === "hosts" && clipboard.mode === "cut"
+          ? [...clipboard.items.map((i) => i.id), ...clipboard.folderIds]
+          : [],
+      ),
+    [clipboard],
+  );
+
+  /**
+   * The destination folder is the only unambiguous carrier of a destination vault.
+   * At the root there is none, so nothing migrates and every object keeps its own
+   * vault — matching the drag-to-root path (`onEjectFolders`), and avoiding a
+   * "move to top level" gesture silently pulling a subtree out of a team vault.
+   * Derived from the folder argument rather than activeFolderId so an undo, which
+   * passes the origin folder back in, migrates back to the vault it came from.
+   */
+  const vaultForFolder = (folderId: string | null): string | null =>
+    folderId ? (scopedFolders.find((f) => f.id === folderId)?.vault_id ?? null) : null;
+
+  // Every mutation below goes through a store method so vault permission checks apply.
+  usePageClipboard({
+    navItem: "hosts",
+    getSelection: () => [...selectedIdSet],
+    getFocusedId: () => focusedId,
+    classify: (id) =>
+      scopedFolders.some((f) => f.id === id)
+        ? "folder"
+        : connections.some((c) => c.id === id)
+        ? "connection"
+        : null,
+    exists: (id) => connections.some((c) => c.id === id) || scopedFolders.some((f) => f.id === id),
+    vaultIdOf: (id) =>
+      connections.find((c) => c.id === id)?.vault_id
+      ?? scopedFolders.find((f) => f.id === id)?.vault_id
+      ?? "personal",
+    targetFolderId: () => activeFolderId,
+    rootVaultIds: () => accessibleVaultIds,
+    targetVaultId: () => vaultForFolder(activeFolderId),
+    targetVaultName: () =>
+      vaultOptions.find((v) => v.id === vaultForFolder(activeFolderId))?.name ?? "",
+    confirmCrossVault: crossVaultPaste.confirmCrossVault,
+    folderIdOf: (id) =>
+      connections.find((c) => c.id === id)?.folder_id
+      ?? scopedFolders.find((f) => f.id === id)?.parent_folder_id
+      ?? null,
+    folderContentKinds: (folderId) => {
+      const nested = getConnectionsInFolderTree(folderId);
+      if (nested.length === 0) return [];
+      const kinds: VaultClipboardKind[] = ["connection"];
+      const destination = vaultForFolder(activeFolderId);
+      if (destination === null) return kinds;
+      // A migrated connection keeps pointing at its identity and key, which this
+      // path does not move — only the vault move/copy menu cascades those, behind
+      // VaultCascadeModal. Reporting them makes the pre-flight refuse the paste
+      // rather than complete it with references dangling outside the destination.
+      const linkedIdentities = nested
+        .map((c) => c.identity_id && identities.find((i) => i.id === c.identity_id))
+        .filter((i) => !!i);
+      if (linkedIdentities.some((i) => (i.vault_id ?? "personal") !== destination)) {
+        kinds.push("identity");
+      }
+      const linkedKeys = [...nested.map((c) => c.key_id), ...linkedIdentities.map((i) => i.key_id)]
+        .map((keyId) => keyId && keys.find((k) => k.id === keyId))
+        .filter((k) => !!k);
+      if (linkedKeys.some((k) => (k.vault_id ?? "personal") !== destination)) kinds.push("key");
+      return kinds;
+    },
+    canMoveFolder: (id, parentFolderId) =>
+      parentFolderId !== id
+      && !(parentFolderId !== null && getAllSubFolders(id).some((f) => f.id === parentFolderId)),
+    can: (permission, vaultId) => can(permission as Permission, vaultId),
+    // A same-vault move only rewrites folder_id; a cross-vault one has to go through
+    // updateConnection so the object actually changes vault, otherwise it would keep
+    // a stale vault_id alongside its new folder's.
+    moveItems: async (ids, folderId, vaultId) => {
+      const sameVault: string[] = [];
+      for (const id of ids) {
+        const conn = connections.find((c) => c.id === id);
+        if (!conn) continue;
+        if (vaultId === null || (conn.vault_id ?? "personal") === vaultId) {
+          sameVault.push(id);
+          continue;
+        }
+        await updateConnection(id, {
+          ...connectionToFormData(conn),
+          folder_id: folderId ?? undefined,
+          vault_id: vaultId,
+        });
+        await publishConnectionSecrets(id, vaultId);
+      }
+      // moveObjectsToFolder writes through to the DB without touching the connection
+      // store, so the reload is what makes the paste visible — as in `onDropToFolder`.
+      if (sameVault.length > 0) {
+        await moveObjectsToFolder(sameVault, "connection", folderId);
+        await loadConnections();
+      }
+    },
+    moveFolder: async (id, parentFolderId, vaultId) => {
+      const folder = scopedFolders.find((f) => f.id === id);
+      if (!folder) return;
+      if (vaultId !== null && (folder.vault_id ?? "personal") !== vaultId) {
+        await migrateFolderTreeToVault(folder, parentFolderId, vaultId);
+        return;
+      }
+      await moveFolder(id, parentFolderId);
+    },
+    duplicateItems: async (ids, folderId) => {
+      const targetVault = vaultForFolder(folderId);
+      const created: string[] = [];
+      for (const id of ids) {
+        const conn = connections.find((c) => c.id === id);
+        if (!conn) continue;
+        const dup = await handleDuplicateInto(conn, folderId, { vaultId: targetVault ?? undefined });
+        if (dup) created.push(dup.id);
+      }
+      return created;
+    },
+    duplicateFolder: async (id, parentFolderId) =>
+      (await handleCopyFolderInto(id, parentFolderId, vaultForFolder(parentFolderId) ?? undefined)).id,
+    deleteItems: async (ids) => { for (const id of ids) await deleteConnection(id); },
+    deleteFolder: async (id) => { await deleteFolder(id); },
+    setSelection,
+  });
+
   // ── Drag-to-folder ────────────────────────────────────────────────────────
 
   const visibleFolderIds = useMemo(() => new Set(visibleFolders.map((f) => f.id)), [visibleFolders]);
@@ -321,42 +456,85 @@ export default function HostsPage() {
     },
   });
 
+  /**
+   * Re-publishes a connection's credentials for the vault it now lives in. Without
+   * this a host pasted into a team vault reaches every teammate with its password
+   * still only in the local keychain, so it cannot authenticate and nothing reports
+   * why. `saveTeamVaultSecretForVault` no-ops for a personal vault, which is the
+   * correct behaviour on the way back out: the local copy is already the live one.
+   */
+  const publishConnectionSecrets = async (connectionId: string, vaultId: string) => {
+    for (const prefix of ["password", "key"]) {
+      const localKey = `${prefix}:${connectionId}`;
+      const value = await getSecret(localKey).catch(() => null);
+      if (value) await saveTeamVaultSecretForVault(vaultId, localKey, value).catch(() => {});
+    }
+  };
+
+  /**
+   * Duplicates `conn` into `folderId`, optionally into another vault. `keepName`
+   * is for members of a subtree being cloned wholesale — only the root of such a
+   * clone carries the "(copy)" suffix. Throws; callers surface the error.
+   */
+  const handleDuplicateInto = async (
+    conn: Connection,
+    folderId: string | null,
+    opts: { vaultId?: string; keepName?: boolean } = {},
+  ) => {
+    const newConn = await saveConnection({
+      // default name kept in English until all creation sites are localized together (see i18n issue #14)
+      name: conn.name ? (opts.keepName ? conn.name : `${conn.name} (copy)`) : undefined,
+      connection_type: conn.connection_type,
+      host: conn.host,
+      port: conn.port,
+      username: conn.username,
+      auth_type: conn.auth_type,
+      tags: [...conn.tags],
+      identity_id: conn.identity_id,
+      key_id: conn.key_id,
+      folder_id: folderId ?? undefined,
+      vault_id: opts.vaultId ?? conn.vault_id ?? "personal",
+      jump_hosts: conn.jump_hosts ? conn.jump_hosts.map((j) => ({ ...j })) : undefined,
+      env_vars: conn.env_vars ? conn.env_vars.map((e) => ({ ...e })) : undefined,
+      agent_forwarding: conn.agent_forwarding,
+      legacy_algorithms: conn.legacy_algorithms,
+      distro: conn.distro,
+      icon: conn.icon,
+      pinned: conn.pinned,
+      ping_disabled: conn.ping_disabled,
+      shell_integration_disabled: conn.shell_integration_disabled,
+      keepalive_preset: conn.keepalive_preset,
+      persist_session: conn.persist_session,
+      ftp_secure: conn.ftp_secure,
+      notes: conn.notes,
+      serial_port: conn.serial_port,
+      serial_baud: conn.serial_baud,
+      serial_data_bits: conn.serial_data_bits,
+      serial_parity: conn.serial_parity,
+      serial_stop_bits: conn.serial_stop_bits,
+      serial_flow_control: conn.serial_flow_control,
+      pre_command: conn.pre_command,
+      post_command: conn.post_command,
+      pre_snippet_id: conn.pre_snippet_id,
+      post_snippet_id: conn.post_snippet_id,
+      ask_vars_each_time: conn.ask_vars_each_time,
+      terminal_encoding: conn.terminal_encoding,
+    });
+    if (newConn && conn.connection_type !== "serial") {
+      const pwd = await getSecret(`password:${conn.id}`).catch(() => null);
+      if (pwd) await storeSecret(`password:${newConn.id}`, pwd);
+      if (!conn.key_id) {
+        const key = await getSecret(`key:${conn.id}`).catch(() => null);
+        if (key) await storeSecret(`key:${newConn.id}`, key);
+      }
+      await publishConnectionSecrets(newConn.id, opts.vaultId ?? conn.vault_id ?? "personal");
+    }
+    return newConn;
+  };
+
   const handleDuplicate = async (conn: Connection) => {
     try {
-      const newConn = await saveConnection({
-        // default name kept in English until all creation sites are localized together (see i18n issue #14)
-        name: conn.name ? `${conn.name} (copy)` : undefined,
-        connection_type: conn.connection_type,
-        host: conn.host,
-        port: conn.port,
-        username: conn.username,
-        auth_type: conn.auth_type,
-        tags: [...conn.tags],
-        identity_id: conn.identity_id,
-        key_id: conn.key_id,
-        folder_id: conn.folder_id,
-        vault_id: conn.vault_id ?? "personal",
-        serial_port: conn.serial_port,
-        serial_baud: conn.serial_baud,
-        serial_data_bits: conn.serial_data_bits,
-        serial_parity: conn.serial_parity,
-        serial_stop_bits: conn.serial_stop_bits,
-        serial_flow_control: conn.serial_flow_control,
-        pre_command: conn.pre_command,
-        post_command: conn.post_command,
-        pre_snippet_id: conn.pre_snippet_id,
-        post_snippet_id: conn.post_snippet_id,
-        ask_vars_each_time: conn.ask_vars_each_time,
-        terminal_encoding: conn.terminal_encoding,
-      });
-      if (newConn && conn.connection_type !== "serial") {
-        const pwd = await getSecret(`password:${conn.id}`).catch(() => null);
-        if (pwd) await storeSecret(`password:${newConn.id}`, pwd);
-        if (!conn.key_id) {
-          const key = await getSecret(`key:${conn.id}`).catch(() => null);
-          if (key) await storeSecret(`key:${newConn.id}`, key);
-        }
-      }
+      await handleDuplicateInto(conn, conn.folder_id ?? null);
     } catch (err) {
       setError(String(err));
     }
@@ -508,6 +686,19 @@ export default function HostsPage() {
         onClick: () => useUIStore.getState().openImportExport("export", { bulk: { connections: ids } }),
       },
       {
+        label: t("common.action.cut"),
+        icon: "lucide:scissors",
+        shortcut: getShortcutHint("cut"),
+        onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-cut")),
+        divider: true,
+      },
+      {
+        label: t("common.action.copy"),
+        icon: "lucide:copy",
+        shortcut: getShortcutHint("copy"),
+        onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-copy")),
+      },
+      {
         label: t("hosts.page.bulk.deleteItems", { count: totalSelected }),
         icon: "lucide:trash-2",
         onClick: () => setConfirmDeleteIds([...ids, ...folderIds]),
@@ -636,9 +827,12 @@ export default function HostsPage() {
   const getAllSubFolders = (folderId: string): Folder[] => {
     const queue = [folderId];
     const result: Folder[] = [];
+    // A parent cycle in the data would otherwise spin forever and lock the renderer.
+    const seen = new Set<string>([folderId]);
     while (queue.length) {
       const cur = queue.shift()!;
-      const children = scopedFolders.filter((f) => f.parent_folder_id === cur);
+      const children = scopedFolders.filter((f) => f.parent_folder_id === cur && !seen.has(f.id));
+      for (const child of children) seen.add(child.id);
       result.push(...children);
       queue.push(...children.map((f) => f.id));
     }
@@ -815,6 +1009,69 @@ export default function HostsPage() {
         } catch (err) { setError(String(err)); }
       },
     });
+  };
+
+  /** Deep-clones a folder subtree under `parentFolderId`, into `vaultId` when given. */
+  const handleCopyFolderInto = async (
+    folderId: string,
+    parentFolderId: string | null,
+    vaultId?: string,
+  ) => {
+    const folder = scopedFolders.find((f) => f.id === folderId);
+    if (!folder) throw new Error(`Unknown folder ${folderId}`);
+    const targetVaultId = vaultId ?? folder.vault_id;
+    // Only the root of the clone is renamed; renaming every descendant would
+    // compound to "web-1 (copy) (copy)" on a second paste.
+    // default name kept in English until all creation sites are localized together (see i18n issue #14)
+    const root = await saveFolder({
+      name: `${folder.name} (copy)`,
+      object_type: folder.object_type,
+      parent_folder_id: parentFolderId ?? undefined,
+      vault_id: targetVaultId,
+    });
+    // BFS order guarantees a parent is created before its children.
+    const folderIdMap = new Map<string, string>([[folder.id, root.id]]);
+    for (const sf of getAllSubFolders(folder.id)) {
+      const created = await saveFolder({
+        name: sf.name,
+        object_type: sf.object_type,
+        parent_folder_id: folderIdMap.get(sf.parent_folder_id ?? "") ?? root.id,
+        vault_id: targetVaultId,
+      });
+      folderIdMap.set(sf.id, created.id);
+    }
+    for (const conn of getConnectionsInFolderTree(folder.id)) {
+      await handleDuplicateInto(conn, folderIdMap.get(conn.folder_id ?? "") ?? root.id, {
+        vaultId: targetVaultId,
+        keepName: true,
+      });
+    }
+    return root;
+  };
+
+  /**
+   * Moves a folder subtree into `vaultId`, reparenting the root at the same time.
+   * Same updateFolder/updateConnection path handleMoveFolderToVault uses, so the
+   * team-vault migration logic in the stores applies.
+   */
+  const migrateFolderTreeToVault = async (
+    folder: Folder,
+    parentFolderId: string | null,
+    vaultId: string,
+  ) => {
+    await updateFolder(folder.id, {
+      name: folder.name,
+      object_type: folder.object_type,
+      parent_folder_id: parentFolderId ?? undefined,
+      vault_id: vaultId,
+    });
+    for (const sf of getAllSubFolders(folder.id)) {
+      await updateFolder(sf.id, { name: sf.name, object_type: sf.object_type, parent_folder_id: sf.parent_folder_id, vault_id: vaultId });
+    }
+    for (const conn of getConnectionsInFolderTree(folder.id)) {
+      await updateConnection(conn.id, { ...connectionToFormData(conn), vault_id: vaultId });
+      await publishConnectionSecrets(conn.id, vaultId);
+    }
   };
 
   // ── Drag-to-folder ────────────────────────────────────────────────────────
@@ -1036,6 +1293,7 @@ export default function HostsPage() {
                           isSelected={editingFolderId === folder.id || selectedIdSet.has(folder.id)}
                           isFocused={focusedId === folder.id}
                           isDragOver={dragOverFolderId === folder.id}
+                          dimmed={cutIds.has(folder.id)}
                           onClick={() => navigateInto(folder)}
                           onRename={(f, newName) => void updateFolder(f.id, { name: newName, object_type: f.object_type, parent_folder_id: f.parent_folder_id, vault_id: f.vault_id })}
                           onDelete={(f) => setConfirmDeleteFolderId(f.id)}
@@ -1103,6 +1361,7 @@ export default function HostsPage() {
                           isSelected={selectedIdSet.has(conn.id)}
                           isFocused={focusedId === conn.id}
                           isEditing={editing?.id === conn.id}
+                          dimmed={cutIds.has(conn.id)}
                           canEdit={canEdit}
                           vaults={otherVaults}
                           onSelect={(id, e) => {
@@ -1174,6 +1433,7 @@ export default function HostsPage() {
                           isSelected={selectedIdSet.has(conn.id)}
                           isFocused={focusedId === conn.id}
                           isEditing={editing?.id === conn.id}
+                          dimmed={cutIds.has(conn.id)}
                           canEdit={canEdit}
                           vaults={otherVaults}
                           onSelect={(id, e) => {
@@ -1232,6 +1492,9 @@ export default function HostsPage() {
             ...(canCreate ? [{ label: t("hosts.toolbar.newHost"), icon: "lucide:server", onClick: () => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); } } as const] : []),
             ...(canCreate ? [{ label: t("hosts.toolbar.newSerialHost"), icon: "lucide:ethernet-port", onClick: () => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowSerialForm(true); setShowForm(false); setEditingFolderId(null); } } as const] : []),
             ...(canCreateFolder ? [{ label: t("hosts.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: () => void saveFolder({ name: "New Folder" /* persisted English default */, object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { setShowForm(false); setEditingId(null); setEditingFolderId(f.id); }) } as const] : []),
+            ...(useVaultClipboardStore.getState().clipboard?.tab === "hosts"
+              ? [{ label: t("common.action.paste"), icon: "lucide:clipboard", shortcut: getShortcutHint("paste"), onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-paste")) } as const]
+              : []),
             ...bgContributions,
           ]}
         />
@@ -1270,6 +1533,14 @@ export default function HostsPage() {
         />
       )}
 
+      {crossVaultPaste.pending && (
+        <VaultCascadeModal
+          cascade={crossVaultPaste.pending}
+          onConfirm={crossVaultPaste.accept}
+          onCancel={crossVaultPaste.cancel}
+        />
+      )}
+
       {cascadePending && (
         <VaultCascadeModal
           cascade={cascadePending}
@@ -1277,6 +1548,8 @@ export default function HostsPage() {
           onCancel={cancelCascade}
         />
       )}
+
+      <ClipboardPill navItem="hosts" />
     </>
   );
 }

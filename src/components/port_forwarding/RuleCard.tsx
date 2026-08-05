@@ -17,6 +17,7 @@ interface Props {
   isEditing?: boolean;
   isFocused?: boolean;
   canEdit?: boolean;
+  dimmed?: boolean;
   isActive?: boolean;
   vaults?: VaultOption[];
   layout?: "grid" | "list";
@@ -39,7 +40,7 @@ interface Props {
 }
 
 export function RuleCard({
-  rule, isSelected, isEditing, isFocused, canEdit = true, isActive,
+  rule, isSelected, isEditing, isFocused, canEdit = true, dimmed, isActive,
   vaults = [], layout = "list",
   status = isActive ? "active" : "inactive", statusLabel, isBusy = false, webUrl,
   onSelect, onEdit, onDuplicate, onDelete, onActivate,
@@ -118,6 +119,7 @@ export function RuleCard({
       isEditing={isEditing}
       isFocused={isFocused}
       isActive={isActive}
+      className={dimmed ? "opacity-50" : ""}
       onPointerDown={onPointerDown}
       onClick={(e) => onSelect?.(rule.id, e)}
       bulkContextMenuItems={bulkContextMenuItems}

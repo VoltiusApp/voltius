@@ -89,8 +89,11 @@ export function useListKeyNav({
   const isBlocked = useCallback((e: KeyboardEvent): boolean => {
     const { omniOpen, settingsOpen, importExportModal } = useUIStore.getState();
     if (omniOpen || settingsOpen || importExportModal?.open) return true;
-    const target = e.target as HTMLElement;
-    if (target.closest("input, textarea, [contenteditable]")) return true;
+    // Not every keydown target is an Element — document and text nodes reach here too.
+    const target = e.target;
+    if (target instanceof Element && target.closest("input, textarea, [contenteditable]")) {
+      return true;
+    }
     if (document.querySelector("[role='dialog']")) return true;
     return false;
   }, []);

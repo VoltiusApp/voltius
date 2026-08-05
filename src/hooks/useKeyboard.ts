@@ -7,6 +7,8 @@ import { matchShortcut } from "@/stores/shortcutStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { openTerminalSearch, getTerminalSearchController } from "@/hooks/useTerminal";
 
+const CLIPBOARD_TABS = new Set(["hosts", "keychain", "port-forwarding", "snippets"]);
+
 export function useKeyboard() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -78,6 +80,25 @@ export function useKeyboard() {
       }
 
       if (isInput) return;
+
+      // Vault tabs only. In the terminal Ctrl+C must stay SIGINT.
+      if (CLIPBOARD_TABS.has(useUIStore.getState().activeNav)) {
+        // A live text selection owns Ctrl+C: copying a hostname out of a card
+        // must reach the OS clipboard, not put the card on the vault clipboard.
+        const hasTextSelection = !(window.getSelection()?.isCollapsed ?? true);
+        for (const [id, event] of [
+          ["copy", "voltius:clipboard-copy"],
+          ["cut", "voltius:clipboard-cut"],
+          ["paste", "voltius:clipboard-paste"],
+        ] as const) {
+          if (matchShortcut(id, e)) {
+            if (id === "copy" && hasTextSelection) return;
+            e.preventDefault();
+            window.dispatchEvent(new CustomEvent(event));
+            return;
+          }
+        }
+      }
 
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key === "a") {
         e.preventDefault();

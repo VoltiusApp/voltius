@@ -43,7 +43,10 @@ export function VaultCascadeModal({ cascade, onConfirm, onCancel }: Props) {
             />
           </div>
           <h2 className="text-sm font-semibold text-(--t-text-bright)">
-            {isMove ? t("shared.vaultCascadeModal.headingMove") : t("shared.vaultCascadeModal.headingCopy")}{" "}
+            {cascade.heading
+              ?? (isMove
+                ? t("shared.vaultCascadeModal.headingMove")
+                : t("shared.vaultCascadeModal.headingCopy"))}{" "}
             <span className="text-(--t-accent)">{cascade.targetVaultName}</span>?
           </h2>
         </div>

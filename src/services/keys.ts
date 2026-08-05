@@ -39,6 +39,11 @@ export async function updateKey(id: string, data: SshKeyFormData): Promise<SshKe
   return invoke("key_update", { id, data });
 }
 
+/** Migration-only: re-creates a team-vault key locally under its own id. */
+export async function adoptKey(id: string, data: SshKeyFormData): Promise<SshKey> {
+  return invoke("key_adopt", { id, data });
+}
+
 export async function deleteKey(id: string): Promise<void> {
   return invoke("key_delete", { id });
 }

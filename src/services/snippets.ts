@@ -18,6 +18,11 @@ export async function updateSnippet(id: string, data: SnippetFormData): Promise<
   return invoke("snippet_update", { id, data });
 }
 
+/** Migration-only: re-creates a team-vault snippet locally under its own id. */
+export async function adoptSnippet(id: string, data: SnippetFormData): Promise<Snippet> {
+  return invoke("snippet_adopt", { id, data });
+}
+
 export async function deleteSnippet(id: string): Promise<void> {
   return invoke("snippet_delete", { id });
 }
@@ -92,6 +97,12 @@ export async function createSnippetFolder(data: FolderFormData): Promise<Folder>
 
 export async function updateSnippetFolder(id: string, data: FolderFormData): Promise<Folder> {
   const raw: RawSnippetFolder = await invoke("snippet_folder_update", { id, data: toRaw(data) });
+  return fromRaw(raw);
+}
+
+/** Migration-only: re-creates a team-vault snippet folder locally under its own id. */
+export async function adoptSnippetFolder(id: string, data: FolderFormData): Promise<Folder> {
+  const raw: RawSnippetFolder = await invoke("snippet_folder_adopt", { id, data: toRaw(data) });
   return fromRaw(raw);
 }
 

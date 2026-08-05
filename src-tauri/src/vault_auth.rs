@@ -67,9 +67,22 @@ fn all_personal(vault_ids: &[String]) -> bool {
     !vault_ids.is_empty() && vault_ids.iter().all(|id| id == PERSONAL_VAULT_ID)
 }
 
+/// A cache written by an older build holds role UUIDs where names are expected.
+/// Those entries can't be checked locally, so they are treated as unknown rather
+/// than as a role the user doesn't hold.
+fn looks_like_uuid(s: &str) -> bool {
+    s.len() == 36
+        && s.as_bytes().iter().enumerate().all(|(i, b)| match i {
+            8 | 13 | 18 | 23 => *b == b'-',
+            _ => b.is_ascii_hexdigit(),
+        })
+}
+
+/// The server unions the permissions of every role a member holds, so any one
+/// write role is enough here too.
 fn check_roles(
     vault_ids: &[String],
-    roles: &HashMap<String, String>,
+    roles: &HashMap<String, Vec<String>>,
     jwt_valid: bool,
 ) -> Result<(), String> {
     let team_ids: Vec<&String> = vault_ids
@@ -88,10 +101,20 @@ fn check_roles(
     }
 
     for vault_id in team_ids {
-        let role = roles.get(vault_id).map(String::as_str).unwrap_or("");
-        if !WRITE_ROLES.contains(&role) {
+        let names = roles.get(vault_id).map(Vec::as_slice).unwrap_or(&[]);
+        // Stale pre-name cache: undecidable here, so leave it to the server and
+        // let the next sign-in refresh it instead of locking the user out.
+        if !names.is_empty() && names.iter().all(|n| looks_like_uuid(n)) {
+            continue;
+        }
+        if !names.iter().any(|n| WRITE_ROLES.contains(&n.as_str())) {
+            let held = if names.is_empty() {
+                "none".to_string()
+            } else {
+                names.join(", ")
+            };
             return Err(format!(
-                "You don't have write access to this vault (your role: {role}). \
+                "You don't have write access to this vault (your role: {held}). \
                  Only owners, managers, and editors can make changes."
             ));
         }
@@ -129,7 +152,7 @@ pub fn check_vault_write(vault_ids: &[String]) -> Result<(), String> {
     }
 
     // A corrupted roles cache must fail closed rather than be read as an empty map.
-    let roles: HashMap<String, String> = match serde_json::from_str(&roles_json) {
+    let roles: HashMap<String, Vec<String>> = match serde_json::from_str(&roles_json) {
         Ok(m) => m,
         Err(_) => {
             return Err("Vault permission data is corrupted. \
@@ -151,10 +174,10 @@ mod tests {
         v.to_string()
     }
 
-    fn roles(pairs: &[(&str, &str)]) -> HashMap<String, String> {
+    fn roles(pairs: &[(&str, &[&str])]) -> HashMap<String, Vec<String>> {
         pairs
             .iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .map(|(k, v)| (k.to_string(), v.iter().map(|n| n.to_string()).collect()))
             .collect()
     }
 
@@ -185,26 +208,26 @@ mod tests {
 
     #[test]
     fn check_roles_no_team_vaults_always_ok() {
-        let r = roles(&[("team-a", "editor")]);
+        let r = roles(&[("team-a", &["editor"])]);
         assert!(check_roles(&[s("personal"), s("other-id")], &r, false).is_ok());
     }
 
     #[test]
     fn check_roles_team_vault_requires_valid_jwt() {
-        let r = roles(&[("team-a", "editor")]);
+        let r = roles(&[("team-a", &["editor"])]);
         let err = check_roles(&[s("team-a")], &r, false).unwrap_err();
         assert!(err.contains("active server connection"));
     }
 
     #[test]
     fn check_roles_team_vault_editor_with_valid_jwt_ok() {
-        let r = roles(&[("team-a", "editor")]);
+        let r = roles(&[("team-a", &["editor"])]);
         assert!(check_roles(&[s("team-a")], &r, true).is_ok());
     }
 
     #[test]
     fn check_roles_team_vault_viewer_rejected() {
-        let r = roles(&[("team-a", "viewer")]);
+        let r = roles(&[("team-a", &["viewer"])]);
         let err = check_roles(&[s("team-a")], &r, true).unwrap_err();
         assert!(err.contains("viewer"));
         assert!(err.contains("write access"));
@@ -214,5 +237,49 @@ mod tests {
     fn check_roles_empty_roles_map_ok() {
         let r = roles(&[]);
         assert!(check_roles(&[s("any-id")], &r, false).is_ok());
+    }
+
+    #[test]
+    fn check_roles_multi_role_grants_when_any_is_a_write_role() {
+        let r = roles(&[("team-a", &["connect-only", "editor"])]);
+        assert!(check_roles(&[s("team-a")], &r, true).is_ok());
+    }
+
+    #[test]
+    fn check_roles_multi_role_rejected_when_none_is_a_write_role() {
+        let r = roles(&[("team-a", &["viewer", "connect-only"])]);
+        let err = check_roles(&[s("team-a")], &r, true).unwrap_err();
+        assert!(err.contains("viewer, connect-only"));
+        assert!(err.contains("write access"));
+    }
+
+    #[test]
+    fn check_roles_no_roles_for_a_team_vault_rejected() {
+        let r = roles(&[("team-a", &[])]);
+        let err = check_roles(&[s("team-a")], &r, true).unwrap_err();
+        assert!(err.contains("none"));
+    }
+
+    #[test]
+    fn check_roles_stale_uuid_cache_is_unknown_not_denied() {
+        let r = roles(&[("team-a", &["3f2504e0-4f89-11d3-9a0c-0305e82c3301"])]);
+        assert!(check_roles(&[s("team-a")], &r, true).is_ok());
+    }
+
+    #[test]
+    fn check_roles_mixed_uuid_and_name_still_checks_the_name() {
+        let r = roles(&[(
+            "team-a",
+            &["3f2504e0-4f89-11d3-9a0c-0305e82c3301", "viewer"],
+        )]);
+        assert!(check_roles(&[s("team-a")], &r, true).is_err());
+    }
+
+    #[test]
+    fn looks_like_uuid_rejects_role_names() {
+        assert!(looks_like_uuid("3f2504e0-4f89-11d3-9a0c-0305e82c3301"));
+        assert!(!looks_like_uuid("editor"));
+        assert!(!looks_like_uuid("connect-only"));
+        assert!(!looks_like_uuid("3f2504e04f8911d39a0c0305e82c3301"));
     }
 }

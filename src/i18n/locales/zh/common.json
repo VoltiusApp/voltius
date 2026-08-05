@@ -9,6 +9,8 @@
       "edit": "编辑",
       "create": "创建",
       "copy": "复制",
+      "cut": "剪切",
+      "paste": "粘贴",
       "rename": "重命名",
       "remove": "移除",
       "add": "添加",
@@ -154,6 +156,27 @@
       "legacyTermiusUnsupported": "不再支持旧版 Termius 导出格式；请使用自动提取。",
       "termiusExtractionFormat": "Termius 提取必须返回 { version: 2, records: [...] }",
       "failedToFetchSource": "获取源失败：HTTP {{status}}"
+    },
+    "clipboard": {
+      "cut_one": "已剪切 {{count}} 个项目",
+      "cut_other": "已剪切 {{count}} 个项目",
+      "copied_one": "已复制 {{count}} 个项目",
+      "copied_other": "已复制 {{count}} 个项目",
+      "toMove": "{{shortcut}} 移动",
+      "toPaste": "{{shortcut}} 粘贴",
+      "clear": "清空剪贴板",
+      "crossVaultMoveHeading": "将项目移动到",
+      "crossVaultCopyHeading": "将项目复制到",
+      "crossVaultMoveDescription_one": "{{count}} 个项目将离开当前保险库并移动到 {{targetVaultName}}。",
+      "crossVaultMoveDescription_other": "{{count}} 个项目将离开当前保险库并移动到 {{targetVaultName}}。",
+      "crossVaultCopyDescription_one": "{{count}} 个项目将被复制到 {{targetVaultName}}。",
+      "crossVaultCopyDescription_other": "{{count}} 个项目将被复制到 {{targetVaultName}}。",
+      "pasteRootCrossVault": "在顶层粘贴无法在保险库之间移动项目 — 请打开目标保险库中的文件夹。",
+      "pasteFailed": "粘贴失败：{{error}}",
+      "pasteBlocked": "未粘贴任何内容：你在相关保险库中缺少“{{permissions}}”权限。",
+      "permissionsMissing": "你在相关保险库中缺少“{{permissions}}”权限",
+      "pasteSkipped_one": "{{count}} 个项目已不存在，已跳过。",
+      "pasteSkipped_other": "{{count}} 个项目已不存在，已跳过。"
     }
   }
 }
