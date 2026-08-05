@@ -104,6 +104,44 @@ test("a multi-item paste pushes exactly one history entry", async () => {
   expect(useHistoryStore.getState().past).toHaveLength(1);
 });
 
+const noop = async () => {};
+
+test("entries pushed by the store methods a paste calls are suppressed", async () => {
+  useHistoryStore.setState({ past: [], future: [], canUndo: false, canRedo: false });
+  const push = () => useHistoryStore.getState().push({ label: "store", undo: noop, redo: noop });
+  const a = adapter({
+    folderIdOf: () => "old",
+    moveItems: vi.fn(async () => { push(); }),
+    moveFolder: vi.fn(async () => { push(); }),
+  });
+  await pasteFromClipboard(
+    { tab: "hosts", mode: "cut", items: [{ id: "c1", kind: "connection" }], folderIds: ["f1"], sourceVaultIds: ["personal"] },
+    a,
+  );
+  const { past } = useHistoryStore.getState();
+  expect(past).toHaveLength(1);
+  expect(past[0].label).not.toBe("store");
+});
+
+test("suppression also covers the duplicates a copy paste creates", async () => {
+  useHistoryStore.setState({ past: [], future: [], canUndo: false, canRedo: false });
+  const a = adapter({
+    duplicateItems: vi.fn(async (ids: string[]) => {
+      useHistoryStore.getState().push({ label: "store", undo: noop, redo: noop });
+      return ids.map((i) => `${i}-copy`);
+    }),
+  });
+  await pasteFromClipboard({ ...cut, mode: "copy" }, a);
+  expect(useHistoryStore.getState().past).toHaveLength(1);
+});
+
+test("suppression is lifted once the paste returns", async () => {
+  useHistoryStore.setState({ past: [], future: [], canUndo: false, canRedo: false });
+  await pasteFromClipboard({ ...cut, mode: "copy" }, adapter());
+  useHistoryStore.getState().push({ label: "later", undo: noop, redo: noop });
+  expect(useHistoryStore.getState().past).toHaveLength(2);
+});
+
 test("undoing a cut paste returns every item to its original folder", async () => {
   useHistoryStore.setState({ past: [], future: [], canUndo: false, canRedo: false });
   const origin: Record<string, string | null> = { c1: "f1", c2: null };

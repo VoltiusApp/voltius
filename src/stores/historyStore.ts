@@ -12,9 +12,17 @@ interface HistoryStore {
   past: HistoryEntry[];
   future: HistoryEntry[];
   bypassing: boolean;
+  suppressing: boolean;
   canUndo: boolean;
   canRedo: boolean;
   push: (entry: HistoryEntry) => void;
+  /**
+   * Runs `fn` with `push` disabled, so a composite action (e.g. a paste) can call
+   * several store methods that each record their own entry and still leave a single
+   * entry of its own. Nests safely. Covers the do-direction only; `bypassing`
+   * already suppresses pushes during undo/redo.
+   */
+  withoutHistory: <T>(fn: () => Promise<T>) => Promise<T>;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
 }
@@ -25,15 +33,26 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
   past: [],
   future: [],
   bypassing: false,
+  suppressing: false,
   canUndo: false,
   canRedo: false,
 
   push: (entry) => {
-    if (get().bypassing) return;
+    if (get().bypassing || get().suppressing) return;
     set((s) => {
       const past = [...s.past, entry].slice(-MAX_HISTORY);
       return { past, future: [], canUndo: true, canRedo: false };
     });
+  },
+
+  withoutHistory: async (fn) => {
+    const previous = get().suppressing;
+    set({ suppressing: true });
+    try {
+      return await fn();
+    } finally {
+      set({ suppressing: previous });
+    }
   },
 
   undo: async () => {

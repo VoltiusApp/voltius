@@ -297,6 +297,13 @@ export default function HostsPage() {
     [clipboard],
   );
 
+  // The destination folder decides the destination vault; at the root there is no
+  // folder to read one from, so the default writable vault stands in. Derived from
+  // the folder argument rather than from activeFolderId so an undo, which passes the
+  // origin folder back in, migrates the object back to the vault it came from.
+  const vaultForFolder = (folderId: string | null) =>
+    scopedFolders.find((f) => f.id === folderId)?.vault_id ?? defaultVaultId;
+
   // Every mutation below goes through a store method so vault permission checks apply.
   usePageClipboard({
     navItem: "hosts",
@@ -314,26 +321,57 @@ export default function HostsPage() {
       ?? scopedFolders.find((f) => f.id === id)?.vault_id
       ?? "personal",
     targetFolderId: () => activeFolderId,
-    targetVaultId: () =>
-      scopedFolders.find((f) => f.id === activeFolderId)?.vault_id ?? defaultVaultId,
+    targetVaultId: () => vaultForFolder(activeFolderId),
     folderIdOf: (id) =>
       connections.find((c) => c.id === id)?.folder_id
       ?? scopedFolders.find((f) => f.id === id)?.parent_folder_id
       ?? null,
     can: (permission, vaultId) => can(permission as Permission, vaultId),
-    moveItems: (ids, folderId) => moveObjectsToFolder(ids, "connection", folderId),
-    moveFolder: (id, parentFolderId) => moveFolder(id, parentFolderId),
+    // A same-vault move only rewrites folder_id; a cross-vault one has to go through
+    // updateConnection so the object actually changes vault, otherwise it would keep
+    // a stale vault_id alongside its new folder's.
+    moveItems: async (ids, folderId) => {
+      const targetVault = vaultForFolder(folderId);
+      const sameVault: string[] = [];
+      for (const id of ids) {
+        const conn = connections.find((c) => c.id === id);
+        if (!conn) continue;
+        if ((conn.vault_id ?? "personal") === targetVault) { sameVault.push(id); continue; }
+        await updateConnection(id, {
+          ...connectionToFormData(conn),
+          folder_id: folderId ?? undefined,
+          vault_id: targetVault,
+        });
+      }
+      if (sameVault.length > 0) await moveObjectsToFolder(sameVault, "connection", folderId);
+    },
+    moveFolder: async (id, parentFolderId) => {
+      const folder = scopedFolders.find((f) => f.id === id);
+      if (!folder) return;
+      // Reparenting a folder under itself or under one of its own descendants
+      // detaches the subtree from the vault root and creates a parent cycle.
+      if (parentFolderId === id) return;
+      if (parentFolderId && getAllSubFolders(id).some((f) => f.id === parentFolderId)) return;
+      const targetVault = vaultForFolder(parentFolderId);
+      if ((folder.vault_id ?? "personal") !== targetVault) {
+        await migrateFolderTreeToVault(folder, parentFolderId, targetVault);
+        return;
+      }
+      await moveFolder(id, parentFolderId);
+    },
     duplicateItems: async (ids, folderId) => {
+      const targetVault = vaultForFolder(folderId);
       const created: string[] = [];
       for (const id of ids) {
         const conn = connections.find((c) => c.id === id);
         if (!conn) continue;
-        const dup = await handleDuplicateInto(conn, folderId);
+        const dup = await handleDuplicateInto(conn, folderId, { vaultId: targetVault });
         if (dup) created.push(dup.id);
       }
       return created;
     },
-    duplicateFolder: async (id, parentFolderId) => (await handleCopyFolderInto(id, parentFolderId)).id,
+    duplicateFolder: async (id, parentFolderId) =>
+      (await handleCopyFolderInto(id, parentFolderId, vaultForFolder(parentFolderId))).id,
     deleteItems: async (ids) => { for (const id of ids) await deleteConnection(id); },
     deleteFolder: async (id) => { await deleteFolder(id); },
     setSelection,
@@ -380,11 +418,19 @@ export default function HostsPage() {
     },
   });
 
-  /** Duplicates `conn` into `folderId`. Throws; callers surface the error. */
-  const handleDuplicateInto = async (conn: Connection, folderId: string | null) => {
+  /**
+   * Duplicates `conn` into `folderId`, optionally into another vault. `keepName`
+   * is for members of a subtree being cloned wholesale — only the root of such a
+   * clone carries the "(copy)" suffix. Throws; callers surface the error.
+   */
+  const handleDuplicateInto = async (
+    conn: Connection,
+    folderId: string | null,
+    opts: { vaultId?: string; keepName?: boolean } = {},
+  ) => {
     const newConn = await saveConnection({
       // default name kept in English until all creation sites are localized together (see i18n issue #14)
-      name: conn.name ? `${conn.name} (copy)` : undefined,
+      name: conn.name ? (opts.keepName ? conn.name : `${conn.name} (copy)`) : undefined,
       connection_type: conn.connection_type,
       host: conn.host,
       port: conn.port,
@@ -394,7 +440,7 @@ export default function HostsPage() {
       identity_id: conn.identity_id,
       key_id: conn.key_id,
       folder_id: folderId ?? undefined,
-      vault_id: conn.vault_id ?? "personal",
+      vault_id: opts.vaultId ?? conn.vault_id ?? "personal",
       serial_port: conn.serial_port,
       serial_baud: conn.serial_baud,
       serial_data_bits: conn.serial_data_bits,
@@ -714,9 +760,12 @@ export default function HostsPage() {
   const getAllSubFolders = (folderId: string): Folder[] => {
     const queue = [folderId];
     const result: Folder[] = [];
+    // A parent cycle in the data would otherwise spin forever and lock the renderer.
+    const seen = new Set<string>([folderId]);
     while (queue.length) {
       const cur = queue.shift()!;
-      const children = scopedFolders.filter((f) => f.parent_folder_id === cur);
+      const children = scopedFolders.filter((f) => f.parent_folder_id === cur && !seen.has(f.id));
+      for (const child of children) seen.add(child.id);
       result.push(...children);
       queue.push(...children.map((f) => f.id));
     }
@@ -895,16 +944,23 @@ export default function HostsPage() {
     });
   };
 
-  /** Deep-clones a folder subtree under `parentFolderId`, staying in the same vault. */
-  const handleCopyFolderInto = async (folderId: string, parentFolderId: string | null) => {
+  /** Deep-clones a folder subtree under `parentFolderId`, into `vaultId` when given. */
+  const handleCopyFolderInto = async (
+    folderId: string,
+    parentFolderId: string | null,
+    vaultId?: string,
+  ) => {
     const folder = scopedFolders.find((f) => f.id === folderId);
     if (!folder) throw new Error(`Unknown folder ${folderId}`);
+    const targetVaultId = vaultId ?? folder.vault_id;
+    // Only the root of the clone is renamed; renaming every descendant would
+    // compound to "web-1 (copy) (copy)" on a second paste.
     // default name kept in English until all creation sites are localized together (see i18n issue #14)
     const root = await saveFolder({
       name: `${folder.name} (copy)`,
       object_type: folder.object_type,
       parent_folder_id: parentFolderId ?? undefined,
-      vault_id: folder.vault_id,
+      vault_id: targetVaultId,
     });
     // BFS order guarantees a parent is created before its children.
     const folderIdMap = new Map<string, string>([[folder.id, root.id]]);
@@ -913,14 +969,41 @@ export default function HostsPage() {
         name: sf.name,
         object_type: sf.object_type,
         parent_folder_id: folderIdMap.get(sf.parent_folder_id ?? "") ?? root.id,
-        vault_id: sf.vault_id,
+        vault_id: targetVaultId,
       });
       folderIdMap.set(sf.id, created.id);
     }
     for (const conn of getConnectionsInFolderTree(folder.id)) {
-      await handleDuplicateInto(conn, folderIdMap.get(conn.folder_id ?? "") ?? root.id);
+      await handleDuplicateInto(conn, folderIdMap.get(conn.folder_id ?? "") ?? root.id, {
+        vaultId: targetVaultId,
+        keepName: true,
+      });
     }
     return root;
+  };
+
+  /**
+   * Moves a folder subtree into `vaultId`, reparenting the root at the same time.
+   * Same updateFolder/updateConnection path handleMoveFolderToVault uses, so the
+   * team-vault migration logic in the stores applies.
+   */
+  const migrateFolderTreeToVault = async (
+    folder: Folder,
+    parentFolderId: string | null,
+    vaultId: string,
+  ) => {
+    await updateFolder(folder.id, {
+      name: folder.name,
+      object_type: folder.object_type,
+      parent_folder_id: parentFolderId ?? undefined,
+      vault_id: vaultId,
+    });
+    for (const sf of getAllSubFolders(folder.id)) {
+      await updateFolder(sf.id, { name: sf.name, object_type: sf.object_type, parent_folder_id: sf.parent_folder_id, vault_id: vaultId });
+    }
+    for (const conn of getConnectionsInFolderTree(folder.id)) {
+      await updateConnection(conn.id, { ...connectionToFormData(conn), vault_id: vaultId });
+    }
   };
 
   // ── Drag-to-folder ────────────────────────────────────────────────────────

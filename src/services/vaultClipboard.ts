@@ -101,8 +101,13 @@ export async function pasteFromClipboard(
     const origins = new Map<string, string | null>();
     for (const id of [...itemIds, ...folderIds]) origins.set(id, adapter.folderIdOf(id));
 
-    if (itemIds.length > 0) await adapter.moveItems(itemIds, target);
-    for (const id of folderIds) await adapter.moveFolder(id, target);
+    // Suppressed: each store method records its own entry, and undoing those
+    // stale entries after the composite undo has already run throws on team
+    // vaults, which wedges the history stack.
+    await useHistoryStore.getState().withoutHistory(async () => {
+      if (itemIds.length > 0) await adapter.moveItems(itemIds, target);
+      for (const id of folderIds) await adapter.moveFolder(id, target);
+    });
     const moved = itemIds.length + folderIds.length;
     if (moved === 0) return { moved: 0, created: 0, skipped };
     adapter.setSelection([...itemIds, ...folderIds]);
@@ -122,10 +127,18 @@ export async function pasteFromClipboard(
     return { moved, created: 0, skipped };
   }
 
-  let createdItemIds =
-    liveItems.length > 0 ? await adapter.duplicateItems(liveItems.map((i) => i.id), target) : [];
-  let createdFolderIds: string[] = [];
-  for (const id of liveFolders) createdFolderIds.push(await adapter.duplicateFolder(id, target));
+  const duplicateAll = async () => {
+    const items =
+      liveItems.length > 0 ? await adapter.duplicateItems(liveItems.map((i) => i.id), target) : [];
+    const folders: string[] = [];
+    for (const id of liveFolders) folders.push(await adapter.duplicateFolder(id, target));
+    return { items, folders };
+  };
+
+  // See the cut branch: the per-object entries the stores push are suppressed so
+  // this paste owns exactly one history entry.
+  let { items: createdItemIds, folders: createdFolderIds } =
+    await useHistoryStore.getState().withoutHistory(duplicateAll);
 
   const created = createdItemIds.length + createdFolderIds.length;
   if (created === 0) return { moved: 0, created: 0, skipped };
@@ -140,10 +153,9 @@ export async function pasteFromClipboard(
     // Redo re-creates under fresh ids, so the holders must be refreshed for the
     // next undo to delete the right objects.
     redo: async () => {
-      createdItemIds =
-        liveItems.length > 0 ? await adapter.duplicateItems(liveItems.map((i) => i.id), target) : [];
-      createdFolderIds = [];
-      for (const id of liveFolders) createdFolderIds.push(await adapter.duplicateFolder(id, target));
+      const again = await duplicateAll();
+      createdItemIds = again.items;
+      createdFolderIds = again.folders;
     },
   });
   return { moved: 0, created, skipped };
