@@ -920,14 +920,16 @@ describe("agentStore", () => {
     const ownedAfter = vi.mocked(runAgent).mock.calls[1][0].ctx.owned;
     expect(ownedAfter.has("sess-old")).toBe(false);
 
-    // And the refusal is real, not merely an empty set.
+    // And the refusal is real, not merely an empty set. run_command no longer
+    // refuses on ownership — it acts in the user's sessions too — so the tool
+    // that still gates on ctx.owned is what proves the reset.
     const run = buildTools({
       api: fakeApi({}) as never,
       approve: async () => ({ approve: true, scope: "c1", via: "granted" }),
       proposePlan: async () => ({ approve: false as const }),
       owned: ownedAfter,
-    } as AgentContext).find((t) => t.name === "run_command")!;
-    await expect(run.execute({ sessionId: "sess-old", command: "ls" })).resolves.toMatchObject({
+    } as AgentContext).find((t) => t.name === "close_session")!;
+    await expect(run.execute({ sessionId: "sess-old" })).resolves.toMatchObject({
       error: expect.stringContaining("not owned by agent"),
     });
   });

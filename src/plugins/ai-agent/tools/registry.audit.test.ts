@@ -2,13 +2,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const auditAgentAction = vi.fn();
 vi.mock("../state/auditSeam", () => ({ auditAgentAction }));
-vi.mock("./capture", () => ({ captureCommand: vi.fn(async () => ({ output: "ok", exitCode: 0 })) }));
+vi.mock("./capture", () => ({
+  captureCommand: vi.fn(async () => ({ output: "ok", exitCode: 0 })),
+  sendSerialCommand: vi.fn(async () => ({ output: "device", exitCode: null })),
+}));
 
 const { buildTools } = await import("./registry");
 
 function tools(approve: ReturnType<typeof vi.fn>) {
   const api = {
-    sessions: { open: vi.fn(async () => "s1"), close: vi.fn(async () => {}) },
+    sessions: {
+      open: vi.fn(async () => "s1"),
+      close: vi.fn(async () => {}),
+      list: vi.fn(() => [{ id: "s1", type: "ssh", status: "connected", connectionId: "c1", connectionName: "srv" }]),
+    },
     connections: { list: vi.fn(async () => [{ id: "c1", name: "srv", host: "h1" }]) },
     terminal: { readSnapshot: vi.fn(async () => "") },
   };
@@ -35,7 +42,7 @@ describe("execution auditing", () => {
     await byName(list, "run_command").execute({ sessionId: "s1", command: "uptime" });
     expect(auditAgentAction).toHaveBeenCalledWith(
       "c1", "agent.command_run",
-      { tool: "run_command", approval: "granted" },
+      { tool: "run_command", approval: "granted", sessionType: "ssh", agentOwned: true },
       { command: "uptime" },
     );
   });
@@ -45,7 +52,7 @@ describe("execution auditing", () => {
     const { list, owned } = tools(approve);
     owned.add("s1");
     await byName(list, "run_command").execute({ sessionId: "s1", command: "uptime" });
-    expect(auditAgentAction.mock.calls[0][2]).toEqual({ tool: "run_command", approval: "auto_mode" });
+    expect(auditAgentAction.mock.calls[0][2]).toEqual({ tool: "run_command", approval: "auto_mode", sessionType: "ssh", agentOwned: true });
   });
 
   it("carries via=prompted through to the approval classifier", async () => {
@@ -53,7 +60,14 @@ describe("execution auditing", () => {
     const { list, owned } = tools(approve);
     owned.add("s1");
     await byName(list, "run_command").execute({ sessionId: "s1", command: "uptime" });
-    expect(auditAgentAction.mock.calls[0][2]).toEqual({ tool: "run_command", approval: "prompted" });
+    expect(auditAgentAction.mock.calls[0][2]).toEqual({ tool: "run_command", approval: "prompted", sessionType: "ssh", agentOwned: true });
+  });
+
+  it("flags a command run in the user's own session as not agent-owned", async () => {
+    const approve = vi.fn(async () => ({ approve: true, scope: "c1", via: "prompted" }));
+    const { list } = tools(approve); // s1 is live but never added to `owned`
+    await byName(list, "run_command").execute({ sessionId: "s1", command: "uptime" });
+    expect(auditAgentAction.mock.calls[0][2]).toMatchObject({ agentOwned: false, sessionType: "ssh" });
   });
 
   it("records a closed session", async () => {

@@ -152,3 +152,71 @@ export async function captureCommand(
       .catch((err) => finish({ output: `capture error: ${err instanceof Error ? err.message : String(err)}`, exitCode: null, timedOut: false, truncated: false, incomplete: true }));
   });
 }
+
+/**
+ * Write `text` to a serial session and return whatever the device emits.
+ *
+ * A serial device is not a shell: it never runs `captureCommand`'s sentinel,
+ * so that marker syntax would be delivered to the device as literal input —
+ * meaningless at best, and acted upon at worst on embedded hardware. Here the
+ * text goes out verbatim and the reply is read back on a quiet period.
+ *
+ * `exitCode` is therefore always null and `incomplete` always true: there is
+ * no completion signal to wait for, so the caller must never read the absence
+ * of output as success. `timedOut` still distinguishes "the device went quiet"
+ * from "nothing ever arrived".
+ */
+export async function sendSerialCommand(
+  api: Pick<PluginAPI, "sessions" | "terminal">,
+  sessionId: string,
+  text: string,
+  opts: CaptureOptions = {},
+): Promise<RunCommandResult> {
+  const { timeoutMs, quietPeriodMs, maxChars } = { ...DEFAULTS, ...opts };
+
+  let buffer = "";
+  let resolved = false;
+
+  return new Promise<RunCommandResult>((resolve) => {
+    let unsub: (() => void) | null = null;
+    let hardTimer: ReturnType<typeof setTimeout> | null = null;
+    let quietTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const finish = (timedOut: boolean) => {
+      if (resolved) return;
+      resolved = true;
+      if (hardTimer) clearTimeout(hardTimer);
+      if (quietTimer) clearTimeout(quietTimer);
+      unsub?.();
+      const output = stripAnsi(buffer).replace(/\r\n/g, "\n").replace(/\r/g, "").replace(/\n$/, "");
+      const truncated = output.length > maxChars;
+      resolve({
+        output: truncated ? output.slice(0, maxChars) : output,
+        exitCode: null,
+        timedOut,
+        truncated,
+        incomplete: true,
+      });
+    };
+
+    const onText = (chunk: string) => {
+      buffer += chunk;
+      if (quietTimer) clearTimeout(quietTimer);
+      quietTimer = setTimeout(() => finish(false), quietPeriodMs);
+    };
+
+    hardTimer = setTimeout(() => finish(true), timeoutMs);
+
+    void api.terminal
+      .onOutput(sessionId, onText)
+      .then((u) => {
+        unsub = u;
+        if (resolved) { u(); return; }
+        return api.sessions.sendCommand(sessionId, text);
+      })
+      .catch((err) => {
+        buffer += `serial write error: ${err instanceof Error ? err.message : String(err)}`;
+        finish(false);
+      });
+  });
+}

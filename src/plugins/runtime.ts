@@ -4,7 +4,7 @@ import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { sshSendInput, onSshOutput } from "@/services/ssh";
 import { onLocalOutput, localConnect, localSendInput } from "@/services/local";
-import { onSerialOutput } from "@/services/serial";
+import { onSerialOutput, serialWrite } from "@/services/serial";
 import { readTerminalSnapshot, readTerminalSelection } from "@/hooks/useTerminal";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIStore, type NavItem } from "@/stores/uiStore";
@@ -969,12 +969,17 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         requireGated("terminal:write");
         const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
         if (!session) throw new Error(`Session "${sessionId}" not found`);
+        // Three transports, mirroring onOutput above and sendSessionInput in
+        // useTerminal.ts. Serial used to fall through to the SSH branch, which
+        // writes to a channel a serial session does not have — so every write to
+        // a serial device was silently dropped.
+        const encoded = new TextEncoder().encode(cmd + "\n");
         if (session.type === "local") {
           const { invoke } = await import("@tauri-apps/api/core");
-          const encoded = new TextEncoder().encode(cmd + "\n");
           await invoke("local_send_input", { sessionId, data: Array.from(encoded) });
+        } else if (session.type === "serial") {
+          await serialWrite(sessionId, encoded);
         } else {
-          const encoded = new TextEncoder().encode(cmd + "\n");
           await sshSendInput(sessionId, encoded);
         }
       },

@@ -11,7 +11,7 @@ import {
   type PlanStepTool,
   type PlanVerdict,
 } from "../state/planTokens";
-import { captureCommand } from "./capture";
+import { captureCommand, sendSerialCommand } from "./capture";
 import { guardConnectionId, guardPlanConnectionIds } from "./connectionGuard";
 
 export interface AgentContext {
@@ -47,6 +47,10 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
     if (!decision.approve) return { ok: false, result: { error: "rejected by user", reason: decision.reason } };
     return { ok: true, args: decision.args ?? args, scope: decision.scope, via: decision.via };
   };
+
+  /** A currently-open session of any kind, including ones the user opened. */
+  const liveSession = (sessionId: string) =>
+    ctx.api.sessions.list().find((s) => s.id === sessionId);
 
   return [
     {
@@ -115,6 +119,26 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
       },
     },
     {
+      name: "list_sessions",
+      description:
+        "List the terminal sessions that are open right now, including the user's own local shells "
+        + "and serial devices — not only sessions this agent opened. Use an entry's `id` as "
+        + "`sessionId` for run_command and read_terminal; there is no need to call open_session for "
+        + "a session that already appears here.",
+      risk: "auto",
+      schema: z.object({}),
+      execute: async () =>
+        ctx.api.sessions.list().map((s) => ({
+          id: s.id,
+          type: s.type,
+          status: s.status,
+          connectionId: s.connectionId,
+          connectionName: s.connectionName,
+          localShell: s.localShell,
+          agentOwned: ctx.owned.has(s.id),
+        })),
+    },
+    {
       name: "open_session",
       description:
         'Open a dedicated agent workbench session on a connection. `connectionId` must be an "id" from list_connections, not a name or a hostname. Prompts the user.',
@@ -140,18 +164,28 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
     {
       name: "run_command",
       description:
-        "Run a shell command in an agent-owned session and capture its output + exit code. Prompts for every command. Only works in a session opened via open_session.",
+        "Run a shell command in any open session — one from open_session, or one of the user's own "
+        + "from list_sessions — and capture its output + exit code. Prompts for every command. On a "
+        + "serial session the text is sent to the device verbatim and there is no exit code.",
       risk: "prompt",
       schema: z.object({ sessionId: z.string(), command: z.string() }),
       execute: async (raw) => {
-        if (!ctx.owned.has(String(raw.sessionId))) {
-          return { error: "session not owned by agent; call open_session first" };
+        // Before the gate, like open_session's guardConnectionId: a sessionId
+        // matching nothing open can never run, so carding it would ask the user
+        // to authorize an action that is already doomed.
+        if (!liveSession(String(raw.sessionId))) {
+          return { error: "no such open session; call list_sessions for the current ids" };
         }
         const g = await gate("run_command", raw);
         if (!g.ok) return g.result;
         const sessionId = String(g.args.sessionId);
         const command = String(g.args.command);
-        if (!ctx.owned.has(sessionId)) return { error: "session not owned by agent; call open_session first" };
+        // Re-read after the gate: an approval can sit pending indefinitely, and
+        // the user may have closed the session in the meantime.
+        const session = liveSession(sessionId);
+        if (!session) {
+          return { error: "no such open session; call list_sessions for the current ids" };
+        }
         // Recorded BEFORE dispatch, deliberately: the command reaches the
         // shell whether or not the capture comes back, and a crash mid-capture
         // must not erase the record of something that actually ran.
@@ -164,8 +198,17 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
         // becomes editable, this line must re-derive scope from the executed
         // session, or the audit record could name a different connection than
         // the one the command actually ran on.
-        auditAgentAction(g.scope, "agent.command_run", { tool: "run_command", approval: g.via }, { command });
-        return captureCommand(ctx.api, sessionId, command, {});
+        auditAgentAction(
+          g.scope,
+          "agent.command_run",
+          // sessionType rides on the wire metadata so the trail distinguishes a
+          // command run in the user's own terminal from one in an agent workbench.
+          { tool: "run_command", approval: g.via, sessionType: session.type, agentOwned: ctx.owned.has(sessionId) },
+          { command },
+        );
+        return session.type === "serial"
+          ? sendSerialCommand(ctx.api, sessionId, command, {})
+          : captureCommand(ctx.api, sessionId, command, {});
       },
     },
     {

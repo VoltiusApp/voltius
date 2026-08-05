@@ -10,17 +10,23 @@ import {
 
 vi.mock("./capture", () => ({
   captureCommand: vi.fn(async () => ({ output: "ok", exitCode: 0, timedOut: false, truncated: false, incomplete: false })),
+  sendSerialCommand: vi.fn(async () => ({ output: "device", exitCode: null, timedOut: false, truncated: false, incomplete: true })),
 }));
-import { captureCommand } from "./capture";
+import { captureCommand, sendSerialCommand } from "./capture";
 
 vi.mock("../state/auditSeam", () => ({ auditAgentAction: vi.fn() }));
 import { auditAgentAction } from "../state/auditSeam";
 
 function ctx(over: Partial<AgentContext> = {}): { ctx: AgentContext; approve: any } {
+  let live = [{ id: "sess-1", type: "ssh", status: "connected", connectionId: "c1", connectionName: "srv" }];
   const approve = vi.fn(async () => ({ approve: true as const, scope: "c1", via: "granted" as const }));
   const api = {
     connections: { list: vi.fn(async () => [{ id: "c1", name: "srv", host: "h1" }]) },
-    sessions: { open: vi.fn(async () => "sess-1"), close: vi.fn(async () => {}) },
+    sessions: {
+      open: vi.fn(async () => "sess-1"),
+      close: vi.fn(async (id: string) => { live = live.filter((s) => s.id !== id); }),
+      list: vi.fn(() => live),
+    },
     terminal: { readSnapshot: vi.fn(() => "last lines") },
   } as any;
   const proposePlan = vi.fn(async () => ({ approve: false as const }));
@@ -41,9 +47,14 @@ beforeEach(() => vi.clearAllMocks());
  *  future `AgentContext` member) is actually typechecked — unlike `ctx()`
  *  above, whose `as any`/`as never` casts blank that out. */
 function makeCtx(over: Partial<AgentContext> = {}): AgentContext {
+  let live = [{ id: "sess-1", type: "ssh", status: "connected", connectionId: "conn-A", connectionName: "srv" }];
   const api = {
     connections: { list: vi.fn(async () => [{ id: "conn-A", name: "srv", host: "h1" }]) },
-    sessions: { open: vi.fn(async () => "sess-1"), close: vi.fn(async () => {}) },
+    sessions: {
+      open: vi.fn(async () => "sess-1"),
+      close: vi.fn(async (id: string) => { live = live.filter((s) => s.id !== id); }),
+      list: vi.fn(() => live),
+    },
     terminal: { readSnapshot: vi.fn(() => "last lines") },
   } as unknown as AgentContext["api"];
   const approve: AgentContext["approve"] = vi.fn(async () => ({
@@ -102,10 +113,10 @@ describe("tool registry", () => {
     expect(captureCommand).toHaveBeenCalled();
   });
 
-  test("run_command hard-rejects a non-owned session (never runs)", async () => {
+  test("run_command rejects a sessionId that is not open (never runs)", async () => {
     const { ctx: c } = ctx();
     const res: any = await tool(c, "run_command").execute({ sessionId: "not-owned", command: "rm -rf /" });
-    expect(res.error).toMatch(/not owned|open_session/i);
+    expect(res.error).toMatch(/no such open session/i);
     expect(captureCommand).not.toHaveBeenCalled();
   });
 
@@ -145,12 +156,12 @@ describe("tool registry", () => {
     expect(captureCommand).toHaveBeenLastCalledWith(expect.anything(), "sess-1", "ls -a", expect.anything());
   });
 
-  test("approve-with-edited-args swapping in a non-owned sessionId is rejected post-approval (never runs)", async () => {
+  test("approve-with-edited-args swapping in a sessionId that is not open is rejected post-approval (never runs)", async () => {
     const approve = vi.fn(async () => ({ approve: true, scope: "c1", via: "prompted", args: { sessionId: "not-owned", command: "ls" } }));
     const { ctx: c } = ctx({ approve: approve as any });
     await tool(c, "open_session").execute({ connectionId: "c1" }); // own sess-1, not "not-owned"
     const res: any = await tool(c, "run_command").execute({ sessionId: "sess-1", command: "ls" });
-    expect(res.error).toMatch(/not owned|open_session/i);
+    expect(res.error).toMatch(/no such open session/i);
     expect(captureCommand).not.toHaveBeenCalled();
   });
 
@@ -173,8 +184,21 @@ describe("tool registry", () => {
     await tool(c, "open_session").execute({ connectionId: "c1" });
     await tool(c, "close_session").execute({ sessionId: "sess-1" });
     expect(c.api.sessions.close).toHaveBeenCalledWith("sess-1");
+    expect(c.owned.has("sess-1")).toBe(false);
+    // The closed session is gone from the host, so a later run is refused for
+    // that reason — un-owning alone no longer refuses one, since run_command
+    // may act in sessions the user opened.
     const res: any = await tool(c, "run_command").execute({ sessionId: "sess-1", command: "ls" });
-    expect(res.error).toMatch(/not owned|open_session/i);
+    expect(res.error).toMatch(/no such open session/i);
+  });
+
+  test("run_command runs in a live session the agent does not own (the user's own terminal)", async () => {
+    const { ctx: c, approve } = ctx();
+    expect(c.owned.has("sess-1")).toBe(false);
+    const res: any = await tool(c, "run_command").execute({ sessionId: "sess-1", command: "ls" });
+    expect(approve).toHaveBeenCalled();
+    expect(res.exitCode).toBe(0);
+    expect(captureCommand).toHaveBeenCalled();
   });
 
   test("close_session hard-rejects a non-owned session (never closes, never prompts)", async () => {
@@ -309,7 +333,7 @@ describe("session audit carries the approval classifier", () => {
     expect(auditAgentAction).toHaveBeenCalledWith(
       "conn-A",
       "agent.command_run",
-      { tool: "run_command", approval: "plan" },
+      { tool: "run_command", approval: "plan", sessionType: "ssh", agentOwned: true },
       { command: "df -h" },
     );
   });
@@ -319,13 +343,13 @@ describe("ownership is checked upstream of any authorization", () => {
   // 3e widens reachability: a plan can pre-authorize run_command, so the
   // guarantee that NO approval mechanism can reach past ctx.owned needs its
   // own pin rather than resting on the approval path being the only caller.
-  it("refuses an unowned session without ever consulting the approval port", async () => {
+  it("refuses a session that is not open without ever consulting the approval port", async () => {
     const approve = vi.fn(async () => ({ approve: true as const, scope: "conn-A", via: "plan" as const }));
     const ctx = makeCtx({ approve, owned: new Set<string>() });
     await expect(
       buildTools(ctx).find((x) => x.name === "run_command")!
         .execute({ sessionId: "sess-ghost", command: "df -h" }),
-    ).resolves.toMatchObject({ error: expect.stringContaining("not owned") });
+    ).resolves.toMatchObject({ error: expect.stringContaining("no such open session") });
     expect(approve).not.toHaveBeenCalled();
   });
 
@@ -436,5 +460,48 @@ describe("propose_plan schema", () => {
     const result = schemaOf(ctx).safeParse({ steps });
     expect(result.success).toBe(false);
     expect(proposePlan).not.toHaveBeenCalled();
+  });
+});
+
+describe("session-type routing", () => {
+  function serialCtx(): AgentContext {
+    const live = [
+      { id: "ser-1", type: "serial", status: "connected", connectionId: "conn-S", connectionName: "dev" },
+      { id: "ssh-1", type: "ssh", status: "connected", connectionId: "conn-A", connectionName: "srv" },
+      { id: "loc-1", type: "local", status: "connected", connectionId: "local", connectionName: "bash" },
+    ];
+    return {
+      api: {
+        connections: { list: vi.fn(async () => [{ id: "conn-A", name: "srv", host: "h1" }]) },
+        sessions: { open: vi.fn(), close: vi.fn(), list: vi.fn(() => live) },
+        terminal: { readSnapshot: vi.fn(() => "") },
+      } as unknown as AgentContext["api"],
+      approve: vi.fn(async () => ({ approve: true as const, scope: "conn-S", via: "prompted" as const })),
+      proposePlan: vi.fn(async () => ({ approve: false as const })),
+      owned: new Set<string>(),
+    };
+  }
+
+  test("list_sessions exposes the user's local and serial sessions, not just agent-owned ones", async () => {
+    const c = serialCtx();
+    const res = (await buildTools(c).find((t) => t.name === "list_sessions")!.execute({})) as Array<{
+      id: string; type: string; agentOwned: boolean;
+    }>;
+    expect(res.map((s) => s.type).sort()).toEqual(["local", "serial", "ssh"]);
+    expect(res.every((s) => s.agentOwned === false)).toBe(true);
+  });
+
+  test("run_command sends verbatim on a serial session — no shell markers reach the device", async () => {
+    const c = serialCtx();
+    await buildTools(c).find((t) => t.name === "run_command")!.execute({ sessionId: "ser-1", command: "AT" });
+    expect(sendSerialCommand).toHaveBeenCalledWith(expect.anything(), "ser-1", "AT", expect.anything());
+    expect(captureCommand).not.toHaveBeenCalled();
+  });
+
+  test("run_command uses marker capture on a local shell", async () => {
+    const c = serialCtx();
+    await buildTools(c).find((t) => t.name === "run_command")!.execute({ sessionId: "loc-1", command: "ls" });
+    expect(captureCommand).toHaveBeenCalledWith(expect.anything(), "loc-1", "ls", expect.anything());
+    expect(sendSerialCommand).not.toHaveBeenCalled();
   });
 });
