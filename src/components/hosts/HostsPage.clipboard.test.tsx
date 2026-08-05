@@ -563,3 +563,28 @@ test("a cut-paste reloads the connections after the move, in both directions", a
     h.moveObjectsToFolder.mock.invocationCallOrder.slice(-1)[0],
   );
 });
+
+// One Ctrl+Z reversing the whole paste is the point of the composite entry: assert
+// it reaches the history stack, not just that the service tried to push it.
+test("a cut-paste is undoable in one step, back to the origin folder", async () => {
+  h.folders = [folder("f1")];
+  h.connections = [conn("c1"), conn("c2")];
+  h.selected = ["c1", "c2"];
+  h.activeFolderId = "f1";
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.moveObjectsToFolder).toHaveBeenCalledWith(["c1", "c2"], "connection", "f1");
+  expect(useHistoryStore.getState().past).toHaveLength(1);
+  expect(useHistoryStore.getState().canUndo).toBe(true);
+
+  h.moveObjectsToFolder.mockClear();
+  await act(async () => { await useHistoryStore.getState().undo(); });
+
+  expect(h.moveObjectsToFolder).toHaveBeenCalledWith(["c1"], "connection", null);
+  expect(h.moveObjectsToFolder).toHaveBeenCalledWith(["c2"], "connection", null);
+  expect(useHistoryStore.getState().past).toHaveLength(0);
+  expect(useHistoryStore.getState().canUndo).toBe(false);
+});

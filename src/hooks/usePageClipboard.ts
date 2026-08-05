@@ -40,13 +40,16 @@ function reportPasteResult(result: PasteResult) {
   }
 }
 
+// Serializes pastes so a second Ctrl+V queues behind an in-flight one instead of
+// racing it (each still re-reads the clipboard when it runs). Shared by every page,
+// not per hook: a paste started on another page mid-flight would otherwise overlap
+// the first one's `withoutHistory` window and lose its history entry to it.
+let pasteChain: Promise<void> = Promise.resolve();
+
 export function usePageClipboard(adapter: PageClipboardAdapter): void {
   const ref = useRef(adapter);
   ref.current = adapter;
   const navItem = adapter.navItem;
-  // Serializes pastes so a second Ctrl+V queues behind an in-flight one
-  // instead of racing it (each still re-reads the clipboard when it runs).
-  const pasteChain = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     const isActive = () => useUIStore.getState().activeNav === navItem;
@@ -101,7 +104,7 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
 
     const handlePaste = () => {
       if (!isActive()) return;
-      pasteChain.current = pasteChain.current.then(async () => {
+      pasteChain = pasteChain.then(async () => {
         const clipboard = useVaultClipboardStore.getState().clipboard;
         try {
           // Inside the queued work, not before it: the confirmation must not run

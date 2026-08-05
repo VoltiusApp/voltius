@@ -4,6 +4,7 @@ import { usePageClipboard } from "./usePageClipboard";
 import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useNotificationStore } from "@/stores/notificationStore";
+import { useHistoryStore } from "@/stores/historyStore";
 
 function baseAdapter(over = {}) {
   return {
@@ -39,6 +40,37 @@ beforeEach(() => {
   useVaultClipboardStore.getState().clear();
   useUIStore.setState({ activeNav: "hosts" });
   useNotificationStore.setState({ toasts: [] });
+  useHistoryStore.setState({
+    past: [], future: [], bypassing: false, suppressing: false, suppressDepth: 0,
+    canUndo: false, canRedo: false,
+  });
+});
+
+// Each page owns a paste queue only if the queue is per hook; a paste started on
+// another page while one is in flight then runs inside the first paste's
+// `withoutHistory` window and has its composite entry swallowed by it.
+test("a paste on another page does not lose its history entry to an in-flight one", async () => {
+  let releaseHosts!: (ids: string[]) => void;
+  const hosts = baseAdapter({
+    duplicateItems: vi.fn(() => new Promise<string[]>((r) => { releaseHosts = r; })),
+  });
+  const keychain = baseAdapter({ navItem: "keychain", moveItems: vi.fn(async () => {}) });
+  renderHook(() => usePageClipboard(hosts));
+  renderHook(() => usePageClipboard(keychain));
+
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-copy"));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
+  await vi.waitFor(() => expect(hosts.duplicateItems).toHaveBeenCalledTimes(1));
+
+  useUIStore.setState({ activeNav: "keychain" });
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-cut"));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
+
+  releaseHosts(["c1-copy"]);
+  await vi.waitFor(() => expect(keychain.moveItems).toHaveBeenCalledTimes(1));
+  await vi.waitFor(() => expect(useHistoryStore.getState().past).toHaveLength(2));
+  expect(useHistoryStore.getState().suppressing).toBe(false);
+  expect(useHistoryStore.getState().canUndo).toBe(true);
 });
 
 test("cut fills the clipboard from the selection", () => {
