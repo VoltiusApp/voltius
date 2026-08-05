@@ -648,6 +648,34 @@ export default function KeychainPage() {
     return result;
   };
 
+  /** Keys and identities nested anywhere under folderId. */
+  const getItemsInFolderTree = (folderId: string): string[] => {
+    const ids = new Set([folderId, ...getAllSubFolders(folderId).map((f) => f.id)]);
+    const inTree = <T extends { id: string; folder_id?: string | null }>(items: T[]) =>
+      items.filter((x) => x.folder_id != null && ids.has(x.folder_id)).map((x) => x.id);
+    return [...inTree(keys), ...inTree(identities)];
+  };
+
+  /** Warns about the cascade: subfolders and every key/identity under them go too. */
+  const folderDeleteMessage = (folderId: string): string => {
+    const count = getItemsInFolderTree(folderId).length;
+    return count === 0
+      ? t("keychain.page.confirmDeleteFolder.messageEmpty")
+      : t("keychain.page.confirmDeleteFolder.message", { count });
+  };
+
+  /** A selection that includes folders drags their contents down with it. */
+  const bulkDeleteMessage = (ids: string[]): string => {
+    const base = t("keychain.page.confirmDelete.message", { count: ids.length });
+    const nested = new Set(
+      ids.filter((id) => scopedFolders.some((f) => f.id === id)).flatMap(getItemsInFolderTree),
+    );
+    for (const id of ids) nested.delete(id);
+    return nested.size === 0
+      ? base
+      : `${base} ${t("keychain.page.confirmDelete.folderCascade", { count: nested.size })}`;
+  };
+
   const handleMoveFolderToVault = (folder: Folder, vaultId: string) => {
     const subFolders = getAllSubFolders(folder.id);
     const folderIds = new Set([folder.id, ...subFolders.map((f) => f.id)]);
@@ -1070,7 +1098,7 @@ export default function KeychainPage() {
       {confirmDeleteFolderId && (
         <ConfirmModal
           title={t("keychain.page.confirmDeleteFolder.title")}
-          message={t("keychain.page.confirmDeleteFolder.message")}
+          message={folderDeleteMessage(confirmDeleteFolderId)}
           confirmLabel={t("common.action.delete")}
           onConfirm={() => {
             void deleteFolder(confirmDeleteFolderId);
@@ -1085,7 +1113,7 @@ export default function KeychainPage() {
       {confirmDeleteIds && (
         <ConfirmModal
           title={t("keychain.page.confirmDelete.title", { count: confirmDeleteIds.length })}
-          message={t("keychain.page.confirmDelete.message", { count: confirmDeleteIds.length })}
+          message={bulkDeleteMessage(confirmDeleteIds)}
           confirmLabel={t("common.action.delete")}
           onConfirm={async () => {
             for (const id of confirmDeleteIds) {

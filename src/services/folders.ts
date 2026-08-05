@@ -13,8 +13,9 @@ export async function updateFolder(id: string, data: FolderFormData): Promise<Fo
   return invoke("folder_update", { id, data });
 }
 
-export async function deleteFolder(id: string): Promise<void> {
-  return invoke("folder_delete", { id });
+/** Cascades to subfolders and their items unless `cascade` is false. */
+export async function deleteFolder(id: string, cascade = true): Promise<void> {
+  return invoke("folder_delete", { id, cascade });
 }
 
 export async function moveObjectsToFolder(

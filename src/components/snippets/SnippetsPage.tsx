@@ -773,6 +773,28 @@ export function SnippetsPage() {
     return snippets.filter((s) => s.folder_id != null && ids.has(s.folder_id));
   }
 
+  /** Warns about the cascade: subfolders and every snippet nested under them go too. */
+  function folderDeleteMessage(folderId: string): string {
+    const count = getSnippetsInFolderTree(folderId).length;
+    return count === 0
+      ? t("snippets.page.confirmDeleteFolder.messageEmpty")
+      : t("snippets.page.confirmDeleteFolder.message", { count });
+  }
+
+  /** A selection that includes folders drags their contents down with it. */
+  function bulkDeleteMessage(ids: string[]): string {
+    const base = t("snippets.page.confirmDelete.message", { count: ids.length });
+    const nested = new Set(
+      ids
+        .filter((id) => folders.some((f) => f.id === id))
+        .flatMap((id) => getSnippetsInFolderTree(id).map((s) => s.id)),
+    );
+    for (const id of ids) nested.delete(id);
+    return nested.size === 0
+      ? base
+      : `${base} ${t("snippets.page.confirmDelete.folderCascade", { count: nested.size })}`;
+  }
+
   async function handleMoveFolderToVault(folder: Folder, vaultId: string) {
     try {
       const subFolders = getAllSubFolders(folder.id);
@@ -1161,7 +1183,7 @@ export function SnippetsPage() {
     {confirmDeleteFolder && (
       <ConfirmModal
         title={t("snippets.page.confirmDeleteFolder.title", { name: confirmDeleteFolder.name })}
-        message={t("snippets.page.confirmDeleteFolder.message")}
+        message={folderDeleteMessage(confirmDeleteFolder.id)}
         confirmLabel={t("snippets.page.confirmDeleteFolder.confirmLabel")}
         onConfirm={() => void handleDeleteFolder(confirmDeleteFolder)}
         onCancel={() => setConfirmDeleteFolder(null)}
@@ -1172,7 +1194,7 @@ export function SnippetsPage() {
     {confirmDeleteIds && (
       <ConfirmModal
         title={t("snippets.page.confirmDelete.title", { count: confirmDeleteIds.length })}
-        message={t("snippets.page.confirmDelete.message", { count: confirmDeleteIds.length })}
+        message={bulkDeleteMessage(confirmDeleteIds)}
         confirmLabel={t("common.action.delete")}
         onConfirm={() => {
           for (const id of confirmDeleteIds) {

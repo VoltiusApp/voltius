@@ -95,6 +95,7 @@ export async function updateSnippetFolder(id: string, data: FolderFormData): Pro
   return fromRaw(raw);
 }
 
+/** Cascades to subfolders and every snippet filed in them. */
 export async function deleteSnippetFolder(id: string): Promise<void> {
   return invoke("snippet_folder_delete", { id });
 }

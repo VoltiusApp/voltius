@@ -45,13 +45,17 @@
       },
       "confirmDeleteFolder": {
         "title": "Delete folder",
-        "message": "This will delete the folder. Items inside won't be deleted — they'll return to the top level."
+        "message_one": "This will delete the folder, its subfolders, and the {{count}} item inside. This cannot be undone.",
+        "message_other": "This will delete the folder, its subfolders, and the {{count}} items inside. This cannot be undone.",
+        "messageEmpty": "This will delete the folder and everything inside it. This cannot be undone."
       },
       "confirmDelete": {
         "title_one": "Delete {{count}} item",
         "title_other": "Delete {{count}} items",
         "message_one": "Are you sure you want to delete {{count}} item? This cannot be undone.",
-        "message_other": "Are you sure you want to delete {{count}} items? This cannot be undone."
+        "message_other": "Are you sure you want to delete {{count}} items? This cannot be undone.",
+        "folderCascade_one": "{{count}} item filed in the selected folders will be deleted too.",
+        "folderCascade_other": "{{count}} items filed in the selected folders will be deleted too."
       },
       "vaultCascade": {
         "moveDescription": "Moving \"{{folderName}}\" will also move the following items to {{targetVaultName}}:",

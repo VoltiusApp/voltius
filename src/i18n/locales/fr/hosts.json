@@ -84,11 +84,15 @@
         "title_one": "Supprimer {{count}} élément",
         "title_other": "Supprimer {{count}} éléments",
         "message_one": "Voulez-vous vraiment supprimer {{count}} élément ? Cette action est irréversible.",
-        "message_other": "Voulez-vous vraiment supprimer {{count}} éléments ? Cette action est irréversible."
+        "message_other": "Voulez-vous vraiment supprimer {{count}} éléments ? Cette action est irréversible.",
+        "folderCascade_one": "Le contenu des dossiers sélectionnés sera également supprimé ({{count}} hôte).",
+        "folderCascade_other": "Le contenu des dossiers sélectionnés sera également supprimé ({{count}} hôtes)."
       },
       "confirmDeleteFolder": {
         "title": "Supprimer le dossier",
-        "message": "Cela supprimera le dossier. Les éléments qu'il contient ne seront pas supprimés — ils reviendront au niveau supérieur."
+        "message_one": "Cela supprimera le dossier, ses sous-dossiers et le contenu qu'ils renferment ({{count}} hôte). Cette action est irréversible.",
+        "message_other": "Cela supprimera le dossier, ses sous-dossiers et le contenu qu'ils renferment ({{count}} hôtes). Cette action est irréversible.",
+        "messageEmpty": "Cela supprimera le dossier et tout ce qu'il contient. Cette action est irréversible."
       }
     },
     "remoteSessions": {

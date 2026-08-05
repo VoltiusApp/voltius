@@ -22,6 +22,8 @@ import { snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
 import { SnippetVariableModal } from "@/components/terminal/SnippetVariableModal";
 import { SnippetForm } from "@/components/snippets/SnippetForm";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
+import { ConfirmModal } from "@/components/shared/ConfirmModal";
+import { itemsInFolderSubtree } from "@/utils/folderTree";
 import type { Snippet, Folder, SnippetFormData, FolderFormData } from "@/types";
 import type { Connection } from "@/types";
 
@@ -336,6 +338,7 @@ export function SnippetsPanel() {
     () => snippetIsDirtyRef.current,
   );
   const [editingFolder, setEditingFolder] = useState<Folder | null | "new">(null);
+  const [confirmDeleteFolder, setConfirmDeleteFolder] = useState<Folder | null>(null);
   const [pendingInject, setPendingInject] = useState<PendingInject | null>(null);
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
@@ -541,6 +544,14 @@ export function SnippetsPanel() {
     );
   }
 
+  /** Warns about the cascade: subfolders and every snippet nested under them go too. */
+  function folderDeleteMessage(folderId: string): string {
+    const count = itemsInFolderSubtree(snippets, folders, folderId).length;
+    return count === 0
+      ? t("snippets.page.confirmDeleteFolder.messageEmpty")
+      : t("snippets.page.confirmDeleteFolder.message", { count });
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Search + Add */}
@@ -633,7 +644,7 @@ export function SnippetsPanel() {
                     onMouseLeave={(e) => (e.currentTarget.style.color = "var(--t-text-muted)")}>
                     <Icon icon="lucide:pencil" width={11} />
                   </button>
-                  <button onClick={() => deleteFolder(folder.id)}
+                  <button onClick={() => setConfirmDeleteFolder(folder)}
                     className="w-6 h-6 flex items-center justify-center rounded-sm"
                     style={{ color: "var(--t-text-muted)" }}
                     onMouseEnter={(e) => (e.currentTarget.style.color = "var(--t-status-error)")}
@@ -684,6 +695,16 @@ export function SnippetsPanel() {
             setPendingInject(null);
           }}
           onClose={() => setPendingInject(null)}
+        />
+      )}
+
+      {confirmDeleteFolder && (
+        <ConfirmModal
+          title={t("snippets.page.confirmDeleteFolder.title", { name: confirmDeleteFolder.name })}
+          message={folderDeleteMessage(confirmDeleteFolder.id)}
+          confirmLabel={t("snippets.page.confirmDeleteFolder.confirmLabel")}
+          onConfirm={() => { void deleteFolder(confirmDeleteFolder.id); setConfirmDeleteFolder(null); }}
+          onCancel={() => setConfirmDeleteFolder(null)}
         />
       )}
     </div>

@@ -35,7 +35,9 @@
       },
       "confirmDeleteFolder": {
         "title": "Delete folder",
-        "message": "This will delete the folder. Rules inside won't be deleted — they'll return to the top level."
+        "message_one": "This will delete the folder, its subfolders, and the {{count}} rule inside. This cannot be undone.",
+        "message_other": "This will delete the folder, its subfolders, and the {{count}} rules inside. This cannot be undone.",
+        "messageEmpty": "This will delete the folder and everything inside it. This cannot be undone."
       },
       "vaultCascade": {
         "moveDescription": "Moving \"{{folderName}}\" will also move the following rules to {{targetVaultName}}:",

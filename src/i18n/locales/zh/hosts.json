@@ -84,11 +84,15 @@
         "title_one": "删除 {{count}} 个项目",
         "title_other": "删除 {{count}} 个项目",
         "message_one": "确定要删除 {{count}} 个项目吗？此操作无法撤销。",
-        "message_other": "确定要删除 {{count}} 个项目吗？此操作无法撤销。"
+        "message_other": "确定要删除 {{count}} 个项目吗？此操作无法撤销。",
+        "folderCascade_one": "所选文件夹中的 {{count}} 个主机也将被删除。",
+        "folderCascade_other": "所选文件夹中的 {{count}} 个主机也将被删除。"
       },
       "confirmDeleteFolder": {
         "title": "删除文件夹",
-        "message": "这将删除文件夹。文件夹内的项目不会被删除——它们将返回到顶层。"
+        "message_one": "这将删除该文件夹、其子文件夹以及其中的 {{count}} 个主机。此操作无法撤销。",
+        "message_other": "这将删除该文件夹、其子文件夹以及其中的 {{count}} 个主机。此操作无法撤销。",
+        "messageEmpty": "这将删除该文件夹及其中的所有内容。此操作无法撤销。"
       }
     },
     "remoteSessions": {

@@ -7,6 +7,8 @@ import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjec
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
+import { useSnippetStore } from "@/stores/snippetStore";
+import { folderSubtreeIds } from "@/utils/folderTree";
 
 function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
   if (!vaultId) return false;
@@ -180,15 +182,31 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
     isServerMode().then((s) => { if (s) scheduleSync(); });
   },
 
+  // Cascade: the folder, its subfolders, and every snippet filed in them —
+  // matching folderStore.deleteFolder. Not undoable.
   deleteFolder: async (id) => {
     const teamEntry = findTeamEntry(get().teamSnippetFolders, id);
     if (teamEntry) {
       const { teamId } = teamEntry;
-      await removeTeamVaultObject(teamId, id);
+      const doomed = folderSubtreeIds(get().teamSnippetFolders[teamId] ?? [], id);
+      const snippets = (useSnippetStore.getState().teamSnippets[teamId] ?? [])
+        .filter((s) => s.folder_id != null && doomed.has(s.folder_id));
+
+      for (const snippet of snippets) {
+        await removeTeamVaultObject(teamId, snippet.id);
+      }
+      for (const folderId of doomed) {
+        await removeTeamVaultObject(teamId, folderId);
+      }
+
+      const snippetIds = new Set(snippets.map((s) => s.id));
+      useSnippetStore.setState((s) => ({
+        teamSnippets: { ...s.teamSnippets, [teamId]: (s.teamSnippets[teamId] ?? []).filter((x) => !snippetIds.has(x.id)) },
+      }));
       set((s) => ({
         teamSnippetFolders: {
           ...s.teamSnippetFolders,
-          [teamId]: (s.teamSnippetFolders[teamId] ?? []).filter((x) => x.id !== id),
+          [teamId]: (s.teamSnippetFolders[teamId] ?? []).filter((x) => !doomed.has(x.id)),
         },
       }));
       return;
@@ -197,6 +215,7 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
     await api.deleteSnippetFolder(id);
     const folders = await api.listSnippetFolders();
     set({ folders });
+    await useSnippetStore.getState().loadSnippets();
     isServerMode().then((s) => { if (s) scheduleSync(); });
   },
 

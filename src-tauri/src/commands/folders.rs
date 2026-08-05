@@ -1,10 +1,11 @@
 use crate::storage::config::{
-    load_connections, load_folders, load_identities, load_keys, save_connections, save_folders,
-    save_identities, save_keys, Folder, FolderFormData,
+    load_connections, load_folders, load_identities, load_keys, load_port_forwarding_rules,
+    save_connections, save_folders, save_identities, save_keys, save_port_forwarding_rules, Folder,
+    FolderFormData,
 };
 use crate::vault_auth::check_vault_write;
 use chrono::Utc;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 fn is_alive(deleted_at: &Option<String>, updated_at: &str) -> bool {
@@ -103,21 +104,139 @@ pub fn folder_update(id: String, data: FolderFormData) -> Result<Folder, String>
     Ok(updated)
 }
 
-/// Soft-delete: mark as deleted without cascading.
-/// Child folders keep their parent_folder_id; items keep their folder_id.
-/// The UI treats a missing/tombstoned folder_id as "top level".
+/// Ids of `root` plus every live folder beneath it, following parent links.
+fn folder_subtree_ids(folders: &[Folder], root: &str) -> HashSet<String> {
+    let mut ids = HashSet::new();
+    ids.insert(root.to_string());
+    // Folder nesting is shallow, so repeated sweeps are cheaper than building an index.
+    loop {
+        let before = ids.len();
+        for f in folders {
+            if !is_alive(&f.deleted_at, &f.updated_at) {
+                continue;
+            }
+            if let Some(parent) = &f.parent_folder_id {
+                if ids.contains(parent) {
+                    ids.insert(f.id.clone());
+                }
+            }
+        }
+        if ids.len() == before {
+            return ids;
+        }
+    }
+}
+
+fn tombstone(deleted_at: &mut Option<String>, clocks: &mut HashMap<String, String>, now: &str) {
+    *deleted_at = Some(now.to_string());
+    clocks.insert("__deleted__".to_string(), now.to_string());
+}
+
+/// Soft-delete a folder, everything nested under it, and every item filed in
+/// that subtree (connections, identities, keys, port-forwarding rules).
+///
+/// `cascade: Some(false)` tombstones only this folder, leaving its contents at
+/// the top level. That is what undoing a folder *creation* needs: it must not
+/// destroy items the user filed in the folder after creating it.
 #[tauri::command]
-pub fn folder_delete(id: String) -> Result<(), String> {
+pub fn folder_delete(id: String, cascade: Option<bool>) -> Result<(), String> {
     let mut folders = load_folders();
+    if !folders.iter().any(|f| f.id == id) {
+        return Err(format!("Folder {} not found", id));
+    }
     let now = Utc::now().to_rfc3339();
-    let folder = folders
-        .iter_mut()
-        .find(|f| f.id == id)
-        .ok_or_else(|| format!("Folder {} not found", id))?;
-    check_vault_write(std::slice::from_ref(&folder.vault_id))?;
-    folder.deleted_at = Some(now.clone());
-    folder.clocks.insert("__deleted__".to_string(), now.clone());
-    folder.updated_at = max_clock(&folder.clocks, &now);
+    let cascading = cascade.unwrap_or(true);
+    let doomed = if cascading {
+        folder_subtree_ids(&folders, &id)
+    } else {
+        HashSet::from([id.clone()])
+    };
+
+    let mut connections = load_connections();
+    let mut identities = load_identities();
+    let mut keys = load_keys();
+    let mut rules = load_port_forwarding_rules();
+
+    let in_tree = |folder_id: &Option<String>| {
+        cascading && folder_id.as_deref().is_some_and(|f| doomed.contains(f))
+    };
+
+    // Every vault touched by the cascade must be writable before anything is written.
+    let mut vaults: HashSet<String> = folders
+        .iter()
+        .filter(|f| doomed.contains(&f.id))
+        .map(|f| f.vault_id.clone())
+        .collect();
+    vaults.extend(
+        connections
+            .iter()
+            .filter(|c| in_tree(&c.folder_id))
+            .map(|c| c.vault_id.clone()),
+    );
+    vaults.extend(
+        identities
+            .iter()
+            .filter(|i| in_tree(&i.folder_id))
+            .map(|i| i.vault_id.clone()),
+    );
+    vaults.extend(
+        keys.iter()
+            .filter(|k| in_tree(&k.folder_id))
+            .map(|k| k.vault_id.clone()),
+    );
+    vaults.extend(
+        rules
+            .iter()
+            .filter(|r| in_tree(&r.folder_id))
+            .map(|r| r.vault_id.clone()),
+    );
+    check_vault_write(&vaults.into_iter().collect::<Vec<_>>())?;
+
+    // Each save is a whole-file rewrite, so skip the untouched types entirely.
+    let mut touched = 0;
+    for c in connections.iter_mut().filter(|c| in_tree(&c.folder_id)) {
+        tombstone(&mut c.deleted_at, &mut c.clocks, &now);
+        c.updated_at = max_clock(&c.clocks, &now);
+        touched += 1;
+    }
+    if touched > 0 {
+        save_connections(&connections)?;
+    }
+
+    touched = 0;
+    for i in identities.iter_mut().filter(|i| in_tree(&i.folder_id)) {
+        tombstone(&mut i.deleted_at, &mut i.clocks, &now);
+        i.updated_at = max_clock(&i.clocks, &now);
+        touched += 1;
+    }
+    if touched > 0 {
+        save_identities(&identities)?;
+    }
+
+    touched = 0;
+    for k in keys.iter_mut().filter(|k| in_tree(&k.folder_id)) {
+        tombstone(&mut k.deleted_at, &mut k.clocks, &now);
+        k.updated_at = max_clock(&k.clocks, &now);
+        touched += 1;
+    }
+    if touched > 0 {
+        save_keys(&keys)?;
+    }
+
+    touched = 0;
+    for r in rules.iter_mut().filter(|r| in_tree(&r.folder_id)) {
+        tombstone(&mut r.deleted_at, &mut r.clocks, &now);
+        r.updated_at = max_clock(&r.clocks, &now);
+        touched += 1;
+    }
+    if touched > 0 {
+        save_port_forwarding_rules(&rules)?;
+    }
+
+    for f in folders.iter_mut().filter(|f| doomed.contains(&f.id)) {
+        tombstone(&mut f.deleted_at, &mut f.clocks, &now);
+        f.updated_at = max_clock(&f.clocks, &now);
+    }
     save_folders(&folders)
 }
 
@@ -195,5 +314,59 @@ pub fn folder_move_objects(
             save_keys(&keys)
         }
         _ => Err(format!("Unknown object type: {}", object_type)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn folder(id: &str, parent: Option<&str>) -> Folder {
+        Folder {
+            id: id.to_string(),
+            name: id.to_string(),
+            created_at: "2026-01-01T00:00:00Z".to_string(),
+            parent_folder_id: parent.map(|p| p.to_string()),
+            object_type: "connection".to_string(),
+            vault_id: "personal".to_string(),
+            pinned: None,
+            updated_at: "2026-01-01T00:00:00Z".to_string(),
+            deleted_at: None,
+            clocks: HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn subtree_collects_nested_descendants() {
+        let folders = vec![
+            folder("root", None),
+            folder("child", Some("root")),
+            folder("grandchild", Some("child")),
+            folder("sibling", None),
+        ];
+        let ids = folder_subtree_ids(&folders, "root");
+        assert_eq!(ids.len(), 3);
+        assert!(ids.contains("root") && ids.contains("child") && ids.contains("grandchild"));
+        assert!(!ids.contains("sibling"));
+    }
+
+    #[test]
+    fn subtree_skips_already_deleted_folders() {
+        let mut deleted = folder("child", Some("root"));
+        deleted.deleted_at = Some("2026-02-01T00:00:00Z".to_string());
+        let folders = vec![
+            folder("root", None),
+            deleted,
+            folder("grandchild", Some("child")),
+        ];
+        let ids = folder_subtree_ids(&folders, "root");
+        assert_eq!(ids, HashSet::from(["root".to_string()]));
+    }
+
+    #[test]
+    fn subtree_terminates_on_a_parent_cycle() {
+        let folders = vec![folder("a", Some("b")), folder("b", Some("a"))];
+        let ids = folder_subtree_ids(&folders, "a");
+        assert_eq!(ids, HashSet::from(["a".to_string(), "b".to_string()]));
     }
 }

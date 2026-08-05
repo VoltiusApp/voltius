@@ -9,6 +9,8 @@ import { useHistoryStore } from "@/stores/historyStore";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
+import { usePortForwardingStore } from "@/stores/portForwardingStore";
+import { folderSubtreeIds } from "@/utils/folderTree";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { useTeamStore } from "@/stores/teamStore";
@@ -47,7 +49,7 @@ interface FolderStore {
   clearTeamFolders: (teamId?: string) => void;
   saveFolder: (data: FolderFormData) => Promise<Folder>;
   updateFolder: (id: string, data: FolderFormData) => Promise<void>;
-  deleteFolder: (id: string) => Promise<void>;
+  deleteFolder: (id: string, opts?: { cascade?: boolean }) => Promise<void>;
   moveObjectsToFolder: (
     objectIds: string[],
     objectType: "connection" | "identity" | "key",
@@ -110,7 +112,8 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
         useHistoryStore.getState().push({
           label: `Created folder "${folder.name}"`,
           undo: async () => {
-            await useFolderStore.getState().deleteFolder(recreatedId ?? folder.id);
+            // Non-cascading: undoing a *creation* must not delete items filed since.
+            await useFolderStore.getState().deleteFolder(recreatedId ?? folder.id, { cascade: false });
             recreatedId = null;
           },
           redo: async () => {
@@ -131,7 +134,8 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
     useHistoryStore.getState().push({
       label: `Created folder "${folder.name}"`,
       undo: async () => {
-        await useFolderStore.getState().deleteFolder(recreatedId ?? folder.id);
+        // Non-cascading: undoing a *creation* must not delete items filed since.
+        await useFolderStore.getState().deleteFolder(recreatedId ?? folder.id, { cascade: false });
         recreatedId = null;
       },
       redo: async () => {
@@ -245,63 +249,72 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
     }
   },
 
-  deleteFolder: async (id) => {
+  // Cascade: the folder, its subfolders, and every item filed in them. Destructive
+  // and deliberately not undoable — restoring would have to recreate items under new
+  // ids, breaking the key/identity/connection references that point at them.
+  deleteFolder: async (id, opts) => {
+    const cascade = opts?.cascade !== false;
     const teamEntry = findTeamEntry(get().teamFolders, id);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
-      await removeTeamVaultObject(teamId, id);
+      const teamFolders = get().teamFolders[teamId] ?? [];
+      const doomed = cascade ? folderSubtreeIds(teamFolders, id) : new Set([id]);
+      const inTree = <T extends { id: string; folder_id?: string | null }>(items: T[]) =>
+        cascade ? items.filter((x) => x.folder_id != null && doomed.has(x.folder_id)) : [];
+
+      const connections = inTree(useConnectionStore.getState().teamConnections[teamId] ?? []);
+      const identities = inTree(useIdentityStore.getState().teamIdentities[teamId] ?? []);
+      const keys = inTree(useKeyStore.getState().teamKeys[teamId] ?? []);
+      const rules = inTree(usePortForwardingStore.getState().teamRules[teamId] ?? []);
+
+      for (const item of [...connections, ...identities, ...keys, ...rules]) {
+        await removeTeamVaultObject(teamId, item.id);
+      }
+      for (const folderId of doomed) {
+        await removeTeamVaultObject(teamId, folderId);
+      }
+
+      const connectionIds = new Set(connections.map((c) => c.id));
+      const identityIds = new Set(identities.map((i) => i.id));
+      const keyIds = new Set(keys.map((k) => k.id));
+      const ruleIds = new Set(rules.map((r) => r.id));
+      useConnectionStore.setState((s) => ({
+        teamConnections: { ...s.teamConnections, [teamId]: (s.teamConnections[teamId] ?? []).filter((x) => !connectionIds.has(x.id)) },
+      }));
+      useIdentityStore.setState((s) => ({
+        teamIdentities: { ...s.teamIdentities, [teamId]: (s.teamIdentities[teamId] ?? []).filter((x) => !identityIds.has(x.id)) },
+      }));
+      useKeyStore.setState((s) => ({
+        teamKeys: { ...s.teamKeys, [teamId]: (s.teamKeys[teamId] ?? []).filter((x) => !keyIds.has(x.id)) },
+      }));
+      usePortForwardingStore.setState((s) => ({
+        teamRules: { ...s.teamRules, [teamId]: (s.teamRules[teamId] ?? []).filter((x) => !ruleIds.has(x.id)) },
+      }));
       set((s) => ({
         teamFolders: {
           ...s.teamFolders,
-          [teamId]: (s.teamFolders[teamId] ?? []).filter((x) => x.id !== id),
+          [teamId]: (s.teamFolders[teamId] ?? []).filter((x) => !doomed.has(x.id)),
         },
       }));
       reportAuditMutation("folder", "deleted", { id: prev.id, name: prev.name, vault_id: prev.vault_id }, { object_type: prev.object_type });
-      const prevData: FolderFormData = {
-        name: prev.name, object_type: prev.object_type,
-        parent_folder_id: prev.parent_folder_id, vault_id: prev.vault_id,
-        color: prev.color, icon: prev.icon,
-      };
-      let recreatedId: string | null = null;
-      useHistoryStore.getState().push({
-        label: `Deleted folder "${prev.name}"`,
-        undo: async () => {
-          const r = await useFolderStore.getState().saveFolder(prevData);
-          recreatedId = r.id;
-        },
-        redo: async () => {
-          await useFolderStore.getState().deleteFolder(recreatedId ?? id);
-          recreatedId = null;
-        },
-      });
       return;
     }
 
     const prev = get().folders.find((f) => f.id === id);
-    await api.deleteFolder(id);
+    await api.deleteFolder(id, cascade);
     const folders = await api.listFolders();
     set({ folders });
+    // The backend tombstoned items across four types; refresh them all.
+    if (cascade) {
+      await Promise.all([
+        useConnectionStore.getState().loadConnections(),
+        useIdentityStore.getState().loadIdentities(),
+        useKeyStore.getState().loadKeys(),
+        usePortForwardingStore.getState().loadRules(),
+      ]);
+    }
     isServerMode().then((s) => { if (s && useSyncPrefsStore.getState().isObjectSynced(id, "folder")) scheduleSync(); });
     if (prev) reportAuditMutation("folder", "deleted", { id: prev.id, name: prev.name, vault_id: prev.vault_id }, { object_type: prev.object_type });
-    if (prev) {
-      const prevData: FolderFormData = {
-        name: prev.name, object_type: prev.object_type,
-        parent_folder_id: prev.parent_folder_id, vault_id: prev.vault_id,
-        color: prev.color, icon: prev.icon,
-      };
-      let recreatedId: string | null = null;
-      useHistoryStore.getState().push({
-        label: `Deleted folder "${prev.name}"`,
-        undo: async () => {
-          const r = await useFolderStore.getState().saveFolder(prevData);
-          recreatedId = r.id;
-        },
-        redo: async () => {
-          await useFolderStore.getState().deleteFolder(recreatedId ?? id);
-          recreatedId = null;
-        },
-      });
-    }
   },
 
   moveObjectsToFolder: async (objectIds, objectType, folderId) => {

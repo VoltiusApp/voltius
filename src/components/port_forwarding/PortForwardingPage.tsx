@@ -239,6 +239,14 @@ export function PortForwardingPage() {
     return rules.filter((r) => r.folder_id != null && ids.has(r.folder_id));
   };
 
+  /** Warns about the cascade: subfolders and every rule nested under them go too. */
+  const folderDeleteMessage = (folderId: string): string => {
+    const count = getRulesInFolderTree(folderId).length;
+    return count === 0
+      ? t("portForwarding.page.confirmDeleteFolder.messageEmpty")
+      : t("portForwarding.page.confirmDeleteFolder.message", { count });
+  };
+
   const handleMoveFolderToVault = (folder: Folder, vaultId: string) => {
     const subFolders = getAllSubFolders(folder.id);
     const treeRules = getRulesInFolderTree(folder.id);
@@ -706,7 +714,7 @@ export function PortForwardingPage() {
     {confirmDeleteFolderId && (
       <ConfirmModal
         title={t("portForwarding.page.confirmDeleteFolder.title")}
-        message={t("portForwarding.page.confirmDeleteFolder.message")}
+        message={folderDeleteMessage(confirmDeleteFolderId)}
         confirmLabel={t("common.action.delete")}
         onConfirm={() => {
           void deleteFolder(confirmDeleteFolderId);

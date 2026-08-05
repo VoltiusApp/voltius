@@ -651,6 +651,28 @@ export default function HostsPage() {
     return connections.filter((c) => c.folder_id != null && folderIds.has(c.folder_id));
   };
 
+  /** Warns about the cascade: subfolders and every host nested under them go too. */
+  const folderDeleteMessage = (folderId: string): string => {
+    const count = getConnectionsInFolderTree(folderId).length;
+    return count === 0
+      ? t("hosts.page.confirmDeleteFolder.messageEmpty")
+      : t("hosts.page.confirmDeleteFolder.message", { count });
+  };
+
+  /** A selection that includes folders drags their contents down with it. */
+  const bulkDeleteMessage = (ids: string[]): string => {
+    const base = t("hosts.page.confirmDelete.message", { count: ids.length });
+    const nested = new Set(
+      ids
+        .filter((id) => scopedFolders.some((f) => f.id === id))
+        .flatMap((id) => getConnectionsInFolderTree(id).map((c) => c.id)),
+    );
+    for (const id of ids) nested.delete(id);
+    return nested.size === 0
+      ? base
+      : `${base} ${t("hosts.page.confirmDelete.folderCascade", { count: nested.size })}`;
+  };
+
   const handleMoveFolderToVault = (folder: Folder, vaultId: string) => {
     const subFolders = getAllSubFolders(folder.id);
     const allConns = getConnectionsInFolderTree(folder.id);
@@ -1219,7 +1241,7 @@ export default function HostsPage() {
       {confirmDeleteIds && (
         <ConfirmModal
           title={t("hosts.page.confirmDelete.title", { count: confirmDeleteIds.length })}
-          message={t("hosts.page.confirmDelete.message", { count: confirmDeleteIds.length })}
+          message={bulkDeleteMessage(confirmDeleteIds)}
           confirmLabel={t("common.action.delete")}
           onConfirm={() => {
             for (const id of confirmDeleteIds) {
@@ -1236,7 +1258,7 @@ export default function HostsPage() {
       {confirmDeleteFolderId && (
         <ConfirmModal
           title={t("hosts.page.confirmDeleteFolder.title")}
-          message={t("hosts.page.confirmDeleteFolder.message")}
+          message={folderDeleteMessage(confirmDeleteFolderId)}
           confirmLabel={t("common.action.delete")}
           onConfirm={() => {
             void deleteFolder(confirmDeleteFolderId);

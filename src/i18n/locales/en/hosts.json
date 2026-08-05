@@ -84,11 +84,15 @@
         "title_one": "Delete {{count}} item",
         "title_other": "Delete {{count}} items",
         "message_one": "Are you sure you want to delete {{count}} item? This cannot be undone.",
-        "message_other": "Are you sure you want to delete {{count}} items? This cannot be undone."
+        "message_other": "Are you sure you want to delete {{count}} items? This cannot be undone.",
+        "folderCascade_one": "{{count}} host filed in the selected folders will be deleted too.",
+        "folderCascade_other": "{{count}} hosts filed in the selected folders will be deleted too."
       },
       "confirmDeleteFolder": {
         "title": "Delete folder",
-        "message": "This will delete the folder. Items inside won't be deleted — they'll return to the top level."
+        "message_one": "This will delete the folder, its subfolders, and the {{count}} host inside. This cannot be undone.",
+        "message_other": "This will delete the folder, its subfolders, and the {{count}} hosts inside. This cannot be undone.",
+        "messageEmpty": "This will delete the folder and everything inside it. This cannot be undone."
       }
     },
     "remoteSessions": {

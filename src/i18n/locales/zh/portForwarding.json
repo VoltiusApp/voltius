@@ -35,7 +35,9 @@
       },
       "confirmDeleteFolder": {
         "title": "删除文件夹",
-        "message": "这将删除文件夹。文件夹内的规则不会被删除——它们将返回到顶层。"
+        "message_one": "这将删除该文件夹、其子文件夹以及其中的 {{count}} 条规则。此操作无法撤销。",
+        "message_other": "这将删除该文件夹、其子文件夹以及其中的 {{count}} 条规则。此操作无法撤销。",
+        "messageEmpty": "这将删除该文件夹及其中的所有内容。此操作无法撤销。"
       },
       "vaultCascade": {
         "moveDescription": "移动 \"{{folderName}}\" 也会将以下规则移动到 {{targetVaultName}}：",
