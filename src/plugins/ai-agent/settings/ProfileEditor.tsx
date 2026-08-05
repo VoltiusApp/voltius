@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useT } from "../useT";
 import { getAgentDeps, useAgentStore } from "../state/agentStore";
 import { ProviderFields, providerFieldsComplete, type ProviderFieldsValue } from "../ui/ProviderFields";
 import type { ProviderKind, ProviderProfile } from "../types";
@@ -43,7 +43,7 @@ function destinationOriginChanged(savedBaseUrl: string | undefined, typedBaseUrl
 export function ProfileEditor({
   profile, onSaved, onCancel,
 }: { profile: ProviderProfile | null; onSaved: () => void; onCancel: () => void }) {
-  const { t } = useTranslation();
+  const { t } = useT();
   const [fields, setFields] = useState<ProviderFieldsValue>({
     providerKind: profile?.providerKind ?? "anthropic",
     label: profile?.label ?? PROVIDER_LABEL.anthropic,

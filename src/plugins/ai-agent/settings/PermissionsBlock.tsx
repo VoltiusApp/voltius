@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useT } from "../useT";
 import type { PluginAPI } from "@/plugins/api";
 import type { Mode } from "../state/agentStore";
 import { auditAgentAction } from "../state/auditSeam";
@@ -13,7 +13,7 @@ import { auditAgentAction } from "../state/auditSeam";
  * so changing the default must not disturb a conversation already in progress.
  */
 export function PermissionsBlock({ api }: { api: PluginAPI }) {
-  const { t } = useTranslation();
+  const { t } = useT();
   const [mode, setMode] = useState<Mode | null>(null);
 
   useEffect(() => {

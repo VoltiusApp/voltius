@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import "@/i18n";
+import { installCatalogI18n } from "../testing/fakeI18n";
 import { AiDrawer } from "./AiDrawer";
 import { useAgentStore, _setDeps } from "../state/agentStore";
 import * as storeMod from "../state/agentStore";
 import { CONVERSATION_KEY } from "../state/persistence";
+
+installCatalogI18n();
 
 // @iconify/react schedules an async icon-data-load timer that can fire after
 // this file's jsdom environment is torn down, touching `window` and surfacing

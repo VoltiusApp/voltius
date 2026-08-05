@@ -2,13 +2,15 @@ import { it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { ObjectRefChip } from "./ObjectRefChip";
 import type { ObjectRef } from "../state/objectRefs";
+import { installFakeI18n } from "../testing/fakeI18n";
+
+installFakeI18n((k: string) => k);
 
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@voltius/ui", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   ConnectionAvatar: () => null,
 }));
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const ref: ObjectRef = {

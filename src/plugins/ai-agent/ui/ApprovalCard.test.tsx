@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import "@/i18n";
+import { installCatalogI18n } from "../testing/fakeI18n";
 import { useAgentStore, type PendingApproval } from "../state/agentStore";
 import * as storeMod from "../state/agentStore";
 import { UNKNOWN_SCOPE } from "../state/scopeDerivation";
 import { allowlistCandidates } from "../state/allowlist";
 import { ApprovalCard } from "./ApprovalCard";
+
+installCatalogI18n();
 
 const CONNS = [
   { id: "c1", name: "Prod DB", host: "web-01", port: 22, username: "deploy", auth_type: "key", tags: [] },

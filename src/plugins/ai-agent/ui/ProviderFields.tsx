@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from "react";
 import { Icon } from "@iconify/react";
-import { useTranslation } from "react-i18next";
+import { useT } from "../useT";
 import { getAgentDeps } from "../state/agentStore";
 import { fieldVisibility, loadModels } from "../provider/models";
 import { ProviderLogo } from "./ProviderLogo";
@@ -66,7 +66,7 @@ export function ProviderFields({
    */
   getApiKey?: () => Promise<string | undefined>;
 }) {
-  const { t } = useTranslation();
+  const { t } = useT();
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [testError, setTestError] = useState<string | null>(null);

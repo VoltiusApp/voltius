@@ -2,15 +2,14 @@ import { it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { Transcript } from "./Transcript";
 import { useAgentStore } from "../state/agentStore";
+import { installFakeI18n } from "../testing/fakeI18n";
+
+installFakeI18n((k: string) => k);
 
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("@voltius/ui", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   ConnectionAvatar: () => null,
-}));
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
-  initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("./ApprovalCard", () => ({ ApprovalCard: () => null }));
 vi.mock("./PlanCard", () => ({ PlanCard: () => null }));

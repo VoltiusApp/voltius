@@ -1,13 +1,11 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
-  initReactI18next: { type: "3rdParty", init: () => {} },
-}));
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { useAgentStore } from "../state/agentStore";
 import { ModeChip } from "./ModeChip";
+import { installFakeI18n } from "../testing/fakeI18n";
+
+installFakeI18n((k: string) => k);
 
 afterEach(cleanup);
 beforeEach(() => useAgentStore.setState({ mode: "plan", planBatch: null }));

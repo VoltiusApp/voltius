@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
-import { useTranslation } from "react-i18next";
+import { useT } from "../useT";
 import { useAgentStore, type PendingApproval } from "../state/agentStore";
 import type { AllowlistEntry } from "../state/allowlist";
 import { scopeLabelText } from "../state/connectionLabels";
@@ -9,7 +9,7 @@ import { ObjectRefCard } from "./ObjectRefCard";
 import { useObjectRefs } from "./useObjectRefs";
 
 export function ApprovalCard({ pending }: { pending: PendingApproval }) {
-  const { t } = useTranslation();
+  const { t } = useT();
   const resolveApproval = useAgentStore((s) => s.resolveApproval);
   const addAllowlist = useAgentStore((s) => s.addAllowlist);
   const labelFor = useConnectionLabels();

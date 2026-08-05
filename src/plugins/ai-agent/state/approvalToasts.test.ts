@@ -3,6 +3,9 @@ import { useAgentStore } from "./agentStore";
 import { installApprovalToasts } from "./approvalToasts";
 import { setPanelHandle } from "../panel";
 import { fakePanelHandle } from "../testing/fakePanelHandle";
+import { installCatalogI18n } from "../testing/fakeI18n";
+
+installCatalogI18n();
 
 // Not cast to `never` at construction (unlike other fakeApi helpers in this
 // plugin): these tests read .mock.calls off `a.notifications.toast` directly,

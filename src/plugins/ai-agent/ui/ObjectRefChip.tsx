@@ -1,10 +1,10 @@
-import { useTranslation } from "react-i18next";
+import { useT } from "../useT";
 import { ConnectionAvatar } from "@voltius/ui";
 import type { ObjectRef } from "../state/objectRefs";
 
 /** Inline pill for an object reference (prose, plan steps, tool detail). */
 export function ObjectRefChip({ refObj, id }: { refObj: ObjectRef | null; id: string }) {
-  const { t } = useTranslation();
+  const { t } = useT();
   if (!refObj) {
     return (
       <span

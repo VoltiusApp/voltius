@@ -1,4 +1,4 @@
-import { useTranslation } from "react-i18next";
+import { useT } from "../useT";
 import { ConnectionAvatar } from "@voltius/ui";
 import type { ObjectRef } from "../state/objectRefs";
 
@@ -6,7 +6,7 @@ const PROTOCOL_LABEL: Record<string, string> = { ssh: "SSH", serial: "SERIAL", f
 
 /** Block card for the primary target of an action (approval card target). */
 export function ObjectRefCard({ refObj, id }: { refObj: ObjectRef | null; id: string }) {
-  const { t } = useTranslation();
+  const { t } = useT();
   if (!refObj) {
     return (
       <div

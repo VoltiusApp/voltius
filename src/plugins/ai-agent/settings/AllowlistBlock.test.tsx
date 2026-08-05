@@ -3,6 +3,9 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { AllowlistBlock } from "./AllowlistBlock";
 import { useAgentStore } from "../state/agentStore";
 import * as storeMod from "../state/agentStore";
+import { installFakeI18n } from "../testing/fakeI18n";
+
+installFakeI18n((k: string) => (k === "aiAgent.settings.allowlist.localScope" ? "local" : k));
 
 const CONNS = [
   { id: "c1", name: "Prod DB", host: "web-01", port: 22, username: "deploy", auth_type: "key", tags: [] },
@@ -14,15 +17,6 @@ vi.mock("@iconify/react", () => ({ Icon: () => null }));
 // rendered text an assertion depends on — the "local" group's translated
 // heading — is special-cased to a stand-in real value; no dotted key can
 // ever equal the raw scope string "local" it's being compared against.
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (k: string) => {
-      if (k === "aiAgent.settings.allowlist.localScope") return "local";
-      return k;
-    },
-  }),
-  initReactI18next: { type: "3rdParty", init: () => {} },
-}));
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();

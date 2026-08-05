@@ -2,10 +2,11 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
 import { PermissionsBlock } from "./PermissionsBlock";
 import type { PluginAPI } from "@/plugins/api";
+import { installFakeI18n } from "../testing/fakeI18n";
+
+installFakeI18n((k: string) => k);
 
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
-
 const { auditAgentAction } = vi.hoisted(() => ({ auditAgentAction: vi.fn() }));
 vi.mock("../state/auditSeam", () => ({ auditAgentAction }));
 

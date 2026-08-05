@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { Icon } from "@iconify/react";
-import { useTranslation } from "react-i18next";
+import { useT } from "../useT";
 import { useAgentStore, getAgentDeps } from "../state/agentStore";
 import { setPanelDockedWidth } from "../panel";
 import { Transcript } from "./Transcript";
@@ -126,7 +126,7 @@ function useDockRect(active: boolean): DockRect | null {
 }
 
 export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { t } = useTranslation();
+  const { t } = useT();
   const runStatus = useAgentStore((s) => s.runStatus);
   const newConversation = useAgentStore((s) => s.newConversation);
   const [hasProfile, refreshHasProfile] = useHasProfile(open);

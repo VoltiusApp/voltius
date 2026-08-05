@@ -28,6 +28,7 @@ function fakeApi(isActive: () => boolean = () => true) {
       connections: { list: async () => [] },
       terminal: { readSelection: vi.fn(() => ""), readSnapshot: vi.fn(() => "") },
       notifications: { toast: vi.fn() },
+      i18n: { register: vi.fn(), t: (k: string) => k, getLocale: () => "en", onLocaleChange: () => () => {} },
       ui: {
         registerGlobalPanel: vi.fn(() => {
           calls.push("panel");

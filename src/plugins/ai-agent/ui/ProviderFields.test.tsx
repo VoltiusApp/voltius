@@ -1,9 +1,11 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import "@/i18n";
+import { installCatalogI18n } from "../testing/fakeI18n";
 import { ProviderFields, providerFieldsComplete, type ProviderFieldsValue } from "./ProviderFields";
 import * as storeMod from "../state/agentStore";
 import * as modelsMod from "../provider/models";
+
+installCatalogI18n();
 
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 vi.mock("../state/agentStore", () => ({ getAgentDeps: vi.fn(() => null) }));

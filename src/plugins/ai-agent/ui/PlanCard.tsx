@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
-import { useTranslation } from "react-i18next";
+import { useT } from "../useT";
 import { useAgentStore } from "../state/agentStore";
 import { canPreAuthorize, type PlanEntryStep, type PlanOutcome, type PlanStep } from "../state/planTokens";
 import { ObjectRefChip } from "./ObjectRefChip";
@@ -19,7 +19,7 @@ const stripStatus = (s: PlanEntryStep): PlanStep => {
 };
 
 export function PlanCard({ entry }: { entry: PlanEntry }) {
-  const { t } = useTranslation();
+  const { t, tCount } = useT();
   const pendingPlan = useAgentStore((s) => s.pendingPlan);
   const resolvePlan = useAgentStore((s) => s.resolvePlan);
   const labelFor = useConnectionLabels();
@@ -59,7 +59,7 @@ export function PlanCard({ entry }: { entry: PlanEntry }) {
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <Icon icon="lucide:list-checks" width={14} style={{ color: "var(--t-accent)" }} />
         <span style={{ color: "var(--t-text-bright)", fontWeight: 600 }}>
-          {t("aiAgent.plan.heading", { count: rows.length })}
+          {tCount("aiAgent.plan.heading", rows.length)}
         </span>
         <span style={{ marginLeft: "auto", color: "var(--t-text-secondary)", fontSize: 11 }}>
           {t(`aiAgent.plan.outcome.${entry.outcome}`)}

@@ -1,7 +1,7 @@
-import i18n from "@/i18n";
 import type { PluginAPI } from "@/plugins/api";
 import { useAgentStore } from "./agentStore";
 import { isPanelOpen, openPanel } from "../panel";
+import { t, tCount } from "../useT";
 
 const TOAST_DURATION_MS = 8000;
 
@@ -25,11 +25,11 @@ export function installApprovalToasts(api: PluginAPI): () => void {
       if (seen.has(p.id)) continue;
       seen.add(p.id);
       if (open) continue;
-      api.notifications.toast(i18n.t("aiAgent.toast.pending", { tool: p.tool }), {
+      api.notifications.toast(t("aiAgent.toast.pending", { tool: p.tool }), {
         severity: "warning",
         duration: TOAST_DURATION_MS,
         action: {
-          label: i18n.t("aiAgent.toast.openToReview"),
+          label: t("aiAgent.toast.openToReview"),
           onClick: openPanel,
         },
       });
@@ -42,12 +42,12 @@ export function installApprovalToasts(api: PluginAPI): () => void {
       seen.add(plan.planId);
       if (!open) {
         api.notifications.toast(
-          i18n.t("aiAgent.toast.planPending", { count: plan.steps.length }),
+          tCount("aiAgent.toast.planPending", plan.steps.length),
           {
             severity: "warning",
             duration: TOAST_DURATION_MS,
             action: {
-              label: i18n.t("aiAgent.toast.openToReview"),
+              label: t("aiAgent.toast.openToReview"),
               onClick: openPanel,
             },
           },

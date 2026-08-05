@@ -1,11 +1,11 @@
 import { Icon } from "@iconify/react";
-import { useTranslation } from "react-i18next";
+import { useT } from "../useT";
 import { getAgentDeps, useAgentStore } from "../state/agentStore";
 import { buildTerminalContext } from "../state/touchpoint";
 import { openPanel } from "../panel";
 
 export function TerminalAskButton({ sessionId, connectionName }: { sessionId: string; connectionName: string }) {
-  const { t } = useTranslation();
+  const { t } = useT();
   const attachContext = useAgentStore((s) => s.attachContext);
 
   const onClick = () => {

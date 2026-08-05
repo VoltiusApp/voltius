@@ -1,8 +1,8 @@
-import { useTranslation } from "react-i18next";
+import { useT } from "../useT";
 import { useAgentStore } from "../state/agentStore";
 
 export function ModeChip() {
-  const { t } = useTranslation();
+  const { t } = useT();
   const mode = useAgentStore((s) => s.mode);
   const cycle = useAgentStore((s) => s.cycleMode);
   // `mode` is deliberately NOT mutated when a plan is approved — there is no

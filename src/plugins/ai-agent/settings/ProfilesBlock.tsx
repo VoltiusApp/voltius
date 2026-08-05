@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useT } from "../useT";
 import { Icon } from "@iconify/react";
 import { ConfirmModal } from "@voltius/ui";
 import { getAgentDeps, useAgentStore } from "../state/agentStore";
@@ -15,7 +15,7 @@ import type { ProviderProfile } from "../types";
  * mutation so an already-open drawer picks the change up too.
  */
 export function ProfilesBlock() {
-  const { t } = useTranslation();
+  const { t } = useT();
   const [profiles, setProfiles] = useState<ProviderProfile[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | "new" | null>(null);

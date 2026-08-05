@@ -1,4 +1,3 @@
-import i18n from "@/i18n";
 import type { PluginAPI, PluginManifest, PluginRegisterFn } from "@/plugins/api";
 import { initAgent, shutdownAgent, useAgentStore } from "./state/agentStore";
 import { installApprovalToasts } from "./state/approvalToasts";
@@ -8,7 +7,9 @@ import { AiDrawer } from "./ui/AiDrawer";
 import { AiTitleBarButton } from "./ui/AiTitleBarButton";
 import { TerminalAskButton } from "./ui/TerminalAskButton";
 import { createSettingsPage } from "./settings/SettingsPage";
+import { messages } from "./i18n";
 import { openPanel, setPanelHandle } from "./panel";
+import { setI18nApi, t } from "./useT";
 
 const PANEL_ID = "drawer"; // prefixed → "plugin-ai-agent:drawer"
 
@@ -29,6 +30,8 @@ export const manifest: PluginManifest = {
 
 export const register: PluginRegisterFn = (api: PluginAPI) => {
   if (!api.isActive()) return () => {};
+  setI18nApi(api);
+  api.i18n.register(messages);
   setAuditApi(api);
   void initAgent(api);
 
@@ -44,7 +47,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   });
   const offAskTerminal = api.omni.register({
     id: "ask-ai-terminal",
-    label: i18n.t("aiAgent.touchpoint.command"),
+    label: t("aiAgent.touchpoint.command"),
     icon: "lucide:sparkles",
     keywords: ["ai", "terminal", "explain", "diagnose"],
     keybinding: "ctrl+shift+j",
@@ -77,6 +80,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   return () => {
     setPanelHandle(null);
     setAuditApi(null);
+    setI18nApi(null);
     panel(); offOmni(); offAskTerminal(); offTerminalButton(); offTitlebar(); offSettings(); offToasts();
     // Agent-owned SSH sessions are intentionally left open here — closing
     // them is out of scope until the runtime's session-ownership story is

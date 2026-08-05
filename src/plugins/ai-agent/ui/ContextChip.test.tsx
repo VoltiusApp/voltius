@@ -3,13 +3,11 @@ import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useAgentStore } from "../state/agentStore";
 import { ContextChip } from "./ContextChip";
+import { installFakeI18n } from "../testing/fakeI18n";
+
+installFakeI18n((k: string, o?: { count?: number }) => (o?.count != null ? `${o.count} lines` : k));
 
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (k: string, o?: { count?: number }) => (o?.count != null ? `${o.count} lines` : k) }),
-  initReactI18next: { type: "3rdParty", init: () => {} },
-}));
-
 afterEach(() => { cleanup(); useAgentStore.setState({ pendingContext: null }); });
 
 const ctx = (over: Partial<{ source: "selection" | "snapshot"; truncated: boolean }> = {}) => ({

@@ -1,4 +1,4 @@
-import { useTranslation } from "react-i18next";
+import { useT } from "../useT";
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { ConfirmModal } from "@voltius/ui";
@@ -15,7 +15,7 @@ import { useConnectionLabels } from "../ui/useConnectionLabels";
  * is open shows up here without any extra wiring.
  */
 export function AllowlistBlock() {
-  const { t } = useTranslation();
+  const { t } = useT();
   const allowlist = useAgentStore((s) => s.allowlist);
   const revokeAllowlist = useAgentStore((s) => s.revokeAllowlist);
   const revokeAllAllowlist = useAgentStore((s) => s.revokeAllAllowlist);

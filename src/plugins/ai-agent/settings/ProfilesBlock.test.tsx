@@ -3,6 +3,12 @@ import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/re
 import { ProfilesBlock } from "./ProfilesBlock";
 import * as storeMod from "../state/agentStore";
 import { useAgentStore } from "../state/agentStore";
+import { installFakeI18n } from "../testing/fakeI18n";
+
+installFakeI18n((k: string) =>
+  k === "aiAgent.settings.profiles.keySet" ? "•••• set"
+  : k === "aiAgent.settings.profiles.replaceKey" ? "Replace"
+  : k);
 
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
 // A blanket identity `t` (key in, key out) keeps most assertions robust to
@@ -12,16 +18,6 @@ vi.mock("@iconify/react", () => ({ Icon: () => null }));
 // literal "•••• set"/"Replace" text ProviderFields owns (see Task 5/8 wiring
 // notes) — no dotted key can satisfy a `/•••• set/` match, so those two keys
 // are special-cased to their real English copy instead of the raw key.
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (k: string) => {
-      if (k === "aiAgent.settings.profiles.keySet") return "•••• set";
-      if (k === "aiAgent.settings.profiles.replaceKey") return "Replace";
-      return k;
-    },
-  }),
-  initReactI18next: { type: "3rdParty", init: () => {} },
-}));
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();

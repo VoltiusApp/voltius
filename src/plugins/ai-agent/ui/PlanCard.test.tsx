@@ -3,10 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Module-level pending load callback — afterEach(cleanup) is NOT enough.
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (k: string, o?: Record<string, unknown>) => (o?.connection ? `${k}:${o.connection}` : k) }),
-  initReactI18next: { type: "3rdParty", init: () => {} },
-}));
 vi.mock("./ObjectRefChip", () => ({ ObjectRefChip: ({ id }: { id: string }) => <b data-testid="plan-chip">{id}</b> }));
 vi.mock("./useObjectRefs", () => ({
   useObjectRefs: () => ({ resolve: () => null, knownIds: new Set<string>(), loading: false }),
@@ -15,6 +11,9 @@ vi.mock("./useObjectRefs", () => ({
 import { useAgentStore } from "../state/agentStore";
 import * as storeMod from "../state/agentStore";
 import { PlanCard } from "./PlanCard";
+import { installFakeI18n } from "../testing/fakeI18n";
+
+installFakeI18n((k: string, o?: Record<string, unknown>) => (o?.connection ? `${k}:${o.connection}` : k));
 
 const step = (over: Partial<{ id: string; command: string; status: string; connectionId: string }> = {}) => ({
   id: "step-1", tool: "run_command" as const, connectionId: "conn-A",

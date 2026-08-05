@@ -5,13 +5,11 @@ import { useAgentStore, _setDeps } from "../state/agentStore";
 import { setPanelHandle } from "../panel";
 import { fakePanelHandle } from "../testing/fakePanelHandle";
 import { TerminalAskButton } from "./TerminalAskButton";
+import { installFakeI18n } from "../testing/fakeI18n";
+
+installFakeI18n((k: string) => k);
 
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
-  initReactI18next: { type: "3rdParty", init: () => {} },
-}));
-
 afterEach(() => {
   cleanup();
   useAgentStore.setState({ pendingContext: null });

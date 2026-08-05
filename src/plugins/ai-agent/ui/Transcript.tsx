@@ -1,5 +1,5 @@
 import { Icon } from "@iconify/react";
-import { useTranslation } from "react-i18next";
+import { useT } from "../useT";
 import { useAgentStore } from "../state/agentStore";
 import { ApprovalCard } from "./ApprovalCard";
 import { PlanCard } from "./PlanCard";
@@ -9,7 +9,7 @@ import { useObjectRefs } from "./useObjectRefs";
 const EXPAND_THRESHOLD = 120;
 
 export function Transcript() {
-  const { t } = useTranslation();
+  const { tCount } = useT();
   const transcript = useAgentStore((s) => s.transcript);
   const pendingApprovals = useAgentStore((s) => s.pendingApprovals);
   const errorText = useAgentStore((s) => s.errorText);
@@ -64,7 +64,7 @@ export function Transcript() {
             {isUser ? entry.text : <RichText text={entry.text} refs={refs} />}
             {entry.kind === "user" && entry.attachment && (
               <div className="mt-1 text-[11px] opacity-75">
-                {t("aiAgent.touchpoint.attached", { count: entry.attachment.lineCount })}
+                {tCount("aiAgent.touchpoint.attached", entry.attachment.lineCount)}
               </div>
             )}
           </div>
