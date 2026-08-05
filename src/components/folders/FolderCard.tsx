@@ -8,6 +8,7 @@ import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
+import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { useFolderStore } from "@/stores/folderStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { useTeamStore } from "@/stores/teamStore";
@@ -288,8 +289,9 @@ export function FolderCard({
             { label: t("folders.card.exportFolder"), icon: "lucide:upload", onClick: () => onExport?.() },
             ...(onShare ? [{ label: t("snippets.community.shareTitle"), icon: "lucide:globe", onClick: onShare }] : []),
             ...vaultMenuItems(vaults, canEdit, onMoveToVault, onCopyToVault, t),
+            ...clipboardMenuItems(t),
             ...(canEdit ? [
-              { label: isSynced ? t("folders.card.disableCloudSync") : t("folders.card.enableCloudSync"), icon: isSynced ? "lucide:cloud-off" : "lucide:cloud", onClick: () => toggleSync(folder.id) },
+              { label: isSynced ? t("folders.card.disableCloudSync") : t("folders.card.enableCloudSync"), icon: isSynced ? "lucide:cloud-off" : "lucide:cloud", onClick: () => toggleSync(folder.id), divider: true as const },
               { label: t("folders.card.deleteFolder"), icon: "lucide:trash-2", onClick: () => onDelete(folder), danger: true as const, shortcut: getShortcutHint("delete") },
             ] : []),
             ]),

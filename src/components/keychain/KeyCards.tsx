@@ -13,6 +13,7 @@ import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { usePermissions } from "@/hooks/usePermission";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
+import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useTeamStore } from "@/stores/teamStore";
@@ -224,7 +225,8 @@ function KeyCard({
       onClick: () => useSyncPrefsStore.getState().toggleExcluded(sshKey.id),
       divider: true,
     },
-    ...(canEdit ? [{ label: t("common.action.delete"), icon: "lucide:trash-2", onClick: () => onDelete(sshKey.id), danger: true, shortcut: getShortcutHint("delete") }] : []),
+    ...clipboardMenuItems(t),
+    ...(canEdit ? [{ label: t("common.action.delete"), icon: "lucide:trash-2", onClick: () => onDelete(sshKey.id), danger: true, divider: true, shortcut: getShortcutHint("delete") }] : []),
   ], [canEdit, sshKey, contributions, vaults, isSynced, pinKey, pinKeyForTeam, effPinned, pinSource, isTeamVault, onEdit, onDelete, onExport, onMoveToVault, onCopyToVault, t]);
 
   const handlePointerDown = useCallback(
@@ -486,7 +488,8 @@ function IdentityCard({
       onClick: () => useSyncPrefsStore.getState().toggleExcluded(identity.id),
       divider: true,
     },
-    ...(canEdit ? [{ label: t("common.action.delete"), icon: "lucide:trash-2", onClick: () => onDelete(identity.id), danger: true, shortcut: getShortcutHint("delete") }] : []),
+    ...clipboardMenuItems(t),
+    ...(canEdit ? [{ label: t("common.action.delete"), icon: "lucide:trash-2", onClick: () => onDelete(identity.id), danger: true, divider: true, shortcut: getShortcutHint("delete") }] : []),
   ], [canEdit, identity, contributions, vaults, isSynced, pinIdentity, pinIdentityForTeam, effPinned, pinSource, isTeamVault, onEdit, onDelete, onMoveToVault, onCopyToVault, t]);
 
   const handlePointerDown = useCallback(

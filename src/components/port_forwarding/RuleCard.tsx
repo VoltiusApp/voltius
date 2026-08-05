@@ -10,6 +10,7 @@ import { useUIContributions } from "@/hooks/useUIContributions";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
+import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 
 interface Props {
   rule: PortForwardingRule;
@@ -74,7 +75,8 @@ export function RuleCard({
       onClick: () => useSyncPrefsStore.getState().toggleExcluded(rule.id),
       divider: true,
     },
-    ...(canEdit ? [{ label: t("common.action.delete"), icon: "lucide:trash-2", onClick: () => onDelete(rule.id), danger: true, shortcut: getShortcutHint("delete") }] : []),
+    ...clipboardMenuItems(t),
+    ...(canEdit ? [{ label: t("common.action.delete"), icon: "lucide:trash-2", onClick: () => onDelete(rule.id), danger: true, divider: true, shortcut: getShortcutHint("delete") }] : []),
   ];
 
   const portLabel = formatRuleLabel(rule);

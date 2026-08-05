@@ -2,6 +2,7 @@ import type { TFunction } from "i18next";
 import type { VaultOption } from "@/types";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
+import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
 
 export interface ConnectionMenuOptions {
@@ -60,6 +61,7 @@ export function buildConnectionMenuItems({
       icon: pingDisabled ? "lucide:wifi" : "lucide:wifi-off",
       onClick: onTogglePing,
     },
-    ...(onDelete ? [{ label: t("common.action.delete"), icon: "lucide:trash-2", onClick: onDelete, danger: true, shortcut: getShortcutHint("delete") }] : []),
+    ...clipboardMenuItems(t),
+    ...(onDelete ? [{ label: t("common.action.delete"), icon: "lucide:trash-2", onClick: onDelete, danger: true, divider: true, shortcut: getShortcutHint("delete") }] : []),
   ];
 }

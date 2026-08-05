@@ -8,6 +8,7 @@ import { SessionPickerPanel } from "@/components/shared/SessionPickerPanel";
 import type { ContextMenuItem } from "@/components/shared/ContextMenu";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { getShortcutHint } from "@/stores/shortcutStore";
+import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import type { Snippet, Folder, VaultOption } from "@/types";
 import { snippetSearchText } from "@/services/snippetSteps";
 import { useSnippetStore } from "@/stores/snippetStore";
@@ -135,6 +136,7 @@ export function SnippetCard({
       onClick: onShare,
     }] : []),
     ...vaultMenuItems(vaults, canEdit, onMoveToVault, onCopyToVault, t),
+    ...clipboardMenuItems(t),
     { label: t("common.action.delete"), icon: "lucide:trash-2", onClick: onDelete, danger: true as const, divider: true as const, shortcut: getShortcutHint("delete") },
   ];
 
