@@ -2,6 +2,7 @@ import i18n from "@/i18n";
 import type { PluginAPI, PluginManifest, PluginRegisterFn } from "@/plugins/api";
 import { initAgent, shutdownAgent, useAgentStore } from "./state/agentStore";
 import { installApprovalToasts } from "./state/approvalToasts";
+import { setAuditApi } from "./state/auditSeam";
 import { buildTerminalContext } from "./state/touchpoint";
 import { AiDrawer } from "./ui/AiDrawer";
 import { AiTitleBarButton } from "./ui/AiTitleBarButton";
@@ -28,6 +29,7 @@ export const manifest: PluginManifest = {
 
 export const register: PluginRegisterFn = (api: PluginAPI) => {
   if (!api.isActive()) return () => {};
+  setAuditApi(api);
   void initAgent(api);
 
   const panel = api.ui.registerGlobalPanel({ id: PANEL_ID, component: AiDrawer });
@@ -74,6 +76,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
 
   return () => {
     setPanelHandle(null);
+    setAuditApi(null);
     panel(); offOmni(); offAskTerminal(); offTerminalButton(); offTitlebar(); offSettings(); offToasts();
     // Agent-owned SSH sessions are intentionally left open here — closing
     // them is out of scope until the runtime's session-ownership story is
