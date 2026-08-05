@@ -21,6 +21,7 @@ export const GATED_PERMISSIONS = new Set<string>([
   "docker:manage",
   "proxmox:read",
   "proxmox:manage",
+  "audit",
 ]);
 
 /**
@@ -84,6 +85,7 @@ const PERMISSION_COPY: Record<string, string> = {
   "docker:manage": "dockerManage",
   "proxmox:read": "proxmoxRead",
   "proxmox:manage": "proxmoxManage",
+  "audit": "audit",
   "sessions:read": "sessionsRead",
   "sessions:write": "sessionsWrite",
   "connections:read": "connectionsRead",

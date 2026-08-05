@@ -32,6 +32,9 @@ import { storePluginSecret, getPluginSecret, deletePluginSecret, storeSecret, de
 import { appFetch } from "@/services/http";
 import { sseFetch } from "@/services/sseFetch";
 import { registerLxcExecSession } from "@/services/proxmox";
+import { PLUGIN_AUDIT_ACTIONS } from "@/services/auditContext";
+import { auditContextForVaultId } from "@/services/auditContextResolver";
+import { reportPluginAuditEvent } from "@/services/auditReporter";
 import type {
   PluginAPI,
   PluginManifest,
@@ -44,6 +47,7 @@ import type {
   PluginConfigField,
   StreamKind,
   PluginMobileNavEntry,
+  GlobalPanelHandle,
 } from "./api";
 import { createStreamsAPI } from "./domains/streams";
 import { createMetricsAPI } from "./domains/metrics";
@@ -238,7 +242,35 @@ function clearPluginKeybindings(pluginId: string): void {
     if (kb.pluginId === pluginId) _pluginKeybindings.delete(commandId);
   }
 }
+
 let _keybindHandlerInstalled = false;
+
+/**
+ * Panel id → the docked width that panel last reserved. dockedPanelWidth is one
+ * global slot, not per-panel, so a release only zeroes it while the current value
+ * is still the one this panel put there.
+ */
+const _dockedPanelWidths = new Map<string, { pluginId: string; width: number }>();
+
+function releaseDockedWidth(panelId: string): void {
+  const reserved = _dockedPanelWidths.get(panelId);
+  if (!reserved) return;
+  _dockedPanelWidths.delete(panelId);
+  const ui = useUIStore.getState();
+  if (reserved.width !== 0 && ui.dockedPanelWidth === reserved.width) ui.setDockedPanelWidth(0);
+}
+
+/**
+ * Release every docked width a plugin reserved. Keyed by pluginId rather than
+ * relying on each panel handle's disposer having run: the plugin's own cleanup is
+ * whatever register() returned, so an unloaded plugin would otherwise leave the
+ * shell permanently reserving a blank gutter with no panel in it.
+ */
+function clearPluginDockedWidths(pluginId: string): void {
+  for (const [panelId, reserved] of _dockedPanelWidths) {
+    if (reserved.pluginId === pluginId) releaseDockedWidth(panelId);
+  }
+}
 
 function parseKeybinding(raw: string): Omit<PluginKeybinding, "execute" | "pluginId"> | null {
   const parts = raw.toLowerCase().split("+");
@@ -432,11 +464,12 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   // cannot forge a prefix that collides with another plugin's namespace.
   const kcKey = (key: string): string => `plugin:${encodeURIComponent(id)}:${key}`;
 
-  // Teardown is one-shot, so an async continuation would re-publish after it. Not
-  // applied to ui.register* — those are meant to outlive a disable.
+  // Teardown is one-shot, so an async continuation would re-publish after it. False
+  // for an unloaded plugin too, since its registry entry is gone. Not applied to
+  // ui.register* — those are meant to outlive a disable.
   const whileActive = (verb: string): boolean => {
-    if (_registry.get(id)?.active ?? true) return true;
-    console.warn(`[plugin-runtime] "${id}" called ${verb} while disabled — ignoring`);
+    if (_registry.get(id)?.active) return true;
+    console.warn(`[plugin-runtime] "${id}" called ${verb} while disabled or unloaded — ignoring`);
     return false;
   };
 
@@ -633,7 +666,26 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         const prefixed = { ...panel, id: panel.id.startsWith(`${id}:`) ? panel.id : `${id}:${panel.id}` };
         store().registerGlobalPanel(prefixed);
         trackContribution(id, prefixed.id);
-        return () => store().unregisterGlobalPanel(prefixed.id);
+
+        const ui = () => useUIStore.getState();
+
+        const handle = (() => {
+          store().unregisterGlobalPanel(prefixed.id);
+          releaseDockedWidth(prefixed.id);
+        }) as GlobalPanelHandle;
+
+        return Object.assign(handle, {
+          id: prefixed.id,
+          open: () => { if (whileActive("ui.globalPanel.open")) ui().setGlobalPanelOpen(prefixed.id, true); },
+          close: () => { if (whileActive("ui.globalPanel.close")) ui().setGlobalPanelOpen(prefixed.id, false); },
+          toggle: () => { if (whileActive("ui.globalPanel.toggle")) ui().toggleGlobalPanel(prefixed.id); },
+          isOpen: () => Boolean(ui().globalPanelOpen[prefixed.id]),
+          setDockedWidth: (width: number) => {
+            if (!whileActive("ui.globalPanel.setDockedWidth")) return;
+            _dockedPanelWidths.set(prefixed.id, { pluginId: id, width });
+            ui().setDockedPanelWidth(width);
+          },
+        });
       },
       registerMobileScreen(screen) {
         requirePerm(manifest, "right-panel");
@@ -695,6 +747,31 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         _settingsListeners.get(id)?.forEach((cb) => { try { cb(key, value); } catch {} });
       },
       delete: (key) => storageDelete(id, key),
+    },
+
+    audit: {
+      record(connectionId, action, metadata, localMetadata) {
+        requirePerm(manifest, "audit");
+        if (!PLUGIN_AUDIT_ACTIONS.includes(action)) {
+          throw new Error(`Plugin "${id}" used an unsupported audit action "${action}"`);
+        }
+        if (!whileActive("audit.record")) return;
+
+        const conn = connectionId ? findConnection(connectionId) : undefined;
+        const context = conn ? auditContextForVaultId(conn.vault_id) : { kind: "local" as const, vaultId: "personal" };
+        const targetName = conn
+          ? conn.name?.trim() || `${conn.username}@${conn.host}:${conn.port}`
+          : (connectionId ?? "local");
+
+        reportPluginAuditEvent(context, action, {
+          target_type: "plugin",
+          target_id: connectionId ?? "local",
+          target_name: targetName,
+          // Stamped last so a plugin cannot claim to be another one.
+          metadata: { ...metadata, plugin_id: id },
+          localMetadata,
+        });
+      },
     },
 
     http: {
@@ -1462,6 +1539,7 @@ export function loadPlugin(
     useNotificationStore.getState().dismissAllForPlugin(manifest.id);
     usePluginStateStore.getState().clearPlugin(manifest.id);
     clearPluginKeybindings(manifest.id);
+    clearPluginDockedWidths(manifest.id);
     removePluginStyle(manifest.id);
     _exposedApis.delete(manifest.id);
     _contributedIds.delete(manifest.id);
@@ -1524,6 +1602,7 @@ export function unloadPlugin(pluginId: string): void {
   useNotificationStore.getState().dismissAllForPlugin(pluginId);
   usePluginStateStore.getState().clearPlugin(pluginId);
   clearPluginKeybindings(pluginId);
+  clearPluginDockedWidths(pluginId);
   removePluginStyle(pluginId);
   _exposedApis.delete(pluginId);
   _contributedIds.delete(pluginId);

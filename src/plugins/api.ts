@@ -2,6 +2,9 @@ import type { ReactNode } from "react";
 import type { SerialConnectParams } from "@/types";
 import type { AppTheme } from "@/themes/types";
 import type { Locale } from "@/stores/localeStore";
+import type { PluginAuditAction } from "@/services/auditContext";
+
+export type { PluginAuditAction } from "@/services/auditContext";
 
 // ─── Types exposés aux plugins ─────────────────────────────────────────────
 
@@ -128,6 +131,19 @@ export interface GlobalPanel {
   id: string;
   /** Rendered at shell level (not session-scoped). Host drives open/close. */
   component: React.FC<{ open: boolean; onClose: () => void }>;
+}
+
+/** Controls the panel it was returned from. Calling it disposes, as before. */
+export interface GlobalPanelHandle {
+  (): void;
+  /** Host-prefixed id, e.g. "ai-agent:drawer". */
+  readonly id: string;
+  open(): void;
+  close(): void;
+  toggle(): void;
+  isOpen(): boolean;
+  /** Width (px) the app shell reserves while this panel is docked. */
+  setDockedWidth(width: number): void;
 }
 
 export interface PluginSession {
@@ -412,6 +428,24 @@ export interface PluginAPI {
     delete(key: string): Promise<void>;
   };
 
+  // Audit — record what this plugin did (requires "audit")
+  audit: {
+    /**
+     * Record an action against the connection it targets. A team-vault
+     * connection additionally posts to that team's server; "local", unknown
+     * and deleted ids fail closed to the on-device sink.
+     *
+     * `localMetadata` never leaves the device. Never pass captured terminal
+     * output to either channel.
+     */
+    record(
+      connectionId: string | null,
+      action: PluginAuditAction,
+      metadata?: Record<string, unknown>,
+      localMetadata?: Record<string, unknown>,
+    ): void;
+  };
+
   // Themes (requires "themes")
   themes: {
     register(theme: PluginTheme): void;
@@ -429,7 +463,7 @@ export interface PluginAPI {
     registerSettingsPage(page: SettingsPage): () => void;
     registerRightPanelSection(section: RightPanelSection): () => void;
     /** Mount a global, shell-level panel (not session-scoped). Returns cleanup. */
-    registerGlobalPanel(panel: GlobalPanel): () => void;
+    registerGlobalPanel(panel: GlobalPanel): GlobalPanelHandle;
     /** Contribute a full-screen mobile view for `screen.kind`. Uninstalling or
      *  disabling the plugin removes it, same as registerRightPanelSection does
      *  on desktop. Returns cleanup. */

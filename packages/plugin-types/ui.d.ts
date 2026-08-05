@@ -6,4 +6,20 @@ declare module "@voltius/ui" {
   export const InfoTooltip: ComponentType<{ text: string; children?: ReactNode }>;
   export const BottomSheet: ComponentType<{ title?: string; onClose: () => void; children?: ReactNode }>;
   export function useAutosave<T>(value: T, save: (v: T) => void | Promise<void>, delayMs?: number): void;
+  export const ConnectionAvatar: ComponentType<{
+    connection: {
+      connection_type?: "ssh" | "serial" | "ftp";
+      serial_port?: string;
+      icon?: string;
+      distro?: string;
+    };
+    size: number;
+  }>;
+  export const ConfirmModal: ComponentType<{
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+  }>;
 }

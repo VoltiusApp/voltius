@@ -9,3 +9,5 @@ export { useAutosave } from "@/hooks/useAutosave";
 // viewport tracking) is genuinely non-trivial to reimplement per plugin — exported
 // here rather than duplicated across monitoring/docker/proxmox's mobile screens.
 export { default as BottomSheet } from "@/components/mobile/sheets/BottomSheet";
+export { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
+export { ConfirmModal } from "@/components/shared/ConfirmModal";
