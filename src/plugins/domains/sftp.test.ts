@@ -36,12 +36,15 @@ vi.mock("@/services/credentials", () => ({
 vi.mock("@/utils/keepalive", () => ({ resolveKeepalive: () => ({ intervalSecs: 30, max: 3 }) }));
 vi.mock("@/stores/connectivitySettingsStore", () => ({ getGlobalKeepalivePreset: () => "default" }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => undefined) }));
+vi.mock("@tauri-apps/api/path", () => ({ appCacheDir: vi.fn(async () => "/cache") }));
 
 import { createSftpAPI } from "./sftp";
 
 const SSH = { id: "c-ssh", host: "h", port: 22, username: "u" } as never;
 const FTP = { id: "c-ftp", host: "f", port: 21, username: "u", connection_type: "ftp" } as never;
-const find = (id: string) => (id === "c-ssh" ? SSH : id === "c-ftp" ? FTP : undefined);
+const SSH2 = { id: "c-ssh2", host: "h2", port: 22, username: "u" } as never;
+const find = (id: string) =>
+  id === "c-ssh" ? SSH : id === "c-ssh2" ? SSH2 : id === "c-ftp" ? FTP : undefined;
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -102,9 +105,9 @@ describe("createSftpAPI", () => {
 
   it("transfers host→host directly, without routing through this machine", async () => {
     const api = createSftpAPI(find);
-    await api.transfer({ target: "c-ssh", path: "/srv/a.txt" }, { target: "c-ftp", path: "/pub/a.txt" });
+    await api.transfer({ target: "c-ssh", path: "/srv/a.txt" }, { target: "c-ssh2", path: "/srv/b.txt" });
     expect(svc.sftpTransfer).toHaveBeenCalledWith(
-      expect.objectContaining({ srcSftpId: "sftp-1", srcPath: "/srv/a.txt", dstSftpId: "ftp-1", dstPath: "/pub/a.txt" }),
+      expect.objectContaining({ srcSftpId: "sftp-1", srcPath: "/srv/a.txt", dstSftpId: "sftp-1", dstPath: "/srv/b.txt" }),
     );
     expect(svc.sftpDownload).not.toHaveBeenCalled();
     expect(svc.sftpUpload).not.toHaveBeenCalled();
@@ -112,7 +115,7 @@ describe("createSftpAPI", () => {
 
   it("uses the directory variant when the source is a directory", async () => {
     const api = createSftpAPI(find);
-    await api.transfer({ target: "c-ssh", path: "/srv/sub" }, { target: "c-ftp", path: "/pub/sub" });
+    await api.transfer({ target: "c-ssh", path: "/srv/sub" }, { target: "c-ssh2", path: "/srv/sub2" });
     expect(svc.sftpTransferDir).toHaveBeenCalledTimes(1);
     expect(svc.sftpTransfer).not.toHaveBeenCalled();
   });
@@ -125,6 +128,27 @@ describe("createSftpAPI", () => {
     expect(svc.sftpDownload).not.toHaveBeenCalled();
   });
 
+  // sftp_transfer resolves both ids with get_session, which downcasts to a real
+  // SFTP session; an FTP backend is not one. upload/download go through
+  // get_backend and do support FTP, so an FTP end has to be staged.
+  it("stages a transfer through this machine when either end is FTP, then cleans up", async () => {
+    const api = createSftpAPI(find);
+    await api.transfer({ target: "c-ssh", path: "/srv/a.txt" }, { target: "c-ftp", path: "/pub/a.txt" });
+    expect(svc.sftpTransfer).not.toHaveBeenCalled();
+    expect(svc.sftpDownload).toHaveBeenCalledWith(expect.objectContaining({ sftpId: "sftp-1", remotePath: "/srv/a.txt" }));
+    expect(svc.sftpUpload).toHaveBeenCalledWith(expect.objectContaining({ sftpId: "ftp-1", remotePath: "/pub/a.txt" }));
+    expect(svc.fsDelete).toHaveBeenCalledWith(expect.stringContaining("/cache/agent-transfer-"));
+  });
+
+  it("removes the staging copy even when the upload half fails", async () => {
+    svc.sftpUpload.mockRejectedValueOnce(new Error("denied"));
+    const api = createSftpAPI(find);
+    await expect(
+      api.transfer({ target: "c-ftp", path: "/pub/a.txt" }, { target: "c-ssh", path: "/srv/a.txt" }),
+    ).rejects.toThrow("denied");
+    expect(svc.fsDelete).toHaveBeenCalledWith(expect.stringContaining("/cache/agent-transfer-"));
+  });
+
   it("dispose closes every open handle so an unloaded plugin leaves no connections", async () => {
     const api = createSftpAPI(find);
     await api.list("c-ssh", "/");
@@ -135,8 +159,17 @@ describe("createSftpAPI", () => {
     expect(svc.sftpClose).toHaveBeenCalledTimes(2);
   });
 
-  it("rejects an unknown target rather than opening anything", async () => {
+  // A model reaching for a hostname instead of the opaque id is the common
+  // failure; it must name the target, not blame the path.
+  it.each([
+    ["list", (a: ReturnType<typeof createSftpAPI>) => a.list("172.20.0.4", "/")],
+    ["stat", (a: ReturnType<typeof createSftpAPI>) => a.stat("172.20.0.4", "/x")],
+    ["delete", (a: ReturnType<typeof createSftpAPI>) => a.delete("172.20.0.4", "/x")],
+    ["transfer", (a: ReturnType<typeof createSftpAPI>) =>
+      a.transfer({ target: "172.20.0.4", path: "/x" }, { target: "local", path: "/y" })],
+  ])("%s names an unresolvable target rather than failing vaguely", async (_n, call) => {
     const api = createSftpAPI(find);
-    await expect(api.list("nope", "/")).rejects.toThrow(/Unknown connection/);
+    await expect(call(api)).rejects.toThrow(/Unknown file target "172\.20\.0\.4"/);
+    expect(svc.sftpConnect).not.toHaveBeenCalled();
   });
 });

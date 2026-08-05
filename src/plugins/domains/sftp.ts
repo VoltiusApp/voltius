@@ -8,6 +8,7 @@ import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/crede
 import { resolveKeepalive } from "@/utils/keepalive";
 import { getGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
 import { invoke } from "@tauri-apps/api/core";
+import { appCacheDir } from "@tauri-apps/api/path";
 import type { Connection } from "@/types";
 import type { PluginFile, SftpAPI, FileEndpoint } from "../api";
 
@@ -80,6 +81,21 @@ export function createSftpAPI(
   };
 
   const isLocal = (target: string) => target === LOCAL_TARGET;
+  const isFtp = (target: string) => findConnection(target)?.connection_type === "ftp";
+
+  /**
+   * Reject an unresolvable target loudly, before any verb can turn it into a
+   * vaguer failure downstream. A model reaching for a hostname or an IP instead
+   * of the opaque connection id is the common case, and `stat` swallowing that
+   * into a null made it surface as "No such path", pointing at the path rather
+   * than at the target that was actually wrong.
+   */
+  const assertTarget = (target: string): void => {
+    if (isLocal(target) || findConnection(target)) return;
+    throw new Error(
+      `Unknown file target "${target}" — use "local" or an id from the connection list, not a hostname`,
+    );
+  };
 
   const toPluginFile = (f: {
     name: string; path: string; size: number; is_dir: boolean;
@@ -101,6 +117,7 @@ export function createSftpAPI(
 
   const api: SftpAPI & { dispose(): void } = {
     async list(target, path) {
+      assertTarget(target);
       if (isLocal(target)) return (await fsListDir(path)).map(toPluginFile);
       return (await sftpListDir(await handleFor(target), path)).map(toPluginFile);
     },
@@ -109,6 +126,7 @@ export function createSftpAPI(
     // and `fs_stat` answer only "does this exist", with no size or is_dir, and
     // every caller here needs is_dir to pick a transfer variant.
     async stat(target, path) {
+      assertTarget(target);
       const normalised = path.replace(/\/+$/, "");
       if (normalised === "") {
         return { name: "/", path: "/", size: 0, isDir: true, isSymlink: false, modified: null };
@@ -127,6 +145,7 @@ export function createSftpAPI(
     },
 
     async readText(target, path, maxBytes = DEFAULT_MAX_READ_BYTES) {
+      assertTarget(target);
       const file = isLocal(target)
         ? await fsReadFile(path, maxBytes)
         : await sftpReadFile(await handleFor(target), path, maxBytes);
@@ -134,6 +153,7 @@ export function createSftpAPI(
     },
 
     async writeText(target, path, content) {
+      assertTarget(target);
       if (isLocal(target)) {
         await invoke("fs_write_file", { path, content });
         return;
@@ -142,21 +162,26 @@ export function createSftpAPI(
     },
 
     async mkdir(target, path) {
+      assertTarget(target);
       if (isLocal(target)) return fsMkdir(path);
       return sftpMkdir(await handleFor(target), path);
     },
 
     async rename(target, from, to) {
+      assertTarget(target);
       if (isLocal(target)) return fsRename(from, to);
       return sftpRename(await handleFor(target), from, to);
     },
 
     async delete(target, path) {
+      assertTarget(target);
       if (isLocal(target)) return fsDelete(path);
       return sftpDelete(await handleFor(target), path);
     },
 
     async transfer(src: FileEndpoint, dst: FileEndpoint) {
+      assertTarget(src.target);
+      assertTarget(dst.target);
       const transferId = crypto.randomUUID();
       const dir = await isDirAt(src.target, src.path);
 
@@ -177,6 +202,31 @@ export function createSftpAPI(
         handleFor(src.target),
         handleFor(dst.target),
       ]);
+
+      // `sftp_transfer` resolves both ids with `get_session`, which downcasts to
+      // a real SFTP session — an FTP backend is not one, so a direct host→host
+      // stream is impossible whenever either end is FTP. `sftp_upload` and
+      // `sftp_download` go through `get_backend` and do support FTP, so stage
+      // through this machine instead. Slower, and the bytes DO land here
+      // briefly, unlike the direct path.
+      if (isFtp(src.target) || isFtp(dst.target)) {
+        const staging = `${await appCacheDir()}/agent-transfer-${transferId}`;
+        const down = { sftpId: srcSftpId, remotePath: src.path, localPath: staging, transferId };
+        const up = { sftpId: dstSftpId, localPath: staging, remotePath: dst.path, transferId };
+        try {
+          if (dir) {
+            await sftpDownloadDir(down);
+            await sftpUploadDir(up);
+          } else {
+            await sftpDownload(down);
+            await sftpUpload(up);
+          }
+        } finally {
+          await fsDelete(staging).catch(() => {});
+        }
+        return;
+      }
+
       const params = { srcSftpId, srcPath: src.path, dstSftpId, dstPath: dst.path, transferId };
       return dir ? sftpTransferDir(params) : sftpTransfer(params);
     },
