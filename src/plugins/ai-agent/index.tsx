@@ -7,26 +7,14 @@ import { AiDrawer } from "./ui/AiDrawer";
 import { AiTitleBarButton } from "./ui/AiTitleBarButton";
 import { TerminalAskButton } from "./ui/TerminalAskButton";
 import { createSettingsPage } from "./settings/SettingsPage";
+import manifestJson from "./manifest.json";
 import { messages } from "./i18n";
 import { openPanel, setPanelHandle } from "./panel";
 import { setI18nApi, t } from "./useT";
 
 const PANEL_ID = "drawer"; // prefixed → "plugin-ai-agent:drawer"
 
-export const manifest: PluginManifest = {
-  id: "plugin-ai-agent",
-  name: "AI Agent",
-  version: "1.0.0",
-  description:
-    "Bring-your-own-key AI assistant (Terminal Doctor). Reads terminal output and runs approved commands to help diagnose issues. Disableable; API keys stored locally in your OS keychain. The conversation, including any captured terminal output, is stored unencrypted on this device.",
-  permissions: [
-    "terminal:read", "terminal:stream", "keychain:read", "keychain:write",
-    "sessions:write", "sessions:read", "connections:read", "http",
-    "global-panel", "omni-commands", "ui-contributions", "notifications", "settings-page",
-  ],
-  defaultEnabled: false,
-  desktopOnly: false,
-};
+export const manifest = manifestJson as PluginManifest;
 
 export const register: PluginRegisterFn = (api: PluginAPI) => {
   if (!api.isActive()) return () => {};

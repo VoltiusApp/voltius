@@ -74,8 +74,16 @@ describe("plugin bundle build (webview compatibility)", () => {
   test.each(ids)("%s bundle is webview-safe", async (id) => {
     const code = buildAndRead(id);
 
-    // No Node globals — the webview has none.
-    expect(code).not.toMatch(/\bprocess\.\w/);
+    // No unguarded Node globals — the webview has none, so a bare `process.x`
+    // throws ReferenceError at module evaluation. Member reads (`globalThis.process`)
+    // and reads behind a `typeof process` check are how libraries legitimately
+    // feature-detect a Node runtime: the Vercel AI SDK does both, and neither can
+    // throw. Anything else — including the `process.env.NODE_ENV` that the build
+    // config's `define` exists to eliminate — must not survive into the artifact.
+    for (const m of code.matchAll(/(?<![.\w$])process\.\w+/g)) {
+      const guardWindow = code.slice(Math.max(0, m.index - 300), m.index);
+      expect(guardWindow, `unguarded ${m[0]} in ${id}`).toContain("typeof process");
+    }
 
     // Production JSX transform only — a dev-mode build imports jsxDEV from
     // react/jsx-dev-runtime, which the host does not expose.
@@ -102,6 +110,15 @@ describe("plugin bundle build (webview compatibility)", () => {
     for (const specifier of bareSpecifiers) {
       expect(HOST_SPECIFIERS).toContain(specifier);
     }
+  }, 30000);
+
+  // build.rs embeds, and stageReleaseAssets publishes, only these three filenames.
+  // A plugin using dynamic import() splits into extra chunks that are silently left
+  // behind, so the plugin loads and then throws at the first lazy import.
+  test.each(ids)("%s bundle emits no unshippable extra chunks", (id) => {
+    buildAndRead(id);
+    const emitted = readdirSync(path.join(outRoot, id));
+    expect(emitted.filter((f) => !["index.js", "voltius.css"].includes(f))).toEqual([]);
   }, 30000);
 
   // Sparkline.tsx imports uplot/dist/uPlot.min.css, which Vite's lib build extracts

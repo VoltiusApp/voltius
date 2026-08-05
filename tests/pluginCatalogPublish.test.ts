@@ -81,7 +81,7 @@ describe("plugin catalogue publish pipeline", () => {
     }
     expect(ids).not.toContain("docker");
     expect(ids.sort()).toEqual(
-      ["plugin-docker", "plugin-gist-sync", "plugin-monitoring", "plugin-process-manager", "plugin-proxmox", "plugin-ssh-config"].sort(),
+      ["plugin-ai-agent", "plugin-docker", "plugin-gist-sync", "plugin-monitoring", "plugin-process-manager", "plugin-proxmox", "plugin-ssh-config"].sort(),
     );
   });
 

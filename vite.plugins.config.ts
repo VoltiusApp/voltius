@@ -1,10 +1,20 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import fs from "fs";
 import { HOST_SPECIFIERS } from "./src/plugins/hostSpecifiers";
 
 const id = process.env.VOLTIUS_PLUGIN_ID;
 if (!id) throw new Error("VOLTIUS_PLUGIN_ID is required");
+
+// A plugin whose register() returns JSX directly (rather than only referencing
+// components defined elsewhere) has to name its entry .tsx. Resolve rather than
+// assume: a missing entry must fail here, naming the plugin, not later as an
+// unresolved-import error inside rolldown.
+const entry = ["index.ts", "index.tsx"]
+  .map((name) => path.resolve(__dirname, `src/plugins/${id}/${name}`))
+  .find((p) => fs.existsSync(p));
+if (!entry) throw new Error(`plugin "${id}" has no index.ts or index.tsx entry`);
 
 // Vite derives `isProduction` (and @vitejs/plugin-react's dev-vs-prod JSX transform
 // choice) directly from `process.env.NODE_ENV` at config-resolution time — not from
@@ -32,7 +42,7 @@ export default defineConfig({
     outDir: path.resolve(__dirname, `src-tauri/resources/plugins/${id}`),
     emptyOutDir: true,
     lib: {
-      entry: path.resolve(__dirname, `src/plugins/${id}/index.ts`),
+      entry,
       formats: ["es"],
       fileName: () => "index.js",
       // Pin the CSS output filename explicitly rather than relying on Vite's default
@@ -42,6 +52,14 @@ export default defineConfig({
     },
     rollupOptions: {
       external: [...HOST_SPECIFIERS],
+      output: {
+        // Only manifest.json, index.js and voltius.css are embedded by build.rs,
+        // staged as release assets, and hashed into the catalogue. A plugin using
+        // dynamic import() (the AI agent lazy-loads its provider SDKs) otherwise
+        // emits extra chunks that ship nowhere and fail at first use, with nothing
+        // in the build reporting it.
+        inlineDynamicImports: true,
+      },
     },
   },
 });
