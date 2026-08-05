@@ -20,6 +20,7 @@ import { useDragToFolder } from "@/hooks/useDragToFolder";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { useAllSnippets } from "@/hooks/useAllSnippets";
+import { useAllSnippetFolders } from "@/hooks/useAllSnippetFolders";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { BaseCard } from "@/components/shared/BaseCard";
@@ -298,7 +299,8 @@ export function SnippetsPage() {
   const addRecentEntry = useSnippetRecentStore((s) => s.add);
   const removeRecentEntry = useSnippetRecentStore((s) => s.remove);
   const snippets = useAllSnippets();
-  const { folders, loadFolders, saveFolder, updateFolder, deleteFolder, moveFolder } = useSnippetFolderStore();
+  const { loadFolders, saveFolder, updateFolder, deleteFolder, moveFolder } = useSnippetFolderStore();
+  const folders = useAllSnippetFolders();
   const { sessions, activeSessionId } = useSessionStore();
   const connections = useAllConnections();
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);

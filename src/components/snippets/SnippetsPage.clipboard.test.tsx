@@ -17,6 +17,8 @@ function snippet(id: string, over: Partial<Snippet> = {}): Snippet {
 const h = vi.hoisted(() => ({
   snippets: [] as unknown[],
   folders: [] as unknown[],
+  teamFolders: {} as Record<string, unknown[]>,
+  teams: [] as unknown[],
   selected: [] as string[],
   activeFolderId: null as string | null,
   createSnippet: vi.fn(),
@@ -145,6 +147,7 @@ vi.mock("@/stores/snippetStore", () => ({
 vi.mock("@/stores/snippetFolderStore", () => ({
   useSnippetFolderStore: selectorStore({
     get folders() { return h.folders; },
+    get teamSnippetFolders() { return h.teamFolders; },
     loadFolders: vi.fn(async () => {}),
     saveFolder: h.saveFolder,
     updateFolder: h.updateFolder,
@@ -173,7 +176,9 @@ vi.mock("@/stores/uiStore", () => ({
 vi.mock("@/stores/vaultStore", () => ({
   useVaultStore: selectorStore({ selectedVaultIds: ["personal"], vaults: [] }),
 }));
-vi.mock("@/stores/teamStore", () => ({ useTeamStore: selectorStore({ teams: [] }) }));
+vi.mock("@/stores/teamStore", () => ({
+  useTeamStore: selectorStore({ get teams() { return h.teams; } }),
+}));
 vi.mock("@/stores/syncPrefsStore", () => ({
   useSyncPrefsStore: selectorStore({
     excludedIds: [], syncTypes: [], isObjectSynced: () => true, toggleExcluded: vi.fn(),
@@ -203,6 +208,8 @@ beforeEach(() => {
   h.saveFolder.mockImplementation(async (d: Partial<Folder>) => folder("new-folder", d));
   h.snippets = [];
   h.folders = [];
+  h.teamFolders = {};
+  h.teams = [];
   h.selected = [];
   h.activeFolderId = null;
   h.can.mockReturnValue(true);
@@ -299,6 +306,22 @@ test("a folder paste at the root does not migrate the subtree out of its vault",
 
 test("a cut into a team-vault folder migrates the snippet into that vault", async () => {
   h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.snippets = [snippet("s1", { vault_id: "personal" })];
+  h.selected = ["s1"];
+  h.activeFolderId = "tf";
+  render(<SnippetsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.updateSnippet).toHaveBeenCalledWith("s1", expect.objectContaining({ vault_id: "team-1", folder_id: "tf" }));
+});
+
+// The page used to read the local-only folder list, so a folder that exists only
+// as a team folder was invisible and this whole path was unreachable.
+test("a team snippet folder that lives only in the team store is a valid paste target", async () => {
+  h.teams = [{ id: "team-1" }];
+  h.teamFolders = { "team-1": [folder("tf", { vault_id: "team-1" })] };
   h.snippets = [snippet("s1", { vault_id: "personal" })];
   h.selected = ["s1"];
   h.activeFolderId = "tf";
