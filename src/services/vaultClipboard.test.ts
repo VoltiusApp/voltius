@@ -10,6 +10,8 @@ function adapter(over: Partial<ClipboardAdapter> = {}): ClipboardAdapter {
     targetFolderId: () => "dest",
     targetVaultId: () => "personal",
     folderIdOf: () => null,
+    folderContentKinds: () => [],
+    canMoveFolder: () => true,
     moveItems: vi.fn(async () => {}),
     moveFolder: vi.fn(async () => {}),
     duplicateItems: vi.fn(async (ids: string[]) => ids.map((i) => `${i}-copy`)),

@@ -23,6 +23,10 @@ const h = vi.hoisted(() => ({
   moveObjectsToFolder: vi.fn(async () => {}),
   moveFolder: vi.fn(async () => {}),
   setSelection: vi.fn(),
+  can: vi.fn((_permission: string, _vaultId: string) => true),
+  getSecret: vi.fn(async (_key: string) => null as string | null),
+  storeSecret: vi.fn(async (_key: string, _value: string) => {}),
+  saveTeamVaultSecretForVault: vi.fn(async (_vaultId: string, _key: string, _value: string) => {}),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -110,7 +114,7 @@ vi.mock("@/hooks/useEffectivePinned", () => ({
 }));
 vi.mock("@/hooks/useAccessibleVaultIds", () => ({ useAccessibleVaultIds: () => [] }));
 vi.mock("@/hooks/useWritableVaultIds", () => ({ useDefaultVaultId: () => "personal" }));
-vi.mock("@/hooks/usePermission", () => ({ usePermissions: () => () => true }));
+vi.mock("@/hooks/usePermission", () => ({ usePermissions: () => h.can }));
 vi.mock("@/hooks/useAllConnections", () => ({ useAllConnections: () => h.connections }));
 vi.mock("@/hooks/useAllFolders", () => ({ useAllFolders: () => h.folders }));
 
@@ -174,8 +178,8 @@ vi.mock("@/stores/syncPrefsStore", () => ({
     excludedIds: [], syncTypes: [], isObjectSynced: () => true, toggleExcluded: vi.fn(),
   }),
 }));
-vi.mock("@/services/vault", () => ({ storeSecret: vi.fn(), getSecret: vi.fn(async () => null) }));
-vi.mock("@/services/teamVaultSecrets", () => ({ saveTeamVaultSecretForVault: vi.fn() }));
+vi.mock("@/services/vault", () => ({ storeSecret: h.storeSecret, getSecret: h.getSecret }));
+vi.mock("@/services/teamVaultSecrets", () => ({ saveTeamVaultSecretForVault: h.saveTeamVaultSecretForVault }));
 vi.mock("@/services/teamVaultPermissions", () => ({ buildTeamVaultTransferPlan: () => ({ allowed: true }) }));
 vi.mock("@/services/hostForm", () => ({ saveHostFromForm: vi.fn() }));
 
@@ -197,6 +201,8 @@ beforeEach(() => {
   h.folders = [];
   h.selected = [];
   h.activeFolderId = null;
+  h.can.mockReturnValue(true);
+  h.getSecret.mockResolvedValue(null);
   useVaultClipboardStore.getState().clear();
 });
 afterEach(cleanup);
@@ -296,4 +302,108 @@ test("a cut into a team-vault folder migrates the connection instead of only rep
     "c1",
     expect.objectContaining({ vault_id: "team-1", folder_id: "tf" }),
   );
+});
+
+test("a cut into a team vault republishes the connection's secret to that vault", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.connections = [conn("c1", { vault_id: "personal" })];
+  h.selected = ["c1"];
+  h.activeFolderId = "tf";
+  h.getSecret.mockImplementation(async (k: string) => (k === "password:c1" ? "s3cret" : null));
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.saveTeamVaultSecretForVault).toHaveBeenCalledWith("team-1", "password:c1", "s3cret");
+});
+
+test("a copy into a team vault republishes the duplicate's secret under its new id", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.connections = [conn("c1", { vault_id: "personal" })];
+  h.selected = ["c1"];
+  h.activeFolderId = "tf";
+  h.getSecret.mockImplementation(async (k: string) =>
+    k === "password:c1" || k === "password:new-conn" ? "s3cret" : null,
+  );
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-copy");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.storeSecret).toHaveBeenCalledWith("password:new-conn", "s3cret");
+  expect(h.saveTeamVaultSecretForVault).toHaveBeenCalledWith("team-1", "password:new-conn", "s3cret");
+});
+
+test("a paste at the root leaves each object in the vault it already had", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.connections = [conn("c1", { vault_id: "team-1", folder_id: "tf" })];
+  h.selected = ["c1"];
+  h.activeFolderId = null;
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.moveObjectsToFolder).toHaveBeenCalledWith(["c1"], "connection", null);
+  expect(h.updateConnection).not.toHaveBeenCalled();
+});
+
+test("a folder paste at the root does not migrate the subtree out of its vault", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" }), folder("sub", { vault_id: "team-1", parent_folder_id: "tf" })];
+  h.connections = [conn("c1", { vault_id: "team-1", folder_id: "sub" })];
+  h.selected = ["sub"];
+  h.activeFolderId = null;
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.moveFolder).toHaveBeenCalledWith("sub", null);
+  expect(h.updateFolder).not.toHaveBeenCalled();
+  expect(h.updateConnection).not.toHaveBeenCalled();
+});
+
+test("a folder paste is blocked when the destination vault forbids editing its contents", async () => {
+  h.folders = [folder("f1"), folder("tf", { vault_id: "team-1" })];
+  h.connections = [conn("c1", { folder_id: "f1" })];
+  h.selected = ["f1"];
+  h.activeFolderId = "tf";
+  // EDIT_FOLDERS alone used to be enough to let the folders through and then have
+  // the nested connection writes refused.
+  h.can.mockImplementation((p: string, v: string) => !(p === "EDIT_CONNECTIONS" && v === "team-1"));
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.moveFolder).not.toHaveBeenCalled();
+  expect(h.updateFolder).not.toHaveBeenCalled();
+});
+
+test("a rejected folder paste keeps the clipboard so the user can retry", async () => {
+  h.folders = [folder("f1"), folder("f2", { parent_folder_id: "f1" })];
+  h.selected = ["f1"];
+  h.activeFolderId = "f2";
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.moveFolder).not.toHaveBeenCalled();
+  expect(useVaultClipboardStore.getState().clipboard?.folderIds).toEqual(["f1"]);
+});
+
+test("cloning a folder suffixes the root only, not the hosts inside it", async () => {
+  h.folders = [folder("f1", { name: "Prod" })];
+  h.connections = [conn("c1", { name: "web-1", folder_id: "f1" })];
+  h.selected = ["f1"];
+  h.activeFolderId = null;
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-copy");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.saveFolder).toHaveBeenCalledWith(expect.objectContaining({ name: "Prod (copy)" }));
+  expect(h.saveConnection).toHaveBeenCalledWith(expect.objectContaining({ name: "web-1" }));
 });

@@ -1,5 +1,5 @@
 import type { NavItem } from "@/stores/uiStore";
-import type { VaultClipboard } from "@/stores/vaultClipboardStore";
+import type { VaultClipboard, VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import { useHistoryStore } from "@/stores/historyStore";
 
 export interface ClipboardAdapter {
@@ -9,9 +9,25 @@ export interface ClipboardAdapter {
   vaultIdOf: (id: string) => string;
   /** Destination folder, null at the vault root. */
   targetFolderId: () => string | null;
-  targetVaultId: () => string;
+  /**
+   * Destination vault, or null when the destination is the root — there is no
+   * folder there to read a vault from, so every object keeps the vault it has and
+   * no cross-vault authorization is needed.
+   */
+  targetVaultId: () => string | null;
   /** Current folder of an id, null when it sits at the root. */
   folderIdOf: (id: string) => string | null;
+  /**
+   * Distinct kinds of object nested anywhere under a folder. A folder paste writes
+   * its contents too, so those kinds need authorizing alongside EDIT_FOLDERS.
+   */
+  folderContentKinds: (folderId: string) => VaultClipboardKind[];
+  /**
+   * False when the move is structurally impossible — reparenting a folder under
+   * itself or under one of its own descendants. Consulted before moving so a
+   * refused folder is not counted as moved.
+   */
+  canMoveFolder: (id: string, parentFolderId: string | null) => boolean;
   moveItems: (ids: string[], folderId: string | null) => Promise<void>;
   moveFolder: (id: string, parentFolderId: string | null) => Promise<void>;
   /** Returns the ids of the created duplicates, in the same order. */
@@ -54,24 +70,31 @@ function blockedPermissions(
   liveFolders: string[],
 ): string[] {
   const target = adapter.targetVaultId();
+  // No destination folder means no vault change, so nothing new to authorize.
+  if (target === null) return [];
   const blocked = new Set<string>();
 
   const require = (permission: string, vaultId: string) => {
     if (!adapter.can(permission, vaultId)) blocked.add(permission);
   };
+  const requireBoth = (permission: string, source: string) => {
+    require(permission, target);
+    if (clipboard.mode === "cut") require(permission, source);
+  };
 
   for (const item of liveItems) {
     const source = adapter.vaultIdOf(item.id);
-    const permission = EDIT_PERMISSION[item.kind] ?? "EDIT_CONNECTIONS";
     if (source === target) continue;
-    require(permission, target);
-    if (clipboard.mode === "cut") require(permission, source);
+    requireBoth(EDIT_PERMISSION[item.kind] ?? "EDIT_CONNECTIONS", source);
   }
   for (const id of liveFolders) {
     const source = adapter.vaultIdOf(id);
     if (source === target) continue;
-    require("EDIT_FOLDERS", target);
-    if (clipboard.mode === "cut") require("EDIT_FOLDERS", source);
+    requireBoth("EDIT_FOLDERS", source);
+    // The folder's contents cross the vault boundary with it.
+    for (const kind of adapter.folderContentKinds(id)) {
+      requireBoth(EDIT_PERMISSION[kind] ?? "EDIT_CONNECTIONS", source);
+    }
   }
   return [...blocked];
 }
@@ -97,7 +120,9 @@ export async function pasteFromClipboard(
 
   if (clipboard.mode === "cut") {
     const itemIds = liveItems.map((i) => i.id).filter((id) => adapter.folderIdOf(id) !== target);
-    const folderIds = liveFolders.filter((id) => adapter.folderIdOf(id) !== target);
+    const folderIds = liveFolders.filter(
+      (id) => adapter.folderIdOf(id) !== target && adapter.canMoveFolder(id, target),
+    );
     const origins = new Map<string, string | null>();
     for (const id of [...itemIds, ...folderIds]) origins.set(id, adapter.folderIdOf(id));
 

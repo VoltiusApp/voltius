@@ -297,12 +297,16 @@ export default function HostsPage() {
     [clipboard],
   );
 
-  // The destination folder decides the destination vault; at the root there is no
-  // folder to read one from, so the default writable vault stands in. Derived from
-  // the folder argument rather than from activeFolderId so an undo, which passes the
-  // origin folder back in, migrates the object back to the vault it came from.
-  const vaultForFolder = (folderId: string | null) =>
-    scopedFolders.find((f) => f.id === folderId)?.vault_id ?? defaultVaultId;
+  /**
+   * The destination folder is the only unambiguous carrier of a destination vault.
+   * At the root there is none, so nothing migrates and every object keeps its own
+   * vault — matching the drag-to-root path (`onEjectFolders`), and avoiding a
+   * "move to top level" gesture silently pulling a subtree out of a team vault.
+   * Derived from the folder argument rather than activeFolderId so an undo, which
+   * passes the origin folder back in, migrates back to the vault it came from.
+   */
+  const vaultForFolder = (folderId: string | null): string | null =>
+    folderId ? (scopedFolders.find((f) => f.id === folderId)?.vault_id ?? null) : null;
 
   // Every mutation below goes through a store method so vault permission checks apply.
   usePageClipboard({
@@ -326,6 +330,11 @@ export default function HostsPage() {
       connections.find((c) => c.id === id)?.folder_id
       ?? scopedFolders.find((f) => f.id === id)?.parent_folder_id
       ?? null,
+    folderContentKinds: (folderId) =>
+      getConnectionsInFolderTree(folderId).length > 0 ? ["connection"] : [],
+    canMoveFolder: (id, parentFolderId) =>
+      parentFolderId !== id
+      && !(parentFolderId !== null && getAllSubFolders(id).some((f) => f.id === parentFolderId)),
     can: (permission, vaultId) => can(permission as Permission, vaultId),
     // A same-vault move only rewrites folder_id; a cross-vault one has to go through
     // updateConnection so the object actually changes vault, otherwise it would keep
@@ -336,24 +345,24 @@ export default function HostsPage() {
       for (const id of ids) {
         const conn = connections.find((c) => c.id === id);
         if (!conn) continue;
-        if ((conn.vault_id ?? "personal") === targetVault) { sameVault.push(id); continue; }
+        if (targetVault === null || (conn.vault_id ?? "personal") === targetVault) {
+          sameVault.push(id);
+          continue;
+        }
         await updateConnection(id, {
           ...connectionToFormData(conn),
           folder_id: folderId ?? undefined,
           vault_id: targetVault,
         });
+        await publishConnectionSecrets(id, targetVault);
       }
       if (sameVault.length > 0) await moveObjectsToFolder(sameVault, "connection", folderId);
     },
     moveFolder: async (id, parentFolderId) => {
       const folder = scopedFolders.find((f) => f.id === id);
       if (!folder) return;
-      // Reparenting a folder under itself or under one of its own descendants
-      // detaches the subtree from the vault root and creates a parent cycle.
-      if (parentFolderId === id) return;
-      if (parentFolderId && getAllSubFolders(id).some((f) => f.id === parentFolderId)) return;
       const targetVault = vaultForFolder(parentFolderId);
-      if ((folder.vault_id ?? "personal") !== targetVault) {
+      if (targetVault !== null && (folder.vault_id ?? "personal") !== targetVault) {
         await migrateFolderTreeToVault(folder, parentFolderId, targetVault);
         return;
       }
@@ -365,13 +374,13 @@ export default function HostsPage() {
       for (const id of ids) {
         const conn = connections.find((c) => c.id === id);
         if (!conn) continue;
-        const dup = await handleDuplicateInto(conn, folderId, { vaultId: targetVault });
+        const dup = await handleDuplicateInto(conn, folderId, { vaultId: targetVault ?? undefined });
         if (dup) created.push(dup.id);
       }
       return created;
     },
     duplicateFolder: async (id, parentFolderId) =>
-      (await handleCopyFolderInto(id, parentFolderId, vaultForFolder(parentFolderId))).id,
+      (await handleCopyFolderInto(id, parentFolderId, vaultForFolder(parentFolderId) ?? undefined)).id,
     deleteItems: async (ids) => { for (const id of ids) await deleteConnection(id); },
     deleteFolder: async (id) => { await deleteFolder(id); },
     setSelection,
@@ -419,6 +428,21 @@ export default function HostsPage() {
   });
 
   /**
+   * Re-publishes a connection's credentials for the vault it now lives in. Without
+   * this a host pasted into a team vault reaches every teammate with its password
+   * still only in the local keychain, so it cannot authenticate and nothing reports
+   * why. `saveTeamVaultSecretForVault` no-ops for a personal vault, which is the
+   * correct behaviour on the way back out: the local copy is already the live one.
+   */
+  const publishConnectionSecrets = async (connectionId: string, vaultId: string) => {
+    for (const prefix of ["password", "key"]) {
+      const localKey = `${prefix}:${connectionId}`;
+      const value = await getSecret(localKey).catch(() => null);
+      if (value) await saveTeamVaultSecretForVault(vaultId, localKey, value).catch(() => {});
+    }
+  };
+
+  /**
    * Duplicates `conn` into `folderId`, optionally into another vault. `keepName`
    * is for members of a subtree being cloned wholesale — only the root of such a
    * clone carries the "(copy)" suffix. Throws; callers surface the error.
@@ -461,6 +485,7 @@ export default function HostsPage() {
         const key = await getSecret(`key:${conn.id}`).catch(() => null);
         if (key) await storeSecret(`key:${newConn.id}`, key);
       }
+      await publishConnectionSecrets(newConn.id, opts.vaultId ?? conn.vault_id ?? "personal");
     }
     return newConn;
   };
@@ -1003,6 +1028,7 @@ export default function HostsPage() {
     }
     for (const conn of getConnectionsInFolderTree(folder.id)) {
       await updateConnection(conn.id, { ...connectionToFormData(conn), vault_id: vaultId });
+      await publishConnectionSecrets(conn.id, vaultId);
     }
   };
 
