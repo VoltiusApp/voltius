@@ -560,3 +560,36 @@ test("a mixed cut-paste reloads both touched stores after the move, in both dire
     h.moveObjectsToFolder.mock.invocationCallOrder[1]!,
   );
 });
+
+// As on Hosts: the old refusal depended on the user lacking EDIT_KEYS, so anyone
+// who had it pasted through and left the identity pointing at a key elsewhere.
+test("an identity cut is refused for a dangling key even with every permission granted", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.identities = [{ id: "i1", name: "root", username: "root", key_id: "k1", tags: [], vault_id: "personal" }];
+  h.keys = [{ id: "k1", name: "id_ed25519", key_type: "ed25519", tags: [], vault_id: "personal" }];
+  h.selected = ["i1"];
+  h.activeFolderId = "tf";
+  render(<KeychainPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.updateIdentity).not.toHaveBeenCalled();
+});
+
+// Cutting the key alongside its identity resolves the reference in the
+// destination, so it must not be treated as dangling.
+test("an identity cut is allowed when its key travels in the same paste", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.identities = [{ id: "i1", name: "root", username: "root", key_id: "k1", tags: [], vault_id: "personal" }];
+  h.keys = [{ id: "k1", name: "id_ed25519", key_type: "ed25519", tags: [], vault_id: "personal" }];
+  h.selected = ["i1", "k1"];
+  h.activeFolderId = "tf";
+  render(<KeychainPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.updateIdentity).toHaveBeenCalledWith("i1", expect.objectContaining({ vault_id: "team-1" }));
+  expect(h.updateKey).toHaveBeenCalledWith("k1", expect.objectContaining({ vault_id: "team-1" }));
+});

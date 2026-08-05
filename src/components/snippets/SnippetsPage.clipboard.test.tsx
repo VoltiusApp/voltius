@@ -436,3 +436,53 @@ test("a cut-paste leaves the refresh to updateSnippet instead of reloading again
   expect(h.updateSnippet).toHaveBeenCalledWith("s1", expect.objectContaining({ folder_id: "f1" }));
   expect(h.loadSnippets.mock.calls.length).toBe(afterPaste);
 });
+
+// Caller and callee are both snippets, so both sides are EDIT_SNIPPETS — the
+// refusal cannot be a permission. `can` stays fully permissive throughout.
+test("a cut is refused when a snippet-call step would point outside the destination vault", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.snippets = [
+    snippet("caller", { steps: [{ kind: "snippet", snippet_id: "callee" }] }),
+    snippet("callee", { vault_id: "personal" }),
+  ];
+  h.selected = ["caller"];
+  h.activeFolderId = "tf";
+  render(<SnippetsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.updateSnippet).not.toHaveBeenCalled();
+});
+
+// Cutting both together resolves the reference inside the destination, so the
+// callee must not count as dangling.
+test("a snippet-call is not dangling when the callee travels in the same paste", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.snippets = [
+    snippet("caller", { steps: [{ kind: "snippet", snippet_id: "callee" }] }),
+    snippet("callee", { vault_id: "personal" }),
+  ];
+  h.selected = ["caller", "callee"];
+  h.activeFolderId = "tf";
+  render(<SnippetsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.updateSnippet).toHaveBeenCalledWith("caller", expect.objectContaining({ vault_id: "team-1" }));
+  expect(h.updateSnippet).toHaveBeenCalledWith("callee", expect.objectContaining({ vault_id: "team-1" }));
+});
+
+test("a script-only snippet references nothing and pastes across vaults", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.snippets = [snippet("s1", { steps: [{ kind: "script", content: "echo hi" }] })];
+  h.selected = ["s1"];
+  h.activeFolderId = "tf";
+  render(<SnippetsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.updateSnippet).toHaveBeenCalledWith("s1", expect.objectContaining({ vault_id: "team-1" }));
+});

@@ -178,7 +178,15 @@
       "pasteBlocked": "Rien n'a été collé : il vous manque {{permissions}} dans l'un des coffres concernés.",
       "permissionsMissing": "il vous manque {{permissions}} dans l'un des coffres concernés",
       "pasteSkipped_one": "{{count}} élément n'existe plus et a été ignoré.",
-      "pasteSkipped_other": "{{count}} éléments n'existent plus et ont été ignorés."
+      "pasteSkipped_other": "{{count}} éléments n'existent plus et ont été ignorés.",
+      "pasteWouldDangle": "Rien n’a été collé : les éléments référencent {{kinds}} qui resteraient dans un autre coffre. Déplacez-les d’abord, ou utilisez « Déplacer vers le coffre », qui les emmène avec.",
+      "kind": {
+        "connection": "des hôtes",
+        "identity": "des identités",
+        "key": "des clés SSH",
+        "snippet": "des snippets",
+        "port_forward": "des règles de redirection de port"
+      }
     }
   }
 }

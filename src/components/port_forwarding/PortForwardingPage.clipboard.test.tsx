@@ -16,6 +16,7 @@ function rule(id: string, over: Partial<PortForwardingRule> = {}): PortForwardin
 
 const h = vi.hoisted(() => ({
   rules: [] as unknown[],
+  connections: [] as unknown[],
   folders: [] as unknown[],
   visibleFolders: [] as unknown[],
   folderCardProps: [] as Record<string, unknown>[],
@@ -128,6 +129,7 @@ vi.mock("@/hooks/useRuleTunnels", () => ({
 }));
 vi.mock("@/hooks/useAccessibleVaultIds", () => ({ useAccessibleVaultIds: () => [] }));
 vi.mock("@/hooks/useWritableVaultIds", () => ({ useDefaultVaultId: () => "personal" }));
+vi.mock("@/hooks/useAllConnections", () => ({ useAllConnections: () => h.connections }));
 vi.mock("@/hooks/usePermission", () => ({ usePermissions: () => h.can }));
 vi.mock("@/hooks/useAllPortForwardingRules", () => ({ useAllPortForwardingRules: () => h.rules }));
 vi.mock("@/hooks/useAllFolders", () => ({ useAllFolders: () => h.folders }));
@@ -194,6 +196,7 @@ beforeEach(() => {
   h.createRule.mockImplementation(async (d: Partial<PortForwardingRule>) => rule("new-rule", d));
   h.saveFolder.mockImplementation(async (d: Partial<Folder>) => folder("new-folder", d));
   h.rules = [];
+  h.connections = [];
   h.folders = [];
   h.visibleFolders = [];
   h.folderCardProps = [];
@@ -423,4 +426,52 @@ test("a cut-paste leaves the refresh to moveRuleFolder instead of reloading agai
 
   expect(h.moveRuleFolder).toHaveBeenCalledWith("r1", "f1");
   expect(h.loadRules.mock.calls.length).toBe(afterPaste);
+});
+
+// A rule and the hosts it tunnels through share EDIT_CONNECTIONS, so this refusal
+// cannot come from a permission the way it does on Hosts and Keychain — `can` is
+// left fully permissive to prove the dangling reference is what stops it.
+test("a cut is refused when a rule's connection would stay in another vault", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.rules = [rule("r1", { connection_ids: ["c1"] })];
+  h.connections = [{ id: "c1", vault_id: "personal" }];
+  h.selected = ["r1"];
+  h.activeFolderId = "tf";
+  render(<PortForwardingPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.updateRule).not.toHaveBeenCalled();
+  expect(h.moveRuleFolder).not.toHaveBeenCalled();
+});
+
+test("a cut is allowed when the rule's connection already lives in the destination vault", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.rules = [rule("r1", { connection_ids: ["c1"] })];
+  h.connections = [{ id: "c1", vault_id: "team-1" }];
+  h.selected = ["r1"];
+  h.activeFolderId = "tf";
+  render(<PortForwardingPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.updateRule).toHaveBeenCalledWith("r1", expect.objectContaining({ vault_id: "team-1" }));
+});
+
+// The whole subtree is checked, not just directly-selected rules.
+test("a folder cut is refused when a nested rule's connection would stay behind", async () => {
+  h.folders = [folder("f1"), folder("tf", { vault_id: "team-1" })];
+  h.rules = [rule("r1", { folder_id: "f1", connection_ids: ["c1"] })];
+  h.connections = [{ id: "c1", vault_id: "personal" }];
+  h.selected = ["f1"];
+  h.activeFolderId = "tf";
+  render(<PortForwardingPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.updateFolder).not.toHaveBeenCalled();
+  expect(h.moveFolder).not.toHaveBeenCalled();
 });

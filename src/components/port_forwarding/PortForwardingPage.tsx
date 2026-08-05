@@ -4,6 +4,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { Icon } from "@iconify/react";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useAllPortForwardingRules } from "@/hooks/useAllPortForwardingRules";
+import { useAllConnections } from "@/hooks/useAllConnections";
 import { useUIStore } from "@/stores/uiStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { usePermissions, type Permission } from "@/hooks/usePermission";
@@ -76,6 +77,7 @@ export function PortForwardingPage() {
   const { loadRules, createRule, updateRule, deleteRule, duplicateRule, moveRuleFolder } =
     usePortForwardingStore();
   const rules = useAllPortForwardingRules();
+  const connections = useAllConnections();
   const { runningRuleCount, statusFor, startRule, stopRule } = useRuleTunnels();
   const { loadFolders, saveFolder, updateFolder, deleteFolder, moveFolder } = useFolderStore();
   const folders = useAllFolders();
@@ -488,6 +490,21 @@ export function PortForwardingPage() {
       ?? null,
     folderContentKinds: (folderId): VaultClipboardKind[] =>
       getRulesInFolderTree(folderId).length > 0 ? ["port_forward"] : [],
+    // A migrated rule keeps pointing at the hosts it tunnels through, which this
+    // path does not move. Unlike Hosts and Keychain this cannot be expressed as a
+    // missing permission — a rule and a connection share EDIT_CONNECTIONS, so
+    // anyone allowed to paste the rule is already allowed the connection.
+    danglingKinds: (items, folderIds, destination): VaultClipboardKind[] => {
+      const moved = [
+        ...items.map((i) => rules.find((r) => r.id === i.id)).filter((r) => !!r),
+        ...folderIds.flatMap((id) => getRulesInFolderTree(id)),
+      ];
+      const linked = moved
+        .flatMap((r) => r.connection_ids)
+        .map((id) => connections.find((c) => c.id === id))
+        .filter((c) => !!c);
+      return linked.some((c) => (c.vault_id ?? "personal") !== destination) ? ["connection"] : [];
+    },
     canMoveFolder: (id, parentFolderId) =>
       parentFolderId !== id
       && !(parentFolderId !== null && getAllSubFolders(id).some((f) => f.id === parentFolderId)),

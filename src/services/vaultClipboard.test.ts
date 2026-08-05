@@ -387,3 +387,50 @@ test("a root paste of an object already in a shown vault stays silent", async ()
   const r = await pasteFromClipboard(cut, a);
   expect(r.crossVaultAtRoot).toBeFalsy();
 });
+
+// The source vault only loses what the folder actually contains. Merely-referenced
+// kinds belong to `danglingKinds`, so demanding them of the source would refuse a
+// move over objects it never touches.
+test("the source check covers folder contents, not kinds the folder only references", async () => {
+  const cutFolder: VaultClipboard = {
+    tab: "hosts", mode: "cut", items: [], folderIds: ["f1"], sourceVaultIds: ["team-a"],
+  };
+  const a = adapter({
+    vaultIdOf: () => "team-a",
+    targetVaultId: () => "team-b",
+    folderContentKinds: () => ["connection"],
+    danglingKinds: () => [],
+    // Full rights over what actually moves; no EDIT_IDENTITIES anywhere.
+    can: (permission, vaultId) =>
+      permission !== "EDIT_IDENTITIES" || (vaultId !== "team-a" && vaultId !== "team-b"),
+  });
+
+  const r = await pasteFromClipboard(cutFolder, a);
+
+  expect(r).toMatchObject({ moved: 1 });
+  expect(a.moveFolder).toHaveBeenCalledWith("f1", "dest", "team-b");
+});
+
+test("a dangling reference refuses the paste and is reported apart from permissions", async () => {
+  const a = adapter({
+    targetVaultId: () => "team-b",
+    danglingKinds: () => ["identity"],
+  });
+
+  const r = await pasteFromClipboard(cut, a);
+
+  expect(r).toMatchObject({ moved: 0, created: 0, dangling: ["identity"] });
+  expect(r.blocked).toBeUndefined();
+  expect(a.moveItems).not.toHaveBeenCalled();
+});
+
+// At a root every object keeps its own vault, so no reference can be orphaned by
+// the paste and the check must not run.
+test("a root paste skips the dangling check", async () => {
+  const dangling = vi.fn(() => ["identity" as const]);
+  const a = adapter({ targetFolderId: () => null, targetVaultId: () => null, danglingKinds: dangling });
+
+  await pasteFromClipboard(cut, a);
+
+  expect(dangling).not.toHaveBeenCalled();
+});

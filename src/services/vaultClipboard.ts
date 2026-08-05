@@ -27,8 +27,21 @@ export interface ClipboardAdapter {
   /**
    * Distinct kinds of object nested anywhere under a folder. A folder paste writes
    * its contents too, so those kinds need authorizing alongside EDIT_FOLDERS.
+   * Contents only — a kind the subtree merely points at belongs in `danglingKinds`,
+   * which is not a permission question and must not be demanded of the source vault.
    */
   folderContentKinds: (folderId: string) => VaultClipboardKind[];
+  /**
+   * Kinds the pasted set REFERENCES but does not move, which would be left outside
+   * `destinationVaultId`. A separate refusal from a missing permission: nothing here
+   * is an authorization failure, and on Port Forwarding and Snippets the referenced
+   * kind shares a permission with the moved one, so it cannot be expressed as one.
+   */
+  danglingKinds?: (
+    items: { id: string; kind: VaultClipboardKind }[],
+    folderIds: string[],
+    destinationVaultId: string,
+  ) => VaultClipboardKind[];
   /**
    * False when the move is structurally impossible — reparenting a folder under
    * itself or under one of its own descendants. Consulted before moving so a
@@ -59,6 +72,8 @@ export interface PasteResult {
   blocked?: string[];
   /** A root paste left an object behind because it would have had to change vault. */
   crossVaultAtRoot?: boolean;
+  /** Kinds the paste would have left referenced from outside the destination vault. */
+  dangling?: VaultClipboardKind[];
 }
 
 const EMPTY: PasteResult = { moved: 0, created: 0, skipped: 0 };
@@ -96,6 +111,11 @@ const folderPermissions = (adapter: ClipboardAdapter, id: string): string[] => [
  * this only stops a move that is already known to fail. Undo and redo are each a
  * cross-vault move of their own, with their own source and destination, so they
  * go through the same check before mutating anything.
+ *
+ * Both sides are checked against the same permission set, which is only sound
+ * because `permissions` covers exactly what this paste writes and deletes —
+ * merely-referenced kinds are `danglingKinds`, not permissions, and demanding
+ * them of the source vault would refuse a move over objects it never touches.
  */
 function blockedForMoves(adapter: ClipboardAdapter, moves: VaultMove[]): string[] {
   const blocked = new Set<string>();
@@ -139,6 +159,17 @@ function refuse(blocked: string[]): void {
   const permissions = blocked.map((p) => i18n.t(`members.permission.${p}`)).join(", ");
   throw new Error(i18n.t("common.clipboard.permissionsMissing", { permissions }));
 }
+
+/**
+ * One suppression window per store call rather than one around the whole paste.
+ * The window is global — any `push` from anywhere is dropped while it is open —
+ * so holding it open across an entire multi-object paste could swallow an
+ * unrelated action's undo entry. Per-call windows shrink that to a single store
+ * call. It does not close the hole: the only complete fix is an explicit
+ * "don't record" argument threaded through all 35 push sites in the stores.
+ */
+const suppressed = <T>(fn: () => Promise<T>): Promise<T> =>
+  useHistoryStore.getState().withoutHistory(fn);
 
 function pasteMoves(
   clipboard: NonNullable<VaultClipboard>,
@@ -206,6 +237,14 @@ export async function pasteFromClipboard(
   );
   if (blocked.length > 0) return { ...EMPTY, skipped, blocked };
 
+  // Checked after permissions so an unauthorized paste reports the permission,
+  // which is the more actionable of the two.
+  const dangling =
+    targetVault === null
+      ? []
+      : adapter.danglingKinds?.(liveItems, liveFolders, targetVault) ?? [];
+  if (dangling.length > 0) return { ...EMPTY, skipped, dangling };
+
   if (clipboard.mode === "cut") {
     const crossVaultAtRoot = strandsAtRoot(adapter, target, [
       ...liveItems.map((i) => i.id),
@@ -243,10 +282,12 @@ export async function pasteFromClipboard(
     // Suppressed: each store method records its own entry, and undoing those
     // stale entries after the composite undo has already run throws on team
     // vaults, which wedges the history stack.
-    await useHistoryStore.getState().withoutHistory(async () => {
-      if (itemIds.length > 0) await adapter.moveItems(itemIds, target, targetVault);
-      for (const id of folderIds) await adapter.moveFolder(id, target, targetVault);
-    });
+    if (itemIds.length > 0) {
+      await suppressed(() => adapter.moveItems(itemIds, target, targetVault));
+    }
+    for (const id of folderIds) {
+      await suppressed(() => adapter.moveFolder(id, target, targetVault));
+    }
     const moved = itemIds.length + folderIds.length;
     if (moved === 0) return { moved: 0, created: 0, skipped, crossVaultAtRoot };
     adapter.setSelection([...itemIds, ...folderIds]);
@@ -274,18 +315,21 @@ export async function pasteFromClipboard(
     return { moved, created: 0, skipped, crossVaultAtRoot };
   }
 
+  // See the cut branch: the per-object entries the stores push are suppressed so
+  // this paste owns exactly one history entry, one store call at a time.
   const duplicateAll = async () => {
     const items =
-      liveItems.length > 0 ? await adapter.duplicateItems(liveItems.map((i) => i.id), target) : [];
+      liveItems.length > 0
+        ? await suppressed(() => adapter.duplicateItems(liveItems.map((i) => i.id), target))
+        : [];
     const folders: string[] = [];
-    for (const id of liveFolders) folders.push(await adapter.duplicateFolder(id, target));
+    for (const id of liveFolders) {
+      folders.push(await suppressed(() => adapter.duplicateFolder(id, target)));
+    }
     return { items, folders };
   };
 
-  // See the cut branch: the per-object entries the stores push are suppressed so
-  // this paste owns exactly one history entry.
-  let { items: createdItemIds, folders: createdFolderIds } =
-    await useHistoryStore.getState().withoutHistory(duplicateAll);
+  let { items: createdItemIds, folders: createdFolderIds } = await duplicateAll();
 
   const created = createdItemIds.length + createdFolderIds.length;
   if (created === 0) return { moved: 0, created: 0, skipped };

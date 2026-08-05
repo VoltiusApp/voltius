@@ -178,7 +178,15 @@
       "pasteBlocked": "未粘贴任何内容：你在相关保险库中缺少“{{permissions}}”权限。",
       "permissionsMissing": "你在相关保险库中缺少“{{permissions}}”权限",
       "pasteSkipped_one": "{{count}} 个项目已不存在，已跳过。",
-      "pasteSkipped_other": "{{count}} 个项目已不存在，已跳过。"
+      "pasteSkipped_other": "{{count}} 个项目已不存在，已跳过。",
+      "pasteWouldDangle": "未粘贴任何内容：这些项目引用的{{kinds}}将留在另一个保险库中。请先移动它们，或使用“移动到保险库”，该操作会一并带上。",
+      "kind": {
+        "connection": "主机",
+        "identity": "身份",
+        "key": "SSH 密钥",
+        "snippet": "代码片段",
+        "port_forward": "端口转发规则"
+      }
     }
   }
 }

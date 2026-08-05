@@ -564,6 +564,25 @@ export function SnippetsPage() {
       ?? null,
     folderContentKinds: (folderId): VaultClipboardKind[] =>
       getSnippetsInFolderTree(folderId).length > 0 ? ["snippet"] : [],
+    // A snippet-call step points at another snippet by id. Moving the caller without
+    // the callee leaves the call unresolvable from the destination vault. As on Port
+    // Forwarding this cannot be a permission — both sides are EDIT_SNIPPETS. A callee
+    // travelling in the same paste is fine, so it is excluded first.
+    danglingKinds: (items, folderIds, destination): VaultClipboardKind[] => {
+      const moved = [
+        ...items.map((i) => snippets.find((s) => s.id === i.id)).filter((s) => !!s),
+        ...folderIds.flatMap((id) => getSnippetsInFolderTree(id)),
+      ];
+      const movedIds = new Set(moved.map((s) => s.id));
+      const callees = moved
+        .flatMap((s) => s.steps)
+        .filter((step) => step.kind === "snippet")
+        .map((step) => step.snippet_id)
+        .filter((id) => !movedIds.has(id))
+        .map((id) => snippets.find((s) => s.id === id))
+        .filter((s) => !!s);
+      return callees.some((s) => (s.vault_id ?? "personal") !== destination) ? ["snippet"] : [];
+    },
     canMoveFolder: (id, parentFolderId) =>
       parentFolderId !== id
       && !(parentFolderId !== null && getAllSubFolders(id).some((f) => f.id === parentFolderId)),

@@ -466,22 +466,30 @@ export default function KeychainPage() {
       ?? scopedFolders.find((f) => f.id === id)?.parent_folder_id
       ?? null,
     folderContentKinds: (folderId) => {
-      const treeKeys = keysInFolderTree(folderId);
-      const treeIdentities = identitiesInFolderTree(folderId);
       const kinds: VaultClipboardKind[] = [];
-      if (treeKeys.length > 0) kinds.push("key");
-      if (treeIdentities.length > 0) kinds.push("identity");
-      const destination = vaultForFolder(activeFolderId);
-      if (destination === null || kinds.includes("key")) return kinds;
-      // A migrated identity keeps pointing at its key, which this path does not
-      // move — only the vault move/copy menu cascades that, behind VaultCascadeModal.
-      // Reporting the key makes the pre-flight refuse the paste rather than complete
-      // it with the reference dangling outside the destination.
-      const linkedKeys = treeIdentities
-        .map((i) => i.key_id && keys.find((k) => k.id === i.key_id))
-        .filter((k) => !!k);
-      if (linkedKeys.some((k) => (k.vault_id ?? "personal") !== destination)) kinds.push("key");
+      if (keysInFolderTree(folderId).length > 0) kinds.push("key");
+      if (identitiesInFolderTree(folderId).length > 0) kinds.push("identity");
       return kinds;
+    },
+    // A migrated identity keeps pointing at its key, which this path does not move —
+    // only the vault move/copy menu cascades that, behind VaultCascadeModal. A key
+    // travelling in the same paste is not dangling, so it is excluded first.
+    danglingKinds: (items, folderIds, destination) => {
+      const movedKeyIds = new Set([
+        ...items.filter((i) => i.kind === "key").map((i) => i.id),
+        ...folderIds.flatMap((id) => keysInFolderTree(id).map((k) => k.id)),
+      ]);
+      const movedIdentities = [
+        ...items
+          .filter((i) => i.kind === "identity")
+          .map((i) => identities.find((x) => x.id === i.id))
+          .filter((i) => !!i),
+        ...folderIds.flatMap((id) => identitiesInFolderTree(id)),
+      ];
+      const linkedKeys = movedIdentities
+        .map((i) => i.key_id && !movedKeyIds.has(i.key_id) && keys.find((k) => k.id === i.key_id))
+        .filter((k) => !!k);
+      return linkedKeys.some((k) => (k.vault_id ?? "personal") !== destination) ? ["key"] : [];
     },
     canMoveFolder: (id, parentFolderId) =>
       parentFolderId !== id

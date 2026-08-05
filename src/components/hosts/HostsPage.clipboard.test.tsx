@@ -630,3 +630,51 @@ test("a cut-paste is undoable in one step, back to the origin folder", async () 
   expect(useHistoryStore.getState().past).toHaveLength(0);
   expect(useHistoryStore.getState().canUndo).toBe(false);
 });
+
+// The old pre-flight leaned on the user lacking EDIT_IDENTITIES to refuse, so a
+// user who HAD it pasted straight through and left the reference dangling.
+// `can` is fully permissive here: the reference itself has to stop it.
+test("a folder cut is refused for a dangling identity even with every permission granted", async () => {
+  h.folders = [folder("f1"), folder("tf", { vault_id: "team-1" })];
+  h.connections = [conn("c1", { folder_id: "f1", identity_id: "i1" })];
+  h.identities = [{ id: "i1", name: "root", username: "root", vault_id: "personal" }];
+  h.selected = ["f1"];
+  h.activeFolderId = "tf";
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.moveFolder).not.toHaveBeenCalled();
+  expect(h.updateFolder).not.toHaveBeenCalled();
+  expect(h.updateConnection).not.toHaveBeenCalled();
+});
+
+// A single host, not a folder — the reference check covers directly-cut items too.
+test("a single-host cut is refused for a dangling identity", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.connections = [conn("c1", { identity_id: "i1" })];
+  h.identities = [{ id: "i1", name: "root", username: "root", vault_id: "personal" }];
+  h.selected = ["c1"];
+  h.activeFolderId = "tf";
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.updateConnection).not.toHaveBeenCalled();
+});
+
+test("a cut is allowed when the linked identity already lives in the destination vault", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.connections = [conn("c1", { identity_id: "i1" })];
+  h.identities = [{ id: "i1", name: "root", username: "root", vault_id: "team-1" }];
+  h.selected = ["c1"];
+  h.activeFolderId = "tf";
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.updateConnection).toHaveBeenCalledWith("c1", expect.objectContaining({ vault_id: "team-1" }));
+});

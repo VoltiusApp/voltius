@@ -178,7 +178,15 @@
       "pasteBlocked": "Nothing was pasted: you are missing {{permissions}} in one of the vaults involved.",
       "permissionsMissing": "you are missing {{permissions}} in one of the vaults involved",
       "pasteSkipped_one": "{{count}} item no longer exists and was skipped.",
-      "pasteSkipped_other": "{{count}} items no longer exist and were skipped."
+      "pasteSkipped_other": "{{count}} items no longer exist and were skipped.",
+      "pasteWouldDangle": "Nothing was pasted: the items reference {{kinds}} that would stay in another vault. Move those first, or use “Move to vault”, which brings them along.",
+      "kind": {
+        "connection": "hosts",
+        "identity": "identities",
+        "key": "SSH keys",
+        "snippet": "snippets",
+        "port_forward": "port forwarding rules"
+      }
     }
   }
 }

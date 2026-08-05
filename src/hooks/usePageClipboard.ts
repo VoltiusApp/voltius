@@ -35,6 +35,11 @@ function reportPasteResult(result: PasteResult) {
     toast(i18n.t("common.clipboard.pasteBlocked", { permissions }));
     return;
   }
+  if (result.dangling && result.dangling.length > 0) {
+    const kinds = result.dangling.map((k) => i18n.t(`common.clipboard.kind.${k}`)).join(", ");
+    toast(i18n.t("common.clipboard.pasteWouldDangle", { kinds }));
+    return;
+  }
   if (result.crossVaultAtRoot) {
     toast(i18n.t("common.clipboard.pasteRootCrossVault"));
   }
@@ -77,6 +82,8 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
       rootVaultIds: () => ref.current.rootVaultIds?.() ?? [],
       folderIdOf: (id) => ref.current.folderIdOf(id),
       folderContentKinds: (id) => ref.current.folderContentKinds(id),
+      danglingKinds: (items, folderIds, destination) =>
+        ref.current.danglingKinds?.(items, folderIds, destination) ?? [],
       canMoveFolder: (id, parentFolderId) => ref.current.canMoveFolder(id, parentFolderId),
       moveItems: (ids, folderId, vaultId) => ref.current.moveItems(ids, folderId, vaultId),
       moveFolder: (id, parentFolderId, vaultId) => ref.current.moveFolder(id, parentFolderId, vaultId),
@@ -140,7 +147,12 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
           }
           const result = await pasteFromClipboard(clipboard, live);
           reportPasteResult(result);
-          if (clipboard?.mode === "cut" && result.moved > 0) {
+          // Only when nothing was left behind. A root paste that stranded part of
+          // the selection keeps the clipboard so the rest can be pasted somewhere
+          // that accepts it; clearing it would strand them for good. Vanished
+          // objects (`skipped`) are not a reason to keep it — retrying cannot
+          // bring them back.
+          if (clipboard?.mode === "cut" && result.moved > 0 && !result.crossVaultAtRoot) {
             useVaultClipboardStore.getState().clear();
           }
         } catch (e) {

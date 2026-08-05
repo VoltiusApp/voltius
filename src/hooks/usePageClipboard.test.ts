@@ -314,3 +314,51 @@ test("a root paste that cannot change vault raises a toast", async () => {
   expect(useNotificationStore.getState().toasts[0].message).toContain("top level");
   expect(a.moveItems).not.toHaveBeenCalled();
 });
+
+// Clearing on a partial move stranded whatever was left behind: the objects the
+// root could not take were gone from the clipboard and could not be pasted
+// anywhere else without re-selecting them.
+test("a paste that strands part of the selection keeps the clipboard", async () => {
+  const a = baseAdapter({
+    getSelection: () => ["c1", "c2"],
+    targetFolderId: () => null,
+    targetVaultId: () => null,
+    folderIdOf: (id: string) => (id === "c1" ? "old" : null),
+    vaultIdOf: (id: string) => (id === "c1" ? "personal" : "team-1"),
+    rootVaultIds: () => ["personal"],
+  });
+  renderHook(() => usePageClipboard(a));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-cut"));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
+
+  await vi.waitFor(() => expect(a.moveItems).toHaveBeenCalled());
+  expect(useVaultClipboardStore.getState().clipboard).not.toBeNull();
+});
+
+test("a paste that moves everything clears the clipboard", async () => {
+  const a = baseAdapter();
+  renderHook(() => usePageClipboard(a));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-cut"));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
+
+  await vi.waitFor(() => expect(useVaultClipboardStore.getState().clipboard).toBeNull());
+});
+
+// The referenced object is neither written nor deleted, so it must not be
+// reported as a missing permission — the message has to name the dangling
+// reference instead.
+test("a paste that would dangle a reference is refused and named as such", async () => {
+  const a = baseAdapter({
+    targetVaultId: () => "team-1",
+    danglingKinds: () => ["identity"],
+  });
+  renderHook(() => usePageClipboard(a));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-cut"));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
+
+  await vi.waitFor(() => expect(useNotificationStore.getState().toasts).toHaveLength(1));
+  const message = useNotificationStore.getState().toasts[0].message;
+  expect(message).toContain("stay in another vault");
+  expect(message).toContain("identities");
+  expect(a.moveItems).not.toHaveBeenCalled();
+});

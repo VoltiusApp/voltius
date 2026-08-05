@@ -345,23 +345,26 @@ export default function HostsPage() {
       connections.find((c) => c.id === id)?.folder_id
       ?? scopedFolders.find((f) => f.id === id)?.parent_folder_id
       ?? null,
-    folderContentKinds: (folderId) => {
-      const nested = getConnectionsInFolderTree(folderId);
-      if (nested.length === 0) return [];
-      const kinds: VaultClipboardKind[] = ["connection"];
-      const destination = vaultForFolder(activeFolderId);
-      if (destination === null) return kinds;
-      // A migrated connection keeps pointing at its identity and key, which this
-      // path does not move — only the vault move/copy menu cascades those, behind
-      // VaultCascadeModal. Reporting them makes the pre-flight refuse the paste
-      // rather than complete it with references dangling outside the destination.
-      const linkedIdentities = nested
+    folderContentKinds: (folderId) =>
+      getConnectionsInFolderTree(folderId).length > 0 ? ["connection"] : [],
+    // A migrated connection keeps pointing at its identity and key, which this path
+    // does not move — only the vault move/copy menu cascades those, behind
+    // VaultCascadeModal. Reporting them refuses the paste rather than completing it
+    // with references dangling outside the destination.
+    danglingKinds: (items, folderIds, destination) => {
+      const moved = [
+        ...items.map((i) => connections.find((c) => c.id === i.id)).filter((c) => !!c),
+        ...folderIds.flatMap((id) => getConnectionsInFolderTree(id)),
+      ];
+      if (moved.length === 0) return [];
+      const kinds: VaultClipboardKind[] = [];
+      const linkedIdentities = moved
         .map((c) => c.identity_id && identities.find((i) => i.id === c.identity_id))
         .filter((i) => !!i);
       if (linkedIdentities.some((i) => (i.vault_id ?? "personal") !== destination)) {
         kinds.push("identity");
       }
-      const linkedKeys = [...nested.map((c) => c.key_id), ...linkedIdentities.map((i) => i.key_id)]
+      const linkedKeys = [...moved.map((c) => c.key_id), ...linkedIdentities.map((i) => i.key_id)]
         .map((keyId) => keyId && keys.find((k) => k.id === keyId))
         .filter((k) => !!k);
       if (linkedKeys.some((k) => (k.vault_id ?? "personal") !== destination)) kinds.push("key");
