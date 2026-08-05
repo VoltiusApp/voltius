@@ -9,6 +9,8 @@
       "edit": "Edit",
       "create": "Create",
       "copy": "Copy",
+      "cut": "Cut",
+      "paste": "Paste",
       "rename": "Rename",
       "remove": "Remove",
       "add": "Add",

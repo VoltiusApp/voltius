@@ -25,6 +25,8 @@ interface FolderCardProps {
   isSelected?: boolean;
   isFocused?: boolean;
   isDragOver?: boolean;
+  /** Faded while the folder sits on the clipboard as a pending cut. */
+  dimmed?: boolean;
   onClick: () => void;
   onRename: (folder: Folder, newName: string) => void;
   onDelete: (folder: Folder) => void;
@@ -48,6 +50,7 @@ export function FolderCard({
   isSelected,
   isFocused,
   isDragOver,
+  dimmed,
   onClick,
   onRename,
   onDelete,
@@ -142,7 +145,7 @@ export function FolderCard({
         data-folder-card="true"
         data-selectable-id={folder.id}
         data-drop-folder={dataDropFolder}
-        className={`group flex items-center px-4 cursor-pointer transition-all duration-150 ${isList ? "gap-2.5 py-2.5 rounded-xl" : "gap-4 py-4 rounded-2xl"}`}
+        className={`group flex items-center px-4 cursor-pointer transition-all duration-150 ${isList ? "gap-2.5 py-2.5 rounded-xl" : "gap-4 py-4 rounded-2xl"} ${dimmed ? "opacity-50" : ""}`}
         style={{
           background: restBg,
           border: dragBorder,

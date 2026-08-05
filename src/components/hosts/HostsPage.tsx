@@ -28,9 +28,13 @@ import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { useTeamStore } from "@/stores/teamStore";
-import { usePermissions } from "@/hooks/usePermission";
+import { usePermissions, type Permission } from "@/hooks/usePermission";
 import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
+import { usePageClipboard } from "@/hooks/usePageClipboard";
+import { ClipboardPill } from "@/components/shared/ClipboardPill";
+import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
+import { getShortcutHint } from "@/stores/shortcutStore";
 import { FolderCard } from "@/components/folders/FolderCard";
 
 const HOST_GRID_COLS = "repeat(auto-fill, minmax(18rem, 1fr))";
@@ -280,6 +284,61 @@ export default function HostsPage() {
     onDelete: (ids) => setConfirmDeleteIds(ids),
   });
 
+  // ── Cut / copy / paste ────────────────────────────────────────────────────
+
+  const clipboard = useVaultClipboardStore((s) => s.clipboard);
+  const cutIds = useMemo(
+    () =>
+      new Set(
+        clipboard?.tab === "hosts" && clipboard.mode === "cut"
+          ? [...clipboard.items.map((i) => i.id), ...clipboard.folderIds]
+          : [],
+      ),
+    [clipboard],
+  );
+
+  // Every mutation below goes through a store method so vault permission checks apply.
+  usePageClipboard({
+    navItem: "hosts",
+    getSelection: () => [...selectedIdSet],
+    getFocusedId: () => focusedId,
+    classify: (id) =>
+      scopedFolders.some((f) => f.id === id)
+        ? "folder"
+        : connections.some((c) => c.id === id)
+        ? "connection"
+        : null,
+    exists: (id) => connections.some((c) => c.id === id) || scopedFolders.some((f) => f.id === id),
+    vaultIdOf: (id) =>
+      connections.find((c) => c.id === id)?.vault_id
+      ?? scopedFolders.find((f) => f.id === id)?.vault_id
+      ?? "personal",
+    targetFolderId: () => activeFolderId,
+    targetVaultId: () =>
+      scopedFolders.find((f) => f.id === activeFolderId)?.vault_id ?? defaultVaultId,
+    folderIdOf: (id) =>
+      connections.find((c) => c.id === id)?.folder_id
+      ?? scopedFolders.find((f) => f.id === id)?.parent_folder_id
+      ?? null,
+    can: (permission, vaultId) => can(permission as Permission, vaultId),
+    moveItems: (ids, folderId) => moveObjectsToFolder(ids, "connection", folderId),
+    moveFolder: (id, parentFolderId) => moveFolder(id, parentFolderId),
+    duplicateItems: async (ids, folderId) => {
+      const created: string[] = [];
+      for (const id of ids) {
+        const conn = connections.find((c) => c.id === id);
+        if (!conn) continue;
+        const dup = await handleDuplicateInto(conn, folderId);
+        if (dup) created.push(dup.id);
+      }
+      return created;
+    },
+    duplicateFolder: async (id, parentFolderId) => (await handleCopyFolderInto(id, parentFolderId)).id,
+    deleteItems: async (ids) => { for (const id of ids) await deleteConnection(id); },
+    deleteFolder: async (id) => { await deleteFolder(id); },
+    setSelection,
+  });
+
   // ── Drag-to-folder ────────────────────────────────────────────────────────
 
   const visibleFolderIds = useMemo(() => new Set(visibleFolders.map((f) => f.id)), [visibleFolders]);
@@ -321,42 +380,48 @@ export default function HostsPage() {
     },
   });
 
+  /** Duplicates `conn` into `folderId`. Throws; callers surface the error. */
+  const handleDuplicateInto = async (conn: Connection, folderId: string | null) => {
+    const newConn = await saveConnection({
+      // default name kept in English until all creation sites are localized together (see i18n issue #14)
+      name: conn.name ? `${conn.name} (copy)` : undefined,
+      connection_type: conn.connection_type,
+      host: conn.host,
+      port: conn.port,
+      username: conn.username,
+      auth_type: conn.auth_type,
+      tags: [...conn.tags],
+      identity_id: conn.identity_id,
+      key_id: conn.key_id,
+      folder_id: folderId ?? undefined,
+      vault_id: conn.vault_id ?? "personal",
+      serial_port: conn.serial_port,
+      serial_baud: conn.serial_baud,
+      serial_data_bits: conn.serial_data_bits,
+      serial_parity: conn.serial_parity,
+      serial_stop_bits: conn.serial_stop_bits,
+      serial_flow_control: conn.serial_flow_control,
+      pre_command: conn.pre_command,
+      post_command: conn.post_command,
+      pre_snippet_id: conn.pre_snippet_id,
+      post_snippet_id: conn.post_snippet_id,
+      ask_vars_each_time: conn.ask_vars_each_time,
+      terminal_encoding: conn.terminal_encoding,
+    });
+    if (newConn && conn.connection_type !== "serial") {
+      const pwd = await getSecret(`password:${conn.id}`).catch(() => null);
+      if (pwd) await storeSecret(`password:${newConn.id}`, pwd);
+      if (!conn.key_id) {
+        const key = await getSecret(`key:${conn.id}`).catch(() => null);
+        if (key) await storeSecret(`key:${newConn.id}`, key);
+      }
+    }
+    return newConn;
+  };
+
   const handleDuplicate = async (conn: Connection) => {
     try {
-      const newConn = await saveConnection({
-        // default name kept in English until all creation sites are localized together (see i18n issue #14)
-        name: conn.name ? `${conn.name} (copy)` : undefined,
-        connection_type: conn.connection_type,
-        host: conn.host,
-        port: conn.port,
-        username: conn.username,
-        auth_type: conn.auth_type,
-        tags: [...conn.tags],
-        identity_id: conn.identity_id,
-        key_id: conn.key_id,
-        folder_id: conn.folder_id,
-        vault_id: conn.vault_id ?? "personal",
-        serial_port: conn.serial_port,
-        serial_baud: conn.serial_baud,
-        serial_data_bits: conn.serial_data_bits,
-        serial_parity: conn.serial_parity,
-        serial_stop_bits: conn.serial_stop_bits,
-        serial_flow_control: conn.serial_flow_control,
-        pre_command: conn.pre_command,
-        post_command: conn.post_command,
-        pre_snippet_id: conn.pre_snippet_id,
-        post_snippet_id: conn.post_snippet_id,
-        ask_vars_each_time: conn.ask_vars_each_time,
-        terminal_encoding: conn.terminal_encoding,
-      });
-      if (newConn && conn.connection_type !== "serial") {
-        const pwd = await getSecret(`password:${conn.id}`).catch(() => null);
-        if (pwd) await storeSecret(`password:${newConn.id}`, pwd);
-        if (!conn.key_id) {
-          const key = await getSecret(`key:${conn.id}`).catch(() => null);
-          if (key) await storeSecret(`key:${newConn.id}`, key);
-        }
-      }
+      await handleDuplicateInto(conn, conn.folder_id ?? null);
     } catch (err) {
       setError(String(err));
     }
@@ -506,6 +571,19 @@ export default function HostsPage() {
         label: t("hosts.page.bulk.exportHosts", { count: ids.length }),
         icon: "lucide:upload",
         onClick: () => useUIStore.getState().openImportExport("export", { bulk: { connections: ids } }),
+      },
+      {
+        label: t("common.action.cut"),
+        icon: "lucide:scissors",
+        shortcut: getShortcutHint("cut"),
+        onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-cut")),
+        divider: true,
+      },
+      {
+        label: t("common.action.copy"),
+        icon: "lucide:copy",
+        shortcut: getShortcutHint("copy"),
+        onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-copy")),
       },
       {
         label: t("hosts.page.bulk.deleteItems", { count: totalSelected }),
@@ -817,6 +895,34 @@ export default function HostsPage() {
     });
   };
 
+  /** Deep-clones a folder subtree under `parentFolderId`, staying in the same vault. */
+  const handleCopyFolderInto = async (folderId: string, parentFolderId: string | null) => {
+    const folder = scopedFolders.find((f) => f.id === folderId);
+    if (!folder) throw new Error(`Unknown folder ${folderId}`);
+    // default name kept in English until all creation sites are localized together (see i18n issue #14)
+    const root = await saveFolder({
+      name: `${folder.name} (copy)`,
+      object_type: folder.object_type,
+      parent_folder_id: parentFolderId ?? undefined,
+      vault_id: folder.vault_id,
+    });
+    // BFS order guarantees a parent is created before its children.
+    const folderIdMap = new Map<string, string>([[folder.id, root.id]]);
+    for (const sf of getAllSubFolders(folder.id)) {
+      const created = await saveFolder({
+        name: sf.name,
+        object_type: sf.object_type,
+        parent_folder_id: folderIdMap.get(sf.parent_folder_id ?? "") ?? root.id,
+        vault_id: sf.vault_id,
+      });
+      folderIdMap.set(sf.id, created.id);
+    }
+    for (const conn of getConnectionsInFolderTree(folder.id)) {
+      await handleDuplicateInto(conn, folderIdMap.get(conn.folder_id ?? "") ?? root.id);
+    }
+    return root;
+  };
+
   // ── Drag-to-folder ────────────────────────────────────────────────────────
 
   // Per-folder item counts
@@ -1036,6 +1142,7 @@ export default function HostsPage() {
                           isSelected={editingFolderId === folder.id || selectedIdSet.has(folder.id)}
                           isFocused={focusedId === folder.id}
                           isDragOver={dragOverFolderId === folder.id}
+                          dimmed={cutIds.has(folder.id)}
                           onClick={() => navigateInto(folder)}
                           onRename={(f, newName) => void updateFolder(f.id, { name: newName, object_type: f.object_type, parent_folder_id: f.parent_folder_id, vault_id: f.vault_id })}
                           onDelete={(f) => setConfirmDeleteFolderId(f.id)}
@@ -1103,6 +1210,7 @@ export default function HostsPage() {
                           isSelected={selectedIdSet.has(conn.id)}
                           isFocused={focusedId === conn.id}
                           isEditing={editing?.id === conn.id}
+                          dimmed={cutIds.has(conn.id)}
                           canEdit={canEdit}
                           vaults={otherVaults}
                           onSelect={(id, e) => {
@@ -1174,6 +1282,7 @@ export default function HostsPage() {
                           isSelected={selectedIdSet.has(conn.id)}
                           isFocused={focusedId === conn.id}
                           isEditing={editing?.id === conn.id}
+                          dimmed={cutIds.has(conn.id)}
                           canEdit={canEdit}
                           vaults={otherVaults}
                           onSelect={(id, e) => {
@@ -1232,6 +1341,9 @@ export default function HostsPage() {
             ...(canCreate ? [{ label: t("hosts.toolbar.newHost"), icon: "lucide:server", onClick: () => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowForm(true); setShowSerialForm(false); setEditingFolderId(null); } } as const] : []),
             ...(canCreate ? [{ label: t("hosts.toolbar.newSerialHost"), icon: "lucide:ethernet-port", onClick: () => { hostFormSessionKeyRef.current = `new-${Date.now()}`; setEditingId(null); setShowSerialForm(true); setShowForm(false); setEditingFolderId(null); } } as const] : []),
             ...(canCreateFolder ? [{ label: t("hosts.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: () => void saveFolder({ name: "New Folder" /* persisted English default */, object_type: "connection", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { setShowForm(false); setEditingId(null); setEditingFolderId(f.id); }) } as const] : []),
+            ...(useVaultClipboardStore.getState().clipboard?.tab === "hosts"
+              ? [{ label: t("common.action.paste"), icon: "lucide:clipboard", shortcut: getShortcutHint("paste"), onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-paste")) } as const]
+              : []),
             ...bgContributions,
           ]}
         />
@@ -1277,6 +1389,8 @@ export default function HostsPage() {
           onCancel={cancelCascade}
         />
       )}
+
+      <ClipboardPill navItem="hosts" />
     </>
   );
 }

@@ -9,6 +9,8 @@
       "edit": "编辑",
       "create": "创建",
       "copy": "复制",
+      "cut": "剪切",
+      "paste": "粘贴",
       "rename": "重命名",
       "remove": "移除",
       "add": "添加",

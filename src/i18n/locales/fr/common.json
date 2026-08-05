@@ -9,6 +9,8 @@
       "edit": "Modifier",
       "create": "Créer",
       "copy": "Copier",
+      "cut": "Couper",
+      "paste": "Coller",
       "rename": "Renommer",
       "remove": "Retirer",
       "add": "Ajouter",
