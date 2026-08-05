@@ -57,6 +57,22 @@ describe("ai-agent register", () => {
       "global-panel", "omni-commands", "ui-contributions",
     ]));
   });
+
+  // Each of these is reached only at runtime, through a verb the host gates. An
+  // undeclared one throws inside the tool call rather than at register(), so it
+  // surfaces as a failed agent action a live run has to reach: run_command shipped
+  // broken on "terminal:write" for exactly that reason.
+  it.each([
+    ["terminal:write", "api.sessions.sendCommand, via captureCommand in run_command"],
+    ["terminal:read", "api.terminal.readSnapshot, via read_terminal and the touchpoint"],
+    ["sessions:write", "api.sessions.open/close, via open_session and close_session"],
+    ["connections:read", "api.connections.list, via list_connections"],
+    ["audit", "api.audit.record, via auditAgentAction"],
+    ["ui", "api.i18n, which the runtime gates behind ui"],
+    ["http", "api.http.stream, via the provider fetch adapter"],
+  ])("declares %s (needed by %s)", (perm) => {
+    expect(manifest.permissions).toContain(perm);
+  });
   it("registers drawer + omni + titlebar, and teardown unregisters all", () => {
     const { api, calls } = fakeApi();
     const cleanup = register(api);
