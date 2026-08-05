@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { Icon } from "@iconify/react";
-import { ConfirmModal } from "@/components/shared/ConfirmModal";
+import { ConfirmModal } from "@voltius/ui";
 import { useAgentStore } from "../state/agentStore";
 import type { AllowlistEntry } from "../state/allowlist";
 import { scopeLabelText } from "../state/connectionLabels";

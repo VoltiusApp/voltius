@@ -4,7 +4,10 @@ import { Transcript } from "./Transcript";
 import { useAgentStore } from "../state/agentStore";
 
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
-vi.mock("@/components/shared/ConnectionAvatar", () => ({ ConnectionAvatar: () => null }));
+vi.mock("@voltius/ui", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  ConnectionAvatar: () => null,
+}));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
   initReactI18next: { type: "3rdParty", init: () => {} },

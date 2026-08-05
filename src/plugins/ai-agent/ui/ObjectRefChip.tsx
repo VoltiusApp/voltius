@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
+import { ConnectionAvatar } from "@voltius/ui";
 import type { ObjectRef } from "../state/objectRefs";
 
 /** Inline pill for an object reference (prose, plan steps, tool detail). */

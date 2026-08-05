@@ -3,7 +3,10 @@ vi.mock("@/hooks/useTerminal", () => ({
   readTerminalSnapshot: vi.fn(() => ""),
   readTerminalSelection: vi.fn(() => ""),
 }));
-vi.mock("@/components/shared/ConnectionAvatar", () => ({ ConnectionAvatar: () => null }));
+vi.mock("@voltius/ui", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  ConnectionAvatar: () => null,
+}));
 import { manifest, register } from "./index";
 import { useAgentStore } from "./state/agentStore";
 import { fakePanelHandle } from "./testing/fakePanelHandle";

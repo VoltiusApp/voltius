@@ -4,7 +4,10 @@ import { ObjectRefCard } from "./ObjectRefCard";
 import type { ObjectRef } from "../state/objectRefs";
 
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
-vi.mock("@/components/shared/ConnectionAvatar", () => ({ ConnectionAvatar: () => null }));
+vi.mock("@voltius/ui", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  ConnectionAvatar: () => null,
+}));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 

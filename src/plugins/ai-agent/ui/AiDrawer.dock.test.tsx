@@ -13,7 +13,10 @@ import { fakePanelHandle } from "../testing/fakePanelHandle";
 vi.mock("@iconify/react", () => ({
   Icon: ({ icon }: { icon: string }) => <span data-icon={icon} />,
 }));
-vi.mock("@/components/shared/ConnectionAvatar", () => ({ ConnectionAvatar: () => null }));
+vi.mock("@voltius/ui", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  ConnectionAvatar: () => null,
+}));
 
 function mockDeps(pinned: boolean) {
   vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({

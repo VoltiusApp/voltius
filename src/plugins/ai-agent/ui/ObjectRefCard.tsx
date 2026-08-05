@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
+import { ConnectionAvatar } from "@voltius/ui";
 import type { ObjectRef } from "../state/objectRefs";
 
 const PROTOCOL_LABEL: Record<string, string> = { ssh: "SSH", serial: "SERIAL", ftp: "FTP" };

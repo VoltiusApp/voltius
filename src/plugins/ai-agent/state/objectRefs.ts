@@ -1,5 +1,12 @@
 import type { PluginConnection } from "@/plugins/api";
-import { connectionDisplayName } from "@/utils/connectionDisplayName";
+
+/** Mirrors the host's own connectionDisplayName, which is not plugin surface. */
+function connectionDisplayName(c: PluginConnection): string {
+  if (c.connection_type === "serial") {
+    return c.name?.trim() || c.serial_port || "Serial Device";
+  }
+  return c.name?.trim() || `${c.username}@${c.host}:${c.port}`;
+}
 
 /** The only seam that changes to add object types later (keys/folders/…). */
 export type ObjectRefKind = "connection";

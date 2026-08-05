@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
-import { ConfirmModal } from "@/components/shared/ConfirmModal";
+import { ConfirmModal } from "@voltius/ui";
 import { getAgentDeps, useAgentStore } from "../state/agentStore";
 import { ProviderLogo } from "../ui/ProviderLogo";
 import { ProfileEditor } from "./ProfileEditor";
