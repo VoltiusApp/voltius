@@ -154,6 +154,15 @@
       "legacyTermiusUnsupported": "不再支持旧版 Termius 导出格式；请使用自动提取。",
       "termiusExtractionFormat": "Termius 提取必须返回 { version: 2, records: [...] }",
       "failedToFetchSource": "获取源失败：HTTP {{status}}"
+    },
+    "clipboard": {
+      "cut_one": "已剪切 {{count}} 个项目",
+      "cut_other": "已剪切 {{count}} 个项目",
+      "copied_one": "已复制 {{count}} 个项目",
+      "copied_other": "已复制 {{count}} 个项目",
+      "toMove": "{{shortcut}} 移动",
+      "toPaste": "{{shortcut}} 粘贴",
+      "clear": "清空剪贴板"
     }
   }
 }

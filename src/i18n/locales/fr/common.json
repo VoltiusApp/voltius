@@ -154,6 +154,15 @@
       "legacyTermiusUnsupported": "L'ancien format d'export Termius n'est plus pris en charge ; utilisez l'extraction automatique.",
       "termiusExtractionFormat": "L'extraction Termius doit renvoyer { version: 2, records: [...] }",
       "failedToFetchSource": "Échec de la récupération de la source : HTTP {{status}}"
+    },
+    "clipboard": {
+      "cut_one": "{{count}} élément coupé",
+      "cut_other": "{{count}} éléments coupés",
+      "copied_one": "{{count}} élément copié",
+      "copied_other": "{{count}} éléments copiés",
+      "toMove": "{{shortcut}} pour déplacer",
+      "toPaste": "{{shortcut}} pour coller",
+      "clear": "Vider le presse-papiers"
     }
   }
 }

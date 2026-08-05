@@ -154,6 +154,15 @@
       "legacyTermiusUnsupported": "Legacy Termius dump format is no longer supported; use Auto Extract.",
       "termiusExtractionFormat": "Termius extraction must return { version: 2, records: [...] }",
       "failedToFetchSource": "Failed to fetch source: HTTP {{status}}"
+    },
+    "clipboard": {
+      "cut_one": "{{count}} item cut",
+      "cut_other": "{{count}} items cut",
+      "copied_one": "{{count}} item copied",
+      "copied_other": "{{count}} items copied",
+      "toMove": "{{shortcut}} to move",
+      "toPaste": "{{shortcut}} to paste",
+      "clear": "Clear clipboard"
     }
   }
 }

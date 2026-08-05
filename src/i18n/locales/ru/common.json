@@ -154,6 +154,19 @@
       "legacyTermiusUnsupported": "Старый формат дампа Termius больше не поддерживается; используйте автоэкспорт.",
       "termiusExtractionFormat": "Экспорт Termius должен возвращать { version: 2, records: [...] }",
       "failedToFetchSource": "Не удалось получить источник: HTTP {{status}}"
+    },
+    "clipboard": {
+      "cut_one": "Вырезан {{count}} элемент",
+      "cut_few": "Вырезано {{count}} элемента",
+      "cut_many": "Вырезано {{count}} элементов",
+      "cut_other": "Вырезано {{count}} элементов",
+      "copied_one": "Скопирован {{count}} элемент",
+      "copied_few": "Скопировано {{count}} элемента",
+      "copied_many": "Скопировано {{count}} элементов",
+      "copied_other": "Скопировано {{count}} элементов",
+      "toMove": "{{shortcut}} — переместить",
+      "toPaste": "{{shortcut}} — вставить",
+      "clear": "Очистить буфер обмена"
     }
   }
 }
