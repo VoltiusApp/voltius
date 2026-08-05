@@ -534,26 +534,36 @@ export default function KeychainPage() {
     },
     duplicateItems: async (ids, folderId) => {
       const targetVault = vaultForFolder(folderId) ?? undefined;
-      const created: string[] = [];
+      const created = new Map<string, string>();
+      // Keys first, as in copyFolderInto: an identity cloned alongside its key must
+      // point at the clone, not back at the original in the source vault.
+      const keyIdMap = new Map<string, string>();
       for (const id of ids) {
         const key = keys.find((k) => k.id === id);
-        if (key) {
-          created.push((await duplicateKeyInto(key, folderId, { vaultId: targetVault })).id);
-          continue;
-        }
-        const identity = identities.find((i) => i.id === id);
-        if (identity) {
-          created.push((await duplicateIdentityInto(identity, folderId, { vaultId: targetVault })).id);
-        }
+        if (!key) continue;
+        const dup = await duplicateKeyInto(key, folderId, { vaultId: targetVault });
+        keyIdMap.set(key.id, dup.id);
+        created.set(id, dup.id);
       }
-      return created;
+      for (const id of ids) {
+        const identity = identities.find((i) => i.id === id);
+        if (!identity) continue;
+        const dup = await duplicateIdentityInto(identity, folderId, {
+          vaultId: targetVault,
+          keyId: identity.key_id ? (keyIdMap.get(identity.key_id) ?? identity.key_id) : undefined,
+        });
+        created.set(id, dup.id);
+      }
+      return ids.map((id) => created.get(id)).filter((id): id is string => !!id);
     },
     duplicateFolder: async (id, parentFolderId) =>
       (await copyFolderInto(id, parentFolderId, vaultForFolder(parentFolderId) ?? undefined)).id,
+    // The store methods directly, not handleDeleteKey/handleDeleteIdentity: those
+    // swallow the error into the banner, which would let a failed undo report success.
     deleteItems: async (ids) => {
       for (const id of ids) {
-        if (keys.some((k) => k.id === id)) await handleDeleteKey(id);
-        else if (identities.some((i) => i.id === id)) await handleDeleteIdentity(id);
+        if (keys.some((k) => k.id === id)) await deleteKey(id);
+        else if (identities.some((i) => i.id === id)) await deleteIdentity(id);
       }
     },
     deleteFolder: async (id) => { await deleteFolder(id); },

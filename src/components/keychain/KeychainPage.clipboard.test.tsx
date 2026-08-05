@@ -225,6 +225,8 @@ beforeEach(() => {
   h.can.mockReturnValue(true);
   h.confirmCrossVault.mockImplementation(async () => true);
   h.getSecret.mockResolvedValue(null);
+  h.deleteKey.mockImplementation(async () => {});
+  h.deleteIdentity.mockImplementation(async () => {});
   useVaultClipboardStore.getState().clear();
   useHistoryStore.setState({ past: [], future: [], bypassing: false, suppressing: false, canUndo: false, canRedo: false });
 });
@@ -403,6 +405,49 @@ test("a cloned identity points at the clone of the key cloned with it", async ()
   await dispatch("voltius:clipboard-paste");
 
   expect(h.saveIdentity).toHaveBeenCalledWith(expect.objectContaining({ key_id: "new-key" }));
+});
+
+// Without the remap the clone keeps pointing at the personal-vault original, so
+// every teammate sees an identity whose key they cannot resolve.
+test("copying a key and the identity referencing it relinks the clone to the cloned key", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.keys = [key("k1")];
+  h.identities = [identity("i1", { key_id: "k1" })];
+  h.selected = ["k1", "i1"];
+  h.activeFolderId = "tf";
+  render(<KeychainPage />);
+
+  await dispatch("voltius:clipboard-copy");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.saveIdentity).toHaveBeenCalledWith(
+    expect.objectContaining({ key_id: "new-key", vault_id: "team-1" }),
+  );
+});
+
+// handleDeleteKey swallows the error into the banner; going through it here would
+// let historyStore.undo treat a refused delete as a successful undo.
+test("a rejected delete propagates out of deleteItems so undo reports the failure", async () => {
+  h.keys = [key("k1")];
+  h.selected = ["k1"];
+  h.activeFolderId = null;
+  const { rerender } = render(<KeychainPage />);
+
+  await dispatch("voltius:clipboard-copy");
+  await dispatch("voltius:clipboard-paste");
+  expect(h.saveKey).toHaveBeenCalled();
+
+  // The clone is now in the store, so undo can find it to delete.
+  h.keys = [key("k1"), key("new-key")];
+  rerender(<KeychainPage />);
+  h.deleteKey.mockRejectedValue(new Error("403 forbidden"));
+
+  await act(async () => { await useHistoryStore.getState().undo(); });
+
+  expect(h.deleteKey).toHaveBeenCalledWith("new-key");
+  expect(useHistoryStore.getState().past).toHaveLength(1);
+  expect(useHistoryStore.getState().canUndo).toBe(true);
+  expect(useHistoryStore.getState().canRedo).toBe(false);
 });
 
 test("a folder cut is blocked when a nested identity references a key outside the destination vault", async () => {

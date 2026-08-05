@@ -249,6 +249,26 @@ test("a blocked paste raises a toast and mutates nothing", async () => {
   expect(useVaultClipboardStore.getState().clipboard).not.toBeNull();
 });
 
+// pasteChain is shared by every page, so a confirmation left unanswered by an
+// unmounting page would silently kill Ctrl+V on all four tabs for the process.
+test("unmounting mid-confirmation leaves the shared paste chain usable", async () => {
+  const confirmCrossVault = vi.fn(() => new Promise<boolean>(() => {}));
+  const stalled = baseAdapter({ targetVaultId: () => "team-1", confirmCrossVault });
+  const { unmount } = renderHook(() => usePageClipboard(stalled));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-cut"));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
+  await vi.waitFor(() => expect(confirmCrossVault).toHaveBeenCalled());
+
+  unmount();
+
+  const fresh = baseAdapter();
+  renderHook(() => usePageClipboard(fresh));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-copy"));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
+  await vi.waitFor(() => expect(fresh.duplicateItems).toHaveBeenCalledTimes(1));
+  expect(stalled.moveItems).not.toHaveBeenCalled();
+});
+
 test("objects that vanished between cut and paste are reported", async () => {
   const a = baseAdapter({ exists: () => false });
   renderHook(() => usePageClipboard(a));

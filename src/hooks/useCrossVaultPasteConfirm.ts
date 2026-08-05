@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import type { PendingCascade } from "./useVaultCascade";
@@ -47,6 +47,17 @@ export function useCrossVaultPasteConfirm() {
         });
       }),
     [t],
+  );
+
+  // Unmounting destroys the only UI that can answer the prompt, so an unanswered
+  // one is declined here rather than left to stall the shared paste queue forever.
+  useEffect(
+    () => () => {
+      const resolve = resolveRef.current;
+      resolveRef.current = null;
+      resolve?.(false);
+    },
+    [],
   );
 
   const accept = useCallback(() => settle(true), [settle]);

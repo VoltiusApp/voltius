@@ -171,6 +171,39 @@ test("undoing a copy paste deletes exactly what it created", async () => {
   expect(a.deleteFolder).toHaveBeenCalledWith("f1-copy");
 });
 
+// A redo re-creates under fresh ids. If the entry kept holding the first clone's
+// ids, the second undo would delete already-deleted objects and leave the redone
+// ones behind — only ever verified by reading until now.
+test("a second undo after a redo deletes what the redo created", async () => {
+  useHistoryStore.setState({
+    past: [], future: [], bypassing: false, suppressing: false, suppressDepth: 0,
+    canUndo: false, canRedo: false,
+  });
+  let round = 0;
+  const a = adapter({
+    duplicateItems: vi.fn(async (ids: string[]) => ids.map((i) => `${i}-copy${round}`)),
+    duplicateFolder: vi.fn(async (id: string) => `${id}-copy${round}`),
+  });
+  await pasteFromClipboard(
+    { tab: "hosts", mode: "copy", items: [{ id: "c1", kind: "connection" }], folderIds: ["f1"], sourceVaultIds: ["personal"] },
+    a,
+  );
+
+  await useHistoryStore.getState().undo();
+  expect(a.deleteItems).toHaveBeenLastCalledWith(["c1-copy0"]);
+  expect(a.deleteFolder).toHaveBeenLastCalledWith("f1-copy0");
+
+  round = 1;
+  await useHistoryStore.getState().redo();
+  expect(a.duplicateItems).toHaveBeenCalledTimes(2);
+  expect(a.duplicateFolder).toHaveBeenLastCalledWith("f1", "dest");
+
+  await useHistoryStore.getState().undo();
+  expect(a.deleteItems).toHaveBeenLastCalledWith(["c1-copy1"]);
+  expect(a.deleteFolder).toHaveBeenLastCalledWith("f1-copy1");
+  expect(useHistoryStore.getState().canRedo).toBe(true);
+});
+
 test("undoing a cross-vault cut restores the vault each item came from", async () => {
   useHistoryStore.setState({ past: [], future: [], canUndo: false, canRedo: false });
   // Origin is the vault root, so no origin folder carries the original vault.

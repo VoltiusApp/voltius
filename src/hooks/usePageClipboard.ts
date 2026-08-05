@@ -54,6 +54,13 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
   useEffect(() => {
     const isActive = () => useUIStore.getState().activeNav === navItem;
 
+    // pasteChain is shared by every page, so a confirmation whose UI is torn down
+    // mid-prompt would wedge Ctrl+V on all of them. Losing this hook declines it.
+    let abortConfirm!: () => void;
+    const aborted = new Promise<false>((resolve) => {
+      abortConfirm = () => resolve(false);
+    });
+
     // pasteFromClipboard registers undo/redo entries that outlive the paste, so it
     // is handed a live view of the adapter instead of the render-time object. An
     // undo running against that snapshot would decide from pre-paste data — it
@@ -116,11 +123,14 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
             // A null target is the vault root, where every object keeps its vault.
             const crossesVaults = target !== null && ids.some((id) => a.vaultIdOf(id) !== target);
             if (crossesVaults && a.confirmCrossVault) {
-              const ok = await a.confirmCrossVault({
-                count: ids.length,
-                // Falls back to the id when the vault is not in the page's options.
-                targetVaultName: a.targetVaultName?.() || target,
-              });
+              const ok = await Promise.race([
+                a.confirmCrossVault({
+                  count: ids.length,
+                  // Falls back to the id when the vault is not in the page's options.
+                  targetVaultName: a.targetVaultName?.() || target,
+                }),
+                aborted,
+              ]);
               if (!ok) return;
             }
           }
@@ -146,6 +156,7 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
       window.removeEventListener("voltius:clipboard-copy", onCopy);
       window.removeEventListener("voltius:clipboard-cut", onCut);
       window.removeEventListener("voltius:clipboard-paste", handlePaste);
+      abortConfirm();
     };
   }, [navItem]);
 }

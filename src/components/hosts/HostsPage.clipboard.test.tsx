@@ -308,6 +308,48 @@ test("a copy into a team-vault folder creates the duplicate in that vault", asyn
   );
 });
 
+// A copy-paste is now the primary duplication path, so a field dropped here reaches
+// the user as a host that silently cannot connect.
+test("a copy-paste carries the connection fields a duplicate needs to still connect", async () => {
+  h.connections = [conn("c1", {
+    jump_hosts: [{ id: "j1", connection_id: "bastion" }],
+    env_vars: [{ id: "e1", key: "TERM", value: "xterm-256color" }],
+    ftp_secure: true,
+    agent_forwarding: true,
+    legacy_algorithms: true,
+    keepalive_preset: "tolerant",
+    persist_session: true,
+    ping_disabled: true,
+    shell_integration_disabled: true,
+    distro: "debian",
+    icon: "mdi:server",
+    pinned: true,
+    notes: "prod bastion",
+  })];
+  h.selected = ["c1"];
+  h.activeFolderId = null;
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-copy");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.saveConnection).toHaveBeenCalledWith(expect.objectContaining({
+    jump_hosts: [{ id: "j1", connection_id: "bastion" }],
+    env_vars: [{ id: "e1", key: "TERM", value: "xterm-256color" }],
+    ftp_secure: true,
+    agent_forwarding: true,
+    legacy_algorithms: true,
+    keepalive_preset: "tolerant",
+    persist_session: true,
+    ping_disabled: true,
+    shell_integration_disabled: true,
+    distro: "debian",
+    icon: "mdi:server",
+    pinned: true,
+    notes: "prod bastion",
+  }));
+});
+
 test("a cut into a team-vault folder migrates the connection instead of only reparenting it", async () => {
   h.folders = [folder("tf", { vault_id: "team-1" })];
   h.connections = [conn("c1", { vault_id: "personal" })];

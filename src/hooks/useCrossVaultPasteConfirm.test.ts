@@ -43,6 +43,19 @@ test("cancelling resolves with false instead of stranding the paste", async () =
   expect(result.current.pending).toBeNull();
 });
 
+// Navigating away destroys the modal, so an unanswered prompt has to be declined
+// on unmount or the shared paste queue never advances again.
+test("unmounting declines a still-pending confirmation instead of stranding it", async () => {
+  cut();
+  const { result, unmount } = renderHook(() => useCrossVaultPasteConfirm());
+  let answer: Promise<boolean>;
+  act(() => {
+    answer = result.current.confirmCrossVault({ count: 1, targetVaultName: "Team One" });
+  });
+  unmount();
+  await expect(answer!).resolves.toBe(false);
+});
+
 test("a copy is presented as a copy, not a move", () => {
   useVaultClipboardStore.getState().setClipboard({
     tab: "hosts",
