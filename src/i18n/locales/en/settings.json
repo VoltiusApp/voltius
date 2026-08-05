@@ -971,6 +971,9 @@
           "label": "Delete Selected",
           "desc": "Delete selected items"
         },
+        "copy": { "label": "Copy", "desc": "Copy the selected items to the clipboard" },
+        "cut": { "label": "Cut", "desc": "Cut the selected items to the clipboard" },
+        "paste": { "label": "Paste", "desc": "Paste clipboard items into the current folder" },
         "undo": {
           "label": "Undo",
           "desc": "Undo last action"
