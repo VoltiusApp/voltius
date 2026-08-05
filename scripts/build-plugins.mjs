@@ -15,6 +15,7 @@ const RESOURCES_DIR = path.join(ROOT, "src-tauri/resources/plugins");
 // manifest id (e.g. "plugin-docker") is what the catalogue, tombstones,
 // installedMeta and the runtime registry key on — see buildCatalogFragment below.
 export const FIRST_PARTY_PLUGIN_IDS = [
+  "ai-agent",
   "ssh-config",
   "gist-sync",
   "monitoring",
@@ -29,6 +30,7 @@ export const FIRST_PARTY_PLUGIN_IDS = [
 const GITHUB_REPO = process.env.GITHUB_REPOSITORY || "VoltiusApp/voltius";
 
 const PLUGIN_TAGS = {
+  "ai-agent": ["ai", "assistant"],
   "ssh-config": ["sync", "ssh"],
   "gist-sync": ["sync", "github"],
   monitoring: ["monitoring", "metrics"],
