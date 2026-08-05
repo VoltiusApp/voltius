@@ -49,9 +49,15 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
       if (!isActive()) return;
       pasteChain.current = pasteChain.current.then(async () => {
         const clipboard = useVaultClipboardStore.getState().clipboard;
-        const result = await pasteFromClipboard(clipboard, ref.current);
-        if (clipboard?.mode === "cut" && result.moved > 0) {
-          useVaultClipboardStore.getState().clear();
+        try {
+          const result = await pasteFromClipboard(clipboard, ref.current);
+          if (clipboard?.mode === "cut" && result.moved > 0) {
+            useVaultClipboardStore.getState().clear();
+          }
+        } catch (e) {
+          // Caught here so a rejected paste (IPC/network/permission failure)
+          // can't poison pasteChain and stall every later paste on this page.
+          console.error("clipboard paste failed:", e);
         }
       });
     };
