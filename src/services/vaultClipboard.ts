@@ -20,6 +20,7 @@ export interface ClipboardAdapter {
   deleteItems: (ids: string[]) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
   setSelection: (ids: string[]) => void;
+  can: (permission: string, vaultId: string) => boolean;
 }
 
 export interface PasteResult {
@@ -30,6 +31,50 @@ export interface PasteResult {
 }
 
 const EMPTY: PasteResult = { moved: 0, created: 0, skipped: 0 };
+
+const EDIT_PERMISSION: Record<string, string> = {
+  connection: "EDIT_CONNECTIONS",
+  port_forward: "EDIT_CONNECTIONS",
+  identity: "EDIT_IDENTITIES",
+  key: "EDIT_KEYS",
+  snippet: "EDIT_SNIPPETS",
+};
+
+/**
+ * A cross-vault move is two authorizations — a write on the destination and a
+ * delete on the source — issued as separate calls. Both are checked here so a
+ * permitted write cannot be followed by a refused delete, which would leave a
+ * duplicate where the user asked for a move. The server remains the boundary;
+ * this only stops a paste that is already known to fail.
+ */
+function blockedPermissions(
+  clipboard: NonNullable<VaultClipboard>,
+  adapter: ClipboardAdapter,
+  liveItems: { id: string; kind: string }[],
+  liveFolders: string[],
+): string[] {
+  const target = adapter.targetVaultId();
+  const blocked = new Set<string>();
+
+  const require = (permission: string, vaultId: string) => {
+    if (!adapter.can(permission, vaultId)) blocked.add(permission);
+  };
+
+  for (const item of liveItems) {
+    const source = adapter.vaultIdOf(item.id);
+    const permission = EDIT_PERMISSION[item.kind] ?? "EDIT_CONNECTIONS";
+    if (source === target) continue;
+    require(permission, target);
+    if (clipboard.mode === "cut") require(permission, source);
+  }
+  for (const id of liveFolders) {
+    const source = adapter.vaultIdOf(id);
+    if (source === target) continue;
+    require("EDIT_FOLDERS", target);
+    if (clipboard.mode === "cut") require("EDIT_FOLDERS", source);
+  }
+  return [...blocked];
+}
 
 export async function pasteFromClipboard(
   clipboard: VaultClipboard,
@@ -46,6 +91,9 @@ export async function pasteFromClipboard(
   if (liveItems.length === 0 && liveFolders.length === 0) {
     return { ...EMPTY, skipped };
   }
+
+  const blocked = blockedPermissions(clipboard, adapter, liveItems, liveFolders);
+  if (blocked.length > 0) return { ...EMPTY, skipped, blocked };
 
   if (clipboard.mode === "cut") {
     const itemIds = liveItems.map((i) => i.id).filter((id) => adapter.folderIdOf(id) !== target);

@@ -17,6 +17,7 @@ function adapter(over: Partial<ClipboardAdapter> = {}): ClipboardAdapter {
     deleteItems: vi.fn(async () => {}),
     deleteFolder: vi.fn(async () => {}),
     setSelection: vi.fn(),
+    can: () => true,
     ...over,
   };
 }
@@ -134,4 +135,36 @@ test("a no-op paste pushes no history entry", async () => {
   useHistoryStore.setState({ past: [], future: [], canUndo: false, canRedo: false });
   await pasteFromClipboard(null, adapter());
   expect(useHistoryStore.getState().past).toHaveLength(0);
+});
+
+const EDIT = "EDIT_CONNECTIONS";
+
+test("a cross-vault paste without destination edit permission mutates nothing", async () => {
+  const a = adapter({
+    targetVaultId: () => "team-1",
+    vaultIdOf: () => "personal",
+    can: (_p, vaultId) => vaultId !== "team-1",
+  });
+  const r = await pasteFromClipboard({ ...cut, mode: "copy" }, a);
+  expect(a.duplicateItems).not.toHaveBeenCalled();
+  expect(r.blocked).toContain(EDIT);
+  expect(r.created).toBe(0);
+});
+
+test("a cross-vault cut without source edit permission mutates nothing", async () => {
+  const a = adapter({
+    targetVaultId: () => "personal",
+    vaultIdOf: () => "team-1",
+    can: (_p, vaultId) => vaultId !== "team-1",
+  });
+  const r = await pasteFromClipboard(cut, a);
+  expect(a.moveItems).not.toHaveBeenCalled();
+  expect(r.blocked).toContain(EDIT);
+});
+
+test("a same-vault paste needs no cross-vault permission check", async () => {
+  const can = vi.fn(() => true);
+  const a = adapter({ can, folderIdOf: () => "old" });
+  const r = await pasteFromClipboard(cut, a);
+  expect(r.moved).toBe(1);
 });
