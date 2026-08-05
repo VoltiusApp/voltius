@@ -179,6 +179,7 @@
       "crossVaultCopyDescription_few": "{{count}} элемента будут скопированы в {{targetVaultName}}.",
       "crossVaultCopyDescription_many": "{{count}} элементов будут скопированы в {{targetVaultName}}.",
       "crossVaultCopyDescription_other": "{{count}} элементов будут скопированы в {{targetVaultName}}.",
+      "pasteFailed": "Не удалось вставить: {{error}}",
       "pasteBlocked": "Ничего не вставлено: у вас нет прав «{{permissions}}» в одном из задействованных хранилищ.",
       "permissionsMissing": "у вас нет прав «{{permissions}}» в одном из задействованных хранилищ",
       "pasteSkipped_one": "{{count}} элемент больше не существует и был пропущен.",

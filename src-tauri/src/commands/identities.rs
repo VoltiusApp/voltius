@@ -28,36 +28,78 @@ pub fn identity_list() -> Result<Vec<Identity>, String> {
         .collect())
 }
 
-#[tauri::command]
-pub fn identity_save(data: IdentityFormData) -> Result<Identity, String> {
-    let mut identities = load_identities();
-    let now = Utc::now().to_rfc3339();
+fn build_identity(
+    id: String,
+    data: IdentityFormData,
+    now: &str,
+    created_at: Option<String>,
+) -> Identity {
+    let now = now.to_string();
     let mut clocks = HashMap::new();
-    clocks.insert("name".to_string(), now.clone());
-    clocks.insert("username".to_string(), now.clone());
-    clocks.insert("key_id".to_string(), now.clone());
-    clocks.insert("tags".to_string(), now.clone());
-    clocks.insert("folder_id".to_string(), now.clone());
-    clocks.insert("vault_id".to_string(), now.clone());
-    let vault_id = data.vault_id.unwrap_or_else(|| "personal".to_string());
-    check_vault_write(std::slice::from_ref(&vault_id))?;
-    let identity = Identity {
-        id: Uuid::new_v4().to_string(),
+    for field in &[
+        "name",
+        "username",
+        "key_id",
+        "tags",
+        "folder_id",
+        "vault_id",
+    ] {
+        clocks.insert((*field).to_string(), now.clone());
+    }
+    Identity {
+        id,
         name: data.name,
         username: data.username,
         key_id: data.key_id,
         tags: data.tags,
-        created_at: now.clone(),
+        created_at: created_at.unwrap_or_else(|| now.clone()),
         folder_id: data.folder_id,
-        vault_id,
+        vault_id: data.vault_id.unwrap_or_else(|| "personal".to_string()),
         updated_at: now,
         deleted_at: None,
         pinned: data.pinned,
         clocks,
-    };
+    }
+}
+
+#[tauri::command]
+pub fn identity_save(data: IdentityFormData) -> Result<Identity, String> {
+    let mut identities = load_identities();
+    let now = Utc::now().to_rfc3339();
+    let vault_id = data
+        .vault_id
+        .clone()
+        .unwrap_or_else(|| "personal".to_string());
+    check_vault_write(std::slice::from_ref(&vault_id))?;
+    let identity = build_identity(Uuid::new_v4().to_string(), data, &now, None);
     identities.push(identity.clone());
     save_identities(&identities)?;
     Ok(identity)
+}
+
+/// Inserts an identity under a caller-supplied `id`, replacing any local row with
+/// that id. Migration-only: see `connection_adopt`. The id must survive because
+/// the identity's password is stored in the keychain under `password:<id>`.
+#[tauri::command]
+pub fn identity_adopt(id: String, data: IdentityFormData) -> Result<Identity, String> {
+    let mut identities = load_identities();
+    let now = Utc::now().to_rfc3339();
+    let vault_id = data
+        .vault_id
+        .clone()
+        .unwrap_or_else(|| "personal".to_string());
+    check_vault_write(std::slice::from_ref(&vault_id))?;
+    let created_at = identities
+        .iter()
+        .find(|i| i.id == id)
+        .map(|i| i.created_at.clone());
+    let adopted = build_identity(id.clone(), data, &now, created_at);
+    match identities.iter_mut().find(|i| i.id == id) {
+        Some(slot) => *slot = adopted.clone(),
+        None => identities.push(adopted.clone()),
+    }
+    save_identities(&identities)?;
+    Ok(adopted)
 }
 
 #[tauri::command]

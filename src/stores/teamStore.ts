@@ -35,6 +35,43 @@ interface TeamStore {
   removeMemberRole: (teamId: string, userId: string, roleId: string) => Promise<void>;
 }
 
+/**
+ * Mirrors {teamId -> the user's role names} into the keychain for the Rust
+ * vault-write check. Names, not ids: Rust matches them against owner/manager/editor.
+ * A team whose roles can't be resolved is left out of the map rather than written
+ * as "no roles" — the server stays authoritative, and guessing would lock the user
+ * out of a vault they can write to.
+ */
+async function cacheVaultRoles(
+  teams: Team[],
+  rolesByTeam: Record<string, TeamRole[]>,
+  onRolesLoaded: (teamId: string, roles: TeamRole[]) => void,
+): Promise<void> {
+  const names: Record<string, string[]> = {};
+  await Promise.all(
+    teams.map(async (t) => {
+      let roles: TeamRole[] | undefined = rolesByTeam[t.id];
+      if (!roles || t.role_ids.some((rid) => !roles!.some((r) => r.id === rid))) {
+        const fetched = await api.listRoles(t.id).catch(() => null);
+        if (fetched) {
+          roles = fetched;
+          onRolesLoaded(t.id, fetched);
+        }
+      }
+      if (!roles) return;
+      const resolved = t.role_ids
+        .map((rid) => roles!.find((r) => r.id === rid)?.name)
+        .filter((n): n is string => !!n);
+      if (resolved.length < t.role_ids.length) return;
+      names[t.id] = resolved;
+    }),
+  );
+  await invoke("keychain_set", {
+    key: "team_vault_roles",
+    value: JSON.stringify(names),
+  }).catch(() => {});
+}
+
 export const useTeamStore = create<TeamStore>()(
   persist(
   (set, get) => ({
@@ -60,13 +97,9 @@ export const useTeamStore = create<TeamStore>()(
       if (teams.length > 0 && !get().activeTeamId) {
         set({ activeTeamId: teams[0].id });
       }
-      // Persist team role_ids to keychain for Tauri backend reference
-      const roleIds: Record<string, string[]> = {};
-      for (const t of teams) roleIds[t.id] = t.role_ids;
-      invoke("keychain_set", {
-        key: "team_vault_roles",
-        value: JSON.stringify(roleIds),
-      }).catch(() => {});
+      await cacheVaultRoles(teams, get().rolesByTeam, (teamId, roles) =>
+        set((s) => ({ rolesByTeam: { ...s.rolesByTeam, [teamId]: roles } })),
+      );
     } catch {
       set({ loading: false });
     }

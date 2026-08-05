@@ -30,26 +30,31 @@ pub fn pf_rule_list() -> Result<Vec<PortForwardingRule>, String> {
         .collect())
 }
 
-#[tauri::command]
-pub fn pf_rule_create(data: PortForwardingRuleFormData) -> Result<PortForwardingRule, String> {
-    let mut rules = load_port_forwarding_rules();
-    let now = Utc::now().to_rfc3339();
+fn build_pf_rule(
+    id: String,
+    data: PortForwardingRuleFormData,
+    now: &str,
+    created_at: Option<String>,
+) -> PortForwardingRule {
+    let now = now.to_string();
     let mut clocks = HashMap::new();
-    clocks.insert("name".to_string(), now.clone());
-    clocks.insert("local_port".to_string(), now.clone());
-    clocks.insert("remote_port".to_string(), now.clone());
-    clocks.insert("remote_host".to_string(), now.clone());
-    clocks.insert("tunnel_type".to_string(), now.clone());
-    clocks.insert("bind_host".to_string(), now.clone());
-    clocks.insert("target_host".to_string(), now.clone());
-    clocks.insert("description".to_string(), now.clone());
-    clocks.insert("connection_ids".to_string(), now.clone());
-    clocks.insert("folder_id".to_string(), now.clone());
-    clocks.insert("vault_id".to_string(), now.clone());
-    let vault_id = data.vault_id.unwrap_or_else(|| "personal".to_string());
-    check_vault_write(std::slice::from_ref(&vault_id))?;
-    let rule = PortForwardingRule {
-        id: Uuid::new_v4().to_string(),
+    for field in &[
+        "name",
+        "local_port",
+        "remote_port",
+        "remote_host",
+        "tunnel_type",
+        "bind_host",
+        "target_host",
+        "description",
+        "connection_ids",
+        "folder_id",
+        "vault_id",
+    ] {
+        clocks.insert((*field).to_string(), now.clone());
+    }
+    PortForwardingRule {
+        id,
         name: data.name,
         local_port: data.local_port,
         remote_port: data.remote_port,
@@ -60,15 +65,55 @@ pub fn pf_rule_create(data: PortForwardingRuleFormData) -> Result<PortForwarding
         description: data.description,
         connection_ids: data.connection_ids,
         folder_id: data.folder_id,
-        vault_id,
-        created_at: now.clone(),
+        vault_id: data.vault_id.unwrap_or_else(|| "personal".to_string()),
+        created_at: created_at.unwrap_or_else(|| now.clone()),
         updated_at: now,
         deleted_at: None,
         clocks,
-    };
+    }
+}
+
+#[tauri::command]
+pub fn pf_rule_create(data: PortForwardingRuleFormData) -> Result<PortForwardingRule, String> {
+    let mut rules = load_port_forwarding_rules();
+    let now = Utc::now().to_rfc3339();
+    let vault_id = data
+        .vault_id
+        .clone()
+        .unwrap_or_else(|| "personal".to_string());
+    check_vault_write(std::slice::from_ref(&vault_id))?;
+    let rule = build_pf_rule(Uuid::new_v4().to_string(), data, &now, None);
     rules.push(rule.clone());
     save_port_forwarding_rules(&rules)?;
     Ok(rule)
+}
+
+/// Inserts a rule under a caller-supplied `id`, replacing any local row with that
+/// id. Migration-only: see `connection_adopt`. The id must survive because sync
+/// preferences and undo entries key on it.
+#[tauri::command]
+pub fn pf_rule_adopt(
+    id: String,
+    data: PortForwardingRuleFormData,
+) -> Result<PortForwardingRule, String> {
+    let mut rules = load_port_forwarding_rules();
+    let now = Utc::now().to_rfc3339();
+    let vault_id = data
+        .vault_id
+        .clone()
+        .unwrap_or_else(|| "personal".to_string());
+    check_vault_write(std::slice::from_ref(&vault_id))?;
+    let created_at = rules
+        .iter()
+        .find(|r| r.id == id)
+        .map(|r| r.created_at.clone());
+    let adopted = build_pf_rule(id.clone(), data, &now, created_at);
+    match rules.iter_mut().find(|r| r.id == id) {
+        Some(slot) => *slot = adopted.clone(),
+        None => rules.push(adopted.clone()),
+    }
+    save_port_forwarding_rules(&rules)?;
+    Ok(adopted)
 }
 
 #[tauri::command]

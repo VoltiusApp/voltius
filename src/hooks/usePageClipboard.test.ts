@@ -278,3 +278,21 @@ test("objects that vanished between cut and paste are reported", async () => {
   expect(useNotificationStore.getState().toasts[0].message).toContain("no longer exists");
   expect(a.moveItems).not.toHaveBeenCalled();
 });
+
+// A rejected paste used to reach console.error only: Ctrl+V looked like a no-op.
+test("a paste that rejects raises an error toast", async () => {
+  const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+  const a = baseAdapter({
+    targetVaultId: () => "personal",
+    moveItems: vi.fn(async () => { throw new Error("Connection c1 not found"); }),
+  });
+  renderHook(() => usePageClipboard(a));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-cut"));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
+  await vi.waitFor(() => expect(useNotificationStore.getState().toasts).toHaveLength(1));
+  const toast = useNotificationStore.getState().toasts[0];
+  expect(toast.severity).toBe("error");
+  expect(toast.message).toContain("Connection c1 not found");
+  expect(spy).toHaveBeenCalled();
+  spy.mockRestore();
+});

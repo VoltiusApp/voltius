@@ -152,6 +152,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
         isTeamVaultId,
         item: updated,
         updateLocal: () => api.updateIdentity(id, data).then(() => updated),
+        adoptLocal: () => api.adoptIdentity(id, data).then(() => updated),
         saveTeam: (tid, item) => saveTeamVaultObject(tid, "identity", item),
         removeTeam: removeTeamVaultObject,
       });
@@ -195,6 +196,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
         isTeamVaultId,
         item: { ...prev, ...data, vault_id: nextVaultId } as Identity,
         updateLocal: () => api.updateIdentity(id, data).then(() => ({ ...prev, ...data, vault_id: nextVaultId } as Identity)),
+        adoptLocal: () => api.adoptIdentity(id, data).then(() => ({ ...prev, ...data, vault_id: nextVaultId } as Identity)),
         saveTeam: (teamId, item) => saveTeamVaultObject(teamId, "identity", item),
         removeTeam: removeTeamVaultObject,
       });

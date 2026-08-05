@@ -46,6 +46,13 @@ interface MigrateVaultObjectOptions<T extends MigratableVaultObject> {
   isTeamVaultId: (vaultId: string | null | undefined) => boolean;
   item: T;
   updateLocal: () => Promise<T>;
+  /**
+   * Re-creates the object in the local store under its existing id. Required on
+   * the way out of a team vault: the object only exists server-side, so an update
+   * would fail with "not found", and a fresh id would orphan its keychain secrets
+   * and every reference to it.
+   */
+  adoptLocal: () => Promise<T>;
   saveTeam: (teamId: string, item: T) => Promise<void>;
   removeTeam: (teamId: string, objectId: string) => Promise<void>;
 }
@@ -72,7 +79,7 @@ export async function migrateVaultObject<T extends MigratableVaultObject>(
   }
 
   if (transition.kind === "team-to-local") {
-    const updated = await options.updateLocal();
+    const updated = await options.adoptLocal();
     await options.removeTeam(transition.sourceTeamId, options.item.id);
     return updated;
   }

@@ -9,7 +9,8 @@ const api = vi.hoisted(() => ({
   createTeam: vi.fn(), addMember: vi.fn(), addMemberById: vi.fn(),
 }));
 vi.mock("@/services/teamService", () => api);
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => {}) }));
+const tauri = vi.hoisted(() => ({ invoke: vi.fn(async () => {}) }));
+vi.mock("@tauri-apps/api/core", () => tauri);
 
 import { useTeamStore } from "./teamStore.ts";
 
@@ -25,6 +26,7 @@ const get = () => useTeamStore.getState();
 beforeEach(() => {
   localStorage.clear();
   Object.values(api).forEach((f) => f.mockReset());
+  tauri.invoke.mockReset();
   useTeamStore.setState({
     teams: [], membersByTeam: {}, rolesByTeam: {}, pendingInvitationsByTeam: {},
     myPendingInvitations: [], activeTeamId: null, loading: false,
@@ -107,4 +109,36 @@ test("removeMember drops the member; removeTeam purges all team-scoped maps", as
   expect(get().teams).toEqual([]);
   expect(get().membersByTeam.t1).toBeUndefined();
   expect(get().rolesByTeam.t1).toBeUndefined();
+});
+
+const cachedRoles = () => {
+  const calls = tauri.invoke.mock.calls as unknown as [string, { key: string; value: string }][];
+  const call = calls.find((c) => c[0] === "keychain_set" && c[1].key === "team_vault_roles");
+  return call ? JSON.parse(call[1].value) : null;
+};
+
+// Rust checks the cached value against the names owner/manager/editor, so ids are
+// unreadable there — the check has to be fed names.
+test("loadTeams caches role NAMES per team, not role ids", async () => {
+  api.listTeams.mockResolvedValue([team("t1", ["r-uuid-1"])]);
+  api.listRoles.mockResolvedValue([{ ...role("r-uuid-1"), name: "editor" }]);
+  await get().loadTeams();
+  expect(cachedRoles()).toEqual({ t1: ["editor"] });
+});
+
+test("loadTeams caches every role a member holds", async () => {
+  api.listTeams.mockResolvedValue([team("t1", ["r1", "r2"])]);
+  api.listRoles.mockResolvedValue([
+    { ...role("r1"), name: "connect-only" },
+    { ...role("r2"), name: "editor" },
+  ]);
+  await get().loadTeams();
+  expect(cachedRoles()).toEqual({ t1: ["connect-only", "editor"] });
+});
+
+test("loadTeams omits a team whose roles cannot be resolved", async () => {
+  api.listTeams.mockResolvedValue([team("t1", ["r1"])]);
+  api.listRoles.mockRejectedValue(new Error("offline"));
+  await get().loadTeams();
+  expect(cachedRoles()).toEqual({});
 });

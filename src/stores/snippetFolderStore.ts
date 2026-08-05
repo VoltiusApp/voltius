@@ -125,6 +125,7 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
         isTeamVaultId,
         item: updated,
         updateLocal: () => api.updateSnippetFolder(id, data).then(() => updated),
+        adoptLocal: () => api.adoptSnippetFolder(id, data).then(() => updated),
         saveTeam: (tid, item) => saveTeamVaultObject(tid, "snippet_folder", item),
         removeTeam: removeTeamVaultObject,
       });
@@ -157,6 +158,7 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
         isTeamVaultId,
         item: { ...prev, ...data, vault_id: nextVaultId } as Folder,
         updateLocal: () => api.updateSnippetFolder(id, data).then(() => ({ ...prev, ...data, vault_id: nextVaultId } as Folder)),
+        adoptLocal: () => api.adoptSnippetFolder(id, data).then(() => ({ ...prev, ...data, vault_id: nextVaultId } as Folder)),
         saveTeam: (teamId, item) => saveTeamVaultObject(teamId, "snippet_folder", item),
         removeTeam: removeTeamVaultObject,
       });

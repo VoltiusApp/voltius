@@ -14,13 +14,13 @@ export interface PageClipboardAdapter extends ClipboardAdapter {
   targetVaultName?: () => string;
 }
 
-function toast(message: string) {
+function toast(message: string, severity: "warning" | "error" = "warning") {
   useNotificationStore.getState().addToast({
     pluginId: "system",
     pluginName: "Voltius",
     type: "toast",
     message,
-    severity: "warning",
+    severity,
     duration: 6000,
   });
 }
@@ -142,7 +142,14 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
         } catch (e) {
           // Caught here so a rejected paste (IPC/network/permission failure)
           // can't poison pasteChain and stall every later paste on this page.
+          // Said out loud too: a swallowed rejection is a Ctrl+V that does nothing.
           console.error("clipboard paste failed:", e);
+          toast(
+            i18n.t("common.clipboard.pasteFailed", {
+              error: e instanceof Error ? e.message : String(e),
+            }),
+            "error",
+          );
         }
       });
     };

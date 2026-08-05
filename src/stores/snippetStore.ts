@@ -182,6 +182,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
         isTeamVaultId,
         item: updated,
         updateLocal: () => api.updateSnippet(id, data).then(() => updated),
+        adoptLocal: () => api.adoptSnippet(id, data).then(() => updated),
         saveTeam: (tid, item) => saveTeamVaultObject(tid, "snippet", item),
         removeTeam: removeTeamVaultObject,
       });
@@ -225,6 +226,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
         isTeamVaultId,
         item: { ...prev, ...data, vault_id: nextVaultId, tags: data.tags ?? prev.tags },
         updateLocal: () => api.updateSnippet(id, data).then(() => ({ ...prev, ...data, vault_id: nextVaultId, tags: data.tags ?? prev.tags })),
+        adoptLocal: () => api.adoptSnippet(id, data).then(() => ({ ...prev, ...data, vault_id: nextVaultId, tags: data.tags ?? prev.tags })),
         saveTeam: (teamId, item) => saveTeamVaultObject(teamId, "snippet", item),
         removeTeam: removeTeamVaultObject,
       });

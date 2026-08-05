@@ -171,6 +171,7 @@
       "crossVaultMoveDescription_other": "{{count}} éléments quitteront leur coffre actuel pour rejoindre {{targetVaultName}}.",
       "crossVaultCopyDescription_one": "{{count}} élément sera copié dans {{targetVaultName}}.",
       "crossVaultCopyDescription_other": "{{count}} éléments seront copiés dans {{targetVaultName}}.",
+      "pasteFailed": "Échec du collage : {{error}}",
       "pasteBlocked": "Rien n'a été collé : il vous manque {{permissions}} dans l'un des coffres concernés.",
       "permissionsMissing": "il vous manque {{permissions}} dans l'un des coffres concernés",
       "pasteSkipped_one": "{{count}} élément n'existe plus et a été ignoré.",

@@ -168,6 +168,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
         isTeamVaultId,
         item: updated,
         updateLocal: () => api.updateFolder(id, data).then(() => updated),
+        adoptLocal: () => api.adoptFolder(id, data).then(() => updated),
         saveTeam: (tid, item) => saveTeamVaultObject(tid, "folder", item),
         removeTeam: removeTeamVaultObject,
       });
@@ -211,6 +212,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
         isTeamVaultId,
         item: { ...prev, ...data, vault_id: nextVaultId } as Folder,
         updateLocal: () => api.updateFolder(id, data).then(() => ({ ...prev, ...data, vault_id: nextVaultId } as Folder)),
+        adoptLocal: () => api.adoptFolder(id, data).then(() => ({ ...prev, ...data, vault_id: nextVaultId } as Folder)),
         saveTeam: (teamId, item) => saveTeamVaultObject(teamId, "folder", item),
         removeTeam: removeTeamVaultObject,
       });
