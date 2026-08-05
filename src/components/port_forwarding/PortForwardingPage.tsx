@@ -6,7 +6,7 @@ import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useAllPortForwardingRules } from "@/hooks/useAllPortForwardingRules";
 import { useUIStore } from "@/stores/uiStore";
 import { useVaultStore } from "@/stores/vaultStore";
-import { usePermissions } from "@/hooks/usePermission";
+import { usePermissions, type Permission } from "@/hooks/usePermission";
 import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { useDragSelection } from "@/hooks/useDragSelection";
@@ -27,6 +27,10 @@ import { FolderEditPanel } from "@/components/folders/FolderEditPanel";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { useRuleTunnels } from "@/hooks/useRuleTunnels";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
+import { usePageClipboard } from "@/hooks/usePageClipboard";
+import { ClipboardPill } from "@/components/shared/ClipboardPill";
+import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
+import { getShortcutHint } from "@/stores/shortcutStore";
 import { PortForwardingToolbar } from "./PortForwardingToolbar";
 import { ActiveTunnelsSection } from "./ActiveTunnelsSection";
 import { RuleCard } from "./RuleCard";
@@ -44,6 +48,26 @@ function sortRules(rules: PortForwardingRule[], mode: SortMode): PortForwardingR
       default: return b.created_at.localeCompare(a.created_at);
     }
   });
+}
+
+function ruleToForm(
+  rule: PortForwardingRule,
+  over: Partial<PortForwardingRuleFormData> = {},
+): PortForwardingRuleFormData {
+  return {
+    name: rule.name,
+    local_port: rule.local_port,
+    remote_port: rule.remote_port,
+    remote_host: rule.remote_host,
+    tunnel_type: rule.tunnel_type ?? "local",
+    bind_host: rule.bind_host ?? "127.0.0.1",
+    target_host: rule.target_host ?? "127.0.0.1",
+    description: rule.description,
+    connection_ids: [...rule.connection_ids],
+    folder_id: rule.folder_id,
+    vault_id: rule.vault_id,
+    ...over,
+  };
 }
 
 export function PortForwardingPage() {
@@ -199,35 +223,29 @@ export function PortForwardingPage() {
   // ── Vault move / copy for rules ───────────────────────────────────────────
 
   const handleMoveRuleToVault = (rule: PortForwardingRule, vaultId: string) => {
-    void updateRule(rule.id, {
-      name: rule.name, local_port: rule.local_port, remote_port: rule.remote_port,
-      remote_host: rule.remote_host, tunnel_type: rule.tunnel_type ?? "local",
-      bind_host: rule.bind_host ?? "127.0.0.1", target_host: rule.target_host ?? "127.0.0.1",
-      description: rule.description,
-      connection_ids: rule.connection_ids, folder_id: rule.folder_id, vault_id: vaultId,
-    });
+    void updateRule(rule.id, ruleToForm(rule, { vault_id: vaultId }));
   };
 
   const handleCopyRuleToVault = (rule: PortForwardingRule, vaultId: string) => {
     const destHasName = rules.some((r) => (r.vault_id ?? "personal") === vaultId && r.name === rule.name);
-    void createRule({
+    void createRule(ruleToForm(rule, {
       name: destHasName ? `${rule.name} (copy)` : rule.name,
-      local_port: rule.local_port, remote_port: rule.remote_port,
-      remote_host: rule.remote_host, tunnel_type: rule.tunnel_type ?? "local",
-      bind_host: rule.bind_host ?? "127.0.0.1", target_host: rule.target_host ?? "127.0.0.1",
-      description: rule.description,
-      connection_ids: rule.connection_ids, folder_id: rule.folder_id, vault_id: vaultId,
-    });
+      vault_id: vaultId,
+    }));
   };
 
   // ── Vault move / copy for folders ─────────────────────────────────────────
 
+  /** All folders in the subtree rooted at folderId (BFS-ordered, parents before children). */
   const getAllSubFolders = (folderId: string): Folder[] => {
     const queue = [folderId];
     const result: Folder[] = [];
+    // A parent cycle in the data would otherwise spin forever and lock the renderer.
+    const seen = new Set<string>([folderId]);
     while (queue.length) {
       const cur = queue.shift()!;
-      const children = scopedFolders.filter((f) => f.parent_folder_id === cur);
+      const children = scopedFolders.filter((f) => f.parent_folder_id === cur && !seen.has(f.id));
+      for (const child of children) seen.add(child.id);
       result.push(...children);
       queue.push(...children.map((f) => f.id));
     }
@@ -298,6 +316,81 @@ export function PortForwardingPage() {
     });
   };
 
+  // ── Clipboard paste helpers ───────────────────────────────────────────────
+
+  /**
+   * Duplicates `rule` into `folderId`, optionally into another vault. `keepName` is
+   * for members of a subtree being cloned wholesale — only the root of such a clone
+   * carries the "(copy)" suffix.
+   */
+  const duplicateRuleInto = async (
+    rule: PortForwardingRule,
+    folderId: string | null,
+    opts: { vaultId?: string; keepName?: boolean } = {},
+  ) => createRule(ruleToForm(rule, {
+    // default name suffix kept in English until all creation sites are localized together (see i18n issue #14)
+    name: opts.keepName ? rule.name : `${rule.name} (copy)`,
+    folder_id: folderId ?? undefined,
+    vault_id: opts.vaultId ?? rule.vault_id,
+  }));
+
+  /** Deep-clones a folder subtree under `parentFolderId`, into `vaultId` when given. */
+  const copyFolderInto = async (
+    folderId: string,
+    parentFolderId: string | null,
+    vaultId?: string,
+  ) => {
+    const folder = scopedFolders.find((f) => f.id === folderId);
+    if (!folder) throw new Error(`Unknown folder ${folderId}`);
+    const targetVaultId = vaultId ?? folder.vault_id;
+    // Only the root of the clone is renamed; renaming every descendant would
+    // compound to "Prod (copy) (copy)" on a second paste.
+    const root = await saveFolder({
+      name: `${folder.name} (copy)`,
+      object_type: folder.object_type,
+      parent_folder_id: parentFolderId ?? undefined,
+      vault_id: targetVaultId,
+    });
+    // BFS order guarantees a parent is created before its children.
+    const folderIdMap = new Map<string, string>([[folder.id, root.id]]);
+    for (const sf of getAllSubFolders(folder.id)) {
+      const created = await saveFolder({
+        name: sf.name,
+        object_type: sf.object_type,
+        parent_folder_id: folderIdMap.get(sf.parent_folder_id ?? "") ?? root.id,
+        vault_id: targetVaultId,
+      });
+      folderIdMap.set(sf.id, created.id);
+    }
+    for (const rule of getRulesInFolderTree(folder.id)) {
+      await duplicateRuleInto(rule, folderIdMap.get(rule.folder_id ?? "") ?? root.id, {
+        vaultId: targetVaultId,
+        keepName: true,
+      });
+    }
+    return root;
+  };
+
+  /** Moves a folder subtree into `vaultId`, reparenting the root at the same time. */
+  const migrateFolderTreeToVault = async (
+    folder: Folder,
+    parentFolderId: string | null,
+    vaultId: string,
+  ) => {
+    await updateFolder(folder.id, {
+      name: folder.name,
+      object_type: folder.object_type,
+      parent_folder_id: parentFolderId ?? undefined,
+      vault_id: vaultId,
+    });
+    for (const sf of getAllSubFolders(folder.id)) {
+      await updateFolder(sf.id, { name: sf.name, object_type: sf.object_type, parent_folder_id: sf.parent_folder_id, vault_id: vaultId });
+    }
+    for (const rule of getRulesInFolderTree(folder.id)) {
+      await updateRule(rule.id, ruleToForm(rule, { vault_id: vaultId }));
+    }
+  };
+
   // ── Drag selection & keyboard nav ─────────────────────────────────────────
 
   const {
@@ -339,6 +432,99 @@ export function PortForwardingPage() {
   });
 
   useEffect(() => { setFocusedId(null); }, [activeFolderId]);
+
+  // ── Cut / copy / paste ────────────────────────────────────────────────────
+
+  const clipboard = useVaultClipboardStore((s) => s.clipboard);
+  const cutIds = useMemo(
+    () =>
+      new Set(
+        clipboard?.tab === "port-forwarding" && clipboard.mode === "cut"
+          ? [...clipboard.items.map((i) => i.id), ...clipboard.folderIds]
+          : [],
+      ),
+    [clipboard],
+  );
+
+  /**
+   * The destination folder is the only unambiguous carrier of a destination vault.
+   * At the root there is none, so nothing migrates and every object keeps its own
+   * vault — matching the drag-to-root path, and avoiding a "move to top level"
+   * gesture silently pulling a subtree out of a team vault. Derived from the folder
+   * argument rather than activeFolderId so an undo, which passes the origin folder
+   * back in, migrates back to the vault it came from.
+   */
+  const vaultForFolder = (folderId: string | null): string | null =>
+    folderId ? (scopedFolders.find((f) => f.id === folderId)?.vault_id ?? null) : null;
+
+  // Every mutation below goes through a store method so vault permission checks apply.
+  // Rules own no secrets, so nothing has to be republished on a cross-vault write.
+  usePageClipboard({
+    navItem: "port-forwarding",
+    getSelection: () => [...selectedIdSet],
+    getFocusedId: () => focusedId,
+    classify: (id) =>
+      scopedFolders.some((f) => f.id === id)
+        ? "folder"
+        : rules.some((r) => r.id === id)
+        ? "port_forward"
+        : null,
+    exists: (id) => rules.some((r) => r.id === id) || scopedFolders.some((f) => f.id === id),
+    vaultIdOf: (id) =>
+      rules.find((r) => r.id === id)?.vault_id
+      ?? scopedFolders.find((f) => f.id === id)?.vault_id
+      ?? "personal",
+    targetFolderId: () => activeFolderId,
+    targetVaultId: () => vaultForFolder(activeFolderId),
+    folderIdOf: (id) =>
+      rules.find((r) => r.id === id)?.folder_id
+      ?? scopedFolders.find((f) => f.id === id)?.parent_folder_id
+      ?? null,
+    folderContentKinds: (folderId): VaultClipboardKind[] =>
+      getRulesInFolderTree(folderId).length > 0 ? ["port_forward"] : [],
+    canMoveFolder: (id, parentFolderId) =>
+      parentFolderId !== id
+      && !(parentFolderId !== null && getAllSubFolders(id).some((f) => f.id === parentFolderId)),
+    can: (permission, vaultId) => can(permission as Permission, vaultId),
+    // A same-vault move only rewrites folder_id; a cross-vault one has to go through
+    // updateRule so the object actually changes vault, otherwise it would keep a
+    // stale vault_id alongside its new folder's.
+    moveItems: async (ids, folderId, vaultId) => {
+      for (const id of ids) {
+        const rule = rules.find((r) => r.id === id);
+        if (!rule) continue;
+        if (vaultId === null || (rule.vault_id ?? "personal") === vaultId) {
+          await moveRuleFolder(id, folderId);
+          continue;
+        }
+        await updateRule(id, ruleToForm(rule, { folder_id: folderId ?? undefined, vault_id: vaultId }));
+      }
+    },
+    moveFolder: async (id, parentFolderId, vaultId) => {
+      const folder = scopedFolders.find((f) => f.id === id);
+      if (!folder) return;
+      if (vaultId !== null && (folder.vault_id ?? "personal") !== vaultId) {
+        await migrateFolderTreeToVault(folder, parentFolderId, vaultId);
+        return;
+      }
+      await moveFolder(id, parentFolderId);
+    },
+    duplicateItems: async (ids, folderId) => {
+      const targetVault = vaultForFolder(folderId) ?? undefined;
+      const created: string[] = [];
+      for (const id of ids) {
+        const rule = rules.find((r) => r.id === id);
+        if (!rule) continue;
+        created.push((await duplicateRuleInto(rule, folderId, { vaultId: targetVault })).id);
+      }
+      return created;
+    },
+    duplicateFolder: async (id, parentFolderId) =>
+      (await copyFolderInto(id, parentFolderId, vaultForFolder(parentFolderId) ?? undefined)).id,
+    deleteItems: async (ids) => { for (const id of ids) await deleteRule(id); },
+    deleteFolder: async (id) => { await deleteFolder(id); },
+    setSelection,
+  });
 
   const filteredRuleIdSet = useMemo(() => new Set(filtered.map((r) => r.id)), [filtered]);
 
@@ -426,6 +612,19 @@ export function PortForwardingPage() {
         label: t("portForwarding.page.bulk.exportRules", { count: n }),
         icon: "lucide:upload",
         onClick: () => useUIStore.getState().openImportExport("export", { bulk: { portForwardingRules: selectedRules.map((r) => r.id) } }),
+      },
+      {
+        label: t("common.action.cut"),
+        icon: "lucide:scissors",
+        shortcut: getShortcutHint("cut"),
+        onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-cut")),
+        divider: true,
+      },
+      {
+        label: t("common.action.copy"),
+        icon: "lucide:copy",
+        shortcut: getShortcutHint("copy"),
+        onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-copy")),
       },
       {
         label: t("portForwarding.page.bulk.deleteRules", { count: n }),
@@ -561,6 +760,7 @@ export function PortForwardingPage() {
                         isSelected={editingFolderId === folder.id || selectedIdSet.has(folder.id)}
                         isFocused={focusedId === folder.id}
                         isDragOver={dragOverFolderId === folder.id}
+                        dimmed={cutIds.has(folder.id)}
                         onClick={() => navigateInto(folder)}
                         onRename={(f, newName) => void updateFolder(f.id, { name: newName, object_type: f.object_type, parent_folder_id: f.parent_folder_id, vault_id: f.vault_id })}
                         onDelete={(f) => setConfirmDeleteFolderId(f.id)}
@@ -647,6 +847,7 @@ export function PortForwardingPage() {
                         layout={layoutMode as LayoutMode}
                         isSelected={selectedIdSet.has(rule.id)}
                         isFocused={focusedId === rule.id}
+                        dimmed={cutIds.has(rule.id)}
                         isActive={isActive}
                         status={status}
                         statusLabel={statusLabel}
@@ -682,6 +883,9 @@ export function PortForwardingPage() {
           items={[
             { label: t("portForwarding.page.contextMenu.newRule"), icon: "lucide:network", onClick: openNew },
             { label: t("portForwarding.toolbar.newFolder"), icon: "lucide:folder-plus", onClick: () => void saveFolder({ name: "New Folder" /* persisted English default */, object_type: "port_forwarding", parent_folder_id: activeFolderId ?? undefined, vault_id: defaultVaultId }).then((f) => { closeForm(); setEditingFolderId(f.id); }) },
+            ...(useVaultClipboardStore.getState().clipboard?.tab === "port-forwarding"
+              ? [{ label: t("common.action.paste"), icon: "lucide:clipboard", shortcut: getShortcutHint("paste"), onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-paste")) } as const]
+              : []),
           ]}
         />
       )}
@@ -725,6 +929,8 @@ export function PortForwardingPage() {
         onCancel={() => setConfirmDeleteFolderId(null)}
       />
     )}
+
+    <ClipboardPill navItem="port-forwarding" />
 
     {cascadePending && (
       <VaultCascadeModal
