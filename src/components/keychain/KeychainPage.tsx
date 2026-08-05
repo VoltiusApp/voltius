@@ -512,8 +512,16 @@ export default function KeychainPage() {
         });
         await publishIdentitySecrets(id, vaultId);
       }
-      if (sameVaultKeys.length > 0) await moveObjectsToFolder(sameVaultKeys, "key", folderId);
-      if (sameVaultIdentities.length > 0) await moveObjectsToFolder(sameVaultIdentities, "identity", folderId);
+      // moveObjectsToFolder writes through to the DB without touching the key/identity
+      // stores, so each touched store is reloaded — as in `dropHandler`.
+      if (sameVaultKeys.length > 0) {
+        await moveObjectsToFolder(sameVaultKeys, "key", folderId);
+        await loadKeys();
+      }
+      if (sameVaultIdentities.length > 0) {
+        await moveObjectsToFolder(sameVaultIdentities, "identity", folderId);
+        await loadIdentities();
+      }
     },
     moveFolder: async (id, parentFolderId, vaultId) => {
       const folder = scopedFolders.find((f) => f.id === id);

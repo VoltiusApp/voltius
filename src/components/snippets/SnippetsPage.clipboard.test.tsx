@@ -20,6 +20,7 @@ const h = vi.hoisted(() => ({
   selected: [] as string[],
   activeFolderId: null as string | null,
   createSnippet: vi.fn(),
+  loadSnippets: vi.fn(async () => {}),
   updateSnippet: vi.fn(async () => {}),
   deleteSnippet: vi.fn(async () => {}),
   saveFolder: vi.fn(),
@@ -132,7 +133,7 @@ function selectorStore<T extends object>(state: T) {
 vi.mock("@/stores/snippetStore", () => ({
   useSnippetStore: selectorStore({
     loading: false,
-    loadSnippets: vi.fn(async () => {}),
+    loadSnippets: h.loadSnippets,
     createSnippet: h.createSnippet,
     updateSnippet: h.updateSnippet,
     deleteSnippet: h.deleteSnippet,
@@ -391,4 +392,24 @@ test("a same-vault paste is not gated on a confirmation", async () => {
 
   expect(h.confirmCrossVault).not.toHaveBeenCalled();
   expect(h.updateSnippet).toHaveBeenCalled();
+});
+
+// updateSnippet writes through its own store, so the adapter must not reload on
+// top of it — that would double-fetch on every paste.
+test("a cut-paste leaves the refresh to updateSnippet instead of reloading again", async () => {
+  h.folders = [folder("f1"), folder("f2")];
+  h.snippets = [snippet("s1", { folder_id: "f1" })];
+  h.selected = ["s1"];
+  h.activeFolderId = "f2";
+  render(<SnippetsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+  expect(h.updateSnippet).toHaveBeenCalledWith("s1", expect.objectContaining({ folder_id: "f2" }));
+  const afterPaste = h.loadSnippets.mock.calls.length;
+
+  await act(async () => { await useHistoryStore.getState().undo(); });
+
+  expect(h.updateSnippet).toHaveBeenCalledWith("s1", expect.objectContaining({ folder_id: "f1" }));
+  expect(h.loadSnippets.mock.calls.length).toBe(afterPaste);
 });

@@ -16,6 +16,7 @@ const h = vi.hoisted(() => ({
   keys: [] as unknown[],
   selected: [] as string[],
   activeFolderId: null as string | null,
+  loadConnections: vi.fn(async () => {}),
   saveConnection: vi.fn(),
   updateConnection: vi.fn(async () => {}),
   deleteConnection: vi.fn(async () => {}),
@@ -139,7 +140,7 @@ function selectorStore<T extends object>(state: T) {
 
 vi.mock("@/stores/connectionStore", () => ({
   useConnectionStore: selectorStore({
-    loadConnections: vi.fn(async () => {}),
+    loadConnections: h.loadConnections,
     saveConnection: h.saveConnection,
     updateConnection: h.updateConnection,
     deleteConnection: h.deleteConnection,
@@ -533,4 +534,32 @@ test("a same-vault paste is not gated on a confirmation", async () => {
 
   expect(h.confirmCrossVault).not.toHaveBeenCalled();
   expect(h.moveObjectsToFolder).toHaveBeenCalled();
+});
+
+// moveObjectsToFolder writes to the DB without updating the connection store, so
+// without the reload the pasted host stays invisible until the page is remounted.
+test("a cut-paste reloads the connections after the move, in both directions", async () => {
+  h.folders = [folder("f1")];
+  h.connections = [conn("c1")];
+  h.selected = ["c1"];
+  h.activeFolderId = "f1";
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.moveObjectsToFolder).toHaveBeenCalledWith(["c1"], "connection", "f1");
+  expect(h.loadConnections).toHaveBeenCalled();
+  expect(h.loadConnections.mock.invocationCallOrder.slice(-1)[0]).toBeGreaterThan(
+    h.moveObjectsToFolder.mock.invocationCallOrder.slice(-1)[0],
+  );
+
+  h.moveObjectsToFolder.mockClear();
+  h.loadConnections.mockClear();
+  await act(async () => { await useHistoryStore.getState().undo(); });
+
+  expect(h.moveObjectsToFolder).toHaveBeenCalledWith(["c1"], "connection", null);
+  expect(h.loadConnections.mock.invocationCallOrder.slice(-1)[0]).toBeGreaterThan(
+    h.moveObjectsToFolder.mock.invocationCallOrder.slice(-1)[0],
+  );
 });

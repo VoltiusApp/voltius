@@ -18,6 +18,8 @@ const h = vi.hoisted(() => ({
   folders: [] as unknown[],
   selected: [] as string[],
   activeFolderId: null as string | null,
+  loadKeys: vi.fn(async () => {}),
+  loadIdentities: vi.fn(async () => {}),
   saveKey: vi.fn(),
   updateKey: vi.fn(async () => {}),
   deleteKey: vi.fn(async () => {}),
@@ -145,7 +147,7 @@ function selectorStore<T extends object>(state: T) {
 
 vi.mock("@/stores/keyStore", () => ({
   useKeyStore: selectorStore({
-    loadKeys: vi.fn(async () => {}),
+    loadKeys: h.loadKeys,
     saveKey: h.saveKey,
     updateKey: h.updateKey,
     deleteKey: h.deleteKey,
@@ -154,7 +156,7 @@ vi.mock("@/stores/keyStore", () => ({
 }));
 vi.mock("@/stores/identityStore", () => ({
   useIdentityStore: selectorStore({
-    loadIdentities: vi.fn(async () => {}),
+    loadIdentities: h.loadIdentities,
     saveIdentity: h.saveIdentity,
     updateIdentity: h.updateIdentity,
     deleteIdentity: h.deleteIdentity,
@@ -477,4 +479,39 @@ test("a same-vault paste is not gated on a confirmation", async () => {
 
   expect(h.confirmCrossVault).not.toHaveBeenCalled();
   expect(h.moveObjectsToFolder).toHaveBeenCalled();
+});
+
+// moveObjectsToFolder writes to the DB without updating the key/identity stores, so
+// without the reload the pasted objects stay invisible until the page is remounted.
+test("a mixed cut-paste reloads both touched stores after the move, in both directions", async () => {
+  h.folders = [folder("f1"), folder("f2")];
+  h.keys = [key("k1", { folder_id: "f1" })];
+  h.identities = [identity("i1", { folder_id: "f1" })];
+  h.selected = ["k1", "i1"];
+  h.activeFolderId = "f2";
+  render(<KeychainPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.loadKeys.mock.invocationCallOrder.slice(-1)[0]).toBeGreaterThan(
+    h.moveObjectsToFolder.mock.invocationCallOrder[0]!,
+  );
+  expect(h.loadIdentities.mock.invocationCallOrder.slice(-1)[0]).toBeGreaterThan(
+    h.moveObjectsToFolder.mock.invocationCallOrder[1]!,
+  );
+
+  h.moveObjectsToFolder.mockClear();
+  h.loadKeys.mockClear();
+  h.loadIdentities.mockClear();
+  await act(async () => { await useHistoryStore.getState().undo(); });
+
+  expect(h.moveObjectsToFolder).toHaveBeenCalledWith(["k1"], "key", "f1");
+  expect(h.moveObjectsToFolder).toHaveBeenCalledWith(["i1"], "identity", "f1");
+  expect(h.loadKeys.mock.invocationCallOrder.slice(-1)[0]).toBeGreaterThan(
+    h.moveObjectsToFolder.mock.invocationCallOrder[0]!,
+  );
+  expect(h.loadIdentities.mock.invocationCallOrder.slice(-1)[0]).toBeGreaterThan(
+    h.moveObjectsToFolder.mock.invocationCallOrder[1]!,
+  );
 });

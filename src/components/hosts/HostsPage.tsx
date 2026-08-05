@@ -380,7 +380,12 @@ export default function HostsPage() {
         });
         await publishConnectionSecrets(id, vaultId);
       }
-      if (sameVault.length > 0) await moveObjectsToFolder(sameVault, "connection", folderId);
+      // moveObjectsToFolder writes through to the DB without touching the connection
+      // store, so the reload is what makes the paste visible — as in `onDropToFolder`.
+      if (sameVault.length > 0) {
+        await moveObjectsToFolder(sameVault, "connection", folderId);
+        await loadConnections();
+      }
     },
     moveFolder: async (id, parentFolderId, vaultId) => {
       const folder = scopedFolders.find((f) => f.id === id);
