@@ -3,7 +3,11 @@
 #
 # Required repository secrets:
 #   HOMEBREW_TAP_TOKEN   PAT with push access to VoltiusApp/homebrew-voltius
-#   WINGET_PKGS_TOKEN    classic PAT (public_repo) for komac to fork winget-pkgs
+#   WINGET_PKGS_TOKEN    classic PAT (public_repo + workflow) for komac to fork
+#                        winget-pkgs. Must be CLASSIC — winget-releaser does not
+#                        support fine-grained PATs, which cannot authorize a PR
+#                        against a repo the token owner does not own. `workflow`
+#                        is required by the fast-forward step below.
 name: publish-installers
 
 on:
@@ -101,9 +105,22 @@ jobs:
       # day, so the fork goes stale within about a day of not releasing; this is
       # what blocked v0.16.0 for four consecutive runs.
       #
-      # merge-upstream is a plain fast-forward and, unlike `komac sync`, is
-      # satisfied by the token's public_repo scope. Non-fatal: if it fails, komac
-      # may still succeed, and its error is the more useful one to surface.
+      # merge-upstream is a plain fast-forward. It needs the token's `workflow`
+      # scope WHENEVER the pending upstream diff touches .github/workflows/,
+      # because the fast-forward then has to write a workflow file into the fork:
+      # "refusing to allow a Personal Access Token to create or update workflow
+      # ... without `workflow` scope". public_repo alone is enough the rest of
+      # the time, which is why this is intermittent rather than permanent — it
+      # first bit on 2026-08-05, when upstream added
+      # manifest-validation-diagnosis.lock.yml half an hour before the v0.17.0
+      # release ran.
+      #
+      # The refusal is a warning here, and surfaces one step later as komac's
+      # misleading "does not have the correct permissions to execute CreateRef".
+      # ALWAYS read this step's warning before believing that one. Manual
+      # recovery, with a workflow-scoped token:
+      #   gh api -X POST repos/kipavy/winget-pkgs/merge-upstream -f branch=master
+      #   gh workflow run publish-installers.yml -f tag=vX.Y.Z
       - name: Fast-forward the winget-pkgs fork
         env:
           GH_TOKEN: ${{ secrets.WINGET_PKGS_TOKEN }}
