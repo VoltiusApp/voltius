@@ -1,5 +1,6 @@
 import type { NavItem } from "@/stores/uiStore";
 import type { VaultClipboard } from "@/stores/vaultClipboardStore";
+import { useHistoryStore } from "@/stores/historyStore";
 
 export interface ClipboardAdapter {
   navItem: NavItem;
@@ -49,19 +50,53 @@ export async function pasteFromClipboard(
   if (clipboard.mode === "cut") {
     const itemIds = liveItems.map((i) => i.id).filter((id) => adapter.folderIdOf(id) !== target);
     const folderIds = liveFolders.filter((id) => adapter.folderIdOf(id) !== target);
+    const origins = new Map<string, string | null>();
+    for (const id of [...itemIds, ...folderIds]) origins.set(id, adapter.folderIdOf(id));
+
     if (itemIds.length > 0) await adapter.moveItems(itemIds, target);
     for (const id of folderIds) await adapter.moveFolder(id, target);
     const moved = itemIds.length + folderIds.length;
-    if (moved > 0) adapter.setSelection([...itemIds, ...folderIds]);
+    if (moved === 0) return { moved: 0, created: 0, skipped };
+    adapter.setSelection([...itemIds, ...folderIds]);
+
+    useHistoryStore.getState().push({
+      label: `Moved ${moved} item${moved === 1 ? "" : "s"}`,
+      undo: async () => {
+        // One call per origin folder: moveItems takes a single destination.
+        for (const id of itemIds) await adapter.moveItems([id], origins.get(id) ?? null);
+        for (const id of folderIds) await adapter.moveFolder(id, origins.get(id) ?? null);
+      },
+      redo: async () => {
+        if (itemIds.length > 0) await adapter.moveItems(itemIds, target);
+        for (const id of folderIds) await adapter.moveFolder(id, target);
+      },
+    });
     return { moved, created: 0, skipped };
   }
 
-  const createdItemIds =
+  let createdItemIds =
     liveItems.length > 0 ? await adapter.duplicateItems(liveItems.map((i) => i.id), target) : [];
-  const createdFolderIds: string[] = [];
+  let createdFolderIds: string[] = [];
   for (const id of liveFolders) createdFolderIds.push(await adapter.duplicateFolder(id, target));
 
   const created = createdItemIds.length + createdFolderIds.length;
-  if (created > 0) adapter.setSelection([...createdItemIds, ...createdFolderIds]);
+  if (created === 0) return { moved: 0, created: 0, skipped };
+  adapter.setSelection([...createdItemIds, ...createdFolderIds]);
+
+  useHistoryStore.getState().push({
+    label: `Pasted ${created} item${created === 1 ? "" : "s"}`,
+    undo: async () => {
+      if (createdItemIds.length > 0) await adapter.deleteItems(createdItemIds);
+      for (const id of createdFolderIds) await adapter.deleteFolder(id);
+    },
+    // Redo re-creates under fresh ids, so the holders must be refreshed for the
+    // next undo to delete the right objects.
+    redo: async () => {
+      createdItemIds =
+        liveItems.length > 0 ? await adapter.duplicateItems(liveItems.map((i) => i.id), target) : [];
+      createdFolderIds = [];
+      for (const id of liveFolders) createdFolderIds.push(await adapter.duplicateFolder(id, target));
+    },
+  });
   return { moved: 0, created, skipped };
 }

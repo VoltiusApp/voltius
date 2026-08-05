@@ -88,3 +88,50 @@ test("copy paste of a folder clones the subtree", async () => {
   expect(a.duplicateFolder).toHaveBeenCalledWith("f1", "dest");
   expect(r.created).toBe(1);
 });
+
+import { useHistoryStore } from "@/stores/historyStore";
+
+test("a multi-item paste pushes exactly one history entry", async () => {
+  useHistoryStore.setState({ past: [], future: [], canUndo: false, canRedo: false });
+  const a = adapter({ folderIdOf: () => "old" });
+  await pasteFromClipboard(
+    { tab: "hosts", mode: "cut", items: [
+      { id: "c1", kind: "connection" }, { id: "c2", kind: "connection" }, { id: "c3", kind: "connection" },
+    ], folderIds: [], sourceVaultIds: ["personal"] },
+    a,
+  );
+  expect(useHistoryStore.getState().past).toHaveLength(1);
+});
+
+test("undoing a cut paste returns every item to its original folder", async () => {
+  useHistoryStore.setState({ past: [], future: [], canUndo: false, canRedo: false });
+  const origin: Record<string, string | null> = { c1: "f1", c2: null };
+  const a = adapter({ folderIdOf: (id) => origin[id] ?? null });
+  await pasteFromClipboard(
+    { tab: "hosts", mode: "cut", items: [
+      { id: "c1", kind: "connection" }, { id: "c2", kind: "connection" },
+    ], folderIds: [], sourceVaultIds: ["personal"] },
+    a,
+  );
+  await useHistoryStore.getState().undo();
+  expect(a.moveItems).toHaveBeenCalledWith(["c1"], "f1");
+  expect(a.moveItems).toHaveBeenCalledWith(["c2"], null);
+});
+
+test("undoing a copy paste deletes exactly what it created", async () => {
+  useHistoryStore.setState({ past: [], future: [], canUndo: false, canRedo: false });
+  const a = adapter();
+  await pasteFromClipboard(
+    { tab: "hosts", mode: "copy", items: [{ id: "c1", kind: "connection" }], folderIds: ["f1"], sourceVaultIds: ["personal"] },
+    a,
+  );
+  await useHistoryStore.getState().undo();
+  expect(a.deleteItems).toHaveBeenCalledWith(["c1-copy"]);
+  expect(a.deleteFolder).toHaveBeenCalledWith("f1-copy");
+});
+
+test("a no-op paste pushes no history entry", async () => {
+  useHistoryStore.setState({ past: [], future: [], canUndo: false, canRedo: false });
+  await pasteFromClipboard(null, adapter());
+  expect(useHistoryStore.getState().past).toHaveLength(0);
+});
