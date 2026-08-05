@@ -146,7 +146,7 @@ export function KeyCardContent({ sshKey, avatarSize, iconSize, isList }: { sshKe
 }
 
 function KeyCard({
-  sshKey, canEdit, vaults, isEditing, isSelected, isFocused, layoutMode,
+  sshKey, canEdit, vaults, isEditing, isSelected, isFocused, dimmed, layoutMode,
   onEdit, onDelete, onSelect, onExport, onMoveToVault, onCopyToVault,
   bulkContextMenuItems, onSectionPointerDown,
 }: {
@@ -156,6 +156,7 @@ function KeyCard({
   isEditing: boolean;
   isSelected: boolean;
   isFocused?: boolean;
+  dimmed?: boolean;
   layoutMode: LayoutMode;
   onEdit: (k: SshKey) => void;
   onDelete: (id: string) => void;
@@ -239,6 +240,7 @@ function KeyCard({
       isEditing={isEditing}
       isSelected={isSelected}
       isFocused={isFocused}
+      className={dimmed ? "opacity-50" : ""}
       data-selectable-id={sshKey.id}
       onPointerDown={onSectionPointerDown ? handlePointerDown : undefined}
       onClick={(e) => onSelect(sshKey.id, e)}
@@ -308,7 +310,7 @@ function KeyCard({
 }
 
 export function KeySection({
-  keys, showDraft, editingId, selectedIdSet, focusedId, layoutMode,
+  keys, showDraft, editingId, selectedIdSet, focusedId, dimmedIds, layoutMode,
   vaultOptions, label,
   onAdd, onEdit, onDelete, onSelect, onExport,
   onMoveToVault, onCopyToVault,
@@ -319,6 +321,8 @@ export function KeySection({
   editingId: string | null;
   selectedIdSet: Set<string>;
   focusedId?: string | null;
+  /** Ids sitting in a pending cut, rendered dimmed. */
+  dimmedIds?: Set<string>;
   layoutMode: LayoutMode;
   /** All available vault options (id = storedId / teamId or "personal") */
   vaultOptions?: VaultOption[];
@@ -380,6 +384,7 @@ export function KeySection({
               isEditing={editingId === k.id}
               isSelected={selectedIdSet.has(k.id)}
               isFocused={focusedId === k.id}
+              dimmed={dimmedIds?.has(k.id)}
               layoutMode={layoutMode}
               onEdit={onEdit}
               onDelete={onDelete}
@@ -403,7 +408,7 @@ export function KeySection({
 
 function IdentityCard({
   identity, linkedKey, canEdit, vaults,
-  isEditing, isSelected, isFocused, layoutMode,
+  isEditing, isSelected, isFocused, dimmed, layoutMode,
   onEdit, onDelete, onSelect, onMoveToVault, onCopyToVault,
   bulkContextMenuItems, onSectionPointerDown,
 }: {
@@ -414,6 +419,7 @@ function IdentityCard({
   isEditing: boolean;
   isSelected: boolean;
   isFocused?: boolean;
+  dimmed?: boolean;
   layoutMode: LayoutMode;
   onEdit: (i: Identity) => void;
   onDelete: (id: string) => void;
@@ -497,6 +503,7 @@ function IdentityCard({
       isEditing={isEditing}
       isSelected={isSelected}
       isFocused={isFocused}
+      className={dimmed ? "opacity-50" : ""}
       onPointerDown={onSectionPointerDown ? handlePointerDown : undefined}
       onClick={(e) => onSelect(identity.id, e)}
       onDoubleClick={() => onEdit(identity)}
@@ -600,7 +607,7 @@ function IdentityCard({
 }
 
 export function IdentitySection({
-  identities, keys, showDraft, editingId, selectedIdSet, focusedId, layoutMode,
+  identities, keys, showDraft, editingId, selectedIdSet, focusedId, dimmedIds, layoutMode,
   vaultOptions, label,
   onAdd, onEdit, onDelete, onSelect,
   onMoveToVault, onCopyToVault,
@@ -612,6 +619,8 @@ export function IdentitySection({
   editingId: string | null;
   selectedIdSet: Set<string>;
   focusedId?: string | null;
+  /** Ids sitting in a pending cut, rendered dimmed. */
+  dimmedIds?: Set<string>;
   layoutMode: LayoutMode;
   vaultOptions?: VaultOption[];
   label?: string;
@@ -678,6 +687,7 @@ export function IdentitySection({
               isEditing={editingId === i.id}
               isSelected={selectedIdSet.has(i.id)}
               isFocused={focusedId === i.id}
+              dimmed={dimmedIds?.has(i.id)}
               layoutMode={layoutMode}
               onEdit={onEdit}
               onDelete={onDelete}
