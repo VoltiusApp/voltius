@@ -16,6 +16,8 @@ const h = vi.hoisted(() => ({
   keys: [] as unknown[],
   selected: [] as string[],
   activeFolderId: null as string | null,
+  accessibleVaultIds: [] as string[],
+  scopedVaultId: null as string | null,
   loadConnections: vi.fn(async () => {}),
   saveConnection: vi.fn(),
   updateConnection: vi.fn(async () => {}),
@@ -124,7 +126,10 @@ vi.mock("@/hooks/useEffectivePinned", () => ({
   useEffectivePinSource: () => null,
   nextPersonalPinValue: () => true,
 }));
-vi.mock("@/hooks/useAccessibleVaultIds", () => ({ useAccessibleVaultIds: () => [] }));
+vi.mock("@/hooks/useAccessibleVaultIds", () => ({
+  useAccessibleVaultIds: () => h.accessibleVaultIds,
+  useScopedVaultId: () => h.scopedVaultId,
+}));
 vi.mock("@/hooks/useWritableVaultIds", () => ({ useDefaultVaultId: () => "personal" }));
 vi.mock("@/hooks/usePermission", () => ({ usePermissions: () => h.can }));
 vi.mock("@/hooks/useAllConnections", () => ({ useAllConnections: () => h.connections }));
@@ -220,6 +225,8 @@ beforeEach(() => {
   h.keys = [];
   h.selected = [];
   h.activeFolderId = null;
+  h.accessibleVaultIds = [];
+  h.scopedVaultId = null;
   h.can.mockReturnValue(true);
   h.confirmCrossVault.mockImplementation(async () => true);
   h.getSecret.mockResolvedValue(null);
@@ -677,4 +684,53 @@ test("a cut is allowed when the linked identity already lives in the destination
   await dispatch("voltius:clipboard-paste");
 
   expect(h.updateConnection).toHaveBeenCalledWith("c1", expect.objectContaining({ vault_id: "team-1" }));
+});
+
+// The root of a view scoped to one vault IS that vault's root — a paste there
+// belongs in it. Reading the destination vault off the folder alone made a root
+// paste keep every object's own vault, so a copy taken in another vault was
+// duplicated back into the vault it came from, invisible under the current filter.
+test("a root paste lands in the one vault the view is scoped to", async () => {
+  h.connections = [conn("c1", { vault_id: "personal" })];
+  h.selected = ["c1"];
+  h.activeFolderId = null;
+  h.accessibleVaultIds = ["team-1"];
+  h.scopedVaultId = "team-1";
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-copy");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.confirmCrossVault).toHaveBeenCalled();
+  expect(h.saveConnection).toHaveBeenCalledWith(expect.objectContaining({ vault_id: "team-1" }));
+});
+
+test("a root cut migrates into the one vault the view is scoped to", async () => {
+  h.connections = [conn("c1", { vault_id: "personal" })];
+  h.selected = ["c1"];
+  h.activeFolderId = null;
+  h.accessibleVaultIds = ["team-1"];
+  h.scopedVaultId = "team-1";
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.updateConnection).toHaveBeenCalledWith("c1", expect.objectContaining({ vault_id: "team-1" }));
+});
+
+// Several vaults on screen at once name no destination, so the old behaviour is
+// what is wanted there: every object keeps the vault it already has.
+test("a root paste with several vaults on screen leaves each object in its own vault", async () => {
+  h.connections = [conn("c1", { vault_id: "personal" })];
+  h.selected = ["c1"];
+  h.activeFolderId = null;
+  h.accessibleVaultIds = ["personal", "team-1"];
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-copy");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.confirmCrossVault).not.toHaveBeenCalled();
+  expect(h.saveConnection).toHaveBeenCalledWith(expect.objectContaining({ vault_id: "personal" }));
 });

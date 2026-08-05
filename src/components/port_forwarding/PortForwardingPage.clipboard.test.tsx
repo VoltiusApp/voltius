@@ -22,6 +22,8 @@ const h = vi.hoisted(() => ({
   folderCardProps: [] as Record<string, unknown>[],
   selected: [] as string[],
   activeFolderId: null as string | null,
+  accessibleVaultIds: [] as string[],
+  scopedVaultId: null as string | null,
   createRule: vi.fn(),
   updateRule: vi.fn(async () => {}),
   deleteRule: vi.fn(async () => {}),
@@ -127,7 +129,10 @@ vi.mock("@/hooks/useRuleTunnels", () => ({
     stopRule: vi.fn(),
   }),
 }));
-vi.mock("@/hooks/useAccessibleVaultIds", () => ({ useAccessibleVaultIds: () => [] }));
+vi.mock("@/hooks/useAccessibleVaultIds", () => ({
+  useAccessibleVaultIds: () => h.accessibleVaultIds,
+  useScopedVaultId: () => h.scopedVaultId,
+}));
 vi.mock("@/hooks/useWritableVaultIds", () => ({ useDefaultVaultId: () => "personal" }));
 vi.mock("@/hooks/useAllConnections", () => ({ useAllConnections: () => h.connections }));
 vi.mock("@/hooks/usePermission", () => ({ usePermissions: () => h.can }));
@@ -202,6 +207,8 @@ beforeEach(() => {
   h.folderCardProps = [];
   h.selected = [];
   h.activeFolderId = null;
+  h.accessibleVaultIds = [];
+  h.scopedVaultId = null;
   h.can.mockReturnValue(true);
   h.confirmCrossVault.mockImplementation(async () => true);
   useVaultClipboardStore.getState().clear();
@@ -474,4 +481,20 @@ test("a folder cut is refused when a nested rule's connection would stay behind"
 
   expect(h.updateFolder).not.toHaveBeenCalled();
   expect(h.moveFolder).not.toHaveBeenCalled();
+});
+
+// The root of a view scoped to one vault IS that vault's root, so a paste there
+// migrates into it instead of leaving the object in the vault it came from.
+test("a root cut migrates into the one vault the view is scoped to", async () => {
+  h.rules = [rule("r1", { vault_id: "personal" })];
+  h.selected = ["r1"];
+  h.activeFolderId = null;
+  h.accessibleVaultIds = ["team-1"];
+  h.scopedVaultId = "team-1";
+  render(<PortForwardingPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.updateRule).toHaveBeenCalledWith("r1", expect.objectContaining({ vault_id: "team-1" }));
 });

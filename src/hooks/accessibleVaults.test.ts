@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { deriveAccessibleVaultIds } from "./accessibleVaults";
+import { deriveAccessibleVaultIds, deriveScopedVaultId } from "./accessibleVaults";
 import type { Vault } from "@/stores/vaultStore";
 import type { Team } from "@/stores/teamStore";
 
@@ -92,4 +92,46 @@ test("no de-duplication: the same team id backing two selected vaults is emitted
       cloudActive: true,
     }),
   ).toEqual(["v1", "shared", "v2", "shared"]);
+});
+
+test("deriveScopedVaultId names the vault when exactly one is on screen", () => {
+  expect(
+    deriveScopedVaultId({
+      selectedVaultIds: ["personal"],
+      vaults: [],
+      accessibleVaultIds: ["personal"],
+    }),
+  ).toBe("personal");
+});
+
+// A selected team vault yields two accessible ids (vault + team). The one objects
+// carry is the team id, so that is the destination a paste must name.
+test("deriveScopedVaultId returns the team id for a linked team vault", () => {
+  expect(
+    deriveScopedVaultId({
+      selectedVaultIds: ["v1"],
+      vaults: [teamVault("v1", "t1")],
+      accessibleVaultIds: ["v1", "t1"],
+    }),
+  ).toBe("t1");
+});
+
+test("deriveScopedVaultId is null with several vaults on screen", () => {
+  expect(
+    deriveScopedVaultId({
+      selectedVaultIds: ["personal", "v1"],
+      vaults: [localVault("v1")],
+      accessibleVaultIds: ["personal", "v1"],
+    }),
+  ).toBeNull();
+});
+
+test("deriveScopedVaultId is null when the selected vault is unreachable", () => {
+  expect(
+    deriveScopedVaultId({
+      selectedVaultIds: ["v1"],
+      vaults: [teamVault("v1", "t1")],
+      accessibleVaultIds: [],
+    }),
+  ).toBeNull();
 });

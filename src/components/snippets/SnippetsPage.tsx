@@ -12,7 +12,7 @@ import { useLayoutStore } from "@/stores/layoutStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { usePermissions, type Permission } from "@/hooks/usePermission";
-import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
+import { useAccessibleVaultIds, useScopedVaultId } from "@/hooks/useAccessibleVaultIds";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
 import { usePageBulkActions } from "@/hooks/usePageBulkActions";
@@ -314,6 +314,7 @@ export function SnippetsPage() {
   const teams = useTeamStore((s) => s.teams);
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const accessibleVaultIds = useAccessibleVaultIds();
+  const scopedVaultId = useScopedVaultId();
   const can = usePermissions();
 
   const vaultOptions = useMemo<VaultOption[]>(() => {
@@ -532,8 +533,14 @@ export function SnippetsPage() {
    * argument rather than activeFolderId so an undo, which passes the origin folder
    * back in, migrates back to the vault it came from.
    */
+  /**
+   * A destination folder carries its own vault. At the root there is none, so the
+   * view's scope answers instead: with a single vault on screen its root IS that
+   * vault's root and a paste there belongs in it. With several on screen the root
+   * names no destination, so every object keeps its own vault.
+   */
   const vaultForFolder = (folderId: string | null): string | null =>
-    folderId ? (scopedFolders.find((f) => f.id === folderId)?.vault_id ?? null) : null;
+    folderId ? (scopedFolders.find((f) => f.id === folderId)?.vault_id ?? null) : scopedVaultId;
 
   // Every mutation below goes through a store method so vault permission checks apply.
   // Snippets own no secrets, so nothing has to be republished on a cross-vault write.

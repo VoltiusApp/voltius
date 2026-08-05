@@ -204,9 +204,12 @@ function pasteMoves(
 function strandsAtRoot(
   adapter: ClipboardAdapter,
   target: string | null,
+  targetVault: string | null,
   ids: string[],
 ): boolean {
-  if (target !== null) return false;
+  // A destination vault is a destination even without a folder: the root of a
+  // view scoped to one vault. Nothing is stranded there.
+  if (target !== null || targetVault !== null) return false;
   const rootVaults = adapter.rootVaultIds?.() ?? [];
   if (rootVaults.length === 0) return false;
   return ids.some(
@@ -246,13 +249,19 @@ export async function pasteFromClipboard(
   if (dangling.length > 0) return { ...EMPTY, skipped, dangling };
 
   if (clipboard.mode === "cut") {
-    const crossVaultAtRoot = strandsAtRoot(adapter, target, [
+    const crossVaultAtRoot = strandsAtRoot(adapter, target, targetVault, [
       ...liveItems.map((i) => i.id),
       ...liveFolders,
     ]);
-    const itemIds = liveItems.map((i) => i.id).filter((id) => adapter.folderIdOf(id) !== target);
+    // Skipped only when the object is ALREADY where the paste would put it. The
+    // folder alone does not say that: two vault roots are both `null`, so
+    // comparing folders only made a cut between them look like a no-op.
+    const inPlace = (id: string) =>
+      adapter.folderIdOf(id) === target
+      && (targetVault === null || adapter.vaultIdOf(id) === targetVault);
+    const itemIds = liveItems.map((i) => i.id).filter((id) => !inPlace(id));
     const folderIds = liveFolders.filter(
-      (id) => adapter.folderIdOf(id) !== target && adapter.canMoveFolder(id, target),
+      (id) => !inPlace(id) && adapter.canMoveFolder(id, target),
     );
     // The origin vault is recorded alongside the origin folder: an object cut from
     // a vault root has no origin folder to read its vault back from at undo time.

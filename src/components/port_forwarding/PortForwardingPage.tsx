@@ -8,7 +8,7 @@ import { useAllConnections } from "@/hooks/useAllConnections";
 import { useUIStore } from "@/stores/uiStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { usePermissions, type Permission } from "@/hooks/usePermission";
-import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
+import { useAccessibleVaultIds, useScopedVaultId } from "@/hooks/useAccessibleVaultIds";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
@@ -94,6 +94,7 @@ export function PortForwardingPage() {
 
   const vaults = useVaultStore((s) => s.vaults);
   const accessibleVaultIds = useAccessibleVaultIds();
+  const scopedVaultId = useScopedVaultId();
   const defaultVaultId = useDefaultVaultId();
   const can = usePermissions();
 
@@ -458,8 +459,14 @@ export function PortForwardingPage() {
    * argument rather than activeFolderId so an undo, which passes the origin folder
    * back in, migrates back to the vault it came from.
    */
+  /**
+   * A destination folder carries its own vault. At the root there is none, so the
+   * view's scope answers instead: with a single vault on screen its root IS that
+   * vault's root and a paste there belongs in it. With several on screen the root
+   * names no destination, so every object keeps its own vault.
+   */
   const vaultForFolder = (folderId: string | null): string | null =>
-    folderId ? (scopedFolders.find((f) => f.id === folderId)?.vault_id ?? null) : null;
+    folderId ? (scopedFolders.find((f) => f.id === folderId)?.vault_id ?? null) : scopedVaultId;
 
   // Every mutation below goes through a store method so vault permission checks apply.
   // Rules own no secrets, so nothing has to be republished on a cross-vault write.

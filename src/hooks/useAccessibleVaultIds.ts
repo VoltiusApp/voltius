@@ -2,7 +2,7 @@ import { useMemo, useEffect, useState } from "react";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { getSyncState, onSyncStateChange } from "@/services/sync";
-import { deriveAccessibleVaultIds } from "@/hooks/accessibleVaults";
+import { deriveAccessibleVaultIds, deriveScopedVaultId } from "@/hooks/accessibleVaults";
 
 /**
  * Returns the subset of selectedVaultIds that are currently accessible.
@@ -30,4 +30,19 @@ export function useAccessibleVaultIds(): string[] {
     teams,
     cloudActive,
   }), [selectedVaultIds, vaults, teams, cloudActive]);
+}
+
+/**
+ * The vault the page root currently stands for, or null when several vaults are
+ * on screen. See `deriveScopedVaultId`.
+ */
+export function useScopedVaultId(): string | null {
+  const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
+  const vaults = useVaultStore((s) => s.vaults);
+  const accessibleVaultIds = useAccessibleVaultIds();
+
+  return useMemo(
+    () => deriveScopedVaultId({ selectedVaultIds, vaults, accessibleVaultIds }),
+    [selectedVaultIds, vaults, accessibleVaultIds],
+  );
 }

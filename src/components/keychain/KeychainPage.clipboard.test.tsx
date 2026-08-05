@@ -18,6 +18,8 @@ const h = vi.hoisted(() => ({
   folders: [] as unknown[],
   selected: [] as string[],
   activeFolderId: null as string | null,
+  accessibleVaultIds: [] as string[],
+  scopedVaultId: null as string | null,
   loadKeys: vi.fn(async () => {}),
   loadIdentities: vi.fn(async () => {}),
   saveKey: vi.fn(),
@@ -130,7 +132,10 @@ vi.mock("@/hooks/useEffectivePinned", () => ({
   useEffectivePinSource: () => null,
   nextPersonalPinValue: () => true,
 }));
-vi.mock("@/hooks/useAccessibleVaultIds", () => ({ useAccessibleVaultIds: () => [] }));
+vi.mock("@/hooks/useAccessibleVaultIds", () => ({
+  useAccessibleVaultIds: () => h.accessibleVaultIds,
+  useScopedVaultId: () => h.scopedVaultId,
+}));
 vi.mock("@/hooks/useWritableVaultIds", () => ({ useDefaultVaultId: () => "personal" }));
 vi.mock("@/hooks/usePermission", () => ({ usePermissions: () => h.can }));
 vi.mock("@/hooks/useAllKeys", () => ({ useAllKeys: () => h.keys }));
@@ -222,6 +227,8 @@ beforeEach(() => {
   h.folders = [];
   h.selected = [];
   h.activeFolderId = null;
+  h.accessibleVaultIds = [];
+  h.scopedVaultId = null;
   h.can.mockReturnValue(true);
   h.confirmCrossVault.mockImplementation(async () => true);
   h.getSecret.mockResolvedValue(null);
@@ -591,5 +598,21 @@ test("an identity cut is allowed when its key travels in the same paste", async 
   await dispatch("voltius:clipboard-paste");
 
   expect(h.updateIdentity).toHaveBeenCalledWith("i1", expect.objectContaining({ vault_id: "team-1" }));
+  expect(h.updateKey).toHaveBeenCalledWith("k1", expect.objectContaining({ vault_id: "team-1" }));
+});
+
+// The root of a view scoped to one vault IS that vault's root, so a paste there
+// migrates into it instead of leaving the object in the vault it came from.
+test("a root cut migrates into the one vault the view is scoped to", async () => {
+  h.keys = [key("k1", { vault_id: "personal" })];
+  h.selected = ["k1"];
+  h.activeFolderId = null;
+  h.accessibleVaultIds = ["team-1"];
+  h.scopedVaultId = "team-1";
+  render(<KeychainPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
   expect(h.updateKey).toHaveBeenCalledWith("k1", expect.objectContaining({ vault_id: "team-1" }));
 });

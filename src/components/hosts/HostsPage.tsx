@@ -29,7 +29,7 @@ import { useVaultStore } from "@/stores/vaultStore";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { useTeamStore } from "@/stores/teamStore";
 import { usePermissions, type Permission } from "@/hooks/usePermission";
-import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
+import { useAccessibleVaultIds, useScopedVaultId } from "@/hooks/useAccessibleVaultIds";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { usePageClipboard } from "@/hooks/usePageClipboard";
 import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
@@ -145,6 +145,7 @@ export default function HostsPage() {
   const vaults = useVaultStore((s) => s.vaults);
   const teams = useTeamStore((s) => s.teams);
   const accessibleVaultIds = useAccessibleVaultIds();
+  const scopedVaultId = useScopedVaultId();
   const defaultVaultId = useDefaultVaultId();
   const can = usePermissions();
   const canCreate = selectedVaultIds.some((vid) => can("EDIT_CONNECTIONS", vid));
@@ -309,15 +310,17 @@ export default function HostsPage() {
   );
 
   /**
-   * The destination folder is the only unambiguous carrier of a destination vault.
-   * At the root there is none, so nothing migrates and every object keeps its own
-   * vault — matching the drag-to-root path (`onEjectFolders`), and avoiding a
-   * "move to top level" gesture silently pulling a subtree out of a team vault.
+   * A destination folder carries its own vault. At the root there is none, so the
+   * view's scope answers instead: with a single vault on screen its root IS that
+   * vault's root and a paste there belongs in it. With several on screen the root
+   * names no destination, so every object keeps its own vault — matching the
+   * drag-to-root path (`onEjectFolders`), and avoiding a "move to top level"
+   * gesture silently pulling a subtree out of a team vault.
    * Derived from the folder argument rather than activeFolderId so an undo, which
    * passes the origin folder back in, migrates back to the vault it came from.
    */
   const vaultForFolder = (folderId: string | null): string | null =>
-    folderId ? (scopedFolders.find((f) => f.id === folderId)?.vault_id ?? null) : null;
+    folderId ? (scopedFolders.find((f) => f.id === folderId)?.vault_id ?? null) : scopedVaultId;
 
   // Every mutation below goes through a store method so vault permission checks apply.
   usePageClipboard({
