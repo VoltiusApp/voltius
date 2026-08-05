@@ -360,3 +360,30 @@ test("a same-vault paste needs no cross-vault permission check", async () => {
   const r = await pasteFromClipboard(cut, a);
   expect(r.moved).toBe(1);
 });
+
+// A cut from a team vault root, pasted at a root that only shows Personal: the
+// object keeps its vault, so nothing moves and nothing used to be said.
+test("a root paste that would have to change vault reports itself", async () => {
+  const a = adapter({
+    targetFolderId: () => null,
+    targetVaultId: () => null,
+    folderIdOf: () => null,
+    vaultIdOf: () => "team-1",
+    rootVaultIds: () => ["personal"],
+  });
+  const r = await pasteFromClipboard(cut, a);
+  expect(a.moveItems).not.toHaveBeenCalled();
+  expect(r).toMatchObject({ moved: 0, crossVaultAtRoot: true });
+});
+
+test("a root paste of an object already in a shown vault stays silent", async () => {
+  const a = adapter({
+    targetFolderId: () => null,
+    targetVaultId: () => null,
+    folderIdOf: () => null,
+    vaultIdOf: () => "personal",
+    rootVaultIds: () => ["personal"],
+  });
+  const r = await pasteFromClipboard(cut, a);
+  expect(r.crossVaultAtRoot).toBeFalsy();
+});

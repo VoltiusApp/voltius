@@ -171,6 +171,7 @@
       "crossVaultMoveDescription_other": "{{count}} 个项目将离开当前保险库并移动到 {{targetVaultName}}。",
       "crossVaultCopyDescription_one": "{{count}} 个项目将被复制到 {{targetVaultName}}。",
       "crossVaultCopyDescription_other": "{{count}} 个项目将被复制到 {{targetVaultName}}。",
+      "pasteRootCrossVault": "在顶层粘贴无法在保险库之间移动项目 — 请打开目标保险库中的文件夹。",
       "pasteFailed": "粘贴失败：{{error}}",
       "pasteBlocked": "未粘贴任何内容：你在相关保险库中缺少“{{permissions}}”权限。",
       "permissionsMissing": "你在相关保险库中缺少“{{permissions}}”权限",

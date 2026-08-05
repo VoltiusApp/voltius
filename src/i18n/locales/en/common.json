@@ -171,6 +171,7 @@
       "crossVaultMoveDescription_other": "{{count}} items will leave their current vault and move into {{targetVaultName}}.",
       "crossVaultCopyDescription_one": "{{count}} item will be copied into {{targetVaultName}}.",
       "crossVaultCopyDescription_other": "{{count}} items will be copied into {{targetVaultName}}.",
+      "pasteRootCrossVault": "Pasting at the top level can't move items between vaults — open a folder in the destination vault.",
       "pasteFailed": "Paste failed: {{error}}",
       "pasteBlocked": "Nothing was pasted: you are missing {{permissions}} in one of the vaults involved.",
       "permissionsMissing": "you are missing {{permissions}} in one of the vaults involved",

@@ -448,6 +448,7 @@ export default function KeychainPage() {
       ?? scopedFolders.find((f) => f.id === id)?.vault_id
       ?? "personal",
     targetFolderId: () => activeFolderId,
+    rootVaultIds: () => accessibleVaultIds,
     targetVaultId: () => vaultForFolder(activeFolderId),
     targetVaultName: () =>
       vaultOptions.find((v) => v.id === vaultForFolder(activeFolderId))?.name ?? "",

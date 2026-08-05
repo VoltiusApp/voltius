@@ -179,6 +179,7 @@
       "crossVaultCopyDescription_few": "{{count}} элемента будут скопированы в {{targetVaultName}}.",
       "crossVaultCopyDescription_many": "{{count}} элементов будут скопированы в {{targetVaultName}}.",
       "crossVaultCopyDescription_other": "{{count}} элементов будут скопированы в {{targetVaultName}}.",
+      "pasteRootCrossVault": "Вставка на верхнем уровне не может перемещать элементы между хранилищами — откройте папку в хранилище назначения.",
       "pasteFailed": "Не удалось вставить: {{error}}",
       "pasteBlocked": "Ничего не вставлено: у вас нет прав «{{permissions}}» в одном из задействованных хранилищ.",
       "permissionsMissing": "у вас нет прав «{{permissions}}» в одном из задействованных хранилищ",

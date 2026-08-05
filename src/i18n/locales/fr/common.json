@@ -171,6 +171,7 @@
       "crossVaultMoveDescription_other": "{{count}} éléments quitteront leur coffre actuel pour rejoindre {{targetVaultName}}.",
       "crossVaultCopyDescription_one": "{{count}} élément sera copié dans {{targetVaultName}}.",
       "crossVaultCopyDescription_other": "{{count}} éléments seront copiés dans {{targetVaultName}}.",
+      "pasteRootCrossVault": "Un collage au niveau supérieur ne peut pas déplacer d'éléments entre coffres — ouvrez un dossier dans le coffre de destination.",
       "pasteFailed": "Échec du collage : {{error}}",
       "pasteBlocked": "Rien n'a été collé : il vous manque {{permissions}} dans l'un des coffres concernés.",
       "permissionsMissing": "il vous manque {{permissions}} dans l'un des coffres concernés",

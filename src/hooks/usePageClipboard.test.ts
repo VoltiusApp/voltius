@@ -296,3 +296,21 @@ test("a paste that rejects raises an error toast", async () => {
   expect(spy).toHaveBeenCalled();
   spy.mockRestore();
 });
+
+// Ctrl+V at a root cannot migrate vaults by design, so the object is dropped —
+// which was indistinguishable from a dead shortcut until it was said out loud.
+test("a root paste that cannot change vault raises a toast", async () => {
+  const a = baseAdapter({
+    targetFolderId: () => null,
+    targetVaultId: () => null,
+    folderIdOf: () => null,
+    vaultIdOf: () => "team-1",
+    rootVaultIds: () => ["personal"],
+  });
+  renderHook(() => usePageClipboard(a));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-cut"));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
+  await vi.waitFor(() => expect(useNotificationStore.getState().toasts).toHaveLength(1));
+  expect(useNotificationStore.getState().toasts[0].message).toContain("top level");
+  expect(a.moveItems).not.toHaveBeenCalled();
+});

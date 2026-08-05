@@ -35,6 +35,9 @@ function reportPasteResult(result: PasteResult) {
     toast(i18n.t("common.clipboard.pasteBlocked", { permissions }));
     return;
   }
+  if (result.crossVaultAtRoot) {
+    toast(i18n.t("common.clipboard.pasteRootCrossVault"));
+  }
   if (result.skipped > 0) {
     toast(i18n.t("common.clipboard.pasteSkipped", { count: result.skipped }));
   }
@@ -71,6 +74,7 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
       vaultIdOf: (id) => ref.current.vaultIdOf(id),
       targetFolderId: () => ref.current.targetFolderId(),
       targetVaultId: () => ref.current.targetVaultId(),
+      rootVaultIds: () => ref.current.rootVaultIds?.() ?? [],
       folderIdOf: (id) => ref.current.folderIdOf(id),
       folderContentKinds: (id) => ref.current.folderContentKinds(id),
       canMoveFolder: (id, parentFolderId) => ref.current.canMoveFolder(id, parentFolderId),

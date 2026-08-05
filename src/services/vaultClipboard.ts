@@ -16,6 +16,12 @@ export interface ClipboardAdapter {
    * no cross-vault authorization is needed.
    */
   targetVaultId: () => string | null;
+  /**
+   * Vaults the root listing currently shows. Only used to tell a root paste that
+   * silently drops an object — its vault is not one of these — apart from the
+   * ordinary no-op of pasting an object back where it already sits.
+   */
+  rootVaultIds?: () => string[];
   /** Current folder of an id, null when it sits at the root. */
   folderIdOf: (id: string) => string | null;
   /**
@@ -51,6 +57,8 @@ export interface PasteResult {
   created: number;
   skipped: number;
   blocked?: string[];
+  /** A root paste left an object behind because it would have had to change vault. */
+  crossVaultAtRoot?: boolean;
 }
 
 const EMPTY: PasteResult = { moved: 0, created: 0, skipped: 0 };
@@ -156,6 +164,25 @@ function pasteMoves(
   ];
 }
 
+/**
+ * A root paste carries no destination vault, so every object keeps the one it has.
+ * An object cut from a root of a vault the destination root does not even show is
+ * therefore dropped: same folder (null), unreachable vault, nothing to do. That is
+ * indistinguishable from a broken Ctrl+V, so it is reported.
+ */
+function strandsAtRoot(
+  adapter: ClipboardAdapter,
+  target: string | null,
+  ids: string[],
+): boolean {
+  if (target !== null) return false;
+  const rootVaults = adapter.rootVaultIds?.() ?? [];
+  if (rootVaults.length === 0) return false;
+  return ids.some(
+    (id) => adapter.folderIdOf(id) === null && !rootVaults.includes(adapter.vaultIdOf(id)),
+  );
+}
+
 export async function pasteFromClipboard(
   clipboard: VaultClipboard,
   adapter: ClipboardAdapter,
@@ -180,6 +207,10 @@ export async function pasteFromClipboard(
   if (blocked.length > 0) return { ...EMPTY, skipped, blocked };
 
   if (clipboard.mode === "cut") {
+    const crossVaultAtRoot = strandsAtRoot(adapter, target, [
+      ...liveItems.map((i) => i.id),
+      ...liveFolders,
+    ]);
     const itemIds = liveItems.map((i) => i.id).filter((id) => adapter.folderIdOf(id) !== target);
     const folderIds = liveFolders.filter(
       (id) => adapter.folderIdOf(id) !== target && adapter.canMoveFolder(id, target),
@@ -217,7 +248,7 @@ export async function pasteFromClipboard(
       for (const id of folderIds) await adapter.moveFolder(id, target, targetVault);
     });
     const moved = itemIds.length + folderIds.length;
-    if (moved === 0) return { moved: 0, created: 0, skipped };
+    if (moved === 0) return { moved: 0, created: 0, skipped, crossVaultAtRoot };
     adapter.setSelection([...itemIds, ...folderIds]);
 
     useHistoryStore.getState().push({
@@ -240,7 +271,7 @@ export async function pasteFromClipboard(
         for (const id of folderIds) await adapter.moveFolder(id, target, targetVault);
       },
     });
-    return { moved, created: 0, skipped };
+    return { moved, created: 0, skipped, crossVaultAtRoot };
   }
 
   const duplicateAll = async () => {
