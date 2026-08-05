@@ -71,6 +71,27 @@ describe("global panel handle", () => {
     expect(useUIStore.getState().dockedPanelWidth).toBe(200);
   });
 
+  test("unloading releases a docked width the plugin's own cleanup did not", () => {
+    const register: PluginRegisterFn = (api) => {
+      api.ui.registerGlobalPanel({ id: "drawer", component: () => null }).setDockedWidth(360);
+      return () => {};
+    };
+    loadPlugin(manifest("agent", ["global-panel"]), register, true, false);
+    expect(useUIStore.getState().dockedPanelWidth).toBe(360);
+
+    unloadPlugin("agent");
+    expect(useUIStore.getState().dockedPanelWidth).toBe(0);
+  });
+
+  test("unloading leaves a docked width another plugin owns alone", () => {
+    const handle = load("agent");
+    handle.setDockedWidth(360);
+    useUIStore.getState().setDockedPanelWidth(200);
+
+    unloadPlugin("agent");
+    expect(useUIStore.getState().dockedPanelWidth).toBe(200);
+  });
+
   test("methods no-op once the plugin is unloaded", () => {
     const handle = load("agent");
     unloadPlugin("agent");
