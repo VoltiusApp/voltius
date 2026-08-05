@@ -579,6 +579,10 @@ export function PortForwardingPage() {
     () => filtered.filter((r) => selectedIdSet.has(r.id)),
     [filtered, selectedIdSet],
   );
+  const selectedFolders = useMemo(
+    () => visibleFolders.filter((f) => selectedIdSet.has(f.id)),
+    [visibleFolders, selectedIdSet],
+  );
 
   const handleDeleteRule = useCallback((id: string) => {
     if (selectedIdSet.has(id) && selectedRules.length > 1) {
@@ -589,14 +593,15 @@ export function PortForwardingPage() {
   }, [selectedIdSet, selectedRules]);
 
   const bulkContextMenuItems = useMemo<ContextMenuItem[] | undefined>(() => {
-    if (selectedRules.length < 2) return undefined;
     const n = selectedRules.length;
+    // Folders count too: a folder-only selection still needs cut/copy.
+    if (n + selectedFolders.length < 2) return undefined;
     const allCanEdit = selectedRules.every((r) => canEdit(r.vault_id ?? "personal"));
     const sharedVaults = vaultOptions.filter((v) =>
       selectedRules.some((r) => (r.vault_id ?? "personal") !== v.id),
     );
     return [
-      ...(allCanEdit ? [{
+      ...(n > 0 && allCanEdit ? [{
         label: t("portForwarding.page.bulk.duplicateRules", { count: n }),
         icon: "lucide:copy",
         onClick: () => { void Promise.all(selectedRules.map((r) => duplicateRule(r.id))); },
@@ -608,11 +613,11 @@ export function PortForwardingPage() {
         sharedVaults.length > 0 ? (vaultId) => { for (const r of selectedRules) handleCopyRuleToVault(r, vaultId); } : undefined,
         t,
       ),
-      {
+      ...(n > 0 ? [{
         label: t("portForwarding.page.bulk.exportRules", { count: n }),
         icon: "lucide:upload",
         onClick: () => useUIStore.getState().openImportExport("export", { bulk: { portForwardingRules: selectedRules.map((r) => r.id) } }),
-      },
+      }] : []),
       {
         label: t("common.action.cut"),
         icon: "lucide:scissors",
@@ -626,15 +631,15 @@ export function PortForwardingPage() {
         shortcut: getShortcutHint("copy"),
         onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-copy")),
       },
-      {
+      ...(n > 0 ? [{
         label: t("portForwarding.page.bulk.deleteRules", { count: n }),
         icon: "lucide:trash-2",
         onClick: () => setConfirmDeleteIds(selectedRules.map((r) => r.id)),
         danger: true,
         divider: true,
-      },
+      }] : []),
     ];
-  }, [selectedRules, canEdit, vaultOptions, duplicateRule, handleMoveRuleToVault, handleCopyRuleToVault, t]);
+  }, [selectedRules, selectedFolders, canEdit, vaultOptions, duplicateRule, handleMoveRuleToVault, handleCopyRuleToVault, t]);
 
   return (
     <>
@@ -773,6 +778,7 @@ export function PortForwardingPage() {
                         onMoveToVault={(vaultId) => handleMoveFolderToVault(folder, vaultId)}
                         onCopyToVault={(vaultId) => handleCopyFolderToVault(folder, vaultId)}
                         onExport={() => useUIStore.getState().openImportExport("export", { bulk: { portForwardingRules: rules.filter((r) => r.folder_id === folder.id).map((r) => r.id) } })}
+                        bulkContextMenuItems={selectedIdSet.size > 1 ? bulkContextMenuItems : undefined}
                       />
                     );
                   })}

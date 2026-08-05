@@ -17,6 +17,8 @@ function rule(id: string, over: Partial<PortForwardingRule> = {}): PortForwardin
 const h = vi.hoisted(() => ({
   rules: [] as unknown[],
   folders: [] as unknown[],
+  visibleFolders: [] as unknown[],
+  folderCardProps: [] as Record<string, unknown>[],
   selected: [] as string[],
   activeFolderId: null as string | null,
   createRule: vi.fn(),
@@ -46,7 +48,9 @@ vi.mock("@/components/shared/SidePanelLayout", () => ({
 vi.mock("@/components/shared/DragSelectSurface", () => ({
   DragSelectSurface: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock("@/components/folders/FolderCard", () => ({ FolderCard: () => null }));
+vi.mock("@/components/folders/FolderCard", () => ({
+  FolderCard: (props: Record<string, unknown>) => { h.folderCardProps.push(props); return null; },
+}));
 vi.mock("@/components/folders/FolderEditPanel", () => ({ FolderEditPanel: () => null }));
 vi.mock("./PortForwardingToolbar", () => ({ PortForwardingToolbar: () => null }));
 vi.mock("./ActiveTunnelsSection", () => ({ ActiveTunnelsSection: () => null }));
@@ -78,7 +82,7 @@ vi.mock("@/hooks/useFolderNavigation", () => ({
     folderPath: [],
     activeFolderId: h.activeFolderId,
     ejectTargetFolderId: null,
-    visibleFolders: [],
+    visibleFolders: h.visibleFolders,
     navigateInto: vi.fn(),
     navigateTo: vi.fn(),
     navigateToRoot: vi.fn(),
@@ -181,6 +185,8 @@ beforeEach(() => {
   h.saveFolder.mockImplementation(async (d: Partial<Folder>) => folder("new-folder", d));
   h.rules = [];
   h.folders = [];
+  h.visibleFolders = [];
+  h.folderCardProps = [];
   h.selected = [];
   h.activeFolderId = null;
   h.can.mockReturnValue(true);
@@ -332,6 +338,19 @@ test("cloning a folder suffixes the root only, not the rules inside it", async (
 
   expect(h.saveFolder).toHaveBeenCalledWith(expect.objectContaining({ name: "Prod (copy)" }));
   expect(h.createRule).toHaveBeenCalledWith(expect.objectContaining({ name: "Grafana" }));
+});
+
+test("a folder-only selection still offers cut and copy on the folder context menu", async () => {
+  h.folders = [folder("f1"), folder("f2")];
+  h.visibleFolders = h.folders;
+  h.selected = ["f1", "f2"];
+  render(<PortForwardingPage />);
+
+  const last = h.folderCardProps[h.folderCardProps.length - 1];
+  const menu = last?.bulkContextMenuItems as { label: string }[] | undefined;
+  expect(menu?.map((i) => i.label)).toEqual(
+    expect.arrayContaining(["common.action.cut", "common.action.copy"]),
+  );
 });
 
 test("a rejected folder paste keeps the clipboard so the user can retry", async () => {
