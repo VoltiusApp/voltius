@@ -28,6 +28,7 @@ import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { useRuleTunnels } from "@/hooks/useRuleTunnels";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { usePageClipboard } from "@/hooks/usePageClipboard";
+import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import { getShortcutHint } from "@/stores/shortcutStore";
@@ -79,6 +80,7 @@ export function PortForwardingPage() {
   const { loadFolders, saveFolder, updateFolder, deleteFolder, moveFolder } = useFolderStore();
   const folders = useAllFolders();
   const { pending: cascadePending, request: requestCascade, confirm: confirmCascade, cancel: cancelCascade } = useVaultCascade();
+  const crossVaultPaste = useCrossVaultPasteConfirm();
 
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
   const layoutMode = useUIStore((s) => s.portForwardingLayoutMode);
@@ -476,6 +478,9 @@ export function PortForwardingPage() {
       ?? "personal",
     targetFolderId: () => activeFolderId,
     targetVaultId: () => vaultForFolder(activeFolderId),
+    targetVaultName: () =>
+      vaultOptions.find((v) => v.id === vaultForFolder(activeFolderId))?.name ?? "",
+    confirmCrossVault: crossVaultPaste.confirmCrossVault,
     folderIdOf: (id) =>
       rules.find((r) => r.id === id)?.folder_id
       ?? scopedFolders.find((f) => f.id === id)?.parent_folder_id
@@ -937,6 +942,14 @@ export function PortForwardingPage() {
     )}
 
     <ClipboardPill navItem="port-forwarding" />
+
+    {crossVaultPaste.pending && (
+      <VaultCascadeModal
+        cascade={crossVaultPaste.pending}
+        onConfirm={crossVaultPaste.accept}
+        onCancel={crossVaultPaste.cancel}
+      />
+    )}
 
     {cascadePending && (
       <VaultCascadeModal

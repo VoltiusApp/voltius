@@ -32,6 +32,7 @@ import { usePermissions, type Permission } from "@/hooks/usePermission";
 import { useAccessibleVaultIds } from "@/hooks/useAccessibleVaultIds";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { usePageClipboard } from "@/hooks/usePageClipboard";
+import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import { getShortcutHint } from "@/stores/shortcutStore";
@@ -64,6 +65,7 @@ export default function HostsPage() {
   const { identities } = useIdentityStore();
   const { keys, updateKey } = useKeyStore();
   const { pending: cascadePending, request: requestCascade, confirm: confirmCascade, cancel: cancelCascade } = useVaultCascade();
+  const crossVaultPaste = useCrossVaultPasteConfirm();
   const { connect, connectMany, connectLocal, connectSerialEphemeral, sessions } = useSessionStore();
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
   const bgContributions = useUIContributions("home.bgContextMenu");
@@ -326,6 +328,9 @@ export default function HostsPage() {
       ?? "personal",
     targetFolderId: () => activeFolderId,
     targetVaultId: () => vaultForFolder(activeFolderId),
+    targetVaultName: () =>
+      vaultOptions.find((v) => v.id === vaultForFolder(activeFolderId))?.name ?? "",
+    confirmCrossVault: crossVaultPaste.confirmCrossVault,
     folderIdOf: (id) =>
       connections.find((c) => c.id === id)?.folder_id
       ?? scopedFolders.find((f) => f.id === id)?.parent_folder_id
@@ -1506,6 +1511,14 @@ export default function HostsPage() {
             setConfirmDeleteFolderId(null);
           }}
           onCancel={() => setConfirmDeleteFolderId(null)}
+        />
+      )}
+
+      {crossVaultPaste.pending && (
+        <VaultCascadeModal
+          cascade={crossVaultPaste.pending}
+          onConfirm={crossVaultPaste.accept}
+          onCancel={crossVaultPaste.cancel}
         />
       )}
 

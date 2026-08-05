@@ -31,6 +31,7 @@ const h = vi.hoisted(() => ({
   moveFolder: vi.fn(async () => {}),
   setSelection: vi.fn(),
   can: vi.fn((_permission: string, _vaultId: string) => true),
+  confirmCrossVault: vi.fn(async () => true),
   getSecret: vi.fn(async (_k: string) => null as string | null),
   storeSecret: vi.fn(async (_k: string, _v: string) => {}),
   saveTeamVaultSecretForVault: vi.fn(async (_vaultId: string, _k: string, _v: string) => {}),
@@ -41,6 +42,14 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("@/hooks/useCrossVaultPasteConfirm", () => ({
+  useCrossVaultPasteConfirm: () => ({
+    pending: null,
+    confirmCrossVault: h.confirmCrossVault,
+    accept: vi.fn(),
+    cancel: vi.fn(),
+  }),
+}));
 
 // ── Child components: rendered as inert, the adapter is what is under test ──
 vi.mock("@/components/shared/SidePanelLayout", () => ({
@@ -212,6 +221,7 @@ beforeEach(() => {
   h.selected = [];
   h.activeFolderId = null;
   h.can.mockReturnValue(true);
+  h.confirmCrossVault.mockImplementation(async () => true);
   h.getSecret.mockResolvedValue(null);
   useVaultClipboardStore.getState().clear();
   useHistoryStore.setState({ past: [], future: [], bypassing: false, suppressing: false, canUndo: false, canRedo: false });
@@ -437,4 +447,34 @@ test("a rejected folder paste keeps the clipboard so the user can retry", async 
   await dispatch("voltius:clipboard-paste");
 
   expect(useVaultClipboardStore.getState().clipboard?.folderIds).toEqual(["f1"]);
+});
+
+test("declining the cross-vault confirmation aborts the paste", async () => {
+  h.confirmCrossVault.mockImplementation(async () => false);
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.keys = [key("k1", { vault_id: "personal" })];
+  h.selected = ["k1"];
+  h.activeFolderId = "tf";
+  render(<KeychainPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.confirmCrossVault).toHaveBeenCalledWith(expect.objectContaining({ count: 1 }));
+  expect(h.updateKey).not.toHaveBeenCalled();
+  expect(h.moveObjectsToFolder).not.toHaveBeenCalled();
+});
+
+test("a same-vault paste is not gated on a confirmation", async () => {
+  h.folders = [folder("f1", { vault_id: "personal" })];
+  h.keys = [key("k1", { vault_id: "personal" })];
+  h.selected = ["k1"];
+  h.activeFolderId = "f1";
+  render(<KeychainPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.confirmCrossVault).not.toHaveBeenCalled();
+  expect(h.moveObjectsToFolder).toHaveBeenCalled();
 });

@@ -32,6 +32,7 @@ const h = vi.hoisted(() => ({
   moveFolder: vi.fn(async () => {}),
   setSelection: vi.fn(),
   can: vi.fn((_permission: string, _vaultId: string) => true),
+  confirmCrossVault: vi.fn(async () => true),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -39,6 +40,14 @@ vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 vi.mock("@iconify/react", () => ({ Icon: () => null }));
+vi.mock("@/hooks/useCrossVaultPasteConfirm", () => ({
+  useCrossVaultPasteConfirm: () => ({
+    pending: null,
+    confirmCrossVault: h.confirmCrossVault,
+    accept: vi.fn(),
+    cancel: vi.fn(),
+  }),
+}));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
 
 // ── Child components: rendered as inert, the adapter is what is under test ──
@@ -190,6 +199,7 @@ beforeEach(() => {
   h.selected = [];
   h.activeFolderId = null;
   h.can.mockReturnValue(true);
+  h.confirmCrossVault.mockImplementation(async () => true);
   useVaultClipboardStore.getState().clear();
   useHistoryStore.setState({ past: [], future: [], bypassing: false, suppressing: false, canUndo: false, canRedo: false });
 });
@@ -363,4 +373,33 @@ test("a rejected folder paste keeps the clipboard so the user can retry", async 
   await dispatch("voltius:clipboard-paste");
 
   expect(useVaultClipboardStore.getState().clipboard?.folderIds).toEqual(["f1"]);
+});
+
+test("declining the cross-vault confirmation aborts the paste", async () => {
+  h.confirmCrossVault.mockImplementation(async () => false);
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.rules = [rule("r1", { vault_id: "personal" })];
+  h.selected = ["r1"];
+  h.activeFolderId = "tf";
+  render(<PortForwardingPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.confirmCrossVault).toHaveBeenCalledWith(expect.objectContaining({ count: 1 }));
+  expect(h.updateRule).not.toHaveBeenCalled();
+});
+
+test("a same-vault paste is not gated on a confirmation", async () => {
+  h.folders = [folder("f1", { vault_id: "personal" })];
+  h.rules = [rule("r1", { vault_id: "personal" })];
+  h.selected = ["r1"];
+  h.activeFolderId = "f1";
+  render(<PortForwardingPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.confirmCrossVault).not.toHaveBeenCalled();
+  expect(h.moveRuleFolder).toHaveBeenCalledWith("r1", "f1");
 });

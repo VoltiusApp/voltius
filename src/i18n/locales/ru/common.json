@@ -168,7 +168,22 @@
       "copied_other": "Скопировано {{count}} элементов",
       "toMove": "{{shortcut}} — переместить",
       "toPaste": "{{shortcut}} — вставить",
-      "clear": "Очистить буфер обмена"
+      "clear": "Очистить буфер обмена",
+      "crossVaultMoveHeading": "Переместить элементы в",
+      "crossVaultCopyHeading": "Скопировать элементы в",
+      "crossVaultMoveDescription_one": "{{count}} элемент покинет текущее хранилище и переместится в {{targetVaultName}}.",
+      "crossVaultMoveDescription_few": "{{count}} элемента покинут текущее хранилище и переместятся в {{targetVaultName}}.",
+      "crossVaultMoveDescription_many": "{{count}} элементов покинут текущее хранилище и переместятся в {{targetVaultName}}.",
+      "crossVaultMoveDescription_other": "{{count}} элементов покинут текущее хранилище и переместятся в {{targetVaultName}}.",
+      "crossVaultCopyDescription_one": "{{count}} элемент будет скопирован в {{targetVaultName}}.",
+      "crossVaultCopyDescription_few": "{{count}} элемента будут скопированы в {{targetVaultName}}.",
+      "crossVaultCopyDescription_many": "{{count}} элементов будут скопированы в {{targetVaultName}}.",
+      "crossVaultCopyDescription_other": "{{count}} элементов будут скопированы в {{targetVaultName}}.",
+      "pasteBlocked": "Ничего не вставлено: у вас нет прав «{{permissions}}» в одном из задействованных хранилищ.",
+      "pasteSkipped_one": "{{count}} элемент больше не существует и был пропущен.",
+      "pasteSkipped_few": "{{count}} элемента больше не существуют и были пропущены.",
+      "pasteSkipped_many": "{{count}} элементов больше не существуют и были пропущены.",
+      "pasteSkipped_other": "{{count}} элементов больше не существуют и были пропущены."
     }
   }
 }

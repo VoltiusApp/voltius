@@ -164,7 +164,16 @@
       "copied_other": "{{count}} éléments copiés",
       "toMove": "{{shortcut}} pour déplacer",
       "toPaste": "{{shortcut}} pour coller",
-      "clear": "Vider le presse-papiers"
+      "clear": "Vider le presse-papiers",
+      "crossVaultMoveHeading": "Déplacer les éléments vers",
+      "crossVaultCopyHeading": "Copier les éléments vers",
+      "crossVaultMoveDescription_one": "{{count}} élément quittera son coffre actuel pour rejoindre {{targetVaultName}}.",
+      "crossVaultMoveDescription_other": "{{count}} éléments quitteront leur coffre actuel pour rejoindre {{targetVaultName}}.",
+      "crossVaultCopyDescription_one": "{{count}} élément sera copié dans {{targetVaultName}}.",
+      "crossVaultCopyDescription_other": "{{count}} éléments seront copiés dans {{targetVaultName}}.",
+      "pasteBlocked": "Rien n'a été collé : il vous manque {{permissions}} dans l'un des coffres concernés.",
+      "pasteSkipped_one": "{{count}} élément n'existe plus et a été ignoré.",
+      "pasteSkipped_other": "{{count}} éléments n'existent plus et ont été ignorés."
     }
   }
 }

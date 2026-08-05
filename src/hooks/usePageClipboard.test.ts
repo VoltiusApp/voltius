@@ -3,6 +3,7 @@ import { renderHook, cleanup } from "@testing-library/react";
 import { usePageClipboard } from "./usePageClipboard";
 import { useVaultClipboardStore } from "@/stores/vaultClipboardStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useNotificationStore } from "@/stores/notificationStore";
 
 function baseAdapter(over = {}) {
   return {
@@ -37,6 +38,7 @@ afterEach(() => cleanup());
 beforeEach(() => {
   useVaultClipboardStore.getState().clear();
   useUIStore.setState({ activeNav: "hosts" });
+  useNotificationStore.setState({ toasts: [] });
 });
 
 test("cut fills the clipboard from the selection", () => {
@@ -164,4 +166,63 @@ test("a rejected paste does not stall subsequent pastes", async () => {
   await vi.waitFor(() => expect(a.duplicateItems).toHaveBeenCalledTimes(1));
 
   errorSpy.mockRestore();
+});
+
+test("a cross-vault paste asks for confirmation and aborts when declined", async () => {
+  const confirmCrossVault = vi.fn(async () => false);
+  const a = baseAdapter({ targetVaultId: () => "team-1", confirmCrossVault });
+  renderHook(() => usePageClipboard(a));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-cut"));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
+  await vi.waitFor(() => expect(confirmCrossVault).toHaveBeenCalled());
+  expect(confirmCrossVault).toHaveBeenCalledWith({ count: 1, targetVaultName: "team-1" });
+  expect(a.moveItems).not.toHaveBeenCalled();
+  expect(useVaultClipboardStore.getState().clipboard).not.toBeNull();
+});
+
+test("a cross-vault paste proceeds when confirmed", async () => {
+  const confirmCrossVault = vi.fn(async () => true);
+  const a = baseAdapter({
+    targetVaultId: () => "team-1",
+    targetVaultName: () => "Team One",
+    confirmCrossVault,
+  });
+  renderHook(() => usePageClipboard(a));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-cut"));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
+  await vi.waitFor(() => expect(a.moveItems).toHaveBeenCalled());
+  expect(confirmCrossVault).toHaveBeenCalledWith({ count: 1, targetVaultName: "Team One" });
+});
+
+test("a same-vault paste does not ask for confirmation", async () => {
+  const confirmCrossVault = vi.fn(async () => true);
+  const a = baseAdapter({ confirmCrossVault });
+  renderHook(() => usePageClipboard(a));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-cut"));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
+  await vi.waitFor(() => expect(a.moveItems).toHaveBeenCalled());
+  expect(confirmCrossVault).not.toHaveBeenCalled();
+});
+
+test("a blocked paste raises a toast and mutates nothing", async () => {
+  const a = baseAdapter({ targetVaultId: () => "team-1", can: () => false });
+  renderHook(() => usePageClipboard(a));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-cut"));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
+  await vi.waitFor(() => expect(useNotificationStore.getState().toasts).toHaveLength(1));
+  const toast = useNotificationStore.getState().toasts[0];
+  expect(toast.severity).toBe("warning");
+  expect(toast.message).toContain("Edit connections");
+  expect(a.moveItems).not.toHaveBeenCalled();
+  expect(useVaultClipboardStore.getState().clipboard).not.toBeNull();
+});
+
+test("objects that vanished between cut and paste are reported", async () => {
+  const a = baseAdapter({ exists: () => false });
+  renderHook(() => usePageClipboard(a));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-cut"));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
+  await vi.waitFor(() => expect(useNotificationStore.getState().toasts).toHaveLength(1));
+  expect(useNotificationStore.getState().toasts[0].message).toContain("no longer exists");
+  expect(a.moveItems).not.toHaveBeenCalled();
 });

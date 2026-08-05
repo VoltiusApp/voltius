@@ -33,6 +33,8 @@ import { snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
 import { runSnippetIntoSessions } from "@/services/snippetRun";
 import { snippetToForm } from "@/utils/snippetForm";
 import { usePageClipboard } from "@/hooks/usePageClipboard";
+import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
+import { VaultCascadeModal } from "@/components/shared/VaultCascadeModal";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import { getShortcutHint } from "@/stores/shortcutStore";
@@ -518,6 +520,8 @@ export function SnippetsPage() {
     [clipboard],
   );
 
+  const crossVaultPaste = useCrossVaultPasteConfirm();
+
   /**
    * The destination folder is the only unambiguous carrier of a destination vault.
    * At the root there is none, so nothing migrates and every object keeps its own
@@ -548,6 +552,9 @@ export function SnippetsPage() {
       ?? "personal",
     targetFolderId: () => activeFolderId,
     targetVaultId: () => vaultForFolder(activeFolderId),
+    targetVaultName: () =>
+      vaultOptions.find((v) => v.id === vaultForFolder(activeFolderId))?.name ?? "",
+    confirmCrossVault: crossVaultPaste.confirmCrossVault,
     folderIdOf: (id) =>
       snippets.find((s) => s.id === id)?.folder_id
       ?? scopedFolders.find((f) => f.id === id)?.parent_folder_id
@@ -1400,6 +1407,14 @@ export function SnippetsPage() {
           setConfirmDeleteIds(null);
         }}
         onCancel={() => setConfirmDeleteIds(null)}
+      />
+    )}
+
+    {crossVaultPaste.pending && (
+      <VaultCascadeModal
+        cascade={crossVaultPaste.pending}
+        onConfirm={crossVaultPaste.accept}
+        onCancel={crossVaultPaste.cancel}
       />
     )}
     </>

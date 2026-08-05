@@ -1,12 +1,43 @@
 import { useEffect, useRef } from "react";
+import i18n from "@/i18n";
 import { useUIStore } from "@/stores/uiStore";
+import { useNotificationStore } from "@/stores/notificationStore";
 import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
-import { pasteFromClipboard, type ClipboardAdapter } from "@/services/vaultClipboard";
+import { pasteFromClipboard, type ClipboardAdapter, type PasteResult } from "@/services/vaultClipboard";
 
 export interface PageClipboardAdapter extends ClipboardAdapter {
   getSelection: () => string[];
   getFocusedId: () => string | null;
   classify: (id: string) => VaultClipboardKind | "folder" | null;
+  /** Asked before a paste that changes vault; false aborts the paste. */
+  confirmCrossVault?: (summary: { count: number; targetVaultName: string }) => Promise<boolean>;
+  targetVaultName?: () => string;
+}
+
+function toast(message: string) {
+  useNotificationStore.getState().addToast({
+    pluginId: "system",
+    pluginName: "Voltius",
+    type: "toast",
+    message,
+    severity: "warning",
+    duration: 6000,
+  });
+}
+
+/**
+ * A refused pre-flight and vanished objects both end in a paste that changes
+ * nothing, which is indistinguishable from a broken Ctrl+V unless it is said out loud.
+ */
+function reportPasteResult(result: PasteResult) {
+  if (result.blocked && result.blocked.length > 0) {
+    const permissions = result.blocked.map((p) => i18n.t(`members.permission.${p}`)).join(", ");
+    toast(i18n.t("common.clipboard.pasteBlocked", { permissions }));
+    return;
+  }
+  if (result.skipped > 0) {
+    toast(i18n.t("common.clipboard.pasteSkipped", { count: result.skipped }));
+  }
 }
 
 export function usePageClipboard(adapter: PageClipboardAdapter): void {
@@ -73,7 +104,25 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
       pasteChain.current = pasteChain.current.then(async () => {
         const clipboard = useVaultClipboardStore.getState().clipboard;
         try {
+          // Inside the queued work, not before it: the confirmation must not run
+          // ahead of an in-flight paste and decide from pre-paste state.
+          if (clipboard && clipboard.tab === navItem) {
+            const a = ref.current;
+            const target = a.targetVaultId();
+            const ids = [...clipboard.items.map((i) => i.id), ...clipboard.folderIds];
+            // A null target is the vault root, where every object keeps its vault.
+            const crossesVaults = target !== null && ids.some((id) => a.vaultIdOf(id) !== target);
+            if (crossesVaults && a.confirmCrossVault) {
+              const ok = await a.confirmCrossVault({
+                count: ids.length,
+                // Falls back to the id when the vault is not in the page's options.
+                targetVaultName: a.targetVaultName?.() || target,
+              });
+              if (!ok) return;
+            }
+          }
           const result = await pasteFromClipboard(clipboard, live);
+          reportPasteResult(result);
           if (clipboard?.mode === "cut" && result.moved > 0) {
             useVaultClipboardStore.getState().clear();
           }

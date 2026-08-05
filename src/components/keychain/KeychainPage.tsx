@@ -42,6 +42,7 @@ import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
 import { usePageClipboard } from "@/hooks/usePageClipboard";
+import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import { getShortcutHint } from "@/stores/shortcutStore";
@@ -54,6 +55,7 @@ export default function KeychainPage() {
   const { loadKeys, saveKey, updateKey, deleteKey } = useKeyStore();
   const keys = useAllKeys();
   const { pending: cascadePending, request: requestCascade, confirm: confirmCascade, cancel: cancelCascade } = useVaultCascade();
+  const crossVaultPaste = useCrossVaultPasteConfirm();
   const setOmniOpen = useUIStore((s) => s.setOmniOpen);
   const bgContributions = useUIContributions("keychain.bgContextMenu");
   const keychainPendingAction = useUIStore((s) => s.keychainPendingAction);
@@ -447,6 +449,9 @@ export default function KeychainPage() {
       ?? "personal",
     targetFolderId: () => activeFolderId,
     targetVaultId: () => vaultForFolder(activeFolderId),
+    targetVaultName: () =>
+      vaultOptions.find((v) => v.id === vaultForFolder(activeFolderId))?.name ?? "",
+    confirmCrossVault: crossVaultPaste.confirmCrossVault,
     folderIdOf: (id) =>
       keys.find((k) => k.id === id)?.folder_id
       ?? identities.find((i) => i.id === id)?.folder_id
@@ -1473,6 +1478,14 @@ export default function KeychainPage() {
       )}
 
     </SidePanelLayout>
+
+      {crossVaultPaste.pending && (
+        <VaultCascadeModal
+          cascade={crossVaultPaste.pending}
+          onConfirm={crossVaultPaste.accept}
+          onCancel={crossVaultPaste.cancel}
+        />
+      )}
 
       {cascadePending && (
         <VaultCascadeModal
