@@ -59,3 +59,50 @@ test("the clear button empties the clipboard", async () => {
   await act(async () => { screen.getByTestId("clipboard-pill-clear").click(); });
   expect(useVaultClipboardStore.getState().clipboard).toBeNull();
 });
+
+const pressEscape = async (target: EventTarget = window, init: KeyboardEventInit = {}) => {
+  await act(async () => {
+    target.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, ...init }));
+  });
+};
+
+test("Escape on the page empties the clipboard", async () => {
+  render(<ClipboardPill navItem="hosts" />);
+  load("cut");
+  await pressEscape();
+  expect(useVaultClipboardStore.getState().clipboard).toBeNull();
+});
+
+// Escape is the app's universal "cancel that" key. Cancelling a rename, a search
+// or a modal must not also cost the user their clipboard.
+test("Escape while typing in a field leaves the clipboard alone", async () => {
+  render(<ClipboardPill navItem="hosts" />);
+  load("cut");
+  const input = document.createElement("input");
+  document.body.appendChild(input);
+  await pressEscape(input);
+  expect(useVaultClipboardStore.getState().clipboard).not.toBeNull();
+  input.remove();
+});
+
+test("Escape already handled by something nearer leaves the clipboard alone", async () => {
+  render(<ClipboardPill navItem="hosts" />);
+  load("cut");
+  await act(async () => {
+    const e = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    e.preventDefault();
+    window.dispatchEvent(e);
+  });
+  expect(useVaultClipboardStore.getState().clipboard).not.toBeNull();
+});
+
+test("Escape with a dialog on screen leaves the clipboard alone", async () => {
+  render(<ClipboardPill navItem="hosts" />);
+  load("cut");
+  const dialog = document.createElement("div");
+  dialog.setAttribute("role", "dialog");
+  document.body.appendChild(dialog);
+  await pressEscape();
+  expect(useVaultClipboardStore.getState().clipboard).not.toBeNull();
+  dialog.remove();
+});

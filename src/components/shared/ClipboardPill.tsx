@@ -25,9 +25,21 @@ export function ClipboardPill({ navItem }: { navItem: NavItem }) {
     return () => clearTimeout(timer);
   }, [mine, visible]);
 
+  // Escape is the app's universal "back out of what I'm doing" key, and this
+  // listener is on the window, so it used to discard the clipboard while the user
+  // was cancelling something else entirely — a rename, a modal, a search box.
+  // Escape only reaches the clipboard when nothing nearer has claimed it.
   useEffect(() => {
     const onEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && useVaultClipboardStore.getState().clipboard) {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.isContentEditable) return;
+      const tag = target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      // A dialog or menu on screen owns Escape; dismissing it must not also
+      // silently cost the user their clipboard.
+      if (document.querySelector('[role="dialog"], [data-modal], [class*="z-100"]')) return;
+      if (useVaultClipboardStore.getState().clipboard) {
         useVaultClipboardStore.getState().clear();
       }
     };
