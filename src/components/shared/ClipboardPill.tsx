@@ -45,7 +45,7 @@ export function ClipboardPill({ navItem }: { navItem: NavItem }) {
   return (
     <div
       data-testid="clipboard-pill"
-      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-3 py-2 rounded-full border text-xs shadow-lg ${exiting ? "clipboard-pill-exit" : "clipboard-pill-enter"}`}
+      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-3 py-2 rounded-xl border text-xs shadow-lg ${exiting ? "clipboard-pill-exit" : "clipboard-pill-enter"}`}
       style={{ background: "var(--t-bg-elevated)", borderColor: "var(--t-border)", color: "var(--t-text-primary)" }}
     >
       <Icon icon={isCut ? "lucide:scissors" : "lucide:copy"} width={14} />
@@ -61,7 +61,7 @@ export function ClipboardPill({ navItem }: { navItem: NavItem }) {
         data-testid="clipboard-pill-clear"
         title={t("common.clipboard.clear")}
         onClick={() => useVaultClipboardStore.getState().clear()}
-        className="ml-1 w-5 h-5 flex items-center justify-center rounded-full"
+        className="ml-1 w-5 h-5 flex items-center justify-center rounded-sm"
         style={{ color: "var(--t-text-muted)" }}
       >
         <Icon icon="lucide:x" width={12} />
