@@ -204,13 +204,12 @@ mod tests {
     }
 
     #[test]
-    fn embeds_exactly_the_seven_first_party_plugin_folders() {
+    fn embeds_exactly_the_six_first_party_plugin_folders() {
         let mut ids: Vec<&str> = SEEDED_PLUGINS.iter().map(|(id, _)| *id).collect();
         ids.sort();
         assert_eq!(
             ids,
             vec![
-                "ai-agent",
                 "docker",
                 "gist-sync",
                 "monitoring",
@@ -226,7 +225,6 @@ mod tests {
         assert_eq!(
             plugins_list_seeded().unwrap(),
             vec![
-                "ai-agent",
                 "docker",
                 "gist-sync",
                 "monitoring",

@@ -8,7 +8,7 @@ name: publish-plugins
 # fixed.
 #
 # Called two ways:
-#   - workflow_call from release.yml, as part of a full app release (every plugin,
+#   - workflow_call from release.yml, as part of a full app release (all six plugins,
 #     built from the app tag's ref).
 #   - workflow_dispatch directly, to ship a plugin-only fix with no app release: pick
 #     the ref your fix lives on and, optionally, which plugin ids to publish.
@@ -25,7 +25,7 @@ on:
         required: true
         type: string
       plugin_ids:
-        description: 'Space-separated plugin folder ids to publish (default: all of them)'
+        description: 'Space-separated plugin folder ids to publish (default: all six)'
         required: false
         type: string
         default: ''
@@ -50,7 +50,7 @@ on:
         required: true
         type: string
       plugin_ids:
-        description: 'Space-separated plugin folder ids to publish, e.g. "docker monitoring" (default: all of them)'
+        description: 'Space-separated plugin folder ids to publish, e.g. "docker monitoring" (default: all six)'
         required: false
         type: string
       min_app_version:
@@ -131,7 +131,7 @@ jobs:
           path: dist/plugin-catalog.json
 
       # Idempotent on re-dispatch: a prior run may have already created some of the
-      # releases before failing partway through. `gh release view` distinguishes
+      # six releases before failing partway through. `gh release view` distinguishes
       # "create fresh" from "re-upload the assets (--clobber) to what's already
       # there" instead of dying on an existing tag and leaving the rest unbuilt.
       #

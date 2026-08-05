@@ -342,12 +342,12 @@ jobs:
           PY
           gh release upload "$TAG" latest.json -R "$REPO" --clobber
 
-  # Publishes the first-party plugins (src/plugins/*) as their OWN GitHub
+  # Publishes the six first-party plugins (src/plugins/*) as their OWN GitHub
   # Releases, separate from the app release above — this is what lets a plugin fix
   # ship without cutting a full app release. The actual build/stage/hash-guard/
   # publish logic lives in publish-plugins.yml (also directly workflow_dispatch-able
   # for a plugin-only fix that doesn't need a full app release) so the two paths
-  # can't drift apart. An app release always publishes all of them, built from the app
+  # can't drift apart. An app release always publishes all six, built from the app
   # tag, with each manifest's own minAppVersion (or a failure — see Task 3).
   publish-plugins:
     needs: [changelog, publish-tauri]
