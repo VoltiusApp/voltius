@@ -133,6 +133,8 @@
       "failedToSaveTeamObjectPref": "Failed to save team object pref: {{status}}",
       "failedToDeleteTeamObjectPref": "Failed to delete team object pref: {{status}}",
       "failedToListTeamSecrets": "Failed to list team secrets: {{status}}",
+      "failedToDeleteTeamSecret": "Failed to delete team secret: {{status}}",
+      "secretsLeftInSourceVault": "Moved, but its credentials could not be removed from the source vault and are still readable there: {{error}}",
       "failedToSaveTeamSecret": "Failed to save team secret: {{status}}",
       "keyFetchFailed": "Key fetch failed: {{error}}",
       "failedToUploadVaultKeys": "Failed to upload vault keys: {{status}}",

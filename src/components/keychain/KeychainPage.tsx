@@ -41,6 +41,13 @@ import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
+import {
+  publishIdentitySecrets,
+  publishKeySecrets,
+  unpublishIdentitySecrets,
+  unpublishKeySecrets,
+  withdrawOrWarn,
+} from "@/services/vaultObjectSecrets";
 import { usePageClipboard } from "@/hooks/usePageClipboard";
 import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
@@ -498,7 +505,7 @@ export default function KeychainPage() {
             name: key.name, key_type: key.key_type, tags: key.tags,
             folder_id: folderId ?? undefined, vault_id: vaultId,
           });
-          await publishKeySecrets(id, vaultId);
+          await transferKeySecrets(id, key.vault_id ?? "personal", vaultId);
           continue;
         }
         const identity = identities.find((i) => i.id === id);
@@ -511,7 +518,7 @@ export default function KeychainPage() {
           name: identity.name, username: identity.username, key_id: identity.key_id,
           tags: identity.tags, folder_id: folderId ?? undefined, vault_id: vaultId,
         });
-        await publishIdentitySecrets(id, vaultId);
+        await transferIdentitySecrets(id, identity.vault_id ?? "personal", vaultId);
       }
       // moveObjectsToFolder writes through to the DB without touching the key/identity
       // stores, so each touched store is reloaded — as in `dropHandler`.
@@ -752,7 +759,10 @@ export default function KeychainPage() {
   };
 
   const handleMoveKeyToVault = async (key: SshKey, vaultId: string) => {
-    try { await updateKey(key.id, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId }); }
+    try {
+      await updateKey(key.id, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId });
+      await transferKeySecrets(key.id, key.vault_id ?? "personal", vaultId);
+    }
     catch (err) { setError(String(err)); }
   };
 
@@ -767,6 +777,7 @@ export default function KeychainPage() {
       if (priv) await storeSecret(`key:${newKey.id}:private`, priv);
       if (pub) await storeSecret(`key:${newKey.id}:public`, pub);
       if (pass) await storeSecret(`key:${newKey.id}:passphrase`, pass);
+      await publishKeySecrets(newKey.id, vaultId);
     } catch (err) { setError(String(err)); }
   };
 
@@ -782,11 +793,15 @@ export default function KeychainPage() {
       items: keyNeedsMove ? [{ type: "key" as const, label: key.name ?? "Unnamed key" }] : [],
       execute: async () => {
         try {
-          if (keyNeedsMove) await updateKey(key.id, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId });
+          if (keyNeedsMove) {
+            await updateKey(key.id, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId });
+            await transferKeySecrets(key.id, key.vault_id ?? "personal", vaultId);
+          }
           await updateIdentity(identity.id, {
             name: identity.name, username: identity.username,
             key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId,
           });
+          await transferIdentitySecrets(identity.id, identity.vault_id ?? "personal", vaultId);
         } catch (err) { setError(String(err)); }
       },
     });
@@ -814,12 +829,14 @@ export default function KeychainPage() {
             ]);
             if (priv) await storeSecret(`key:${newKey.id}:private`, priv);
             if (pub) await storeSecret(`key:${newKey.id}:public`, pub);
+            await publishKeySecrets(newKey.id, vaultId);
             newKeyId = newKey.id;
           }
 
           const newIdentity = await saveIdentity({ name: identity.name, username: identity.username, key_id: newKeyId, tags: identity.tags, vault_id: vaultId });
           const pwd = await getSecret(`identity:${identity.id}:password`).catch(() => null);
           if (pwd) await storeSecret(`identity:${newIdentity.id}:password`, pwd);
+          await publishIdentitySecrets(newIdentity.id, vaultId);
         } catch (err) { setError(String(err)); }
       },
     });
@@ -967,23 +984,19 @@ export default function KeychainPage() {
   // ── Clipboard paste helpers ───────────────────────────────────────────────
 
   /**
-   * Re-publishes a key's material for the vault it now lives in. Without this a key
-   * pasted into a team vault reaches every teammate as an object with no private key
-   * behind it, and nothing reports why. `saveTeamVaultSecretForVault` no-ops for a
-   * personal vault, which is the correct behaviour on the way back out.
+   * Moves a key's material with it: published for the vault it now lives in —
+   * without this a key pasted into a team vault reaches every teammate as an object
+   * with no private key behind it — and withdrawn from the one it left, where it
+   * would otherwise stay readable. Both no-op for a personal vault.
    */
-  const publishKeySecrets = async (keyId: string, vaultId: string) => {
-    for (const part of ["private", "public", "passphrase"]) {
-      const localKey = `key:${keyId}:${part}`;
-      const value = await getSecret(localKey).catch(() => null);
-      if (value) await saveTeamVaultSecretForVault(vaultId, localKey, value).catch(() => {});
-    }
+  const transferKeySecrets = async (keyId: string, fromVaultId: string, toVaultId: string) => {
+    await publishKeySecrets(keyId, toVaultId);
+    if (fromVaultId !== toVaultId) await withdrawOrWarn(unpublishKeySecrets(keyId, fromVaultId));
   };
 
-  const publishIdentitySecrets = async (identityId: string, vaultId: string) => {
-    const localKey = `identity:${identityId}:password`;
-    const value = await getSecret(localKey).catch(() => null);
-    if (value) await saveTeamVaultSecretForVault(vaultId, localKey, value).catch(() => {});
+  const transferIdentitySecrets = async (identityId: string, fromVaultId: string, toVaultId: string) => {
+    await publishIdentitySecrets(identityId, toVaultId);
+    if (fromVaultId !== toVaultId) await withdrawOrWarn(unpublishIdentitySecrets(identityId, fromVaultId));
   };
 
   /**
@@ -1109,12 +1122,14 @@ export default function KeychainPage() {
       await updateFolder(sf.id, { name: sf.name, object_type: sf.object_type, parent_folder_id: sf.parent_folder_id, vault_id: vaultId });
     }
     for (const key of keysInFolderTree(folder.id)) {
+      const from = key.vault_id ?? "personal";
       await updateKey(key.id, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId });
-      await publishKeySecrets(key.id, vaultId);
+      await transferKeySecrets(key.id, from, vaultId);
     }
     for (const identity of identitiesInFolderTree(folder.id)) {
+      const from = identity.vault_id ?? "personal";
       await updateIdentity(identity.id, { name: identity.name, username: identity.username, key_id: identity.key_id, tags: identity.tags, folder_id: identity.folder_id, vault_id: vaultId });
-      await publishIdentitySecrets(identity.id, vaultId);
+      await transferIdentitySecrets(identity.id, from, vaultId);
     }
   };
 

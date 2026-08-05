@@ -133,6 +133,8 @@
       "failedToSaveTeamObjectPref": "Не удалось сохранить настройку объекта команды: {{status}}",
       "failedToDeleteTeamObjectPref": "Не удалось удалить настройку объекта команды: {{status}}",
       "failedToListTeamSecrets": "Не удалось получить список секретов команды: {{status}}",
+      "failedToDeleteTeamSecret": "Не удалось удалить секрет команды: {{status}}",
+      "secretsLeftInSourceVault": "Перемещено, но учётные данные не удалось удалить из исходного хранилища и они всё ещё доступны там: {{error}}",
       "failedToSaveTeamSecret": "Не удалось сохранить секрет команды: {{status}}",
       "keyFetchFailed": "Не удалось получить ключ: {{error}}",
       "failedToUploadVaultKeys": "Не удалось загрузить ключи хранилища: {{status}}",

@@ -133,6 +133,8 @@
       "failedToSaveTeamObjectPref": "保存团队对象偏好设置失败：{{status}}",
       "failedToDeleteTeamObjectPref": "删除团队对象偏好设置失败：{{status}}",
       "failedToListTeamSecrets": "获取团队密钥失败：{{status}}",
+      "failedToDeleteTeamSecret": "删除团队密钥失败：{{status}}",
+      "secretsLeftInSourceVault": "已移动，但无法从源保险库中删除其凭据，凭据在该保险库中仍可读取：{{error}}",
       "failedToSaveTeamSecret": "保存团队密钥失败：{{status}}",
       "keyFetchFailed": "获取密钥失败：{{error}}",
       "failedToUploadVaultKeys": "上传保险库密钥失败：{{status}}",

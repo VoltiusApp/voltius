@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   getTeamVaultKey: vi.fn(),
   listTeamSecrets: vi.fn(),
   upsertTeamSecret: vi.fn(),
+  deleteTeamSecret: vi.fn(),
   resolveTeamIdFromCollections: vi.fn(),
   teams: [] as unknown[],
   vaults: [] as unknown[],
@@ -22,6 +23,7 @@ vi.mock("@/services/teamVaultSync", () => ({ getTeamVaultKey: h.getTeamVaultKey 
 vi.mock("@/services/teamObjects", () => ({
   listTeamSecrets: h.listTeamSecrets,
   upsertTeamSecret: h.upsertTeamSecret,
+  deleteTeamSecret: h.deleteTeamSecret,
 }));
 vi.mock("@/services/resolveTeamId", () => ({ resolveTeamIdFromCollections: h.resolveTeamIdFromCollections }));
 vi.mock("@/stores/teamStore", () => ({ useTeamStore: { getState: () => ({ teams: h.teams }) } }));
@@ -39,6 +41,7 @@ import {
   saveExistingTeamVaultSecret,
   resolveTeamIdForVaultId,
   saveTeamVaultSecretForVault,
+  deleteTeamVaultSecretForVault,
   hydrateTeamVaultSecrets,
   backfillExistingTeamVaultSecrets,
 } from "./teamVaultSecrets";
@@ -138,6 +141,34 @@ test("saveTeamVaultSecretForVault is a no-op when the vault resolves to no team"
 
   expect(h.getTeamVaultKey).not.toHaveBeenCalled();
   expect(h.upsertTeamSecret).not.toHaveBeenCalled();
+});
+
+// ─── deleteTeamVaultSecretForVault ───────────────────────────────────────────
+
+test("deleteTeamVaultSecretForVault withdraws the parsed secret id from the resolved team", async () => {
+  h.resolveTeamIdFromCollections.mockReturnValue("t-resolved");
+
+  await deleteTeamVaultSecretForVault("v1", "key:k1:private");
+
+  expect(h.deleteTeamSecret).toHaveBeenCalledWith("t-resolved", "key:k1:private");
+});
+
+test("deleteTeamVaultSecretForVault is a no-op for a personal vault and for an unmappable key", async () => {
+  h.resolveTeamIdFromCollections.mockReturnValue(null);
+  await deleteTeamVaultSecretForVault("personal", "password:c1");
+  expect(h.deleteTeamSecret).not.toHaveBeenCalled();
+
+  h.resolveTeamIdFromCollections.mockReturnValue("t1");
+  await deleteTeamVaultSecretForVault("v1", "not-a-secret-key");
+  expect(h.deleteTeamSecret).not.toHaveBeenCalled();
+});
+
+// A failed withdrawal leaves readable material behind, so it must not be swallowed.
+test("deleteTeamVaultSecretForVault propagates a failure", async () => {
+  h.resolveTeamIdFromCollections.mockReturnValue("t1");
+  h.deleteTeamSecret.mockRejectedValue(new Error("boom"));
+
+  await expect(deleteTeamVaultSecretForVault("v1", "password:c1")).rejects.toThrow("boom");
 });
 
 // ─── hydrateTeamVaultSecrets ─────────────────────────────────────────────────

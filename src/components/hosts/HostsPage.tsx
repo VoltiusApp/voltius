@@ -54,6 +54,15 @@ import { SnippetPickerPanel } from "./SnippetPickerPanel";
 import { getHostDeleteTargetIds, shouldUseBulkHostContextMenu } from "./hostSelection";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 import { saveTeamVaultSecretForVault } from "@/services/teamVaultSecrets";
+import {
+  publishConnectionSecrets,
+  publishIdentitySecrets,
+  publishKeySecrets,
+  unpublishConnectionSecrets,
+  unpublishIdentitySecrets,
+  unpublishKeySecrets,
+  withdrawOrWarn,
+} from "@/services/vaultObjectSecrets";
 import { saveHostFromForm } from "@/services/hostForm";
 
 
@@ -374,12 +383,13 @@ export default function HostsPage() {
           sameVault.push(id);
           continue;
         }
+        const from = conn.vault_id ?? "personal";
         await updateConnection(id, {
           ...connectionToFormData(conn),
           folder_id: folderId ?? undefined,
           vault_id: vaultId,
         });
-        await publishConnectionSecrets(id, vaultId);
+        await transferConnectionSecrets(id, from, vaultId);
       }
       // moveObjectsToFolder writes through to the DB without touching the connection
       // store, so the reload is what makes the paste visible — as in `onDropToFolder`.
@@ -457,18 +467,15 @@ export default function HostsPage() {
   });
 
   /**
-   * Re-publishes a connection's credentials for the vault it now lives in. Without
-   * this a host pasted into a team vault reaches every teammate with its password
-   * still only in the local keychain, so it cannot authenticate and nothing reports
-   * why. `saveTeamVaultSecretForVault` no-ops for a personal vault, which is the
-   * correct behaviour on the way back out: the local copy is already the live one.
+   * Moves a connection's credentials with it: published for the vault it now lives
+   * in — without this a host pasted into a team vault reaches every teammate with
+   * its password still only in the local keychain — and withdrawn from the one it
+   * left, where they would otherwise stay readable. Both no-op for a personal
+   * vault, which is correct on the way back out: the local copy is the live one.
    */
-  const publishConnectionSecrets = async (connectionId: string, vaultId: string) => {
-    for (const prefix of ["password", "key"]) {
-      const localKey = `${prefix}:${connectionId}`;
-      const value = await getSecret(localKey).catch(() => null);
-      if (value) await saveTeamVaultSecretForVault(vaultId, localKey, value).catch(() => {});
-    }
+  const transferConnectionSecrets = async (connectionId: string, fromVaultId: string, toVaultId: string) => {
+    await publishConnectionSecrets(connectionId, toVaultId);
+    if (fromVaultId !== toVaultId) await withdrawOrWarn(unpublishConnectionSecrets(connectionId, fromVaultId));
   };
 
   /**
@@ -747,10 +754,17 @@ export default function HostsPage() {
             pinned: conn.pinned, ping_disabled: conn.ping_disabled,
             shell_integration_disabled: conn.shell_integration_disabled,
           });
-          const pwd = await getSecret(`password:${conn.id}`).catch(() => null);
-          const k = await getSecret(`key:${conn.id}`).catch(() => null);
-          if (pwd) await saveTeamVaultSecretForVault(vaultId, `password:${conn.id}`, pwd).catch(() => {});
-          if (k) await saveTeamVaultSecretForVault(vaultId, `key:${conn.id}`, k).catch(() => {});
+          await transferConnectionSecrets(conn.id, conn.vault_id ?? "personal", vaultId);
+          // The cascade moves the linked key/identity too, so their material has to
+          // travel with them — into the destination and out of the source.
+          if (keyNeedsMove) {
+            await publishKeySecrets(key.id, vaultId);
+            await withdrawOrWarn(unpublishKeySecrets(key.id, key.vault_id ?? "personal"));
+          }
+          if (identityNeedsMove) {
+            await publishIdentitySecrets(identity.id, vaultId);
+            await withdrawOrWarn(unpublishIdentitySecrets(identity.id, identity.vault_id ?? "personal"));
+          }
         } catch (err) { setError(String(err)); }
       },
     });
@@ -1069,8 +1083,9 @@ export default function HostsPage() {
       await updateFolder(sf.id, { name: sf.name, object_type: sf.object_type, parent_folder_id: sf.parent_folder_id, vault_id: vaultId });
     }
     for (const conn of getConnectionsInFolderTree(folder.id)) {
+      const from = conn.vault_id ?? "personal";
       await updateConnection(conn.id, { ...connectionToFormData(conn), vault_id: vaultId });
-      await publishConnectionSecrets(conn.id, vaultId);
+      await transferConnectionSecrets(conn.id, from, vaultId);
     }
   };
 

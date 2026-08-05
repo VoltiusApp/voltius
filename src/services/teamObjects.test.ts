@@ -9,7 +9,7 @@ vi.mock("@/stores/subscriptionStore", () => ({ useSubscriptionStore: { getState:
 
 import {
   listTeamObjects, upsertTeamObject, deleteTeamObject,
-  listTeamSecrets, upsertTeamSecret, deleteTeamObjectPref,
+  listTeamSecrets, upsertTeamSecret, deleteTeamSecret, deleteTeamObjectPref,
 } from "./teamObjects";
 
 function jwt(): string {
@@ -111,6 +111,22 @@ test("upsertTeamSecret shapes PUT to /secrets", async () => {
   expect(init.method).toBe("PUT");
   expect(init.headers["Content-Type"]).toBe("application/json");
   expect(JSON.parse(init.body)).toEqual({ secret_id: "s1", object_id: "o1", secret_type: "connection_password", ciphertext: "cc" });
+});
+
+// Secret ids are local keychain keys ("key:<id>:private"), so the colons have to
+// survive the trip as one path segment.
+test("deleteTeamSecret DELETEs an encoded secret id and tolerates 404", async () => {
+  connected();
+  h.appFetch.mockResolvedValueOnce({ ok: true, status: 204, json: async () => ({}) });
+  await deleteTeamSecret("t1", "key:o1:private");
+  const [url, init] = h.appFetch.mock.calls[0];
+  expect(url).toBe("https://s/v1/teams/t1/secrets/key%3Ao1%3Aprivate");
+  expect(init.method).toBe("DELETE");
+
+  h.appFetch.mockResolvedValueOnce({ ok: false, status: 404, json: async () => ({}) });
+  await expect(deleteTeamSecret("t1", "gone")).resolves.toBeUndefined();
+  h.appFetch.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) });
+  await expect(deleteTeamSecret("t1", "gone")).rejects.toThrow("common.error.failedToDeleteTeamSecret");
 });
 
 test("deleteTeamObjectPref tolerates 404 (no throw) but throws on other non-ok", async () => {

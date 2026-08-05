@@ -133,6 +133,8 @@
       "failedToSaveTeamObjectPref": "Échec de l'enregistrement de la préférence d'objet d'équipe : {{status}}",
       "failedToDeleteTeamObjectPref": "Échec de la suppression de la préférence d'objet d'équipe : {{status}}",
       "failedToListTeamSecrets": "Échec du chargement des secrets d'équipe : {{status}}",
+      "failedToDeleteTeamSecret": "Échec de la suppression du secret d'équipe : {{status}}",
+      "secretsLeftInSourceVault": "Déplacé, mais ses identifiants n'ont pas pu être retirés du coffre source et y restent lisibles : {{error}}",
       "failedToSaveTeamSecret": "Échec de l'enregistrement du secret d'équipe : {{status}}",
       "keyFetchFailed": "Échec de la récupération de la clé : {{error}}",
       "failedToUploadVaultKeys": "Échec de l'envoi des clés de coffre : {{status}}",

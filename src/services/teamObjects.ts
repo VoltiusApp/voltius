@@ -192,3 +192,13 @@ export async function upsertTeamSecret(teamId: string, secret: UpsertTeamSecret)
   });
   if (!res.ok) throw new Error(i18n.t("common.error.failedToSaveTeamSecret", { status: res.status }));
 }
+
+/** 404 is success: the secret is already gone from the vault. */
+export async function deleteTeamSecret(teamId: string, secretId: string): Promise<void> {
+  const res = await fetchTeamApi(`/v1/teams/${teamId}/secrets/${encodeURIComponent(secretId)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok && res.status !== 404) {
+    throw new Error(i18n.t("common.error.failedToDeleteTeamSecret", { status: res.status }));
+  }
+}
