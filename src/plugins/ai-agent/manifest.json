@@ -13,6 +13,8 @@
     "sessions:write",
     "sessions:read",
     "connections:read",
+    "sftp:read",
+    "sftp:write",
     "http",
     "audit",
     "ui",

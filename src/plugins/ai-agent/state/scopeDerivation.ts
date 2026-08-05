@@ -26,6 +26,58 @@ const SHELL_METACHARACTERS =
  * default to treating it as safe to allowlist regardless of its content. */
 export const COMMAND_CARRYING_TOOLS = new Set(["run_command"]);
 
+/**
+ * Tools that act on a filesystem path.
+ *
+ * These must never take a `tool`-grain grant: "always allow delete_path on this
+ * host" authorises deleting ANY path there, which is the same blanket authority
+ * the exact grain exists to deny a shell command. They are keyed on the exact
+ * paths instead, so a grant covers the operation the user actually reviewed.
+ *
+ * Any new tool taking a path MUST be added here, or it defaults to tool-grain.
+ */
+/** Every tool that addresses a filesystem target, mutating or not. */
+export const FILE_TOOLS = new Set([
+  "list_files",
+  "stat_file",
+  "read_file",
+  "make_dir",
+  "rename_path",
+  "delete_path",
+  "write_file",
+  "transfer_file",
+]);
+
+export const PATH_CARRYING_TOOLS = new Set([
+  "make_dir",
+  "rename_path",
+  "delete_path",
+  "write_file",
+  "transfer_file",
+]);
+
+/** True for a tool that may only ever be allowlisted at the exact-args grain. */
+export function isExactGrainTool(tool: string): boolean {
+  return COMMAND_CARRYING_TOOLS.has(tool) || PATH_CARRYING_TOOLS.has(tool);
+}
+
+/**
+ * The exact-grain allowlist key for a path tool: every path the call touches,
+ * so a grant cannot be replayed against a different one. Empty when the call
+ * carries no usable path, which makes it un-allowlistable (fail closed).
+ */
+export function pathGrainKey(tool: string, args: Record<string, unknown>): string {
+  const part = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const parts =
+    tool === "rename_path"
+      ? [part(args.from), part(args.to)]
+      : tool === "transfer_file"
+        ? [part(args.fromTarget), part(args.fromPath), part(args.toTarget), part(args.toPath)]
+        : [part(args.path)];
+  if (parts.some((x) => x === "")) return "";
+  return parts.join(" → ");
+}
+
 /** True if `s` contains a shell metacharacter that could change how a
  * command behaves outside of the exact approved invocation. Shared by
  * `isAllowlistable` and the allowlist store's own write-time guard so the
@@ -35,6 +87,15 @@ export function hasShellMetacharacter(s: string): boolean {
 }
 
 export function isAllowlistable(tool: string, args: Record<string, unknown>): boolean {
+  if (PATH_CARRYING_TOOLS.has(tool)) {
+    const key = pathGrainKey(tool, args);
+    // Same rule as a command, for the same reason: a pre-authorisation is only
+    // sound if the text the user reviewed IS the text that acts. A bidi or
+    // zero-width character makes a rendered path diverge from the real one.
+    // It also means a Windows path (backslashes) can never be allowlisted —
+    // deliberately failing closed rather than approximating.
+    return key !== "" && !hasShellMetacharacter(key);
+  }
   if (!COMMAND_CARRYING_TOOLS.has(tool)) return true;
   const cmd = String(args.command ?? "");
   return !hasShellMetacharacter(cmd);
@@ -69,6 +130,12 @@ export async function deriveScope(
     let connectionId: string | undefined;
     if (tool === "open_session") {
       connectionId = args.connectionId as string | undefined;
+    } else if (FILE_TOOLS.has(tool)) {
+      // A file tool names its target directly rather than via a session. For a
+      // transfer the SOURCE is the scope: it is the side whose data leaves, and
+      // scoping on the destination would let a grant on a host the user trusts
+      // authorise reading one they did not pick.
+      connectionId = (tool === "transfer_file" ? args.fromTarget : args.target) as string | undefined;
     } else {
       const sessionId = args.sessionId as string | undefined;
       const session = api.sessions.list().find((s) => s.id === sessionId);

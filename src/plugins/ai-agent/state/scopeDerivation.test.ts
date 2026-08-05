@@ -168,3 +168,32 @@ describe("deriveScope", () => {
     expect(await deriveScope(a, "open_session", { connectionId: "c1" })).toBeNull();
   });
 });
+
+describe("file tools resolve their own target as the scope", () => {
+  const api = {
+    sessions: { list: () => [] },
+    connections: { list: async () => [{ id: "c1" }, { id: "c2" }] },
+  } as never;
+
+  it.each(["list_files", "stat_file", "read_file", "make_dir", "delete_path"])(
+    "%s scopes on its target", async (tool) => {
+      await expect(deriveScope(api, tool, { target: "c1", path: "/x" })).resolves.toBe("c1");
+    },
+  );
+
+  it('resolves the "local" target without touching the connection list', async () => {
+    await expect(deriveScope(api, "delete_path", { target: "local", path: "/x" })).resolves.toBe("local");
+  });
+
+  // Scoping a transfer on its destination would let a grant on a host the user
+  // trusts authorise reading one they never picked.
+  it("scopes a transfer on its SOURCE, the side whose data leaves", async () => {
+    await expect(
+      deriveScope(api, "transfer_file", { fromTarget: "c1", fromPath: "/a", toTarget: "c2", toPath: "/b" }),
+    ).resolves.toBe("c1");
+  });
+
+  it("fails closed on a target that matches no connection", async () => {
+    await expect(deriveScope(api, "delete_path", { target: "forged", path: "/x" })).resolves.toBeNull();
+  });
+});

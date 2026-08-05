@@ -70,6 +70,8 @@ describe("ai-agent register", () => {
     ["audit", "api.audit.record, via auditAgentAction"],
     ["ui", "api.i18n, which the runtime gates behind ui"],
     ["http", "api.http.stream, via the provider fetch adapter"],
+    ["sftp:read", "api.sftp.list/stat/readText, via list_files and read_file"],
+    ["sftp:write", "api.sftp.mkdir/rename/delete/transfer, via the file tools"],
   ])("declares %s (needed by %s)", (perm) => {
     expect(manifest.permissions).toContain(perm);
   });

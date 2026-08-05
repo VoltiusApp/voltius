@@ -505,3 +505,86 @@ describe("session-type routing", () => {
     expect(sendSerialCommand).not.toHaveBeenCalled();
   });
 });
+
+describe("file tools", () => {
+  function fileCtx(over: Partial<AgentContext> = {}): AgentContext {
+    const sftp = {
+      list: vi.fn(async () => [{ name: "a.txt", path: "/srv/a.txt", size: 3, isDir: false, isSymlink: false, modified: 1 }]),
+      stat: vi.fn(async () => ({ name: "a.txt", path: "/srv/a.txt", size: 3, isDir: false, isSymlink: false, modified: 1 })),
+      readText: vi.fn(async () => "hello"),
+      writeText: vi.fn(async () => {}),
+      mkdir: vi.fn(async () => {}),
+      rename: vi.fn(async () => {}),
+      delete: vi.fn(async () => {}),
+      transfer: vi.fn(async () => {}),
+      disconnect: vi.fn(async () => {}),
+    };
+    return {
+      api: {
+        sftp,
+        connections: { list: vi.fn(async () => [{ id: "conn-A", name: "srv", host: "h1" }]) },
+        sessions: { open: vi.fn(), close: vi.fn(), list: vi.fn(() => []) },
+        terminal: { readSnapshot: vi.fn(() => "") },
+      } as unknown as AgentContext["api"],
+      approve: vi.fn(async () => ({ approve: true as const, scope: "conn-A", via: "prompted" as const })),
+      proposePlan: vi.fn(async () => ({ approve: false as const })),
+      owned: new Set<string>(),
+      ...over,
+    };
+  }
+  const t = (c: AgentContext, n: string) => buildTools(c).find((x) => x.name === n)!;
+  const sftpOf = (c: AgentContext) => (c.api as unknown as { sftp: Record<string, ReturnType<typeof vi.fn>> }).sftp;
+
+  test("read tools are auto-risk and never consult the approval port", async () => {
+    const c = fileCtx();
+    for (const name of ["list_files", "stat_file", "read_file"]) {
+      expect(t(c, name).risk).toBe("auto");
+    }
+    await t(c, "list_files").execute({ target: "conn-A", path: "/srv" });
+    expect(c.approve).not.toHaveBeenCalled();
+  });
+
+  test.each(["make_dir", "write_file", "rename_path", "delete_path", "transfer_file"])(
+    "%s is prompt-risk", (name) => {
+      expect(t(fileCtx(), name).risk).toBe("prompt");
+    },
+  );
+
+  test("delete_path runs only after approval, and records the operation", async () => {
+    const c = fileCtx();
+    await t(c, "delete_path").execute({ target: "conn-A", path: "/srv/a.txt" });
+    expect(c.approve).toHaveBeenCalledWith({ tool: "delete_path", args: { target: "conn-A", path: "/srv/a.txt" } });
+    expect(sftpOf(c).delete).toHaveBeenCalledWith("conn-A", "/srv/a.txt");
+    expect(auditAgentAction).toHaveBeenCalledWith(
+      "conn-A", "agent.command_run",
+      { tool: "delete_path", approval: "prompted" },
+      expect.objectContaining({ args: expect.stringContaining("/srv/a.txt") }),
+    );
+  });
+
+  test("a rejected delete never reaches the filesystem", async () => {
+    const c = fileCtx({ approve: vi.fn(async () => ({ approve: false as const, reason: "no" })) });
+    const res = await t(c, "delete_path").execute({ target: "conn-A", path: "/srv/a.txt" });
+    expect(res).toMatchObject({ error: "rejected by user" });
+    expect(sftpOf(c).delete).not.toHaveBeenCalled();
+    expect(auditAgentAction).not.toHaveBeenCalled();
+  });
+
+  test("transfer_file passes both endpoints straight through", async () => {
+    const c = fileCtx();
+    await t(c, "transfer_file").execute({
+      fromTarget: "conn-A", fromPath: "/srv/a.txt", toTarget: "local", toPath: "/home/u/a.txt",
+    });
+    expect(sftpOf(c).transfer).toHaveBeenCalledWith(
+      { target: "conn-A", path: "/srv/a.txt" },
+      { target: "local", path: "/home/u/a.txt" },
+    );
+  });
+
+  test("a failing operation returns an error result rather than throwing out of the tool", async () => {
+    const c = fileCtx();
+    sftpOf(c).mkdir.mockRejectedValueOnce(new Error("permission denied"));
+    await expect(t(c, "make_dir").execute({ target: "conn-A", path: "/srv/x" }))
+      .resolves.toMatchObject({ error: "permission denied" });
+  });
+});

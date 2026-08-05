@@ -158,3 +158,46 @@ describe("entriesEqual", () => {
     ).toBe(false);
   });
 });
+
+describe("path tools may only be allowlisted at the exact grain", () => {
+  it.each(["make_dir", "write_file", "delete_path"])(
+    "%s is keyed on its exact path, never tool-grain", (tool) => {
+      const [entry, ...rest] = allowlistCandidates(tool, { target: "c1", path: "/srv/a.txt" }, "c1");
+      expect(rest).toEqual([]);
+      expect(entry).toMatchObject({ grain: "exact", tool, key: "/srv/a.txt" });
+    },
+  );
+
+  it("rename_path is keyed on both ends, so a grant cannot be replayed on a different move", () => {
+    const [entry] = allowlistCandidates("rename_path", { target: "c1", from: "/a", to: "/b" }, "c1");
+    expect(entry).toMatchObject({ grain: "exact", key: "/a → /b" });
+  });
+
+  it("transfer_file is keyed on both endpoints including their targets", () => {
+    const [entry] = allowlistCandidates(
+      "transfer_file",
+      { fromTarget: "c1", fromPath: "/a", toTarget: "local", toPath: "/b" },
+      "c1",
+    );
+    expect(entry).toMatchObject({ grain: "exact", key: "c1 → /a → local → /b" });
+  });
+
+  it("refuses to allowlist a path carrying a bidi or zero-width character", () => {
+    expect(allowlistCandidates("delete_path", { target: "c1", path: "/srv/a‮txt.exe" }, "c1")).toEqual([]);
+  });
+
+  it("refuses to allowlist a call with a missing path rather than keying on nothing", () => {
+    expect(allowlistCandidates("delete_path", { target: "c1" }, "c1")).toEqual([]);
+  });
+
+  // The whole point: a tool-grain grant would authorise deleting ANY path there.
+  it("rejects a persisted tool-grain entry for a path tool on hydrate", () => {
+    expect(isWellFormedEntry({ scope: "c1", tool: "delete_path", grain: "tool", key: "delete_path" })).toBe(false);
+    expect(isWellFormedEntry({ scope: "c1", tool: "delete_path", grain: "exact", key: "/srv/a.txt" })).toBe(true);
+  });
+
+  it("still gives read-only file tools a tool-grain entry", () => {
+    const [entry] = allowlistCandidates("list_files", { target: "c1", path: "/srv" }, "c1");
+    expect(entry).toMatchObject({ grain: "tool", tool: "list_files" });
+  });
+});

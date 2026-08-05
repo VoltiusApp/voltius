@@ -1,4 +1,7 @@
-import { COMMAND_CARRYING_TOOLS, hasShellMetacharacter, isAllowlistable } from "./scopeDerivation";
+import {
+  PATH_CARRYING_TOOLS, hasShellMetacharacter, isAllowlistable,
+  isExactGrainTool, pathGrainKey,
+} from "./scopeDerivation";
 
 /**
  * How broadly a remembered approval applies.
@@ -55,8 +58,13 @@ export function allowlistCandidates(
   scope: string,
 ): AllowlistEntry[] {
   if (!isAllowlistable(tool, args)) return [];
-  if (!COMMAND_CARRYING_TOOLS.has(tool)) {
+  if (!isExactGrainTool(tool)) {
     return [{ scope, tool, grain: "tool", key: tool }];
+  }
+  if (PATH_CARRYING_TOOLS.has(tool)) {
+    const key = pathGrainKey(tool, args);
+    if (!key) return [];
+    return [{ scope, tool, grain: "exact", key }];
   }
   const command = normalizeCommand(String(args.command ?? ""));
   if (!command) return [];
@@ -84,9 +92,12 @@ export function isWellFormedEntry(value: unknown): value is AllowlistEntry {
   if (typeof e.key !== "string" || e.key.length === 0) return false;
   if (e.grain !== "tool" && e.grain !== "exact") return false;
   if (hasShellMetacharacter(e.key)) return false;
-  const commandCarrying = COMMAND_CARRYING_TOOLS.has(e.tool);
-  if (e.grain === "exact" && !commandCarrying) return false;
-  if (e.grain === "tool" && commandCarrying) return false;
+  // Path tools join the command tools here: a persisted `tool`-grain entry for
+  // delete_path would be a blanket "delete anything on this host" grant, so it
+  // is rejected on hydrate rather than read forward.
+  const exactOnly = isExactGrainTool(e.tool);
+  if (e.grain === "exact" && !exactOnly) return false;
+  if (e.grain === "tool" && exactOnly) return false;
   if (e.grain === "tool" && e.key !== e.tool) return false;
   return true;
 }
