@@ -13,6 +13,9 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
   const ref = useRef(adapter);
   ref.current = adapter;
   const navItem = adapter.navItem;
+  // Serializes pastes so a second Ctrl+V queues behind an in-flight one
+  // instead of racing it (each still re-reads the clipboard when it runs).
+  const pasteChain = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     const isActive = () => useUIStore.getState().activeNav === navItem;
@@ -44,8 +47,9 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
 
     const handlePaste = () => {
       if (!isActive()) return;
-      const clipboard = useVaultClipboardStore.getState().clipboard;
-      void pasteFromClipboard(clipboard, ref.current).then((result) => {
+      pasteChain.current = pasteChain.current.then(async () => {
+        const clipboard = useVaultClipboardStore.getState().clipboard;
+        const result = await pasteFromClipboard(clipboard, ref.current);
         if (clipboard?.mode === "cut" && result.moved > 0) {
           useVaultClipboardStore.getState().clear();
         }

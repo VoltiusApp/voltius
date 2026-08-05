@@ -90,3 +90,55 @@ test("a copy paste retains the clipboard so a second paste duplicates again", as
   await vi.waitFor(() => expect(a.duplicateItems).toHaveBeenCalledTimes(2));
   expect(useVaultClipboardStore.getState().clipboard).not.toBeNull();
 });
+
+test("two back-to-back copy pastes are serialized and still both duplicate", async () => {
+  const resolvers: Array<() => void> = [];
+  const duplicateItems = vi.fn(
+    (ids: string[]) =>
+      new Promise<string[]>((resolve) => {
+        resolvers.push(() => resolve(ids.map((i) => `${i}-copy`)));
+      }),
+  );
+  const a = baseAdapter({ duplicateItems });
+  renderHook(() => usePageClipboard(a));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-copy"));
+
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
+
+  // The second paste must not start its own duplicateItems call until the
+  // first one, still in flight, resolves.
+  await vi.waitFor(() => expect(duplicateItems).toHaveBeenCalledTimes(1));
+  expect(duplicateItems).toHaveBeenCalledTimes(1);
+
+  resolvers[0]();
+  await vi.waitFor(() => expect(duplicateItems).toHaveBeenCalledTimes(2));
+
+  resolvers[1]();
+  await vi.waitFor(() => expect(useVaultClipboardStore.getState().clipboard).not.toBeNull());
+  expect(duplicateItems).toHaveBeenCalledTimes(2);
+});
+
+test("two back-to-back cut pastes serialize into a single move", async () => {
+  let resolveMove: (() => void) | undefined;
+  const moveItems = vi.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        resolveMove = resolve;
+      }),
+  );
+  const a = baseAdapter({ moveItems });
+  renderHook(() => usePageClipboard(a));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-cut"));
+
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
+  window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
+
+  await vi.waitFor(() => expect(moveItems).toHaveBeenCalledTimes(1));
+  resolveMove?.();
+
+  await vi.waitFor(() => expect(useVaultClipboardStore.getState().clipboard).toBeNull());
+  // The queued second paste now runs against an already-cleared clipboard
+  // and is a no-op — it must not issue a second move.
+  expect(moveItems).toHaveBeenCalledTimes(1);
+});
