@@ -4,18 +4,19 @@ vi.mock("@/hooks/useTerminal", () => ({
   readTerminalSelection: vi.fn(() => ""),
 }));
 vi.mock("@/components/shared/ConnectionAvatar", () => ({ ConnectionAvatar: () => null }));
-import { useUIStore } from "@/stores/uiStore";
 import { manifest, register } from "./index";
 import { useAgentStore } from "./state/agentStore";
-import { DRAWER_PANEL_ID } from "./panelId";
+import { fakePanelHandle } from "./testing/fakePanelHandle";
 import { TerminalAskButton } from "./ui/TerminalAskButton";
 
 function fakeApi(isActive: () => boolean = () => true) {
   const calls: string[] = [];
+  const panel = fakePanelHandle();
   const statusBarFactories: Record<string, (ctx: unknown) => unknown> = {};
   return {
     calls,
     statusBarFactories,
+    panel,
     api: {
       isActive,
       storage: { get: vi.fn(async () => null), set: vi.fn() },
@@ -25,7 +26,12 @@ function fakeApi(isActive: () => boolean = () => true) {
       terminal: { readSelection: vi.fn(() => ""), readSnapshot: vi.fn(() => "") },
       notifications: { toast: vi.fn() },
       ui: {
-        registerGlobalPanel: vi.fn(() => { calls.push("panel"); return () => calls.push("panel:off"); }),
+        registerGlobalPanel: vi.fn(() => {
+          calls.push("panel");
+          const h = panel.handle as unknown as (() => void) & Record<string, unknown>;
+          const dispose = () => { h(); calls.push("panel:off"); };
+          return Object.assign(dispose, h) as never;
+        }),
         registerStatusBarItem: vi.fn((slot: string, factory: (ctx: unknown) => unknown) => {
           statusBarFactories[slot] = factory;
           calls.push(slot === "titlebar.right" ? "titlebar" : "terminalButton");
@@ -91,7 +97,6 @@ describe("ai-agent register", () => {
   it("wires approval toasts while active and disposes them on teardown", () => {
     const { api } = fakeApi(() => true);
     const toast = (api as unknown as { notifications: { toast: ReturnType<typeof vi.fn> } }).notifications.toast;
-    useUIStore.setState({ globalPanelOpen: {} } as never);
     useAgentStore.setState({ pendingApprovals: [] });
     const cleanup = register(api);
     const pending = (id: string) => ({ id, tool: "run_command", args: {}, scope: "local", grants: [], resolve: vi.fn() });
@@ -107,7 +112,7 @@ describe("ai-agent register", () => {
   });
 
   it("ask-ai-terminal execute() attaches terminal context from the active session and opens the drawer", () => {
-    const { api } = fakeApi();
+    const { api, panel } = fakeApi();
     (api as unknown as { sessions: { getActive: unknown } }).sessions.getActive = vi.fn(() => ({
       id: "s1", connectionId: "c1", connectionName: "Prod DB", status: "connected", type: "ssh",
     }));
@@ -115,7 +120,6 @@ describe("ai-agent register", () => {
       readSelection: vi.fn(() => ""),
       readSnapshot: vi.fn(() => "line one\nline two"),
     };
-    useUIStore.setState({ globalPanelOpen: {} } as never);
     useAgentStore.setState({ pendingContext: null });
 
     register(api);
@@ -124,12 +128,11 @@ describe("ai-agent register", () => {
     (call[0] as { execute: () => void }).execute();
 
     expect(useAgentStore.getState().pendingContext).toMatchObject({ sessionId: "s1", connectionName: "Prod DB" });
-    expect(useUIStore.getState().globalPanelOpen[DRAWER_PANEL_ID]).toBe(true);
+    expect(panel.state.open).toBe(true);
   });
 
   it("ask-ai-terminal execute() still opens the drawer with no context attached when there is no active session", () => {
-    const { api } = fakeApi(); // default sessions.getActive() returns null
-    useUIStore.setState({ globalPanelOpen: {} } as never);
+    const { api, panel } = fakeApi(); // default sessions.getActive() returns null
     useAgentStore.setState({ pendingContext: null });
 
     register(api);
@@ -138,7 +141,7 @@ describe("ai-agent register", () => {
     (call[0] as { execute: () => void }).execute();
 
     expect(useAgentStore.getState().pendingContext).toBeNull();
-    expect(useUIStore.getState().globalPanelOpen[DRAWER_PANEL_ID]).toBe(true);
+    expect(panel.state.open).toBe(true);
   });
 
   it("the terminal status-bar factory forwards sessionId and connectionName (falling back to connectionId) into TerminalAskButton", () => {

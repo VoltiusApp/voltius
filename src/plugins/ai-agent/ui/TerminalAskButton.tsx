@@ -1,9 +1,8 @@
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import { useUIStore } from "@/stores/uiStore";
 import { getAgentDeps, useAgentStore } from "../state/agentStore";
 import { buildTerminalContext } from "../state/touchpoint";
-import { DRAWER_PANEL_ID } from "../panelId";
+import { openPanel } from "../panel";
 
 export function TerminalAskButton({ sessionId, connectionName }: { sessionId: string; connectionName: string }) {
   const { t } = useTranslation();
@@ -15,7 +14,7 @@ export function TerminalAskButton({ sessionId, connectionName }: { sessionId: st
       const ctx = buildTerminalContext(api, sessionId, connectionName);
       if (ctx) attachContext(ctx);
     }
-    useUIStore.getState().setGlobalPanelOpen(DRAWER_PANEL_ID, true);
+    openPanel();
   };
 
   return (

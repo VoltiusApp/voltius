@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useAgentStore, getAgentDeps } from "../state/agentStore";
-import { useUIStore } from "@/stores/uiStore";
+import { setPanelDockedWidth } from "../panel";
 import { Transcript } from "./Transcript";
 import { Composer } from "./Composer";
 import { FirstRunCard } from "./FirstRunCard";
@@ -131,7 +131,6 @@ export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void
   const newConversation = useAgentStore((s) => s.newConversation);
   const [hasProfile, refreshHasProfile] = useHasProfile(open);
   const { pinned, width, setPinned } = usePinnedWidth();
-  const setDockedPanelWidth = useUIStore((s) => s.setDockedPanelWidth);
   const active = open && pinned;
   const measuredRect = useDockRect(active);
   const dockRect = pinned ? measuredRect : null;
@@ -150,9 +149,9 @@ export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void
   // useLayoutEffect so the store write (and the resulting shell reflow) lands in the
   // same paint as this render, instead of visibly flashing the old layout for a frame.
   useLayoutEffect(() => {
-    setDockedPanelWidth(active ? width : 0);
-    return () => setDockedPanelWidth(0);
-  }, [active, width, setDockedPanelWidth]);
+    setPanelDockedWidth(active ? width : 0);
+    return () => setPanelDockedWidth(0);
+  }, [active, width]);
 
   if (!open) return null;
 

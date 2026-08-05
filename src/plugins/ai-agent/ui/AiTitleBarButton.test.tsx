@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { useAgentStore } from "../state/agentStore";
-import { useUIStore } from "@/stores/uiStore";
+import { setPanelHandle } from "../panel";
+import { fakePanelHandle } from "../testing/fakePanelHandle";
 import { AiTitleBarButton } from "./AiTitleBarButton";
 
 // @iconify/react schedules an async icon-data-load timer that can fire after
@@ -11,17 +12,23 @@ vi.mock("@iconify/react", () => ({
   Icon: ({ icon }: { icon: string }) => <span data-icon={icon} />,
 }));
 
-afterEach(cleanup);
+let panel = fakePanelHandle();
+
+afterEach(() => {
+  cleanup();
+  setPanelHandle(null);
+});
 
 describe("AiTitleBarButton", () => {
   beforeEach(() => {
     useAgentStore.setState({ runStatus: "idle", pendingApprovals: [] });
-    useUIStore.setState({ globalPanelOpen: {} });
+    panel = fakePanelHandle();
+    setPanelHandle(panel.handle);
   });
   it("toggles the drawer open on click", () => {
     render(<AiTitleBarButton />);
     fireEvent.click(screen.getByRole("button"));
-    expect(useUIStore.getState().globalPanelOpen["plugin-ai-agent:drawer"]).toBe(true);
+    expect(panel.state.open).toBe(true);
   });
   it("shows a pending badge when approvals are queued", () => {
     useAgentStore.setState({ pendingApprovals: [{ id: "a", tool: "run_command", args: {}, scope: "h", grants: [], resolve: () => {} }] });

@@ -4,7 +4,8 @@ import userEvent from "@testing-library/user-event";
 import "@/i18n";
 import { AiDrawer } from "./AiDrawer";
 import * as storeMod from "../state/agentStore";
-import { useUIStore } from "@/stores/uiStore";
+import { setPanelHandle } from "../panel";
+import { fakePanelHandle } from "../testing/fakePanelHandle";
 
 // @iconify/react schedules an async icon-data-load timer that can fire after
 // this file's jsdom environment is torn down, touching `window` and surfacing
@@ -46,18 +47,22 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   document.querySelectorAll("[data-shell-content]").forEach((el) => el.remove());
+  setPanelHandle(null);
 });
+
+let panel = fakePanelHandle();
 
 describe("AiDrawer docking", () => {
   beforeEach(() => {
-    useUIStore.setState({ dockedPanelWidth: 0 });
+    panel = fakePanelHandle();
+    setPanelHandle(panel.handle);
   });
 
   it("reserves shell width when open and pinned", async () => {
     mockDeps(true);
     render(<AiDrawer open={true} onClose={vi.fn()} />);
 
-    await waitFor(() => expect(useUIStore.getState().dockedPanelWidth).toBe(380));
+    await waitFor(() => expect(panel.state.dockedWidth).toBe(380));
   });
 
   it("does not reserve width when open but unpinned", async () => {
@@ -66,27 +71,27 @@ describe("AiDrawer docking", () => {
 
     // Let the pin-loading effect settle; width should remain 0 throughout.
     await new Promise((r) => setTimeout(r, 0));
-    expect(useUIStore.getState().dockedPanelWidth).toBe(0);
+    expect(panel.state.dockedWidth).toBe(0);
   });
 
   it("resets to 0 on unmount while pinned+open", async () => {
     mockDeps(true);
     const { unmount } = render(<AiDrawer open={true} onClose={vi.fn()} />);
 
-    await waitFor(() => expect(useUIStore.getState().dockedPanelWidth).toBe(380));
+    await waitFor(() => expect(panel.state.dockedWidth).toBe(380));
 
     unmount();
-    expect(useUIStore.getState().dockedPanelWidth).toBe(0);
+    expect(panel.state.dockedWidth).toBe(0);
   });
 
   it("resets to 0 when closed while pinned", async () => {
     mockDeps(true);
     const { rerender } = render(<AiDrawer open={true} onClose={vi.fn()} />);
 
-    await waitFor(() => expect(useUIStore.getState().dockedPanelWidth).toBe(380));
+    await waitFor(() => expect(panel.state.dockedWidth).toBe(380));
 
     rerender(<AiDrawer open={false} onClose={vi.fn()} />);
-    expect(useUIStore.getState().dockedPanelWidth).toBe(0);
+    expect(panel.state.dockedWidth).toBe(0);
   });
 
   it("docks to the measured shell-content row's top + height when pinned", async () => {
@@ -123,13 +128,13 @@ describe("AiDrawer docking", () => {
     render(<AiDrawer open={true} onClose={vi.fn()} />);
 
     const pinButton = await screen.findByTitle("Pin");
-    expect(useUIStore.getState().dockedPanelWidth).toBe(0);
+    expect(panel.state.dockedWidth).toBe(0);
     expect(screen.getByRole("dialog").style.top).toBe("0px");
 
     await userEvent.click(pinButton);
 
     await waitFor(() => expect(screen.getByTitle("Unpin")).toBeTruthy());
-    await waitFor(() => expect(useUIStore.getState().dockedPanelWidth).toBe(380));
+    await waitFor(() => expect(panel.state.dockedWidth).toBe(380));
     await waitFor(() => expect(screen.getByRole("dialog").style.top).toBe("62px"));
     expect(screen.getByRole("dialog").style.height).toBe("500px");
   });

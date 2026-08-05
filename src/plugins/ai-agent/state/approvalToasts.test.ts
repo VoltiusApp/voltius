@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { useUIStore } from "@/stores/uiStore";
 import { useAgentStore } from "./agentStore";
 import { installApprovalToasts } from "./approvalToasts";
-import { DRAWER_PANEL_ID } from "../panelId";
+import { setPanelHandle } from "../panel";
+import { fakePanelHandle } from "../testing/fakePanelHandle";
 
 // Not cast to `never` at construction (unlike other fakeApi helpers in this
 // plugin): these tests read .mock.calls off `a.notifications.toast` directly,
@@ -17,12 +17,14 @@ const pending = (id: string) => ({
 });
 
 let dispose: (() => void) | null = null;
+let panel = fakePanelHandle();
 
 beforeEach(() => {
   useAgentStore.setState({ pendingApprovals: [], pendingPlan: null });
-  useUIStore.setState({ globalPanelOpen: {} } as never);
+  panel = fakePanelHandle();
+  setPanelHandle(panel.handle);
 });
-afterEach(() => { dispose?.(); dispose = null; });
+afterEach(() => { dispose?.(); dispose = null; setPanelHandle(null); });
 
 describe("installApprovalToasts", () => {
   it("toasts a new pending approval while the drawer is closed", () => {
@@ -41,12 +43,12 @@ describe("installApprovalToasts", () => {
     dispose = installApprovalToasts(a as never);
     useAgentStore.getState()._addPending(pending("p1"));
     a.notifications.toast.mock.calls[0][1].action.onClick();
-    expect(useUIStore.getState().globalPanelOpen[DRAWER_PANEL_ID]).toBe(true);
+    expect(panel.state.open).toBe(true);
   });
 
   it("does not toast while the drawer is open", () => {
     const a = api();
-    useUIStore.setState({ globalPanelOpen: { [DRAWER_PANEL_ID]: true } } as never);
+    panel.handle.open();
     dispose = installApprovalToasts(a as never);
     useAgentStore.getState()._addPending(pending("p1"));
     expect(a.notifications.toast).not.toHaveBeenCalled();
@@ -95,7 +97,7 @@ describe("installApprovalToasts", () => {
 
   it("does not toast a pending plan while the drawer is open", () => {
     const a = api();
-    useUIStore.setState({ globalPanelOpen: { [DRAWER_PANEL_ID]: true } } as never);
+    panel.handle.open();
     dispose = installApprovalToasts(a as never);
     useAgentStore.setState({
       pendingPlan: {

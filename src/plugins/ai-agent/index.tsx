@@ -1,6 +1,5 @@
 import i18n from "@/i18n";
 import type { PluginAPI, PluginManifest, PluginRegisterFn } from "@/plugins/api";
-import { useUIStore } from "@/stores/uiStore";
 import { initAgent, shutdownAgent, useAgentStore } from "./state/agentStore";
 import { installApprovalToasts } from "./state/approvalToasts";
 import { buildTerminalContext } from "./state/touchpoint";
@@ -8,7 +7,7 @@ import { AiDrawer } from "./ui/AiDrawer";
 import { AiTitleBarButton } from "./ui/AiTitleBarButton";
 import { TerminalAskButton } from "./ui/TerminalAskButton";
 import { createSettingsPage } from "./settings/SettingsPage";
-import { DRAWER_PANEL_ID } from "./panelId";
+import { openPanel, setPanelHandle } from "./panel";
 
 const PANEL_ID = "drawer"; // prefixed → "plugin-ai-agent:drawer"
 
@@ -31,14 +30,15 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   if (!api.isActive()) return () => {};
   void initAgent(api);
 
-  const offPanel = api.ui.registerGlobalPanel({ id: PANEL_ID, component: AiDrawer });
+  const panel = api.ui.registerGlobalPanel({ id: PANEL_ID, component: AiDrawer });
+  setPanelHandle(panel);
   const offOmni = api.omni.register({
     id: "ask-ai",
     label: "Ask AI…",
     icon: "lucide:sparkles",
     keywords: ["ai", "assistant", "chat", "doctor"],
     keybinding: "ctrl+j",
-    execute: () => useUIStore.getState().setGlobalPanelOpen(DRAWER_PANEL_ID, true),
+    execute: openPanel,
   });
   const offAskTerminal = api.omni.register({
     id: "ask-ai-terminal",
@@ -52,7 +52,7 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
         const ctx = buildTerminalContext(api, active.id, active.connectionName ?? active.connectionId);
         if (ctx) useAgentStore.getState().attachContext(ctx);
       }
-      useUIStore.getState().setGlobalPanelOpen(DRAWER_PANEL_ID, true);
+      openPanel();
     },
   });
   const offTerminalButton = api.ui.registerStatusBarItem("terminal.statusBar.right", (ctx) => (
@@ -73,7 +73,8 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
   const offToasts = installApprovalToasts(api);
 
   return () => {
-    offPanel(); offOmni(); offAskTerminal(); offTerminalButton(); offTitlebar(); offSettings(); offToasts();
+    setPanelHandle(null);
+    panel(); offOmni(); offAskTerminal(); offTerminalButton(); offTitlebar(); offSettings(); offToasts();
     // Agent-owned SSH sessions are intentionally left open here — closing
     // them is out of scope until the runtime's session-ownership story is
     // settled, and closing on teardown could race a session the user is

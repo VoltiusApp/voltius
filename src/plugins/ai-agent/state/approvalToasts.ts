@@ -1,8 +1,7 @@
 import i18n from "@/i18n";
 import type { PluginAPI } from "@/plugins/api";
-import { useUIStore } from "@/stores/uiStore";
 import { useAgentStore } from "./agentStore";
-import { DRAWER_PANEL_ID } from "../panelId";
+import { isPanelOpen, openPanel } from "../panel";
 
 const TOAST_DURATION_MS = 8000;
 
@@ -21,7 +20,7 @@ const TOAST_DURATION_MS = 8000;
 export function installApprovalToasts(api: PluginAPI): () => void {
   const seen = new Set<string>();
   return useAgentStore.subscribe((state) => {
-    const open = Boolean(useUIStore.getState().globalPanelOpen[DRAWER_PANEL_ID]);
+    const open = isPanelOpen();
     for (const p of state.pendingApprovals) {
       if (seen.has(p.id)) continue;
       seen.add(p.id);
@@ -31,7 +30,7 @@ export function installApprovalToasts(api: PluginAPI): () => void {
         duration: TOAST_DURATION_MS,
         action: {
           label: i18n.t("aiAgent.toast.openToReview"),
-          onClick: () => useUIStore.getState().setGlobalPanelOpen(DRAWER_PANEL_ID, true),
+          onClick: openPanel,
         },
       });
     }
@@ -49,7 +48,7 @@ export function installApprovalToasts(api: PluginAPI): () => void {
             duration: TOAST_DURATION_MS,
             action: {
               label: i18n.t("aiAgent.toast.openToReview"),
-              onClick: () => useUIStore.getState().setGlobalPanelOpen(DRAWER_PANEL_ID, true),
+              onClick: openPanel,
             },
           },
         );
