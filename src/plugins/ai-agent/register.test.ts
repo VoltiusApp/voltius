@@ -16,9 +16,11 @@ function fakeApi(isActive: () => boolean = () => true) {
   const calls: string[] = [];
   const panel = fakePanelHandle();
   const statusBarFactories: Record<string, (ctx: unknown) => unknown> = {};
+  const contributionFactories: Record<string, (ctx: unknown) => unknown> = {};
   return {
     calls,
     statusBarFactories,
+    contributionFactories,
     panel,
     api: {
       isActive,
@@ -40,6 +42,11 @@ function fakeApi(isActive: () => boolean = () => true) {
           statusBarFactories[slot] = factory;
           calls.push(slot === "titlebar.right" ? "titlebar" : "terminalButton");
           return () => calls.push(slot === "titlebar.right" ? "titlebar:off" : "terminalButton:off");
+        }),
+        registerContribution: vi.fn((slot: string, factory: (ctx: unknown) => unknown) => {
+          contributionFactories[slot] = factory;
+          calls.push(`contribution:${slot}`);
+          return () => calls.push(`contribution:${slot}:off`);
         }),
         registerSettingsPage: vi.fn(() => { calls.push("settings"); return () => calls.push("settings:off"); }),
       },
@@ -181,5 +188,33 @@ describe("ai-agent register", () => {
       props: { sessionId: string; connectionName: string };
     };
     expect(withoutName.props).toEqual({ sessionId: "s2", connectionName: "c2" });
+  });
+
+  it("the mobile terminal contribution attaches that session's context and opens the drawer", () => {
+    const { api, panel, contributionFactories } = fakeApi();
+    (api as unknown as { sessions: { list: unknown } }).sessions.list = vi.fn(() => [
+      { id: "s1", connectionId: "c1", connectionName: "Prod DB", status: "connected", type: "ssh" },
+    ]);
+    (api as unknown as { terminal: { readSelection: unknown; readSnapshot: unknown } }).terminal = {
+      readSelection: vi.fn(() => ""),
+      readSnapshot: vi.fn(() => "line one\nline two"),
+    };
+    useAgentStore.setState({ pendingContext: null });
+
+    register(api);
+    const factory = contributionFactories["mobile.terminal.panels"] as (ctx: unknown) => {
+      label: string; onClick: () => void;
+    }[];
+
+    // No active session ⇒ nothing to attach, so contribute nothing rather than
+    // an item that would open an empty drawer.
+    expect(factory({})).toEqual([]);
+
+    const [item] = factory({ sessionId: "s1", connectionId: "c1" });
+    expect(item.label).toBe("aiAgent.touchpoint.button");
+    item.onClick();
+
+    expect(useAgentStore.getState().pendingContext).toMatchObject({ sessionId: "s1", connectionName: "Prod DB" });
+    expect(panel.state.open).toBe(true);
   });
 });

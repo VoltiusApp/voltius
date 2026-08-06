@@ -136,15 +136,25 @@ function useDockRect(active: boolean): DockRect | null {
   return rect;
 }
 
-export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function AiDrawer({
+  open,
+  onClose,
+  fullScreen,
+}: {
+  open: boolean;
+  onClose: () => void;
+  /** Set by the mobile shell: take the whole viewport, and drop the docking and
+   *  resize affordances, which have nowhere to go on a phone. */
+  fullScreen?: boolean;
+}) {
   const { t } = useT();
   const runStatus = useAgentStore((s) => s.runStatus);
   const newConversation = useAgentStore((s) => s.newConversation);
   const [hasProfile, refreshHasProfile] = useHasProfile(open);
   const { pinned, width, setPinned, setWidth } = usePinnedWidth();
-  const active = open && pinned;
+  const active = open && pinned && !fullScreen;
   const measuredRect = useDockRect(active);
-  const dockRect = pinned ? measuredRect : null;
+  const dockRect = pinned && !fullScreen ? measuredRect : null;
 
   useEffect(() => {
     if (!open) return;
@@ -195,18 +205,22 @@ export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void
         position: "fixed",
         top: dockRect ? dockRect.top : 0,
         right: 0,
+        // Full-screen also pins the LEFT edge, so the panel covers the tab bar
+        // and any pushed mobile page rather than floating over part of one.
+        left: fullScreen ? 0 : undefined,
         bottom: dockRect ? undefined : 0,
         height: dockRect ? dockRect.height : undefined,
-        width,
+        width: fullScreen ? undefined : width,
         maxWidth: "100%",
         display: "flex",
         flexDirection: "column",
         background: "var(--t-bg-modal)",
-        borderLeft: "1px solid var(--t-border)",
-        boxShadow: "var(--t-elev-2)",
+        borderLeft: fullScreen ? undefined : "1px solid var(--t-border)",
+        boxShadow: fullScreen ? undefined : "var(--t-elev-2)",
         zIndex: 50,
       }}
     >
+      {!fullScreen && (
       <div
         role="separator"
         aria-orientation="vertical"
@@ -215,6 +229,7 @@ export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void
         onPointerDown={onResizeStart}
         style={{ position: "absolute", left: -3, top: 0, bottom: 0, width: 6, cursor: "col-resize", zIndex: 1 }}
       />
+      )}
 
       <div
         style={{
@@ -237,15 +252,17 @@ export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void
         >
           <Icon icon="lucide:message-square-plus" width={15} />
         </button>
-        <button
-          type="button"
-          onClick={() => setPinned(!pinned)}
-          title={pinned ? t("aiAgent.drawer.unpin") : t("aiAgent.drawer.pin")}
-          aria-pressed={pinned}
-          style={{ background: "transparent", color: pinned ? "var(--t-accent)" : "var(--t-text-secondary)" }}
-        >
-          <Icon icon="lucide:pin" width={15} />
-        </button>
+        {!fullScreen && (
+          <button
+            type="button"
+            onClick={() => setPinned(!pinned)}
+            title={pinned ? t("aiAgent.drawer.unpin") : t("aiAgent.drawer.pin")}
+            aria-pressed={pinned}
+            style={{ background: "transparent", color: pinned ? "var(--t-accent)" : "var(--t-text-secondary)" }}
+          >
+            <Icon icon="lucide:pin" width={15} />
+          </button>
+        )}
         <button
           type="button"
           onClick={onClose}

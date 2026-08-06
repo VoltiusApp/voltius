@@ -143,4 +143,23 @@ describe("AiDrawer docking", () => {
     await waitFor(() => expect(screen.getByRole("dialog").style.top).toBe("62px"));
     expect(screen.getByRole("dialog").style.height).toBe("500px");
   });
+
+  it("full-screen drops docking, the resize handle and the pin button", async () => {
+    mockDeps(true); // pinned in storage: full-screen must still refuse to dock
+    const { rerender } = render(<AiDrawer open={true} onClose={vi.fn()} fullScreen />);
+
+    const drawer = await screen.findByRole("dialog");
+    expect(drawer.style.left).toBe("0px");
+    expect(drawer.style.width).toBe("");
+    expect(drawer.querySelector('[role="separator"]')).toBeNull();
+    expect(screen.queryByTitle("Unpin")).toBeNull();
+    expect(screen.queryByTitle("Pin")).toBeNull();
+    // The shell must never reserve width for a panel that covers it outright.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(panel.state.dockedWidth).toBe(0);
+
+    rerender(<AiDrawer open={true} onClose={vi.fn()} />);
+    await waitFor(() => expect(panel.state.dockedWidth).toBe(380));
+    expect(screen.getByRole("dialog").querySelector('[role="separator"]')).not.toBeNull();
+  });
 });

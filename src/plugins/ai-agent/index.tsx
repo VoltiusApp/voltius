@@ -52,6 +52,26 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
     <TerminalAskButton sessionId={ctx.sessionId} connectionName={ctx.connectionName ?? ctx.connectionId} />
   ));
   const offTitlebar = api.ui.registerStatusBarItem("titlebar.right", () => <AiTitleBarButton />);
+  // The mobile terminal has no status bar, so `TerminalAskButton` never renders
+  // there — this is its equivalent, in the ⋮ menu and the quick-access row.
+  const offMobileTerminal = api.ui.registerContribution<{ sessionId?: string; connectionId?: string }>(
+    "mobile.terminal.panels",
+    (ctx) => {
+      if (!ctx?.sessionId) return [];
+      const sessionId = ctx.sessionId;
+      return [{
+        label: t("aiAgent.touchpoint.button"),
+        icon: "lucide:sparkles",
+        onClick: () => {
+          const session = api.sessions.list().find((s) => s.id === sessionId);
+          const target = session?.connectionName ?? session?.connectionId ?? sessionId;
+          const context = buildTerminalContext(api, sessionId, target);
+          if (context) useAgentStore.getState().attachContext(context);
+          openPanel();
+        },
+      }];
+    },
+  );
   // Registered INSIDE the isActive() guard, departing from the runtime's house
   // convention (settings pages normally register outside it so disabled
   // plugins stay configurable): this plugin's rule is "agent disabled → zero
@@ -69,7 +89,8 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
     setPanelHandle(null);
     setAuditApi(null);
     setI18nApi(null);
-    panel(); offOmni(); offAskTerminal(); offTerminalButton(); offTitlebar(); offSettings(); offToasts();
+    panel(); offOmni(); offAskTerminal(); offTerminalButton(); offTitlebar(); offMobileTerminal();
+    offSettings(); offToasts();
     // Agent-owned SSH sessions are intentionally left open here — closing
     // them is out of scope until the runtime's session-ownership story is
     // settled, and closing on teardown could race a session the user is
