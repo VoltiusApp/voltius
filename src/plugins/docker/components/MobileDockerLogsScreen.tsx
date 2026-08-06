@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Icon } from "@voltius/ui";
+import { Icon, useT, useSessionById } from "@voltius/ui";
 import type { FC } from "react";
 import type { DockerTarget, PluginAPI, MobileScreenProps } from "@/plugins/api";
-import { useSessionById } from "../useSessionById";
-import { useT } from "../useT";
 import { dockerStartLogStream, dockerStopLogStream, onDockerLog } from "../services";
 import type { DockerLogLine } from "../types";
 

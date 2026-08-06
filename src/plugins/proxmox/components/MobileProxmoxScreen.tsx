@@ -1,10 +1,8 @@
 import { useState } from "react";
-import { Icon, BottomSheet } from "@voltius/ui";
+import { Icon, BottomSheet, useT, useSessionById } from "@voltius/ui";
 import type { FC } from "react";
 import type { PluginAPI, MobileScreenProps } from "@/plugins/api";
-import { useSessionById } from "../useSessionById";
 import { useIsProxmoxHost } from "../useIsProxmoxHost";
-import { useT } from "../useT";
 import { createProxmoxService } from "../services";
 import { useProxmox } from "../useProxmox";
 import type { LxcAction, LxcContainer, LxcSnapshot } from "../types";

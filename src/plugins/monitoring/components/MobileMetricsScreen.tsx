@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
-import { Icon } from "@voltius/ui";
+import { Icon, useT, useSessionById } from "@voltius/ui";
 import type { FC } from "react";
 import type { PluginAPI, MobileScreenProps } from "@/plugins/api";
-import { useSessionById } from "../useSessionById";
-import { useT } from "../useT";
 import { createMetricsService } from "../services";
 import { useHostMetrics } from "../useHostMetrics";
 import { Sparkline } from "./Sparkline";

@@ -1,9 +1,7 @@
 import { useState } from "react";
-import { Icon, BottomSheet } from "@voltius/ui";
+import { Icon, BottomSheet, useT, useSessionById } from "@voltius/ui";
 import type { FC } from "react";
 import type { PluginAPI, MobileScreenProps } from "@/plugins/api";
-import { useSessionById } from "../useSessionById";
-import { useT } from "../useT";
 import { createProcessesService } from "../services";
 import { useProcessList } from "../useProcessList";
 import type { ProcessEntry, SortCol } from "../types";
