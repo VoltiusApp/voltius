@@ -10,6 +10,7 @@ import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
+import { withPin } from "@/stores/withPin";
 
 function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
   if (!vaultId) return false;
@@ -132,6 +133,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
     const teamEntry = findTeamEntry(get().teamKeys, id);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
+      const payload = withPin(data, prev);
       const now = new Date().toISOString();
       const updated: SshKey = {
         ...prev,
@@ -140,7 +142,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
         tags: data.tags,
         folder_id: data.folder_id,
         vault_id: data.vault_id ?? prev.vault_id,
-        pinned: data.pinned,
+        pinned: payload.pinned,
         updated_at: now,
         clocks: { ...prev.clocks, updated_at: now },
       };
@@ -149,8 +151,8 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
         nextVaultId: updated.vault_id,
         isTeamVaultId,
         item: updated,
-        updateLocal: () => api.updateKey(id, data),
-        adoptLocal: () => api.adoptKey(id, data),
+        updateLocal: () => api.updateKey(id, payload),
+        adoptLocal: () => api.adoptKey(id, payload),
         saveTeam: (tid, item) => saveTeamVaultObject(tid, "key", item),
         removeTeam: removeTeamVaultObject,
       });
@@ -188,13 +190,14 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
     let key: SshKey;
     if (prev) {
       const nextVaultId = data.vault_id ?? prev.vault_id;
+      const payload = withPin(data, prev);
       key = await migrateVaultObject({
         previousVaultId: prev.vault_id,
         nextVaultId,
         isTeamVaultId,
-        item: { ...prev, ...data, vault_id: nextVaultId },
-        updateLocal: () => api.updateKey(id, data),
-        adoptLocal: () => api.adoptKey(id, data),
+        item: { ...prev, ...payload, vault_id: nextVaultId },
+        updateLocal: () => api.updateKey(id, payload),
+        adoptLocal: () => api.adoptKey(id, payload),
         saveTeam: (teamId, item) => saveTeamVaultObject(teamId, "key", item),
         removeTeam: removeTeamVaultObject,
       });

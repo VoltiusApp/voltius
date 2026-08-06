@@ -9,6 +9,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
+import { withPin } from "@/stores/withPin";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 
 function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
@@ -133,6 +134,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     const teamEntry = findTeamEntry(get().teamIdentities, id);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
+      const payload = withPin(data, prev);
       const now = new Date().toISOString();
       const updated: Identity = {
         ...prev,
@@ -142,7 +144,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
         tags: data.tags,
         folder_id: data.folder_id,
         vault_id: data.vault_id ?? prev.vault_id,
-        pinned: data.pinned,
+        pinned: payload.pinned,
         updated_at: now,
         clocks: { ...prev.clocks, updated_at: now },
       };
@@ -151,8 +153,8 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
         nextVaultId: updated.vault_id,
         isTeamVaultId,
         item: updated,
-        updateLocal: () => api.updateIdentity(id, data).then(() => updated),
-        adoptLocal: () => api.adoptIdentity(id, data).then(() => updated),
+        updateLocal: () => api.updateIdentity(id, payload).then(() => updated),
+        adoptLocal: () => api.adoptIdentity(id, payload).then(() => updated),
         saveTeam: (tid, item) => saveTeamVaultObject(tid, "identity", item),
         removeTeam: removeTeamVaultObject,
       });
@@ -190,13 +192,14 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     let updated: Identity | undefined;
     if (prev) {
       const nextVaultId = data.vault_id ?? prev.vault_id;
+      const payload = withPin(data, prev);
       updated = await migrateVaultObject<Identity>({
         previousVaultId: prev.vault_id,
         nextVaultId,
         isTeamVaultId,
-        item: { ...prev, ...data, vault_id: nextVaultId } as Identity,
-        updateLocal: () => api.updateIdentity(id, data).then(() => ({ ...prev, ...data, vault_id: nextVaultId } as Identity)),
-        adoptLocal: () => api.adoptIdentity(id, data).then(() => ({ ...prev, ...data, vault_id: nextVaultId } as Identity)),
+        item: { ...prev, ...payload, vault_id: nextVaultId } as Identity,
+        updateLocal: () => api.updateIdentity(id, payload).then(() => ({ ...prev, ...payload, vault_id: nextVaultId } as Identity)),
+        adoptLocal: () => api.adoptIdentity(id, payload).then(() => ({ ...prev, ...payload, vault_id: nextVaultId } as Identity)),
         saveTeam: (teamId, item) => saveTeamVaultObject(teamId, "identity", item),
         removeTeam: removeTeamVaultObject,
       });

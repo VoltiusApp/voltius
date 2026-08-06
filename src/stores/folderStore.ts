@@ -13,6 +13,7 @@ import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { folderSubtreeIds } from "@/utils/folderTree";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
+import { withPin } from "@/stores/withPin";
 import { useTeamStore } from "@/stores/teamStore";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 
@@ -27,16 +28,6 @@ function upsert(arr: Folder[], item: Folder): Folder[] {
   const next = [...arr];
   next[idx] = item;
   return next;
-}
-
-/**
- * `folder_update` replaces `pinned` outright, so a payload that omits it clears
- * the pin. Callers build partial payloads (rename, reparent, vault move) and
- * almost none carry it, so carry it over from the stored folder unless the
- * caller states one — an explicit `false` still unpins.
- */
-function withPin(data: FolderFormData, prev: Folder): FolderFormData {
-  return data.pinned === undefined ? { ...data, pinned: prev.pinned } : data;
 }
 
 function findTeamEntry(
@@ -470,7 +461,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
     const folder = get().folders.find((f) => f.id === id);
     if (!folder) return;
     const prevParentId = folder.parent_folder_id ?? null;
-    await api.updateFolder(id, withPin({
+    await api.updateFolder(id, withPin<FolderFormData>({
       name: folder.name,
       object_type: folder.object_type,
       parent_folder_id: parentFolderId ?? undefined,

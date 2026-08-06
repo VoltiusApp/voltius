@@ -9,6 +9,7 @@ import { useTeamStore } from "@/stores/teamStore";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
+import { withPin } from "@/stores/withPin";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 
 // ─── Team vault helpers ───────────────────────────────────────────────────────
@@ -199,6 +200,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     if (teamEntry) {
       const now = new Date().toISOString();
       const prev = teamEntry.conn;
+      const payload = withPin(data, prev);
       const updated: Connection = {
         ...prev,
         name: data.name,
@@ -223,7 +225,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         terminal_encoding: data.terminal_encoding,
         distro: data.distro ?? prev.distro,
         icon: data.icon ?? prev.icon,
-        pinned: data.pinned,
+        pinned: payload.pinned,
         connection_type: data.connection_type ?? prev.connection_type,
         serial_port: data.serial_port ?? prev.serial_port,
         serial_baud: data.serial_baud ?? prev.serial_baud,
@@ -245,8 +247,8 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         nextVaultId: updated.vault_id,
         isTeamVaultId,
         item: updated,
-        updateLocal: () => api.updateConnection(id, data),
-        adoptLocal: () => api.adoptConnection(id, data),
+        updateLocal: () => api.updateConnection(id, payload),
+        adoptLocal: () => api.adoptConnection(id, payload),
         saveTeam: (teamId, item) => saveTeamVaultObject(teamId, "connection", item),
         removeTeam: removeTeamVaultObject,
       });
@@ -277,6 +279,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     }
 
     const prev = get().connections.find((c) => c.id === id);
+    const payload = prev ? withPin(data, prev) : data;
     const now = new Date().toISOString();
     const item: Connection = prev
       ? {
@@ -303,7 +306,7 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
           terminal_encoding: data.terminal_encoding,
           distro: data.distro ?? prev.distro,
           icon: data.icon ?? prev.icon,
-          pinned: data.pinned,
+          pinned: payload.pinned,
           connection_type: data.connection_type ?? prev.connection_type,
           serial_port: data.serial_port ?? prev.serial_port,
           serial_baud: data.serial_baud ?? prev.serial_baud,
@@ -325,8 +328,8 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       nextVaultId: data.vault_id ?? prev?.vault_id,
       isTeamVaultId,
       item,
-      updateLocal: () => api.updateConnection(id, data),
-      adoptLocal: () => api.adoptConnection(id, data),
+      updateLocal: () => api.updateConnection(id, payload),
+      adoptLocal: () => api.adoptConnection(id, payload),
       saveTeam: (teamId, item) => saveTeamVaultObject(teamId, "connection", item),
       removeTeam: removeTeamVaultObject,
     });
