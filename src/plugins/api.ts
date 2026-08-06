@@ -25,6 +25,12 @@ export interface PluginConnection {
   icon?: string;
   distro?: string;
   serial_port?: string;
+  /**
+   * True when this connection is owned by a team vault rather than the user's
+   * personal store. `update` and `delete` reject one; a `vault_id` does NOT
+   * imply it, since a personal connection can live in a local vault too.
+   */
+  team?: boolean;
 }
 
 export interface PluginConnectionInput {

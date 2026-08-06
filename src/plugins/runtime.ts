@@ -14,6 +14,7 @@ import { useUIContributionStore } from "@/stores/uiContributionStore";
 import { usePluginStateStore } from "@/stores/pluginStateStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useTeamStore } from "@/stores/teamStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { getSyncState, onSyncStateChange, ENTITY_FILES, getExcludedObjectIds, type BlobPayload } from "@/services/sync";
@@ -111,6 +112,44 @@ function findConnection(connectionId: string) {
     connections.find((c) => c.id === connectionId) ??
     Object.values(teamConnections).flat().find((c) => c.id === connectionId)
   );
+}
+
+/** In-memory team connections, keyed off the teams the user is actually in so a
+ * stale cache for a team they left cannot resurface. Mirrors `useAllConnections`. */
+function teamConnectionList() {
+  const { teamConnections } = useConnectionStore.getState();
+  return useTeamStore.getState().teams.flatMap((t) => teamConnections[t.id] ?? []);
+}
+
+/**
+ * Personal + team connections, the single list every plugin-facing read
+ * resolves against.
+ *
+ * The agent's connection guard and `deriveScope` both resolve ids through
+ * `connections.list()`, so a team connection missing here is not a display bug:
+ * the guard rejects its id and no grant can be minted for it, which made team
+ * hosts unaddressable (#77). `team` is the authoritative flag — a *personal*
+ * connection can also carry a `vault_id` (a local, non-team vault), so the
+ * presence of one says nothing about ownership.
+ */
+async function listAllConnections(): Promise<PluginConnection[]> {
+  const merged = new Map<string, PluginConnection>();
+  for (const c of await connectionService.listConnections()) {
+    merged.set(c.id, c as PluginConnection);
+  }
+  for (const c of teamConnectionList()) {
+    merged.set(c.id, { ...(c as PluginConnection), team: true });
+  }
+  return [...merged.values()];
+}
+
+/** Team connections are owned by a team vault, not the personal store that
+ * `connectionService` writes to. Sending one through that path would write to a
+ * record the server never sees, so plugin writes fail loudly instead. */
+function refuseTeamWrite(connectionId: string, verb: string) {
+  if (teamConnectionList().some((c) => c.id === connectionId)) {
+    throw new Error(`Connection ${connectionId} belongs to a team vault and cannot be ${verb} by a plugin`);
+  }
 }
 
 const _onConnectionEstablished = new Set<(conn: PluginConnection) => void>();
@@ -530,12 +569,12 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
     connections: {
       async list() {
         requirePerm(manifest, "connections:read");
-        return connectionService.listConnections() as Promise<PluginConnection[]>;
+        return listAllConnections();
       },
       async get(connId) {
         requirePerm(manifest, "connections:read");
-        const all = await connectionService.listConnections();
-        return (all.find((c) => c.id === connId) as PluginConnection) ?? null;
+        const all = await listAllConnections();
+        return all.find((c) => c.id === connId) ?? null;
       },
       async create(data: PluginConnectionInput) {
         requirePerm(manifest, "connections:write");
@@ -554,6 +593,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       async update(connId, data) {
         requirePerm(manifest, "connections:write");
+        refuseTeamWrite(connId, "updated");
         const existing = await connectionService.listConnections();
         const conn = existing.find((c) => c.id === connId);
         if (!conn) throw new Error(`Connection ${connId} not found`);
@@ -572,6 +612,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       async delete(connId) {
         requirePerm(manifest, "connections:write");
+        refuseTeamWrite(connId, "deleted");
         await connectionService.deleteConnection(connId);
         await useConnectionStore.getState().loadConnections();
       },
@@ -594,7 +635,12 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       subscribe(cb) {
         requirePerm(manifest, "connections:read");
-        return useConnectionStore.subscribe((s) => cb(s.connections as PluginConnection[]));
+        return useConnectionStore.subscribe((s) => {
+          const merged = new Map<string, PluginConnection>();
+          for (const c of s.connections) merged.set(c.id, c as PluginConnection);
+          for (const c of teamConnectionList()) merged.set(c.id, { ...(c as PluginConnection), team: true });
+          cb([...merged.values()]);
+        });
       },
     },
 

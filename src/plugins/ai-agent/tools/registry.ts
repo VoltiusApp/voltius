@@ -137,12 +137,16 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
     },
     {
       name: "list_connections",
-      description: "List the user's saved SSH/host connections (id, name, host).",
+      description:
+        "List the user's saved SSH/host connections (id, name, host). `team: true` marks one "
+        + "shared through a team vault; it is addressable exactly like a personal connection.",
       risk: "auto",
       schema: z.object({}),
       execute: async () => {
         const conns = await ctx.api.connections.list();
-        return conns.map((c) => ({ id: c.id, name: c.name, host: c.host }));
+        return conns.map((c) => ({
+          id: c.id, name: c.name, host: c.host, ...(c.team ? { team: true } : {}),
+        }));
       },
     },
     {
