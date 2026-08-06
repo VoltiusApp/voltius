@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { Folder } from "@/types";
-import { folderSubtreeIds, itemsInFolderSubtree } from "./folderTree";
+import { folderOptionsFor, folderSubtreeIds, itemsInFolderSubtree } from "./folderTree";
 
 function folder(id: string, parent?: string): Folder {
   return {
@@ -40,5 +40,17 @@ describe("itemsInFolderSubtree", () => {
       { id: "top-level", folder_id: null },
     ];
     expect(itemsInFolderSubtree(items, folders, "root").map((i) => i.id)).toEqual(["in-root", "in-child"]);
+  });
+});
+
+describe("folderOptionsFor", () => {
+  it("offers only the folders of the asked-for object type", () => {
+    const folders = [
+      folder("hosts"),
+      { ...folder("creds"), object_type: "keychain" },
+      { ...folder("tunnels"), object_type: "port_forwarding" },
+    ];
+    expect(folderOptionsFor(folders, "keychain").map((f) => f.id)).toEqual(["creds"]);
+    expect(folderOptionsFor(folders, "connection").map((f) => f.id)).toEqual(["hosts"]);
   });
 });

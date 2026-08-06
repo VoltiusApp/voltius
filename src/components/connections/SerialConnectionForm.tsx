@@ -1,9 +1,10 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { Connection, ConnectionFormData, VaultOption } from "@/types";
 import { useAutosave } from "@/hooks/useAutosave";
 import { useFolderStore } from "@/stores/folderStore";
+import { folderOptionsFor } from "@/utils/folderTree";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import { serialListPorts } from "@/services/serial";
 import FolderSelector from "@/components/shared/FolderSelector";
@@ -104,6 +105,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
 
   const userEditedRef = useRef(false);
   const { folders, loadFolders, saveFolder } = useFolderStore();
+  const folderOptions = useMemo(() => folderOptionsFor(folders, "connection"), [folders]);
   const pinConnection = useConnectionStore((s) => s.pinConnection);
   const effPinned = useEffectivePinned(initial ?? { id: "", pinned: false }, "connection");
   const pinSource = useEffectivePinSource(initial ?? { id: "", pinned: false }, "connection");
@@ -228,7 +230,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
               <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.folder")}</label>
               <FolderSelector
                 value={folderId}
-                folders={folders}
+                folders={folderOptions}
                 onChange={(id) => { markDirty(); setFolderId(id); }}
                 onCreateFolder={async (name) => {
                   const folder = await saveFolder({ name, object_type: "connection", vault_id: resolveVaultIdForSave(vaultId) || undefined });

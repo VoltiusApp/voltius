@@ -39,3 +39,13 @@ test.each([
 ])("%s filters folders on its own object type", (file, expected) => {
   expect(read(file)).toContain(`f.object_type !== "${expected}"`);
 });
+
+/** The same class on the read side: `useFolderStore` holds every object type, so
+ *  a form handed the raw list offers the other pages' folders. Each form has to
+ *  narrow it to its own type before passing it to FolderSelector. */
+test.each(CREATORS.filter(([f]) => !f.includes("SnippetForm")))(
+  "%s only offers folders of its own object type",
+  (file, expected) => {
+    expect(read(file)).toContain(`folderOptionsFor(folders, "${expected}")`);
+  },
+);

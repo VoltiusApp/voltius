@@ -10,6 +10,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useFolderStore } from "@/stores/folderStore";
+import { folderOptionsFor } from "@/utils/folderTree";
 import FolderSelector from "@/components/shared/FolderSelector";
 import TagSelector from "@/components/shared/TagSelector";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
@@ -231,6 +232,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
   const [inlinePublicKey, setInlinePublicKey] = useState("");
   const passwordDirty = useRef(false);
   const { folders, loadFolders, saveFolder } = useFolderStore();
+  const folderOptions = useMemo(() => folderOptionsFor(folders, "keychain"), [folders]);
 
   const linkedHosts = useMemo(
     () => (initial ? connections.filter((c) => c.identity_id === initial.id) : []),
@@ -369,7 +371,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
             <label className={formLabelClass} style={formLabelStyle}>{t("keychain.common.folder")}</label>
             <FolderSelector
               value={folderId}
-              folders={folders}
+              folders={folderOptions}
               onChange={(id) => { markDirty(); setFolderId(id); }}
               onCreateFolder={async (name) => {
                 const folder = await saveFolder({ name, object_type: "keychain", vault_id: resolveVaultIdForSave(vaultId) || undefined });

@@ -1,5 +1,15 @@
 import type { Folder } from "@/types";
 
+/**
+ * The folders a form may file its object into. `useFolderStore` holds every
+ * type at once — connection, keychain and port_forwarding — so a form handed
+ * the raw list offers the other pages' folders, and picking one files the
+ * object where its own page will never show it.
+ */
+export function folderOptionsFor(folders: Folder[], objectType: string): Folder[] {
+  return folders.filter((f) => f.object_type === objectType);
+}
+
 /** Ids of `rootId` plus every folder nested beneath it. Tolerates parent cycles. */
 export function folderSubtreeIds(folders: Folder[], rootId: string): Set<string> {
   const ids = new Set<string>([rootId]);

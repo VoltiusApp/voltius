@@ -24,6 +24,7 @@ import { reportAuditClientEvent } from "@/services/auditReporter";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useFolderStore } from "@/stores/folderStore";
+import { folderOptionsFor } from "@/utils/folderTree";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import IdentitySelector from "./IdentitySelector";
 import KeySelector from "./KeySelector";
@@ -172,6 +173,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
     }
   }, [vaultId]);
   const { folders, loadFolders, saveFolder } = useFolderStore();
+  const folderOptions = useMemo(() => folderOptionsFor(folders, "connection"), [folders]);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
   const pinConnection = useConnectionStore((s) => s.pinConnection);
   const setConnectionDistro = useConnectionStore((s) => s.setDistro);
@@ -472,7 +474,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
               <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.folder")}</label>
               <FolderSelector
                 value={folderId}
-                folders={folders}
+                folders={folderOptions}
                 onChange={(id) => { markDirty(); setFolderId(id); }}
                 onCreateFolder={async (name) => {
                   const folder = await saveFolder({ name, object_type: "connection", vault_id: resolveVaultIdForSave(vaultId) || undefined });

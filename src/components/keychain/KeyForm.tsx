@@ -19,6 +19,7 @@ import {
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useFolderStore } from "@/stores/folderStore";
+import { folderOptionsFor } from "@/utils/folderTree";
 import FolderSelector from "@/components/shared/FolderSelector";
 import TagSelector from "@/components/shared/TagSelector";
 import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
@@ -103,6 +104,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
   const publicKeyDirty = useRef(false);
   const passphraseDirty = useRef(false);
   const { folders, loadFolders, saveFolder } = useFolderStore();
+  const folderOptions = useMemo(() => folderOptionsFor(folders, "keychain"), [folders]);
 
   const vaultPickerTouched = useRef(false);
   useEffect(() => {
@@ -231,7 +233,7 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
             <label className={formLabelClass} style={formLabelStyle}>{t("keychain.common.folder")}</label>
             <FolderSelector
               value={folderId}
-              folders={folders}
+              folders={folderOptions}
               onChange={(id) => { markDirty(); setFolderId(id); }}
               onCreateFolder={async (name) => {
                 const folder = await saveFolder({ name, object_type: "keychain", vault_id: resolveVaultIdForSave(vaultId) || undefined });
