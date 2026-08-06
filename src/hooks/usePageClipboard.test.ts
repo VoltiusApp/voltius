@@ -207,7 +207,9 @@ test("a cross-vault paste asks for confirmation and aborts when declined", async
   window.dispatchEvent(new CustomEvent("voltius:clipboard-cut"));
   window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
   await vi.waitFor(() => expect(confirmCrossVault).toHaveBeenCalled());
-  expect(confirmCrossVault).toHaveBeenCalledWith({ count: 1, targetVaultName: "team-1" });
+  expect(confirmCrossVault).toHaveBeenCalledWith(
+    expect.objectContaining({ count: 1, targetVaultName: "team-1", cascade: [] }),
+  );
   expect(a.moveItems).not.toHaveBeenCalled();
   expect(useVaultClipboardStore.getState().clipboard).not.toBeNull();
 });
@@ -223,7 +225,9 @@ test("a cross-vault paste proceeds when confirmed", async () => {
   window.dispatchEvent(new CustomEvent("voltius:clipboard-cut"));
   window.dispatchEvent(new CustomEvent("voltius:clipboard-paste"));
   await vi.waitFor(() => expect(a.moveItems).toHaveBeenCalled());
-  expect(confirmCrossVault).toHaveBeenCalledWith({ count: 1, targetVaultName: "Team One" });
+  expect(confirmCrossVault).toHaveBeenCalledWith(
+    expect.objectContaining({ count: 1, targetVaultName: "Team One", cascade: [] }),
+  );
 });
 
 test("a same-vault paste does not ask for confirmation", async () => {

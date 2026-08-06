@@ -35,6 +35,7 @@ import { usePageClipboard } from "@/hooks/usePageClipboard";
 import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
+import type { CascadeEntry } from "@/services/vaultClipboard";
 import { getShortcutHint } from "@/stores/shortcutStore";
 import { FolderCard } from "@/components/folders/FolderCard";
 
@@ -322,6 +323,112 @@ export default function HostsPage() {
   const vaultForFolder = (folderId: string | null): string | null =>
     folderId ? (scopedFolders.find((f) => f.id === folderId)?.vault_id ?? null) : scopedVaultId;
 
+  // Both stores are only filled by a sync or by opening Keychain, and the paste
+  // cascade reads them to decide what a host's references need. Empty ones made it
+  // decide there was nothing to carry — pasting a host across vaults and silently
+  // leaving its key behind, which is exactly what the check exists to prevent.
+  useEffect(() => {
+    if (keys.length === 0) void useKeyStore.getState().loadKeys();
+    if (identities.length === 0) void useIdentityStore.getState().loadIdentities();
+  }, []);
+
+  // ── Paste cascade: the key/identity a pasted host needs in the destination ──
+
+  /**
+   * A host's key and identity are its plumbing, so a paste carries them along
+   * rather than refusing over them. `applyCascade` runs before the paste writes
+   * anything and records what it created here; `duplicateItems`/`moveItems` then
+   * point the pasted hosts at the destination's copies instead of the originals.
+   * Cleared per paste — a stale entry would repoint a later paste at the wrong key.
+   */
+  const cascadeRemap = useRef<{ identities: Map<string, string>; keys: Map<string, string> }>({
+    identities: new Map(),
+    keys: new Map(),
+  });
+
+  /**
+   * A pasted host's links, pointed at the destination's copies where the cascade
+   * made one. Absent from the map means the object moved instead, keeping its id.
+   */
+  const remappedLinks = (conn: Connection): { identityId?: string; keyId?: string } => ({
+    identityId: conn.identity_id
+      ? cascadeRemap.current.identities.get(conn.identity_id) ?? conn.identity_id
+      : undefined,
+    keyId: conn.key_id ? cascadeRemap.current.keys.get(conn.key_id) ?? conn.key_id : undefined,
+  });
+
+  /** Hosts a paste writes, from the selected items and every folder subtree in it. */
+  const pastedConnections = (
+    items: { id: string; kind: VaultClipboardKind }[],
+    folderIds: string[],
+  ): Connection[] => [
+    ...items.map((i) => connections.find((c) => c.id === i.id)).filter((c) => !!c),
+    ...folderIds.flatMap((id) => getConnectionsInFolderTree(id)),
+  ];
+
+  /**
+   * The key and identity objects a paste has to bring into `destination`, and
+   * whether each can move or must be copied. An object still referenced from
+   * outside the paste is copied: its material lives per-vault, so moving it would
+   * leave whatever stayed behind pointing at something it cannot read.
+   */
+  const cascadeFor = (
+    items: { id: string; kind: VaultClipboardKind }[],
+    folderIds: string[],
+    destination: string,
+    mode: "copy" | "cut",
+  ): { entries: CascadeEntry[]; identities: Identity[]; keys: SshKey[] } => {
+    const moved = pastedConnections(items, folderIds);
+    const movedIds = new Set(moved.map((c) => c.id));
+
+    const travellingIdentities = [
+      ...new Map(
+        moved
+          .map((c) => (c.identity_id ? identities.find((i) => i.id === c.identity_id) : undefined))
+          .filter((i) => !!i)
+          .filter((i) => (i.vault_id ?? "personal") !== destination)
+          .map((i) => [i.id, i] as const),
+      ).values(),
+    ];
+    const travellingKeys = [
+      ...new Map(
+        [...moved.map((c) => c.key_id), ...travellingIdentities.map((i) => i.key_id)]
+          .map((keyId) => (keyId ? keys.find((k) => k.id === keyId) : undefined))
+          .filter((k) => !!k)
+          .filter((k) => (k.vault_id ?? "personal") !== destination)
+          .map((k) => [k.id, k] as const),
+      ).values(),
+    ];
+
+    // A copy empties nothing, so nothing it references may move either.
+    const heldByHostStayingBehind = (usesIt: (c: Connection) => boolean) =>
+      connections.some((c) => !movedIds.has(c.id) && usesIt(c));
+    const travellingIdentity = (id: string) => travellingIdentities.some((i) => i.id === id);
+    const action = (shared: boolean): "move" | "copy" =>
+      mode === "copy" || shared ? "copy" : "move";
+
+    const entries: CascadeEntry[] = [
+      ...travellingKeys.map((k) => ({
+        type: "key" as const,
+        // default name kept in English until all creation sites are localized together (see i18n issue #14)
+        label: k.name ?? "Unnamed key",
+        sourceVaultId: k.vault_id ?? "personal",
+        // A key is also held by any identity that is not itself travelling.
+        action: action(
+          heldByHostStayingBehind((c) => c.key_id === k.id)
+          || identities.some((i) => i.key_id === k.id && !travellingIdentity(i.id)),
+        ),
+      })),
+      ...travellingIdentities.map((i) => ({
+        type: "identity" as const,
+        label: i.name || i.username,
+        sourceVaultId: i.vault_id ?? "personal",
+        action: action(heldByHostStayingBehind((c) => c.identity_id === i.id)),
+      })),
+    ];
+    return { entries, identities: travellingIdentities, keys: travellingKeys };
+  };
+
   // Every mutation below goes through a store method so vault permission checks apply.
   usePageClipboard({
     navItem: "hosts",
@@ -350,10 +457,70 @@ export default function HostsPage() {
       ?? null,
     folderContentKinds: (folderId) =>
       getConnectionsInFolderTree(folderId).length > 0 ? ["connection"] : [],
-    // A migrated connection keeps pointing at its identity and key, which this path
-    // does not move — only the vault move/copy menu cascades those, behind
-    // VaultCascadeModal. Reporting them refuses the paste rather than completing it
-    // with references dangling outside the destination.
+    planCascade: (items, folderIds, destination, mode) =>
+      cascadeFor(items, folderIds, destination, mode).entries,
+    /**
+     * Brings the referenced key/identity into the destination before the paste
+     * writes anything, so the hosts it creates can point at them. A shared object
+     * is copied rather than moved — see `cascadeFor`.
+     */
+    applyCascade: async (items, folderIds, destination, mode) => {
+      cascadeRemap.current = { identities: new Map(), keys: new Map() };
+      const plan = cascadeFor(items, folderIds, destination, mode);
+      const actionOf = (type: "key" | "identity", label: string) =>
+        plan.entries.find((e) => e.type === type && e.label === label)?.action ?? "copy";
+
+      for (const key of plan.keys) {
+        const from = key.vault_id ?? "personal";
+        if (actionOf("key", key.name ?? "Unnamed key") === "move") {
+          await updateKey(key.id, {
+            name: key.name, key_type: key.key_type, tags: key.tags,
+            folder_id: key.folder_id, vault_id: destination,
+          });
+          await publishKeySecrets(key.id, destination);
+          await withdrawOrWarn(unpublishKeySecrets(key.id, from));
+          continue;
+        }
+        const created = await useKeyStore.getState().saveKey({
+          name: key.name, key_type: key.key_type, tags: key.tags, vault_id: destination,
+        });
+        const [priv, pub] = await Promise.all([
+          getSecret(`key:${key.id}:private`).catch(() => null),
+          getSecret(`key:${key.id}:public`).catch(() => null),
+        ]);
+        if (priv) await storeSecret(`key:${created.id}:private`, priv);
+        if (pub) await storeSecret(`key:${created.id}:public`, pub);
+        await publishKeySecrets(created.id, destination);
+        cascadeRemap.current.keys.set(key.id, created.id);
+      }
+
+      for (const identity of plan.identities) {
+        const from = identity.vault_id ?? "personal";
+        // Its key travelled first, so the identity follows whichever copy landed.
+        const keyId = identity.key_id
+          ? cascadeRemap.current.keys.get(identity.key_id) ?? identity.key_id
+          : undefined;
+        if (actionOf("identity", identity.name || identity.username) === "move") {
+          await useIdentityStore.getState().updateIdentity(identity.id, {
+            name: identity.name, username: identity.username, key_id: keyId,
+            tags: identity.tags, folder_id: identity.folder_id, vault_id: destination,
+          });
+          await publishIdentitySecrets(identity.id, destination);
+          await withdrawOrWarn(unpublishIdentitySecrets(identity.id, from));
+          continue;
+        }
+        const created = await useIdentityStore.getState().saveIdentity({
+          name: identity.name, username: identity.username, key_id: keyId,
+          tags: identity.tags, vault_id: destination,
+        });
+        const pwd = await getSecret(`identity:${identity.id}:password`).catch(() => null);
+        if (pwd) await storeSecret(`identity:${created.id}:password`, pwd);
+        await publishIdentitySecrets(created.id, destination);
+        cascadeRemap.current.identities.set(identity.id, created.id);
+      }
+    },
+    // Still reported so a paste the cascade cannot resolve refuses rather than
+    // completing with a reference dangling outside the destination.
     danglingKinds: (items, folderIds, destination) => {
       const moved = [
         ...items.map((i) => connections.find((c) => c.id === i.id)).filter((c) => !!c),
@@ -390,8 +557,11 @@ export default function HostsPage() {
           continue;
         }
         const from = conn.vault_id ?? "personal";
+        const links = remappedLinks(conn);
         await updateConnection(id, {
           ...connectionToFormData(conn),
+          identity_id: links.identityId,
+          key_id: links.keyId,
           folder_id: folderId ?? undefined,
           vault_id: vaultId,
         });
@@ -419,7 +589,10 @@ export default function HostsPage() {
       for (const id of ids) {
         const conn = connections.find((c) => c.id === id);
         if (!conn) continue;
-        const dup = await handleDuplicateInto(conn, folderId, { vaultId: targetVault ?? undefined });
+        const dup = await handleDuplicateInto(conn, folderId, {
+          vaultId: targetVault ?? undefined,
+          ...remappedLinks(conn),
+        });
         if (dup) created.push(dup.id);
       }
       return created;
@@ -492,7 +665,7 @@ export default function HostsPage() {
   const handleDuplicateInto = async (
     conn: Connection,
     folderId: string | null,
-    opts: { vaultId?: string; keepName?: boolean } = {},
+    opts: { vaultId?: string; keepName?: boolean; identityId?: string; keyId?: string } = {},
   ) => {
     const newConn = await saveConnection({
       // default name kept in English until all creation sites are localized together (see i18n issue #14)
@@ -503,8 +676,8 @@ export default function HostsPage() {
       username: conn.username,
       auth_type: conn.auth_type,
       tags: [...conn.tags],
-      identity_id: conn.identity_id,
-      key_id: conn.key_id,
+      identity_id: opts.identityId ?? conn.identity_id,
+      key_id: opts.keyId ?? conn.key_id,
       folder_id: folderId ?? undefined,
       vault_id: opts.vaultId ?? conn.vault_id ?? "personal",
       jump_hosts: conn.jump_hosts ? conn.jump_hosts.map((j) => ({ ...j })) : undefined,

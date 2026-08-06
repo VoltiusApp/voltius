@@ -72,7 +72,15 @@ function RegularToast({
         >
           [{toast.pluginName.slice(0, 20)}]
         </span>
-        <span className="flex-1 text-(--t-text-primary) truncate">{toast.message}</span>
+        {/* Wraps rather than truncating: a refusal that explains itself is longer
+            than one line, and an ellipsis at 40 characters hides the reason. */}
+        <span
+          className="flex-1 text-(--t-text-primary) break-words"
+          style={{ display: "-webkit-box", WebkitLineClamp: 8, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+          title={toast.message}
+        >
+          {toast.message}
+        </span>
         {toast.action && (
           <button
             onClick={toast.action.onClick}

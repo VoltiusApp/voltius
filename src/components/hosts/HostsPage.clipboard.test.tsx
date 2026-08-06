@@ -33,6 +33,10 @@ const h = vi.hoisted(() => ({
   getSecret: vi.fn(async (_key: string) => null as string | null),
   storeSecret: vi.fn(async (_key: string, _value: string) => {}),
   saveTeamVaultSecretForVault: vi.fn(async (_vaultId: string, _key: string, _value: string) => {}),
+  saveKey: vi.fn(),
+  updateKey: vi.fn(async () => {}),
+  saveIdentity: vi.fn(),
+  updateIdentity: vi.fn(async () => {}),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -165,10 +169,20 @@ vi.mock("@/stores/folderStore", () => ({
   }),
 }));
 vi.mock("@/stores/identityStore", () => ({
-  useIdentityStore: selectorStore({ get identities() { return h.identities; } }),
+  useIdentityStore: selectorStore({
+    get identities() { return h.identities; },
+    loadIdentities: vi.fn(async () => {}),
+    saveIdentity: h.saveIdentity,
+    updateIdentity: h.updateIdentity,
+  }),
 }));
 vi.mock("@/stores/keyStore", () => ({
-  useKeyStore: selectorStore({ get keys() { return h.keys; }, updateKey: vi.fn() }),
+  useKeyStore: selectorStore({
+    get keys() { return h.keys; },
+    loadKeys: vi.fn(async () => {}),
+    saveKey: h.saveKey,
+    updateKey: h.updateKey,
+  }),
 }));
 vi.mock("@/stores/sessionStore", () => ({
   useSessionStore: selectorStore({
@@ -228,6 +242,8 @@ beforeEach(() => {
   h.accessibleVaultIds = [];
   h.scopedVaultId = null;
   h.can.mockReturnValue(true);
+  h.saveKey.mockImplementation(async (d: { name?: string }) => ({ id: "new-key", ...d }));
+  h.saveIdentity.mockImplementation(async (d: { name?: string }) => ({ id: "new-identity", ...d }));
   h.confirmCrossVault.mockImplementation(async () => true);
   h.getSecret.mockResolvedValue(null);
   useVaultClipboardStore.getState().clear();
@@ -638,10 +654,10 @@ test("a cut-paste is undoable in one step, back to the origin folder", async () 
   expect(useHistoryStore.getState().canUndo).toBe(false);
 });
 
-// The old pre-flight leaned on the user lacking EDIT_IDENTITIES to refuse, so a
-// user who HAD it pasted straight through and left the reference dangling.
-// `can` is fully permissive here: the reference itself has to stop it.
-test("a folder cut is refused for a dangling identity even with every permission granted", async () => {
+// These two used to assert a refusal. A dangling reference on Hosts is now
+// resolved instead: the identity is plumbing belonging to the host, so it travels
+// into the destination rather than blocking the paste over it.
+test("a nested connection's identity travels with a folder cut instead of blocking it", async () => {
   h.folders = [folder("f1"), folder("tf", { vault_id: "team-1" })];
   h.connections = [conn("c1", { folder_id: "f1", identity_id: "i1" })];
   h.identities = [{ id: "i1", name: "root", username: "root", vault_id: "personal" }];
@@ -652,13 +668,13 @@ test("a folder cut is refused for a dangling identity even with every permission
   await dispatch("voltius:clipboard-cut");
   await dispatch("voltius:clipboard-paste");
 
-  expect(h.moveFolder).not.toHaveBeenCalled();
-  expect(h.updateFolder).not.toHaveBeenCalled();
-  expect(h.updateConnection).not.toHaveBeenCalled();
+  expect(h.updateIdentity).toHaveBeenCalledWith("i1", expect.objectContaining({ vault_id: "team-1" }));
+  // A cross-vault folder paste migrates the tree rather than reparenting it.
+  expect(h.updateFolder).toHaveBeenCalled();
 });
 
-// A single host, not a folder — the reference check covers directly-cut items too.
-test("a single-host cut is refused for a dangling identity", async () => {
+// A single host, not a folder — the cascade covers directly-cut items too.
+test("a single host's identity travels with a cut", async () => {
   h.folders = [folder("tf", { vault_id: "team-1" })];
   h.connections = [conn("c1", { identity_id: "i1" })];
   h.identities = [{ id: "i1", name: "root", username: "root", vault_id: "personal" }];
@@ -669,7 +685,8 @@ test("a single-host cut is refused for a dangling identity", async () => {
   await dispatch("voltius:clipboard-cut");
   await dispatch("voltius:clipboard-paste");
 
-  expect(h.updateConnection).not.toHaveBeenCalled();
+  expect(h.updateIdentity).toHaveBeenCalledWith("i1", expect.objectContaining({ vault_id: "team-1" }));
+  expect(h.updateConnection).toHaveBeenCalledWith("c1", expect.objectContaining({ vault_id: "team-1" }));
 });
 
 test("a cut is allowed when the linked identity already lives in the destination vault", async () => {
@@ -733,4 +750,112 @@ test("a root paste with several vaults on screen leaves each object in its own v
 
   expect(h.confirmCrossVault).not.toHaveBeenCalled();
   expect(h.saveConnection).toHaveBeenCalledWith(expect.objectContaining({ vault_id: "personal" }));
+});
+
+// ── Paste cascade ─────────────────────────────────────────────────────────────
+// A host's key and identity are its plumbing: a cross-vault paste carries them
+// into the destination instead of refusing, since a key's material is stored per
+// vault and a reference across the boundary cannot be read.
+
+test("a copy paste duplicates the linked key into the destination and points the copy at it", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.connections = [conn("c1", { key_id: "k1" })];
+  h.keys = [{ id: "k1", name: "id_ed25519", key_type: "ed25519", tags: [], vault_id: "personal" }];
+  h.selected = ["c1"];
+  h.activeFolderId = "tf";
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-copy");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.saveKey).toHaveBeenCalledWith(expect.objectContaining({ name: "id_ed25519", vault_id: "team-1" }));
+  expect(h.saveConnection).toHaveBeenCalledWith(expect.objectContaining({ key_id: "new-key", vault_id: "team-1" }));
+});
+
+// Nothing else holds the key, so it travels rather than leaving a duplicate behind.
+test("a cut paste moves an unshared key into the destination", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.connections = [conn("c1", { key_id: "k1" })];
+  h.keys = [{ id: "k1", name: "id_ed25519", key_type: "ed25519", tags: [], vault_id: "personal" }];
+  h.selected = ["c1"];
+  h.activeFolderId = "tf";
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.updateKey).toHaveBeenCalledWith("k1", expect.objectContaining({ vault_id: "team-1" }));
+  expect(h.saveKey).not.toHaveBeenCalled();
+  expect(h.updateConnection).toHaveBeenCalledWith("c1", expect.objectContaining({ key_id: "k1", vault_id: "team-1" }));
+});
+
+// The whole point of the copy-when-shared rule: c2 stays in Personal still using
+// k1, so moving k1 out would leave it pointing at material it cannot read.
+test("a cut paste copies a key that a host staying behind still uses", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.connections = [conn("c1", { key_id: "k1" }), conn("c2", { key_id: "k1" })];
+  h.keys = [{ id: "k1", name: "id_ed25519", key_type: "ed25519", tags: [], vault_id: "personal" }];
+  h.selected = ["c1"];
+  h.activeFolderId = "tf";
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.saveKey).toHaveBeenCalledWith(expect.objectContaining({ vault_id: "team-1" }));
+  expect(h.updateKey).not.toHaveBeenCalledWith("k1", expect.objectContaining({ vault_id: "team-1" }));
+  // The moved host follows the destination's copy; c2 keeps the original.
+  expect(h.updateConnection).toHaveBeenCalledWith("c1", expect.objectContaining({ key_id: "new-key" }));
+});
+
+test("an identity travels with its key, and the copied identity points at the copied key", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.connections = [conn("c1", { identity_id: "i1" })];
+  h.identities = [{ id: "i1", name: "root", username: "root", key_id: "k1", tags: [], vault_id: "personal" }];
+  h.keys = [{ id: "k1", name: "id_ed25519", key_type: "ed25519", tags: [], vault_id: "personal" }];
+  h.selected = ["c1"];
+  h.activeFolderId = "tf";
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-copy");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.saveKey).toHaveBeenCalledWith(expect.objectContaining({ vault_id: "team-1" }));
+  expect(h.saveIdentity).toHaveBeenCalledWith(expect.objectContaining({ key_id: "new-key", vault_id: "team-1" }));
+  expect(h.saveConnection).toHaveBeenCalledWith(expect.objectContaining({ identity_id: "new-identity" }));
+});
+
+test("the confirmation names what travels and whether it moves or is copied", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.connections = [conn("c1", { key_id: "k1" }), conn("c2", { key_id: "k1" })];
+  h.keys = [{ id: "k1", name: "id_ed25519", key_type: "ed25519", tags: [], vault_id: "personal" }];
+  h.selected = ["c1"];
+  h.activeFolderId = "tf";
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-cut");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.confirmCrossVault).toHaveBeenCalledWith(
+    expect.objectContaining({
+      mode: "cut",
+      cascade: [{ type: "key", label: "id_ed25519", action: "copy", sourceVaultId: "personal" }],
+    }),
+  );
+});
+
+// Nothing to carry means nothing to say — the cascade must not invent work.
+test("a host with no key or identity cascades nothing", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.connections = [conn("c1")];
+  h.selected = ["c1"];
+  h.activeFolderId = "tf";
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-copy");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.saveKey).not.toHaveBeenCalled();
+  expect(h.saveIdentity).not.toHaveBeenCalled();
+  expect(h.confirmCrossVault).toHaveBeenCalledWith(expect.objectContaining({ cascade: [] }));
 });

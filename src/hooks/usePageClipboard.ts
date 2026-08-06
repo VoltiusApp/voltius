@@ -3,14 +3,25 @@ import i18n from "@/i18n";
 import { useUIStore } from "@/stores/uiStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
-import { pasteFromClipboard, type ClipboardAdapter, type PasteResult } from "@/services/vaultClipboard";
+import {
+  pasteFromClipboard,
+  type CascadeEntry,
+  type ClipboardAdapter,
+  type PasteResult,
+} from "@/services/vaultClipboard";
 
 export interface PageClipboardAdapter extends ClipboardAdapter {
   getSelection: () => string[];
   getFocusedId: () => string | null;
   classify: (id: string) => VaultClipboardKind | "folder" | null;
   /** Asked before a paste that changes vault; false aborts the paste. */
-  confirmCrossVault?: (summary: { count: number; targetVaultName: string }) => Promise<boolean>;
+  confirmCrossVault?: (summary: {
+    count: number;
+    targetVaultName: string;
+    mode: "copy" | "cut";
+    /** Referenced objects travelling with the paste, named so the move is not a surprise. */
+    cascade: CascadeEntry[];
+  }) => Promise<boolean>;
   targetVaultName?: () => string;
 }
 
@@ -84,6 +95,14 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
       folderContentKinds: (id) => ref.current.folderContentKinds(id),
       danglingKinds: (items, folderIds, destination) =>
         ref.current.danglingKinds?.(items, folderIds, destination) ?? [],
+      planCascade: ref.current.planCascade
+        ? (items, folderIds, destination, mode) =>
+            ref.current.planCascade?.(items, folderIds, destination, mode) ?? []
+        : undefined,
+      applyCascade: ref.current.applyCascade
+        ? (items, folderIds, destination, mode) =>
+            ref.current.applyCascade!(items, folderIds, destination, mode)
+        : undefined,
       canMoveFolder: (id, parentFolderId) => ref.current.canMoveFolder(id, parentFolderId),
       moveItems: (ids, folderId, vaultId) => ref.current.moveItems(ids, folderId, vaultId),
       moveFolder: (id, parentFolderId, vaultId) => ref.current.moveFolder(id, parentFolderId, vaultId),
@@ -139,6 +158,10 @@ export function usePageClipboard(adapter: PageClipboardAdapter): void {
                   count: ids.length,
                   // Falls back to the id when the vault is not in the page's options.
                   targetVaultName: a.targetVaultName?.() || target,
+                  mode: clipboard.mode,
+                  cascade:
+                    a.planCascade?.(clipboard.items, clipboard.folderIds, target, clipboard.mode)
+                    ?? [],
                 }),
                 aborted,
               ]);

@@ -43,6 +43,30 @@ export interface ClipboardAdapter {
     destinationVaultId: string,
   ) => VaultClipboardKind[];
   /**
+   * The referenced objects a paste would carry into `destinationVaultId` so that
+   * nothing dangles — named for the confirmation, before anything is written.
+   * An adapter that offers this resolves what `danglingKinds` reports instead of
+   * refusing over it; one that does not (Port Forwarding, Snippets, where the
+   * reference is a first-class object rather than a host's plumbing) still refuses.
+   */
+  planCascade?: (
+    items: { id: string; kind: VaultClipboardKind }[],
+    folderIds: string[],
+    destinationVaultId: string,
+    mode: "copy" | "cut",
+  ) => CascadeEntry[];
+  /**
+   * Carries out `planCascade`, before the paste itself so the pasted objects can
+   * point at whatever it created. Adapters record their own id remapping; the
+   * paste does not thread one through.
+   */
+  applyCascade?: (
+    items: { id: string; kind: VaultClipboardKind }[],
+    folderIds: string[],
+    destinationVaultId: string,
+    mode: "copy" | "cut",
+  ) => Promise<void>;
+  /**
    * False when the move is structurally impossible — reparenting a folder under
    * itself or under one of its own descendants. Consulted before moving so a
    * refused folder is not counted as moved.
@@ -63,6 +87,21 @@ export interface ClipboardAdapter {
   deleteFolder: (id: string) => Promise<void>;
   setSelection: (ids: string[]) => void;
   can: (permission: string, vaultId: string) => boolean;
+}
+
+/**
+ * One referenced object travelling with a paste. `move` empties the source of it;
+ * `copy` leaves the original alone, which is what a shared object gets — a key
+ * cannot serve two vaults at once, since its material is stored per vault, so the
+ * only alternatives to a copy are breaking the objects left behind or rewriting
+ * them, and neither belongs in a paste the user aimed somewhere else.
+ */
+export interface CascadeEntry {
+  type: "key" | "identity";
+  label: string;
+  action: "move" | "copy";
+  /** Vault the object sits in now — a `move` needs that vault to authorize losing it. */
+  sourceVaultId: string;
 }
 
 export interface PasteResult {
@@ -234,10 +273,24 @@ export async function pasteFromClipboard(
     return { ...EMPTY, skipped };
   }
 
-  const blocked = blockedForMoves(
-    adapter,
-    pasteMoves(clipboard, adapter, liveItems, liveFolders, targetVault),
-  );
+  // The cascade writes objects of its own into the destination, so its kinds are
+  // authorized alongside the paste's. Checked here rather than inside the cascade
+  // so an unauthorized paste refuses whole instead of half-completing.
+  const cascade =
+    targetVault === null
+      ? []
+      : adapter.planCascade?.(liveItems, liveFolders, targetVault, clipboard.mode) ?? [];
+  const cascadeMoves: VaultMove[] = cascade.map((entry) => ({
+    permissions: [EDIT_PERMISSION[entry.type] ?? "EDIT_KEYS"],
+    sourceVaultId: entry.sourceVaultId,
+    destinationVaultId: targetVault,
+    removesFromSource: entry.action === "move",
+  }));
+
+  const blocked = blockedForMoves(adapter, [
+    ...pasteMoves(clipboard, adapter, liveItems, liveFolders, targetVault),
+    ...cascadeMoves,
+  ]);
   if (blocked.length > 0) return { ...EMPTY, skipped, blocked };
 
   // Checked after permissions so an unauthorized paste reports the permission,
@@ -246,7 +299,13 @@ export async function pasteFromClipboard(
     targetVault === null
       ? []
       : adapter.danglingKinds?.(liveItems, liveFolders, targetVault) ?? [];
-  if (dangling.length > 0) return { ...EMPTY, skipped, dangling };
+  if (dangling.length > 0) {
+    // Resolved rather than refused where the adapter can carry the references
+    // along. Before any of the paste's own writes, so the objects it creates can
+    // already point at what the cascade produced.
+    if (!adapter.applyCascade) return { ...EMPTY, skipped, dangling };
+    await adapter.applyCascade(liveItems, liveFolders, targetVault!, clipboard.mode);
+  }
 
   if (clipboard.mode === "cut") {
     const crossVaultAtRoot = strandsAtRoot(adapter, target, targetVault, [
