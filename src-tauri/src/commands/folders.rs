@@ -92,6 +92,14 @@ pub fn folder_adopt(id: String, data: FolderFormData) -> Result<Folder, String> 
     Ok(adopted)
 }
 
+/// The vault a folder update lands in. An omitted `vault_id` means "leave it where
+/// it is" — rename and reparent payloads routinely omit it, and defaulting to
+/// "personal" silently teleported any folder held in another vault. Every sibling
+/// entity (identity/key/snippet/pf_rule/connection) already keeps the existing one.
+fn resolved_vault_id(requested: Option<String>, current: &str) -> String {
+    requested.unwrap_or_else(|| current.to_string())
+}
+
 #[tauri::command]
 pub fn folder_update(id: String, data: FolderFormData) -> Result<Folder, String> {
     let mut folders = load_folders();
@@ -99,13 +107,8 @@ pub fn folder_update(id: String, data: FolderFormData) -> Result<Folder, String>
         .iter_mut()
         .find(|f| f.id == id)
         .ok_or_else(|| format!("Folder {} not found", id))?;
-    // Effective vault: new one if provided (vault move), otherwise keep existing
-    let effective = data
-        .vault_id
-        .as_deref()
-        .unwrap_or(&folder.vault_id)
-        .to_string();
-    check_vault_write(&[effective])?;
+    let effective = resolved_vault_id(data.vault_id, &folder.vault_id);
+    check_vault_write(std::slice::from_ref(&effective))?;
     let now = Utc::now().to_rfc3339();
     if folder.name != data.name {
         folder.clocks.insert("name".to_string(), now.clone());
@@ -115,8 +118,7 @@ pub fn folder_update(id: String, data: FolderFormData) -> Result<Folder, String>
             .clocks
             .insert("parent_folder_id".to_string(), now.clone());
     }
-    let new_vault_id = data.vault_id.unwrap_or_else(|| "personal".to_string());
-    if folder.vault_id != new_vault_id {
+    if folder.vault_id != effective {
         folder.clocks.insert("vault_id".to_string(), now.clone());
     }
     if folder.pinned != data.pinned {
@@ -124,7 +126,7 @@ pub fn folder_update(id: String, data: FolderFormData) -> Result<Folder, String>
     }
     folder.name = data.name;
     folder.parent_folder_id = data.parent_folder_id;
-    folder.vault_id = new_vault_id;
+    folder.vault_id = effective;
     folder.pinned = data.pinned;
     folder.deleted_at = None;
     folder.updated_at = max_clock(&folder.clocks, &now);
@@ -363,6 +365,19 @@ mod tests {
             deleted_at: None,
             clocks: HashMap::new(),
         }
+    }
+
+    #[test]
+    fn an_omitted_vault_id_keeps_the_folder_where_it_is() {
+        assert_eq!(resolved_vault_id(None, "team-abc"), "team-abc");
+    }
+
+    #[test]
+    fn an_explicit_vault_id_moves_the_folder() {
+        assert_eq!(
+            resolved_vault_id(Some("personal".to_string()), "team-abc"),
+            "personal"
+        );
     }
 
     #[test]
