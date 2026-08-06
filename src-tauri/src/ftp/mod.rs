@@ -413,7 +413,10 @@ impl FileBackend for FtpBackend {
             .retr_as_stream(path)
             .await
             .map_err(|e| format!("Cannot open source {path}: {e}"))?;
-        Ok(Box::new(FtpReadStream { ftp, stream: Some(stream) }))
+        Ok(Box::new(FtpReadStream {
+            ftp,
+            stream: Some(stream),
+        }))
     }
 
     async fn open_write(&self, path: &str) -> Result<Box<dyn RemoteWrite>, String> {
@@ -422,7 +425,10 @@ impl FileBackend for FtpBackend {
             .put_with_stream(path)
             .await
             .map_err(|e| format!("Cannot create destination {path}: {e}"))?;
-        Ok(Box::new(FtpWriteStream { ftp, stream: Some(stream) }))
+        Ok(Box::new(FtpWriteStream {
+            ftp,
+            stream: Some(stream),
+        }))
     }
 
     fn stream_is_exclusive(&self) -> bool {
@@ -626,7 +632,10 @@ struct FtpWriteStream {
 impl RemoteWrite for FtpWriteStream {
     async fn write_chunk(&mut self, buf: &[u8]) -> Result<(), String> {
         match self.stream.as_mut() {
-            Some(s) => s.write_all(buf).await.map_err(|e| format!("Write error: {e}")),
+            Some(s) => s
+                .write_all(buf)
+                .await
+                .map_err(|e| format!("Write error: {e}")),
             None => Err("stream already finished".into()),
         }
     }

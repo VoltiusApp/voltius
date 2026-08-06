@@ -361,21 +361,36 @@ struct SftpStream {
 #[async_trait]
 impl RemoteRead for SftpStream {
     async fn read_chunk(&mut self, buf: &mut [u8]) -> Result<usize, String> {
-        self.file.read(buf).await.map_err(|e| format!("Read error: {e}"))
+        self.file
+            .read(buf)
+            .await
+            .map_err(|e| format!("Read error: {e}"))
     }
     async fn finish(mut self: Box<Self>) -> Result<(), String> {
-        self.file.shutdown().await.map_err(|e| format!("Close error: {e}"))
+        self.file
+            .shutdown()
+            .await
+            .map_err(|e| format!("Close error: {e}"))
     }
 }
 
 #[async_trait]
 impl RemoteWrite for SftpStream {
     async fn write_chunk(&mut self, buf: &[u8]) -> Result<(), String> {
-        self.file.write_all(buf).await.map_err(|e| format!("Write error: {e}"))
+        self.file
+            .write_all(buf)
+            .await
+            .map_err(|e| format!("Write error: {e}"))
     }
     async fn finish(mut self: Box<Self>) -> Result<(), String> {
-        self.file.flush().await.map_err(|e| format!("Flush error: {e}"))?;
-        self.file.shutdown().await.map_err(|e| format!("Close error: {e}"))
+        self.file
+            .flush()
+            .await
+            .map_err(|e| format!("Flush error: {e}"))?;
+        self.file
+            .shutdown()
+            .await
+            .map_err(|e| format!("Close error: {e}"))
     }
     async fn abort(mut self: Box<Self>) {
         let _ = self.file.shutdown().await;
