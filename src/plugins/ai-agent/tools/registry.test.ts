@@ -556,7 +556,7 @@ describe("file tools", () => {
     expect(c.approve).toHaveBeenCalledWith({ tool: "delete_path", args: { target: "conn-A", path: "/srv/a.txt" } });
     expect(sftpOf(c).delete).toHaveBeenCalledWith("conn-A", "/srv/a.txt");
     expect(auditAgentAction).toHaveBeenCalledWith(
-      "conn-A", "agent.command_run",
+      "conn-A", "agent.file_deleted",
       { tool: "delete_path", approval: "prompted" },
       expect.objectContaining({ args: expect.stringContaining("/srv/a.txt") }),
     );

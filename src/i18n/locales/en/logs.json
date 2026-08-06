@@ -51,7 +51,16 @@
         "secretViewed": "Secret revealed",
         "sessionStarted": "Session started",
         "sessionEnded": "Session ended",
-        "sessionJoined": "Session joined"
+        "sessionJoined": "Session joined",
+        "agentSessionOpened": "AI agent session opened",
+        "agentCommandRun": "AI agent command run",
+        "agentActionDenied": "AI agent action denied",
+        "agentGrantCreated": "AI agent approval granted",
+        "agentFileCreated": "AI agent directory created",
+        "agentFileWritten": "AI agent file written",
+        "agentFileRenamed": "AI agent path renamed",
+        "agentFileDeleted": "AI agent path deleted",
+        "agentFileTransferred": "AI agent file transferred"
       }
     },
     "timeRange": {
@@ -117,7 +126,19 @@
       "fallbackMember": "a member",
       "fallbackRole": "member",
       "fallbackResource": "a resource",
-      "fallbackHost": "a host"
+      "fallbackHost": "a host",
+      "agentGrantCreated": "granted the AI agent a standing approval on \"{{name}}\"",
+      "agentGrantRevoked": "revoked an AI agent approval on \"{{name}}\"",
+      "agentModeChanged": "changed the AI agent's mode",
+      "agentSessionOpened": "AI agent opened a session on \"{{name}}\"",
+      "agentSessionClosed": "AI agent closed a session on \"{{name}}\"",
+      "agentCommandRun": "AI agent ran a command on \"{{name}}\"",
+      "agentActionDenied": "denied an AI agent action on \"{{name}}\"",
+      "agentFileCreated": "AI agent created a directory on \"{{name}}\"",
+      "agentFileWritten": "AI agent wrote a file on \"{{name}}\"",
+      "agentFileRenamed": "AI agent renamed a path on \"{{name}}\"",
+      "agentFileDeleted": "AI agent deleted a path on \"{{name}}\"",
+      "agentFileTransferred": "AI agent transferred a file from \"{{name}}\""
     },
     "timeline": {
       "today": "Today",

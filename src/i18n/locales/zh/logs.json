@@ -51,7 +51,16 @@
         "secretViewed": "密钥已查看",
         "sessionStarted": "会话已开始",
         "sessionEnded": "会话已结束",
-        "sessionJoined": "会话已加入"
+        "sessionJoined": "会话已加入",
+        "agentSessionOpened": "AI 代理会话已打开",
+        "agentCommandRun": "AI 代理执行命令",
+        "agentActionDenied": "AI 代理操作被拒绝",
+        "agentGrantCreated": "已授予 AI 代理许可",
+        "agentFileCreated": "AI 代理创建目录",
+        "agentFileWritten": "AI 代理写入文件",
+        "agentFileRenamed": "AI 代理重命名路径",
+        "agentFileDeleted": "AI 代理删除路径",
+        "agentFileTransferred": "AI 代理传输文件"
       }
     },
     "timeRange": {
@@ -117,7 +126,19 @@
       "fallbackMember": "一名成员",
       "fallbackRole": "成员",
       "fallbackResource": "一个资源",
-      "fallbackHost": "一台主机"
+      "fallbackHost": "一台主机",
+      "agentGrantCreated": "为 AI 代理授予了“{{name}}”上的长期许可",
+      "agentGrantRevoked": "撤销了 AI 代理在“{{name}}”上的许可",
+      "agentModeChanged": "更改了 AI 代理的模式",
+      "agentSessionOpened": "AI 代理在“{{name}}”上打开了会话",
+      "agentSessionClosed": "AI 代理关闭了“{{name}}”上的会话",
+      "agentCommandRun": "AI 代理在“{{name}}”上执行了命令",
+      "agentActionDenied": "拒绝了 AI 代理在“{{name}}”上的操作",
+      "agentFileCreated": "AI 代理在“{{name}}”上创建了目录",
+      "agentFileWritten": "AI 代理在“{{name}}”上写入了文件",
+      "agentFileRenamed": "AI 代理在“{{name}}”上重命名了路径",
+      "agentFileDeleted": "AI 代理删除了“{{name}}”上的路径",
+      "agentFileTransferred": "AI 代理从“{{name}}”传输了文件"
     },
     "timeline": {
       "today": "今天",

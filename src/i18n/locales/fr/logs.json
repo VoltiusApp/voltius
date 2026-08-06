@@ -51,7 +51,16 @@
         "secretViewed": "Secret révélé",
         "sessionStarted": "Session démarrée",
         "sessionEnded": "Session terminée",
-        "sessionJoined": "Session rejointe"
+        "sessionJoined": "Session rejointe",
+        "agentSessionOpened": "Session de l'agent IA ouverte",
+        "agentCommandRun": "Commande de l'agent IA",
+        "agentActionDenied": "Action de l'agent IA refusée",
+        "agentGrantCreated": "Autorisation de l'agent IA accordée",
+        "agentFileCreated": "Dossier créé par l'agent IA",
+        "agentFileWritten": "Fichier écrit par l'agent IA",
+        "agentFileRenamed": "Chemin renommé par l'agent IA",
+        "agentFileDeleted": "Chemin supprimé par l'agent IA",
+        "agentFileTransferred": "Fichier transféré par l'agent IA"
       }
     },
     "timeRange": {
@@ -117,7 +126,19 @@
       "fallbackMember": "un membre",
       "fallbackRole": "membre",
       "fallbackResource": "une ressource",
-      "fallbackHost": "un hôte"
+      "fallbackHost": "un hôte",
+      "agentGrantCreated": "a accordé une autorisation permanente à l'agent IA sur « {{name}} »",
+      "agentGrantRevoked": "a révoqué une autorisation de l'agent IA sur « {{name}} »",
+      "agentModeChanged": "a changé le mode de l'agent IA",
+      "agentSessionOpened": "l'agent IA a ouvert une session sur « {{name}} »",
+      "agentSessionClosed": "l'agent IA a fermé une session sur « {{name}} »",
+      "agentCommandRun": "l'agent IA a exécuté une commande sur « {{name}} »",
+      "agentActionDenied": "a refusé une action de l'agent IA sur « {{name}} »",
+      "agentFileCreated": "l'agent IA a créé un dossier sur « {{name}} »",
+      "agentFileWritten": "l'agent IA a écrit un fichier sur « {{name}} »",
+      "agentFileRenamed": "l'agent IA a renommé un chemin sur « {{name}} »",
+      "agentFileDeleted": "l'agent IA a supprimé un chemin sur « {{name}} »",
+      "agentFileTransferred": "l'agent IA a transféré un fichier depuis « {{name}} »"
     },
     "timeline": {
       "today": "Aujourd'hui",

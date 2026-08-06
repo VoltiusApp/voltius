@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PluginAPI } from "@/plugins/api";
+import type { PluginAPI, PluginAuditAction } from "@/plugins/api";
 import type { ApprovalVia, ToolDecision, ToolRisk } from "../types";
 import { auditAgentAction } from "../state/auditSeam";
 import {
@@ -55,12 +55,20 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
   /**
    * Approve, record, then run a mutating file operation.
    *
-   * Audited as `agent.command_run` because the audit vocabulary is a CLOSED set
-   * the team ingest whitelists (server/src/routes/audit.rs) — an unwhitelisted
-   * action is 400ed and the client swallows it, so a new `agent.file_*` string
-   * would silently vanish from a team trail. `metadata.tool` carries what
-   * actually happened until that whitelist gains file actions.
+   * The audit vocabulary is a CLOSED set the team ingest whitelists
+   * (server/src/routes/audit.rs) — an unwhitelisted action is 400ed and the
+   * client swallows it. Any tool added here needs its action added there first,
+   * or its team rows vanish silently. `metadata.tool` stays alongside the
+   * action because several tools can share one, and paths are on-device only.
    */
+  const FILE_OP_ACTIONS: Record<string, PluginAuditAction> = {
+    make_dir: "agent.file_created",
+    write_file: "agent.file_written",
+    rename_path: "agent.file_renamed",
+    delete_path: "agent.file_deleted",
+    transfer_file: "agent.file_transferred",
+  };
+
   const fileOp = async (
     tool: string,
     raw: Record<string, unknown>,
@@ -71,7 +79,12 @@ export function buildTools(ctx: AgentContext): AgentTool[] {
     // Before dispatch, like run_command: the operation reaches the filesystem
     // whether or not this call returns, and a mid-flight crash must not erase
     // the record of something that already happened.
-    auditAgentAction(g.scope, "agent.command_run", { tool, approval: g.via }, { args: JSON.stringify(g.args) });
+    auditAgentAction(
+      g.scope,
+      FILE_OP_ACTIONS[tool] ?? "agent.command_run",
+      { tool, approval: g.via },
+      { args: JSON.stringify(g.args) },
+    );
     try {
       return { ok: true, result: (await run(g.args)) ?? null };
     } catch (err) {

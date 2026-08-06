@@ -18,6 +18,13 @@ function tools(approve: ReturnType<typeof vi.fn>) {
     },
     connections: { list: vi.fn(async () => [{ id: "c1", name: "srv", host: "h1" }]) },
     terminal: { readSnapshot: vi.fn(async () => "") },
+    sftp: {
+      list: vi.fn(async () => []), stat: vi.fn(async () => null),
+      readText: vi.fn(async () => ""), writeText: vi.fn(async () => {}),
+      mkdir: vi.fn(async () => {}), rename: vi.fn(async () => {}),
+      delete: vi.fn(async () => {}), transfer: vi.fn(async () => {}),
+      disconnect: vi.fn(async () => {}),
+    },
   };
   const owned = new Set<string>();
   return { list: buildTools({ api, approve, owned } as never), owned, api };
@@ -91,6 +98,26 @@ describe("execution auditing", () => {
     const { list } = tools(approve);
     await byName(list, "run_command").execute({ sessionId: "not-ours", command: "uptime" });
     expect(auditAgentAction).not.toHaveBeenCalled();
+  });
+
+  // Each of these must also be on the server's CLIENT_WHITELIST; an action it
+  // does not know is 400ed and swallowed, leaving the team trail empty.
+  it.each([
+    ["make_dir", { target: "c1", path: "/srv/d" }, "agent.file_created"],
+    ["write_file", { target: "c1", path: "/srv/a", content: "x" }, "agent.file_written"],
+    ["rename_path", { target: "c1", from: "/srv/a", to: "/srv/b" }, "agent.file_renamed"],
+    ["delete_path", { target: "c1", path: "/srv/a" }, "agent.file_deleted"],
+    [
+      "transfer_file",
+      { fromTarget: "c1", fromPath: "/srv/a", toTarget: "local", toPath: "/tmp/a" },
+      "agent.file_transferred",
+    ],
+  ])("records %s as %s", async (tool, args, action) => {
+    const approve = vi.fn(async () => ({ approve: true, scope: "c1", via: "prompted" }));
+    const { list } = tools(approve);
+    await byName(list, tool).execute(args);
+    expect(auditAgentAction.mock.calls[0][1]).toBe(action);
+    expect(auditAgentAction.mock.calls[0][2]).toMatchObject({ tool });
   });
 
   it("records NOTHING for read-only tools", async () => {

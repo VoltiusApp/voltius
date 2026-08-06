@@ -56,6 +56,21 @@ export const ACTION_META: Record<string, ActionMeta> = {
   "session.ended":       { icon: "lucide:monitor",     color: "#6b7280", label: () => i18n.t("logs.eventLabels.sessionEnded") },
   "session.joined":      { icon: "lucide:monitor",     color: "#06b6d4", label: () => i18n.t("logs.eventLabels.sessionJoined") },
   "session.left":        { icon: "lucide:monitor",     color: "#6b7280", label: () => i18n.t("logs.eventLabels.sessionLeft") },
+  // AI agent. `target_name` is the connection the call acted on, or "local".
+  // Commands and paths are deliberately absent from the payload that reaches a
+  // team's server, so no label can render them.
+  "agent.grant_created": { icon: "lucide:shield-check",color: "#f59e0b", label: (l) => i18n.t("logs.eventLabels.agentGrantCreated", { name: l.target_name ?? l.target_id ?? "" }) },
+  "agent.grant_revoked": { icon: "lucide:shield-x",    color: "#f59e0b", label: (l) => i18n.t("logs.eventLabels.agentGrantRevoked", { name: l.target_name ?? l.target_id ?? "" }) },
+  "agent.mode_changed":  { icon: "lucide:sliders-horizontal", color: "#8b5cf6", label: () => i18n.t("logs.eventLabels.agentModeChanged") },
+  "agent.session_opened":{ icon: "lucide:sparkles",    color: "#06b6d4", label: (l) => i18n.t("logs.eventLabels.agentSessionOpened", { name: l.target_name ?? l.target_id ?? "" }) },
+  "agent.session_closed":{ icon: "lucide:sparkles",    color: "#6b7280", label: (l) => i18n.t("logs.eventLabels.agentSessionClosed", { name: l.target_name ?? l.target_id ?? "" }) },
+  "agent.command_run":   { icon: "lucide:terminal",    color: "#8b5cf6", label: (l) => i18n.t("logs.eventLabels.agentCommandRun", { name: l.target_name ?? l.target_id ?? "" }) },
+  "agent.action_denied": { icon: "lucide:shield-x",    color: "#ef4444", label: (l) => i18n.t("logs.eventLabels.agentActionDenied", { name: l.target_name ?? l.target_id ?? "" }) },
+  "agent.file_created":  { icon: "lucide:folder-plus", color: "#f59e0b", label: (l) => i18n.t("logs.eventLabels.agentFileCreated", { name: l.target_name ?? l.target_id ?? "" }) },
+  "agent.file_written":  { icon: "lucide:file-pen",    color: "#3b82f6", label: (l) => i18n.t("logs.eventLabels.agentFileWritten", { name: l.target_name ?? l.target_id ?? "" }) },
+  "agent.file_renamed":  { icon: "lucide:file-symlink",color: "#f59e0b", label: (l) => i18n.t("logs.eventLabels.agentFileRenamed", { name: l.target_name ?? l.target_id ?? "" }) },
+  "agent.file_deleted":  { icon: "lucide:file-x",      color: "#ef4444", label: (l) => i18n.t("logs.eventLabels.agentFileDeleted", { name: l.target_name ?? l.target_id ?? "" }) },
+  "agent.file_transferred": { icon: "lucide:arrow-right-left", color: "#10b981", label: (l) => i18n.t("logs.eventLabels.agentFileTransferred", { name: l.target_name ?? l.target_id ?? "" }) },
 };
 
 export const FALLBACK_META: ActionMeta = {

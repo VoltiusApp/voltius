@@ -45,6 +45,15 @@ function getActionOptions(t: TFunction) {
     { value: "session.started",     label: t("logs.filters.actionOptions.sessionStarted") },
     { value: "session.ended",       label: t("logs.filters.actionOptions.sessionEnded") },
     { value: "session.joined",      label: t("logs.filters.actionOptions.sessionJoined") },
+    { value: "agent.session_opened",label: t("logs.filters.actionOptions.agentSessionOpened") },
+    { value: "agent.command_run",   label: t("logs.filters.actionOptions.agentCommandRun") },
+    { value: "agent.action_denied", label: t("logs.filters.actionOptions.agentActionDenied") },
+    { value: "agent.grant_created", label: t("logs.filters.actionOptions.agentGrantCreated") },
+    { value: "agent.file_created",  label: t("logs.filters.actionOptions.agentFileCreated") },
+    { value: "agent.file_written",  label: t("logs.filters.actionOptions.agentFileWritten") },
+    { value: "agent.file_renamed",  label: t("logs.filters.actionOptions.agentFileRenamed") },
+    { value: "agent.file_deleted",  label: t("logs.filters.actionOptions.agentFileDeleted") },
+    { value: "agent.file_transferred", label: t("logs.filters.actionOptions.agentFileTransferred") },
   ];
 }
 
