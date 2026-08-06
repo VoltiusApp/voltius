@@ -18,6 +18,11 @@ const stripStatus = (s: PlanEntryStep): PlanStep => {
   return rest;
 };
 
+const PLAN_BTN = "rounded-md px-2 py-1 text-[11px] font-medium border cursor-pointer";
+const PLAN_PRIMARY = `${PLAN_BTN} bg-(--t-accent) text-[color:var(--t-on-accent,#fff)] border-transparent`;
+const PLAN_SECONDARY = `${PLAN_BTN} bg-transparent text-(--t-accent) border-[color:color-mix(in_srgb,var(--t-accent)_45%,transparent)]`;
+const PLAN_QUIET_DANGER = `${PLAN_BTN} ml-auto bg-transparent text-(--t-status-error) border-transparent`;
+
 export function PlanCard({ entry }: { entry: PlanEntry }) {
   const { t, tCount } = useT();
   const pendingPlan = useAgentStore((s) => s.pendingPlan);
@@ -161,17 +166,30 @@ export function PlanCard({ entry }: { entry: PlanEntry }) {
       })}
 
       {live ? (
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <button type="button" onClick={() => approve("run")} style={{ color: "var(--t-status-connected)" }}>
+        <div className="flex gap-1.5 flex-wrap items-center">
+          {/* The two grades differ only in whether each step still raises its
+              own card, which the labels alone do not convey — the outcome
+              strings spell it out, so they double as the tooltips. */}
+          <button
+            type="button"
+            onClick={() => approve("run")}
+            title={t("aiAgent.plan.outcome.approved_run")}
+            className={PLAN_PRIMARY}
+          >
             {t("aiAgent.plan.approveAndRun")}
           </button>
-          <button type="button" onClick={() => approve("ask")} style={{ color: "var(--t-accent)" }}>
+          <button
+            type="button"
+            onClick={() => approve("ask")}
+            title={t("aiAgent.plan.outcome.approved_ask")}
+            className={PLAN_SECONDARY}
+          >
             {t("aiAgent.plan.approvePlan")}
           </button>
           <button
             type="button"
             onClick={() => resolvePlan(entry.planId, { approve: false })}
-            style={{ color: "var(--t-status-error)" }}
+            className={PLAN_QUIET_DANGER}
           >
             {t("aiAgent.plan.reject")}
           </button>
