@@ -32,6 +32,30 @@ export function resolveScopeLabel(scope: string, connections: PluginConnection[]
     : { kind: "connection", name: endpoint(conn), detail: null };
 }
 
+/**
+ * Human-readable form of an exact-grain allowlist key. `transfer_file` keys on
+ * connection ids (`<fromTarget> → <fromPath> → <toTarget> → <toPath>`), which
+ * are unforgeable but render as raw UUIDs; here the two endpoints are swapped
+ * for their connection labels. Display only — the stored key keeps the ids,
+ * since they are the grant's identity.
+ *
+ * Falls back to the raw key whenever the shape isn't the expected four parts,
+ * so a path containing the separator degrades to today's output rather than to
+ * a mislabelled grant.
+ */
+export function grainKeyText(
+  entry: { tool: string; grain: string; key: string },
+  labelFor: (scope: string) => ScopeLabel,
+  t: (key: string) => string,
+): string {
+  if (entry.tool !== "transfer_file" || entry.grain !== "exact") return entry.key;
+  const parts = entry.key.split(" → ");
+  if (parts.length !== 4) return entry.key;
+  const [fromTarget, fromPath, toTarget, toPath] = parts;
+  const side = (target: string, path: string) => `${scopeLabelText(labelFor(target), t)}:${path}`;
+  return `${side(fromTarget, fromPath)} → ${side(toTarget, toPath)}`;
+}
+
 /** Translated primary text for a label. `t` is passed in so this module stays
  * free of react-i18next and testable as a pure function. */
 export function scopeLabelText(label: ScopeLabel, t: (key: string) => string): string {

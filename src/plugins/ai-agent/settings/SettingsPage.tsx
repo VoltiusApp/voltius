@@ -1,3 +1,4 @@
+import { Icon } from "@voltius/ui";
 import { useT } from "../useT";
 import type { PluginAPI } from "@/plugins/api";
 import { PermissionsBlock } from "./PermissionsBlock";
@@ -14,9 +15,15 @@ export function createSettingsPage(api: PluginAPI): React.FC {
     const { t } = useT();
     return (
       <div className="flex flex-col gap-6 max-w-lg">
-        <h2 className="text-base font-semibold text-(--t-text-primary)">
-          {t("aiAgent.settings.title")}
-        </h2>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <Icon icon="lucide:sparkles" width={18} className="text-(--t-text-primary)" />
+            <h2 className="text-base font-semibold text-(--t-text-primary)">
+              {t("aiAgent.settings.title")}
+            </h2>
+          </div>
+          <p className="text-sm text-(--t-text-dim)">{t("aiAgent.settings.subtitle")}</p>
+        </div>
         <ProfilesBlock />
         <PermissionsBlock api={api} />
         <AllowlistBlock />

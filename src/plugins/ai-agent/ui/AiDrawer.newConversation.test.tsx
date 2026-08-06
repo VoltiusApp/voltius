@@ -32,6 +32,12 @@ function mockDeps() {
       },
       connections: {
         list: vi.fn().mockResolvedValue([]),
+        subscribe: vi.fn(() => () => {}),
+      },
+      sessions: {
+        list: vi.fn(() => []),
+        onConnected: vi.fn(() => () => {}),
+        onDisconnected: vi.fn(() => () => {}),
       },
     },
     profiles: {

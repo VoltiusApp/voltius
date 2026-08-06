@@ -4,7 +4,7 @@ import { Icon } from "@iconify/react";
 import { ConfirmModal } from "@voltius/ui";
 import { useAgentStore } from "../state/agentStore";
 import type { AllowlistEntry } from "../state/allowlist";
-import { scopeLabelText } from "../state/connectionLabels";
+import { grainKeyText, scopeLabelText } from "../state/connectionLabels";
 import { useConnectionLabels } from "../ui/useConnectionLabels";
 
 /**
@@ -61,7 +61,9 @@ export function AllowlistBlock() {
                     className="flex items-center justify-between gap-4"
                   >
                     {entry.grain === "exact" ? (
-                      <code className="text-xs text-(--t-text-secondary) truncate">{entry.key}</code>
+                      <code className="text-xs text-(--t-text-secondary) truncate" title={entry.key}>
+                        {grainKeyText(entry, labelFor, t)}
+                      </code>
                     ) : (
                       <span className="text-sm text-(--t-text-secondary) truncate">{entry.tool}</span>
                     )}

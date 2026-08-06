@@ -1,5 +1,5 @@
 import { useState, type CSSProperties } from "react";
-import { Icon } from "@iconify/react";
+import { FormSelect, Icon } from "@voltius/ui";
 import { useT } from "../useT";
 import { getAgentDeps } from "../state/agentStore";
 import { fieldVisibility, loadModels } from "../provider/models";
@@ -20,6 +20,13 @@ const BASE_URL_PLACEHOLDER: Record<ProviderKind, string> = {
   ollama: "http://localhost:11434",
   google: "",
 };
+
+const PROVIDER_OPTIONS = [
+  { value: "anthropic", label: "Anthropic" },
+  { value: "openai-compatible", label: "OpenAI-compatible" },
+  { value: "ollama", label: "Ollama" },
+  { value: "google", label: "Google" },
+];
 
 const inputStyle: CSSProperties = {
   background: "var(--t-bg-input)",
@@ -109,20 +116,16 @@ export function ProviderFields({
   return (
     <>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <label htmlFor={`${idPrefix}-provider`} style={labelStyle}>{t("aiAgent.fields.provider")}</label>
+        <span style={labelStyle}>{t("aiAgent.fields.provider")}</span>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <ProviderLogo kind={value.providerKind} size={16} />
-          <select
-            id={`${idPrefix}-provider`}
+          <FormSelect
+            className="flex-1"
+            ariaLabel={t("aiAgent.fields.provider")}
             value={value.providerKind}
-            onChange={(e) => onProviderChange(e.target.value as ProviderKind)}
-            style={{ ...inputStyle, flex: 1 }}
-          >
-            <option value="anthropic">Anthropic</option>
-            <option value="openai-compatible">OpenAI-compatible</option>
-            <option value="ollama">Ollama</option>
-            <option value="google">Google</option>
-          </select>
+            options={PROVIDER_OPTIONS}
+            onChange={(v) => onProviderChange(v as ProviderKind)}
+          />
         </div>
       </div>
 

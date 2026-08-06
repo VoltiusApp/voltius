@@ -1,5 +1,6 @@
 import { useState, type KeyboardEvent } from "react";
 import { Icon } from "@iconify/react";
+import { useT } from "../useT";
 import { useAgentStore, type Mode } from "../state/agentStore";
 import { ModeChip } from "./ModeChip";
 import { ProfileSwitcher } from "./ProfileSwitcher";
@@ -12,6 +13,7 @@ const MODE_TINT: Record<Mode, string> = {
 };
 
 export function Composer() {
+  const { t } = useT();
   const [text, setText] = useState("");
   const mode = useAgentStore((s) => s.mode);
   const runStatus = useAgentStore((s) => s.runStatus);
@@ -19,6 +21,7 @@ export function Composer() {
   const stop = useAgentStore((s) => s.stop);
   const cycleMode = useAgentStore((s) => s.cycleMode);
   const streaming = runStatus === "streaming";
+  const idle = !streaming && !text.trim();
   const tint = runStatus === "error" ? "var(--t-status-error)" : MODE_TINT[mode];
 
   const send = () => {
@@ -56,7 +59,7 @@ export function Composer() {
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={onKeyDown}
-        placeholder="Ask the agent…"
+        placeholder={t("aiAgent.composer.placeholder")}
         rows={3}
         style={{
           resize: "none",
@@ -74,23 +77,31 @@ export function Composer() {
         <button
           type="button"
           onClick={streaming ? stop : send}
-          disabled={!streaming && !text.trim()}
+          disabled={idle}
+          title={idle ? undefined : t("aiAgent.composer.sendHint")}
           style={{
             display: "inline-flex",
             alignItems: "center",
             gap: 4,
             flexShrink: 0,
-            background: streaming ? "var(--t-status-error)" : "var(--t-accent)",
-            color: "var(--t-on-accent, #fff)",
+            // A dimmed accent still reads as a live button; an idle composer
+            // gets the elevated surface instead, so "nothing to send" is
+            // legible at a glance.
+            background: idle
+              ? "var(--t-bg-elevated)"
+              : streaming
+                ? "var(--t-status-error)"
+                : "var(--t-accent)",
+            color: idle ? "var(--t-text-dim)" : "var(--t-on-accent, #fff)",
             border: "none",
             borderRadius: 6,
             padding: "4px 10px",
             fontSize: 12,
-            opacity: !streaming && !text.trim() ? 0.5 : 1,
+            cursor: idle ? "not-allowed" : "pointer",
           }}
         >
           <Icon icon={streaming ? "lucide:square" : "lucide:send"} width={13} />
-          {streaming ? "Stop" : "Send"}
+          {streaming ? t("aiAgent.composer.stop") : t("aiAgent.composer.send")}
         </button>
       </div>
     </div>

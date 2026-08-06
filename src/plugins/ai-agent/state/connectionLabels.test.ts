@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveScopeLabel, scopeLabelText } from "./connectionLabels";
+import { grainKeyText, resolveScopeLabel, scopeLabelText } from "./connectionLabels";
 import { UNKNOWN_SCOPE } from "./scopeDerivation";
 import type { PluginConnection } from "@/plugins/api";
 
@@ -42,5 +42,28 @@ describe("scopeLabelText", () => {
     expect(scopeLabelText({ kind: "deleted", name: "gone", detail: "gone" }, t)).toBe("aiAgent.settings.allowlist.deletedConnection");
     expect(scopeLabelText({ kind: "pending", name: "c1", detail: null }, t)).toBe("aiAgent.settings.allowlist.resolvingScope");
     expect(scopeLabelText({ kind: "connection", name: "Prod DB", detail: "deploy@web-01:22" }, t)).toBe("Prod DB");
+  });
+});
+
+describe("grainKeyText", () => {
+  const t = (k: string) => k;
+  const labelFor = (scope: string) => resolveScopeLabel(scope, CONNS);
+
+  it("replaces a transfer's endpoint ids with connection labels", () => {
+    expect(
+      grainKeyText({ tool: "transfer_file", grain: "exact", key: "c1 → /etc/hosts → c2 → /tmp/hosts" }, labelFor, t),
+    ).toBe("Prod DB:/etc/hosts → root@web-01:2222:/tmp/hosts");
+  });
+
+  it("translates a local endpoint", () => {
+    expect(
+      grainKeyText({ tool: "transfer_file", grain: "exact", key: "local → /a → c1 → /b" }, labelFor, t),
+    ).toBe("aiAgent.settings.allowlist.localScope:/a → Prod DB:/b");
+  });
+
+  it("leaves other tools and unexpected shapes untouched", () => {
+    expect(grainKeyText({ tool: "run_command", grain: "exact", key: "uptime" }, labelFor, t)).toBe("uptime");
+    expect(grainKeyText({ tool: "rename_path", grain: "exact", key: "/a → /b" }, labelFor, t)).toBe("/a → /b");
+    expect(grainKeyText({ tool: "transfer_file", grain: "exact", key: "c1 → /a" }, labelFor, t)).toBe("c1 → /a");
   });
 });

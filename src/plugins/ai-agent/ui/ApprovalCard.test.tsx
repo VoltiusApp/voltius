@@ -169,7 +169,7 @@ describe("ApprovalCard", () => {
 
   it("names the connection, not the raw scope id", async () => {
     vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({
-      api: { connections: { list: async () => CONNS } },
+      api: { connections: { subscribe: () => () => {}, list: async () => CONNS } },
     } as never);
     render(<ApprovalCard pending={{ id: "p1", tool: "run_command", args: { command: "df -h" }, scope: "c1", grants: [], resolve: vi.fn() }} />);
     expect(await screen.findByText(/Prod DB/)).toBeTruthy();
@@ -204,7 +204,7 @@ describe("ApprovalCard", () => {
 
   it("labels an unresolvable scope instead of rendering a blank", async () => {
     vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({
-      api: { connections: { list: async () => CONNS } },
+      api: { connections: { subscribe: () => () => {}, list: async () => CONNS } },
     } as never);
     render(<ApprovalCard pending={{ id: "p1", tool: "run_command", args: { command: "df -h" }, scope: "gone", grants: [], resolve: vi.fn() }} />);
     // Real i18n is in effect here (not a passthrough mock), so the rendered

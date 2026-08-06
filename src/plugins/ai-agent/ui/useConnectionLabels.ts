@@ -24,7 +24,11 @@ export function useConnectionLabels(): (scope: string) => ScopeLabel {
       .list()
       .then((list) => { if (!cancelled) { setConnections(list); setLoaded(true); } })
       .catch(() => { if (!cancelled) setLoaded(true); /* leave empty: scopes resolve as deleted, never blank */ });
-    return () => { cancelled = true; };
+    // A connection created while the drawer is open would otherwise never
+    // resolve — its id would render raw in every card for the rest of the
+    // session, since the list was fetched once on mount.
+    const unsubscribe = api.connections.subscribe((list) => { if (!cancelled) setConnections(list); });
+    return () => { cancelled = true; unsubscribe(); };
   }, []);
 
   return (scope: string) => {

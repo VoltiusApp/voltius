@@ -31,7 +31,7 @@ beforeEach(() => {
   // pre-existing behaviour every test below except the I1 tests relies on.
   // The two I1 tests override this per-case with a settled connections list.
   vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({
-    api: { connections: { list: () => new Promise(() => {}) } },
+    api: { connections: { subscribe: () => () => {}, list: () => new Promise(() => {}) } },
   } as never);
 });
 
@@ -100,7 +100,7 @@ describe("PlanCard", () => {
   // execution), so the card the badge warns about really does happen.
   it("badges a step whose connection does not resolve to a real connection", async () => {
     vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({
-      api: { connections: { list: () => Promise.resolve([]) } },
+      api: { connections: { subscribe: () => () => {}, list: () => Promise.resolve([]) } },
     } as never);
     live([step({ connectionId: "conn-HALLUCINATED" })]);
     await waitFor(() => expect(screen.getByText("aiAgent.plan.willStillAsk")).toBeTruthy());
@@ -113,7 +113,7 @@ describe("PlanCard", () => {
       { id: "conn-A", name: "Test Conn", host: "h1", port: 22, username: "u", auth_type: "key", tags: [] },
     ]);
     vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({
-      api: { connections: { list: () => connectionsPromise } },
+      api: { connections: { subscribe: () => () => {}, list: () => connectionsPromise } },
     } as never);
     live([step({ connectionId: "conn-A" })]);
     // Flush the exact connections lookup the component consumed, so

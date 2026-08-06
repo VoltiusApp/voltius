@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { FormSelect } from "@voltius/ui";
 import { useT } from "../useT";
 import type { PluginAPI } from "@/plugins/api";
 import type { Mode } from "../state/agentStore";
@@ -12,6 +13,8 @@ import { auditAgentAction } from "../state/auditSeam";
  * `useAgentStore.mode`: the drawer's Shift+Tab override is per-conversation,
  * so changing the default must not disturb a conversation already in progress.
  */
+const MODES: Mode[] = ["plan", "ask", "auto"];
+
 export function PermissionsBlock({ api }: { api: PluginAPI }) {
   const { t } = useT();
   const [mode, setMode] = useState<Mode | null>(null);
@@ -42,16 +45,16 @@ export function PermissionsBlock({ api }: { api: PluginAPI }) {
             {t("aiAgent.settings.permissions.defaultMode.desc")}
           </div>
         </div>
-        <select
-          aria-label={t("aiAgent.settings.permissions.defaultMode.title")}
+        <FormSelect
+          className="max-w-[14rem] w-full shrink-0"
+          ariaLabel={t("aiAgent.settings.permissions.defaultMode.title")}
           value={mode ?? "ask"}
-          onChange={(e) => onChange(e.target.value as Mode)}
-          className="form-input px-3 py-2 rounded-lg text-sm bg-(--t-bg-input) border border-(--t-border) text-(--t-text-primary) max-w-[14rem] w-full shrink-0"
-        >
-          <option value="plan">{t("aiAgent.settings.permissions.defaultMode.plan")}</option>
-          <option value="ask">{t("aiAgent.settings.permissions.defaultMode.ask")}</option>
-          <option value="auto">{t("aiAgent.settings.permissions.defaultMode.auto")}</option>
-        </select>
+          options={MODES.map((m) => ({
+            value: m,
+            label: t(`aiAgent.settings.permissions.defaultMode.${m}`),
+          }))}
+          onChange={(v) => onChange(v as Mode)}
+        />
       </div>
     </section>
   );

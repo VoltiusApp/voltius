@@ -1,6 +1,6 @@
 export interface StreamHooks {
   onText(delta: string): void;
-  onTool(tool: string, state: "call" | "result", detail: string): void;
+  onTool(tool: string, state: "call" | "result" | "error", detail: string): void;
   onError(message: string): void;
 }
 
@@ -29,6 +29,18 @@ export async function consumeStream(
           typeof part.output === "string" ? part.output : JSON.stringify(part.output ?? ""),
         );
         break;
+      // A throwing tool emits `tool-error`, NOT `tool-result`. Without this
+      // case the transcript showed the call and then nothing at all, so a
+      // failure looked to the user like the model retrying for no reason.
+      case "tool-error": {
+        const e = part.error;
+        hooks.onTool(
+          String(part.toolName),
+          "error",
+          e instanceof Error ? e.message : typeof e === "string" ? e : JSON.stringify(e ?? ""),
+        );
+        break;
+      }
       case "error": {
         const e = part.error;
         hooks.onError(e instanceof Error ? e.message : String(e));

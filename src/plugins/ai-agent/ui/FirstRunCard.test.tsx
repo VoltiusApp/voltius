@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { installCatalogI18n } from "../testing/fakeI18n";
+import { pickProvider } from "../testing/pickProvider";
 import { FirstRunCard } from "./FirstRunCard";
 import * as storeMod from "../state/agentStore";
 import * as modelsMod from "../provider/models";
@@ -51,7 +52,7 @@ describe("FirstRunCard", () => {
     vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({ profiles: { save, setKey, setActive } } as never);
     const onDone = vi.fn();
     render(<FirstRunCard onDone={onDone} />);
-    fireEvent.change(screen.getByLabelText(/Provider/i), { target: { value: "ollama" } });
+    pickProvider("Ollama");
     fireEvent.change(screen.getByLabelText(/Base URL/i), { target: { value: "http://localhost:11434" } });
     fireEvent.change(screen.getByLabelText(/Model/i), { target: { value: "llama3" } });
     fireEvent.click(screen.getByText("Start"));
@@ -67,10 +68,10 @@ describe("FirstRunCard", () => {
     render(<FirstRunCard onDone={vi.fn()} />);
     expect(screen.queryByLabelText(/Base URL/i)).toBeNull();
 
-    fireEvent.change(screen.getByLabelText(/Provider/i), { target: { value: "openai-compatible" } });
+    pickProvider("OpenAI-compatible");
     expect(screen.getByLabelText(/Base URL/i)).toBeTruthy();
 
-    fireEvent.change(screen.getByLabelText(/Provider/i), { target: { value: "google" } });
+    pickProvider("Google");
     expect(screen.queryByLabelText(/Base URL/i)).toBeNull();
   });
 

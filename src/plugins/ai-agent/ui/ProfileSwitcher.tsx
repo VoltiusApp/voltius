@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
+import { useT } from "../useT";
 import { getAgentDeps, useAgentStore } from "../state/agentStore";
 import { FirstRunCard } from "./FirstRunCard";
 import { ProviderLogo } from "./ProviderLogo";
@@ -15,6 +16,7 @@ import type { ProviderProfile } from "../types";
  * the next message picks up the new profile with no extra wiring here.
  */
 export function ProfileSwitcher() {
+  const { t } = useT();
   const [profiles, setProfiles] = useState<ProviderProfile[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -73,7 +75,7 @@ export function ProfileSwitcher() {
       <button
         type="button"
         onClick={() => setMenuOpen((v) => !v)}
-        title="Switch AI provider"
+        title={t("aiAgent.profileSwitcher.switch")}
         style={{
           display: "inline-flex",
           alignItems: "center",
@@ -99,7 +101,7 @@ export function ProfileSwitcher() {
           title={active ? `${active.label} · ${active.model}` : undefined}
           style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
         >
-          {active ? `${active.label} · ${active.model}` : "No provider"}
+          {active ? `${active.label} · ${active.model}` : t("aiAgent.profileSwitcher.none")}
         </span>
         <Icon icon="lucide:chevron-down" width={11} style={{ flexShrink: 0 }} />
       </button>
@@ -171,7 +173,7 @@ export function ProfileSwitcher() {
                 }}
               >
                 <Icon icon="lucide:plus" width={13} />
-                Add provider…
+                {t("aiAgent.profileSwitcher.add")}
               </button>
             </div>
           )}

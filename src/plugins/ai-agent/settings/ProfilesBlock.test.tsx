@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
 import { ProfilesBlock } from "./ProfilesBlock";
+import { pickProvider } from "../testing/pickProvider";
 import * as storeMod from "../state/agentStore";
 import { useAgentStore } from "../state/agentStore";
 import { installFakeI18n } from "../testing/fakeI18n";
@@ -121,7 +122,7 @@ describe("ProfilesBlock", () => {
     const labelInput = document.getElementById("edit-label") as HTMLInputElement;
     expect(labelInput.value).toBe("Work");
 
-    fireEvent.change(document.getElementById("edit-provider")!, { target: { value: "google" } });
+    pickProvider("Google");
     expect(labelInput.value).toBe("Work"); // provider switch alone must never rewrite a saved name
 
     // A provider switch forces Replace mode (see the dedicated I2 tests
@@ -146,7 +147,7 @@ describe("ProfilesBlock", () => {
     expect(saveButton.disabled).toBe(false); // stored key + model already satisfy anthropic
 
     // Switch to a different provider that also requires a key (google).
-    fireEvent.change(document.getElementById("edit-provider")!, { target: { value: "google" } });
+    pickProvider("Google");
 
     // The masked "•••• set" state must be gone — the old key belongs to
     // anthropic, not google — and a real key input must render instead.
@@ -166,7 +167,7 @@ describe("ProfilesBlock", () => {
     await screen.findByText(/•••• set/);
 
     // Switch to ollama, whose key is optional — leave it blank and save.
-    fireEvent.change(document.getElementById("edit-provider")!, { target: { value: "ollama" } });
+    pickProvider("Ollama");
     fireEvent.change(document.getElementById("edit-baseurl")!, { target: { value: "http://localhost:11434" } });
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
@@ -185,11 +186,11 @@ describe("ProfilesBlock", () => {
     const labelInput = document.getElementById("edit-label") as HTMLInputElement;
     expect(labelInput.value).toBe("Anthropic");
 
-    fireEvent.change(document.getElementById("edit-provider")!, { target: { value: "ollama" } });
+    pickProvider("Ollama");
     expect(labelInput.value).toBe("Ollama"); // still untouched -> keeps following the provider
 
     fireEvent.change(labelInput, { target: { value: "My Custom Name" } });
-    fireEvent.change(document.getElementById("edit-provider")!, { target: { value: "google" } });
+    pickProvider("Google");
     expect(labelInput.value).toBe("My Custom Name"); // user typed -> provider switch no longer overrides it
   });
 

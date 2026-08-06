@@ -31,6 +31,18 @@ describe("consumeStream", () => {
     expect(hooks.onError).toHaveBeenCalledWith("boom");
   });
 
+  it("routes a throwing tool's tool-error part to onTool, not onError", async () => {
+    async function* toolErrStream() {
+      yield { type: "tool-error", toolCallId: "c1", toolName: "read_file", input: {}, error: new Error("no such file") };
+      yield { type: "tool-error", toolCallId: "c2", toolName: "make_dir", input: {}, error: "permission denied" };
+    }
+    const hooks = { onText: vi.fn(), onTool: vi.fn(), onError: vi.fn() };
+    await consumeStream(toolErrStream() as never, hooks);
+    expect(hooks.onTool).toHaveBeenCalledWith("read_file", "error", "no such file");
+    expect(hooks.onTool).toHaveBeenCalledWith("make_dir", "error", "permission denied");
+    expect(hooks.onError).not.toHaveBeenCalled();
+  });
+
   it("serializes object/array tool-result output as JSON, not [object Object]", async () => {
     async function* objectResultStream() {
       yield {

@@ -232,7 +232,8 @@ function isTranscriptEntry(v: unknown): v is TranscriptEntry {
   }
   if (v.kind === "assistant") return typeof v.text === "string";
   if (v.kind === "tool") {
-    return typeof v.tool === "string" && typeof v.detail === "string" && (v.state === "call" || v.state === "result");
+    if (typeof v.tool !== "string" || typeof v.detail !== "string") return false;
+    return v.state === "call" || v.state === "result" || v.state === "error";
   }
   if (v.kind === "plan") {
     if (typeof v.planId !== "string" || v.planId.length === 0) return false;

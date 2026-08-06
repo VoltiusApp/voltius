@@ -3,10 +3,17 @@ import { Icon } from "@iconify/react";
 import { useT } from "../useT";
 import { useAgentStore, type PendingApproval } from "../state/agentStore";
 import type { AllowlistEntry } from "../state/allowlist";
-import { scopeLabelText } from "../state/connectionLabels";
+import { grainKeyText, scopeLabelText } from "../state/connectionLabels";
 import { useConnectionLabels } from "./useConnectionLabels";
 import { ObjectRefCard } from "./ObjectRefCard";
 import { useObjectRefs } from "./useObjectRefs";
+
+const BTN = "rounded-md px-2 py-1 text-[11px] font-medium border cursor-pointer";
+const PRIMARY = `${BTN} bg-(--t-accent) text-[color:var(--t-on-accent,#fff)] border-transparent`;
+const SECONDARY = `${BTN} bg-transparent text-(--t-accent) border-[color:color-mix(in_srgb,var(--t-accent)_45%,transparent)]`;
+const DANGER = `${BTN} bg-(--t-status-error) text-[color:var(--t-on-accent,#fff)] border-transparent`;
+const QUIET = `${BTN} bg-transparent text-(--t-text-secondary) border-transparent`;
+const QUIET_DANGER = `${BTN} bg-transparent text-(--t-status-error) border-transparent`;
 
 export function ApprovalCard({ pending }: { pending: PendingApproval }) {
   const { t } = useT();
@@ -35,7 +42,7 @@ export function ApprovalCard({ pending }: { pending: PendingApproval }) {
 
   const grantLabel = (g: AllowlistEntry) =>
     g.grain === "exact"
-      ? t("aiAgent.approval.always.exact", { command: g.key, connection: scopeText })
+      ? t("aiAgent.approval.always.exact", { command: grainKeyText(g, labelFor, t), connection: scopeText })
       : t("aiAgent.approval.always.tool", { tool: g.tool, connection: scopeText });
 
   const onApprove = () => resolveApproval(pending.id, { approve: true, scope: pending.scope, via: "prompted" });
@@ -113,27 +120,39 @@ export function ApprovalCard({ pending }: { pending: PendingApproval }) {
         />
       )}
 
-      <div className="flex gap-1.5 flex-wrap">
+      <div className="flex gap-1.5 flex-wrap items-center">
         {editing ? (
           <>
-            <button type="button" onClick={onSaveEdit} className="text-(--t-status-connected)">{t("aiAgent.approval.saveApprove")}</button>
-            <button type="button" onClick={() => setEditing(false)} className="text-(--t-text-secondary)">{t("aiAgent.approval.cancel")}</button>
+            <button type="button" onClick={onSaveEdit} className={PRIMARY}>{t("aiAgent.approval.saveApprove")}</button>
+            <button type="button" onClick={() => setEditing(false)} className={QUIET}>{t("aiAgent.approval.cancel")}</button>
           </>
         ) : rejecting ? (
           <>
-            <button type="button" onClick={onConfirmReject} className="text-(--t-status-error)">{t("aiAgent.approval.confirmReject")}</button>
-            <button type="button" onClick={() => setRejecting(false)} className="text-(--t-text-secondary)">{t("aiAgent.approval.cancel")}</button>
+            <button type="button" onClick={onConfirmReject} className={DANGER}>{t("aiAgent.approval.confirmReject")}</button>
+            <button type="button" onClick={() => setRejecting(false)} className={QUIET}>{t("aiAgent.approval.cancel")}</button>
           </>
         ) : (
           <>
-            <button type="button" onClick={onApprove} className="text-(--t-status-connected)">{t("aiAgent.approval.approve")}</button>
+            <button type="button" onClick={onApprove} className={PRIMARY}>{t("aiAgent.approval.approve")}</button>
+            {/* The full grant text is the title, not the label: it carries the
+                whole command or both transfer endpoints and wrapped the row
+                onto three lines. */}
             {pending.grants.map((g) => (
-              <button key={`${g.grain}:${g.key}`} type="button" onClick={() => onAlways(g)} className="text-(--t-accent)">
-                {grantLabel(g)}
+              <button
+                key={`${g.grain}:${g.key}`}
+                type="button"
+                onClick={() => onAlways(g)}
+                title={grantLabel(g)}
+                aria-label={grantLabel(g)}
+                className={SECONDARY}
+              >
+                {t("aiAgent.approval.always.short")}
               </button>
             ))}
-            <button type="button" onClick={() => setEditing(true)} className="text-(--t-text-secondary)">{t("aiAgent.approval.edit")}</button>
-            <button type="button" onClick={() => setRejecting(true)} className="text-(--t-status-error)">{t("aiAgent.approval.reject")}</button>
+            <div className="ml-auto flex gap-1.5">
+              <button type="button" onClick={() => setEditing(true)} className={QUIET}>{t("aiAgent.approval.edit")}</button>
+              <button type="button" onClick={() => setRejecting(true)} className={QUIET_DANGER}>{t("aiAgent.approval.reject")}</button>
+            </div>
           </>
         )}
       </div>

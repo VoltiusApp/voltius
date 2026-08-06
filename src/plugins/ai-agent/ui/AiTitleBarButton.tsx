@@ -1,8 +1,10 @@
 import { Icon } from "@iconify/react";
+import { useT } from "../useT";
 import { useAgentStore } from "../state/agentStore";
 import { togglePanel } from "../panel";
 
 export function AiTitleBarButton() {
+  const { t } = useT();
   const runStatus = useAgentStore((s) => s.runStatus);
   const pendingCount = useAgentStore((s) => s.pendingApprovals.length);
   const streaming = runStatus === "streaming";
@@ -11,7 +13,7 @@ export function AiTitleBarButton() {
     <button
       type="button"
       onClick={togglePanel}
-      title="AI Agent"
+      title={t("aiAgent.drawer.title")}
       style={{
         position: "relative",
         display: "inline-flex",

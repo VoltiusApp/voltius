@@ -31,7 +31,7 @@ const entries = [
 describe("AllowlistBlock", () => {
   it("groups grants by scope", async () => {
     vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({
-      api: { connections: { list: async () => CONNS } },
+      api: { connections: { subscribe: () => () => {}, list: async () => CONNS } },
     } as never);
     useAgentStore.setState({ allowlist: entries });
     render(<AllowlistBlock />);
@@ -65,7 +65,7 @@ describe("AllowlistBlock", () => {
 
   it("groups by connection name and shows the endpoint as detail", async () => {
     vi.spyOn(storeMod, "getAgentDeps").mockReturnValue({
-      api: { connections: { list: async () => CONNS } },
+      api: { connections: { subscribe: () => () => {}, list: async () => CONNS } },
     } as never);
     useAgentStore.setState({ allowlist: [{ scope: "c1", tool: "run_command", grain: "exact", key: "df -h" }] });
     render(<AllowlistBlock />);

@@ -27,3 +27,12 @@ describe("RichText", () => {
     expect(screen.getByText("just words")).toBeTruthy();
   });
 });
+
+it("abbreviates a UUID that resolves to nothing, keeping it in the title", () => {
+  const refs = { resolve: () => null, knownIds: new Set<string>(), loading: false };
+  const id = "a82ff8e0-949f-4601-94a4-12d90247abad";
+  render(<RichText text={`session ${id} closed`} refs={refs} />);
+  const abbr = screen.getByTitle(id);
+  expect(abbr.textContent).toBe("a82ff8e0…");
+  expect(document.body.textContent).toContain("closed");
+});

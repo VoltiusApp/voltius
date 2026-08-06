@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Icon } from "@iconify/react";
 import { useT } from "../useT";
 import { useAgentStore, getAgentDeps } from "../state/agentStore";
@@ -44,6 +44,9 @@ function useHasProfile(open: boolean): [boolean | null, () => void] {
   return [hasProfile, () => setNonce((n) => n + 1)];
 }
 
+const MIN_WIDTH = 300;
+const MAX_WIDTH = 900;
+
 /** Persists the drawer's pin state + width via plugin storage. */
 function usePinnedWidth() {
   const [pinned, setPinnedState] = useState(false);
@@ -68,7 +71,15 @@ function usePinnedWidth() {
     void getAgentDeps()?.api.storage.set(PIN_KEY, v);
   };
 
-  return { pinned, width, setPinned };
+  // Width is written on drag end, not on every pointer move: a storage write
+  // per frame would queue hundreds of IPC calls for one drag.
+  const setWidth = (v: number, persist: boolean) => {
+    const clamped = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(v)));
+    setWidthState(clamped);
+    if (persist) void getAgentDeps()?.api.storage.set(WIDTH_KEY, clamped);
+  };
+
+  return { pinned, width, setPinned, setWidth };
 }
 
 interface DockRect {
@@ -130,7 +141,7 @@ export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void
   const runStatus = useAgentStore((s) => s.runStatus);
   const newConversation = useAgentStore((s) => s.newConversation);
   const [hasProfile, refreshHasProfile] = useHasProfile(open);
-  const { pinned, width, setPinned } = usePinnedWidth();
+  const { pinned, width, setPinned, setWidth } = usePinnedWidth();
   const active = open && pinned;
   const measuredRect = useDockRect(active);
   const dockRect = pinned ? measuredRect : null;
@@ -154,6 +165,20 @@ export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void
   }, [active, width]);
 
   if (!open) return null;
+
+  // Right-anchored drawer: the pointer's distance from the right edge IS the
+  // width, so no drag-start offset needs tracking.
+  const onResizeStart = (e: ReactPointerEvent) => {
+    e.preventDefault();
+    const move = (ev: PointerEvent) => setWidth(window.innerWidth - ev.clientX, false);
+    const up = (ev: PointerEvent) => {
+      setWidth(window.innerWidth - ev.clientX, true);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
 
   const dotColor =
     runStatus === "streaming"
@@ -183,6 +208,15 @@ export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void
       }}
     >
       <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={t("aiAgent.drawer.resize")}
+        title={t("aiAgent.drawer.resize")}
+        onPointerDown={onResizeStart}
+        style={{ position: "absolute", left: -3, top: 0, bottom: 0, width: 6, cursor: "col-resize", zIndex: 1 }}
+      />
+
+      <div
         style={{
           display: "flex",
           alignItems: "center",
@@ -192,7 +226,7 @@ export function AiDrawer({ open, onClose }: { open: boolean; onClose: () => void
         }}
       >
         <span style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor }} />
-        <span style={{ color: "var(--t-text-bright)", fontWeight: 600, fontSize: 13 }}>AI Agent</span>
+        <span style={{ color: "var(--t-text-bright)", fontWeight: 600, fontSize: 13 }}>{t("aiAgent.drawer.title")}</span>
         <div style={{ flex: 1 }} />
         <button
           type="button"

@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { installCatalogI18n } from "../testing/fakeI18n";
+import { pickProvider } from "../testing/pickProvider";
 import { ProviderFields, providerFieldsComplete, type ProviderFieldsValue } from "./ProviderFields";
 import * as storeMod from "../state/agentStore";
 import * as modelsMod from "../provider/models";
@@ -23,8 +24,8 @@ describe("ProviderFields", () => {
   it("prefixes every field id so two instances can coexist", () => {
     render(<ProviderFields idPrefix="a" value={base} onChange={() => {}} />);
     render(<ProviderFields idPrefix="b" value={base} onChange={() => {}} />);
-    expect(document.getElementById("a-provider")).toBeTruthy();
-    expect(document.getElementById("b-provider")).toBeTruthy();
+    expect(document.getElementById("a-model")).toBeTruthy();
+    expect(document.getElementById("b-model")).toBeTruthy();
   });
 
   it("hides base URL for anthropic and shows it for openai-compatible", () => {
@@ -37,7 +38,7 @@ describe("ProviderFields", () => {
   it("clears baseUrl when switching to a provider that hides it", () => {
     const onChange = vi.fn();
     render(<ProviderFields idPrefix="a" value={{ ...base, providerKind: "openai-compatible", baseUrl: "http://x" }} onChange={onChange} />);
-    fireEvent.change(document.getElementById("a-provider")!, { target: { value: "anthropic" } });
+    pickProvider("Anthropic");
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ providerKind: "anthropic", baseUrl: "" }));
   });
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import { useT } from "../useT";
 import { getAgentDeps, useAgentStore } from "../state/agentStore";
 import { fieldVisibility } from "../provider/models";
 import { ProviderFields, providerFieldsComplete, type ProviderFieldsValue } from "./ProviderFields";
@@ -13,6 +14,7 @@ const PROVIDER_LABEL: Record<ProviderKind, string> = {
 };
 
 export function FirstRunCard({ onDone }: { onDone: () => void }) {
+  const { t } = useT();
   const [fields, setFields] = useState<ProviderFieldsValue>({
     providerKind: "anthropic",
     label: PROVIDER_LABEL.anthropic,
@@ -63,9 +65,9 @@ export function FirstRunCard({ onDone }: { onDone: () => void }) {
   return (
     <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
       <div>
-        <div style={{ color: "var(--t-text-bright)", fontWeight: 600, fontSize: 13 }}>Set up your AI provider</div>
+        <div style={{ color: "var(--t-text-bright)", fontWeight: 600, fontSize: 13 }}>{t("aiAgent.firstRun.title")}</div>
         <div style={{ color: "var(--t-text-secondary)", fontSize: 12, marginTop: 2 }}>
-          Bring your own key. Nothing is sent until you configure a provider here.
+          {t("aiAgent.firstRun.subtitle")}
         </div>
       </div>
 
@@ -92,7 +94,7 @@ export function FirstRunCard({ onDone }: { onDone: () => void }) {
         }}
       >
         <Icon icon="lucide:play" width={14} />
-        Start
+        {t("aiAgent.firstRun.start")}
       </button>
     </div>
   );

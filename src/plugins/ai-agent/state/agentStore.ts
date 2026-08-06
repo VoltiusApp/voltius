@@ -11,6 +11,7 @@ import { runAgent } from "../agent/loop";
 import { createProvider } from "../provider/factory";
 import { makeStreamFetch } from "../provider/fetchAdapter";
 import { consumeStream } from "./conversation";
+import { t } from "../useT";
 import { CONVERSATION_KEY, deserializeConversation, serializeConversation, type PersistedConversation } from "./persistence";
 import { type AttachedContext, type ContextAttachment, formatContextBlock } from "./touchpoint";
 import type { PlanEntryStep, PlanOutcome } from "./planTokens";
@@ -50,7 +51,7 @@ export interface PendingPlan {
 export type TranscriptEntry =
   | { kind: "user"; text: string; attachment?: ContextAttachment }
   | { kind: "assistant"; text: string }
-  | { kind: "tool"; tool: string; state: "call" | "result"; detail: string }
+  | { kind: "tool"; tool: string; state: "call" | "result" | "error"; detail: string }
   | { kind: "plan"; planId: string; steps: PlanEntryStep[]; outcome: PlanOutcome };
 
 export interface AgentDeps {
@@ -101,6 +102,8 @@ interface AgentState {
   resolveApproval(id: string, d: ToolDecision): void;
   sendMessage(text: string): Promise<void>;
   stop(): void;
+  /** Dismiss the last run error. Leaves the transcript alone. */
+  clearError(): void;
   newConversation(): Promise<void>;
   /** Terminal context staged by the touchpoint, consumed by the next send. */
   pendingContext: AttachedContext | null;
@@ -436,6 +439,11 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     get()._rejectAllPending("aborted");
   },
 
+  // Only touches the banner: `runStatus` goes back to idle so the composer
+  // and status dot stop reading as failed, while the transcript keeps the
+  // failed tool call that explains what happened.
+  clearError: () => set((s) => (s.errorText === null ? s : { errorText: null, runStatus: "idle" })),
+
   newConversation: async () => {
     // Same cancellation sequence as stop(), because a new conversation must
     // not leave the old one's run or cards alive…
@@ -506,7 +514,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     if (deps !== d) return;
     const profile = profiles.find((p) => p.id === activeId);
     if (!profile) {
-      set({ runStatus: "error", errorText: "No provider profile configured." });
+      set({ runStatus: "error", errorText: t("aiAgent.error.noProfile") });
       return;
     }
 
