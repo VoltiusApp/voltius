@@ -243,4 +243,23 @@ describe("hostModules", () => {
     expect(out).toContain(`"${hostModuleUrls()["react"]}"`);
     expect(out).toContain(`import util from "./util.js";`);
   });
+
+  test("hostModuleSource exports reserved-word names", async () => {
+    const { hostModuleSource } = await import("./hostModules");
+    const registry = ((globalThis as Record<string, unknown>).__voltiusHostModules ??= {}) as Record<
+      string,
+      unknown
+    >;
+    registry["test:reserved"] = { enum: 1, function: 2, void: 3, ok: 4 };
+
+    const src = hostModuleSource("test:reserved", ["enum", "function", "void", "ok"]);
+    const mod = await import(
+      /* @vite-ignore */ "data:text/javascript," + encodeURIComponent(src)
+    );
+
+    expect(mod.enum).toBe(1);
+    expect(mod.function).toBe(2);
+    expect(mod.void).toBe(3);
+    expect(mod.ok).toBe(4);
+  });
 });

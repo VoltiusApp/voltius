@@ -14,6 +14,22 @@ export { HOST_SPECIFIERS } from "./hostSpecifiers";
 let _urls: Record<string, string> | null = null;
 
 /**
+ * Exported for test: `moduleUrl`'s blob URL cannot be imported under jsdom.
+ */
+export function hostModuleSource(key: string, names: string[]): string {
+  // An export clause, not `export const`: the exported name is an IdentifierName,
+  // so reserved words like zod's `enum` / `function` / `void` are legal there.
+  return [
+    `const m = globalThis.__voltiusHostModules[${JSON.stringify(key)}];`,
+    ...names.map((n, i) => `const _v${i} = m[${JSON.stringify(n)}];`),
+    names.length ? `export { ${names.map((n, i) => `_v${i} as ${n}`).join(", ")} };` : "",
+    `export default m.default ?? m;`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+/**
  * Re-export a live host module object as an ES module the plugin bundle can import.
  * Bindings are read off a global registry so the plugin shares the host's instances
  * (critical for React: a second copy has a null hook dispatcher and every hook throws).
@@ -25,11 +41,7 @@ function moduleUrl(key: string, mod: Record<string, unknown>): string {
   >;
   registry[key] = mod;
   const names = Object.keys(mod).filter((n) => n !== "default");
-  const src = [
-    `const m = globalThis.__voltiusHostModules[${JSON.stringify(key)}];`,
-    ...names.map((n) => `export const ${n} = m[${JSON.stringify(n)}];`),
-    `export default m.default ?? m;`,
-  ].join("\n");
+  const src = hostModuleSource(key, names);
   return URL.createObjectURL(new Blob([src], { type: "text/javascript" }));
 }
 
