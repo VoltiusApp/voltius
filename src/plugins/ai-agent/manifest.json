@@ -2,7 +2,7 @@
   "id": "plugin-ai-agent",
   "name": "AI Agent",
   "version": "1.0.0",
-  "minAppVersion": "0.18.0",
+  "minAppVersion": "0.19.0",
   "description": "Bring-your-own-key AI assistant (Terminal Doctor). Reads terminal output and runs approved commands to help diagnose issues. Disableable; API keys stored locally in your OS keychain. The conversation, including any captured terminal output, is stored unencrypted on this device.",
   "permissions": [
     "terminal:read",
