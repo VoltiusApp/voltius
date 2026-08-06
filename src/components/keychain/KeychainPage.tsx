@@ -436,6 +436,34 @@ export default function KeychainPage() {
    * vault's root and a paste there belongs in it. With several on screen the root
    * names no destination, so every object keeps its own vault.
    */
+  /**
+   * A "(copy)" suffix only earns its place where the name would actually collide.
+   * Pasting into another vault is the common case where it does not: the original
+   * is not there, so the clone is just the object, not a copy of anything visible.
+   */
+  const nameIsFree = (
+    list: { name?: string; vault_id?: string; folder_id?: string | null }[],
+    name: string | undefined,
+    vaultId: string,
+    folderId: string | null,
+  ) =>
+    !name
+    || !list.some(
+      (x) =>
+        x.name === name
+        && (x.vault_id ?? "personal") === vaultId
+        && (x.folder_id ?? null) === folderId,
+    );
+
+  const folderNameIsFree = (name: string | undefined, vaultId: string, parentId: string | null) =>
+    !name
+    || !scopedFolders.some(
+      (f) =>
+        f.name === name
+        && (f.vault_id ?? "personal") === vaultId
+        && (f.parent_folder_id ?? null) === parentId,
+    );
+
   const vaultForFolder = (folderId: string | null): string | null =>
     folderId ? (scopedFolders.find((f) => f.id === folderId)?.vault_id ?? null) : scopedVaultId;
 
@@ -564,7 +592,10 @@ export default function KeychainPage() {
       for (const id of ids) {
         const key = keys.find((k) => k.id === id);
         if (!key) continue;
-        const dup = await duplicateKeyInto(key, folderId, { vaultId: targetVault });
+        const dup = await duplicateKeyInto(key, folderId, {
+          vaultId: targetVault,
+          keepName: nameIsFree(keys, key.name, targetVault ?? key.vault_id ?? "personal", folderId),
+        });
         keyIdMap.set(key.id, dup.id);
         created.set(id, dup.id);
       }
@@ -573,14 +604,26 @@ export default function KeychainPage() {
         if (!identity) continue;
         const dup = await duplicateIdentityInto(identity, folderId, {
           vaultId: targetVault,
+          keepName: nameIsFree(identities, identity.name, targetVault ?? identity.vault_id ?? "personal", folderId),
           keyId: identity.key_id ? (keyIdMap.get(identity.key_id) ?? identity.key_id) : undefined,
         });
         created.set(id, dup.id);
       }
       return ids.map((id) => created.get(id)).filter((id): id is string => !!id);
     },
-    duplicateFolder: async (id, parentFolderId) =>
-      (await copyFolderInto(id, parentFolderId, vaultForFolder(parentFolderId) ?? undefined)).id,
+    duplicateFolder: async (id, parentFolderId) => {
+      const targetVault = vaultForFolder(parentFolderId);
+      const folder = scopedFolders.find((f) => f.id === id);
+      return (
+        await copyFolderInto(id, parentFolderId, targetVault ?? undefined, {
+          keepName: folderNameIsFree(
+            folder?.name,
+            targetVault ?? folder?.vault_id ?? "personal",
+            parentFolderId,
+          ),
+        })
+      ).id;
+    },
     // The store methods directly, not handleDeleteKey/handleDeleteIdentity: those
     // swallow the error into the banner, which would let a failed undo report success.
     deleteItems: async (ids) => {
@@ -1073,6 +1116,7 @@ export default function KeychainPage() {
     folderId: string,
     parentFolderId: string | null,
     vaultId?: string,
+    opts: { keepName?: boolean } = {},
   ) => {
     const folder = scopedFolders.find((f) => f.id === folderId);
     if (!folder) throw new Error(`Unknown folder ${folderId}`);
@@ -1081,7 +1125,7 @@ export default function KeychainPage() {
     // compound to "Prod (copy) (copy)" on a second paste.
     // default name kept in English until all creation sites are localized together (see i18n issue #14)
     const root = await saveFolder({
-      name: `${folder.name} (copy)`,
+      name: opts.keepName ? folder.name : `${folder.name} (copy)`,
       object_type: folder.object_type,
       parent_folder_id: parentFolderId ?? undefined,
       vault_id: targetVaultId,

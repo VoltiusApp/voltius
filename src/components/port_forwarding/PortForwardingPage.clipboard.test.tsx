@@ -342,8 +342,10 @@ test("a copy creates the duplicate in the destination folder and vault", async (
   await dispatch("voltius:clipboard-copy");
   await dispatch("voltius:clipboard-paste");
 
+  // No rule of that name exists in the destination vault, so the clone is not
+  // "a copy" of anything visible there and keeps the plain name.
   expect(h.createRule).toHaveBeenCalledWith(expect.objectContaining({
-    name: "Grafana (copy)", folder_id: "tf", vault_id: "team-1",
+    name: "Grafana", folder_id: "tf", vault_id: "team-1",
   }));
 });
 

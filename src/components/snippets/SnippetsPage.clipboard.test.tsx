@@ -364,8 +364,10 @@ test("a copy creates the duplicate in the destination folder and vault", async (
   await dispatch("voltius:clipboard-copy");
   await dispatch("voltius:clipboard-paste");
 
+  // No snippet of that name exists in the destination vault, so the clone is not
+  // "a copy" of anything visible there and keeps the plain name.
   expect(h.createSnippet).toHaveBeenCalledWith(expect.objectContaining({
-    name: "Restart nginx (copy)", folder_id: "tf", vault_id: "team-1", favorite: false,
+    name: "Restart nginx", folder_id: "tf", vault_id: "team-1", favorite: false,
   }));
 });
 

@@ -344,6 +344,7 @@ export function PortForwardingPage() {
     folderId: string,
     parentFolderId: string | null,
     vaultId?: string,
+    opts: { keepName?: boolean } = {},
   ) => {
     const folder = scopedFolders.find((f) => f.id === folderId);
     if (!folder) throw new Error(`Unknown folder ${folderId}`);
@@ -351,7 +352,7 @@ export function PortForwardingPage() {
     // Only the root of the clone is renamed; renaming every descendant would
     // compound to "Prod (copy) (copy)" on a second paste.
     const root = await saveFolder({
-      name: `${folder.name} (copy)`,
+      name: opts.keepName ? folder.name : `${folder.name} (copy)`,
       object_type: folder.object_type,
       parent_folder_id: parentFolderId ?? undefined,
       vault_id: targetVaultId,
@@ -465,6 +466,34 @@ export function PortForwardingPage() {
    * vault's root and a paste there belongs in it. With several on screen the root
    * names no destination, so every object keeps its own vault.
    */
+  /**
+   * A "(copy)" suffix only earns its place where the name would actually collide.
+   * Pasting into another vault is the common case where it does not: the original
+   * is not there, so the clone is just the object, not a copy of anything visible.
+   */
+  const nameIsFree = (
+    list: { name?: string; vault_id?: string; folder_id?: string | null }[],
+    name: string | undefined,
+    vaultId: string,
+    folderId: string | null,
+  ) =>
+    !name
+    || !list.some(
+      (x) =>
+        x.name === name
+        && (x.vault_id ?? "personal") === vaultId
+        && (x.folder_id ?? null) === folderId,
+    );
+
+  const folderNameIsFree = (name: string | undefined, vaultId: string, parentId: string | null) =>
+    !name
+    || !scopedFolders.some(
+      (f) =>
+        f.name === name
+        && (f.vault_id ?? "personal") === vaultId
+        && (f.parent_folder_id ?? null) === parentId,
+    );
+
   const vaultForFolder = (folderId: string | null): string | null =>
     folderId ? (scopedFolders.find((f) => f.id === folderId)?.vault_id ?? null) : scopedVaultId;
 
@@ -545,12 +574,26 @@ export function PortForwardingPage() {
       for (const id of ids) {
         const rule = rules.find((r) => r.id === id);
         if (!rule) continue;
-        created.push((await duplicateRuleInto(rule, folderId, { vaultId: targetVault })).id);
+        created.push((await duplicateRuleInto(rule, folderId, {
+          vaultId: targetVault,
+          keepName: nameIsFree(rules, rule.name, targetVault ?? rule.vault_id ?? "personal", folderId),
+        })).id);
       }
       return created;
     },
-    duplicateFolder: async (id, parentFolderId) =>
-      (await copyFolderInto(id, parentFolderId, vaultForFolder(parentFolderId) ?? undefined)).id,
+    duplicateFolder: async (id, parentFolderId) => {
+      const targetVault = vaultForFolder(parentFolderId);
+      const folder = scopedFolders.find((f) => f.id === id);
+      return (
+        await copyFolderInto(id, parentFolderId, targetVault ?? undefined, {
+          keepName: folderNameIsFree(
+            folder?.name,
+            targetVault ?? folder?.vault_id ?? "personal",
+            parentFolderId,
+          ),
+        })
+      ).id;
+    },
     deleteItems: async (ids) => { for (const id of ids) await deleteRule(id); },
     deleteFolder: async (id) => { await deleteFolder(id); },
     setSelection,

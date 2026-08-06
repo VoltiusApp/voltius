@@ -357,6 +357,29 @@ export default function HostsPage() {
     keyId: conn.key_id ? cascadeRemap.current.keys.get(conn.key_id) ?? conn.key_id : undefined,
   });
 
+  /**
+   * A "(copy)" suffix only earns its place where the name would actually collide.
+   * Pasting into another vault is the common case where it does not: the original
+   * is not there, so the clone is just the host, not a copy of anything visible.
+   */
+  const nameIsFree = (name: string | undefined, vaultId: string, folderId: string | null) =>
+    !name
+    || !connections.some(
+      (c) =>
+        c.name === name
+        && (c.vault_id ?? "personal") === vaultId
+        && (c.folder_id ?? null) === folderId,
+    );
+
+  const folderNameIsFree = (name: string | undefined, vaultId: string, parentId: string | null) =>
+    !name
+    || !scopedFolders.some(
+      (f) =>
+        f.name === name
+        && (f.vault_id ?? "personal") === vaultId
+        && (f.parent_folder_id ?? null) === parentId,
+    );
+
   /** Hosts a paste writes, from the selected items and every folder subtree in it. */
   const pastedConnections = (
     items: { id: string; kind: VaultClipboardKind }[],
@@ -591,14 +614,26 @@ export default function HostsPage() {
         if (!conn) continue;
         const dup = await handleDuplicateInto(conn, folderId, {
           vaultId: targetVault ?? undefined,
+          keepName: nameIsFree(conn.name, targetVault ?? conn.vault_id ?? "personal", folderId),
           ...remappedLinks(conn),
         });
         if (dup) created.push(dup.id);
       }
       return created;
     },
-    duplicateFolder: async (id, parentFolderId) =>
-      (await handleCopyFolderInto(id, parentFolderId, vaultForFolder(parentFolderId) ?? undefined)).id,
+    duplicateFolder: async (id, parentFolderId) => {
+      const targetVault = vaultForFolder(parentFolderId);
+      const folder = scopedFolders.find((f) => f.id === id);
+      return (
+        await handleCopyFolderInto(id, parentFolderId, targetVault ?? undefined, {
+          keepName: folderNameIsFree(
+            folder?.name,
+            targetVault ?? folder?.vault_id ?? "personal",
+            parentFolderId,
+          ),
+        })
+      ).id;
+    },
     deleteItems: async (ids) => { for (const id of ids) await deleteConnection(id); },
     deleteFolder: async (id) => { await deleteFolder(id); },
     setSelection,
@@ -1209,6 +1244,7 @@ export default function HostsPage() {
     folderId: string,
     parentFolderId: string | null,
     vaultId?: string,
+    opts: { keepName?: boolean } = {},
   ) => {
     const folder = scopedFolders.find((f) => f.id === folderId);
     if (!folder) throw new Error(`Unknown folder ${folderId}`);
@@ -1217,7 +1253,7 @@ export default function HostsPage() {
     // compound to "web-1 (copy) (copy)" on a second paste.
     // default name kept in English until all creation sites are localized together (see i18n issue #14)
     const root = await saveFolder({
-      name: `${folder.name} (copy)`,
+      name: opts.keepName ? folder.name : `${folder.name} (copy)`,
       object_type: folder.object_type,
       parent_folder_id: parentFolderId ?? undefined,
       vault_id: targetVaultId,

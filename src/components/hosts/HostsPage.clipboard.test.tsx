@@ -859,3 +859,46 @@ test("a host with no key or identity cascades nothing", async () => {
   expect(h.saveIdentity).not.toHaveBeenCalled();
   expect(h.confirmCrossVault).toHaveBeenCalledWith(expect.objectContaining({ cascade: [] }));
 });
+
+// ── Clone naming ──────────────────────────────────────────────────────────────
+
+// The destination vault has no host by that name, so the clone is just the host.
+test("a cross-vault copy keeps the original name", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.connections = [conn("c1", { name: "web-1" })];
+  h.selected = ["c1"];
+  h.activeFolderId = "tf";
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-copy");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.saveConnection).toHaveBeenCalledWith(expect.objectContaining({ name: "web-1" }));
+});
+
+// Same vault, same folder: the name really is taken, so the suffix earns its place.
+test("a copy alongside the original is still suffixed", async () => {
+  h.connections = [conn("c1", { name: "web-1" })];
+  h.selected = ["c1"];
+  h.activeFolderId = null;
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-copy");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.saveConnection).toHaveBeenCalledWith(expect.objectContaining({ name: "web-1 (copy)" }));
+});
+
+// A name already used in the destination vault still collides, cross-vault or not.
+test("a cross-vault copy is suffixed when the destination already has the name", async () => {
+  h.folders = [folder("tf", { vault_id: "team-1" })];
+  h.connections = [conn("c1", { name: "web-1" }), conn("c2", { name: "web-1", vault_id: "team-1", folder_id: "tf" })];
+  h.selected = ["c1"];
+  h.activeFolderId = "tf";
+  render(<HostsPage />);
+
+  await dispatch("voltius:clipboard-copy");
+  await dispatch("voltius:clipboard-paste");
+
+  expect(h.saveConnection).toHaveBeenCalledWith(expect.objectContaining({ name: "web-1 (copy)" }));
+});
