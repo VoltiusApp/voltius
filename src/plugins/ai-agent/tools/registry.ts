@@ -11,8 +11,12 @@ import {
   type PlanStepTool,
   type PlanVerdict,
 } from "../state/planTokens";
-import { captureCommand, sendSerialCommand } from "./capture";
-import { guardConnectionId, guardPlanConnectionIds } from "./connectionGuard";
+import {
+  captureCommand,
+  guardConnectionId,
+  guardPlanConnectionIds,
+  sendSerialCommand,
+} from "@voltius/tools";
 
 export interface AgentContext {
   api: PluginAPI;

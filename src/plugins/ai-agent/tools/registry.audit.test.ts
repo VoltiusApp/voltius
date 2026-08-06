@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const auditAgentAction = vi.fn();
 vi.mock("../state/auditSeam", () => ({ auditAgentAction }));
-vi.mock("./capture", () => ({
+vi.mock("@voltius/tools", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@voltius/tools")>()),
   captureCommand: vi.fn(async () => ({ output: "ok", exitCode: 0 })),
   sendSerialCommand: vi.fn(async () => ({ output: "device", exitCode: null })),
 }));

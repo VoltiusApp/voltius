@@ -18,7 +18,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@voltius/ui": ["src/plugins/ui.ts"]
+      "@voltius/ui": ["src/plugins/ui.ts"],
+      "@voltius/tools": ["src/plugins/toolSurface/index.ts"]
     }
   },
   "include": ["src"]

@@ -8,11 +8,12 @@ import {
   type PlanStep,
 } from "../state/planTokens";
 
-vi.mock("./capture", () => ({
+vi.mock("@voltius/tools", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@voltius/tools")>()),
   captureCommand: vi.fn(async () => ({ output: "ok", exitCode: 0, timedOut: false, truncated: false, incomplete: false })),
   sendSerialCommand: vi.fn(async () => ({ output: "device", exitCode: null, timedOut: false, truncated: false, incomplete: true })),
 }));
-import { captureCommand, sendSerialCommand } from "./capture";
+import { captureCommand, sendSerialCommand } from "@voltius/tools";
 
 vi.mock("../state/auditSeam", () => ({ auditAgentAction: vi.fn() }));
 import { auditAgentAction } from "../state/auditSeam";

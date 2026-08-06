@@ -23,6 +23,7 @@ describe("hostModules", () => {
     expect(Object.keys(urls).sort()).toEqual([
       "@iconify/react",
       "@voltius/api",
+      "@voltius/tools",
       "@voltius/ui",
       "react",
       "react-dom",

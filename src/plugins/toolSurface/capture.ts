@@ -1,5 +1,5 @@
 import type { PluginAPI } from "@/plugins/api";
-import type { CaptureOptions, RunCommandResult } from "../types";
+import type { CaptureOptions, RunCommandResult } from "./types";
 
 export const MARKER_PREFIX = "__VLT_END_";
 

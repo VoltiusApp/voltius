@@ -7,6 +7,7 @@ import * as ReactJsxRuntime from "react/jsx-runtime";
 import * as ReactDOM from "react-dom";
 import * as IconifyReact from "@iconify/react";
 import * as VoltiusUI from "./ui";
+import * as VoltiusTools from "./toolSurface";
 import * as zod from "zod";
 import { isHostIconPrefix } from "@/utils/hostIconPrefixes";
 import { hostModuleSource } from "./hostModuleSource";
@@ -72,6 +73,10 @@ export function hostModuleUrls(): Record<string, string> {
     "@iconify/react": moduleUrl("@iconify/react", guardedIconify()),
     "@voltius/ui": moduleUrl("@voltius/ui", VoltiusUI as unknown as Record<string, unknown>),
     "@voltius/api": moduleUrl("@voltius/api", {}),
+    "@voltius/tools": moduleUrl(
+      "@voltius/tools",
+      VoltiusTools as unknown as Record<string, unknown>,
+    ),
     zod: moduleUrl("zod", zod as unknown as Record<string, unknown>),
   };
   return _urls;
