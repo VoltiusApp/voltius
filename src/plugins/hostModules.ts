@@ -9,26 +9,12 @@ import * as IconifyReact from "@iconify/react";
 import * as VoltiusUI from "./ui";
 import * as zod from "zod";
 import { isHostIconPrefix } from "@/utils/hostIconPrefixes";
+import { hostModuleSource } from "./hostModuleSource";
 
 export { HOST_SPECIFIERS } from "./hostSpecifiers";
+export { hostModuleSource } from "./hostModuleSource";
 
 let _urls: Record<string, string> | null = null;
-
-/**
- * Exported for test: `moduleUrl`'s blob URL cannot be imported under jsdom.
- */
-export function hostModuleSource(key: string, names: string[]): string {
-  // An export clause, not `export const`: the exported name is an IdentifierName,
-  // so reserved words like zod's `enum` / `function` / `void` are legal there.
-  return [
-    `const m = globalThis.__voltiusHostModules[${JSON.stringify(key)}];`,
-    ...names.map((n, i) => `const _v${i} = m[${JSON.stringify(n)}];`),
-    names.length ? `export { ${names.map((n, i) => `_v${i} as ${n}`).join(", ")} };` : "",
-    `export default m.default ?? m;`,
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
 
 /**
  * Re-export a live host module object as an ES module the plugin bundle can import.

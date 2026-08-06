@@ -246,7 +246,7 @@ describe("hostModules", () => {
   });
 
   test("hostModuleSource exports reserved-word names", async () => {
-    const { hostModuleSource } = await import("./hostModules");
+    const { hostModuleSource } = await import("./hostModuleSource");
     const registry = ((globalThis as Record<string, unknown>).__voltiusHostModules ??= {}) as Record<
       string,
       unknown
