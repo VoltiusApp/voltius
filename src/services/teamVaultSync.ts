@@ -474,10 +474,12 @@ export async function saveTeamData(teamId: string): Promise<void> {
     ...teamConns.flatMap((c) => [
       getSecret(`key:${c.id}`).then((v) => v ? [`key:${c.id}`, v] : null).catch(() => null),
       getSecret(`password:${c.id}`).then((v) => v ? [`password:${c.id}`, v] : null).catch(() => null),
+      getSecret(`passphrase:${c.id}`).then((v) => v ? [`passphrase:${c.id}`, v] : null).catch(() => null),
     ]),
     ...teamKeys.flatMap((k) => [
       getSecret(`key:${k.id}:private`).then((v) => v ? [`key:${k.id}:private`, v] : null).catch(() => null),
       getSecret(`key:${k.id}:public`).then((v) => v ? [`key:${k.id}:public`, v] : null).catch(() => null),
+      getSecret(`key:${k.id}:passphrase`).then((v) => v ? [`key:${k.id}:passphrase`, v] : null).catch(() => null),
     ]),
     ...teamIdentities.map((i) =>
       getSecret(`identity:${i.id}:password`).then((v) => v ? [`identity:${i.id}:password`, v] : null).catch(() => null),
@@ -519,10 +521,12 @@ async function _clearTeamStores(teamId: string): Promise<void> {
     ...conns.flatMap((c) => [
       deleteSecret(`key:${c.id}`),
       deleteSecret(`password:${c.id}`),
+      deleteSecret(`passphrase:${c.id}`),
     ]),
     ...keys.flatMap((k) => [
       deleteSecret(`key:${k.id}:private`),
       deleteSecret(`key:${k.id}:public`),
+      deleteSecret(`key:${k.id}:passphrase`),
     ]),
     ...identities.map((i) => deleteSecret(`identity:${i.id}:password`)),
   ]);

@@ -1,6 +1,14 @@
 import { test, expect, vi, beforeEach, afterEach } from "vitest";
 
-const h = vi.hoisted(() => ({ invoke: vi.fn(), appFetch: vi.fn(), listMembers: vi.fn(), unwrap: vi.fn() }));
+const h = vi.hoisted(() => ({
+  invoke: vi.fn(),
+  appFetch: vi.fn(),
+  listMembers: vi.fn(),
+  unwrap: vi.fn(),
+  getSecret: vi.fn(),
+  storeSecret: vi.fn(),
+  deleteSecret: vi.fn(),
+}));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: h.invoke }));
 vi.mock("@/services/http", () => ({ appFetch: h.appFetch }));
 vi.mock("@/services/teamService", () => ({ listMembers: h.listMembers }));
@@ -10,9 +18,9 @@ vi.mock("@/services/multiplayerService", () => ({
   getMyX25519Keypair: vi.fn(),
 }));
 vi.mock("@/services/vault", () => ({
-  getSecret: vi.fn(async () => null),
-  storeSecret: vi.fn(async () => {}),
-  deleteSecret: vi.fn(async () => {}),
+  getSecret: h.getSecret,
+  storeSecret: h.storeSecret,
+  deleteSecret: h.deleteSecret,
 }));
 vi.mock("@/services/teamObjects", () => ({ listTeamObjects: vi.fn(async () => []) }));
 
@@ -46,6 +54,12 @@ beforeEach(() => {
   h.appFetch.mockReset();
   h.listMembers.mockReset();
   h.unwrap.mockReset();
+  h.getSecret.mockReset();
+  h.storeSecret.mockReset();
+  h.deleteSecret.mockReset();
+  h.getSecret.mockResolvedValue(null);
+  h.storeSecret.mockResolvedValue(undefined);
+  h.deleteSecret.mockResolvedValue(undefined);
   clearTeamKeyCache();
 });
 afterEach(() => {
@@ -87,6 +101,81 @@ test("saveTeamData encrypts the seven store slices and PUTs the blob", async () 
   expect(url).toBe("https://s/v1/teams/t-save-1/sync-blob");
   const body = JSON.parse(init.body as string);
   expect(typeof body.blob).toBe("string");
+});
+
+/**
+ * The blob is the fallback path, taken whenever the object route returns
+ * nothing or fails. It collected a connection's password and key but not the
+ * passphrase for that key, and an ssh key's private/public halves but not its
+ * passphrase — so a member restored from a blob held material they could not
+ * open.
+ */
+test("saveTeamData puts every secret an object owns into the blob, passphrases included", async () => {
+  const teamId = "t-save-passphrase";
+  useConnectionStore.getState().setTeamConnections(teamId, [{ id: "c1" }] as never);
+  useKeyStore.getState().setTeamKeys(teamId, [{ id: "k1" }] as never);
+  useIdentityStore.getState().setTeamIdentities(teamId, [{ id: "i1" }] as never);
+
+  keychain({ server_url: "https://s", jwt: futureJwt() });
+  h.getSecret.mockImplementation(async (k: string) => `val-${k}`);
+  h.appFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+    if (url.endsWith("/vault-key")) return res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1" });
+    if (url.endsWith("/sync-blob") && init?.method === "PUT") return res(200);
+    throw new Error(`unexpected fetch ${url}`);
+  });
+  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.unwrap.mockResolvedValue(new Uint8Array([9, 9, 9]));
+
+  await saveTeamData(teamId);
+
+  const encryptCall = h.invoke.mock.calls.find(([cmd]) => cmd === "encrypt_payload");
+  expect(Object.keys(encryptCall![1].secrets).sort()).toEqual(
+    [
+      "password:c1",
+      "key:c1",
+      "passphrase:c1",
+      "key:k1:private",
+      "key:k1:public",
+      "key:k1:passphrase",
+      "identity:i1:password",
+    ].sort(),
+  );
+});
+
+/**
+ * Clearing a team vault wipes its secrets from disk first, while the ids are
+ * still in memory. It skipped both passphrase shapes, so they outlived the
+ * vault they belonged to.
+ */
+test("clearing a team vault deletes every secret it owns, passphrases included", async () => {
+  const teamId = "t-clear-passphrase";
+  useConnectionStore.getState().setTeamConnections(teamId, [{ id: "c1" }] as never);
+  useKeyStore.getState().setTeamKeys(teamId, [{ id: "k1" }] as never);
+  useIdentityStore.getState().setTeamIdentities(teamId, [{ id: "i1" }] as never);
+
+  keychain({ server_url: "https://s", jwt: futureJwt() });
+  h.appFetch.mockImplementation(async (url: string) => {
+    if (url.endsWith("/vault-key")) return res(200, { wrapped_key: "wk", wrapped_by_user_id: "u1" });
+    // No blob yet — the path that clears the vault to show it as empty.
+    if (url.endsWith("/sync-blob")) return res(404);
+    throw new Error(`unexpected fetch ${url}`);
+  });
+  h.listMembers.mockResolvedValue([{ user_id: "u1", public_key: "pk" }]);
+  h.unwrap.mockResolvedValue(new Uint8Array([9, 9, 9]));
+
+  await fetchTeamData(teamId);
+
+  expect(h.deleteSecret.mock.calls.map((c) => c[0]).sort()).toEqual(
+    [
+      "password:c1",
+      "key:c1",
+      "passphrase:c1",
+      "key:k1:private",
+      "key:k1:public",
+      "key:k1:passphrase",
+      "identity:i1:password",
+    ].sort(),
+  );
 });
 
 test("saveTeamData throws when the PUT fails", async () => {
