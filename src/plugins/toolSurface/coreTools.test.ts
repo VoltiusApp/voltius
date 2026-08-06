@@ -65,7 +65,7 @@ describe("core tool surface", () => {
   });
 });
 
-describe("tool registry", () => {
+describe("core tools", () => {
   test("open_session refuses an unknown connection id without raising a card", async () => {
     const c = makePorts();
     const res: any = await buildCoreTools(c).find((t) => t.name === "open_session")!.execute({ connectionId: "h1" });

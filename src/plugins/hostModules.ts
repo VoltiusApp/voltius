@@ -13,7 +13,6 @@ import { isHostIconPrefix } from "@/utils/hostIconPrefixes";
 import { hostModuleSource } from "./hostModuleSource";
 
 export { HOST_SPECIFIERS } from "./hostSpecifiers";
-export { hostModuleSource } from "./hostModuleSource";
 
 let _urls: Record<string, string> | null = null;
 

@@ -16,8 +16,10 @@ export const HOST_SPECIFIERS = [
   "@voltius/ui",
   "@voltius/api",
   "@voltius/tools",
-  // Plugin bundles must not carry their own zod: the host builds tool schemas
-  // (@voltius/tools) that a plugin's AI-SDK converts, and two zod instances
-  // meeting at one converter fail at runtime.
+  // Shared so the host's tool schemas (@voltius/tools) and a plugin's own
+  // schemas are one instance. It does NOT eliminate every copy: the AI SDK
+  // imports the zod/v3 and zod/v4 subpaths, which this exact-match external
+  // list does not cover, so a bundle still inlines one. That is safe because
+  // zod v4's toJSONSchema is trait-driven, not instanceof-driven.
   "zod",
 ] as const;
