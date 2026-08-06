@@ -15,4 +15,8 @@ export const HOST_SPECIFIERS = [
   "@iconify/react",
   "@voltius/ui",
   "@voltius/api",
+  // Plugin bundles must not carry their own zod: the host builds tool schemas
+  // (@voltius/tools) that a plugin's AI-SDK converts, and two zod instances
+  // meeting at one converter fail at runtime.
+  "zod",
 ] as const;

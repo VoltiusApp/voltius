@@ -27,6 +27,7 @@ describe("hostModules", () => {
       "react",
       "react-dom",
       "react/jsx-runtime",
+      "zod",
     ]);
     for (const url of Object.values(urls)) expect(url.startsWith("blob:")).toBe(true);
   });
