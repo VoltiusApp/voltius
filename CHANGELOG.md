@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-08-06
+
+### Added
+
+- Pasting a host into another vault now carries its key and identity across, so
+  the pasted host still connects instead of landing without credentials.
+- `useT` and `useSessionById` are available to plugins from `@voltius/ui`.
+
+### Fixed
+
+- Renaming a folder moved it into the Personal vault. Any folder kept in another
+  vault was silently relocated, taking everything filed in it along.
+- Moving a key, identity, connection or folder to another vault unpinned it, as
+  did renaming or reparenting a folder.
+- Members of a team vault received a passphrase-protected connection key without
+  its passphrase, so they could not connect. Both the current and the legacy
+  storage paths now publish it.
+- The folder picker in the host, serial-host, key and identity editors offered
+  every page's folders, so a host could be filed into a keychain folder — the
+  editor then showed it in a folder its own page does not list, leaving it
+  sitting unfiled at the top level. Creating a folder from the key or identity
+  editor made a host folder for the same reason.
+- Pasting a copied object no longer appends "(copy)" when nothing of that name
+  is there to collide with.
+
 ## [0.17.1] - 2026-08-05
 
 ### Added
