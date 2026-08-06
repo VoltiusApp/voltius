@@ -1,14 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const auditAgentAction = vi.fn();
-vi.mock("../state/auditSeam", () => ({ auditAgentAction }));
-vi.mock("@voltius/tools", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@voltius/tools")>()),
+const audit = vi.fn();
+vi.mock("./capture", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./capture")>()),
   captureCommand: vi.fn(async () => ({ output: "ok", exitCode: 0 })),
   sendSerialCommand: vi.fn(async () => ({ output: "device", exitCode: null })),
 }));
 
-const { buildTools } = await import("./registry");
+const { buildCoreTools } = await import("./coreTools");
 
 function tools(approve: ReturnType<typeof vi.fn>) {
   const api = {
@@ -28,19 +27,19 @@ function tools(approve: ReturnType<typeof vi.fn>) {
     },
   };
   const owned = new Set<string>();
-  return { list: buildTools({ api, approve, owned } as never), owned, api };
+  return { list: buildCoreTools({ api, approve, audit, owned } as never), owned, api };
 }
 
-const byName = (list: ReturnType<typeof buildTools>, n: string) => list.find((t) => t.name === n)!;
+const byName = (list: ReturnType<typeof buildCoreTools>, n: string) => list.find((t) => t.name === n)!;
 
-beforeEach(() => auditAgentAction.mockClear());
+beforeEach(() => audit.mockClear());
 
 describe("execution auditing", () => {
   it("records an opened session against its connection", async () => {
     const approve = vi.fn(async () => ({ approve: true, scope: "c1", via: "prompted" }));
     const { list } = tools(approve);
     await byName(list, "open_session").execute({ connectionId: "c1" });
-    expect(auditAgentAction).toHaveBeenCalledWith("c1", "agent.session_opened", { tool: "open_session", approval: "prompted" });
+    expect(audit).toHaveBeenCalledWith("c1", "agent.session_opened", { tool: "open_session", approval: "prompted" });
   });
 
   it("records a command with the approval reason on the wire and the text local-only", async () => {
@@ -48,7 +47,7 @@ describe("execution auditing", () => {
     const { list, owned } = tools(approve);
     owned.add("s1");
     await byName(list, "run_command").execute({ sessionId: "s1", command: "uptime" });
-    expect(auditAgentAction).toHaveBeenCalledWith(
+    expect(audit).toHaveBeenCalledWith(
       "c1", "agent.command_run",
       { tool: "run_command", approval: "granted", sessionType: "ssh", agentOwned: true },
       { command: "uptime" },
@@ -60,7 +59,7 @@ describe("execution auditing", () => {
     const { list, owned } = tools(approve);
     owned.add("s1");
     await byName(list, "run_command").execute({ sessionId: "s1", command: "uptime" });
-    expect(auditAgentAction.mock.calls[0][2]).toEqual({ tool: "run_command", approval: "auto_mode", sessionType: "ssh", agentOwned: true });
+    expect(audit.mock.calls[0][2]).toEqual({ tool: "run_command", approval: "auto_mode", sessionType: "ssh", agentOwned: true });
   });
 
   it("carries via=prompted through to the approval classifier", async () => {
@@ -68,14 +67,14 @@ describe("execution auditing", () => {
     const { list, owned } = tools(approve);
     owned.add("s1");
     await byName(list, "run_command").execute({ sessionId: "s1", command: "uptime" });
-    expect(auditAgentAction.mock.calls[0][2]).toEqual({ tool: "run_command", approval: "prompted", sessionType: "ssh", agentOwned: true });
+    expect(audit.mock.calls[0][2]).toEqual({ tool: "run_command", approval: "prompted", sessionType: "ssh", agentOwned: true });
   });
 
   it("flags a command run in the user's own session as not agent-owned", async () => {
     const approve = vi.fn(async () => ({ approve: true, scope: "c1", via: "prompted" }));
     const { list } = tools(approve); // s1 is live but never added to `owned`
     await byName(list, "run_command").execute({ sessionId: "s1", command: "uptime" });
-    expect(auditAgentAction.mock.calls[0][2]).toMatchObject({ agentOwned: false, sessionType: "ssh" });
+    expect(audit.mock.calls[0][2]).toMatchObject({ agentOwned: false, sessionType: "ssh" });
   });
 
   it("records a closed session", async () => {
@@ -83,7 +82,7 @@ describe("execution auditing", () => {
     const { list, owned } = tools(approve);
     owned.add("s1");
     await byName(list, "close_session").execute({ sessionId: "s1" });
-    expect(auditAgentAction).toHaveBeenCalledWith("c1", "agent.session_closed", { tool: "close_session", approval: "prompted" });
+    expect(audit).toHaveBeenCalledWith("c1", "agent.session_closed", { tool: "close_session", approval: "prompted" });
   });
 
   it("records NOTHING when the gate rejects — the store logs the denial", async () => {
@@ -91,14 +90,14 @@ describe("execution auditing", () => {
     const { list, owned } = tools(approve);
     owned.add("s1");
     await byName(list, "run_command").execute({ sessionId: "s1", command: "uptime" });
-    expect(auditAgentAction).not.toHaveBeenCalled();
+    expect(audit).not.toHaveBeenCalled();
   });
 
   it("records NOTHING for an unowned session — it never reaches the gate", async () => {
     const approve = vi.fn(async () => ({ approve: true, scope: "c1", via: "prompted" }));
     const { list } = tools(approve);
     await byName(list, "run_command").execute({ sessionId: "not-ours", command: "uptime" });
-    expect(auditAgentAction).not.toHaveBeenCalled();
+    expect(audit).not.toHaveBeenCalled();
   });
 
   // Each of these must also be on the server's CLIENT_WHITELIST; an action it
@@ -117,8 +116,8 @@ describe("execution auditing", () => {
     const approve = vi.fn(async () => ({ approve: true, scope: "c1", via: "prompted" }));
     const { list } = tools(approve);
     await byName(list, tool).execute(args);
-    expect(auditAgentAction.mock.calls[0][1]).toBe(action);
-    expect(auditAgentAction.mock.calls[0][2]).toMatchObject({ tool });
+    expect(audit.mock.calls[0][1]).toBe(action);
+    expect(audit.mock.calls[0][2]).toMatchObject({ tool });
   });
 
   it("records NOTHING for read-only tools", async () => {
@@ -126,6 +125,6 @@ describe("execution auditing", () => {
     const { list } = tools(approve);
     await byName(list, "list_connections").execute({});
     await byName(list, "read_terminal").execute({ sessionId: "s1" });
-    expect(auditAgentAction).not.toHaveBeenCalled();
+    expect(audit).not.toHaveBeenCalled();
   });
 });
