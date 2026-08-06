@@ -1,7 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
 import { appFetch } from "@/services/http";
-import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { getJwt, getServerUrl, isJwtExpiredOrExpiring, tryRefreshJwt } from "@/services/authTokens";
 
 export type TeamObjectType =
   | "connection"
@@ -59,41 +58,6 @@ function apiError(message: string, opts?: { status?: number; offline?: boolean }
   if (opts?.status !== undefined) err.status = opts.status;
   if (opts?.offline) err.offline = true;
   return err;
-}
-
-async function getServerUrl(): Promise<string | null> {
-  return invoke<string | null>("keychain_get", { key: "server_url" });
-}
-
-async function getJwt(): Promise<string | null> {
-  return invoke<string | null>("keychain_get", { key: "jwt" });
-}
-
-function isJwtExpiredOrExpiring(jwt: string): boolean {
-  try {
-    const payload = JSON.parse(atob(jwt.split(".")[1]));
-    return Date.now() > payload.exp * 1000 - 60_000;
-  } catch {
-    return true;
-  }
-}
-
-async function tryRefreshJwt(): Promise<string | null> {
-  const [refreshToken, serverUrl] = await Promise.all([
-    invoke<string | null>("keychain_get", { key: "refresh_token" }),
-    getServerUrl(),
-  ]);
-  if (!refreshToken || !serverUrl) return null;
-  const res = await appFetch(`${serverUrl}/v1/auth/refresh`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  });
-  if (!res.ok) return null;
-  const { jwt_token } = await res.json();
-  await invoke("keychain_set", { key: "jwt", value: jwt_token });
-  await useSubscriptionStore.getState().load().catch(() => undefined);
-  return jwt_token;
 }
 
 async function fetchTeamApi(path: string, init: RequestInit): Promise<Response> {

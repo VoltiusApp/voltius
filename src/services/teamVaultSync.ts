@@ -18,13 +18,13 @@ import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
 import { wrapSessionKeyForUser, unwrapSessionKey, getMyX25519Keypair } from "@/services/multiplayerService";
 import * as teamService from "@/services/teamService";
+import { getJwt, getServerUrl, isJwtExpiredOrExpiring, tryRefreshJwt } from "@/services/authTokens";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { getSecret, storeSecret, deleteSecret } from "@/services/vault";
 import type { Connection, Identity, SshKey, Folder, Snippet, PortForwardingRule } from "@/types";
 import type { TeamMember } from "@/services/teamService";
 import { appFetch } from "@/services/http";
 import { listTeamObjects, type TeamObjectRecord } from "@/services/teamObjects";
-import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import {
   shouldShowBlockingTeamVaultLoad,
   TeamVaultRefreshQueue,
@@ -61,41 +61,6 @@ export function deleteTeamKey(teamId: string): void {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-async function getServerUrl(): Promise<string | null> {
-  return invoke<string | null>("keychain_get", { key: "server_url" });
-}
-
-async function getJwt(): Promise<string | null> {
-  return invoke<string | null>("keychain_get", { key: "jwt" });
-}
-
-function isJwtExpiredOrExpiring(jwt: string): boolean {
-  try {
-    const payload = JSON.parse(atob(jwt.split(".")[1]));
-    return Date.now() > payload.exp * 1000 - 60_000;
-  } catch {
-    return true;
-  }
-}
-
-async function tryRefreshJwt(): Promise<string | null> {
-  const [refreshToken, serverUrl] = await Promise.all([
-    invoke<string | null>("keychain_get", { key: "refresh_token" }),
-    getServerUrl(),
-  ]);
-  if (!refreshToken || !serverUrl) return null;
-  const res = await appFetch(`${serverUrl}/v1/auth/refresh`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  });
-  if (!res.ok) return null;
-  const { jwt_token } = await res.json();
-  await invoke("keychain_set", { key: "jwt", value: jwt_token });
-  await useSubscriptionStore.getState().load().catch(() => undefined);
-  return jwt_token;
-}
 
 async function fetchWithAuth(url: string, init: RequestInit): Promise<Response> {
   let jwt = await getJwt();

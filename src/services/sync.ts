@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
+import { getJwt, getServerUrl, isJwtExpiredOrExpiring } from "@/services/authTokens";
 import { getVaultKey, unlockVaultIfNeeded } from "@/services/vault";
 import { useThemeStore } from "@/stores/themeStore";
 import { buildUserDataBundle, mergeUserDataBundle, applyUserDataBundle } from "@/services/user-data/registry";
@@ -127,13 +128,7 @@ function applyRemoteLiveSessions(remoteDeviceId: string, remotePayload: BlobPayl
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-async function getJwt(): Promise<string | null> {
-  return invoke<string | null>("keychain_get", { key: "jwt" });
-}
-
-export async function getServerUrl(): Promise<string | null> {
-  return invoke<string | null>("keychain_get", { key: "server_url" });
-}
+export { getServerUrl };
 
 /** Try to refresh the access token using the stored refresh_token. Returns new JWT or null. */
 async function tryRefreshJwt(): Promise<string | null> {
@@ -191,15 +186,6 @@ async function tryRefreshJwt(): Promise<string | null> {
   }
 
   return jwt_token;
-}
-
-function isJwtExpiredOrExpiring(jwt: string): boolean {
-  try {
-    const payload = JSON.parse(atob(jwt.split(".")[1]));
-    return Date.now() > payload.exp * 1000 - 60_000; // refresh 60s before expiry
-  } catch {
-    return true;
-  }
 }
 
 function isPaymentRequired(error: unknown): boolean {

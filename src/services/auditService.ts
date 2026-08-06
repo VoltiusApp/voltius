@@ -1,6 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
 import { appFetch } from "@/services/http";
+import { getJwt, getServerUrl } from "@/services/authTokens";
 import type { AnyAuditAction } from "@/services/auditContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -31,14 +31,6 @@ export interface AuditFilters {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-async function getJwt(): Promise<string | null> {
-  return invoke<string | null>("keychain_get", { key: "jwt" });
-}
-
-async function getServerUrl(): Promise<string | null> {
-  return invoke<string | null>("keychain_get", { key: "server_url" });
-}
 
 async function fetchAuth(url: string, init: RequestInit = {}): Promise<Response> {
   const jwt = await getJwt();
