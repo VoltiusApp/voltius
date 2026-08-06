@@ -7,6 +7,7 @@ import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
 import { useEffectiveSyncStatus } from "@/hooks/useEffectiveSyncStatus";
 import { syncStatusIcon, syncStatusColor } from "@/services/syncStatus";
+import { useStatusBarContributions } from "@/hooks/useStatusBarContributions";
 
 export default function MobileHeader({ title, onAdd }: { title?: string; onAdd?: () => void }) {
   const { t } = useTranslation();
@@ -19,6 +20,7 @@ export default function MobileHeader({ title, onAdd }: { title?: string; onAdd?:
   const vaultName =
     vaults.find((v) => v.id === id)?.name ?? teams.find((tm) => tm.id === id)?.name ?? t("common.entity.vault");
   const counts = useVaultContents(id);
+  const titleBarItems = useStatusBarContributions("titlebar.right");
   const sync = useEffectiveSyncStatus();
 
   return (
@@ -53,6 +55,12 @@ export default function MobileHeader({ title, onAdd }: { title?: string; onAdd?:
             />
           </span>
         )}
+        {/* Same slot the desktop TitleBar renders, so a plugin's title-bar
+            widget (the AI agent's button and its pending-approval badge) is
+            reachable on mobile without registering a second surface. */}
+        {titleBarItems.map((item) => (
+          <span key={item.key} className="flex items-center">{item.node}</span>
+        ))}
         {onAdd && (
           <button data-mobile-add onClick={onAdd} className="p-2 -mr-2 text-(--t-text-primary)">
             <Icon icon="lucide:plus" width={22} />

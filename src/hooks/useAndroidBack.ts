@@ -31,10 +31,19 @@ export function useAndroidBack() {
       return settingsOpen ? 1 + (settingsSubPage ? 1 : 0) : 0;
     };
 
+    // A shell-level plugin panel (the AI agent's drawer) is full-screen on
+    // mobile and lives outside the nav stack, so it needs its own trap or the
+    // first hardware back would background the app with the panel still open.
+    const openPanels = () =>
+      Object.entries(useUIStore.getState().globalPanelOpen).filter(([, open]) => open);
+
     const wantTraps = () => {
       const { tab, stack, sheet } = useMobileNavStore.getState();
       const overlays = useBackStackStore.getState().stack.length;
-      return (tab !== "hosts" ? 1 : 0) + stack.length + (sheet !== null ? 1 : 0) + overlays + settingsDepth();
+      return (
+        (tab !== "hosts" ? 1 : 0) + stack.length + (sheet !== null ? 1 : 0) +
+        overlays + settingsDepth() + openPanels().length
+      );
     };
 
     const syncTraps = () => {
@@ -62,6 +71,12 @@ export function useAndroidBack() {
       if (ui.settingsOpen) {
         if (ui.settingsSubPage) ui.setSettingsSubPage(null);
         else ui.setSettingsOpen(false);
+        return;
+      }
+      // After settings, since settings can only ever be opened on top of a panel.
+      const panels = openPanels();
+      if (panels.length > 0) {
+        ui.setGlobalPanelOpen(panels[panels.length - 1][0], false);
         return;
       }
       useMobileNavStore.getState().back();

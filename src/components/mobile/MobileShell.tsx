@@ -12,6 +12,7 @@ import MobileTerminalScreen from "./screens/MobileTerminalScreen";
 import MobileExtraKeysRow from "./MobileExtraKeysRow";
 import MobileTerminalPanelsRow from "./MobileTerminalPanelsRow";
 import MembersPage from "@/components/members/MembersPage";
+import GlobalPanelHost from "@/components/layout/GlobalPanelHost";
 import MobileKeychainScreen from "./screens/MobileKeychainScreen";
 import MobilePortForwardingScreen from "./screens/MobilePortForwardingScreen";
 import MobileKnownHostsScreen from "./screens/MobileKnownHostsScreen";
@@ -152,6 +153,10 @@ export default function MobileShell() {
       )}
       {sheet?.kind === "snippet-actions" && <MobileSnippetActionsSheet snippetId={sheet.snippetId} />}
       {sheet?.kind === "snippets" && <MobileSnippetsSheet sessionId={sheet.sessionId} />}
+      {/* Shell-level plugin panels, same registry the desktop shell renders —
+          `fullScreen` because a phone has nowhere to dock a side drawer. Last
+          child so a panel overlays the tab bar and any pushed page. */}
+      <GlobalPanelHost fullScreen />
     </div>
   );
 }

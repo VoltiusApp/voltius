@@ -129,8 +129,10 @@ export interface MobileScreen {
 
 export interface GlobalPanel {
   id: string;
-  /** Rendered at shell level (not session-scoped). Host drives open/close. */
-  component: React.FC<{ open: boolean; onClose: () => void }>;
+  /** Rendered at shell level (not session-scoped). Host drives open/close.
+   *  `fullScreen` is true under the mobile shell, where a side drawer has
+   *  nowhere to dock — the panel is expected to take the whole viewport. */
+  component: React.FC<{ open: boolean; onClose: () => void; fullScreen?: boolean }>;
 }
 
 /** Controls the panel it was returned from. Calling it disposes, as before. */
@@ -263,7 +265,10 @@ export type UISlot =
   | "home.bgContextMenu"
   | "keychain.bgContextMenu"
   | "home.toolbar.hostMenu"
-  | "settings.vaults";
+  | "settings.vaults"
+  /** Mobile terminal ⋮ menu + quick-access row. Context: `{ sessionId,
+   *  connectionId }` of the active session, either possibly undefined. */
+  | "mobile.terminal.panels";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type UIContributionFactory = (ctx: any) => ContributedAction[];

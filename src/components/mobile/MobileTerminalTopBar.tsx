@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
 import { useConnectionStore } from "@/stores/connectionStore";
+import { useUIContributions } from "@/hooks/useUIContributions";
 import type { TerminalSession } from "@/types";
 import { terminalPanelItems } from "./terminalPanelItems";
 
@@ -32,6 +33,12 @@ export default function MobileTerminalTopBar() {
   // Derive Proxmox gate as a primitive (boolean) — Zustand-safe; no fresh array/object from the selector.
   const activeConnId = allSessions.find((s) => s.id === activeSessionId)?.connectionId;
   const isProxmox = useConnectionStore((s) => s.connections.find((c) => c.id === activeConnId)?.distro === "proxmox");
+  // Same context shape the desktop terminal status-bar slot gets, minus the
+  // fields a plugin cannot use from a menu item.
+  const contributed = useUIContributions("mobile.terminal.panels", {
+    sessionId: activeSessionId ?? undefined,
+    connectionId: activeConnId,
+  });
 
   return (
     <div
@@ -94,9 +101,10 @@ export default function MobileTerminalTopBar() {
           >
             {terminalPanelItems({
               activeSessionId,
-              connectionIdOfActive: allSessions.find((s) => s.id === activeSessionId)?.connectionId,
+              connectionIdOfActive: activeConnId,
               nav: { push, openSheet },
               isProxmox,
+              contributed,
             }, t).map((it) => (
               <button
                 key={it.key}

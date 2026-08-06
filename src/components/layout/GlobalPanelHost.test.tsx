@@ -4,8 +4,9 @@ import GlobalPanelHost from "./GlobalPanelHost";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIStore } from "@/stores/uiStore";
 
-const Drawer: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) =>
-  open ? <button onClick={onClose}>close-drawer</button> : null;
+const Drawer: React.FC<{ open: boolean; onClose: () => void; fullScreen?: boolean }> = ({
+  open, onClose, fullScreen,
+}) => (open ? <button onClick={onClose}>close-drawer{fullScreen ? ":full" : ""}</button> : null);
 
 beforeEach(() => {
   usePluginStore.setState({ globalPanels: new Map([["ai:drawer", { id: "ai:drawer", component: Drawer }]]) });
@@ -24,5 +25,11 @@ describe("GlobalPanelHost", () => {
     render(<GlobalPanelHost />);
     fireEvent.click(screen.getByText("close-drawer"));
     expect(useUIStore.getState().globalPanelOpen["ai:drawer"]).toBe(false);
+  });
+
+  test("passes fullScreen through, so the mobile shell can ask for a full-viewport panel", () => {
+    useUIStore.setState({ globalPanelOpen: { "ai:drawer": true } });
+    render(<GlobalPanelHost fullScreen />);
+    expect(screen.getByText("close-drawer:full")).toBeTruthy();
   });
 });
