@@ -5,7 +5,7 @@ import i18n from "@/i18n";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { getSyncState, onSyncStateChange, syncNow, type SyncStatus } from "@/services/sync";
 import { getExposedApi } from "@/plugins/runtime";
-import type { GistSyncPublicApi } from "@/services/syncStatus";
+import { syncStatusColor, syncStatusIcon, type GistSyncPublicApi } from "@/services/syncStatus";
 import { useGistSyncState } from "@/hooks/useGistSyncState";
 import { useVaultContents } from "@/hooks/useVaultContents";
 import { ContentCounts } from "@/components/shared/ContentCounts";
@@ -25,22 +25,6 @@ function formatBytes(bytes: number): string {
 
 function formatTime(date: Date): string {
   return date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-}
-
-function statusColor(status: SyncStatus): string {
-  if (status === "success") return "var(--t-status-connected)";
-  if (status === "error")   return "var(--t-status-error)";
-  if (status === "syncing") return "var(--t-text-primary)";
-  if (status === "offline") return "var(--t-text-dim)";
-  return "var(--t-text-muted)";
-}
-
-function statusIcon(status: SyncStatus): string {
-  if (status === "syncing") return "lucide:refresh-cw";
-  if (status === "success") return "lucide:cloud-check";
-  if (status === "error")   return "lucide:cloud-alert";
-  if (status === "offline") return "lucide:wifi-off";
-  return "lucide:cloud";
 }
 
 function statusLabel(status: SyncStatus, lastSync: Date | null): string {
@@ -188,12 +172,12 @@ function SyncSection({
 
       {variant.kind === "active" && (() => {
         const { status, lastSync, error, blobSizeBytes } = variant;
-        const color = statusColor(status);
+        const color = syncStatusColor(status);
         return (
           <>
             <div className="flex items-center gap-1.5">
               <Icon
-                icon={statusIcon(status)}
+                icon={syncStatusIcon(status)}
                 width={12}
                 className={status === "syncing" ? "animate-spin" : ""}
                 style={{ color }}

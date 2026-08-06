@@ -9,6 +9,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { StatusDot } from "@/components/shared/StatusDot";
+import { MiniAvatar, avatarColor } from "@/components/shared/AvatarStack";
 import {
   searchUsers,
   getMyUserId,
@@ -44,29 +45,6 @@ const ROLE_META: Record<string, { label: string; color: string; bg: string }> = 
   member:         { label: "Member",       color: "var(--t-text-secondary)", bg: "var(--t-bg-elevated)" },
   "connect-only": { label: "Connect-Only", color: "#f59e0b", bg: "rgba(245,158,11,0.12)"  },
 };
-
-const AVATAR_COLORS = [
-  "#6366f1","#8b5cf6","#ec4899","#ef4444",
-  "#f59e0b","#10b981","#3b82f6","#14b8a6",
-];
-
-function avatarColor(s: string) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = s.charCodeAt(i) + ((h << 5) - h);
-  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
-}
-
-function Avatar({ name, size = 32 }: { name: string; size?: number }) {
-  const email = name;
-  return (
-    <div
-      className="rounded-full flex items-center justify-center shrink-0 font-bold select-none"
-      style={{ width: size, height: size, background: avatarColor(email), color: "#fff", fontSize: size * 0.38 }}
-    >
-      {email[0]?.toUpperCase() ?? "?"}
-    </div>
-  );
-}
 
 function RoleChip({ role }: { role: TeamRole }) {
   const { t } = useTranslation();
@@ -304,7 +282,7 @@ interface MemberCardProps {
 function MemberAvatar({ member, size }: { member: TeamMember; size: number }) {
   return (
     <div className="relative shrink-0">
-      <Avatar name={member.display_name} size={size} />
+      <MiniAvatar name={member.display_name} size={size} />
       {member.is_online && (
         <StatusDot color="var(--t-status-connected)" animate size={9} />
       )}
@@ -659,7 +637,7 @@ export function PendingInviteCard({
 
   return (
     <BaseCard isList>
-      <Avatar name={inv.display_name} size={32} />
+      <MiniAvatar name={inv.display_name} size={32} />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate text-(--t-text-bright)">{inv.display_name}</p>
       </div>
@@ -963,7 +941,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
                       disabled={!!adding}
                       onClick={() => void handleAdd(user)}
                     >
-                      <Avatar name={user.display_name} size={26} />
+                      <MiniAvatar name={user.display_name} size={26} />
                       <span className="flex-1 text-sm truncate">{user.display_name}</span>
                       {adding === user.user_id
                         ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin shrink-0" style={{ color: "var(--t-text-dim)" }} />
@@ -1140,7 +1118,7 @@ function PrivateVaultInvitePanel({
                     disabled={!!adding}
                     onClick={() => onAdd(user, selectedRole)}
                   >
-                    <Avatar name={user.display_name} size={26} />
+                    <MiniAvatar name={user.display_name} size={26} />
                     <span className="flex-1 text-sm truncate">{user.display_name}</span>
                     {adding === user.user_id
                       ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin shrink-0" style={{ color: "var(--t-text-dim)" }} />
@@ -1740,7 +1718,7 @@ const vaultTabs = selectedVaultIds.length > 1
             >
               {layoutMode === "grid" ? (
                 <BaseCard isList={false} className="flex-col items-center text-center gap-2 py-4">
-                  <Avatar name={myEmail || "?"} size={40} />
+                  <MiniAvatar name={myEmail || "?"} size={40} />
                   <div className="w-full min-w-0 flex flex-col items-center gap-1">
                     <div className="flex items-center gap-1 justify-center">
                       {myEmail === null
@@ -1754,7 +1732,7 @@ const vaultTabs = selectedVaultIds.length > 1
                 </BaseCard>
               ) : (
                 <BaseCard isList>
-                  <Avatar name={myEmail || "?"} size={32} />
+                  <MiniAvatar name={myEmail || "?"} size={32} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       {myEmail === null

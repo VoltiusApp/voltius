@@ -15,6 +15,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { TeamRolesPanel } from "./RolesSection";
 import BuySeatsModal from "@/components/settings/BuySeatsModal";
 import { ContentCounts } from "@/components/shared/ContentCounts";
+import { MiniAvatar, avatarColor } from "@/components/shared/AvatarStack";
 import { runTeamAction } from "@/services/teamActionFeedback";
 
 import { markTeamVaultLoadedAfterLocalActivation } from "@/services/teamVaultActivation";
@@ -126,27 +127,6 @@ const ROLE_META: Record<string, { label: string; color: string; bg: string }> = 
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = [
-  "#6366f1","#8b5cf6","#ec4899","#ef4444",
-  "#f59e0b","#10b981","#3b82f6","#14b8a6",
-];
-function avatarColor(s: string) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = s.charCodeAt(i) + ((h << 5) - h);
-  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
-}
-
-function Avatar({ email, size = 28 }: { email: string; size?: number }) {
-  return (
-    <div
-      className="rounded-full flex items-center justify-center shrink-0 font-bold select-none"
-      style={{ width: size, height: size, background: avatarColor(email), color: "#fff", fontSize: size * 0.38 }}
-    >
-      {email[0]?.toUpperCase() ?? "?"}
-    </div>
-  );
-}
 
 function RoleNameChip({ name, color: overrideColor, isBuiltin }: { name: string; color?: string | null; isBuiltin?: boolean }) {
   const { t } = useTranslation();
@@ -408,7 +388,7 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
                   disabled={!!adding}
                   onClick={() => void handleAdd(user)}
                 >
-                  <Avatar email={user.display_name} size={26} />
+                  <MiniAvatar name={user.display_name} size={26} />
                   <span className="flex-1 text-sm truncate">{user.display_name}</span>
                   {adding === user.user_id
                     ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin shrink-0" style={{ color: "var(--t-text-dim)" }} />
@@ -517,7 +497,7 @@ function MemberRow({ member, isMe, myMember, teamId, roles }: {
   return (
     <div style={{ borderBottom: "1px solid var(--t-border)" }}>
       <div className="flex items-center gap-3 px-4 py-2.5">
-        <Avatar email={member.display_name} size={30} />
+        <MiniAvatar name={member.display_name} size={30} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <p className="text-sm font-medium truncate" style={{ color: "var(--t-text-primary)" }}>{member.display_name}</p>
@@ -662,7 +642,7 @@ export function TeamVaultPanel({ teamId, myUserId }: { teamId: string; myUserId:
           <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--t-border)" }}>
             {pendingInvites.map((inv) => (
               <div key={inv.id} className="flex items-center gap-3 px-4 py-2.5" style={{ borderTop: "1px solid var(--t-border)" }}>
-                <Avatar email={inv.display_name} size={28} />
+                <MiniAvatar name={inv.display_name} size={28} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm truncate" style={{ color: "var(--t-text-primary)" }}>{inv.display_name}</p>
                 </div>
@@ -750,7 +730,7 @@ function TeamMembersSummary({ teamId }: { teamId: string }) {
               style={{ marginLeft: i === 0 ? 0 : -8, zIndex: preview.length - i }}
               className="rounded-full border-2 border-(--t-bg-card)"
             >
-              <Avatar email={m.display_name} size={24} />
+              <MiniAvatar name={m.display_name} size={24} />
             </div>
           ))}
           {overflow > 0 && (
@@ -944,7 +924,7 @@ export function PrivateVaultMembersPanel({
     <div>
       <div className="rounded-xl overflow-hidden mb-4" style={{ border: "1px solid var(--t-border)" }}>
         <div className="flex items-center gap-3 px-4 py-2.5">
-          <Avatar email={myUserId} size={30} />
+          <MiniAvatar name={myUserId} size={30} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               <p className="text-sm font-medium" style={{ color: "var(--t-text-primary)" }}>{t("settings.vaults.members.youLabel")}</p>
@@ -1002,7 +982,7 @@ export function PrivateVaultMembersPanel({
                     disabled={!!adding}
                     onClick={() => void handleAdd(user)}
                   >
-                    <Avatar email={user.display_name} size={26} />
+                    <MiniAvatar name={user.display_name} size={26} />
                     <span className="flex-1 text-sm truncate">{user.display_name}</span>
                     {adding === user.user_id
                       ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin shrink-0" style={{ color: "var(--t-text-dim)" }} />

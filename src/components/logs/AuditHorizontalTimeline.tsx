@@ -2,7 +2,8 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import type { AuditLog } from "@/services/auditService";
-import { ACTION_META, FALLBACK_META, avatarColor } from "./AuditEventRow";
+import { ACTION_META, FALLBACK_META } from "./AuditEventRow";
+import { avatarColor } from "@/components/shared/AvatarStack";
 
 interface Props {
   logs: AuditLog[];

@@ -29,6 +29,7 @@ import { SseDataLineParser } from "@/services/realtimeSseEvents";
 import { connectNativeSse } from "@/services/nativeSseStream";
 import { useCrossDeviceSessionsStore } from "@/stores/crossDeviceSessionsStore";
 import { parseUsingEvent } from "@/services/presenceEvent";
+import { bytesToBase64, base64ToBytes } from "@/services/teamVaultSyncCore";
 
 export interface BlobPayload {
   files: Record<string, string>;
@@ -306,24 +307,6 @@ async function decryptBlobWithFallback(blobBytes: number[]): Promise<BlobPayload
     }
   }
   throw new BlobDecryptError();
-}
-
-// ─── Encoding helpers (chunked to avoid blocking the main thread) ─────────────
-
-function bytesToBase64(bytes: number[]): string {
-  const CHUNK = 8192;
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    binary += String.fromCharCode(...bytes.slice(i, i + CHUNK));
-  }
-  return btoa(binary);
-}
-
-function base64ToBytes(b64: string): number[] {
-  const binary = atob(b64);
-  const out = new Array<number>(binary.length);
-  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
-  return out;
 }
 
 // ─── Team ID helpers ─────────────────────────────────────────────────────────

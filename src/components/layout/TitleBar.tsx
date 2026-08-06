@@ -7,7 +7,7 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { getSyncState, onSyncStateChange, type SyncStatus } from "@/services/sync";
-import { selectEffectiveSyncStatus } from "@/services/syncStatus";
+import { selectEffectiveSyncStatus, syncStatusColor, syncStatusIcon } from "@/services/syncStatus";
 import { useGistSyncState } from "@/hooks/useGistSyncState";
 import { useRipple } from "@/hooks/useRipple";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
@@ -752,19 +752,8 @@ function SyncIndicator({
 }) {
   const { t } = useTranslation();
   const { createRipple, rippleEls } = useRipple();
-  const icon = !configured ? "lucide:cloud-off" :
-    status === "syncing" ? "lucide:refresh-cw" :
-    status === "success" ? "lucide:cloud-check" :
-    status === "error"   ? "lucide:cloud-alert" :
-    status === "offline" ? "lucide:wifi-off" :
-                           "lucide:cloud";
-
-  const color = !configured ? "var(--t-text-dim)" :
-    status === "syncing" ? "var(--t-text-primary)" :
-    status === "success" ? "var(--t-status-connected)" :
-    status === "error"   ? "var(--t-status-error)" :
-    status === "offline" ? "var(--t-text-dim)" :
-                           "var(--t-text-muted)";
+  const icon = !configured ? "lucide:cloud-off" : syncStatusIcon(status);
+  const color = !configured ? "var(--t-text-dim)" : syncStatusColor(status);
 
   const title = !configured ? t("layout.sync.status.notConfigured") :
     status === "syncing" ? t("layout.sync.status.syncing") :

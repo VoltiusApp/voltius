@@ -2,6 +2,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import type { AuditLog } from "@/services/auditService";
+import { avatarColor } from "@/components/shared/AvatarStack";
 
 // ─── Action metadata ──────────────────────────────────────────────────────────
 
@@ -63,16 +64,6 @@ export const FALLBACK_META: ActionMeta = {
   color: "var(--t-text-dim)",
   label: (l) => l.action,
 };
-
-// ─── Avatar ───────────────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = ["#6366f1","#8b5cf6","#ec4899","#ef4444","#f59e0b","#10b981","#3b82f6","#14b8a6"];
-
-export function avatarColor(s: string) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = s.charCodeAt(i) + ((h << 5) - h);
-  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
-}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
