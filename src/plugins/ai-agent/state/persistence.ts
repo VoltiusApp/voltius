@@ -1,5 +1,6 @@
 import type { ModelMessage } from "ai";
 import type { TranscriptEntry } from "./agentStore";
+import type { ContextAttachment } from "./touchpoint";
 import {
   MAX_PLAN_COMMAND_CHARS,
   MAX_PLAN_ID_CHARS,
@@ -25,6 +26,9 @@ export const MAX_TOOL_RESULT_BYTES = 8_000;
  * clampTranscript), so a normal reply survives persist uncut and MAX_TRANSCRIPT_BYTES
  * does the real bounding. */
 export const MAX_TRANSCRIPT_DETAIL_CHARS = 1_000;
+/** Identity-ish short strings — a tool name and an attachment's connection
+ * name. Both render inline in the drawer and both were measured at 300kB. */
+export const MAX_TRANSCRIPT_NAME_CHARS = 200;
 /** Backstop on `JSON.stringify(transcript).length` after the count and
  * per-field caps, since a whole-file rewrite that also carries the allowlist
  * must stay small regardless of how many entries there are or how wide any
@@ -33,13 +37,12 @@ export const MAX_TRANSCRIPT_DETAIL_CHARS = 1_000;
  * and every plan field — `planId`/`outcome`, and each step's `id`/
  * `connectionId`/`tool`/`status` (MAX_PLAN_ID_CHARS), `command`/`rationale`
  * (MAX_PLAN_COMMAND_CHARS / MAX_PLAN_RATIONALE_CHARS), and step count
- * (MAX_PLAN_STEPS). A plan entry and its steps are built from an explicit
- * field set (see clampPlanStep), so unknown extra keys on either are dropped
- * entirely rather than left unbounded. NOT bounded: `tool.tool` and
- * `attachment.connectionName`, plus any unknown extra key on a `tool`/`user`/
- * `assistant` entry — those still spread and can push a single entry over
- * budget, and the loop below only drops OTHER entries, so it cannot recover
- * from one oversized entry on its own. */
+ * (MAX_PLAN_STEPS); `tool.tool` and `attachment.connectionName`
+ * (MAX_TRANSCRIPT_NAME_CHARS). EVERY kind is now built from an explicit field
+ * set (see clampEntry), so unknown extra keys are dropped rather than left
+ * unbounded and a new field is bounded by default. The loop below only drops
+ * OTHER entries, so it could never have recovered from one oversized entry —
+ * which is why the per-field caps, not this backstop, do the real work. */
 export const MAX_TRANSCRIPT_BYTES = 64_000;
 export const TRUNCATION_MARKER = "\n…truncated";
 
@@ -49,12 +52,16 @@ export interface PersistedConversation {
   messages: ModelMessage[];
 }
 
-function clampToLimit(value: string, limit: number): string {
+/** Total by construction: a non-string yields null, which callers turn into a
+ * rejected entry. Persisted data is hostile input — a validator that throws on
+ * it costs the whole conversation via agentStore's try/catch. */
+function clampToLimit(value: unknown, limit: number): string | null {
+  if (typeof value !== "string") return null;
   return value.length <= limit ? value : value.slice(0, limit) + TRUNCATION_MARKER;
 }
 
 function clamp(value: string): string {
-  return clampToLimit(value, MAX_TOOL_RESULT_BYTES);
+  return clampToLimit(value, MAX_TOOL_RESULT_BYTES) as string;
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -72,20 +79,30 @@ const PLAN_OUTCOMES: PlanOutcome[] = ["pending", "approved_run", "approved_ask",
 // file has now had that exact failure shape three times — closing it
 // per-field is how it keeps coming back; only known fields are copied here,
 // each one clamped.
-function clampPlanStep(s: PlanEntryStep): PlanEntryStep {
-  return {
-    id: clampToLimit(s.id, MAX_PLAN_ID_CHARS),
-    // Model-supplied (see planTokens.ts) — the one identity field that
-    // reaches this code without any hand-editing of the plugin-data file.
-    connectionId: clampToLimit(s.connectionId, MAX_PLAN_ID_CHARS),
-    // Short enums; MAX_PLAN_ID_CHARS is a backstop against corrupted
-    // in-memory state, not a semantic limit — legitimate values are a few
-    // characters long.
-    tool: clampToLimit(s.tool, MAX_PLAN_ID_CHARS) as PlanStepTool,
-    command: s.command === undefined ? undefined : clampToLimit(s.command, MAX_PLAN_COMMAND_CHARS),
-    rationale: clampToLimit(s.rationale, MAX_PLAN_RATIONALE_CHARS),
-    status: clampToLimit(s.status, MAX_PLAN_ID_CHARS) as PlanStepStatus,
-  };
+function clampPlanStep(s: PlanEntryStep): PlanEntryStep | null {
+  const id = clampToLimit(s.id, MAX_PLAN_ID_CHARS);
+  // Model-supplied (see planTokens.ts) — the one identity field that
+  // reaches this code without any hand-editing of the plugin-data file.
+  const connectionId = clampToLimit(s.connectionId, MAX_PLAN_ID_CHARS);
+  // Short enums; MAX_PLAN_ID_CHARS is a backstop against corrupted
+  // in-memory state, not a semantic limit — legitimate values are a few
+  // characters long.
+  const tool = clampToLimit(s.tool, MAX_PLAN_ID_CHARS);
+  const rationale = clampToLimit(s.rationale, MAX_PLAN_RATIONALE_CHARS);
+  const status = clampToLimit(s.status, MAX_PLAN_ID_CHARS);
+  if (id === null || connectionId === null || tool === null || rationale === null || status === null) return null;
+  const command = s.command === undefined ? undefined : clampToLimit(s.command, MAX_PLAN_COMMAND_CHARS);
+  if (command === null) return null;
+  return { id, connectionId, tool: tool as PlanStepTool, command, rationale, status: status as PlanStepStatus };
+}
+
+function clampAttachment(v: unknown): ContextAttachment | undefined {
+  if (!isRecord(v)) return undefined;
+  const connectionName = clampToLimit(v.connectionName, MAX_TRANSCRIPT_NAME_CHARS);
+  if (connectionName === null) return undefined;
+  if (typeof v.lineCount !== "number" || typeof v.truncated !== "boolean") return undefined;
+  if (v.source !== "selection" && v.source !== "snapshot") return undefined;
+  return { source: v.source, lineCount: v.lineCount, connectionName, truncated: v.truncated };
 }
 
 /** Cap oversized tool outputs. A `json` output over budget becomes a truncated
@@ -135,29 +152,48 @@ function capMessages(messages: ModelMessage[]): ModelMessage[] {
   return current;
 }
 
+/** Every kind is built as an explicit field set, never `{ ...e, ... }`: a
+ * spread lets any unknown key ride through completely unbounded, and that is
+ * how `tool.tool` and `attachment.connectionName` stayed uncapped after the
+ * plan fields were closed. A required field that is not a string rejects the
+ * whole entry rather than throwing — see clampToLimit. */
+function clampEntry(e: TranscriptEntry): TranscriptEntry | null {
+  if (e.kind === "user" || e.kind === "assistant") {
+    const text = clampToLimit(e.text, MAX_TOOL_RESULT_BYTES);
+    if (text === null) return null;
+    // A malformed attachment costs only the provenance chip, so it is dropped
+    // on its own rather than taking the user's message down with it.
+    const attachment = e.kind === "user" ? clampAttachment(e.attachment) : undefined;
+    return e.kind === "user"
+      ? { kind: "user", text, ...(attachment ? { attachment } : {}) }
+      : { kind: "assistant", text };
+  }
+  if (e.kind === "tool") {
+    const tool = clampToLimit(e.tool, MAX_TRANSCRIPT_NAME_CHARS);
+    const detail = clampToLimit(e.detail, MAX_TRANSCRIPT_DETAIL_CHARS);
+    if (tool === null || detail === null) return null;
+    if (e.state !== "call" && e.state !== "result" && e.state !== "error") return null;
+    return { kind: "tool", tool, state: e.state, detail };
+  }
+  if (e.kind === "plan") {
+    const planId = clampToLimit(e.planId, MAX_PLAN_ID_CHARS);
+    // Short enum; see clampPlanStep's tool/status comment.
+    const outcome = clampToLimit(e.outcome, MAX_PLAN_ID_CHARS);
+    if (planId === null || outcome === null || !Array.isArray(e.steps)) return null;
+    const steps = e.steps.slice(0, MAX_PLAN_STEPS).map(clampPlanStep);
+    if (steps.some((s) => s === null)) return null;
+    return { kind: "plan", planId, steps: steps as PlanEntryStep[], outcome: outcome as PlanOutcome };
+  }
+  return null;
+}
+
 /** Entries are independent (unlike `messages`, there's no turn structure to
  * preserve), so once the count and per-field text caps still leave the
  * payload over budget, oldest entries are dropped one at a time until it fits. */
 function clampTranscript(transcript: TranscriptEntry[]): TranscriptEntry[] {
   const clamped = transcript
-    .map((e) => {
-      if (e.kind === "tool") return { ...e, detail: clampToLimit(e.detail, MAX_TRANSCRIPT_DETAIL_CHARS) };
-      // A plan entry has no `text`, so it must be handled BEFORE the fallback
-      // below — clampToLimit reads `.length` and would throw on undefined.
-      // Built as an explicit field set for the same reason as clampPlanStep
-      // above: a spread (`...e`) would let an unknown key on the entry itself
-      // ride through unbounded.
-      if (e.kind === "plan") {
-        return {
-          kind: "plan" as const,
-          planId: clampToLimit(e.planId, MAX_PLAN_ID_CHARS),
-          steps: e.steps.slice(0, MAX_PLAN_STEPS).map(clampPlanStep),
-          // Short enum; see clampPlanStep's tool/status comment.
-          outcome: clampToLimit(e.outcome, MAX_PLAN_ID_CHARS) as PlanOutcome,
-        };
-      }
-      return { ...e, text: clampToLimit(e.text, MAX_TOOL_RESULT_BYTES) };
-    })
+    .map(clampEntry)
+    .filter((e): e is TranscriptEntry => e !== null)
     .slice(-MAX_TRANSCRIPT_ENTRIES);
   let current = clamped;
   while (JSON.stringify(current).length > MAX_TRANSCRIPT_BYTES && current.length > 1) {

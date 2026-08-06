@@ -4,7 +4,7 @@ import type { TranscriptEntry } from "./agentStore";
 import {
   serializeConversation, deserializeConversation,
   MAX_TRANSCRIPT_ENTRIES, MAX_TOOL_RESULT_BYTES, MAX_MESSAGES_BYTES, TRUNCATION_MARKER,
-  MAX_TRANSCRIPT_DETAIL_CHARS, MAX_TRANSCRIPT_BYTES,
+  MAX_TRANSCRIPT_DETAIL_CHARS, MAX_TRANSCRIPT_BYTES, MAX_TRANSCRIPT_NAME_CHARS,
 } from "./persistence";
 import { MAX_PLAN_ID_CHARS, MAX_PLAN_STEPS } from "./planTokens";
 
@@ -416,5 +416,80 @@ describe("plan transcript entries", () => {
     expect(entry).toBeDefined();
     expect((entry as { unknownEntryKey?: unknown }).unknownEntryKey).toBeUndefined();
     expect((entry?.steps[0] as { unknownStepKey?: unknown }).unknownStepKey).toBeUndefined();
+  });
+});
+
+describe("persistence — every entry kind bounded by construction (#75)", () => {
+  const legit = (n: number): TranscriptEntry[] =>
+    Array.from({ length: n }, (_, i) => ({ kind: "user" as const, text: `m${i}` }));
+
+  it("bounds tool.tool, which used to ride through the spread unclamped", () => {
+    const hostile = {
+      kind: "tool" as const,
+      tool: "t".repeat(300_000),
+      state: "result" as const,
+      detail: "ok",
+    };
+
+    const out = serializeConversation([...legit(199), hostile], []);
+
+    expect(JSON.stringify(out.transcript).length).toBeLessThanOrEqual(MAX_TRANSCRIPT_BYTES);
+    expect(out.transcript.filter((e) => e.kind === "user")).toHaveLength(199);
+    const entry = out.transcript.find((e) => e.kind === "tool") as { tool: string } | undefined;
+    expect(entry?.tool.length).toBeLessThanOrEqual(MAX_TRANSCRIPT_NAME_CHARS + TRUNCATION_MARKER.length);
+  });
+
+  it("bounds attachment.connectionName, the other measured 300kB vector", () => {
+    const hostile = {
+      kind: "user" as const,
+      text: "hi",
+      attachment: {
+        source: "selection" as const,
+        lineCount: 3,
+        connectionName: "c".repeat(300_000),
+        truncated: false,
+      },
+    };
+
+    const out = serializeConversation([...legit(199), hostile], []);
+
+    expect(JSON.stringify(out.transcript).length).toBeLessThanOrEqual(MAX_TRANSCRIPT_BYTES);
+    expect(out.transcript.filter((e) => e.kind === "user")).toHaveLength(200);
+    const entry = out.transcript[out.transcript.length - 1] as { attachment?: { connectionName: string } };
+    expect(entry.attachment?.connectionName.length)
+      .toBeLessThanOrEqual(MAX_TRANSCRIPT_NAME_CHARS + TRUNCATION_MARKER.length);
+  });
+
+  it("drops unknown extra keys on user/assistant/tool entries, as it already does for plan", () => {
+    const entries = [
+      { kind: "user" as const, text: "a", unknownKey: "u".repeat(300_000) },
+      { kind: "assistant" as const, text: "b", unknownKey: "u".repeat(300_000) },
+      { kind: "tool" as const, tool: "run_command", state: "result" as const, detail: "d", unknownKey: "u".repeat(300_000) },
+    ];
+
+    const out = serializeConversation(entries as never[], []);
+
+    expect(JSON.stringify(out.transcript).length).toBeLessThanOrEqual(MAX_TRANSCRIPT_BYTES);
+    expect(out.transcript).toHaveLength(3);
+    for (const e of out.transcript) expect((e as { unknownKey?: unknown }).unknownKey).toBeUndefined();
+  });
+
+  it("rejects an entry whose required string is not a string instead of throwing", () => {
+    const hostile = [
+      { kind: "user", text: { toString: () => "x" } },
+      { kind: "assistant", text: 42 },
+      { kind: "tool", tool: null, state: "result", detail: "d" },
+    ];
+
+    expect(() => serializeConversation(hostile as never[], [])).not.toThrow();
+    expect(serializeConversation(hostile as never[], []).transcript).toEqual([]);
+  });
+
+  it("keeps a user entry but drops a malformed attachment rather than the whole entry", () => {
+    const hostile = { kind: "user", text: "keep me", attachment: { source: "selection", lineCount: 1, connectionName: 7, truncated: false } };
+
+    const out = serializeConversation([hostile] as never[], []);
+
+    expect(out.transcript).toEqual([{ kind: "user", text: "keep me" }]);
   });
 });
