@@ -372,7 +372,7 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
               folders={folders}
               onChange={(id) => { markDirty(); setFolderId(id); }}
               onCreateFolder={async (name) => {
-                const folder = await saveFolder({ name, object_type: "connection", vault_id: resolveVaultIdForSave(vaultId) || undefined });
+                const folder = await saveFolder({ name, object_type: "keychain", vault_id: resolveVaultIdForSave(vaultId) || undefined });
                 markDirty();
                 setFolderId(folder.id);
                 return folder.id;
