@@ -11,3 +11,6 @@ export { useAutosave } from "@/hooks/useAutosave";
 export { default as BottomSheet } from "@/components/mobile/sheets/BottomSheet";
 export { ConnectionAvatar } from "@/components/shared/ConnectionAvatar";
 export { ConfirmModal } from "@/components/shared/ConfirmModal";
+// A plugin settings page that hand-rolls a native <select> renders the OS
+// widget, not the app's: different type colour, different chevron, no portal.
+export { FormSelect } from "@/components/shared/FormSelect";
