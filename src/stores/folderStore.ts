@@ -29,6 +29,16 @@ function upsert(arr: Folder[], item: Folder): Folder[] {
   return next;
 }
 
+/**
+ * `folder_update` replaces `pinned` outright, so a payload that omits it clears
+ * the pin. Callers build partial payloads (rename, reparent, vault move) and
+ * almost none carry it, so carry it over from the stored folder unless the
+ * caller states one — an explicit `false` still unpins.
+ */
+function withPin(data: FolderFormData, prev: Folder): FolderFormData {
+  return data.pinned === undefined ? { ...data, pinned: prev.pinned } : data;
+}
+
 function findTeamEntry(
   teamMap: Record<string, Folder[]>,
   id: string,
@@ -150,6 +160,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
     const teamEntry = findTeamEntry(get().teamFolders, id);
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
+      const payload = withPin(data, prev);
       const now = new Date().toISOString();
       const updated: Folder = {
         ...prev,
@@ -167,8 +178,8 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
         nextVaultId: updated.vault_id,
         isTeamVaultId,
         item: updated,
-        updateLocal: () => api.updateFolder(id, data).then(() => updated),
-        adoptLocal: () => api.adoptFolder(id, data).then(() => updated),
+        updateLocal: () => api.updateFolder(id, payload).then(() => updated),
+        adoptLocal: () => api.adoptFolder(id, payload).then(() => updated),
         saveTeam: (tid, item) => saveTeamVaultObject(tid, "folder", item),
         removeTeam: removeTeamVaultObject,
       });
@@ -206,13 +217,14 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
     let updated: Folder | undefined;
     if (prev) {
       const nextVaultId = data.vault_id ?? prev.vault_id;
+      const payload = withPin(data, prev);
       updated = await migrateVaultObject<Folder>({
         previousVaultId: prev.vault_id,
         nextVaultId,
         isTeamVaultId,
         item: { ...prev, ...data, vault_id: nextVaultId } as Folder,
-        updateLocal: () => api.updateFolder(id, data).then(() => ({ ...prev, ...data, vault_id: nextVaultId } as Folder)),
-        adoptLocal: () => api.adoptFolder(id, data).then(() => ({ ...prev, ...data, vault_id: nextVaultId } as Folder)),
+        updateLocal: () => api.updateFolder(id, payload).then(() => ({ ...prev, ...data, vault_id: nextVaultId } as Folder)),
+        adoptLocal: () => api.adoptFolder(id, payload).then(() => ({ ...prev, ...data, vault_id: nextVaultId } as Folder)),
         saveTeam: (teamId, item) => saveTeamVaultObject(teamId, "folder", item),
         removeTeam: removeTeamVaultObject,
       });
@@ -458,12 +470,12 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
     const folder = get().folders.find((f) => f.id === id);
     if (!folder) return;
     const prevParentId = folder.parent_folder_id ?? null;
-    await api.updateFolder(id, {
+    await api.updateFolder(id, withPin({
       name: folder.name,
       object_type: folder.object_type,
       parent_folder_id: parentFolderId ?? undefined,
       vault_id: folder.vault_id,
-    });
+    }, folder));
     const folders = await api.listFolders();
     set({ folders });
     isServerMode().then((s) => { if (s && useSyncPrefsStore.getState().isObjectSynced(id, "folder")) scheduleSync(); });
