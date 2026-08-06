@@ -32,6 +32,7 @@ import { usePermissions, type Permission } from "@/hooks/usePermission";
 import { useAccessibleVaultIds, useScopedVaultId } from "@/hooks/useAccessibleVaultIds";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { usePageClipboard } from "@/hooks/usePageClipboard";
+import { nameIsFree, folderNameIsFree } from "@/utils/cloneName";
 import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
@@ -357,29 +358,6 @@ export default function HostsPage() {
     keyId: conn.key_id ? cascadeRemap.current.keys.get(conn.key_id) ?? conn.key_id : undefined,
   });
 
-  /**
-   * A "(copy)" suffix only earns its place where the name would actually collide.
-   * Pasting into another vault is the common case where it does not: the original
-   * is not there, so the clone is just the host, not a copy of anything visible.
-   */
-  const nameIsFree = (name: string | undefined, vaultId: string, folderId: string | null) =>
-    !name
-    || !connections.some(
-      (c) =>
-        c.name === name
-        && (c.vault_id ?? "personal") === vaultId
-        && (c.folder_id ?? null) === folderId,
-    );
-
-  const folderNameIsFree = (name: string | undefined, vaultId: string, parentId: string | null) =>
-    !name
-    || !scopedFolders.some(
-      (f) =>
-        f.name === name
-        && (f.vault_id ?? "personal") === vaultId
-        && (f.parent_folder_id ?? null) === parentId,
-    );
-
   /** Hosts a paste writes, from the selected items and every folder subtree in it. */
   const pastedConnections = (
     items: { id: string; kind: VaultClipboardKind }[],
@@ -614,7 +592,7 @@ export default function HostsPage() {
         if (!conn) continue;
         const dup = await handleDuplicateInto(conn, folderId, {
           vaultId: targetVault ?? undefined,
-          keepName: nameIsFree(conn.name, targetVault ?? conn.vault_id ?? "personal", folderId),
+          keepName: nameIsFree(connections, conn.name, targetVault ?? conn.vault_id ?? "personal", folderId),
           ...remappedLinks(conn),
         });
         if (dup) created.push(dup.id);
@@ -627,6 +605,7 @@ export default function HostsPage() {
       return (
         await handleCopyFolderInto(id, parentFolderId, targetVault ?? undefined, {
           keepName: folderNameIsFree(
+            scopedFolders,
             folder?.name,
             targetVault ?? folder?.vault_id ?? "personal",
             parentFolderId,

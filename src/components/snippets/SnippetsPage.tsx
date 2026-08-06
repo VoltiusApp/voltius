@@ -34,6 +34,7 @@ import { snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
 import { runSnippetIntoSessions } from "@/services/snippetRun";
 import { snippetToForm } from "@/utils/snippetForm";
 import { usePageClipboard } from "@/hooks/usePageClipboard";
+import { nameIsFree, folderNameIsFree } from "@/utils/cloneName";
 import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
 import { VaultCascadeModal } from "@/components/shared/VaultCascadeModal";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
@@ -539,34 +540,6 @@ export function SnippetsPage() {
    * vault's root and a paste there belongs in it. With several on screen the root
    * names no destination, so every object keeps its own vault.
    */
-  /**
-   * A "(copy)" suffix only earns its place where the name would actually collide.
-   * Pasting into another vault is the common case where it does not: the original
-   * is not there, so the clone is just the object, not a copy of anything visible.
-   */
-  const nameIsFree = (
-    list: { name?: string; vault_id?: string; folder_id?: string | null }[],
-    name: string | undefined,
-    vaultId: string,
-    folderId: string | null,
-  ) =>
-    !name
-    || !list.some(
-      (x) =>
-        x.name === name
-        && (x.vault_id ?? "personal") === vaultId
-        && (x.folder_id ?? null) === folderId,
-    );
-
-  const folderNameIsFree = (name: string | undefined, vaultId: string, parentId: string | null) =>
-    !name
-    || !scopedFolders.some(
-      (f) =>
-        f.name === name
-        && (f.vault_id ?? "personal") === vaultId
-        && (f.parent_folder_id ?? null) === parentId,
-    );
-
   const vaultForFolder = (folderId: string | null): string | null =>
     folderId ? (scopedFolders.find((f) => f.id === folderId)?.vault_id ?? null) : scopedVaultId;
 
@@ -663,6 +636,7 @@ export function SnippetsPage() {
       return (
         await copyFolderInto(id, parentFolderId, targetVault ?? undefined, {
           keepName: folderNameIsFree(
+            scopedFolders,
             folder?.name,
             targetVault ?? folder?.vault_id ?? "personal",
             parentFolderId,
