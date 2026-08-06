@@ -18,6 +18,10 @@ export interface ObjectRef {
   name: string;
   /** Secondary line: user@host:port. */
   detail: string;
+  /** Another connection shares this display name, so the name alone does not
+   * identify the target. Duplicate names are known to exist in this product,
+   * and a plan mixing two of them otherwise reads as one host. */
+  ambiguous: boolean;
   connection: PluginConnection;
 }
 
@@ -28,11 +32,13 @@ export function resolveObjectRef(
 ): ObjectRef | null {
   const conn = connections.find((c) => c.id === id);
   if (!conn) return null;
+  const name = connectionDisplayName(conn);
   return {
     kind: "connection",
     id,
-    name: connectionDisplayName(conn),
+    name,
     detail: `${conn.username}@${conn.host}:${conn.port}`,
+    ambiguous: connections.some((c) => c.id !== id && connectionDisplayName(c) === name),
     connection: conn,
   };
 }

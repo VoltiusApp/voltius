@@ -39,7 +39,9 @@ export function PlanCard({ entry }: { entry: PlanEntry }) {
 
   const [steps, setSteps] = useState<PlanEntryStep[]>(entry.steps);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [hintId, setHintId] = useState<string | null>(null);
   const rows = live ? steps : entry.steps;
+  const empty = live && rows.length === 0;
 
   const setCommand = (id: string, command: string) =>
     setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, command } : s)));
@@ -152,12 +154,22 @@ export function PlanCard({ entry }: { entry: PlanEntry }) {
             </div>
 
             {badge && (
-              <div
-                title={t("aiAgent.plan.willStillAskHint")}
-                style={{ marginLeft: 20, color: "var(--t-status-warning)", fontSize: 11 }}
-              >
-                <span aria-hidden="true">⚠ </span>
-                <span>{t("aiAgent.plan.willStillAsk")}</span>
+              // A `title` alone reaches neither touch nor most keyboard users,
+              // so the explanation is a disclosure the badge itself toggles.
+              <div style={{ marginLeft: 20, color: "var(--t-status-warning)", fontSize: 11 }}>
+                <button
+                  type="button"
+                  onClick={() => setHintId(hintId === s.id ? null : s.id)}
+                  aria-expanded={hintId === s.id}
+                  title={t("aiAgent.plan.willStillAskHint")}
+                  style={{ color: "inherit", textAlign: "left" }}
+                >
+                  <span aria-hidden="true">⚠ </span>
+                  <span>{t("aiAgent.plan.willStillAsk")}</span>
+                </button>
+                {hintId === s.id && (
+                  <div className="text-(--t-text-dim)">{t("aiAgent.plan.willStillAskHint")}</div>
+                )}
               </div>
             )}
             <div style={{ marginLeft: 20, color: "var(--t-text-dim)", fontSize: 11 }}>{s.rationale}</div>
@@ -167,22 +179,28 @@ export function PlanCard({ entry }: { entry: PlanEntry }) {
 
       {live ? (
         <div className="flex gap-1.5 flex-wrap items-center">
+          {/* Removing every step leaves nothing to authorize, so approving
+              would silently drop out of plan mode having granted nothing.
+              Reject stays enabled — it is the only meaningful exit. */}
+          {empty && <span className="text-(--t-text-dim) text-[11px]">{t("aiAgent.plan.emptyHint")}</span>}
           {/* The two grades differ only in whether each step still raises its
               own card, which the labels alone do not convey — the outcome
               strings spell it out, so they double as the tooltips. */}
           <button
             type="button"
             onClick={() => approve("run")}
+            disabled={empty}
             title={t("aiAgent.plan.outcome.approved_run")}
-            className={PLAN_PRIMARY}
+            className={`${PLAN_PRIMARY} disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {t("aiAgent.plan.approveAndRun")}
           </button>
           <button
             type="button"
             onClick={() => approve("ask")}
+            disabled={empty}
             title={t("aiAgent.plan.outcome.approved_ask")}
-            className={PLAN_SECONDARY}
+            className={`${PLAN_SECONDARY} disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {t("aiAgent.plan.approvePlan")}
           </button>

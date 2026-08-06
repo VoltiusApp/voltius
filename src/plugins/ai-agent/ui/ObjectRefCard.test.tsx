@@ -14,7 +14,7 @@ vi.mock("@voltius/ui", async (importOriginal) => ({
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const ref: ObjectRef = {
-  kind: "connection", id: "c1", name: "Prod DB", detail: "root@10.0.0.1:22",
+  kind: "connection", id: "c1", name: "Prod DB", detail: "root@10.0.0.1:22", ambiguous: false,
   connection: { id: "c1", name: "Prod DB", host: "10.0.0.1", port: 22, username: "root", auth_type: "key", tags: [], connection_type: "ssh" },
 };
 

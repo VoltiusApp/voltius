@@ -8,7 +8,7 @@ vi.mock("./ObjectRefChip", () => ({ ObjectRefChip: ({ id }: { id: string }) => <
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const ref: ObjectRef = {
-  kind: "connection", id: "conn_1", name: "Prod", detail: "u@h:22",
+  kind: "connection", id: "conn_1", name: "Prod", detail: "u@h:22", ambiguous: false,
   connection: { id: "conn_1", name: "Prod", host: "h", port: 22, username: "u", auth_type: "key", tags: [] },
 };
 const refs: ObjectRefResolver = { resolve: () => ref, knownIds: new Set(["conn_1"]), loading: false };

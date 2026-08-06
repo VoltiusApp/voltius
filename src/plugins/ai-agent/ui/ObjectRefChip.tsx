@@ -22,6 +22,11 @@ export function ObjectRefChip({ refObj, id }: { refObj: ObjectRef | null; id: st
     >
       <ConnectionAvatar connection={refObj.connection} size={14} />
       <span className="truncate max-w-[16rem]">{refObj.name}</span>
+      {/* Shown only when the name is shared, so the common case stays a bare
+          name — the detail is what tells two same-named hosts apart. */}
+      {refObj.ambiguous && (
+        <span className="truncate max-w-[16rem] text-(--t-text-dim)">{refObj.detail}</span>
+      )}
     </span>
   );
 }

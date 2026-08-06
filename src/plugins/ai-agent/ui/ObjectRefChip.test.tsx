@@ -14,7 +14,7 @@ vi.mock("@voltius/ui", async (importOriginal) => ({
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const ref: ObjectRef = {
-  kind: "connection", id: "c1", name: "Prod DB", detail: "root@10.0.0.1:22",
+  kind: "connection", id: "c1", name: "Prod DB", detail: "root@10.0.0.1:22", ambiguous: false,
   connection: { id: "c1", name: "Prod DB", host: "10.0.0.1", port: 22, username: "root", auth_type: "key", tags: [] },
 };
 
@@ -28,4 +28,12 @@ it("renders a fallback with the raw id in the title when unresolved", () => {
   render(<ObjectRefChip id="conn_gone" refObj={null} />);
   expect(screen.getByText("aiAgent.objectRef.unknown")).toBeTruthy();
   expect(screen.getByTitle("conn_gone")).toBeTruthy();
+});
+
+it("shows the endpoint inline only when the display name is shared (#76)", () => {
+  const { rerender } = render(<ObjectRefChip id="c1" refObj={ref} />);
+  expect(screen.queryByText("root@10.0.0.1:22")).toBeNull();
+
+  rerender(<ObjectRefChip id="c1" refObj={{ ...ref, ambiguous: true }} />);
+  expect(screen.getByText("root@10.0.0.1:22")).toBeTruthy();
 });

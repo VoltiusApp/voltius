@@ -215,3 +215,41 @@ describe("PlanCard", () => {
     expect(screen.getByTestId("plan-chip").textContent).toBe("conn_7");
   });
 });
+
+describe("PlanCard — deferred #76 follow-ups", () => {
+  const live = (steps: unknown[]) => {
+    const resolve = vi.fn();
+    useAgentStore.setState({ pendingPlan: { planId: "plan-1", generation: 1, steps: steps as never, resolve } });
+    render(<PlanCard entry={{ planId: "plan-1", steps: steps as never, outcome: "pending" }} />);
+    return resolve;
+  };
+
+  it("disables both approve grades once every step has been removed, leaving Reject the only exit", () => {
+    const resolve = live([step()]);
+    fireEvent.click(screen.getByText("aiAgent.plan.remove"));
+
+    expect(screen.getByText("aiAgent.plan.emptyHint")).toBeTruthy();
+    const run = screen.getByText("aiAgent.plan.approveAndRun") as HTMLButtonElement;
+    const ask = screen.getByText("aiAgent.plan.approvePlan") as HTMLButtonElement;
+    expect(run.disabled).toBe(true);
+    expect(ask.disabled).toBe(true);
+    fireEvent.click(run);
+    fireEvent.click(ask);
+    expect(resolve).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText("aiAgent.plan.reject"));
+    expect(resolve).toHaveBeenCalled();
+  });
+
+  it("reveals the will-still-ask explanation on click, not only via the title attribute", () => {
+    live([step({ command: "df -h | wc -l" })]);
+    expect(screen.queryByText("aiAgent.plan.willStillAskHint")).toBeNull();
+
+    const badge = screen.getByText("aiAgent.plan.willStillAsk").closest("button") as HTMLButtonElement;
+    expect(badge.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(badge);
+
+    expect(screen.getByText("aiAgent.plan.willStillAskHint")).toBeTruthy();
+    expect(badge.getAttribute("aria-expanded")).toBe("true");
+  });
+});
