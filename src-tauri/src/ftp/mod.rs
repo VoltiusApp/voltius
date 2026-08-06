@@ -7,13 +7,15 @@
 //! info are best-effort.
 
 use crate::commands::sftp::{RemoteFile, TransferProgress};
-use crate::sftp::FileBackend;
+use crate::sftp::backend::{FileBackend, RemoteRead, RemoteWrite};
 use async_trait::async_trait;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::UNIX_EPOCH;
 use suppaftp::list::File as FtpFile;
-use suppaftp::tokio::{AsyncRustlsConnector, AsyncRustlsFtpStream};
+use suppaftp::tokio::{
+    AsyncDataStream, AsyncRustlsConnector, AsyncRustlsFtpStream, AsyncRustlsStream,
+};
 use suppaftp::types::FileType;
 use suppaftp::Mode;
 use tauri::{AppHandle, Emitter};
@@ -401,6 +403,32 @@ impl FileBackend for FtpBackend {
         Ok(())
     }
 
+    // An open data connection owns the whole session for its lifetime, so the
+    // guard is owned rather than borrowed and travels with the stream. Any
+    // other operation on this connection blocks until the transfer finishes —
+    // unavoidable: FTP has one control connection.
+    async fn open_read(&self, path: &str) -> Result<Box<dyn RemoteRead>, String> {
+        let mut ftp = Arc::clone(&self.inner).lock_owned().await;
+        let stream = ftp
+            .retr_as_stream(path)
+            .await
+            .map_err(|e| format!("Cannot open source {path}: {e}"))?;
+        Ok(Box::new(FtpReadStream { ftp, stream: Some(stream) }))
+    }
+
+    async fn open_write(&self, path: &str) -> Result<Box<dyn RemoteWrite>, String> {
+        let mut ftp = Arc::clone(&self.inner).lock_owned().await;
+        let stream = ftp
+            .put_with_stream(path)
+            .await
+            .map_err(|e| format!("Cannot create destination {path}: {e}"))?;
+        Ok(Box::new(FtpWriteStream { ftp, stream: Some(stream) }))
+    }
+
+    fn stream_is_exclusive(&self) -> bool {
+        true
+    }
+
     async fn upload_dir(
         &self,
         app: &AppHandle,
@@ -556,5 +584,65 @@ mod tests {
             .expect("rename");
         b.delete("/sub").await.expect("recursive delete");
         assert_eq!(b.stat("/sub").await.expect("stat deleted"), None);
+    }
+}
+
+type FtpGuard = tokio::sync::OwnedMutexGuard<AsyncRustlsFtpStream>;
+type FtpData = AsyncDataStream<AsyncRustlsStream>;
+
+/// The data stream is an `Option` only so `finish` can move it out of `self`
+/// while still holding the guard it needs to finalize on.
+struct FtpReadStream {
+    ftp: FtpGuard,
+    stream: Option<FtpData>,
+}
+
+#[async_trait]
+impl RemoteRead for FtpReadStream {
+    async fn read_chunk(&mut self, buf: &mut [u8]) -> Result<usize, String> {
+        match self.stream.as_mut() {
+            Some(s) => s.read(buf).await.map_err(|e| format!("Read error: {e}")),
+            None => Ok(0),
+        }
+    }
+    async fn finish(mut self: Box<Self>) -> Result<(), String> {
+        match self.stream.take() {
+            Some(s) => self
+                .ftp
+                .finalize_retr_stream(s)
+                .await
+                .map_err(|e| format!("read finalize failed: {e}")),
+            None => Ok(()),
+        }
+    }
+}
+
+struct FtpWriteStream {
+    ftp: FtpGuard,
+    stream: Option<FtpData>,
+}
+
+#[async_trait]
+impl RemoteWrite for FtpWriteStream {
+    async fn write_chunk(&mut self, buf: &[u8]) -> Result<(), String> {
+        match self.stream.as_mut() {
+            Some(s) => s.write_all(buf).await.map_err(|e| format!("Write error: {e}")),
+            None => Err("stream already finished".into()),
+        }
+    }
+    async fn finish(mut self: Box<Self>) -> Result<(), String> {
+        match self.stream.take() {
+            Some(s) => self
+                .ftp
+                .finalize_put_stream(s)
+                .await
+                .map_err(|e| format!("upload finalize failed: {e}")),
+            None => Ok(()),
+        }
+    }
+    async fn abort(mut self: Box<Self>) {
+        if let Some(s) = self.stream.take() {
+            let _ = self.ftp.abort(s).await;
+        }
     }
 }

@@ -1,4 +1,6 @@
-use super::{get_backend, get_session, sftp_rr_file_inner_accum, TransferProgress, CHUNK_SIZE};
+use super::transfer::pipe_between;
+use super::{get_backend, sftp_rr_file_inner_accum, TransferProgress, CHUNK_SIZE};
+use crate::sftp::backend::FileBackend;
 use crate::sftp::SftpManager;
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::OpenFlags;
@@ -236,7 +238,9 @@ pub(crate) async fn sftp_download_dir_inner(
     Ok(())
 }
 
-/// Transfer a directory recursively between two remote SFTP sessions.
+/// Transfer a directory recursively between two remote sessions. Two real SFTP
+/// sessions keep the direct handle-to-handle path; any other pairing walks and
+/// pipes through the `FileBackend` trait, so an FTP end works too.
 #[tauri::command]
 pub async fn sftp_transfer_dir(
     app: AppHandle,
@@ -247,48 +251,97 @@ pub async fn sftp_transfer_dir(
     dst_path: String,
     transfer_id: String,
 ) -> Result<(), String> {
-    let src_session = get_session(&sftp_state, &src_sftp_id).await?;
-    let dst_session = get_session(&sftp_state, &dst_sftp_id).await?;
+    let src = get_backend(&sftp_state, &src_sftp_id).await?;
+    let dst = get_backend(&sftp_state, &dst_sftp_id).await?;
+
+    if src_sftp_id == dst_sftp_id && src.stream_is_exclusive() {
+        return Err(
+            "This connection cannot copy a directory to itself: its protocol allows only one transfer at a time."
+                .into(),
+        );
+    }
+
     let token = sftp_state.register_transfer(&transfer_id).await;
+    let sessions = src.as_sftp_session().zip(dst.as_sftp_session());
 
     // Collect structure from source (dirs + files with sizes)
-    let (dirs, files): (Vec<String>, Vec<(String, String, u64)>) = {
-        let sftp = src_session.lock().await;
-        collect_remote_structure(&sftp, &src_path, &src_path).await?
+    let structure = match &sessions {
+        Some((src_session, _)) => {
+            let sftp = src_session.lock().await;
+            collect_remote_structure(&sftp, &src_path, &src_path).await
+        }
+        None => collect_backend_structure(src.as_ref(), &src_path, &src_path).await,
+    };
+    let (dirs, files) = match structure {
+        Ok(v) => v,
+        Err(e) => {
+            sftp_state.finish_transfer(&transfer_id).await;
+            return Err(e);
+        }
     };
 
     let total: u64 = files.iter().map(|(_, _, size)| size).sum();
 
     // Pre-create destination directory structure
-    {
-        let sftp = dst_session.lock().await;
-        let _ = sftp.create_dir(&dst_path).await; // ignore if already exists
-        for dir_rel in &dirs {
-            let dst_dir = format!("{}/{}", dst_path.trim_end_matches('/'), dir_rel);
-            let _ = sftp.create_dir(&dst_dir).await;
+    match &sessions {
+        Some((_, dst_session)) => {
+            let sftp = dst_session.lock().await;
+            let _ = sftp.create_dir(&dst_path).await; // ignore if already exists
+            for dir_rel in &dirs {
+                let dst_dir = format!("{}/{}", dst_path.trim_end_matches('/'), dir_rel);
+                let _ = sftp.create_dir(&dst_dir).await;
+            }
+        }
+        None => {
+            let _ = dst.mkdir(&dst_path).await;
+            for dir_rel in &dirs {
+                let dst_dir = format!("{}/{}", dst_path.trim_end_matches('/'), dir_rel);
+                let _ = dst.mkdir(&dst_dir).await;
+            }
         }
     }
 
     let mut transferred = 0u64;
-    for (src_abs, rel, _) in &files {
+    for (src_abs, rel, size) in &files {
         if token.is_cancelled() {
             sftp_state.finish_transfer(&transfer_id).await;
             return Err("Transfer cancelled".into());
         }
         let dst_abs = format!("{}/{}", dst_path.trim_end_matches('/'), rel);
         let file_total = total; // keep cumulative total for progress bar
-        let result = sftp_rr_file_inner_accum(
-            &app,
-            Arc::clone(&src_session),
-            src_abs,
-            Arc::clone(&dst_session),
-            &dst_abs,
-            &transfer_id,
-            &token,
-            &mut transferred,
-            file_total,
-        )
-        .await;
+        let result = match &sessions {
+            Some((src_session, dst_session)) => {
+                sftp_rr_file_inner_accum(
+                    &app,
+                    Arc::clone(src_session),
+                    src_abs,
+                    Arc::clone(dst_session),
+                    &dst_abs,
+                    &transfer_id,
+                    &token,
+                    &mut transferred,
+                    file_total,
+                )
+                .await
+            }
+            None => {
+                // The generic pipe reports its own progress from zero, so the
+                // running total is advanced per file rather than per chunk.
+                let r = pipe_between(
+                    &app,
+                    src.as_ref(),
+                    src_abs,
+                    dst.as_ref(),
+                    &dst_abs,
+                    &transfer_id,
+                    &token,
+                    file_total,
+                )
+                .await;
+                transferred += size;
+                r
+            }
+        };
         if let Err(e) = result {
             sftp_state.finish_transfer(&transfer_id).await;
             return Err(e);
@@ -296,6 +349,40 @@ pub async fn sftp_transfer_dir(
     }
     sftp_state.finish_transfer(&transfer_id).await;
     Ok(())
+}
+
+/// `collect_remote_structure` over the `FileBackend` trait, for any transport.
+/// Symlinks are skipped, matching the SFTP walk.
+fn collect_backend_structure<'a>(
+    backend: &'a dyn FileBackend,
+    base: &'a str,
+    current: &'a str,
+) -> DirWalkFuture<'a, (Vec<String>, Vec<RemoteEntry>)> {
+    Box::pin(async move {
+        let mut dirs: Vec<String> = Vec::new();
+        let mut files: Vec<(String, String, u64)> = Vec::new();
+        for entry in backend.list_dir(current).await? {
+            if entry.is_symlink {
+                continue;
+            }
+            let rel = entry
+                .path
+                .strip_prefix(base)
+                .unwrap_or(&entry.path)
+                .trim_start_matches('/')
+                .to_string();
+            if entry.is_dir {
+                dirs.push(rel);
+                let (mut child_dirs, mut child_files) =
+                    collect_backend_structure(backend, base, &entry.path).await?;
+                dirs.append(&mut child_dirs);
+                files.append(&mut child_files);
+            } else {
+                files.push((entry.path, rel, entry.size));
+            }
+        }
+        Ok((dirs, files))
+    })
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

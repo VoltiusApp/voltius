@@ -1,4 +1,4 @@
-use super::{get_backend, get_session, TransferProgress, CHUNK_SIZE};
+use super::{get_backend, TransferProgress, CHUNK_SIZE};
 use crate::sftp::SftpManager;
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::OpenFlags;
@@ -170,7 +170,14 @@ pub(crate) async fn sftp_download_inner(
 
 // ── Remote → Remote transfer ──────────────────────────────────────────────────
 
-/// Transfer a single file between two remote SFTP sessions (streaming, never buffers whole file).
+/// Transfer a single file between two remote sessions (streaming, never buffers
+/// the whole file, never touches local disk).
+///
+/// Two real SFTP sessions take the direct handle-to-handle path. Anything else —
+/// an FTP end, a `docker exec` end, or a mix — pipes `open_read` into
+/// `open_write`. Before that existed both ends had to be SFTP, because the ids
+/// were resolved with `get_session`, so an FTP↔SFTP transfer failed outright
+/// with "SFTP session not found" and callers staged through a local temp file.
 #[tauri::command]
 pub async fn sftp_transfer(
     app: AppHandle,
@@ -181,22 +188,104 @@ pub async fn sftp_transfer(
     dst_path: String,
     transfer_id: String,
 ) -> Result<(), String> {
-    let src_session = get_session(&sftp_state, &src_sftp_id).await?;
-    let dst_session = get_session(&sftp_state, &dst_sftp_id).await?;
-    let token = sftp_state.register_transfer(&transfer_id).await;
+    let src = get_backend(&sftp_state, &src_sftp_id).await?;
+    let dst = get_backend(&sftp_state, &dst_sftp_id).await?;
 
-    let result = sftp_rr_file_inner(
-        &app,
-        src_session,
-        &src_path,
-        dst_session,
-        &dst_path,
-        &transfer_id,
-        &token,
-    )
-    .await;
+    // One connection cannot both send and receive at once on a transport whose
+    // stream owns the session (FTP). Same id on both ends there would deadlock
+    // on the second open, so refuse rather than hang.
+    if src_sftp_id == dst_sftp_id && src.stream_is_exclusive() {
+        return Err(
+            "This connection cannot copy a file to itself: its protocol allows only one transfer at a time. Download it and upload it back instead."
+                .into(),
+        );
+    }
+
+    let token = sftp_state.register_transfer(&transfer_id).await;
+    let result = match (src.as_sftp_session(), dst.as_sftp_session()) {
+        (Some(src_session), Some(dst_session)) => {
+            sftp_rr_file_inner(
+                &app,
+                src_session,
+                &src_path,
+                dst_session,
+                &dst_path,
+                &transfer_id,
+                &token,
+            )
+            .await
+        }
+        _ => {
+            let total = src.file_size(&src_path).await;
+            pipe_between(
+                &app,
+                src.as_ref(),
+                &src_path,
+                dst.as_ref(),
+                &dst_path,
+                &transfer_id,
+                &token,
+                total,
+            )
+            .await
+        }
+    };
     sftp_state.finish_transfer(&transfer_id).await;
     result
+}
+
+/// Stream one file from any backend to any other, chunk by chunk.
+///
+/// The destination is opened only after the source, so a source that cannot be
+/// read leaves no truncated file behind. On cancellation or a read failure the
+/// writer is aborted rather than finished — for FTP that is the difference
+/// between the server committing a partial file and discarding it.
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn pipe_between(
+    app: &AppHandle,
+    src: &dyn crate::sftp::backend::FileBackend,
+    src_path: &str,
+    dst: &dyn crate::sftp::backend::FileBackend,
+    dst_path: &str,
+    transfer_id: &str,
+    token: &CancellationToken,
+    total: u64,
+) -> Result<(), String> {
+    let mut reader = src.open_read(src_path).await?;
+    let mut writer = dst.open_write(dst_path).await?;
+
+    let mut buf = vec![0u8; CHUNK_SIZE];
+    let mut transferred = 0u64;
+    loop {
+        if token.is_cancelled() {
+            writer.abort().await;
+            return Err("Transfer cancelled".into());
+        }
+        let n = match reader.read_chunk(&mut buf).await {
+            Ok(n) => n,
+            Err(e) => {
+                writer.abort().await;
+                return Err(e);
+            }
+        };
+        if n == 0 {
+            break;
+        }
+        if let Err(e) = writer.write_chunk(&buf[..n]).await {
+            writer.abort().await;
+            return Err(e);
+        }
+        transferred += n as u64;
+        let _ = app.emit(
+            &format!("sftp-progress-{transfer_id}"),
+            TransferProgress { transferred, total },
+        );
+    }
+    // Destination first: a failure to commit the bytes is the one worth
+    // reporting, and the source handle is closed either way.
+    let written = writer.finish().await;
+    let read = reader.finish().await;
+    written.and(read)
 }
 
 /// Stream one file from src SFTP to dst SFTP.  Returns error on failure or cancellation.

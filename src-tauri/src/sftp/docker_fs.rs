@@ -10,7 +10,7 @@
 //! characters (acceptable for a file manager).
 
 use crate::commands::sftp::{RemoteFile, TransferProgress};
-use crate::sftp::backend::FileBackend;
+use crate::sftp::backend::{FileBackend, RemoteRead, RemoteWrite};
 use crate::ssh::client::SshClient;
 use async_trait::async_trait;
 use russh::client::Handle;
@@ -391,6 +391,25 @@ impl DockerFs {
         Ok(())
     }
 
+    /// Open a channel running one `docker exec` with `path` as `$1`.
+    async fn exec_channel(
+        &self,
+        script: &str,
+        path: &str,
+    ) -> Result<russh::Channel<russh::client::Msg>, String> {
+        let cmd = self.dexec(script, &[path]);
+        let channel = self
+            .handle
+            .channel_open_session()
+            .await
+            .map_err(|e| format!("channel error: {e}"))?;
+        channel
+            .exec(true, cmd.as_str())
+            .await
+            .map_err(|e| format!("exec error: {e}"))?;
+        Ok(channel)
+    }
+
     /// Wait for a streaming-upload command to finish and report any error.
     async fn drain_exit(
         &self,
@@ -719,6 +738,25 @@ impl FileBackend for DockerFs {
     async fn write_file(&self, path: &str, content: &str) -> Result<(), String> {
         DockerFs::write_file(self, path, content).await
     }
+
+    // A `docker exec cat` on its own SSH channel, one per stream — nothing is
+    // shared, so a read and a write on this backend can overlap.
+    async fn open_read(&self, path: &str) -> Result<Box<dyn RemoteRead>, String> {
+        let channel = self.exec_channel("cat \"$1\"", path).await?;
+        Ok(Box::new(DockerReadStream {
+            channel,
+            pending: Vec::new(),
+            offset: 0,
+            done: false,
+            stderr: Vec::new(),
+            code: 0,
+        }))
+    }
+
+    async fn open_write(&self, path: &str) -> Result<Box<dyn RemoteWrite>, String> {
+        let channel = self.exec_channel("cat > \"$1\"", path).await?;
+        Ok(Box::new(DockerWriteStream { channel }))
+    }
     async fn upload_file(
         &self,
         app: &AppHandle,
@@ -778,5 +816,100 @@ impl FileBackend for DockerFs {
         token: &CancellationToken,
     ) -> Result<(), String> {
         DockerFs::download_batch(self, app, remote_paths, local_dir, transfer_id, token).await
+    }
+}
+
+/// `docker exec cat <path>`, surfaced as chunked reads.
+///
+/// The channel is a message pump, not a byte stream, so a Data message larger
+/// than the caller's buffer is held in `pending` and handed out across calls.
+/// stderr and the exit status are collected as they arrive and only reported by
+/// `finish` — `cat` can fail after having written bytes, and silently returning
+/// a truncated file would land a corrupt copy on the destination.
+struct DockerReadStream {
+    channel: russh::Channel<russh::client::Msg>,
+    pending: Vec<u8>,
+    offset: usize,
+    done: bool,
+    stderr: Vec<u8>,
+    code: i32,
+}
+
+#[async_trait]
+impl RemoteRead for DockerReadStream {
+    async fn read_chunk(&mut self, buf: &mut [u8]) -> Result<usize, String> {
+        while self.offset >= self.pending.len() {
+            if self.done {
+                return Ok(0);
+            }
+            match self.channel.wait().await {
+                Some(ChannelMsg::Data { data }) => {
+                    self.pending = data.to_vec();
+                    self.offset = 0;
+                }
+                Some(ChannelMsg::ExtendedData { data, .. }) => self.stderr.extend_from_slice(&data),
+                Some(ChannelMsg::ExitStatus { exit_status }) => self.code = exit_status as i32,
+                Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) | None => self.done = true,
+                _ => {}
+            }
+        }
+        let n = std::cmp::min(buf.len(), self.pending.len() - self.offset);
+        buf[..n].copy_from_slice(&self.pending[self.offset..self.offset + n]);
+        self.offset += n;
+        Ok(n)
+    }
+
+    async fn finish(mut self: Box<Self>) -> Result<(), String> {
+        while !self.done {
+            match self.channel.wait().await {
+                Some(ChannelMsg::ExtendedData { data, .. }) => self.stderr.extend_from_slice(&data),
+                Some(ChannelMsg::ExitStatus { exit_status }) => self.code = exit_status as i32,
+                Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) | None => self.done = true,
+                _ => {}
+            }
+        }
+        if self.code != 0 {
+            let msg = String::from_utf8_lossy(&self.stderr);
+            return Err(format!("read failed: {}", msg.trim()));
+        }
+        Ok(())
+    }
+}
+
+/// `docker exec cat > <path>`, fed chunk by chunk.
+struct DockerWriteStream {
+    channel: russh::Channel<russh::client::Msg>,
+}
+
+#[async_trait]
+impl RemoteWrite for DockerWriteStream {
+    async fn write_chunk(&mut self, buf: &[u8]) -> Result<(), String> {
+        self.channel
+            .data(buf)
+            .await
+            .map_err(|e| format!("Write error: {e}"))
+    }
+
+    async fn finish(mut self: Box<Self>) -> Result<(), String> {
+        self.channel.eof().await.ok();
+        let mut stderr = Vec::new();
+        let mut code = 0i32;
+        loop {
+            match self.channel.wait().await {
+                Some(ChannelMsg::ExtendedData { data, .. }) => stderr.extend_from_slice(&data),
+                Some(ChannelMsg::ExitStatus { exit_status }) => code = exit_status as i32,
+                Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) | None => break,
+                _ => {}
+            }
+        }
+        if code != 0 {
+            let msg = String::from_utf8_lossy(&stderr);
+            return Err(format!("write failed: {}", msg.trim()));
+        }
+        Ok(())
+    }
+
+    async fn abort(mut self: Box<Self>) {
+        let _ = self.channel.close().await;
     }
 }

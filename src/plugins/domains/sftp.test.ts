@@ -128,25 +128,21 @@ describe("createSftpAPI", () => {
     expect(svc.sftpDownload).not.toHaveBeenCalled();
   });
 
-  // sftp_transfer resolves both ids with get_session, which downcasts to a real
-  // SFTP session; an FTP backend is not one. upload/download go through
-  // get_backend and do support FTP, so an FTP end has to be staged.
-  it("stages a transfer through this machine when either end is FTP, then cleans up", async () => {
+  // An FTP end used to be staged through this machine's cache directory,
+  // because sftp_transfer resolved both ids with get_session and an FTP backend
+  // is not a real SFTP session. It now pipes backend-to-backend in Rust.
+  it.each([
+    ["ssh→ftp", { target: "c-ssh", path: "/srv/a.txt" }, { target: "c-ftp", path: "/pub/a.txt" }, "sftp-1", "ftp-1"],
+    ["ftp→ssh", { target: "c-ftp", path: "/pub/a.txt" }, { target: "c-ssh", path: "/srv/a.txt" }, "ftp-1", "sftp-1"],
+  ])("transfers %s directly, staging nothing on this machine", async (_n, src, dst, srcId, dstId) => {
     const api = createSftpAPI(find);
-    await api.transfer({ target: "c-ssh", path: "/srv/a.txt" }, { target: "c-ftp", path: "/pub/a.txt" });
-    expect(svc.sftpTransfer).not.toHaveBeenCalled();
-    expect(svc.sftpDownload).toHaveBeenCalledWith(expect.objectContaining({ sftpId: "sftp-1", remotePath: "/srv/a.txt" }));
-    expect(svc.sftpUpload).toHaveBeenCalledWith(expect.objectContaining({ sftpId: "ftp-1", remotePath: "/pub/a.txt" }));
-    expect(svc.fsDelete).toHaveBeenCalledWith(expect.stringContaining("/cache/agent-transfer-"));
-  });
-
-  it("removes the staging copy even when the upload half fails", async () => {
-    svc.sftpUpload.mockRejectedValueOnce(new Error("denied"));
-    const api = createSftpAPI(find);
-    await expect(
-      api.transfer({ target: "c-ftp", path: "/pub/a.txt" }, { target: "c-ssh", path: "/srv/a.txt" }),
-    ).rejects.toThrow("denied");
-    expect(svc.fsDelete).toHaveBeenCalledWith(expect.stringContaining("/cache/agent-transfer-"));
+    await api.transfer(src, dst);
+    expect(svc.sftpTransfer).toHaveBeenCalledWith(
+      expect.objectContaining({ srcSftpId: srcId, srcPath: src.path, dstSftpId: dstId, dstPath: dst.path }),
+    );
+    expect(svc.sftpDownload).not.toHaveBeenCalled();
+    expect(svc.sftpUpload).not.toHaveBeenCalled();
+    expect(svc.fsDelete).not.toHaveBeenCalled();
   });
 
   it("dispose closes every open handle so an unloaded plugin leaves no connections", async () => {

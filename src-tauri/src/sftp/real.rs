@@ -5,7 +5,7 @@
 use crate::commands::sftp::dir::{sftp_download_dir_inner, sftp_upload_dir_inner};
 use crate::commands::sftp::transfer::{sftp_download_inner, sftp_upload_inner};
 use crate::commands::sftp::RemoteFile;
-use crate::sftp::backend::FileBackend;
+use crate::sftp::backend::{FileBackend, RemoteRead, RemoteWrite};
 use async_trait::async_trait;
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::OpenFlags;
@@ -142,6 +142,30 @@ impl FileBackend for RealSftp {
             .await
             .map_err(|e| format!("flush failed: {e}"))?;
         Ok(())
+    }
+
+    // The file handle outlives the session guard: russh-sftp hands back an
+    // owned handle multiplexed over the SSH channel, so nothing here holds the
+    // session locked for the length of a transfer.
+    async fn open_read(&self, path: &str) -> Result<Box<dyn RemoteRead>, String> {
+        let sftp = self.session.lock().await;
+        let file = sftp
+            .open(path)
+            .await
+            .map_err(|e| format!("Cannot open source {path}: {e}"))?;
+        Ok(Box::new(SftpStream { file }))
+    }
+
+    async fn open_write(&self, path: &str) -> Result<Box<dyn RemoteWrite>, String> {
+        let sftp = self.session.lock().await;
+        let file = sftp
+            .open_with_flags(
+                path,
+                OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE,
+            )
+            .await
+            .map_err(|e| format!("Cannot create destination {path}: {e}"))?;
+        Ok(Box::new(SftpStream { file }))
     }
 
     async fn upload_file(
@@ -323,4 +347,37 @@ fn remove_recursive(
 
         Ok(())
     })
+}
+
+/// One open SFTP file handle, used for both directions.
+///
+/// `finish` shuts the handle down rather than letting `Drop` do it: russh-sftp
+/// closes fire-and-forget on drop and leaks the client-side open-handle
+/// counter, which a long-running session eventually notices.
+struct SftpStream {
+    file: russh_sftp::client::fs::File,
+}
+
+#[async_trait]
+impl RemoteRead for SftpStream {
+    async fn read_chunk(&mut self, buf: &mut [u8]) -> Result<usize, String> {
+        self.file.read(buf).await.map_err(|e| format!("Read error: {e}"))
+    }
+    async fn finish(mut self: Box<Self>) -> Result<(), String> {
+        self.file.shutdown().await.map_err(|e| format!("Close error: {e}"))
+    }
+}
+
+#[async_trait]
+impl RemoteWrite for SftpStream {
+    async fn write_chunk(&mut self, buf: &[u8]) -> Result<(), String> {
+        self.file.write_all(buf).await.map_err(|e| format!("Write error: {e}"))
+    }
+    async fn finish(mut self: Box<Self>) -> Result<(), String> {
+        self.file.flush().await.map_err(|e| format!("Flush error: {e}"))?;
+        self.file.shutdown().await.map_err(|e| format!("Close error: {e}"))
+    }
+    async fn abort(mut self: Box<Self>) {
+        let _ = self.file.shutdown().await;
+    }
 }

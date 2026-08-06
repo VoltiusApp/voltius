@@ -8,7 +8,6 @@ import { resolveConnectionCredentials, resolveJumpHosts } from "@/services/crede
 import { resolveKeepalive } from "@/utils/keepalive";
 import { getGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
 import { invoke } from "@tauri-apps/api/core";
-import { appCacheDir } from "@tauri-apps/api/path";
 import type { Connection } from "@/types";
 import type { PluginFile, SftpAPI, FileEndpoint } from "../api";
 
@@ -81,7 +80,6 @@ export function createSftpAPI(
   };
 
   const isLocal = (target: string) => target === LOCAL_TARGET;
-  const isFtp = (target: string) => findConnection(target)?.connection_type === "ftp";
 
   /**
    * Reject an unresolvable target loudly, before any verb can turn it into a
@@ -203,30 +201,11 @@ export function createSftpAPI(
         handleFor(dst.target),
       ]);
 
-      // `sftp_transfer` resolves both ids with `get_session`, which downcasts to
-      // a real SFTP session — an FTP backend is not one, so a direct host→host
-      // stream is impossible whenever either end is FTP. `sftp_upload` and
-      // `sftp_download` go through `get_backend` and do support FTP, so stage
-      // through this machine instead. Slower, and the bytes DO land here
-      // briefly, unlike the direct path.
-      if (isFtp(src.target) || isFtp(dst.target)) {
-        const staging = `${await appCacheDir()}/agent-transfer-${transferId}`;
-        const down = { sftpId: srcSftpId, remotePath: src.path, localPath: staging, transferId };
-        const up = { sftpId: dstSftpId, localPath: staging, remotePath: dst.path, transferId };
-        try {
-          if (dir) {
-            await sftpDownloadDir(down);
-            await sftpUploadDir(up);
-          } else {
-            await sftpDownload(down);
-            await sftpUpload(up);
-          }
-        } finally {
-          await fsDelete(staging).catch(() => {});
-        }
-        return;
-      }
-
+      // `sftp_transfer` used to resolve both ids with `get_session`, which
+      // downcasts to a real SFTP session, so an FTP end forced a stage through
+      // this machine's cache directory. It now pipes through `FileBackend`
+      // whenever either end is not real SFTP, and the bytes never touch local
+      // disk regardless of the pairing.
       const params = { srcSftpId, srcPath: src.path, dstSftpId, dstPath: dst.path, transferId };
       return dir ? sftpTransferDir(params) : sftpTransfer(params);
     },
