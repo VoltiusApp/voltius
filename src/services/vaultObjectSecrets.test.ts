@@ -39,6 +39,13 @@ test("publish covers every local key an object owns, and skips the ones with no 
   h.getSecret.mockImplementation(async (k: string) => (k === "password:c1" ? "pw" : null));
   await publishConnectionSecrets("c1", "v1");
   expect(h.save.mock.calls).toEqual([["v1", "password:c1", "pw"]]);
+  // A connection owns the passphrase for its inline key too; leaving it out
+  // hands a member an encrypted key they cannot open.
+  expect(h.getSecret.mock.calls.map((c) => c[0])).toEqual([
+    "password:c1",
+    "key:c1",
+    "passphrase:c1",
+  ]);
 
   h.save.mockClear();
   h.getSecret.mockResolvedValue("mat");
@@ -54,7 +61,11 @@ test("publish covers every local key an object owns, and skips the ones with no 
 // caller may no longer be able to decrypt.
 test("unpublish withdraws every local key without reading it", async () => {
   await unpublishConnectionSecrets("c1", "v1");
-  expect(h.del.mock.calls).toEqual([["v1", "password:c1"], ["v1", "key:c1"]]);
+  expect(h.del.mock.calls).toEqual([
+    ["v1", "password:c1"],
+    ["v1", "key:c1"],
+    ["v1", "passphrase:c1"],
+  ]);
   expect(h.getSecret).not.toHaveBeenCalled();
 
   h.del.mockClear();

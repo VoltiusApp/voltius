@@ -12,7 +12,7 @@ import {
  * left, which is the only thing that stops a password staying readable by
  * everyone still in that team.
  */
-const connectionKeys = (id: string) => [`password:${id}`, `key:${id}`];
+const connectionKeys = (id: string) => [`password:${id}`, `key:${id}`, `passphrase:${id}`];
 const sshKeyKeys = (id: string) => [`key:${id}:private`, `key:${id}:public`, `key:${id}:passphrase`];
 const identityKeys = (id: string) => [`identity:${id}:password`];
 

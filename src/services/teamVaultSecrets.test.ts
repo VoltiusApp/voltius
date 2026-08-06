@@ -245,6 +245,37 @@ test("backfillExistingTeamVaultSecrets fans out over connections, identities, an
   );
 });
 
+/**
+ * The fan-out test above stubs every read to null, so it stops before the
+ * publish and passes even when a shape has no team representation at all —
+ * which is how `passphrase:<conn_id>` stayed unpublished. This asserts the
+ * secrets actually reach the vault.
+ */
+test("backfillExistingTeamVaultSecrets publishes every shape it read, including the connection passphrase", async () => {
+  h.teamConnections = { t1: [{ id: "conn1" }] };
+  h.teamIdentities = { t1: [{ id: "id1" }] };
+  h.teamKeys = { t1: [{ id: "key1" }] };
+  h.getSecret.mockResolvedValue("material");
+  h.invoke.mockResolvedValue([1, 2, 3]);
+
+  await backfillExistingTeamVaultSecrets("t1");
+
+  const published = h.upsertTeamSecret.mock.calls
+    .map((c) => [c[1].secret_id, c[1].secret_type])
+    .sort((a, b) => a[0].localeCompare(b[0]));
+  expect(published).toEqual(
+    [
+      ["password:conn1", "connection_password"],
+      ["key:conn1", "connection_key"],
+      ["passphrase:conn1", "connection_passphrase"],
+      ["identity:id1:password", "identity_password"],
+      ["key:key1:private", "key_private"],
+      ["key:key1:public", "key_public"],
+      ["key:key1:passphrase", "key_passphrase"],
+    ].sort((a, b) => a[0].localeCompare(b[0])),
+  );
+});
+
 test("backfillExistingTeamVaultSecrets handles an empty team (no per-team collections) without error", async () => {
   await expect(backfillExistingTeamVaultSecrets("t-empty")).resolves.toBeUndefined();
   expect(h.getSecret).not.toHaveBeenCalled();
