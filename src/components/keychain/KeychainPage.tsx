@@ -15,7 +15,6 @@ import { useVaultCascade } from "@/hooks/useVaultCascade";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { usePermissions, type Permission } from "@/hooks/usePermission";
 import { useVaultStore } from "@/stores/vaultStore";
-import { useTeamStore } from "@/stores/teamStore";
 import { useAccessibleVaultIds, useScopedVaultId } from "@/hooks/useAccessibleVaultIds";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { useDragSelection } from "@/hooks/useDragSelection";
@@ -36,7 +35,7 @@ import { KeyForm } from "./KeyForm";
 import { IdentityForm } from "./IdentityForm";
 import { KeyExportPanel, sortByMode } from "./KeyExportPanel";
 import { getSecret, storeSecret, deleteSecret } from "@/services/vault";
-import type { Folder, Identity, IdentityFormData, SshKey, SshKeyFormData, VaultOption } from "@/types";
+import type { Folder, Identity, IdentityFormData, SshKey, SshKeyFormData } from "@/types";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
@@ -54,6 +53,12 @@ import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import { getShortcutHint } from "@/stores/shortcutStore";
+import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
+import { useVaultOptions } from "@/hooks/useVaultOptions";
+import { useScopedFolders } from "@/hooks/useScopedFolders";
+import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
+import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
+import { copyFolderSubtree } from "@/utils/folderCopy";
 
 export default function KeychainPage() {
   const { t } = useTranslation();
@@ -99,8 +104,6 @@ export default function KeychainPage() {
   const folders = useAllFolders();
 
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
-  const vaults = useVaultStore((s) => s.vaults);
-  const teams = useTeamStore((s) => s.teams);
   const accessibleVaultIds = useAccessibleVaultIds();
   const scopedVaultId = useScopedVaultId();
   const defaultVaultId = useDefaultVaultId();
@@ -108,23 +111,9 @@ export default function KeychainPage() {
   const canEditKeys = selectedVaultIds.some((vid) => can("EDIT_KEYS", vid));
   const canEditIdentities = selectedVaultIds.some((vid) => can("EDIT_IDENTITIES", vid));
 
-  const vaultOptions = useMemo<VaultOption[]>(() => {
-    const linkedTeamIds = new Set(vaults.map((v) => v.teamId).filter(Boolean));
-    return [
-      { id: "personal", name: "Personal" },
-      ...vaults.filter((v) => v.id !== "personal").map((v) => ({ id: v.teamId ?? v.id, name: v.name })),
-      ...teams.filter((t) => !linkedTeamIds.has(t.id)).map((t) => ({ id: t.id, name: t.name })),
-    ];
-  }, [vaults, teams]);
+  const vaultOptions = useVaultOptions();
   const q = useMemo(() => search.trim().toLowerCase(), [search]);
-  const scopedFolders = useMemo(
-    () => folders.filter((f) => {
-      if (f.object_type !== "keychain") return false;
-      const fvid = f.vault_id ?? "personal";
-      return accessibleVaultIds.length === 0 || accessibleVaultIds.includes(fvid);
-    }),
-    [folders, accessibleVaultIds],
-  );
+  const scopedFolders = useScopedFolders(folders, accessibleVaultIds, "keychain");
   const scopedFolderIds = useMemo(() => new Set(scopedFolders.map((f) => f.id)), [scopedFolders]);
   const editingFolder = editingFolderId ? scopedFolders.find((f) => f.id === editingFolderId) ?? null : null;
 
@@ -877,35 +866,15 @@ export default function KeychainPage() {
   // ── Folder vault move / copy ──────────────────────────────────────────────
 
   /** All folders in the subtree rooted at folderId (BFS-ordered, parents before children). */
-  const getAllSubFolders = (folderId: string): Folder[] => {
-    const queue = [folderId];
-    const result: Folder[] = [];
-    // A parent cycle in the data would otherwise spin forever and lock the renderer.
-    const seen = new Set<string>([folderId]);
-    while (queue.length) {
-      const cur = queue.shift()!;
-      const children = scopedFolders.filter((f) => f.parent_folder_id === cur && !seen.has(f.id));
-      for (const child of children) seen.add(child.id);
-      result.push(...children);
-      queue.push(...children.map((f) => f.id));
-    }
-    return result;
-  };
-
-  const folderTreeIds = (folderId: string): Set<string> =>
-    new Set([folderId, ...getAllSubFolders(folderId).map((f) => f.id)]);
+  const getAllSubFolders = (folderId: string): Folder[] => descendantFolders(scopedFolders, folderId);
 
   /** Keys nested anywhere under folderId. */
-  const keysInFolderTree = (folderId: string): SshKey[] => {
-    const ids = folderTreeIds(folderId);
-    return keys.filter((k) => k.folder_id != null && ids.has(k.folder_id));
-  };
+  const keysInFolderTree = (folderId: string): SshKey[] =>
+    itemsInFolderSubtree(keys, scopedFolders, folderId);
 
   /** Identities nested anywhere under folderId. */
-  const identitiesInFolderTree = (folderId: string): Identity[] => {
-    const ids = folderTreeIds(folderId);
-    return identities.filter((i) => i.folder_id != null && ids.has(i.folder_id));
-  };
+  const identitiesInFolderTree = (folderId: string): Identity[] =>
+    itemsInFolderSubtree(identities, scopedFolders, folderId);
 
   /** Keys and identities nested anywhere under folderId. */
   const getItemsInFolderTree = (folderId: string): string[] => [
@@ -982,15 +951,11 @@ export default function KeychainPage() {
       ],
       execute: async () => {
         try {
-          const folderIdMap = new Map<string, string>();
-          const destHasName = folders.some((f) => (f.vault_id ?? "personal") === vaultId && f.object_type === folder.object_type && f.name === folder.name);
-          const newRoot = await saveFolder({ name: destHasName ? `${folder.name} (copy)` : folder.name, object_type: folder.object_type, parent_folder_id: folder.parent_folder_id, vault_id: vaultId });
-          folderIdMap.set(folder.id, newRoot.id);
-          for (const sf of subFolders) {
-            const newParentId = sf.parent_folder_id ? (folderIdMap.get(sf.parent_folder_id) ?? newRoot.id) : newRoot.id;
-            const newSf = await saveFolder({ name: sf.name, object_type: sf.object_type, parent_folder_id: newParentId, vault_id: vaultId });
-            folderIdMap.set(sf.id, newSf.id);
-          }
+          // The copied keys and identities are not re-filed — they land at the
+          // destination root — but the folders themselves are still recreated.
+          await copyFolderSubtree({
+            root: folder, subFolders, vaultId, existingFolders: folders, saveFolder,
+          });
           const keyIdMap = new Map<string, string>();
           for (const key of treeKeys) {
             const newKey = await useKeyStore.getState().saveKey({ name: key.name, key_type: key.key_type, tags: key.tags, vault_id: vaultId });
@@ -1287,34 +1252,12 @@ export default function KeychainPage() {
           <div ref={itemAreaRef} data-drag-surface="true" className="space-y-6">
 
             {/* ── Folder breadcrumb ── */}
-            {folderPath.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  className="flex items-center gap-1.5 text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
-                  onClick={navigateToRoot}
-                >
-                  <Icon icon="lucide:chevron-left" width={13} />
-                  {t("keychain.page.all")}
-                </button>
-                {folderPath.map((folder, i) => (
-                  <span key={folder.id} className="flex items-center gap-2">
-                    <span className="text-(--t-text-dim)">/</span>
-                    {i < folderPath.length - 1 ? (
-                      <button
-                        className="text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
-                        onClick={() => navigateTo(i)}
-                      >
-                        {folder.name}
-                      </button>
-                    ) : (
-                      <span className="text-xs font-medium text-(--t-text-primary)">
-                        {folder.name}
-                      </span>
-                    )}
-                  </span>
-                ))}
-              </div>
-            )}
+            <FolderBreadcrumb
+              path={folderPath}
+              rootLabel={t("keychain.page.all")}
+              onNavigateToRoot={navigateToRoot}
+              onNavigateTo={navigateTo}
+            />
 
             {/* ── Folders section ── */}
             {visibleFolders.length > 0 && (
@@ -1374,30 +1317,14 @@ export default function KeychainPage() {
 
             {/* ── Eject drop zone (in DOM whenever inside folder, visible only while dragging) ── */}
             {activeFolderId && (
-              <div
-                className="flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-150"
-                style={{
-                  border: dragOverEject ? "2px solid var(--t-accent)" : "2px dashed var(--t-border-hover)",
-                  background: dragOverEject
-                    ? "color-mix(in srgb, var(--t-accent) 8%, var(--t-bg-card))"
-                    : "transparent",
-                  color: dragOverEject ? "var(--t-accent)" : "var(--t-text-dim)",
-                  opacity: isDragging ? 1 : 0,
-                  pointerEvents: isDragging ? "auto" : "none",
-                  height: isDragging ? undefined : 0,
-                  padding: isDragging ? undefined : 0,
-                  marginTop: isDragging ? undefined : 0,
-                  overflow: "hidden",
-                }}
-                {...ejectDropProps(ejectTargetFolderId)}
-              >
-                <Icon icon="lucide:folder-minus" width={16} />
-                <span className="text-sm font-medium">
-                  {ejectTargetFolderId
-                    ? t("keychain.page.ejectMoveTo", { name: folderPath[folderPath.length - 2].name })
-                    : t("keychain.page.ejectRemoveFromFolder")}
-                </span>
-              </div>
+              <FolderEjectZone
+                label={ejectTargetFolderId
+                  ? t("keychain.page.ejectMoveTo", { name: folderPath[folderPath.length - 2].name })
+                  : t("keychain.page.ejectRemoveFromFolder")}
+                isDragging={isDragging}
+                dragOver={dragOverEject}
+                dropProps={ejectDropProps(ejectTargetFolderId)}
+              />
             )}
 
             {(pinnedKeys.length > 0 || pinnedIdentities.length > 0) && (
