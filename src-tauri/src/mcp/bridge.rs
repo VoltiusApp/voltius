@@ -1,5 +1,6 @@
 use serde_json::Value;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::Emitter;
@@ -37,6 +38,14 @@ type BridgeResult = Result<Value, BridgeError>;
 pub struct Bridge {
     pending: Arc<Mutex<HashMap<String, oneshot::Sender<BridgeResult>>>>,
     slots: Arc<Mutex<HashMap<String, oneshot::Receiver<BridgeResult>>>>,
+    /// False from the moment a reload starts until the new page's consumer
+    /// signals it has (re)attached its listener. Closes a race that a single
+    /// invalidate-on-reload-start pass misses: a request that calls
+    /// `request()` after the old listener is gone but before the new one is
+    /// registered would otherwise register and emit normally, then just sit
+    /// there — nothing will ever answer it and it was never in the pending
+    /// map at invalidation time, so it hangs to the full call timeout.
+    ready: Arc<AtomicBool>,
 }
 
 impl Default for Bridge {
@@ -50,7 +59,17 @@ impl Bridge {
         Self {
             pending: Arc::new(Mutex::new(HashMap::new())),
             slots: Arc::new(Mutex::new(HashMap::new())),
+            ready: Arc::new(AtomicBool::new(true)),
         }
+    }
+
+    pub fn set_ready(&self, ready: bool) {
+        self.ready.store(ready, Ordering::SeqCst);
+    }
+
+    #[cfg(test)]
+    fn is_ready(&self) -> bool {
+        self.ready.load(Ordering::SeqCst)
     }
 
     pub async fn register(&self) -> String {
@@ -99,6 +118,11 @@ impl Bridge {
         payload: Value,
         timeout: Duration,
     ) -> Result<Value, BridgeError> {
+        if !self.ready.load(Ordering::SeqCst) {
+            return Err(BridgeError::Invalidated(
+                "the app window reloaded".to_string(),
+            ));
+        }
         let id = self.register().await;
         if app
             .emit(
@@ -199,6 +223,18 @@ mod tests {
         bridge.discard(&id).await;
         assert_eq!(bridge.pending_count().await, 0);
         assert_eq!(bridge.slots_count().await, 0);
+    }
+
+    #[tokio::test]
+    async fn ready_starts_true_and_reflects_set_ready() {
+        // A fresh Bridge (app boot, or any point outside a reload) must not
+        // reject requests by default.
+        let bridge = Bridge::new();
+        assert!(bridge.is_ready());
+        bridge.set_ready(false);
+        assert!(!bridge.is_ready());
+        bridge.set_ready(true);
+        assert!(bridge.is_ready());
     }
 
     #[tokio::test]

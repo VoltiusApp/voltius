@@ -433,6 +433,10 @@ pub fn run() {
                 let app = webview.app_handle().clone();
                 tauri::async_runtime::spawn(async move {
                     let state = app.state::<Arc<mcp::McpState>>();
+                    // Order matters: close the gate first so nothing new can
+                    // register between the drain below and the new page's
+                    // consumer calling `mcp_consumer_ready` — see Bridge::ready.
+                    state.bridge.set_ready(false);
                     state.bridge.invalidate_all("the app window reloaded").await;
                 });
             }
@@ -735,6 +739,7 @@ pub fn run() {
             serial::connect::serial_write,
             serial::connect::serial_disconnect,
             commands::mcp::mcp_bridge_reply,
+            commands::mcp::mcp_consumer_ready,
             commands::mcp::mcp_set_enabled,
             commands::mcp::mcp_status,
         ])

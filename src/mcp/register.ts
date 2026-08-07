@@ -30,6 +30,13 @@ export function registerMcpConsumer(): () => void {
       result = { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
     await invoke("mcp_bridge_reply", { id, result });
-  }).then((un) => { stop = un; });
+  }).then((un) => {
+    stop = un;
+    // Reopens the gate the backend closed on reload start (or, on first
+    // boot, confirms it's open). Requests that arrive before this resolves
+    // are rejected immediately instead of registering against a listener
+    // that isn't attached yet.
+    void invoke("mcp_consumer_ready");
+  });
   return () => stop?.();
 }

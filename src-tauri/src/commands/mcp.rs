@@ -12,6 +12,17 @@ pub async fn mcp_bridge_reply(
     Ok(())
 }
 
+/// Called once the webview's consumer has (re)attached its
+/// `mcp-bridge-request` listener — on first boot and after every reload.
+/// Reopens the gate `on_page_load`'s `Started` handler closed, so requests
+/// that arrive between a reload starting and the new listener being ready
+/// get rejected immediately instead of registering against nothing.
+#[tauri::command]
+pub async fn mcp_consumer_ready(state: tauri::State<'_, Arc<McpState>>) -> Result<(), String> {
+    state.bridge.set_ready(true);
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn mcp_set_enabled(
     app: tauri::AppHandle,
