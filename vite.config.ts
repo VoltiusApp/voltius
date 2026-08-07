@@ -45,7 +45,9 @@ export default defineConfig(async () => ({
         }
       : undefined,
     watch: {
-      ignored: ["**/src-tauri/**"],
+      // `target/` is the cargo build dir; watching it exhausts the inotify budget
+      // (ENOSPC) and kills the dev server outright.
+      ignored: ["**/src-tauri/**", "**/target/**", "**/.cargo-home/**", "**/.claude/**"],
     },
   },
 }));
