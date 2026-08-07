@@ -63,6 +63,14 @@ mod tests {
     }
 
     #[test]
+    fn an_explicit_null_id_is_treated_as_a_notification() {
+        // JSON-RPC discourages a null id for exactly this ambiguity; collapsing
+        // it to "no reply" is deliberate, so it needs pinning.
+        let req = parse_request(r#"{"jsonrpc":"2.0","id":null,"method":"tools/list"}"#).unwrap();
+        assert_eq!(req.id, None);
+    }
+
+    #[test]
     fn malformed_json_yields_a_parse_error_response_not_a_panic() {
         let err = parse_request("{not json").unwrap_err();
         assert_eq!(err["error"]["code"], json!(-32700));
