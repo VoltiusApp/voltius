@@ -1,36 +1,45 @@
 import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
-import { buildMcpTools, listToolDescriptors, callTool } from "./consumer";
+import { buildMcpTools, listToolDescriptors, callTool, MCP_TEXT } from "./consumer";
 import * as toolSurface from "@voltius/tools";
 
 const api = () => ({
   connections: { list: vi.fn().mockResolvedValue([{ id: "c1", name: "Prod", host: "h1", team: true }]) },
   sessions: { list: vi.fn().mockReturnValue([{ id: "s1", type: "ssh", status: "connected", connectionId: "c1" }]) },
+  sftp: { mkdir: vi.fn().mockResolvedValue(undefined) },
   audit: { record: vi.fn() },
 }) as never;
 
+const ALL_TOOLS = [
+  "close_session", "delete_path", "list_connections", "list_files", "list_sessions",
+  "make_dir", "open_session", "read_file", "read_terminal", "rename_path",
+  "run_command", "stat_file", "transfer_file", "write_file",
+];
+
 describe("MCP consumer", () => {
-  it("exposes exactly the two pure-listing tools, not the full auto-risk tier", () => {
-    // An explicit allowlist, not risk === "auto": the auto tier also carries
-    // read_file/read_terminal, which reach arbitrary host files/terminal buffers.
-    const names = buildMcpTools(api()).map((t) => t.name).sort();
-    expect(names).toEqual(["list_connections", "list_sessions"]);
+  it("exposes the whole shared tool surface, mutating verbs included", () => {
+    expect(buildMcpTools(api()).map((t) => t.name).sort()).toEqual(ALL_TOOLS);
   });
 
-  it("every exposed tool is still risk: auto, so the allowlist can never admit a prompt-risk verb", () => {
+  it("no description claims Voltius prompts: the MCP client is the only gate", () => {
+    for (const t of buildMcpTools(api())) {
+      expect(t.description.toLowerCase()).not.toContain("prompt");
+      expect(t.description.toLowerCase()).not.toContain("agent");
+    }
+  });
+
+  it("every text override names a tool that exists, so a typo cannot silently do nothing", () => {
     const names = new Set(buildMcpTools(api()).map((t) => t.name));
-    const autoNames = new Set(
-      toolSurface
-        .buildCoreTools({
-          api: api(),
-          approve: async () => ({ approve: true, scope: "mcp", via: "granted" }),
-          audit: () => {},
-          owned: new Set(),
-        } as never)
-        .filter((t) => t.risk === "auto")
-        .map((t) => t.name),
-    );
-    for (const name of names) expect(autoNames.has(name)).toBe(true);
+    for (const name of Object.keys(MCP_TEXT.descriptions)) expect(names.has(name)).toBe(true);
+  });
+
+  it("scopes an audit row on the real connection, not the constant", async () => {
+    const record = vi.fn();
+    const a = api() as unknown as { audit: { record: typeof record } };
+    a.audit.record = record;
+    const tools = buildMcpTools(a as never);
+    await callTool(tools, "make_dir", { target: "c1", path: "/tmp/x" });
+    expect(record).toHaveBeenCalledWith("c1", "agent.file_created", expect.objectContaining({ via: "mcp" }), expect.anything());
   });
 
   it("converts each tool's zod schema to a JSON Schema object for tools/list", () => {
@@ -65,22 +74,16 @@ describe("MCP consumer", () => {
     expect(out).toEqual({ ok: false, error: "vault locked" });
   });
 
-  // Settled design: Voltius performs no per-call check for MCP; the MCP client's
-  // own permission prompt is the gate. A mock `approve` passed on the test's `api`
-  // object cannot observe this, because buildMcpTools builds its own `approve`
-  // closure internally and never reads one off `api`. So this spies on the real
-  // `buildCoreTools` call buildMcpTools makes, wraps the real `ports.approve` it
-  // constructs, and asserts that wrapper is never invoked while running every
-  // auto-risk tool — pinning the port itself, not a substitute.
-  it("never reaches the approval port: Voltius raises no card, the MCP client is the gate", async () => {
-    const approveSpy = vi.fn();
+  it("approves every prompt-risk call without asking: Voltius raises no card, the MCP client is the gate", async () => {
+    const seen: Array<{ tool: string; decision: unknown }> = [];
     const original = toolSurface.buildCoreTools;
     vi.spyOn(toolSurface, "buildCoreTools").mockImplementation((ports) =>
       original({
         ...ports,
-        approve: (call) => {
-          approveSpy();
-          return ports.approve(call);
+        approve: async (call) => {
+          const decision = await ports.approve(call);
+          seen.push({ tool: call.tool, decision });
+          return decision;
         },
       }),
     );
@@ -88,7 +91,8 @@ describe("MCP consumer", () => {
     const tools = buildMcpTools(api());
     for (const t of tools) await t.execute({}).catch(() => {});
 
-    expect(approveSpy).not.toHaveBeenCalled();
+    expect(seen.length).toBeGreaterThan(0);
+    for (const { decision } of seen) expect(decision).toMatchObject({ approve: true, via: "granted" });
     vi.restoreAllMocks();
   });
 });
