@@ -3,6 +3,7 @@ use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::watch;
 
 const CALL_TIMEOUT: Duration = Duration::from_secs(120);
 const MAX_LINE_BYTES: usize = 1024 * 1024;
@@ -125,49 +126,111 @@ async fn read_line_capped<R: tokio::io::AsyncRead + Unpin>(
     }
 }
 
+/// Accepts connections until `shutdown` drops to `false`, then returns —
+/// dropping `listener` and closing its fd. `on_accept` decides how to run
+/// each connection (production spawns it; tests can just record it), which
+/// keeps this loop testable without a `tauri::AppHandle`.
 #[cfg(unix)]
-pub async fn serve(app: tauri::AppHandle, state: Arc<McpState>) -> std::io::Result<()> {
+async fn run_accept_loop(
+    listener: tokio::net::UnixListener,
+    mut shutdown: watch::Receiver<bool>,
+    mut on_accept: impl FnMut(tokio::net::UnixStream, watch::Receiver<bool>),
+) {
+    loop {
+        tokio::select! {
+            biased;
+            changed = shutdown.changed() => {
+                if changed.is_err() || !*shutdown.borrow() { return; }
+            }
+            accept = listener.accept() => {
+                match accept {
+                    Ok((stream, _)) => {
+                        // Re-check rather than trust the branch was chosen for
+                        // the "still running" reason: accept() can win the
+                        // select race against a shutdown that landed in the
+                        // same instant.
+                        if *shutdown.borrow() {
+                            on_accept(stream, shutdown.clone());
+                        }
+                    }
+                    Err(e) => {
+                        // This process also holds SSH/SFTP sockets and PTYs, so
+                        // fd-exhaustion errors (EMFILE/ENFILE) here are plausible and
+                        // transient; nothing supervises `serve()`, so bailing would
+                        // permanently disable MCP over a passing blip.
+                        eprintln!("voltius mcp: accept error, retrying: {e}");
+                        tokio::time::sleep(Duration::from_millis(100)).await;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Reads lines and dispatches them until the stream closes, a line is
+/// malformed, or `shutdown` drops to `false` — the same signal `run_accept_loop`
+/// watches, so a live connection loses tool access the instant the server is
+/// turned off rather than keeping it until the client disconnects on its own.
+///
+/// Generic over the stream and given an owned `app_state` (not borrowed) so
+/// it can be spawned as a `'static` task; `app_state: None` exercises the
+/// same cancellation logic in tests without a `tauri::AppHandle`.
+#[cfg(unix)]
+async fn handle_connection_stream<S>(
+    stream: S,
+    app_state: Option<(tauri::AppHandle, Arc<McpState>)>,
+    mut shutdown: watch::Receiver<bool>,
+) where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+{
     use tokio::io::{AsyncWriteExt, BufReader};
 
+    if !*shutdown.borrow() {
+        return;
+    }
+    let (r, mut w) = tokio::io::split(stream);
+    let mut reader = BufReader::new(r);
+    loop {
+        let line = tokio::select! {
+            biased;
+            changed = shutdown.changed() => {
+                if changed.is_err() || !*shutdown.borrow() { break; }
+                continue;
+            }
+            res = read_line_capped(&mut reader, MAX_LINE_BYTES) => res,
+        };
+        let resp = match line {
+            Ok(None) => break,
+            Ok(Some(line)) => {
+                if line.trim().is_empty() { continue; }
+                let ctx = app_state.as_ref().map(|(a, s)| (a, s));
+                dispatch_line(ctx, &line).await
+            }
+            Err(_) => Some(protocol::error(None, -32600, "line too long")),
+        };
+        if let Some(resp) = resp {
+            let mut out = serde_json::to_vec(&resp).unwrap_or_default();
+            out.push(b'\n');
+            if w.write_all(&out).await.is_err() {
+                break;
+            }
+        }
+    }
+}
+
+#[cfg(unix)]
+pub async fn serve(app: tauri::AppHandle, state: Arc<McpState>) -> std::io::Result<()> {
     let path = socket_path();
     prepare_socket_dir(path.parent().expect("socket path has a parent"))?;
     let listener = bind_socket(&path)?;
+    let shutdown = state.shutdown_tx.subscribe();
 
-    loop {
-        let (stream, _) = match listener.accept().await {
-            Ok(pair) => pair,
-            Err(e) => {
-                // This process also holds SSH/SFTP sockets and PTYs, so
-                // fd-exhaustion errors (EMFILE/ENFILE) here are plausible and
-                // transient; nothing supervises `serve()`, so bailing would
-                // permanently disable MCP over a passing blip.
-                eprintln!("voltius mcp: accept error, retrying: {e}");
-                tokio::time::sleep(Duration::from_millis(100)).await;
-                continue;
-            }
-        };
-        let app = app.clone();
-        let state = state.clone();
-        tauri::async_runtime::spawn(async move {
-            let (r, mut w) = tokio::io::split(stream);
-            let mut reader = BufReader::new(r);
-            loop {
-                let line = match read_line_capped(&mut reader, MAX_LINE_BYTES).await {
-                    Ok(None) => break,
-                    Ok(Some(line)) => {
-                        if line.trim().is_empty() { continue; }
-                        dispatch_line(Some((&app, &state)), &line).await
-                    }
-                    Err(_) => Some(protocol::error(None, -32600, "line too long")),
-                };
-                if let Some(resp) = line {
-                    let mut out = serde_json::to_vec(&resp).unwrap_or_default();
-                    out.push(b'\n');
-                    if w.write_all(&out).await.is_err() { break; }
-                }
-            }
-        });
-    }
+    run_accept_loop(listener, shutdown, move |stream, conn_shutdown| {
+        let app_state = Some((app.clone(), state.clone()));
+        tauri::async_runtime::spawn(handle_connection_stream(stream, app_state, conn_shutdown));
+    })
+    .await;
+    Ok(())
 }
 
 /// Windows named-pipe support is deferred to a later plan; this keeps the
@@ -295,5 +358,91 @@ mod tests {
         let mut cursor = std::io::Cursor::new(data);
         let err = read_line_capped(&mut cursor, 10).await.unwrap_err();
         assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[cfg(unix)]
+    fn temp_sock_path(tag: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("voltius-mcp-test-{tag}-{}.sock", std::process::id()))
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn run_accept_loop_returns_promptly_once_shutdown_flips_to_false() {
+        let path = temp_sock_path("accept-cancel");
+        let listener = bind_socket(&path).unwrap();
+        let (tx, rx) = watch::channel(true);
+        let task = tokio::spawn(run_accept_loop(listener, rx, |_stream, _rx| {}));
+
+        tx.send(false).unwrap();
+        let result = tokio::time::timeout(Duration::from_secs(2), task).await;
+        assert!(result.is_ok(), "run_accept_loop hung instead of returning on cancellation");
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn an_off_on_off_on_cycle_leaves_no_listener_bound_afterward() {
+        let path = temp_sock_path("cycle");
+        for _ in 0..2 {
+            let listener = bind_socket(&path).unwrap();
+            let (tx, rx) = watch::channel(true);
+            let task = tokio::spawn(run_accept_loop(listener, rx, |_stream, _rx| {}));
+
+            tx.send(false).unwrap();
+            tokio::time::timeout(Duration::from_secs(2), task).await.unwrap().unwrap();
+
+            // The listener was dropped when run_accept_loop returned, so the
+            // stale socket file (still on disk) now refuses connections —
+            // proof the fd, not just the atomic flag, was released.
+            assert!(std::os::unix::net::UnixStream::connect(&path).is_err());
+        }
+        let _ = std::fs::remove_file(&path);
+    }
+
+    /// `handle_connection_stream` needs no `tauri::AppHandle` at all — it's
+    /// exercised with `app_state: None`, the same path the existing
+    /// no-context `dispatch_line` tests use, over an in-memory duplex pair
+    /// instead of a real Unix socket.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_connected_clients_task_ends_when_shutdown_flips_to_false() {
+        let (server_side, client_side) = tokio::io::duplex(1024);
+        let (tx, rx) = watch::channel(true);
+        let task = tokio::spawn(handle_connection_stream(server_side, None, rx));
+
+        // Let the task actually reach its blocking read — proving cancellation
+        // works mid-`select!`, not only the up-front guard before any I/O.
+        for _ in 0..8 {
+            tokio::task::yield_now().await;
+        }
+
+        tx.send(false).unwrap();
+        let result = tokio::time::timeout(Duration::from_secs(2), task).await;
+        assert!(result.is_ok(), "connection task kept running after shutdown");
+
+        drop(client_side);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn handle_connection_stream_answers_one_request_before_shutdown() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let (server_side, mut client_side) = tokio::io::duplex(4096);
+        let (_tx, rx) = watch::channel(true);
+        let task = tokio::spawn(handle_connection_stream(server_side, None, rx));
+
+        client_side
+            .write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}\n")
+            .await
+            .unwrap();
+        let mut buf = [0u8; 512];
+        let n = client_side.read(&mut buf).await.unwrap();
+        let resp: Value = serde_json::from_slice(&buf[..n]).unwrap();
+        assert_eq!(resp["result"]["serverInfo"]["name"], json!("voltius"));
+
+        drop(client_side);
+        let _ = tokio::time::timeout(Duration::from_secs(2), task).await;
     }
 }
