@@ -1,4 +1,4 @@
-import type { PluginAPI } from "@/plugins/api";
+export { FILE_TOOLS, deriveScope } from "@voltius/tools";
 
 // `!` is included because interactive bash/zsh perform history expansion on
 // it (e.g. `df -h !sudo`, `df !!`, `df !-1` expand to prior history entries
@@ -25,28 +25,6 @@ const SHELL_METACHARACTERS =
  * that takes a shell command MUST be added here, or `isAllowlistable` will
  * default to treating it as safe to allowlist regardless of its content. */
 export const COMMAND_CARRYING_TOOLS = new Set(["run_command"]);
-
-/**
- * Tools that act on a filesystem path.
- *
- * These must never take a `tool`-grain grant: "always allow delete_path on this
- * host" authorises deleting ANY path there, which is the same blanket authority
- * the exact grain exists to deny a shell command. They are keyed on the exact
- * paths instead, so a grant covers the operation the user actually reviewed.
- *
- * Any new tool taking a path MUST be added here, or it defaults to tool-grain.
- */
-/** Every tool that addresses a filesystem target, mutating or not. */
-export const FILE_TOOLS = new Set([
-  "list_files",
-  "stat_file",
-  "read_file",
-  "make_dir",
-  "rename_path",
-  "delete_path",
-  "write_file",
-  "transfer_file",
-]);
 
 export const PATH_CARRYING_TOOLS = new Set([
   "make_dir",
@@ -106,49 +84,3 @@ export function isAllowlistable(tool: string, args: Record<string, unknown>): bo
  * mislabel a card, never authorize anything: `approvalController.ts` never
  * lets this value reach `allowlistCandidates`. */
 export const UNKNOWN_SCOPE = "unknown connection";
-
-/**
- * Resolve the connection a tool call would act on, as an allowlist scope:
- * a connection id, the literal `"local"`, or `null` when it cannot be
- * determined (unknown session, deleted or forged connection id, a lookup
- * throwing). `null` must never be treated as a real scope by the caller — the
- * allowlist has to fail closed, not open, when the target is uncertain.
- *
- * Scoping on the connection id rather than `conn.host` is deliberate: two
- * saved connections to one host under different users must not share an
- * allowlist bucket. Keying on the connection's *username* instead would fail
- * open, because an identity (or a per-session overlay) replaces the effective
- * user at connect time (`sessionStore.ts:369-377`), so a session authenticated
- * as root can carry a low-privilege connection's username.
- */
-export async function deriveScope(
-  api: Pick<PluginAPI, "sessions" | "connections">,
-  tool: string,
-  args: Record<string, unknown>,
-): Promise<string | null> {
-  try {
-    let connectionId: string | undefined;
-    if (tool === "open_session") {
-      connectionId = args.connectionId as string | undefined;
-    } else if (FILE_TOOLS.has(tool)) {
-      // A file tool names its target directly rather than via a session. For a
-      // transfer the SOURCE is the scope: it is the side whose data leaves, and
-      // scoping on the destination would let a grant on a host the user trusts
-      // authorise reading one they did not pick.
-      connectionId = (tool === "transfer_file" ? args.fromTarget : args.target) as string | undefined;
-    } else {
-      const sessionId = args.sessionId as string | undefined;
-      const session = api.sessions.list().find((s) => s.id === sessionId);
-      if (!session) return null;
-      connectionId = session.connectionId;
-    }
-    if (!connectionId) return null;
-    if (connectionId === "local") return "local";
-    // Existence check, not decoration: for `open_session` the id is
-    // model-supplied, so without this a forged id would become a real scope.
-    const conn = (await api.connections.list()).find((c) => c.id === connectionId);
-    return conn?.id ?? null;
-  } catch {
-    return null;
-  }
-}

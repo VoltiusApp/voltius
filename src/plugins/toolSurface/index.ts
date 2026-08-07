@@ -12,5 +12,6 @@ export {
   guardPlanConnectionIds,
 } from "./connectionGuard";
 export type { ConnectionRef, ConnectionGuardResult } from "./connectionGuard";
+export { FILE_TOOLS, deriveScope } from "./scope";
 export { buildCoreTools } from "./coreTools";
 export type { ToolSurfacePorts } from "./coreTools";
