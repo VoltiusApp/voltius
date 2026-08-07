@@ -1,4 +1,5 @@
 pub mod connections;
+pub mod crdt;
 pub mod crypto;
 pub mod diagnostics;
 pub mod docker;

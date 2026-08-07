@@ -1,24 +1,9 @@
+use crate::commands::crdt::{is_alive, max_clock};
 use crate::storage::config::{load_connections, save_connections, Connection, ConnectionFormData};
 use crate::vault_auth::check_vault_write;
 use chrono::Utc;
 use std::collections::HashMap;
 use uuid::Uuid;
-
-fn is_alive(deleted_at: &Option<String>, updated_at: &str) -> bool {
-    match deleted_at {
-        None => true,
-        Some(d) => updated_at > d.as_str(),
-    }
-}
-
-/// Returns the max value among all clocks, falling back to `fallback` if empty.
-fn max_clock(clocks: &HashMap<String, String>, fallback: &str) -> String {
-    clocks
-        .values()
-        .max()
-        .cloned()
-        .unwrap_or_else(|| fallback.to_string())
-}
 
 /// Builds an updated `Connection` by applying `data` on top of `existing`.
 ///
@@ -446,47 +431,6 @@ mod tests {
             ftp_secure: true,
             notes: Some("new note".into()),
         }
-    }
-
-    // ── is_alive ────────────────────────────────────────────────────────────
-    #[test]
-    fn is_alive_true_when_never_deleted() {
-        assert!(is_alive(&None, "2026-01-01T00:00:00Z"));
-    }
-
-    #[test]
-    fn is_alive_true_when_updated_after_delete() {
-        let deleted = Some("2026-01-01T00:00:00Z".to_string());
-        assert!(is_alive(&deleted, "2026-01-02T00:00:00Z"));
-    }
-
-    #[test]
-    fn is_alive_false_when_updated_equals_delete() {
-        // Strict `>`: an equal timestamp counts as deleted, not alive.
-        let deleted = Some("2026-01-01T00:00:00Z".to_string());
-        assert!(!is_alive(&deleted, "2026-01-01T00:00:00Z"));
-    }
-
-    #[test]
-    fn is_alive_false_when_updated_before_delete() {
-        let deleted = Some("2026-01-02T00:00:00Z".to_string());
-        assert!(!is_alive(&deleted, "2026-01-01T00:00:00Z"));
-    }
-
-    // ── max_clock ───────────────────────────────────────────────────────────
-    #[test]
-    fn max_clock_uses_fallback_when_empty() {
-        assert_eq!(max_clock(&HashMap::new(), "fallback"), "fallback");
-    }
-
-    #[test]
-    fn max_clock_returns_lexicographic_max() {
-        let mut clocks = HashMap::new();
-        clocks.insert("name".into(), "2026-01-01T00:00:00Z".into());
-        clocks.insert("host".into(), "2026-03-01T00:00:00Z".into());
-        clocks.insert("port".into(), "2026-02-01T00:00:00Z".into());
-        // RFC3339 strings sort chronologically under lexicographic max.
-        assert_eq!(max_clock(&clocks, "fallback"), "2026-03-01T00:00:00Z");
     }
 
     // ── merge_form_into_connection ──────────────────────────────────────────
