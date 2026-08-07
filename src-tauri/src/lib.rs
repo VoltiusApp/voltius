@@ -735,6 +735,8 @@ pub fn run() {
             serial::connect::serial_write,
             serial::connect::serial_disconnect,
             commands::mcp::mcp_bridge_reply,
+            commands::mcp::mcp_set_enabled,
+            commands::mcp::mcp_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

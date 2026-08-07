@@ -811,9 +811,11 @@
         "sftp": "SFTP",
         "hosts": "主机",
         "updates": "更新",
-        "plugins": "插件"
+        "plugins": "插件",
+        "integrations": "集成"
       },
-      "pluginInstallReview": { "label": "安装插件前先审查权限" }
+      "pluginInstallReview": { "label": "安装插件前先审查权限" },
+      "mcpServer": { "label": "MCP 服务器" }
     },
     "shortcuts": {
       "searchPlaceholder": "搜索快捷键…",

@@ -909,10 +909,14 @@
         "sftp": "SFTP",
         "hosts": "Hosts",
         "updates": "Updates",
-        "plugins": "Plugins"
+        "plugins": "Plugins",
+        "integrations": "Integrations"
       },
       "pluginInstallReview": {
         "label": "Review permissions before installing plugins"
+      },
+      "mcpServer": {
+        "label": "MCP Server"
       }
     },
     "shortcuts": {

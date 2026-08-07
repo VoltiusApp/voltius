@@ -16,6 +16,7 @@ import { useApplyUiScale } from "@/hooks/useApplyUiScale";
 import { useCoreOmniCommands } from "@/hooks/useCoreOmniCommands";
 import { useImportExportContributions } from "@/hooks/useImportExportContributions";
 import { useConnectionPresenceBroadcast } from "@/hooks/useConnectionPresenceBroadcast";
+import { useMcpServerSync } from "@/hooks/useMcpServerSync";
 import { useChangelogAutoOpen } from "@/hooks/useChangelogAutoOpen";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { injectPendingSnippet } from "@/services/snippetPendingInject";
@@ -43,6 +44,7 @@ function App() {
   useCoreOmniCommands();
   useImportExportContributions();
   useConnectionPresenceBroadcast();
+  useMcpServerSync();
   useChangelogAutoOpen();
   useEffect(() => { initUpdaterListener(); useUpdaterPrefStore.getState().load(); }, []);
   useEffect(() => {

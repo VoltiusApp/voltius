@@ -923,10 +923,14 @@
         "sftp": "SFTP",
         "hosts": "Хосты",
         "updates": "Обновления",
-        "plugins": "Плагины"
+        "plugins": "Плагины",
+        "integrations": "Интеграции"
       },
       "pluginInstallReview": {
         "label": "Проверять разрешения перед установкой плагинов"
+      },
+      "mcpServer": {
+        "label": "Сервер MCP"
       }
     },
     "shortcuts": {
