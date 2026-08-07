@@ -17,6 +17,7 @@ mod known_hosts;
 #[cfg(target_os = "linux")]
 mod linux_gfx;
 mod local;
+pub mod mcp;
 mod metrics;
 mod port_forward;
 mod processes;
