@@ -417,4 +417,13 @@ describe("the text port", () => {
     const out = await tools.find((t) => t.name === "close_session")!.execute({ sessionId: "nope" });
     expect(out).toEqual({ error: "not yours" });
   });
+
+  it("uses a consumer's not-owned error in close_session's post-approval check", async () => {
+    const approve = vi.fn(async () => ({ approve: true as const, scope: "conn-A", via: "prompted" as const, args: { sessionId: "not-owned" } }));
+    const ports = makePorts({ approve, text: { notOwnedError: "not yours" } });
+    const tools = buildCoreTools(ports);
+    await tools.find((t) => t.name === "open_session")!.execute({ connectionId: "conn-A" }); // owns sess-1, not "not-owned"
+    const out = await tools.find((t) => t.name === "close_session")!.execute({ sessionId: "sess-1" });
+    expect(out).toEqual({ error: "not yours" });
+  });
 });
