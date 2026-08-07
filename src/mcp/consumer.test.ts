@@ -9,19 +9,27 @@ const api = () => ({
 }) as never;
 
 describe("MCP consumer", () => {
-  it("exposes only auto-risk tools, so nothing needing approval is reachable in this slice", () => {
-    // Pinned against the current coreTools.ts risk assignments, not the brief's
-    // illustrative pair — list_files/stat_file/read_file/read_terminal are also
-    // "auto" today.
+  it("exposes exactly the two pure-listing tools, not the full auto-risk tier", () => {
+    // An explicit allowlist, not risk === "auto": the auto tier also carries
+    // read_file/read_terminal, which reach arbitrary host files/terminal buffers.
     const names = buildMcpTools(api()).map((t) => t.name).sort();
-    expect(names).toEqual([
-      "list_connections",
-      "list_files",
-      "list_sessions",
-      "read_file",
-      "read_terminal",
-      "stat_file",
-    ]);
+    expect(names).toEqual(["list_connections", "list_sessions"]);
+  });
+
+  it("every exposed tool is still risk: auto, so the allowlist can never admit a prompt-risk verb", () => {
+    const names = new Set(buildMcpTools(api()).map((t) => t.name));
+    const autoNames = new Set(
+      toolSurface
+        .buildCoreTools({
+          api: api(),
+          approve: async () => ({ approve: true, scope: "mcp", via: "granted" }),
+          audit: () => {},
+          owned: new Set(),
+        } as never)
+        .filter((t) => t.risk === "auto")
+        .map((t) => t.name),
+    );
+    for (const name of names) expect(autoNames.has(name)).toBe(true);
   });
 
   it("converts each tool's zod schema to a JSON Schema object for tools/list", () => {
@@ -70,11 +78,7 @@ describe("MCP consumer", () => {
     );
 
     const tools = buildMcpTools(api());
-    for (const t of tools) {
-      // The mock `api` only stubs connections/sessions/audit, so an sftp/terminal
-      // tool throws on the missing namespace; only whether approve fired matters here.
-      await t.execute({}).catch(() => {});
-    }
+    for (const t of tools) await t.execute({}).catch(() => {});
 
     expect(approveSpy).not.toHaveBeenCalled();
     vi.restoreAllMocks();

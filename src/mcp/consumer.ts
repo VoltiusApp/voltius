@@ -9,8 +9,12 @@ export interface McpTool {
   execute(args: Record<string, unknown>): Promise<unknown>;
 }
 
-/** Only `auto` risk is exposed. A prompt-risk tool would need an approval the
- *  MCP client owns and Voltius cannot observe, so it stays out of this slice. */
+/** Deliberately an explicit allowlist, not `risk === "auto"`: the auto tier
+ *  also carries read_file and read_terminal, which reach arbitrary host files
+ *  and terminal buffers. Voltius performs no per-call check here, so this
+ *  slice ships the two pure listings only. */
+const MCP_TOOLS = new Set(["list_connections", "list_sessions"]);
+
 export function buildMcpTools(api: PluginAPI): McpTool[] {
   const ports: ToolSurfacePorts = {
     api,
@@ -23,7 +27,7 @@ export function buildMcpTools(api: PluginAPI): McpTool[] {
     owned: new Set<string>(),
   };
   return buildCoreTools(ports)
-    .filter((t) => t.risk === "auto")
+    .filter((t) => MCP_TOOLS.has(t.name))
     .map((t) => ({
       name: t.name,
       description: t.description,
