@@ -1,5 +1,78 @@
 import { Icon } from "@iconify/react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+
+/** A titled block of settings rows: the uppercase heading plus the row container. */
+export function SettingsGroup({ title, divided, className, children }: {
+  title: string;
+  /** Draw separators between rows. */
+  divided?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={className}>
+      <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
+        {title}
+      </h3>
+      <div
+        className={`rounded-lg bg-(--t-bg-elevated) border border-(--t-border)${divided ? " divide-y divide-(--t-border)" : ""}`}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One setting: label and description on the left, the control on the right,
+ * preceded by the reset affordances whenever the value is off its default.
+ *
+ * `list` rows sit inside a `SettingsGroup` container; `card` rows are their own
+ * bordered card and stand alone.
+ */
+export function SettingRow({ title, desc, dirty, onReset, dimmed, truncateDesc, variant = "list", className, children }: {
+  title: ReactNode;
+  desc?: ReactNode;
+  dirty?: boolean;
+  onReset?: () => void;
+  /** Fades the label and description, for a row its parent toggle has disabled. */
+  dimmed?: boolean;
+  /** Clips an overlong description (a path, say) instead of widening the row. */
+  truncateDesc?: boolean;
+  variant?: "list" | "card";
+  className?: string;
+  children: ReactNode;
+}) {
+  const card = variant === "card";
+  const base = card
+    ? "group rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4 flex items-center justify-between gap-4"
+    : "group flex items-center justify-between px-4 py-3 gap-4";
+  const style = dimmed ? { opacity: 0.45 } : undefined;
+
+  return (
+    <div className={className ? `${base} ${className}` : base}>
+      <div className={truncateDesc ? "min-w-0" : undefined}>
+        <div className="text-sm font-medium text-(--t-text-primary)" style={style}>
+          {title}
+        </div>
+        {desc !== undefined && (
+          <div
+            className={`${card ? "text-xs mt-1" : "text-xs mt-0.5"} text-(--t-text-dim)${truncateDesc ? " truncate" : ""}`}
+            style={style}
+          >
+            {desc}
+          </div>
+        )}
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        {dirty && onReset && <ResetButton onReset={onReset} />}
+        {dirty && <DirtyDot />}
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export function ActionItem({ icon, label, sub, danger, disabled, onClick }: {
   icon: string;
