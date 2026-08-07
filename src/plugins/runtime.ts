@@ -1554,6 +1554,13 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   return api;
 }
 
+/** Host-internal consumers (the MCP server) need a PluginAPI without being
+ *  plugins. Kept as a named export rather than letting a caller synthesize a
+ *  manifest, so every non-plugin consumer is greppable. */
+export function createHostPluginAPI(id: string, permissions: string[]): PluginAPI {
+  return createPluginAPI({ id, name: id, version: "0.0.0", permissions });
+}
+
 // ─── Registry ─────────────────────────────────────────────────────────────
 
 interface PluginEntry {

@@ -6,6 +6,7 @@ import "@/styles/globals.css";
 import "@/i18n";
 import { preloadIcons } from "@/utils/icons";
 import { installGlobalErrorLogging } from "@/lib/logger";
+import { registerMcpConsumer } from "@/mcp/register";
 
 // Chromium/WebView2 on Windows can't render country flag emoji natively
 // (regional indicator pairs show as letter codes, e.g. "DE"); this loads a
@@ -15,6 +16,8 @@ polyfillCountryFlagEmojis(undefined, "/fonts/TwemojiCountryFlags.woff2");
 preloadIcons();
 
 installGlobalErrorLogging();
+
+registerMcpConsumer();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
