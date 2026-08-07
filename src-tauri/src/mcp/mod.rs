@@ -1,4 +1,5 @@
 pub mod bridge;
+pub mod protocol;
 
 use std::sync::atomic::AtomicBool;
 
