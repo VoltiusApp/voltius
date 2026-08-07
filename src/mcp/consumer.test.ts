@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { z } from "zod";
 import { buildMcpTools, listToolDescriptors, callTool } from "./consumer";
 import * as toolSurface from "@voltius/tools";
 
@@ -34,7 +35,14 @@ describe("MCP consumer", () => {
 
   it("converts each tool's zod schema to a JSON Schema object for tools/list", () => {
     const [first] = listToolDescriptors(buildMcpTools(api()));
-    expect(first.inputSchema).toMatchObject({ type: "object" });
+    // `{ type: "object" }` alone is satisfied by a raw zod schema too — ZodObject
+    // exposes its own `.type` getter — so it can't distinguish "converted" from
+    // "not converted". `$schema` and a plain-object `properties` only exist on the
+    // real z.toJSONSchema() output.
+    const schema = first.inputSchema as { $schema?: string; properties?: unknown };
+    expect(schema.$schema).toBe("https://json-schema.org/draft/2020-12/schema");
+    expect(Object.getPrototypeOf(schema.properties ?? {})).toBe(Object.prototype);
+    expect(first.inputSchema).not.toBeInstanceOf(z.ZodType);
     expect(typeof first.description).toBe("string");
     expect(first.description.length).toBeGreaterThan(0);
   });
