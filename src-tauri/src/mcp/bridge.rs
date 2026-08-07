@@ -189,4 +189,17 @@ mod tests {
         assert_eq!(bridge.pending_count().await, 0);
         assert_eq!(bridge.slots_count().await, 0);
     }
+
+    #[tokio::test]
+    async fn a_second_invalidate_after_all_slots_cleared_is_a_no_op() {
+        let bridge = Bridge::new();
+        let id = bridge.register().await;
+        let b = bridge.clone();
+        let waiter = tokio::spawn(async move { b.wait(&id, Duration::from_secs(30)).await });
+        tokio::task::yield_now().await;
+        bridge.invalidate_all("first").await;
+        bridge.invalidate_all("second").await;
+        assert!(matches!(waiter.await.unwrap(), Err(BridgeError::Invalidated(_))));
+        assert_eq!(bridge.pending_count().await, 0);
+    }
 }

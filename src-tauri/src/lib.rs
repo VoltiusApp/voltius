@@ -419,6 +419,24 @@ pub fn run() {
     }
 
     builder
+        // `WebviewWindow::on_page_load` doesn't exist in this Tauri version (it's
+        // builder-only, and our windows come from tauri.conf.json, not code); the
+        // app-level hook below is the only way to observe reloads.
+        //
+        // A reload destroys the listener that would answer bridge requests.
+        // Without this every in-flight request hangs until its timeout.
+        .on_page_load(|webview, payload| {
+            use tauri::Manager;
+            if webview.label() == "main"
+                && payload.event() == tauri::webview::PageLoadEvent::Started
+            {
+                let app = webview.app_handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let state = app.state::<Arc<mcp::McpState>>();
+                    state.bridge.invalidate_all("the app window reloaded").await;
+                });
+            }
+        })
         .setup(|app| {
             use tauri::Manager;
 
@@ -442,6 +460,7 @@ pub fn run() {
             app.manage(KnownHostsStore::load());
             app.manage(Arc::new(PendingConflicts::new()));
             app.manage(PortForwardManager::new(app.handle().clone()));
+            app.manage(Arc::new(mcp::McpState::new()));
 
             #[cfg(all(desktop, not(debug_assertions)))]
             {
@@ -715,6 +734,7 @@ pub fn run() {
             serial::connect::serial_connect,
             serial::connect::serial_write,
             serial::connect::serial_disconnect,
+            commands::mcp::mcp_bridge_reply,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
