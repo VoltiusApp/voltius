@@ -57,6 +57,19 @@ impl Bridge {
         self.pending.lock().await.len()
     }
 
+    #[cfg(test)]
+    async fn slots_count(&self) -> usize {
+        self.slots.lock().await.len()
+    }
+
+    /// Remove a registered id from both maps without answering it. Used when
+    /// a request never makes it to the webview, so nothing will ever call
+    /// `reply` or `wait` for this id.
+    async fn discard(&self, id: &str) {
+        self.pending.lock().await.remove(id);
+        self.slots.lock().await.remove(id);
+    }
+
     pub async fn reply(&self, id: &str, result: Value) {
         if let Some(tx) = self.pending.lock().await.remove(id) {
             let _ = tx.send(Ok(result));
@@ -79,8 +92,13 @@ impl Bridge {
         timeout: Duration,
     ) -> Result<Value, BridgeError> {
         let id = self.register().await;
-        app.emit("mcp-bridge-request", serde_json::json!({ "id": id, "payload": payload }))
-            .map_err(|_| BridgeError::NoWebview)?;
+        if app
+            .emit("mcp-bridge-request", serde_json::json!({ "id": id, "payload": payload }))
+            .is_err()
+        {
+            self.discard(&id).await;
+            return Err(BridgeError::NoWebview);
+        }
         self.wait(&id, timeout).await
     }
 
@@ -161,5 +179,14 @@ mod tests {
         let id = bridge.register().await;
         let _ = bridge.wait(&id, Duration::from_millis(50)).await;
         assert_eq!(bridge.pending_count().await, 0);
+    }
+
+    #[tokio::test]
+    async fn discard_removes_the_id_from_both_maps() {
+        let bridge = Bridge::new();
+        let id = bridge.register().await;
+        bridge.discard(&id).await;
+        assert_eq!(bridge.pending_count().await, 0);
+        assert_eq!(bridge.slots_count().await, 0);
     }
 }
