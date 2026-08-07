@@ -31,10 +31,18 @@ impl std::fmt::Display for BridgeError {
 /// slot) can be split from `wait` (park on it) — the caller must be able to
 /// emit the event only after the slot exists, or a fast webview could reply
 /// before there is anything to reply to.
+type BridgeResult = Result<Value, BridgeError>;
+
 #[derive(Clone)]
 pub struct Bridge {
-    pending: Arc<Mutex<HashMap<String, oneshot::Sender<Result<Value, BridgeError>>>>>,
-    slots: Arc<Mutex<HashMap<String, oneshot::Receiver<Result<Value, BridgeError>>>>>,
+    pending: Arc<Mutex<HashMap<String, oneshot::Sender<BridgeResult>>>>,
+    slots: Arc<Mutex<HashMap<String, oneshot::Receiver<BridgeResult>>>>,
+}
+
+impl Default for Bridge {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Bridge {

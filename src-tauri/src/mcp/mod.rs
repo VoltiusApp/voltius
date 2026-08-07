@@ -25,6 +25,12 @@ pub struct McpState {
     _shutdown_rx: watch::Receiver<bool>,
 }
 
+impl Default for McpState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl McpState {
     pub fn new() -> Self {
         let (shutdown_tx, _shutdown_rx) = watch::channel(false);
