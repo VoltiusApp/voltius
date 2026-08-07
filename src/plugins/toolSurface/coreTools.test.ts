@@ -394,3 +394,27 @@ describe("file tools", () => {
       .resolves.toMatchObject({ error: "permission denied" });
   });
 });
+
+describe("the text port", () => {
+  it("uses a consumer's description when one is supplied", () => {
+    const tools = buildCoreTools(makePorts({ text: { descriptions: { delete_path: "consumer copy" } } }));
+    expect(tools.find((t) => t.name === "delete_path")?.description).toBe("consumer copy");
+  });
+
+  it("falls back to the built-in description for tools the consumer does not override", () => {
+    const tools = buildCoreTools(makePorts({ text: { descriptions: { delete_path: "consumer copy" } } }));
+    expect(tools.find((t) => t.name === "make_dir")?.description).toContain("Prompts.");
+  });
+
+  it("leaves every description untouched when no text port is supplied", () => {
+    const withPort = buildCoreTools(makePorts({ text: {} })).map((t) => t.description);
+    const without = buildCoreTools(makePorts()).map((t) => t.description);
+    expect(withPort).toEqual(without);
+  });
+
+  it("uses a consumer's not-owned error in close_session", async () => {
+    const tools = buildCoreTools(makePorts({ text: { notOwnedError: "not yours" } }));
+    const out = await tools.find((t) => t.name === "close_session")!.execute({ sessionId: "nope" });
+    expect(out).toEqual({ error: "not yours" });
+  });
+});

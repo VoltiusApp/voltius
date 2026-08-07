@@ -19,6 +19,12 @@ export interface ToolSurfacePorts {
     localMetadata?: Record<string, unknown>,
   ): void;
   owned: Set<string>;
+  /** Consumer-specific model-facing text. Absent means the built-in strings,
+   *  which describe the agent's approval policy. */
+  text?: {
+    descriptions?: Record<string, string>;
+    notOwnedError?: string;
+  };
 }
 
 /** The consumer-agnostic verb set. Planning stays with the consumer that has a UI for it. */
@@ -80,7 +86,7 @@ export function buildCoreTools(ports: ToolSurfacePorts): Tool[] {
     }
   };
 
-  return [
+  const tools: Tool[] = [
     {
       name: "list_connections",
       description:
@@ -280,12 +286,14 @@ export function buildCoreTools(ports: ToolSurfacePorts): Tool[] {
       schema: z.object({ sessionId: z.string() }),
       execute: async (raw) => {
         if (!ports.owned.has(String(raw.sessionId))) {
-          return { error: "session not owned by agent; call open_session first" };
+          return { error: ports.text?.notOwnedError ?? "session not owned by agent; call open_session first" };
         }
         const g = await gate("close_session", raw);
         if (!g.ok) return g.result;
         const sessionId = String(g.args.sessionId);
-        if (!ports.owned.has(sessionId)) return { error: "session not owned by agent; call open_session first" };
+        if (!ports.owned.has(sessionId)) {
+          return { error: ports.text?.notOwnedError ?? "session not owned by agent; call open_session first" };
+        }
         await ports.api.sessions.close(sessionId);
         ports.owned.delete(sessionId);
         ports.audit(g.scope, "agent.session_closed", { tool: "close_session", approval: g.via });
@@ -293,4 +301,9 @@ export function buildCoreTools(ports: ToolSurfacePorts): Tool[] {
       },
     },
   ];
+
+  const descriptions = ports.text?.descriptions;
+  return descriptions
+    ? tools.map((t) => ({ ...t, description: descriptions[t.name] ?? t.description }))
+    : tools;
 }
