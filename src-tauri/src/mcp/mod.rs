@@ -1,5 +1,7 @@
 pub mod bridge;
 pub mod protocol;
+pub mod shim;
+pub mod transport;
 
 use std::sync::atomic::AtomicBool;
 
