@@ -6,6 +6,7 @@ import { isServerMode } from "@/services/account";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
+import { pushCreateHistory } from "@/stores/recreateHistory";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { useIdentityStore } from "@/stores/identityStore";
@@ -109,18 +110,13 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
           },
         }));
         reportAuditMutation("folder", "created", { id: folder.id, name: folder.name, vault_id: folder.vault_id }, { object_type: folder.object_type });
-        let recreatedId: string | null = null;
-        useHistoryStore.getState().push({
+        pushCreateHistory({
           label: `Created folder "${folder.name}"`,
-          undo: async () => {
-            // Non-cascading: undoing a *creation* must not delete items filed since.
-            await useFolderStore.getState().deleteFolder(recreatedId ?? folder.id, { cascade: false });
-            recreatedId = null;
-          },
-          redo: async () => {
-            const r = await useFolderStore.getState().saveFolder(data);
-            recreatedId = r.id;
-          },
+          id: folder.id,
+          data,
+          create: (d) => useFolderStore.getState().saveFolder(d),
+          // Non-cascading: undoing a *creation* must not delete items filed since.
+          remove: (fid) => useFolderStore.getState().deleteFolder(fid, { cascade: false }),
         });
         return folder;
       }
@@ -131,18 +127,13 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
     set({ folders });
     isServerMode().then((s) => { if (s && useSyncPrefsStore.getState().isTypeSynced("folder")) scheduleSync(); });
     reportAuditMutation("folder", "created", { id: folder.id, name: folder.name, vault_id: folder.vault_id }, { object_type: folder.object_type });
-    let recreatedId: string | null = null;
-    useHistoryStore.getState().push({
+    pushCreateHistory({
       label: `Created folder "${folder.name}"`,
-      undo: async () => {
-        // Non-cascading: undoing a *creation* must not delete items filed since.
-        await useFolderStore.getState().deleteFolder(recreatedId ?? folder.id, { cascade: false });
-        recreatedId = null;
-      },
-      redo: async () => {
-        const r = await useFolderStore.getState().saveFolder(data);
-        recreatedId = r.id;
-      },
+      id: folder.id,
+      data,
+      create: (d) => useFolderStore.getState().saveFolder(d),
+      // Non-cascading: undoing a *creation* must not delete items filed since.
+      remove: (fid) => useFolderStore.getState().deleteFolder(fid, { cascade: false }),
     });
     return folder;
   },

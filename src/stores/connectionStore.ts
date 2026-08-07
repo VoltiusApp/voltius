@@ -5,6 +5,7 @@ import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
+import { pushCreateHistory, pushDeleteHistory } from "@/stores/recreateHistory";
 import { useTeamStore } from "@/stores/teamStore";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
@@ -159,17 +160,12 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
         },
       }));
       reportAuditMutation("connection", "created", { id: conn.id, name: conn.name ?? conn.host, vault_id: conn.vault_id });
-      let recreatedId: string | null = null;
-      useHistoryStore.getState().push({
+      pushCreateHistory({
         label: `Created connection "${data.name ?? data.host}"`,
-        undo: async () => {
-          await useConnectionStore.getState().deleteConnection(recreatedId ?? conn.id);
-          recreatedId = null;
-        },
-        redo: async () => {
-          const r = await useConnectionStore.getState().saveConnection(data);
-          recreatedId = r.id;
-        },
+        id: conn.id,
+        data,
+        create: (d) => useConnectionStore.getState().saveConnection(d),
+        remove: (cid) => useConnectionStore.getState().deleteConnection(cid),
       });
       return conn;
     }
@@ -180,17 +176,12 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isTypeSynced("connection")) scheduleSync(); });
     reportAuditMutation("connection", "created", { id: conn.id, name: conn.name ?? conn.host, vault_id: conn.vault_id });
-    let recreatedId: string | null = null;
-    useHistoryStore.getState().push({
+    pushCreateHistory({
       label: `Created connection "${data.name ?? data.host}"`,
-      undo: async () => {
-        await useConnectionStore.getState().deleteConnection(recreatedId ?? conn.id);
-        recreatedId = null;
-      },
-      redo: async () => {
-        const r = await useConnectionStore.getState().saveConnection(data);
-        recreatedId = r.id;
-      },
+      id: conn.id,
+      data,
+      create: (d) => useConnectionStore.getState().saveConnection(d),
+      remove: (cid) => useConnectionStore.getState().deleteConnection(cid),
     });
     return conn;
   },
@@ -399,17 +390,12 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       }));
       reportAuditMutation("connection", "deleted", { id: prev.id, name: prev.name ?? prev.host, vault_id: prev.vault_id });
       const prevData: ConnectionFormData = connectionToFormData(prev);
-      let recreatedId: string | null = null;
-      useHistoryStore.getState().push({
+      pushDeleteHistory({
         label: `Deleted connection "${prev.name ?? prev.host}"`,
-        undo: async () => {
-          const r = await useConnectionStore.getState().saveConnection(prevData);
-          recreatedId = r.id;
-        },
-        redo: async () => {
-          await useConnectionStore.getState().deleteConnection(recreatedId ?? id);
-          recreatedId = null;
-        },
+        id,
+        data: prevData,
+        create: (d) => useConnectionStore.getState().saveConnection(d),
+        remove: (cid) => useConnectionStore.getState().deleteConnection(cid),
       });
       return;
     }
@@ -423,17 +409,12 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     if (prev) reportAuditMutation("connection", "deleted", { id: prev.id, name: prev.name ?? prev.host, vault_id: prev.vault_id });
     if (prev) {
       const prevData: ConnectionFormData = connectionToFormData(prev);
-      let recreatedId: string | null = null;
-      useHistoryStore.getState().push({
+      pushDeleteHistory({
         label: `Deleted connection "${prev.name ?? prev.host}"`,
-        undo: async () => {
-          const r = await useConnectionStore.getState().saveConnection(prevData);
-          recreatedId = r.id;
-        },
-        redo: async () => {
-          await useConnectionStore.getState().deleteConnection(recreatedId ?? id);
-          recreatedId = null;
-        },
+        id,
+        data: prevData,
+        create: (d) => useConnectionStore.getState().saveConnection(d),
+        remove: (cid) => useConnectionStore.getState().deleteConnection(cid),
       });
     }
   },
