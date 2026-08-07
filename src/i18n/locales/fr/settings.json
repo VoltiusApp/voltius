@@ -347,6 +347,7 @@
       "troubleshootingTitle": "Dépannage",
       "verboseLabel": "Journalisation détaillée (cette session)",
       "verboseSub": "Enregistre des détails supplémentaires pour aider à diagnostiquer les problèmes. Revient à la normale au redémarrage de Voltius.",
+      "mcpServerSub": "Permet aux clients MCP locaux (comme Claude Code) de lister vos connexions et sessions via un socket privé. Désactivé par défaut.",
       "verboseHint": "La journalisation détaillée est activée. Pour capturer le problème :\n1. Reproduisez le problème maintenant\n2. Revenez ici et créez un rapport de bug",
       "reportTitle": "Rapport de bug",
       "createButton": "Créer un rapport de bug",

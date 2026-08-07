@@ -244,6 +244,7 @@
       "troubleshootingTitle": "故障排除",
       "verboseLabel": "详细日志（本次会话）",
       "verboseSub": "记录额外的细节以帮助诊断问题。重启 Voltius 后重置为正常。",
+      "mcpServerSub": "允许本地 MCP 客户端（如 Claude Code）通过私有 socket 列出您的连接和会话。默认关闭。",
       "verboseHint": "详细日志已开启。要捕获问题：\n1. 现在复现问题\n2. 回来创建错误报告",
       "reportTitle": "错误报告",
       "createButton": "创建错误报告",

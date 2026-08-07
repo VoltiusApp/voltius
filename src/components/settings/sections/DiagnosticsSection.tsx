@@ -5,6 +5,7 @@ import { Toggle } from "@/components/shared/Toggle";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { setVerboseLogging, createBugReport } from "@/services/diagnostics";
 import { getLoggerVerbose } from "@/lib/logger";
+import { useToggle } from "@/stores/toggleSettingsStore";
 
 type ReportState = "idle" | "working" | "done";
 
@@ -14,6 +15,7 @@ export default function DiagnosticsSection() {
   const [reportState, setReportState] = useState<ReportState>("idle");
   const [showIncluded, setShowIncluded] = useState(false);
   const addToast = useNotificationStore((s) => s.addToast);
+  const [mcpServer, setMcpServer] = useToggle("mcp-server");
 
   const toggleVerbose = async (v: boolean) => {
     setVerbose(v);
@@ -79,6 +81,22 @@ export default function DiagnosticsSection() {
               {t("settings.diagnostics.verboseHint")}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Integrations */}
+      <div>
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
+          {t("settings.toggleDefs.category.integrations")}
+        </h3>
+        <div className="rounded-lg px-4 py-3 bg-(--t-bg-elevated) border border-(--t-border)">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm text-(--t-text-primary)">{t("settings.toggleDefs.mcpServer.label")}</p>
+              <p className="text-xs mt-0.5 text-(--t-text-dim)">{t("settings.diagnostics.mcpServerSub")}</p>
+            </div>
+            <Toggle checked={mcpServer ?? false} onChange={setMcpServer} />
+          </div>
         </div>
       </div>
 
