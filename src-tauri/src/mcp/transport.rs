@@ -113,14 +113,21 @@ async fn read_line_capped<R: tokio::io::AsyncRead + Unpin>(
     let mut byte = [0u8; 1];
     loop {
         if reader.read(&mut byte).await? == 0 {
-            return Ok(if buf.is_empty() { None } else { Some(String::from_utf8_lossy(&buf).into_owned()) });
+            return Ok(if buf.is_empty() {
+                None
+            } else {
+                Some(String::from_utf8_lossy(&buf).into_owned())
+            });
         }
         if byte[0] == b'\n' {
             return Ok(Some(String::from_utf8_lossy(&buf).into_owned()));
         }
         if buf.len() >= max {
             while reader.read(&mut byte).await? != 0 && byte[0] != b'\n' {}
-            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "line too long"));
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "line too long",
+            ));
         }
         buf.push(byte[0]);
     }
@@ -205,7 +212,9 @@ async fn handle_connection_stream<S>(
         let resp = match line {
             Ok(None) => break,
             Ok(Some(line)) => {
-                if line.trim().is_empty() { continue; }
+                if line.trim().is_empty() {
+                    continue;
+                }
                 let ctx = app_state.as_ref().map(|(a, s)| (a, s));
                 tokio::select! {
                     biased;
@@ -272,20 +281,35 @@ mod tests {
 
     #[tokio::test]
     async fn dispatch_answers_initialize_without_touching_the_webview() {
-        let out = dispatch_line(None, r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}"#).await;
+        let out = dispatch_line(
+            None,
+            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}"#,
+        )
+        .await;
         let v = out.unwrap();
-        assert_eq!(v["result"]["serverInfo"]["name"], serde_json::json!("voltius"));
+        assert_eq!(
+            v["result"]["serverInfo"]["name"],
+            serde_json::json!("voltius")
+        );
     }
 
     #[tokio::test]
     async fn a_notification_produces_no_response_line() {
-        let out = dispatch_line(None, r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#).await;
+        let out = dispatch_line(
+            None,
+            r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+        )
+        .await;
         assert!(out.is_none(), "notifications must not get a reply");
     }
 
     #[tokio::test]
     async fn an_unknown_method_is_method_not_found() {
-        let out = dispatch_line(None, r#"{"jsonrpc":"2.0","id":9,"method":"resources/list"}"#).await;
+        let out = dispatch_line(
+            None,
+            r#"{"jsonrpc":"2.0","id":9,"method":"resources/list"}"#,
+        )
+        .await;
         assert_eq!(out.unwrap()["error"]["code"], serde_json::json!(-32601));
     }
 
@@ -297,7 +321,11 @@ mod tests {
 
     #[tokio::test]
     async fn tools_call_without_app_context_is_an_internal_error_not_a_panic() {
-        let out = dispatch_line(None, r#"{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"x"}}"#).await;
+        let out = dispatch_line(
+            None,
+            r#"{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"x"}}"#,
+        )
+        .await;
         assert_eq!(out.unwrap()["error"]["code"], serde_json::json!(-32603));
     }
 
@@ -347,7 +375,8 @@ mod tests {
     #[test]
     fn bind_socket_is_owner_only() {
         use std::os::unix::fs::PermissionsExt;
-        let dir = std::env::temp_dir().join(format!("voltius-mcp-test-sock-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("voltius-mcp-test-sock-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&dir);
         let path = dir.join("test.sock");
         let rt = tokio::runtime::Runtime::new().unwrap();
@@ -377,7 +406,10 @@ mod tests {
 
     #[cfg(unix)]
     fn temp_sock_path(tag: &str) -> std::path::PathBuf {
-        std::env::temp_dir().join(format!("voltius-mcp-test-{tag}-{}.sock", std::process::id()))
+        std::env::temp_dir().join(format!(
+            "voltius-mcp-test-{tag}-{}.sock",
+            std::process::id()
+        ))
     }
 
     #[cfg(unix)]
@@ -390,7 +422,10 @@ mod tests {
 
         tx.send(false).unwrap();
         let result = tokio::time::timeout(Duration::from_secs(2), task).await;
-        assert!(result.is_ok(), "run_accept_loop hung instead of returning on cancellation");
+        assert!(
+            result.is_ok(),
+            "run_accept_loop hung instead of returning on cancellation"
+        );
 
         let _ = std::fs::remove_file(&path);
     }
@@ -413,7 +448,10 @@ mod tests {
             let task = tokio::spawn(run_accept_loop(listener, rx, |_stream, _rx| {}));
 
             state.shutdown_tx.send_replace(false);
-            tokio::time::timeout(Duration::from_secs(2), task).await.unwrap().unwrap();
+            tokio::time::timeout(Duration::from_secs(2), task)
+                .await
+                .unwrap()
+                .unwrap();
 
             // The listener was dropped when run_accept_loop returned, so the
             // stale socket file (still on disk) now refuses connections —
@@ -441,13 +479,25 @@ mod tests {
 
         // Mirrors mcp_set_enabled's real order: the flip happens first,
         // `serve()`'s subscribe() happens only after the task is spawned.
-        state.shutdown_tx.send(true).expect("send must not no-op: McpState must hold a live receiver");
+        state
+            .shutdown_tx
+            .send(true)
+            .expect("send must not no-op: McpState must hold a live receiver");
 
         let rx = state.shutdown_tx.subscribe();
-        assert!(*rx.borrow(), "a receiver created after the flip must see it, not the stale default");
+        assert!(
+            *rx.borrow(),
+            "a receiver created after the flip must see it, not the stale default"
+        );
 
-        state.shutdown_tx.send(false).expect("send must not no-op on disable either");
-        assert!(!*state.shutdown_tx.subscribe().borrow(), "disable must reach a receiver subscribed afterward");
+        state
+            .shutdown_tx
+            .send(false)
+            .expect("send must not no-op on disable either");
+        assert!(
+            !*state.shutdown_tx.subscribe().borrow(),
+            "disable must reach a receiver subscribed afterward"
+        );
     }
 
     /// `handle_connection_stream` needs no `tauri::AppHandle` at all — it's
@@ -469,7 +519,10 @@ mod tests {
 
         tx.send(false).unwrap();
         let result = tokio::time::timeout(Duration::from_secs(2), task).await;
-        assert!(result.is_ok(), "connection task kept running after shutdown");
+        assert!(
+            result.is_ok(),
+            "connection task kept running after shutdown"
+        );
 
         drop(client_side);
     }
@@ -530,14 +583,17 @@ mod tests {
         assert_eq!(resp["result"]["serverInfo"]["name"], json!("voltius"));
 
         state.shutdown_tx.send_replace(false);
-        tokio::time::timeout(Duration::from_secs(2), accept_task).await.unwrap().unwrap();
+        tokio::time::timeout(Duration::from_secs(2), accept_task)
+            .await
+            .unwrap()
+            .unwrap();
 
         // The connection this client already held is now dead, not just new ones.
         let mut buf2 = [0u8; 16];
         let read_after_disable =
             tokio::time::timeout(Duration::from_secs(2), client.read(&mut buf2)).await;
         match read_after_disable {
-            Ok(Ok(0)) => {} // clean EOF: server closed the connection
+            Ok(Ok(0)) => {}  // clean EOF: server closed the connection
             Ok(Err(_)) => {} // reset: also an acceptable "connection is gone"
             other => panic!("client's pre-disable connection is still open: {other:?}"),
         }

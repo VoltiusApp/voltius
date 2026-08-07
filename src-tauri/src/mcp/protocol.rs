@@ -45,7 +45,8 @@ mod tests {
 
     #[test]
     fn parses_a_well_formed_request() {
-        let req = parse_request(r#"{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}"#).unwrap();
+        let req =
+            parse_request(r#"{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}"#).unwrap();
         assert_eq!(req.method, "tools/list");
         assert_eq!(req.id, Some(json!(1)));
     }
@@ -58,7 +59,8 @@ mod tests {
 
     #[test]
     fn a_notification_has_no_id() {
-        let req = parse_request(r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#).unwrap();
+        let req =
+            parse_request(r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#).unwrap();
         assert_eq!(req.id, None);
     }
 
@@ -94,6 +96,9 @@ mod tests {
     fn success_and_error_carry_the_request_id_back() {
         assert_eq!(success(Some(json!(7)), json!({"a":1}))["id"], json!(7));
         assert_eq!(error(Some(json!(7)), -32601, "nope")["id"], json!(7));
-        assert_eq!(error(Some(json!(7)), -32601, "nope")["error"]["message"], json!("nope"));
+        assert_eq!(
+            error(Some(json!(7)), -32601, "nope")["error"]["message"],
+            json!("nope")
+        );
     }
 }

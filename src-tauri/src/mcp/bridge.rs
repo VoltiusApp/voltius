@@ -93,7 +93,10 @@ impl Bridge {
     ) -> Result<Value, BridgeError> {
         let id = self.register().await;
         if app
-            .emit("mcp-bridge-request", serde_json::json!({ "id": id, "payload": payload }))
+            .emit(
+                "mcp-bridge-request",
+                serde_json::json!({ "id": id, "payload": payload }),
+            )
             .is_err()
         {
             self.discard(&id).await;
@@ -199,7 +202,10 @@ mod tests {
         tokio::task::yield_now().await;
         bridge.invalidate_all("first").await;
         bridge.invalidate_all("second").await;
-        assert!(matches!(waiter.await.unwrap(), Err(BridgeError::Invalidated(_))));
+        assert!(matches!(
+            waiter.await.unwrap(),
+            Err(BridgeError::Invalidated(_))
+        ));
         assert_eq!(bridge.pending_count().await, 0);
     }
 }

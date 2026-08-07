@@ -28,6 +28,11 @@ pub struct McpState {
 impl McpState {
     pub fn new() -> Self {
         let (shutdown_tx, _shutdown_rx) = watch::channel(false);
-        Self { bridge: Bridge::new(), enabled: AtomicBool::new(false), shutdown_tx, _shutdown_rx }
+        Self {
+            bridge: Bridge::new(),
+            enabled: AtomicBool::new(false),
+            shutdown_tx,
+            _shutdown_rx,
+        }
     }
 }
