@@ -5,10 +5,15 @@ use std::sync::Arc;
 use std::time::Duration;
 
 const CALL_TIMEOUT: Duration = Duration::from_secs(120);
+const MAX_LINE_BYTES: usize = 1024 * 1024;
+
+fn mcp_dir() -> PathBuf {
+    crate::storage::config::config_dir().join("mcp")
+}
 
 #[cfg(unix)]
 pub fn socket_path() -> PathBuf {
-    crate::storage::config::config_dir().join("mcp.sock")
+    mcp_dir().join("mcp.sock")
 }
 
 #[cfg(windows)]
@@ -71,32 +76,91 @@ fn to_mcp_result(method: &str, v: Value) -> Value {
     json!({ "content": [{ "type": "text", "text": text }], "isError": is_err })
 }
 
+/// Owner-only, unreachable-parent-first: `bind` on some platforms creates the
+/// socket with `0o777 & ~umask` before we can chmod it, and `config_dir()`
+/// itself is world-traversable. Putting the socket in its own `0o700`
+/// directory closes that window regardless of the transient socket mode or
+/// the caller's umask.
+#[cfg(unix)]
+fn prepare_socket_dir(dir: &std::path::Path) -> std::io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::create_dir_all(dir)?;
+    std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))?;
+    Ok(())
+}
+
+#[cfg(unix)]
+fn bind_socket(path: &std::path::Path) -> std::io::Result<tokio::net::UnixListener> {
+    use std::os::unix::fs::PermissionsExt;
+    // A stale socket from a crashed run would make bind fail with EADDRINUSE.
+    let _ = std::fs::remove_file(path);
+    let listener = tokio::net::UnixListener::bind(path)?;
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+    Ok(listener)
+}
+
+/// Reads one line, capped at `max` bytes, so a client that never sends `\n`
+/// can't grow this process's memory without bound. On overflow, drains the
+/// rest of the oversized line so the connection can recover on the next read.
+#[cfg(unix)]
+async fn read_line_capped<R: tokio::io::AsyncRead + Unpin>(
+    reader: &mut R,
+    max: usize,
+) -> std::io::Result<Option<String>> {
+    use tokio::io::AsyncReadExt;
+    let mut buf = Vec::new();
+    let mut byte = [0u8; 1];
+    loop {
+        if reader.read(&mut byte).await? == 0 {
+            return Ok(if buf.is_empty() { None } else { Some(String::from_utf8_lossy(&buf).into_owned()) });
+        }
+        if byte[0] == b'\n' {
+            return Ok(Some(String::from_utf8_lossy(&buf).into_owned()));
+        }
+        if buf.len() >= max {
+            while reader.read(&mut byte).await? != 0 && byte[0] != b'\n' {}
+            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "line too long"));
+        }
+        buf.push(byte[0]);
+    }
+}
+
 #[cfg(unix)]
 pub async fn serve(app: tauri::AppHandle, state: Arc<McpState>) -> std::io::Result<()> {
-    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-    use tokio::net::UnixListener;
+    use tokio::io::{AsyncWriteExt, BufReader};
 
     let path = socket_path();
-    // A stale socket from a crashed run would make bind fail with EADDRINUSE.
-    let _ = std::fs::remove_file(&path);
-    let listener = UnixListener::bind(&path)?;
-    {
-        use std::os::unix::fs::PermissionsExt;
-        // Owner-only: anything laxer would let any local user drive the user's
-        // SSH hosts, which is the reason this is a socket and not a TCP port.
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
-    }
+    prepare_socket_dir(path.parent().expect("socket path has a parent"))?;
+    let listener = bind_socket(&path)?;
 
     loop {
-        let (stream, _) = listener.accept().await?;
+        let (stream, _) = match listener.accept().await {
+            Ok(pair) => pair,
+            Err(e) => {
+                // This process also holds SSH/SFTP sockets and PTYs, so
+                // fd-exhaustion errors (EMFILE/ENFILE) here are plausible and
+                // transient; nothing supervises `serve()`, so bailing would
+                // permanently disable MCP over a passing blip.
+                eprintln!("voltius mcp: accept error, retrying: {e}");
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                continue;
+            }
+        };
         let app = app.clone();
         let state = state.clone();
         tauri::async_runtime::spawn(async move {
             let (r, mut w) = tokio::io::split(stream);
-            let mut lines = BufReader::new(r).lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                if line.trim().is_empty() { continue; }
-                if let Some(resp) = dispatch_line(Some((&app, &state)), &line).await {
+            let mut reader = BufReader::new(r);
+            loop {
+                let line = match read_line_capped(&mut reader, MAX_LINE_BYTES).await {
+                    Ok(None) => break,
+                    Ok(Some(line)) => {
+                        if line.trim().is_empty() { continue; }
+                        dispatch_line(Some((&app, &state)), &line).await
+                    }
+                    Err(_) => Some(protocol::error(None, -32600, "line too long")),
+                };
+                if let Some(resp) = line {
                     let mut out = serde_json::to_vec(&resp).unwrap_or_default();
                     out.push(b'\n');
                     if w.write_all(&out).await.is_err() { break; }
@@ -157,5 +221,79 @@ mod tests {
     async fn tools_call_without_app_context_is_an_internal_error_not_a_panic() {
         let out = dispatch_line(None, r#"{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"x"}}"#).await;
         assert_eq!(out.unwrap()["error"]["code"], serde_json::json!(-32603));
+    }
+
+    #[test]
+    fn to_mcp_result_passes_tools_list_through_unchanged() {
+        let v = json!({ "tools": [{ "name": "x" }] });
+        assert_eq!(to_mcp_result("tools/list", v.clone()), v);
+    }
+
+    #[test]
+    fn to_mcp_result_wraps_a_successful_string_result_as_text() {
+        let v = json!({ "ok": true, "result": "hello" });
+        let out = to_mcp_result("tools/call", v);
+        assert_eq!(out["content"][0]["text"], json!("hello"));
+        assert_eq!(out["isError"], json!(false));
+    }
+
+    #[test]
+    fn to_mcp_result_serializes_a_non_string_result_as_json_text() {
+        let v = json!({ "ok": true, "result": { "a": 1 } });
+        let out = to_mcp_result("tools/call", v);
+        assert_eq!(out["content"][0]["text"], json!(r#"{"a":1}"#));
+        assert_eq!(out["isError"], json!(false));
+    }
+
+    #[test]
+    fn to_mcp_result_marks_a_failed_call_as_an_error_with_the_error_body() {
+        let v = json!({ "ok": false, "error": "boom" });
+        let out = to_mcp_result("tools/call", v);
+        assert_eq!(out["isError"], json!(true));
+        assert_eq!(out["content"][0]["text"], json!("boom"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn prepare_socket_dir_is_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("voltius-mcp-test-dir-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        prepare_socket_dir(&dir).unwrap();
+        let mode = std::fs::metadata(&dir).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o700);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bind_socket_is_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("voltius-mcp-test-sock-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("test.sock");
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let _listener = rt.block_on(async { bind_socket(&path) }).unwrap();
+        let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn read_line_capped_reads_a_normal_line() {
+        let mut cursor = std::io::Cursor::new(b"hello\n".to_vec());
+        let line = read_line_capped(&mut cursor, 1024).await.unwrap();
+        assert_eq!(line, Some("hello".to_string()));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn read_line_capped_rejects_a_line_over_the_limit() {
+        let mut data = vec![b'a'; 20];
+        data.push(b'\n');
+        let mut cursor = std::io::Cursor::new(data);
+        let err = read_line_capped(&mut cursor, 10).await.unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
     }
 }
