@@ -23,8 +23,10 @@ pub async fn mcp_set_enabled(
         state.enabled.store(false, Ordering::SeqCst);
         // Wakes the accept loop and every live connection task, not just the
         // atomic flag — otherwise a client connected before this call keeps
-        // full tool access until it disconnects on its own.
-        let _ = state.shutdown_tx.send(false);
+        // full tool access until it disconnects on its own. `send_replace`,
+        // not `send`, because `send` no-ops on a receiver count of 0 — a
+        // trap this code fell into once already.
+        state.shutdown_tx.send_replace(false);
         let _ = std::fs::remove_file(transport::socket_path());
         return Ok(String::new());
     }
@@ -32,7 +34,7 @@ pub async fn mcp_set_enabled(
     if state.enabled.swap(true, Ordering::SeqCst) {
         return Ok(transport::socket_path().to_string_lossy().into_owned());
     }
-    let _ = state.shutdown_tx.send(true);
+    state.shutdown_tx.send_replace(true);
     let path = transport::socket_path().to_string_lossy().into_owned();
     let st = state.clone();
     tauri::async_runtime::spawn(async move {

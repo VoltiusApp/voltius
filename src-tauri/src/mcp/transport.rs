@@ -169,8 +169,11 @@ async fn run_accept_loop(
 
 /// Reads lines and dispatches them until the stream closes, a line is
 /// malformed, or `shutdown` drops to `false` — the same signal `run_accept_loop`
-/// watches, so a live connection loses tool access the instant the server is
-/// turned off rather than keeping it until the client disconnects on its own.
+/// watches. Every await point in the loop (the line read, the dispatch —
+/// which can run up to `CALL_TIMEOUT` — and the response write) races against
+/// `shutdown.changed()`, so a call already in flight when the server is
+/// turned off has its response discarded rather than delivered up to
+/// `CALL_TIMEOUT` later to a client the toggle says is off.
 ///
 /// Generic over the stream and given an owned `app_state` (not borrowed) so
 /// it can be spawned as a `'static` task; `app_state: None` exercises the
@@ -204,15 +207,27 @@ async fn handle_connection_stream<S>(
             Ok(Some(line)) => {
                 if line.trim().is_empty() { continue; }
                 let ctx = app_state.as_ref().map(|(a, s)| (a, s));
-                dispatch_line(ctx, &line).await
+                tokio::select! {
+                    biased;
+                    changed = shutdown.changed() => {
+                        if changed.is_err() || !*shutdown.borrow() { break; }
+                        continue;
+                    }
+                    resp = dispatch_line(ctx, &line) => resp,
+                }
             }
             Err(_) => Some(protocol::error(None, -32600, "line too long")),
         };
         if let Some(resp) = resp {
             let mut out = serde_json::to_vec(&resp).unwrap_or_default();
             out.push(b'\n');
-            if w.write_all(&out).await.is_err() {
-                break;
+            tokio::select! {
+                biased;
+                changed = shutdown.changed() => {
+                    if changed.is_err() || !*shutdown.borrow() { break; }
+                    continue;
+                }
+                res = w.write_all(&out) => { if res.is_err() { break; } }
             }
         }
     }
@@ -380,16 +395,24 @@ mod tests {
         let _ = std::fs::remove_file(&path);
     }
 
+    /// Reuses a single, long-lived `McpState`-backed sender across both
+    /// cycles — exactly the shape `mcp_set_enabled` re-arms on every
+    /// enable/disable, and exactly the shape that stayed permanently stuck
+    /// at `false` when `McpState::new()` dropped its only receiver (a fresh
+    /// `watch::channel` per cycle, as this test used to build, would never
+    /// have caught that).
     #[cfg(unix)]
     #[tokio::test]
     async fn an_off_on_off_on_cycle_leaves_no_listener_bound_afterward() {
         let path = temp_sock_path("cycle");
+        let state = McpState::new();
         for _ in 0..2 {
+            state.shutdown_tx.send_replace(true);
             let listener = bind_socket(&path).unwrap();
-            let (tx, rx) = watch::channel(true);
+            let rx = state.shutdown_tx.subscribe();
             let task = tokio::spawn(run_accept_loop(listener, rx, |_stream, _rx| {}));
 
-            tx.send(false).unwrap();
+            state.shutdown_tx.send_replace(false);
             tokio::time::timeout(Duration::from_secs(2), task).await.unwrap().unwrap();
 
             // The listener was dropped when run_accept_loop returned, so the
@@ -398,6 +421,33 @@ mod tests {
             assert!(std::os::unix::net::UnixStream::connect(&path).is_err());
         }
         let _ = std::fs::remove_file(&path);
+    }
+
+    /// Pins the exact bug that shipped: `mcp_set_enabled` calls `send`/
+    /// `send_replace` on `state.shutdown_tx` *before* `serve()` ever calls
+    /// `.subscribe()` — so if `McpState::new()` doesn't keep a receiver of
+    /// its own alive, `watch::Sender::send` sees `receiver_count() == 0`
+    /// at the moment of the real toggle flip, silently no-ops, and every
+    /// later subscriber (including `serve()`'s) is stuck reading the
+    /// initial `false` forever. Deliberately uses plain `.send()`, not
+    /// `send_replace`, so this test exercises the receiver-liveness fix in
+    /// isolation from the belt-and-suspenders `send_replace` switch in
+    /// `commands/mcp.rs`. A `watch::channel` built fresh in a test (as
+    /// every earlier test in this file does) can't catch this class of
+    /// bug — it has to go through the real `McpState::new()`.
+    #[tokio::test]
+    async fn mcp_state_new_keeps_its_shutdown_channel_live_before_anyone_subscribes() {
+        let state = McpState::new();
+
+        // Mirrors mcp_set_enabled's real order: the flip happens first,
+        // `serve()`'s subscribe() happens only after the task is spawned.
+        state.shutdown_tx.send(true).expect("send must not no-op: McpState must hold a live receiver");
+
+        let rx = state.shutdown_tx.subscribe();
+        assert!(*rx.borrow(), "a receiver created after the flip must see it, not the stale default");
+
+        state.shutdown_tx.send(false).expect("send must not no-op on disable either");
+        assert!(!*state.shutdown_tx.subscribe().borrow(), "disable must reach a receiver subscribed afterward");
     }
 
     /// `handle_connection_stream` needs no `tauri::AppHandle` at all — it's
@@ -444,5 +494,54 @@ mod tests {
 
         drop(client_side);
         let _ = tokio::time::timeout(Duration::from_secs(2), task).await;
+    }
+
+    /// End-to-end over a real Unix socket, driven exactly the way
+    /// `mcp_set_enabled` drives production: bind through `bind_socket`,
+    /// arm `McpState`'s own channel with `send_replace`, accept through
+    /// `run_accept_loop`. This is the check that would have caught the
+    /// regression where enable never actually armed the signal — a real
+    /// client connects and gets a real reply, then loses the connection
+    /// the instant disable fires, mid-call.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn end_to_end_a_real_client_talks_to_the_server_then_loses_it_on_disable() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let path = temp_sock_path("e2e");
+        let state = McpState::new();
+        state.shutdown_tx.send_replace(true);
+
+        let listener = bind_socket(&path).unwrap();
+        let rx = state.shutdown_tx.subscribe();
+        let accept_task = tokio::spawn(run_accept_loop(listener, rx, |stream, conn_shutdown| {
+            tokio::spawn(handle_connection_stream(stream, None, conn_shutdown));
+        }));
+
+        let mut client = tokio::net::UnixStream::connect(&path).await.unwrap();
+        client
+            .write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}\n")
+            .await
+            .unwrap();
+        let mut buf = [0u8; 512];
+        let n = client.read(&mut buf).await.unwrap();
+        assert!(n > 0, "a real client got no reply from a real socket");
+        let resp: Value = serde_json::from_slice(&buf[..n]).unwrap();
+        assert_eq!(resp["result"]["serverInfo"]["name"], json!("voltius"));
+
+        state.shutdown_tx.send_replace(false);
+        tokio::time::timeout(Duration::from_secs(2), accept_task).await.unwrap().unwrap();
+
+        // The connection this client already held is now dead, not just new ones.
+        let mut buf2 = [0u8; 16];
+        let read_after_disable =
+            tokio::time::timeout(Duration::from_secs(2), client.read(&mut buf2)).await;
+        match read_after_disable {
+            Ok(Ok(0)) => {} // clean EOF: server closed the connection
+            Ok(Err(_)) => {} // reset: also an acceptable "connection is gone"
+            other => panic!("client's pre-disable connection is still open: {other:?}"),
+        }
+
+        let _ = std::fs::remove_file(&path);
     }
 }
