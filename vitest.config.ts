@@ -12,6 +12,7 @@ export default defineConfig({
       // host module at runtime via hostModules.ts); map it to the real module here
       // so first-party plugin unit tests can import it directly, same shared React.
       "@voltius/ui": path.resolve(__dirname, "./src/plugins/ui.ts"),
+      "@voltius/tools": path.resolve(__dirname, "./src/plugins/toolSurface/index.ts"),
     },
   },
   test: {

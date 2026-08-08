@@ -1,0 +1,36 @@
+import { describe, it, expect } from "vitest";
+import { deriveScope, FILE_TOOLS } from "@voltius/tools";
+
+const api = (sessions: unknown[] = [], connections: unknown[] = []) =>
+  ({
+    sessions: { list: () => sessions },
+    connections: { list: async () => connections },
+  }) as never;
+
+describe("deriveScope, reachable from the tool-surface barrel", () => {
+  it("resolves a session-addressed tool to the session's connection", async () => {
+    const scope = await deriveScope(
+      api([{ id: "s1", connectionId: "c1" }], [{ id: "c1" }]),
+      "run_command",
+      { sessionId: "s1" },
+    );
+    expect(scope).toBe("c1");
+  });
+
+  it("scopes a transfer on its source, never its destination", async () => {
+    const scope = await deriveScope(api([], [{ id: "c1" }, { id: "c2" }]), "transfer_file", {
+      fromTarget: "c1",
+      toTarget: "c2",
+    });
+    expect(scope).toBe("c1");
+  });
+
+  it("returns null for a connection id that matches nothing", async () => {
+    expect(await deriveScope(api([], []), "open_session", { connectionId: "forged" })).toBeNull();
+  });
+
+  it("carries the file tools that address a target directly", () => {
+    expect(FILE_TOOLS.has("transfer_file")).toBe(true);
+    expect(FILE_TOOLS.has("run_command")).toBe(false);
+  });
+});
