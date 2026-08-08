@@ -59,14 +59,67 @@ pub fn run_shim() -> std::io::Result<()> {
     Ok(())
 }
 
-/// Windows named-pipe support is deferred; this keeps `voltius mcp` a coherent
-/// (if unusable) command on Windows instead of a build break.
+/// `voltius mcp` on Windows. Same two-thread relay as the unix shim, but a
+/// duplex named pipe cannot half-close, so stdin EOF starts a quiet-period
+/// drain instead: keep printing until the pipe has been idle for
+/// DRAIN_QUIET_PERIOD, then exit.
 #[cfg(windows)]
 pub fn run_shim() -> std::io::Result<()> {
-    Err(std::io::Error::new(
-        std::io::ErrorKind::Unsupported,
-        "MCP server is not yet supported on Windows",
-    ))
+    use std::io::{BufRead, BufReader, Write};
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
+
+    const DRAIN_QUIET_PERIOD: Duration = Duration::from_secs(2);
+
+    let pipe = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(super::transport::socket_path())
+        .map_err(|e| {
+            eprintln!("voltius: the app is not running, or its MCP server is off ({e})");
+            e
+        })?;
+    let mut to_app = pipe.try_clone()?;
+    let from_app = pipe;
+
+    let start = Instant::now();
+    let last_activity = Arc::new(AtomicU64::new(0));
+    let activity_writer = last_activity.clone();
+
+    std::thread::spawn(move || {
+        let mut reader = BufReader::new(from_app);
+        let mut buf = String::new();
+        let stdout = std::io::stdout();
+        while reader.read_line(&mut buf).unwrap_or(0) > 0 {
+            let mut lock = stdout.lock();
+            let _ = lock.write_all(buf.as_bytes());
+            let _ = lock.flush();
+            buf.clear();
+            activity_writer.store(start.elapsed().as_millis() as u64, Ordering::SeqCst);
+        }
+    });
+
+    let stdin = std::io::stdin();
+    for line in stdin.lock().lines() {
+        let line = line?;
+        to_app.write_all(line.as_bytes())?;
+        to_app.write_all(b"\n")?;
+        to_app.flush()?;
+        last_activity.store(start.elapsed().as_millis() as u64, Ordering::SeqCst);
+    }
+
+    // stdin is closed: no more requests. Wait until the pipe has been quiet
+    // for DRAIN_QUIET_PERIOD, then exit. The reader thread is detached, not
+    // joined: it blocks on a pipe that never reaches EOF while the app holds
+    // its end, so joining it would hang forever.
+    loop {
+        let idle = start.elapsed() - Duration::from_millis(last_activity.load(Ordering::SeqCst));
+        if idle >= DRAIN_QUIET_PERIOD {
+            return Ok(());
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
 }
 
 #[cfg(all(test, unix))]
