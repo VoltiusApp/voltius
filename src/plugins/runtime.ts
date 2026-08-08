@@ -184,6 +184,7 @@ async function ensureQuitHandler() {
   const win = getCurrentWindow();
   await win.onCloseRequested(async (event) => {
     event.preventDefault();
+    win.hide().catch(() => {});
     const callbacks = [..._onBeforeQuit];
     await Promise.race([
       Promise.allSettled(callbacks.map((cb) => cb())),
