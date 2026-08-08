@@ -91,4 +91,10 @@ describe("api.audit.record", () => {
     expect(reportPluginAuditEvent).toHaveBeenCalledTimes(1);
     expect(reportPluginAuditEvent.mock.calls[0][2].metadata).toEqual({ via: "mcp", plugin_id: "__mcp__" });
   });
+
+  // A host id that is also a legal plugin id would let a future plugin claim it
+  // and inherit the host's whileActive bypass. See runtime.ts createHostPluginAPI.
+  test("refuses a host id that is a legal plugin id", () => {
+    expect(() => createHostPluginAPI("mcp", ["audit"])).toThrow(/plugin id/);
+  });
 });

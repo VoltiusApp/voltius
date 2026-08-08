@@ -59,7 +59,7 @@ import { createProxmoxAPI } from "./domains/proxmox";
 import { createSftpAPI } from "./domains/sftp";
 import { createDockerAPI } from "./domains/docker";
 import { injectPluginStyle, removePluginStyle } from "./importPluginModule";
-import { assertValidPluginId } from "./pluginId";
+import { assertValidPluginId, isValidPluginId } from "./pluginId";
 
 const STREAM_PERM: Record<StreamKind, string> = {
   metrics: "metrics:read",
@@ -490,6 +490,9 @@ function requirePerm(manifest: PluginManifest, perm: string): void {
 }
 
 // ─── Scoped plugin API ────────────────────────────────────────────────────
+
+/** Ids belonging to host APIs rather than plugins. See `whileActive`. */
+const _hostApiIds = new Set<string>();
 
 function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const id = manifest.id;
@@ -1563,12 +1566,12 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
  *  plugins. Kept as a named export rather than letting a caller synthesize a
  *  manifest, so every non-plugin consumer is greppable. */
 export function createHostPluginAPI(id: string, permissions: string[]): PluginAPI {
+  if (isValidPluginId(id)) {
+    throw new Error(`createHostPluginAPI id ${JSON.stringify(id)} is a legal plugin id; a real plugin could claim it and inherit the host's whileActive bypass`);
+  }
   _hostApiIds.add(id);
   return createPluginAPI({ id, name: id, version: "0.0.0", permissions });
 }
-
-/** Ids belonging to host APIs rather than plugins. See `whileActive`. */
-const _hostApiIds = new Set<string>();
 
 // ─── Registry ─────────────────────────────────────────────────────────────
 

@@ -43,6 +43,12 @@ describe("MCP consumer", () => {
     expect(record).toHaveBeenCalledWith("c1", "agent.file_created", expect.objectContaining({ via: "mcp" }), expect.anything());
   });
 
+  it("close_session on an unowned session returns MCP's own not-owned text, not the agent's default", async () => {
+    const tools = buildMcpTools(api());
+    const out = await callTool(tools, "close_session", { sessionId: "s1" });
+    expect(out).toEqual({ ok: true, result: { error: MCP_TEXT.notOwnedError } });
+  });
+
   it("converts each tool's zod schema to a JSON Schema object for tools/list", () => {
     const [first] = listToolDescriptors(buildMcpTools(api()));
     // `{ type: "object" }` alone is satisfied by a raw zod schema too — ZodObject

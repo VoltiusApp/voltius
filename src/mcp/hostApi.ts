@@ -1,7 +1,7 @@
 import type { PluginAPI } from "@/plugins/api";
 import { createHostPluginAPI } from "@/plugins/runtime";
 
-const PERMISSIONS = [
+export const PERMISSIONS = [
   "connections:read",
   "sessions:read",
   "sessions:write",
