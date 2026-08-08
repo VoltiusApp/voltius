@@ -66,6 +66,7 @@
       "sync":           { "label": "同步",            "keywords": ["备份", "云", "gist", "同步", "pro"] },
       "vaults":         { "label": "保险库",          "keywords": ["密钥", "密码", "存储", "密钥链"] },
       "plugins":        { "label": "插件",         "keywords": ["扩展", "附加组件", "市场"] },
+      "integrations":   { "label": "集成",         "keywords": ["mcp", "claude", "claude code", "服务器", "socket", "代理"] },
       "terminal":       { "label": "终端",        "keywords": ["回滚", "粘贴", "括号", "复制", "小地图", "缓冲区"] },
       "sftp":           { "label": "SFTP",            "keywords": ["文件", "传输", "ftp", "文件"] },
       "portForwarding": { "label": "端口转发", "keywords": ["隧道", "转发", "端口", "ssh", "自动"] },
@@ -244,7 +245,6 @@
       "troubleshootingTitle": "故障排除",
       "verboseLabel": "详细日志（本次会话）",
       "verboseSub": "记录额外的细节以帮助诊断问题。重启 Voltius 后重置为正常。",
-      "mcpServerSub": "允许本地 MCP 客户端（如 Claude Code）通过私有 socket 在您保险库中的所有主机以及本机上执行命令，以及读取、写入和删除文件。审批在该客户端中进行，而不是在 Voltius 中。默认关闭。",
       "verboseHint": "详细日志已开启。要捕获问题：\n1. 现在复现问题\n2. 回来创建错误报告",
       "reportTitle": "错误报告",
       "createButton": "创建错误报告",
@@ -256,6 +256,12 @@
       "toastSaved": "报告已保存——{{name}}",
       "toastError": "无法创建报告：{{reason}}",
       "toastGenericError": "出错了。"
+    },
+    "integrations": {
+      "mcp": {
+        "title": "MCP",
+        "sub": "允许本地 MCP 客户端（如 Claude Code）通过私有 socket 在您保险库中的所有主机以及本机上执行命令，以及读取、写入和删除文件。审批在该客户端中进行，而不是在 Voltius 中。默认关闭。"
+      }
     },
     "about": {
       "versionTitle": "版本",

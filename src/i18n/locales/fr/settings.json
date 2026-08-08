@@ -107,6 +107,17 @@
           "boutique"
         ]
       },
+      "integrations": {
+        "label": "Intégrations",
+        "keywords": [
+          "mcp",
+          "claude",
+          "claude code",
+          "serveur",
+          "socket",
+          "agent"
+        ]
+      },
       "terminal": {
         "label": "Terminal",
         "keywords": [
@@ -347,7 +358,6 @@
       "troubleshootingTitle": "Dépannage",
       "verboseLabel": "Journalisation détaillée (cette session)",
       "verboseSub": "Enregistre des détails supplémentaires pour aider à diagnostiquer les problèmes. Revient à la normale au redémarrage de Voltius.",
-      "mcpServerSub": "Permet aux clients MCP locaux (comme Claude Code) d'exécuter des commandes et de lire, écrire et supprimer des fichiers sur tous les hôtes de votre coffre ainsi que sur cet ordinateur, via un socket privé. L'approbation a lieu dans ce client, pas dans Voltius. Désactivé par défaut.",
       "verboseHint": "La journalisation détaillée est activée. Pour capturer le problème :\n1. Reproduisez le problème maintenant\n2. Revenez ici et créez un rapport de bug",
       "reportTitle": "Rapport de bug",
       "createButton": "Créer un rapport de bug",
@@ -359,6 +369,12 @@
       "toastSaved": "Rapport enregistré — {{name}}",
       "toastError": "Impossible de créer le rapport : {{reason}}",
       "toastGenericError": "Une erreur s'est produite."
+    },
+    "integrations": {
+      "mcp": {
+        "title": "MCP",
+        "sub": "Permet aux clients MCP locaux (comme Claude Code) d'exécuter des commandes et de lire, écrire et supprimer des fichiers sur tous les hôtes de votre coffre ainsi que sur cet ordinateur, via un socket privé. L'approbation a lieu dans ce client, pas dans Voltius. Désactivé par défaut."
+      }
     },
     "about": {
       "versionTitle": "Version",
