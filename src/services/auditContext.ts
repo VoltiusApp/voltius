@@ -40,7 +40,10 @@ export type PluginAuditAction =
   | "agent.file_written"
   | "agent.file_renamed"
   | "agent.file_deleted"
-  | "agent.file_transferred";
+  | "agent.file_transferred"
+  | "agent.object_created"
+  | "agent.object_updated"
+  | "agent.object_deleted";
 
 export const PLUGIN_AUDIT_ACTIONS: readonly PluginAuditAction[] = [
   "agent.grant_created", "agent.grant_revoked", "agent.mode_changed",
@@ -48,6 +51,7 @@ export const PLUGIN_AUDIT_ACTIONS: readonly PluginAuditAction[] = [
   "agent.action_denied",
   "agent.file_created", "agent.file_written", "agent.file_renamed",
   "agent.file_deleted", "agent.file_transferred",
+  "agent.object_created", "agent.object_updated", "agent.object_deleted",
 ];
 
 export type AnyAuditAction = ClientAuditAction | PluginAuditAction;
