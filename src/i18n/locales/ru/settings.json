@@ -380,7 +380,20 @@
         "sub": "Позволяет локальным MCP-клиентам (например, Claude Code) выполнять команды и читать, записывать и удалять файлы на всех хостах вашего хранилища и на этом компьютере через приватный сокет. Подтверждение происходит в этом клиенте, а не в Voltius. По умолчанию выключено.",
         "setup": {
           "title": "Настройка клиента",
-          "help": "Запустите это один раз, чтобы зарегистрировать Voltius в Claude Code. Для подключения клиента сервер должен быть включён выше.",
+          "clientLabel": "MCP-клиент",
+          "clients": {
+            "claudeCode": "Claude Code",
+            "mcpServers": "Claude Desktop / Cursor / Cline / Windsurf",
+            "vscode": "VS Code / GitHub Copilot",
+            "opencode": "OpenCode"
+          },
+          "help": {
+            "claudeCode": "Запустите это один раз, чтобы зарегистрировать Voltius в Claude Code. Для подключения клиента сервер должен быть включён выше.",
+            "mcpServers": "Добавьте этот блок в claude_desktop_config.json (Claude Desktop) или .cursor/mcp.json (Cursor, Cline, Windsurf). Для подключения клиента сервер должен быть включён выше.",
+            "vscode": "Добавьте этот блок в .vscode/mcp.json. VS Code использует «servers», а не «mcpServers» — блок в формате Cursor здесь молча ничего не загрузит.",
+            "opencode": "Добавьте этот блок в opencode.json (проект) или ~/.config/opencode/opencode.json (глобально)."
+          },
+          "exePathLabel": "Путь к исполняемому файлу",
           "socketLabel": "Путь к сокету",
           "copied": "Скопировано"
         }

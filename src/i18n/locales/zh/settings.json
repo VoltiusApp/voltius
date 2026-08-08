@@ -263,7 +263,20 @@
         "sub": "允许本地 MCP 客户端（如 Claude Code）通过私有 socket 在您保险库中的所有主机以及本机上执行命令，以及读取、写入和删除文件。审批在该客户端中进行，而不是在 Voltius 中。默认关闭。",
         "setup": {
           "title": "客户端设置",
-          "help": "运行一次以在 Claude Code 中注册 Voltius。客户端连接前需先启用上方的服务器。",
+          "clientLabel": "MCP 客户端",
+          "clients": {
+            "claudeCode": "Claude Code",
+            "mcpServers": "Claude Desktop / Cursor / Cline / Windsurf",
+            "vscode": "VS Code / GitHub Copilot",
+            "opencode": "OpenCode"
+          },
+          "help": {
+            "claudeCode": "运行一次以在 Claude Code 中注册 Voltius。客户端连接前需先启用上方的服务器。",
+            "mcpServers": "将此代码块添加到 claude_desktop_config.json（Claude Desktop）或 .cursor/mcp.json（Cursor、Cline、Windsurf）。客户端连接前需先启用上方的服务器。",
+            "vscode": "将此代码块添加到 .vscode/mcp.json。VS Code 使用的是 \"servers\"，不是 \"mcpServers\"——粘贴 Cursor 格式的代码块会静默地加载不到任何内容。",
+            "opencode": "将此代码块添加到 opencode.json（项目级）或 ~/.config/opencode/opencode.json（全局）。"
+          },
+          "exePathLabel": "可执行文件路径",
           "socketLabel": "Socket 路径",
           "copied": "已复制"
         }

@@ -376,7 +376,20 @@
         "sub": "Lets local MCP clients (like Claude Code) run commands and read, write and delete files on every host in your vault and on this computer, over a private socket. Approval happens in that client, not in Voltius. Off by default.",
         "setup": {
           "title": "Client setup",
-          "help": "Run this once to register Voltius with Claude Code. The server must be enabled above for a client to connect.",
+          "clientLabel": "MCP client",
+          "clients": {
+            "claudeCode": "Claude Code",
+            "mcpServers": "Claude Desktop / Cursor / Cline / Windsurf",
+            "vscode": "VS Code / GitHub Copilot",
+            "opencode": "OpenCode"
+          },
+          "help": {
+            "claudeCode": "Run this once to register Voltius with Claude Code. The server must be enabled above for a client to connect.",
+            "mcpServers": "Add this block to claude_desktop_config.json (Claude Desktop) or .cursor/mcp.json (Cursor, Cline, Windsurf). The server must be enabled above for a client to connect.",
+            "vscode": "Add this block to .vscode/mcp.json. VS Code uses \"servers\", not \"mcpServers\" — pasting a Cursor-style block here silently loads nothing.",
+            "opencode": "Add this block to opencode.json (project) or ~/.config/opencode/opencode.json (global)."
+          },
+          "exePathLabel": "Executable path",
           "socketLabel": "Socket path",
           "copied": "Copied"
         }
