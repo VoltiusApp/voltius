@@ -7,12 +7,12 @@ import { PERMISSIONS } from "./hostApi";
 const isPermissionError = (err: unknown) => err instanceof Error && /requires permission/.test(err.message);
 
 describe("MCP host API surface", () => {
-  it("builds all 14 MCP tools over the real createHostPluginAPI", () => {
+  it("builds all 17 MCP tools over the real createHostPluginAPI", () => {
     const api = createHostPluginAPI("__mcp_hostapi_test__", PERMISSIONS);
-    expect(buildMcpTools(api).map((t) => t.name).sort()).toHaveLength(14);
+    expect(buildMcpTools(api).map((t) => t.name).sort()).toHaveLength(17);
   });
 
-  // Each gated PluginAPI call the 14 tools reach into must clear its permission
+  // Each gated PluginAPI call the 17 tools reach into must clear its permission
   // check against PERMISSIONS. This is the same shape as two known past bugs:
   // terminal:write missing on the agent bundle, and the whileActive audit drop —
   // both invisible to tests that mock getMcpHostApi/PluginAPI instead of building
@@ -36,6 +36,9 @@ describe("MCP host API surface", () => {
       () => api.terminal.onOutput("s1", () => {}),
       () => api.terminal.readSnapshot("s1"),
       () => api.sessions.close("s1"),
+      () => api.keys.list(),
+      () => api.keys.create({ name: "test", key_type: "ed25519", tags: [] }, "private", "public"),
+      () => api.keys.delete("k1"),
       () => api.audit.record("c1", "agent.command_run"),
     ];
 

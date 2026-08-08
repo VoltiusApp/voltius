@@ -11,7 +11,8 @@ const api = () => ({
 }) as never;
 
 const ALL_TOOLS = [
-  "close_session", "delete_path", "list_connections", "list_files", "list_sessions",
+  "close_session", "delete_path", "key_create", "key_delete", "key_list",
+  "list_connections", "list_files", "list_sessions",
   "make_dir", "open_session", "read_file", "read_terminal", "rename_path",
   "run_command", "stat_file", "transfer_file", "write_file",
 ];

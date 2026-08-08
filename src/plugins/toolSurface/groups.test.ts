@@ -3,10 +3,11 @@ import { ALL_PERMISSIONS } from "./groups";
 import { FILE_PERMISSIONS } from "./tools/files";
 import { SESSION_PERMISSIONS } from "./tools/sessions";
 import { CONNECTION_PERMISSIONS } from "./tools/connections";
+import { KEY_PERMISSIONS } from "./tools/keys";
 
 describe("ALL_PERMISSIONS", () => {
   it("is the union of every group's declared permissions", () => {
-    const expected = new Set([...FILE_PERMISSIONS, ...SESSION_PERMISSIONS, ...CONNECTION_PERMISSIONS]);
+    const expected = new Set([...FILE_PERMISSIONS, ...SESSION_PERMISSIONS, ...CONNECTION_PERMISSIONS, ...KEY_PERMISSIONS]);
     expect(new Set(ALL_PERMISSIONS)).toEqual(expected);
   });
 

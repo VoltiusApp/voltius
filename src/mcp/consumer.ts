@@ -40,6 +40,12 @@ export const MCP_TEXT = {
       + "user's own.",
     close_session:
       "Close a session this MCP server opened. Sessions the user opened cannot be closed.",
+    key_create:
+      "Save an SSH key pair in the vault. `privateKey` is the full PEM/OpenSSH text. Runs "
+      + "immediately; your own client is responsible for approval.",
+    key_delete:
+      "Delete a saved SSH key by id. Runs immediately and cannot be undone; any connection using "
+      + "the key will stop authenticating. Your own client is responsible for approval.",
   } as Record<string, string>,
   notOwnedError: "session not opened by this MCP server; call open_session first",
 };
