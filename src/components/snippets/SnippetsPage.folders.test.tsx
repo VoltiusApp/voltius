@@ -27,6 +27,8 @@ const h = vi.hoisted(() => ({
   ejectTargetFolderId: null as string | null,
   activeFolderId: null as string | null,
   accessibleVaultIds: [] as string[],
+  defaultVaultId: "personal",
+  toolbarProps: {} as Record<string, unknown>,
   navigateTo: vi.fn(),
   navigateToRoot: vi.fn(),
   updateFolder: vi.fn(async (_id: string, _data?: unknown) => {}),
@@ -57,7 +59,9 @@ vi.mock("@/components/folders/FolderCard", () => ({
   FolderCard: (props: Record<string, unknown>) => { h.folderCardProps.push(props); return null; },
 }));
 vi.mock("@/components/folders/FolderEditPanel", () => ({ FolderEditPanel: () => null }));
-vi.mock("./SnippetsToolbar", () => ({ SnippetsToolbar: () => null }));
+vi.mock("./SnippetsToolbar", () => ({
+  SnippetsToolbar: (props: Record<string, unknown>) => { h.toolbarProps = props; return null; },
+}));
 vi.mock("./SnippetCard", () => ({ SnippetCard: () => null }));
 vi.mock("./SnippetForm", () => ({ SnippetForm: () => null }));
 vi.mock("./community/CommunityBrowser", () => ({ CommunityBrowser: () => null }));
@@ -121,6 +125,10 @@ vi.mock("@/hooks/useAccessibleVaultIds", () => ({
   useScopedVaultId: () => null,
 }));
 vi.mock("@/hooks/usePermission", () => ({ usePermissions: () => h.can }));
+vi.mock("@/hooks/useWritableVaultIds", () => ({
+  useDefaultVaultId: () => h.defaultVaultId,
+  resolveVaultIdForSave: (v: string) => v,
+}));
 vi.mock("@/hooks/useAllSnippets", () => ({ useAllSnippets: () => h.snippets }));
 vi.mock("@/hooks/useAllConnections", () => ({ useAllConnections: () => [] }));
 
@@ -208,6 +216,7 @@ beforeEach(() => {
   h.ejectTargetFolderId = null;
   h.activeFolderId = null;
   h.accessibleVaultIds = [];
+  h.defaultVaultId = "personal";
   h.can.mockReturnValue(true);
   h.saveFolder.mockImplementation(async (d: { name: string }) => folder(`new-${d.name}`, d as Partial<Folder>));
 });
@@ -289,4 +298,14 @@ test("copying a folder to a vault recreates the subtree and re-parents the snipp
   expect(h.saveFolder.mock.calls.map((c) => (c[0] as { name: string }).name)).toEqual(["root", "mid"]);
   expect((h.saveFolder.mock.calls[1][0] as { parent_folder_id: string }).parent_folder_id).toBe("new-root");
   expect(h.createSnippet.mock.calls[0][0]).toMatchObject({ folder_id: "new-mid", vault_id: "team-1" });
+});
+
+test("a new folder is created in the vault being viewed, not always the personal one", async () => {
+  h.snippets = [snippet("s1")];
+  h.defaultVaultId = "team-1";
+  render(<SnippetsPage />);
+
+  await act(async () => { await (h.toolbarProps.onNewFolder as () => void | Promise<void>)(); });
+
+  expect(h.saveFolder).toHaveBeenCalledWith(expect.objectContaining({ object_type: "snippet", vault_id: "team-1" }));
 });

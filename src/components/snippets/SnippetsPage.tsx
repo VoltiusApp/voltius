@@ -58,6 +58,7 @@ import { selectRecentSnippetEntries } from "@/utils/snippetRecent";
 import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
+import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { copyFolderSubtree } from "@/utils/folderCopy";
@@ -319,6 +320,7 @@ export function SnippetsPage() {
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const accessibleVaultIds = useAccessibleVaultIds();
   const scopedVaultId = useScopedVaultId();
+  const defaultVaultId = useDefaultVaultId();
   const can = usePermissions();
 
   const vaultOptions = useVaultOptions();
@@ -1049,6 +1051,7 @@ export function SnippetsPage() {
       name: "New Folder" /* persisted English default; menu label is localized */,
       object_type: "snippet",
       parent_folder_id: activeFolderId ?? undefined,
+      vault_id: defaultVaultId,
     });
     folderEp.transitionToExisting(folder);
   }
