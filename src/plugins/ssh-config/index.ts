@@ -170,11 +170,15 @@ export async function sync(api: PluginAPI): Promise<void> {
   const content = await api.fs.readText(SSH_CONFIG_PATH);
   const hosts = parseSshConfig(content);
 
-  const [allConnections, allKeys, allIdentities] = await Promise.all([
+  const [listed, allKeys, allIdentities] = await Promise.all([
     api.connections.list(),
     api.keys.list(),
     api.identities.list(),
   ]);
+  // ~/.ssh/config is this machine's file, so it only ever manages this user's
+  // personal connections. Team-vault ones are excluded outright: adoption would
+  // otherwise claim a shared connection and the update that follows is refused.
+  const allConnections = listed.filter((c) => !c.team);
   const taggedConnections = allConnections.filter((c) =>
     c.tags.includes(SSH_CONFIG_TAG),
   );
@@ -330,7 +334,7 @@ export async function sync(api: PluginAPI): Promise<void> {
 
   // ── Second pass: resolve ProxyJump → jump_hosts ──────────────────────────
   // aliasMap is now fully populated, so we can resolve alias references.
-  const allConnectionsNow = await api.connections.list();
+  const allConnectionsNow = (await api.connections.list()).filter((c) => !c.team);
   for (const host of hosts) {
     if (!host.proxyJump) continue;
     const connId = aliasMap[host.alias];
