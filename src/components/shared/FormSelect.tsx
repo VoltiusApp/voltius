@@ -15,9 +15,11 @@ interface Props {
   options: Option[];
   onChange: (value: string) => void;
   className?: string;
+  /** Accessible name when no visible <label> points at the trigger. */
+  ariaLabel?: string;
 }
 
-export function FormSelect({ value, options, onChange, className = "" }: Props) {
+export function FormSelect({ value, options, onChange, className = "", ariaLabel }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -29,6 +31,9 @@ export function FormSelect({ value, options, onChange, className = "" }: Props) 
       <button
         ref={triggerRef}
         type="button"
+        aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className="form-input w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm"
         style={formInputStyle}

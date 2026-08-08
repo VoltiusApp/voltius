@@ -107,6 +107,17 @@
           "boutique"
         ]
       },
+      "integrations": {
+        "label": "Intégrations",
+        "keywords": [
+          "mcp",
+          "claude",
+          "claude code",
+          "serveur",
+          "socket",
+          "agent"
+        ]
+      },
       "terminal": {
         "label": "Terminal",
         "keywords": [
@@ -358,6 +369,39 @@
       "toastSaved": "Rapport enregistré — {{name}}",
       "toastError": "Impossible de créer le rapport : {{reason}}",
       "toastGenericError": "Une erreur s'est produite."
+    },
+    "integrations": {
+      "mcp": {
+        "title": "MCP",
+        "sub": "Permet aux clients MCP locaux (comme Claude Code) d'exécuter des commandes et de lire, écrire et supprimer des fichiers sur tous les hôtes de votre coffre ainsi que sur cet ordinateur, via un socket privé. L'approbation a lieu dans ce client, pas dans Voltius. Désactivé par défaut.",
+        "quickSetup": {
+          "title": "Configuration rapide",
+          "help": "Configure automatiquement chaque agent IA détecté sur cet ordinateur, sans toucher à vos autres réglages. Nécessite Node.js."
+        },
+        "manualSetup": {
+          "toggleLabel": "Configuration manuelle",
+          "toggleSub": "Pas de Node.js installé, ou votre client n'est pas pris en charge par la commande ci-dessus ? Configurez-le à la main ci-dessous."
+        },
+        "setup": {
+          "title": "Configuration du client",
+          "clientLabel": "Client MCP",
+          "clients": {
+            "claudeCode": "Claude Code",
+            "mcpServers": "Claude Desktop / Cursor / Cline / Windsurf",
+            "vscode": "VS Code / GitHub Copilot",
+            "opencode": "OpenCode"
+          },
+          "help": {
+            "claudeCode": "Exécutez ceci une fois pour enregistrer Voltius auprès de Claude Code. Le serveur doit être activé ci-dessus pour qu'un client puisse se connecter.",
+            "mcpServers": "Ajoutez ce bloc à claude_desktop_config.json (Claude Desktop) ou .cursor/mcp.json (Cursor, Cline, Windsurf). Le serveur doit être activé ci-dessus pour qu'un client puisse se connecter.",
+            "vscode": "Ajoutez ce bloc à .vscode/mcp.json. VS Code utilise « servers », pas « mcpServers » — coller un bloc au format Cursor ici ne charge rien, silencieusement.",
+            "opencode": "Ajoutez ce bloc à opencode.json (projet) ou ~/.config/opencode/opencode.json (global)."
+          },
+          "exePathLabel": "Chemin de l'exécutable",
+          "socketLabel": "Chemin du socket",
+          "copied": "Copié"
+        }
+      }
     },
     "about": {
       "versionTitle": "Version",
@@ -732,6 +776,8 @@
           "dockerManage": { "label": "Gérer Docker", "description": "Lister, démarrer, arrêter et supprimer conteneurs, images, volumes, réseaux et stacks. Cela peut détruire définitivement des données." },
           "proxmoxRead": { "label": "Lire les informations Proxmox", "description": "Lister les conteneurs LXC et leurs snapshots." },
           "proxmoxManage": { "label": "Gérer Proxmox", "description": "Lister et contrôler les conteneurs LXC, y compris créer, supprimer et restaurer des snapshots. Cela peut détruire définitivement des données." },
+          "sftpRead": { "label": "Lire les fichiers", "description": "Parcourir et lire les fichiers de vos hôtes SSH/FTP enregistrés et de cet ordinateur." },
+          "sftpWrite": { "label": "Écrire et déplacer des fichiers", "description": "Créer, renommer, écraser et supprimer des fichiers sur vos hôtes SSH/FTP enregistrés et sur cet ordinateur, et les copier entre eux. Cela peut détruire définitivement des données." },
           "audit": { "label": "Enregistrer des événements d'audit", "description": "Ajouter à votre journal d'audit des entrées décrivant ses actions. Pour un hôte d'un coffre d'équipe, ces entrées sont également envoyées au serveur de cette équipe." },
           "sessionsRead": { "label": "Voir vos sessions", "description": "Voir quelles sessions de terminal sont ouvertes et quand elles changent." },
           "sessionsWrite": { "label": "Ouvrir et fermer des sessions", "description": "Ouvrir de nouvelles sessions de terminal et fermer celles existantes." },
@@ -907,10 +953,14 @@
         "sftp": "SFTP",
         "hosts": "Hôtes",
         "updates": "Mises à jour",
-        "plugins": "Plugins"
+        "plugins": "Plugins",
+        "integrations": "Intégrations"
       },
       "pluginInstallReview": {
         "label": "Vérifier les autorisations avant d'installer des plugins"
+      },
+      "mcpServer": {
+        "label": "Serveur MCP"
       }
     },
     "shortcuts": {
