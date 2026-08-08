@@ -117,8 +117,21 @@ async fn create_first_instance(
     Err(last)
 }
 
+/// A failed `serve` only flips `enabled`; it does not signal shutdown. Every
+/// handler task already spawned would keep full `tools/call` access to the
+/// user's hosts while the toggle reads off, so an error return has to disarm
+/// them here — `commands/mcp.rs` does not.
 #[cfg(windows)]
 pub async fn serve(app: tauri::AppHandle, state: Arc<McpState>) -> std::io::Result<()> {
+    let res = run_pipe_server(app, &state).await;
+    if res.is_err() {
+        state.shutdown_tx.send_replace(false);
+    }
+    res
+}
+
+#[cfg(windows)]
+async fn run_pipe_server(app: tauri::AppHandle, state: &Arc<McpState>) -> std::io::Result<()> {
     let addr = super::socket_path().into_os_string();
     let mut shutdown = state.shutdown_tx.subscribe();
     let mut server = create_first_instance(&addr).await?;
