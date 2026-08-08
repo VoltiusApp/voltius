@@ -347,7 +347,7 @@
       "troubleshootingTitle": "Troubleshooting",
       "verboseLabel": "Verbose logging (this session)",
       "verboseSub": "Records extra detail to help diagnose issues. Resets to normal when you restart Voltius.",
-      "mcpServerSub": "Lets local MCP clients (like Claude Code) list your connections and sessions over a private socket. Off by default.",
+      "mcpServerSub": "Lets local MCP clients (like Claude Code) run commands and read, write and delete files on every host in your vault, over a private socket. Approval happens in that client, not in Voltius. Off by default.",
       "verboseHint": "Verbose logging is on. To capture the problem:\n1. Reproduce the issue now\n2. Come back and create a bug report",
       "reportTitle": "Bug report",
       "createButton": "Create bug report",
