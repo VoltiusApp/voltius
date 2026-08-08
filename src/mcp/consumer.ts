@@ -52,6 +52,16 @@ export const MCP_TEXT = {
     identity_delete:
       "Delete a saved identity by id. Runs immediately; connections referencing it will fall back "
       + "to their own username. Your own client is responsible for approval.",
+    connection_create:
+      "Save a new connection. Runs immediately; your own client is responsible for approval.",
+    connection_update:
+      "Change fields on a saved connection. Runs immediately; your own client is responsible for "
+      + "approval. A connection owned by a team vault cannot be changed.",
+    connection_delete:
+      "Delete a saved connection by id. Runs immediately and cannot be undone; your own client is "
+      + "responsible for approval. A connection owned by a team vault cannot be deleted.",
+    connection_bulk_import:
+      "Save many connections at once. Runs immediately; your own client is responsible for approval.",
   } as Record<string, string>,
   notOwnedError: "session not opened by this MCP server; call open_session first",
 };

@@ -33,4 +33,13 @@ describe("deriveScope, reachable from the tool-surface barrel", () => {
     expect(FILE_TOOLS.has("transfer_file")).toBe(true);
     expect(FILE_TOOLS.has("run_command")).toBe(false);
   });
+
+  it("scopes a connection mutation to the connection it names", async () => {
+    const connApi = {
+      sessions: { list: () => [] },
+      connections: { list: async () => [{ id: "c1", host: "h", port: 22, username: "u", auth_type: "key", tags: [] }] },
+    } as never;
+    expect(await deriveScope(connApi, "connection_delete", { connectionId: "c1" })).toBe("c1");
+    expect(await deriveScope(connApi, "connection_update", { connectionId: "nope" })).toBe(null);
+  });
 });

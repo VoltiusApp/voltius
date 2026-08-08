@@ -23,6 +23,17 @@ export const FILE_TOOLS = new Set([
 ]);
 
 /**
+ * Tools that name a connection directly rather than reaching one through a
+ * session. Any new tool taking a `connectionId` MUST be added here, or its
+ * audit rows carry the consumer's fallback scope instead of the real target.
+ */
+export const CONNECTION_TOOLS = new Set([
+  "connection_get",
+  "connection_update",
+  "connection_delete",
+]);
+
+/**
  * Resolve the connection a tool call would act on, as an allowlist scope:
  * a connection id, the literal `"local"`, or `null` when it cannot be
  * determined (unknown session, deleted or forged connection id, a lookup
@@ -43,7 +54,7 @@ export async function deriveScope(
 ): Promise<string | null> {
   try {
     let connectionId: string | undefined;
-    if (tool === "open_session") {
+    if (tool === "open_session" || CONNECTION_TOOLS.has(tool)) {
       connectionId = args.connectionId as string | undefined;
     } else if (FILE_TOOLS.has(tool)) {
       // A file tool names its target directly rather than via a session. For a
