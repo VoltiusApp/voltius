@@ -69,11 +69,29 @@ async fn run_accept_loop(
     }
 }
 
+/// `ready` reports whether the socket came up, so the caller can fail the
+/// enable instead of leaving the toggle on with nothing bound. It fires once,
+/// before the accept loop starts; everything after it is reported by the
+/// returned error.
 #[cfg(unix)]
-pub async fn serve(app: tauri::AppHandle, state: Arc<McpState>) -> std::io::Result<()> {
+pub async fn serve(
+    app: tauri::AppHandle,
+    state: Arc<McpState>,
+    ready: tokio::sync::oneshot::Sender<Result<(), String>>,
+) -> std::io::Result<()> {
     let path = socket_path();
-    prepare_socket_dir(path.parent().expect("socket path has a parent"))?;
-    let listener = bind_socket(&path)?;
+    let listener = match prepare_socket_dir(path.parent().expect("socket path has a parent"))
+        .and_then(|()| bind_socket(&path))
+    {
+        Ok(l) => {
+            let _ = ready.send(Ok(()));
+            l
+        }
+        Err(e) => {
+            let _ = ready.send(Err(e.to_string()));
+            return Err(e);
+        }
+    };
     let shutdown = state.shutdown_tx.subscribe();
 
     run_accept_loop(listener, shutdown, move |stream, conn_shutdown| {

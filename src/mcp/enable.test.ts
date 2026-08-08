@@ -18,8 +18,8 @@ describe("syncMcpServer", () => {
     expect(invoke).toHaveBeenCalledWith("mcp_set_enabled", { enabled: false });
   });
 
-  it("swallows a backend failure rather than breaking settings", async () => {
+  it("propagates a backend failure so the caller can revert the toggle", async () => {
     invoke.mockRejectedValueOnce(new Error("bind failed"));
-    await expect(syncMcpServer(true)).resolves.toBeUndefined();
+    await expect(syncMcpServer(true)).rejects.toThrow("bind failed");
   });
 });

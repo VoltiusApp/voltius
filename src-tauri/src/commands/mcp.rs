@@ -38,6 +38,9 @@ pub async fn mcp_set_enabled(
         // not `send`, because `send` no-ops on a receiver count of 0 — a
         // trap this code fell into once already.
         state.shutdown_tx.send_replace(false);
+        // Stale-socket cleanup, unix only: on Windows this path names a pipe,
+        // and an unlink of it could open the pipe as a client instead.
+        #[cfg(unix)]
         let _ = std::fs::remove_file(transport::socket_path());
         return Ok(String::new());
     }
@@ -48,13 +51,32 @@ pub async fn mcp_set_enabled(
     state.shutdown_tx.send_replace(true);
     let path = transport::socket_path().to_string_lossy().into_owned();
     let st = state.clone();
+    // `serve` runs for as long as the server is on, so it cannot be awaited
+    // here — but returning Ok before the listener exists would leave the
+    // toggle reading on with nothing bound. This channel carries just the
+    // bind/create result back, so a failure reaches the caller.
+    let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
     tauri::async_runtime::spawn(async move {
-        if let Err(e) = transport::serve(app, st.clone()).await {
+        if let Err(e) = transport::serve(app, st.clone(), ready_tx).await {
             log::error!("[mcp] listener stopped: {e}");
             st.enabled.store(false, Ordering::SeqCst);
         }
     });
-    Ok(path)
+    match ready_rx.await {
+        Ok(Ok(())) => Ok(path),
+        // A dropped sender means `serve` ended without ever signalling; treat
+        // it as a failure to start rather than silently reporting success.
+        Ok(Err(e)) => Err(disarm(&state, e)),
+        Err(_) => Err(disarm(&state, "the MCP listener did not start".into())),
+    }
+}
+
+/// The listener never came up: put the state back where a fresh enable can
+/// re-arm it, and stop any connection task that raced in behind it.
+fn disarm(state: &Arc<McpState>, err: String) -> String {
+    state.enabled.store(false, Ordering::SeqCst);
+    state.shutdown_tx.send_replace(false);
+    err
 }
 
 #[tauri::command]

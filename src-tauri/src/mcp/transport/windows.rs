@@ -20,7 +20,10 @@ fn current_user_sid() -> std::io::Result<String> {
         // with a guessed size returns ERROR_INSUFFICIENT_BUFFER and no SID.
         let mut len = 0u32;
         GetTokenInformation(token, TokenUser, ptr::null_mut(), 0, &mut len);
-        let mut buf = vec![0u8; len as usize];
+        // u64, not u8: TOKEN_USER needs 8-byte alignment and a Vec<u8> is
+        // align-1, so reading `(*user).User.Sid` out of it is a misaligned
+        // deref — UB by Rust's rules even where the hardware tolerates it.
+        let mut buf = vec![0u64; (len as usize).div_ceil(8)];
         let ok = GetTokenInformation(token, TokenUser, buf.as_mut_ptr().cast(), len, &mut len) != 0;
         let err = std::io::Error::last_os_error();
         CloseHandle(token);
@@ -124,9 +127,17 @@ async fn create_first_instance(
 /// handler task already spawned would keep full `tools/call` access to the
 /// user's hosts while the toggle reads off, so an error return has to disarm
 /// them here — `commands/mcp.rs` does not.
+///
+/// `ready` reports whether the first pipe instance came up, so the caller can
+/// fail the enable instead of leaving the toggle on with no pipe. It fires
+/// once; every later failure is reported by the returned error.
 #[cfg(windows)]
-pub async fn serve(app: tauri::AppHandle, state: Arc<McpState>) -> std::io::Result<()> {
-    let res = run_pipe_server(app, &state).await;
+pub async fn serve(
+    app: tauri::AppHandle,
+    state: Arc<McpState>,
+    ready: tokio::sync::oneshot::Sender<Result<(), String>>,
+) -> std::io::Result<()> {
+    let res = run_pipe_server(app, &state, ready).await;
     if res.is_err() {
         state.shutdown_tx.send_replace(false);
     }
@@ -134,10 +145,23 @@ pub async fn serve(app: tauri::AppHandle, state: Arc<McpState>) -> std::io::Resu
 }
 
 #[cfg(windows)]
-async fn run_pipe_server(app: tauri::AppHandle, state: &Arc<McpState>) -> std::io::Result<()> {
+async fn run_pipe_server(
+    app: tauri::AppHandle,
+    state: &Arc<McpState>,
+    ready: tokio::sync::oneshot::Sender<Result<(), String>>,
+) -> std::io::Result<()> {
     let addr = super::socket_path().into_os_string();
     let mut shutdown = state.shutdown_tx.subscribe();
-    let mut server = create_first_instance(&addr).await?;
+    let mut server = match create_first_instance(&addr).await {
+        Ok(s) => {
+            let _ = ready.send(Ok(()));
+            s
+        }
+        Err(e) => {
+            let _ = ready.send(Err(e.to_string()));
+            return Err(e);
+        }
+    };
 
     loop {
         // The connect future borrows `server`, so it must be fully out of scope
