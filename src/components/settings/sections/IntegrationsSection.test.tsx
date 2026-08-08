@@ -1,5 +1,5 @@
-import { test, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, act } from "@testing-library/react";
+import { test, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, cleanup, act, fireEvent } from "@testing-library/react";
 
 const h = vi.hoisted(() => ({
   getMcpStatus: vi.fn(),
@@ -28,7 +28,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-test("renders the client-registration command with the backend-supplied exe path, quoted", async () => {
+test("renders the one-liner add-mcp command with the backend-supplied exe path, quoted", async () => {
   h.getMcpStatus.mockResolvedValue({
     enabled: false,
     socketPath: "/home/user/.voltius/mcp.sock",
@@ -37,19 +37,7 @@ test("renders the client-registration command with the backend-supplied exe path
   await act(async () => {
     render(<IntegrationsSection />);
   });
-  screen.getByDisplayValue("claude mcp add voltius -- '/home/user/Voltius Apps/voltius' mcp");
-});
-
-test("shows the raw socket path as a secondary line", async () => {
-  h.getMcpStatus.mockResolvedValue({
-    enabled: false,
-    socketPath: "/home/user/.voltius/mcp.sock",
-    exePath: "/usr/bin/voltius",
-  });
-  await act(async () => {
-    render(<IntegrationsSection />);
-  });
-  screen.getByDisplayValue("/home/user/.voltius/mcp.sock");
+  screen.getByDisplayValue("npx add-mcp@2 '/home/user/Voltius Apps/voltius' --args mcp -n voltius -g");
 });
 
 test("shows the setup command even when the server toggle is off", async () => {
@@ -62,5 +50,25 @@ test("shows the setup command even when the server toggle is off", async () => {
   await act(async () => {
     render(<IntegrationsSection />);
   });
-  screen.getByDisplayValue('claude mcp add voltius -- "C:\\Program Files\\Voltius\\voltius.exe" mcp');
+  screen.getByDisplayValue('npx add-mcp@2 "C:\\Program Files\\Voltius\\voltius.exe" --args mcp -n voltius -g');
+});
+
+test("manual setup is collapsed by default and reveals the socket path and per-client snippet once opened", async () => {
+  h.getMcpStatus.mockResolvedValue({
+    enabled: false,
+    socketPath: "/home/user/.voltius/mcp.sock",
+    exePath: "/home/user/Voltius Apps/voltius",
+  });
+  await act(async () => {
+    render(<IntegrationsSection />);
+  });
+  expect(screen.queryByDisplayValue("/home/user/.voltius/mcp.sock")).toBeNull();
+  expect(
+    screen.queryByDisplayValue("claude mcp add voltius -- '/home/user/Voltius Apps/voltius' mcp"),
+  ).toBeNull();
+
+  fireEvent.click(screen.getByText("settings.integrations.mcp.manualSetup.toggleLabel"));
+
+  screen.getByDisplayValue("/home/user/.voltius/mcp.sock");
+  screen.getByDisplayValue("claude mcp add voltius -- '/home/user/Voltius Apps/voltius' mcp");
 });

@@ -374,6 +374,14 @@
       "mcp": {
         "title": "MCP",
         "sub": "Permet aux clients MCP locaux (comme Claude Code) d'exécuter des commandes et de lire, écrire et supprimer des fichiers sur tous les hôtes de votre coffre ainsi que sur cet ordinateur, via un socket privé. L'approbation a lieu dans ce client, pas dans Voltius. Désactivé par défaut.",
+        "quickSetup": {
+          "title": "Configuration rapide",
+          "help": "Configure automatiquement chaque agent IA détecté sur cet ordinateur, sans toucher à vos autres réglages. Nécessite Node.js."
+        },
+        "manualSetup": {
+          "toggleLabel": "Configuration manuelle",
+          "toggleSub": "Pas de Node.js installé, ou votre client n'est pas pris en charge par la commande ci-dessus ? Configurez-le à la main ci-dessous."
+        },
         "setup": {
           "title": "Configuration du client",
           "clientLabel": "Client MCP",

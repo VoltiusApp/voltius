@@ -261,6 +261,14 @@
       "mcp": {
         "title": "MCP",
         "sub": "允许本地 MCP 客户端（如 Claude Code）通过私有 socket 在您保险库中的所有主机以及本机上执行命令，以及读取、写入和删除文件。审批在该客户端中进行，而不是在 Voltius 中。默认关闭。",
+        "quickSetup": {
+          "title": "快速设置",
+          "help": "自动配置在此计算机上检测到的每个 AI 代理，不会更改您的其他设置。需要安装 Node.js。"
+        },
+        "manualSetup": {
+          "toggleLabel": "手动设置",
+          "toggleSub": "未安装 Node.js，或您的客户端不受上方命令支持？请在下方手动设置。"
+        },
         "setup": {
           "title": "客户端设置",
           "clientLabel": "MCP 客户端",

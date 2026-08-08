@@ -374,6 +374,14 @@
       "mcp": {
         "title": "MCP",
         "sub": "Lets local MCP clients (like Claude Code) run commands and read, write and delete files on every host in your vault and on this computer, over a private socket. Approval happens in that client, not in Voltius. Off by default.",
+        "quickSetup": {
+          "title": "Quick setup",
+          "help": "Configures every AI agent it detects on this computer, without touching your other settings. Requires Node.js."
+        },
+        "manualSetup": {
+          "toggleLabel": "Manual setup",
+          "toggleSub": "No Node.js installed, or your client isn't supported by the command above? Set it up by hand below."
+        },
         "setup": {
           "title": "Client setup",
           "clientLabel": "MCP client",
