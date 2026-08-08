@@ -25,3 +25,13 @@ included automatically; you do not need to reference it.
 Generated from `src/plugins/api.ts` — see
 [developing plugins](https://docs.voltius.app/plugins/developing) and the
 [template repo](https://github.com/VoltiusApp/voltius-plugin-template).
+
+## Team connections
+
+`connections:read` returns team-vault connections alongside personal ones. A team-owned entry is
+marked `team: true` and can be read, listed, and used to open a session exactly like a personal
+connection.
+
+`connections.update` and `connections.delete` **reject** a team-owned connection — team objects are
+managed through the team vault, not the plugin API. Check `team` before offering an edit affordance,
+and expect the rejection if you do not.

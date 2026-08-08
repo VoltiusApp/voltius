@@ -462,10 +462,17 @@ export interface PluginAPI {
 
   // Connections (requires connections:*)
   connections: {
+    /**
+     * Every connection the user can reach, personal and team-vault alike. A
+     * team-owned entry carries `team: true`; it is addressable exactly like a
+     * personal connection for reads and for opening a session.
+     */
     list(): Promise<PluginConnection[]>;
     get(id: string): Promise<PluginConnection | null>;
     create(data: PluginConnectionInput): Promise<PluginConnection>;
+    /** Rejects a team-vault connection: team objects are not editable through this API. */
     update(id: string, data: Partial<PluginConnectionInput>): Promise<void>;
+    /** Rejects a team-vault connection: team objects are not deletable through this API. */
     delete(id: string): Promise<void>;
     bulkImport(items: PluginConnectionInput[]): Promise<PluginConnection[]>;
     subscribe(cb: (connections: PluginConnection[]) => void): () => void;
