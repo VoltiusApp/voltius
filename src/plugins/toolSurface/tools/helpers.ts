@@ -6,6 +6,7 @@ export type GateResult =
   | { ok: true; args: Record<string, unknown>; scope: string; via: ApprovalVia }
   | { ok: false; result: unknown };
 
+/** Run the approval port for a prompt-risk tool; returns final args or a rejection. */
 export function makeGate(ports: ToolSurfacePorts) {
   return async (tool: string, args: Record<string, unknown>): Promise<GateResult> => {
     const decision = await ports.approve({ tool, args });
@@ -14,16 +15,20 @@ export function makeGate(ports: ToolSurfacePorts) {
   };
 }
 
+/** A currently-open session of any kind, including ones the user opened. */
 export function makeLiveSession(ports: ToolSurfacePorts) {
   return (sessionId: string): PluginSession | undefined =>
     ports.api.sessions.list().find((s) => s.id === sessionId);
 }
 
 /**
+ * Approve, record, then run a mutating file operation.
+ *
  * The audit vocabulary is a CLOSED set the team ingest whitelists
  * (server/src/routes/audit.rs) — an unwhitelisted action is 400ed and the
  * client swallows it. Any tool added here needs its action added there first,
- * or its team rows vanish silently.
+ * or its team rows vanish silently. `metadata.tool` stays alongside the
+ * action because several tools can share one, and paths are on-device only.
  */
 export const FILE_OP_ACTIONS: Record<string, PluginAuditAction> = {
   make_dir: "agent.file_created",
