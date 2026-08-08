@@ -66,18 +66,30 @@ pub fn run_shim() -> std::io::Result<()> {
 #[cfg(windows)]
 pub fn run_shim() -> std::io::Result<()> {
     use std::io::{BufRead, BufReader, Write};
+    use std::os::windows::fs::OpenOptionsExt;
     use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
     use std::sync::Arc;
     use std::time::{Duration, Instant};
+    use windows_sys::Win32::Storage::FileSystem::SECURITY_IDENTIFICATION;
 
     // Mandated by the design. Long enough to drain a burst of quick replies;
     // not long enough to wait out a slow tool call (SSH/SFTP routinely exceed
     // it) — a reply that arrives after the drain closes is lost.
     const DRAIN_QUIET_PERIOD: Duration = Duration::from_secs(2);
 
+    // The pipe name is predictable and the named-pipe namespace is global, so
+    // the server end may not be ours. SECURITY_IDENTIFICATION caps what it can
+    // do with `ImpersonateNamedPipeClient` to identification level — it can ask
+    // who we are, it cannot act as us. Without any QoS flag `CreateFileW`
+    // defaults to impersonation level. std ORs SECURITY_SQOS_PRESENT in itself.
+    //
+    // Deferred: verifying the server end runs as this same user (e.g.
+    // `GetNamedPipeServerProcessId` on the opened handle). Until then a
+    // squatter still receives the request stream; this only protects our token.
     let pipe = std::fs::OpenOptions::new()
         .read(true)
         .write(true)
+        .security_qos_flags(SECURITY_IDENTIFICATION)
         .open(super::transport::socket_path())
         .map_err(|e| {
             eprintln!("voltius: the app is not running, or its MCP server is off ({e})");
