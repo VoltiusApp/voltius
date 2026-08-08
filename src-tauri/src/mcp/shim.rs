@@ -66,10 +66,13 @@ pub fn run_shim() -> std::io::Result<()> {
 #[cfg(windows)]
 pub fn run_shim() -> std::io::Result<()> {
     use std::io::{BufRead, BufReader, Write};
-    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
     use std::sync::Arc;
     use std::time::{Duration, Instant};
 
+    // Mandated by the design. Long enough to drain a burst of quick replies;
+    // not long enough to wait out a slow tool call (SSH/SFTP routinely exceed
+    // it) — a reply that arrives after the drain closes is lost.
     const DRAIN_QUIET_PERIOD: Duration = Duration::from_secs(2);
 
     let pipe = std::fs::OpenOptions::new()
@@ -87,16 +90,30 @@ pub fn run_shim() -> std::io::Result<()> {
     let last_activity = Arc::new(AtomicU64::new(0));
     let activity_writer = last_activity.clone();
 
+    // Mirrors the unix arm's `draining` flag: distinguishes "the app closed
+    // the pipe because we're past the drain and about to exit anyway" (flag
+    // set, nothing to do) from "the app went away on its own while stdin was
+    // still open" (flag unset, the main thread is stuck in a blocking stdin
+    // read that nothing else can interrupt, so force the process to exit
+    // instead of hanging forever as an orphaned child of the MCP client).
+    let draining = Arc::new(AtomicBool::new(false));
+    let draining_reader = draining.clone();
+
     std::thread::spawn(move || {
         let mut reader = BufReader::new(from_app);
         let mut buf = String::new();
         let stdout = std::io::stdout();
         while reader.read_line(&mut buf).unwrap_or(0) > 0 {
+            // Recorded before the write so the quiet-period check below can
+            // never see stale activity while a write is still in flight.
+            activity_writer.store(start.elapsed().as_millis() as u64, Ordering::SeqCst);
             let mut lock = stdout.lock();
             let _ = lock.write_all(buf.as_bytes());
             let _ = lock.flush();
             buf.clear();
-            activity_writer.store(start.elapsed().as_millis() as u64, Ordering::SeqCst);
+        }
+        if !draining_reader.load(Ordering::SeqCst) {
+            std::process::exit(0);
         }
     });
 
@@ -113,8 +130,11 @@ pub fn run_shim() -> std::io::Result<()> {
     // for DRAIN_QUIET_PERIOD, then exit. The reader thread is detached, not
     // joined: it blocks on a pipe that never reaches EOF while the app holds
     // its end, so joining it would hang forever.
+    draining.store(true, Ordering::SeqCst);
     loop {
-        let idle = start.elapsed() - Duration::from_millis(last_activity.load(Ordering::SeqCst));
+        let idle = start
+            .elapsed()
+            .saturating_sub(Duration::from_millis(last_activity.load(Ordering::SeqCst)));
         if idle >= DRAIN_QUIET_PERIOD {
             return Ok(());
         }
