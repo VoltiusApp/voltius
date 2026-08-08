@@ -190,10 +190,19 @@ pub(crate) fn owner_only_sddl(user_sid: &str) -> String {
 mod tests {
     use super::*;
 
+    #[cfg(unix)]
     #[test]
     fn the_socket_lives_under_the_app_config_dir() {
         let p = socket_path();
         assert!(p.starts_with(crate::storage::config::config_dir()));
+        assert!(p.to_string_lossy().contains("mcp"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn the_pipe_lives_in_the_named_pipe_namespace() {
+        let p = socket_path();
+        assert!(p.to_string_lossy().starts_with(r"\\.\pipe\"));
         assert!(p.to_string_lossy().contains("mcp"));
     }
 
