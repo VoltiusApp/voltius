@@ -25,6 +25,7 @@ describe("MCP consumer", () => {
     for (const t of buildMcpTools(api())) {
       expect(t.description.toLowerCase()).not.toContain("prompt");
       expect(t.description.toLowerCase()).not.toContain("agent");
+      expect(t.description.toLowerCase()).not.toContain("workbench");
     }
   });
 

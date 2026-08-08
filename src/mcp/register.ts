@@ -1,6 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { buildMcpTools, listToolDescriptors, callTool } from "./consumer";
+import { buildMcpTools, listToolDescriptors, callTool, type McpTool } from "./consumer";
 import { getMcpHostApi } from "./hostApi";
 
 interface BridgeRequest {
@@ -8,8 +8,17 @@ interface BridgeRequest {
   payload: { op: string; name?: string; args?: Record<string, unknown> };
 }
 
+// Built once and reused across requests, like hostApi's own `cached`: the
+// `owned` set inside these tools (see coreTools.ts) is what makes
+// "MCP may close only what MCP opened" hold across separate JSON-RPC calls.
+let cachedTools: McpTool[] | null = null;
+function getTools(): McpTool[] {
+  cachedTools ??= buildMcpTools(getMcpHostApi());
+  return cachedTools;
+}
+
 async function handle(payload: BridgeRequest["payload"]): Promise<unknown> {
-  const tools = buildMcpTools(getMcpHostApi());
+  const tools = getTools();
   if (payload.op === "tools/list") return { tools: listToolDescriptors(tools) };
   if (payload.op === "tools/call") {
     return callTool(tools, payload.name ?? "", payload.args ?? {});
