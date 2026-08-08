@@ -87,7 +87,10 @@ fn create_instance(
         };
         let res = ServerOptions::new()
             .first_pipe_instance(first)
-            .create_with_security_attributes_raw(addr, (&mut sa) as *mut _ as *mut std::ffi::c_void);
+            .create_with_security_attributes_raw(
+                addr,
+                (&mut sa) as *mut _ as *mut std::ffi::c_void,
+            );
         // Freed on both paths: the descriptor is copied into the pipe's kernel
         // object by create, so holding it past this point leaks.
         LocalFree(psd.cast());

@@ -179,6 +179,9 @@ pub(crate) async fn handle_connection_stream<S>(
 
 /// A protected DACL granting generic-all to LocalSystem and one user SID, and
 /// nothing to anyone else. `P` blocks inherited ACEs from widening it.
+/// Only called from the Windows pipe listener; `cfg(test)` keeps it compiled
+/// (and thus lint-checked) on non-Windows so the tests below still run.
+#[cfg(any(windows, test))]
 pub(crate) fn owner_only_sddl(user_sid: &str) -> String {
     format!("D:P(A;;GA;;;SY)(A;;GA;;;{user_sid})")
 }
@@ -389,7 +392,10 @@ mod tests {
     fn owner_only_sddl_grants_no_access_to_world_or_everyone() {
         let s = owner_only_sddl("S-1-5-21-1-2-3-1001");
         for sid in ["WD", "AU", "BU", "AN"] {
-            assert!(!s.contains(&format!(";{sid})")), "SDDL must not grant {sid}: {s}");
+            assert!(
+                !s.contains(&format!(";{sid})")),
+                "SDDL must not grant {sid}: {s}"
+            );
         }
     }
 }
