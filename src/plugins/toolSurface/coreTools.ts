@@ -1,8 +1,9 @@
 import { z } from "zod";
 import type { PluginAPI, PluginAuditAction } from "@/plugins/api";
-import type { Tool, ToolDecision, ApprovalVia } from "./types";
+import type { Tool, ToolDecision } from "./types";
 import { captureCommand, sendSerialCommand } from "./capture";
 import { guardConnectionId } from "./connectionGuard";
+import { makeGate, makeFileOp, makeLiveSession } from "./tools/helpers";
 
 export interface ToolSurfacePorts {
   api: PluginAPI;
@@ -29,62 +30,9 @@ export interface ToolSurfacePorts {
 
 /** The consumer-agnostic verb set. Planning stays with the consumer that has a UI for it. */
 export function buildCoreTools(ports: ToolSurfacePorts): Tool[] {
-  /** Run the approval port for a prompt-risk tool; returns final args or a rejection. */
-  const gate = async (
-    tool: string,
-    args: Record<string, unknown>,
-  ): Promise<
-    | { ok: true; args: Record<string, unknown>; scope: string; via: ApprovalVia }
-    | { ok: false; result: unknown }
-  > => {
-    const decision = await ports.approve({ tool, args });
-    if (!decision.approve) return { ok: false, result: { error: "rejected by user", reason: decision.reason } };
-    return { ok: true, args: decision.args ?? args, scope: decision.scope, via: decision.via };
-  };
-
-  /** A currently-open session of any kind, including ones the user opened. */
-  const liveSession = (sessionId: string) =>
-    ports.api.sessions.list().find((s) => s.id === sessionId);
-
-  /**
-   * Approve, record, then run a mutating file operation.
-   *
-   * The audit vocabulary is a CLOSED set the team ingest whitelists
-   * (server/src/routes/audit.rs) — an unwhitelisted action is 400ed and the
-   * client swallows it. Any tool added here needs its action added there first,
-   * or its team rows vanish silently. `metadata.tool` stays alongside the
-   * action because several tools can share one, and paths are on-device only.
-   */
-  const FILE_OP_ACTIONS: Record<string, PluginAuditAction> = {
-    make_dir: "agent.file_created",
-    write_file: "agent.file_written",
-    rename_path: "agent.file_renamed",
-    delete_path: "agent.file_deleted",
-    transfer_file: "agent.file_transferred",
-  };
-
-  const fileOp = async (
-    tool: string,
-    raw: Record<string, unknown>,
-    run: (args: Record<string, unknown>) => Promise<unknown>,
-  ): Promise<unknown> => {
-    const g = await gate(tool, raw);
-    if (!g.ok) return g.result;
-    // Before dispatch, like run_command: the operation reaches the filesystem
-    // whether or not this call returns, and a mid-flight crash must not erase
-    // the record of something that already happened.
-    ports.audit(
-      g.scope,
-      FILE_OP_ACTIONS[tool] ?? "agent.command_run",
-      { tool, approval: g.via },
-      { args: JSON.stringify(g.args) },
-    );
-    try {
-      return { ok: true, result: (await run(g.args)) ?? null };
-    } catch (err) {
-      return { error: err instanceof Error ? err.message : String(err) };
-    }
-  };
+  const gate = makeGate(ports);
+  const fileOp = makeFileOp(ports, gate);
+  const liveSession = makeLiveSession(ports);
 
   const tools: Tool[] = [
     {
