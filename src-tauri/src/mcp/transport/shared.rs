@@ -8,6 +8,7 @@ use tokio::sync::watch;
 pub(crate) const CALL_TIMEOUT: Duration = Duration::from_secs(120);
 pub(crate) const MAX_LINE_BYTES: usize = 1024 * 1024;
 
+#[cfg(unix)]
 fn mcp_dir() -> PathBuf {
     crate::storage::config::config_dir().join("mcp")
 }
