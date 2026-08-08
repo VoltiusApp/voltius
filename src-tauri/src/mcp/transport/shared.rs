@@ -176,6 +176,12 @@ pub(crate) async fn handle_connection_stream<S>(
     }
 }
 
+/// A protected DACL granting generic-all to LocalSystem and one user SID, and
+/// nothing to anyone else. `P` blocks inherited ACEs from widening it.
+pub(crate) fn owner_only_sddl(user_sid: &str) -> String {
+    format!("D:P(A;;GA;;;SY)(A;;GA;;;{user_sid})")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -365,5 +371,24 @@ mod tests {
 
         drop(client_side);
         let _ = tokio::time::timeout(Duration::from_secs(2), task).await;
+    }
+
+    #[test]
+    fn owner_only_sddl_grants_the_user_and_system_only() {
+        let s = owner_only_sddl("S-1-5-21-1-2-3-1001");
+        assert_eq!(s, "D:P(A;;GA;;;SY)(A;;GA;;;S-1-5-21-1-2-3-1001)");
+    }
+
+    #[test]
+    fn owner_only_sddl_is_protected_so_no_inherited_ace_can_widen_it() {
+        assert!(owner_only_sddl("S-1-5-21-1-2-3-1001").starts_with("D:P"));
+    }
+
+    #[test]
+    fn owner_only_sddl_grants_no_access_to_world_or_everyone() {
+        let s = owner_only_sddl("S-1-5-21-1-2-3-1001");
+        for sid in ["WD", "AU", "BU", "AN"] {
+            assert!(!s.contains(&format!(";{sid})")), "SDDL must not grant {sid}: {s}");
+        }
     }
 }
