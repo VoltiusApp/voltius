@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
@@ -10,79 +10,69 @@ import { buildMcpClientSnippet, MCP_CLIENT_IDS, type McpClientId } from "@/mcp/c
 import { buildAddMcpCommand } from "@/mcp/registerCommand";
 import { writeClipboard } from "@/utils/clipboard";
 
-function CopyRow({ value }: { value: string }) {
-  const { t } = useTranslation();
+function useCopy(value: string) {
   const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => () => clearTimeout(timer.current), []);
 
   async function copy() {
     await writeClipboard(value);
     setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setCopied(false), 1500);
   }
 
+  return { copied, copy };
+}
+
+function CopyButton({ copied, onCopy }: { copied: boolean; onCopy: () => void }) {
+  const { t } = useTranslation();
+  const label = copied ? t("settings.integrations.mcp.setup.copied") : t("common.action.copy");
+
   return (
-    <div className="flex items-center gap-2">
+    <button
+      className={`flex items-center justify-center w-6 h-6 rounded transition-colors shrink-0 ${
+        copied
+          ? "text-(--t-accent)"
+          : "text-(--t-text-dim) hover:text-(--t-text-primary) hover:bg-(--t-bg-card-hover)"
+      }`}
+      title={label}
+      aria-label={label}
+      onClick={onCopy}
+    >
+      <Icon icon={copied ? "lucide:check" : "lucide:copy"} width={13} />
+    </button>
+  );
+}
+
+function CopyRow({ value }: { value: string }) {
+  const { copied, copy } = useCopy(value);
+
+  return (
+    <div className="flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-md bg-(--t-bg-base) border border-(--t-border)">
       <input
         readOnly
-        className="flex-1 min-w-0 text-[11px] px-2.5 py-1.5 rounded-md outline-hidden font-mono"
-        style={{
-          background: "var(--t-bg-elevated)",
-          border: "1px solid var(--t-border)",
-          color: "var(--t-text-primary)",
-        }}
+        className="flex-1 min-w-0 text-[11px] py-0.5 outline-hidden font-mono bg-transparent text-(--t-text-primary)"
         value={value}
         onFocus={(e) => e.target.select()}
       />
-      <button
-        className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs shrink-0 transition-colors"
-        style={{
-          background: copied ? "color-mix(in srgb, var(--t-accent) 15%, transparent)" : "var(--t-bg-elevated)",
-          color: copied ? "var(--t-accent)" : "var(--t-text-secondary)",
-          border: "1px solid var(--t-border)",
-        }}
-        onClick={copy}
-      >
-        <Icon icon={copied ? "lucide:check" : "lucide:copy"} width={12} />
-        {copied ? t("settings.integrations.mcp.setup.copied") : t("common.action.copy")}
-      </button>
+      <CopyButton copied={copied} onCopy={copy} />
     </div>
   );
 }
 
 function CopyBlock({ value }: { value: string }) {
-  const { t } = useTranslation();
-  const [copied, setCopied] = useState(false);
-
-  async function copy() {
-    await writeClipboard(value);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
-  }
+  const { copied, copy } = useCopy(value);
 
   return (
-    <div className="relative">
-      <pre
-        className="text-[11px] font-mono whitespace-pre overflow-x-auto px-2.5 py-2 pr-16 rounded-md"
-        style={{
-          background: "var(--t-bg-elevated)",
-          border: "1px solid var(--t-border)",
-          color: "var(--t-text-primary)",
-        }}
-      >
+    <div className="relative rounded-md bg-(--t-bg-base) border border-(--t-border)">
+      <pre className="text-[11px] font-mono whitespace-pre overflow-x-auto px-2.5 py-2 pr-9 text-(--t-text-primary)">
         {value}
       </pre>
-      <button
-        className="absolute top-1.5 right-1.5 flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors"
-        style={{
-          background: copied ? "color-mix(in srgb, var(--t-accent) 15%, transparent)" : "var(--t-bg-card)",
-          color: copied ? "var(--t-accent)" : "var(--t-text-secondary)",
-          border: "1px solid var(--t-border)",
-        }}
-        onClick={copy}
-      >
-        <Icon icon={copied ? "lucide:check" : "lucide:copy"} width={12} />
-        {copied ? t("settings.integrations.mcp.setup.copied") : t("common.action.copy")}
-      </button>
+      <div className="absolute top-1 right-1">
+        <CopyButton copied={copied} onCopy={copy} />
+      </div>
     </div>
   );
 }
@@ -104,7 +94,7 @@ const CLIENT_HELP_KEYS: Record<McpClientId, string> = {
 export default function IntegrationsSection() {
   const { t } = useTranslation();
   const [mcpServer, setMcpServer] = useToggle("mcp-server");
-  const [status, setStatus] = useState<{ exePath: string; socketPath: string } | null>(null);
+  const [status, setStatus] = useState<{ enabled: boolean; exePath: string; socketPath: string } | null>(null);
   const [clientId, setClientId] = useState<McpClientId>("claude-code");
   const [manualOpen, setManualOpen] = useState(false);
 
@@ -112,15 +102,22 @@ export default function IntegrationsSection() {
 
   useEffect(() => {
     let cancelled = false;
-    getMcpStatus()
-      .then((s) => {
-        if (!cancelled) setStatus({ exePath: s.exePath, socketPath: s.socketPath });
-      })
-      .catch((err) => console.error("[mcp] could not read status", err));
+    const read = () => {
+      getMcpStatus()
+        .then((s) => {
+          if (!cancelled) setStatus({ enabled: s.enabled, exePath: s.exePath, socketPath: s.socketPath });
+        })
+        .catch((err) => console.error("[mcp] could not read status", err));
+    };
+    read();
+    // The root useMcpServerSync hook pushes the toggle to the backend; give
+    // that flip a beat to land, then read the listener state back.
+    const timer = setTimeout(read, 400);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
-  }, []);
+  }, [mcpServer]);
 
   return (
     <div className="p-6 max-w-lg space-y-6">
@@ -131,7 +128,15 @@ export default function IntegrationsSection() {
         <div className="rounded-lg bg-(--t-bg-elevated) border border-(--t-border)">
           <div className="group flex items-start justify-between px-4 py-3 gap-4">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.toggleDefs.mcpServer.label")}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.toggleDefs.mcpServer.label")}</p>
+                {status?.enabled && (
+                  <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-(--t-status-connected)/10 text-(--t-status-connected)">
+                    <span className="w-1.5 h-1.5 rounded-full bg-(--t-status-connected)" />
+                    {t("settings.integrations.mcp.running")}
+                  </span>
+                )}
+              </div>
               <p className="text-xs mt-0.5 text-(--t-text-dim)">{t("settings.integrations.mcp.sub")}</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -143,41 +148,40 @@ export default function IntegrationsSection() {
             </div>
           </div>
           {status && (
-            <div className="px-4 pb-4 space-y-3 border-t border-(--t-border) pt-3">
+            <div className="px-4 pb-4 space-y-4 border-t border-(--t-border) pt-3.5">
               <div>
-                <p className="text-xs font-medium text-(--t-text-primary) mb-1">
+                <p className="text-xs font-medium text-(--t-text-primary)">
                   {t("settings.integrations.mcp.quickSetup.title")}
                 </p>
-                <p className="text-[11px] text-(--t-text-dim) mb-2">
+                <p className="text-[11px] text-(--t-text-dim) mt-0.5 mb-2">
                   {t("settings.integrations.mcp.quickSetup.help")}
                 </p>
                 <CopyRow value={buildAddMcpCommand(status.exePath)} />
               </div>
 
-              <div className="rounded-md overflow-hidden" style={{ border: "1px solid var(--t-border)" }}>
+              <div>
                 <button
-                  className="w-full flex items-center gap-2 px-3 py-2 text-left"
+                  className="group/manual flex items-center gap-1.5 -ml-1 pl-1 pr-2 py-1 rounded-md text-[11px] font-medium text-(--t-text-secondary) hover:text-(--t-text-primary) hover:bg-(--t-bg-card-hover) transition-colors"
+                  aria-expanded={manualOpen}
                   onClick={() => setManualOpen((v) => !v)}
                 >
-                  <span className="flex-1 text-[11px] font-medium text-(--t-text-primary)">
-                    {t("settings.integrations.mcp.manualSetup.toggleLabel")}
-                  </span>
                   <Icon
-                    icon={manualOpen ? "lucide:chevron-up" : "lucide:chevron-down"}
+                    icon="lucide:chevron-right"
                     width={13}
-                    style={{ color: "var(--t-text-dim)" }}
+                    className={`text-(--t-text-dim) transition-transform duration-150 ${manualOpen ? "rotate-90" : ""}`}
                   />
+                  {t("settings.integrations.mcp.manualSetup.toggleLabel")}
                 </button>
                 {manualOpen && (
-                  <div className="px-3 pb-3 space-y-3 border-t border-(--t-border) pt-3">
+                  <div className="mt-2 ml-1.5 pl-3.5 space-y-4 border-l border-(--t-border)">
                     <p className="text-[11px] text-(--t-text-dim)">
                       {t("settings.integrations.mcp.manualSetup.toggleSub")}
                     </p>
                     <div>
-                      <p className="text-xs font-medium text-(--t-text-primary) mb-1">
+                      <p className="text-xs font-medium text-(--t-text-primary)">
                         {t("settings.integrations.mcp.setup.title")}
                       </p>
-                      <p className="text-[11px] text-(--t-text-dim) mb-2">
+                      <p className="text-[11px] text-(--t-text-dim) mt-0.5 mb-2">
                         {t("settings.integrations.mcp.setup.clientLabel")}
                       </p>
                       <FormSelect
@@ -197,13 +201,13 @@ export default function IntegrationsSection() {
                       )}
                     </div>
                     <div>
-                      <p className="text-[11px] text-(--t-text-dim) mb-1">
+                      <p className="text-[11px] text-(--t-text-dim) mb-1.5">
                         {t("settings.integrations.mcp.setup.exePathLabel")}
                       </p>
                       <CopyRow value={status.exePath} />
                     </div>
                     <div>
-                      <p className="text-[11px] text-(--t-text-dim) mb-1">
+                      <p className="text-[11px] text-(--t-text-dim) mb-1.5">
                         {t("settings.integrations.mcp.setup.socketLabel")}
                       </p>
                       <CopyRow value={status.socketPath} />
