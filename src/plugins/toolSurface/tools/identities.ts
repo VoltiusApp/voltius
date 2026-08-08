@@ -1,8 +1,7 @@
 import { z } from "zod";
 import type { Tool } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
-import { makeGate } from "./helpers";
-import { objectOp } from "./keys";
+import { makeGate, objectOp } from "./helpers";
 
 export const IDENTITY_PERMISSIONS = ["identities:read", "identities:write", "audit"] as const;
 
@@ -17,7 +16,12 @@ export function buildIdentityTools(ports: ToolSurfacePorts): Tool[] {
         + "with.",
       risk: "auto",
       schema: z.object({}),
-      execute: async () => ports.api.identities.list(),
+      execute: async () => {
+        const identities = await ports.api.identities.list();
+        return identities.map((i) => ({
+          id: i.id, name: i.name, username: i.username, key_id: i.key_id, tags: i.tags,
+        }));
+      },
     },
     {
       name: "identity_create",

@@ -73,6 +73,24 @@ describe("MCP consumer", () => {
     expect(out).toEqual({ ok: true, result: [{ id: "c1", name: "Prod", host: "h1", team: true }] });
   });
 
+  it("rejects invalid arguments before they reach the vault", async () => {
+    const a = api() as unknown as { connections: { create: ReturnType<typeof vi.fn> } };
+    a.connections.create = vi.fn();
+    const tools = buildMcpTools(a as never);
+
+    const badAuthType = await callTool(tools, "connection_create", {
+      host: "h", port: 22, username: "u", authType: "carrier-pigeon",
+    });
+    expect(badAuthType.ok).toBe(false);
+    expect(a.connections.create).not.toHaveBeenCalled();
+
+    const missingPort = await callTool(tools, "connection_create", {
+      host: "h", username: "u", authType: "key",
+    });
+    expect(missingPort.ok).toBe(false);
+    expect(a.connections.create).not.toHaveBeenCalled();
+  });
+
   it("reports an unknown tool rather than throwing", async () => {
     const out = await callTool(buildMcpTools(api()), "rm_rf", {});
     expect(out).toEqual({ ok: false, error: 'unknown tool "rm_rf"' });

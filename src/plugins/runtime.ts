@@ -635,6 +635,8 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
             username: item.username,
             auth_type: item.auth_type,
             tags: item.tags ?? [],
+            identity_id: item.identity_id,
+            jump_hosts: item.jump_hosts,
           });
           results.push(conn as PluginConnection);
         }

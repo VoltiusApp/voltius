@@ -46,6 +46,24 @@ describe("connection mutation verbs", () => {
     expect(await tool(ports, "connection_get").execute({ connectionId: "zzz" })).toBe(null);
   });
 
+  it("projects away fields outside the PluginConnection contract", async () => {
+    const RAW = {
+      ...MINE, id: "c3",
+      env_vars: { TOKEN: "secret" }, notes: "private notes", pre_command: "echo pre",
+      post_command: "echo post", vault_id: "v1", clocks: { created: 1 }, deleted_at: null,
+    };
+    const { ports } = makePorts({ get: vi.fn(async () => RAW) });
+    const result = await tool(ports, "connection_get").execute({ connectionId: "c3" });
+    expect(result).not.toHaveProperty("env_vars");
+    expect(result).not.toHaveProperty("notes");
+    expect(result).not.toHaveProperty("pre_command");
+    expect(result).not.toHaveProperty("post_command");
+    expect(result).not.toHaveProperty("vault_id");
+    expect(result).not.toHaveProperty("clocks");
+    expect(result).not.toHaveProperty("deleted_at");
+    expect(result).toEqual({ ...MINE, id: "c3" });
+  });
+
   it("creates a connection and audits it against the new id", async () => {
     const { ports, api, audit } = makePorts();
     const result = await tool(ports, "connection_create").execute({
@@ -62,6 +80,12 @@ describe("connection mutation verbs", () => {
       undefined,
     );
     expect(result).toEqual({ ok: true, result: { ...MINE, id: "c2" } });
+  });
+
+  it("forwards an empty name and an empty tag list rather than skipping them", async () => {
+    const { ports, api } = makePorts();
+    await tool(ports, "connection_update").execute({ connectionId: "c1", name: "", tags: [] });
+    expect(api.connections.update).toHaveBeenCalledWith("c1", { name: "", tags: [] });
   });
 
   it("refuses to update a team connection with an actionable message", async () => {
@@ -95,13 +119,19 @@ describe("connection mutation verbs", () => {
   });
 
   it("bulk-imports and reports how many landed", async () => {
-    const { ports, api } = makePorts();
+    const { ports, api, audit } = makePorts();
     const items = [{ host: "a", port: 22, username: "u", authType: "key" }];
     const result = await tool(ports, "connection_bulk_import").execute({ items });
     expect(api.connections.bulkImport).toHaveBeenCalledWith([
       { host: "a", port: 22, username: "u", auth_type: "key", tags: [] },
     ]);
     expect(result).toEqual({ ok: true, result: { imported: 1, ids: ["b0"] } });
+    expect(audit).toHaveBeenCalledWith(
+      "mcp",
+      "agent.object_created",
+      { tool: "connection_bulk_import", approval: "granted", objectType: "connection", count: 1 },
+      undefined,
+    );
   });
 
   it("declares exactly the permissions its verbs reach", () => {

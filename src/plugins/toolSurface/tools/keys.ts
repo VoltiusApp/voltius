@@ -1,34 +1,9 @@
 import { z } from "zod";
-import type { PluginAuditAction } from "@/plugins/api";
 import type { Tool } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
-import { makeGate } from "./helpers";
+import { makeGate, objectOp } from "./helpers";
 
 export const KEY_PERMISSIONS = ["keys:read", "keys:write", "audit"] as const;
-
-/**
- * Approve, record, then run a mutating object operation. Unlike fileOp this
- * writes NO localMetadata: object args carry secrets (private keys, passwords)
- * and the local sink is not a place to put them.
- */
-export function objectOp(ports: ToolSurfacePorts, gate: ReturnType<typeof makeGate>) {
-  return async (
-    tool: string,
-    action: PluginAuditAction,
-    meta: Record<string, unknown>,
-    raw: Record<string, unknown>,
-    run: (args: Record<string, unknown>) => Promise<unknown>,
-  ): Promise<unknown> => {
-    const g = await gate(tool, raw);
-    if (!g.ok) return g.result;
-    ports.audit(g.scope, action, { tool, approval: g.via, ...meta }, undefined);
-    try {
-      return { ok: true, result: (await run(g.args)) ?? null };
-    } catch (err) {
-      return { error: err instanceof Error ? err.message : String(err) };
-    }
-  };
-}
 
 export function buildKeyTools(ports: ToolSurfacePorts): Tool[] {
   const gate = makeGate(ports);
@@ -41,7 +16,10 @@ export function buildKeyTools(ports: ToolSurfacePorts): Tool[] {
         + "returned.",
       risk: "auto",
       schema: z.object({}),
-      execute: async () => ports.api.keys.list(),
+      execute: async () => {
+        const keys = await ports.api.keys.list();
+        return keys.map((k) => ({ id: k.id, name: k.name, key_type: k.key_type, tags: k.tags }));
+      },
     },
     {
       name: "key_create",

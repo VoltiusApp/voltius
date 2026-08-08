@@ -1,13 +1,22 @@
 import { z } from "zod";
 import type { Tool } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
-import { makeGate } from "./helpers";
-import { objectOp } from "./keys";
+import { makeGate, objectOp } from "./helpers";
 
 export const CONNECTION_PERMISSIONS = ["connections:read", "connections:write", "audit"] as const;
 
 const TEAM_REFUSAL = (id: string) =>
   ({ error: `connection "${id}" is owned by a team vault and cannot be changed from here` });
+
+/** Project a raw Connection record down to the PluginConnection contract — the
+ *  underlying record carries fields (env_vars, notes, vault_id, ...) no verb
+ *  declares. */
+const toPluginConnection = (c: Record<string, unknown>) => ({
+  id: c.id, name: c.name, host: c.host, port: c.port, username: c.username,
+  auth_type: c.auth_type, tags: c.tags, identity_id: c.identity_id, jump_hosts: c.jump_hosts,
+  connection_type: c.connection_type, icon: c.icon, distro: c.distro, serial_port: c.serial_port,
+  ...(c.team ? { team: true } : {}),
+});
 
 /** Reject a team-owned connection before dispatch; the runtime also throws. */
 const guardTeam = async (ports: ToolSurfacePorts, id: string) => {
@@ -60,7 +69,10 @@ export function buildConnectionTools(ports: ToolSurfacePorts): Tool[] {
         + "one shared through a team vault.",
       risk: "auto",
       schema: z.object({ connectionId: z.string() }),
-      execute: async (raw) => ports.api.connections.get(String(raw.connectionId)),
+      execute: async (raw) => {
+        const conn = await ports.api.connections.get(String(raw.connectionId));
+        return conn ? toPluginConnection(conn as unknown as Record<string, unknown>) : null;
+      },
     },
     {
       name: "connection_create",
@@ -139,12 +151,18 @@ export function buildConnectionTools(ports: ToolSurfacePorts): Tool[] {
       risk: "prompt",
       schema: z.object({ items: z.array(z.object(CONNECTION_INPUT)).min(1) }),
       execute: async (raw) =>
-        op("connection_bulk_import", "agent.object_created", { objectType: "connection" }, raw, async (a) => {
-          const created = await ports.api.connections.bulkImport(
-            (a.items as Record<string, unknown>[]).map(toInput),
-          );
-          return { imported: created.length, ids: created.map((c) => c.id) };
-        }),
+        op(
+          "connection_bulk_import",
+          "agent.object_created",
+          { objectType: "connection", count: (raw.items as unknown[]).length },
+          raw,
+          async (a) => {
+            const created = await ports.api.connections.bulkImport(
+              (a.items as Record<string, unknown>[]).map(toInput),
+            );
+            return { imported: created.length, ids: created.map((c) => c.id) };
+          },
+        ),
     },
   ];
 }

@@ -70,6 +70,7 @@ export interface McpTool {
   name: string;
   description: string;
   inputSchema: unknown;
+  schema: z.ZodType;
   execute(args: Record<string, unknown>): Promise<unknown>;
 }
 
@@ -94,6 +95,7 @@ export function buildMcpTools(api: PluginAPI): McpTool[] {
     name: t.name,
     description: t.description,
     inputSchema: z.toJSONSchema(t.schema),
+    schema: t.schema,
     execute: (args) => t.execute(args),
   }));
 }
@@ -109,8 +111,10 @@ export async function callTool(
 ): Promise<{ ok: true; result: unknown } | { ok: false; error: string }> {
   const tool = tools.find((t) => t.name === name);
   if (!tool) return { ok: false, error: `unknown tool "${name}"` };
+  const parsed = tool.schema.safeParse(args);
+  if (!parsed.success) return { ok: false, error: `invalid arguments for "${name}": ${parsed.error.message}` };
   try {
-    return { ok: true, result: await tool.execute(args) };
+    return { ok: true, result: await tool.execute(parsed.data as Record<string, unknown>) };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

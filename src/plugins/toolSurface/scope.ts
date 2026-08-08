@@ -31,6 +31,7 @@ export const CONNECTION_TOOLS = new Set([
   "connection_get",
   "connection_update",
   "connection_delete",
+  "open_session",
 ]);
 
 /**
@@ -54,7 +55,7 @@ export async function deriveScope(
 ): Promise<string | null> {
   try {
     let connectionId: string | undefined;
-    if (tool === "open_session" || CONNECTION_TOOLS.has(tool)) {
+    if (CONNECTION_TOOLS.has(tool)) {
       connectionId = args.connectionId as string | undefined;
     } else if (FILE_TOOLS.has(tool)) {
       // A file tool names its target directly rather than via a session. For a

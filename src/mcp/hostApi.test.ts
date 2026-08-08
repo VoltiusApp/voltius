@@ -58,4 +58,34 @@ describe("MCP host API surface", () => {
       }
     }
   });
+
+  // Self-maintaining version of the check above: enumerates the real tool
+  // list instead of a hand-copied one, so a new verb reaching an undeclared
+  // permission fails this test even if nobody remembers to update the array.
+  //
+  // objectOp/makeFileOp catch their run() and return `{ error }` instead of
+  // rejecting, so a rejection-only check would never see those tools' failures.
+  // Both the thrown and the swallowed-into-`{error}` shapes are checked.
+  it("no tool reaches a permission PERMISSIONS does not declare", async () => {
+    const api = createHostPluginAPI("__perm_probe__", PERMISSIONS);
+    const tools = buildMcpTools(api);
+    for (const t of tools) {
+      let thrown: unknown;
+      let result: unknown;
+      try {
+        result = await t.execute({});
+      } catch (err) {
+        thrown = err;
+      }
+      // Assertions live outside the try/catch: an assertion failure inside it
+      // would itself be caught and re-checked against isPermissionError,
+      // silently passing instead of failing the test.
+      if (thrown !== undefined) expect(isPermissionError(thrown)).toBe(false);
+      const errMsg =
+        result && typeof result === "object" && typeof (result as { error?: unknown }).error === "string"
+          ? (result as { error: string }).error
+          : undefined;
+      if (errMsg !== undefined) expect(isPermissionError(new Error(errMsg))).toBe(false);
+    }
+  });
 });
