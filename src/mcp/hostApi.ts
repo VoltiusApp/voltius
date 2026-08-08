@@ -1,17 +1,8 @@
 import type { PluginAPI } from "@/plugins/api";
 import { createHostPluginAPI } from "@/plugins/runtime";
+import { ALL_PERMISSIONS } from "@voltius/tools";
 
-export const PERMISSIONS = [
-  "connections:read",
-  "sessions:read",
-  "sessions:write",
-  "terminal:read",
-  "terminal:stream",
-  "terminal:write",
-  "sftp:read",
-  "sftp:write",
-  "audit",
-];
+export const PERMISSIONS: string[] = [...ALL_PERMISSIONS];
 
 let cached: PluginAPI | null = null;
 
