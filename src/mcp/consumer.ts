@@ -46,6 +46,12 @@ export const MCP_TEXT = {
     key_delete:
       "Delete a saved SSH key by id. Runs immediately and cannot be undone; any connection using "
       + "the key will stop authenticating. Your own client is responsible for approval.",
+    identity_create:
+      "Create an identity: a username, and optionally the id of a key from key_list. Runs "
+      + "immediately; your own client is responsible for approval.",
+    identity_delete:
+      "Delete a saved identity by id. Runs immediately; connections referencing it will fall back "
+      + "to their own username. Your own client is responsible for approval.",
   } as Record<string, string>,
   notOwnedError: "session not opened by this MCP server; call open_session first",
 };
