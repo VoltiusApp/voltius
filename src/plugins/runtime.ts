@@ -511,7 +511,12 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   // Teardown is one-shot, so an async continuation would re-publish after it. False
   // for an unloaded plugin too, since its registry entry is gone. Not applied to
   // ui.register* — those are meant to outlive a disable.
+  //
+  // A host API has no registry entry and never will, so the registry lookup would
+  // reject every call it makes; it lives as long as the page, like `isActive`'s
+  // own `?? true` already assumes.
   const whileActive = (verb: string): boolean => {
+    if (_hostApiIds.has(id)) return true;
     if (_registry.get(id)?.active) return true;
     console.warn(`[plugin-runtime] "${id}" called ${verb} while disabled or unloaded — ignoring`);
     return false;
@@ -1558,8 +1563,12 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
  *  plugins. Kept as a named export rather than letting a caller synthesize a
  *  manifest, so every non-plugin consumer is greppable. */
 export function createHostPluginAPI(id: string, permissions: string[]): PluginAPI {
+  _hostApiIds.add(id);
   return createPluginAPI({ id, name: id, version: "0.0.0", permissions });
 }
+
+/** Ids belonging to host APIs rather than plugins. See `whileActive`. */
+const _hostApiIds = new Set<string>();
 
 // ─── Registry ─────────────────────────────────────────────────────────────
 

@@ -13,7 +13,7 @@ vi.mock("@/services/auditContextResolver", () => ({
     vaultId === "team-vault" ? { kind: "team", teamId: "t1" } : { kind: "local", vaultId: vaultId || "personal" },
 }));
 
-const { loadPlugin, unloadPlugin } = await import("./runtime");
+const { loadPlugin, unloadPlugin, createHostPluginAPI } = await import("./runtime");
 
 function manifest(id: string, perms: string[]): PluginManifest {
   return { id, name: id, version: "1", permissions: perms };
@@ -82,5 +82,13 @@ describe("api.audit.record", () => {
   test("passes localMetadata through to the reporter, which bounds it", () => {
     load("agent", ["audit"]).audit.record("c1", "agent.command_run", undefined, { command: "ls" });
     expect(reportPluginAuditEvent.mock.calls[0][2].localMetadata).toEqual({ command: "ls" });
+  });
+
+  // A host API has no registry entry, so the whileActive guard used to drop
+  // every row it recorded — silently, and only over a live MCP call.
+  test("a host API records, having no registry entry to be active in", () => {
+    createHostPluginAPI("__mcp__", ["audit"]).audit.record("c1", "agent.file_written", { via: "mcp" });
+    expect(reportPluginAuditEvent).toHaveBeenCalledTimes(1);
+    expect(reportPluginAuditEvent.mock.calls[0][2].metadata).toEqual({ via: "mcp", plugin_id: "__mcp__" });
   });
 });
