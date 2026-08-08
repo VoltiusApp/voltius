@@ -1,11 +1,68 @@
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Icon } from "@iconify/react";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
 import { DirtyDot, ResetButton } from "./shared";
+import { getMcpStatus } from "@/mcp/status";
+import { buildMcpRegisterCommand } from "@/mcp/registerCommand";
+import { writeClipboard } from "@/utils/clipboard";
+
+function CopyRow({ value }: { value: string }) {
+  const { t } = useTranslation();
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    await writeClipboard(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        readOnly
+        className="flex-1 min-w-0 text-[11px] px-2.5 py-1.5 rounded-md outline-hidden font-mono"
+        style={{
+          background: "var(--t-bg-elevated)",
+          border: "1px solid var(--t-border)",
+          color: "var(--t-text-primary)",
+        }}
+        value={value}
+        onFocus={(e) => e.target.select()}
+      />
+      <button
+        className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs shrink-0 transition-colors"
+        style={{
+          background: copied ? "color-mix(in srgb, var(--t-accent) 15%, transparent)" : "var(--t-bg-elevated)",
+          color: copied ? "var(--t-accent)" : "var(--t-text-secondary)",
+          border: "1px solid var(--t-border)",
+        }}
+        onClick={copy}
+      >
+        <Icon icon={copied ? "lucide:check" : "lucide:copy"} width={12} />
+        {copied ? t("settings.integrations.mcp.setup.copied") : t("common.action.copy")}
+      </button>
+    </div>
+  );
+}
 
 export default function IntegrationsSection() {
   const { t } = useTranslation();
   const [mcpServer, setMcpServer] = useToggle("mcp-server");
+  const [status, setStatus] = useState<{ exePath: string; socketPath: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getMcpStatus()
+      .then((s) => {
+        if (!cancelled) setStatus({ exePath: s.exePath, socketPath: s.socketPath });
+      })
+      .catch((err) => console.error("[mcp] could not read status", err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 max-w-lg space-y-6">
@@ -27,6 +84,25 @@ export default function IntegrationsSection() {
               <Toggle checked={mcpServer} onChange={setMcpServer} />
             </div>
           </div>
+          {status && (
+            <div className="px-4 pb-4 space-y-3 border-t border-(--t-border) pt-3">
+              <div>
+                <p className="text-xs font-medium text-(--t-text-primary) mb-1">
+                  {t("settings.integrations.mcp.setup.title")}
+                </p>
+                <p className="text-[11px] text-(--t-text-dim) mb-2">
+                  {t("settings.integrations.mcp.setup.help")}
+                </p>
+                <CopyRow value={buildMcpRegisterCommand(status.exePath)} />
+              </div>
+              <div>
+                <p className="text-[11px] text-(--t-text-dim) mb-1">
+                  {t("settings.integrations.mcp.setup.socketLabel")}
+                </p>
+                <CopyRow value={status.socketPath} />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

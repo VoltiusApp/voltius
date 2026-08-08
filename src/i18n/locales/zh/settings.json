@@ -260,7 +260,13 @@
     "integrations": {
       "mcp": {
         "title": "MCP",
-        "sub": "允许本地 MCP 客户端（如 Claude Code）通过私有 socket 在您保险库中的所有主机以及本机上执行命令，以及读取、写入和删除文件。审批在该客户端中进行，而不是在 Voltius 中。默认关闭。"
+        "sub": "允许本地 MCP 客户端（如 Claude Code）通过私有 socket 在您保险库中的所有主机以及本机上执行命令，以及读取、写入和删除文件。审批在该客户端中进行，而不是在 Voltius 中。默认关闭。",
+        "setup": {
+          "title": "客户端设置",
+          "help": "运行一次以在 Claude Code 中注册 Voltius。客户端连接前需先启用上方的服务器。",
+          "socketLabel": "Socket 路径",
+          "copied": "已复制"
+        }
       }
     },
     "about": {

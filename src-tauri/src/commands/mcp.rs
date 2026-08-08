@@ -83,8 +83,12 @@ fn disarm(state: &Arc<McpState>, err: String) -> String {
 pub async fn mcp_status(
     state: tauri::State<'_, Arc<McpState>>,
 ) -> Result<serde_json::Value, String> {
+    // Same fallback as lib.rs's self_update_capable: an unreadable exe path
+    // must not fail the whole status call, just report it empty.
+    let exe_path = std::env::current_exe().unwrap_or_default();
     Ok(serde_json::json!({
         "enabled": state.enabled.load(Ordering::SeqCst),
         "socketPath": transport::socket_path().to_string_lossy(),
+        "exePath": exe_path.to_string_lossy(),
     }))
 }
