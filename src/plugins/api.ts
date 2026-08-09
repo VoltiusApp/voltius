@@ -760,6 +760,10 @@ export interface PluginAPI {
     /** Get another plugin's exposed API. Returns null if not loaded or not exposed. */
     getApi(pluginId: string): unknown | null;
   };
+
+  // MCP tool contributions — GATED (mcp:contribute). Tools run with THIS
+  // plugin's permissions, called by whatever external agent the user connected.
+  mcp: McpAPI;
 }
 
 export type PluginRegisterFn = (api: PluginAPI) => (() => void) | void;

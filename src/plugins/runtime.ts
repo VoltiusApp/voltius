@@ -37,6 +37,7 @@ import { PLUGIN_AUDIT_ACTIONS } from "@/services/auditContext";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportPluginAuditEvent } from "@/services/auditReporter";
 import { fetchLocalAuditLogs } from "@/services/localAuditService";
+import { registerContributions, clearContributions } from "@/mcp/contributions";
 import type { AuditLog } from "@/services/auditService";
 import type {
   PluginAPI,
@@ -1589,6 +1590,13 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         return _exposedApis.get(pluginId) ?? null;
       },
     },
+
+    mcp: {
+      registerTools(tools) {
+        requireGated("mcp:contribute");
+        return registerContributions(id, tools);
+      },
+    },
   };
 
   return api;
@@ -1672,6 +1680,7 @@ export function loadPlugin(
     usePluginStateStore.getState().clearPlugin(manifest.id);
     clearPluginKeybindings(manifest.id);
     clearPluginDockedWidths(manifest.id);
+    clearContributions(manifest.id);
     removePluginStyle(manifest.id);
     _exposedApis.delete(manifest.id);
     _contributedIds.delete(manifest.id);
@@ -1721,6 +1730,7 @@ export function setPluginActive(pluginId: string, active: boolean): void {
     // The contribution ledger deliberately survives a disable: contributions meant
     // to outlive it (a settings page registered imperatively and left out of
     // cleanup) are still live, and the plugin must stay able to unregister them.
+    clearContributions(pluginId);
   }
   console.info(`[plugin-runtime] Plugin "${pluginId}" set active=${active}`);
 }
@@ -1735,6 +1745,7 @@ export function unloadPlugin(pluginId: string): void {
   usePluginStateStore.getState().clearPlugin(pluginId);
   clearPluginKeybindings(pluginId);
   clearPluginDockedWidths(pluginId);
+  clearContributions(pluginId);
   removePluginStyle(pluginId);
   _exposedApis.delete(pluginId);
   _sftpDisposers.get(pluginId)?.();
