@@ -11,6 +11,7 @@ const api = () => ({
 }) as never;
 
 const ALL_TOOLS = [
+  "audit_query",
   "close_session",
   "connection_bulk_import", "connection_create", "connection_delete", "connection_get", "connection_update",
   "delete_path", "identity_create", "identity_delete", "identity_list",

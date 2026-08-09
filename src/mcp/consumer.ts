@@ -62,6 +62,10 @@ export const MCP_TEXT = {
       + "responsible for approval. A connection owned by a team vault cannot be deleted.",
     connection_bulk_import:
       "Save many connections at once. Runs immediately; your own client is responsible for approval.",
+    audit_query:
+      "Read this device's activity log, newest first — including the rows your own calls "
+      + "produced. `action` filters to one exact action name as it appears in a row's `action` "
+      + "field. Local rows only; team-vault activity is not returned.",
   } as Record<string, string>,
   notOwnedError: "session not opened by this MCP server; call open_session first",
 };
