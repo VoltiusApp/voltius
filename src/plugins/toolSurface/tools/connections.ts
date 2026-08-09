@@ -82,8 +82,10 @@ export function buildConnectionTools(ports: ToolSurfacePorts): Tool[] {
       risk: "prompt",
       schema: z.object(CONNECTION_INPUT),
       execute: async (raw) =>
-        op("connection_create", "agent.object_created", { objectType: "connection" }, raw, (a) =>
-          ports.api.connections.create(toInput(a))),
+        op("connection_create", "agent.object_created", { objectType: "connection" }, raw, async (a) =>
+          toPluginConnection(
+            (await ports.api.connections.create(toInput(a))) as unknown as Record<string, unknown>,
+          )),
     },
     {
       name: "connection_update",

@@ -49,6 +49,13 @@ describe("identity verbs", () => {
     expect(result).toEqual({ ok: true, result: { id: "i2", name: "deploy", username: "deploy", tags: [] } });
   });
 
+  it("projects away internal fields from a newly created identity", async () => {
+    const RAW = { id: "i2", name: "deploy", username: "deploy", tags: [], vault_id: "v1", clocks: { created: 1 } };
+    const { ports } = makePorts({ create: vi.fn(async () => RAW) });
+    const result = await tool(ports, "identity_create").execute({ name: "deploy", username: "deploy" });
+    expect(result).toEqual({ ok: true, result: { id: "i2", name: "deploy", username: "deploy", tags: [] } });
+  });
+
   it("requires a username", () => {
     const { ports } = makePorts();
     expect(tool(ports, "identity_create").schema.safeParse({ name: "x" }).success).toBe(false);

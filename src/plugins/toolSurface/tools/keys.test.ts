@@ -50,6 +50,13 @@ describe("key verbs", () => {
     expect(result).toEqual({ ok: true, result: { id: "k2", name: "new", key_type: "ed25519", tags: [] } });
   });
 
+  it("projects away internal fields from a newly created key", async () => {
+    const RAW = { id: "k2", name: "new", key_type: "ed25519", tags: [], vault_id: "v1", clocks: { created: 1 } };
+    const { ports } = makePorts({ keys: { create: vi.fn(async () => RAW) } });
+    const result = await tool(ports, "key_create").execute({ name: "ci", keyType: "ed25519", privateKey: "-----BEGIN-----" });
+    expect(result).toEqual({ ok: true, result: { id: "k2", name: "new", key_type: "ed25519", tags: [] } });
+  });
+
   it("never puts private key material in the audit metadata", async () => {
     const { ports, audit } = makePorts();
     await tool(ports, "key_create").execute({

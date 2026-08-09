@@ -5,6 +5,11 @@ import { makeGate, objectOp } from "./helpers";
 
 export const IDENTITY_PERMISSIONS = ["identities:read", "identities:write", "audit"] as const;
 
+/** Project a raw Identity record down to the PluginIdentity contract. */
+const toPluginIdentity = (i: Record<string, unknown>) => ({
+  id: i.id, name: i.name, username: i.username, key_id: i.key_id, tags: i.tags,
+});
+
 export function buildIdentityTools(ports: ToolSurfacePorts): Tool[] {
   const gate = makeGate(ports);
   const op = objectOp(ports, gate);
@@ -18,9 +23,7 @@ export function buildIdentityTools(ports: ToolSurfacePorts): Tool[] {
       schema: z.object({}),
       execute: async () => {
         const identities = await ports.api.identities.list();
-        return identities.map((i) => ({
-          id: i.id, name: i.name, username: i.username, key_id: i.key_id, tags: i.tags,
-        }));
+        return identities.map((i) => toPluginIdentity(i as unknown as Record<string, unknown>));
       },
     },
     {
@@ -36,13 +39,15 @@ export function buildIdentityTools(ports: ToolSurfacePorts): Tool[] {
         tags: z.array(z.string()).optional(),
       }),
       execute: async (raw) =>
-        op("identity_create", "agent.object_created", { objectType: "identity" }, raw, (a) =>
-          ports.api.identities.create({
-            name: a.name as string | undefined,
-            username: String(a.username),
-            key_id: a.keyId as string | undefined,
-            tags: (a.tags as string[] | undefined) ?? [],
-          })),
+        op("identity_create", "agent.object_created", { objectType: "identity" }, raw, async (a) =>
+          toPluginIdentity(
+            (await ports.api.identities.create({
+              name: a.name as string | undefined,
+              username: String(a.username),
+              key_id: a.keyId as string | undefined,
+              tags: (a.tags as string[] | undefined) ?? [],
+            })) as unknown as Record<string, unknown>,
+          )),
     },
     {
       name: "identity_delete",

@@ -5,6 +5,11 @@ import { makeGate, objectOp } from "./helpers";
 
 export const KEY_PERMISSIONS = ["keys:read", "keys:write", "audit"] as const;
 
+/** Project a raw Key record down to the PluginKey contract. */
+const toPluginKey = (k: Record<string, unknown>) => ({
+  id: k.id, name: k.name, key_type: k.key_type, tags: k.tags,
+});
+
 export function buildKeyTools(ports: ToolSurfacePorts): Tool[] {
   const gate = makeGate(ports);
   const op = objectOp(ports, gate);
@@ -18,7 +23,7 @@ export function buildKeyTools(ports: ToolSurfacePorts): Tool[] {
       schema: z.object({}),
       execute: async () => {
         const keys = await ports.api.keys.list();
-        return keys.map((k) => ({ id: k.id, name: k.name, key_type: k.key_type, tags: k.tags }));
+        return keys.map((k) => toPluginKey(k as unknown as Record<string, unknown>));
       },
     },
     {
@@ -35,15 +40,17 @@ export function buildKeyTools(ports: ToolSurfacePorts): Tool[] {
         publicKey: z.string().optional(),
       }),
       execute: async (raw) =>
-        op("key_create", "agent.object_created", { objectType: "key" }, raw, (a) =>
-          ports.api.keys.create(
-            {
-              name: a.name as string | undefined,
-              key_type: a.keyType as string | undefined,
-              tags: (a.tags as string[] | undefined) ?? [],
-            },
-            String(a.privateKey),
-            a.publicKey as string | undefined,
+        op("key_create", "agent.object_created", { objectType: "key" }, raw, async (a) =>
+          toPluginKey(
+            (await ports.api.keys.create(
+              {
+                name: a.name as string | undefined,
+                key_type: a.keyType as string | undefined,
+                tags: (a.tags as string[] | undefined) ?? [],
+              },
+              String(a.privateKey),
+              a.publicKey as string | undefined,
+            )) as unknown as Record<string, unknown>,
           )),
     },
     {

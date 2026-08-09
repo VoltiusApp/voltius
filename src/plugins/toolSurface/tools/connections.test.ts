@@ -82,6 +82,19 @@ describe("connection mutation verbs", () => {
     expect(result).toEqual({ ok: true, result: { ...MINE, id: "c2" } });
   });
 
+  it("projects away internal fields from a newly created connection", async () => {
+    const RAW = {
+      ...MINE, id: "c2",
+      env_vars: { TOKEN: "secret" }, notes: "private notes", pre_command: "echo pre",
+      post_command: "echo post", vault_id: "v1", clocks: { created: 1 }, deleted_at: null,
+    };
+    const { ports } = makePorts({ create: vi.fn(async () => RAW) });
+    const result = await tool(ports, "connection_create").execute({
+      name: "web", host: "web.example", port: 22, username: "deploy", authType: "key",
+    });
+    expect(result).toEqual({ ok: true, result: { ...MINE, id: "c2" } });
+  });
+
   it("forwards an empty name and an empty tag list rather than skipping them", async () => {
     const { ports, api } = makePorts();
     await tool(ports, "connection_update").execute({ connectionId: "c1", name: "", tags: [] });
