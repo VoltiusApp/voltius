@@ -120,7 +120,8 @@ pub(crate) async fn read_line_capped<R: tokio::io::AsyncRead + Unpin>(
 /// Reads lines and dispatches them until the stream closes, a line is
 /// malformed, or `shutdown` drops to `false` — the same signal `run_accept_loop`
 /// watches. Every await point in the loop (the line read, the dispatch —
-/// which can run up to `CALL_TIMEOUT` — and the response write) races against
+/// which can run up to `CALL_TIMEOUT` — the response write, and the
+/// `tools/list_changed` notification write) races against
 /// `shutdown.changed()`, so a call already in flight when the server is
 /// turned off has its response discarded rather than delivered up to
 /// `CALL_TIMEOUT` later to a client the toggle says is off.
@@ -165,7 +166,17 @@ pub(crate) async fn handle_connection_stream<S>(
                 let mut out = serde_json::to_vec(&protocol::tools_changed_notification())
                     .unwrap_or_default();
                 out.push(b'\n');
-                if w.write_all(&out).await.is_err() { break; }
+                // Raced against shutdown like every other write: a client that
+                // stopped reading would otherwise park this task on a full
+                // buffer forever, unreachable by the toggle.
+                tokio::select! {
+                    biased;
+                    changed = shutdown.changed() => {
+                        if changed.is_err() || !*shutdown.borrow() { break; }
+                        continue;
+                    }
+                    res = w.write_all(&out) => { if res.is_err() { break; } }
+                }
                 continue;
             }
             res = read_line_capped(&mut reader, &mut pending, MAX_LINE_BYTES) => res,
