@@ -401,6 +401,13 @@
           "exePathLabel": "Executable path",
           "socketLabel": "Socket path",
           "copied": "Copied"
+        },
+        "plugins": {
+          "title": "Plugin tools exposed to clients",
+          "sub": "Installed plugins can add their own commands to the MCP server. Turn one off to keep it out of the tool list without uninstalling it.",
+          "empty": "No installed plugin exposes tools.",
+          "count_one": "{{count}} tool",
+          "count_other": "{{count}} tools"
         }
       }
     },

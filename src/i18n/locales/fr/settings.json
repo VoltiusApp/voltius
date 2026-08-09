@@ -401,6 +401,13 @@
           "exePathLabel": "Chemin de l'exécutable",
           "socketLabel": "Chemin du socket",
           "copied": "Copié"
+        },
+        "plugins": {
+          "title": "Outils de plugins exposés aux clients",
+          "sub": "Les plugins installés peuvent ajouter leurs propres commandes au serveur MCP. Désactivez-en un pour le retirer de la liste d'outils sans le désinstaller.",
+          "empty": "Aucun plugin installé n'expose d'outils.",
+          "count_one": "{{count}} outil",
+          "count_other": "{{count}} outils"
         }
       }
     },

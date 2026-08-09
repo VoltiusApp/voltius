@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
+import { invoke } from "@tauri-apps/api/core";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
@@ -9,6 +10,15 @@ import { getMcpStatus } from "@/mcp/status";
 import { buildMcpClientSnippet, MCP_CLIENT_IDS, type McpClientId } from "@/mcp/clientSnippets";
 import { buildAddMcpCommand } from "@/mcp/registerCommand";
 import { writeClipboard } from "@/utils/clipboard";
+import { contributionsByPlugin, onContributionsChanged } from "@/mcp/contributions";
+import { useMcpContributionStore, setPluginExposed } from "@/stores/mcpContributionStore";
+import { getLoadedPlugins } from "@/plugins/runtime";
+
+/** The installed plugin's manifest name, or its id when it is not loaded —
+ *  a contribution can outlive nothing, but the id is never blank. */
+function pluginDisplayName(pluginId: string): string {
+  return getLoadedPlugins().find((m) => m.id === pluginId)?.name ?? pluginId;
+}
 
 function useCopy(value: string) {
   const [copied, setCopied] = useState(false);
@@ -97,6 +107,10 @@ export default function IntegrationsSection() {
   const [status, setStatus] = useState<{ enabled: boolean; exePath: string; socketPath: string } | null>(null);
   const [clientId, setClientId] = useState<McpClientId>("claude-code");
   const [manualOpen, setManualOpen] = useState(false);
+  const [contributions, setContributions] = useState(() => [...contributionsByPlugin().entries()]);
+  const exposed = useMcpContributionStore((s) => s.exposed);
+
+  useEffect(() => onContributionsChanged(() => setContributions([...contributionsByPlugin().entries()])), []);
 
   const clientOptions = MCP_CLIENT_IDS.map((id) => ({ value: id, label: t(CLIENT_LABEL_KEYS[id]) }));
 
@@ -216,6 +230,48 @@ export default function IntegrationsSection() {
                 )}
               </div>
             </div>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
+          {t("settings.integrations.mcp.plugins.title")}
+        </h3>
+        <p className="text-xs mb-3 text-(--t-text-dim)">{t("settings.integrations.mcp.plugins.sub")}</p>
+        <div className="rounded-lg bg-(--t-bg-elevated) border border-(--t-border)">
+          {contributions.length === 0 ? (
+            <p className="px-4 py-3 text-xs text-(--t-text-dim)">
+              {t("settings.integrations.mcp.plugins.empty")}
+            </p>
+          ) : (
+            contributions.map(([pluginId, tools], i) => (
+              <div
+                key={pluginId}
+                className={`flex items-start justify-between px-4 py-3 gap-4 ${i > 0 ? "border-t border-(--t-border)" : ""}`}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-(--t-text-primary)">
+                    {pluginDisplayName(pluginId)}
+                  </p>
+                  <p className="text-xs mt-0.5 text-(--t-text-dim)">
+                    {t("settings.integrations.mcp.plugins.count", { count: tools.length })}
+                  </p>
+                  <p className="text-[11px] mt-1 font-mono break-all text-(--t-text-dim)">
+                    {tools.map((tool) => tool.name).join(", ")}
+                  </p>
+                </div>
+                <label className="shrink-0" aria-label={pluginDisplayName(pluginId)}>
+                  <Toggle
+                    checked={exposed[pluginId] ?? true}
+                    onChange={(v) => {
+                      setPluginExposed(pluginId, v);
+                      void invoke("mcp_notify_tools_changed").catch(() => {});
+                    }}
+                  />
+                </label>
+              </div>
+            ))
           )}
         </div>
       </div>

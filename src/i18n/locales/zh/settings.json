@@ -288,6 +288,13 @@
           "exePathLabel": "可执行文件路径",
           "socketLabel": "Socket 路径",
           "copied": "已复制"
+        },
+        "plugins": {
+          "title": "向客户端开放的插件工具",
+          "sub": "已安装的插件可以向 MCP 服务器添加自己的命令。关闭某个插件即可将其移出工具列表，无需卸载。",
+          "empty": "没有已安装的插件提供工具。",
+          "count_one": "{{count}} 个工具",
+          "count_other": "{{count}} 个工具"
         }
       }
     },
