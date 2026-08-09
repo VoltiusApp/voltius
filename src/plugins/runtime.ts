@@ -36,6 +36,8 @@ import { registerLxcExecSession } from "@/services/proxmox";
 import { PLUGIN_AUDIT_ACTIONS } from "@/services/auditContext";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportPluginAuditEvent } from "@/services/auditReporter";
+import { fetchLocalAuditLogs } from "@/services/localAuditService";
+import type { AuditLog } from "@/services/auditService";
 import type {
   PluginAPI,
   PluginManifest,
@@ -49,6 +51,7 @@ import type {
   StreamKind,
   PluginMobileNavEntry,
   GlobalPanelHandle,
+  PluginAuditRow,
 } from "./api";
 import { createStreamsAPI } from "./domains/streams";
 import { createMetricsAPI } from "./domains/metrics";
@@ -489,6 +492,17 @@ function requirePerm(manifest: PluginManifest, perm: string): void {
   }
 }
 
+const toPluginAuditRow = (l: AuditLog): PluginAuditRow => ({
+  action: l.action,
+  actor_name: l.actor_name,
+  source: l.source,
+  target_type: l.target_type,
+  target_id: l.target_id,
+  target_name: l.target_name,
+  metadata: l.metadata,
+  created_at: l.created_at,
+});
+
 // ─── Scoped plugin API ────────────────────────────────────────────────────
 
 /** Ids belonging to host APIs rather than plugins. See `whileActive`. */
@@ -834,6 +848,22 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           metadata: { ...metadata, plugin_id: id },
           localMetadata,
         });
+      },
+      async query(filters) {
+        requireGated("audit:read");
+        if (!whileActive("audit.query")) return { logs: [], total: 0 };
+        // "personal" is the local sink's vault key for every non-team row:
+        // auditContextForVaultId returns { kind: "local", vaultId: "personal" }
+        // when there is no team vault, and that is the key reportLocalClientEvent
+        // writes under.
+        const { logs, total } = await fetchLocalAuditLogs("personal", {
+          actions: filters.actions,
+          from: filters.from,
+          to: filters.to,
+          page: Math.max(1, filters.page ?? 1),
+          per_page: Math.min(100, Math.max(1, filters.perPage ?? 50)),
+        });
+        return { logs: logs.map(toPluginAuditRow), total };
       },
     },
 

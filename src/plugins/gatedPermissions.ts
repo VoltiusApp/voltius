@@ -24,6 +24,7 @@ export const GATED_PERMISSIONS = new Set<string>([
   "sftp:read",
   "sftp:write",
   "audit",
+  "audit:read",
 ]);
 
 /**
@@ -90,6 +91,7 @@ const PERMISSION_COPY: Record<string, string> = {
   "sftp:read": "sftpRead",
   "sftp:write": "sftpWrite",
   "audit": "audit",
+  "audit:read": "auditRead",
   "sessions:read": "sessionsRead",
   "sessions:write": "sessionsWrite",
   "connections:read": "connectionsRead",

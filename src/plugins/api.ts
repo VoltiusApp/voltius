@@ -438,6 +438,29 @@ export interface DockerAPI {
   };
 }
 
+/** A local audit row, projected. Drops the internal id, actor id, team/vault
+ *  ids and IP — none of which a plugin or an external client has any use for. */
+export interface PluginAuditRow {
+  action: string;
+  actor_name: string;
+  source: "server" | "client";
+  target_type: string | null;
+  target_id: string | null;
+  target_name: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface PluginAuditQuery {
+  actions?: string[];
+  /** ISO 8601. */
+  from?: string;
+  to?: string;
+  page?: number;
+  /** Clamped to 100. */
+  perPage?: number;
+}
+
 // ─── API principale ────────────────────────────────────────────────────────
 
 export interface PluginAPI {
@@ -485,7 +508,8 @@ export interface PluginAPI {
     delete(key: string): Promise<void>;
   };
 
-  // Audit — record what this plugin did (requires "audit")
+  // Audit — record what this plugin did (requires "audit"); read this device's
+  // log (requires the gated "audit:read")
   audit: {
     /**
      * Record an action against the connection it targets. A team-vault
@@ -501,6 +525,9 @@ export interface PluginAPI {
       metadata?: Record<string, unknown>,
       localMetadata?: Record<string, unknown>,
     ): void;
+    /** This device's local rows only. Team-vault rows are server-backed and
+     *  are not returned here. */
+    query(filters: PluginAuditQuery): Promise<{ logs: PluginAuditRow[]; total: number }>;
   };
 
   // Themes (requires "themes")
