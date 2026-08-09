@@ -644,6 +644,10 @@
             "label": "读取活动日志",
             "description": "读取本设备的活动日志，包括访问过哪些主机、改动过哪些文件，以及其他插件的操作。"
           },
+          "mcpContribute": {
+            "label": "向外部 AI 代理开放工具",
+            "description": "允许此插件将自己的命令添加到 Voltius MCP 服务器，使已连接的任何外部 AI 代理都能以此插件的权限执行这些命令。"
+          },
           "sessionsRead": {
             "label": "查看您的会话",
             "description": "查看哪些终端会话处于打开状态及其变化。"

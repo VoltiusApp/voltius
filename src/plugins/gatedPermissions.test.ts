@@ -133,3 +133,13 @@ describe("audit permission", () => {
     expect(d.labelKey).toBe("settings.plugins.permissionModal.permissions.audit.label");
   });
 });
+
+describe("mcp:contribute permission", () => {
+  test("mcp:contribute is gated and danger-tier", () => {
+    const [d] = describePermissions(["mcp:contribute"]);
+    expect(d.gated).toBe(true);
+    expect(d.danger).toBe(true);
+    expect(d.known).toBe(true);
+    expect(d.labelKey).toBe("settings.plugins.permissionModal.permissions.mcpContribute.label");
+  });
+});

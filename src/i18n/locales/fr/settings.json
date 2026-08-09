@@ -781,6 +781,7 @@
           "sftpWrite": { "label": "Écrire et déplacer des fichiers", "description": "Créer, renommer, écraser et supprimer des fichiers sur vos hôtes SSH/FTP enregistrés et sur cet ordinateur, et les copier entre eux. Cela peut détruire définitivement des données." },
           "audit": { "label": "Enregistrer des événements d'audit", "description": "Ajouter à votre journal d'audit des entrées décrivant ses actions. Pour un hôte d'un coffre d'équipe, ces entrées sont également envoyées au serveur de cette équipe." },
           "auditRead": { "label": "Lire le journal d'activité", "description": "Lire le journal d'activité de cet appareil, y compris les hôtes contactés, les fichiers touchés et les actions des autres plugins." },
+          "mcpContribute": { "label": "Exposer des outils aux agents IA externes", "description": "Permet à ce plugin d'ajouter ses propres commandes au serveur MCP de Voltius, afin que tout agent IA externe connecté puisse les exécuter — avec les autorisations de ce plugin." },
           "sessionsRead": { "label": "Voir vos sessions", "description": "Voir quelles sessions de terminal sont ouvertes et quand elles changent." },
           "sessionsWrite": { "label": "Ouvrir et fermer des sessions", "description": "Ouvrir de nouvelles sessions de terminal et fermer celles existantes." },
           "connectionsRead": { "label": "Lire vos connexions", "description": "Lire vos connexions enregistrées et leurs détails." },
