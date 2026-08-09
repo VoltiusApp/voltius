@@ -61,6 +61,16 @@ describe("api.mcp", () => {
     unloadPlugin("t-life");
   });
 
+  it("ignores a registerTools call made after the plugin was disabled", () => {
+    let api: Parameters<PluginRegisterFn>[0] | undefined;
+    loadPlugin(manifest("t-life", ["mcp:contribute"]), (a) => { api = a; }, true, false);
+    setPluginActive("t-life", false);
+    const off = api!.mcp.registerTools([TOOL]);
+    expect(listContributions().some((t) => t.pluginId === "t-life")).toBe(false);
+    // Still callable: a caller that stores the teardown must not crash on it.
+    off();
+  });
+
   it("a register() that throws after contributing leaves nothing registered", () => {
     const register: PluginRegisterFn = (api) => {
       api.mcp.registerTools([TOOL]);

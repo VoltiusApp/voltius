@@ -493,6 +493,30 @@ function requirePerm(manifest: PluginManifest, perm: string): void {
   }
 }
 
+/**
+ * Metadata keys that reach the local sink through `localMetadata`, which is
+ * defined as never leaving the device: `command` (run_command's shell text) and
+ * `args` (makeFileOp's stringified arguments, i.e. every path touched), plus the
+ * markers boundLocalMetadata adds for them. api.audit.query is a second wire, so
+ * they are stripped here too.
+ */
+const LOCAL_ONLY_METADATA_KEYS = [
+  "command",
+  "command_truncated",
+  "args",
+  "args_truncated",
+  "localMetadata_dropped",
+];
+
+function projectAuditMetadata(
+  metadata: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  if (!metadata) return metadata;
+  const out = { ...metadata };
+  for (const key of LOCAL_ONLY_METADATA_KEYS) delete out[key];
+  return out;
+}
+
 const toPluginAuditRow = (l: AuditLog): PluginAuditRow => ({
   action: l.action,
   actor_name: l.actor_name,
@@ -500,7 +524,7 @@ const toPluginAuditRow = (l: AuditLog): PluginAuditRow => ({
   target_type: l.target_type,
   target_id: l.target_id,
   target_name: l.target_name,
-  metadata: l.metadata,
+  metadata: projectAuditMetadata(l.metadata),
   created_at: l.created_at,
 });
 
@@ -1594,6 +1618,10 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
     mcp: {
       registerTools(tools) {
         requireGated("mcp:contribute");
+        // An async continuation in a disabled plugin would otherwise re-register
+        // tools that setPluginActive(false) already cleared, with nothing left
+        // to clear them again.
+        if (!whileActive("mcp.registerTools")) return () => {};
         return registerContributions(id, tools);
       },
     },

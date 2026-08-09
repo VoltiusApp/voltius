@@ -50,6 +50,28 @@ describe("api.audit.query", () => {
     });
   });
 
+  it("strips the metadata keys that reached the row through localMetadata", async () => {
+    fetchLocalAuditLogs.mockResolvedValue({
+      logs: [{
+        ...ROW,
+        action: "agent.command_run",
+        metadata: {
+          via: "mcp",
+          tool: "run_command",
+          command: "cat /etc/shadow",
+          command_truncated: true,
+          args: JSON.stringify({ path: "/home/me/.ssh/id_ed25519" }),
+          args_truncated: true,
+          localMetadata_dropped: true,
+        },
+      }],
+      total: 1,
+    });
+    const api = createHostPluginAPI("test:local-only", ["audit:read"]);
+    const { logs } = await api.audit.query({});
+    expect(logs[0].metadata).toEqual({ via: "mcp", tool: "run_command" });
+  });
+
   it("reads the personal local vault and clamps the page size to 100", async () => {
     const api = createHostPluginAPI("test:clamp", ["audit:read"]);
     await api.audit.query({ perPage: 5000, actions: ["agent.command_run"] });
