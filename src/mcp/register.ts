@@ -9,7 +9,8 @@ export interface BridgePayload {
   op: string;
   name?: string;
   args?: Record<string, unknown>;
-  /** Identifies the connected client. Absent only from an older backend. */
+  /** Identifies the connected client. Both transports always stamp it; a
+   *  payload without one is rejected rather than sharing a bucket. */
   clientId?: string;
 }
 
@@ -42,7 +43,10 @@ function stateFor(clientId: string): ClientState {
 }
 
 export async function handleBridgePayload(payload: BridgePayload): Promise<unknown> {
-  const clientId = payload.clientId ?? "default";
+  const clientId = payload.clientId;
+  // Fails closed: a shared fallback bucket would let one client close another's
+  // sessions and inherit its cached tool list.
+  if (!clientId) return { ok: false, error: "missing clientId" };
   if (payload.op === "client_closed") {
     _clients.delete(clientId);
     return { ok: true };

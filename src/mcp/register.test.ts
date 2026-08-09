@@ -46,7 +46,7 @@ describe("MCP bridge listener", () => {
   it("answers a tools/list request with the tool descriptors", async () => {
     registerMcpConsumer();
     await vi.waitFor(() => expect(listeners.has("mcp-bridge-request")).toBe(true));
-    await fire({ id: "r1", payload: { op: "tools/list" } });
+    await fire({ id: "r1", payload: { op: "tools/list", clientId: "t1" } });
 
     const [cmd, args] = replyCall();
     expect(cmd).toBe("mcp_bridge_reply");
@@ -57,7 +57,7 @@ describe("MCP bridge listener", () => {
   it("answers a tools/call request with the tool's real result", async () => {
     registerMcpConsumer();
     await vi.waitFor(() => expect(listeners.has("mcp-bridge-request")).toBe(true));
-    await fire({ id: "r2", payload: { op: "tools/call", name: "list_connections", args: {} } });
+    await fire({ id: "r2", payload: { op: "tools/call", name: "list_connections", args: {}, clientId: "t2" } });
 
     const [, args] = replyCall();
     expect(args.result).toEqual({ ok: true, result: [{ id: "c1", name: "Prod", host: "h1" }] });
@@ -66,7 +66,7 @@ describe("MCP bridge listener", () => {
   it("always replies, even for an unrecognised op — an unanswered request hangs the client", async () => {
     registerMcpConsumer();
     await vi.waitFor(() => expect(listeners.has("mcp-bridge-request")).toBe(true));
-    await fire({ id: "r3", payload: { op: "nonsense" } });
+    await fire({ id: "r3", payload: { op: "nonsense", clientId: "t3" } });
 
     const [, args] = replyCall();
     expect(args.id).toBe("r3");
@@ -77,10 +77,10 @@ describe("MCP bridge listener", () => {
     registerMcpConsumer();
     await vi.waitFor(() => expect(listeners.has("mcp-bridge-request")).toBe(true));
 
-    await fireAndWaitFor("open1", { op: "tools/call", name: "open_session", args: { connectionId: "c1" } });
+    await fireAndWaitFor("open1", { op: "tools/call", name: "open_session", args: { connectionId: "c1" }, clientId: "t4" });
     expect(replyFor("open1")?.[1].result).toEqual({ ok: true, result: { sessionId: "s1" } });
 
-    await fireAndWaitFor("close1", { op: "tools/call", name: "close_session", args: { sessionId: "s1" } });
+    await fireAndWaitFor("close1", { op: "tools/call", name: "close_session", args: { sessionId: "s1" }, clientId: "t4" });
     expect(replyFor("close1")?.[1].result).toEqual({ ok: true, result: { closed: "s1" } });
   });
 
