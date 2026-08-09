@@ -1,7 +1,7 @@
 {
   "id": "plugin-ssh-config",
   "name": "SSH Config Sync",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "0.14.0",
   "description": "Auto-syncs hosts from ~/.ssh/config. Connections are tagged 'ssh-config'.",
   "permissions": [
