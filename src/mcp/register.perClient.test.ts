@@ -23,7 +23,7 @@ describe("per-client tool state", () => {
 
   it("gives two clients separate ownership sets", async () => {
     const a = await handleBridgePayload({ op: "tools/call", name: "open_session", args: { connectionId: "c1" }, clientId: "A" });
-    expect(a).toMatchObject({ ok: true });
+    expect(a).toEqual({ ok: true, result: { sessionId: "s1" } });
     const listB = await handleBridgePayload({ op: "tools/call", name: "list_sessions", args: {}, clientId: "B" }) as
       { ok: true; result: { id: string; ownedByCaller: boolean }[] };
     expect(listB.result[0].ownedByCaller).toBe(false);
@@ -50,10 +50,14 @@ describe("per-client tool state", () => {
   });
 
   it("drops a client's state when it disconnects", async () => {
-    await handleBridgePayload({ op: "tools/call", name: "open_session", args: { connectionId: "c1" }, clientId: "A" });
+    const open = await handleBridgePayload({ op: "tools/call", name: "open_session", args: { connectionId: "c1" }, clientId: "A" });
+    expect(open).toEqual({ ok: true, result: { sessionId: "s1" } });
+    const listType = (v: unknown) => v as { ok: true; result: { ownedByCaller: boolean }[] };
+    const before = listType(await handleBridgePayload({ op: "tools/call", name: "list_sessions", args: {}, clientId: "A" }));
+    expect(before.result[0].ownedByCaller).toBe(true);
+
     await handleBridgePayload({ op: "client_closed", clientId: "A" });
-    const list = await handleBridgePayload({ op: "tools/call", name: "list_sessions", args: {}, clientId: "A" }) as
-      { ok: true; result: { ownedByCaller: boolean }[] };
-    expect(list.result[0].ownedByCaller).toBe(false);
+    const after = listType(await handleBridgePayload({ op: "tools/call", name: "list_sessions", args: {}, clientId: "A" }));
+    expect(after.result[0].ownedByCaller).toBe(false);
   });
 });
