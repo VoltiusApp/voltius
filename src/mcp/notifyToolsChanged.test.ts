@@ -32,6 +32,15 @@ describe("the tools-changed notifier", () => {
     stop();
   });
 
+  it("cancels a timer that is already armed when teardown runs", () => {
+    const stop = startToolsChangedNotifier();
+    registerContributions("p-one", [TOOL]);
+    vi.advanceTimersByTime(100);
+    stop();
+    vi.advanceTimersByTime(300);
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
   it("stops notifying after teardown", () => {
     const stop = startToolsChangedNotifier();
     stop();

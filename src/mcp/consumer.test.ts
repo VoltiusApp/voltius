@@ -2,6 +2,11 @@ import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
 import { buildMcpTools, listToolDescriptors, callTool, MCP_TEXT } from "./consumer";
 import * as toolSurface from "@voltius/tools";
+import { registerContributions, clearContributions } from "./contributions";
+import { buildDockerMcpTools } from "@/plugins/docker/mcpTools";
+import { buildProxmoxMcpTools } from "@/plugins/proxmox/mcpTools";
+import { buildMonitoringMcpTools } from "@/plugins/monitoring/mcpTools";
+import { buildProcessMcpTools } from "@/plugins/process-manager/mcpTools";
 
 const api = () => ({
   connections: { list: vi.fn().mockResolvedValue([{ id: "c1", name: "Prod", host: "h1", team: true }]) },
@@ -31,6 +36,29 @@ describe("MCP consumer", () => {
       expect(t.description.toLowerCase()).not.toContain("prompt");
       expect(t.description.toLowerCase()).not.toContain("agent");
       expect(t.description.toLowerCase()).not.toContain("workbench");
+    }
+  });
+
+  // Contributed descriptions are model-facing too, and the core-only loop above
+  // never sees them.
+  it("holds for the bundled plugins' contributed descriptions as well", () => {
+    const stub = api();
+    registerContributions("plugin-docker", buildDockerMcpTools(stub));
+    registerContributions("plugin-proxmox", buildProxmoxMcpTools(stub));
+    registerContributions("plugin-monitoring", buildMonitoringMcpTools(stub));
+    registerContributions("plugin-process-manager", buildProcessMcpTools(stub));
+    try {
+      const contributed = buildMcpTools(stub, new Set()).filter((t) => t.name.includes("__"));
+      expect(contributed).toHaveLength(15);
+      for (const t of contributed) {
+        expect(t.description.toLowerCase()).not.toContain("prompt");
+        expect(t.description.toLowerCase()).not.toContain("agent");
+        expect(t.description.toLowerCase()).not.toContain("workbench");
+      }
+    } finally {
+      for (const id of ["plugin-docker", "plugin-proxmox", "plugin-monitoring", "plugin-process-manager"]) {
+        clearContributions(id);
+      }
     }
   });
 
