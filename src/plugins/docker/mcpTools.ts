@@ -109,23 +109,34 @@ const LOG_QUIET_MS = 1500;
 const LOG_TIMEOUT_MS = 10_000;
 
 /** Logs arrive as a stream; MCP needs one answer. Collects until the lines stop
- *  arriving or the timeout fires, whichever comes first. */
+ *  arriving or the timeout fires, whichever comes first, then unsubscribes the
+ *  event listener `on()` registered — `logs.stop` only stops the backend from
+ *  producing events, it does not remove the frontend listener. */
 async function collectLines(api: PluginAPI, streamId: string, max: number): Promise<string[]> {
   const lines: string[] = [];
-  return new Promise<string[]>((resolve) => {
-    let quiet: ReturnType<typeof setTimeout> | undefined;
-    const done = () => {
-      if (quiet) clearTimeout(quiet);
-      clearTimeout(hard);
-      resolve(lines);
-    };
-    const hard = setTimeout(done, LOG_TIMEOUT_MS);
-    void api.docker.logs.on<{ line: string }>(streamId, (payload) => {
-      lines.push(payload.line);
-      if (lines.length >= max) return done();
-      if (quiet) clearTimeout(quiet);
-      quiet = setTimeout(done, LOG_QUIET_MS);
-    });
-    quiet = setTimeout(done, LOG_QUIET_MS);
+  let onLine = () => {};
+  const unsubscribe = await api.docker.logs.on<{ line: string }>(streamId, (payload) => {
+    lines.push(payload.line);
+    onLine();
   });
+  try {
+    await new Promise<void>((resolve) => {
+      let quiet: ReturnType<typeof setTimeout> | undefined;
+      const done = () => {
+        if (quiet) clearTimeout(quiet);
+        clearTimeout(hard);
+        resolve();
+      };
+      const hard = setTimeout(done, LOG_TIMEOUT_MS);
+      quiet = setTimeout(done, LOG_QUIET_MS);
+      onLine = () => {
+        if (lines.length >= max) return done();
+        if (quiet) clearTimeout(quiet);
+        quiet = setTimeout(done, LOG_QUIET_MS);
+      };
+    });
+  } finally {
+    unsubscribe();
+  }
+  return lines;
 }

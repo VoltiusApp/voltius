@@ -56,4 +56,29 @@ describe("the docker MCP tools", () => {
       buildDockerMcpTools(api()).find((t) => t.name === "container_list")!.execute({ sessionId: "nope" }),
     ).rejects.toThrow(/nope/);
   });
+
+  describe("container_logs", () => {
+    it("stops the stream and unsubscribes the listener once the quiet timeout fires with no lines", async () => {
+      vi.useFakeTimers();
+      const unsubscribe = vi.fn();
+      const a = api({ docker: { logs: { start: vi.fn(async () => "st1"), stop: vi.fn(async () => undefined), on: vi.fn(async () => unsubscribe) } } });
+      const result = buildDockerMcpTools(a).find((t) => t.name === "container_logs")!.execute({
+        sessionId: "s1", containerId: "c1",
+      });
+      await vi.advanceTimersByTimeAsync(1500);
+      await result;
+      expect(unsubscribe).toHaveBeenCalledTimes(1);
+      expect(a.docker.logs.stop).toHaveBeenCalledWith("st1");
+      vi.useRealTimers();
+    });
+
+    it("still stops the stream when on() rejects, with nothing to unsubscribe", async () => {
+      const stop = vi.fn(async () => undefined);
+      const a = api({ docker: { logs: { start: vi.fn(async () => "st1"), stop, on: vi.fn(async () => { throw new Error("ipc failed"); }) } } });
+      await expect(
+        buildDockerMcpTools(a).find((t) => t.name === "container_logs")!.execute({ sessionId: "s1", containerId: "c1" }),
+      ).rejects.toThrow(/ipc failed/);
+      expect(stop).toHaveBeenCalledWith("st1");
+    });
+  });
 });
