@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
-import { invoke } from "@tauri-apps/api/core";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
@@ -14,8 +13,8 @@ import { contributionsByPlugin, onContributionsChanged } from "@/mcp/contributio
 import { useMcpContributionStore, setPluginExposed } from "@/stores/mcpContributionStore";
 import { getLoadedPlugins } from "@/plugins/runtime";
 
-/** The installed plugin's manifest name, or its id when it is not loaded —
- *  a contribution can outlive nothing, but the id is never blank. */
+/** The installed plugin's manifest name, falling back to its id: a contribution
+ *  can outlive the plugin's load, and only the id is always available. */
 function pluginDisplayName(pluginId: string): string {
   return getLoadedPlugins().find((m) => m.id === pluginId)?.name ?? pluginId;
 }
@@ -264,10 +263,7 @@ export default function IntegrationsSection() {
                 <label className="shrink-0" aria-label={pluginDisplayName(pluginId)}>
                   <Toggle
                     checked={exposed[pluginId] ?? true}
-                    onChange={(v) => {
-                      setPluginExposed(pluginId, v);
-                      void invoke("mcp_notify_tools_changed").catch(() => {});
-                    }}
+                    onChange={(v) => setPluginExposed(pluginId, v)}
                   />
                 </label>
               </div>

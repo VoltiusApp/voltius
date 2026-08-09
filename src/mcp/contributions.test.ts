@@ -6,6 +6,7 @@ import {
   contributionsVersion,
   onContributionsChanged,
   namespaceFor,
+  contributionsByPlugin,
 } from "./contributions";
 
 const ok = {
@@ -86,6 +87,17 @@ describe("the contribution registry", () => {
     off();
     expect(listContributions()).toEqual([]);
     expect(contributionsVersion()).toBeGreaterThan(mid);
+  });
+
+  it("hands out no live reference a plugin could mutate after validation", () => {
+    const schema: Record<string, unknown> = { type: "object", properties: {} };
+    registerContributions("plugin-docker", [{ ...ok, inputSchema: schema }]);
+    schema.type = "string";
+    expect(listContributions()[0].inputSchema).toEqual({ type: "object", properties: {} });
+
+    const tools = contributionsByPlugin().get("plugin-docker")!;
+    tools.length = 0;
+    expect(contributionsByPlugin().get("plugin-docker")).toHaveLength(1);
   });
 
   it("notifies subscribers on register and on teardown", () => {

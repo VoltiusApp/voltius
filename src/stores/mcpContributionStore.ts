@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { bumpContributions } from "@/mcp/contributions";
 
 /**
  * Which installed plugins may expose their contributed tools to an external
@@ -33,4 +34,7 @@ export function isPluginExposed(pluginId: string): boolean {
 
 export function setPluginExposed(pluginId: string, exposed: boolean): void {
   useMcpContributionStore.getState().set(pluginId, exposed);
+  // The toggle is applied at tool-list BUILD time, so a connected client keeps
+  // its cached (and still executable) descriptors until the version moves.
+  bumpContributions();
 }

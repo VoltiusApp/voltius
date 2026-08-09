@@ -38,6 +38,13 @@ function bump(): void {
   for (const cb of _listeners) cb();
 }
 
+/** Invalidate every client's cached tool list. The registry bumps itself on
+ *  register/clear; this is for changes OUTSIDE it that alter what a client may
+ *  see, notably the per-plugin exposure toggle. */
+export function bumpContributions(): void {
+  bump();
+}
+
 /**
  * Validate and register a plugin's whole tool set. Everything is checked here,
  * at registration, rather than at call time: a tool that fails a check would
@@ -67,7 +74,9 @@ export function registerContributions(
 
     const name = `${ns}__${t.name}`;
     let schema: z.ZodType;
+    let inputSchema: Record<string, unknown>;
     try {
+      inputSchema = JSON.parse(JSON.stringify(t.inputSchema)) as Record<string, unknown>;
       schema = z.fromJSONSchema(t.inputSchema as never) as z.ZodType;
     } catch (err) {
       throw new Error(
@@ -79,7 +88,10 @@ export function registerContributions(
       pluginId,
       name,
       description: t.description,
-      inputSchema: t.inputSchema,
+      // Cloned above: the registry re-emits this to clients on every tools/list,
+      // and a plugin holding the original could rewrite what the model sees
+      // after it passed validation.
+      inputSchema,
       schema,
       mutating: t.mutating !== false,
       execute: (args) => t.execute(args),
@@ -105,5 +117,5 @@ export function listContributions(): RegisteredTool[] {
 }
 
 export function contributionsByPlugin(): Map<string, RegisteredTool[]> {
-  return new Map(_byPlugin);
+  return new Map([..._byPlugin].map(([id, tools]) => [id, [...tools]]));
 }
