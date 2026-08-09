@@ -461,6 +461,28 @@ export interface PluginAuditQuery {
   perPage?: number;
 }
 
+/** One MCP tool a plugin contributes. The host namespaces the name, validates
+ *  everything here at registration, and audits calls unless `mutating` is false. */
+export interface McpToolContribution {
+  /** Unqualified, matching /^[a-z0-9_]+$/. The host adds the namespace prefix. */
+  name: string;
+  description: string;
+  /** Plain JSON Schema. Converted host-side with the host's own zod, so no zod
+   *  instance crosses the bundle boundary. */
+  inputSchema: Record<string, unknown>;
+  /** Whether a call changes state. Defaults to true: forgetting the field
+   *  audits rather than silently not auditing. */
+  mutating?: boolean;
+  execute(args: Record<string, unknown>): Promise<unknown>;
+}
+
+/** Contribute tools to the Voltius MCP server. GATED (mcp:contribute). */
+export interface McpAPI {
+  /** Register this plugin's whole tool set. Throws on any invalid tool and
+   *  registers none of them. Returns a teardown that removes the whole set. */
+  registerTools(tools: McpToolContribution[]): () => void;
+}
+
 // ─── API principale ────────────────────────────────────────────────────────
 
 export interface PluginAPI {
