@@ -198,10 +198,14 @@ async fn run_pipe_server(
         }
         let app_state = Some((app.clone(), state.clone()));
         let conn_shutdown = state.shutdown_tx.subscribe();
+        let changed = state.tools_changed_tx.subscribe();
+        let client_id = uuid::Uuid::new_v4().to_string();
         tauri::async_runtime::spawn(super::shared::handle_connection_stream(
             connected,
             app_state,
             conn_shutdown,
+            changed,
+            client_id,
         ));
     }
 }

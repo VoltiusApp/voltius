@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::watch;
+use tokio::sync::{broadcast, watch};
 
 pub(crate) const CALL_TIMEOUT: Duration = Duration::from_secs(120);
 pub(crate) const MAX_LINE_BYTES: usize = 1024 * 1024;
@@ -81,25 +81,32 @@ fn to_mcp_result(method: &str, v: Value) -> Value {
 /// Reads one line, capped at `max` bytes, so a client that never sends `\n`
 /// can't grow this process's memory without bound. On overflow, drains the
 /// rest of the oversized line so the connection can recover on the next read.
+///
+/// `buf` is the caller's, not a local, so cancelling this future mid-line — the
+/// connection loop drops it whenever another `select!` arm wins — keeps the
+/// bytes already read instead of truncating the client's request.
 pub(crate) async fn read_line_capped<R: tokio::io::AsyncRead + Unpin>(
     reader: &mut R,
+    buf: &mut Vec<u8>,
     max: usize,
 ) -> std::io::Result<Option<String>> {
     use tokio::io::AsyncReadExt;
-    let mut buf = Vec::new();
     let mut byte = [0u8; 1];
     loop {
         if reader.read(&mut byte).await? == 0 {
             return Ok(if buf.is_empty() {
                 None
             } else {
-                Some(String::from_utf8_lossy(&buf).into_owned())
+                Some(String::from_utf8_lossy(&std::mem::take(buf)).into_owned())
             });
         }
         if byte[0] == b'\n' {
-            return Ok(Some(String::from_utf8_lossy(&buf).into_owned()));
+            return Ok(Some(
+                String::from_utf8_lossy(&std::mem::take(buf)).into_owned(),
+            ));
         }
         if buf.len() >= max {
+            buf.clear();
             while reader.read(&mut byte).await? != 0 && byte[0] != b'\n' {}
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
@@ -125,6 +132,8 @@ pub(crate) async fn handle_connection_stream<S>(
     stream: S,
     app_state: Option<(tauri::AppHandle, Arc<McpState>)>,
     mut shutdown: watch::Receiver<bool>,
+    mut tools_changed: broadcast::Receiver<()>,
+    _client_id: String,
 ) where
     S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
 {
@@ -135,6 +144,10 @@ pub(crate) async fn handle_connection_stream<S>(
     }
     let (r, mut w) = tokio::io::split(stream);
     let mut reader = BufReader::new(r);
+    // `recv()` on a closed broadcast is instantly ready every time, so the arm
+    // has to be disabled rather than `continue`d past, or the loop busy-waits.
+    let mut changed_open = true;
+    let mut pending = Vec::new();
     loop {
         let line = tokio::select! {
             biased;
@@ -142,7 +155,20 @@ pub(crate) async fn handle_connection_stream<S>(
                 if changed.is_err() || !*shutdown.borrow() { break; }
                 continue;
             }
-            res = read_line_capped(&mut reader, MAX_LINE_BYTES) => res,
+            changed = tools_changed.recv(), if changed_open => {
+                // Lagged means changes were missed; the client still needs to
+                // re-list, so one notification covers the gap.
+                if matches!(changed, Err(broadcast::error::RecvError::Closed)) {
+                    changed_open = false;
+                    continue;
+                }
+                let mut out = serde_json::to_vec(&protocol::tools_changed_notification())
+                    .unwrap_or_default();
+                out.push(b'\n');
+                if w.write_all(&out).await.is_err() { break; }
+                continue;
+            }
+            res = read_line_capped(&mut reader, &mut pending, MAX_LINE_BYTES) => res,
         };
         let resp = match line {
             Ok(None) => break,
@@ -290,7 +316,9 @@ mod tests {
     #[tokio::test]
     async fn read_line_capped_reads_a_normal_line() {
         let mut cursor = std::io::Cursor::new(b"hello\n".to_vec());
-        let line = read_line_capped(&mut cursor, 1024).await.unwrap();
+        let line = read_line_capped(&mut cursor, &mut Vec::new(), 1024)
+            .await
+            .unwrap();
         assert_eq!(line, Some("hello".to_string()));
     }
 
@@ -300,8 +328,37 @@ mod tests {
         let mut data = vec![b'a'; 20];
         data.push(b'\n');
         let mut cursor = std::io::Cursor::new(data);
-        let err = read_line_capped(&mut cursor, 10).await.unwrap_err();
+        let err = read_line_capped(&mut cursor, &mut Vec::new(), 10)
+            .await
+            .unwrap_err();
         assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    /// The connection loop drops this future whenever another `select!` arm
+    /// wins, so a half-read line has to survive in the caller's buffer.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn read_line_capped_resumes_a_line_it_was_cancelled_midway_through() {
+        use tokio::io::AsyncWriteExt;
+
+        let (mut server, mut client) = tokio::io::duplex(64);
+        let mut buf = Vec::new();
+        client.write_all(b"hel").await.unwrap();
+        assert!(
+            tokio::time::timeout(
+                Duration::from_millis(50),
+                read_line_capped(&mut server, &mut buf, 1024)
+            )
+            .await
+            .is_err(),
+            "no newline yet, so the read must still be pending when cancelled"
+        );
+
+        client.write_all(b"lo\n").await.unwrap();
+        assert_eq!(
+            read_line_capped(&mut server, &mut buf, 1024).await.unwrap(),
+            Some("hello".to_string())
+        );
     }
 
     /// Reuses a single, long-lived `McpState`-backed sender across both
@@ -346,7 +403,14 @@ mod tests {
     async fn a_connected_clients_task_ends_when_shutdown_flips_to_false() {
         let (server_side, client_side) = tokio::io::duplex(1024);
         let (tx, rx) = watch::channel(true);
-        let task = tokio::spawn(handle_connection_stream(server_side, None, rx));
+        let (_changed_tx, changed_rx) = broadcast::channel(8);
+        let task = tokio::spawn(handle_connection_stream(
+            server_side,
+            None,
+            rx,
+            changed_rx,
+            "c1".to_string(),
+        ));
 
         // Let the task actually reach its blocking read — proving cancellation
         // works mid-`select!`, not only the up-front guard before any I/O.
@@ -371,7 +435,14 @@ mod tests {
 
         let (server_side, mut client_side) = tokio::io::duplex(4096);
         let (_tx, rx) = watch::channel(true);
-        let task = tokio::spawn(handle_connection_stream(server_side, None, rx));
+        let (_changed_tx, changed_rx) = broadcast::channel(8);
+        let task = tokio::spawn(handle_connection_stream(
+            server_side,
+            None,
+            rx,
+            changed_rx,
+            "c1".to_string(),
+        ));
 
         client_side
             .write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}\n")
@@ -384,6 +455,85 @@ mod tests {
 
         drop(client_side);
         let _ = tokio::time::timeout(Duration::from_secs(2), task).await;
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_tools_changed_broadcast_reaches_a_connected_client() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let (server_side, mut client_side) = tokio::io::duplex(4096);
+        let (_tx, rx) = watch::channel(true);
+        let (changed_tx, changed_rx) = broadcast::channel(8);
+        let task = tokio::spawn(handle_connection_stream(
+            server_side,
+            None,
+            rx,
+            changed_rx,
+            "c1".to_string(),
+        ));
+
+        // Answer one request first, so the connection is demonstrably parked on its
+        // read when the broadcast lands rather than racing the task's startup.
+        client_side
+            .write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}\n")
+            .await
+            .unwrap();
+        let mut buf = [0u8; 512];
+        let n = client_side.read(&mut buf).await.unwrap();
+        assert!(String::from_utf8_lossy(&buf[..n]).contains("serverInfo"));
+
+        changed_tx.send(()).unwrap();
+        let n = client_side.read(&mut buf).await.unwrap();
+        let resp: Value = serde_json::from_slice(&buf[..n]).unwrap();
+        assert_eq!(resp["method"], json!("notifications/tools/list_changed"));
+        assert!(resp.get("id").is_none(), "a notification carries no id");
+
+        drop(client_side);
+        let _ = tokio::time::timeout(Duration::from_secs(2), task).await;
+    }
+
+    /// A dropped sender must not turn the notification arm into a busy-wait:
+    /// `recv()` on a closed broadcast returns `Err(Closed)` immediately, forever.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_closed_broadcast_leaves_the_connection_serving_requests() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let (server_side, mut client_side) = tokio::io::duplex(4096);
+        let (_tx, rx) = watch::channel(true);
+        let (changed_tx, changed_rx) = broadcast::channel(8);
+        let task = tokio::spawn(handle_connection_stream(
+            server_side,
+            None,
+            rx,
+            changed_rx,
+            "c1".to_string(),
+        ));
+        drop(changed_tx);
+
+        client_side
+            .write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}\n")
+            .await
+            .unwrap();
+        let mut buf = [0u8; 512];
+        let n = tokio::time::timeout(Duration::from_secs(2), client_side.read(&mut buf))
+            .await
+            .expect("connection spun on a closed broadcast instead of reading")
+            .unwrap();
+        let resp: Value = serde_json::from_slice(&buf[..n]).unwrap();
+        assert_eq!(resp["result"]["serverInfo"]["name"], json!("voltius"));
+
+        drop(client_side);
+        let _ = tokio::time::timeout(Duration::from_secs(2), task).await;
+    }
+
+    #[test]
+    fn initialize_advertises_a_live_tool_list() {
+        assert_eq!(
+            protocol::initialize_result()["capabilities"]["tools"]["listChanged"],
+            json!(true)
+        );
     }
 
     #[test]

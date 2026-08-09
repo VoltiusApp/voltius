@@ -742,6 +742,7 @@ pub fn run() {
             commands::mcp::mcp_consumer_ready,
             commands::mcp::mcp_set_enabled,
             commands::mcp::mcp_status,
+            commands::mcp::mcp_notify_tools_changed,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

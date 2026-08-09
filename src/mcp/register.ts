@@ -2,6 +2,7 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { buildMcpTools, listToolDescriptors, callTool, type McpTool } from "./consumer";
 import { getMcpHostApi } from "./hostApi";
+import { startToolsChangedNotifier } from "./notifyToolsChanged";
 
 interface BridgeRequest {
   id: string;
@@ -30,6 +31,7 @@ async function handle(payload: BridgeRequest["payload"]): Promise<unknown> {
  *  its timeout, which reads as the app being hung. */
 export function registerMcpConsumer(): () => void {
   let stop: (() => void) | undefined;
+  const stopNotifier = startToolsChangedNotifier();
   void listen<BridgeRequest>("mcp-bridge-request", async (event) => {
     const { id, payload } = event.payload;
     let result: unknown;
@@ -47,5 +49,8 @@ export function registerMcpConsumer(): () => void {
     // that isn't attached yet.
     void invoke("mcp_consumer_ready");
   });
-  return () => stop?.();
+  return () => {
+    stopNotifier();
+    stop?.();
+  };
 }

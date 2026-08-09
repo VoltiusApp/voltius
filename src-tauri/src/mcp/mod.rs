@@ -4,7 +4,7 @@ pub mod shim;
 pub mod transport;
 
 use std::sync::atomic::AtomicBool;
-use tokio::sync::watch;
+use tokio::sync::{broadcast, watch};
 
 pub use bridge::{Bridge, BridgeError};
 
@@ -23,6 +23,12 @@ pub struct McpState {
     /// dropped, which would silently strand the value at its initial
     /// `false` forever. Never read directly — subscribe via `shutdown_tx`.
     _shutdown_rx: watch::Receiver<bool>,
+    /// Fires when the tool list changes, so every live connection can send
+    /// `notifications/tools/list_changed`. A broadcast, not a watch: each
+    /// connection must observe every change, and there is no meaningful
+    /// "current value" to hold. Unlike `shutdown_tx` it needs no receiver kept
+    /// alive — `send` on a zero-receiver broadcast returns `Err`, not a no-op.
+    pub tools_changed_tx: broadcast::Sender<()>,
 }
 
 impl Default for McpState {
@@ -34,11 +40,13 @@ impl Default for McpState {
 impl McpState {
     pub fn new() -> Self {
         let (shutdown_tx, _shutdown_rx) = watch::channel(false);
+        let (tools_changed_tx, _) = broadcast::channel(16);
         Self {
             bridge: Bridge::new(),
             enabled: AtomicBool::new(false),
             shutdown_tx,
             _shutdown_rx,
+            tools_changed_tx,
         }
     }
 }

@@ -96,7 +96,15 @@ pub async fn serve(
 
     run_accept_loop(listener, shutdown, move |stream, conn_shutdown| {
         let app_state = Some((app.clone(), state.clone()));
-        tauri::async_runtime::spawn(handle_connection_stream(stream, app_state, conn_shutdown));
+        let changed = state.tools_changed_tx.subscribe();
+        let client_id = uuid::Uuid::new_v4().to_string();
+        tauri::async_runtime::spawn(handle_connection_stream(
+            stream,
+            app_state,
+            conn_shutdown,
+            changed,
+            client_id,
+        ));
     })
     .await;
     Ok(())
@@ -209,8 +217,17 @@ mod tests {
 
         let listener = bind_socket(&path).unwrap();
         let rx = state.shutdown_tx.subscribe();
-        let accept_task = tokio::spawn(run_accept_loop(listener, rx, |stream, conn_shutdown| {
-            tokio::spawn(handle_connection_stream(stream, None, conn_shutdown));
+        let accept_task = tokio::spawn(run_accept_loop(listener, rx, {
+            let changed_tx = state.tools_changed_tx.clone();
+            move |stream, conn_shutdown| {
+                tokio::spawn(handle_connection_stream(
+                    stream,
+                    None,
+                    conn_shutdown,
+                    changed_tx.subscribe(),
+                    "c1".to_string(),
+                ));
+            }
         }));
 
         let mut client = tokio::net::UnixStream::connect(&path).await.unwrap();

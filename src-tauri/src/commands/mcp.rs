@@ -79,6 +79,17 @@ fn disarm(state: &Arc<McpState>, err: String) -> String {
     err
 }
 
+/// Tells every connected client its tool list changed. Ignores the send error
+/// that a zero-receiver broadcast returns: nobody is connected, so there is
+/// nothing to tell.
+#[tauri::command]
+pub async fn mcp_notify_tools_changed(
+    state: tauri::State<'_, Arc<McpState>>,
+) -> Result<(), String> {
+    let _ = state.tools_changed_tx.send(());
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn mcp_status(
     state: tauri::State<'_, Arc<McpState>>,

@@ -33,9 +33,14 @@ pub fn parse_request(line: &str) -> Result<Request, Value> {
 pub fn initialize_result() -> Value {
     json!({
         "protocolVersion": PROTOCOL_VERSION,
-        "capabilities": { "tools": { "listChanged": false } },
+        "capabilities": { "tools": { "listChanged": true } },
         "serverInfo": { "name": "voltius", "version": env!("CARGO_PKG_VERSION") },
     })
+}
+
+/// A JSON-RPC notification: no id, and the client sends no response.
+pub fn tools_changed_notification() -> Value {
+    json!({ "jsonrpc": "2.0", "method": "notifications/tools/list_changed" })
 }
 
 #[cfg(test)]
