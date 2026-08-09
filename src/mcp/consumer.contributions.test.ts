@@ -7,7 +7,7 @@ import type { PluginAPI } from "@/plugins/api";
 const record = vi.fn();
 const stubApi = () =>
   ({
-    sessions: { list: () => [] },
+    sessions: { list: () => [{ id: "s1", connectionId: "c1", connectionName: "Prod", status: "connected", type: "ssh" }] },
     audit: { record, query: async () => ({ logs: [], total: 0 }) },
     connections: { list: async () => [] },
   }) as unknown as PluginAPI;
@@ -47,9 +47,11 @@ describe("contributed tools in the MCP tool list", () => {
     expect(res).toEqual({ ok: true, result: "done" });
     expect(record).toHaveBeenCalledTimes(1);
     const [scope, action, metadata, localMetadata] = record.mock.calls[0];
-    expect(scope).toBe("s1");
+    // The CONNECTION, not the session: api.audit.record resolves the team-vs-local
+    // context from this id, so a session id would keep every team row on-device.
+    expect(scope).toBe("c1");
     expect(action).toBe("agent.plugin_tool_run");
-    expect(metadata).toEqual({ via: "mcp", pluginId: "plugin-docker", tool: "docker__restart" });
+    expect(metadata).toEqual({ via: "mcp", contributedBy: "plugin-docker", tool: "docker__restart" });
     // No localMetadata, and no argument values anywhere: a contributed verb's
     // arguments can carry anything its schema allows.
     expect(localMetadata).toBeUndefined();

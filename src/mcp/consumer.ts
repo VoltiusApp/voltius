@@ -116,6 +116,11 @@ export function buildMcpTools(api: PluginAPI, owned: Set<string>): McpTool[] {
  * arguments can carry anything the plugin's schema allows, and the local sink is
  * not a place to put it.
  */
+function connectionScope(ports: ToolSurfacePorts, args: Record<string, unknown>): string {
+  if (typeof args.sessionId !== "string") return "mcp";
+  return ports.api.sessions.list().find((s) => s.id === args.sessionId)?.connectionId ?? "mcp";
+}
+
 function buildContributedTools(ports: ToolSurfacePorts): McpTool[] {
   return listContributions()
     .filter((c) => isPluginExposed(c.pluginId))
@@ -127,13 +132,13 @@ function buildContributedTools(ports: ToolSurfacePorts): McpTool[] {
       execute: async (args: Record<string, unknown>) => {
         if (c.mutating) {
           // Same audit port the core verbs use, so `via: "mcp"` is stamped in
-          // exactly one place. `scope` is the session when the verb names one:
-          // that is what makes the row point at the real host.
-          const scope = typeof args.sessionId === "string" ? args.sessionId : "mcp";
+          // exactly one place. `scope` must be a CONNECTION id — api.audit.record
+          // resolves the team-vs-local audit context from it, and a session id
+          // resolves to nothing and fails closed to the local sink.
           ports.audit(
-            scope,
+            connectionScope(ports, args),
             "agent.plugin_tool_run",
-            { pluginId: c.pluginId, tool: c.name },
+            { contributedBy: c.pluginId, tool: c.name },
             undefined,
           );
         }
