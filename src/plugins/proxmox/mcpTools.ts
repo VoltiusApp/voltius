@@ -1,13 +1,5 @@
 import type { McpToolContribution, PluginAPI } from "@/plugins/api";
-
-/** ProxmoxAPI only functions against SSH sessions. Refusing here is clearer
- *  than letting a `pct` command run on the user's own machine. */
-function requireSshSession(api: PluginAPI, sessionId: string): string {
-  const session = api.sessions.list().find((s) => s.id === sessionId);
-  if (!session) throw new Error(`no open session with id "${sessionId}"`);
-  if (session.type !== "ssh") throw new Error(`session "${sessionId}" is not an SSH session`);
-  return sessionId;
-}
+import { requireSshSession } from "@/plugins/sessionTargets";
 
 export function buildProxmoxMcpTools(api: PluginAPI): McpToolContribution[] {
   return [

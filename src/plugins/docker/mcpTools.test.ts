@@ -8,6 +8,7 @@ const api = (overrides: Record<string, unknown> = {}) =>
       list: () => [
         { id: "s1", type: "ssh", status: "connected", connectionId: "c1", connectionName: "h" },
         { id: "s2", type: "local", status: "connected", connectionId: "", connectionName: "local", localShell: "/bin/bash" },
+        { id: "s3", type: "serial", status: "connected", connectionId: "c3", connectionName: "ttyUSB0" },
       ],
     },
     docker: {
@@ -49,6 +50,14 @@ describe("the docker MCP tools", () => {
     expect(a.docker.containers.list).toHaveBeenCalledWith({
       sessionId: "s2", isRemote: false, localShell: "/bin/bash",
     });
+  });
+
+  // A serial session's "target" is a physical device; a docker command would be
+  // written to it verbatim.
+  it("refuses a serial session by type", async () => {
+    await expect(
+      buildDockerMcpTools(api()).find((t) => t.name === "container_list")!.execute({ sessionId: "s3" }),
+    ).rejects.toThrow(/serial/);
   });
 
   it("refuses an unknown session by name rather than silently acting locally", async () => {

@@ -1,14 +1,15 @@
 import type { DockerTarget, McpToolContribution, PluginAPI } from "@/plugins/api";
+import { requireShellSession } from "@/plugins/sessionTargets";
 
 /** An MCP client has only a sessionId; PluginSession already carries the type
- *  and shell the DockerTarget triple needs. Refuses an unknown id rather than
- *  defaulting to the user's own machine. */
+ *  and shell the DockerTarget triple needs. Refuses an unknown id, and any
+ *  session type that does not run shell commands, rather than defaulting to
+ *  the user's own machine. */
 function targetFor(api: PluginAPI, sessionId: string): DockerTarget {
-  const session = api.sessions.list().find((s) => s.id === sessionId);
-  if (!session) throw new Error(`no open session with id "${sessionId}"`);
+  const session = requireShellSession(api, sessionId);
   return {
     sessionId,
-    isRemote: session.type !== "local",
+    isRemote: session.type === "ssh",
     localShell: session.localShell ?? null,
   };
 }

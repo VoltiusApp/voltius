@@ -1,5 +1,3 @@
-import type { PluginAPI } from "@/plugins/api";
-
 export const DEFAULT_SNAPSHOT_TIMEOUT_MS = 8000;
 
 export interface StreamOneShotPorts {
@@ -54,10 +52,4 @@ async function waitForSnapshot<T>(
   } finally {
     unsubscribe();
   }
-}
-
-export function isRemoteSession(api: PluginAPI, sessionId: string): boolean {
-  const session = api.sessions.list().find((s) => s.id === sessionId);
-  if (!session) throw new Error(`no open session with id "${sessionId}"`);
-  return session.type !== "local";
 }

@@ -1,5 +1,6 @@
 import type { McpToolContribution, PluginAPI } from "@/plugins/api";
-import { firstSnapshot, isRemoteSession, DEFAULT_SNAPSHOT_TIMEOUT_MS } from "@/plugins/streamOneShot";
+import { firstSnapshot, DEFAULT_SNAPSHOT_TIMEOUT_MS } from "@/plugins/streamOneShot";
+import { isRemoteSession } from "@/plugins/sessionTargets";
 
 export function buildMonitoringMcpTools(api: PluginAPI): McpToolContribution[] {
   return [
