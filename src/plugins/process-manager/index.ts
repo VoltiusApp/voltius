@@ -3,6 +3,7 @@ import manifestJson from "./manifest.json";
 import { messages } from "./i18n";
 import { createProcessPanel } from "./components/ProcessPanel";
 import { createMobileProcessesScreen } from "./components/MobileProcessesScreen";
+import { buildProcessMcpTools } from "./mcpTools";
 
 export const manifest = manifestJson as PluginManifest;
 
@@ -20,8 +21,10 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
     kind: "processes",
     render: createMobileProcessesScreen(api),
   });
+  const offMcp = api.mcp.registerTools(buildProcessMcpTools(api));
   return () => {
     offPanel();
     offMobile();
+    offMcp();
   };
 };

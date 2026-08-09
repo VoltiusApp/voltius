@@ -4,6 +4,6 @@
   "version": "1.1.1",
   "minAppVersion": "0.18.0",
   "description": "Real-time CPU, RAM, network, and disk metrics for local and SSH sessions.",
-  "permissions": ["metrics:read", "sessions:read", "right-panel", "ui"],
+  "permissions": ["metrics:read", "sessions:read", "right-panel", "ui", "mcp:contribute"],
   "defaultEnabled": true
 }
