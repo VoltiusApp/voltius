@@ -9,7 +9,7 @@ const isPermissionError = (err: unknown) => err instanceof Error && /requires pe
 describe("MCP host API surface", () => {
   it("builds all 26 MCP tools over the real createHostPluginAPI", () => {
     const api = createHostPluginAPI("__mcp_hostapi_test__", PERMISSIONS);
-    expect(buildMcpTools(api).map((t) => t.name).sort()).toHaveLength(26);
+    expect(buildMcpTools(api, new Set()).map((t) => t.name).sort()).toHaveLength(26);
   });
 
   // Each gated PluginAPI call the tools reach into must clear its permission
@@ -69,7 +69,7 @@ describe("MCP host API surface", () => {
   // Both the thrown and the swallowed-into-`{error}` shapes are checked.
   it("no tool reaches a permission PERMISSIONS does not declare", async () => {
     const api = createHostPluginAPI("__perm_probe__", PERMISSIONS);
-    const tools = buildMcpTools(api);
+    const tools = buildMcpTools(api, new Set());
     for (const t of tools) {
       let thrown: unknown;
       let result: unknown;

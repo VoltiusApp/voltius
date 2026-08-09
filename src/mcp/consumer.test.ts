@@ -23,11 +23,11 @@ const ALL_TOOLS = [
 
 describe("MCP consumer", () => {
   it("exposes the whole shared tool surface, mutating verbs included", () => {
-    expect(buildMcpTools(api()).map((t) => t.name).sort()).toEqual(ALL_TOOLS);
+    expect(buildMcpTools(api(), new Set()).map((t) => t.name).sort()).toEqual(ALL_TOOLS);
   });
 
   it("no description claims Voltius prompts: the MCP client is the only gate", () => {
-    for (const t of buildMcpTools(api())) {
+    for (const t of buildMcpTools(api(), new Set())) {
       expect(t.description.toLowerCase()).not.toContain("prompt");
       expect(t.description.toLowerCase()).not.toContain("agent");
       expect(t.description.toLowerCase()).not.toContain("workbench");
@@ -35,7 +35,7 @@ describe("MCP consumer", () => {
   });
 
   it("every text override names a tool that exists, so a typo cannot silently do nothing", () => {
-    const names = new Set(buildMcpTools(api()).map((t) => t.name));
+    const names = new Set(buildMcpTools(api(), new Set()).map((t) => t.name));
     for (const name of Object.keys(MCP_TEXT.descriptions)) expect(names.has(name)).toBe(true);
   });
 
@@ -43,19 +43,19 @@ describe("MCP consumer", () => {
     const record = vi.fn();
     const a = api() as unknown as { audit: { record: typeof record } };
     a.audit.record = record;
-    const tools = buildMcpTools(a as never);
+    const tools = buildMcpTools(a as never, new Set());
     await callTool(tools, "make_dir", { target: "c1", path: "/tmp/x" });
     expect(record).toHaveBeenCalledWith("c1", "agent.file_created", expect.objectContaining({ via: "mcp" }), expect.anything());
   });
 
   it("close_session on an unowned session returns MCP's own not-owned text, not the agent's default", async () => {
-    const tools = buildMcpTools(api());
+    const tools = buildMcpTools(api(), new Set());
     const out = await callTool(tools, "close_session", { sessionId: "s1" });
     expect(out).toEqual({ ok: true, result: { error: MCP_TEXT.notOwnedError } });
   });
 
   it("converts each tool's zod schema to a JSON Schema object for tools/list", () => {
-    const [first] = listToolDescriptors(buildMcpTools(api()));
+    const [first] = listToolDescriptors(buildMcpTools(api(), new Set()));
     // `{ type: "object" }` alone is satisfied by a raw zod schema too — ZodObject
     // exposes its own `.type` getter — so it can't distinguish "converted" from
     // "not converted". `$schema` and a plain-object `properties` only exist on the
@@ -69,7 +69,7 @@ describe("MCP consumer", () => {
   });
 
   it("runs a tool and returns its real result", async () => {
-    const tools = buildMcpTools(api());
+    const tools = buildMcpTools(api(), new Set());
     const out = await callTool(tools, "list_connections", {});
     expect(out).toEqual({ ok: true, result: [{ id: "c1", name: "Prod", host: "h1", team: true }] });
   });
@@ -77,7 +77,7 @@ describe("MCP consumer", () => {
   it("rejects invalid arguments before they reach the vault", async () => {
     const a = api() as unknown as { connections: { create: ReturnType<typeof vi.fn> } };
     a.connections.create = vi.fn();
-    const tools = buildMcpTools(a as never);
+    const tools = buildMcpTools(a as never, new Set());
 
     const badAuthType = await callTool(tools, "connection_create", {
       host: "h", port: 22, username: "u", authType: "carrier-pigeon",
@@ -93,14 +93,14 @@ describe("MCP consumer", () => {
   });
 
   it("reports an unknown tool rather than throwing", async () => {
-    const out = await callTool(buildMcpTools(api()), "rm_rf", {});
+    const out = await callTool(buildMcpTools(api(), new Set()), "rm_rf", {});
     expect(out).toEqual({ ok: false, error: 'unknown tool "rm_rf"' });
   });
 
   it("turns a throwing tool into an error result, so one bad call cannot kill the connection", async () => {
     const broken = api() as unknown as { connections: { list: () => Promise<unknown> } };
     broken.connections.list = () => Promise.reject(new Error("vault locked"));
-    const out = await callTool(buildMcpTools(broken as never), "list_connections", {});
+    const out = await callTool(buildMcpTools(broken as never, new Set()), "list_connections", {});
     expect(out).toEqual({ ok: false, error: "vault locked" });
   });
 
@@ -118,7 +118,7 @@ describe("MCP consumer", () => {
       }),
     );
 
-    const tools = buildMcpTools(api());
+    const tools = buildMcpTools(api(), new Set());
     for (const t of tools) await t.execute({}).catch(() => {});
 
     expect(seen.length).toBeGreaterThan(0);

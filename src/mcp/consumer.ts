@@ -1,6 +1,8 @@
 import { z } from "zod";
 import type { PluginAPI } from "@/plugins/api";
 import { buildCoreTools, deriveScope, type ToolSurfacePorts } from "@voltius/tools";
+import { listContributions } from "./contributions";
+import { isPluginExposed } from "@/stores/mcpContributionStore";
 
 /** The built-in strings describe the agent's approval policy. Over MCP nothing
  *  prompts, so repeating them would misinform the model about the gate. */
@@ -78,7 +80,7 @@ export interface McpTool {
   execute(args: Record<string, unknown>): Promise<unknown>;
 }
 
-export function buildMcpTools(api: PluginAPI): McpTool[] {
+export function buildMcpTools(api: PluginAPI, owned: Set<string>): McpTool[] {
   const ports: ToolSurfacePorts = {
     api,
     // The MCP client's own permission prompt is the gate; Voltius performs no
@@ -92,16 +94,52 @@ export function buildMcpTools(api: PluginAPI): McpTool[] {
     }),
     audit: (scope, action, metadata, localMetadata) =>
       api.audit?.record?.(scope, action, { ...metadata, via: "mcp" }, localMetadata),
-    owned: new Set<string>(),
+    owned,
     text: MCP_TEXT,
   };
-  return buildCoreTools(ports).map((t) => ({
+  const core = buildCoreTools(ports).map((t) => ({
     name: t.name,
     description: t.description,
     inputSchema: z.toJSONSchema(t.schema),
     schema: t.schema,
-    execute: (args) => t.execute(args),
+    execute: (args: Record<string, unknown>) => t.execute(args),
   }));
+  return [...core, ...buildContributedTools(ports)];
+}
+
+/**
+ * Contributed tools, wrapped so the HOST writes the audit row. A plugin cannot
+ * forget, and a third-party plugin cannot expose destructive verbs that leave
+ * no trace.
+ *
+ * Follows `objectOp`, not `makeFileOp`: no `localMetadata`. A contributed verb's
+ * arguments can carry anything the plugin's schema allows, and the local sink is
+ * not a place to put it.
+ */
+function buildContributedTools(ports: ToolSurfacePorts): McpTool[] {
+  return listContributions()
+    .filter((c) => isPluginExposed(c.pluginId))
+    .map((c) => ({
+      name: c.name,
+      description: c.description,
+      inputSchema: c.inputSchema,
+      schema: c.schema,
+      execute: async (args: Record<string, unknown>) => {
+        if (c.mutating) {
+          // Same audit port the core verbs use, so `via: "mcp"` is stamped in
+          // exactly one place. `scope` is the session when the verb names one:
+          // that is what makes the row point at the real host.
+          const scope = typeof args.sessionId === "string" ? args.sessionId : "mcp";
+          ports.audit(
+            scope,
+            "agent.plugin_tool_run",
+            { pluginId: c.pluginId, tool: c.name },
+            undefined,
+          );
+        }
+        return c.execute(args);
+      },
+    }));
 }
 
 export function listToolDescriptors(tools: McpTool[]) {

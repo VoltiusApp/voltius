@@ -13,7 +13,7 @@ interface BridgeRequest {
 // "MCP may close only what MCP opened" hold across separate JSON-RPC calls.
 let cachedTools: McpTool[] | null = null;
 function getTools(): McpTool[] {
-  cachedTools ??= buildMcpTools(getMcpHostApi());
+  cachedTools ??= buildMcpTools(getMcpHostApi(), new Set<string>());
   return cachedTools;
 }
 
