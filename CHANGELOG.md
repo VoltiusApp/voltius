@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-08-09
+
+### Added
+
+- Voltius can now act as an MCP server, so Claude Code and other MCP clients
+  drive your infrastructure directly: 41 tools covering keys, identities,
+  connections, sessions, commands and file transfers. It is off by default —
+  turn it on in Settings → Integrations, which also carries the one-line client
+  setup command and what granting a client this access means.
+- Plugins can contribute their own MCP tools. With the server on, the bundled
+  Docker, Proxmox, process manager and monitoring plugins contribute 15 verbs
+  between them — container and image listings, LXC actions, snapshots, process
+  listing and metrics — and each plugin can be excluded on its own.
+- An MCP client can read its own audit trail through `audit_query`, behind a new
+  danger-gated `audit:read` permission.
+- Plugins get a gated SFTP file domain and a gated `api.mcp` capability for
+  contributing tools.
+
+### Fixed
+
+- A Proxmox command that failed reported success. Creating, rolling back or
+  deleting an LXC snapshot returned OK even when Proxmox refused the operation,
+  so a rollback could target a snapshot that was never created.
+- Creating a folder from the Snippets page put it in the Personal vault instead
+  of the vault being viewed.
+- Team-vault connections were adopted and rewritten by SSH config sync.
+- Streaming a container's logs left a listener behind after the call finished.
+- Russian was missing plural forms in the MCP integrations screen.
+
 ## [0.18.0] - 2026-08-06
 
 ### Added
