@@ -1730,6 +1730,7 @@ export function setPluginActive(pluginId: string, active: boolean): void {
     // The contribution ledger deliberately survives a disable: contributions meant
     // to outlive it (a settings page registered imperatively and left out of
     // cleanup) are still live, and the plugin must stay able to unregister them.
+    // Separate registry from the ledger above: MCP tool contributions do NOT survive a disable.
     clearContributions(pluginId);
   }
   console.info(`[plugin-runtime] Plugin "${pluginId}" set active=${active}`);
