@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { TOGGLE_DEFS, useToggle } from "@/stores/toggleSettingsStore";
 import { Toggle } from "@/components/shared/Toggle";
-import { DirtyDot, ResetButton } from "./shared";
+import { SettingRow, SettingsGroup } from "./shared";
 
 export default function PortForwardingSection() {
   const { t } = useTranslation();
@@ -10,57 +10,29 @@ export default function PortForwardingSection() {
 
   return (
     <div className="p-6 max-w-lg space-y-6">
-      <div>
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-(--t-text-dim)">
-          {t("settings.portForwarding.automationTitle")}
-        </h3>
-
-        <div className="rounded-lg divide-y bg-(--t-bg-elevated) border border-(--t-border)">
-          <div className="group flex items-center justify-between px-4 py-3 gap-4">
-            <div>
-              <p className="text-sm font-medium text-(--t-text-primary)">{t("settings.portForwarding.autoForward.title")}</p>
-              <p className="text-xs mt-0.5 text-(--t-text-dim)">
-                {t("settings.portForwarding.autoForward.desc")}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {autoForwardEnabled !== TOGGLE_DEFS["auto-forward"].default && (
-                <ResetButton onReset={() => setAutoForwardEnabled(TOGGLE_DEFS["auto-forward"].default)} />
-              )}
-              {autoForwardEnabled !== TOGGLE_DEFS["auto-forward"].default && <DirtyDot />}
-              <Toggle checked={autoForwardEnabled} onChange={setAutoForwardEnabled} />
-            </div>
-          </div>
-
-          <div className="group flex items-center justify-between px-4 py-3 gap-4">
-            <div>
-              <p
-                className="text-sm font-medium text-(--t-text-primary)"
-                style={{ opacity: autoForwardEnabled ? 1 : 0.45 }}
-              >
-                {t("settings.portForwarding.notifications.title")}
-              </p>
-              <p
-                className="text-xs mt-0.5 text-(--t-text-dim)"
-                style={{ opacity: autoForwardEnabled ? 1 : 0.45 }}
-              >
-                {t("settings.portForwarding.notifications.desc")}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {autoForwardNotificationsEnabled !== TOGGLE_DEFS["forwarding-notifications"].default && (
-                <ResetButton onReset={() => setAutoForwardNotificationsEnabled(TOGGLE_DEFS["forwarding-notifications"].default)} />
-              )}
-              {autoForwardNotificationsEnabled !== TOGGLE_DEFS["forwarding-notifications"].default && <DirtyDot />}
-              <Toggle
-                checked={autoForwardNotificationsEnabled}
-                onChange={setAutoForwardNotificationsEnabled}
-                disabled={!autoForwardEnabled}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+      <SettingsGroup title={t("settings.portForwarding.automationTitle")} divided>
+        <SettingRow
+          title={t("settings.portForwarding.autoForward.title")}
+          desc={t("settings.portForwarding.autoForward.desc")}
+          dirty={autoForwardEnabled !== TOGGLE_DEFS["auto-forward"].default}
+          onReset={() => setAutoForwardEnabled(TOGGLE_DEFS["auto-forward"].default)}
+        >
+          <Toggle checked={autoForwardEnabled} onChange={setAutoForwardEnabled} />
+        </SettingRow>
+        <SettingRow
+          title={t("settings.portForwarding.notifications.title")}
+          desc={t("settings.portForwarding.notifications.desc")}
+          dimmed={!autoForwardEnabled}
+          dirty={autoForwardNotificationsEnabled !== TOGGLE_DEFS["forwarding-notifications"].default}
+          onReset={() => setAutoForwardNotificationsEnabled(TOGGLE_DEFS["forwarding-notifications"].default)}
+        >
+          <Toggle
+            checked={autoForwardNotificationsEnabled}
+            onChange={setAutoForwardNotificationsEnabled}
+            disabled={!autoForwardEnabled}
+          />
+        </SettingRow>
+      </SettingsGroup>
     </div>
   );
 }

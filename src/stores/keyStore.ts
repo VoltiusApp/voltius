@@ -5,6 +5,7 @@ import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
+import { pushCreateHistory, pushDeleteHistory } from "@/stores/recreateHistory";
 import { useTeamStore } from "@/stores/teamStore";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
@@ -93,17 +94,12 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
         },
       }));
       reportAuditMutation("key", "created", { id: key.id, name: key.name ?? "unnamed", vault_id: key.vault_id }, { key_type: key.key_type });
-      let recreatedId: string | null = null;
-      useHistoryStore.getState().push({
+      pushCreateHistory({
         label: `Saved key "${key.name ?? "unnamed"}"`,
-        undo: async () => {
-          await useKeyStore.getState().deleteKey(recreatedId ?? key.id);
-          recreatedId = null;
-        },
-        redo: async () => {
-          const r = await useKeyStore.getState().saveKey(data);
-          recreatedId = r.id;
-        },
+        id: key.id,
+        data,
+        create: (d) => useKeyStore.getState().saveKey(d),
+        remove: (kid) => useKeyStore.getState().deleteKey(kid),
       });
       return key;
     }
@@ -114,17 +110,12 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isTypeSynced("key")) scheduleSync(); });
     reportAuditMutation("key", "created", { id: key.id, name: key.name ?? "unnamed", vault_id: key.vault_id }, { key_type: key.key_type });
-    let recreatedId: string | null = null;
-    useHistoryStore.getState().push({
+    pushCreateHistory({
       label: `Saved key "${key.name ?? "unnamed"}"`,
-      undo: async () => {
-        await useKeyStore.getState().deleteKey(recreatedId ?? key.id);
-        recreatedId = null;
-      },
-      redo: async () => {
-        const r = await useKeyStore.getState().saveKey(data);
-        recreatedId = r.id;
-      },
+      id: key.id,
+      data,
+      create: (d) => useKeyStore.getState().saveKey(d),
+      remove: (kid) => useKeyStore.getState().deleteKey(kid),
     });
     return key;
   },
@@ -291,17 +282,12 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
         tags: prev.tags,
         folder_id: prev.folder_id, vault_id: prev.vault_id,
       };
-      let recreatedId: string | null = null;
-      useHistoryStore.getState().push({
+      pushDeleteHistory({
         label: `Deleted key "${prev.name ?? "unnamed"}"`,
-        undo: async () => {
-          const r = await useKeyStore.getState().saveKey(prevData);
-          recreatedId = r.id;
-        },
-        redo: async () => {
-          await useKeyStore.getState().deleteKey(recreatedId ?? id);
-          recreatedId = null;
-        },
+        id,
+        data: prevData,
+        create: (d) => useKeyStore.getState().saveKey(d),
+        remove: (kid) => useKeyStore.getState().deleteKey(kid),
       });
       return;
     }
@@ -319,17 +305,12 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
         tags: prev.tags,
         folder_id: prev.folder_id, vault_id: prev.vault_id,
       };
-      let recreatedId: string | null = null;
-      useHistoryStore.getState().push({
+      pushDeleteHistory({
         label: `Deleted key "${prev.name ?? "unnamed"}"`,
-        undo: async () => {
-          const r = await useKeyStore.getState().saveKey(prevData);
-          recreatedId = r.id;
-        },
-        redo: async () => {
-          await useKeyStore.getState().deleteKey(recreatedId ?? id);
-          recreatedId = null;
-        },
+        id,
+        data: prevData,
+        create: (d) => useKeyStore.getState().saveKey(d),
+        remove: (kid) => useKeyStore.getState().deleteKey(kid),
       });
     }
   },

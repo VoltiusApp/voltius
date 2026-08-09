@@ -130,6 +130,23 @@ describe("ssh-config sync — adoption", () => {
     expect(h.store.get("alias_map")).toEqual({ Oracle: "user-1" });
   });
 
+  // Since #77 the plugin API lists team-vault connections too. Adopting one
+  // would claim a connection shared with the whole team, and the update that
+  // follows any config edit is refused by the runtime.
+  test("never adopts a team connection, creating its own instead", async () => {
+    const h = makeSyncApi({
+      config: cfg("Oracle", "1.2.3.4", "ubuntu"),
+      connections: [
+        { ...conn({ id: "team-1", name: "Shared", host: "1.2.3.4", port: 22, username: "ubuntu", tags: [] }), team: true },
+      ],
+    });
+    await sync(h.api);
+    expect(h.create).toHaveBeenCalledTimes(1);
+    expect(h.update).not.toHaveBeenCalled();
+    expect(h.del).not.toHaveBeenCalled();
+    expect(h.store.get("alias_map")).toEqual({ Oracle: "gen-1000" });
+  });
+
   test("preserves the user's label, auth, identity and tags; creates no key/identity", async () => {
     const h = makeSyncApi({
       config: cfg("Oracle", "1.2.3.4", "ubuntu"),

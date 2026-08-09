@@ -6,7 +6,6 @@ import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useAllPortForwardingRules } from "@/hooks/useAllPortForwardingRules";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useUIStore } from "@/stores/uiStore";
-import { useVaultStore } from "@/stores/vaultStore";
 import { usePermissions, type Permission } from "@/hooks/usePermission";
 import { useAccessibleVaultIds, useScopedVaultId } from "@/hooks/useAccessibleVaultIds";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
@@ -38,8 +37,14 @@ import { PortForwardingToolbar } from "./PortForwardingToolbar";
 import { ActiveTunnelsSection } from "./ActiveTunnelsSection";
 import { RuleCard } from "./RuleCard";
 import { RuleForm } from "./RuleForm";
-import type { Folder, PortForwardingRule, PortForwardingRuleFormData, VaultOption } from "@/types";
+import type { Folder, PortForwardingRule, PortForwardingRuleFormData } from "@/types";
 import type { LayoutMode, SortMode } from "@/components/shared/ToolbarViewControls";
+import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
+import { useVaultOptions } from "@/hooks/useVaultOptions";
+import { useScopedFolders } from "@/hooks/useScopedFolders";
+import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
+import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
+import { copyFolderSubtree } from "@/utils/folderCopy";
 
 function sortRules(rules: PortForwardingRule[], mode: SortMode): PortForwardingRule[] {
   return [...rules].sort((a, b) => {
@@ -93,7 +98,6 @@ export function PortForwardingPage() {
   const pendingAction = useUIStore((s) => s.portForwardingPendingAction);
   const setPendingAction = useUIStore((s) => s.setPortForwardingPendingAction);
 
-  const vaults = useVaultStore((s) => s.vaults);
   const accessibleVaultIds = useAccessibleVaultIds();
   const scopedVaultId = useScopedVaultId();
   const defaultVaultId = useDefaultVaultId();
@@ -134,22 +138,9 @@ export function PortForwardingPage() {
     }
   }, [pendingAction]);
 
-  const vaultOptions = useMemo<VaultOption[]>(
-    () => [
-      { id: "personal", name: "Personal" },
-      ...vaults.filter((v) => v.id !== "personal").map((v) => ({ id: v.teamId ?? v.id, name: v.name })),
-    ],
-    [vaults],
-  );
+  const vaultOptions = useVaultOptions({ includeUnlinkedTeams: false });
 
-  const scopedFolders = useMemo(
-    () => folders.filter((f) => {
-      if (f.object_type !== "port_forwarding") return false;
-      const fvid = f.vault_id ?? "personal";
-      return accessibleVaultIds.length === 0 || accessibleVaultIds.includes(fvid);
-    }),
-    [folders, accessibleVaultIds],
-  );
+  const scopedFolders = useScopedFolders(folders, accessibleVaultIds, "port_forwarding");
   const scopedFolderIds = useMemo(() => new Set(scopedFolders.map((f) => f.id)), [scopedFolders]);
   const editingFolder = editingFolderId ? scopedFolders.find((f) => f.id === editingFolderId) ?? null : null;
 
@@ -243,25 +234,10 @@ export function PortForwardingPage() {
   // ── Vault move / copy for folders ─────────────────────────────────────────
 
   /** All folders in the subtree rooted at folderId (BFS-ordered, parents before children). */
-  const getAllSubFolders = (folderId: string): Folder[] => {
-    const queue = [folderId];
-    const result: Folder[] = [];
-    // A parent cycle in the data would otherwise spin forever and lock the renderer.
-    const seen = new Set<string>([folderId]);
-    while (queue.length) {
-      const cur = queue.shift()!;
-      const children = scopedFolders.filter((f) => f.parent_folder_id === cur && !seen.has(f.id));
-      for (const child of children) seen.add(child.id);
-      result.push(...children);
-      queue.push(...children.map((f) => f.id));
-    }
-    return result;
-  };
+  const getAllSubFolders = (folderId: string): Folder[] => descendantFolders(scopedFolders, folderId);
 
-  const getRulesInFolderTree = (folderId: string): PortForwardingRule[] => {
-    const ids = new Set([folderId, ...getAllSubFolders(folderId).map((f) => f.id)]);
-    return rules.filter((r) => r.folder_id != null && ids.has(r.folder_id));
-  };
+  const getRulesInFolderTree = (folderId: string): PortForwardingRule[] =>
+    itemsInFolderSubtree(rules, scopedFolders, folderId);
 
   /** Warns about the cascade: subfolders and every rule nested under them go too. */
   const folderDeleteMessage = (folderId: string): string => {
@@ -304,17 +280,12 @@ export function PortForwardingPage() {
       description: t("portForwarding.page.vaultCascade.copyDescription", { folderName: folder.name, targetVaultName }),
       items: treeRules.map((r) => ({ type: "connection" as const, label: r.name })),
       execute: async () => {
-        const folderIdMap = new Map<string, string>();
-        const destHasName = folders.some((f) => (f.vault_id ?? "personal") === vaultId && f.object_type === folder.object_type && f.name === folder.name);
-        const newRoot = await saveFolder({ name: destHasName ? `${folder.name} (copy)` : folder.name, object_type: folder.object_type, parent_folder_id: folder.parent_folder_id, vault_id: vaultId });
-        folderIdMap.set(folder.id, newRoot.id);
-        for (const sf of subFolders) {
-          const newParentId = sf.parent_folder_id ? (folderIdMap.get(sf.parent_folder_id) ?? newRoot.id) : newRoot.id;
-          const newSf = await saveFolder({ name: sf.name, object_type: sf.object_type, parent_folder_id: newParentId, vault_id: vaultId });
-          folderIdMap.set(sf.id, newSf.id);
-        }
+        const folderIdMap = await copyFolderSubtree({
+          root: folder, subFolders, vaultId, existingFolders: folders, saveFolder,
+        });
+        const newRootId = folderIdMap.get(folder.id)!;
         for (const r of treeRules) {
-          const newFolderId = r.folder_id ? (folderIdMap.get(r.folder_id) ?? newRoot.id) : newRoot.id;
+          const newFolderId = r.folder_id ? (folderIdMap.get(r.folder_id) ?? newRootId) : newRootId;
           const destHasRule = rules.some((x) => (x.vault_id ?? "personal") === vaultId && x.name === r.name);
           await createRule({ name: destHasRule ? `${r.name} (copy)` : r.name, local_port: r.local_port, remote_port: r.remote_port, remote_host: r.remote_host, tunnel_type: r.tunnel_type ?? "local", bind_host: r.bind_host ?? "127.0.0.1", target_host: r.target_host ?? "127.0.0.1", description: r.description, connection_ids: r.connection_ids, folder_id: newFolderId, vault_id: vaultId });
         }
@@ -755,32 +726,12 @@ export function PortForwardingPage() {
           <div ref={itemAreaRef} data-drag-surface="true" className="space-y-6 mt-4">
 
             {/* ── Folder breadcrumb ── */}
-            {folderPath.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  className="flex items-center gap-1.5 text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
-                  onClick={navigateToRoot}
-                >
-                  <Icon icon="lucide:chevron-left" width={13} />
-                  {t("portForwarding.page.all")}
-                </button>
-                {folderPath.map((folder, i) => (
-                  <span key={folder.id} className="flex items-center gap-2">
-                    <span className="text-(--t-text-dim)">/</span>
-                    {i < folderPath.length - 1 ? (
-                      <button
-                        className="text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
-                        onClick={() => navigateTo(i)}
-                      >
-                        {folder.name}
-                      </button>
-                    ) : (
-                      <span className="text-xs font-medium text-(--t-text-primary)">{folder.name}</span>
-                    )}
-                  </span>
-                ))}
-              </div>
-            )}
+            <FolderBreadcrumb
+              path={folderPath}
+              rootLabel={t("portForwarding.page.all")}
+              onNavigateToRoot={navigateToRoot}
+              onNavigateTo={navigateTo}
+            />
 
             {/* ── Folders section ── */}
             {visibleFolders.length > 0 && (
@@ -835,26 +786,14 @@ export function PortForwardingPage() {
 
             {/* ── Eject drop zone ── */}
             {activeFolderId && (
-              <div
-                className="flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-150"
-                style={{
-                  border: dragOverEject ? "2px solid var(--t-accent)" : "2px dashed var(--t-border-hover)",
-                  background: dragOverEject ? "color-mix(in srgb, var(--t-accent) 8%, var(--t-bg-card))" : "transparent",
-                  color: dragOverEject ? "var(--t-accent)" : "var(--t-text-dim)",
-                  opacity: isDragging ? 1 : 0,
-                  pointerEvents: isDragging ? "auto" : "none",
-                  height: isDragging ? undefined : 0,
-                  padding: isDragging ? undefined : 0,
-                  marginTop: isDragging ? undefined : 0,
-                  overflow: "hidden",
-                }}
-                {...ejectDropProps(ejectTargetFolderId)}
-              >
-                <Icon icon="lucide:folder-minus" width={16} />
-                <span className="text-sm font-medium">
-                  {ejectTargetFolderId ? t("portForwarding.page.ejectMoveTo", { name: folderPath[folderPath.length - 2].name }) : t("portForwarding.page.ejectRemoveFromFolder")}
-                </span>
-              </div>
+              <FolderEjectZone
+                label={ejectTargetFolderId
+                  ? t("portForwarding.page.ejectMoveTo", { name: folderPath[folderPath.length - 2].name })
+                  : t("portForwarding.page.ejectRemoveFromFolder")}
+                isDragging={isDragging}
+                dragOver={dragOverEject}
+                dropProps={ejectDropProps(ejectTargetFolderId)}
+              />
             )}
 
             {/* ── Rules section ── */}

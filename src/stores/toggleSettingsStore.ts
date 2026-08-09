@@ -129,6 +129,13 @@ export const TOGGLE_DEFS = {
     keywords: ["plugin", "permission", "install", "review", "consent", "disclosure", "security"],
     default: true,
   },
+  "mcp-server": {
+    labelKey: "settings.toggleDefs.mcpServer.label",
+    icon: "lucide:plug",
+    descriptionKey: "settings.toggleDefs.category.integrations",
+    keywords: ["mcp", "claude", "agent", "server", "socket", "integration"],
+    default: false,
+  },
 } as const satisfies Record<string, ToggleDef>;
 
 export type ToggleId = keyof typeof TOGGLE_DEFS;

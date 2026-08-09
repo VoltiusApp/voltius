@@ -37,7 +37,7 @@ test.each([
   ["src/components/keychain/KeychainPage.tsx", "keychain"],
   ["src/components/hosts/HostsPage.tsx", "connection"],
 ])("%s filters folders on its own object type", (file, expected) => {
-  expect(read(file)).toContain(`f.object_type !== "${expected}"`);
+  expect(read(file)).toContain(`useScopedFolders(folders, accessibleVaultIds, "${expected}")`);
 });
 
 /** The same class on the read side: `useFolderStore` holds every object type, so

@@ -4,7 +4,7 @@ import { useIdentityStore } from "@/stores/identityStore";
 import { useKeyStore } from "@/stores/keyStore";
 import { sshSendInput, onSshOutput } from "@/services/ssh";
 import { onLocalOutput, localConnect, localSendInput } from "@/services/local";
-import { onSerialOutput } from "@/services/serial";
+import { onSerialOutput, serialWrite } from "@/services/serial";
 import { readTerminalSnapshot, readTerminalSelection } from "@/hooks/useTerminal";
 import { usePluginStore } from "@/stores/pluginStore";
 import { useUIStore, type NavItem } from "@/stores/uiStore";
@@ -14,6 +14,7 @@ import { useUIContributionStore } from "@/stores/uiContributionStore";
 import { usePluginStateStore } from "@/stores/pluginStateStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useTeamStore } from "@/stores/teamStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { getSyncState, onSyncStateChange, ENTITY_FILES, getExcludedObjectIds, type BlobPayload } from "@/services/sync";
@@ -35,6 +36,9 @@ import { registerLxcExecSession } from "@/services/proxmox";
 import { PLUGIN_AUDIT_ACTIONS } from "@/services/auditContext";
 import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportPluginAuditEvent } from "@/services/auditReporter";
+import { fetchLocalAuditLogs } from "@/services/localAuditService";
+import { registerContributions, clearContributions } from "@/mcp/contributions";
+import type { AuditLog } from "@/services/auditService";
 import type {
   PluginAPI,
   PluginManifest,
@@ -48,6 +52,7 @@ import type {
   StreamKind,
   PluginMobileNavEntry,
   GlobalPanelHandle,
+  PluginAuditRow,
 } from "./api";
 import { createStreamsAPI } from "./domains/streams";
 import { createMetricsAPI } from "./domains/metrics";
@@ -55,9 +60,10 @@ import { createProcessesAPI } from "./domains/processes";
 import { createCryptoAPI } from "./domains/crypto";
 import { createI18nAPI } from "./domains/i18n";
 import { createProxmoxAPI } from "./domains/proxmox";
+import { createSftpAPI } from "./domains/sftp";
 import { createDockerAPI } from "./domains/docker";
 import { injectPluginStyle, removePluginStyle } from "./importPluginModule";
-import { assertValidPluginId } from "./pluginId";
+import { assertValidPluginId, isValidPluginId } from "./pluginId";
 
 const STREAM_PERM: Record<StreamKind, string> = {
   metrics: "metrics:read",
@@ -69,6 +75,10 @@ const STREAM_PERM: Record<StreamKind, string> = {
 // ─── Inter-plugin exposed APIs ────────────────────────────────────────────
 
 const _exposedApis = new Map<string, unknown>();
+
+// Per-plugin SFTP/FTP handles, so unloading a plugin closes the connections it
+// opened. Without this a disabled plugin's sockets outlive it silently.
+const _sftpDisposers = new Map<string, () => void>();
 
 // ─── Login-sync readiness gate ────────────────────────────────────────────
 // Resolves immediately for local/offline users; SplashScreen holds it pending
@@ -106,6 +116,44 @@ function findConnection(connectionId: string) {
     connections.find((c) => c.id === connectionId) ??
     Object.values(teamConnections).flat().find((c) => c.id === connectionId)
   );
+}
+
+/** In-memory team connections, keyed off the teams the user is actually in so a
+ * stale cache for a team they left cannot resurface. Mirrors `useAllConnections`. */
+function teamConnectionList() {
+  const { teamConnections } = useConnectionStore.getState();
+  return useTeamStore.getState().teams.flatMap((t) => teamConnections[t.id] ?? []);
+}
+
+/**
+ * Personal + team connections, the single list every plugin-facing read
+ * resolves against.
+ *
+ * The tool surface's connection guard and `deriveScope` both resolve ids
+ * through `connections.list()`, so a team connection missing here is not a
+ * display bug: the guard rejects its id and no grant can be minted for it,
+ * which made team hosts unaddressable (#77). `team` is the authoritative flag —
+ * a *personal* connection can also carry a `vault_id` (a local, non-team
+ * vault), so the presence of one says nothing about ownership.
+ */
+async function listAllConnections(): Promise<PluginConnection[]> {
+  const merged = new Map<string, PluginConnection>();
+  for (const c of await connectionService.listConnections()) {
+    merged.set(c.id, c as PluginConnection);
+  }
+  for (const c of teamConnectionList()) {
+    merged.set(c.id, { ...(c as PluginConnection), team: true });
+  }
+  return [...merged.values()];
+}
+
+/** Team connections are owned by a team vault, not the personal store that
+ * `connectionService` writes to. Sending one through that path would write to a
+ * record the server never sees, so plugin writes fail loudly instead. */
+function refuseTeamWrite(connectionId: string, verb: string) {
+  if (teamConnectionList().some((c) => c.id === connectionId)) {
+    throw new Error(`Connection ${connectionId} belongs to a team vault and cannot be ${verb} by a plugin`);
+  }
 }
 
 const _onConnectionEstablished = new Set<(conn: PluginConnection) => void>();
@@ -445,7 +493,45 @@ function requirePerm(manifest: PluginManifest, perm: string): void {
   }
 }
 
+/**
+ * Metadata keys that reach the local sink through `localMetadata`, which is
+ * defined as never leaving the device: `command` (run_command's shell text) and
+ * `args` (makeFileOp's stringified arguments, i.e. every path touched), plus the
+ * markers boundLocalMetadata adds for them. api.audit.query is a second wire, so
+ * they are stripped here too.
+ */
+const LOCAL_ONLY_METADATA_KEYS = [
+  "command",
+  "command_truncated",
+  "args",
+  "args_truncated",
+  "localMetadata_dropped",
+];
+
+function projectAuditMetadata(
+  metadata: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  if (!metadata) return metadata;
+  const out = { ...metadata };
+  for (const key of LOCAL_ONLY_METADATA_KEYS) delete out[key];
+  return out;
+}
+
+const toPluginAuditRow = (l: AuditLog): PluginAuditRow => ({
+  action: l.action,
+  actor_name: l.actor_name,
+  source: l.source,
+  target_type: l.target_type,
+  target_id: l.target_id,
+  target_name: l.target_name,
+  metadata: projectAuditMetadata(l.metadata),
+  created_at: l.created_at,
+});
+
 // ─── Scoped plugin API ────────────────────────────────────────────────────
+
+/** Ids belonging to host APIs rather than plugins. See `whileActive`. */
+const _hostApiIds = new Set<string>();
 
 function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const id = manifest.id;
@@ -467,7 +553,12 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   // Teardown is one-shot, so an async continuation would re-publish after it. False
   // for an unloaded plugin too, since its registry entry is gone. Not applied to
   // ui.register* — those are meant to outlive a disable.
+  //
+  // A host API has no registry entry and never will, so the registry lookup would
+  // reject every call it makes; it lives as long as the page, like `isActive`'s
+  // own `?? true` already assumes.
   const whileActive = (verb: string): boolean => {
+    if (_hostApiIds.has(id)) return true;
     if (_registry.get(id)?.active) return true;
     console.warn(`[plugin-runtime] "${id}" called ${verb} while disabled or unloaded — ignoring`);
     return false;
@@ -479,6 +570,8 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const cryptoApi = createCryptoAPI();
   const i18nApi = createI18nAPI();
   const proxmoxApi = createProxmoxAPI();
+  const sftpApi = createSftpAPI(findConnection);
+  _sftpDisposers.set(id, () => sftpApi.dispose());
   const dockerApi = createDockerAPI(streamsApi);
 
   const api: PluginAPI = {
@@ -523,12 +616,12 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
     connections: {
       async list() {
         requirePerm(manifest, "connections:read");
-        return connectionService.listConnections() as Promise<PluginConnection[]>;
+        return listAllConnections();
       },
       async get(connId) {
         requirePerm(manifest, "connections:read");
-        const all = await connectionService.listConnections();
-        return (all.find((c) => c.id === connId) as PluginConnection) ?? null;
+        const all = await listAllConnections();
+        return all.find((c) => c.id === connId) ?? null;
       },
       async create(data: PluginConnectionInput) {
         requirePerm(manifest, "connections:write");
@@ -547,6 +640,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       async update(connId, data) {
         requirePerm(manifest, "connections:write");
+        refuseTeamWrite(connId, "updated");
         const existing = await connectionService.listConnections();
         const conn = existing.find((c) => c.id === connId);
         if (!conn) throw new Error(`Connection ${connId} not found`);
@@ -565,6 +659,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       async delete(connId) {
         requirePerm(manifest, "connections:write");
+        refuseTeamWrite(connId, "deleted");
         await connectionService.deleteConnection(connId);
         await useConnectionStore.getState().loadConnections();
       },
@@ -579,6 +674,8 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
             username: item.username,
             auth_type: item.auth_type,
             tags: item.tags ?? [],
+            identity_id: item.identity_id,
+            jump_hosts: item.jump_hosts,
           });
           results.push(conn as PluginConnection);
         }
@@ -587,7 +684,12 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       subscribe(cb) {
         requirePerm(manifest, "connections:read");
-        return useConnectionStore.subscribe((s) => cb(s.connections as PluginConnection[]));
+        return useConnectionStore.subscribe((s) => {
+          const merged = new Map<string, PluginConnection>();
+          for (const c of s.connections) merged.set(c.id, c as PluginConnection);
+          for (const c of teamConnectionList()) merged.set(c.id, { ...(c as PluginConnection), team: true });
+          cb([...merged.values()]);
+        });
       },
     },
 
@@ -771,6 +873,22 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           metadata: { ...metadata, plugin_id: id },
           localMetadata,
         });
+      },
+      async query(filters) {
+        requireGated("audit:read");
+        if (!whileActive("audit.query")) return { logs: [], total: 0 };
+        // "personal" is the local sink's vault key for every non-team row:
+        // auditContextForVaultId returns { kind: "local", vaultId: "personal" }
+        // when there is no team vault, and that is the key reportLocalClientEvent
+        // writes under.
+        const { logs, total } = await fetchLocalAuditLogs("personal", {
+          actions: filters.actions,
+          from: filters.from,
+          to: filters.to,
+          page: Math.max(1, filters.page ?? 1),
+          per_page: Math.min(100, Math.max(1, filters.perPage ?? 50)),
+        });
+        return { logs: logs.map(toPluginAuditRow), total };
       },
     },
 
@@ -969,12 +1087,17 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         requireGated("terminal:write");
         const session = useSessionStore.getState().sessions.find((s) => s.id === sessionId);
         if (!session) throw new Error(`Session "${sessionId}" not found`);
+        // Three transports, mirroring onOutput above and sendSessionInput in
+        // useTerminal.ts. Serial used to fall through to the SSH branch, which
+        // writes to a channel a serial session does not have — so every write to
+        // a serial device was silently dropped.
+        const encoded = new TextEncoder().encode(cmd + "\n");
         if (session.type === "local") {
           const { invoke } = await import("@tauri-apps/api/core");
-          const encoded = new TextEncoder().encode(cmd + "\n");
           await invoke("local_send_input", { sessionId, data: Array.from(encoded) });
+        } else if (session.type === "serial") {
+          await serialWrite(sessionId, encoded);
         } else {
-          const encoded = new TextEncoder().encode(cmd + "\n");
           await sshSendInput(sessionId, encoded);
         }
       },
@@ -1094,6 +1217,29 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         requirePerm(manifest, "ui");
         return i18nApi.onLocaleChange(cb);
       },
+    },
+
+    // Every verb is wrapped individually rather than handing the domain over
+    // wholesale: without a per-verb requireGated the read tier would grant the
+    // write tier too, which is exactly the hole the metrics domain shipped with.
+    sftp: {
+      list: (target, path) => { requireGated("sftp:read"); return sftpApi.list(target, path); },
+      stat: (target, path) => { requireGated("sftp:read"); return sftpApi.stat(target, path); },
+      readText: (target, path, maxBytes) => {
+        requireGated("sftp:read");
+        return sftpApi.readText(target, path, maxBytes);
+      },
+      writeText: (target, path, content) => {
+        requireGated("sftp:write");
+        return sftpApi.writeText(target, path, content);
+      },
+      mkdir: (target, path) => { requireGated("sftp:write"); return sftpApi.mkdir(target, path); },
+      rename: (target, from, to) => { requireGated("sftp:write"); return sftpApi.rename(target, from, to); },
+      delete: (target, path) => { requireGated("sftp:write"); return sftpApi.delete(target, path); },
+      transfer: (src, dst) => { requireGated("sftp:write"); return sftpApi.transfer(src, dst); },
+      // Ungated: releasing a handle this plugin opened cannot expose or change
+      // anything, and a plugin must always be able to let go of its own resources.
+      disconnect: (target) => sftpApi.disconnect(target),
     },
 
     proxmox: {
@@ -1468,9 +1614,31 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         return _exposedApis.get(pluginId) ?? null;
       },
     },
+
+    mcp: {
+      registerTools(tools) {
+        requireGated("mcp:contribute");
+        // An async continuation in a disabled plugin would otherwise re-register
+        // tools that setPluginActive(false) already cleared, with nothing left
+        // to clear them again.
+        if (!whileActive("mcp.registerTools")) return () => {};
+        return registerContributions(id, tools);
+      },
+    },
   };
 
   return api;
+}
+
+/** Host-internal consumers (the MCP server) need a PluginAPI without being
+ *  plugins. Kept as a named export rather than letting a caller synthesize a
+ *  manifest, so every non-plugin consumer is greppable. */
+export function createHostPluginAPI(id: string, permissions: string[]): PluginAPI {
+  if (isValidPluginId(id)) {
+    throw new Error(`createHostPluginAPI id ${JSON.stringify(id)} is a legal plugin id; a real plugin could claim it and inherit the host's whileActive bypass`);
+  }
+  _hostApiIds.add(id);
+  return createPluginAPI({ id, name: id, version: "0.0.0", permissions });
 }
 
 // ─── Registry ─────────────────────────────────────────────────────────────
@@ -1540,6 +1708,7 @@ export function loadPlugin(
     usePluginStateStore.getState().clearPlugin(manifest.id);
     clearPluginKeybindings(manifest.id);
     clearPluginDockedWidths(manifest.id);
+    clearContributions(manifest.id);
     removePluginStyle(manifest.id);
     _exposedApis.delete(manifest.id);
     _contributedIds.delete(manifest.id);
@@ -1589,6 +1758,8 @@ export function setPluginActive(pluginId: string, active: boolean): void {
     // The contribution ledger deliberately survives a disable: contributions meant
     // to outlive it (a settings page registered imperatively and left out of
     // cleanup) are still live, and the plugin must stay able to unregister them.
+    // Separate registry from the ledger above: MCP tool contributions do NOT survive a disable.
+    clearContributions(pluginId);
   }
   console.info(`[plugin-runtime] Plugin "${pluginId}" set active=${active}`);
 }
@@ -1603,8 +1774,11 @@ export function unloadPlugin(pluginId: string): void {
   usePluginStateStore.getState().clearPlugin(pluginId);
   clearPluginKeybindings(pluginId);
   clearPluginDockedWidths(pluginId);
+  clearContributions(pluginId);
   removePluginStyle(pluginId);
   _exposedApis.delete(pluginId);
+  _sftpDisposers.get(pluginId)?.();
+  _sftpDisposers.delete(pluginId);
   _contributedIds.delete(pluginId);
   _settingsListeners.delete(pluginId);
   _registry.delete(pluginId);

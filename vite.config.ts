@@ -20,6 +20,7 @@ export default defineConfig(async () => ({
       // "@voltius/ui" specifier and the client shows a full-screen error overlay.
       // Same target as tsconfig.json's `paths` and vitest.config.ts's alias.
       "@voltius/ui": path.resolve(__dirname, "./src/plugins/ui.ts"),
+      "@voltius/tools": path.resolve(__dirname, "./src/plugins/toolSurface/index.ts"),
     },
   },
   build: {
@@ -45,7 +46,9 @@ export default defineConfig(async () => ({
         }
       : undefined,
     watch: {
-      ignored: ["**/src-tauri/**"],
+      // `target/` is the cargo build dir; watching it exhausts the inotify budget
+      // (ENOSPC) and kills the dev server outright.
+      ignored: ["**/src-tauri/**", "**/target/**", "**/.cargo-home/**", "**/.claude/**"],
     },
   },
 }));

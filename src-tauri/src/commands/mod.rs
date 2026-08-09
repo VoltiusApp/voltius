@@ -1,4 +1,5 @@
 pub mod connections;
+pub mod crdt;
 pub mod crypto;
 pub mod diagnostics;
 pub mod docker;
@@ -12,6 +13,7 @@ pub mod keygen;
 pub mod keys;
 pub mod known_hosts;
 pub mod local;
+pub mod mcp;
 pub mod metrics;
 pub mod mobaxterm;
 pub mod ping;

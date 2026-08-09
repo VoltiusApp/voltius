@@ -13,7 +13,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useFolderStore } from "@/stores/folderStore";
 import { storeSecret, getSecret } from "@/services/vault";
 import { useUIContributions } from "@/hooks/useUIContributions";
-import type { Connection, ConnectionFormData, VaultOption, Folder, SshKey, Identity } from "@/types";
+import type { Connection, ConnectionFormData, Folder, SshKey, Identity } from "@/types";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
 import { usePageBulkActions } from "@/hooks/usePageBulkActions";
@@ -27,7 +27,6 @@ import { useVaultCascade } from "@/hooks/useVaultCascade";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
-import { useTeamStore } from "@/stores/teamStore";
 import { usePermissions, type Permission } from "@/hooks/usePermission";
 import { useAccessibleVaultIds, useScopedVaultId } from "@/hooks/useAccessibleVaultIds";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
@@ -66,6 +65,12 @@ import {
   withdrawOrWarn,
 } from "@/services/vaultObjectSecrets";
 import { saveHostFromForm } from "@/services/hostForm";
+import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
+import { useVaultOptions } from "@/hooks/useVaultOptions";
+import { useScopedFolders } from "@/hooks/useScopedFolders";
+import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
+import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
+import { copyFolderSubtree } from "@/utils/folderCopy";
 
 
 export default function HostsPage() {
@@ -144,8 +149,6 @@ export default function HostsPage() {
   }, [homePendingAction, connections, setHomePendingAction]);
 
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
-  const vaults = useVaultStore((s) => s.vaults);
-  const teams = useTeamStore((s) => s.teams);
   const accessibleVaultIds = useAccessibleVaultIds();
   const scopedVaultId = useScopedVaultId();
   const defaultVaultId = useDefaultVaultId();
@@ -153,14 +156,7 @@ export default function HostsPage() {
   const canCreate = selectedVaultIds.some((vid) => can("EDIT_CONNECTIONS", vid));
   const canCreateFolder = selectedVaultIds.some((vid) => can("EDIT_FOLDERS", vid));
 
-  const vaultOptions = useMemo<VaultOption[]>(() => {
-    const linkedTeamIds = new Set(vaults.map((v) => v.teamId).filter(Boolean));
-    return [
-      { id: "personal", name: "Personal" },
-      ...vaults.filter((v) => v.id !== "personal").map((v) => ({ id: v.teamId ?? v.id, name: v.name })),
-      ...teams.filter((t) => !linkedTeamIds.has(t.id)).map((t) => ({ id: t.id, name: t.name })),
-    ];
-  }, [vaults, teams]);
+  const vaultOptions = useVaultOptions();
 
   const searchQuery = search.trim().toLowerCase();
 
@@ -185,14 +181,7 @@ export default function HostsPage() {
     return counts;
   }, [scopedConnections]);
 
-  const scopedFolders = useMemo(
-    () => folders.filter((f) => {
-      if (f.object_type !== "connection") return false;
-      const fvid = f.vault_id ?? "personal";
-      return accessibleVaultIds.length === 0 || accessibleVaultIds.includes(fvid);
-    }),
-    [folders, accessibleVaultIds],
-  );
+  const scopedFolders = useScopedFolders(folders, accessibleVaultIds, "connection");
   const scopedFolderIds = useMemo(() => new Set(scopedFolders.map((f) => f.id)), [scopedFolders]);
   const editingFolder = editingFolderId ? scopedFolders.find((f) => f.id === editingFolderId) ?? null : null;
 
@@ -1031,26 +1020,11 @@ export default function HostsPage() {
   // ── Folder vault move / copy ──────────────────────────────────────────────
 
   /** Returns all folders in the subtree rooted at folderId (BFS-ordered, parents before children). */
-  const getAllSubFolders = (folderId: string): Folder[] => {
-    const queue = [folderId];
-    const result: Folder[] = [];
-    // A parent cycle in the data would otherwise spin forever and lock the renderer.
-    const seen = new Set<string>([folderId]);
-    while (queue.length) {
-      const cur = queue.shift()!;
-      const children = scopedFolders.filter((f) => f.parent_folder_id === cur && !seen.has(f.id));
-      for (const child of children) seen.add(child.id);
-      result.push(...children);
-      queue.push(...children.map((f) => f.id));
-    }
-    return result;
-  };
+  const getAllSubFolders = (folderId: string): Folder[] => descendantFolders(scopedFolders, folderId);
 
   /** Returns all connections nested anywhere under folderId. */
-  const getConnectionsInFolderTree = (folderId: string): Connection[] => {
-    const folderIds = new Set([folderId, ...getAllSubFolders(folderId).map((f) => f.id)]);
-    return connections.filter((c) => c.folder_id != null && folderIds.has(c.folder_id));
-  };
+  const getConnectionsInFolderTree = (folderId: string): Connection[] =>
+    itemsInFolderSubtree(connections, scopedFolders, folderId);
 
   /** Warns about the cascade: subfolders and every host nested under them go too. */
   const folderDeleteMessage = (folderId: string): string => {
@@ -1149,16 +1123,10 @@ export default function HostsPage() {
       execute: async () => {
         try {
           // Create root folder + sub-folders (BFS order ensures parent exists before child)
-          const folderIdMap = new Map<string, string>();
-          const destHasFolderName = folders.some((f) => (f.vault_id ?? "personal") === vaultId && f.object_type === folder.object_type && f.name === folder.name);
-          // default name kept in English until all creation sites are localized together (see i18n issue #14)
-          const newFolder = await saveFolder({ name: destHasFolderName ? `${folder.name} (copy)` : folder.name, object_type: folder.object_type, parent_folder_id: folder.parent_folder_id, vault_id: vaultId });
-          folderIdMap.set(folder.id, newFolder.id);
-          for (const sf of subFolders) {
-            const newParentId = sf.parent_folder_id ? (folderIdMap.get(sf.parent_folder_id) ?? newFolder.id) : newFolder.id;
-            const newSf = await saveFolder({ name: sf.name, object_type: sf.object_type, parent_folder_id: newParentId, vault_id: vaultId });
-            folderIdMap.set(sf.id, newSf.id);
-          }
+          const folderIdMap = await copyFolderSubtree({
+            root: folder, subFolders, vaultId, existingFolders: folders, saveFolder,
+          });
+          const newRootId = folderIdMap.get(folder.id)!;
 
           // Copy keys
           const keyIdMap = new Map<string, string>();
@@ -1195,7 +1163,7 @@ export default function HostsPage() {
           // Copy connections
           for (const conn of allConns) {
             const newIdentityId = conn.identity_id ? (identityIdMap.get(conn.identity_id) ?? conn.identity_id) : undefined;
-            const newFolderId = conn.folder_id ? (folderIdMap.get(conn.folder_id) ?? newFolder.id) : newFolder.id;
+            const newFolderId = conn.folder_id ? (folderIdMap.get(conn.folder_id) ?? newRootId) : newRootId;
             const newKeyId = conn.key_id ? (keyIdMap.get(conn.key_id) ?? conn.key_id) : undefined;
             const newConn = await saveConnection({ name: conn.name, host: conn.host, port: conn.port, username: conn.username, auth_type: conn.auth_type, tags: [...conn.tags], identity_id: newIdentityId, key_id: newKeyId, folder_id: newFolderId, vault_id: vaultId });
             if (newConn) {
@@ -1430,34 +1398,12 @@ export default function HostsPage() {
               <TeamSessions />
 
               {/* ── Folder breadcrumb (when inside a folder) ── */}
-              {folderPath.length > 0 && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    className="flex items-center gap-1.5 text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
-                    onClick={navigateToRoot}
-                  >
-                    <Icon icon="lucide:chevron-left" width={13} />
-                    {t("hosts.page.all")}
-                  </button>
-                  {folderPath.map((folder, i) => (
-                    <span key={folder.id} className="flex items-center gap-2">
-                      <span className="text-(--t-text-dim)">/</span>
-                      {i < folderPath.length - 1 ? (
-                        <button
-                          className="text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
-                          onClick={() => navigateTo(i)}
-                        >
-                          {folder.name}
-                        </button>
-                      ) : (
-                        <span className="text-xs font-medium text-(--t-text-primary)">
-                          {folder.name}
-                        </span>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              )}
+              <FolderBreadcrumb
+                path={folderPath}
+                rootLabel={t("hosts.page.all")}
+                onNavigateToRoot={navigateToRoot}
+                onNavigateTo={navigateTo}
+              />
 
               {/* ── Folders section ── */}
               {visibleFolders.length > 0 && (
@@ -1525,28 +1471,14 @@ export default function HostsPage() {
 
               {/* ── Eject drop zone (in DOM whenever inside folder, visible only while dragging) ── */}
               {activeFolderId && can("EDIT_FOLDERS", folderPath[folderPath.length - 1]?.vault_id ?? "personal") && (
-                <div
-                  className="flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-150"
-                  style={{
-                    border: dragOverEject ? "2px solid var(--t-accent)" : "2px dashed var(--t-border-hover)",
-                    background: dragOverEject
-                      ? "color-mix(in srgb, var(--t-accent) 8%, var(--t-bg-card))"
-                      : "transparent",
-                    color: dragOverEject ? "var(--t-accent)" : "var(--t-text-dim)",
-                    opacity: isDragging ? 1 : 0,
-                    pointerEvents: isDragging ? "auto" : "none",
-                    height: isDragging ? undefined : 0,
-                    padding: isDragging ? undefined : 0,
-                    marginTop: isDragging ? undefined : 0,
-                    overflow: "hidden",
-                  }}
-                  {...ejectDropProps(ejectTargetFolderId)}
-                >
-                  <Icon icon="lucide:folder-minus" width={16} />
-                  <span className="text-sm font-medium">
-                    {ejectTargetFolderId ? t("hosts.page.ejectMoveTo", { name: folderPath[folderPath.length - 2].name }) : t("hosts.page.ejectRemoveFromFolder")}
-                  </span>
-                </div>
+                <FolderEjectZone
+                  label={ejectTargetFolderId
+                    ? t("hosts.page.ejectMoveTo", { name: folderPath[folderPath.length - 2].name })
+                    : t("hosts.page.ejectRemoveFromFolder")}
+                  isDragging={isDragging}
+                  dragOver={dragOverEject}
+                  dropProps={ejectDropProps(ejectTargetFolderId)}
+                />
               )}
 
               {/* ── Pinned section ── */}

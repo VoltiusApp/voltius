@@ -8,6 +8,7 @@ import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { useHistoryStore } from "@/stores/historyStore";
+import { pushCreateHistory, pushDeleteHistory } from "@/stores/recreateHistory";
 import { useTeamStore } from "@/stores/teamStore";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
@@ -122,17 +123,12 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
         },
       }));
       reportAuditMutation("snippet", "created", { id: snippet.id, name: snippet.name, vault_id: snippet.vault_id });
-      let recreatedId: string | null = null;
-      useHistoryStore.getState().push({
+      pushCreateHistory({
         label: `Created snippet "${snippet.name}"`,
-        undo: async () => {
-          await useSnippetStore.getState().deleteSnippet(recreatedId ?? snippet.id);
-          recreatedId = null;
-        },
-        redo: async () => {
-          const r = await useSnippetStore.getState().createSnippet(data);
-          recreatedId = r.id;
-        },
+        id: snippet.id,
+        data,
+        create: (d) => useSnippetStore.getState().createSnippet(d),
+        remove: (sid) => useSnippetStore.getState().deleteSnippet(sid),
       });
       return snippet;
     }
@@ -142,17 +138,12 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     set({ snippets });
     isServerMode().then((s) => { if (s) scheduleSync(); });
     reportAuditMutation("snippet", "created", { id: snippet.id, name: snippet.name, vault_id: snippet.vault_id });
-    let recreatedId: string | null = null;
-    useHistoryStore.getState().push({
+    pushCreateHistory({
       label: `Created snippet "${snippet.name}"`,
-      undo: async () => {
-        await useSnippetStore.getState().deleteSnippet(recreatedId ?? snippet.id);
-        recreatedId = null;
-      },
-      redo: async () => {
-        const r = await useSnippetStore.getState().createSnippet(data);
-        recreatedId = r.id;
-      },
+      id: snippet.id,
+      data,
+      create: (d) => useSnippetStore.getState().createSnippet(d),
+      remove: (sid) => useSnippetStore.getState().deleteSnippet(sid),
     });
     return snippet;
   },
@@ -288,17 +279,12 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
         only_for_connection_tags: prev.only_for_connection_tags,
         only_for_distros: prev.only_for_distros, vault_id: prev.vault_id,
       };
-      let recreatedId: string | null = null;
-      useHistoryStore.getState().push({
+      pushDeleteHistory({
         label: `Deleted snippet "${prev.name}"`,
-        undo: async () => {
-          const r = await useSnippetStore.getState().createSnippet(prevData);
-          recreatedId = r.id;
-        },
-        redo: async () => {
-          await useSnippetStore.getState().deleteSnippet(recreatedId ?? id);
-          recreatedId = null;
-        },
+        id,
+        data: prevData,
+        create: (d) => useSnippetStore.getState().createSnippet(d),
+        remove: (sid) => useSnippetStore.getState().deleteSnippet(sid),
       });
       return;
     }
@@ -316,17 +302,12 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
         only_for_connection_tags: prev.only_for_connection_tags,
         only_for_distros: prev.only_for_distros, vault_id: prev.vault_id,
       };
-      let recreatedId: string | null = null;
-      useHistoryStore.getState().push({
+      pushDeleteHistory({
         label: `Deleted snippet "${prev.name}"`,
-        undo: async () => {
-          const r = await useSnippetStore.getState().createSnippet(prevData);
-          recreatedId = r.id;
-        },
-        redo: async () => {
-          await useSnippetStore.getState().deleteSnippet(recreatedId ?? id);
-          recreatedId = null;
-        },
+        id,
+        data: prevData,
+        create: (d) => useSnippetStore.getState().createSnippet(d),
+        remove: (sid) => useSnippetStore.getState().deleteSnippet(sid),
       });
     }
   },

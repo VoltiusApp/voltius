@@ -73,6 +73,7 @@ describe("first-party rail order", () => {
       streams: { start: async () => "", stop: async () => {} },
       docker: {},
       proxmox: {},
+      mcp: { registerTools: () => () => {} },
     } as unknown as PluginAPI;
     register(api);
     if (!captured) throw new Error(`${id} registered no right-panel section`);

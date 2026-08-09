@@ -9,7 +9,6 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useLayoutStore } from "@/stores/layoutStore";
-import { useTeamStore } from "@/stores/teamStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { usePermissions, type Permission } from "@/hooks/usePermission";
 import { useAccessibleVaultIds, useScopedVaultId } from "@/hooks/useAccessibleVaultIds";
@@ -51,11 +50,18 @@ import { SnippetForm } from "./SnippetForm";
 import { FolderCard } from "@/components/folders/FolderCard";
 import { FolderEditPanel } from "@/components/folders/FolderEditPanel";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
-import type { Snippet, Folder, SnippetFormData, Connection, VaultOption } from "@/types";
+import type { Snippet, Folder, SnippetFormData, Connection } from "@/types";
 import type { SortMode } from "@/components/shared/ToolbarViewControls";
 import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/teamVaultPermissions";
 import { useSnippetRecentStore, type RecentSnippetExecution, type RecentTarget } from "@/stores/snippetRecentStore";
 import { selectRecentSnippetEntries } from "@/utils/snippetRecent";
+import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
+import { useVaultOptions } from "@/hooks/useVaultOptions";
+import { useScopedFolders } from "@/hooks/useScopedFolders";
+import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
+import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
+import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
+import { copyFolderSubtree } from "@/utils/folderCopy";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -311,21 +317,13 @@ export function SnippetsPage() {
   const setSnippetsPendingAction = useUIStore((s) => s.setSnippetsPendingAction);
 
   // Vault & permissions
-  const vaults = useVaultStore((s) => s.vaults);
-  const teams = useTeamStore((s) => s.teams);
   const selectedVaultIds = useVaultStore((s) => s.selectedVaultIds);
   const accessibleVaultIds = useAccessibleVaultIds();
   const scopedVaultId = useScopedVaultId();
+  const defaultVaultId = useDefaultVaultId();
   const can = usePermissions();
 
-  const vaultOptions = useMemo<VaultOption[]>(() => {
-    const linkedTeamIds = new Set(vaults.map((v) => v.teamId).filter(Boolean));
-    return [
-      { id: "personal", name: "Personal" },
-      ...vaults.filter((v) => v.id !== "personal").map((v) => ({ id: v.teamId ?? v.id, name: v.name })),
-      ...teams.filter((t) => !linkedTeamIds.has(t.id)).map((t) => ({ id: t.id, name: t.name })),
-    ];
-  }, [vaults, teams]);
+  const vaultOptions = useVaultOptions();
 
   const canCreate = selectedVaultIds.some((vid) => can("EDIT_SNIPPETS", vid));
 
@@ -377,13 +375,7 @@ export function SnippetsPage() {
   const { pos: bgMenuPos, open: openBgMenu, close: closeBgMenu } = useContextMenu();
 
 
-  const scopedFolders = useMemo(
-    () => folders.filter((f) => {
-      const fvid = f.vault_id ?? "personal";
-      return accessibleVaultIds.length === 0 || accessibleVaultIds.includes(fvid);
-    }),
-    [folders, accessibleVaultIds],
-  );
+  const scopedFolders = useScopedFolders(folders, accessibleVaultIds);
 
   // Folder navigation
   const {
@@ -919,23 +911,11 @@ export function SnippetsPage() {
 
   /** All folders in the subtree rooted at folderId (BFS-ordered, parents before children). */
   function getAllSubFolders(folderId: string): Folder[] {
-    const queue = [folderId];
-    const result: Folder[] = [];
-    // A parent cycle in the data would otherwise spin forever and lock the renderer.
-    const seen = new Set<string>([folderId]);
-    while (queue.length) {
-      const cur = queue.shift()!;
-      const children = folders.filter((f) => f.parent_folder_id === cur && !seen.has(f.id));
-      for (const child of children) seen.add(child.id);
-      result.push(...children);
-      queue.push(...children.map((f) => f.id));
-    }
-    return result;
+    return descendantFolders(folders, folderId);
   }
 
   function getSnippetsInFolderTree(folderId: string): Snippet[] {
-    const ids = new Set([folderId, ...getAllSubFolders(folderId).map((f) => f.id)]);
-    return snippets.filter((s) => s.folder_id != null && ids.has(s.folder_id));
+    return itemsInFolderSubtree(snippets, folders, folderId);
   }
 
   /** Warns about the cascade: subfolders and every snippet nested under them go too. */
@@ -978,17 +958,12 @@ export function SnippetsPage() {
     try {
       const subFolders = getAllSubFolders(folder.id);
       const treeSnippets = getSnippetsInFolderTree(folder.id);
-      const folderIdMap = new Map<string, string>();
-      const destHasName = folders.some((f) => (f.vault_id ?? "personal") === vaultId && f.object_type === folder.object_type && f.name === folder.name);
-      const newRoot = await saveFolder({ name: destHasName ? `${folder.name} (copy)` : folder.name, object_type: folder.object_type, parent_folder_id: folder.parent_folder_id, vault_id: vaultId });
-      folderIdMap.set(folder.id, newRoot.id);
-      for (const sf of subFolders) {
-        const newParentId = sf.parent_folder_id ? (folderIdMap.get(sf.parent_folder_id) ?? newRoot.id) : newRoot.id;
-        const newSf = await saveFolder({ name: sf.name, object_type: sf.object_type, parent_folder_id: newParentId, vault_id: vaultId });
-        folderIdMap.set(sf.id, newSf.id);
-      }
+      const folderIdMap = await copyFolderSubtree({
+        root: folder, subFolders, vaultId, existingFolders: folders, saveFolder,
+      });
+      const newRootId = folderIdMap.get(folder.id)!;
       for (const s of treeSnippets) {
-        const newFolderId = s.folder_id ? (folderIdMap.get(s.folder_id) ?? newRoot.id) : newRoot.id;
+        const newFolderId = s.folder_id ? (folderIdMap.get(s.folder_id) ?? newRootId) : newRootId;
         const destHasSnippetName = snippets.some((x) => (x.vault_id ?? "personal") === vaultId && x.name === s.name);
         await createSnippet({ ...snippetToForm(s), name: destHasSnippetName ? `${s.name} (copy)` : s.name, folder_id: newFolderId, vault_id: vaultId, favorite: false });
       }
@@ -1076,6 +1051,7 @@ export function SnippetsPage() {
       name: "New Folder" /* persisted English default; menu label is localized */,
       object_type: "snippet",
       parent_folder_id: activeFolderId ?? undefined,
+      vault_id: defaultVaultId,
     });
     folderEp.transitionToExisting(folder);
   }
@@ -1207,34 +1183,12 @@ export function SnippetsPage() {
             <div className="space-y-6">
 
               {/* ── Breadcrumb (when inside a folder) ── */}
-              {folderPath.length > 0 && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    className="flex items-center gap-1.5 text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
-                    onClick={navigateToRoot}
-                  >
-                    <Icon icon="lucide:chevron-left" width={13} />
-                    {t("snippets.page.allSnippets")}
-                  </button>
-                  {folderPath.map((folder, i) => (
-                    <span key={folder.id} className="flex items-center gap-2">
-                      <span className="text-(--t-text-dim)">/</span>
-                      {i < folderPath.length - 1 ? (
-                        <button
-                          className="text-xs transition-colors text-(--t-text-dim) hover:text-(--t-text-primary)"
-                          onClick={() => navigateTo(i)}
-                        >
-                          {folder.name}
-                        </button>
-                      ) : (
-                        <span className="text-xs font-medium text-(--t-text-primary)">
-                          {folder.name}
-                        </span>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              )}
+              <FolderBreadcrumb
+                path={folderPath}
+                rootLabel={t("snippets.page.allSnippets")}
+                onNavigateToRoot={navigateToRoot}
+                onNavigateTo={navigateTo}
+              />
 
               {/* ── Recent executions (root only) ── */}
               {!hasSearch && !activeFolderId && scopedRecentEntries.length > 0 && (
@@ -1329,28 +1283,14 @@ export function SnippetsPage() {
 
               {/* ── Eject drop zone (inside folder, visible only while dragging) ── */}
               {activeFolderId && (
-                <div
-                  className="flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-150"
-                  style={{
-                    border: dragOverEject ? "2px solid var(--t-accent)" : "2px dashed var(--t-border-hover)",
-                    background: dragOverEject
-                      ? "color-mix(in srgb, var(--t-accent) 8%, var(--t-bg-card))"
-                      : "transparent",
-                    color: dragOverEject ? "var(--t-accent)" : "var(--t-text-dim)",
-                    opacity: isDragging ? 1 : 0,
-                    pointerEvents: isDragging ? "auto" : "none",
-                    height: isDragging ? undefined : 0,
-                    padding: isDragging ? undefined : 0,
-                    marginTop: isDragging ? undefined : 0,
-                    overflow: "hidden",
-                  }}
-                  {...ejectDropProps(ejectTargetFolderId)}
-                >
-                  <Icon icon="lucide:folder-minus" width={16} />
-                  <span className="text-sm font-medium">
-                    {ejectTargetFolderId ? t("snippets.page.ejectMoveTo", { name: folderPath[folderPath.length - 2].name }) : t("snippets.page.ejectRemoveFromFolder")}
-                  </span>
-                </div>
+                <FolderEjectZone
+                  label={ejectTargetFolderId
+                    ? t("snippets.page.ejectMoveTo", { name: folderPath[folderPath.length - 2].name })
+                    : t("snippets.page.ejectRemoveFromFolder")}
+                  isDragging={isDragging}
+                  dragOver={dragOverEject}
+                  dropProps={ejectDropProps(ejectTargetFolderId)}
+                />
               )}
 
               {/* ── Snippets in current view ── */}

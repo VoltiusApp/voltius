@@ -10,6 +10,7 @@ import { sunTimes, type ThemeMode } from "@/services/themeAutomation";
 import type { AppTheme } from "@/themes/types";
 import ScaleSection from "./ScaleSection";
 import { useLocaleStore, SUPPORTED_LOCALES } from "@/stores/localeStore";
+import { SettingRow } from "./shared";
 
 function downloadJson(filename: string, data: unknown) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -67,19 +68,14 @@ export default function AppearanceSection() {
           {t("settings.appearance.interface")}
         </h3>
         <ScaleSection />
-        <div className="group mt-4 rounded-xl bg-(--t-bg-card) border border-(--t-border) p-4 flex items-center justify-between gap-4">
-          <div>
-            <div className="text-sm font-medium text-(--t-text-primary)">{t("settings.appearance.language.title")}</div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <FormSelect
-              className="w-44 shrink-0"
-              value={locale}
-              options={SUPPORTED_LOCALES}
-              onChange={(value) => setLocale(value as typeof locale)}
-            />
-          </div>
-        </div>
+        <SettingRow variant="card" className="mt-4" title={t("settings.appearance.language.title")}>
+          <FormSelect
+            className="w-44 shrink-0"
+            value={locale}
+            options={SUPPORTED_LOCALES}
+            onChange={(value) => setLocale(value as typeof locale)}
+          />
+        </SettingRow>
       </div>
 
       {(() => {

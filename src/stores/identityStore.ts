@@ -5,6 +5,7 @@ import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
+import { pushCreateHistory, pushDeleteHistory } from "@/stores/recreateHistory";
 import { useTeamStore } from "@/stores/teamStore";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
@@ -94,17 +95,12 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
         },
       }));
       reportAuditMutation("identity", "created", { id: identity.id, name: identity.name ?? identity.username, vault_id: identity.vault_id });
-      let recreatedId: string | null = null;
-      useHistoryStore.getState().push({
+      pushCreateHistory({
         label: `Created identity "${identity.name ?? identity.username}"`,
-        undo: async () => {
-          await useIdentityStore.getState().deleteIdentity(recreatedId ?? identity.id);
-          recreatedId = null;
-        },
-        redo: async () => {
-          const r = await useIdentityStore.getState().saveIdentity(data);
-          recreatedId = r.id;
-        },
+        id: identity.id,
+        data,
+        create: (d) => useIdentityStore.getState().saveIdentity(d),
+        remove: (iid) => useIdentityStore.getState().deleteIdentity(iid),
       });
       return identity;
     }
@@ -115,17 +111,12 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isTypeSynced("identity")) scheduleSync(); });
     reportAuditMutation("identity", "created", { id: identity.id, name: identity.name ?? identity.username, vault_id: identity.vault_id });
-    let recreatedId: string | null = null;
-    useHistoryStore.getState().push({
+    pushCreateHistory({
       label: `Created identity "${identity.name ?? identity.username}"`,
-      undo: async () => {
-        await useIdentityStore.getState().deleteIdentity(recreatedId ?? identity.id);
-        recreatedId = null;
-      },
-      redo: async () => {
-        const r = await useIdentityStore.getState().saveIdentity(data);
-        recreatedId = r.id;
-      },
+      id: identity.id,
+      data,
+      create: (d) => useIdentityStore.getState().saveIdentity(d),
+      remove: (iid) => useIdentityStore.getState().deleteIdentity(iid),
     });
     return identity;
   },
@@ -292,17 +283,12 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
         tags: prev.tags,
         folder_id: prev.folder_id, vault_id: prev.vault_id,
       };
-      let recreatedId: string | null = null;
-      useHistoryStore.getState().push({
+      pushDeleteHistory({
         label: `Deleted identity "${prev.name ?? prev.username}"`,
-        undo: async () => {
-          const r = await useIdentityStore.getState().saveIdentity(prevData);
-          recreatedId = r.id;
-        },
-        redo: async () => {
-          await useIdentityStore.getState().deleteIdentity(recreatedId ?? id);
-          recreatedId = null;
-        },
+        id,
+        data: prevData,
+        create: (d) => useIdentityStore.getState().saveIdentity(d),
+        remove: (iid) => useIdentityStore.getState().deleteIdentity(iid),
       });
       return;
     }
@@ -320,17 +306,12 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
         tags: prev.tags,
         folder_id: prev.folder_id, vault_id: prev.vault_id,
       };
-      let recreatedId: string | null = null;
-      useHistoryStore.getState().push({
+      pushDeleteHistory({
         label: `Deleted identity "${prev.name ?? prev.username}"`,
-        undo: async () => {
-          const r = await useIdentityStore.getState().saveIdentity(prevData);
-          recreatedId = r.id;
-        },
-        redo: async () => {
-          await useIdentityStore.getState().deleteIdentity(recreatedId ?? id);
-          recreatedId = null;
-        },
+        id,
+        data: prevData,
+        create: (d) => useIdentityStore.getState().saveIdentity(d),
+        remove: (iid) => useIdentityStore.getState().deleteIdentity(iid),
       });
     }
   },

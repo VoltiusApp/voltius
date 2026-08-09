@@ -10,6 +10,25 @@ export function folderOptionsFor(folders: Folder[], objectType: string): Folder[
   return folders.filter((f) => f.object_type === objectType);
 }
 
+/**
+ * Every folder nested beneath `rootId`, breadth-first so a parent always precedes
+ * its children — vault moves and copies rely on that order. Tolerates parent cycles,
+ * which would otherwise spin forever and lock the renderer.
+ */
+export function descendantFolders(folders: Folder[], rootId: string): Folder[] {
+  const queue = [rootId];
+  const result: Folder[] = [];
+  const seen = new Set<string>([rootId]);
+  while (queue.length) {
+    const cur = queue.shift()!;
+    const children = folders.filter((f) => f.parent_folder_id === cur && !seen.has(f.id));
+    for (const child of children) seen.add(child.id);
+    result.push(...children);
+    queue.push(...children.map((f) => f.id));
+  }
+  return result;
+}
+
 /** Ids of `rootId` plus every folder nested beneath it. Tolerates parent cycles. */
 export function folderSubtreeIds(folders: Folder[], rootId: string): Set<string> {
   const ids = new Set<string>([rootId]);

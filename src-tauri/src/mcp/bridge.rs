@@ -1,0 +1,255 @@
+use serde_json::Value;
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
+use tauri::Emitter;
+use tokio::sync::{oneshot, Mutex};
+
+#[derive(Debug)]
+pub enum BridgeError {
+    Timeout,
+    Invalidated(String),
+    NoWebview,
+}
+
+impl std::fmt::Display for BridgeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BridgeError::Timeout => write!(f, "the app did not answer in time"),
+            BridgeError::Invalidated(r) => write!(f, "request cancelled: {r}"),
+            BridgeError::NoWebview => write!(f, "the app window is not available"),
+        }
+    }
+}
+
+/// Request/response over the Rust→webview boundary. Generalizes the host-key
+/// conflict pattern in `ssh/client.rs`, which is the same oneshot-in-a-map
+/// shape but has no invalidation: a reload strands its senders and the
+/// awaiting task hangs forever.
+///
+/// Senders and receivers are held in separate maps so `register` (reserve the
+/// slot) can be split from `wait` (park on it) — the caller must be able to
+/// emit the event only after the slot exists, or a fast webview could reply
+/// before there is anything to reply to.
+type BridgeResult = Result<Value, BridgeError>;
+
+#[derive(Clone)]
+pub struct Bridge {
+    pending: Arc<Mutex<HashMap<String, oneshot::Sender<BridgeResult>>>>,
+    slots: Arc<Mutex<HashMap<String, oneshot::Receiver<BridgeResult>>>>,
+    /// False from the moment a reload starts until the new page's consumer
+    /// signals it has (re)attached its listener. Closes a race that a single
+    /// invalidate-on-reload-start pass misses: a request that calls
+    /// `request()` after the old listener is gone but before the new one is
+    /// registered would otherwise register and emit normally, then just sit
+    /// there — nothing will ever answer it and it was never in the pending
+    /// map at invalidation time, so it hangs to the full call timeout.
+    ready: Arc<AtomicBool>,
+}
+
+impl Default for Bridge {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Bridge {
+    pub fn new() -> Self {
+        Self {
+            pending: Arc::new(Mutex::new(HashMap::new())),
+            slots: Arc::new(Mutex::new(HashMap::new())),
+            ready: Arc::new(AtomicBool::new(true)),
+        }
+    }
+
+    pub fn set_ready(&self, ready: bool) {
+        self.ready.store(ready, Ordering::SeqCst);
+    }
+
+    #[cfg(test)]
+    fn is_ready(&self) -> bool {
+        self.ready.load(Ordering::SeqCst)
+    }
+
+    pub async fn register(&self) -> String {
+        let id = uuid::Uuid::new_v4().to_string();
+        let (tx, rx) = oneshot::channel();
+        self.pending.lock().await.insert(id.clone(), tx);
+        self.slots.lock().await.insert(id.clone(), rx);
+        id
+    }
+
+    pub async fn pending_count(&self) -> usize {
+        self.pending.lock().await.len()
+    }
+
+    #[cfg(test)]
+    async fn slots_count(&self) -> usize {
+        self.slots.lock().await.len()
+    }
+
+    /// Remove a registered id from both maps without answering it. Used when
+    /// a request never makes it to the webview, so nothing will ever call
+    /// `reply` or `wait` for this id.
+    async fn discard(&self, id: &str) {
+        self.pending.lock().await.remove(id);
+        self.slots.lock().await.remove(id);
+    }
+
+    pub async fn reply(&self, id: &str, result: Value) {
+        if let Some(tx) = self.pending.lock().await.remove(id) {
+            let _ = tx.send(Ok(result));
+        }
+    }
+
+    /// Fail every in-flight request. Called on webview reload/destroy: the
+    /// listener that would have answered is gone, so waiting is pointless.
+    pub async fn invalidate_all(&self, reason: &str) {
+        let drained: Vec<_> = self.pending.lock().await.drain().collect();
+        for (_id, tx) in drained {
+            let _ = tx.send(Err(BridgeError::Invalidated(reason.to_string())));
+        }
+    }
+
+    pub async fn request(
+        &self,
+        app: &tauri::AppHandle,
+        payload: Value,
+        timeout: Duration,
+    ) -> Result<Value, BridgeError> {
+        if !self.ready.load(Ordering::SeqCst) {
+            return Err(BridgeError::Invalidated(
+                "the app window reloaded".to_string(),
+            ));
+        }
+        let id = self.register().await;
+        if app
+            .emit(
+                "mcp-bridge-request",
+                serde_json::json!({ "id": id, "payload": payload }),
+            )
+            .is_err()
+        {
+            self.discard(&id).await;
+            return Err(BridgeError::NoWebview);
+        }
+        self.wait(&id, timeout).await
+    }
+
+    pub async fn wait(&self, id: &str, timeout: Duration) -> Result<Value, BridgeError> {
+        let rx = match self.slots.lock().await.remove(id) {
+            Some(rx) => rx,
+            None => return Err(BridgeError::Timeout),
+        };
+        match tokio::time::timeout(timeout, rx).await {
+            Ok(Ok(result)) => result,
+            // Sender dropped without sending — treat as invalidated, not a hang.
+            Ok(Err(_)) => Err(BridgeError::Invalidated("dropped".into())),
+            Err(_) => {
+                self.pending.lock().await.remove(id);
+                Err(BridgeError::Timeout)
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn reply_resolves_the_matching_request() {
+        let bridge = Bridge::new();
+        let id = bridge.register().await;
+        let waiter = {
+            let b = bridge.clone();
+            let id = id.clone();
+            tokio::spawn(async move { b.wait(&id, Duration::from_secs(5)).await })
+        };
+        // Give the waiter a tick to park on the receiver.
+        tokio::task::yield_now().await;
+        bridge.reply(&id, serde_json::json!({"ok": true})).await;
+        let got = waiter.await.unwrap().unwrap();
+        assert_eq!(got, serde_json::json!({"ok": true}));
+    }
+
+    #[tokio::test]
+    async fn invalidate_all_errors_in_flight_requests_instead_of_hanging() {
+        let bridge = Bridge::new();
+        let id = bridge.register().await;
+        let waiter = {
+            let b = bridge.clone();
+            let id = id.clone();
+            tokio::spawn(async move { b.wait(&id, Duration::from_secs(30)).await })
+        };
+        tokio::task::yield_now().await;
+        bridge.invalidate_all("webview reloaded").await;
+        // The point of the whole task: this returns promptly, it does not hang
+        // out the 30s timeout.
+        match waiter.await.unwrap() {
+            Err(BridgeError::Invalidated(reason)) => assert_eq!(reason, "webview reloaded"),
+            other => panic!("expected Invalidated, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn a_request_that_is_never_answered_times_out() {
+        let bridge = Bridge::new();
+        let id = bridge.register().await;
+        let got = bridge.wait(&id, Duration::from_millis(50)).await;
+        assert!(matches!(got, Err(BridgeError::Timeout)));
+    }
+
+    #[tokio::test]
+    async fn a_reply_for_an_unknown_id_is_ignored_rather_than_panicking() {
+        let bridge = Bridge::new();
+        bridge.reply("no-such-id", serde_json::json!({})).await;
+    }
+
+    #[tokio::test]
+    async fn a_timed_out_request_leaves_no_entry_behind() {
+        let bridge = Bridge::new();
+        let id = bridge.register().await;
+        let _ = bridge.wait(&id, Duration::from_millis(50)).await;
+        assert_eq!(bridge.pending_count().await, 0);
+    }
+
+    #[tokio::test]
+    async fn discard_removes_the_id_from_both_maps() {
+        let bridge = Bridge::new();
+        let id = bridge.register().await;
+        bridge.discard(&id).await;
+        assert_eq!(bridge.pending_count().await, 0);
+        assert_eq!(bridge.slots_count().await, 0);
+    }
+
+    #[tokio::test]
+    async fn ready_starts_true_and_reflects_set_ready() {
+        // A fresh Bridge (app boot, or any point outside a reload) must not
+        // reject requests by default.
+        let bridge = Bridge::new();
+        assert!(bridge.is_ready());
+        bridge.set_ready(false);
+        assert!(!bridge.is_ready());
+        bridge.set_ready(true);
+        assert!(bridge.is_ready());
+    }
+
+    #[tokio::test]
+    async fn a_second_invalidate_after_all_slots_cleared_is_a_no_op() {
+        let bridge = Bridge::new();
+        let id = bridge.register().await;
+        let b = bridge.clone();
+        let waiter = tokio::spawn(async move { b.wait(&id, Duration::from_secs(30)).await });
+        tokio::task::yield_now().await;
+        bridge.invalidate_all("first").await;
+        bridge.invalidate_all("second").await;
+        assert!(matches!(
+            waiter.await.unwrap(),
+            Err(BridgeError::Invalidated(_))
+        ));
+        assert_eq!(bridge.pending_count().await, 0);
+    }
+}

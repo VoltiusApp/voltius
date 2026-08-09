@@ -4,6 +4,7 @@ import AccountSection from "@/components/settings/sections/AccountSection";
 import SyncSection from "@/components/settings/sections/SyncSection";
 import VaultsSection from "@/components/settings/sections/VaultsSection";
 import PluginsSection from "@/components/settings/sections/PluginsSection";
+import IntegrationsSection from "@/components/settings/sections/IntegrationsSection";
 import TerminalSection from "@/components/settings/sections/TerminalSection";
 import SFTPSection from "@/components/settings/sections/SFTPSection";
 import PortForwardingSection from "@/components/settings/sections/PortForwardingSection";
@@ -20,6 +21,7 @@ export function renderSettingsSection(section: SettingsSection) {
     case "sync": return <SyncSection />;
     case "vaults": return <VaultsSection />;
     case "plugins": return <PluginsSection />;
+    case "integrations": return <IntegrationsSection />;
     case "terminal": return <TerminalSection />;
     case "sftp": return <SFTPSection />;
     case "portForwarding": return <PortForwardingSection />;

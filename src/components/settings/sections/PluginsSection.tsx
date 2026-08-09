@@ -19,7 +19,7 @@ import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { useFilterShortcut } from "@/components/shared/ToolbarViewControls";
 import { setPluginActive, getLoadedPlugins, pluginStorageGet, pluginStorageSet } from "@/plugins/runtime";
 import type { PluginManifest, PluginConfigField } from "@/plugins/api";
-import { DirtyDot, ResetButton } from "./shared";
+import { DirtyDot, ResetButton, SettingRow } from "./shared";
 import { useIsAndroid } from "@/utils/platform";
 import { visiblePlugins } from "@/components/settings/settingsMobileCore";
 
@@ -105,15 +105,14 @@ function PluginConfigForm({ manifest }: { manifest: PluginManifest }) {
         }
 
         return (
-          <div key={key} className="group flex items-center justify-between px-4 py-3 gap-4">
-            <div>
-              <p className="text-sm font-medium text-(--t-text-primary)">{field.label ?? humanizeKey(key)}</p>
-              {field.description && <p className="text-xs mt-0.5 text-(--t-text-dim)">{field.description}</p>}
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {isDirty && <ResetButton onReset={() => void save(key, field.default)} />}
-              {isDirty && <DirtyDot />}
-              {isSaving && <Icon icon="lucide:loader" width={13} className="animate-spin text-(--t-text-muted)" />}
+          <SettingRow
+            key={key}
+            title={field.label ?? humanizeKey(key)}
+            desc={field.description}
+            dirty={isDirty}
+            onReset={() => void save(key, field.default)}
+          >
+            {isSaving && <Icon icon="lucide:loader" width={13} className="animate-spin text-(--t-text-muted)" />}
               {field.type === "boolean" && (
                 <Toggle checked={!!value} onChange={(v) => void save(key, v)} />
               )}
@@ -144,8 +143,7 @@ function PluginConfigForm({ manifest }: { manifest: PluginManifest }) {
                   ))}
                 </select>
               )}
-            </div>
-          </div>
+          </SettingRow>
         );
       })}
     </div>

@@ -66,6 +66,7 @@
       "sync":           { "label": "同步",            "keywords": ["备份", "云", "gist", "同步", "pro"] },
       "vaults":         { "label": "保险库",          "keywords": ["密钥", "密码", "存储", "密钥链"] },
       "plugins":        { "label": "插件",         "keywords": ["扩展", "附加组件", "市场"] },
+      "integrations":   { "label": "集成",         "keywords": ["mcp", "claude", "claude code", "服务器", "socket", "代理"] },
       "terminal":       { "label": "终端",        "keywords": ["回滚", "粘贴", "括号", "复制", "小地图", "缓冲区"] },
       "sftp":           { "label": "SFTP",            "keywords": ["文件", "传输", "ftp", "文件"] },
       "portForwarding": { "label": "端口转发", "keywords": ["隧道", "转发", "端口", "ssh", "自动"] },
@@ -255,6 +256,47 @@
       "toastSaved": "报告已保存——{{name}}",
       "toastError": "无法创建报告：{{reason}}",
       "toastGenericError": "出错了。"
+    },
+    "integrations": {
+      "mcp": {
+        "title": "MCP",
+        "sub": "允许本地 MCP 客户端（如 Claude Code）通过私有 socket 在您保险库中的所有主机以及本机上执行命令，读取、写入和删除文件，并创建、修改或删除已保存的连接、密钥和身份。审批在该客户端中进行，而不是在 Voltius 中。默认关闭。",
+        "running": "运行中",
+        "quickSetup": {
+          "title": "快速设置",
+          "help": "自动配置在此计算机上检测到的每个 AI 代理，不会更改您的其他设置。需要安装 Node.js。"
+        },
+        "manualSetup": {
+          "toggleLabel": "手动设置",
+          "toggleSub": "未安装 Node.js，或您的客户端不受上方命令支持？请在下方手动设置。"
+        },
+        "setup": {
+          "title": "客户端设置",
+          "clientLabel": "MCP 客户端",
+          "clients": {
+            "claudeCode": "Claude Code",
+            "mcpServers": "Claude Desktop / Cursor / Cline / Windsurf",
+            "vscode": "VS Code / GitHub Copilot",
+            "opencode": "OpenCode"
+          },
+          "help": {
+            "claudeCode": "运行一次以在 Claude Code 中注册 Voltius。客户端连接前需先启用上方的服务器。",
+            "mcpServers": "将此代码块添加到 claude_desktop_config.json（Claude Desktop）或 .cursor/mcp.json（Cursor、Cline、Windsurf）。客户端连接前需先启用上方的服务器。",
+            "vscode": "将此代码块添加到 .vscode/mcp.json。VS Code 使用的是 \"servers\"，不是 \"mcpServers\"——粘贴 Cursor 格式的代码块会静默地加载不到任何内容。",
+            "opencode": "将此代码块添加到 opencode.json（项目级）或 ~/.config/opencode/opencode.json（全局）。"
+          },
+          "exePathLabel": "可执行文件路径",
+          "socketLabel": "Socket 路径",
+          "copied": "已复制"
+        },
+        "plugins": {
+          "title": "向客户端开放的插件工具",
+          "sub": "已安装的插件可以向 MCP 服务器添加自己的命令。关闭某个插件即可将其移出工具列表，无需卸载。",
+          "empty": "没有已安装的插件提供工具。",
+          "count_one": "{{count}} 个工具",
+          "count_other": "{{count}} 个工具"
+        }
+      }
     },
     "about": {
       "versionTitle": "版本",
@@ -599,9 +641,19 @@
             "label": "管理 Proxmox",
             "description": "列出并控制 LXC 容器，包括创建、删除和回滚快照。这可能会永久销毁数据。"
           },
+          "sftpRead": { "label": "读取文件", "description": "浏览并读取已保存的 SSH/FTP 主机以及本机上的文件。" },
+          "sftpWrite": { "label": "写入和移动文件", "description": "在已保存的 SSH/FTP 主机和本机上创建、重命名、覆盖和删除文件，并在它们之间复制文件。这可能会永久销毁数据。" },
           "audit": {
             "label": "记录审计事件",
             "description": "在您的审计日志中添加描述其操作的条目。对于团队保险库中的主机，这些条目也会发送到该团队的服务器。"
+          },
+          "auditRead": {
+            "label": "读取活动日志",
+            "description": "读取本设备的活动日志，包括访问过哪些主机、改动过哪些文件，以及其他插件的操作。"
+          },
+          "mcpContribute": {
+            "label": "向外部 AI 代理开放工具",
+            "description": "允许此插件将自己的命令添加到 Voltius MCP 服务器，使已连接的任何外部 AI 代理都能以此插件的权限执行这些命令。"
           },
           "sessionsRead": {
             "label": "查看您的会话",
@@ -809,9 +861,11 @@
         "sftp": "SFTP",
         "hosts": "主机",
         "updates": "更新",
-        "plugins": "插件"
+        "plugins": "插件",
+        "integrations": "集成"
       },
-      "pluginInstallReview": { "label": "安装插件前先审查权限" }
+      "pluginInstallReview": { "label": "安装插件前先审查权限" },
+      "mcpServer": { "label": "MCP 服务器" }
     },
     "shortcuts": {
       "searchPlaceholder": "搜索快捷键…",

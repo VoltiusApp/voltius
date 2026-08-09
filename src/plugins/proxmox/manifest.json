@@ -11,7 +11,8 @@
     "proxmox:read",
     "proxmox:manage",
     "connections:read",
-    "ui"
+    "ui",
+    "mcp:contribute"
   ],
   "defaultEnabled": true
 }

@@ -25,6 +25,12 @@ export interface PluginConnection {
   icon?: string;
   distro?: string;
   serial_port?: string;
+  /**
+   * True when this connection is owned by a team vault rather than the user's
+   * personal store. `update` and `delete` reject one; a `vault_id` does NOT
+   * imply it, since a personal connection can live in a local vault too.
+   */
+  team?: boolean;
 }
 
 export interface PluginConnectionInput {
@@ -154,6 +160,50 @@ export interface PluginSession {
   type: string;
   /** Local sessions only: the shell path/name to use for a spawned exec PTY. */
   localShell?: string;
+}
+
+// ─── Files (SFTP / FTP / local) ────────────────────────────────────────────
+
+/**
+ * What a file operation acts on: a saved connection's id, or the literal
+ * "local" for this machine. SFTP and FTP connections are both addressed this
+ * way — the host opens whichever transport the connection declares.
+ */
+export type FileTarget = string;
+
+export interface FileEndpoint {
+  target: FileTarget;
+  path: string;
+}
+
+export interface PluginFile {
+  name: string;
+  path: string;
+  size: number;
+  isDir: boolean;
+  isSymlink: boolean;
+  /** Unix seconds, or null when the transport does not report one. */
+  modified: number | null;
+}
+
+/**
+ * Remote and local file access. Reads are gated on "sftp:read", everything that
+ * writes, moves or removes on "sftp:write".
+ */
+export interface SftpAPI {
+  list(target: FileTarget, path: string): Promise<PluginFile[]>;
+  /** Null when the path does not exist — not an error. */
+  stat(target: FileTarget, path: string): Promise<PluginFile | null>;
+  readText(target: FileTarget, path: string, maxBytes?: number): Promise<string>;
+  writeText(target: FileTarget, path: string, content: string): Promise<void>;
+  mkdir(target: FileTarget, path: string): Promise<void>;
+  rename(target: FileTarget, from: string, to: string): Promise<void>;
+  delete(target: FileTarget, path: string): Promise<void>;
+  /** Copy one path between any two targets, in any direction, files or
+   *  directories. Host→host streams directly and never lands on this machine. */
+  transfer(src: FileEndpoint, dst: FileEndpoint): Promise<void>;
+  /** Release the handle held for `target`, if any. */
+  disconnect(target: FileTarget): Promise<void>;
 }
 
 export type PluginTheme = AppTheme;
@@ -388,6 +438,51 @@ export interface DockerAPI {
   };
 }
 
+/** A local audit row, projected. Drops the internal id, actor id, team/vault
+ *  ids and IP — none of which a plugin or an external client has any use for. */
+export interface PluginAuditRow {
+  action: string;
+  actor_name: string;
+  source: "server" | "client";
+  target_type: string | null;
+  target_id: string | null;
+  target_name: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface PluginAuditQuery {
+  actions?: string[];
+  /** ISO 8601. */
+  from?: string;
+  to?: string;
+  page?: number;
+  /** Clamped to 100. */
+  perPage?: number;
+}
+
+/** One MCP tool a plugin contributes. The host namespaces the name, validates
+ *  everything here at registration, and audits calls unless `mutating` is false. */
+export interface McpToolContribution {
+  /** Unqualified, matching /^[a-z0-9_]+$/. The host adds the namespace prefix. */
+  name: string;
+  description: string;
+  /** Plain JSON Schema. Converted host-side with the host's own zod, so no zod
+   *  instance crosses the bundle boundary. */
+  inputSchema: Record<string, unknown>;
+  /** Whether a call changes state. Defaults to true: forgetting the field
+   *  audits rather than silently not auditing. */
+  mutating?: boolean;
+  execute(args: Record<string, unknown>): Promise<unknown>;
+}
+
+/** Contribute tools to the Voltius MCP server. GATED (mcp:contribute). */
+export interface McpAPI {
+  /** Register this plugin's whole tool set. Throws on any invalid tool and
+   *  registers none of them. Returns a teardown that removes the whole set. */
+  registerTools(tools: McpToolContribution[]): () => void;
+}
+
 // ─── API principale ────────────────────────────────────────────────────────
 
 export interface PluginAPI {
@@ -412,10 +507,17 @@ export interface PluginAPI {
 
   // Connections (requires connections:*)
   connections: {
+    /**
+     * Every connection the user can reach, personal and team-vault alike. A
+     * team-owned entry carries `team: true`; it is addressable exactly like a
+     * personal connection for reads and for opening a session.
+     */
     list(): Promise<PluginConnection[]>;
     get(id: string): Promise<PluginConnection | null>;
     create(data: PluginConnectionInput): Promise<PluginConnection>;
+    /** Rejects a team-vault connection: team objects are not editable through this API. */
     update(id: string, data: Partial<PluginConnectionInput>): Promise<void>;
+    /** Rejects a team-vault connection: team objects are not deletable through this API. */
     delete(id: string): Promise<void>;
     bulkImport(items: PluginConnectionInput[]): Promise<PluginConnection[]>;
     subscribe(cb: (connections: PluginConnection[]) => void): () => void;
@@ -428,7 +530,8 @@ export interface PluginAPI {
     delete(key: string): Promise<void>;
   };
 
-  // Audit — record what this plugin did (requires "audit")
+  // Audit — record what this plugin did (requires "audit"); read this device's
+  // log (requires the gated "audit:read")
   audit: {
     /**
      * Record an action against the connection it targets. A team-vault
@@ -444,6 +547,9 @@ export interface PluginAPI {
       metadata?: Record<string, unknown>,
       localMetadata?: Record<string, unknown>,
     ): void;
+    /** This device's local rows only. Team-vault rows are server-backed and
+     *  are not returned here. */
+    query(filters: PluginAuditQuery): Promise<{ logs: PluginAuditRow[]; total: number }>;
   };
 
   // Themes (requires "themes")
@@ -593,6 +699,10 @@ export interface PluginAPI {
 
   // Proxmox VE LXC management — GATED, split
   // proxmox:read (list/snapshots.list) / proxmox:manage (everything else).
+  // Files over SFTP/FTP and the local disk — GATED, split
+  // sftp:read (list/stat/readText) / sftp:write (everything that mutates).
+  sftp: SftpAPI;
+
   proxmox: ProxmoxAPI;
 
   // Docker container/image/volume/network/stack management — GATED, split
@@ -650,6 +760,10 @@ export interface PluginAPI {
     /** Get another plugin's exposed API. Returns null if not loaded or not exposed. */
     getApi(pluginId: string): unknown | null;
   };
+
+  // MCP tool contributions — GATED (mcp:contribute). Tools run with THIS
+  // plugin's permissions, called by whatever external agent the user connected.
+  mcp: McpAPI;
 }
 
 export type PluginRegisterFn = (api: PluginAPI) => (() => void) | void;

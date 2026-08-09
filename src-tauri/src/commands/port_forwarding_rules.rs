@@ -1,3 +1,4 @@
+use crate::commands::crdt::{is_alive, max_clock};
 use crate::storage::config::{
     load_port_forwarding_rules, save_port_forwarding_rules, PortForwardingRule,
     PortForwardingRuleFormData,
@@ -6,21 +7,6 @@ use crate::vault_auth::check_vault_write;
 use chrono::Utc;
 use std::collections::HashMap;
 use uuid::Uuid;
-
-fn is_alive(deleted_at: &Option<String>, updated_at: &str) -> bool {
-    match deleted_at {
-        None => true,
-        Some(d) => updated_at > d.as_str(),
-    }
-}
-
-fn max_clock(clocks: &HashMap<String, String>, fallback: &str) -> String {
-    clocks
-        .values()
-        .max()
-        .cloned()
-        .unwrap_or_else(|| fallback.to_string())
-}
 
 #[tauri::command]
 pub fn pf_rule_list() -> Result<Vec<PortForwardingRule>, String> {
