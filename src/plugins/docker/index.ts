@@ -5,6 +5,7 @@ import { DockerPanel } from "./components/DockerPanel";
 import { initDockerRuntime } from "./runtime";
 import { createMobileDockerScreen } from "./components/MobileDockerScreen";
 import { createMobileDockerLogsScreen } from "./components/MobileDockerLogsScreen";
+import { buildDockerMcpTools } from "./mcpTools";
 
 export const manifest = manifestJson as PluginManifest;
 
@@ -29,9 +30,11 @@ export const register: PluginRegisterFn = (api: PluginAPI) => {
     kind: "docker-logs",
     render: createMobileDockerLogsScreen(api),
   });
+  const offMcp = api.mcp.registerTools(buildDockerMcpTools(api));
   return () => {
     offPanel();
     offMobile();
     offMobileLogs();
+    offMcp();
   };
 };
