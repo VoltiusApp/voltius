@@ -2,24 +2,52 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { buildMcpTools, listToolDescriptors, callTool, type McpTool } from "./consumer";
 import { getMcpHostApi } from "./hostApi";
+import { contributionsVersion } from "./contributions";
 import { startToolsChangedNotifier } from "./notifyToolsChanged";
 
-interface BridgeRequest {
-  id: string;
-  payload: { op: string; name?: string; args?: Record<string, unknown> };
+export interface BridgePayload {
+  op: string;
+  name?: string;
+  args?: Record<string, unknown>;
+  /** Identifies the connected client. Absent only from an older backend. */
+  clientId?: string;
 }
 
-// Built once and reused across requests, like hostApi's own `cached`: the
-// `owned` set inside these tools (see coreTools.ts) is what makes
-// "MCP may close only what MCP opened" hold across separate JSON-RPC calls.
-let cachedTools: McpTool[] | null = null;
-function getTools(): McpTool[] {
-  cachedTools ??= buildMcpTools(getMcpHostApi(), new Set<string>());
-  return cachedTools;
+interface ClientState {
+  /** Sessions THIS client opened. Per-client, so two concurrent clients cannot
+   *  close each other's sessions. */
+  owned: Set<string>;
+  tools: McpTool[];
+  version: number;
 }
 
-async function handle(payload: BridgeRequest["payload"]): Promise<unknown> {
-  const tools = getTools();
+const _clients = new Map<string, ClientState>();
+
+/** Test seam. */
+export function resetClientTools(): void {
+  _clients.clear();
+}
+
+function stateFor(clientId: string): ClientState {
+  const version = contributionsVersion();
+  const existing = _clients.get(clientId);
+  if (existing && existing.version === version) return existing;
+  // The owned set is hoisted out of the build and reused: rebuilding it with
+  // the tools would orphan every session this client had opened, silently
+  // making them unclosable.
+  const owned = existing?.owned ?? new Set<string>();
+  const next: ClientState = { owned, tools: buildMcpTools(getMcpHostApi(), owned), version };
+  _clients.set(clientId, next);
+  return next;
+}
+
+export async function handleBridgePayload(payload: BridgePayload): Promise<unknown> {
+  const clientId = payload.clientId ?? "default";
+  if (payload.op === "client_closed") {
+    _clients.delete(clientId);
+    return { ok: true };
+  }
+  const { tools } = stateFor(clientId);
   if (payload.op === "tools/list") return { tools: listToolDescriptors(tools) };
   if (payload.op === "tools/call") {
     return callTool(tools, payload.name ?? "", payload.args ?? {});
@@ -32,11 +60,11 @@ async function handle(payload: BridgeRequest["payload"]): Promise<unknown> {
 export function registerMcpConsumer(): () => void {
   let stop: (() => void) | undefined;
   const stopNotifier = startToolsChangedNotifier();
-  void listen<BridgeRequest>("mcp-bridge-request", async (event) => {
+  void listen<{ id: string; payload: BridgePayload }>("mcp-bridge-request", async (event) => {
     const { id, payload } = event.payload;
     let result: unknown;
     try {
-      result = await handle(payload);
+      result = await handleBridgePayload(payload);
     } catch (err) {
       result = { ok: false, error: err instanceof Error ? err.message : String(err) };
     }

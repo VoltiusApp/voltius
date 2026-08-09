@@ -28,7 +28,7 @@ pub fn socket_path() -> PathBuf {
 /// keeps the protocol path unit-testable without a running webview.
 type Ctx<'a> = Option<(&'a tauri::AppHandle, &'a Arc<McpState>)>;
 
-pub async fn dispatch_line(ctx: Ctx<'_>, line: &str) -> Option<Value> {
+pub async fn dispatch_line(ctx: Ctx<'_>, client_id: &str, line: &str) -> Option<Value> {
     let req = match protocol::parse_request(line) {
         Ok(r) => r,
         Err(resp) => return Some(resp),
@@ -43,10 +43,11 @@ pub async fn dispatch_line(ctx: Ctx<'_>, line: &str) -> Option<Value> {
                 return Some(protocol::error(Some(id), -32603, "app unavailable"));
             };
             let payload = if req.method == "tools/list" {
-                json!({ "op": "tools/list" })
+                json!({ "op": "tools/list", "clientId": client_id })
             } else {
                 json!({
                     "op": "tools/call",
+                    "clientId": client_id,
                     "name": req.params.get("name").and_then(|n| n.as_str()).unwrap_or(""),
                     "args": req.params.get("arguments").cloned().unwrap_or_else(|| json!({})),
                 })
@@ -134,7 +135,7 @@ pub(crate) async fn handle_connection_stream<S>(
     app_state: Option<(tauri::AppHandle, Arc<McpState>)>,
     mut shutdown: watch::Receiver<bool>,
     mut tools_changed: broadcast::Receiver<()>,
-    _client_id: String,
+    client_id: String,
 ) where
     S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
 {
@@ -194,7 +195,7 @@ pub(crate) async fn handle_connection_stream<S>(
                         if changed.is_err() || !*shutdown.borrow() { break; }
                         continue;
                     }
-                    resp = dispatch_line(ctx, &line) => resp,
+                    resp = dispatch_line(ctx, &client_id, &line) => resp,
                 }
             }
             Err(_) => Some(protocol::error(None, -32600, "line too long")),
@@ -211,6 +212,17 @@ pub(crate) async fn handle_connection_stream<S>(
                 res = w.write_all(&out) => { if res.is_err() { break; } }
             }
         }
+    }
+
+    // Fire and forget: the reply is meaningless and awaiting it would hold the
+    // connection task open for up to CALL_TIMEOUT after the client is already
+    // gone. Sessions this client opened stay open as real tabs; they simply
+    // stop being MCP-closable, exactly like sessions the user opened.
+    if let Some((app, state)) = app_state {
+        let payload = json!({ "op": "client_closed", "clientId": client_id });
+        tauri::async_runtime::spawn(async move {
+            let _ = state.bridge.request(&app, payload, CALL_TIMEOUT).await;
+        });
     }
 }
 
@@ -247,6 +259,7 @@ mod tests {
     async fn dispatch_answers_initialize_without_touching_the_webview() {
         let out = dispatch_line(
             None,
+            "test",
             r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}"#,
         )
         .await;
@@ -261,6 +274,7 @@ mod tests {
     async fn a_notification_produces_no_response_line() {
         let out = dispatch_line(
             None,
+            "test",
             r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
         )
         .await;
@@ -271,6 +285,7 @@ mod tests {
     async fn an_unknown_method_is_method_not_found() {
         let out = dispatch_line(
             None,
+            "test",
             r#"{"jsonrpc":"2.0","id":9,"method":"resources/list"}"#,
         )
         .await;
@@ -279,7 +294,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_malformed_line_still_produces_a_well_formed_error() {
-        let out = dispatch_line(None, "garbage").await;
+        let out = dispatch_line(None, "test", "garbage").await;
         assert_eq!(out.unwrap()["error"]["code"], serde_json::json!(-32700));
     }
 
@@ -287,6 +302,7 @@ mod tests {
     async fn tools_call_without_app_context_is_an_internal_error_not_a_panic() {
         let out = dispatch_line(
             None,
+            "test",
             r#"{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"x"}}"#,
         )
         .await;

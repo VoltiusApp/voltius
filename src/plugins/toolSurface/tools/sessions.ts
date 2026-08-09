@@ -32,7 +32,7 @@ export function buildSessionTools(ports: ToolSurfacePorts): Tool[] {
           connectionId: s.connectionId,
           connectionName: s.connectionName,
           localShell: s.localShell,
-          agentOwned: ports.owned.has(s.id),
+          ownedByCaller: ports.owned.has(s.id),
         })),
     },
     {
@@ -100,7 +100,7 @@ export function buildSessionTools(ports: ToolSurfacePorts): Tool[] {
           "agent.command_run",
           // sessionType rides on the wire metadata so the trail distinguishes a
           // command run in the user's own terminal from one in an agent workbench.
-          { tool: "run_command", approval: g.via, sessionType: session.type, agentOwned: ports.owned.has(sessionId) },
+          { tool: "run_command", approval: g.via, sessionType: session.type, ownedByCaller: ports.owned.has(sessionId) },
           { command },
         );
         return session.type === "serial"

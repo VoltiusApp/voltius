@@ -49,7 +49,7 @@ describe("execution auditing", () => {
     await byName(list, "run_command").execute({ sessionId: "s1", command: "uptime" });
     expect(audit).toHaveBeenCalledWith(
       "c1", "agent.command_run",
-      { tool: "run_command", approval: "granted", sessionType: "ssh", agentOwned: true },
+      { tool: "run_command", approval: "granted", sessionType: "ssh", ownedByCaller: true },
       { command: "uptime" },
     );
   });
@@ -59,7 +59,7 @@ describe("execution auditing", () => {
     const { list, owned } = tools(approve);
     owned.add("s1");
     await byName(list, "run_command").execute({ sessionId: "s1", command: "uptime" });
-    expect(audit.mock.calls[0][2]).toEqual({ tool: "run_command", approval: "auto_mode", sessionType: "ssh", agentOwned: true });
+    expect(audit.mock.calls[0][2]).toEqual({ tool: "run_command", approval: "auto_mode", sessionType: "ssh", ownedByCaller: true });
   });
 
   it("carries via=prompted through to the approval classifier", async () => {
@@ -67,14 +67,14 @@ describe("execution auditing", () => {
     const { list, owned } = tools(approve);
     owned.add("s1");
     await byName(list, "run_command").execute({ sessionId: "s1", command: "uptime" });
-    expect(audit.mock.calls[0][2]).toEqual({ tool: "run_command", approval: "prompted", sessionType: "ssh", agentOwned: true });
+    expect(audit.mock.calls[0][2]).toEqual({ tool: "run_command", approval: "prompted", sessionType: "ssh", ownedByCaller: true });
   });
 
   it("flags a command run in the user's own session as not agent-owned", async () => {
     const approve = vi.fn(async () => ({ approve: true, scope: "c1", via: "prompted" }));
     const { list } = tools(approve); // s1 is live but never added to `owned`
     await byName(list, "run_command").execute({ sessionId: "s1", command: "uptime" });
-    expect(audit.mock.calls[0][2]).toMatchObject({ agentOwned: false, sessionType: "ssh" });
+    expect(audit.mock.calls[0][2]).toMatchObject({ ownedByCaller: false, sessionType: "ssh" });
   });
 
   it("records a closed session", async () => {

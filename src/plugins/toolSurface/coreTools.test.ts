@@ -239,7 +239,7 @@ describe("session audit carries the approval classifier", () => {
     expect(ports.audit).toHaveBeenCalledWith(
       "conn-A",
       "agent.command_run",
-      { tool: "run_command", approval: "plan", sessionType: "ssh", agentOwned: true },
+      { tool: "run_command", approval: "plan", sessionType: "ssh", ownedByCaller: true },
       { command: "df -h" },
     );
   });
@@ -291,10 +291,10 @@ describe("session-type routing", () => {
   test("list_sessions exposes the user's local and serial sessions, not just agent-owned ones", async () => {
     const c = serialPorts();
     const res = (await buildCoreTools(c).find((t) => t.name === "list_sessions")!.execute({})) as Array<{
-      id: string; type: string; agentOwned: boolean;
+      id: string; type: string; ownedByCaller: boolean;
     }>;
     expect(res.map((s) => s.type).sort()).toEqual(["local", "serial", "ssh"]);
-    expect(res.every((s) => s.agentOwned === false)).toBe(true);
+    expect(res.every((s) => s.ownedByCaller === false)).toBe(true);
   });
 
   test("run_command sends verbatim on a serial session — no shell markers reach the device", async () => {
