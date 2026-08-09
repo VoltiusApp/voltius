@@ -43,7 +43,13 @@ export type PluginAuditAction =
   | "agent.file_transferred"
   | "agent.object_created"
   | "agent.object_updated"
-  | "agent.object_deleted";
+  | "agent.object_deleted"
+  // A tool a plugin contributed through api.mcp, called by an external MCP
+  // client. Distinct from agent.command_run so the trail stays filterable by
+  // what actually reached the host. Must be on the server's CLIENT_WHITELIST
+  // before any client that emits it ships, or the team rows are 400ed and
+  // silently dropped.
+  | "agent.plugin_tool_run";
 
 export const PLUGIN_AUDIT_ACTIONS: readonly PluginAuditAction[] = [
   "agent.grant_created", "agent.grant_revoked", "agent.mode_changed",
@@ -52,6 +58,7 @@ export const PLUGIN_AUDIT_ACTIONS: readonly PluginAuditAction[] = [
   "agent.file_created", "agent.file_written", "agent.file_renamed",
   "agent.file_deleted", "agent.file_transferred",
   "agent.object_created", "agent.object_updated", "agent.object_deleted",
+  "agent.plugin_tool_run",
 ];
 
 export type AnyAuditAction = ClientAuditAction | PluginAuditAction;

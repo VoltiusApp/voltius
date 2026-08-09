@@ -2,6 +2,7 @@ import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { useConnectionStore } from "@/stores/connectionStore";
 import type { Connection } from "@/types";
 import type { PluginAPI, PluginManifest, PluginRegisterFn } from "./api";
+import { PLUGIN_AUDIT_ACTIONS } from "@/services/auditContext";
 
 const reportPluginAuditEvent = vi.fn();
 vi.mock("@/services/auditReporter", async (orig) => ({
@@ -82,5 +83,9 @@ describe("api.audit.record", () => {
   test("passes localMetadata through to the reporter, which bounds it", () => {
     load("agent", ["audit"]).audit.record("c1", "agent.command_run", undefined, { command: "ls" });
     expect(reportPluginAuditEvent.mock.calls[0][2].localMetadata).toEqual({ command: "ls" });
+  });
+
+  test("accepts agent.plugin_tool_run", () => {
+    expect(PLUGIN_AUDIT_ACTIONS).toContain("agent.plugin_tool_run");
   });
 });

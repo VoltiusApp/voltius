@@ -19,6 +19,7 @@ const _cover: Record<PluginAuditAction, true> = {
   "agent.object_created": true,
   "agent.object_updated": true,
   "agent.object_deleted": true,
+  "agent.plugin_tool_run": true,
 };
 
 describe("PLUGIN_AUDIT_ACTIONS", () => {
