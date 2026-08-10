@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useVaultStore } from "@/stores/vaultStore";
@@ -6,7 +6,7 @@ import { useVaultContents } from "@/hooks/useVaultContents";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useTeamStore } from "@/stores/teamStore";
 import type { TeamMember, TeamRole } from "@/stores/teamStore";
-import { searchUsers, getMyUserId, inviteByEmail, listPendingInvitations, revokePendingInvitation } from "@/services/teamService";
+import { getMyUserId, inviteByEmail, listPendingInvitations, revokePendingInvitation } from "@/services/teamService";
 import type { PendingInvitation } from "@/services/teamService";
 import { effectivePermissions, hasBuiltinRole, PERM_BITS } from "@/hooks/usePermission";
 import { useSubscriptionStore } from "@/stores/subscriptionStore";
@@ -21,6 +21,7 @@ import { runTeamAction } from "@/services/teamActionFeedback";
 import { markTeamVaultLoadedAfterLocalActivation } from "@/services/teamVaultActivation";
 import { openBillingCheckout } from "@/services/billingCheckout";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
+import { useUserSearch } from "@/hooks/useUserSearch";
 
 // ─── Vault migration helpers ──────────────────────────────────────────────────
 
@@ -179,18 +180,14 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
   const addMemberById = useTeamStore((s) => s.addMemberById);
   const assignMemberRole = useTeamStore((s) => s.assignMemberRole);
   const { usedSeats, totalSeats, load: reloadSubscription } = useSubscriptionStore();
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [open, setOpen] = useState(false);
+  const { query, setQuery, results, searching, open, setOpen, inputRef, dropdownRef, reset } =
+    useUserSearch(existingIds);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const [adding, setAdding] = useState<string | null>(null);
   const [sendingInvite, setSendingInvite] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [buySeatsFor, setBuySeatsFor] = useState<SearchResult | null | undefined>(undefined);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const isAtSeatLimit = seatAvailability(usedSeats, totalSeats).atLimit;
 
@@ -213,28 +210,6 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
     [selectedRoleIds, inviteRoles],
   );
 
-  useEffect(() => {
-    if (query.length < 2) { setResults([]); setOpen(false); return; }
-    setSearching(true);
-    const timer = setTimeout(() => {
-      searchUsers(query)
-        .then((r) => { setResults(r.filter((u) => !existingIds.has(u.user_id))); setOpen(true); })
-        .catch(() => {})
-        .finally(() => setSearching(false));
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [query, existingIds]);
-
-  useEffect(() => {
-    if (!open) return;
-    const h = (e: MouseEvent) => {
-      if (!inputRef.current?.contains(e.target as Node) && !dropdownRef.current?.contains(e.target as Node))
-        setOpen(false);
-    };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [open]);
-
   if (!canInvite) return null;
 
   const handleAdd = async (user: SearchResult) => {
@@ -250,7 +225,7 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
       for (const roleId of selectedRoleIds) {
         await assignMemberRole(teamId, user.user_id, roleId).catch(() => {});
       }
-      setQuery(""); setResults([]); setOpen(false);
+      reset();
       await reloadSubscription();
       onMemberAdded?.();
     } catch (e) {
@@ -279,7 +254,7 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
           : t("settings.vaults.members.added", { name: invitedEmail }),
         run: () => inviteByEmail(teamId, invitedEmail, primaryRoleName),
       });
-      setQuery(""); setResults([]); setOpen(false);
+      reset();
       setSuccess(result.status === "invited"
         ? t("settings.vaults.members.invitationSent", { email: invitedEmail })
         : t("settings.vaults.members.added", { name: invitedEmail }));
@@ -366,7 +341,7 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
               style={{ color: "var(--t-text-primary)" }}
             />
             {query && (
-              <button onClick={() => { setQuery(""); setResults([]); setOpen(false); setSuccess(""); }}>
+              <button onClick={() => { reset(); setSuccess(""); }}>
                 <Icon icon="lucide:x" width={11} style={{ color: "var(--t-text-dim)" }} />
               </button>
             )}
@@ -831,36 +806,9 @@ export function PrivateVaultMembersPanel({
   const { createTeam, loadRoles, addMemberById, assignMemberRole } = useTeamStore();
   const { setVaultTeamId } = useVaultStore();
 
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [open, setOpen] = useState(false);
+  const { query, setQuery, results, searching, open, setOpen, inputRef, dropdownRef, reset } = useUserSearch();
   const [adding, setAdding] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (query.length < 2) { setResults([]); setOpen(false); return; }
-    setSearching(true);
-    const timer = setTimeout(() => {
-      searchUsers(query)
-        .then((r) => { setResults(r); setOpen(true); })
-        .catch(() => {})
-        .finally(() => setSearching(false));
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [query]);
-
-  useEffect(() => {
-    if (!open) return;
-    const h = (e: MouseEvent) => {
-      if (!inputRef.current?.contains(e.target as Node) && !dropdownRef.current?.contains(e.target as Node))
-        setOpen(false);
-    };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [open]);
 
   const handleAdd = async (user: SearchResult) => {
     setAdding(user.user_id);
@@ -880,7 +828,7 @@ export function PrivateVaultMembersPanel({
       if (memberRole) {
         await assignMemberRole(team.id, user.user_id, memberRole.id);
       }
-      setQuery(""); setResults([]); setOpen(false);
+      reset();
       onTeamCreated(team.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("settings.vaults.members.failedToAdd"));
@@ -958,7 +906,7 @@ export function PrivateVaultMembersPanel({
               style={{ color: "var(--t-text-primary)" }}
             />
             {query && (
-              <button onClick={() => { setQuery(""); setResults([]); setOpen(false); }}>
+              <button onClick={() => reset()}>
                 <Icon icon="lucide:x" width={11} style={{ color: "var(--t-text-dim)" }} />
               </button>
             )}

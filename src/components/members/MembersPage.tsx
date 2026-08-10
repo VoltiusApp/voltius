@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useVaultStore } from "@/stores/vaultStore";
@@ -11,7 +11,6 @@ import { useHistoryStore } from "@/stores/historyStore";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { MiniAvatar, avatarColor } from "@/components/shared/AvatarStack";
 import {
-  searchUsers,
   getMyUserId,
   getMyEmail,
   inviteByEmail,
@@ -35,6 +34,7 @@ import { openBillingCheckout } from "@/services/billingCheckout";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { RoleModal, PERM_META, TeamRolesPanel } from "@/components/settings/sections/RolesSection";
 import { seatAvailability } from "@/services/seatMath";
+import { useUserSearch } from "@/hooks/useUserSearch";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -686,18 +686,14 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
   const addMemberById = useTeamStore((s) => s.addMemberById);
   const assignMemberRole = useTeamStore((s) => s.assignMemberRole);
   const { usedSeats, totalSeats, load: reloadSubscription } = useSubscriptionStore();
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [open, setOpen] = useState(false);
+  const { query, setQuery, results, searching, open, setOpen, inputRef, dropdownRef, reset } =
+    useUserSearch(existingIds);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const [adding, setAdding] = useState<string | null>(null);
   const [sendingInvite, setSendingInvite] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [buySeatsFor, setBuySeatsFor] = useState<SearchResult | null | undefined>(undefined);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const { atLimit: isAtSeatLimit, available: availableSeats } = seatAvailability(usedSeats, totalSeats);
 
@@ -734,28 +730,6 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
   useEffect(() => { void reloadSubscription(); }, []);
   useEffect(() => { inputRef.current?.focus(); }, []);
 
-  useEffect(() => {
-    if (query.length < 2) { setResults([]); setOpen(false); return; }
-    setSearching(true);
-    const t = setTimeout(() => {
-      searchUsers(query)
-        .then((r) => { setResults(r.filter((u) => !existingIds.has(u.user_id))); setOpen(true); })
-        .catch(() => {})
-        .finally(() => setSearching(false));
-    }, 250);
-    return () => clearTimeout(t);
-  }, [query, existingIds]);
-
-  useEffect(() => {
-    if (!open) return;
-    const h = (e: MouseEvent) => {
-      if (!inputRef.current?.contains(e.target as Node) && !dropdownRef.current?.contains(e.target as Node))
-        setOpen(false);
-    };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [open]);
-
   const handleAdd = async (user: SearchResult) => {
     if (isAtSeatLimit) { setBuySeatsFor(user); setOpen(false); return; }
     setAdding(user.user_id); setError(""); setSuccess("");
@@ -772,7 +746,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
           await assignMemberRole(teamId, user.user_id, roleId).catch(() => {});
         }
       }
-      setQuery(""); setResults([]); setOpen(false);
+      reset();
       setSuccess(result.status === "pending"
         ? t("members.toast.invitationSentToUser", { name: user.display_name })
         : t("members.toast.userAdded", { name: user.display_name }));
@@ -800,7 +774,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
         run: () => inviteByEmail(teamId, invitedEmail, primaryRoleName),
       });
       void result;
-      setQuery(""); setResults([]); setOpen(false);
+      reset();
       setSuccess(t("members.toast.invitationSentToEmail", { email: invitedEmail }));
       await reloadSubscription();
       onMemberAdded();
@@ -919,7 +893,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
                   className="flex-1 bg-transparent outline-hidden text-sm text-(--t-text-primary)"
                 />
                 {query && (
-                  <button onClick={() => { setQuery(""); setResults([]); setOpen(false); setSuccess(""); }}>
+                  <button onClick={() => { reset(); setSuccess(""); }}>
                     <Icon icon="lucide:x" width={11} style={{ color: "var(--t-text-dim)" }} />
                   </button>
                 )}
@@ -1238,14 +1212,9 @@ export default function MembersPage() {
   const [detailMemberId, setDetailMemberId] = useState<string | null>(null);
 
   // Private-vault invite state
-  const [privateQuery, setPrivateQuery] = useState("");
-  const [privateResults, setPrivateResults] = useState<{ user_id: string; display_name: string; public_key: string }[]>([]);
-  const [privateSearching, setPrivateSearching] = useState(false);
-  const [privateOpen, setPrivateOpen] = useState(false);
+  const privateSearch = useUserSearch();
   const [privateAdding, setPrivateAdding] = useState<string | null>(null);
   const [privateError, setPrivateError] = useState("");
-  const privateInputRef = useRef<HTMLInputElement>(null);
-  const privateDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     getMyUserId().then((id) => { if (id) setMyUserId(id); }).catch(() => {});
@@ -1302,29 +1271,6 @@ export default function MembersPage() {
     loadPendingInvitations(teamId).catch(() => {});
   }, [teamId, canManageMembers, loadPendingInvitations]);
 
-  // Private vault search
-  useEffect(() => {
-    if (privateQuery.length < 2) { setPrivateResults([]); setPrivateOpen(false); return; }
-    setPrivateSearching(true);
-    const t = setTimeout(() => {
-      searchUsers(privateQuery)
-        .then((r) => { setPrivateResults(r); setPrivateOpen(true); })
-        .catch(() => {})
-        .finally(() => setPrivateSearching(false));
-    }, 250);
-    return () => clearTimeout(t);
-  }, [privateQuery]);
-
-  useEffect(() => {
-    if (!privateOpen) return;
-    const h = (e: MouseEvent) => {
-      if (!privateInputRef.current?.contains(e.target as Node) && !privateDropdownRef.current?.contains(e.target as Node))
-        setPrivateOpen(false);
-    };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, [privateOpen]);
-
   const handlePrivateAdd = async (user: { user_id: string; display_name: string; public_key: string }, roleName: string) => {
     if (!localVault || !primaryVaultId) return;
     setPrivateAdding(user.user_id); setPrivateError("");
@@ -1342,7 +1288,7 @@ export default function MembersPage() {
       if (role) {
         await assignMemberRole(team.id, user.user_id, role.id);
       }
-      setPrivateQuery(""); setPrivateResults([]); setPrivateOpen(false);
+      privateSearch.reset();
     } catch (e) {
       setPrivateError(e instanceof Error ? e.message : t("members.error.failedToAddMember"));
     } finally { setPrivateAdding(null); }
@@ -1691,16 +1637,16 @@ const vaultTabs = selectedVaultIds.length > 1
         panelWidth={320}
         panel={showInvitePanel ? (
           <PrivateVaultInvitePanel
-            query={privateQuery}
-            onQueryChange={(v) => { setPrivateQuery(v); setPrivateError(""); }}
-            results={privateResults}
-            searching={privateSearching}
-            open={privateOpen}
-            setOpen={setPrivateOpen}
+            query={privateSearch.query}
+            onQueryChange={(v) => { privateSearch.setQuery(v); setPrivateError(""); }}
+            results={privateSearch.results}
+            searching={privateSearch.searching}
+            open={privateSearch.open}
+            setOpen={privateSearch.setOpen}
             adding={privateAdding}
             error={privateError}
-            inputRef={privateInputRef}
-            dropdownRef={privateDropdownRef}
+            inputRef={privateSearch.inputRef}
+            dropdownRef={privateSearch.dropdownRef}
             onAdd={(user, roleName) => void handlePrivateAdd(user, roleName)}
             onClose={() => setShowInvitePanel(false)}
           />
