@@ -33,7 +33,7 @@ const ports = {
     }),
   },
   isTeamVault: (id: string) => state.vaults.find((v) => v.id === id)?.teamId != null,
-  contents: () => ({
+  contents: async () => ({
     connections: state.connections,
     keys: state.keys,
     identities: state.identities,
@@ -123,6 +123,26 @@ describe("delete", () => {
     await api().delete("v-empty", { cascade: true });
     expect(deleted).toEqual([]);
     expect(ports.vaults.remove).toHaveBeenCalledWith("v-empty");
+  });
+
+  test("counts what contents() resolves to, not what the stores held before it ran", async () => {
+    // The stores that back a vault's contents are loaded lazily — the Snippets
+    // page hydrates its own. Reading them unhydrated reports an empty vault and
+    // deletes objects that are still there.
+    const lazy = {
+      ...ports,
+      contents: async () => {
+        state.snippets = [{ id: "s-late", vault_id: "v-empty" }];
+        return {
+          connections: state.connections, keys: state.keys, identities: state.identities,
+          snippets: state.snippets, portForwardingRules: state.rules,
+          folders: state.folders, snippetFolders: state.snippetFolders,
+        };
+      },
+    };
+    await expect(createVaultsAPI(lazy).delete("v-empty")).rejects.toThrow(/1 snippet/);
+    expect(ports.vaults.remove).not.toHaveBeenCalled();
+    state.snippets = [];
   });
 
   test("an object with no vault_id belongs to personal, not to every vault", async () => {

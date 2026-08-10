@@ -1,6 +1,26 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createHostPluginAPI } from "./runtime";
 import { useVaultStore } from "@/stores/vaultStore";
+import { useSnippetStore } from "@/stores/snippetStore";
+import { usePortForwardingStore } from "@/stores/portForwardingStore";
+import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
+import { useConnectionStore } from "@/stores/connectionStore";
+import { useIdentityStore } from "@/stores/identityStore";
+import { useKeyStore } from "@/stores/keyStore";
+import { useFolderStore } from "@/stores/folderStore";
+
+/** The seven stores a vault's contents are counted from; all load over Tauri. */
+function stubLoaders() {
+  return {
+    connections: vi.spyOn(useConnectionStore.getState(), "loadConnections").mockResolvedValue(),
+    identities: vi.spyOn(useIdentityStore.getState(), "loadIdentities").mockResolvedValue(),
+    keys: vi.spyOn(useKeyStore.getState(), "loadKeys").mockResolvedValue(),
+    folders: vi.spyOn(useFolderStore.getState(), "loadFolders").mockResolvedValue(),
+    snippets: vi.spyOn(useSnippetStore.getState(), "loadSnippets").mockResolvedValue(),
+    snippetFolders: vi.spyOn(useSnippetFolderStore.getState(), "loadFolders").mockResolvedValue(),
+    rules: vi.spyOn(usePortForwardingStore.getState(), "loadRules").mockResolvedValue(),
+  };
+}
 
 beforeEach(() => {
   useVaultStore.setState({ vaults: [{ id: "personal", name: "Personal" }], selectedVaultIds: ["personal"] });
@@ -40,7 +60,23 @@ describe("api.vaults against the real store", () => {
     expect(api.vaults.list().map((v) => v.name)).toEqual(["Personal", "Lab"]);
   });
 
+  it("hydrates the lazily-loaded stores before deciding a vault is empty", async () => {
+    // Snippets, port forwards and snippet folders are loaded by their own pages.
+    // Counting them unloaded reports an empty vault and orphans what is in it.
+    const loaders = stubLoaders();
+
+    const api = createHostPluginAPI("test:hydrate", ["vaults:read", "vaults:write"]);
+    const created = api.vaults.create("Lazy");
+    await api.vaults.delete(created.id);
+
+    expect(loaders.snippets).toHaveBeenCalled();
+    expect(loaders.rules).toHaveBeenCalled();
+    expect(loaders.snippetFolders).toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+
   it("deletes an empty vault and leaves personal alone", async () => {
+    stubLoaders();
     const api = createHostPluginAPI("test:delete", ["vaults:read", "vaults:write"]);
     const created = api.vaults.create("Scratch");
     await api.vaults.delete(created.id);
@@ -48,5 +84,6 @@ describe("api.vaults against the real store", () => {
 
     await expect(api.vaults.delete("personal")).rejects.toThrow(/personal/i);
     expect(useVaultStore.getState().vaults.map((v) => v.id)).toEqual(["personal"]);
+    vi.restoreAllMocks();
   });
 });

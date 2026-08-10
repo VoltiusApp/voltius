@@ -24,7 +24,7 @@ export interface VaultPorts {
     remove(id: string): void;
   };
   isTeamVault(id: string): boolean;
-  contents(): VaultContents;
+  contents(): Promise<VaultContents>;
   remove: {
     connection(id: string): Promise<void>;
     key(id: string): Promise<void>;
@@ -69,9 +69,16 @@ export function createVaultsAPI(ports: VaultPorts) {
     team: ports.isTeamVault(v.id),
   });
 
-  /** Ids in the vault, per kind, in KINDS order. */
-  const contentsOf = (vaultId: string) => {
-    const all = ports.contents();
+  /**
+   * Ids in the vault, per kind, in KINDS order.
+   *
+   * `ports.contents` is async because the stores behind it are hydrated lazily
+   * — the Snippets and Port Forwarding pages load their own. Counting an
+   * unhydrated store reports an empty vault, which is exactly the orphaning
+   * this refusal exists to prevent.
+   */
+  const contentsOf = async (vaultId: string) => {
+    const all = await ports.contents();
     return KINDS.map(([field, label, remover]) => ({
       label,
       remover,
@@ -108,7 +115,7 @@ export function createVaultsAPI(ports: VaultPorts) {
       if (id === "personal") throw new Error("The personal vault cannot be deleted");
       refuseTeam(vault, "deleted");
 
-      const contents = contentsOf(id).filter((c) => c.ids.length > 0);
+      const contents = (await contentsOf(id)).filter((c) => c.ids.length > 0);
       if (contents.length > 0 && !opts?.cascade) {
         const summary = contents
           .map((c) => `${c.ids.length} ${c.label}${c.ids.length === 1 ? "" : "s"}`)

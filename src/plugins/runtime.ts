@@ -418,15 +418,33 @@ const vaultPorts: VaultPorts = {
     remove: (id) => useVaultStore.getState().removeVault(id),
   },
   isTeamVault: isTeamVaultId,
-  contents: () => ({
-    connections: useConnectionStore.getState().connections,
-    keys: useKeyStore.getState().keys,
-    identities: useIdentityStore.getState().identities,
-    snippets: useSnippetStore.getState().snippets,
-    portForwardingRules: usePortForwardingStore.getState().rules,
-    folders: useFolderStore.getState().folders,
-    snippetFolders: useSnippetFolderStore.getState().folders,
-  }),
+  /**
+   * Hydrates before counting. Snippets, port-forwarding rules and snippet
+   * folders are loaded by their own pages, so in a session that never opened
+   * them the stores are empty — and an empty count is what turns "refuse a
+   * non-empty vault" into silently orphaning its contents. The Vaults settings
+   * page loads the same seven for the same reason.
+   */
+  contents: async () => {
+    await Promise.all([
+      useConnectionStore.getState().loadConnections(),
+      useIdentityStore.getState().loadIdentities(),
+      useKeyStore.getState().loadKeys(),
+      useFolderStore.getState().loadFolders(),
+      useSnippetStore.getState().loadSnippets(),
+      useSnippetFolderStore.getState().loadFolders(),
+      usePortForwardingStore.getState().loadRules(),
+    ]);
+    return {
+      connections: useConnectionStore.getState().connections,
+      keys: useKeyStore.getState().keys,
+      identities: useIdentityStore.getState().identities,
+      snippets: useSnippetStore.getState().snippets,
+      portForwardingRules: usePortForwardingStore.getState().rules,
+      folders: useFolderStore.getState().folders,
+      snippetFolders: useSnippetFolderStore.getState().folders,
+    };
+  },
   remove: {
     connection: (id) => useConnectionStore.getState().deleteConnection(id),
     key: (id) => useKeyStore.getState().deleteKey(id),
