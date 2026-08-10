@@ -38,21 +38,29 @@ export interface ConnectionsClipboardDeps {
   withdrawOrWarn: (p: Promise<unknown>) => Promise<unknown>;
 }
 
-export function connectionsClipboardHalf(deps: ConnectionsClipboardDeps): ClipboardHalf {
-  // ── Paste cascade: the key/identity a pasted host needs in the destination ──
+// ── Paste cascade: the key/identity a pasted host needs in the destination ──
 
-  /**
-   * A host's key and identity are its plumbing, so a paste carries them along
-   * rather than refusing over them. `applyCascade` runs before the paste writes
-   * anything and records what it created here; `duplicateItems`/`moveItems` then
-   * point the pasted hosts at the destination's copies instead of the originals.
-   * Cleared per paste — a stale entry would repoint a later paste at the wrong key.
-   */
-  const cascadeRemap: { identities: Map<string, string>; keys: Map<string, string> } = {
+/**
+ * A host's key and identity are its plumbing, so a paste carries them along
+ * rather than refusing over them. `applyCascade` runs before the paste writes
+ * anything and records what it created here; `duplicateItems`/`moveItems` then
+ * point the pasted hosts at the destination's copies instead of the originals.
+ * Cleared per paste — a stale entry would repoint a later paste at the wrong key.
+ *
+ * Must outlive a single `connectionsClipboardHalf(...)` call: `usePageClipboard`
+ * dereferences the adapter through a ref rather than the render-time closure, so a
+ * store write during `applyCascade` (it saves/updates keys and identities) can
+ * trigger a re-render — and a fresh factory call — before the paste reaches
+ * `duplicateItems`/`moveItems`. A remap created inside the factory would be thrown
+ * away by that re-render; the caller must own and persist it instead.
+ */
+export function connectionsClipboardHalf(
+  deps: ConnectionsClipboardDeps,
+  cascadeRemap: { identities: Map<string, string>; keys: Map<string, string> } = {
     identities: new Map(),
     keys: new Map(),
-  };
-
+  },
+): ClipboardHalf {
   /**
    * A pasted host's links, pointed at the destination's copies where the cascade
    * made one. Absent from the map means the object moved instead, keeping its id.

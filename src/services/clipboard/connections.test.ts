@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Connection, SshKey } from "@/types";
-import { connectionsClipboardHalf } from "./connections";
+import { connectionsClipboardHalf, type ConnectionsClipboardDeps } from "./connections";
 
 vi.mock("@/services/vault", () => ({
   getSecret: vi.fn(async () => "material"),
@@ -22,7 +22,7 @@ const key = (over: Partial<SshKey> = {}): SshKey => ({
   id: "k1", name: "key", vault_id: "personal", folder_id: null, key_type: "ed25519", tags: [], ...over,
 } as SshKey);
 
-const deps = (over: Partial<any> = {}) => ({
+const deps = (over: Partial<ConnectionsClipboardDeps> = {}): ConnectionsClipboardDeps => ({
   connections: [conn()],
   keys: [key()],
   identities: [],
@@ -75,6 +75,20 @@ describe("connectionsClipboardHalf", () => {
     const items = [{ id: "c1", kind: "connection" as const }];
     await half.applyCascade!(items, [], "team-1", "cut");
     await half.duplicateItems(["c1"], null);
+    expect(d.duplicateInto).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "c1" }), null, expect.objectContaining({ keyId: "k-copy" }),
+    );
+  });
+
+  it("points a pasted host at the cascade's copy even when the half is rebuilt in between — as a re-render does", async () => {
+    const d = deps({ connections: [conn(), conn({ id: "c2" })] });
+    const remap = { identities: new Map<string, string>(), keys: new Map<string, string>() };
+    const items = [{ id: "c1", kind: "connection" as const }];
+    // Simulates usePageClipboard resolving against a fresh factory call — e.g. a
+    // store write during applyCascade re-rendering the page — before duplicateItems
+    // runs. Only a remap owned by the caller and passed to both calls survives that.
+    await connectionsClipboardHalf(d, remap).applyCascade!(items, [], "team-1", "cut");
+    await connectionsClipboardHalf(d, remap).duplicateItems(["c1"], null);
     expect(d.duplicateInto).toHaveBeenCalledWith(
       expect.objectContaining({ id: "c1" }), null, expect.objectContaining({ keyId: "k-copy" }),
     );

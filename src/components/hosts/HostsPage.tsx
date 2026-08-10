@@ -335,6 +335,15 @@ export default function HostsPage() {
     if (identities.length === 0) void useIdentityStore.getState().loadIdentities();
   }, []);
 
+  // Owned by the page, not the factory: usePageClipboard dereferences the adapter
+  // through a ref, so a store write mid-`applyCascade` can re-render the page and
+  // rebuild `connectionsClipboard` before the paste reaches duplicateItems/moveItems.
+  // A remap living inside the factory call would be discarded by that re-render.
+  const cascadeRemap = useRef<{ identities: Map<string, string>; keys: Map<string, string> }>({
+    identities: new Map(),
+    keys: new Map(),
+  });
+
   const connectionsClipboard = connectionsClipboardHalf({
     connections,
     keys,
@@ -351,7 +360,7 @@ export default function HostsPage() {
     updateIdentity: (id, form) => useIdentityStore.getState().updateIdentity(id, form),
     saveIdentity: (form) => useIdentityStore.getState().saveIdentity(form),
     withdrawOrWarn: (p) => withdrawOrWarn(p as Promise<void>),
-  });
+  }, cascadeRemap.current);
 
   // Every mutation below goes through a store method so vault permission checks apply.
   usePageClipboard({
