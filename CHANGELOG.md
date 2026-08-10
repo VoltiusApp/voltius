@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-08-10
+
+### Added
+
+- A host's Shell integration override is now three-state — Inherit, On, Off —
+  matching Persistent session. Before, the override could only turn shell
+  integration off, so a host could never force it on while the global toggle was
+  off. Existing hosts keep their behaviour: an override that said "disabled"
+  becomes an explicit Off, everything else inherits.
+
+### Fixed
+
+- Closing the app no longer waits with the window still on screen while an
+  enabled plugin runs its quit-time work — the Gist sync plugin's push to GitHub
+  made closing take about two seconds. The window now closes immediately and the
+  sync finishes in the background. Thanks to @Flash303 for the report and the
+  fix.
+- Persistent sessions now work against dropbear servers (OpenWrt/ImmortalWrt and
+  other embedded targets). The bootstrap payload was base64-encoded twice and
+  ran to 21,718 bytes with persistent sessions and shell integration both on,
+  past dropbear's 9,000-byte limit, which killed the connection the moment
+  authentication succeeded — the session appeared stuck on "Authenticating"
+  forever.
+- A host whose only Advanced override was Persistent session now shows the
+  usual dirty dot when the section is collapsed, instead of hiding the override
+  entirely. The two global toggle descriptions also name where the per-host
+  overrides live.
+
 ## [0.19.0] - 2026-08-09
 
 ### Added
