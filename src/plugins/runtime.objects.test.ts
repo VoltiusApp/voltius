@@ -209,6 +209,28 @@ describe("api.objects against the real stores", () => {
     expect(fetchTeamData).toHaveBeenCalledWith("team-1", { background: true });
   });
 
+  it("refuses to MOVE an object out of a team vault, leaving the record untouched", async () => {
+    // A move rewrites the team's record and withdraws its secrets: the object
+    // and its credentials would vanish for every teammate. api.connections
+    // .update/delete refuse a team vault; this is the same ruling.
+    useTeamStore.setState({ teams: [{ id: "team-1", name: "Ops", role_ids: [] }] as never });
+    vi.mocked(fetchTeamData).mockImplementation(async () => {
+      useConnectionStore.setState({
+        teamConnections: { "team-1": [{ ...conn, id: "c-team", vault_id: "team-1" }] },
+      });
+    });
+    const update = vi.spyOn(useConnectionStore.getState(), "updateConnection").mockResolvedValue();
+    const del = vi.spyOn(useConnectionStore.getState(), "deleteConnection").mockResolvedValue();
+    const api = createHostPluginAPI("test:objects-team-move", HOSTS_GRANT);
+    await expect(api.objects.move({
+      ids: ["c-team"], folderId: null, vaultId: "personal", allowCrossVault: true,
+    })).rejects.toThrow(/team vault "Ops"/);
+    expect(update).not.toHaveBeenCalled();
+    expect(del).not.toHaveBeenCalled();
+    expect(useConnectionStore.getState().teamConnections["team-1"][0])
+      .toMatchObject({ id: "c-team", vault_id: "team-1" });
+  });
+
   it("refuses an id that belongs to no tab", async () => {
     const api = createHostPluginAPI("test:objects-unknown", [
       "connections:write", "keys:write", "identities:write",

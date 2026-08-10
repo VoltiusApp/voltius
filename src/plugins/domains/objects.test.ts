@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Connection, Folder, Identity, PortForwardingRule, Snippet, SshKey } from "@/types";
-import { createObjectsAPI, objectPermissionsFor, type ObjectPorts } from "./objects";
+import { createObjectsAPI, objectPermissionsFor, type MoveInput, type ObjectPorts } from "./objects";
 
 vi.mock("@/services/vault", () => ({
   getSecret: vi.fn(async () => "material"),
@@ -105,40 +105,49 @@ function fakePorts(over: Partial<ObjectPorts> = {}): ObjectPorts {
   };
 }
 
+/** `authorize` is required on the API; these tests exercise the domain, not the gate. */
+function objects(ports: ObjectPorts) {
+  const api = createObjectsAPI(ports);
+  return {
+    move: (input: MoveInput) => api.move(input, () => {}),
+    copy: (input: MoveInput) => api.copy(input, () => {}),
+  };
+}
+
 describe("createObjectsAPI", () => {
   it("hydrates the stores before reading them", async () => {
     const ports = fakePorts();
-    await createObjectsAPI(ports).move({ ids: ["c1"], folderId: "f1", vaultId: null });
+    await objects(ports).move({ ids: ["c1"], folderId: "f1", vaultId: null });
     expect(ports.hydrate).toHaveBeenCalled();
   });
 
   it("refuses ids from two tabs, naming both", async () => {
-    await expect(createObjectsAPI(fakePorts()).move({
+    await expect(objects(fakePorts()).move({
       ids: ["c1", "s1"], folderId: null, vaultId: null,
     })).rejects.toThrow(/hosts.*snippets|snippets.*hosts/);
   });
 
   it("refuses an unknown id", async () => {
-    await expect(createObjectsAPI(fakePorts()).move({
+    await expect(objects(fakePorts()).move({
       ids: ["nope"], folderId: null, vaultId: null,
     })).rejects.toThrow(/nope/);
   });
 
   it("refuses a destination folder from another tab", async () => {
-    await expect(createObjectsAPI(fakePorts()).move({
+    await expect(objects(fakePorts()).move({
       ids: ["c1"], folderId: "sf1", vaultId: null,
     })).rejects.toThrow(/sf1/);
   });
 
   it("refuses a destination folder that is in another vault than the one asked for", async () => {
-    await expect(createObjectsAPI(fakePorts()).move({
+    await expect(objects(fakePorts()).move({
       ids: ["c1"], folderId: "f1", vaultId: "vault-2", allowCrossVault: true,
     })).rejects.toThrow(/vault-2/);
   });
 
   it("refuses a cross-vault move without the flag and mutates nothing", async () => {
     const ports = fakePorts();
-    await expect(createObjectsAPI(ports).move({
+    await expect(objects(ports).move({
       ids: ["c1"], folderId: null, vaultId: "vault-2",
     })).rejects.toThrow(/allowCrossVault/);
     expect(ports.updateConnection).not.toHaveBeenCalled();
@@ -147,7 +156,7 @@ describe("createObjectsAPI", () => {
 
   it("names the cascade in the cross-vault refusal", async () => {
     const ports = fakePorts();
-    const err: Error = await createObjectsAPI(ports)
+    const err: Error = await objects(ports)
       .move({ ids: ["c1"], folderId: null, vaultId: "vault-2" })
       .then(() => { throw new Error("expected a refusal"); }, (e: Error) => e);
     expect(JSON.parse(err.message.slice(err.message.indexOf("{")))).toMatchObject({
@@ -157,7 +166,7 @@ describe("createObjectsAPI", () => {
 
   it("performs the cross-vault move when the flag is set", async () => {
     const ports = fakePorts();
-    const out = await createObjectsAPI(ports).move({
+    const out = await objects(ports).move({
       ids: ["c1"], folderId: null, vaultId: "vault-2", allowCrossVault: true,
     });
     expect(out.moved).toBe(1);
@@ -168,7 +177,7 @@ describe("createObjectsAPI", () => {
 
   it("refuses a team-vault destination", async () => {
     const ports = fakePorts();
-    await expect(createObjectsAPI(ports).move({
+    await expect(objects(ports).move({
       ids: ["c1"], folderId: null, vaultId: "team-1", allowCrossVault: true,
     })).rejects.toThrow(/team vault/);
     expect(ports.updateConnection).not.toHaveBeenCalled();
@@ -176,7 +185,7 @@ describe("createObjectsAPI", () => {
 
   it("reports a permission refusal as a refusal, not a success", async () => {
     const ports = fakePorts({ can: () => false });
-    await expect(createObjectsAPI(ports).move({
+    await expect(objects(ports).move({
       ids: ["c1"], folderId: null, vaultId: "vault-2", allowCrossVault: true,
     })).rejects.toThrow(/EDIT_CONNECTIONS|EDIT_KEYS/);
     expect(ports.updateConnection).not.toHaveBeenCalled();
@@ -185,7 +194,7 @@ describe("createObjectsAPI", () => {
   it("reports a dangling reference as a refusal, not a success", async () => {
     // Port forwarding cannot cascade: a rule keeps pointing at hosts left behind.
     const ports = fakePorts({ rules: () => [rule({ connection_ids: ["c1"] })] });
-    await expect(createObjectsAPI(ports).move({
+    await expect(objects(ports).move({
       ids: ["r1"], folderId: null, vaultId: "vault-2", allowCrossVault: true,
     })).rejects.toThrow(/connection/);
   });
@@ -195,13 +204,30 @@ describe("createObjectsAPI", () => {
     // removes nothing, so nothing checks the source and the duplicate would
     // carry the team's secrets into a personal vault.
     const ports = fakePorts({ connections: () => [conn({ id: "c-team", vault_id: "team-1" })] });
-    await expect(createObjectsAPI(ports).copy({ ids: ["c-team"], folderId: null, vaultId: null }))
+    await expect(objects(ports).copy({ ids: ["c-team"], folderId: null, vaultId: null }))
       .rejects.toThrow(/Ops/);
     expect(ports.saveConnection).not.toHaveBeenCalled();
   });
 
+  it("refuses to move an object out of a team vault, naming the vault", async () => {
+    // A move rewrites the record and withdraws the secrets: the object and its
+    // credentials vanish for every teammate. Every write verb refuses a team vault.
+    const ports = fakePorts({ connections: () => [conn({ id: "c-team", vault_id: "team-1" })] });
+    await expect(objects(ports).move({ ids: ["c-team"], folderId: null, vaultId: null }))
+      .rejects.toThrow(/Ops/);
+    expect(ports.updateConnection).not.toHaveBeenCalled();
+    expect(ports.deleteConnection).not.toHaveBeenCalled();
+  });
+
+  it("de-dupes repeated ids instead of acting on them twice", async () => {
+    const ports = fakePorts();
+    const out = await objects(ports).copy({ ids: ["c1", "c1"], folderId: "f1", vaultId: null });
+    expect(out.created).toBe(1);
+    expect(ports.saveConnection).toHaveBeenCalledTimes(1);
+  });
+
   it("refuses a folder filed under itself instead of reporting a no-op", async () => {
-    await expect(createObjectsAPI(fakePorts()).move({
+    await expect(objects(fakePorts()).move({
       ids: ["f1"], folderId: "f1", vaultId: null,
     })).rejects.toThrow(/f1/);
   });
@@ -211,13 +237,13 @@ describe("createObjectsAPI", () => {
       connections: () => [conn({ vault_id: "hidden" })],
       accessibleVaultIds: () => ["personal", "vault-2"],
     });
-    await expect(createObjectsAPI(ports).move({ ids: ["c1"], folderId: null, vaultId: null }))
+    await expect(objects(ports).move({ ids: ["c1"], folderId: null, vaultId: null }))
       .rejects.toThrow(/source vault/);
   });
 
   it("copies without touching the original", async () => {
     const ports = fakePorts();
-    const out = await createObjectsAPI(ports).copy({ ids: ["c1"], folderId: "f1", vaultId: null });
+    const out = await objects(ports).copy({ ids: ["c1"], folderId: "f1", vaultId: null });
     expect(out.created).toBe(1);
     expect(ports.updateConnection).not.toHaveBeenCalled();
     expect(ports.deleteConnection).not.toHaveBeenCalled();
@@ -225,7 +251,7 @@ describe("createObjectsAPI", () => {
 
   it("moves a snippet through its own store", async () => {
     const ports = fakePorts();
-    const out = await createObjectsAPI(ports).move({ ids: ["s1"], folderId: "sf1", vaultId: null });
+    const out = await objects(ports).move({ ids: ["s1"], folderId: "sf1", vaultId: null });
     expect(out.moved).toBe(1);
     expect(ports.updateSnippet).toHaveBeenCalledWith("s1", expect.objectContaining({ folder_id: "sf1" }));
   });

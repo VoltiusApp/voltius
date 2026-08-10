@@ -15,7 +15,12 @@ import type {
 import type { NavItem } from "@/stores/uiStore";
 import type { VaultClipboard, VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import type { PluginObjectMoveInput, PluginObjectMoveOutcome } from "../api";
-import { pasteFromClipboard, type CascadeEntry, type ClipboardAdapter } from "@/services/vaultClipboard";
+import {
+  pasteFromClipboard,
+  runPaste,
+  type CascadeEntry,
+  type ClipboardAdapter,
+} from "@/services/vaultClipboard";
 import { vaultClipboardBase } from "@/utils/vaultClipboardBase";
 import type { ClipboardHalf } from "@/services/clipboard/types";
 import { connectionsClipboardHalf } from "@/services/clipboard/connections";
@@ -58,8 +63,8 @@ export type MoveOutcome = PluginObjectMoveOutcome;
 export type Authorize = (permissions: string[]) => void;
 
 export interface ObjectsAPI {
-  move(input: MoveInput, authorize?: Authorize): Promise<MoveOutcome>;
-  copy(input: MoveInput, authorize?: Authorize): Promise<MoveOutcome>;
+  move(input: MoveInput, authorize: Authorize): Promise<MoveOutcome>;
+  copy(input: MoveInput, authorize: Authorize): Promise<MoveOutcome>;
 }
 
 /**
@@ -178,8 +183,15 @@ function locate(ports: ObjectPorts, id: string): Located | null {
  * A paste is a single tab's operation — the clipboard carries the tab it was
  * filled on and `pasteFromClipboard` drops anything else — so a mixed set would
  * silently move only part of it. Refused instead, naming both tabs.
+ *
+ * The ids come back de-duplicated: a repeated id would otherwise be moved twice
+ * — duplicated twice on a copy — and counted twice in the outcome.
  */
-function resolveTab(ports: ObjectPorts, ids: string[]): { tab: ObjectTab; located: Map<string, Located> } {
+function resolveTab(
+  ports: ObjectPorts,
+  rawIds: string[],
+): { tab: ObjectTab; located: Map<string, Located>; ids: string[] } {
+  const ids = [...new Set(rawIds)];
   if (ids.length === 0) throw new Error("No object ids given");
   const located = new Map<string, Located>();
   const tabs = new Set<ObjectTab>();
@@ -194,7 +206,7 @@ function resolveTab(ports: ObjectPorts, ids: string[]): { tab: ObjectTab; locate
       `Ids span more than one tab (${[...tabs].join(", ")}); move or copy one tab's objects at a time`,
     );
   }
-  return { tab: [...tabs][0], located };
+  return { tab: [...tabs][0], located, ids };
 }
 
 // ─── Per-tab duplication, used by a copy and by a folder clone ────────────
@@ -642,7 +654,7 @@ export function createObjectsAPI(ports: ObjectPorts): ObjectsAPI {
   const run = async (
     mode: "cut" | "copy",
     input: MoveInput,
-    authorize?: Authorize,
+    authorize: Authorize,
   ): Promise<MoveOutcome> => {
     // Not optional: snippets, snippet folders, rules, keys and identities are
     // loaded by their own pages, and a headless read of an unhydrated store
@@ -652,9 +664,9 @@ export function createObjectsAPI(ports: ObjectPorts): ObjectsAPI {
     // Once per call, here: the permission set is derived from these same reads,
     // so the gate runs against the hydrated stores without hydrating again.
     await ports.hydrate();
-    authorize?.(objectPermissionsFor(ports, input));
+    authorize(objectPermissionsFor(ports, input));
 
-    const { tab, located } = resolveTab(ports, input.ids);
+    const { tab, located, ids } = resolveTab(ports, input.ids);
     const ops = folderOpsFor(ports, tab);
 
     const destinationFolder = input.folderId === null
@@ -681,24 +693,23 @@ export function createObjectsAPI(ports: ObjectPorts): ObjectsAPI {
       throw new Error(`Vault "${nameOf(destination)}" is a team vault and cannot be written from here`);
     }
 
-    // A cut out of a team vault is gated by the user's own vault permissions —
-    // `removesFromSource` makes `pasteFromClipboard` check the source. A copy
-    // removes nothing, so nothing checks the source, and a personal destination
-    // authorizes unconditionally: the duplicate would carry the team's key
-    // material into a personal vault with only this namespace's grant behind it.
-    // Refused, as every other write verb refuses a team vault.
-    if (mode === "copy") {
-      const fromTeam = input.ids.find((id) => ports.isTeamVault(adapter.vaultIdOf(id)));
-      if (fromTeam) {
-        throw new Error(
-          `Object "${fromTeam}" is in team vault "${nameOf(adapter.vaultIdOf(fromTeam))}" and cannot be copied from here`,
-        );
-      }
+    // A team vault is refused as the SOURCE too, not just the destination, as
+    // every other write verb refuses one (api.connections.update/delete).
+    // A move rewrites the team's record and withdraws its secrets — the object
+    // and its credentials vanish for every teammate; a copy carries the team's
+    // key material into a personal vault, where the destination authorizes
+    // unconditionally and nothing checks the source.
+    const fromTeam = ids.find((id) => ports.isTeamVault(adapter.vaultIdOf(id)));
+    if (fromTeam) {
+      throw new Error(
+        `Object "${fromTeam}" is in team vault "${nameOf(adapter.vaultIdOf(fromTeam))}" and cannot be `
+        + `${mode === "copy" ? "copied" : "moved"} from here`,
+      );
     }
 
     const items: { id: string; kind: VaultClipboardKind }[] = [];
     const folderIds: string[] = [];
-    for (const id of input.ids) {
+    for (const id of ids) {
       const { kind } = located.get(id)!;
       if (kind === "folder") folderIds.push(id);
       else items.push({ id, kind });
@@ -708,7 +719,7 @@ export function createObjectsAPI(ports: ObjectPorts): ObjectsAPI {
       mode,
       items,
       folderIds,
-      sourceVaultIds: [...new Set(input.ids.map((id) => adapter.vaultIdOf(id)))],
+      sourceVaultIds: [...new Set(ids.map((id) => adapter.vaultIdOf(id)))],
     };
 
     // A folder cannot be filed under itself or under one of its own descendants.
@@ -723,7 +734,7 @@ export function createObjectsAPI(ports: ObjectPorts): ObjectsAPI {
     // Before any store method runs, and without starting the paste: a caller that
     // did not ask to cross vaults gets the plan back and can re-issue informed.
     if (destination !== null && !input.allowCrossVault) {
-      const crossing = input.ids.filter((id) => adapter.vaultIdOf(id) !== destination);
+      const crossing = ids.filter((id) => adapter.vaultIdOf(id) !== destination);
       if (crossing.length > 0) {
         const plan: CrossVaultPlan = {
           count: crossing.length,
@@ -738,7 +749,9 @@ export function createObjectsAPI(ports: ObjectPorts): ObjectsAPI {
       }
     }
 
-    const result = await pasteFromClipboard(clipboard, adapter);
+    // Through the shared serializer, like the pages: an overlapping paste holds
+    // the `withoutHistory` window open and the other one's undo entry is lost.
+    const result = await runPaste(() => pasteFromClipboard(clipboard, adapter));
     // Every non-mutating outcome is a refusal here. Reported as a success it
     // reads as "moved 0, nothing wrong", which is how a silently dropped paste
     // looks to a caller with no toast to see.
