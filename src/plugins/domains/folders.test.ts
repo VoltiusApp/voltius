@@ -39,6 +39,7 @@ const ports: FolderPorts = {
     }),
   },
   isTeamVault: (id: string) => id === "t-1",
+  vaultExists: (id: string) => ["personal", "v-1", "t-1"].includes(id),
 };
 
 const api = () => createFoldersAPI(ports);
@@ -105,6 +106,37 @@ describe("create", () => {
 
   test("refuses a blank name", async () => {
     await expect(api().create({ kind: "connection", name: "  " })).rejects.toThrow(/name/i);
+  });
+
+  test("refuses a vault that does not exist — the folder would be invisible", async () => {
+    await expect(api().create({ kind: "connection", name: "X", vaultId: "typo" })).rejects.toThrow(/vault "typo"/i);
+    expect(calls).toEqual([]);
+  });
+
+  test("refuses a parent folder that does not exist", async () => {
+    await expect(
+      api().create({ kind: "connection", name: "X", parentFolderId: "ghost" }),
+    ).rejects.toThrow(/parent folder "ghost"/i);
+    expect(calls).toEqual([]);
+  });
+
+  test("refuses a parent folder of a different kind", async () => {
+    await expect(
+      api().create({ kind: "connection", name: "X", parentFolderId: "f-snip" }),
+    ).rejects.toThrow(/kind/i);
+    expect(calls).toEqual([]);
+  });
+
+  test("refuses a parent folder in another vault", async () => {
+    await expect(
+      api().create({ kind: "keychain", name: "X", vaultId: "personal", parentFolderId: "f-key" }),
+    ).rejects.toThrow(/vault/i);
+    expect(calls).toEqual([]);
+  });
+
+  test("accepts a parent of the same kind in the same vault", async () => {
+    await api().create({ kind: "keychain", name: "Sub", vaultId: "v-1", parentFolderId: "f-key" });
+    expect(calls).toEqual(["general.save:keychain:Sub:v-1"]);
   });
 });
 

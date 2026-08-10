@@ -31,6 +31,8 @@ export interface FolderPorts {
     remove(id: string): Promise<void>;
   };
   isTeamVault(id: string): boolean;
+  /** False for a vault id nothing resolves — a folder written into one is invisible. */
+  vaultExists(id: string): boolean;
 }
 
 export const FOLDER_KINDS: PluginFolderKind[] = [
@@ -93,7 +95,25 @@ export function createFoldersAPI(ports: FolderPorts) {
     }): Promise<PluginFolder> => {
       const kind = assertKind(input.kind);
       const vaultId = input.vaultId ?? "personal";
+      if (!ports.vaultExists(vaultId)) {
+        throw new Error(`Vault "${vaultId}" not found`);
+      }
       refuseTeam(vaultId, "created in");
+      if (input.parentFolderId !== undefined) {
+        // An unresolvable parent, a parent of another kind, or one in another
+        // vault all produce a folder no page lists — it exists but is
+        // unreachable, so each is refused rather than silently flattened.
+        const parent = all().find((f) => f.id === input.parentFolderId);
+        if (!parent) throw new Error(`Parent folder "${input.parentFolderId}" not found`);
+        if (parent.object_type !== kind) {
+          throw new Error(
+            `Parent folder "${input.parentFolderId}" is of kind ${parent.object_type}, not ${kind}`,
+          );
+        }
+        if ((parent.vault_id ?? "personal") !== vaultId) {
+          throw new Error(`Parent folder "${input.parentFolderId}" is in another vault`);
+        }
+      }
       const data: FolderWrite = {
         name: requireName(input.name),
         object_type: kind,

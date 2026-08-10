@@ -483,6 +483,8 @@ const folderPorts: FolderPorts = {
     remove: (folderId) => useSnippetFolderStore.getState().deleteFolder(folderId),
   },
   isTeamVault: isTeamVaultId,
+  vaultExists: (vaultId) =>
+    useVaultStore.getState().vaults.some((v) => v.id === vaultId) || isTeamVaultId(vaultId),
 };
 
 // ─── Store reload map ─────────────────────────────────────────────────────
