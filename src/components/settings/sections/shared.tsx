@@ -163,7 +163,12 @@ export function ResetButton({ onReset }: { onReset: () => void }) {
   );
 }
 
-export function FormButtons({ onCancel, submitLabel }: { onCancel: () => void; submitLabel: string }) {
+export function FormButtons({ onCancel, submitLabel, submitting }: {
+  onCancel: () => void;
+  submitLabel: string;
+  /** Dims and disables submit while the request is in flight. */
+  submitting?: boolean;
+}) {
   const { t } = useTranslation();
   return (
     <div className="flex gap-2 pt-1">
@@ -176,10 +181,45 @@ export function FormButtons({ onCancel, submitLabel }: { onCancel: () => void; s
       </button>
       <button
         type="submit"
+        disabled={submitting}
         className="btn btn-primary flex-1 py-1.5 rounded-lg text-sm font-medium"
+        style={submitting === undefined ? undefined : { opacity: submitting ? 0.7 : 1 }}
       >
         {submitLabel}
       </button>
+    </div>
+  );
+}
+
+/**
+ * Centered modal card used by the settings dialogs: scrim that closes on an
+ * outside click, and a header with the title and a close button.
+ */
+export function SettingsDialog({ title, onClose, children }: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs"
+      onClick={onClose}
+    >
+      <div
+        className="w-80 rounded-xl p-5 shadow-2xl bg-(--t-bg-terminal) border border-(--t-border)"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-(--t-text-primary)">{title}</h2>
+          <button
+            onClick={onClose}
+            className="text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors"
+          >
+            <Icon icon="lucide:x" width={14} />
+          </button>
+        </div>
+        {children}
+      </div>
     </div>
   );
 }

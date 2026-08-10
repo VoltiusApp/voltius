@@ -1,9 +1,8 @@
 import { useState, type FormEvent } from "react";
-import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { changeEmail } from "@/services/account";
 import { useNotificationStore } from "@/stores/notificationStore";
-import { SettingsInput } from "./shared";
+import { FormButtons, SettingsDialog, SettingsInput } from "./shared";
 
 interface Props {
   currentEmail: string;
@@ -55,81 +54,51 @@ export default function EditEmailModal({ currentEmail, onClose }: Props) {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs"
-      onClick={onClose}
-    >
-      <div
-        className="w-80 rounded-xl p-5 shadow-2xl bg-(--t-bg-terminal) border border-(--t-border)"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-(--t-text-primary)">{t("settings.account.editEmail.title")}</h2>
+    <SettingsDialog title={t("settings.account.editEmail.title")} onClose={onClose}>
+      {done ? (
+        <div className="space-y-3">
+          <p className="text-xs text-(--t-text-muted)">
+            {t("settings.account.editEmail.updatedPrefix")}
+            <strong className="text-(--t-text-primary)">{newEmail}</strong>
+            {t("settings.account.editEmail.updatedSuffix")}
+          </p>
+          <p className="text-xs text-(--t-text-dim)">
+            {t("settings.account.editEmail.pausedNote")}
+          </p>
           <button
             onClick={onClose}
-            className="text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors"
+            className="btn btn-primary w-full py-1.5 rounded-lg text-sm font-medium"
           >
-            <Icon icon="lucide:x" width={14} />
+            {t("settings.account.editEmail.done")}
           </button>
         </div>
-
-        {done ? (
-          <div className="space-y-3">
-            <p className="text-xs text-(--t-text-muted)">
-              {t("settings.account.editEmail.updatedPrefix")}
-              <strong className="text-(--t-text-primary)">{newEmail}</strong>
-              {t("settings.account.editEmail.updatedSuffix")}
-            </p>
-            <p className="text-xs text-(--t-text-dim)">
-              {t("settings.account.editEmail.pausedNote")}
-            </p>
-            <button
-              onClick={onClose}
-              className="btn btn-primary w-full py-1.5 rounded-lg text-sm font-medium"
-            >
-              {t("settings.account.editEmail.done")}
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-2">
-            <p className="text-xs text-(--t-text-dim) mb-3">
-              {t("settings.account.editEmail.currentLabel")}{" "}
-              <span className="text-(--t-text-muted)">{currentEmail}</span>
-            </p>
-            <SettingsInput
-              type="email"
-              placeholder={t("settings.account.editEmail.newPlaceholder")}
-              value={newEmail}
-              onChange={setNewEmail}
-              autoFocus
-            />
-            <SettingsInput
-              type="password"
-              placeholder={t("settings.account.editEmail.passwordPlaceholder")}
-              value={password}
-              onChange={setPassword}
-            />
-            {error && <p className="text-xs text-(--t-status-error)">{error}</p>}
-            <div className="flex gap-2 pt-1">
-              <button
-                type="button"
-                onClick={onClose}
-                className="btn btn-secondary flex-1 py-1.5 rounded-lg text-sm"
-              >
-                {t("settings.shared.cancel")}
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn btn-primary flex-1 py-1.5 rounded-lg text-sm font-medium"
-                style={{ opacity: loading ? 0.7 : 1 }}
-              >
-                {loading ? t("settings.account.editEmail.saving") : t("settings.account.editEmail.save")}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-2">
+          <p className="text-xs text-(--t-text-dim) mb-3">
+            {t("settings.account.editEmail.currentLabel")}{" "}
+            <span className="text-(--t-text-muted)">{currentEmail}</span>
+          </p>
+          <SettingsInput
+            type="email"
+            placeholder={t("settings.account.editEmail.newPlaceholder")}
+            value={newEmail}
+            onChange={setNewEmail}
+            autoFocus
+          />
+          <SettingsInput
+            type="password"
+            placeholder={t("settings.account.editEmail.passwordPlaceholder")}
+            value={password}
+            onChange={setPassword}
+          />
+          {error && <p className="text-xs text-(--t-status-error)">{error}</p>}
+          <FormButtons
+            onCancel={onClose}
+            submitting={loading}
+            submitLabel={loading ? t("settings.account.editEmail.saving") : t("settings.account.editEmail.save")}
+          />
+        </form>
+      )}
+    </SettingsDialog>
   );
 }

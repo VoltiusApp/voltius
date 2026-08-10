@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { changeMasterPassword } from "@/services/account";
-import { SettingsInput } from "./shared";
+import { FormButtons, SettingsDialog, SettingsInput } from "./shared";
 
 interface Props {
   onClose: () => void;
@@ -49,82 +49,52 @@ export default function ChangeMasterPasswordModal({ onClose }: Props) {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs"
-      onClick={onClose}
-    >
-      <div
-        className="w-80 rounded-xl p-5 shadow-2xl bg-(--t-bg-terminal) border border-(--t-border)"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-(--t-text-primary)">{t("settings.account.changeMasterPassword.title")}</h2>
+    <SettingsDialog title={t("settings.account.changeMasterPassword.title")} onClose={onClose}>
+      {done ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-(--t-status-connected)">
+            <Icon icon="lucide:circle-check-big" width={14} />
+            <p className="text-xs font-medium">{t("settings.account.changeMasterPassword.successMsg")}</p>
+          </div>
+          <p className="text-xs text-(--t-text-dim)">
+            {t("settings.account.changeMasterPassword.successNote")}
+          </p>
           <button
             onClick={onClose}
-            className="text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors"
+            className="btn btn-primary w-full py-1.5 rounded-lg text-sm font-medium"
           >
-            <Icon icon="lucide:x" width={14} />
+            {t("settings.account.changeMasterPassword.done")}
           </button>
         </div>
-
-        {done ? (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-(--t-status-connected)">
-              <Icon icon="lucide:circle-check-big" width={14} />
-              <p className="text-xs font-medium">{t("settings.account.changeMasterPassword.successMsg")}</p>
-            </div>
-            <p className="text-xs text-(--t-text-dim)">
-              {t("settings.account.changeMasterPassword.successNote")}
-            </p>
-            <button
-              onClick={onClose}
-              className="btn btn-primary w-full py-1.5 rounded-lg text-sm font-medium"
-            >
-              {t("settings.account.changeMasterPassword.done")}
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-2">
-            <SettingsInput
-              type="password"
-              placeholder={t("settings.account.changeMasterPassword.currentPlaceholder")}
-              value={currentPassword}
-              onChange={setCurrentPassword}
-              autoFocus
-            />
-            <SettingsInput
-              type="password"
-              placeholder={t("settings.account.changeMasterPassword.newPlaceholder")}
-              value={newPassword}
-              onChange={setNewPassword}
-            />
-            <SettingsInput
-              type="password"
-              placeholder={t("settings.account.changeMasterPassword.confirmPlaceholder")}
-              value={confirmPassword}
-              onChange={setConfirmPassword}
-            />
-            {error && <p className="text-xs text-(--t-status-error)">{error}</p>}
-            <div className="flex gap-2 pt-1">
-              <button
-                type="button"
-                onClick={onClose}
-                className="btn btn-secondary flex-1 py-1.5 rounded-lg text-sm"
-              >
-                {t("settings.shared.cancel")}
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn btn-primary flex-1 py-1.5 rounded-lg text-sm font-medium"
-                style={{ opacity: loading ? 0.7 : 1 }}
-              >
-                {loading ? t("settings.account.changeMasterPassword.changing") : t("settings.account.changeMasterPassword.changeBtn")}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-2">
+          <SettingsInput
+            type="password"
+            placeholder={t("settings.account.changeMasterPassword.currentPlaceholder")}
+            value={currentPassword}
+            onChange={setCurrentPassword}
+            autoFocus
+          />
+          <SettingsInput
+            type="password"
+            placeholder={t("settings.account.changeMasterPassword.newPlaceholder")}
+            value={newPassword}
+            onChange={setNewPassword}
+          />
+          <SettingsInput
+            type="password"
+            placeholder={t("settings.account.changeMasterPassword.confirmPlaceholder")}
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+          />
+          {error && <p className="text-xs text-(--t-status-error)">{error}</p>}
+          <FormButtons
+            onCancel={onClose}
+            submitting={loading}
+            submitLabel={loading ? t("settings.account.changeMasterPassword.changing") : t("settings.account.changeMasterPassword.changeBtn")}
+          />
+        </form>
+      )}
+    </SettingsDialog>
   );
 }
