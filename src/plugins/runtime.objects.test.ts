@@ -9,8 +9,11 @@ import { useFolderStore } from "@/stores/folderStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
+import { useTeamStore } from "@/stores/teamStore";
+import { fetchTeamData } from "@/services/teamVaultSync";
 
 vi.mock("@/services/teamService", () => ({ getMyUserId: vi.fn(async () => "u1") }));
+vi.mock("@/services/teamVaultSync", () => ({ fetchTeamData: vi.fn(async () => {}) }));
 vi.mock("@/services/vault", () => ({
   getSecret: vi.fn(async () => null),
   storeSecret: vi.fn(async () => {}),
@@ -59,6 +62,8 @@ function stubLoaders() {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  vi.mocked(fetchTeamData).mockReset().mockResolvedValue();
+  useTeamStore.setState({ teams: [], membersByTeam: {}, rolesByTeam: {} });
   useVaultStore.setState({ vaults: [{ id: "personal", name: "Personal" }], selectedVaultIds: ["personal"] });
   useConnectionStore.setState({ connections: [conn], teamConnections: {} });
   useKeyStore.setState({ keys: [key], teamKeys: {} });
@@ -139,10 +144,45 @@ describe("api.objects against the real stores", () => {
     expect(move).toHaveBeenCalledWith(["c1"], "connection", "f1");
   });
 
-  it("reports an object already where the call would put it as skipped, not moved", async () => {
+  it("reports an object already where the call would put it as a no-op, moving nothing", async () => {
     const api = createHostPluginAPI("test:objects-noop", ["connections:write"]);
     expect(await api.objects.move({ ids: ["c1"], folderId: null, vaultId: null }))
       .toEqual({ moved: 0, created: 0, skipped: 0 });
+  });
+
+  it("gates against hydrated stores, not the empty ones a fresh app starts with", async () => {
+    // The stores start empty here, as they do on a cold app: without hydrating
+    // before the gate every id resolves to nothing and the call demands every
+    // write permission, refusing a plugin scoped to exactly the right one.
+    useSnippetStore.setState({ snippets: [], teamSnippets: {} });
+    vi.spyOn(useSnippetStore.getState(), "loadSnippets").mockImplementation(async () => {
+      useSnippetStore.setState({ snippets: [snippet] });
+    });
+    const update = vi.spyOn(useSnippetStore.getState(), "updateSnippet").mockResolvedValue();
+    useSnippetFolderStore.setState({
+      folders: [{ id: "sf1", name: "Ops", object_type: "snippet", vault_id: "personal" } as unknown as Folder],
+      teamSnippetFolders: {},
+    });
+
+    const api = createHostPluginAPI("test:objects-cold", ["snippets:write"]);
+    expect(await api.objects.move({ ids: ["s1"], folderId: "sf1", vaultId: null }))
+      .toEqual({ moved: 1, created: 0, skipped: 0 });
+    expect(update).toHaveBeenCalledWith("s1", expect.objectContaining({ folder_id: "sf1" }));
+  });
+
+  it("resolves a team-vault object in a session where no page ever opened it", async () => {
+    // The team maps are filled by fetchTeamData alone, which the UI drives.
+    useTeamStore.setState({ teams: [{ id: "team-1", name: "Ops", role_ids: [] }] as never });
+    vi.mocked(fetchTeamData).mockImplementation(async () => {
+      useConnectionStore.setState({
+        teamConnections: { "team-1": [{ ...conn, id: "c-team", vault_id: "team-1" }] },
+      });
+    });
+    const api = createHostPluginAPI("test:objects-team", ["connections:write"]);
+    // Resolved, not "not found": the refusal it reaches is the team-vault one.
+    await expect(api.objects.copy({ ids: ["c-team"], folderId: null, vaultId: null }))
+      .rejects.toThrow(/team vault/);
+    expect(fetchTeamData).toHaveBeenCalledWith("team-1", { background: true });
   });
 
   it("refuses an id that belongs to no tab", async () => {

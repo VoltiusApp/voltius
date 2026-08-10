@@ -70,6 +70,7 @@ import { createFoldersAPI, type FolderPorts } from "./domains/folders";
 import { createObjectsAPI, objectPermissionsFor, type ObjectPorts } from "./domains/objects";
 import { resolveCan, type Permission } from "@/services/permissions";
 import { getMyUserId } from "@/services/teamService";
+import { fetchTeamData } from "@/services/teamVaultSync";
 import { injectPluginStyle, removePluginStyle } from "./importPluginModule";
 import { assertValidPluginId, isValidPluginId } from "./pluginId";
 
@@ -519,6 +520,12 @@ const objectPorts: ObjectPorts = {
       useTeamStore.getState().teams.flatMap((t) => [
         team.loadMembers(t.id).catch(() => {}),
         team.loadRoles(t.id).catch(() => {}),
+        // The team maps every object read spans are filled by fetchTeamData
+        // alone, which the UI drives. Without this a session that never opened
+        // a team vault reports its objects as "not found" — and, worse, cannot
+        // see a team-vault key a personal host points at, so a cross-vault move
+        // completes with no cascade and no dangling refusal.
+        fetchTeamData(t.id, { background: true }).catch(() => {}),
       ]),
     );
   },
@@ -975,12 +982,19 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
     // Gated per kind, not wholesale: a plugin allowed to file snippets has no
     // business moving the user's keys. An id that resolves to nothing asks for
     // every write permission — see objectPermissionsFor.
+    //
+    // Hydrated BEFORE the gate, not just inside the verb: on a fresh app the
+    // stores are empty, every id resolves to nothing, and a plugin holding
+    // exactly the right permission is refused for the ones it does not need.
+    // The verb's own hydrate is then a cheap second call.
     objects: {
       async move(input) {
+        await objectPorts.hydrate();
         for (const perm of objectPermissionsFor(objectPorts, input)) requireGated(perm);
         return objectsApi.move(input);
       },
       async copy(input) {
+        await objectPorts.hydrate();
         for (const perm of objectPermissionsFor(objectPorts, input)) requireGated(perm);
         return objectsApi.copy(input);
       },

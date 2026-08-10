@@ -557,10 +557,24 @@ const KIND_PERMISSION: Record<VaultClipboardKind | "folder", string> = {
 
 const ALL_OBJECT_PERMISSIONS = [...new Set(Object.values(KIND_PERMISSION))];
 
+/** The kinds a tab's folder can hold — a folder travels with its contents. */
+const TAB_CONTENT_KINDS: Record<ObjectTab, VaultClipboardKind[]> = {
+  hosts: ["connection"],
+  keychain: ["key", "identity"],
+  port_forwarding: ["port_forward"],
+  snippets: ["snippet"],
+};
+
 /**
  * What a call must be authorized for, from the kinds it names. An id that
- * resolves to nothing asks for everything: the stores may not be hydrated when
- * the gate runs, and a wrong guess there would under-gate the call.
+ * resolves to nothing asks for everything — a wrong guess there would under-gate
+ * the call.
+ *
+ * A folder asks for its tab's kinds too: moving one carries its contents into
+ * the destination vault and copying one duplicates them, secrets included, so
+ * `folders:write` alone would let a plugin relocate the keys it was never
+ * granted. Taken from the tab rather than the subtree so an empty folder that
+ * fills up between the gate and the paste cannot widen what was authorized.
  *
  * A destination vault adds nothing: a move or copy never creates or destroys a
  * vault, so demanding `vaults:write` — which also deletes them — for filing a
@@ -575,6 +589,9 @@ export function objectPermissionsFor(ports: ObjectPorts, input: MoveInput): stri
       continue;
     }
     perms.add(KIND_PERMISSION[found.kind]);
+    if (found.kind === "folder") {
+      for (const kind of TAB_CONTENT_KINDS[found.tab]) perms.add(KIND_PERMISSION[kind]);
+    }
   }
   return [...perms];
 }
@@ -627,6 +644,21 @@ export function createObjectsAPI(ports: ObjectPorts): ObjectsAPI {
       throw new Error(`Vault "${nameOf(destination)}" is a team vault and cannot be written from here`);
     }
 
+    // A cut out of a team vault is gated by the user's own vault permissions —
+    // `removesFromSource` makes `pasteFromClipboard` check the source. A copy
+    // removes nothing, so nothing checks the source, and a personal destination
+    // authorizes unconditionally: the duplicate would carry the team's key
+    // material into a personal vault with only this namespace's grant behind it.
+    // Refused, as every other write verb refuses a team vault.
+    if (mode === "copy") {
+      const fromTeam = input.ids.find((id) => ports.isTeamVault(adapter.vaultIdOf(id)));
+      if (fromTeam) {
+        throw new Error(
+          `Object "${fromTeam}" is in team vault "${nameOf(adapter.vaultIdOf(fromTeam))}" and cannot be copied from here`,
+        );
+      }
+    }
+
     const items: { id: string; kind: VaultClipboardKind }[] = [];
     const folderIds: string[] = [];
     for (const id of input.ids) {
@@ -641,6 +673,15 @@ export function createObjectsAPI(ports: ObjectPorts): ObjectsAPI {
       folderIds,
       sourceVaultIds: [...new Set(input.ids.map((id) => adapter.vaultIdOf(id)))],
     };
+
+    // A folder cannot be filed under itself or under one of its own descendants.
+    // The paste skips such a folder, which would otherwise report as a no-op.
+    if (mode === "cut") {
+      const impossible = folderIds.find((id) => !adapter.canMoveFolder(id, adapter.targetFolderId()));
+      if (impossible) {
+        throw new Error(`Refused: folder "${impossible}" cannot be filed under itself or its own subtree`);
+      }
+    }
 
     // Before any store method runs, and without starting the paste: a caller that
     // did not ask to cross vaults gets the plan back and can re-issue informed.
@@ -672,7 +713,9 @@ export function createObjectsAPI(ports: ObjectPorts): ObjectsAPI {
         `Refused: would leave ${result.dangling.join(", ")} referenced from outside the destination vault`,
       );
     }
-    if (result.crossVaultAtRoot) {
+    // Only when nothing landed: a partial paste has already written, and pushed
+    // its undo entry, so throwing would lose the counts the caller has to act on.
+    if (result.crossVaultAtRoot && result.moved === 0 && result.created === 0) {
       throw new Error("Refused: the destination root does not show the source vault");
     }
     return { moved: result.moved, created: result.created, skipped: result.skipped };

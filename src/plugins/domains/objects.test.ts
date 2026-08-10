@@ -190,6 +190,31 @@ describe("createObjectsAPI", () => {
     })).rejects.toThrow(/connection/);
   });
 
+  it("refuses to copy an object out of a team vault, naming the vault", async () => {
+    // A cut is gated by the user's own vault permissions on the source; a copy
+    // removes nothing, so nothing checks the source and the duplicate would
+    // carry the team's secrets into a personal vault.
+    const ports = fakePorts({ connections: () => [conn({ id: "c-team", vault_id: "team-1" })] });
+    await expect(createObjectsAPI(ports).copy({ ids: ["c-team"], folderId: null, vaultId: null }))
+      .rejects.toThrow(/Ops/);
+    expect(ports.saveConnection).not.toHaveBeenCalled();
+  });
+
+  it("refuses a folder filed under itself instead of reporting a no-op", async () => {
+    await expect(createObjectsAPI(fakePorts()).move({
+      ids: ["f1"], folderId: "f1", vaultId: null,
+    })).rejects.toThrow(/f1/);
+  });
+
+  it("refuses a root paste that would strand an object of an unlisted vault", async () => {
+    const ports = fakePorts({
+      connections: () => [conn({ vault_id: "hidden" })],
+      accessibleVaultIds: () => ["personal", "vault-2"],
+    });
+    await expect(createObjectsAPI(ports).move({ ids: ["c1"], folderId: null, vaultId: null }))
+      .rejects.toThrow(/source vault/);
+  });
+
   it("copies without touching the original", async () => {
     const ports = fakePorts();
     const out = await createObjectsAPI(ports).copy({ ids: ["c1"], folderId: "f1", vaultId: null });
@@ -219,7 +244,19 @@ describe("objectPermissionsFor", () => {
     expect(perm("i1")).toEqual(["identities:write"]);
     expect(perm("s1")).toEqual(["snippets:write"]);
     expect(perm("r1")).toEqual(["port_forwarding:write"]);
-    expect(perm("f1")).toEqual(["folders:write"]);
+  });
+
+  it("makes a folder ask for the kinds it carries, not folders:write alone", () => {
+    // A folder move relocates its contents and a folder copy duplicates them,
+    // key material included; folders:write alone would authorize neither.
+    const perm = (id: string) =>
+      objectPermissionsFor(fakePorts(), { ids: [id], folderId: null, vaultId: null }).sort();
+    expect(perm("f1")).toEqual(["connections:write", "folders:write"]);
+    expect(perm("sf1")).toEqual(["folders:write", "snippets:write"]);
+    expect(objectPermissionsFor(
+      fakePorts({ folders: () => [folder({ id: "fk", object_type: "keychain" })] }),
+      { ids: ["fk"], folderId: null, vaultId: null },
+    ).sort()).toEqual(["folders:write", "identities:write", "keys:write"]);
   });
 
   it("does not ask for vaults:write to move into another vault", () => {
