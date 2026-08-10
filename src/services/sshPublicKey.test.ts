@@ -37,12 +37,26 @@ describe("isValidSshPublicKey", () => {
     expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 `id`")).toBe(false);
     expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 x&whoami")).toBe(false);
     expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 $(id)")).toBe(false);
+    expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 x>/etc/passwd")).toBe(false);
+    expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 x\\ y")).toBe(false);
+    expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 'x'")).toBe(false);
+    expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 x\x07y")).toBe(false);
   });
 
   it("still accepts an ordinary comment", () => {
     expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 user@host")).toBe(true);
     expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 kipavy@work-laptop.local")).toBe(true);
     expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 my key 2026")).toBe(true);
+  });
+
+  it("accepts the comment shapes other tooling writes, non-ASCII included", () => {
+    // An allow-list here would refuse a real .pub and only show it up months
+    // later, at the deploy — the import path does not validate.
+    expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 user@host:2222")).toBe(true);
+    expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 key=prod")).toBe(true);
+    expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 rsa-key-20240101")).toBe(true);
+    expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 aurélie@serveur-privé")).toBe(true);
+    expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 键@主机")).toBe(true);
   });
 
   it("rejects an unknown key type and a non-base64 blob", () => {

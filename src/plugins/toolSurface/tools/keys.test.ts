@@ -134,6 +134,14 @@ describe("key verbs", () => {
     expect(schema.safeParse({ key_id: "k1", connection_id: "c1", filename: "sub/keys" }).success).toBe(false);
   });
 
+  it("rejects a backslash segment and an sshd-interpreted filename", () => {
+    const { ports } = makePorts();
+    const schema = tool(ports, "key_add_to_host").schema;
+    expect(schema.safeParse({ key_id: "k1", connection_id: "c1", location: "..\\..\\rc" }).success).toBe(false);
+    expect(schema.safeParse({ key_id: "k1", connection_id: "c1", filename: "rc" }).success).toBe(false);
+    expect(schema.safeParse({ key_id: "k1", connection_id: "c1", filename: "environment" }).success).toBe(false);
+  });
+
   it("accepts a legitimate relative location and filename", () => {
     const { ports } = makePorts();
     const schema = tool(ports, "key_add_to_host").schema;
