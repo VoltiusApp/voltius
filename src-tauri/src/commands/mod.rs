@@ -32,6 +32,7 @@ pub mod sysinfo;
 pub mod team_crypto;
 pub mod termius;
 pub mod vault;
+pub mod vault_object;
 pub mod win_proc;
 pub mod wsl;
 
