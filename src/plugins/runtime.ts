@@ -66,6 +66,7 @@ import { createProxmoxAPI } from "./domains/proxmox";
 import { createSftpAPI } from "./domains/sftp";
 import { createDockerAPI } from "./domains/docker";
 import { createVaultsAPI, type VaultPorts } from "./domains/vaults";
+import { createFoldersAPI, type FolderPorts } from "./domains/folders";
 import { injectPluginStyle, removePluginStyle } from "./importPluginModule";
 import { assertValidPluginId, isValidPluginId } from "./pluginId";
 
@@ -439,6 +440,33 @@ const vaultPorts: VaultPorts = {
   },
 };
 
+/**
+ * Both folder stores keep team folders in a separate map keyed by team id, so a
+ * plain `folders` read would miss them and `list()` would claim a team vault has
+ * none. Reads span both; the write verbs refuse a team vault anyway.
+ */
+const folderPorts: FolderPorts = {
+  general: {
+    list: () => {
+      const s = useFolderStore.getState();
+      return [...s.folders, ...Object.values(s.teamFolders).flat()];
+    },
+    save: (data) => useFolderStore.getState().saveFolder(data),
+    update: (folderId, data) => useFolderStore.getState().updateFolder(folderId, data),
+    remove: (folderId, cascade) => useFolderStore.getState().deleteFolder(folderId, { cascade }),
+  },
+  snippet: {
+    list: () => {
+      const s = useSnippetFolderStore.getState();
+      return [...s.folders, ...Object.values(s.teamSnippetFolders).flat()];
+    },
+    save: (data) => useSnippetFolderStore.getState().saveFolder(data),
+    update: (folderId, data) => useSnippetFolderStore.getState().updateFolder(folderId, data),
+    remove: (folderId) => useSnippetFolderStore.getState().deleteFolder(folderId),
+  },
+  isTeamVault: isTeamVaultId,
+};
+
 // ─── Store reload map ─────────────────────────────────────────────────────
 
 const RELOADABLE_STORES: Record<string, () => Promise<void>> = {
@@ -632,6 +660,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   _sftpDisposers.set(id, () => sftpApi.dispose());
   const dockerApi = createDockerAPI(streamsApi);
   const vaultsApi = createVaultsAPI(vaultPorts);
+  const foldersApi = createFoldersAPI(folderPorts);
 
   const api: PluginAPI = {
     pluginId: id,
@@ -768,6 +797,25 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       async delete(vaultId, opts) {
         requireGated("vaults:write");
         await vaultsApi.delete(vaultId, opts);
+      },
+    },
+
+    folders: {
+      list(kind) {
+        requireGated("folders:read");
+        return foldersApi.list(kind);
+      },
+      async create(input) {
+        requireGated("folders:write");
+        return foldersApi.create(input);
+      },
+      async rename(folderId, name) {
+        requireGated("folders:write");
+        await foldersApi.rename(folderId, name);
+      },
+      async delete(folderId, opts) {
+        requireGated("folders:write");
+        await foldersApi.delete(folderId, opts);
       },
     },
 

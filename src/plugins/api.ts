@@ -558,6 +558,22 @@ export interface PluginAPI {
     delete(id: string, opts?: { cascade?: boolean }): Promise<void>;
   };
 
+  // Folders across all four trees (requires the gated folders:*)
+  folders: {
+    list(kind?: PluginFolderKind): PluginFolder[];
+    create(input: {
+      kind: PluginFolderKind;
+      name: string;
+      /** Defaults to the personal vault. */
+      vaultId?: string;
+      parentFolderId?: string;
+    }): Promise<PluginFolder>;
+    /** Name only — kind, vault and parent are preserved. Rejects a team vault. */
+    rename(id: string, name: string): Promise<void>;
+    /** Cascades by default. Rejects a team vault. */
+    delete(id: string, opts?: { cascade?: boolean }): Promise<void>;
+  };
+
   // Vault — plugin-scoped secrets (requires vault:*)
   vault: {
     get(key: string): Promise<string | null>;
