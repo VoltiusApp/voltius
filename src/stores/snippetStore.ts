@@ -9,7 +9,7 @@ import { isServerMode } from "@/services/account";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { useHistoryStore } from "@/stores/historyStore";
 import { pushCreateHistory, pushDeleteHistory } from "@/stores/recreateHistory";
-import { isTeamVaultId, upsertById, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap } from "@/stores/teamVaultMap";
+import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition } from "@/stores/teamVaultMap";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
@@ -146,18 +146,8 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
       const transition = classifyVaultTransition(teamId, migrated.vault_id, isTeamVaultId);
       const localSnippets = transition.kind === "team-to-local" ? await api.listSnippets() : undefined;
       set((s) => {
-        const nextTeamSnippets = { ...s.teamSnippets };
-        if (transition.kind === "team-to-team") {
-          nextTeamSnippets[transition.sourceTeamId] = (nextTeamSnippets[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          nextTeamSnippets[transition.destinationTeamId] = upsertById(nextTeamSnippets[transition.destinationTeamId] ?? [], migrated);
-          return { teamSnippets: nextTeamSnippets };
-        }
-        if (transition.kind === "team-to-local") {
-          nextTeamSnippets[transition.sourceTeamId] = (nextTeamSnippets[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          return { snippets: localSnippets, teamSnippets: nextTeamSnippets };
-        }
-        nextTeamSnippets[teamId] = upsertById(nextTeamSnippets[teamId] ?? [], migrated);
-        return { teamSnippets: nextTeamSnippets };
+        const next = applyVaultTransition(s.teamSnippets, transition, id, migrated, teamId);
+        return localSnippets ? { snippets: localSnippets, teamSnippets: next } : { teamSnippets: next };
       });
       reportAuditMutation("snippet", "updated", { id: migrated.id, name: migrated.name, vault_id: migrated.vault_id });
       const prevData: SnippetFormData = {
@@ -192,23 +182,11 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     }
     const snippets = await api.listSnippets();
     set((s) => {
-      if (prev) {
-        const nextVaultId = data.vault_id ?? prev.vault_id;
-        const nextTeamSnippets = { ...s.teamSnippets };
-        const transition = classifyVaultTransition(prev.vault_id, nextVaultId, isTeamVaultId);
-        if (transition.kind === "local-to-team") {
-          const item = { ...prev, ...data, vault_id: nextVaultId, tags: data.tags ?? prev.tags };
-          nextTeamSnippets[transition.destinationTeamId] = upsertById(nextTeamSnippets[transition.destinationTeamId] ?? [], item);
-        } else if (transition.kind === "team-to-team") {
-          nextTeamSnippets[transition.sourceTeamId] = (nextTeamSnippets[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          const item = { ...prev, ...data, vault_id: nextVaultId, tags: data.tags ?? prev.tags };
-          nextTeamSnippets[transition.destinationTeamId] = upsertById(nextTeamSnippets[transition.destinationTeamId] ?? [], item);
-        } else if (transition.kind === "team-to-local") {
-          nextTeamSnippets[transition.sourceTeamId] = (nextTeamSnippets[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-        }
-        return { snippets, teamSnippets: nextTeamSnippets };
-      }
-      return { snippets };
+      if (!prev) return { snippets };
+      const nextVaultId = data.vault_id ?? prev.vault_id;
+      const item = { ...prev, ...data, vault_id: nextVaultId, tags: data.tags ?? prev.tags };
+      const transition = classifyVaultTransition(prev.vault_id, nextVaultId, isTeamVaultId);
+      return { snippets, teamSnippets: applyVaultTransition(s.teamSnippets, transition, id, item) };
     });
     isServerMode().then((s) => { if (s) scheduleSync(); });
     if (prev) reportAuditMutation("snippet", "updated", { id, name: data.name ?? prev.name, vault_id: data.vault_id ?? prev.vault_id });

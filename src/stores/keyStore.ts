@@ -6,7 +6,7 @@ import { isServerMode } from "@/services/account";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { pushCreateHistory, pushDeleteHistory } from "@/stores/recreateHistory";
-import { isTeamVaultId, upsertById, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap } from "@/stores/teamVaultMap";
+import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition } from "@/stores/teamVaultMap";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
@@ -116,18 +116,8 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
       const transition = classifyVaultTransition(teamId, migrated.vault_id, isTeamVaultId);
       const localKeys = transition.kind === "team-to-local" ? await api.listKeys() : undefined;
       set((s) => {
-        const nextTeamKeys = { ...s.teamKeys };
-        if (transition.kind === "team-to-team") {
-          nextTeamKeys[transition.sourceTeamId] = (nextTeamKeys[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          nextTeamKeys[transition.destinationTeamId] = upsertById(nextTeamKeys[transition.destinationTeamId] ?? [], migrated);
-          return { teamKeys: nextTeamKeys };
-        }
-        if (transition.kind === "team-to-local") {
-          nextTeamKeys[transition.sourceTeamId] = (nextTeamKeys[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          return { keys: localKeys, teamKeys: nextTeamKeys };
-        }
-        nextTeamKeys[teamId] = upsertById(nextTeamKeys[teamId] ?? [], migrated);
-        return { teamKeys: nextTeamKeys };
+        const next = applyVaultTransition(s.teamKeys, transition, id, migrated, teamId);
+        return localKeys ? { keys: localKeys, teamKeys: next } : { teamKeys: next };
       });
       reportAuditMutation("key", "updated", { id: migrated.id, name: migrated.name ?? "unnamed", vault_id: migrated.vault_id }, { key_type: migrated.key_type });
       const prevData: SshKeyFormData = {
@@ -162,21 +152,12 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
       key = await api.updateKey(id, data);
     }
     const keys = await api.listKeys();
-    set((s) => {
-      const nextTeamKeys = { ...s.teamKeys };
-      if (prev) {
-        const transition = classifyVaultTransition(prev.vault_id, key.vault_id, isTeamVaultId);
-        if (transition.kind === "local-to-team") {
-          nextTeamKeys[transition.destinationTeamId] = upsertById(nextTeamKeys[transition.destinationTeamId] ?? [], key);
-        } else if (transition.kind === "team-to-team") {
-          nextTeamKeys[transition.sourceTeamId] = (nextTeamKeys[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          nextTeamKeys[transition.destinationTeamId] = upsertById(nextTeamKeys[transition.destinationTeamId] ?? [], key);
-        } else if (transition.kind === "team-to-local") {
-          nextTeamKeys[transition.sourceTeamId] = (nextTeamKeys[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-        }
-      }
-      return { keys, teamKeys: nextTeamKeys };
-    });
+    set((s) => ({
+      keys,
+      teamKeys: prev
+        ? applyVaultTransition(s.teamKeys, classifyVaultTransition(prev.vault_id, key.vault_id, isTeamVaultId), id, key)
+        : s.teamKeys,
+    }));
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "key")) scheduleSync(); });
     if (prev) reportAuditMutation("key", "updated", { id, name: data.name ?? prev.name ?? "unnamed", vault_id: data.vault_id ?? prev.vault_id }, { key_type: data.key_type ?? prev.key_type });

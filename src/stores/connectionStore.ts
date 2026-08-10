@@ -6,7 +6,7 @@ import { isServerMode } from "@/services/account";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { pushCreateHistory, pushDeleteHistory } from "@/stores/recreateHistory";
-import { isTeamVaultId, upsertById, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap } from "@/stores/teamVaultMap";
+import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition } from "@/stores/teamVaultMap";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
@@ -210,18 +210,8 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
       const transition = classifyVaultTransition(teamId, migrated.vault_id, isTeamVaultId);
       const connections = transition.kind === "team-to-local" ? await api.listConnections() : undefined;
       set((s) => {
-        const teamConnections = { ...s.teamConnections };
-        if (transition.kind === "team-to-team") {
-          teamConnections[transition.sourceTeamId] = (teamConnections[transition.sourceTeamId] ?? []).filter((c) => c.id !== id);
-          teamConnections[transition.destinationTeamId] = upsertById(teamConnections[transition.destinationTeamId] ?? [], migrated);
-          return { teamConnections };
-        }
-        if (transition.kind === "team-to-local") {
-          teamConnections[transition.sourceTeamId] = (teamConnections[transition.sourceTeamId] ?? []).filter((c) => c.id !== id);
-          return { connections, teamConnections };
-        }
-        teamConnections[teamId] = upsertById(teamConnections[teamId] ?? [], migrated);
-        return { teamConnections };
+        const next = applyVaultTransition(s.teamConnections, transition, id, migrated, teamId);
+        return connections ? { connections, teamConnections: next } : { teamConnections: next };
       });
       reportAuditMutation("connection", "updated", { id: updated.id, name: updated.name ?? updated.host, vault_id: updated.vault_id });
       const prevData: ConnectionFormData = connectionToFormData(prev);
@@ -290,44 +280,13 @@ export const useConnectionStore = create<ConnectionStore>((set, get) => ({
     });
     const connections = await api.listConnections();
     const transition = classifyVaultTransition(prev?.vault_id, updated.vault_id, isTeamVaultId);
-    set((s) => {
-      if (transition.kind === "local-to-team") {
-        return {
-          connections,
-          teamConnections: {
-            ...s.teamConnections,
-            [transition.destinationTeamId]: upsertById(s.teamConnections[transition.destinationTeamId] ?? [], updated),
-          },
-        };
-      }
-      if (transition.kind === "team-to-team") {
-        const teamConnections = { ...s.teamConnections };
-        teamConnections[transition.sourceTeamId] = (teamConnections[transition.sourceTeamId] ?? []).filter((c) => c.id !== id);
-        teamConnections[transition.destinationTeamId] = upsertById(teamConnections[transition.destinationTeamId] ?? [], updated);
-        return { connections, teamConnections };
-      }
-      if (transition.kind === "team-to-local") {
-        return {
-          connections,
-          teamConnections: {
-            ...s.teamConnections,
-            [transition.sourceTeamId]: (s.teamConnections[transition.sourceTeamId] ?? []).filter((c) => c.id !== id),
-          },
-        };
-      }
-      if (isTeamVaultId(updated.vault_id)) {
-        return {
-          connections,
-          teamConnections: {
-            ...s.teamConnections,
-            [updated.vault_id]: upsertById(s.teamConnections[updated.vault_id] ?? [], updated),
-          },
-        };
-      }
-      return {
-        connections,
-      };
-    });
+    // A same-scope move can still land in a team vault: an object already filed
+    // in one but tracked in the local list re-saves there rather than nowhere.
+    const stayTeamId = isTeamVaultId(updated.vault_id) ? updated.vault_id : undefined;
+    set((s) => ({
+      connections,
+      teamConnections: applyVaultTransition(s.teamConnections, transition, id, updated, stayTeamId),
+    }));
     const prefs = useSyncPrefsStore.getState();
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "connection")) scheduleSync(); });
     if (prev) reportAuditMutation("connection", "updated", { id, name: data.name ?? prev.name ?? prev.host, vault_id: data.vault_id ?? prev.vault_id });

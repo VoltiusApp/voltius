@@ -15,7 +15,7 @@ import { folderSubtreeIds } from "@/utils/folderTree";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { withPin } from "@/stores/withPin";
-import { isTeamVaultId, upsertById, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap } from "@/stores/teamVaultMap";
+import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, applyVaultTransition } from "@/stores/teamVaultMap";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 
 interface FolderStore {
@@ -131,18 +131,8 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
       const transition = classifyVaultTransition(teamId, migrated.vault_id, isTeamVaultId);
       const localFolders = transition.kind === "team-to-local" ? await api.listFolders() : undefined;
       set((s) => {
-        const nextTeamFolders = { ...s.teamFolders };
-        if (transition.kind === "team-to-team") {
-          nextTeamFolders[transition.sourceTeamId] = (nextTeamFolders[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          nextTeamFolders[transition.destinationTeamId] = upsertById(nextTeamFolders[transition.destinationTeamId] ?? [], migrated);
-          return { teamFolders: nextTeamFolders };
-        }
-        if (transition.kind === "team-to-local") {
-          nextTeamFolders[transition.sourceTeamId] = (nextTeamFolders[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          return { folders: localFolders, teamFolders: nextTeamFolders };
-        }
-        nextTeamFolders[teamId] = upsertById(nextTeamFolders[teamId] ?? [], migrated);
-        return { teamFolders: nextTeamFolders };
+        const next = applyVaultTransition(s.teamFolders, transition, id, migrated, teamId);
+        return localFolders ? { folders: localFolders, teamFolders: next } : { teamFolders: next };
       });
       reportAuditMutation("folder", "updated", { id: migrated.id, name: migrated.name, vault_id: migrated.vault_id }, { object_type: migrated.object_type });
       const prevData: FolderFormData = {
@@ -177,21 +167,12 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
       await api.updateFolder(id, data);
     }
     const folders = await api.listFolders();
-    set((s) => {
-      const nextTeamFolders = { ...s.teamFolders };
-      if (prev && updated) {
-        const transition = classifyVaultTransition(prev.vault_id, updated.vault_id, isTeamVaultId);
-        if (transition.kind === "local-to-team") {
-          nextTeamFolders[transition.destinationTeamId] = upsertById(nextTeamFolders[transition.destinationTeamId] ?? [], updated);
-        } else if (transition.kind === "team-to-team") {
-          nextTeamFolders[transition.sourceTeamId] = (nextTeamFolders[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          nextTeamFolders[transition.destinationTeamId] = upsertById(nextTeamFolders[transition.destinationTeamId] ?? [], updated);
-        } else if (transition.kind === "team-to-local") {
-          nextTeamFolders[transition.sourceTeamId] = (nextTeamFolders[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-        }
-      }
-      return { folders, teamFolders: nextTeamFolders };
-    });
+    set((s) => ({
+      folders,
+      teamFolders: prev && updated
+        ? applyVaultTransition(s.teamFolders, classifyVaultTransition(prev.vault_id, updated.vault_id, isTeamVaultId), id, updated)
+        : s.teamFolders,
+    }));
     isServerMode().then((s) => { if (s && useSyncPrefsStore.getState().isObjectSynced(id, "folder")) scheduleSync(); });
     if (prev) reportAuditMutation("folder", "updated", { id, name: data.name ?? prev.name, vault_id: data.vault_id ?? prev.vault_id }, { object_type: data.object_type ?? prev.object_type });
     if (prev) {

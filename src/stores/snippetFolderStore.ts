@@ -5,7 +5,7 @@ import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
-import { isTeamVaultId, upsertById, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap } from "@/stores/teamVaultMap";
+import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, applyVaultTransition } from "@/stores/teamVaultMap";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { folderSubtreeIds } from "@/utils/folderTree";
@@ -95,18 +95,8 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
       const transition = classifyVaultTransition(teamId, migrated.vault_id, isTeamVaultId);
       const localFolders = transition.kind === "team-to-local" ? await api.listSnippetFolders() : undefined;
       set((s) => {
-        const nextTeamSnippetFolders = { ...s.teamSnippetFolders };
-        if (transition.kind === "team-to-team") {
-          nextTeamSnippetFolders[transition.sourceTeamId] = (nextTeamSnippetFolders[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          nextTeamSnippetFolders[transition.destinationTeamId] = upsertById(nextTeamSnippetFolders[transition.destinationTeamId] ?? [], migrated);
-          return { teamSnippetFolders: nextTeamSnippetFolders };
-        }
-        if (transition.kind === "team-to-local") {
-          nextTeamSnippetFolders[transition.sourceTeamId] = (nextTeamSnippetFolders[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          return { folders: localFolders, teamSnippetFolders: nextTeamSnippetFolders };
-        }
-        nextTeamSnippetFolders[teamId] = upsertById(nextTeamSnippetFolders[teamId] ?? [], migrated);
-        return { teamSnippetFolders: nextTeamSnippetFolders };
+        const next = applyVaultTransition(s.teamSnippetFolders, transition, id, migrated, teamId);
+        return localFolders ? { folders: localFolders, teamSnippetFolders: next } : { teamSnippetFolders: next };
       });
       return;
     }
@@ -129,21 +119,12 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
       await api.updateSnippetFolder(id, data);
     }
     const folders = await api.listSnippetFolders();
-    set((s) => {
-      const nextTeamSnippetFolders = { ...s.teamSnippetFolders };
-      if (prev && updatedLocal) {
-        const transition = classifyVaultTransition(prev.vault_id, updatedLocal.vault_id, isTeamVaultId);
-        if (transition.kind === "local-to-team") {
-          nextTeamSnippetFolders[transition.destinationTeamId] = upsertById(nextTeamSnippetFolders[transition.destinationTeamId] ?? [], updatedLocal);
-        } else if (transition.kind === "team-to-team") {
-          nextTeamSnippetFolders[transition.sourceTeamId] = (nextTeamSnippetFolders[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          nextTeamSnippetFolders[transition.destinationTeamId] = upsertById(nextTeamSnippetFolders[transition.destinationTeamId] ?? [], updatedLocal);
-        } else if (transition.kind === "team-to-local") {
-          nextTeamSnippetFolders[transition.sourceTeamId] = (nextTeamSnippetFolders[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-        }
-      }
-      return { folders, teamSnippetFolders: nextTeamSnippetFolders };
-    });
+    set((s) => ({
+      folders,
+      teamSnippetFolders: prev && updatedLocal
+        ? applyVaultTransition(s.teamSnippetFolders, classifyVaultTransition(prev.vault_id, updatedLocal.vault_id, isTeamVaultId), id, updatedLocal)
+        : s.teamSnippetFolders,
+    }));
     isServerMode().then((s) => { if (s) scheduleSync(); });
   },
 
