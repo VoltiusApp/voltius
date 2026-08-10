@@ -1,9 +1,15 @@
-use crate::commands::crdt::{is_alive, max_clock};
+use crate::commands::crdt::max_clock;
+use crate::commands::vault_object::{
+    adopt_into, created_at_of, effective_vault, find_mut, impl_vault_object, live, requested_vault,
+    tombstone,
+};
 use crate::storage::config::{load_connections, save_connections, Connection, ConnectionFormData};
 use crate::vault_auth::check_vault_write;
 use chrono::Utc;
 use std::collections::HashMap;
 use uuid::Uuid;
+
+impl_vault_object!(Connection, "Connection");
 
 /// Builds an updated `Connection` by applying `data` on top of `existing`.
 ///
@@ -120,19 +126,12 @@ connection_clocks! {
 /// Seeds a fresh clock map for a new connection: every [`CLOCK_FIELDS`] entry
 /// stamped at `now`. Mirrors the field set that `bump_changed_clocks` tracks.
 fn initial_clocks(now: &str) -> HashMap<String, String> {
-    CLOCK_FIELDS
-        .iter()
-        .map(|field| ((*field).to_string(), now.to_string()))
-        .collect()
+    crate::commands::vault_object::initial_clocks(CLOCK_FIELDS, now)
 }
 
 #[tauri::command]
 pub fn connection_list() -> Result<Vec<Connection>, String> {
-    let connections = load_connections();
-    Ok(connections
-        .into_iter()
-        .filter(|c| is_alive(&c.deleted_at, &c.updated_at))
-        .collect())
+    Ok(live(load_connections()))
 }
 
 /// Builds a fresh `Connection` from form data under an explicit `id`.
@@ -146,7 +145,7 @@ fn build_connection(
 ) -> Connection {
     let now = now.to_string();
     let clocks = initial_clocks(&now);
-    let vault_id = data.vault_id.unwrap_or_else(|| "personal".to_string());
+    let vault_id = requested_vault(&data.vault_id)[0].clone();
     Connection {
         id,
         name: data.name,
@@ -197,11 +196,7 @@ fn build_connection(
 pub fn connection_save(data: ConnectionFormData) -> Result<Connection, String> {
     let mut connections = load_connections();
     let now = Utc::now().to_rfc3339();
-    let vault_id = data
-        .vault_id
-        .clone()
-        .unwrap_or_else(|| "personal".to_string());
-    check_vault_write(std::slice::from_ref(&vault_id))?;
+    check_vault_write(&requested_vault(&data.vault_id))?;
     let conn = build_connection(Uuid::new_v4().to_string(), data, &now, None, None);
     connections.push(conn.clone());
     save_connections(&connections)?;
@@ -221,21 +216,15 @@ pub fn connection_save(data: ConnectionFormData) -> Result<Connection, String> {
 pub fn connection_adopt(id: String, data: ConnectionFormData) -> Result<Connection, String> {
     let mut connections = load_connections();
     let now = Utc::now().to_rfc3339();
-    let vault_id = data
-        .vault_id
-        .clone()
-        .unwrap_or_else(|| "personal".to_string());
-    check_vault_write(std::slice::from_ref(&vault_id))?;
+    check_vault_write(&requested_vault(&data.vault_id))?;
 
-    let existing = connections.iter().find(|c| c.id == id);
-    let created_at = existing.map(|c| c.created_at.clone());
-    let last_used_at = existing.and_then(|c| c.last_used_at.clone());
-    let adopted = build_connection(id.clone(), data, &now, created_at, last_used_at);
-
-    match connections.iter_mut().find(|c| c.id == id) {
-        Some(slot) => *slot = adopted.clone(),
-        None => connections.push(adopted.clone()),
-    }
+    let created_at = created_at_of(&connections, &id);
+    let last_used_at = connections
+        .iter()
+        .find(|c| c.id == id)
+        .and_then(|c| c.last_used_at.clone());
+    let adopted = build_connection(id, data, &now, created_at, last_used_at);
+    adopt_into(&mut connections, adopted.clone());
     save_connections(&connections)?;
     Ok(adopted)
 }
@@ -243,28 +232,15 @@ pub fn connection_adopt(id: String, data: ConnectionFormData) -> Result<Connecti
 #[tauri::command]
 pub fn connection_update(id: String, data: ConnectionFormData) -> Result<Connection, String> {
     let mut connections = load_connections();
-    let existing = connections
-        .iter()
-        .find(|c| c.id == id)
-        .ok_or_else(|| format!("Connection {} not found", id))?
-        .clone();
-
-    let effective_vault = data
-        .vault_id
-        .as_deref()
-        .unwrap_or(&existing.vault_id)
-        .to_string();
-    check_vault_write(&[effective_vault])?;
+    let existing = find_mut(&mut connections, &id)?.clone();
+    check_vault_write(&[effective_vault(&data.vault_id, &existing.vault_id)])?;
 
     let now = Utc::now().to_rfc3339();
     let mut updated = merge_form_into_connection(&existing, data);
     bump_changed_clocks(&existing, &mut updated, &now);
     updated.updated_at = max_clock(&updated.clocks, &now);
 
-    *connections
-        .iter_mut()
-        .find(|c| c.id == id)
-        .ok_or_else(|| format!("Connection {} not found", id))? = updated.clone();
+    adopt_into(&mut connections, updated.clone());
     save_connections(&connections)?;
     Ok(updated)
 }
@@ -272,10 +248,7 @@ pub fn connection_update(id: String, data: ConnectionFormData) -> Result<Connect
 #[tauri::command]
 pub fn connection_set_distro(id: String, distro: String) -> Result<(), String> {
     let mut connections = load_connections();
-    let conn = connections
-        .iter_mut()
-        .find(|c| c.id == id)
-        .ok_or_else(|| format!("Connection {} not found", id))?;
+    let conn = find_mut(&mut connections, &id)?;
     let now = Utc::now().to_rfc3339();
     conn.distro = Some(distro);
     conn.clocks.insert("distro".to_string(), now.clone());
@@ -286,10 +259,7 @@ pub fn connection_set_distro(id: String, distro: String) -> Result<(), String> {
 #[tauri::command]
 pub fn connection_set_last_used(id: String) -> Result<(), String> {
     let mut connections = load_connections();
-    let conn = connections
-        .iter_mut()
-        .find(|c| c.id == id)
-        .ok_or_else(|| format!("Connection {} not found", id))?;
+    let conn = find_mut(&mut connections, &id)?;
     let now = Utc::now().to_rfc3339();
     conn.last_used_at = Some(now.clone());
     conn.clocks.insert("last_used_at".to_string(), now.clone());
@@ -301,14 +271,9 @@ pub fn connection_set_last_used(id: String) -> Result<(), String> {
 pub fn connection_delete(id: String) -> Result<(), String> {
     let mut connections = load_connections();
     let now = Utc::now().to_rfc3339();
-    let conn = connections
-        .iter_mut()
-        .find(|c| c.id == id)
-        .ok_or_else(|| format!("Connection {} not found", id))?;
+    let conn = find_mut(&mut connections, &id)?;
     check_vault_write(std::slice::from_ref(&conn.vault_id))?;
-    conn.deleted_at = Some(now.clone());
-    conn.clocks.insert("__deleted__".to_string(), now.clone());
-    conn.updated_at = max_clock(&conn.clocks, &now);
+    tombstone(conn, &now);
     save_connections(&connections)
 }
 

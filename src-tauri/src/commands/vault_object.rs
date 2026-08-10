@@ -207,6 +207,59 @@ pub fn tombstone<T: VaultObject>(item: &mut T, now: &str) {
     item.set_updated_at(stamp);
 }
 
+/// The distinct vaults of the rows a cascade is about to touch. Every one must
+/// be writable before anything is written.
+pub fn vaults_of<T: VaultObject>(items: &[T], doomed: impl Fn(&T) -> bool) -> HashSet<String> {
+    items
+        .iter()
+        .filter(|i| doomed(i))
+        .map(|i| i.vault_id().to_string())
+        .collect()
+}
+
+/// Tombstones every row a folder delete sweeps up, returning how many. Callers
+/// skip the save when it is zero: each save is a whole-file rewrite.
+pub fn cascade_tombstone<T: VaultObject>(
+    items: &mut [T],
+    doomed: impl Fn(&T) -> bool,
+    now: &str,
+) -> usize {
+    let mut touched = 0;
+    for item in items.iter_mut() {
+        if doomed(item) {
+            tombstone(item, now);
+            touched += 1;
+        }
+    }
+    touched
+}
+
+/// Refiles the named objects into `folder_id`, after checking every vault they
+/// sit in. Stamps `folder_id` and refreshes `updated_at` but deliberately does
+/// not revive a tombstoned row, which is why this is not an update.
+pub fn refile_into_folder<T: VaultObject>(
+    items: &mut [T],
+    ids: &[String],
+    folder_id: &Option<String>,
+    now: &str,
+    folder_of: impl Fn(&mut T) -> &mut Option<String>,
+) -> Result<(), String> {
+    let named = |item: &T| ids.iter().any(|id| id == item.id());
+    let vaults: Vec<String> = vaults_of(items, named).into_iter().collect();
+    crate::vault_auth::check_vault_write(&vaults)?;
+    for item in items.iter_mut() {
+        if !ids.iter().any(|id| id == item.id()) {
+            continue;
+        }
+        *folder_of(item) = folder_id.clone();
+        item.clocks_mut()
+            .insert("folder_id".to_string(), now.to_string());
+        let stamp = max_clock(item.clocks_mut(), now);
+        item.set_updated_at(stamp);
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
