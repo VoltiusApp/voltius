@@ -36,6 +36,8 @@ const h = vi.hoisted(() => ({
   updateSnippet: vi.fn(async (_id: string, _data?: unknown) => {}),
   createSnippet: vi.fn(async (_id: string, _data?: unknown) => {}),
   can: vi.fn((_permission: string, _vaultId: string) => true),
+  confirmModals: [] as Record<string, unknown>[],
+  bulkOnDelete: null as ((ids: string[]) => void) | null,
 }));
 
 vi.mock("react-i18next", () => ({
@@ -66,7 +68,9 @@ vi.mock("./SnippetCard", () => ({ SnippetCard: () => null }));
 vi.mock("./SnippetForm", () => ({ SnippetForm: () => null }));
 vi.mock("./community/CommunityBrowser", () => ({ CommunityBrowser: () => null }));
 vi.mock("./community/ShareSnippetModal", () => ({ ShareSnippetModal: () => null }));
-vi.mock("@/components/shared/ConfirmModal", () => ({ ConfirmModal: () => null }));
+vi.mock("@/components/shared/ConfirmModal", () => ({
+  ConfirmModal: (props: Record<string, unknown>) => { h.confirmModals.push(props); return null; },
+}));
 vi.mock("@/components/shared/ClipboardPill", () => ({ ClipboardPill: () => null }));
 vi.mock("@/components/shared/ContextMenu", () => ({
   ContextMenu: () => null,
@@ -101,7 +105,9 @@ vi.mock("@/hooks/useFolderNavigation", () => ({
   },
 }));
 vi.mock("@/hooks/useListKeyNav", () => ({ useListKeyNav: () => ({ focusedId: null, setFocusedId: vi.fn() }) }));
-vi.mock("@/hooks/usePageBulkActions", () => ({ usePageBulkActions: () => {} }));
+vi.mock("@/hooks/usePageBulkActions", () => ({
+  usePageBulkActions: (cfg: { onDelete: (ids: string[]) => void }) => { h.bulkOnDelete = cfg.onDelete; },
+}));
 vi.mock("@/hooks/useDragToFolder", () => ({
   useDragToFolder: () => ({
     isDragging: false,
@@ -204,6 +210,8 @@ import { SnippetsPage } from "./SnippetsPage";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  h.confirmModals = [];
+  h.bulkOnDelete = null;
   h.snippets = [];
   h.folders = [];
   h.teamFolders = {};
@@ -221,6 +229,10 @@ beforeEach(() => {
   h.saveFolder.mockImplementation(async (d: { name: string }) => folder(`new-${d.name}`, d as Partial<Folder>));
 });
 afterEach(cleanup);
+
+function lastModal(): Record<string, unknown> {
+  return h.confirmModals[h.confirmModals.length - 1];
+}
 
 test("folder navigation is scoped by vault only — snippet folders have their own store", () => {
   h.accessibleVaultIds = ["personal"];
@@ -308,4 +320,30 @@ test("a new folder is created in the vault being viewed, not always the personal
   await act(async () => { await (h.toolbarProps.onNewFolder as () => void | Promise<void>)(); });
 
   expect(h.saveFolder).toHaveBeenCalledWith(expect.objectContaining({ object_type: "snippet", vault_id: "team-1" }));
+});
+
+test("the folder delete confirmation counts every snippet nested under it", () => {
+  h.folders = [folder("root"), folder("mid", { parent_folder_id: "root" }), folder("empty")];
+  h.snippets = [snippet("s-mid", { folder_id: "mid" }), snippet("s-out")];
+  h.visibleFolders = [folder("root"), folder("empty")];
+  render(<SnippetsPage />);
+
+  const root = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
+  act(() => { (root.onDelete as (f: Folder) => void)(folder("root")); });
+  expect(lastModal().message).toBe('snippets.page.confirmDeleteFolder.message:{"count":1}');
+
+  const empty = h.folderCardProps.find((p) => (p.folder as Folder).id === "empty")!;
+  act(() => { (empty.onDelete as (f: Folder) => void)(folder("empty")); });
+  expect(lastModal().message).toBe("snippets.page.confirmDeleteFolder.messageEmpty");
+});
+
+test("a bulk delete over a folder warns about the snippets that go down with it", () => {
+  h.folders = [folder("root")];
+  h.snippets = [snippet("s-in", { folder_id: "root" }), snippet("s-sel")];
+  render(<SnippetsPage />);
+
+  act(() => { h.bulkOnDelete!(["root", "s-sel"]); });
+  expect(lastModal().message).toBe(
+    'snippets.page.confirmDelete.message:{"count":2} snippets.page.confirmDelete.folderCascade:{"count":1}',
+  );
 });

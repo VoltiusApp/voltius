@@ -35,6 +35,8 @@ const h = vi.hoisted(() => ({
   updateRule: vi.fn(async (_id: string, _data?: unknown) => {}),
   createRule: vi.fn(async (_id: string, _data?: unknown) => {}),
   can: vi.fn((_permission: string, _vaultId: string) => true),
+  confirmModals: [] as Record<string, unknown>[],
+  bulkOnDelete: null as ((ids: string[]) => void) | null,
 }));
 
 vi.mock("react-i18next", () => ({
@@ -61,7 +63,9 @@ vi.mock("./PortForwardingToolbar", () => ({ PortForwardingToolbar: () => null })
 vi.mock("./ActiveTunnelsSection", () => ({ ActiveTunnelsSection: () => null }));
 vi.mock("./RuleCard", () => ({ RuleCard: () => null }));
 vi.mock("./RuleForm", () => ({ RuleForm: () => null }));
-vi.mock("@/components/shared/ConfirmModal", () => ({ ConfirmModal: () => null }));
+vi.mock("@/components/shared/ConfirmModal", () => ({
+  ConfirmModal: (props: Record<string, unknown>) => { h.confirmModals.push(props); return null; },
+}));
 vi.mock("@/components/shared/VaultCascadeModal", () => ({ VaultCascadeModal: () => null }));
 vi.mock("@/components/shared/ClipboardPill", () => ({ ClipboardPill: () => null }));
 vi.mock("@/components/shared/ContextMenu", () => ({
@@ -97,7 +101,9 @@ vi.mock("@/hooks/useFolderNavigation", () => ({
   },
 }));
 vi.mock("@/hooks/useListKeyNav", () => ({ useListKeyNav: () => ({ focusedId: null, setFocusedId: vi.fn() }) }));
-vi.mock("@/hooks/usePageBulkActions", () => ({ usePageBulkActions: () => {} }));
+vi.mock("@/hooks/usePageBulkActions", () => ({
+  usePageBulkActions: (cfg: { onDelete: (ids: string[]) => void }) => { h.bulkOnDelete = cfg.onDelete; },
+}));
 vi.mock("@/hooks/useDragToFolder", () => ({
   useDragToFolder: () => ({
     isDragging: h.isDragging,
@@ -188,6 +194,8 @@ import { PortForwardingPage } from "./PortForwardingPage";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  h.confirmModals = [];
+  h.bulkOnDelete = null;
   h.rules = [];
   h.folders = [];
   h.vaults = [];
@@ -204,6 +212,10 @@ beforeEach(() => {
   h.saveFolder.mockImplementation(async (d: { name: string }) => folder(`new-${d.name}`, d as Partial<Folder>));
 });
 afterEach(cleanup);
+
+function lastModal(): Record<string, unknown> {
+  return h.confirmModals[h.confirmModals.length - 1];
+}
 
 test("folder navigation is scoped to port_forwarding folders in accessible vaults", () => {
   h.accessibleVaultIds = ["personal"];
@@ -309,4 +321,19 @@ test("the vault targets offered on a folder exclude its own vault, and personal 
 
   const card = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
   expect((card.vaults as { id: string; name: string }[])).toEqual([{ id: "team-1", name: "Team One" }]);
+});
+
+test("the folder delete confirmation counts every rule nested under it", () => {
+  h.folders = [folder("root"), folder("mid", { parent_folder_id: "root" }), folder("empty")];
+  h.rules = [rule("r-mid", { folder_id: "mid" }), rule("r-out")];
+  h.visibleFolders = [folder("root"), folder("empty")];
+  render(<PortForwardingPage />);
+
+  const root = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
+  act(() => { (root.onDelete as (f: Folder) => void)(folder("root")); });
+  expect(lastModal().message).toBe('portForwarding.page.confirmDeleteFolder.message:{"count":1}');
+
+  const empty = h.folderCardProps.find((p) => (p.folder as Folder).id === "empty")!;
+  act(() => { (empty.onDelete as (f: Folder) => void)(folder("empty")); });
+  expect(lastModal().message).toBe("portForwarding.page.confirmDeleteFolder.messageEmpty");
 });

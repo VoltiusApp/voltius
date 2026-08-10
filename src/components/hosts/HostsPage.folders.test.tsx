@@ -39,6 +39,8 @@ const h = vi.hoisted(() => ({
   updateKey: vi.fn(async (_id: string, _data?: unknown) => {}),
   updateIdentity: vi.fn(async (_id: string, _data?: unknown) => {}),
   can: vi.fn((_permission: string, _vaultId: string) => true),
+  confirmModals: [] as Record<string, unknown>[],
+  bulkOnDelete: null as ((ids: string[]) => void) | null,
 }));
 
 vi.mock("react-i18next", () => ({
@@ -67,7 +69,9 @@ vi.mock("./RemoteDeviceSessions", () => ({ RemoteDeviceSessions: () => null }));
 vi.mock("./SnippetPickerPanel", () => ({ SnippetPickerPanel: () => null }));
 vi.mock("@/components/connections/ConnectionForm", () => ({ default: () => null }));
 vi.mock("@/components/connections/SerialConnectionForm", () => ({ default: () => null }));
-vi.mock("@/components/shared/ConfirmModal", () => ({ ConfirmModal: () => null }));
+vi.mock("@/components/shared/ConfirmModal", () => ({
+  ConfirmModal: (props: Record<string, unknown>) => { h.confirmModals.push(props); return null; },
+}));
 vi.mock("@/components/shared/VaultCascadeModal", () => ({ VaultCascadeModal: () => null }));
 vi.mock("@/components/shared/ClipboardPill", () => ({ ClipboardPill: () => null }));
 vi.mock("@/components/shared/ErrorBanner", () => ({ ErrorBanner: () => null }));
@@ -105,7 +109,9 @@ vi.mock("@/hooks/useFolderNavigation", () => ({
   },
 }));
 vi.mock("@/hooks/useListKeyNav", () => ({ useListKeyNav: () => ({ focusedId: null, setFocusedId: vi.fn() }) }));
-vi.mock("@/hooks/usePageBulkActions", () => ({ usePageBulkActions: () => {} }));
+vi.mock("@/hooks/usePageBulkActions", () => ({
+  usePageBulkActions: (cfg: { onDelete: (ids: string[]) => void }) => { h.bulkOnDelete = cfg.onDelete; },
+}));
 vi.mock("@/hooks/useDragToFolder", () => ({
   useDragToFolder: () => ({
     isDragging: false,
@@ -227,6 +233,8 @@ import HostsPage from "./HostsPage";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  h.confirmModals = [];
+  h.bulkOnDelete = null;
   h.connections = [];
   h.folders = [];
   h.identities = [];
@@ -245,6 +253,10 @@ beforeEach(() => {
   h.saveFolder.mockImplementation(async (d: { name: string }) => folder(`new-${d.name}`, d as Partial<Folder>));
 });
 afterEach(cleanup);
+
+function lastModal(): Record<string, unknown> {
+  return h.confirmModals[h.confirmModals.length - 1];
+}
 
 test("folder navigation is scoped to connection folders in accessible vaults", () => {
   h.accessibleVaultIds = ["personal"];
@@ -376,4 +388,39 @@ test("an unlinked team is offered as a vault target alongside the linked vaults"
     { id: "team-1", name: "Linked" },
     { id: "team-2", name: "Unlinked team" },
   ]);
+});
+
+test("the folder delete confirmation counts every host nested under it", () => {
+  h.folders = [folder("root"), folder("mid", { parent_folder_id: "root" }), folder("empty")];
+  h.connections = [conn("c-mid", { folder_id: "mid" }), conn("c-out")];
+  h.visibleFolders = [folder("root"), folder("empty")];
+  render(<HostsPage />);
+
+  const root = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
+  act(() => { (root.onDelete as (f: Folder) => void)(folder("root")); });
+  expect(lastModal().message).toBe('hosts.page.confirmDeleteFolder.message:{"count":1}');
+
+  const empty = h.folderCardProps.find((p) => (p.folder as Folder).id === "empty")!;
+  act(() => { (empty.onDelete as (f: Folder) => void)(folder("empty")); });
+  expect(lastModal().message).toBe("hosts.page.confirmDeleteFolder.messageEmpty");
+});
+
+test("a bulk delete over a folder warns about the hosts that go down with it", () => {
+  h.folders = [folder("root")];
+  h.connections = [conn("c-in", { folder_id: "root" }), conn("c-sel")];
+  render(<HostsPage />);
+
+  act(() => { h.bulkOnDelete!(["root", "c-sel"]); });
+  expect(lastModal().message).toBe(
+    'hosts.page.confirmDelete.message:{"count":2} hosts.page.confirmDelete.folderCascade:{"count":1}',
+  );
+});
+
+test("a host selected alongside its folder is not counted twice in the delete warning", () => {
+  h.folders = [folder("root")];
+  h.connections = [conn("c-in", { folder_id: "root" })];
+  render(<HostsPage />);
+
+  act(() => { h.bulkOnDelete!(["root", "c-in"]); });
+  expect(lastModal().message).toBe('hosts.page.confirmDelete.message:{"count":2}');
 });

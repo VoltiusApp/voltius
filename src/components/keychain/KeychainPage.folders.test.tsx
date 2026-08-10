@@ -34,6 +34,10 @@ const h = vi.hoisted(() => ({
   updateKey: vi.fn(async (_id: string, _data?: unknown) => {}),
   updateIdentity: vi.fn(async (_id: string, _data?: unknown) => {}),
   can: vi.fn((_permission: string, _vaultId: string) => true),
+  saveKey: vi.fn(async (d: { name?: string }) => ({ id: `new-${d.name}` })),
+  saveIdentity: vi.fn(async (d: { name?: string }) => ({ id: `new-${d.name}` })),
+  confirmModals: [] as Record<string, unknown>[],
+  bulkOnDelete: null as ((ids: string[]) => void) | null,
 }));
 
 vi.mock("react-i18next", () => ({
@@ -60,7 +64,9 @@ vi.mock("./KeyCards", () => ({ KeySection: () => null, IdentitySection: () => nu
 vi.mock("./KeyForm", () => ({ KeyForm: () => null }));
 vi.mock("./IdentityForm", () => ({ IdentityForm: () => null }));
 vi.mock("./KeyExportPanel", () => ({ KeyExportPanel: () => null, sortByMode: <T,>(items: T[]) => items }));
-vi.mock("@/components/shared/ConfirmModal", () => ({ ConfirmModal: () => null }));
+vi.mock("@/components/shared/ConfirmModal", () => ({
+  ConfirmModal: (props: Record<string, unknown>) => { h.confirmModals.push(props); return null; },
+}));
 vi.mock("@/components/shared/VaultCascadeModal", () => ({ VaultCascadeModal: () => null }));
 vi.mock("@/components/shared/ClipboardPill", () => ({ ClipboardPill: () => null }));
 vi.mock("@/components/shared/ErrorBanner", () => ({ ErrorBanner: () => null }));
@@ -97,7 +103,9 @@ vi.mock("@/hooks/useFolderNavigation", () => ({
   },
 }));
 vi.mock("@/hooks/useListKeyNav", () => ({ useListKeyNav: () => ({ focusedId: null, setFocusedId: vi.fn() }) }));
-vi.mock("@/hooks/usePageBulkActions", () => ({ usePageBulkActions: () => {} }));
+vi.mock("@/hooks/usePageBulkActions", () => ({
+  usePageBulkActions: (cfg: { onDelete: (ids: string[]) => void }) => { h.bulkOnDelete = cfg.onDelete; },
+}));
 vi.mock("@/hooks/useDragToFolder", () => ({
   useDragToFolder: () => ({
     isDragging: false,
@@ -145,7 +153,7 @@ function selectorStore<T extends object>(state: T) {
 vi.mock("@/stores/keyStore", () => ({
   useKeyStore: selectorStore({
     loadKeys: vi.fn(async () => {}),
-    saveKey: vi.fn(async (d: { name?: string }) => ({ id: `new-${d.name}` })),
+    saveKey: h.saveKey,
     updateKey: h.updateKey,
     deleteKey: vi.fn(async () => {}),
     get keys() { return h.keys; },
@@ -154,7 +162,7 @@ vi.mock("@/stores/keyStore", () => ({
 vi.mock("@/stores/identityStore", () => ({
   useIdentityStore: selectorStore({
     loadIdentities: vi.fn(async () => {}),
-    saveIdentity: vi.fn(async (d: { name?: string }) => ({ id: `new-${d.name}` })),
+    saveIdentity: h.saveIdentity,
     updateIdentity: h.updateIdentity,
     deleteIdentity: vi.fn(async () => {}),
     get identities() { return h.identities; },
@@ -209,6 +217,8 @@ import KeychainPage from "./KeychainPage";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  h.confirmModals = [];
+  h.bulkOnDelete = null;
   h.keys = [];
   h.identities = [];
   h.folders = [];
@@ -223,9 +233,15 @@ beforeEach(() => {
   h.accessibleVaultIds = [];
   h.cascades = [];
   h.can.mockReturnValue(true);
+  h.saveKey.mockImplementation(async (d: { name?: string }) => ({ id: `new-${d.name}` }));
+  h.saveIdentity.mockImplementation(async (d: { name?: string }) => ({ id: `new-${d.name}` }));
   h.saveFolder.mockImplementation(async (d: { name: string }) => folder(`new-${d.name}`, d as Partial<Folder>));
 });
 afterEach(cleanup);
+
+function lastModal(): Record<string, unknown> {
+  return h.confirmModals[h.confirmModals.length - 1];
+}
 
 test("folder navigation is scoped to keychain folders in accessible vaults", () => {
   h.accessibleVaultIds = ["personal"];
@@ -304,4 +320,49 @@ test("an unlinked team is offered as a vault target alongside the linked vaults"
     { id: "team-1", name: "Linked" },
     { id: "team-2", name: "Unlinked team" },
   ]);
+});
+
+test("the folder delete confirmation counts every key and identity nested under it", () => {
+  h.folders = [folder("root"), folder("mid", { parent_folder_id: "root" }), folder("empty")];
+  h.keys = [key("k-mid", { folder_id: "mid" }), key("k-out")];
+  h.identities = [identity("i-root", { folder_id: "root" })];
+  h.visibleFolders = [folder("root"), folder("empty")];
+  render(<KeychainPage />);
+
+  const root = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
+  act(() => { (root.onDelete as (f: Folder) => void)(folder("root")); });
+  expect(lastModal().message).toBe('keychain.page.confirmDeleteFolder.message:{"count":2}');
+
+  const empty = h.folderCardProps.find((p) => (p.folder as Folder).id === "empty")!;
+  act(() => { (empty.onDelete as (f: Folder) => void)(folder("empty")); });
+  expect(lastModal().message).toBe("keychain.page.confirmDeleteFolder.messageEmpty");
+});
+
+test("a bulk delete over a folder warns about the keys that go down with it", () => {
+  h.folders = [folder("root")];
+  h.keys = [key("k-in", { folder_id: "root" }), key("k-sel")];
+  render(<KeychainPage />);
+
+  act(() => { h.bulkOnDelete!(["root", "k-sel"]); });
+  expect(lastModal().message).toBe(
+    'keychain.page.confirmDelete.message:{"count":2} keychain.page.confirmDelete.folderCascade:{"count":1}',
+  );
+});
+
+test("copying a folder to a vault recreates the subtree but leaves the copies at its root", async () => {
+  h.vaults = [{ id: "v-team", teamId: "team-1", name: "Team One" }];
+  h.folders = [folder("root"), folder("mid", { parent_folder_id: "root" })];
+  h.keys = [key("k-mid", { folder_id: "mid" })];
+  h.identities = [identity("i-mid", { folder_id: "mid" })];
+  h.visibleFolders = [folder("root")];
+  render(<KeychainPage />);
+
+  const card = h.folderCardProps.find((p) => (p.folder as Folder).id === "root")!;
+  act(() => { (card.onCopyToVault as (v: string) => void)("team-1"); });
+  await act(async () => { await h.cascades[0].execute(); });
+
+  expect(h.saveFolder.mock.calls.map((c) => (c[0] as { name: string }).name)).toEqual(["root", "mid"]);
+  expect(h.saveKey.mock.calls[0][0]).toMatchObject({ vault_id: "team-1" });
+  expect(h.saveKey.mock.calls[0][0]).not.toHaveProperty("folder_id");
+  expect(h.saveIdentity.mock.calls[0][0]).not.toHaveProperty("folder_id");
 });
