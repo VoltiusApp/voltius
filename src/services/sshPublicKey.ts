@@ -10,9 +10,15 @@
  * Separators are [ \t] rather than \s: \s admits the newline this exists to keep
  * out. The key types are the ones the app generates (ed25519/ecdsa/rsa) plus the
  * remaining OpenSSH types a user can paste in.
+ *
+ * The comment tail is a conservative charset, not "anything but a newline": the
+ * appended line can land in a file something interprets (~/.ssh/rc is run by
+ * sshd at every login), where a comment carrying ; | $ ` & would be a command.
+ * No real key comment needs them. It must start with a non-space so the pattern
+ * has no ambiguous split to backtrack over.
  */
 const SSH_PUBLIC_KEY =
-  /^(ssh-(rsa|dss|ed25519)|ecdsa-sha2-nistp(256|384|521)|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com)[ \t]+[A-Za-z0-9+/]+={0,2}([ \t]+[^\r\n]*)?$/;
+  /^(ssh-(rsa|dss|ed25519)|ecdsa-sha2-nistp(256|384|521)|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com)[ \t]+[A-Za-z0-9+/]+={0,2}([ \t]+[A-Za-z0-9._@+-][A-Za-z0-9._@+ \t-]*)?$/;
 
 export function isValidSshPublicKey(value: string): boolean {
   return SSH_PUBLIC_KEY.test(value.trim());

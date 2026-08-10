@@ -3,6 +3,7 @@ import { getSecret } from "@/services/vault";
 import { resolveConnectionCredentials } from "@/services/credentials";
 import { sshExecCommand } from "@/services/ssh";
 import { isValidSshPublicKey } from "@/services/sshPublicKey";
+import { isSafeFilename, isSafeRelativeDir } from "@/services/sshKeyPath";
 import type { Connection, SshKey } from "@/types";
 
 /** POSIX single-quote escaping: close the quote, insert an escaped quote, reopen it. */
@@ -38,6 +39,11 @@ export async function addKeyToHost({
   filename = "authorized_keys",
   script = DEFAULT_EXPORT_SCRIPT,
 }: AddKeyToHostInput): Promise<void> {
+  // Here, not only in the MCP schema: api.keys.addToHost passes both straight
+  // through, so the schema alone would leave the plugin route writing anywhere.
+  if (!isSafeRelativeDir(location)) throw new Error(i18n.t("keychain.exportPanel.invalidLocationError"));
+  if (!isSafeFilename(filename)) throw new Error(i18n.t("keychain.exportPanel.invalidFilenameError"));
+
   const pubKey = await getSecret(`key:${sshKey.id}:public`);
   if (!pubKey) throw new Error(i18n.t("keychain.exportPanel.publicKeyNotFoundError"));
   const trimmedPubKey = pubKey.trim();
