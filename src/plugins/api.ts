@@ -542,6 +542,9 @@ export interface PluginAPI {
     /** Creates a key entry and stores private/public content in the vault. */
     create(data: { name?: string; key_type?: string; tags?: string[] }, privateKey: string, publicKey?: string): Promise<PluginKey>;
     delete(id: string): Promise<void>;
+    /** Appends the key's public half to a connection's authorized_keys over SSH.
+     *  Requires keys:read and connections:read. Never accepts a script. */
+    addToHost(input: { keyId: string; connectionId: string; location?: string; filename?: string }): Promise<void>;
   };
 
   // Identities (requires identities:*)

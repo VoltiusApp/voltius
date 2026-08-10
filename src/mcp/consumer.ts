@@ -48,6 +48,10 @@ export const MCP_TEXT = {
     key_delete:
       "Delete a saved SSH key by id. Runs immediately and cannot be undone; any connection using "
       + "the key will stop authenticating. Your own client is responsible for approval.",
+    key_add_to_host:
+      "Append an SSH key's public half to a host's authorized_keys over SSH, using the "
+      + "connection's stored credentials. This writes to the remote machine. Runs immediately; "
+      + "your own client is responsible for approval.",
     identity_create:
       "Create an identity: a username, and optionally the id of a key from key_list. Runs "
       + "immediately; your own client is responsible for approval.",

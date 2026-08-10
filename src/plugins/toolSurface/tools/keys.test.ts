@@ -9,6 +9,7 @@ function makePorts(overrides: Partial<{ keys: unknown }> = {}) {
       list: vi.fn(async () => [{ id: "k1", name: "laptop", key_type: "ed25519", tags: [] }]),
       create: vi.fn(async () => ({ id: "k2", name: "new", key_type: "ed25519", tags: [] })),
       delete: vi.fn(async () => undefined),
+      addToHost: vi.fn(async () => undefined),
       ...(overrides.keys ?? {}),
     },
   };
@@ -85,6 +86,43 @@ describe("key verbs", () => {
 
   it("declares exactly the permissions its verbs reach", async () => {
     const { KEY_PERMISSIONS } = await import("./keys");
-    expect([...KEY_PERMISSIONS].sort()).toEqual(["audit", "keys:read", "keys:write"]);
+    expect([...KEY_PERMISSIONS].sort()).toEqual(["audit", "connections:read", "keys:read", "keys:write"]);
+  });
+
+  it("exposes key_add_to_host", () => {
+    const { ports } = makePorts();
+    expect(buildKeyTools(ports).map((t) => t.name)).toContain("key_add_to_host");
+  });
+
+  it("defaults location and filename, and never forwards a script", async () => {
+    const addToHost = vi.fn(async () => {});
+    const { ports } = makePorts({ keys: { addToHost } });
+    await tool(ports, "key_add_to_host").execute({ key_id: "k1", connection_id: "c1", script: "rm -rf /" } as never);
+    expect(addToHost).toHaveBeenCalledWith({
+      keyId: "k1", connectionId: "c1", location: ".ssh", filename: "authorized_keys",
+    });
+  });
+
+  it("passes through a caller-supplied location and filename", async () => {
+    const addToHost = vi.fn(async () => {});
+    const { ports } = makePorts({ keys: { addToHost } });
+    await tool(ports, "key_add_to_host").execute({
+      key_id: "k1", connection_id: "c1", location: "/etc/ssh", filename: "custom_keys",
+    });
+    expect(addToHost).toHaveBeenCalledWith({
+      keyId: "k1", connectionId: "c1", location: "/etc/ssh", filename: "custom_keys",
+    });
+  });
+
+  it("audits the key and the connection, and no key material", async () => {
+    const { ports, audit } = makePorts();
+    await tool(ports, "key_add_to_host").execute({ key_id: "k1", connection_id: "c1" });
+    expect(audit).toHaveBeenCalledWith(
+      "mcp",
+      "agent.object_updated",
+      { tool: "key_add_to_host", approval: "granted", objectType: "key", objectId: "k1", connectionId: "c1" },
+      undefined,
+    );
+    expect(JSON.stringify(audit.mock.calls)).not.toMatch(/ssh-|BEGIN|example\.test/);
   });
 });

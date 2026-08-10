@@ -22,7 +22,7 @@ const ALL_TOOLS = [
   "delete_path",
   "folder_create", "folder_delete", "folder_list", "folder_rename",
   "identity_create", "identity_delete", "identity_list",
-  "key_create", "key_delete", "key_list",
+  "key_add_to_host", "key_create", "key_delete", "key_list",
   "list_connections", "list_files", "list_sessions",
   "make_dir", "object_copy", "object_move", "open_session", "read_file", "read_terminal", "rename_path",
   "run_command", "stat_file", "transfer_file",

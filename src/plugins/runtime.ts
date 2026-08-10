@@ -32,6 +32,8 @@ import type {
 import * as connectionService from "@/services/connections";
 import * as keyService from "@/services/keys";
 import * as identityService from "@/services/identities";
+import { addKeyToHost } from "@/services/keyExport";
+import type { Connection } from "@/types";
 import { storePluginSecret, getPluginSecret, deletePluginSecret, storeSecret, deleteSecret } from "@/services/vault";
 import { appFetch } from "@/services/http";
 import { sseFetch } from "@/services/sseFetch";
@@ -163,6 +165,13 @@ function refuseTeamWrite(connectionId: string, verb: string) {
   if (teamConnectionList().some((c) => c.id === connectionId)) {
     throw new Error(`Connection ${connectionId} belongs to a team vault and cannot be ${verb} by a plugin`);
   }
+}
+
+/** Full personal-or-team Connection record for a read-only remote op (unlike
+ *  listAllConnections, keeps key_id/identity_id so credentials can resolve). */
+async function resolveConnectionRecord(connectionId: string): Promise<Connection | undefined> {
+  const personal = await connectionService.listConnections();
+  return personal.find((c) => c.id === connectionId) ?? teamConnectionList().find((c) => c.id === connectionId);
 }
 
 const _onConnectionEstablished = new Set<(conn: PluginConnection) => void>();
@@ -849,6 +858,15 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         await deleteSecret(`key:${keyId}:private`).catch(() => {});
         await deleteSecret(`key:${keyId}:public`).catch(() => {});
         await keyService.deleteKey(keyId);
+      },
+      async addToHost({ keyId, connectionId, location, filename }) {
+        requirePerm(manifest, "keys:read");
+        requirePerm(manifest, "connections:read");
+        const sshKey = (await keyService.listKeys()).find((k) => k.id === keyId);
+        if (!sshKey) throw new Error(`Key ${keyId} not found`);
+        const connection = await resolveConnectionRecord(connectionId);
+        if (!connection) throw new Error(`Connection ${connectionId} not found`);
+        await addKeyToHost({ sshKey, connection, location, filename });
       },
     },
 
