@@ -832,7 +832,7 @@
       "terminalTitle": "终端",
       "shellIntegration": {
         "title": "Shell 集成",
-        "desc": "挂钩远程/本地 shell 以报告其工作目录（OSC 7），用于 cwd 感知的文件面板。如果主机的欢迎横幅或提示符看起来不正确，请在那里禁用。可以在连接设置的“高级”中按主机禁用。"
+        "desc": "挂钩远程/本地 shell 以报告其工作目录（OSC 7），用于 cwd 感知的文件面板。如果主机的欢迎横幅或提示符看起来不正确，请在那里禁用。可以在连接设置的“高级”中按主机覆盖。"
       },
       "teamPresenceTitle": "团队在线状态",
       "teamPresence": {

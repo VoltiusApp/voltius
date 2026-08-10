@@ -151,10 +151,10 @@ pub struct Connection {
     pub pinned: bool,
     #[serde(default)]
     pub ping_disabled: bool,
-    /// Absent inherits the global toggle; Some(true) forces shell integration
-    /// off for this host. (Force-on isn't stored — not sync-safe as a bool.)
+    /// Per-host shell-integration override. None inherits the global toggle;
+    /// Some(true) forces it on, Some(false) off. Mirrors `persist_session`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub shell_integration_disabled: Option<bool>,
+    pub shell_integration: Option<bool>,
     /// Per-host keepalive preset; None inherits the global setting.
     #[serde(default)]
     pub keepalive_preset: Option<String>,
@@ -238,7 +238,7 @@ pub struct ConnectionFormData {
     #[serde(default)]
     pub ping_disabled: bool,
     #[serde(default)]
-    pub shell_integration_disabled: Option<bool>,
+    pub shell_integration: Option<bool>,
     #[serde(default)]
     pub keepalive_preset: Option<String>,
     #[serde(default)]
@@ -362,11 +362,20 @@ fn migrate_vault_id(obj: &mut serde_json::Map<String, serde_json::Value>) {
     obj.insert("vault_id".to_string(), serde_json::Value::String(vault_id));
 }
 
-/// Legacy `shell_integration_disabled: false` (= follow global) becomes absent
-/// (inherit). `true` is kept; new code never writes `false`, so this is idempotent.
+/// Fold the old disable-only flag into the tri-state `shell_integration`.
+/// `shell_integration_disabled: true` means force-off, so it becomes
+/// `shell_integration: false`; legacy `false` meant "follow global", which is
+/// absence. An existing `shell_integration` always wins, so this is idempotent.
 fn migrate_shell_integration(obj: &mut serde_json::Map<String, serde_json::Value>) {
-    if obj.get("shell_integration_disabled") == Some(&serde_json::Value::Bool(false)) {
-        obj.remove("shell_integration_disabled");
+    let legacy = obj.remove("shell_integration_disabled");
+    if obj.contains_key("shell_integration") {
+        return;
+    }
+    if legacy == Some(serde_json::Value::Bool(true)) {
+        obj.insert(
+            "shell_integration".to_string(),
+            serde_json::Value::Bool(false),
+        );
     }
 }
 
@@ -769,6 +778,36 @@ mod tests {
         assert_eq!(v1, v2);
     }
 
+    #[test]
+    fn shell_integration_migration_folds_the_legacy_disable_flag() {
+        let cases = [
+            // legacy force-off -> tri-state off
+            (r#"{"shell_integration_disabled":true}"#, Some(false)),
+            // legacy false meant "follow global" -> inherit
+            (r#"{"shell_integration_disabled":false}"#, None),
+            (r#"{}"#, None),
+            // already migrated, and the new field wins over a stale legacy one
+            (r#"{"shell_integration":true}"#, Some(true)),
+            (
+                r#"{"shell_integration":true,"shell_integration_disabled":true}"#,
+                Some(true),
+            ),
+        ];
+        for (input, want) in cases {
+            let mut obj = match serde_json::from_str(input).expect("json") {
+                serde_json::Value::Object(m) => m,
+                _ => unreachable!(),
+            };
+            migrate_shell_integration(&mut obj);
+            let got = obj.get("shell_integration").and_then(|v| v.as_bool());
+            assert_eq!(got, want, "input {input}");
+            assert!(
+                !obj.contains_key("shell_integration_disabled"),
+                "legacy key must not survive: {input}"
+            );
+        }
+    }
+
     fn clocks() -> HashMap<String, String> {
         let mut c = HashMap::new();
         c.insert("name".to_string(), "2026-01-01T00:00:00Z".to_string());
@@ -816,7 +855,7 @@ mod tests {
             terminal_encoding: Some("utf-8".into()),
             pinned: true,
             ping_disabled: false,
-            shell_integration_disabled: None,
+            shell_integration: None,
             keepalive_preset: None,
             persist_session: None,
             connection_type: ConnectionType::Ssh,

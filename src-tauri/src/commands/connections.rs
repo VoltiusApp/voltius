@@ -41,7 +41,7 @@ fn merge_form_into_connection(existing: &Connection, data: ConnectionFormData) -
         icon: data.icon.or_else(|| existing.icon.clone()),
         pinned: data.pinned,
         ping_disabled: data.ping_disabled,
-        shell_integration_disabled: data.shell_integration_disabled,
+        shell_integration: data.shell_integration,
         keepalive_preset: data.keepalive_preset,
         persist_session: data.persist_session,
         connection_type: data.connection_type,
@@ -110,7 +110,7 @@ connection_clocks! {
         folder_id, vault_id, agent_forwarding, legacy_algorithms, pre_command, post_command,
         pre_snippet_id, post_snippet_id, ask_vars_each_time,
         terminal_encoding, distro, icon, ping_disabled,
-        shell_integration_disabled, keepalive_preset, persist_session, connection_type, serial_port, serial_baud,
+        shell_integration, keepalive_preset, persist_session, connection_type, serial_port, serial_baud,
         serial_data_bits, serial_parity, serial_stop_bits, serial_flow_control, ftp_secure,
         notes,
     ],
@@ -177,7 +177,7 @@ fn build_connection(
         deleted_at: None,
         pinned: data.pinned,
         ping_disabled: data.ping_disabled,
-        shell_integration_disabled: data.shell_integration_disabled,
+        shell_integration: data.shell_integration,
         keepalive_preset: data.keepalive_preset,
         persist_session: data.persist_session,
         connection_type: data.connection_type,
@@ -362,7 +362,7 @@ mod tests {
             terminal_encoding: Some("utf-8".into()),
             pinned: false,
             ping_disabled: false,
-            shell_integration_disabled: None,
+            shell_integration: None,
             keepalive_preset: None,
             persist_session: None,
             connection_type: ConnectionType::Ssh,
@@ -418,7 +418,7 @@ mod tests {
             icon: Some("laptop".into()),
             pinned: true,
             ping_disabled: true,
-            shell_integration_disabled: Some(true),
+            shell_integration: Some(false),
             keepalive_preset: Some("balanced".into()),
             persist_session: Some(true),
             connection_type: ConnectionType::Serial,
@@ -557,7 +557,7 @@ mod tests {
 
     /// Pins the exact set of fields `bump_changed_clocks` tracks when everything
     /// changes (31 fields, incl. `agent_forwarding`, `legacy_algorithms`, `ping_disabled`,
-    /// `shell_integration_disabled`, `keepalive_preset`, `persist_session`;
+    /// `shell_integration`, `keepalive_preset`, `persist_session`;
     /// `pinned` is excluded as device-local).
     /// Since Phase 1, create-time init and update-time bump both derive from the
     /// single `connection_clocks!` list, so this set equals the one seeded by
@@ -615,7 +615,7 @@ mod tests {
             "serial_parity",
             "serial_port",
             "serial_stop_bits",
-            "shell_integration_disabled",
+            "shell_integration",
             "tags",
             "terminal_encoding",
             "username",
