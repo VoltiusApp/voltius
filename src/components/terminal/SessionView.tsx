@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useSessionStore, type ConnectRetryOverride } from "@/stores/sessionStore";
 import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import TerminalView from "@/components/terminal/Terminal";
@@ -17,12 +18,15 @@ export function HostAwareTerminalView({
   active,
   onClosed,
   compact,
+  statusBar = true,
 }: {
   session: TerminalSession;
   active: boolean;
   onClosed: () => void;
   /** Mobile: render the terminal compact (no minimap) and suppress the status-bar footer. */
   compact?: boolean;
+  /** Split panes carry no status bar of their own. */
+  statusBar?: boolean;
 }) {
   useMultiplayerHostBroadcast(session.id);
   const mpState = useTeamSessionStore((s) => s.connections[session.id]);
@@ -39,7 +43,8 @@ export function HostAwareTerminalView({
   // Map serial to local for terminal rendering (both use raw byte I/O from xterm)
   const terminalType = session.type === "serial" ? "serial" : (session.type as "ssh" | "local");
 
-  const showStatusBar = session.type === "ssh" || session.type === "local" || session.type === "serial";
+  const showStatusBar =
+    statusBar && (session.type === "ssh" || session.type === "local" || session.type === "serial");
 
   return (
     <div className="absolute inset-0 flex flex-col">
@@ -81,6 +86,7 @@ export function SessionConnectionOverlay({
   onRetryWithPassphrase?: (passphrase: string, save: boolean) => void;
   onRetryWithAuth?: (override: ConnectRetryOverride, save: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const connections = useAllConnections();
   const connection = connections.find((c) => c.id === session.connectionId);
   const connectSerialEphemeralFinalize = useSessionStore((s) => s.connectSerialEphemeralFinalize);
@@ -101,7 +107,10 @@ export function SessionConnectionOverlay({
     }
 
     const subtitle = session.serialConfig
-      ? `${session.serialConfig.port} · ${session.serialConfig.baud} baud`
+      ? t("panes.terminal.serialSubtitle", {
+          port: session.serialConfig.port,
+          baud: session.serialConfig.baud,
+        })
       : undefined;
     return (
       <ConnectionOverlay
