@@ -16,6 +16,7 @@ import { TeamRolesPanel } from "./RolesSection";
 import BuySeatsModal from "@/components/settings/BuySeatsModal";
 import { ContentCounts } from "@/components/shared/ContentCounts";
 import { MiniAvatar, avatarColor } from "@/components/shared/AvatarStack";
+import { UserSearchField } from "@/components/shared/UserSearchField";
 import { runTeamAction } from "@/services/teamActionFeedback";
 
 import { markTeamVaultLoadedAfterLocalActivation } from "@/services/teamVaultActivation";
@@ -321,82 +322,30 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
           </div>
         )}
 
-        <div className="relative">
-          <div
-            className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors"
-            style={{ background: "var(--t-bg-input)", borderColor: open ? "var(--t-accent)" : "var(--t-border)" }}
-          >
-            {searching
-              ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin shrink-0" style={{ color: "var(--t-text-dim)" }} />
-              : <Icon icon="lucide:search" width={13} className="shrink-0" style={{ color: "var(--t-text-dim)" }} />
-            }
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder={t("settings.vaults.members.searchOrEmailPlaceholder")}
-              value={query}
-              onChange={(e) => { setQuery(e.target.value); setSuccess(""); }}
-              onFocus={() => { if (results.length > 0 || showEmailInviteOption) setOpen(true); }}
-              className="flex-1 bg-transparent outline-hidden text-sm"
-              style={{ color: "var(--t-text-primary)" }}
-            />
-            {query && (
-              <button onClick={() => { reset(); setSuccess(""); }}>
-                <Icon icon="lucide:x" width={11} style={{ color: "var(--t-text-dim)" }} />
-              </button>
-            )}
-          </div>
-
-          {open && (results.length > 0 || showEmailInviteOption) && (
-            <div
-              ref={dropdownRef}
-              className="absolute z-50 left-0 right-0 mt-1 rounded-xl overflow-hidden"
-              style={{ background: "var(--t-bg-card)", boxShadow: "var(--t-ring), var(--t-elev-2)" }}
-            >
-              {results.map((user) => (
-                <button
-                  key={user.user_id}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors"
-                  style={{ color: "var(--t-text-primary)" }}
-                  onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)")}
-                  onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "transparent")}
-                  disabled={!!adding}
-                  onClick={() => void handleAdd(user)}
-                >
-                  <MiniAvatar name={user.display_name} size={26} />
-                  <span className="flex-1 text-sm truncate">{user.display_name}</span>
-                  {adding === user.user_id
-                    ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin shrink-0" style={{ color: "var(--t-text-dim)" }} />
-                    : <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0" style={{ background: "var(--t-accent)", color: "#fff" }}>
-                        {t("settings.vaults.members.addBtn")}
-                      </span>
-                  }
-                </button>
-              ))}
-              {showEmailInviteOption && (
-                <button
-                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors border-t"
-                  style={{ color: "var(--t-text-primary)", borderColor: "var(--t-border)" }}
-                  onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)")}
-                  onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "transparent")}
-                  disabled={sendingInvite}
-                  onClick={() => void handleEmailInvite()}
-                >
-                  <Icon icon="lucide:mail" width={16} className="shrink-0" style={{ color: "var(--t-accent)" }} />
-                  <span className="flex-1 text-sm">
-                    {t("settings.vaults.members.sendInviteLabel")}<span className="font-medium">{query}</span>
-                  </span>
-                  {sendingInvite
-                    ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin shrink-0" style={{ color: "var(--t-text-dim)" }} />
-                    : <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0" style={{ background: "var(--t-accent)", color: "#fff" }}>
-                        {t("settings.vaults.members.inviteBtn")}
-                      </span>
-                  }
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        <UserSearchField
+          size="sm"
+          placeholder={t("settings.vaults.members.searchOrEmailPlaceholder")}
+          query={query}
+          onQueryChange={(v) => { setQuery(v); setSuccess(""); }}
+          onClear={() => { reset(); setSuccess(""); }}
+          results={results}
+          searching={searching}
+          open={open}
+          setOpen={setOpen}
+          inputRef={inputRef}
+          dropdownRef={dropdownRef}
+          adding={adding}
+          addLabel={t("settings.vaults.members.addBtn")}
+          onAdd={(user) => void handleAdd(user)}
+          emailOption={{
+            visible: showEmailInviteOption,
+            label: <>{t("settings.vaults.members.sendInviteLabel")}<span className="font-medium">{query}</span></>,
+            actionLabel: t("settings.vaults.members.inviteBtn"),
+            sending: sendingInvite,
+            onInvite: () => void handleEmailInvite(),
+            separator: true,
+          }}
+        />
         {error && <p className="text-xs mt-1.5 px-1" style={{ color: "var(--t-status-error)" }}>{error}</p>}
         {success && <p className="text-xs mt-1.5 px-1" style={{ color: "var(--t-status-connected)" }}>{success}</p>}
       </div>
@@ -886,64 +835,23 @@ export function PrivateVaultMembersPanel({
       <h4 className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: "var(--t-text-dim)" }}>
         {t("settings.vaults.members.inviteMember")}
       </h4>
-      <div className="relative">
-          <div
-            className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors"
-            style={{ background: "var(--t-bg-input)", borderColor: open ? "var(--t-accent)" : "var(--t-border)" }}
-          >
-            {searching
-              ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin shrink-0" style={{ color: "var(--t-text-dim)" }} />
-              : <Icon icon="lucide:search" width={13} className="shrink-0" style={{ color: "var(--t-text-dim)" }} />
-            }
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder={t("settings.vaults.members.searchByEmailPlaceholder")}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onFocus={() => { if (results.length > 0) setOpen(true); }}
-              className="flex-1 bg-transparent outline-hidden text-sm"
-              style={{ color: "var(--t-text-primary)" }}
-            />
-            {query && (
-              <button onClick={() => reset()}>
-                <Icon icon="lucide:x" width={11} style={{ color: "var(--t-text-dim)" }} />
-              </button>
-            )}
-          </div>
-
-          {open && (
-            <div
-              ref={dropdownRef}
-              className="absolute z-50 left-0 right-0 mt-1 rounded-xl overflow-hidden"
-              style={{ background: "var(--t-bg-card)", boxShadow: "var(--t-ring), var(--t-elev-2)" }}
-            >
-              {results.length === 0
-                ? <p className="px-4 py-3 text-xs" style={{ color: "var(--t-text-dim)" }}>{t("settings.vaults.members.noUsersFound")}</p>
-                : results.map((user) => (
-                  <button
-                    key={user.user_id}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors"
-                    style={{ color: "var(--t-text-primary)" }}
-                    onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)")}
-                    onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "transparent")}
-                    disabled={!!adding}
-                    onClick={() => void handleAdd(user)}
-                  >
-                    <MiniAvatar name={user.display_name} size={26} />
-                    <span className="flex-1 text-sm truncate">{user.display_name}</span>
-                    {adding === user.user_id
-                      ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin shrink-0" style={{ color: "var(--t-text-dim)" }} />
-                      : <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0" style={{ background: "var(--t-accent)", color: "#fff" }}>
-                          {t("settings.vaults.members.addAsMember")}
-                        </span>
-                    }
-                  </button>
-                ))
-              }
-            </div>
-          )}
-      </div>
+      <UserSearchField
+        size="sm"
+        placeholder={t("settings.vaults.members.searchByEmailPlaceholder")}
+        query={query}
+        onQueryChange={setQuery}
+        onClear={reset}
+        results={results}
+        searching={searching}
+        open={open}
+        setOpen={setOpen}
+        inputRef={inputRef}
+        dropdownRef={dropdownRef}
+        adding={adding}
+        addLabel={t("settings.vaults.members.addAsMember")}
+        onAdd={(user) => void handleAdd(user)}
+        emptyLabel={t("settings.vaults.members.noUsersFound")}
+      />
       {error && <p className="text-xs mt-1.5 px-1" style={{ color: "var(--t-status-error)" }}>{error}</p>}
     </div>
   );

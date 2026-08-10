@@ -10,6 +10,7 @@ import { useTeamSessionStore } from "@/stores/teamSessionStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { MiniAvatar, avatarColor } from "@/components/shared/AvatarStack";
+import { UserSearchField } from "@/components/shared/UserSearchField";
 import {
   getMyUserId,
   getMyEmail,
@@ -873,82 +874,29 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
 
           {/* Search input */}
           <FormSection label={t("members.invite.searchOrEmailLabel")} className="overflow-visible">
-            <div className="relative">
-              <div
-                className="flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-colors"
-                style={{ background: "var(--t-bg-input)", borderColor: open ? "var(--t-accent)" : "var(--t-border)" }}
-              >
-                {searching
-                  ? <Icon icon="lucide:loader-circle" width={14} className="animate-spin shrink-0 text-(--t-text-dim)" />
-                  : <Icon icon="lucide:search" width={14} className="shrink-0 text-(--t-text-dim)" />
-                }
-                <input
-                  ref={inputRef}
-                  type="text"
-                  placeholder={t("members.invite.searchByEmailPlaceholder")}
-                  value={query}
-                  onChange={(e) => { setQuery(e.target.value); setSuccess(""); }}
-                  onFocus={() => { if (results.length > 0 || showEmailInviteOption) setOpen(true); }}
-                  onKeyDown={(e) => { if (e.key === "Enter" && isValidEmail(query) && results.length === 0) void handleEmailInvite(); }}
-                  className="flex-1 bg-transparent outline-hidden text-sm text-(--t-text-primary)"
-                />
-                {query && (
-                  <button onClick={() => { reset(); setSuccess(""); }}>
-                    <Icon icon="lucide:x" width={11} style={{ color: "var(--t-text-dim)" }} />
-                  </button>
-                )}
-              </div>
-
-              {open && (results.length > 0 || showEmailInviteOption) && (
-                <div
-                  ref={dropdownRef}
-                  className="absolute z-50 left-0 right-0 mt-1 rounded-xl overflow-hidden"
-                  style={{ background: "var(--t-bg-card)", boxShadow: "var(--t-ring), var(--t-elev-2)" }}
-                >
-                  {results.map((user) => (
-                    <button
-                      key={user.user_id}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors"
-                      style={{ color: "var(--t-text-primary)" }}
-                      onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)")}
-                      onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "transparent")}
-                      disabled={!!adding}
-                      onClick={() => void handleAdd(user)}
-                    >
-                      <MiniAvatar name={user.display_name} size={26} />
-                      <span className="flex-1 text-sm truncate">{user.display_name}</span>
-                      {adding === user.user_id
-                        ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin shrink-0" style={{ color: "var(--t-text-dim)" }} />
-                        : <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0" style={{ background: "var(--t-accent)", color: "#fff" }}>
-                            {t("members.invite.addWithRole", { role: selectedRoleLabel })}
-                          </span>
-                      }
-                    </button>
-                  ))}
-                  {showEmailInviteOption && (
-                    <button
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors"
-                      style={{ color: "var(--t-text-primary)", borderTop: results.length > 0 ? "1px solid var(--t-border)" : undefined }}
-                      onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)")}
-                      onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "transparent")}
-                      disabled={sendingInvite}
-                      onClick={() => void handleEmailInvite()}
-                    >
-                      <Icon icon="lucide:mail" width={16} className="shrink-0" style={{ color: "var(--t-accent)" }} />
-                      <span className="flex-1 text-sm">
-                        {t("members.invite.sendInviteLabel")} <span className="font-medium">{query}</span>
-                      </span>
-                      {sendingInvite
-                        ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin shrink-0" style={{ color: "var(--t-text-dim)" }} />
-                        : <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0" style={{ background: "var(--t-accent)", color: "#fff" }}>
-                            {t("members.invite.inviteArrow")}
-                          </span>
-                      }
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
+            <UserSearchField
+              placeholder={t("members.invite.searchByEmailPlaceholder")}
+              query={query}
+              onQueryChange={(v) => { setQuery(v); setSuccess(""); }}
+              onClear={() => { reset(); setSuccess(""); }}
+              onSubmitQuery={() => { if (isValidEmail(query) && results.length === 0) void handleEmailInvite(); }}
+              results={results}
+              searching={searching}
+              open={open}
+              setOpen={setOpen}
+              inputRef={inputRef}
+              dropdownRef={dropdownRef}
+              adding={adding}
+              addLabel={t("members.invite.addWithRole", { role: selectedRoleLabel })}
+              onAdd={(user) => void handleAdd(user)}
+              emailOption={{
+                visible: showEmailInviteOption,
+                label: <>{t("members.invite.sendInviteLabel")} <span className="font-medium">{query}</span></>,
+                actionLabel: t("members.invite.inviteArrow"),
+                sending: sendingInvite,
+                onInvite: () => void handleEmailInvite(),
+              }}
+            />
           </FormSection>
 
           {error && <p className="text-xs px-1" style={{ color: "var(--t-status-error)" }}>{error}</p>}
@@ -1052,59 +1000,21 @@ function PrivateVaultInvitePanel({
 
         {/* Search input */}
         <FormSection label={t("members.invite.searchByEmailLabel")} className="overflow-visible">
-          <div className="relative">
-            <div
-              className="flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-colors"
-              style={{ background: "var(--t-bg-input)", borderColor: open ? "var(--t-accent)" : "var(--t-border)" }}
-            >
-              {searching
-                ? <Icon icon="lucide:loader-circle" width={14} className="animate-spin shrink-0 text-(--t-text-dim)" />
-                : <Icon icon="lucide:search" width={14} className="shrink-0 text-(--t-text-dim)" />
-              }
-              <input
-                ref={inputRef}
-                type="text"
-                placeholder={t("members.invite.searchByEmailPlaceholder")}
-                value={query}
-                onChange={(e) => { onQueryChange(e.target.value); }}
-                onFocus={() => { if (results.length > 0) setOpen(true); }}
-                className="flex-1 bg-transparent outline-hidden text-sm text-(--t-text-primary)"
-              />
-              {query && (
-                <button onClick={() => { onQueryChange(""); setOpen(false); }}>
-                  <Icon icon="lucide:x" width={11} style={{ color: "var(--t-text-dim)" }} />
-                </button>
-              )}
-            </div>
-            {open && results.length > 0 && (
-              <div
-                ref={dropdownRef}
-                className="absolute z-50 left-0 right-0 mt-1 rounded-xl overflow-hidden"
-                style={{ background: "var(--t-bg-card)", boxShadow: "var(--t-ring), var(--t-elev-2)" }}
-              >
-                {results.map((user) => (
-                  <button
-                    key={user.user_id}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors"
-                    style={{ color: "var(--t-text-primary)" }}
-                    onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-elevated)")}
-                    onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "transparent")}
-                    disabled={!!adding}
-                    onClick={() => onAdd(user, selectedRole)}
-                  >
-                    <MiniAvatar name={user.display_name} size={26} />
-                    <span className="flex-1 text-sm truncate">{user.display_name}</span>
-                    {adding === user.user_id
-                      ? <Icon icon="lucide:loader-circle" width={13} className="animate-spin shrink-0" style={{ color: "var(--t-text-dim)" }} />
-                      : <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0" style={{ background: "var(--t-accent)", color: "#fff" }}>
-                          {t("members.invite.addAsRole", { role: selectedRole })}
-                        </span>
-                    }
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <UserSearchField
+            placeholder={t("members.invite.searchByEmailPlaceholder")}
+            query={query}
+            onQueryChange={onQueryChange}
+            onClear={() => { onQueryChange(""); setOpen(false); }}
+            results={results}
+            searching={searching}
+            open={open}
+            setOpen={setOpen}
+            inputRef={inputRef}
+            dropdownRef={dropdownRef}
+            adding={adding}
+            addLabel={t("members.invite.addAsRole", { role: selectedRole })}
+            onAdd={(user) => onAdd(user, selectedRole)}
+          />
         </FormSection>
 
         {error && <p className="text-xs px-1" style={{ color: "var(--t-status-error)" }}>{error}</p>}
