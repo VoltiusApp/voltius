@@ -10,7 +10,7 @@
 //! Per-field clock primitives are in [`crate::commands::crdt`].
 
 use crate::commands::crdt::{is_alive, max_clock};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// The vault an object belongs to when the caller names none.
 pub const PERSONAL: &str = "personal";
@@ -171,6 +171,31 @@ pub fn finish_update<T: VaultObject>(item: &mut T, now: &str) {
     item.set_deleted_at(None);
     let stamp = max_clock(item.clocks_mut(), now);
     item.set_updated_at(stamp);
+}
+
+/// Ids of `root` plus every live descendant, following parent links. Folder
+/// nesting is shallow, so repeated sweeps are cheaper than building an index,
+/// and a sweep that adds nothing also terminates a parent cycle.
+pub fn subtree_ids<T: VaultObject>(
+    items: &[T],
+    root: &str,
+    parent_of: impl Fn(&T) -> Option<&str>,
+) -> HashSet<String> {
+    let mut ids = HashSet::from([root.to_string()]);
+    loop {
+        let before = ids.len();
+        for item in items {
+            if !is_alive(item.deleted_at(), item.updated_at()) {
+                continue;
+            }
+            if parent_of(item).is_some_and(|p| ids.contains(p)) {
+                ids.insert(item.id().to_string());
+            }
+        }
+        if ids.len() == before {
+            return ids;
+        }
+    }
 }
 
 /// Soft-deletes a row: delete stamp, `__deleted__` clock, refreshed `updated_at`.

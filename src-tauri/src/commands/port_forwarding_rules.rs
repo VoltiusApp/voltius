@@ -1,19 +1,36 @@
 use crate::commands::crdt::{is_alive, max_clock};
+use crate::commands::vault_object::{
+    adopt_into, created_at_of, find_mut, finish_update, impl_vault_object, initial_clocks, live,
+    merge_fields, requested_vault, retarget_vault, tombstone,
+};
 use crate::storage::config::{
     load_port_forwarding_rules, save_port_forwarding_rules, PortForwardingRule,
     PortForwardingRuleFormData,
 };
 use crate::vault_auth::check_vault_write;
 use chrono::Utc;
-use std::collections::HashMap;
 use uuid::Uuid;
+
+impl_vault_object!(PortForwardingRule, "Rule");
+
+/// The fields whose edits are stamped and synced.
+const CLOCK_FIELDS: &[&str] = &[
+    "name",
+    "local_port",
+    "remote_port",
+    "remote_host",
+    "tunnel_type",
+    "bind_host",
+    "target_host",
+    "description",
+    "connection_ids",
+    "folder_id",
+    "vault_id",
+];
 
 #[tauri::command]
 pub fn pf_rule_list() -> Result<Vec<PortForwardingRule>, String> {
-    Ok(load_port_forwarding_rules()
-        .into_iter()
-        .filter(|r| is_alive(&r.deleted_at, &r.updated_at))
-        .collect())
+    Ok(live(load_port_forwarding_rules()))
 }
 
 fn build_pf_rule(
@@ -22,23 +39,6 @@ fn build_pf_rule(
     now: &str,
     created_at: Option<String>,
 ) -> PortForwardingRule {
-    let now = now.to_string();
-    let mut clocks = HashMap::new();
-    for field in &[
-        "name",
-        "local_port",
-        "remote_port",
-        "remote_host",
-        "tunnel_type",
-        "bind_host",
-        "target_host",
-        "description",
-        "connection_ids",
-        "folder_id",
-        "vault_id",
-    ] {
-        clocks.insert((*field).to_string(), now.clone());
-    }
     PortForwardingRule {
         id,
         name: data.name,
@@ -51,11 +51,11 @@ fn build_pf_rule(
         description: data.description,
         connection_ids: data.connection_ids,
         folder_id: data.folder_id,
-        vault_id: data.vault_id.unwrap_or_else(|| "personal".to_string()),
-        created_at: created_at.unwrap_or_else(|| now.clone()),
-        updated_at: now,
+        vault_id: requested_vault(&data.vault_id)[0].clone(),
+        created_at: created_at.unwrap_or_else(|| now.to_string()),
+        updated_at: now.to_string(),
         deleted_at: None,
-        clocks,
+        clocks: initial_clocks(CLOCK_FIELDS, now),
     }
 }
 
@@ -63,11 +63,7 @@ fn build_pf_rule(
 pub fn pf_rule_create(data: PortForwardingRuleFormData) -> Result<PortForwardingRule, String> {
     let mut rules = load_port_forwarding_rules();
     let now = Utc::now().to_rfc3339();
-    let vault_id = data
-        .vault_id
-        .clone()
-        .unwrap_or_else(|| "personal".to_string());
-    check_vault_write(std::slice::from_ref(&vault_id))?;
+    check_vault_write(&requested_vault(&data.vault_id))?;
     let rule = build_pf_rule(Uuid::new_v4().to_string(), data, &now, None);
     rules.push(rule.clone());
     save_port_forwarding_rules(&rules)?;
@@ -84,20 +80,10 @@ pub fn pf_rule_adopt(
 ) -> Result<PortForwardingRule, String> {
     let mut rules = load_port_forwarding_rules();
     let now = Utc::now().to_rfc3339();
-    let vault_id = data
-        .vault_id
-        .clone()
-        .unwrap_or_else(|| "personal".to_string());
-    check_vault_write(std::slice::from_ref(&vault_id))?;
-    let created_at = rules
-        .iter()
-        .find(|r| r.id == id)
-        .map(|r| r.created_at.clone());
-    let adopted = build_pf_rule(id.clone(), data, &now, created_at);
-    match rules.iter_mut().find(|r| r.id == id) {
-        Some(slot) => *slot = adopted.clone(),
-        None => rules.push(adopted.clone()),
-    }
+    check_vault_write(&requested_vault(&data.vault_id))?;
+    let created_at = created_at_of(&rules, &id);
+    let adopted = build_pf_rule(id, data, &now, created_at);
+    adopt_into(&mut rules, adopted.clone());
     save_port_forwarding_rules(&rules)?;
     Ok(adopted)
 }
@@ -108,72 +94,28 @@ pub fn pf_rule_update(
     data: PortForwardingRuleFormData,
 ) -> Result<PortForwardingRule, String> {
     let mut rules = load_port_forwarding_rules();
-    let rule = rules
-        .iter_mut()
-        .find(|r| r.id == id)
-        .ok_or_else(|| format!("Rule {} not found", id))?;
-
+    let rule = find_mut(&mut rules, &id)?;
     let now = Utc::now().to_rfc3339();
-    if rule.name != data.name {
-        rule.clocks.insert("name".to_string(), now.clone());
-    }
-    if rule.local_port != data.local_port {
-        rule.clocks.insert("local_port".to_string(), now.clone());
-    }
-    if rule.remote_port != data.remote_port {
-        rule.clocks.insert("remote_port".to_string(), now.clone());
-    }
-    if rule.remote_host != data.remote_host {
-        rule.clocks.insert("remote_host".to_string(), now.clone());
-    }
-    if rule.tunnel_type != data.tunnel_type {
-        rule.clocks.insert("tunnel_type".to_string(), now.clone());
-    }
-    if rule.bind_host != data.bind_host {
-        rule.clocks.insert("bind_host".to_string(), now.clone());
-    }
-    if rule.target_host != data.target_host {
-        rule.clocks.insert("target_host".to_string(), now.clone());
-    }
-    if rule.description != data.description {
-        rule.clocks.insert("description".to_string(), now.clone());
-    }
-    if rule.connection_ids != data.connection_ids {
-        rule.clocks
-            .insert("connection_ids".to_string(), now.clone());
-    }
-    if rule.folder_id != data.folder_id {
-        rule.clocks.insert("folder_id".to_string(), now.clone());
-    }
+    let effective = retarget_vault(rule, &data.vault_id, &now);
+    check_vault_write(std::slice::from_ref(&effective))?;
 
-    let effective_vault = data
-        .vault_id
-        .as_deref()
-        .unwrap_or(&rule.vault_id)
-        .to_string();
-    if let Some(ref vid) = data.vault_id {
-        if rule.vault_id != *vid {
-            rule.clocks.insert("vault_id".to_string(), now.clone());
-        }
-    }
-    check_vault_write(&[effective_vault])?;
-
-    rule.name = data.name;
-    rule.local_port = data.local_port;
-    rule.remote_port = data.remote_port;
-    rule.remote_host = data.remote_host;
-    rule.tunnel_type = data.tunnel_type;
-    rule.bind_host = data.bind_host;
-    rule.target_host = data.target_host;
-    rule.description = data.description;
-    rule.connection_ids = data.connection_ids;
-    rule.folder_id = data.folder_id;
-    if let Some(vid) = data.vault_id {
-        rule.vault_id = vid;
-    }
-    rule.deleted_at = None;
-    rule.updated_at = max_clock(&rule.clocks, &now);
-
+    merge_fields!(
+        rule,
+        data,
+        &now,
+        name,
+        local_port,
+        remote_port,
+        remote_host,
+        tunnel_type,
+        bind_host,
+        target_host,
+        description,
+        connection_ids,
+        folder_id,
+    );
+    rule.vault_id = effective;
+    finish_update(rule, &now);
     let updated = rule.clone();
     save_port_forwarding_rules(&rules)?;
     Ok(updated)
@@ -183,14 +125,9 @@ pub fn pf_rule_update(
 pub fn pf_rule_delete(id: String) -> Result<(), String> {
     let mut rules = load_port_forwarding_rules();
     let now = Utc::now().to_rfc3339();
-    let rule = rules
-        .iter_mut()
-        .find(|r| r.id == id)
-        .ok_or_else(|| format!("Rule {} not found", id))?;
+    let rule = find_mut(&mut rules, &id)?;
     check_vault_write(std::slice::from_ref(&rule.vault_id))?;
-    rule.deleted_at = Some(now.clone());
-    rule.clocks.insert("__deleted__".to_string(), now.clone());
-    rule.updated_at = max_clock(&rule.clocks, &now);
+    tombstone(rule, &now);
     save_port_forwarding_rules(&rules)
 }
 
@@ -222,10 +159,7 @@ pub fn pf_rule_duplicate(id: String) -> Result<PortForwardingRule, String> {
 pub fn pf_rule_move_folder(id: String, folder_id: Option<String>) -> Result<(), String> {
     let mut rules = load_port_forwarding_rules();
     let now = Utc::now().to_rfc3339();
-    let rule = rules
-        .iter_mut()
-        .find(|r| r.id == id)
-        .ok_or_else(|| format!("Rule {} not found", id))?;
+    let rule = find_mut(&mut rules, &id)?;
     rule.folder_id = folder_id;
     rule.clocks.insert("folder_id".to_string(), now.clone());
     rule.updated_at = max_clock(&rule.clocks, &now);
