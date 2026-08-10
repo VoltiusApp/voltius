@@ -1,4 +1,5 @@
 mod bind;
+mod pipe;
 pub mod poller;
 pub mod socks;
 pub mod tunnel;
