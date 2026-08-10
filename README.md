@@ -30,6 +30,7 @@ No account required. Everything below is free, forever.
 - **Persistent Sessions & Workspace Restore** — Sessions survive disconnects via tmux/screen on the host, and the whole workspace (tabs, splits, running processes, scrollback) survives full app restarts. With cloud sync, live sessions are shared across your devices — open the same terminal on a second device and both stay live, mirrored in real time. [Cross-device sessions →](https://voltius.app/blog/cross-device-session-pickup)
 - **Split Panes** — Split terminals as much as you want, broadcast inputs to all panes.
 - **Local Terminal** — Bash, Zsh, Fish, PowerShell, WSL, Git Bash, CMD, and more.
+- **MCP Server** — Let Claude Code, Claude Desktop, Cursor or VS Code drive your fleet: 41 tools covering hosts, keys, identities, sessions, commands, files and your installed plugins. Off by default, one toggle in Settings → Integrations, and it never leaves your machine. [How it works →](https://voltius.app/blog/mcp-server)
 - **Plugin System** — Install plugins from the [official registry](https://github.com/VoltiusApp/marketplace) or point to your own custom repo.
 - **Container Management** — Docker and Proxmox LXC. Browse containers, open terminals, and manage resources without leaving Voltius.
 - **Process Manager** — View and kill processes on connected hosts.
@@ -135,6 +136,7 @@ on macOS and Windows after installation.
 | **Command Palette** | ✅ | ✅ |  |  | ✅ |
 | **Split panes** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **X11 Forwarding** | ❌ | | ❌ |  | ✅ |
+| **MCP server (AI agents)** | ✅ Built in, 41 tools, off by default |  |  |  |  |
 | **Docker Integration** | ✅ |  |  |  | 🟡 (community plugin) |
 | **Proxmox LXC Integration** | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **System Monitoring** | ✅ |  | ✅ | ✅ |  |
