@@ -53,6 +53,7 @@ import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import { getShortcutHint } from "@/stores/shortcutStore";
+import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
@@ -359,21 +360,7 @@ export default function KeychainPage() {
         onClick: () => useUIStore.getState().openImportExport("export", { bulk: { keys: selectedKeyIds, identities: selectedIdentityIds } }),
       });
     }
-    items.push(
-      {
-        label: t("common.action.cut"),
-        icon: "lucide:scissors",
-        shortcut: getShortcutHint("cut"),
-        onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-cut")),
-        divider: true,
-      },
-      {
-        label: t("common.action.copy"),
-        icon: "lucide:copy",
-        shortcut: getShortcutHint("copy"),
-        onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-copy")),
-      },
-    );
+    items.push(...clipboardMenuItems(t));
     items.push({
       label: t("keychain.page.bulk.deleteItems", { count: allIds.length }),
       icon: "lucide:trash-2",

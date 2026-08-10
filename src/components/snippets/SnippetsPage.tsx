@@ -39,6 +39,7 @@ import { VaultCascadeModal } from "@/components/shared/VaultCascadeModal";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import { getShortcutHint } from "@/stores/shortcutStore";
+import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { SidePanelLayout } from "@/components/shared/SidePanelLayout";
 import { useEditPanel } from "@/hooks/useEditPanel";
 import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
@@ -750,19 +751,7 @@ export function SnippetsPage() {
         icon: "lucide:upload",
         onClick: () => useUIStore.getState().openImportExport("export", { bulk: { snippets: ids } }),
       },
-      {
-        label: t("common.action.cut"),
-        icon: "lucide:scissors",
-        shortcut: getShortcutHint("cut"),
-        onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-cut")),
-        divider: true,
-      },
-      {
-        label: t("common.action.copy"),
-        icon: "lucide:copy",
-        shortcut: getShortcutHint("copy"),
-        onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-copy")),
-      },
+      ...clipboardMenuItems(t),
       {
         label: t("snippets.page.bulk.deleteSnippets", { count: ids.length }),
         icon: "lucide:trash-2",

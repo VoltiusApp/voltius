@@ -37,6 +37,7 @@ import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import type { CascadeEntry } from "@/services/vaultClipboard";
 import { getShortcutHint } from "@/stores/shortcutStore";
+import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { FolderCard } from "@/components/folders/FolderCard";
 
 const HOST_GRID_COLS = "repeat(auto-fill, minmax(18rem, 1fr))";
@@ -874,19 +875,7 @@ export default function HostsPage() {
         icon: "lucide:upload",
         onClick: () => useUIStore.getState().openImportExport("export", { bulk: { connections: ids } }),
       },
-      {
-        label: t("common.action.cut"),
-        icon: "lucide:scissors",
-        shortcut: getShortcutHint("cut"),
-        onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-cut")),
-        divider: true,
-      },
-      {
-        label: t("common.action.copy"),
-        icon: "lucide:copy",
-        shortcut: getShortcutHint("copy"),
-        onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-copy")),
-      },
+      ...clipboardMenuItems(t),
       {
         label: t("hosts.page.bulk.deleteItems", { count: totalSelected }),
         icon: "lucide:trash-2",

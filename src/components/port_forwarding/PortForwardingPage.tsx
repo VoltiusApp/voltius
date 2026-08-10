@@ -33,6 +33,7 @@ import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
 import { getShortcutHint } from "@/stores/shortcutStore";
+import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { PortForwardingToolbar } from "./PortForwardingToolbar";
 import { ActiveTunnelsSection } from "./ActiveTunnelsSection";
 import { RuleCard } from "./RuleCard";
@@ -636,19 +637,7 @@ export function PortForwardingPage() {
         icon: "lucide:upload",
         onClick: () => useUIStore.getState().openImportExport("export", { bulk: { portForwardingRules: selectedRules.map((r) => r.id) } }),
       }] : []),
-      {
-        label: t("common.action.cut"),
-        icon: "lucide:scissors",
-        shortcut: getShortcutHint("cut"),
-        onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-cut")),
-        divider: true,
-      },
-      {
-        label: t("common.action.copy"),
-        icon: "lucide:copy",
-        shortcut: getShortcutHint("copy"),
-        onClick: () => window.dispatchEvent(new CustomEvent("voltius:clipboard-copy")),
-      },
+      ...clipboardMenuItems(t),
       ...(n > 0 ? [{
         label: t("portForwarding.page.bulk.deleteRules", { count: n }),
         icon: "lucide:trash-2",
