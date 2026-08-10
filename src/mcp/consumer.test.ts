@@ -24,7 +24,7 @@ const ALL_TOOLS = [
   "identity_create", "identity_delete", "identity_list",
   "key_create", "key_delete", "key_list",
   "list_connections", "list_files", "list_sessions",
-  "make_dir", "open_session", "read_file", "read_terminal", "rename_path",
+  "make_dir", "object_copy", "object_move", "open_session", "read_file", "read_terminal", "rename_path",
   "run_command", "stat_file", "transfer_file",
   "vault_create", "vault_delete", "vault_list", "vault_rename",
   "write_file",

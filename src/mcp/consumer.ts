@@ -64,6 +64,18 @@ export const MCP_TEXT = {
       + "responsible for approval. A connection owned by a team vault cannot be deleted.",
     connection_bulk_import:
       "Save many connections at once. Runs immediately; your own client is responsible for approval.",
+    object_move:
+      "Move objects — connections, keys, identities, snippets or port forwarding rules, folders "
+      + "included — into another folder and/or vault, using the same paste path as the app's UI. "
+      + "Moving into a vault other than the objects' own is refused unless allow_cross_vault is "
+      + "true; the refusal names what would move and where. Runs immediately; your own client is "
+      + "responsible for approval.",
+    object_copy:
+      "Duplicate objects — connections, keys, identities, snippets or port forwarding rules, "
+      + "folders included — into another folder and/or vault, using the same paste path as the "
+      + "app's UI. Copying out of a team vault is refused, and copying into a vault other than the "
+      + "objects' own is refused unless allow_cross_vault is true; the refusal names what would be "
+      + "copied and where. Runs immediately; your own client is responsible for approval.",
     audit_query:
       "Read this device's activity log, newest first — including the rows your own calls "
       + "produced. `action` filters to one exact action name as it appears in a row's `action` "
