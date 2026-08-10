@@ -1,4 +1,6 @@
 use crate::port_forward::ForwardError;
+use crate::ssh::live_cells::read_cell;
+use crate::ssh::session::SessionHandle;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 use tokio::net::TcpStream;
@@ -8,7 +10,7 @@ use tokio_util::sync::CancellationToken;
 /// Returns `(bound_local_port, bytes_transferred_counter)`.
 /// The counter is shared across all connections to this tunnel.
 pub async fn create_tunnel(
-    handle: Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
+    handle: SessionHandle,
     local_port: u16,
     remote_port: u16,
     remote_host: &str,
@@ -44,7 +46,7 @@ pub async fn create_tunnel(
 }
 
 async fn bridge(
-    handle: Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
+    handle: SessionHandle,
     tcp: TcpStream,
     remote_host: String,
     remote_port: u16,
@@ -52,7 +54,9 @@ async fn bridge(
     cancel: CancellationToken,
     bytes: Arc<AtomicU64>,
 ) {
-    let ch = match handle
+    // Read the handle per connection, not once at tunnel creation: the session
+    // may have reconnected since, and the old handle is dead.
+    let ch = match read_cell(&handle)
         .channel_open_direct_tcpip(
             &remote_host,
             remote_port as u32,

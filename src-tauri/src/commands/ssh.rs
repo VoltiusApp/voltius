@@ -71,7 +71,7 @@ pub async fn ssh_connect(
     let cid = connection_id.as_deref().unwrap_or("");
     pf.register_session(&session_id, cid).await;
 
-    if let Ok(handle) = state.get_handle(&session_id).await {
+    if let Ok(handle) = state.get_session_handle(&session_id).await {
         let routes = state
             .get_remote_routes(&session_id)
             .await
@@ -105,7 +105,7 @@ pub async fn ssh_disconnect(
     } else {
         if was_owner {
             if let Some(survivor) = remaining.first() {
-                if let Ok(handle) = state.get_handle(survivor).await {
+                if let Ok(handle) = state.get_session_handle(survivor).await {
                     let routes = state.get_remote_routes(survivor).await.unwrap_or_else(|_| {
                         Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()))
                     });

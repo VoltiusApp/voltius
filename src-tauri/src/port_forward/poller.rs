@@ -2,7 +2,8 @@ use crate::port_forward::tunnel::create_tunnel;
 use crate::port_forward::{
     ActiveTunnel, PfStatePayload, SessionPfState, TunnelEntry, TunnelOrigin, TunnelState,
 };
-use crate::ssh::client::SshClient;
+use crate::ssh::live_cells::read_cell;
+use crate::ssh::session::SessionHandle;
 use crate::storage::config::TunnelType;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -58,7 +59,7 @@ async fn live_sessions_for_key(
 
 pub async fn start_poller(
     pf_key: String,
-    handle: Arc<russh::client::Handle<SshClient>>,
+    handle: SessionHandle,
     sessions: Arc<Mutex<HashMap<String, SessionPfState>>>,
     session_keys: Arc<Mutex<HashMap<String, String>>>,
     app: AppHandle,
@@ -171,7 +172,9 @@ pub async fn start_poller(
     }
 }
 
-async fn poll_ports(handle: Arc<russh::client::Handle<SshClient>>) -> Result<Vec<u16>, String> {
+async fn poll_ports(handle: SessionHandle) -> Result<Vec<u16>, String> {
+    // Re-read each poll so the probe follows the session across a reconnect.
+    let handle = read_cell(&handle);
     for cmd in DETECTION_COMMANDS {
         let channel = match handle.channel_open_session().await {
             Ok(c) => c,

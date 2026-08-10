@@ -1,4 +1,6 @@
 use crate::port_forward::ForwardError;
+use crate::ssh::live_cells::read_cell;
+use crate::ssh::session::SessionHandle;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -8,7 +10,7 @@ use tokio_util::sync::CancellationToken;
 /// Bind a local SOCKS5 listener and spawn an accept loop.
 /// Returns `(bound_local_port, bytes_transferred_counter)`.
 pub async fn create_socks_tunnel(
-    handle: Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
+    handle: SessionHandle,
     local_port: u16,
     cancel: CancellationToken,
 ) -> Result<(u16, Arc<AtomicU64>), ForwardError> {
@@ -39,7 +41,7 @@ pub async fn create_socks_tunnel(
 }
 
 async fn socks_bridge(
-    handle: Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
+    handle: SessionHandle,
     mut tcp: TcpStream,
     local_port: u16,
     cancel: CancellationToken,
@@ -50,7 +52,9 @@ async fn socks_bridge(
         Err(_) => return,
     };
 
-    let ch = match handle
+    // Read the handle per connection, not once at tunnel creation: the session
+    // may have reconnected since, and the old handle is dead.
+    let ch = match read_cell(&handle)
         .channel_open_direct_tcpip(
             &target_host,
             target_port as u32,

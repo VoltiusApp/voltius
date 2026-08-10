@@ -4,6 +4,8 @@ pub mod poller;
 pub mod socks;
 pub mod tunnel;
 
+use crate::ssh::live_cells::read_cell;
+use crate::ssh::session::SessionHandle;
 use crate::storage::config::TunnelType;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -51,7 +53,7 @@ pub struct ActiveTunnel {
 pub(crate) struct RemoteCleanup {
     pub(crate) bind_host: String,
     pub(crate) remote_port: u16,
-    pub(crate) handle: Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
+    pub(crate) handle: SessionHandle,
     pub(crate) routes: RemoteRouteMap,
 }
 
@@ -221,7 +223,7 @@ impl PortForwardManager {
         &self,
         session_id: &str,
         enabled: bool,
-        handle: Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
+        handle: SessionHandle,
     ) -> Result<(), String> {
         let key = self.key_of(session_id).await;
         let mut sessions = self.sessions.lock().await;
@@ -269,7 +271,7 @@ impl PortForwardManager {
     pub async fn resume_auto_port(
         &self,
         session_id: &str,
-        handle: Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
+        handle: SessionHandle,
         port: u16,
     ) -> Result<ActiveTunnel, ForwardError> {
         self.open_local_tunnel(
@@ -286,7 +288,7 @@ impl PortForwardManager {
     pub async fn open_local_tunnel(
         &self,
         session_id: &str,
-        handle: Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
+        handle: SessionHandle,
         local_port: u16,
         remote_port: u16,
         remote_host: String,
@@ -348,7 +350,7 @@ impl PortForwardManager {
     pub async fn open_remote_tunnel(
         &self,
         session_id: &str,
-        handle: Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
+        handle: SessionHandle,
         routes: RemoteRouteMap,
         bind_host: String,
         remote_port: u16,
@@ -370,7 +372,10 @@ impl PortForwardManager {
             map.insert((bind_host.clone(), remote_port), route);
         }
 
-        match handle.tcpip_forward(&bind_host, remote_port as u32).await {
+        match read_cell(&handle)
+            .tcpip_forward(&bind_host, remote_port as u32)
+            .await
+        {
             Ok(_) => {}
             Err(e) => {
                 // Roll back route registration on failure.
@@ -433,7 +438,7 @@ impl PortForwardManager {
     pub async fn open_dynamic_tunnel(
         &self,
         session_id: &str,
-        handle: Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
+        handle: SessionHandle,
         local_port: u16,
         origin: TunnelOrigin,
     ) -> Result<ActiveTunnel, ForwardError> {
@@ -515,8 +520,7 @@ impl PortForwardManager {
                 .lock()
                 .await
                 .remove(&(rc.bind_host.clone(), rc.remote_port));
-            let _ = rc
-                .handle
+            let _ = read_cell(&rc.handle)
                 .cancel_tcpip_forward(&rc.bind_host, rc.remote_port as u32)
                 .await;
         }
@@ -602,7 +606,7 @@ impl PortForwardManager {
         &self,
         key: &str,
         new_owner: &str,
-        handle: Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
+        handle: SessionHandle,
         routes: RemoteRouteMap,
     ) {
         let (old_tunnels, auto_detect) = {
@@ -709,7 +713,7 @@ impl PortForwardManager {
         &self,
         session_id: &str,
         connection_id: &str,
-        handle: Arc<russh::client::Handle<crate::ssh::client::SshClient>>,
+        handle: SessionHandle,
         routes: RemoteRouteMap,
     ) {
         // Only the first terminal of a host activates rules; later terminals of

@@ -32,7 +32,7 @@ pub async fn pf_tunnel_open(
     rule_id: Option<String>,
     rule_name: Option<String>,
 ) -> Result<ActiveTunnel, String> {
-    let handle = state.get_handle(&session_id).await?;
+    let handle = state.get_session_handle(&session_id).await?;
 
     let origin = match rule_id {
         Some(rid) => TunnelOrigin::Rule {
@@ -95,7 +95,7 @@ pub async fn pf_tunnel_resume_auto(
     session_id: String,
     port: u16,
 ) -> Result<ActiveTunnel, String> {
-    let handle = state.get_handle(&session_id).await?;
+    let handle = state.get_session_handle(&session_id).await?;
     pf.resume_auto_port(&session_id, handle, port)
         .await
         .map_err(|e| e.to_string())
@@ -116,6 +116,6 @@ pub async fn pf_tunnel_set_auto(
     session_id: String,
     enabled: bool,
 ) -> Result<(), String> {
-    let handle = state.get_handle(&session_id).await?;
+    let handle = state.get_session_handle(&session_id).await?;
     pf.set_auto_detect(&session_id, enabled, handle).await
 }
