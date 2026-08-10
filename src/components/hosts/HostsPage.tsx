@@ -691,7 +691,7 @@ export default function HostsPage() {
       icon: conn.icon,
       pinned: conn.pinned,
       ping_disabled: conn.ping_disabled,
-      shell_integration_disabled: conn.shell_integration_disabled,
+      shell_integration: conn.shell_integration,
       keepalive_preset: conn.keepalive_preset,
       persist_session: conn.persist_session,
       ftp_secure: conn.ftp_secure,
@@ -934,7 +934,7 @@ export default function HostsPage() {
             pre_snippet_id: conn.pre_snippet_id, post_snippet_id: conn.post_snippet_id, ask_vars_each_time: conn.ask_vars_each_time,
             terminal_encoding: conn.terminal_encoding,
             pinned: conn.pinned, ping_disabled: conn.ping_disabled,
-            shell_integration_disabled: conn.shell_integration_disabled,
+            shell_integration: conn.shell_integration,
           });
           await transferConnectionSecrets(conn.id, conn.vault_id ?? "personal", vaultId);
           // The cascade moves the linked key/identity too, so their material has to

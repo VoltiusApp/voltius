@@ -125,7 +125,7 @@ export interface Connection {
   terminal_encoding?: string;
   pinned?: boolean;
   ping_disabled?: boolean;
-  shell_integration_disabled?: boolean;
+  shell_integration?: boolean;
   keepalive_preset?: KeepalivePreset;
   persist_session?: boolean;
   connection_type?: "ssh" | "serial" | "ftp";
@@ -167,7 +167,7 @@ export interface ConnectionFormData {
   icon?: string;
   pinned?: boolean;
   ping_disabled?: boolean;
-  shell_integration_disabled?: boolean;
+  shell_integration?: boolean;
   keepalive_preset?: KeepalivePreset;
   persist_session?: boolean;
   connection_type?: "ssh" | "serial" | "ftp";

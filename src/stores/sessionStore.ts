@@ -17,7 +17,6 @@ export interface ConnectRetryOverride {
 }
 import { sshConnect, sshDisconnect, sshDetectDistro, sshSendInput } from "@/services/ssh";
 import { resolveKeepalive } from "@/utils/keepalive";
-import { resolveDisableOverride } from "@/utils/inheritedSetting";
 import { getGlobalKeepalivePreset, resolvePersistSession } from "@/stores/connectivitySettingsStore";
 import { localConnect, localDisconnect } from "@/services/local";
 import { serialConnect, serialDisconnect } from "@/services/serial";
@@ -132,7 +131,7 @@ async function buildSshConnectOptions(
     legacyAlgorithms: connection.legacy_algorithms ?? false,
     preCommand: inlineCommandForBackend(connection, "pre"),
     autoForward: getToggle("auto-forward"),
-    shellIntegration: resolveDisableOverride(connection.shell_integration_disabled, getToggle("shell-integration")),
+    shellIntegration: connection.shell_integration ?? getToggle("shell-integration"),
     keepaliveIntervalSecs: intervalSecs,
     keepaliveMax: max,
     persist: resolvePersistSession(connection.persist_session),

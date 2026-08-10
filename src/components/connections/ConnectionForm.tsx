@@ -37,10 +37,8 @@ import { buildConnectionMenuItems } from "@/utils/connectionMenuItems";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
-import { DirtyDot, ResetButton } from "@/components/settings/sections/shared";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { useGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
-import { resolveDisableOverride } from "@/utils/inheritedSetting";
 import FolderSelector from "@/components/shared/FolderSelector";
 import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
 import { getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, glossyTileStyle, normalizeDistro } from "@/utils/icons";
@@ -103,7 +101,9 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [agentForwarding, setAgentForwarding] = useState(initial?.agent_forwarding ?? false);
   const [legacyAlgorithms, setLegacyAlgorithms] = useState(initial?.legacy_algorithms ?? false);
   const [pingDisabled, setPingDisabled] = useState(initial?.ping_disabled ?? false);
-  const [shellIntegrationDisabled, setShellIntegrationDisabled] = useState<boolean | undefined>(initial?.shell_integration_disabled);
+  const [shellIntegration, setShellIntegration] = useState<"" | "on" | "off">(
+    initial?.shell_integration === undefined ? "" : initial.shell_integration ? "on" : "off",
+  );
   const [globalShellIntegration] = useToggle("shell-integration");
   const [globalKeepalive] = useGlobalKeepalivePreset();
   const [globalPersist] = useToggle("persistent-sessions");
@@ -123,7 +123,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [showDistroPicker, setShowDistroPicker] = useState(false);
   const [detectingDistro, setDetectingDistro] = useState(false);
   const [distroError, setDistroError] = useState("");
-  const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.pre_snippet_id || initial?.post_snippet_id || initial?.terminal_encoding || initial?.agent_forwarding || initial?.legacy_algorithms || initial?.ping_disabled || initial?.shell_integration_disabled !== undefined || initial?.keepalive_preset || initial?.persist_session !== undefined);
+  const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.pre_snippet_id || initial?.post_snippet_id || initial?.terminal_encoding || initial?.agent_forwarding || initial?.legacy_algorithms || initial?.ping_disabled || initial?.shell_integration !== undefined || initial?.keepalive_preset || initial?.persist_session !== undefined);
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
   const defaultVaultId = useDefaultVaultId();
   const [vaultId, setVaultId] = useState<string>(() => initial?.vault_id ?? defaultVaultId);
@@ -262,7 +262,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         distro: distro || undefined,
         icon: icon || undefined,
         ping_disabled: pingDisabled || undefined,
-        shell_integration_disabled: shellIntegrationDisabled,
+        shell_integration: shellIntegration === "" ? undefined : shellIntegration === "on",
         keepalive_preset: keepalivePreset || undefined,
         persist_session: persistSession === "" ? undefined : persistSession === "on",
         notes: notes.trim() ? notes : undefined,
@@ -281,7 +281,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, host, port, username, protocol, ftpSecure, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, legacyAlgorithms, preCommand, postCommand, preSnippetId, postSnippetId, askVarsEachTime, terminalEncoding, distro, icon, pingDisabled, shellIntegrationDisabled, keepalivePreset, persistSession, notes]);
+  useEffect(() => schedule(), [name, host, port, username, protocol, ftpSecure, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, legacyAlgorithms, preCommand, postCommand, preSnippetId, postSnippetId, askVarsEachTime, terminalEncoding, distro, icon, pingDisabled, shellIntegration, keepalivePreset, persistSession, notes]);
 
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
@@ -305,6 +305,12 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
     { value: "", label: t("connections.form.inheritKeepalive", { label: t(KEEPALIVE_PRESETS[globalKeepalive].labelKey) }) },
     ...(Object.keys(KEEPALIVE_PRESETS) as KeepalivePreset[]).map((p) => ({ value: p, label: t(KEEPALIVE_PRESETS[p].labelKey) })),
   ], [globalKeepalive, t]);
+
+  const shellIntegrationOptions = useMemo(() => [
+    { value: "", label: t("connections.form.inheritShellIntegration", { state: globalShellIntegration ? t("connections.common.on") : t("connections.common.off") }) },
+    { value: "on", label: t("connections.common.on") },
+    { value: "off", label: t("connections.common.off") },
+  ], [globalShellIntegration, t]);
 
   const persistOptions = useMemo(() => [
     { value: "", label: t("connections.form.inheritPersist", { state: globalPersist ? t("connections.common.on") : t("connections.common.off") }) },
@@ -533,7 +539,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
               className="flex items-center gap-1.5 text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors w-full pt-1"
             >
               <span>{t("connections.common.advanced")}</span>
-              {!showAdvanced && (jumpHosts.length > 0 || envVars.length > 0 || preCommand || postCommand || preSnippetId || postSnippetId || terminalEncoding || agentForwarding || legacyAlgorithms || pingDisabled || shellIntegrationDisabled !== undefined || keepalivePreset || persistSession) && (
+              {!showAdvanced && (jumpHosts.length > 0 || envVars.length > 0 || preCommand || postCommand || preSnippetId || postSnippetId || terminalEncoding || agentForwarding || legacyAlgorithms || pingDisabled || shellIntegration || keepalivePreset || persistSession) && (
                 <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-(--t-accent)" />
               )}
               <Icon icon={showAdvanced ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} className="ml-auto" />
@@ -627,23 +633,15 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                     />
                   </span>
                 </div>
-                <div className="group flex items-center gap-1.5 text-xs text-(--t-text-dim) w-full py-1">
+                <div className="flex items-center gap-1.5 text-xs text-(--t-text-dim) w-full py-1">
                   <Icon icon="lucide:terminal" width={13} />
                   <span>{t("connections.form.shellIntegration")}</span>
-                  <div className="ml-auto flex items-center gap-2">
-                    {shellIntegrationDisabled !== undefined && (
-                      <ResetButton onReset={() => { markDirty(); setShellIntegrationDisabled(undefined); }} />
-                    )}
-                    {shellIntegrationDisabled !== undefined && <DirtyDot />}
-                    <span
-                      title={shellIntegrationDisabled === undefined ? t("connections.form.followingGlobal", { state: globalShellIntegration ? t("connections.common.on") : t("connections.common.off") }) : t("connections.form.overridingGlobalHost")}
-                    >
-                      <Toggle
-                        checked={resolveDisableOverride(shellIntegrationDisabled, globalShellIntegration)}
-                        onChange={(v) => { markDirty(); setShellIntegrationDisabled(v ? undefined : true); }}
-                      />
-                    </span>
-                  </div>
+                  <FormSelect
+                    className="ml-auto w-36"
+                    value={shellIntegration}
+                    options={shellIntegrationOptions}
+                    onChange={(v) => { markDirty(); setShellIntegration(v as "" | "on" | "off"); }}
+                  />
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-(--t-text-dim) w-full py-1">
                   <Icon icon="lucide:heart-pulse" width={13} />
