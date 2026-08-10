@@ -70,13 +70,22 @@ export async function sshDisconnect(
   postCommand?: string,
   killPersistent?: boolean,
   attached?: boolean,
+  reconnecting?: boolean,
 ): Promise<boolean> {
   return invoke("ssh_disconnect", {
     sessionId,
     postCommand: postCommand ?? null,
     killPersistent: killPersistent ?? null,
     attached: attached ?? null,
+    reconnecting: reconnecting ?? null,
   });
+}
+
+/** Drop the SSH connection as the first half of a reconnect under the same
+ * session id. Keeps the session's port forwards up: they are re-armed by the
+ * matching `sshConnect`, so ad-hoc tunnels survive the round trip. */
+export async function sshDisconnectForReconnect(sessionId: string): Promise<void> {
+  await sshDisconnect(sessionId, undefined, undefined, undefined, true).catch(() => {});
 }
 
 export async function sshSendInput(sessionId: string, data: Uint8Array): Promise<void> {

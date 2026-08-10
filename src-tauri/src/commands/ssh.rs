@@ -78,6 +78,10 @@ pub async fn ssh_connect(
             .unwrap_or_else(|_| {
                 Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()))
             });
+        // No-op for a first connect (nothing to re-arm) and for a reconnect with
+        // only local/dynamic tunnels, which follow the new handle by themselves.
+        pf.rearm_after_reconnect(&session_id, Arc::clone(&handle), Arc::clone(&routes))
+            .await;
         pf.auto_activate_rules(&session_id, cid, Arc::clone(&handle), routes)
             .await;
         let _ = pf.set_auto_detect(&session_id, auto_forward, handle).await;
@@ -94,26 +98,34 @@ pub async fn ssh_disconnect(
     post_command: Option<String>,
     kill_persistent: Option<bool>,
     attached: Option<bool>,
+    reconnecting: Option<bool>,
 ) -> Result<bool, String> {
-    // Host-scoped port forwarding: only tear down when the last terminal of the
-    // host closes. If the terminal that owned the forwards leaves while siblings
-    // remain, hand the forwards off to a surviving terminal's SSH handle so they
-    // keep working.
-    let (key, remaining, was_owner) = pf.detach_session(&session_id).await;
-    if remaining.is_empty() {
-        pf.teardown_key(&key).await;
-    } else {
-        if was_owner {
-            if let Some(survivor) = remaining.first() {
-                if let Ok(handle) = state.get_session_handle(survivor).await {
-                    let routes = state.get_remote_routes(survivor).await.unwrap_or_else(|_| {
-                        Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()))
-                    });
-                    pf.rebind_to_handle(&key, survivor, handle, routes).await;
+    // A reconnect drops the SSH connection and immediately dials again under the
+    // same session id, so the terminal is not leaving its host — the forwards
+    // stay up and `ssh_connect` re-arms them. Tearing them down here is what used
+    // to lose every ad-hoc tunnel across a reconnect, since only rule-backed ones
+    // were rebuilt afterwards.
+    if !reconnecting.unwrap_or(false) {
+        // Host-scoped port forwarding: only tear down when the last terminal of the
+        // host closes. If the terminal that owned the forwards leaves while siblings
+        // remain, hand the forwards off to a surviving terminal's SSH handle so they
+        // keep working.
+        let (key, remaining, was_owner) = pf.detach_session(&session_id).await;
+        if remaining.is_empty() {
+            pf.teardown_key(&key).await;
+        } else {
+            if was_owner {
+                if let Some(survivor) = remaining.first() {
+                    if let Ok(handle) = state.get_session_handle(survivor).await {
+                        let routes = state.get_remote_routes(survivor).await.unwrap_or_else(|_| {
+                            Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()))
+                        });
+                        pf.rebind_to_handle(&key, survivor, handle, routes).await;
+                    }
                 }
             }
+            pf.clear_session_panel(&session_id).await;
         }
-        pf.clear_session_panel(&session_id).await;
     }
 
     state

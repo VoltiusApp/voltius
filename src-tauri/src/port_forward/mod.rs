@@ -708,6 +708,79 @@ impl PortForwardManager {
         self.emit_state_for_key(key).await;
     }
 
+    /// Re-establish a host's forwards on a session that has just reconnected
+    /// under the same id.
+    ///
+    /// Nothing was torn down over the drop, so local and dynamic tunnels keep
+    /// their listeners and follow the new connection through the handle cell.
+    /// Remote forwards have to be requested again — the server forgot them with
+    /// the old connection — and re-registered in the new session's route table,
+    /// keeping each tunnel's existing byte counter.
+    pub async fn rearm_after_reconnect(
+        &self,
+        session_id: &str,
+        handle: SessionHandle,
+        routes: RemoteRouteMap,
+    ) {
+        let key = self.key_of(session_id).await;
+        let specs = {
+            let sessions = self.sessions.lock().await;
+            match sessions.get(&key) {
+                Some(state) => remote_forward_specs(&state.tunnels),
+                None => return,
+            }
+        };
+        if specs.is_empty() {
+            return;
+        }
+
+        let mut restored: Vec<String> = Vec::new();
+        for spec in &specs {
+            routes.lock().await.insert(
+                (spec.bind_host.clone(), spec.remote_port),
+                RemoteRoute {
+                    target_host: spec.target_host.clone(),
+                    target_port: spec.target_port,
+                    bytes: Arc::clone(&spec.bytes),
+                },
+            );
+            if read_cell(&handle)
+                .tcpip_forward(&spec.bind_host, spec.remote_port as u32)
+                .await
+                .is_ok()
+            {
+                restored.push(spec.tunnel_id.clone());
+            } else {
+                routes
+                    .lock()
+                    .await
+                    .remove(&(spec.bind_host.clone(), spec.remote_port));
+            }
+        }
+
+        {
+            let mut sessions = self.sessions.lock().await;
+            if let Some(state) = sessions.get_mut(&key) {
+                state.owner_session = Some(session_id.to_string());
+                for entry in state.tunnels.iter_mut() {
+                    let Some(rc) = entry.remote_cleanup.as_mut() else {
+                        continue;
+                    };
+                    if restored.contains(&entry.tunnel.id) {
+                        // Point cleanup at the connection that now owns the forward.
+                        rc.handle = Arc::clone(&handle);
+                        rc.routes = Arc::clone(&routes);
+                    } else {
+                        entry.tunnel.state =
+                            TunnelState::Error("Remote forward lost on reconnect".into());
+                    }
+                }
+            }
+        }
+
+        self.emit_state_for_key(&key).await;
+    }
+
     /// Auto-activate port forwarding rules matching `connection_id` for a newly connected session.
     pub async fn auto_activate_rules(
         &self,
@@ -856,6 +929,45 @@ fn cancel_entry(entry: &TunnelEntry) {
     entry._cancel.cancel();
 }
 
+/// What re-requesting one remote forward on a new connection needs.
+pub(crate) struct RemoteForwardSpec {
+    pub(crate) tunnel_id: String,
+    pub(crate) bind_host: String,
+    pub(crate) remote_port: u16,
+    pub(crate) target_host: String,
+    pub(crate) target_port: u16,
+    pub(crate) bytes: Arc<AtomicU64>,
+}
+
+/// The forwards that a reconnect has to re-establish.
+///
+/// Local and dynamic tunnels need nothing: they open a channel per accepted
+/// connection and read the session's handle cell each time, so they follow the
+/// new connection on their own. A remote forward lives in the *server's* state,
+/// which the old connection took with it, so it has to be requested again.
+fn remote_forward_specs(tunnels: &[TunnelEntry]) -> Vec<RemoteForwardSpec> {
+    tunnels
+        .iter()
+        .filter(|e| matches!(e.tunnel.tunnel_type, TunnelType::Remote))
+        .map(|e| RemoteForwardSpec {
+            tunnel_id: e.tunnel.id.clone(),
+            bind_host: e
+                .tunnel
+                .bind_host
+                .clone()
+                .unwrap_or_else(|| "127.0.0.1".to_string()),
+            remote_port: e.tunnel.remote_port,
+            target_host: e
+                .tunnel
+                .target_host
+                .clone()
+                .unwrap_or_else(|| "127.0.0.1".to_string()),
+            target_port: e.tunnel.local_port,
+            bytes: Arc::clone(&e.bytes),
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -894,6 +1006,63 @@ mod tests {
             bytes: Arc::new(AtomicU64::new(0)),
             remote_cleanup: None,
         }
+    }
+
+    fn entry_of(
+        tunnel_type: TunnelType,
+        bind_host: Option<&str>,
+        target_host: Option<&str>,
+    ) -> TunnelEntry {
+        TunnelEntry {
+            tunnel: ActiveTunnel {
+                id: format!("{tunnel_type:?}"),
+                tunnel_type,
+                local_port: 8080,
+                remote_port: 9090,
+                remote_host: "127.0.0.1".into(),
+                bind_host: bind_host.map(str::to_string),
+                target_host: target_host.map(str::to_string),
+                origin: TunnelOrigin::AdHoc,
+                state: TunnelState::Active,
+                bytes_transferred: 0,
+            },
+            _cancel: CancellationToken::new(),
+            bytes: Arc::new(AtomicU64::new(0)),
+            remote_cleanup: None,
+        }
+    }
+
+    #[test]
+    fn only_remote_forwards_need_re_establishing_after_a_reconnect() {
+        let tunnels = vec![
+            entry_of(TunnelType::Local, None, None),
+            entry_of(TunnelType::Dynamic, None, None),
+            entry_of(TunnelType::Remote, Some("0.0.0.0"), Some("10.0.0.5")),
+        ];
+        let specs = remote_forward_specs(&tunnels);
+        assert_eq!(specs.len(), 1);
+        assert_eq!(specs[0].bind_host, "0.0.0.0");
+        assert_eq!(specs[0].remote_port, 9090);
+        assert_eq!(specs[0].target_host, "10.0.0.5");
+        assert_eq!(specs[0].target_port, 8080);
+    }
+
+    #[test]
+    fn a_remote_forward_with_no_recorded_hosts_falls_back_to_loopback() {
+        let specs = remote_forward_specs(&[entry_of(TunnelType::Remote, None, None)]);
+        assert_eq!(specs[0].bind_host, "127.0.0.1");
+        assert_eq!(specs[0].target_host, "127.0.0.1");
+    }
+
+    /// The byte counter must be the tunnel's own, so the transferred total keeps
+    /// climbing across a reconnect instead of restarting at zero.
+    #[test]
+    fn re_establishing_keeps_the_tunnels_byte_counter() {
+        let entry = entry_of(TunnelType::Remote, None, None);
+        entry.bytes.store(4096, Ordering::Relaxed);
+        let specs = remote_forward_specs(std::slice::from_ref(&entry));
+        assert!(Arc::ptr_eq(&specs[0].bytes, &entry.bytes));
+        assert_eq!(specs[0].bytes.load(Ordering::Relaxed), 4096);
     }
 
     async fn port_is_free(port: u16) -> bool {
