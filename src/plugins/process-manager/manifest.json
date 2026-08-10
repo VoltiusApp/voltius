@@ -1,7 +1,7 @@
 {
   "id": "plugin-process-manager",
   "name": "Process Manager",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "minAppVersion": "0.18.0",
   "description": "Monitor and manage running processes for local and SSH sessions.",
   "permissions": ["processes:read", "processes:manage", "sessions:read", "right-panel", "ui", "mcp:contribute"],
