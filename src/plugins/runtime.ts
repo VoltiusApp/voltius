@@ -230,18 +230,32 @@ async function ensureQuitHandler() {
   _quitHandlerRegistered = true;
   const { getCurrentWindow } = await import("@tauri-apps/api/window");
   const win = getCurrentWindow();
+  // win.destroy() deadlocks on Windows (message pump waiting for handler
+  // to return, handler waiting for destroy to be processed by message pump).
+  // Use a Rust-side exit instead, which bypasses the JS/WebView2 layer.
+  const quit = () => { invoke("force_quit").catch(() => {}); };
   await win.onCloseRequested(async (event) => {
     event.preventDefault();
     const callbacks = [..._onBeforeQuit];
-    await Promise.race([
-      Promise.allSettled(callbacks.map((cb) => cb())),
-      new Promise<void>((r) => setTimeout(r, 5000)),
-    ]);
-    // win.destroy() deadlocks on Windows (message pump waiting for handler
-    // to return, handler waiting for destroy to be processed by message pump).
-    // Use a Rust-side exit instead, which bypasses the JS/WebView2 layer.
-    const { invoke } = await import("@tauri-apps/api/core");
-    invoke("force_quit").catch(() => {});
+    if (callbacks.length === 0) {
+      quit();
+      return;
+    }
+    // Without this the window stays up for the whole wait, which reads as a
+    // hang when a quit hook does network work (gist-sync pushes on exit).
+    win.hide().catch(() => {});
+    // A hidden window over a live process is worse than a slow close, so the
+    // exit is armed up front: it survives a throw or an invoke that never lands.
+    const fallback = setTimeout(quit, 6000);
+    try {
+      await Promise.race([
+        Promise.allSettled(callbacks.map(async (cb) => cb())),
+        new Promise<void>((r) => setTimeout(r, 5000)),
+      ]);
+    } finally {
+      clearTimeout(fallback);
+      quit();
+    }
   });
 }
 
