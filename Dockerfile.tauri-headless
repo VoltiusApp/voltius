@@ -4,7 +4,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # System dependencies: Xvfb + WebKit + compilers + mold (fast linker) + keyutils
 # (the app's OS keychain talks to the kernel keyutils keyring at startup) + ffmpeg
-# (records the Xvfb framebuffer for headless UI screen-capture / video).
+# (records the Xvfb framebuffer for headless UI screen-capture / video) + xdotool
+# (tauri-driver's actions API only delivers left-button presses; middle/right clicks
+# and window-drag checks need real X input).
 RUN apt-get update && apt-get install -y \
     git \
     xvfb \
@@ -18,6 +20,8 @@ RUN apt-get update && apt-get install -y \
     mold \
     keyutils \
     ffmpeg \
+    xdotool \
+    xclip \
     python3-pil \
     && rm -rf /var/lib/apt/lists/*
 

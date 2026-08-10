@@ -500,6 +500,15 @@
   pointer-events: none;
 }
 
+/* WebKitGTK drops the click when a press-time re-render detaches the pressed
+   node — keep presses off the icon, on the control. */
+button svg,
+button svg *,
+[role="button"] svg,
+[role="button"] svg * {
+  pointer-events: none;
+}
+
 /*
   Button depth system — the same ring + top-highlight + elevation language as
   the cards, applied to interactive controls so they stop reading flat. Drop

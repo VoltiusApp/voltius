@@ -86,12 +86,23 @@ export function usePaneDragController() {
       if (e.key === "Escape") useDragStore.getState().cancelDrag();
     };
 
+    // A lost mouseup used to strand isPointerDown, killing every later click.
+    const onAbort = () => useDragStore.getState().cancelDrag();
+
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onAbort);
+    window.addEventListener("blur", onAbort);
+    document.addEventListener("mouseleave", onAbort);
     window.addEventListener("keydown", onKeyDown);
     return () => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onAbort);
+      window.removeEventListener("blur", onAbort);
+      document.removeEventListener("mouseleave", onAbort);
       window.removeEventListener("keydown", onKeyDown);
       body.style.userSelect = prevUserSelect;
       body.style.webkitUserSelect = prevWebkitUserSelect;

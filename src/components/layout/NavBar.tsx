@@ -72,7 +72,7 @@ function NavTabButton({
   return (
     <button
       onClick={onClick}
-      onMouseDown={createRipple}
+      onPointerDown={createRipple}
       className="relative flex items-center gap-2 px-3.5 h-full text-sm font-medium shrink-0 transition-colors overflow-hidden"
       style={{
         color: isActive ? "var(--t-text-primary)" : "var(--t-text-dim)",

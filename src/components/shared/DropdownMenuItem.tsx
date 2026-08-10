@@ -15,7 +15,7 @@ export function DropdownMenuItem({ icon, label, onClick, checked, iconSize = 20 
     <button
       type="button"
       onClick={onClick}
-      onMouseDown={createRipple}
+      onPointerDown={createRipple}
       className="w-full flex items-center gap-2.5 p-3 rounded-lg text-md font-medium-bold transition-colors whitespace-nowrap text-(--t-text-secondary) bg-transparent relative overflow-hidden"
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)";

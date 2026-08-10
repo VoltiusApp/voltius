@@ -214,7 +214,7 @@ function PendingInviteButton({ invite, onClick }: { invite: MyPendingInvitation;
       {hovered && <ActivePip active={false} />}
       <button
         onClick={onClick}
-        onMouseDown={createRipple}
+        onPointerDown={createRipple}
         title={t("layout.vaultSidebar.vaultInviteTitle", { name: invite.team_name })}
         className="flex items-center justify-center text-base font-bold relative overflow-hidden transition-all"
         style={{
@@ -444,7 +444,7 @@ function AppIconButton({ isActive, onClick }: { isActive: boolean; onClick: () =
       {(isActive || hovered) && <ActivePip active={isActive} />}
       <button
         onClick={onClick}
-        onMouseDown={createRipple}
+        onPointerDown={createRipple}
         title={t("layout.vaultSidebar.home")}
         className="relative overflow-hidden"
         style={{ background: "none", border: "none", padding: 0 }}
@@ -478,7 +478,7 @@ function VaultButton({
       {(isActive || hovered) && <ActivePip active={isActive} />}
       <button
         onClick={onClick}
-        onMouseDown={createRipple}
+        onPointerDown={createRipple}
         title={label}
         className="flex items-center justify-center text-base font-bold relative overflow-hidden transition-all"
         style={{
@@ -544,7 +544,7 @@ function WhatsNewButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      onMouseDown={createRipple}
+      onPointerDown={createRipple}
       title={title}
       className="flex items-center justify-center mb-3 relative overflow-hidden transition-all shrink-0"
       style={{
@@ -584,7 +584,7 @@ function SettingsButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      onMouseDown={createRipple}
+      onPointerDown={createRipple}
       title={t("layout.vaultSidebar.settings")}
       className="flex items-center justify-center mb-3 relative overflow-hidden transition-all shrink-0"
       style={{
@@ -618,7 +618,7 @@ function AddVaultButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      onMouseDown={createRipple}
+      onPointerDown={createRipple}
       title={t("layout.vaultSidebar.addVault")}
       className="flex items-center justify-center relative overflow-hidden transition-all shrink-0"
       style={{

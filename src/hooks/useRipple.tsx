@@ -12,8 +12,13 @@ interface Ripple {
 export function useRipple() {
   const [ripples, setRipples] = useState<Ripple[]>([]);
 
-  const createRipple = useCallback((e: React.MouseEvent<HTMLElement>) => {
+  const createRipple = useCallback((e: React.PointerEvent<HTMLElement>) => {
     const el = e.currentTarget;
+    // Capture on the button: the press re-render detaches the icon node, and
+    // WebKitGTK then drops the release.
+    if (e.pointerId !== undefined) {
+      try { el.setPointerCapture(e.pointerId); } catch { /* best-effort */ }
+    }
     const rect = el.getBoundingClientRect();
     const size = Math.max(rect.width, rect.height) * 2;
     const startTime = performance.now();
@@ -30,21 +35,21 @@ export function useRipple() {
       setTimeout(() => setRipples((prev) => prev.filter((r) => r.id !== id)), 500);
     };
 
-    const onMouseUp = () => {
+    const onPointerUp = () => {
       const elapsed = performance.now() - startTime;
       const delay = Math.max(0, 350 - elapsed);
       setTimeout(fadeOut, delay);
     };
 
-    const onMouseLeave = () => fadeOut();
+    const onPointerCancel = () => fadeOut();
 
     const cleanup = () => {
-      document.removeEventListener("mouseup", onMouseUp);
-      el.removeEventListener("mouseleave", onMouseLeave);
+      document.removeEventListener("pointerup", onPointerUp);
+      document.removeEventListener("pointercancel", onPointerCancel);
     };
 
-    document.addEventListener("mouseup", onMouseUp);
-    el.addEventListener("mouseleave", onMouseLeave);
+    document.addEventListener("pointerup", onPointerUp);
+    document.addEventListener("pointercancel", onPointerCancel);
   }, []);
 
   const rippleEls = ripples.map((r) => {

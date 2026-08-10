@@ -186,7 +186,7 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
         <div className="px-4 py-3 border-t border-t-(--t-border)">
           <button
             onClick={() => { void handleExport(); }}
-            onMouseDown={(!selectedHostId || exportStatus === "loading") ? undefined : rippleExport}
+            onPointerDown={(!selectedHostId || exportStatus === "loading") ? undefined : rippleExport}
             disabled={!selectedHostId || exportStatus === "loading"}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-opacity bg-(--t-accent) text-white relative overflow-hidden"
             style={{
