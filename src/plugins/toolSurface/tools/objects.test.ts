@@ -62,13 +62,14 @@ describe("object tools", () => {
     expect(result).toEqual({ error: expect.stringContaining("allowCrossVault") });
   });
 
-  it("audits without naming anything the caller passed", async () => {
+  it("audits the first object id but names no destination the caller passed", async () => {
     const { ports, audit } = makePorts();
-    await tool(ports, "object_move").execute({ ids: ["a"], folder_id: "f1", vault_id: "v1" });
+    await tool(ports, "object_move").execute({ ids: ["a", "b"], folder_id: "f1", vault_id: "v1" });
     const [, action, meta] = audit.mock.calls[0];
     expect(action).toBe("agent.object_updated");
-    expect(meta).toMatchObject({ objectType: "object", tool: "object_move" });
+    expect(meta).toMatchObject({ objectType: "object", tool: "object_move", objectId: "a" });
     expect(JSON.stringify(meta)).not.toContain("f1");
+    expect(JSON.stringify(meta)).not.toContain("v1");
   });
 
   it("object_copy calls copy and audits agent.object_created", async () => {
@@ -78,6 +79,7 @@ describe("object tools", () => {
       ids: ["a"], folderId: null, vaultId: "v1", allowCrossVault: undefined,
     });
     expect(audit.mock.calls[0][1]).toBe("agent.object_created");
+    expect(audit.mock.calls[0][2]).toMatchObject({ objectId: "a" });
   });
 
   it("rejects when the caller's approval is denied", async () => {

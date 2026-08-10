@@ -38,7 +38,7 @@ export function buildObjectTools(ports: ToolSurfacePorts): Tool[] {
       risk: "prompt",
       schema,
       execute: async (raw) =>
-        op("object_move", "agent.object_updated", { objectType: "object" }, raw, (a) =>
+        op("object_move", "agent.object_updated", { objectType: "object", objectId: (raw.ids as string[])[0] }, raw, (a) =>
           ports.api.objects.move(toInput(a))),
     },
     {
@@ -52,7 +52,7 @@ export function buildObjectTools(ports: ToolSurfacePorts): Tool[] {
       risk: "prompt",
       schema,
       execute: async (raw) =>
-        op("object_copy", "agent.object_created", { objectType: "object" }, raw, (a) =>
+        op("object_copy", "agent.object_created", { objectType: "object", objectId: (raw.ids as string[])[0] }, raw, (a) =>
           ports.api.objects.copy(toInput(a))),
     },
   ];
