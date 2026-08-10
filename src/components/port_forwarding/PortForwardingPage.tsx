@@ -13,6 +13,7 @@ import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
 import { usePageBulkActions } from "@/hooks/usePageBulkActions";
 import { useDragToFolder } from "@/hooks/useDragToFolder";
+import { folderDragHandlers } from "@/utils/folderDragHandlers";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
 import { useFolderStore } from "@/stores/folderStore";
 import { useAllFolders } from "@/hooks/useAllFolders";
@@ -504,22 +505,16 @@ export function PortForwardingPage() {
   } = useDragToFolder({
     selectedIdSet,
     folderIds: visibleFolderIds,
-    onDropToFolder: async (ids, folderId) => {
-      for (const id of ids) await moveRuleFolder(id, folderId);
-      await loadRules();
-    },
-    onEject: async (ids, targetFolderId) => {
-      for (const id of ids) await moveRuleFolder(id, targetFolderId);
-      await loadRules();
-    },
-    onMoveFolders: async (folderDragIds, targetParentId) => {
-      for (const id of folderDragIds) await moveFolder(id, targetParentId);
-      await loadFolders();
-    },
-    onEjectFolders: async (folderDragIds, targetParentId) => {
-      for (const id of folderDragIds) await moveFolder(id, targetParentId);
-      await loadFolders();
-    },
+    ...folderDragHandlers({
+      moveItems: async (ids, folderId) => {
+        for (const id of ids) await moveRuleFolder(id, folderId);
+        await loadRules();
+      },
+      moveFolders: async (folderDragIds, targetParentId) => {
+        for (const id of folderDragIds) await moveFolder(id, targetParentId);
+        await loadFolders();
+      },
+    }),
   });
 
   // ── Selection-aware delete & bulk context menu ────────────────────────────

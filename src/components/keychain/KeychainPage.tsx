@@ -21,6 +21,7 @@ import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
 import { usePageBulkActions } from "@/hooks/usePageBulkActions";
 import { useDragToFolder } from "@/hooks/useDragToFolder";
+import { folderDragHandlers } from "@/utils/folderDragHandlers";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
 import { useFolderStore } from "@/stores/folderStore";
 import { useAllIdentities } from "@/hooks/useAllIdentities";
@@ -246,26 +247,14 @@ export default function KeychainPage() {
   } = useDragToFolder({
     selectedIdSet,
     folderIds: visibleFolderIds,
-    onDropToFolder: async (ids, folderId) => {
-      try { await dropHandler(ids, folderId); }
-      catch (err) { setError(String(err)); }
-    },
-    onEject: async (ids, targetFolderId) => {
-      try { await dropHandler(ids, targetFolderId); }
-      catch (err) { setError(String(err)); }
-    },
-    onMoveFolders: async (folderDragIds, targetParentId) => {
-      try {
+    ...folderDragHandlers({
+      moveItems: dropHandler,
+      moveFolders: async (folderDragIds, targetParentId) => {
         for (const id of folderDragIds) await moveFolder(id, targetParentId);
         await loadFolders();
-      } catch (err) { setError(String(err)); }
-    },
-    onEjectFolders: async (folderDragIds, targetParentId) => {
-      try {
-        for (const id of folderDragIds) await moveFolder(id, targetParentId);
-        await loadFolders();
-      } catch (err) { setError(String(err)); }
-    },
+      },
+      onError: setError,
+    }),
   });
 
   const { pos: bgMenuPos, open: openBgMenu, close: closeBgMenu } = useContextMenu();

@@ -18,6 +18,7 @@ import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
 import { usePageBulkActions } from "@/hooks/usePageBulkActions";
 import { useDragToFolder } from "@/hooks/useDragToFolder";
+import { folderDragHandlers } from "@/utils/folderDragHandlers";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
 import { DragSelectSurface } from "@/components/shared/DragSelectSurface";
 import { ContextMenu, useContextMenu, type ContextMenuItem } from "@/components/shared/ContextMenu";
@@ -583,30 +584,17 @@ export default function HostsPage() {
   } = useDragToFolder({
     selectedIdSet,
     folderIds: visibleFolderIds,
-    onDropToFolder: async (ids, folderId) => {
-      try {
+    ...folderDragHandlers({
+      moveItems: async (ids, folderId) => {
         await moveObjectsToFolder(ids, "connection", folderId);
         await loadConnections();
-      } catch (err) { setError(String(err)); }
-    },
-    onEject: async (ids, targetFolderId) => {
-      try {
-        await moveObjectsToFolder(ids, "connection", targetFolderId);
-        await loadConnections();
-      } catch (err) { setError(String(err)); }
-    },
-    onMoveFolders: async (folderDragIds, targetParentId) => {
-      try {
+      },
+      moveFolders: async (folderDragIds, targetParentId) => {
         for (const id of folderDragIds) await moveFolder(id, targetParentId);
         await loadFolders();
-      } catch (err) { setError(String(err)); }
-    },
-    onEjectFolders: async (folderDragIds, targetParentId) => {
-      try {
-        for (const id of folderDragIds) await moveFolder(id, targetParentId);
-        await loadFolders();
-      } catch (err) { setError(String(err)); }
-    },
+      },
+      onError: setError,
+    }),
   });
 
   /**

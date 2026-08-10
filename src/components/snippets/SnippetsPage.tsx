@@ -16,6 +16,7 @@ import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
 import { usePageBulkActions } from "@/hooks/usePageBulkActions";
 import { useDragToFolder } from "@/hooks/useDragToFolder";
+import { folderDragHandlers } from "@/utils/folderDragHandlers";
 import { useFolderNavigation } from "@/hooks/useFolderNavigation";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { useAllSnippets } from "@/hooks/useAllSnippets";
@@ -610,24 +611,17 @@ export function SnippetsPage() {
   } = useDragToFolder({
     selectedIdSet,
     folderIds: visibleFolderIds,
-    onDropToFolder: async (ids, folderId) => {
-      for (const id of ids) {
-        const s = snippets.find((x) => x.id === id);
-        if (s) await updateSnippet(id, { ...snippetToForm(s), folder_id: folderId });
-      }
-    },
-    onEject: async (ids, targetFolderId) => {
-      for (const id of ids) {
-        const s = snippets.find((x) => x.id === id);
-        if (s) await updateSnippet(id, { ...snippetToForm(s), folder_id: targetFolderId ?? undefined });
-      }
-    },
-    onMoveFolders: async (folderDragIds, targetParentId) => {
-      for (const id of folderDragIds) await moveFolder(id, targetParentId);
-    },
-    onEjectFolders: async (folderDragIds, targetParentId) => {
-      for (const id of folderDragIds) await moveFolder(id, targetParentId);
-    },
+    ...folderDragHandlers({
+      moveItems: async (ids, folderId) => {
+        for (const id of ids) {
+          const s = snippets.find((x) => x.id === id);
+          if (s) await updateSnippet(id, { ...snippetToForm(s), folder_id: folderId ?? undefined });
+        }
+      },
+      moveFolders: async (folderDragIds, targetParentId) => {
+        for (const id of folderDragIds) await moveFolder(id, targetParentId);
+      },
+    }),
   });
 
   // ── Bulk context menu ────────────────────────────────────────────────────
