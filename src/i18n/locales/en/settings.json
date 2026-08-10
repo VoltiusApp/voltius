@@ -797,7 +797,7 @@
           "sessionsWrite": { "label": "Open and close sessions", "description": "Open new terminal sessions and close existing ones." },
           "connectionsRead": { "label": "Read your connections", "description": "Read your saved connections and their details." },
           "connectionsWrite": { "label": "Manage your connections", "description": "Create, edit, and delete your saved connections." },
-          "keysRead": { "label": "Read your SSH keys", "description": "List your saved SSH keys." },
+          "keysRead": { "label": "Read your SSH keys", "description": "List your saved SSH keys, and append one to a saved host's authorized_keys over SSH." },
           "keysWrite": { "label": "Manage your SSH keys", "description": "Create and delete SSH keys on your behalf." },
           "identitiesRead": { "label": "Read your identities", "description": "List your saved identities." },
           "identitiesWrite": { "label": "Manage your identities", "description": "Create and delete identities on your behalf." },

@@ -125,7 +125,9 @@
       "exportScriptLabel": "Export script",
       "successMessage": "Key exported successfully",
       "exportingLabel": "Exporting…",
-      "publicKeyNotFoundError": "Public key not found"
+      "publicKeyNotFoundError": "Public key not found",
+      "remoteCommandFailedError": "Remote command failed: {{detail}}",
+      "remoteCommandFailedUnknownError": "Remote command failed (exit code {{code}})"
     },
     "dropZone": {
       "loaded": "Key file loaded",

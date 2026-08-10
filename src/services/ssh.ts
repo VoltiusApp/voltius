@@ -114,7 +114,8 @@ export async function sshGetSystemInfo(sessionId: string): Promise<SystemInfo> {
 export interface SshExecResult {
   stdout: string;
   stderr: string;
-  exit_code: number;
+  /** null when the channel closed without ever reporting an exit status — treat as a failure, not as 0. */
+  exit_code: number | null;
 }
 
 export async function sshExecCommand(params: {

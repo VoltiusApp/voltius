@@ -797,7 +797,7 @@
           "sessionsWrite": { "label": "Ouvrir et fermer des sessions", "description": "Ouvrir de nouvelles sessions de terminal et fermer celles existantes." },
           "connectionsRead": { "label": "Lire vos connexions", "description": "Lire vos connexions enregistrées et leurs détails." },
           "connectionsWrite": { "label": "Gérer vos connexions", "description": "Créer, modifier et supprimer vos connexions enregistrées." },
-          "keysRead": { "label": "Lire vos clés SSH", "description": "Lister vos clés SSH enregistrées." },
+          "keysRead": { "label": "Lire vos clés SSH", "description": "Lister vos clés SSH enregistrées, et en ajouter une au fichier authorized_keys d'un hôte enregistré via SSH." },
           "keysWrite": { "label": "Gérer vos clés SSH", "description": "Créer et supprimer des clés SSH en votre nom." },
           "identitiesRead": { "label": "Lire vos identités", "description": "Lister vos identités enregistrées." },
           "identitiesWrite": { "label": "Gérer vos identités", "description": "Créer et supprimer des identités en votre nom." },

@@ -125,7 +125,9 @@
       "exportScriptLabel": "Script d'export",
       "successMessage": "Clé exportée avec succès",
       "exportingLabel": "Export en cours…",
-      "publicKeyNotFoundError": "Clé publique introuvable"
+      "publicKeyNotFoundError": "Clé publique introuvable",
+      "remoteCommandFailedError": "La commande distante a échoué : {{detail}}",
+      "remoteCommandFailedUnknownError": "La commande distante a échoué (code de sortie {{code}})"
     },
     "dropZone": {
       "loaded": "Fichier de clé chargé",

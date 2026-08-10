@@ -4,6 +4,11 @@ import { resolveConnectionCredentials } from "@/services/credentials";
 import { sshExecCommand } from "@/services/ssh";
 import type { Connection, SshKey } from "@/types";
 
+/** POSIX single-quote escaping: close the quote, insert an escaped quote, reopen it. */
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
 export const DEFAULT_EXPORT_SCRIPT = `if test ! -e $1;
 then mkdir -p $1;
 chmod 700 $1;
@@ -39,7 +44,7 @@ export async function addKeyToHost({
 
   const label = sshKey.name ?? "SSH";
   const comment = `# ${label} Key by Voltius`;
-  const command = `sh -c '${script}' sh '${location}' '${filename}' '${comment}' '${pubKey.trim()}'`;
+  const command = `sh -c '${script}' sh ${shellQuote(location)} ${shellQuote(filename)} ${shellQuote(comment)} ${shellQuote(pubKey.trim())}`;
   const result = await sshExecCommand({
     host: connection.host,
     port: connection.port,
@@ -51,6 +56,10 @@ export async function addKeyToHost({
   });
   if (result.exit_code !== 0) {
     const detail = result.stderr.trim();
-    throw new Error(detail ? `Remote command failed: ${detail}` : `Remote command failed with exit code ${result.exit_code}`);
+    throw new Error(
+      detail
+        ? i18n.t("keychain.exportPanel.remoteCommandFailedError", { detail })
+        : i18n.t("keychain.exportPanel.remoteCommandFailedUnknownError", { code: result.exit_code ?? "unknown" }),
+    );
   }
 }

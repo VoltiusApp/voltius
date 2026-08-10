@@ -689,7 +689,7 @@
           },
           "keysRead": {
             "label": "读取您的 SSH 密钥",
-            "description": "列出您保存的 SSH 密钥。"
+            "description": "列出您保存的 SSH 密钥，并可通过 SSH 将其中一个密钥追加到已保存主机的 authorized_keys。"
           },
           "keysWrite": {
             "label": "管理您的 SSH 密钥",

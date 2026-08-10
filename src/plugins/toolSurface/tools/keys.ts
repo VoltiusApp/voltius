@@ -5,6 +5,10 @@ import { makeGate, objectOp } from "./helpers";
 
 export const KEY_PERMISSIONS = ["keys:read", "keys:write", "connections:read", "audit"] as const;
 
+/** No quote/semicolon/dollar/backtick (shell metacharacters) and no ".." (path
+ *  escape) — key_add_to_host's location/filename land inside a shell command. */
+const SAFE_PATH_SEGMENT = /^(?!.*\.\.)[^'";$`]+$/;
+
 /** Project a raw Key record down to the PluginKey contract. */
 const toPluginKey = (k: Record<string, unknown>) => ({
   id: k.id, name: k.name, key_type: k.key_type, tags: k.tags,
@@ -73,8 +77,8 @@ export function buildKeyTools(ports: ToolSurfacePorts): Tool[] {
       schema: z.object({
         key_id: z.string(),
         connection_id: z.string(),
-        location: z.string().optional(),
-        filename: z.string().optional(),
+        location: z.string().regex(SAFE_PATH_SEGMENT).optional(),
+        filename: z.string().regex(SAFE_PATH_SEGMENT).optional(),
       }),
       execute: async (raw) =>
         op(

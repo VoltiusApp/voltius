@@ -125,7 +125,9 @@
       "exportScriptLabel": "导出脚本",
       "successMessage": "密钥导出成功",
       "exportingLabel": "正在导出…",
-      "publicKeyNotFoundError": "未找到公钥"
+      "publicKeyNotFoundError": "未找到公钥",
+      "remoteCommandFailedError": "远程命令失败：{{detail}}",
+      "remoteCommandFailedUnknownError": "远程命令失败（退出代码 {{code}}）"
     },
     "dropZone": {
       "loaded": "密钥文件已加载",
