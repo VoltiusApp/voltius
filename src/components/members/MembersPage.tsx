@@ -35,6 +35,7 @@ import { openBillingCheckout } from "@/services/billingCheckout";
 import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { RoleModal, PERM_META, TeamRolesPanel } from "@/components/settings/sections/RolesSection";
 import { seatAvailability } from "@/services/seatMath";
+import { SeatsMeter } from "@/components/members/SeatsMeter";
 import { useUserSearch } from "@/hooks/useUserSearch";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -696,7 +697,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
   const [error, setError] = useState("");
   const [buySeatsFor, setBuySeatsFor] = useState<SearchResult | null | undefined>(undefined);
 
-  const { atLimit: isAtSeatLimit, available: availableSeats } = seatAvailability(usedSeats, totalSeats);
+  const { atLimit: isAtSeatLimit } = seatAvailability(usedSeats, totalSeats);
 
   const builtinRoles = useMemo(
     () => teamRoles.filter((r) => !(r.is_builtin && r.name === "owner")).sort((a, b) => a.position - b.position),
@@ -817,34 +818,7 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Seats usage */}
           <FormSection label={t("members.invite.seatsLabel")}>
-            <div className="flex items-center gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="h-1.5 rounded-full overflow-hidden mb-1.5" style={{ background: "var(--t-bg-elevated)" }}>
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: totalSeats ? `${Math.min(100, ((usedSeats ?? 0) / totalSeats) * 100)}%` : "0%",
-                      background: isAtSeatLimit ? "var(--t-status-error)" : "var(--t-accent)",
-                    }}
-                  />
-                </div>
-                <p className="text-[11px] tabular-nums" style={{ color: isAtSeatLimit ? "var(--t-status-error)" : "var(--t-text-dim)" }}>
-                  {t("members.invite.seatsSummary", {
-                    used: usedSeats ?? 0,
-                    available: availableSeats ?? "?",
-                    total: totalSeats ?? "?",
-                  })}
-                </p>
-              </div>
-              <button
-                onClick={() => setBuySeatsFor(null)}
-                className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                style={{ background: "var(--t-bg-elevated)", color: "var(--t-accent)", border: "1px solid var(--t-border)" }}
-              >
-                <Icon icon="lucide:plus" width={11} />
-                {t("members.invite.buySeats")}
-              </button>
-            </div>
+            <SeatsMeter onBuySeats={() => setBuySeatsFor(null)} />
           </FormSection>
 
           {/* Role selector */}
@@ -937,9 +911,8 @@ function PrivateVaultInvitePanel({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const { usedSeats, totalSeats, load: reloadSubscription } = useSubscriptionStore();
+  const reloadSubscription = useSubscriptionStore((s) => s.load);
   const [selectedRole, setSelectedRole] = useState("member");
-  const { atLimit: isAtSeatLimit, available: availableSeats } = seatAvailability(usedSeats, totalSeats);
 
   useEffect(() => { void reloadSubscription(); }, []);
   useEffect(() => { inputRef.current?.focus(); }, []);
@@ -951,26 +924,7 @@ function PrivateVaultInvitePanel({
 
         {/* Seats */}
         <FormSection label={t("members.invite.seatsLabel")}>
-          <div className="flex items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="h-1.5 rounded-full overflow-hidden mb-1.5" style={{ background: "var(--t-bg-elevated)" }}>
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: totalSeats ? `${Math.min(100, ((usedSeats ?? 0) / totalSeats) * 100)}%` : "0%",
-                    background: isAtSeatLimit ? "var(--t-status-error)" : "var(--t-accent)",
-                  }}
-                />
-              </div>
-              <p className="text-[11px] tabular-nums" style={{ color: isAtSeatLimit ? "var(--t-status-error)" : "var(--t-text-dim)" }}>
-                {t("members.invite.seatsSummary", {
-                  used: usedSeats ?? 0,
-                  available: availableSeats ?? "?",
-                  total: totalSeats ?? "?",
-                })}
-              </p>
-            </div>
-          </div>
+          <SeatsMeter />
         </FormSection>
 
         {/* Role selector */}
