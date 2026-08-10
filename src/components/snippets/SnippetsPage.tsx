@@ -64,6 +64,7 @@ import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
+import { moveFolderTreeToVault } from "@/utils/folderMove";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -919,10 +920,7 @@ export function SnippetsPage() {
     try {
       const subFolders = getAllSubFolders(folder.id);
       const treeSnippets = getSnippetsInFolderTree(folder.id);
-      await updateFolder(folder.id, { name: folder.name, object_type: folder.object_type, parent_folder_id: folder.parent_folder_id, vault_id: vaultId });
-      for (const sf of subFolders) {
-        await updateFolder(sf.id, { name: sf.name, object_type: sf.object_type, parent_folder_id: sf.parent_folder_id, vault_id: vaultId });
-      }
+      await moveFolderTreeToVault({ root: folder, subFolders, parentFolderId: folder.parent_folder_id ?? null, vaultId, updateFolder });
       for (const s of treeSnippets) {
         await updateSnippet(s.id, { ...snippetToForm(s), vault_id: vaultId });
       }
@@ -995,15 +993,7 @@ export function SnippetsPage() {
     parentFolderId: string | null,
     vaultId: string,
   ) {
-    await updateFolder(folder.id, {
-      name: folder.name,
-      object_type: folder.object_type,
-      parent_folder_id: parentFolderId ?? undefined,
-      vault_id: vaultId,
-    });
-    for (const sf of getAllSubFolders(folder.id)) {
-      await updateFolder(sf.id, { name: sf.name, object_type: sf.object_type, parent_folder_id: sf.parent_folder_id, vault_id: vaultId });
-    }
+    await moveFolderTreeToVault({ root: folder, subFolders: getAllSubFolders(folder.id), parentFolderId, vaultId, updateFolder });
     for (const s of getSnippetsInFolderTree(folder.id)) {
       await updateSnippet(s.id, { ...snippetToForm(s), vault_id: vaultId });
     }

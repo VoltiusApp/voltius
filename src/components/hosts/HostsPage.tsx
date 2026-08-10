@@ -73,6 +73,7 @@ import { useScopedFolders } from "@/hooks/useScopedFolders";
 import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
+import { moveFolderTreeToVault } from "@/utils/folderMove";
 
 
 export default function HostsPage() {
@@ -1051,10 +1052,7 @@ export default function HostsPage() {
       items: cascadeItems,
       execute: async () => {
         try {
-          await updateFolder(folder.id, { name: folder.name, object_type: folder.object_type, parent_folder_id: folder.parent_folder_id, vault_id: vaultId });
-          for (const sf of subFolders) {
-            await updateFolder(sf.id, { name: sf.name, object_type: sf.object_type, parent_folder_id: sf.parent_folder_id, vault_id: vaultId });
-          }
+          await moveFolderTreeToVault({ root: folder, subFolders, parentFolderId: folder.parent_folder_id ?? null, vaultId, updateFolder });
           for (const key of keyMap.values()) {
             await updateKey(key.id, { name: key.name, key_type: key.key_type, tags: key.tags, folder_id: key.folder_id, vault_id: vaultId });
           }
@@ -1198,15 +1196,7 @@ export default function HostsPage() {
     parentFolderId: string | null,
     vaultId: string,
   ) => {
-    await updateFolder(folder.id, {
-      name: folder.name,
-      object_type: folder.object_type,
-      parent_folder_id: parentFolderId ?? undefined,
-      vault_id: vaultId,
-    });
-    for (const sf of getAllSubFolders(folder.id)) {
-      await updateFolder(sf.id, { name: sf.name, object_type: sf.object_type, parent_folder_id: sf.parent_folder_id, vault_id: vaultId });
-    }
+    await moveFolderTreeToVault({ root: folder, subFolders: getAllSubFolders(folder.id), parentFolderId, vaultId, updateFolder });
     for (const conn of getConnectionsInFolderTree(folder.id)) {
       const from = conn.vault_id ?? "personal";
       await updateConnection(conn.id, { ...connectionToFormData(conn), vault_id: vaultId });

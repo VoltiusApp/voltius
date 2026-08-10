@@ -47,6 +47,7 @@ import { useScopedFolders } from "@/hooks/useScopedFolders";
 import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
 import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
+import { moveFolderTreeToVault } from "@/utils/folderMove";
 
 function sortRules(rules: PortForwardingRule[], mode: SortMode): PortForwardingRule[] {
   return [...rules].sort((a, b) => {
@@ -259,10 +260,7 @@ export function PortForwardingPage() {
       description: t("portForwarding.page.vaultCascade.moveDescription", { folderName: folder.name, targetVaultName }),
       items: treeRules.map((r) => ({ type: "connection" as const, label: r.name })),
       execute: async () => {
-        await updateFolder(folder.id, { name: folder.name, object_type: folder.object_type, parent_folder_id: folder.parent_folder_id, vault_id: vaultId });
-        for (const sf of subFolders) {
-          await updateFolder(sf.id, { name: sf.name, object_type: sf.object_type, parent_folder_id: sf.parent_folder_id, vault_id: vaultId });
-        }
+        await moveFolderTreeToVault({ root: folder, subFolders, parentFolderId: folder.parent_folder_id ?? null, vaultId, updateFolder });
         for (const r of treeRules) {
           await updateRule(r.id, { name: r.name, local_port: r.local_port, remote_port: r.remote_port, remote_host: r.remote_host, tunnel_type: r.tunnel_type ?? "local", bind_host: r.bind_host ?? "127.0.0.1", target_host: r.target_host ?? "127.0.0.1", description: r.description, connection_ids: r.connection_ids, folder_id: r.folder_id, vault_id: vaultId });
         }
@@ -345,15 +343,7 @@ export function PortForwardingPage() {
     parentFolderId: string | null,
     vaultId: string,
   ) => {
-    await updateFolder(folder.id, {
-      name: folder.name,
-      object_type: folder.object_type,
-      parent_folder_id: parentFolderId ?? undefined,
-      vault_id: vaultId,
-    });
-    for (const sf of getAllSubFolders(folder.id)) {
-      await updateFolder(sf.id, { name: sf.name, object_type: sf.object_type, parent_folder_id: sf.parent_folder_id, vault_id: vaultId });
-    }
+    await moveFolderTreeToVault({ root: folder, subFolders: getAllSubFolders(folder.id), parentFolderId, vaultId, updateFolder });
     for (const rule of getRulesInFolderTree(folder.id)) {
       await updateRule(rule.id, ruleToForm(rule, { vault_id: vaultId }));
     }
