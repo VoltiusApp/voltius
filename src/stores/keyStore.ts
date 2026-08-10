@@ -13,6 +13,16 @@ import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { withPin } from "@/stores/withPin";
 
+/** Rebuilds a full SshKeyFormData from a stored key: `key_update` replaces
+ *  rather than merges, so a partial payload must spread this. */
+function keyToFormData(k: SshKey): SshKeyFormData {
+  return {
+    name: k.name, key_type: k.key_type,
+    tags: k.tags,
+    folder_id: k.folder_id, vault_id: k.vault_id,
+  };
+}
+
 interface KeyStore {
   keys: SshKey[];
   teamKeys: Record<string, SshKey[]>;
@@ -120,11 +130,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
         return localKeys ? { keys: localKeys, teamKeys: next } : { teamKeys: next };
       });
       reportAuditMutation("key", "updated", { id: migrated.id, name: migrated.name ?? "unnamed", vault_id: migrated.vault_id }, { key_type: migrated.key_type });
-      const prevData: SshKeyFormData = {
-        name: prev.name, key_type: prev.key_type,
-        tags: prev.tags,
-        folder_id: prev.folder_id, vault_id: prev.vault_id,
-      };
+      const prevData = keyToFormData(prev);
       useHistoryStore.getState().push({
         label: `Updated key "${prev.name ?? "unnamed"}"`,
         undo: async () => { await useKeyStore.getState().updateKey(id, prevData); },
@@ -162,11 +168,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "key")) scheduleSync(); });
     if (prev) reportAuditMutation("key", "updated", { id, name: data.name ?? prev.name ?? "unnamed", vault_id: data.vault_id ?? prev.vault_id }, { key_type: data.key_type ?? prev.key_type });
     if (prev) {
-      const prevData: SshKeyFormData = {
-        name: prev.name, key_type: prev.key_type,
-        tags: prev.tags,
-        folder_id: prev.folder_id, vault_id: prev.vault_id,
-      };
+      const prevData = keyToFormData(prev);
       useHistoryStore.getState().push({
         label: `Updated key "${prev.name ?? "unnamed"}"`,
         undo: async () => { await useKeyStore.getState().updateKey(id, prevData); },
@@ -186,11 +188,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
     const key = get().keys.find((k) => k.id === id);
     if (!key) return;
     const nextPinned = pinned ?? false;
-    await api.updateKey(id, {
-      name: key.name, key_type: key.key_type,
-      tags: key.tags,
-      folder_id: key.folder_id, vault_id: key.vault_id, pinned: nextPinned,
-    });
+    await api.updateKey(id, { ...keyToFormData(key), pinned: nextPinned });
     const keys = await api.listKeys();
     set({ keys });
     const prefs = useSyncPrefsStore.getState();
@@ -212,11 +210,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
       await removeTeamVaultObject(teamId, id);
       set((s) => ({ teamKeys: removeFromTeamMap(s.teamKeys, teamId, id) }));
       reportAuditMutation("key", "deleted", { id: prev.id, name: prev.name ?? "unnamed", vault_id: prev.vault_id }, { key_type: prev.key_type });
-      const prevData: SshKeyFormData = {
-        name: prev.name, key_type: prev.key_type,
-        tags: prev.tags,
-        folder_id: prev.folder_id, vault_id: prev.vault_id,
-      };
+      const prevData = keyToFormData(prev);
       pushDeleteHistory({
         label: `Deleted key "${prev.name ?? "unnamed"}"`,
         id,
@@ -235,11 +229,7 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "key")) scheduleSync(); });
     if (prev) reportAuditMutation("key", "deleted", { id: prev.id, name: prev.name ?? "unnamed", vault_id: prev.vault_id }, { key_type: prev.key_type });
     if (prev) {
-      const prevData: SshKeyFormData = {
-        name: prev.name, key_type: prev.key_type,
-        tags: prev.tags,
-        folder_id: prev.folder_id, vault_id: prev.vault_id,
-      };
+      const prevData = keyToFormData(prev);
       pushDeleteHistory({
         label: `Deleted key "${prev.name ?? "unnamed"}"`,
         id,

@@ -18,6 +18,16 @@ import { withPin } from "@/stores/withPin";
 import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 
+/** Rebuilds a full FolderFormData from a stored folder: `folder_update`
+ *  replaces rather than merges, so a partial payload must spread this. */
+function folderToFormData(f: Folder): FolderFormData {
+  return {
+    name: f.name, object_type: f.object_type,
+    parent_folder_id: f.parent_folder_id, vault_id: f.vault_id,
+    color: f.color, icon: f.icon,
+  };
+}
+
 interface FolderStore {
   folders: Folder[];
   loading: boolean;
@@ -135,11 +145,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
         return localFolders ? { folders: localFolders, teamFolders: next } : { teamFolders: next };
       });
       reportAuditMutation("folder", "updated", { id: migrated.id, name: migrated.name, vault_id: migrated.vault_id }, { object_type: migrated.object_type });
-      const prevData: FolderFormData = {
-        name: prev.name, object_type: prev.object_type,
-        parent_folder_id: prev.parent_folder_id, vault_id: prev.vault_id,
-        color: prev.color, icon: prev.icon,
-      };
+      const prevData = folderToFormData(prev);
       useHistoryStore.getState().push({
         label: `Updated folder "${prev.name}"`,
         undo: async () => { await useFolderStore.getState().updateFolder(id, prevData); },
@@ -176,11 +182,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
     isServerMode().then((s) => { if (s && useSyncPrefsStore.getState().isObjectSynced(id, "folder")) scheduleSync(); });
     if (prev) reportAuditMutation("folder", "updated", { id, name: data.name ?? prev.name, vault_id: data.vault_id ?? prev.vault_id }, { object_type: data.object_type ?? prev.object_type });
     if (prev) {
-      const prevData: FolderFormData = {
-        name: prev.name, object_type: prev.object_type,
-        parent_folder_id: prev.parent_folder_id, vault_id: prev.vault_id,
-        color: prev.color, icon: prev.icon,
-      };
+      const prevData = folderToFormData(prev);
       useHistoryStore.getState().push({
         label: `Updated folder "${prev.name}"`,
         undo: async () => { await useFolderStore.getState().updateFolder(id, prevData); },

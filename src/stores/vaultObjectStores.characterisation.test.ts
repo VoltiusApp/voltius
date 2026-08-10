@@ -94,6 +94,8 @@ interface Adapter {
   auditKind: string | null;
   /** Set on the stored object by `pin*ForTeam`. */
   pinField: "pinned" | "favorite";
+  /** Every key a local pin must send: these updates replace, they do not merge. */
+  pinPayloadKeys: string[];
   api: { list: ReturnType<typeof vi.fn>; adopt: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
   seed: (over?: Bag) => Bag;
   form: (over?: Bag) => Bag;
@@ -112,6 +114,7 @@ const adapters: Adapter[] = [
     store: useConnectionStore as unknown as Store,
     localKey: "connections", teamKey: "teamConnections",
     persistKind: "connection", auditKind: "connection", pinField: "pinned",
+    pinPayloadKeys: ["name", "host", "port", "username", "auth_type", "tags", "identity_id", "key_id", "folder_id", "vault_id", "jump_hosts", "env_vars", "agent_forwarding", "legacy_algorithms", "pre_command", "post_command", "pre_snippet_id", "post_snippet_id", "ask_vars_each_time", "terminal_encoding", "distro", "icon", "pinned", "ping_disabled", "shell_integration", "keepalive_preset", "connection_type", "serial_port", "serial_baud", "serial_data_bits", "serial_parity", "serial_stop_bits", "serial_flow_control", "ftp_secure", "notes"],
     api: h.connections,
     seed: (o) => ({ id: "x1", name: "Web", host: "h", port: 22, username: "u", auth_type: "key", tags: [], vault_id: "personal", ...stamps, ...o }),
     form: (o) => ({ name: "Web", host: "h", port: 22, username: "u", auth_type: "key", tags: [], vault_id: "personal", ...o }),
@@ -126,6 +129,7 @@ const adapters: Adapter[] = [
     store: useIdentityStore as unknown as Store,
     localKey: "identities", teamKey: "teamIdentities",
     persistKind: "identity", auditKind: "identity", pinField: "pinned",
+    pinPayloadKeys: ["name", "username", "key_id", "tags", "folder_id", "vault_id", "pinned"],
     api: h.identities,
     seed: (o) => ({ id: "x1", name: "root", username: "root", tags: [], vault_id: "personal", ...stamps, ...o }),
     form: (o) => ({ name: "root", username: "root", tags: [], vault_id: "personal", ...o }),
@@ -140,6 +144,7 @@ const adapters: Adapter[] = [
     store: useKeyStore as unknown as Store,
     localKey: "keys", teamKey: "teamKeys",
     persistKind: "key", auditKind: "key", pinField: "pinned",
+    pinPayloadKeys: ["name", "key_type", "tags", "folder_id", "vault_id", "pinned"],
     api: h.keys,
     seed: (o) => ({ id: "x1", name: "Deploy", key_type: "ed25519", tags: [], vault_id: "personal", ...stamps, ...o }),
     form: (o) => ({ name: "Deploy", key_type: "ed25519", tags: [], vault_id: "personal", ...o }),
@@ -154,6 +159,7 @@ const adapters: Adapter[] = [
     store: useSnippetStore as unknown as Store,
     localKey: "snippets", teamKey: "teamSnippets",
     persistKind: "snippet", auditKind: "snippet", pinField: "favorite",
+    pinPayloadKeys: ["name", "steps", "description", "tags", "folder_id", "favorite", "only_for_connection_tags", "only_for_distros", "vault_id"],
     api: h.snippets,
     seed: (o) => ({ id: "x1", name: "ls", steps: [], tags: [], vault_id: "personal", ...stamps, ...o }),
     form: (o) => ({ name: "ls", steps: [], tags: [], vault_id: "personal", ...o }),
@@ -168,6 +174,7 @@ const adapters: Adapter[] = [
     store: useFolderStore as unknown as Store,
     localKey: "folders", teamKey: "teamFolders",
     persistKind: "folder", auditKind: "folder", pinField: "pinned",
+    pinPayloadKeys: ["name", "object_type", "parent_folder_id", "vault_id", "pinned"],
     api: h.folders,
     seed: (o) => ({ id: "x1", name: "Prod", object_type: "connection", vault_id: "personal", ...stamps, ...o }),
     form: (o) => ({ name: "Prod", object_type: "connection", vault_id: "personal", ...o }),
@@ -182,6 +189,7 @@ const adapters: Adapter[] = [
     store: useSnippetFolderStore as unknown as Store,
     localKey: "folders", teamKey: "teamSnippetFolders",
     persistKind: "snippet_folder", auditKind: null, pinField: "pinned",
+    pinPayloadKeys: ["name", "object_type", "parent_folder_id", "pinned"],
     api: h.snippetFolders,
     seed: (o) => ({ id: "x1", name: "Ops", object_type: "snippet", vault_id: "personal", ...stamps, ...o }),
     form: (o) => ({ name: "Ops", object_type: "snippet", vault_id: "personal", ...o }),
@@ -284,6 +292,13 @@ describe.each(adapters)("$name store", (a) => {
     const saved = teamMap(a)["team-a"][0] as { updated_at: string; clocks: Record<string, string> };
     expect(saved.updated_at).not.toBe("t0");
     expect(saved.clocks.updated_at).toBe(saved.updated_at);
+  });
+
+  test("a local pin sends a full form payload, not a bare pinned flag", async () => {
+    seedLocal(a, [a.seed()]);
+    await a.pin("x1", true);
+    const payload = a.api.update.mock.calls[0][1] as Bag;
+    expect(Object.keys(payload).sort()).toEqual([...a.pinPayloadKeys].sort());
   });
 
   test("pinForTeam on an unknown id is a no-op", async () => {

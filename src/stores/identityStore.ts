@@ -13,6 +13,16 @@ import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaul
 import { withPin } from "@/stores/withPin";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 
+/** Rebuilds a full IdentityFormData from a stored identity: `identity_update`
+ *  replaces rather than merges, so a partial payload must spread this. */
+function identityToFormData(i: Identity): IdentityFormData {
+  return {
+    name: i.name, username: i.username, key_id: i.key_id,
+    tags: i.tags,
+    folder_id: i.folder_id, vault_id: i.vault_id,
+  };
+}
+
 interface IdentityStore {
   identities: Identity[];
   teamIdentities: Record<string, Identity[]>;
@@ -122,11 +132,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
         return localIdentities ? { identities: localIdentities, teamIdentities: next } : { teamIdentities: next };
       });
       reportAuditMutation("identity", "updated", { id: migrated.id, name: migrated.name ?? migrated.username, vault_id: migrated.vault_id });
-      const prevData: IdentityFormData = {
-        name: prev.name, username: prev.username, key_id: prev.key_id,
-        tags: prev.tags,
-        folder_id: prev.folder_id, vault_id: prev.vault_id,
-      };
+      const prevData = identityToFormData(prev);
       useHistoryStore.getState().push({
         label: `Updated identity "${prev.name ?? prev.username}"`,
         undo: async () => { await useIdentityStore.getState().updateIdentity(id, prevData); },
@@ -164,11 +170,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "identity")) scheduleSync(); });
     if (prev) reportAuditMutation("identity", "updated", { id, name: data.name ?? prev.name ?? prev.username, vault_id: data.vault_id ?? prev.vault_id });
     if (prev) {
-      const prevData: IdentityFormData = {
-        name: prev.name, username: prev.username, key_id: prev.key_id,
-        tags: prev.tags,
-        folder_id: prev.folder_id, vault_id: prev.vault_id,
-      };
+      const prevData = identityToFormData(prev);
       useHistoryStore.getState().push({
         label: `Updated identity "${prev.name ?? prev.username}"`,
         undo: async () => { await useIdentityStore.getState().updateIdentity(id, prevData); },
@@ -187,11 +189,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     const identity = get().identities.find((i) => i.id === id);
     if (!identity) return;
     const nextPinned = pinned ?? false;
-    await api.updateIdentity(id, {
-      name: identity.name, username: identity.username, key_id: identity.key_id,
-      tags: identity.tags,
-      folder_id: identity.folder_id, vault_id: identity.vault_id, pinned: nextPinned,
-    });
+    await api.updateIdentity(id, { ...identityToFormData(identity), pinned: nextPinned });
     const identities = await api.listIdentities();
     set({ identities });
     const prefs = useSyncPrefsStore.getState();
@@ -213,11 +211,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
       await removeTeamVaultObject(teamId, id);
       set((s) => ({ teamIdentities: removeFromTeamMap(s.teamIdentities, teamId, id) }));
       reportAuditMutation("identity", "deleted", { id: prev.id, name: prev.name ?? prev.username, vault_id: prev.vault_id });
-      const prevData: IdentityFormData = {
-        name: prev.name, username: prev.username, key_id: prev.key_id,
-        tags: prev.tags,
-        folder_id: prev.folder_id, vault_id: prev.vault_id,
-      };
+      const prevData = identityToFormData(prev);
       pushDeleteHistory({
         label: `Deleted identity "${prev.name ?? prev.username}"`,
         id,
@@ -236,11 +230,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     isServerMode().then((s) => { if (s && prefs.isObjectSynced(id, "identity")) scheduleSync(); });
     if (prev) reportAuditMutation("identity", "deleted", { id: prev.id, name: prev.name ?? prev.username, vault_id: prev.vault_id });
     if (prev) {
-      const prevData: IdentityFormData = {
-        name: prev.name, username: prev.username, key_id: prev.key_id,
-        tags: prev.tags,
-        folder_id: prev.folder_id, vault_id: prev.vault_id,
-      };
+      const prevData = identityToFormData(prev);
       pushDeleteHistory({
         label: `Deleted identity "${prev.name ?? prev.username}"`,
         id,

@@ -26,6 +26,17 @@ let _nextQueueId = 1;
 const MAX_RECENT = 5;
 let _recentIds: string[] = [];
 
+/** Rebuilds a full SnippetFormData from a stored snippet: `snippet_update`
+ *  replaces rather than merges, so a partial payload must spread this. */
+function snippetToFormData(s: Snippet): SnippetFormData {
+  return {
+    name: s.name, steps: s.steps, description: s.description,
+    tags: s.tags, folder_id: s.folder_id, favorite: s.favorite,
+    only_for_connection_tags: s.only_for_connection_tags,
+    only_for_distros: s.only_for_distros, vault_id: s.vault_id,
+  };
+}
+
 interface SnippetStore {
   snippets: Snippet[];
   loading: boolean;
@@ -150,12 +161,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
         return localSnippets ? { snippets: localSnippets, teamSnippets: next } : { teamSnippets: next };
       });
       reportAuditMutation("snippet", "updated", { id: migrated.id, name: migrated.name, vault_id: migrated.vault_id });
-      const prevData: SnippetFormData = {
-        name: prev.name, steps: prev.steps, description: prev.description,
-        tags: prev.tags, folder_id: prev.folder_id, favorite: prev.favorite,
-        only_for_connection_tags: prev.only_for_connection_tags,
-        only_for_distros: prev.only_for_distros, vault_id: prev.vault_id,
-      };
+      const prevData = snippetToFormData(prev);
       useHistoryStore.getState().push({
         label: `Updated snippet "${prev.name}"`,
         undo: async () => { await useSnippetStore.getState().updateSnippet(id, prevData); },
@@ -191,12 +197,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     isServerMode().then((s) => { if (s) scheduleSync(); });
     if (prev) reportAuditMutation("snippet", "updated", { id, name: data.name ?? prev.name, vault_id: data.vault_id ?? prev.vault_id });
     if (prev) {
-      const prevData: SnippetFormData = {
-        name: prev.name, steps: prev.steps, description: prev.description,
-        tags: prev.tags, folder_id: prev.folder_id, favorite: prev.favorite,
-        only_for_connection_tags: prev.only_for_connection_tags,
-        only_for_distros: prev.only_for_distros, vault_id: prev.vault_id,
-      };
+      const prevData = snippetToFormData(prev);
       useHistoryStore.getState().push({
         label: `Updated snippet "${prev.name}"`,
         undo: async () => { await useSnippetStore.getState().updateSnippet(id, prevData); },
@@ -212,12 +213,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
       await removeTeamVaultObject(teamId, id);
       set((s) => ({ teamSnippets: removeFromTeamMap(s.teamSnippets, teamId, id) }));
       reportAuditMutation("snippet", "deleted", { id: prev.id, name: prev.name, vault_id: prev.vault_id });
-      const prevData: SnippetFormData = {
-        name: prev.name, steps: prev.steps, description: prev.description,
-        tags: prev.tags, folder_id: prev.folder_id, favorite: prev.favorite,
-        only_for_connection_tags: prev.only_for_connection_tags,
-        only_for_distros: prev.only_for_distros, vault_id: prev.vault_id,
-      };
+      const prevData = snippetToFormData(prev);
       pushDeleteHistory({
         label: `Deleted snippet "${prev.name}"`,
         id,
@@ -235,12 +231,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     isServerMode().then((s) => { if (s) scheduleSync(); });
     if (prev) reportAuditMutation("snippet", "deleted", { id: prev.id, name: prev.name, vault_id: prev.vault_id });
     if (prev) {
-      const prevData: SnippetFormData = {
-        name: prev.name, steps: prev.steps, description: prev.description,
-        tags: prev.tags, folder_id: prev.folder_id, favorite: prev.favorite,
-        only_for_connection_tags: prev.only_for_connection_tags,
-        only_for_distros: prev.only_for_distros, vault_id: prev.vault_id,
-      };
+      const prevData = snippetToFormData(prev);
       pushDeleteHistory({
         label: `Deleted snippet "${prev.name}"`,
         id,
@@ -261,12 +252,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     const snippet = (get().snippets as Snippet[]).find((s) => s.id === id);
     if (!snippet) return;
     const nextFavorite = pinned ?? false;
-    await api.updateSnippet(id, {
-      name: snippet.name, steps: snippet.steps, description: snippet.description,
-      tags: snippet.tags, folder_id: snippet.folder_id, favorite: nextFavorite,
-      only_for_connection_tags: snippet.only_for_connection_tags,
-      only_for_distros: snippet.only_for_distros, vault_id: snippet.vault_id,
-    });
+    await api.updateSnippet(id, { ...snippetToFormData(snippet), favorite: nextFavorite });
     set((s) => ({ snippets: (s.snippets as Snippet[]).map((sn) => sn.id === id ? { ...sn, favorite: nextFavorite } : sn) }));
     isServerMode().then((s) => { if (s) scheduleSync(); });
   },
