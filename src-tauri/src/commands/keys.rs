@@ -137,3 +137,66 @@ pub fn key_delete(id: String) -> Result<(), String> {
     key.updated_at = max_clock(&key.clocks, &now);
     save_keys(&keys)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn form() -> SshKeyFormData {
+        SshKeyFormData {
+            name: Some("deploy".into()),
+            key_type: Some("ed25519".into()),
+            tags: vec!["a".into()],
+            folder_id: Some("folder-1".into()),
+            vault_id: None,
+            pinned: true,
+        }
+    }
+
+    #[test]
+    fn build_stamps_every_synced_field_at_now() {
+        let built = build_key("k-1".into(), form(), "2026-01-01T00:00:00Z", None);
+        let mut fields: Vec<&str> = built.clocks.keys().map(String::as_str).collect();
+        fields.sort();
+        assert_eq!(
+            fields,
+            ["folder_id", "key_type", "name", "tags", "vault_id"]
+        );
+        assert!(built.clocks.values().all(|v| v == "2026-01-01T00:00:00Z"));
+    }
+
+    #[test]
+    fn build_defaults_an_absent_vault_to_personal() {
+        let built = build_key("k-1".into(), form(), "2026-01-01T00:00:00Z", None);
+        assert_eq!(built.vault_id, "personal");
+    }
+
+    #[test]
+    fn build_keeps_an_explicit_vault() {
+        let mut data = form();
+        data.vault_id = Some("team-a".into());
+        let built = build_key("k-1".into(), data, "2026-01-01T00:00:00Z", None);
+        assert_eq!(built.vault_id, "team-a");
+    }
+
+    #[test]
+    fn build_carries_a_supplied_created_at_and_otherwise_uses_now() {
+        let carried = build_key(
+            "k-1".into(),
+            form(),
+            "2026-02-01T00:00:00Z",
+            Some("2020-01-01T00:00:00Z".into()),
+        );
+        assert_eq!(carried.created_at, "2020-01-01T00:00:00Z");
+        let fresh = build_key("k-1".into(), form(), "2026-02-01T00:00:00Z", None);
+        assert_eq!(fresh.created_at, "2026-02-01T00:00:00Z");
+    }
+
+    #[test]
+    fn build_is_never_born_deleted_and_updates_at_now() {
+        let built = build_key("k-1".into(), form(), "2026-01-01T00:00:00Z", None);
+        assert_eq!(built.deleted_at, None);
+        assert_eq!(built.updated_at, "2026-01-01T00:00:00Z");
+        assert!(built.pinned);
+    }
+}

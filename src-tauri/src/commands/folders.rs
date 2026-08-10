@@ -353,6 +353,52 @@ mod tests {
         }
     }
 
+    fn folder_form() -> FolderFormData {
+        FolderFormData {
+            name: "f".into(),
+            parent_folder_id: Some("root".into()),
+            object_type: "connection".into(),
+            vault_id: None,
+            pinned: Some(true),
+        }
+    }
+
+    #[test]
+    fn build_folder_stamps_every_synced_field_at_now() {
+        let built = build_folder("f-1".into(), folder_form(), "2026-01-01T00:00:00Z", None);
+        let mut fields: Vec<&str> = built.clocks.keys().map(String::as_str).collect();
+        fields.sort();
+        assert_eq!(
+            fields,
+            ["name", "object_type", "parent_folder_id", "vault_id"]
+        );
+        assert!(built.clocks.values().all(|v| v == "2026-01-01T00:00:00Z"));
+        // `pinned` is deliberately unstamped: it is not a synced field.
+        assert_eq!(built.pinned, Some(true));
+    }
+
+    #[test]
+    fn build_folder_defaults_an_absent_vault_to_personal() {
+        let built = build_folder("f-1".into(), folder_form(), "2026-01-01T00:00:00Z", None);
+        assert_eq!(built.vault_id, "personal");
+        assert_eq!(built.deleted_at, None);
+        assert_eq!(built.updated_at, "2026-01-01T00:00:00Z");
+    }
+
+    #[test]
+    fn build_folder_keeps_an_explicit_vault_and_carried_created_at() {
+        let mut data = folder_form();
+        data.vault_id = Some("team-a".into());
+        let built = build_folder(
+            "f-1".into(),
+            data,
+            "2026-02-01T00:00:00Z",
+            Some("2020-01-01T00:00:00Z".into()),
+        );
+        assert_eq!(built.vault_id, "team-a");
+        assert_eq!(built.created_at, "2020-01-01T00:00:00Z");
+    }
+
     #[test]
     fn an_omitted_vault_id_keeps_the_folder_where_it_is() {
         assert_eq!(resolved_vault_id(None, "team-abc"), "team-abc");

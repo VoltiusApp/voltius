@@ -406,6 +406,108 @@ pub fn snippet_folder_delete(id: String) -> Result<(), String> {
 mod tests {
     use super::*;
 
+    use crate::storage::config::SnippetStep;
+
+    fn snippet_form() -> SnippetFormData {
+        SnippetFormData {
+            name: "s".into(),
+            steps: vec![SnippetStep::Script {
+                content: "echo hi".into(),
+            }],
+            description: Some("d".into()),
+            tags: vec!["a".into()],
+            folder_id: Some("folder-1".into()),
+            favorite: true,
+            only_for_connection_tags: vec!["t".into()],
+            only_for_distros: vec!["ubuntu".into()],
+            vault_id: None,
+        }
+    }
+
+    fn snippet_folder_form() -> SnippetFolderFormData {
+        SnippetFolderFormData {
+            name: "f".into(),
+            parent_id: Some("root".into()),
+            color: Some("#fff".into()),
+            icon: Some("folder".into()),
+            vault_id: None,
+        }
+    }
+
+    #[test]
+    fn build_snippet_stamps_every_synced_field_at_now() {
+        let built = build_snippet("s-1".into(), snippet_form(), "2026-01-01T00:00:00Z", None);
+        let mut fields: Vec<&str> = built.clocks.keys().map(String::as_str).collect();
+        fields.sort();
+        assert_eq!(
+            fields,
+            [
+                "description",
+                "favorite",
+                "folder_id",
+                "name",
+                "only_for_connection_tags",
+                "only_for_distros",
+                "steps",
+                "tags",
+                "vault_id",
+            ]
+        );
+        assert!(built.clocks.values().all(|v| v == "2026-01-01T00:00:00Z"));
+    }
+
+    #[test]
+    fn build_snippet_defaults_an_absent_vault_to_personal_and_clears_legacy_content() {
+        let built = build_snippet("s-1".into(), snippet_form(), "2026-01-01T00:00:00Z", None);
+        assert_eq!(built.vault_id, "personal");
+        assert_eq!(built.content, None);
+        assert_eq!(built.deleted_at, None);
+        assert_eq!(built.updated_at, "2026-01-01T00:00:00Z");
+    }
+
+    #[test]
+    fn build_snippet_carries_a_supplied_created_at_and_otherwise_uses_now() {
+        let carried = build_snippet(
+            "s-1".into(),
+            snippet_form(),
+            "2026-02-01T00:00:00Z",
+            Some("2020-01-01T00:00:00Z".into()),
+        );
+        assert_eq!(carried.created_at, "2020-01-01T00:00:00Z");
+        let fresh = build_snippet("s-1".into(), snippet_form(), "2026-02-01T00:00:00Z", None);
+        assert_eq!(fresh.created_at, "2026-02-01T00:00:00Z");
+    }
+
+    #[test]
+    fn build_snippet_folder_stamps_every_synced_field_at_now() {
+        let built = build_snippet_folder(
+            "sf-1".into(),
+            snippet_folder_form(),
+            "2026-01-01T00:00:00Z",
+            None,
+        );
+        let mut fields: Vec<&str> = built.clocks.keys().map(String::as_str).collect();
+        fields.sort();
+        assert_eq!(fields, ["color", "icon", "name", "parent_id", "vault_id"]);
+        assert_eq!(built.vault_id, "personal");
+        assert_eq!(built.created_at, "2026-01-01T00:00:00Z");
+        assert_eq!(built.deleted_at, None);
+    }
+
+    #[test]
+    fn build_snippet_folder_keeps_an_explicit_vault_and_carried_created_at() {
+        let mut data = snippet_folder_form();
+        data.vault_id = Some("team-a".into());
+        let built = build_snippet_folder(
+            "sf-1".into(),
+            data,
+            "2026-02-01T00:00:00Z",
+            Some("2020-01-01T00:00:00Z".into()),
+        );
+        assert_eq!(built.vault_id, "team-a");
+        assert_eq!(built.created_at, "2020-01-01T00:00:00Z");
+    }
+
     fn folder(id: &str, parent: Option<&str>) -> SnippetFolder {
         SnippetFolder {
             id: id.to_string(),
