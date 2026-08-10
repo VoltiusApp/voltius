@@ -3,7 +3,7 @@ import { useCallback, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { PluginAPI } from "@/plugins/api";
-import { useActiveSession } from "../useActiveSession";
+import { useActiveSession } from "@voltius/ui";
 import { createProcessesService } from "../services";
 import { useProcessList } from "../useProcessList";
 import type { ProcessEntry, SortCol } from "../types";

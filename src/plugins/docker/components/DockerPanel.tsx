@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
-import { useActiveSession } from "../useActiveSession";
+import { useActiveSession } from "@voltius/ui";
+import { getDockerApi } from "../runtime";
 import { useDockerList } from "../useDockerList";
 import {
   createDockerListService,
@@ -144,7 +145,7 @@ const TABS: { id: DockerView; label: string; icon: string }[] = [
 ];
 
 export function DockerPanel() {
-  const activeSession = useActiveSession();
+  const activeSession = useActiveSession(getDockerApi());
   const [state, dispatch] = useReducer(reducer, initial);
   const [sysPruning, setSysPruning] = useState(false);
   const [sysPruneMsg, setSysPruneMsg] = useState<string | null>(null);

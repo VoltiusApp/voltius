@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { getProxmoxApi } from "../runtime";
 import { createProxmoxService } from "../services";
-import { useActiveSession } from "../useActiveSession";
+import { useActiveSession } from "@voltius/ui";
 import { useIsProxmoxHost } from "../useIsProxmoxHost";
 import { useProxmox } from "../useProxmox";
 import { LxcList } from "./LxcList";
@@ -10,7 +10,7 @@ import { SnapshotList } from "./SnapshotList";
 
 export function ProxmoxPanel() {
   const api = getProxmoxApi();
-  const activeSession = useActiveSession();
+  const activeSession = useActiveSession(api);
   const service = useMemo(() => createProxmoxService(api!.proxmox), [api]);
   const isProxmoxHost = useIsProxmoxHost(api, activeSession);
 

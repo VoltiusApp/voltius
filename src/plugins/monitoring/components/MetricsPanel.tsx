@@ -1,6 +1,6 @@
 import type { FC } from "react";
 import type { PluginAPI } from "@/plugins/api";
-import { useActiveSession } from "../useActiveSession";
+import { useActiveSession } from "@voltius/ui";
 import { createMetricsService } from "../services";
 import { useHostMetrics } from "../useHostMetrics";
 import { MetricCard } from "./MetricCard";

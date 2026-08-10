@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Icon, useT, useSessionById } from "@voltius/ui";
+import { useT, useSessionById, MobileScreenHeader } from "@voltius/ui";
 import type { FC } from "react";
 import type { PluginAPI, MobileScreenProps } from "@/plugins/api";
 import { createMetricsService } from "../services";
@@ -61,17 +61,7 @@ export function createMobileMetricsScreen(api: PluginAPI): FC<MobileScreenProps>
 
     return (
       <div className="flex flex-col h-full" style={{ background: "var(--t-bg-base)" }}>
-        <header className="shrink-0 flex items-center gap-2 px-2 h-12 border-b" style={{ background: "var(--t-bg-chrome)", borderColor: "var(--t-border)" }}>
-          <button data-mobile-back onClick={onBack} className="p-2 text-(--t-text-primary)">
-            <Icon icon="lucide:arrow-left" width={22} />
-          </button>
-          <span className="flex flex-col min-w-0 flex-1">
-            <span className="text-base font-semibold text-(--t-text-primary) leading-tight truncate">{t("title")}</span>
-            {session?.connectionName && (
-              <span className="text-[11px] text-(--t-text-dim) leading-tight truncate">{session.connectionName}</span>
-            )}
-          </span>
-        </header>
+        <MobileScreenHeader title={t("title")} subtitle={session?.connectionName} onBack={onBack} />
 
         {!ssh || !session ? (
           <div className="flex flex-1 items-center justify-center px-8 text-center">
