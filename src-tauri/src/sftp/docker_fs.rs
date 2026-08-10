@@ -12,6 +12,8 @@
 use crate::commands::sftp::{RemoteFile, TransferProgress};
 use crate::sftp::backend::FileBackend;
 use crate::ssh::client::SshClient;
+use crate::ssh::live_cells::read_cell;
+use crate::ssh::session::SessionHandle;
 use async_trait::async_trait;
 use russh::client::Handle;
 use russh::ChannelMsg;
@@ -48,16 +50,23 @@ fn basename_of(path: &str) -> &str {
 
 #[derive(Clone)]
 pub struct DockerFs {
-    handle: Arc<Handle<SshClient>>,
+    /// Live handle of the host session, so exec channels are opened on whatever
+    /// connection the terminal currently has rather than the one present when
+    /// the panel was first opened.
+    handle: SessionHandle,
     container_id: String,
 }
 
 impl DockerFs {
-    pub fn new(handle: Arc<Handle<SshClient>>, container_id: String) -> Self {
+    pub fn new(handle: SessionHandle, container_id: String) -> Self {
         Self {
             handle,
             container_id,
         }
+    }
+
+    fn ssh(&self) -> Arc<Handle<SshClient>> {
+        read_cell(&self.handle)
     }
 
     /// Build a `docker exec -i <cid> sh -c '<script>' x <arg…>` command string.
@@ -77,7 +86,7 @@ impl DockerFs {
     /// Run a command on the host, capturing stdout, stderr, and exit code.
     async fn run(&self, cmd: &str) -> Result<(String, String, i32), String> {
         let mut channel = self
-            .handle
+            .ssh()
             .channel_open_session()
             .await
             .map_err(|e| format!("channel error: {e}"))?;
@@ -254,7 +263,7 @@ impl DockerFs {
     pub async fn write_file(&self, path: &str, content: &str) -> Result<(), String> {
         let cmd = self.dexec("cat > \"$1\"", &[path]);
         let mut channel = self
-            .handle
+            .ssh()
             .channel_open_session()
             .await
             .map_err(|e| format!("channel error: {e}"))?;
@@ -290,7 +299,7 @@ impl DockerFs {
 
         let cmd = self.dexec("cat > \"$1\"", &[remote_path]);
         let mut channel = self
-            .handle
+            .ssh()
             .channel_open_session()
             .await
             .map_err(|e| format!("channel error: {e}"))?;
@@ -349,7 +358,7 @@ impl DockerFs {
 
         let cmd = self.dexec("cat \"$1\"", &[remote_path]);
         let mut channel = self
-            .handle
+            .ssh()
             .channel_open_session()
             .await
             .map_err(|e| format!("channel error: {e}"))?;
@@ -556,7 +565,7 @@ impl DockerFs {
         let mut tar_out = child.stdout.take().ok_or("tar stdout unavailable")?;
 
         let mut channel = self
-            .handle
+            .ssh()
             .channel_open_session()
             .await
             .map_err(|e| format!("channel error: {e}"))?;
@@ -631,7 +640,7 @@ impl DockerFs {
         let mut tar_in = child.stdin.take().ok_or("tar stdin unavailable")?;
 
         let mut channel = self
-            .handle
+            .ssh()
             .channel_open_session()
             .await
             .map_err(|e| format!("channel error: {e}"))?;

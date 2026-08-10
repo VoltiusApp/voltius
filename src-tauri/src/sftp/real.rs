@@ -6,7 +6,12 @@ use crate::commands::sftp::dir::{sftp_download_dir_inner, sftp_upload_dir_inner}
 use crate::commands::sftp::transfer::{sftp_download_inner, sftp_upload_inner};
 use crate::commands::sftp::RemoteFile;
 use crate::sftp::backend::FileBackend;
+use crate::ssh::client::SshClient;
+use crate::ssh::live_cells::read_cell;
+use crate::ssh::session::SessionHandle;
 use async_trait::async_trait;
+use russh::client::Handle;
+use russh_sftp::client::error::Error as SftpError;
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::OpenFlags;
 use std::future::Future;
@@ -18,25 +23,117 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
+/// How this backend's SFTP channel was obtained, so it can be obtained again
+/// after the underlying SSH link is replaced.
+#[derive(Clone)]
+pub enum SftpOpener {
+    /// `request_subsystem("sftp")` on a fresh channel.
+    Subsystem,
+    /// `exec` of a command that speaks the SFTP protocol on stdio
+    /// (e.g. `docker exec -i <id> sftp-server`).
+    Exec(String),
+}
+
+/// Run an SFTP call, re-opening the channel once and retrying if the cached
+/// session turns out to be dead. The re-opened session replaces the shared one
+/// in place, so streaming transfers holding the same `Arc` heal too.
+///
+/// A macro rather than a function taking a closure: the call borrows both the
+/// session guard and the operation's arguments, which no single closure
+/// signature can express without forcing the arguments to `'static`.
+macro_rules! retry_sftp {
+    ($self:expr, $what:expr, |$sftp:ident| $call:expr) => {{
+        let this = $self;
+        let mut guard = this.session.lock().await;
+        let first = {
+            let $sftp = &*guard;
+            $call.await
+        };
+        match first {
+            Ok(v) => Ok(v),
+            Err(e) if !is_transport_dead(&e) => Err(format!("{} failed: {e}", $what)),
+            Err(_) => {
+                let handle = read_cell(&this.handle);
+                match open_sftp(&handle, &this.opener).await {
+                    Err(e) => Err(e),
+                    Ok(fresh) => {
+                        *guard = fresh;
+                        let $sftp = &*guard;
+                        $call.await.map_err(|e| format!("{} failed: {e}", $what))
+                    }
+                }
+            }
+        }
+    }};
+}
+
+/// True when the error means the transport under the SFTP session is gone, as
+/// opposed to the server refusing a specific operation. Sleep/hibernate leaves
+/// the session's writer closed ("session closed") or its requests unanswered
+/// (`Timeout`); either way the fix is a new channel, not a different path.
+fn is_transport_dead(e: &SftpError) -> bool {
+    match e {
+        SftpError::Status(_) | SftpError::Limited(_) => false,
+        SftpError::IO(_) | SftpError::Timeout | SftpError::UnexpectedPacket => true,
+        SftpError::UnexpectedBehavior(msg) => {
+            msg.contains("session closed")
+                || msg.contains("SendError")
+                || msg.contains("RecvError")
+                || msg.contains("EOF")
+        }
+    }
+}
+
+/// Open a fresh SFTP session on `handle` the same way the original was opened.
+pub async fn open_sftp(
+    handle: &Handle<SshClient>,
+    opener: &SftpOpener,
+) -> Result<SftpSession, String> {
+    let channel = handle
+        .channel_open_session()
+        .await
+        .map_err(|e| format!("Channel error: {e}"))?;
+    match opener {
+        SftpOpener::Subsystem => channel
+            .request_subsystem(true, "sftp")
+            .await
+            .map_err(|e| format!("SFTP subsystem error: {e}"))?,
+        SftpOpener::Exec(cmd) => channel
+            .exec(true, cmd.as_str())
+            .await
+            .map_err(|e| format!("Exec error: {e}"))?,
+    }
+    SftpSession::new(channel.into_stream())
+        .await
+        .map_err(|e| format!("SFTP session error: {e}"))
+}
+
 #[derive(Clone)]
 pub struct RealSftp {
     session: Arc<Mutex<SftpSession>>,
+    /// Live SSH handle — follows the owning terminal session across reconnects.
+    handle: SessionHandle,
+    opener: SftpOpener,
 }
 
 impl RealSftp {
-    pub fn new(session: Arc<Mutex<SftpSession>>) -> Self {
-        Self { session }
+    /// Open an SFTP channel on `handle` and wrap it as a backend that knows how
+    /// to open the same kind of channel again after a reconnect.
+    pub async fn open(handle: SessionHandle, opener: SftpOpener) -> Result<Self, String> {
+        let current = read_cell(&handle);
+        let session = open_sftp(&current, &opener).await?;
+        Ok(Self {
+            session: Arc::new(Mutex::new(session)),
+            handle,
+            opener,
+        })
     }
 }
 
 #[async_trait]
 impl FileBackend for RealSftp {
     async fn list_dir(&self, path: &str) -> Result<Vec<RemoteFile>, String> {
-        let sftp = self.session.lock().await;
-        let entries = sftp
-            .read_dir(path)
-            .await
-            .map_err(|e| format!("read_dir failed: {e}"))?;
+        let entries = retry_sftp!(self, "read_dir", |s| s.read_dir(path))?;
         let base = path.trim_end_matches('/');
         let mut files: Vec<RemoteFile> = entries
             .map(|e| {
@@ -63,41 +160,27 @@ impl FileBackend for RealSftp {
     }
 
     async fn stat(&self, path: &str) -> Result<Option<bool>, String> {
-        let sftp = self.session.lock().await;
-        match sftp.metadata(path).await {
+        match retry_sftp!(self, "metadata", |s| s.metadata(path)) {
             Ok(meta) => Ok(Some(meta.is_dir())),
             Err(_) => Ok(None),
         }
     }
 
     async fn canonicalize(&self, path: &str) -> Result<String, String> {
-        let sftp = self.session.lock().await;
-        sftp.canonicalize(path)
-            .await
-            .map_err(|e| format!("canonicalize failed: {e}"))
+        retry_sftp!(self, "canonicalize", |s| s.canonicalize(path))
     }
 
     async fn mkdir(&self, path: &str) -> Result<(), String> {
-        let sftp = self.session.lock().await;
-        sftp.create_dir(path)
-            .await
-            .map_err(|e| format!("mkdir failed: {e}"))
+        retry_sftp!(self, "mkdir", |s| s.create_dir(path))
     }
 
     async fn touch(&self, path: &str) -> Result<(), String> {
-        let sftp = self.session.lock().await;
         let flags = OpenFlags::CREATE | OpenFlags::WRITE | OpenFlags::TRUNCATE;
-        sftp.open_with_flags(path, flags)
-            .await
-            .map(|_| ())
-            .map_err(|e| format!("touch failed: {e}"))
+        retry_sftp!(self, "touch", |s| s.open_with_flags(path, flags)).map(|_| ())
     }
 
     async fn rename(&self, from: &str, to: &str) -> Result<(), String> {
-        let sftp = self.session.lock().await;
-        sftp.rename(from, to)
-            .await
-            .map_err(|e| format!("rename failed: {e}"))
+        retry_sftp!(self, "rename", |s| s.rename(from, to))
     }
 
     async fn delete(&self, path: &str) -> Result<(), String> {
@@ -105,20 +188,14 @@ impl FileBackend for RealSftp {
     }
 
     async fn file_size(&self, path: &str) -> u64 {
-        let sftp = self.session.lock().await;
-        sftp.metadata(path)
-            .await
+        retry_sftp!(self, "metadata", |s| s.metadata(path))
             .ok()
             .and_then(|m| m.size)
             .unwrap_or(0)
     }
 
     async fn read_file(&self, path: &str) -> Result<Vec<u8>, String> {
-        let sftp = self.session.lock().await;
-        let mut file = sftp
-            .open(path)
-            .await
-            .map_err(|e| format!("open failed: {e}"))?;
+        let mut file = retry_sftp!(self, "open", |s| s.open(path))?;
         let mut buf = Vec::new();
         file.read_to_end(&mut buf)
             .await
@@ -127,14 +204,8 @@ impl FileBackend for RealSftp {
     }
 
     async fn write_file(&self, path: &str, content: &str) -> Result<(), String> {
-        let sftp = self.session.lock().await;
-        let mut file = sftp
-            .open_with_flags(
-                path,
-                OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE,
-            )
-            .await
-            .map_err(|e| format!("open for write failed: {e}"))?;
+        let flags = OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE;
+        let mut file = retry_sftp!(self, "open for write", |s| s.open_with_flags(path, flags))?;
         file.write_all(content.as_bytes())
             .await
             .map_err(|e| format!("write failed: {e}"))?;
@@ -323,4 +394,38 @@ fn remove_recursive(
 
         Ok(())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{is_transport_dead, SftpError};
+    use russh_sftp::protocol::{Status, StatusCode};
+
+    fn status(code: StatusCode) -> SftpError {
+        SftpError::Status(Status {
+            id: 1,
+            status_code: code,
+            error_message: String::new(),
+            language_tag: String::new(),
+        })
+    }
+
+    #[test]
+    fn a_refused_operation_is_not_a_dead_transport() {
+        assert!(!is_transport_dead(&status(StatusCode::NoSuchFile)));
+        assert!(!is_transport_dead(&status(StatusCode::PermissionDenied)));
+        assert!(!is_transport_dead(&SftpError::Limited("too big".into())));
+    }
+
+    #[test]
+    fn a_closed_or_unanswered_session_is_a_dead_transport() {
+        assert!(is_transport_dead(&SftpError::UnexpectedBehavior(
+            "session closed".into()
+        )));
+        assert!(is_transport_dead(&SftpError::Timeout));
+        assert!(is_transport_dead(&SftpError::IO("broken pipe".into())));
+        assert!(is_transport_dead(&SftpError::UnexpectedBehavior(
+            "SendError: channel closed".into()
+        )));
+    }
 }

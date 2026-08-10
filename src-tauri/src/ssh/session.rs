@@ -1,4 +1,5 @@
-use crate::ssh::client::{ConnectedSession, SessionInput};
+use crate::ssh::client::{ConnectedSession, SessionInput, SshClient};
+use crate::ssh::live_cells::{Cell, LiveCells};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -14,19 +15,39 @@ pub struct SystemInfo {
     pub arch: String,
 }
 
+/// A session's SSH handle, re-pointed in place whenever the session reconnects.
+pub type SessionHandle = Cell<Arc<russh::client::Handle<SshClient>>>;
+
 pub struct SessionManager {
     sessions: Arc<Mutex<HashMap<String, ConnectedSession>>>,
+    /// Live handle per session id. Deliberately never pruned on disconnect: a
+    /// reconnect disconnects and re-adds under the same id, and dropping the
+    /// cell in between would orphan every consumer holding it (that is the bug
+    /// this exists to fix). At most one dead handle per id is retained.
+    handles: Arc<LiveCells<Arc<russh::client::Handle<SshClient>>>>,
 }
 
 impl SessionManager {
     pub fn new() -> Self {
         Self {
             sessions: Arc::new(Mutex::new(HashMap::new())),
+            handles: Arc::new(LiveCells::new()),
         }
     }
 
     pub async fn add(&self, id: String, session: ConnectedSession) {
+        self.handles.set(&id, Arc::clone(&session.handle)).await;
         self.sessions.lock().await.insert(id, session);
+    }
+
+    /// The session's live handle cell. Long-lived consumers (SFTP sessions,
+    /// port forwards) must hold this rather than a snapshot from `get_handle`,
+    /// so they follow the session across a reconnect.
+    pub async fn get_session_handle(&self, id: &str) -> Result<SessionHandle, String> {
+        self.handles
+            .get(id)
+            .await
+            .ok_or_else(|| "Session not found".into())
     }
 
     pub async fn send_data(&self, id: &str, data: &[u8]) -> Result<(), String> {

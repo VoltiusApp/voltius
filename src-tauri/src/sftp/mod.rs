@@ -6,10 +6,11 @@ pub use backend::FileBackend;
 
 use crate::known_hosts::KnownHostsStore;
 use crate::ssh::client::{authenticate_handle, JumpHostConnect, SshClient};
+use crate::ssh::live_cells::{own_cell, read_cell};
+use crate::ssh::session::SessionHandle;
 use docker_fs::DockerFs;
-use real::RealSftp;
+use real::{RealSftp, SftpOpener};
 use russh::client::Handle;
-use russh_sftp::client::SftpSession;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -47,10 +48,12 @@ fn emit_step(app: &AppHandle, connect_id: &str, step: SftpStep, detail: impl Int
 
 struct SftpEntry {
     backend: Arc<dyn FileBackend>,
-    /// SSH handle for the session's host. Present for SSH-based transports
+    /// Live SSH handle for the session's host. Present for SSH-based transports
     /// (real SFTP, docker exec); None for transports that don't ride SSH.
-    /// Used by `exec_command` and the keepalive monitor.
-    handle: Option<Arc<Handle<SshClient>>>,
+    /// Used by `exec_command` and the keepalive monitor. It is a cell, not a
+    /// snapshot, so an SFTP session riding a terminal follows that terminal
+    /// across a reconnect instead of staying pinned to the dead handle.
+    handle: Option<SessionHandle>,
     cancel: CancellationToken,
     _jump_handles: Vec<Arc<Handle<SshClient>>>,
 }
@@ -72,80 +75,65 @@ impl SftpManager {
         }
     }
 
-    /// Open SFTP by exec-ing an sftp-server command on the remote host (e.g. `docker exec -i <id> sftp-server`).
-    pub async fn open_exec(
+    /// Register a backend under a fresh id and return that id.
+    async fn register(
         &self,
-        handle: Arc<Handle<SshClient>>,
-        cmd: &str,
-    ) -> Result<String, String> {
-        let channel = handle
-            .channel_open_session()
-            .await
-            .map_err(|e| format!("Channel error: {e}"))?;
-        channel
-            .exec(true, cmd)
-            .await
-            .map_err(|e| format!("Exec error: {e}"))?;
-        let sftp = SftpSession::new(channel.into_stream())
-            .await
-            .map_err(|e| format!("SFTP session error: {e}"))?;
+        backend: Arc<dyn FileBackend>,
+        handle: Option<SessionHandle>,
+        cancel: CancellationToken,
+        jump_handles: Vec<Arc<Handle<SshClient>>>,
+    ) -> String {
         let id = Uuid::new_v4().to_string();
         self.sessions.lock().await.insert(
             id.clone(),
             SftpEntry {
-                backend: Arc::new(RealSftp::new(Arc::new(Mutex::new(sftp)))),
-                handle: Some(handle),
-                cancel: CancellationToken::new(),
-                _jump_handles: vec![],
+                backend,
+                handle,
+                cancel,
+                _jump_handles: jump_handles,
             },
         );
-        Ok(id)
+        id
+    }
+
+    /// Register a real SFTP backend riding `handle`, opened via `opener`.
+    async fn register_real(
+        &self,
+        handle: SessionHandle,
+        opener: SftpOpener,
+    ) -> Result<String, String> {
+        let backend = RealSftp::open(Arc::clone(&handle), opener).await?;
+        Ok(self
+            .register(
+                Arc::new(backend),
+                Some(handle),
+                CancellationToken::new(),
+                vec![],
+            )
+            .await)
+    }
+
+    /// Open SFTP by exec-ing an sftp-server command on the remote host (e.g. `docker exec -i <id> sftp-server`).
+    pub async fn open_exec(&self, handle: SessionHandle, cmd: &str) -> Result<String, String> {
+        self.register_real(handle, SftpOpener::Exec(cmd.to_string()))
+            .await
+    }
+
+    pub async fn open(&self, handle: SessionHandle) -> Result<String, String> {
+        self.register_real(handle, SftpOpener::Subsystem).await
     }
 
     /// Register a `docker exec`-based filesystem backend for a container that has
     /// no sftp-server binary. `handle` is the host SSH connection.
     pub async fn open_docker(
         &self,
-        handle: Arc<Handle<SshClient>>,
+        handle: SessionHandle,
         container_id: String,
     ) -> Result<String, String> {
         let fs = DockerFs::new(Arc::clone(&handle), container_id);
-        let id = Uuid::new_v4().to_string();
-        self.sessions.lock().await.insert(
-            id.clone(),
-            SftpEntry {
-                backend: Arc::new(fs),
-                handle: Some(handle),
-                cancel: CancellationToken::new(),
-                _jump_handles: vec![],
-            },
-        );
-        Ok(id)
-    }
-
-    pub async fn open(&self, handle: Arc<Handle<SshClient>>) -> Result<String, String> {
-        let channel = handle
-            .channel_open_session()
-            .await
-            .map_err(|e| format!("Channel error: {e}"))?;
-        channel
-            .request_subsystem(true, "sftp")
-            .await
-            .map_err(|e| format!("SFTP subsystem error: {e}"))?;
-        let sftp = SftpSession::new(channel.into_stream())
-            .await
-            .map_err(|e| format!("SFTP session error: {e}"))?;
-        let id = Uuid::new_v4().to_string();
-        self.sessions.lock().await.insert(
-            id.clone(),
-            SftpEntry {
-                backend: Arc::new(RealSftp::new(Arc::new(Mutex::new(sftp)))),
-                handle: Some(handle),
-                cancel: CancellationToken::new(),
-                _jump_handles: vec![],
-            },
-        );
-        Ok(id)
+        Ok(self
+            .register(Arc::new(fs), Some(handle), CancellationToken::new(), vec![])
+            .await)
     }
 
     /// Open a standalone FTP / explicit-FTPS connection. No SSH handle, so
@@ -159,17 +147,9 @@ impl SftpManager {
         secure: bool,
     ) -> Result<String, String> {
         let backend = crate::ftp::connect(host, port, username, password, secure).await?;
-        let id = Uuid::new_v4().to_string();
-        self.sessions.lock().await.insert(
-            id.clone(),
-            SftpEntry {
-                backend: Arc::new(backend),
-                handle: None,
-                cancel: CancellationToken::new(),
-                _jump_handles: vec![],
-            },
-        );
-        Ok(id)
+        Ok(self
+            .register(Arc::new(backend), None, CancellationToken::new(), vec![])
+            .await)
     }
 
     pub async fn connect(
@@ -332,31 +312,19 @@ impl SftpManager {
             SftpStep::SftpSubsystem,
             "Requesting SFTP subsystem",
         );
-        let channel = final_handle
-            .channel_open_session()
-            .await
-            .map_err(|e| format!("Channel error: {e}"))?;
-        channel
-            .request_subsystem(true, "sftp")
-            .await
-            .map_err(|e| format!("SFTP subsystem error: {e}"))?;
-        let sftp = SftpSession::new(channel.into_stream())
-            .await
-            .map_err(|e| format!("SFTP session error: {e}"))?;
-
-        let handle = Arc::new(final_handle);
-        let sftp_arc = Arc::new(Mutex::new(sftp));
+        // This connection owns its handle outright — nothing else swaps it, but
+        // it still travels as a cell so every backend takes the same type.
+        let handle = own_cell(Arc::new(final_handle));
+        let backend = RealSftp::open(Arc::clone(&handle), SftpOpener::Subsystem).await?;
         let cancel = CancellationToken::new();
-        let id = Uuid::new_v4().to_string();
-        self.sessions.lock().await.insert(
-            id.clone(),
-            SftpEntry {
-                backend: Arc::new(RealSftp::new(sftp_arc)),
-                handle: Some(Arc::clone(&handle)),
-                cancel: cancel.clone(),
-                _jump_handles: jump_handles,
-            },
-        );
+        let id = self
+            .register(
+                Arc::new(backend),
+                Some(Arc::clone(&handle)),
+                cancel.clone(),
+                jump_handles,
+            )
+            .await;
 
         // Monitor for connection loss by probing a lightweight channel, paced to
         // the keepalive preset: probe every `interval`, declare the link dead only
@@ -375,9 +343,9 @@ impl SftpManager {
                         _ = cancel.cancelled() => break,
                         _ = tokio::time::sleep(probe_every) => {}
                     }
+                    let current = read_cell(&monitor_handle);
                     let result =
-                        tokio::time::timeout(probe_timeout, monitor_handle.channel_open_session())
-                            .await;
+                        tokio::time::timeout(probe_timeout, current.channel_open_session()).await;
                     match result {
                         Ok(Ok(ch)) => {
                             let _ = ch.close().await;
@@ -464,6 +432,7 @@ impl SftpManager {
                 })?
         };
 
+        let handle = read_cell(&handle);
         let channel = handle
             .channel_open_session()
             .await

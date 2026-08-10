@@ -508,6 +508,7 @@ pub async fn docker_sftp_open(
     container_id: String,
 ) -> Result<String, String> {
     let handle = session_manager.get_handle(&session_id).await?;
+    let live_handle = session_manager.get_session_handle(&session_id).await?;
 
     // A "Timeout" from SftpSession::new means the command we exec'd never spoke the SFTP
     // protocol (no SSH_FXP_VERSION on stdout). The two usual causes are: (a) the container
@@ -544,7 +545,7 @@ pub async fn docker_sftp_open(
             // No sftp-server binary in the container (the common case for slim
             // images). Fall back to the `docker exec` filesystem shim, which needs
             // only docker access — no binary, no nsenter, no root.
-            return sftp_state.open_docker(handle, container_id).await;
+            return sftp_state.open_docker(live_handle, container_id).await;
         }
     };
 
@@ -563,5 +564,5 @@ pub async fn docker_sftp_open(
             path = sftp_path
         )
     };
-    sftp_state.open_exec(handle, &cmd).await
+    sftp_state.open_exec(live_handle, &cmd).await
 }
