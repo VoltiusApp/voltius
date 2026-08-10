@@ -1,13 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback } from "react";
 import { Icon } from "@iconify/react";
-import { dockerStopLogStream, onDockerLog } from "../services";
-import type { DockerLogLine } from "../types";
-
-const ANSI_RE = /\x1b\[[0-9;]*m/g;
-
-function stripAnsi(s: string): string {
-  return s.replace(ANSI_RE, "");
-}
+import { stripAnsi, useLogStream } from "../useLogStream";
 
 interface Props {
   streamKey: string;
@@ -17,68 +10,8 @@ interface Props {
 }
 
 export function LogsView({ streamKey, displayName, startStream, onBack }: Props) {
-  const [lines, setLines] = useState<DockerLogLine[]>([]);
-  const [autoScroll, setAutoScroll] = useState(true);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const streamIdRef = useRef<string | null>(null);
-  const unlistenRef = useRef<(() => void) | null>(null);
-
-  const stopStream = useCallback(async () => {
-    unlistenRef.current?.();
-    unlistenRef.current = null;
-    if (streamIdRef.current) {
-      await dockerStopLogStream(streamIdRef.current).catch(() => {});
-      streamIdRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      setLines([]);
-      await stopStream();
-      if (cancelled) return;
-
-      try {
-        const sid = await startStream(200);
-        if (cancelled) {
-          dockerStopLogStream(sid).catch(() => {});
-          return;
-        }
-        streamIdRef.current = sid;
-
-        const unlisten = await onDockerLog(sid, (line) => {
-          setLines((prev) => {
-            const next = [...prev, line];
-            if (next.length > 2000) next.splice(0, next.length - 2000);
-            return next;
-          });
-        });
-
-        if (cancelled) {
-          unlisten();
-          dockerStopLogStream(sid).catch(() => {});
-          return;
-        }
-        unlistenRef.current = unlisten;
-      } catch (e) {
-        console.error("[docker] log stream failed:", e);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      stopStream();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [streamKey]);
-
-  useEffect(() => {
-    if (autoScroll) {
-      bottomRef.current?.scrollIntoView({ behavior: "instant" });
-    }
-  }, [lines, autoScroll]);
+  const start = useCallback(() => startStream(200), [startStream]);
+  const { lines, autoScroll, setAutoScroll, bottomRef } = useLogStream(streamKey, start);
 
   return (
     <div className="flex flex-col h-full">
