@@ -17,6 +17,9 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useFolderStore } from "@/stores/folderStore";
+import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
+import { useVaultStore } from "@/stores/vaultStore";
+import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { getSyncState, onSyncStateChange, ENTITY_FILES, getExcludedObjectIds, type BlobPayload } from "@/services/sync";
 import { useThemeStore } from "@/stores/themeStore";
 import { mergeEntities, mergeSecrets } from "@/services/crdt";
@@ -62,6 +65,7 @@ import { createI18nAPI } from "./domains/i18n";
 import { createProxmoxAPI } from "./domains/proxmox";
 import { createSftpAPI } from "./domains/sftp";
 import { createDockerAPI } from "./domains/docker";
+import { createVaultsAPI, type VaultPorts } from "./domains/vaults";
 import { injectPluginStyle, removePluginStyle } from "./importPluginModule";
 import { assertValidPluginId, isValidPluginId } from "./pluginId";
 
@@ -395,6 +399,46 @@ function registerKeybinding(pluginId: string, commandId: string, raw: string, ex
   return formatPluginKeybinding(parsed);
 }
 
+// ─── Vault ports ──────────────────────────────────────────────────────────
+
+/**
+ * A vault is team-backed when a team carries its id — the same test
+ * folderStore makes. `teamId` on the record only survives a session that set
+ * it, so the team list is the authority.
+ */
+const isTeamVaultId = (vaultId: string): boolean =>
+  useTeamStore.getState().teams.some((t) => t.id === vaultId);
+
+const vaultPorts: VaultPorts = {
+  vaults: {
+    list: () => useVaultStore.getState().vaults,
+    add: (name) => useVaultStore.getState().addVault(name),
+    rename: (id, name) => useVaultStore.getState().renameVault(id, name),
+    remove: (id) => useVaultStore.getState().removeVault(id),
+  },
+  isTeamVault: isTeamVaultId,
+  contents: () => ({
+    connections: useConnectionStore.getState().connections,
+    keys: useKeyStore.getState().keys,
+    identities: useIdentityStore.getState().identities,
+    snippets: useSnippetStore.getState().snippets,
+    portForwardingRules: usePortForwardingStore.getState().rules,
+    folders: useFolderStore.getState().folders,
+    snippetFolders: useSnippetFolderStore.getState().folders,
+  }),
+  remove: {
+    connection: (id) => useConnectionStore.getState().deleteConnection(id),
+    key: (id) => useKeyStore.getState().deleteKey(id),
+    identity: (id) => useIdentityStore.getState().deleteIdentity(id),
+    snippet: (id) => useSnippetStore.getState().deleteSnippet(id),
+    portForwardingRule: (id) => usePortForwardingStore.getState().deleteRule(id),
+    // Cascade off: the vault sweep deletes every object in the vault itself, so
+    // a cascading folder delete would race it on ids already gone.
+    folder: (id) => useFolderStore.getState().deleteFolder(id, { cascade: false }),
+    snippetFolder: (id) => useSnippetFolderStore.getState().deleteFolder(id),
+  },
+};
+
 // ─── Store reload map ─────────────────────────────────────────────────────
 
 const RELOADABLE_STORES: Record<string, () => Promise<void>> = {
@@ -587,6 +631,7 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const sftpApi = createSftpAPI(findConnection);
   _sftpDisposers.set(id, () => sftpApi.dispose());
   const dockerApi = createDockerAPI(streamsApi);
+  const vaultsApi = createVaultsAPI(vaultPorts);
 
   const api: PluginAPI = {
     pluginId: id,
@@ -704,6 +749,25 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           for (const c of teamConnectionList()) merged.set(c.id, { ...(c as PluginConnection), team: true });
           cb([...merged.values()]);
         });
+      },
+    },
+
+    vaults: {
+      list() {
+        requireGated("vaults:read");
+        return vaultsApi.list();
+      },
+      create(name) {
+        requireGated("vaults:write");
+        return vaultsApi.create(name);
+      },
+      rename(vaultId, name) {
+        requireGated("vaults:write");
+        vaultsApi.rename(vaultId, name);
+      },
+      async delete(vaultId, opts) {
+        requireGated("vaults:write");
+        await vaultsApi.delete(vaultId, opts);
       },
     },
 

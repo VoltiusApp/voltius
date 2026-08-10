@@ -59,6 +59,26 @@ export interface PluginIdentity {
   tags: string[];
 }
 
+/** A vault the user organizes objects into. Unrelated to `api.vault`, which is plugin storage. */
+export interface PluginVault {
+  id: string;
+  name: string;
+  /** Backed by a team; every write verb refuses it. */
+  team: boolean;
+}
+
+/** The four folder trees the app has. One `keychain` tree holds keys AND identities. */
+export type PluginFolderKind = "connection" | "keychain" | "port_forwarding" | "snippet";
+
+export interface PluginFolder {
+  id: string;
+  name: string;
+  kind: PluginFolderKind;
+  vaultId: string;
+  parentFolderId: string | null;
+  team: boolean;
+}
+
 export interface OmniCommand {
   id: string;
   label: string;
@@ -521,6 +541,21 @@ export interface PluginAPI {
     delete(id: string): Promise<void>;
     bulkImport(items: PluginConnectionInput[]): Promise<PluginConnection[]>;
     subscribe(cb: (connections: PluginConnection[]) => void): () => void;
+  };
+
+  // The user's vaults (requires the gated vaults:*). Note the plural: `vault`
+  // below is this plugin's own secret storage and is a different thing.
+  vaults: {
+    list(): PluginVault[];
+    create(name: string): PluginVault;
+    /** Rejects a team vault. */
+    rename(id: string, name: string): void;
+    /**
+     * Rejects the personal vault, a team vault, and a vault that still holds
+     * objects unless `cascade` is passed — in which case its contents are
+     * deleted with it.
+     */
+    delete(id: string, opts?: { cascade?: boolean }): Promise<void>;
   };
 
   // Vault — plugin-scoped secrets (requires vault:*)
