@@ -46,9 +46,20 @@ export type ObjectTab = "hosts" | "keychain" | "port_forwarding" | "snippets";
 export type MoveInput = PluginObjectMoveInput;
 export type MoveOutcome = PluginObjectMoveOutcome;
 
+/**
+ * Called once with everything the request must be authorized for, after the
+ * stores are hydrated and before anything else runs. Throwing refuses the call.
+ *
+ * Passed in rather than run by the caller beforehand because the permissions can
+ * only be computed from hydrated stores, and hydration is expensive enough — a
+ * full team-vault sync among it — that doing it on both sides of the gate meant
+ * doing it twice per call.
+ */
+export type Authorize = (permissions: string[]) => void;
+
 export interface ObjectsAPI {
-  move(input: MoveInput): Promise<MoveOutcome>;
-  copy(input: MoveInput): Promise<MoveOutcome>;
+  move(input: MoveInput, authorize?: Authorize): Promise<MoveOutcome>;
+  copy(input: MoveInput, authorize?: Authorize): Promise<MoveOutcome>;
 }
 
 /**
@@ -566,6 +577,19 @@ const TAB_CONTENT_KINDS: Record<ObjectTab, VaultClipboardKind[]> = {
 };
 
 /**
+ * Kinds a tab's paste writes beyond the objects it names. A host carries its key
+ * and identity: `applyCascade` saves or updates them in the destination vault
+ * and the duplicators copy their private material with them, so a hosts paste —
+ * of a bare connection id just as much as of a folder — needs those grants too.
+ */
+const TAB_CASCADE_KINDS: Record<ObjectTab, VaultClipboardKind[]> = {
+  hosts: ["key", "identity"],
+  keychain: [],
+  port_forwarding: [],
+  snippets: [],
+};
+
+/**
  * What a call must be authorized for, from the kinds it names. An id that
  * resolves to nothing asks for everything — a wrong guess there would under-gate
  * the call.
@@ -575,6 +599,10 @@ const TAB_CONTENT_KINDS: Record<ObjectTab, VaultClipboardKind[]> = {
  * `folders:write` alone would let a plugin relocate the keys it was never
  * granted. Taken from the tab rather than the subtree so an empty folder that
  * fills up between the gate and the paste cannot widen what was authorized.
+ *
+ * A hosts id — folder or bare connection — asks for the keychain's kinds on the
+ * same grounds: the paste cascade writes the key and identity a host references
+ * into the destination vault, private material included.
  *
  * A destination vault adds nothing: a move or copy never creates or destroys a
  * vault, so demanding `vaults:write` — which also deletes them — for filing a
@@ -592,6 +620,7 @@ export function objectPermissionsFor(ports: ObjectPorts, input: MoveInput): stri
     if (found.kind === "folder") {
       for (const kind of TAB_CONTENT_KINDS[found.tab]) perms.add(KIND_PERMISSION[kind]);
     }
+    for (const kind of TAB_CASCADE_KINDS[found.tab]) perms.add(KIND_PERMISSION[kind]);
   }
   return [...perms];
 }
@@ -610,12 +639,20 @@ export function createObjectsAPI(ports: ObjectPorts): ObjectsAPI {
   const nameOf = (vaultId: string): string =>
     ports.vaults().find((v) => v.id === vaultId)?.name ?? vaultId;
 
-  const run = async (mode: "cut" | "copy", input: MoveInput): Promise<MoveOutcome> => {
+  const run = async (
+    mode: "cut" | "copy",
+    input: MoveInput,
+    authorize?: Authorize,
+  ): Promise<MoveOutcome> => {
     // Not optional: snippets, snippet folders, rules, keys and identities are
     // loaded by their own pages, and a headless read of an unhydrated store
     // reports an empty tab — which resolves every id to "not found" and, where
     // it does not, decides a paste has nothing to carry with it.
+    //
+    // Once per call, here: the permission set is derived from these same reads,
+    // so the gate runs against the hydrated stores without hydrating again.
     await ports.hydrate();
+    authorize?.(objectPermissionsFor(ports, input));
 
     const { tab, located } = resolveTab(ports, input.ids);
     const ops = folderOpsFor(ports, tab);
@@ -722,7 +759,7 @@ export function createObjectsAPI(ports: ObjectPorts): ObjectsAPI {
   };
 
   return {
-    move: (input) => run("cut", input),
-    copy: (input) => run("copy", input),
+    move: (input, authorize) => run("cut", input, authorize),
+    copy: (input, authorize) => run("copy", input, authorize),
   };
 }

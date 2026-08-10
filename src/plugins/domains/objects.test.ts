@@ -233,8 +233,15 @@ describe("createObjectsAPI", () => {
 
 describe("objectPermissionsFor", () => {
   it("asks only for the kinds in the call", () => {
-    expect(objectPermissionsFor(fakePorts(), { ids: ["c1"], folderId: null, vaultId: null }))
-      .toEqual(["connections:write"]);
+    expect(objectPermissionsFor(fakePorts(), { ids: ["s1"], folderId: null, vaultId: null }))
+      .toEqual(["snippets:write"]);
+  });
+
+  it("makes a host ask for the keychain its cascade writes", () => {
+    // applyCascade saves/updates the key and identity a host references, and the
+    // duplicators copy their private material into the destination vault.
+    expect(objectPermissionsFor(fakePorts(), { ids: ["c1"], folderId: null, vaultId: null }).sort())
+      .toEqual(["connections:write", "identities:write", "keys:write"]);
   });
 
   it("gives every kind its own permission", () => {
@@ -251,7 +258,7 @@ describe("objectPermissionsFor", () => {
     // key material included; folders:write alone would authorize neither.
     const perm = (id: string) =>
       objectPermissionsFor(fakePorts(), { ids: [id], folderId: null, vaultId: null }).sort();
-    expect(perm("f1")).toEqual(["connections:write", "folders:write"]);
+    expect(perm("f1")).toEqual(["connections:write", "folders:write", "identities:write", "keys:write"]);
     expect(perm("sf1")).toEqual(["folders:write", "snippets:write"]);
     expect(objectPermissionsFor(
       fakePorts({ folders: () => [folder({ id: "fk", object_type: "keychain" })] }),

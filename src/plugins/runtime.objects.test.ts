@@ -75,6 +75,9 @@ beforeEach(() => {
   stubLoaders();
 });
 
+/** A hosts paste also writes the key and identity its cascade carries. */
+const HOSTS_GRANT = ["connections:write", "keys:write", "identities:write"];
+
 describe("api.objects permission gate", () => {
   it("move throws without the moved kind's write permission", async () => {
     const api = createHostPluginAPI("test:objects-no-conn", ["keys:write"]);
@@ -94,6 +97,21 @@ describe("api.objects permission gate", () => {
       .rejects.toThrow(/keys:write/);
   });
 
+  it("refuses a hosts move on connections:write alone — the cascade writes keys", async () => {
+    // applyCascade saves/updates the key and identity the host references and
+    // copies their private material into the destination vault.
+    useVaultStore.setState({
+      vaults: [{ id: "personal", name: "Personal" }, { id: "v2", name: "Homelab" }],
+      selectedVaultIds: ["personal"],
+    });
+    const update = vi.spyOn(useConnectionStore.getState(), "updateConnection").mockResolvedValue();
+    const api = createHostPluginAPI("test:objects-cascade", ["connections:write"]);
+    await expect(api.objects.move({
+      ids: ["c1"], folderId: null, vaultId: "v2", allowCrossVault: true,
+    })).rejects.toThrow(/keys:write|identities:write/);
+    expect(update).not.toHaveBeenCalled();
+  });
+
   it("a snippet asks for snippets:write, not the connections grant", async () => {
     const api = createHostPluginAPI("test:objects-snippet", ["connections:write"]);
     await expect(api.objects.move({ ids: ["s1"], folderId: null, vaultId: null }))
@@ -107,7 +125,7 @@ describe("api.objects permission gate", () => {
       selectedVaultIds: ["personal"],
     });
     const update = vi.spyOn(useConnectionStore.getState(), "updateConnection").mockResolvedValue();
-    const api = createHostPluginAPI("test:objects-crossvault", ["connections:write"]);
+    const api = createHostPluginAPI("test:objects-crossvault", HOSTS_GRANT);
     await expect(api.objects.move({
       ids: ["c1"], folderId: null, vaultId: "v2", allowCrossVault: true,
     })).resolves.toEqual({ moved: 1, created: 0, skipped: 0 });
@@ -123,13 +141,19 @@ describe("api.objects permission gate", () => {
 });
 
 describe("api.objects against the real stores", () => {
-  it("hydrates the lazily-loaded stores before resolving ids", async () => {
+  it("hydrates the lazily-loaded stores once per call, not once per gate", async () => {
+    // Hydration is a full store sweep plus a team-vault sync; gating outside the
+    // verb and hydrating inside it too meant paying for all of it twice.
     const loadSnippets = vi.spyOn(useSnippetStore.getState(), "loadSnippets").mockResolvedValue();
     const loadRules = vi.spyOn(usePortForwardingStore.getState(), "loadRules").mockResolvedValue();
-    const api = createHostPluginAPI("test:objects-hydrate", ["connections:write"]);
+    useTeamStore.setState({ teams: [{ id: "team-1", name: "Ops", role_ids: [] }] as never });
+
+    const api = createHostPluginAPI("test:objects-hydrate", HOSTS_GRANT);
     await api.objects.move({ ids: ["c1"], folderId: null, vaultId: null }).catch(() => {});
-    expect(loadSnippets).toHaveBeenCalled();
-    expect(loadRules).toHaveBeenCalled();
+
+    expect(loadSnippets).toHaveBeenCalledTimes(1);
+    expect(loadRules).toHaveBeenCalledTimes(1);
+    expect(fetchTeamData).toHaveBeenCalledTimes(1);
   });
 
   it("files a connection into a folder through the folder store", async () => {
@@ -138,14 +162,14 @@ describe("api.objects against the real stores", () => {
       teamFolders: {},
     });
     const move = vi.spyOn(useFolderStore.getState(), "moveObjectsToFolder").mockResolvedValue();
-    const api = createHostPluginAPI("test:objects-move", ["connections:write"]);
+    const api = createHostPluginAPI("test:objects-move", HOSTS_GRANT);
     const out = await api.objects.move({ ids: ["c1"], folderId: "f1", vaultId: null });
     expect(out).toEqual({ moved: 1, created: 0, skipped: 0 });
     expect(move).toHaveBeenCalledWith(["c1"], "connection", "f1");
   });
 
   it("reports an object already where the call would put it as a no-op, moving nothing", async () => {
-    const api = createHostPluginAPI("test:objects-noop", ["connections:write"]);
+    const api = createHostPluginAPI("test:objects-noop", HOSTS_GRANT);
     expect(await api.objects.move({ ids: ["c1"], folderId: null, vaultId: null }))
       .toEqual({ moved: 0, created: 0, skipped: 0 });
   });
@@ -178,7 +202,7 @@ describe("api.objects against the real stores", () => {
         teamConnections: { "team-1": [{ ...conn, id: "c-team", vault_id: "team-1" }] },
       });
     });
-    const api = createHostPluginAPI("test:objects-team", ["connections:write"]);
+    const api = createHostPluginAPI("test:objects-team", HOSTS_GRANT);
     // Resolved, not "not found": the refusal it reaches is the team-vault one.
     await expect(api.objects.copy({ ids: ["c-team"], folderId: null, vaultId: null }))
       .rejects.toThrow(/team vault/);

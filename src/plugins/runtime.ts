@@ -67,7 +67,7 @@ import { createSftpAPI } from "./domains/sftp";
 import { createDockerAPI } from "./domains/docker";
 import { createVaultsAPI, type VaultPorts } from "./domains/vaults";
 import { createFoldersAPI, type FolderPorts } from "./domains/folders";
-import { createObjectsAPI, objectPermissionsFor, type ObjectPorts } from "./domains/objects";
+import { createObjectsAPI, type ObjectPorts } from "./domains/objects";
 import { resolveCan, type Permission } from "@/services/permissions";
 import { getMyUserId } from "@/services/teamService";
 import { fetchTeamData } from "@/services/teamVaultSync";
@@ -790,6 +790,12 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
     requirePerm(manifest, perm);
   };
 
+  /** Gated per kind, not wholesale: a plugin allowed to file snippets has no
+   *  business moving the user's keys. See objectPermissionsFor for the set. */
+  const requireEachGated = (perms: string[]): void => {
+    for (const perm of perms) requireGated(perm);
+  };
+
   // Reserved prefix "plugin:<id>:" namespaces keychain keys per plugin. The id
   // is percent-encoded so a plugin id containing the ":" delimiter (e.g. "foo:x")
   // cannot forge a prefix that collides with another plugin's namespace.
@@ -979,25 +985,13 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
     },
 
-    // Gated per kind, not wholesale: a plugin allowed to file snippets has no
-    // business moving the user's keys. An id that resolves to nothing asks for
-    // every write permission — see objectPermissionsFor.
-    //
-    // Hydrated BEFORE the gate, not just inside the verb: on a fresh app the
-    // stores are empty, every id resolves to nothing, and a plugin holding
-    // exactly the right permission is refused for the ones it does not need.
-    // The verb's own hydrate is then a cheap second call.
+    // The gate is handed to the verb rather than run before it: the permissions
+    // can only be read off hydrated stores — on a fresh app every id resolves to
+    // nothing and a correctly scoped plugin would be refused — and hydration
+    // includes a team-vault sync, so gating out here meant doing all of it twice.
     objects: {
-      async move(input) {
-        await objectPorts.hydrate();
-        for (const perm of objectPermissionsFor(objectPorts, input)) requireGated(perm);
-        return objectsApi.move(input);
-      },
-      async copy(input) {
-        await objectPorts.hydrate();
-        for (const perm of objectPermissionsFor(objectPorts, input)) requireGated(perm);
-        return objectsApi.copy(input);
-      },
+      move: (input) => objectsApi.move(input, requireEachGated),
+      copy: (input) => objectsApi.copy(input, requireEachGated),
     },
 
     vault: {
