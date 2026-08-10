@@ -100,6 +100,20 @@ describe("MCP consumer", () => {
     });
   });
 
+  it("makeGate's { error, reason } denial is a failed call too, not a success", async () => {
+    // The gate's rejection carries a reason beside the error; counting keys let
+    // this shape — a user's own denial — through as ok:true/isError:false.
+    const tools = [{
+      name: "denied",
+      description: "d",
+      schema: z.object({}),
+      execute: async () => ({ error: "rejected by user", reason: "not this host" }),
+    }] as unknown as Parameters<typeof callTool>[0];
+    expect(await callTool(tools, "denied", {})).toEqual({
+      ok: false, error: "rejected by user",
+    });
+  });
+
   it("a result that merely carries an error field alongside data stays a success", async () => {
     const tools = [{
       name: "mixed",

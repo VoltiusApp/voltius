@@ -191,13 +191,20 @@ export async function callTool(
  * `objectOp` and `makeFileOp` catch a refusal and hand back `{ error }` inside a
  * successful call, which the transport then reports as `isError: false` — a
  * client that trusts the envelope reads "the vault was deleted" when it was
- * refused and is still there. Only a lone `error` string counts, so a verb that
+ * refused and is still there.
+ *
+ * The test is the `error` string itself, not the number of keys: `makeGate`'s
+ * rejection carries a `reason` beside it, and counting keys let that shape —
+ * a user's own denial — through as a success. `reason` is the only companion a
+ * refusal has; anything else beside `error` is a payload, and a verb that
  * returns an error field alongside real data stays a success.
  */
+const REFUSAL_COMPANION_KEYS = new Set(["error", "reason"]);
+
 function refusalMessage(result: unknown): string | null {
   if (typeof result !== "object" || result === null) return null;
-  const keys = Object.keys(result);
-  if (keys.length !== 1 || keys[0] !== "error") return null;
-  const message = (result as { error: unknown }).error;
-  return typeof message === "string" ? message : null;
+  const record = result as Record<string, unknown>;
+  if (typeof record.error !== "string") return null;
+  if (Object.keys(record).some((k) => !REFUSAL_COMPANION_KEYS.has(k))) return null;
+  return record.error;
 }
