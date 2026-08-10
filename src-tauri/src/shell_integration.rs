@@ -258,6 +258,12 @@ pub fn ssh_exec_command() -> String {
     encode_wrapper(&format!("{MOTD_PREAMBLE}\n{SSH_WRAPPER}"))
 }
 
+/// Longest `exec` payload we will put on the wire. dropbear's `MAX_STRING_LEN`
+/// is `MAX(MAX_CMD_LEN, 2400)` = 9000, and passing it is not a rejected request
+/// but `dropbear_exit("String too long")` — the connection dies right after
+/// auth succeeds (#85). Kept under that with room for the session key.
+pub const MAX_EXEC_COMMAND_LEN: usize = 8192;
+
 const TMUX_SOCKET: &str = "voltius";
 
 /// tmux/screen session name for a session id, sanitized to `[A-Za-z0-9_-]`.
@@ -296,9 +302,16 @@ pub fn tmux_session_key(session_id: &str) -> String {
 /// Create path only: session keys derive from fresh UUIDs, so `-A`/`-D -R`
 /// never meet a session another device is attached to. Re-attach and
 /// cross-device join go through `persistent_attach_command`.
+///
+/// `inner` is bound once to `$V` rather than inlined at each of the five call
+/// sites. Inlining made the exec payload ~21.7 KB, over dropbear's 9000-byte
+/// `MAX_STRING_LEN`, so dropbear killed the channel with "String too long" the
+/// instant authentication succeeded (#85). `V="…"` is double-quoted, so `inner`
+/// still expands in this outer shell exactly as when it was inlined.
 pub fn persistent_exec_command(session_key: &str, inner: &str) -> String {
     let script = format!(
-        r#"if command -v tmux >/dev/null 2>&1; then
+        r#"V="{inner}"
+if command -v tmux >/dev/null 2>&1; then
   TMUX_CONF=$(mktemp 2>/dev/null)
   if [ -n "$TMUX_CONF" ]; then
     cat > "$TMUX_CONF" <<'EOF'
@@ -309,9 +322,9 @@ set -g history-limit 50000
 set -sg escape-time 0
 set -g destroy-unattached off
 EOF
-    exec tmux -L {socket} -f "$TMUX_CONF" new-session -A -s {key} "{inner}" <&2
+    exec tmux -L {socket} -f "$TMUX_CONF" new-session -A -s {key} "$V" <&2
   fi
-  exec tmux -L {socket} new-session -A -s {key} "{inner}" <&2
+  exec tmux -L {socket} new-session -A -s {key} "$V" <&2
 elif command -v screen >/dev/null 2>&1; then
   screen -wipe >/dev/null 2>&1
   for d in $(screen -ls 2>/dev/null | grep -F .{key} | awk '{{print $1}}' | tail -n +2); do
@@ -327,12 +340,12 @@ vbell off
 defscrollback 50000
 termcapinfo xterm* ti@:te@
 EOF
-    exec screen -c "$SCREEN_RC" -S {key} -D -R sh -c "{inner}" <&2
+    exec screen -c "$SCREEN_RC" -S {key} -D -R sh -c "$V" <&2
   fi
-  exec screen -S {key} -D -R sh -c "{inner}" <&2
+  exec screen -S {key} -D -R sh -c "$V" <&2
 else
   printf '\r\n[voltius] tmux/screen not found - session will not survive disconnects\r\n'
-  exec sh -c "{inner}" <&2
+  exec sh -c "$V" <&2
 fi
 "#,
         socket = TMUX_SOCKET,
@@ -709,7 +722,8 @@ mod tests {
         let script = decode_bootstrap(&cmd);
         // The multiplexer re-attaches over the stderr pty (`<&2`), not `/dev/tty`.
         assert!(script.contains("<&2"));
-        assert!(script.contains(&format!("exec sh -c \"{}\" <&2", inner)));
+        assert!(script.contains("exec sh -c \"$V\" <&2"));
+        assert!(script.contains(&format!("V=\"{}\"", inner)));
     }
 
     #[test]
@@ -902,5 +916,41 @@ mod tests {
                 "{name} must not reopen the tty by path (`</dev/tty`) — it breaks sudo -i"
             );
         }
+    }
+
+    #[test]
+    fn persistent_exec_command_fits_dropbear_max_string_len() {
+        // dropbear exits the connection with "String too long" past 9000 bytes,
+        // which surfaces as a hang just after auth (#85). Inlining `inner` at
+        // each branch put this at ~21.7 KB against OpenWrt/ImmortalWrt routers.
+        let key = tmux_session_key("0f8b1c22-4d7e-4a19-9f3b-2c6d5e8a7b41");
+        for inner in [
+            ssh_exec_command(),
+            format!("{MOTD_PREAMBLE}; exec ${{SHELL:-/bin/sh}} -l"),
+        ] {
+            let cmd = persistent_exec_command(&key, &inner);
+            assert!(
+                cmd.len() <= MAX_EXEC_COMMAND_LEN,
+                "exec payload {} exceeds {MAX_EXEC_COMMAND_LEN}",
+                cmd.len()
+            );
+        }
+    }
+
+    #[test]
+    fn persistent_exec_command_binds_inner_once() {
+        // The size fix only holds while `inner` is referenced through `$V`;
+        // re-inlining it at the five branches silently restores the overflow.
+        let inner = "printf voltius-inner-marker";
+        let decoded = decode_bootstrap(&persistent_exec_command(&tmux_session_key("abc"), inner));
+        assert_eq!(
+            decoded.matches(inner).count(),
+            1,
+            "inner must appear once (bound to $V), got:\n{decoded}"
+        );
+        assert!(
+            decoded.matches("\"$V\"").count() >= 5,
+            "each branch uses $V"
+        );
     }
 }

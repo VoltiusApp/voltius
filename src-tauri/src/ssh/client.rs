@@ -889,9 +889,9 @@ pub async fn connect(
     // remote $SHELL and execs into it with OSC 7 emission already hooked
     // (writes a temp rcfile under /tmp). Falling back to request_shell keeps
     // the historical behavior available via the setting.
-    if shell_integration {
+    let exec_cmd = if shell_integration {
         let inner = crate::shell_integration::ssh_exec_command();
-        let exec_cmd = if persist {
+        Some(if persist {
             let key = crate::shell_integration::tmux_session_key(&session_id);
             if attach_only {
                 crate::shell_integration::persistent_attach_command(&key)
@@ -900,11 +900,7 @@ pub async fn connect(
             }
         } else {
             inner
-        };
-        channel
-            .exec(false, exec_cmd.as_bytes())
-            .await
-            .map_err(|e| format!("Shell exec failed: {}", e))?;
+        })
     } else if persist {
         // Persistence without shell integration: bare login shell. `inner` must
         // have no double quotes (embedded in the multiplexer's quoted command),
@@ -915,20 +911,28 @@ pub async fn connect(
             "{}; exec ${{SHELL:-/bin/sh}} -l",
             crate::shell_integration::MOTD_PREAMBLE
         );
-        let exec_cmd = if attach_only {
+        Some(if attach_only {
             crate::shell_integration::persistent_attach_command(&key)
         } else {
             crate::shell_integration::persistent_exec_command(&key, &inner)
-        };
-        channel
-            .exec(false, exec_cmd.as_bytes())
-            .await
-            .map_err(|e| format!("Shell exec failed: {}", e))?;
+        })
     } else {
-        channel
+        None
+    };
+
+    // dropbear aborts the whole connection with "String too long" once an SSH
+    // string passes its 9000-byte MAX_STRING_LEN, which reads as a hang right
+    // after authentication rather than an error (#85). Servers that small are
+    // better served by a plain shell than by a session that never opens.
+    match exec_cmd.filter(|c| c.len() <= crate::shell_integration::MAX_EXEC_COMMAND_LEN) {
+        Some(cmd) => channel
+            .exec(false, cmd.as_bytes())
+            .await
+            .map_err(|e| format!("Shell exec failed: {}", e))?,
+        None => channel
             .request_shell(false)
             .await
-            .map_err(|e| format!("Shell request failed: {}", e))?;
+            .map_err(|e| format!("Shell request failed: {}", e))?,
     }
 
     // I/O loop
