@@ -1,23 +1,11 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, useMemo } from "react";
-import { Icon } from "@iconify/react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Connection, ConnectionFormData, VaultOption } from "@/types";
+import type { ConnectionFormData } from "@/types";
 import { useAutosave } from "@/hooks/useAutosave";
-import { useFolderStore } from "@/stores/folderStore";
-import { folderOptionsFor } from "@/utils/folderTree";
-import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
+import { resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import { serialListPorts } from "@/services/serial";
-import FolderSelector from "@/components/shared/FolderSelector";
-import TagSelector from "@/components/shared/TagSelector";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
-import { useConnectionStore } from "@/stores/connectionStore";
-import { useTeamStore } from "@/stores/teamStore";
-import {
-  useEffectivePinned,
-  useEffectivePinSource,
-  nextPersonalPinValue,
-} from "@/hooks/useEffectivePinned";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import {
   PanelShell,
@@ -31,30 +19,20 @@ import {
 import { Pills } from "@/components/shared/Pills";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { PortInput } from "@/components/shared/PortInput";
-import EncodingSelector from "./EncodingSelector";
-import type { ConnectionFormHandle } from "./ConnectionForm";
-import { HostCommandField } from "./HostCommandField";
-import { clearRememberedVars } from "@/stores/hostCommandVarsStore";
+import {
+  AdvancedDisclosure,
+  HostCommandFields,
+  hostCommandFieldsSet,
+  useHostCommandFields,
+  TagsAndFolderFields,
+  useConnectionFormShell,
+  type ConnectionFormHandle,
+  type ConnectionFormProps,
+} from "./formShared";
 
 const BAUD_RATES = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
 
-interface Props {
-  initial?: Connection;
-  onSubmit: (data: ConnectionFormData, password: string | null, privateKey: string | null, passphrase: string | null) => void | Promise<void>;
-  onClose: () => void;
-  onDuplicate?: () => void;
-  onConnect?: () => void;
-  onDelete?: () => void;
-  vaults?: VaultOption[];
-  canEdit?: boolean;
-  onMoveToVault?: (vaultId: string) => void;
-  onCopyToVault?: (vaultId: string) => void;
-}
-
-// VaultOption imported for type completeness; onMoveToVault/onCopyToVault
-// reserved for future vault move UI (matching ConnectionForm API).
-
-const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function SerialConnectionForm(
+const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProps>(function SerialConnectionForm(
   { initial, onSubmit, onClose, onDuplicate, onConnect, onDelete, canEdit },
   ref,
 ) {
@@ -70,12 +48,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
   const [parity, setParity] = useState(initial?.serial_parity ?? "none");
   const [stopBits, setStopBits] = useState<number>(initial?.serial_stop_bits ?? 1);
   const [flowControl, setFlowControl] = useState(initial?.serial_flow_control ?? "none");
-  const [preCommand, setPreCommand] = useState(initial?.pre_command ?? "");
-  const [postCommand, setPostCommand] = useState(initial?.post_command ?? "");
-  const [preSnippetId, setPreSnippetId] = useState(initial?.pre_snippet_id);
-  const [postSnippetId, setPostSnippetId] = useState(initial?.post_snippet_id);
-  const [askVarsEachTime, setAskVarsEachTime] = useState(initial?.ask_vars_each_time ?? false);
-  const [terminalEncoding, setTerminalEncoding] = useState(initial?.terminal_encoding ?? "");
+  const hostCommands = useHostCommandFields(initial);
   const [showAdvanced, setShowAdvanced] = useState(
     !!(
       initial?.pre_command ||
@@ -93,31 +66,14 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
   const [folderId, setFolderId] = useState<string | null>(initial?.folder_id ?? null);
   const [availablePorts, setAvailablePorts] = useState<{ name: string; path: string }[]>([]);
 
-  const defaultVaultId = useDefaultVaultId();
-  const [vaultId, setVaultId] = useState<string>(() => initial?.vault_id ?? defaultVaultId);
-  const vaultPickerTouched = useRef(false);
-  const isNew = !initial;
-  useEffect(() => {
-    if (isNew && !vaultPickerTouched.current) {
-      setVaultId(defaultVaultId);
-    }
-  }, [isNew, defaultVaultId]);
-
-  const userEditedRef = useRef(false);
-  const { folders, loadFolders, saveFolder } = useFolderStore();
-  const folderOptions = useMemo(() => folderOptionsFor(folders, "connection"), [folders]);
-  const pinConnection = useConnectionStore((s) => s.pinConnection);
-  const effPinned = useEffectivePinned(initial ?? { id: "", pinned: false }, "connection");
-  const pinSource = useEffectivePinSource(initial ?? { id: "", pinned: false }, "connection");
-  const isPinned = effPinned;
-  const isTeamVault = useTeamStore((s) => initial ? s.teams.some((t) => t.id === initial.vault_id) : false);
+  const shell = useConnectionFormShell(initial);
+  const { vaultId, pickVault, userEditedRef, isPinned, togglePin } = shell;
 
   useEffect(() => {
-    void loadFolders();
     serialListPorts()
       .then(setAvailablePorts)
       .catch(() => {});
-  }, [loadFolders]);
+  }, []);
 
   const effectiveBaud = useCustomBaud ? (parseInt(customBaud, 10) || 115200) : baud;
 
@@ -135,12 +91,12 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
         tags,
         folder_id: folderId ?? undefined,
         vault_id: resolveVaultIdForSave(vaultId),
-        pre_command: preCommand.trim() || undefined,
-        post_command: postCommand.trim() || undefined,
-        pre_snippet_id: preSnippetId,
-        post_snippet_id: postSnippetId,
-        ask_vars_each_time: askVarsEachTime,
-        terminal_encoding: terminalEncoding || undefined,
+        pre_command: hostCommands.preCommand.trim() || undefined,
+        post_command: hostCommands.postCommand.trim() || undefined,
+        pre_snippet_id: hostCommands.preSnippetId,
+        post_snippet_id: hostCommands.postSnippetId,
+        ask_vars_each_time: hostCommands.askVarsEachTime,
+        terminal_encoding: hostCommands.terminalEncoding || undefined,
         // Serial has no notes UI; pass through any existing note so saving
         // (e.g. after a note synced in from another device) never wipes it.
         notes: initial?.notes,
@@ -168,7 +124,7 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
   }, [_markDirty]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, serialPort, baud, customBaud, useCustomBaud, dataBits, parity, stopBits, flowControl, preCommand, postCommand, preSnippetId, postSnippetId, askVarsEachTime, terminalEncoding, tags, folderId, vaultId]);
+  useEffect(() => schedule(), [name, serialPort, baud, customBaud, useCustomBaud, dataBits, parity, stopBits, flowControl, hostCommands.preCommand, hostCommands.postCommand, hostCommands.preSnippetId, hostCommands.postSnippetId, hostCommands.askVarsEachTime, hostCommands.terminalEncoding, tags, folderId, vaultId]);
 
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
@@ -187,18 +143,12 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
       <PanelHeader
         icon={initial ? "lucide:pencil" : "lucide:ethernet-port"}
         title={initial ? t("connections.serialForm.titleEdit") : t("connections.serialForm.titleNew")}
-        subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => { vaultPickerTouched.current = true; setVaultId(id); markDirty(); }} />}
+        subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => pickVault(id, markDirty)} />}
         onClose={handleClose}
         saveState={initial ? saveState : undefined}
         actions={initial ? (
           <>
-            <PinButton pinned={isPinned} onToggle={() => {
-              if (!isTeamVault) {
-                pinConnection(initial.id, !isPinned).catch(() => {});
-              } else {
-                pinConnection(initial.id, nextPersonalPinValue(pinSource)).catch(() => {});
-              }
-            }} />
+            <PinButton pinned={isPinned} onToggle={togglePin} />
             {panelItems.length > 0 && <PanelActionsMenu items={panelItems} />}
           </>
         ) : undefined}
@@ -218,28 +168,14 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
                 placeholder={t("connections.serialForm.namePlaceholder")}
               />
             </div>
-            <div>
-              <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.tags")}</label>
-              <TagSelector
-                value={tags}
-                vaultId={vaultId}
-                onChange={(next) => { markDirty(); setTags(next); }}
-              />
-            </div>
-            <div>
-              <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.folder")}</label>
-              <FolderSelector
-                value={folderId}
-                folders={folderOptions}
-                onChange={(id) => { markDirty(); setFolderId(id); }}
-                onCreateFolder={async (name) => {
-                  const folder = await saveFolder({ name, object_type: "connection", vault_id: resolveVaultIdForSave(vaultId) || undefined });
-                  markDirty();
-                  setFolderId(folder.id);
-                  return folder.id;
-                }}
-              />
-            </div>
+            <TagsAndFolderFields
+              shell={shell}
+              tags={tags}
+              onChangeTags={setTags}
+              folderId={folderId}
+              onChangeFolderId={setFolderId}
+              markDirty={markDirty}
+            />
           </FormSection>
 
           <FormSection label={t("connections.serialForm.sectionSerialPort")}>
@@ -292,110 +228,65 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Se
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowAdvanced((v) => !v)}
-              className="flex items-center gap-1.5 text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors w-full pt-1"
+            <AdvancedDisclosure
+              open={showAdvanced}
+              onToggle={() => setShowAdvanced((v) => !v)}
+              hasValues={!!(hostCommandFieldsSet(hostCommands) || dataBits !== 8 || parity !== "none" || stopBits !== 1 || flowControl !== "none")}
             >
-              <span>{t("connections.common.advanced")}</span>
-              {!showAdvanced && (preCommand || postCommand || preSnippetId || postSnippetId || terminalEncoding || dataBits !== 8 || parity !== "none" || stopBits !== 1 || flowControl !== "none") && (
-                <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-(--t-accent)" />
-              )}
-              <Icon icon={showAdvanced ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} className="ml-auto" />
-            </button>
-            <div
-              className="grid transition-[grid-template-rows] duration-200 ease-out"
-              style={{ gridTemplateRows: showAdvanced ? "1fr" : "0fr", marginTop: showAdvanced ? undefined : 0 }}
-            >
-              <div className="overflow-hidden">
-                <div className="space-y-3 mt-3">
-                  <div>
-                    <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.dataBits")}</label>
-                    <Pills
-                      options={[
-                        { value: "5", label: "5" },
-                        { value: "6", label: "6" },
-                        { value: "7", label: "7" },
-                        { value: "8", label: "8" },
-                      ]}
-                      value={String(dataBits)}
-                      onChange={(v) => { markDirty(); setDataBits(Number(v)); }}
-                    />
-                  </div>
-
-                  <div>
-                    <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.stopBits")}</label>
-                    <Pills
-                      options={[
-                        { value: "1", label: "1" },
-                        { value: "2", label: "2" },
-                      ]}
-                      value={String(stopBits)}
-                      onChange={(v) => { markDirty(); setStopBits(Number(v)); }}
-                    />
-                  </div>
-
-                  <div>
-                    <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.parity")}</label>
-                    <Pills
-                      options={[
-                        { value: "none", label: t("common.state.none") },
-                        { value: "even", label: t("connections.common.even") },
-                        { value: "odd", label: t("connections.common.odd") },
-                      ]}
-                      value={parity}
-                      onChange={(v) => { markDirty(); setParity(v); }}
-                    />
-                  </div>
-
-                  <div>
-                    <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.flowControl")}</label>
-                    <Pills
-                      options={[
-                        { value: "none", label: t("common.state.none") },
-                        { value: "xon-xoff", label: t("connections.common.xonXoff") },
-                        { value: "rts-cts", label: t("connections.common.rtsCts") },
-                      ]}
-                      value={flowControl}
-                      onChange={(v) => { markDirty(); setFlowControl(v); }}
-                    />
-                  </div>
-
-                  <HostCommandField
-                    slot="pre"
-                    text={preCommand}
-                    snippetId={preSnippetId}
-                    onChangeText={(v) => { markDirty(); setPreCommand(v); }}
-                    onChangeSnippetId={(v) => { markDirty(); setPreSnippetId(v); }}
-                  />
-                  <HostCommandField
-                    slot="post"
-                    text={postCommand}
-                    snippetId={postSnippetId}
-                    onChangeText={(v) => { markDirty(); setPostCommand(v); }}
-                    onChangeSnippetId={(v) => { markDirty(); setPostSnippetId(v); }}
-                  />
-                  {(preSnippetId || postSnippetId) && (
-                    <label className="flex items-center gap-2 text-xs text-(--t-text-dim)">
-                      <input
-                        type="checkbox"
-                        checked={askVarsEachTime}
-                        onChange={(e) => {
-                          markDirty();
-                          setAskVarsEachTime(e.target.checked);
-                          if (e.target.checked && initial?.id) clearRememberedVars(initial.id);
-                        }}
-                      />
-                      {t("connections.common.hostCommand.askEachTime")}
-                    </label>
-                  )}
-                  <EncodingSelector
-                    value={terminalEncoding}
-                    onChange={(v) => { markDirty(); setTerminalEncoding(v); }}
-                  />
-                </div>
+              <div>
+                <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.dataBits")}</label>
+                <Pills
+                  options={[
+                    { value: "5", label: "5" },
+                    { value: "6", label: "6" },
+                    { value: "7", label: "7" },
+                    { value: "8", label: "8" },
+                  ]}
+                  value={String(dataBits)}
+                  onChange={(v) => { markDirty(); setDataBits(Number(v)); }}
+                />
               </div>
-            </div>
+
+              <div>
+                <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.stopBits")}</label>
+                <Pills
+                  options={[
+                    { value: "1", label: "1" },
+                    { value: "2", label: "2" },
+                  ]}
+                  value={String(stopBits)}
+                  onChange={(v) => { markDirty(); setStopBits(Number(v)); }}
+                />
+              </div>
+
+              <div>
+                <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.parity")}</label>
+                <Pills
+                  options={[
+                    { value: "none", label: t("common.state.none") },
+                    { value: "even", label: t("connections.common.even") },
+                    { value: "odd", label: t("connections.common.odd") },
+                  ]}
+                  value={parity}
+                  onChange={(v) => { markDirty(); setParity(v); }}
+                />
+              </div>
+
+              <div>
+                <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.flowControl")}</label>
+                <Pills
+                  options={[
+                    { value: "none", label: t("common.state.none") },
+                    { value: "xon-xoff", label: t("connections.common.xonXoff") },
+                    { value: "rts-cts", label: t("connections.common.rtsCts") },
+                  ]}
+                  value={flowControl}
+                  onChange={(v) => { markDirty(); setFlowControl(v); }}
+                />
+              </div>
+
+              <HostCommandFields connectionId={initial?.id} fields={hostCommands} markDirty={markDirty} />
+            </AdvancedDisclosure>
           </FormSection>
         </div>
       </div>

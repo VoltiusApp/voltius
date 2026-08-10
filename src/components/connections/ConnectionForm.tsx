@@ -1,20 +1,13 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import type { Connection, ConnectionFormData, AuthType, VaultOption, JumpHost, EnvVar } from "@/types";
+import type { ConnectionFormData, AuthType, JumpHost, EnvVar } from "@/types";
 import { KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
 import { useIdentityStore } from "@/stores/identityStore";
-import { useKeyStore } from "@/stores/keyStore";
 import { useTeamStore } from "@/stores/teamStore";
-import {
-  useEffectivePinned,
-  useEffectivePinSource,
-  nextPersonalPinValue,
-} from "@/hooks/useEffectivePinned";
+import { useKeyStore } from "@/stores/keyStore";
 import JumpHostsPanel from "./JumpHostsPanel";
 import EnvVarsPanel from "./EnvVarsPanel";
-import { HostCommandField } from "./HostCommandField";
-import { clearRememberedVars } from "@/stores/hostCommandVarsStore";
 import { useUIStore } from "@/stores/uiStore";
 import { getSecret } from "@/services/vault";
 import { sshExecCommand } from "@/services/ssh";
@@ -23,13 +16,9 @@ import { auditContextForVaultId } from "@/services/auditContextResolver";
 import { reportAuditClientEvent } from "@/services/auditReporter";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
-import { useFolderStore } from "@/stores/folderStore";
-import { folderOptionsFor } from "@/utils/folderTree";
-import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
+import { resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
 import IdentitySelector from "./IdentitySelector";
 import KeySelector from "./KeySelector";
-import TagSelector from "@/components/shared/TagSelector";
-import EncodingSelector from "./EncodingSelector";
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
 import { useConnectionStore } from "@/stores/connectionStore";
@@ -39,7 +28,6 @@ import { Toggle } from "@/components/shared/Toggle";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { useToggle } from "@/stores/toggleSettingsStore";
 import { useGlobalKeepalivePreset } from "@/stores/connectivitySettingsStore";
-import FolderSelector from "@/components/shared/FolderSelector";
 import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
 import { getConnectionIcon, getConnectionIconColor, getConnectionIconLabel, glossyTileStyle, normalizeDistro } from "@/utils/icons";
 import { DistroIconPicker } from "./DistroIconPicker";
@@ -52,29 +40,23 @@ import {
   formLabelClass,
   formLabelStyle,
 } from "@/components/shared/Panel";
+import {
+  AdvancedDisclosure,
+  HostCommandFields,
+  hostCommandFieldsSet,
+  useHostCommandFields,
+  TagsAndFolderFields,
+  useConnectionFormShell,
+  type ConnectionFormHandle,
+  type ConnectionFormProps,
+} from "./formShared";
 
-interface Props {
-  initial?: Connection;
-  onSubmit: (data: ConnectionFormData, password: string | null, privateKey: string | null, passphrase: string | null) => void | Promise<void>;
-  onClose: () => void;
-  onDuplicate?: () => void;
-  onConnect?: () => void;
-  onDelete?: () => void;
-  /** Other vaults available for move/copy (excludes the connection's current vault) */
-  vaults?: VaultOption[];
-  canEdit?: boolean;
+type Props = ConnectionFormProps & {
   /** Mobile embed: hide the desktop PanelHeader (close, actions) and the
    *  VaultPicker subheader so the mobile screen owns the single header + Save.
    *  Desktop default is undefined → unchanged behavior. */
   hideChrome?: boolean;
-  onMoveToVault?: (vaultId: string) => void;
-  onCopyToVault?: (vaultId: string) => void;
-}
-
-export interface ConnectionFormHandle {
-  flush: () => void;
-  isDirty: () => boolean;
-}
+};
 
 const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function ConnectionForm({ initial, onSubmit, onClose, onDuplicate, onConnect, onDelete, vaults, canEdit, hideChrome, onMoveToVault, onCopyToVault }, ref) {
   const { t } = useTranslation();
@@ -107,12 +89,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [globalShellIntegration] = useToggle("shell-integration");
   const [globalKeepalive] = useGlobalKeepalivePreset();
   const [globalPersist] = useToggle("persistent-sessions");
-  const [preCommand, setPreCommand] = useState(initial?.pre_command ?? "");
-  const [postCommand, setPostCommand] = useState(initial?.post_command ?? "");
-  const [preSnippetId, setPreSnippetId] = useState(initial?.pre_snippet_id);
-  const [postSnippetId, setPostSnippetId] = useState(initial?.post_snippet_id);
-  const [askVarsEachTime, setAskVarsEachTime] = useState(initial?.ask_vars_each_time ?? false);
-  const [terminalEncoding, setTerminalEncoding] = useState(initial?.terminal_encoding ?? "");
+  const hostCommands = useHostCommandFields(initial);
   const [keepalivePreset, setKeepalivePreset] = useState<KeepalivePreset | "">(initial?.keepalive_preset ?? "");
   const [persistSession, setPersistSession] = useState<"" | "on" | "off">(
     initial?.persist_session === undefined ? "" : initial.persist_session ? "on" : "off",
@@ -125,20 +102,12 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const [distroError, setDistroError] = useState("");
   const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.pre_snippet_id || initial?.post_snippet_id || initial?.terminal_encoding || initial?.agent_forwarding || initial?.legacy_algorithms || initial?.ping_disabled || initial?.shell_integration !== undefined || initial?.keepalive_preset || initial?.persist_session !== undefined);
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
-  const defaultVaultId = useDefaultVaultId();
-  const [vaultId, setVaultId] = useState<string>(() => initial?.vault_id ?? defaultVaultId);
+  const shell = useConnectionFormShell(initial);
+  const { vaultId, pickVault, userEditedRef, isPinned, togglePin } = shell;
   const prevVaultIdRef = useRef(vaultId);
-  const isNew = !initial;
-  const vaultPickerTouched = useRef(false);
-  useEffect(() => {
-    if (isNew && !vaultPickerTouched.current) {
-      setVaultId(defaultVaultId);
-    }
-  }, [isNew, defaultVaultId]);
   const passwordDirty = useRef(false);
   const privateKeyDirty = useRef(false);
   const passphraseDirty = useRef(false);
-  const userEditedRef = useRef(false);
   // Anchor the icon picker to the whole tile+label row so the desktop float matches the
   // row width (as the old inline picker did) instead of overflowing from the 40px tile.
   const iconRowRef = useRef<HTMLDivElement>(null);
@@ -172,15 +141,8 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
       setKeyId(null);
     }
   }, [vaultId]);
-  const { folders, loadFolders, saveFolder } = useFolderStore();
-  const folderOptions = useMemo(() => folderOptionsFor(folders, "connection"), [folders]);
   const setActiveNav = useUIStore((s) => s.setActiveNav);
-  const pinConnection = useConnectionStore((s) => s.pinConnection);
   const setConnectionDistro = useConnectionStore((s) => s.setDistro);
-  const effPinned = useEffectivePinned(initial ?? { id: "", pinned: false }, "connection");
-  const pinSource = useEffectivePinSource(initial ?? { id: "", pinned: false }, "connection");
-  const isPinned = effPinned;
-  const isTeamVault = useTeamStore((s) => initial ? s.teams.some((t) => t.id === initial.vault_id) : false);
   const contributions = useUIContributions("connection.panelActions", initial);
   const { toggleExcluded, isObjectSynced } = useSyncPrefsStore();
   const isSynced = initial ? isObjectSynced(initial.id, "connection") : true;
@@ -188,8 +150,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   useEffect(() => {
     void loadIdentities();
     void loadKeys();
-    void loadFolders();
-  }, [loadIdentities, loadKeys, loadFolders]);
+  }, [loadIdentities, loadKeys]);
 
 
   // Load existing secrets when editing
@@ -253,12 +214,12 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         env_vars: envVars.length > 0 ? envVars : undefined,
         agent_forwarding: agentForwarding,
         legacy_algorithms: legacyAlgorithms,
-        pre_command: preCommand.trim() || undefined,
-        post_command: postCommand.trim() || undefined,
-        pre_snippet_id: preSnippetId,
-        post_snippet_id: postSnippetId,
-        ask_vars_each_time: askVarsEachTime,
-        terminal_encoding: terminalEncoding || undefined,
+        pre_command: hostCommands.preCommand.trim() || undefined,
+        post_command: hostCommands.postCommand.trim() || undefined,
+        pre_snippet_id: hostCommands.preSnippetId,
+        post_snippet_id: hostCommands.postSnippetId,
+        ask_vars_each_time: hostCommands.askVarsEachTime,
+        terminal_encoding: hostCommands.terminalEncoding || undefined,
         distro: distro || undefined,
         icon: icon || undefined,
         ping_disabled: pingDisabled || undefined,
@@ -281,7 +242,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => schedule(), [name, host, port, username, protocol, ftpSecure, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, legacyAlgorithms, preCommand, postCommand, preSnippetId, postSnippetId, askVarsEachTime, terminalEncoding, distro, icon, pingDisabled, shellIntegration, keepalivePreset, persistSession, notes]);
+  useEffect(() => schedule(), [name, host, port, username, protocol, ftpSecure, password, privateKey, passphrase, identityId, keyId, folderId, tags, vaultId, jumpHosts, envVars, agentForwarding, legacyAlgorithms, hostCommands.preCommand, hostCommands.postCommand, hostCommands.preSnippetId, hostCommands.postSnippetId, hostCommands.askVarsEachTime, hostCommands.terminalEncoding, distro, icon, pingDisabled, shellIntegration, keepalivePreset, persistSession, notes]);
 
   useImperativeHandle(ref, () => ({ flush, isDirty: () => userEditedRef.current }), [flush]);
 
@@ -412,18 +373,12 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         <PanelHeader
           icon={initial ? "lucide:pencil" : "lucide:plus"}
           title={initial ? t("connections.form.titleEdit") : t("connections.form.titleNew")}
-          subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => { vaultPickerTouched.current = true; setVaultId(id); markDirty(); }} />}
+          subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => pickVault(id, markDirty)} />}
           onClose={handleClose}
           saveState={initial ? saveState : undefined}
           actions={initial ? (
             <>
-              <PinButton pinned={isPinned} onToggle={() => {
-                if (!isTeamVault) {
-                  pinConnection(initial.id, !isPinned).catch(() => {});
-                } else {
-                  pinConnection(initial.id, nextPersonalPinValue(pinSource)).catch(() => {});
-                }
-              }} />
+              <PinButton pinned={isPinned} onToggle={togglePin} />
               {panelItems.length > 0 && <PanelActionsMenu items={panelItems} />}
             </>
           ) : undefined}
@@ -467,29 +422,14 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                 />
               </div>
             </div>
-            <div>
-              <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.tags")}</label>
-              <TagSelector
-                value={tags}
-                vaultId={vaultId}
-                onChange={(next) => { markDirty(); setTags(next); }}
-              />
-            </div>
-
-            <div>
-              <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.folder")}</label>
-              <FolderSelector
-                value={folderId}
-                folders={folderOptions}
-                onChange={(id) => { markDirty(); setFolderId(id); }}
-                onCreateFolder={async (name) => {
-                  const folder = await saveFolder({ name, object_type: "connection", vault_id: resolveVaultIdForSave(vaultId) || undefined });
-                  markDirty();
-                  setFolderId(folder.id);
-                  return folder.id;
-                }}
-              />
-            </div>
+            <TagsAndFolderFields
+              shell={shell}
+              tags={tags}
+              onChangeTags={setTags}
+              folderId={folderId}
+              onChangeFolderId={setFolderId}
+              markDirty={markDirty}
+            />
           </FormSection>
 
           <FormSection label={t("connections.form.sectionConnection")}>
@@ -533,23 +473,11 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
               </div>
             </div>
             {!isFtp && (<>
-            <button
-              type="button"
-              onClick={() => setShowAdvanced((v) => !v)}
-              className="flex items-center gap-1.5 text-xs text-(--t-text-dim) hover:text-(--t-text-primary) transition-colors w-full pt-1"
+            <AdvancedDisclosure
+              open={showAdvanced}
+              onToggle={() => setShowAdvanced((v) => !v)}
+              hasValues={!!(jumpHosts.length > 0 || envVars.length > 0 || hostCommandFieldsSet(hostCommands) || agentForwarding || legacyAlgorithms || pingDisabled || shellIntegration || keepalivePreset || persistSession)}
             >
-              <span>{t("connections.common.advanced")}</span>
-              {!showAdvanced && (jumpHosts.length > 0 || envVars.length > 0 || preCommand || postCommand || preSnippetId || postSnippetId || terminalEncoding || agentForwarding || legacyAlgorithms || pingDisabled || shellIntegration || keepalivePreset || persistSession) && (
-                <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-(--t-accent)" />
-              )}
-              <Icon icon={showAdvanced ? "lucide:chevron-up" : "lucide:chevron-down"} width={12} className="ml-auto" />
-            </button>
-            <div
-              className="grid transition-[grid-template-rows] duration-200 ease-out"
-              style={{ gridTemplateRows: showAdvanced ? "1fr" : "0fr", marginTop: showAdvanced ? undefined : 0 }}
-            >
-              <div className="overflow-hidden">
-              <div className="space-y-3 mt-3">
                 <button
                   type="button"
                   onClick={() => setShowChaining(true)}
@@ -578,38 +506,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                   )}
                   <Icon icon="lucide:chevron-right" width={12} className="ml-auto" />
                 </button>
-                <HostCommandField
-                  slot="pre"
-                  text={preCommand}
-                  snippetId={preSnippetId}
-                  onChangeText={(v) => { markDirty(); setPreCommand(v); }}
-                  onChangeSnippetId={(v) => { markDirty(); setPreSnippetId(v); }}
-                />
-                <HostCommandField
-                  slot="post"
-                  text={postCommand}
-                  snippetId={postSnippetId}
-                  onChangeText={(v) => { markDirty(); setPostCommand(v); }}
-                  onChangeSnippetId={(v) => { markDirty(); setPostSnippetId(v); }}
-                />
-                {(preSnippetId || postSnippetId) && (
-                  <label className="flex items-center gap-2 text-xs text-(--t-text-dim)">
-                    <input
-                      type="checkbox"
-                      checked={askVarsEachTime}
-                      onChange={(e) => {
-                        markDirty();
-                        setAskVarsEachTime(e.target.checked);
-                        if (e.target.checked && initial?.id) clearRememberedVars(initial.id);
-                      }}
-                    />
-                    {t("connections.common.hostCommand.askEachTime")}
-                  </label>
-                )}
-                <EncodingSelector
-                  value={terminalEncoding}
-                  onChange={(v) => { markDirty(); setTerminalEncoding(v); }}
-                />
+                <HostCommandFields connectionId={initial?.id} fields={hostCommands} markDirty={markDirty} />
                 <div className="flex items-center gap-1.5 text-xs text-(--t-text-dim) w-full py-1">
                   <Icon icon="lucide:key-round" width={13} />
                   <span>{t("connections.form.agentForwarding")}</span>
@@ -664,9 +561,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
                   />
                 </div>
 
-              </div>
-              </div>
-            </div>
+            </AdvancedDisclosure>
             </>)}
           </FormSection>
 
@@ -834,6 +729,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 });
 
 export default ConnectionForm;
+export type { ConnectionFormHandle };
 
 function SecretInput({
   value,
