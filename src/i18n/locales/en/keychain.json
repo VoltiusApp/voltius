@@ -127,6 +127,7 @@
       "exportingLabel": "Exporting…",
       "publicKeyNotFoundError": "Public key not found",
       "multilinePublicKeyError": "Public key is not valid — it must be a single line",
+      "invalidPublicKeyError": "Public key is not valid — it must be an SSH public key in \"type base64 [comment]\" form",
       "remoteCommandFailedError": "Remote command failed: {{detail}}",
       "remoteCommandFailedUnknownError": "Remote command failed (exit code {{code}})"
     },

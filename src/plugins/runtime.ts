@@ -33,6 +33,7 @@ import * as connectionService from "@/services/connections";
 import * as keyService from "@/services/keys";
 import * as identityService from "@/services/identities";
 import { addKeyToHost } from "@/services/keyExport";
+import { isValidSshPublicKey } from "@/services/sshPublicKey";
 import type { Connection } from "@/types";
 import { storePluginSecret, getPluginSecret, deletePluginSecret, storeSecret, deleteSecret } from "@/services/vault";
 import { appFetch } from "@/services/http";
@@ -848,6 +849,11 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       async create(data, privateKey, publicKey) {
         requirePerm(manifest, "keys:write");
+        // addToHost writes this half to a remote file verbatim, so an unvalidated
+        // value stored here is attacker-chosen remote file content later.
+        if (publicKey && !isValidSshPublicKey(publicKey)) {
+          throw new Error("publicKey is not a valid SSH public key");
+        }
         const key = await keyService.saveKey({ name: data.name, key_type: data.key_type, tags: data.tags ?? [] });
         await storeSecret(`key:${key.id}:private`, privateKey);
         if (publicKey) await storeSecret(`key:${key.id}:public`, publicKey);

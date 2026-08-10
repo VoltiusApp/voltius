@@ -109,7 +109,37 @@ describe("key verbs", () => {
     expect(schema.safeParse({ key_id: "k1", connection_id: "c1", location: ".ssh'; curl x|sh; echo '" }).success).toBe(false);
     expect(schema.safeParse({ key_id: "k1", connection_id: "c1", filename: "authorized_keys; rm -rf /" }).success).toBe(false);
     expect(schema.safeParse({ key_id: "k1", connection_id: "c1", location: "../../etc" }).success).toBe(false);
-    expect(schema.safeParse({ key_id: "k1", connection_id: "c1", location: "/etc/ssh" }).success).toBe(true);
+  });
+
+  it("rejects an absolute location, so the write stays under the remote home", () => {
+    const { ports } = makePorts();
+    const schema = tool(ports, "key_add_to_host").schema;
+    expect(schema.safeParse({ key_id: "k1", connection_id: "c1", location: "/etc/cron.d" }).success).toBe(false);
+    expect(schema.safeParse({ key_id: "k1", connection_id: "c1", location: "/" }).success).toBe(false);
+  });
+
+  it("rejects \".\" and \"..\" as whole segments", () => {
+    const { ports } = makePorts();
+    const schema = tool(ports, "key_add_to_host").schema;
+    // location "." + filename ".bashrc" is a login-shell write, not an authorized_keys append.
+    expect(schema.safeParse({ key_id: "k1", connection_id: "c1", location: "." }).success).toBe(false);
+    expect(schema.safeParse({ key_id: "k1", connection_id: "c1", location: ".ssh/./x" }).success).toBe(false);
+    expect(schema.safeParse({ key_id: "k1", connection_id: "c1", filename: ".." }).success).toBe(false);
+  });
+
+  it("rejects a path separator in filename", () => {
+    const { ports } = makePorts();
+    const schema = tool(ports, "key_add_to_host").schema;
+    expect(schema.safeParse({ key_id: "k1", connection_id: "c1", filename: "../../etc/cron.d/x" }).success).toBe(false);
+    expect(schema.safeParse({ key_id: "k1", connection_id: "c1", filename: "sub/keys" }).success).toBe(false);
+  });
+
+  it("accepts a legitimate relative location and filename", () => {
+    const { ports } = makePorts();
+    const schema = tool(ports, "key_add_to_host").schema;
+    expect(schema.safeParse({ key_id: "k1", connection_id: "c1", location: ".ssh" }).success).toBe(true);
+    expect(schema.safeParse({ key_id: "k1", connection_id: "c1", location: ".ssh/keys.d" }).success).toBe(true);
+    expect(schema.safeParse({ key_id: "k1", connection_id: "c1", filename: "authorized_keys" }).success).toBe(true);
   });
 
   it("rejects a '..' hidden past a newline, and a space riding through the class", () => {
@@ -123,10 +153,10 @@ describe("key verbs", () => {
     const addToHost = vi.fn(async () => {});
     const { ports } = makePorts({ keys: { addToHost } });
     await tool(ports, "key_add_to_host").execute({
-      key_id: "k1", connection_id: "c1", location: "/etc/ssh", filename: "custom_keys",
+      key_id: "k1", connection_id: "c1", location: ".ssh/keys.d", filename: "custom_keys",
     });
     expect(addToHost).toHaveBeenCalledWith({
-      keyId: "k1", connectionId: "c1", location: "/etc/ssh", filename: "custom_keys",
+      keyId: "k1", connectionId: "c1", location: ".ssh/keys.d", filename: "custom_keys",
     });
   });
 

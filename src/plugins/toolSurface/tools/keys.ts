@@ -5,12 +5,27 @@ import { makeGate, objectOp } from "./helpers";
 
 export const KEY_PERMISSIONS = ["keys:read", "keys:write", "connections:read", "audit"] as const;
 
-/** No quote/semicolon/dollar/backtick (shell metacharacters), no whitespace
- *  (including newline, which would otherwise smuggle a second path segment
- *  or hide ".." past the lookahead), and no ".." (path escape) —
- *  key_add_to_host's location/filename land inside a shell command. The
- *  lookahead scans with [\s\S], not `.`, so a newline can't hide "..". */
-const SAFE_PATH_SEGMENT = /^(?![\s\S]*\.\.)[^\s'";$`]+$/;
+/** No quote/semicolon/dollar/backtick (shell metacharacters) and no whitespace
+ *  (including newline) — key_add_to_host's location/filename land inside a
+ *  shell command. "." and ".." are refused as whole segments so the path cannot
+ *  escape, nor resolve to the remote home itself. */
+const UNSAFE_SEGMENT_CHAR = /[\s'";$`]/;
+
+const isSafeSegment = (segment: string): boolean =>
+  segment.length > 0 && segment !== "." && segment !== ".." && !UNSAFE_SEGMENT_CHAR.test(segment);
+
+/** A directory RELATIVE to the remote home: a leading "/" would make it absolute,
+ *  which is what turns this verb into an arbitrary-file write (/etc/cron.d). */
+const relativeDir = z.string().refine(
+  (v) => !v.startsWith("/") && v.split("/").every(isSafeSegment),
+  "must be a relative path under the remote home",
+);
+
+/** A bare filename: "/" is refused outright, so no directory can be reached through it. */
+const safeFilename = z.string().refine(
+  (v) => !v.includes("/") && isSafeSegment(v),
+  "must be a filename with no path separator",
+);
 
 /** Project a raw Key record down to the PluginKey contract. */
 const toPluginKey = (k: Record<string, unknown>) => ({
@@ -80,8 +95,8 @@ export function buildKeyTools(ports: ToolSurfacePorts): Tool[] {
       schema: z.object({
         key_id: z.string(),
         connection_id: z.string(),
-        location: z.string().regex(SAFE_PATH_SEGMENT).optional(),
-        filename: z.string().regex(SAFE_PATH_SEGMENT).optional(),
+        location: relativeDir.optional(),
+        filename: safeFilename.optional(),
       }),
       execute: async (raw) =>
         op(

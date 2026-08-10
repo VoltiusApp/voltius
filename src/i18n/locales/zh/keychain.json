@@ -127,6 +127,7 @@
       "exportingLabel": "正在导出…",
       "publicKeyNotFoundError": "未找到公钥",
       "multilinePublicKeyError": "公钥无效——必须为单行",
+      "invalidPublicKeyError": "公钥无效——必须是“类型 base64 [注释]”格式的 SSH 公钥",
       "remoteCommandFailedError": "远程命令失败：{{detail}}",
       "remoteCommandFailedUnknownError": "远程命令失败（退出代码 {{code}}）"
     },

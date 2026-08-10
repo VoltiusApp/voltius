@@ -143,6 +143,7 @@
       "exportingLabel": "Экспорт…",
       "publicKeyNotFoundError": "Публичный ключ не найден",
       "multilinePublicKeyError": "Публичный ключ недействителен — он должен занимать одну строку",
+      "invalidPublicKeyError": "Публичный ключ недействителен — он должен быть публичным ключом SSH в формате «тип base64 [комментарий]»",
       "remoteCommandFailedError": "Удалённая команда завершилась с ошибкой: {{detail}}",
       "remoteCommandFailedUnknownError": "Удалённая команда завершилась с ошибкой (код выхода {{code}})"
     },

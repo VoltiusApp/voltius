@@ -2,6 +2,7 @@ import i18n from "@/i18n";
 import { getSecret } from "@/services/vault";
 import { resolveConnectionCredentials } from "@/services/credentials";
 import { sshExecCommand } from "@/services/ssh";
+import { isValidSshPublicKey } from "@/services/sshPublicKey";
 import type { Connection, SshKey } from "@/types";
 
 /** POSIX single-quote escaping: close the quote, insert an escaped quote, reopen it. */
@@ -9,9 +10,9 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
-export const DEFAULT_EXPORT_SCRIPT = `if test ! -e $1;
-then mkdir -p $1;
-chmod 700 $1;
+export const DEFAULT_EXPORT_SCRIPT = `if test ! -e "$1";
+then mkdir -p "$1";
+chmod 700 "$1";
 fi;
 if test ! -e "$1/$2";
 then touch "$1/$2";
@@ -40,12 +41,14 @@ export async function addKeyToHost({
   const pubKey = await getSecret(`key:${sshKey.id}:public`);
   if (!pubKey) throw new Error(i18n.t("keychain.exportPanel.publicKeyNotFoundError"));
   const trimmedPubKey = pubKey.trim();
-  // A real SSH public key is one line ("type base64 [comment]"). A multi-line
-  // value only exists if key_create accepted an unvalidated one; printf writes
-  // it verbatim, so it could smuggle a second authorized_keys line under a key
-  // the approval prompt shows only by name. Reject rather than strip — this
-  // is key material, not a label, and silently mangling it is worse.
+  // printf writes this verbatim as the file's second line, so anything that is
+  // not a real public key is attacker-chosen remote file content. Checked here,
+  // not only at key_create, so keys stored before that rule existed are caught.
+  // Reject rather than strip — this is key material, not a label.
   if (/[\r\n]/.test(trimmedPubKey)) throw new Error(i18n.t("keychain.exportPanel.multilinePublicKeyError"));
+  if (!isValidSshPublicKey(trimmedPubKey)) {
+    throw new Error(i18n.t("keychain.exportPanel.invalidPublicKeyError"));
+  }
 
   const { username, password, privateKey, passphrase } = await resolveConnectionCredentials(connection);
 
