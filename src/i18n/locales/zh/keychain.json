@@ -126,6 +126,7 @@
       "successMessage": "密钥导出成功",
       "exportingLabel": "正在导出…",
       "publicKeyNotFoundError": "未找到公钥",
+      "multilinePublicKeyError": "公钥无效——必须为单行",
       "remoteCommandFailedError": "远程命令失败：{{detail}}",
       "remoteCommandFailedUnknownError": "远程命令失败（退出代码 {{code}}）"
     },

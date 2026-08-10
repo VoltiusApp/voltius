@@ -39,6 +39,13 @@ export async function addKeyToHost({
 }: AddKeyToHostInput): Promise<void> {
   const pubKey = await getSecret(`key:${sshKey.id}:public`);
   if (!pubKey) throw new Error(i18n.t("keychain.exportPanel.publicKeyNotFoundError"));
+  const trimmedPubKey = pubKey.trim();
+  // A real SSH public key is one line ("type base64 [comment]"). A multi-line
+  // value only exists if key_create accepted an unvalidated one; printf writes
+  // it verbatim, so it could smuggle a second authorized_keys line under a key
+  // the approval prompt shows only by name. Reject rather than strip — this
+  // is key material, not a label, and silently mangling it is worse.
+  if (/[\r\n]/.test(trimmedPubKey)) throw new Error(i18n.t("keychain.exportPanel.multilinePublicKeyError"));
 
   const { username, password, privateKey, passphrase } = await resolveConnectionCredentials(connection);
 
@@ -47,7 +54,7 @@ export async function addKeyToHost({
   // chosen line into authorized_keys under a name the approval prompt never shows.
   const label = (sshKey.name ?? "SSH").replace(/[\r\n]+/g, " ");
   const comment = `# ${label} Key by Voltius`;
-  const command = `sh -c '${script}' sh ${shellQuote(location)} ${shellQuote(filename)} ${shellQuote(comment)} ${shellQuote(pubKey.trim())}`;
+  const command = `sh -c '${script}' sh ${shellQuote(location)} ${shellQuote(filename)} ${shellQuote(comment)} ${shellQuote(trimmedPubKey)}`;
   const result = await sshExecCommand({
     host: connection.host,
     port: connection.port,

@@ -126,6 +126,7 @@
       "successMessage": "Clé exportée avec succès",
       "exportingLabel": "Export en cours…",
       "publicKeyNotFoundError": "Clé publique introuvable",
+      "multilinePublicKeyError": "Clé publique invalide — elle doit tenir sur une seule ligne",
       "remoteCommandFailedError": "La commande distante a échoué : {{detail}}",
       "remoteCommandFailedUnknownError": "La commande distante a échoué (code de sortie {{code}})"
     },

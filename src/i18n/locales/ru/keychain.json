@@ -142,6 +142,7 @@
       "successMessage": "Ключ успешно экспортирован",
       "exportingLabel": "Экспорт…",
       "publicKeyNotFoundError": "Публичный ключ не найден",
+      "multilinePublicKeyError": "Публичный ключ недействителен — он должен занимать одну строку",
       "remoteCommandFailedError": "Удалённая команда завершилась с ошибкой: {{detail}}",
       "remoteCommandFailedUnknownError": "Удалённая команда завершилась с ошибкой (код выхода {{code}})"
     },
