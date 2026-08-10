@@ -1,23 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
-import type { Connection, FolderFormData, Folder } from "@/types";
+import type { Connection } from "@/types";
 import { useConnectionStore } from "@/stores/connectionStore";
-import { useFolderStore } from "@/stores/folderStore";
-import { useTeamStore } from "@/stores/teamStore";
 import { clearRememberedVars } from "@/stores/hostCommandVarsStore";
 import {
-  useEffectivePinned,
-  useEffectivePinSource,
-  nextPersonalPinValue,
-} from "@/hooks/useEffectivePinned";
-import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
-import { folderOptionsFor } from "@/utils/folderTree";
-import FolderSelector from "@/components/shared/FolderSelector";
-import TagSelector from "@/components/shared/TagSelector";
+  useVaultObjectFormShell,
+  type VaultObjectFormShell,
+} from "@/components/shared/vaultObjectForm";
 import EncodingSelector from "./EncodingSelector";
 import { HostCommandField } from "./HostCommandField";
-import { formLabelClass, formLabelStyle } from "@/components/shared/Panel";
 
 export interface ConnectionFormProps {
   initial?: Connection;
@@ -43,113 +35,10 @@ export interface ConnectionFormHandle {
   isDirty: () => boolean;
 }
 
-export interface ConnectionFormShell {
-  vaultId: string;
-  pickVault: (id: string, markDirty: () => void) => void;
-  userEditedRef: React.RefObject<boolean>;
-  folderOptions: Parameters<typeof FolderSelector>[0]["folders"];
-  saveFolder: (data: FolderFormData) => Promise<Folder>;
-  isPinned: boolean;
-  togglePin: () => void;
-}
-
-/**
- * The chrome both connection forms carry: the edited vault, the connection
- * folder options, and the pin toggle (a team object pins through the personal
- * override, a personal one through the raw flag).
- */
-export function useConnectionFormShell(initial?: Connection): ConnectionFormShell {
-  const defaultVaultId = useDefaultVaultId();
-  const [vaultId, setVaultId] = useState<string>(() => initial?.vault_id ?? defaultVaultId);
-  const vaultPickerTouched = useRef(false);
-  const userEditedRef = useRef(false);
-  const isNew = !initial;
-  useEffect(() => {
-    if (isNew && !vaultPickerTouched.current) {
-      setVaultId(defaultVaultId);
-    }
-  }, [isNew, defaultVaultId]);
-
-  const { folders, loadFolders, saveFolder } = useFolderStore();
-  const folderOptions = useMemo(() => folderOptionsFor(folders, "connection"), [folders]);
-  useEffect(() => {
-    void loadFolders();
-  }, [loadFolders]);
-
+/** The connection forms' shell: the shared chrome bound to the connection store. */
+export function useConnectionFormShell(initial?: Connection): VaultObjectFormShell {
   const pinConnection = useConnectionStore((s) => s.pinConnection);
-  const pinnable = initial ?? { id: "", pinned: false };
-  const isPinned = useEffectivePinned(pinnable, "connection");
-  const pinSource = useEffectivePinSource(pinnable, "connection");
-  const isTeamVault = useTeamStore((s) => (initial ? s.teams.some((team) => team.id === initial.vault_id) : false));
-  const togglePin = useCallback(() => {
-    if (!initial) return;
-    const next = isTeamVault ? nextPersonalPinValue(pinSource) : !isPinned;
-    pinConnection(initial.id, next).catch(() => {});
-  }, [initial, isPinned, isTeamVault, pinConnection, pinSource]);
-
-  const pickVault = useCallback((id: string, markDirty: () => void) => {
-    vaultPickerTouched.current = true;
-    setVaultId(id);
-    markDirty();
-  }, []);
-
-  return {
-    vaultId,
-    pickVault,
-    userEditedRef,
-    folderOptions,
-    saveFolder,
-    isPinned,
-    togglePin,
-  };
-}
-
-interface TagsAndFolderFieldsProps {
-  shell: ConnectionFormShell;
-  tags: string[];
-  onChangeTags: (next: string[]) => void;
-  folderId: string | null;
-  onChangeFolderId: (id: string | null) => void;
-  markDirty: () => void;
-}
-
-/** The tags + connection-folder pair at the bottom of both forms' General section. */
-export function TagsAndFolderFields({
-  shell,
-  tags,
-  onChangeTags,
-  folderId,
-  onChangeFolderId,
-  markDirty,
-}: TagsAndFolderFieldsProps) {
-  const { t } = useTranslation();
-  const { vaultId, folderOptions, saveFolder } = shell;
-  return (
-    <>
-      <div>
-        <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.tags")}</label>
-        <TagSelector
-          value={tags}
-          vaultId={vaultId}
-          onChange={(next) => { markDirty(); onChangeTags(next); }}
-        />
-      </div>
-      <div>
-        <label className={formLabelClass} style={formLabelStyle}>{t("connections.common.folder")}</label>
-        <FolderSelector
-          value={folderId}
-          folders={folderOptions}
-          onChange={(id) => { markDirty(); onChangeFolderId(id); }}
-          onCreateFolder={async (name) => {
-            const folder = await saveFolder({ name, object_type: "connection", vault_id: resolveVaultIdForSave(vaultId) || undefined });
-            markDirty();
-            onChangeFolderId(folder.id);
-            return folder.id;
-          }}
-        />
-      </div>
-    </>
-  );
+  return useVaultObjectFormShell({ initial, folderType: "connection", objectType: "connection", pin: pinConnection });
 }
 
 interface AdvancedDisclosureProps {

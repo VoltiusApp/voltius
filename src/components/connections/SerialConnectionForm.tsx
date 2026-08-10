@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ConnectionFormData } from "@/types";
 import { useAutosave } from "@/hooks/useAutosave";
@@ -19,12 +19,12 @@ import {
 import { Pills } from "@/components/shared/Pills";
 import { FormSelect } from "@/components/shared/FormSelect";
 import { PortInput } from "@/components/shared/PortInput";
+import { TagsAndFolderFields } from "@/components/shared/vaultObjectForm";
 import {
   AdvancedDisclosure,
   HostCommandFields,
   hostCommandFieldsSet,
   useHostCommandFields,
-  TagsAndFolderFields,
   useConnectionFormShell,
   type ConnectionFormHandle,
   type ConnectionFormProps,
@@ -67,7 +67,8 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProp
   const [availablePorts, setAvailablePorts] = useState<{ name: string; path: string }[]>([]);
 
   const shell = useConnectionFormShell(initial);
-  const { vaultId, pickVault, userEditedRef, isPinned, togglePin } = shell;
+  const { vaultId, pickVault, isPinned, togglePin } = shell;
+  const userEditedRef = useRef(false);
 
   useEffect(() => {
     serialListPorts()
@@ -170,6 +171,8 @@ const SerialConnectionForm = forwardRef<ConnectionFormHandle, ConnectionFormProp
             </div>
             <TagsAndFolderFields
               shell={shell}
+              tPrefix="connections.common"
+              folderType="connection"
               tags={tags}
               onChangeTags={setTags}
               folderId={folderId}

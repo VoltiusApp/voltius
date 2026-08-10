@@ -9,11 +9,12 @@ import { useConnectionStore } from "@/stores/connectionStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
-import { useFolderStore } from "@/stores/folderStore";
-import { folderOptionsFor } from "@/utils/folderTree";
-import FolderSelector from "@/components/shared/FolderSelector";
-import TagSelector from "@/components/shared/TagSelector";
-import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
+import { resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
+import {
+  SecretInput,
+  TagsAndFolderFields,
+  useVaultObjectFormShell,
+} from "@/components/shared/vaultObjectForm";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import { storeSecret, getSecret } from "@/services/vault";
 import {
@@ -24,17 +25,11 @@ import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useTeamStore } from "@/stores/teamStore";
-import {
-  useEffectivePinned,
-  useEffectivePinSource,
-  nextPersonalPinValue,
-} from "@/hooks/useEffectivePinned";
 import { KeyFileDropZone } from "./KeyForm";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import type { AuthType, Connection, Identity, IdentityFormData } from "@/types";
-import { vaultMenuItems } from "@/utils/vaultMenuItems";
-import { getShortcutHint } from "@/stores/shortcutStore";
+import { buildKeychainMenuItems } from "@/utils/keychainMenuItems";
 import { selectVaultScopedItems } from "@/utils/vaultScopedItems";
 
 // ─────────────────────────────────────────────────────────────────
@@ -204,10 +199,8 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
   const { connections, loadConnections, updateConnection } = useConnectionStore();
   const { setActiveNav, setHomePendingAction } = useUIStore();
   const pinIdentity = useIdentityStore((s) => s.pinIdentity);
-  const effPinned = useEffectivePinned(initial ?? { id: "", pinned: false }, "identity");
-  const pinSource = useEffectivePinSource(initial ?? { id: "", pinned: false }, "identity");
-  const isPinned = effPinned;
-  const isTeamVault = useTeamStore((s) => initial ? s.teams.some((t) => t.id === initial.vault_id) : false);
+  const shell = useVaultObjectFormShell({ initial, folderType: "keychain", objectType: "identity", pin: pinIdentity });
+  const { vaultId, pickVault, isPinned, togglePin } = shell;
   const contributions = useUIContributions("identity.panelActions", initial);
   const { toggleExcluded, isObjectSynced } = useSyncPrefsStore();
   const isSynced = initial ? isObjectSynced(initial.id, "identity") : true;
@@ -218,21 +211,10 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
   const [showPassword, setShowPassword] = useState(false);
   const [keyId, setKeyId] = useState<string | null | "__inline__">(initial?.key_id ?? null);
   const [folderId, setFolderId] = useState<string | null>(initial?.folder_id ?? null);
-  const defaultVaultId = useDefaultVaultId();
-  const [vaultId, setVaultId] = useState<string>(() => initial?.vault_id ?? defaultVaultId);
-  const isNew = !initial;
-  const vaultPickerTouched = useRef(false);
-  useEffect(() => {
-    if (isNew && !vaultPickerTouched.current) {
-      setVaultId(defaultVaultId);
-    }
-  }, [isNew, defaultVaultId]);
   const [inlineKeyLabel, setInlineKeyLabel] = useState("");
   const [inlinePrivKey, setInlinePrivKey] = useState("");
   const [inlinePublicKey, setInlinePublicKey] = useState("");
   const passwordDirty = useRef(false);
-  const { folders, loadFolders, saveFolder } = useFolderStore();
-  const folderOptions = useMemo(() => folderOptionsFor(folders, "keychain"), [folders]);
 
   const linkedHosts = useMemo(
     () => (initial ? connections.filter((c) => c.identity_id === initial.id) : []),
@@ -265,7 +247,6 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
   useEffect(() => {
     void loadKeys();
     void loadConnections();
-    void loadFolders();
   }, []);
 
   useEffect(() => {
@@ -318,30 +299,24 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
       <PanelHeader
         icon={initial ? "lucide:pencil" : "lucide:plus"}
         title={initial ? t("keychain.identityForm.titleEdit") : t("keychain.toolbar.newIdentity")}
-        subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => { vaultPickerTouched.current = true; setVaultId(id); markDirty(); }} />}
+        subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => pickVault(id, markDirty)} />}
         onClose={handleClose}
         saveState={saveState}
         actions={initial ? (() => {
-          const items = [
-            ...contributions.map((a) => ({ ...a, icon: a.icon ?? "lucide:chevron-right" })),
-            ...vaultMenuItems(vaults, canEdit, onMoveToVault, onCopyToVault, t),
-            {
-              label: isSynced ? t("keychain.common.disableCloudSync") : t("keychain.common.enableCloudSync"),
-              icon: isSynced ? "lucide:cloud-off" : "lucide:cloud",
-              onClick: () => toggleExcluded(initial.id),
-              divider: true,
-            },
-            ...(onDelete ? [{ label: t("common.action.delete"), icon: "lucide:trash-2", onClick: () => { onDelete(initial.id); onClose(); }, danger: true, divider: false, shortcut: getShortcutHint("delete") }] : []),
-          ];
+          const items = buildKeychainMenuItems({
+            t,
+            contributions,
+            vaults,
+            canEdit,
+            isSynced,
+            onMoveToVault,
+            onCopyToVault,
+            onToggleSync: () => toggleExcluded(initial.id),
+            onDelete: onDelete ? () => { onDelete(initial.id); onClose(); } : undefined,
+          });
           return (
             <>
-              <PinButton pinned={isPinned} onToggle={() => {
-                if (!isTeamVault) {
-                  pinIdentity(initial.id, !isPinned).catch(() => {});
-                } else {
-                  pinIdentity(initial.id, nextPersonalPinValue(pinSource)).catch(() => {});
-                }
-              }} />
+              <PinButton pinned={isPinned} onToggle={togglePin} />
               {items.length > 0 && <PanelActionsMenu items={items} />}
             </>
           );
@@ -359,28 +334,16 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
               placeholder={t("keychain.identityForm.namePlaceholder")}
             />
           </div>
-          <div>
-            <label className={formLabelClass} style={formLabelStyle}>{t("keychain.common.tags")}</label>
-            <TagSelector
-              value={tags}
-              vaultId={vaultId}
-              onChange={(next) => { markDirty(); setTags(next); }}
-            />
-          </div>
-          <div>
-            <label className={formLabelClass} style={formLabelStyle}>{t("keychain.common.folder")}</label>
-            <FolderSelector
-              value={folderId}
-              folders={folderOptions}
-              onChange={(id) => { markDirty(); setFolderId(id); }}
-              onCreateFolder={async (name) => {
-                const folder = await saveFolder({ name, object_type: "keychain", vault_id: resolveVaultIdForSave(vaultId) || undefined });
-                markDirty();
-                setFolderId(folder.id);
-                return folder.id;
-              }}
-            />
-          </div>
+          <TagsAndFolderFields
+            shell={shell}
+            tPrefix="keychain.common"
+            folderType="keychain"
+            tags={tags}
+            onChangeTags={setTags}
+            folderId={folderId}
+            onChangeFolderId={setFolderId}
+            markDirty={markDirty}
+          />
         </FormSection>
 
         <FormSection label={t("keychain.identityForm.sectionCredentials")}>
@@ -399,26 +362,13 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
 
           <div>
             <label className={formLabelClass} style={formLabelStyle}>{t("keychain.common.password")}</label>
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                className={`${formInputClass} pr-9`}
-                style={formInputStyle}
-                value={password}
-                onChange={(e) => { markDirty(); passwordDirty.current = true; setPassword(e.target.value); }}
-                placeholder="••••••••"
-              />
-              <button
-                type="button"
-                onClick={handleTogglePassword}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-(--t-text-dim)"
-                onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
-                tabIndex={-1}
-              >
-                <Icon icon={showPassword ? "lucide:eye-off" : "lucide:eye"} width={14} />
-              </button>
-            </div>
+            <SecretInput
+              value={password}
+              onChange={(v) => { markDirty(); passwordDirty.current = true; setPassword(v); }}
+              placeholder="••••••••"
+              show={showPassword}
+              onToggleShow={handleTogglePassword}
+            />
           </div>
 
           <div>

@@ -10,23 +10,17 @@ import {
 import { PanelActionsMenu } from "@/components/shared/PanelActionsMenu";
 import { PinButton } from "@/components/shared/PinButton";
 import { useKeyStore } from "@/stores/keyStore";
-import { useTeamStore } from "@/stores/teamStore";
-import {
-  useEffectivePinned,
-  useEffectivePinSource,
-  nextPersonalPinValue,
-} from "@/hooks/useEffectivePinned";
 import { useUIContributions } from "@/hooks/useUIContributions";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
-import { useFolderStore } from "@/stores/folderStore";
-import { folderOptionsFor } from "@/utils/folderTree";
-import FolderSelector from "@/components/shared/FolderSelector";
-import TagSelector from "@/components/shared/TagSelector";
-import { useDefaultVaultId, resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
+import { resolveVaultIdForSave } from "@/hooks/useWritableVaultIds";
+import {
+  SecretInput,
+  TagsAndFolderFields,
+  useVaultObjectFormShell,
+} from "@/components/shared/vaultObjectForm";
 import { VaultPicker } from "@/components/shared/VaultPicker";
 import type { SshKey, SshKeyFormData } from "@/types";
-import { vaultMenuItems } from "@/utils/vaultMenuItems";
-import { getShortcutHint } from "@/stores/shortcutStore";
+import { buildKeychainMenuItems } from "@/utils/keychainMenuItems";
 import { detectKeyInfo } from "./keyDetection";
 import { KeyFileDropZone } from "./KeyFileDropZone";
 import { KeyGenFields } from "./KeyGenFields";
@@ -95,23 +89,15 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
   const [passphrase, setPassphrase] = useState("");
   const [showPassphrase, setShowPassphrase] = useState(false);
   const [folderId, setFolderId] = useState<string | null>(initial?.folder_id ?? null);
-  const defaultVaultId = useDefaultVaultId();
-  const [vaultId, setVaultId] = useState<string>(() => initial?.vault_id ?? defaultVaultId);
   const isNew = !initial;
   const [mode, setMode] = useState<KeyFormMode>(initial ? "import" : (initialMode ?? "import"));
   const keyInfo = useMemo(() => detectKeyInfo(privateKey, publicKey), [privateKey, publicKey]);
   const privateKeyDirty = useRef(false);
   const publicKeyDirty = useRef(false);
   const passphraseDirty = useRef(false);
-  const { folders, loadFolders, saveFolder } = useFolderStore();
-  const folderOptions = useMemo(() => folderOptionsFor(folders, "keychain"), [folders]);
-
-  const vaultPickerTouched = useRef(false);
-  useEffect(() => {
-    if (isNew && !vaultPickerTouched.current) {
-      setVaultId(defaultVaultId);
-    }
-  }, [isNew, defaultVaultId]);
+  const pinKey = useKeyStore((s) => s.pinKey);
+  const shell = useVaultObjectFormShell({ initial, folderType: "keychain", objectType: "key", pin: pinKey });
+  const { vaultId, pickVault, isPinned, togglePin } = shell;
 
   useEffect(() => {
     if (!initial) return;
@@ -125,13 +111,6 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
     })();
   }, [initial?.id]);
 
-  useEffect(() => { void loadFolders(); }, [loadFolders]);
-
-  const pinKey = useKeyStore((s) => s.pinKey);
-  const effPinned = useEffectivePinned(initial ?? { id: "", pinned: false }, "key");
-  const pinSource = useEffectivePinSource(initial ?? { id: "", pinned: false }, "key");
-  const isPinned = effPinned;
-  const isTeamVault = useTeamStore((s) => initial ? s.teams.some((t) => t.id === initial.vault_id) : false);
   const contributions = useUIContributions("key.panelActions", initial);
   const { toggleExcluded, isObjectSynced } = useSyncPrefsStore();
   const isSynced = initial ? isObjectSynced(initial.id, "key") : true;
@@ -176,31 +155,25 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
       <PanelHeader
         icon={initial ? "lucide:pencil" : "lucide:plus"}
         title={initial ? t("keychain.keyForm.titleEdit") : t("keychain.toolbar.newKey")}
-        subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => { vaultPickerTouched.current = true; setVaultId(id); markDirty(); }} />}
+        subtitle={<VaultPicker vaultId={vaultId} onChange={(id) => pickVault(id, markDirty)} />}
         onClose={handleClose}
         saveState={saveState}
         actions={initial ? (() => {
-          const items = [
-            ...(onExport ? [{ label: t("keychain.common.addToHost"), icon: "lucide:square-arrow-right", onClick: () => onExport(initial) }] : []),
-            ...contributions.map((a, i) => ({ ...a, icon: a.icon ?? "lucide:chevron-right", divider: i === 0 && !!onExport })),
-            ...vaultMenuItems(vaults, canEdit, onMoveToVault, onCopyToVault, t),
-            {
-              label: isSynced ? t("keychain.common.disableCloudSync") : t("keychain.common.enableCloudSync"),
-              icon: isSynced ? "lucide:cloud-off" : "lucide:cloud",
-              onClick: () => toggleExcluded(initial.id),
-              divider: true,
-            },
-            ...(onDelete ? [{ label: t("common.action.delete"), icon: "lucide:trash-2", onClick: () => { onDelete(initial.id); onClose(); }, danger: true, divider: false, shortcut: getShortcutHint("delete") }] : []),
-          ];
+          const items = buildKeychainMenuItems({
+            t,
+            contributions,
+            vaults,
+            canEdit,
+            isSynced,
+            onMoveToVault,
+            onCopyToVault,
+            onToggleSync: () => toggleExcluded(initial.id),
+            onDelete: onDelete ? () => { onDelete(initial.id); onClose(); } : undefined,
+            leading: onExport ? [{ label: t("keychain.common.addToHost"), icon: "lucide:square-arrow-right", onClick: () => onExport(initial) }] : [],
+          });
           return (
             <>
-              <PinButton pinned={isPinned} onToggle={() => {
-                if (!isTeamVault) {
-                  pinKey(initial.id, !isPinned).catch(() => {});
-                } else {
-                  pinKey(initial.id, nextPersonalPinValue(pinSource)).catch(() => {});
-                }
-              }} />
+              <PinButton pinned={isPinned} onToggle={togglePin} />
               {items.length > 0 && <PanelActionsMenu items={items} />}
             </>
           );
@@ -221,28 +194,16 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
               placeholder={`${keyInfo.type ?? "SSH Key"} · ${new Date().toLocaleDateString()}`}
             />
           </div>
-          <div>
-            <label className={formLabelClass} style={formLabelStyle}>{t("keychain.common.tags")}</label>
-            <TagSelector
-              value={tags}
-              vaultId={vaultId}
-              onChange={(next) => { markDirty(); setTags(next); }}
-            />
-          </div>
-          <div>
-            <label className={formLabelClass} style={formLabelStyle}>{t("keychain.common.folder")}</label>
-            <FolderSelector
-              value={folderId}
-              folders={folderOptions}
-              onChange={(id) => { markDirty(); setFolderId(id); }}
-              onCreateFolder={async (name) => {
-                const folder = await saveFolder({ name, object_type: "keychain", vault_id: resolveVaultIdForSave(vaultId) || undefined });
-                markDirty();
-                setFolderId(folder.id);
-                return folder.id;
-              }}
-            />
-          </div>
+          <TagsAndFolderFields
+            shell={shell}
+            tPrefix="keychain.common"
+            folderType="keychain"
+            tags={tags}
+            onChangeTags={setTags}
+            folderId={folderId}
+            onChangeFolderId={setFolderId}
+            markDirty={markDirty}
+          />
         </FormSection>
 
         {isNew && <ModeToggle mode={mode} onChange={setMode} />}
@@ -291,27 +252,14 @@ export function KeyForm({ initial, initialMode, onSubmit, onClose, onExport, onD
               <label className={formLabelClass} style={formLabelStyle}>
                 {t("keychain.common.passphrase")} <span className="text-(--t-text-dim) font-normal">{t("keychain.common.optional")}</span>
               </label>
-              <div className="relative">
-                <input
-                  type={showPassphrase ? "text" : "password"}
-                  className={`${formInputClass} pr-9`}
-                  style={formInputStyle}
-                  value={passphrase}
-                  onChange={(e) => { markDirty(); passphraseDirty.current = true; setPassphrase(e.target.value); }}
-                  placeholder={t("keychain.keyForm.keyPassphrasePlaceholder")}
-                  autoComplete="new-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassphrase((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-(--t-text-dim)"
-                  onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
-                  tabIndex={-1}
-                >
-                  <Icon icon={showPassphrase ? "lucide:eye-off" : "lucide:eye"} width={14} />
-                </button>
-              </div>
+              <SecretInput
+                value={passphrase}
+                onChange={(v) => { markDirty(); passphraseDirty.current = true; setPassphrase(v); }}
+                placeholder={t("keychain.keyForm.keyPassphrasePlaceholder")}
+                show={showPassphrase}
+                onToggleShow={() => setShowPassphrase((v) => !v)}
+                autoComplete="new-password"
+              />
             </div>
             <div>
               <label className={formLabelClass} style={formLabelStyle}>

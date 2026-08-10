@@ -40,12 +40,12 @@ import {
   formLabelClass,
   formLabelStyle,
 } from "@/components/shared/Panel";
+import { SecretInput, TagsAndFolderFields } from "@/components/shared/vaultObjectForm";
 import {
   AdvancedDisclosure,
   HostCommandFields,
   hostCommandFieldsSet,
   useHostCommandFields,
-  TagsAndFolderFields,
   useConnectionFormShell,
   type ConnectionFormHandle,
   type ConnectionFormProps,
@@ -103,7 +103,8 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
   const hasAdvanced = !!(initial?.jump_hosts?.length || initial?.env_vars?.length || initial?.pre_command || initial?.post_command || initial?.pre_snippet_id || initial?.post_snippet_id || initial?.terminal_encoding || initial?.agent_forwarding || initial?.legacy_algorithms || initial?.ping_disabled || initial?.shell_integration !== undefined || initial?.keepalive_preset || initial?.persist_session !== undefined);
   const [showAdvanced, setShowAdvanced] = useState(hasAdvanced);
   const shell = useConnectionFormShell(initial);
-  const { vaultId, pickVault, userEditedRef, isPinned, togglePin } = shell;
+  const { vaultId, pickVault, isPinned, togglePin } = shell;
+  const userEditedRef = useRef(false);
   const prevVaultIdRef = useRef(vaultId);
   const passwordDirty = useRef(false);
   const privateKeyDirty = useRef(false);
@@ -424,6 +425,8 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
             </div>
             <TagsAndFolderFields
               shell={shell}
+              tPrefix="connections.common"
+              folderType="connection"
               tags={tags}
               onChangeTags={setTags}
               folderId={folderId}
@@ -730,40 +733,3 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
 
 export default ConnectionForm;
 export type { ConnectionFormHandle };
-
-function SecretInput({
-  value,
-  onChange,
-  placeholder,
-  show,
-  onToggleShow,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-  show: boolean;
-  onToggleShow: () => void;
-}) {
-  return (
-    <div className="relative">
-      <input
-        type={show ? "text" : "password"}
-        className={`${formInputClass} pr-9`}
-        style={formInputStyle}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-      />
-      <button
-        type="button"
-        onClick={onToggleShow}
-        className="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors text-(--t-text-dim)"
-        onMouseEnter={(e) => { e.currentTarget.style.color = "var(--t-text-primary)"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.color = "var(--t-text-dim)"; }}
-        tabIndex={-1}
-      >
-        <Icon icon={show ? "lucide:eye-off" : "lucide:eye"} width={14} />
-      </button>
-    </div>
-  );
-}
