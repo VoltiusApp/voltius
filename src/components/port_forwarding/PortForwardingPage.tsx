@@ -41,6 +41,7 @@ import { RuleForm } from "./RuleForm";
 import type { Folder, PortForwardingRule, PortForwardingRuleFormData } from "@/types";
 import type { LayoutMode, SortMode } from "@/components/shared/ToolbarViewControls";
 import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
+import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
 import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
@@ -240,13 +241,12 @@ export function PortForwardingPage() {
   const getRulesInFolderTree = (folderId: string): PortForwardingRule[] =>
     itemsInFolderSubtree(rules, scopedFolders, folderId);
 
-  /** Warns about the cascade: subfolders and every rule nested under them go too. */
-  const folderDeleteMessage = (folderId: string): string => {
-    const count = getRulesInFolderTree(folderId).length;
-    return count === 0
-      ? t("portForwarding.page.confirmDeleteFolder.messageEmpty")
-      : t("portForwarding.page.confirmDeleteFolder.message", { count });
-  };
+  const { folderDeleteMessage } = folderDeleteMessages({
+    t,
+    prefix: "portForwarding.page",
+    folders: scopedFolders,
+    itemIdsInFolderTree: (id) => getRulesInFolderTree(id).map((r) => r.id),
+  });
 
   const handleMoveFolderToVault = (folder: Folder, vaultId: string) => {
     const subFolders = getAllSubFolders(folder.id);

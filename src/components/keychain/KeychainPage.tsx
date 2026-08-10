@@ -55,6 +55,7 @@ import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultC
 import { getShortcutHint } from "@/stores/shortcutStore";
 import { clipboardMenuItems } from "@/utils/clipboardMenuItems";
 import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
+import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
 import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
@@ -869,25 +870,12 @@ export default function KeychainPage() {
     ...identitiesInFolderTree(folderId).map((i) => i.id),
   ];
 
-  /** Warns about the cascade: subfolders and every key/identity under them go too. */
-  const folderDeleteMessage = (folderId: string): string => {
-    const count = getItemsInFolderTree(folderId).length;
-    return count === 0
-      ? t("keychain.page.confirmDeleteFolder.messageEmpty")
-      : t("keychain.page.confirmDeleteFolder.message", { count });
-  };
-
-  /** A selection that includes folders drags their contents down with it. */
-  const bulkDeleteMessage = (ids: string[]): string => {
-    const base = t("keychain.page.confirmDelete.message", { count: ids.length });
-    const nested = new Set(
-      ids.filter((id) => scopedFolders.some((f) => f.id === id)).flatMap(getItemsInFolderTree),
-    );
-    for (const id of ids) nested.delete(id);
-    return nested.size === 0
-      ? base
-      : `${base} ${t("keychain.page.confirmDelete.folderCascade", { count: nested.size })}`;
-  };
+  const { folderDeleteMessage, bulkDeleteMessage } = folderDeleteMessages({
+    t,
+    prefix: "keychain.page",
+    folders: scopedFolders,
+    itemIdsInFolderTree: getItemsInFolderTree,
+  });
 
   const handleMoveFolderToVault = (folder: Folder, vaultId: string) => {
     const subFolders = getAllSubFolders(folder.id);

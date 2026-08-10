@@ -57,6 +57,7 @@ import { buildTeamVaultTransferPlan, type TransferOperation } from "@/services/t
 import { useSnippetRecentStore, type RecentSnippetExecution, type RecentTarget } from "@/stores/snippetRecentStore";
 import { selectRecentSnippetEntries } from "@/utils/snippetRecent";
 import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
+import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
@@ -907,27 +908,12 @@ export function SnippetsPage() {
     return itemsInFolderSubtree(snippets, folders, folderId);
   }
 
-  /** Warns about the cascade: subfolders and every snippet nested under them go too. */
-  function folderDeleteMessage(folderId: string): string {
-    const count = getSnippetsInFolderTree(folderId).length;
-    return count === 0
-      ? t("snippets.page.confirmDeleteFolder.messageEmpty")
-      : t("snippets.page.confirmDeleteFolder.message", { count });
-  }
-
-  /** A selection that includes folders drags their contents down with it. */
-  function bulkDeleteMessage(ids: string[]): string {
-    const base = t("snippets.page.confirmDelete.message", { count: ids.length });
-    const nested = new Set(
-      ids
-        .filter((id) => folders.some((f) => f.id === id))
-        .flatMap((id) => getSnippetsInFolderTree(id).map((s) => s.id)),
-    );
-    for (const id of ids) nested.delete(id);
-    return nested.size === 0
-      ? base
-      : `${base} ${t("snippets.page.confirmDelete.folderCascade", { count: nested.size })}`;
-  }
+  const { folderDeleteMessage, bulkDeleteMessage } = folderDeleteMessages({
+    t,
+    prefix: "snippets.page",
+    folders,
+    itemIdsInFolderTree: (id) => getSnippetsInFolderTree(id).map((s) => s.id),
+  });
 
   async function handleMoveFolderToVault(folder: Folder, vaultId: string) {
     try {

@@ -67,6 +67,7 @@ import {
 } from "@/services/vaultObjectSecrets";
 import { saveHostFromForm } from "@/services/hostForm";
 import { descendantFolders, itemsInFolderSubtree } from "@/utils/folderTree";
+import { folderDeleteMessages } from "@/utils/folderDeleteMessages";
 import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
 import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
@@ -1015,27 +1016,12 @@ export default function HostsPage() {
   const getConnectionsInFolderTree = (folderId: string): Connection[] =>
     itemsInFolderSubtree(connections, scopedFolders, folderId);
 
-  /** Warns about the cascade: subfolders and every host nested under them go too. */
-  const folderDeleteMessage = (folderId: string): string => {
-    const count = getConnectionsInFolderTree(folderId).length;
-    return count === 0
-      ? t("hosts.page.confirmDeleteFolder.messageEmpty")
-      : t("hosts.page.confirmDeleteFolder.message", { count });
-  };
-
-  /** A selection that includes folders drags their contents down with it. */
-  const bulkDeleteMessage = (ids: string[]): string => {
-    const base = t("hosts.page.confirmDelete.message", { count: ids.length });
-    const nested = new Set(
-      ids
-        .filter((id) => scopedFolders.some((f) => f.id === id))
-        .flatMap((id) => getConnectionsInFolderTree(id).map((c) => c.id)),
-    );
-    for (const id of ids) nested.delete(id);
-    return nested.size === 0
-      ? base
-      : `${base} ${t("hosts.page.confirmDelete.folderCascade", { count: nested.size })}`;
-  };
+  const { folderDeleteMessage, bulkDeleteMessage } = folderDeleteMessages({
+    t,
+    prefix: "hosts.page",
+    folders: scopedFolders,
+    itemIdsInFolderTree: (id) => getConnectionsInFolderTree(id).map((c) => c.id),
+  });
 
   const handleMoveFolderToVault = (folder: Folder, vaultId: string) => {
     const subFolders = getAllSubFolders(folder.id);
