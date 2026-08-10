@@ -901,12 +901,12 @@
       },
       "persistentSessions": {
         "title": "Sessions persistantes",
-        "desc": "Maintient votre shell et vos processus actifs lors des déconnexions en enveloppant le shell distant dans tmux (repli sur screen). Nécessite tmux ou screen sur l'hôte. Peut être remplacé par hôte."
+        "desc": "Maintient votre shell et vos processus actifs lors des déconnexions en enveloppant le shell distant dans tmux (repli sur screen). Nécessite tmux ou screen sur l'hôte. Peut être remplacé par hôte, sous Avancé dans les paramètres de la connexion."
       },
       "terminalTitle": "Terminal",
       "shellIntegration": {
         "title": "Intégration du shell",
-        "desc": "Accroche le shell distant/local pour signaler son répertoire de travail (OSC 7) pour les panneaux de fichiers sensibles au répertoire courant. Si la bannière d'accueil ou l'invite d'un hôte semble incorrecte, désactivez-la là-bas. Peut être désactivé par hôte dans les paramètres de l'hôte."
+        "desc": "Accroche le shell distant/local pour signaler son répertoire de travail (OSC 7) pour les panneaux de fichiers sensibles au répertoire courant. Si la bannière d'accueil ou l'invite d'un hôte semble incorrecte, désactivez-la là-bas. Peut être désactivé par hôte, sous Avancé dans les paramètres de la connexion."
       },
       "teamPresenceTitle": "Présence d'équipe",
       "teamPresence": {

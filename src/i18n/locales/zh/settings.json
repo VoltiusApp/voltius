@@ -827,12 +827,12 @@
       },
       "persistentSessions": {
         "title": "持久会话",
-        "desc": "通过在远程 shell 中包裹 tmux 来保持您的 shell 和运行中的进程在断线后存活（回退到 screen）。需要在主机上安装 tmux 或 screen。可以在每台主机上覆盖。"
+        "desc": "通过在远程 shell 中包裹 tmux 来保持您的 shell 和运行中的进程在断线后存活（回退到 screen）。需要在主机上安装 tmux 或 screen。可以在连接设置的“高级”中按主机覆盖。"
       },
       "terminalTitle": "终端",
       "shellIntegration": {
         "title": "Shell 集成",
-        "desc": "挂钩远程/本地 shell 以报告其工作目录（OSC 7），用于 cwd 感知的文件面板。如果主机的欢迎横幅或提示符看起来不正确，请在那里禁用。可以在主机的设置中禁用。"
+        "desc": "挂钩远程/本地 shell 以报告其工作目录（OSC 7），用于 cwd 感知的文件面板。如果主机的欢迎横幅或提示符看起来不正确，请在那里禁用。可以在连接设置的“高级”中按主机禁用。"
       },
       "teamPresenceTitle": "团队在线状态",
       "teamPresence": {

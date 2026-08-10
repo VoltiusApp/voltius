@@ -901,12 +901,12 @@
       },
       "persistentSessions": {
         "title": "Persistent sessions",
-        "desc": "Keep your shell and running processes alive across disconnects by wrapping the remote shell in tmux (falls back to screen). Requires tmux or screen on the host. Can be overridden per host."
+        "desc": "Keep your shell and running processes alive across disconnects by wrapping the remote shell in tmux (falls back to screen). Requires tmux or screen on the host. Can be overridden per host, under Advanced in the connection's settings."
       },
       "terminalTitle": "Terminal",
       "shellIntegration": {
         "title": "Shell integration",
-        "desc": "Hooks the remote/local shell to report its working directory (OSC 7) for cwd-aware file panels. If a host's welcome banner or prompt looks wrong, disable it there. Can be disabled per host in the host's settings."
+        "desc": "Hooks the remote/local shell to report its working directory (OSC 7) for cwd-aware file panels. If a host's welcome banner or prompt looks wrong, disable it there. Can be disabled per host, under Advanced in the connection's settings."
       },
       "teamPresenceTitle": "Team presence",
       "teamPresence": {
