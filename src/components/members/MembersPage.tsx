@@ -36,17 +36,8 @@ import { useTeamVaultStateStore } from "@/stores/teamVaultStateStore";
 import { RoleModal, PERM_META, TeamRolesPanel } from "@/components/settings/sections/RolesSection";
 import { seatAvailability } from "@/services/seatMath";
 import { SeatsMeter } from "@/components/members/SeatsMeter";
+import { ROLE_META, RoleToggleChip } from "@/components/members/roleChips";
 import { useUserSearch } from "@/hooks/useUserSearch";
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const ROLE_META: Record<string, { label: string; color: string; bg: string }> = {
-  owner:          { label: "Owner",        color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
-  manager:        { label: "Manager",      color: "#60a5fa", bg: "rgba(96,165,250,0.12)"  },
-  editor:         { label: "Editor",       color: "#34d399", bg: "rgba(52,211,153,0.12)"  },
-  member:         { label: "Member",       color: "var(--t-text-secondary)", bg: "var(--t-bg-elevated)" },
-  "connect-only": { label: "Connect-Only", color: "#f59e0b", bg: "rgba(245,158,11,0.12)"  },
-};
 
 function RoleChip({ role }: { role: TeamRole }) {
   const { t } = useTranslation();
@@ -824,25 +815,14 @@ export function InvitePanel({ teamId, existingIds, teamRoles, onClose, onMemberA
           {/* Role selector */}
           <FormSection label={t("members.invite.initialRoles")}>
             <div className="flex flex-wrap gap-2">
-              {builtinRoles.map((r) => {
-                const meta = ROLE_META[r.name];
-                const isActive = selectedRoleIds.includes(r.id);
-                return (
-                  <button
-                    key={r.id}
-                    onClick={() => toggleRole(r.id)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                    style={{
-                      background: isActive ? (meta?.bg ?? "var(--t-bg-elevated)") : "var(--t-bg-elevated)",
-                      color: isActive ? (meta?.color ?? "var(--t-accent)") : "var(--t-text-dim)",
-                      border: `1px solid ${isActive ? `${meta?.color ?? "var(--t-accent)"}44` : "var(--t-border)"}`,
-                    }}
-                  >
-                    {isActive && <Icon icon="lucide:check" width={9} />}
-                    {r.name}
-                  </button>
-                );
-              })}
+              {builtinRoles.map((r) => (
+                <RoleToggleChip
+                  key={r.id}
+                  name={r.name}
+                  active={selectedRoleIds.includes(r.id)}
+                  onClick={() => toggleRole(r.id)}
+                />
+              ))}
             </div>
           </FormSection>
 
@@ -930,25 +910,14 @@ function PrivateVaultInvitePanel({
         {/* Role selector */}
         <FormSection label={t("members.invite.initialRole")}>
           <div className="flex flex-wrap gap-2">
-            {PRIVATE_VAULT_ROLES.map((name) => {
-              const meta = ROLE_META[name];
-              const isActive = selectedRole === name;
-              return (
-                <button
-                  key={name}
-                  onClick={() => setSelectedRole(name)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                  style={{
-                    background: isActive ? (meta?.bg ?? "var(--t-bg-elevated)") : "var(--t-bg-elevated)",
-                    color: isActive ? (meta?.color ?? "var(--t-accent)") : "var(--t-text-dim)",
-                    border: `1px solid ${isActive ? `${meta?.color ?? "var(--t-accent)"}44` : "var(--t-border)"}`,
-                  }}
-                >
-                  {isActive && <Icon icon="lucide:check" width={9} />}
-                  {name}
-                </button>
-              );
-            })}
+            {PRIVATE_VAULT_ROLES.map((name) => (
+              <RoleToggleChip
+                key={name}
+                name={name}
+                active={selectedRole === name}
+                onClick={() => setSelectedRole(name)}
+              />
+            ))}
           </div>
         </FormSection>
 
@@ -1664,26 +1633,17 @@ const vaultTabs = selectedVaultIds.length > 1
             {/* Role filter bar */}
             {teamRoles.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5">
-                {[...teamRoles].sort((a, b) => a.position - b.position).map((r) => {
-                  const active = roleFilter.includes(r.id);
-                  const meta = ROLE_META[r.name];
-                  const color = r.color ?? meta?.color ?? avatarColor(r.name);
-                  const bg = meta?.bg ?? `${color}1a`;
-                  return (
-                    <button
-                      key={r.id}
-                      onClick={() => setRoleFilter((prev) => prev.includes(r.id) ? prev.filter((id) => id !== r.id) : [...prev, r.id])}
-                      className="text-[10px] px-2 py-0.5 rounded-full font-medium transition-all"
-                      style={{
-                        background: active ? bg : "var(--t-bg-elevated)",
-                        color: active ? color : "var(--t-text-dim)",
-                        border: `1px solid ${active ? `${color}44` : "var(--t-border)"}`,
-                      }}
-                    >
-                      {r.name}
-                    </button>
-                  );
-                })}
+                {[...teamRoles].sort((a, b) => a.position - b.position).map((r) => (
+                  <RoleToggleChip
+                    key={r.id}
+                    variant="pill"
+                    name={r.name}
+                    color={r.color}
+                    fallbackColor={avatarColor(r.name)}
+                    active={roleFilter.includes(r.id)}
+                    onClick={() => setRoleFilter((prev) => prev.includes(r.id) ? prev.filter((id) => id !== r.id) : [...prev, r.id])}
+                  />
+                ))}
                 {roleFilter.length > 0 && (
                   <button
                     onClick={() => setRoleFilter([])}

@@ -17,6 +17,7 @@ import BuySeatsModal from "@/components/settings/BuySeatsModal";
 import { ContentCounts } from "@/components/shared/ContentCounts";
 import { MiniAvatar, avatarColor } from "@/components/shared/AvatarStack";
 import { UserSearchField } from "@/components/shared/UserSearchField";
+import { ROLE_META, RoleToggleChip } from "@/components/members/roleChips";
 import { runTeamAction } from "@/services/teamActionFeedback";
 
 import { markTeamVaultLoadedAfterLocalActivation } from "@/services/teamVaultActivation";
@@ -117,16 +118,6 @@ async function migrateVaultToTeam(
     usePortForwardingStore.getState().loadRules(),
   ]);
 }
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const ROLE_META: Record<string, { label: string; color: string; bg: string }> = {
-  owner:          { label: "Owner",        color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
-  manager:        { label: "Manager",      color: "#60a5fa", bg: "rgba(96,165,250,0.12)"  },
-  editor:         { label: "Editor",       color: "#34d399", bg: "rgba(52,211,153,0.12)"  },
-  member:         { label: "Member",       color: "var(--t-text-secondary)", bg: "var(--t-bg-elevated)" },
-  "connect-only": { label: "Connect-Only", color: "#f59e0b", bg: "rgba(245,158,11,0.12)"  },
-};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -298,27 +289,16 @@ function InviteBar({ teamId, existingIds, roles, canInvite, onMemberAdded }: {
         {/* Role chips */}
         {inviteRoles.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-3">
-            {inviteRoles.map((r) => {
-              const isActive = selectedRoleIds.includes(r.id);
-              const m = ROLE_META[r.name];
-              const color = r.color ?? m?.color ?? "var(--t-accent)";
-              const bg = m?.bg ?? `${color}1a`;
-              return (
-                <button
-                  key={r.id}
-                  onClick={() => toggleRole(r.id)}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
-                  style={{
-                    background: isActive ? bg : "var(--t-bg-elevated)",
-                    color: isActive ? color : "var(--t-text-dim)",
-                    border: `1px solid ${isActive ? `${color}44` : "var(--t-border)"}`,
-                  }}
-                >
-                  {isActive && <Icon icon="lucide:check" width={9} />}
-                  {r.name}
-                </button>
-              );
-            })}
+            {inviteRoles.map((r) => (
+              <RoleToggleChip
+                key={r.id}
+                variant="chip-sm"
+                name={r.name}
+                color={r.color}
+                active={selectedRoleIds.includes(r.id)}
+                onClick={() => toggleRole(r.id)}
+              />
+            ))}
           </div>
         )}
 
