@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { Folder } from "@/types";
 import { PickerSurface } from "./PickerSurface";
+import { PickerDivider, PickerFooterAction, PickerOption, PickerTrigger } from "./pickerParts";
 
 interface Props {
   value: string | null;
@@ -45,74 +46,38 @@ export default function FolderSelector({ value, folders, onChange, onCreateFolde
 
   return (
     <div>
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors"
-        style={{
-          background: "var(--t-bg-base)",
-          border: "1px solid var(--t-border)",
-          color: selected ? "var(--t-text-primary)" : "var(--t-text-dim)",
-        }}
-      >
-        <Icon
-          icon={selected ? "lucide:folder-open" : "lucide:folder"}
-          width={14}
-          className="text-(--t-text-dim) shrink-0"
-        />
-        <span className="flex-1 text-left truncate text-xs">{selected ? selected.name : t("shared.folderSelector.noFolder")}</span>
-        <span className="[&_path]:stroke-[2.5]">
-          <Icon
-            icon="lucide:chevron-down"
-            width={14}
-            className="text-(--t-text-dim) shrink-0"
-            style={{ transition: "transform 150ms", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
-          />
-        </span>
-      </button>
+      <PickerTrigger
+        buttonRef={buttonRef}
+        icon={selected ? "lucide:folder-open" : "lucide:folder"}
+        label={selected ? selected.name : t("shared.folderSelector.noFolder")}
+        filled={!!selected}
+        open={open}
+        onToggle={() => setOpen((o) => !o)}
+      />
 
       <PickerSurface open={open} onClose={() => setOpen(false)} anchorRef={buttonRef} title={t("common.entity.folder")}>
-        <button
-          type="button"
+        <PickerOption
+          icon="lucide:folder-x"
+          label={t("shared.folderSelector.noFolder")}
+          labelTone="primary"
+          active={value === null}
           onClick={() => { onChange(null); setOpen(false); }}
-          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors"
-          style={{ color: value === null ? "var(--t-accent)" : "var(--t-text-secondary)" }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
-        >
-          <Icon icon="lucide:folder-x" width={13} className="shrink-0" />
-          <span className="flex-1 text-left text-(--t-text-primary)">{t("shared.folderSelector.noFolder")}</span>
-          {value === null && (
-            <span className="[&_path]:stroke-[2.5]">
-              <Icon icon="lucide:check" width={13} />
-            </span>
-          )}
-        </button>
+        />
 
-        {folders.length > 0 && <div className="my-1 border-t border-t-(--t-bg-card-hover)" />}
+        {folders.length > 0 && <PickerDivider />}
 
         {folders.map((folder) => (
-          <button
+          <PickerOption
             key={folder.id}
-            type="button"
+            icon="lucide:folder"
+            label={folder.name}
+            labelTone="primary"
+            active={value === folder.id}
             onClick={() => { onChange(folder.id); setOpen(false); }}
-            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors"
-            style={{ color: value === folder.id ? "var(--t-accent)" : "var(--t-text-secondary)" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
-          >
-            <Icon icon="lucide:folder" width={13} className="shrink-0" />
-            <span className="flex-1 text-left text-(--t-text-primary) truncate">{folder.name}</span>
-            {value === folder.id && (
-              <span className="[&_path]:stroke-[2.5]">
-                <Icon icon="lucide:check" width={13} className="text-(--t-accent)" />
-              </span>
-            )}
-          </button>
+          />
         ))}
 
-        <div className="mt-1 border-t border-t-(--t-bg-card-hover)" />
+        <PickerDivider edge />
 
         {creating ? (
           <div className="flex items-center gap-1.5 px-2 py-1.5">
@@ -151,22 +116,11 @@ export default function FolderSelector({ value, folders, onChange, onCreateFolde
             </button>
           </div>
         ) : (
-          <button
-            type="button"
+          <PickerFooterAction
+            icon="lucide:folder-plus"
+            label={t("shared.folderSelector.newFolder")}
             onClick={() => setCreating(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors text-(--t-text-dim)"
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.color = "var(--t-accent)";
-              (e.currentTarget as HTMLButtonElement).style.background = "var(--t-bg-card-hover)";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.color = "var(--t-text-dim)";
-              (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-            }}
-          >
-            <Icon icon="lucide:folder-plus" width={13} />
-            <span className="flex-1 text-left">{t("shared.folderSelector.newFolder")}</span>
-          </button>
+          />
         )}
       </PickerSurface>
     </div>
