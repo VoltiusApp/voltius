@@ -936,13 +936,7 @@ pub async fn connect(
     }
 
     // I/O loop
-    let (input_tx, mut input_rx) = tokio::sync::mpsc::channel::<SessionInput>(256);
-    let (shutdown_tx, mut shutdown_rx) = tokio::sync::mpsc::channel::<()>(1);
-
-    let event_name = format!("ssh-output-{}", session_id);
-    let close_event = format!("ssh-closed-{}", session_id);
-
-    let (mut read_half, write_half) = channel.split();
+    let (read_half, write_half) = channel.split();
     let mut writer = write_half.make_writer();
 
     // `export KEY=val` is POSIX syntax; on a Windows cmd.exe/PowerShell shell it
@@ -1016,41 +1010,13 @@ pub async fn connect(
         });
     }
 
-    tokio::spawn(async move {
-        loop {
-            tokio::select! {
-                _ = shutdown_rx.recv() => break,
-                input = input_rx.recv() => {
-                    match input {
-                        Some(SessionInput::Data(data)) => {
-                            if writer.write_all(&data).await.is_err() { break; }
-                        }
-                        Some(SessionInput::Resize(cols, rows)) => {
-                            let _ = write_half.window_change(cols, rows, 0, 0).await;
-                        }
-                        None => break,
-                    }
-                }
-                msg = read_half.wait() => {
-                    match msg {
-                        Some(ChannelMsg::Data { data }) | Some(ChannelMsg::ExtendedData { data, .. }) => {
-                            let _ = app.emit(&event_name, data.as_ref());
-                        }
-                        Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) | None => {
-                            let _ = app.emit(&close_event, ());
-                            break;
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        }
-    });
+    let io =
+        crate::ssh::channel_io::spawn_channel_io_split(app, &session_id, read_half, write_half);
 
     Ok(ConnectedSession {
         handle,
-        input_tx,
-        shutdown_tx,
+        input_tx: io.input_tx,
+        shutdown_tx: io.shutdown_tx,
         channel_only: false,
         persist,
         _jump_handles: jump_handles,
