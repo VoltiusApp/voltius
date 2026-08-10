@@ -1,7 +1,7 @@
 import i18n from "@/i18n";
 import { useThemeStore } from "@/stores/themeStore";
 import type { AppTheme } from "@/themes/types";
-import type { UserDataHandler } from "../handler";
+import { lastWriteWins, type UserDataHandler } from "../handler";
 
 interface ThemesData {
   activeThemeId: string;
@@ -27,12 +27,7 @@ export const themesHandler: UserDataHandler = {
     if (activeThemeId) store.setTheme(activeThemeId);
   },
 
-  merge(_local, remote, localTs, remoteTs) {
-    if (!_local) return { value: remote, updated: true };
-    if (!remote) return { value: _local, updated: false };
-    if (remoteTs > localTs) return { value: remote, updated: true };
-    return { value: _local, updated: false };
-  },
+  merge: lastWriteWins,
 
   getTimestamp(): string {
     return useThemeStore.getState().updatedAt;

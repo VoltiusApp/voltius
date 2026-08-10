@@ -26,3 +26,12 @@ export interface UserDataHandler {
   // Short human-readable summary of current state, e.g. "3 custom themes".
   describe(): string;
 }
+
+// The default merge: whichever side is missing loses, otherwise the newer
+// timestamp wins. Every handler so far wants exactly this.
+export const lastWriteWins: UserDataHandler["merge"] = (local, remote, localTs, remoteTs) => {
+  if (!local) return { value: remote, updated: true };
+  if (!remote) return { value: local, updated: false };
+  if (remoteTs > localTs) return { value: remote, updated: true };
+  return { value: local, updated: false };
+};

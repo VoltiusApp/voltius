@@ -8,7 +8,7 @@ import { useAppSettingsTimestampStore } from "@/stores/appSettingsTimestampStore
 import { useConnectivitySettingsStore } from "@/stores/connectivitySettingsStore";
 import { useLocaleStore, SUPPORTED_LOCALES, type Locale } from "@/stores/localeStore";
 import { KEEPALIVE_PRESETS, type KeepalivePreset } from "@/utils/keepalive";
-import type { UserDataHandler } from "../handler";
+import { lastWriteWins, type UserDataHandler } from "../handler";
 
 interface AppSettingsData {
   sftp?: { autoRefreshIntervalMs: number };
@@ -67,12 +67,7 @@ export const appSettingsHandler: UserDataHandler = {
     }
   },
 
-  merge(_local, remote, localTs, remoteTs) {
-    if (!_local) return { value: remote, updated: true };
-    if (!remote) return { value: _local, updated: false };
-    if (remoteTs > localTs) return { value: remote, updated: true };
-    return { value: _local, updated: false };
-  },
+  merge: lastWriteWins,
 
   getTimestamp(): string {
     return useAppSettingsTimestampStore.getState().updatedAt;

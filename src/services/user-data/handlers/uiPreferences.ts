@@ -1,7 +1,7 @@
 import i18n from "@/i18n";
 import { useUIStore } from "@/stores/uiStore";
 import type { LayoutMode, SortMode } from "@/stores/uiStore";
-import type { UserDataHandler } from "../handler";
+import { lastWriteWins, type UserDataHandler } from "../handler";
 
 interface UIPrefsData {
   uiScale: number;
@@ -43,12 +43,7 @@ export const uiPreferencesHandler: UserDataHandler = {
     if (d.portForwardingSortMode) s.setPortForwardingSortMode(d.portForwardingSortMode);
   },
 
-  merge(_local, remote, localTs, remoteTs) {
-    if (!_local) return { value: remote, updated: true };
-    if (!remote) return { value: _local, updated: false };
-    if (remoteTs > localTs) return { value: remote, updated: true };
-    return { value: _local, updated: false };
-  },
+  merge: lastWriteWins,
 
   getTimestamp(): string {
     return useUIStore.getState().prefsUpdatedAt;

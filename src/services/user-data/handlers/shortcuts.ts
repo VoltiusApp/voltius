@@ -1,6 +1,6 @@
 import i18n from "@/i18n";
 import { useShortcutStore } from "@/stores/shortcutStore";
-import type { UserDataHandler } from "../handler";
+import { lastWriteWins, type UserDataHandler } from "../handler";
 
 interface ShortcutOverride {
   id: string;
@@ -27,12 +27,7 @@ export const shortcutsHandler: UserDataHandler = {
     }
   },
 
-  merge(_local, remote, localTs, remoteTs) {
-    if (!_local) return { value: remote, updated: true };
-    if (!remote) return { value: _local, updated: false };
-    if (remoteTs > localTs) return { value: remote, updated: true };
-    return { value: _local, updated: false };
-  },
+  merge: lastWriteWins,
 
   getTimestamp(): string {
     return useShortcutStore.getState().shortcutsUpdatedAt;
