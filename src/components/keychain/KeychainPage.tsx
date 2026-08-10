@@ -60,7 +60,7 @@ import { useVaultOptions } from "@/hooks/useVaultOptions";
 import { useScopedFolders } from "@/hooks/useScopedFolders";
 import { FolderBreadcrumb } from "@/components/folders/FolderBreadcrumb";
 import { FolderEjectZone } from "@/components/folders/FolderEjectZone";
-import { copyFolderSubtree } from "@/utils/folderCopy";
+import { cloneFolderTree, copyFolderSubtree } from "@/utils/folderCopy";
 
 export default function KeychainPage() {
   const { t } = useTranslation();
@@ -1035,26 +1035,14 @@ export default function KeychainPage() {
     const folder = scopedFolders.find((f) => f.id === folderId);
     if (!folder) throw new Error(`Unknown folder ${folderId}`);
     const targetVaultId = vaultId ?? folder.vault_id;
-    // Only the root of the clone is renamed; renaming every descendant would
-    // compound to "Prod (copy) (copy)" on a second paste.
-    // default name kept in English until all creation sites are localized together (see i18n issue #14)
-    const root = await saveFolder({
-      name: opts.keepName ? folder.name : `${folder.name} (copy)`,
-      object_type: folder.object_type,
-      parent_folder_id: parentFolderId ?? undefined,
-      vault_id: targetVaultId,
+    const { root, folderIdMap } = await cloneFolderTree({
+      root: folder,
+      subFolders: getAllSubFolders(folder.id),
+      parentFolderId,
+      vaultId: targetVaultId,
+      keepName: opts.keepName ?? false,
+      saveFolder,
     });
-    // BFS order guarantees a parent is created before its children.
-    const folderIdMap = new Map<string, string>([[folder.id, root.id]]);
-    for (const sf of getAllSubFolders(folder.id)) {
-      const created = await saveFolder({
-        name: sf.name,
-        object_type: sf.object_type,
-        parent_folder_id: folderIdMap.get(sf.parent_folder_id ?? "") ?? root.id,
-        vault_id: targetVaultId,
-      });
-      folderIdMap.set(sf.id, created.id);
-    }
     // Keys first: an identity cloned from the same subtree must point at the clone
     // of its key, not at the original.
     const keyIdMap = new Map<string, string>();
