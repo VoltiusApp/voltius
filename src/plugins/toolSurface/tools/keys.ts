@@ -5,9 +5,12 @@ import { makeGate, objectOp } from "./helpers";
 
 export const KEY_PERMISSIONS = ["keys:read", "keys:write", "connections:read", "audit"] as const;
 
-/** No quote/semicolon/dollar/backtick (shell metacharacters) and no ".." (path
- *  escape) — key_add_to_host's location/filename land inside a shell command. */
-const SAFE_PATH_SEGMENT = /^(?!.*\.\.)[^'";$`]+$/;
+/** No quote/semicolon/dollar/backtick (shell metacharacters), no whitespace
+ *  (including newline, which would otherwise smuggle a second path segment
+ *  or hide ".." past the lookahead), and no ".." (path escape) —
+ *  key_add_to_host's location/filename land inside a shell command. The
+ *  lookahead scans with [\s\S], not `.`, so a newline can't hide "..". */
+const SAFE_PATH_SEGMENT = /^(?![\s\S]*\.\.)[^\s'";$`]+$/;
 
 /** Project a raw Key record down to the PluginKey contract. */
 const toPluginKey = (k: Record<string, unknown>) => ({

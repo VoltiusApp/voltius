@@ -42,7 +42,10 @@ export async function addKeyToHost({
 
   const { username, password, privateKey, passphrase } = await resolveConnectionCredentials(connection);
 
-  const label = sshKey.name ?? "SSH";
+  // Strip CR/LF: printf writes `comment` verbatim, so an unstripped newline in
+  // a model-settable key name (key_create) would smuggle a second, attacker-
+  // chosen line into authorized_keys under a name the approval prompt never shows.
+  const label = (sshKey.name ?? "SSH").replace(/[\r\n]+/g, " ");
   const comment = `# ${label} Key by Voltius`;
   const command = `sh -c '${script}' sh ${shellQuote(location)} ${shellQuote(filename)} ${shellQuote(comment)} ${shellQuote(pubKey.trim())}`;
   const result = await sshExecCommand({
