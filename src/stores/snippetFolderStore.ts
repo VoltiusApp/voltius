@@ -5,7 +5,7 @@ import { scheduleSync } from "@/services/sync";
 import { isServerMode } from "@/services/account";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
-import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, applyVaultTransition } from "@/stores/teamVaultMap";
+import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { folderSubtreeIds } from "@/utils/folderTree";
@@ -169,14 +169,9 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
     const teamEntry = findTeamEntry(get().teamSnippetFolders, id);
     if (teamEntry) {
       const { teamId, item: folder } = teamEntry;
-      const now = new Date().toISOString();
-      const updated: Folder = {
-        ...folder,
+      const updated = await saveStampedTeamObject(teamId, "snippet_folder", folder, {
         parent_folder_id: parentFolderId ?? undefined,
-        updated_at: now,
-        clocks: { ...folder.clocks, updated_at: now },
-      };
-      await saveTeamVaultObject(teamId, "snippet_folder", updated);
+      });
       set((s) => ({ teamSnippetFolders: upsertInTeamMap(s.teamSnippetFolders, teamId, updated) }));
       return;
     }
@@ -216,10 +211,8 @@ export const useSnippetFolderStore = create<SnippetFolderStore>((set, get) => ({
   pinSnippetFolderForTeam: async (id, pinned) => {
     const teamEntry = findTeamEntry(get().teamSnippetFolders, id);
     if (!teamEntry) return;
-    const { teamId, item: prev } = teamEntry;
-    const now = new Date().toISOString();
-    const updated: Folder = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
-    await saveTeamVaultObject(teamId, "snippet_folder", updated);
+    const { teamId } = teamEntry;
+    const updated = await saveStampedTeamObject(teamId, "snippet_folder", teamEntry.item, { pinned });
     set((s) => ({ teamSnippetFolders: upsertInTeamMap(s.teamSnippetFolders, teamId, updated) }));
   },
 }));

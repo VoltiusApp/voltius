@@ -6,7 +6,7 @@ import { isServerMode } from "@/services/account";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { pushCreateHistory, pushDeleteHistory } from "@/stores/recreateHistory";
-import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition } from "@/stores/teamVaultMap";
+import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
@@ -200,10 +200,8 @@ export const useKeyStore = create<KeyStore>((set, get) => ({
   pinKeyForTeam: async (id, pinned) => {
     const teamEntry = findTeamEntry(get().teamKeys, id);
     if (!teamEntry) return;
-    const { teamId, item: prev } = teamEntry;
-    const now = new Date().toISOString();
-    const updated: SshKey = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
-    await saveTeamVaultObject(teamId, "key", updated);
+    const { teamId } = teamEntry;
+    const updated = await saveStampedTeamObject(teamId, "key", teamEntry.item, { pinned });
     set((s) => ({ teamKeys: upsertInTeamMap(s.teamKeys, teamId, updated) }));
   },
 

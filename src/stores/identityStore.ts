@@ -6,7 +6,7 @@ import { isServerMode } from "@/services/account";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { pushCreateHistory, pushDeleteHistory } from "@/stores/recreateHistory";
-import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition } from "@/stores/teamVaultMap";
+import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
@@ -201,10 +201,8 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
   pinIdentityForTeam: async (id, pinned) => {
     const teamEntry = findTeamEntry(get().teamIdentities, id);
     if (!teamEntry) return;
-    const { teamId, item: prev } = teamEntry;
-    const now = new Date().toISOString();
-    const updated: Identity = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
-    await saveTeamVaultObject(teamId, "identity", updated);
+    const { teamId } = teamEntry;
+    const updated = await saveStampedTeamObject(teamId, "identity", teamEntry.item, { pinned });
     set((s) => ({ teamIdentities: upsertInTeamMap(s.teamIdentities, teamId, updated) }));
   },
 

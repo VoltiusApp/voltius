@@ -9,7 +9,7 @@ import { isServerMode } from "@/services/account";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { useHistoryStore } from "@/stores/historyStore";
 import { pushCreateHistory, pushDeleteHistory } from "@/stores/recreateHistory";
-import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition } from "@/stores/teamVaultMap";
+import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
@@ -274,10 +274,8 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   pinSnippetForTeam: async (id, pinned) => {
     const teamEntry = findTeamEntry(get().teamSnippets, id);
     if (!teamEntry) return;
-    const { teamId, item: snippet } = teamEntry;
-    const now = new Date().toISOString();
-    const updated: Snippet = { ...snippet, favorite: pinned, updated_at: now, clocks: { ...snippet.clocks, updated_at: now } };
-    await saveTeamVaultObject(teamId, "snippet", updated);
+    const { teamId } = teamEntry;
+    const updated = await saveStampedTeamObject(teamId, "snippet", teamEntry.item, { favorite: pinned });
     set((s) => ({ teamSnippets: upsertInTeamMap(s.teamSnippets, teamId, updated) }));
   },
 

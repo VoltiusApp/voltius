@@ -1,5 +1,7 @@
 import { useTeamStore } from "@/stores/teamStore";
 import type { VaultTransition } from "@/services/teamVaultMigration";
+import { saveTeamVaultObject } from "@/services/teamObjectPersistence";
+import type { TeamObjectType } from "@/services/teamObjects";
 
 /** Team-vault objects live in a `Record<teamId, items[]>` beside the local list. */
 export type TeamMap<T> = Record<string, T[]>;
@@ -58,6 +60,36 @@ export function removeFromTeamMap<T extends Identifiable>(
   id: string,
 ): TeamMap<T> {
   return { ...map, [teamId]: (map[teamId] ?? []).filter((x) => x.id !== id) };
+}
+
+interface StampedTeamObject {
+  id: string;
+  name?: string;
+  folder_id?: string;
+  updated_at: string;
+  clocks: Record<string, string>;
+}
+
+/**
+ * Applies a patch to a team-vault object, bumps its `updated_at` clock and
+ * persists it. The caller upserts the result, so the map it writes into is read
+ * inside `set` rather than before the await.
+ */
+export async function saveStampedTeamObject<T extends StampedTeamObject>(
+  teamId: string,
+  objectType: TeamObjectType,
+  prev: T,
+  patch: Partial<T>,
+): Promise<T> {
+  const now = new Date().toISOString();
+  const updated: T = {
+    ...prev,
+    ...patch,
+    updated_at: now,
+    clocks: { ...prev.clocks, updated_at: now },
+  };
+  await saveTeamVaultObject(teamId, objectType, updated);
+  return updated;
 }
 
 /**

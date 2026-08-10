@@ -1,4 +1,10 @@
-import { test, expect, beforeEach, describe } from "vitest";
+import { test, expect, beforeEach, describe, vi } from "vitest";
+
+const h = vi.hoisted(() => ({ saveTeamVaultObject: vi.fn(async (_t: string, _k: string, _i: unknown) => {}) }));
+vi.mock("@/services/teamObjectPersistence", () => ({
+  saveTeamVaultObject: h.saveTeamVaultObject,
+  removeTeamVaultObject: vi.fn(async () => {}),
+}));
 
 import {
   isTeamVaultId,
@@ -9,6 +15,7 @@ import {
   upsertInTeamMap,
   removeFromTeamMap,
   applyVaultTransition,
+  saveStampedTeamObject,
 } from "./teamVaultMap";
 import { useTeamStore } from "./teamStore";
 
@@ -111,5 +118,25 @@ describe("applyVaultTransition", () => {
 
   test("same-scope without a stayTeamId returns the map untouched", () => {
     expect(applyVaultTransition(map, { kind: "same-scope" }, "x", item("x", "renamed"))).toBe(map);
+  });
+});
+
+describe("saveStampedTeamObject", () => {
+  const prev = { id: "a", name: "Key", pinned: false, updated_at: "t0", clocks: { updated_at: "t0", name: "t0" } };
+
+  test("applies the patch, bumps updated_at and its clock, and persists", async () => {
+    const updated = await saveStampedTeamObject("team-a", "key", prev, { pinned: true });
+    expect(updated.pinned).toBe(true);
+    expect(updated.name).toBe("Key");
+    expect(updated.updated_at).not.toBe("t0");
+    expect(updated.clocks.updated_at).toBe(updated.updated_at);
+    expect(updated.clocks.name).toBe("t0");
+    expect(h.saveTeamVaultObject).toHaveBeenCalledWith("team-a", "key", updated);
+  });
+
+  test("leaves the input object untouched", async () => {
+    await saveStampedTeamObject("team-a", "key", prev, { pinned: true });
+    expect(prev.pinned).toBe(false);
+    expect(prev.updated_at).toBe("t0");
   });
 });

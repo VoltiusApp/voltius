@@ -15,7 +15,7 @@ import { folderSubtreeIds } from "@/utils/folderTree";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { withPin } from "@/stores/withPin";
-import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, applyVaultTransition } from "@/stores/teamVaultMap";
+import { isTeamVaultId, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, applyVaultTransition, saveStampedTeamObject } from "@/stores/teamVaultMap";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 
 interface FolderStore {
@@ -371,14 +371,9 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
     if (teamEntry) {
       const { teamId, item: folder } = teamEntry;
       const prevParentId = folder.parent_folder_id ?? null;
-      const now = new Date().toISOString();
-      const updated: Folder = {
-        ...folder,
+      const updated = await saveStampedTeamObject(teamId, "folder", folder, {
         parent_folder_id: parentFolderId ?? undefined,
-        updated_at: now,
-        clocks: { ...folder.clocks, updated_at: now },
-      };
-      await saveTeamVaultObject(teamId, "folder", updated);
+      });
       set((s) => ({ teamFolders: upsertInTeamMap(s.teamFolders, teamId, updated) }));
       useHistoryStore.getState().push({
         label: `Moved folder "${folder.name}"`,
@@ -431,10 +426,8 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
   pinFolderForTeam: async (id, pinned) => {
     const teamEntry = findTeamEntry(get().teamFolders, id);
     if (!teamEntry) return;
-    const { teamId, item: prev } = teamEntry;
-    const now = new Date().toISOString();
-    const updated: Folder = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
-    await saveTeamVaultObject(teamId, "folder", updated);
+    const { teamId } = teamEntry;
+    const updated = await saveStampedTeamObject(teamId, "folder", teamEntry.item, { pinned });
     set((s) => ({ teamFolders: upsertInTeamMap(s.teamFolders, teamId, updated) }));
   },
 }));
