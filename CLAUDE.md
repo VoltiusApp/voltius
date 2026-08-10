@@ -7,3 +7,14 @@ Rules:
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+
+## Don't repeat yourself
+
+Factor before you copy, not after. These are gates, not preferences:
+
+- Before writing a second caller of a shape that already exists — a constructor, a registration, an error mapping, a call sequence — extract the shape and call it twice. Do not copy the neighbouring function and edit the differing lines.
+- Before declaring work done, re-read the diff looking only for duplication: blocks that differ by one argument, structs built field-by-field in more than one place, the same guard or conversion written twice. Collapse what you find, then re-run the checks.
+- When an existing pattern already has two or more copies and you are touching one of them, unify them as part of the change instead of adding a third.
+- Prefer one function with a parameter over two functions that differ by a constant. Prefer a shared helper over a comment saying "same as above".
+
+Exceptions worth keeping: code that merely looks alike but changes for different reasons, and cases where the shared version would need more parameters than the duplication costs lines. Say so in a comment when you deliberately leave two copies.
