@@ -6,36 +6,12 @@ import { isServerMode } from "@/services/account";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { pushCreateHistory, pushDeleteHistory } from "@/stores/recreateHistory";
-import { useTeamStore } from "@/stores/teamStore";
+import { isTeamVaultId, upsertById, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap } from "@/stores/teamVaultMap";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { withPin } from "@/stores/withPin";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
-
-function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
-  if (!vaultId) return false;
-  return useTeamStore.getState().teams.some((t) => t.id === vaultId);
-}
-
-function upsert(arr: Identity[], item: Identity): Identity[] {
-  const idx = arr.findIndex((x) => x.id === item.id);
-  if (idx === -1) return [...arr, item];
-  const next = [...arr];
-  next[idx] = item;
-  return next;
-}
-
-function findTeamEntry(
-  teamMap: Record<string, Identity[]>,
-  id: string,
-): { teamId: string; item: Identity } | null {
-  for (const [teamId, items] of Object.entries(teamMap)) {
-    const item = items.find((x) => x.id === id);
-    if (item) return { teamId, item };
-  }
-  return null;
-}
 
 interface IdentityStore {
   identities: Identity[];
@@ -60,15 +36,10 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
   },
 
   setTeamIdentities: (teamId, items) =>
-    set((s) => ({ teamIdentities: { ...s.teamIdentities, [teamId]: items } })),
+    set((s) => ({ teamIdentities: setTeamMapEntry(s.teamIdentities, teamId, items) })),
 
   clearTeamIdentities: (teamId) =>
-    set((s) => {
-      if (teamId === undefined) return { teamIdentities: {} };
-      const next = { ...s.teamIdentities };
-      delete next[teamId];
-      return { teamIdentities: next };
-    }),
+    set((s) => ({ teamIdentities: clearTeamMapEntry(s.teamIdentities, teamId) })),
 
   saveIdentity: async (data) => {
     if (isTeamVaultId(data.vault_id)) {
@@ -88,12 +59,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
       };
       const vaultId = data.vault_id!;
       await saveTeamVaultObject(vaultId, "identity", identity);
-      set((s) => ({
-        teamIdentities: {
-          ...s.teamIdentities,
-          [vaultId]: upsert(s.teamIdentities[vaultId] ?? [], identity),
-        },
-      }));
+      set((s) => ({ teamIdentities: upsertInTeamMap(s.teamIdentities, vaultId, identity) }));
       reportAuditMutation("identity", "created", { id: identity.id, name: identity.name ?? identity.username, vault_id: identity.vault_id });
       pushCreateHistory({
         label: `Created identity "${identity.name ?? identity.username}"`,
@@ -155,14 +121,14 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
         const nextTeamIdentities = { ...s.teamIdentities };
         if (transition.kind === "team-to-team") {
           nextTeamIdentities[transition.sourceTeamId] = (nextTeamIdentities[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          nextTeamIdentities[transition.destinationTeamId] = upsert(nextTeamIdentities[transition.destinationTeamId] ?? [], migrated);
+          nextTeamIdentities[transition.destinationTeamId] = upsertById(nextTeamIdentities[transition.destinationTeamId] ?? [], migrated);
           return { teamIdentities: nextTeamIdentities };
         }
         if (transition.kind === "team-to-local") {
           nextTeamIdentities[transition.sourceTeamId] = (nextTeamIdentities[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
           return { identities: localIdentities, teamIdentities: nextTeamIdentities };
         }
-        nextTeamIdentities[teamId] = upsert(nextTeamIdentities[teamId] ?? [], migrated);
+        nextTeamIdentities[teamId] = upsertById(nextTeamIdentities[teamId] ?? [], migrated);
         return { teamIdentities: nextTeamIdentities };
       });
       reportAuditMutation("identity", "updated", { id: migrated.id, name: migrated.name ?? migrated.username, vault_id: migrated.vault_id });
@@ -203,10 +169,10 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
       if (prev && updated) {
         const transition = classifyVaultTransition(prev.vault_id, updated.vault_id, isTeamVaultId);
         if (transition.kind === "local-to-team") {
-          nextTeamIdentities[transition.destinationTeamId] = upsert(nextTeamIdentities[transition.destinationTeamId] ?? [], updated);
+          nextTeamIdentities[transition.destinationTeamId] = upsertById(nextTeamIdentities[transition.destinationTeamId] ?? [], updated);
         } else if (transition.kind === "team-to-team") {
           nextTeamIdentities[transition.sourceTeamId] = (nextTeamIdentities[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          nextTeamIdentities[transition.destinationTeamId] = upsert(nextTeamIdentities[transition.destinationTeamId] ?? [], updated);
+          nextTeamIdentities[transition.destinationTeamId] = upsertById(nextTeamIdentities[transition.destinationTeamId] ?? [], updated);
         } else if (transition.kind === "team-to-local") {
           nextTeamIdentities[transition.sourceTeamId] = (nextTeamIdentities[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
         }
@@ -258,12 +224,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     const now = new Date().toISOString();
     const updated: Identity = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
     await saveTeamVaultObject(teamId, "identity", updated);
-    set((s) => ({
-      teamIdentities: {
-        ...s.teamIdentities,
-        [teamId]: upsert(s.teamIdentities[teamId] ?? [], updated),
-      },
-    }));
+    set((s) => ({ teamIdentities: upsertInTeamMap(s.teamIdentities, teamId, updated) }));
   },
 
   deleteIdentity: async (id) => {
@@ -271,12 +232,7 @@ export const useIdentityStore = create<IdentityStore>((set, get) => ({
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
       await removeTeamVaultObject(teamId, id);
-      set((s) => ({
-        teamIdentities: {
-          ...s.teamIdentities,
-          [teamId]: (s.teamIdentities[teamId] ?? []).filter((x) => x.id !== id),
-        },
-      }));
+      set((s) => ({ teamIdentities: removeFromTeamMap(s.teamIdentities, teamId, id) }));
       reportAuditMutation("identity", "deleted", { id: prev.id, name: prev.name ?? prev.username, vault_id: prev.vault_id });
       const prevData: IdentityFormData = {
         name: prev.name, username: prev.username, key_id: prev.key_id,

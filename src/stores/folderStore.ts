@@ -15,32 +15,8 @@ import { folderSubtreeIds } from "@/utils/folderTree";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
 import { withPin } from "@/stores/withPin";
-import { useTeamStore } from "@/stores/teamStore";
+import { isTeamVaultId, upsertById, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap } from "@/stores/teamVaultMap";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
-
-function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
-  if (!vaultId) return false;
-  return useTeamStore.getState().teams.some((t) => t.id === vaultId);
-}
-
-function upsert(arr: Folder[], item: Folder): Folder[] {
-  const idx = arr.findIndex((x) => x.id === item.id);
-  if (idx === -1) return [...arr, item];
-  const next = [...arr];
-  next[idx] = item;
-  return next;
-}
-
-function findTeamEntry(
-  teamMap: Record<string, Folder[]>,
-  id: string,
-): { teamId: string; item: Folder } | null {
-  for (const [teamId, items] of Object.entries(teamMap)) {
-    const item = items.find((x) => x.id === id);
-    if (item) return { teamId, item };
-  }
-  return null;
-}
 
 interface FolderStore {
   folders: Folder[];
@@ -74,52 +50,39 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
   },
 
   setTeamFolders: (teamId, items) =>
-    set((s) => ({ teamFolders: { ...s.teamFolders, [teamId]: items } })),
+    set((s) => ({ teamFolders: setTeamMapEntry(s.teamFolders, teamId, items) })),
 
   clearTeamFolders: (teamId) =>
-    set((s) => {
-      if (teamId === undefined) return { teamFolders: {} };
-      const next = { ...s.teamFolders };
-      delete next[teamId];
-      return { teamFolders: next };
-    }),
+    set((s) => ({ teamFolders: clearTeamMapEntry(s.teamFolders, teamId) })),
 
   saveFolder: async (data) => {
-    if (data.vault_id) {
-      const { useTeamStore } = await import("@/stores/teamStore");
-      if (useTeamStore.getState().teams.some((t) => t.id === data.vault_id)) {
-        const now = new Date().toISOString();
-        const folder: Folder = {
-          id: crypto.randomUUID(),
-          name: data.name,
-          object_type: data.object_type,
-          parent_folder_id: data.parent_folder_id,
-          vault_id: data.vault_id,
-          color: data.color,
-          icon: data.icon,
-          created_at: now,
-          updated_at: now,
-          clocks: { created_at: now, updated_at: now },
-        };
-        const vaultId = data.vault_id;
-        await saveTeamVaultObject(vaultId, "folder", folder);
-        set((s) => ({
-          teamFolders: {
-            ...s.teamFolders,
-            [vaultId]: upsert(s.teamFolders[vaultId] ?? [], folder),
-          },
-        }));
-        reportAuditMutation("folder", "created", { id: folder.id, name: folder.name, vault_id: folder.vault_id }, { object_type: folder.object_type });
-        pushCreateHistory({
-          label: `Created folder "${folder.name}"`,
-          id: folder.id,
-          data,
-          create: (d) => useFolderStore.getState().saveFolder(d),
-          // Non-cascading: undoing a *creation* must not delete items filed since.
-          remove: (fid) => useFolderStore.getState().deleteFolder(fid, { cascade: false }),
-        });
-        return folder;
-      }
+    if (isTeamVaultId(data.vault_id)) {
+      const now = new Date().toISOString();
+      const folder: Folder = {
+        id: crypto.randomUUID(),
+        name: data.name,
+        object_type: data.object_type,
+        parent_folder_id: data.parent_folder_id,
+        vault_id: data.vault_id,
+        color: data.color,
+        icon: data.icon,
+        created_at: now,
+        updated_at: now,
+        clocks: { created_at: now, updated_at: now },
+      };
+      const vaultId = data.vault_id;
+      await saveTeamVaultObject(vaultId, "folder", folder);
+      set((s) => ({ teamFolders: upsertInTeamMap(s.teamFolders, vaultId, folder) }));
+      reportAuditMutation("folder", "created", { id: folder.id, name: folder.name, vault_id: folder.vault_id }, { object_type: folder.object_type });
+      pushCreateHistory({
+        label: `Created folder "${folder.name}"`,
+        id: folder.id,
+        data,
+        create: (d) => useFolderStore.getState().saveFolder(d),
+        // Non-cascading: undoing a *creation* must not delete items filed since.
+        remove: (fid) => useFolderStore.getState().deleteFolder(fid, { cascade: false }),
+      });
+      return folder;
     }
 
     const folder = await api.saveFolder(data);
@@ -171,14 +134,14 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
         const nextTeamFolders = { ...s.teamFolders };
         if (transition.kind === "team-to-team") {
           nextTeamFolders[transition.sourceTeamId] = (nextTeamFolders[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          nextTeamFolders[transition.destinationTeamId] = upsert(nextTeamFolders[transition.destinationTeamId] ?? [], migrated);
+          nextTeamFolders[transition.destinationTeamId] = upsertById(nextTeamFolders[transition.destinationTeamId] ?? [], migrated);
           return { teamFolders: nextTeamFolders };
         }
         if (transition.kind === "team-to-local") {
           nextTeamFolders[transition.sourceTeamId] = (nextTeamFolders[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
           return { folders: localFolders, teamFolders: nextTeamFolders };
         }
-        nextTeamFolders[teamId] = upsert(nextTeamFolders[teamId] ?? [], migrated);
+        nextTeamFolders[teamId] = upsertById(nextTeamFolders[teamId] ?? [], migrated);
         return { teamFolders: nextTeamFolders };
       });
       reportAuditMutation("folder", "updated", { id: migrated.id, name: migrated.name, vault_id: migrated.vault_id }, { object_type: migrated.object_type });
@@ -219,10 +182,10 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
       if (prev && updated) {
         const transition = classifyVaultTransition(prev.vault_id, updated.vault_id, isTeamVaultId);
         if (transition.kind === "local-to-team") {
-          nextTeamFolders[transition.destinationTeamId] = upsert(nextTeamFolders[transition.destinationTeamId] ?? [], updated);
+          nextTeamFolders[transition.destinationTeamId] = upsertById(nextTeamFolders[transition.destinationTeamId] ?? [], updated);
         } else if (transition.kind === "team-to-team") {
           nextTeamFolders[transition.sourceTeamId] = (nextTeamFolders[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          nextTeamFolders[transition.destinationTeamId] = upsert(nextTeamFolders[transition.destinationTeamId] ?? [], updated);
+          nextTeamFolders[transition.destinationTeamId] = upsertById(nextTeamFolders[transition.destinationTeamId] ?? [], updated);
         } else if (transition.kind === "team-to-local") {
           nextTeamFolders[transition.sourceTeamId] = (nextTeamFolders[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
         }
@@ -435,12 +398,7 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
         clocks: { ...folder.clocks, updated_at: now },
       };
       await saveTeamVaultObject(teamId, "folder", updated);
-      set((s) => ({
-        teamFolders: {
-          ...s.teamFolders,
-          [teamId]: upsert(s.teamFolders[teamId] ?? [], updated),
-        },
-      }));
+      set((s) => ({ teamFolders: upsertInTeamMap(s.teamFolders, teamId, updated) }));
       useHistoryStore.getState().push({
         label: `Moved folder "${folder.name}"`,
         undo: async () => { await useFolderStore.getState().moveFolder(id, prevParentId); },
@@ -496,11 +454,6 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
     const now = new Date().toISOString();
     const updated: Folder = { ...prev, pinned, updated_at: now, clocks: { ...prev.clocks, updated_at: now } };
     await saveTeamVaultObject(teamId, "folder", updated);
-    set((s) => ({
-      teamFolders: {
-        ...s.teamFolders,
-        [teamId]: upsert(s.teamFolders[teamId] ?? [], updated),
-      },
-    }));
+    set((s) => ({ teamFolders: upsertInTeamMap(s.teamFolders, teamId, updated) }));
   },
 }));

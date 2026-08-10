@@ -9,34 +9,10 @@ import { isServerMode } from "@/services/account";
 import { reportAuditMutation } from "@/services/auditMutations";
 import { useHistoryStore } from "@/stores/historyStore";
 import { pushCreateHistory, pushDeleteHistory } from "@/stores/recreateHistory";
-import { useTeamStore } from "@/stores/teamStore";
+import { isTeamVaultId, upsertById, findTeamEntry, setTeamMapEntry, clearTeamMapEntry, upsertInTeamMap, removeFromTeamMap } from "@/stores/teamVaultMap";
 import { removeTeamVaultObject, saveTeamVaultObject } from "@/services/teamObjectPersistence";
 import { useTeamObjectPrefsStore } from "@/stores/teamObjectPrefsStore";
 import { classifyVaultTransition, migrateVaultObject } from "@/services/teamVaultMigration";
-
-function isTeamVaultId(vaultId: string | null | undefined): vaultId is string {
-  if (!vaultId) return false;
-  return useTeamStore.getState().teams.some((t) => t.id === vaultId);
-}
-
-function upsert(arr: Snippet[], item: Snippet): Snippet[] {
-  const idx = arr.findIndex((x) => x.id === item.id);
-  if (idx === -1) return [...arr, item];
-  const next = [...arr];
-  next[idx] = item;
-  return next;
-}
-
-function findTeamEntry(
-  teamMap: Record<string, Snippet[]>,
-  id: string,
-): { teamId: string; item: Snippet } | null {
-  for (const [teamId, items] of Object.entries(teamMap)) {
-    const item = items.find((x) => x.id === id);
-    if (item) return { teamId, item };
-  }
-  return null;
-}
 
 export type GlobalPendingInject = SnippetPendingInject;
 
@@ -86,15 +62,10 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
   },
 
   setTeamSnippets: (teamId, items) =>
-    set((s) => ({ teamSnippets: { ...s.teamSnippets, [teamId]: items.map(normalizeSnippetSteps) } })),
+    set((s) => ({ teamSnippets: setTeamMapEntry(s.teamSnippets, teamId, items.map(normalizeSnippetSteps)) })),
 
   clearTeamSnippets: (teamId) =>
-    set((s) => {
-      if (teamId === undefined) return { teamSnippets: {} };
-      const next = { ...s.teamSnippets };
-      delete next[teamId];
-      return { teamSnippets: next };
-    }),
+    set((s) => ({ teamSnippets: clearTeamMapEntry(s.teamSnippets, teamId) })),
 
   createSnippet: async (data) => {
     if (isTeamVaultId(data.vault_id)) {
@@ -116,12 +87,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
       };
       const vaultId = data.vault_id!;
       await saveTeamVaultObject(vaultId, "snippet", snippet);
-      set((s) => ({
-        teamSnippets: {
-          ...s.teamSnippets,
-          [vaultId]: upsert(s.teamSnippets[vaultId] ?? [], snippet),
-        },
-      }));
+      set((s) => ({ teamSnippets: upsertInTeamMap(s.teamSnippets, vaultId, snippet) }));
       reportAuditMutation("snippet", "created", { id: snippet.id, name: snippet.name, vault_id: snippet.vault_id });
       pushCreateHistory({
         label: `Created snippet "${snippet.name}"`,
@@ -183,14 +149,14 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
         const nextTeamSnippets = { ...s.teamSnippets };
         if (transition.kind === "team-to-team") {
           nextTeamSnippets[transition.sourceTeamId] = (nextTeamSnippets[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
-          nextTeamSnippets[transition.destinationTeamId] = upsert(nextTeamSnippets[transition.destinationTeamId] ?? [], migrated);
+          nextTeamSnippets[transition.destinationTeamId] = upsertById(nextTeamSnippets[transition.destinationTeamId] ?? [], migrated);
           return { teamSnippets: nextTeamSnippets };
         }
         if (transition.kind === "team-to-local") {
           nextTeamSnippets[transition.sourceTeamId] = (nextTeamSnippets[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
           return { snippets: localSnippets, teamSnippets: nextTeamSnippets };
         }
-        nextTeamSnippets[teamId] = upsert(nextTeamSnippets[teamId] ?? [], migrated);
+        nextTeamSnippets[teamId] = upsertById(nextTeamSnippets[teamId] ?? [], migrated);
         return { teamSnippets: nextTeamSnippets };
       });
       reportAuditMutation("snippet", "updated", { id: migrated.id, name: migrated.name, vault_id: migrated.vault_id });
@@ -232,11 +198,11 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
         const transition = classifyVaultTransition(prev.vault_id, nextVaultId, isTeamVaultId);
         if (transition.kind === "local-to-team") {
           const item = { ...prev, ...data, vault_id: nextVaultId, tags: data.tags ?? prev.tags };
-          nextTeamSnippets[transition.destinationTeamId] = upsert(nextTeamSnippets[transition.destinationTeamId] ?? [], item);
+          nextTeamSnippets[transition.destinationTeamId] = upsertById(nextTeamSnippets[transition.destinationTeamId] ?? [], item);
         } else if (transition.kind === "team-to-team") {
           nextTeamSnippets[transition.sourceTeamId] = (nextTeamSnippets[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
           const item = { ...prev, ...data, vault_id: nextVaultId, tags: data.tags ?? prev.tags };
-          nextTeamSnippets[transition.destinationTeamId] = upsert(nextTeamSnippets[transition.destinationTeamId] ?? [], item);
+          nextTeamSnippets[transition.destinationTeamId] = upsertById(nextTeamSnippets[transition.destinationTeamId] ?? [], item);
         } else if (transition.kind === "team-to-local") {
           nextTeamSnippets[transition.sourceTeamId] = (nextTeamSnippets[transition.sourceTeamId] ?? []).filter((x) => x.id !== id);
         }
@@ -266,12 +232,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     if (teamEntry) {
       const { teamId, item: prev } = teamEntry;
       await removeTeamVaultObject(teamId, id);
-      set((s) => ({
-        teamSnippets: {
-          ...s.teamSnippets,
-          [teamId]: (s.teamSnippets[teamId] ?? []).filter((x) => x.id !== id),
-        },
-      }));
+      set((s) => ({ teamSnippets: removeFromTeamMap(s.teamSnippets, teamId, id) }));
       reportAuditMutation("snippet", "deleted", { id: prev.id, name: prev.name, vault_id: prev.vault_id });
       const prevData: SnippetFormData = {
         name: prev.name, steps: prev.steps, description: prev.description,
@@ -339,12 +300,7 @@ export const useSnippetStore = create<SnippetStore>((set, get) => ({
     const now = new Date().toISOString();
     const updated: Snippet = { ...snippet, favorite: pinned, updated_at: now, clocks: { ...snippet.clocks, updated_at: now } };
     await saveTeamVaultObject(teamId, "snippet", updated);
-    set((s) => ({
-      teamSnippets: {
-        ...s.teamSnippets,
-        [teamId]: upsert(s.teamSnippets[teamId] ?? [], updated),
-      },
-    }));
+    set((s) => ({ teamSnippets: upsertInTeamMap(s.teamSnippets, teamId, updated) }));
   },
 
   trackUsed: (id) => {

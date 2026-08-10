@@ -9,8 +9,8 @@ const h = vi.hoisted(() => {
     remove: vi.fn(async () => {}),
   });
   return {
-    saveTeamVaultObject: vi.fn(async () => {}),
-    removeTeamVaultObject: vi.fn(async () => {}),
+    saveTeamVaultObject: vi.fn(async (_teamId: string, _kind: string, _item: unknown) => {}),
+    removeTeamVaultObject: vi.fn(async (_teamId: string, _id: string) => {}),
     reportAuditMutation: vi.fn(),
     scheduleSync: vi.fn(),
     isServerMode: vi.fn(async () => true),
