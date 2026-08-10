@@ -603,8 +603,8 @@ export interface PluginAPI {
   /**
    * Move and copy vault objects between folders and vaults, through the same
    * paste path the pages use. Each method requires the write permission of every
-   * kind it names, plus folders:write when a folder travels and vaults:write for
-   * a named destination vault. Team vaults are refused.
+   * kind it names, and folders:write when a folder travels. Team vaults are
+   * refused.
    */
   objects: {
     move(input: PluginObjectMoveInput): Promise<PluginObjectMoveOutcome>;

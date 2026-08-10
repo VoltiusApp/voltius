@@ -545,17 +545,13 @@ function buildAdapter(
 
 // ─── Permissions ──────────────────────────────────────────────────────────
 
-/**
- * The plugin permission each kind's write needs. Snippets and port-forwarding
- * rules have no namespace of their own, so they fall back to the gated write
- * tiers that already cover relocating user objects — over-asking, never under.
- */
+/** The plugin permission each kind's write needs — one per kind, nothing wider. */
 const KIND_PERMISSION: Record<VaultClipboardKind | "folder", string> = {
   connection: "connections:write",
-  port_forward: "connections:write",
+  port_forward: "port_forwarding:write",
   key: "keys:write",
   identity: "identities:write",
-  snippet: "vaults:write",
+  snippet: "snippets:write",
   folder: "folders:write",
 };
 
@@ -565,10 +561,13 @@ const ALL_OBJECT_PERMISSIONS = [...new Set(Object.values(KIND_PERMISSION))];
  * What a call must be authorized for, from the kinds it names. An id that
  * resolves to nothing asks for everything: the stores may not be hydrated when
  * the gate runs, and a wrong guess there would under-gate the call.
+ *
+ * A destination vault adds nothing: a move or copy never creates or destroys a
+ * vault, so demanding `vaults:write` — which also deletes them — for filing a
+ * snippet one folder over would conflate two different capabilities.
  */
 export function objectPermissionsFor(ports: ObjectPorts, input: MoveInput): string[] {
   const perms = new Set<string>();
-  if (input.vaultId !== null) perms.add("vaults:write");
   for (const id of input.ids) {
     const found = locate(ports, id);
     if (!found) {

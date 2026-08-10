@@ -110,6 +110,8 @@ const PERMISSION_COPY: Record<string, string> = {
   "keys:write": "keysWrite",
   "identities:read": "identitiesRead",
   "identities:write": "identitiesWrite",
+  "snippets:write": "snippetsWrite",
+  "port_forwarding:write": "portForwardingWrite",
   "vault:read": "vaultRead",
   "vault:write": "vaultWrite",
   "vaults:read": "vaultsRead",

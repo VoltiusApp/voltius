@@ -89,10 +89,24 @@ describe("api.objects permission gate", () => {
       .rejects.toThrow(/keys:write/);
   });
 
-  it("a named destination vault additionally requires vaults:write", async () => {
-    const api = createHostPluginAPI("test:objects-no-vaults", ["connections:write"]);
-    await expect(api.objects.move({ ids: ["c1"], folderId: null, vaultId: "v2" }))
-      .rejects.toThrow(/vaults:write/);
+  it("a snippet asks for snippets:write, not the connections grant", async () => {
+    const api = createHostPluginAPI("test:objects-snippet", ["connections:write"]);
+    await expect(api.objects.move({ ids: ["s1"], folderId: null, vaultId: null }))
+      .rejects.toThrow(/snippets:write/);
+  });
+
+  it("a destination vault does not pull in vaults:write", async () => {
+    // Filing objects into a vault is not creating or deleting one.
+    useVaultStore.setState({
+      vaults: [{ id: "personal", name: "Personal" }, { id: "v2", name: "Homelab" }],
+      selectedVaultIds: ["personal"],
+    });
+    const update = vi.spyOn(useConnectionStore.getState(), "updateConnection").mockResolvedValue();
+    const api = createHostPluginAPI("test:objects-crossvault", ["connections:write"]);
+    await expect(api.objects.move({
+      ids: ["c1"], folderId: null, vaultId: "v2", allowCrossVault: true,
+    })).resolves.toEqual({ moved: 1, created: 0, skipped: 0 });
+    expect(update).toHaveBeenCalledWith("c1", expect.objectContaining({ vault_id: "v2" }));
   });
 
   it("refuses before any store method runs", async () => {
@@ -133,7 +147,8 @@ describe("api.objects against the real stores", () => {
 
   it("refuses an id that belongs to no tab", async () => {
     const api = createHostPluginAPI("test:objects-unknown", [
-      "connections:write", "keys:write", "identities:write", "vaults:write", "folders:write",
+      "connections:write", "keys:write", "identities:write",
+      "snippets:write", "port_forwarding:write", "folders:write",
     ]);
     await expect(api.objects.move({ ids: ["ghost"], folderId: null, vaultId: null }))
       .rejects.toThrow(/ghost/);

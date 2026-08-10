@@ -212,15 +212,28 @@ describe("objectPermissionsFor", () => {
       .toEqual(["connections:write"]);
   });
 
-  it("adds folders:write when a folder travels and vaults:write for a named vault", () => {
-    expect(objectPermissionsFor(fakePorts(), { ids: ["f1"], folderId: null, vaultId: "vault-2" }).sort())
-      .toEqual(["folders:write", "vaults:write"]);
+  it("gives every kind its own permission", () => {
+    const perm = (id: string) =>
+      objectPermissionsFor(fakePorts(), { ids: [id], folderId: null, vaultId: null });
+    expect(perm("k1")).toEqual(["keys:write"]);
+    expect(perm("i1")).toEqual(["identities:write"]);
+    expect(perm("s1")).toEqual(["snippets:write"]);
+    expect(perm("r1")).toEqual(["port_forwarding:write"]);
+    expect(perm("f1")).toEqual(["folders:write"]);
+  });
+
+  it("does not ask for vaults:write to move into another vault", () => {
+    // A move or copy never creates or destroys a vault; vaults:write also deletes one.
+    expect(objectPermissionsFor(fakePorts(), {
+      ids: ["s1"], folderId: null, vaultId: "vault-2", allowCrossVault: true,
+    })).toEqual(["snippets:write"]);
   });
 
   it("asks for everything when an id resolves to nothing", () => {
-    const perms = objectPermissionsFor(fakePorts(), { ids: ["nope"], folderId: null, vaultId: null });
-    expect(perms).toContain("keys:write");
-    expect(perms).toContain("identities:write");
-    expect(perms).toContain("connections:write");
+    const perms = objectPermissionsFor(fakePorts(), { ids: ["nope"], folderId: null, vaultId: null }).sort();
+    expect(perms).toEqual([
+      "connections:write", "folders:write", "identities:write",
+      "keys:write", "port_forwarding:write", "snippets:write",
+    ]);
   });
 });

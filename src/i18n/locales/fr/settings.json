@@ -801,6 +801,8 @@
           "keysWrite": { "label": "Gérer vos clés SSH", "description": "Créer et supprimer des clés SSH en votre nom." },
           "identitiesRead": { "label": "Lire vos identités", "description": "Lister vos identités enregistrées." },
           "identitiesWrite": { "label": "Gérer vos identités", "description": "Créer et supprimer des identités en votre nom." },
+          "snippetsWrite": { "label": "Gérer vos snippets", "description": "Créer, modifier, déplacer et supprimer vos snippets enregistrés." },
+          "portForwardingWrite": { "label": "Gérer vos redirections de ports", "description": "Créer, modifier, déplacer et supprimer vos règles de redirection de ports enregistrées." },
           "vaultRead": { "label": "Lire votre coffre", "description": "Lire les données stockées dans votre coffre." },
           "vaultWrite": { "label": "Écrire dans votre coffre", "description": "Stocker et modifier des données dans votre coffre." },
           "syncRead": { "label": "Lire les données de synchronisation", "description": "Lire les données synchronisées entre vos appareils." },
