@@ -134,6 +134,36 @@ describe("audit permission", () => {
   });
 });
 
+describe("vaults and folders permissions", () => {
+  test("all four are gated", () => {
+    for (const perm of ["vaults:read", "vaults:write", "folders:read", "folders:write"]) {
+      expect(isGatedPermission(perm), perm).toBe(true);
+    }
+  });
+
+  test("the read tiers list inventory, so they are gated but not danger", () => {
+    for (const perm of ["vaults:read", "folders:read"]) {
+      const [d] = describePermissions([perm]);
+      expect(d.gated, perm).toBe(true);
+      expect(d.danger, perm).toBe(false);
+    }
+  });
+
+  test("the write tiers can destroy user data, so they stay danger", () => {
+    for (const perm of ["vaults:write", "folders:write"]) {
+      const [d] = describePermissions([perm]);
+      expect(d.danger, perm).toBe(true);
+    }
+  });
+
+  test("they are distinct from the plugin-scoped singular vault:* storage perms", () => {
+    expect(isGatedPermission("vault:read")).toBe(false);
+    const [singular] = describePermissions(["vault:read"]);
+    const [plural] = describePermissions(["vaults:read"]);
+    expect(singular.labelKey).not.toBe(plural.labelKey);
+  });
+});
+
 describe("mcp:contribute permission", () => {
   test("mcp:contribute is gated and danger-tier", () => {
     const [d] = describePermissions(["mcp:contribute"]);

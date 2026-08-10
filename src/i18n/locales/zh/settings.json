@@ -655,6 +655,22 @@
             "label": "向外部 AI 代理开放工具",
             "description": "允许此插件将自己的命令添加到 Voltius MCP 服务器，使已连接的任何外部 AI 代理都能以此插件的权限执行这些命令。"
           },
+          "vaultsRead": {
+            "label": "查看您的保险库",
+            "description": "查看您的保险库名称（包括团队保险库）及其组织方式。"
+          },
+          "vaultsWrite": {
+            "label": "创建和删除保险库",
+            "description": "创建、重命名和删除您的保险库。删除保险库可能会删除其中存放的全部内容。"
+          },
+          "foldersRead": {
+            "label": "查看您的文件夹",
+            "description": "查看您用来归类主机、密钥、端口转发和代码片段的文件夹。"
+          },
+          "foldersWrite": {
+            "label": "创建和删除文件夹",
+            "description": "创建、重命名和删除文件夹。删除文件夹可能会删除其中存放的全部内容。"
+          },
           "sessionsRead": {
             "label": "查看您的会话",
             "description": "查看哪些终端会话处于打开状态及其变化。"
