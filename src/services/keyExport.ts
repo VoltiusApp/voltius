@@ -40,7 +40,7 @@ export async function addKeyToHost({
   const label = sshKey.name ?? "SSH";
   const comment = `# ${label} Key by Voltius`;
   const command = `sh -c '${script}' sh '${location}' '${filename}' '${comment}' '${pubKey.trim()}'`;
-  await sshExecCommand({
+  const result = await sshExecCommand({
     host: connection.host,
     port: connection.port,
     username,
@@ -49,4 +49,8 @@ export async function addKeyToHost({
     passphrase,
     command,
   });
+  if (result.exit_code !== 0) {
+    const detail = result.stderr.trim();
+    throw new Error(detail ? `Remote command failed: ${detail}` : `Remote command failed with exit code ${result.exit_code}`);
+  }
 }

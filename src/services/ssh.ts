@@ -111,6 +111,12 @@ export async function sshGetSystemInfo(sessionId: string): Promise<SystemInfo> {
   return invoke("ssh_get_system_info", { sessionId });
 }
 
+export interface SshExecResult {
+  stdout: string;
+  stderr: string;
+  exit_code: number;
+}
+
 export async function sshExecCommand(params: {
   host: string;
   port: number;
@@ -119,7 +125,7 @@ export async function sshExecCommand(params: {
   privateKey?: string;
   passphrase?: string;
   command: string;
-}): Promise<string> {
+}): Promise<SshExecResult> {
   return invoke("ssh_exec_command", {
     host: params.host,
     port: params.port,

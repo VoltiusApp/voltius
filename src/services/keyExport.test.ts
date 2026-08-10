@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { addKeyToHost, DEFAULT_EXPORT_SCRIPT } from "./keyExport";
 
 const getSecret = vi.fn(async (..._a: unknown[]) => "ssh-ed25519 AAAA... user@host\n");
-const sshExecCommand = vi.fn(async (..._a: unknown[]) => ({ stdout: "", stderr: "", exitCode: 0 }));
+const sshExecCommand = vi.fn(async (..._a: unknown[]) => ({ stdout: "", stderr: "", exit_code: 0 }));
 const resolveConnectionCredentials = vi.fn(async (..._a: unknown[]) => ({
   username: "root", password: undefined, privateKey: "pk", passphrase: undefined,
 }));
@@ -56,5 +56,15 @@ describe("addKeyToHost", () => {
     getSecret.mockResolvedValueOnce("" as never);
     await expect(addKeyToHost({ sshKey, connection })).rejects.toThrow();
     expect(sshExecCommand).not.toHaveBeenCalled();
+  });
+
+  it("throws and names the stderr when the remote command exits non-zero", async () => {
+    sshExecCommand.mockResolvedValueOnce({ stdout: "", stderr: "  permission denied  \n", exit_code: 1 } as never);
+    await expect(addKeyToHost({ sshKey, connection })).rejects.toThrow(/permission denied/);
+  });
+
+  it("resolves when the remote command exits zero", async () => {
+    sshExecCommand.mockResolvedValueOnce({ stdout: "", stderr: "", exit_code: 0 } as never);
+    await expect(addKeyToHost({ sshKey, connection })).resolves.toBeUndefined();
   });
 });

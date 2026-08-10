@@ -173,6 +173,13 @@ pub async fn ssh_resize(
     state.resize(&session_id, cols, rows).await
 }
 
+#[derive(serde::Serialize)]
+pub struct SshExecResult {
+    pub stdout: String,
+    pub stderr: String,
+    pub exit_code: i32,
+}
+
 #[tauri::command]
 pub async fn ssh_exec_command(
     known_hosts: tauri::State<'_, Arc<KnownHostsStore>>,
@@ -183,9 +190,8 @@ pub async fn ssh_exec_command(
     private_key: Option<String>,
     passphrase: Option<String>,
     command: String,
-) -> Result<String, String> {
+) -> Result<SshExecResult, String> {
     use russh::client as russh_client;
-    use tokio::io::AsyncReadExt;
     use tokio::time::{timeout, Duration};
 
     let config = russh_client::Config {
@@ -226,7 +232,7 @@ pub async fn ssh_exec_command(
         return Err("Authentication failed".into());
     }
 
-    let channel = handle
+    let mut channel = handle
         .channel_open_session()
         .await
         .map_err(|e| format!("Channel error: {}", e))?;
@@ -236,15 +242,20 @@ pub async fn ssh_exec_command(
         .await
         .map_err(|e| format!("Exec error: {}", e))?;
 
-    let mut stream = channel.into_stream();
-    let mut output = Vec::new();
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+    let mut exit_code = 0i32;
 
+    // Read to Close rather than Eof: the exit status usually follows Eof, and
+    // breaking there is what loses it.
     let _ = timeout(Duration::from_secs(30), async {
-        let mut buf = [0u8; 4096];
-        loop {
-            match stream.read(&mut buf).await {
-                Ok(0) | Err(_) => break,
-                Ok(n) => output.extend_from_slice(&buf[..n]),
+        while let Some(msg) = channel.wait().await {
+            match msg {
+                russh::ChannelMsg::Data { data } => stdout.extend_from_slice(&data),
+                russh::ChannelMsg::ExtendedData { data, .. } => stderr.extend_from_slice(&data),
+                russh::ChannelMsg::ExitStatus { exit_status } => exit_code = exit_status as i32,
+                russh::ChannelMsg::Close => break,
+                _ => {}
             }
         }
     })
@@ -254,7 +265,11 @@ pub async fn ssh_exec_command(
         .disconnect(russh::Disconnect::ByApplication, "Done", "en")
         .await;
 
-    Ok(String::from_utf8_lossy(&output).to_string())
+    Ok(SshExecResult {
+        stdout: String::from_utf8_lossy(&stdout).to_string(),
+        stderr: String::from_utf8_lossy(&stderr).to_string(),
+        exit_code,
+    })
 }
 
 #[tauri::command]
