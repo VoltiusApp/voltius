@@ -6,7 +6,7 @@ import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { useAllPortForwardingRules } from "@/hooks/useAllPortForwardingRules";
 import { useAllConnections } from "@/hooks/useAllConnections";
 import { useUIStore } from "@/stores/uiStore";
-import { usePermissions, type Permission } from "@/hooks/usePermission";
+import { usePermissions } from "@/hooks/usePermission";
 import { useAccessibleVaultIds, useScopedVaultId } from "@/hooks/useAccessibleVaultIds";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { useDragSelection } from "@/hooks/useDragSelection";
@@ -28,7 +28,8 @@ import { useSyncedFormKey } from "@/hooks/useSyncedFormKey";
 import { useRuleTunnels } from "@/hooks/useRuleTunnels";
 import { vaultMenuItems } from "@/utils/vaultMenuItems";
 import { usePageClipboard } from "@/hooks/usePageClipboard";
-import { nameIsFree, folderNameIsFree } from "@/utils/cloneName";
+import { vaultClipboardBase } from "@/utils/vaultClipboardBase";
+import { nameIsFree } from "@/utils/cloneName";
 import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
@@ -404,50 +405,29 @@ export function PortForwardingPage() {
     [clipboard],
   );
 
-  /**
-   * The destination folder is the only unambiguous carrier of a destination vault.
-   * At the root there is none, so nothing migrates and every object keeps its own
-   * vault — matching the drag-to-root path, and avoiding a "move to top level"
-   * gesture silently pulling a subtree out of a team vault. Derived from the folder
-   * argument rather than activeFolderId so an undo, which passes the origin folder
-   * back in, migrates back to the vault it came from.
-   */
-  /**
-   * A destination folder carries its own vault. At the root there is none, so the
-   * view's scope answers instead: with a single vault on screen its root IS that
-   * vault's root and a paste there belongs in it. With several on screen the root
-   * names no destination, so every object keeps its own vault.
-   */
-  const vaultForFolder = (folderId: string | null): string | null =>
-    folderId ? (scopedFolders.find((f) => f.id === folderId)?.vault_id ?? null) : scopedVaultId;
+  const { vaultForFolder, adapter: clipboardBase } = vaultClipboardBase({
+    navItem: "port-forwarding",
+    entities: [{ kind: "port_forward", items: rules }],
+    folders: scopedFolders,
+    selectedIdSet,
+    focusedId,
+    activeFolderId,
+    scopedVaultId,
+    accessibleVaultIds,
+    vaultOptions,
+    can,
+    confirmCrossVault: crossVaultPaste.confirmCrossVault,
+    setSelection,
+    migrateFolderTreeToVault,
+    moveFolder,
+    copyFolderInto,
+    deleteFolder,
+  });
 
   // Every mutation below goes through a store method so vault permission checks apply.
   // Rules own no secrets, so nothing has to be republished on a cross-vault write.
   usePageClipboard({
-    navItem: "port-forwarding",
-    getSelection: () => [...selectedIdSet],
-    getFocusedId: () => focusedId,
-    classify: (id) =>
-      scopedFolders.some((f) => f.id === id)
-        ? "folder"
-        : rules.some((r) => r.id === id)
-        ? "port_forward"
-        : null,
-    exists: (id) => rules.some((r) => r.id === id) || scopedFolders.some((f) => f.id === id),
-    vaultIdOf: (id) =>
-      rules.find((r) => r.id === id)?.vault_id
-      ?? scopedFolders.find((f) => f.id === id)?.vault_id
-      ?? "personal",
-    targetFolderId: () => activeFolderId,
-    rootVaultIds: () => accessibleVaultIds,
-    targetVaultId: () => vaultForFolder(activeFolderId),
-    targetVaultName: () =>
-      vaultOptions.find((v) => v.id === vaultForFolder(activeFolderId))?.name ?? "",
-    confirmCrossVault: crossVaultPaste.confirmCrossVault,
-    folderIdOf: (id) =>
-      rules.find((r) => r.id === id)?.folder_id
-      ?? scopedFolders.find((f) => f.id === id)?.parent_folder_id
-      ?? null,
+    ...clipboardBase,
     folderContentKinds: (folderId): VaultClipboardKind[] =>
       getRulesInFolderTree(folderId).length > 0 ? ["port_forward"] : [],
     // A migrated rule keeps pointing at the hosts it tunnels through, which this
@@ -465,10 +445,6 @@ export function PortForwardingPage() {
         .filter((c) => !!c);
       return linked.some((c) => (c.vault_id ?? "personal") !== destination) ? ["connection"] : [];
     },
-    canMoveFolder: (id, parentFolderId) =>
-      parentFolderId !== id
-      && !(parentFolderId !== null && getAllSubFolders(id).some((f) => f.id === parentFolderId)),
-    can: (permission, vaultId) => can(permission as Permission, vaultId),
     // A same-vault move only rewrites folder_id; a cross-vault one has to go through
     // updateRule so the object actually changes vault, otherwise it would keep a
     // stale vault_id alongside its new folder's.
@@ -483,15 +459,6 @@ export function PortForwardingPage() {
         await updateRule(id, ruleToForm(rule, { folder_id: folderId ?? undefined, vault_id: vaultId }));
       }
     },
-    moveFolder: async (id, parentFolderId, vaultId) => {
-      const folder = scopedFolders.find((f) => f.id === id);
-      if (!folder) return;
-      if (vaultId !== null && (folder.vault_id ?? "personal") !== vaultId) {
-        await migrateFolderTreeToVault(folder, parentFolderId, vaultId);
-        return;
-      }
-      await moveFolder(id, parentFolderId);
-    },
     duplicateItems: async (ids, folderId) => {
       const targetVault = vaultForFolder(folderId) ?? undefined;
       const created: string[] = [];
@@ -505,23 +472,7 @@ export function PortForwardingPage() {
       }
       return created;
     },
-    duplicateFolder: async (id, parentFolderId) => {
-      const targetVault = vaultForFolder(parentFolderId);
-      const folder = scopedFolders.find((f) => f.id === id);
-      return (
-        await copyFolderInto(id, parentFolderId, targetVault ?? undefined, {
-          keepName: folderNameIsFree(
-            scopedFolders,
-            folder?.name,
-            targetVault ?? folder?.vault_id ?? "personal",
-            parentFolderId,
-          ),
-        })
-      ).id;
-    },
     deleteItems: async (ids) => { for (const id of ids) await deleteRule(id); },
-    deleteFolder: async (id) => { await deleteFolder(id); },
-    setSelection,
   });
 
   const filteredRuleIdSet = useMemo(() => new Set(filtered.map((r) => r.id)), [filtered]);

@@ -10,7 +10,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useLayoutStore } from "@/stores/layoutStore";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
-import { usePermissions, type Permission } from "@/hooks/usePermission";
+import { usePermissions } from "@/hooks/usePermission";
 import { useAccessibleVaultIds, useScopedVaultId } from "@/hooks/useAccessibleVaultIds";
 import { useDragSelection } from "@/hooks/useDragSelection";
 import { useListKeyNav } from "@/hooks/useListKeyNav";
@@ -33,7 +33,8 @@ import { snippetScriptText, snippetSearchText } from "@/services/snippetSteps";
 import { runSnippetIntoSessions } from "@/services/snippetRun";
 import { snippetToForm } from "@/utils/snippetForm";
 import { usePageClipboard } from "@/hooks/usePageClipboard";
-import { nameIsFree, folderNameIsFree } from "@/utils/cloneName";
+import { vaultClipboardBase } from "@/utils/vaultClipboardBase";
+import { nameIsFree } from "@/utils/cloneName";
 import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
 import { VaultCascadeModal } from "@/components/shared/VaultCascadeModal";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
@@ -521,50 +522,29 @@ export function SnippetsPage() {
 
   const crossVaultPaste = useCrossVaultPasteConfirm();
 
-  /**
-   * The destination folder is the only unambiguous carrier of a destination vault.
-   * At the root there is none, so nothing migrates and every object keeps its own
-   * vault — matching the drag-to-root path, and avoiding a "move to top level"
-   * gesture silently pulling a subtree out of a team vault. Derived from the folder
-   * argument rather than activeFolderId so an undo, which passes the origin folder
-   * back in, migrates back to the vault it came from.
-   */
-  /**
-   * A destination folder carries its own vault. At the root there is none, so the
-   * view's scope answers instead: with a single vault on screen its root IS that
-   * vault's root and a paste there belongs in it. With several on screen the root
-   * names no destination, so every object keeps its own vault.
-   */
-  const vaultForFolder = (folderId: string | null): string | null =>
-    folderId ? (scopedFolders.find((f) => f.id === folderId)?.vault_id ?? null) : scopedVaultId;
+  const { vaultForFolder, adapter: clipboardBase } = vaultClipboardBase({
+    navItem: "snippets",
+    entities: [{ kind: "snippet", items: snippets }],
+    folders: scopedFolders,
+    selectedIdSet,
+    focusedId,
+    activeFolderId,
+    scopedVaultId,
+    accessibleVaultIds,
+    vaultOptions,
+    can,
+    confirmCrossVault: crossVaultPaste.confirmCrossVault,
+    setSelection,
+    migrateFolderTreeToVault,
+    moveFolder,
+    copyFolderInto,
+    deleteFolder,
+  });
 
   // Every mutation below goes through a store method so vault permission checks apply.
   // Snippets own no secrets, so nothing has to be republished on a cross-vault write.
   usePageClipboard({
-    navItem: "snippets",
-    getSelection: () => [...selectedIdSet],
-    getFocusedId: () => focusedId,
-    classify: (id) =>
-      scopedFolders.some((f) => f.id === id)
-        ? "folder"
-        : snippets.some((s) => s.id === id)
-        ? "snippet"
-        : null,
-    exists: (id) => snippets.some((s) => s.id === id) || scopedFolders.some((f) => f.id === id),
-    vaultIdOf: (id) =>
-      snippets.find((s) => s.id === id)?.vault_id
-      ?? scopedFolders.find((f) => f.id === id)?.vault_id
-      ?? "personal",
-    targetFolderId: () => activeFolderId,
-    rootVaultIds: () => accessibleVaultIds,
-    targetVaultId: () => vaultForFolder(activeFolderId),
-    targetVaultName: () =>
-      vaultOptions.find((v) => v.id === vaultForFolder(activeFolderId))?.name ?? "",
-    confirmCrossVault: crossVaultPaste.confirmCrossVault,
-    folderIdOf: (id) =>
-      snippets.find((s) => s.id === id)?.folder_id
-      ?? scopedFolders.find((f) => f.id === id)?.parent_folder_id
-      ?? null,
+    ...clipboardBase,
     folderContentKinds: (folderId): VaultClipboardKind[] =>
       getSnippetsInFolderTree(folderId).length > 0 ? ["snippet"] : [],
     // A snippet-call step points at another snippet by id. Moving the caller without
@@ -586,10 +566,6 @@ export function SnippetsPage() {
         .filter((s) => !!s);
       return callees.some((s) => (s.vault_id ?? "personal") !== destination) ? ["snippet"] : [];
     },
-    canMoveFolder: (id, parentFolderId) =>
-      parentFolderId !== id
-      && !(parentFolderId !== null && getAllSubFolders(id).some((f) => f.id === parentFolderId)),
-    can: (permission, vaultId) => can(permission as Permission, vaultId),
     // A cross-vault move carries vault_id alongside folder_id, otherwise the snippet
     // would keep a stale vault_id next to its new folder's.
     moveItems: async (ids, folderId, vaultId) => {
@@ -602,15 +578,6 @@ export function SnippetsPage() {
           vault_id: vaultId ?? s.vault_id,
         });
       }
-    },
-    moveFolder: async (id, parentFolderId, vaultId) => {
-      const folder = scopedFolders.find((f) => f.id === id);
-      if (!folder) return;
-      if (vaultId !== null && (folder.vault_id ?? "personal") !== vaultId) {
-        await migrateFolderTreeToVault(folder, parentFolderId, vaultId);
-        return;
-      }
-      await moveFolder(id, parentFolderId);
     },
     duplicateItems: async (ids, folderId) => {
       const targetVault = vaultForFolder(folderId) ?? undefined;
@@ -625,23 +592,7 @@ export function SnippetsPage() {
       }
       return created;
     },
-    duplicateFolder: async (id, parentFolderId) => {
-      const targetVault = vaultForFolder(parentFolderId);
-      const folder = scopedFolders.find((f) => f.id === id);
-      return (
-        await copyFolderInto(id, parentFolderId, targetVault ?? undefined, {
-          keepName: folderNameIsFree(
-            scopedFolders,
-            folder?.name,
-            targetVault ?? folder?.vault_id ?? "personal",
-            parentFolderId,
-          ),
-        })
-      ).id;
-    },
     deleteItems: async (ids) => { for (const id of ids) await deleteSnippet(id); },
-    deleteFolder: async (id) => { await deleteFolder(id); },
-    setSelection,
   });
 
   // ── Drag-to-folder ────────────────────────────────────────────────────────

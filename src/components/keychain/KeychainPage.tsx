@@ -13,7 +13,7 @@ import { VaultCascadeModal } from "@/components/shared/VaultCascadeModal";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
 import { useVaultCascade } from "@/hooks/useVaultCascade";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
-import { usePermissions, type Permission } from "@/hooks/usePermission";
+import { usePermissions } from "@/hooks/usePermission";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useAccessibleVaultIds, useScopedVaultId } from "@/hooks/useAccessibleVaultIds";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
@@ -48,7 +48,8 @@ import {
   withdrawOrWarn,
 } from "@/services/vaultObjectSecrets";
 import { usePageClipboard } from "@/hooks/usePageClipboard";
-import { nameIsFree, folderNameIsFree } from "@/utils/cloneName";
+import { vaultClipboardBase } from "@/utils/vaultClipboardBase";
+import { nameIsFree } from "@/utils/cloneName";
 import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
@@ -401,56 +402,34 @@ export default function KeychainPage() {
     [clipboard],
   );
 
-  /**
-   * The destination folder is the only unambiguous carrier of a destination vault.
-   * At the root there is none, so nothing migrates and every object keeps its own
-   * vault — matching the drag-to-root path, and avoiding a "move to top level"
-   * gesture silently pulling a subtree out of a team vault. Derived from the folder
-   * argument rather than activeFolderId so an undo, which passes the origin folder
-   * back in, migrates back to the vault it came from.
-   */
-  /**
-   * A destination folder carries its own vault. At the root there is none, so the
-   * view's scope answers instead: with a single vault on screen its root IS that
-   * vault's root and a paste there belongs in it. With several on screen the root
-   * names no destination, so every object keeps its own vault.
-   */
-  const vaultForFolder = (folderId: string | null): string | null =>
-    folderId ? (scopedFolders.find((f) => f.id === folderId)?.vault_id ?? null) : scopedVaultId;
+  const { vaultForFolder, adapter: clipboardBase } = vaultClipboardBase({
+    navItem: "keychain",
+    entities: [
+      { kind: "key", items: keys },
+      { kind: "identity", items: identities },
+    ],
+    folders: scopedFolders,
+    selectedIdSet,
+    focusedId,
+    activeFolderId,
+    scopedVaultId,
+    accessibleVaultIds,
+    vaultOptions,
+    can,
+    confirmCrossVault: crossVaultPaste.confirmCrossVault,
+    setSelection,
+    // Wrapped, not passed: both are declared further down the component.
+    migrateFolderTreeToVault: (folder, parentFolderId, vaultId) =>
+      migrateFolderTreeToVault(folder, parentFolderId, vaultId),
+    moveFolder,
+    copyFolderInto: (id, parentFolderId, vaultId, opts) =>
+      copyFolderInto(id, parentFolderId, vaultId, opts),
+    deleteFolder,
+  });
 
   // Every mutation below goes through a store method so vault permission checks apply.
   usePageClipboard({
-    navItem: "keychain",
-    getSelection: () => [...selectedIdSet],
-    getFocusedId: () => focusedId,
-    classify: (id) =>
-      scopedFolders.some((f) => f.id === id)
-        ? "folder"
-        : keys.some((k) => k.id === id)
-        ? "key"
-        : identities.some((i) => i.id === id)
-        ? "identity"
-        : null,
-    exists: (id) =>
-      keys.some((k) => k.id === id)
-      || identities.some((i) => i.id === id)
-      || scopedFolders.some((f) => f.id === id),
-    vaultIdOf: (id) =>
-      keys.find((k) => k.id === id)?.vault_id
-      ?? identities.find((i) => i.id === id)?.vault_id
-      ?? scopedFolders.find((f) => f.id === id)?.vault_id
-      ?? "personal",
-    targetFolderId: () => activeFolderId,
-    rootVaultIds: () => accessibleVaultIds,
-    targetVaultId: () => vaultForFolder(activeFolderId),
-    targetVaultName: () =>
-      vaultOptions.find((v) => v.id === vaultForFolder(activeFolderId))?.name ?? "",
-    confirmCrossVault: crossVaultPaste.confirmCrossVault,
-    folderIdOf: (id) =>
-      keys.find((k) => k.id === id)?.folder_id
-      ?? identities.find((i) => i.id === id)?.folder_id
-      ?? scopedFolders.find((f) => f.id === id)?.parent_folder_id
-      ?? null,
+    ...clipboardBase,
     folderContentKinds: (folderId) => {
       const kinds: VaultClipboardKind[] = [];
       if (keysInFolderTree(folderId).length > 0) kinds.push("key");
@@ -477,10 +456,6 @@ export default function KeychainPage() {
         .filter((k) => !!k);
       return linkedKeys.some((k) => (k.vault_id ?? "personal") !== destination) ? ["key"] : [];
     },
-    canMoveFolder: (id, parentFolderId) =>
-      parentFolderId !== id
-      && !(parentFolderId !== null && getAllSubFolders(id).some((f) => f.id === parentFolderId)),
-    can: (permission, vaultId) => can(permission as Permission, vaultId),
     // moveObjectsToFolder takes a single object_type, so the ids are partitioned by
     // kind. A same-vault move only rewrites folder_id; a cross-vault one has to go
     // through updateKey/updateIdentity so the object actually changes vault, otherwise
@@ -525,15 +500,6 @@ export default function KeychainPage() {
         await loadIdentities();
       }
     },
-    moveFolder: async (id, parentFolderId, vaultId) => {
-      const folder = scopedFolders.find((f) => f.id === id);
-      if (!folder) return;
-      if (vaultId !== null && (folder.vault_id ?? "personal") !== vaultId) {
-        await migrateFolderTreeToVault(folder, parentFolderId, vaultId);
-        return;
-      }
-      await moveFolder(id, parentFolderId);
-    },
     duplicateItems: async (ids, folderId) => {
       const targetVault = vaultForFolder(folderId) ?? undefined;
       const created = new Map<string, string>();
@@ -562,20 +528,6 @@ export default function KeychainPage() {
       }
       return ids.map((id) => created.get(id)).filter((id): id is string => !!id);
     },
-    duplicateFolder: async (id, parentFolderId) => {
-      const targetVault = vaultForFolder(parentFolderId);
-      const folder = scopedFolders.find((f) => f.id === id);
-      return (
-        await copyFolderInto(id, parentFolderId, targetVault ?? undefined, {
-          keepName: folderNameIsFree(
-            scopedFolders,
-            folder?.name,
-            targetVault ?? folder?.vault_id ?? "personal",
-            parentFolderId,
-          ),
-        })
-      ).id;
-    },
     // The store methods directly, not handleDeleteKey/handleDeleteIdentity: those
     // swallow the error into the banner, which would let a failed undo report success.
     deleteItems: async (ids) => {
@@ -584,8 +536,6 @@ export default function KeychainPage() {
         else if (identities.some((i) => i.id === id)) await deleteIdentity(id);
       }
     },
-    deleteFolder: async (id) => { await deleteFolder(id); },
-    setSelection,
   });
 
   useEffect(() => {

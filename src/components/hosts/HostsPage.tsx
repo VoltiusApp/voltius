@@ -27,11 +27,12 @@ import { useVaultCascade } from "@/hooks/useVaultCascade";
 import { useSyncPrefsStore } from "@/stores/syncPrefsStore";
 import { useVaultStore } from "@/stores/vaultStore";
 import { useEffectivePinnedPredicate } from "@/hooks/useEffectivePinned";
-import { usePermissions, type Permission } from "@/hooks/usePermission";
+import { usePermissions } from "@/hooks/usePermission";
 import { useAccessibleVaultIds, useScopedVaultId } from "@/hooks/useAccessibleVaultIds";
 import { useDefaultVaultId } from "@/hooks/useWritableVaultIds";
 import { usePageClipboard } from "@/hooks/usePageClipboard";
-import { nameIsFree, folderNameIsFree } from "@/utils/cloneName";
+import { vaultClipboardBase } from "@/utils/vaultClipboardBase";
+import { nameIsFree } from "@/utils/cloneName";
 import { useCrossVaultPasteConfirm } from "@/hooks/useCrossVaultPasteConfirm";
 import { ClipboardPill } from "@/components/shared/ClipboardPill";
 import { useVaultClipboardStore, type VaultClipboardKind } from "@/stores/vaultClipboardStore";
@@ -303,18 +304,27 @@ export default function HostsPage() {
     [clipboard],
   );
 
-  /**
-   * A destination folder carries its own vault. At the root there is none, so the
-   * view's scope answers instead: with a single vault on screen its root IS that
-   * vault's root and a paste there belongs in it. With several on screen the root
-   * names no destination, so every object keeps its own vault — matching the
-   * drag-to-root path (`onEjectFolders`), and avoiding a "move to top level"
-   * gesture silently pulling a subtree out of a team vault.
-   * Derived from the folder argument rather than activeFolderId so an undo, which
-   * passes the origin folder back in, migrates back to the vault it came from.
-   */
-  const vaultForFolder = (folderId: string | null): string | null =>
-    folderId ? (scopedFolders.find((f) => f.id === folderId)?.vault_id ?? null) : scopedVaultId;
+  const { vaultForFolder, adapter: clipboardBase } = vaultClipboardBase({
+    navItem: "hosts",
+    entities: [{ kind: "connection", items: connections }],
+    folders: scopedFolders,
+    selectedIdSet,
+    focusedId,
+    activeFolderId,
+    scopedVaultId,
+    accessibleVaultIds,
+    vaultOptions,
+    can,
+    confirmCrossVault: crossVaultPaste.confirmCrossVault,
+    setSelection,
+    // Wrapped, not passed: both are declared further down the component.
+    migrateFolderTreeToVault: (folder, parentFolderId, vaultId) =>
+      migrateFolderTreeToVault(folder, parentFolderId, vaultId),
+    moveFolder,
+    copyFolderInto: (id, parentFolderId, vaultId, opts) =>
+      handleCopyFolderInto(id, parentFolderId, vaultId, opts),
+    deleteFolder,
+  });
 
   // Both stores are only filled by a sync or by opening Keychain, and the paste
   // cascade reads them to decide what a host's references need. Empty ones made it
@@ -424,30 +434,7 @@ export default function HostsPage() {
 
   // Every mutation below goes through a store method so vault permission checks apply.
   usePageClipboard({
-    navItem: "hosts",
-    getSelection: () => [...selectedIdSet],
-    getFocusedId: () => focusedId,
-    classify: (id) =>
-      scopedFolders.some((f) => f.id === id)
-        ? "folder"
-        : connections.some((c) => c.id === id)
-        ? "connection"
-        : null,
-    exists: (id) => connections.some((c) => c.id === id) || scopedFolders.some((f) => f.id === id),
-    vaultIdOf: (id) =>
-      connections.find((c) => c.id === id)?.vault_id
-      ?? scopedFolders.find((f) => f.id === id)?.vault_id
-      ?? "personal",
-    targetFolderId: () => activeFolderId,
-    rootVaultIds: () => accessibleVaultIds,
-    targetVaultId: () => vaultForFolder(activeFolderId),
-    targetVaultName: () =>
-      vaultOptions.find((v) => v.id === vaultForFolder(activeFolderId))?.name ?? "",
-    confirmCrossVault: crossVaultPaste.confirmCrossVault,
-    folderIdOf: (id) =>
-      connections.find((c) => c.id === id)?.folder_id
-      ?? scopedFolders.find((f) => f.id === id)?.parent_folder_id
-      ?? null,
+    ...clipboardBase,
     folderContentKinds: (folderId) =>
       getConnectionsInFolderTree(folderId).length > 0 ? ["connection"] : [],
     planCascade: (items, folderIds, destination, mode) =>
@@ -533,10 +520,6 @@ export default function HostsPage() {
       if (linkedKeys.some((k) => (k.vault_id ?? "personal") !== destination)) kinds.push("key");
       return kinds;
     },
-    canMoveFolder: (id, parentFolderId) =>
-      parentFolderId !== id
-      && !(parentFolderId !== null && getAllSubFolders(id).some((f) => f.id === parentFolderId)),
-    can: (permission, vaultId) => can(permission as Permission, vaultId),
     // A same-vault move only rewrites folder_id; a cross-vault one has to go through
     // updateConnection so the object actually changes vault, otherwise it would keep
     // a stale vault_id alongside its new folder's.
@@ -567,15 +550,6 @@ export default function HostsPage() {
         await loadConnections();
       }
     },
-    moveFolder: async (id, parentFolderId, vaultId) => {
-      const folder = scopedFolders.find((f) => f.id === id);
-      if (!folder) return;
-      if (vaultId !== null && (folder.vault_id ?? "personal") !== vaultId) {
-        await migrateFolderTreeToVault(folder, parentFolderId, vaultId);
-        return;
-      }
-      await moveFolder(id, parentFolderId);
-    },
     duplicateItems: async (ids, folderId) => {
       const targetVault = vaultForFolder(folderId);
       const created: string[] = [];
@@ -591,23 +565,7 @@ export default function HostsPage() {
       }
       return created;
     },
-    duplicateFolder: async (id, parentFolderId) => {
-      const targetVault = vaultForFolder(parentFolderId);
-      const folder = scopedFolders.find((f) => f.id === id);
-      return (
-        await handleCopyFolderInto(id, parentFolderId, targetVault ?? undefined, {
-          keepName: folderNameIsFree(
-            scopedFolders,
-            folder?.name,
-            targetVault ?? folder?.vault_id ?? "personal",
-            parentFolderId,
-          ),
-        })
-      ).id;
-    },
     deleteItems: async (ids) => { for (const id of ids) await deleteConnection(id); },
-    deleteFolder: async (id) => { await deleteFolder(id); },
-    setSelection,
   });
 
   // ── Drag-to-folder ────────────────────────────────────────────────────────
