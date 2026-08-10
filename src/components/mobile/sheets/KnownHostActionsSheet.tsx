@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import { useKnownHostStore } from "@/stores/knownHostStore";
@@ -7,10 +6,11 @@ import { useVaultStore } from "@/stores/vaultStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import { writeClipboard } from "@/utils/clipboard";
 import type { KnownHost } from "@/types";
+import { SheetActionRow, type SheetAction } from "./SheetActionRow";
 
 type Mode = "menu" | "confirm-delete" | "move" | "copy";
 
-type Item = { icon: string; label: string; danger?: boolean; slug?: string; onTap: () => void };
+const Row = ({ it }: { it: SheetAction }) => <SheetActionRow attr="knownhost-action" it={it} />;
 
 export default function KnownHostActionsSheet({ host, onClose }: { host: KnownHost; onClose: () => void }) {
   const { t } = useTranslation();
@@ -24,18 +24,6 @@ export default function KnownHostActionsSheet({ host, onClose }: { host: KnownHo
   const otherVaults = vaults.filter((v) => v.id !== currentVaultId);
 
   const displayName = host.name ?? `${host.host}:${host.port}`;
-
-  const Row = ({ it }: { it: Item }) => (
-    <button
-      data-knownhost-action={it.slug ?? it.label.toLowerCase().replace(/[^a-z]+/g, "-")}
-      className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl text-left active:bg-(--t-bg-card)"
-      style={{ color: it.danger ? "var(--t-danger, #e5484d)" : "var(--t-text-primary)" }}
-      onClick={it.onTap}
-    >
-      <Icon icon={it.icon} width={18} />
-      <span className="text-sm font-medium">{it.label}</span>
-    </button>
-  );
 
   if (mode === "confirm-delete") {
     return (
@@ -71,7 +59,7 @@ export default function KnownHostActionsSheet({ host, onClose }: { host: KnownHo
     );
   }
 
-  const items: Item[] = [
+  const items: SheetAction[] = [
     {
       icon: "lucide:fingerprint-pattern",
       label: t("mobile.sheets.knownHostActions.copyFingerprint"),

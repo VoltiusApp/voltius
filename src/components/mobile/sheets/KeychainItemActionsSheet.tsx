@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import MoveToFolderSheet from "./MoveToFolderSheet";
@@ -12,10 +11,11 @@ import { getSecret } from "@/services/vault";
 import { writeClipboard } from "@/utils/clipboard";
 import { buildMoveTargets } from "@/components/mobile/folders/mobileFolderCore";
 import type { SshKey, Identity } from "@/types";
+import { SheetActionRow, type SheetAction } from "./SheetActionRow";
 
 type Mode = "menu" | "confirm-delete" | "move-folder";
 
-type RowItem = { icon: string; label: string; danger?: boolean; slug: string; onTap: () => void };
+const Row = ({ it }: { it: SheetAction }) => <SheetActionRow attr="keychain-action" it={it} />;
 
 type Props =
   | { kind: "key"; item: SshKey; onClose: () => void }
@@ -35,18 +35,6 @@ export default function KeychainItemActionsSheet(props: Props) {
   const [mode, setMode] = useState<Mode>("menu");
 
   const name = item.name ?? (kind === "key" ? t("mobile.sheets.keychainActions.unnamedKey") : (item as Identity).username);
-
-  const Row = ({ it }: { it: RowItem }) => (
-    <button
-      data-keychain-action={it.slug}
-      className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl text-left active:bg-(--t-bg-card)"
-      style={{ color: it.danger ? "var(--t-danger, #e5484d)" : "var(--t-text-primary)" }}
-      onClick={it.onTap}
-    >
-      <Icon icon={it.icon} width={18} />
-      <span className="text-sm font-medium">{it.label}</span>
-    </button>
-  );
 
   if (mode === "move-folder") {
     return (
@@ -75,7 +63,7 @@ export default function KeychainItemActionsSheet(props: Props) {
     );
   }
 
-  const items: RowItem[] = [
+  const items: SheetAction[] = [
     kind === "key"
       ? { icon: "lucide:clipboard-copy", label: t("mobile.sheets.keychainActions.copyPublicKey"), slug: "copy-public-key", onTap: async () => {
           const pub = await getSecret(`key:${item.id}:public`);

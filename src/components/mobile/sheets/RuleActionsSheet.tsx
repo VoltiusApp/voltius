@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import { usePortForwardingStore } from "@/stores/portForwardingStore";
@@ -8,10 +7,11 @@ import { useAllFolders } from "@/hooks/useAllFolders";
 import { buildMoveTargets } from "@/components/mobile/folders/mobileFolderCore";
 import MoveToFolderSheet from "./MoveToFolderSheet";
 import type { PortForwardingRule, PortForwardingRuleFormData } from "@/types";
+import { SheetActionRow, type SheetAction } from "./SheetActionRow";
 
 type Mode = "menu" | "confirm-delete" | "move" | "copy" | "move-folder";
 
-type Item = { icon: string; label: string; slug: string; danger?: boolean; onTap: () => void };
+const Row = ({ it }: { it: SheetAction }) => <SheetActionRow attr="rule-action" it={it} />;
 
 function fields(rule: PortForwardingRule, vaultId: string): PortForwardingRuleFormData {
   return {
@@ -45,18 +45,6 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
 
   const allFolders = useAllFolders();
   const otherVaults = vaults.filter((v) => v.id !== rule.vault_id);
-
-  const Row = ({ it }: { it: Item }) => (
-    <button
-      data-rule-action={it.slug}
-      className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl text-left active:bg-(--t-bg-card)"
-      style={{ color: it.danger ? "var(--t-danger, #e5484d)" : "var(--t-text-primary)" }}
-      onClick={it.onTap}
-    >
-      <Icon icon={it.icon} width={18} />
-      <span className="text-sm font-medium">{it.label}</span>
-    </button>
-  );
 
   if (mode === "confirm-delete") {
     return (
@@ -111,7 +99,7 @@ export default function RuleActionsSheet({ rule, onEdit, onClose }: {
     );
   }
 
-  const items: Item[] = [
+  const items: SheetAction[] = [
     { icon: "lucide:pencil", label: t("common.action.edit"), slug: "edit", onTap: () => { onEdit(rule); onClose(); } },
     { icon: "lucide:folder-tree", label: t("mobile.sheets.shared.moveToFolder"), slug: "move-folder", onTap: () => setMode("move-folder") },
     ...(otherVaults.length > 0 ? [{ icon: "lucide:folder-input", label: t("mobile.sheets.shared.moveToVault"), slug: "move", onTap: () => setMode("move") }] : []),

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
@@ -16,10 +15,11 @@ import { connectionDisplayName } from "@/utils/connectionDisplayName";
 import { writeClipboard } from "@/utils/clipboard";
 import { buildMoveTargets } from "@/components/mobile/folders/mobileFolderCore";
 import MoveToFolderSheet from "./MoveToFolderSheet";
+import { SheetActionRow, type SheetAction } from "./SheetActionRow";
 
 type Mode = "menu" | "confirm-delete" | "move" | "move-folder";
 
-type Item = { icon: string; label: string; danger?: boolean; slug?: string; onTap: () => void };
+const Row = ({ it }: { it: SheetAction }) => <SheetActionRow attr="host-action" it={it} />;
 
 export default function HostActionsSheet({ hostId }: { hostId: string }) {
   const { t } = useTranslation();
@@ -47,18 +47,6 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
   const isFtp = conn.connection_type === "ftp";
   const currentVaultId = conn.vault_id ?? "personal";
   const moveTargets = vaults.filter((v) => v.id !== currentVaultId);
-
-  const Row = ({ it }: { it: Item }) => (
-    <button
-      data-host-action={it.slug ?? it.label.toLowerCase().replace(/[^a-z]+/g, "-")}
-      className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl text-left active:bg-(--t-bg-card)"
-      style={{ color: it.danger ? "var(--t-danger, #e5484d)" : "var(--t-text-primary)" }}
-      onClick={it.onTap}
-    >
-      <Icon icon={it.icon} width={18} />
-      <span className="text-sm font-medium">{it.label}</span>
-    </button>
-  );
 
   if (mode === "confirm-delete") {
     return (
@@ -97,7 +85,7 @@ export default function HostActionsSheet({ hostId }: { hostId: string }) {
     );
   }
 
-  const items: Item[] = [
+  const items: SheetAction[] = [
     ...(!isSerial && !isFtp ? [{ icon: "lucide:terminal", label: t("common.action.connect"), slug: "connect", onTap: () => { closeSheet(); void connect(hostId).catch(console.error); setTab("terminal"); } }] : []),
     { icon: "lucide:pencil", label: t("common.action.edit"), slug: "edit", onTap: () => { closeSheet(); push({ kind: "host-edit", hostId }); } },
     ...(!isSerial ? [{ icon: "lucide:folder-open", label: isFtp ? t("mobile.sheets.hostActions.openFiles") : t("mobile.panelItems.sftp"), slug: isFtp ? "open-files" : "sftp", onTap: () => { closeSheet(); push({ kind: "panel-sftp", connectionId: hostId }); } }] : []),

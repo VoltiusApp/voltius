@@ -1,6 +1,8 @@
-import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
+import { SheetActionRow, type SheetAction } from "./SheetActionRow";
+
+const Row = (it: SheetAction) => <SheetActionRow attr="add-choice" it={it} />;
 
 export default function AddChoiceSheet({
   newItemLabel, newItemIcon, onNewItem, onNewFolder, onClose,
@@ -12,16 +14,6 @@ export default function AddChoiceSheet({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const Row = ({ icon, label, onTap, slug }: { icon: string; label: string; onTap: () => void; slug: string }) => (
-    <button
-      data-add-choice={slug}
-      className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl text-left active:bg-(--t-bg-card) text-(--t-text-primary)"
-      onClick={onTap}
-    >
-      <Icon icon={icon} width={18} />
-      <span className="text-sm font-medium">{label}</span>
-    </button>
-  );
   return (
     <BottomSheet title={t("common.action.add")} onClose={onClose} registerBack={false}>
       <Row slug="item" icon={newItemIcon} label={newItemLabel} onTap={onNewItem} />

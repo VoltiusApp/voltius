@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import { useMobileNavStore } from "@/stores/mobileNavStore";
@@ -10,10 +9,11 @@ import { snippetToForm } from "@/utils/snippetForm";
 import { useAllSnippetFolders } from "@/hooks/useAllSnippetFolders";
 import { buildMoveTargets } from "@/components/mobile/folders/mobileFolderCore";
 import MoveToFolderSheet from "./MoveToFolderSheet";
+import { SheetActionRow, type SheetAction } from "./SheetActionRow";
 
 type Mode = "menu" | "confirm-delete" | "move" | "copy" | "move-folder";
 
-type Item = { icon: string; label: string; danger?: boolean; slug?: string; onTap: () => void };
+const Row = ({ it }: { it: SheetAction }) => <SheetActionRow attr="snippet-action" it={it} />;
 
 export default function MobileSnippetActionsSheet({ snippetId }: { snippetId: string }) {
   const { t } = useTranslation();
@@ -33,18 +33,6 @@ export default function MobileSnippetActionsSheet({ snippetId }: { snippetId: st
   if (!snippet) return null;
   const currentVaultId = snippet.vault_id ?? "personal";
   const vaultTargets = vaults.filter((v) => v.id !== currentVaultId);
-
-  const Row = ({ it }: { it: Item }) => (
-    <button
-      data-snippet-action={it.slug ?? it.label.toLowerCase().replace(/[^a-z]+/g, "-")}
-      className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl text-left active:bg-(--t-bg-card)"
-      style={{ color: it.danger ? "var(--t-danger, #e5484d)" : "var(--t-text-primary)" }}
-      onClick={it.onTap}
-    >
-      <Icon icon={it.icon} width={18} />
-      <span className="text-sm font-medium">{it.label}</span>
-    </button>
-  );
 
   if (mode === "confirm-delete") {
     return (
@@ -85,7 +73,7 @@ export default function MobileSnippetActionsSheet({ snippetId }: { snippetId: st
     );
   }
 
-  const items: Item[] = [
+  const items: SheetAction[] = [
     { icon: "lucide:pencil", label: t("common.action.edit"), slug: "edit", onTap: () => { closeSheet(); push({ kind: "snippet-edit", snippetId }); } },
     { icon: "lucide:copy", label: t("mobile.sheets.shared.duplicate"), slug: "duplicate", onTap: () => {
         void createSnippet({ ...snippetToForm(snippet), name: `${snippet.name} (copy)`, favorite: false });

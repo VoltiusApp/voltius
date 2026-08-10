@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import BottomSheet from "./BottomSheet";
 import FolderFormSheet from "./FolderFormSheet";
 import type { Folder } from "@/types";
+import { SheetActionRow, type SheetAction } from "./SheetActionRow";
 
 type Mode = "menu" | "rename" | "confirm-delete";
+
+const Row = (it: SheetAction) => <SheetActionRow attr="folder-action" it={it} />;
 
 export default function FolderActionsSheet({
   folder, onRename, onDelete, onClose,
@@ -28,18 +30,6 @@ export default function FolderActionsSheet({
       />
     );
   }
-
-  const Row = ({ icon, label, danger, onTap, slug }: { icon: string; label: string; danger?: boolean; onTap: () => void; slug: string }) => (
-    <button
-      data-folder-action={slug}
-      className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl text-left active:bg-(--t-bg-card)"
-      style={{ color: danger ? "var(--t-danger, #e5484d)" : "var(--t-text-primary)" }}
-      onClick={onTap}
-    >
-      <Icon icon={icon} width={18} />
-      <span className="text-sm font-medium">{label}</span>
-    </button>
-  );
 
   if (mode === "confirm-delete") {
     return (
