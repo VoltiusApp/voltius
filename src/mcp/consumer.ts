@@ -161,8 +161,27 @@ export async function callTool(
   const parsed = tool.schema.safeParse(args);
   if (!parsed.success) return { ok: false, error: `invalid arguments for "${name}": ${parsed.error.message}` };
   try {
-    return { ok: true, result: await tool.execute(parsed.data as Record<string, unknown>) };
+    const result = await tool.execute(parsed.data as Record<string, unknown>);
+    const refusal = refusalMessage(result);
+    return refusal === null ? { ok: true, result } : { ok: false, error: refusal };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+/**
+ * The refusal message of a `{ error }` result, or null when the result is data.
+ *
+ * `objectOp` and `makeFileOp` catch a refusal and hand back `{ error }` inside a
+ * successful call, which the transport then reports as `isError: false` — a
+ * client that trusts the envelope reads "the vault was deleted" when it was
+ * refused and is still there. Only a lone `error` string counts, so a verb that
+ * returns an error field alongside real data stays a success.
+ */
+function refusalMessage(result: unknown): string | null {
+  if (typeof result !== "object" || result === null) return null;
+  const keys = Object.keys(result);
+  if (keys.length !== 1 || keys[0] !== "error") return null;
+  const message = (result as { error: unknown }).error;
+  return typeof message === "string" ? message : null;
 }
