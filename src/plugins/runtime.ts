@@ -22,6 +22,9 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { useSnippetStore } from "@/stores/snippetStore";
 import { useFolderStore } from "@/stores/folderStore";
+import { useSnippetFolderStore } from "@/stores/snippetFolderStore";
+import { useVaultStore } from "@/stores/vaultStore";
+import { usePortForwardingStore } from "@/stores/portForwardingStore";
 import { getSyncState, onSyncStateChange, ENTITY_FILES, getExcludedObjectIds, type BlobPayload } from "@/services/sync";
 import { useThemeStore } from "@/stores/themeStore";
 import { mergeEntities, mergeSecrets } from "@/services/crdt";
@@ -34,6 +37,9 @@ import type {
 import * as connectionService from "@/services/connections";
 import * as keyService from "@/services/keys";
 import * as identityService from "@/services/identities";
+import { addKeyToHost } from "@/services/keyExport";
+import { isValidSshPublicKey } from "@/services/sshPublicKey";
+import type { Connection } from "@/types";
 import { storePluginSecret, getPluginSecret, deletePluginSecret, storeSecret, deleteSecret } from "@/services/vault";
 import { appFetch } from "@/services/http";
 import { sseFetch } from "@/services/sseFetch";
@@ -67,6 +73,12 @@ import { createI18nAPI } from "./domains/i18n";
 import { createProxmoxAPI } from "./domains/proxmox";
 import { createSftpAPI } from "./domains/sftp";
 import { createDockerAPI } from "./domains/docker";
+import { createVaultsAPI, type VaultPorts } from "./domains/vaults";
+import { createFoldersAPI, type FolderPorts } from "./domains/folders";
+import { createObjectsAPI, type ObjectPorts } from "./domains/objects";
+import { resolveCan, type Permission } from "@/services/permissions";
+import { getMyUserId } from "@/services/teamService";
+import { fetchTeamData } from "@/services/teamVaultSync";
 import { injectPluginStyle, removePluginStyle } from "./importPluginModule";
 import { assertValidPluginId, isValidPluginId } from "./pluginId";
 
@@ -159,6 +171,13 @@ function refuseTeamWrite(connectionId: string, verb: string) {
   if (teamConnectionList().some((c) => c.id === connectionId)) {
     throw new Error(`Connection ${connectionId} belongs to a team vault and cannot be ${verb} by a plugin`);
   }
+}
+
+/** Full personal-or-team Connection record for a read-only remote op (unlike
+ *  listAllConnections, keeps key_id/identity_id so credentials can resolve). */
+async function resolveConnectionRecord(connectionId: string): Promise<Connection | undefined> {
+  const personal = await connectionService.listConnections();
+  return personal.find((c) => c.id === connectionId) ?? teamConnectionList().find((c) => c.id === connectionId);
 }
 
 const _onConnectionEstablished = new Set<(conn: PluginConnection) => void>();
@@ -400,6 +419,228 @@ function registerKeybinding(pluginId: string, commandId: string, raw: string, ex
   return formatPluginKeybinding(parsed);
 }
 
+// ─── Vault ports ──────────────────────────────────────────────────────────
+
+/**
+ * A vault is team-backed when a team carries its id — the same test
+ * folderStore makes. `teamId` on the record only survives a session that set
+ * it, so the team list is the authority.
+ */
+const isTeamVaultId = (vaultId: string): boolean =>
+  useTeamStore.getState().teams.some((t) => t.id === vaultId);
+
+/**
+ * Loads the seven stores the vault-object tabs read.
+ *
+ * Snippets, port-forwarding rules, keys, identities and snippet folders are
+ * loaded by their own pages, so in a session that never opened them the stores
+ * are empty — and an empty read is what turns "refuse a non-empty vault" into
+ * silently orphaning its contents, and a paste's cascade into leaving a key
+ * behind. The Vaults settings page loads the same seven for the same reason.
+ */
+const hydrateVaultObjectStores = async (): Promise<void> => {
+  await Promise.all([
+    useConnectionStore.getState().loadConnections(),
+    useIdentityStore.getState().loadIdentities(),
+    useKeyStore.getState().loadKeys(),
+    useFolderStore.getState().loadFolders(),
+    useSnippetStore.getState().loadSnippets(),
+    useSnippetFolderStore.getState().loadFolders(),
+    usePortForwardingStore.getState().loadRules(),
+  ]);
+};
+
+const vaultPorts: VaultPorts = {
+  vaults: {
+    list: () => useVaultStore.getState().vaults,
+    add: (name) => useVaultStore.getState().addVault(name),
+    rename: (id, name) => useVaultStore.getState().renameVault(id, name),
+    remove: (id) => useVaultStore.getState().removeVault(id),
+  },
+  isTeamVault: isTeamVaultId,
+  /** Hydrates before counting — see `hydrateVaultObjectStores`. */
+  contents: async () => {
+    await hydrateVaultObjectStores();
+    return {
+      connections: useConnectionStore.getState().connections,
+      keys: useKeyStore.getState().keys,
+      identities: useIdentityStore.getState().identities,
+      snippets: useSnippetStore.getState().snippets,
+      portForwardingRules: usePortForwardingStore.getState().rules,
+      folders: useFolderStore.getState().folders,
+      snippetFolders: useSnippetFolderStore.getState().folders,
+    };
+  },
+  remove: {
+    connection: (id) => useConnectionStore.getState().deleteConnection(id),
+    key: (id) => useKeyStore.getState().deleteKey(id),
+    identity: (id) => useIdentityStore.getState().deleteIdentity(id),
+    snippet: (id) => useSnippetStore.getState().deleteSnippet(id),
+    portForwardingRule: (id) => usePortForwardingStore.getState().deleteRule(id),
+    // Cascade off: the vault sweep deletes every object in the vault itself, so
+    // a cascading folder delete would race it on ids already gone.
+    folder: (id) => useFolderStore.getState().deleteFolder(id, { cascade: false }),
+    snippetFolder: (id) => useSnippetFolderStore.getState().deleteFolder(id),
+  },
+};
+
+/**
+ * Both folder stores keep team folders in a separate map keyed by team id, so a
+ * plain `folders` read would miss them and `list()` would claim a team vault has
+ * none. Reads span both; the write verbs refuse a team vault anyway.
+ */
+const folderPorts: FolderPorts = {
+  general: {
+    list: () => {
+      const s = useFolderStore.getState();
+      return [...s.folders, ...Object.values(s.teamFolders).flat()];
+    },
+    save: (data) => useFolderStore.getState().saveFolder(data),
+    update: (folderId, data) => useFolderStore.getState().updateFolder(folderId, data),
+    remove: (folderId, cascade) => useFolderStore.getState().deleteFolder(folderId, { cascade }),
+  },
+  snippet: {
+    list: () => {
+      const s = useSnippetFolderStore.getState();
+      return [...s.folders, ...Object.values(s.teamSnippetFolders).flat()];
+    },
+    save: (data) => useSnippetFolderStore.getState().saveFolder(data),
+    update: (folderId, data) => useSnippetFolderStore.getState().updateFolder(folderId, data),
+    remove: (folderId) => useSnippetFolderStore.getState().deleteFolder(folderId),
+  },
+  isTeamVault: isTeamVaultId,
+  vaultExists: (vaultId) =>
+    useVaultStore.getState().vaults.some((v) => v.id === vaultId) || isTeamVaultId(vaultId),
+};
+
+// ─── Object ports ─────────────────────────────────────────────────────────
+
+/**
+ * `can` is synchronous, so the user id it resolves against is read once by
+ * `hydrate` — which every objects verb runs before anything else — rather than
+ * awaited inside the permission check. Empty means "not signed in", and
+ * `resolveCan` is pessimistic about team vaults in that state.
+ */
+let _myUserId = "";
+
+const objectPorts: ObjectPorts = {
+  hydrate: async () => {
+    await hydrateVaultObjectStores();
+    _myUserId = (await getMyUserId().catch(() => null)) ?? "";
+    // Team roles and members decide `can` for a team-vault source; unloaded, the
+    // pessimistic branch refuses a move the user is actually allowed to make.
+    const team = useTeamStore.getState();
+    await team.loadTeams().catch(() => {});
+    await Promise.all(
+      useTeamStore.getState().teams.flatMap((t) => [
+        team.loadMembers(t.id).catch(() => {}),
+        team.loadRoles(t.id).catch(() => {}),
+        // The team maps every object read spans are filled by fetchTeamData
+        // alone, which the UI drives. Without this a session that never opened
+        // a team vault reports its objects as "not found" — and, worse, cannot
+        // see a team-vault key a personal host points at, so a cross-vault move
+        // completes with no cascade and no dangling refusal.
+        fetchTeamData(t.id, { background: true }).catch(() => {}),
+      ]),
+    );
+  },
+  can: (permission, vaultId) => {
+    const { teams, membersByTeam, rolesByTeam } = useTeamStore.getState();
+    return resolveCan(
+      { myUserId: _myUserId, teams, membersByTeam, rolesByTeam, vaults: useVaultStore.getState().vaults },
+      permission as Permission,
+      vaultId,
+    );
+  },
+  isTeamVault: isTeamVaultId,
+  vaults: () => {
+    const vaults = useVaultStore.getState().vaults;
+    const linked = new Set(vaults.map((v) => v.teamId).filter(Boolean));
+    return [
+      { id: "personal", name: "Personal" },
+      ...vaults.filter((v) => v.id !== "personal").map((v) => ({ id: v.teamId ?? v.id, name: v.name })),
+      ...useTeamStore.getState().teams.filter((t) => !linked.has(t.id)).map((t) => ({ id: t.id, name: t.name })),
+    ];
+  },
+  /**
+   * Every vault the user has, not the page's current filter: there is no view
+   * here, so nothing is off-screen. Only `rootVaultIds` reads this, to tell a
+   * root paste that silently dropped an object from one that was a no-op.
+   */
+  accessibleVaultIds: () => [
+    "personal",
+    ...useVaultStore.getState().vaults.map((v) => v.id),
+    ...useTeamStore.getState().teams.map((t) => t.id),
+  ],
+
+  // Reads span the team maps too: both folder stores and every object store keep
+  // team-vault records separately, and a tab that cannot see them reports a
+  // team object as "not found" — or, worse, as an empty folder subtree.
+  connections: () => [...useConnectionStore.getState().connections, ...teamConnectionList()],
+  keys: () => {
+    const s = useKeyStore.getState();
+    return [...s.keys, ...Object.values(s.teamKeys).flat()];
+  },
+  identities: () => {
+    const s = useIdentityStore.getState();
+    return [...s.identities, ...Object.values(s.teamIdentities).flat()];
+  },
+  snippets: () => {
+    const s = useSnippetStore.getState();
+    return [...s.snippets, ...Object.values(s.teamSnippets).flat()];
+  },
+  rules: () => {
+    const s = usePortForwardingStore.getState();
+    return [...s.rules, ...Object.values(s.teamRules).flat()];
+  },
+  folders: () => {
+    const s = useFolderStore.getState();
+    return [...s.folders, ...Object.values(s.teamFolders).flat()];
+  },
+  snippetFolders: () => {
+    const s = useSnippetFolderStore.getState();
+    return [...s.folders, ...Object.values(s.teamSnippetFolders).flat()];
+  },
+
+  saveConnection: (form) => useConnectionStore.getState().saveConnection(form),
+  updateConnection: (id, form) => useConnectionStore.getState().updateConnection(id, form),
+  deleteConnection: (id) => useConnectionStore.getState().deleteConnection(id),
+  loadConnections: () => useConnectionStore.getState().loadConnections(),
+
+  saveKey: (form) => useKeyStore.getState().saveKey(form),
+  updateKey: (id, form) => useKeyStore.getState().updateKey(id, form),
+  deleteKey: (id) => useKeyStore.getState().deleteKey(id),
+  loadKeys: () => useKeyStore.getState().loadKeys(),
+
+  saveIdentity: (form) => useIdentityStore.getState().saveIdentity(form),
+  updateIdentity: (id, form) => useIdentityStore.getState().updateIdentity(id, form),
+  deleteIdentity: (id) => useIdentityStore.getState().deleteIdentity(id),
+  loadIdentities: () => useIdentityStore.getState().loadIdentities(),
+
+  createSnippet: (form) => useSnippetStore.getState().createSnippet(form),
+  updateSnippet: (id, form) => useSnippetStore.getState().updateSnippet(id, form),
+  deleteSnippet: (id) => useSnippetStore.getState().deleteSnippet(id),
+
+  createRule: (form) => usePortForwardingStore.getState().createRule(form),
+  updateRule: (id, form) => usePortForwardingStore.getState().updateRule(id, form),
+  deleteRule: (id) => usePortForwardingStore.getState().deleteRule(id),
+  moveRuleFolder: (id, folderId) => usePortForwardingStore.getState().moveRuleFolder(id, folderId),
+
+  moveObjectsToFolder: (ids, objectType, folderId) =>
+    useFolderStore.getState().moveObjectsToFolder(ids, objectType, folderId),
+  saveFolder: (data) => useFolderStore.getState().saveFolder(data),
+  updateFolder: (id, data) => useFolderStore.getState().updateFolder(id, data),
+  // Cascading: a folder the paste moved out of the tab is empty, and a folder
+  // whose contents the paste did not carry keeps them.
+  deleteFolder: (id) => useFolderStore.getState().deleteFolder(id),
+  moveFolder: (id, parentFolderId) => useFolderStore.getState().moveFolder(id, parentFolderId),
+  saveSnippetFolder: (data) => useSnippetFolderStore.getState().saveFolder(data),
+  updateSnippetFolder: (id, data) => useSnippetFolderStore.getState().updateFolder(id, data),
+  deleteSnippetFolder: (id) => useSnippetFolderStore.getState().deleteFolder(id),
+  moveSnippetFolder: (id, parentFolderId) =>
+    useSnippetFolderStore.getState().moveFolder(id, parentFolderId),
+};
+
 // ─── Store reload map ─────────────────────────────────────────────────────
 
 const RELOADABLE_STORES: Record<string, () => Promise<void>> = {
@@ -564,6 +805,12 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
     requirePerm(manifest, perm);
   };
 
+  /** Gated per kind, not wholesale: a plugin allowed to file snippets has no
+   *  business moving the user's keys. See objectPermissionsFor for the set. */
+  const requireEachGated = (perms: string[]): void => {
+    for (const perm of perms) requireGated(perm);
+  };
+
   // Reserved prefix "plugin:<id>:" namespaces keychain keys per plugin. The id
   // is percent-encoded so a plugin id containing the ":" delimiter (e.g. "foo:x")
   // cannot forge a prefix that collides with another plugin's namespace.
@@ -592,6 +839,9 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
   const sftpApi = createSftpAPI(findConnection);
   _sftpDisposers.set(id, () => sftpApi.dispose());
   const dockerApi = createDockerAPI(streamsApi);
+  const vaultsApi = createVaultsAPI(vaultPorts);
+  const foldersApi = createFoldersAPI(folderPorts);
+  const objectsApi = createObjectsAPI(objectPorts);
 
   const api: PluginAPI = {
     pluginId: id,
@@ -604,6 +854,11 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
       },
       async create(data, privateKey, publicKey) {
         requirePerm(manifest, "keys:write");
+        // addToHost writes this half to a remote file verbatim, so an unvalidated
+        // value stored here is attacker-chosen remote file content later.
+        if (publicKey && !isValidSshPublicKey(publicKey)) {
+          throw new Error("publicKey is not a valid SSH public key");
+        }
         const key = await keyService.saveKey({ name: data.name, key_type: data.key_type, tags: data.tags ?? [] });
         await storeSecret(`key:${key.id}:private`, privateKey);
         if (publicKey) await storeSecret(`key:${key.id}:public`, publicKey);
@@ -614,6 +869,15 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
         await deleteSecret(`key:${keyId}:private`).catch(() => {});
         await deleteSecret(`key:${keyId}:public`).catch(() => {});
         await keyService.deleteKey(keyId);
+      },
+      async addToHost({ keyId, connectionId, location, filename }) {
+        requirePerm(manifest, "keys:read");
+        requirePerm(manifest, "connections:read");
+        const sshKey = (await keyService.listKeys()).find((k) => k.id === keyId);
+        if (!sshKey) throw new Error(`Key ${keyId} not found`);
+        const connection = await resolveConnectionRecord(connectionId);
+        if (!connection) throw new Error(`Connection ${connectionId} not found`);
+        await addKeyToHost({ sshKey, connection, location, filename });
       },
     },
 
@@ -710,6 +974,53 @@ function createPluginAPI(manifest: PluginManifest): PluginAPI {
           cb([...merged.values()]);
         });
       },
+    },
+
+    vaults: {
+      list() {
+        requireGated("vaults:read");
+        return vaultsApi.list();
+      },
+      create(name) {
+        requireGated("vaults:write");
+        return vaultsApi.create(name);
+      },
+      rename(vaultId, name) {
+        requireGated("vaults:write");
+        vaultsApi.rename(vaultId, name);
+      },
+      async delete(vaultId, opts) {
+        requireGated("vaults:write");
+        await vaultsApi.delete(vaultId, opts);
+      },
+    },
+
+    folders: {
+      list(kind) {
+        requireGated("folders:read");
+        return foldersApi.list(kind);
+      },
+      async create(input) {
+        requireGated("folders:write");
+        return foldersApi.create(input);
+      },
+      async rename(folderId, name) {
+        requireGated("folders:write");
+        await foldersApi.rename(folderId, name);
+      },
+      async delete(folderId, opts) {
+        requireGated("folders:write");
+        await foldersApi.delete(folderId, opts);
+      },
+    },
+
+    // The gate is handed to the verb rather than run before it: the permissions
+    // can only be read off hydrated stores — on a fresh app every id resolves to
+    // nothing and a correctly scoped plugin would be refused — and hydration
+    // includes a team-vault sync, so gating out here meant doing all of it twice.
+    objects: {
+      move: (input) => objectsApi.move(input, requireEachGated),
+      copy: (input) => objectsApi.copy(input, requireEachGated),
     },
 
     vault: {

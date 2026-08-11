@@ -6,6 +6,9 @@ import { buildConnectionTools, CONNECTION_PERMISSIONS } from "./tools/connection
 import { buildKeyTools, KEY_PERMISSIONS } from "./tools/keys";
 import { buildIdentityTools, IDENTITY_PERMISSIONS } from "./tools/identities";
 import { buildAuditTools, AUDIT_PERMISSIONS } from "./tools/audit";
+import { buildVaultTools, VAULT_PERMISSIONS } from "./tools/vaults";
+import { buildFolderTools, FOLDER_PERMISSIONS } from "./tools/folders";
+import { buildObjectTools, OBJECT_PERMISSIONS } from "./tools/objects";
 
 /** One entry per domain: builder and permissions travel together so they cannot drift. */
 const GROUPS = [
@@ -15,6 +18,9 @@ const GROUPS = [
   { build: buildKeyTools, permissions: KEY_PERMISSIONS },
   { build: buildIdentityTools, permissions: IDENTITY_PERMISSIONS },
   { build: buildAuditTools, permissions: AUDIT_PERMISSIONS },
+  { build: buildVaultTools, permissions: VAULT_PERMISSIONS },
+  { build: buildFolderTools, permissions: FOLDER_PERMISSIONS },
+  { build: buildObjectTools, permissions: OBJECT_PERMISSIONS },
 ] as const;
 
 export const ALL_PERMISSIONS: readonly string[] = [

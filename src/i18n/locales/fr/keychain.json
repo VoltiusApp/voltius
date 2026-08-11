@@ -125,7 +125,13 @@
       "exportScriptLabel": "Script d'export",
       "successMessage": "Clé exportée avec succès",
       "exportingLabel": "Export en cours…",
-      "publicKeyNotFoundError": "Clé publique introuvable"
+      "publicKeyNotFoundError": "Clé publique introuvable",
+      "multilinePublicKeyError": "Clé publique invalide — elle doit tenir sur une seule ligne",
+      "invalidPublicKeyError": "Clé publique invalide — elle doit être une clé publique SSH au format « type base64 [commentaire] »",
+      "invalidLocationError": "L'emplacement doit être un chemin sous le dossier personnel distant, sans segment « .. »",
+      "invalidFilenameError": "Le nom du fichier ne doit pas contenir de séparateur de chemin",
+      "remoteCommandFailedError": "La commande distante a échoué : {{detail}}",
+      "remoteCommandFailedUnknownError": "La commande distante a échoué (code de sortie {{code}})"
     },
     "dropZone": {
       "loaded": "Fichier de clé chargé",

@@ -32,6 +32,7 @@ export const CONNECTION_TOOLS = new Set([
   "connection_update",
   "connection_delete",
   "open_session",
+  "key_add_to_host",
 ]);
 
 /**
@@ -56,7 +57,9 @@ export async function deriveScope(
   try {
     let connectionId: string | undefined;
     if (CONNECTION_TOOLS.has(tool)) {
-      connectionId = args.connectionId as string | undefined;
+      // key_add_to_host's schema is snake_case (connection_id); every other
+      // member of this set is camelCase (connectionId). Read both.
+      connectionId = (args.connectionId ?? args.connection_id) as string | undefined;
     } else if (FILE_TOOLS.has(tool)) {
       // A file tool names its target directly rather than via a session. For a
       // transfer the SOURCE is the scope: it is the side whose data leaves, and

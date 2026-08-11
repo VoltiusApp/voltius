@@ -42,4 +42,22 @@ describe("deriveScope, reachable from the tool-surface barrel", () => {
     expect(await deriveScope(connApi, "connection_delete", { connectionId: "c1" })).toBe("c1");
     expect(await deriveScope(connApi, "connection_update", { connectionId: "nope" })).toBe(null);
   });
+
+  it("scopes key_add_to_host (snake_case connection_id) to the connection it names", async () => {
+    const connApi = {
+      sessions: { list: () => [] },
+      connections: { list: async () => [{ id: "c1", host: "h", port: 22, username: "u", auth_type: "key", tags: [] }] },
+    } as never;
+    expect(await deriveScope(connApi, "key_add_to_host", { connection_id: "c1" })).toBe("c1");
+  });
+
+  it("scopes key_add_to_host to a team-vault connection so its audit row reaches the team", async () => {
+    const teamConnApi = {
+      sessions: { list: () => [] },
+      connections: {
+        list: async () => [{ id: "team-c1", host: "h", port: 22, username: "u", auth_type: "key", tags: [], team: true }],
+      },
+    } as never;
+    expect(await deriveScope(teamConnApi, "key_add_to_host", { connection_id: "team-c1" })).toBe("team-c1");
+  });
 });

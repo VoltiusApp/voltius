@@ -141,7 +141,13 @@
       "exportScriptLabel": "Скрипт экспорта",
       "successMessage": "Ключ успешно экспортирован",
       "exportingLabel": "Экспорт…",
-      "publicKeyNotFoundError": "Публичный ключ не найден"
+      "publicKeyNotFoundError": "Публичный ключ не найден",
+      "multilinePublicKeyError": "Публичный ключ недействителен — он должен занимать одну строку",
+      "invalidPublicKeyError": "Публичный ключ недействителен — он должен быть публичным ключом SSH в формате «тип base64 [комментарий]»",
+      "invalidLocationError": "Расположение должно быть путём внутри домашнего каталога на удалённой машине, без сегмента «..»",
+      "invalidFilenameError": "Имя файла не должно содержать разделитель пути",
+      "remoteCommandFailedError": "Удалённая команда завершилась с ошибкой: {{detail}}",
+      "remoteCommandFailedUnknownError": "Удалённая команда завершилась с ошибкой (код выхода {{code}})"
     },
     "dropZone": {
       "loaded": "Файл ключа загружен",
