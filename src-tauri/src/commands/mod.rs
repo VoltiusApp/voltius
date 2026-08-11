@@ -6,6 +6,7 @@ pub mod docker;
 pub mod downloads;
 pub mod folders;
 pub mod fs;
+pub mod host_command;
 pub mod http;
 pub mod identities;
 pub mod keychain;

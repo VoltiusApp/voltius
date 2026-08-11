@@ -1,6 +1,7 @@
 use tauri::{AppHandle, State};
 
 use crate::{
+    commands::host_command::host_command,
     proxmox::{
         remote,
         types::{LxcAction, LxcContainer, LxcSnapshot},
@@ -13,105 +14,17 @@ fn local_err() -> String {
     "Proxmox LXC management requires an SSH session to a Proxmox VE host".to_string()
 }
 
-#[tauri::command]
-pub async fn proxmox_lxc_list(
-    session_manager: State<'_, SessionManager>,
-    session_id: String,
-    is_remote: bool,
-    _local_shell: Option<String>,
-) -> Result<Vec<LxcContainer>, String> {
-    if is_remote {
-        let handle = session_manager.get_handle(&session_id).await?;
-        remote::list_containers(&handle).await
-    } else {
-        Err(local_err())
-    }
-}
-
-#[tauri::command]
-pub async fn proxmox_lxc_action(
-    session_manager: State<'_, SessionManager>,
-    session_id: String,
-    is_remote: bool,
-    _local_shell: Option<String>,
-    vmid: u32,
-    action: LxcAction,
-) -> Result<(), String> {
-    if is_remote {
-        let handle = session_manager.get_handle(&session_id).await?;
-        remote::container_action(&handle, vmid, &action).await
-    } else {
-        Err(local_err())
-    }
-}
-
-#[tauri::command]
-pub async fn proxmox_lxc_list_snapshots(
-    session_manager: State<'_, SessionManager>,
-    session_id: String,
-    is_remote: bool,
-    _local_shell: Option<String>,
-    vmid: u32,
-) -> Result<Vec<LxcSnapshot>, String> {
-    if is_remote {
-        let handle = session_manager.get_handle(&session_id).await?;
-        remote::list_snapshots(&handle, vmid).await
-    } else {
-        Err(local_err())
-    }
-}
-
-#[tauri::command]
-pub async fn proxmox_lxc_snapshot_create(
-    session_manager: State<'_, SessionManager>,
-    session_id: String,
-    is_remote: bool,
-    _local_shell: Option<String>,
-    vmid: u32,
-    snapname: String,
-    description: Option<String>,
-) -> Result<(), String> {
-    if is_remote {
-        let handle = session_manager.get_handle(&session_id).await?;
-        remote::snapshot_create(&handle, vmid, &snapname, description.as_deref()).await
-    } else {
-        Err(local_err())
-    }
-}
-
-#[tauri::command]
-pub async fn proxmox_lxc_snapshot_rollback(
-    session_manager: State<'_, SessionManager>,
-    session_id: String,
-    is_remote: bool,
-    _local_shell: Option<String>,
-    vmid: u32,
-    snapname: String,
-) -> Result<(), String> {
-    if is_remote {
-        let handle = session_manager.get_handle(&session_id).await?;
-        remote::snapshot_rollback(&handle, vmid, &snapname).await
-    } else {
-        Err(local_err())
-    }
-}
-
-#[tauri::command]
-pub async fn proxmox_lxc_snapshot_delete(
-    session_manager: State<'_, SessionManager>,
-    session_id: String,
-    is_remote: bool,
-    _local_shell: Option<String>,
-    vmid: u32,
-    snapname: String,
-) -> Result<(), String> {
-    if is_remote {
-        let handle = session_manager.get_handle(&session_id).await?;
-        remote::snapshot_delete(&handle, vmid, &snapname).await
-    } else {
-        Err(local_err())
-    }
-}
+host_command!(
+    proxmox_lxc_list,
+    Vec<LxcContainer>,
+    remote::list_containers,
+    unsupported = local_err()
+);
+host_command!(proxmox_lxc_action, (), remote::container_action, unsupported = local_err(), vmid: u32 => vmid, action: LxcAction => &action);
+host_command!(proxmox_lxc_list_snapshots, Vec<LxcSnapshot>, remote::list_snapshots, unsupported = local_err(), vmid: u32 => vmid);
+host_command!(proxmox_lxc_snapshot_create, (), remote::snapshot_create, unsupported = local_err(), vmid: u32 => vmid, snapname: String => &snapname, description: Option<String> => description.as_deref());
+host_command!(proxmox_lxc_snapshot_rollback, (), remote::snapshot_rollback, unsupported = local_err(), vmid: u32 => vmid, snapname: String => &snapname);
+host_command!(proxmox_lxc_snapshot_delete, (), remote::snapshot_delete, unsupported = local_err(), vmid: u32 => vmid, snapname: String => &snapname);
 
 #[tauri::command]
 pub async fn proxmox_lxc_open_shell(
