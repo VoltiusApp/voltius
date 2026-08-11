@@ -1,9 +1,10 @@
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
 use tokio::io::AsyncReadExt;
 use tokio::time::{timeout, Duration};
 
 use super::cli::{self, CliContainer, CliImage, CliNetwork, CliVolume};
+use super::log_stream::{emit_error, emit_line, log_event};
 use super::recreate::{build_network_connects, build_run_args, build_run_command, parse_inspect};
 use super::types::*;
 use crate::ssh::client::SshClient;
@@ -510,11 +511,37 @@ fn parse_prune_output(out: &str) -> String {
     "Done".to_string()
 }
 
-fn now_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
+/// Follow a docker log command over SSH, emitting each non-empty line on the
+/// stream's event. The two remote log streams differ only in the command.
+async fn stream_ssh_logs(app: AppHandle, stream_id: String, handle: SshHandle, cmd: String) {
+    let event = log_event(&stream_id);
+
+    let channel = match handle.channel_open_session().await {
+        Ok(c) => c,
+        Err(e) => return emit_error(&app, &event, format!("Error opening channel: {e}")),
+    };
+
+    if let Err(e) = channel.exec(true, cmd.as_str()).await {
+        return emit_error(&app, &event, format!("Error: {e}"));
+    }
+
+    let mut stream = channel.into_stream();
+    let mut buf = [0u8; 4096];
+
+    loop {
+        match stream.read(&mut buf).await {
+            Ok(0) | Err(_) => break,
+            Ok(n) => {
+                let text = String::from_utf8_lossy(&buf[..n]);
+                for line in text.lines() {
+                    if line.is_empty() {
+                        continue;
+                    }
+                    emit_line(&app, &event, line.to_string(), "stdout");
+                }
+            }
+        }
+    }
 }
 
 pub async fn stream_stack_logs(
@@ -524,60 +551,13 @@ pub async fn stream_stack_logs(
     tail: u32,
     handle: SshHandle,
 ) {
-    let event = format!("docker:log:{stream_id}");
-
-    let channel = match handle.channel_open_session().await {
-        Ok(c) => c,
-        Err(e) => {
-            let _ = app.emit(
-                &event,
-                &DockerLogLine {
-                    line: format!("Error opening channel: {e}"),
-                    stream: "stderr".to_string(),
-                    ts: now_ms(),
-                },
-            );
-            return;
-        }
-    };
-
-    let cmd = build_stack_logs_cmd(&stack_name, tail);
-    if let Err(e) = channel.exec(true, cmd.as_str()).await {
-        let _ = app.emit(
-            &event,
-            &DockerLogLine {
-                line: format!("Error: {e}"),
-                stream: "stderr".to_string(),
-                ts: now_ms(),
-            },
-        );
-        return;
-    }
-
-    let mut stream = channel.into_stream();
-    let mut buf = [0u8; 4096];
-
-    loop {
-        match stream.read(&mut buf).await {
-            Ok(0) | Err(_) => break,
-            Ok(n) => {
-                let text = String::from_utf8_lossy(&buf[..n]);
-                for line in text.lines() {
-                    if line.is_empty() {
-                        continue;
-                    }
-                    let _ = app.emit(
-                        &event,
-                        &DockerLogLine {
-                            line: line.to_string(),
-                            stream: "stdout".to_string(),
-                            ts: now_ms(),
-                        },
-                    );
-                }
-            }
-        }
-    }
+    stream_ssh_logs(
+        app,
+        stream_id,
+        handle,
+        build_stack_logs_cmd(&stack_name, tail),
+    )
+    .await
 }
 
 pub async fn stream_logs(
@@ -587,60 +567,13 @@ pub async fn stream_logs(
     tail: u32,
     handle: SshHandle,
 ) {
-    let event = format!("docker:log:{stream_id}");
-
-    let channel = match handle.channel_open_session().await {
-        Ok(c) => c,
-        Err(e) => {
-            let _ = app.emit(
-                &event,
-                &DockerLogLine {
-                    line: format!("Error opening channel: {e}"),
-                    stream: "stderr".to_string(),
-                    ts: now_ms(),
-                },
-            );
-            return;
-        }
-    };
-
-    let cmd = build_container_logs_cmd(&container_id, tail);
-    if let Err(e) = channel.exec(true, cmd.as_str()).await {
-        let _ = app.emit(
-            &event,
-            &DockerLogLine {
-                line: format!("Error: {e}"),
-                stream: "stderr".to_string(),
-                ts: now_ms(),
-            },
-        );
-        return;
-    }
-
-    let mut stream = channel.into_stream();
-    let mut buf = [0u8; 4096];
-
-    loop {
-        match stream.read(&mut buf).await {
-            Ok(0) | Err(_) => break,
-            Ok(n) => {
-                let text = String::from_utf8_lossy(&buf[..n]);
-                for line in text.lines() {
-                    if line.is_empty() {
-                        continue;
-                    }
-                    let _ = app.emit(
-                        &event,
-                        &DockerLogLine {
-                            line: line.to_string(),
-                            stream: "stdout".to_string(),
-                            ts: now_ms(),
-                        },
-                    );
-                }
-            }
-        }
-    }
+    stream_ssh_logs(
+        app,
+        stream_id,
+        handle,
+        build_container_logs_cmd(&container_id, tail),
+    )
+    .await
 }
 
 #[cfg(test)]
