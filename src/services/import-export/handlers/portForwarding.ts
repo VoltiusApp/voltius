@@ -1,37 +1,15 @@
-import i18n from "@/i18n";
 import type { PortForwardingRule } from "@/types";
 import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, PortForwardingRuleExport } from "../formats";
-import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "../context";
-import { handlerActive, selectedIds } from "../context";
+import type { ExportCtx, ImportCtx, ReloadFns } from "../context";
+import { liveInVault, selectionMethods } from "../context";
 
 export const portForwardingHandler: DataTypeHandler = {
   key: "portForwardingRules",
   label: "Port Forwarding",
   jsonOnly: true,
 
-  isActive(s: SelectionProps) {
-    return handlerActive("portForwardingRules", s);
-  },
-
-  checkboxLabel(s: SelectionProps, count: number) {
-    const ids = selectedIds("portForwardingRules", s);
-    return i18n.t("importExport.export.checkboxLabel.portForwarding", { count: ids ? ids.length : count });
-  },
-
-  countAvailable(stores: StoreSlices, vaultIds: string[]) {
-    return stores.pfRules.filter(r => !r.deleted_at && vaultIds.includes(r.vault_id ?? "personal")).length;
-  },
-
-  selectItems(stores: StoreSlices, vaultIds: string[], s: SelectionProps) {
-    const ids = selectedIds("portForwardingRules", s);
-    return stores.pfRules.filter(r =>
-      !r.deleted_at && (ids === null || ids.includes(r.id)) && vaultIds.includes(r.vault_id ?? "personal"));
-  },
-
-  accumulateFolderIds(items: unknown[], main: Set<string>) {
-    for (const r of items as PortForwardingRule[]) if (r.folder_id) main.add(r.folder_id);
-  },
+  ...selectionMethods<PortForwardingRule>("portForwardingRules", "portForwarding", s => s.pfRules),
 
   async buildExports(items: unknown[], ctx: ExportCtx, bundle: ExportBundle) {
     bundle.portForwardingRules = (items as PortForwardingRule[]).map((r, i): PortForwardingRuleExport => ({
@@ -53,11 +31,7 @@ export const portForwardingHandler: DataTypeHandler = {
 
   async importItems(bundle: ExportBundle, ctx: ImportCtx) {
     let imported = 0; let errors = 0;
-    const existingNames = new Set(
-      ctx.existingPfRules
-        .filter(r => !r.deleted_at && (r.vault_id ?? "personal") === ctx.vault_id)
-        .map(r => r.name),
-    );
+    const existingNames = new Set(liveInVault(ctx.existingPfRules, ctx.vault_id).map(r => r.name));
     for (const rule of bundle.portForwardingRules) {
       if (ctx.skipDupes && existingNames.has(rule.name)) continue;
       try {

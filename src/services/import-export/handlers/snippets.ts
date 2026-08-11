@@ -1,10 +1,9 @@
-import i18n from "@/i18n";
 import type { Snippet, SnippetFormData, SnippetStep } from "@/types";
 import { refEids, stepsFromExport, stepsToExport } from "../snippetRefs";
 import type { DataTypeHandler } from "../handler";
 import type { ExportBundle, SnippetExport } from "../formats";
-import type { ExportCtx, ImportCtx, ReloadFns, SelectionProps, StoreSlices } from "../context";
-import { handlerActive, selectedIds } from "../context";
+import type { ExportCtx, ImportCtx, ReloadFns } from "../context";
+import { selectionMethods } from "../context";
 import { normalizeSnippetSteps } from "@/services/snippetSteps";
 
 export const snippetsHandler: DataTypeHandler = {
@@ -12,30 +11,7 @@ export const snippetsHandler: DataTypeHandler = {
   label: "Snippets",
   jsonOnly: true,
 
-  isActive(s: SelectionProps) {
-    return handlerActive("snippets", s);
-  },
-
-  checkboxLabel(s: SelectionProps, count: number) {
-    const ids = selectedIds("snippets", s);
-    return i18n.t("importExport.export.checkboxLabel.snippets", { count: ids ? ids.length : count });
-  },
-
-  countAvailable(stores: StoreSlices, vaultIds: string[]) {
-    return stores.snippets.filter(s => !s.deleted_at && vaultIds.includes(s.vault_id ?? "personal")).length;
-  },
-
-  selectItems(stores: StoreSlices, vaultIds: string[], s: SelectionProps) {
-    const ids = selectedIds("snippets", s);
-    return stores.snippets.filter(sn =>
-      !sn.deleted_at && (ids === null || ids.includes(sn.id)) && vaultIds.includes(sn.vault_id ?? "personal"));
-  },
-
-  accumulateFolderIds(items: unknown[], _main: Set<string>, snippet: Set<string>) {
-    for (const s of items as Snippet[]) {
-      if (s.folder_id) snippet.add(s.folder_id);
-    }
-  },
+  ...selectionMethods<Snippet>("snippets", "snippets", s => s.snippets, "snippet"),
 
   async buildExports(items: unknown[], ctx: ExportCtx, bundle: ExportBundle) {
     // Nested calls travel as `_eid`, so the target must be resolved against the
