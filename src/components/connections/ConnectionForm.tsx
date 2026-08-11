@@ -328,7 +328,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         detectPassphrase = passphraseDirty.current ? (passphrase || undefined) : ((await getSecret(`passphrase:${initial.id}`).catch(() => null)) ?? undefined);
       }
 
-      const output = await sshExecCommand({
+      const { stdout } = await sshExecCommand({
         host: host.trim(),
         port: port || 22,
         username: detectUsername.trim(),
@@ -337,7 +337,7 @@ const ConnectionForm = forwardRef<ConnectionFormHandle, Props>(function Connecti
         passphrase: detectPassphrase,
         command: "{ cat /etc/os-release 2>/dev/null || echo ID=linux; }; test -d /etc/pve && echo 'PROXMOX_VE=1'; test -d /etc/proxmox-backup && echo 'PBS_DETECTED=1'; true",
       });
-      const lines = output.split(/\r?\n/);
+      const lines = stdout.split(/\r?\n/);
       const idLine = lines.find((line) => line.startsWith("ID="));
       const rawId = idLine?.slice(3).trim().replace(/^"|"$/g, "") || "linux";
       const isProxmox = lines.some((line) => line.trim() === "PROXMOX_VE=1");

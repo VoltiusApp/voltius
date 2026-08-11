@@ -3,9 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useRipple } from "@/hooks/useRipple";
 import { useConnectionStore } from "@/stores/connectionStore";
-import { getSecret } from "@/services/vault";
-import { resolveConnectionCredentials } from "@/services/credentials";
-import { sshExecCommand } from "@/services/ssh";
+import { addKeyToHost, DEFAULT_EXPORT_SCRIPT } from "@/services/keyExport";
 import {
   PanelShell, PanelHeader, FormSection,
   formInputClass, formInputStyle, formLabelClass, formLabelStyle,
@@ -38,16 +36,6 @@ export function sortByMode<T extends { name?: string; created_at: string }>(item
 // KeyExportPanel (side panel)
 // ─────────────────────────────────────────────────────────────────
 
-const DEFAULT_EXPORT_SCRIPT = `if test ! -e $1;
-then mkdir -p $1;
-chmod 700 $1;
-fi;
-if test ! -e "$1/$2";
-then touch "$1/$2";
-chmod 600 "$1/$2";
-fi;
-printf "%s\n%s\n" "$3" "$4" >> "$1/$2";`;
-
 export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: () => void }) {
   const { t } = useTranslation();
   const { connections, loadConnections } = useConnectionStore();
@@ -70,23 +58,7 @@ export function KeyExportPanel({ sshKey, onClose }: { sshKey: SshKey; onClose: (
     setExportStatus("loading");
     setExportError("");
     try {
-      const pubKey = await getSecret(`key:${sshKey.id}:public`);
-      if (!pubKey) throw new Error(t("keychain.exportPanel.publicKeyNotFoundError"));
-
-      const { username, password, privateKey, passphrase } = await resolveConnectionCredentials(selectedHost);
-
-      const label = sshKey.name ?? "SSH";
-      const comment = `# ${label} Key by Voltius`;
-      const command = `sh -c '${script}' sh '${location}' '${filename}' '${comment}' '${pubKey.trim()}'`;
-      await sshExecCommand({
-        host: selectedHost.host,
-        port: selectedHost.port,
-        username,
-        password,
-        privateKey,
-        passphrase,
-        command,
-      });
+      await addKeyToHost({ sshKey, connection: selectedHost, location, filename, script });
       setExportStatus("success");
     } catch (e) {
       setExportError(String(e));

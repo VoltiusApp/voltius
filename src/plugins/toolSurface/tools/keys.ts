@@ -2,8 +2,15 @@ import { z } from "zod";
 import type { Tool } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
 import { makeGate, objectOp } from "./helpers";
+import { isSafeFilename, isSafeRelativeDir } from "@/services/sshKeyPath";
 
-export const KEY_PERMISSIONS = ["keys:read", "keys:write", "audit"] as const;
+export const KEY_PERMISSIONS = ["keys:read", "keys:write", "connections:read", "audit"] as const;
+
+/** The same rule `addKeyToHost` enforces, at the schema so the refusal is early
+ *  and names the offending field. The service is the boundary that holds — the
+ *  plugin API reaches it without passing through here. */
+const relativeDir = z.string().refine(isSafeRelativeDir, "must be a relative path under the remote home");
+const safeFilename = z.string().refine(isSafeFilename, "must be a filename with no path separator");
 
 /** Project a raw Key record down to the PluginKey contract. */
 const toPluginKey = (k: Record<string, unknown>) => ({
@@ -63,6 +70,35 @@ export function buildKeyTools(ports: ToolSurfacePorts): Tool[] {
       execute: async (raw) =>
         op("key_delete", "agent.object_deleted", { objectType: "key", objectId: String(raw.id) }, raw, (a) =>
           ports.api.keys.delete(String(a.id))),
+    },
+    {
+      name: "key_add_to_host",
+      description:
+        "Append an SSH key's public half to a host's authorized_keys over SSH, using the "
+        + "connection's stored credentials. This writes to the remote machine.",
+      risk: "prompt",
+      schema: z.object({
+        key_id: z.string(),
+        connection_id: z.string(),
+        location: relativeDir.optional(),
+        filename: safeFilename.optional(),
+      }),
+      execute: async (raw) =>
+        op(
+          "key_add_to_host",
+          "agent.object_updated",
+          { objectType: "key", objectId: String(raw.key_id), connectionId: String(raw.connection_id) },
+          raw,
+          async (a) => {
+            await ports.api.keys.addToHost({
+              keyId: String(a.key_id),
+              connectionId: String(a.connection_id),
+              location: a.location ? String(a.location) : ".ssh",
+              filename: a.filename ? String(a.filename) : "authorized_keys",
+            });
+            return null;
+          },
+        ),
     },
   ];
 }

@@ -19,11 +19,15 @@ const ALL_TOOLS = [
   "audit_query",
   "close_session",
   "connection_bulk_import", "connection_create", "connection_delete", "connection_get", "connection_update",
-  "delete_path", "identity_create", "identity_delete", "identity_list",
-  "key_create", "key_delete", "key_list",
+  "delete_path",
+  "folder_create", "folder_delete", "folder_list", "folder_rename",
+  "identity_create", "identity_delete", "identity_list",
+  "key_add_to_host", "key_create", "key_delete", "key_list",
   "list_connections", "list_files", "list_sessions",
-  "make_dir", "open_session", "read_file", "read_terminal", "rename_path",
-  "run_command", "stat_file", "transfer_file", "write_file",
+  "make_dir", "object_copy", "object_move", "open_session", "read_file", "read_terminal", "rename_path",
+  "run_command", "stat_file", "transfer_file",
+  "vault_create", "vault_delete", "vault_list", "vault_rename",
+  "write_file",
 ];
 
 describe("MCP consumer", () => {
@@ -79,7 +83,47 @@ describe("MCP consumer", () => {
   it("close_session on an unowned session returns MCP's own not-owned text, not the agent's default", async () => {
     const tools = buildMcpTools(api(), new Set());
     const out = await callTool(tools, "close_session", { sessionId: "s1" });
-    expect(out).toEqual({ ok: true, result: { error: MCP_TEXT.notOwnedError } });
+    // ok:false so the transport marks it isError — a refusal a client reads as
+    // a successful call is how "it did nothing" gets reported as "it worked".
+    expect(out).toEqual({ ok: false, error: MCP_TEXT.notOwnedError });
+  });
+
+  it("a refusal returned as { error } becomes a failed call, not a successful one", async () => {
+    const tools = [{
+      name: "refuser",
+      description: "d",
+      schema: z.object({}),
+      execute: async () => ({ error: "Vault \"x\" still holds 2 connections" }),
+    }] as unknown as Parameters<typeof callTool>[0];
+    expect(await callTool(tools, "refuser", {})).toEqual({
+      ok: false, error: 'Vault "x" still holds 2 connections',
+    });
+  });
+
+  it("makeGate's { error, reason } denial is a failed call too, not a success", async () => {
+    // The gate's rejection carries a reason beside the error; counting keys let
+    // this shape — a user's own denial — through as ok:true/isError:false.
+    const tools = [{
+      name: "denied",
+      description: "d",
+      schema: z.object({}),
+      execute: async () => ({ error: "rejected by user", reason: "not this host" }),
+    }] as unknown as Parameters<typeof callTool>[0];
+    expect(await callTool(tools, "denied", {})).toEqual({
+      ok: false, error: "rejected by user",
+    });
+  });
+
+  it("a result that merely carries an error field alongside data stays a success", async () => {
+    const tools = [{
+      name: "mixed",
+      description: "d",
+      schema: z.object({}),
+      execute: async () => ({ error: "partial", items: [1] }),
+    }] as unknown as Parameters<typeof callTool>[0];
+    expect(await callTool(tools, "mixed", {})).toEqual({
+      ok: true, result: { error: "partial", items: [1] },
+    });
   });
 
   it("converts each tool's zod schema to a JSON Schema object for tools/list", () => {

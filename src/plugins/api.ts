@@ -59,6 +59,52 @@ export interface PluginIdentity {
   tags: string[];
 }
 
+/** A vault the user organizes objects into. Unrelated to `api.vault`, which is plugin storage. */
+export interface PluginVault {
+  id: string;
+  name: string;
+  /** Backed by a team; every write verb refuses it. */
+  team: boolean;
+}
+
+/** The four folder trees the app has. One `keychain` tree holds keys AND identities. */
+export type PluginFolderKind = "connection" | "keychain" | "port_forwarding" | "snippet";
+
+export interface PluginFolder {
+  id: string;
+  name: string;
+  kind: PluginFolderKind;
+  vaultId: string;
+  parentFolderId: string | null;
+  team: boolean;
+}
+
+/**
+ * One relocation of vault objects: the same operation a cut/copy + paste is on
+ * the page, so the ids must all belong to one tab (hosts, keychain, port
+ * forwarding or snippets). Folder ids may travel with them, contents included.
+ */
+export interface PluginObjectMoveInput {
+  ids: string[];
+  /** Destination folder, or null for the destination vault's root. */
+  folderId: string | null;
+  /** Destination vault. null keeps every object in the vault it has. */
+  vaultId: string | null;
+  /**
+   * Authorizes a destination vault other than the objects' own. Without it a
+   * crossing is refused before anything is written, and the refusal carries the
+   * plan — how many objects, which vault, and what would travel with them.
+   */
+  allowCrossVault?: boolean;
+}
+
+export interface PluginObjectMoveOutcome {
+  moved: number;
+  created: number;
+  /** Ids that no longer exist, or objects already where the call would put them. */
+  skipped: number;
+}
+
 export interface OmniCommand {
   id: string;
   label: string;
@@ -496,6 +542,9 @@ export interface PluginAPI {
     /** Creates a key entry and stores private/public content in the vault. */
     create(data: { name?: string; key_type?: string; tags?: string[] }, privateKey: string, publicKey?: string): Promise<PluginKey>;
     delete(id: string): Promise<void>;
+    /** Appends the key's public half to a connection's authorized_keys over SSH.
+     *  Requires keys:read and connections:read. Never accepts a script. */
+    addToHost(input: { keyId: string; connectionId: string; location?: string; filename?: string }): Promise<void>;
   };
 
   // Identities (requires identities:*)
@@ -521,6 +570,48 @@ export interface PluginAPI {
     delete(id: string): Promise<void>;
     bulkImport(items: PluginConnectionInput[]): Promise<PluginConnection[]>;
     subscribe(cb: (connections: PluginConnection[]) => void): () => void;
+  };
+
+  // The user's vaults (requires the gated vaults:*). Note the plural: `vault`
+  // below is this plugin's own secret storage and is a different thing.
+  vaults: {
+    list(): PluginVault[];
+    create(name: string): PluginVault;
+    /** Rejects a team vault. */
+    rename(id: string, name: string): void;
+    /**
+     * Rejects the personal vault, a team vault, and a vault that still holds
+     * objects unless `cascade` is passed — in which case its contents are
+     * deleted with it.
+     */
+    delete(id: string, opts?: { cascade?: boolean }): Promise<void>;
+  };
+
+  // Folders across all four trees (requires the gated folders:*)
+  folders: {
+    list(kind?: PluginFolderKind): PluginFolder[];
+    create(input: {
+      kind: PluginFolderKind;
+      name: string;
+      /** Defaults to the personal vault. */
+      vaultId?: string;
+      parentFolderId?: string;
+    }): Promise<PluginFolder>;
+    /** Name only — kind, vault and parent are preserved. Rejects a team vault. */
+    rename(id: string, name: string): Promise<void>;
+    /** Cascades by default. Rejects a team vault. */
+    delete(id: string, opts?: { cascade?: boolean }): Promise<void>;
+  };
+
+  /**
+   * Move and copy vault objects between folders and vaults, through the same
+   * paste path the pages use. Each method requires the write permission of every
+   * kind it names, and folders:write when a folder travels. Team vaults are
+   * refused.
+   */
+  objects: {
+    move(input: PluginObjectMoveInput): Promise<PluginObjectMoveOutcome>;
+    copy(input: PluginObjectMoveInput): Promise<PluginObjectMoveOutcome>;
   };
 
   // Vault — plugin-scoped secrets (requires vault:*)
