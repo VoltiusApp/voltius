@@ -29,21 +29,29 @@ fn q(s: &str) -> String {
     format!("'{}'", s.replace('\'', r"'\''"))
 }
 
-/// Drain a russh channel until it closes: stdout goes to `out`, stderr is
+/// Drain a russh channel until it ends: stdout goes to `out`, stderr is
 /// collected, and the exit status is returned alongside it — turning that into
 /// an error message is the caller's business, because each caller words it
 /// differently. `progress` is `(app, transfer_id, total)` for the callers that
 /// stream a transfer; with `token` set, a cancellation between messages aborts
 /// the drain.
+///
+/// The status is `None` when the channel ended without one, which every caller
+/// must treat as a failure: reporting a missing status as exit 0 is how a
+/// deleted path used to look like a successful command.
+///
+/// `Eof` is never a stopping point — the exit status follows it — and `Close`
+/// only stops the drain once the status has actually arrived, because russh can
+/// deliver the two in either order.
 async fn drain_channel<W: AsyncWrite + Unpin>(
     channel: &mut russh::Channel<russh::client::Msg>,
     out: &mut W,
     progress: Option<(&AppHandle, &str, u64)>,
     token: Option<&CancellationToken>,
-) -> Result<(i32, Vec<u8>), String> {
+) -> Result<(Option<i32>, Vec<u8>), String> {
     let mut transferred = 0u64;
     let mut err = Vec::new();
-    let mut code = 0i32;
+    let mut code = None;
     loop {
         if token.is_some_and(|t| t.is_cancelled()) {
             return Err("Transfer cancelled".into());
@@ -62,12 +70,33 @@ async fn drain_channel<W: AsyncWrite + Unpin>(
                 }
             }
             Some(ChannelMsg::ExtendedData { data, .. }) => err.extend_from_slice(&data),
-            Some(ChannelMsg::ExitStatus { exit_status }) => code = exit_status as i32,
-            Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) | None => break,
+            Some(ChannelMsg::ExitStatus { exit_status }) => code = Some(exit_status as i32),
+            Some(ChannelMsg::Close) if code.is_some() => break,
+            None => break,
             _ => {}
         }
     }
     Ok((code, err))
+}
+
+/// The message a non-zero — or missing — exit status deserves, or `None` when
+/// the command succeeded. `stderr` is used when it says anything.
+fn exit_error(label: &str, code: Option<i32>, stderr: &str) -> Option<String> {
+    match code {
+        Some(0) => None,
+        _ => Some(format!("{label}: {}", exit_detail(code, stderr))),
+    }
+}
+
+fn exit_detail(code: Option<i32>, stderr: &str) -> String {
+    let stderr = stderr.trim();
+    if !stderr.is_empty() {
+        return stderr.to_string();
+    }
+    match code {
+        Some(c) => format!("exit {c}"),
+        None => "no exit status".to_string(),
+    }
 }
 
 fn parent_of(path: &str) -> &str {
@@ -122,9 +151,9 @@ impl DockerFs {
         cmd
     }
 
-    /// Run a command on the host, capturing stdout, stderr, and exit code.
-    async fn run(&self, cmd: &str) -> Result<(String, String, i32), String> {
-        let mut channel = self
+    /// Open a channel on the live host session and start `cmd` on it.
+    async fn exec_channel(&self, cmd: &str) -> Result<russh::Channel<russh::client::Msg>, String> {
+        let channel = self
             .ssh()
             .channel_open_session()
             .await
@@ -133,18 +162,14 @@ impl DockerFs {
             .exec(true, cmd)
             .await
             .map_err(|e| format!("exec error: {e}"))?;
+        Ok(channel)
+    }
+
+    /// Run a command on the host, capturing stdout, stderr, and exit status.
+    async fn run(&self, cmd: &str) -> Result<(String, String, Option<i32>), String> {
+        let mut channel = self.exec_channel(cmd).await?;
         let mut out = Vec::new();
-        let mut err = Vec::new();
-        let mut code = 0i32;
-        loop {
-            match channel.wait().await {
-                Some(ChannelMsg::Data { data }) => out.extend_from_slice(&data),
-                Some(ChannelMsg::ExtendedData { data, .. }) => err.extend_from_slice(&data),
-                Some(ChannelMsg::ExitStatus { exit_status }) => code = exit_status as i32,
-                Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) | None => break,
-                _ => {}
-            }
-        }
+        let (code, err) = drain_channel(&mut channel, &mut out, None, None).await?;
         Ok((
             String::from_utf8_lossy(&out).into_owned(),
             String::from_utf8_lossy(&err).into_owned(),
@@ -154,17 +179,10 @@ impl DockerFs {
 
     async fn simple(&self, script: &str, args: &[&str], label: &str) -> Result<(), String> {
         let (_out, err, code) = self.run(&self.dexec(script, args)).await?;
-        if code != 0 {
-            return Err(format!(
-                "{label}: {}",
-                if err.trim().is_empty() {
-                    format!("exit {code}")
-                } else {
-                    err.trim().to_string()
-                }
-            ));
+        match exit_error(label, code, &err) {
+            Some(e) => Err(e),
+            None => Ok(()),
         }
-        Ok(())
     }
 
     /// Wait for a streaming-upload command to finish and report any error.
@@ -175,11 +193,14 @@ impl DockerFs {
         label: &str,
     ) -> Result<(), String> {
         let (code, err) = drain_channel(channel, &mut tokio::io::sink(), None, None).await?;
-        if code != 0 {
-            let msg = String::from_utf8_lossy(&err);
-            return Err(format!("{label} failed: {}", msg.trim()));
+        match exit_error(
+            &format!("{label} failed"),
+            code,
+            &String::from_utf8_lossy(&err),
+        ) {
+            Some(e) => Err(e),
+            None => Ok(()),
         }
-        Ok(())
     }
 
     /// Spawn a local `tar` producer and stream its stdout into a container command's stdin.
@@ -200,15 +221,7 @@ impl DockerFs {
         let mut child = tar_cmd.spawn().map_err(|e| format!("tar not found: {e}"))?;
         let mut tar_out = child.stdout.take().ok_or("tar stdout unavailable")?;
 
-        let mut channel = self
-            .ssh()
-            .channel_open_session()
-            .await
-            .map_err(|e| format!("channel error: {e}"))?;
-        channel
-            .exec(true, remote_cmd)
-            .await
-            .map_err(|e| format!("exec error: {e}"))?;
+        let mut channel = self.exec_channel(remote_cmd).await?;
         let mut writer = channel.make_writer();
 
         let mut transferred = 0u64;
@@ -264,15 +277,7 @@ impl DockerFs {
         let mut child = tar_cmd.spawn().map_err(|e| format!("tar not found: {e}"))?;
         let mut tar_in = child.stdin.take().ok_or("tar stdin unavailable")?;
 
-        let mut channel = self
-            .ssh()
-            .channel_open_session()
-            .await
-            .map_err(|e| format!("channel error: {e}"))?;
-        channel
-            .exec(true, remote_cmd)
-            .await
-            .map_err(|e| format!("exec error: {e}"))?;
+        let mut channel = self.exec_channel(remote_cmd).await?;
 
         // Any failure, cancellation included, must reap the local tar first.
         let drained = drain_channel(
@@ -294,11 +299,8 @@ impl DockerFs {
             .wait()
             .await
             .map_err(|e| format!("tar wait error: {e}"))?;
-        if code != 0 {
-            return Err(format!(
-                "download failed: {}",
-                String::from_utf8_lossy(&err).trim()
-            ));
+        if let Some(e) = exit_error("download failed", code, &String::from_utf8_lossy(&err)) {
+            return Err(e);
         }
         if !status.success() {
             return Err("Local tar extraction failed".into());
@@ -319,7 +321,7 @@ impl FileBackend for DockerFs {
         let script = "readlink -f \"$1\" 2>/dev/null || { cd \"$1\" 2>/dev/null && pwd; }";
         let (out, err, code) = self.run(&self.dexec(script, &[path])).await?;
         let resolved = out.trim();
-        if code != 0 || resolved.is_empty() {
+        if code != Some(0) || resolved.is_empty() {
             return Err(if err.trim().is_empty() {
                 format!("Cannot resolve path: {path}")
             } else {
@@ -345,7 +347,7 @@ impl FileBackend for DockerFs {
                printf '%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n' \"$L\" \"$D\" \"$S\" \"$M\" \"$P\" \"$e\"; \
              done";
         let (out, err, code) = self.run(&self.dexec(script, &[path])).await?;
-        if code != 0 {
+        if code != Some(0) {
             return Err(format!(
                 "read_dir failed: {}",
                 if err.trim().is_empty() {
@@ -396,12 +398,19 @@ impl FileBackend for DockerFs {
     }
 
     /// Returns Some(is_dir) if path exists, None if it doesn't.
+    ///
+    /// Only exit 7 means "absent". Anything else non-zero — a container that is
+    /// gone, a `docker exec` the host refused, a lost exit status — is an error,
+    /// never a silent "exists, and is a file".
     async fn stat(&self, path: &str) -> Result<Option<bool>, String> {
         let script = "{ [ -e \"$1\" ] || [ -L \"$1\" ]; } || exit 7; \
              if [ -d \"$1\" ]; then echo d; else echo f; fi";
-        let (out, _err, code) = self.run(&self.dexec(script, &[path])).await?;
-        if code == 7 {
+        let (out, err, code) = self.run(&self.dexec(script, &[path])).await?;
+        if code == Some(7) {
             return Ok(None);
+        }
+        if let Some(e) = exit_error("stat failed", code, &err) {
+            return Err(e);
         }
         Ok(Some(out.trim() == "d"))
     }
@@ -434,8 +443,8 @@ impl FileBackend for DockerFs {
 
     async fn read_file(&self, path: &str) -> Result<Vec<u8>, String> {
         let (out, err, code) = self.run(&self.dexec("base64 \"$1\"", &[path])).await?;
-        if code != 0 {
-            return Err(format!("read failed: {err}"));
+        if let Some(e) = exit_error("read failed", code, &err) {
+            return Err(e);
         }
         use base64::Engine;
         base64::engine::general_purpose::STANDARD
@@ -445,15 +454,7 @@ impl FileBackend for DockerFs {
 
     async fn write_file(&self, path: &str, content: &str) -> Result<(), String> {
         let cmd = self.dexec("cat > \"$1\"", &[path]);
-        let mut channel = self
-            .ssh()
-            .channel_open_session()
-            .await
-            .map_err(|e| format!("channel error: {e}"))?;
-        channel
-            .exec(true, cmd.as_str())
-            .await
-            .map_err(|e| format!("exec error: {e}"))?;
+        let mut channel = self.exec_channel(&cmd).await?;
         let mut writer = channel.make_writer();
         writer
             .write_all(content.as_bytes())
@@ -481,15 +482,7 @@ impl FileBackend for DockerFs {
         let total = local.metadata().await.map(|m| m.len()).unwrap_or(0);
 
         let cmd = self.dexec("cat > \"$1\"", &[remote_path]);
-        let mut channel = self
-            .ssh()
-            .channel_open_session()
-            .await
-            .map_err(|e| format!("channel error: {e}"))?;
-        channel
-            .exec(true, cmd.as_str())
-            .await
-            .map_err(|e| format!("exec error: {e}"))?;
+        let mut channel = self.exec_channel(&cmd).await?;
         let mut writer = channel.make_writer();
 
         let mut transferred = 0u64;
@@ -528,15 +521,7 @@ impl FileBackend for DockerFs {
             .map_err(|e| format!("Cannot create local file: {e}"))?;
 
         let cmd = self.dexec("cat \"$1\"", &[remote_path]);
-        let mut channel = self
-            .ssh()
-            .channel_open_session()
-            .await
-            .map_err(|e| format!("channel error: {e}"))?;
-        channel
-            .exec(true, cmd.as_str())
-            .await
-            .map_err(|e| format!("exec error: {e}"))?;
+        let mut channel = self.exec_channel(&cmd).await?;
 
         let (code, err) = drain_channel(
             &mut channel,
@@ -546,9 +531,8 @@ impl FileBackend for DockerFs {
         )
         .await?;
         local.flush().await.ok();
-        if code != 0 {
-            let msg = String::from_utf8_lossy(&err);
-            return Err(format!("download failed: {}", msg.trim()));
+        if let Some(e) = exit_error("download failed", code, &String::from_utf8_lossy(&err)) {
+            return Err(e);
         }
         Ok(())
     }
@@ -674,5 +658,48 @@ impl FileBackend for DockerFs {
             token,
         )
         .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_exit_zero_is_a_success() {
+        assert_eq!(exit_error("delete failed", Some(0), ""), None);
+        assert_eq!(
+            exit_error("delete failed", Some(1), ""),
+            Some("delete failed: exit 1".to_string())
+        );
+    }
+
+    #[test]
+    fn a_missing_exit_status_is_a_failure_not_a_success() {
+        assert_eq!(
+            exit_error("stat failed", None, ""),
+            Some("stat failed: no exit status".to_string())
+        );
+    }
+
+    #[test]
+    fn stderr_wins_over_the_bare_exit_code() {
+        assert_eq!(
+            exit_error("read failed", Some(2), "  No such file\n"),
+            Some("read failed: No such file".to_string())
+        );
+        assert_eq!(
+            exit_error("read failed", None, "container is not running\n"),
+            Some("read failed: container is not running".to_string())
+        );
+    }
+
+    #[test]
+    fn parent_and_basename_split_a_remote_path() {
+        assert_eq!(parent_of("/srv/data/logs"), "/srv/data");
+        assert_eq!(parent_of("/logs"), "/");
+        assert_eq!(parent_of("logs"), ".");
+        assert_eq!(basename_of("/srv/data/logs/"), "logs");
+        assert_eq!(basename_of("logs"), "logs");
     }
 }
