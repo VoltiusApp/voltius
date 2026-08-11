@@ -415,7 +415,7 @@ describe("the text port", () => {
   it("uses a consumer's not-owned error in close_session", async () => {
     const tools = buildCoreTools(makePorts({ text: { notOwnedError: "not yours" } }));
     const out = await tools.find((t) => t.name === "close_session")!.execute({ sessionId: "nope" });
-    expect(out).toEqual({ error: "not yours" });
+    expect(out).toEqual({ refused: true, error: "not yours" });
   });
 
   it("uses a consumer's not-owned error in close_session's post-approval check", async () => {
@@ -424,6 +424,6 @@ describe("the text port", () => {
     const tools = buildCoreTools(ports);
     await tools.find((t) => t.name === "open_session")!.execute({ connectionId: "conn-A" }); // owns sess-1, not "not-owned"
     const out = await tools.find((t) => t.name === "close_session")!.execute({ sessionId: "sess-1" });
-    expect(out).toEqual({ error: "not yours" });
+    expect(out).toEqual({ refused: true, error: "not yours" });
   });
 });

@@ -81,7 +81,7 @@ describe("key verbs", () => {
 
   it("returns the error instead of throwing when the store rejects", async () => {
     const { ports } = makePorts({ keys: { delete: vi.fn(async () => { throw new Error("in use"); }) } });
-    expect(await tool(ports, "key_delete").execute({ id: "k1" })).toEqual({ error: "in use" });
+    expect(await tool(ports, "key_delete").execute({ id: "k1" })).toEqual({ refused: true, error: "in use" });
   });
 
   it("declares exactly the permissions its verbs reach", async () => {

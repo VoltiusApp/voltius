@@ -105,6 +105,7 @@ describe("connection mutation verbs", () => {
     const { ports } = makePorts();
     const result = await tool(ports, "connection_update").execute({ connectionId: "t1", name: "x" });
     expect(result).toEqual({
+      refused: true,
       error: "connection \"t1\" is owned by a team vault and cannot be changed from here",
     });
   });
@@ -113,6 +114,7 @@ describe("connection mutation verbs", () => {
     const { ports, api } = makePorts();
     const result = await tool(ports, "connection_delete").execute({ connectionId: "t1" });
     expect(result).toEqual({
+      refused: true,
       error: "connection \"t1\" is owned by a team vault and cannot be changed from here",
     });
     expect(api.connections.delete).not.toHaveBeenCalled();

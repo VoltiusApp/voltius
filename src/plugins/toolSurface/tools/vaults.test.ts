@@ -81,6 +81,7 @@ describe("vault verbs", () => {
       delete: vi.fn(async () => { throw new Error('Vault "Homelab" still holds 2 connections'); }),
     });
     expect(await tool(ports, "vault_delete").execute({ id: "v-1" })).toEqual({
+      refused: true,
       error: 'Vault "Homelab" still holds 2 connections',
     });
   });

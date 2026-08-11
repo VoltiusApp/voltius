@@ -1,6 +1,7 @@
 import type { PluginAuditAction, PluginSession } from "@/plugins/api";
 import type { ApprovalVia } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
+import { refusal } from "../refusal";
 
 export type GateResult =
   | { ok: true; args: Record<string, unknown>; scope: string; via: ApprovalVia }
@@ -10,7 +11,7 @@ export type GateResult =
 export function makeGate(ports: ToolSurfacePorts) {
   return async (tool: string, args: Record<string, unknown>): Promise<GateResult> => {
     const decision = await ports.approve({ tool, args });
-    if (!decision.approve) return { ok: false, result: { error: "rejected by user", reason: decision.reason } };
+    if (!decision.approve) return { ok: false, result: refusal("rejected by user", { reason: decision.reason }) };
     return { ok: true, args: decision.args ?? args, scope: decision.scope, via: decision.via };
   };
 }
@@ -61,7 +62,7 @@ export function makeFileOp(ports: ToolSurfacePorts, gate: ReturnType<typeof make
     try {
       return { ok: true, result: (await run(g.args)) ?? null };
     } catch (err) {
-      return { error: err instanceof Error ? err.message : String(err) };
+      return refusal(err instanceof Error ? err.message : String(err));
     }
   };
 }
@@ -92,7 +93,7 @@ export function objectOp(ports: ToolSurfacePorts, gate: ReturnType<typeof makeGa
     try {
       return { ok: true, result: (await run(g.args)) ?? null };
     } catch (err) {
-      return { error: err instanceof Error ? err.message : String(err) };
+      return refusal(err instanceof Error ? err.message : String(err));
     }
   };
 }

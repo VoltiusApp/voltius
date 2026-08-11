@@ -2,11 +2,12 @@ import { z } from "zod";
 import type { Tool } from "../types";
 import type { ToolSurfacePorts } from "../coreTools";
 import { makeGate, objectOp } from "./helpers";
+import { refusal } from "../refusal";
 
 export const CONNECTION_PERMISSIONS = ["connections:read", "connections:write", "audit"] as const;
 
 const TEAM_REFUSAL = (id: string) =>
-  ({ error: `connection "${id}" is owned by a team vault and cannot be changed from here` });
+  refusal(`connection "${id}" is owned by a team vault and cannot be changed from here`);
 
 /** Project a raw Connection record down to the PluginConnection contract — the
  *  underlying record carries fields (env_vars, notes, vault_id, ...) no verb
@@ -105,8 +106,8 @@ export function buildConnectionTools(ports: ToolSurfacePorts): Tool[] {
       }),
       execute: async (raw) => {
         const id = String(raw.connectionId);
-        const refusal = await guardTeam(ports, id);
-        if (refusal) return refusal;
+        const teamRefusal = await guardTeam(ports, id);
+        if (teamRefusal) return teamRefusal;
         return op(
           "connection_update",
           "agent.object_updated",
@@ -135,8 +136,8 @@ export function buildConnectionTools(ports: ToolSurfacePorts): Tool[] {
       schema: z.object({ connectionId: z.string() }),
       execute: async (raw) => {
         const id = String(raw.connectionId);
-        const refusal = await guardTeam(ports, id);
-        if (refusal) return refusal;
+        const teamRefusal = await guardTeam(ports, id);
+        if (teamRefusal) return teamRefusal;
         return op(
           "connection_delete",
           "agent.object_deleted",

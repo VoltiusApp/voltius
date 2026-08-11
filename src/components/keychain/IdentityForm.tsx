@@ -26,6 +26,7 @@ import { PinButton } from "@/components/shared/PinButton";
 import { useIdentityStore } from "@/stores/identityStore";
 import { useTeamStore } from "@/stores/teamStore";
 import { KeyFileDropZone } from "./KeyForm";
+import { PublicKeyField, isPublicKeyInvalid } from "./PublicKeyField";
 import { getConnectionIcon, getConnectionIconColor } from "@/utils/icons";
 import { AvatarTile } from "@/components/shared/AvatarTile";
 import type { AuthType, Connection, Identity, IdentityFormData } from "@/types";
@@ -268,7 +269,11 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
         keyMaterial,
       ) ?? undefined;
     },
-    canSave: () => !!username.trim() && (!isInline || !!inlinePrivKey.trim()),
+    // Same rule as KeyForm: an inline public half that is not a key is never
+    // persisted, and the inline error under the field says why.
+    canSave: () =>
+      !!username.trim()
+      && (!isInline || (!!inlinePrivKey.trim() && !isPublicKeyInvalid(inlinePublicKey))),
   });
   const markDirty = useCallback(() => {
     if (isDirtyRef) isDirtyRef.current = true;
@@ -405,18 +410,11 @@ export function IdentityForm({ initial, onSubmit, onClose, onDelete, flushRef, i
                 placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..."
               />
             </div>
-            <div>
-              <label className={formLabelClass} style={formLabelStyle}>
-                {t("keychain.common.publicKey")} <span className="text-(--t-text-dim) font-normal">{t("keychain.common.optional")}</span>
-              </label>
-              <textarea
-                className={`${formInputClass} font-mono text-xs h-16 resize-none`}
-                style={formInputStyle}
-                value={inlinePublicKey}
-                onChange={(e) => { markDirty(); setInlinePublicKey(e.target.value); }}
-                placeholder="ssh-ed25519 AAAA..."
-              />
-            </div>
+            <PublicKeyField
+              value={inlinePublicKey}
+              onChange={(v) => { markDirty(); setInlinePublicKey(v); }}
+              heightClass="h-16"
+            />
             <KeyFileDropZone
               onPrivateKey={(v) => { markDirty(); setInlinePrivKey(v); }}
               onPublicKey={(v) => { markDirty(); setInlinePublicKey(v); }}

