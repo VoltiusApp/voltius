@@ -89,7 +89,7 @@
     "rightPanel": {
       "font": "Font",
       "themes": "Themes",
-      "themeActive": "∞ active",
+      "themeActive": "active",
       "themeBuiltin": "built-in",
       "themeCustom": "custom",
       "createNewTheme": "Create New Theme",

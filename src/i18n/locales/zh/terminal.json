@@ -89,7 +89,7 @@
     "rightPanel": {
       "font": "字体",
       "themes": "主题",
-      "themeActive": "∞ 活跃",
+      "themeActive": "活跃",
       "themeBuiltin": "内置",
       "themeCustom": "自定义",
       "createNewTheme": "新建主题",

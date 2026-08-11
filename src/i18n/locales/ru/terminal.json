@@ -91,7 +91,7 @@
     "rightPanel": {
       "font": "Шрифт",
       "themes": "Темы",
-      "themeActive": "∞ активна",
+      "themeActive": "активна",
       "themeBuiltin": "встроенная",
       "themeCustom": "пользовательская",
       "createNewTheme": "Создать новую тему",
